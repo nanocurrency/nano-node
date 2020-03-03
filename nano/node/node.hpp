@@ -103,10 +103,10 @@ public:
 	std::shared_ptr<nano::node> shared ();
 	int store_version ();
 	void receive_confirmed (nano::transaction const &, std::shared_ptr<nano::block>, nano::block_hash const &);
-	void process_confirmed_data (nano::transaction const &, std::shared_ptr<nano::block>, nano::block_hash const &, nano::block_sideband const &, nano::account &, nano::uint128_t &, bool &, nano::account &);
+	void process_confirmed_data (nano::transaction const &, std::shared_ptr<nano::block>, nano::block_hash const &, nano::account &, nano::uint128_t &, bool &, nano::account &);
 	void process_confirmed (nano::election_status const &, std::shared_ptr<nano::election> const &, uint8_t = 0);
 	void process_active (std::shared_ptr<nano::block>);
-	nano::process_return process (nano::block const &);
+	nano::process_return process (nano::block &);
 	nano::process_return process_local (std::shared_ptr<nano::block>, bool const = false);
 	void keepalive_preconfigured (std::vector<std::string> const &);
 	nano::block_hash latest (nano::account const &);

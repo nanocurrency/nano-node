@@ -5,7 +5,7 @@
 
 #include <numeric>
 
-nano::confirmation_height_unbounded::confirmation_height_unbounded (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logger_mt & logger_a, std::atomic<bool> & stopped_a, nano::block_hash const & original_hash_a, std::function<void(std::vector<nano::block_w_sideband> const &)> const & notify_observers_callback_a, std::function<void(nano::block_hash const &)> const & notify_block_already_cemented_observers_callback_a, std::function<uint64_t ()> const & awaiting_processing_size_callback_a) :
+nano::confirmation_height_unbounded::confirmation_height_unbounded (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logger_mt & logger_a, std::atomic<bool> & stopped_a, nano::block_hash const & original_hash_a, std::function<void(std::vector<std::shared_ptr<nano::block>> const &)> const & notify_observers_callback_a, std::function<void(nano::block_hash const &)> const & notify_block_already_cemented_observers_callback_a, std::function<uint64_t ()> const & awaiting_processing_size_callback_a) :
 ledger (ledger_a),
 write_database_queue (write_database_queue_a),
 batch_separate_pending_min_time (batch_separate_pending_min_time_a),
@@ -49,16 +49,14 @@ void nano::confirmation_height_unbounded::process ()
 			}
 		}
 
-		std::shared_ptr<nano::block> block;
-		nano::block_sideband sideband;
-		get_block_and_sideband (current, read_transaction, block, sideband);
+		auto block (get_block_and_sideband (current, read_transaction));
 		nano::account account (block->account ());
 		if (account.is_zero ())
 		{
-			account = sideband.account;
+			account = block->sideband ().account;
 		}
 
-		auto block_height = sideband.height;
+		auto block_height = block->sideband ().height;
 		uint64_t confirmation_height = 0;
 		auto account_it = confirmed_iterated_pairs.find (account);
 		if (account_it != confirmed_iterated_pairs.cend ())
@@ -164,10 +162,7 @@ void nano::confirmation_height_unbounded::collect_unconfirmed_receive_and_source
 	bool hit_receive = false;
 	while ((num_to_confirm > 0) && !hash.is_zero () && !stopped)
 	{
-		std::shared_ptr<nano::block> block;
-		nano::block_sideband sideband;
-		get_block_and_sideband (hash, transaction_a, block, sideband);
-
+		auto block (get_block_and_sideband (hash, transaction_a));
 		if (block)
 		{
 			auto source (block->source ());
@@ -330,11 +325,10 @@ bool nano::confirmation_height_unbounded::cement_blocks ()
 		{
 #ifndef NDEBUG
 			// Do more thorough checking in Debug mode, indicates programming error.
-			nano::block_sideband sideband;
-			auto block = ledger.store.block_get (transaction, pending.hash, &sideband);
+			auto block = ledger.store.block_get (transaction, pending.hash);
 			static nano::network_constants network_constants;
 			debug_assert (network_constants.is_test_network () || block != nullptr);
-			debug_assert (network_constants.is_test_network () || sideband.height == pending.height);
+			debug_assert (network_constants.is_test_network () || block->sideband ().height == pending.height);
 
 			if (!block)
 			{
@@ -355,7 +349,7 @@ bool nano::confirmation_height_unbounded::cement_blocks ()
 			// Reverse it so that the callbacks start from the lowest newly cemented block and move upwards
 			std::reverse (pending.block_callback_data.begin (), pending.block_callback_data.end ());
 
-			std::vector<nano::block_w_sideband> callback_data;
+			std::vector<std::shared_ptr<nano::block>> callback_data;
 			callback_data.reserve (pending.block_callback_data.size ());
 			std::transform (pending.block_callback_data.begin (), pending.block_callback_data.end (), std::back_inserter (callback_data), [& block_cache = block_cache](auto const & hash_a) {
 				debug_assert (block_cache.find (hash_a) != block_cache.end ());
@@ -373,19 +367,19 @@ bool nano::confirmation_height_unbounded::cement_blocks ()
 	return false;
 }
 
-void nano::confirmation_height_unbounded::get_block_and_sideband (nano::block_hash const & hash_a, nano::transaction const & transaction_a, std::shared_ptr<nano::block> & block_a, nano::block_sideband & sideband_a)
+std::shared_ptr<nano::block> nano::confirmation_height_unbounded::get_block_and_sideband (nano::block_hash const & hash_a, nano::transaction const & transaction_a)
 {
 	auto block_cache_it = block_cache.find (hash_a);
 	if (block_cache_it != block_cache.cend ())
 	{
-		block_a = block_cache_it->second.block;
-		sideband_a = block_cache_it->second.sideband;
+		return block_cache_it->second;
 	}
 	else
 	{
-		block_a = ledger.store.block_get (transaction_a, hash_a, &sideband_a);
-		block_cache.emplace (std::piecewise_construct, std::forward_as_tuple (hash_a), std::forward_as_tuple (block_a, sideband_a));
+		auto block (ledger.store.block_get (transaction_a, hash_a));
+		block_cache.emplace (hash_a, block);
 		++block_cache_size;
+		return block;
 	}
 }
 

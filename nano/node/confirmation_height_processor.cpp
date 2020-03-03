@@ -165,7 +165,7 @@ void nano::confirmation_height_processor::set_next_hash ()
 }
 
 // Not thread-safe, only call before this processor has begun cementing
-void nano::confirmation_height_processor::add_cemented_observer (std::function<void(block_w_sideband)> const & callback_a)
+void nano::confirmation_height_processor::add_cemented_observer (std::function<void(std::shared_ptr<nano::block>)> const & callback_a)
 {
 	cemented_observers.push_back (callback_a);
 }
@@ -176,7 +176,7 @@ void nano::confirmation_height_processor::add_block_already_cemented_observer (s
 	block_already_cemented_observers.push_back (callback_a);
 }
 
-void nano::confirmation_height_processor::notify_observers (std::vector<nano::block_w_sideband> const & cemented_blocks)
+void nano::confirmation_height_processor::notify_observers (std::vector<std::shared_ptr<nano::block>> const & cemented_blocks)
 {
 	for (auto const & block_callback_data : cemented_blocks)
 	{
