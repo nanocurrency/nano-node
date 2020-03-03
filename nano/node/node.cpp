@@ -968,8 +968,9 @@ void nano::node::unchecked_cleanup ()
 		{
 			auto key (cleaning_list.front ());
 			cleaning_list.pop_front ();
-			if (!store.unchecked_del (transaction, key))
+			if (store.unchecked_exists (transaction, key))
 			{
+				store.unchecked_del (transaction, key);
 				debug_assert (ledger.cache.unchecked_count > 0);
 				--ledger.cache.unchecked_count;
 			}
