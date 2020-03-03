@@ -12,8 +12,6 @@
 
 #include <numeric>
 
-#include <crypto/ed25519-donna/ed25519.h>
-
 std::bitset<16> constexpr nano::message_header::block_type_mask;
 std::bitset<16> constexpr nano::message_header::count_mask;
 
