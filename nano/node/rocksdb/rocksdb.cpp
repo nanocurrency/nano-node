@@ -366,7 +366,7 @@ uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, ro
 size_t nano::rocksdb_store::count (nano::transaction const & transaction_a, tables table_a) const
 {
 	size_t sum = 0;
-	// Some column families are small enough that they can just be iterated, rather than doing extra io caching counts
+	// Some column families are small enough (except unchecked) that they can just be iterated, rather than doing extra io caching counts
 	if (table_a == tables::peers)
 	{
 		for (auto i (peers_begin (transaction_a)), n (peers_end ()); i != n; ++i)
@@ -381,6 +381,7 @@ size_t nano::rocksdb_store::count (nano::transaction const & transaction_a, tabl
 			++sum;
 		}
 	}
+	// This should only be used during initialization as can be expensive during bootstrapping
 	else if (table_a == tables::unchecked)
 	{
 		for (auto i (unchecked_begin (transaction_a)), n (unchecked_end ()); i != n; ++i)
@@ -388,8 +389,18 @@ size_t nano::rocksdb_store::count (nano::transaction const & transaction_a, tabl
 			++sum;
 		}
 	}
+	// This should only be used in tests
+	else if (table_a == tables::accounts)
+	{
+		debug_assert (network_constants ().is_test_network ());
+		for (auto i (latest_begin (transaction_a)), n (latest_end ()); i != n; ++i)
+		{
+			++sum;
+		}
+	}
 	else
 	{
+		debug_assert (is_caching_counts (table_a));
 		return count (transaction_a, table_to_column_family (table_a));
 	}
 

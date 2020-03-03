@@ -276,8 +276,7 @@ int main (int argc, char * const * argv)
 		else if (vm.count ("debug_account_count"))
 		{
 			nano::inactive_node node (data_path);
-			auto transaction (node.node->store.tx_begin_read ());
-			std::cout << boost::str (boost::format ("Frontier count: %1%\n") % node.node->store.account_count (transaction));
+			std::cout << boost::str (boost::format ("Frontier count: %1%\n") % node.node->ledger.cache.account_count);
 		}
 		else if (vm.count ("debug_mass_activity"))
 		{
