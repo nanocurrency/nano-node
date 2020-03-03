@@ -374,7 +374,7 @@ TEST (node_telemetry, many_nodes)
 		});
 	}
 
-	system.deadline_set 20s);
+	system.deadline_set (20s);
 	nano::unique_lock<std::mutex> lk (mutex);
 	while (telemetry_datas.size () != num_nodes - 1)
 	{
