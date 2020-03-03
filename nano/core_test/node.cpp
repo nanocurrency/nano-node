@@ -3660,7 +3660,7 @@ TEST (node, aggressive_flooding)
 		wallet1.send_action (nano::test_genesis_key.pub, keypair.pub, large_amount);
 	}
 	// Wait until all nodes have a representative
-	system.deadline_set (!is_sanitizer_build ? 5s : 15s);
+	system.deadline_set (15s);
 	while (node1.rep_crawler.principal_representatives ().size () != nodes_wallets.size ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
