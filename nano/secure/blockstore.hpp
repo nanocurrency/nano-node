@@ -690,9 +690,9 @@ public:
 	virtual size_t account_count (nano::transaction const &) = 0;
 	virtual void confirmation_height_clear (nano::write_transaction const &, nano::account const &, uint64_t) = 0;
 	virtual void confirmation_height_clear (nano::write_transaction const &) = 0;
-	virtual nano::store_iterator<nano::account, nano::account_info> latest_begin (nano::transaction const &, nano::account const &) const = 0;
-	virtual nano::store_iterator<nano::account, nano::account_info> latest_begin (nano::transaction const &) const = 0;
-	virtual nano::store_iterator<nano::account, nano::account_info> latest_end () const = 0;
+	virtual nano::store_iterator<nano::account, nano::account_info> latest_begin (nano::transaction const &, nano::account const &) = 0;
+	virtual nano::store_iterator<nano::account, nano::account_info> latest_begin (nano::transaction const &) = 0;
+	virtual nano::store_iterator<nano::account, nano::account_info> latest_end () = 0;
 
 	virtual void pending_put (nano::write_transaction const &, nano::pending_key const &, nano::pending_info const &) = 0;
 	virtual void pending_del (nano::write_transaction const &, nano::pending_key const &) = 0;
