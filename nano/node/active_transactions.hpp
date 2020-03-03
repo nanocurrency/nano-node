@@ -74,6 +74,8 @@ public:
 // Holds all active blocks i.e. recently added blocks that need confirmation
 class active_transactions final
 {
+	friend class nano::election;
+
 	// clang-format off
 	class tag_account {};
 	class tag_difficulty {};
@@ -90,14 +92,15 @@ public:
 	// Start an election for a block
 	// Call action with confirmed block, may be different than what we started with
 	// clang-format off
-	std::pair<std::shared_ptr<nano::election>, bool> insert (std::shared_ptr<nano::block>, bool const = false, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
+	std::pair<std::shared_ptr<nano::election>, bool> insert (std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
 	// clang-format on
 	// Distinguishes replay votes, cannot be determined if the block is not in any election
 	nano::vote_code vote (std::shared_ptr<nano::vote>);
 	// Is the root of this block in the roots container
 	bool active (nano::block const &);
 	bool active (nano::qualified_root const &);
-	void update_difficulty (std::shared_ptr<nano::block>, boost::optional<nano::write_transaction const &> = boost::none);
+	std::shared_ptr<nano::election> election (nano::qualified_root const &) const;
+	void update_difficulty (std::shared_ptr<nano::block>);
 	void adjust_difficulty (nano::block_hash const &);
 	void update_active_difficulty (nano::unique_lock<std::mutex> &);
 	uint64_t active_difficulty ();
@@ -109,8 +112,8 @@ public:
 	void stop ();
 	bool publish (std::shared_ptr<nano::block> block_a);
 	boost::optional<nano::election_status_type> confirm_block (nano::transaction const &, std::shared_ptr<nano::block>);
-	void block_cemented_callback (std::shared_ptr<nano::block> const & block_a, nano::block_sideband const & sideband_a);
-	void cemented_batch_finished_callback ();
+	void block_cemented_callback (std::shared_ptr<nano::block> const & block_a);
+	void block_already_cemented_callback (nano::block_hash const &);
 	// clang-format off
 	boost::multi_index_container<nano::conflict_info,
 	mi::indexed_by<
@@ -130,28 +133,27 @@ public:
 	void erase_inactive_votes_cache (nano::block_hash const &);
 	nano::confirmation_height_processor & confirmation_height_processor;
 	nano::node & node;
-	std::mutex mutex;
+	mutable std::mutex mutex;
 	boost::circular_buffer<double> multipliers_cb;
 	uint64_t trended_active_difficulty;
 	size_t priority_cementable_frontiers_size ();
 	size_t priority_wallet_cementable_frontiers_size ();
 	boost::circular_buffer<double> difficulty_trend ();
 	size_t inactive_votes_cache_size ();
-	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> election_winner_details;
 	size_t election_winner_details_size ();
-	void add_dropped_elections_cache (nano::qualified_root const &);
-	std::chrono::steady_clock::time_point find_dropped_elections_cache (nano::qualified_root const &);
-	size_t dropped_elections_cache_size ();
+	void add_election_winner_details (nano::block_hash const &, std::shared_ptr<nano::election> const &);
 	nano::confirmation_solicitor solicitor;
 
 private:
+	std::mutex election_winner_details_mutex;
+	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> election_winner_details;
+
 	// Call action with confirmed block, may be different than what we started with
 	// clang-format off
-	std::pair<std::shared_ptr<nano::election>, bool> insert_impl (std::shared_ptr<nano::block>, bool const = false, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
+	std::pair<std::shared_ptr<nano::election>, bool> insert_impl (std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
 	// clang-format on
 	void request_loop ();
 	void search_frontiers (nano::transaction const &);
-	void election_escalate (std::shared_ptr<nano::election> &, nano::transaction const &, size_t const &);
 	void request_confirm (nano::unique_lock<std::mutex> &);
 	nano::account next_frontier_account{ 0 };
 	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };
@@ -159,18 +161,8 @@ private:
 	bool started{ false };
 	std::atomic<bool> stopped{ false };
 
-	// Minimum time an election must be active before escalation
-	std::chrono::seconds const long_election_threshold;
-	// Delay until requesting confirmation for an election
-	std::chrono::milliseconds const election_request_delay;
 	// Maximum time an election can be kept active if it is extending the container
 	std::chrono::seconds const election_time_to_live;
-	// Minimum time between confirmation requests for an election
-	std::chrono::milliseconds const min_time_between_requests;
-	// Minimum time between broadcasts of the current winner of an election, as a backup to requesting confirmations
-	std::chrono::milliseconds const min_time_between_floods;
-	// Minimum election request count to start broadcasting blocks, as a backup to requesting confirmations
-	size_t const min_request_count_flood;
 
 	// clang-format off
 	boost::multi_index_container<nano::qualified_root,
@@ -205,21 +197,12 @@ private:
 			mi::member<nano::inactive_cache_information, nano::block_hash, &nano::inactive_cache_information::hash>>>>;
 	ordered_cache inactive_votes_cache;
 	// clang-format on
-	static size_t constexpr inactive_votes_cache_max{ 16 * 1024 };
 	bool inactive_votes_bootstrap_check (std::vector<nano::account> const &, nano::block_hash const &, bool &);
-	// clang-format off
-	boost::multi_index_container<nano::election_timepoint,
-	mi::indexed_by<
-		mi::sequenced<mi::tag<tag_sequence>>,
-		mi::hashed_unique<mi::tag<tag_root>,
-			mi::member<nano::election_timepoint, nano::qualified_root, &nano::election_timepoint::root>>>>
-	dropped_elections_cache;
-	// clang-format on
-	static size_t constexpr dropped_elections_cache_max{ 32 * 1024 };
 	boost::thread thread;
 
 	friend class confirmation_height_prioritize_frontiers_Test;
 	friend class confirmation_height_prioritize_frontiers_overwrite_Test;
+	friend std::unique_ptr<container_info_component> collect_container_info (active_transactions &, const std::string &);
 };
 
 std::unique_ptr<container_info_component> collect_container_info (active_transactions & active_transactions, const std::string & name);

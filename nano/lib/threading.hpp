@@ -25,6 +25,7 @@ namespace thread_role
 		request_loop,
 		wallet_actions,
 		bootstrap_initiator,
+		bootstrap_connections,
 		voting,
 		signature_checking,
 		rpc_request_processor,

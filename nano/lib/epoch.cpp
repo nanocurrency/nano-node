@@ -1,5 +1,5 @@
+#include <nano/lib/epoch.hpp>
 #include <nano/lib/utility.hpp>
-#include <nano/secure/epoch.hpp>
 
 nano::link const & nano::epochs::link (nano::epoch epoch_a) const
 {

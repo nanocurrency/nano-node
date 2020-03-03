@@ -1,10 +1,13 @@
 #pragma once
 
 #include <nano/crypto/blake2/blake2.h>
+#include <nano/lib/epoch.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/optional_ptr.hpp>
 #include <nano/lib/stream.hpp>
 #include <nano/lib/utility.hpp>
+#include <nano/lib/work.hpp>
 
 #include <boost/property_tree/ptree_fwd.hpp>
 
@@ -13,6 +16,7 @@
 namespace nano
 {
 class block_visitor;
+class mutable_block_visitor;
 enum class block_type : uint8_t
 {
 	invalid = 0,
@@ -23,6 +27,43 @@ enum class block_type : uint8_t
 	change = 5,
 	state = 6
 };
+class block_details
+{
+	static_assert (std::is_same<std::underlying_type<nano::epoch>::type, uint8_t> (), "Epoch enum is not the proper type");
+	static_assert (static_cast<uint8_t> (nano::epoch::max) < (1 << 5), "Epoch max is too large for the sideband");
+
+public:
+	block_details () = default;
+	block_details (nano::epoch const epoch_a, bool const is_send_a, bool const is_receive_a, bool const is_epoch_a);
+	static constexpr size_t size ();
+	bool operator== (block_details const & other_a) const;
+	void serialize (nano::stream &) const;
+	bool deserialize (nano::stream &);
+	nano::epoch epoch{ nano::epoch::epoch_0 };
+	bool is_send{ false };
+	bool is_receive{ false };
+	bool is_epoch{ false };
+
+private:
+	uint8_t packed () const;
+	void unpack (uint8_t);
+};
+
+class block_sideband final
+{
+public:
+	block_sideband () = default;
+	block_sideband (nano::account const &, nano::block_hash const &, nano::amount const &, uint64_t, uint64_t, nano::epoch, bool is_send, bool is_receive, bool is_epoch);
+	void serialize (nano::stream &, nano::block_type) const;
+	bool deserialize (nano::stream &, nano::block_type);
+	static size_t size (nano::block_type);
+	nano::block_hash successor{ 0 };
+	nano::account account{ 0 };
+	nano::amount balance{ 0 };
+	uint64_t height{ 0 };
+	uint64_t timestamp{ 0 };
+	nano::block_details details;
+};
 class block
 {
 public:
@@ -30,6 +71,8 @@ public:
 	nano::block_hash const & hash () const;
 	// Return a digest of hashables and non-hashables in this block.
 	nano::block_hash full_hash () const;
+	nano::block_sideband const & sideband () const;
+	void sideband_set (nano::block_sideband const &);
 	std::string to_json () const;
 	virtual void hash (blake2b_state &) const = 0;
 	virtual uint64_t block_work () const = 0;
@@ -51,6 +94,7 @@ public:
 	virtual void serialize_json (std::string &, bool = false) const = 0;
 	virtual void serialize_json (boost::property_tree::ptree &) const = 0;
 	virtual void visit (nano::block_visitor &) const = 0;
+	virtual void visit (nano::mutable_block_visitor &) = 0;
 	virtual bool operator== (nano::block const &) const = 0;
 	virtual nano::block_type type () const = 0;
 	virtual nano::signature const & block_signature () const = 0;
@@ -58,11 +102,19 @@ public:
 	virtual ~block () = default;
 	virtual bool valid_predecessor (nano::block const &) const = 0;
 	static size_t size (nano::block_type);
+	virtual nano::work_version work_version () const;
+	uint64_t difficulty () const;
 	// If there are any changes to the hashables, call this to update the cached hash
 	void refresh ();
 
 protected:
 	mutable nano::block_hash cached_hash{ 0 };
+	/**
+	 * Contextual details about a block, some fields may or may not be set depending on block type.
+	 * This field is set via sideband_set in ledger processing or deserializing blocks from the database.
+	 * Otherwise it may be null (for example, an old block or fork).
+	 */
+	nano::optional_ptr<nano::block_sideband> sideband_m;
 
 private:
 	nano::block_hash generate_hash () const;
@@ -101,6 +153,7 @@ public:
 	void serialize_json (boost::property_tree::ptree &) const override;
 	bool deserialize_json (boost::property_tree::ptree const &);
 	void visit (nano::block_visitor &) const override;
+	void visit (nano::mutable_block_visitor &) override;
 	nano::block_type type () const override;
 	nano::signature const & block_signature () const override;
 	void signature_set (nano::signature const &) override;
@@ -145,6 +198,7 @@ public:
 	void serialize_json (boost::property_tree::ptree &) const override;
 	bool deserialize_json (boost::property_tree::ptree const &);
 	void visit (nano::block_visitor &) const override;
+	void visit (nano::mutable_block_visitor &) override;
 	nano::block_type type () const override;
 	nano::signature const & block_signature () const override;
 	void signature_set (nano::signature const &) override;
@@ -193,6 +247,7 @@ public:
 	void serialize_json (boost::property_tree::ptree &) const override;
 	bool deserialize_json (boost::property_tree::ptree const &);
 	void visit (nano::block_visitor &) const override;
+	void visit (nano::mutable_block_visitor &) override;
 	nano::block_type type () const override;
 	nano::signature const & block_signature () const override;
 	void signature_set (nano::signature const &) override;
@@ -237,6 +292,7 @@ public:
 	void serialize_json (boost::property_tree::ptree &) const override;
 	bool deserialize_json (boost::property_tree::ptree const &);
 	void visit (nano::block_visitor &) const override;
+	void visit (nano::mutable_block_visitor &) override;
 	nano::block_type type () const override;
 	nano::signature const & block_signature () const override;
 	void signature_set (nano::signature const &) override;
@@ -297,6 +353,7 @@ public:
 	void serialize_json (boost::property_tree::ptree &) const override;
 	bool deserialize_json (boost::property_tree::ptree const &);
 	void visit (nano::block_visitor &) const override;
+	void visit (nano::mutable_block_visitor &) override;
 	nano::block_type type () const override;
 	nano::signature const & block_signature () const override;
 	void signature_set (nano::signature const &) override;
@@ -317,6 +374,16 @@ public:
 	virtual void change_block (nano::change_block const &) = 0;
 	virtual void state_block (nano::state_block const &) = 0;
 	virtual ~block_visitor () = default;
+};
+class mutable_block_visitor
+{
+public:
+	virtual void send_block (nano::send_block &) = 0;
+	virtual void receive_block (nano::receive_block &) = 0;
+	virtual void open_block (nano::open_block &) = 0;
+	virtual void change_block (nano::change_block &) = 0;
+	virtual void state_block (nano::state_block &) = 0;
+	virtual ~mutable_block_visitor () = default;
 };
 /**
  * This class serves to find and return unique variants of a block in order to minimize memory usage

@@ -1506,8 +1506,10 @@ TEST (node, fork_open_flip)
 	nano::keypair rep1;
 	nano::keypair rep2;
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, nano::genesis_amount - 1, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+	// A copy is necessary to avoid data races during ledger processing, which sets the sideband
+	auto send1_copy (std::make_shared<nano::send_block> (*send1));
 	node1.process_active (send1);
-	node2.process_active (send1);
+	node2.process_active (send1_copy);
 	// We should be keeping this block
 	auto open1 (std::make_shared<nano::open_block> (send1->hash (), rep1.pub, key1.pub, key1.prv, key1.pub, *system.work.generate (key1.pub)));
 	// This block should be evicted
@@ -1741,9 +1743,6 @@ TEST (node, broadcast_elected)
 		nano::keypair rep_big;
 		nano::keypair rep_small;
 		nano::keypair rep_other;
-		//std::cerr << "Big: " << rep_big.pub.to_account () << std::endl;
-		//std::cerr << "Small: " << rep_small.pub.to_account () << std::endl;
-		//std::cerr << "Other: " << rep_other.pub.to_account () << std::endl;
 		{
 			auto transaction0 (node0->store.tx_begin_write ());
 			auto transaction1 (node1->store.tx_begin_write ());
@@ -1784,14 +1783,14 @@ TEST (node, broadcast_elected)
 		system.wallet (2)->insert_adhoc (rep_other.prv);
 		auto fork0 (std::make_shared<nano::send_block> (node2->latest (nano::test_genesis_key.pub), rep_small.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 		node0->work_generate_blocking (*fork0);
+		// A copy is necessary to avoid data races during ledger processing, which sets the sideband
+		auto fork0_copy (std::make_shared<nano::send_block> (*fork0));
 		node0->process_active (fork0);
-		node1->process_active (fork0);
+		node1->process_active (fork0_copy);
 		auto fork1 (std::make_shared<nano::send_block> (node2->latest (nano::test_genesis_key.pub), rep_big.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 		node0->work_generate_blocking (*fork1);
 		system.wallet (2)->insert_adhoc (rep_small.prv);
 		node2->process_active (fork1);
-		//std::cerr << "fork0: " << fork_hash.to_string () << std::endl;
-		//std::cerr << "fork1: " << fork1.hash ().to_string () << std::endl;
 		system.deadline_set (10s);
 		while (!node0->ledger.block_exists (fork0->hash ()) || !node1->ledger.block_exists (fork0->hash ()))
 		{
@@ -2134,7 +2133,6 @@ TEST (node, rep_weight)
 	auto vote0 = std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, genesis.open);
 	auto vote1 = std::make_shared<nano::vote> (keypair1.pub, keypair1.prv, 0, genesis.open);
 	auto vote2 = std::make_shared<nano::vote> (keypair2.pub, keypair2.prv, 0, genesis.open);
-	node.rep_crawler.add (genesis.open->hash ());
 	node.rep_crawler.response (channel0, vote0);
 	node.rep_crawler.response (channel1, vote1);
 	node.rep_crawler.response (channel2, vote2);
@@ -2217,7 +2215,6 @@ TEST (node, rep_remove)
 	nano::amount amount100 (100);
 	node.network.udp_channels.insert (endpoint0, node.network_params.protocol.protocol_version);
 	auto vote1 = std::make_shared<nano::vote> (keypair1.pub, keypair1.prv, 0, genesis.open);
-	node.rep_crawler.add (genesis.hash ());
 	node.rep_crawler.response (channel0, vote1);
 	system.deadline_set (5s);
 	while (node.rep_crawler.representative_count () != 1)
@@ -2406,27 +2403,35 @@ TEST (node, balance_observer)
 	}
 }
 
-// ASSERT_NE (nullptr, attempt) sometimes fails
-TEST (node, DISABLED_bootstrap_connection_scaling)
+TEST (node, bootstrap_connection_scaling)
 {
 	nano::system system (1);
 	auto & node1 (*system.nodes[0]);
-	node1.bootstrap_initiator.bootstrap ();
-	auto attempt (node1.bootstrap_initiator.current_attempt ());
-	ASSERT_NE (nullptr, attempt);
-	ASSERT_EQ (34, attempt->target_connections (25000));
-	ASSERT_EQ (4, attempt->target_connections (0));
-	ASSERT_EQ (64, attempt->target_connections (50000));
-	ASSERT_EQ (64, attempt->target_connections (10000000000));
+	ASSERT_EQ (34, node1.bootstrap_initiator.connections->target_connections (5000, 1));
+	ASSERT_EQ (4, node1.bootstrap_initiator.connections->target_connections (0, 1));
+	ASSERT_EQ (64, node1.bootstrap_initiator.connections->target_connections (50000, 1));
+	ASSERT_EQ (64, node1.bootstrap_initiator.connections->target_connections (10000000000, 1));
+	ASSERT_EQ (32, node1.bootstrap_initiator.connections->target_connections (5000, 0));
+	ASSERT_EQ (1, node1.bootstrap_initiator.connections->target_connections (0, 0));
+	ASSERT_EQ (64, node1.bootstrap_initiator.connections->target_connections (50000, 0));
+	ASSERT_EQ (64, node1.bootstrap_initiator.connections->target_connections (10000000000, 0));
+	ASSERT_EQ (36, node1.bootstrap_initiator.connections->target_connections (5000, 2));
+	ASSERT_EQ (8, node1.bootstrap_initiator.connections->target_connections (0, 2));
+	ASSERT_EQ (64, node1.bootstrap_initiator.connections->target_connections (50000, 2));
+	ASSERT_EQ (64, node1.bootstrap_initiator.connections->target_connections (10000000000, 2));
 	node1.config.bootstrap_connections = 128;
-	ASSERT_EQ (64, attempt->target_connections (0));
-	ASSERT_EQ (64, attempt->target_connections (50000));
+	ASSERT_EQ (64, node1.bootstrap_initiator.connections->target_connections (0, 1));
+	ASSERT_EQ (64, node1.bootstrap_initiator.connections->target_connections (50000, 1));
+	ASSERT_EQ (64, node1.bootstrap_initiator.connections->target_connections (0, 2));
+	ASSERT_EQ (64, node1.bootstrap_initiator.connections->target_connections (50000, 2));
 	node1.config.bootstrap_connections_max = 256;
-	ASSERT_EQ (128, attempt->target_connections (0));
-	ASSERT_EQ (256, attempt->target_connections (50000));
+	ASSERT_EQ (128, node1.bootstrap_initiator.connections->target_connections (0, 1));
+	ASSERT_EQ (256, node1.bootstrap_initiator.connections->target_connections (50000, 1));
+	ASSERT_EQ (256, node1.bootstrap_initiator.connections->target_connections (0, 2));
+	ASSERT_EQ (256, node1.bootstrap_initiator.connections->target_connections (50000, 2));
 	node1.config.bootstrap_connections_max = 0;
-	ASSERT_EQ (1, attempt->target_connections (0));
-	ASSERT_EQ (1, attempt->target_connections (50000));
+	ASSERT_EQ (1, node1.bootstrap_initiator.connections->target_connections (0, 1));
+	ASSERT_EQ (1, node1.bootstrap_initiator.connections->target_connections (50000, 1));
 }
 
 // Test stat counting at both type and detail levels
@@ -2480,15 +2485,17 @@ TEST (node, block_confirm)
 		nano::keypair key;
 		system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
 		auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *node1.work_generate_blocking (genesis.hash ())));
+		// A copy is necessary to avoid data races during ledger processing, which sets the sideband
+		auto send1_copy (std::make_shared<nano::state_block> (*send1));
 		node1.block_processor.add (send1, nano::seconds_since_epoch ());
-		node2.block_processor.add (send1, nano::seconds_since_epoch ());
+		node2.block_processor.add (send1_copy, nano::seconds_since_epoch ());
 		system.deadline_set (std::chrono::seconds (5));
-		while (!node1.ledger.block_exists (send1->hash ()) || !node2.ledger.block_exists (send1->hash ()))
+		while (!node1.ledger.block_exists (send1->hash ()) || !node2.ledger.block_exists (send1_copy->hash ()))
 		{
 			ASSERT_NO_ERROR (system.poll ());
 		}
 		ASSERT_TRUE (node1.ledger.block_exists (send1->hash ()));
-		ASSERT_TRUE (node2.ledger.block_exists (send1->hash ()));
+		ASSERT_TRUE (node2.ledger.block_exists (send1_copy->hash ()));
 		auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio * 2, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *node1.work_generate_blocking (send1->hash ())));
 		{
 			auto transaction (node1.store.tx_begin_write ());
@@ -3613,6 +3620,84 @@ TEST (node, bandwidth_limiter)
 	node.stop ();
 }
 
+// Tests that local blocks are flooded to all principal representatives
+TEST (node, aggressive_flooding)
+{
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_request_loop = true;
+	node_flags.disable_block_processor_republishing = true;
+	auto & node1 (*system.add_node (node_flags));
+	auto & wallet1 (*system.wallet (0));
+	wallet1.insert_adhoc (nano::test_genesis_key.prv);
+	std::array<std::pair<std::shared_ptr<nano::node>, std::shared_ptr<nano::wallet>>, 5> nodes_wallets{};
+	std::generate (nodes_wallets.begin (), nodes_wallets.end (), [&system, node_flags]() {
+		nano::node_config node_config;
+		node_config.peering_port = nano::get_available_port ();
+		auto node (system.add_node (node_config, node_flags));
+		return std::make_pair (node, system.wallet (system.nodes.size () - 1));
+	});
+	auto large_amount = (nano::genesis_amount / 2) / nodes_wallets.size ();
+	for (auto & node_wallet : nodes_wallets)
+	{
+		nano::keypair keypair;
+		node_wallet.second->store.representative_set (node_wallet.first->wallets.tx_begin_write (), keypair.pub);
+		node_wallet.second->insert_adhoc (keypair.prv);
+		wallet1.send_action (nano::test_genesis_key.pub, keypair.pub, large_amount);
+	}
+	// Wait until all nodes have a representative
+	system.deadline_set (!is_sanitizer_build ? 5s : 15s);
+	while (node1.rep_crawler.principal_representatives ().size () != nodes_wallets.size ())
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	// Generate blocks and ensure they are sent to all representatives
+	nano::block_builder builder;
+	std::shared_ptr<nano::state_block> block{};
+	{
+		auto transaction (node1.store.tx_begin_read ());
+		block = builder.state ()
+		        .account (nano::test_genesis_key.pub)
+		        .representative (nano::test_genesis_key.pub)
+		        .previous (node1.ledger.latest (transaction, nano::test_genesis_key.pub))
+		        .balance (node1.ledger.account_balance (transaction, nano::test_genesis_key.pub) - 1)
+		        .link (nano::test_genesis_key.pub)
+		        .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+		        .work (*node1.work_generate_blocking (node1.ledger.latest (transaction, nano::test_genesis_key.pub)))
+		        .build ();
+	}
+	// Processing locally goes through the aggressive block flooding path
+	node1.process_local (block, false);
+
+	auto all_have_block = [&nodes_wallets](nano::block_hash const & hash_a) {
+		return std::all_of (nodes_wallets.begin (), nodes_wallets.end (), [hash = hash_a](auto const & node_wallet) {
+			return node_wallet.first->block (hash) != nullptr;
+		});
+	};
+
+	system.deadline_set (!is_sanitizer_build ? 3s : 10s);
+	while (!all_have_block (block->hash ()))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	// Do the same for a wallet block
+	auto wallet_block = wallet1.send_sync (nano::test_genesis_key.pub, nano::test_genesis_key.pub, 10);
+	system.deadline_set (!is_sanitizer_build ? 3s : 10s);
+	while (!all_have_block (wallet_block))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	// Wait until the main node has all blocks: genesis + (send+open) for each representative + 2 local blocks
+	// The main node only sees all blocks if other nodes are flooding their PR's open block to all other PRs
+	system.deadline_set (5s);
+	while (node1.ledger.cache.block_count < 1 + 2 * nodes_wallets.size () + 2)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+}
+
 TEST (active_difficulty, recalculate_work)
 {
 	nano::system system;
@@ -3624,9 +3709,7 @@ TEST (active_difficulty, recalculate_work)
 	ASSERT_EQ (node1.network_params.network.publish_threshold, node1.active.active_difficulty ());
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send1);
-	uint64_t difficulty1;
-	nano::work_validate (*send1, &difficulty1);
-	auto multiplier1 = nano::difficulty::to_multiplier (difficulty1, node1.network_params.network.publish_threshold);
+	auto multiplier1 = nano::difficulty::to_multiplier (send1->difficulty (), nano::work_threshold (send1->work_version ()));
 	// Process as local block
 	node1.process_active (send1);
 	system.deadline_set (2s);
@@ -3643,8 +3726,6 @@ TEST (active_difficulty, recalculate_work)
 		node1.active.multipliers_cb.push_back (multiplier1 * (1 + i / 100.));
 	}
 	node1.work_generate_blocking (*send1);
-	uint64_t difficulty2;
-	nano::work_validate (*send1, &difficulty2);
 	node1.process_active (send1);
 	node1.active.update_active_difficulty (lock);
 	sum = std::accumulate (node1.active.multipliers_cb.begin (), node1.active.multipliers_cb.end (), double(0));
