@@ -1,6 +1,7 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/json_error_response.hpp>
 #include <nano/lib/timer.hpp>
+#include <nano/node/bootstrap/bootstrap_lazy.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/json_handler.hpp>
@@ -969,19 +970,18 @@ void nano::json_handler::block_info ()
 	auto hash (hash_impl ());
 	if (!ec)
 	{
-		nano::block_sideband sideband;
 		auto transaction (node.store.tx_begin_read ());
-		auto block (node.store.block_get (transaction, hash, &sideband));
+		auto block (node.store.block_get (transaction, hash));
 		if (block != nullptr)
 		{
-			nano::account account (block->account ().is_zero () ? sideband.account : block->account ());
+			nano::account account (block->account ().is_zero () ? block->sideband ().account : block->account ());
 			response_l.put ("block_account", account.to_account ());
 			auto amount (node.ledger.amount (transaction, hash));
 			response_l.put ("amount", amount.convert_to<std::string> ());
 			auto balance (node.ledger.balance (transaction, hash));
 			response_l.put ("balance", balance.convert_to<std::string> ());
-			response_l.put ("height", std::to_string (sideband.height));
-			response_l.put ("local_timestamp", std::to_string (sideband.timestamp));
+			response_l.put ("height", std::to_string (block->sideband ().height));
+			response_l.put ("local_timestamp", std::to_string (block->sideband ().timestamp));
 			auto confirmed (node.ledger.block_confirmed (transaction, hash));
 			response_l.put ("confirmed", confirmed);
 
@@ -1120,19 +1120,18 @@ void nano::json_handler::blocks_info ()
 			nano::block_hash hash;
 			if (!hash.decode_hex (hash_text))
 			{
-				nano::block_sideband sideband;
-				auto block (node.store.block_get (transaction, hash, &sideband));
+				auto block (node.store.block_get (transaction, hash));
 				if (block != nullptr)
 				{
 					boost::property_tree::ptree entry;
-					nano::account account (block->account ().is_zero () ? sideband.account : block->account ());
+					nano::account account (block->account ().is_zero () ? block->sideband ().account : block->account ());
 					entry.put ("block_account", account.to_account ());
 					auto amount (node.ledger.amount (transaction, hash));
 					entry.put ("amount", amount.convert_to<std::string> ());
 					auto balance (node.ledger.balance (transaction, hash));
 					entry.put ("balance", balance.convert_to<std::string> ());
-					entry.put ("height", std::to_string (sideband.height));
-					entry.put ("local_timestamp", std::to_string (sideband.timestamp));
+					entry.put ("height", std::to_string (block->sideband ().height));
+					entry.put ("local_timestamp", std::to_string (block->sideband ().timestamp));
 					auto confirmed (node.ledger.block_confirmed (transaction, hash));
 					entry.put ("confirmed", confirmed);
 
@@ -1679,41 +1678,39 @@ void nano::json_handler::bootstrap_lazy ()
  */
 void nano::json_handler::bootstrap_status ()
 {
-	auto attempt (node.bootstrap_initiator.current_attempt ());
-	if (attempt != nullptr)
+	auto attempts_count (node.bootstrap_initiator.attempts.size ());
+	response_l.put ("bootstrap_threads", std::to_string (node.config.bootstrap_initiator_threads));
+	response_l.put ("running_attempts_count", std::to_string (attempts_count));
+	response_l.put ("total_attempts_count", std::to_string (node.bootstrap_initiator.attempts.incremental));
+	boost::property_tree::ptree connections;
 	{
-		nano::lock_guard<std::mutex> lock (attempt->mutex);
-		nano::lock_guard<std::mutex> lazy_lock (attempt->lazy_mutex);
-		response_l.put ("id", attempt->id);
-		response_l.put ("clients", std::to_string (attempt->clients.size ()));
-		response_l.put ("pulls", std::to_string (attempt->pulls.size ()));
-		response_l.put ("pulling", std::to_string (attempt->pulling));
-		response_l.put ("connections", std::to_string (attempt->connections));
-		response_l.put ("idle", std::to_string (attempt->idle.size ()));
-		response_l.put ("target_connections", std::to_string (attempt->target_connections (attempt->pulls.size ())));
-		response_l.put ("total_blocks", std::to_string (attempt->total_blocks));
-		response_l.put ("runs_count", std::to_string (attempt->runs_count));
-		response_l.put ("requeued_pulls", std::to_string (attempt->requeued_pulls));
-		response_l.put ("frontiers_received", static_cast<bool> (attempt->frontiers_received));
-		response_l.put ("frontiers_confirmed", static_cast<bool> (attempt->frontiers_confirmed));
-		response_l.put ("mode", attempt->mode_text ());
-		response_l.put ("lazy_blocks", std::to_string (attempt->lazy_blocks.size ()));
-		response_l.put ("lazy_state_backlog", std::to_string (attempt->lazy_state_backlog.size ()));
-		response_l.put ("lazy_balances", std::to_string (attempt->lazy_balances.size ()));
-		response_l.put ("lazy_destinations", std::to_string (attempt->lazy_destinations.size ()));
-		response_l.put ("lazy_undefined_links", std::to_string (attempt->lazy_undefined_links.size ()));
-		response_l.put ("lazy_pulls", std::to_string (attempt->lazy_pulls.size ()));
-		response_l.put ("lazy_keys", std::to_string (attempt->lazy_keys.size ()));
-		if (!attempt->lazy_keys.empty ())
+		nano::lock_guard<std::mutex> connections_lock (node.bootstrap_initiator.connections->mutex);
+		connections.put ("clients", std::to_string (node.bootstrap_initiator.connections->clients.size ()));
+		connections.put ("connections", std::to_string (node.bootstrap_initiator.connections->connections_count));
+		connections.put ("idle", std::to_string (node.bootstrap_initiator.connections->idle.size ()));
+		connections.put ("target_connections", std::to_string (node.bootstrap_initiator.connections->target_connections (node.bootstrap_initiator.connections->pulls.size (), attempts_count)));
+		connections.put ("pulls", std::to_string (node.bootstrap_initiator.connections->pulls.size ()));
+	}
+	response_l.add_child ("connections", connections);
+	boost::property_tree::ptree attempts;
+	{
+		nano::lock_guard<std::mutex> attempts_lock (node.bootstrap_initiator.attempts.bootstrap_attempts_mutex);
+		for (auto i : node.bootstrap_initiator.attempts.attempts)
 		{
-			response_l.put ("lazy_key_1", (*(attempt->lazy_keys.begin ())).to_string ());
+			boost::property_tree::ptree entry;
+			auto & attempt (i.second);
+			entry.put ("id", attempt->id);
+			entry.put ("mode", attempt->mode_text ());
+			entry.put ("started", static_cast<bool> (attempt->started));
+			entry.put ("pulling", std::to_string (attempt->pulling));
+			entry.put ("total_blocks", std::to_string (attempt->total_blocks));
+			entry.put ("requeued_pulls", std::to_string (attempt->requeued_pulls));
+			attempt->get_information (entry);
+			entry.put ("duration", std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt->attempt_start).count ());
+			attempts.push_back (std::make_pair ("", entry));
 		}
-		response_l.put ("duration", std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt->attempt_start).count ());
 	}
-	else
-	{
-		response_l.put ("active", "0");
-	}
+	response_l.add_child ("attempts", attempts);
 	response_errors ();
 }
 
@@ -1767,7 +1764,7 @@ void nano::json_handler::confirmation_active ()
 		nano::lock_guard<std::mutex> lock (node.active.mutex);
 		for (auto i (node.active.roots.begin ()), n (node.active.roots.end ()); i != n; ++i)
 		{
-			if (i->election->confirmation_request_count >= announcements && !i->election->confirmed () && !i->election->stopped)
+			if (i->election->confirmation_request_count >= announcements && !i->election->confirmed ())
 			{
 				boost::property_tree::ptree entry;
 				entry.put ("", i->root.to_string ());
@@ -2558,8 +2555,7 @@ void nano::json_handler::account_history ()
 		boost::property_tree::ptree history;
 		bool output_raw (request.get_optional<bool> ("raw") == true);
 		response_l.put ("account", account.to_account ());
-		nano::block_sideband sideband;
-		auto block (node.store.block_get (transaction, hash, &sideband));
+		auto block (node.store.block_get (transaction, hash));
 		while (block != nullptr && count > 0)
 		{
 			if (offset > 0)
@@ -2573,8 +2569,8 @@ void nano::json_handler::account_history ()
 				block->visit (visitor);
 				if (!entry.empty ())
 				{
-					entry.put ("local_timestamp", std::to_string (sideband.timestamp));
-					entry.put ("height", std::to_string (sideband.height));
+					entry.put ("local_timestamp", std::to_string (block->sideband ().timestamp));
+					entry.put ("height", std::to_string (block->sideband ().height));
 					entry.put ("hash", hash.to_string ());
 					if (output_raw)
 					{
@@ -2586,7 +2582,7 @@ void nano::json_handler::account_history ()
 				}
 			}
 			hash = reverse ? node.store.block_successor (transaction, hash) : block->previous ();
-			block = node.store.block_get (transaction, hash, &sideband);
+			block = node.store.block_get (transaction, hash);
 		}
 		response_l.add_child ("history", history);
 		if (!hash.is_zero ())
@@ -3978,29 +3974,36 @@ void nano::json_handler::telemetry ()
 		if (!ec)
 		{
 			debug_assert (channel);
-			node.telemetry.get_metrics_single_peer_async (channel, [rpc_l](auto const & telemetry_response_a) {
-				if (!telemetry_response_a.error)
-				{
-					nano::jsonconfig config_l;
-					auto err = telemetry_response_a.telemetry_data.serialize_json (config_l);
-					auto const & ptree = config_l.get_tree ();
-
-					if (!err)
+			if (node.telemetry)
+			{
+				node.telemetry->get_metrics_single_peer_async (channel, [rpc_l](auto const & telemetry_response_a) {
+					if (!telemetry_response_a.error)
 					{
-						rpc_l->response_l.insert (rpc_l->response_l.begin (), ptree.begin (), ptree.end ());
+						nano::jsonconfig config_l;
+						auto err = telemetry_response_a.telemetry_data.serialize_json (config_l);
+						auto const & ptree = config_l.get_tree ();
+
+						if (!err)
+						{
+							rpc_l->response_l.insert (rpc_l->response_l.begin (), ptree.begin (), ptree.end ());
+						}
+						else
+						{
+							rpc_l->ec = nano::error_rpc::generic;
+						}
 					}
 					else
 					{
 						rpc_l->ec = nano::error_rpc::generic;
 					}
-				}
-				else
-				{
-					rpc_l->ec = nano::error_rpc::generic;
-				}
 
-				rpc_l->response_errors ();
-			});
+					rpc_l->response_errors ();
+				});
+			}
+			else
+			{
+				response_errors ();
+			}
 		}
 		else
 		{
@@ -4013,11 +4016,13 @@ void nano::json_handler::telemetry ()
 		// setting "raw" to true returns metrics from all nodes requested.
 		auto raw = request.get_optional<bool> ("raw");
 		auto output_raw = raw.value_or (false);
-		node.telemetry.get_metrics_peers_async ([rpc_l, output_raw](telemetry_data_responses const & telemetry_responses_a) {
+		if (node.telemetry)
+		{
+			auto telemetry_responses = node.telemetry->get_metrics ();
 			if (output_raw)
 			{
 				boost::property_tree::ptree metrics;
-				for (auto & telemetry_metrics : telemetry_responses_a.telemetry_datas)
+				for (auto & telemetry_metrics : telemetry_responses)
 				{
 					nano::jsonconfig config_l;
 					auto err = telemetry_metrics.second.serialize_json (config_l);
@@ -4029,18 +4034,18 @@ void nano::json_handler::telemetry ()
 					}
 					else
 					{
-						rpc_l->ec = nano::error_rpc::generic;
+						ec = nano::error_rpc::generic;
 					}
 				}
 
-				rpc_l->response_l.put_child ("metrics", metrics);
+				response_l.put_child ("metrics", metrics);
 			}
 			else
 			{
 				nano::jsonconfig config_l;
 				std::vector<nano::telemetry_data> telemetry_datas;
-				telemetry_datas.reserve (telemetry_responses_a.telemetry_datas.size ());
-				std::transform (telemetry_responses_a.telemetry_datas.begin (), telemetry_responses_a.telemetry_datas.end (), std::back_inserter (telemetry_datas), [](auto const & endpoint_telemetry_data) {
+				telemetry_datas.reserve (telemetry_responses.size ());
+				std::transform (telemetry_responses.begin (), telemetry_responses.end (), std::back_inserter (telemetry_datas), [](auto const & endpoint_telemetry_data) {
 					return endpoint_telemetry_data.second;
 				});
 
@@ -4050,16 +4055,16 @@ void nano::json_handler::telemetry ()
 
 				if (!err)
 				{
-					rpc_l->response_l.insert (rpc_l->response_l.begin (), ptree.begin (), ptree.end ());
+					response_l.insert (response_l.begin (), ptree.begin (), ptree.end ());
 				}
 				else
 				{
-					rpc_l->ec = nano::error_rpc::generic;
+					ec = nano::error_rpc::generic;
 				}
 			}
+		}
 
-			rpc_l->response_errors ();
-		});
+		response_errors ();
 	}
 }
 
@@ -4581,9 +4586,8 @@ void nano::json_handler::wallet_history ()
 				auto hash (info.head);
 				while (timestamp >= modified_since && !hash.is_zero ())
 				{
-					nano::block_sideband sideband;
-					auto block (node.store.block_get (block_transaction, hash, &sideband));
-					timestamp = sideband.timestamp;
+					auto block (node.store.block_get (block_transaction, hash));
+					timestamp = block->sideband ().timestamp;
 					if (block != nullptr && timestamp >= modified_since)
 					{
 						boost::property_tree::ptree entry;

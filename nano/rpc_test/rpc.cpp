@@ -7990,12 +7990,25 @@ TEST (rpc, node_telemetry_all)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 
-		auto transaction = system.nodes.back ()->store.tx_begin_read ();
-		peers_stored = system.nodes.back ()->store.peer_count (transaction) != 0;
+		auto transaction = node1.store.tx_begin_read ();
+		peers_stored = node1.store.peer_count (transaction) != 0;
+	}
+
+	// First need to set up the cached data
+	std::atomic<bool> done{ false };
+	auto node = system.nodes.front ();
+	node1.telemetry->get_metrics_single_peer_async (node1.network.find_channel (node->network.endpoint ()), [&done](nano::telemetry_data_response const & telemetry_data_response_a) {
+		ASSERT_FALSE (telemetry_data_response_a.error);
+		done = true;
+	});
+
+	system.deadline_set (10s);
+	while (!done)
+	{
+		ASSERT_NO_ERROR (system.poll ());
 	}
 
 	boost::property_tree::ptree request;
-	auto node = system.nodes.front ();
 	request.put ("action", "node_telemetry");
 	{
 		test_response response (request, rpc.config.port, system.io_ctx);

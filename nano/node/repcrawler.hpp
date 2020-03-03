@@ -80,9 +80,6 @@ public:
 	/** Start crawling */
 	void start ();
 
-	/** Add block hash to list of active rep queries */
-	void add (nano::block_hash const &);
-
 	/** Remove block hash from list of active rep queries */
 	void remove (nano::block_hash const &);
 

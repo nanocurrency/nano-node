@@ -187,9 +187,14 @@ namespace util
 			return val;
 		}
 
+		void increment_required_count ()
+		{
+			++required_count;
+		}
+
 	private:
 		std::atomic<unsigned> count{ 0 };
-		unsigned required_count;
+		std::atomic<unsigned> required_count;
 	};
 }
 

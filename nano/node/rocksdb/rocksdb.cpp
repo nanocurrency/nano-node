@@ -215,7 +215,7 @@ bool nano::rocksdb_store::exists (nano::transaction const & transaction_a, table
 int nano::rocksdb_store::del (nano::write_transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a)
 {
 	debug_assert (transaction_a.contains (table_a));
-	// RocksDB errors when trying to delete an entry which doesn't exist. It is a pre-condition that the key exists
+	// RocksDB does not report not_found status, it is a pre-condition that the key exists
 	debug_assert (exists (transaction_a, table_a, key_a));
 
 	// State block counts are done in bulk separately later

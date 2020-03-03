@@ -25,6 +25,8 @@ add_library (nano_lib
 	configbase.hpp
 	diagnosticsconfig.hpp
 	diagnosticsconfig.cpp
+	epoch.hpp
+	epoch.cpp
 	errors.hpp
 	errors.cpp
 	ipc.hpp
@@ -41,6 +43,7 @@ add_library (nano_lib
 	memory.cpp
 	numbers.hpp
 	numbers.cpp
+	optional_ptr.hpp
 	rep_weights.hpp
 	rep_weights.cpp
 	rocksdbconfig.hpp

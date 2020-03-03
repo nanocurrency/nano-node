@@ -45,6 +45,7 @@ public:
 	nano::process_return process_one (nano::write_transaction const &, nano::unchecked_info, uint64_t &, const bool = false, const bool = false);
 	nano::process_return process_one (nano::write_transaction const &, std::shared_ptr<nano::block>, uint64_t &, const bool = false);
 	nano::vote_generator generator;
+	std::atomic<bool> flushing{ false };
 	// Delay required for average network propagartion before requesting confirmation
 	static std::chrono::milliseconds constexpr confirmation_request_delay{ 1500 };
 

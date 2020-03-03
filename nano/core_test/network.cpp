@@ -92,15 +92,21 @@ TEST (network, send_node_id_handshake)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (0, node0->network.size ());
-	ASSERT_EQ (1, node1->network.size ());
+	system.deadline_set (10s);
+	while (node0->network.size () != 0 && node1->network.size () != 1)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 	system.deadline_set (10s);
 	while (node0->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in) < initial + 2)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (1, node0->network.size ());
-	ASSERT_EQ (1, node1->network.size ());
+	system.deadline_set (10s);
+	while (node0->network.size () != 1 && node1->network.size () != 1)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 	auto list1 (node0->network.list (1));
 	ASSERT_EQ (node1->network.endpoint (), list1[0]->get_endpoint ());
 	auto list2 (node1->network.list (1));
@@ -879,6 +885,7 @@ TEST (network, replace_port)
 	nano::system system;
 	nano::node_flags node_flags;
 	node_flags.disable_udp = false;
+	node_flags.disable_ongoing_telemetry_requests = true;
 	auto node0 = system.add_node (node_flags);
 	ASSERT_EQ (0, node0->network.size ());
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work, node_flags));
