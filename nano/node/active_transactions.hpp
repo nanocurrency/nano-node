@@ -66,6 +66,7 @@ public:
 	std::chrono::steady_clock::time_point arrival;
 	nano::block_hash hash;
 	std::vector<nano::account> voters;
+	std::vector<nano::uint128_t> filter_digests; // To potentially erase from the network filter
 	bool bootstrap_started{ false };
 	bool confirmed{ false }; // Did item reach votes quorum? (minimum config value)
 };
@@ -128,9 +129,9 @@ public:
 	std::deque<nano::election_status> list_confirmed ();
 	std::deque<nano::election_status> confirmed;
 	void add_confirmed (nano::election_status const &, nano::qualified_root const &);
-	void add_inactive_votes_cache (nano::block_hash const &, nano::account const &);
+	void add_inactive_votes_cache (nano::block_hash const &, nano::account const &, nano::uint128_t const &);
 	nano::inactive_cache_information find_inactive_votes_cache (nano::block_hash const &);
-	void erase_inactive_votes_cache (nano::block_hash const &);
+	void erase_inactive_votes_cache (nano::block_hash const &, bool const = false);
 	nano::confirmation_height_processor & confirmation_height_processor;
 	nano::node & node;
 	mutable std::mutex mutex;
@@ -200,6 +201,7 @@ private:
 	bool inactive_votes_bootstrap_check (std::vector<nano::account> const &, nano::block_hash const &, bool &);
 	boost::thread thread;
 
+	friend class active_transactions_dropped_cleanup_Test;
 	friend class confirmation_height_prioritize_frontiers_Test;
 	friend class confirmation_height_prioritize_frontiers_overwrite_Test;
 	friend std::unique_ptr<container_info_component> collect_container_info (active_transactions &, const std::string &);

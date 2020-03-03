@@ -1,7 +1,9 @@
 #include <nano/node/election.hpp>
+#include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
 
 #include <boost/format.hpp>
+#include <boost/range/combine.hpp>
 
 using namespace std::chrono;
 
@@ -27,7 +29,7 @@ state_start (std::chrono::steady_clock::now ()),
 node (node_a),
 status ({ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::ongoing })
 {
-	last_votes.emplace (node.network_params.random.not_an_account, nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () });
+	last_votes.emplace (node.network_params.random.not_an_account, nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash (), 0 });
 	blocks.emplace (block_a->hash (), block_a);
 	update_dependent ();
 }
@@ -393,7 +395,7 @@ void nano::election::log_votes (nano::tally_t const & tally_a) const
 	node.logger.try_log (tally.str ());
 }
 
-nano::election_vote_result nano::election::vote (nano::account rep, uint64_t sequence, nano::block_hash block_hash)
+nano::election_vote_result nano::election::vote (nano::account const rep, uint64_t const sequence, nano::block_hash const block_hash, nano::uint128_t const filter_digest)
 {
 	// see republish_vote documentation for an explanation of these rules
 	auto replay (false);
@@ -438,7 +440,7 @@ nano::election_vote_result nano::election::vote (nano::account rep, uint64_t seq
 		if (should_process)
 		{
 			node.stats.inc (nano::stat::type::election, nano::stat::detail::vote_new);
-			last_votes[rep] = { std::chrono::steady_clock::now (), sequence, block_hash };
+			last_votes[rep] = { std::chrono::steady_clock::now (), sequence, block_hash, filter_digest };
 			if (!confirmed ())
 			{
 				confirm_if_quorum ();
@@ -520,8 +522,9 @@ void nano::election::update_dependent ()
 	}
 }
 
-void nano::election::clear_blocks ()
+void nano::election::cleanup ()
 {
+	bool unconfirmed (!confirmed ());
 	auto winner_hash (status.winner->hash ());
 	for (auto const & block : blocks)
 	{
@@ -529,34 +532,52 @@ void nano::election::clear_blocks ()
 		auto erased (node.active.blocks.erase (hash));
 		(void)erased;
 		debug_assert (erased == 1);
-		node.active.erase_inactive_votes_cache (hash);
 		// Notify observers about dropped elections & blocks lost confirmed elections
-		if (!confirmed () || hash != winner_hash)
+		if (unconfirmed || hash != winner_hash)
 		{
 			node.observers.active_stopped.notify (hash);
 		}
+	}
+	if (unconfirmed)
+	{
+		// Clear network filters in another thread
+		node.worker.push_task ([node_l = node.shared (), blocks_l = std::move (blocks), votes_l = std::move (last_votes)]() {
+			for (auto const & block : blocks_l)
+			{
+				node_l->network.publish_filter.clear (block.second);
+			}
+			for (auto const & vote : votes_l)
+			{
+				node_l->network.confirm_ack_filter.clear (vote.second.filter_digest);
+			}
+		});
 	}
 }
 
 void nano::election::insert_inactive_votes_cache (nano::block_hash const & hash_a)
 {
 	auto cache (node.active.find_inactive_votes_cache (hash_a));
-	for (auto & rep : cache.voters)
+	if (!cache.voters.empty ())
 	{
-		auto inserted (last_votes.emplace (rep, nano::vote_info{ std::chrono::steady_clock::time_point::min (), 0, hash_a }));
-		if (inserted.second)
+		debug_assert (cache.voters.size () == cache.filter_digests.size ());
+		for (auto const & tup : boost::combine (cache.voters, cache.filter_digests))
 		{
-			node.stats.inc (nano::stat::type::election, nano::stat::detail::vote_cached);
+			auto inserted (last_votes.emplace (tup.get<0> (), nano::vote_info{ std::chrono::steady_clock::time_point::min (), 0, hash_a, tup.get<1> () }));
+			if (inserted.second)
+			{
+				node.stats.inc (nano::stat::type::election, nano::stat::detail::vote_cached);
+			}
 		}
-	}
-	if (!confirmed () && !cache.voters.empty ())
-	{
-		auto delay (std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - cache.arrival));
-		if (delay > late_blocks_delay)
+		node.active.erase_inactive_votes_cache (hash_a);
+		if (!confirmed ())
 		{
-			node.stats.inc (nano::stat::type::election, nano::stat::detail::late_block);
-			node.stats.add (nano::stat::type::election, nano::stat::detail::late_block_seconds, nano::stat::dir::in, delay.count (), true);
+			auto delay (std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - cache.arrival));
+			if (delay > late_blocks_delay)
+			{
+				node.stats.inc (nano::stat::type::election, nano::stat::detail::late_block);
+				node.stats.add (nano::stat::type::election, nano::stat::detail::late_block_seconds, nano::stat::dir::in, delay.count (), true);
+			}
+			confirm_if_quorum ();
 		}
-		confirm_if_quorum ();
 	}
 }

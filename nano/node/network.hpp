@@ -3,13 +3,13 @@
 #include <nano/node/common.hpp>
 #include <nano/node/transport/tcp.hpp>
 #include <nano/node/transport/udp.hpp>
+#include <nano/secure/network_filter.hpp>
 
 #include <boost/thread/thread.hpp>
 
 #include <memory>
 #include <queue>
 #include <unordered_set>
-
 namespace nano
 {
 class channel;
@@ -152,6 +152,8 @@ public:
 	std::vector<boost::thread> packet_processing_threads;
 	nano::bandwidth_limiter limiter;
 	nano::node & node;
+	nano::network_filter publish_filter;
+	nano::network_filter confirm_ack_filter;
 	nano::transport::udp_channels udp_channels;
 	nano::transport::tcp_channels tcp_channels;
 	std::atomic<uint16_t> port{ 0 };

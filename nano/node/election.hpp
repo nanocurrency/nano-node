@@ -12,6 +12,7 @@
 namespace nano
 {
 class channel;
+class network_filter;
 class node;
 enum class election_status_type : uint8_t
 {
@@ -39,6 +40,7 @@ public:
 	std::chrono::steady_clock::time_point time;
 	uint64_t sequence;
 	nano::block_hash hash;
+	nano::uint128_t filter_digest;
 };
 class election_vote_result final
 {
@@ -86,7 +88,7 @@ private: // State management
 
 public:
 	election (nano::node &, std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const &);
-	nano::election_vote_result vote (nano::account, uint64_t, nano::block_hash);
+	nano::election_vote_result vote (nano::account const, uint64_t const, nano::block_hash const, nano::uint128_t const);
 	nano::tally_t tally ();
 	// Check if we have vote quorum
 	bool have_quorum (nano::tally_t const &, nano::uint128_t) const;
@@ -97,7 +99,8 @@ public:
 	bool publish (std::shared_ptr<nano::block> block_a);
 	size_t last_votes_size ();
 	void update_dependent ();
-	void clear_blocks ();
+	// Erase all blocks from active and, if not confirmed, clear digests from network filters
+	void cleanup ();
 	void insert_inactive_votes_cache (nano::block_hash const &);
 
 public: // State transitions

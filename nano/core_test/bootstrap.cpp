@@ -433,6 +433,16 @@ TEST (bootstrap_processor, frontiers_unconfirmed)
 	}
 	ASSERT_FALSE (node3->ledger.block_exists (send1->hash ()));
 	ASSERT_FALSE (node3->ledger.block_exists (open1->hash ()));
+	// Inactive votes cache should be cleared for chosen frontiers
+	std::vector<nano::block_hash> frontiers{ send2->hash (), open1->hash (), open2->hash () };
+	{
+		nano::lock_guard<std::mutex> guard (node2->active.mutex);
+		for (auto hash : frontiers)
+		{
+			auto non_existing (node2->active.find_inactive_votes_cache (hash));
+			EXPECT_TRUE (non_existing.voters.empty ());
+		}
+	}
 	ASSERT_EQ (1, node3->stats.count (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_failed, nano::stat::dir::in)); // failed request from node1
 	ASSERT_TRUE (node3->bootstrap_initiator.excluded_peers.check (nano::transport::map_endpoint_to_tcp (node1->network.endpoint ())));
 }
@@ -479,6 +489,16 @@ TEST (bootstrap_processor, frontiers_confirmed)
 	while (node2->bootstrap_initiator.current_attempt () != nullptr && !node2->bootstrap_initiator.current_attempt ()->frontiers_confirmed)
 	{
 		ASSERT_NO_ERROR (system.poll ());
+	}
+	// Inactive votes cache should be cleared for chosen frontiers
+	std::vector<nano::block_hash> frontiers{ send2->hash (), open1->hash (), open2->hash () };
+	{
+		nano::lock_guard<std::mutex> guard (node2->active.mutex);
+		for (auto hash : frontiers)
+		{
+			auto non_existing (node2->active.find_inactive_votes_cache (hash));
+			EXPECT_TRUE (non_existing.voters.empty ());
+		}
 	}
 	ASSERT_EQ (1, node2->stats.count (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_successful, nano::stat::dir::in)); // Successful request from node1
 	ASSERT_EQ (0, node2->stats.count (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_failed, nano::stat::dir::in));
@@ -539,6 +559,16 @@ TEST (bootstrap_processor, frontiers_unconfirmed_threshold)
 	}
 	ASSERT_FALSE (node3->ledger.block_exists (send2->hash ()));
 	ASSERT_FALSE (node3->ledger.block_exists (open2->hash ()));
+	// Inactive votes cache should be cleared for chosen frontiers
+	std::vector<nano::block_hash> frontiers{ send2->hash (), open1->hash (), open2->hash () };
+	{
+		nano::lock_guard<std::mutex> guard (node2->active.mutex);
+		for (auto hash : frontiers)
+		{
+			auto non_existing (node2->active.find_inactive_votes_cache (hash));
+			EXPECT_TRUE (non_existing.voters.empty ());
+		}
+	}
 	ASSERT_EQ (1, node3->stats.count (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_failed, nano::stat::dir::in)); // failed confirmation
 	ASSERT_EQ (0, node3->stats.count (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_successful, nano::stat::dir::in));
 }
