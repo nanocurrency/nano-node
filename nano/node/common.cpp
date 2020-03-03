@@ -1325,7 +1325,7 @@ void nano::telemetry_data::sign (nano::keypair const & node_id_a)
 		serialize_without_signature (stream, size);
 	}
 
-	ed25519_sign (bytes.data (), bytes.size (), node_id_a.prv.data.bytes.data (), node_id_a.pub.bytes.data (), signature.bytes.data ());
+	signature = nano::sign_message (node_id_a.prv, node_id_a.pub, bytes.data (), bytes.size ());
 }
 
 bool nano::telemetry_data::validate_signature (uint16_t size_a) const
@@ -1336,7 +1336,7 @@ bool nano::telemetry_data::validate_signature (uint16_t size_a) const
 		serialize_without_signature (stream, size_a);
 	}
 
-	return ed25519_sign_open (bytes.data (), bytes.size (), node_id.bytes.data (), signature.bytes.data ()) != 0;
+	return nano::validate_message (node_id, bytes.data (), bytes.size (), signature);
 }
 
 nano::node_id_handshake::node_id_handshake (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a) :

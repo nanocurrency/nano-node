@@ -243,8 +243,10 @@ public:
 };
 
 nano::signature sign_message (nano::raw_key const &, nano::public_key const &, nano::uint256_union const &);
+nano::signature sign_message (nano::raw_key const &, nano::public_key const &, uint8_t const *, size_t);
 bool validate_message (nano::public_key const &, nano::uint256_union const &, nano::signature const &);
-bool validate_message_batch (const unsigned char **, size_t *, const unsigned char **, const unsigned char **, size_t, int *);
+bool validate_message (nano::public_key const &, uint8_t const *, size_t, nano::signature const &);
+bool validate_message_batch (unsigned const char **, size_t *, unsigned const char **, unsigned const char **, size_t, int *);
 nano::private_key deterministic_key (nano::raw_key const &, uint32_t);
 nano::public_key pub_key (nano::private_key const &);
 
