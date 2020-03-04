@@ -1100,7 +1100,7 @@ TEST (confirmation_height, callback_confirmed_history)
 				ASSERT_NO_ERROR (system.poll ());
 			}
 
-			ASSERT_EQ (0, node->active.list_confirmed ().size ());
+			ASSERT_EQ (0, node->active.list_recently_cemented ().size ());
 			{
 				nano::lock_guard<std::mutex> guard (node->active.mutex);
 				ASSERT_EQ (0, node->active.blocks.size ());
@@ -1140,7 +1140,7 @@ TEST (confirmation_height, callback_confirmed_history)
 			ASSERT_NO_ERROR (system.poll ());
 		}
 
-		ASSERT_EQ (1, node->active.list_confirmed ().size ());
+		ASSERT_EQ (1, node->active.list_recently_cemented ().size ());
 		ASSERT_EQ (0, node->active.blocks.size ());
 
 		// Confirm the callback is not called under this circumstance

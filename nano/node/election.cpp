@@ -53,6 +53,7 @@ void nano::election::confirm_once (nano::election_status_type type_a)
 			// election winner details can be cleared consistently sucessfully in active_transactions::block_cemented_callback
 			node.active.add_election_winner_details (status_l.winner->hash (), this_l);
 		}
+		node.active.add_recently_confirmed (status_l.winner->qualified_root ());
 		node.background ([node_l, status_l, confirmation_action_l, this_l]() {
 			node_l->process_confirmed (status_l, this_l);
 			confirmation_action_l (status_l.winner);

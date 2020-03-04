@@ -742,6 +742,8 @@ TEST (active_transactions, activate_dependencies)
 	ASSERT_NE (nullptr, node1->block (block2->hash ()));
 }
 
+namespace nano
+{
 // Blocks that won an election must always be seen as confirming or cemented
 TEST (active_transactions, confirmation_consistency)
 {
@@ -749,24 +751,21 @@ TEST (active_transactions, confirmation_consistency)
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node = *system.add_node (node_config);
-	nano::genesis genesis;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	for (unsigned i = 0; i < 10; ++i)
 	{
 		auto block (system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::public_key (), node.config.receive_minimum.number ()));
 		ASSERT_NE (nullptr, block);
-		system.deadline_set (10s);
-		ASSERT_FALSE (node.active.empty ());
-		while (!node.active.empty ())
+		system.deadline_set (5s);
+		while (!node.ledger.block_confirmed (node.store.tx_begin_read (), block->hash ()))
 		{
+			ASSERT_FALSE (node.active.insert (block).second);
 			ASSERT_NO_ERROR (system.poll ());
 		}
-		system.deadline_set (10s);
-		while (node.confirmation_height_processor.is_processing_block (block->hash ()))
-		{
-			ASSERT_NO_ERROR (system.poll ());
-		}
-		// If the block is no longer confirming then it must be cemented
-		ASSERT_TRUE (node.ledger.block_confirmed (node.store.tx_begin_read (), block->hash ()));
+		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		ASSERT_EQ (i + 1, node.active.recently_confirmed.size ());
+		ASSERT_EQ (block->qualified_root (), node.active.recently_confirmed.back ());
+		ASSERT_EQ (i + 1, node.active.recently_cemented.size ());
 	}
+}
 }
