@@ -58,6 +58,7 @@ void nano::election::confirm_once (nano::election_status_type type_a)
 			node_l->process_confirmed (status_l, this_l);
 			confirmation_action_l (status_l.winner);
 		});
+		adjust_dependent_difficulty ();
 	}
 }
 
@@ -367,7 +368,7 @@ void nano::election::confirm_if_quorum ()
 		node.block_processor.force (block_l);
 		status.winner = block_l;
 		update_dependent ();
-		node.active.adjust_difficulty (winner_hash_l);
+		node.active.add_adjust_difficulty (winner_hash_l);
 	}
 	if (have_quorum (tally_l, sum))
 	{
@@ -519,6 +520,14 @@ void nano::election::update_dependent ()
 				existing->second->dependent_blocks.insert (hash);
 			}
 		}
+	}
+}
+
+void nano::election::adjust_dependent_difficulty ()
+{
+	for (auto & dependent_block : dependent_blocks)
+	{
+		node.active.add_adjust_difficulty (dependent_block);
 	}
 }
 
