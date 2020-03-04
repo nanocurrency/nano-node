@@ -157,6 +157,7 @@ nano::bootstrap_constants::bootstrap_constants (nano::network_constants & networ
 	frontier_retry_limit = network_constants.is_test_network () ? 2 : 16;
 	lazy_retry_limit = network_constants.is_test_network () ? 2 : frontier_retry_limit * 10;
 	lazy_destinations_retry_limit = network_constants.is_test_network () ? 1 : frontier_retry_limit / 4;
+	gap_cache_bootstrap_start_interval = network_constants.is_test_network () ? std::chrono::milliseconds (5) : std::chrono::milliseconds (30 * 1000);
 }
 
 /* Convenience constants for core_test which is always on the test network */
