@@ -1,5 +1,6 @@
 #include <nano/lib/timer.hpp>
 #include <nano/node/blockprocessor.hpp>
+#include <nano/node/election.hpp>
 #include <nano/node/node.hpp>
 #include <nano/secure/blockstore.hpp>
 

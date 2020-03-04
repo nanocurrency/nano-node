@@ -1,3 +1,4 @@
+#include <nano/node/confirmation_solicitor.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/node.hpp>
 
@@ -148,13 +149,14 @@ bool nano::election::state_change (nano::election::state_t expected_a, nano::ele
 	return result;
 }
 
-void nano::election::send_confirm_req ()
+void nano::election::send_confirm_req (nano::confirmation_solicitor & solicitor_a)
 {
 	if (last_req + std::chrono::seconds (15) < std::chrono::steady_clock::now ())
 	{
-		if (!node.active.solicitor.add (*this))
+		if (!solicitor_a.add (*this))
 		{
 			last_req = std::chrono::steady_clock::now ();
+			++confirmation_request_count;
 		}
 	}
 }
@@ -242,18 +244,18 @@ void nano::election::activate_dependencies ()
 	}
 }
 
-void nano::election::broadcast_block ()
+void nano::election::broadcast_block (nano::confirmation_solicitor & solicitor_a)
 {
 	if (base_latency () * 5 < std::chrono::steady_clock::now () - last_block)
 	{
-		if (!node.active.solicitor.broadcast (*this))
+		if (!solicitor_a.broadcast (*this))
 		{
 			last_block = std::chrono::steady_clock::now ();
 		}
 	}
 }
 
-bool nano::election::transition_time (bool const saturated_a)
+bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a, bool const saturated_a)
 {
 	debug_assert (!node.active.mutex.try_lock ());
 	nano::unique_lock<std::mutex> lock (timepoints_mutex);
@@ -271,18 +273,19 @@ bool nano::election::transition_time (bool const saturated_a)
 			break;
 		}
 		case nano::election::state_t::active:
-			broadcast_block ();
-			send_confirm_req ();
+			broadcast_block (solicitor_a);
+			send_confirm_req (solicitor_a);
 			if (base_latency () * active_duration_factor < std::chrono::steady_clock::now () - state_start)
 			{
 				state_change (nano::election::state_t::active, nano::election::state_t::backtracking);
 				lock.unlock ();
 				activate_dependencies ();
+				lock.lock ();
 			}
 			break;
 		case nano::election::state_t::backtracking:
-			broadcast_block ();
-			send_confirm_req ();
+			broadcast_block (solicitor_a);
+			send_confirm_req (solicitor_a);
 			break;
 		case nano::election::state_t::confirmed:
 			if (base_latency () * (saturated_a ? confirmed_duration_factor_saturated : confirmed_duration_factor) < std::chrono::steady_clock::now () - state_start)
@@ -296,7 +299,6 @@ bool nano::election::transition_time (bool const saturated_a)
 			debug_assert (false);
 			break;
 	}
-	// Note: lock (timepoints_mutex) is at an unknown state here - possibly unlocked before activate_dependencies
 	if (!confirmed () && std::chrono::minutes (5) < std::chrono::steady_clock::now () - election_start)
 	{
 		result = true;
