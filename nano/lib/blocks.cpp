@@ -149,6 +149,11 @@ void nano::block::sideband_set (nano::block_sideband const & sideband_a)
 	sideband_m = sideband_a;
 }
 
+bool nano::block::has_sideband () const
+{
+	return sideband_m.is_initialized ();
+}
+
 nano::account const & nano::block::representative () const
 {
 	static nano::account rep{ 0 };
