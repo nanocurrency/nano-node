@@ -280,6 +280,7 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 				state_change (nano::election::state_t::active, nano::election::state_t::backtracking);
 				lock.unlock ();
 				activate_dependencies ();
+				lock.lock ();
 			}
 			break;
 		case nano::election::state_t::backtracking:
@@ -298,7 +299,6 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 			debug_assert (false);
 			break;
 	}
-	// Note: lock (timepoints_mutex) is at an unknown state here - possibly unlocked before activate_dependencies
 	if (!confirmed () && std::chrono::minutes (5) < std::chrono::steady_clock::now () - election_start)
 	{
 		result = true;
