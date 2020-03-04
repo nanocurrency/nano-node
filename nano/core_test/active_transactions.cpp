@@ -711,7 +711,6 @@ TEST (active_transactions, activate_dependencies)
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::genesis genesis;
 	nano::block_builder builder;
-	system.deadline_set (std::chrono::seconds (15));
 	std::shared_ptr<nano::block> block0 = builder.state ()
 	                                      .account (nano::test_genesis_key.pub)
 	                                      .previous (genesis.hash ())
@@ -724,6 +723,7 @@ TEST (active_transactions, activate_dependencies)
 	// Establish a representative
 	node2->process_active (block0);
 	node2->block_processor.flush ();
+	system.deadline_set (10s);
 	while (node1->block (block0->hash ()) == nullptr)
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -752,9 +752,17 @@ TEST (active_transactions, activate_dependencies)
 	                                      .build ();
 	node2->process_active (block2);
 	node2->block_processor.flush ();
+	system.deadline_set (10s);
 	while (node1->block (block2->hash ()) == nullptr)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_NE (nullptr, node1->block (block2->hash ()));
+	system.deadline_set (10s);
+	while (!node1->active.empty () || !node2->active.empty ())
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_TRUE (node1->ledger.block_confirmed (node1->store.tx_begin_read (), block2->hash ()));
+	ASSERT_TRUE (node2->ledger.block_confirmed (node2->store.tx_begin_read (), block2->hash ()));
 }
