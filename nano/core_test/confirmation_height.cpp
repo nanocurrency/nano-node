@@ -802,7 +802,30 @@ TEST (confirmation_height, modified_chain)
 			ASSERT_NO_ERROR (system.poll ());
 		}
 
-		ASSERT_EQ (1, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block, nano::stat::dir::in));
+		auto check_for_modified_chains = true;
+		if (mode_a == nano::confirmation_height_mode::unbounded)
+		{
+#ifdef NDEBUG
+			// Unbounded processor in release config does not check that a chain has been modified prior to setting the confirmation height (as an optimization)
+			check_for_modified_chains = false;
+#endif
+		}
+
+		nano::confirmation_height_info confirmation_height_info;
+		ASSERT_FALSE (node->store.confirmation_height_get (node->store.tx_begin_read (), nano::test_genesis_key.pub, confirmation_height_info));
+		if (check_for_modified_chains)
+		{
+			ASSERT_EQ (1, confirmation_height_info.height);
+			ASSERT_EQ (nano::genesis_hash, confirmation_height_info.frontier);
+			ASSERT_EQ (1, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block, nano::stat::dir::in));
+		}
+		else
+		{
+			// A non-existent block is cemented, expected given these conditions but is of course incorrect.
+			ASSERT_EQ (2, confirmation_height_info.height);
+			ASSERT_EQ (send->hash (), confirmation_height_info.frontier);
+		}
+
 		ASSERT_EQ (0, node->active.election_winner_details_size ());
 	};
 
