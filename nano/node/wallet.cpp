@@ -1273,8 +1273,11 @@ bool nano::wallet::search_pending ()
 						}
 						else
 						{
-							// Request confirmation for unconfirmed block
-							wallets.node.block_confirm (block);
+							if (!wallets.node.confirmation_height_processor.is_processing_block (hash))
+							{
+								// Request confirmation for block which is not being processed yet
+								wallets.node.block_confirm (block);
+							}
 						}
 					}
 				}
