@@ -767,7 +767,6 @@ TEST (active_transactions, confirmation_consistency)
 			ASSERT_NO_ERROR (system.poll ());
 		}
 		// If the block is no longer confirming then it must be cemented
-		auto transaction (node.store.tx_begin_read ());
 		ASSERT_TRUE (node.ledger.block_confirmed (node.store.tx_begin_read (), block->hash ()));
 	}
 }
