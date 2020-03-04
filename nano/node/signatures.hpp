@@ -60,7 +60,6 @@ private:
 	static constexpr size_t batch_size = 256;
 	const bool single_threaded;
 	unsigned num_threads;
-	std::mutex mutex;
-	bool stopped{ false };
+	std::atomic<bool> stopped{ false };
 };
 }

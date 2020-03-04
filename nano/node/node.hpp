@@ -84,7 +84,6 @@ public:
 std::unique_ptr<container_info_component> collect_container_info (block_arrival & block_arrival, const std::string & name);
 
 std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, const std::string & name);
-std::unique_ptr<container_info_component> collect_container_info (block_processor & block_processor, const std::string & name);
 
 class node final : public std::enable_shared_from_this<nano::node>
 {
