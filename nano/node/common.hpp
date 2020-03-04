@@ -7,6 +7,7 @@
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/memory.hpp>
 #include <nano/secure/common.hpp>
+#include <nano/secure/network_filter.hpp>
 
 #include <bitset>
 
@@ -247,18 +248,22 @@ public:
 		invalid_telemetry_ack_message,
 		outdated_version,
 		invalid_magic,
-		invalid_network
+		invalid_network,
+		duplicate_publish_message,
+		duplicate_confirm_ack_message
 	};
-	message_parser (nano::block_uniquer &, nano::vote_uniquer &, nano::message_visitor &, nano::work_pool &);
+	message_parser (nano::network_filter &, nano::network_filter &, nano::block_uniquer &, nano::vote_uniquer &, nano::message_visitor &, nano::work_pool &);
 	void deserialize_buffer (uint8_t const *, size_t);
 	void deserialize_keepalive (nano::stream &, nano::message_header const &);
-	void deserialize_publish (nano::stream &, nano::message_header const &);
+	void deserialize_publish (nano::stream &, nano::message_header const &, nano::uint128_t const & = 0);
 	void deserialize_confirm_req (nano::stream &, nano::message_header const &);
-	void deserialize_confirm_ack (nano::stream &, nano::message_header const &);
+	void deserialize_confirm_ack (nano::stream &, nano::message_header const &, nano::uint128_t const & = 0);
 	void deserialize_node_id_handshake (nano::stream &, nano::message_header const &);
 	void deserialize_telemetry_req (nano::stream &, nano::message_header const &);
 	void deserialize_telemetry_ack (nano::stream &, nano::message_header const &);
 	bool at_end (nano::stream &);
+	nano::network_filter & publish_filter;
+	nano::network_filter & confirm_ack_filter;
 	nano::block_uniquer & block_uniquer;
 	nano::vote_uniquer & vote_uniquer;
 	nano::message_visitor & visitor;
@@ -282,13 +287,14 @@ public:
 class publish final : public message
 {
 public:
-	publish (bool &, nano::stream &, nano::message_header const &, nano::block_uniquer * = nullptr);
+	publish (bool &, nano::stream &, nano::message_header const &, nano::uint128_t const & = 0, nano::block_uniquer * = nullptr);
 	explicit publish (std::shared_ptr<nano::block>);
 	void visit (nano::message_visitor &) const override;
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &, nano::block_uniquer * = nullptr);
 	bool operator== (nano::publish const &) const;
 	std::shared_ptr<nano::block> block;
+	nano::uint128_t digest{ 0 };
 };
 class confirm_req final : public message
 {
@@ -309,13 +315,14 @@ public:
 class confirm_ack final : public message
 {
 public:
-	confirm_ack (bool &, nano::stream &, nano::message_header const &, nano::vote_uniquer * = nullptr);
+	confirm_ack (bool &, nano::stream &, nano::message_header const &, nano::uint128_t const & = 0, nano::vote_uniquer * = nullptr);
 	explicit confirm_ack (std::shared_ptr<nano::vote>);
 	void serialize (nano::stream &) const override;
 	void visit (nano::message_visitor &) const override;
 	bool operator== (nano::confirm_ack const &) const;
 	std::shared_ptr<nano::vote> vote;
 	static size_t size (nano::block_type, size_t = 0);
+	nano::uint128_t digest{ 0 };
 };
 class frontier_req final : public message
 {

@@ -912,6 +912,7 @@ void nano::node::bootstrap_wallet ()
 
 void nano::node::unchecked_cleanup ()
 {
+	std::vector<std::shared_ptr<nano::block>> blocks;
 	std::deque<nano::unchecked_key> cleaning_list;
 	auto attempt (bootstrap_initiator.current_attempt ());
 	bool long_attempt (attempt != nullptr && std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt->attempt_start).count () > config.unchecked_cutoff_time.count ());
@@ -927,6 +928,7 @@ void nano::node::unchecked_cleanup ()
 			nano::unchecked_info const & info (i->second);
 			if ((now - info.modified) > static_cast<uint64_t> (config.unchecked_cutoff_time.count ()))
 			{
+				blocks.push_back (info.block);
 				cleaning_list.push_back (key);
 			}
 		}
@@ -951,6 +953,11 @@ void nano::node::unchecked_cleanup ()
 				--ledger.cache.unchecked_count;
 			}
 		}
+	}
+	// Delete from the duplicate filter
+	for (auto const & block : blocks)
+	{
+		network.publish_filter.clear (block);
 	}
 }
 

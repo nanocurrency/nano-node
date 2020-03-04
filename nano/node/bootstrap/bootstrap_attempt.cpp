@@ -369,6 +369,7 @@ bool nano::bootstrap_attempt_legacy::confirm_frontiers (nano::unique_lock<std::m
 	auto frontiers_count (frontiers.size ());
 	if (frontiers_count > 0)
 	{
+		auto const frontiers_copy = frontiers;
 		const size_t reps_limit = 20;
 		auto representatives (node->rep_crawler.representatives ());
 		auto reps_weight (node->rep_crawler.total_weight ());
@@ -468,6 +469,12 @@ bool nano::bootstrap_attempt_legacy::confirm_frontiers (nano::unique_lock<std::m
 		if (!confirmed)
 		{
 			node->logger.always_log (boost::str (boost::format ("Failed to confirm frontiers for bootstrap attempt. %1% of %2% frontiers were not confirmed") % frontiers.size () % frontiers_count));
+		}
+		// Clear from inactive votes cache and duplicate filter
+		nano::lock_guard<std::mutex> active_guard (node->active.mutex);
+		for (auto const & hash : frontiers_copy)
+		{
+			node->active.erase_inactive_votes_cache (hash, true);
 		}
 	}
 	lock_a.lock ();

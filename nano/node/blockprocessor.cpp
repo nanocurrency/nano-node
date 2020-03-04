@@ -48,7 +48,6 @@ void nano::block_processor::flush ()
 	{
 		condition.wait (lock);
 	}
-	blocks_filter.clear ();
 	flushing = false;
 }
 
@@ -60,12 +59,12 @@ size_t nano::block_processor::size ()
 
 bool nano::block_processor::full ()
 {
-	return size () > node.flags.block_processor_full_size;
+	return size () >= node.flags.block_processor_full_size;
 }
 
 bool nano::block_processor::half_full ()
 {
-	return size () > node.flags.block_processor_full_size / 2;
+	return size () >= node.flags.block_processor_full_size / 2;
 }
 
 void nano::block_processor::add (std::shared_ptr<nano::block> block_a, uint64_t origination)
@@ -78,21 +77,15 @@ void nano::block_processor::add (nano::unchecked_info const & info_a)
 {
 	bool should_notify{ false };
 	{
-		auto hash (info_a.block->hash ());
-		auto filter_hash (filter_item (hash, info_a.block->block_signature ()));
-		nano::lock_guard<std::mutex> lock (mutex);
-		if (blocks_filter.find (filter_hash) == blocks_filter.end ())
+		if (info_a.verified == nano::signature_verification::unknown && (info_a.block->type () == nano::block_type::state || info_a.block->type () == nano::block_type::open || !info_a.account.is_zero ()))
 		{
-			if (info_a.verified == nano::signature_verification::unknown && (info_a.block->type () == nano::block_type::state || info_a.block->type () == nano::block_type::open || !info_a.account.is_zero ()))
-			{
-				state_block_signature_verification.add (info_a);
-			}
-			else
-			{
-				blocks.push_back (info_a);
-				should_notify = true;
-			}
-			blocks_filter.insert (filter_hash);
+			state_block_signature_verification.add (info_a);
+		}
+		else
+		{
+			nano::lock_guard<std::mutex> lock (mutex);
+			blocks.push_back (info_a);
+			should_notify = true;
 		}
 	}
 
@@ -187,7 +180,6 @@ void nano::block_processor::process_verified_state_blocks (std::deque<nano::unch
 			}
 			else
 			{
-				blocks_filter.erase (filter_item (hashes[i], blocks_signatures[i]));
 				requeue_invalid (hashes[i], item);
 			}
 			items.pop_front ();
@@ -237,7 +229,6 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 			info = blocks.front ();
 			blocks.pop_front ();
 			hash = info.block->hash ();
-			blocks_filter.erase (filter_item (hash, info.block->block_signature ()));
 		}
 		else
 		{
@@ -494,19 +485,6 @@ void nano::block_processor::queue_unchecked (nano::write_transaction const & tra
 	node.gap_cache.erase (hash_a);
 }
 
-nano::block_hash nano::block_processor::filter_item (nano::block_hash const & hash_a, nano::signature const & signature_a)
-{
-	static nano::random_constants constants;
-	nano::block_hash result;
-	blake2b_state state;
-	blake2b_init (&state, sizeof (result.bytes));
-	blake2b_update (&state, constants.not_an_account.bytes.data (), constants.not_an_account.bytes.size ());
-	blake2b_update (&state, signature_a.bytes.data (), signature_a.bytes.size ());
-	blake2b_update (&state, hash_a.bytes.data (), hash_a.bytes.size ());
-	blake2b_final (&state, result.bytes.data (), sizeof (result.bytes));
-	return result;
-}
-
 void nano::block_processor::requeue_invalid (nano::block_hash const & hash_a, nano::unchecked_info const & info_a)
 {
 	debug_assert (hash_a == info_a.block->hash ());
@@ -516,20 +494,17 @@ void nano::block_processor::requeue_invalid (nano::block_hash const & hash_a, na
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (block_processor & block_processor, const std::string & name)
 {
 	size_t blocks_count;
-	size_t blocks_filter_count;
 	size_t forced_count;
 
 	{
 		nano::lock_guard<std::mutex> guard (block_processor.mutex);
 		blocks_count = block_processor.blocks.size ();
-		blocks_filter_count = block_processor.blocks_filter.size ();
 		forced_count = block_processor.forced.size ();
 	}
 
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (collect_container_info (block_processor.state_block_signature_verification, "state_block_signature_verification"));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "blocks", blocks_count, sizeof (decltype (block_processor.blocks)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "blocks_filter", blocks_filter_count, sizeof (decltype (block_processor.blocks_filter)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "forced", forced_count, sizeof (decltype (block_processor.forced)::value_type) }));
 	composite->add_component (collect_container_info (block_processor.generator, "generator"));
 	return composite;

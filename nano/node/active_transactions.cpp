@@ -249,7 +249,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 		bool const overflow_l (count_l >= node.config.active_elections_size && election_l->election_start < election_ttl_cutoff_l && !node.wallets.watcher->is_watched (i->root));
 		if (overflow_l || election_l->transition_time (solicitor, saturated_l))
 		{
-			election_l->clear_blocks ();
+			election_l->cleanup ();
 			i = sorted_roots_l.erase (i);
 		}
 		else
@@ -511,6 +511,7 @@ nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> vot
 	bool replay (false);
 	bool processed (false);
 	{
+		auto digest (node.network.confirm_ack_filter.hash (vote_a));
 		nano::lock_guard<std::mutex> lock (mutex);
 		for (auto vote_block : vote_a->blocks)
 		{
@@ -522,11 +523,11 @@ nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> vot
 				if (existing != blocks.end ())
 				{
 					at_least_one = true;
-					result = existing->second->vote (vote_a->account, vote_a->sequence, block_hash);
+					result = existing->second->vote (vote_a->account, vote_a->sequence, block_hash, digest);
 				}
 				else // possibly a vote for a recently confirmed election
 				{
-					add_inactive_votes_cache (block_hash, vote_a->account);
+					add_inactive_votes_cache (block_hash, vote_a->account, digest);
 				}
 			}
 			else
@@ -536,11 +537,11 @@ nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> vot
 				if (existing != roots.get<tag_root> ().end ())
 				{
 					at_least_one = true;
-					result = existing->election->vote (vote_a->account, vote_a->sequence, block->hash ());
+					result = existing->election->vote (vote_a->account, vote_a->sequence, block->hash (), digest);
 				}
 				else
 				{
-					add_inactive_votes_cache (block->hash (), vote_a->account);
+					add_inactive_votes_cache (block->hash (), vote_a->account, digest);
 				}
 			}
 			processed = processed || result.processed;
@@ -791,7 +792,7 @@ void nano::active_transactions::erase (nano::block const & block_a)
 	auto root_it (roots.get<tag_root> ().find (block_a.qualified_root ()));
 	if (root_it != roots.get<tag_root> ().end ())
 	{
-		root_it->election->clear_blocks ();
+		root_it->election->cleanup ();
 		root_it->election->adjust_dependent_difficulty ();
 		roots.get<tag_root> ().erase (root_it);
 		node.logger.try_log (boost::str (boost::format ("Election erased for block block %1% root %2%") % block_a.hash ().to_string () % block_a.root ().to_string ()));
@@ -875,7 +876,7 @@ size_t nano::active_transactions::inactive_votes_cache_size ()
 	return inactive_votes_cache.size ();
 }
 
-void nano::active_transactions::add_inactive_votes_cache (nano::block_hash const & hash_a, nano::account const & representative_a)
+void nano::active_transactions::add_inactive_votes_cache (nano::block_hash const & hash_a, nano::account const & representative_a, nano::uint128_t const & digest_a)
 {
 	// Check principal representative status
 	if (node.ledger.weight (representative_a) > node.minimum_principal_weight ())
@@ -885,13 +886,14 @@ void nano::active_transactions::add_inactive_votes_cache (nano::block_hash const
 		if (existing != inactive_by_hash.end () && (!existing->confirmed || !existing->bootstrap_started))
 		{
 			auto is_new (false);
-			inactive_by_hash.modify (existing, [representative_a, &is_new](nano::inactive_cache_information & info) {
+			inactive_by_hash.modify (existing, [representative_a, digest_a, &is_new](nano::inactive_cache_information & info) {
 				auto it = std::find (info.voters.begin (), info.voters.end (), representative_a);
 				is_new = (it == info.voters.end ());
 				if (is_new)
 				{
 					info.arrival = std::chrono::steady_clock::now ();
 					info.voters.push_back (representative_a);
+					info.filter_digests.push_back (digest_a);
 				}
 			});
 
@@ -918,10 +920,13 @@ void nano::active_transactions::add_inactive_votes_cache (nano::block_hash const
 			bool confirmed (false);
 			bool start_bootstrap (inactive_votes_bootstrap_check (representative_vector, hash_a, confirmed));
 			auto & inactive_by_arrival (inactive_votes_cache.get<tag_arrival> ());
-			inactive_by_arrival.emplace (nano::inactive_cache_information{ std::chrono::steady_clock::now (), hash_a, representative_vector, start_bootstrap, confirmed });
+			inactive_by_arrival.emplace (nano::inactive_cache_information{ std::chrono::steady_clock::now (), hash_a, representative_vector, { digest_a }, start_bootstrap, confirmed });
 			if (inactive_votes_cache.size () > node.flags.inactive_votes_cache_size)
 			{
-				inactive_by_arrival.erase (inactive_by_arrival.begin ());
+				auto oldest (inactive_by_arrival.begin ());
+				// Clear duplicate filter to allow receiving theses votes again
+				node.network.confirm_ack_filter.clear (oldest->filter_digests);
+				inactive_by_arrival.erase (oldest);
 			}
 		}
 	}
@@ -937,16 +942,20 @@ nano::inactive_cache_information nano::active_transactions::find_inactive_votes_
 	}
 	else
 	{
-		return nano::inactive_cache_information{ std::chrono::steady_clock::time_point{}, 0, std::vector<nano::account>{} };
+		return nano::inactive_cache_information{};
 	}
 }
 
-void nano::active_transactions::erase_inactive_votes_cache (nano::block_hash const & hash_a)
+void nano::active_transactions::erase_inactive_votes_cache (nano::block_hash const & hash_a, bool const clear_digests_a)
 {
 	auto & inactive_by_hash (inactive_votes_cache.get<tag_hash> ());
 	auto existing (inactive_by_hash.find (hash_a));
 	if (existing != inactive_by_hash.end ())
 	{
+		if (clear_digests_a)
+		{
+			node.network.confirm_ack_filter.clear (existing->filter_digests);
+		}
 		inactive_by_hash.erase (existing);
 	}
 }

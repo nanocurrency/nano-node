@@ -519,7 +519,7 @@ TEST (active_transactions, inactive_votes_cache_existing_vote)
 	ASSERT_EQ (send->hash (), last_vote1.hash);
 	ASSERT_EQ (1, last_vote1.sequence);
 	// Attempt to change vote with inactive_votes_cache
-	node.active.add_inactive_votes_cache (send->hash (), key.pub);
+	node.active.add_inactive_votes_cache (send->hash (), key.pub, node.network.confirm_ack_filter.hash (vote1));
 	ASSERT_EQ (1, node.active.find_inactive_votes_cache (send->hash ()).voters.size ());
 	election->insert_inactive_votes_cache (send->hash ());
 	// Check that election data is not changed
@@ -573,6 +573,45 @@ TEST (active_transactions, inactive_votes_cache_multiple_votes)
 		ASSERT_EQ (3, it->election->last_votes.size ()); // 2 votes and 1 default not_an_acount
 	}
 	ASSERT_EQ (2, node.stats.count (nano::stat::type::election, nano::stat::detail::vote_cached));
+}
+
+TEST (active_transactions, inactive_votes_cache_overflow)
+{
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.inactive_votes_cache_size = 1;
+	auto & node (*system.add_node (node_flags));
+	nano::genesis genesis;
+	nano::block_hash hash1{ 1 };
+	nano::block_hash hash2{ 2 };
+	auto vote1 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, std::vector<nano::block_hash>{ hash1 }));
+	nano::uint128_t digest = node.network.confirm_ack_filter.hash (vote1);
+	{
+		nano::lock_guard<std::mutex> active_guard (node.active.mutex);
+		node.active.add_inactive_votes_cache (hash1, vote1->account, digest);
+		auto existing (node.active.find_inactive_votes_cache (hash1));
+		ASSERT_EQ (1, existing.filter_digests.size ());
+		ASSERT_EQ (digest, existing.filter_digests.front ());
+	}
+	// Add the vote to the network filter, should be cleared once the inactive vote is dropped
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		vote1->serialize (stream);
+	}
+	ASSERT_FALSE (node.network.confirm_ack_filter.apply (bytes.data (), bytes.size ()));
+	ASSERT_TRUE (node.network.confirm_ack_filter.apply (bytes.data (), bytes.size ()));
+	// Add another inactive vote to drop vote1, and ensure proper cleanup
+	{
+		node.active.add_inactive_votes_cache (hash2, vote1->account, digest + 1);
+		auto existing (node.active.find_inactive_votes_cache (hash2));
+		ASSERT_EQ (1, existing.filter_digests.size ());
+		ASSERT_EQ (digest + 1, existing.filter_digests.front ());
+
+		auto non_existing (node.active.find_inactive_votes_cache (hash1));
+		ASSERT_TRUE (non_existing.filter_digests.empty ());
+	}
+	ASSERT_FALSE (node.network.confirm_ack_filter.apply (bytes.data (), bytes.size ()));
 }
 
 TEST (active_transactions, update_difficulty)
@@ -771,4 +810,108 @@ TEST (active_transactions, activate_dependencies)
 	}
 	ASSERT_TRUE (node1->ledger.block_confirmed (node1->store.tx_begin_read (), block2->hash ()));
 	ASSERT_TRUE (node2->ledger.block_confirmed (node2->store.tx_begin_read (), block2->hash ()));
+}
+
+namespace nano
+{
+// Tests correct handling of network filter digests
+TEST (active_transactions, dropped_cleanup)
+{
+	nano::system system;
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto & node (*system.add_node (node_config));
+	nano::genesis genesis;
+	nano::keypair key1;
+	nano::keypair key2;
+	// Setup two representatives
+	auto large_amount (nano::genesis_amount / 20);
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, nano::genesis_hash, nano::test_genesis_key.pub, nano::genesis_amount - large_amount, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (nano::genesis_hash)));
+	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * large_amount, key2.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send1->hash ())));
+	auto open1 (std::make_shared<nano::state_block> (key1.pub, 0, key1.pub, large_amount, send1->hash (), key1.prv, key1.pub, *system.work.generate (key1.pub)));
+	auto open2 (std::make_shared<nano::state_block> (key2.pub, 0, key2.pub, large_amount, send2->hash (), key2.prv, key2.pub, *system.work.generate (key2.pub)));
+	ASSERT_EQ (nano::process_result::progress, node.process (*send1).code);
+	ASSERT_EQ (nano::process_result::progress, node.process (*send2).code);
+	ASSERT_EQ (nano::process_result::progress, node.process (*open1).code);
+	ASSERT_EQ (nano::process_result::progress, node.process (*open2).code);
+	ASSERT_EQ (large_amount, node.ledger.weight (key1.pub));
+	ASSERT_EQ (large_amount, node.ledger.weight (key2.pub));
+
+	auto block = send2;
+	auto vote1 (std::make_shared<nano::vote> (key1.pub, key1.prv, 0, std::vector<nano::block_hash>{ block->hash () }));
+	auto vote2 (std::make_shared<nano::vote> (key2.pub, key2.prv, 0, std::vector<nano::block_hash>{ block->hash () }));
+	auto digest1 (node.network.confirm_ack_filter.hash (vote1));
+	auto digest2 (node.network.confirm_ack_filter.hash (vote2));
+
+	// Add to network filter to ensure proper cleanup after the election is dropped
+	std::vector<uint8_t> block_bytes;
+	{
+		nano::vectorstream stream (block_bytes);
+		block->serialize (stream);
+	}
+	ASSERT_FALSE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
+	ASSERT_TRUE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
+
+	std::vector<uint8_t> bytes1;
+	std::vector<uint8_t> bytes2;
+	{
+		nano::vectorstream stream1 (bytes1);
+		vote1->serialize (stream1);
+
+		nano::vectorstream stream2 (bytes2);
+		vote2->serialize (stream2);
+	}
+	ASSERT_FALSE (node.network.confirm_ack_filter.apply (bytes1.data (), bytes1.size ()));
+	ASSERT_FALSE (node.network.confirm_ack_filter.apply (bytes2.data (), bytes2.size ()));
+	ASSERT_TRUE (node.network.confirm_ack_filter.apply (bytes1.data (), bytes1.size ()));
+	ASSERT_TRUE (node.network.confirm_ack_filter.apply (bytes2.data (), bytes2.size ()));
+
+	// Before the election, add an inactive vote
+	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote1));
+	{
+		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		ASSERT_EQ (digest1, node.active.find_inactive_votes_cache (block->hash ()).filter_digests.front ());
+	}
+
+	// Start the election, ensuring the filter digest propagated from the inactive vote and that the inactive vote was removed
+	auto election (node.active.insert (block).first);
+	ASSERT_NE (nullptr, election);
+	ASSERT_EQ (digest1, election->last_votes.find (key1.pub)->second.filter_digest);
+	{
+		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		ASSERT_TRUE (node.active.find_inactive_votes_cache (block->hash ()).voters.empty ());
+	}
+
+	// Add the other vote
+	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote2));
+	ASSERT_EQ (digest2, election->last_votes.find (key2.pub)->second.filter_digest);
+
+	// Not yet removed
+	ASSERT_TRUE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
+	ASSERT_TRUE (node.network.confirm_ack_filter.apply (bytes1.data (), bytes1.size ()));
+	ASSERT_TRUE (node.network.confirm_ack_filter.apply (bytes2.data (), bytes2.size ()));
+
+	// Now simulate dropping the election, which performs a cleanup in the background using the node worker
+	ASSERT_FALSE (election->confirmed ());
+	{
+		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		election->cleanup ();
+	}
+
+	// Push a worker task to ensure the cleanup is already performed
+	std::atomic<bool> flag{ false };
+	node.worker.push_task ([&flag]() {
+		flag = true;
+	});
+	system.deadline_set (5s);
+	while (!flag)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	// The filter must have been cleared for both inserted votes and the block
+	ASSERT_FALSE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
+	ASSERT_FALSE (node.network.confirm_ack_filter.apply (bytes1.data (), bytes1.size ()));
+	ASSERT_FALSE (node.network.confirm_ack_filter.apply (bytes2.data (), bytes2.size ()));
+}
 }

@@ -20,6 +20,7 @@ public:
 	std::chrono::steady_clock::time_point time;
 	uint64_t sequence;
 	nano::block_hash hash;
+	nano::uint128_t filter_digest;
 };
 class election_vote_result final
 {
@@ -67,7 +68,7 @@ private: // State management
 
 public:
 	election (nano::node &, std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const &);
-	nano::election_vote_result vote (nano::account, uint64_t, nano::block_hash);
+	nano::election_vote_result vote (nano::account const, uint64_t const, nano::block_hash const, nano::uint128_t const);
 	nano::tally_t tally ();
 	// Check if we have vote quorum
 	bool have_quorum (nano::tally_t const &, nano::uint128_t) const;
@@ -79,8 +80,9 @@ public:
 	size_t last_votes_size ();
 	void update_dependent ();
 	void adjust_dependent_difficulty ();
-	void clear_blocks ();
 	void insert_inactive_votes_cache (nano::block_hash const &);
+	// Erase all blocks from active and, if not confirmed, clear digests from network filters
+	void cleanup ();
 
 public: // State transitions
 	bool transition_time (nano::confirmation_solicitor &, bool const saturated);
