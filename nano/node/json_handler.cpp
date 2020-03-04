@@ -970,19 +970,18 @@ void nano::json_handler::block_info ()
 	auto hash (hash_impl ());
 	if (!ec)
 	{
-		nano::block_sideband sideband;
 		auto transaction (node.store.tx_begin_read ());
-		auto block (node.store.block_get (transaction, hash, &sideband));
+		auto block (node.store.block_get (transaction, hash));
 		if (block != nullptr)
 		{
-			nano::account account (block->account ().is_zero () ? sideband.account : block->account ());
+			nano::account account (block->account ().is_zero () ? block->sideband ().account : block->account ());
 			response_l.put ("block_account", account.to_account ());
 			auto amount (node.ledger.amount (transaction, hash));
 			response_l.put ("amount", amount.convert_to<std::string> ());
 			auto balance (node.ledger.balance (transaction, hash));
 			response_l.put ("balance", balance.convert_to<std::string> ());
-			response_l.put ("height", std::to_string (sideband.height));
-			response_l.put ("local_timestamp", std::to_string (sideband.timestamp));
+			response_l.put ("height", std::to_string (block->sideband ().height));
+			response_l.put ("local_timestamp", std::to_string (block->sideband ().timestamp));
 			auto confirmed (node.ledger.block_confirmed (transaction, hash));
 			response_l.put ("confirmed", confirmed);
 
@@ -1121,19 +1120,18 @@ void nano::json_handler::blocks_info ()
 			nano::block_hash hash;
 			if (!hash.decode_hex (hash_text))
 			{
-				nano::block_sideband sideband;
-				auto block (node.store.block_get (transaction, hash, &sideband));
+				auto block (node.store.block_get (transaction, hash));
 				if (block != nullptr)
 				{
 					boost::property_tree::ptree entry;
-					nano::account account (block->account ().is_zero () ? sideband.account : block->account ());
+					nano::account account (block->account ().is_zero () ? block->sideband ().account : block->account ());
 					entry.put ("block_account", account.to_account ());
 					auto amount (node.ledger.amount (transaction, hash));
 					entry.put ("amount", amount.convert_to<std::string> ());
 					auto balance (node.ledger.balance (transaction, hash));
 					entry.put ("balance", balance.convert_to<std::string> ());
-					entry.put ("height", std::to_string (sideband.height));
-					entry.put ("local_timestamp", std::to_string (sideband.timestamp));
+					entry.put ("height", std::to_string (block->sideband ().height));
+					entry.put ("local_timestamp", std::to_string (block->sideband ().timestamp));
 					auto confirmed (node.ledger.block_confirmed (transaction, hash));
 					entry.put ("confirmed", confirmed);
 
@@ -1756,6 +1754,7 @@ void nano::json_handler::chain (bool successors)
 void nano::json_handler::confirmation_active ()
 {
 	uint64_t announcements (0);
+	uint64_t confirmed (0);
 	boost::optional<std::string> announcements_text (request.get_optional<std::string> ("announcements"));
 	if (announcements_text.is_initialized ())
 	{
@@ -1766,15 +1765,24 @@ void nano::json_handler::confirmation_active ()
 		nano::lock_guard<std::mutex> lock (node.active.mutex);
 		for (auto i (node.active.roots.begin ()), n (node.active.roots.end ()); i != n; ++i)
 		{
-			if (i->election->confirmation_request_count >= announcements && !i->election->confirmed ())
+			if (i->election->confirmation_request_count >= announcements)
 			{
-				boost::property_tree::ptree entry;
-				entry.put ("", i->root.to_string ());
-				elections.push_back (std::make_pair ("", entry));
+				if (!i->election->confirmed ())
+				{
+					boost::property_tree::ptree entry;
+					entry.put ("", i->root.to_string ());
+					elections.push_back (std::make_pair ("", entry));
+				}
+				else
+				{
+					++confirmed;
+				}
 			}
 		}
 	}
 	response_l.add_child ("confirmations", elections);
+	response_l.put ("unconfirmed", elections.size ());
+	response_l.put ("confirmed", confirmed);
 	response_errors ();
 }
 
@@ -1842,11 +1850,9 @@ void nano::json_handler::confirmation_info ()
 	nano::qualified_root root;
 	if (!root.decode_hex (root_text))
 	{
-		nano::lock_guard<std::mutex> lock (node.active.mutex);
-		auto conflict_info (node.active.roots.find (root));
-		if (conflict_info != node.active.roots.end ())
+		auto election (node.active.election (root));
+		if (election != nullptr && !election->confirmed ())
 		{
-			auto election (conflict_info->election);
 			response_l.put ("announcements", std::to_string (election->confirmation_request_count));
 			response_l.put ("voters", std::to_string (election->last_votes.size ()));
 			response_l.put ("last_winner", election->status.winner->hash ().to_string ());
@@ -2557,8 +2563,7 @@ void nano::json_handler::account_history ()
 		boost::property_tree::ptree history;
 		bool output_raw (request.get_optional<bool> ("raw") == true);
 		response_l.put ("account", account.to_account ());
-		nano::block_sideband sideband;
-		auto block (node.store.block_get (transaction, hash, &sideband));
+		auto block (node.store.block_get (transaction, hash));
 		while (block != nullptr && count > 0)
 		{
 			if (offset > 0)
@@ -2572,8 +2577,8 @@ void nano::json_handler::account_history ()
 				block->visit (visitor);
 				if (!entry.empty ())
 				{
-					entry.put ("local_timestamp", std::to_string (sideband.timestamp));
-					entry.put ("height", std::to_string (sideband.height));
+					entry.put ("local_timestamp", std::to_string (block->sideband ().timestamp));
+					entry.put ("height", std::to_string (block->sideband ().height));
 					entry.put ("hash", hash.to_string ());
 					if (output_raw)
 					{
@@ -2585,7 +2590,7 @@ void nano::json_handler::account_history ()
 				}
 			}
 			hash = reverse ? node.store.block_successor (transaction, hash) : block->previous ();
-			block = node.store.block_get (transaction, hash, &sideband);
+			block = node.store.block_get (transaction, hash);
 		}
 		response_l.add_child ("history", history);
 		if (!hash.is_zero ())
@@ -4589,9 +4594,8 @@ void nano::json_handler::wallet_history ()
 				auto hash (info.head);
 				while (timestamp >= modified_since && !hash.is_zero ())
 				{
-					nano::block_sideband sideband;
-					auto block (node.store.block_get (block_transaction, hash, &sideband));
-					timestamp = sideband.timestamp;
+					auto block (node.store.block_get (block_transaction, hash));
+					timestamp = block->sideband ().timestamp;
 					if (block != nullptr && timestamp >= modified_since)
 					{
 						boost::property_tree::ptree entry;

@@ -147,6 +147,9 @@ private:
 	/** Probable representatives */
 	probably_rep_t probable_reps;
 
+	friend class active_transactions_confirm_active_Test;
+	friend class active_transactions_confirm_frontier_Test;
+
 	std::deque<std::pair<std::shared_ptr<nano::transport::channel>, std::shared_ptr<nano::vote>>> responses;
 };
 }

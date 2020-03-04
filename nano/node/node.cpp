@@ -616,7 +616,7 @@ void nano::node::process_active (std::shared_ptr<nano::block> incoming)
 	block_processor.add (incoming, nano::seconds_since_epoch ());
 }
 
-nano::process_return nano::node::process (nano::block const & block_a)
+nano::process_return nano::node::process (nano::block & block_a)
 {
 	auto transaction (store.tx_begin_write ({ tables::accounts, tables::cached_counts, tables::change_blocks, tables::frontiers, tables::open_blocks, tables::pending, tables::receive_blocks, tables::representation, tables::send_blocks, tables::state_blocks }, { tables::confirmation_height }));
 	auto result (ledger.process (transaction, block_a));
@@ -968,8 +968,9 @@ void nano::node::unchecked_cleanup ()
 		{
 			auto key (cleaning_list.front ());
 			cleaning_list.pop_front ();
-			if (!store.unchecked_del (transaction, key))
+			if (store.unchecked_exists (transaction, key))
 			{
+				store.unchecked_del (transaction, key);
 				debug_assert (ledger.cache.unchecked_count > 0);
 				--ledger.cache.unchecked_count;
 			}
@@ -1225,18 +1226,18 @@ void nano::node::receive_confirmed (nano::transaction const & transaction_a, std
 	block_a->visit (visitor);
 }
 
-void nano::node::process_confirmed_data (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, nano::block_hash const & hash_a, nano::block_sideband const & sideband_a, nano::account & account_a, nano::uint128_t & amount_a, bool & is_state_send_a, nano::account & pending_account_a)
+void nano::node::process_confirmed_data (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, nano::block_hash const & hash_a, nano::account & account_a, nano::uint128_t & amount_a, bool & is_state_send_a, nano::account & pending_account_a)
 {
 	// Faster account calculation
 	account_a = block_a->account ();
 	if (account_a.is_zero ())
 	{
-		account_a = sideband_a.account;
+		account_a = block_a->sideband ().account;
 	}
 	// Faster amount calculation
 	auto previous (block_a->previous ());
 	auto previous_balance (ledger.balance (transaction_a, previous));
-	auto block_balance (store.block_balance_calculated (block_a, sideband_a));
+	auto block_balance (store.block_balance_calculated (block_a));
 	if (hash_a != ledger.network_params.ledger.genesis_account)
 	{
 		amount_a = block_balance > previous_balance ? block_balance - previous_balance : previous_balance - block_balance;

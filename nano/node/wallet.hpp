@@ -110,7 +110,7 @@ public:
 	static size_t const seed_iv_index;
 	static int const special_count;
 	nano::kdf & kdf;
-	MDB_dbi handle{ 0 };
+	std::atomic<MDB_dbi> handle{ 0 };
 	std::recursive_mutex mutex;
 
 private:

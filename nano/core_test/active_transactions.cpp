@@ -7,19 +7,23 @@
 
 using namespace std::chrono_literals;
 
+namespace nano
+{
 TEST (active_transactions, confirm_active)
 {
-	nano::system system (1);
-	auto & node1 = *system.nodes[0];
-	// Send and vote for a block before peering with node2
-	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	auto send (system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::public_key (), node1.config.receive_minimum.number ()));
-	system.deadline_set (5s);
-	while (!node1.active.empty () || !node1.block_confirmed_or_being_confirmed (node1.store.tx_begin_read (), send->hash ()))
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
-	auto & node2 = *system.add_node (nano::node_config (nano::get_available_port (), system.logging));
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_request_loop = true;
+	auto & node1 = *system.add_node (node_flags);
+	nano::genesis genesis;
+	auto send (std::make_shared<nano::send_block> (genesis.hash (), nano::public_key (), nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+	ASSERT_EQ (nano::process_result::progress, node1.process (*send).code);
+	nano::node_config node_config2 (nano::get_available_port (), system.logging);
+	node_config2.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	nano::node_flags node_flags2;
+	// The rep crawler would otherwise request confirmations in order to find representatives
+	node_flags2.disable_rep_crawler = true;
+	auto & node2 = *system.add_node (node_config2, node_flags2);
 	system.deadline_set (5s);
 	// Let node2 know about the block
 	while (node2.active.empty ())
@@ -27,56 +31,69 @@ TEST (active_transactions, confirm_active)
 		node1.network.flood_block (send, nano::buffer_drop_policy::no_limiter_drop);
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	while (node2.ledger.cache.cemented_count < 2 || !node2.active.empty ())
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
-}
-
-TEST (active_transactions, confirm_frontier)
-{
-	nano::system system (1);
-	auto & node1 = *system.nodes[0];
-	// Send and vote for a block before peering with node2
+	// Save election to check request count afterwards
+	auto election = node2.active.election (send->qualified_root ());
+	ASSERT_NE (nullptr, election);
+	// Add key to node1
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	auto send (system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::public_key (), node1.config.receive_minimum.number ()));
-	system.deadline_set (5s);
-	while (!node1.active.empty () || !node1.block_confirmed_or_being_confirmed (node1.store.tx_begin_read (), send->hash ()))
+	// Add representative to disabled rep crawler
+	auto peers (node2.network.random_set (1));
+	ASSERT_FALSE (peers.empty ());
 	{
-		ASSERT_NO_ERROR (system.poll ());
+		nano::lock_guard<std::mutex> guard (node2.rep_crawler.probable_reps_mutex);
+		node2.rep_crawler.probable_reps.emplace (nano::test_genesis_key.pub, nano::genesis_amount, *peers.begin ());
 	}
-	auto & node2 = *system.add_node (nano::node_config (nano::get_available_port (), system.logging));
-	ASSERT_EQ (nano::process_result::progress, node2.process (*send).code);
-	system.deadline_set (5s);
 	while (node2.ledger.cache.cemented_count < 2 || !node2.active.empty ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+	// At least one confirmation request
+	ASSERT_GT (election->confirmation_request_count, 0);
+	// Blocks were cleared (except for not_an_account)
+	ASSERT_EQ (1, election->blocks.size ());
+}
 }
 
-TEST (active_transactions, confirm_dependent)
+namespace nano
+{
+TEST (active_transactions, confirm_frontier)
 {
 	nano::system system;
 	nano::node_flags node_flags;
 	node_flags.disable_request_loop = true;
 	auto & node1 = *system.add_node (node_flags);
-	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	auto send1 (system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::public_key (), node1.config.receive_minimum.number ()));
-	auto send2 (system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::public_key (), node1.config.receive_minimum.number ()));
-	auto send3 (system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::public_key (), node1.config.receive_minimum.number ()));
-	nano::node_config node_config;
-	node_config.peering_port = nano::get_available_port ();
-	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	auto & node2 = *system.add_node (node_config);
-	node2.process_local (send1);
-	node2.process_local (send2);
-	node2.process_active (send3);
+	nano::genesis genesis;
+	auto send (std::make_shared<nano::send_block> (genesis.hash (), nano::public_key (), nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+	ASSERT_EQ (nano::process_result::progress, node1.process (*send).code);
+	nano::node_flags node_flags2;
+	// The rep crawler would otherwise request confirmations in order to find representatives
+	node_flags2.disable_rep_crawler = true;
+	auto & node2 = *system.add_node (node_flags2);
+	ASSERT_EQ (nano::process_result::progress, node2.process (*send).code);
 	system.deadline_set (5s);
-	while (!node2.active.empty ())
+	while (node2.active.empty ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (4, node2.ledger.cache.cemented_count);
+	// Save election to check request count afterwards
+	auto election = node2.active.election (send->qualified_root ());
+	ASSERT_NE (nullptr, election);
+	// Add key to node1
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	// Add representative to disabled rep crawler
+	auto peers (node2.network.random_set (1));
+	ASSERT_FALSE (peers.empty ());
+	{
+		nano::lock_guard<std::mutex> guard (node2.rep_crawler.probable_reps_mutex);
+		node2.rep_crawler.probable_reps.emplace (nano::test_genesis_key.pub, nano::genesis_amount, *peers.begin ());
+	}
+	system.deadline_set (5s);
+	while (node2.ledger.cache.cemented_count < 2 || !node2.active.empty ())
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_GT (election->confirmation_request_count, 0);
+}
 }
 
 TEST (active_transactions, adjusted_difficulty_priority)
@@ -700,7 +717,6 @@ TEST (active_transactions, activate_dependencies)
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::genesis genesis;
 	nano::block_builder builder;
-	system.deadline_set (std::chrono::seconds (15));
 	std::shared_ptr<nano::block> block0 = builder.state ()
 	                                      .account (nano::test_genesis_key.pub)
 	                                      .previous (genesis.hash ())
@@ -713,6 +729,7 @@ TEST (active_transactions, activate_dependencies)
 	// Establish a representative
 	node2->process_active (block0);
 	node2->block_processor.flush ();
+	system.deadline_set (10s);
 	while (node1->block (block0->hash ()) == nullptr)
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -741,9 +758,17 @@ TEST (active_transactions, activate_dependencies)
 	                                      .build ();
 	node2->process_active (block2);
 	node2->block_processor.flush ();
+	system.deadline_set (10s);
 	while (node1->block (block2->hash ()) == nullptr)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_NE (nullptr, node1->block (block2->hash ()));
+	system.deadline_set (10s);
+	while (!node1->active.empty () || !node2->active.empty ())
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_TRUE (node1->ledger.block_confirmed (node1->store.tx_begin_read (), block2->hash ()));
+	ASSERT_TRUE (node2->ledger.block_confirmed (node2->store.tx_begin_read (), block2->hash ()));
 }

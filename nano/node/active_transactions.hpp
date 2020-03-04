@@ -1,12 +1,6 @@
 #pragma once
 
 #include <nano/lib/numbers.hpp>
-#include <nano/node/confirmation_solicitor.hpp>
-#include <nano/node/election.hpp>
-#include <nano/node/gap_cache.hpp>
-#include <nano/node/repcrawler.hpp>
-#include <nano/node/transport/transport.hpp>
-#include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/circular_buffer.hpp>
@@ -113,7 +107,7 @@ public:
 	void stop ();
 	bool publish (std::shared_ptr<nano::block> block_a);
 	boost::optional<nano::election_status_type> confirm_block (nano::transaction const &, std::shared_ptr<nano::block>);
-	void block_cemented_callback (std::shared_ptr<nano::block> const & block_a, nano::block_sideband const & sideband_a);
+	void block_cemented_callback (std::shared_ptr<nano::block> const & block_a);
 	void block_already_cemented_callback (nano::block_hash const &);
 	// clang-format off
 	boost::multi_index_container<nano::conflict_info,
@@ -143,7 +137,6 @@ public:
 	size_t inactive_votes_cache_size ();
 	size_t election_winner_details_size ();
 	void add_election_winner_details (nano::block_hash const &, std::shared_ptr<nano::election> const &);
-	nano::confirmation_solicitor solicitor;
 
 private:
 	std::mutex election_winner_details_mutex;
