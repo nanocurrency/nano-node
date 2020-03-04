@@ -12,28 +12,8 @@
 namespace nano
 {
 class channel;
-class network_filter;
+class confirmation_solicitor;
 class node;
-enum class election_status_type : uint8_t
-{
-	ongoing = 0,
-	active_confirmed_quorum = 1,
-	active_confirmation_height = 2,
-	inactive_confirmation_height = 3,
-	stopped = 5
-};
-class election_status final
-{
-public:
-	std::shared_ptr<nano::block> winner;
-	nano::amount tally;
-	std::chrono::milliseconds election_end;
-	std::chrono::milliseconds election_duration;
-	unsigned confirmation_request_count;
-	unsigned block_count;
-	unsigned voter_count;
-	election_status_type type;
-};
 class vote_info final
 {
 public:
@@ -82,8 +62,8 @@ private: // State management
 
 	bool valid_change (nano::election::state_t, nano::election::state_t) const;
 	bool state_change (nano::election::state_t, nano::election::state_t);
-	void broadcast_block ();
-	void send_confirm_req ();
+	void broadcast_block (nano::confirmation_solicitor &);
+	void send_confirm_req (nano::confirmation_solicitor &);
 	void activate_dependencies ();
 
 public:
@@ -99,12 +79,13 @@ public:
 	bool publish (std::shared_ptr<nano::block> block_a);
 	size_t last_votes_size ();
 	void update_dependent ();
+	void adjust_dependent_difficulty ();
+	void insert_inactive_votes_cache (nano::block_hash const &);
 	// Erase all blocks from active and, if not confirmed, clear digests from network filters
 	void cleanup ();
-	void insert_inactive_votes_cache (nano::block_hash const &);
 
 public: // State transitions
-	bool transition_time (bool const saturated);
+	bool transition_time (nano::confirmation_solicitor &, bool const saturated);
 	void transition_passive ();
 	void transition_active ();
 

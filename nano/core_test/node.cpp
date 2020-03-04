@@ -555,7 +555,7 @@ TEST (node_config, serialization)
 	config1.callback_address = "test";
 	config1.callback_port = 10;
 	config1.callback_target = "test";
-	config1.lmdb_max_dbs = 256;
+	config1.deprecated_lmdb_max_dbs = 256;
 	nano::jsonconfig tree;
 	config1.serialize_json (tree);
 	nano::logging logging2;
@@ -572,7 +572,7 @@ TEST (node_config, serialization)
 	ASSERT_NE (config2.callback_address, config1.callback_address);
 	ASSERT_NE (config2.callback_port, config1.callback_port);
 	ASSERT_NE (config2.callback_target, config1.callback_target);
-	ASSERT_NE (config2.lmdb_max_dbs, config1.lmdb_max_dbs);
+	ASSERT_NE (config2.deprecated_lmdb_max_dbs, config1.deprecated_lmdb_max_dbs);
 
 	ASSERT_FALSE (tree.get_optional<std::string> ("epoch_block_link"));
 	ASSERT_FALSE (tree.get_optional<std::string> ("epoch_block_signer"));
@@ -590,7 +590,7 @@ TEST (node_config, serialization)
 	ASSERT_EQ (config2.callback_address, config1.callback_address);
 	ASSERT_EQ (config2.callback_port, config1.callback_port);
 	ASSERT_EQ (config2.callback_target, config1.callback_target);
-	ASSERT_EQ (config2.lmdb_max_dbs, config1.lmdb_max_dbs);
+	ASSERT_EQ (config2.deprecated_lmdb_max_dbs, config1.deprecated_lmdb_max_dbs);
 }
 
 TEST (node_config, v1_v2_upgrade)

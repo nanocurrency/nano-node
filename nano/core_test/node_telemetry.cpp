@@ -335,7 +335,7 @@ TEST (node_telemetry, many_nodes)
 {
 	nano::system system;
 	// The telemetry responses can timeout if using a large number of nodes under sanitizers, so lower the number.
-	const auto num_nodes = (is_sanitizer_build || nano::running_within_valgrind ()) ? 4 : 10; //3; // 10;
+	const auto num_nodes = (is_sanitizer_build || nano::running_within_valgrind ()) ? 4 : 10;
 	nano::node_flags node_flags;
 	node_flags.disable_ongoing_telemetry_requests = true;
 	for (auto i = 0; i < num_nodes; ++i)
@@ -343,7 +343,23 @@ TEST (node_telemetry, many_nodes)
 		nano::node_config node_config (nano::get_available_port (), system.logging);
 		// Make a metric completely different for each node so we can check afterwards that there are no duplicates
 		node_config.bandwidth_limit = 100000 + i;
-		system.add_node (node_config, node_flags);
+
+		auto node = std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, node_config, system.work, node_flags);
+		node->start ();
+		system.nodes.push_back (node);
+	}
+
+	// Merge peers after creating nodes as some backends (RocksDB) can take a while to initialize nodes (Windows/Debug for instance)
+	// and timeouts can occur between nodes while starting up many nodes synchronously.
+	for (auto const & node : system.nodes)
+	{
+		for (auto const & other_node : system.nodes)
+		{
+			if (node != other_node)
+			{
+				node->network.merge_peer (other_node->network.endpoint ());
+			}
+		}
 	}
 
 	wait_peer_connections (system);
@@ -755,17 +771,30 @@ namespace
 {
 void wait_peer_connections (nano::system & system_a)
 {
-	system_a.deadline_set (10s);
-	auto peer_count = 0;
-	auto num_nodes = system_a.nodes.size ();
-	while (peer_count != num_nodes * (num_nodes - 1))
-	{
-		ASSERT_NO_ERROR (system_a.poll ());
-		peer_count = std::accumulate (system_a.nodes.cbegin (), system_a.nodes.cend (), 0, [](auto total, auto const & node) {
-			auto transaction = node->store.tx_begin_read ();
-			return total += node->store.peer_count (transaction);
-		});
-	}
+	auto wait_peer_count = [&system_a](bool in_memory) {
+		auto num_nodes = system_a.nodes.size ();
+		system_a.deadline_set (20s);
+		auto peer_count = 0;
+		while (peer_count != num_nodes * (num_nodes - 1))
+		{
+			ASSERT_NO_ERROR (system_a.poll ());
+			peer_count = std::accumulate (system_a.nodes.cbegin (), system_a.nodes.cend (), 0, [in_memory](auto total, auto const & node) {
+				if (in_memory)
+				{
+					return total += node->network.size ();
+				}
+				else
+				{
+					auto transaction = node->store.tx_begin_read ();
+					return total += node->store.peer_count (transaction);
+				}
+			});
+		}
+	};
+
+	// Do a pre-pass with in-memory containers to reduce IO if still in the process of connecting to peers
+	wait_peer_count (true);
+	wait_peer_count (false);
 }
 
 void compare_default_test_result_data (nano::telemetry_data const & telemetry_data_a, nano::node const & node_server_a)

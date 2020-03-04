@@ -807,12 +807,19 @@ std::string nano::ledger::block_text (nano::block_hash const & hash_a)
 bool nano::ledger::is_send (nano::transaction const & transaction_a, nano::state_block const & block_a) const
 {
 	bool result (false);
-	nano::block_hash previous (block_a.hashables.previous);
-	if (!previous.is_zero ())
+	if (block_a.has_sideband ())
 	{
-		if (block_a.hashables.balance < balance (transaction_a, previous))
+		result = block_a.sideband ().details.is_send;
+	}
+	else
+	{
+		nano::block_hash previous (block_a.hashables.previous);
+		if (!previous.is_zero ())
 		{
-			result = true;
+			if (block_a.hashables.balance < balance (transaction_a, previous))
+			{
+				result = true;
+			}
 		}
 	}
 	return result;

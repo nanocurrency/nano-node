@@ -11,6 +11,7 @@
 #include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/confirmation_height_processor.hpp>
 #include <nano/node/distributed_work_factory.hpp>
+#include <nano/node/election.hpp>
 #include <nano/node/gap_cache.hpp>
 #include <nano/node/logging.hpp>
 #include <nano/node/network.hpp>

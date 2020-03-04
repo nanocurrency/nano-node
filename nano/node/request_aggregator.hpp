@@ -74,11 +74,9 @@ public:
 private:
 	void run ();
 	/** Aggregate and send cached votes for \p pool_a, returning the leftovers that were not found in cached votes **/
-	std::vector<nano::block_hash> aggregate (nano::transaction const &, channel_pool & pool_a) const;
+	std::pair<std::vector<std::shared_ptr<nano::vote>>, std::vector<nano::block_hash>> aggregate (nano::transaction const &, channel_pool & pool_a) const;
 	/** Generate and send votes from \p hashes_a to \p channel_a, does not need a lock on the mutex **/
 	void generate (nano::transaction const &, std::vector<nano::block_hash> hashes_a, std::shared_ptr<nano::transport::channel> & channel_a) const;
-
-	unsigned const max_consecutive_requests;
 
 	nano::stat & stats;
 	nano::votes_cache & votes_cache;
