@@ -760,7 +760,7 @@ TEST (active_transactions, confirmation_consistency)
 		while (!node.ledger.block_confirmed (node.store.tx_begin_read (), block->hash ()))
 		{
 			ASSERT_FALSE (node.active.insert (block).second);
-			ASSERT_NO_ERROR (system.poll ());
+			ASSERT_NO_ERROR (system.poll (5ms));
 		}
 		nano::lock_guard<std::mutex> guard (node.active.mutex);
 		ASSERT_EQ (i + 1, node.active.recently_confirmed.size ());

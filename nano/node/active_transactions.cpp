@@ -764,8 +764,8 @@ void nano::active_transactions::add_recently_cemented (nano::election_status con
 
 void nano::active_transactions::add_recently_confirmed (nano::qualified_root const & root_a)
 {
-	auto inserted (recently_confirmed.get<tag_sequence> ().push_back (root_a));
-	if (recently_confirmed.size () > node.config.confirmation_history_size && inserted.second)
+	recently_confirmed.get<tag_sequence> ().push_back (root_a);
+	if (recently_confirmed.size () > node.config.confirmation_history_size)
 	{
 		recently_confirmed.get<tag_sequence> ().pop_front ();
 	}
