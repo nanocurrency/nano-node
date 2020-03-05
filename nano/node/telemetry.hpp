@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/utility.hpp>
 #include <nano/node/common.hpp>
 #include <nano/secure/common.hpp>
 
@@ -98,6 +99,7 @@ private:
 	nano::network & network;
 	nano::alarm & alarm;
 	nano::worker & worker;
+	nano::observer_set<nano::telemetry_data const &, nano::endpoint const &> observers;
 
 	std::atomic<bool> stopped{ false };
 	nano::network_params network_params;

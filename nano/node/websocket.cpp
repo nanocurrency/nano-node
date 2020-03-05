@@ -859,6 +859,21 @@ nano::websocket::message nano::websocket::message_builder::bootstrap_exited (std
 	return message_l;
 }
 
+nano::websocket::message nano::websocket::message_builder::telemetry_received (nano::telemetry_data const & telemetry_data_a, nano::endpoint const & endpoint_a)
+{
+	nano::websocket::message message_l (nano::websocket::topic::telemetry);
+	set_common_fields (message_l);
+
+	// Telemetry information
+	nano::jsonconfig telemetry_l;
+	telemetry_data_a.serialize_json (telemetry_l);
+	telemetry_l.put ("address", endpoint_a.address ());
+	telemetry_l.put ("port", endpoint_a.port ());
+
+	message_l.contents.add_child ("message", telemetry_l.get_tree ());
+	return message_l;
+}
+
 void nano::websocket::message_builder::set_common_fields (nano::websocket::message & message_a)
 {
 	using namespace std::chrono;

@@ -39,9 +39,9 @@ void nano::telemetry::set (nano::telemetry_data const & telemetry_data_a, nano::
 {
 	if (!stopped)
 	{
-		nano::lock_guard<std::mutex> guard (mutex);
+		nano::unique_lock<std::mutex> lk (mutex);
 		auto it = recent_or_initial_request_telemetry_data.find (endpoint_a);
-		if (it == recent_or_initial_request_telemetry_data.cend ())
+		if (it == recent_or_initial_request_telemetry_data.cend () || !it->undergoing_request)
 		{
 			// Not requesting telemetry data from this peer so ignore it
 			return;
@@ -51,6 +51,14 @@ void nano::telemetry::set (nano::telemetry_data const & telemetry_data_a, nano::
 			telemetry_info_a.data = telemetry_data_a;
 			telemetry_info_a.undergoing_request = false;
 		});
+
+		lk.unlock ();
+		if (!is_empty_a)
+		{
+			// Received telemetry data from a peer which hasn't disabled providing telemetry metrics
+			observers.notify (telemetry_data_a, endpoint_a);
+		}
+		lk.lock ();
 
 		channel_processed (endpoint_a, is_empty_a);
 	}
