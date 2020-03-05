@@ -693,11 +693,7 @@ TEST (node_telemetry, dos_udp)
 		ASSERT_FALSE (ec);
 	});
 
-	system.deadline_set (20s);
-	while (1 != node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in))
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (20s, node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in) == 1);
 
 	auto orig = std::chrono::steady_clock::now ();
 	for (int i = 0; i < 10; ++i)
@@ -707,22 +703,17 @@ TEST (node_telemetry, dos_udp)
 		});
 	}
 
-	system.deadline_set (20s);
-	while ((nano::telemetry_cache_cutoffs::test + orig) > std::chrono::steady_clock::now ())
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (20s, ((nano::telemetry_cache_cutoffs::test + orig - 1s) <= std::chrono::steady_clock::now ()));
 
 	// Should process no more telemetry_req messages
-	ASSERT_EQ (1, node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in));
+	ASSERT_TIMELY (20s, node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in) == 1);
 
 	// Now spam messages waiting for it to be processed
-	system.deadline_set (20s);
-	while (node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in) == 1)
-	{
+	auto ec = system.poll_until_true (20s, [&channel, &message, &node_server] {
 		channel->send (message);
-		ASSERT_NO_ERROR (system.poll ());
-	}
+		return node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in) != 1;
+	});
+	ASSERT_NO_ERROR (ec);
 }
 
 TEST (node_telemetry, disable_metrics)
