@@ -32,6 +32,14 @@
 	GTEST_TEST_ERROR_CODE ((condition.value () > 0), #condition, "An error was expected", "", \
 	GTEST_FATAL_FAILURE_)
 
+/** Asserts that the condition becomes true within the deadline */
+#define ASSERT_TIMELY(time, condition)    \
+	system.deadline_set (time);           \
+	while (!(condition))                  \
+	{                                     \
+		ASSERT_NO_ERROR (system.poll ()); \
+	}
+
 /* Convenience globals for core_test */
 namespace nano
 {
