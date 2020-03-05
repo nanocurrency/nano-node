@@ -178,6 +178,17 @@ std::error_code nano::system::poll (std::chrono::nanoseconds const & wait_time)
 	return ec;
 }
 
+std::error_code nano::system::poll_until_true (std::chrono::nanoseconds deadline_a, std::function<bool()> predicate_a)
+{
+	std::error_code ec;
+	deadline_set (deadline_a);
+	while (!ec && !predicate_a ())
+	{
+		ec = poll ();
+	}
+	return ec;
+}
+
 namespace
 {
 class traffic_generator : public std::enable_shared_from_this<traffic_generator>
