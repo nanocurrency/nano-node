@@ -3,6 +3,7 @@
 #include <boost/config.hpp>
 #include <boost/version.hpp>
 
+#include <algorithm>
 #include <string>
 
 namespace boost
@@ -76,6 +77,7 @@ public:
 	network_constants (nano_networks network_a) :
 	current_network (network_a)
 	{
+		// The minimum threshold to enter the node, does not guarantee a block is processed
 		publish_threshold = is_test_network () ? publish_test_threshold : is_beta_network () ? publish_beta_threshold : publish_full_threshold;
 
 		// A representative is classified as principal based on its weight and this factor
@@ -88,9 +90,14 @@ public:
 		request_interval_ms = is_test_network () ? 20 : 500;
 	}
 
-	/** Network work thresholds. ~5 seconds of work for the live network */
-	static uint64_t const publish_full_threshold{ 0xffffffc000000000 };
-	static uint64_t const publish_beta_threshold{ 0xfffff00000000000 }; // 64x lower than full
+	/** Network work thresholds */
+	static uint64_t const publish_full_epoch_1_threshold{ 0xffffffc000000000 };
+	static uint64_t const publish_full_epoch_2_threshold{ 0xfffffff800000000 }; // 8x higher than epoch 1
+	static uint64_t const publish_full_epoch_2_receive_threshold{ 0xfffffe0000000000 }; // 8x lower than epoch 1
+	static uint64_t const publish_full_threshold{ std::min ({ publish_full_epoch_1_threshold, publish_full_epoch_2_threshold, publish_full_epoch_2_receive_threshold }) };
+	static_assert (publish_full_threshold == publish_full_epoch_2_receive_threshold, "publish_full_threshold is ill-defined");
+
+	static uint64_t const publish_beta_threshold{ 0xfffff00000000000 }; // 64x lower than epoch 1
 	static uint64_t const publish_test_threshold{ 0xff00000000000000 }; // very low for tests
 
 	/** Error message when an invalid network is specified */
