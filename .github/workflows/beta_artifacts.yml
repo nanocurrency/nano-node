@@ -51,10 +51,22 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-2   
+      
+  linux_docker_job:
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@722adc6
+      - uses: chrislennon/action-aws-cli@f0f8671
+      - name: tag
+        run: echo "::set-env name=TAG::`git describe --tags $GITHUB_SHA`"
+      - name: Checkout Submodules
+        run: git submodule update --init --recursive
+      - name: Fetch Deps
+        run: ci/actions/linux/install_deps.sh
       - name: Deploy Docker (nanocurrency/nano-beta)
         run: TRAVIS_TAG=${TAG} ci/actions/linux/deploy-docker.sh
         env:
-          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}     
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
   
   windows_job:
     runs-on: windows-latest
