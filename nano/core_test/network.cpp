@@ -919,7 +919,11 @@ TEST (network, replace_port)
 	ASSERT_EQ (node0->network.endpoint (), list2[0]->get_endpoint ());
 	// Remove correct peer (same node ID)
 	node0->network.udp_channels.clean_node_id (nano::endpoint (node1->network.endpoint ().address (), 23000), node1->node_id.pub);
-	ASSERT_EQ (node0->network.udp_channels.size (), 0);
+	system.deadline_set (5s);
+	while (node0->network.udp_channels.size () > 1)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 	node1->stop ();
 }
 
