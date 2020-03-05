@@ -120,6 +120,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	[node.statistics.log]
 	[node.statistics.sampling]
 	[node.websocket]
+	[node.lmdb]
 	[node.rocksdb]
 	[opencl]
 	[rpc]
@@ -158,7 +159,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.external_address, defaults.node.external_address);
 	ASSERT_EQ (conf.node.external_port, defaults.node.external_port);
 	ASSERT_EQ (conf.node.io_threads, defaults.node.io_threads);
-	ASSERT_EQ (conf.node.lmdb_max_dbs, defaults.node.lmdb_max_dbs);
+	ASSERT_EQ (conf.node.deprecated_lmdb_max_dbs, defaults.node.deprecated_lmdb_max_dbs);
 	ASSERT_EQ (conf.node.max_work_generate_multiplier, defaults.node.max_work_generate_multiplier);
 	ASSERT_EQ (conf.node.network_threads, defaults.node.network_threads);
 	ASSERT_EQ (conf.node.secondary_work_peers, defaults.node.secondary_work_peers);
@@ -244,6 +245,10 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.stat_config.log_headers, defaults.node.stat_config.log_headers);
 	ASSERT_EQ (conf.node.stat_config.log_counters_filename, defaults.node.stat_config.log_counters_filename);
 	ASSERT_EQ (conf.node.stat_config.log_samples_filename, defaults.node.stat_config.log_samples_filename);
+
+	ASSERT_EQ (conf.node.lmdb_config.sync, defaults.node.lmdb_config.sync);
+	ASSERT_EQ (conf.node.lmdb_config.max_databases, defaults.node.lmdb_config.max_databases);
+	ASSERT_EQ (conf.node.lmdb_config.map_size, defaults.node.lmdb_config.map_size);
 
 	ASSERT_EQ (conf.node.rocksdb_config.enable, defaults.node.rocksdb_config.enable);
 	ASSERT_EQ (conf.node.rocksdb_config.bloom_filter_bits, defaults.node.rocksdb_config.bloom_filter_bits);
@@ -495,6 +500,11 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	enable = true
 	port = 999
 
+	[node.lmdb]
+	sync = "nosync_safe"
+	max_databases = 999
+	map_size = 999
+
 	[node.rocksdb]
 	enable = true
 	bloom_filter_bits = 10
@@ -557,7 +567,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.external_address, defaults.node.external_address);
 	ASSERT_NE (conf.node.external_port, defaults.node.external_port);
 	ASSERT_NE (conf.node.io_threads, defaults.node.io_threads);
-	ASSERT_NE (conf.node.lmdb_max_dbs, defaults.node.lmdb_max_dbs);
+	ASSERT_NE (conf.node.deprecated_lmdb_max_dbs, defaults.node.deprecated_lmdb_max_dbs);
 	ASSERT_NE (conf.node.max_work_generate_multiplier, defaults.node.max_work_generate_multiplier);
 	ASSERT_NE (conf.node.frontiers_confirmation, defaults.node.frontiers_confirmation);
 	ASSERT_NE (conf.node.network_threads, defaults.node.network_threads);
@@ -644,6 +654,10 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.stat_config.log_headers, defaults.node.stat_config.log_headers);
 	ASSERT_NE (conf.node.stat_config.log_counters_filename, defaults.node.stat_config.log_counters_filename);
 	ASSERT_NE (conf.node.stat_config.log_samples_filename, defaults.node.stat_config.log_samples_filename);
+
+	ASSERT_NE (conf.node.lmdb_config.sync, defaults.node.lmdb_config.sync);
+	ASSERT_NE (conf.node.lmdb_config.max_databases, defaults.node.lmdb_config.max_databases);
+	ASSERT_NE (conf.node.lmdb_config.map_size, defaults.node.lmdb_config.map_size);
 
 	ASSERT_NE (conf.node.rocksdb_config.enable, defaults.node.rocksdb_config.enable);
 	ASSERT_NE (conf.node.rocksdb_config.bloom_filter_bits, defaults.node.rocksdb_config.bloom_filter_bits);

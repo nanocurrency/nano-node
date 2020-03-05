@@ -35,7 +35,7 @@ public:
 	bool is_processing_block (nano::block_hash const &);
 	nano::block_hash current ();
 
-	void add_cemented_observer (std::function<void(block_w_sideband)> const &);
+	void add_cemented_observer (std::function<void(std::shared_ptr<nano::block>)> const &);
 	void add_block_already_cemented_observer (std::function<void(nano::block_hash const &)> const &);
 
 private:
@@ -51,7 +51,7 @@ private:
 
 	nano::condition_variable condition;
 	std::atomic<bool> stopped{ false };
-	std::vector<std::function<void(nano::block_w_sideband)>> cemented_observers;
+	std::vector<std::function<void(std::shared_ptr<nano::block>)>> cemented_observers;
 	std::vector<std::function<void(nano::block_hash const &)>> block_already_cemented_observers;
 
 	nano::ledger & ledger;
@@ -61,7 +61,7 @@ private:
 	std::thread thread;
 
 	void set_next_hash ();
-	void notify_observers (std::vector<nano::block_w_sideband> const &);
+	void notify_observers (std::vector<std::shared_ptr<nano::block>> const &);
 	void notify_observers (nano::block_hash const &);
 
 	friend std::unique_ptr<container_info_component> collect_container_info (confirmation_height_processor &, const std::string &);

@@ -1,7 +1,6 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/jsonconfig.hpp>
-#include <nano/lib/rocksdbconfig.hpp>
 #include <nano/lib/rpcconfig.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/nodeconfig.hpp>
@@ -81,7 +80,7 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("bootstrap_connections", bootstrap_connections, "Number of outbound bootstrap connections. Must be a power of 2. Defaults to 4.\nWarning: a larger amount of connections may use substantially more system memory.\ntype:uint64");
 	toml.put ("bootstrap_connections_max", bootstrap_connections_max, "Maximum number of inbound bootstrap connections. Defaults to 64.\nWarning: a larger amount of connections may use additional system memory.\ntype:uint64");
 	toml.put ("bootstrap_initiator_threads", bootstrap_initiator_threads, "Number of threads dedicated to concurrent bootstrap attempts. Defaults to 2 (if the number of CPU threads is more than 1), otherwise 1.\nWarning: a larger amount of attempts may use additional system memory and disk IO.\ntype:uint64");
-	toml.put ("lmdb_max_dbs", lmdb_max_dbs, "Maximum open lmdb databases. Increase default if more than 100 wallets is required.\nNote: external management is recommended when a large amounts of wallets are required (see https://docs.nano.org/integration-guides/key-management/).\ntype:uint64");
+	toml.put ("lmdb_max_dbs", deprecated_lmdb_max_dbs, "DEPRECATED: use node.lmdb.max_databases instead.\nMaximum open lmdb databases. Increase default if more than 100 wallets is required.\nNote: external management is recommended when a large amounts of wallets are required (see https://docs.nano.org/integration-guides/key-management/).\ntype:uint64");
 	toml.put ("block_processor_batch_max_time", block_processor_batch_max_time.count (), "The maximum time the block processor can continously process blocks for.\ntype:milliseconds");
 	toml.put ("allow_local_peers", allow_local_peers, "Enable or disable local host peering.\ntype:bool");
 	toml.put ("vote_minimum", vote_minimum.to_string_dec (), "Local representatives do not vote if the delegated weight is under this threshold. Saves on system resources.\ntype:string,amount,raw");
@@ -110,7 +109,7 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 		work_peers_l->push_back (boost::str (boost::format ("%1%:%2%") % i->first % i->second));
 	}
 
-	auto preconfigured_peers_l (toml.create_array ("preconfigured_peers", "A list of \"address:port\" entries to identify preconfigured peers."));
+	auto preconfigured_peers_l (toml.create_array ("preconfigured_peers", "A list of \"address\" (hostname or ip address) entries to identify preconfigured peers."));
 	for (auto i (preconfigured_peers.begin ()), n (preconfigured_peers.end ()); i != n; ++i)
 	{
 		preconfigured_peers_l->push_back (*i);
@@ -160,6 +159,10 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	nano::tomlconfig rocksdb_l;
 	rocksdb_config.serialize_toml (rocksdb_l);
 	toml.put_child ("rocksdb", rocksdb_l);
+
+	nano::tomlconfig lmdb_l;
+	lmdb_config.serialize_toml (lmdb_l);
+	toml.put_child ("lmdb", lmdb_l);
 
 	return toml.get_error ();
 }
@@ -304,10 +307,32 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		toml.get<unsigned> ("bootstrap_connections", bootstrap_connections);
 		toml.get<unsigned> ("bootstrap_connections_max", bootstrap_connections_max);
 		toml.get<unsigned> ("bootstrap_initiator_threads", bootstrap_initiator_threads);
-		toml.get<int> ("lmdb_max_dbs", lmdb_max_dbs);
 		toml.get<bool> ("enable_voting", enable_voting);
 		toml.get<bool> ("allow_local_peers", allow_local_peers);
 		toml.get<unsigned> (signature_checker_threads_key, signature_checker_threads);
+
+		auto lmdb_max_dbs_default = deprecated_lmdb_max_dbs;
+		toml.get<int> ("lmdb_max_dbs", deprecated_lmdb_max_dbs);
+		bool is_deprecated_lmdb_dbs_used = lmdb_max_dbs_default != deprecated_lmdb_max_dbs;
+
+		// Note: using the deprecated setting will result in a fail-fast config error in the future
+		if (!network_params.network.is_test_network () && is_deprecated_lmdb_dbs_used)
+		{
+			std::cerr << "WARNING: The node.lmdb_max_dbs setting is deprecated and will be removed in a future version." << std::endl;
+			std::cerr << "Please use the node.lmdb.max_databases setting instead." << std::endl;
+		}
+
+		if (toml.has_key ("lmdb"))
+		{
+			auto lmdb_config_l (toml.get_required_child ("lmdb"));
+			lmdb_config.deserialize_toml (lmdb_config_l, is_deprecated_lmdb_dbs_used);
+
+			// Note that the lmdb config fails is both the deprecated and new setting are changed.
+			if (is_deprecated_lmdb_dbs_used)
+			{
+				lmdb_config.max_databases = deprecated_lmdb_max_dbs;
+			}
+		}
 
 		boost::asio::ip::address_v6 external_address_l;
 		toml.get<boost::asio::ip::address_v6> ("external_address", external_address_l);
@@ -446,7 +471,7 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("callback_address", callback_address);
 	json.put ("callback_port", callback_port);
 	json.put ("callback_target", callback_target);
-	json.put ("lmdb_max_dbs", lmdb_max_dbs);
+	json.put ("lmdb_max_dbs", deprecated_lmdb_max_dbs);
 	json.put ("block_processor_batch_max_time", block_processor_batch_max_time.count ());
 	json.put ("allow_local_peers", allow_local_peers);
 	json.put ("vote_minimum", vote_minimum.to_string_dec ());
@@ -740,7 +765,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		json.get<std::string> ("callback_address", callback_address);
 		json.get<uint16_t> ("callback_port", callback_port);
 		json.get<std::string> ("callback_target", callback_target);
-		json.get<int> ("lmdb_max_dbs", lmdb_max_dbs);
+		json.get<int> ("lmdb_max_dbs", deprecated_lmdb_max_dbs);
 		json.get<bool> ("enable_voting", enable_voting);
 		json.get<bool> ("allow_local_peers", allow_local_peers);
 		json.get<unsigned> (signature_checker_threads_key, signature_checker_threads);

@@ -14,12 +14,6 @@ node (node_a)
 	}
 }
 
-void nano::rep_crawler::add (nano::block_hash const & hash_a)
-{
-	nano::lock_guard<std::mutex> lock (active_mutex);
-	active.insert (hash_a);
-}
-
 void nano::rep_crawler::remove (nano::block_hash const & hash_a)
 {
 	nano::lock_guard<std::mutex> lock (active_mutex);

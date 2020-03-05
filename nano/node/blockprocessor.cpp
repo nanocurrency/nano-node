@@ -1,5 +1,6 @@
 #include <nano/lib/timer.hpp>
 #include <nano/node/blockprocessor.hpp>
+#include <nano/node/election.hpp>
 #include <nano/node/node.hpp>
 #include <nano/secure/blockstore.hpp>
 
@@ -372,7 +373,11 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	}
 
 	// Start collecting quorum on block
-	node.active.insert (block_a, false);
+	auto election = node.active.insert (block_a);
+	if (election.second)
+	{
+		election.first->transition_passive ();
+	}
 
 	// Announce block contents to the network
 	if (initial_publish_a)
@@ -554,11 +559,9 @@ void nano::block_processor::queue_unchecked (nano::write_transaction const & tra
 	{
 		if (!node.flags.disable_block_processor_unchecked_deletion)
 		{
-			if (!node.store.unchecked_del (transaction_a, nano::unchecked_key (hash_a, info.block->hash ())))
-			{
-				debug_assert (node.ledger.cache.unchecked_count > 0);
-				--node.ledger.cache.unchecked_count;
-			}
+			node.store.unchecked_del (transaction_a, nano::unchecked_key (hash_a, info.block->hash ()));
+			debug_assert (node.ledger.cache.unchecked_count > 0);
+			--node.ledger.cache.unchecked_count;
 		}
 		add (info);
 	}

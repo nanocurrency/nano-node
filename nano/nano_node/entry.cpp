@@ -155,11 +155,6 @@ int main (int argc, char * const * argv)
 				std::cerr << flags_ec.message () << std::endl;
 				std::exit (1);
 			}
-			auto config (vm.find ("config"));
-			if (config != vm.end ())
-			{
-				flags.config_overrides = config->second.as<std::vector<std::string>> ();
-			}
 			daemon.run (data_path, flags);
 		}
 		else if (vm.count ("debug_block_count"))
@@ -281,8 +276,7 @@ int main (int argc, char * const * argv)
 		else if (vm.count ("debug_account_count"))
 		{
 			nano::inactive_node node (data_path);
-			auto transaction (node.node->store.tx_begin_read ());
-			std::cout << boost::str (boost::format ("Frontier count: %1%\n") % node.node->store.account_count (transaction));
+			std::cout << boost::str (boost::format ("Frontier count: %1%\n") % node.node->ledger.cache.account_count);
 		}
 		else if (vm.count ("debug_mass_activity"))
 		{
@@ -1000,14 +994,14 @@ int main (int argc, char * const * argv)
 
 				auto hash (info.open_block);
 				nano::block_hash calculated_hash (0);
-				nano::block_sideband sideband;
-				auto block (node.node->store.block_get (transaction, hash, &sideband)); // Block data
+				auto block (node.node->store.block_get (transaction, hash)); // Block data
 				uint64_t height (0);
 				uint64_t previous_timestamp (0);
 				nano::account calculated_representative (0);
 				while (!hash.is_zero () && block != nullptr)
 				{
 					++block_count;
+					auto const & sideband (block->sideband ());
 					// Check for state & open blocks if account field is correct
 					if (block->type () == nano::block_type::open || block->type () == nano::block_type::state)
 					{
@@ -1130,7 +1124,7 @@ int main (int argc, char * const * argv)
 					// Retrieving block data
 					if (!hash.is_zero ())
 					{
-						block = node.node->store.block_get (transaction, hash, &sideband);
+						block = node.node->store.block_get (transaction, hash);
 					}
 				}
 				// Check if required block exists
@@ -1173,7 +1167,7 @@ int main (int argc, char * const * argv)
 				nano::pending_key const & key (i->first);
 				nano::pending_info const & info (i->second);
 				// Check block existance
-				auto block (node.node->store.block_get (transaction, key.hash));
+				auto block (node.node->store.block_get_no_sideband (transaction, key.hash));
 				if (block == nullptr)
 				{
 					std::cerr << boost::str (boost::format ("Pending block does not exist %1%\n") % key.hash.to_string ());
@@ -1240,7 +1234,7 @@ int main (int argc, char * const * argv)
 					while (!hash.is_zero ())
 					{
 						// Retrieving block data
-						auto block (node.node->store.block_get (transaction, hash));
+						auto block (node.node->store.block_get_no_sideband (transaction, hash));
 						if (block != nullptr)
 						{
 							++count;

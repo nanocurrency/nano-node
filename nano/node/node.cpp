@@ -1,4 +1,5 @@
 #include <nano/lib/threading.hpp>
+#include <nano/lib/tomlconfig.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/node.hpp>
@@ -118,9 +119,9 @@ alarm (alarm_a),
 work (work_a),
 distributed_work (*this),
 logger (config_a.logging.min_time_between_log_output),
-store_impl (nano::make_store (logger, application_path_a, flags.read_only, true, config_a.rocksdb_config, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_max_dbs, flags.sideband_batch_size, config_a.backup_before_upgrade, config_a.rocksdb_config.enable)),
+store_impl (nano::make_store (logger, application_path_a, flags.read_only, true, config_a.rocksdb_config, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_config, flags.sideband_batch_size, config_a.backup_before_upgrade, config_a.rocksdb_config.enable)),
 store (*store_impl),
-wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (application_path_a / "wallets.ldb", config_a.lmdb_max_dbs)),
+wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (application_path_a / "wallets.ldb", config_a.lmdb_config)),
 wallets_store (*wallets_store_impl),
 gap_cache (*this),
 ledger (store, stats, flags_a.generate_cache),
@@ -549,29 +550,29 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 		if (ledger_block && !block_confirmed_or_being_confirmed (transaction_a, ledger_block->hash ()))
 		{
 			std::weak_ptr<nano::node> this_w (shared_from_this ());
-			if (active.insert (ledger_block, false, [this_w, root](std::shared_ptr<nano::block>) {
-				          if (auto this_l = this_w.lock ())
-				          {
-					          auto attempt (this_l->bootstrap_initiator.current_attempt ());
-					          if (attempt && attempt->mode == nano::bootstrap_mode::legacy)
-					          {
-						          auto transaction (this_l->store.tx_begin_read ());
-						          auto account (this_l->ledger.store.frontier_get (transaction, root));
-						          if (!account.is_zero ())
-						          {
-							          this_l->bootstrap_initiator.connections->requeue_pull (nano::pull_info (account, root, root, attempt->incremental_id));
-						          }
-						          else if (this_l->ledger.store.account_exists (transaction, root))
-						          {
-							          this_l->bootstrap_initiator.connections->requeue_pull (nano::pull_info (root, nano::block_hash (0), nano::block_hash (0), attempt->incremental_id));
-						          }
-					          }
-				          }
-			          })
-			    .first)
+			auto election = active.insert (ledger_block, [this_w, root](std::shared_ptr<nano::block>) {
+				if (auto this_l = this_w.lock ())
+				{
+					auto attempt (this_l->bootstrap_initiator.current_attempt ());
+					if (attempt && attempt->mode == nano::bootstrap_mode::legacy)
+					{
+						auto transaction (this_l->store.tx_begin_read ());
+						auto account (this_l->ledger.store.frontier_get (transaction, root));
+						if (!account.is_zero ())
+						{
+							this_l->bootstrap_initiator.connections->requeue_pull (nano::pull_info (account, root, root, attempt->incremental_id));
+						}
+						else if (this_l->ledger.store.account_exists (transaction, root))
+						{
+							this_l->bootstrap_initiator.connections->requeue_pull (nano::pull_info (root, nano::block_hash (0), nano::block_hash (0), attempt->incremental_id));
+						}
+					}
+				}
+			});
+			if (election.second)
 			{
 				logger.always_log (boost::str (boost::format ("Resolving fork between our block: %1% and block %2% both with root %3%") % ledger_block->hash ().to_string () % block_a->hash ().to_string () % block_a->root ().to_string ()));
-				network.broadcast_confirm_req (ledger_block);
+				election.first->transition_active ();
 			}
 		}
 	}
@@ -615,7 +616,7 @@ void nano::node::process_active (std::shared_ptr<nano::block> incoming)
 	block_processor.add (incoming, nano::seconds_since_epoch ());
 }
 
-nano::process_return nano::node::process (nano::block const & block_a)
+nano::process_return nano::node::process (nano::block & block_a)
 {
 	auto transaction (store.tx_begin_write ({ tables::accounts, tables::cached_counts, tables::change_blocks, tables::frontiers, tables::open_blocks, tables::pending, tables::receive_blocks, tables::representation, tables::send_blocks, tables::state_blocks }, { tables::confirmation_height }));
 	auto result (ledger.process (transaction, block_a));
@@ -967,8 +968,9 @@ void nano::node::unchecked_cleanup ()
 		{
 			auto key (cleaning_list.front ());
 			cleaning_list.pop_front ();
-			if (!store.unchecked_del (transaction, key))
+			if (store.unchecked_exists (transaction, key))
 			{
+				store.unchecked_del (transaction, key);
 				debug_assert (ledger.cache.unchecked_count > 0);
 				--ledger.cache.unchecked_count;
 			}
@@ -1101,8 +1103,11 @@ void nano::node::add_initial_peers ()
 
 void nano::node::block_confirm (std::shared_ptr<nano::block> block_a)
 {
-	active.insert (block_a, false);
-	network.broadcast_confirm_req (block_a);
+	auto election = active.insert (block_a);
+	if (election.second)
+	{
+		election.first->transition_active ();
+	}
 	// Calculate votes for local representatives
 	if (config.enable_voting && wallets.rep_counts ().voting > 0 && active.active (*block_a))
 	{
@@ -1221,18 +1226,18 @@ void nano::node::receive_confirmed (nano::transaction const & transaction_a, std
 	block_a->visit (visitor);
 }
 
-void nano::node::process_confirmed_data (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, nano::block_hash const & hash_a, nano::block_sideband const & sideband_a, nano::account & account_a, nano::uint128_t & amount_a, bool & is_state_send_a, nano::account & pending_account_a)
+void nano::node::process_confirmed_data (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, nano::block_hash const & hash_a, nano::account & account_a, nano::uint128_t & amount_a, bool & is_state_send_a, nano::account & pending_account_a)
 {
 	// Faster account calculation
 	account_a = block_a->account ();
 	if (account_a.is_zero ())
 	{
-		account_a = sideband_a.account;
+		account_a = block_a->sideband ().account;
 	}
 	// Faster amount calculation
 	auto previous (block_a->previous ());
 	auto previous_balance (ledger.balance (transaction_a, previous));
-	auto block_balance (store.block_balance_calculated (block_a, sideband_a));
+	auto block_balance (store.block_balance_calculated (block_a));
 	if (hash_a != ledger.network_params.ledger.genesis_account)
 	{
 		amount_a = block_balance > previous_balance ? block_balance - previous_balance : previous_balance - block_balance;
@@ -1352,7 +1357,23 @@ peering_port (peering_port_a)
 	nano::set_secure_perm_directory (path, error_chmod);
 	logging.max_size = std::numeric_limits<std::uintmax_t>::max ();
 	logging.init (path);
-	node = std::make_shared<nano::node> (*io_context, peering_port, path, alarm, logging, work, node_flags);
+	// Config overriding
+	nano::node_config config (peering_port, logging);
+	std::stringstream config_overrides_stream;
+	for (auto const & entry : node_flags.config_overrides)
+	{
+		config_overrides_stream << entry << std::endl;
+	}
+	config_overrides_stream << std::endl;
+	nano::tomlconfig toml;
+	toml.read (config_overrides_stream);
+	auto error = config.deserialize_toml (toml);
+	if (error)
+	{
+		std::cerr << "Error deserializing --config option" << std::endl;
+		std::exit (1);
+	}
+	node = std::make_shared<nano::node> (*io_context, path, alarm, config, work, node_flags);
 	node->active.stop ();
 }
 
@@ -1374,7 +1395,7 @@ nano::node_flags const & nano::inactive_node_flag_defaults ()
 	return node_flags;
 }
 
-std::unique_ptr<nano::block_store> nano::make_store (nano::logger_mt & logger, boost::filesystem::path const & path, bool read_only, bool add_db_postfix, nano::rocksdb_config const & rocksdb_config, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, int lmdb_max_dbs, size_t batch_size, bool backup_before_upgrade, bool use_rocksdb_backend)
+std::unique_ptr<nano::block_store> nano::make_store (nano::logger_mt & logger, boost::filesystem::path const & path, bool read_only, bool add_db_postfix, nano::rocksdb_config const & rocksdb_config, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, size_t batch_size, bool backup_before_upgrade, bool use_rocksdb_backend)
 {
 #if NANO_ROCKSDB
 	auto make_rocksdb = [&logger, add_db_postfix, &path, &rocksdb_config, read_only]() {
@@ -1405,5 +1426,5 @@ std::unique_ptr<nano::block_store> nano::make_store (nano::logger_mt & logger, b
 #endif
 	}
 
-	return std::make_unique<nano::mdb_store> (logger, add_db_postfix ? path / "data.ldb" : path, txn_tracking_config_a, block_processor_batch_max_time_a, lmdb_max_dbs, batch_size, backup_before_upgrade);
+	return std::make_unique<nano::mdb_store> (logger, add_db_postfix ? path / "data.ldb" : path, txn_tracking_config_a, block_processor_batch_max_time_a, lmdb_config_a, batch_size, backup_before_upgrade);
 }
