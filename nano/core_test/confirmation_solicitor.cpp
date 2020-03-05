@@ -50,11 +50,11 @@ TEST (confirmation_solicitor, batches)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	// From rep crawler
-	ASSERT_EQ (1, node2.stats.count (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::out));
 	system.deadline_set (5s);
 	solicitor.flush ();
-	while (node2.stats.count (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::out) < 2)
+	while (node2.stats.count (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::out) == 1)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+	ASSERT_LE (2, node2.stats.count (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::out));
 }
