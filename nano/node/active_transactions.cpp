@@ -247,7 +247,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	{
 		auto & election_l (i->election);
 		bool const overflow_l (count_l >= node.config.active_elections_size && election_l->election_start < election_ttl_cutoff_l && !node.wallets.watcher->is_watched (i->root));
-		if (overflow_l || election_l->transition_time (solicitor, saturated_l))
+		if (overflow_l || election_l->transition_time (solicitor))
 		{
 			election_l->clear_blocks ();
 			i = sorted_roots_l.erase (i);
