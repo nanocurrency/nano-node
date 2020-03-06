@@ -1,5 +1,6 @@
 #include <nano/node/confirmation_solicitor.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
 
 #include <boost/format.hpp>
@@ -531,8 +532,9 @@ void nano::election::adjust_dependent_difficulty ()
 	}
 }
 
-void nano::election::clear_blocks ()
+void nano::election::cleanup ()
 {
+	bool unconfirmed (!confirmed ());
 	auto winner_hash (status.winner->hash ());
 	for (auto const & block : blocks)
 	{
@@ -542,10 +544,20 @@ void nano::election::clear_blocks ()
 		debug_assert (erased == 1);
 		node.active.erase_inactive_votes_cache (hash);
 		// Notify observers about dropped elections & blocks lost confirmed elections
-		if (!confirmed () || hash != winner_hash)
+		if (unconfirmed || hash != winner_hash)
 		{
 			node.observers.active_stopped.notify (hash);
 		}
+	}
+	if (unconfirmed)
+	{
+		// Clear network filter in another thread
+		node.worker.push_task ([node_l = node.shared (), blocks_l = std::move (blocks)]() {
+			for (auto const & block : blocks_l)
+			{
+				node_l->network.publish_filter.clear (block.second);
+			}
+		});
 	}
 }
 

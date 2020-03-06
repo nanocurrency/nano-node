@@ -195,6 +195,7 @@ private:
 	bool inactive_votes_bootstrap_check (std::vector<nano::account> const &, nano::block_hash const &, bool &);
 	boost::thread thread;
 
+	friend class active_transactions_dropped_cleanup_Test;
 	friend class confirmation_height_prioritize_frontiers_Test;
 	friend class confirmation_height_prioritize_frontiers_overwrite_Test;
 	friend std::unique_ptr<container_info_component> collect_container_info (active_transactions &, const std::string &);
