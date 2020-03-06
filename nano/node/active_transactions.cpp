@@ -19,6 +19,7 @@ confirmation_height_processor (confirmation_height_processor_a),
 node (node_a),
 multipliers_cb (20, 1.),
 trended_active_difficulty (node_a.network_params.network.publish_threshold),
+check_all_elections_period (node_a.network_params.network.is_test_network () ? 10ms : 5s),
 election_time_to_live (node_a.network_params.network.is_test_network () ? 0s : 2s),
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::request_loop);
@@ -230,11 +231,11 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	nano::confirmation_solicitor solicitor (node.network, node.network_params.network);
 	solicitor.prepare (node.rep_crawler.representatives (node.network_params.protocol.tcp_realtime_protocol_version_min));
 
-	auto election_ttl_cutoff_l (std::chrono::steady_clock::now () - election_time_to_live);
-	auto roots_size_l (roots.size ());
-	bool saturated_l (roots_size_l > node.config.active_elections_size / 2);
-	auto & sorted_roots_l = roots.get<tag_difficulty> ();
-	size_t count_l{ 0 };
+	auto & sorted_roots_l (roots.get<tag_difficulty> ());
+	auto const election_ttl_cutoff_l (std::chrono::steady_clock::now () - election_time_to_live);
+	bool const check_all_elections_l (std::chrono::steady_clock::now () - last_check_all_elections > check_all_elections_period);
+	size_t const this_loop_target_l (check_all_elections_l ? sorted_roots_l.size () : node.config.active_elections_size / 10);
+	size_t count_l (0);
 
 	/*
 	 * Loop through active elections in descending order of proof-of-work difficulty, requesting confirmation
@@ -243,7 +244,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	 * Elections extending the soft config.active_elections_size limit are flushed after a certain time-to-live cutoff
 	 * Flushed elections are later re-activated via frontier confirmation
 	 */
-	for (auto i = sorted_roots_l.begin (), n = sorted_roots_l.end (); i != n;)
+	for (auto i = sorted_roots_l.begin (), n = sorted_roots_l.end (); i != n && count_l < this_loop_target_l;)
 	{
 		auto & election_l (i->election);
 		count_l += !election_l->confirmed ();
@@ -261,6 +262,12 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	lock_a.unlock ();
 	solicitor.flush ();
 	lock_a.lock ();
+
+	// This is updated after the loop to ensure slow machines don't do the full check often
+	if (check_all_elections_l)
+	{
+		last_check_all_elections = std::chrono::steady_clock::now ();
+	}
 }
 
 void nano::active_transactions::request_loop ()
