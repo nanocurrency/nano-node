@@ -98,4 +98,5 @@ nano::uint128_t nano::network_filter::hash (uint8_t const * bytes_a, size_t coun
 }
 
 // Explicitly instantiate
+template nano::uint128_t nano::network_filter::hash (std::shared_ptr<nano::block> const &) const;
 template void nano::network_filter::clear (std::shared_ptr<nano::block> const &);
