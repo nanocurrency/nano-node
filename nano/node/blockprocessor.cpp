@@ -127,13 +127,13 @@ void nano::block_processor::process_blocks ()
 	}
 }
 
-bool nano::block_processor::should_log (bool first_time)
+bool nano::block_processor::should_log ()
 {
 	auto result (false);
 	auto now (std::chrono::steady_clock::now ());
-	if (first_time || next_log < now)
+	if (next_log < now)
 	{
-		next_log = now + std::chrono::seconds (15);
+		next_log = now + std::chrono::seconds (2);
 		result = true;
 	}
 	return result;
@@ -238,9 +238,9 @@ void nano::block_processor::verify_state_blocks (nano::unique_lock<std::mutex> &
 			}
 			items.pop_front ();
 		}
-		if (node.config.logging.timing_logging ())
+		if (node.config.logging.timing_logging () && timer_l.stop () > std::chrono::milliseconds (10))
 		{
-			node.logger.try_log (boost::str (boost::format ("Batch verified %1% state blocks in %2% %3%") % size % timer_l.stop ().count () % timer_l.unit ()));
+			node.logger.try_log (boost::str (boost::format ("Batch verified %1% state blocks in %2% %3%") % size % timer_l.value ().count () % timer_l.unit ()));
 		}
 	}
 	else
@@ -272,29 +272,12 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 	timer_l.restart ();
 	lock_a.lock ();
 	// Processing blocks
-	auto first_time (true);
 	unsigned number_of_blocks_processed (0), number_of_forced_processed (0);
 	while ((!blocks.empty () || !forced.empty ()) && (timer_l.before_deadline (node.config.block_processor_batch_max_time) || (number_of_blocks_processed < node.flags.block_processor_batch_size)) && !awaiting_write)
 	{
-		auto log_this_record (false);
-		if (node.config.logging.timing_logging ())
-		{
-			if (should_log (first_time))
-			{
-				log_this_record = true;
-			}
-		}
-		else
-		{
-			if (((blocks.size () + state_blocks.size () + forced.size ()) > 64 && should_log (false)))
-			{
-				log_this_record = true;
-			}
-		}
-
+		bool log_this_record = (blocks.size () + state_blocks.size () + forced.size () > 64) && should_log ();
 		if (log_this_record)
 		{
-			first_time = false;
 			node.logger.always_log (boost::str (boost::format ("%1% blocks (+ %2% state blocks) (+ %3% forced) in processing queue") % blocks.size () % state_blocks.size () % forced.size ()));
 		}
 		nano::unchecked_info info;
@@ -358,9 +341,9 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 	awaiting_write = false;
 	lock_a.unlock ();
 
-	if (node.config.logging.timing_logging () && number_of_blocks_processed != 0)
+	if (node.config.logging.timing_logging () && number_of_blocks_processed != 0 && timer_l.stop () > std::chrono::milliseconds (10))
 	{
-		node.logger.always_log (boost::str (boost::format ("Processed %1% blocks (%2% blocks were forced) in %3% %4%") % number_of_blocks_processed % number_of_forced_processed % timer_l.stop ().count () % timer_l.unit ()));
+		node.logger.always_log (boost::str (boost::format ("Processed %1% blocks (%2% blocks were forced) in %3% %4%") % number_of_blocks_processed % number_of_forced_processed % timer_l.value ().count () % timer_l.unit ()));
 	}
 }
 
