@@ -206,7 +206,6 @@ void nano::active_transactions::block_already_cemented_callback (nano::block_has
 void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> & lock_a)
 {
 	debug_assert (!mutex.try_lock ());
-	auto transaction_l (node.store.tx_begin_read ());
 	/*
 	 * Confirm frontiers when there aren't many confirmations already pending and node finished initial bootstrap
 	 * In auto mode start confirm only if node contains almost principal representative (half of required for principal weight)
@@ -220,7 +219,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 		if (node.config.frontiers_confirmation != nano::frontiers_confirmation_mode::disabled && bootstrap_weight_reached && probably_unconfirmed_frontiers && pending_confirmation_height_size < confirmed_frontiers_max_pending_cut_off)
 		{
 			lock_a.unlock ();
-			search_frontiers (transaction_l);
+			search_frontiers (node.store.tx_begin_read ());
 			lock_a.lock ();
 			update_adjusted_difficulty (); // New roots sorting
 		}
