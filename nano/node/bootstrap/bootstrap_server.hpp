@@ -62,7 +62,7 @@ public:
 	void finish_request ();
 	void finish_request_async ();
 	void timeout ();
-	void run_next ();
+	void run_next (nano::unique_lock<std::mutex> & lock_a);
 	bool is_bootstrap_connection ();
 	bool is_realtime_connection ();
 	std::shared_ptr<std::vector<uint8_t>> receive_buffer;
