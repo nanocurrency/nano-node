@@ -236,6 +236,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	bool const check_all_elections_l (std::chrono::steady_clock::now () - last_check_all_elections > check_all_elections_period);
 	size_t const this_loop_target_l (check_all_elections_l ? sorted_roots_l.size () : node.config.active_elections_size / 10);
 	size_t count_l (0);
+	nano::timer<std::chrono::milliseconds> elapsed (nano::timer_state::started);
 
 	/*
 	 * Loop through active elections in descending order of proof-of-work difficulty, requesting confirmation
@@ -267,6 +268,10 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	if (check_all_elections_l)
 	{
 		last_check_all_elections = std::chrono::steady_clock::now ();
+		if (node.config.logging.timing_logging () && this_loop_target_l > node.config.active_elections_size / 10)
+		{
+			node.logger.try_log (boost::str (boost::format ("Processed %1% elections (%2% were already confirmed) in %3% %4%") % this_loop_target_l % (this_loop_target_l - count_l) % elapsed.value ().count () % elapsed.unit ()));
+		}
 	}
 }
 
