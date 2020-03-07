@@ -692,8 +692,19 @@ void nano::bootstrap_server::run_next (nano::unique_lock<std::mutex> & lock_a)
 		// Realtime
 		auto request (std::move (requests.front ()));
 		requests.pop ();
+		auto timeout_check (requests.empty ());
 		lock_a.unlock ();
 		request->visit (visitor);
+		if (timeout_check)
+		{
+			std::weak_ptr<nano::bootstrap_server> this_w (shared_from_this ());
+			node->alarm.add (std::chrono::steady_clock::now () + (node->config.tcp_io_timeout * 2) + std::chrono::seconds (1), [this_w]() {
+				if (auto this_l = this_w.lock ())
+				{
+					this_l->timeout ();
+				}
+			});
+		}
 	}
 }
 
