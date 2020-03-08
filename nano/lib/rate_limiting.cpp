@@ -25,6 +25,10 @@ bool nano::rate::token_bucket::try_consume (int tokens_required_a)
 	{
 		current_size -= tokens_required_a;
 	}
+	else if (tokens_required_a == 1e9)
+	{
+		current_size = 0;
+	}
 
 	// Keep track of smallest observed bucket size so burst size can be computed (for tests and stats)
 	smallest_size = std::min (smallest_size, current_size);
