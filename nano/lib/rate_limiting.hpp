@@ -48,7 +48,7 @@ namespace rate
 		size_t current_size{ 0 };
 		/** The minimum observed bucket size, from which the largest burst can be derived */
 		size_t smallest_size{ 0 };
-		std::chrono::system_clock::time_point last_refill;
+		std::chrono::steady_clock::time_point last_refill;
 		mutable std::mutex bucket_mutex;
 	};
 }

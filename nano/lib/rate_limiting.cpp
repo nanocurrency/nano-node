@@ -13,7 +13,7 @@ nano::rate::token_bucket::token_bucket (size_t max_token_count_a, size_t refill_
 	}
 	max_token_count = smallest_size = current_size = max_token_count_a;
 	refill_rate = refill_rate_a;
-	last_refill = std::chrono::system_clock::now ();
+	last_refill = std::chrono::steady_clock::now ();
 }
 
 bool nano::rate::token_bucket::try_consume (int tokens_required_a)
@@ -38,10 +38,10 @@ bool nano::rate::token_bucket::try_consume (int tokens_required_a)
 
 void nano::rate::token_bucket::refill ()
 {
-	auto now (std::chrono::system_clock::now ());
+	auto now (std::chrono::steady_clock::now ());
 	double tokens_to_add = std::chrono::duration_cast<std::chrono::nanoseconds> (now - last_refill).count () * refill_rate / 1e9;
 	current_size = std::min (current_size + tokens_to_add, static_cast<double> (max_token_count));
-	last_refill = std::chrono::system_clock::now ();
+	last_refill = std::chrono::steady_clock::now ();
 }
 
 size_t nano::rate::token_bucket::largest_burst () const
