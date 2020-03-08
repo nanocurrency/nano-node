@@ -14,6 +14,7 @@ using namespace std::chrono_literals;
 TEST (rate, basic)
 {
 	nano::rate::token_bucket bucket (10, 10);
+
 	// Initial burst
 	ASSERT_TRUE (bucket.try_consume (10));
 	ASSERT_FALSE (bucket.try_consume (10));
@@ -33,6 +34,7 @@ TEST (rate, network)
 {
 	// 5 mb/s long term rate, allow for 10 mb/s bursts
 	nano::rate::token_bucket bucket (10, 5);
+
 	// Initial burst of 10 mb/s
 	ASSERT_TRUE (bucket.try_consume (5));
 	ASSERT_EQ (bucket.largest_burst (), 5);
@@ -44,6 +46,19 @@ TEST (rate, network)
 	std::this_thread::sleep_for (200ms);
 	ASSERT_TRUE (bucket.try_consume (1));
 	ASSERT_FALSE (bucket.try_consume (1));
+}
+
+TEST (rate, unlimited)
+{
+	nano::rate::token_bucket bucket (0, 0);
+	ASSERT_TRUE (bucket.try_consume (5));
+	ASSERT_EQ (bucket.largest_burst (), 5);
+	ASSERT_TRUE (bucket.try_consume (1e9));
+	ASSERT_EQ (bucket.largest_burst (), 1e9);
+
+	// With unlimited tokens, consuming always succeed
+	ASSERT_TRUE (bucket.try_consume (1e9));
+	ASSERT_EQ (bucket.largest_burst (), 1e9);
 }
 
 TEST (optional_ptr, basic)

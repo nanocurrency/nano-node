@@ -15,15 +15,16 @@ namespace rate
 	 *
 	 * Tokens are refilled at N tokens per second and there's a bucket capacity to limit
 	 * bursts.
+	 *
+	 * A bucket has low overhead and can be instantiated for various purposes, such as one
+	 * bucket per session, or one for bandwidth limiting. A token can represent bytes,
+	 * messages, or the cost of API invocations.
 	 */
 	class token_bucket
 	{
 	public:
 		/**
-		 * Set up a token bucket. A bucket is low overhead and can be instantiated for various purposes,
-		 * such as one bucket per session, or one for bandwidth limiting.
-		 * A token can represent anything, such as bytes, messages or the cost of API invocations.
-		 *
+		 * Set up a token bucket.
 		 * @param max_token_count_a Maximum number of tokens in this bucket, which limits bursts.
 		 * @param refill_rate_a Token refill rate, which limits the long term rate (tokens per seconds)
 		 */

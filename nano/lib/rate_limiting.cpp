@@ -5,12 +5,11 @@
 
 nano::rate::token_bucket::token_bucket (size_t max_token_count_a, size_t refill_rate_a)
 {
-	// A max token count of 0 indicates unlimited, which in practice means using the
-	// maximum available token count. This way the largest burst can still be computed
-	// from smallest_size.
-	if (max_token_count_a == 0)
+	// A token count of 0 indicates unlimited capacity. We use 1e9 as
+	// a sentinel, allowing largest burst to still be computed.
+	if (max_token_count_a == 0 || refill_rate_a == 0)
 	{
-		max_token_count_a = std::numeric_limits<std::size_t>::max ();
+		refill_rate_a = max_token_count_a = 1e9;
 	}
 	max_token_count = smallest_size = current_size = max_token_count_a;
 	refill_rate = refill_rate_a;
@@ -30,7 +29,7 @@ bool nano::rate::token_bucket::try_consume (int tokens_required_a)
 	// Keep track of smallest observed bucket size so burst size can be computed (for tests and stats)
 	smallest_size = std::min (smallest_size, current_size);
 
-	return possible;
+	return possible || refill_rate == 1e9;
 }
 
 void nano::rate::token_bucket::refill ()

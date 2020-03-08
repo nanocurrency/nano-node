@@ -12,7 +12,7 @@ class bandwidth_limiter final
 {
 public:
 	// initialize with limit 0 = unbounded
-	bandwidth_limiter (const size_t);
+	bandwidth_limiter (const size_t, const size_t);
 	bool should_drop (const size_t &);
 
 private:
