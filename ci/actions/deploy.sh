@@ -18,5 +18,5 @@ if [[ "$OS" == 'Linux' ]]; then
 else
     sha256sum $GITHUB_WORKSPACE/build/nano-node-*-Darwin.dmg | cut -f1 -d' ' > $GITHUB_WORKSPACE/build/nano-node-$TAG-Darwin.dmg.sha256
     aws s3 cp $GITHUB_WORKSPACE/build/nano-node-*-Darwin.dmg s3://repo.nano.org/$BUILD/binaries/nano-node-$TAG-Darwin.dmg --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
-    aws s3 cp $GITHUB_WORKSPACE/buildnano-node-$TAG-Darwin.dmg.sha256 s3://repo.nano.org/$BUILD/binaries/nano-node-$TAG-Darwin.dmg.sha256 --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
+    aws s3 cp $GITHUB_WORKSPACE/build/nano-node-$TAG-Darwin.dmg.sha256 s3://repo.nano.org/$BUILD/binaries/nano-node-$TAG-Darwin.dmg.sha256 --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
 fi
