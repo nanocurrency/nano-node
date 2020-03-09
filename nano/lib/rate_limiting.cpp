@@ -1,7 +1,7 @@
 #include <nano/lib/locks.hpp>
 #include <nano/lib/rate_limiting.hpp>
+#include <nano/lib/utility.hpp>
 
-#include <cassert>
 #include <limits>
 
 nano::rate::token_bucket::token_bucket (size_t max_token_count_a, size_t refill_rate_a)
@@ -19,7 +19,7 @@ nano::rate::token_bucket::token_bucket (size_t max_token_count_a, size_t refill_
 
 bool nano::rate::token_bucket::try_consume (unsigned tokens_required_a)
 {
-	assert (tokens_required_a <= 1e9);
+	debug_assert (tokens_required_a <= 1e9);
 	nano::lock_guard<std::mutex> lk (bucket_mutex);
 	refill ();
 	bool possible = current_size >= tokens_required_a;
