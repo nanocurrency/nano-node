@@ -32,10 +32,11 @@ TEST (rate, basic)
 
 TEST (rate, network)
 {
-	// 5 mb/s long term rate, allow for 10 mb/s bursts
+	// For the purpose of the test, one token represents 1MB instead of one byte.
+	// Allow for 10 mb/s bursts (max bucket size), 5 mb/s long term rate
 	nano::rate::token_bucket bucket (10, 5);
 
-	// Initial burst of 10 mb/s
+	// Initial burst of 10 mb/s over two calls
 	ASSERT_TRUE (bucket.try_consume (5));
 	ASSERT_EQ (bucket.largest_burst (), 5);
 	ASSERT_TRUE (bucket.try_consume (5));

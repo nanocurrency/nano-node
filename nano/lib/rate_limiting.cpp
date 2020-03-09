@@ -1,6 +1,7 @@
 #include <nano/lib/locks.hpp>
 #include <nano/lib/rate_limiting.hpp>
 
+#include <cassert>
 #include <limits>
 
 nano::rate::token_bucket::token_bucket (size_t max_token_count_a, size_t refill_rate_a)
@@ -16,8 +17,9 @@ nano::rate::token_bucket::token_bucket (size_t max_token_count_a, size_t refill_
 	last_refill = std::chrono::steady_clock::now ();
 }
 
-bool nano::rate::token_bucket::try_consume (int tokens_required_a)
+bool nano::rate::token_bucket::try_consume (unsigned tokens_required_a)
 {
+	assert (tokens_required_a <= 1e9);
 	nano::lock_guard<std::mutex> lk (bucket_mutex);
 	refill ();
 	bool possible = current_size >= tokens_required_a;
@@ -39,7 +41,7 @@ bool nano::rate::token_bucket::try_consume (int tokens_required_a)
 void nano::rate::token_bucket::refill ()
 {
 	auto now (std::chrono::steady_clock::now ());
-	double tokens_to_add = std::chrono::duration_cast<std::chrono::nanoseconds> (now - last_refill).count () * refill_rate / 1e9;
+	double tokens_to_add = std::chrono::duration_cast<std::chrono::nanoseconds> (now - last_refill).count () / 1e9 * refill_rate;
 	current_size = std::min (current_size + tokens_to_add, static_cast<double> (max_token_count));
 	last_refill = std::chrono::steady_clock::now ();
 }
