@@ -47,7 +47,7 @@ private: // State management
 		expired_unconfirmed
 	};
 	static int constexpr passive_duration_factor = 5;
-	static int constexpr active_duration_factor = 20;
+	static int constexpr active_duration_factor = 30;
 	static int constexpr confirmed_duration_factor = 10;
 	static int constexpr confirmed_duration_factor_saturated = 1;
 	std::atomic<nano::election::state_t> state_m = { state_t::idle };
@@ -55,8 +55,7 @@ private: // State management
 	// Protects state_start, last_vote and last_block
 	std::mutex timepoints_mutex;
 	std::chrono::steady_clock::time_point state_start = { std::chrono::steady_clock::now () };
-	std::chrono::steady_clock::time_point last_vote = { std::chrono::steady_clock::time_point () };
-	std::chrono::steady_clock::time_point last_block = { std::chrono::steady_clock::time_point () };
+	std::chrono::steady_clock::time_point last_block = { std::chrono::steady_clock::now () };
 	std::chrono::steady_clock::time_point last_req = { std::chrono::steady_clock::time_point () };
 
 	bool valid_change (nano::election::state_t, nano::election::state_t) const;
