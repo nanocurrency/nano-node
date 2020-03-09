@@ -62,11 +62,11 @@ void nano::active_transactions::search_frontiers (nano::transaction const & tran
 	nano::unique_lock<std::mutex> lk (mutex);
 	auto check_time_exceeded = std::chrono::steady_clock::now () >= next_frontier_check;
 	lk.unlock ();
-	auto max_elections = (node.config.active_elections_size / 20);
+	auto max_elections = 1000;
 	auto low_active_elections = roots_size < max_elections;
 	bool wallets_check_required = (!skip_wallets || !priority_wallet_cementable_frontiers.empty ()) && !agressive_mode;
 	// Minimise dropping real-time transactions, set the number of frontiers added to a factor of the total number of active elections
-	auto max_active = node.config.active_elections_size / 5;
+	auto max_active = node.config.active_elections_size / 20;
 	if (roots_size <= max_active && (check_time_exceeded || wallets_check_required || (!is_test_network && low_active_elections && agressive_mode)))
 	{
 		// When the number of active elections is low increase max number of elections for setting confirmation height.
