@@ -218,7 +218,7 @@ bool nano::transport::reserved_address (nano::endpoint const & endpoint_a, bool 
 
 using namespace std::chrono_literals;
 
-nano::bandwidth_limiter::bandwidth_limiter (const size_t limit_burst_ratio_a, const size_t limit_a) :
+nano::bandwidth_limiter::bandwidth_limiter (const double limit_burst_ratio_a, const size_t limit_a) :
 bucket (limit_a * limit_burst_ratio_a, limit_a)
 {
 }
