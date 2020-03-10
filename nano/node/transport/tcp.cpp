@@ -116,6 +116,7 @@ bool nano::transport::tcp_channels::insert (std::shared_ptr<nano::transport::cha
 				channels.get<node_id_tag> ().erase (node_id);
 			}
 			channels.get<endpoint_tag> ().emplace (channel_a, socket_a, bootstrap_server_a);
+			attempts.get<endpoint_tag> ().erase (endpoint);
 			error = false;
 			lock.unlock ();
 			node.network.channel_observer (channel_a);
@@ -349,8 +350,16 @@ void nano::transport::tcp_channels::stop ()
 
 bool nano::transport::tcp_channels::max_ip_connections (nano::tcp_endpoint const & endpoint_a)
 {
-	nano::unique_lock<std::mutex> lock (mutex);
-	bool result (channels.get<ip_address_tag> ().count (endpoint_a.address ()) >= nano::transport::max_peers_per_ip);
+	bool result (false);
+	if (!node.flags.disable_max_peers_per_ip)
+	{
+		nano::unique_lock<std::mutex> lock (mutex);
+		result = channels.get<ip_address_tag> ().count (endpoint_a.address ()) >= node.network_params.node.max_peers_per_ip;
+		if (!result)
+		{
+			result = attempts.get<ip_address_tag> ().count (endpoint_a.address ()) >= node.network_params.node.max_peers_per_ip;
+		}
+	}
 	return result;
 }
 
@@ -396,8 +405,8 @@ void nano::transport::tcp_channels::purge (std::chrono::steady_clock::time_point
 	auto disconnect_cutoff (channels.get<last_packet_sent_tag> ().lower_bound (cutoff_a));
 	channels.get<last_packet_sent_tag> ().erase (channels.get<last_packet_sent_tag> ().begin (), disconnect_cutoff);
 	// Remove keepalive attempt tracking for attempts older than cutoff
-	auto attempts_cutoff (attempts.get<1> ().lower_bound (cutoff_a));
-	attempts.get<1> ().erase (attempts.get<1> ().begin (), attempts_cutoff);
+	auto attempts_cutoff (attempts.get<last_attempt_tag> ().lower_bound (cutoff_a));
+	attempts.get<last_attempt_tag> ().erase (attempts.get<last_attempt_tag> ().begin (), attempts_cutoff);
 
 	// Cleanup any sockets which may still be existing from failed node id handshakes
 	node_id_handshake_sockets.erase (std::remove_if (node_id_handshake_sockets.begin (), node_id_handshake_sockets.end (), [this](auto socket) {
@@ -545,6 +554,7 @@ void nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint_a
 							if (auto socket_l = channel->socket.lock ())
 							{
 								node_l->network.tcp_channels.remove_node_id_handshake_socket (socket_l);
+								socket_l->close ();
 							}
 							if (node_l->config.logging.network_node_id_handshake_logging ())
 							{
@@ -576,6 +586,7 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 				if (auto socket_l = socket_w.lock ())
 				{
 					node_l->network.tcp_channels.remove_node_id_handshake_socket (socket_l);
+					socket_l->close ();
 				}
 			}
 		};
@@ -677,6 +688,10 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 
 void nano::transport::tcp_channels::udp_fallback (nano::endpoint const & endpoint_a, std::function<void(std::shared_ptr<nano::transport::channel>)> const & callback_a)
 {
+	{
+		nano::lock_guard<std::mutex> lock (mutex);
+		attempts.get<endpoint_tag> ().erase (nano::transport::map_endpoint_to_tcp (endpoint_a));
+	}
 	if (callback_a && !node.flags.disable_udp)
 	{
 		auto channel_udp (node.network.udp_channels.create (endpoint_a));

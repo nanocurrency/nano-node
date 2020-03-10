@@ -11,6 +11,7 @@
 #include <numeric>
 
 nano::network::network (nano::node & node_a, uint16_t port_a) :
+syn_cookies (node_a.network_params.node.max_peers_per_ip),
 buffer_container (node_a.stats, nano::network::buffer_size, 4096), // 2Mb receive buffer
 resolver (node_a.io_ctx),
 limiter (node_a.config.bandwidth_limit_burst_ratio, node_a.config.bandwidth_limit),
@@ -815,6 +816,11 @@ void nano::message_buffer_manager::stop ()
 	condition.notify_all ();
 }
 
+nano::syn_cookies::syn_cookies (size_t max_cookies_per_ip_a) :
+max_cookies_per_ip (max_cookies_per_ip_a)
+{
+}
+
 boost::optional<nano::uint256_union> nano::syn_cookies::assign (nano::endpoint const & endpoint_a)
 {
 	auto ip_addr (endpoint_a.address ());
@@ -822,7 +828,7 @@ boost::optional<nano::uint256_union> nano::syn_cookies::assign (nano::endpoint c
 	nano::lock_guard<std::mutex> lock (syn_cookie_mutex);
 	unsigned & ip_cookies = cookies_per_ip[ip_addr];
 	boost::optional<nano::uint256_union> result;
-	if (ip_cookies < nano::transport::max_peers_per_ip)
+	if (ip_cookies < max_cookies_per_ip)
 	{
 		if (cookies.find (endpoint_a) == cookies.end ())
 		{
