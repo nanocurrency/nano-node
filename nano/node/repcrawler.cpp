@@ -202,7 +202,6 @@ void nano::rep_crawler::response (std::shared_ptr<nano::transport::channel> & ch
 		if (active.count (*i) != 0)
 		{
 			responses.emplace_back (channel_a, vote_a);
-			node.network.confirm_ack_filter.clear (vote_a);
 			break;
 		}
 	}
