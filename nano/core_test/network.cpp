@@ -945,3 +945,36 @@ TEST (network, peer_max_tcp_attempts)
 	ASSERT_EQ (0, node->network.size ());
 	ASSERT_TRUE (node->network.tcp_channels.reachout (nano::endpoint (node->network.endpoint ().address (), nano::get_available_port ())));
 }
+
+TEST (network, bandwidth_limiter)
+{
+	nano::system system;
+	nano::genesis genesis;
+	nano::publish message (genesis.open);
+	auto message_size = message.to_bytes ()->size ();
+	auto message_limit = 4; // must be multiple of the number of channels
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.bandwidth_limit = message_limit * message_size;
+	node_config.bandwidth_limit_burst_ratio = 1.0;
+	auto & node = *system.add_node (node_config);
+	auto channel1 (node.network.udp_channels.create (node.network.endpoint ()));
+	auto channel2 (node.network.udp_channels.create (node.network.endpoint ()));
+	// Send droppable messages
+	for (unsigned i = 0; i < message_limit; i += 2) // number of channels
+	{
+		channel1->send (message);
+		channel2->send (message);
+	}
+	// Only sent messages below limit, so we don't expect any drops
+	ASSERT_TIMELY (1s, 0 == node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
+
+	// Send droppable message; drop stats should increase by one now
+	channel1->send (message);
+	ASSERT_TIMELY (1s, 1 == node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
+
+	// Send non-droppable message, i.e. drop stats should not increase
+	channel2->send (message, nullptr, nano::buffer_drop_policy::no_limiter_drop);
+	ASSERT_TIMELY (1s, 1 == node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
+
+	node.stop ();
+}
