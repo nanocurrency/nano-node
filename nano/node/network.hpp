@@ -71,6 +71,7 @@ private:
 class syn_cookies final
 {
 public:
+	syn_cookies (size_t);
 	void purge (std::chrono::steady_clock::time_point const &);
 	// Returns boost::none if the IP is rate capped on syn cookie requests,
 	// or if the endpoint already has a syn cookie query
@@ -90,6 +91,7 @@ private:
 	mutable std::mutex syn_cookie_mutex;
 	std::unordered_map<nano::endpoint, syn_cookie_info> cookies;
 	std::unordered_map<boost::asio::ip::address, unsigned> cookies_per_ip;
+	size_t max_cookies_per_ip;
 };
 class network final
 {

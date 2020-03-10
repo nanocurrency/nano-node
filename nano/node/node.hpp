@@ -13,7 +13,6 @@
 #include <nano/node/distributed_work_factory.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/gap_cache.hpp>
-#include <nano/node/logging.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
@@ -35,6 +34,7 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index_container.hpp>
+#include <boost/program_options.hpp>
 #include <boost/thread/latch.hpp>
 
 #include <atomic>
@@ -48,7 +48,6 @@ namespace websocket
 {
 	class listener;
 }
-
 class node;
 class telemetry;
 class work_pool;
@@ -212,14 +211,12 @@ nano::node_flags const & inactive_node_flag_defaults ();
 class inactive_node final
 {
 public:
-	inactive_node (boost::filesystem::path const & path = nano::working_path (), uint16_t = 24000, nano::node_flags const & = nano::inactive_node_flag_defaults ());
+	inactive_node (boost::filesystem::path const & path_a, nano::node_flags const & node_flags_a = nano::inactive_node_flag_defaults ());
 	~inactive_node ();
-	boost::filesystem::path path;
 	std::shared_ptr<boost::asio::io_context> io_context;
 	nano::alarm alarm;
-	nano::logging logging;
 	nano::work_pool work;
-	uint16_t peering_port;
 	std::shared_ptr<nano::node> node;
 };
+std::unique_ptr<nano::inactive_node> default_inactive_node (boost::filesystem::path const &, boost::program_options::variables_map const &);
 }

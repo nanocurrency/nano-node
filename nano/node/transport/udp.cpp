@@ -116,6 +116,7 @@ std::shared_ptr<nano::transport::channel_udp> nano::transport::udp_channels::ins
 		{
 			result = std::make_shared<nano::transport::channel_udp> (*this, endpoint_a, network_version_a);
 			channels.get<endpoint_tag> ().insert (result);
+			attempts.get<endpoint_tag> ().erase (endpoint_a);
 			lock.unlock ();
 			node.network.channel_observer (result);
 		}
@@ -638,8 +639,12 @@ std::shared_ptr<nano::transport::channel> nano::transport::udp_channels::create 
 
 bool nano::transport::udp_channels::max_ip_connections (nano::endpoint const & endpoint_a)
 {
-	nano::unique_lock<std::mutex> lock (mutex);
-	bool result (channels.get<ip_address_tag> ().count (endpoint_a.address ()) >= nano::transport::max_peers_per_ip);
+	bool result (false);
+	if (!node.flags.disable_max_peers_per_ip)
+	{
+		nano::unique_lock<std::mutex> lock (mutex);
+		result = channels.get<ip_address_tag> ().count (endpoint_a.address ()) >= node.network_params.node.max_peers_per_ip;
+	}
 	return result;
 }
 
@@ -682,8 +687,8 @@ void nano::transport::udp_channels::purge (std::chrono::steady_clock::time_point
 	auto disconnect_cutoff (channels.get<last_packet_received_tag> ().lower_bound (cutoff_a));
 	channels.get<last_packet_received_tag> ().erase (channels.get<last_packet_received_tag> ().begin (), disconnect_cutoff);
 	// Remove keepalive attempt tracking for attempts older than cutoff
-	auto attempts_cutoff (attempts.get<1> ().lower_bound (cutoff_a));
-	attempts.get<1> ().erase (attempts.get<1> ().begin (), attempts_cutoff);
+	auto attempts_cutoff (attempts.get<last_attempt_tag> ().lower_bound (cutoff_a));
+	attempts.get<last_attempt_tag> ().erase (attempts.get<last_attempt_tag> ().begin (), attempts_cutoff);
 }
 
 void nano::transport::udp_channels::ongoing_keepalive ()

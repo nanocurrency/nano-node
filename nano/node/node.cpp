@@ -1,7 +1,9 @@
+#include <nano/core_test/testutil.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/daemonconfig.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/telemetry.hpp>
 #include <nano/node/websocket.hpp>
@@ -1342,39 +1344,38 @@ bool nano::node::init_error () const
 	return store.init_error () || wallets_store.init_error ();
 }
 
-nano::inactive_node::inactive_node (boost::filesystem::path const & path_a, uint16_t peering_port_a, nano::node_flags const & node_flags) :
-path (path_a),
+nano::inactive_node::inactive_node (boost::filesystem::path const & path_a, nano::node_flags const & node_flags_a) :
 io_context (std::make_shared<boost::asio::io_context> ()),
 alarm (*io_context),
-work (1),
-peering_port (peering_port_a)
+work (1)
 {
 	boost::system::error_code error_chmod;
 
 	/*
 	 * @warning May throw a filesystem exception
 	 */
-	boost::filesystem::create_directories (path);
-	nano::set_secure_perm_directory (path, error_chmod);
-	logging.max_size = std::numeric_limits<std::uintmax_t>::max ();
-	logging.init (path);
-	// Config overriding
-	nano::node_config config (peering_port, logging);
-	std::stringstream config_overrides_stream;
-	for (auto const & entry : node_flags.config_overrides)
-	{
-		config_overrides_stream << entry << std::endl;
-	}
-	config_overrides_stream << std::endl;
-	nano::tomlconfig toml;
-	toml.read (config_overrides_stream);
-	auto error = config.deserialize_toml (toml);
+	boost::filesystem::create_directories (path_a);
+	nano::set_secure_perm_directory (path_a, error_chmod);
+	nano::daemon_config daemon_config (path_a);
+	auto error = nano::read_node_config_toml (path_a, daemon_config, node_flags_a.config_overrides);
 	if (error)
 	{
-		std::cerr << "Error deserializing --config option" << std::endl;
+		std::cerr << "Error deserializing config file";
+		if (!node_flags_a.config_overrides.empty ())
+		{
+			std::cerr << " or --config option";
+		}
+		std::cerr << "\n"
+		          << error.get_message () << std::endl;
 		std::exit (1);
 	}
-	node = std::make_shared<nano::node> (*io_context, path, alarm, config, work, node_flags);
+
+	auto & node_config = daemon_config.node;
+	node_config.peering_port = nano::get_available_port ();
+	node_config.logging.max_size = std::numeric_limits<std::uintmax_t>::max ();
+	node_config.logging.init (path_a);
+
+	node = std::make_shared<nano::node> (*io_context, path_a, alarm, node_config, work, node_flags_a);
 	node->active.stop ();
 }
 

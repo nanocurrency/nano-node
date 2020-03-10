@@ -3588,7 +3588,7 @@ TEST (node, bandwidth_limiter)
 	nano::publish message (genesis.open);
 	auto message_size = message.to_bytes ()->size ();
 	auto message_limit = 4; // must be multiple of the number of channels
-	nano::node_config node_config (24000, system.logging);
+	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.bandwidth_limit = message_limit * message_size;
 	auto & node = *system.add_node (node_config);
 	auto channel1 (node.network.udp_channels.create (node.network.endpoint ()));
