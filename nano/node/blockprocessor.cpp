@@ -133,7 +133,7 @@ bool nano::block_processor::should_log ()
 	auto now (std::chrono::steady_clock::now ());
 	if (next_log < now)
 	{
-		next_log = now + std::chrono::seconds (2);
+		next_log = now + (node.config.logging.timing_logging () ? std::chrono::seconds (2) : std::chrono::seconds (15));
 		result = true;
 	}
 	return result;
