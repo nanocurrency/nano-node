@@ -227,7 +227,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 
 	// Only representatives ready to receive batched confirm_req
 	nano::confirmation_solicitor solicitor (node.network, node.network_params.network);
-	solicitor.prepare (node.rep_crawler.representatives (node.network_params.protocol.tcp_realtime_protocol_version_min));
+	solicitor.prepare (node.rep_crawler.principal_representatives (std::numeric_limits<size_t>::max (), node.network_params.protocol.tcp_realtime_protocol_version_min));
 
 	auto election_ttl_cutoff_l (std::chrono::steady_clock::now () - election_time_to_live);
 	auto roots_size_l (roots.size ());
