@@ -155,6 +155,10 @@ private:
 	bool started{ false };
 	std::atomic<bool> stopped{ false };
 
+	// Periodically check all elections
+	std::chrono::milliseconds const check_all_elections_period;
+	std::chrono::steady_clock::time_point last_check_all_elections{};
+
 	// Maximum time an election can be kept active if it is extending the container
 	std::chrono::seconds const election_time_to_live;
 
