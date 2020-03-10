@@ -419,6 +419,8 @@ public:
 	std::chrono::seconds peer_interval;
 	std::chrono::minutes unchecked_cleaning_interval;
 	std::chrono::milliseconds process_confirmed_interval;
+	/** Maximum number of peers per IP */
+	size_t max_peers_per_ip;
 
 	/** The maximum amount of samples for a 2 week period on live or 3 days on beta */
 	uint64_t max_weight_samples;

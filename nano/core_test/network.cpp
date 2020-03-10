@@ -927,6 +927,25 @@ TEST (network, replace_port)
 	node1->stop ();
 }
 
+TEST (network, peer_max_tcp_attempts)
+{
+	nano::system system (1);
+	auto node (system.nodes[0]);
+	// Add nodes that can accept TCP connection, but not node ID handshake
+	nano::node_flags node_flags;
+	node_flags.disable_tcp_realtime = true;
+	for (auto i (0); i < node->network_params.node.max_peers_per_ip; ++i)
+	{
+		auto node2 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work, node_flags));
+		node2->start ();
+		system.nodes.push_back (node2);
+		// Start TCP attempt
+		node->network.merge_peer (node2->network.endpoint ());
+	}
+	ASSERT_EQ (0, node->network.size ());
+	ASSERT_TRUE (node->network.tcp_channels.reachout (nano::endpoint (node->network.endpoint ().address (), nano::get_available_port ())));
+}
+
 // The test must be completed in less than 1 second
 TEST (bandwidth_limiter, validate)
 {
