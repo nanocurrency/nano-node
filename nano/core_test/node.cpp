@@ -1236,10 +1236,10 @@ TEST (node, fork_publish_inactive)
 {
 	nano::system system (1);
 	nano::genesis genesis;
-	nano::public_key pub1;
-	nano::public_key pub2;
-	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), pub1, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
-	auto send2 (std::make_shared<nano::send_block> (genesis.hash (), pub2, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+	nano::keypair key1;
+	nano::keypair key2;
+	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+	auto send2 (std::make_shared<nano::send_block> (genesis.hash (), key2.pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, send1->block_work ()));
 	auto & node (*system.nodes[0]);
 	ASSERT_EQ (nano::process_result::progress, node.process (*send1).code);
 	ASSERT_EQ (nano::process_result::fork, node.process_local (send2).code);
