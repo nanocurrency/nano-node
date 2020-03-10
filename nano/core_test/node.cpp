@@ -1231,6 +1231,30 @@ TEST (node, fork_publish)
 	ASSERT_TRUE (node0.expired ());
 }
 
+// Tests that an election gets started correctly from a fork
+TEST (node, fork_publish_inactive)
+{
+	nano::system system (1);
+	nano::genesis genesis;
+	nano::public_key pub1;
+	nano::public_key pub2;
+	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), pub1, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+	auto send2 (std::make_shared<nano::send_block> (genesis.hash (), pub2, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+	auto & node (*system.nodes[0]);
+	ASSERT_EQ (nano::process_result::progress, node.process (*send1).code);
+	ASSERT_EQ (nano::process_result::fork, node.process_local (send2).code);
+	auto election (node.active.election (send1->qualified_root ()));
+	ASSERT_NE (election, nullptr);
+	{
+		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		auto & blocks (election->blocks);
+		ASSERT_NE (blocks.end (), blocks.find (send1->hash ()));
+		ASSERT_NE (blocks.end (), blocks.find (send2->hash ()));
+		ASSERT_NE (election->status.winner, send1);
+		ASSERT_NE (election->status.winner, send2);
+	}
+}
+
 TEST (node, fork_keep)
 {
 	nano::system system (2);
