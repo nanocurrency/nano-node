@@ -71,6 +71,7 @@ void nano::block_processor::add (std::shared_ptr<nano::block> block_a, uint64_t 
 void nano::block_processor::add (nano::unchecked_info const & info_a)
 {
 	debug_assert (!nano::work_validate (*info_a.block));
+	if (info_a.block->difficulty () >= nano::work_threshold (info_a.block->work_version ()))
 	{
 		auto hash (info_a.block->hash ());
 		auto filter_hash (filter_item (hash, info_a.block->block_signature ()));
