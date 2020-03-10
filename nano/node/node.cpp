@@ -1107,7 +1107,6 @@ void nano::node::block_confirm (std::shared_ptr<nano::block> block_a)
 	if (election.second)
 	{
 		election.first->transition_active ();
-		network.flood_block (block_a, nano::buffer_drop_policy::no_limiter_drop);
 	}
 	// Calculate votes for local representatives
 	if (config.enable_voting && wallets.rep_counts ().voting > 0 && active.active (*block_a))
