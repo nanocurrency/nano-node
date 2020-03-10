@@ -38,6 +38,32 @@ private:
 		nano::block_hash iterated_frontier;
 	};
 
+	class write_details final
+	{
+	public:
+		write_details (nano::account const &, uint64_t, nano::block_hash const &, uint64_t, nano::block_hash const &);
+		nano::account account;
+		// This is the first block hash (bottom most) which is not cemented
+		uint64_t bottom_height;
+		nano::block_hash bottom_hash;
+		// Desired cemented frontier
+		uint64_t top_height;
+		nano::block_hash top_hash;
+	};
+
+	/** The maximum number of blocks to be read in while iterating over a long account chain */
+	static uint64_t constexpr batch_read_size = 4096;
+
+	static uint32_t constexpr max_items{ 65536 };
+
+	// All of the atomic variables here just track the size for use in collect_container_info.
+	// This is so that no mutexes are needed during the algorithm itself, which would otherwise be needed
+	// for the sake of a rarely used RPC call for debugging purposes. As such the sizes are not being acted
+	// upon in any way (does not synchronize with any other data).
+	// This allows the load and stores to use relaxed atomic memory ordering.
+	std::deque<write_details> pending_writes;
+	std::atomic<uint64_t> pending_writes_size{ 0 };
+	static uint32_t constexpr pending_writes_max_size{ max_items };
 	/* Holds confirmation height/cemented frontier in memory for accounts while iterating */
 	std::unordered_map<account, confirmed_info> accounts_confirmed_info;
 	std::atomic<uint64_t> accounts_confirmed_info_size{ 0 };
@@ -71,19 +97,6 @@ private:
 		boost::optional<top_and_next_hash> & next_in_receive_chain;
 	};
 
-	class write_details final
-	{
-	public:
-		write_details (nano::account const &, uint64_t, nano::block_hash const &, uint64_t, nano::block_hash const &);
-		nano::account account;
-		// This is the first block hash (bottom most) which is not cemented
-		uint64_t bottom_height;
-		nano::block_hash bottom_hash;
-		// Desired cemented frontier
-		uint64_t top_height;
-		nano::block_hash top_hash;
-	};
-
 	class receive_source_pair final
 	{
 	public:
@@ -93,14 +106,6 @@ private:
 		nano::block_hash source_hash;
 	};
 
-	/** The maximum number of blocks to be read in while iterating over a long account chain */
-	static uint64_t constexpr batch_read_size = 4096;
-
-	static uint32_t constexpr max_items{ 65536 };
-
-	std::deque<write_details> pending_writes;
-	std::atomic<uint64_t> pending_writes_size{ 0 };
-	static uint32_t constexpr pending_writes_max_size{ max_items };
 	nano::timer<std::chrono::milliseconds> timer;
 
 	top_and_next_hash get_next_block (boost::optional<top_and_next_hash> const &, boost::circular_buffer_space_optimized<nano::block_hash> const &, boost::circular_buffer_space_optimized<receive_source_pair> const & receive_source_pairs, boost::optional<receive_chain_details> &);

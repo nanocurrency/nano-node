@@ -1207,14 +1207,12 @@ TEST (confirmation_height, dependent_election)
 
 		add_callback_stats (*node);
 
-		// Start an election and vote, should confirm the block
-		node->block_confirm (send2);
-
 		{
 			// The write guard prevents the confirmation height processor doing any writes.
-			// Note: This test could still fail intermittently due to thread scheduling between active and confirmation height.
 			system.deadline_set (10s);
 			auto write_guard = node->write_database_queue.wait (nano::writer::testing);
+			// Start an election and vote, should confirm the block
+			node->block_confirm (send2);
 			while (!node->write_database_queue.contains (nano::writer::confirmation_height))
 			{
 				ASSERT_NO_ERROR (system.poll ());
