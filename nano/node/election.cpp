@@ -151,7 +151,7 @@ bool nano::election::state_change (nano::election::state_t expected_a, nano::ele
 
 void nano::election::send_confirm_req (nano::confirmation_solicitor & solicitor_a)
 {
-	if (last_req + std::chrono::seconds (15) < std::chrono::steady_clock::now ())
+	if (base_latency () * 5 < std::chrono::steady_clock::now () - last_req)
 	{
 		if (!solicitor_a.add (*this))
 		{
@@ -180,14 +180,7 @@ void nano::election::transition_active ()
 
 void nano::election::transition_active_impl ()
 {
-	if (!state_change (nano::election::state_t::idle, nano::election::state_t::active))
-	{
-		if (base_latency () * 5 < std::chrono::steady_clock::now () - last_block)
-		{
-			last_block = std::chrono::steady_clock::now ();
-			node.network.flood_block (status.winner);
-		}
-	}
+	state_change (nano::election::state_t::idle, nano::election::state_t::active);
 }
 
 bool nano::election::idle () const
@@ -246,7 +239,7 @@ void nano::election::activate_dependencies ()
 
 void nano::election::broadcast_block (nano::confirmation_solicitor & solicitor_a)
 {
-	if (base_latency () * 5 < std::chrono::steady_clock::now () - last_block)
+	if (base_latency () * 20 < std::chrono::steady_clock::now () - last_block)
 	{
 		if (!solicitor_a.broadcast (*this))
 		{
