@@ -77,8 +77,9 @@ public:
 	size_t last_votes_size ();
 	void update_dependent ();
 	void adjust_dependent_difficulty ();
-	void clear_blocks ();
 	void insert_inactive_votes_cache (nano::block_hash const &);
+	// Erase all blocks from active and, if not confirmed, clear digests from network filters
+	void cleanup ();
 
 public: // State transitions
 	bool transition_time (nano::confirmation_solicitor &);
