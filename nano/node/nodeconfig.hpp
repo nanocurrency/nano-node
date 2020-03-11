@@ -4,6 +4,7 @@
 #include <nano/lib/diagnosticsconfig.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/lmdbconfig.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/rocksdbconfig.hpp>
 #include <nano/lib/stats.hpp>
@@ -63,13 +64,14 @@ public:
 	bool enable_voting{ false };
 	unsigned bootstrap_connections{ 4 };
 	unsigned bootstrap_connections_max{ 64 };
+	unsigned bootstrap_initiator_threads{ network_params.network.is_test_network () ? 1u : std::min<unsigned> (2, std::max<unsigned> (1, std::thread::hardware_concurrency ())) };
 	nano::websocket::config websocket_config;
 	nano::diagnostics_config diagnostics_config;
 	size_t confirmation_history_size{ 2048 };
 	std::string callback_address;
 	uint16_t callback_port{ 0 };
 	std::string callback_target;
-	int lmdb_max_dbs{ 128 };
+	int deprecated_lmdb_max_dbs{ 128 };
 	bool allow_local_peers{ !network_params.network.is_live_network () }; // disable by default for live network
 	nano::stat_config stat_config;
 	nano::ipc::ipc_config ipc_config;
@@ -80,7 +82,7 @@ public:
 	/** Timeout for initiated async operations */
 	std::chrono::seconds tcp_io_timeout{ (network_params.network.is_test_network () && !is_sanitizer_build) ? std::chrono::seconds (5) : std::chrono::seconds (15) };
 	std::chrono::nanoseconds pow_sleep_interval{ 0 };
-	size_t active_elections_size{ 10000 };
+	size_t active_elections_size{ 50000 };
 	/** Default maximum incoming TCP connections, including realtime network & bootstrap */
 	unsigned tcp_incoming_connections_max{ 1024 };
 	bool use_memory_pools{ true };
@@ -95,6 +97,7 @@ public:
 	uint64_t max_work_generate_difficulty{ nano::network_constants::publish_full_threshold };
 	uint32_t max_queued_requests{ 512 };
 	nano::rocksdb_config rocksdb_config;
+	nano::lmdb_config lmdb_config;
 	nano::frontiers_confirmation_mode frontiers_confirmation{ nano::frontiers_confirmation_mode::automatic };
 	std::string serialize_frontiers_confirmation (nano::frontiers_confirmation_mode) const;
 	nano::frontiers_confirmation_mode deserialize_frontiers_confirmation (std::string const &);
@@ -128,6 +131,8 @@ public:
 	bool disable_block_processor_unchecked_deletion{ false };
 	bool disable_block_processor_republishing{ false };
 	bool disable_ongoing_telemetry_requests{ false };
+	bool allow_bootstrap_peers_duplicates{ false };
+	bool disable_max_peers_per_ip{ false }; // For testing only
 	bool fast_bootstrap{ false };
 	bool read_only{ false };
 	nano::confirmation_height_mode confirmation_height_processor_mode{ nano::confirmation_height_mode::automatic };

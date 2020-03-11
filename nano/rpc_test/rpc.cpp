@@ -7990,12 +7990,25 @@ TEST (rpc, node_telemetry_all)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 
-		auto transaction = system.nodes.back ()->store.tx_begin_read ();
-		peers_stored = system.nodes.back ()->store.peer_count (transaction) != 0;
+		auto transaction = node1.store.tx_begin_read ();
+		peers_stored = node1.store.peer_count (transaction) != 0;
+	}
+
+	// First need to set up the cached data
+	std::atomic<bool> done{ false };
+	auto node = system.nodes.front ();
+	node1.telemetry->get_metrics_single_peer_async (node1.network.find_channel (node->network.endpoint ()), [&done](nano::telemetry_data_response const & telemetry_data_response_a) {
+		ASSERT_FALSE (telemetry_data_response_a.error);
+		done = true;
+	});
+
+	system.deadline_set (10s);
+	while (!done)
+	{
+		ASSERT_NO_ERROR (system.poll ());
 	}
 
 	boost::property_tree::ptree request;
-	auto node = system.nodes.front ();
 	request.put ("action", "node_telemetry");
 	{
 		test_response response (request, rpc.config.port, system.io_ctx);
@@ -8136,5 +8149,98 @@ TEST (rpc, node_telemetry_self)
 		}
 		ASSERT_EQ (200, response.status);
 		ASSERT_EQ (std::error_code (nano::error_rpc::peer_not_found).message (), response.json.get<std::string> ("error"));
+	}
+}
+
+TEST (rpc, confirmation_active)
+{
+	nano::system system;
+	nano::node_config node_config;
+	node_config.ipc_config.transport_tcp.enabled = true;
+	node_config.ipc_config.transport_tcp.port = nano::get_available_port ();
+	nano::node_flags node_flags;
+	node_flags.disable_request_loop = true;
+	auto & node1 (*system.add_node (node_config, node_flags));
+	scoped_io_thread_name_change scoped_thread_name_io;
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
+	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	rpc_config.rpc_process.ipc_port = node1.config.ipc_config.transport_tcp.port;
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+
+	nano::genesis genesis;
+	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), nano::public_key (), nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+	auto send2 (std::make_shared<nano::send_block> (send1->hash (), nano::public_key (), nano::genesis_amount - 200, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send1->hash ())));
+	node1.process_active (send1);
+	node1.process_active (send2);
+	node1.block_processor.flush ();
+	ASSERT_EQ (2, node1.active.size ());
+	{
+		nano::lock_guard<std::mutex> guard (node1.active.mutex);
+		auto info (node1.active.roots.find (send1->qualified_root ()));
+		ASSERT_NE (node1.active.roots.end (), info);
+		info->election->confirm_once ();
+	}
+
+	boost::property_tree::ptree request;
+	request.put ("action", "confirmation_active");
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		auto & confirmations (response.json.get_child ("confirmations"));
+		ASSERT_EQ (1, confirmations.size ());
+		ASSERT_EQ (send2->qualified_root ().to_string (), confirmations.front ().second.get<std::string> (""));
+		ASSERT_EQ (1, response.json.get<unsigned> ("unconfirmed"));
+		ASSERT_EQ (1, response.json.get<unsigned> ("confirmed"));
+	}
+}
+
+TEST (rpc, confirmation_info)
+{
+	nano::system system;
+	auto & node1 = *add_ipc_enabled_node (system);
+	scoped_io_thread_name_change scoped_thread_name_io;
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
+	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	rpc_config.rpc_process.ipc_port = node1.config.ipc_config.transport_tcp.port;
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+
+	nano::genesis genesis;
+	auto send (std::make_shared<nano::send_block> (genesis.hash (), nano::public_key (), nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+	node1.process_active (send);
+	node1.block_processor.flush ();
+	ASSERT_FALSE (node1.active.empty ());
+
+	boost::property_tree::ptree request;
+	request.put ("action", "confirmation_info");
+	request.put ("root", send->qualified_root ().to_string ());
+	request.put ("representatives", "true");
+	request.put ("json_block", "true");
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		ASSERT_EQ (1, response.json.count ("announcements"));
+		ASSERT_EQ (1, response.json.get<unsigned> ("voters"));
+		ASSERT_EQ (send->hash ().to_string (), response.json.get<std::string> ("last_winner"));
+		auto & blocks (response.json.get_child ("blocks"));
+		ASSERT_EQ (1, blocks.size ());
+		auto & representatives (blocks.front ().second.get_child ("representatives"));
+		ASSERT_EQ (1, representatives.size ());
+		ASSERT_EQ (0, response.json.get<unsigned> ("total_tally"));
 	}
 }

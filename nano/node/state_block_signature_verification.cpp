@@ -148,9 +148,9 @@ void nano::state_block_signature_verification::verify_state_blocks (std::deque<n
 		}
 		nano::signature_check_set check = { size, messages.data (), lengths.data (), pub_keys.data (), signatures.data (), verifications.data () };
 		signature_checker.verify (check);
-		if (node_config.logging.timing_logging ())
+		if (node_config.logging.timing_logging () && timer_l.stop () > std::chrono::milliseconds (10))
 		{
-			logger.try_log (boost::str (boost::format ("Batch verified %1% state blocks in %2% %3%") % size % timer_l.stop ().count () % timer_l.unit ()));
+			logger.try_log (boost::str (boost::format ("Batch verified %1% state blocks in %2% %3%") % size % timer_l.value ().count () % timer_l.unit ()));
 		}
 		blocks_verified_callback (items, verifications, hashes, blocks_signatures);
 	}

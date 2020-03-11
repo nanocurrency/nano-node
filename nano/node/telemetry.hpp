@@ -3,29 +3,25 @@
 #include <nano/node/common.hpp>
 #include <nano/secure/common.hpp>
 
+#include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/member.hpp>
+#include <boost/multi_index/ordered_index.hpp>
+#include <boost/multi_index_container.hpp>
+
 #include <functional>
 #include <memory>
-#include <unordered_set>
+
+namespace mi = boost::multi_index;
 
 namespace nano
 {
 class network;
 class alarm;
 class worker;
-class telemetry;
 namespace transport
 {
 	class channel;
 }
-
-class telemetry_data_time_pair
-{
-public:
-	nano::telemetry_data data;
-	std::chrono::steady_clock::time_point last_updated;
-	bool operator== (telemetry_data_time_pair const &) const;
-	bool operator!= (telemetry_data_time_pair const &) const;
-};
 
 /*
  * Holds a response from a telemetry request
@@ -38,106 +34,48 @@ public:
 	bool error{ true };
 };
 
-/*
- * Holds many responses from telemetry requests
- */
-class telemetry_data_responses
+class telemetry_info final
 {
 public:
-	std::unordered_map<nano::endpoint, telemetry_data> telemetry_datas;
-	bool all_received{ false };
-};
+	telemetry_info () = default;
+	telemetry_info (nano::endpoint const & endpoint, nano::telemetry_data const & data, std::chrono::steady_clock::time_point last_response, bool undergoing_request);
+	bool awaiting_first_response () const;
 
-/*
- * This class requests node telemetry metrics and invokes any callbacks
- * which have been aggregated. Further calls to get_metrics_async may return cached telemetry metrics
- * if they are within cache_cutoff time from the latest request.
- */
-class telemetry_impl : public std::enable_shared_from_this<telemetry_impl>
-{
-public:
-	telemetry_impl (nano::network & network_a, nano::alarm & alarm_a, nano::worker & worker_a);
-
-private:
-	// Class only available to the telemetry class
-	void get_metrics_async (std::deque<std::shared_ptr<nano::transport::channel>> const & channels_a, std::function<void(telemetry_data_responses const &)> const & callback_a);
-	void add (nano::telemetry_data const & telemetry_data_a, nano::endpoint const & endpoint_a, bool is_empty_a);
-	size_t telemetry_data_size ();
-
-	nano::network_params network_params;
-	// Anything older than this requires requesting metrics from other nodes.
-	std::chrono::seconds const cache_cutoff{ nano::telemetry_cache_cutoffs::network_to_time (network_params.network) };
-	std::chrono::seconds const alarm_cutoff;
-
-	// All data in this chunk is protected by this mutex
-	std::mutex mutex;
-	std::vector<std::function<void(telemetry_data_responses const &)>> callbacks;
-	std::chrono::steady_clock::time_point last_time = std::chrono::steady_clock::now () - cache_cutoff;
-	/* The responses received during this request round */
-	std::unordered_map<nano::endpoint, telemetry_data_time_pair> current_telemetry_data_responses;
-	/* The metrics for the last request round */
-	std::unordered_map<nano::endpoint, telemetry_data_time_pair> cached_telemetry_data;
-	std::unordered_set<nano::endpoint> required_responses;
+	nano::endpoint endpoint;
+	nano::telemetry_data data;
+	std::chrono::steady_clock::time_point last_response;
+	bool undergoing_request{ false };
 	uint64_t round{ 0 };
-	/* Currently executing callbacks */
-	bool invoking{ false };
-	std::vector<nano::endpoint> failed;
-
-	nano::network & network;
-	nano::alarm & alarm;
-	nano::worker & worker;
-
-	std::function<void(std::unordered_map<nano::endpoint, telemetry_data> & data_a, std::mutex &)> pre_callback_callback;
-
-	void invoke_callbacks ();
-	void channel_processed (nano::unique_lock<std::mutex> & lk_a, nano::endpoint const & endpoint_a);
-	void flush_callbacks_async ();
-	void fire_request_messages (std::deque<std::shared_ptr<nano::transport::channel>> const & channels);
-
-	friend std::unique_ptr<container_info_component> collect_container_info (telemetry_impl &, const std::string &);
-	friend nano::telemetry;
-	friend class node_telemetry_single_request_Test;
-	friend class node_telemetry_basic_Test;
-	friend class node_telemetry_ongoing_requests_Test;
 };
 
-std::unique_ptr<nano::container_info_component> collect_container_info (telemetry_impl & telemetry_impl, const std::string & name);
-
 /*
- * This class has 2 main operations:
- * Request metrics from specific single peers (single_requests)
- *  - If this peer is in the batched request, it will use the value from that, otherwise send a telemetry_req message (non-droppable)
- * Request metrics from all peers (batched_request)
- *  - This is polled every minute.
- *  - If a single request is currently underway, do not request because other peers will just reject if within a hotzone time
- *    - This will be proactively added when callbacks are called inside pre_callback_callback 
+ * This class requests node telemetry metrics from peers and invokes any callbacks which have been aggregated.
+ * All calls to get_metrics return cached data, it does not do any requests, these are periodically done in
+ * ongoing_req_all_peers. This can be disabled with the disable_ongoing_telemetry_requests node flag.
+ * Calls to get_metrics_single_peer_async will wait until a response is made if it is not within the cache
+ * cut off.
  */
-class telemetry
+class telemetry : public std::enable_shared_from_this<telemetry>
 {
 public:
-	telemetry (nano::network & network_a, nano::alarm & alarm_a, nano::worker & worker_a, bool disable_ongoing_requests_a);
+	telemetry (nano::network &, nano::alarm &, nano::worker &, bool);
+	void start ();
+	void stop ();
 
 	/*
-	 * Add telemetry metrics received from this endpoint.
-	 * Should this be unsolicited, it will not be added.
-	 * Some peers may have disabled responding with telemetry data, need to account for this
+	 * Set the telemetry data associated with this peer
 	 */
-	void add (nano::telemetry_data const & telemetry_data_a, nano::endpoint const & endpoint_a, bool is_empty_a);
+	void set (nano::telemetry_data const &, nano::endpoint const &, bool);
 
 	/*
-	 * Collects metrics from all known peers and invokes the callback when complete.
+	 * This returns what ever is in the cache
 	 */
-	void get_metrics_peers_async (std::function<void(telemetry_data_responses const &)> const & callback_a);
-
-	/*
-	 * A blocking version of get_metrics_peers_async ().
-	 */
-	telemetry_data_responses get_metrics_peers ();
+	std::unordered_map<nano::endpoint, nano::telemetry_data> get_metrics ();
 
 	/*
 	 * This makes a telemetry request to the specific channel
 	 */
-	void get_metrics_single_peer_async (std::shared_ptr<nano::transport::channel> const &, std::function<void(telemetry_data_response const &)> const & callback_a);
+	void get_metrics_single_peer_async (std::shared_ptr<nano::transport::channel> const &, std::function<void(telemetry_data_response const &)> const &);
 
 	/*
 	 * A blocking version of get_metrics_single_peer_async
@@ -150,50 +88,59 @@ public:
 	size_t telemetry_data_size ();
 
 	/*
-	 * Return the number of finished_single_requests elements
+	 * Returns the time for the cache, response and a small buffer for alarm operations to be scheduled and completed
 	 */
-	size_t finished_single_requests_size ();
-
-	/*
-	 * Stop the telemetry processor
-	 */
-	void stop ();
+	std::chrono::milliseconds cache_plus_buffer_cutoff_time () const;
 
 private:
+	class tag_endpoint
+	{
+	};
+	class tag_last_updated
+	{
+	};
+
 	nano::network & network;
 	nano::alarm & alarm;
 	nano::worker & worker;
 
+	std::atomic<bool> stopped{ false };
 	nano::network_params network_params;
-
-	class single_request_data
-	{
-	public:
-		std::shared_ptr<telemetry_impl> impl;
-		std::chrono::steady_clock::time_point last_updated{ std::chrono::steady_clock::now () };
-	};
+	bool disable_ongoing_requests;
 
 	std::mutex mutex;
-	/* Requests telemetry data from a random selection of peers */
-	std::shared_ptr<telemetry_impl> batch_request;
-	/* Any requests to specific individual peers is maintained here */
-	std::unordered_map<nano::endpoint, single_request_data> single_requests;
-	/* This holds data from single_requests after the cache is removed */
-	std::unordered_map<nano::endpoint, telemetry_data_time_pair> finished_single_requests;
-	bool stopped{ false };
+	// clang-format off
+	// This holds the last telemetry data received from peers or can be a placeholder awaiting the first response (check with awaiting_first_response ())
+	boost::multi_index_container<nano::telemetry_info,
+	mi::indexed_by<
+		mi::hashed_unique<mi::tag<tag_endpoint>,
+			mi::member<nano::telemetry_info, nano::endpoint, &nano::telemetry_info::endpoint>>,
+		mi::ordered_non_unique<mi::tag<tag_last_updated>,
+			mi::member<nano::telemetry_info, std::chrono::steady_clock::time_point, &nano::telemetry_info::last_response>>>> recent_or_initial_request_telemetry_data;
+	// clang-format on
 
-	void update_cleanup_data (nano::endpoint const & endpoint_a, nano::telemetry::single_request_data & single_request_data_a, bool is_new_a);
-	void ongoing_single_request_cleanup (nano::endpoint const & endpoint_a, nano::telemetry::single_request_data const & single_request_data_a);
-	void ongoing_req_all_peers ();
+	// Anything older than this requires requesting metrics from other nodes.
+	std::chrono::seconds const cache_cutoff{ nano::telemetry_cache_cutoffs::network_to_time (network_params.network) };
 
-	friend class node_telemetry_multiple_single_request_clearing_Test;
-	friend class node_telemetry_ongoing_requests_Test;
-	friend std::unique_ptr<container_info_component> collect_container_info (telemetry &, const std::string &);
+	// The maximum time spent waiting for a response to a telemetry request
+	std::chrono::seconds const response_time_cutoff{ is_sanitizer_build || nano::running_within_valgrind () ? 6 : 3 };
+
+	std::unordered_map<nano::endpoint, std::vector<std::function<void(telemetry_data_response const &)>>> callbacks;
+
+	void ongoing_req_all_peers (std::chrono::milliseconds);
+
+	void fire_request_message (std::shared_ptr<nano::transport::channel> const & channel);
+	void channel_processed (nano::endpoint const &, bool);
+	void flush_callbacks_async (nano::endpoint const &, bool);
+	void invoke_callbacks (nano::endpoint const &, bool);
+
+	bool within_cache_cutoff (nano::telemetry_info const &) const;
+	bool within_cache_plus_buffer_cutoff (telemetry_info const & telemetry_info) const;
+	friend std::unique_ptr<nano::container_info_component> collect_container_info (telemetry & telemetry, const std::string & name);
 };
 
 std::unique_ptr<nano::container_info_component> collect_container_info (telemetry & telemetry, const std::string & name);
 
 nano::telemetry_data consolidate_telemetry_data (std::vector<telemetry_data> const & telemetry_data);
-nano::telemetry_data_time_pair consolidate_telemetry_data_time_pairs (std::vector<telemetry_data_time_pair> const & telemetry_data_time_pairs);
 nano::telemetry_data local_telemetry_data (nano::ledger_cache const &, nano::network &, uint64_t, nano::network_params const &, std::chrono::steady_clock::time_point);
 }
