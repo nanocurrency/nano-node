@@ -111,7 +111,7 @@ void nano::telemetry::ongoing_req_all_peers (std::chrono::milliseconds next_requ
 				peers;
 
 				{
-					auto temp_peers = this_l->network.list (std::numeric_limits<size_t>::max (), this_l->network_params.protocol.telemetry_protocol_version_min, false);
+					auto temp_peers = this_l->network.list (std::numeric_limits<size_t>::max (), this_l->network_params.protocol.telemetry_protocol_version_min);
 					peers.insert (temp_peers.begin (), temp_peers.end ());
 				}
 
