@@ -28,7 +28,7 @@ void nano::signature_checker::verify (nano::signature_check_set & check_a)
 		return;
 	}
 
-	if (check_a.size < multithreaded_cutoff || single_threaded)
+	if (check_a.size <= batch_size || single_threaded)
 	{
 		// Not dealing with many so just use the calling thread for checking signatures
 		auto result = verify_batch (check_a, 0, check_a.size);
