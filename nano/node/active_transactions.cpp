@@ -19,6 +19,7 @@ confirmation_height_processor (confirmation_height_processor_a),
 node (node_a),
 multipliers_cb (20, 1.),
 trended_active_difficulty (node_a.network_params.network.publish_threshold),
+check_all_elections_period (node_a.network_params.network.is_test_network () ? 10ms : 5s),
 election_time_to_live (node_a.network_params.network.is_test_network () ? 0s : 2s),
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::request_loop);
@@ -61,11 +62,11 @@ void nano::active_transactions::search_frontiers (nano::transaction const & tran
 	nano::unique_lock<std::mutex> lk (mutex);
 	auto check_time_exceeded = std::chrono::steady_clock::now () >= next_frontier_check;
 	lk.unlock ();
-	auto max_elections = (node.config.active_elections_size / 20);
+	auto max_elections = 1000;
 	auto low_active_elections = roots_size < max_elections;
 	bool wallets_check_required = (!skip_wallets || !priority_wallet_cementable_frontiers.empty ()) && !agressive_mode;
 	// Minimise dropping real-time transactions, set the number of frontiers added to a factor of the total number of active elections
-	auto max_active = node.config.active_elections_size / 5;
+	auto max_active = node.config.active_elections_size / 20;
 	if (roots_size <= max_active && (check_time_exceeded || wallets_check_required || (!is_test_network && low_active_elections && agressive_mode)))
 	{
 		// When the number of active elections is low increase max number of elections for setting confirmation height.
@@ -229,11 +230,12 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	nano::confirmation_solicitor solicitor (node.network, node.network_params.network);
 	solicitor.prepare (node.rep_crawler.principal_representatives (std::numeric_limits<size_t>::max (), node.network_params.protocol.tcp_realtime_protocol_version_min));
 
-	auto election_ttl_cutoff_l (std::chrono::steady_clock::now () - election_time_to_live);
-	auto roots_size_l (roots.size ());
-	bool saturated_l (roots_size_l > node.config.active_elections_size / 2);
-	auto & sorted_roots_l = roots.get<tag_difficulty> ();
-	size_t count_l{ 0 };
+	auto & sorted_roots_l (roots.get<tag_difficulty> ());
+	auto const election_ttl_cutoff_l (std::chrono::steady_clock::now () - election_time_to_live);
+	bool const check_all_elections_l (std::chrono::steady_clock::now () - last_check_all_elections > check_all_elections_period);
+	size_t const this_loop_target_l (check_all_elections_l ? sorted_roots_l.size () : node.config.active_elections_size / 10);
+	size_t unconfirmed_count_l (0);
+	nano::timer<std::chrono::milliseconds> elapsed (nano::timer_state::started);
 
 	/*
 	 * Loop through active elections in descending order of proof-of-work difficulty, requesting confirmation
@@ -242,13 +244,14 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	 * Elections extending the soft config.active_elections_size limit are flushed after a certain time-to-live cutoff
 	 * Flushed elections are later re-activated via frontier confirmation
 	 */
-	for (auto i = sorted_roots_l.begin (), n = sorted_roots_l.end (); i != n; ++count_l)
+	for (auto i = sorted_roots_l.begin (), n = sorted_roots_l.end (); i != n && unconfirmed_count_l < this_loop_target_l;)
 	{
 		auto & election_l (i->election);
-		bool const overflow_l (count_l >= node.config.active_elections_size && election_l->election_start < election_ttl_cutoff_l && !node.wallets.watcher->is_watched (i->root));
-		if (overflow_l || election_l->transition_time (solicitor, saturated_l))
+		unconfirmed_count_l += !election_l->confirmed ();
+		bool const overflow_l (unconfirmed_count_l > node.config.active_elections_size && election_l->election_start < election_ttl_cutoff_l && !node.wallets.watcher->is_watched (i->root));
+		if (overflow_l || election_l->transition_time (solicitor))
 		{
-			election_l->clear_blocks ();
+			election_l->cleanup ();
 			i = sorted_roots_l.erase (i);
 		}
 		else
@@ -259,6 +262,16 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	lock_a.unlock ();
 	solicitor.flush ();
 	lock_a.lock ();
+
+	// This is updated after the loop to ensure slow machines don't do the full check often
+	if (check_all_elections_l)
+	{
+		last_check_all_elections = std::chrono::steady_clock::now ();
+		if (node.config.logging.timing_logging () && this_loop_target_l > node.config.active_elections_size / 10)
+		{
+			node.logger.try_log (boost::str (boost::format ("Processed %1% elections (%2% were already confirmed) in %3% %4%") % this_loop_target_l % (this_loop_target_l - unconfirmed_count_l) % elapsed.value ().count () % elapsed.unit ()));
+		}
+	}
 }
 
 void nano::active_transactions::request_loop ()
@@ -790,7 +803,7 @@ void nano::active_transactions::erase (nano::block const & block_a)
 	auto root_it (roots.get<tag_root> ().find (block_a.qualified_root ()));
 	if (root_it != roots.get<tag_root> ().end ())
 	{
-		root_it->election->clear_blocks ();
+		root_it->election->cleanup ();
 		root_it->election->adjust_dependent_difficulty ();
 		roots.get<tag_root> ().erase (root_it);
 		node.logger.try_log (boost::str (boost::format ("Election erased for block block %1% root %2%") % block_a.hash ().to_string () % block_a.root ().to_string ()));
@@ -936,18 +949,13 @@ nano::inactive_cache_information nano::active_transactions::find_inactive_votes_
 	}
 	else
 	{
-		return nano::inactive_cache_information{ std::chrono::steady_clock::time_point{}, 0, std::vector<nano::account>{} };
+		return nano::inactive_cache_information{};
 	}
 }
 
 void nano::active_transactions::erase_inactive_votes_cache (nano::block_hash const & hash_a)
 {
-	auto & inactive_by_hash (inactive_votes_cache.get<tag_hash> ());
-	auto existing (inactive_by_hash.find (hash_a));
-	if (existing != inactive_by_hash.end ())
-	{
-		inactive_by_hash.erase (existing);
-	}
+	inactive_votes_cache.get<tag_hash> ().erase (hash_a);
 }
 
 bool nano::active_transactions::inactive_votes_bootstrap_check (std::vector<nano::account> const & voters_a, nano::block_hash const & hash_a, bool & confirmed_a)

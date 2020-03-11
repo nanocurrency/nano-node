@@ -1,5 +1,6 @@
 #include <nano/node/confirmation_solicitor.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
 
 #include <boost/format.hpp>
@@ -9,7 +10,6 @@ using namespace std::chrono;
 int constexpr nano::election::passive_duration_factor;
 int constexpr nano::election::active_duration_factor;
 int constexpr nano::election::confirmed_duration_factor;
-int constexpr nano::election::confirmed_duration_factor_saturated;
 
 std::chrono::milliseconds nano::election::base_latency () const
 {
@@ -249,7 +249,7 @@ void nano::election::broadcast_block (nano::confirmation_solicitor & solicitor_a
 	}
 }
 
-bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a, bool const saturated_a)
+bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a)
 {
 	debug_assert (!node.active.mutex.try_lock ());
 	nano::unique_lock<std::mutex> lock (timepoints_mutex);
@@ -282,7 +282,7 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 			send_confirm_req (solicitor_a);
 			break;
 		case nano::election::state_t::confirmed:
-			if (base_latency () * (saturated_a ? confirmed_duration_factor_saturated : confirmed_duration_factor) < std::chrono::steady_clock::now () - state_start)
+			if (base_latency () * confirmed_duration_factor < std::chrono::steady_clock::now () - state_start)
 			{
 				result = true;
 				state_change (nano::election::state_t::confirmed, nano::election::state_t::expired_confirmed);
@@ -524,8 +524,9 @@ void nano::election::adjust_dependent_difficulty ()
 	}
 }
 
-void nano::election::clear_blocks ()
+void nano::election::cleanup ()
 {
+	bool unconfirmed (!confirmed ());
 	auto winner_hash (status.winner->hash ());
 	for (auto const & block : blocks)
 	{
@@ -535,10 +536,20 @@ void nano::election::clear_blocks ()
 		debug_assert (erased == 1);
 		node.active.erase_inactive_votes_cache (hash);
 		// Notify observers about dropped elections & blocks lost confirmed elections
-		if (!confirmed () || hash != winner_hash)
+		if (unconfirmed || hash != winner_hash)
 		{
 			node.observers.active_stopped.notify (hash);
 		}
+	}
+	if (unconfirmed)
+	{
+		// Clear network filter in another thread
+		node.worker.push_task ([node_l = node.shared (), blocks_l = std::move (blocks)]() {
+			for (auto const & block : blocks_l)
+			{
+				node_l->network.publish_filter.clear (block.second);
+			}
+		});
 	}
 }
 

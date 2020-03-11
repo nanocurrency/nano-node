@@ -38,12 +38,12 @@ class telemetry_info final
 {
 public:
 	telemetry_info () = default;
-	telemetry_info (nano::endpoint const & endpoint, nano::telemetry_data const & data, std::chrono::steady_clock::time_point last_request, bool undergoing_request);
+	telemetry_info (nano::endpoint const & endpoint, nano::telemetry_data const & data, std::chrono::steady_clock::time_point last_response, bool undergoing_request);
 	bool awaiting_first_response () const;
 
 	nano::endpoint endpoint;
 	nano::telemetry_data data;
-	std::chrono::steady_clock::time_point last_request;
+	std::chrono::steady_clock::time_point last_response;
 	bool undergoing_request{ false };
 	uint64_t round{ 0 };
 };
@@ -87,6 +87,11 @@ public:
 	 */
 	size_t telemetry_data_size ();
 
+	/*
+	 * Returns the time for the cache, response and a small buffer for alarm operations to be scheduled and completed
+	 */
+	std::chrono::milliseconds cache_plus_buffer_cutoff_time () const;
+
 private:
 	class tag_endpoint
 	{
@@ -111,11 +116,13 @@ private:
 		mi::hashed_unique<mi::tag<tag_endpoint>,
 			mi::member<nano::telemetry_info, nano::endpoint, &nano::telemetry_info::endpoint>>,
 		mi::ordered_non_unique<mi::tag<tag_last_updated>,
-			mi::member<nano::telemetry_info, std::chrono::steady_clock::time_point, &nano::telemetry_info::last_request>>>> recent_or_initial_request_telemetry_data;
+			mi::member<nano::telemetry_info, std::chrono::steady_clock::time_point, &nano::telemetry_info::last_response>>>> recent_or_initial_request_telemetry_data;
 	// clang-format on
 
 	// Anything older than this requires requesting metrics from other nodes.
 	std::chrono::seconds const cache_cutoff{ nano::telemetry_cache_cutoffs::network_to_time (network_params.network) };
+
+	// The maximum time spent waiting for a response to a telemetry request
 	std::chrono::seconds const response_time_cutoff{ is_sanitizer_build || nano::running_within_valgrind () ? 6 : 3 };
 
 	std::unordered_map<nano::endpoint, std::vector<std::function<void(telemetry_data_response const &)>>> callbacks;
@@ -128,6 +135,7 @@ private:
 	void invoke_callbacks (nano::endpoint const &, bool);
 
 	bool within_cache_cutoff (nano::telemetry_info const &) const;
+	bool within_cache_plus_buffer_cutoff (telemetry_info const & telemetry_info) const;
 	friend std::unique_ptr<nano::container_info_component> collect_container_info (telemetry & telemetry, const std::string & name);
 };
 

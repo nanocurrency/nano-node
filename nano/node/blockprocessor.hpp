@@ -39,7 +39,7 @@ public:
 	void add (std::shared_ptr<nano::block>, uint64_t = 0);
 	void force (std::shared_ptr<nano::block>);
 	void wait_write ();
-	bool should_log (bool);
+	bool should_log ();
 	bool have_blocks ();
 	void process_blocks ();
 	nano::process_return process_one (nano::write_transaction const &, nano::unchecked_info, const bool = false, const bool = false);
@@ -62,8 +62,6 @@ private:
 	std::deque<nano::unchecked_info> state_blocks;
 	std::deque<nano::unchecked_info> blocks;
 	std::deque<std::shared_ptr<nano::block>> forced;
-	nano::block_hash filter_item (nano::block_hash const &, nano::signature const &);
-	std::unordered_set<nano::block_hash> blocks_filter;
 	nano::condition_variable condition;
 	nano::node & node;
 	nano::write_database_queue & write_database_queue;

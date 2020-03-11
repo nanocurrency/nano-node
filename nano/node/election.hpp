@@ -48,8 +48,7 @@ private: // State management
 	};
 	static int constexpr passive_duration_factor = 5;
 	static int constexpr active_duration_factor = 30;
-	static int constexpr confirmed_duration_factor = 10;
-	static int constexpr confirmed_duration_factor_saturated = 1;
+	static int constexpr confirmed_duration_factor = 5;
 	std::atomic<nano::election::state_t> state_m = { state_t::idle };
 
 	// Protects state_start, last_vote and last_block
@@ -78,11 +77,12 @@ public:
 	size_t last_votes_size ();
 	void update_dependent ();
 	void adjust_dependent_difficulty ();
-	void clear_blocks ();
 	void insert_inactive_votes_cache (nano::block_hash const &);
+	// Erase all blocks from active and, if not confirmed, clear digests from network filters
+	void cleanup ();
 
 public: // State transitions
-	bool transition_time (nano::confirmation_solicitor &, bool const saturated);
+	bool transition_time (nano::confirmation_solicitor &);
 	void transition_passive ();
 	void transition_active ();
 

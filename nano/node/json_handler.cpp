@@ -1851,6 +1851,7 @@ void nano::json_handler::confirmation_info ()
 	if (!root.decode_hex (root_text))
 	{
 		auto election (node.active.election (root));
+		nano::lock_guard<std::mutex> guard (node.active.mutex);
 		if (election != nullptr && !election->confirmed ())
 		{
 			response_l.put ("announcements", std::to_string (election->confirmation_request_count));

@@ -598,7 +598,7 @@ TEST (node_telemetry, all_peers_use_single_request_cache)
 	ASSERT_EQ (1, node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in));
 	ASSERT_EQ (0, node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::out));
 
-	std::this_thread::sleep_for (nano::telemetry_cache_cutoffs::test);
+	std::this_thread::sleep_for (node_server->telemetry->cache_plus_buffer_cutoff_time ());
 
 	// Should be empty
 	responses = node_client->telemetry->get_metrics ();

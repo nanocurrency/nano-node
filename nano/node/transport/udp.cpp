@@ -544,9 +544,17 @@ void nano::transport::udp_channels::receive_action (nano::message_buffer * data_
 	if (allowed_sender)
 	{
 		udp_message_visitor visitor (node, data_a->endpoint);
-		nano::message_parser parser (node.block_uniquer, node.vote_uniquer, visitor, node.work);
+		nano::message_parser parser (node.network.publish_filter, node.block_uniquer, node.vote_uniquer, visitor, node.work);
 		parser.deserialize_buffer (data_a->buffer, data_a->size);
-		if (parser.status != nano::message_parser::parse_status::success)
+		if (parser.status == nano::message_parser::parse_status::success)
+		{
+			node.stats.add (nano::stat::type::traffic_udp, nano::stat::dir::in, data_a->size);
+		}
+		else if (parser.status == nano::message_parser::parse_status::duplicate_publish_message)
+		{
+			node.stats.inc (nano::stat::type::filter, nano::stat::detail::duplicate_publish);
+		}
+		else
 		{
 			node.stats.inc (nano::stat::type::error);
 
@@ -592,14 +600,11 @@ void nano::transport::udp_channels::receive_action (nano::message_buffer * data_
 				case nano::message_parser::parse_status::outdated_version:
 					node.stats.inc (nano::stat::type::udp, nano::stat::detail::outdated_version);
 					break;
+				case nano::message_parser::parse_status::duplicate_publish_message:
 				case nano::message_parser::parse_status::success:
 					/* Already checked, unreachable */
 					break;
 			}
-		}
-		else
-		{
-			node.stats.add (nano::stat::type::traffic_udp, nano::stat::dir::in, data_a->size);
 		}
 	}
 	else

@@ -772,3 +772,54 @@ TEST (active_transactions, activate_dependencies)
 	ASSERT_TRUE (node1->ledger.block_confirmed (node1->store.tx_begin_read (), block2->hash ()));
 	ASSERT_TRUE (node2->ledger.block_confirmed (node2->store.tx_begin_read (), block2->hash ()));
 }
+
+namespace nano
+{
+// Tests that blocks are correctly cleared from the duplicate filter for unconfirmed elections
+TEST (active_transactions, dropped_cleanup)
+{
+	nano::system system;
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto & node (*system.add_node (node_config));
+
+	nano::genesis genesis;
+	auto block = genesis.open;
+
+	// Add to network filter to ensure proper cleanup after the election is dropped
+	std::vector<uint8_t> block_bytes;
+	{
+		nano::vectorstream stream (block_bytes);
+		block->serialize (stream);
+	}
+	ASSERT_FALSE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
+	ASSERT_TRUE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
+
+	auto election (node.active.insert (block).first);
+	ASSERT_NE (nullptr, election);
+
+	// Not yet removed
+	ASSERT_TRUE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
+
+	// Now simulate dropping the election, which performs a cleanup in the background using the node worker
+	ASSERT_FALSE (election->confirmed ());
+	{
+		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		election->cleanup ();
+	}
+
+	// Push a worker task to ensure the cleanup is already performed
+	std::atomic<bool> flag{ false };
+	node.worker.push_task ([&flag]() {
+		flag = true;
+	});
+	system.deadline_set (5s);
+	while (!flag)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	// The filter must have been cleared
+	ASSERT_FALSE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
+}
+}

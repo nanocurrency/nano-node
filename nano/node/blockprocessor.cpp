@@ -42,7 +42,6 @@ void nano::block_processor::flush ()
 	{
 		condition.wait (lock);
 	}
-	blocks_filter.clear ();
 	flushing = false;
 }
 
@@ -54,12 +53,12 @@ size_t nano::block_processor::size ()
 
 bool nano::block_processor::full ()
 {
-	return size () > node.flags.block_processor_full_size;
+	return size () >= node.flags.block_processor_full_size;
 }
 
 bool nano::block_processor::half_full ()
 {
-	return size () > node.flags.block_processor_full_size / 2;
+	return size () >= node.flags.block_processor_full_size / 2;
 }
 
 void nano::block_processor::add (std::shared_ptr<nano::block> block_a, uint64_t origination)
@@ -72,20 +71,14 @@ void nano::block_processor::add (nano::unchecked_info const & info_a)
 {
 	debug_assert (!nano::work_validate (*info_a.block));
 	{
-		auto hash (info_a.block->hash ());
-		auto filter_hash (filter_item (hash, info_a.block->block_signature ()));
 		nano::lock_guard<std::mutex> lock (mutex);
-		if (blocks_filter.find (filter_hash) == blocks_filter.end ())
+		if (info_a.verified == nano::signature_verification::unknown && (info_a.block->type () == nano::block_type::state || info_a.block->type () == nano::block_type::open || !info_a.account.is_zero ()))
 		{
-			if (info_a.verified == nano::signature_verification::unknown && (info_a.block->type () == nano::block_type::state || info_a.block->type () == nano::block_type::open || !info_a.account.is_zero ()))
-			{
-				state_blocks.push_back (info_a);
-			}
-			else
-			{
-				blocks.push_back (info_a);
-			}
-			blocks_filter.insert (filter_hash);
+			state_blocks.push_back (info_a);
+		}
+		else
+		{
+			blocks.push_back (info_a);
 		}
 	}
 	condition.notify_all ();
@@ -127,13 +120,13 @@ void nano::block_processor::process_blocks ()
 	}
 }
 
-bool nano::block_processor::should_log (bool first_time)
+bool nano::block_processor::should_log ()
 {
 	auto result (false);
 	auto now (std::chrono::steady_clock::now ());
-	if (first_time || next_log < now)
+	if (next_log < now)
 	{
-		next_log = now + std::chrono::seconds (15);
+		next_log = now + (node.config.logging.timing_logging () ? std::chrono::seconds (2) : std::chrono::seconds (15));
 		result = true;
 	}
 	return result;
@@ -233,14 +226,13 @@ void nano::block_processor::verify_state_blocks (nano::unique_lock<std::mutex> &
 			}
 			else
 			{
-				blocks_filter.erase (filter_item (hashes[i], blocks_signatures[i]));
 				requeue_invalid (hashes[i], item);
 			}
 			items.pop_front ();
 		}
-		if (node.config.logging.timing_logging ())
+		if (node.config.logging.timing_logging () && timer_l.stop () > std::chrono::milliseconds (10))
 		{
-			node.logger.try_log (boost::str (boost::format ("Batch verified %1% state blocks in %2% %3%") % size % timer_l.stop ().count () % timer_l.unit ()));
+			node.logger.try_log (boost::str (boost::format ("Batch verified %1% state blocks in %2% %3%") % size % timer_l.value ().count () % timer_l.unit ()));
 		}
 	}
 	else
@@ -272,29 +264,12 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 	timer_l.restart ();
 	lock_a.lock ();
 	// Processing blocks
-	auto first_time (true);
 	unsigned number_of_blocks_processed (0), number_of_forced_processed (0);
 	while ((!blocks.empty () || !forced.empty ()) && (timer_l.before_deadline (node.config.block_processor_batch_max_time) || (number_of_blocks_processed < node.flags.block_processor_batch_size)) && !awaiting_write)
 	{
-		auto log_this_record (false);
-		if (node.config.logging.timing_logging ())
-		{
-			if (should_log (first_time))
-			{
-				log_this_record = true;
-			}
-		}
-		else
-		{
-			if (((blocks.size () + state_blocks.size () + forced.size ()) > 64 && should_log (false)))
-			{
-				log_this_record = true;
-			}
-		}
-
+		bool log_this_record = (blocks.size () + state_blocks.size () + forced.size () > 64) && should_log ();
 		if (log_this_record)
 		{
-			first_time = false;
 			node.logger.always_log (boost::str (boost::format ("%1% blocks (+ %2% state blocks) (+ %3% forced) in processing queue") % blocks.size () % state_blocks.size () % forced.size ()));
 		}
 		nano::unchecked_info info;
@@ -305,7 +280,6 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 			info = blocks.front ();
 			blocks.pop_front ();
 			hash = info.block->hash ();
-			blocks_filter.erase (filter_item (hash, info.block->block_signature ()));
 		}
 		else
 		{
@@ -358,9 +332,9 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 	awaiting_write = false;
 	lock_a.unlock ();
 
-	if (node.config.logging.timing_logging () && number_of_blocks_processed != 0)
+	if (node.config.logging.timing_logging () && number_of_blocks_processed != 0 && timer_l.stop () > std::chrono::milliseconds (10))
 	{
-		node.logger.always_log (boost::str (boost::format ("Processed %1% blocks (%2% blocks were forced) in %3% %4%") % number_of_blocks_processed % number_of_forced_processed % timer_l.stop ().count () % timer_l.unit ()));
+		node.logger.always_log (boost::str (boost::format ("Processed %1% blocks (%2% blocks were forced) in %3% %4%") % number_of_blocks_processed % number_of_forced_processed % timer_l.value ().count () % timer_l.unit ()));
 	}
 }
 
@@ -566,19 +540,6 @@ void nano::block_processor::queue_unchecked (nano::write_transaction const & tra
 		add (info);
 	}
 	node.gap_cache.erase (hash_a);
-}
-
-nano::block_hash nano::block_processor::filter_item (nano::block_hash const & hash_a, nano::signature const & signature_a)
-{
-	static nano::random_constants constants;
-	nano::block_hash result;
-	blake2b_state state;
-	blake2b_init (&state, sizeof (result.bytes));
-	blake2b_update (&state, constants.not_an_account.bytes.data (), constants.not_an_account.bytes.size ());
-	blake2b_update (&state, signature_a.bytes.data (), signature_a.bytes.size ());
-	blake2b_update (&state, hash_a.bytes.data (), hash_a.bytes.size ());
-	blake2b_final (&state, result.bytes.data (), sizeof (result.bytes));
-	return result;
 }
 
 void nano::block_processor::requeue_invalid (nano::block_hash const & hash_a, nano::unchecked_info const & info_a)
