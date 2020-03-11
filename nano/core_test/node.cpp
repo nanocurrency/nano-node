@@ -3656,7 +3656,7 @@ TEST (node, aggressive_flooding)
 		wallet1.send_action (nano::test_genesis_key.pub, keypair.pub, large_amount);
 	}
 	// Wait until all nodes have a representative
-	system.deadline_set (!is_sanitizer_build ? 5s : 15s);
+	system.deadline_set (!is_sanitizer_build ? 20s : 40s);
 	while (node1.rep_crawler.principal_representatives ().size () != nodes_wallets.size ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -3685,7 +3685,7 @@ TEST (node, aggressive_flooding)
 		});
 	};
 
-	system.deadline_set (!is_sanitizer_build ? 3s : 10s);
+	system.deadline_set (!is_sanitizer_build ? 20s : 40s);
 	while (!all_have_block (block->hash ()))
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -3693,7 +3693,7 @@ TEST (node, aggressive_flooding)
 
 	// Do the same for a wallet block
 	auto wallet_block = wallet1.send_sync (nano::test_genesis_key.pub, nano::test_genesis_key.pub, 10);
-	system.deadline_set (!is_sanitizer_build ? 3s : 10s);
+	system.deadline_set (!is_sanitizer_build ? 20s : 40s);
 	while (!all_have_block (wallet_block))
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -3701,7 +3701,7 @@ TEST (node, aggressive_flooding)
 
 	// Wait until the main node has all blocks: genesis + (send+open) for each representative + 2 local blocks
 	// The main node only sees all blocks if other nodes are flooding their PR's open block to all other PRs
-	system.deadline_set (5s);
+	system.deadline_set (20s);
 	while (node1.ledger.cache.block_count < 1 + 2 * nodes_wallets.size () + 2)
 	{
 		ASSERT_NO_ERROR (system.poll ());
