@@ -1226,7 +1226,6 @@ void nano::json_handler::block_account ()
 
 void nano::json_handler::block_count ()
 {
-	auto transaction (node.store.tx_begin_read ());
 	response_l.put ("count", std::to_string (node.ledger.cache.block_count));
 	response_l.put ("unchecked", std::to_string (node.ledger.cache.unchecked_count));
 	response_l.put ("cemented", std::to_string (node.ledger.cache.cemented_count));
