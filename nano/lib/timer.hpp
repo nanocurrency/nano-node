@@ -59,9 +59,9 @@ public:
 	UNIT stop ();
 
 	/**
-	 * Return current tick count.
+	 * Updates and returns current tick count.
 	 */
-	UNIT value () const;
+	UNIT value ();
 
 	/** Returns the duration in UNIT since the timer was last started. */
 	UNIT since_start () const;
@@ -94,5 +94,6 @@ private:
 	UNIT ticks{ 0 };
 	UNIT minimum{ UNIT::zero () };
 	unsigned measurements{ 0 };
+	void update_ticks ();
 };
 }
