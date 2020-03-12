@@ -50,9 +50,16 @@ void nano::signature_checker::verify (nano::signature_check_set & check_a)
 	auto num_full_batches_thread = (num_base_batches_each * num_threads);
 	if (num_full_overflow_batches > 0)
 	{
-		size_calling_thread += batch_size;
-		auto remaining = num_full_overflow_batches - 1;
-		num_full_batches_thread += remaining;
+		if (overflow_size == 0)
+		{
+			// Give the calling thread priority over any batches when there is no excess remainder.
+			size_calling_thread += batch_size;
+			num_full_batches_thread += num_full_overflow_batches - 1;
+		}
+		else
+		{
+			num_full_batches_thread += num_full_overflow_batches;
+		}
 	}
 
 	release_assert (check_a.size == (num_full_batches_thread * batch_size + size_calling_thread));

@@ -986,3 +986,59 @@ namespace transport
 	}
 }
 }
+
+// Similar to signature_checker.boundary_checks but more exhaustive. Can take up to 1 minute
+TEST (signature_checker, mass_boundary_checks)
+{
+	// sizes container must be in incrementing order
+	std::vector<size_t> sizes{ 0, 1 };
+	auto add_boundary = [&sizes](size_t boundary) {
+		sizes.insert (sizes.end (), { boundary - 1, boundary, boundary + 1 });
+	};
+
+	for (auto i = 1; i <= 10; ++i)
+	{
+		add_boundary (nano::signature_checker::batch_size * i);
+	}
+
+	for (auto num_threads = 0; num_threads < 5; ++num_threads)
+	{
+		nano::signature_checker checker (num_threads);
+		auto size = *(sizes.end () - 1);
+		std::vector<nano::uint256_union> hashes;
+		hashes.reserve (size);
+		std::vector<unsigned char const *> messages;
+		messages.reserve (size);
+		std::vector<size_t> lengths;
+		lengths.reserve (size);
+		std::vector<unsigned char const *> pub_keys;
+		pub_keys.reserve (size);
+		std::vector<unsigned char const *> signatures;
+		signatures.reserve (size);
+		nano::keypair key;
+		nano::state_block block (key.pub, 0, key.pub, 0, 0, key.prv, key.pub, 0);
+
+		auto last_size = 0;
+		for (auto size : sizes)
+		{
+			// The size needed to append to existing containers, saves re-initializing from scratch each iteration
+			auto extra_size = size - last_size;
+
+			std::vector<int> verifications;
+			verifications.resize (size);
+			for (auto i (0); i < extra_size; ++i)
+			{
+				hashes.push_back (block.hash ());
+				messages.push_back (hashes.back ().bytes.data ());
+				lengths.push_back (sizeof (decltype (hashes)::value_type));
+				pub_keys.push_back (block.hashables.account.bytes.data ());
+				signatures.push_back (block.signature.bytes.data ());
+			}
+			nano::signature_check_set check = { size, messages.data (), lengths.data (), pub_keys.data (), signatures.data (), verifications.data () };
+			checker.verify (check);
+			bool all_valid = std::all_of (verifications.cbegin (), verifications.cend (), [](auto verification) { return verification == 1; });
+			ASSERT_TRUE (all_valid);
+			last_size = size;
+		}
+	}
+}
