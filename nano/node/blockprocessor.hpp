@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/blocks.hpp>
+#include <nano/node/state_block_signature_verification.hpp>
 #include <nano/node/voting.hpp>
 #include <nano/secure/common.hpp>
 
@@ -51,22 +52,23 @@ public:
 
 private:
 	void queue_unchecked (nano::write_transaction const &, nano::block_hash const &);
-	void verify_state_blocks (nano::unique_lock<std::mutex> &, size_t = std::numeric_limits<size_t>::max ());
 	void process_batch (nano::unique_lock<std::mutex> &);
 	void process_live (nano::block_hash const &, std::shared_ptr<nano::block>, const bool = false, const bool = false);
 	void requeue_invalid (nano::block_hash const &, nano::unchecked_info const &);
+	void process_verified_state_blocks (std::deque<nano::unchecked_info> &, std::vector<int> const &, std::vector<nano::block_hash> const &, std::vector<nano::signature> const &);
 	bool stopped;
 	bool active;
 	bool awaiting_write{ false };
 	std::chrono::steady_clock::time_point next_log;
-	std::deque<nano::unchecked_info> state_blocks;
 	std::deque<nano::unchecked_info> blocks;
 	std::deque<std::shared_ptr<nano::block>> forced;
 	nano::condition_variable condition;
 	nano::node & node;
 	nano::write_database_queue & write_database_queue;
 	std::mutex mutex;
+	nano::state_block_signature_verification state_block_signature_verification;
 
 	friend std::unique_ptr<container_info_component> collect_container_info (block_processor & block_processor, const std::string & name);
 };
+std::unique_ptr<nano::container_info_component> collect_container_info (block_processor & block_processor, const std::string & name);
 }

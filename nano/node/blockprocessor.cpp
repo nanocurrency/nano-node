@@ -1,3 +1,4 @@
+#include <nano/lib/threading.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/election.hpp>
@@ -14,8 +15,12 @@ stopped (false),
 active (false),
 next_log (std::chrono::steady_clock::now ()),
 node (node_a),
-write_database_queue (write_database_queue_a)
+write_database_queue (write_database_queue_a),
+state_block_signature_verification (node.checker, node.ledger.network_params.ledger.epochs, node.config, node.logger, node.flags.block_processor_verification_size)
 {
+	state_block_signature_verification.blocks_verified_callback = [this](std::deque<nano::unchecked_info> & items, std::vector<int> const & verifications, std::vector<nano::block_hash> const & hashes, std::vector<nano::signature> const & blocks_signatures) {
+		this->process_verified_state_blocks (items, verifications, hashes, blocks_signatures);
+	};
 }
 
 nano::block_processor::~block_processor ()
@@ -31,6 +36,7 @@ void nano::block_processor::stop ()
 		stopped = true;
 	}
 	condition.notify_all ();
+	state_block_signature_verification.stop ();
 }
 
 void nano::block_processor::flush ()
@@ -38,7 +44,7 @@ void nano::block_processor::flush ()
 	node.checker.flush ();
 	flushing = true;
 	nano::unique_lock<std::mutex> lock (mutex);
-	while (!stopped && (have_blocks () || active))
+	while (!stopped && (have_blocks () || active || state_block_signature_verification.is_active ()))
 	{
 		condition.wait (lock);
 	}
@@ -48,7 +54,7 @@ void nano::block_processor::flush ()
 size_t nano::block_processor::size ()
 {
 	nano::unique_lock<std::mutex> lock (mutex);
-	return (blocks.size () + state_blocks.size () + forced.size ());
+	return (blocks.size () + state_block_signature_verification.size () + forced.size ());
 }
 
 bool nano::block_processor::full ()
@@ -69,19 +75,23 @@ void nano::block_processor::add (std::shared_ptr<nano::block> block_a, uint64_t 
 
 void nano::block_processor::add (nano::unchecked_info const & info_a)
 {
-	debug_assert (!nano::work_validate (*info_a.block));
+	bool should_notify{ false };
 	{
 		nano::lock_guard<std::mutex> lock (mutex);
 		if (info_a.verified == nano::signature_verification::unknown && (info_a.block->type () == nano::block_type::state || info_a.block->type () == nano::block_type::open || !info_a.account.is_zero ()))
 		{
-			state_blocks.push_back (info_a);
+			state_block_signature_verification.add (info_a);
 		}
 		else
 		{
+			should_notify = true;
 			blocks.push_back (info_a);
 		}
 	}
-	condition.notify_all ();
+	if (should_notify)
+	{
+		condition.notify_all ();
+	}
 }
 
 void nano::block_processor::force (std::shared_ptr<nano::block> block_a)
@@ -104,7 +114,7 @@ void nano::block_processor::process_blocks ()
 	nano::unique_lock<std::mutex> lock (mutex);
 	while (!stopped)
 	{
-		if (have_blocks ())
+		if (!blocks.empty () || !forced.empty ())
 		{
 			active = true;
 			lock.unlock ();
@@ -114,7 +124,7 @@ void nano::block_processor::process_blocks ()
 		}
 		else
 		{
-			condition.notify_all ();
+			condition.notify_one ();
 			condition.wait (lock);
 		}
 	}
@@ -135,71 +145,14 @@ bool nano::block_processor::should_log ()
 bool nano::block_processor::have_blocks ()
 {
 	debug_assert (!mutex.try_lock ());
-	return !blocks.empty () || !forced.empty () || !state_blocks.empty ();
+	return !blocks.empty () || !forced.empty () || state_block_signature_verification.size () != 0;
 }
 
-void nano::block_processor::verify_state_blocks (nano::unique_lock<std::mutex> & lock_a, size_t max_count)
+void nano::block_processor::process_verified_state_blocks (std::deque<nano::unchecked_info> & items, std::vector<int> const & verifications, std::vector<nano::block_hash> const & hashes, std::vector<nano::signature> const & blocks_signatures)
 {
-	debug_assert (!mutex.try_lock ());
-	nano::timer<std::chrono::milliseconds> timer_l (nano::timer_state::started);
-	std::deque<nano::unchecked_info> items;
-	if (state_blocks.size () <= max_count)
 	{
-		items.swap (state_blocks);
-	}
-	else
-	{
-		for (auto i (0); i < max_count; ++i)
-		{
-			items.push_back (state_blocks.front ());
-			state_blocks.pop_front ();
-		}
-		debug_assert (!state_blocks.empty ());
-	}
-	lock_a.unlock ();
-	if (!items.empty ())
-	{
-		auto size (items.size ());
-		std::vector<nano::block_hash> hashes;
-		hashes.reserve (size);
-		std::vector<unsigned char const *> messages;
-		messages.reserve (size);
-		std::vector<size_t> lengths;
-		lengths.reserve (size);
-		std::vector<nano::account> accounts;
-		accounts.reserve (size);
-		std::vector<unsigned char const *> pub_keys;
-		pub_keys.reserve (size);
-		std::vector<nano::signature> blocks_signatures;
-		blocks_signatures.reserve (size);
-		std::vector<unsigned char const *> signatures;
-		signatures.reserve (size);
-		std::vector<int> verifications;
-		verifications.resize (size, 0);
-		for (auto i (0); i < size; ++i)
-		{
-			auto & item (items[i]);
-			hashes.push_back (item.block->hash ());
-			messages.push_back (hashes.back ().bytes.data ());
-			lengths.push_back (sizeof (decltype (hashes)::value_type));
-			nano::account account (item.block->account ());
-			if (!item.block->link ().is_zero () && node.ledger.is_epoch_link (item.block->link ()))
-			{
-				account = node.ledger.epoch_signer (item.block->link ());
-			}
-			else if (!item.account.is_zero ())
-			{
-				account = item.account;
-			}
-			accounts.push_back (account);
-			pub_keys.push_back (accounts.back ().bytes.data ());
-			blocks_signatures.push_back (item.block->block_signature ());
-			signatures.push_back (blocks_signatures.back ().bytes.data ());
-		}
-		nano::signature_check_set check = { size, messages.data (), lengths.data (), pub_keys.data (), signatures.data (), verifications.data () };
-		node.checker.verify (check);
-		lock_a.lock ();
-		for (auto i (0); i < size; ++i)
+		nano::unique_lock<std::mutex> lk (mutex);
+		for (auto i (0); i < verifications.size (); ++i)
 		{
 			debug_assert (verifications[i] == 1 || verifications[i] == 0);
 			auto & item (items.front ());
@@ -230,47 +183,24 @@ void nano::block_processor::verify_state_blocks (nano::unique_lock<std::mutex> &
 			}
 			items.pop_front ();
 		}
-		if (node.config.logging.timing_logging () && timer_l.stop () > std::chrono::milliseconds (10))
-		{
-			node.logger.try_log (boost::str (boost::format ("Batch verified %1% state blocks in %2% %3%") % size % timer_l.value ().count () % timer_l.unit ()));
-		}
 	}
-	else
-	{
-		lock_a.lock ();
-	}
+	condition.notify_all ();
 }
 
 void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_a)
 {
+	auto scoped_write_guard = write_database_queue.wait (nano::writer::process_batch);
+	auto transaction (node.store.tx_begin_write ({ tables::accounts, nano::tables::cached_counts, nano::tables::change_blocks, tables::frontiers, tables::open_blocks, tables::pending, tables::receive_blocks, tables::representation, tables::send_blocks, tables::state_blocks, tables::unchecked }, { tables::confirmation_height }));
 	nano::timer<std::chrono::milliseconds> timer_l;
 	lock_a.lock ();
 	timer_l.start ();
-	// Limit state blocks verification time
-
-	{
-		if (!state_blocks.empty ())
-		{
-			size_t max_verification_batch (node.flags.block_processor_verification_size != 0 ? node.flags.block_processor_verification_size : 2048 * (node.config.signature_checker_threads + 1));
-			while (!state_blocks.empty () && timer_l.before_deadline (std::chrono::seconds (2)))
-			{
-				verify_state_blocks (lock_a, max_verification_batch);
-			}
-		}
-	}
-	lock_a.unlock ();
-	auto scoped_write_guard = write_database_queue.wait (nano::writer::process_batch);
-	auto transaction (node.store.tx_begin_write ({ tables::accounts, nano::tables::cached_counts, nano::tables::change_blocks, tables::frontiers, tables::open_blocks, tables::pending, tables::receive_blocks, tables::representation, tables::send_blocks, tables::state_blocks, tables::unchecked }, { tables::confirmation_height }));
-	timer_l.restart ();
-	lock_a.lock ();
 	// Processing blocks
 	unsigned number_of_blocks_processed (0), number_of_forced_processed (0);
 	while ((!blocks.empty () || !forced.empty ()) && (timer_l.before_deadline (node.config.block_processor_batch_max_time) || (number_of_blocks_processed < node.flags.block_processor_batch_size)) && !awaiting_write)
 	{
-		bool log_this_record = (blocks.size () + state_blocks.size () + forced.size () > 64) && should_log ();
-		if (log_this_record)
+		if ((blocks.size () + state_block_signature_verification.size () + forced.size () > 64) && should_log ())
 		{
-			node.logger.always_log (boost::str (boost::format ("%1% blocks (+ %2% state blocks) (+ %3% forced) in processing queue") % blocks.size () % state_blocks.size () % forced.size ()));
+			node.logger.always_log (boost::str (boost::format ("%1% blocks (+ %2% state blocks) (+ %3% forced) in processing queue") % blocks.size () % state_block_signature_verification.size () % forced.size ()));
 		}
 		nano::unchecked_info info;
 		nano::block_hash hash (0);
@@ -322,12 +252,6 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 		number_of_blocks_processed++;
 		process_one (transaction, info);
 		lock_a.lock ();
-		/* Verify more state blocks if blocks deque is empty
-		 Because verification is long process, avoid large deque verification inside of write transaction */
-		if (blocks.empty () && !state_blocks.empty ())
-		{
-			verify_state_blocks (lock_a, 256 * (node.config.signature_checker_threads + 1));
-		}
 	}
 	awaiting_write = false;
 	lock_a.unlock ();
@@ -546,4 +470,23 @@ void nano::block_processor::requeue_invalid (nano::block_hash const & hash_a, na
 {
 	debug_assert (hash_a == info_a.block->hash ());
 	node.bootstrap_initiator.lazy_requeue (hash_a, info_a.block->previous (), info_a.confirmed);
+}
+
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (block_processor & block_processor, const std::string & name)
+{
+	size_t blocks_count;
+	size_t forced_count;
+
+	{
+		nano::lock_guard<std::mutex> guard (block_processor.mutex);
+		blocks_count = block_processor.blocks.size ();
+		forced_count = block_processor.forced.size ();
+	}
+
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (collect_container_info (block_processor.state_block_signature_verification, "state_block_signature_verification"));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "blocks", blocks_count, sizeof (decltype (block_processor.blocks)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "forced", forced_count, sizeof (decltype (block_processor.forced)::value_type) }));
+	composite->add_component (collect_container_info (block_processor.generator, "generator"));
+	return composite;
 }

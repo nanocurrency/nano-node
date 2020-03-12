@@ -55,12 +55,9 @@ private:
 	void set_thread_names (unsigned num_threads);
 	boost::asio::thread_pool thread_pool;
 	std::atomic<int> tasks_remaining{ 0 };
-	/** minimum signature_check_set size eligible to be multithreaded */
-	static constexpr size_t multithreaded_cutoff = 513;
 	static constexpr size_t batch_size = 256;
 	const bool single_threaded;
 	unsigned num_threads;
-	std::mutex mutex;
-	bool stopped{ false };
+	std::atomic<bool> stopped{ false };
 };
 }

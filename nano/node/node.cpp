@@ -82,27 +82,6 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (re
 	return composite;
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (block_processor & block_processor, const std::string & name)
-{
-	size_t state_blocks_count;
-	size_t blocks_count;
-	size_t forced_count;
-
-	{
-		nano::lock_guard<std::mutex> guard (block_processor.mutex);
-		state_blocks_count = block_processor.state_blocks.size ();
-		blocks_count = block_processor.blocks.size ();
-		forced_count = block_processor.forced.size ();
-	}
-
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "state_blocks", state_blocks_count, sizeof (decltype (block_processor.state_blocks)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "blocks", blocks_count, sizeof (decltype (block_processor.blocks)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "forced", forced_count, sizeof (decltype (block_processor.forced)::value_type) }));
-	composite->add_component (collect_container_info (block_processor.generator, "generator"));
-	return composite;
-}
-
 nano::node::node (boost::asio::io_context & io_ctx_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, nano::alarm & alarm_a, nano::logging const & logging_a, nano::work_pool & work_a, nano::node_flags flags_a) :
 node (io_ctx_a, application_path_a, alarm_a, nano::node_config (peering_port_a, logging_a), work_a, flags_a)
 {
