@@ -162,17 +162,17 @@ TEST (signature_checker, boundary_checks)
 	}
 
 	nano::signature_checker checker (1);
-	auto size = *(sizes.end () - 1);
+	auto max_size = *(sizes.end () - 1);
 	std::vector<nano::uint256_union> hashes;
-	hashes.reserve (size);
+	hashes.reserve (max_size);
 	std::vector<unsigned char const *> messages;
-	messages.reserve (size);
+	messages.reserve (max_size);
 	std::vector<size_t> lengths;
-	lengths.reserve (size);
+	lengths.reserve (max_size);
 	std::vector<unsigned char const *> pub_keys;
-	pub_keys.reserve (size);
+	pub_keys.reserve (max_size);
 	std::vector<unsigned char const *> signatures;
-	signatures.reserve (size);
+	signatures.reserve (max_size);
 	nano::keypair key;
 	nano::state_block block (key.pub, 0, key.pub, 0, 0, key.prv, key.pub, 0);
 

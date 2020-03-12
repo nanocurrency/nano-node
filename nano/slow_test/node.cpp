@@ -1004,17 +1004,17 @@ TEST (signature_checker, mass_boundary_checks)
 	for (auto num_threads = 0; num_threads < 5; ++num_threads)
 	{
 		nano::signature_checker checker (num_threads);
-		auto size = *(sizes.end () - 1);
+		auto max_size = *(sizes.end () - 1);
 		std::vector<nano::uint256_union> hashes;
-		hashes.reserve (size);
+		hashes.reserve (max_size);
 		std::vector<unsigned char const *> messages;
-		messages.reserve (size);
+		messages.reserve (max_size);
 		std::vector<size_t> lengths;
-		lengths.reserve (size);
+		lengths.reserve (max_size);
 		std::vector<unsigned char const *> pub_keys;
-		pub_keys.reserve (size);
+		pub_keys.reserve (max_size);
 		std::vector<unsigned char const *> signatures;
-		signatures.reserve (size);
+		signatures.reserve (max_size);
 		nano::keypair key;
 		nano::state_block block (key.pub, 0, key.pub, 0, 0, key.prv, key.pub, 0);
 
