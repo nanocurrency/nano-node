@@ -139,7 +139,7 @@ public:
 	bool disable_max_peers_per_ip{ false }; // For testing only
 	bool fast_bootstrap{ false };
 	bool read_only{ false };
-	nano::confirmation_height_mode confirmation_height_processor_mode{ nano::confirmation_height_mode::automatic };
+	nano::confirmation_height_mode confirmation_height_processor_mode{ nano::confirmation_height_mode::bounded };
 	nano::generate_cache generate_cache;
 	bool inactive_node{ false };
 	size_t sideband_batch_size{ 512 };
