@@ -590,11 +590,7 @@ TEST (active_transactions, update_difficulty)
 	node1.process_active (send1);
 	node1.process_active (send2);
 	node1.block_processor.flush ();
-	system.deadline_set (10s);
-	while (node1.active.size () != 2 || node2.active.size () != 2)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	system.poll_until_true (10s, [&node1, &node2] {return node1.active.size () == 2 && node2.active.size () == 2;});
 	// Update work with higher difficulty
 	auto work1 = node1.work_generate_blocking (send1->root (), difficulty1 + 1);
 	auto work2 = node1.work_generate_blocking (send2->root (), difficulty2 + 1);
@@ -609,6 +605,10 @@ TEST (active_transactions, update_difficulty)
 	node1.process_active (send1);
 	node1.process_active (send2);
 	node1.block_processor.flush ();
+	// Share the updated blocks
+	node1.network.flood_block (send1);
+	node1.network.flood_block (send2);
+
 	system.deadline_set (10s);
 	bool done (false);
 	while (!done)

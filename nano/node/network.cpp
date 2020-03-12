@@ -148,9 +148,9 @@ void nano::network::send_node_id_handshake (std::shared_ptr<nano::transport::cha
 	channel_a->send (message);
 }
 
-void nano::network::flood_message (nano::message const & message_a, nano::buffer_drop_policy drop_policy_a)
+void nano::network::flood_message (nano::message const & message_a, nano::buffer_drop_policy const drop_policy_a, float const scale_a)
 {
-	for (auto & i : list (fanout ()))
+	for (auto & i : list (fanout (scale_a)))
 	{
 		i->send (message_a, nullptr, drop_policy_a);
 	}
