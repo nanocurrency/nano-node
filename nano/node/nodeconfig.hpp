@@ -61,7 +61,7 @@ public:
 	unsigned network_threads{ std::max<unsigned> (4, std::thread::hardware_concurrency ()) };
 	unsigned work_threads{ std::max<unsigned> (4, std::thread::hardware_concurrency ()) };
 	/* Use half available threads on the system for signature checking. The calling thread does checks as well, so these are extra worker threads */
-	unsigned signature_checker_threads{ (std::thread::hardware_concurrency () > 1) ? (std::thread::hardware_concurrency () / 2) : 0 };
+	unsigned signature_checker_threads{ std::thread::hardware_concurrency () / 2 };
 	bool enable_voting{ false };
 	unsigned bootstrap_connections{ 4 };
 	unsigned bootstrap_connections_max{ 64 };
