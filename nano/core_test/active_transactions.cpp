@@ -590,8 +590,7 @@ TEST (active_transactions, update_difficulty)
 	node1.process_active (send1);
 	node1.process_active (send2);
 	node1.block_processor.flush ();
-	auto ec = system.poll_until_true (10s, [&node1, &node2] { return node1.active.size () == 2 && node2.active.size () == 2; });
-	ASSERT_NO_ERROR (ec);
+	ASSERT_NO_ERROR (system.poll_until_true (10s, [&node1, &node2] { return node1.active.size () == 2 && node2.active.size () == 2; }));
 	// Update work with higher difficulty
 	auto work1 = node1.work_generate_blocking (send1->root (), difficulty1 + 1);
 	auto work2 = node1.work_generate_blocking (send2->root (), difficulty2 + 1);
