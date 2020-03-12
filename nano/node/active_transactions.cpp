@@ -561,7 +561,7 @@ nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> vot
 	}
 	if (at_least_one)
 	{
-		if (processed && !node.wallets.rep_counts ().have_half_rep ())
+		if (processed && !node.wallets.rep_counts ().have_half_rep () && node.ledger.cache.cemented_count >= node.ledger.bootstrap_weight_max_blocks)
 		{
 			node.network.flood_vote (vote_a, 0.5f);
 		}
