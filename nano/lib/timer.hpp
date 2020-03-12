@@ -42,8 +42,9 @@ public:
 	/**
 	 * Restarts the timer by setting start time to current time and resetting tick count.
 	 * This can be called in any timer state.
+	 * @return duration
 	 */
-	void restart ();
+	UNIT restart ();
 
 	/**
 	 * Stops the timer and increases the measurement count. A timer can be started and paused
