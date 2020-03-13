@@ -754,7 +754,7 @@ namespace nano
  *
  * This cause unbounded pending entries not to be written, and then the bounded processor would write them, causing some inconsistencies.
 */
-TEST (confirmation_height, dynamic_algorithm_transition_write)
+TEST (confirmation_height, dynamic_algorithm_no_transition_while_pending)
 {
 	// Repeat in case of intermittent issues not replicating the issue talked about above.
 	for (auto _ = 0; _ < 3; ++_)
