@@ -123,6 +123,7 @@ void nano::confirmation_height_unbounded::process ()
 			else
 			{
 				confirmed_iterated_pairs.emplace (std::piecewise_construct, std::forward_as_tuple (account), std::forward_as_tuple (confirmation_height, block_height));
+				confirmed_iterated_pairs_size.fetch_add (1, std::memory_order_relaxed);
 			}
 		}
 
@@ -238,6 +239,7 @@ void nano::confirmation_height_unbounded::prepare_iterated_blocks_for_cementing 
 		else
 		{
 			confirmed_iterated_pairs.emplace (std::piecewise_construct, std::forward_as_tuple (preparation_data_a.account), std::forward_as_tuple (block_height, block_height));
+			confirmed_iterated_pairs_size.fetch_add (1, std::memory_order_relaxed);
 		}
 
 		auto num_blocks_confirmed = block_height - preparation_data_a.confirmation_height;
@@ -302,6 +304,7 @@ void nano::confirmation_height_unbounded::prepare_iterated_blocks_for_cementing 
 		else
 		{
 			confirmed_iterated_pairs.emplace (std::piecewise_construct, std::forward_as_tuple (receive_account), std::forward_as_tuple (receive_details->height, receive_details->height));
+			confirmed_iterated_pairs_size.fetch_add (1, std::memory_order_relaxed);
 		}
 
 		pending_writes.push_back (*receive_details);
