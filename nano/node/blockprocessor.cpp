@@ -78,7 +78,7 @@ void nano::block_processor::add (nano::unchecked_info const & info_a, const bool
 	bool should_notify{ false };
 	{
 		nano::lock_guard<std::mutex> lock (mutex);
-		bool quarter_full ((blocks.size () + state_blocks.size () + forced.size ()) > node.flags.block_processor_full_size / 4);
+		bool quarter_full ((blocks.size () + state_block_signature_verification.size () + forced.size ()) > node.flags.block_processor_full_size / 4);
 		if (info_a.verified == nano::signature_verification::unknown && (info_a.block->type () == nano::block_type::state || info_a.block->type () == nano::block_type::open || !info_a.account.is_zero ()))
 		{
 			state_block_signature_verification.add (info_a);
