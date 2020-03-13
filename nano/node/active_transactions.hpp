@@ -120,9 +120,11 @@ public:
 	roots;
 	// clang-format on
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> blocks;
-	std::deque<nano::election_status> list_confirmed ();
-	std::deque<nano::election_status> confirmed;
-	void add_confirmed (nano::election_status const &, nano::qualified_root const &);
+	std::deque<nano::election_status> list_recently_cemented ();
+	std::deque<nano::election_status> recently_cemented;
+
+	void add_recently_cemented (nano::election_status const &);
+	void add_recently_confirmed (nano::qualified_root const &);
 	void add_inactive_votes_cache (nano::block_hash const &, nano::account const &);
 	nano::inactive_cache_information find_inactive_votes_cache (nano::block_hash const &);
 	void erase_inactive_votes_cache (nano::block_hash const &);
@@ -168,7 +170,7 @@ private:
 		mi::sequenced<mi::tag<tag_sequence>>,
 		mi::hashed_unique<mi::tag<tag_root>,
 			mi::identity<nano::qualified_root>>>>
-	confirmed_set;
+	recently_confirmed;
 	using prioritize_num_uncemented = boost::multi_index_container<nano::cementable_account,
 	mi::indexed_by<
 		mi::hashed_unique<mi::tag<tag_account>,
@@ -202,6 +204,7 @@ private:
 	friend class active_transactions_dropped_cleanup_Test;
 	friend class confirmation_height_prioritize_frontiers_Test;
 	friend class confirmation_height_prioritize_frontiers_overwrite_Test;
+	friend class active_transactions_confirmation_consistency_Test;
 	friend std::unique_ptr<container_info_component> collect_container_info (active_transactions &, const std::string &);
 };
 

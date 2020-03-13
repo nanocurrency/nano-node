@@ -158,12 +158,10 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 				auto election = existing->second;
 				election_winner_details.erase (hash);
 				election_winners_lk.unlock ();
-				// Make sure mutex is held before election usage so we know that confirm_once has
-				// finished removing the root from active to avoid any data race.
 				nano::unique_lock<std::mutex> lk (mutex);
 				if (election->confirmed () && election->status.winner->hash () == hash)
 				{
-					add_confirmed (election->status, block_a->qualified_root ());
+					add_recently_cemented (election->status);
 					lk.unlock ();
 					node.receive_confirmed (transaction, block_a, hash);
 					nano::account account (0);
@@ -171,9 +169,11 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 					bool is_state_send (false);
 					nano::account pending_account (0);
 					node.process_confirmed_data (transaction, block_a, hash, account, amount, is_state_send, pending_account);
+					lk.lock ();
 					election->status.type = *election_status_type;
 					election->status.confirmation_request_count = election->confirmation_request_count;
 					node.observers.blocks.notify (election->status, account, amount, is_state_send);
+					lk.unlock ();
 					if (amount > 0)
 					{
 						node.observers.account_balance.notify (account, false);
@@ -488,7 +488,7 @@ std::pair<std::shared_ptr<nano::election>, bool> nano::active_transactions::inse
 		auto existing (roots.get<tag_root> ().find (root));
 		if (existing == roots.get<tag_root> ().end ())
 		{
-			if (confirmed_set.get<tag_root> ().find (root) == confirmed_set.get<tag_root> ().end ())
+			if (recently_confirmed.get<tag_root> ().find (root) == recently_confirmed.get<tag_root> ().end ())
 			{
 				result.second = true;
 				auto hash (block_a->hash ());
@@ -777,23 +777,27 @@ std::deque<std::shared_ptr<nano::block>> nano::active_transactions::list_blocks 
 	return result;
 }
 
-std::deque<nano::election_status> nano::active_transactions::list_confirmed ()
+std::deque<nano::election_status> nano::active_transactions::list_recently_cemented ()
 {
 	nano::lock_guard<std::mutex> lock (mutex);
-	return confirmed;
+	return recently_cemented;
 }
 
-void nano::active_transactions::add_confirmed (nano::election_status const & status_a, nano::qualified_root const & root_a)
+void nano::active_transactions::add_recently_cemented (nano::election_status const & status_a)
 {
-	confirmed.push_back (status_a);
-	auto inserted (confirmed_set.get<tag_sequence> ().push_back (root_a));
-	if (confirmed.size () > node.config.confirmation_history_size)
+	recently_cemented.push_back (status_a);
+	if (recently_cemented.size () > node.config.confirmation_history_size)
 	{
-		confirmed.pop_front ();
-		if (inserted.second)
-		{
-			confirmed_set.get<tag_sequence> ().pop_front ();
-		}
+		recently_cemented.pop_front ();
+	}
+}
+
+void nano::active_transactions::add_recently_confirmed (nano::qualified_root const & root_a)
+{
+	recently_confirmed.get<tag_sequence> ().push_back (root_a);
+	if (recently_confirmed.size () > node.config.confirmation_history_size)
+	{
+		recently_confirmed.get<tag_sequence> ().pop_front ();
 	}
 }
 
@@ -1015,20 +1019,23 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (ac
 {
 	size_t roots_count;
 	size_t blocks_count;
-	size_t confirmed_count;
+	size_t recently_confirmed_count;
+	size_t recently_cemented_count;
 
 	{
 		nano::lock_guard<std::mutex> guard (active_transactions.mutex);
 		roots_count = active_transactions.roots.size ();
 		blocks_count = active_transactions.blocks.size ();
-		confirmed_count = active_transactions.confirmed.size ();
+		recently_confirmed_count = active_transactions.recently_confirmed.size ();
+		recently_cemented_count = active_transactions.recently_cemented.size ();
 	}
 
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "roots", roots_count, sizeof (decltype (active_transactions.roots)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "blocks", blocks_count, sizeof (decltype (active_transactions.blocks)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "election_winner_details", active_transactions.election_winner_details_size (), sizeof (decltype (active_transactions.election_winner_details)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "confirmed", confirmed_count, sizeof (decltype (active_transactions.confirmed)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "recently_confirmed", recently_confirmed_count, sizeof (decltype (active_transactions.recently_confirmed)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "recently_cemented", recently_cemented_count, sizeof (decltype (active_transactions.recently_cemented)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "priority_wallet_cementable_frontiers_count", active_transactions.priority_wallet_cementable_frontiers_size (), sizeof (nano::cementable_account) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "priority_cementable_frontiers_count", active_transactions.priority_cementable_frontiers_size (), sizeof (nano::cementable_account) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "inactive_votes_cache_count", active_transactions.inactive_votes_cache_size (), sizeof (nano::gap_information) }));

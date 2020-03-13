@@ -6235,11 +6235,11 @@ TEST (rpc, confirmation_history)
 	auto node = add_ipc_enabled_node (system);
 	nano::keypair key;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	ASSERT_TRUE (node->active.list_confirmed ().empty ());
+	ASSERT_TRUE (node->active.list_recently_cemented ().empty ());
 	auto block (system.wallet (0)->send_action (nano::test_genesis_key.pub, key.pub, nano::Gxrb_ratio));
 	scoped_io_thread_name_change scoped_thread_name_io;
 	system.deadline_set (10s);
-	while (node->active.list_confirmed ().empty ())
+	while (node->active.list_recently_cemented ().empty ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -6282,13 +6282,13 @@ TEST (rpc, confirmation_history_hash)
 	auto node = add_ipc_enabled_node (system);
 	nano::keypair key;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	ASSERT_TRUE (node->active.list_confirmed ().empty ());
+	ASSERT_TRUE (node->active.list_recently_cemented ().empty ());
 	auto send1 (system.wallet (0)->send_action (nano::test_genesis_key.pub, key.pub, nano::Gxrb_ratio));
 	auto send2 (system.wallet (0)->send_action (nano::test_genesis_key.pub, key.pub, nano::Gxrb_ratio));
 	auto send3 (system.wallet (0)->send_action (nano::test_genesis_key.pub, key.pub, nano::Gxrb_ratio));
 	scoped_io_thread_name_change scoped_thread_name_io;
 	system.deadline_set (10s);
-	while (node->active.list_confirmed ().size () != 3)
+	while (node->active.list_recently_cemented ().size () != 3)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -6419,7 +6419,7 @@ TEST (rpc, block_confirm_confirmed)
 	ASSERT_EQ (200, response.status);
 	ASSERT_EQ ("1", response.json.get<std::string> ("started"));
 	// Check confirmation history
-	auto confirmed (node->active.list_confirmed ());
+	auto confirmed (node->active.list_recently_cemented ());
 	ASSERT_EQ (1, confirmed.size ());
 	ASSERT_EQ (nano::genesis_hash, confirmed.begin ()->winner->hash ());
 	// Check callback

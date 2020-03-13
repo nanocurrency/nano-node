@@ -2506,9 +2506,9 @@ TEST (node, block_confirm)
 			ASSERT_EQ (nano::process_result::progress, node2.ledger.process (transaction, *send2).code);
 		}
 		node1.block_confirm (send2);
-		ASSERT_TRUE (node1.active.list_confirmed ().empty ());
+		ASSERT_TRUE (node1.active.list_recently_cemented ().empty ());
 		system.deadline_set (10s);
-		while (node1.active.list_confirmed ().empty ())
+		while (node1.active.list_recently_cemented ().empty ())
 		{
 			ASSERT_NO_ERROR (system.poll ());
 		}

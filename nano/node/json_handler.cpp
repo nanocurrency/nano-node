@@ -1022,8 +1022,11 @@ void nano::json_handler::block_confirm ()
 		{
 			if (!node.ledger.block_confirmed (transaction, hash))
 			{
-				// Start new confirmation for unconfirmed block
-				node.block_confirm (std::move (block_l));
+				// Start new confirmation for unconfirmed (or not being confirmed) block
+				if (!node.confirmation_height_processor.is_processing_block (hash))
+				{
+					node.block_confirm (std::move (block_l));
+				}
 			}
 			else
 			{
@@ -1031,11 +1034,7 @@ void nano::json_handler::block_confirm ()
 				nano::election_status status{ block_l, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::active_confirmation_height };
 				{
 					nano::lock_guard<std::mutex> lock (node.active.mutex);
-					node.active.confirmed.push_back (status);
-					if (node.active.confirmed.size () > node.config.confirmation_history_size)
-					{
-						node.active.confirmed.pop_front ();
-					}
+					node.active.add_recently_cemented (status);
 				}
 				// Trigger callback for confirmed block
 				node.block_arrival.add (hash);
@@ -1812,7 +1811,7 @@ void nano::json_handler::confirmation_history ()
 	}
 	if (!ec)
 	{
-		auto confirmed (node.active.list_confirmed ());
+		auto confirmed (node.active.list_recently_cemented ());
 		for (auto i (confirmed.begin ()), n (confirmed.end ()); i != n; ++i)
 		{
 			if (hash.is_zero () || i->winner->hash () == hash)
