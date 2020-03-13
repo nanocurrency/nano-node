@@ -1,7 +1,9 @@
+#include <nano/core_test/testutil.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/daemonconfig.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/telemetry.hpp>
 #include <nano/node/websocket.hpp>
@@ -77,30 +79,6 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (re
 	auto sizeof_element = sizeof (decltype (rep_crawler.active)::value_type);
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "active", count, sizeof_element }));
-	return composite;
-}
-
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (block_processor & block_processor, const std::string & name)
-{
-	size_t state_blocks_count;
-	size_t blocks_count;
-	size_t blocks_filter_count;
-	size_t forced_count;
-
-	{
-		nano::lock_guard<std::mutex> guard (block_processor.mutex);
-		state_blocks_count = block_processor.state_blocks.size ();
-		blocks_count = block_processor.blocks.size ();
-		blocks_filter_count = block_processor.blocks_filter.size ();
-		forced_count = block_processor.forced.size ();
-	}
-
-	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "state_blocks", state_blocks_count, sizeof (decltype (block_processor.state_blocks)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "blocks", blocks_count, sizeof (decltype (block_processor.blocks)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "blocks_filter", blocks_filter_count, sizeof (decltype (block_processor.blocks_filter)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "forced", forced_count, sizeof (decltype (block_processor.forced)::value_type) }));
-	composite->add_component (collect_container_info (block_processor.generator, "generator"));
 	return composite;
 }
 
@@ -936,6 +914,7 @@ void nano::node::bootstrap_wallet ()
 
 void nano::node::unchecked_cleanup ()
 {
+	std::vector<nano::uint128_t> digests;
 	std::deque<nano::unchecked_key> cleaning_list;
 	auto attempt (bootstrap_initiator.current_attempt ());
 	bool long_attempt (attempt != nullptr && std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt->attempt_start).count () > config.unchecked_cutoff_time.count ());
@@ -951,6 +930,7 @@ void nano::node::unchecked_cleanup ()
 			nano::unchecked_info const & info (i->second);
 			if ((now - info.modified) > static_cast<uint64_t> (config.unchecked_cutoff_time.count ()))
 			{
+				digests.push_back (network.publish_filter.hash (info.block));
 				cleaning_list.push_back (key);
 			}
 		}
@@ -976,6 +956,8 @@ void nano::node::unchecked_cleanup ()
 			}
 		}
 	}
+	// Delete from the duplicate filter
+	network.publish_filter.clear (digests);
 }
 
 void nano::node::ongoing_unchecked_cleanup ()
@@ -1341,39 +1323,38 @@ bool nano::node::init_error () const
 	return store.init_error () || wallets_store.init_error ();
 }
 
-nano::inactive_node::inactive_node (boost::filesystem::path const & path_a, uint16_t peering_port_a, nano::node_flags const & node_flags) :
-path (path_a),
+nano::inactive_node::inactive_node (boost::filesystem::path const & path_a, nano::node_flags const & node_flags_a) :
 io_context (std::make_shared<boost::asio::io_context> ()),
 alarm (*io_context),
-work (1),
-peering_port (peering_port_a)
+work (1)
 {
 	boost::system::error_code error_chmod;
 
 	/*
 	 * @warning May throw a filesystem exception
 	 */
-	boost::filesystem::create_directories (path);
-	nano::set_secure_perm_directory (path, error_chmod);
-	logging.max_size = std::numeric_limits<std::uintmax_t>::max ();
-	logging.init (path);
-	// Config overriding
-	nano::node_config config (peering_port, logging);
-	std::stringstream config_overrides_stream;
-	for (auto const & entry : node_flags.config_overrides)
-	{
-		config_overrides_stream << entry << std::endl;
-	}
-	config_overrides_stream << std::endl;
-	nano::tomlconfig toml;
-	toml.read (config_overrides_stream);
-	auto error = config.deserialize_toml (toml);
+	boost::filesystem::create_directories (path_a);
+	nano::set_secure_perm_directory (path_a, error_chmod);
+	nano::daemon_config daemon_config (path_a);
+	auto error = nano::read_node_config_toml (path_a, daemon_config, node_flags_a.config_overrides);
 	if (error)
 	{
-		std::cerr << "Error deserializing --config option" << std::endl;
+		std::cerr << "Error deserializing config file";
+		if (!node_flags_a.config_overrides.empty ())
+		{
+			std::cerr << " or --config option";
+		}
+		std::cerr << "\n"
+		          << error.get_message () << std::endl;
 		std::exit (1);
 	}
-	node = std::make_shared<nano::node> (*io_context, path, alarm, config, work, node_flags);
+
+	auto & node_config = daemon_config.node;
+	node_config.peering_port = nano::get_available_port ();
+	node_config.logging.max_size = std::numeric_limits<std::uintmax_t>::max ();
+	node_config.logging.init (path_a);
+
+	node = std::make_shared<nano::node> (*io_context, path_a, alarm, node_config, work, node_flags_a);
 	node->active.stop ();
 }
 

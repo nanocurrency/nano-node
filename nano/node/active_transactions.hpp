@@ -155,6 +155,10 @@ private:
 	bool started{ false };
 	std::atomic<bool> stopped{ false };
 
+	// Periodically check all elections
+	std::chrono::milliseconds const check_all_elections_period;
+	std::chrono::steady_clock::time_point last_check_all_elections{};
+
 	// Maximum time an election can be kept active if it is extending the container
 	std::chrono::seconds const election_time_to_live;
 
@@ -195,6 +199,7 @@ private:
 	bool inactive_votes_bootstrap_check (std::vector<nano::account> const &, nano::block_hash const &, bool &);
 	boost::thread thread;
 
+	friend class active_transactions_dropped_cleanup_Test;
 	friend class confirmation_height_prioritize_frontiers_Test;
 	friend class confirmation_height_prioritize_frontiers_overwrite_Test;
 	friend std::unique_ptr<container_info_component> collect_container_info (active_transactions &, const std::string &);

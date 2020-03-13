@@ -419,6 +419,8 @@ public:
 	std::chrono::seconds peer_interval;
 	std::chrono::minutes unchecked_cleaning_interval;
 	std::chrono::milliseconds process_confirmed_interval;
+	/** Maximum number of peers per IP */
+	size_t max_peers_per_ip;
 
 	/** The maximum amount of samples for a 2 week period on live or 3 days on beta */
 	uint64_t max_weight_samples;
@@ -453,6 +455,7 @@ public:
 	unsigned frontier_retry_limit;
 	unsigned lazy_retry_limit;
 	unsigned lazy_destinations_retry_limit;
+	std::chrono::milliseconds gap_cache_bootstrap_start_interval;
 };
 
 /** Constants whose value depends on the active network */

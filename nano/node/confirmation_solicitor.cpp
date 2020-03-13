@@ -37,8 +37,9 @@ bool nano::confirmation_solicitor::add (nano::election const & election_a)
 	debug_assert (prepared);
 	auto const max_channel_requests (max_confirm_req_batches * nano::network::confirm_req_hashes_max);
 	unsigned count = 0;
-	for (auto i (representatives.begin ()), n (representatives.end ()); i != n && count < max_election_requests; ++i)
+	for (auto i (representatives.begin ()); i != representatives.end () && count < max_election_requests;)
 	{
+		bool full_queue (false);
 		auto rep (*i);
 		if (election_a.last_votes.find (rep.account) == election_a.last_votes.end ())
 		{
@@ -48,7 +49,12 @@ bool nano::confirmation_solicitor::add (nano::election const & election_a)
 				request_queue.emplace_back (election_a.status.winner->hash (), election_a.status.winner->root ());
 				++count;
 			}
+			else
+			{
+				full_queue = true;
+			}
 		}
+		i = !full_queue ? i + 1 : representatives.erase (i);
 	}
 	return count == 0;
 }

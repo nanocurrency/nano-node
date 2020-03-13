@@ -60,7 +60,8 @@ public:
 	unsigned io_threads{ std::max<unsigned> (4, std::thread::hardware_concurrency ()) };
 	unsigned network_threads{ std::max<unsigned> (4, std::thread::hardware_concurrency ()) };
 	unsigned work_threads{ std::max<unsigned> (4, std::thread::hardware_concurrency ()) };
-	unsigned signature_checker_threads{ (std::thread::hardware_concurrency () != 0) ? std::thread::hardware_concurrency () - 1 : 0 }; /* The calling thread does checks as well so remove it from the number of threads used */
+	/* Use half available threads on the system for signature checking. The calling thread does checks as well, so these are extra worker threads */
+	unsigned signature_checker_threads{ std::thread::hardware_concurrency () / 2 };
 	bool enable_voting{ false };
 	unsigned bootstrap_connections{ 4 };
 	unsigned bootstrap_connections_max{ 64 };
@@ -82,7 +83,7 @@ public:
 	/** Timeout for initiated async operations */
 	std::chrono::seconds tcp_io_timeout{ (network_params.network.is_test_network () && !is_sanitizer_build) ? std::chrono::seconds (5) : std::chrono::seconds (15) };
 	std::chrono::nanoseconds pow_sleep_interval{ 0 };
-	size_t active_elections_size{ 10000 };
+	size_t active_elections_size{ 50000 };
 	/** Default maximum incoming TCP connections, including realtime network & bootstrap */
 	unsigned tcp_incoming_connections_max{ 1024 };
 	bool use_memory_pools{ true };
@@ -132,6 +133,7 @@ public:
 	bool disable_block_processor_republishing{ false };
 	bool disable_ongoing_telemetry_requests{ false };
 	bool allow_bootstrap_peers_duplicates{ false };
+	bool disable_max_peers_per_ip{ false }; // For testing only
 	bool fast_bootstrap{ false };
 	bool read_only{ false };
 	nano::confirmation_height_mode confirmation_height_processor_mode{ nano::confirmation_height_mode::automatic };

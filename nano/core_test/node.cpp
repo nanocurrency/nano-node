@@ -3217,7 +3217,7 @@ TEST (node, block_processor_full)
 {
 	nano::system system;
 	nano::node_flags node_flags;
-	node_flags.block_processor_full_size = 2;
+	node_flags.block_processor_full_size = 3;
 	auto & node = *system.add_node (nano::node_config (nano::get_available_port (), system.logging), node_flags);
 	nano::genesis genesis;
 	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
@@ -3245,7 +3245,7 @@ TEST (node, block_processor_half_full)
 {
 	nano::system system;
 	nano::node_flags node_flags;
-	node_flags.block_processor_full_size = 4;
+	node_flags.block_processor_full_size = 6;
 	auto & node = *system.add_node (nano::node_config (nano::get_available_port (), system.logging), node_flags);
 	nano::genesis genesis;
 	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
@@ -3421,6 +3421,14 @@ TEST (node, unchecked_cleanup)
 	nano::keypair key;
 	auto & node (*system.nodes[0]);
 	auto open (std::make_shared<nano::state_block> (key.pub, 0, key.pub, 1, key.pub, key.prv, key.pub, *system.work.generate (key.pub)));
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		open->serialize (stream);
+	}
+	// Add to the blocks filter
+	// Should be cleared after unchecked cleanup
+	ASSERT_FALSE (node.network.publish_filter.apply (bytes.data (), bytes.size ()));
 	node.process_active (open);
 	node.block_processor.flush ();
 	node.config.unchecked_cutoff_time = std::chrono::seconds (2);
@@ -3432,6 +3440,7 @@ TEST (node, unchecked_cleanup)
 	}
 	std::this_thread::sleep_for (std::chrono::seconds (1));
 	node.unchecked_cleanup ();
+	ASSERT_TRUE (node.network.publish_filter.apply (bytes.data (), bytes.size ()));
 	{
 		auto transaction (node.store.tx_begin_read ());
 		auto unchecked_count (node.store.unchecked_count (transaction));
@@ -3440,6 +3449,7 @@ TEST (node, unchecked_cleanup)
 	}
 	std::this_thread::sleep_for (std::chrono::seconds (2));
 	node.unchecked_cleanup ();
+	ASSERT_FALSE (node.network.publish_filter.apply (bytes.data (), bytes.size ()));
 	{
 		auto transaction (node.store.tx_begin_read ());
 		auto unchecked_count (node.store.unchecked_count (transaction));
@@ -3578,7 +3588,7 @@ TEST (node, bandwidth_limiter)
 	nano::publish message (genesis.open);
 	auto message_size = message.to_bytes ()->size ();
 	auto message_limit = 4; // must be multiple of the number of channels
-	nano::node_config node_config (24000, system.logging);
+	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.bandwidth_limit = message_limit * message_size;
 	auto & node = *system.add_node (node_config);
 	auto channel1 (node.network.udp_channels.create (node.network.endpoint ()));
