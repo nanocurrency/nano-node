@@ -519,7 +519,7 @@ void nano::bootstrap_attempt_wallet::request_pending (nano::unique_lock<std::mut
 	lock_a.unlock ();
 	auto connection_l (node->bootstrap_initiator.connections->connection (shared_from_this ()));
 	lock_a.lock ();
-	if (connection_l)
+	if (connection_l && !stopped)
 	{
 		auto account (wallet_accounts.front ());
 		wallet_accounts.pop_front ();

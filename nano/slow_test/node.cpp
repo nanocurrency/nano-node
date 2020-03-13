@@ -187,7 +187,9 @@ TEST (store, load)
 // ulimit -n increasing may be required
 TEST (node, fork_storm)
 {
-	nano::system system (64);
+	nano::node_flags flags;
+	flags.disable_max_peers_per_ip = true;
+	nano::system system (64, nano::transport::transport_type::tcp, flags);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	auto previous (system.nodes[0]->latest (nano::test_genesis_key.pub));
 	auto balance (system.nodes[0]->balance (nano::test_genesis_key.pub));
@@ -857,10 +859,8 @@ public:
 class shared_data
 {
 public:
+	nano::util::counted_completion write_completion{ 0 };
 	std::atomic<bool> done{ false };
-	std::atomic<uint64_t> count{ 0 };
-	std::promise<void> promise;
-	std::shared_future<void> shared_future{ promise.get_future () };
 };
 
 template <typename T>
@@ -880,16 +880,10 @@ void callback_process (shared_data & shared_data_a, data & data, T & all_node_da
 		data.awaiting_cache = true;
 		data.orig_time = last_updated;
 	}
-	if (--shared_data_a.count == 0 && std::all_of (all_node_data_a.begin (), all_node_data_a.end (), [](auto const & data) { return !data.keep_requesting_metrics; }))
-	{
-		shared_data_a.done = true;
-		shared_data_a.promise.set_value ();
-	}
+	shared_data_a.write_completion.increment ();
 };
 }
 
-namespace nano
-{
 TEST (node_telemetry, ongoing_requests)
 {
 	nano::system system (2);
@@ -899,20 +893,20 @@ TEST (node_telemetry, ongoing_requests)
 
 	wait_peer_connections (system);
 
-	ASSERT_EQ (0, node_client->telemetry.telemetry_data_size ());
-	ASSERT_EQ (0, node_server->telemetry.telemetry_data_size ());
+	ASSERT_EQ (0, node_client->telemetry->telemetry_data_size ());
+	ASSERT_EQ (0, node_server->telemetry->telemetry_data_size ());
 	ASSERT_EQ (0, node_client->stats.count (nano::stat::type::bootstrap, nano::stat::detail::telemetry_ack, nano::stat::dir::in));
 	ASSERT_EQ (0, node_client->stats.count (nano::stat::type::bootstrap, nano::stat::detail::telemetry_req, nano::stat::dir::out));
 
 	system.deadline_set (20s);
-	while (node_client->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_ack, nano::stat::dir::in) != 1 || node_client->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::out) != 1)
+	while (node_client->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_ack, nano::stat::dir::in) != 1 || node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_ack, nano::stat::dir::in) != 1)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
 	// Wait till the next ongoing will be called, and add a 1s buffer for the actual processing
 	auto time = std::chrono::steady_clock::now ();
-	while (std::chrono::steady_clock::now () < (time + nano::telemetry_cache_cutoffs::test + node_client->telemetry.batch_request->alarm_cutoff + 1s))
+	while (std::chrono::steady_clock::now () < (time + node_client->telemetry->cache_plus_buffer_cutoff_time () + 1s))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -924,70 +918,12 @@ TEST (node_telemetry, ongoing_requests)
 	ASSERT_EQ (2, node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in));
 	ASSERT_EQ (2, node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::out));
 }
-}
-
-TEST (node_telemetry, simultaneous_all_requests)
-{
-	const auto num_nodes = 4;
-	nano::system system (num_nodes);
-
-	// Wait until peers are stored as they are done in the background
-	wait_peer_connections (system);
-
-	std::vector<std::thread> threads;
-	const auto num_threads = 4;
-
-	std::array<data, num_nodes> all_data{};
-	for (auto i = 0; i < num_nodes; ++i)
-	{
-		all_data[i].node = system.nodes[i];
-	}
-
-	shared_data shared_data;
-
-	// Create a few threads where each node sends out telemetry request messages to all other nodes continuously, until the cache it reached and subsequently expired.
-	// The test waits until all telemetry_ack messages have been received.
-	for (int i = 0; i < num_threads; ++i)
-	{
-		threads.emplace_back ([&all_data, &shared_data]() {
-			while (std::any_of (all_data.cbegin (), all_data.cend (), [](auto const & data) { return data.keep_requesting_metrics.load (); }))
-			{
-				for (auto & data : all_data)
-				{
-					// Keep calling requesting telemetry metrics until the cache has been saved and then become outdated (after a certain period of time) for each node
-					if (data.keep_requesting_metrics)
-					{
-						++shared_data.count;
-						data.node->telemetry.get_metrics_peers_async ([&shared_data, &data, &all_data](nano::telemetry_data_responses const & responses_a) {
-							callback_process (shared_data, data, all_data, *responses_a.telemetry_datas.begin ()->second.timestamp);
-						});
-					}
-					std::this_thread::sleep_for (1ms);
-				}
-			}
-
-			shared_data.shared_future.wait ();
-			ASSERT_EQ (shared_data.count, 0);
-		});
-	}
-
-	system.deadline_set (20s);
-	while (!shared_data.done)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
-
-	for (auto & thread : threads)
-	{
-		thread.join ();
-	}
-}
 
 namespace nano
 {
 namespace transport
 {
-	TEST (node_telemetry, simultaneous_single_and_all_requests)
+	TEST (node_telemetry, simultaneous_requests)
 	{
 		const auto num_nodes = 4;
 		nano::system system (num_nodes);
@@ -997,65 +933,51 @@ namespace transport
 		std::vector<std::thread> threads;
 		const auto num_threads = 4;
 
-		std::array<data, num_nodes> node_data_single{};
-		std::array<data, num_nodes> node_data_all{};
+		std::array<data, num_nodes> node_data{};
 		for (auto i = 0; i < num_nodes; ++i)
 		{
-			node_data_single[i].node = system.nodes[i];
-			node_data_all[i].node = system.nodes[i];
+			node_data[i].node = system.nodes[i];
 		}
 
-		shared_data shared_data_single;
-		shared_data shared_data_all;
+		shared_data shared_data;
 
 		// Create a few threads where each node sends out telemetry request messages to all other nodes continuously, until the cache it reached and subsequently expired.
 		// The test waits until all telemetry_ack messages have been received.
 		for (int i = 0; i < num_threads; ++i)
 		{
-			threads.emplace_back ([&node_data_single, &node_data_all, &shared_data_single, &shared_data_all]() {
-				auto func = [](auto & all_node_data_a, shared_data & shared_data_a, bool single_a) {
-					while (std::any_of (all_node_data_a.cbegin (), all_node_data_a.cend (), [](auto const & data) { return data.keep_requesting_metrics.load (); }))
+			threads.emplace_back ([&node_data, &shared_data]() {
+				while (std::any_of (node_data.cbegin (), node_data.cend (), [](auto const & data) { return data.keep_requesting_metrics.load (); }))
+				{
+					for (auto & data : node_data)
 					{
-						for (auto & data : all_node_data_a)
+						// Keep calling get_metrics_async until the cache has been saved and then become outdated (after a certain period of time) for each node
+						if (data.keep_requesting_metrics)
 						{
-							// Keep calling get_metrics_async until the cache has been saved and then become outdated (after a certain period of time) for each node
-							if (data.keep_requesting_metrics)
-							{
-								++shared_data_a.count;
+							shared_data.write_completion.increment_required_count ();
 
-								if (single_a)
-								{
-									// Pick first peer to be consistent
-									auto peer = data.node->network.tcp_channels.channels[0].channel;
-									data.node->telemetry.get_metrics_single_peer_async (peer, [&shared_data_a, &data, &all_node_data_a](nano::telemetry_data_response const & telemetry_data_response_a) {
-										callback_process (shared_data_a, data, all_node_data_a, *telemetry_data_response_a.telemetry_data.timestamp);
-									});
-								}
-								else
-								{
-									data.node->telemetry.get_metrics_peers_async ([&shared_data_a, &data, &all_node_data_a](nano::telemetry_data_responses const & telemetry_data_responses_a) {
-										callback_process (shared_data_a, data, all_node_data_a, *telemetry_data_responses_a.telemetry_datas.begin ()->second.timestamp);
-									});
-								}
-							}
-							std::this_thread::sleep_for (1ms);
+							// Pick first peer to be consistent
+							auto peer = data.node->network.tcp_channels.channels[0].channel;
+							data.node->telemetry->get_metrics_single_peer_async (peer, [&shared_data, &data, &node_data](nano::telemetry_data_response const & telemetry_data_response_a) {
+								ASSERT_FALSE (telemetry_data_response_a.error);
+								callback_process (shared_data, data, node_data, *telemetry_data_response_a.telemetry_data.timestamp);
+							});
 						}
+						std::this_thread::sleep_for (1ms);
 					}
+				}
 
-					shared_data_a.shared_future.wait ();
-					ASSERT_EQ (shared_data_a.count, 0);
-				};
-
-				func (node_data_single, shared_data_single, true);
-				func (node_data_all, shared_data_all, false);
+				shared_data.write_completion.await_count_for (20s);
+				shared_data.done = true;
 			});
 		}
 
 		system.deadline_set (30s);
-		while (!shared_data_all.done || !shared_data_single.done)
+		while (!shared_data.done)
 		{
 			ASSERT_NO_ERROR (system.poll ());
 		}
+
+		ASSERT_TRUE (std::all_of (node_data.begin (), node_data.end (), [](auto const & data) { return !data.keep_requesting_metrics; }));
 
 		for (auto & thread : threads)
 		{
@@ -1063,4 +985,60 @@ namespace transport
 		}
 	}
 }
+}
+
+// Similar to signature_checker.boundary_checks but more exhaustive. Can take up to 1 minute
+TEST (signature_checker, mass_boundary_checks)
+{
+	// sizes container must be in incrementing order
+	std::vector<size_t> sizes{ 0, 1 };
+	auto add_boundary = [&sizes](size_t boundary) {
+		sizes.insert (sizes.end (), { boundary - 1, boundary, boundary + 1 });
+	};
+
+	for (auto i = 1; i <= 10; ++i)
+	{
+		add_boundary (nano::signature_checker::batch_size * i);
+	}
+
+	for (auto num_threads = 0; num_threads < 5; ++num_threads)
+	{
+		nano::signature_checker checker (num_threads);
+		auto max_size = *(sizes.end () - 1);
+		std::vector<nano::uint256_union> hashes;
+		hashes.reserve (max_size);
+		std::vector<unsigned char const *> messages;
+		messages.reserve (max_size);
+		std::vector<size_t> lengths;
+		lengths.reserve (max_size);
+		std::vector<unsigned char const *> pub_keys;
+		pub_keys.reserve (max_size);
+		std::vector<unsigned char const *> signatures;
+		signatures.reserve (max_size);
+		nano::keypair key;
+		nano::state_block block (key.pub, 0, key.pub, 0, 0, key.prv, key.pub, 0);
+
+		auto last_size = 0;
+		for (auto size : sizes)
+		{
+			// The size needed to append to existing containers, saves re-initializing from scratch each iteration
+			auto extra_size = size - last_size;
+
+			std::vector<int> verifications;
+			verifications.resize (size);
+			for (auto i (0); i < extra_size; ++i)
+			{
+				hashes.push_back (block.hash ());
+				messages.push_back (hashes.back ().bytes.data ());
+				lengths.push_back (sizeof (decltype (hashes)::value_type));
+				pub_keys.push_back (block.hashables.account.bytes.data ());
+				signatures.push_back (block.signature.bytes.data ());
+			}
+			nano::signature_check_set check = { size, messages.data (), lengths.data (), pub_keys.data (), signatures.data (), verifications.data () };
+			checker.verify (check);
+			bool all_valid = std::all_of (verifications.cbegin (), verifications.cend (), [](auto verification) { return verification == 1; });
+			ASSERT_TRUE (all_valid);
+			last_size = size;
+		}
+	}
 }

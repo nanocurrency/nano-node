@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/diagnosticsconfig.hpp>
+#include <nano/lib/lmdbconfig.hpp>
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/node/lmdb/lmdb_env.hpp>
@@ -36,7 +37,7 @@ public:
 	using block_store_partial::block_exists;
 	using block_store_partial::unchecked_put;
 
-	mdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), int lmdb_max_dbs = 128, size_t batch_size = 512, bool backup_before_upgrade = false);
+	mdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, size_t batch_size = 512, bool backup_before_upgrade = false);
 	nano::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_requiring_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) override;
 	nano::read_transaction tx_begin_read () override;
 
@@ -261,7 +262,7 @@ private:
 
 	size_t count (nano::transaction const & transaction_a, tables table_a) const override;
 
-	bool vacuum_after_upgrade (boost::filesystem::path const & path_a, int lmdb_max_dbs);
+	bool vacuum_after_upgrade (boost::filesystem::path const & path_a, nano::lmdb_config const & lmdb_config_a);
 
 	class upgrade_counters
 	{

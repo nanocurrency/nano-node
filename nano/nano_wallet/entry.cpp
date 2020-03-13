@@ -64,7 +64,7 @@ nano::error read_wallet_config (nano::wallet_config & config_a, boost::filesyste
 }
 }
 
-int run_wallet (QApplication & application, int argc, char * const * argv, boost::filesystem::path const & data_path, std::vector<std::string> const & config_overrides, nano::node_flags const & flags)
+int run_wallet (QApplication & application, int argc, char * const * argv, boost::filesystem::path const & data_path, nano::node_flags const & flags)
 {
 	int result (0);
 	nano_qt::eventloop_processor processor;
@@ -81,7 +81,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	nano::daemon_config config (data_path);
 	nano::wallet_config wallet_config;
 
-	auto error = nano::read_node_config_toml (data_path, config, config_overrides);
+	auto error = nano::read_node_config_toml (data_path, config, flags.config_overrides);
 	if (!error)
 	{
 		error = read_wallet_config (wallet_config, data_path);
@@ -331,12 +331,7 @@ int main (int argc, char * const * argv)
 					{
 						throw std::runtime_error (flags_ec.message ());
 					}
-					auto config (vm.find ("config"));
-					if (config != vm.end ())
-					{
-						flags.config_overrides = config->second.as<std::vector<std::string>> ();
-					}
-					result = run_wallet (application, argc, argv, data_path, config_overrides, flags);
+					result = run_wallet (application, argc, argv, data_path, flags);
 				}
 				catch (std::exception const & e)
 				{

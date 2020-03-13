@@ -40,9 +40,9 @@ void mdb_val::convert_buffer_to_value ()
 }
 }
 
-nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, int lmdb_max_dbs, size_t const batch_size, bool backup_before_upgrade) :
+nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, size_t const batch_size, bool backup_before_upgrade) :
 logger (logger_a),
-env (error, path_a, lmdb_max_dbs, true),
+env (error, path_a, nano::mdb_env::options::make ().set_config (lmdb_config_a).set_use_no_mem_init (true)),
 mdb_txn_tracker (logger_a, txn_tracking_config_a, block_processor_batch_max_time_a),
 txn_tracking_enabled (txn_tracking_config_a.enable)
 {
@@ -91,7 +91,7 @@ txn_tracking_enabled (txn_tracking_config_a.enable)
 			if (needs_vacuuming && !network_constants.is_test_network ())
 			{
 				logger.always_log ("Preparing vacuum...");
-				auto vacuum_success = vacuum_after_upgrade (path_a, lmdb_max_dbs);
+				auto vacuum_success = vacuum_after_upgrade (path_a, lmdb_config_a);
 				logger.always_log (vacuum_success ? "Vacuum succeeded." : "Failed to vacuum. (Optional) Ensure enough disk space is available for a copy of the database and try to vacuum after shutting down the node");
 			}
 		}
@@ -103,7 +103,7 @@ txn_tracking_enabled (txn_tracking_config_a.enable)
 	}
 }
 
-bool nano::mdb_store::vacuum_after_upgrade (boost::filesystem::path const & path_a, int lmdb_max_dbs)
+bool nano::mdb_store::vacuum_after_upgrade (boost::filesystem::path const & path_a, nano::lmdb_config const & lmdb_config_a)
 {
 	// Vacuum the database. This is not a required step and may actually fail if there isn't enough storage space.
 	auto vacuum_path = path_a.parent_path () / "vacuumed.ldb";
@@ -112,6 +112,7 @@ bool nano::mdb_store::vacuum_after_upgrade (boost::filesystem::path const & path
 	if (vacuum_success)
 	{
 		// Need to close the database to release the file handle
+		mdb_env_sync (env.environment, true);
 		mdb_env_close (env.environment);
 		env.environment = nullptr;
 
@@ -119,7 +120,10 @@ bool nano::mdb_store::vacuum_after_upgrade (boost::filesystem::path const & path
 		boost::filesystem::rename (vacuum_path, path_a);
 
 		// Set up the environment again
-		env.init (error, path_a, lmdb_max_dbs, true);
+		auto options = nano::mdb_env::options::make ()
+		               .set_config (lmdb_config_a)
+		               .set_use_no_mem_init (true);
+		env.init (error, path_a, options);
 		if (!error)
 		{
 			auto transaction (tx_begin_read ());
@@ -507,7 +511,7 @@ void nano::mdb_store::upgrade_v12_to_v13 (nano::write_transaction & transaction_
 					}
 
 					nano::mdb_val value{ vector.size (), (void *)vector.data () };
-					MDB_dbi database = is_state_block_v1 ? state_blocks_v1 : table_to_dbi (block_database (sideband.type));
+					MDB_dbi database = is_state_block_v1 ? state_blocks_v1 : table_to_dbi (block_database (block->type ()));
 
 					auto status = mdb_put (env.tx (transaction_a), database, nano::mdb_val (hash), value, 0);
 					release_assert (success (status));
@@ -628,14 +632,14 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction & transaction_
 		nano::state_block_w_sideband_v14 state_block_w_sideband_v14 (i_state->second);
 		auto & sideband_v14 = state_block_w_sideband_v14.sideband;
 
-		nano::block_sideband sideband (sideband_v14.type, sideband_v14.account, sideband_v14.successor, sideband_v14.balance, sideband_v14.height, sideband_v14.timestamp, i_state.from_first_database ? nano::epoch::epoch_0 : nano::epoch::epoch_1, false, false, false);
+		nano::block_sideband sideband (sideband_v14.account, sideband_v14.successor, sideband_v14.balance, sideband_v14.height, sideband_v14.timestamp, i_state.from_first_database ? nano::epoch::epoch_0 : nano::epoch::epoch_1, false, false, false);
 
 		// Write these out
 		std::vector<uint8_t> data;
 		{
 			nano::vectorstream stream (data);
 			state_block_w_sideband_v14.state_block->serialize (stream);
-			sideband.serialize (stream);
+			sideband.serialize (stream, sideband_v14.type);
 		}
 
 		nano::mdb_val value{ data.size (), (void *)data.data () };
@@ -732,27 +736,25 @@ void nano::mdb_store::upgrade_v16_to_v17 (nano::write_transaction const & transa
 			if (account_info_i->second.block_count / 2 >= confirmation_height)
 			{
 				// The confirmation height of the account is closer to the bottom of the chain, so start there and work up
-				nano::block_sideband sideband;
-				auto block = block_get (transaction_a, account_info.open_block, &sideband);
+				auto block = block_get (transaction_a, account_info.open_block);
 				debug_assert (block);
 				auto height = 1;
 
 				while (height != confirmation_height)
 				{
-					block = block_get (transaction_a, sideband.successor, &sideband);
+					block = block_get (transaction_a, block->sideband ().successor);
 					debug_assert (block);
 					++height;
 				}
 
-				debug_assert (sideband.height == confirmation_height);
+				debug_assert (block->sideband ().height == confirmation_height);
 				confirmation_height_infos.emplace_back (account, confirmation_height_info{ confirmation_height, block->hash () });
 			}
 			else
 			{
 				// The confirmation height of the account is closer to the top of the chain so start there and work down
-				nano::block_sideband sideband;
-				auto block = block_get (transaction_a, account_info.head, &sideband);
-				auto height = sideband.height;
+				auto block = block_get (transaction_a, account_info.head);
+				auto height = block->sideband ().height;
 				while (height != confirmation_height)
 				{
 					block = block_get (transaction_a, block->previous ());
@@ -820,13 +822,13 @@ void nano::mdb_store::upgrade_v17_to_v18 (nano::write_transaction const & transa
 			is_receive = true;
 		}
 
-		nano::block_sideband new_sideband (sideband.type, sideband.account, sideband.successor, sideband.balance, sideband.height, sideband.timestamp, sideband.details.epoch, is_send, is_receive, is_epoch);
+		nano::block_sideband new_sideband (sideband.account, sideband.successor, sideband.balance, sideband.height, sideband.timestamp, sideband.details.epoch, is_send, is_receive, is_epoch);
 		// Write these out
 		std::vector<uint8_t> data;
 		{
 			nano::vectorstream stream (data);
 			block->serialize (stream);
-			new_sideband.serialize (stream);
+			new_sideband.serialize (stream, block->type ());
 		}
 		nano::mdb_val value{ data.size (), (void *)data.data () };
 		auto s = mdb_cursor_put (state_i.cursor, state_i->first, value, MDB_CURRENT);

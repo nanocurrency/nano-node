@@ -2,6 +2,7 @@
 
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/diagnosticsconfig.hpp>
+#include <nano/lib/lmdbconfig.hpp>
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/memory.hpp>
 #include <nano/lib/rocksdbconfig.hpp>
@@ -16,45 +17,6 @@
 
 namespace nano
 {
-class block_details
-{
-	static_assert (std::is_same<std::underlying_type<nano::epoch>::type, uint8_t> (), "Epoch enum is not the proper type");
-	static_assert (static_cast<uint8_t> (nano::epoch::max) < (1 << 5), "Epoch max is too large for the sideband");
-
-public:
-	block_details () = default;
-	block_details (nano::epoch const epoch_a, bool const is_send_a, bool const is_receive_a, bool const is_epoch_a);
-	static constexpr size_t size ();
-	bool operator== (block_details const & other_a) const;
-	void serialize (nano::stream &) const;
-	bool deserialize (nano::stream &);
-	nano::epoch epoch{ nano::epoch::epoch_0 };
-	bool is_send{ false };
-	bool is_receive{ false };
-	bool is_epoch{ false };
-
-private:
-	uint8_t packed () const;
-	void unpack (uint8_t);
-};
-
-class block_sideband final
-{
-public:
-	block_sideband () = default;
-	block_sideband (nano::block_type, nano::account const &, nano::block_hash const &, nano::amount const &, uint64_t, uint64_t, nano::epoch, bool is_send, bool is_receive, bool is_epoch);
-	void serialize (nano::stream &) const;
-	bool deserialize (nano::stream &);
-	static size_t size (nano::block_type);
-	nano::block_type type{ nano::block_type::invalid };
-	nano::block_hash successor{ 0 };
-	nano::account account{ 0 };
-	nano::amount balance{ 0 };
-	uint64_t height{ 0 };
-	uint64_t timestamp{ 0 };
-	nano::block_details details;
-};
-
 // Move to versioning with a specific version if required for a future upgrade
 class state_block_w_sideband
 {
@@ -311,14 +273,25 @@ public:
 		return result;
 	}
 
-private:
-	// Common usage for versioning
-	template <typename T, typename = std::enable_if<std::is_same<T, state_block_w_sideband>::value || std::is_same<T, state_block_w_sideband_v14>::value>>
-	T as () const
+	explicit operator state_block_w_sideband () const
 	{
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (data ()), size ());
 		auto error (false);
-		T block_w_sideband;
+		nano::state_block_w_sideband block_w_sideband;
+		block_w_sideband.state_block = std::make_shared<nano::state_block> (error, stream);
+		debug_assert (!error);
+
+		error = block_w_sideband.sideband.deserialize (stream, nano::block_type::state);
+		debug_assert (!error);
+
+		return block_w_sideband;
+	}
+
+	explicit operator state_block_w_sideband_v14 () const
+	{
+		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (data ()), size ());
+		auto error (false);
+		nano::state_block_w_sideband_v14 block_w_sideband;
 		block_w_sideband.state_block = std::make_shared<nano::state_block> (error, stream);
 		debug_assert (!error);
 
@@ -327,17 +300,6 @@ private:
 		debug_assert (!error);
 
 		return block_w_sideband;
-	}
-
-public:
-	explicit operator state_block_w_sideband () const
-	{
-		return as<state_block_w_sideband> ();
-	}
-
-	explicit operator state_block_w_sideband_v14 () const
-	{
-		return as<state_block_w_sideband_v14> ();
 	}
 
 	explicit operator nano::no_value () const
@@ -440,19 +402,6 @@ private:
 
 class transaction;
 class block_store;
-
-class block_w_sideband final
-{
-public:
-	block_w_sideband (std::shared_ptr<nano::block> const & block_a, nano::block_sideband const & sideband_a) :
-	block (block_a),
-	sideband (sideband_a)
-	{
-	}
-
-	std::shared_ptr<nano::block> block;
-	nano::block_sideband sideband;
-};
 
 /**
  * Summation visitor for blocks, supporting amount and balance computations. These
@@ -714,10 +663,11 @@ class block_store
 public:
 	virtual ~block_store () = default;
 	virtual void initialize (nano::write_transaction const &, nano::genesis const &, nano::ledger_cache &) = 0;
-	virtual void block_put (nano::write_transaction const &, nano::block_hash const &, nano::block const &, nano::block_sideband const &) = 0;
+	virtual void block_put (nano::write_transaction const &, nano::block_hash const &, nano::block const &) = 0;
 	virtual nano::block_hash block_successor (nano::transaction const &, nano::block_hash const &) const = 0;
 	virtual void block_successor_clear (nano::write_transaction const &, nano::block_hash const &) = 0;
-	virtual std::shared_ptr<nano::block> block_get (nano::transaction const &, nano::block_hash const &, nano::block_sideband * = nullptr) const = 0;
+	virtual std::shared_ptr<nano::block> block_get (nano::transaction const &, nano::block_hash const &) const = 0;
+	virtual std::shared_ptr<nano::block> block_get_no_sideband (nano::transaction const &, nano::block_hash const &) const = 0;
 	virtual std::shared_ptr<nano::block> block_get_v14 (nano::transaction const &, nano::block_hash const &, nano::block_sideband_v14 * = nullptr, bool * = nullptr) const = 0;
 	virtual std::shared_ptr<nano::block> block_random (nano::transaction const &) = 0;
 	virtual void block_del (nano::write_transaction const &, nano::block_hash const &, nano::block_type) = 0;
@@ -739,9 +689,9 @@ public:
 	virtual size_t account_count (nano::transaction const &) = 0;
 	virtual void confirmation_height_clear (nano::write_transaction const &, nano::account const &, uint64_t) = 0;
 	virtual void confirmation_height_clear (nano::write_transaction const &) = 0;
-	virtual nano::store_iterator<nano::account, nano::account_info> latest_begin (nano::transaction const &, nano::account const &) = 0;
-	virtual nano::store_iterator<nano::account, nano::account_info> latest_begin (nano::transaction const &) = 0;
-	virtual nano::store_iterator<nano::account, nano::account_info> latest_end () = 0;
+	virtual nano::store_iterator<nano::account, nano::account_info> latest_begin (nano::transaction const &, nano::account const &) const = 0;
+	virtual nano::store_iterator<nano::account, nano::account_info> latest_begin (nano::transaction const &) const = 0;
+	virtual nano::store_iterator<nano::account, nano::account_info> latest_end () const = 0;
 
 	virtual void pending_put (nano::write_transaction const &, nano::pending_key const &, nano::pending_info const &) = 0;
 	virtual void pending_del (nano::write_transaction const &, nano::pending_key const &) = 0;
@@ -753,7 +703,7 @@ public:
 
 	virtual bool block_info_get (nano::transaction const &, nano::block_hash const &, nano::block_info &) const = 0;
 	virtual nano::uint128_t block_balance (nano::transaction const &, nano::block_hash const &) = 0;
-	virtual nano::uint128_t block_balance_calculated (std::shared_ptr<nano::block>, nano::block_sideband const &) const = 0;
+	virtual nano::uint128_t block_balance_calculated (std::shared_ptr<nano::block> const &) const = 0;
 	virtual nano::epoch block_version (nano::transaction const &, nano::block_hash const &) = 0;
 
 	virtual void unchecked_clear (nano::write_transaction const &) = 0;
@@ -761,8 +711,7 @@ public:
 	virtual void unchecked_put (nano::write_transaction const &, nano::block_hash const &, std::shared_ptr<nano::block> const &) = 0;
 	virtual std::vector<nano::unchecked_info> unchecked_get (nano::transaction const &, nano::block_hash const &) = 0;
 	virtual bool unchecked_exists (nano::transaction const & transaction_a, nano::unchecked_key const & unchecked_key_a) = 0;
-	/* Returns true if nothing was deleted because it was not found, false otherwise */
-	virtual bool unchecked_del (nano::write_transaction const &, nano::unchecked_key const &) = 0;
+	virtual void unchecked_del (nano::write_transaction const &, nano::unchecked_key const &) = 0;
 	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_begin (nano::transaction const &) const = 0;
 	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_begin (nano::transaction const &, nano::unchecked_key const &) const = 0;
 	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_end () const = 0;
@@ -828,7 +777,7 @@ public:
 	virtual std::string vendor_get () const = 0;
 };
 
-std::unique_ptr<nano::block_store> make_store (nano::logger_mt & logger, boost::filesystem::path const & path, bool open_read_only = false, bool add_db_postfix = false, nano::rocksdb_config const & rocksdb_config = nano::rocksdb_config{}, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), int lmdb_max_dbs = 128, size_t batch_size = 512, bool backup_before_upgrade = false, bool rocksdb_backend = false);
+std::unique_ptr<nano::block_store> make_store (nano::logger_mt & logger, boost::filesystem::path const & path, bool open_read_only = false, bool add_db_postfix = false, nano::rocksdb_config const & rocksdb_config = nano::rocksdb_config{}, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, size_t batch_size = 512, bool backup_before_upgrade = false, bool rocksdb_backend = false);
 }
 
 namespace std
