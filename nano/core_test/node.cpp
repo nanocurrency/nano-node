@@ -3631,6 +3631,7 @@ TEST (node, bandwidth_limiter)
 }
 
 // Tests that local blocks are flooded to all principal representatives
+// Sanitizers or running within valgrind use different timings and number of nodes
 TEST (node, aggressive_flooding)
 {
 	nano::system system;
@@ -3647,7 +3648,8 @@ TEST (node, aggressive_flooding)
 	auto & wallet1 (*system.wallet (0));
 	wallet1.insert_adhoc (nano::test_genesis_key.prv);
 	std::vector<std::pair<std::shared_ptr<nano::node>, std::shared_ptr<nano::wallet>>> nodes_wallets;
-	nodes_wallets.resize (!is_sanitizer_build ? 5 : 3);
+	bool const sanitizer_or_valgrind (is_sanitizer_build || nano::running_within_valgrind ());
+	nodes_wallets.resize (!sanitizer_or_valgrind ? 5 : 3);
 
 	std::generate (nodes_wallets.begin (), nodes_wallets.end (), [&system, node_flags]() {
 		nano::node_config node_config (nano::get_available_port (), system.logging);
@@ -3682,7 +3684,7 @@ TEST (node, aggressive_flooding)
 	}
 
 	// Wait until the main node sees all representatives
-	ASSERT_TIMELY (!is_sanitizer_build ? 10s : 40s, node1.rep_crawler.principal_representatives ().size () == nodes_wallets.size ());
+	ASSERT_TIMELY (!sanitizer_or_valgrind ? 10s : 40s, node1.rep_crawler.principal_representatives ().size () == nodes_wallets.size ());
 
 	// Generate blocks and ensure they are sent to all representatives
 	nano::block_builder builder;
@@ -3708,11 +3710,11 @@ TEST (node, aggressive_flooding)
 		});
 	};
 
-	ASSERT_TIMELY (!is_sanitizer_build ? 5s : 25s, all_have_block (block->hash ()));
+	ASSERT_TIMELY (!sanitizer_or_valgrind ? 5s : 25s, all_have_block (block->hash ()));
 
 	// Do the same for a wallet block
 	auto wallet_block = wallet1.send_sync (nano::test_genesis_key.pub, nano::test_genesis_key.pub, 10);
-	ASSERT_TIMELY (!is_sanitizer_build ? 5s : 25s, all_have_block (wallet_block));
+	ASSERT_TIMELY (!sanitizer_or_valgrind ? 5s : 25s, all_have_block (wallet_block));
 
 	// All blocks: genesis + (send+open) for each representative + 2 local blocks
 	// The main node only sees all blocks if other nodes are flooding their PR's open block to all other PRs
