@@ -1,3 +1,4 @@
+#define IGNORE_GTEST_INCL
 #include <nano/core_test/testutil.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/tomlconfig.hpp>
