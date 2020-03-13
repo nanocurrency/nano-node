@@ -517,9 +517,10 @@ std::pair<std::shared_ptr<nano::election>, bool> nano::active_transactions::inse
 // Validate a vote and apply it to the current election if one exists
 nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> vote_a)
 {
-	// If none of the hashes are active, it is unknown whether it's a replay
-	// In this case, votes are also not republished
+	// If none of the hashes are active, votes are not republished
 	bool at_least_one (false);
+	// If all hashes were recently confirmed then it is a replay
+	unsigned recently_confirmed_counter (0);
 	bool replay (false);
 	bool processed (false);
 	{
@@ -527,6 +528,7 @@ nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> vot
 		for (auto vote_block : vote_a->blocks)
 		{
 			nano::election_vote_result result;
+			auto & recently_confirmed_by_hash (recently_confirmed.get<tag_hash> ());
 			if (vote_block.which ())
 			{
 				auto block_hash (boost::get<nano::block_hash> (vote_block));
@@ -536,9 +538,13 @@ nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> vot
 					at_least_one = true;
 					result = existing->second->vote (vote_a->account, vote_a->sequence, block_hash);
 				}
-				else // possibly a vote for a recently confirmed election
+				else if (recently_confirmed_by_hash.find (block_hash) == recently_confirmed_by_hash.end ())
 				{
 					add_inactive_votes_cache (block_hash, vote_a->account);
+				}
+				else
+				{
+					++recently_confirmed_counter;
 				}
 			}
 			else
@@ -550,22 +556,32 @@ nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> vot
 					at_least_one = true;
 					result = existing->election->vote (vote_a->account, vote_a->sequence, block->hash ());
 				}
-				else
+				else if (recently_confirmed_by_hash.find (block->hash ()) == recently_confirmed_by_hash.end ())
 				{
 					add_inactive_votes_cache (block->hash (), vote_a->account);
+				}
+				else
+				{
+					++recently_confirmed_counter;
 				}
 			}
 			processed = processed || result.processed;
 			replay = replay || result.replay;
 		}
 	}
+
 	if (at_least_one)
 	{
+		// Republish vote if it is new and the node does not host a principal representative (or close to)
 		if (processed && !node.wallets.rep_counts ().have_half_rep ())
 		{
 			node.network.flood_vote (vote_a, 0.5f);
 		}
 		return replay ? nano::vote_code::replay : nano::vote_code::vote;
+	}
+	else if (recently_confirmed_counter == vote_a->blocks.size ())
+	{
+		return nano::vote_code::replay;
 	}
 	else
 	{
@@ -792,10 +808,10 @@ void nano::active_transactions::add_recently_cemented (nano::election_status con
 	}
 }
 
-void nano::active_transactions::add_recently_confirmed (nano::qualified_root const & root_a)
+void nano::active_transactions::add_recently_confirmed (nano::qualified_root const & root_a, nano::block_hash const & hash_a)
 {
-	recently_confirmed.get<tag_sequence> ().push_back (root_a);
-	if (recently_confirmed.size () > node.config.confirmation_history_size)
+	recently_confirmed.get<tag_sequence> ().emplace_back (root_a, hash_a);
+	if (recently_confirmed.size () > recently_confirmed_size)
 	{
 		recently_confirmed.get<tag_sequence> ().pop_front ();
 	}
