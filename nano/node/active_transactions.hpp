@@ -164,7 +164,7 @@ private:
 	// Maximum time an election can be kept active if it is extending the container
 	std::chrono::seconds const election_time_to_live;
 
-	static size_t constexpr recently_confirmed_size {65536};
+	static size_t constexpr recently_confirmed_size{ 65536 };
 	using recent_confirmation = std::pair<nano::qualified_root, nano::block_hash>;
 	// clang-format off
 	boost::multi_index_container<recent_confirmation,
