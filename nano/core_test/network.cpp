@@ -92,15 +92,21 @@ TEST (network, send_node_id_handshake)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (0, node0->network.size ());
-	ASSERT_EQ (1, node1->network.size ());
+	system.deadline_set (10s);
+	while (node0->network.size () != 0 && node1->network.size () != 1)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 	system.deadline_set (10s);
 	while (node0->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in) < initial + 2)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (1, node0->network.size ());
-	ASSERT_EQ (1, node1->network.size ());
+	system.deadline_set (10s);
+	while (node0->network.size () != 1 && node1->network.size () != 1)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 	auto list1 (node0->network.list (1));
 	ASSERT_EQ (node1->network.endpoint (), list1[0]->get_endpoint ());
 	auto list2 (node1->network.list (1));
@@ -913,8 +919,92 @@ TEST (network, replace_port)
 	ASSERT_EQ (node0->network.endpoint (), list2[0]->get_endpoint ());
 	// Remove correct peer (same node ID)
 	node0->network.udp_channels.clean_node_id (nano::endpoint (node1->network.endpoint ().address (), 23000), node1->node_id.pub);
-	ASSERT_EQ (node0->network.udp_channels.size (), 0);
+	system.deadline_set (5s);
+	while (node0->network.udp_channels.size () > 1)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 	node1->stop ();
+}
+
+TEST (network, peer_max_tcp_attempts)
+{
+	nano::system system (1);
+	auto node (system.nodes[0]);
+	// Add nodes that can accept TCP connection, but not node ID handshake
+	nano::node_flags node_flags;
+	node_flags.disable_tcp_realtime = true;
+	for (auto i (0); i < node->network_params.node.max_peers_per_ip; ++i)
+	{
+		auto node2 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work, node_flags));
+		node2->start ();
+		system.nodes.push_back (node2);
+		// Start TCP attempt
+		node->network.merge_peer (node2->network.endpoint ());
+	}
+	ASSERT_EQ (0, node->network.size ());
+	ASSERT_TRUE (node->network.tcp_channels.reachout (nano::endpoint (node->network.endpoint ().address (), nano::get_available_port ())));
+}
+
+TEST (network, duplicate_detection)
+{
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_udp = false;
+	auto & node0 (*system.add_node (node_flags));
+	auto & node1 (*system.add_node (node_flags));
+	auto udp_channel (std::make_shared<nano::transport::channel_udp> (node0.network.udp_channels, node1.network.endpoint (), node1.network_params.protocol.protocol_version));
+	nano::genesis genesis;
+	nano::publish publish (genesis.open);
+
+	// Publish duplicate detection through UDP
+	ASSERT_EQ (0, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_publish));
+	udp_channel->send (publish);
+	udp_channel->send (publish);
+	system.deadline_set (2s);
+	while (node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_publish) < 1)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	// Publish duplicate detection through TCP
+	auto tcp_channel (node0.network.tcp_channels.find_channel (nano::transport::map_endpoint_to_tcp (node1.network.endpoint ())));
+	ASSERT_EQ (1, node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_publish));
+	tcp_channel->send (publish);
+	system.deadline_set (2s);
+	while (node1.stats.count (nano::stat::type::filter, nano::stat::detail::duplicate_publish) < 2)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+}
+
+TEST (network, duplicate_revert_publish)
+{
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.block_processor_full_size = 0;
+	auto & node (*system.add_node (node_flags));
+	ASSERT_TRUE (node.block_processor.full ());
+	nano::genesis genesis;
+	nano::publish publish (genesis.open);
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		publish.block->serialize (stream);
+	}
+	// Add to the blocks filter
+	// Should be cleared when dropping due to a full block processor, as long as the message has the optional digest attached
+	// Test network.duplicate_detection ensures that the digest is attached when deserializing messages
+	nano::uint128_t digest;
+	ASSERT_FALSE (node.network.publish_filter.apply (bytes.data (), bytes.size (), &digest));
+	ASSERT_TRUE (node.network.publish_filter.apply (bytes.data (), bytes.size ()));
+	auto channel (std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
+	ASSERT_EQ (0, publish.digest);
+	node.network.process_message (publish, channel);
+	ASSERT_TRUE (node.network.publish_filter.apply (bytes.data (), bytes.size ()));
+	publish.digest = digest;
+	node.network.process_message (publish, channel);
+	ASSERT_FALSE (node.network.publish_filter.apply (bytes.data (), bytes.size ()));
 }
 
 // The test must be completed in less than 1 second

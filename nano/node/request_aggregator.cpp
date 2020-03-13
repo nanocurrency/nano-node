@@ -13,7 +13,6 @@ nano::request_aggregator::request_aggregator (nano::network_constants const & ne
 max_delay (network_constants_a.is_test_network () ? 50 : 300),
 small_delay (network_constants_a.is_test_network () ? 10 : 50),
 max_channel_requests (config_a.max_queued_requests),
-max_consecutive_requests (network_constants_a.is_test_network () ? 1 : 10),
 stats (stats_a),
 votes_cache (cache_a),
 store (store_a),
@@ -68,7 +67,6 @@ void nano::request_aggregator::run ()
 	lock.unlock ();
 	condition.notify_all ();
 	lock.lock ();
-	unsigned consecutive_requests = 0;
 	while (!stopped)
 	{
 		if (!requests.empty ())
@@ -85,31 +83,28 @@ void nano::request_aggregator::run ()
 				auto channel = pool.channel;
 				// Safely erase this pool
 				requests_by_deadline.erase (front);
-				if (!remaining.empty ())
+				lock.unlock ();
+				// Send cached votes
+				for (auto const & vote : remaining.first)
 				{
-					lock.unlock ();
+					nano::confirm_ack confirm (vote);
+					channel->send (confirm);
+				}
+				if (!remaining.second.empty ())
+				{
 					// Generate votes for the remaining hashes
-					generate (transaction, std::move (remaining), channel);
-					consecutive_requests = 0;
-					lock.lock ();
+					generate (transaction, std::move (remaining.second), channel);
 				}
-				else if (++consecutive_requests == max_consecutive_requests)
-				{
-					lock.unlock ();
-					consecutive_requests = 0;
-					lock.lock ();
-				}
+				lock.lock ();
 			}
 			else
 			{
-				consecutive_requests = 0;
 				auto deadline = front->deadline;
 				condition.wait_until (lock, deadline, [this, &deadline]() { return this->stopped || deadline < std::chrono::steady_clock::now (); });
 			}
 		}
 		else
 		{
-			consecutive_requests = 0;
 			condition.wait_for (lock, small_delay, [this]() { return this->stopped || !this->requests.empty (); });
 		}
 	}
@@ -139,7 +134,7 @@ bool nano::request_aggregator::empty ()
 	return size () == 0;
 }
 
-std::vector<nano::block_hash> nano::request_aggregator::aggregate (nano::transaction const & transaction_a, channel_pool & pool_a) const
+std::pair<std::vector<std::shared_ptr<nano::vote>>, std::vector<nano::block_hash>> nano::request_aggregator::aggregate (nano::transaction const & transaction_a, channel_pool & pool_a) const
 {
 	// Unique hashes
 	using pair = decltype (pool_a.hashes_roots)::value_type;
@@ -205,14 +200,9 @@ std::vector<nano::block_hash> nano::request_aggregator::aggregate (nano::transac
 	// Unique votes
 	std::sort (cached_votes.begin (), cached_votes.end ());
 	cached_votes.erase (std::unique (cached_votes.begin (), cached_votes.end ()), cached_votes.end ());
-	for (auto const & vote : cached_votes)
-	{
-		nano::confirm_ack confirm (vote);
-		pool_a.channel->send (confirm);
-	}
 	stats.add (nano::stat::type::requests, nano::stat::detail::requests_cached_hashes, stat::dir::in, cached_hashes);
 	stats.add (nano::stat::type::requests, nano::stat::detail::requests_cached_votes, stat::dir::in, cached_votes.size ());
-	return to_generate;
+	return { cached_votes, to_generate };
 }
 
 void nano::request_aggregator::generate (nano::transaction const & transaction_a, std::vector<nano::block_hash> hashes_a, std::shared_ptr<nano::transport::channel> & channel_a) const

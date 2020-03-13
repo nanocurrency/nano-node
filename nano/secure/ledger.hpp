@@ -38,7 +38,7 @@ public:
 	bool is_send (nano::transaction const &, nano::state_block const &) const;
 	nano::account const & block_destination (nano::transaction const &, nano::block const &);
 	nano::block_hash block_source (nano::transaction const &, nano::block const &);
-	nano::process_return process (nano::write_transaction const &, nano::block const &, nano::signature_verification = nano::signature_verification::unknown);
+	nano::process_return process (nano::write_transaction const &, nano::block &, nano::signature_verification = nano::signature_verification::unknown);
 	bool rollback (nano::write_transaction const &, nano::block_hash const &, std::vector<std::shared_ptr<nano::block>> &);
 	bool rollback (nano::write_transaction const &, nano::block_hash const &);
 	void change_latest (nano::write_transaction const &, nano::account const &, nano::account_info const &, nano::account_info const &);
