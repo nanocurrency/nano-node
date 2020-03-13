@@ -328,7 +328,7 @@ void nano::confirmation_height_bounded::prepare_iterated_blocks_for_cementing (p
 		}
 
 		pending_writes.emplace_back (receive_details->account, receive_details->bottom_height, receive_details->bottom_most, receive_details->height, receive_details->hash);
-		++pending_writes_size;
+		pending_writes_size.fetch_add (1, std::memory_order_relaxed);
 	}
 }
 
@@ -403,7 +403,7 @@ bool nano::confirmation_height_bounded::cement_blocks ()
 						logger.always_log ("Failed to write confirmation height for: ", new_cemented_frontier.to_string ());
 						ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block);
 						pending_writes.clear ();
-						pending_writes_size = 0;
+						pending_writes_size.store (0, std::memory_order_relaxed);
 						return true;
 					}
 
@@ -446,14 +446,14 @@ bool nano::confirmation_height_bounded::cement_blocks ()
 				accounts_confirmed_info_size.fetch_sub (1, std::memory_order_relaxed);
 			}
 			pending_writes.pop_front ();
-			--pending_writes_size;
+			pending_writes_size.fetch_sub (1, std::memory_order_relaxed);
 		}
 	}
 
 	notify_observers_callback (cemented_blocks);
 
 	debug_assert (pending_writes.empty ());
-	debug_assert (pending_writes_size == 0);
+	debug_assert (pending_writes_size.load (std::memory_order_relaxed) == 0);
 	return false;
 }
 
