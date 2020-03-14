@@ -494,7 +494,16 @@ std::pair<std::shared_ptr<nano::election>, bool> nano::active_transactions::inse
 				auto hash (block_a->hash ());
 				result.first = nano::make_shared<nano::election> (node, block_a, confirmation_action_a);
 				auto difficulty (block_a->difficulty ());
-				roots.get<tag_root> ().emplace (nano::conflict_info{ root, difficulty, difficulty, result.first });
+				double multiplier (1.);
+				if (block_a->has_sideband ())
+				{
+					multiplier = nano::difficulty::to_multiplier (difficulty, nano::work_threshold (block_a->work_version (), block_a->sideband ().details));
+				}
+				else
+				{
+					multiplier = nano::difficulty::to_multiplier (difficulty, nano::work_threshold (block_a->work_version ()));
+				}
+				roots.get<tag_root> ().emplace (nano::conflict_info{ root, multiplier, difficulty, result.first });
 				blocks.emplace (hash, result.first);
 				add_adjust_difficulty (hash);
 				result.first->insert_inactive_votes_cache (hash);
@@ -603,14 +612,23 @@ void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> 
 	if (existing_election != roots.get<tag_root> ().end ())
 	{
 		auto difficulty (block_a->difficulty ());
-		if (difficulty > existing_election->difficulty)
+		double multiplier (1.);
+		if (block_a->has_sideband ())
+		{
+			multiplier = nano::difficulty::to_multiplier (difficulty, nano::work_threshold (block_a->work_version (), block_a->sideband ().details));
+		}
+		else
+		{
+			multiplier = nano::difficulty::to_multiplier (difficulty, nano::work_threshold (block_a->work_version ()));
+		}
+		if (multiplier > existing_election->multiplier)
 		{
 			if (node.config.logging.active_update_logging ())
 			{
-				node.logger.try_log (boost::str (boost::format ("Block %1% was updated from difficulty %2% to %3%") % block_a->hash ().to_string () % nano::to_string_hex (existing_election->difficulty) % nano::to_string_hex (difficulty)));
+				node.logger.try_log (boost::str (boost::format ("Block %1% was updated from multiplier %2% to %3%") % block_a->hash ().to_string () % existing_election->multiplier % multiplier));
 			}
-			roots.get<tag_root> ().modify (existing_election, [difficulty](nano::conflict_info & info_a) {
-				info_a.difficulty = difficulty;
+			roots.get<tag_root> ().modify (existing_election, [multiplier](nano::conflict_info & info_a) {
+				info_a.multiplier = multiplier;
 			});
 			existing_election->election->publish (block_a);
 			add_adjust_difficulty (block_a->hash ());
@@ -672,7 +690,7 @@ void nano::active_transactions::update_adjusted_difficulty ()
 					auto existing_root (roots.get<tag_root> ().find (root));
 					if (existing_root != roots.get<tag_root> ().end ())
 					{
-						sum += nano::difficulty::to_multiplier (existing_root->difficulty, node.network_params.network.publish_threshold);
+						sum += existing_root->multiplier;
 						elections_list.emplace_back (root, level);
 						if (level > highest_level)
 						{

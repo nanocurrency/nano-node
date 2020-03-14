@@ -166,6 +166,7 @@ TEST (conflicts, reprioritize)
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send1);
 	auto difficulty1 (send1->difficulty ());
+	auto multiplier1 (nano::difficulty::to_multiplier (difficulty1, nano::work_threshold (send1->work_version ())));
 	nano::send_block send1_copy (*send1);
 	node1.process_active (send1);
 	node1.block_processor.flush ();
@@ -173,17 +174,18 @@ TEST (conflicts, reprioritize)
 		nano::lock_guard<std::mutex> guard (node1.active.mutex);
 		auto existing1 (node1.active.roots.find (send1->qualified_root ()));
 		ASSERT_NE (node1.active.roots.end (), existing1);
-		ASSERT_EQ (difficulty1, existing1->difficulty);
+		ASSERT_EQ (multiplier1, existing1->multiplier);
 	}
 	node1.work_generate_blocking (send1_copy, difficulty1);
 	auto difficulty2 (send1_copy.difficulty ());
+	auto multiplier2 (nano::difficulty::to_multiplier (difficulty2, nano::work_threshold (send1_copy.work_version ())));
 	node1.process_active (std::make_shared<nano::send_block> (send1_copy));
 	node1.block_processor.flush ();
 	{
 		nano::lock_guard<std::mutex> guard (node1.active.mutex);
 		auto existing2 (node1.active.roots.find (send1->qualified_root ()));
 		ASSERT_NE (node1.active.roots.end (), existing2);
-		ASSERT_EQ (difficulty2, existing2->difficulty);
+		ASSERT_EQ (multiplier2, existing2->multiplier);
 	}
 }
 

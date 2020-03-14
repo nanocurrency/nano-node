@@ -34,7 +34,7 @@ class conflict_info final
 {
 public:
 	nano::qualified_root root;
-	uint64_t difficulty;
+	double multiplier;
 	uint64_t adjusted_difficulty;
 	std::shared_ptr<nano::election> election;
 };

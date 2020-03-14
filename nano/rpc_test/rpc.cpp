@@ -1817,7 +1817,7 @@ TEST (rpc, process_block_with_work_watcher)
 	}
 	system.deadline_set (10s);
 	auto updated (false);
-	uint64_t updated_difficulty;
+	double updated_multiplier;
 	while (!updated)
 	{
 		nano::unique_lock<std::mutex> lock (node1.active.mutex);
@@ -1830,12 +1830,12 @@ TEST (rpc, process_block_with_work_watcher)
 		auto const existing (node1.active.roots.find (send->qualified_root ()));
 		//if existing is junk the block has been confirmed already
 		ASSERT_NE (existing, node1.active.roots.end ());
-		updated = existing->difficulty != difficulty1;
-		updated_difficulty = existing->difficulty;
+		updated = existing->multiplier != multiplier1;
+		updated_multiplier = existing->multiplier;
 		lock.unlock ();
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_GT (updated_difficulty, difficulty1);
+	ASSERT_GT (updated_multiplier, multiplier1);
 
 	// Try without enable_control which watch_work requires if set to true
 	{

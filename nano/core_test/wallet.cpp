@@ -1159,13 +1159,13 @@ TEST (wallet, work_watcher_update)
 				auto const existing (node.active.roots.find (block1->qualified_root ()));
 				//if existing is junk the block has been confirmed already
 				ASSERT_NE (existing, node.active.roots.end ());
-				updated_difficulty1 = existing->difficulty;
+				updated_difficulty1 = nano::difficulty::from_multiplier (existing->multiplier, node.network_params.network.publish_threshold);
 			}
 			{
 				auto const existing (node.active.roots.find (block2->qualified_root ()));
 				//if existing is junk the block has been confirmed already
 				ASSERT_NE (existing, node.active.roots.end ());
-				updated_difficulty2 = existing->difficulty;
+				updated_difficulty2 = nano::difficulty::from_multiplier (existing->multiplier, node.network_params.network.publish_threshold);
 			}
 		}
 		ASSERT_NO_ERROR (system.poll ());
@@ -1191,7 +1191,7 @@ TEST (wallet, work_watcher_generation_disabled)
 	ASSERT_FALSE (node.process_local (block).code != nano::process_result::progress);
 	ASSERT_TRUE (node.wallets.watcher->is_watched (block->qualified_root ()));
 	auto multiplier = nano::difficulty::to_multiplier (difficulty, nano::work_threshold (block->work_version ()));
-	uint64_t updated_difficulty{ difficulty };
+	double updated_multiplier{ multiplier };
 	{
 		nano::unique_lock<std::mutex> lock (node.active.mutex);
 		// Prevent active difficulty repopulating multipliers
@@ -1210,9 +1210,9 @@ TEST (wallet, work_watcher_generation_disabled)
 		auto const existing (node.active.roots.find (block->qualified_root ()));
 		//if existing is junk the block has been confirmed already
 		ASSERT_NE (existing, node.active.roots.end ());
-		updated_difficulty = existing->difficulty;
+		updated_multiplier = existing->multiplier;
 	}
-	ASSERT_EQ (updated_difficulty, difficulty);
+	ASSERT_EQ (updated_multiplier, multiplier);
 	ASSERT_TRUE (node.distributed_work.items.empty ());
 }
 

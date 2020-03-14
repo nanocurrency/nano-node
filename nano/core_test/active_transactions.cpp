@@ -218,7 +218,7 @@ TEST (active_transactions, adjusted_difficulty_overflow_max)
 		auto open2_root (node1.active.roots.find (open2->qualified_root ()));
 		auto modify_difficulty = [& roots = node1.active.roots](auto & existing_root) {
 			roots.modify (existing_root, [](nano::conflict_info & info_a) {
-				info_a.difficulty = std::numeric_limits<std::uint64_t>::max ();
+				info_a.multiplier = nano::difficulty::to_multiplier (std::numeric_limits<std::uint64_t>::max (), nano::work_threshold (info_a.election->status.winner->work_version (), info_a.election->status.winner->sideband ().details));
 			});
 		};
 		modify_difficulty (send1_root);
@@ -272,7 +272,7 @@ TEST (active_transactions, adjusted_difficulty_overflow_min)
 		auto send3_root (node1.active.roots.find (send3->qualified_root ()));
 		auto modify_difficulty = [& roots = node1.active.roots](auto & existing_root) {
 			roots.modify (existing_root, [](nano::conflict_info & info_a) {
-				info_a.difficulty = std::numeric_limits<std::uint64_t>::min () + 1;
+				info_a.multiplier = nano::difficulty::to_multiplier (std::numeric_limits<std::uint64_t>::min () + 1, nano::work_threshold (info_a.election->status.winner->work_version (), info_a.election->status.winner->sideband ().details));
 			});
 		};
 		modify_difficulty (send1_root);
@@ -364,8 +364,8 @@ TEST (active_transactions, prioritize_chains)
 	auto send5 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 20 * nano::xrb_ratio, key2.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send1->hash ())));
 	auto send6 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send5->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 30 * nano::xrb_ratio, key3.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send5->hash ())));
 	auto open2 (std::make_shared<nano::state_block> (key2.pub, 0, key2.pub, 10 * nano::xrb_ratio, send5->hash (), key2.prv, key2.pub, *system.work.generate (key2.pub, nano::difficulty::from_multiplier (50., node1.network_params.network.publish_threshold))));
-	auto difficulty1 (open2->difficulty ());
-	auto difficulty2 (send6->difficulty ());
+	auto multiplier1 (nano::difficulty::to_multiplier (open2->difficulty (), nano::work_threshold (open2->work_version ())));
+	auto multiplier2 (nano::difficulty::to_multiplier (send6->difficulty (), nano::work_threshold (open2->work_version ())));
 
 	node1.process_active (send1);
 	node1.process_active (open1);
@@ -408,7 +408,7 @@ TEST (active_transactions, prioritize_chains)
 		auto it (node1.active.roots.get<1> ().begin ());
 		while (!node1.active.roots.empty () && it != node1.active.roots.get<1> ().end ())
 		{
-			if (it->difficulty == (difficulty1 || difficulty2))
+			if (it->multiplier == (multiplier1 || multiplier2))
 			{
 				seen++;
 			}
@@ -585,8 +585,10 @@ TEST (active_transactions, update_difficulty)
 	// Generate blocks & start elections
 	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 100, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
 	auto difficulty1 (send1->difficulty ());
+	auto multiplier1 (nano::difficulty::to_multiplier (difficulty1, nano::work_threshold (send1->work_version ())));
 	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 200, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send1->hash ())));
 	auto difficulty2 (send2->difficulty ());
+	auto multiplier2 (nano::difficulty::to_multiplier (difficulty2, nano::work_threshold (send2->work_version ())));
 	node1.process_active (send1);
 	node1.process_active (send2);
 	node1.block_processor.flush ();
@@ -626,10 +628,10 @@ TEST (active_transactions, update_difficulty)
 			ASSERT_NE (existing3, node2.active.roots.end ());
 			auto const existing4 (node2.active.roots.find (send2->qualified_root ()));
 			ASSERT_NE (existing4, node2.active.roots.end ());
-			auto updated1 = existing1->difficulty > difficulty1;
-			auto updated2 = existing2->difficulty > difficulty2;
-			auto propogated1 = existing3->difficulty > difficulty1;
-			auto propogated2 = existing4->difficulty > difficulty2;
+			auto updated1 = existing1->multiplier > multiplier1;
+			auto updated2 = existing2->multiplier > multiplier2;
+			auto propogated1 = existing3->multiplier > multiplier1;
+			auto propogated2 = existing4->multiplier > multiplier2;
 			done = updated1 && updated2 && propogated1 && propogated2;
 		}
 		ASSERT_NO_ERROR (system.poll ());
