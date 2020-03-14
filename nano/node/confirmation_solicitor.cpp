@@ -17,7 +17,9 @@ void nano::confirmation_solicitor::prepare (std::vector<nano::representative> co
 	debug_assert (!prepared);
 	requests.clear ();
 	rebroadcasted = 0;
-	representatives_requests = representatives_broadcasts = representatives_a;
+	/** Two copies are required as representatives can be erased from \p representatives_requests */
+	representatives_requests = representatives_a;
+	representatives_broadcasts = representatives_a;
 	prepared = true;
 }
 
