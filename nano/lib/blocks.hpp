@@ -73,6 +73,7 @@ public:
 	nano::block_hash full_hash () const;
 	nano::block_sideband const & sideband () const;
 	void sideband_set (nano::block_sideband const &);
+	bool has_sideband () const;
 	std::string to_json () const;
 	virtual void hash (blake2b_state &) const = 0;
 	virtual uint64_t block_work () const = 0;

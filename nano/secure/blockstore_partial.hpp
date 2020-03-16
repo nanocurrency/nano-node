@@ -354,7 +354,7 @@ public:
 		return nano::store_iterator<uint64_t, nano::amount> (nullptr);
 	}
 
-	nano::store_iterator<nano::account, nano::account_info> latest_end () override
+	nano::store_iterator<nano::account, nano::account_info> latest_end () const override
 	{
 		return nano::store_iterator<nano::account, nano::account_info> (nullptr);
 	}
@@ -441,8 +441,8 @@ public:
 
 	void pending_del (nano::write_transaction const & transaction_a, nano::pending_key const & key_a) override
 	{
-		auto status1 = del (transaction_a, tables::pending, key_a);
-		release_assert (success (status1));
+		auto status = del (transaction_a, tables::pending, key_a);
+		release_assert (success (status));
 	}
 
 	bool pending_get (nano::transaction const & transaction_a, nano::pending_key const & key_a, nano::pending_info & pending_a) override
@@ -493,11 +493,10 @@ public:
 		release_assert (success (status));
 	}
 
-	bool unchecked_del (nano::write_transaction const & transaction_a, nano::unchecked_key const & key_a) override
+	void unchecked_del (nano::write_transaction const & transaction_a, nano::unchecked_key const & key_a) override
 	{
 		auto status (del (transaction_a, tables::unchecked, key_a));
-		release_assert (success (status) || not_found (status));
-		return not_found (status);
+		release_assert (success (status));
 	}
 
 	std::shared_ptr<nano::vote> vote_get (nano::transaction const & transaction_a, nano::account const & account_a) override
@@ -558,8 +557,8 @@ public:
 
 	void account_del (nano::write_transaction const & transaction_a, nano::account const & account_a) override
 	{
-		auto status1 = del (transaction_a, tables::accounts, account_a);
-		release_assert (success (status1));
+		auto status = del (transaction_a, tables::accounts, account_a);
+		release_assert (success (status));
 	}
 
 	bool account_get (nano::transaction const & transaction_a, nano::account const & account_a, nano::account_info & info_a) override
@@ -724,12 +723,12 @@ public:
 		return exists (transaction_a, tables::confirmation_height, nano::db_val<Val> (account_a));
 	}
 
-	nano::store_iterator<nano::account, nano::account_info> latest_begin (nano::transaction const & transaction_a, nano::account const & account_a) override
+	nano::store_iterator<nano::account, nano::account_info> latest_begin (nano::transaction const & transaction_a, nano::account const & account_a) const override
 	{
 		return make_iterator<nano::account, nano::account_info> (transaction_a, tables::accounts, nano::db_val<Val> (account_a));
 	}
 
-	nano::store_iterator<nano::account, nano::account_info> latest_begin (nano::transaction const & transaction_a) override
+	nano::store_iterator<nano::account, nano::account_info> latest_begin (nano::transaction const & transaction_a) const override
 	{
 		return make_iterator<nano::account, nano::account_info> (transaction_a, tables::accounts);
 	}

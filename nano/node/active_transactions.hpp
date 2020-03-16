@@ -1,12 +1,6 @@
 #pragma once
 
 #include <nano/lib/numbers.hpp>
-#include <nano/node/confirmation_solicitor.hpp>
-#include <nano/node/election.hpp>
-#include <nano/node/gap_cache.hpp>
-#include <nano/node/repcrawler.hpp>
-#include <nano/node/transport/transport.hpp>
-#include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/circular_buffer.hpp>
@@ -101,7 +95,8 @@ public:
 	bool active (nano::qualified_root const &);
 	std::shared_ptr<nano::election> election (nano::qualified_root const &) const;
 	void update_difficulty (std::shared_ptr<nano::block>);
-	void adjust_difficulty (nano::block_hash const &);
+	void add_adjust_difficulty (nano::block_hash const &);
+	void update_adjusted_difficulty ();
 	void update_active_difficulty (nano::unique_lock<std::mutex> &);
 	uint64_t active_difficulty ();
 	uint64_t limited_active_difficulty ();
@@ -125,9 +120,11 @@ public:
 	roots;
 	// clang-format on
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> blocks;
-	std::deque<nano::election_status> list_confirmed ();
-	std::deque<nano::election_status> confirmed;
-	void add_confirmed (nano::election_status const &, nano::qualified_root const &);
+	std::deque<nano::election_status> list_recently_cemented ();
+	std::deque<nano::election_status> recently_cemented;
+
+	void add_recently_cemented (nano::election_status const &);
+	void add_recently_confirmed (nano::qualified_root const &);
 	void add_inactive_votes_cache (nano::block_hash const &, nano::account const &);
 	nano::inactive_cache_information find_inactive_votes_cache (nano::block_hash const &);
 	void erase_inactive_votes_cache (nano::block_hash const &);
@@ -142,7 +139,6 @@ public:
 	size_t inactive_votes_cache_size ();
 	size_t election_winner_details_size ();
 	void add_election_winner_details (nano::block_hash const &, std::shared_ptr<nano::election> const &);
-	nano::confirmation_solicitor solicitor;
 
 private:
 	std::mutex election_winner_details_mutex;
@@ -161,6 +157,10 @@ private:
 	bool started{ false };
 	std::atomic<bool> stopped{ false };
 
+	// Periodically check all elections
+	std::chrono::milliseconds const check_all_elections_period;
+	std::chrono::steady_clock::time_point last_check_all_elections{};
+
 	// Maximum time an election can be kept active if it is extending the container
 	std::chrono::seconds const election_time_to_live;
 
@@ -170,7 +170,7 @@ private:
 		mi::sequenced<mi::tag<tag_sequence>>,
 		mi::hashed_unique<mi::tag<tag_root>,
 			mi::identity<nano::qualified_root>>>>
-	confirmed_set;
+	recently_confirmed;
 	using prioritize_num_uncemented = boost::multi_index_container<nano::cementable_account,
 	mi::indexed_by<
 		mi::hashed_unique<mi::tag<tag_account>,
@@ -188,6 +188,7 @@ private:
 	void prioritize_account_for_confirmation (prioritize_num_uncemented &, size_t &, nano::account const &, nano::account_info const &, uint64_t);
 	static size_t constexpr max_priority_cementable_frontiers{ 100000 };
 	static size_t constexpr confirmed_frontiers_max_pending_cut_off{ 1000 };
+	std::deque<nano::block_hash> adjust_difficulty_list;
 	// clang-format off
 	using ordered_cache = boost::multi_index_container<nano::inactive_cache_information,
 	mi::indexed_by<
@@ -200,8 +201,10 @@ private:
 	bool inactive_votes_bootstrap_check (std::vector<nano::account> const &, nano::block_hash const &, bool &);
 	boost::thread thread;
 
+	friend class active_transactions_dropped_cleanup_Test;
 	friend class confirmation_height_prioritize_frontiers_Test;
 	friend class confirmation_height_prioritize_frontiers_overwrite_Test;
+	friend class active_transactions_confirmation_consistency_Test;
 	friend std::unique_ptr<container_info_component> collect_container_info (active_transactions &, const std::string &);
 };
 

@@ -1022,8 +1022,11 @@ void nano::json_handler::block_confirm ()
 		{
 			if (!node.ledger.block_confirmed (transaction, hash))
 			{
-				// Start new confirmation for unconfirmed block
-				node.block_confirm (std::move (block_l));
+				// Start new confirmation for unconfirmed (or not being confirmed) block
+				if (!node.confirmation_height_processor.is_processing_block (hash))
+				{
+					node.block_confirm (std::move (block_l));
+				}
 			}
 			else
 			{
@@ -1031,11 +1034,7 @@ void nano::json_handler::block_confirm ()
 				nano::election_status status{ block_l, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::active_confirmation_height };
 				{
 					nano::lock_guard<std::mutex> lock (node.active.mutex);
-					node.active.confirmed.push_back (status);
-					if (node.active.confirmed.size () > node.config.confirmation_history_size)
-					{
-						node.active.confirmed.pop_front ();
-					}
+					node.active.add_recently_cemented (status);
 				}
 				// Trigger callback for confirmed block
 				node.block_arrival.add (hash);
@@ -1226,8 +1225,7 @@ void nano::json_handler::block_account ()
 
 void nano::json_handler::block_count ()
 {
-	auto transaction (node.store.tx_begin_read ());
-	response_l.put ("count", std::to_string (node.store.block_count (transaction).sum ()));
+	response_l.put ("count", std::to_string (node.ledger.cache.block_count));
 	response_l.put ("unchecked", std::to_string (node.ledger.cache.unchecked_count));
 	response_l.put ("cemented", std::to_string (node.ledger.cache.cemented_count));
 	response_errors ();
@@ -1754,6 +1752,7 @@ void nano::json_handler::chain (bool successors)
 void nano::json_handler::confirmation_active ()
 {
 	uint64_t announcements (0);
+	uint64_t confirmed (0);
 	boost::optional<std::string> announcements_text (request.get_optional<std::string> ("announcements"));
 	if (announcements_text.is_initialized ())
 	{
@@ -1764,15 +1763,24 @@ void nano::json_handler::confirmation_active ()
 		nano::lock_guard<std::mutex> lock (node.active.mutex);
 		for (auto i (node.active.roots.begin ()), n (node.active.roots.end ()); i != n; ++i)
 		{
-			if (i->election->confirmation_request_count >= announcements && !i->election->confirmed ())
+			if (i->election->confirmation_request_count >= announcements)
 			{
-				boost::property_tree::ptree entry;
-				entry.put ("", i->root.to_string ());
-				elections.push_back (std::make_pair ("", entry));
+				if (!i->election->confirmed ())
+				{
+					boost::property_tree::ptree entry;
+					entry.put ("", i->root.to_string ());
+					elections.push_back (std::make_pair ("", entry));
+				}
+				else
+				{
+					++confirmed;
+				}
 			}
 		}
 	}
 	response_l.add_child ("confirmations", elections);
+	response_l.put ("unconfirmed", elections.size ());
+	response_l.put ("confirmed", confirmed);
 	response_errors ();
 }
 
@@ -1803,7 +1811,7 @@ void nano::json_handler::confirmation_history ()
 	}
 	if (!ec)
 	{
-		auto confirmed (node.active.list_confirmed ());
+		auto confirmed (node.active.list_recently_cemented ());
 		for (auto i (confirmed.begin ()), n (confirmed.end ()); i != n; ++i)
 		{
 			if (hash.is_zero () || i->winner->hash () == hash)
@@ -1840,11 +1848,10 @@ void nano::json_handler::confirmation_info ()
 	nano::qualified_root root;
 	if (!root.decode_hex (root_text))
 	{
-		nano::lock_guard<std::mutex> lock (node.active.mutex);
-		auto conflict_info (node.active.roots.find (root));
-		if (conflict_info != node.active.roots.end ())
+		auto election (node.active.election (root));
+		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		if (election != nullptr && !election->confirmed ())
 		{
-			auto election (conflict_info->election);
 			response_l.put ("announcements", std::to_string (election->confirmation_request_count));
 			response_l.put ("voters", std::to_string (election->last_votes.size ()));
 			response_l.put ("last_winner", election->status.winner->hash ().to_string ());
@@ -3933,10 +3940,11 @@ void nano::json_handler::telemetry ()
 					if (address.is_loopback () && port == rpc_l->node.network.endpoint ().port ())
 					{
 						// Requesting telemetry metrics locally
-						auto telemetry_data = nano::local_telemetry_data (rpc_l->node.ledger.cache, rpc_l->node.network, rpc_l->node.config.bandwidth_limit, rpc_l->node.network_params, rpc_l->node.startup_time);
+						auto telemetry_data = nano::local_telemetry_data (rpc_l->node.ledger.cache, rpc_l->node.network, rpc_l->node.config.bandwidth_limit, rpc_l->node.network_params, rpc_l->node.startup_time, rpc_l->node.node_id);
 
 						nano::jsonconfig config_l;
-						auto err = telemetry_data.serialize_json (config_l);
+						auto const should_ignore_identification_metrics = false;
+						auto err = telemetry_data.serialize_json (config_l, should_ignore_identification_metrics);
 						auto const & ptree = config_l.get_tree ();
 
 						if (!err)
@@ -3980,7 +3988,8 @@ void nano::json_handler::telemetry ()
 					if (!telemetry_response_a.error)
 					{
 						nano::jsonconfig config_l;
-						auto err = telemetry_response_a.telemetry_data.serialize_json (config_l);
+						auto const should_ignore_identification_metrics = false;
+						auto err = telemetry_response_a.telemetry_data.serialize_json (config_l, should_ignore_identification_metrics);
 						auto const & ptree = config_l.get_tree ();
 
 						if (!err)
@@ -4025,7 +4034,8 @@ void nano::json_handler::telemetry ()
 				for (auto & telemetry_metrics : telemetry_responses)
 				{
 					nano::jsonconfig config_l;
-					auto err = telemetry_metrics.second.serialize_json (config_l);
+					auto const should_ignore_identification_metrics = false;
+					auto err = telemetry_metrics.second.serialize_json (config_l, should_ignore_identification_metrics);
 					config_l.put ("address", telemetry_metrics.first.address ());
 					config_l.put ("port", telemetry_metrics.first.port ());
 					if (!err)
@@ -4050,7 +4060,9 @@ void nano::json_handler::telemetry ()
 				});
 
 				auto average_telemetry_metrics = nano::consolidate_telemetry_data (telemetry_datas);
-				auto err = average_telemetry_metrics.serialize_json (config_l);
+				// Don't add node_id/signature in consolidated metrics
+				auto const should_ignore_identification_metrics = true;
+				auto err = average_telemetry_metrics.serialize_json (config_l, should_ignore_identification_metrics);
 				auto const & ptree = config_l.get_tree ();
 
 				if (!err)

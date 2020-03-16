@@ -380,7 +380,9 @@ void nano::wallet_store::initialize (nano::transaction const & transaction_a, bo
 {
 	debug_assert (strlen (path_a.c_str ()) == path_a.size ());
 	auto error (0);
-	error |= mdb_dbi_open (tx (transaction_a), path_a.c_str (), MDB_CREATE, &handle);
+	MDB_dbi handle_l;
+	error |= mdb_dbi_open (tx (transaction_a), path_a.c_str (), MDB_CREATE, &handle_l);
+	handle = handle_l;
 	init_a = error != 0;
 }
 
@@ -1273,8 +1275,11 @@ bool nano::wallet::search_pending ()
 						}
 						else
 						{
-							// Request confirmation for unconfirmed block
-							wallets.node.block_confirm (block);
+							if (!wallets.node.confirmation_height_processor.is_processing_block (hash))
+							{
+								// Request confirmation for block which is not being processed yet
+								wallets.node.block_confirm (block);
+							}
 						}
 					}
 				}
@@ -1987,8 +1992,8 @@ nano::store_iterator<nano::account, nano::wallet_value> nano::wallet_store::end 
 {
 	return nano::store_iterator<nano::account, nano::wallet_value> (nullptr);
 }
-nano::mdb_wallets_store::mdb_wallets_store (boost::filesystem::path const & path_a, int lmdb_max_dbs) :
-environment (error, path_a, lmdb_max_dbs, false, 1ULL * 1024 * 1024 * 1024)
+nano::mdb_wallets_store::mdb_wallets_store (boost::filesystem::path const & path_a, nano::lmdb_config const & lmdb_config_a) :
+environment (error, path_a, nano::mdb_env::options::make ().set_config (lmdb_config_a).override_config_sync (nano::lmdb_config::sync_strategy::always).override_config_map_size (1ULL * 1024 * 1024 * 1024))
 {
 }
 

@@ -6235,11 +6235,11 @@ TEST (rpc, confirmation_history)
 	auto node = add_ipc_enabled_node (system);
 	nano::keypair key;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	ASSERT_TRUE (node->active.list_confirmed ().empty ());
+	ASSERT_TRUE (node->active.list_recently_cemented ().empty ());
 	auto block (system.wallet (0)->send_action (nano::test_genesis_key.pub, key.pub, nano::Gxrb_ratio));
 	scoped_io_thread_name_change scoped_thread_name_io;
 	system.deadline_set (10s);
-	while (node->active.list_confirmed ().empty ())
+	while (node->active.list_recently_cemented ().empty ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -6282,13 +6282,13 @@ TEST (rpc, confirmation_history_hash)
 	auto node = add_ipc_enabled_node (system);
 	nano::keypair key;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	ASSERT_TRUE (node->active.list_confirmed ().empty ());
+	ASSERT_TRUE (node->active.list_recently_cemented ().empty ());
 	auto send1 (system.wallet (0)->send_action (nano::test_genesis_key.pub, key.pub, nano::Gxrb_ratio));
 	auto send2 (system.wallet (0)->send_action (nano::test_genesis_key.pub, key.pub, nano::Gxrb_ratio));
 	auto send3 (system.wallet (0)->send_action (nano::test_genesis_key.pub, key.pub, nano::Gxrb_ratio));
 	scoped_io_thread_name_change scoped_thread_name_io;
 	system.deadline_set (10s);
-	while (node->active.list_confirmed ().size () != 3)
+	while (node->active.list_recently_cemented ().size () != 3)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -6419,7 +6419,7 @@ TEST (rpc, block_confirm_confirmed)
 	ASSERT_EQ (200, response.status);
 	ASSERT_EQ ("1", response.json.get<std::string> ("started"));
 	// Check confirmation history
-	auto confirmed (node->active.list_confirmed ());
+	auto confirmed (node->active.list_recently_cemented ());
 	ASSERT_EQ (1, confirmed.size ());
 	ASSERT_EQ (nano::genesis_hash, confirmed.begin ()->winner->hash ());
 	// Check callback
@@ -7850,29 +7850,6 @@ TEST (rpc, receive_work_disabled)
 	}
 }
 
-namespace
-{
-void compare_default_test_result_data (test_response & response, nano::node const & node_server_a)
-{
-	ASSERT_EQ (200, response.status);
-	ASSERT_EQ (1, response.json.get<uint64_t> ("block_count"));
-	ASSERT_EQ (1, response.json.get<uint64_t> ("cemented_count"));
-	ASSERT_EQ (0, response.json.get<uint64_t> ("unchecked_count"));
-	ASSERT_EQ (1, response.json.get<uint64_t> ("account_count"));
-	ASSERT_EQ (node_server_a.config.bandwidth_limit, response.json.get<uint64_t> ("bandwidth_cap"));
-	ASSERT_EQ (1, response.json.get<uint32_t> ("peer_count"));
-	ASSERT_EQ (node_server_a.network_params.protocol.protocol_version, response.json.get<uint8_t> ("protocol_version"));
-	ASSERT_GE (100, response.json.get<uint64_t> ("uptime"));
-	ASSERT_EQ (node_server_a.network_params.ledger.genesis_hash.to_string (), response.json.get<std::string> ("genesis_block"));
-	ASSERT_EQ (nano::get_major_node_version (), response.json.get<uint8_t> ("major_version"));
-	ASSERT_EQ (nano::get_minor_node_version (), response.json.get<uint8_t> ("minor_version"));
-	ASSERT_EQ (nano::get_patch_node_version (), response.json.get<uint8_t> ("patch_version"));
-	ASSERT_EQ (nano::get_pre_release_node_version (), response.json.get<uint8_t> ("pre_release_version"));
-	ASSERT_EQ (0, response.json.get<uint8_t> ("maker"));
-	ASSERT_GE (std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()).count (), response.json.get<uint64_t> ("timestamp"));
-}
-}
-
 TEST (rpc, node_telemetry_single)
 {
 	nano::system system (1);
@@ -7967,7 +7944,12 @@ TEST (rpc, node_telemetry_single)
 			ASSERT_NO_ERROR (system.poll ());
 		}
 		ASSERT_EQ (200, response.status);
-		compare_default_test_result_data (response, *node);
+
+		nano::jsonconfig config (response.json);
+		nano::telemetry_data telemetry_data;
+		auto const should_ignore_identification_metrics = false;
+		ASSERT_FALSE (telemetry_data.deserialize_json (config, should_ignore_identification_metrics));
+		nano::compare_default_telemetry_response_data (telemetry_data, node->network_params, node->config.bandwidth_limit, node->node_id);
 	}
 }
 
@@ -8017,7 +7999,13 @@ TEST (rpc, node_telemetry_all)
 		{
 			ASSERT_NO_ERROR (system.poll ());
 		}
-		compare_default_test_result_data (response, *node);
+		nano::jsonconfig config (response.json);
+		nano::telemetry_data telemetry_data;
+		auto const should_ignore_identification_metrics = true;
+		ASSERT_FALSE (telemetry_data.deserialize_json (config, should_ignore_identification_metrics));
+		nano::compare_default_telemetry_response_data_excluding_signature (telemetry_data, node->network_params, node->config.bandwidth_limit);
+		ASSERT_FALSE (response.json.get_optional<std::string> ("node_id").is_initialized ());
+		ASSERT_FALSE (response.json.get_optional<std::string> ("signature").is_initialized ());
 	}
 
 	request.put ("raw", "true");
@@ -8031,55 +8019,17 @@ TEST (rpc, node_telemetry_all)
 
 	// This may fail if the response has taken longer than the cache cutoff time.
 	auto & all_metrics = response.json.get_child ("metrics");
+	auto & metrics = all_metrics.front ().second;
+	ASSERT_EQ (1, all_metrics.size ());
 
-	class telemetry_response_data
-	{
-	public:
-		uint64_t block_count;
-		uint64_t cemented_count;
-		uint64_t unchecked_count;
-		uint64_t account_count;
-		uint64_t bandwidth_cap;
-		uint32_t peer_count;
-		uint8_t protocol_version;
-		uint64_t uptime;
-		std::string genesis_block;
-		uint8_t major_version;
-		uint8_t minor_version;
-		uint8_t patch_version;
-		uint8_t pre_release_version;
-		uint8_t maker;
-		uint64_t timestamp;
-		std::string address;
-		uint16_t port;
-	};
+	nano::jsonconfig config (metrics);
+	nano::telemetry_data data;
+	auto const should_ignore_identification_metrics = false;
+	ASSERT_FALSE (data.deserialize_json (config, should_ignore_identification_metrics));
+	nano::compare_default_telemetry_response_data (data, node->network_params, node->config.bandwidth_limit, node->node_id);
 
-	std::vector<telemetry_response_data> raw_metrics_json_l;
-	for (auto & metrics_pair : all_metrics)
-	{
-		auto & metrics = metrics_pair.second;
-		raw_metrics_json_l.push_back ({ metrics.get<uint64_t> ("block_count"), metrics.get<uint64_t> ("cemented_count"), metrics.get<uint64_t> ("unchecked_count"), metrics.get<uint64_t> ("account_count"), metrics.get<uint64_t> ("bandwidth_cap"), metrics.get<uint32_t> ("peer_count"), metrics.get<uint8_t> ("protocol_version"), metrics.get<uint64_t> ("uptime"), metrics.get<std::string> ("genesis_block"), metrics.get<uint8_t> ("major_version"), metrics.get<uint8_t> ("minor_version"), metrics.get<uint8_t> ("patch_version"), metrics.get<uint8_t> ("pre_release_version"), metrics.get<uint8_t> ("maker"), metrics.get<uint64_t> ("timestamp"), metrics.get<std::string> ("address"), metrics.get<uint16_t> ("port") });
-	}
-
-	ASSERT_EQ (1, raw_metrics_json_l.size ());
-	auto const & metrics = raw_metrics_json_l.front ();
-	ASSERT_EQ (1, metrics.block_count);
-	ASSERT_EQ (1, metrics.cemented_count);
-	ASSERT_EQ (0, metrics.unchecked_count);
-	ASSERT_EQ (1, metrics.account_count);
-	ASSERT_EQ (node->config.bandwidth_limit, metrics.bandwidth_cap);
-	ASSERT_EQ (1, metrics.peer_count);
-	ASSERT_EQ (node->network_params.protocol.protocol_version, metrics.protocol_version);
-	ASSERT_GE (100, metrics.uptime);
-	ASSERT_EQ (node1.network_params.ledger.genesis_hash.to_string (), metrics.genesis_block);
-	ASSERT_EQ (nano::get_major_node_version (), metrics.major_version);
-	ASSERT_EQ (nano::get_minor_node_version (), metrics.minor_version);
-	ASSERT_EQ (nano::get_patch_node_version (), metrics.patch_version);
-	ASSERT_EQ (nano::get_pre_release_node_version (), metrics.pre_release_version);
-	ASSERT_EQ (0, metrics.maker);
-	ASSERT_GE (std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()).count (), metrics.timestamp);
-	ASSERT_EQ (node->network.endpoint ().address ().to_string (), metrics.address);
-	ASSERT_EQ (node->network.endpoint ().port (), metrics.port);
+	ASSERT_EQ (node->network.endpoint ().address ().to_string (), metrics.get<std::string> ("address"));
+	ASSERT_EQ (node->network.endpoint ().port (), metrics.get<uint16_t> ("port"));
 }
 
 // Also tests all forms of ipv4/ipv6
@@ -8103,6 +8053,7 @@ TEST (rpc, node_telemetry_self)
 	request.put ("action", "node_telemetry");
 	request.put ("address", "::1");
 	request.put ("port", node1.network.endpoint ().port ());
+	auto const should_ignore_identification_metrics = false;
 	{
 		test_response response (request, rpc.config.port, system.io_ctx);
 		system.deadline_set (10s);
@@ -8111,7 +8062,10 @@ TEST (rpc, node_telemetry_self)
 			ASSERT_NO_ERROR (system.poll ());
 		}
 		ASSERT_EQ (200, response.status);
-		compare_default_test_result_data (response, node1);
+		nano::telemetry_data data;
+		nano::jsonconfig config (response.json);
+		ASSERT_FALSE (data.deserialize_json (config, should_ignore_identification_metrics));
+		nano::compare_default_telemetry_response_data (data, node1.network_params, node1.config.bandwidth_limit, node1.node_id);
 	}
 
 	request.put ("address", "[::1]");
@@ -8123,7 +8077,10 @@ TEST (rpc, node_telemetry_self)
 			ASSERT_NO_ERROR (system.poll ());
 		}
 		ASSERT_EQ (200, response.status);
-		compare_default_test_result_data (response, node1);
+		nano::telemetry_data data;
+		nano::jsonconfig config (response.json);
+		ASSERT_FALSE (data.deserialize_json (config, should_ignore_identification_metrics));
+		nano::compare_default_telemetry_response_data (data, node1.network_params, node1.config.bandwidth_limit, node1.node_id);
 	}
 
 	request.put ("address", "127.0.0.1");
@@ -8135,7 +8092,10 @@ TEST (rpc, node_telemetry_self)
 			ASSERT_NO_ERROR (system.poll ());
 		}
 		ASSERT_EQ (200, response.status);
-		compare_default_test_result_data (response, node1);
+		nano::telemetry_data data;
+		nano::jsonconfig config (response.json);
+		ASSERT_FALSE (data.deserialize_json (config, should_ignore_identification_metrics));
+		nano::compare_default_telemetry_response_data (data, node1.network_params, node1.config.bandwidth_limit, node1.node_id);
 	}
 
 	// Incorrect port should fail
@@ -8149,5 +8109,98 @@ TEST (rpc, node_telemetry_self)
 		}
 		ASSERT_EQ (200, response.status);
 		ASSERT_EQ (std::error_code (nano::error_rpc::peer_not_found).message (), response.json.get<std::string> ("error"));
+	}
+}
+
+TEST (rpc, confirmation_active)
+{
+	nano::system system;
+	nano::node_config node_config;
+	node_config.ipc_config.transport_tcp.enabled = true;
+	node_config.ipc_config.transport_tcp.port = nano::get_available_port ();
+	nano::node_flags node_flags;
+	node_flags.disable_request_loop = true;
+	auto & node1 (*system.add_node (node_config, node_flags));
+	scoped_io_thread_name_change scoped_thread_name_io;
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
+	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	rpc_config.rpc_process.ipc_port = node1.config.ipc_config.transport_tcp.port;
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+
+	nano::genesis genesis;
+	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), nano::public_key (), nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+	auto send2 (std::make_shared<nano::send_block> (send1->hash (), nano::public_key (), nano::genesis_amount - 200, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send1->hash ())));
+	node1.process_active (send1);
+	node1.process_active (send2);
+	node1.block_processor.flush ();
+	ASSERT_EQ (2, node1.active.size ());
+	{
+		nano::lock_guard<std::mutex> guard (node1.active.mutex);
+		auto info (node1.active.roots.find (send1->qualified_root ()));
+		ASSERT_NE (node1.active.roots.end (), info);
+		info->election->confirm_once ();
+	}
+
+	boost::property_tree::ptree request;
+	request.put ("action", "confirmation_active");
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		auto & confirmations (response.json.get_child ("confirmations"));
+		ASSERT_EQ (1, confirmations.size ());
+		ASSERT_EQ (send2->qualified_root ().to_string (), confirmations.front ().second.get<std::string> (""));
+		ASSERT_EQ (1, response.json.get<unsigned> ("unconfirmed"));
+		ASSERT_EQ (1, response.json.get<unsigned> ("confirmed"));
+	}
+}
+
+TEST (rpc, confirmation_info)
+{
+	nano::system system;
+	auto & node1 = *add_ipc_enabled_node (system);
+	scoped_io_thread_name_change scoped_thread_name_io;
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
+	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	rpc_config.rpc_process.ipc_port = node1.config.ipc_config.transport_tcp.port;
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+
+	nano::genesis genesis;
+	auto send (std::make_shared<nano::send_block> (genesis.hash (), nano::public_key (), nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+	node1.process_active (send);
+	node1.block_processor.flush ();
+	ASSERT_FALSE (node1.active.empty ());
+
+	boost::property_tree::ptree request;
+	request.put ("action", "confirmation_info");
+	request.put ("root", send->qualified_root ().to_string ());
+	request.put ("representatives", "true");
+	request.put ("json_block", "true");
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		ASSERT_EQ (1, response.json.count ("announcements"));
+		ASSERT_EQ (1, response.json.get<unsigned> ("voters"));
+		ASSERT_EQ (send->hash ().to_string (), response.json.get<std::string> ("last_winner"));
+		auto & blocks (response.json.get_child ("blocks"));
+		ASSERT_EQ (1, blocks.size ());
+		auto & representatives (blocks.front ().second.get_child ("representatives"));
+		ASSERT_EQ (1, representatives.size ());
+		ASSERT_EQ (0, response.json.get<unsigned> ("total_tally"));
 	}
 }
