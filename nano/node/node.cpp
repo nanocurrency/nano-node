@@ -548,10 +548,10 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 					}
 				}
 			});
-			if (election.second)
+			if (election.inserted)
 			{
 				logger.always_log (boost::str (boost::format ("Resolving fork between our block: %1% and block %2% both with root %3%") % ledger_block->hash ().to_string () % block_a->hash ().to_string () % block_a->root ().to_string ()));
-				election.first->transition_active ();
+				election.election->transition_active ();
 			}
 		}
 	}
@@ -1087,12 +1087,12 @@ void nano::node::add_initial_peers ()
 void nano::node::block_confirm (std::shared_ptr<nano::block> block_a)
 {
 	auto election = active.insert (block_a);
-	if (election.second)
+	if (election.inserted)
 	{
-		election.first->transition_active ();
+		election.election->transition_active ();
 	}
 	// Calculate votes for local representatives
-	if (config.enable_voting && wallets.rep_counts ().voting > 0 && active.active (*block_a))
+	if (election.prioritized && config.enable_voting && wallets.rep_counts ().voting > 0 && active.active (*block_a))
 	{
 		block_processor.generator.add (block_a->hash ());
 	}

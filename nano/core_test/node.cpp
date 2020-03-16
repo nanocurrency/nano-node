@@ -1840,12 +1840,12 @@ TEST (node, rep_self_vote)
 	node0->block_processor.generator.add (block0->hash ());
 	system.deadline_set (1s);
 	// Wait until representatives are activated & make vote
-	while (election1.first->last_votes_size () != 3)
+	while (election1.election->last_votes_size () != 3)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	nano::unique_lock<std::mutex> lock (active.mutex);
-	auto & rep_votes (election1.first->last_votes);
+	auto & rep_votes (election1.election->last_votes);
 	ASSERT_NE (rep_votes.end (), rep_votes.find (nano::test_genesis_key.pub));
 	ASSERT_NE (rep_votes.end (), rep_votes.find (rep_big.pub));
 }
