@@ -292,12 +292,12 @@ void nano::confirmation_height_bounded::prepare_iterated_blocks_for_cementing (p
 			else
 			{
 				accounts_confirmed_info.emplace (preparation_data_a.account, confirmed_info_l);
-				accounts_confirmed_info_size.fetch_add (1, std::memory_order_relaxed);
+				++accounts_confirmed_info_size;
 			}
 
 			preparation_data_a.checkpoints.erase (std::remove (preparation_data_a.checkpoints.begin (), preparation_data_a.checkpoints.end (), preparation_data_a.top_most_non_receive_block_hash), preparation_data_a.checkpoints.end ());
 			pending_writes.emplace_back (preparation_data_a.account, preparation_data_a.bottom_height, preparation_data_a.bottom_most, block_height, preparation_data_a.top_most_non_receive_block_hash);
-			pending_writes_size.fetch_add (1, std::memory_order_relaxed);
+			++pending_writes_size;
 		}
 	}
 
@@ -315,7 +315,7 @@ void nano::confirmation_height_bounded::prepare_iterated_blocks_for_cementing (p
 		else
 		{
 			accounts_confirmed_info.emplace (std::piecewise_construct, std::forward_as_tuple (receive_details->account), std::forward_as_tuple (receive_details->height, receive_details->hash));
-			accounts_confirmed_info_size.fetch_add (1, std::memory_order_relaxed);
+			++accounts_confirmed_info_size;
 		}
 
 		if (receive_details->next.is_initialized ())
@@ -328,7 +328,7 @@ void nano::confirmation_height_bounded::prepare_iterated_blocks_for_cementing (p
 		}
 
 		pending_writes.emplace_back (receive_details->account, receive_details->bottom_height, receive_details->bottom_most, receive_details->height, receive_details->hash);
-		pending_writes_size.fetch_add (1, std::memory_order_relaxed);
+		++pending_writes_size;
 	}
 }
 
@@ -403,7 +403,7 @@ bool nano::confirmation_height_bounded::cement_blocks ()
 						logger.always_log ("Failed to write confirmation height for: ", new_cemented_frontier.to_string ());
 						ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block);
 						pending_writes.clear ();
-						pending_writes_size.store (0, std::memory_order_relaxed);
+						pending_writes_size = 0;
 						return true;
 					}
 
@@ -443,17 +443,17 @@ bool nano::confirmation_height_bounded::cement_blocks ()
 			if (it != accounts_confirmed_info.cend () && it->second.confirmed_height == pending.top_height)
 			{
 				accounts_confirmed_info.erase (pending.account);
-				accounts_confirmed_info_size.fetch_sub (1, std::memory_order_relaxed);
+				--accounts_confirmed_info_size;
 			}
 			pending_writes.pop_front ();
-			pending_writes_size.fetch_sub (1, std::memory_order_relaxed);
+			--pending_writes_size;
 		}
 	}
 
 	notify_observers_callback (cemented_blocks);
 
 	debug_assert (pending_writes.empty ());
-	debug_assert (pending_writes_size.load (std::memory_order_relaxed) == 0);
+	debug_assert (pending_writes_size == 0);
 	return false;
 }
 
@@ -465,7 +465,7 @@ bool nano::confirmation_height_bounded::pending_empty () const
 void nano::confirmation_height_bounded::prepare_new ()
 {
 	accounts_confirmed_info.clear ();
-	accounts_confirmed_info_size.store (0, std::memory_order_relaxed);
+	accounts_confirmed_info_size = 0;
 	timer.restart ();
 }
 
@@ -504,7 +504,7 @@ iterated_frontier (iterated_frontier_a)
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (confirmation_height_bounded & confirmation_height_bounded, const std::string & name_a)
 {
 	auto composite = std::make_unique<container_info_composite> (name_a);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "pending_writes", confirmation_height_bounded.pending_writes_size.load (std::memory_order_relaxed), sizeof (decltype (confirmation_height_bounded.pending_writes)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "accounts_confirmed_info", confirmation_height_bounded.accounts_confirmed_info_size.load (std::memory_order_relaxed), sizeof (decltype (confirmation_height_bounded.accounts_confirmed_info)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "pending_writes", confirmation_height_bounded.pending_writes_size, sizeof (decltype (confirmation_height_bounded.pending_writes)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "accounts_confirmed_info", confirmation_height_bounded.accounts_confirmed_info_size, sizeof (decltype (confirmation_height_bounded.accounts_confirmed_info)::value_type) }));
 	return composite;
 }

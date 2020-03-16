@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/secure/blockstore.hpp>
 
 #include <boost/circular_buffer.hpp>
@@ -62,11 +63,11 @@ private:
 	// upon in any way (does not synchronize with any other data).
 	// This allows the load and stores to use relaxed atomic memory ordering.
 	std::deque<write_details> pending_writes;
-	std::atomic<uint64_t> pending_writes_size{ 0 };
+	nano::relaxed_atomic_integral<uint64_t> pending_writes_size{ 0 };
 	static uint32_t constexpr pending_writes_max_size{ max_items };
 	/* Holds confirmation height/cemented frontier in memory for accounts while iterating */
 	std::unordered_map<account, confirmed_info> accounts_confirmed_info;
-	std::atomic<uint64_t> accounts_confirmed_info_size{ 0 };
+	nano::relaxed_atomic_integral<uint64_t> accounts_confirmed_info_size{ 0 };
 
 	class receive_chain_details final
 	{

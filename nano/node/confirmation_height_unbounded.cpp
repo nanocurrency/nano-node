@@ -23,7 +23,7 @@ void nano::confirmation_height_unbounded::process ()
 	std::shared_ptr<conf_height_details> receive_details;
 	auto current = original_hash;
 	orig_block_callback_data.clear ();
-	orig_block_callback_data_size.store (0, std::memory_order_relaxed);
+	orig_block_callback_data_size = 0;
 
 	std::vector<receive_source_pair> receive_source_pairs;
 	release_assert (receive_source_pairs.empty ());
@@ -123,7 +123,7 @@ void nano::confirmation_height_unbounded::process ()
 			else
 			{
 				confirmed_iterated_pairs.emplace (std::piecewise_construct, std::forward_as_tuple (account), std::forward_as_tuple (confirmation_height, block_height));
-				confirmed_iterated_pairs_size.fetch_add (1, std::memory_order_relaxed);
+				++confirmed_iterated_pairs_size;
 			}
 		}
 
@@ -193,7 +193,7 @@ void nano::confirmation_height_unbounded::collect_unconfirmed_receive_and_source
 			else if (is_original_block)
 			{
 				orig_block_callback_data.push_back (hash);
-				orig_block_callback_data_size.fetch_add (1, std::memory_order_relaxed);
+				++orig_block_callback_data_size;
 			}
 			else
 			{
@@ -210,7 +210,7 @@ void nano::confirmation_height_unbounded::collect_unconfirmed_receive_and_source
 					last_receive_details->block_callback_data.push_back (hash);
 
 					implicit_receive_cemented_mapping[hash] = std::weak_ptr<conf_height_details> (last_receive_details);
-					implicit_receive_cemented_mapping_size.store (implicit_receive_cemented_mapping.size (), std::memory_order_relaxed);
+					implicit_receive_cemented_mapping_size = implicit_receive_cemented_mapping.size ();
 				}
 			}
 
@@ -239,7 +239,7 @@ void nano::confirmation_height_unbounded::prepare_iterated_blocks_for_cementing 
 		else
 		{
 			confirmed_iterated_pairs.emplace (std::piecewise_construct, std::forward_as_tuple (preparation_data_a.account), std::forward_as_tuple (block_height, block_height));
-			confirmed_iterated_pairs_size.fetch_add (1, std::memory_order_relaxed);
+			++confirmed_iterated_pairs_size;
 		}
 
 		auto num_blocks_confirmed = block_height - preparation_data_a.confirmation_height;
@@ -280,7 +280,7 @@ void nano::confirmation_height_unbounded::prepare_iterated_blocks_for_cementing 
 		}
 
 		pending_writes.emplace_back (preparation_data_a.account, preparation_data_a.current, block_height, num_blocks_confirmed, block_callback_data);
-		pending_writes_size.fetch_add (1, std::memory_order_relaxed);
+		++pending_writes_size;
 	}
 
 	if (receive_details)
@@ -304,11 +304,11 @@ void nano::confirmation_height_unbounded::prepare_iterated_blocks_for_cementing 
 		else
 		{
 			confirmed_iterated_pairs.emplace (std::piecewise_construct, std::forward_as_tuple (receive_account), std::forward_as_tuple (receive_details->height, receive_details->height));
-			confirmed_iterated_pairs_size.fetch_add (1, std::memory_order_relaxed);
+			++confirmed_iterated_pairs_size;
 		}
 
 		pending_writes.push_back (*receive_details);
-		pending_writes_size.fetch_add (1, std::memory_order_relaxed);
+		++pending_writes_size;
 	}
 }
 
@@ -343,7 +343,7 @@ bool nano::confirmation_height_unbounded::cement_blocks ()
 				logger.always_log ("Failed to write confirmation height for: ", pending.hash.to_string ());
 				ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block);
 				pending_writes.clear ();
-				pending_writes_size.store (0, std::memory_order_relaxed);
+				pending_writes_size = 0;
 				return true;
 			}
 #endif
@@ -370,7 +370,7 @@ bool nano::confirmation_height_unbounded::cement_blocks ()
 		}
 		total_pending_write_block_count -= pending.num_blocks_confirmed;
 		pending_writes.erase (pending_writes.begin ());
-		pending_writes_size.fetch_sub (1, std::memory_order_relaxed);
+		--pending_writes_size;
 	}
 	debug_assert (total_pending_write_block_count == 0);
 	debug_assert (pending_writes.empty ());
@@ -388,7 +388,7 @@ std::shared_ptr<nano::block> nano::confirmation_height_unbounded::get_block_and_
 	{
 		auto block (ledger.store.block_get (transaction_a, hash_a));
 		block_cache.emplace (hash_a, block);
-		block_cache_size.fetch_add (1, std::memory_order_relaxed);
+		++block_cache_size;
 		return block;
 	}
 }
@@ -403,11 +403,11 @@ void nano::confirmation_height_unbounded::prepare_new ()
 	// Separate blocks which are pending confirmation height can be batched by a minimum processing time (to improve lmdb disk write performance),
 	// so make sure the slate is clean when a new batch is starting.
 	confirmed_iterated_pairs.clear ();
-	confirmed_iterated_pairs_size.store (0, std::memory_order_relaxed);
+	confirmed_iterated_pairs_size = 0;
 	implicit_receive_cemented_mapping.clear ();
-	implicit_receive_cemented_mapping_size.store (0, std::memory_order_relaxed);
+	implicit_receive_cemented_mapping_size = 0;
 	block_cache.clear ();
-	block_cache_size.store (0, std::memory_order_relaxed);
+	block_cache_size = 0;
 	timer.restart ();
 }
 
@@ -435,10 +435,10 @@ iterated_height (iterated_height_a)
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (confirmation_height_unbounded & confirmation_height_unbounded, const std::string & name_a)
 {
 	auto composite = std::make_unique<container_info_composite> (name_a);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "confirmed_iterated_pairs", confirmation_height_unbounded.confirmed_iterated_pairs_size.load (std::memory_order_relaxed), sizeof (decltype (confirmation_height_unbounded.confirmed_iterated_pairs)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "pending_writes", confirmation_height_unbounded.pending_writes_size.load (std::memory_order_relaxed), sizeof (decltype (confirmation_height_unbounded.pending_writes)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "implicit_receive_cemented_mapping", confirmation_height_unbounded.implicit_receive_cemented_mapping_size.load (std::memory_order_relaxed), sizeof (decltype (confirmation_height_unbounded.implicit_receive_cemented_mapping)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "block_cache", confirmation_height_unbounded.block_cache_size.load (std::memory_order_relaxed), sizeof (decltype (confirmation_height_unbounded.block_cache)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "orig_block_callback_data", confirmation_height_unbounded.orig_block_callback_data_size.load (std::memory_order_relaxed), sizeof (decltype (confirmation_height_unbounded.orig_block_callback_data)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "confirmed_iterated_pairs", confirmation_height_unbounded.confirmed_iterated_pairs_size, sizeof (decltype (confirmation_height_unbounded.confirmed_iterated_pairs)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "pending_writes", confirmation_height_unbounded.pending_writes_size, sizeof (decltype (confirmation_height_unbounded.pending_writes)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "implicit_receive_cemented_mapping", confirmation_height_unbounded.implicit_receive_cemented_mapping_size, sizeof (decltype (confirmation_height_unbounded.implicit_receive_cemented_mapping)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "block_cache", confirmation_height_unbounded.block_cache_size, sizeof (decltype (confirmation_height_unbounded.block_cache)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "orig_block_callback_data", confirmation_height_unbounded.orig_block_callback_data_size, sizeof (decltype (confirmation_height_unbounded.orig_block_callback_data)::value_type) }));
 	return composite;
 }
