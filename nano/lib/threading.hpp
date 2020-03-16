@@ -79,7 +79,7 @@ public:
    a total global ordering of atomic operations are well as synchronization between threads. Weaker memory
    ordering can provide benefits in some circumstances, such like in dumb counters where no other data is
    dependent on the ordering of these operations. This assumes T is a type of integer, not bool or char. */
-template <typename T, typename = std::enable_if<std::is_integral<T>::value>>
+template <typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
 class relaxed_atomic_integral
 {
 public:
