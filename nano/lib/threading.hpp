@@ -120,7 +120,7 @@ public:
 
 	bool compare_exchange_strong (T & expected, T desired, std::memory_order order = std::memory_order_relaxed) noexcept
 	{
-		return atomic.compare_exchange_weak (expected, desired, order);
+		return atomic.compare_exchange_strong (expected, desired, order);
 	}
 
 	T fetch_add (T arg, std::memory_order order = std::memory_order_relaxed) noexcept
