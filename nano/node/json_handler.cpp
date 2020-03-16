@@ -3940,10 +3940,11 @@ void nano::json_handler::telemetry ()
 					if (address.is_loopback () && port == rpc_l->node.network.endpoint ().port ())
 					{
 						// Requesting telemetry metrics locally
-						auto telemetry_data = nano::local_telemetry_data (rpc_l->node.ledger.cache, rpc_l->node.network, rpc_l->node.config.bandwidth_limit, rpc_l->node.network_params, rpc_l->node.startup_time);
+						auto telemetry_data = nano::local_telemetry_data (rpc_l->node.ledger.cache, rpc_l->node.network, rpc_l->node.config.bandwidth_limit, rpc_l->node.network_params, rpc_l->node.startup_time, rpc_l->node.node_id);
 
 						nano::jsonconfig config_l;
-						auto err = telemetry_data.serialize_json (config_l);
+						auto const should_ignore_identification_metrics = false;
+						auto err = telemetry_data.serialize_json (config_l, should_ignore_identification_metrics);
 						auto const & ptree = config_l.get_tree ();
 
 						if (!err)
@@ -3987,7 +3988,8 @@ void nano::json_handler::telemetry ()
 					if (!telemetry_response_a.error)
 					{
 						nano::jsonconfig config_l;
-						auto err = telemetry_response_a.telemetry_data.serialize_json (config_l);
+						auto const should_ignore_identification_metrics = false;
+						auto err = telemetry_response_a.telemetry_data.serialize_json (config_l, should_ignore_identification_metrics);
 						auto const & ptree = config_l.get_tree ();
 
 						if (!err)
@@ -4032,7 +4034,8 @@ void nano::json_handler::telemetry ()
 				for (auto & telemetry_metrics : telemetry_responses)
 				{
 					nano::jsonconfig config_l;
-					auto err = telemetry_metrics.second.serialize_json (config_l);
+					auto const should_ignore_identification_metrics = false;
+					auto err = telemetry_metrics.second.serialize_json (config_l, should_ignore_identification_metrics);
 					config_l.put ("address", telemetry_metrics.first.address ());
 					config_l.put ("port", telemetry_metrics.first.port ());
 					if (!err)
@@ -4057,7 +4060,9 @@ void nano::json_handler::telemetry ()
 				});
 
 				auto average_telemetry_metrics = nano::consolidate_telemetry_data (telemetry_datas);
-				auto err = average_telemetry_metrics.serialize_json (config_l);
+				// Don't add node_id/signature in consolidated metrics
+				auto const should_ignore_identification_metrics = true;
+				auto err = average_telemetry_metrics.serialize_json (config_l, should_ignore_identification_metrics);
 				auto const & ptree = config_l.get_tree ();
 
 				if (!err)

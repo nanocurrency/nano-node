@@ -1117,21 +1117,7 @@ void nano::telemetry_ack::serialize (nano::stream & stream_a) const
 	header.serialize (stream_a);
 	if (!is_empty_payload ())
 	{
-		write (stream_a, data.block_count);
-		write (stream_a, data.cemented_count);
-		write (stream_a, data.unchecked_count);
-		write (stream_a, data.account_count);
-		write (stream_a, data.bandwidth_cap);
-		write (stream_a, data.peer_count);
-		write (stream_a, data.protocol_version);
-		write (stream_a, data.major_version);
-		write (stream_a, data.uptime);
-		write (stream_a, data.genesis_block.bytes);
-		write (stream_a, *data.minor_version);
-		write (stream_a, *data.patch_version);
-		write (stream_a, *data.pre_release_version);
-		write (stream_a, *data.maker);
-		write (stream_a, std::chrono::duration_cast<std::chrono::milliseconds> (data.timestamp->time_since_epoch ()).count ());
+		data.serialize (stream_a);
 	}
 }
 
@@ -1143,36 +1129,7 @@ bool nano::telemetry_ack::deserialize (nano::stream & stream_a)
 	{
 		if (!is_empty_payload ())
 		{
-			read (stream_a, data.block_count);
-			read (stream_a, data.cemented_count);
-			read (stream_a, data.unchecked_count);
-			read (stream_a, data.account_count);
-			read (stream_a, data.bandwidth_cap);
-			read (stream_a, data.peer_count);
-			read (stream_a, data.protocol_version);
-			read (stream_a, data.major_version);
-			read (stream_a, data.uptime);
-			read (stream_a, data.genesis_block.bytes);
-
-			if (header.extensions.to_ulong () > telemetry_data::size_v0)
-			{
-				uint8_t out;
-				read (stream_a, out);
-				data.minor_version = out;
-				read (stream_a, out);
-				data.patch_version = out;
-				read (stream_a, out);
-				data.pre_release_version = out;
-				read (stream_a, out);
-				data.maker = out;
-			}
-
-			if (header.extensions.to_ulong () > telemetry_data::size_v1)
-			{
-				uint64_t timestamp;
-				read (stream_a, timestamp);
-				data.timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (timestamp));
-			}
+			data.deserialize (stream_a, header.extensions.to_ulong ());
 		}
 	}
 	catch (std::runtime_error const &)
@@ -1203,8 +1160,75 @@ bool nano::telemetry_ack::is_empty_payload () const
 	return size () == 0;
 }
 
-nano::error nano::telemetry_data::serialize_json (nano::jsonconfig & json) const
+void nano::telemetry_data::deserialize (nano::stream & stream_a, uint16_t payload_length_a)
 {
+	read (stream_a, signature);
+	read (stream_a, node_id);
+	read (stream_a, block_count);
+	read (stream_a, cemented_count);
+	read (stream_a, unchecked_count);
+	read (stream_a, account_count);
+	read (stream_a, bandwidth_cap);
+	read (stream_a, peer_count);
+	read (stream_a, protocol_version);
+	read (stream_a, major_version);
+	read (stream_a, uptime);
+	read (stream_a, genesis_block.bytes);
+
+	if (payload_length_a > size_v0)
+	{
+		uint8_t out;
+		read (stream_a, out);
+		minor_version = out;
+		read (stream_a, out);
+		patch_version = out;
+		read (stream_a, out);
+		pre_release_version = out;
+		read (stream_a, out);
+		maker = out;
+	}
+
+	if (payload_length_a > size_v1)
+	{
+		uint64_t timestamp_l;
+		read (stream_a, timestamp_l);
+		timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (timestamp_l));
+	}
+}
+
+void nano::telemetry_data::serialize_without_signature (nano::stream & stream_a, uint16_t /* size_a */) const
+{
+	write (stream_a, node_id);
+	write (stream_a, block_count);
+	write (stream_a, cemented_count);
+	write (stream_a, unchecked_count);
+	write (stream_a, account_count);
+	write (stream_a, bandwidth_cap);
+	write (stream_a, peer_count);
+	write (stream_a, protocol_version);
+	write (stream_a, major_version);
+	write (stream_a, uptime);
+	write (stream_a, genesis_block.bytes);
+	write (stream_a, *minor_version);
+	write (stream_a, *patch_version);
+	write (stream_a, *pre_release_version);
+	write (stream_a, *maker);
+	write (stream_a, std::chrono::duration_cast<std::chrono::milliseconds> (timestamp->time_since_epoch ()).count ());
+}
+
+void nano::telemetry_data::serialize (nano::stream & stream_a) const
+{
+	write (stream_a, signature);
+	serialize_without_signature (stream_a, size);
+}
+
+nano::error nano::telemetry_data::serialize_json (nano::jsonconfig & json, bool ignore_identification_metrics_a) const
+{
+	if (!ignore_identification_metrics_a)
+	{
+		json.put ("signature", signature.to_string ());
+		json.put ("node_id", node_id.to_string ());
+	}
 	json.put ("block_count", block_count);
 	json.put ("cemented_count", cemented_count);
 	json.put ("unchecked_count", unchecked_count);
@@ -1238,8 +1262,31 @@ nano::error nano::telemetry_data::serialize_json (nano::jsonconfig & json) const
 	return json.get_error ();
 }
 
-nano::error nano::telemetry_data::deserialize_json (nano::jsonconfig & json)
+nano::error nano::telemetry_data::deserialize_json (nano::jsonconfig & json, bool ignore_identification_metrics_a)
 {
+	if (!ignore_identification_metrics_a)
+	{
+		std::string signature_l;
+		json.get ("signature", signature_l);
+		if (!json.get_error ())
+		{
+			if (signature.decode_hex (signature_l))
+			{
+				json.get_error ().set ("Could not deserialize signature");
+			}
+		}
+
+		std::string node_id_l;
+		json.get ("node_id", node_id_l);
+		if (!json.get_error ())
+		{
+			if (node_id.decode_hex (node_id_l))
+			{
+				json.get_error ().set ("Could not deserialize node id");
+			}
+		}
+	}
+
 	json.get ("block_count", block_count);
 	json.get ("cemented_count", cemented_count);
 	json.get ("unchecked_count", unchecked_count);
@@ -1273,12 +1320,35 @@ nano::error nano::telemetry_data::deserialize_json (nano::jsonconfig & json)
 
 bool nano::telemetry_data::operator== (nano::telemetry_data const & data_a) const
 {
-	return (block_count == data_a.block_count && cemented_count == data_a.cemented_count && unchecked_count == data_a.unchecked_count && account_count == data_a.account_count && bandwidth_cap == data_a.bandwidth_cap && uptime == data_a.uptime && peer_count == data_a.peer_count && protocol_version == data_a.protocol_version && genesis_block == data_a.genesis_block && major_version == data_a.major_version && minor_version == data_a.minor_version && patch_version == data_a.patch_version && pre_release_version == data_a.pre_release_version && maker == data_a.maker && timestamp == data_a.timestamp);
+	return (signature == data_a.signature && node_id == data_a.node_id && block_count == data_a.block_count && cemented_count == data_a.cemented_count && unchecked_count == data_a.unchecked_count && account_count == data_a.account_count && bandwidth_cap == data_a.bandwidth_cap && uptime == data_a.uptime && peer_count == data_a.peer_count && protocol_version == data_a.protocol_version && genesis_block == data_a.genesis_block && major_version == data_a.major_version && minor_version == data_a.minor_version && patch_version == data_a.patch_version && pre_release_version == data_a.pre_release_version && maker == data_a.maker && timestamp == data_a.timestamp);
 }
 
 bool nano::telemetry_data::operator!= (nano::telemetry_data const & data_a) const
 {
 	return !(*this == data_a);
+}
+
+void nano::telemetry_data::sign (nano::keypair const & node_id_a)
+{
+	debug_assert (node_id == node_id_a.pub);
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		serialize_without_signature (stream, size);
+	}
+
+	signature = nano::sign_message (node_id_a.prv, node_id_a.pub, bytes.data (), bytes.size ());
+}
+
+bool nano::telemetry_data::validate_signature (uint16_t size_a) const
+{
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		serialize_without_signature (stream, size_a);
+	}
+
+	return nano::validate_message (node_id, bytes.data (), bytes.size (), signature);
 }
 
 nano::node_id_handshake::node_id_handshake (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a) :

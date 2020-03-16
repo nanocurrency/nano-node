@@ -37,24 +37,30 @@ void nano::telemetry::stop ()
 	stopped = true;
 }
 
-void nano::telemetry::set (nano::telemetry_data const & telemetry_data_a, nano::endpoint const & endpoint_a, bool is_empty_a)
+void nano::telemetry::set (nano::telemetry_ack const & message_a, nano::transport::channel const & channel_a)
 {
 	if (!stopped)
 	{
 		nano::lock_guard<std::mutex> guard (mutex);
-		auto it = recent_or_initial_request_telemetry_data.find (endpoint_a);
+		auto it = recent_or_initial_request_telemetry_data.find (channel_a.get_endpoint ());
 		if (it == recent_or_initial_request_telemetry_data.cend ())
 		{
 			// Not requesting telemetry data from this peer so ignore it
 			return;
 		}
 
-		recent_or_initial_request_telemetry_data.modify (it, [&telemetry_data_a](nano::telemetry_info & telemetry_info_a) {
-			telemetry_info_a.data = telemetry_data_a;
+		recent_or_initial_request_telemetry_data.modify (it, [&message_a](nano::telemetry_info & telemetry_info_a) {
+			telemetry_info_a.data = message_a.data;
 			telemetry_info_a.undergoing_request = false;
 		});
 
-		channel_processed (endpoint_a, is_empty_a);
+		auto error = false;
+		if (!message_a.is_empty_payload ())
+		{
+			error = !message_a.data.validate_signature (message_a.size ()) && (channel_a.get_node_id () != message_a.data.node_id);
+		}
+
+		channel_processed (channel_a.get_endpoint (), error || message_a.is_empty_payload ());
 	}
 }
 
@@ -574,9 +580,10 @@ nano::telemetry_data nano::consolidate_telemetry_data (std::vector<nano::telemet
 	return consolidated_data;
 }
 
-nano::telemetry_data nano::local_telemetry_data (nano::ledger_cache const & ledger_cache_a, nano::network & network_a, uint64_t bandwidth_limit_a, nano::network_params const & network_params_a, std::chrono::steady_clock::time_point statup_time_a)
+nano::telemetry_data nano::local_telemetry_data (nano::ledger_cache const & ledger_cache_a, nano::network & network_a, uint64_t bandwidth_limit_a, nano::network_params const & network_params_a, std::chrono::steady_clock::time_point statup_time_a, nano::keypair const & node_id_a)
 {
 	nano::telemetry_data telemetry_data;
+	telemetry_data.node_id = node_id_a.pub;
 	telemetry_data.block_count = ledger_cache_a.block_count;
 	telemetry_data.cemented_count = ledger_cache_a.cemented_count;
 	telemetry_data.bandwidth_cap = bandwidth_limit_a;
@@ -592,5 +599,7 @@ nano::telemetry_data nano::local_telemetry_data (nano::ledger_cache const & ledg
 	telemetry_data.pre_release_version = nano::get_pre_release_node_version ();
 	telemetry_data.maker = 0; // 0 Indicates it originated from the NF
 	telemetry_data.timestamp = std::chrono::system_clock::now ();
+	// Make sure this is the final operation!
+	telemetry_data.sign (node_id_a);
 	return telemetry_data;
 }
