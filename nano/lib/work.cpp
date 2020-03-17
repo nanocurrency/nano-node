@@ -1,5 +1,6 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/epoch.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/xorshift.hpp>
@@ -84,20 +85,15 @@ uint64_t nano::work_v1::threshold (nano::block_details const details_a)
 	static_assert (nano::epoch::max == nano::epoch::epoch_2, "work_v1::threshold is ill-defined");
 	static nano::network_constants network_constants;
 
-	if (!network_constants.is_live_network ())
-	{
-		return network_constants.publish_threshold;
-	}
-
 	uint64_t result{ std::numeric_limits<uint64_t>::max () };
 	switch (details_a.epoch)
 	{
 		case nano::epoch::epoch_2:
-			result = (details_a.is_receive || details_a.is_epoch) ? nano::network_constants::publish_full_epoch_2_receive_threshold : nano::network_constants::publish_full_epoch_2_threshold;
+			result = (details_a.is_receive || details_a.is_epoch) ? network_constants.publish_epoch_2_receive_threshold : network_constants.publish_epoch_2_threshold;
 			break;
 		case nano::epoch::epoch_1:
 		case nano::epoch::epoch_0:
-			result = nano::network_constants::publish_full_epoch_1_threshold;
+			result = network_constants.publish_epoch_1_threshold;
 			break;
 		default:
 			debug_assert (false && "Invalid epoch specified to work_v1 ledger work_threshold");

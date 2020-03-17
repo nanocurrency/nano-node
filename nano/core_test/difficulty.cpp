@@ -1,5 +1,8 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
+#include <nano/lib/epoch.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/work.hpp>
 
 #include <gtest/gtest.h>
 
@@ -60,14 +63,6 @@ TEST (difficulty, multipliers)
 	}
 }
 
-TEST (difficulty, network_constants)
-{
-	ASSERT_NEAR (8., nano::difficulty::to_multiplier (nano::network_constants::publish_full_epoch_2_threshold, nano::network_constants::publish_full_epoch_1_threshold), 1e-10);
-	ASSERT_NEAR (1 / 8., nano::difficulty::to_multiplier (nano::network_constants::publish_full_epoch_2_receive_threshold, nano::network_constants::publish_full_epoch_1_threshold), 1e-10);
-	ASSERT_NEAR (1., nano::difficulty::to_multiplier (nano::network_constants::publish_full_epoch_2_receive_threshold, nano::network_constants::publish_full_threshold), 1e-10);
-	ASSERT_NEAR (1 / 64., nano::difficulty::to_multiplier (nano::network_constants::publish_beta_threshold, nano::network_constants::publish_full_epoch_1_threshold), 1e-10);
-}
-
 TEST (difficulty, overflow)
 {
 	// Overflow max (attempt to overflow & receive lower difficulty)
@@ -107,4 +102,35 @@ TEST (difficulty, zero)
 
 		ASSERT_EQ (difficulty, nano::difficulty::from_multiplier (multiplier, base));
 	}
+}
+
+TEST (difficulty, network_constants)
+{
+	ASSERT_NEAR (8., nano::difficulty::to_multiplier (nano::network_constants::publish_full_epoch_2_threshold, nano::network_constants::publish_full_epoch_1_threshold), 1e-10);
+	ASSERT_NEAR (1 / 8., nano::difficulty::to_multiplier (nano::network_constants::publish_full_epoch_2_receive_threshold, nano::network_constants::publish_full_epoch_1_threshold), 1e-10);
+	ASSERT_NEAR (1., nano::difficulty::to_multiplier (nano::network_constants::publish_full_epoch_2_receive_threshold, nano::network_constants::publish_full_threshold), 1e-10);
+
+	ASSERT_NEAR (1 / 64., nano::difficulty::to_multiplier (nano::network_constants::publish_beta_epoch_1_threshold, nano::network_constants::publish_full_epoch_1_threshold), 1e-10);
+	ASSERT_NEAR (2., nano::difficulty::to_multiplier (nano::network_constants::publish_beta_epoch_2_threshold, nano::network_constants::publish_beta_epoch_1_threshold), 1e-10);
+	ASSERT_NEAR (1 / 2., nano::difficulty::to_multiplier (nano::network_constants::publish_beta_epoch_2_receive_threshold, nano::network_constants::publish_beta_epoch_1_threshold), 1e-10);
+
+	ASSERT_NEAR (2., nano::difficulty::to_multiplier (nano::network_constants::publish_test_epoch_2_threshold, nano::network_constants::publish_test_epoch_1_threshold), 1e-10);
+	ASSERT_NEAR (1 / 2., nano::difficulty::to_multiplier (nano::network_constants::publish_test_epoch_2_receive_threshold, nano::network_constants::publish_test_epoch_1_threshold), 1e-10);
+
+	nano::network_constants constants;
+	nano::work_version version{ nano::work_version::work_1 };
+	ASSERT_EQ (constants.publish_threshold, constants.publish_epoch_2_receive_threshold);
+	ASSERT_EQ (constants.publish_threshold, nano::work_threshold (version));
+	ASSERT_EQ (constants.publish_epoch_1_threshold, nano::work_threshold (version, nano::block_details (nano::epoch::epoch_0, false, false, false)));
+	ASSERT_EQ (constants.publish_epoch_1_threshold, nano::work_threshold (version, nano::block_details (nano::epoch::epoch_1, false, false, false)));
+	ASSERT_EQ (constants.publish_epoch_1_threshold, nano::work_threshold (version, nano::block_details (nano::epoch::epoch_1, false, false, false)));
+
+	// Send [+ change]
+	ASSERT_EQ (constants.publish_epoch_2_threshold, nano::work_threshold (version, nano::block_details (nano::epoch::epoch_2, true, false, false)));
+	// Change
+	ASSERT_EQ (constants.publish_epoch_2_threshold, nano::work_threshold (version, nano::block_details (nano::epoch::epoch_2, false, false, false)));
+	// Receive [+ change]
+	ASSERT_EQ (constants.publish_epoch_2_receive_threshold, nano::work_threshold (version, nano::block_details (nano::epoch::epoch_2, false, true, false)));
+	// Epoch
+	ASSERT_EQ (constants.publish_epoch_2_receive_threshold, nano::work_threshold (version, nano::block_details (nano::epoch::epoch_2, false, false, true)));
 }
