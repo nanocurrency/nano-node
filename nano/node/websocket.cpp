@@ -389,6 +389,10 @@ nano::websocket::topic to_topic (std::string const & topic_a)
 	{
 		topic = nano::websocket::topic::bootstrap;
 	}
+	else if (topic_a == "telemetry")
+	{
+		topic = nano::websocket::topic::telemetry;
+	}
 
 	return topic;
 }
@@ -423,6 +427,10 @@ std::string from_topic (nano::websocket::topic topic_a)
 	else if (topic_a == nano::websocket::topic::bootstrap)
 	{
 		topic = "bootstrap";
+	}
+	else if (topic_a == nano::websocket::topic::telemetry)
+	{
+		topic = "telemetry";
 	}
 	return topic;
 }
@@ -867,7 +875,7 @@ nano::websocket::message nano::websocket::message_builder::telemetry_received (n
 
 	// Telemetry information
 	nano::jsonconfig telemetry_l;
-	telemetry_data_a.serialize_json (telemetry_l);
+	telemetry_data_a.serialize_json (telemetry_l, false);
 	telemetry_l.put ("address", endpoint_a.address ());
 	telemetry_l.put ("port", endpoint_a.port ());
 

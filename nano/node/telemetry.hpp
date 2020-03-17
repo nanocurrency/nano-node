@@ -59,7 +59,7 @@ public:
 class telemetry : public std::enable_shared_from_this<telemetry>
 {
 public:
-	telemetry (nano::network &, nano::alarm &, nano::worker &, bool);
+	telemetry (nano::network &, nano::alarm &, nano::worker &, nano::observer_set<nano::telemetry_data const &, nano::endpoint const &> &, bool);
 	void start ();
 	void stop ();
 
@@ -104,7 +104,7 @@ private:
 	nano::network & network;
 	nano::alarm & alarm;
 	nano::worker & worker;
-	nano::observer_set<nano::telemetry_data const &, nano::endpoint const &> observers;
+	nano::observer_set<nano::telemetry_data const &, nano::endpoint const &> & observers;
 
 	std::atomic<bool> stopped{ false };
 	nano::network_params network_params;
