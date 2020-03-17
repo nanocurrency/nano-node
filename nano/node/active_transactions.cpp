@@ -538,7 +538,7 @@ nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> vot
 					at_least_one = true;
 					result = existing->second->vote (vote_a->account, vote_a->sequence, block_hash);
 				}
-				else if (recently_confirmed_by_hash.find (block_hash) == recently_confirmed_by_hash.end ())
+				else if (recently_confirmed_by_hash.count (block_hash) == 0)
 				{
 					add_inactive_votes_cache (block_hash, vote_a->account);
 				}
@@ -556,7 +556,7 @@ nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> vot
 					at_least_one = true;
 					result = existing->election->vote (vote_a->account, vote_a->sequence, block->hash ());
 				}
-				else if (recently_confirmed_by_hash.find (block->hash ()) == recently_confirmed_by_hash.end ())
+				else if (recently_confirmed_by_hash.count (block->hash ()) == 0)
 				{
 					add_inactive_votes_cache (block->hash (), vote_a->account);
 				}
