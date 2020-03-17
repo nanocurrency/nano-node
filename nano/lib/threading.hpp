@@ -25,6 +25,7 @@ namespace thread_role
 		request_loop,
 		wallet_actions,
 		bootstrap_initiator,
+		bootstrap_connections,
 		voting,
 		signature_checking,
 		rpc_request_processor,
@@ -32,7 +33,8 @@ namespace thread_role
 		work_watcher,
 		confirmation_height_processing,
 		worker,
-		request_aggregator
+		request_aggregator,
+		state_block_signature_verification
 	};
 	/*
 	 * Get/Set the identifier for the current thread

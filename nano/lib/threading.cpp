@@ -51,6 +51,9 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 		case nano::thread_role::name::bootstrap_initiator:
 			thread_role_name_string = "Bootstrap init";
 			break;
+		case nano::thread_role::name::bootstrap_connections:
+			thread_role_name_string = "Bootstrap conn";
+			break;
 		case nano::thread_role::name::voting:
 			thread_role_name_string = "Voting";
 			break;
@@ -71,6 +74,9 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 			break;
 		case nano::thread_role::name::request_aggregator:
 			thread_role_name_string = "Req aggregator";
+			break;
+		case nano::thread_role::name::state_block_signature_verification:
+			thread_role_name_string = "State block sig";
 			break;
 	}
 

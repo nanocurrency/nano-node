@@ -21,13 +21,16 @@ enum class work_version
 std::string to_string (nano::work_version const version_a);
 
 class block;
-bool work_validate (nano::block const &, uint64_t * = nullptr);
-bool work_validate (nano::work_version const, nano::root const &, uint64_t const, uint64_t * = nullptr);
+bool work_validate (nano::block const &);
+bool work_validate (nano::work_version const, nano::root const &, uint64_t const);
+
+uint64_t work_difficulty (nano::work_version const, nano::root const &, uint64_t const);
+uint64_t work_threshold (nano::work_version const);
 
 namespace work_v1
 {
-	bool validate (nano::root const &, uint64_t const, uint64_t * = nullptr);
-	uint64_t value (nano::root const &, uint64_t);
+	uint64_t value (nano::root const & root_a, uint64_t work_a);
+	uint64_t threshold ();
 }
 class opencl_work;
 class work_item final

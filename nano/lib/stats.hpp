@@ -199,7 +199,9 @@ public:
 		confirmation_height,
 		drop,
 		aggregator,
-		requests
+		requests,
+		filter,
+		telemetry
 	};
 
 	/** Optional detail type */
@@ -298,7 +300,6 @@ public:
 
 		// peering
 		handshake,
-		invalid_genesis_hash,
 
 		// confirmation height
 		blocks_confirmed,
@@ -315,7 +316,14 @@ public:
 		requests_generated_hashes,
 		requests_cached_votes,
 		requests_generated_votes,
-		requests_unknown
+		requests_unknown,
+
+		// duplicate
+		duplicate_publish,
+
+		// telemetry
+		invalid_signature,
+		different_genesis_hash
 	};
 
 	/** Direction of the stat. If the direction is irrelevant, use in */

@@ -26,12 +26,18 @@ add_library (node
 	active_transactions.cpp
 	blockprocessor.hpp
 	blockprocessor.cpp
+	bootstrap/bootstrap_attempt.hpp
+	bootstrap/bootstrap_attempt.cpp
 	bootstrap/bootstrap_bulk_pull.hpp
 	bootstrap/bootstrap_bulk_pull.cpp
 	bootstrap/bootstrap_bulk_push.hpp
 	bootstrap/bootstrap_bulk_push.cpp
+	bootstrap/bootstrap_connections.hpp
+	bootstrap/bootstrap_connections.cpp
 	bootstrap/bootstrap_frontier.hpp
 	bootstrap/bootstrap_frontier.cpp
+	bootstrap/bootstrap_lazy.hpp
+	bootstrap/bootstrap_lazy.cpp
 	bootstrap/bootstrap_server.hpp
 	bootstrap/bootstrap_server.cpp
 	bootstrap/bootstrap.hpp
@@ -115,6 +121,12 @@ add_library (node
 	repcrawler.cpp
 	request_aggregator.hpp
 	request_aggregator.cpp
+	signatures.hpp
+	signatures.cpp
+	socket.hpp
+	socket.cpp
+	state_block_signature_verification.hpp
+	state_block_signature_verification.cpp
 	testing.hpp
 	testing.cpp
 	transport/tcp.hpp
@@ -123,10 +135,6 @@ add_library (node
 	transport/transport.cpp
 	transport/udp.hpp
 	transport/udp.cpp
-	signatures.hpp
-	signatures.cpp
-	socket.hpp
-	socket.cpp
 	vote_processor.hpp
 	vote_processor.cpp
 	voting.hpp

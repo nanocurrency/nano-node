@@ -380,7 +380,9 @@ void nano::wallet_store::initialize (nano::transaction const & transaction_a, bo
 {
 	debug_assert (strlen (path_a.c_str ()) == path_a.size ());
 	auto error (0);
-	error |= mdb_dbi_open (tx (transaction_a), path_a.c_str (), MDB_CREATE, &handle);
+	MDB_dbi handle_l;
+	error |= mdb_dbi_open (tx (transaction_a), path_a.c_str (), MDB_CREATE, &handle_l);
+	handle = handle_l;
 	init_a = error != 0;
 }
 
@@ -1273,8 +1275,11 @@ bool nano::wallet::search_pending ()
 						}
 						else
 						{
-							// Request confirmation for unconfirmed block
-							wallets.node.block_confirm (block);
+							if (!wallets.node.confirmation_height_processor.is_processing_block (hash))
+							{
+								// Request confirmation for block which is not being processed yet
+								wallets.node.block_confirm (block);
+							}
 						}
 					}
 				}
@@ -1431,14 +1436,12 @@ void nano::work_watcher::watching (nano::qualified_root const & root_a, std::sha
 			if (watcher_l->watched.find (root_a) != watcher_l->watched.end ()) // not yet confirmed or cancelled
 			{
 				lock.unlock ();
-				uint64_t difficulty (0);
-				nano::work_validate (*block_a, &difficulty);
 				auto active_difficulty (watcher_l->node.active.limited_active_difficulty ());
 				/*
 				 * Work watcher should still watch blocks even without work generation, although no rework is done
 				 * Functionality may be added in the future that does not require updating work
 				 */
-				if (active_difficulty > difficulty && watcher_l->node.work_generation_enabled ())
+				if (active_difficulty > block_a->difficulty () && watcher_l->node.work_generation_enabled ())
 				{
 					watcher_l->node.work_generate (
 					block_a->work_version (), block_a->root (), [watcher_l, block_a, root_a](boost::optional<uint64_t> work_a) {
@@ -1453,6 +1456,7 @@ void nano::work_watcher::watching (nano::qualified_root const & root_a, std::sha
 
 								if (!ec)
 								{
+									watcher_l->node.network.flood_block_initial (block);
 									watcher_l->node.active.update_difficulty (block);
 									watcher_l->update (root_a, block);
 									updated_l = true;
@@ -1988,8 +1992,8 @@ nano::store_iterator<nano::account, nano::wallet_value> nano::wallet_store::end 
 {
 	return nano::store_iterator<nano::account, nano::wallet_value> (nullptr);
 }
-nano::mdb_wallets_store::mdb_wallets_store (boost::filesystem::path const & path_a, int lmdb_max_dbs) :
-environment (error, path_a, lmdb_max_dbs, false, 1ULL * 1024 * 1024 * 1024)
+nano::mdb_wallets_store::mdb_wallets_store (boost::filesystem::path const & path_a, nano::lmdb_config const & lmdb_config_a) :
+environment (error, path_a, nano::mdb_env::options::make ().set_config (lmdb_config_a).override_config_sync (nano::lmdb_config::sync_strategy::always).override_config_map_size (1ULL * 1024 * 1024 * 1024))
 {
 }
 

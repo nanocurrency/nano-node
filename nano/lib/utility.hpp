@@ -2,6 +2,8 @@
 
 #include <nano/lib/locks.hpp>
 
+#include <boost/current_function.hpp>
+
 #include <cassert>
 #include <functional>
 #include <mutex>
@@ -20,13 +22,13 @@ namespace system
 }
 }
 
-void assert_internal (const char * check_expr, const char * file, unsigned int line, bool is_release_assert);
-#define release_assert(check) check ? (void)0 : assert_internal (#check, __FILE__, __LINE__, true)
+void assert_internal (const char * check_expr, const char * func, const char * file, unsigned int line, bool is_release_assert);
+#define release_assert(check) check ? (void)0 : assert_internal (#check, BOOST_CURRENT_FUNCTION, __FILE__, __LINE__, true)
 
 #ifdef NDEBUG
 #define debug_assert(check) (void)0
 #else
-#define debug_assert(check) check ? (void)0 : assert_internal (#check, __FILE__, __LINE__, false)
+#define debug_assert(check) check ? (void)0 : assert_internal (#check, BOOST_CURRENT_FUNCTION, __FILE__, __LINE__, false)
 #endif
 
 namespace nano

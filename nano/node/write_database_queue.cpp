@@ -77,6 +77,9 @@ nano::write_guard nano::write_database_queue::pop ()
 
 void nano::write_database_queue::stop ()
 {
-	stopped = true;
+	{
+		nano::lock_guard<std::mutex> guard (mutex);
+		stopped = true;
+	}
 	cv.notify_all ();
 }

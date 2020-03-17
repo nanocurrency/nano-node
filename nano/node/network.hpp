@@ -3,13 +3,13 @@
 #include <nano/node/common.hpp>
 #include <nano/node/transport/tcp.hpp>
 #include <nano/node/transport/udp.hpp>
+#include <nano/secure/network_filter.hpp>
 
 #include <boost/thread/thread.hpp>
 
 #include <memory>
 #include <queue>
 #include <unordered_set>
-
 namespace nano
 {
 class channel;
@@ -71,6 +71,7 @@ private:
 class syn_cookies final
 {
 public:
+	syn_cookies (size_t);
 	void purge (std::chrono::steady_clock::time_point const &);
 	// Returns boost::none if the IP is rate capped on syn cookie requests,
 	// or if the endpoint already has a syn cookie query
@@ -90,6 +91,7 @@ private:
 	mutable std::mutex syn_cookie_mutex;
 	std::unordered_map<nano::endpoint, syn_cookie_info> cookies;
 	std::unordered_map<boost::asio::ip::address, unsigned> cookies_per_ip;
+	size_t max_cookies_per_ip;
 };
 class network final
 {
@@ -107,12 +109,10 @@ public:
 	}
 	void flood_vote (std::shared_ptr<nano::vote> const &, float scale);
 	void flood_vote_pr (std::shared_ptr<nano::vote> const &);
-	void flood_block (std::shared_ptr<nano::block> block_a, nano::buffer_drop_policy drop_policy_a = nano::buffer_drop_policy::limiter)
-	{
-		nano::publish publish (block_a);
-		flood_message (publish, drop_policy_a);
-	}
-
+	// Flood block to all PRs and a random selection of non-PRs
+	void flood_block_initial (std::shared_ptr<nano::block> const &);
+	// Flood block to a random selection of peers
+	void flood_block (std::shared_ptr<nano::block> const &, nano::buffer_drop_policy const = nano::buffer_drop_policy::limiter);
 	void flood_block_many (std::deque<std::shared_ptr<nano::block>>, std::function<void()> = nullptr, unsigned = broadcast_interval_ms);
 	void merge_peers (std::array<nano::endpoint, 8> const &);
 	void merge_peer (nano::endpoint const &);
@@ -146,7 +146,6 @@ public:
 	nano::syn_cookies syn_cookies;
 	void ongoing_syn_cookie_cleanup ();
 	void ongoing_keepalive ();
-	void validate_telemetry_data (std::shared_ptr<nano::node> const &, std::shared_ptr<nano::transport::channel> const &, std::function<void()> const &);
 	size_t size () const;
 	float size_sqrt () const;
 	bool empty () const;
@@ -155,6 +154,7 @@ public:
 	std::vector<boost::thread> packet_processing_threads;
 	nano::bandwidth_limiter limiter;
 	nano::node & node;
+	nano::network_filter publish_filter;
 	nano::transport::udp_channels udp_channels;
 	nano::transport::tcp_channels tcp_channels;
 	std::atomic<uint16_t> port{ 0 };
