@@ -648,7 +648,7 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 												response_server->type = nano::bootstrap_server_type::realtime_response_server;
 												response_server->remote_node_id = channel_a->get_node_id ();
 												response_server->receive ();
-												node_l->network.tcp_channels.remove_node_id_handshake_socket (socket_l);												
+												node_l->network.tcp_channels.remove_node_id_handshake_socket (socket_l);
 
 												if (!node_l->flags.disable_initial_telemetry_requests)
 												{
