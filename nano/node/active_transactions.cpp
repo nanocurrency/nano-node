@@ -764,7 +764,10 @@ void nano::active_transactions::update_active_difficulty (nano::unique_lock<std:
 		{
 			multiplier = nano::difficulty::to_multiplier (prioritized[prioritized.size () / 2], node.network_params.network.publish_threshold);
 		}
-		last_prioritized_difficulty = prioritized.back ();
+		if (!prioritized.empty ())
+		{
+			last_prioritized_difficulty = prioritized.back ();
+		}
 	}
 	debug_assert (multiplier >= 1);
 	multipliers_cb.push_front (multiplier);
