@@ -419,6 +419,8 @@ public:
 	std::chrono::seconds peer_interval;
 	std::chrono::minutes unchecked_cleaning_interval;
 	std::chrono::milliseconds process_confirmed_interval;
+	/** Maximum number of peers per IP */
+	size_t max_peers_per_ip;
 
 	/** The maximum amount of samples for a 2 week period on live or 3 days on beta */
 	uint64_t max_weight_samples;
@@ -453,6 +455,7 @@ public:
 	unsigned frontier_retry_limit;
 	unsigned lazy_retry_limit;
 	unsigned lazy_destinations_retry_limit;
+	std::chrono::milliseconds gap_cache_bootstrap_start_interval;
 };
 
 /** Constants whose value depends on the active network */
@@ -504,6 +507,30 @@ public:
 	std::atomic<uint64_t> block_count{ 0 };
 	std::atomic<uint64_t> unchecked_count{ 0 };
 	std::atomic<uint64_t> account_count{ 0 };
+};
+
+/* Defines the possible states for an election to stop in */
+enum class election_status_type : uint8_t
+{
+	ongoing = 0,
+	active_confirmed_quorum = 1,
+	active_confirmation_height = 2,
+	inactive_confirmation_height = 3,
+	stopped = 5
+};
+
+/* Holds a summary of an election */
+class election_status final
+{
+public:
+	std::shared_ptr<nano::block> winner;
+	nano::amount tally;
+	std::chrono::milliseconds election_end;
+	std::chrono::milliseconds election_duration;
+	unsigned confirmation_request_count;
+	unsigned block_count;
+	unsigned voter_count;
+	election_status_type type;
 };
 
 nano::wallet_id random_wallet_id ();

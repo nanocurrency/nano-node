@@ -253,6 +253,7 @@ TEST (conflicts, adjusted_difficulty)
 	std::unordered_map<nano::block_hash, uint64_t> adjusted_difficulties;
 	{
 		nano::lock_guard<std::mutex> guard (node1.active.mutex);
+		node1.active.update_adjusted_difficulty ();
 		ASSERT_EQ (node1.active.roots.get<1> ().begin ()->election->status.winner->hash (), send1->hash ());
 		for (auto i (node1.active.roots.get<1> ().begin ()), n (node1.active.roots.get<1> ().end ()); i != n; ++i)
 		{
@@ -285,6 +286,7 @@ TEST (conflicts, adjusted_difficulty)
 	}
 	{
 		nano::lock_guard<std::mutex> guard (node1.active.mutex);
+		node1.active.update_adjusted_difficulty ();
 		ASSERT_EQ (node1.active.roots.get<1> ().begin ()->election->status.winner->hash (), open_epoch2->hash ());
 	}
 }

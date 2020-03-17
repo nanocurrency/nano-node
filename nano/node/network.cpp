@@ -11,10 +11,12 @@
 #include <numeric>
 
 nano::network::network (nano::node & node_a, uint16_t port_a) :
+syn_cookies (node_a.network_params.node.max_peers_per_ip),
 buffer_container (node_a.stats, nano::network::buffer_size, 4096), // 2Mb receive buffer
 resolver (node_a.io_ctx),
 limiter (node_a.config.bandwidth_limit),
 node (node_a),
+publish_filter (256 * 1024),
 udp_channels (node_a, port_a),
 tcp_channels (node_a),
 port (port_a),
@@ -390,6 +392,7 @@ public:
 		}
 		else
 		{
+			node.network.publish_filter.clear (message_a.digest);
 			node.stats.inc (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::in);
 		}
 	}
@@ -427,22 +430,25 @@ public:
 			node.logger.try_log (boost::str (boost::format ("Received confirm_ack message from %1% for %2%sequence %3%") % channel->to_string () % message_a.vote->hashes_string () % std::to_string (message_a.vote->sequence)));
 		}
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::in);
-		for (auto & vote_block : message_a.vote->blocks)
+		if (!message_a.vote->account.is_zero ())
 		{
-			if (!vote_block.which ())
+			for (auto & vote_block : message_a.vote->blocks)
 			{
-				auto block (boost::get<std::shared_ptr<nano::block>> (vote_block));
-				if (!node.block_processor.full ())
+				if (!vote_block.which ())
 				{
-					node.process_active (block);
-				}
-				else
-				{
-					node.stats.inc (nano::stat::type::drop, nano::stat::detail::confirm_ack, nano::stat::dir::in);
+					auto block (boost::get<std::shared_ptr<nano::block>> (vote_block));
+					if (!node.block_processor.full ())
+					{
+						node.process_active (block);
+					}
+					else
+					{
+						node.stats.inc (nano::stat::type::drop, nano::stat::detail::confirm_ack, nano::stat::dir::in);
+					}
 				}
 			}
+			node.vote_processor.vote (message_a.vote, channel);
 		}
-		node.vote_processor.vote (message_a.vote, channel);
 	}
 	void bulk_pull (nano::bulk_pull const &) override
 	{
@@ -477,7 +483,7 @@ public:
 		nano::telemetry_ack telemetry_ack;
 		if (!node.flags.disable_providing_telemetry_metrics)
 		{
-			auto telemetry_data = nano::local_telemetry_data (node.ledger.cache, node.network, node.config.bandwidth_limit, node.network_params, node.startup_time);
+			auto telemetry_data = nano::local_telemetry_data (node.ledger.cache, node.network, node.config.bandwidth_limit, node.network_params, node.startup_time, node.node_id);
 			telemetry_ack = nano::telemetry_ack (telemetry_data);
 		}
 		channel->send (telemetry_ack, nullptr, nano::buffer_drop_policy::no_socket_drop);
@@ -491,7 +497,7 @@ public:
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::telemetry_ack, nano::stat::dir::in);
 		if (node.telemetry)
 		{
-			node.telemetry->set (message_a.data, channel->get_endpoint (), message_a.is_empty_payload ());
+			node.telemetry->set (message_a, *channel);
 		}
 	}
 	nano::node & node;
@@ -815,6 +821,11 @@ void nano::message_buffer_manager::stop ()
 	condition.notify_all ();
 }
 
+nano::syn_cookies::syn_cookies (size_t max_cookies_per_ip_a) :
+max_cookies_per_ip (max_cookies_per_ip_a)
+{
+}
+
 boost::optional<nano::uint256_union> nano::syn_cookies::assign (nano::endpoint const & endpoint_a)
 {
 	auto ip_addr (endpoint_a.address ());
@@ -822,7 +833,7 @@ boost::optional<nano::uint256_union> nano::syn_cookies::assign (nano::endpoint c
 	nano::lock_guard<std::mutex> lock (syn_cookie_mutex);
 	unsigned & ip_cookies = cookies_per_ip[ip_addr];
 	boost::optional<nano::uint256_union> result;
-	if (ip_cookies < nano::transport::max_peers_per_ip)
+	if (ip_cookies < max_cookies_per_ip)
 	{
 		if (cookies.find (endpoint_a) == cookies.end ())
 		{

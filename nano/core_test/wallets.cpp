@@ -133,7 +133,7 @@ TEST (wallets, DISABLED_wallet_create_max)
 	bool error (false);
 	nano::wallets wallets (error, *system.nodes[0]);
 	const int nonWalletDbs = 19;
-	for (int i = 0; i < system.nodes[0]->config.lmdb_max_dbs - nonWalletDbs; i++)
+	for (int i = 0; i < system.nodes[0]->config.deprecated_lmdb_max_dbs - nonWalletDbs; i++)
 	{
 		auto wallet_id = nano::random_wallet_id ();
 		auto wallet = wallets.create (wallet_id);
@@ -160,7 +160,7 @@ TEST (wallets, reload)
 	ASSERT_EQ (1, node1.wallets.items.size ());
 	{
 		nano::lock_guard<std::mutex> lock_wallet (node1.wallets.mutex);
-		nano::inactive_node node (node1.application_path, nano::get_available_port ());
+		nano::inactive_node node (node1.application_path);
 		auto wallet (node.node->wallets.create (one));
 		ASSERT_NE (wallet, nullptr);
 	}
