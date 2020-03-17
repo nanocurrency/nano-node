@@ -283,5 +283,6 @@ TEST (request_aggregator, unique)
 	node.aggregator.add (channel, request);
 	node.aggregator.add (channel, request);
 	node.aggregator.add (channel, request);
+	ASSERT_TIMELY (3s, 1 == node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_hashes));
 	ASSERT_TIMELY (3s, 1 == node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes));
 }
