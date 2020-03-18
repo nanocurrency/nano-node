@@ -864,7 +864,6 @@ TEST (websocket, telemetry)
 	config.websocket_config.port = nano::get_available_port ();
 	nano::node_flags node_flags;
 	node_flags.disable_ongoing_telemetry_requests = true;
-	// TODO: node_flags.disable_initial
 	auto node1 (system.add_node (config, node_flags));
 	config.peering_port = nano::get_available_port ();
 	config.websocket_config.enabled = true;
@@ -905,7 +904,7 @@ TEST (websocket, telemetry)
 	auto & contents = event.get_child ("message");
 	nano::jsonconfig telemetry_contents (contents);
 	nano::telemetry_data telemetry_data;
-	telemetry_data.deserialize_json (telemetry_contents, false); // TODO False?
+	telemetry_data.deserialize_json (telemetry_contents, false);
 	compare_default_telemetry_response_data (telemetry_data, node2->network_params, node2->config.bandwidth_limit, node2->node_id);
 
 	ASSERT_EQ (contents.get<std::string> ("address"), node2->network.endpoint ().address ().to_string ());
