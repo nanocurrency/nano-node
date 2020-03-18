@@ -95,7 +95,7 @@ public:
 	bool backup_before_upgrade{ false };
 	std::chrono::seconds work_watcher_period{ std::chrono::seconds (5) };
 	double max_work_generate_multiplier{ 64. };
-	uint64_t max_work_generate_difficulty{ nano::network_constants::publish_full_threshold };
+	uint64_t max_work_generate_difficulty{ std::numeric_limits<uint64_t>::max () };
 	uint32_t max_queued_requests{ 512 };
 	nano::rocksdb_config rocksdb_config;
 	nano::lmdb_config lmdb_config;

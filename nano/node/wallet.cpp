@@ -1136,7 +1136,7 @@ bool nano::wallet::action_complete (std::shared_ptr<nano::block> const & block_a
 	bool error{ false };
 	if (block_a != nullptr)
 	{
-		if (nano::work_validate (*block_a))
+		if (nano::work_validate_entry (*block_a))
 		{
 			wallets.node.logger.try_log (boost::str (boost::format ("Cached or provided work for block %1% account %2% is invalid, regenerating") % block_a->hash ().to_string () % account_a.to_account ()));
 			error = !wallets.node.work_generate_blocking (*block_a, wallets.node.active.limited_active_difficulty ()).is_initialized ();
@@ -1219,7 +1219,7 @@ void nano::wallet::send_async (nano::account const & source_a, nano::account con
 // Update work for account if latest root is root_a
 void nano::wallet::work_update (nano::transaction const & transaction_a, nano::account const & account_a, nano::root const & root_a, uint64_t work_a)
 {
-	debug_assert (!nano::work_validate (nano::work_version::work_1, root_a, work_a));
+	debug_assert (!nano::work_validate_entry (nano::work_version::work_1, root_a, work_a));
 	debug_assert (store.exists (transaction_a, account_a));
 	auto block_transaction (wallets.node.store.tx_begin_read ());
 	auto latest (wallets.node.ledger.latest_root (block_transaction, account_a));
@@ -1369,7 +1369,7 @@ void nano::wallet::work_cache_blocking (nano::account const & account_a, nano::r
 {
 	if (wallets.node.work_generation_enabled ())
 	{
-		auto opt_work_l (wallets.node.work_generate_blocking (nano::work_version::work_1, root_a, account_a));
+		auto opt_work_l (wallets.node.work_generate_blocking (nano::work_version::work_1, root_a, wallets.node.network_params.network.publish_thresholds.base, account_a));
 		if (opt_work_l.is_initialized ())
 		{
 			auto transaction_l (wallets.tx_begin_write ());
@@ -1444,7 +1444,7 @@ void nano::work_watcher::watching (nano::qualified_root const & root_a, std::sha
 				if (active_difficulty > block_a->difficulty () && watcher_l->node.work_generation_enabled ())
 				{
 					watcher_l->node.work_generate (
-					block_a->work_version (), block_a->root (), [watcher_l, block_a, root_a](boost::optional<uint64_t> work_a) {
+					block_a->work_version (), block_a->root (), active_difficulty, [watcher_l, block_a, root_a](boost::optional<uint64_t> work_a) {
 						if (block_a != nullptr && watcher_l != nullptr && !watcher_l->stopped)
 						{
 							bool updated_l{ false };
@@ -1469,7 +1469,7 @@ void nano::work_watcher::watching (nano::qualified_root const & root_a, std::sha
 							}
 						}
 					},
-					active_difficulty, block_a->account ());
+					block_a->account ());
 				}
 				else
 				{

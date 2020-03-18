@@ -244,6 +244,8 @@ std::string nano::error_process_messages::message (int ev) const
 			return "Balance and amount delta do not match";
 		case nano::error_process::block_position:
 			return "This block cannot follow the previous block";
+		case nano::error_process::insufficient_work:
+			return "Block work is insufficient";
 		case nano::error_process::other:
 			return "Error processing block";
 	}

@@ -188,8 +188,9 @@ int main (int argc, char * const * argv)
 						          << "Public: " << rep.pub.to_string () << "\n"
 						          << "Account: " << rep.pub.to_account () << "\n";
 					}
+					static nano::network_constants network_constants;
 					nano::uint128_t balance (std::numeric_limits<nano::uint128_t>::max ());
-					nano::open_block genesis_block (reinterpret_cast<const nano::block_hash &> (genesis.pub), genesis.pub, genesis.pub, genesis.prv, genesis.pub, *work.generate (nano::work_version::work_1, genesis.pub));
+					nano::open_block genesis_block (reinterpret_cast<const nano::block_hash &> (genesis.pub), genesis.pub, genesis.pub, genesis.prv, genesis.pub, *work.generate (nano::work_version::work_1, genesis.pub, network_constants.publish_thresholds.epoch_1));
 					std::cout << genesis_block.to_json ();
 					std::cout.flush ();
 					nano::block_hash previous (genesis_block.hash ());
@@ -201,7 +202,7 @@ int main (int argc, char * const * argv)
 						{
 							debug_assert (balance > weekly_distribution);
 							balance = balance < (weekly_distribution * 2) ? 0 : balance - weekly_distribution;
-							nano::send_block send (previous, landing.pub, balance, genesis.prv, genesis.pub, *work.generate (nano::work_version::work_1, previous));
+							nano::send_block send (previous, landing.pub, balance, genesis.prv, genesis.pub, *work.generate (nano::work_version::work_1, previous, network_constants.publish_thresholds.epoch_1));
 							previous = send.hash ();
 							std::cout << send.to_json ();
 							std::cout.flush ();
@@ -306,6 +307,8 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_generate"))
 		{
+			static nano::network_constants network_constants;
+			uint64_t difficulty{ network_constants.publish_full.base };
 			auto pow_rate_limiter = std::chrono::nanoseconds (0);
 			auto pow_sleep_interval_it = vm.find ("pow_sleep_interval");
 			if (pow_sleep_interval_it != vm.cend ())
@@ -320,14 +323,15 @@ int main (int argc, char * const * argv)
 			{
 				block.hashables.previous.qwords[0] += 1;
 				auto begin1 (std::chrono::high_resolution_clock::now ());
-				block.block_work_set (*work.generate (nano::work_version::work_1, block.root ()));
+				block.block_work_set (*work.generate (nano::work_version::work_1, block.root (), difficulty));
 				auto end1 (std::chrono::high_resolution_clock::now ());
 				std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());
 			}
 		}
 		else if (vm.count ("debug_profile_validate"))
 		{
-			uint64_t difficulty{ nano::network_constants::publish_full_threshold };
+			static nano::network_constants network_constants;
+			uint64_t difficulty{ network_constants.publish_full.base };
 			std::cerr << "Starting validation profile" << std::endl;
 			auto start (std::chrono::steady_clock::now ());
 			bool valid{ false };
@@ -345,7 +349,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_opencl"))
 		{
-			nano::network_constants network_constants;
+			static nano::network_constants network_constants;
 			bool error (false);
 			nano::opencl_environment environment (error);
 			if (!error)
@@ -392,7 +396,7 @@ int main (int argc, char * const * argv)
 						result = -1;
 					}
 				}
-				uint64_t difficulty (network_constants.publish_threshold);
+				uint64_t difficulty (network_constants.publish_thresholds.base);
 				auto difficulty_it = vm.find ("difficulty");
 				if (difficulty_it != vm.end ())
 				{
@@ -401,7 +405,7 @@ int main (int argc, char * const * argv)
 						std::cerr << "Invalid difficulty\n";
 						result = -1;
 					}
-					else if (difficulty < network_constants.publish_threshold)
+					else if (difficulty < network_constants.publish_thresholds.base)
 					{
 						std::cerr << "Difficulty below publish threshold\n";
 						result = -1;
@@ -737,7 +741,7 @@ int main (int argc, char * const * argv)
 				            .balance (genesis_balance)
 				            .link (keys[i].pub)
 				            .sign (test_params.ledger.test_genesis_key.prv, test_params.ledger.test_genesis_key.pub)
-				            .work (*work.generate (nano::work_version::work_1, genesis_latest))
+				            .work (*work.generate (nano::work_version::work_1, genesis_latest, node->network_params.network.publish_thresholds.epoch_1))
 				            .build ();
 
 				genesis_latest = send->hash ();
@@ -750,7 +754,7 @@ int main (int argc, char * const * argv)
 				            .balance (balances[i])
 				            .link (genesis_latest)
 				            .sign (keys[i].prv, keys[i].pub)
-				            .work (*work.generate (nano::work_version::work_1, keys[i].pub))
+				            .work (*work.generate (nano::work_version::work_1, keys[i].pub, node->network_params.network.publish_thresholds.epoch_1))
 				            .build ();
 
 				frontiers[i] = open->hash ();
@@ -771,7 +775,7 @@ int main (int argc, char * const * argv)
 					            .balance (balances[j])
 					            .link (keys[other].pub)
 					            .sign (keys[j].prv, keys[j].pub)
-					            .work (*work.generate (nano::work_version::work_1, frontiers[j]))
+					            .work (*work.generate (nano::work_version::work_1, frontiers[j], node->network_params.network.publish_thresholds.epoch_1))
 					            .build ();
 
 					frontiers[j] = send->hash ();
@@ -786,7 +790,7 @@ int main (int argc, char * const * argv)
 					               .balance (balances[other])
 					               .link (static_cast<nano::block_hash const &> (frontiers[j]))
 					               .sign (keys[other].prv, keys[other].pub)
-					               .work (*work.generate (nano::work_version::work_1, frontiers[other]))
+					               .work (*work.generate (nano::work_version::work_1, frontiers[other], node->network_params.network.publish_thresholds.epoch_1))
 					               .build ();
 
 					frontiers[other] = receive->hash ();
@@ -858,7 +862,7 @@ int main (int argc, char * const * argv)
 				            .balance (genesis_balance)
 				            .link (keys[i].pub)
 				            .sign (test_params.ledger.test_genesis_key.prv, test_params.ledger.test_genesis_key.pub)
-				            .work (*work.generate (nano::work_version::work_1, genesis_latest))
+				            .work (*work.generate (nano::work_version::work_1, genesis_latest, node->network_params.network.publish_thresholds.epoch_1))
 				            .build ();
 
 				genesis_latest = send->hash ();
@@ -871,7 +875,7 @@ int main (int argc, char * const * argv)
 				            .balance (balance)
 				            .link (genesis_latest)
 				            .sign (keys[i].prv, keys[i].pub)
-				            .work (*work.generate (nano::work_version::work_1, keys[i].pub))
+				            .work (*work.generate (nano::work_version::work_1, keys[i].pub, node->network_params.network.publish_thresholds.epoch_1))
 				            .build ();
 
 				node->ledger.process (transaction, *open);
@@ -890,7 +894,7 @@ int main (int argc, char * const * argv)
 				            .balance (genesis_balance)
 				            .link (destination.pub)
 				            .sign (test_params.ledger.test_genesis_key.prv, test_params.ledger.test_genesis_key.pub)
-				            .work (*work.generate (nano::work_version::work_1, genesis_latest))
+				            .work (*work.generate (nano::work_version::work_1, genesis_latest, node->network_params.network.publish_thresholds.epoch_1))
 				            .build ();
 
 				genesis_latest = send->hash ();
@@ -1104,7 +1108,7 @@ int main (int argc, char * const * argv)
 						std::cerr << boost::str (boost::format ("Incorrect sideband block details for block %1%\n") % hash.to_string ());
 					}
 					// Check if block work value is correct
-					if (nano::work_validate (*block))
+					if (block->difficulty () < nano::work_threshold (block->work_version (), block->sideband ().details))
 					{
 						std::cerr << boost::str (boost::format ("Invalid work for block %1% value: %2%\n") % hash.to_string () % nano::to_string_hex (block->block_work ()));
 					}
