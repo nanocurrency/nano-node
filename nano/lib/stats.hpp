@@ -201,6 +201,7 @@ public:
 		aggregator,
 		requests,
 		filter,
+		telemetry
 	};
 
 	/** Optional detail type */
@@ -293,6 +294,7 @@ public:
 		tcp_accept_success,
 		tcp_accept_failure,
 		tcp_write_drop,
+		tcp_write_no_socket_drop,
 
 		// ipc
 		invocations,
@@ -318,7 +320,13 @@ public:
 		requests_unknown,
 
 		// duplicate
-		duplicate_publish
+		duplicate_publish,
+
+		// telemetry
+		request_within_protection_cache_zone,
+		no_response_received,
+		unsolicited_telemetry_ack,
+		failed_send_telemetry_req
 	};
 
 	/** Direction of the stat. If the direction is irrelevant, use in */

@@ -18,6 +18,7 @@ namespace nano
 class network;
 class alarm;
 class worker;
+class stat;
 namespace transport
 {
 	class channel;
@@ -58,7 +59,7 @@ public:
 class telemetry : public std::enable_shared_from_this<telemetry>
 {
 public:
-	telemetry (nano::network &, nano::alarm &, nano::worker &, bool);
+	telemetry (nano::network &, nano::alarm &, nano::worker &, nano::stat &, bool);
 	void start ();
 	void stop ();
 
@@ -103,7 +104,7 @@ private:
 	nano::network & network;
 	nano::alarm & alarm;
 	nano::worker & worker;
-
+	nano::stat & stats;
 	std::atomic<bool> stopped{ false };
 	nano::network_params network_params;
 	bool disable_ongoing_requests;

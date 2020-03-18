@@ -987,6 +987,57 @@ namespace transport
 }
 }
 
+TEST (node_telemetry, under_load)
+{
+	nano::system system;
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto node = system.add_node (node_config);
+	node_config.peering_port = nano::get_available_port ();
+	nano::node_flags node_flags;
+	node_flags.disable_ongoing_telemetry_requests = true;
+	auto node1 = system.add_node (node_config, node_flags);
+	nano::genesis genesis;
+	nano::keypair key;
+	nano::keypair key1;
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (key.prv);
+	auto latest_genesis = node->latest (nano::test_genesis_key.pub);
+	auto num_blocks = 150000;
+	auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, latest_genesis, nano::test_genesis_key.pub, nano::genesis_amount - num_blocks, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest_genesis)));
+	node->process_active (send);
+	latest_genesis = send->hash ();
+	auto open (std::make_shared<nano::state_block> (key.pub, 0, key.pub, num_blocks, send->hash (), key.prv, key.pub, *system.work.generate (key.pub)));
+	node->process_active (open);
+	auto latest_key = open->hash ();
+
+	auto thread_func = [key1, &system, node, num_blocks](nano::keypair const & keypair, nano::block_hash const & latest, nano::uint128_t const initial_amount) {
+		auto latest_l = latest;
+		for (int i = 0; i < num_blocks; ++i)
+		{
+			auto send (std::make_shared<nano::state_block> (keypair.pub, latest_l, keypair.pub, initial_amount - i - 1, key1.pub, keypair.prv, keypair.pub, *system.work.generate (latest_l)));
+			latest_l = send->hash ();
+			node->process_active (send);
+		}
+	};
+
+	std::thread thread1 (thread_func, nano::test_genesis_key, latest_genesis, nano::genesis_amount - num_blocks);
+	std::thread thread2 (thread_func, key, latest_key, num_blocks);
+
+	ASSERT_TIMELY (200s, node1->ledger.cache.block_count == num_blocks * 2 + 3);
+
+	thread1.join ();
+	thread2.join ();
+
+	for (auto const & node : system.nodes)
+	{
+		ASSERT_EQ (0, node->stats.count (nano::stat::type::telemetry, nano::stat::detail::failed_send_telemetry_req));
+		ASSERT_EQ (0, node->stats.count (nano::stat::type::telemetry, nano::stat::detail::request_within_protection_cache_zone));
+		ASSERT_EQ (0, node->stats.count (nano::stat::type::telemetry, nano::stat::detail::unsolicited_telemetry_ack));
+		ASSERT_EQ (0, node->stats.count (nano::stat::type::telemetry, nano::stat::detail::no_response_received));
+	}
+}
+
 // Similar to signature_checker.boundary_checks but more exhaustive. Can take up to 1 minute
 TEST (signature_checker, mass_boundary_checks)
 {
