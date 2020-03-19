@@ -760,11 +760,11 @@ void nano::active_transactions::update_active_difficulty (nano::unique_lock<std:
 			multiplier = nano::difficulty::to_multiplier (active_root_difficulties[active_root_difficulties.size () / 2], node.network_params.network.publish_thresholds.epoch_1);
 		}
 	}
-	debug_assert (multiplier >= 1);
+	debug_assert (multiplier >= nano::difficulty::to_multiplier (node.network_params.network.publish_thresholds.entry, node.network_params.network.publish_thresholds.epoch_1));
 	multipliers_cb.push_front (multiplier);
 	auto sum (std::accumulate (multipliers_cb.begin (), multipliers_cb.end (), double(0)));
 	auto difficulty = nano::difficulty::from_multiplier (sum / multipliers_cb.size (), node.network_params.network.publish_thresholds.epoch_1);
-	debug_assert (difficulty >= node.network_params.network.publish_thresholds.epoch_1);
+	debug_assert (difficulty >= node.network_params.network.publish_thresholds.entry);
 
 	trended_active_difficulty = difficulty;
 	node.observers.difficulty.notify (trended_active_difficulty);

@@ -5,6 +5,8 @@
 
 #include <gtest/gtest.h>
 
+#include <numeric>
+
 using namespace std::chrono_literals;
 
 namespace nano
@@ -852,4 +854,24 @@ TEST (active_transactions, confirmation_consistency)
 		ASSERT_EQ (i + 1, node.active.recently_cemented.size ());
 	}
 }
+}
+
+TEST (active_difficulty, less_than_one)
+{
+	nano::system system (1);
+	auto & node (*system.nodes[0]);
+	nano::unique_lock<std::mutex> lock (node.active.mutex);
+	auto base_active_difficulty = node.network_params.network.publish_thresholds.epoch_1;
+	auto min_active_difficulty = node.network_params.network.publish_thresholds.entry;
+	auto min_multiplier = nano::difficulty::to_multiplier (min_active_difficulty, base_active_difficulty);
+	ASSERT_EQ (node.active.trended_active_difficulty, base_active_difficulty);
+	for (int i = 0; i < node.active.multipliers_cb.size () - 1; ++i)
+	{
+		node.active.multipliers_cb.push_front (min_multiplier);
+	}
+	auto sum (std::accumulate (node.active.multipliers_cb.begin (), node.active.multipliers_cb.end (), double(0)));
+	auto difficulty = nano::difficulty::from_multiplier (sum / node.active.multipliers_cb.size (), node.network_params.network.publish_thresholds.epoch_1);
+	node.active.multipliers_cb.push_front (min_multiplier);
+	node.active.update_active_difficulty (lock);
+	ASSERT_EQ (node.active.trended_active_difficulty, difficulty);
 }
