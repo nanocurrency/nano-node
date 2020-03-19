@@ -821,6 +821,31 @@ TEST (node_telemetry, remove_peer_different_genesis)
 	ASSERT_EQ (node1->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::out), 1);
 }
 
+TEST (node_telemetry, remove_peer_different_genesis_udp)
+{
+	nano::node_flags node_flags;
+	node_flags.disable_udp = false;
+	node_flags.disable_tcp_realtime = true;
+	nano::system system (1, nano::transport::transport_type::udp, node_flags);
+	auto node0 (system.nodes[0]);
+	ASSERT_EQ (0, node0->network.size ());
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work, node_flags));
+	node1->network_params.ledger.genesis_hash = nano::block_hash ("0");
+	node1->start ();
+	system.nodes.push_back (node1);
+	node0->network.send_keepalive (std::make_shared<nano::transport::channel_udp> (node0->network.udp_channels, node1->network.endpoint (), node1->network_params.protocol.protocol_version));
+	node1->network.send_keepalive (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, node0->network.endpoint (), node0->network_params.protocol.protocol_version));
+
+	ASSERT_TIMELY (10s, node0->network.udp_channels.size () != 0 && node1->network.udp_channels.size () != 0);
+	ASSERT_EQ (node0->network.tcp_channels.size (), 0);
+	ASSERT_EQ (node1->network.tcp_channels.size (), 0);
+
+	ASSERT_TIMELY (10s, node0->stats.count (nano::stat::type::telemetry, nano::stat::detail::different_genesis_hash) != 0 && node1->stats.count (nano::stat::type::telemetry, nano::stat::detail::different_genesis_hash) != 0);
+
+	ASSERT_EQ (0, node0->network.size ());
+	ASSERT_EQ (0, node1->network.size ());
+}
+
 namespace nano
 {
 TEST (node_telemetry, remove_peer_invalid_signature)

@@ -46,7 +46,8 @@ void nano::telemetry::set (nano::telemetry_ack const & message_a, nano::transpor
 	if (!stopped)
 	{
 		nano::lock_guard<std::mutex> guard (mutex);
-		auto it = recent_or_initial_request_telemetry_data.find (channel_a.get_endpoint ());
+		auto endpoint = channel_a.get_endpoint ();
+		auto it = recent_or_initial_request_telemetry_data.find (endpoint);
 		if (it == recent_or_initial_request_telemetry_data.cend ())
 		{
 			// Not requesting telemetry data from this peer so ignore it
@@ -59,13 +60,15 @@ void nano::telemetry::set (nano::telemetry_ack const & message_a, nano::transpor
 		});
 
 		auto remove_channel = false;
-		auto invalid_signature = message_a.data.validate_signature (message_a.size ());
+		auto invalid_signature = false;
 		if (!message_a.is_empty_payload ())
 		{
 			// Different genesis blocks
 			remove_channel = (message_a.data.genesis_block != network_params.ledger.genesis_hash);
 			if (!remove_channel)
 			{
+				invalid_signature = message_a.data.validate_signature (message_a.size ());
+
 				// The data could be correctly signed but for a different node id
 				remove_channel = invalid_signature && (channel_a.get_node_id () == message_a.data.node_id);
 				if (remove_channel)
@@ -81,11 +84,19 @@ void nano::telemetry::set (nano::telemetry_ack const & message_a, nano::transpor
 			if (remove_channel)
 			{
 				// Disconnect from peer with incorrect telemetry data
-				network.tcp_channels.erase (channel_a.get_tcp_endpoint ());
+				if (channel_a.get_type () == nano::transport::transport_type::tcp)
+				{
+					network.tcp_channels.erase (channel_a.get_tcp_endpoint ());
+				}
+				else
+				{
+					network.udp_channels.erase (channel_a.get_endpoint ());
+					network.udp_channels.clean_node_id (channel_a.get_node_id ());
+				}
 			}
 		}
 
-		channel_processed (channel_a.get_endpoint (), remove_channel || invalid_signature || message_a.is_empty_payload ());
+		channel_processed (endpoint, remove_channel || invalid_signature || message_a.is_empty_payload ());
 	}
 }
 
