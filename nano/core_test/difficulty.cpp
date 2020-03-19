@@ -3,8 +3,25 @@
 #include <nano/lib/epoch.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/work.hpp>
+#include <nano/node/testing.hpp>
 
 #include <gtest/gtest.h>
+
+TEST (system, work_generate_limited)
+{
+	nano::system system;
+	nano::block_hash key (1);
+	nano::network_constants constants;
+	auto min = constants.publish_thresholds.entry;
+	auto max = constants.publish_thresholds.base;
+	for (int i = 0; i < 5; ++i)
+	{
+		auto work = system.work_generate_limited (key, min, max);
+		auto difficulty = nano::work_difficulty (nano::work_version::work_1, key, work);
+		ASSERT_GE (difficulty, min);
+		ASSERT_LT (difficulty, max);
+	}
+}
 
 TEST (difficulty, multipliers)
 {

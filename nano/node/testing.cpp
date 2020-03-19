@@ -162,6 +162,16 @@ nano::account nano::system::account (nano::transaction const & transaction_a, si
 	return nano::account (result);
 }
 
+uint64_t nano::system::work_generate_limited (nano::block_hash const & root_a, uint64_t min_a, uint64_t max_a)
+{
+	uint64_t result = 0;
+	do
+	{
+		result = *work.generate (root_a, min_a);
+	} while (nano::work_difficulty (nano::work_version::work_1, root_a, result) >= max_a);
+	return result;
+}
+
 void nano::system::deadline_set (std::chrono::duration<double, std::nano> const & delta_a)
 {
 	deadline = std::chrono::steady_clock::now () + delta_a * deadline_scaling_factor;
