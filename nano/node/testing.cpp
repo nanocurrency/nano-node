@@ -172,6 +172,37 @@ uint64_t nano::system::work_generate_limited (nano::block_hash const & root_a, u
 	return result;
 }
 
+std::pair<std::unique_ptr<nano::state_block>, std::unique_ptr<nano::state_block>> nano::system::upgrade_genesis_epoch_2 (nano::node & node_a)
+{
+	nano::state_block_builder builder;
+	nano::genesis genesis;
+	auto epoch1 = builder
+	              .account (nano::test_genesis_key.pub)
+	              .previous (nano::genesis_hash)
+	              .balance (nano::genesis_amount)
+	              .link (node_a.ledger.epoch_link (nano::epoch::epoch_1))
+	              .representative (nano::genesis_account)
+	              .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	              .work (*work.generate (nano::genesis_hash, nano::work_threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_1, false, true, false))))
+	              .build ();
+
+	decltype (epoch1) epoch2;
+	release_assert (epoch1 && node_a.process (*epoch1).code == nano::process_result::progress);
+	{
+		epoch2 = builder
+		         .make_block ()
+		         .from (*epoch1)
+		         .previous (epoch1->hash ())
+		         .link (node_a.ledger.epoch_link (nano::epoch::epoch_2))
+		         .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+		         .work (*work.generate (epoch1->hash (), nano::work_threshold (epoch1->work_version (), nano::block_details (nano::epoch::epoch_2, false, false, true))))
+		         .build ();
+
+		release_assert (epoch2 && node_a.process (*epoch2).code == nano::process_result::progress);
+	}
+	return { std::move (epoch1), std::move (epoch2) };
+}
+
 void nano::system::deadline_set (std::chrono::duration<double, std::nano> const & delta_a)
 {
 	deadline = std::chrono::steady_clock::now () + delta_a * deadline_scaling_factor;
