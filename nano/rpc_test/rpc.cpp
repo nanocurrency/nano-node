@@ -2119,6 +2119,44 @@ TEST (rpc, process_subtype_receive)
 	}
 }
 
+//TODO enable when ledger processing tests insufficient work
+TEST (rpc, DISABLED_process_ledger_insufficient_work)
+{
+	nano::system system;
+	auto & node = *add_ipc_enabled_node (system);
+	ASSERT_LT (node.network_params.network.publish_thresholds.entry, node.network_params.network.publish_thresholds.epoch_1);
+	auto latest (node.latest (nano::test_genesis_key.pub));
+	auto min_difficulty = node.network_params.network.publish_thresholds.entry;
+	auto max_difficulty = node.network_params.network.publish_thresholds.epoch_1;
+	nano::state_block send (nano::genesis_account, latest, nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work_generate_limited (latest, min_difficulty, max_difficulty));
+	ASSERT_LT (send.difficulty (), max_difficulty);
+	ASSERT_GE (send.difficulty (), min_difficulty);
+	scoped_io_thread_name_change scoped_thread_name_io;
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node, node_rpc_config);
+	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	rpc_config.rpc_process.ipc_port = node.config.ipc_config.transport_tcp.port;
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "process");
+	std::string json;
+	send.serialize_json (json);
+	request.put ("block", json);
+	request.put ("subtype", "send");
+	test_response response (request, rpc.config.port, system.io_ctx);
+	system.deadline_set (5s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response.status);
+	std::error_code ec (nano::error_process::insufficient_work);
+	ASSERT_EQ (1, response.json.count ("error"));
+	ASSERT_EQ (response.json.get<std::string> ("error"), ec.message ());
+}
+
 TEST (rpc, keepalive)
 {
 	nano::system system;
