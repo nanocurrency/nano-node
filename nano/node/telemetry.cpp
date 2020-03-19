@@ -58,31 +58,34 @@ void nano::telemetry::set (nano::telemetry_ack const & message_a, nano::transpor
 			telemetry_info_a.undergoing_request = false;
 		});
 
-		auto error = false;
+		auto remove_channel = false;
+		auto invalid_signature = message_a.data.validate_signature (message_a.size ());
 		if (!message_a.is_empty_payload ())
 		{
-			error = message_a.data.validate_signature (message_a.size ()) && (channel_a.get_node_id () == message_a.data.node_id);
-			if (!error)
+			// Different genesis blocks
+			remove_channel = (message_a.data.genesis_block != network_params.ledger.genesis_hash);
+			if (!remove_channel)
 			{
-				error = message_a.data.genesis_block != network_params.ledger.genesis_hash;
-				if (error)
+				// The data could be correctly signed but for a different node id
+				remove_channel = invalid_signature && (channel_a.get_node_id () == message_a.data.node_id);
+				if (remove_channel)
 				{
-					stats.inc (nano::stat::type::telemetry, nano::stat::detail::different_genesis_hash);
+					stats.inc (nano::stat::type::telemetry, nano::stat::detail::invalid_signature);
 				}
 			}
 			else
 			{
-				stats.inc (nano::stat::type::telemetry, nano::stat::detail::invalid_signature);
+				stats.inc (nano::stat::type::telemetry, nano::stat::detail::different_genesis_hash);
 			}
 
-			if (error)
+			if (remove_channel)
 			{
 				// Disconnect from peer with incorrect telemetry data
 				network.tcp_channels.erase (channel_a.get_tcp_endpoint ());
 			}
 		}
 
-		channel_processed (channel_a.get_endpoint (), error || message_a.is_empty_payload ());
+		channel_processed (channel_a.get_endpoint (), remove_channel || invalid_signature || message_a.is_empty_payload ());
 	}
 }
 
