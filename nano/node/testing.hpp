@@ -31,7 +31,7 @@ public:
 	void generate_receive (nano::node &);
 	void generate_send_new (nano::node &, std::vector<nano::account> &);
 	void generate_send_existing (nano::node &, std::vector<nano::account> &);
-	std::pair<std::unique_ptr<nano::state_block>, std::unique_ptr<nano::state_block>> upgrade_genesis_epoch_2 (nano::node &);
+	std::unique_ptr<nano::state_block> upgrade_genesis_epoch (nano::node &, nano::epoch const);
 	std::shared_ptr<nano::wallet> wallet (size_t);
 	nano::account account (nano::transaction const &, size_t);
 	/** Generate work with difficulty between \p min_difficulty_a (inclusive) and \p max_difficulty_a (exclusive) */
