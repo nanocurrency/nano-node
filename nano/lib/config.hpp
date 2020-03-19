@@ -113,31 +113,10 @@ public:
 		request_interval_ms = is_test_network () ? 20 : 500;
 	}
 
-	/** Network work thresholds */
-
-	static nano::work_thresholds constexpr publish_full{
-		0xffffffc000000000,
-		0xfffffff800000000, // 8x higher than epoch_1
-		0xfffffe0000000000 // 8x lower than epoch_1
-	};
-	static_assert (publish_full.base == publish_full.epoch_2, "publish_full.base is ill-defined");
-	static_assert (publish_full.entry == publish_full.epoch_2_receive, "publish_full.entry is ill-defined");
-
-	static nano::work_thresholds constexpr publish_beta{
-		0xfffff00000000000, // 64x lower than publish_full.epoch_1
-		0xfffff80000000000, // 2x higher than epoch_1
-		0xffffe00000000000 // 2x lower than epoch_1
-	};
-	static_assert (publish_beta.base == publish_beta.epoch_2, "publish_beta.base is ill-defined");
-	static_assert (publish_beta.entry == publish_beta.epoch_2_receive, "publish_beta.entry is ill-defined");
-
-	static nano::work_thresholds constexpr publish_test{
-		0xfe00000000000000, // Very low for tests
-		0xff00000000000000, // 2x higher than epoch_1
-		0xfc00000000000000 // 2x lower than epoch_1
-	};
-	static_assert (publish_test.base == publish_test.epoch_2, "publish_test.base is ill-defined");
-	static_assert (publish_test.entry == publish_test.epoch_2_receive, "publish_test.entry is ill-defined");
+	/** Network work thresholds. Define these inline as constexpr when moving to cpp17. */
+	static const nano::work_thresholds publish_full;
+	static const nano::work_thresholds publish_beta;
+	static const nano::work_thresholds publish_test;
 
 	/** Error message when an invalid network is specified */
 	static const char * active_network_err_msg;
