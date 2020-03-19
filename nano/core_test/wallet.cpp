@@ -1380,7 +1380,7 @@ TEST (wallet, receive_epoch_2_propagation)
 
 		// Send a block
 		auto send2 = wallet.send_action (nano::test_genesis_key.pub, key.pub, amount, 1);
-		ASSERT_NE (nullptr, send);
+		ASSERT_NE (nullptr, send2);
 
 		// Receiving should use the lower difficulty
 		auto receive2 = wallet.receive_action (*send2, key.pub, amount, 1);
