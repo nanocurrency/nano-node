@@ -327,7 +327,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_validate"))
 		{
-			uint64_t difficulty{ nano::network_constants::publish_full_threshold };
+			uint64_t difficulty{ nano::network_constants ().publish_full.base };
 			std::cerr << "Starting validation profile" << std::endl;
 			auto start (std::chrono::steady_clock::now ());
 			bool valid{ false };
@@ -392,7 +392,7 @@ int main (int argc, char * const * argv)
 						result = -1;
 					}
 				}
-				uint64_t difficulty (network_constants.publish_threshold);
+				uint64_t difficulty (network_constants.publish_thresholds.base);
 				auto difficulty_it = vm.find ("difficulty");
 				if (difficulty_it != vm.end ())
 				{
@@ -401,7 +401,7 @@ int main (int argc, char * const * argv)
 						std::cerr << "Invalid difficulty\n";
 						result = -1;
 					}
-					else if (difficulty < network_constants.publish_threshold)
+					else if (difficulty < network_constants.publish_thresholds.base)
 					{
 						std::cerr << "Difficulty below publish threshold\n";
 						result = -1;
