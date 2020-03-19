@@ -1287,3 +1287,51 @@ TEST (wallet, work_watcher_cancel)
 		ASSERT_TRUE (wallet.wallets.watcher->is_watched (block1->qualified_root ()));
 	}
 }
+
+// Blocks don't get created if limited difficulty is below the required difficulty, this doesn't happen normally as max_work_generate_difficulty is the base
+TEST (wallet, limited_difficulty_not_enough)
+{
+	nano::system system;
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.max_work_generate_difficulty = nano::network_constants ().publish_thresholds.base;
+	auto & node = *system.add_node (node_config);
+	auto & wallet (*system.wallet (0));
+	system.upgrade_genesis_epoch_2 (node);
+	wallet.insert_adhoc (nano::test_genesis_key.prv, false);
+	auto send = wallet.send_action (nano::test_genesis_key.pub, nano::keypair ().pub, 1, 0);
+	ASSERT_EQ (nullptr, send);
+}
+
+TEST (wallet, epoch_2_validation)
+{
+	nano::system system (1);
+	auto & node (*system.nodes[0]);
+	auto & wallet (*system.wallet (0));
+
+	// Upgrade the genesis account to epoch 2
+	system.upgrade_genesis_epoch_2 (node);
+
+	wallet.insert_adhoc (nano::test_genesis_key.prv, false);
+
+	// Test send and receive blocks
+	// An epoch 2 receive block should be generated with lower difficulty with high probability
+	auto tries = 0;
+	auto max_tries = 50;
+	auto amount = node.config.receive_minimum.number ();
+	while (++tries < max_tries)
+	{
+		auto send = wallet.send_action (nano::test_genesis_key.pub, nano::test_genesis_key.pub, amount, 0);
+		ASSERT_NE (nullptr, send);
+
+		auto receive = wallet.receive_action (*send, nano::test_genesis_key.pub, amount, 0);
+		ASSERT_NE (nullptr, receive);
+		if (receive->difficulty () < node.network_params.network.publish_thresholds.base)
+		{
+			break;
+		}
+	}
+	ASSERT_LT (tries, max_tries);
+
+	// Test a change block
+	ASSERT_NE (nullptr, wallet.change_action (nano::test_genesis_key.pub, nano::keypair ().pub, 0));
+}
