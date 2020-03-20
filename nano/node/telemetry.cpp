@@ -52,12 +52,12 @@ void nano::telemetry::set (nano::telemetry_ack const & message_a, nano::transpor
 		if (it == recent_or_initial_request_telemetry_data.cend () || !it->undergoing_request)
 		{
 			// Not requesting telemetry data from this peer so ignore it
+			stats.inc (nano::stat::type::telemetry, nano::stat::detail::unsolicited_telemetry_ack);
 			return;
 		}
 
 		recent_or_initial_request_telemetry_data.modify (it, [&message_a](nano::telemetry_info & telemetry_info_a) {
 			telemetry_info_a.data = message_a.data;
-			telemetry_info_a.undergoing_request = false;
 		});
 
 		// This can also remove the peer
@@ -351,32 +351,36 @@ void nano::telemetry::fire_request_message (std::shared_ptr<nano::transport::cha
 	std::weak_ptr<nano::telemetry> this_w (shared_from_this ());
 	nano::telemetry_req message;
 	// clang-format off
-	channel_a->send (message, [this_w, endpoint = channel_a->get_endpoint ()](boost::system::error_code const & ec, size_t size_a) {
+	channel_a->send (message, [this_w, endpoint = channel_a->get_endpoint (), round_l](boost::system::error_code const & ec, size_t size_a) {
 		if (auto this_l = this_w.lock ())
 		{
 			if (ec)
 			{
 				// Error sending the telemetry_req message
+				this_l->stats.inc (nano::stat::type::telemetry, nano::stat::detail::failed_send_telemetry_req);
 				nano::lock_guard<std::mutex> guard (this_l->mutex);
 				this_l->channel_processed (endpoint, true);
+			}
+			else
+			{
+				// If no response is seen after a certain period of time remove it
+				this_l->alarm.add (std::chrono::steady_clock::now () + this_l->response_time_cutoff, [round_l, this_w, endpoint]() {
+					if (auto this_l = this_w.lock ())
+					{
+						nano::lock_guard<std::mutex> guard (this_l->mutex);
+						auto it = this_l->recent_or_initial_request_telemetry_data.find (endpoint);
+						if (it != this_l->recent_or_initial_request_telemetry_data.cend () && it->undergoing_request && round_l == it->round)
+						{
+							this_l->stats.inc (nano::stat::type::telemetry, nano::stat::detail::no_response_received);
+							this_l->channel_processed (endpoint, true);
+						}
+					}
+				});			
 			}
 		}
 	},
 	nano::buffer_drop_policy::no_socket_drop);
 	// clang-format on
-
-	// If no response is seen after a certain period of time remove it
-	alarm.add (std::chrono::steady_clock::now () + response_time_cutoff, [round_l, this_w, endpoint = channel_a->get_endpoint ()]() {
-		if (auto this_l = this_w.lock ())
-		{
-			nano::lock_guard<std::mutex> guard (this_l->mutex);
-			auto it = this_l->recent_or_initial_request_telemetry_data.find (endpoint);
-			if (it != this_l->recent_or_initial_request_telemetry_data.cend () && it->undergoing_request && round_l == it->round)
-			{
-				this_l->channel_processed (endpoint, true);
-			}
-		}
-	});
 }
 
 void nano::telemetry::channel_processed (nano::endpoint const & endpoint_a, bool error_a)
@@ -386,6 +390,7 @@ void nano::telemetry::channel_processed (nano::endpoint const & endpoint_a, bool
 	{
 		recent_or_initial_request_telemetry_data.modify (it, [](nano::telemetry_info & telemetry_info_a) {
 			telemetry_info_a.last_response = std::chrono::steady_clock::now ();
+			telemetry_info_a.undergoing_request = false;
 		});
 		if (error_a)
 		{
