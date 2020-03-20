@@ -454,30 +454,9 @@ nano::telemetry_data nano::consolidate_telemetry_data (std::vector<nano::telemet
 		cemented_counts.insert (telemetry_data.cemented_count);
 
 		std::ostringstream ss;
-		ss << telemetry_data.major_version;
-		if (telemetry_data.minor_version.is_initialized ())
-		{
-			ss << "." << *telemetry_data.minor_version;
-			if (telemetry_data.patch_version.is_initialized ())
-			{
-				ss << "." << *telemetry_data.patch_version;
-				if (telemetry_data.pre_release_version.is_initialized ())
-				{
-					ss << "." << *telemetry_data.pre_release_version;
-					if (telemetry_data.maker.is_initialized ())
-					{
-						ss << "." << *telemetry_data.maker;
-					}
-				}
-			}
-		}
-
-		if (telemetry_data.timestamp.is_initialized ())
-		{
-			timestamps.insert (std::chrono::duration_cast<std::chrono::milliseconds> (telemetry_data.timestamp->time_since_epoch ()).count ());
-		}
-
+		ss << telemetry_data.major_version << "." << telemetry_data.minor_version << "." << telemetry_data.patch_version << "." << telemetry_data.pre_release_version << "." << telemetry_data.maker;
 		++vendor_versions[ss.str ()];
+		timestamps.insert (std::chrono::duration_cast<std::chrono::milliseconds> (telemetry_data.timestamp.time_since_epoch ()).count ());
 		++protocol_versions[telemetry_data.protocol_version];
 		peer_counts.insert (telemetry_data.peer_count);
 		unchecked_counts.insert (telemetry_data.unchecked_count);
@@ -567,15 +546,12 @@ nano::telemetry_data nano::consolidate_telemetry_data (std::vector<nano::telemet
 	// May only have major version, but check for optional parameters as well, only output if all are used
 	std::vector<std::string> version_fragments;
 	boost::split (version_fragments, version, boost::is_any_of ("."));
-	debug_assert (!version_fragments.empty () && version_fragments.size () <= 5);
+	debug_assert (version_fragments.size () == 5);
 	consolidated_data.major_version = boost::lexical_cast<uint8_t> (version_fragments.front ());
-	if (version_fragments.size () == 5)
-	{
-		consolidated_data.minor_version = boost::lexical_cast<uint8_t> (version_fragments[1]);
-		consolidated_data.patch_version = boost::lexical_cast<uint8_t> (version_fragments[2]);
-		consolidated_data.pre_release_version = boost::lexical_cast<uint8_t> (version_fragments[3]);
-		consolidated_data.maker = boost::lexical_cast<uint8_t> (version_fragments[4]);
-	}
+	consolidated_data.minor_version = boost::lexical_cast<uint8_t> (version_fragments[1]);
+	consolidated_data.patch_version = boost::lexical_cast<uint8_t> (version_fragments[2]);
+	consolidated_data.pre_release_version = boost::lexical_cast<uint8_t> (version_fragments[3]);
+	consolidated_data.maker = boost::lexical_cast<uint8_t> (version_fragments[4]);
 
 	return consolidated_data;
 }

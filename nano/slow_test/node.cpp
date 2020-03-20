@@ -959,7 +959,7 @@ namespace transport
 							auto peer = data.node->network.tcp_channels.channels[0].channel;
 							data.node->telemetry->get_metrics_single_peer_async (peer, [&shared_data, &data, &node_data](nano::telemetry_data_response const & telemetry_data_response_a) {
 								ASSERT_FALSE (telemetry_data_response_a.error);
-								callback_process (shared_data, data, node_data, *telemetry_data_response_a.telemetry_data.timestamp);
+								callback_process (shared_data, data, node_data, telemetry_data_response_a.telemetry_data.timestamp);
 							});
 						}
 						std::this_thread::sleep_for (1ms);

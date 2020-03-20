@@ -1171,29 +1171,17 @@ void nano::telemetry_data::deserialize (nano::stream & stream_a, uint16_t payloa
 	read (stream_a, bandwidth_cap);
 	read (stream_a, peer_count);
 	read (stream_a, protocol_version);
-	read (stream_a, major_version);
 	read (stream_a, uptime);
 	read (stream_a, genesis_block.bytes);
+	read (stream_a, major_version);
+	read (stream_a, minor_version);
+	read (stream_a, patch_version);
+	read (stream_a, pre_release_version);
+	read (stream_a, maker);
 
-	if (payload_length_a > size_v0)
-	{
-		uint8_t out;
-		read (stream_a, out);
-		minor_version = out;
-		read (stream_a, out);
-		patch_version = out;
-		read (stream_a, out);
-		pre_release_version = out;
-		read (stream_a, out);
-		maker = out;
-	}
-
-	if (payload_length_a > size_v1)
-	{
-		uint64_t timestamp_l;
-		read (stream_a, timestamp_l);
-		timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (timestamp_l));
-	}
+	uint64_t timestamp_l;
+	read (stream_a, timestamp_l);
+	timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (timestamp_l));
 }
 
 void nano::telemetry_data::serialize_without_signature (nano::stream & stream_a, uint16_t /* size_a */) const
@@ -1206,14 +1194,14 @@ void nano::telemetry_data::serialize_without_signature (nano::stream & stream_a,
 	write (stream_a, bandwidth_cap);
 	write (stream_a, peer_count);
 	write (stream_a, protocol_version);
-	write (stream_a, major_version);
 	write (stream_a, uptime);
 	write (stream_a, genesis_block.bytes);
-	write (stream_a, *minor_version);
-	write (stream_a, *patch_version);
-	write (stream_a, *pre_release_version);
-	write (stream_a, *maker);
-	write (stream_a, std::chrono::duration_cast<std::chrono::milliseconds> (timestamp->time_since_epoch ()).count ());
+	write (stream_a, major_version);
+	write (stream_a, minor_version);
+	write (stream_a, patch_version);
+	write (stream_a, pre_release_version);
+	write (stream_a, maker);
+	write (stream_a, std::chrono::duration_cast<std::chrono::milliseconds> (timestamp.time_since_epoch ()).count ());
 }
 
 void nano::telemetry_data::serialize (nano::stream & stream_a) const
@@ -1239,26 +1227,11 @@ nano::error nano::telemetry_data::serialize_json (nano::jsonconfig & json, bool 
 	json.put ("uptime", uptime);
 	json.put ("genesis_block", genesis_block.to_string ());
 	json.put ("major_version", major_version);
-	if (minor_version.is_initialized ())
-	{
-		json.put ("minor_version", *minor_version);
-	}
-	if (patch_version.is_initialized ())
-	{
-		json.put ("patch_version", *patch_version);
-	}
-	if (pre_release_version.is_initialized ())
-	{
-		json.put ("pre_release_version", *pre_release_version);
-	}
-	if (maker.is_initialized ())
-	{
-		json.put ("maker", *maker);
-	}
-	if (timestamp.is_initialized ())
-	{
-		json.put ("timestamp", std::chrono::duration_cast<std::chrono::milliseconds> (timestamp->time_since_epoch ()).count ());
-	}
+	json.put ("minor_version", minor_version);
+	json.put ("patch_version", patch_version);
+	json.put ("pre_release_version", pre_release_version);
+	json.put ("maker", maker);
+	json.put ("timestamp", std::chrono::duration_cast<std::chrono::milliseconds> (timestamp.time_since_epoch ()).count ());
 	return json.get_error ();
 }
 
@@ -1305,16 +1278,12 @@ nano::error nano::telemetry_data::deserialize_json (nano::jsonconfig & json, boo
 		}
 	}
 	json.get ("major_version", major_version);
-	minor_version = json.get_optional<uint8_t> ("minor_version");
-	patch_version = json.get_optional<uint8_t> ("patch_version");
-	pre_release_version = json.get_optional<uint8_t> ("pre_release_version");
-	maker = json.get_optional<uint8_t> ("maker");
-	auto timestamp_l = json.get_optional<uint64_t> ("timestamp");
-	if (timestamp_l.is_initialized ())
-	{
-		timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (*timestamp_l));
-	}
-
+	json.get ("minor_version", minor_version);
+	json.get ("patch_version", patch_version);
+	json.get ("pre_release_version", pre_release_version);
+	json.get ("maker", maker);
+	auto timestamp_l = json.get<uint64_t> ("timestamp");
+	timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (timestamp_l));
 	return json.get_error ();
 }
 
