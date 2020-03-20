@@ -73,10 +73,12 @@ public:
 
 private:
 	void run ();
-	/** Aggregate and send cached votes for \p pool_a, returning the leftovers that were not found in cached votes **/
-	std::pair<std::vector<std::shared_ptr<nano::vote>>, std::vector<nano::block_hash>> aggregate (nano::transaction const &, channel_pool & pool_a) const;
-	/** Generate and send votes from \p hashes_a to \p channel_a, does not need a lock on the mutex **/
-	void generate (nano::transaction const &, std::vector<nano::block_hash> hashes_a, std::shared_ptr<nano::transport::channel> & channel_a) const;
+	/** Remove duplicate requests **/
+	void erase_duplicates (std::vector<std::pair<nano::block_hash, nano::root>> &) const;
+	/** Aggregate \p requests_a and send cached votes to \p channel_a . Return the remaining hashes that need vote generation **/
+	std::vector<nano::block_hash> aggregate (nano::transaction const &, std::vector<std::pair<nano::block_hash, nano::root>> const & requests_a, std::shared_ptr<nano::transport::channel> & channel_a) const;
+	/** Generate votes from \p hashes_a and send to \p channel_a **/
+	void generate (nano::transaction const &, std::vector<nano::block_hash> const & hashes_a, std::shared_ptr<nano::transport::channel> & channel_a) const;
 
 	nano::stat & stats;
 	nano::votes_cache & votes_cache;

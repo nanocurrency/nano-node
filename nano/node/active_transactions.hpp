@@ -134,7 +134,7 @@ public:
 	std::deque<nano::election_status> recently_cemented;
 
 	void add_recently_cemented (nano::election_status const &);
-	void add_recently_confirmed (nano::qualified_root const &);
+	void add_recently_confirmed (nano::qualified_root const &, nano::block_hash const &);
 	void add_inactive_votes_cache (nano::block_hash const &, nano::account const &);
 	nano::inactive_cache_information find_inactive_votes_cache (nano::block_hash const &);
 	void erase_inactive_votes_cache (nano::block_hash const &);
@@ -177,12 +177,16 @@ private:
 	// Elections above this position in the queue are prioritized
 	size_t const prioritized_cutoff;
 
+	static size_t constexpr recently_confirmed_size{ 65536 };
+	using recent_confirmation = std::pair<nano::qualified_root, nano::block_hash>;
 	// clang-format off
-	boost::multi_index_container<nano::qualified_root,
+	boost::multi_index_container<recent_confirmation,
 	mi::indexed_by<
 		mi::sequenced<mi::tag<tag_sequence>>,
 		mi::hashed_unique<mi::tag<tag_root>,
-			mi::identity<nano::qualified_root>>>>
+			mi::member<recent_confirmation, nano::qualified_root, &recent_confirmation::first>>,
+		mi::hashed_unique<mi::tag<tag_hash>,
+			mi::member<recent_confirmation, nano::block_hash, &recent_confirmation::second>>>>
 	recently_confirmed;
 	using prioritize_num_uncemented = boost::multi_index_container<nano::cementable_account,
 	mi::indexed_by<
@@ -215,6 +219,7 @@ private:
 	boost::thread thread;
 
 	friend class active_transactions_dropped_cleanup_Test;
+	friend class active_transactions_vote_replays_Test;
 	friend class confirmation_height_prioritize_frontiers_Test;
 	friend class confirmation_height_prioritize_frontiers_overwrite_Test;
 	friend class active_transactions_confirmation_consistency_Test;

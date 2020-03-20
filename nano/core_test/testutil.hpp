@@ -251,11 +251,11 @@ inline void compare_default_telemetry_response_data_excluding_signature (nano::t
 	ASSERT_LT (telemetry_data_a.uptime, 100);
 	ASSERT_EQ (telemetry_data_a.genesis_block, network_params_a.ledger.genesis_hash);
 	ASSERT_EQ (telemetry_data_a.major_version, nano::get_major_node_version ());
-	ASSERT_EQ (*telemetry_data_a.minor_version, nano::get_minor_node_version ());
-	ASSERT_EQ (*telemetry_data_a.patch_version, nano::get_patch_node_version ());
-	ASSERT_EQ (*telemetry_data_a.pre_release_version, nano::get_pre_release_node_version ());
-	ASSERT_EQ (*telemetry_data_a.maker, 0);
-	ASSERT_GT (*telemetry_data_a.timestamp, std::chrono::system_clock::now () - std::chrono::seconds (100));
+	ASSERT_EQ (telemetry_data_a.minor_version, nano::get_minor_node_version ());
+	ASSERT_EQ (telemetry_data_a.patch_version, nano::get_patch_node_version ());
+	ASSERT_EQ (telemetry_data_a.pre_release_version, nano::get_pre_release_node_version ());
+	ASSERT_EQ (telemetry_data_a.maker, 0);
+	ASSERT_GT (telemetry_data_a.timestamp, std::chrono::system_clock::now () - std::chrono::seconds (100));
 }
 
 inline void compare_default_telemetry_response_data (nano::telemetry_data const & telemetry_data_a, nano::network_params const & network_params_a, uint64_t bandwidth_limit_a, nano::keypair const & node_id_a)

@@ -590,11 +590,7 @@ TEST (active_transactions, update_difficulty)
 	node1.process_active (send1);
 	node1.process_active (send2);
 	node1.block_processor.flush ();
-	system.deadline_set (10s);
-	while (node1.active.size () != 2 || node2.active.size () != 2)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_NO_ERROR (system.poll_until_true (10s, [&node1, &node2] { return node1.active.size () == 2 && node2.active.size () == 2; }));
 	// Update work with higher difficulty
 	auto work1 = node1.work_generate_blocking (send1->root (), difficulty1 + 1);
 	auto work2 = node1.work_generate_blocking (send2->root (), difficulty2 + 1);
@@ -609,6 +605,10 @@ TEST (active_transactions, update_difficulty)
 	node1.process_active (send1);
 	node1.process_active (send2);
 	node1.block_processor.flush ();
+	// Share the updated blocks
+	node1.network.flood_block (send1);
+	node1.network.flood_block (send2);
+
 	system.deadline_set (10s);
 	bool done (false);
 	while (!done)
@@ -636,6 +636,8 @@ TEST (active_transactions, update_difficulty)
 	}
 }
 
+namespace nano
+{
 TEST (active_transactions, vote_replays)
 {
 	nano::system system;
@@ -659,24 +661,16 @@ TEST (active_transactions, vote_replays)
 	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote_send1));
 	ASSERT_EQ (2, node.active.size ());
 	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote_send1));
-	// Wait until the election is removed, at which point the vote should be indeterminate
-	system.deadline_set (3s);
-	while (node.active.size () != 1)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
-	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote_send1));
+	// Wait until the election is removed, at which point the vote is still a replay since it's been recently confirmed
+	ASSERT_TIMELY (3s, node.active.size () == 1);
+	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote_send1));
 	// Open new account
 	auto vote_open1 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, open1));
 	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote_open1));
 	ASSERT_EQ (1, node.active.size ());
 	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote_open1));
-	system.deadline_set (3s);
-	while (!node.active.empty ())
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
-	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote_open1));
+	ASSERT_TIMELY (3s, node.active.empty ());
+	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote_open1));
 	ASSERT_EQ (nano::Gxrb_ratio, node.ledger.weight (key.pub));
 
 	auto send2 (std::make_shared<nano::state_block> (key.pub, open1->hash (), key.pub, nano::Gxrb_ratio - 1, key.pub, key.prv, key.pub, *system.work.generate (open1->hash ())));
@@ -693,13 +687,21 @@ TEST (active_transactions, vote_replays)
 	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote1_send2));
 	ASSERT_EQ (1, node.active.size ());
 	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote1_send2));
-	while (!node.active.empty ())
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (3s, node.active.empty ());
 	ASSERT_EQ (0, node.active.size ());
+	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote1_send2));
+	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote2_send2));
+
+	// Removing blocks as recently confirmed makes every vote indeterminate
+	{
+		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		node.active.recently_confirmed.clear ();
+	}
+	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote_send1));
+	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote_open1));
 	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote1_send2));
 	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote2_send2));
+}
 }
 
 TEST (active_transactions, activate_dependencies)
@@ -846,7 +848,7 @@ TEST (active_transactions, confirmation_consistency)
 		}
 		nano::lock_guard<std::mutex> guard (node.active.mutex);
 		ASSERT_EQ (i + 1, node.active.recently_confirmed.size ());
-		ASSERT_EQ (block->qualified_root (), node.active.recently_confirmed.back ());
+		ASSERT_EQ (block->qualified_root (), node.active.recently_confirmed.back ().first);
 		ASSERT_EQ (i + 1, node.active.recently_cemented.size ());
 	}
 }

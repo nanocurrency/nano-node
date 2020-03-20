@@ -106,7 +106,7 @@ gap_cache (*this),
 ledger (store, stats, flags_a.generate_cache),
 checker (config.signature_checker_threads),
 network (*this, config.peering_port),
-telemetry (std::make_shared<nano::telemetry> (network, alarm, worker, flags.disable_ongoing_telemetry_requests)),
+telemetry (std::make_shared<nano::telemetry> (network, alarm, worker, observers.telemetry, stats, network_params, flags.disable_ongoing_telemetry_requests)),
 bootstrap_initiator (*this),
 bootstrap (config.peering_port, *this),
 application_path (application_path_a),
@@ -261,6 +261,14 @@ startup_time (std::chrono::steady_clock::now ())
 					nano::websocket::message_builder builder;
 					auto msg (builder.difficulty_changed (network_params.network.publish_threshold, active_difficulty));
 					this->websocket_server->broadcast (msg);
+				}
+			});
+
+			observers.telemetry.add ([this](nano::telemetry_data const & telemetry_data, nano::endpoint const & endpoint) {
+				if (this->websocket_server->any_subscriber (nano::websocket::topic::telemetry))
+				{
+					nano::websocket::message_builder builder;
+					this->websocket_server->broadcast (builder.telemetry_received (telemetry_data, endpoint));
 				}
 			});
 		}

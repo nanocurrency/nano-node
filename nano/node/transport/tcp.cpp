@@ -649,6 +649,13 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 												response_server->remote_node_id = channel_a->get_node_id ();
 												response_server->receive ();
 												node_l->network.tcp_channels.remove_node_id_handshake_socket (socket_l);
+
+												if (!node_l->flags.disable_initial_telemetry_requests)
+												{
+													node_l->telemetry->get_metrics_single_peer_async (channel_a, [](nano::telemetry_data_response /* unused */) {
+														// Intentionally empty, starts the telemetry request cycle to more quickly disconnect from invalid peers
+													});
+												}
 											}
 										}
 										else
