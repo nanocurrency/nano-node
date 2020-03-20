@@ -323,7 +323,8 @@ public:
 
 		// telemetry
 		invalid_signature,
-		different_genesis_hash
+		different_genesis_hash,
+		node_id_mismatch
 	};
 
 	/** Direction of the stat. If the direction is irrelevant, use in */

@@ -59,45 +59,62 @@ void nano::telemetry::set (nano::telemetry_ack const & message_a, nano::transpor
 			telemetry_info_a.undergoing_request = false;
 		});
 
-		auto remove_channel = false;
-		auto invalid_signature = false;
-		if (!message_a.is_empty_payload ())
-		{
-			// Different genesis blocks
-			remove_channel = (message_a.data.genesis_block != network_params.ledger.genesis_hash);
-			if (!remove_channel)
-			{
-				invalid_signature = message_a.data.validate_signature (message_a.size ());
+		// This can also remove the peer
+		auto error = verify_message (message_a, channel_a);
 
-				// The data could be correctly signed but for a different node id
-				remove_channel = invalid_signature && (channel_a.get_node_id () == message_a.data.node_id);
-				if (remove_channel)
-				{
-					stats.inc (nano::stat::type::telemetry, nano::stat::detail::invalid_signature);
-				}
-			}
-			else
+		channel_processed (endpoint, error);
+	}
+}
+
+bool nano::telemetry::verify_message (nano::telemetry_ack const & message_a, nano::transport::channel const & channel_a)
+{
+	if (message_a.is_empty_payload ())
+	{
+		return true;
+	}
+
+	auto remove_channel = false;
+	// We want to ensure that the node_id of the channel matches that in the message before attempting to
+	// use the data to remove any peers.
+	auto node_id_mismatch = (channel_a.get_node_id () != message_a.data.node_id);
+	if (!node_id_mismatch)
+	{
+		// The data could be correctly signed but for a different node id
+		remove_channel = message_a.data.validate_signature (message_a.size ());
+		if (!remove_channel)
+		{
+			// Check for different genesis blocks
+			remove_channel = (message_a.data.genesis_block != network_params.ledger.genesis_hash);
+			if (remove_channel)
 			{
 				stats.inc (nano::stat::type::telemetry, nano::stat::detail::different_genesis_hash);
 			}
-
-			if (remove_channel)
-			{
-				// Disconnect from peer with incorrect telemetry data
-				if (channel_a.get_type () == nano::transport::transport_type::tcp)
-				{
-					network.tcp_channels.erase (channel_a.get_tcp_endpoint ());
-				}
-				else
-				{
-					network.udp_channels.erase (channel_a.get_endpoint ());
-					network.udp_channels.clean_node_id (channel_a.get_node_id ());
-				}
-			}
 		}
-
-		channel_processed (endpoint, remove_channel || invalid_signature || message_a.is_empty_payload ());
+		else
+		{
+			stats.inc (nano::stat::type::telemetry, nano::stat::detail::invalid_signature);
+		}
 	}
+	else
+	{
+		stats.inc (nano::stat::type::telemetry, nano::stat::detail::node_id_mismatch);
+	}
+
+	if (remove_channel)
+	{
+		// Disconnect from peer with incorrect telemetry data
+		if (channel_a.get_type () == nano::transport::transport_type::tcp)
+		{
+			network.tcp_channels.erase (channel_a.get_tcp_endpoint ());
+		}
+		else
+		{
+			network.udp_channels.erase (channel_a.get_endpoint ());
+			network.udp_channels.clean_node_id (channel_a.get_node_id ());
+		}
+	}
+
+	return remove_channel || node_id_mismatch;
 }
 
 std::chrono::milliseconds nano::telemetry::cache_plus_buffer_cutoff_time () const

@@ -133,14 +133,15 @@ private:
 
 	void ongoing_req_all_peers (std::chrono::milliseconds);
 
-	void fire_request_message (std::shared_ptr<nano::transport::channel> const & channel);
+	void fire_request_message (std::shared_ptr<nano::transport::channel> const &);
 	void channel_processed (nano::endpoint const &, bool);
 	void flush_callbacks_async (nano::endpoint const &, bool);
 	void invoke_callbacks (nano::endpoint const &, bool);
 
 	bool within_cache_cutoff (nano::telemetry_info const &) const;
-	bool within_cache_plus_buffer_cutoff (telemetry_info const & telemetry_info) const;
-	friend std::unique_ptr<nano::container_info_component> collect_container_info (telemetry & telemetry, const std::string & name);
+	bool within_cache_plus_buffer_cutoff (telemetry_info const &) const;
+	bool verify_message (nano::telemetry_ack const &, nano::transport::channel const &);
+	friend std::unique_ptr<nano::container_info_component> collect_container_info (telemetry &, const std::string &);
 	friend class node_telemetry_remove_peer_invalid_signature_Test;
 };
 

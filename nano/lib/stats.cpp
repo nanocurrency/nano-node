@@ -709,6 +709,9 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::invalid_signature:
 			res = "invalid_signature";
 			break;
+		case nano::stat::detail::node_id_mismatch:
+			res = "node_id_mismatch";
+			break;
 	}
 	return res;
 }
