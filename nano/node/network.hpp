@@ -100,7 +100,7 @@ public:
 	~network ();
 	void start ();
 	void stop ();
-	void flood_message (nano::message const &, nano::buffer_drop_policy = nano::buffer_drop_policy::limiter);
+	void flood_message (nano::message const &, nano::buffer_drop_policy const = nano::buffer_drop_policy::limiter, float const = 1.0f);
 	void flood_keepalive ()
 	{
 		nano::keepalive message;
