@@ -17,10 +17,11 @@
 
 using namespace std::chrono_literals;
 
-nano::telemetry::telemetry (nano::network & network_a, nano::alarm & alarm_a, nano::worker & worker_a, nano::stat & stats_a, nano::network_params & network_params_a, bool disable_ongoing_requests_a) :
+nano::telemetry::telemetry (nano::network & network_a, nano::alarm & alarm_a, nano::worker & worker_a, nano::observer_set<nano::telemetry_data const &, nano::endpoint const &> & observers_a, nano::stat & stats_a, nano::network_params & network_params_a, bool disable_ongoing_requests_a) :
 network (network_a),
 alarm (alarm_a),
 worker (worker_a),
+observers (observers_a),
 stats (stats_a),
 network_params (network_params_a),
 disable_ongoing_requests (disable_ongoing_requests_a)
@@ -45,10 +46,10 @@ void nano::telemetry::set (nano::telemetry_ack const & message_a, nano::transpor
 {
 	if (!stopped)
 	{
-		nano::lock_guard<std::mutex> guard (mutex);
-		auto endpoint = channel_a.get_endpoint ();
+		nano::unique_lock<std::mutex> lk (mutex);
+		nano::endpoint endpoint = channel_a.get_endpoint ();
 		auto it = recent_or_initial_request_telemetry_data.find (endpoint);
-		if (it == recent_or_initial_request_telemetry_data.cend ())
+		if (it == recent_or_initial_request_telemetry_data.cend () || !it->undergoing_request)
 		{
 			// Not requesting telemetry data from this peer so ignore it
 			return;
@@ -62,6 +63,13 @@ void nano::telemetry::set (nano::telemetry_ack const & message_a, nano::transpor
 		// This can also remove the peer
 		auto error = verify_message (message_a, channel_a);
 
+		if (!error)
+		{
+			// Received telemetry data from a peer which hasn't disabled providing telemetry metrics and there no errors with the data
+			lk.unlock ();
+			observers.notify (message_a.data, endpoint);
+			lk.lock ();
+		}
 		channel_processed (endpoint, error);
 	}
 }
@@ -507,30 +515,9 @@ nano::telemetry_data nano::consolidate_telemetry_data (std::vector<nano::telemet
 		cemented_counts.insert (telemetry_data.cemented_count);
 
 		std::ostringstream ss;
-		ss << telemetry_data.major_version;
-		if (telemetry_data.minor_version.is_initialized ())
-		{
-			ss << "." << *telemetry_data.minor_version;
-			if (telemetry_data.patch_version.is_initialized ())
-			{
-				ss << "." << *telemetry_data.patch_version;
-				if (telemetry_data.pre_release_version.is_initialized ())
-				{
-					ss << "." << *telemetry_data.pre_release_version;
-					if (telemetry_data.maker.is_initialized ())
-					{
-						ss << "." << *telemetry_data.maker;
-					}
-				}
-			}
-		}
-
-		if (telemetry_data.timestamp.is_initialized ())
-		{
-			timestamps.insert (std::chrono::duration_cast<std::chrono::milliseconds> (telemetry_data.timestamp->time_since_epoch ()).count ());
-		}
-
+		ss << telemetry_data.major_version << "." << telemetry_data.minor_version << "." << telemetry_data.patch_version << "." << telemetry_data.pre_release_version << "." << telemetry_data.maker;
 		++vendor_versions[ss.str ()];
+		timestamps.insert (std::chrono::duration_cast<std::chrono::milliseconds> (telemetry_data.timestamp.time_since_epoch ()).count ());
 		++protocol_versions[telemetry_data.protocol_version];
 		peer_counts.insert (telemetry_data.peer_count);
 		unchecked_counts.insert (telemetry_data.unchecked_count);
@@ -620,15 +607,12 @@ nano::telemetry_data nano::consolidate_telemetry_data (std::vector<nano::telemet
 	// May only have major version, but check for optional parameters as well, only output if all are used
 	std::vector<std::string> version_fragments;
 	boost::split (version_fragments, version, boost::is_any_of ("."));
-	debug_assert (!version_fragments.empty () && version_fragments.size () <= 5);
+	debug_assert (version_fragments.size () == 5);
 	consolidated_data.major_version = boost::lexical_cast<uint8_t> (version_fragments.front ());
-	if (version_fragments.size () == 5)
-	{
-		consolidated_data.minor_version = boost::lexical_cast<uint8_t> (version_fragments[1]);
-		consolidated_data.patch_version = boost::lexical_cast<uint8_t> (version_fragments[2]);
-		consolidated_data.pre_release_version = boost::lexical_cast<uint8_t> (version_fragments[3]);
-		consolidated_data.maker = boost::lexical_cast<uint8_t> (version_fragments[4]);
-	}
+	consolidated_data.minor_version = boost::lexical_cast<uint8_t> (version_fragments[1]);
+	consolidated_data.patch_version = boost::lexical_cast<uint8_t> (version_fragments[2]);
+	consolidated_data.pre_release_version = boost::lexical_cast<uint8_t> (version_fragments[3]);
+	consolidated_data.maker = boost::lexical_cast<uint8_t> (version_fragments[4]);
 
 	return consolidated_data;
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/utility.hpp>
 #include <nano/node/common.hpp>
 #include <nano/secure/common.hpp>
 
@@ -59,7 +60,7 @@ public:
 class telemetry : public std::enable_shared_from_this<telemetry>
 {
 public:
-	telemetry (nano::network &, nano::alarm &, nano::worker &, nano::stat &, nano::network_params &, bool);
+	telemetry (nano::network &, nano::alarm &, nano::worker &, nano::observer_set<nano::telemetry_data const &, nano::endpoint const &> &, nano::stat &, nano::network_params &, bool);
 	void start ();
 	void stop ();
 
@@ -105,6 +106,7 @@ private:
 	nano::network & network;
 	nano::alarm & alarm;
 	nano::worker & worker;
+	nano::observer_set<nano::telemetry_data const &, nano::endpoint const &> & observers;
 	nano::stat & stats;
 	/* Important that this is a reference to the node network_params for tests which want to modify genesis block */
 	nano::network_params & network_params;

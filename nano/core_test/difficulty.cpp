@@ -62,7 +62,10 @@ TEST (difficulty, multipliers)
 
 TEST (difficulty, network_constants)
 {
-	ASSERT_NEAR (64., nano::difficulty::to_multiplier (nano::network_constants::publish_full_threshold, nano::network_constants::publish_beta_threshold), 1e-10);
+	ASSERT_NEAR (8., nano::difficulty::to_multiplier (nano::network_constants::publish_full_epoch_2_threshold, nano::network_constants::publish_full_epoch_1_threshold), 1e-10);
+	ASSERT_NEAR (1 / 8., nano::difficulty::to_multiplier (nano::network_constants::publish_full_epoch_2_receive_threshold, nano::network_constants::publish_full_epoch_1_threshold), 1e-10);
+	ASSERT_NEAR (1., nano::difficulty::to_multiplier (nano::network_constants::publish_full_epoch_2_receive_threshold, nano::network_constants::publish_full_threshold), 1e-10);
+	ASSERT_NEAR (1 / 64., nano::difficulty::to_multiplier (nano::network_constants::publish_beta_threshold, nano::network_constants::publish_full_epoch_1_threshold), 1e-10);
 }
 
 TEST (difficulty, overflow)
