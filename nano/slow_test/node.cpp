@@ -872,10 +872,11 @@ void callback_process (shared_data & shared_data_a, data & data, T & all_node_da
 
 TEST (node_telemetry, ongoing_requests)
 {
-	nano::system system (2);
-
-	auto node_client = system.nodes.front ();
-	auto node_server = system.nodes.back ();
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_initial_telemetry_requests = true;
+	auto node_client = system.add_node (node_flags);
+	auto node_server = system.add_node (node_flags);
 
 	wait_peer_connections (system);
 
@@ -911,8 +912,14 @@ namespace transport
 {
 	TEST (node_telemetry, simultaneous_requests)
 	{
+		nano::system system;
+		nano::node_flags node_flags;
+		node_flags.disable_initial_telemetry_requests = true;
 		const auto num_nodes = 4;
-		nano::system system (num_nodes);
+		for (int i = 0; i < num_nodes; ++i)
+		{
+			system.add_node (node_flags);
+		}
 
 		wait_peer_connections (system);
 

@@ -129,9 +129,10 @@ public:
 	bool disable_unchecked_cleanup{ false };
 	bool disable_unchecked_drop{ true };
 	bool disable_providing_telemetry_metrics{ false };
+	bool disable_ongoing_telemetry_requests{ false };
+	bool disable_initial_telemetry_requests{ false };
 	bool disable_block_processor_unchecked_deletion{ false };
 	bool disable_block_processor_republishing{ false };
-	bool disable_ongoing_telemetry_requests{ false };
 	bool allow_bootstrap_peers_duplicates{ false };
 	bool disable_max_peers_per_ip{ false }; // For testing only
 	bool fast_bootstrap{ false };
