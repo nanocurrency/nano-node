@@ -8,6 +8,7 @@ add_executable (core_test
 	block_store.cpp
 	bootstrap.cpp
 	cli.cpp
+	common.hpp
 	confirmation_height.cpp
 	confirmation_solicitor.cpp
 	conflicts.cpp

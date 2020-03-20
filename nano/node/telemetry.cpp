@@ -15,10 +15,11 @@
 
 using namespace std::chrono_literals;
 
-nano::telemetry::telemetry (nano::network & network_a, nano::alarm & alarm_a, nano::worker & worker_a, bool disable_ongoing_requests_a) :
+nano::telemetry::telemetry (nano::network & network_a, nano::alarm & alarm_a, nano::worker & worker_a, nano::observer_set<nano::telemetry_data const &, nano::endpoint const &> & observers_a, bool disable_ongoing_requests_a) :
 network (network_a),
 alarm (alarm_a),
 worker (worker_a),
+observers (observers_a),
 disable_ongoing_requests (disable_ongoing_requests_a)
 {
 }
@@ -41,9 +42,10 @@ void nano::telemetry::set (nano::telemetry_ack const & message_a, nano::transpor
 {
 	if (!stopped)
 	{
-		nano::lock_guard<std::mutex> guard (mutex);
-		auto it = recent_or_initial_request_telemetry_data.find (channel_a.get_endpoint ());
-		if (it == recent_or_initial_request_telemetry_data.cend ())
+		nano::unique_lock<std::mutex> lk (mutex);
+		nano::endpoint endpoint = channel_a.get_endpoint ();
+		auto it = recent_or_initial_request_telemetry_data.find (endpoint);
+		if (it == recent_or_initial_request_telemetry_data.cend () || !it->undergoing_request)
 		{
 			// Not requesting telemetry data from this peer so ignore it
 			return;
@@ -60,7 +62,15 @@ void nano::telemetry::set (nano::telemetry_ack const & message_a, nano::transpor
 			error = !message_a.data.validate_signature (message_a.size ()) && (channel_a.get_node_id () != message_a.data.node_id);
 		}
 
-		channel_processed (channel_a.get_endpoint (), error || message_a.is_empty_payload ());
+		if (!error && !message_a.is_empty_payload ())
+		{
+			// Received telemetry data from a peer which hasn't disabled providing telemetry metrics and there no errors with the data
+			lk.unlock ();
+			observers.notify (message_a.data, endpoint);
+			lk.lock ();
+		}
+
+		channel_processed (endpoint, error || message_a.is_empty_payload ());
 	}
 }
 
