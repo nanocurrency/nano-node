@@ -1,6 +1,8 @@
 #include <nano/lib/alarm.hpp>
+#include <nano/lib/stats.hpp>
 #include <nano/lib/worker.hpp>
 #include <nano/node/network.hpp>
+#include <nano/node/nodeconfig.hpp>
 #include <nano/node/telemetry.hpp>
 #include <nano/node/transport/transport.hpp>
 #include <nano/secure/buffer.hpp>
@@ -15,12 +17,13 @@
 
 using namespace std::chrono_literals;
 
-nano::telemetry::telemetry (nano::network & network_a, nano::alarm & alarm_a, nano::worker & worker_a, nano::observer_set<nano::telemetry_data const &, nano::endpoint const &> & observers_a, nano::stat & stats_a, bool disable_ongoing_requests_a) :
+nano::telemetry::telemetry (nano::network & network_a, nano::alarm & alarm_a, nano::worker & worker_a, nano::observer_set<nano::telemetry_data const &, nano::endpoint const &> & observers_a, nano::stat & stats_a, nano::network_params & network_params_a, bool disable_ongoing_requests_a) :
 network (network_a),
 alarm (alarm_a),
 worker (worker_a),
 observers (observers_a),
 stats (stats_a),
+network_params (network_params_a),
 disable_ongoing_requests (disable_ongoing_requests_a)
 {
 }
@@ -57,22 +60,61 @@ void nano::telemetry::set (nano::telemetry_ack const & message_a, nano::transpor
 			telemetry_info_a.data = message_a.data;
 		});
 
-		auto error = false;
-		if (!message_a.is_empty_payload ())
-		{
-			error = !message_a.data.validate_signature (message_a.size ()) && (channel_a.get_node_id () != message_a.data.node_id);
-		}
+		// This can also remove the peer
+		auto error = verify_message (message_a, channel_a);
 
-		if (!error && !message_a.is_empty_payload ())
+		if (!error)
 		{
 			// Received telemetry data from a peer which hasn't disabled providing telemetry metrics and there no errors with the data
 			lk.unlock ();
 			observers.notify (message_a.data, endpoint);
 			lk.lock ();
 		}
-
-		channel_processed (endpoint, error || message_a.is_empty_payload ());
+		channel_processed (endpoint, error);
 	}
+}
+
+bool nano::telemetry::verify_message (nano::telemetry_ack const & message_a, nano::transport::channel const & channel_a)
+{
+	if (message_a.is_empty_payload ())
+	{
+		return true;
+	}
+
+	auto remove_channel = false;
+	// We want to ensure that the node_id of the channel matches that in the message before attempting to
+	// use the data to remove any peers.
+	auto node_id_mismatch = (channel_a.get_node_id () != message_a.data.node_id);
+	if (!node_id_mismatch)
+	{
+		// The data could be correctly signed but for a different node id
+		remove_channel = message_a.data.validate_signature (message_a.size ());
+		if (!remove_channel)
+		{
+			// Check for different genesis blocks
+			remove_channel = (message_a.data.genesis_block != network_params.ledger.genesis_hash);
+			if (remove_channel)
+			{
+				stats.inc (nano::stat::type::telemetry, nano::stat::detail::different_genesis_hash);
+			}
+		}
+		else
+		{
+			stats.inc (nano::stat::type::telemetry, nano::stat::detail::invalid_signature);
+		}
+	}
+	else
+	{
+		stats.inc (nano::stat::type::telemetry, nano::stat::detail::node_id_mismatch);
+	}
+
+	if (remove_channel)
+	{
+		// Disconnect from peer with incorrect telemetry data
+		network.erase (channel_a);
+	}
+
+	return remove_channel || node_id_mismatch;
 }
 
 std::chrono::milliseconds nano::telemetry::cache_plus_buffer_cutoff_time () const
@@ -292,14 +334,14 @@ nano::telemetry_data_response nano::telemetry::get_metrics_single_peer (std::sha
 	return promise.get_future ().get ();
 }
 
-void nano::telemetry::fire_request_message (std::shared_ptr<nano::transport::channel> const & channel)
+void nano::telemetry::fire_request_message (std::shared_ptr<nano::transport::channel> const & channel_a)
 {
 	// Fire off a telemetry request to all passed in channels
-	debug_assert (channel->get_network_version () >= network_params.protocol.telemetry_protocol_version_min);
+	debug_assert (channel_a->get_network_version () >= network_params.protocol.telemetry_protocol_version_min);
 
 	uint64_t round_l;
 	{
-		auto it = recent_or_initial_request_telemetry_data.find (channel->get_endpoint ());
+		auto it = recent_or_initial_request_telemetry_data.find (channel_a->get_endpoint ());
 		recent_or_initial_request_telemetry_data.modify (it, [](nano::telemetry_info & telemetry_info_a) {
 			++telemetry_info_a.round;
 		});
@@ -309,7 +351,7 @@ void nano::telemetry::fire_request_message (std::shared_ptr<nano::transport::cha
 	std::weak_ptr<nano::telemetry> this_w (shared_from_this ());
 	nano::telemetry_req message;
 	// clang-format off
-	channel->send (message, [this_w, endpoint = channel->get_endpoint (), round_l](boost::system::error_code const & ec, size_t size_a) {
+	channel_a->send (message, [this_w, endpoint = channel_a->get_endpoint (), round_l](boost::system::error_code const & ec, size_t size_a) {
 		if (auto this_l = this_w.lock ())
 		{
 			if (ec)

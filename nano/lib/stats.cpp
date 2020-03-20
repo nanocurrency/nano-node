@@ -706,6 +706,15 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::duplicate_publish:
 			res = "duplicate_publish";
 			break;
+		case nano::stat::detail::different_genesis_hash:
+			res = "different_genesis_hash";
+			break;
+		case nano::stat::detail::invalid_signature:
+			res = "invalid_signature";
+			break;
+		case nano::stat::detail::node_id_mismatch:
+			res = "node_id_mismatch";
+			break;
 		case nano::stat::detail::request_within_protection_cache_zone:
 			res = "request_within_protection_cache_zone";
 			break;

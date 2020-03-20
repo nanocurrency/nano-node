@@ -100,7 +100,7 @@ public:
 	~network ();
 	void start ();
 	void stop ();
-	void flood_message (nano::message const &, nano::buffer_drop_policy = nano::buffer_drop_policy::limiter);
+	void flood_message (nano::message const &, nano::buffer_drop_policy const = nano::buffer_drop_policy::limiter, float const = 1.0f);
 	void flood_keepalive ()
 	{
 		nano::keepalive message;
@@ -149,6 +149,7 @@ public:
 	size_t size () const;
 	float size_sqrt () const;
 	bool empty () const;
+	void erase (nano::transport::channel const & channel_a);
 	nano::message_buffer_manager buffer_container;
 	boost::asio::ip::udp::resolver resolver;
 	std::vector<boost::thread> packet_processing_threads;

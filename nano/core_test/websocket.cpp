@@ -863,6 +863,7 @@ TEST (websocket, telemetry)
 	config.websocket_config.enabled = true;
 	config.websocket_config.port = nano::get_available_port ();
 	nano::node_flags node_flags;
+	node_flags.disable_initial_telemetry_requests = true;
 	node_flags.disable_ongoing_telemetry_requests = true;
 	auto node1 (system.add_node (config, node_flags));
 	config.peering_port = nano::get_available_port ();

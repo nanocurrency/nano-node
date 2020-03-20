@@ -323,6 +323,9 @@ public:
 		duplicate_publish,
 
 		// telemetry
+		invalid_signature,
+		different_genesis_hash,
+		node_id_mismatch,
 		request_within_protection_cache_zone,
 		no_response_received,
 		unsolicited_telemetry_ack,

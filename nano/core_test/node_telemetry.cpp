@@ -208,8 +208,11 @@ TEST (node_telemetry, no_peers)
 TEST (node_telemetry, basic)
 {
 	nano::system system;
-	auto node_client = system.add_node ();
-	auto node_server = system.add_node ();
+	nano::node_flags node_flags;
+	node_flags.disable_ongoing_telemetry_requests = true;
+	node_flags.disable_initial_telemetry_requests = true;
+	auto node_client = system.add_node (node_flags);
+	auto node_server = system.add_node (node_flags);
 
 	wait_peer_connections (system);
 
@@ -272,10 +275,11 @@ TEST (node_telemetry, basic)
 TEST (node_telemetry, many_nodes)
 {
 	nano::system system;
-	// The telemetry responses can timeout if using a large number of nodes under sanitizers, so lower the number.
-	const auto num_nodes = (is_sanitizer_build || nano::running_within_valgrind ()) ? 4 : 10;
 	nano::node_flags node_flags;
 	node_flags.disable_ongoing_telemetry_requests = true;
+	node_flags.disable_initial_telemetry_requests = true;
+	// The telemetry responses can timeout if using a large number of nodes under sanitizers, so lower the number.
+	const auto num_nodes = (is_sanitizer_build || nano::running_within_valgrind ()) ? 4 : 10;
 	for (auto i = 0; i < num_nodes; ++i)
 	{
 		nano::node_config node_config (nano::get_available_port (), system.logging);
@@ -473,10 +477,11 @@ TEST (node_telemetry, blocking_request)
 
 TEST (node_telemetry, disconnects)
 {
-	nano::system system (2);
-
-	auto node_client = system.nodes.front ();
-	auto node_server = system.nodes.back ();
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_initial_telemetry_requests = true;
+	auto node_client = system.add_node (node_flags);
+	auto node_server = system.add_node (node_flags);
 
 	wait_peer_connections (system);
 
@@ -503,6 +508,7 @@ TEST (node_telemetry, all_peers_use_single_request_cache)
 	nano::system system;
 	nano::node_flags node_flags;
 	node_flags.disable_ongoing_telemetry_requests = true;
+	node_flags.disable_initial_telemetry_requests = true;
 	auto node_client = system.add_node (node_flags);
 	auto node_server = system.add_node (node_flags);
 
@@ -571,10 +577,12 @@ TEST (node_telemetry, all_peers_use_single_request_cache)
 TEST (node_telemetry, dos_tcp)
 {
 	// Confirm that telemetry_reqs are not processed
-	nano::system system (2);
-
-	auto node_client = system.nodes.front ();
-	auto node_server = system.nodes.back ();
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_initial_telemetry_requests = true;
+	node_flags.disable_ongoing_telemetry_requests = true;
+	auto node_client = system.add_node (node_flags);
+	auto node_server = system.add_node (node_flags);
 
 	wait_peer_connections (system);
 
@@ -618,15 +626,19 @@ TEST (node_telemetry, dos_tcp)
 TEST (node_telemetry, dos_udp)
 {
 	// Confirm that telemetry_reqs are not processed
-	nano::system system (2);
-
-	auto node_client = system.nodes.front ();
-	auto node_server = system.nodes.back ();
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_udp = false;
+	node_flags.disable_tcp_realtime = true;
+	node_flags.disable_initial_telemetry_requests = true;
+	node_flags.disable_ongoing_telemetry_requests = true;
+	auto node_client = system.add_node (node_flags);
+	auto node_server = system.add_node (node_flags);
 
 	wait_peer_connections (system);
 
 	nano::telemetry_req message;
-	auto channel (node_server->network.udp_channels.create (node_server->network.endpoint ()));
+	auto channel (node_client->network.udp_channels.create (node_server->network.endpoint ()));
 	channel->send (message, [](boost::system::error_code const & ec, size_t size_a) {
 		ASSERT_FALSE (ec);
 	});
@@ -665,9 +677,10 @@ TEST (node_telemetry, dos_udp)
 
 TEST (node_telemetry, disable_metrics)
 {
-	nano::system system (1);
-	auto node_client = system.nodes.front ();
+	nano::system system;
 	nano::node_flags node_flags;
+	node_flags.disable_initial_telemetry_requests = true;
+	auto node_client = system.add_node (node_flags);
 	node_flags.disable_providing_telemetry_metrics = true;
 	auto node_server = system.add_node (node_flags);
 
@@ -703,4 +716,77 @@ TEST (node_telemetry, disable_metrics)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+}
+
+TEST (node_telemetry, remove_peer_different_genesis)
+{
+	nano::system system (1);
+	auto node0 (system.nodes[0]);
+	ASSERT_EQ (0, node0->network.size ());
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work));
+	// Change genesis block to something else in this test (this is the reference telemetry processing uses).
+	// Possible TSAN issue in the future if something else uses this, but will only appear in tests.
+	node1->network_params.ledger.genesis_hash = nano::block_hash ("0");
+	node1->start ();
+	system.nodes.push_back (node1);
+	node0->network.merge_peer (node1->network.endpoint ());
+	node1->network.merge_peer (node0->network.endpoint ());
+	ASSERT_TIMELY (10s, node0->stats.count (nano::stat::type::telemetry, nano::stat::detail::different_genesis_hash) != 0 && node1->stats.count (nano::stat::type::telemetry, nano::stat::detail::different_genesis_hash) != 0);
+
+	ASSERT_EQ (0, node0->network.size ());
+	ASSERT_EQ (0, node1->network.size ());
+
+	ASSERT_EQ (node0->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::out), 1);
+	ASSERT_EQ (node1->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::out), 1);
+}
+
+TEST (node_telemetry, remove_peer_different_genesis_udp)
+{
+	nano::node_flags node_flags;
+	node_flags.disable_udp = false;
+	node_flags.disable_tcp_realtime = true;
+	nano::system system (1, nano::transport::transport_type::udp, node_flags);
+	auto node0 (system.nodes[0]);
+	ASSERT_EQ (0, node0->network.size ());
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work, node_flags));
+	node1->network_params.ledger.genesis_hash = nano::block_hash ("0");
+	node1->start ();
+	system.nodes.push_back (node1);
+	node0->network.send_keepalive (std::make_shared<nano::transport::channel_udp> (node0->network.udp_channels, node1->network.endpoint (), node1->network_params.protocol.protocol_version));
+	node1->network.send_keepalive (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, node0->network.endpoint (), node0->network_params.protocol.protocol_version));
+
+	ASSERT_TIMELY (10s, node0->network.udp_channels.size () != 0 && node1->network.udp_channels.size () != 0);
+	ASSERT_EQ (node0->network.tcp_channels.size (), 0);
+	ASSERT_EQ (node1->network.tcp_channels.size (), 0);
+
+	ASSERT_TIMELY (10s, node0->stats.count (nano::stat::type::telemetry, nano::stat::detail::different_genesis_hash) != 0 && node1->stats.count (nano::stat::type::telemetry, nano::stat::detail::different_genesis_hash) != 0);
+
+	ASSERT_EQ (0, node0->network.size ());
+	ASSERT_EQ (0, node1->network.size ());
+}
+
+namespace nano
+{
+TEST (node_telemetry, remove_peer_invalid_signature)
+{
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_udp = false;
+	node_flags.disable_initial_telemetry_requests = true;
+	node_flags.disable_ongoing_telemetry_requests = true;
+	auto node = system.add_node (node_flags);
+
+	auto channel = node->network.udp_channels.create (node->network.endpoint ());
+	channel->set_node_id (node->node_id.pub);
+	// (Implementation detail) So that messages are not just discarded when requests were not sent.
+	node->telemetry->recent_or_initial_request_telemetry_data.emplace (channel->get_endpoint (), nano::telemetry_data (), std::chrono::steady_clock::now (), true);
+
+	auto telemetry_data = nano::local_telemetry_data (node->ledger.cache, node->network, node->config.bandwidth_limit, node->network_params, node->startup_time, node->node_id);
+	// Change anything so that the signed message is incorrect
+	telemetry_data.block_count = 0;
+	auto telemetry_ack = nano::telemetry_ack (telemetry_data);
+	node->network.process_message (telemetry_ack, channel);
+
+	ASSERT_TIMELY (10s, node->stats.count (nano::stat::type::telemetry, nano::stat::detail::invalid_signature) > 0);
+}
 }
