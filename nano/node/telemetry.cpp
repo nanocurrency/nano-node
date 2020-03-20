@@ -111,15 +111,7 @@ bool nano::telemetry::verify_message (nano::telemetry_ack const & message_a, nan
 	if (remove_channel)
 	{
 		// Disconnect from peer with incorrect telemetry data
-		if (channel_a.get_type () == nano::transport::transport_type::tcp)
-		{
-			network.tcp_channels.erase (channel_a.get_tcp_endpoint ());
-		}
-		else
-		{
-			network.udp_channels.erase (channel_a.get_endpoint ());
-			network.udp_channels.clean_node_id (channel_a.get_node_id ());
-		}
+		network.erase (channel_a);
 	}
 
 	return remove_channel || node_id_mismatch;

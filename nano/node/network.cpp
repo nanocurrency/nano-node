@@ -733,6 +733,19 @@ bool nano::network::empty () const
 	return size () == 0;
 }
 
+void nano::network::erase (nano::transport::channel const & channel_a)
+{
+	if (channel_a.get_type () == nano::transport::transport_type::tcp)
+	{
+		tcp_channels.erase (channel_a.get_tcp_endpoint ());
+	}
+	else
+	{
+		udp_channels.erase (channel_a.get_endpoint ());
+		udp_channels.clean_node_id (channel_a.get_node_id ());
+	}
+}
+
 nano::message_buffer_manager::message_buffer_manager (nano::stat & stats_a, size_t size, size_t count) :
 stats (stats_a),
 free (count),
