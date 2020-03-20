@@ -1352,7 +1352,7 @@ TEST (wallet, receive_epoch_2_propagation)
 {
 	// Ensure the lower receive work is used when receiving
 	auto tries = 0;
-	auto max_tries = 20;
+	auto const max_tries = 20;
 	while (++tries < max_tries)
 	{
 		nano::system system (1);
@@ -1388,6 +1388,47 @@ TEST (wallet, receive_epoch_2_propagation)
 		if (receive2->difficulty () < node.network_params.network.publish_thresholds.base)
 		{
 			ASSERT_EQ (nano::epoch::epoch_2, node.store.block_version (node.store.tx_begin_read (), receive2->hash ()));
+			break;
+		}
+	}
+	ASSERT_LT (tries, max_tries);
+}
+
+TEST (wallet, receive_epoch_2_unopened)
+{
+	// Ensure the lower receive work is used when receiving
+	auto tries = 0;
+	auto const max_tries = 20;
+	while (++tries < max_tries)
+	{
+		nano::system system (1);
+		auto & node (*system.nodes[0]);
+		auto & wallet (*system.wallet (0));
+
+		// Upgrade the genesis account to epoch 1
+		auto epoch1 = system.upgrade_genesis_epoch (node, nano::epoch::epoch_1);
+		ASSERT_NE (nullptr, epoch1);
+
+		nano::keypair key;
+		nano::state_block_builder builder;
+
+		// Send
+		wallet.insert_adhoc (nano::test_genesis_key.prv, false);
+		auto amount = node.config.receive_minimum.number ();
+		auto send1 = wallet.send_action (nano::test_genesis_key.pub, key.pub, amount, 1);
+
+		// Upgrade unopened account to epoch_2
+		auto epoch2_unopened = nano::state_block (key.pub, 0, 0, 0, node.network_params.ledger.epochs.link (nano::epoch::epoch_2), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (key.pub, node.network_params.network.publish_thresholds.epoch_2));
+		ASSERT_EQ (nano::process_result::progress, node.process (epoch2_unopened).code);
+
+		wallet.insert_adhoc (key.prv, false);
+
+		// Receiving should use the lower difficulty
+		auto receive1 = wallet.receive_action (*send1, key.pub, amount, 1);
+		ASSERT_NE (nullptr, receive1);
+		if (receive1->difficulty () < node.network_params.network.publish_thresholds.base)
+		{
+			ASSERT_EQ (nano::epoch::epoch_2, node.store.block_version (node.store.tx_begin_read (), receive1->hash ()));
 			break;
 		}
 	}
