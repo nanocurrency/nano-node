@@ -207,9 +207,9 @@ void nano::election::activate_dependencies ()
 		if (previous_l != nullptr && !node.block_confirmed_or_being_confirmed (transaction, previous_hash_l))
 		{
 			auto election = node.active.insert_impl (previous_l);
-			if (election.second)
+			if (election.inserted)
 			{
-				election.first->transition_active ();
+				election.election->transition_active ();
 				escalated_l = true;
 			}
 		}
@@ -225,9 +225,9 @@ void nano::election::activate_dependencies ()
 			if (source_l != nullptr && !node.block_confirmed_or_being_confirmed (transaction, source_hash_l))
 			{
 				auto election = node.active.insert_impl (source_l);
-				if (election.second)
+				if (election.inserted)
 				{
-					election.first->transition_active ();
+					election.election->transition_active ();
 					escalated_l = true;
 				}
 			}

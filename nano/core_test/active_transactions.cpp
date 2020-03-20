@@ -797,7 +797,7 @@ TEST (active_transactions, dropped_cleanup)
 	ASSERT_FALSE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
 	ASSERT_TRUE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
 
-	auto election (node.active.insert (block).first);
+	auto election (node.active.insert (block).election);
 	ASSERT_NE (nullptr, election);
 
 	// Not yet removed
@@ -843,7 +843,7 @@ TEST (active_transactions, confirmation_consistency)
 		system.deadline_set (5s);
 		while (!node.ledger.block_confirmed (node.store.tx_begin_read (), block->hash ()))
 		{
-			ASSERT_FALSE (node.active.insert (block).second);
+			ASSERT_FALSE (node.active.insert (block).inserted);
 			ASSERT_NO_ERROR (system.poll (5ms));
 		}
 		nano::lock_guard<std::mutex> guard (node.active.mutex);
@@ -852,4 +852,45 @@ TEST (active_transactions, confirmation_consistency)
 		ASSERT_EQ (i + 1, node.active.recently_cemented.size ());
 	}
 }
+}
+
+TEST (active_transactions, insertion_prioritization)
+{
+	nano::system system;
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	// 10% of elections (1) are prioritized
+	node_config.active_elections_size = 10;
+	nano::node_flags node_flags;
+	node_flags.disable_request_loop = true;
+	auto & node = *system.add_node (node_config, node_flags);
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, nano::genesis_hash, nano::test_genesis_key.pub, nano::genesis_amount - 10 * nano::xrb_ratio, nano::public_key (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (nano::genesis_hash)));
+	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 20 * nano::xrb_ratio, nano::public_key (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send1->hash ())));
+	auto send3 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send2->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 30 * nano::xrb_ratio, nano::public_key (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send2->hash ())));
+	auto send4 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send3->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 40 * nano::xrb_ratio, nano::public_key (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send3->hash ())));
+	auto send5 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send4->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 50 * nano::xrb_ratio, nano::public_key (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send4->hash ())));
+	auto send6 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send5->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 60 * nano::xrb_ratio, nano::public_key (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send5->hash ())));
+	auto send7 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send6->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 70 * nano::xrb_ratio, nano::public_key (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send6->hash ())));
+
+	// Sort by difficulty, descending
+	std::vector<std::shared_ptr<nano::block>> blocks{ send1, send2, send3, send4, send5, send6, send7 };
+	std::sort (blocks.begin (), blocks.end (), [](auto const & blockl, auto const & blockr) { return blockl->difficulty () > blockr->difficulty (); });
+
+	auto update_active_difficulty = [&node] {
+		nano::unique_lock<std::mutex> lock (node.active.mutex);
+		node.active.update_active_difficulty (lock);
+	};
+
+	ASSERT_TRUE (node.active.insert (blocks[2]).prioritized);
+	update_active_difficulty ();
+	ASSERT_FALSE (node.active.insert (blocks[3]).prioritized);
+	update_active_difficulty ();
+	ASSERT_TRUE (node.active.insert (blocks[1]).prioritized);
+	update_active_difficulty ();
+	ASSERT_FALSE (node.active.insert (blocks[4]).prioritized);
+	update_active_difficulty ();
+	ASSERT_TRUE (node.active.insert (blocks[0]).prioritized);
+	update_active_difficulty ();
+	ASSERT_FALSE (node.active.insert (blocks[5]).prioritized);
+	update_active_difficulty ();
+	ASSERT_FALSE (node.active.insert (blocks[6]).prioritized);
 }
