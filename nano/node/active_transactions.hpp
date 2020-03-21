@@ -95,6 +95,7 @@ public:
 	bool active (nano::qualified_root const &);
 	std::shared_ptr<nano::election> election (nano::qualified_root const &) const;
 	void update_difficulty (std::shared_ptr<nano::block>);
+	double normalized_difficulty (std::shared_ptr<nano::block>);
 	void add_adjust_difficulty (nano::block_hash const &);
 	void update_adjusted_difficulty ();
 	void update_active_difficulty (nano::unique_lock<std::mutex> &);

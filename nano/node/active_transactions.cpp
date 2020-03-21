@@ -494,15 +494,7 @@ std::pair<std::shared_ptr<nano::election>, bool> nano::active_transactions::inse
 				auto hash (block_a->hash ());
 				result.first = nano::make_shared<nano::election> (node, block_a, confirmation_action_a);
 				auto difficulty (block_a->difficulty ());
-				double multiplier (1.);
-				if (block_a->has_sideband ())
-				{
-					multiplier = nano::difficulty::to_multiplier (difficulty, nano::work_threshold (block_a->work_version (), block_a->sideband ().details));
-				}
-				else
-				{
-					multiplier = nano::difficulty::to_multiplier (difficulty, nano::work_threshold (block_a->work_version ()));
-				}
+				double multiplier (normalized_difficulty (block_a));
 				roots.get<tag_root> ().emplace (nano::conflict_info{ root, multiplier, difficulty, result.first });
 				blocks.emplace (hash, result.first);
 				add_adjust_difficulty (hash);
@@ -627,16 +619,7 @@ void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> 
 	auto existing_election (roots.get<tag_root> ().find (block_a->qualified_root ()));
 	if (existing_election != roots.get<tag_root> ().end ())
 	{
-		auto difficulty (block_a->difficulty ());
-		double multiplier (1.);
-		if (block_a->has_sideband ())
-		{
-			multiplier = nano::difficulty::to_multiplier (difficulty, nano::work_threshold (block_a->work_version (), block_a->sideband ().details));
-		}
-		else
-		{
-			multiplier = nano::difficulty::to_multiplier (difficulty, nano::work_threshold (block_a->work_version ()));
-		}
+		double multiplier (normalized_difficulty (block_a));
 		if (multiplier > existing_election->multiplier)
 		{
 			if (node.config.logging.active_update_logging ())
@@ -650,6 +633,60 @@ void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> 
 			add_adjust_difficulty (block_a->hash ());
 		}
 	}
+}
+
+double nano::active_transactions::normalized_difficulty (std::shared_ptr<nano::block> block_a)
+{
+	auto difficulty (block_a->difficulty ());
+	uint64_t threshold (0);
+	if (block_a->has_sideband ())
+	{
+		threshold = nano::work_threshold (block_a->work_version (), block_a->sideband ().details);
+	}
+	else
+	{
+		threshold = nano::work_threshold (block_a->work_version ());
+	}
+	double multiplier (nano::difficulty::to_multiplier (difficulty, threshold));
+	debug_assert (multiplier >= 1);
+	// Normalization rules
+	if (threshold == node.network_params.network.epoch_1_threshold)
+	{
+		// Epoch 1
+		auto rate (node.network_params.network.epoch_2_threshold / node.network_params.network.epoch_1_threshold);
+		auto rate_4 (rate * 4);
+		if (multiplier < rate) // From 0.75 to 2.0
+		{
+			multiplier = (multiplier / rate) * 1.25 + 0.75;
+		}
+		else if (multiplier < rate_4) // From 2.0 to 4.0
+		{
+			multiplier = (multiplier / rate_4) * 2.0 + 2.0;
+		}
+		else // Same computational resources for epoch 1 & epoch 2
+		{
+			multiplier = multiplier / rate;
+		}
+	}
+	else if (threshold == node.network_params.network.epoch_2_receive_threshold)
+	{
+		// Epoch 2 (receive / epoch subtypes)
+		auto rate (node.network_params.network.epoch_2_threshold / node.network_params.network.epoch_2_receive_threshold);
+		auto rate_4 (rate * 4);
+		if (multiplier < rate) // From 0.5 to 2.0
+		{
+			multiplier = (multiplier / rate) * 1.5 + 0.5;
+		}
+		else if (multiplier < rate_4) // From 2.0 to 4.0
+		{
+			multiplier = (multiplier / rate_4) * 2.0 + 2.0;
+		}
+		else // Same computational resources for send & receive
+		{
+			multiplier = multiplier / rate;
+		}
+	}
+	return multiplier;
 }
 
 void nano::active_transactions::add_adjust_difficulty (nano::block_hash const & hash_a)
@@ -724,6 +761,7 @@ void nano::active_transactions::update_adjusted_difficulty ()
 		if (!elections_list.empty ())
 		{
 			double multiplier = sum / elections_list.size ();
+			debug_assert (multiplier >= 1);
 			uint64_t average = nano::difficulty::from_multiplier (multiplier, node.network_params.network.publish_threshold);
 			// Prevent overflow
 			int64_t limiter (0);
