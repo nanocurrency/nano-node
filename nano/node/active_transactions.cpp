@@ -914,33 +914,36 @@ void nano::active_transactions::add_inactive_votes_cache (nano::block_hash const
 	{
 		auto & inactive_by_hash (inactive_votes_cache.get<tag_hash> ());
 		auto existing (inactive_by_hash.find (hash_a));
-		if (existing != inactive_by_hash.end () && (!existing->confirmed || !existing->bootstrap_started))
+		if (existing != inactive_by_hash.end ())
 		{
-			auto is_new (false);
-			inactive_by_hash.modify (existing, [representative_a, &is_new](nano::inactive_cache_information & info) {
-				auto it = std::find (info.voters.begin (), info.voters.end (), representative_a);
-				is_new = (it == info.voters.end ());
+			if (!existing->confirmed || !existing->bootstrap_started)
+			{
+				auto is_new (false);
+				inactive_by_hash.modify (existing, [representative_a, &is_new](nano::inactive_cache_information & info) {
+					auto it = std::find (info.voters.begin (), info.voters.end (), representative_a);
+					is_new = (it == info.voters.end ());
+					if (is_new)
+					{
+						info.arrival = std::chrono::steady_clock::now ();
+						info.voters.push_back (representative_a);
+					}
+				});
+
 				if (is_new)
 				{
-					info.arrival = std::chrono::steady_clock::now ();
-					info.voters.push_back (representative_a);
-				}
-			});
-
-			if (is_new)
-			{
-				bool confirmed (false);
-				if (inactive_votes_bootstrap_check (existing->voters, hash_a, confirmed) && !existing->bootstrap_started)
-				{
-					inactive_by_hash.modify (existing, [](nano::inactive_cache_information & info) {
-						info.bootstrap_started = true;
-					});
-				}
-				if (confirmed && !existing->confirmed)
-				{
-					inactive_by_hash.modify (existing, [](nano::inactive_cache_information & info) {
-						info.confirmed = true;
-					});
+					bool confirmed (false);
+					if (inactive_votes_bootstrap_check (existing->voters, hash_a, confirmed) && !existing->bootstrap_started)
+					{
+						inactive_by_hash.modify (existing, [](nano::inactive_cache_information & info) {
+							info.bootstrap_started = true;
+						});
+					}
+					if (confirmed && !existing->confirmed)
+					{
+						inactive_by_hash.modify (existing, [](nano::inactive_cache_information & info) {
+							info.confirmed = true;
+						});
+					}
 				}
 			}
 		}
