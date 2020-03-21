@@ -407,6 +407,18 @@ void ledger_processor::epoch_block_impl (nano::state_block & block_a)
 				else
 				{
 					result.code = block_a.hashables.representative.is_zero () ? nano::process_result::progress : nano::process_result::representative_mismatch;
+					// Non-exisitng account should have pending entries
+					if (result.code == nano::process_result::progress)
+					{
+						bool pending_exists (false);
+						nano::account end (block_a.hashables.account.number () + 1);
+						for (auto i (ledger.store.pending_begin (transaction, nano::pending_key (block_a.hashables.account, 0))), n (ledger.store.pending_begin (transaction, nano::pending_key (end, 0))); i != n && i != ledger.store.pending_end (); ++i)
+						{
+							pending_exists = true;
+							break;
+						}
+						result.code = pending_exists ? nano::process_result::progress : nano::process_result::block_position;
+					}
 				}
 				if (result.code == nano::process_result::progress)
 				{
