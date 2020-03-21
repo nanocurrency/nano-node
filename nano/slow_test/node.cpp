@@ -1,3 +1,4 @@
+#include <nano/core_test/common.hpp>
 #include <nano/core_test/testutil.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/threading.hpp>
@@ -832,21 +833,6 @@ TEST (confirmation_height, prioritize_frontiers_overwrite)
 
 namespace
 {
-void wait_peer_connections (nano::system & system_a)
-{
-	system_a.deadline_set (10s);
-	auto peer_count = 0;
-	auto num_nodes = system_a.nodes.size ();
-	while (peer_count != num_nodes * (num_nodes - 1))
-	{
-		ASSERT_NO_ERROR (system_a.poll ());
-		peer_count = std::accumulate (system_a.nodes.cbegin (), system_a.nodes.cend (), 0, [](auto total, auto const & node) {
-			auto transaction = node->store.tx_begin_read ();
-			return total += node->store.peer_count (transaction);
-		});
-	}
-}
-
 class data
 {
 public:
@@ -886,10 +872,11 @@ void callback_process (shared_data & shared_data_a, data & data, T & all_node_da
 
 TEST (node_telemetry, ongoing_requests)
 {
-	nano::system system (2);
-
-	auto node_client = system.nodes.front ();
-	auto node_server = system.nodes.back ();
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_initial_telemetry_requests = true;
+	auto node_client = system.add_node (node_flags);
+	auto node_server = system.add_node (node_flags);
 
 	wait_peer_connections (system);
 
@@ -925,8 +912,14 @@ namespace transport
 {
 	TEST (node_telemetry, simultaneous_requests)
 	{
+		nano::system system;
+		nano::node_flags node_flags;
+		node_flags.disable_initial_telemetry_requests = true;
 		const auto num_nodes = 4;
-		nano::system system (num_nodes);
+		for (int i = 0; i < num_nodes; ++i)
+		{
+			system.add_node (node_flags);
+		}
 
 		wait_peer_connections (system);
 
@@ -959,7 +952,7 @@ namespace transport
 							auto peer = data.node->network.tcp_channels.channels[0].channel;
 							data.node->telemetry->get_metrics_single_peer_async (peer, [&shared_data, &data, &node_data](nano::telemetry_data_response const & telemetry_data_response_a) {
 								ASSERT_FALSE (telemetry_data_response_a.error);
-								callback_process (shared_data, data, node_data, *telemetry_data_response_a.telemetry_data.timestamp);
+								callback_process (shared_data, data, node_data, telemetry_data_response_a.telemetry_data.timestamp);
 							});
 						}
 						std::this_thread::sleep_for (1ms);

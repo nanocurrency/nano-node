@@ -1,3 +1,4 @@
+#define IGNORE_GTEST_INCL
 #include <nano/core_test/testutil.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/node/common.hpp>

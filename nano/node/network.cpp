@@ -148,9 +148,9 @@ void nano::network::send_node_id_handshake (std::shared_ptr<nano::transport::cha
 	channel_a->send (message);
 }
 
-void nano::network::flood_message (nano::message const & message_a, nano::buffer_drop_policy drop_policy_a)
+void nano::network::flood_message (nano::message const & message_a, nano::buffer_drop_policy const drop_policy_a, float const scale_a)
 {
-	for (auto & i : list (fanout ()))
+	for (auto & i : list (fanout (scale_a)))
 	{
 		i->send (message_a, nullptr, drop_policy_a);
 	}
@@ -483,7 +483,7 @@ public:
 		nano::telemetry_ack telemetry_ack;
 		if (!node.flags.disable_providing_telemetry_metrics)
 		{
-			auto telemetry_data = nano::local_telemetry_data (node.ledger.cache, node.network, node.config.bandwidth_limit, node.network_params, node.startup_time);
+			auto telemetry_data = nano::local_telemetry_data (node.ledger.cache, node.network, node.config.bandwidth_limit, node.network_params, node.startup_time, node.node_id);
 			telemetry_ack = nano::telemetry_ack (telemetry_data);
 		}
 		channel->send (telemetry_ack, nullptr, nano::buffer_drop_policy::no_socket_drop);
@@ -497,7 +497,7 @@ public:
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::telemetry_ack, nano::stat::dir::in);
 		if (node.telemetry)
 		{
-			node.telemetry->set (message_a.data, channel->get_endpoint (), message_a.is_empty_payload ());
+			node.telemetry->set (message_a, *channel);
 		}
 	}
 	nano::node & node;
@@ -731,6 +731,19 @@ float nano::network::size_sqrt () const
 bool nano::network::empty () const
 {
 	return size () == 0;
+}
+
+void nano::network::erase (nano::transport::channel const & channel_a)
+{
+	if (channel_a.get_type () == nano::transport::transport_type::tcp)
+	{
+		tcp_channels.erase (channel_a.get_tcp_endpoint ());
+	}
+	else
+	{
+		udp_channels.erase (channel_a.get_endpoint ());
+		udp_channels.clean_node_id (channel_a.get_node_id ());
+	}
 }
 
 nano::message_buffer_manager::message_buffer_manager (nano::stat & stats_a, size_t size, size_t count) :
