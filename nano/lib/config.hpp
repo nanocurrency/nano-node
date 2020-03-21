@@ -79,6 +79,9 @@ public:
 	{
 		// The minimum threshold to enter the node, does not guarantee a block is processed
 		publish_threshold = is_test_network () ? publish_test_threshold : is_beta_network () ? publish_beta_threshold : publish_full_threshold;
+		epoch_1_threshold = is_test_network () ? publish_test_epoch_1_threshold : is_beta_network () ? publish_beta_threshold : publish_full_epoch_1_threshold;
+		epoch_2_threshold = is_test_network () ? publish_test_epoch_2_threshold : is_beta_network () ? publish_beta_threshold : publish_full_epoch_2_threshold;
+		epoch_2_receive_threshold = is_test_network () ? publish_test_epoch_2_receive_threshold : is_beta_network () ? publish_beta_threshold : publish_full_epoch_2_receive_threshold;
 
 		// A representative is classified as principal based on its weight and this factor
 		principal_weight_factor = 1000; // 0.1%
@@ -98,7 +101,12 @@ public:
 	static_assert (publish_full_threshold == publish_full_epoch_2_receive_threshold, "publish_full_threshold is ill-defined");
 
 	static uint64_t const publish_beta_threshold{ 0xfffff00000000000 }; // 64x lower than epoch 1
-	static uint64_t const publish_test_threshold{ 0xff00000000000000 }; // very low for tests
+
+	static uint64_t const publish_test_epoch_1_threshold{ 0xfc00000000000000 }; // very low for tests
+	static uint64_t const publish_test_epoch_2_threshold{ 0xff80000000000000 }; // 4x higher than epoch 1
+	static uint64_t const publish_test_epoch_2_receive_threshold{ 0xf800000000000000 }; // 4x lower than epoch 1
+	static uint64_t const publish_test_threshold{ std::min ({ publish_test_epoch_1_threshold, publish_test_epoch_2_threshold, publish_test_epoch_2_receive_threshold }) };
+	static_assert (publish_test_threshold == publish_test_epoch_2_receive_threshold, "publish_test_threshold is ill-defined");
 
 	/** Error message when an invalid network is specified */
 	static const char * active_network_err_msg;
@@ -106,6 +114,9 @@ public:
 	/** The network this param object represents. This may differ from the global active network; this is needed for certain --debug... commands */
 	nano_networks current_network{ nano::network_constants::active_network };
 	uint64_t publish_threshold;
+	uint64_t epoch_1_threshold;
+	uint64_t epoch_2_threshold;
+	uint64_t epoch_2_receive_threshold;
 	unsigned principal_weight_factor;
 	uint16_t default_node_port;
 	uint16_t default_rpc_port;
