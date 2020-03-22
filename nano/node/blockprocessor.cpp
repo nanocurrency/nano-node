@@ -76,23 +76,20 @@ void nano::block_processor::add (std::shared_ptr<nano::block> block_a, uint64_t 
 void nano::block_processor::add (nano::unchecked_info const & info_a)
 {
 	debug_assert (!nano::work_validate (*info_a.block));
-	bool should_notify{ false };
 	if (info_a.block->difficulty () >= nano::work_threshold (info_a.block->work_version ()))
 	{
-		nano::lock_guard<std::mutex> lock (mutex);
 		if (info_a.verified == nano::signature_verification::unknown && (info_a.block->type () == nano::block_type::state || info_a.block->type () == nano::block_type::open || !info_a.account.is_zero ()))
 		{
 			state_block_signature_verification.add (info_a);
 		}
 		else
 		{
-			should_notify = true;
-			blocks.push_back (info_a);
+			{
+				nano::lock_guard<std::mutex> guard (mutex);
+				blocks.push_back (info_a);
+			}
+			condition.notify_all ();
 		}
-	}
-	if (should_notify)
-	{
-		condition.notify_all ();
 	}
 }
 
