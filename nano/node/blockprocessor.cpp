@@ -21,6 +21,9 @@ state_block_signature_verification (node.checker, node.ledger.network_params.led
 	state_block_signature_verification.blocks_verified_callback = [this](std::deque<nano::unchecked_info> & items, std::vector<int> const & verifications, std::vector<nano::block_hash> const & hashes, std::vector<nano::signature> const & blocks_signatures) {
 		this->process_verified_state_blocks (items, verifications, hashes, blocks_signatures);
 	};
+	state_block_signature_verification.transition_inactive_callback = [this]() {
+		this->condition.notify_all ();
+	};
 }
 
 nano::block_processor::~block_processor ()
