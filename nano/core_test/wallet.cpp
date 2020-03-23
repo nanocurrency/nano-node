@@ -1137,7 +1137,7 @@ TEST (wallet, work_watcher_update)
 	auto difficulty1 (block1->difficulty ());
 	auto const block2 (wallet.send_action (nano::test_genesis_key.pub, key.pub, 200));
 	auto difficulty2 (block2->difficulty ());
-	auto multiplier = nano::difficulty::to_multiplier (std::max (difficulty1, difficulty2), node.network_params.network.publish_threshold);
+	auto multiplier = nano::difficulty::to_multiplier (std::max (difficulty1, difficulty2), node.network_params.network.publish_thresholds.base);
 	uint64_t updated_difficulty1{ difficulty1 }, updated_difficulty2{ difficulty2 };
 	{
 		nano::unique_lock<std::mutex> lock (node.active.mutex);
@@ -1243,7 +1243,7 @@ TEST (wallet, work_watcher_cancel)
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.work_watcher_period = 1s;
 	node_config.max_work_generate_multiplier = 1e6;
-	node_config.max_work_generate_difficulty = nano::difficulty::from_multiplier (node_config.max_work_generate_multiplier, nano::network_constants::publish_test_threshold);
+	node_config.max_work_generate_difficulty = nano::difficulty::from_multiplier (node_config.max_work_generate_multiplier, nano::network_constants ().publish_test.base);
 	node_config.enable_voting = false;
 	auto & node = *system.add_node (node_config);
 	auto & wallet (*system.wallet (0));

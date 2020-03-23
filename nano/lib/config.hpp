@@ -66,6 +66,31 @@ enum class nano_networks
 	rai_live_network = 2,
 };
 
+struct work_thresholds
+{
+	uint64_t const epoch_1;
+	uint64_t const epoch_2;
+	uint64_t const epoch_2_receive;
+
+	// Automatically calculated. The base threshold is the maximum of all thresholds and is used for all work multiplier calculations
+	uint64_t const base;
+
+	// Automatically calculated. The entry threshold is the minimum of all thresholds and defines the required work to enter the node, but does not guarantee a block is processed
+	uint64_t const entry;
+
+	constexpr work_thresholds (uint64_t epoch_1_a, uint64_t epoch_2_a, uint64_t epoch_2_receive_a) :
+	epoch_1 (epoch_1_a), epoch_2 (epoch_2_a), epoch_2_receive (epoch_2_receive_a),
+	base (std::max ({ epoch_1, epoch_2, epoch_2_receive })),
+	entry (std::min ({ epoch_1, epoch_2, epoch_2_receive }))
+	{
+	}
+	work_thresholds () = delete;
+	work_thresholds operator= (nano::work_thresholds const & other_a)
+	{
+		return other_a;
+	}
+};
+
 class network_constants
 {
 public:
@@ -75,11 +100,9 @@ public:
 	}
 
 	network_constants (nano_networks network_a) :
-	current_network (network_a)
+	current_network (network_a),
+	publish_thresholds (is_live_network () ? publish_full : is_beta_network () ? publish_beta : publish_test)
 	{
-		// The minimum threshold to enter the node, does not guarantee a block is processed
-		publish_threshold = is_test_network () ? publish_test_threshold : is_beta_network () ? publish_beta_threshold : publish_full_threshold;
-
 		// A representative is classified as principal based on its weight and this factor
 		principal_weight_factor = 1000; // 0.1%
 
@@ -90,22 +113,18 @@ public:
 		request_interval_ms = is_test_network () ? 20 : 500;
 	}
 
-	/** Network work thresholds */
-	static uint64_t const publish_full_epoch_1_threshold{ 0xffffffc000000000 };
-	static uint64_t const publish_full_epoch_2_threshold{ 0xfffffff800000000 }; // 8x higher than epoch 1
-	static uint64_t const publish_full_epoch_2_receive_threshold{ 0xfffffe0000000000 }; // 8x lower than epoch 1
-	static uint64_t const publish_full_threshold{ std::min ({ publish_full_epoch_1_threshold, publish_full_epoch_2_threshold, publish_full_epoch_2_receive_threshold }) };
-	static_assert (publish_full_threshold == publish_full_epoch_2_receive_threshold, "publish_full_threshold is ill-defined");
-
-	static uint64_t const publish_beta_threshold{ 0xfffff00000000000 }; // 64x lower than epoch 1
-	static uint64_t const publish_test_threshold{ 0xff00000000000000 }; // very low for tests
+	/** Network work thresholds. Define these inline as constexpr when moving to cpp17. */
+	static const nano::work_thresholds publish_full;
+	static const nano::work_thresholds publish_beta;
+	static const nano::work_thresholds publish_test;
 
 	/** Error message when an invalid network is specified */
 	static const char * active_network_err_msg;
 
 	/** The network this param object represents. This may differ from the global active network; this is needed for certain --debug... commands */
 	nano_networks current_network{ nano::network_constants::active_network };
-	uint64_t publish_threshold;
+	nano::work_thresholds publish_thresholds;
+
 	unsigned principal_weight_factor;
 	uint16_t default_node_port;
 	uint16_t default_rpc_port;

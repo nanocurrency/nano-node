@@ -3732,7 +3732,7 @@ TEST (active_difficulty, recalculate_work)
 	auto & node1 = *system.add_node (node_config);
 	nano::genesis genesis;
 	nano::keypair key1;
-	ASSERT_EQ (node1.network_params.network.publish_threshold, node1.active.active_difficulty ());
+	ASSERT_EQ (node1.network_params.network.publish_thresholds.base, node1.active.active_difficulty ());
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send1);
 	auto multiplier1 = nano::difficulty::to_multiplier (send1->difficulty (), nano::work_threshold (send1->work_version ()));
@@ -3744,7 +3744,7 @@ TEST (active_difficulty, recalculate_work)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	auto sum (std::accumulate (node1.active.multipliers_cb.begin (), node1.active.multipliers_cb.end (), double(0)));
-	ASSERT_EQ (node1.active.active_difficulty (), nano::difficulty::from_multiplier (sum / node1.active.multipliers_cb.size (), node1.network_params.network.publish_threshold));
+	ASSERT_EQ (node1.active.active_difficulty (), nano::difficulty::from_multiplier (sum / node1.active.multipliers_cb.size (), node1.network_params.network.publish_thresholds.base));
 	nano::unique_lock<std::mutex> lock (node1.active.mutex);
 	// Fake history records to force work recalculation
 	for (auto i (0); i < node1.active.multipliers_cb.size (); i++)
@@ -3755,7 +3755,7 @@ TEST (active_difficulty, recalculate_work)
 	node1.process_active (send1);
 	node1.active.update_active_difficulty (lock);
 	sum = std::accumulate (node1.active.multipliers_cb.begin (), node1.active.multipliers_cb.end (), double(0));
-	ASSERT_EQ (node1.active.trended_active_difficulty, nano::difficulty::from_multiplier (sum / node1.active.multipliers_cb.size (), node1.network_params.network.publish_threshold));
+	ASSERT_EQ (node1.active.trended_active_difficulty, nano::difficulty::from_multiplier (sum / node1.active.multipliers_cb.size (), node1.network_params.network.publish_thresholds.base));
 	lock.unlock ();
 }
 
