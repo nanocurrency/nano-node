@@ -1339,6 +1339,7 @@ TEST (wallet, epoch_2_validation)
 		ASSERT_NE (nullptr, receive);
 		if (receive->difficulty () < node.network_params.network.publish_thresholds.base)
 		{
+			ASSERT_GE (receive->difficulty (), node.network_params.network.publish_thresholds.epoch_2_receive);
 			break;
 		}
 	}
@@ -1348,9 +1349,9 @@ TEST (wallet, epoch_2_validation)
 	ASSERT_NE (nullptr, wallet.change_action (nano::test_genesis_key.pub, nano::keypair ().pub, 1));
 }
 
-TEST (wallet, receive_epoch_2_propagation)
+// Receiving from an upgraded account uses the lower threshold and upgrades the receiving account
+TEST (wallet, epoch_2_receive_propagation)
 {
-	// Ensure the lower receive work is used when receiving
 	auto tries = 0;
 	auto const max_tries = 20;
 	while (++tries < max_tries)
@@ -1387,6 +1388,7 @@ TEST (wallet, receive_epoch_2_propagation)
 		ASSERT_NE (nullptr, receive2);
 		if (receive2->difficulty () < node.network_params.network.publish_thresholds.base)
 		{
+			ASSERT_GE (receive2->difficulty (), node.network_params.network.publish_thresholds.epoch_2_receive);
 			ASSERT_EQ (nano::epoch::epoch_2, node.store.block_version (node.store.tx_begin_read (), receive2->hash ()));
 			break;
 		}
@@ -1394,7 +1396,8 @@ TEST (wallet, receive_epoch_2_propagation)
 	ASSERT_LT (tries, max_tries);
 }
 
-TEST (wallet, receive_epoch_2_unopened)
+// Opening an upgraded account uses the lower threshold
+TEST (wallet, epoch_2_receive_unopened)
 {
 	// Ensure the lower receive work is used when receiving
 	auto tries = 0;
@@ -1428,6 +1431,7 @@ TEST (wallet, receive_epoch_2_unopened)
 		ASSERT_NE (nullptr, receive1);
 		if (receive1->difficulty () < node.network_params.network.publish_thresholds.base)
 		{
+			ASSERT_GE (receive1->difficulty (), node.network_params.network.publish_thresholds.epoch_2_receive);
 			ASSERT_EQ (nano::epoch::epoch_2, node.store.block_version (node.store.tx_begin_read (), receive1->hash ()));
 			break;
 		}
