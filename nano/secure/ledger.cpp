@@ -478,7 +478,7 @@ void ledger_processor::change_block (nano::change_block & block_a)
 					}
 					if (result.code == nano::process_result::progress)
 					{
-						nano::block_details block_details (nano::epoch::epoch_0, false, false, false);
+						nano::block_details block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
 						result.code = block_a.difficulty () >= nano::work_threshold (block_a.work_version (), block_details) ? nano::process_result::progress : nano::process_result::insufficient_work; // Does this block have sufficient work? (Malformed)
 						if (result.code == nano::process_result::progress)
 						{
@@ -529,7 +529,7 @@ void ledger_processor::send_block (nano::send_block & block_a)
 					}
 					if (result.code == nano::process_result::progress)
 					{
-						nano::block_details block_details (nano::epoch::epoch_0, true, false, false);
+						nano::block_details block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
 						result.code = block_a.difficulty () >= nano::work_threshold (block_a.work_version (), block_details) ? nano::process_result::progress : nano::process_result::insufficient_work; // Does this block have sufficient work? (Malformed)
 						if (result.code == nano::process_result::progress)
 						{
@@ -608,7 +608,7 @@ void ledger_processor::receive_block (nano::receive_block & block_a)
 									result.code = pending.epoch == nano::epoch::epoch_0 ? nano::process_result::progress : nano::process_result::unreceivable; // Are we receiving a state-only send? (Malformed)
 									if (result.code == nano::process_result::progress)
 									{
-										nano::block_details block_details (nano::epoch::epoch_0, false, true, false);
+										nano::block_details block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
 										result.code = block_a.difficulty () >= nano::work_threshold (block_a.work_version (), block_details) ? nano::process_result::progress : nano::process_result::insufficient_work; // Does this block have sufficient work? (Malformed)
 										if (result.code == nano::process_result::progress)
 										{
@@ -678,7 +678,7 @@ void ledger_processor::open_block (nano::open_block & block_a)
 							result.code = pending.epoch == nano::epoch::epoch_0 ? nano::process_result::progress : nano::process_result::unreceivable; // Are we receiving a state-only send? (Malformed)
 							if (result.code == nano::process_result::progress)
 							{
-								nano::block_details block_details (nano::epoch::epoch_0, false, true, false);
+								nano::block_details block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
 								result.code = block_a.difficulty () >= nano::work_threshold (block_a.work_version (), block_details) ? nano::process_result::progress : nano::process_result::insufficient_work; // Does this block have sufficient work? (Malformed)
 								if (result.code == nano::process_result::progress)
 								{
