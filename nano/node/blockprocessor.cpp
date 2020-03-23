@@ -25,6 +25,7 @@ state_block_signature_verification (node.checker, node.ledger.network_params.led
 		if (this->flushing)
 		{
 			{
+				// Prevent a race with condition.wait in block_processor::flush
 				nano::lock_guard<std::mutex> guard (this->mutex);
 			}
 			this->condition.notify_all ();
