@@ -22,7 +22,13 @@ state_block_signature_verification (node.checker, node.ledger.network_params.led
 		this->process_verified_state_blocks (items, verifications, hashes, blocks_signatures);
 	};
 	state_block_signature_verification.transition_inactive_callback = [this]() {
-		this->condition.notify_all ();
+		if (this->flushing)
+		{
+			{
+				nano::lock_guard<std::mutex> guard (this->mutex);
+			}
+			this->condition.notify_all ();
+		}
 	};
 }
 
