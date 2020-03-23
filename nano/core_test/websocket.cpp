@@ -1,3 +1,4 @@
+#include <nano/core_test/common.hpp>
 #include <nano/core_test/fakes/websocket_client.hpp>
 #include <nano/core_test/testutil.hpp>
 #include <nano/node/testing.hpp>
@@ -852,4 +853,64 @@ TEST (websocket, ws_keepalive)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+}
+
+// Tests sending telemetry
+TEST (websocket, telemetry)
+{
+	nano::system system;
+	nano::node_config config (nano::get_available_port (), system.logging);
+	config.websocket_config.enabled = true;
+	config.websocket_config.port = nano::get_available_port ();
+	nano::node_flags node_flags;
+	node_flags.disable_initial_telemetry_requests = true;
+	node_flags.disable_ongoing_telemetry_requests = true;
+	auto node1 (system.add_node (config, node_flags));
+	config.peering_port = nano::get_available_port ();
+	config.websocket_config.enabled = true;
+	config.websocket_config.port = nano::get_available_port ();
+	auto node2 (system.add_node (config, node_flags));
+
+	wait_peer_connections (system);
+
+	std::atomic<bool> done{ false };
+	auto task = ([config = node1->config, &node1, &done]() {
+		fake_websocket_client client (config.websocket_config.port);
+		client.send_message (R"json({"action": "subscribe", "topic": "telemetry", "ack": true})json");
+		client.await_ack ();
+		done = true;
+		EXPECT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::telemetry));
+		return client.get_response ();
+	});
+
+	auto future = std::async (std::launch::async, task);
+
+	ASSERT_TIMELY (10s, done);
+
+	node1->telemetry->get_metrics_single_peer_async (node1->network.find_channel (node2->network.endpoint ()), [](auto const & response_a) {
+		ASSERT_FALSE (response_a.error);
+	});
+
+	ASSERT_TIMELY (10s, future.wait_for (0s) == std::future_status::ready);
+
+	// Check the telemetry notification message
+	auto response = future.get ();
+
+	std::stringstream stream;
+	stream << response;
+	boost::property_tree::ptree event;
+	boost::property_tree::read_json (stream, event);
+	ASSERT_EQ (event.get<std::string> ("topic"), "telemetry");
+
+	auto & contents = event.get_child ("message");
+	nano::jsonconfig telemetry_contents (contents);
+	nano::telemetry_data telemetry_data;
+	telemetry_data.deserialize_json (telemetry_contents, false);
+	compare_default_telemetry_response_data (telemetry_data, node2->network_params, node2->config.bandwidth_limit, node2->node_id);
+
+	ASSERT_EQ (contents.get<std::string> ("address"), node2->network.endpoint ().address ().to_string ());
+	ASSERT_EQ (contents.get<uint16_t> ("port"), node2->network.endpoint ().port ());
+
+	// Other node should have no subscribers
+	EXPECT_EQ (0, node2->websocket_server->subscriber_count (nano::websocket::topic::telemetry));
 }

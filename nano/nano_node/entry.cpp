@@ -188,7 +188,7 @@ int main (int argc, char * const * argv)
 						          << "Public: " << rep.pub.to_string () << "\n"
 						          << "Account: " << rep.pub.to_account () << "\n";
 					}
-					static nano::network_constants network_constants;
+					nano::network_constants network_constants;
 					nano::uint128_t balance (std::numeric_limits<nano::uint128_t>::max ());
 					nano::open_block genesis_block (reinterpret_cast<const nano::block_hash &> (genesis.pub), genesis.pub, genesis.pub, genesis.prv, genesis.pub, *work.generate (nano::work_version::work_1, genesis.pub, network_constants.publish_thresholds.epoch_1));
 					std::cout << genesis_block.to_json ();
@@ -307,7 +307,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_generate"))
 		{
-			static nano::network_constants network_constants;
+			nano::network_constants network_constants;
 			uint64_t difficulty{ network_constants.publish_full.base };
 			auto pow_rate_limiter = std::chrono::nanoseconds (0);
 			auto pow_sleep_interval_it = vm.find ("pow_sleep_interval");
@@ -330,8 +330,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_validate"))
 		{
-			static nano::network_constants network_constants;
-			uint64_t difficulty{ network_constants.publish_full.base };
+			uint64_t difficulty{ nano::network_constants ().publish_full.base };
 			std::cerr << "Starting validation profile" << std::endl;
 			auto start (std::chrono::steady_clock::now ());
 			bool valid{ false };
@@ -349,7 +348,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_opencl"))
 		{
-			static nano::network_constants network_constants;
+			nano::network_constants network_constants;
 			bool error (false);
 			nano::opencl_environment environment (error);
 			if (!error)

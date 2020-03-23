@@ -1,6 +1,8 @@
 #include <nano/lib/alarm.hpp>
+#include <nano/lib/stats.hpp>
 #include <nano/lib/worker.hpp>
 #include <nano/node/network.hpp>
+#include <nano/node/nodeconfig.hpp>
 #include <nano/node/telemetry.hpp>
 #include <nano/node/transport/transport.hpp>
 #include <nano/secure/buffer.hpp>
@@ -15,10 +17,13 @@
 
 using namespace std::chrono_literals;
 
-nano::telemetry::telemetry (nano::network & network_a, nano::alarm & alarm_a, nano::worker & worker_a, bool disable_ongoing_requests_a) :
+nano::telemetry::telemetry (nano::network & network_a, nano::alarm & alarm_a, nano::worker & worker_a, nano::observer_set<nano::telemetry_data const &, nano::endpoint const &> & observers_a, nano::stat & stats_a, nano::network_params & network_params_a, bool disable_ongoing_requests_a) :
 network (network_a),
 alarm (alarm_a),
 worker (worker_a),
+observers (observers_a),
+stats (stats_a),
+network_params (network_params_a),
 disable_ongoing_requests (disable_ongoing_requests_a)
 {
 }
@@ -41,9 +46,10 @@ void nano::telemetry::set (nano::telemetry_ack const & message_a, nano::transpor
 {
 	if (!stopped)
 	{
-		nano::lock_guard<std::mutex> guard (mutex);
-		auto it = recent_or_initial_request_telemetry_data.find (channel_a.get_endpoint ());
-		if (it == recent_or_initial_request_telemetry_data.cend ())
+		nano::unique_lock<std::mutex> lk (mutex);
+		nano::endpoint endpoint = channel_a.get_endpoint ();
+		auto it = recent_or_initial_request_telemetry_data.find (endpoint);
+		if (it == recent_or_initial_request_telemetry_data.cend () || !it->undergoing_request)
 		{
 			// Not requesting telemetry data from this peer so ignore it
 			return;
@@ -54,14 +60,61 @@ void nano::telemetry::set (nano::telemetry_ack const & message_a, nano::transpor
 			telemetry_info_a.undergoing_request = false;
 		});
 
-		auto error = false;
-		if (!message_a.is_empty_payload ())
-		{
-			error = !message_a.data.validate_signature (message_a.size ()) && (channel_a.get_node_id () != message_a.data.node_id);
-		}
+		// This can also remove the peer
+		auto error = verify_message (message_a, channel_a);
 
-		channel_processed (channel_a.get_endpoint (), error || message_a.is_empty_payload ());
+		if (!error)
+		{
+			// Received telemetry data from a peer which hasn't disabled providing telemetry metrics and there no errors with the data
+			lk.unlock ();
+			observers.notify (message_a.data, endpoint);
+			lk.lock ();
+		}
+		channel_processed (endpoint, error);
 	}
+}
+
+bool nano::telemetry::verify_message (nano::telemetry_ack const & message_a, nano::transport::channel const & channel_a)
+{
+	if (message_a.is_empty_payload ())
+	{
+		return true;
+	}
+
+	auto remove_channel = false;
+	// We want to ensure that the node_id of the channel matches that in the message before attempting to
+	// use the data to remove any peers.
+	auto node_id_mismatch = (channel_a.get_node_id () != message_a.data.node_id);
+	if (!node_id_mismatch)
+	{
+		// The data could be correctly signed but for a different node id
+		remove_channel = message_a.data.validate_signature (message_a.size ());
+		if (!remove_channel)
+		{
+			// Check for different genesis blocks
+			remove_channel = (message_a.data.genesis_block != network_params.ledger.genesis_hash);
+			if (remove_channel)
+			{
+				stats.inc (nano::stat::type::telemetry, nano::stat::detail::different_genesis_hash);
+			}
+		}
+		else
+		{
+			stats.inc (nano::stat::type::telemetry, nano::stat::detail::invalid_signature);
+		}
+	}
+	else
+	{
+		stats.inc (nano::stat::type::telemetry, nano::stat::detail::node_id_mismatch);
+	}
+
+	if (remove_channel)
+	{
+		// Disconnect from peer with incorrect telemetry data
+		network.erase (channel_a);
+	}
+
+	return remove_channel || node_id_mismatch;
 }
 
 std::chrono::milliseconds nano::telemetry::cache_plus_buffer_cutoff_time () const
@@ -281,14 +334,14 @@ nano::telemetry_data_response nano::telemetry::get_metrics_single_peer (std::sha
 	return promise.get_future ().get ();
 }
 
-void nano::telemetry::fire_request_message (std::shared_ptr<nano::transport::channel> const & channel)
+void nano::telemetry::fire_request_message (std::shared_ptr<nano::transport::channel> const & channel_a)
 {
 	// Fire off a telemetry request to all passed in channels
-	debug_assert (channel->get_network_version () >= network_params.protocol.telemetry_protocol_version_min);
+	debug_assert (channel_a->get_network_version () >= network_params.protocol.telemetry_protocol_version_min);
 
 	uint64_t round_l;
 	{
-		auto it = recent_or_initial_request_telemetry_data.find (channel->get_endpoint ());
+		auto it = recent_or_initial_request_telemetry_data.find (channel_a->get_endpoint ());
 		recent_or_initial_request_telemetry_data.modify (it, [](nano::telemetry_info & telemetry_info_a) {
 			++telemetry_info_a.round;
 		});
@@ -298,7 +351,7 @@ void nano::telemetry::fire_request_message (std::shared_ptr<nano::transport::cha
 	std::weak_ptr<nano::telemetry> this_w (shared_from_this ());
 	nano::telemetry_req message;
 	// clang-format off
-	channel->send (message, [this_w, endpoint = channel->get_endpoint ()](boost::system::error_code const & ec, size_t size_a) {
+	channel_a->send (message, [this_w, endpoint = channel_a->get_endpoint ()](boost::system::error_code const & ec, size_t size_a) {
 		if (auto this_l = this_w.lock ())
 		{
 			if (ec)
@@ -313,7 +366,7 @@ void nano::telemetry::fire_request_message (std::shared_ptr<nano::transport::cha
 	// clang-format on
 
 	// If no response is seen after a certain period of time remove it
-	alarm.add (std::chrono::steady_clock::now () + response_time_cutoff, [round_l, this_w, endpoint = channel->get_endpoint ()]() {
+	alarm.add (std::chrono::steady_clock::now () + response_time_cutoff, [round_l, this_w, endpoint = channel_a->get_endpoint ()]() {
 		if (auto this_l = this_w.lock ())
 		{
 			nano::lock_guard<std::mutex> guard (this_l->mutex);
@@ -454,30 +507,9 @@ nano::telemetry_data nano::consolidate_telemetry_data (std::vector<nano::telemet
 		cemented_counts.insert (telemetry_data.cemented_count);
 
 		std::ostringstream ss;
-		ss << telemetry_data.major_version;
-		if (telemetry_data.minor_version.is_initialized ())
-		{
-			ss << "." << *telemetry_data.minor_version;
-			if (telemetry_data.patch_version.is_initialized ())
-			{
-				ss << "." << *telemetry_data.patch_version;
-				if (telemetry_data.pre_release_version.is_initialized ())
-				{
-					ss << "." << *telemetry_data.pre_release_version;
-					if (telemetry_data.maker.is_initialized ())
-					{
-						ss << "." << *telemetry_data.maker;
-					}
-				}
-			}
-		}
-
-		if (telemetry_data.timestamp.is_initialized ())
-		{
-			timestamps.insert (std::chrono::duration_cast<std::chrono::milliseconds> (telemetry_data.timestamp->time_since_epoch ()).count ());
-		}
-
+		ss << telemetry_data.major_version << "." << telemetry_data.minor_version << "." << telemetry_data.patch_version << "." << telemetry_data.pre_release_version << "." << telemetry_data.maker;
 		++vendor_versions[ss.str ()];
+		timestamps.insert (std::chrono::duration_cast<std::chrono::milliseconds> (telemetry_data.timestamp.time_since_epoch ()).count ());
 		++protocol_versions[telemetry_data.protocol_version];
 		peer_counts.insert (telemetry_data.peer_count);
 		unchecked_counts.insert (telemetry_data.unchecked_count);
@@ -567,15 +599,12 @@ nano::telemetry_data nano::consolidate_telemetry_data (std::vector<nano::telemet
 	// May only have major version, but check for optional parameters as well, only output if all are used
 	std::vector<std::string> version_fragments;
 	boost::split (version_fragments, version, boost::is_any_of ("."));
-	debug_assert (!version_fragments.empty () && version_fragments.size () <= 5);
+	debug_assert (version_fragments.size () == 5);
 	consolidated_data.major_version = boost::lexical_cast<uint8_t> (version_fragments.front ());
-	if (version_fragments.size () == 5)
-	{
-		consolidated_data.minor_version = boost::lexical_cast<uint8_t> (version_fragments[1]);
-		consolidated_data.patch_version = boost::lexical_cast<uint8_t> (version_fragments[2]);
-		consolidated_data.pre_release_version = boost::lexical_cast<uint8_t> (version_fragments[3]);
-		consolidated_data.maker = boost::lexical_cast<uint8_t> (version_fragments[4]);
-	}
+	consolidated_data.minor_version = boost::lexical_cast<uint8_t> (version_fragments[1]);
+	consolidated_data.patch_version = boost::lexical_cast<uint8_t> (version_fragments[2]);
+	consolidated_data.pre_release_version = boost::lexical_cast<uint8_t> (version_fragments[3]);
+	consolidated_data.maker = boost::lexical_cast<uint8_t> (version_fragments[4]);
 
 	return consolidated_data;
 }

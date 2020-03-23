@@ -106,7 +106,7 @@ gap_cache (*this),
 ledger (store, stats, flags_a.generate_cache),
 checker (config.signature_checker_threads),
 network (*this, config.peering_port),
-telemetry (std::make_shared<nano::telemetry> (network, alarm, worker, flags.disable_ongoing_telemetry_requests)),
+telemetry (std::make_shared<nano::telemetry> (network, alarm, worker, observers.telemetry, stats, network_params, flags.disable_ongoing_telemetry_requests)),
 bootstrap_initiator (*this),
 bootstrap (config.peering_port, *this),
 application_path (application_path_a),
@@ -261,6 +261,14 @@ startup_time (std::chrono::steady_clock::now ())
 					nano::websocket::message_builder builder;
 					auto msg (builder.difficulty_changed (network_params.network.publish_thresholds.epoch_1, active_difficulty));
 					this->websocket_server->broadcast (msg);
+				}
+			});
+
+			observers.telemetry.add ([this](nano::telemetry_data const & telemetry_data, nano::endpoint const & endpoint) {
+				if (this->websocket_server->any_subscriber (nano::websocket::topic::telemetry))
+				{
+					nano::websocket::message_builder builder;
+					this->websocket_server->broadcast (builder.telemetry_received (telemetry_data, endpoint));
 				}
 			});
 		}
@@ -548,10 +556,10 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 					}
 				}
 			});
-			if (election.second)
+			if (election.inserted)
 			{
 				logger.always_log (boost::str (boost::format ("Resolving fork between our block: %1% and block %2% both with root %3%") % ledger_block->hash ().to_string () % block_a->hash ().to_string () % block_a->root ().to_string ()));
-				election.first->transition_active ();
+				election.election->transition_active ();
 			}
 		}
 	}
@@ -1078,12 +1086,12 @@ void nano::node::add_initial_peers ()
 void nano::node::block_confirm (std::shared_ptr<nano::block> block_a)
 {
 	auto election = active.insert (block_a);
-	if (election.second)
+	if (election.inserted)
 	{
-		election.first->transition_active ();
+		election.election->transition_active ();
 	}
 	// Calculate votes for local representatives
-	if (config.enable_voting && wallets.rep_counts ().voting > 0 && active.active (*block_a))
+	if (election.prioritized && config.enable_voting && wallets.rep_counts ().voting > 0 && active.active (*block_a))
 	{
 		block_processor.generator.add (block_a->hash ());
 	}

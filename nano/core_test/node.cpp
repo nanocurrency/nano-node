@@ -1865,12 +1865,12 @@ TEST (node, rep_self_vote)
 	node0->block_processor.generator.add (block0->hash ());
 	system.deadline_set (1s);
 	// Wait until representatives are activated & make vote
-	while (election1.first->last_votes_size () != 3)
+	while (election1.election->last_votes_size () != 3)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	nano::unique_lock<std::mutex> lock (active.mutex);
-	auto & rep_votes (election1.first->last_votes);
+	auto & rep_votes (election1.election->last_votes);
 	ASSERT_NE (rep_votes.end (), rep_votes.find (nano::test_genesis_key.pub));
 	ASSERT_NE (rep_votes.end (), rep_votes.find (rep_big.pub));
 }
@@ -3218,6 +3218,7 @@ TEST (node, block_processor_signatures)
 
 /*
  *  State blocks go through a different signature path, ensure invalidly signed state blocks are rejected
+ *  This test can freeze if the wake conditions in block_processor::flush are off, for that reason this is done async here
  */
 TEST (node, block_processor_reject_state)
 {
@@ -3229,12 +3230,14 @@ TEST (node, block_processor_reject_state)
 	send1->signature.bytes[0] ^= 1;
 	ASSERT_FALSE (node.ledger.block_exists (send1->hash ()));
 	node.process_active (send1);
-	node.block_processor.flush ();
+	auto flushed = std::async (std::launch::async, [&node] { node.block_processor.flush (); });
+	ASSERT_NE (std::future_status::timeout, flushed.wait_for (5s));
 	ASSERT_FALSE (node.ledger.block_exists (send1->hash ()));
 	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node.work_generate_blocking (*send2);
 	node.process_active (send2);
-	node.block_processor.flush ();
+	auto flushed2 = std::async (std::launch::async, [&node] { node.block_processor.flush (); });
+	ASSERT_NE (std::future_status::timeout, flushed2.wait_for (5s));
 	ASSERT_TRUE (node.ledger.block_exists (send2->hash ()));
 }
 
