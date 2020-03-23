@@ -2969,3 +2969,90 @@ TEST (ledger, zero_rep)
 	ASSERT_EQ (nano::genesis_amount, node1.ledger.cache.rep_weights.representation_get (nano::test_genesis_key.pub));
 	ASSERT_EQ (0, node1.ledger.cache.rep_weights.representation_get (0));
 }
+
+TEST (ledger, work_validation)
+{
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_TRUE (!store->init_error ());
+	nano::stat stats;
+	nano::ledger ledger (*store, stats);
+	nano::genesis genesis;
+	store->initialize (store->tx_begin_write (), genesis, ledger.cache);
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+	nano::block_builder builder;
+	auto gen = nano::test_genesis_key;
+	nano::keypair key;
+
+	// With random work the block doesn't pass, then modifies the block with sufficient work and ensures a correct result
+	auto process_block = [&store, &ledger, &pool](nano::block & block_a, nano::block_details const details_a) {
+		EXPECT_EQ (nano::process_result::insufficient_work, ledger.process (store->tx_begin_write (), block_a).code);
+		block_a.block_work_set (*pool.generate (block_a.root (), nano::work_threshold (block_a.work_version (), details_a)));
+		EXPECT_EQ (nano::process_result::progress, ledger.process (store->tx_begin_write (), block_a).code);
+	};
+
+	std::error_code ec;
+
+	auto send = *builder.send ()
+	             .previous (nano::genesis_hash)
+	             .destination (gen.pub)
+	             .balance (nano::genesis_amount - 1)
+	             .sign (gen.prv, gen.pub)
+	             .work (0)
+	             .build (ec);
+	ASSERT_FALSE (ec);
+
+	auto receive = *builder.receive ()
+	                .previous (send.hash ())
+	                .source (send.hash ())
+	                .sign (gen.prv, gen.pub)
+	                .work (0)
+	                .build (ec);
+	ASSERT_FALSE (ec);
+
+	auto change = *builder.change ()
+	               .previous (receive.hash ())
+	               .representative (key.pub)
+	               .sign (gen.prv, gen.pub)
+	               .work (0)
+	               .build (ec);
+	ASSERT_FALSE (ec);
+
+	auto state = *builder.state ()
+	              .account (gen.pub)
+	              .previous (change.hash ())
+	              .representative (gen.pub)
+	              .balance (nano::genesis_amount - 1)
+	              .link (key.pub)
+	              .sign (gen.prv, gen.pub)
+	              .work (0)
+	              .build (ec);
+	ASSERT_FALSE (ec);
+
+	auto open = *builder.open ()
+	             .account (key.pub)
+	             .source (state.hash ())
+	             .representative (key.pub)
+	             .sign (key.prv, key.pub)
+	             .work (0)
+	             .build (ec);
+	ASSERT_FALSE (ec);
+
+	auto epoch = *builder.state ()
+	              .account (key.pub)
+	              .previous (open.hash ())
+	              .balance (1)
+	              .representative (key.pub)
+	              .link (ledger.epoch_link (nano::epoch::epoch_1))
+	              .sign (gen.prv, gen.pub)
+	              .work (0)
+	              .build (ec);
+	ASSERT_FALSE (ec);
+
+	process_block (send, {});
+	process_block (receive, {});
+	process_block (change, {});
+	process_block (state, nano::block_details (nano::epoch::epoch_0, true, false, false));
+	process_block (open, {});
+	process_block (epoch, nano::block_details (nano::epoch::epoch_1, false, false, true));
+}
