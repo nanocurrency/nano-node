@@ -230,7 +230,7 @@ void nano::telemetry::ongoing_req_all_peers (std::chrono::milliseconds next_requ
 							{
 								next_round = std::min<long long> (next_round, std::chrono::duration_cast<std::chrono::milliseconds> (now - (last_response + this_l->cache_cutoff)).count ());
 							}
-							// We are iterating in sorted order from last_updated, so can break once we have found the first valid one. 
+							// We are iterating in sorted order from last_updated, so can break once we have found the first valid one.
 							break;
 						}
 					}
