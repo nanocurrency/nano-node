@@ -3193,7 +3193,7 @@ TEST (node, block_processor_signatures)
 
 /*
  *  State blocks go through a different signature path, ensure invalidly signed state blocks are rejected
- *	This test can freeze if the wake conditions in block_processor::flush are off, for that reason this is done async here
+ *  This test can freeze if the wake conditions in block_processor::flush are off, for that reason this is done async here
  */
 TEST (node, block_processor_reject_state)
 {
