@@ -2052,14 +2052,12 @@ TEST (rpc, process_subtype_open)
 {
 	nano::system system;
 	auto & node1 = *add_ipc_enabled_node (system);
-	system.add_node ();
+	auto & node2 = *system.add_node ();
 	nano::keypair key;
 	auto latest (node1.latest (nano::test_genesis_key.pub));
 	nano::state_block send (nano::genesis_account, latest, nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *node1.work_generate_blocking (latest));
-	{
-		auto transaction (node1.store.tx_begin_write ());
-		ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, send).code);
-	}
+	ASSERT_EQ (nano::process_result::progress, node1.process (send).code);
+	ASSERT_EQ (nano::process_result::progress, node2.process (send).code);
 	scoped_io_thread_name_change scoped_thread_name_io;
 	node1.active.insert (std::make_shared<nano::state_block> (send));
 	nano::state_block open (key.pub, 0, key.pub, nano::Gxrb_ratio, send.hash (), key.prv, key.pub, *node1.work_generate_blocking (key.pub));
@@ -2102,7 +2100,8 @@ TEST (rpc, process_subtype_open)
 	ASSERT_EQ (200, response3.status);
 	ASSERT_EQ (open.hash ().to_string (), response3.json.get<std::string> ("hash"));
 	system.deadline_set (10s);
-	while (system.nodes[1]->latest (key.pub) != open.hash ())
+	auto now (std::chrono::steady_clock::now ());
+	while (node2.latest (key.pub) != open.hash ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -2112,13 +2111,11 @@ TEST (rpc, process_subtype_receive)
 {
 	nano::system system;
 	auto & node1 = *add_ipc_enabled_node (system);
-	system.add_node ();
+	auto & node2 = *system.add_node ();
 	auto latest (node1.latest (nano::test_genesis_key.pub));
 	nano::state_block send (nano::genesis_account, latest, nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *node1.work_generate_blocking (latest));
-	{
-		auto transaction (node1.store.tx_begin_write ());
-		ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, send).code);
-	}
+	ASSERT_EQ (nano::process_result::progress, node1.process (send).code);
+	ASSERT_EQ (nano::process_result::progress, node2.process (send).code);
 	scoped_io_thread_name_change scoped_thread_name_io;
 	node1.active.insert (std::make_shared<nano::state_block> (send));
 	nano::state_block receive (nano::test_genesis_key.pub, send.hash (), nano::test_genesis_key.pub, nano::genesis_amount, send.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *node1.work_generate_blocking (send.hash ()));
@@ -2162,7 +2159,7 @@ TEST (rpc, process_subtype_receive)
 	ASSERT_EQ (200, response3.status);
 	ASSERT_EQ (receive.hash ().to_string (), response3.json.get<std::string> ("hash"));
 	system.deadline_set (10s);
-	while (system.nodes[1]->latest (nano::test_genesis_key.pub) != receive.hash ())
+	while (node2.latest (nano::test_genesis_key.pub) != receive.hash ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
