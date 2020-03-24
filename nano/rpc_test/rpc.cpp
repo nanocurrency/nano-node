@@ -2168,8 +2168,7 @@ TEST (rpc, process_subtype_receive)
 	}
 }
 
-//TODO enable when ledger processing tests insufficient work
-TEST (rpc, DISABLED_process_ledger_insufficient_work)
+TEST (rpc, process_ledger_insufficient_work)
 {
 	nano::system system;
 	auto & node = *add_ipc_enabled_node (system);
