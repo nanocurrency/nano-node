@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/timer.hpp>
 #include <nano/secure/blockstore.hpp>
 
 #include <boost/circular_buffer.hpp>

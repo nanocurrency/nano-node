@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/timer.hpp>
 #include <nano/node/confirmation_height_bounded.hpp>
 #include <nano/node/confirmation_height_unbounded.hpp>
 #include <nano/secure/blockstore.hpp>
