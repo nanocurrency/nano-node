@@ -415,8 +415,7 @@ void ledger_processor::epoch_block_impl (nano::state_block & block_a)
 					// Non-exisitng account should have pending entries
 					if (result.code == nano::process_result::progress)
 					{
-						nano::account end (block_a.hashables.account.number () + 1);
-						bool pending_exists = ledger.store.pending_begin (transaction, nano::pending_key (block_a.hashables.account, 0)) != ledger.store.pending_begin (transaction, nano::pending_key (end, 0)) && ledger.store.pending_begin (transaction, nano::pending_key (block_a.hashables.account, 0)) != ledger.store.pending_end ();
+						bool pending_exists = ledger.store.pending_any (transaction, block_a.hashables.account);
 						result.code = pending_exists ? nano::process_result::progress : nano::process_result::block_position;
 					}
 				}

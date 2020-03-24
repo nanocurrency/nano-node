@@ -77,6 +77,12 @@ public:
 		return iterator != pending_end () && nano::pending_key (iterator->first) == key_a;
 	}
 
+	bool pending_any (nano::transaction const & transaction_a, nano::account const & account_a) override
+	{
+		auto iterator (pending_begin (transaction_a, nano::pending_key (account_a, 0)));
+		return iterator != pending_end () && nano::pending_key (iterator->first).account == account_a;
+	}
+
 	bool unchecked_exists (nano::transaction const & transaction_a, nano::unchecked_key const & unchecked_key_a) override
 	{
 		nano::db_val<Val> value;
