@@ -1129,7 +1129,10 @@ TEST (wallet, work_watcher_update)
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.enable_voting = false;
 	node_config.work_watcher_period = 1s;
-	auto & node = *system.add_node (node_config);
+	node_config.max_work_generate_difficulty = std::numeric_limits<uint64_t>::max ();
+	nano::node_flags node_flags;
+	node_flags.disable_request_loop = true;
+	auto & node = *system.add_node (node_config, node_flags);
 	auto & wallet (*system.wallet (0));
 	wallet.insert_adhoc (nano::test_genesis_key.prv);
 	nano::keypair key;
@@ -1137,18 +1140,10 @@ TEST (wallet, work_watcher_update)
 	auto difficulty1 (block1->difficulty ());
 	auto const block2 (wallet.send_action (nano::test_genesis_key.pub, key.pub, 200));
 	auto difficulty2 (block2->difficulty ());
-	auto multiplier = nano::difficulty::to_multiplier (std::max (difficulty1, difficulty2), node.network_params.network.publish_thresholds.base);
 	uint64_t updated_difficulty1{ difficulty1 }, updated_difficulty2{ difficulty2 };
 	{
-		nano::unique_lock<std::mutex> lock (node.active.mutex);
-		// Prevent active difficulty repopulating multipliers
-		node.network_params.network.request_interval_ms = 10000;
-		//fill multipliers_cb and update active difficulty;
-		for (auto i (0); i < node.active.multipliers_cb.size (); i++)
-		{
-			node.active.multipliers_cb.push_back (multiplier * (1.5 + i / 100.));
-		}
-		node.active.update_active_difficulty (lock);
+		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		node.active.trended_active_difficulty = std::max (difficulty1, difficulty2) + 1;
 	}
 	system.deadline_set (20s);
 	while (updated_difficulty1 == difficulty1 || updated_difficulty2 == difficulty2)
