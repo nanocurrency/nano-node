@@ -9,7 +9,7 @@ TEST (election, construction)
 	nano::system system (1);
 	nano::genesis genesis;
 	auto & node = *system.nodes[0];
-	auto election = node.active.insert (genesis.open).first;
+	auto election = node.active.insert (genesis.open).election;
 	ASSERT_TRUE (election->idle ());
 	election->transition_active ();
 	ASSERT_FALSE (election->idle ());

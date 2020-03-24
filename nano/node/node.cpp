@@ -259,7 +259,7 @@ startup_time (std::chrono::steady_clock::now ())
 				if (this->websocket_server->any_subscriber (nano::websocket::topic::active_difficulty))
 				{
 					nano::websocket::message_builder builder;
-					auto msg (builder.difficulty_changed (network_params.network.publish_threshold, active_difficulty));
+					auto msg (builder.difficulty_changed (network_params.network.publish_thresholds.base, active_difficulty));
 					this->websocket_server->broadcast (msg);
 				}
 			});
@@ -556,10 +556,10 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 					}
 				}
 			});
-			if (election.second)
+			if (election.inserted)
 			{
 				logger.always_log (boost::str (boost::format ("Resolving fork between our block: %1% and block %2% both with root %3%") % ledger_block->hash ().to_string () % block_a->hash ().to_string () % block_a->root ().to_string ()));
-				election.first->transition_active ();
+				election.election->transition_active ();
 			}
 		}
 	}
@@ -1013,7 +1013,7 @@ bool nano::node::work_generation_enabled (std::vector<std::pair<std::string, uin
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a)
 {
-	return work_generate_blocking (block_a, network_params.network.publish_threshold);
+	return work_generate_blocking (block_a, network_params.network.publish_thresholds.base);
 }
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a, uint64_t difficulty_a)
@@ -1028,7 +1028,7 @@ boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & bloc
 
 void nano::node::work_generate (nano::work_version const version_a, nano::root const & root_a, std::function<void(boost::optional<uint64_t>)> callback_a, boost::optional<nano::account> const & account_a)
 {
-	work_generate (version_a, root_a, callback_a, network_params.network.publish_threshold, account_a);
+	work_generate (version_a, root_a, callback_a, network_params.network.publish_thresholds.base, account_a);
 }
 
 void nano::node::work_generate (nano::work_version const version_a, nano::root const & root_a, std::function<void(boost::optional<uint64_t>)> callback_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a, bool secondary_work_peers_a)
@@ -1043,7 +1043,7 @@ void nano::node::work_generate (nano::work_version const version_a, nano::root c
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::work_version const version_a, nano::root const & root_a, boost::optional<nano::account> const & account_a)
 {
-	return work_generate_blocking (version_a, root_a, network_params.network.publish_threshold, account_a);
+	return work_generate_blocking (version_a, root_a, network_params.network.publish_thresholds.base, account_a);
 }
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a)
@@ -1060,7 +1060,7 @@ boost::optional<uint64_t> nano::node::work_generate_blocking (nano::work_version
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a)
 {
 	debug_assert (network_params.network.is_test_network ());
-	return work_generate_blocking (root_a, network_params.network.publish_threshold);
+	return work_generate_blocking (root_a, network_params.network.publish_thresholds.base);
 }
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a, uint64_t difficulty_a)
@@ -1095,12 +1095,12 @@ void nano::node::add_initial_peers ()
 void nano::node::block_confirm (std::shared_ptr<nano::block> block_a)
 {
 	auto election = active.insert (block_a);
-	if (election.second)
+	if (election.inserted)
 	{
-		election.first->transition_active ();
+		election.election->transition_active ();
 	}
 	// Calculate votes for local representatives
-	if (config.enable_voting && wallets.rep_counts ().voting > 0 && active.active (*block_a))
+	if (election.prioritized && config.enable_voting && wallets.rep_counts ().voting > 0 && active.active (*block_a))
 	{
 		block_processor.generator.add (block_a->hash ());
 	}

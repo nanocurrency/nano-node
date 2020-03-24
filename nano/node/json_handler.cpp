@@ -345,7 +345,7 @@ uint64_t nano::json_handler::work_optional_impl ()
 
 uint64_t nano::json_handler::difficulty_optional_impl ()
 {
-	uint64_t difficulty (node.network_params.network.publish_threshold);
+	uint64_t difficulty (node.network_params.network.publish_thresholds.base);
 	boost::optional<std::string> difficulty_text (request.get_optional<std::string> ("difficulty"));
 	if (!ec && difficulty_text.is_initialized ())
 	{
@@ -366,7 +366,7 @@ double nano::json_handler::multiplier_optional_impl (uint64_t & difficulty)
 		auto success = boost::conversion::try_lexical_convert<double> (multiplier_text.get (), multiplier);
 		if (success && multiplier > 0.)
 		{
-			difficulty = nano::difficulty::from_multiplier (multiplier, node.network_params.network.publish_threshold);
+			difficulty = nano::difficulty::from_multiplier (multiplier, node.network_params.network.publish_thresholds.base);
 		}
 		else
 		{
@@ -909,10 +909,10 @@ void nano::json_handler::accounts_pending ()
 void nano::json_handler::active_difficulty ()
 {
 	auto include_trend (request.get<bool> ("include_trend", false));
-	response_l.put ("network_minimum", nano::to_string_hex (node.network_params.network.publish_threshold));
+	response_l.put ("network_minimum", nano::to_string_hex (node.network_params.network.publish_thresholds.base));
 	auto difficulty_active = node.active.active_difficulty ();
 	response_l.put ("network_current", nano::to_string_hex (difficulty_active));
-	auto multiplier = nano::difficulty::to_multiplier (difficulty_active, node.network_params.network.publish_threshold);
+	auto multiplier = nano::difficulty::to_multiplier (difficulty_active, node.network_params.network.publish_thresholds.base);
 	response_l.put ("multiplier", nano::to_string (multiplier));
 	if (include_trend)
 	{
@@ -4938,7 +4938,7 @@ void nano::json_handler::work_generate ()
 		auto hash (hash_impl ());
 		auto difficulty (difficulty_optional_impl ());
 		multiplier_optional_impl (difficulty);
-		if (!ec && (difficulty > node.config.max_work_generate_difficulty || difficulty < node.network_params.network.publish_threshold))
+		if (!ec && (difficulty > node.config.max_work_generate_difficulty || difficulty < node.network_params.network.publish_thresholds.base))
 		{
 			ec = nano::error_rpc::difficulty_limit;
 		}

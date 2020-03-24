@@ -21,6 +21,16 @@ state_block_signature_verification (node.checker, node.ledger.network_params.led
 	state_block_signature_verification.blocks_verified_callback = [this](std::deque<nano::unchecked_info> & items, std::vector<int> const & verifications, std::vector<nano::block_hash> const & hashes, std::vector<nano::signature> const & blocks_signatures) {
 		this->process_verified_state_blocks (items, verifications, hashes, blocks_signatures);
 	};
+	state_block_signature_verification.transition_inactive_callback = [this]() {
+		if (this->flushing)
+		{
+			{
+				// Prevent a race with condition.wait in block_processor::flush
+				nano::lock_guard<std::mutex> guard (this->mutex);
+			}
+			this->condition.notify_all ();
+		}
+	};
 }
 
 nano::block_processor::~block_processor ()
@@ -76,22 +86,16 @@ void nano::block_processor::add (std::shared_ptr<nano::block> block_a, uint64_t 
 void nano::block_processor::add (nano::unchecked_info const & info_a)
 {
 	debug_assert (!nano::work_validate (*info_a.block));
-	bool should_notify{ false };
-	if (info_a.block->difficulty () >= nano::work_threshold (info_a.block->work_version ()))
+	if (info_a.verified == nano::signature_verification::unknown && (info_a.block->type () == nano::block_type::state || info_a.block->type () == nano::block_type::open || !info_a.account.is_zero ()))
 	{
-		nano::lock_guard<std::mutex> lock (mutex);
-		if (info_a.verified == nano::signature_verification::unknown && (info_a.block->type () == nano::block_type::state || info_a.block->type () == nano::block_type::open || !info_a.account.is_zero ()))
+		state_block_signature_verification.add (info_a);
+	}
+	else
+	{
 		{
-			state_block_signature_verification.add (info_a);
-		}
-		else
-		{
-			should_notify = true;
+			nano::lock_guard<std::mutex> guard (mutex);
 			blocks.push_back (info_a);
 		}
-	}
-	if (should_notify)
-	{
 		condition.notify_all ();
 	}
 }
@@ -274,9 +278,9 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 
 	// Start collecting quorum on block
 	auto election = node.active.insert (block_a);
-	if (election.second)
+	if (election.inserted)
 	{
-		election.first->transition_passive ();
+		election.election->transition_passive ();
 	}
 
 	// Announce block contents to the network
@@ -288,7 +292,7 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	{
 		node.network.flood_block (block_a, nano::buffer_drop_policy::no_limiter_drop);
 	}
-	if (node.config.enable_voting && node.wallets.rep_counts ().voting > 0)
+	if (election.prioritized && node.config.enable_voting && node.wallets.rep_counts ().voting > 0)
 	{
 		// Announce our weighted vote to the network
 		generator.add (hash_a);
@@ -438,6 +442,14 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			if (node.config.logging.ledger_logging ())
 			{
 				node.logger.try_log (boost::str (boost::format ("Block %1% cannot follow predecessor %2%") % hash.to_string () % info_a.block->previous ().to_string ()));
+			}
+			break;
+		}
+		case nano::process_result::insufficient_work:
+		{
+			if (node.config.logging.ledger_logging ())
+			{
+				node.logger.try_log (boost::str (boost::format ("Insufficient work for %1% : %2 (difficulty %3)") % hash.to_string () % info_a.block->block_work () % info_a.block->difficulty ()));
 			}
 			break;
 		}

@@ -28,7 +28,7 @@ TEST (vote_processor, codes)
 	ASSERT_EQ (nano::vote_code::indeterminate, node.vote_processor.vote_blocking (vote, channel));
 
 	// First vote from an account for an ongoing election
-	ASSERT_TRUE (node.active.insert (genesis.open).second);
+	ASSERT_TRUE (node.active.insert (genesis.open).inserted);
 	ASSERT_EQ (nano::vote_code::vote, node.vote_processor.vote_blocking (vote, channel));
 
 	// Processing the same vote is a replay
@@ -77,14 +77,14 @@ TEST (vote_processor, invalid_signature)
 	auto channel (std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
 
 	auto election (node.active.insert (genesis.open));
-	ASSERT_TRUE (election.first && election.second);
-	ASSERT_EQ (1, election.first->last_votes.size ());
+	ASSERT_TRUE (election.election && election.inserted);
+	ASSERT_EQ (1, election.election->last_votes.size ());
 	node.vote_processor.vote (vote_invalid, channel);
 	node.vote_processor.flush ();
-	ASSERT_EQ (1, election.first->last_votes.size ());
+	ASSERT_EQ (1, election.election->last_votes.size ());
 	node.vote_processor.vote (vote, channel);
 	node.vote_processor.flush ();
-	ASSERT_EQ (2, election.first->last_votes.size ());
+	ASSERT_EQ (2, election.election->last_votes.size ());
 }
 
 TEST (vote_processor, no_capacity)
