@@ -36,22 +36,22 @@ disconnect_observer ([]() {})
 			}
 			catch (boost::system::error_code & ec)
 			{
-				this->node.logger.try_log (FATAL_LOG_PREFIX, ec.message ());
+				this->node.logger.always_log (FATAL_LOG_PREFIX, ec.message ());
 				release_assert (false);
 			}
 			catch (std::error_code & ec)
 			{
-				this->node.logger.try_log (FATAL_LOG_PREFIX, ec.message ());
+				this->node.logger.always_log (FATAL_LOG_PREFIX, ec.message ());
 				release_assert (false);
 			}
 			catch (std::runtime_error & err)
 			{
-				this->node.logger.try_log (FATAL_LOG_PREFIX, err.what ());
+				this->node.logger.always_log (FATAL_LOG_PREFIX, err.what ());
 				release_assert (false);
 			}
 			catch (...)
 			{
-				this->node.logger.try_log (FATAL_LOG_PREFIX, "Unknown exception");
+				this->node.logger.always_log (FATAL_LOG_PREFIX, "Unknown exception");
 				release_assert (false);
 			}
 			if (this->node.config.logging.network_packet_logging ())
@@ -71,22 +71,22 @@ disconnect_observer ([]() {})
 			}
 			catch (boost::system::error_code & ec)
 			{
-				this->node.logger.try_log (FATAL_LOG_PREFIX, ec.message ());
+				this->node.logger.always_log (FATAL_LOG_PREFIX, ec.message ());
 				release_assert (false);
 			}
 			catch (std::error_code & ec)
 			{
-				this->node.logger.try_log (FATAL_LOG_PREFIX, ec.message ());
+				this->node.logger.always_log (FATAL_LOG_PREFIX, ec.message ());
 				release_assert (false);
 			}
 			catch (std::runtime_error & err)
 			{
-				this->node.logger.try_log (FATAL_LOG_PREFIX, err.what ());
+				this->node.logger.always_log (FATAL_LOG_PREFIX, err.what ());
 				release_assert (false);
 			}
 			catch (...)
 			{
-				this->node.logger.try_log (FATAL_LOG_PREFIX, "Unknown exception");
+				this->node.logger.always_log (FATAL_LOG_PREFIX, "Unknown exception");
 				release_assert (false);
 			}
 			if (this->node.config.logging.network_packet_logging ())
