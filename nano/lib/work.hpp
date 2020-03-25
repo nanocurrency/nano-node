@@ -21,16 +21,21 @@ enum class work_version
 std::string to_string (nano::work_version const version_a);
 
 class block;
+class block_details;
 bool work_validate (nano::block const &);
 bool work_validate (nano::work_version const, nano::root const &, uint64_t const);
 
 uint64_t work_difficulty (nano::work_version const, nano::root const &, uint64_t const);
+// Entry threshold
 uint64_t work_threshold (nano::work_version const);
+// Ledger threshold
+uint64_t work_threshold (nano::work_version const, nano::block_details const);
 
 namespace work_v1
 {
 	uint64_t value (nano::root const & root_a, uint64_t work_a);
 	uint64_t threshold ();
+	uint64_t threshold (nano::block_details const);
 }
 class opencl_work;
 class work_item final

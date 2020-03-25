@@ -4,7 +4,8 @@ if (${env:artifact} -eq 1) {
     if ( ${env:BETA} -eq 1 ) {
         $env:NETWORK_CFG = "beta"
         $env:BUILD_TYPE = "RelWithDebInfo"
-    } else {
+    }
+    else {
         $env:NETWORK_CFG = "live"
         $env:BUILD_TYPE = "Release"
     }
@@ -14,11 +15,13 @@ if (${env:artifact} -eq 1) {
     
     $env:CI = "-DCI_BUILD=ON"
     $env:RUN = "artifact"
-} else {
+}
+else {
     if ( ${env:RELEASE} -eq 1 ) {
         $env:BUILD_TYPE = "RelWithDebInfo"
         $env:ROCKS_LIB = '-DROCKSDB_LIBRARIES="c:\vcpkg\installed\x64-windows-static\lib\rocksdb.lib"'
-    } else { 
+    }
+    else { 
         $env:BUILD_TYPE = "Debug"
         $env:ROCKS_LIB = '-DROCKSDB_LIBRARIES="c:\vcpkg\installed\x64-windows-static\debug\lib\rocksdbd.lib"'
     }

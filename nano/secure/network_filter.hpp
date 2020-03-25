@@ -35,6 +35,11 @@ public:
 	void clear (nano::uint128_t const & digest_a);
 
 	/**
+	 * Clear many digests from the filter
+	 **/
+	void clear (std::vector<nano::uint128_t> const &);
+
+	/**
 	 * Reads \p count_a bytes starting from \p bytes_a and digests the contents.
 	 * Then, sets the corresponding element in the filter to zero, if it matches the digest exactly.
 	 * @warning will read out of bounds if [ \p bytes_a, \p bytes_a + \p count_a ] is not a valid range
@@ -42,7 +47,7 @@ public:
 	void clear (uint8_t const * bytes_a, size_t count_a);
 
 	/**
-	 * Serializes \p object_a and runs clears the resulting siphash digest.
+	 * Serializes \p object_a and clears the resulting siphash digest from the filter.
 	 * @return a boolean representing the previous existence of the hash in the filter.
 	 **/
 	template <typename OBJECT>
@@ -50,6 +55,12 @@ public:
 
 	/** Sets every element of the filter to zero, keeping its size and capacity. */
 	void clear ();
+
+	/**
+	 * Serializes \p object_a and returns the resulting siphash digest
+	 */
+	template <typename OBJECT>
+	nano::uint128_t hash (OBJECT const & object_a) const;
 
 private:
 	using siphash_t = CryptoPP::SipHash<2, 4, true>;

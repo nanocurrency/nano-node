@@ -116,6 +116,7 @@ std::shared_ptr<nano::transport::channel_udp> nano::transport::udp_channels::ins
 		{
 			result = std::make_shared<nano::transport::channel_udp> (*this, endpoint_a, network_version_a);
 			channels.get<endpoint_tag> ().insert (result);
+			attempts.get<endpoint_tag> ().erase (endpoint_a);
 			lock.unlock ();
 			node.network.channel_observer (result);
 		}
@@ -543,9 +544,17 @@ void nano::transport::udp_channels::receive_action (nano::message_buffer * data_
 	if (allowed_sender)
 	{
 		udp_message_visitor visitor (node, data_a->endpoint);
-		nano::message_parser parser (node.block_uniquer, node.vote_uniquer, visitor, node.work);
+		nano::message_parser parser (node.network.publish_filter, node.block_uniquer, node.vote_uniquer, visitor, node.work);
 		parser.deserialize_buffer (data_a->buffer, data_a->size);
-		if (parser.status != nano::message_parser::parse_status::success)
+		if (parser.status == nano::message_parser::parse_status::success)
+		{
+			node.stats.add (nano::stat::type::traffic_udp, nano::stat::dir::in, data_a->size);
+		}
+		else if (parser.status == nano::message_parser::parse_status::duplicate_publish_message)
+		{
+			node.stats.inc (nano::stat::type::filter, nano::stat::detail::duplicate_publish);
+		}
+		else
 		{
 			node.stats.inc (nano::stat::type::error);
 
@@ -591,14 +600,11 @@ void nano::transport::udp_channels::receive_action (nano::message_buffer * data_
 				case nano::message_parser::parse_status::outdated_version:
 					node.stats.inc (nano::stat::type::udp, nano::stat::detail::outdated_version);
 					break;
+				case nano::message_parser::parse_status::duplicate_publish_message:
 				case nano::message_parser::parse_status::success:
 					/* Already checked, unreachable */
 					break;
 			}
-		}
-		else
-		{
-			node.stats.add (nano::stat::type::traffic_udp, nano::stat::dir::in, data_a->size);
 		}
 	}
 	else
@@ -633,8 +639,12 @@ std::shared_ptr<nano::transport::channel> nano::transport::udp_channels::create 
 
 bool nano::transport::udp_channels::max_ip_connections (nano::endpoint const & endpoint_a)
 {
-	nano::unique_lock<std::mutex> lock (mutex);
-	bool result (channels.get<ip_address_tag> ().count (endpoint_a.address ()) >= nano::transport::max_peers_per_ip);
+	bool result (false);
+	if (!node.flags.disable_max_peers_per_ip)
+	{
+		nano::unique_lock<std::mutex> lock (mutex);
+		result = channels.get<ip_address_tag> ().count (endpoint_a.address ()) >= node.network_params.node.max_peers_per_ip;
+	}
 	return result;
 }
 
@@ -677,8 +687,8 @@ void nano::transport::udp_channels::purge (std::chrono::steady_clock::time_point
 	auto disconnect_cutoff (channels.get<last_packet_received_tag> ().lower_bound (cutoff_a));
 	channels.get<last_packet_received_tag> ().erase (channels.get<last_packet_received_tag> ().begin (), disconnect_cutoff);
 	// Remove keepalive attempt tracking for attempts older than cutoff
-	auto attempts_cutoff (attempts.get<1> ().lower_bound (cutoff_a));
-	attempts.get<1> ().erase (attempts.get<1> ().begin (), attempts_cutoff);
+	auto attempts_cutoff (attempts.get<last_attempt_tag> ().lower_bound (cutoff_a));
+	attempts.get<last_attempt_tag> ().erase (attempts.get<last_attempt_tag> ().begin (), attempts_cutoff);
 }
 
 void nano::transport::udp_channels::ongoing_keepalive ()

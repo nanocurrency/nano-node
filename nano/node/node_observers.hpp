@@ -7,6 +7,7 @@
 
 namespace nano
 {
+class telemetry;
 class node_observers final
 {
 public:
@@ -20,6 +21,7 @@ public:
 	nano::observer_set<> disconnect;
 	nano::observer_set<uint64_t> difficulty;
 	nano::observer_set<nano::root const &> work_cancel;
+	nano::observer_set<nano::telemetry_data const &, nano::endpoint const &> telemetry;
 };
 
 std::unique_ptr<container_info_component> collect_container_info (node_observers & node_observers, const std::string & name);

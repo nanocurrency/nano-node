@@ -1840,12 +1840,12 @@ TEST (node, rep_self_vote)
 	node0->block_processor.generator.add (block0->hash ());
 	system.deadline_set (1s);
 	// Wait until representatives are activated & make vote
-	while (election1.first->last_votes_size () != 3)
+	while (election1.election->last_votes_size () != 3)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	nano::unique_lock<std::mutex> lock (active.mutex);
-	auto & rep_votes (election1.first->last_votes);
+	auto & rep_votes (election1.election->last_votes);
 	ASSERT_NE (rep_votes.end (), rep_votes.find (nano::test_genesis_key.pub));
 	ASSERT_NE (rep_votes.end (), rep_votes.find (rep_big.pub));
 }
@@ -2506,9 +2506,9 @@ TEST (node, block_confirm)
 			ASSERT_EQ (nano::process_result::progress, node2.ledger.process (transaction, *send2).code);
 		}
 		node1.block_confirm (send2);
-		ASSERT_TRUE (node1.active.list_confirmed ().empty ());
+		ASSERT_TRUE (node1.active.list_recently_cemented ().empty ());
 		system.deadline_set (10s);
-		while (node1.active.list_confirmed ().empty ())
+		while (node1.active.list_recently_cemented ().empty ())
 		{
 			ASSERT_NO_ERROR (system.poll ());
 		}
@@ -3193,6 +3193,7 @@ TEST (node, block_processor_signatures)
 
 /*
  *  State blocks go through a different signature path, ensure invalidly signed state blocks are rejected
+ *  This test can freeze if the wake conditions in block_processor::flush are off, for that reason this is done async here
  */
 TEST (node, block_processor_reject_state)
 {
@@ -3204,12 +3205,14 @@ TEST (node, block_processor_reject_state)
 	send1->signature.bytes[0] ^= 1;
 	ASSERT_FALSE (node.ledger.block_exists (send1->hash ()));
 	node.process_active (send1);
-	node.block_processor.flush ();
+	auto flushed = std::async (std::launch::async, [&node] { node.block_processor.flush (); });
+	ASSERT_NE (std::future_status::timeout, flushed.wait_for (5s));
 	ASSERT_FALSE (node.ledger.block_exists (send1->hash ()));
 	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node.work_generate_blocking (*send2);
 	node.process_active (send2);
-	node.block_processor.flush ();
+	auto flushed2 = std::async (std::launch::async, [&node] { node.block_processor.flush (); });
+	ASSERT_NE (std::future_status::timeout, flushed2.wait_for (5s));
 	ASSERT_TRUE (node.ledger.block_exists (send2->hash ()));
 }
 
@@ -3217,7 +3220,7 @@ TEST (node, block_processor_full)
 {
 	nano::system system;
 	nano::node_flags node_flags;
-	node_flags.block_processor_full_size = 2;
+	node_flags.block_processor_full_size = 3;
 	auto & node = *system.add_node (nano::node_config (nano::get_available_port (), system.logging), node_flags);
 	nano::genesis genesis;
 	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
@@ -3245,7 +3248,7 @@ TEST (node, block_processor_half_full)
 {
 	nano::system system;
 	nano::node_flags node_flags;
-	node_flags.block_processor_full_size = 4;
+	node_flags.block_processor_full_size = 6;
 	auto & node = *system.add_node (nano::node_config (nano::get_available_port (), system.logging), node_flags);
 	nano::genesis genesis;
 	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
@@ -3421,6 +3424,14 @@ TEST (node, unchecked_cleanup)
 	nano::keypair key;
 	auto & node (*system.nodes[0]);
 	auto open (std::make_shared<nano::state_block> (key.pub, 0, key.pub, 1, key.pub, key.prv, key.pub, *system.work.generate (key.pub)));
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		open->serialize (stream);
+	}
+	// Add to the blocks filter
+	// Should be cleared after unchecked cleanup
+	ASSERT_FALSE (node.network.publish_filter.apply (bytes.data (), bytes.size ()));
 	node.process_active (open);
 	node.block_processor.flush ();
 	node.config.unchecked_cutoff_time = std::chrono::seconds (2);
@@ -3432,6 +3443,7 @@ TEST (node, unchecked_cleanup)
 	}
 	std::this_thread::sleep_for (std::chrono::seconds (1));
 	node.unchecked_cleanup ();
+	ASSERT_TRUE (node.network.publish_filter.apply (bytes.data (), bytes.size ()));
 	{
 		auto transaction (node.store.tx_begin_read ());
 		auto unchecked_count (node.store.unchecked_count (transaction));
@@ -3440,6 +3452,7 @@ TEST (node, unchecked_cleanup)
 	}
 	std::this_thread::sleep_for (std::chrono::seconds (2));
 	node.unchecked_cleanup ();
+	ASSERT_FALSE (node.network.publish_filter.apply (bytes.data (), bytes.size ()));
 	{
 		auto transaction (node.store.tx_begin_read ());
 		auto unchecked_count (node.store.unchecked_count (transaction));
@@ -3578,7 +3591,7 @@ TEST (node, bandwidth_limiter)
 	nano::publish message (genesis.open);
 	auto message_size = message.to_bytes ()->size ();
 	auto message_limit = 4; // must be multiple of the number of channels
-	nano::node_config node_config (24000, system.logging);
+	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.bandwidth_limit = message_limit * message_size;
 	auto & node = *system.add_node (node_config);
 	auto channel1 (node.network.udp_channels.create (node.network.endpoint ()));
@@ -3621,36 +3634,61 @@ TEST (node, bandwidth_limiter)
 }
 
 // Tests that local blocks are flooded to all principal representatives
+// Sanitizers or running within valgrind use different timings and number of nodes
 TEST (node, aggressive_flooding)
 {
 	nano::system system;
 	nano::node_flags node_flags;
 	node_flags.disable_request_loop = true;
 	node_flags.disable_block_processor_republishing = true;
+	node_flags.disable_bootstrap_bulk_push_client = true;
+	node_flags.disable_bootstrap_bulk_pull_server = true;
+	node_flags.disable_bootstrap_listener = true;
+	node_flags.disable_lazy_bootstrap = true;
+	node_flags.disable_legacy_bootstrap = true;
+	node_flags.disable_wallet_bootstrap = true;
 	auto & node1 (*system.add_node (node_flags));
 	auto & wallet1 (*system.wallet (0));
 	wallet1.insert_adhoc (nano::test_genesis_key.prv);
-	std::array<std::pair<std::shared_ptr<nano::node>, std::shared_ptr<nano::wallet>>, 5> nodes_wallets{};
+	std::vector<std::pair<std::shared_ptr<nano::node>, std::shared_ptr<nano::wallet>>> nodes_wallets;
+	bool const sanitizer_or_valgrind (is_sanitizer_build || nano::running_within_valgrind ());
+	nodes_wallets.resize (!sanitizer_or_valgrind ? 5 : 3);
+
 	std::generate (nodes_wallets.begin (), nodes_wallets.end (), [&system, node_flags]() {
-		nano::node_config node_config;
-		node_config.peering_port = nano::get_available_port ();
+		nano::node_config node_config (nano::get_available_port (), system.logging);
 		auto node (system.add_node (node_config, node_flags));
 		return std::make_pair (node, system.wallet (system.nodes.size () - 1));
 	});
+
+	// This test is only valid if a non-aggressive flood would not reach every peer
+	ASSERT_TIMELY (5s, node1.network.size () == nodes_wallets.size ());
+	ASSERT_LT (node1.network.fanout (), nodes_wallets.size ());
+
+	// Send a large amount to create a principal representative in each node
 	auto large_amount = (nano::genesis_amount / 2) / nodes_wallets.size ();
+	std::vector<std::shared_ptr<nano::block>> genesis_blocks;
 	for (auto & node_wallet : nodes_wallets)
 	{
 		nano::keypair keypair;
 		node_wallet.second->store.representative_set (node_wallet.first->wallets.tx_begin_write (), keypair.pub);
 		node_wallet.second->insert_adhoc (keypair.prv);
-		wallet1.send_action (nano::test_genesis_key.pub, keypair.pub, large_amount);
+		auto block (wallet1.send_action (nano::test_genesis_key.pub, keypair.pub, large_amount));
+		genesis_blocks.push_back (block);
 	}
-	// Wait until all nodes have a representative
-	system.deadline_set (!is_sanitizer_build ? 5s : 15s);
-	while (node1.rep_crawler.principal_representatives ().size () != nodes_wallets.size ())
+
+	// Ensure all nodes have the full genesis chain
+	for (auto & node_wallet : nodes_wallets)
 	{
-		ASSERT_NO_ERROR (system.poll ());
+		for (auto const & block : genesis_blocks)
+		{
+			node_wallet.first->process (*block);
+		}
+		ASSERT_EQ (node1.latest (nano::test_genesis_key.pub), node_wallet.first->latest (nano::test_genesis_key.pub));
 	}
+
+	// Wait until the main node sees all representatives
+	ASSERT_TIMELY (!sanitizer_or_valgrind ? 10s : 40s, node1.rep_crawler.principal_representatives ().size () == nodes_wallets.size ());
+
 	// Generate blocks and ensure they are sent to all representatives
 	nano::block_builder builder;
 	std::shared_ptr<nano::state_block> block{};
@@ -3675,27 +3713,15 @@ TEST (node, aggressive_flooding)
 		});
 	};
 
-	system.deadline_set (!is_sanitizer_build ? 3s : 10s);
-	while (!all_have_block (block->hash ()))
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (!sanitizer_or_valgrind ? 5s : 25s, all_have_block (block->hash ()));
 
 	// Do the same for a wallet block
 	auto wallet_block = wallet1.send_sync (nano::test_genesis_key.pub, nano::test_genesis_key.pub, 10);
-	system.deadline_set (!is_sanitizer_build ? 3s : 10s);
-	while (!all_have_block (wallet_block))
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (!sanitizer_or_valgrind ? 5s : 25s, all_have_block (wallet_block));
 
-	// Wait until the main node has all blocks: genesis + (send+open) for each representative + 2 local blocks
+	// All blocks: genesis + (send+open) for each representative + 2 local blocks
 	// The main node only sees all blocks if other nodes are flooding their PR's open block to all other PRs
-	system.deadline_set (5s);
-	while (node1.ledger.cache.block_count < 1 + 2 * nodes_wallets.size () + 2)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_EQ (1 + 2 * nodes_wallets.size () + 2, node1.ledger.cache.block_count);
 }
 
 TEST (active_difficulty, recalculate_work)
@@ -3706,7 +3732,7 @@ TEST (active_difficulty, recalculate_work)
 	auto & node1 = *system.add_node (node_config);
 	nano::genesis genesis;
 	nano::keypair key1;
-	ASSERT_EQ (node1.network_params.network.publish_threshold, node1.active.active_difficulty ());
+	ASSERT_EQ (node1.network_params.network.publish_thresholds.base, node1.active.active_difficulty ());
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send1);
 	auto multiplier1 = nano::difficulty::to_multiplier (send1->difficulty (), nano::work_threshold (send1->work_version ()));
@@ -3718,7 +3744,7 @@ TEST (active_difficulty, recalculate_work)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	auto sum (std::accumulate (node1.active.multipliers_cb.begin (), node1.active.multipliers_cb.end (), double(0)));
-	ASSERT_EQ (node1.active.active_difficulty (), nano::difficulty::from_multiplier (sum / node1.active.multipliers_cb.size (), node1.network_params.network.publish_threshold));
+	ASSERT_EQ (node1.active.active_difficulty (), nano::difficulty::from_multiplier (sum / node1.active.multipliers_cb.size (), node1.network_params.network.publish_thresholds.base));
 	nano::unique_lock<std::mutex> lock (node1.active.mutex);
 	// Fake history records to force work recalculation
 	for (auto i (0); i < node1.active.multipliers_cb.size (); i++)
@@ -3729,7 +3755,7 @@ TEST (active_difficulty, recalculate_work)
 	node1.process_active (send1);
 	node1.active.update_active_difficulty (lock);
 	sum = std::accumulate (node1.active.multipliers_cb.begin (), node1.active.multipliers_cb.end (), double(0));
-	ASSERT_EQ (node1.active.trended_active_difficulty, nano::difficulty::from_multiplier (sum / node1.active.multipliers_cb.size (), node1.network_params.network.publish_threshold));
+	ASSERT_EQ (node1.active.trended_active_difficulty, nano::difficulty::from_multiplier (sum / node1.active.multipliers_cb.size (), node1.network_params.network.publish_thresholds.base));
 	lock.unlock ();
 }
 

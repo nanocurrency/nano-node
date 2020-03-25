@@ -108,19 +108,15 @@ void nano::move_all_files_to_dir (boost::filesystem::path const & from, boost::f
 /*
  * Backing code for "release_assert" & "debug_assert", which are macros
  */
-void assert_internal (const char * check_expr, const char * file, unsigned int line, bool is_release_assert)
+void assert_internal (const char * check_expr, const char * func, const char * file, unsigned int line, bool is_release_assert)
 {
-	// Output stack trace
-	auto backtrace_str = nano::generate_stacktrace ();
-	// Windows on Actions only outputs the first line of the stacktrace from standard error, use standard output
-#if (defined(_WIN32) && CI)
-	std::cout << backtrace_str << std::endl;
-#else
-	std::cerr << backtrace_str << std::endl;
-#endif
+	std::cerr << "Assertion (" << check_expr << ") failed\n"
+	          << func << "\n"
+	          << file << ":" << line << "\n\n";
 
-	std::cerr << "Assertion (" << check_expr << ") failed " << file << ":" << line << "\n"
-	          << std::endl;
+	// Output stack trace to cerr
+	auto backtrace_str = nano::generate_stacktrace ();
+	std::cerr << backtrace_str << std::endl;
 
 	// "abort" at the end of this function will go into any signal handlers (the daemon ones will generate a stack trace and load memory address files on non-Windows systems).
 	// As there is no async-signal-safe way to generate stacktraces on Windows it must be done before aborting

@@ -1,3 +1,4 @@
+#include <nano/core_test/common.hpp>
 #include <nano/core_test/testutil.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/threading.hpp>
@@ -187,7 +188,9 @@ TEST (store, load)
 // ulimit -n increasing may be required
 TEST (node, fork_storm)
 {
-	nano::system system (64);
+	nano::node_flags flags;
+	flags.disable_max_peers_per_ip = true;
+	nano::system system (64, nano::transport::transport_type::tcp, flags);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	auto previous (system.nodes[0]->latest (nano::test_genesis_key.pub));
 	auto balance (system.nodes[0]->balance (nano::test_genesis_key.pub));
@@ -830,21 +833,6 @@ TEST (confirmation_height, prioritize_frontiers_overwrite)
 
 namespace
 {
-void wait_peer_connections (nano::system & system_a)
-{
-	system_a.deadline_set (10s);
-	auto peer_count = 0;
-	auto num_nodes = system_a.nodes.size ();
-	while (peer_count != num_nodes * (num_nodes - 1))
-	{
-		ASSERT_NO_ERROR (system_a.poll ());
-		peer_count = std::accumulate (system_a.nodes.cbegin (), system_a.nodes.cend (), 0, [](auto total, auto const & node) {
-			auto transaction = node->store.tx_begin_read ();
-			return total += node->store.peer_count (transaction);
-		});
-	}
-}
-
 class data
 {
 public:
@@ -884,10 +872,11 @@ void callback_process (shared_data & shared_data_a, data & data, T & all_node_da
 
 TEST (node_telemetry, ongoing_requests)
 {
-	nano::system system (2);
-
-	auto node_client = system.nodes.front ();
-	auto node_server = system.nodes.back ();
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_initial_telemetry_requests = true;
+	auto node_client = system.add_node (node_flags);
+	auto node_server = system.add_node (node_flags);
 
 	wait_peer_connections (system);
 
@@ -904,7 +893,7 @@ TEST (node_telemetry, ongoing_requests)
 
 	// Wait till the next ongoing will be called, and add a 1s buffer for the actual processing
 	auto time = std::chrono::steady_clock::now ();
-	while (std::chrono::steady_clock::now () < (time + nano::telemetry_cache_cutoffs::test + 1s))
+	while (std::chrono::steady_clock::now () < (time + node_client->telemetry->cache_plus_buffer_cutoff_time () + 1s))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -923,8 +912,14 @@ namespace transport
 {
 	TEST (node_telemetry, simultaneous_requests)
 	{
+		nano::system system;
+		nano::node_flags node_flags;
+		node_flags.disable_initial_telemetry_requests = true;
 		const auto num_nodes = 4;
-		nano::system system (num_nodes);
+		for (int i = 0; i < num_nodes; ++i)
+		{
+			system.add_node (node_flags);
+		}
 
 		wait_peer_connections (system);
 
@@ -957,7 +952,7 @@ namespace transport
 							auto peer = data.node->network.tcp_channels.channels[0].channel;
 							data.node->telemetry->get_metrics_single_peer_async (peer, [&shared_data, &data, &node_data](nano::telemetry_data_response const & telemetry_data_response_a) {
 								ASSERT_FALSE (telemetry_data_response_a.error);
-								callback_process (shared_data, data, node_data, *telemetry_data_response_a.telemetry_data.timestamp);
+								callback_process (shared_data, data, node_data, telemetry_data_response_a.telemetry_data.timestamp);
 							});
 						}
 						std::this_thread::sleep_for (1ms);
@@ -983,4 +978,60 @@ namespace transport
 		}
 	}
 }
+}
+
+// Similar to signature_checker.boundary_checks but more exhaustive. Can take up to 1 minute
+TEST (signature_checker, mass_boundary_checks)
+{
+	// sizes container must be in incrementing order
+	std::vector<size_t> sizes{ 0, 1 };
+	auto add_boundary = [&sizes](size_t boundary) {
+		sizes.insert (sizes.end (), { boundary - 1, boundary, boundary + 1 });
+	};
+
+	for (auto i = 1; i <= 10; ++i)
+	{
+		add_boundary (nano::signature_checker::batch_size * i);
+	}
+
+	for (auto num_threads = 0; num_threads < 5; ++num_threads)
+	{
+		nano::signature_checker checker (num_threads);
+		auto max_size = *(sizes.end () - 1);
+		std::vector<nano::uint256_union> hashes;
+		hashes.reserve (max_size);
+		std::vector<unsigned char const *> messages;
+		messages.reserve (max_size);
+		std::vector<size_t> lengths;
+		lengths.reserve (max_size);
+		std::vector<unsigned char const *> pub_keys;
+		pub_keys.reserve (max_size);
+		std::vector<unsigned char const *> signatures;
+		signatures.reserve (max_size);
+		nano::keypair key;
+		nano::state_block block (key.pub, 0, key.pub, 0, 0, key.prv, key.pub, 0);
+
+		auto last_size = 0;
+		for (auto size : sizes)
+		{
+			// The size needed to append to existing containers, saves re-initializing from scratch each iteration
+			auto extra_size = size - last_size;
+
+			std::vector<int> verifications;
+			verifications.resize (size);
+			for (auto i (0); i < extra_size; ++i)
+			{
+				hashes.push_back (block.hash ());
+				messages.push_back (hashes.back ().bytes.data ());
+				lengths.push_back (sizeof (decltype (hashes)::value_type));
+				pub_keys.push_back (block.hashables.account.bytes.data ());
+				signatures.push_back (block.signature.bytes.data ());
+			}
+			nano::signature_check_set check = { size, messages.data (), lengths.data (), pub_keys.data (), signatures.data (), verifications.data () };
+			checker.verify (check);
+			bool all_valid = std::all_of (verifications.cbegin (), verifications.cend (), [](auto verification) { return verification == 1; });
+			ASSERT_TRUE (all_valid);
+			last_size = size;
+		}
+	}
 }
