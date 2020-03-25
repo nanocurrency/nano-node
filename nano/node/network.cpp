@@ -890,9 +890,9 @@ void nano::tcp_message_manager::put_message (nano::tcp_message_item const & item
 {
 	{
 		nano::unique_lock<std::mutex> lock (mutex);
-		if (entries.size () > max_entries && !stopped)
+		while (entries.size () > max_entries && !stopped)
 		{
-			condition.wait (lock, [& stopped = stopped, &entries = entries, &max_entries = max_entries] { return stopped || entries.size () < max_entries; });
+			condition.wait (lock);
 		}
 		entries.push_back (item_a);
 	}
@@ -902,9 +902,9 @@ void nano::tcp_message_manager::put_message (nano::tcp_message_item const & item
 nano::tcp_message_item nano::tcp_message_manager::get_message ()
 {
 	nano::unique_lock<std::mutex> lock (mutex);
-	if (entries.empty () && !stopped)
+	while (entries.empty () && !stopped)
 	{
-		condition.wait (lock, [& stopped = stopped, &entries = entries] { return stopped || !entries.empty (); });
+		condition.wait (lock);
 	}
 	if (!entries.empty ())
 	{
