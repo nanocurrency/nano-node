@@ -1,5 +1,7 @@
 #include <nano/lib/threading.hpp>
 
+#include <boost/format.hpp>
+
 #include <iostream>
 
 namespace
@@ -121,7 +123,26 @@ io_guard (boost::asio::make_work_guard (io_ctx_a))
 			nano::thread_role::set (nano::thread_role::name::io);
 			try
 			{
+#if NANO_ASIO_HANDLER_TRACKING == 0
 				io_ctx_a.run ();
+#else
+				nano::timer<> timer;
+				timer.start ();
+				while (true)
+				{
+					timer.restart ();
+					// Run at most 1 completion handler and record the time it took to complete (non-blocking)
+					auto count = io_ctx_a.poll_one ();
+					if (count == 1 && timer.since_start ().count () >= NANO_ASIO_HANDLER_TRACKING)
+					{
+						auto timestamp = std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ();
+						std::cout << (boost::format ("[%1%] io_thread held for %2%ms") % timestamp % timer.since_start ().count ()).str () << std::endl;
+					}
+					// Sleep for a bit to give more time slices to other threads
+					std::this_thread::sleep_for (std::chrono::milliseconds (5));
+					std::this_thread::yield ();
+				}
+#endif
 			}
 			catch (std::exception const & ex)
 			{
