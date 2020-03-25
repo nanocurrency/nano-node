@@ -1134,6 +1134,8 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 bool nano::wallet::action_complete (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, bool const generate_work_a)
 {
 	bool error{ false };
+	// Unschedule any work caching for this account
+	wallets.delayed_work->erase (account_a);
 	if (block_a != nullptr)
 	{
 		if (nano::work_validate (*block_a))
@@ -1235,8 +1237,30 @@ void nano::wallet::work_update (nano::transaction const & transaction_a, nano::a
 
 void nano::wallet::work_ensure (nano::account const & account_a, nano::root const & root_a)
 {
-	wallets.node.wallets.queue_wallet_action (nano::wallets::generate_priority, shared_from_this (), [account_a, root_a](nano::wallet & wallet_a) {
-		wallet_a.work_cache_blocking (account_a, root_a);
+	using namespace std::chrono_literals;
+	std::chrono::seconds const precache_delay = wallets.node.network_params.network.is_test_network () ? 1s : 10s;
+
+	wallets.delayed_work->operator[] (account_a) = root_a;
+
+	wallets.node.alarm.add (std::chrono::steady_clock::now () + precache_delay, [this_l = shared_from_this (), account_a, root_a] {
+		auto delayed_work = this_l->wallets.delayed_work.lock ();
+		auto existing (delayed_work->find (account_a));
+		if (existing != delayed_work->end () && existing->second == root_a)
+		{
+			delayed_work->erase (existing);
+			this_l->wallets.queue_wallet_action (nano::wallets::generate_priority, this_l, [account_a, root_a](nano::wallet & wallet_a) {
+				wallet_a.work_cache_blocking (account_a, root_a);
+			});
+		}
+		else if (existing == delayed_work->end ())
+		{
+			this_l->wallets.node.logger.always_log ("Error caching work for account ", account_a.to_account ());
+			debug_assert (false);
+		}
+		else
+		{
+			// Scheduled work was replaced by another root, no action to be done
+		}
 	});
 }
 

@@ -687,6 +687,41 @@ TEST (wallet, work_generate)
 	}
 }
 
+TEST (wallet, work_cache_delayed)
+{
+	nano::system system (1);
+	auto & node1 (*system.nodes[0]);
+	auto wallet (system.wallet (0));
+	nano::uint128_t amount1 (node1.balance (nano::test_genesis_key.pub));
+	uint64_t work1;
+	wallet->insert_adhoc (nano::test_genesis_key.prv);
+	nano::account account1;
+	{
+		auto transaction (node1.wallets.tx_begin_read ());
+		account1 = system.account (transaction, 0);
+	}
+	nano::keypair key;
+	auto block1 (wallet->send_action (nano::test_genesis_key.pub, key.pub, 100));
+	ASSERT_EQ (block1->hash (), node1.latest (nano::test_genesis_key.pub));
+	auto block2 (wallet->send_action (nano::test_genesis_key.pub, key.pub, 100));
+	ASSERT_EQ (block2->hash (), node1.latest (nano::test_genesis_key.pub));
+	ASSERT_EQ (block2->hash (), node1.wallets.delayed_work->operator[] (nano::test_genesis_key.pub));
+	auto threshold (node1.network_params.network.publish_thresholds.base);
+	auto again (true);
+	system.deadline_set (10s);
+	while (again)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+		if (!wallet->store.work_get (node1.wallets.tx_begin_read (), account1, work1))
+		{
+			ASSERT_LT (nano::work_difficulty (nano::work_version::work_1, nano::test_genesis_key.pub, work1), threshold);
+			ASSERT_LT (nano::work_difficulty (nano::work_version::work_1, block1->hash (), work1), threshold);
+			again = nano::work_difficulty (nano::work_version::work_1, block2->hash (), work1) < threshold;
+		}
+	}
+	ASSERT_GE (nano::work_difficulty (nano::work_version::work_1, block2->hash (), work1), threshold);
+}
+
 TEST (wallet, insert_locked)
 {
 	nano::system system (1);
