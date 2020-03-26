@@ -366,8 +366,8 @@ TEST (active_transactions, prioritize_chains)
 	auto send5 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 20 * nano::xrb_ratio, key2.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send1->hash ())));
 	auto send6 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send5->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 30 * nano::xrb_ratio, key3.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send5->hash ())));
 	auto open2 (std::make_shared<nano::state_block> (key2.pub, 0, key2.pub, 10 * nano::xrb_ratio, send5->hash (), key2.prv, key2.pub, *system.work.generate (key2.pub, nano::difficulty::from_multiplier (50., node1.network_params.network.publish_thresholds.base))));
-	auto multiplier1 (nano::difficulty::to_multiplier (open2->difficulty (), nano::work_threshold (open2->work_version ())));
-	auto multiplier2 (nano::difficulty::to_multiplier (send6->difficulty (), nano::work_threshold (open2->work_version ())));
+	auto multiplier1 (nano::difficulty::to_multiplier (open2->difficulty (), nano::work_threshold (open2->work_version (), nano::block_details (nano::epoch::epoch_0, false, true, false))));
+	auto multiplier2 (nano::difficulty::to_multiplier (send6->difficulty (), nano::work_threshold (open2->work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false))));
 
 	node1.process_active (send1);
 	node1.process_active (open1);
@@ -587,10 +587,10 @@ TEST (active_transactions, update_difficulty)
 	// Generate blocks & start elections
 	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 100, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
 	auto difficulty1 (send1->difficulty ());
-	auto multiplier1 (nano::difficulty::to_multiplier (difficulty1, nano::work_threshold (send1->work_version ())));
+	auto multiplier1 (nano::difficulty::to_multiplier (difficulty1, nano::work_threshold (send1->work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false))));
 	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 200, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send1->hash ())));
 	auto difficulty2 (send2->difficulty ());
-	auto multiplier2 (nano::difficulty::to_multiplier (difficulty2, nano::work_threshold (send2->work_version ())));
+	auto multiplier2 (nano::difficulty::to_multiplier (difficulty2, nano::work_threshold (send2->work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false))));
 	node1.process_active (send1);
 	node1.process_active (send2);
 	node1.block_processor.flush ();

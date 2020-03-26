@@ -1154,13 +1154,13 @@ TEST (wallet, work_watcher_update)
 				auto const existing (node.active.roots.find (block1->qualified_root ()));
 				//if existing is junk the block has been confirmed already
 				ASSERT_NE (existing, node.active.roots.end ());
-				updated_difficulty1 = nano::difficulty::from_multiplier (existing->multiplier, node.network_params.network.publish_threshold);
+				updated_difficulty1 = nano::difficulty::from_multiplier (existing->multiplier, node.network_params.network.publish_thresholds.epoch_1);
 			}
 			{
 				auto const existing (node.active.roots.find (block2->qualified_root ()));
 				//if existing is junk the block has been confirmed already
 				ASSERT_NE (existing, node.active.roots.end ());
-				updated_difficulty2 = nano::difficulty::from_multiplier (existing->multiplier, node.network_params.network.publish_threshold);
+				updated_difficulty2 = nano::difficulty::from_multiplier (existing->multiplier, node.network_params.network.publish_thresholds.epoch_1);
 			}
 		}
 		ASSERT_NO_ERROR (system.poll ());

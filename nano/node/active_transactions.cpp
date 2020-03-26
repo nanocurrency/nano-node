@@ -665,15 +665,15 @@ double nano::active_transactions::normalized_difficulty (std::shared_ptr<nano::b
 	}
 	else
 	{
-		threshold = nano::work_threshold (block_a->work_version ());
+		threshold = nano::work_threshold_base (block_a->work_version ());
 	}
 	double multiplier (nano::difficulty::to_multiplier (difficulty, threshold));
 	debug_assert (multiplier >= 1);
 	// Normalization rules
-	if (threshold == node.network_params.network.epoch_1_threshold)
+	if (threshold == node.network_params.network.publish_thresholds.epoch_1)
 	{
 		// Epoch 1
-		auto rate (node.network_params.network.epoch_2_threshold / node.network_params.network.epoch_1_threshold);
+		auto rate (node.network_params.network.publish_thresholds.epoch_2 / node.network_params.network.publish_thresholds.epoch_1);
 		auto rate_4 (rate * 4);
 		if (multiplier < rate) // From 0.75 to 2.0
 		{
@@ -688,10 +688,10 @@ double nano::active_transactions::normalized_difficulty (std::shared_ptr<nano::b
 			multiplier = multiplier / rate;
 		}
 	}
-	else if (threshold == node.network_params.network.epoch_2_receive_threshold)
+	else if (threshold == node.network_params.network.publish_thresholds.epoch_2_receive)
 	{
 		// Epoch 2 (receive / epoch subtypes)
-		auto rate (node.network_params.network.epoch_2_threshold / node.network_params.network.epoch_2_receive_threshold);
+		auto rate (node.network_params.network.publish_thresholds.epoch_2 / node.network_params.network.publish_thresholds.epoch_2_receive);
 		auto rate_4 (rate * 4);
 		if (multiplier < rate) // From 0.5 to 2.0
 		{
