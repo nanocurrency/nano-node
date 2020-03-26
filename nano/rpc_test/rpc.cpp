@@ -3978,7 +3978,6 @@ TEST (rpc, wallet_frontiers)
 
 TEST (rpc, work_validate)
 {
-	nano::network_params params;
 	nano::system system;
 	auto & node1 = *add_ipc_enabled_node (system);
 	nano::keypair key;
@@ -4011,7 +4010,7 @@ TEST (rpc, work_validate)
 		std::string difficulty_text (response.json.get<std::string> ("difficulty"));
 		uint64_t difficulty;
 		ASSERT_FALSE (nano::from_string_hex (difficulty_text, difficulty));
-		ASSERT_GE (difficulty, params.network.publish_thresholds.base);
+		ASSERT_GE (difficulty, node1.default_difficulty ());
 		double multiplier (response.json.get<double> ("multiplier"));
 		ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (difficulty, node1.default_difficulty ()), 1e-6);
 	}
@@ -4030,12 +4029,12 @@ TEST (rpc, work_validate)
 		std::string difficulty_text (response.json.get<std::string> ("difficulty"));
 		uint64_t difficulty;
 		ASSERT_FALSE (nano::from_string_hex (difficulty_text, difficulty));
-		ASSERT_GE (params.network.publish_thresholds.epoch_1, difficulty);
+		ASSERT_GE (node1.default_difficulty (), difficulty);
 		double multiplier (response.json.get<double> ("multiplier"));
 		ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (difficulty, node1.default_difficulty ()), 1e-6);
 	}
 	auto result_difficulty (nano::work_difficulty (nano::work_version::work_1, hash, work1));
-	ASSERT_GE (result_difficulty, params.network.publish_thresholds.base);
+	ASSERT_GE (result_difficulty, node1.default_difficulty ());
 	request.put ("work", nano::to_string_hex (work1));
 	request.put ("difficulty", nano::to_string_hex (result_difficulty));
 	{
