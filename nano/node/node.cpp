@@ -1050,13 +1050,13 @@ boost::optional<uint64_t> nano::node::work_generate_blocking (nano::work_version
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a)
 {
 	debug_assert (network_params.network.is_test_network ());
-	return work_generate_blocking (block_a, network_params.network.publish_thresholds.base);
+	return work_generate_blocking (block_a, default_difficulty ());
 }
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a)
 {
 	debug_assert (network_params.network.is_test_network ());
-	return work_generate_blocking (root_a, network_params.network.publish_thresholds.base);
+	return work_generate_blocking (root_a, default_difficulty ());
 }
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a, uint64_t difficulty_a)
