@@ -439,6 +439,10 @@ void ledger_processor::epoch_block_impl (nano::state_block & block_a)
 								{
 									ledger.store.frontier_del (transaction, info.head);
 								}
+								if (epoch == nano::epoch::epoch_2)
+								{
+									ledger.cache.epoch_2_started.store (true);
+								}
 							}
 						}
 					}
@@ -725,12 +729,15 @@ check_bootstrap_weights (true)
 		auto transaction = store.tx_begin_read ();
 		if (generate_cache_a.reps || generate_cache_a.account_count)
 		{
+			bool epoch_2_started_l{ false };
 			for (auto i (store.latest_begin (transaction)), n (store.latest_end ()); i != n; ++i)
 			{
 				nano::account_info const & info (i->second);
 				cache.rep_weights.representation_add (info.representative, info.balance.number ());
 				++cache.account_count;
+				epoch_2_started_l = epoch_2_started_l || info.epoch () == nano::epoch::epoch_2;
 			}
+			cache.epoch_2_started.store (epoch_2_started_l);
 		}
 
 		if (generate_cache_a.cemented_count)

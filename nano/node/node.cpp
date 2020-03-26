@@ -1004,6 +1004,11 @@ int nano::node::price (nano::uint128_t const & balance_a, int amount_a)
 	return static_cast<int> (result * 100.0);
 }
 
+uint64_t nano::node::default_difficulty () const
+{
+	return ledger.cache.epoch_2_started ? network_params.network.publish_thresholds.base : network_params.network.publish_thresholds.epoch_1;
+}
+
 bool nano::node::local_work_generation_enabled () const
 {
 	return config.work_threads > 0 || work.opencl;
@@ -1053,13 +1058,13 @@ boost::optional<uint64_t> nano::node::work_generate_blocking (nano::work_version
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a)
 {
 	debug_assert (network_params.network.is_test_network ());
-	return work_generate_blocking (block_a, network_params.network.publish_thresholds.base);
+	return work_generate_blocking (block_a, default_difficulty ());
 }
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a)
 {
 	debug_assert (network_params.network.is_test_network ());
-	return work_generate_blocking (root_a, network_params.network.publish_thresholds.base);
+	return work_generate_blocking (root_a, default_difficulty ());
 }
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a, uint64_t difficulty_a)

@@ -2310,7 +2310,7 @@ TEST (rpc, payment_begin_end)
 		ASSERT_LT (work, 50);
 	}
 	system.deadline_set (10s);
-	while (nano::work_difficulty (nano::work_version::work_1, root1, work) < nano::work_threshold_base (nano::work_version::work_1))
+	while (nano::work_difficulty (nano::work_version::work_1, root1, work) < node1->default_difficulty ())
 	{
 		auto ec = system.poll ();
 		auto transaction (wallet->wallets.tx_begin_read ());
@@ -3070,6 +3070,67 @@ TEST (rpc, work_generate_multiplier)
 		ASSERT_EQ (200, response.status);
 		std::error_code ec (nano::error_rpc::difficulty_limit);
 		ASSERT_EQ (response.json.get<std::string> ("error"), ec.message ());
+	}
+}
+
+TEST (rpc, work_generate_epoch_2)
+{
+	nano::system system;
+	auto node = add_ipc_enabled_node (system);
+	auto epoch1 = system.upgrade_genesis_epoch (*node, nano::epoch::epoch_1);
+	ASSERT_NE (nullptr, epoch1);
+	scoped_io_thread_name_change scoped_thread_name_io;
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
+	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	rpc_config.rpc_process.ipc_port = node->config.ipc_config.transport_tcp.port;
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+	boost::property_tree::ptree request;
+	auto verify_response = [node, &rpc, &system](auto & request, nano::block_hash const & hash, uint64_t & out_difficulty) {
+		request.put ("hash", hash.to_string ());
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		auto work_text (response.json.get<std::string> ("work"));
+		uint64_t work{ 0 };
+		ASSERT_FALSE (nano::from_string_hex (work_text, work));
+		out_difficulty = nano::work_difficulty (nano::work_version::work_1, hash, work);
+	};
+	request.put ("action", "work_generate");
+	// Before upgrading to epoch 2 should use epoch_1 difficulty as default
+	{
+		unsigned const max_tries = 30;
+		uint64_t difficulty{ 0 };
+		unsigned tries = 0;
+		while (++tries < max_tries)
+		{
+			verify_response (request, epoch1->hash (), difficulty);
+			if (difficulty < node->network_params.network.publish_thresholds.base)
+			{
+				break;
+			}
+		}
+		ASSERT_LT (tries, max_tries);
+	}
+	// After upgrading, should always use the higher difficulty by default
+	ASSERT_EQ (node->network_params.network.publish_thresholds.epoch_2, node->network_params.network.publish_thresholds.base);
+	scoped_thread_name_io.reset ();
+	auto epoch2 = system.upgrade_genesis_epoch (*node, nano::epoch::epoch_2);
+	ASSERT_NE (nullptr, epoch2);
+	scoped_thread_name_io.renew ();
+	{
+		for (auto i = 0; i < 5; ++i)
+		{
+			uint64_t difficulty{ 0 };
+			verify_response (request, epoch1->hash (), difficulty);
+			ASSERT_GE (difficulty, node->network_params.network.publish_thresholds.base);
+		}
 	}
 }
 
@@ -3917,7 +3978,6 @@ TEST (rpc, wallet_frontiers)
 
 TEST (rpc, work_validate)
 {
-	nano::network_params params;
 	nano::system system;
 	auto & node1 = *add_ipc_enabled_node (system);
 	nano::keypair key;
@@ -3950,9 +4010,9 @@ TEST (rpc, work_validate)
 		std::string difficulty_text (response.json.get<std::string> ("difficulty"));
 		uint64_t difficulty;
 		ASSERT_FALSE (nano::from_string_hex (difficulty_text, difficulty));
-		ASSERT_GE (difficulty, params.network.publish_thresholds.base);
+		ASSERT_GE (difficulty, node1.default_difficulty ());
 		double multiplier (response.json.get<double> ("multiplier"));
-		ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (difficulty, params.network.publish_thresholds.base), 1e-6);
+		ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (difficulty, node1.default_difficulty ()), 1e-6);
 	}
 	uint64_t work2 (0);
 	request.put ("work", nano::to_string_hex (work2));
@@ -3969,12 +4029,12 @@ TEST (rpc, work_validate)
 		std::string difficulty_text (response.json.get<std::string> ("difficulty"));
 		uint64_t difficulty;
 		ASSERT_FALSE (nano::from_string_hex (difficulty_text, difficulty));
-		ASSERT_GE (params.network.publish_thresholds.base, difficulty);
+		ASSERT_GE (node1.default_difficulty (), difficulty);
 		double multiplier (response.json.get<double> ("multiplier"));
-		ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (difficulty, params.network.publish_thresholds.base), 1e-6);
+		ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (difficulty, node1.default_difficulty ()), 1e-6);
 	}
 	auto result_difficulty (nano::work_difficulty (nano::work_version::work_1, hash, work1));
-	ASSERT_GE (result_difficulty, params.network.publish_thresholds.base);
+	ASSERT_GE (result_difficulty, node1.default_difficulty ());
 	request.put ("work", nano::to_string_hex (work1));
 	request.put ("difficulty", nano::to_string_hex (result_difficulty));
 	{
@@ -4015,6 +4075,62 @@ TEST (rpc, work_validate)
 		bool validate (response.json.get<bool> ("valid"));
 		ASSERT_TRUE (validate);
 	}
+}
+
+TEST (rpc, work_validate_epoch_2)
+{
+	nano::system system;
+	auto node = add_ipc_enabled_node (system);
+	auto epoch1 = system.upgrade_genesis_epoch (*node, nano::epoch::epoch_1);
+	ASSERT_NE (nullptr, epoch1);
+	ASSERT_EQ (node->network_params.network.publish_thresholds.epoch_2, node->network_params.network.publish_thresholds.base);
+	auto work = system.work_generate_limited (epoch1->hash (), node->network_params.network.publish_thresholds.epoch_1, node->network_params.network.publish_thresholds.base);
+	scoped_io_thread_name_change scoped_thread_name_io;
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
+	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	rpc_config.rpc_process.ipc_port = node->config.ipc_config.transport_tcp.port;
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "work_validate");
+	request.put ("hash", epoch1->hash ().to_string ());
+	request.put ("work", nano::to_string_hex (work));
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		ASSERT_TRUE (response.json.get<bool> ("valid"));
+		std::string difficulty_text (response.json.get<std::string> ("difficulty"));
+		uint64_t difficulty{ 0 };
+		ASSERT_FALSE (nano::from_string_hex (difficulty_text, difficulty));
+		double multiplier (response.json.get<double> ("multiplier"));
+		ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (difficulty, node->network_params.network.publish_thresholds.epoch_1), 1e-6);
+	};
+	// After upgrading, the higher difficulty is used to validate and calculate the multiplier
+	scoped_thread_name_io.reset ();
+	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (*node, nano::epoch::epoch_2));
+	scoped_thread_name_io.renew ();
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		ASSERT_FALSE (response.json.get<bool> ("valid"));
+		std::string difficulty_text (response.json.get<std::string> ("difficulty"));
+		uint64_t difficulty{ 0 };
+		ASSERT_FALSE (nano::from_string_hex (difficulty_text, difficulty));
+		double multiplier (response.json.get<double> ("multiplier"));
+		ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (difficulty, node->network_params.network.publish_thresholds.base), 1e-6);
+	};
 }
 
 TEST (rpc, successors)
@@ -5911,7 +6027,7 @@ TEST (rpc, block_create_state_request_work)
 		boost::property_tree::read_json (block_stream, block_l);
 		auto block (nano::deserialize_block_json (block_l));
 		ASSERT_NE (nullptr, block);
-		ASSERT_GE (block->difficulty (), nano::work_threshold_base (nano::work_version::work_1));
+		ASSERT_GE (block->difficulty (), node->default_difficulty ());
 	}
 }
 

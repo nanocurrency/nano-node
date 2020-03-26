@@ -126,6 +126,8 @@ public:
 	void bootstrap_wallet ();
 	void unchecked_cleanup ();
 	int price (nano::uint128_t const &, int);
+	// The default difficulty updates to base only when the first epoch_2 block is processed
+	uint64_t default_difficulty () const;
 	bool local_work_generation_enabled () const;
 	bool work_generation_enabled () const;
 	bool work_generation_enabled (std::vector<std::pair<std::string, uint16_t>> const &) const;
