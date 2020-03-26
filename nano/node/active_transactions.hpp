@@ -37,6 +37,7 @@ public:
 	double multiplier;
 	uint64_t adjusted_difficulty;
 	std::shared_ptr<nano::election> election;
+	bool prioritized;
 };
 
 class cementable_account final
@@ -64,6 +65,14 @@ public:
 	bool confirmed{ false }; // Did item reach votes quorum? (minimum config value)
 };
 
+class election_insertion_result final
+{
+public:
+	std::shared_ptr<nano::election> election;
+	bool inserted{ false };
+	bool prioritized{ false };
+};
+
 // Core class for determining consensus
 // Holds all active blocks i.e. recently added blocks that need confirmation
 class active_transactions final
@@ -86,7 +95,7 @@ public:
 	// Start an election for a block
 	// Call action with confirmed block, may be different than what we started with
 	// clang-format off
-	std::pair<std::shared_ptr<nano::election>, bool> insert (std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
+	nano::election_insertion_result insert (std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
 	// clang-format on
 	// Distinguishes replay votes, cannot be determined if the block is not in any election
 	nano::vote_code vote (std::shared_ptr<nano::vote>);
@@ -120,6 +129,7 @@ public:
 			std::greater<uint64_t>>>>
 	roots;
 	// clang-format on
+	boost::optional<uint64_t> last_prioritized_difficulty{ boost::none };
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> blocks;
 	std::deque<nano::election_status> list_recently_cemented ();
 	std::deque<nano::election_status> recently_cemented;
@@ -147,7 +157,7 @@ private:
 
 	// Call action with confirmed block, may be different than what we started with
 	// clang-format off
-	std::pair<std::shared_ptr<nano::election>, bool> insert_impl (std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
+	nano::election_insertion_result insert_impl (std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
 	// clang-format on
 	void request_loop ();
 	void search_frontiers (nano::transaction const &);
@@ -164,6 +174,9 @@ private:
 
 	// Maximum time an election can be kept active if it is extending the container
 	std::chrono::seconds const election_time_to_live;
+
+	// Elections above this position in the queue are prioritized
+	size_t const prioritized_cutoff;
 
 	static size_t constexpr recently_confirmed_size{ 65536 };
 	using recent_confirmation = std::pair<nano::qualified_root, nano::block_hash>;

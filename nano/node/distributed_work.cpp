@@ -43,15 +43,15 @@ nano::distributed_work::~distributed_work ()
 			nano::websocket::message_builder builder;
 			if (status == work_generation_status::success)
 			{
-				node_l->websocket_server->broadcast (builder.work_generation (request.version, request.root, work_result, request.difficulty, node_l->network_params.network.publish_threshold, elapsed.value (), winner, bad_peers));
+				node_l->websocket_server->broadcast (builder.work_generation (request.version, request.root, work_result, request.difficulty, node_l->default_difficulty (), elapsed.value (), winner, bad_peers));
 			}
 			else if (status == work_generation_status::cancelled)
 			{
-				node_l->websocket_server->broadcast (builder.work_cancelled (request.version, request.root, request.difficulty, node_l->network_params.network.publish_threshold, elapsed.value (), bad_peers));
+				node_l->websocket_server->broadcast (builder.work_cancelled (request.version, request.root, request.difficulty, node_l->default_difficulty (), elapsed.value (), bad_peers));
 			}
 			else if (status == work_generation_status::failure_local || status == work_generation_status::failure_peers)
 			{
-				node_l->websocket_server->broadcast (builder.work_failed (request.version, request.root, request.difficulty, node_l->network_params.network.publish_threshold, elapsed.value (), bad_peers));
+				node_l->websocket_server->broadcast (builder.work_failed (request.version, request.root, request.difficulty, node_l->default_difficulty (), elapsed.value (), bad_peers));
 			}
 		}
 		stop_once (true);
@@ -107,8 +107,7 @@ void nano::distributed_work::start_local ()
 {
 	auto this_l (shared_from_this ());
 	local_generation_started = true;
-	node.work.generate (
-	request.version, request.root, [this_l](boost::optional<uint64_t> const & work_a) {
+	node.work.generate (request.version, request.root, request.difficulty, [this_l](boost::optional<uint64_t> const & work_a) {
 		if (work_a.is_initialized ())
 		{
 			this_l->set_once (*work_a);
@@ -122,8 +121,7 @@ void nano::distributed_work::start_local ()
 			}
 		}
 		this_l->stop_once (false);
-	},
-	request.difficulty);
+	});
 }
 
 void nano::distributed_work::do_request (nano::tcp_endpoint const & endpoint_a)
@@ -323,7 +321,7 @@ void nano::distributed_work::set_once (uint64_t const work_a, std::string const 
 		if (node.config.logging.work_generation_time ())
 		{
 			boost::format unformatted_l ("Work generation for %1%, with a threshold difficulty of %2% (multiplier %3%x) complete: %4% ms");
-			auto multiplier_text_l (nano::to_string (nano::difficulty::to_multiplier (request.difficulty, nano::work_threshold (request.version)), 2));
+			auto multiplier_text_l (nano::to_string (nano::difficulty::to_multiplier (request.difficulty, node.network_params.network.publish_thresholds.base), 2));
 			node.logger.try_log (boost::str (unformatted_l % request.root.to_string () % nano::to_string_hex (request.difficulty) % multiplier_text_l % elapsed.value ().count ()));
 		}
 	}

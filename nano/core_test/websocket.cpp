@@ -104,14 +104,14 @@ TEST (websocket, active_difficulty)
 	auto message_contents = event.get_child ("message");
 	uint64_t network_minimum;
 	nano::from_string_hex (message_contents.get<std::string> ("network_minimum"), network_minimum);
-	ASSERT_EQ (network_minimum, node1->network_params.network.publish_threshold);
+	ASSERT_EQ (network_minimum, node1->network_params.network.publish_thresholds.epoch_1);
 
 	uint64_t network_current;
 	nano::from_string_hex (message_contents.get<std::string> ("network_current"), network_current);
 	ASSERT_EQ (network_current, node1->active.active_difficulty ());
 
 	double multiplier = message_contents.get<double> ("multiplier");
-	ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (node1->active.active_difficulty (), node1->network_params.network.publish_threshold), 1e-6);
+	ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (node1->active.active_difficulty (), node1->network_params.network.publish_thresholds.epoch_1), 1e-6);
 }
 
 // Subscribes to block confirmations, confirms a block and then awaits websocket notification
@@ -680,15 +680,15 @@ TEST (websocket, work)
 	auto & request = contents.get_child ("request");
 	ASSERT_EQ (request.get<std::string> ("version"), nano::to_string (nano::work_version::work_1));
 	ASSERT_EQ (request.get<std::string> ("hash"), hash.to_string ());
-	ASSERT_EQ (request.get<std::string> ("difficulty"), nano::to_string_hex (node1->network_params.network.publish_threshold));
+	ASSERT_EQ (request.get<std::string> ("difficulty"), nano::to_string_hex (node1->default_difficulty ()));
 	ASSERT_EQ (request.get<double> ("multiplier"), 1.0);
 
 	ASSERT_EQ (1, contents.count ("result"));
 	auto & result = contents.get_child ("result");
 	uint64_t result_difficulty;
 	nano::from_string_hex (result.get<std::string> ("difficulty"), result_difficulty);
-	ASSERT_GE (result_difficulty, node1->network_params.network.publish_threshold);
-	ASSERT_NEAR (result.get<double> ("multiplier"), nano::difficulty::to_multiplier (result_difficulty, node1->network_params.network.publish_threshold), 1e-6);
+	ASSERT_GE (result_difficulty, node1->default_difficulty ());
+	ASSERT_NEAR (result.get<double> ("multiplier"), nano::difficulty::to_multiplier (result_difficulty, node1->default_difficulty ()), 1e-6);
 	ASSERT_EQ (result.get<std::string> ("work"), nano::to_string_hex (work.get ()));
 
 	ASSERT_EQ (1, contents.count ("bad_peers"));

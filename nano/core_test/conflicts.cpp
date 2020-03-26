@@ -22,8 +22,8 @@ TEST (conflicts, start_stop)
 	ASSERT_EQ (1, node1.active.size ());
 	{
 		nano::lock_guard<std::mutex> guard (node1.active.mutex);
-		ASSERT_NE (nullptr, election1.first);
-		ASSERT_EQ (1, election1.first->last_votes.size ());
+		ASSERT_NE (nullptr, election1.election);
+		ASSERT_EQ (1, election1.election->last_votes.size ());
 	}
 }
 
@@ -46,9 +46,9 @@ TEST (conflicts, add_existing)
 	ASSERT_EQ (1, node1.active.size ());
 	{
 		nano::lock_guard<std::mutex> guard (node1.active.mutex);
-		ASSERT_NE (nullptr, election1.first);
-		ASSERT_EQ (2, election1.first->last_votes.size ());
-		ASSERT_NE (election1.first->last_votes.end (), election1.first->last_votes.find (key2.pub));
+		ASSERT_NE (nullptr, election1.election);
+		ASSERT_EQ (2, election1.election->last_votes.size ());
+		ASSERT_NE (election1.election->last_votes.end (), election1.election->last_votes.find (key2.pub));
 	}
 }
 
@@ -210,9 +210,9 @@ TEST (conflicts, dependency)
 	// Check dependency for send block
 	{
 		nano::lock_guard<std::mutex> guard (node1->active.mutex);
-		ASSERT_NE (nullptr, election1.first);
-		ASSERT_EQ (1, election1.first->dependent_blocks.size ());
-		ASSERT_NE (election1.first->dependent_blocks.end (), election1.first->dependent_blocks.find (state_open1->hash ()));
+		ASSERT_NE (nullptr, election1.election);
+		ASSERT_EQ (1, election1.election->dependent_blocks.size ());
+		ASSERT_NE (election1.election->dependent_blocks.end (), election1.election->dependent_blocks.find (state_open1->hash ()));
 	}
 }
 
