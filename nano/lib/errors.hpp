@@ -135,6 +135,7 @@ enum class error_process
 	opened_burn_account, // The impossible happened, someone found the private key associated with the public key '0'.
 	balance_mismatch, // Balance and amount delta don't match
 	block_position, // This block cannot follow the previous block
+	insufficient_work, // Insufficient work for this block, even though it passed the minimal validation
 	other
 };
 

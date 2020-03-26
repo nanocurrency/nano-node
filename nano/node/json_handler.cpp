@@ -716,7 +716,8 @@ void nano::json_handler::account_representative_set ()
 					auto info (rpc_l->account_info_impl (block_transaction, account));
 					if (!rpc_l->ec)
 					{
-						if (nano::work_validate (nano::work_version::work_1, info.head, work))
+						nano::block_details details (info.epoch (), false, false, false);
+						if (nano::work_difficulty (nano::work_version::work_1, info.head, work) < nano::work_threshold (nano::work_version::work_1, details))
 						{
 							rpc_l->ec = nano::error_common::invalid_work;
 						}
@@ -909,10 +910,10 @@ void nano::json_handler::accounts_pending ()
 void nano::json_handler::active_difficulty ()
 {
 	auto include_trend (request.get<bool> ("include_trend", false));
-	response_l.put ("network_minimum", nano::to_string_hex (node.network_params.network.publish_thresholds.base));
+	response_l.put ("network_minimum", nano::to_string_hex (node.network_params.network.publish_thresholds.epoch_1));
 	auto difficulty_active = node.active.active_difficulty ();
 	response_l.put ("network_current", nano::to_string_hex (difficulty_active));
-	auto multiplier = nano::difficulty::to_multiplier (difficulty_active, node.network_params.network.publish_thresholds.base);
+	auto multiplier = nano::difficulty::to_multiplier (difficulty_active, node.network_params.network.publish_thresholds.epoch_1);
 	response_l.put ("multiplier", nano::to_string (multiplier));
 	if (include_trend)
 	{
@@ -1247,8 +1248,9 @@ void nano::json_handler::block_create ()
 {
 	std::string type (request.get<std::string> ("type"));
 	nano::wallet_id wallet (0);
+	auto difficulty_l (difficulty_optional_impl ());
 	boost::optional<std::string> wallet_text (request.get_optional<std::string> ("wallet"));
-	if (wallet_text.is_initialized ())
+	if (!ec && wallet_text.is_initialized ())
 	{
 		if (wallet.decode_hex (wallet_text.get ()))
 		{
@@ -1559,7 +1561,7 @@ void nano::json_handler::block_create ()
 			{
 				if (work == 0)
 				{
-					node.work_generate (work_version, root_l, get_callback_l (block_l), nano::account (pub));
+					node.work_generate (work_version, root_l, difficulty_l, get_callback_l (block_l), nano::account (pub));
 				}
 				else
 				{
@@ -2120,6 +2122,7 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::private_key const
 				nano::account_info info;
 				if (!node_a->store.account_get (transaction, i->account, info) && info.epoch () < epoch_a)
 				{
+					auto difficulty (nano::work_threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true)));
 					auto epoch = builder.state ()
 					             .account (i->account)
 					             .previous (info.head)
@@ -2127,10 +2130,10 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::private_key const
 					             .balance (info.balance)
 					             .link (link)
 					             .sign (raw_key, signer)
-					             .work (node_a->work_generate_blocking (nano::work_version::work_1, info.head).value_or (0))
+					             .work (node_a->work_generate_blocking (nano::work_version::work_1, info.head, difficulty).value_or (0))
 					             .build ();
 					bool valid_signature (!nano::validate_message (signer, epoch->hash (), epoch->block_signature ()));
-					bool valid_work (!nano::work_validate (*epoch.get ()));
+					bool valid_work (epoch->difficulty () >= difficulty);
 					nano::process_result result (nano::process_result::old);
 					if (valid_signature && valid_work)
 					{
@@ -2179,6 +2182,7 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::private_key const
 					if (info.epoch < epoch_a)
 					{
 						release_assert (nano::epochs::is_sequential (info.epoch, epoch_a));
+						auto difficulty (nano::work_threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true)));
 						auto epoch = builder.state ()
 						             .account (key.account)
 						             .previous (0)
@@ -2186,10 +2190,10 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::private_key const
 						             .balance (0)
 						             .link (link)
 						             .sign (raw_key, signer)
-						             .work (node_a->work_generate_blocking (nano::work_version::work_1, key.account).value_or (0))
+						             .work (node_a->work_generate_blocking (nano::work_version::work_1, key.account, difficulty).value_or (0))
 						             .build ();
 						bool valid_signature (!nano::validate_message (signer, epoch->hash (), epoch->block_signature ()));
-						bool valid_work (!nano::work_validate (*epoch.get ()));
+						bool valid_work (epoch->difficulty () >= difficulty);
 						nano::process_result result (nano::process_result::old);
 						if (valid_signature && valid_work)
 						{
@@ -3255,7 +3259,7 @@ void nano::json_handler::process ()
 		}
 		if (!rpc_l->ec)
 		{
-			if (!nano::work_validate (*block))
+			if (!nano::work_validate_entry (*block))
 			{
 				auto result (rpc_l->node.process_local (block, watch_work_l));
 				switch (result.code)
@@ -3321,6 +3325,11 @@ void nano::json_handler::process ()
 						}
 						break;
 					}
+					case nano::process_result::insufficient_work:
+					{
+						rpc_l->ec = nano::error_process::insufficient_work;
+						break;
+					}
 					default:
 					{
 						rpc_l->ec = nano::error_process::other;
@@ -3360,15 +3369,19 @@ void nano::json_handler::receive ()
 					{
 						nano::account_info info;
 						nano::root head;
+						nano::epoch epoch = block->sideband ().details.epoch;
 						if (!node.store.account_get (block_transaction, account, info))
 						{
 							head = info.head;
+							// When receiving, epoch version is the higher between the previous and the source blocks
+							epoch = std::max (info.epoch (), epoch);
 						}
 						else
 						{
 							head = account;
 						}
-						if (nano::work_validate (nano::work_version::work_1, head, work))
+						nano::block_details details (epoch, false, true, false);
+						if (nano::work_difficulty (nano::work_version::work_1, head, work) < nano::work_threshold (nano::work_version::work_1, details))
 						{
 							ec = nano::error_common::invalid_work;
 						}
@@ -3711,7 +3724,8 @@ void nano::json_handler::send ()
 			}
 			if (!ec && work)
 			{
-				if (nano::work_validate (nano::work_version::work_1, info.head, work))
+				nano::block_details details (info.epoch (), true, false, false);
+				if (nano::work_difficulty (nano::work_version::work_1, info.head, work) < nano::work_threshold (nano::work_version::work_1, details))
 				{
 					ec = nano::error_common::invalid_work;
 				}
@@ -4938,7 +4952,7 @@ void nano::json_handler::work_generate ()
 		auto hash (hash_impl ());
 		auto difficulty (difficulty_optional_impl ());
 		multiplier_optional_impl (difficulty);
-		if (!ec && (difficulty > node.config.max_work_generate_difficulty || difficulty < node.network_params.network.publish_thresholds.base))
+		if (!ec && (difficulty > node.config.max_work_generate_difficulty || difficulty < node.network_params.network.publish_thresholds.entry))
 		{
 			ec = nano::error_rpc::difficulty_limit;
 		}
@@ -4956,7 +4970,7 @@ void nano::json_handler::work_generate ()
 					std::stringstream ostream;
 					auto result_difficulty (nano::work_difficulty (work_version, hash, work));
 					response_l.put ("difficulty", nano::to_string_hex (result_difficulty));
-					auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, nano::work_threshold (work_version));
+					auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, node.network_params.network.publish_thresholds.base);
 					response_l.put ("multiplier", nano::to_string (result_multiplier));
 					boost::property_tree::write_json (ostream, response_l);
 					rpc_l->response (ostream.str ());
@@ -4970,7 +4984,7 @@ void nano::json_handler::work_generate ()
 			{
 				if (node.local_work_generation_enabled ())
 				{
-					node.work.generate (work_version, hash, callback, difficulty);
+					node.work.generate (work_version, hash, difficulty, callback);
 				}
 				else
 				{
@@ -4992,7 +5006,7 @@ void nano::json_handler::work_generate ()
 				auto const & peers_l (secondary_work_peers_l ? node.config.secondary_work_peers : node.config.work_peers);
 				if (node.work_generation_enabled (peers_l))
 				{
-					node.work_generate (work_version, hash, callback, difficulty, account, secondary_work_peers_l);
+					node.work_generate (work_version, hash, difficulty, callback, account, secondary_work_peers_l);
 				}
 				else
 				{
@@ -5071,7 +5085,7 @@ void nano::json_handler::work_validate ()
 		auto result_difficulty (nano::work_difficulty (work_version, hash, work));
 		response_l.put ("valid", (result_difficulty >= difficulty) ? "1" : "0");
 		response_l.put ("difficulty", nano::to_string_hex (result_difficulty));
-		auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, nano::work_threshold (work_version));
+		auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, node.network_params.network.publish_thresholds.base);
 		response_l.put ("multiplier", nano::to_string (result_multiplier));
 	}
 	response_errors ();

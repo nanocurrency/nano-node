@@ -727,7 +727,7 @@ TEST (wallet, seed_work_generation)
 		ASSERT_NO_ERROR (ec);
 	}
 	auto transaction (system.nodes[0]->store.tx_begin_read ());
-	ASSERT_FALSE (nano::work_validate (nano::work_version::work_1, system.nodes[0]->ledger.latest_root (transaction, pub), work));
+	ASSERT_GE (nano::work_difficulty (nano::work_version::work_1, system.nodes[0]->ledger.latest_root (transaction, pub), work), nano::work_threshold_base (nano::work_version::work_1));
 }
 
 TEST (wallet, backup_seed)

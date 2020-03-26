@@ -783,7 +783,7 @@ nano::uint128_t nano::ledger::account_pending (nano::transaction const & transac
 
 nano::process_return nano::ledger::process (nano::write_transaction const & transaction_a, nano::block & block_a, nano::signature_verification verification)
 {
-	debug_assert (network_params.network.is_test_network () || !nano::work_validate (block_a));
+	debug_assert (!nano::work_validate_entry (block_a) || network_params.network.is_test_network ());
 	ledger_processor processor (*this, transaction_a, verification);
 	block_a.visit (processor);
 	if (processor.result.code == nano::process_result::progress)
