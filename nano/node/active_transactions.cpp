@@ -18,7 +18,7 @@ nano::active_transactions::active_transactions (nano::node & node_a, nano::confi
 confirmation_height_processor (confirmation_height_processor_a),
 node (node_a),
 multipliers_cb (20, 1.),
-trended_active_difficulty (node_a.network_params.network.publish_thresholds.base),
+trended_active_difficulty (node_a.network_params.network.publish_thresholds.epoch_1),
 check_all_elections_period (node_a.network_params.network.is_test_network () ? 10ms : 5s),
 election_time_to_live (node_a.network_params.network.is_test_network () ? 0s : 2s),
 prioritized_cutoff (std::max<size_t> (1, node_a.config.active_elections_size / 10)),
@@ -708,7 +708,7 @@ void nano::active_transactions::update_adjusted_difficulty ()
 					auto existing_root (roots.get<tag_root> ().find (root));
 					if (existing_root != roots.get<tag_root> ().end ())
 					{
-						sum += nano::difficulty::to_multiplier (existing_root->difficulty, node.network_params.network.publish_thresholds.base);
+						sum += nano::difficulty::to_multiplier (existing_root->difficulty, node.network_params.network.publish_thresholds.epoch_1);
 						elections_list.emplace_back (root, level);
 						if (level > highest_level)
 						{
@@ -726,7 +726,7 @@ void nano::active_transactions::update_adjusted_difficulty ()
 		if (!elections_list.empty ())
 		{
 			double multiplier = sum / elections_list.size ();
-			uint64_t average = nano::difficulty::from_multiplier (multiplier, node.network_params.network.publish_thresholds.base);
+			uint64_t average = nano::difficulty::from_multiplier (multiplier, node.network_params.network.publish_thresholds.epoch_1);
 			// Prevent overflow
 			int64_t limiter (0);
 			if (std::numeric_limits<std::uint64_t>::max () - average < static_cast<uint64_t> (highest_level))
@@ -778,18 +778,18 @@ void nano::active_transactions::update_active_difficulty (nano::unique_lock<std:
 		}
 		if (prioritized.size () > 10 || (node.network_params.network.is_test_network () && !prioritized.empty ()))
 		{
-			multiplier = nano::difficulty::to_multiplier (prioritized[prioritized.size () / 2], node.network_params.network.publish_thresholds.base);
+			multiplier = nano::difficulty::to_multiplier (prioritized[prioritized.size () / 2], node.network_params.network.publish_thresholds.epoch_1);
 		}
 		if (!prioritized.empty ())
 		{
 			last_prioritized_difficulty = prioritized.back ();
 		}
 	}
-	debug_assert (multiplier >= 1);
+	debug_assert (multiplier >= nano::difficulty::to_multiplier (node.network_params.network.publish_thresholds.entry, node.network_params.network.publish_thresholds.epoch_1));
 	multipliers_cb.push_front (multiplier);
 	auto sum (std::accumulate (multipliers_cb.begin (), multipliers_cb.end (), double(0)));
-	auto difficulty = nano::difficulty::from_multiplier (sum / multipliers_cb.size (), node.network_params.network.publish_thresholds.base);
-	debug_assert (difficulty >= node.network_params.network.publish_thresholds.base);
+	auto difficulty = nano::difficulty::from_multiplier (sum / multipliers_cb.size (), node.network_params.network.publish_thresholds.epoch_1);
+	debug_assert (difficulty >= node.network_params.network.publish_thresholds.entry);
 
 	trended_active_difficulty = difficulty;
 	node.observers.difficulty.notify (trended_active_difficulty);

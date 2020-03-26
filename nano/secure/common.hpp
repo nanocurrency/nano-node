@@ -508,6 +508,7 @@ public:
 	std::atomic<uint64_t> block_count{ 0 };
 	std::atomic<uint64_t> unchecked_count{ 0 };
 	std::atomic<uint64_t> account_count{ 0 };
+	std::atomic<bool> epoch_2_started{ 0 };
 };
 
 /* Defines the possible states for an election to stop in */

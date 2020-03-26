@@ -3056,3 +3056,32 @@ TEST (ledger, work_validation)
 	process_block (open, {});
 	process_block (epoch, nano::block_details (nano::epoch::epoch_1, false, false, true));
 }
+
+TEST (ledger, epoch_2_started_flag)
+{
+	nano::system system (2);
+
+	auto & node1 = *system.nodes[0];
+	ASSERT_FALSE (node1.ledger.cache.epoch_2_started.load ());
+	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (node1, nano::epoch::epoch_1));
+	ASSERT_FALSE (node1.ledger.cache.epoch_2_started.load ());
+	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (node1, nano::epoch::epoch_2));
+	ASSERT_TRUE (node1.ledger.cache.epoch_2_started.load ());
+
+	auto & node2 = *system.nodes[1];
+	nano::keypair key;
+	auto epoch1 = system.upgrade_genesis_epoch (node2, nano::epoch::epoch_1);
+	ASSERT_NE (nullptr, epoch1);
+	ASSERT_FALSE (node2.ledger.cache.epoch_2_started.load ());
+	nano::state_block send (nano::test_genesis_key.pub, epoch1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 1, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (epoch1->hash ()));
+	ASSERT_EQ (nano::process_result::progress, node2.process (send).code);
+	ASSERT_FALSE (node2.ledger.cache.epoch_2_started.load ());
+	nano::state_block epoch2 (key.pub, 0, 0, 0, node2.ledger.epoch_link (nano::epoch::epoch_2), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (key.pub));
+	ASSERT_EQ (nano::process_result::progress, node2.process (epoch2).code);
+	ASSERT_TRUE (node2.ledger.cache.epoch_2_started.load ());
+
+	// Ensure state is kept on ledger initialization
+	nano::stat stats;
+	nano::ledger ledger (node1.store, stats);
+	ASSERT_TRUE (ledger.cache.epoch_2_started.load ());
+}

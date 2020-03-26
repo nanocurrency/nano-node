@@ -5,6 +5,8 @@
 
 #include <gtest/gtest.h>
 
+#include <numeric>
+
 using namespace std::chrono_literals;
 
 namespace nano
@@ -147,12 +149,12 @@ TEST (active_transactions, adjusted_difficulty_priority)
 
 	//genesis and key1,key2 are opened
 	//start chain of 2 on each
-	auto send3 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send2->hash (), nano::test_genesis_key.pub, 9 * nano::xrb_ratio, key3.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send2->hash (), nano::difficulty::from_multiplier (1500, node1.network_params.network.publish_thresholds.base))));
-	auto send4 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send3->hash (), nano::test_genesis_key.pub, 8 * nano::xrb_ratio, key3.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send3->hash (), nano::difficulty::from_multiplier (1500, node1.network_params.network.publish_thresholds.base))));
-	auto send5 (std::make_shared<nano::state_block> (key1.pub, open1->hash (), key1.pub, 9 * nano::xrb_ratio, key3.pub, key1.prv, key1.pub, *system.work.generate (open1->hash (), nano::difficulty::from_multiplier (100, node1.network_params.network.publish_thresholds.base))));
-	auto send6 (std::make_shared<nano::state_block> (key1.pub, send5->hash (), key1.pub, 8 * nano::xrb_ratio, key3.pub, key1.prv, key1.pub, *system.work.generate (send5->hash (), nano::difficulty::from_multiplier (100, node1.network_params.network.publish_thresholds.base))));
-	auto send7 (std::make_shared<nano::state_block> (key2.pub, open2->hash (), key2.pub, 9 * nano::xrb_ratio, key3.pub, key2.prv, key2.pub, *system.work.generate (open2->hash (), nano::difficulty::from_multiplier (500, node1.network_params.network.publish_thresholds.base))));
-	auto send8 (std::make_shared<nano::state_block> (key2.pub, send7->hash (), key2.pub, 8 * nano::xrb_ratio, key3.pub, key2.prv, key2.pub, *system.work.generate (send7->hash (), nano::difficulty::from_multiplier (500, node1.network_params.network.publish_thresholds.base))));
+	auto send3 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send2->hash (), nano::test_genesis_key.pub, 9 * nano::xrb_ratio, key3.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send2->hash (), nano::difficulty::from_multiplier (150, node1.network_params.network.publish_thresholds.base))));
+	auto send4 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send3->hash (), nano::test_genesis_key.pub, 8 * nano::xrb_ratio, key3.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send3->hash (), nano::difficulty::from_multiplier (150, node1.network_params.network.publish_thresholds.base))));
+	auto send5 (std::make_shared<nano::state_block> (key1.pub, open1->hash (), key1.pub, 9 * nano::xrb_ratio, key3.pub, key1.prv, key1.pub, system.work_generate_limited (open1->hash (), nano::difficulty::from_multiplier (10, node1.network_params.network.publish_thresholds.base), nano::difficulty::from_multiplier (50, node1.network_params.network.publish_thresholds.base))));
+	auto send6 (std::make_shared<nano::state_block> (key1.pub, send5->hash (), key1.pub, 8 * nano::xrb_ratio, key3.pub, key1.prv, key1.pub, system.work_generate_limited (send5->hash (), nano::difficulty::from_multiplier (10, node1.network_params.network.publish_thresholds.base), nano::difficulty::from_multiplier (50, node1.network_params.network.publish_thresholds.base))));
+	auto send7 (std::make_shared<nano::state_block> (key2.pub, open2->hash (), key2.pub, 9 * nano::xrb_ratio, key3.pub, key2.prv, key2.pub, system.work_generate_limited (open2->hash (), nano::difficulty::from_multiplier (50, node1.network_params.network.publish_thresholds.base), nano::difficulty::from_multiplier (150, node1.network_params.network.publish_thresholds.base))));
+	auto send8 (std::make_shared<nano::state_block> (key2.pub, send7->hash (), key2.pub, 8 * nano::xrb_ratio, key3.pub, key2.prv, key2.pub, system.work_generate_limited (send7->hash (), nano::difficulty::from_multiplier (50, node1.network_params.network.publish_thresholds.base), nano::difficulty::from_multiplier (150, node1.network_params.network.publish_thresholds.base))));
 
 	node1.process_active (send3); // genesis
 	node1.process_active (send5); // key1
@@ -849,7 +851,7 @@ TEST (active_transactions, confirmation_consistency)
 		nano::lock_guard<std::mutex> guard (node.active.mutex);
 		ASSERT_EQ (i + 1, node.active.recently_confirmed.size ());
 		ASSERT_EQ (block->qualified_root (), node.active.recently_confirmed.back ().first);
-		ASSERT_EQ (i + 1, node.active.recently_cemented.size ());
+		ASSERT_TIMELY (1s, i + 1 == node.active.recently_cemented.size ()); // done after a callback
 	}
 }
 }
@@ -893,4 +895,24 @@ TEST (active_transactions, insertion_prioritization)
 	ASSERT_FALSE (node.active.insert (blocks[5]).prioritized);
 	update_active_difficulty ();
 	ASSERT_FALSE (node.active.insert (blocks[6]).prioritized);
+}
+
+TEST (active_difficulty, less_than_one)
+{
+	nano::system system (1);
+	auto & node (*system.nodes[0]);
+	nano::unique_lock<std::mutex> lock (node.active.mutex);
+	auto base_active_difficulty = node.network_params.network.publish_thresholds.epoch_1;
+	auto min_active_difficulty = node.network_params.network.publish_thresholds.entry;
+	auto min_multiplier = nano::difficulty::to_multiplier (min_active_difficulty, base_active_difficulty);
+	ASSERT_EQ (node.active.trended_active_difficulty, base_active_difficulty);
+	for (int i = 0; i < node.active.multipliers_cb.size () - 1; ++i)
+	{
+		node.active.multipliers_cb.push_front (min_multiplier);
+	}
+	auto sum (std::accumulate (node.active.multipliers_cb.begin (), node.active.multipliers_cb.end (), double(0)));
+	auto difficulty = nano::difficulty::from_multiplier (sum / node.active.multipliers_cb.size (), node.network_params.network.publish_thresholds.epoch_1);
+	node.active.multipliers_cb.push_front (min_multiplier);
+	node.active.update_active_difficulty (lock);
+	ASSERT_EQ (node.active.trended_active_difficulty, difficulty);
 }

@@ -15,14 +15,14 @@ work_thresholds const network_constants::publish_full (
 
 work_thresholds const network_constants::publish_beta (
 0xfffff00000000000, // 64x lower than publish_full.epoch_1
-0xfffff00000000000,
-0xfffff00000000000 //
+0xfffff80000000000, // 2x higher than epoch_1
+0xffffe00000000000 // 2x lower than epoch_1
 );
 
 work_thresholds const network_constants::publish_test (
-0xff00000000000000, // Very low for tests
-0xff00000000000000,
-0xff00000000000000 //
+0xfe00000000000000, // Very low for tests
+0xffc0000000000000, // 8x higher than epoch_1
+0xf000000000000000 // 8x lower than epoch_1
 );
 
 const char * network_constants::active_network_err_msg = "Invalid network. Valid values are live, beta and test.";

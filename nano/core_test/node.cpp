@@ -28,6 +28,31 @@ TEST (node, stop)
 	ASSERT_TRUE (true);
 }
 
+TEST (node, work_generate)
+{
+	nano::system system (1);
+	auto & node (*system.nodes[0]);
+	nano::block_hash root{ 1 };
+	nano::work_version version{ nano::work_version::work_1 };
+	{
+		auto difficulty = nano::difficulty::from_multiplier (1.5, node.network_params.network.publish_thresholds.base);
+		auto work = node.work_generate_blocking (version, root, difficulty);
+		ASSERT_TRUE (work.is_initialized ());
+		ASSERT_TRUE (nano::work_difficulty (version, root, *work) >= difficulty);
+	}
+	{
+		auto difficulty = nano::difficulty::from_multiplier (0.5, node.network_params.network.publish_thresholds.base);
+		boost::optional<uint64_t> work;
+		do
+		{
+			work = node.work_generate_blocking (version, root, difficulty);
+		} while (nano::work_difficulty (version, root, *work) >= node.network_params.network.publish_thresholds.base);
+		ASSERT_TRUE (work.is_initialized ());
+		ASSERT_TRUE (nano::work_difficulty (version, root, *work) >= difficulty);
+		ASSERT_FALSE (nano::work_difficulty (version, root, *work) >= node.network_params.network.publish_thresholds.base);
+	}
+}
+
 TEST (node, block_store_path_failure)
 {
 	auto service (boost::make_shared<boost::asio::io_context> ());
@@ -1229,6 +1254,30 @@ TEST (node, fork_publish)
 		ASSERT_EQ (nano::genesis_amount - 100, winner.first);
 	}
 	ASSERT_TRUE (node0.expired ());
+}
+
+// Tests that an election gets started correctly from a fork
+TEST (node, fork_publish_inactive)
+{
+	nano::system system (1);
+	nano::genesis genesis;
+	nano::keypair key1;
+	nano::keypair key2;
+	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+	auto send2 (std::make_shared<nano::send_block> (genesis.hash (), key2.pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, send1->block_work ()));
+	auto & node (*system.nodes[0]);
+	ASSERT_EQ (nano::process_result::progress, node.process (*send1).code);
+	ASSERT_EQ (nano::process_result::fork, node.process_local (send2).code);
+	auto election (node.active.election (send1->qualified_root ()));
+	ASSERT_NE (election, nullptr);
+	{
+		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		auto & blocks (election->blocks);
+		ASSERT_NE (blocks.end (), blocks.find (send1->hash ()));
+		ASSERT_NE (blocks.end (), blocks.find (send2->hash ()));
+		ASSERT_NE (election->status.winner, send1);
+		ASSERT_NE (election->status.winner, send2);
+	}
 }
 
 TEST (node, fork_keep)
@@ -3732,10 +3781,10 @@ TEST (active_difficulty, recalculate_work)
 	auto & node1 = *system.add_node (node_config);
 	nano::genesis genesis;
 	nano::keypair key1;
-	ASSERT_EQ (node1.network_params.network.publish_thresholds.base, node1.active.active_difficulty ());
+	ASSERT_EQ (node1.network_params.network.publish_thresholds.epoch_1, node1.active.active_difficulty ());
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send1);
-	auto multiplier1 = nano::difficulty::to_multiplier (send1->difficulty (), nano::work_threshold (send1->work_version ()));
+	auto multiplier1 = nano::difficulty::to_multiplier (send1->difficulty (), node1.network_params.network.publish_thresholds.epoch_1);
 	// Process as local block
 	node1.process_active (send1);
 	system.deadline_set (2s);
@@ -3744,7 +3793,7 @@ TEST (active_difficulty, recalculate_work)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	auto sum (std::accumulate (node1.active.multipliers_cb.begin (), node1.active.multipliers_cb.end (), double(0)));
-	ASSERT_EQ (node1.active.active_difficulty (), nano::difficulty::from_multiplier (sum / node1.active.multipliers_cb.size (), node1.network_params.network.publish_thresholds.base));
+	ASSERT_EQ (node1.active.active_difficulty (), nano::difficulty::from_multiplier (sum / node1.active.multipliers_cb.size (), node1.network_params.network.publish_thresholds.epoch_1));
 	nano::unique_lock<std::mutex> lock (node1.active.mutex);
 	// Fake history records to force work recalculation
 	for (auto i (0); i < node1.active.multipliers_cb.size (); i++)
@@ -3755,7 +3804,7 @@ TEST (active_difficulty, recalculate_work)
 	node1.process_active (send1);
 	node1.active.update_active_difficulty (lock);
 	sum = std::accumulate (node1.active.multipliers_cb.begin (), node1.active.multipliers_cb.end (), double(0));
-	ASSERT_EQ (node1.active.trended_active_difficulty, nano::difficulty::from_multiplier (sum / node1.active.multipliers_cb.size (), node1.network_params.network.publish_thresholds.base));
+	ASSERT_EQ (node1.active.trended_active_difficulty, nano::difficulty::from_multiplier (sum / node1.active.multipliers_cb.size (), node1.network_params.network.publish_thresholds.epoch_1));
 	lock.unlock ();
 }
 
