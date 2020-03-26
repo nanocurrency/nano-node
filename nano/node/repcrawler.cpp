@@ -194,17 +194,20 @@ bool nano::rep_crawler::is_pr (nano::transport::channel const & channel_a) const
 	return result;
 }
 
-void nano::rep_crawler::response (std::shared_ptr<nano::transport::channel> & channel_a, std::shared_ptr<nano::vote> & vote_a)
+bool nano::rep_crawler::response (std::shared_ptr<nano::transport::channel> & channel_a, std::shared_ptr<nano::vote> & vote_a)
 {
+	bool error = true;
 	nano::lock_guard<std::mutex> lock (active_mutex);
 	for (auto i = vote_a->begin (), n = vote_a->end (); i != n; ++i)
 	{
 		if (active.count (*i) != 0)
 		{
 			responses.emplace_back (channel_a, vote_a);
+			error = false;
 			break;
 		}
 	}
+	return error;
 }
 
 nano::uint128_t nano::rep_crawler::total_weight () const

@@ -301,11 +301,19 @@ startup_time (std::chrono::steady_clock::now ())
 			}
 		});
 		observers.vote.add ([this](std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a, nano::vote_code code_a) {
-			if (code_a == nano::vote_code::vote || code_a == nano::vote_code::indeterminate)
+			debug_assert (code_a != nano::vote_code::invalid);
+			if (code_a != nano::vote_code::replay)
+			{
+				auto active_in_rep_crawler (!this->rep_crawler.response (channel_a, vote_a));
+				if (active_in_rep_crawler || code_a == nano::vote_code::vote)
+				{
+					// Representative is defined as online if replying to live votes or rep_crawler queries
+					this->online_reps.observe (vote_a->account);
+				}
+			}
+			if (code_a == nano::vote_code::indeterminate)
 			{
 				this->gap_cache.vote (vote_a);
-				this->online_reps.observe (vote_a->account);
-				this->rep_crawler.response (channel_a, vote_a);
 			}
 		});
 		if (websocket_server)
@@ -532,7 +540,6 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 	auto root (block_a->root ());
 	if (!store.block_exists (transaction_a, block_a->type (), block_a->hash ()) && store.root_exists (transaction_a, block_a->root ()))
 	{
-		active.publish (block_a);
 		std::shared_ptr<nano::block> ledger_block (ledger.forked_block (transaction_a, *block_a));
 		if (ledger_block && !block_confirmed_or_being_confirmed (transaction_a, ledger_block->hash ()))
 		{
@@ -562,6 +569,7 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 				election.election->transition_active ();
 			}
 		}
+		active.publish (block_a);
 	}
 }
 
@@ -996,6 +1004,11 @@ int nano::node::price (nano::uint128_t const & balance_a, int amount_a)
 	return static_cast<int> (result * 100.0);
 }
 
+uint64_t nano::node::default_difficulty () const
+{
+	return ledger.cache.epoch_2_started ? network_params.network.publish_thresholds.base : network_params.network.publish_thresholds.epoch_1;
+}
+
 bool nano::node::local_work_generation_enabled () const
 {
 	return config.work_threads > 0 || work.opencl;
@@ -1045,13 +1058,13 @@ boost::optional<uint64_t> nano::node::work_generate_blocking (nano::work_version
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a)
 {
 	debug_assert (network_params.network.is_test_network ());
-	return work_generate_blocking (block_a, network_params.network.publish_thresholds.base);
+	return work_generate_blocking (block_a, default_difficulty ());
 }
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a)
 {
 	debug_assert (network_params.network.is_test_network ());
-	return work_generate_blocking (root_a, network_params.network.publish_thresholds.base);
+	return work_generate_blocking (root_a, default_difficulty ());
 }
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a, uint64_t difficulty_a)

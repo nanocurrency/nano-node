@@ -43,15 +43,15 @@ nano::distributed_work::~distributed_work ()
 			nano::websocket::message_builder builder;
 			if (status == work_generation_status::success)
 			{
-				node_l->websocket_server->broadcast (builder.work_generation (request.version, request.root, work_result, request.difficulty, node_l->network_params.network.publish_thresholds.base, elapsed.value (), winner, bad_peers));
+				node_l->websocket_server->broadcast (builder.work_generation (request.version, request.root, work_result, request.difficulty, node_l->default_difficulty (), elapsed.value (), winner, bad_peers));
 			}
 			else if (status == work_generation_status::cancelled)
 			{
-				node_l->websocket_server->broadcast (builder.work_cancelled (request.version, request.root, request.difficulty, node_l->network_params.network.publish_thresholds.base, elapsed.value (), bad_peers));
+				node_l->websocket_server->broadcast (builder.work_cancelled (request.version, request.root, request.difficulty, node_l->default_difficulty (), elapsed.value (), bad_peers));
 			}
 			else if (status == work_generation_status::failure_local || status == work_generation_status::failure_peers)
 			{
-				node_l->websocket_server->broadcast (builder.work_failed (request.version, request.root, request.difficulty, node_l->network_params.network.publish_thresholds.base, elapsed.value (), bad_peers));
+				node_l->websocket_server->broadcast (builder.work_failed (request.version, request.root, request.difficulty, node_l->default_difficulty (), elapsed.value (), bad_peers));
 			}
 		}
 		stop_once (true);
