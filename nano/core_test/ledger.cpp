@@ -3079,4 +3079,9 @@ TEST (ledger, epoch_2_started_flag)
 	nano::state_block epoch2 (key.pub, 0, 0, 0, node2.ledger.epoch_link (nano::epoch::epoch_2), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (key.pub));
 	ASSERT_EQ (nano::process_result::progress, node2.process (epoch2).code);
 	ASSERT_TRUE (node2.ledger.cache.epoch_2_started.load ());
+
+	// Ensure state is kept on ledger initialization
+	nano::stat stats;
+	nano::ledger ledger (node1.store, stats);
+	ASSERT_TRUE (ledger.cache.epoch_2_started.load ());
 }
