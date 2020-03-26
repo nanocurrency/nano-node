@@ -996,6 +996,11 @@ int nano::node::price (nano::uint128_t const & balance_a, int amount_a)
 	return static_cast<int> (result * 100.0);
 }
 
+uint64_t nano::node::default_difficulty () const
+{
+	return ledger.cache.epoch_2_started ? network_params.network.publish_thresholds.base : network_params.network.publish_thresholds.epoch_1;
+}
+
 bool nano::node::local_work_generation_enabled () const
 {
 	return config.work_threads > 0 || work.opencl;

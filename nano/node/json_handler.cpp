@@ -345,7 +345,7 @@ uint64_t nano::json_handler::work_optional_impl ()
 
 uint64_t nano::json_handler::difficulty_optional_impl ()
 {
-	uint64_t difficulty (node.network_params.network.publish_thresholds.base);
+	auto difficulty (node.default_difficulty ());
 	boost::optional<std::string> difficulty_text (request.get_optional<std::string> ("difficulty"));
 	if (!ec && difficulty_text.is_initialized ())
 	{
@@ -5085,7 +5085,7 @@ void nano::json_handler::work_validate ()
 		auto result_difficulty (nano::work_difficulty (work_version, hash, work));
 		response_l.put ("valid", (result_difficulty >= difficulty) ? "1" : "0");
 		response_l.put ("difficulty", nano::to_string_hex (result_difficulty));
-		auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, node.network_params.network.publish_thresholds.base);
+		auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, node.default_difficulty ());
 		response_l.put ("multiplier", nano::to_string (result_multiplier));
 	}
 	response_errors ();
