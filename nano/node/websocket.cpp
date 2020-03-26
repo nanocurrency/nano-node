@@ -797,7 +797,7 @@ nano::websocket::message nano::websocket::message_builder::work_generation (nano
 	request_l.put ("version", nano::to_string (version_a));
 	request_l.put ("hash", root_a.to_string ());
 	request_l.put ("difficulty", nano::to_string_hex (difficulty_a));
-	auto request_multiplier_l (nano::difficulty::to_multiplier (difficulty_a, nano::work_threshold (version_a)));
+	auto request_multiplier_l (nano::difficulty::to_multiplier (difficulty_a, publish_threshold_a));
 	request_l.put ("multiplier", nano::to_string (request_multiplier_l));
 	work_l.add_child ("request", request_l);
 
@@ -808,7 +808,7 @@ nano::websocket::message nano::websocket::message_builder::work_generation (nano
 		result_l.put ("work", nano::to_string_hex (work_a));
 		auto result_difficulty_l (nano::work_difficulty (version_a, root_a, work_a));
 		result_l.put ("difficulty", nano::to_string_hex (result_difficulty_l));
-		auto result_multiplier_l (nano::difficulty::to_multiplier (result_difficulty_l, nano::work_threshold (version_a)));
+		auto result_multiplier_l (nano::difficulty::to_multiplier (result_difficulty_l, publish_threshold_a));
 		result_l.put ("multiplier", nano::to_string (result_multiplier_l));
 		work_l.add_child ("result", result_l);
 	}

@@ -104,14 +104,14 @@ TEST (websocket, active_difficulty)
 	auto message_contents = event.get_child ("message");
 	uint64_t network_minimum;
 	nano::from_string_hex (message_contents.get<std::string> ("network_minimum"), network_minimum);
-	ASSERT_EQ (network_minimum, node1->network_params.network.publish_thresholds.base);
+	ASSERT_EQ (network_minimum, node1->network_params.network.publish_thresholds.epoch_1);
 
 	uint64_t network_current;
 	nano::from_string_hex (message_contents.get<std::string> ("network_current"), network_current);
 	ASSERT_EQ (network_current, node1->active.active_difficulty ());
 
 	double multiplier = message_contents.get<double> ("multiplier");
-	ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (node1->active.active_difficulty (), node1->network_params.network.publish_thresholds.base), 1e-6);
+	ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (node1->active.active_difficulty (), node1->network_params.network.publish_thresholds.epoch_1), 1e-6);
 }
 
 // Subscribes to block confirmations, confirms a block and then awaits websocket notification
