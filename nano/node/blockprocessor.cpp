@@ -10,9 +10,6 @@
 std::chrono::milliseconds constexpr nano::block_processor::confirmation_request_delay;
 
 nano::block_processor::block_processor (nano::node & node_a, nano::write_database_queue & write_database_queue_a) :
-generator (node_a.config, node_a.store, node_a.wallets, node_a.vote_processor, node_a.votes_cache, node_a.network),
-stopped (false),
-active (false),
 next_log (std::chrono::steady_clock::now ()),
 node (node_a),
 write_database_queue (write_database_queue_a),
@@ -40,7 +37,6 @@ nano::block_processor::~block_processor ()
 
 void nano::block_processor::stop ()
 {
-	generator.stop ();
 	{
 		nano::lock_guard<std::mutex> lock (mutex);
 		stopped = true;
@@ -295,7 +291,7 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	if (election.prioritized && node.config.enable_voting && node.wallets.rep_counts ().voting > 0)
 	{
 		// Announce our weighted vote to the network
-		generator.add (hash_a);
+		node.active.generator.add (hash_a);
 	}
 }
 
@@ -501,6 +497,5 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (bl
 	composite->add_component (collect_container_info (block_processor.state_block_signature_verification, "state_block_signature_verification"));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "blocks", blocks_count, sizeof (decltype (block_processor.blocks)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "forced", forced_count, sizeof (decltype (block_processor.forced)::value_type) }));
-	composite->add_component (collect_container_info (block_processor.generator, "generator"));
 	return composite;
 }

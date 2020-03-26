@@ -357,7 +357,7 @@ void nano::election::confirm_if_quorum ()
 		if (node.config.enable_voting && node.wallets.rep_counts ().voting > 0)
 		{
 			node.votes_cache.remove (status_winner_hash_l);
-			node.block_processor.generator.add (winner_hash_l);
+			node.active.generator.add (winner_hash_l);
 		}
 		node.block_processor.force (block_l);
 		status.winner = block_l;

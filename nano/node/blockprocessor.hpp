@@ -2,7 +2,6 @@
 
 #include <nano/lib/blocks.hpp>
 #include <nano/node/state_block_signature_verification.hpp>
-#include <nano/node/voting.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
@@ -45,7 +44,6 @@ public:
 	void process_blocks ();
 	nano::process_return process_one (nano::write_transaction const &, nano::unchecked_info, const bool = false, const bool = false);
 	nano::process_return process_one (nano::write_transaction const &, std::shared_ptr<nano::block>, const bool = false);
-	nano::vote_generator generator;
 	std::atomic<bool> flushing{ false };
 	// Delay required for average network propagartion before requesting confirmation
 	static std::chrono::milliseconds constexpr confirmation_request_delay{ 1500 };
@@ -56,8 +54,8 @@ private:
 	void process_live (nano::block_hash const &, std::shared_ptr<nano::block>, const bool = false, const bool = false);
 	void requeue_invalid (nano::block_hash const &, nano::unchecked_info const &);
 	void process_verified_state_blocks (std::deque<nano::unchecked_info> &, std::vector<int> const &, std::vector<nano::block_hash> const &, std::vector<nano::signature> const &);
-	bool stopped;
-	bool active;
+	bool stopped{ false };
+	bool active{ false };
 	bool awaiting_write{ false };
 	std::chrono::steady_clock::time_point next_log;
 	std::deque<nano::unchecked_info> blocks;

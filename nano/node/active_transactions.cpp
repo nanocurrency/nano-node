@@ -16,6 +16,7 @@ using namespace std::chrono;
 
 nano::active_transactions::active_transactions (nano::node & node_a, nano::confirmation_height_processor & confirmation_height_processor_a) :
 confirmation_height_processor (confirmation_height_processor_a),
+generator (node_a.config, node_a.store, node_a.wallets, node_a.vote_processor, node_a.votes_cache, node_a.network),
 node (node_a),
 multipliers_cb (20, 1.),
 trended_active_difficulty (node_a.network_params.network.publish_thresholds.base),
@@ -109,7 +110,7 @@ void nano::active_transactions::search_frontiers (nano::transaction const & tran
 							// Calculate votes for local representatives
 							if (election.prioritized && representative)
 							{
-								this->node.block_processor.generator.add (info.head);
+								this->generator.add (info.head);
 							}
 						}
 					}
@@ -278,7 +279,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	solicitor.flush ();
 	for (auto const & hash_l : hashes_generation_l)
 	{
-		node.block_processor.generator.add (hash_l);
+		generator.add (hash_l);
 	}
 	lock_a.lock ();
 
@@ -482,6 +483,7 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 
 void nano::active_transactions::stop ()
 {
+	generator.stop ();
 	nano::unique_lock<std::mutex> lock (mutex);
 	if (!started)
 	{
@@ -1083,5 +1085,6 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (ac
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "priority_wallet_cementable_frontiers_count", active_transactions.priority_wallet_cementable_frontiers_size (), sizeof (nano::cementable_account) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "priority_cementable_frontiers_count", active_transactions.priority_cementable_frontiers_size (), sizeof (nano::cementable_account) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "inactive_votes_cache_count", active_transactions.inactive_votes_cache_size (), sizeof (nano::gap_information) }));
+	composite->add_component (collect_container_info (active_transactions.generator, "generator"));
 	return composite;
 }
