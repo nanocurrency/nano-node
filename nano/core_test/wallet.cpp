@@ -706,7 +706,7 @@ TEST (wallet, work_cache_delayed)
 	auto block2 (wallet->send_action (nano::test_genesis_key.pub, key.pub, 100));
 	ASSERT_EQ (block2->hash (), node1.latest (nano::test_genesis_key.pub));
 	ASSERT_EQ (block2->hash (), node1.wallets.delayed_work->operator[] (nano::test_genesis_key.pub));
-	auto threshold (node1.network_params.network.publish_thresholds.base);
+	auto threshold (node1.default_difficulty ());
 	auto again (true);
 	system.deadline_set (10s);
 	while (again)
