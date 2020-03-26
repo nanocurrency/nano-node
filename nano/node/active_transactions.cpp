@@ -110,7 +110,7 @@ void nano::active_transactions::search_frontiers (nano::transaction const & tran
 							// Calculate votes for local representatives
 							if (election.prioritized && representative)
 							{
-								this->generator.add (info.head);
+								election.election->generate_votes();
 							}
 						}
 					}
@@ -520,6 +520,11 @@ nano::election_insertion_result nano::active_transactions::insert_impl (std::sha
 				blocks.emplace (hash, result.election);
 				add_adjust_difficulty (hash);
 				result.election->insert_inactive_votes_cache (hash);
+				// Calculate votes for local representatives
+				if (result.prioritized)
+				{
+					result.election->generate_votes ();
+				}
 			}
 		}
 		else

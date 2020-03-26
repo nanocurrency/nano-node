@@ -357,7 +357,7 @@ void nano::election::confirm_if_quorum ()
 		if (node.config.enable_voting && node.wallets.rep_counts ().voting > 0)
 		{
 			node.votes_cache.remove (status_winner_hash_l);
-			node.active.generator.add (winner_hash_l);
+			generate_votes ();
 		}
 		node.block_processor.force (block_l);
 		status.winner = block_l;
@@ -574,5 +574,13 @@ void nano::election::insert_inactive_votes_cache (nano::block_hash const & hash_
 			node.stats.add (nano::stat::type::election, nano::stat::detail::late_block_seconds, nano::stat::dir::in, delay.count (), true);
 		}
 		confirm_if_quorum ();
+	}
+}
+
+void nano::election::generate_votes ()
+{
+	if (node.config.enable_voting && node.wallets.rep_counts ().voting > 0)
+	{
+		node.active.generator.add (status.winner->hash ());
 	}
 }

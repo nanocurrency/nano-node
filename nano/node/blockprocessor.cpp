@@ -288,10 +288,10 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	{
 		node.network.flood_block (block_a, nano::buffer_drop_policy::no_limiter_drop);
 	}
-	if (election.prioritized && node.config.enable_voting && node.wallets.rep_counts ().voting > 0)
+	if (election.prioritized)
 	{
 		// Announce our weighted vote to the network
-		node.active.generator.add (hash_a);
+		election.election->generate_votes ();
 	}
 }
 

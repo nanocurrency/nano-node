@@ -1104,9 +1104,9 @@ void nano::node::block_confirm (std::shared_ptr<nano::block> block_a)
 		election.election->transition_active ();
 	}
 	// Calculate votes for local representatives
-	if (election.prioritized && config.enable_voting && wallets.rep_counts ().voting > 0 && active.active (*block_a))
+	if (election.prioritized && active.active (*block_a))
 	{
-		active.generator.add (block_a->hash ());
+		election.election->generate_votes ();
 	}
 }
 
