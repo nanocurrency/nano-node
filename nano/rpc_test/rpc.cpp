@@ -2310,7 +2310,7 @@ TEST (rpc, payment_begin_end)
 		ASSERT_LT (work, 50);
 	}
 	system.deadline_set (10s);
-	while (nano::work_difficulty (nano::work_version::work_1, root1, work) < nano::work_threshold_base (nano::work_version::work_1))
+	while (nano::work_difficulty (nano::work_version::work_1, root1, work) < node1->default_difficulty ())
 	{
 		auto ec = system.poll ();
 		auto transaction (wallet->wallets.tx_begin_read ());
@@ -4013,7 +4013,7 @@ TEST (rpc, work_validate)
 		ASSERT_FALSE (nano::from_string_hex (difficulty_text, difficulty));
 		ASSERT_GE (difficulty, params.network.publish_thresholds.base);
 		double multiplier (response.json.get<double> ("multiplier"));
-		ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (difficulty, params.network.publish_thresholds.epoch_1), 1e-6);
+		ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (difficulty, node1.default_difficulty ()), 1e-6);
 	}
 	uint64_t work2 (0);
 	request.put ("work", nano::to_string_hex (work2));
@@ -4032,7 +4032,7 @@ TEST (rpc, work_validate)
 		ASSERT_FALSE (nano::from_string_hex (difficulty_text, difficulty));
 		ASSERT_GE (params.network.publish_thresholds.epoch_1, difficulty);
 		double multiplier (response.json.get<double> ("multiplier"));
-		ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (difficulty, params.network.publish_thresholds.epoch_1), 1e-6);
+		ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (difficulty, node1.default_difficulty ()), 1e-6);
 	}
 	auto result_difficulty (nano::work_difficulty (nano::work_version::work_1, hash, work1));
 	ASSERT_GE (result_difficulty, params.network.publish_thresholds.base);
@@ -6028,7 +6028,7 @@ TEST (rpc, block_create_state_request_work)
 		boost::property_tree::read_json (block_stream, block_l);
 		auto block (nano::deserialize_block_json (block_l));
 		ASSERT_NE (nullptr, block);
-		ASSERT_GE (block->difficulty (), nano::work_threshold_base (nano::work_version::work_1));
+		ASSERT_GE (block->difficulty (), node->default_difficulty ());
 	}
 }
 
