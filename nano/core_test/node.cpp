@@ -1238,7 +1238,6 @@ TEST (node, fork_publish)
 		// Wait until the genesis rep activated & makes vote
 		while (election->last_votes_size () != 2)
 		{
-			node1.active.generator.add (send1->hash ());
 			node1.vote_processor.flush ();
 			ASSERT_NO_ERROR (system.poll ());
 		}
@@ -1886,7 +1885,6 @@ TEST (node, rep_self_vote)
 	ASSERT_EQ (nano::process_result::progress, node0->process (*block0).code);
 	auto & active (node0->active);
 	auto election1 = active.insert (block0);
-	active.generator.add (block0->hash ());
 	system.deadline_set (1s);
 	// Wait until representatives are activated & make vote
 	while (election1.election->last_votes_size () != 3)
@@ -2905,6 +2903,8 @@ TEST (node, vote_republish)
 	}
 }
 
+namespace nano
+{
 TEST (node, vote_by_hash_bundle)
 {
 	// Keep max_hashes above system to ensure it is kept in scope as votes can be added during system destruction
@@ -2935,6 +2935,7 @@ TEST (node, vote_by_hash_bundle)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+}
 }
 
 TEST (node, vote_by_hash_republish)

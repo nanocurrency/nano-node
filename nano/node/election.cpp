@@ -31,6 +31,7 @@ status ({ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std
 	last_votes.emplace (node.network_params.random.not_an_account, nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () });
 	blocks.emplace (block_a->hash (), block_a);
 	update_dependent ();
+	generate_votes (block_a->hash ());
 }
 
 void nano::election::confirm_once (nano::election_status_type type_a)
@@ -354,11 +355,8 @@ void nano::election::confirm_if_quorum ()
 	}
 	if (sum >= node.config.online_weight_minimum.number () && winner_hash_l != status_winner_hash_l)
 	{
-		if (node.config.enable_voting && node.wallets.rep_counts ().voting > 0)
-		{
-			node.votes_cache.remove (status_winner_hash_l);
-			generate_votes ();
-		}
+		remove_votes (status_winner_hash_l);
+		generate_votes (winner_hash_l);
 		node.block_processor.force (block_l);
 		status.winner = block_l;
 		update_dependent ();
@@ -577,10 +575,18 @@ void nano::election::insert_inactive_votes_cache (nano::block_hash const & hash_
 	}
 }
 
-void nano::election::generate_votes ()
+void nano::election::generate_votes (nano::block_hash const & hash_a)
 {
 	if (node.config.enable_voting && node.wallets.rep_counts ().voting > 0)
 	{
-		node.active.generator.add (status.winner->hash ());
+		node.active.generator.add (hash_a);
+	}
+}
+
+void nano::election::remove_votes (nano::block_hash const & hash_a)
+{
+	if (node.config.enable_voting && node.wallets.rep_counts ().voting > 0)
+	{
+		node.votes_cache.remove (hash_a);
 	}
 }

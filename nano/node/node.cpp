@@ -1103,11 +1103,6 @@ void nano::node::block_confirm (std::shared_ptr<nano::block> block_a)
 	{
 		election.election->transition_active ();
 	}
-	// Calculate votes for local representatives
-	if (election.prioritized && active.active (*block_a))
-	{
-		election.election->generate_votes ();
-	}
 }
 
 bool nano::node::block_confirmed_or_being_confirmed (nano::transaction const & transaction_a, nano::block_hash const & hash_a)

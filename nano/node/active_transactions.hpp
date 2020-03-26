@@ -150,11 +150,11 @@ public:
 	size_t inactive_votes_cache_size ();
 	size_t election_winner_details_size ();
 	void add_election_winner_details (nano::block_hash const &, std::shared_ptr<nano::election> const &);
-	nano::vote_generator generator;
 
 private:
 	std::mutex election_winner_details_mutex;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> election_winner_details;
+	nano::vote_generator generator;
 
 	// Call action with confirmed block, may be different than what we started with
 	// clang-format off
@@ -225,6 +225,7 @@ private:
 	friend class confirmation_height_prioritize_frontiers_Test;
 	friend class confirmation_height_prioritize_frontiers_overwrite_Test;
 	friend class active_transactions_confirmation_consistency_Test;
+	friend class node_vote_by_hash_bundle_Test;
 	friend std::unique_ptr<container_info_component> collect_container_info (active_transactions &, const std::string &);
 };
 

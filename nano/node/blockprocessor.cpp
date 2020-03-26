@@ -288,11 +288,6 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	{
 		node.network.flood_block (block_a, nano::buffer_drop_policy::no_limiter_drop);
 	}
-	if (election.prioritized)
-	{
-		// Announce our weighted vote to the network
-		election.election->generate_votes ();
-	}
 }
 
 nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, nano::unchecked_info info_a, const bool watch_work_a, const bool first_publish_a)

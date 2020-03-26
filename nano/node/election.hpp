@@ -79,7 +79,8 @@ public:
 	void adjust_dependent_difficulty ();
 	void insert_inactive_votes_cache (nano::block_hash const &);
 	// Calculate votes for local representatives
-	void generate_votes ();
+	void generate_votes (nano::block_hash const &);
+	void remove_votes (nano::block_hash const &);
 	// Erase all blocks from active and, if not confirmed, clear digests from network filters
 	void cleanup ();
 
