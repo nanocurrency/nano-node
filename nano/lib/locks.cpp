@@ -28,6 +28,7 @@ void output_if_held_long_enough (nano::timer<std::chrono::milliseconds> & timer,
 	timer.stop ();
 }
 
+#ifndef NANO_TIMED_LOCKS_IGNORE_BLOCKED
 template <typename Mutex>
 void output_if_blocked_long_enough (nano::timer<std::chrono::milliseconds> & timer, Mutex & mutex)
 {
@@ -37,6 +38,7 @@ void output_if_blocked_long_enough (nano::timer<std::chrono::milliseconds> & tim
 		output ("blocked", time_blocked, mutex);
 	}
 }
+#endif
 }
 
 namespace nano
@@ -47,7 +49,9 @@ mut (mutex)
 	timer.start ();
 
 	mut.lock ();
+#ifndef NANO_TIMED_LOCKS_IGNORE_BLOCKED
 	output_if_blocked_long_enough (timer, mut);
+#endif
 }
 
 lock_guard<std::mutex>::~lock_guard () noexcept
@@ -73,8 +77,9 @@ void unique_lock<Mutex, U>::lock_impl ()
 
 	mut->lock ();
 	owns = true;
-
+#ifndef NANO_TIMED_LOCKS_IGNORE_BLOCKED
 	output_if_blocked_long_enough (timer, *mut);
+#endif
 }
 
 template <typename Mutex, typename U>
