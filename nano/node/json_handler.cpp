@@ -5082,8 +5082,21 @@ void nano::json_handler::work_validate ()
 	auto work_version (work_version_optional_impl (nano::work_version::work_1));
 	if (!ec)
 	{
+		/* Transition to epoch_2 difficulty levels breaks previous behavior.
+		 * When difficulty is not given, the default difficulty to validate changes when the first epoch_2 block is seen, breaking previous behavior.
+		 * For this reason, when difficulty is not given, the "valid" field is no longer included in the response to break loudly any client expecting it.
+		 * Instead, use the new fields:
+		 * * valid_all: the work is valid at the current highest difficulty threshold
+		 * * valid_receive: the work is valid for a receive block in an epoch_2 upgraded account
+		 */
+
 		auto result_difficulty (nano::work_difficulty (work_version, hash, work));
-		response_l.put ("valid", (result_difficulty >= difficulty) ? "1" : "0");
+		if (request.count ("difficulty"))
+		{
+			response_l.put ("valid", (result_difficulty >= difficulty) ? "1" : "0");
+		}
+		response_l.put ("valid_all", (result_difficulty >= node.default_difficulty ()) ? "1" : "0");
+		response_l.put ("valid_receive", (result_difficulty >= nano::work_threshold (work_version, nano::block_details (nano::epoch::epoch_2, false, true, false))) ? "1" : "0");
 		response_l.put ("difficulty", nano::to_string_hex (result_difficulty));
 		auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, node.default_difficulty ());
 		response_l.put ("multiplier", nano::to_string (result_multiplier));
