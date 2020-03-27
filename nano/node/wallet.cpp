@@ -1383,7 +1383,7 @@ void nano::wallet::work_cache_blocking (nano::account const & account_a, nano::r
 {
 	if (wallets.node.work_generation_enabled ())
 	{
-		auto difficulty (wallets.node.default_difficulty ());
+		auto difficulty (wallets.node.default_difficulty (nano::work_version::work_1));
 		auto opt_work_l (wallets.node.work_generate_blocking (nano::work_version::work_1, root_a, difficulty, account_a));
 		if (opt_work_l.is_initialized ())
 		{
