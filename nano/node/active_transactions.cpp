@@ -283,7 +283,7 @@ void nano::active_transactions::frontiers_confirmation (nano::unique_lock<std::m
 	auto disabled_confirmation_mode = (node.config.frontiers_confirmation != nano::frontiers_confirmation_mode::disabled);
 	auto conf_height_capacity_reached = pending_confirmation_height_size < confirmed_frontiers_max_pending_size;
 	auto all_cemented = node.ledger.cache.block_count == node.ledger.cache.cemented_count;
-	if (!disabled_confirmation_mode && bootstrap_weight_reached && !conf_height_capacity_reached && !all_cemented);
+	if (!disabled_confirmation_mode && bootstrap_weight_reached && !conf_height_capacity_reached && !all_cemented)
 	{
 		// Spend some time prioritizing accounts with the most uncemented blocks to reduce voting traffic
 		auto request_interval = std::chrono::milliseconds (node.network_params.network.request_interval_ms);
