@@ -246,9 +246,9 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 		auto & election_l (i->election);
 		bool const confirmed_l (election_l->confirmed ());
 
-		if (!i->prioritized && unconfirmed_count_l < prioritized_cutoff)
+		if (!election_l->prioritized () && unconfirmed_count_l < prioritized_cutoff)
 		{
-			sorted_roots_l.modify (i, [](nano::conflict_info & info_a) { info_a.prioritized = true; });
+			election_l->prioritize_election ();
 		}
 
 		unconfirmed_count_l += !confirmed_l;
@@ -497,10 +497,10 @@ nano::election_insertion_result nano::active_transactions::insert_impl (std::sha
 			{
 				result.inserted = true;
 				auto hash (block_a->hash ());
-				result.election = nano::make_shared<nano::election> (node, block_a, confirmation_action_a);
 				auto difficulty (block_a->difficulty ());
-				result.prioritized = roots.size () < prioritized_cutoff || difficulty > last_prioritized_difficulty.value_or (0);
-				roots.get<tag_root> ().emplace (nano::conflict_info{ root, difficulty, difficulty, result.election, result.prioritized });
+				bool prioritized = roots.size () < prioritized_cutoff || difficulty > last_prioritized_difficulty.value_or (0);
+				result.election = nano::make_shared<nano::election> (node, block_a, confirmation_action_a, prioritized);
+				roots.get<tag_root> ().emplace (nano::conflict_info{ root, difficulty, difficulty, result.election });
 				blocks.emplace (hash, result.election);
 				add_adjust_difficulty (hash);
 				result.election->insert_inactive_votes_cache (hash);

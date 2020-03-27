@@ -38,7 +38,6 @@ public:
 	uint64_t difficulty;
 	uint64_t adjusted_difficulty;
 	std::shared_ptr<nano::election> election;
-	bool prioritized;
 };
 
 class cementable_account final
@@ -71,7 +70,6 @@ class election_insertion_result final
 public:
 	std::shared_ptr<nano::election> election;
 	bool inserted{ false };
-	bool prioritized{ false };
 };
 
 // Core class for determining consensus

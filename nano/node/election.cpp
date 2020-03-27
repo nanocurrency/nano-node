@@ -22,16 +22,20 @@ nano::election_vote_result::election_vote_result (bool replay_a, bool processed_
 	processed = processed_a;
 }
 
-nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> block_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a) :
+nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> block_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a, bool prioritized_a) :
 confirmation_action (confirmation_action_a),
 state_start (std::chrono::steady_clock::now ()),
 node (node_a),
-status ({ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::ongoing })
+status ({ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::ongoing }),
+prioritized_m (prioritized_a)
 {
 	last_votes.emplace (node.network_params.random.not_an_account, nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () });
 	blocks.emplace (block_a->hash (), block_a);
 	update_dependent ();
-	generate_votes (block_a->hash ());
+	if (prioritized_a)
+	{
+		generate_votes (block_a->hash ());
+	}
 }
 
 void nano::election::confirm_once (nano::election_status_type type_a)
@@ -573,6 +577,18 @@ void nano::election::insert_inactive_votes_cache (nano::block_hash const & hash_
 		}
 		confirm_if_quorum ();
 	}
+}
+
+bool nano::election::prioritized ()
+{
+	return prioritized_m;
+}
+
+void nano::election::prioritize_election ()
+{
+	debug_assert (!node.active.mutex.try_lock ());
+	prioritized_m = true;
+	generate_votes (status.winner->hash ());
 }
 
 void nano::election::generate_votes (nano::block_hash const & hash_a)
