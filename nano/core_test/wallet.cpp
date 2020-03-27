@@ -1138,15 +1138,19 @@ TEST (wallet, work_watcher_update)
 	nano::keypair key;
 	auto const block1 (wallet.send_action (nano::test_genesis_key.pub, key.pub, 100));
 	auto difficulty1 (block1->difficulty ());
+	auto multiplier1 (nano::difficulty::to_multiplier (difficulty1, nano::work_threshold (block1->work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false))));
+	node.active.multiplier_normalization (multiplier1, node.network_params.network.publish_thresholds.epoch_1);
 	auto const block2 (wallet.send_action (nano::test_genesis_key.pub, key.pub, 200));
 	auto difficulty2 (block2->difficulty ());
-	uint64_t updated_difficulty1{ difficulty1 }, updated_difficulty2{ difficulty2 };
+	auto multiplier2 (nano::difficulty::to_multiplier (difficulty2, nano::work_threshold (block2->work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false))));
+	node.active.multiplier_normalization (multiplier2, node.network_params.network.publish_thresholds.epoch_1);
+	double updated_multiplier1{ multiplier1 }, updated_multiplier2{ multiplier2 };
 	{
 		nano::lock_guard<std::mutex> guard (node.active.mutex);
 		node.active.trended_active_difficulty = std::max (difficulty1, difficulty2) + 1;
 	}
 	system.deadline_set (20s);
-	while (updated_difficulty1 == difficulty1 || updated_difficulty2 == difficulty2)
+	while (updated_multiplier1 == multiplier1 || updated_multiplier2 == multiplier2)
 	{
 		{
 			nano::lock_guard<std::mutex> guard (node.active.mutex);
@@ -1154,19 +1158,19 @@ TEST (wallet, work_watcher_update)
 				auto const existing (node.active.roots.find (block1->qualified_root ()));
 				//if existing is junk the block has been confirmed already
 				ASSERT_NE (existing, node.active.roots.end ());
-				updated_difficulty1 = nano::difficulty::from_multiplier (existing->multiplier, node.network_params.network.publish_thresholds.epoch_1);
+				updated_multiplier1 = existing->multiplier;
 			}
 			{
 				auto const existing (node.active.roots.find (block2->qualified_root ()));
 				//if existing is junk the block has been confirmed already
 				ASSERT_NE (existing, node.active.roots.end ());
-				updated_difficulty2 = nano::difficulty::from_multiplier (existing->multiplier, node.network_params.network.publish_thresholds.epoch_1);
+				updated_multiplier2 = existing->multiplier;
 			}
 		}
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_GT (updated_difficulty1, difficulty1);
-	ASSERT_GT (updated_difficulty2, difficulty2);
+	ASSERT_GT (updated_multiplier1, multiplier1);
+	ASSERT_GT (updated_multiplier2, multiplier2);
 }
 
 TEST (wallet, work_watcher_generation_disabled)
@@ -1185,7 +1189,8 @@ TEST (wallet, work_watcher_generation_disabled)
 	node.wallets.watcher->add (block);
 	ASSERT_FALSE (node.process_local (block).code != nano::process_result::progress);
 	ASSERT_TRUE (node.wallets.watcher->is_watched (block->qualified_root ()));
-	auto multiplier = nano::difficulty::to_multiplier (difficulty, nano::work_threshold_base (block->work_version ()));
+	auto multiplier = nano::difficulty::to_multiplier (difficulty, nano::work_threshold (block->work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false)));
+	node.active.multiplier_normalization (multiplier, node.network_params.network.publish_thresholds.epoch_1);
 	double updated_multiplier{ multiplier };
 	{
 		nano::unique_lock<std::mutex> lock (node.active.mutex);

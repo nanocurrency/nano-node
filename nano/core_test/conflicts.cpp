@@ -166,7 +166,8 @@ TEST (conflicts, reprioritize)
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send1);
 	auto difficulty1 (send1->difficulty ());
-	auto multiplier1 (nano::difficulty::to_multiplier (difficulty1, nano::work_threshold (send1->work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false))));
+	auto multiplier1 (nano::difficulty::to_multiplier (difficulty1, nano::work_threshold (send1->work_version (), nano::block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */))));
+	node1.active.multiplier_normalization (multiplier1, node1.network_params.network.publish_thresholds.epoch_1);
 	nano::send_block send1_copy (*send1);
 	node1.process_active (send1);
 	node1.block_processor.flush ();
@@ -178,7 +179,8 @@ TEST (conflicts, reprioritize)
 	}
 	node1.work_generate_blocking (send1_copy, difficulty1);
 	auto difficulty2 (send1_copy.difficulty ());
-	auto multiplier2 (nano::difficulty::to_multiplier (difficulty2, nano::work_threshold (send1_copy.work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false))));
+	auto multiplier2 (nano::difficulty::to_multiplier (difficulty2, nano::work_threshold (send1_copy.work_version (), nano::block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */))));
+	node1.active.multiplier_normalization (multiplier2, node1.network_params.network.publish_thresholds.epoch_1);
 	node1.process_active (std::make_shared<nano::send_block> (send1_copy));
 	node1.block_processor.flush ();
 	{

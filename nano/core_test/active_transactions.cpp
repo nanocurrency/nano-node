@@ -367,7 +367,9 @@ TEST (active_transactions, prioritize_chains)
 	auto send6 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send5->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 30 * nano::xrb_ratio, key3.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send5->hash ())));
 	auto open2 (std::make_shared<nano::state_block> (key2.pub, 0, key2.pub, 10 * nano::xrb_ratio, send5->hash (), key2.prv, key2.pub, *system.work.generate (key2.pub, nano::difficulty::from_multiplier (50., node1.network_params.network.publish_thresholds.base))));
 	auto multiplier1 (nano::difficulty::to_multiplier (open2->difficulty (), nano::work_threshold (open2->work_version (), nano::block_details (nano::epoch::epoch_0, false, true, false))));
+	node1.active.multiplier_normalization (multiplier1, node1.network_params.network.publish_thresholds.epoch_1);
 	auto multiplier2 (nano::difficulty::to_multiplier (send6->difficulty (), nano::work_threshold (open2->work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false))));
+	node1.active.multiplier_normalization (multiplier2, node1.network_params.network.publish_thresholds.epoch_1);
 
 	node1.process_active (send1);
 	node1.process_active (open1);
@@ -588,9 +590,11 @@ TEST (active_transactions, update_difficulty)
 	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 100, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
 	auto difficulty1 (send1->difficulty ());
 	auto multiplier1 (nano::difficulty::to_multiplier (difficulty1, nano::work_threshold (send1->work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false))));
+	node1.active.multiplier_normalization (multiplier1, node1.network_params.network.publish_thresholds.epoch_1);
 	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 200, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send1->hash ())));
 	auto difficulty2 (send2->difficulty ());
 	auto multiplier2 (nano::difficulty::to_multiplier (difficulty2, nano::work_threshold (send2->work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false))));
+	node1.active.multiplier_normalization (multiplier2, node1.network_params.network.publish_thresholds.epoch_1);
 	node1.process_active (send1);
 	node1.process_active (send2);
 	node1.block_processor.flush ();
@@ -632,9 +636,9 @@ TEST (active_transactions, update_difficulty)
 			ASSERT_NE (existing4, node2.active.roots.end ());
 			auto updated1 = existing1->multiplier > multiplier1;
 			auto updated2 = existing2->multiplier > multiplier2;
-			auto propogated1 = existing3->multiplier > multiplier1;
-			auto propogated2 = existing4->multiplier > multiplier2;
-			done = updated1 && updated2 && propogated1 && propogated2;
+			auto propagated1 = existing3->multiplier > multiplier1;
+			auto propagated2 = existing4->multiplier > multiplier2;
+			done = updated1 && updated2 && propagated1 && propagated2;
 		}
 		ASSERT_NO_ERROR (system.poll ());
 	}

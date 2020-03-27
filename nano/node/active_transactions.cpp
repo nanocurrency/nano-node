@@ -520,7 +520,7 @@ nano::election_insertion_result nano::active_transactions::insert_impl (std::sha
 				result.election = nano::make_shared<nano::election> (node, block_a, confirmation_action_a);
 				auto difficulty (block_a->difficulty ());
 				result.prioritized = roots.size () < prioritized_cutoff || difficulty > last_prioritized_difficulty.value_or (0);
-				double multiplier (normalized_difficulty (block_a));
+				double multiplier (normalized_multiplier (block_a));
 				roots.get<tag_root> ().emplace (nano::conflict_info{ root, multiplier, difficulty, result.election, result.prioritized });
 				blocks.emplace (hash, result.election);
 				add_adjust_difficulty (hash);
@@ -645,7 +645,7 @@ void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> 
 	auto existing_election (roots.get<tag_root> ().find (block_a->qualified_root ()));
 	if (existing_election != roots.get<tag_root> ().end ())
 	{
-		double multiplier (normalized_difficulty (block_a, existing_election->election->status.winner));
+		double multiplier (normalized_multiplier (block_a, existing_election->election->status.winner));
 		if (multiplier > existing_election->multiplier)
 		{
 			if (node.config.logging.active_update_logging ())
@@ -661,7 +661,7 @@ void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> 
 	}
 }
 
-double nano::active_transactions::normalized_difficulty (std::shared_ptr<nano::block> block_a, std::shared_ptr<nano::block> winner_a)
+double nano::active_transactions::normalized_multiplier (std::shared_ptr<nano::block> block_a, std::shared_ptr<nano::block> winner_a)
 {
 	auto difficulty (block_a->difficulty ());
 	uint64_t threshold (0);
@@ -679,44 +679,49 @@ double nano::active_transactions::normalized_difficulty (std::shared_ptr<nano::b
 	}
 	double multiplier (nano::difficulty::to_multiplier (difficulty, threshold));
 	debug_assert (multiplier >= 1);
+	multiplier_normalization (multiplier, threshold);
+	return multiplier;
+}
+
+void nano::active_transactions::multiplier_normalization (double & multiplier_a, uint64_t const threshold_a)
+{
 	// Normalization rules
-	if (threshold == node.network_params.network.publish_thresholds.epoch_1)
+	if (threshold_a == node.network_params.network.publish_thresholds.epoch_1)
 	{
 		// Epoch 1
 		auto rate (node.network_params.network.publish_thresholds.epoch_2 / node.network_params.network.publish_thresholds.epoch_1);
 		auto rate_4 (rate * 4);
-		if (multiplier < rate) // From 0.75 to 2.0
+		if (multiplier_a < rate) // From 0.75 to 2.0
 		{
-			multiplier = (multiplier / rate) * 1.25 + 0.75;
+			multiplier_a = (multiplier_a / rate) * 1.25 + 0.75;
 		}
-		else if (multiplier < rate_4) // From 2.0 to 4.0
+		else if (multiplier_a < rate_4) // From 2.0 to 4.0
 		{
-			multiplier = (multiplier / rate_4) * 2.0 + 2.0;
+			multiplier_a = (multiplier_a / rate_4) * 2.0 + 2.0;
 		}
 		else // Same computational resources for epoch 1 & epoch 2
 		{
-			multiplier = multiplier / rate;
+			multiplier_a = multiplier_a / rate;
 		}
 	}
-	else if (threshold == node.network_params.network.publish_thresholds.epoch_2_receive)
+	else if (threshold_a == node.network_params.network.publish_thresholds.epoch_2_receive)
 	{
 		// Epoch 2 (receive / epoch subtypes)
 		auto rate (node.network_params.network.publish_thresholds.epoch_2 / node.network_params.network.publish_thresholds.epoch_2_receive);
 		auto rate_4 (rate * 4);
-		if (multiplier < rate) // From 0.5 to 2.0
+		if (multiplier_a < rate) // From 0.5 to 2.0
 		{
-			multiplier = (multiplier / rate) * 1.5 + 0.5;
+			multiplier_a = (multiplier_a / rate) * 1.5 + 0.5;
 		}
-		else if (multiplier < rate_4) // From 2.0 to 4.0
+		else if (multiplier_a < rate_4) // From 2.0 to 4.0
 		{
-			multiplier = (multiplier / rate_4) * 2.0 + 2.0;
+			multiplier_a = (multiplier_a / rate_4) * 2.0 + 2.0;
 		}
 		else // Same computational resources for send & receive
 		{
-			multiplier = multiplier / rate;
+			multiplier_a = multiplier_a / rate;
 		}
 	}
-	return multiplier;
 }
 
 void nano::active_transactions::add_adjust_difficulty (nano::block_hash const & hash_a)
