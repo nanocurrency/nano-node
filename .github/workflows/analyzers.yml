@@ -1,0 +1,15 @@
+name: Static Analyzers
+
+on: [push, pull_request]
+
+jobs:
+  clang_format:
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@50fbc62
+      - name: Get clang-format 8
+        env: 
+          DEBIAN_FRONTEND: noninteractive
+        run: sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-8 1000
+      - name: Clang Format
+        run: ci/check-commit-format.sh 
