@@ -206,25 +206,6 @@ void nano::active_transactions::block_already_cemented_callback (nano::block_has
 void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> & lock_a)
 {
 	debug_assert (!mutex.try_lock ());
-	/*
-	 * Confirm frontiers when there aren't many confirmations already pending and node finished initial bootstrap
-	 * In auto mode start confirm only if node contains almost principal representative (half of required for principal weight)
-	 */
-	auto pending_confirmation_height_size (confirmation_height_processor.awaiting_processing_size ());
-	bool bootstrap_weight_reached (node.ledger.cache.block_count >= node.ledger.bootstrap_weight_max_blocks);
-	if (node.config.frontiers_confirmation != nano::frontiers_confirmation_mode::disabled && bootstrap_weight_reached && pending_confirmation_height_size < confirmed_frontiers_max_pending_size)
-	{
-		// Spend some time prioritizing accounts with the most uncemented blocks to reduce voting traffic
-		auto request_interval = std::chrono::milliseconds (node.network_params.network.request_interval_ms);
-		auto time_spent_prioritizing_ledger_accounts = request_interval / 100;
-		auto time_spent_prioritizing_wallet_accounts = request_interval / 250;
-		auto transaction = node.store.tx_begin_read ();
-		lock_a.unlock ();
-		prioritize_frontiers_for_confirmation (transaction, node.network_params.network.is_test_network () ? std::chrono::milliseconds (50) : time_spent_prioritizing_ledger_accounts, time_spent_prioritizing_wallet_accounts);
-		confirm_prioritized_frontiers (transaction);
-		lock_a.lock ();
-		update_adjusted_difficulty (); // New roots sorting
-	}
 
 	// Only representatives ready to receive batched confirm_req
 	nano::confirmation_solicitor solicitor (node.network, node.network_params.network);
@@ -292,6 +273,30 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	}
 }
 
+void nano::active_transactions::frontiers_confirmation (nano::unique_lock<std::mutex> & lock_a)
+{
+	/*
+ 	 * Confirm frontiers when there aren't many confirmations already pending and node finished initial bootstrap
+  	 */
+	auto pending_confirmation_height_size (confirmation_height_processor.awaiting_processing_size ());
+	auto bootstrap_weight_reached (node.ledger.cache.block_count >= node.ledger.bootstrap_weight_max_blocks);
+	auto disabled_confirmation_mode = (node.config.frontiers_confirmation != nano::frontiers_confirmation_mode::disabled);
+	auto conf_height_capacity_reached = pending_confirmation_height_size < confirmed_frontiers_max_pending_size;
+	auto all_cemented = node.ledger.cache.block_count == node.ledger.cache.cemented_count;
+	if (!disabled_confirmation_mode && bootstrap_weight_reached && !conf_height_capacity_reached && !all_cemented);
+	{
+		// Spend some time prioritizing accounts with the most uncemented blocks to reduce voting traffic
+		auto request_interval = std::chrono::milliseconds (node.network_params.network.request_interval_ms);
+		auto time_spent_prioritizing_ledger_accounts = request_interval / 100;
+		auto time_spent_prioritizing_wallet_accounts = request_interval / 250;
+		lock_a.unlock ();
+		auto transaction = node.store.tx_begin_read ();
+		prioritize_frontiers_for_confirmation (transaction, node.network_params.network.is_test_network () ? std::chrono::milliseconds (50) : time_spent_prioritizing_ledger_accounts, time_spent_prioritizing_wallet_accounts);
+		confirm_prioritized_frontiers (transaction);
+		lock_a.lock ();
+	}
+}
+
 void nano::active_transactions::request_loop ()
 {
 	nano::unique_lock<std::mutex> lock (mutex);
@@ -311,6 +316,8 @@ void nano::active_transactions::request_loop ()
 		const auto wakeup_l (std::chrono::steady_clock::now () + std::chrono::milliseconds (node.network_params.network.request_interval_ms));
 
 		update_adjusted_difficulty ();
+		// frontiers_confirmation should be above update_active_difficulty to ensure new sorted roots are updated
+		frontiers_confirmation (lock);
 		update_active_difficulty (lock);
 		request_confirm (lock);
 
