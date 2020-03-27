@@ -639,7 +639,7 @@ void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> 
 	auto existing_election (roots.get<tag_root> ().find (block_a->qualified_root ()));
 	if (existing_election != roots.get<tag_root> ().end ())
 	{
-		double multiplier (normalized_difficulty (block_a));
+		double multiplier (normalized_difficulty (block_a, existing_election->election->status.winner));
 		if (multiplier > existing_election->multiplier)
 		{
 			if (node.config.logging.active_update_logging ())
@@ -655,13 +655,17 @@ void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> 
 	}
 }
 
-double nano::active_transactions::normalized_difficulty (std::shared_ptr<nano::block> block_a)
+double nano::active_transactions::normalized_difficulty (std::shared_ptr<nano::block> block_a, std::shared_ptr<nano::block> winner_a)
 {
 	auto difficulty (block_a->difficulty ());
 	uint64_t threshold (0);
 	if (block_a->has_sideband ())
 	{
 		threshold = nano::work_threshold (block_a->work_version (), block_a->sideband ().details);
+	}
+	else if (winner_a != nullptr && winner_a->has_sideband () && winner_a->hash () == block_a->hash ())
+	{
+		threshold = nano::work_threshold (block_a->work_version (), winner_a->sideband ().details);
 	}
 	else
 	{

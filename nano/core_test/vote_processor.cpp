@@ -28,6 +28,7 @@ TEST (vote_processor, codes)
 	ASSERT_EQ (nano::vote_code::indeterminate, node.vote_processor.vote_blocking (vote, channel));
 
 	// First vote from an account for an ongoing election
+	genesis.open->sideband_set (nano::block_sideband (nano::genesis_account, 0, nano::genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false));
 	ASSERT_TRUE (node.active.insert (genesis.open).inserted);
 	ASSERT_EQ (nano::vote_code::vote, node.vote_processor.vote_blocking (vote, channel));
 
@@ -76,6 +77,7 @@ TEST (vote_processor, invalid_signature)
 	vote_invalid->signature.bytes[0] ^= 1;
 	auto channel (std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
 
+	genesis.open->sideband_set (nano::block_sideband (nano::genesis_account, 0, nano::genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false));
 	auto election (node.active.insert (genesis.open));
 	ASSERT_TRUE (election.election && election.inserted);
 	ASSERT_EQ (1, election.election->last_votes.size ());
