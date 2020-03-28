@@ -923,3 +923,59 @@ TEST (active_difficulty, less_than_one)
 	node.active.update_active_difficulty (lock);
 	ASSERT_EQ (node.active.trended_active_difficulty, difficulty);
 }
+
+TEST (active_difficulty, normalization)
+{
+	nano::system system (1);
+	auto & node (*system.nodes[0]);
+	// Check normalization for epoch 1
+	double multiplier1 (1.0);
+	ASSERT_LT (nano::difficulty::from_multiplier (multiplier1, node.network_params.network.publish_thresholds.epoch_1), nano::difficulty::from_multiplier (0.75, node.network_params.network.publish_thresholds.epoch_2));
+	node.active.multiplier_normalization (multiplier1, node.network_params.network.publish_thresholds.epoch_1);
+	ASSERT_NEAR (0.75, multiplier1, 1e-10);
+	double multiplier2 (4.5);
+	ASSERT_LT (nano::difficulty::from_multiplier (multiplier2, node.network_params.network.publish_thresholds.epoch_1), nano::difficulty::from_multiplier (1.375, node.network_params.network.publish_thresholds.epoch_2));
+	node.active.multiplier_normalization (multiplier2, node.network_params.network.publish_thresholds.epoch_1);
+	ASSERT_NEAR (1.375, multiplier2, 1e-10);
+	double multiplier3 (8.0);
+	ASSERT_LT (nano::difficulty::from_multiplier (multiplier3, node.network_params.network.publish_thresholds.epoch_1), nano::difficulty::from_multiplier (2.0, node.network_params.network.publish_thresholds.epoch_2));
+	node.active.multiplier_normalization (multiplier3, node.network_params.network.publish_thresholds.epoch_1);
+	ASSERT_NEAR (2.0, multiplier3, 1e-10);
+	double multiplier4 (20.0);
+	ASSERT_LT (nano::difficulty::from_multiplier (multiplier4, node.network_params.network.publish_thresholds.epoch_1), nano::difficulty::from_multiplier (3.0, node.network_params.network.publish_thresholds.epoch_2));
+	node.active.multiplier_normalization (multiplier4, node.network_params.network.publish_thresholds.epoch_1);
+	ASSERT_NEAR (3.0, multiplier4, 1e-10);
+	double multiplier5 (32.0);
+	ASSERT_EQ (nano::difficulty::from_multiplier (multiplier5, node.network_params.network.publish_thresholds.epoch_1), nano::difficulty::from_multiplier (4.0, node.network_params.network.publish_thresholds.epoch_2));
+	node.active.multiplier_normalization (multiplier5, node.network_params.network.publish_thresholds.epoch_1);
+	ASSERT_NEAR (4.0, multiplier5, 1e-10); 
+	double multiplier6 (64.0);
+	ASSERT_EQ (nano::difficulty::from_multiplier (multiplier6, node.network_params.network.publish_thresholds.epoch_1), nano::difficulty::from_multiplier (8.0, node.network_params.network.publish_thresholds.epoch_2));
+	node.active.multiplier_normalization (multiplier6, node.network_params.network.publish_thresholds.epoch_1);
+	ASSERT_NEAR (8.0, multiplier6, 1e-10);
+	// Check normalization for epoch 2 receive
+	double multiplier10 (1.0);
+	ASSERT_LT (nano::difficulty::from_multiplier (multiplier10, node.network_params.network.publish_thresholds.epoch_2_receive), nano::difficulty::from_multiplier (0.5, node.network_params.network.publish_thresholds.epoch_2));
+	node.active.multiplier_normalization (multiplier10, node.network_params.network.publish_thresholds.epoch_2_receive);
+	ASSERT_NEAR (0.5, multiplier10, 1e-10);
+	double multiplier11 (32.5);
+	ASSERT_LT (nano::difficulty::from_multiplier (multiplier11, node.network_params.network.publish_thresholds.epoch_2_receive), nano::difficulty::from_multiplier (1.25, node.network_params.network.publish_thresholds.epoch_2));
+	node.active.multiplier_normalization (multiplier11, node.network_params.network.publish_thresholds.epoch_2_receive);
+	ASSERT_NEAR (1.25, multiplier11, 1e-10);
+	double multiplier12 (64.0);
+	ASSERT_LT (nano::difficulty::from_multiplier (multiplier12, node.network_params.network.publish_thresholds.epoch_2_receive), nano::difficulty::from_multiplier (2.0, node.network_params.network.publish_thresholds.epoch_2));
+	node.active.multiplier_normalization (multiplier12, node.network_params.network.publish_thresholds.epoch_2_receive);
+	ASSERT_NEAR (2.0, multiplier12, 1e-10);
+	double multiplier13 (160.0);
+	ASSERT_LT (nano::difficulty::from_multiplier (multiplier13, node.network_params.network.publish_thresholds.epoch_2_receive), nano::difficulty::from_multiplier (3.0, node.network_params.network.publish_thresholds.epoch_2));
+	node.active.multiplier_normalization (multiplier13, node.network_params.network.publish_thresholds.epoch_2_receive);
+	ASSERT_NEAR (3.0, multiplier13, 1e-10);
+	double multiplier14 (256.0);
+	ASSERT_EQ (nano::difficulty::from_multiplier (multiplier14, node.network_params.network.publish_thresholds.epoch_2_receive), nano::difficulty::from_multiplier (4.0, node.network_params.network.publish_thresholds.epoch_2));
+	node.active.multiplier_normalization (multiplier14, node.network_params.network.publish_thresholds.epoch_2_receive);
+	ASSERT_NEAR (4.0, multiplier14, 1e-10); 
+	double multiplier15 (1024.0);
+	ASSERT_EQ (nano::difficulty::from_multiplier (multiplier15, node.network_params.network.publish_thresholds.epoch_2_receive), nano::difficulty::from_multiplier (16.0, node.network_params.network.publish_thresholds.epoch_2));
+	node.active.multiplier_normalization (multiplier15, node.network_params.network.publish_thresholds.epoch_2_receive);
+	ASSERT_NEAR (16.0, multiplier15, 1e-10);
+}
