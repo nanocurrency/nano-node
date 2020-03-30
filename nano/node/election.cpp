@@ -587,6 +587,7 @@ bool nano::election::prioritized ()
 void nano::election::prioritize_election ()
 {
 	debug_assert (!node.active.mutex.try_lock ());
+	debug_assert (!prioritized_m);
 	prioritized_m = true;
 	generate_votes (status.winner->hash ());
 }
