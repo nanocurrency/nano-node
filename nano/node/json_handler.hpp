@@ -167,6 +167,7 @@ public:
 	bool enable_sign_hash{ false };
 	std::function<void()> stop_callback;
 	nano::node_rpc_config const & node_rpc_config;
+	std::function<void()> create_worker_task (std::function<void(std::shared_ptr<nano::json_handler>)> const &);
 };
 
 class inprocess_rpc_handler final : public nano::rpc_handler_interface
