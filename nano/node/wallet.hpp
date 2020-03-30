@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/lmdbconfig.hpp>
+#include <nano/lib/locks.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/lmdb/lmdb.hpp>
 #include <nano/node/lmdb/wallet_value.hpp>
@@ -146,6 +147,7 @@ public:
 	void send_async (nano::account const &, nano::account const &, nano::uint128_t const &, std::function<void(std::shared_ptr<nano::block>)> const &, uint64_t = 0, bool = true, boost::optional<std::string> = {});
 	void work_cache_blocking (nano::account const &, nano::root const &);
 	void work_update (nano::transaction const &, nano::account const &, nano::root const &, uint64_t);
+	// Schedule work generation after a few seconds
 	void work_ensure (nano::account const &, nano::root const &);
 	bool search_pending ();
 	void init_free_accounts (nano::transaction const &);
@@ -223,6 +225,7 @@ public:
 	std::function<void(bool)> observer;
 	std::unordered_map<nano::wallet_id, std::shared_ptr<nano::wallet>> items;
 	std::multimap<nano::uint128_t, std::pair<std::shared_ptr<nano::wallet>, std::function<void(nano::wallet &)>>, std::greater<nano::uint128_t>> actions;
+	nano::locked<std::unordered_map<nano::account, nano::root>> delayed_work;
 	std::mutex mutex;
 	std::mutex action_mutex;
 	nano::condition_variable condition;

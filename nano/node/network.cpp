@@ -217,17 +217,8 @@ void nano::network::flood_block_many (std::deque<std::shared_ptr<nano::block>> b
 void nano::network::send_confirm_req (std::shared_ptr<nano::transport::channel> channel_a, std::shared_ptr<nano::block> block_a)
 {
 	// Confirmation request with hash + root
-	if (channel_a->get_network_version () >= node.network_params.protocol.tcp_realtime_protocol_version_min)
-	{
-		nano::confirm_req req (block_a->hash (), block_a->root ());
-		channel_a->send (req);
-	}
-	// Confirmation request with full block
-	else
-	{
-		nano::confirm_req req (block_a);
-		channel_a->send (req);
-	}
+	nano::confirm_req req (block_a->hash (), block_a->root ());
+	channel_a->send (req);
 }
 
 void nano::network::broadcast_confirm_req (std::shared_ptr<nano::block> block_a)
@@ -635,14 +626,13 @@ nano::tcp_endpoint nano::network::bootstrap_peer (bool lazy_bootstrap)
 {
 	nano::tcp_endpoint result (boost::asio::ip::address_v6::any (), 0);
 	bool use_udp_peer (nano::random_pool::generate_word32 (0, 1));
-	auto protocol_min (lazy_bootstrap ? node.network_params.protocol.protocol_version_bootstrap_lazy_min : node.network_params.protocol.protocol_version_bootstrap_min);
 	if (use_udp_peer || tcp_channels.size () == 0)
 	{
-		result = udp_channels.bootstrap_peer (protocol_min);
+		result = udp_channels.bootstrap_peer (node.network_params.protocol.protocol_version_bootstrap_min);
 	}
 	if (result == nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0))
 	{
-		result = tcp_channels.bootstrap_peer (protocol_min);
+		result = tcp_channels.bootstrap_peer (node.network_params.protocol.protocol_version_bootstrap_min);
 	}
 	return result;
 }
