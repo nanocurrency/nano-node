@@ -64,38 +64,6 @@ public:
 	// clang-format on
 	constexpr static size_t cache_size_max = 10000;
 };
-class excluded_peers_item final
-{
-public:
-	std::chrono::steady_clock::time_point exclude_until;
-	nano::tcp_endpoint endpoint;
-	uint64_t score;
-};
-class bootstrap_excluded_peers final
-{
-public:
-	uint64_t add (nano::tcp_endpoint const &, size_t);
-	bool check (nano::tcp_endpoint const &);
-	void remove (nano::tcp_endpoint const &);
-	std::mutex excluded_peers_mutex;
-	class endpoint_tag
-	{
-	};
-	// clang-format off
-	boost::multi_index_container<nano::excluded_peers_item,
-	mi::indexed_by<
-		mi::ordered_non_unique<
-			mi::member<nano::excluded_peers_item, std::chrono::steady_clock::time_point, &nano::excluded_peers_item::exclude_until>>,
-		mi::hashed_unique<mi::tag<endpoint_tag>,
-			mi::member<nano::excluded_peers_item, nano::tcp_endpoint, &nano::excluded_peers_item::endpoint>>>>
-	peers;
-	// clang-format on
-	constexpr static size_t excluded_peers_size_max = 5000;
-	constexpr static double excluded_peers_percentage_limit = 0.5;
-	constexpr static uint64_t score_limit = 2;
-	constexpr static std::chrono::hours exclude_time_hours = std::chrono::hours (1);
-	constexpr static std::chrono::hours exclude_remove_hours = std::chrono::hours (24);
-};
 class bootstrap_attempts final
 {
 public:
@@ -130,7 +98,6 @@ public:
 	std::shared_ptr<nano::bootstrap_attempt> current_lazy_attempt ();
 	std::shared_ptr<nano::bootstrap_attempt> current_wallet_attempt ();
 	nano::pulls_cache cache;
-	nano::bootstrap_excluded_peers excluded_peers;
 	nano::bootstrap_attempts attempts;
 	void stop ();
 

@@ -113,6 +113,8 @@ add_library (node
 	openclwork.cpp
 	payment_observer_processor.hpp
 	payment_observer_processor.cpp
+	peer_exclusion.hpp
+	peer_exclusion.cpp
 	portmapping.hpp
 	portmapping.cpp
 	node_pow_server_config.hpp
