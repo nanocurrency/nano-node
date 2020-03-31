@@ -294,6 +294,7 @@ public:
 		tcp_accept_success,
 		tcp_accept_failure,
 		tcp_write_drop,
+		tcp_excluded,
 
 		// ipc
 		invocations,

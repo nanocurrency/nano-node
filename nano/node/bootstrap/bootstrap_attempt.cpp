@@ -321,6 +321,11 @@ void nano::bootstrap_attempt_legacy::attempt_restart_check (nano::unique_lock<st
 			if (score >= nano::peer_exclusion::score_limit)
 			{
 				node->logger.always_log (boost::str (boost::format ("Adding peer %1% to excluded peers list with score %2% after %3% seconds bootstrap attempt") % endpoint_frontier_request % score % std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt_start).count ()));
+				auto channel = node->network.find_channel (nano::transport::map_tcp_to_endpoint (endpoint_frontier_request));
+				if (channel != nullptr)
+				{
+					node->network.erase (*channel);
+				}
 			}
 			lock_a.unlock ();
 			stop ();

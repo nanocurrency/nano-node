@@ -64,11 +64,20 @@ size_t nano::bootstrap_listener::connection_count ()
 
 void nano::bootstrap_listener::accept_action (boost::system::error_code const & ec, std::shared_ptr<nano::socket> socket_a)
 {
-	auto connection (std::make_shared<nano::bootstrap_server> (socket_a, node.shared ()));
+	if (!node.network.excluded_peers.check (socket_a->remote_endpoint ()))
 	{
+		auto connection (std::make_shared<nano::bootstrap_server> (socket_a, node.shared ()));
 		nano::lock_guard<std::mutex> lock (mutex);
 		connections[connection.get ()] = connection;
 		connection->receive ();
+	}
+	else
+	{
+		node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_excluded);
+		if (node.config.logging.network_rejected_logging ())
+		{
+			node.logger.try_log ("Rejected connection from excluded peer ", socket_a->remote_endpoint ());
+		}
 	}
 }
 
