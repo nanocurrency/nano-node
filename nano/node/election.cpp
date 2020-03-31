@@ -604,6 +604,13 @@ void nano::election::remove_votes (nano::block_hash const & hash_a)
 {
 	if (node.config.enable_voting && node.wallets.rep_counts ().voting > 0)
 	{
+		// Remove votes from election
+		auto list_generated_votes (node.votes_cache.find (hash_a));
+		for (auto const & vote : list_generated_votes)
+		{
+			last_votes.erase (vote->account);
+		}
+		// Clear votes cache
 		node.votes_cache.remove (hash_a);
 	}
 }
