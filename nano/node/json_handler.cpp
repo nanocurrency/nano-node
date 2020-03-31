@@ -343,9 +343,9 @@ uint64_t nano::json_handler::work_optional_impl ()
 	return result;
 }
 
-uint64_t nano::json_handler::difficulty_optional_impl ()
+uint64_t nano::json_handler::difficulty_optional_impl (nano::work_version const version_a)
 {
-	auto difficulty (node.default_difficulty ());
+	auto difficulty (node.default_difficulty (version_a));
 	boost::optional<std::string> difficulty_text (request.get_optional<std::string> ("difficulty"));
 	if (!ec && difficulty_text.is_initialized ())
 	{
@@ -357,7 +357,7 @@ uint64_t nano::json_handler::difficulty_optional_impl ()
 	return difficulty;
 }
 
-double nano::json_handler::multiplier_optional_impl (uint64_t & difficulty)
+double nano::json_handler::multiplier_optional_impl (nano::work_version const version_a, uint64_t & difficulty)
 {
 	double multiplier (1.);
 	boost::optional<std::string> multiplier_text (request.get_optional<std::string> ("multiplier"));
@@ -366,7 +366,7 @@ double nano::json_handler::multiplier_optional_impl (uint64_t & difficulty)
 		auto success = boost::conversion::try_lexical_convert<double> (multiplier_text.get (), multiplier);
 		if (success && multiplier > 0.)
 		{
-			difficulty = nano::difficulty::from_multiplier (multiplier, node.network_params.network.publish_thresholds.base);
+			difficulty = nano::difficulty::from_multiplier (multiplier, node.default_difficulty (version_a));
 		}
 		else
 		{
@@ -1248,7 +1248,9 @@ void nano::json_handler::block_create ()
 {
 	std::string type (request.get<std::string> ("type"));
 	nano::wallet_id wallet (0);
-	auto difficulty_l (difficulty_optional_impl ());
+	// Default to work_1 if not specified
+	auto work_version (work_version_optional_impl (nano::work_version::work_1));
+	auto difficulty_l (difficulty_optional_impl (work_version));
 	boost::optional<std::string> wallet_text (request.get_optional<std::string> ("wallet"));
 	if (!ec && wallet_text.is_initialized ())
 	{
@@ -1294,8 +1296,6 @@ void nano::json_handler::block_create ()
 		}
 	}
 	auto work (work_optional_impl ());
-	// Default to work_1 if not specified
-	auto work_version (work_version_optional_impl (nano::work_version::work_1));
 	nano::raw_key prv;
 	prv.data.clear ();
 	nano::block_hash previous (0);
@@ -4950,9 +4950,9 @@ void nano::json_handler::work_generate ()
 	if (!ec)
 	{
 		auto hash (hash_impl ());
-		auto difficulty (difficulty_optional_impl ());
-		multiplier_optional_impl (difficulty);
-		if (!ec && (difficulty > node.config.max_work_generate_difficulty || difficulty < node.network_params.network.publish_thresholds.entry))
+		auto difficulty (difficulty_optional_impl (work_version));
+		multiplier_optional_impl (work_version, difficulty);
+		if (!ec && (difficulty > node.config.max_work_generate_difficulty || difficulty < nano::work_threshold_entry (work_version)))
 		{
 			ec = nano::error_rpc::difficulty_limit;
 		}
@@ -4970,7 +4970,7 @@ void nano::json_handler::work_generate ()
 					std::stringstream ostream;
 					auto result_difficulty (nano::work_difficulty (work_version, hash, work));
 					response_l.put ("difficulty", nano::to_string_hex (result_difficulty));
-					auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, node.network_params.network.publish_thresholds.base);
+					auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, node.default_difficulty (work_version));
 					response_l.put ("multiplier", nano::to_string (result_multiplier));
 					boost::property_tree::write_json (ostream, response_l);
 					rpc_l->response (ostream.str ());
@@ -5076,16 +5076,16 @@ void nano::json_handler::work_validate ()
 {
 	auto hash (hash_impl ());
 	auto work (work_optional_impl ());
-	auto difficulty (difficulty_optional_impl ());
-	multiplier_optional_impl (difficulty);
 	// Default to work_1 if not specified
 	auto work_version (work_version_optional_impl (nano::work_version::work_1));
+	auto difficulty (difficulty_optional_impl (work_version));
+	multiplier_optional_impl (work_version, difficulty);
 	if (!ec)
 	{
 		auto result_difficulty (nano::work_difficulty (work_version, hash, work));
 		response_l.put ("valid", (result_difficulty >= difficulty) ? "1" : "0");
 		response_l.put ("difficulty", nano::to_string_hex (result_difficulty));
-		auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, node.default_difficulty ());
+		auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, node.default_difficulty (work_version));
 		response_l.put ("multiplier", nano::to_string (result_multiplier));
 	}
 	response_errors ();
