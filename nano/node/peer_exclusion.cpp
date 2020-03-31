@@ -3,13 +3,15 @@
 constexpr std::chrono::hours nano::peer_exclusion::exclude_time_hours;
 constexpr std::chrono::hours nano::peer_exclusion::exclude_remove_hours;
 constexpr size_t nano::peer_exclusion::size_max;
+constexpr double nano::peer_exclusion::peers_percentage_limit;
 
 uint64_t nano::peer_exclusion::add (nano::tcp_endpoint const & endpoint_a, size_t const network_peers_count_a)
 {
 	uint64_t result (0);
 	nano::lock_guard<std::mutex> guard (mutex);
 	// Clean old excluded peers
-	while (peers.size () > 1 && peers.size () > std::min<size_t> (size_max, network_peers_count_a * peers_percentage_limit))
+	auto limited = limited_size (network_peers_count_a);
+	while (peers.size () > 1 && peers.size () > limited)
 	{
 		peers.get<tag_exclusion> ().erase (peers.get<tag_exclusion> ().begin ());
 	}
@@ -67,6 +69,11 @@ void nano::peer_exclusion::remove (nano::tcp_endpoint const & endpoint_a)
 {
 	nano::lock_guard<std::mutex> guard (mutex);
 	peers.get<tag_endpoint> ().erase (endpoint_a);
+}
+
+size_t nano::peer_exclusion::limited_size (size_t const network_peers_count_a) const
+{
+	return std::min<size_t> (size_max, network_peers_count_a * peers_percentage_limit);
 }
 
 size_t nano::peer_exclusion::size () const

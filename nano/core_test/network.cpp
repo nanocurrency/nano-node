@@ -1059,7 +1059,7 @@ TEST (peer_exclusion, validate)
 {
 	nano::peer_exclusion excluded_peers;
 	size_t fake_peers_count = 10;
-	size_t max_size = fake_peers_count * excluded_peers.peers_percentage_limit;
+	auto max_size = excluded_peers.limited_size (fake_peers_count);
 	auto address (boost::asio::ip::address_v6::loopback ());
 	for (auto i = 0; i < max_size + 2; ++i)
 	{

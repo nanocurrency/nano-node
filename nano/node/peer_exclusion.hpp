@@ -49,6 +49,7 @@ public:
 	uint64_t add (nano::tcp_endpoint const &, size_t const);
 	bool check (nano::tcp_endpoint const &);
 	void remove (nano::tcp_endpoint const &);
+	size_t limited_size (size_t const) const;
 	size_t size () const;
 
 	friend class peer_exclusion_validate_Test;
