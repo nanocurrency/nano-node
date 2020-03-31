@@ -579,7 +579,7 @@ void nano::election::insert_inactive_votes_cache (nano::block_hash const & hash_
 	}
 }
 
-bool nano::election::prioritized ()
+bool nano::election::prioritized () const
 {
 	return prioritized_m;
 }
