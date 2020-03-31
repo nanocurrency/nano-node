@@ -1052,3 +1052,56 @@ TEST (bandwidth_limiter, validate)
 	ASSERT_EQ (limiter_3.get_rate (), limiter_3.get_limit () + message_size);
 	ASSERT_LT (std::chrono::steady_clock::now () - 1s, start);
 }
+
+namespace nano
+{
+TEST (peer_exclusion, validate)
+{
+	nano::peer_exclusion excluded_peers;
+	size_t fake_peers_count = 10;
+	auto max_size = excluded_peers.limited_size (fake_peers_count);
+	auto address (boost::asio::ip::address_v6::loopback ());
+	for (auto i = 0; i < max_size + 2; ++i)
+	{
+		nano::tcp_endpoint endpoint (address, i);
+		ASSERT_FALSE (excluded_peers.check (endpoint));
+		ASSERT_EQ (1, excluded_peers.add (endpoint, fake_peers_count));
+		ASSERT_FALSE (excluded_peers.check (endpoint));
+	}
+	// The oldest one must have been removed
+	ASSERT_EQ (max_size + 1, excluded_peers.size ());
+	auto & peers_by_endpoint (excluded_peers.peers.get<nano::peer_exclusion::tag_endpoint> ());
+	ASSERT_EQ (peers_by_endpoint.end (), peers_by_endpoint.find (nano::tcp_endpoint (address, 0)));
+
+	auto to_seconds = [](std::chrono::steady_clock::time_point const & timepoint) {
+		return std::chrono::duration_cast<std::chrono::seconds> (timepoint.time_since_epoch ()).count ();
+	};
+	nano::tcp_endpoint first (address, 1);
+	ASSERT_NE (peers_by_endpoint.end (), peers_by_endpoint.find (first));
+	nano::tcp_endpoint second (address, 2);
+	ASSERT_EQ (false, excluded_peers.check (second));
+	ASSERT_NEAR (to_seconds (std::chrono::steady_clock::now () + excluded_peers.exclude_time_hours), to_seconds (peers_by_endpoint.find (second)->exclude_until), 2);
+	ASSERT_EQ (2, excluded_peers.add (second, fake_peers_count));
+	ASSERT_EQ (peers_by_endpoint.end (), peers_by_endpoint.find (first));
+	ASSERT_NEAR (to_seconds (std::chrono::steady_clock::now () + excluded_peers.exclude_time_hours), to_seconds (peers_by_endpoint.find (second)->exclude_until), 2);
+	ASSERT_EQ (3, excluded_peers.add (second, fake_peers_count));
+	ASSERT_NEAR (to_seconds (std::chrono::steady_clock::now () + excluded_peers.exclude_time_hours * 3 * 2), to_seconds (peers_by_endpoint.find (second)->exclude_until), 2);
+	ASSERT_EQ (max_size, excluded_peers.size ());
+
+	// Clear many entries if there are a low number of peers
+	ASSERT_EQ (4, excluded_peers.add (second, 0));
+	ASSERT_EQ (1, excluded_peers.size ());
+
+	auto component (nano::collect_container_info (excluded_peers, ""));
+	auto composite (dynamic_cast<nano::container_info_composite *> (component.get ()));
+	ASSERT_NE (nullptr, component);
+	auto & children (composite->get_children ());
+	ASSERT_EQ (1, children.size ());
+	auto child_leaf (dynamic_cast<nano::container_info_leaf *> (children.front ().get ()));
+	ASSERT_NE (nullptr, child_leaf);
+	auto child_info (child_leaf->get_info ());
+	ASSERT_EQ ("peers", child_info.name);
+	ASSERT_EQ (1, child_info.count);
+	ASSERT_EQ (sizeof (decltype (excluded_peers.peers)::value_type), child_info.sizeof_element);
+}
+}
