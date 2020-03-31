@@ -973,8 +973,8 @@ int main (int argc, char * const * argv)
 			auto inactive_node_l = nano::default_inactive_node (data_path, vm);
 			nano::node_rpc_config config;
 			nano::ipc::ipc_server server (*inactive_node_l->node, config);
-			nano::json_handler handler_l (*inactive_node_l->node, config, command_l.str (), response_handler_l);
-			handler_l.process_request ();
+			auto handler_l (std::make_shared<nano::json_handler> (*inactive_node_l->node, config, command_l.str (), response_handler_l));
+			handler_l->process_request ();
 		}
 		else if (vm.count ("debug_validate_blocks"))
 		{

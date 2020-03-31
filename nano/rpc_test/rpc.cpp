@@ -154,6 +154,29 @@ public:
 };
 }
 
+TEST (rpc, wrapped_task)
+{
+	nano::system system;
+	auto & node = *add_ipc_enabled_node (system);
+	nano::node_rpc_config node_rpc_config;
+	std::atomic<bool> response (false);
+	auto response_handler_l ([&response](std::string const & response_a) {
+		std::stringstream istream (response_a);
+		boost::property_tree::ptree json_l;
+		ASSERT_NO_THROW (boost::property_tree::read_json (istream, json_l));
+		ASSERT_EQ (1, json_l.count ("error"));
+		ASSERT_EQ ("Unable to parse JSON", json_l.get<std::string> ("error"));
+		response = true;
+	});
+	auto handler_l (std::make_shared<nano::json_handler> (node, node_rpc_config, "", response_handler_l));
+	auto task (handler_l->create_worker_task ([](std::shared_ptr<nano::json_handler>) {
+		// Exception should get caught
+		throw std::runtime_error ("");
+	}));
+	system.nodes[0]->worker.push_task (task);
+	ASSERT_TIMELY (5s, response == true);
+}
+
 TEST (rpc, account_balance)
 {
 	nano::system system;
