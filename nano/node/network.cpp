@@ -908,6 +908,11 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (ne
 	composite->add_component (network.tcp_channels.collect_container_info ("tcp_channels"));
 	composite->add_component (network.udp_channels.collect_container_info ("udp_channels"));
 	composite->add_component (network.syn_cookies.collect_container_info ("syn_cookies"));
+
+	size_t excluded_peers_count = network.excluded_peers.size ();
+	auto sizeof_excluded_peers_element = sizeof (nano::peer_exclusion::ordered_endpoints::value_type);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "excluded_peers", excluded_peers_count, sizeof_excluded_peers_element }));
+
 	return composite;
 }
 

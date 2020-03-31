@@ -317,8 +317,8 @@ void nano::bootstrap_attempt_legacy::attempt_restart_check (nano::unique_lock<st
 		if (!confirmed)
 		{
 			node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_failed, nano::stat::dir::in);
-			auto score (node->bootstrap_initiator.excluded_peers.add (endpoint_frontier_request, node->network.size ()));
-			if (score >= nano::bootstrap_excluded_peers::score_limit)
+			auto score (node->network.excluded_peers.add (endpoint_frontier_request, node->network.size ()));
+			if (score >= nano::peer_exclusion::score_limit)
 			{
 				node->logger.always_log (boost::str (boost::format ("Adding peer %1% to excluded peers list with score %2% after %3% seconds bootstrap attempt") % endpoint_frontier_request % score % std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt_start).count ()));
 			}

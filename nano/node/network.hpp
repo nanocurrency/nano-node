@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/node/common.hpp>
+#include <nano/node/peer_exclusion.hpp>
 #include <nano/node/transport/tcp.hpp>
 #include <nano/node/transport/udp.hpp>
 #include <nano/secure/network_filter.hpp>
@@ -154,6 +155,7 @@ public:
 	boost::asio::ip::udp::resolver resolver;
 	std::vector<boost::thread> packet_processing_threads;
 	nano::bandwidth_limiter limiter;
+	nano::peer_exclusion excluded_peers;
 	nano::node & node;
 	nano::network_filter publish_filter;
 	nano::transport::udp_channels udp_channels;
