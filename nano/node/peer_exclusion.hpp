@@ -54,4 +54,5 @@ public:
 
 	friend class peer_exclusion_validate_Test;
 };
+std::unique_ptr<container_info_component> collect_container_info (peer_exclusion const & excluded_peers, const std::string & name);
 }

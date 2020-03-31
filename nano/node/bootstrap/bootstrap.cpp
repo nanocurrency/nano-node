@@ -286,7 +286,6 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (bo
 {
 	size_t count;
 	size_t cache_count;
-	;
 	{
 		nano::lock_guard<std::mutex> guard (bootstrap_initiator.observers_mutex);
 		count = bootstrap_initiator.observers.size ();

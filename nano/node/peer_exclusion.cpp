@@ -81,3 +81,14 @@ size_t nano::peer_exclusion::size () const
 	nano::lock_guard<std::mutex> guard (mutex);
 	return peers.size ();
 }
+
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::peer_exclusion const & excluded_peers, const std::string & name)
+{
+	auto composite = std::make_unique<container_info_composite> (name);
+
+	size_t excluded_peers_count = excluded_peers.size ();
+	auto sizeof_excluded_peers_element = sizeof (nano::peer_exclusion::ordered_endpoints::value_type);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "excluded_peers", excluded_peers_count, sizeof_excluded_peers_element }));
+
+	return composite;
+}
