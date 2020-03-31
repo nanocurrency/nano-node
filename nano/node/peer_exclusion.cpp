@@ -88,7 +88,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (na
 
 	size_t excluded_peers_count = excluded_peers.size ();
 	auto sizeof_excluded_peers_element = sizeof (nano::peer_exclusion::ordered_endpoints::value_type);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "excluded_peers", excluded_peers_count, sizeof_excluded_peers_element }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "peers", excluded_peers_count, sizeof_excluded_peers_element }));
 
 	return composite;
 }

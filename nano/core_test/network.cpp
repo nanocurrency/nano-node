@@ -1091,5 +1091,17 @@ TEST (peer_exclusion, validate)
 	// Clear many entries if there are a low number of peers
 	ASSERT_EQ (4, excluded_peers.add (second, 0));
 	ASSERT_EQ (1, excluded_peers.size ());
+
+	auto component (nano::collect_container_info (excluded_peers, ""));
+	auto composite (dynamic_cast<nano::container_info_composite *> (component.get ()));
+	ASSERT_NE (nullptr, component);
+	auto & children (composite->get_children ());
+	ASSERT_EQ (1, children.size ());
+	auto child_leaf (dynamic_cast<nano::container_info_leaf *> (children.front ().get ()));
+	ASSERT_NE (nullptr, child_leaf);
+	auto child_info (child_leaf->get_info ());
+	ASSERT_EQ ("peers", child_info.name);
+	ASSERT_EQ (1, child_info.count);
+	ASSERT_EQ (sizeof (decltype (excluded_peers.peers)::value_type), child_info.sizeof_element);
 }
 }
