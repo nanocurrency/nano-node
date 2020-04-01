@@ -698,7 +698,6 @@ void nano::active_transactions::multiplier_normalization (double & multiplier_a,
 		8.0 		 | 2.0
 		32.0 		 | 4.0
 		*/
-		//auto rate (node.network_params.network.publish_thresholds.epoch_2 / node.network_params.network.publish_thresholds.epoch_1);
 		auto rate (nano::difficulty::to_multiplier (node.network_params.network.publish_thresholds.epoch_2, node.network_params.network.publish_thresholds.epoch_1));
 		debug_assert (rate >= 1);
 		auto rate_4 (rate * 4);
