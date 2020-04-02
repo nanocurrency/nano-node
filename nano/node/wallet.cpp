@@ -1266,15 +1266,6 @@ void nano::wallet::work_ensure (nano::account const & account_a, nano::root cons
 				wallet_a.work_cache_blocking (account_a, root_a);
 			});
 		}
-		else if (existing == delayed_work->end ())
-		{
-			this_l->wallets.node.logger.always_log ("Error caching work for account ", account_a.to_account ());
-			debug_assert (false);
-		}
-		else
-		{
-			// Scheduled work was replaced by another root, no action to be done
-		}
 	});
 }
 
