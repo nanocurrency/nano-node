@@ -882,19 +882,19 @@ TEST (active_transactions, insertion_prioritization)
 		node.active.update_active_difficulty (lock);
 	};
 
-	ASSERT_TRUE (node.active.insert (blocks[2]).prioritized);
+	ASSERT_TRUE (node.active.insert (blocks[2]).election->prioritized ());
 	update_active_difficulty ();
-	ASSERT_FALSE (node.active.insert (blocks[3]).prioritized);
+	ASSERT_FALSE (node.active.insert (blocks[3]).election->prioritized ());
 	update_active_difficulty ();
-	ASSERT_TRUE (node.active.insert (blocks[1]).prioritized);
+	ASSERT_TRUE (node.active.insert (blocks[1]).election->prioritized ());
 	update_active_difficulty ();
-	ASSERT_FALSE (node.active.insert (blocks[4]).prioritized);
+	ASSERT_FALSE (node.active.insert (blocks[4]).election->prioritized ());
 	update_active_difficulty ();
-	ASSERT_TRUE (node.active.insert (blocks[0]).prioritized);
+	ASSERT_TRUE (node.active.insert (blocks[0]).election->prioritized ());
 	update_active_difficulty ();
-	ASSERT_FALSE (node.active.insert (blocks[5]).prioritized);
+	ASSERT_FALSE (node.active.insert (blocks[5]).election->prioritized ());
 	update_active_difficulty ();
-	ASSERT_FALSE (node.active.insert (blocks[6]).prioritized);
+	ASSERT_FALSE (node.active.insert (blocks[6]).election->prioritized ());
 }
 
 TEST (active_difficulty, less_than_one)

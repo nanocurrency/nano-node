@@ -16,6 +16,7 @@ using namespace std::chrono;
 
 nano::active_transactions::active_transactions (nano::node & node_a, nano::confirmation_height_processor & confirmation_height_processor_a) :
 confirmation_height_processor (confirmation_height_processor_a),
+generator (node_a.config, node_a.store, node_a.wallets, node_a.vote_processor, node_a.votes_cache, node_a.network),
 node (node_a),
 multipliers_cb (20, 1.),
 trended_active_difficulty (node_a.network_params.network.publish_thresholds.epoch_1),
@@ -72,7 +73,7 @@ void nano::active_transactions::confirm_prioritized_frontiers (nano::transaction
 
 		size_t elections_count (0);
 		nano::unique_lock<std::mutex> lk (mutex);
-		auto start_elections_for_prioritized_frontiers = [&transaction_a, &elections_count, max_elections, &lk, &representative, this](prioritize_num_uncemented & cementable_frontiers) {
+		auto start_elections_for_prioritized_frontiers = [&transaction_a, &elections_count, max_elections, &lk, this](prioritize_num_uncemented & cementable_frontiers) {
 			while (!cementable_frontiers.empty () && !this->stopped && elections_count < max_elections)
 			{
 				auto cementable_account_front_it = cementable_frontiers.get<tag_uncemented> ().begin ();
@@ -97,11 +98,6 @@ void nano::active_transactions::confirm_prioritized_frontiers (nano::transaction
 							{
 								election_insert_result.election->transition_active ();
 								++elections_count;
-								// Calculate votes for local representatives
-								if (election_insert_result.prioritized && representative)
-								{
-									this->node.block_processor.generator.add (info.head);
-								}
 							}
 						}
 					}
@@ -211,8 +207,6 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	nano::confirmation_solicitor solicitor (node.network, node.network_params.network);
 	solicitor.prepare (node.rep_crawler.principal_representatives (std::numeric_limits<size_t>::max ()));
 
-	bool const representative_l (node.config.enable_voting && node.wallets.rep_counts ().voting > 0);
-	std::vector<nano::block_hash> hashes_generation_l;
 	auto & sorted_roots_l (roots.get<tag_difficulty> ());
 	auto const election_ttl_cutoff_l (std::chrono::steady_clock::now () - election_time_to_live);
 	bool const check_all_elections_l (std::chrono::steady_clock::now () - last_check_all_elections > check_all_elections_period);
@@ -232,14 +226,9 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 		auto & election_l (i->election);
 		bool const confirmed_l (election_l->confirmed ());
 
-		// Queue vote generation for newly prioritized elections
-		if (!i->prioritized && unconfirmed_count_l < prioritized_cutoff)
+		if (!election_l->prioritized () && unconfirmed_count_l < prioritized_cutoff)
 		{
-			sorted_roots_l.modify (i, [](nano::conflict_info & info_a) { info_a.prioritized = true; });
-			if (representative_l && !confirmed_l)
-			{
-				hashes_generation_l.push_back (election_l->status.winner->hash ());
-			}
+			election_l->prioritize_election ();
 		}
 
 		unconfirmed_count_l += !confirmed_l;
@@ -256,10 +245,6 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	}
 	lock_a.unlock ();
 	solicitor.flush ();
-	for (auto const & hash_l : hashes_generation_l)
-	{
-		node.block_processor.generator.add (hash_l);
-	}
 	lock_a.lock ();
 
 	// This is updated after the loop to ensure slow machines don't do the full check often
@@ -500,6 +485,7 @@ void nano::active_transactions::stop ()
 	{
 		thread.join ();
 	}
+	generator.stop ();
 	lock.lock ();
 	roots.clear ();
 }
@@ -517,10 +503,10 @@ nano::election_insertion_result nano::active_transactions::insert_impl (std::sha
 			{
 				result.inserted = true;
 				auto hash (block_a->hash ());
-				result.election = nano::make_shared<nano::election> (node, block_a, confirmation_action_a);
 				auto difficulty (block_a->difficulty ());
-				result.prioritized = roots.size () < prioritized_cutoff || difficulty > last_prioritized_difficulty.value_or (0);
-				roots.get<tag_root> ().emplace (nano::conflict_info{ root, difficulty, difficulty, result.election, result.prioritized });
+				bool prioritized = roots.size () < prioritized_cutoff || difficulty > last_prioritized_difficulty.value_or (0);
+				result.election = nano::make_shared<nano::election> (node, block_a, confirmation_action_a, prioritized);
+				roots.get<tag_root> ().emplace (nano::conflict_info{ root, difficulty, difficulty, result.election });
 				blocks.emplace (hash, result.election);
 				add_adjust_difficulty (hash);
 				result.election->insert_inactive_votes_cache (hash);
@@ -1089,5 +1075,6 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (ac
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "priority_wallet_cementable_frontiers_count", active_transactions.priority_wallet_cementable_frontiers_size (), sizeof (nano::cementable_account) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "priority_cementable_frontiers_count", active_transactions.priority_cementable_frontiers_size (), sizeof (nano::cementable_account) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "inactive_votes_cache_count", active_transactions.inactive_votes_cache_size (), sizeof (nano::gap_information) }));
+	composite->add_component (collect_container_info (active_transactions.generator, "generator"));
 	return composite;
 }
