@@ -2568,14 +2568,27 @@ TEST (ledger, successor_epoch)
 	nano::state_block open (key1.pub, 0, key1.pub, 1, send1.hash (), key1.prv, key1.pub, *pool.generate (key1.pub));
 	nano::state_block change (key1.pub, open.hash (), key1.pub, 1, 0, key1.prv, key1.pub, *pool.generate (open.hash ()));
 	auto open_hash = open.hash ();
+	nano::send_block send2 (send1.hash (), reinterpret_cast<nano::account const &> (open_hash), nano::genesis_amount - 2, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (send1.hash ()));
 	nano::state_block epoch_open (reinterpret_cast<nano::account const &> (open_hash), 0, 0, 0, node1.ledger.epoch_link (nano::epoch::epoch_1), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (open.hash ()));
 	auto transaction (node1.store.tx_begin_write ());
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, send1).code);
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, open).code);
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, change).code);
+	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, send2).code);
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, epoch_open).code);
 	ASSERT_EQ (change, *node1.ledger.successor (transaction, change.qualified_root ()));
 	ASSERT_EQ (epoch_open, *node1.ledger.successor (transaction, epoch_open.qualified_root ()));
+}
+
+TEST (ledger, epoch_open_pending)
+{
+	nano::system system (1);
+	auto & node1 (*system.nodes[0]);
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+	nano::keypair key1;
+	nano::state_block epoch_open (key1.pub, 0, 0, 0, node1.ledger.epoch_link (nano::epoch::epoch_1), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (key1.pub));
+	auto transaction (node1.store.tx_begin_write ());
+	ASSERT_EQ (nano::process_result::block_position, node1.ledger.process (transaction, epoch_open).code);
 }
 
 TEST (ledger, block_hash_account_conflict)

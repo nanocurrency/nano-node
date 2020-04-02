@@ -1238,7 +1238,6 @@ TEST (node, fork_publish)
 		// Wait until the genesis rep activated & makes vote
 		while (election->last_votes_size () != 2)
 		{
-			node1.block_processor.generator.add (send1->hash ());
 			node1.vote_processor.flush ();
 			ASSERT_NO_ERROR (system.poll ());
 		}
@@ -1886,7 +1885,6 @@ TEST (node, rep_self_vote)
 	ASSERT_EQ (nano::process_result::progress, node0->process (*block0).code);
 	auto & active (node0->active);
 	auto election1 = active.insert (block0);
-	node0->block_processor.generator.add (block0->hash ());
 	system.deadline_set (1s);
 	// Wait until representatives are activated & make vote
 	while (election1.election->last_votes_size () != 3)
@@ -2905,6 +2903,8 @@ TEST (node, vote_republish)
 	}
 }
 
+namespace nano
+{
 TEST (node, vote_by_hash_bundle)
 {
 	// Keep max_hashes above system to ensure it is kept in scope as votes can be added during system destruction
@@ -2925,7 +2925,7 @@ TEST (node, vote_by_hash_bundle)
 	for (int i = 1; i <= 200; i++)
 	{
 		nano::block_hash hash (i);
-		system.nodes[0]->block_processor.generator.add (hash);
+		system.nodes[0]->active.generator.add (hash);
 	}
 
 	// Verify that bundling occurs. While reaching 12 should be common on most hardware in release mode,
@@ -2935,6 +2935,7 @@ TEST (node, vote_by_hash_bundle)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+}
 }
 
 TEST (node, vote_by_hash_republish)
@@ -3041,22 +3042,25 @@ TEST (node, epoch_conflict_confirm)
 	auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 1, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
 	auto open (std::make_shared<nano::state_block> (key.pub, 0, key.pub, 1, send->hash (), key.prv, key.pub, *system.work.generate (key.pub)));
 	auto change (std::make_shared<nano::state_block> (key.pub, open->hash (), key.pub, 1, 0, key.prv, key.pub, *system.work.generate (open->hash ())));
-	auto epoch (std::make_shared<nano::state_block> (change->root (), 0, 0, 0, node0->ledger.epoch_link (nano::epoch::epoch_1), epoch_signer.prv, epoch_signer.pub, *system.work.generate (open->hash ())));
+	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2, open->hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send->hash ())));
+	auto epoch_open (std::make_shared<nano::state_block> (change->root (), 0, 0, 0, node0->ledger.epoch_link (nano::epoch::epoch_1), epoch_signer.prv, epoch_signer.pub, *system.work.generate (open->hash ())));
 	{
 		auto transaction (node0->store.tx_begin_write ());
 		ASSERT_EQ (nano::process_result::progress, node0->block_processor.process_one (transaction, send).code);
+		ASSERT_EQ (nano::process_result::progress, node0->block_processor.process_one (transaction, send2).code);
 		ASSERT_EQ (nano::process_result::progress, node0->block_processor.process_one (transaction, open).code);
 	}
 	{
 		auto transaction (node1->store.tx_begin_write ());
 		ASSERT_EQ (nano::process_result::progress, node1->block_processor.process_one (transaction, send).code);
+		ASSERT_EQ (nano::process_result::progress, node1->block_processor.process_one (transaction, send2).code);
 		ASSERT_EQ (nano::process_result::progress, node1->block_processor.process_one (transaction, open).code);
 	}
 	node0->process_active (change);
-	node0->process_active (epoch);
+	node0->process_active (epoch_open);
 	node0->block_processor.flush ();
 	system.deadline_set (5s);
-	while (!node0->block (change->hash ()) || !node0->block (epoch->hash ()) || !node1->block (change->hash ()) || !node1->block (epoch->hash ()))
+	while (!node0->block (change->hash ()) || !node0->block (epoch_open->hash ()) || !node1->block (change->hash ()) || !node1->block (epoch_open->hash ()))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -3068,7 +3072,7 @@ TEST (node, epoch_conflict_confirm)
 	{
 		nano::lock_guard<std::mutex> lock (node0->active.mutex);
 		ASSERT_TRUE (node0->active.blocks.find (change->hash ()) != node0->active.blocks.end ());
-		ASSERT_TRUE (node0->active.blocks.find (epoch->hash ()) != node0->active.blocks.end ());
+		ASSERT_TRUE (node0->active.blocks.find (epoch_open->hash ()) != node0->active.blocks.end ());
 	}
 	system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
 	system.deadline_set (5s);
@@ -3079,7 +3083,7 @@ TEST (node, epoch_conflict_confirm)
 	{
 		auto transaction (node0->store.tx_begin_read ());
 		ASSERT_TRUE (node0->ledger.store.block_exists (transaction, change->hash ()));
-		ASSERT_TRUE (node0->ledger.store.block_exists (transaction, epoch->hash ()));
+		ASSERT_TRUE (node0->ledger.store.block_exists (transaction, epoch_open->hash ()));
 	}
 }
 

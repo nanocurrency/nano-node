@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/numbers.hpp>
+#include <nano/node/voting.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/circular_buffer.hpp>
@@ -37,7 +38,6 @@ public:
 	double multiplier;
 	uint64_t adjusted_difficulty;
 	std::shared_ptr<nano::election> election;
-	bool prioritized;
 };
 
 class cementable_account final
@@ -70,7 +70,6 @@ class election_insertion_result final
 public:
 	std::shared_ptr<nano::election> election;
 	bool inserted{ false };
-	bool prioritized{ false };
 };
 
 // Core class for determining consensus
@@ -155,6 +154,7 @@ public:
 private:
 	std::mutex election_winner_details_mutex;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> election_winner_details;
+	nano::vote_generator generator;
 
 	// Call action with confirmed block, may be different than what we started with
 	// clang-format off
@@ -226,6 +226,7 @@ private:
 	friend class confirmation_height_prioritize_frontiers_Test;
 	friend class confirmation_height_prioritize_frontiers_overwrite_Test;
 	friend class active_transactions_confirmation_consistency_Test;
+	friend class node_vote_by_hash_bundle_Test;
 	friend std::unique_ptr<container_info_component> collect_container_info (active_transactions &, const std::string &);
 };
 

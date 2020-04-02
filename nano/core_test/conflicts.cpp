@@ -279,12 +279,14 @@ TEST (conflicts, adjusted_difficulty)
 	ASSERT_GT (adjusted_difficulties.find (open2->hash ())->second, adjusted_difficulties.find (change1->hash ())->second);
 	// Independent elections can have higher difficulty than adjusted tree
 	nano::keypair key4;
+	auto send5 (std::make_shared<nano::state_block> (key3.pub, change1->hash (), nano::test_genesis_key.pub, 0, key4.pub, key3.prv, key3.pub, *system.work.generate (change1->hash ()))); // Pending for open epoch block
+	node1.process_active (send5);
 	auto open_epoch2 (std::make_shared<nano::state_block> (key4.pub, 0, 0, 0, node1.ledger.epoch_link (nano::epoch::epoch_1), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (key4.pub, adjusted_difficulties.find (send1->hash ())->second)));
 	ASSERT_GT (open_epoch2->difficulty (), adjusted_difficulties.find (send1->hash ())->second);
 	node1.process_active (open_epoch2);
 	node1.block_processor.flush ();
 	system.deadline_set (3s);
-	while (node1.active.size () != 11)
+	while (node1.active.size () != 12)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
