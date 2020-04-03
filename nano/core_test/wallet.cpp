@@ -1233,7 +1233,7 @@ TEST (wallet, work_watcher_generation_disabled)
 		{
 			node.active.multipliers_cb.push_back (multiplier * (1.5 + i / 100.));
 		}
-		node.active.update_active_difficulty (lock);
+		node.active.update_active_multiplier (lock);
 	}
 	std::this_thread::sleep_for (5s);
 
@@ -1293,7 +1293,7 @@ TEST (wallet, work_watcher_cancel)
 		{
 			node.active.multipliers_cb.push_back (node.config.max_work_generate_multiplier);
 		}
-		node.active.update_active_difficulty (lock);
+		node.active.update_active_multiplier (lock);
 	}
 	// Wait for work generation to start
 	system.deadline_set (5s);

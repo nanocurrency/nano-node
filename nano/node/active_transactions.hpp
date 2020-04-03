@@ -36,7 +36,7 @@ class conflict_info final
 public:
 	nano::qualified_root root;
 	double multiplier;
-	uint64_t adjusted_difficulty;
+	double adjusted_multiplier;
 	std::shared_ptr<nano::election> election;
 };
 
@@ -105,8 +105,8 @@ public:
 	void update_difficulty (std::shared_ptr<nano::block>);
 	double normalized_multiplier (std::shared_ptr<nano::block>, std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> const & = {});
 	void add_adjust_difficulty (nano::block_hash const &);
-	void update_adjusted_difficulty ();
-	void update_active_difficulty (nano::unique_lock<std::mutex> &);
+	void update_adjusted_multiplier ();
+	void update_active_multiplier (nano::unique_lock<std::mutex> &);
 	uint64_t active_difficulty ();
 	uint64_t limited_active_difficulty ();
 	std::deque<std::shared_ptr<nano::block>> list_blocks ();
@@ -124,11 +124,11 @@ public:
 		mi::hashed_unique<mi::tag<tag_root>,
 			mi::member<nano::conflict_info, nano::qualified_root, &nano::conflict_info::root>>,
 		mi::ordered_non_unique<mi::tag<tag_difficulty>,
-			mi::member<nano::conflict_info, uint64_t, &nano::conflict_info::adjusted_difficulty>,
-			std::greater<uint64_t>>>>
+			mi::member<nano::conflict_info, double, &nano::conflict_info::adjusted_multiplier>,
+			std::greater<double>>>>
 	roots;
 	// clang-format on
-	boost::optional<uint64_t> last_prioritized_difficulty{ boost::none };
+	boost::optional<double> last_prioritized_multiplier{ boost::none };
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> blocks;
 	std::deque<nano::election_status> list_recently_cemented ();
 	std::deque<nano::election_status> recently_cemented;

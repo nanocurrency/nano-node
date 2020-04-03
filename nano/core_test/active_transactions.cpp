@@ -98,7 +98,7 @@ TEST (active_transactions, confirm_frontier)
 }
 }
 
-TEST (active_transactions, adjusted_difficulty_priority)
+TEST (active_transactions, adjusted_multiplier_priority)
 {
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
@@ -124,11 +124,11 @@ TEST (active_transactions, adjusted_difficulty_priority)
 	// Check adjusted difficulty
 	{
 		nano::lock_guard<std::mutex> active_guard (node1.active.mutex);
-		node1.active.update_adjusted_difficulty ();
+		node1.active.update_adjusted_multiplier ();
 		ASSERT_EQ (node1.active.roots.get<1> ().begin ()->election->status.winner->hash (), send1->hash ());
-		ASSERT_LT (node1.active.roots.find (send2->qualified_root ())->adjusted_difficulty, node1.active.roots.find (send1->qualified_root ())->adjusted_difficulty);
-		ASSERT_LT (node1.active.roots.find (open1->qualified_root ())->adjusted_difficulty, node1.active.roots.find (send1->qualified_root ())->adjusted_difficulty);
-		ASSERT_LT (node1.active.roots.find (open2->qualified_root ())->adjusted_difficulty, node1.active.roots.find (send2->qualified_root ())->adjusted_difficulty);
+		ASSERT_LT (node1.active.roots.find (send2->qualified_root ())->adjusted_multiplier, node1.active.roots.find (send1->qualified_root ())->adjusted_multiplier);
+		ASSERT_LT (node1.active.roots.find (open1->qualified_root ())->adjusted_multiplier, node1.active.roots.find (send1->qualified_root ())->adjusted_multiplier);
+		ASSERT_LT (node1.active.roots.find (open2->qualified_root ())->adjusted_multiplier, node1.active.roots.find (send2->qualified_root ())->adjusted_multiplier);
 	}
 
 	// Confirm elections
@@ -171,130 +171,20 @@ TEST (active_transactions, adjusted_difficulty_priority)
 
 	// Check adjusted difficulty
 	nano::lock_guard<std::mutex> lock (node1.active.mutex);
-	node1.active.update_adjusted_difficulty ();
-	uint64_t last_adjusted (0);
+	node1.active.update_adjusted_multiplier ();
+	double last_adjusted (0.0);
 	for (auto i (node1.active.roots.get<1> ().begin ()), n (node1.active.roots.get<1> ().end ()); i != n; ++i)
 	{
 		//first root has nothing to compare
-		if (last_adjusted != 0)
+		if (last_adjusted != 0.0)
 		{
-			ASSERT_LT (i->adjusted_difficulty, last_adjusted);
+			ASSERT_LE (i->adjusted_multiplier, last_adjusted);
 		}
-		last_adjusted = i->adjusted_difficulty;
+		last_adjusted = i->adjusted_multiplier;
 	}
-	ASSERT_LT (node1.active.roots.find (send4->qualified_root ())->adjusted_difficulty, node1.active.roots.find (send3->qualified_root ())->adjusted_difficulty);
-	ASSERT_LT (node1.active.roots.find (send6->qualified_root ())->adjusted_difficulty, node1.active.roots.find (send5->qualified_root ())->adjusted_difficulty);
-	ASSERT_LT (node1.active.roots.find (send8->qualified_root ())->adjusted_difficulty, node1.active.roots.find (send7->qualified_root ())->adjusted_difficulty);
-}
-
-TEST (active_transactions, adjusted_difficulty_overflow_max)
-{
-	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
-	node_config.enable_voting = false;
-	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	auto & node1 = *system.add_node (node_config);
-	nano::genesis genesis;
-	nano::keypair key1, key2;
-
-	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 10 * nano::xrb_ratio, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
-	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 20 * nano::xrb_ratio, key2.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send1->hash ())));
-	auto open1 (std::make_shared<nano::state_block> (key1.pub, 0, key1.pub, 10 * nano::xrb_ratio, send1->hash (), key1.prv, key1.pub, *system.work.generate (key1.pub)));
-	auto open2 (std::make_shared<nano::state_block> (key2.pub, 0, key2.pub, 10 * nano::xrb_ratio, send2->hash (), key2.prv, key2.pub, *system.work.generate (key2.pub)));
-	node1.process_active (send1); // genesis
-	node1.process_active (send2); // genesis
-	node1.process_active (open1); // key1
-	node1.process_active (open2); // key2
-	system.deadline_set (10s);
-	while (node1.active.size () != 4)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
-
-	{
-		nano::lock_guard<std::mutex> active_guard (node1.active.mutex);
-		// Update difficulty to maximum
-		auto send1_root (node1.active.roots.find (send1->qualified_root ()));
-		auto send2_root (node1.active.roots.find (send2->qualified_root ()));
-		auto open1_root (node1.active.roots.find (open1->qualified_root ()));
-		auto open2_root (node1.active.roots.find (open2->qualified_root ()));
-		auto modify_difficulty = [& roots = node1.active.roots](auto & existing_root) {
-			roots.modify (existing_root, [](nano::conflict_info & info_a) {
-				info_a.multiplier = nano::difficulty::to_multiplier (std::numeric_limits<std::uint64_t>::max (), nano::work_threshold (info_a.election->status.winner->work_version (), info_a.election->status.winner->sideband ().details));
-			});
-		};
-		modify_difficulty (send1_root);
-		modify_difficulty (send2_root);
-		modify_difficulty (open1_root);
-		modify_difficulty (open2_root);
-		node1.active.add_adjust_difficulty (send2->hash ());
-		node1.active.update_adjusted_difficulty ();
-		// Test overflow
-		ASSERT_EQ (node1.active.roots.get<1> ().begin ()->election->status.winner->hash (), send1->hash ());
-		ASSERT_EQ (send1_root->adjusted_difficulty, std::numeric_limits<std::uint64_t>::max ());
-		ASSERT_LT (send2_root->adjusted_difficulty, send1_root->adjusted_difficulty);
-		ASSERT_LT (open1_root->adjusted_difficulty, send1_root->adjusted_difficulty);
-		ASSERT_LT (open2_root->adjusted_difficulty, send2_root->adjusted_difficulty);
-	}
-}
-
-TEST (active_transactions, adjusted_difficulty_overflow_min)
-{
-	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
-	node_config.enable_voting = false;
-	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	auto & node1 = *system.add_node (node_config);
-	nano::genesis genesis;
-	nano::keypair key1, key2, key3;
-
-	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 10 * nano::xrb_ratio, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
-	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 20 * nano::xrb_ratio, key2.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send1->hash ())));
-	auto open1 (std::make_shared<nano::state_block> (key1.pub, 0, key1.pub, 10 * nano::xrb_ratio, send1->hash (), key1.prv, key1.pub, *system.work.generate (key1.pub)));
-	auto open2 (std::make_shared<nano::state_block> (key2.pub, 0, key2.pub, 10 * nano::xrb_ratio, send2->hash (), key2.prv, key2.pub, *system.work.generate (key2.pub)));
-	auto send3 (std::make_shared<nano::state_block> (key2.pub, open2->hash (), key2.pub, 9 * nano::xrb_ratio, key3.pub, key2.prv, key2.pub, *system.work.generate (open2->hash ())));
-	node1.process_active (send1); // genesis
-	node1.process_active (send2); // genesis
-	node1.process_active (open1); // key1
-	node1.process_active (open2); // key2
-	node1.process_active (send3); // key2
-	system.deadline_set (10s);
-	while (node1.active.size () != 5)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
-
-	{
-		nano::lock_guard<std::mutex> active_guard (node1.active.mutex);
-		// Update difficulty to minimum
-		auto send1_root (node1.active.roots.find (send1->qualified_root ()));
-		auto send2_root (node1.active.roots.find (send2->qualified_root ()));
-		auto open1_root (node1.active.roots.find (open1->qualified_root ()));
-		auto open2_root (node1.active.roots.find (open2->qualified_root ()));
-		auto send3_root (node1.active.roots.find (send3->qualified_root ()));
-		auto modify_difficulty = [& roots = node1.active.roots](auto & existing_root) {
-			roots.modify (existing_root, [](nano::conflict_info & info_a) {
-				info_a.multiplier = nano::difficulty::to_multiplier (std::numeric_limits<std::uint64_t>::min () + 1, nano::work_threshold (info_a.election->status.winner->work_version (), info_a.election->status.winner->sideband ().details));
-			});
-		};
-		modify_difficulty (send1_root);
-		modify_difficulty (send2_root);
-		modify_difficulty (open1_root);
-		modify_difficulty (open2_root);
-		modify_difficulty (send3_root);
-		node1.active.add_adjust_difficulty (send1->hash ());
-		node1.active.update_adjusted_difficulty ();
-		// Test overflow
-		ASSERT_EQ (node1.active.roots.get<1> ().begin ()->election->status.winner->hash (), send1->hash ());
-		ASSERT_EQ (send1_root->adjusted_difficulty, std::numeric_limits<std::uint64_t>::min () + 3);
-		ASSERT_LT (send2_root->adjusted_difficulty, send1_root->adjusted_difficulty);
-		ASSERT_LT (open1_root->adjusted_difficulty, send1_root->adjusted_difficulty);
-		ASSERT_LT (open2_root->adjusted_difficulty, send2_root->adjusted_difficulty);
-		ASSERT_LT (send3_root->adjusted_difficulty, open2_root->adjusted_difficulty);
-		ASSERT_EQ (send3_root->adjusted_difficulty, std::numeric_limits<std::uint64_t>::min ());
-		// Clear roots with too low difficulty to prevent issues
-		node1.active.roots.clear ();
-	}
+	ASSERT_LT (node1.active.roots.find (send4->qualified_root ())->adjusted_multiplier, node1.active.roots.find (send3->qualified_root ())->adjusted_multiplier);
+	ASSERT_LT (node1.active.roots.find (send6->qualified_root ())->adjusted_multiplier, node1.active.roots.find (send5->qualified_root ())->adjusted_multiplier);
+	ASSERT_LT (node1.active.roots.find (send8->qualified_root ())->adjusted_multiplier, node1.active.roots.find (send7->qualified_root ())->adjusted_multiplier);
 }
 
 TEST (active_transactions, keep_local)
@@ -406,7 +296,7 @@ TEST (active_transactions, prioritize_chains)
 	size_t seen (0);
 	{
 		nano::lock_guard<std::mutex> active_guard (node1.active.mutex);
-		node1.active.update_adjusted_difficulty ();
+		node1.active.update_adjusted_multiplier ();
 		auto it (node1.active.roots.get<1> ().begin ());
 		while (!node1.active.roots.empty () && it != node1.active.roots.get<1> ().end ())
 		{
@@ -880,23 +770,23 @@ TEST (active_transactions, insertion_prioritization)
 	std::vector<std::shared_ptr<nano::block>> blocks{ send1, send2, send3, send4, send5, send6, send7 };
 	std::sort (blocks.begin (), blocks.end (), [](auto const & blockl, auto const & blockr) { return blockl->difficulty () > blockr->difficulty (); });
 
-	auto update_active_difficulty = [&node] {
+	auto update_active_multiplier = [&node] {
 		nano::unique_lock<std::mutex> lock (node.active.mutex);
-		node.active.update_active_difficulty (lock);
+		node.active.update_active_multiplier (lock);
 	};
 
 	ASSERT_TRUE (node.active.insert (blocks[2]).election->prioritized ());
-	update_active_difficulty ();
+	update_active_multiplier ();
 	ASSERT_FALSE (node.active.insert (blocks[3]).election->prioritized ());
-	update_active_difficulty ();
+	update_active_multiplier ();
 	ASSERT_TRUE (node.active.insert (blocks[1]).election->prioritized ());
-	update_active_difficulty ();
+	update_active_multiplier ();
 	ASSERT_FALSE (node.active.insert (blocks[4]).election->prioritized ());
-	update_active_difficulty ();
+	update_active_multiplier ();
 	ASSERT_TRUE (node.active.insert (blocks[0]).election->prioritized ());
-	update_active_difficulty ();
+	update_active_multiplier ();
 	ASSERT_FALSE (node.active.insert (blocks[5]).election->prioritized ());
-	update_active_difficulty ();
+	update_active_multiplier ();
 	ASSERT_FALSE (node.active.insert (blocks[6]).election->prioritized ());
 }
 
@@ -916,7 +806,7 @@ TEST (active_difficulty, less_than_one)
 	auto sum (std::accumulate (node.active.multipliers_cb.begin (), node.active.multipliers_cb.end (), double(0)));
 	auto difficulty = nano::difficulty::from_multiplier (sum / node.active.multipliers_cb.size (), node.network_params.network.publish_thresholds.epoch_1);
 	node.active.multipliers_cb.push_front (min_multiplier);
-	node.active.update_active_difficulty (lock);
+	node.active.update_active_multiplier (lock);
 	ASSERT_EQ (node.active.trended_active_difficulty, difficulty);
 }
 

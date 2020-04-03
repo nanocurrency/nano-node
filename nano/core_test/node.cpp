@@ -3806,7 +3806,7 @@ TEST (active_difficulty, recalculate_work)
 	}
 	node1.work_generate_blocking (*send1);
 	node1.process_active (send1);
-	node1.active.update_active_difficulty (lock);
+	node1.active.update_active_multiplier (lock);
 	sum = std::accumulate (node1.active.multipliers_cb.begin (), node1.active.multipliers_cb.end (), double(0));
 	ASSERT_EQ (node1.active.trended_active_difficulty, nano::difficulty::from_multiplier (sum / node1.active.multipliers_cb.size (), node1.network_params.network.publish_thresholds.epoch_1));
 	lock.unlock ();
