@@ -39,6 +39,8 @@ namespace work_v1
 	uint64_t threshold_entry ();
 	uint64_t threshold (nano::block_details const);
 }
+
+double normalized_multiplier (double const, uint64_t const);
 class opencl_work;
 class work_item final
 {

@@ -673,63 +673,9 @@ double nano::active_transactions::normalized_multiplier (std::shared_ptr<nano::b
 	debug_assert (multiplier >= 1 || sideband_not_found);
 	if (multiplier >= 1)
 	{
-		multiplier_normalization (multiplier, threshold);
+		multiplier = nano::normalized_multiplier (multiplier, threshold);
 	}
 	return multiplier;
-}
-
-void nano::active_transactions::multiplier_normalization (double & multiplier_a, uint64_t const threshold_a)
-{
-	debug_assert (multiplier_a >= 1);
-	// Normalization rules
-	if (threshold_a == node.network_params.network.publish_thresholds.epoch_1)
-	{
-		/* Epoch 1
-		multiplier	 | normalized
-		1.0 		 | 0.75
-		8.0 		 | 2.0
-		32.0 		 | 4.0
-		*/
-		auto rate (nano::difficulty::to_multiplier (node.network_params.network.publish_thresholds.epoch_2, node.network_params.network.publish_thresholds.epoch_1));
-		debug_assert (rate >= 1);
-		auto rate_4 (rate * 4);
-		if (multiplier_a < rate) // Result from 0.75 to 2.0
-		{
-			multiplier_a = ((multiplier_a - 1.0) / (rate - 1.0)) * 1.25 + 0.75;
-		}
-		else if (multiplier_a < rate_4) // Result from 2.0 to 4.0
-		{
-			multiplier_a = ((multiplier_a - rate) / (rate_4 - rate)) * 2.0 + 2.0;
-		}
-		else // Equal computational resources for epoch 1 & epoch 2
-		{
-			multiplier_a = multiplier_a / rate;
-		}
-	}
-	else if (threshold_a == node.network_params.network.publish_thresholds.epoch_2_receive)
-	{
-		/* Epoch 2 (receive / epoch subtypes)
-		multiplier	 | normalized
-		1.0 		 | 0.5
-		64.0 		 | 2.0
-		256.0 		 | 4.0
-		*/
-		auto rate (nano::difficulty::to_multiplier (node.network_params.network.publish_thresholds.epoch_2, node.network_params.network.publish_thresholds.epoch_2_receive));
-		debug_assert (rate >= 1);
-		auto rate_4 (rate * 4);
-		if (multiplier_a < rate) // Result from 0.5 to 2.0
-		{
-			multiplier_a = ((multiplier_a - 1.0) / (rate - 1.0)) * 1.5 + 0.5;
-		}
-		else if (multiplier_a < rate_4) // Result from 2.0 to 4.0
-		{
-			multiplier_a = ((multiplier_a - rate) / (rate_4 - rate)) * 2.0 + 2.0;
-		}
-		else // Equal computational resources for send & receive
-		{
-			multiplier_a = multiplier_a / rate;
-		}
-	}
 }
 
 void nano::active_transactions::add_adjust_difficulty (nano::block_hash const & hash_a)

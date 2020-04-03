@@ -104,7 +104,6 @@ public:
 	std::shared_ptr<nano::election> election (nano::qualified_root const &) const;
 	void update_difficulty (std::shared_ptr<nano::block>);
 	double normalized_multiplier (std::shared_ptr<nano::block>, std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> const & = {});
-	void multiplier_normalization (double &, uint64_t const);
 	void add_adjust_difficulty (nano::block_hash const &);
 	void update_adjusted_difficulty ();
 	void update_active_difficulty (nano::unique_lock<std::mutex> &);

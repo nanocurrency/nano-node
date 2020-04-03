@@ -1173,12 +1173,10 @@ TEST (wallet, work_watcher_update)
 	nano::keypair key;
 	auto const block1 (wallet.send_action (nano::test_genesis_key.pub, key.pub, 100));
 	auto difficulty1 (block1->difficulty ());
-	auto multiplier1 (nano::difficulty::to_multiplier (difficulty1, nano::work_threshold (block1->work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false))));
-	node.active.multiplier_normalization (multiplier1, node.network_params.network.publish_thresholds.epoch_1);
+	auto multiplier1 (nano::normalized_multiplier (nano::difficulty::to_multiplier (difficulty1, nano::work_threshold (block1->work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false))), node.network_params.network.publish_thresholds.epoch_1));
 	auto const block2 (wallet.send_action (nano::test_genesis_key.pub, key.pub, 200));
 	auto difficulty2 (block2->difficulty ());
-	auto multiplier2 (nano::difficulty::to_multiplier (difficulty2, nano::work_threshold (block2->work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false))));
-	node.active.multiplier_normalization (multiplier2, node.network_params.network.publish_thresholds.epoch_1);
+	auto multiplier2 (nano::normalized_multiplier (nano::difficulty::to_multiplier (difficulty2, nano::work_threshold (block2->work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false))), node.network_params.network.publish_thresholds.epoch_1));
 	double updated_multiplier1{ multiplier1 }, updated_multiplier2{ multiplier2 };
 	{
 		nano::lock_guard<std::mutex> guard (node.active.mutex);
@@ -1224,8 +1222,7 @@ TEST (wallet, work_watcher_generation_disabled)
 	node.wallets.watcher->add (block);
 	ASSERT_FALSE (node.process_local (block).code != nano::process_result::progress);
 	ASSERT_TRUE (node.wallets.watcher->is_watched (block->qualified_root ()));
-	auto multiplier = nano::difficulty::to_multiplier (difficulty, nano::work_threshold (block->work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false)));
-	node.active.multiplier_normalization (multiplier, node.network_params.network.publish_thresholds.epoch_1);
+	auto multiplier = nano::normalized_multiplier (nano::difficulty::to_multiplier (difficulty, nano::work_threshold (block->work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false))), node.network_params.network.publish_thresholds.epoch_1);
 	double updated_multiplier{ multiplier };
 	{
 		nano::unique_lock<std::mutex> lock (node.active.mutex);

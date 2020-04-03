@@ -145,6 +145,63 @@ uint64_t nano::work_v1::value (nano::root const & root_a, uint64_t work_a)
 }
 #endif
 
+double nano::normalized_multiplier (double const multiplier_a, uint64_t const threshold_a)
+{
+	static nano::network_constants network_constants;
+	debug_assert (multiplier_a >= 1);
+	auto multiplier (multiplier_a);
+	// Normalization rules
+	if (threshold_a == network_constants.publish_thresholds.epoch_1)
+	{
+		/* Epoch 1
+		multiplier	 | normalized
+		1.0 		 | 0.75
+		8.0 		 | 2.0
+		32.0 		 | 4.0
+		*/
+		auto rate (nano::difficulty::to_multiplier (network_constants.publish_thresholds.epoch_2, network_constants.publish_thresholds.epoch_1));
+		debug_assert (rate >= 1);
+		auto rate_4 (rate * 4);
+		if (multiplier < rate) // Result from 0.75 to 2.0
+		{
+			multiplier = ((multiplier - 1.0) / (rate - 1.0)) * 1.25 + 0.75;
+		}
+		else if (multiplier < rate_4) // Result from 2.0 to 4.0
+		{
+			multiplier = ((multiplier - rate) / (rate_4 - rate)) * 2.0 + 2.0;
+		}
+		else // Equal computational resources for epoch 1 & epoch 2
+		{
+			multiplier = multiplier / rate;
+		}
+	}
+	else if (threshold_a == network_constants.publish_thresholds.epoch_2_receive)
+	{
+		/* Epoch 2 (receive / epoch subtypes)
+		multiplier	 | normalized
+		1.0 		 | 0.5
+		64.0 		 | 2.0
+		256.0 		 | 4.0
+		*/
+		auto rate (nano::difficulty::to_multiplier (network_constants.publish_thresholds.epoch_2, network_constants.publish_thresholds.epoch_2_receive));
+		debug_assert (rate >= 1);
+		auto rate_4 (rate * 4);
+		if (multiplier < rate) // Result from 0.5 to 2.0
+		{
+			multiplier = ((multiplier - 1.0) / (rate - 1.0)) * 1.5 + 0.5;
+		}
+		else if (multiplier < rate_4) // Result from 2.0 to 4.0
+		{
+			multiplier = ((multiplier - rate) / (rate_4 - rate)) * 2.0 + 2.0;
+		}
+		else // Equal computational resources for send & receive
+		{
+			multiplier = multiplier / rate;
+		}
+	}
+	return multiplier;
+}
+
 nano::work_pool::work_pool (unsigned max_threads_a, std::chrono::nanoseconds pow_rate_limiter_a, std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> opencl_a) :
 ticket (0),
 done (false),
