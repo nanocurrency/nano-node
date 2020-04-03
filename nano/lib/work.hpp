@@ -41,6 +41,7 @@ namespace work_v1
 }
 
 double normalized_multiplier (double const, uint64_t const);
+double denormalized_multiplier (double const, uint64_t const);
 class opencl_work;
 class work_item final
 {

@@ -151,8 +151,8 @@ double nano::normalized_multiplier (double const multiplier_a, uint64_t const th
 	debug_assert (multiplier_a >= 1);
 	auto multiplier (multiplier_a);
 	/* Normalization rules
-	// rate = multiplier of max threshold with base threshold
-	// multiplier = (multiplier + (rate - 1)) / rate;
+	// ratio = multiplier of max threshold with base threshold
+	// multiplier = (multiplier + (ratio - 1)) / ratio;
 	Epoch 1
 	multiplier	 | normalized
 	1.0 		 | 1.0
@@ -166,9 +166,24 @@ double nano::normalized_multiplier (double const multiplier_a, uint64_t const th
 	*/
 	if (threshold_a == network_constants.publish_thresholds.epoch_1 || threshold_a == network_constants.publish_thresholds.epoch_2_receive)
 	{
-		auto rate (nano::difficulty::to_multiplier (network_constants.publish_thresholds.epoch_2, threshold_a));
-		debug_assert (rate >= 1);
-		multiplier = (multiplier + (rate - 1.0)) / rate;
+		auto ratio (nano::difficulty::to_multiplier (network_constants.publish_thresholds.epoch_2, threshold_a));
+		debug_assert (ratio >= 1);
+		multiplier = (multiplier + (ratio - 1.0)) / ratio;
+		debug_assert (multiplier >= 1);
+	}
+	return multiplier;
+}
+
+double nano::denormalized_multiplier (double const multiplier_a, uint64_t const threshold_a)
+{
+	static nano::network_constants network_constants;
+	debug_assert (multiplier_a >= 1);
+	auto multiplier (multiplier_a);
+	if (threshold_a == network_constants.publish_thresholds.epoch_1 || threshold_a == network_constants.publish_thresholds.epoch_2_receive)
+	{
+		auto ratio (nano::difficulty::to_multiplier (network_constants.publish_thresholds.epoch_2, threshold_a));
+		debug_assert (ratio >= 1);
+		multiplier = multiplier * ratio + 1.0 - ratio;
 		debug_assert (multiplier >= 1);
 	}
 	return multiplier;

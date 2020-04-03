@@ -790,78 +790,91 @@ TEST (active_transactions, insertion_prioritization)
 	ASSERT_FALSE (node.active.insert (blocks[6]).election->prioritized ());
 }
 
-TEST (active_difficulty, less_than_one)
+TEST (active_multiplier, less_than_one)
 {
 	nano::system system (1);
 	auto & node (*system.nodes[0]);
 	nano::unique_lock<std::mutex> lock (node.active.mutex);
 	auto base_active_difficulty = node.network_params.network.publish_thresholds.epoch_1;
+	auto base_active_multiplier = 1.0;
 	auto min_active_difficulty = node.network_params.network.publish_thresholds.entry;
 	auto min_multiplier = nano::difficulty::to_multiplier (min_active_difficulty, base_active_difficulty);
-	ASSERT_EQ (node.active.trended_active_difficulty, base_active_difficulty);
+	ASSERT_EQ (node.active.trended_active_multiplier, base_active_multiplier);
 	for (int i = 0; i < node.active.multipliers_cb.size () - 1; ++i)
 	{
 		node.active.multipliers_cb.push_front (min_multiplier);
 	}
 	auto sum (std::accumulate (node.active.multipliers_cb.begin (), node.active.multipliers_cb.end (), double(0)));
-	auto difficulty = nano::difficulty::from_multiplier (sum / node.active.multipliers_cb.size (), node.network_params.network.publish_thresholds.epoch_1);
+	auto multiplier = sum / node.active.multipliers_cb.size ();
 	node.active.multipliers_cb.push_front (min_multiplier);
 	node.active.update_active_multiplier (lock);
-	ASSERT_EQ (node.active.trended_active_difficulty, difficulty);
+	ASSERT_EQ (node.active.trended_active_multiplier, multiplier);
 }
 
-TEST (active_difficulty, normalization)
+TEST (active_multiplier, normalization)
 {
 	nano::system system (1);
 	auto & node (*system.nodes[0]);
 	// Check normalization for epoch 1
 	double multiplier1 (1.0);
 	ASSERT_LT (nano::difficulty::from_multiplier (multiplier1, node.network_params.network.publish_thresholds.epoch_1), nano::difficulty::from_multiplier (1.0, node.network_params.network.publish_thresholds.epoch_2));
-	multiplier1 = nano::normalized_multiplier (multiplier1, node.network_params.network.publish_thresholds.epoch_1);
-	ASSERT_NEAR (1.0, multiplier1, 1e-10);
+	auto norm_multiplier1 (nano::normalized_multiplier (multiplier1, node.network_params.network.publish_thresholds.epoch_1));
+	ASSERT_NEAR (1.0, norm_multiplier1, 1e-10);
+	ASSERT_NEAR (nano::denormalized_multiplier (norm_multiplier1, node.network_params.network.publish_thresholds.epoch_1), multiplier1, 1e-10);
 	double multiplier2 (5.0);
 	ASSERT_LT (nano::difficulty::from_multiplier (multiplier2, node.network_params.network.publish_thresholds.epoch_1), nano::difficulty::from_multiplier (1.5, node.network_params.network.publish_thresholds.epoch_2));
-	multiplier2 = nano::normalized_multiplier (multiplier2, node.network_params.network.publish_thresholds.epoch_1);
-	ASSERT_NEAR (1.5, multiplier2, 1e-10);
+	auto norm_multiplier2 (nano::normalized_multiplier (multiplier2, node.network_params.network.publish_thresholds.epoch_1));
+	ASSERT_NEAR (1.5, norm_multiplier2, 1e-10);
+	ASSERT_NEAR (nano::denormalized_multiplier (norm_multiplier2, node.network_params.network.publish_thresholds.epoch_1), multiplier2, 1e-10);
 	double multiplier3 (9.0);
 	ASSERT_LT (nano::difficulty::from_multiplier (multiplier3, node.network_params.network.publish_thresholds.epoch_1), nano::difficulty::from_multiplier (2.0, node.network_params.network.publish_thresholds.epoch_2));
-	multiplier3 = nano::normalized_multiplier (multiplier3, node.network_params.network.publish_thresholds.epoch_1);
-	ASSERT_NEAR (2.0, multiplier3, 1e-10);
+	auto norm_multiplier3 (nano::normalized_multiplier (multiplier3, node.network_params.network.publish_thresholds.epoch_1));
+	ASSERT_NEAR (2.0, norm_multiplier3, 1e-10);
+	ASSERT_NEAR (nano::denormalized_multiplier (norm_multiplier3, node.network_params.network.publish_thresholds.epoch_1), multiplier3, 1e-10);
 	double multiplier4 (17.0);
 	ASSERT_LT (nano::difficulty::from_multiplier (multiplier4, node.network_params.network.publish_thresholds.epoch_1), nano::difficulty::from_multiplier (3.0, node.network_params.network.publish_thresholds.epoch_2));
-	multiplier4 = nano::normalized_multiplier (multiplier4, node.network_params.network.publish_thresholds.epoch_1);
-	ASSERT_NEAR (3.0, multiplier4, 1e-10);
+	auto norm_multiplier4 (nano::normalized_multiplier (multiplier4, node.network_params.network.publish_thresholds.epoch_1));
+	ASSERT_NEAR (3.0, norm_multiplier4, 1e-10);
+	ASSERT_NEAR (nano::denormalized_multiplier (norm_multiplier4, node.network_params.network.publish_thresholds.epoch_1), multiplier4, 1e-10);
 	double multiplier5 (25.0);
 	ASSERT_LT (nano::difficulty::from_multiplier (multiplier5, node.network_params.network.publish_thresholds.epoch_1), nano::difficulty::from_multiplier (4.0, node.network_params.network.publish_thresholds.epoch_2));
-	multiplier5 = nano::normalized_multiplier (multiplier5, node.network_params.network.publish_thresholds.epoch_1);
-	ASSERT_NEAR (4.0, multiplier5, 1e-10);
+	auto norm_multiplier5 (nano::normalized_multiplier (multiplier5, node.network_params.network.publish_thresholds.epoch_1));
+	ASSERT_NEAR (4.0, norm_multiplier5, 1e-10);
+	ASSERT_NEAR (nano::denormalized_multiplier (norm_multiplier5, node.network_params.network.publish_thresholds.epoch_1), multiplier5, 1e-10);
 	double multiplier6 (57.0);
 	ASSERT_LT (nano::difficulty::from_multiplier (multiplier6, node.network_params.network.publish_thresholds.epoch_1), nano::difficulty::from_multiplier (8.0, node.network_params.network.publish_thresholds.epoch_2));
-	multiplier6 = nano::normalized_multiplier (multiplier6, node.network_params.network.publish_thresholds.epoch_1);
-	ASSERT_NEAR (8.0, multiplier6, 1e-10);
+	auto norm_multiplier6 (nano::normalized_multiplier (multiplier6, node.network_params.network.publish_thresholds.epoch_1));
+	ASSERT_NEAR (8.0, norm_multiplier6, 1e-10);
+	ASSERT_NEAR (nano::denormalized_multiplier (norm_multiplier6, node.network_params.network.publish_thresholds.epoch_1), multiplier6, 1e-10);
 	// Check normalization for epoch 2 receive
 	double multiplier10 (1.0);
 	ASSERT_LT (nano::difficulty::from_multiplier (multiplier10, node.network_params.network.publish_thresholds.epoch_2_receive), nano::difficulty::from_multiplier (1.0, node.network_params.network.publish_thresholds.epoch_2));
-	multiplier10 = nano::normalized_multiplier (multiplier10, node.network_params.network.publish_thresholds.epoch_2_receive);
-	ASSERT_NEAR (1.0, multiplier10, 1e-10);
+	auto norm_multiplier10 (nano::normalized_multiplier (multiplier10, node.network_params.network.publish_thresholds.epoch_2_receive));
+	ASSERT_NEAR (1.0, norm_multiplier10, 1e-10);
+	ASSERT_NEAR (nano::denormalized_multiplier (norm_multiplier10, node.network_params.network.publish_thresholds.epoch_2_receive), multiplier10, 1e-10);
 	double multiplier11 (33.0);
 	ASSERT_LT (nano::difficulty::from_multiplier (multiplier11, node.network_params.network.publish_thresholds.epoch_2_receive), nano::difficulty::from_multiplier (1.5, node.network_params.network.publish_thresholds.epoch_2));
-	multiplier11 = nano::normalized_multiplier (multiplier11, node.network_params.network.publish_thresholds.epoch_2_receive);
-	ASSERT_NEAR (1.5, multiplier11, 1e-10);
+	auto norm_multiplier11 (nano::normalized_multiplier (multiplier11, node.network_params.network.publish_thresholds.epoch_2_receive));
+	ASSERT_NEAR (1.5, norm_multiplier11, 1e-10);
+	ASSERT_NEAR (nano::denormalized_multiplier (norm_multiplier11, node.network_params.network.publish_thresholds.epoch_2_receive), multiplier11, 1e-10);
 	double multiplier12 (65.0);
 	ASSERT_LT (nano::difficulty::from_multiplier (multiplier12, node.network_params.network.publish_thresholds.epoch_2_receive), nano::difficulty::from_multiplier (2.0, node.network_params.network.publish_thresholds.epoch_2));
-	multiplier12 = nano::normalized_multiplier (multiplier12, node.network_params.network.publish_thresholds.epoch_2_receive);
-	ASSERT_NEAR (2.0, multiplier12, 1e-10);
+	auto norm_multiplier12 (nano::normalized_multiplier (multiplier12, node.network_params.network.publish_thresholds.epoch_2_receive));
+	ASSERT_NEAR (2.0, norm_multiplier12, 1e-10);
+	ASSERT_NEAR (nano::denormalized_multiplier (norm_multiplier12, node.network_params.network.publish_thresholds.epoch_2_receive), multiplier12, 1e-10);
 	double multiplier13 (129.0);
 	ASSERT_LT (nano::difficulty::from_multiplier (multiplier13, node.network_params.network.publish_thresholds.epoch_2_receive), nano::difficulty::from_multiplier (3.0, node.network_params.network.publish_thresholds.epoch_2));
-	multiplier13 = nano::normalized_multiplier (multiplier13, node.network_params.network.publish_thresholds.epoch_2_receive);
-	ASSERT_NEAR (3.0, multiplier13, 1e-10);
+	auto norm_multiplier13 (nano::normalized_multiplier (multiplier13, node.network_params.network.publish_thresholds.epoch_2_receive));
+	ASSERT_NEAR (3.0, norm_multiplier13, 1e-10);
+	ASSERT_NEAR (nano::denormalized_multiplier (norm_multiplier13, node.network_params.network.publish_thresholds.epoch_2_receive), multiplier13, 1e-10);
 	double multiplier14 (193.0);
 	ASSERT_LT (nano::difficulty::from_multiplier (multiplier14, node.network_params.network.publish_thresholds.epoch_2_receive), nano::difficulty::from_multiplier (4.0, node.network_params.network.publish_thresholds.epoch_2));
-	multiplier14 = nano::normalized_multiplier (multiplier14, node.network_params.network.publish_thresholds.epoch_2_receive);
-	ASSERT_NEAR (4.0, multiplier14, 1e-10);
+	auto norm_multiplier14 (nano::normalized_multiplier (multiplier14, node.network_params.network.publish_thresholds.epoch_2_receive));
+	ASSERT_NEAR (4.0, norm_multiplier14, 1e-10);
+	ASSERT_NEAR (nano::denormalized_multiplier (norm_multiplier14, node.network_params.network.publish_thresholds.epoch_2_receive), multiplier14, 1e-10);
 	double multiplier15 (961.0);
 	ASSERT_LT (nano::difficulty::from_multiplier (multiplier15, node.network_params.network.publish_thresholds.epoch_2_receive), nano::difficulty::from_multiplier (16.0, node.network_params.network.publish_thresholds.epoch_2));
-	multiplier15 = nano::normalized_multiplier (multiplier15, node.network_params.network.publish_thresholds.epoch_2_receive);
-	ASSERT_NEAR (16.0, multiplier15, 1e-10);
+	auto norm_multiplier15 (nano::normalized_multiplier (multiplier15, node.network_params.network.publish_thresholds.epoch_2_receive));
+	ASSERT_NEAR (16.0, norm_multiplier15, 1e-10);
+	ASSERT_NEAR (nano::denormalized_multiplier (norm_multiplier15, node.network_params.network.publish_thresholds.epoch_2_receive), multiplier15, 1e-10);
 }

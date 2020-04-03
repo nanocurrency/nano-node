@@ -1177,10 +1177,10 @@ TEST (wallet, work_watcher_update)
 	auto const block2 (wallet.send_action (nano::test_genesis_key.pub, key.pub, 200));
 	auto difficulty2 (block2->difficulty ());
 	auto multiplier2 (nano::normalized_multiplier (nano::difficulty::to_multiplier (difficulty2, nano::work_threshold (block2->work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false))), node.network_params.network.publish_thresholds.epoch_1));
-	double updated_multiplier1{ multiplier1 }, updated_multiplier2{ multiplier2 };
+	double updated_multiplier1{ multiplier1 }, updated_multiplier2{ multiplier2 }, target_multiplier{ std::max (multiplier1, multiplier2) + 1e-6 };
 	{
 		nano::lock_guard<std::mutex> guard (node.active.mutex);
-		node.active.trended_active_difficulty = std::max (difficulty1, difficulty2) + 1;
+		node.active.trended_active_multiplier = target_multiplier;
 	}
 	system.deadline_set (20s);
 	while (updated_multiplier1 == multiplier1 || updated_multiplier2 == multiplier2)
@@ -1324,6 +1324,7 @@ TEST (wallet, work_watcher_cancel)
 TEST (wallet, limited_difficulty)
 {
 	nano::system system;
+	nano::genesis genesis;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.max_work_generate_difficulty = nano::network_constants ().publish_thresholds.base;
 	nano::node_flags node_flags;
@@ -1338,9 +1339,9 @@ TEST (wallet, limited_difficulty)
 	{
 		// Force active difficulty to an impossibly high value
 		nano::lock_guard<std::mutex> guard (node.active.mutex);
-		node.active.trended_active_difficulty = std::numeric_limits<uint64_t>::max ();
+		node.active.trended_active_multiplier = 1024 * 1024 * 1024;
 	}
-	ASSERT_EQ (node_config.max_work_generate_difficulty, node.active.limited_active_difficulty ());
+	ASSERT_EQ (node_config.max_work_generate_difficulty, node.active.limited_active_difficulty (genesis.open));
 	auto send = wallet.send_action (nano::test_genesis_key.pub, nano::keypair ().pub, 1, 1);
 	ASSERT_NE (nullptr, send);
 }

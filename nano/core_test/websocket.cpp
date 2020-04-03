@@ -52,7 +52,7 @@ TEST (websocket, subscription_edge)
 	}
 }
 
-// Test client subscribing to changes in active_difficulty
+// Test client subscribing to changes in active_multiplier
 TEST (websocket, active_difficulty)
 {
 	nano::system system;
@@ -80,7 +80,7 @@ TEST (websocket, active_difficulty)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
-	// Fake history records to force trended_active_difficulty change
+	// Fake history records to force trended_active_multiplier change
 	{
 		nano::unique_lock<std::mutex> lock (node1->active.mutex);
 		node1->active.multipliers_cb.push_front (10.);

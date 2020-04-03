@@ -108,7 +108,8 @@ public:
 	void update_adjusted_multiplier ();
 	void update_active_multiplier (nano::unique_lock<std::mutex> &);
 	uint64_t active_difficulty ();
-	uint64_t limited_active_difficulty ();
+	uint64_t limited_active_difficulty (std::shared_ptr<nano::block>);
+	double active_multiplier ();
 	std::deque<std::shared_ptr<nano::block>> list_blocks ();
 	void erase (nano::block const &);
 	bool empty ();
@@ -142,7 +143,7 @@ public:
 	nano::node & node;
 	mutable std::mutex mutex;
 	boost::circular_buffer<double> multipliers_cb;
-	uint64_t trended_active_difficulty;
+	double trended_active_multiplier;
 	size_t priority_cementable_frontiers_size ();
 	size_t priority_wallet_cementable_frontiers_size ();
 	boost::circular_buffer<double> difficulty_trend ();
