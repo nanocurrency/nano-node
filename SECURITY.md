@@ -8,9 +8,9 @@ The Nano network is designed to allow peering between multiple versions of the n
 
 In December 2018 the Nano node codebase was audited by Red4Sec and found to have no critical vulnerabilities. The following vulnerability was resolved:
 
-**Risk**: High
-**Report Location**: Pages 34-35
-**Resolution**: Pull Request #1563 in release V17.1
+**Risk**: High  
+**Report Location**: Pages 34-35  
+**Resolution**: Pull Request #1563 in release V17.1  
 
 All other notices from the report were classified as informative and are continuously improved on over time (e.g. code styling). The full report is available here: https://content.nano.org/Nano_Final_Security_Audit_v3.pdf
 
@@ -21,8 +21,7 @@ To report security issues in the Nano protocol, please send an email to security
 | GitHub Username | Email | GPG Pubkey |
 |-----------------------|--------|-----------------|
 | [clemahieu](https://github.com/clemahieu) | clemahieu { at } nano.org | Link |
-| [argakiig](https://github.com/argakiig) | russel { at } nano.org | [Link](https://github.com/nanocurrency/nano-node/blob/develop/etc/gpg/argakiig.asc)
-| 
+| [argakiig](https://github.com/argakiig) | russel { at } nano.org | [Link](https://github.com/nanocurrency/nano-node/blob/develop/etc/gpg/argakiig.asc) | 
 | [wezrule](https://github.com/wezrule) | wesley { at } nano.org | Link |
 | [sergiysw](https://github.com/sergiysw) | sergei { at } nano.org | Link |
 | [guilhermelawless](https://github.com/guilhermelawless) | guilherme { at } nano.org | Link |
