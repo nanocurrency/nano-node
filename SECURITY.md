@@ -16,7 +16,7 @@ All other notices from the report were classified as informative and are continu
 
 ## Reporting a Vulnerability
 
-To report security issues in the Nano protocol, please send an email to security@nano.org and CC of the following security team members. It is strongly recommended to encrypt the email using GPG and the pubkeys below can be used for this purpose.
+To report security issues in the Nano protocol, please send an email to security@nano.org and CC the following security team members. It is strongly recommended to encrypt the email using GPG and the pubkeys below can be used for this purpose.
 
 | GitHub Username | Email | GPG Pubkey |
 |-----------------------|--------|-----------------|
