@@ -631,7 +631,7 @@ void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> 
 	auto existing_election (roots.get<tag_root> ().find (block_a->qualified_root ()));
 	if (existing_election != roots.get<tag_root> ().end ())
 	{
-		double multiplier (normalized_multiplier (block_a, existing_election->election->status.winner));
+		double multiplier (normalized_multiplier (block_a, existing_election->election->blocks));
 		if (multiplier > existing_election->multiplier)
 		{
 			if (node.config.logging.active_update_logging ())
@@ -647,24 +647,30 @@ void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> 
 	}
 }
 
-double nano::active_transactions::normalized_multiplier (std::shared_ptr<nano::block> block_a, std::shared_ptr<nano::block> winner_a)
+double nano::active_transactions::normalized_multiplier (std::shared_ptr<nano::block> block_a, std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> const & blocks_a)
 {
 	auto difficulty (block_a->difficulty ());
 	uint64_t threshold (0);
+	bool sideband_not_found (false);
 	if (block_a->has_sideband ())
 	{
 		threshold = nano::work_threshold (block_a->work_version (), block_a->sideband ().details);
 	}
-	else if (winner_a != nullptr && winner_a->has_sideband () && winner_a->hash () == block_a->hash ())
-	{
-		threshold = nano::work_threshold (block_a->work_version (), winner_a->sideband ().details);
-	}
 	else
 	{
-		threshold = nano::work_threshold_base (block_a->work_version ());
+		auto find_block (blocks_a.find (block_a->hash ()));
+		if (find_block != blocks_a.end () && find_block->second->has_sideband ())
+		{
+			threshold = nano::work_threshold (block_a->work_version (), find_block->second->sideband ().details);
+		}
+		else
+		{
+			threshold = nano::work_threshold_base (block_a->work_version ());
+			sideband_not_found = true;
+		}
 	}
 	double multiplier (nano::difficulty::to_multiplier (difficulty, threshold));
-	debug_assert (multiplier >= 1);
+	debug_assert (multiplier >= 1 || sideband_not_found);
 	if (multiplier >= 1)
 	{
 		multiplier_normalization (multiplier, threshold);
