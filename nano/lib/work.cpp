@@ -152,7 +152,7 @@ double nano::normalized_multiplier (double const multiplier_a, uint64_t const th
 	auto multiplier (multiplier_a);
 	/* Normalization rules
 	// ratio = multiplier of max threshold with base threshold
-	// multiplier = (multiplier + (ratio - 1)) / ratio;
+	// normalized = (multiplier + (ratio - 1)) / ratio;
 	Epoch 1
 	multiplier	 | normalized
 	1.0 		 | 1.0
