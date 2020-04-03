@@ -150,54 +150,26 @@ double nano::normalized_multiplier (double const multiplier_a, uint64_t const th
 	static nano::network_constants network_constants;
 	debug_assert (multiplier_a >= 1);
 	auto multiplier (multiplier_a);
-	// Normalization rules
-	if (threshold_a == network_constants.publish_thresholds.epoch_1)
+	/* Normalization rules
+	// rate = multiplier of max threshold with base threshold
+	// multiplier = (multiplier + (rate - 1)) / rate;
+	Epoch 1
+	multiplier	 | normalized
+	1.0 		 | 1.0
+	9.0 		 | 2.0
+	25.0 		 | 4.0
+	Epoch 2 (receive / epoch subtypes)
+	multiplier	 | normalized
+	1.0 		 | 1.0
+	65.0 		 | 2.0
+	241.0 		 | 4.0
+	*/
+	if (threshold_a == network_constants.publish_thresholds.epoch_1 || threshold_a == network_constants.publish_thresholds.epoch_2_receive)
 	{
-		/* Epoch 1
-		multiplier	 | normalized
-		1.0 		 | 0.75
-		8.0 		 | 2.0
-		32.0 		 | 4.0
-		*/
-		auto rate (nano::difficulty::to_multiplier (network_constants.publish_thresholds.epoch_2, network_constants.publish_thresholds.epoch_1));
+		auto rate (nano::difficulty::to_multiplier (network_constants.publish_thresholds.epoch_2, threshold_a));
 		debug_assert (rate >= 1);
-		auto rate_4 (rate * 4);
-		if (multiplier < rate) // Result from 0.75 to 2.0
-		{
-			multiplier = ((multiplier - 1.0) / (rate - 1.0)) * 1.25 + 0.75;
-		}
-		else if (multiplier < rate_4) // Result from 2.0 to 4.0
-		{
-			multiplier = ((multiplier - rate) / (rate_4 - rate)) * 2.0 + 2.0;
-		}
-		else // Equal computational resources for epoch 1 & epoch 2
-		{
-			multiplier = multiplier / rate;
-		}
-	}
-	else if (threshold_a == network_constants.publish_thresholds.epoch_2_receive)
-	{
-		/* Epoch 2 (receive / epoch subtypes)
-		multiplier	 | normalized
-		1.0 		 | 0.5
-		64.0 		 | 2.0
-		256.0 		 | 4.0
-		*/
-		auto rate (nano::difficulty::to_multiplier (network_constants.publish_thresholds.epoch_2, network_constants.publish_thresholds.epoch_2_receive));
-		debug_assert (rate >= 1);
-		auto rate_4 (rate * 4);
-		if (multiplier < rate) // Result from 0.5 to 2.0
-		{
-			multiplier = ((multiplier - 1.0) / (rate - 1.0)) * 1.5 + 0.5;
-		}
-		else if (multiplier < rate_4) // Result from 2.0 to 4.0
-		{
-			multiplier = ((multiplier - rate) / (rate_4 - rate)) * 2.0 + 2.0;
-		}
-		else // Equal computational resources for send & receive
-		{
-			multiplier = multiplier / rate;
-		}
+		multiplier = (multiplier + (rate - 1.0)) / rate;
+		debug_assert (multiplier >= 1);
 	}
 	return multiplier;
 }
