@@ -439,7 +439,7 @@ void nano::transport::tcp_channels::ongoing_keepalive ()
 		size_t random_count (std::min (static_cast<size_t> (6), static_cast<size_t> (std::ceil (std::sqrt (node.network.udp_channels.size ())))));
 		for (auto i (0); i <= random_count; ++i)
 		{
-			auto tcp_endpoint (node.network.udp_channels.bootstrap_peer (node.network_params.protocol.protocol_version_min));
+			auto tcp_endpoint (node.network.udp_channels.bootstrap_peer (node.network_params.protocol.protocol_version_min (node.ledger.cache.epoch_2_started)));
 			if (tcp_endpoint != invalid_endpoint && find_channel (tcp_endpoint) == nullptr)
 			{
 				start_tcp (nano::transport::map_tcp_to_endpoint (tcp_endpoint));
@@ -534,7 +534,7 @@ void nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint_a
 				// TCP node ID handshake
 				auto cookie (node_l->network.syn_cookies.assign (endpoint_a));
 				nano::node_id_handshake message (cookie, boost::none);
-				auto bytes = message.to_shared_const_buffer ();
+				auto bytes = message.to_shared_const_buffer (node_l->ledger.cache.epoch_2_started);
 				if (node_l->config.logging.network_node_id_handshake_logging ())
 				{
 					node_l->logger.try_log (boost::str (boost::format ("Node ID handshake request sent with node ID %1% to %2%: query %3%") % node_l->node_id.pub.to_node_id () % endpoint_a % (*cookie).to_string ()));
@@ -600,7 +600,7 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 					auto error (false);
 					nano::bufferstream stream (receive_buffer_a->data (), size_a);
 					nano::message_header header (error, stream);
-					if (!error && header.type == nano::message_type::node_id_handshake && header.version_using >= node_l->network_params.protocol.protocol_version_min)
+					if (!error && header.type == nano::message_type::node_id_handshake && header.version_using >= node_l->network_params.protocol.protocol_version_min (node_l->ledger.cache.epoch_2_started))
 					{
 						nano::node_id_handshake message (error, stream, header);
 						if (!error && message.response && message.query)
@@ -624,7 +624,7 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 								channel_a->set_last_packet_received (std::chrono::steady_clock::now ());
 								boost::optional<std::pair<nano::account, nano::signature>> response (std::make_pair (node_l->node_id.pub, nano::sign_message (node_l->node_id.prv, node_l->node_id.pub, *message.query)));
 								nano::node_id_handshake response_message (boost::none, response);
-								auto bytes = response_message.to_shared_const_buffer ();
+								auto bytes = response_message.to_shared_const_buffer (node_l->ledger.cache.epoch_2_started);
 								if (node_l->config.logging.network_node_id_handshake_logging ())
 								{
 									node_l->logger.try_log (boost::str (boost::format ("Node ID handshake response sent with node ID %1% to %2%: query %3%") % node_l->node_id.pub.to_node_id () % endpoint_a % (*message.query).to_string ()));

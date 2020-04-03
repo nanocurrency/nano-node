@@ -628,11 +628,11 @@ nano::tcp_endpoint nano::network::bootstrap_peer (bool lazy_bootstrap)
 	bool use_udp_peer (nano::random_pool::generate_word32 (0, 1));
 	if (use_udp_peer || tcp_channels.size () == 0)
 	{
-		result = udp_channels.bootstrap_peer (node.network_params.protocol.protocol_version_bootstrap_min);
+		result = udp_channels.bootstrap_peer (node.network_params.protocol.protocol_version_min (node.ledger.cache.epoch_2_started));
 	}
 	if (result == nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0))
 	{
-		result = tcp_channels.bootstrap_peer (node.network_params.protocol.protocol_version_bootstrap_min);
+		result = tcp_channels.bootstrap_peer (node.network_params.protocol.protocol_version_min (node.ledger.cache.epoch_2_started));
 	}
 	return result;
 }

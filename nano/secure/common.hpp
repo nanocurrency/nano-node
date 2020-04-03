@@ -352,20 +352,18 @@ class network_params;
 class protocol_constants
 {
 public:
-	protocol_constants (nano::nano_networks network_a);
-
 	/** Current protocol version */
 	uint8_t protocol_version = 0x12;
 
 	/** Minimum accepted protocol version */
-	uint8_t protocol_version_min = 0x11;
-
-	/** Do not bootstrap from nodes older than this version. */
-	uint8_t protocol_version_bootstrap_min = 0x11;
+	uint8_t protocol_version_min (bool epoch_2_started) const;
 
 	/** Do not request telemetry metrics to nodes older than this version */
 	uint8_t telemetry_protocol_version_min = 0x12;
 };
+
+// Some places check the decltype of protocol_version instead of protocol_version_min to keep those checks simpler. This just checks it will be valid
+static_assert (std::is_same<decltype (protocol_constants ().protocol_version), decltype (protocol_constants ().protocol_version_min (false))>::value, "protocol_min should match");
 
 /** Genesis keys and ledger constants for network variants */
 class ledger_constants
@@ -491,6 +489,7 @@ public:
 	bool cemented_count = true;
 	bool unchecked_count = true;
 	bool account_count = true;
+	bool epoch_2 = true;
 };
 
 /* Holds an in-memory cache of various counts */
@@ -502,7 +501,7 @@ public:
 	std::atomic<uint64_t> block_count{ 0 };
 	std::atomic<uint64_t> unchecked_count{ 0 };
 	std::atomic<uint64_t> account_count{ 0 };
-	std::atomic<bool> epoch_2_started{ 0 };
+	std::atomic<bool> epoch_2_started{ false };
 };
 
 /* Defines the possible states for an election to stop in */
