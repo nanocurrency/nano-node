@@ -1898,7 +1898,7 @@ TEST (rpc, process_block_with_work_watcher)
 		{
 			node1.active.multipliers_cb.push_back (multiplier1 * (1 + i / 100.));
 		}
-		node1.active.update_active_difficulty (lock);
+		node1.active.update_active_multiplier (lock);
 		auto const existing (node1.active.roots.find (send->qualified_root ()));
 		//if existing is junk the block has been confirmed already
 		ASSERT_NE (existing, node1.active.roots.end ());
@@ -7507,7 +7507,7 @@ TEST (rpc, active_difficulty)
 	node->active.multipliers_cb.push_front (1.5);
 	node->active.multipliers_cb.push_front (4.2);
 	// Also pushes 1.0 to the front of multipliers_cb
-	node->active.update_active_difficulty (lock);
+	node->active.update_active_multiplier (lock);
 	lock.unlock ();
 	auto trend_size (node->active.multipliers_cb.size ());
 	ASSERT_NE (0, trend_size);

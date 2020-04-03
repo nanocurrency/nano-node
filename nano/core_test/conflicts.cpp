@@ -291,6 +291,7 @@ TEST (conflicts, adjusted_multiplier)
 	{
 		nano::lock_guard<std::mutex> guard (node1.active.mutex);
 		node1.active.update_adjusted_multiplier ();
+		ASSERT_EQ (node1.active.roots.size (), 12);
 		ASSERT_EQ (node1.active.roots.get<1> ().begin ()->election->status.winner->hash (), open_epoch2->hash ());
 	}
 }

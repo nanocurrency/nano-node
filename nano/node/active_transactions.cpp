@@ -749,14 +749,16 @@ void nano::active_transactions::update_adjusted_multiplier ()
 		}
 		if (!elections_list.empty ())
 		{
-			double multiplier = sum / elections_list.size ();
-			double min_unit (8192.0 * std::numeric_limits<double>::epsilon ());
+			double avg_multiplier = sum / elections_list.size ();
+			debug_assert (avg_multiplier >= 1);
+			double min_unit = 32.0 * avg_multiplier * std::numeric_limits<double>::epsilon ();
+			debug_assert (min_unit > 0);
 
 			// Set adjusted multiplier
 			for (auto & item : elections_list)
 			{
 				auto existing_root (roots.get<tag_root> ().find (item.first));
-				double multiplier_a = multiplier + (double)item.second * min_unit;
+				double multiplier_a = avg_multiplier + (double)item.second * min_unit;
 				if (existing_root->adjusted_multiplier != multiplier_a)
 				{
 					roots.get<tag_root> ().modify (existing_root, [multiplier_a](nano::conflict_info & info_a) {
