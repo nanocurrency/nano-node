@@ -36,6 +36,17 @@ void nano::vote_generator::add (nano::block_hash const & hash_a)
 	}
 }
 
+void nano::vote_generator::add (std::vector<nano::block_hash> const & hashes_a)
+{
+	nano::unique_lock<std::mutex> lock (mutex);
+	hashes.insert (hashes.end (), hashes_a.begin (), hashes_a.end ());
+	if (hashes.size () >= nano::network::confirm_ack_hashes_max)
+	{
+		lock.unlock ();
+		condition.notify_all ();
+	}
+}
+
 void nano::vote_generator::stop ()
 {
 	nano::unique_lock<std::mutex> lock (mutex);
@@ -100,6 +111,23 @@ void nano::vote_generator::run ()
 			}
 		}
 	}
+}
+
+nano::vote_generator_session::vote_generator_session (nano::vote_generator & vote_generator_a) :
+generator (vote_generator_a)
+{
+}
+
+void nano::vote_generator_session::add (nano::block_hash const & hash_a)
+{
+	nano::lock_guard<std::mutex> lock (mutex);
+	hashes.push_back (hash_a);
+}
+
+void nano::vote_generator_session::flush ()
+{
+	nano::lock_guard<std::mutex> lock (mutex);
+	generator.add (hashes);
 }
 
 nano::votes_cache::votes_cache (nano::wallets & wallets_a) :

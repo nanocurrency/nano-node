@@ -207,6 +207,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	nano::confirmation_solicitor solicitor (node.network, node.network_params.network);
 	solicitor.prepare (node.rep_crawler.principal_representatives (std::numeric_limits<size_t>::max ()));
 
+	nano::vote_generator_session generator_session (generator);
 	auto & sorted_roots_l (roots.get<tag_difficulty> ());
 	auto const election_ttl_cutoff_l (std::chrono::steady_clock::now () - election_time_to_live);
 	bool const check_all_elections_l (std::chrono::steady_clock::now () - last_check_all_elections > check_all_elections_period);
@@ -228,7 +229,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 
 		if (!election_l->prioritized () && unconfirmed_count_l < prioritized_cutoff)
 		{
-			election_l->prioritize_election ();
+			election_l->prioritize_election (generator_session);
 		}
 
 		unconfirmed_count_l += !confirmed_l;
@@ -245,6 +246,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	}
 	lock_a.unlock ();
 	solicitor.flush ();
+	generator_session.flush ();
 	lock_a.lock ();
 
 	// This is updated after the loop to ensure slow machines don't do the full check often
