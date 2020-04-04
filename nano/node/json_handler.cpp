@@ -2070,7 +2070,29 @@ void nano::json_handler::deterministic_key ()
 	response_errors ();
 }
 
-void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::private_key const & prv_a, nano::epoch epoch_a, uint64_t count_limit)
+void epoch_upgrader_process (std::shared_ptr<nano::node> node_a, std::atomic<uint64_t> & counter, std::atomic<bool> & to_next_account, std::shared_ptr<nano::block> epoch, uint64_t difficulty, nano::public_key const & signer_a, nano::root const & root_a, nano::account const & account_a)
+{
+	epoch->block_work_set (node_a->work_generate_blocking (nano::work_version::work_1, root_a, difficulty).value_or (0));
+	bool valid_signature (!nano::validate_message (signer_a, epoch->hash (), epoch->block_signature ()));
+	bool valid_work (epoch->difficulty () >= difficulty);
+	nano::process_result result (nano::process_result::old);
+	if (valid_signature && valid_work)
+	{
+		result = node_a->process_local (epoch).code;
+	}
+	if (result == nano::process_result::progress)
+	{
+		++counter;
+		to_next_account = true;
+	}
+	else
+	{
+		bool fork (result == nano::process_result::fork);
+		node_a->logger.always_log (boost::str (boost::format ("Failed to upgrade account %1%. Valid signature: %2%. Valid work: %3%. Block processor fork: %4%") % account_a.to_account () % valid_signature % valid_work % fork));
+	}
+}
+
+void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::private_key const & prv_a, nano::epoch epoch_a, uint64_t count_limit, uint64_t threads)
 {
 	uint64_t const upgrade_batch_size = 1000;
 	nano::block_builder builder;
@@ -2079,6 +2101,9 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::private_key const
 	raw_key.data = prv_a;
 	auto signer (nano::pub_key (prv_a));
 	debug_assert (signer == node_a->ledger.epoch_signer (link));
+
+	std::mutex mutex;
+	nano::condition_variable condition;
 
 	class account_upgrade_item final
 	{
@@ -2128,38 +2153,44 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::private_key const
 
 			/* Upgrade accounts
 			Repeat until accounts with previous epoch exist in latest table */
-			uint64_t upgraded_accounts (0);
+			std::atomic<uint64_t> upgraded_accounts (0);
+			std::atomic<uint64_t> workers (0);
 			for (auto i (accounts_list.get<modified_tag> ().begin ()), n (accounts_list.get<modified_tag> ().end ()); i != n && upgraded_accounts < upgrade_batch_size && upgraded_accounts < count_limit && !node_a->stopped; ++i)
 			{
+				std::atomic<bool> to_next_account (false);
 				auto transaction (node_a->store.tx_begin_read ());
 				nano::account_info info;
-				if (!node_a->store.account_get (transaction, i->account, info) && info.epoch () < epoch_a)
+				nano::account const & account (i->account);
+				if (!node_a->store.account_get (transaction, account, info) && info.epoch () < epoch_a)
 				{
 					auto difficulty (nano::work_threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true)));
-					auto epoch = builder.state ()
-					             .account (i->account)
+					nano::root const & root (info.head);
+					std::shared_ptr<nano::block> epoch = builder.state ()
+					             .account (account)
 					             .previous (info.head)
 					             .representative (info.representative)
 					             .balance (info.balance)
 					             .link (link)
 					             .sign (raw_key, signer)
-					             .work (node_a->work_generate_blocking (nano::work_version::work_1, info.head, difficulty).value_or (0))
+					             .work (0)
 					             .build ();
-					bool valid_signature (!nano::validate_message (signer, epoch->hash (), epoch->block_signature ()));
-					bool valid_work (epoch->difficulty () >= difficulty);
-					nano::process_result result (nano::process_result::old);
-					if (valid_signature && valid_work)
+					if (threads != 0)
 					{
-						result = node_a->process_local (std::move (epoch)).code;
-					}
-					if (result == nano::process_result::progress)
-					{
-						++upgraded_accounts;
+						++workers;
+						while (workers > threads)
+						{
+							nano::unique_lock<std::mutex> lock (mutex);
+							condition.wait (lock);
+						}
+						node_a->worker.push_task ([node_a, &condition, &upgraded_accounts, &workers, &to_next_account, epoch, difficulty, signer, root, account]() {
+							epoch_upgrader_process (node_a, upgraded_accounts, to_next_account, epoch, difficulty, signer, root, account);
+							--workers;
+							condition.notify_all ();
+						});
 					}
 					else
 					{
-						bool fork (result == nano::process_result::fork);
-						node_a->logger.always_log (boost::str (boost::format ("Failed to upgrade account %1%. Valid signature: %2%. Valid work: %3%. Block processor fork: %4%") % i->account.to_account () % valid_signature % valid_work % fork));
+						epoch_upgrader_process (node_a, upgraded_accounts, to_next_account, epoch, difficulty, signer, root, account);
 					}
 				}
 			}
@@ -2183,11 +2214,12 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::private_key const
 		uint64_t total_upgraded_pending (0);
 		while (!finished_pending && count_limit != 0 && !node_a->stopped)
 		{
-			uint64_t upgraded_pending (0);
+			std::atomic<uint64_t> upgraded_pending (0);
+			std::atomic<uint64_t> workers (0);
 			auto transaction (node_a->store.tx_begin_read ());
 			for (auto i (node_a->store.pending_begin (transaction, nano::pending_key (1, 0))), n (node_a->store.pending_end ()); i != n && upgraded_pending < upgrade_batch_size && upgraded_pending < count_limit && !node_a->stopped;)
 			{
-				bool to_next_account (false);
+				std::atomic<bool> to_next_account (false);
 				nano::pending_key const & key (i->first);
 				if (!node_a->store.account_exists (transaction, key.account))
 				{
@@ -2196,31 +2228,34 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::private_key const
 					{
 						release_assert (nano::epochs::is_sequential (info.epoch, epoch_a));
 						auto difficulty (nano::work_threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true)));
-						auto epoch = builder.state ()
+						nano::root const & root (key.account);
+						nano::account const & account (key.account);
+						std::shared_ptr<nano::block> epoch = builder.state ()
 						             .account (key.account)
 						             .previous (0)
 						             .representative (0)
 						             .balance (0)
 						             .link (link)
 						             .sign (raw_key, signer)
-						             .work (node_a->work_generate_blocking (nano::work_version::work_1, key.account, difficulty).value_or (0))
+						             .work (0)
 						             .build ();
-						bool valid_signature (!nano::validate_message (signer, epoch->hash (), epoch->block_signature ()));
-						bool valid_work (epoch->difficulty () >= difficulty);
-						nano::process_result result (nano::process_result::old);
-						if (valid_signature && valid_work)
+						if (threads != 0)
 						{
-							result = node_a->process_local (std::move (epoch)).code;
-						}
-						if (result == nano::process_result::progress)
-						{
-							++upgraded_pending;
-							to_next_account = true;
+							++workers;
+							while (workers > threads)
+							{
+								nano::unique_lock<std::mutex> lock (mutex);
+								condition.wait (lock);
+							}
+							node_a->worker.push_task ([node_a, &condition, &upgraded_pending, &workers, &to_next_account, epoch, difficulty, signer, root, account]() {
+								epoch_upgrader_process (node_a, upgraded_pending, to_next_account, epoch, difficulty, signer, root, account);
+								--workers;
+								condition.notify_all ();
+							});
 						}
 						else
 						{
-							bool fork (result == nano::process_result::fork);
-							node_a->logger.always_log (boost::str (boost::format ("Failed to upgrade account with pending blocks %1%. Valid signature: %2%. Valid work: %3%. Block processor fork: %4%") % key.account.to_account () % valid_signature % valid_work % fork));
+							epoch_upgrader_process (node_a, upgraded_pending, to_next_account, epoch, difficulty, signer, root, account);
 						}
 					}
 				}
@@ -2288,6 +2323,15 @@ void nano::json_handler::epoch_upgrade ()
 	if (epoch != nano::epoch::invalid)
 	{
 		uint64_t count_limit (count_optional_impl ());
+		uint64_t threads (0);
+		boost::optional<std::string> threads_text (request.get_optional<std::string> ("threads"));
+		if (!ec && threads_text.is_initialized ())
+		{
+			if (decode_unsigned (threads_text.get (), threads))
+			{
+				ec = nano::error_common::invalid_count;
+			}
+		}
 		std::string key_text (request.get<std::string> ("key"));
 		nano::private_key prv;
 		if (!prv.decode_hex (key_text))
@@ -2295,8 +2339,8 @@ void nano::json_handler::epoch_upgrade ()
 			if (nano::pub_key (prv) == node.ledger.epoch_signer (node.ledger.epoch_link (epoch)))
 			{
 				auto node_l (node.shared ());
-				node.worker.push_task ([node_l, prv, epoch, count_limit]() {
-					epoch_upgrader (node_l, prv, epoch, count_limit);
+				node.worker.push_task ([node_l, prv, epoch, count_limit, threads]() {
+					epoch_upgrader (node_l, prv, epoch, count_limit, threads);
 				});
 				response_l.put ("started", "1");
 			}
