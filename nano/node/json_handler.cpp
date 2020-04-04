@@ -2097,7 +2097,7 @@ void nano::json_handler::epoch_upgrade ()
 		{
 			if (decode_unsigned (threads_text.get (), threads))
 			{
-				ec = nano::error_common::invalid_count;
+				ec = nano::error_rpc::invalid_threads_count;
 			}
 		}
 		std::string key_text (request.get<std::string> ("key"));
