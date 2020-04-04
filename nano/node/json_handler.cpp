@@ -1574,6 +1574,41 @@ void nano::json_handler::block_create ()
 			{
 				if (work == 0)
 				{
+					// Difficulty calculation
+					if (!request.get_optional<std::string> ("difficulty").is_initialized ())
+					{
+						nano::block_details details (nano::epoch::epoch_0, false, false, false);
+						bool details_found (false);
+						auto transaction (node.store.tx_begin_read ());
+						// Previous block find
+						std::shared_ptr<nano::block> block_previous (nullptr);
+						if (!previous.is_zero ())
+						{
+							block_previous = node.store.block_get (transaction, previous);
+						}
+						// Send check
+						if (block_previous != nullptr)
+						{
+							details.is_send = node.store.block_balance (transaction, previous) > balance.number ();
+							details_found = true;
+						}
+						// Epoch check
+						if (block_previous != nullptr)
+						{
+							details.epoch = block_previous->sideband ().details.epoch;
+						}
+						if (!link.is_zero () && !details.is_send)
+						{
+							auto block_link (node.store.block_get (transaction, link));
+							if (block_link != nullptr && node.store.pending_exists (transaction, nano::pending_key (pub, link)))
+							{
+								details.epoch = std::max (details.epoch, block_link->sideband ().details.epoch);
+								details.is_receive = true;
+								details_found = true;
+							}
+						}
+						difficulty_l = details_found ? nano::work_threshold (work_version, details) : node.default_difficulty (work_version);
+					}
 					node.work_generate (work_version, root_l, difficulty_l, get_callback_l (block_l), nano::account (pub));
 				}
 				else
