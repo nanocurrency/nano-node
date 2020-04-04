@@ -144,6 +144,7 @@ public:
 	void ongoing_online_weight_calculation_queue ();
 	bool online () const;
 	bool init_error () const;
+	void epoch_upgrader (nano::private_key const &, nano::epoch, uint64_t, uint64_t);
 	nano::worker worker;
 	nano::write_database_queue write_database_queue;
 	boost::asio::io_context & io_ctx;
