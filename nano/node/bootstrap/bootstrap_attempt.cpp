@@ -70,7 +70,7 @@ bool nano::bootstrap_attempt::still_pulling ()
 	return running && still_pulling;
 }
 
-bool nano::bootstrap_attempt::pull_started ()
+void nano::bootstrap_attempt::pull_started ()
 {
 	{
 		nano::lock_guard<std::mutex> guard (mutex);
@@ -79,7 +79,7 @@ bool nano::bootstrap_attempt::pull_started ()
 	condition.notify_all ();
 }
 
-bool nano::bootstrap_attempt::pull_finished ()
+void nano::bootstrap_attempt::pull_finished ()
 {
 	{
 		nano::lock_guard<std::mutex> guard (mutex);
