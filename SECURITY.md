@@ -24,7 +24,7 @@ To report security issues in the Nano protocol, please send an email to security
 | [argakiig](https://github.com/argakiig) | russel { at } nano.org | [Link](https://github.com/nanocurrency/nano-node/blob/develop/etc/gpg/argakiig.asc) | 
 | [wezrule](https://github.com/wezrule) | wesley { at } nano.org | Link |
 | [sergiysw](https://github.com/sergiysw) | sergei { at } nano.org | Link |
-| [guilhermelawless](https://github.com/guilhermelawless) | guilherme { at } nano.org | Link |
+| [guilhermelawless](https://github.com/guilhermelawless) | guilherme { at } nano.org | [Link](https://github.com/nanocurrency/nano-node/blob/develop/etc/gpg/guilherme.asc) |
 
 For details on how to send a GPG encrypted email, see the tutorial here: https://www.linode.com/docs/security/encryption/gpg-keys-to-send-encrypted-messages/.
 
