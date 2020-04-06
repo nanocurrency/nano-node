@@ -1575,7 +1575,7 @@ void nano::json_handler::block_create ()
 				if (work == 0)
 				{
 					// Difficulty calculation
-					if (!request.get_optional<std::string> ("difficulty").is_initialized ())
+					if (request.count ("difficulty") == 0)
 					{
 						nano::block_details details (nano::epoch::epoch_0, false, false, false);
 						bool details_found (false);
