@@ -63,7 +63,6 @@ public:
 
 private:
 	nano::vote_generator & generator;
-	std::mutex mutex;
 	std::vector<nano::block_hash> hashes;
 };
 

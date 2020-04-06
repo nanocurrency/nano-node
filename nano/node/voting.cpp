@@ -120,13 +120,13 @@ generator (vote_generator_a)
 
 void nano::vote_generator_session::add (nano::block_hash const & hash_a)
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	debug_assert (nano::thread_role::get () == nano::thread_role::name::request_loop);
 	hashes.push_back (hash_a);
 }
 
 void nano::vote_generator_session::flush ()
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	debug_assert (nano::thread_role::get () == nano::thread_role::name::request_loop);
 	generator.add (hashes);
 }
 
