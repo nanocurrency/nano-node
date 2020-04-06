@@ -20,12 +20,12 @@ To report security issues in the Nano protocol, please send an email to security
 
 | GitHub Username | Email | GPG Pubkey |
 |-----------------------|--------|-----------------|
-| [clemahieu](https://github.com/clemahieu) | clemahieu { at } gmail.com | [Link](https://github.com/clemahieu.gpg) |
-| [argakiig](https://github.com/argakiig) | russel { at } nano.org | [Link](https://github.com/argakiig.gpg) | 
-| [wezrule](https://github.com/wezrule) | wezrule { at } hotmail.com | [Link](https://github.com/wezrule.gpg) |
-| [sergiysw](https://github.com/sergiysw) | sergiysw { at } gmail.com | [Link](https://github.com/sergiysw.gpg) |
-| [guilhermelawless](https://github.com/guilhermelawless) | guilherme { at } nano.org | [Link](https://github.com/guilhermelawless.gpg) |
-| [zhyatt](https://github.com/zhyatt) | zach { at } nano.org | [Link](https://github.com/zhyatt.gpg) |
+| [clemahieu](https://github.com/clemahieu) | clemahieu { at } gmail.com | [clemahieu.asc](https://github.com/nanocurrency/nano-node/blob/develop/etc/gpg/clemahieu.asc) |
+| [argakiig](https://github.com/argakiig) | russel { at } nano.org | [argakiig.asc](https://github.com/nanocurrency/nano-node/blob/develop/etc/gpg/argakiig.asc) |
+| [wezrule](https://github.com/wezrule) | wezrule { at } hotmail.com | [wezrule.asc](https://github.com/nanocurrency/nano-node/blob/develop/etc/gpg/wezrule.asc) |
+| [sergiysw](https://github.com/sergiysw) | sergiysw { at } gmail.com | [sergiysw.asc](https://github.com/nanocurrency/nano-node/blob/develop/etc/gpg/sergiysw.asc) |
+| [guilhermelawless](https://github.com/guilhermelawless) | guilherme { at } nano.org | [guilhermelawless.asc](https://github.com/nanocurrency/nano-node/blob/develop/etc/gpg/guilhermelawless.asc) |
+| [zhyatt](https://github.com/zhyatt) | zach { at } nano.org | [zhyatt.asc](https://github.com/nanocurrency/nano-node/blob/develop/etc/gpg/zhyatt.asc) |
 
 For details on how to send a GPG encrypted email, see the tutorial here: https://www.linode.com/docs/security/encryption/gpg-keys-to-send-encrypted-messages/.
 
