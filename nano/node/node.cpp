@@ -1018,6 +1018,11 @@ uint64_t nano::node::default_difficulty (nano::work_version const version_a) con
 	return result;
 }
 
+uint64_t nano::node::max_work_generate_difficulty (nano::work_version const version_a) const
+{
+	return nano::difficulty::from_multiplier (config.max_work_generate_multiplier, default_difficulty (version_a));
+}
+
 bool nano::node::local_work_generation_enabled () const
 {
 	return config.work_threads > 0 || work.opencl;

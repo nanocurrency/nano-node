@@ -2953,9 +2953,7 @@ TEST (rpc, work_generate)
 TEST (rpc, work_generate_difficulty)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
-	node_config.max_work_generate_difficulty = 0xffff000000000000;
-	auto node = add_ipc_enabled_node (system, node_config);
+	auto node = add_ipc_enabled_node (system);
 	scoped_io_thread_name_change scoped_thread_name_io;
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
@@ -3008,7 +3006,7 @@ TEST (rpc, work_generate_difficulty)
 		ASSERT_GE (result_difficulty, difficulty);
 	}
 	{
-		uint64_t difficulty (node->config.max_work_generate_difficulty + 1);
+		uint64_t difficulty (node->max_work_generate_difficulty (nano::work_version::work_1) + 1);
 		request.put ("difficulty", nano::to_string_hex (difficulty));
 		test_response response (request, rpc.config.port, system.io_ctx);
 		system.deadline_set (5s);
@@ -3026,7 +3024,6 @@ TEST (rpc, work_generate_multiplier)
 {
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
-	node_config.max_work_generate_difficulty = 0xfffff00000000000;
 	auto node = add_ipc_enabled_node (system, node_config);
 	scoped_io_thread_name_change scoped_thread_name_io;
 	nano::node_rpc_config node_rpc_config;
@@ -3082,7 +3079,7 @@ TEST (rpc, work_generate_multiplier)
 		ASSERT_EQ (response.json.get<std::string> ("error"), ec.message ());
 	}
 	{
-		double max_multiplier (nano::difficulty::to_multiplier (node->config.max_work_generate_difficulty, node->default_difficulty (nano::work_version::work_1)));
+		double max_multiplier (nano::difficulty::to_multiplier (node->max_work_generate_difficulty (nano::work_version::work_1), node->default_difficulty (nano::work_version::work_1)));
 		request.put ("multiplier", max_multiplier + 1);
 		test_response response (request, rpc.config.port, system.io_ctx);
 		system.deadline_set (5s);

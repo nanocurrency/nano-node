@@ -35,7 +35,6 @@ external_address (boost::asio::ip::address_v6{}.to_string ())
 	{
 		peering_port = network_params.network.default_node_port;
 	}
-	max_work_generate_difficulty = nano::difficulty::from_multiplier (max_work_generate_multiplier, network_params.network.publish_thresholds.base);
 	switch (network_params.network.network ())
 	{
 		case nano::nano_networks::nano_test_network:
@@ -361,7 +360,6 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 
 		nano::network_constants network;
 		toml.get<double> ("max_work_generate_multiplier", max_work_generate_multiplier);
-		max_work_generate_difficulty = nano::difficulty::from_multiplier (max_work_generate_multiplier, network.publish_thresholds.base);
 
 		toml.get<uint32_t> ("max_queued_requests", max_queued_requests);
 

@@ -795,7 +795,7 @@ uint64_t nano::active_transactions::active_difficulty ()
 
 uint64_t nano::active_transactions::limited_active_difficulty ()
 {
-	return std::min (active_difficulty (), node.config.max_work_generate_difficulty);
+	return std::min (active_difficulty (), node.max_work_generate_difficulty (nano::work_version::work_1));
 }
 
 // List of active blocks in elections
