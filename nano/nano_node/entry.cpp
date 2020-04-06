@@ -100,6 +100,7 @@ int main (int argc, char * const * argv)
 		("device", boost::program_options::value<std::string> (), "Defines <device> for OpenCL command")
 		("threads", boost::program_options::value<std::string> (), "Defines <threads> count for OpenCL command")
 		("difficulty", boost::program_options::value<std::string> (), "Defines <difficulty> for OpenCL command, HEX")
+		("multiplier", boost::program_options::value<std::string> (), "Defines <multiplier> for work generation. Overrides <difficulty>")
 		("pow_sleep_interval", boost::program_options::value<std::string> (), "Defines the amount to sleep inbetween each pow calculation attempt")
 		("address_column", boost::program_options::value<std::string> (), "Defines which column the addresses are located, 0 indexed (check --debug_output_last_backtrace_dump output)");
 	// clang-format on
@@ -309,6 +310,33 @@ int main (int argc, char * const * argv)
 		{
 			nano::network_constants network_constants;
 			uint64_t difficulty{ network_constants.publish_full.base };
+			auto multiplier_it = vm.find ("multiplier");
+			if (multiplier_it != vm.end ())
+			{
+				try
+				{
+					auto multiplier (boost::lexical_cast<double> (multiplier_it->second.as<std::string> ()));
+					difficulty = nano::difficulty::from_multiplier (multiplier, difficulty);
+				}
+				catch (boost::bad_lexical_cast &)
+				{
+					std::cerr << "Invalid multiplier\n";
+					result = -1;
+				}
+			}
+			else
+			{
+				auto difficulty_it = vm.find ("difficulty");
+				if (difficulty_it != vm.end ())
+				{
+					if (nano::from_string_hex (difficulty_it->second.as<std::string> (), difficulty))
+					{
+						std::cerr << "Invalid difficulty\n";
+						result = -1;
+					}
+				}
+			}
+
 			auto pow_rate_limiter = std::chrono::nanoseconds (0);
 			auto pow_sleep_interval_it = vm.find ("pow_sleep_interval");
 			if (pow_sleep_interval_it != vm.cend ())
@@ -318,14 +346,17 @@ int main (int argc, char * const * argv)
 
 			nano::work_pool work (std::numeric_limits<unsigned>::max (), pow_rate_limiter);
 			nano::change_block block (0, 0, nano::keypair ().prv, 0, 0);
-			std::cerr << "Starting generation profiling\n";
-			while (true)
+			if (!result)
 			{
-				block.hashables.previous.qwords[0] += 1;
-				auto begin1 (std::chrono::high_resolution_clock::now ());
-				block.block_work_set (*work.generate (nano::work_version::work_1, block.root (), difficulty));
-				auto end1 (std::chrono::high_resolution_clock::now ());
-				std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());
+				std::cerr << boost::str (boost::format ("Starting generation profiling. Difficulty: %1$#x (%2%x from base difficulty %3$#x)\n") % difficulty % nano::to_string (nano::difficulty::to_multiplier (difficulty, network_constants.publish_full.base), 4) % network_constants.publish_full.base);
+				while (!result)
+				{
+					block.hashables.previous.qwords[0] += 1;
+					auto begin1 (std::chrono::high_resolution_clock::now ());
+					block.block_work_set (*work.generate (nano::work_version::work_1, block.root (), difficulty));
+					auto end1 (std::chrono::high_resolution_clock::now ());
+					std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());
+				}
 			}
 		}
 		else if (vm.count ("debug_profile_validate"))
@@ -395,19 +426,31 @@ int main (int argc, char * const * argv)
 						result = -1;
 					}
 				}
-				uint64_t difficulty (network_constants.publish_thresholds.base);
-				auto difficulty_it = vm.find ("difficulty");
-				if (difficulty_it != vm.end ())
+				uint64_t difficulty (network_constants.publish_full.base);
+				auto multiplier_it = vm.find ("multiplier");
+				if (multiplier_it != vm.end ())
 				{
-					if (nano::from_string_hex (difficulty_it->second.as<std::string> (), difficulty))
+					try
 					{
-						std::cerr << "Invalid difficulty\n";
+						auto multiplier (boost::lexical_cast<double> (multiplier_it->second.as<std::string> ()));
+						difficulty = nano::difficulty::from_multiplier (multiplier, difficulty);
+					}
+					catch (boost::bad_lexical_cast &)
+					{
+						std::cerr << "Invalid multiplier\n";
 						result = -1;
 					}
-					else if (difficulty < network_constants.publish_thresholds.base)
+				}
+				else
+				{
+					auto difficulty_it = vm.find ("difficulty");
+					if (difficulty_it != vm.end ())
 					{
-						std::cerr << "Difficulty below publish threshold\n";
-						result = -1;
+						if (nano::from_string_hex (difficulty_it->second.as<std::string> (), difficulty))
+						{
+							std::cerr << "Invalid difficulty\n";
+							result = -1;
+						}
 					}
 				}
 				if (!result)
@@ -426,7 +469,7 @@ int main (int argc, char * const * argv)
 							}
 							                                                                                                       : std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> (nullptr));
 							nano::change_block block (0, 0, nano::keypair ().prv, 0, 0);
-							std::cerr << boost::str (boost::format ("Starting OpenCL generation profiling. Platform: %1%. Device: %2%. Threads: %3%. Difficulty: %4$#x\n") % platform % device % threads % difficulty);
+							std::cerr << boost::str (boost::format ("Starting OpenCL generation profiling. Platform: %1%. Device: %2%. Threads: %3%. Difficulty: %4$#x (%5%x from base difficulty %6$#x)\n") % platform % device % threads % difficulty % nano::to_string (nano::difficulty::to_multiplier (difficulty, network_constants.publish_full.base), 4) % network_constants.publish_full.base);
 							for (uint64_t i (0); true; ++i)
 							{
 								block.hashables.previous.qwords[0] += 1;
