@@ -352,7 +352,7 @@ startup_time (std::chrono::steady_clock::now ())
 			logger.always_log ("Constructing node");
 		}
 
-		logger.always_log (boost::str (boost::format ("Outbound Voting Bandwidth limited to %1% bytes per second") % config.bandwidth_limit));
+		logger.always_log (boost::str (boost::format ("Outbound Voting Bandwidth limited to %1% bytes per second, burst ratio %2%") % config.bandwidth_limit % config.bandwidth_limit_burst_ratio));
 
 		// First do a pass with a read to see if any writing needs doing, this saves needing to open a write lock (and potentially blocking)
 		auto is_initialized (false);
@@ -1004,9 +1004,18 @@ int nano::node::price (nano::uint128_t const & balance_a, int amount_a)
 	return static_cast<int> (result * 100.0);
 }
 
-uint64_t nano::node::default_difficulty () const
+uint64_t nano::node::default_difficulty (nano::work_version const version_a) const
 {
-	return ledger.cache.epoch_2_started ? network_params.network.publish_thresholds.base : network_params.network.publish_thresholds.epoch_1;
+	uint64_t result{ std::numeric_limits<uint64_t>::max () };
+	switch (version_a)
+	{
+		case nano::work_version::work_1:
+			result = ledger.cache.epoch_2_started ? nano::work_threshold_base (version_a) : network_params.network.publish_thresholds.epoch_1;
+			break;
+		default:
+			debug_assert (false && "Invalid version specified to default_difficulty");
+	}
+	return result;
 }
 
 bool nano::node::local_work_generation_enabled () const
@@ -1058,13 +1067,13 @@ boost::optional<uint64_t> nano::node::work_generate_blocking (nano::work_version
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a)
 {
 	debug_assert (network_params.network.is_test_network ());
-	return work_generate_blocking (block_a, default_difficulty ());
+	return work_generate_blocking (block_a, default_difficulty (nano::work_version::work_1));
 }
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a)
 {
 	debug_assert (network_params.network.is_test_network ());
-	return work_generate_blocking (root_a, default_difficulty ());
+	return work_generate_blocking (root_a, default_difficulty (nano::work_version::work_1));
 }
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a, uint64_t difficulty_a)
@@ -1102,11 +1111,6 @@ void nano::node::block_confirm (std::shared_ptr<nano::block> block_a)
 	if (election.inserted)
 	{
 		election.election->transition_active ();
-	}
-	// Calculate votes for local representatives
-	if (election.prioritized && config.enable_voting && wallets.rep_counts ().voting > 0 && active.active (*block_a))
-	{
-		block_processor.generator.add (block_a->hash ());
 	}
 }
 

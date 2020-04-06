@@ -46,6 +46,8 @@ add_library (nano_lib
 	numbers.hpp
 	numbers.cpp
 	optional_ptr.hpp
+	rate_limiting.hpp
+	rate_limiting.cpp
 	rep_weights.hpp
 	rep_weights.cpp
 	rocksdbconfig.hpp

@@ -154,6 +154,29 @@ public:
 };
 }
 
+TEST (rpc, wrapped_task)
+{
+	nano::system system;
+	auto & node = *add_ipc_enabled_node (system);
+	nano::node_rpc_config node_rpc_config;
+	std::atomic<bool> response (false);
+	auto response_handler_l ([&response](std::string const & response_a) {
+		std::stringstream istream (response_a);
+		boost::property_tree::ptree json_l;
+		ASSERT_NO_THROW (boost::property_tree::read_json (istream, json_l));
+		ASSERT_EQ (1, json_l.count ("error"));
+		ASSERT_EQ ("Unable to parse JSON", json_l.get<std::string> ("error"));
+		response = true;
+	});
+	auto handler_l (std::make_shared<nano::json_handler> (node, node_rpc_config, "", response_handler_l));
+	auto task (handler_l->create_worker_task ([](std::shared_ptr<nano::json_handler>) {
+		// Exception should get caught
+		throw std::runtime_error ("");
+	}));
+	system.nodes[0]->worker.push_task (task);
+	ASSERT_TIMELY (5s, response == true);
+}
+
 TEST (rpc, account_balance)
 {
 	nano::system system;
@@ -2310,7 +2333,7 @@ TEST (rpc, payment_begin_end)
 		ASSERT_LT (work, 50);
 	}
 	system.deadline_set (10s);
-	while (nano::work_difficulty (nano::work_version::work_1, root1, work) < node1->default_difficulty ())
+	while (nano::work_difficulty (nano::work_version::work_1, root1, work) < node1->default_difficulty (nano::work_version::work_1))
 	{
 		auto ec = system.poll ();
 		auto transaction (wallet->wallets.tx_begin_read ());
@@ -2920,7 +2943,7 @@ TEST (rpc, work_generate)
 		ASSERT_FALSE (nano::from_string_hex (response_difficulty_text, response_difficulty));
 		ASSERT_EQ (result_difficulty, response_difficulty);
 		auto multiplier = response.json.get<double> ("multiplier");
-		ASSERT_NEAR (nano::difficulty::to_multiplier (result_difficulty, node->network_params.network.publish_thresholds.base), multiplier, 1e-6);
+		ASSERT_NEAR (nano::difficulty::to_multiplier (result_difficulty, node->default_difficulty (nano::work_version::work_1)), multiplier, 1e-6);
 	};
 	verify_response (request, hash);
 	request.put ("use_peers", "true");
@@ -2965,7 +2988,7 @@ TEST (rpc, work_generate_difficulty)
 		ASSERT_EQ (result_difficulty, response_difficulty);
 		auto multiplier = response.json.get<double> ("multiplier");
 		// Expected multiplier from base threshold, not from the given difficulty
-		ASSERT_NEAR (nano::difficulty::to_multiplier (result_difficulty, node->network_params.network.publish_thresholds.base), multiplier, 1e-10);
+		ASSERT_NEAR (nano::difficulty::to_multiplier (result_difficulty, node->default_difficulty (nano::work_version::work_1)), multiplier, 1e-10);
 		ASSERT_GE (result_difficulty, difficulty);
 	}
 	{
@@ -3059,7 +3082,7 @@ TEST (rpc, work_generate_multiplier)
 		ASSERT_EQ (response.json.get<std::string> ("error"), ec.message ());
 	}
 	{
-		double max_multiplier (nano::difficulty::to_multiplier (node->config.max_work_generate_difficulty, node->network_params.network.publish_thresholds.base));
+		double max_multiplier (nano::difficulty::to_multiplier (node->config.max_work_generate_difficulty, node->default_difficulty (nano::work_version::work_1)));
 		request.put ("multiplier", max_multiplier + 1);
 		test_response response (request, rpc.config.port, system.io_ctx);
 		system.deadline_set (5s);
@@ -4011,9 +4034,9 @@ TEST (rpc, work_validate)
 		std::string difficulty_text (response.json.get<std::string> ("difficulty"));
 		uint64_t difficulty;
 		ASSERT_FALSE (nano::from_string_hex (difficulty_text, difficulty));
-		ASSERT_GE (difficulty, node1.default_difficulty ());
+		ASSERT_GE (difficulty, node1.default_difficulty (nano::work_version::work_1));
 		double multiplier (response.json.get<double> ("multiplier"));
-		ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (difficulty, node1.default_difficulty ()), 1e-6);
+		ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (difficulty, node1.default_difficulty (nano::work_version::work_1)), 1e-6);
 	}
 	uint64_t work2 (0);
 	request.put ("work", nano::to_string_hex (work2));
@@ -4026,17 +4049,17 @@ TEST (rpc, work_validate)
 		}
 		ASSERT_EQ (200, response.status);
 		ASSERT_EQ (0, response.json.count ("valid"));
-		ASSERT_TRUE (response.json.get<bool> ("valid_all"));
-		ASSERT_TRUE (response.json.get<bool> ("valid_receive"));
+		ASSERT_FALSE (response.json.get<bool> ("valid_all"));
+		ASSERT_FALSE (response.json.get<bool> ("valid_receive"));
 		std::string difficulty_text (response.json.get<std::string> ("difficulty"));
 		uint64_t difficulty;
 		ASSERT_FALSE (nano::from_string_hex (difficulty_text, difficulty));
-		ASSERT_GE (node1.default_difficulty (), difficulty);
+		ASSERT_GE (node1.default_difficulty (nano::work_version::work_1), difficulty);
 		double multiplier (response.json.get<double> ("multiplier"));
-		ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (difficulty, node1.default_difficulty ()), 1e-6);
+		ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (difficulty, node1.default_difficulty (nano::work_version::work_1)), 1e-6);
 	}
 	auto result_difficulty (nano::work_difficulty (nano::work_version::work_1, hash, work1));
-	ASSERT_GE (result_difficulty, node1.default_difficulty ());
+	ASSERT_GE (result_difficulty, node1.default_difficulty (nano::work_version::work_1));
 	request.put ("work", nano::to_string_hex (work1));
 	request.put ("difficulty", nano::to_string_hex (result_difficulty));
 	{
@@ -4063,7 +4086,7 @@ TEST (rpc, work_validate)
 		}
 		ASSERT_EQ (200, response.status);
 		ASSERT_EQ (result_difficulty >= difficulty4, response.json.get<bool> ("valid"));
-		ASSERT_EQ (result_difficulty >= node1.default_difficulty (), response.json.get<bool> ("valid_all"));
+		ASSERT_EQ (result_difficulty >= node1.default_difficulty (nano::work_version::work_1), response.json.get<bool> ("valid_all"));
 		ASSERT_EQ (result_difficulty >= node1.network_params.network.publish_thresholds.epoch_2_receive, response.json.get<bool> ("valid_all"));
 	}
 	uint64_t work3 (*node1.work_generate_blocking (hash, difficulty4));
@@ -4138,7 +4161,7 @@ TEST (rpc, work_validate_epoch_2)
 		uint64_t difficulty{ 0 };
 		ASSERT_FALSE (nano::from_string_hex (difficulty_text, difficulty));
 		double multiplier (response.json.get<double> ("multiplier"));
-		ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (difficulty, node->network_params.network.publish_thresholds.base), 1e-6);
+		ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (difficulty, node->default_difficulty (nano::work_version::work_1)), 1e-6);
 	};
 }
 
@@ -6036,7 +6059,7 @@ TEST (rpc, block_create_state_request_work)
 		boost::property_tree::read_json (block_stream, block_l);
 		auto block (nano::deserialize_block_json (block_l));
 		ASSERT_NE (nullptr, block);
-		ASSERT_GE (block->difficulty (), node->default_difficulty ());
+		ASSERT_GE (block->difficulty (), node->default_difficulty (nano::work_version::work_1));
 	}
 }
 

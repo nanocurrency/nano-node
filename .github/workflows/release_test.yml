@@ -24,6 +24,7 @@ jobs:
 
   gcc_test:
     runs-on: ubuntu-18.04
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@722adc6
       - name: Checkout Submodules
@@ -35,6 +36,7 @@ jobs:
   
   clang_test:
     runs-on: ubuntu-18.04
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@722adc6
       - name: Checkout Submodules
@@ -46,6 +48,7 @@ jobs:
 
   windows_test:
     runs-on: windows-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@722adc6
       - name: Checkout Submodules
