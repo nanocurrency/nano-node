@@ -805,7 +805,7 @@ TEST (confirmation_height, dynamic_algorithm_no_transition_while_pending)
 			node->confirmation_height_processor.pause ();
 
 			timer.restart ();
-			while (timer.since_start () < 2s) // TODO: Change to node->confirmation_height_processor.unbounded_processor.pending_writes_size == 0
+			while (node->confirmation_height_processor.confirmation_height_unbounded_processor.pending_writes_size == 0)
 			{
 				ASSERT_NO_ERROR (system.poll ());
 			}
