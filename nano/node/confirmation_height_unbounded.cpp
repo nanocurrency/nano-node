@@ -23,6 +23,7 @@ void nano::confirmation_height_unbounded::process ()
 	std::shared_ptr<conf_height_details> receive_details;
 	auto current = original_hash;
 	orig_block_callback_data.clear ();
+	orig_block_callback_data_size = 0;
 
 	std::vector<receive_source_pair> receive_source_pairs;
 	release_assert (receive_source_pairs.empty ());
@@ -122,6 +123,7 @@ void nano::confirmation_height_unbounded::process ()
 			else
 			{
 				confirmed_iterated_pairs.emplace (std::piecewise_construct, std::forward_as_tuple (account), std::forward_as_tuple (confirmation_height, block_height));
+				++confirmed_iterated_pairs_size;
 			}
 		}
 
@@ -191,6 +193,7 @@ void nano::confirmation_height_unbounded::collect_unconfirmed_receive_and_source
 			else if (is_original_block)
 			{
 				orig_block_callback_data.push_back (hash);
+				++orig_block_callback_data_size;
 			}
 			else
 			{
@@ -207,6 +210,7 @@ void nano::confirmation_height_unbounded::collect_unconfirmed_receive_and_source
 					last_receive_details->block_callback_data.push_back (hash);
 
 					implicit_receive_cemented_mapping[hash] = std::weak_ptr<conf_height_details> (last_receive_details);
+					implicit_receive_cemented_mapping_size = implicit_receive_cemented_mapping.size ();
 				}
 			}
 
@@ -235,6 +239,7 @@ void nano::confirmation_height_unbounded::prepare_iterated_blocks_for_cementing 
 		else
 		{
 			confirmed_iterated_pairs.emplace (std::piecewise_construct, std::forward_as_tuple (preparation_data_a.account), std::forward_as_tuple (block_height, block_height));
+			++confirmed_iterated_pairs_size;
 		}
 
 		auto num_blocks_confirmed = block_height - preparation_data_a.confirmation_height;
@@ -275,6 +280,7 @@ void nano::confirmation_height_unbounded::prepare_iterated_blocks_for_cementing 
 		}
 
 		pending_writes.emplace_back (preparation_data_a.account, preparation_data_a.current, block_height, num_blocks_confirmed, block_callback_data);
+		++pending_writes_size;
 	}
 
 	if (receive_details)
@@ -298,9 +304,11 @@ void nano::confirmation_height_unbounded::prepare_iterated_blocks_for_cementing 
 		else
 		{
 			confirmed_iterated_pairs.emplace (std::piecewise_construct, std::forward_as_tuple (receive_account), std::forward_as_tuple (receive_details->height, receive_details->height));
+			++confirmed_iterated_pairs_size;
 		}
 
 		pending_writes.push_back (*receive_details);
+		++pending_writes_size;
 	}
 }
 
@@ -335,6 +343,7 @@ bool nano::confirmation_height_unbounded::cement_blocks ()
 				logger.always_log ("Failed to write confirmation height for: ", pending.hash.to_string ());
 				ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block);
 				pending_writes.clear ();
+				pending_writes_size = 0;
 				return true;
 			}
 #endif
@@ -361,6 +370,7 @@ bool nano::confirmation_height_unbounded::cement_blocks ()
 		}
 		total_pending_write_block_count -= pending.num_blocks_confirmed;
 		pending_writes.erase (pending_writes.begin ());
+		--pending_writes_size;
 	}
 	debug_assert (total_pending_write_block_count == 0);
 	debug_assert (pending_writes.empty ());
