@@ -1,3 +1,4 @@
+#define IGNORE_GTEST_INCL
 #include <nano/core_test/testutil.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/node/common.hpp>
@@ -159,6 +160,38 @@ nano::account nano::system::account (nano::transaction const & transaction_a, si
 	auto result (keys->first);
 	debug_assert (++keys == wallet_l->store.end ());
 	return nano::account (result);
+}
+
+uint64_t nano::system::work_generate_limited (nano::block_hash const & root_a, uint64_t min_a, uint64_t max_a)
+{
+	uint64_t result = 0;
+	do
+	{
+		result = *work.generate (root_a, min_a);
+	} while (nano::work_difficulty (nano::work_version::work_1, root_a, result) >= max_a);
+	return result;
+}
+
+std::unique_ptr<nano::state_block> nano::system::upgrade_genesis_epoch (nano::node & node_a, nano::epoch const epoch_a)
+{
+	bool error{ true };
+	nano::state_block_builder builder;
+	std::error_code ec;
+	auto latest (node_a.latest (nano::test_genesis_key.pub));
+	auto epoch = builder
+	             .account (nano::test_genesis_key.pub)
+	             .previous (latest)
+	             .balance (node_a.balance (nano::test_genesis_key.pub))
+	             .link (node_a.ledger.epoch_link (epoch_a))
+	             .representative (nano::test_genesis_key.pub)
+	             .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	             .work (*work.generate (latest, nano::work_threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true))))
+	             .build (ec);
+	if (!ec && epoch)
+	{
+		error = node_a.process (*epoch).code != nano::process_result::progress;
+	}
+	return !error ? std::move (epoch) : nullptr;
 }
 
 void nano::system::deadline_set (std::chrono::duration<double, std::nano> const & delta_a)

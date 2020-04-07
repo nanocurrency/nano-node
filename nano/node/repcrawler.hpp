@@ -87,7 +87,7 @@ public:
 	void query (std::vector<std::shared_ptr<nano::transport::channel>> const & channels_a);
 
 	/** Attempt to determine if the peer manages one or more representative accounts */
-	void query (std::shared_ptr<nano::transport::channel> & channel_a);
+	void query (std::shared_ptr<nano::transport::channel> const & channel_a);
 
 	/** Query if a peer manages a principle representative */
 	bool is_pr (nano::transport::channel const &) const;
@@ -95,9 +95,9 @@ public:
 	/**
 	 * Called when a non-replay vote on a block previously sent by query() is received. This indiciates
 	 * with high probability that the endpoint is a representative node.
-	 * @return True if the rep entry was updated with new information due to increase in weight.
+	 * @return false if the vote corresponded to any active hash.
 	 */
-	void response (std::shared_ptr<nano::transport::channel> &, std::shared_ptr<nano::vote> &);
+	bool response (std::shared_ptr<nano::transport::channel> &, std::shared_ptr<nano::vote> &);
 
 	/** Get total available weight from representatives */
 	nano::uint128_t total_weight () const;

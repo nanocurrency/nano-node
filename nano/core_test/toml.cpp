@@ -148,6 +148,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.allow_local_peers, defaults.node.allow_local_peers);
 	ASSERT_EQ (conf.node.backup_before_upgrade, defaults.node.backup_before_upgrade);
 	ASSERT_EQ (conf.node.bandwidth_limit, defaults.node.bandwidth_limit);
+	ASSERT_EQ (conf.node.bandwidth_limit_burst_ratio, defaults.node.bandwidth_limit_burst_ratio);
 	ASSERT_EQ (conf.node.block_processor_batch_max_time, defaults.node.block_processor_batch_max_time);
 	ASSERT_EQ (conf.node.bootstrap_connections, defaults.node.bootstrap_connections);
 	ASSERT_EQ (conf.node.bootstrap_connections_max, defaults.node.bootstrap_connections_max);
@@ -391,6 +392,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	allow_local_peers = false
 	backup_before_upgrade = true
 	bandwidth_limit = 999
+	bandwidth_limit_burst_ratio = 999.9
 	block_processor_batch_max_time = 999
 	bootstrap_connections = 999
 	bootstrap_connections_max = 999
@@ -556,6 +558,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.allow_local_peers, defaults.node.allow_local_peers);
 	ASSERT_NE (conf.node.backup_before_upgrade, defaults.node.backup_before_upgrade);
 	ASSERT_NE (conf.node.bandwidth_limit, defaults.node.bandwidth_limit);
+	ASSERT_NE (conf.node.bandwidth_limit_burst_ratio, defaults.node.bandwidth_limit_burst_ratio);
 	ASSERT_NE (conf.node.block_processor_batch_max_time, defaults.node.block_processor_batch_max_time);
 	ASSERT_NE (conf.node.bootstrap_connections, defaults.node.bootstrap_connections);
 	ASSERT_NE (conf.node.bootstrap_connections_max, defaults.node.bootstrap_connections_max);
