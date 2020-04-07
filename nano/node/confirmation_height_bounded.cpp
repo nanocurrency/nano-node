@@ -292,7 +292,7 @@ void nano::confirmation_height_bounded::prepare_iterated_blocks_for_cementing (p
 			else
 			{
 				accounts_confirmed_info.emplace (preparation_data_a.account, confirmed_info_l);
-				accounts_confirmed_info_size = accounts_confirmed_info.size ();
+				++accounts_confirmed_info_size;
 			}
 
 			preparation_data_a.checkpoints.erase (std::remove (preparation_data_a.checkpoints.begin (), preparation_data_a.checkpoints.end (), preparation_data_a.top_most_non_receive_block_hash), preparation_data_a.checkpoints.end ());
@@ -315,7 +315,7 @@ void nano::confirmation_height_bounded::prepare_iterated_blocks_for_cementing (p
 		else
 		{
 			accounts_confirmed_info.emplace (std::piecewise_construct, std::forward_as_tuple (receive_details->account), std::forward_as_tuple (receive_details->height, receive_details->hash));
-			accounts_confirmed_info_size = accounts_confirmed_info.size ();
+			++accounts_confirmed_info_size;
 		}
 
 		if (receive_details->next.is_initialized ())
@@ -443,7 +443,7 @@ bool nano::confirmation_height_bounded::cement_blocks ()
 			if (it != accounts_confirmed_info.cend () && it->second.confirmed_height == pending.top_height)
 			{
 				accounts_confirmed_info.erase (pending.account);
-				accounts_confirmed_info_size = accounts_confirmed_info.size ();
+				--accounts_confirmed_info_size;
 			}
 			pending_writes.pop_front ();
 			--pending_writes_size;
