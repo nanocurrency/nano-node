@@ -14,7 +14,7 @@ nano::network::network (nano::node & node_a, uint16_t port_a) :
 syn_cookies (node_a.network_params.node.max_peers_per_ip),
 buffer_container (node_a.stats, nano::network::buffer_size, 4096), // 2Mb receive buffer
 resolver (node_a.io_ctx),
-limiter (node_a.config.bandwidth_limit),
+limiter (node_a.config.bandwidth_limit_burst_ratio, node_a.config.bandwidth_limit),
 node (node_a),
 publish_filter (256 * 1024),
 udp_channels (node_a, port_a),
