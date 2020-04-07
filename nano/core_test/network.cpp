@@ -1014,7 +1014,7 @@ TEST (network, bandwidth_limiter)
 	nano::system system;
 	nano::genesis genesis;
 	nano::publish message (genesis.open);
-	auto message_size = message.to_bytes ()->size ();
+	auto message_size = message.to_bytes (false)->size ();
 	auto message_limit = 4; // must be multiple of the number of channels
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.bandwidth_limit = message_limit * message_size;
