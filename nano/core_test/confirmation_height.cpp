@@ -1000,7 +1000,7 @@ TEST (confirmation_height, prioritize_frontiers)
 		transaction.refresh ();
 		node->active.prioritize_frontiers_for_confirmation (transaction, std::chrono::seconds (1), std::chrono::seconds (1));
 		ASSERT_TRUE (priority_orders_match (node->active.priority_wallet_cementable_frontiers, std::array<nano::account, num_accounts>{ key3.pub, nano::genesis_account, key4.pub, key1.pub, key2.pub }));
-		node->active.search_frontiers (transaction);
+		node->active.confirm_prioritized_frontiers (transaction);
 
 		// Check that the active transactions roots contains the frontiers
 		system.deadline_set (std::chrono::seconds (10));
@@ -1012,6 +1012,7 @@ TEST (confirmation_height, prioritize_frontiers)
 		std::array<nano::qualified_root, num_accounts> frontiers{ send17.qualified_root (), send6.qualified_root (), send7.qualified_root (), open2.qualified_root (), send11.qualified_root () };
 		for (auto & frontier : frontiers)
 		{
+			nano::lock_guard<std::mutex> guard (node->active.mutex);
 			ASSERT_NE (node->active.roots.find (frontier), node->active.roots.end ());
 		}
 	};
@@ -1122,7 +1123,7 @@ TEST (confirmation_height, callback_confirmed_history)
 				ASSERT_NO_ERROR (system.poll ());
 			}
 
-			ASSERT_EQ (0, node->active.list_confirmed ().size ());
+			ASSERT_EQ (0, node->active.list_recently_cemented ().size ());
 			{
 				nano::lock_guard<std::mutex> guard (node->active.mutex);
 				ASSERT_EQ (0, node->active.blocks.size ());
@@ -1162,7 +1163,7 @@ TEST (confirmation_height, callback_confirmed_history)
 			ASSERT_NO_ERROR (system.poll ());
 		}
 
-		ASSERT_EQ (1, node->active.list_confirmed ().size ());
+		ASSERT_EQ (1, node->active.list_recently_cemented ().size ());
 		ASSERT_EQ (0, node->active.blocks.size ());
 
 		// Confirm the callback is not called under this circumstance

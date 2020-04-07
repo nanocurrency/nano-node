@@ -1,4 +1,5 @@
 #include <nano/lib/optional_ptr.hpp>
+#include <nano/lib/rate_limiting.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/lib/utility.hpp>
@@ -8,6 +9,59 @@
 #include <gtest/gtest.h>
 
 #include <boost/filesystem.hpp>
+
+using namespace std::chrono_literals;
+
+TEST (rate, basic)
+{
+	nano::rate::token_bucket bucket (10, 10);
+
+	// Initial burst
+	ASSERT_TRUE (bucket.try_consume (10));
+	ASSERT_FALSE (bucket.try_consume (10));
+
+	// With a fill rate of 10 tokens/sec, await 1/3 sec and get 3 tokens
+	std::this_thread::sleep_for (300ms);
+	ASSERT_TRUE (bucket.try_consume (3));
+	ASSERT_FALSE (bucket.try_consume (10));
+
+	// Allow time for the bucket to completely refill and do a full burst
+	std::this_thread::sleep_for (1s);
+	ASSERT_TRUE (bucket.try_consume (10));
+	ASSERT_EQ (bucket.largest_burst (), 10);
+}
+
+TEST (rate, network)
+{
+	// For the purpose of the test, one token represents 1MB instead of one byte.
+	// Allow for 10 mb/s bursts (max bucket size), 5 mb/s long term rate
+	nano::rate::token_bucket bucket (10, 5);
+
+	// Initial burst of 10 mb/s over two calls
+	ASSERT_TRUE (bucket.try_consume (5));
+	ASSERT_EQ (bucket.largest_burst (), 5);
+	ASSERT_TRUE (bucket.try_consume (5));
+	ASSERT_EQ (bucket.largest_burst (), 10);
+	ASSERT_FALSE (bucket.try_consume (5));
+
+	// After 200 ms, the 5 mb/s fillrate means we have 1 mb available
+	std::this_thread::sleep_for (200ms);
+	ASSERT_TRUE (bucket.try_consume (1));
+	ASSERT_FALSE (bucket.try_consume (1));
+}
+
+TEST (rate, unlimited)
+{
+	nano::rate::token_bucket bucket (0, 0);
+	ASSERT_TRUE (bucket.try_consume (5));
+	ASSERT_EQ (bucket.largest_burst (), 5);
+	ASSERT_TRUE (bucket.try_consume (1e9));
+	ASSERT_EQ (bucket.largest_burst (), 1e9);
+
+	// With unlimited tokens, consuming always succeed
+	ASSERT_TRUE (bucket.try_consume (1e9));
+	ASSERT_EQ (bucket.largest_burst (), 1e9);
+}
 
 TEST (optional_ptr, basic)
 {

@@ -199,7 +199,9 @@ public:
 		confirmation_height,
 		drop,
 		aggregator,
-		requests
+		requests,
+		filter,
+		telemetry
 	};
 
 	/** Optional detail type */
@@ -314,7 +316,15 @@ public:
 		requests_generated_hashes,
 		requests_cached_votes,
 		requests_generated_votes,
-		requests_unknown
+		requests_unknown,
+
+		// duplicate
+		duplicate_publish,
+
+		// telemetry
+		invalid_signature,
+		different_genesis_hash,
+		node_id_mismatch
 	};
 
 	/** Direction of the stat. If the direction is irrelevant, use in */

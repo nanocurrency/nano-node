@@ -161,12 +161,13 @@ public:
 	uint64_t count_impl ();
 	uint64_t count_optional_impl (uint64_t = std::numeric_limits<uint64_t>::max ());
 	uint64_t offset_optional_impl (uint64_t = 0);
-	uint64_t difficulty_optional_impl ();
-	double multiplier_optional_impl (uint64_t &);
+	uint64_t difficulty_optional_impl (nano::work_version const);
+	double multiplier_optional_impl (nano::work_version const, uint64_t &);
 	nano::work_version work_version_optional_impl (nano::work_version const default_a);
 	bool enable_sign_hash{ false };
 	std::function<void()> stop_callback;
 	nano::node_rpc_config const & node_rpc_config;
+	std::function<void()> create_worker_task (std::function<void(std::shared_ptr<nano::json_handler> const &)> const &);
 };
 
 class inprocess_rpc_handler final : public nano::rpc_handler_interface

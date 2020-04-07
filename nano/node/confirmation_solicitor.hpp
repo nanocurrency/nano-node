@@ -28,12 +28,15 @@ public:
 	size_t const max_block_broadcasts;
 	/** Maximum amount of requests to be sent per election */
 	size_t const max_election_requests;
+	/** Maximum amount of directed broadcasts to be sent per election */
+	size_t const max_election_broadcasts;
 
 private:
 	nano::network & network;
 
 	unsigned rebroadcasted{ 0 };
-	std::vector<nano::representative> representatives;
+	std::vector<nano::representative> representatives_requests;
+	std::vector<nano::representative> representatives_broadcasts;
 	using vector_root_hashes = std::vector<std::pair<nano::block_hash, nano::root>>;
 	std::unordered_map<std::shared_ptr<nano::transport::channel>, vector_root_hashes> requests;
 	bool prepared{ false };

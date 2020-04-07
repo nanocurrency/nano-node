@@ -1,15 +1,16 @@
 #pragma once
 
 #include <nano/node/common.hpp>
+#include <nano/node/peer_exclusion.hpp>
 #include <nano/node/transport/tcp.hpp>
 #include <nano/node/transport/udp.hpp>
+#include <nano/secure/network_filter.hpp>
 
 #include <boost/thread/thread.hpp>
 
 #include <memory>
 #include <queue>
 #include <unordered_set>
-
 namespace nano
 {
 class channel;
@@ -71,6 +72,7 @@ private:
 class syn_cookies final
 {
 public:
+	syn_cookies (size_t);
 	void purge (std::chrono::steady_clock::time_point const &);
 	// Returns boost::none if the IP is rate capped on syn cookie requests,
 	// or if the endpoint already has a syn cookie query
@@ -90,6 +92,7 @@ private:
 	mutable std::mutex syn_cookie_mutex;
 	std::unordered_map<nano::endpoint, syn_cookie_info> cookies;
 	std::unordered_map<boost::asio::ip::address, unsigned> cookies_per_ip;
+	size_t max_cookies_per_ip;
 };
 class network final
 {
@@ -98,7 +101,7 @@ public:
 	~network ();
 	void start ();
 	void stop ();
-	void flood_message (nano::message const &, nano::buffer_drop_policy = nano::buffer_drop_policy::limiter);
+	void flood_message (nano::message const &, nano::buffer_drop_policy const = nano::buffer_drop_policy::limiter, float const = 1.0f);
 	void flood_keepalive ()
 	{
 		nano::keepalive message;
@@ -147,11 +150,14 @@ public:
 	size_t size () const;
 	float size_sqrt () const;
 	bool empty () const;
+	void erase (nano::transport::channel const & channel_a);
 	nano::message_buffer_manager buffer_container;
 	boost::asio::ip::udp::resolver resolver;
 	std::vector<boost::thread> packet_processing_threads;
 	nano::bandwidth_limiter limiter;
+	nano::peer_exclusion excluded_peers;
 	nano::node & node;
+	nano::network_filter publish_filter;
 	nano::transport::udp_channels udp_channels;
 	nano::transport::tcp_channels tcp_channels;
 	std::atomic<uint16_t> port{ 0 };

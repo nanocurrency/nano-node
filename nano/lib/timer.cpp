@@ -97,12 +97,14 @@ void nano::timer<UNIT, CLOCK>::start ()
 }
 
 template <typename UNIT, typename CLOCK>
-void nano::timer<UNIT, CLOCK>::restart ()
+UNIT nano::timer<UNIT, CLOCK>::restart ()
 {
+	auto current = ticks;
 	state = nano::timer_state::started;
 	begin = CLOCK::now ();
 	ticks = UNIT::zero ();
 	measurements = 0;
+	return current;
 }
 
 template <typename UNIT, typename CLOCK>
@@ -113,19 +115,26 @@ UNIT nano::timer<UNIT, CLOCK>::pause ()
 }
 
 template <typename UNIT, typename CLOCK>
+void nano::timer<UNIT, CLOCK>::update_ticks ()
+{
+	auto end = CLOCK::now ();
+	ticks += std::chrono::duration_cast<UNIT> (end - begin);
+}
+
+template <typename UNIT, typename CLOCK>
 UNIT nano::timer<UNIT, CLOCK>::stop ()
 {
 	debug_assert (state == nano::timer_state::started);
 	state = nano::timer_state::stopped;
 
-	auto end = CLOCK::now ();
-	ticks += std::chrono::duration_cast<UNIT> (end - begin);
+	update_ticks ();
 	return ticks;
 }
 
 template <typename UNIT, typename CLOCK>
-UNIT nano::timer<UNIT, CLOCK>::value () const
+UNIT nano::timer<UNIT, CLOCK>::value ()
 {
+	update_ticks ();
 	return ticks;
 }
 

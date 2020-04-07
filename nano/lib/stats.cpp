@@ -444,6 +444,12 @@ std::string nano::stat::type_to_string (uint32_t key)
 		case nano::stat::type::requests:
 			res = "requests";
 			break;
+		case nano::stat::type::filter:
+			res = "filter";
+			break;
+		case nano::stat::type::telemetry:
+			res = "telemetry";
+			break;
 	}
 	return res;
 }
@@ -693,6 +699,18 @@ std::string nano::stat::detail_to_string (uint32_t key)
 			break;
 		case nano::stat::detail::requests_unknown:
 			res = "requests_unknown";
+			break;
+		case nano::stat::detail::duplicate_publish:
+			res = "duplicate_publish";
+			break;
+		case nano::stat::detail::different_genesis_hash:
+			res = "different_genesis_hash";
+			break;
+		case nano::stat::detail::invalid_signature:
+			res = "invalid_signature";
+			break;
+		case nano::stat::detail::node_id_mismatch:
+			res = "node_id_mismatch";
 			break;
 	}
 	return res;

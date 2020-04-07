@@ -389,6 +389,10 @@ nano::websocket::topic to_topic (std::string const & topic_a)
 	{
 		topic = nano::websocket::topic::bootstrap;
 	}
+	else if (topic_a == "telemetry")
+	{
+		topic = nano::websocket::topic::telemetry;
+	}
 
 	return topic;
 }
@@ -423,6 +427,10 @@ std::string from_topic (nano::websocket::topic topic_a)
 	else if (topic_a == nano::websocket::topic::bootstrap)
 	{
 		topic = "bootstrap";
+	}
+	else if (topic_a == nano::websocket::topic::telemetry)
+	{
+		topic = "telemetry";
 	}
 	return topic;
 }
@@ -789,7 +797,7 @@ nano::websocket::message nano::websocket::message_builder::work_generation (nano
 	request_l.put ("version", nano::to_string (version_a));
 	request_l.put ("hash", root_a.to_string ());
 	request_l.put ("difficulty", nano::to_string_hex (difficulty_a));
-	auto request_multiplier_l (nano::difficulty::to_multiplier (difficulty_a, nano::work_threshold (version_a)));
+	auto request_multiplier_l (nano::difficulty::to_multiplier (difficulty_a, publish_threshold_a));
 	request_l.put ("multiplier", nano::to_string (request_multiplier_l));
 	work_l.add_child ("request", request_l);
 
@@ -800,7 +808,7 @@ nano::websocket::message nano::websocket::message_builder::work_generation (nano
 		result_l.put ("work", nano::to_string_hex (work_a));
 		auto result_difficulty_l (nano::work_difficulty (version_a, root_a, work_a));
 		result_l.put ("difficulty", nano::to_string_hex (result_difficulty_l));
-		auto result_multiplier_l (nano::difficulty::to_multiplier (result_difficulty_l, nano::work_threshold (version_a)));
+		auto result_multiplier_l (nano::difficulty::to_multiplier (result_difficulty_l, publish_threshold_a));
 		result_l.put ("multiplier", nano::to_string (result_multiplier_l));
 		work_l.add_child ("result", result_l);
 	}
@@ -857,6 +865,21 @@ nano::websocket::message nano::websocket::message_builder::bootstrap_exited (std
 	bootstrap_l.put ("duration", std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - start_time_a).count ());
 
 	message_l.contents.add_child ("message", bootstrap_l);
+	return message_l;
+}
+
+nano::websocket::message nano::websocket::message_builder::telemetry_received (nano::telemetry_data const & telemetry_data_a, nano::endpoint const & endpoint_a)
+{
+	nano::websocket::message message_l (nano::websocket::topic::telemetry);
+	set_common_fields (message_l);
+
+	// Telemetry information
+	nano::jsonconfig telemetry_l;
+	telemetry_data_a.serialize_json (telemetry_l, false);
+	telemetry_l.put ("address", endpoint_a.address ());
+	telemetry_l.put ("port", endpoint_a.port ());
+
+	message_l.contents.add_child ("message", telemetry_l.get_tree ());
 	return message_l;
 }
 
