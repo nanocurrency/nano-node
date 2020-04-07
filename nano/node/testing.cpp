@@ -191,7 +191,7 @@ std::unique_ptr<nano::state_block> nano::upgrade_epoch (nano::work_pool & pool_a
 	             .work (*pool_a.generate (latest, nano::work_threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true))))
 	             .build (ec);
 
-	bool error { true };
+	bool error{ true };
 	if (!ec && epoch)
 	{
 		error = ledger_a.process (transaction, *epoch).code != nano::process_result::progress;
