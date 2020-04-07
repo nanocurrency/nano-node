@@ -3098,3 +3098,25 @@ TEST (ledger, epoch_2_started_flag)
 	nano::ledger ledger (node1.store, stats);
 	ASSERT_TRUE (ledger.cache.epoch_2_started.load ());
 }
+
+TEST (ledger, epoch_2_upgrade_callback)
+{
+	nano::genesis genesis;
+	nano::stat stats;
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_TRUE (!store->init_error ());
+	bool cb_hit = false;
+	nano::ledger ledger (*store, stats, nano::generate_cache (), [&cb_hit]() {
+		cb_hit = true;
+	});
+	{
+		auto transaction (store->tx_begin_write ());
+		store->initialize (transaction, genesis, ledger.cache);
+	}
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+	upgrade_epoch (pool, ledger, nano::epoch::epoch_1);
+	ASSERT_FALSE (cb_hit);
+	auto latest = upgrade_epoch (pool, ledger, nano::epoch::epoch_2);
+	ASSERT_TRUE (cb_hit);
+}

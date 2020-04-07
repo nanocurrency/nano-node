@@ -172,26 +172,37 @@ uint64_t nano::system::work_generate_limited (nano::block_hash const & root_a, u
 	return result;
 }
 
-std::unique_ptr<nano::state_block> nano::system::upgrade_genesis_epoch (nano::node & node_a, nano::epoch const epoch_a)
+std::unique_ptr<nano::state_block> nano::upgrade_epoch (nano::work_pool & pool_a, nano::ledger & ledger_a, nano::epoch epoch_a)
 {
-	bool error{ true };
+	auto transaction (ledger_a.store.tx_begin_write ());
+	auto account = nano::test_genesis_key.pub;
+	auto latest = ledger_a.latest (transaction, account);
+	auto balance = ledger_a.account_balance (transaction, account);
+
 	nano::state_block_builder builder;
 	std::error_code ec;
-	auto latest (node_a.latest (nano::test_genesis_key.pub));
 	auto epoch = builder
 	             .account (nano::test_genesis_key.pub)
 	             .previous (latest)
-	             .balance (node_a.balance (nano::test_genesis_key.pub))
-	             .link (node_a.ledger.epoch_link (epoch_a))
+	             .balance (balance)
+	             .link (ledger_a.epoch_link (epoch_a))
 	             .representative (nano::test_genesis_key.pub)
 	             .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
-	             .work (*work.generate (latest, nano::work_threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true))))
+	             .work (*pool_a.generate (latest, nano::work_threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true))))
 	             .build (ec);
+
+	bool error { true };
 	if (!ec && epoch)
 	{
-		error = node_a.process (*epoch).code != nano::process_result::progress;
+		error = ledger_a.process (transaction, *epoch).code != nano::process_result::progress;
 	}
+
 	return !error ? std::move (epoch) : nullptr;
+}
+
+std::unique_ptr<nano::state_block> nano::system::upgrade_genesis_epoch (nano::node & node_a, nano::epoch const epoch_a)
+{
+	return upgrade_epoch (work, node_a.ledger, epoch_a);
 }
 
 void nano::system::deadline_set (std::chrono::duration<double, std::nano> const & delta_a)

@@ -723,6 +723,18 @@ bool nano::network::empty () const
 	return size () == 0;
 }
 
+void nano::network::erase_below_version (uint8_t cutoff_version_a)
+{
+	std::vector<std::shared_ptr<nano::transport::channel>> channels_to_remove;
+	tcp_channels.list_below_version (channels_to_remove, cutoff_version_a);
+	udp_channels.list_below_version (channels_to_remove, cutoff_version_a);
+	for (auto const & channel_to_remove : channels_to_remove)
+	{
+		debug_assert (channel_to_remove->get_network_version () < cutoff_version_a);
+		erase (*channel_to_remove);
+	}
+}
+
 void nano::network::erase (nano::transport::channel const & channel_a)
 {
 	if (channel_a.get_type () == nano::transport::transport_type::tcp)
