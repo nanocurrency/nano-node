@@ -257,10 +257,8 @@ void nano::bootstrap_initiator::stop_attempts ()
 
 void nano::bootstrap_initiator::stop ()
 {
-	nano::unique_lock<std::mutex> lock (mutex);
 	if (!stopped.exchange (true))
 	{
-		lock.unlock ();
 		stop_attempts ();
 		connections->stop ();
 		condition.notify_all ();
