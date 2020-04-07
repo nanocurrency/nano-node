@@ -146,7 +146,7 @@ void nano::bootstrap_initiator::run_bootstrap ()
 			}
 			lock.lock ();
 		}
-		else if (!stopped)
+		else
 		{
 			condition.wait (lock);
 		}
