@@ -14,7 +14,7 @@ nano::network::network (nano::node & node_a, uint16_t port_a) :
 syn_cookies (node_a.network_params.node.max_peers_per_ip),
 buffer_container (node_a.stats, nano::network::buffer_size, 4096), // 2Mb receive buffer
 resolver (node_a.io_ctx),
-limiter (node_a.config.bandwidth_limit),
+limiter (node_a.config.bandwidth_limit_burst_ratio, node_a.config.bandwidth_limit),
 node (node_a),
 publish_filter (256 * 1024),
 udp_channels (node_a, port_a),
@@ -148,9 +148,9 @@ void nano::network::send_node_id_handshake (std::shared_ptr<nano::transport::cha
 	channel_a->send (message);
 }
 
-void nano::network::flood_message (nano::message const & message_a, nano::buffer_drop_policy drop_policy_a)
+void nano::network::flood_message (nano::message const & message_a, nano::buffer_drop_policy const drop_policy_a, float const scale_a)
 {
-	for (auto & i : list (fanout ()))
+	for (auto & i : list (fanout (scale_a)))
 	{
 		i->send (message_a, nullptr, drop_policy_a);
 	}
@@ -217,17 +217,8 @@ void nano::network::flood_block_many (std::deque<std::shared_ptr<nano::block>> b
 void nano::network::send_confirm_req (std::shared_ptr<nano::transport::channel> channel_a, std::shared_ptr<nano::block> block_a)
 {
 	// Confirmation request with hash + root
-	if (channel_a->get_network_version () >= node.network_params.protocol.tcp_realtime_protocol_version_min)
-	{
-		nano::confirm_req req (block_a->hash (), block_a->root ());
-		channel_a->send (req);
-	}
-	// Confirmation request with full block
-	else
-	{
-		nano::confirm_req req (block_a);
-		channel_a->send (req);
-	}
+	nano::confirm_req req (block_a->hash (), block_a->root ());
+	channel_a->send (req);
 }
 
 void nano::network::broadcast_confirm_req (std::shared_ptr<nano::block> block_a)
@@ -483,7 +474,7 @@ public:
 		nano::telemetry_ack telemetry_ack;
 		if (!node.flags.disable_providing_telemetry_metrics)
 		{
-			auto telemetry_data = nano::local_telemetry_data (node.ledger.cache, node.network, node.config.bandwidth_limit, node.network_params, node.startup_time);
+			auto telemetry_data = nano::local_telemetry_data (node.ledger.cache, node.network, node.config.bandwidth_limit, node.network_params, node.startup_time, node.node_id);
 			telemetry_ack = nano::telemetry_ack (telemetry_data);
 		}
 		channel->send (telemetry_ack, nullptr, nano::buffer_drop_policy::no_socket_drop);
@@ -497,7 +488,7 @@ public:
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::telemetry_ack, nano::stat::dir::in);
 		if (node.telemetry)
 		{
-			node.telemetry->set (message_a.data, channel->get_endpoint (), message_a.is_empty_payload ());
+			node.telemetry->set (message_a, *channel);
 		}
 	}
 	nano::node & node;
@@ -635,14 +626,13 @@ nano::tcp_endpoint nano::network::bootstrap_peer (bool lazy_bootstrap)
 {
 	nano::tcp_endpoint result (boost::asio::ip::address_v6::any (), 0);
 	bool use_udp_peer (nano::random_pool::generate_word32 (0, 1));
-	auto protocol_min (lazy_bootstrap ? node.network_params.protocol.protocol_version_bootstrap_lazy_min : node.network_params.protocol.protocol_version_bootstrap_min);
 	if (use_udp_peer || tcp_channels.size () == 0)
 	{
-		result = udp_channels.bootstrap_peer (protocol_min);
+		result = udp_channels.bootstrap_peer (node.network_params.protocol.protocol_version_bootstrap_min);
 	}
 	if (result == nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0))
 	{
-		result = tcp_channels.bootstrap_peer (protocol_min);
+		result = tcp_channels.bootstrap_peer (node.network_params.protocol.protocol_version_bootstrap_min);
 	}
 	return result;
 }
@@ -731,6 +721,19 @@ float nano::network::size_sqrt () const
 bool nano::network::empty () const
 {
 	return size () == 0;
+}
+
+void nano::network::erase (nano::transport::channel const & channel_a)
+{
+	if (channel_a.get_type () == nano::transport::transport_type::tcp)
+	{
+		tcp_channels.erase (channel_a.get_tcp_endpoint ());
+	}
+	else
+	{
+		udp_channels.erase (channel_a.get_endpoint ());
+		udp_channels.clean_node_id (channel_a.get_node_id ());
+	}
 }
 
 nano::message_buffer_manager::message_buffer_manager (nano::stat & stats_a, size_t size, size_t count) :
@@ -905,6 +908,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (ne
 	composite->add_component (network.tcp_channels.collect_container_info ("tcp_channels"));
 	composite->add_component (network.udp_channels.collect_container_info ("udp_channels"));
 	composite->add_component (network.syn_cookies.collect_container_info ("syn_cookies"));
+	composite->add_component (collect_container_info (network.excluded_peers, "excluded_peers"));
 	return composite;
 }
 

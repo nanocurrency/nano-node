@@ -697,6 +697,7 @@ public:
 	virtual void pending_del (nano::write_transaction const &, nano::pending_key const &) = 0;
 	virtual bool pending_get (nano::transaction const &, nano::pending_key const &, nano::pending_info &) = 0;
 	virtual bool pending_exists (nano::transaction const &, nano::pending_key const &) = 0;
+	virtual bool pending_any (nano::transaction const &, nano::account const &) = 0;
 	virtual nano::store_iterator<nano::pending_key, nano::pending_info> pending_begin (nano::transaction const &, nano::pending_key const &) = 0;
 	virtual nano::store_iterator<nano::pending_key, nano::pending_info> pending_begin (nano::transaction const &) = 0;
 	virtual nano::store_iterator<nano::pending_key, nano::pending_info> pending_end () = 0;

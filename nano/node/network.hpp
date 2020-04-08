@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/node/common.hpp>
+#include <nano/node/peer_exclusion.hpp>
 #include <nano/node/transport/tcp.hpp>
 #include <nano/node/transport/udp.hpp>
 #include <nano/secure/network_filter.hpp>
@@ -100,7 +101,7 @@ public:
 	~network ();
 	void start ();
 	void stop ();
-	void flood_message (nano::message const &, nano::buffer_drop_policy = nano::buffer_drop_policy::limiter);
+	void flood_message (nano::message const &, nano::buffer_drop_policy const = nano::buffer_drop_policy::limiter, float const = 1.0f);
 	void flood_keepalive ()
 	{
 		nano::keepalive message;
@@ -149,10 +150,12 @@ public:
 	size_t size () const;
 	float size_sqrt () const;
 	bool empty () const;
+	void erase (nano::transport::channel const & channel_a);
 	nano::message_buffer_manager buffer_container;
 	boost::asio::ip::udp::resolver resolver;
 	std::vector<boost::thread> packet_processing_threads;
 	nano::bandwidth_limiter limiter;
+	nano::peer_exclusion excluded_peers;
 	nano::node & node;
 	nano::network_filter publish_filter;
 	nano::transport::udp_channels udp_channels;

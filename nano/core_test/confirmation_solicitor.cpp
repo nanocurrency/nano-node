@@ -33,12 +33,12 @@ TEST (confirmation_solicitor, batches)
 		nano::lock_guard<std::mutex> guard (node2.active.mutex);
 		for (size_t i (0); i < nano::network::confirm_req_hashes_max; ++i)
 		{
-			auto election (std::make_shared<nano::election> (node2, send, nullptr));
+			auto election (std::make_shared<nano::election> (node2, send, nullptr, false));
 			ASSERT_FALSE (solicitor.add (*election));
 		}
 		ASSERT_EQ (1, solicitor.max_confirm_req_batches);
 		// Reached the maximum amount of requests for the channel
-		auto election (std::make_shared<nano::election> (node2, send, nullptr));
+		auto election (std::make_shared<nano::election> (node2, send, nullptr, false));
 		ASSERT_TRUE (solicitor.add (*election));
 		// Broadcasting should be immediate
 		ASSERT_EQ (0, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));

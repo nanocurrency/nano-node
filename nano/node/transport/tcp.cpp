@@ -439,7 +439,7 @@ void nano::transport::tcp_channels::ongoing_keepalive ()
 		size_t random_count (std::min (static_cast<size_t> (6), static_cast<size_t> (std::ceil (std::sqrt (node.network.udp_channels.size ())))));
 		for (auto i (0); i <= random_count; ++i)
 		{
-			auto tcp_endpoint (node.network.udp_channels.bootstrap_peer (node.network_params.protocol.tcp_realtime_protocol_version_min));
+			auto tcp_endpoint (node.network.udp_channels.bootstrap_peer (node.network_params.protocol.protocol_version_min));
 			if (tcp_endpoint != invalid_endpoint && find_channel (tcp_endpoint) == nullptr)
 			{
 				start_tcp (nano::transport::map_tcp_to_endpoint (tcp_endpoint));
@@ -649,6 +649,13 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 												response_server->remote_node_id = channel_a->get_node_id ();
 												response_server->receive ();
 												node_l->network.tcp_channels.remove_node_id_handshake_socket (socket_l);
+
+												if (!node_l->flags.disable_initial_telemetry_requests)
+												{
+													node_l->telemetry->get_metrics_single_peer_async (channel_a, [](nano::telemetry_data_response /* unused */) {
+														// Intentionally empty, starts the telemetry request cycle to more quickly disconnect from invalid peers
+													});
+												}
 											}
 										}
 										else
