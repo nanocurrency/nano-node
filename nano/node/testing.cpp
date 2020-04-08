@@ -292,7 +292,7 @@ void nano::system::generate_rollback (nano::node & node_a, std::vector<nano::acc
 			debug_assert (!error);
 			for (auto & i : rollback_list)
 			{
-				node_a.wallets.watcher->remove (i);
+				node_a.wallets.watcher->remove (*i);
 				node_a.active.erase (*i);
 			}
 		}

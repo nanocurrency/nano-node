@@ -1420,7 +1420,7 @@ node (node_a),
 stopped (false)
 {
 	node.observers.blocks.add ([this](nano::election_status const & status_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
-		this->remove (status_a.winner);
+		this->remove (*status_a.winner);
 	});
 }
 
@@ -1460,65 +1460,50 @@ void nano::work_watcher::watching (nano::qualified_root const & root_a, std::sha
 	std::weak_ptr<nano::work_watcher> watcher_w (shared_from_this ());
 	node.alarm.add (std::chrono::steady_clock::now () + node.config.work_watcher_period, [block_a, root_a, watcher_w]() {
 		auto watcher_l = watcher_w.lock ();
-		if (watcher_l && !watcher_l->stopped && block_a != nullptr)
+		if (watcher_l && !watcher_l->stopped && watcher_l->is_watched (root_a))
 		{
-			nano::unique_lock<std::mutex> lock (watcher_l->mutex);
-			if (watcher_l->watched.find (root_a) != watcher_l->watched.end ()) // not yet confirmed or cancelled
+			auto active_difficulty (watcher_l->node.active.limited_active_difficulty (*block_a));
+			/*
+			 * Work watcher should still watch blocks even without work generation, although no rework is done
+			 * Functionality may be added in the future that does not require updating work
+			 */
+			if (active_difficulty > block_a->difficulty () && watcher_l->node.work_generation_enabled ())
 			{
-				lock.unlock ();
-				auto active_difficulty (watcher_l->node.active.limited_active_difficulty (*block_a));
-				/*
-				 * Work watcher should still watch blocks even without work generation, although no rework is done
-				 * Functionality may be added in the future that does not require updating work
-				 */
-				if (active_difficulty > block_a->difficulty () && watcher_l->node.work_generation_enabled ())
-				{
-					watcher_l->node.work_generate (
-					block_a->work_version (), block_a->root (), active_difficulty, [watcher_l, block_a, root_a](boost::optional<uint64_t> work_a) {
-						if (block_a != nullptr && watcher_l != nullptr && !watcher_l->stopped)
+				watcher_l->node.work_generate (
+				block_a->work_version (), block_a->root (), active_difficulty, [watcher_l, block_a, root_a](boost::optional<uint64_t> work_a) {
+					if (work_a.is_initialized ())
+					{
+						debug_assert (nano::work_difficulty (block_a->work_version (), block_a->root (), *work_a) > block_a->difficulty ());
+						nano::state_block_builder builder;
+						std::error_code ec;
+						std::shared_ptr<nano::state_block> block (builder.from (*block_a).work (*work_a).build (ec));
+						if (!ec)
 						{
-							bool updated_l{ false };
-							if (work_a.is_initialized ())
-							{
-								nano::state_block_builder builder;
-								std::error_code ec;
-								std::shared_ptr<nano::state_block> block (builder.from (*block_a).work (*work_a).build (ec));
-
-								if (!ec)
-								{
-									watcher_l->node.network.flood_block_initial (block);
-									watcher_l->node.active.update_difficulty (block);
-									watcher_l->update (root_a, block);
-									updated_l = true;
-									watcher_l->watching (root_a, block);
-								}
-							}
-							if (!updated_l)
-							{
-								watcher_l->watching (root_a, block_a);
-							}
+							watcher_l->node.network.flood_block_initial (block);
+							watcher_l->node.active.update_difficulty (block);
+							watcher_l->update (root_a, block);
 						}
-					},
-					block_a->account ());
-				}
-				else
-				{
+					}
 					watcher_l->watching (root_a, block_a);
-				}
+				},
+				block_a->account ());
+			}
+			else
+			{
+				watcher_l->watching (root_a, block_a);
 			}
 		}
 	});
 }
 
-void nano::work_watcher::remove (std::shared_ptr<nano::block> block_a)
+void nano::work_watcher::remove (nano::block const & block_a)
 {
-	auto root_l (block_a->qualified_root ());
 	nano::lock_guard<std::mutex> lock (mutex);
-	auto existing (watched.find (root_l));
-	if (existing != watched.end () && existing->second->hash () == block_a->hash ())
+	auto existing (watched.find (block_a.qualified_root ()));
+	if (existing != watched.end ())
 	{
 		watched.erase (existing);
-		node.observers.work_cancel.notify (block_a->root ());
+		node.observers.work_cancel.notify (block_a.root ());
 	}
 }
 
