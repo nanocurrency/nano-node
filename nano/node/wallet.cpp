@@ -1153,7 +1153,7 @@ bool nano::wallet::action_complete (std::shared_ptr<nano::block> const & block_a
 		{
 			wallets.node.logger.try_log (boost::str (boost::format ("Cached or provided work for block %1% account %2% is invalid, regenerating") % block_a->hash ().to_string () % account_a.to_account ()));
 			debug_assert (required_difficulty <= wallets.node.config.max_work_generate_difficulty);
-			auto target_difficulty = std::max (required_difficulty, wallets.node.active.limited_active_difficulty (*block_a));
+			auto target_difficulty = std::max (required_difficulty, wallets.node.active.limited_active_difficulty (required_difficulty));
 			error = !wallets.node.work_generate_blocking (*block_a, target_difficulty).is_initialized ();
 		}
 		if (!error)

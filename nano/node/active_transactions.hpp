@@ -109,6 +109,7 @@ public:
 	void update_active_multiplier (nano::unique_lock<std::mutex> &);
 	uint64_t active_difficulty ();
 	uint64_t limited_active_difficulty (nano::block const &);
+	uint64_t limited_active_difficulty (uint64_t const);
 	double active_multiplier ();
 	std::deque<std::shared_ptr<nano::block>> list_blocks ();
 	void erase (nano::block const &);

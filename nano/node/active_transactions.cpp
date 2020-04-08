@@ -823,7 +823,12 @@ uint64_t nano::active_transactions::limited_active_difficulty (nano::block const
 	{
 		threshold = node.default_difficulty (block_a.work_version ());
 	}
-	auto difficulty (nano::difficulty::from_multiplier (nano::denormalized_multiplier (active_multiplier (), threshold), threshold));
+	return limited_active_difficulty (threshold);
+}
+
+uint64_t nano::active_transactions::limited_active_difficulty (uint64_t const threshold_a)
+{
+	auto difficulty (nano::difficulty::from_multiplier (nano::denormalized_multiplier (active_multiplier (), threshold_a), threshold_a));
 	return std::min (difficulty, node.config.max_work_generate_difficulty);
 }
 
