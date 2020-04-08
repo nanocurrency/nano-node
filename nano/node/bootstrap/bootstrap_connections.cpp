@@ -293,7 +293,10 @@ void nano::bootstrap_connections::populate_connections (bool repeat)
 			}
 			else if (connections_count == 0)
 			{
-				new_connections_empty = true;
+				{
+					nano::lock_guard<std::mutex> lock (mutex);
+					new_connections_empty = true;
+				}
 				condition.notify_all ();
 			}
 		}
@@ -347,8 +350,7 @@ void nano::bootstrap_connections::request_pull (nano::unique_lock<std::mutex> & 
 			// Check if lazy pull is obsolete (head was processed or head is 0 for destinations requests)
 			if (attempt_l != nullptr && attempt_l->mode == nano::bootstrap_mode::lazy && !pull.head.is_zero () && attempt_l->lazy_processed_or_exists (pull.head))
 			{
-				--attempt_l->pulling;
-				attempt_l->condition.notify_all ();
+				attempt_l->pull_finished ();
 				attempt_l = nullptr;
 			}
 		}
@@ -400,8 +402,7 @@ void nano::bootstrap_connections::requeue_pull (nano::pull_info const & pull_a, 
 				nano::lock_guard<std::mutex> lock (mutex);
 				pulls.push_front (pull);
 			}
-			++attempt_l->pulling;
-			attempt_l->condition.notify_all ();
+			attempt_l->pull_started ();
 			condition.notify_all ();
 		}
 		else if (attempt_l->mode == nano::bootstrap_mode::lazy && (pull.retry_limit == std::numeric_limits<unsigned>::max () || pull.attempts <= pull.retry_limit + (pull.processed / node.network_params.bootstrap.lazy_max_pull_blocks)))
@@ -413,8 +414,7 @@ void nano::bootstrap_connections::requeue_pull (nano::pull_info const & pull_a, 
 					nano::lock_guard<std::mutex> lock (mutex);
 					pulls.push_back (pull);
 				}
-				++attempt_l->pulling;
-				attempt_l->condition.notify_all ();
+				attempt_l->pull_started ();
 				condition.notify_all ();
 			}
 		}

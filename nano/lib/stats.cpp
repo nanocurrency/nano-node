@@ -628,6 +628,8 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::tcp_write_drop:
 			res = "tcp_write_drop";
 			break;
+		case nano::stat::detail::tcp_excluded:
+			res = "tcp_excluded";
 		case nano::stat::detail::unreachable_host:
 			res = "unreachable_host";
 			break;

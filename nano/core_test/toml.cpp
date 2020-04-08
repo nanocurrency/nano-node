@@ -203,6 +203,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.logging.network_timeout_logging_value, defaults.node.logging.network_timeout_logging_value);
 	ASSERT_EQ (conf.node.logging.node_lifetime_tracing_value, defaults.node.logging.node_lifetime_tracing_value);
 	ASSERT_EQ (conf.node.logging.network_telemetry_logging_value, defaults.node.logging.network_telemetry_logging_value);
+	ASSERT_EQ (conf.node.logging.network_rejected_logging_value, defaults.node.logging.network_rejected_logging_value);
 	ASSERT_EQ (conf.node.logging.rotation_size, defaults.node.logging.rotation_size);
 	ASSERT_EQ (conf.node.logging.single_line_record_value, defaults.node.logging.single_line_record_value);
 	ASSERT_EQ (conf.node.logging.stable_log_filename, defaults.node.logging.stable_log_filename);
@@ -471,6 +472,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	network_message = true
 	network_node_id_handshake = true
 	network_telemetry_logging = true
+	network_rejected_logging = true
 	network_packet = true
 	network_publish = true
 	network_timeout = true
@@ -610,6 +612,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.logging.network_message_logging_value, defaults.node.logging.network_message_logging_value);
 	ASSERT_NE (conf.node.logging.network_node_id_handshake_logging_value, defaults.node.logging.network_node_id_handshake_logging_value);
 	ASSERT_NE (conf.node.logging.network_telemetry_logging_value, defaults.node.logging.network_telemetry_logging_value);
+	ASSERT_NE (conf.node.logging.network_rejected_logging_value, defaults.node.logging.network_rejected_logging_value);
 	ASSERT_NE (conf.node.logging.network_packet_logging_value, defaults.node.logging.network_packet_logging_value);
 	ASSERT_NE (conf.node.logging.network_publish_logging_value, defaults.node.logging.network_publish_logging_value);
 	ASSERT_NE (conf.node.logging.network_timeout_logging_value, defaults.node.logging.network_timeout_logging_value);

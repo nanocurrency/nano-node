@@ -35,8 +35,8 @@ class conflict_info final
 {
 public:
 	nano::qualified_root root;
-	uint64_t difficulty;
-	uint64_t adjusted_difficulty;
+	double multiplier;
+	double adjusted_multiplier;
 	std::shared_ptr<nano::election> election;
 };
 
@@ -103,11 +103,14 @@ public:
 	bool active (nano::qualified_root const &);
 	std::shared_ptr<nano::election> election (nano::qualified_root const &) const;
 	void update_difficulty (std::shared_ptr<nano::block>);
+	double normalized_multiplier (nano::block const &, std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> const & = {});
 	void add_adjust_difficulty (nano::block_hash const &);
-	void update_adjusted_difficulty ();
-	void update_active_difficulty (nano::unique_lock<std::mutex> &);
+	void update_adjusted_multiplier ();
+	void update_active_multiplier (nano::unique_lock<std::mutex> &);
 	uint64_t active_difficulty ();
-	uint64_t limited_active_difficulty ();
+	uint64_t limited_active_difficulty (nano::block const &);
+	uint64_t limited_active_difficulty (nano::work_version const, uint64_t const);
+	double active_multiplier ();
 	std::deque<std::shared_ptr<nano::block>> list_blocks ();
 	void erase (nano::block const &);
 	bool empty ();
@@ -123,11 +126,11 @@ public:
 		mi::hashed_unique<mi::tag<tag_root>,
 			mi::member<nano::conflict_info, nano::qualified_root, &nano::conflict_info::root>>,
 		mi::ordered_non_unique<mi::tag<tag_difficulty>,
-			mi::member<nano::conflict_info, uint64_t, &nano::conflict_info::adjusted_difficulty>,
-			std::greater<uint64_t>>>>
+			mi::member<nano::conflict_info, double, &nano::conflict_info::adjusted_multiplier>,
+			std::greater<double>>>>
 	roots;
 	// clang-format on
-	boost::optional<uint64_t> last_prioritized_difficulty{ boost::none };
+	boost::optional<double> last_prioritized_multiplier{ boost::none };
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> blocks;
 	std::deque<nano::election_status> list_recently_cemented ();
 	std::deque<nano::election_status> recently_cemented;
@@ -141,7 +144,7 @@ public:
 	nano::node & node;
 	mutable std::mutex mutex;
 	boost::circular_buffer<double> multipliers_cb;
-	uint64_t trended_active_difficulty;
+	double trended_active_multiplier;
 	size_t priority_cementable_frontiers_size ();
 	size_t priority_wallet_cementable_frontiers_size ();
 	boost::circular_buffer<double> difficulty_trend ();

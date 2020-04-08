@@ -923,11 +923,11 @@ void nano::json_handler::accounts_pending ()
 void nano::json_handler::active_difficulty ()
 {
 	auto include_trend (request.get<bool> ("include_trend", false));
-	response_l.put ("network_minimum", nano::to_string_hex (node.network_params.network.publish_thresholds.epoch_1));
-	auto difficulty_active = node.active.active_difficulty ();
-	response_l.put ("network_current", nano::to_string_hex (difficulty_active));
-	auto multiplier = nano::difficulty::to_multiplier (difficulty_active, node.network_params.network.publish_thresholds.epoch_1);
-	response_l.put ("multiplier", nano::to_string (multiplier));
+	auto multiplier_active = node.active.active_multiplier ();
+	auto default_difficulty (node.default_difficulty (nano::work_version::work_1));
+	response_l.put ("network_minimum", nano::to_string_hex (default_difficulty));
+	response_l.put ("network_current", nano::to_string_hex (nano::difficulty::from_multiplier (multiplier_active, default_difficulty)));
+	response_l.put ("multiplier", multiplier_active);
 	if (include_trend)
 	{
 		boost::property_tree::ptree trend_entry_l;
