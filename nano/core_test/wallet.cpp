@@ -1419,7 +1419,10 @@ TEST (wallet, epoch_2_receive_propagation)
 		ASSERT_NE (nullptr, send2);
 
 		// Receiving should use the lower difficulty
-		node.active.trended_active_multiplier = 1.0;
+		{
+			nano::lock_guard<std::mutex> guard (node.active.mutex);
+			node.active.trended_active_multiplier = 1.0;
+		}
 		auto receive2 = wallet.receive_action (*send2, key.pub, amount, 1);
 		ASSERT_NE (nullptr, receive2);
 		if (receive2->difficulty () < node.network_params.network.publish_thresholds.base)
@@ -1465,7 +1468,10 @@ TEST (wallet, epoch_2_receive_unopened)
 		wallet.insert_adhoc (key.prv, false);
 
 		// Receiving should use the lower difficulty
-		node.active.trended_active_multiplier = 1.0;
+		{
+			nano::lock_guard<std::mutex> guard (node.active.mutex);
+			node.active.trended_active_multiplier = 1.0;
+		}
 		auto receive1 = wallet.receive_action (*send1, key.pub, amount, 1);
 		ASSERT_NE (nullptr, receive1);
 		if (receive1->difficulty () < node.network_params.network.publish_thresholds.base)
