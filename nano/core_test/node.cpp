@@ -3727,7 +3727,23 @@ TEST (node, aggressive_flooding)
 	ASSERT_EQ (1 + 2 * nodes_wallets.size () + 2, node1.ledger.cache.block_count);
 }
 
-TEST (active_multiplier, recalculate_work)
+// Tests that upon changing the default difficulty, max generation difficulty changes proportionally
+TEST (node, max_work_generate_difficulty)
+{
+	nano::system system;
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.max_work_generate_multiplier = 2.0;
+	auto & node = *system.add_node (node_config);
+	auto initial_difficulty = node.default_difficulty (nano::work_version::work_1);
+	ASSERT_EQ (node.max_work_generate_difficulty (nano::work_version::work_1), nano::difficulty::from_multiplier (node.config.max_work_generate_multiplier, initial_difficulty));
+	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (node, nano::epoch::epoch_1));
+	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (node, nano::epoch::epoch_2));
+	auto final_difficulty = node.default_difficulty (nano::work_version::work_1);
+	ASSERT_NE (final_difficulty, initial_difficulty);
+	ASSERT_EQ (node.max_work_generate_difficulty (nano::work_version::work_1), nano::difficulty::from_multiplier (node.config.max_work_generate_multiplier, final_difficulty));
+}
+
+TEST (active_difficulty, recalculate_work)
 {
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);

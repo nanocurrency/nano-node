@@ -55,7 +55,6 @@ TEST (distributed_work, no_peers_cancel)
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.max_work_generate_multiplier = 1e6;
-	node_config.max_work_generate_difficulty = nano::difficulty::from_multiplier (node_config.max_work_generate_multiplier, nano::network_constants ().publish_thresholds.base);
 	auto & node = *system.add_node (node_config);
 	nano::block_hash hash{ 1 };
 	bool done{ false };
