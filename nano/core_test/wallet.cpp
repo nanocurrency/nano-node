@@ -1341,7 +1341,7 @@ TEST (wallet, limited_difficulty)
 		nano::lock_guard<std::mutex> guard (node.active.mutex);
 		node.active.trended_active_multiplier = 1024 * 1024 * 1024;
 	}
-	ASSERT_EQ (node_config.max_work_generate_difficulty, node.active.limited_active_difficulty (genesis.open));
+	ASSERT_EQ (node_config.max_work_generate_difficulty, node.active.limited_active_difficulty (*genesis.open));
 	auto send = wallet.send_action (nano::test_genesis_key.pub, nano::keypair ().pub, 1, 1);
 	ASSERT_NE (nullptr, send);
 }

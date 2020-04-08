@@ -103,12 +103,12 @@ public:
 	bool active (nano::qualified_root const &);
 	std::shared_ptr<nano::election> election (nano::qualified_root const &) const;
 	void update_difficulty (std::shared_ptr<nano::block>);
-	double normalized_multiplier (std::shared_ptr<nano::block>, std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> const & = {});
+	double normalized_multiplier (nano::block_hash const &, std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> const & = {});
 	void add_adjust_difficulty (nano::block_hash const &);
 	void update_adjusted_multiplier ();
 	void update_active_multiplier (nano::unique_lock<std::mutex> &);
 	uint64_t active_difficulty ();
-	uint64_t limited_active_difficulty (std::shared_ptr<nano::block>);
+	uint64_t limited_active_difficulty (nano::block const &);
 	double active_multiplier ();
 	std::deque<std::shared_ptr<nano::block>> list_blocks ();
 	void erase (nano::block const &);

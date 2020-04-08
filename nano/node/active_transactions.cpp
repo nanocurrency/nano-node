@@ -504,7 +504,7 @@ nano::election_insertion_result nano::active_transactions::insert_impl (std::sha
 				result.inserted = true;
 				auto hash (block_a->hash ());
 				auto difficulty (block_a->difficulty ());
-				double multiplier (normalized_multiplier (block_a));
+				double multiplier (normalized_multiplier (*block_a));
 				bool prioritized = roots.size () < prioritized_cutoff || multiplier > last_prioritized_multiplier.value_or (0);
 				result.election = nano::make_shared<nano::election> (node, block_a, confirmation_action_a, prioritized);
 				roots.get<tag_root> ().emplace (nano::conflict_info{ root, multiplier, multiplier, result.election });
@@ -631,7 +631,7 @@ void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> 
 	auto existing_election (roots.get<tag_root> ().find (block_a->qualified_root ()));
 	if (existing_election != roots.get<tag_root> ().end ())
 	{
-		double multiplier (normalized_multiplier (block_a, existing_election->election->blocks));
+		double multiplier (normalized_multiplier (*block_a, existing_election->election->blocks));
 		if (multiplier > existing_election->multiplier)
 		{
 			if (node.config.logging.active_update_logging ())
@@ -647,25 +647,25 @@ void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> 
 	}
 }
 
-double nano::active_transactions::normalized_multiplier (std::shared_ptr<nano::block> block_a, std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> const & blocks_a)
+double nano::active_transactions::normalized_multiplier (nano::block_hash const & block_a, std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> const & blocks_a)
 {
-	auto difficulty (block_a->difficulty ());
+	auto difficulty (block_a.difficulty ());
 	uint64_t threshold (0);
 	bool sideband_not_found (false);
-	if (block_a->has_sideband ())
+	if (block_a.has_sideband ())
 	{
-		threshold = nano::work_threshold (block_a->work_version (), block_a->sideband ().details);
+		threshold = nano::work_threshold (block_a.work_version (), block_a.sideband ().details);
 	}
 	else
 	{
-		auto find_block (blocks_a.find (block_a->hash ()));
+		auto find_block (blocks_a.find (block_a.hash ()));
 		if (find_block != blocks_a.end () && find_block->second->has_sideband ())
 		{
-			threshold = nano::work_threshold (block_a->work_version (), find_block->second->sideband ().details);
+			threshold = nano::work_threshold (block_a.work_version (), find_block->second->sideband ().details);
 		}
 		else
 		{
-			threshold = nano::work_threshold_base (block_a->work_version ());
+			threshold = nano::work_threshold_base (block_a.work_version ());
 			sideband_not_found = true;
 		}
 	}
@@ -812,16 +812,16 @@ uint64_t nano::active_transactions::active_difficulty ()
 	return nano::difficulty::from_multiplier (active_multiplier (), node.default_difficulty (nano::work_version::work_1));
 }
 
-uint64_t nano::active_transactions::limited_active_difficulty (std::shared_ptr<nano::block> block_a)
+uint64_t nano::active_transactions::limited_active_difficulty (nano::block const & block_a)
 {
 	uint64_t threshold (0);
-	if (block_a->has_sideband ())
+	if (block_a.has_sideband ())
 	{
-		threshold = nano::work_threshold (block_a->work_version (), block_a->sideband ().details);
+		threshold = nano::work_threshold (block_a.work_version (), block_a.sideband ().details);
 	}
 	else
 	{
-		threshold = node.default_difficulty (block_a->work_version ());
+		threshold = node.default_difficulty (block_a.work_version ());
 	}
 	auto difficulty (nano::difficulty::from_multiplier (nano::denormalized_multiplier (active_multiplier (), threshold), threshold));
 	return std::min (difficulty, node.config.max_work_generate_difficulty);
