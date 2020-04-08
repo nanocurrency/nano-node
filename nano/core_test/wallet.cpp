@@ -1269,7 +1269,9 @@ TEST (work_watcher, removed_after_win)
 	auto & wallet (*system.wallet (0));
 	wallet.insert_adhoc (nano::test_genesis_key.prv);
 	nano::keypair key;
+	ASSERT_EQ (0, wallet.wallets.watcher->size ());
 	auto const block1 (wallet.send_action (nano::test_genesis_key.pub, key.pub, 100));
+	ASSERT_EQ (1, wallet.wallets.watcher->size ());
 	system.deadline_set (5s);
 	while (node.wallets.watcher->is_watched (block1->qualified_root ()))
 	{
@@ -1345,27 +1347,6 @@ TEST (work_watcher, generation_disabled)
 	}
 	ASSERT_EQ (updated_multiplier, multiplier);
 	ASSERT_TRUE (node.distributed_work.items.empty ());
-}
-
-TEST (work_watcher, removed)
-{
-	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
-	node_config.work_watcher_period = 1s;
-	auto & node = *system.add_node (node_config);
-	(void)node;
-	auto & wallet (*system.wallet (0));
-	wallet.insert_adhoc (nano::test_genesis_key.prv);
-	nano::keypair key;
-	ASSERT_EQ (0, wallet.wallets.watcher->size ());
-	auto const block (wallet.send_action (nano::test_genesis_key.pub, key.pub, 100));
-	ASSERT_EQ (1, wallet.wallets.watcher->size ());
-	auto transaction (wallet.wallets.tx_begin_write ());
-	system.deadline_set (3s);
-	while (0 == wallet.wallets.watcher->size ())
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
 }
 
 TEST (work_watcher, cancel)
