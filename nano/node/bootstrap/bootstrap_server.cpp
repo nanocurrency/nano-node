@@ -694,6 +694,7 @@ void nano::bootstrap_server::run_next (nano::unique_lock<std::mutex> & lock_a)
 	if (type == nano::message_type::bulk_pull || type == nano::message_type::bulk_pull_account || type == nano::message_type::bulk_push || type == nano::message_type::frontier_req || type == nano::message_type::node_id_handshake)
 	{
 		// Bootstrap & node ID (realtime start)
+		// Request removed from queue in request_response_visitor. For bootstrap with requests.front ().release (), for node ID with finish_request ()
 		requests.front ()->visit (visitor);
 	}
 	else
