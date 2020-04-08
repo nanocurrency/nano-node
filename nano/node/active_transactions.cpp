@@ -19,7 +19,7 @@ confirmation_height_processor (confirmation_height_processor_a),
 generator (node_a.config, node_a.store, node_a.wallets, node_a.vote_processor, node_a.votes_cache, node_a.network),
 node (node_a),
 multipliers_cb (20, 1.),
-trended_active_difficulty (node_a.network_params.network.publish_thresholds.epoch_1),
+trended_active_multiplier (1.0),
 check_all_elections_period (node_a.network_params.network.is_test_network () ? 10ms : 5s),
 election_time_to_live (node_a.network_params.network.is_test_network () ? 0s : 2s),
 prioritized_cutoff (std::max<size_t> (1, node_a.config.active_elections_size / 10)),
@@ -300,10 +300,10 @@ void nano::active_transactions::request_loop ()
 		// Account for the time spent in request_confirm by defining the wakeup point beforehand
 		const auto wakeup_l (std::chrono::steady_clock::now () + std::chrono::milliseconds (node.network_params.network.request_interval_ms));
 
-		update_adjusted_difficulty ();
-		// frontiers_confirmation should be above update_active_difficulty to ensure new sorted roots are updated
+		update_adjusted_multiplier ();
+		// frontiers_confirmation should be above update_active_multiplier to ensure new sorted roots are updated
 		frontiers_confirmation (lock);
-		update_active_difficulty (lock);
+		update_active_multiplier (lock);
 		request_confirm (lock);
 
 		// Sleep until all broadcasts are done, plus the remaining loop time
@@ -504,9 +504,10 @@ nano::election_insertion_result nano::active_transactions::insert_impl (std::sha
 				result.inserted = true;
 				auto hash (block_a->hash ());
 				auto difficulty (block_a->difficulty ());
-				bool prioritized = roots.size () < prioritized_cutoff || difficulty > last_prioritized_difficulty.value_or (0);
+				double multiplier (normalized_multiplier (*block_a));
+				bool prioritized = roots.size () < prioritized_cutoff || multiplier > last_prioritized_multiplier.value_or (0);
 				result.election = nano::make_shared<nano::election> (node, block_a, confirmation_action_a, prioritized);
-				roots.get<tag_root> ().emplace (nano::conflict_info{ root, difficulty, difficulty, result.election });
+				roots.get<tag_root> ().emplace (nano::conflict_info{ root, multiplier, multiplier, result.election });
 				blocks.emplace (hash, result.election);
 				add_adjust_difficulty (hash);
 				result.election->insert_inactive_votes_cache (hash);
@@ -630,20 +631,51 @@ void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> 
 	auto existing_election (roots.get<tag_root> ().find (block_a->qualified_root ()));
 	if (existing_election != roots.get<tag_root> ().end ())
 	{
-		auto difficulty (block_a->difficulty ());
-		if (difficulty > existing_election->difficulty)
+		double multiplier (normalized_multiplier (*block_a, existing_election->election->blocks));
+		if (multiplier > existing_election->multiplier)
 		{
 			if (node.config.logging.active_update_logging ())
 			{
-				node.logger.try_log (boost::str (boost::format ("Block %1% was updated from difficulty %2% to %3%") % block_a->hash ().to_string () % nano::to_string_hex (existing_election->difficulty) % nano::to_string_hex (difficulty)));
+				node.logger.try_log (boost::str (boost::format ("Block %1% was updated from multiplier %2% to %3%") % block_a->hash ().to_string () % existing_election->multiplier % multiplier));
 			}
-			roots.get<tag_root> ().modify (existing_election, [difficulty](nano::conflict_info & info_a) {
-				info_a.difficulty = difficulty;
+			roots.get<tag_root> ().modify (existing_election, [multiplier](nano::conflict_info & info_a) {
+				info_a.multiplier = multiplier;
 			});
 			existing_election->election->publish (block_a);
 			add_adjust_difficulty (block_a->hash ());
 		}
 	}
+}
+
+double nano::active_transactions::normalized_multiplier (nano::block const & block_a, std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> const & blocks_a)
+{
+	auto difficulty (block_a.difficulty ());
+	uint64_t threshold (0);
+	bool sideband_not_found (false);
+	if (block_a.has_sideband ())
+	{
+		threshold = nano::work_threshold (block_a.work_version (), block_a.sideband ().details);
+	}
+	else
+	{
+		auto find_block (blocks_a.find (block_a.hash ()));
+		if (find_block != blocks_a.end () && find_block->second->has_sideband ())
+		{
+			threshold = nano::work_threshold (block_a.work_version (), find_block->second->sideband ().details);
+		}
+		else
+		{
+			threshold = nano::work_threshold_base (block_a.work_version ());
+			sideband_not_found = true;
+		}
+	}
+	double multiplier (nano::difficulty::to_multiplier (difficulty, threshold));
+	debug_assert (multiplier >= 1 || sideband_not_found);
+	if (multiplier >= 1)
+	{
+		multiplier = nano::normalized_multiplier (multiplier, threshold);
+	}
+	return multiplier;
 }
 
 void nano::active_transactions::add_adjust_difficulty (nano::block_hash const & hash_a)
@@ -652,7 +684,7 @@ void nano::active_transactions::add_adjust_difficulty (nano::block_hash const & 
 	adjust_difficulty_list.push_back (hash_a);
 }
 
-void nano::active_transactions::update_adjusted_difficulty ()
+void nano::active_transactions::update_adjusted_multiplier ()
 {
 	debug_assert (!mutex.try_lock ());
 	std::unordered_set<nano::block_hash> processed_blocks;
@@ -700,7 +732,7 @@ void nano::active_transactions::update_adjusted_difficulty ()
 					auto existing_root (roots.get<tag_root> ().find (root));
 					if (existing_root != roots.get<tag_root> ().end ())
 					{
-						sum += nano::difficulty::to_multiplier (existing_root->difficulty, node.network_params.network.publish_thresholds.epoch_1);
+						sum += existing_root->multiplier;
 						elections_list.emplace_back (root, level);
 						if (level > highest_level)
 						{
@@ -717,32 +749,19 @@ void nano::active_transactions::update_adjusted_difficulty ()
 		}
 		if (!elections_list.empty ())
 		{
-			double multiplier = sum / elections_list.size ();
-			uint64_t average = nano::difficulty::from_multiplier (multiplier, node.network_params.network.publish_thresholds.epoch_1);
-			// Prevent overflow
-			int64_t limiter (0);
-			if (std::numeric_limits<std::uint64_t>::max () - average < static_cast<uint64_t> (highest_level))
-			{
-				// Highest adjusted difficulty value should be std::numeric_limits<std::uint64_t>::max ()
-				limiter = std::numeric_limits<std::uint64_t>::max () - average + highest_level;
-				debug_assert (std::numeric_limits<std::uint64_t>::max () == average + highest_level - limiter);
-			}
-			else if (average < std::numeric_limits<std::uint64_t>::min () - lowest_level)
-			{
-				// Lowest adjusted difficulty value should be std::numeric_limits<std::uint64_t>::min ()
-				limiter = std::numeric_limits<std::uint64_t>::min () - average + lowest_level;
-				debug_assert (std::numeric_limits<std::uint64_t>::min () == average + lowest_level - limiter);
-			}
+			double avg_multiplier = sum / elections_list.size ();
+			double min_unit = 32.0 * avg_multiplier * std::numeric_limits<double>::epsilon ();
+			debug_assert (min_unit > 0);
 
-			// Set adjusted difficulty
+			// Set adjusted multiplier
 			for (auto & item : elections_list)
 			{
 				auto existing_root (roots.get<tag_root> ().find (item.first));
-				uint64_t difficulty_a = average + item.second - limiter;
-				if (existing_root->adjusted_difficulty != difficulty_a)
+				double multiplier_a = avg_multiplier + (double)item.second * min_unit;
+				if (existing_root->adjusted_multiplier != multiplier_a)
 				{
-					roots.get<tag_root> ().modify (existing_root, [difficulty_a](nano::conflict_info & info_a) {
-						info_a.adjusted_difficulty = difficulty_a;
+					roots.get<tag_root> ().modify (existing_root, [multiplier_a](nano::conflict_info & info_a) {
+						info_a.adjusted_multiplier = multiplier_a;
 					});
 				}
 			}
@@ -750,52 +769,73 @@ void nano::active_transactions::update_adjusted_difficulty ()
 	}
 }
 
-void nano::active_transactions::update_active_difficulty (nano::unique_lock<std::mutex> & lock_a)
+void nano::active_transactions::update_active_multiplier (nano::unique_lock<std::mutex> & lock_a)
 {
 	debug_assert (!mutex.try_lock ());
-	last_prioritized_difficulty.reset ();
+	last_prioritized_multiplier.reset ();
 	double multiplier (1.);
 	// Heurestic to filter out non-saturated network and frontier confirmation
 	if (roots.size () > prioritized_cutoff / 2 || (node.network_params.network.is_test_network () && !roots.empty ()))
 	{
 		auto & sorted_roots = roots.get<tag_difficulty> ();
-		std::vector<uint64_t> prioritized;
+		std::vector<double> prioritized;
 		prioritized.reserve (std::min (sorted_roots.size (), prioritized_cutoff));
 		for (auto it (sorted_roots.begin ()), end (sorted_roots.end ()); it != end && prioritized.size () < prioritized_cutoff; ++it)
 		{
 			if (!it->election->confirmed ())
 			{
-				prioritized.push_back (it->adjusted_difficulty);
+				prioritized.push_back (it->adjusted_multiplier);
 			}
 		}
 		if (prioritized.size () > 10 || (node.network_params.network.is_test_network () && !prioritized.empty ()))
 		{
-			multiplier = nano::difficulty::to_multiplier (prioritized[prioritized.size () / 2], node.network_params.network.publish_thresholds.epoch_1);
+			multiplier = prioritized[prioritized.size () / 2];
 		}
 		if (!prioritized.empty ())
 		{
-			last_prioritized_difficulty = prioritized.back ();
+			last_prioritized_multiplier = prioritized.back ();
 		}
 	}
 	debug_assert (multiplier >= nano::difficulty::to_multiplier (node.network_params.network.publish_thresholds.entry, node.network_params.network.publish_thresholds.epoch_1));
 	multipliers_cb.push_front (multiplier);
 	auto sum (std::accumulate (multipliers_cb.begin (), multipliers_cb.end (), double(0)));
-	auto difficulty = nano::difficulty::from_multiplier (sum / multipliers_cb.size (), node.network_params.network.publish_thresholds.epoch_1);
+	double avg_multiplier (sum / multipliers_cb.size ());
+	auto difficulty = nano::difficulty::from_multiplier (avg_multiplier, node.default_difficulty (nano::work_version::work_1));
 	debug_assert (difficulty >= node.network_params.network.publish_thresholds.entry);
 
-	trended_active_difficulty = difficulty;
-	node.observers.difficulty.notify (trended_active_difficulty);
+	trended_active_multiplier = avg_multiplier;
+	node.observers.difficulty.notify (difficulty);
 }
 
 uint64_t nano::active_transactions::active_difficulty ()
 {
-	nano::lock_guard<std::mutex> lock (mutex);
-	return trended_active_difficulty;
+	return nano::difficulty::from_multiplier (active_multiplier (), node.default_difficulty (nano::work_version::work_1));
 }
 
-uint64_t nano::active_transactions::limited_active_difficulty ()
+uint64_t nano::active_transactions::limited_active_difficulty (nano::block const & block_a)
 {
-	return std::min (active_difficulty (), node.config.max_work_generate_difficulty);
+	uint64_t threshold (0);
+	if (block_a.has_sideband ())
+	{
+		threshold = nano::work_threshold (block_a.work_version (), block_a.sideband ().details);
+	}
+	else
+	{
+		threshold = node.default_difficulty (block_a.work_version ());
+	}
+	return limited_active_difficulty (threshold);
+}
+
+uint64_t nano::active_transactions::limited_active_difficulty (uint64_t const threshold_a)
+{
+	auto difficulty (nano::difficulty::from_multiplier (nano::denormalized_multiplier (active_multiplier (), threshold_a), threshold_a));
+	return std::min (difficulty, node.config.max_work_generate_difficulty);
+}
+
+double nano::active_transactions::active_multiplier ()
+{
+	nano::lock_guard<std::mutex> lock (mutex);
+	return trended_active_multiplier;
 }
 
 // List of active blocks in elections
