@@ -50,8 +50,7 @@ nano::bulk_pull_client::~bulk_pull_client ()
 	{
 		connection->node->bootstrap_initiator.cache.remove (pull);
 	}
-	--attempt->pulling;
-	attempt->condition.notify_all ();
+	attempt->pull_finished ();
 }
 
 void nano::bulk_pull_client::request ()
@@ -292,8 +291,7 @@ pull_blocks (0)
 
 nano::bulk_pull_account_client::~bulk_pull_account_client ()
 {
-	--attempt->pulling;
-	attempt->condition.notify_all ();
+	attempt->pull_finished ();
 }
 
 void nano::bulk_pull_account_client::request ()

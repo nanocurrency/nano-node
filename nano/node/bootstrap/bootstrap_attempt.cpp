@@ -70,6 +70,24 @@ bool nano::bootstrap_attempt::still_pulling ()
 	return running && still_pulling;
 }
 
+void nano::bootstrap_attempt::pull_started ()
+{
+	{
+		nano::lock_guard<std::mutex> guard (mutex);
+		++pulling;
+	}
+	condition.notify_all ();
+}
+
+void nano::bootstrap_attempt::pull_finished ()
+{
+	{
+		nano::lock_guard<std::mutex> guard (mutex);
+		--pulling;
+	}
+	condition.notify_all ();
+}
+
 void nano::bootstrap_attempt::stop ()
 {
 	{
@@ -517,8 +535,8 @@ bool nano::bootstrap_attempt_legacy::request_frontier (nano::unique_lock<std::mu
 				auto pull (frontier_pulls.front ());
 				lock_a.unlock ();
 				node->bootstrap_initiator.connections->add_pull (pull);
-				++pulling;
 				lock_a.lock ();
+				++pulling;
 				frontier_pulls.pop_front ();
 			}
 		}
