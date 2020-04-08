@@ -330,6 +330,7 @@ public:
 	nano::account pending_account;
 	boost::optional<bool> state_is_send;
 	nano::signature_verification verified;
+	nano::amount previous_balance;
 };
 enum class tally_result
 {

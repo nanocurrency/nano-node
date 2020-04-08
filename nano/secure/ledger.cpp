@@ -281,6 +281,7 @@ void ledger_processor::state_block_impl (nano::state_block & block_a)
 				if (!account_error)
 				{
 					epoch = info.epoch ();
+					result.previous_balance = info.balance;
 					// Account already exists
 					result.code = block_a.hashables.previous.is_zero () ? nano::process_result::fork : nano::process_result::progress; // Has this account already been opened? (Ambigious)
 					if (result.code == nano::process_result::progress)
@@ -398,6 +399,7 @@ void ledger_processor::epoch_block_impl (nano::state_block & block_a)
 				auto account_error (ledger.store.account_get (transaction, block_a.hashables.account, info));
 				if (!account_error)
 				{
+					result.previous_balance = info.balance;
 					// Account already exists
 					result.code = block_a.hashables.previous.is_zero () ? nano::process_result::fork : nano::process_result::progress; // Has this account already been opened? (Ambigious)
 					if (result.code == nano::process_result::progress)

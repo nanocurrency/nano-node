@@ -51,7 +51,7 @@ public:
 private:
 	void queue_unchecked (nano::write_transaction const &, nano::block_hash const &);
 	void process_batch (nano::unique_lock<std::mutex> &);
-	void process_live (nano::block_hash const &, std::shared_ptr<nano::block>, const bool = false, const bool = false);
+	void process_live (nano::block_hash const &, std::shared_ptr<nano::block>, nano::process_return const &, const bool = false, const bool = false);
 	void requeue_invalid (nano::block_hash const &, nano::unchecked_info const &);
 	void process_verified_state_blocks (std::deque<nano::unchecked_info> &, std::vector<int> const &, std::vector<nano::block_hash> const &, std::vector<nano::signature> const &);
 	bool stopped{ false };
