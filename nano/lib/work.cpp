@@ -151,8 +151,9 @@ double nano::normalized_multiplier (double const multiplier_a, uint64_t const th
 	debug_assert (multiplier_a >= 1);
 	auto multiplier (multiplier_a);
 	/* Normalization rules
-	// ratio = multiplier of max threshold with base threshold
-	// normalized = (multiplier + (ratio - 1)) / ratio;
+	ratio = multiplier of max work threshold (send epoch 2) from given threshold
+	i.e. max = 0xfe00000000000000, given = 0xf000000000000000, ratio = 8.0
+	normalized = (multiplier + (ratio - 1)) / ratio;
 	Epoch 1
 	multiplier	 | normalized
 	1.0 		 | 1.0
