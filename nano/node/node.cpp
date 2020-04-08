@@ -1371,8 +1371,8 @@ void nano::node::epoch_upgrader (nano::private_key const & prv_a, nano::epoch ep
 	auto signer (nano::pub_key (prv_a));
 	debug_assert (signer == ledger.epoch_signer (link));
 
-	std::mutex mutex;
-	nano::condition_variable condition;
+	std::mutex upgrader_mutex;
+	nano::condition_variable upgrader_condition;
 
 	class account_upgrade_item final
 	{
@@ -1423,7 +1423,7 @@ void nano::node::epoch_upgrader (nano::private_key const & prv_a, nano::epoch ep
 			/* Upgrade accounts
 			Repeat until accounts with previous epoch exist in latest table */
 			std::atomic<uint64_t> upgraded_accounts (0);
-			std::atomic<uint64_t> workers (0);
+			uint64_t workers (0);
 			for (auto i (accounts_list.get<modified_tag> ().begin ()), n (accounts_list.get<modified_tag> ().end ()); i != n && upgraded_accounts < upgrade_batch_size && upgraded_accounts < count_limit && !stopped; ++i)
 			{
 				std::atomic<bool> to_next_account (false);
@@ -1445,16 +1445,21 @@ void nano::node::epoch_upgrader (nano::private_key const & prv_a, nano::epoch ep
 					                                     .build ();
 					if (threads != 0)
 					{
-						++workers;
-						while (workers > threads)
 						{
-							nano::unique_lock<std::mutex> lock (mutex);
-							condition.wait (lock);
+							nano::unique_lock<std::mutex> lock (upgrader_mutex);
+							++workers;
+							while (workers > threads)
+							{
+								upgrader_condition.wait (lock);
+							}
 						}
-						worker.push_task ([node_l = shared_from_this (), &upgrader_process, &condition, &upgraded_accounts, &workers, &to_next_account, epoch, difficulty, signer, root, account]() {
+						worker.push_task ([node_l = shared_from_this (), &upgrader_process, &upgrader_mutex, &upgrader_condition, &upgraded_accounts, &workers, &to_next_account, epoch, difficulty, signer, root, account]() {
 							upgrader_process (*node_l, upgraded_accounts, to_next_account, epoch, difficulty, signer, root, account);
-							--workers;
-							condition.notify_all ();
+							{
+								nano::lock_guard<std::mutex> lock (upgrader_mutex);
+								--workers;
+							}
+							upgrader_condition.notify_all ();
 						});
 					}
 					else
@@ -1464,10 +1469,10 @@ void nano::node::epoch_upgrader (nano::private_key const & prv_a, nano::epoch ep
 				}
 			}
 			{
-				nano::unique_lock<std::mutex> lock (mutex);
+				nano::unique_lock<std::mutex> lock (upgrader_mutex);
 				while (workers > 0)
 				{
-					condition.wait (lock);
+					upgrader_condition.wait (lock);
 				}
 			}
 			total_upgraded_accounts += upgraded_accounts;
@@ -1491,7 +1496,7 @@ void nano::node::epoch_upgrader (nano::private_key const & prv_a, nano::epoch ep
 		while (!finished_pending && count_limit != 0 && !stopped)
 		{
 			std::atomic<uint64_t> upgraded_pending (0);
-			std::atomic<uint64_t> workers (0);
+			uint64_t workers (0);
 			auto transaction (store.tx_begin_read ());
 			for (auto i (store.pending_begin (transaction, nano::pending_key (1, 0))), n (store.pending_end ()); i != n && upgraded_pending < upgrade_batch_size && upgraded_pending < count_limit && !stopped;)
 			{
@@ -1517,16 +1522,21 @@ void nano::node::epoch_upgrader (nano::private_key const & prv_a, nano::epoch ep
 						                                     .build ();
 						if (threads != 0)
 						{
-							++workers;
-							while (workers > threads)
 							{
-								nano::unique_lock<std::mutex> lock (mutex);
-								condition.wait (lock);
+								nano::unique_lock<std::mutex> lock (upgrader_mutex);
+								++workers;
+								while (workers > threads)
+								{
+									upgrader_condition.wait (lock);
+								}
 							}
-							worker.push_task ([node_l = shared_from_this (), &upgrader_process, &condition, &upgraded_pending, &workers, &to_next_account, epoch, difficulty, signer, root, account]() {
+							worker.push_task ([node_l = shared_from_this (), &upgrader_process, &upgrader_mutex, &upgrader_condition, &upgraded_pending, &workers, &to_next_account, epoch, difficulty, signer, root, account]() {
 								upgrader_process (*node_l, upgraded_pending, to_next_account, epoch, difficulty, signer, root, account);
-								--workers;
-								condition.notify_all ();
+								{
+									nano::lock_guard<std::mutex> lock (upgrader_mutex);
+									--workers;
+								}
+								upgrader_condition.notify_all ();
 							});
 						}
 						else
@@ -1558,10 +1568,10 @@ void nano::node::epoch_upgrader (nano::private_key const & prv_a, nano::epoch ep
 				}
 			}
 			{
-				nano::unique_lock<std::mutex> lock (mutex);
+				nano::unique_lock<std::mutex> lock (upgrader_mutex);
 				while (workers > 0)
 				{
-					condition.wait (lock);
+					upgrader_condition.wait (lock);
 				}
 			}
 
