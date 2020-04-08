@@ -62,9 +62,13 @@ private: // State management
 	void broadcast_block (nano::confirmation_solicitor &);
 	void send_confirm_req (nano::confirmation_solicitor &);
 	void activate_dependencies ();
+	// Calculate votes for local representatives
+	void generate_votes (nano::block_hash const &);
+	void remove_votes (nano::block_hash const &);
+	std::atomic<bool> prioritized_m = { false };
 
 public:
-	election (nano::node &, std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const &);
+	election (nano::node &, std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const &, bool);
 	nano::election_vote_result vote (nano::account, uint64_t, nano::block_hash);
 	nano::tally_t tally ();
 	// Check if we have vote quorum
@@ -78,6 +82,8 @@ public:
 	void update_dependent ();
 	void adjust_dependent_difficulty ();
 	void insert_inactive_votes_cache (nano::block_hash const &);
+	bool prioritized () const;
+	void prioritize_election ();
 	// Erase all blocks from active and, if not confirmed, clear digests from network filters
 	void cleanup ();
 

@@ -412,6 +412,12 @@ void ledger_processor::epoch_block_impl (nano::state_block & block_a)
 				else
 				{
 					result.code = block_a.hashables.representative.is_zero () ? nano::process_result::progress : nano::process_result::representative_mismatch;
+					// Non-exisitng account should have pending entries
+					if (result.code == nano::process_result::progress)
+					{
+						bool pending_exists = ledger.store.pending_any (transaction, block_a.hashables.account);
+						result.code = pending_exists ? nano::process_result::progress : nano::process_result::block_position;
+					}
 				}
 				if (result.code == nano::process_result::progress)
 				{
@@ -438,6 +444,10 @@ void ledger_processor::epoch_block_impl (nano::state_block & block_a)
 								if (!ledger.store.frontier_get (transaction, info.head).is_zero ())
 								{
 									ledger.store.frontier_del (transaction, info.head);
+								}
+								if (epoch == nano::epoch::epoch_2)
+								{
+									ledger.cache.epoch_2_started.store (true);
 								}
 							}
 						}
@@ -725,12 +735,15 @@ check_bootstrap_weights (true)
 		auto transaction = store.tx_begin_read ();
 		if (generate_cache_a.reps || generate_cache_a.account_count)
 		{
+			bool epoch_2_started_l{ false };
 			for (auto i (store.latest_begin (transaction)), n (store.latest_end ()); i != n; ++i)
 			{
 				nano::account_info const & info (i->second);
 				cache.rep_weights.representation_add (info.representative, info.balance.number ());
 				++cache.account_count;
+				epoch_2_started_l = epoch_2_started_l || info.epoch () == nano::epoch::epoch_2;
 			}
+			cache.epoch_2_started.store (epoch_2_started_l);
 		}
 
 		if (generate_cache_a.cemented_count)
@@ -783,7 +796,7 @@ nano::uint128_t nano::ledger::account_pending (nano::transaction const & transac
 
 nano::process_return nano::ledger::process (nano::write_transaction const & transaction_a, nano::block & block_a, nano::signature_verification verification)
 {
-	debug_assert (network_params.network.is_test_network () || !nano::work_validate (block_a));
+	debug_assert (!nano::work_validate_entry (block_a) || network_params.network.is_test_network ());
 	ledger_processor processor (*this, transaction_a, verification);
 	block_a.visit (processor);
 	if (processor.result.code == nano::process_result::progress)

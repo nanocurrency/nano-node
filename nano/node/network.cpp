@@ -15,7 +15,7 @@ syn_cookies (node_a.network_params.node.max_peers_per_ip),
 buffer_container (node_a.stats, nano::network::buffer_size, 4096), // 2Mb receive buffer
 tcp_message_manager (node_a.stats, node_a.config.tcp_incoming_connections_max),
 resolver (node_a.io_ctx),
-limiter (node_a.config.bandwidth_limit),
+limiter (node_a.config.bandwidth_limit_burst_ratio, node_a.config.bandwidth_limit),
 node (node_a),
 publish_filter (256 * 1024),
 udp_channels (node_a, port_a),
@@ -255,17 +255,8 @@ void nano::network::flood_block_many (std::deque<std::shared_ptr<nano::block>> b
 void nano::network::send_confirm_req (std::shared_ptr<nano::transport::channel> channel_a, std::shared_ptr<nano::block> block_a)
 {
 	// Confirmation request with hash + root
-	if (channel_a->get_network_version () >= node.network_params.protocol.tcp_realtime_protocol_version_min)
-	{
-		nano::confirm_req req (block_a->hash (), block_a->root ());
-		channel_a->send (req);
-	}
-	// Confirmation request with full block
-	else
-	{
-		nano::confirm_req req (block_a);
-		channel_a->send (req);
-	}
+	nano::confirm_req req (block_a->hash (), block_a->root ());
+	channel_a->send (req);
 }
 
 void nano::network::broadcast_confirm_req (std::shared_ptr<nano::block> block_a)
@@ -680,14 +671,13 @@ nano::tcp_endpoint nano::network::bootstrap_peer (bool lazy_bootstrap)
 {
 	nano::tcp_endpoint result (boost::asio::ip::address_v6::any (), 0);
 	bool use_udp_peer (nano::random_pool::generate_word32 (0, 1));
-	auto protocol_min (lazy_bootstrap ? node.network_params.protocol.protocol_version_bootstrap_lazy_min : node.network_params.protocol.protocol_version_bootstrap_min);
 	if (use_udp_peer || tcp_channels.size () == 0)
 	{
-		result = udp_channels.bootstrap_peer (protocol_min);
+		result = udp_channels.bootstrap_peer (node.network_params.protocol.protocol_version_bootstrap_min);
 	}
 	if (result == nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0))
 	{
-		result = tcp_channels.bootstrap_peer (protocol_min);
+		result = tcp_channels.bootstrap_peer (node.network_params.protocol.protocol_version_bootstrap_min);
 	}
 	return result;
 }
@@ -1011,6 +1001,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (ne
 	composite->add_component (network.tcp_channels.collect_container_info ("tcp_channels"));
 	composite->add_component (network.udp_channels.collect_container_info ("udp_channels"));
 	composite->add_component (network.syn_cookies.collect_container_info ("syn_cookies"));
+	composite->add_component (collect_container_info (network.excluded_peers, "excluded_peers"));
 	return composite;
 }
 

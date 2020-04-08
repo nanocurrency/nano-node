@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/numbers.hpp>
+#include <nano/node/voting.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/circular_buffer.hpp>
@@ -37,7 +38,6 @@ public:
 	uint64_t difficulty;
 	uint64_t adjusted_difficulty;
 	std::shared_ptr<nano::election> election;
-	bool prioritized;
 };
 
 class cementable_account final
@@ -70,7 +70,6 @@ class election_insertion_result final
 public:
 	std::shared_ptr<nano::election> election;
 	bool inserted{ false };
-	bool prioritized{ false };
 };
 
 // Core class for determining consensus
@@ -153,14 +152,16 @@ public:
 private:
 	std::mutex election_winner_details_mutex;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> election_winner_details;
+	nano::vote_generator generator;
 
 	// Call action with confirmed block, may be different than what we started with
 	// clang-format off
 	nano::election_insertion_result insert_impl (std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
 	// clang-format on
 	void request_loop ();
-	void search_frontiers (nano::transaction const &);
+	void confirm_prioritized_frontiers (nano::transaction const & transaction_a);
 	void request_confirm (nano::unique_lock<std::mutex> &);
+	void frontiers_confirmation (nano::unique_lock<std::mutex> &);
 	nano::account next_frontier_account{ 0 };
 	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };
 	nano::condition_variable condition;
@@ -204,7 +205,7 @@ private:
 	bool skip_wallets{ false };
 	void prioritize_account_for_confirmation (prioritize_num_uncemented &, size_t &, nano::account const &, nano::account_info const &, uint64_t);
 	static size_t constexpr max_priority_cementable_frontiers{ 100000 };
-	static size_t constexpr confirmed_frontiers_max_pending_cut_off{ 1000 };
+	static size_t constexpr confirmed_frontiers_max_pending_size{ 10000 };
 	std::deque<nano::block_hash> adjust_difficulty_list;
 	// clang-format off
 	using ordered_cache = boost::multi_index_container<nano::inactive_cache_information,
@@ -223,6 +224,7 @@ private:
 	friend class confirmation_height_prioritize_frontiers_Test;
 	friend class confirmation_height_prioritize_frontiers_overwrite_Test;
 	friend class active_transactions_confirmation_consistency_Test;
+	friend class node_vote_by_hash_bundle_Test;
 	friend std::unique_ptr<container_info_component> collect_container_info (active_transactions &, const std::string &);
 };
 

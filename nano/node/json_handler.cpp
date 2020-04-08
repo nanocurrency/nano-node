@@ -35,6 +35,24 @@ node_rpc_config (node_rpc_config_a)
 {
 }
 
+std::function<void()> nano::json_handler::create_worker_task (std::function<void(std::shared_ptr<nano::json_handler> const &)> const & action_a)
+{
+	return [rpc_l = shared_from_this (), action_a]() {
+		try
+		{
+			action_a (rpc_l);
+		}
+		catch (std::runtime_error const &)
+		{
+			json_error_response (rpc_l->response, "Unable to parse JSON");
+		}
+		catch (...)
+		{
+			json_error_response (rpc_l->response, "Internal server error in RPC");
+		}
+	};
+}
+
 void nano::json_handler::process_request (bool unsafe_a)
 {
 	try
@@ -343,9 +361,9 @@ uint64_t nano::json_handler::work_optional_impl ()
 	return result;
 }
 
-uint64_t nano::json_handler::difficulty_optional_impl ()
+uint64_t nano::json_handler::difficulty_optional_impl (nano::work_version const version_a)
 {
-	uint64_t difficulty (node.network_params.network.publish_thresholds.base);
+	auto difficulty (node.default_difficulty (version_a));
 	boost::optional<std::string> difficulty_text (request.get_optional<std::string> ("difficulty"));
 	if (!ec && difficulty_text.is_initialized ())
 	{
@@ -357,7 +375,7 @@ uint64_t nano::json_handler::difficulty_optional_impl ()
 	return difficulty;
 }
 
-double nano::json_handler::multiplier_optional_impl (uint64_t & difficulty)
+double nano::json_handler::multiplier_optional_impl (nano::work_version const version_a, uint64_t & difficulty)
 {
 	double multiplier (1.);
 	boost::optional<std::string> multiplier_text (request.get_optional<std::string> ("multiplier"));
@@ -366,7 +384,7 @@ double nano::json_handler::multiplier_optional_impl (uint64_t & difficulty)
 		auto success = boost::conversion::try_lexical_convert<double> (multiplier_text.get (), multiplier);
 		if (success && multiplier > 0.)
 		{
-			difficulty = nano::difficulty::from_multiplier (multiplier, node.network_params.network.publish_thresholds.base);
+			difficulty = nano::difficulty::from_multiplier (multiplier, node.default_difficulty (version_a));
 		}
 		else
 		{
@@ -487,8 +505,7 @@ void nano::json_handler::account_block_count ()
 
 void nano::json_handler::account_create ()
 {
-	auto rpc_l (shared_from_this ());
-	node.worker.push_task ([rpc_l]() {
+	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		auto wallet (rpc_l->wallet_impl ());
 		if (!rpc_l->ec)
 		{
@@ -525,7 +542,7 @@ void nano::json_handler::account_create ()
 			}
 		}
 		rpc_l->response_errors ();
-	});
+	}));
 }
 
 void nano::json_handler::account_get ()
@@ -620,8 +637,7 @@ void nano::json_handler::account_list ()
 
 void nano::json_handler::account_move ()
 {
-	auto rpc_l (shared_from_this ());
-	node.worker.push_task ([rpc_l]() {
+	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		auto wallet (rpc_l->wallet_impl ());
 		if (!rpc_l->ec)
 		{
@@ -655,13 +671,12 @@ void nano::json_handler::account_move ()
 			}
 		}
 		rpc_l->response_errors ();
-	});
+	}));
 }
 
 void nano::json_handler::account_remove ()
 {
-	auto rpc_l (shared_from_this ());
-	node.worker.push_task ([rpc_l]() {
+	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		auto wallet (rpc_l->wallet_impl ());
 		auto account (rpc_l->account_impl ());
 		if (!rpc_l->ec)
@@ -676,7 +691,7 @@ void nano::json_handler::account_remove ()
 			}
 		}
 		rpc_l->response_errors ();
-	});
+	}));
 }
 
 void nano::json_handler::account_representative ()
@@ -696,8 +711,7 @@ void nano::json_handler::account_representative ()
 
 void nano::json_handler::account_representative_set ()
 {
-	auto rpc_l (shared_from_this ());
-	node.worker.push_task ([rpc_l, work_generation_enabled = node.work_generation_enabled ()]() {
+	node.worker.push_task (create_worker_task ([work_generation_enabled = node.work_generation_enabled ()](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		auto wallet (rpc_l->wallet_impl ());
 		auto account (rpc_l->account_impl ());
 		std::string representative_text (rpc_l->request.get<std::string> ("representative"));
@@ -716,7 +730,8 @@ void nano::json_handler::account_representative_set ()
 					auto info (rpc_l->account_info_impl (block_transaction, account));
 					if (!rpc_l->ec)
 					{
-						if (nano::work_validate (nano::work_version::work_1, info.head, work))
+						nano::block_details details (info.epoch (), false, false, false);
+						if (nano::work_difficulty (nano::work_version::work_1, info.head, work) < nano::work_threshold (nano::work_version::work_1, details))
 						{
 							rpc_l->ec = nano::error_common::invalid_work;
 						}
@@ -757,7 +772,7 @@ void nano::json_handler::account_representative_set ()
 		{
 			rpc_l->response_errors ();
 		}
-	});
+	}));
 }
 
 void nano::json_handler::account_weight ()
@@ -792,8 +807,7 @@ void nano::json_handler::accounts_balances ()
 
 void nano::json_handler::accounts_create ()
 {
-	auto rpc_l (shared_from_this ());
-	node.worker.push_task ([rpc_l]() {
+	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		auto wallet (rpc_l->wallet_impl ());
 		auto count (rpc_l->count_impl ());
 		if (!rpc_l->ec)
@@ -813,7 +827,7 @@ void nano::json_handler::accounts_create ()
 			rpc_l->response_l.add_child ("accounts", accounts);
 		}
 		rpc_l->response_errors ();
-	});
+	}));
 }
 
 void nano::json_handler::accounts_frontiers ()
@@ -909,10 +923,10 @@ void nano::json_handler::accounts_pending ()
 void nano::json_handler::active_difficulty ()
 {
 	auto include_trend (request.get<bool> ("include_trend", false));
-	response_l.put ("network_minimum", nano::to_string_hex (node.network_params.network.publish_thresholds.base));
+	response_l.put ("network_minimum", nano::to_string_hex (node.network_params.network.publish_thresholds.epoch_1));
 	auto difficulty_active = node.active.active_difficulty ();
 	response_l.put ("network_current", nano::to_string_hex (difficulty_active));
-	auto multiplier = nano::difficulty::to_multiplier (difficulty_active, node.network_params.network.publish_thresholds.base);
+	auto multiplier = nano::difficulty::to_multiplier (difficulty_active, node.network_params.network.publish_thresholds.epoch_1);
 	response_l.put ("multiplier", nano::to_string (multiplier));
 	if (include_trend)
 	{
@@ -1247,8 +1261,11 @@ void nano::json_handler::block_create ()
 {
 	std::string type (request.get<std::string> ("type"));
 	nano::wallet_id wallet (0);
+	// Default to work_1 if not specified
+	auto work_version (work_version_optional_impl (nano::work_version::work_1));
+	auto difficulty_l (difficulty_optional_impl (work_version));
 	boost::optional<std::string> wallet_text (request.get_optional<std::string> ("wallet"));
-	if (wallet_text.is_initialized ())
+	if (!ec && wallet_text.is_initialized ())
 	{
 		if (wallet.decode_hex (wallet_text.get ()))
 		{
@@ -1292,8 +1309,6 @@ void nano::json_handler::block_create ()
 		}
 	}
 	auto work (work_optional_impl ());
-	// Default to work_1 if not specified
-	auto work_version (work_version_optional_impl (nano::work_version::work_1));
 	nano::raw_key prv;
 	prv.data.clear ();
 	nano::block_hash previous (0);
@@ -1559,7 +1574,7 @@ void nano::json_handler::block_create ()
 			{
 				if (work == 0)
 				{
-					node.work_generate (work_version, root_l, get_callback_l (block_l), nano::account (pub));
+					node.work_generate (work_version, root_l, difficulty_l, get_callback_l (block_l), nano::account (pub));
 				}
 				else
 				{
@@ -2120,6 +2135,7 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::private_key const
 				nano::account_info info;
 				if (!node_a->store.account_get (transaction, i->account, info) && info.epoch () < epoch_a)
 				{
+					auto difficulty (nano::work_threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true)));
 					auto epoch = builder.state ()
 					             .account (i->account)
 					             .previous (info.head)
@@ -2127,10 +2143,10 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::private_key const
 					             .balance (info.balance)
 					             .link (link)
 					             .sign (raw_key, signer)
-					             .work (node_a->work_generate_blocking (nano::work_version::work_1, info.head).value_or (0))
+					             .work (node_a->work_generate_blocking (nano::work_version::work_1, info.head, difficulty).value_or (0))
 					             .build ();
 					bool valid_signature (!nano::validate_message (signer, epoch->hash (), epoch->block_signature ()));
-					bool valid_work (!nano::work_validate (*epoch.get ()));
+					bool valid_work (epoch->difficulty () >= difficulty);
 					nano::process_result result (nano::process_result::old);
 					if (valid_signature && valid_work)
 					{
@@ -2179,6 +2195,7 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::private_key const
 					if (info.epoch < epoch_a)
 					{
 						release_assert (nano::epochs::is_sequential (info.epoch, epoch_a));
+						auto difficulty (nano::work_threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true)));
 						auto epoch = builder.state ()
 						             .account (key.account)
 						             .previous (0)
@@ -2186,10 +2203,10 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::private_key const
 						             .balance (0)
 						             .link (link)
 						             .sign (raw_key, signer)
-						             .work (node_a->work_generate_blocking (nano::work_version::work_1, key.account).value_or (0))
+						             .work (node_a->work_generate_blocking (nano::work_version::work_1, key.account, difficulty).value_or (0))
 						             .build ();
 						bool valid_signature (!nano::validate_message (signer, epoch->hash (), epoch->block_signature ()));
-						bool valid_work (!nano::work_validate (*epoch.get ()));
+						bool valid_work (epoch->difficulty () >= difficulty);
 						nano::process_result result (nano::process_result::old);
 						if (valid_signature && valid_work)
 						{
@@ -2825,8 +2842,7 @@ void nano::json_handler::node_id_delete ()
 
 void nano::json_handler::password_change ()
 {
-	auto rpc_l (shared_from_this ());
-	node.worker.push_task ([rpc_l]() {
+	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		auto wallet (rpc_l->wallet_impl ());
 		if (!rpc_l->ec)
 		{
@@ -2844,13 +2860,12 @@ void nano::json_handler::password_change ()
 			}
 		}
 		rpc_l->response_errors ();
-	});
+	}));
 }
 
 void nano::json_handler::password_enter ()
 {
-	auto rpc_l (shared_from_this ());
-	node.worker.push_task ([rpc_l]() {
+	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		auto wallet (rpc_l->wallet_impl ());
 		if (!rpc_l->ec)
 		{
@@ -2860,7 +2875,7 @@ void nano::json_handler::password_enter ()
 			rpc_l->response_l.put ("valid", error ? "0" : "1");
 		}
 		rpc_l->response_errors ();
-	});
+	}));
 }
 
 void nano::json_handler::password_valid (bool wallet_locked)
@@ -3023,8 +3038,7 @@ void nano::json_handler::pending_exists ()
 
 void nano::json_handler::payment_begin ()
 {
-	auto rpc_l (shared_from_this ());
-	node.worker.push_task ([rpc_l]() {
+	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		std::string id_text (rpc_l->request.get<std::string> ("wallet"));
 		nano::wallet_id id;
 		if (!id.decode_hex (id_text))
@@ -3090,13 +3104,12 @@ void nano::json_handler::payment_begin ()
 			rpc_l->ec = nano::error_common::bad_wallet_number;
 		}
 		rpc_l->response_errors ();
-	});
+	}));
 }
 
 void nano::json_handler::payment_init ()
 {
-	auto rpc_l (shared_from_this ());
-	node.worker.push_task ([rpc_l]() {
+	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		auto wallet (rpc_l->wallet_impl ());
 		if (!rpc_l->ec)
 		{
@@ -3113,7 +3126,7 @@ void nano::json_handler::payment_init ()
 			}
 		}
 		rpc_l->response_errors ();
-	});
+	}));
 }
 
 void nano::json_handler::payment_end ()
@@ -3172,8 +3185,7 @@ void nano::json_handler::payment_wait ()
 
 void nano::json_handler::process ()
 {
-	auto rpc_l (shared_from_this ());
-	node.worker.push_task ([rpc_l]() {
+	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		const bool json_block_l = rpc_l->request.get<bool> ("json_block", false);
 		const bool watch_work_l = rpc_l->request.get<bool> ("watch_work", true);
 		std::shared_ptr<nano::block> block;
@@ -3255,7 +3267,7 @@ void nano::json_handler::process ()
 		}
 		if (!rpc_l->ec)
 		{
-			if (!nano::work_validate (*block))
+			if (!nano::work_validate_entry (*block))
 			{
 				auto result (rpc_l->node.process_local (block, watch_work_l));
 				switch (result.code)
@@ -3321,6 +3333,11 @@ void nano::json_handler::process ()
 						}
 						break;
 					}
+					case nano::process_result::insufficient_work:
+					{
+						rpc_l->ec = nano::error_process::insufficient_work;
+						break;
+					}
 					default:
 					{
 						rpc_l->ec = nano::error_process::other;
@@ -3334,7 +3351,7 @@ void nano::json_handler::process ()
 			}
 		}
 		rpc_l->response_errors ();
-	});
+	}));
 }
 
 void nano::json_handler::receive ()
@@ -3360,15 +3377,19 @@ void nano::json_handler::receive ()
 					{
 						nano::account_info info;
 						nano::root head;
+						nano::epoch epoch = block->sideband ().details.epoch;
 						if (!node.store.account_get (block_transaction, account, info))
 						{
 							head = info.head;
+							// When receiving, epoch version is the higher between the previous and the source blocks
+							epoch = std::max (info.epoch (), epoch);
 						}
 						else
 						{
 							head = account;
 						}
-						if (nano::work_validate (nano::work_version::work_1, head, work))
+						nano::block_details details (epoch, false, true, false);
+						if (nano::work_difficulty (nano::work_version::work_1, head, work) < nano::work_threshold (nano::work_version::work_1, details))
 						{
 							ec = nano::error_common::invalid_work;
 						}
@@ -3711,7 +3732,8 @@ void nano::json_handler::send ()
 			}
 			if (!ec && work)
 			{
-				if (nano::work_validate (nano::work_version::work_1, info.head, work))
+				nano::block_details details (info.epoch (), true, false, false);
+				if (nano::work_difficulty (nano::work_version::work_1, info.head, work) < nano::work_threshold (nano::work_version::work_1, details))
 				{
 					ec = nano::error_common::invalid_work;
 				}
@@ -4111,14 +4133,13 @@ void nano::json_handler::unchecked ()
 
 void nano::json_handler::unchecked_clear ()
 {
-	auto rpc_l (shared_from_this ());
-	node.worker.push_task ([rpc_l]() {
+	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		auto transaction (rpc_l->node.store.tx_begin_write ({ tables::unchecked }));
 		rpc_l->node.store.unchecked_clear (transaction);
 		rpc_l->node.ledger.cache.unchecked_count = 0;
 		rpc_l->response_l.put ("success", "");
 		rpc_l->response_errors ();
-	});
+	}));
 }
 
 void nano::json_handler::unchecked_get ()
@@ -4292,8 +4313,7 @@ void nano::json_handler::validate_account_number ()
 
 void nano::json_handler::wallet_add ()
 {
-	auto rpc_l (shared_from_this ());
-	node.worker.push_task ([rpc_l]() {
+	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		auto wallet (rpc_l->wallet_impl ());
 		if (!rpc_l->ec)
 		{
@@ -4318,13 +4338,12 @@ void nano::json_handler::wallet_add ()
 			}
 		}
 		rpc_l->response_errors ();
-	});
+	}));
 }
 
 void nano::json_handler::wallet_add_watch ()
 {
-	auto rpc_l (shared_from_this ());
-	node.worker.push_task ([rpc_l]() {
+	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		auto wallet (rpc_l->wallet_impl ());
 		if (!rpc_l->ec)
 		{
@@ -4353,7 +4372,7 @@ void nano::json_handler::wallet_add_watch ()
 			}
 		}
 		rpc_l->response_errors ();
-	});
+	}));
 }
 
 void nano::json_handler::wallet_info ()
@@ -4424,8 +4443,7 @@ void nano::json_handler::wallet_balances ()
 
 void nano::json_handler::wallet_change_seed ()
 {
-	auto rpc_l (shared_from_this ());
-	node.worker.push_task ([rpc_l]() {
+	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		auto wallet (rpc_l->wallet_impl ());
 		if (!rpc_l->ec)
 		{
@@ -4455,7 +4473,7 @@ void nano::json_handler::wallet_change_seed ()
 			}
 		}
 		rpc_l->response_errors ();
-	});
+	}));
 }
 
 void nano::json_handler::wallet_contains ()
@@ -4473,8 +4491,7 @@ void nano::json_handler::wallet_contains ()
 
 void nano::json_handler::wallet_create ()
 {
-	auto rpc_l (shared_from_this ());
-	node.worker.push_task ([rpc_l]() {
+	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		nano::raw_key seed;
 		auto seed_text (rpc_l->request.get_optional<std::string> ("seed"));
 		if (seed_text.is_initialized () && seed.data.decode_hex (seed_text.get ()))
@@ -4505,13 +4522,12 @@ void nano::json_handler::wallet_create ()
 			}
 		}
 		rpc_l->response_errors ();
-	});
+	}));
 }
 
 void nano::json_handler::wallet_destroy ()
 {
-	auto rpc_l (shared_from_this ());
-	node.worker.push_task ([rpc_l]() {
+	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		std::string wallet_text (rpc_l->request.get<std::string> ("wallet"));
 		nano::wallet_id wallet;
 		if (!wallet.decode_hex (wallet_text))
@@ -4533,7 +4549,7 @@ void nano::json_handler::wallet_destroy ()
 			rpc_l->ec = nano::error_common::bad_wallet_number;
 		}
 		rpc_l->response_errors ();
-	});
+	}));
 }
 
 void nano::json_handler::wallet_export ()
@@ -4794,8 +4810,7 @@ void nano::json_handler::wallet_representative ()
 
 void nano::json_handler::wallet_representative_set ()
 {
-	auto rpc_l (shared_from_this ());
-	node.worker.push_task ([rpc_l]() {
+	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		auto wallet (rpc_l->wallet_impl ());
 		std::string representative_text (rpc_l->request.get<std::string> ("representative"));
 		auto representative (rpc_l->account_impl (representative_text, nano::error_rpc::bad_representative_number));
@@ -4842,7 +4857,7 @@ void nano::json_handler::wallet_representative_set ()
 			}
 		}
 		rpc_l->response_errors ();
-	});
+	}));
 }
 
 void nano::json_handler::wallet_republish ()
@@ -4936,9 +4951,9 @@ void nano::json_handler::work_generate ()
 	if (!ec)
 	{
 		auto hash (hash_impl ());
-		auto difficulty (difficulty_optional_impl ());
-		multiplier_optional_impl (difficulty);
-		if (!ec && (difficulty > node.config.max_work_generate_difficulty || difficulty < node.network_params.network.publish_thresholds.base))
+		auto difficulty (difficulty_optional_impl (work_version));
+		multiplier_optional_impl (work_version, difficulty);
+		if (!ec && (difficulty > node.config.max_work_generate_difficulty || difficulty < nano::work_threshold_entry (work_version)))
 		{
 			ec = nano::error_rpc::difficulty_limit;
 		}
@@ -4956,7 +4971,7 @@ void nano::json_handler::work_generate ()
 					std::stringstream ostream;
 					auto result_difficulty (nano::work_difficulty (work_version, hash, work));
 					response_l.put ("difficulty", nano::to_string_hex (result_difficulty));
-					auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, nano::work_threshold (work_version));
+					auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, node.default_difficulty (work_version));
 					response_l.put ("multiplier", nano::to_string (result_multiplier));
 					boost::property_tree::write_json (ostream, response_l);
 					rpc_l->response (ostream.str ());
@@ -4970,7 +4985,7 @@ void nano::json_handler::work_generate ()
 			{
 				if (node.local_work_generation_enabled ())
 				{
-					node.work.generate (work_version, hash, callback, difficulty);
+					node.work.generate (work_version, hash, difficulty, callback);
 				}
 				else
 				{
@@ -4992,7 +5007,7 @@ void nano::json_handler::work_generate ()
 				auto const & peers_l (secondary_work_peers_l ? node.config.secondary_work_peers : node.config.work_peers);
 				if (node.work_generation_enabled (peers_l))
 				{
-					node.work_generate (work_version, hash, callback, difficulty, account, secondary_work_peers_l);
+					node.work_generate (work_version, hash, difficulty, callback, account, secondary_work_peers_l);
 				}
 				else
 				{
@@ -5039,8 +5054,7 @@ void nano::json_handler::work_get ()
 
 void nano::json_handler::work_set ()
 {
-	auto rpc_l (shared_from_this ());
-	node.worker.push_task ([rpc_l]() {
+	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		auto wallet (rpc_l->wallet_impl ());
 		auto account (rpc_l->account_impl ());
 		auto work (rpc_l->work_optional_impl ());
@@ -5055,23 +5069,23 @@ void nano::json_handler::work_set ()
 			}
 		}
 		rpc_l->response_errors ();
-	});
+	}));
 }
 
 void nano::json_handler::work_validate ()
 {
 	auto hash (hash_impl ());
 	auto work (work_optional_impl ());
-	auto difficulty (difficulty_optional_impl ());
-	multiplier_optional_impl (difficulty);
 	// Default to work_1 if not specified
 	auto work_version (work_version_optional_impl (nano::work_version::work_1));
+	auto difficulty (difficulty_optional_impl (work_version));
+	multiplier_optional_impl (work_version, difficulty);
 	if (!ec)
 	{
 		auto result_difficulty (nano::work_difficulty (work_version, hash, work));
 		response_l.put ("valid", (result_difficulty >= difficulty) ? "1" : "0");
 		response_l.put ("difficulty", nano::to_string_hex (result_difficulty));
-		auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, nano::work_threshold (work_version));
+		auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, node.default_difficulty (work_version));
 		response_l.put ("multiplier", nano::to_string (result_multiplier));
 	}
 	response_errors ();
