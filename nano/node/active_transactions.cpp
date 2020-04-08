@@ -167,8 +167,9 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 					lk.lock ();
 					election->status.type = *election_status_type;
 					election->status.confirmation_request_count = election->confirmation_request_count;
-					node.observers.blocks.notify (election->status, account, amount, is_state_send);
+					auto status (election->status);
 					lk.unlock ();
+					node.observers.blocks.notify (status, account, amount, is_state_send);
 					if (amount > 0)
 					{
 						node.observers.account_balance.notify (account, false);
