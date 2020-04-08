@@ -1314,7 +1314,10 @@ TEST (work_watcher, generation_disabled)
 	node_config.enable_voting = false;
 	node_config.work_watcher_period = 1s;
 	node_config.work_threads = 0;
+	nano::node_flags node_flags;
+	node_flags.disable_request_loop = true;
 	auto & node = *system.add_node (node_config);
+	ASSERT_FALSE (node.work_generation_enabled ());
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::genesis genesis;
 	nano::keypair key;
@@ -1326,22 +1329,14 @@ TEST (work_watcher, generation_disabled)
 	auto multiplier = nano::normalized_multiplier (nano::difficulty::to_multiplier (difficulty, nano::work_threshold (block->work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false))), node.network_params.network.publish_thresholds.epoch_1);
 	double updated_multiplier{ multiplier };
 	{
-		nano::unique_lock<std::mutex> lock (node.active.mutex);
-		// Prevent active difficulty repopulating multipliers
-		node.network_params.network.request_interval_ms = 10000;
-		//fill multipliers_cb and update active difficulty;
-		for (auto i (0); i < node.active.multipliers_cb.size (); i++)
-		{
-			node.active.multipliers_cb.push_back (multiplier * (1.5 + i / 100.));
-		}
-		node.active.update_active_multiplier (lock);
+		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		node.active.trended_active_multiplier = multiplier * 10;
 	}
-	std::this_thread::sleep_for (5s);
-
-	nano::lock_guard<std::mutex> guard (node.active.mutex);
+	std::this_thread::sleep_for (2s);
+	ASSERT_TRUE (node.wallets.watcher->is_watched (block->qualified_root ()));
 	{
+		nano::lock_guard<std::mutex> guard (node.active.mutex);
 		auto const existing (node.active.roots.find (block->qualified_root ()));
-		//if existing is junk the block has been confirmed already
 		ASSERT_NE (existing, node.active.roots.end ());
 		updated_multiplier = existing->multiplier;
 	}
