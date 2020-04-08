@@ -1049,10 +1049,9 @@ TEST (peer_exclusion, validate)
 	nano::peer_exclusion excluded_peers;
 	size_t fake_peers_count = 10;
 	auto max_size = excluded_peers.limited_size (fake_peers_count);
-	auto address (boost::asio::ip::address_v6::loopback ());
 	for (auto i = 0; i < max_size + 2; ++i)
 	{
-		nano::tcp_endpoint endpoint (address, i);
+		nano::tcp_endpoint endpoint (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (i)), 0);
 		ASSERT_FALSE (excluded_peers.check (endpoint));
 		ASSERT_EQ (1, excluded_peers.add (endpoint, fake_peers_count));
 		ASSERT_FALSE (excluded_peers.check (endpoint));
@@ -1060,21 +1059,22 @@ TEST (peer_exclusion, validate)
 	// The oldest one must have been removed
 	ASSERT_EQ (max_size + 1, excluded_peers.size ());
 	auto & peers_by_endpoint (excluded_peers.peers.get<nano::peer_exclusion::tag_endpoint> ());
-	ASSERT_EQ (peers_by_endpoint.end (), peers_by_endpoint.find (nano::tcp_endpoint (address, 0)));
+	nano::tcp_endpoint oldest (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0x0)), 0);
+	ASSERT_EQ (peers_by_endpoint.end (), peers_by_endpoint.find (oldest.address ()));
 
 	auto to_seconds = [](std::chrono::steady_clock::time_point const & timepoint) {
 		return std::chrono::duration_cast<std::chrono::seconds> (timepoint.time_since_epoch ()).count ();
 	};
-	nano::tcp_endpoint first (address, 1);
-	ASSERT_NE (peers_by_endpoint.end (), peers_by_endpoint.find (first));
-	nano::tcp_endpoint second (address, 2);
+	nano::tcp_endpoint first (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0x1)), 0);
+	ASSERT_NE (peers_by_endpoint.end (), peers_by_endpoint.find (first.address ()));
+	nano::tcp_endpoint second (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0x2)), 0);
 	ASSERT_EQ (false, excluded_peers.check (second));
-	ASSERT_NEAR (to_seconds (std::chrono::steady_clock::now () + excluded_peers.exclude_time_hours), to_seconds (peers_by_endpoint.find (second)->exclude_until), 2);
+	ASSERT_NEAR (to_seconds (std::chrono::steady_clock::now () + excluded_peers.exclude_time_hours), to_seconds (peers_by_endpoint.find (second.address ())->exclude_until), 2);
 	ASSERT_EQ (2, excluded_peers.add (second, fake_peers_count));
-	ASSERT_EQ (peers_by_endpoint.end (), peers_by_endpoint.find (first));
-	ASSERT_NEAR (to_seconds (std::chrono::steady_clock::now () + excluded_peers.exclude_time_hours), to_seconds (peers_by_endpoint.find (second)->exclude_until), 2);
+	ASSERT_EQ (peers_by_endpoint.end (), peers_by_endpoint.find (first.address ()));
+	ASSERT_NEAR (to_seconds (std::chrono::steady_clock::now () + excluded_peers.exclude_time_hours), to_seconds (peers_by_endpoint.find (second.address ())->exclude_until), 2);
 	ASSERT_EQ (3, excluded_peers.add (second, fake_peers_count));
-	ASSERT_NEAR (to_seconds (std::chrono::steady_clock::now () + excluded_peers.exclude_time_hours * 3 * 2), to_seconds (peers_by_endpoint.find (second)->exclude_until), 2);
+	ASSERT_NEAR (to_seconds (std::chrono::steady_clock::now () + excluded_peers.exclude_time_hours * 3 * 2), to_seconds (peers_by_endpoint.find (second.address ())->exclude_until), 2);
 	ASSERT_EQ (max_size, excluded_peers.size ());
 
 	// Clear many entries if there are a low number of peers
@@ -1093,4 +1093,40 @@ TEST (peer_exclusion, validate)
 	ASSERT_EQ (1, child_info.count);
 	ASSERT_EQ (sizeof (decltype (excluded_peers.peers)::value_type), child_info.sizeof_element);
 }
+}
+
+TEST (network, tcp_no_connect_excluded_peers)
+{
+	nano::system system (1);
+	auto node0 (system.nodes[0]);
+	ASSERT_EQ (0, node0->network.size ());
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work));
+	node1->start ();
+	system.nodes.push_back (node1);
+	auto endpoint1 (node1->network.endpoint ());
+	auto endpoint1_tcp (nano::transport::map_endpoint_to_tcp (endpoint1));
+	while (!node0->network.excluded_peers.check (endpoint1_tcp))
+	{
+		node0->network.excluded_peers.add (endpoint1_tcp, 1);
+	}
+	ASSERT_EQ (0, node0->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_excluded));
+	node1->network.merge_peer (node0->network.endpoint ());
+	ASSERT_TIMELY (5s, node0->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_excluded) >= 1);
+	ASSERT_EQ (nullptr, node0->network.find_channel (endpoint1));
+
+	// Should not actively reachout to excluded peers
+	ASSERT_TRUE (node0->network.reachout (endpoint1, true));
+
+	// Erasing from excluded peers should allow a connection
+	node0->network.excluded_peers.remove (endpoint1_tcp);
+	ASSERT_FALSE (node0->network.excluded_peers.check (endpoint1_tcp));
+
+	// Manually cleanup previous attempt
+	node1->network.cleanup (std::chrono::steady_clock::now ());
+	node1->network.syn_cookies.purge (std::chrono::steady_clock::now ());
+
+	// Ensure a successful connection
+	ASSERT_EQ (0, node0->network.size ());
+	node1->network.merge_peer (node0->network.endpoint ());
+	ASSERT_TIMELY (5s, node0->network.size () == 1);
 }

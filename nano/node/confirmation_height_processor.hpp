@@ -51,6 +51,7 @@ private:
 
 	nano::condition_variable condition;
 	std::atomic<bool> stopped{ false };
+	// No mutex needed for the observers as these should be set up during initialization of the node
 	std::vector<std::function<void(std::shared_ptr<nano::block>)>> cemented_observers;
 	std::vector<std::function<void(nano::block_hash const &)>> block_already_cemented_observers;
 
@@ -68,6 +69,7 @@ private:
 	friend class confirmation_height_pending_observer_callbacks_Test;
 	friend class confirmation_height_dependent_election_Test;
 	friend class confirmation_height_dependent_election_after_already_cemented_Test;
+	friend class confirmation_height_dynamic_algorithm_no_transition_while_pending_Test;
 };
 
 std::unique_ptr<container_info_component> collect_container_info (confirmation_height_processor &, const std::string &);

@@ -66,7 +66,9 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 			auto blocks_within_automatic_unbounded_selection = (ledger.cache.block_count < num_blocks_to_use_unbounded || ledger.cache.block_count - num_blocks_to_use_unbounded < ledger.cache.cemented_count);
 
 			// Don't want to mix up pending writes across different processors
-			if (mode_a == confirmation_height_mode::unbounded || (mode_a == confirmation_height_mode::automatic && blocks_within_automatic_unbounded_selection && confirmation_height_bounded_processor.pending_empty ()))
+			auto valid_unbounded = (mode_a == confirmation_height_mode::automatic && blocks_within_automatic_unbounded_selection && confirmation_height_bounded_processor.pending_empty ());
+			auto force_unbounded = (!confirmation_height_unbounded_processor.pending_empty () || mode_a == confirmation_height_mode::unbounded);
+			if (force_unbounded || valid_unbounded)
 			{
 				debug_assert (confirmation_height_bounded_processor.pending_empty ());
 				if (confirmation_height_unbounded_processor.pending_empty ())

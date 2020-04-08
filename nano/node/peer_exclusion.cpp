@@ -17,11 +17,12 @@ uint64_t nano::peer_exclusion::add (nano::tcp_endpoint const & endpoint_a, size_
 	}
 	debug_assert (peers.size () <= size_max);
 	auto & peers_by_endpoint (peers.get<tag_endpoint> ());
-	auto existing (peers_by_endpoint.find (endpoint_a));
+	auto address = endpoint_a.address ();
+	auto existing (peers_by_endpoint.find (address));
 	if (existing == peers_by_endpoint.end ())
 	{
 		// Insert new endpoint
-		auto inserted (peers.emplace (peer_exclusion::item{ std::chrono::steady_clock::steady_clock::now () + exclude_time_hours, endpoint_a, 1 }));
+		auto inserted (peers.emplace (peer_exclusion::item{ std::chrono::steady_clock::steady_clock::now () + exclude_time_hours, address, 1 }));
 		(void)inserted;
 		debug_assert (inserted.second);
 		result = 1;
@@ -50,7 +51,7 @@ bool nano::peer_exclusion::check (nano::tcp_endpoint const & endpoint_a)
 	bool excluded (false);
 	nano::lock_guard<std::mutex> guard (mutex);
 	auto & peers_by_endpoint (peers.get<tag_endpoint> ());
-	auto existing (peers_by_endpoint.find (endpoint_a));
+	auto existing (peers_by_endpoint.find (endpoint_a.address ()));
 	if (existing != peers_by_endpoint.end () && existing->score >= score_limit)
 	{
 		if (existing->exclude_until > std::chrono::steady_clock::now ())
@@ -68,7 +69,7 @@ bool nano::peer_exclusion::check (nano::tcp_endpoint const & endpoint_a)
 void nano::peer_exclusion::remove (nano::tcp_endpoint const & endpoint_a)
 {
 	nano::lock_guard<std::mutex> guard (mutex);
-	peers.get<tag_endpoint> ().erase (endpoint_a);
+	peers.get<tag_endpoint> ().erase (endpoint_a.address ());
 }
 
 size_t nano::peer_exclusion::limited_size (size_t const network_peers_count_a) const

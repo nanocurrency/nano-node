@@ -923,11 +923,11 @@ void nano::json_handler::accounts_pending ()
 void nano::json_handler::active_difficulty ()
 {
 	auto include_trend (request.get<bool> ("include_trend", false));
-	response_l.put ("network_minimum", nano::to_string_hex (node.network_params.network.publish_thresholds.epoch_1));
-	auto difficulty_active = node.active.active_difficulty ();
-	response_l.put ("network_current", nano::to_string_hex (difficulty_active));
-	auto multiplier = nano::difficulty::to_multiplier (difficulty_active, node.network_params.network.publish_thresholds.epoch_1);
-	response_l.put ("multiplier", nano::to_string (multiplier));
+	auto multiplier_active = node.active.active_multiplier ();
+	auto default_difficulty (node.default_difficulty (nano::work_version::work_1));
+	response_l.put ("network_minimum", nano::to_string_hex (default_difficulty));
+	response_l.put ("network_current", nano::to_string_hex (nano::difficulty::from_multiplier (multiplier_active, default_difficulty)));
+	response_l.put ("multiplier", multiplier_active);
 	if (include_trend)
 	{
 		boost::property_tree::ptree trend_entry_l;
@@ -1574,6 +1574,41 @@ void nano::json_handler::block_create ()
 			{
 				if (work == 0)
 				{
+					// Difficulty calculation
+					if (request.count ("difficulty") == 0)
+					{
+						nano::block_details details (nano::epoch::epoch_0, false, false, false);
+						bool details_found (false);
+						auto transaction (node.store.tx_begin_read ());
+						// Previous block find
+						std::shared_ptr<nano::block> block_previous (nullptr);
+						if (!previous.is_zero ())
+						{
+							block_previous = node.store.block_get (transaction, previous);
+						}
+						// Send check
+						if (block_previous != nullptr)
+						{
+							details.is_send = node.store.block_balance (transaction, previous) > balance.number ();
+							details_found = true;
+						}
+						// Epoch check
+						if (block_previous != nullptr)
+						{
+							details.epoch = block_previous->sideband ().details.epoch;
+						}
+						if (!link.is_zero () && !details.is_send)
+						{
+							auto block_link (node.store.block_get (transaction, link));
+							if (block_link != nullptr && node.store.pending_exists (transaction, nano::pending_key (pub, link)))
+							{
+								details.epoch = std::max (details.epoch, block_link->sideband ().details.epoch);
+								details.is_receive = true;
+								details_found = true;
+							}
+						}
+						difficulty_l = details_found ? nano::work_threshold (work_version, details) : node.default_difficulty (work_version);
+					}
 					node.work_generate (work_version, root_l, difficulty_l, get_callback_l (block_l), nano::account (pub));
 				}
 				else

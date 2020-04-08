@@ -53,6 +53,7 @@ public:
 	bool network_keepalive_logging () const;
 	bool network_node_id_handshake_logging () const;
 	bool network_telemetry_logging () const;
+	bool network_rejected_logging () const;
 	bool node_lifetime_tracing () const;
 	bool insufficient_work_logging () const;
 	bool upnp_details_logging () const;
@@ -77,6 +78,7 @@ public:
 	bool network_keepalive_logging_value{ false };
 	bool network_node_id_handshake_logging_value{ false };
 	bool network_telemetry_logging_value{ false };
+	bool network_rejected_logging_value{ false };
 	bool node_lifetime_tracing_value{ false };
 	bool insufficient_work_logging_value{ true };
 	bool log_ipc_value{ true };
