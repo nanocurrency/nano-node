@@ -647,7 +647,7 @@ void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> 
 	}
 }
 
-double nano::active_transactions::normalized_multiplier (nano::block_hash const & block_a, std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> const & blocks_a)
+double nano::active_transactions::normalized_multiplier (nano::block const & block_a, std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> const & blocks_a)
 {
 	auto difficulty (block_a.difficulty ());
 	uint64_t threshold (0);
