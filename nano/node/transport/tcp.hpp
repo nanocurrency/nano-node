@@ -138,6 +138,10 @@ namespace transport
 		class node_id_tag
 		{
 		};
+		class version_tag
+		{
+		};
+
 		class channel_tcp_wrapper final
 		{
 		public:
@@ -170,6 +174,10 @@ namespace transport
 				debug_assert (!node_id.is_zero ());
 				return node_id;
 			}
+			uint8_t network_version () const
+			{
+				return channel->get_network_version ();
+			}
 		};
 		class tcp_endpoint_attempt final
 		{
@@ -197,6 +205,8 @@ namespace transport
 				mi::const_mem_fun<channel_tcp_wrapper, nano::account, &channel_tcp_wrapper::node_id>>,
 			mi::ordered_non_unique<mi::tag<last_packet_sent_tag>,
 				mi::const_mem_fun<channel_tcp_wrapper, std::chrono::steady_clock::time_point, &channel_tcp_wrapper::last_packet_sent>>,
+			mi::ordered_non_unique<mi::tag<version_tag>,
+				mi::const_mem_fun<channel_tcp_wrapper, uint8_t, &channel_tcp_wrapper::network_version>>,			
 			mi::hashed_non_unique<mi::tag<ip_address_tag>,
 				mi::const_mem_fun<channel_tcp_wrapper, boost::asio::ip::address, &channel_tcp_wrapper::ip_address>>>>
 		channels;
