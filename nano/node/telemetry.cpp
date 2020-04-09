@@ -110,6 +110,9 @@ bool nano::telemetry::verify_message (nano::telemetry_ack const & message_a, nan
 
 	if (remove_channel)
 	{
+		// Add to peer exclusion list
+		network.excluded_peers.add (channel_a.get_tcp_endpoint (), network.size ());
+
 		// Disconnect from peer with incorrect telemetry data
 		network.erase (channel_a);
 	}

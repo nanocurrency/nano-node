@@ -744,6 +744,97 @@ TEST (confirmation_height, dynamic_algorithm)
 
 namespace nano
 {
+/*
+ * This tests an issue of incorrect cemented block counts during the transition of conf height algorithms
+ * The scenario was as follows:
+ *  - There is at least 1 pending write entry in the unbounded conf height processor
+ *  - 0 blocks currently awaiting processing in the main conf height processor class
+ *  - A block was confirmed when hit the chain in the pending write above but was not a block higher than it.
+ *  - It must be in `confirmation_height_processor::pause ()` function so that `pause` is set (and the difference between the number
+ *    of blocks uncemented is > unbounded_cutoff so that it hits the bounded processor), the main `run` loop on the conf height processor is iterated.
+ *
+ * This cause unbounded pending entries not to be written, and then the bounded processor would write them, causing some inconsistencies.
+*/
+TEST (confirmation_height, dynamic_algorithm_no_transition_while_pending)
+{
+	// Repeat in case of intermittent issues not replicating the issue talked about above.
+	for (auto _ = 0; _ < 3; ++_)
+	{
+		nano::system system;
+		nano::node_config node_config (nano::get_available_port (), system.logging);
+		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+		auto node = system.add_node (node_config);
+		nano::keypair key;
+		system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+
+		auto latest_genesis = node->latest (nano::test_genesis_key.pub);
+		std::vector<std::shared_ptr<nano::state_block>> state_blocks;
+		auto const num_blocks = nano::confirmation_height::unbounded_cutoff - 2;
+
+		auto add_block_to_genesis_chain = [&](nano::write_transaction & transaction) {
+			static int num = 0;
+			auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, latest_genesis, nano::test_genesis_key.pub, nano::genesis_amount - num - 1, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest_genesis)));
+			latest_genesis = send->hash ();
+			state_blocks.push_back (send);
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send).code);
+			++num;
+		};
+
+		for (auto i = 0; i < num_blocks; ++i)
+		{
+			auto transaction = node->store.tx_begin_write ();
+			add_block_to_genesis_chain (transaction);
+		}
+
+		{
+			auto write_guard = node->write_database_queue.wait (nano::writer::testing);
+			// To limit any data races we are not calling node.block_confirm,
+			// the relevant code is replicated here (implementation detail):
+			node->confirmation_height_processor.pause ();
+			node->confirmation_height_processor.add (state_blocks.back ()->hash ());
+			node->confirmation_height_processor.unpause ();
+
+			nano::timer<> timer;
+			timer.start ();
+			while (node->confirmation_height_processor.current ().is_zero ())
+			{
+				ASSERT_LT (timer.since_start (), 2s);
+			}
+
+			// Pausing prevents any writes in the outer while loop in the confirmaiton height processor (implementation detail)
+			node->confirmation_height_processor.pause ();
+
+			timer.restart ();
+			while (node->confirmation_height_processor.confirmation_height_unbounded_processor.pending_writes_size == 0)
+			{
+				ASSERT_NO_ERROR (system.poll ());
+			}
+
+			{
+				// Make it so that the number of blocks exceed the unbounded cutoff would go into the bounded processor (but shouldn't due to unbounded pending writes)
+				auto transaction = node->store.tx_begin_write ();
+				add_block_to_genesis_chain (transaction);
+				add_block_to_genesis_chain (transaction);
+			}
+			// Make sure this is at a height lower than the block in the add () call above
+			node->confirmation_height_processor.add (state_blocks.front ()->hash ());
+			node->confirmation_height_processor.unpause ();
+		}
+
+		system.deadline_set (10s);
+		while (node->confirmation_height_processor.awaiting_processing_size () != 0 || !node->confirmation_height_processor.current ().is_zero ())
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+
+		ASSERT_EQ (node->ledger.cache.cemented_count, num_blocks + 1);
+		ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in), num_blocks);
+		ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_bounded, nano::stat::dir::in), 0);
+		ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in), num_blocks);
+		ASSERT_EQ (node->active.election_winner_details_size (), 0);
+	}
+}
+
 // Can take up to 1 hour
 TEST (confirmation_height, prioritize_frontiers_overwrite)
 {

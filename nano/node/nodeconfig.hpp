@@ -90,12 +90,15 @@ public:
 	static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
 	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
-	size_t bandwidth_limit{ 5 * 1024 * 1024 }; // 5MB/s
+	/** Default outbound traffic shaping is 5MB/s */
+	size_t bandwidth_limit{ 5 * 1024 * 1024 };
+	/** By default, allow bursts of 15MB/s (not sustainable) */
+	double bandwidth_limit_burst_ratio{ 3. };
 	std::chrono::milliseconds conf_height_processor_batch_min_time{ 50 };
 	bool backup_before_upgrade{ false };
 	std::chrono::seconds work_watcher_period{ std::chrono::seconds (5) };
 	double max_work_generate_multiplier{ 64. };
-	uint64_t max_work_generate_difficulty{ nano::network_constants::publish_full_threshold };
+	uint64_t max_work_generate_difficulty{ nano::network_constants ().publish_full.base };
 	uint32_t max_queued_requests{ 512 };
 	nano::rocksdb_config rocksdb_config;
 	nano::lmdb_config lmdb_config;

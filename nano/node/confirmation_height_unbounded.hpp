@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/secure/blockstore.hpp>
 
 #include <chrono>
@@ -53,18 +54,23 @@ private:
 		nano::block_hash source_hash;
 	};
 
+	// All of the atomic variables here just track the size for use in collect_container_info.
+	// This is so that no mutexes are needed during the algorithm itself, which would otherwise be needed
+	// for the sake of a rarely used RPC call for debugging purposes. As such the sizes are not being acted
+	// upon in any way (does not synchronize with any other data).
+	// This allows the load and stores to use relaxed atomic memory ordering.
 	std::unordered_map<account, confirmed_iterated_pair> confirmed_iterated_pairs;
-	std::atomic<uint64_t> confirmed_iterated_pairs_size{ 0 };
+	nano::relaxed_atomic_integral<uint64_t> confirmed_iterated_pairs_size{ 0 };
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> block_cache;
-	std::atomic<uint64_t> block_cache_size{ 0 };
+	nano::relaxed_atomic_integral<uint64_t> block_cache_size{ 0 };
 	std::shared_ptr<nano::block> get_block_and_sideband (nano::block_hash const &, nano::transaction const &);
 	std::deque<conf_height_details> pending_writes;
-	std::atomic<uint64_t> pending_writes_size{ 0 };
+	nano::relaxed_atomic_integral<uint64_t> pending_writes_size{ 0 };
 	std::vector<nano::block_hash> orig_block_callback_data;
-	std::atomic<uint64_t> orig_block_callback_data_size{ 0 };
-
+	nano::relaxed_atomic_integral<uint64_t> orig_block_callback_data_size{ 0 };
 	std::unordered_map<nano::block_hash, std::weak_ptr<conf_height_details>> implicit_receive_cemented_mapping;
-	std::atomic<uint64_t> implicit_receive_cemented_mapping_size{ 0 };
+	nano::relaxed_atomic_integral<uint64_t> implicit_receive_cemented_mapping_size{ 0 };
+
 	nano::timer<std::chrono::milliseconds> timer;
 
 	class preparation_data final
@@ -94,6 +100,7 @@ private:
 	std::function<void(nano::block_hash const &)> notify_block_already_cemented_observers_callback;
 	std::function<uint64_t ()> awaiting_processing_size_callback;
 
+	friend class confirmation_height_dynamic_algorithm_no_transition_while_pending_Test;
 	friend std::unique_ptr<nano::container_info_component> collect_container_info (confirmation_height_unbounded &, const std::string & name_a);
 };
 

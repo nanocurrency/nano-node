@@ -31,8 +31,11 @@ public:
 	void generate_receive (nano::node &);
 	void generate_send_new (nano::node &, std::vector<nano::account> &);
 	void generate_send_existing (nano::node &, std::vector<nano::account> &);
+	std::unique_ptr<nano::state_block> upgrade_genesis_epoch (nano::node &, nano::epoch const);
 	std::shared_ptr<nano::wallet> wallet (size_t);
 	nano::account account (nano::transaction const &, size_t);
+	/** Generate work with difficulty between \p min_difficulty_a (inclusive) and \p max_difficulty_a (exclusive) */
+	uint64_t work_generate_limited (nano::block_hash const & root_a, uint64_t min_difficulty_a, uint64_t max_difficulty_a);
 	/**
 	 * Polls, sleep if there's no work to be done (default 50ms), then check the deadline
 	 * @returns 0 or nano::deadline_expired

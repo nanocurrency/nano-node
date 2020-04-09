@@ -718,6 +718,8 @@ TEST (node_telemetry, disable_metrics)
 	}
 }
 
+namespace nano
+{
 TEST (node_telemetry, remove_peer_different_genesis)
 {
 	nano::system system (1);
@@ -738,6 +740,10 @@ TEST (node_telemetry, remove_peer_different_genesis)
 
 	ASSERT_EQ (node0->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::out), 1);
 	ASSERT_EQ (node1->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::out), 1);
+	system.poll_until_true (3s, [&node0, address = node1->network.endpoint ().address ()]() -> bool {
+		nano::lock_guard<std::mutex> guard (node0->network.excluded_peers.mutex);
+		return node0->network.excluded_peers.peers.get<nano::peer_exclusion::tag_endpoint> ().count (address);
+	});
 }
 
 TEST (node_telemetry, remove_peer_different_genesis_udp)
@@ -763,10 +769,12 @@ TEST (node_telemetry, remove_peer_different_genesis_udp)
 
 	ASSERT_EQ (0, node0->network.size ());
 	ASSERT_EQ (0, node1->network.size ());
+	system.poll_until_true (3s, [&node0, address = node1->network.endpoint ().address ()]() -> bool {
+		nano::lock_guard<std::mutex> guard (node0->network.excluded_peers.mutex);
+		return node0->network.excluded_peers.peers.get<nano::peer_exclusion::tag_endpoint> ().count (address);
+	});
 }
 
-namespace nano
-{
 TEST (node_telemetry, remove_peer_invalid_signature)
 {
 	nano::system system;
@@ -788,5 +796,9 @@ TEST (node_telemetry, remove_peer_invalid_signature)
 	node->network.process_message (telemetry_ack, channel);
 
 	ASSERT_TIMELY (10s, node->stats.count (nano::stat::type::telemetry, nano::stat::detail::invalid_signature) > 0);
+	system.poll_until_true (3s, [&node, address = channel->get_endpoint ().address ()]() -> bool {
+		nano::lock_guard<std::mutex> guard (node->network.excluded_peers.mutex);
+		return node->network.excluded_peers.peers.get<nano::peer_exclusion::tag_endpoint> ().count (address);
+	});
 }
 }

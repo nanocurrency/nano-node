@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/numbers.hpp>
+#include <nano/node/voting.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/circular_buffer.hpp>
@@ -34,8 +35,8 @@ class conflict_info final
 {
 public:
 	nano::qualified_root root;
-	uint64_t difficulty;
-	uint64_t adjusted_difficulty;
+	double multiplier;
+	double adjusted_multiplier;
 	std::shared_ptr<nano::election> election;
 };
 
@@ -64,6 +65,13 @@ public:
 	bool confirmed{ false }; // Did item reach votes quorum? (minimum config value)
 };
 
+class election_insertion_result final
+{
+public:
+	std::shared_ptr<nano::election> election;
+	bool inserted{ false };
+};
+
 // Core class for determining consensus
 // Holds all active blocks i.e. recently added blocks that need confirmation
 class active_transactions final
@@ -86,7 +94,7 @@ public:
 	// Start an election for a block
 	// Call action with confirmed block, may be different than what we started with
 	// clang-format off
-	std::pair<std::shared_ptr<nano::election>, bool> insert (std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
+	nano::election_insertion_result insert (std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
 	// clang-format on
 	// Distinguishes replay votes, cannot be determined if the block is not in any election
 	nano::vote_code vote (std::shared_ptr<nano::vote>);
@@ -95,11 +103,14 @@ public:
 	bool active (nano::qualified_root const &);
 	std::shared_ptr<nano::election> election (nano::qualified_root const &) const;
 	void update_difficulty (std::shared_ptr<nano::block>);
+	double normalized_multiplier (nano::block const &, std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> const & = {});
 	void add_adjust_difficulty (nano::block_hash const &);
-	void update_adjusted_difficulty ();
-	void update_active_difficulty (nano::unique_lock<std::mutex> &);
+	void update_adjusted_multiplier ();
+	void update_active_multiplier (nano::unique_lock<std::mutex> &);
 	uint64_t active_difficulty ();
-	uint64_t limited_active_difficulty ();
+	uint64_t limited_active_difficulty (nano::block const &);
+	uint64_t limited_active_difficulty (uint64_t const);
+	double active_multiplier ();
 	std::deque<std::shared_ptr<nano::block>> list_blocks ();
 	void erase (nano::block const &);
 	bool empty ();
@@ -115,10 +126,11 @@ public:
 		mi::hashed_unique<mi::tag<tag_root>,
 			mi::member<nano::conflict_info, nano::qualified_root, &nano::conflict_info::root>>,
 		mi::ordered_non_unique<mi::tag<tag_difficulty>,
-			mi::member<nano::conflict_info, uint64_t, &nano::conflict_info::adjusted_difficulty>,
-			std::greater<uint64_t>>>>
+			mi::member<nano::conflict_info, double, &nano::conflict_info::adjusted_multiplier>,
+			std::greater<double>>>>
 	roots;
 	// clang-format on
+	boost::optional<double> last_prioritized_multiplier{ boost::none };
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> blocks;
 	std::deque<nano::election_status> list_recently_cemented ();
 	std::deque<nano::election_status> recently_cemented;
@@ -132,7 +144,7 @@ public:
 	nano::node & node;
 	mutable std::mutex mutex;
 	boost::circular_buffer<double> multipliers_cb;
-	uint64_t trended_active_difficulty;
+	double trended_active_multiplier;
 	size_t priority_cementable_frontiers_size ();
 	size_t priority_wallet_cementable_frontiers_size ();
 	boost::circular_buffer<double> difficulty_trend ();
@@ -143,14 +155,16 @@ public:
 private:
 	std::mutex election_winner_details_mutex;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> election_winner_details;
+	nano::vote_generator generator;
 
 	// Call action with confirmed block, may be different than what we started with
 	// clang-format off
-	std::pair<std::shared_ptr<nano::election>, bool> insert_impl (std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
+	nano::election_insertion_result insert_impl (std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
 	// clang-format on
 	void request_loop ();
-	void search_frontiers (nano::transaction const &);
+	void confirm_prioritized_frontiers (nano::transaction const & transaction_a);
 	void request_confirm (nano::unique_lock<std::mutex> &);
+	void frontiers_confirmation (nano::unique_lock<std::mutex> &);
 	nano::account next_frontier_account{ 0 };
 	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };
 	nano::condition_variable condition;
@@ -163,6 +177,9 @@ private:
 
 	// Maximum time an election can be kept active if it is extending the container
 	std::chrono::seconds const election_time_to_live;
+
+	// Elections above this position in the queue are prioritized
+	size_t const prioritized_cutoff;
 
 	static size_t constexpr recently_confirmed_size{ 65536 };
 	using recent_confirmation = std::pair<nano::qualified_root, nano::block_hash>;
@@ -191,7 +208,7 @@ private:
 	bool skip_wallets{ false };
 	void prioritize_account_for_confirmation (prioritize_num_uncemented &, size_t &, nano::account const &, nano::account_info const &, uint64_t);
 	static size_t constexpr max_priority_cementable_frontiers{ 100000 };
-	static size_t constexpr confirmed_frontiers_max_pending_cut_off{ 1000 };
+	static size_t constexpr confirmed_frontiers_max_pending_size{ 10000 };
 	std::deque<nano::block_hash> adjust_difficulty_list;
 	// clang-format off
 	using ordered_cache = boost::multi_index_container<nano::inactive_cache_information,
@@ -210,6 +227,7 @@ private:
 	friend class confirmation_height_prioritize_frontiers_Test;
 	friend class confirmation_height_prioritize_frontiers_overwrite_Test;
 	friend class active_transactions_confirmation_consistency_Test;
+	friend class node_vote_by_hash_bundle_Test;
 	friend std::unique_ptr<container_info_component> collect_container_info (active_transactions &, const std::string &);
 };
 
