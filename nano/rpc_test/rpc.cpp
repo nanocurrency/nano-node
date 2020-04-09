@@ -4029,8 +4029,9 @@ TEST (rpc, work_validate)
 			ASSERT_NO_ERROR (system.poll ());
 		}
 		ASSERT_EQ (200, response.status);
-		std::string validate_text (response.json.get<std::string> ("valid"));
-		ASSERT_EQ ("1", validate_text);
+		ASSERT_EQ (0, response.json.count ("valid"));
+		ASSERT_TRUE (response.json.get<bool> ("valid_all"));
+		ASSERT_TRUE (response.json.get<bool> ("valid_receive"));
 		std::string difficulty_text (response.json.get<std::string> ("difficulty"));
 		uint64_t difficulty;
 		ASSERT_FALSE (nano::from_string_hex (difficulty_text, difficulty));
@@ -4048,8 +4049,9 @@ TEST (rpc, work_validate)
 			ASSERT_NO_ERROR (system.poll ());
 		}
 		ASSERT_EQ (200, response.status);
-		std::string validate_text (response.json.get<std::string> ("valid"));
-		ASSERT_EQ ("0", validate_text);
+		ASSERT_EQ (0, response.json.count ("valid"));
+		ASSERT_FALSE (response.json.get<bool> ("valid_all"));
+		ASSERT_FALSE (response.json.get<bool> ("valid_receive"));
 		std::string difficulty_text (response.json.get<std::string> ("difficulty"));
 		uint64_t difficulty;
 		ASSERT_FALSE (nano::from_string_hex (difficulty_text, difficulty));
@@ -4069,8 +4071,9 @@ TEST (rpc, work_validate)
 			ASSERT_NO_ERROR (system.poll ());
 		}
 		ASSERT_EQ (200, response.status);
-		bool validate (response.json.get<bool> ("valid"));
-		ASSERT_TRUE (validate);
+		ASSERT_TRUE (response.json.get<bool> ("valid"));
+		ASSERT_TRUE (response.json.get<bool> ("valid_all"));
+		ASSERT_TRUE (response.json.get<bool> ("valid_receive"));
 	}
 	uint64_t difficulty4 (0xfff0000000000000);
 	request.put ("work", nano::to_string_hex (work1));
@@ -4083,8 +4086,9 @@ TEST (rpc, work_validate)
 			ASSERT_NO_ERROR (system.poll ());
 		}
 		ASSERT_EQ (200, response.status);
-		bool validate (response.json.get<bool> ("valid"));
-		ASSERT_EQ (result_difficulty >= difficulty4, validate);
+		ASSERT_EQ (result_difficulty >= difficulty4, response.json.get<bool> ("valid"));
+		ASSERT_EQ (result_difficulty >= node1.default_difficulty (nano::work_version::work_1), response.json.get<bool> ("valid_all"));
+		ASSERT_EQ (result_difficulty >= node1.network_params.network.publish_thresholds.epoch_2_receive, response.json.get<bool> ("valid_all"));
 	}
 	uint64_t work3 (*node1.work_generate_blocking (hash, difficulty4));
 	request.put ("work", nano::to_string_hex (work3));
@@ -4096,8 +4100,9 @@ TEST (rpc, work_validate)
 			ASSERT_NO_ERROR (system.poll ());
 		}
 		ASSERT_EQ (200, response.status);
-		bool validate (response.json.get<bool> ("valid"));
-		ASSERT_TRUE (validate);
+		ASSERT_TRUE (response.json.get<bool> ("valid"));
+		ASSERT_TRUE (response.json.get<bool> ("valid_all"));
+		ASSERT_TRUE (response.json.get<bool> ("valid_receive"));
 	}
 }
 
@@ -4129,7 +4134,9 @@ TEST (rpc, work_validate_epoch_2)
 			ASSERT_NO_ERROR (system.poll ());
 		}
 		ASSERT_EQ (200, response.status);
-		ASSERT_TRUE (response.json.get<bool> ("valid"));
+		ASSERT_EQ (0, response.json.count ("valid"));
+		ASSERT_TRUE (response.json.get<bool> ("valid_all"));
+		ASSERT_TRUE (response.json.get<bool> ("valid_receive"));
 		std::string difficulty_text (response.json.get<std::string> ("difficulty"));
 		uint64_t difficulty{ 0 };
 		ASSERT_FALSE (nano::from_string_hex (difficulty_text, difficulty));
@@ -4148,7 +4155,9 @@ TEST (rpc, work_validate_epoch_2)
 			ASSERT_NO_ERROR (system.poll ());
 		}
 		ASSERT_EQ (200, response.status);
-		ASSERT_FALSE (response.json.get<bool> ("valid"));
+		ASSERT_EQ (0, response.json.count ("valid"));
+		ASSERT_FALSE (response.json.get<bool> ("valid_all"));
+		ASSERT_TRUE (response.json.get<bool> ("valid_receive"));
 		std::string difficulty_text (response.json.get<std::string> ("difficulty"));
 		uint64_t difficulty{ 0 };
 		ASSERT_FALSE (nano::from_string_hex (difficulty_text, difficulty));
