@@ -633,6 +633,7 @@ std::string nano::stat::detail_to_string (uint32_t key)
 			break;
 		case nano::stat::detail::tcp_excluded:
 			res = "tcp_excluded";
+			break;
 		case nano::stat::detail::unreachable_host:
 			res = "unreachable_host";
 			break;
