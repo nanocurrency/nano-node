@@ -447,9 +447,8 @@ void ledger_processor::epoch_block_impl (nano::state_block & block_a)
 								}
 								if (epoch == nano::epoch::epoch_2)
 								{
-									if (!ledger.cache.epoch_2_started)
+									if (!ledger.cache.epoch_2_started.exchange (true))
 									{
-										ledger.cache.epoch_2_started.store (true);
 										// The first epoch 2 block has been seen
 										if (ledger.epoch_2_started_cb)
 										{
