@@ -55,5 +55,6 @@ public:
 	double deadline_scaling_factor{ 1.0 };
 	unsigned node_sequence{ 0 };
 };
+std::unique_ptr<nano::state_block> upgrade_epoch (nano::work_pool &, nano::ledger &, nano::epoch);
 }
 REGISTER_ERROR_CODES (nano, error_system);

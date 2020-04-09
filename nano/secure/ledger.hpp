@@ -15,7 +15,7 @@ using tally_t = std::map<nano::uint128_t, std::shared_ptr<nano::block>, std::gre
 class ledger final
 {
 public:
-	ledger (nano::block_store &, nano::stat &, nano::generate_cache const & = nano::generate_cache ());
+	ledger (nano::block_store &, nano::stat &, nano::generate_cache const & = nano::generate_cache (), std::function<void()> = nullptr);
 	nano::account account (nano::transaction const &, nano::block_hash const &) const;
 	nano::uint128_t amount (nano::transaction const &, nano::account const &);
 	nano::uint128_t amount (nano::transaction const &, nano::block_hash const &);
@@ -56,6 +56,7 @@ public:
 	std::atomic<size_t> bootstrap_weights_size{ 0 };
 	uint64_t bootstrap_weight_max_blocks{ 1 };
 	std::atomic<bool> check_bootstrap_weights;
+	std::function<void()> epoch_2_started_cb;
 };
 
 std::unique_ptr<container_info_component> collect_container_info (ledger & ledger, const std::string & name);

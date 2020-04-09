@@ -628,11 +628,11 @@ nano::tcp_endpoint nano::network::bootstrap_peer (bool lazy_bootstrap)
 	bool use_udp_peer (nano::random_pool::generate_word32 (0, 1));
 	if (use_udp_peer || tcp_channels.size () == 0)
 	{
-		result = udp_channels.bootstrap_peer (node.network_params.protocol.protocol_version_bootstrap_min);
+		result = udp_channels.bootstrap_peer (node.network_params.protocol.protocol_version_min (node.ledger.cache.epoch_2_started));
 	}
 	if (result == nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0))
 	{
-		result = tcp_channels.bootstrap_peer (node.network_params.protocol.protocol_version_bootstrap_min);
+		result = tcp_channels.bootstrap_peer (node.network_params.protocol.protocol_version_min (node.ledger.cache.epoch_2_started));
 	}
 	return result;
 }
@@ -721,6 +721,18 @@ float nano::network::size_sqrt () const
 bool nano::network::empty () const
 {
 	return size () == 0;
+}
+
+void nano::network::erase_below_version (uint8_t cutoff_version_a)
+{
+	std::vector<std::shared_ptr<nano::transport::channel>> channels_to_remove;
+	tcp_channels.list_below_version (channels_to_remove, cutoff_version_a);
+	udp_channels.list_below_version (channels_to_remove, cutoff_version_a);
+	for (auto const & channel_to_remove : channels_to_remove)
+	{
+		debug_assert (channel_to_remove->get_network_version () < cutoff_version_a);
+		erase (*channel_to_remove);
+	}
 }
 
 void nano::network::erase (nano::transport::channel const & channel_a)

@@ -1655,7 +1655,7 @@ TEST (node, fork_no_vote_quorum)
 	std::vector<uint8_t> buffer;
 	{
 		nano::vectorstream stream (buffer);
-		confirm.serialize (stream);
+		confirm.serialize (stream, false);
 	}
 	nano::transport::channel_udp channel (node2.network.udp_channels, node3.network.endpoint (), node1.network_params.protocol.protocol_version);
 	channel.send_buffer (nano::shared_const_buffer (std::move (buffer)), nano::stat::detail::confirm_ack);

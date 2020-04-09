@@ -447,7 +447,14 @@ void ledger_processor::epoch_block_impl (nano::state_block & block_a)
 								}
 								if (epoch == nano::epoch::epoch_2)
 								{
-									ledger.cache.epoch_2_started.store (true);
+									if (!ledger.cache.epoch_2_started.exchange (true))
+									{
+										// The first epoch 2 block has been seen
+										if (ledger.epoch_2_started_cb)
+										{
+											ledger.epoch_2_started_cb ();
+										}
+									}
 								}
 							}
 						}
@@ -725,15 +732,16 @@ verification (verification_a)
 }
 } // namespace
 
-nano::ledger::ledger (nano::block_store & store_a, nano::stat & stat_a, nano::generate_cache const & generate_cache_a) :
+nano::ledger::ledger (nano::block_store & store_a, nano::stat & stat_a, nano::generate_cache const & generate_cache_a, std::function<void()> epoch_2_started_cb_a) :
 store (store_a),
 stats (stat_a),
-check_bootstrap_weights (true)
+check_bootstrap_weights (true),
+epoch_2_started_cb (epoch_2_started_cb_a)
 {
 	if (!store.init_error ())
 	{
 		auto transaction = store.tx_begin_read ();
-		if (generate_cache_a.reps || generate_cache_a.account_count)
+		if (generate_cache_a.reps || generate_cache_a.account_count || generate_cache_a.epoch_2)
 		{
 			bool epoch_2_started_l{ false };
 			for (auto i (store.latest_begin (transaction)), n (store.latest_end ()); i != n; ++i)

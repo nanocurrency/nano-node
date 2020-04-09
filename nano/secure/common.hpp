@@ -352,20 +352,24 @@ class network_params;
 class protocol_constants
 {
 public:
-	protocol_constants (nano::nano_networks network_a);
-
 	/** Current protocol version */
-	uint8_t protocol_version = 0x12;
+	uint8_t const protocol_version = 0x12;
 
 	/** Minimum accepted protocol version */
-	uint8_t protocol_version_min = 0x11;
-
-	/** Do not bootstrap from nodes older than this version. */
-	uint8_t protocol_version_bootstrap_min = 0x11;
+	uint8_t protocol_version_min (bool epoch_2_started) const;
 
 	/** Do not request telemetry metrics to nodes older than this version */
-	uint8_t telemetry_protocol_version_min = 0x12;
+	uint8_t const telemetry_protocol_version_min = 0x12;
+
+private:
+	/* Minimum protocol version before an epoch 2 block is seen */
+	uint8_t const protocol_version_min_pre_epoch_2 = 0x11;
+	/* Minimum protocol version after an epoch 2 block is seen */
+	uint8_t const protocol_version_min_epoch_2 = 0x12;
 };
+
+// Some places use the decltype of protocol_version instead of protocol_version_min. To keep those checks simpler we check that the decltypes match ignoring differences in const
+static_assert (std::is_same<std::remove_const_t<decltype (protocol_constants ().protocol_version)>, decltype (protocol_constants ().protocol_version_min (false))>::value, "protocol_min should match");
 
 /** Genesis keys and ledger constants for network variants */
 class ledger_constants
@@ -491,6 +495,7 @@ public:
 	bool cemented_count = true;
 	bool unchecked_count = true;
 	bool account_count = true;
+	bool epoch_2 = true;
 };
 
 /* Holds an in-memory cache of various counts */
@@ -502,7 +507,7 @@ public:
 	std::atomic<uint64_t> block_count{ 0 };
 	std::atomic<uint64_t> unchecked_count{ 0 };
 	std::atomic<uint64_t> account_count{ 0 };
-	std::atomic<bool> epoch_2_started{ 0 };
+	std::atomic<bool> epoch_2_started{ false };
 };
 
 /* Defines the possible states for an election to stop in */
