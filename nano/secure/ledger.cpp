@@ -1010,7 +1010,7 @@ nano::root nano::ledger::latest_root (nano::transaction const & transaction_a, n
 	}
 }
 
-void nano::ledger::dump_account_chain (nano::account const & account_a)
+void nano::ledger::dump_account_chain (nano::account const & account_a, std::ostream & stream)
 {
 	auto transaction (store.tx_begin_read ());
 	auto hash (latest (transaction, account_a));
@@ -1018,7 +1018,7 @@ void nano::ledger::dump_account_chain (nano::account const & account_a)
 	{
 		auto block (store.block_get (transaction, hash));
 		debug_assert (block != nullptr);
-		std::cerr << hash.to_string () << std::endl;
+		stream << hash.to_string () << std::endl;
 		hash = block->previous ();
 	}
 }
