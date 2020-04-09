@@ -83,7 +83,7 @@ network (network_a), ledger (network), voting (network), node (network), portmap
 
 uint8_t nano::protocol_constants::protocol_version_min (bool use_epoch_2_min_version_a) const
 {
-	return use_epoch_2_min_version_a ? 0x12 : 0x11;
+	return use_epoch_2_min_version_a ? protocol_version_min_epoch_2 : protocol_version_min_pre_epoch_2;
 }
 
 nano::ledger_constants::ledger_constants (nano::network_constants & network_constants) :
