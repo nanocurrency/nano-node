@@ -3778,6 +3778,15 @@ TEST (active_difficulty, recalculate_work)
 	lock.unlock ();
 }
 
+TEST (node, node_sequence)
+{
+	nano::system system (3);
+	ASSERT_EQ (0, system.nodes[0]->node_seq);
+	ASSERT_EQ (0, system.nodes[0]->node_seq);
+	ASSERT_EQ (1, system.nodes[1]->node_seq);
+	ASSERT_EQ (2, system.nodes[2]->node_seq);
+}
+
 namespace
 {
 void add_required_children_node_config_tree (nano::jsonconfig & tree)
