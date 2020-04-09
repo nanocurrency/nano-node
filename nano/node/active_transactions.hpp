@@ -227,6 +227,7 @@ private:
 	friend class confirmation_height_prioritize_frontiers_Test;
 	friend class confirmation_height_prioritize_frontiers_overwrite_Test;
 	friend class active_transactions_confirmation_consistency_Test;
+	friend class active_transactions_vote_generator_session_Test;
 	friend class node_vote_by_hash_bundle_Test;
 	friend std::unique_ptr<container_info_component> collect_container_info (active_transactions &, const std::string &);
 };

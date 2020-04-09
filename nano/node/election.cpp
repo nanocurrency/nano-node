@@ -584,12 +584,12 @@ bool nano::election::prioritized () const
 	return prioritized_m;
 }
 
-void nano::election::prioritize_election ()
+void nano::election::prioritize_election (nano::vote_generator_session & generator_session_a)
 {
 	debug_assert (!node.active.mutex.try_lock ());
 	debug_assert (!prioritized_m);
 	prioritized_m = true;
-	generate_votes (status.winner->hash ());
+	generator_session_a.add (status.winner->hash ());
 }
 
 void nano::election::generate_votes (nano::block_hash const & hash_a)

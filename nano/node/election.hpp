@@ -14,6 +14,7 @@ namespace nano
 class channel;
 class confirmation_solicitor;
 class node;
+class vote_generator_session;
 class vote_info final
 {
 public:
@@ -83,7 +84,7 @@ public:
 	void adjust_dependent_difficulty ();
 	void insert_inactive_votes_cache (nano::block_hash const &);
 	bool prioritized () const;
-	void prioritize_election ();
+	void prioritize_election (nano::vote_generator_session &);
 	// Erase all blocks from active and, if not confirmed, clear digests from network filters
 	void cleanup ();
 
