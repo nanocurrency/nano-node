@@ -100,6 +100,11 @@ void nano::transport::channel::send (nano::message const & message_a, std::funct
 	}
 	else
 	{
+		if (callback_a)
+		{
+			callback_a (boost::system::errc::make_error_code (boost::system::errc::not_supported), 0);
+		}
+
 		node.stats.inc (nano::stat::type::drop, detail, nano::stat::dir::out);
 		if (node.config.logging.network_packet_logging ())
 		{

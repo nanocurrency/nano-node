@@ -258,6 +258,10 @@ void nano::bootstrap_server::receive_header_action (boost::system::error_code co
 							last_telemetry_req = std::chrono::steady_clock::now ();
 							add_request (std::make_unique<nano::telemetry_req> (header));
 						}
+						else
+						{
+							node->stats.inc (nano::stat::type::telemetry, nano::stat::detail::request_within_protection_cache_zone);
+						}
 					}
 					receive ();
 					break;
