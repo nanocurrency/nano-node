@@ -112,6 +112,7 @@ enum class error_rpc
 	invalid_subtype_epoch_link,
 	invalid_subtype_previous,
 	invalid_timestamp,
+	invalid_threads_count,
 	payment_account_balance,
 	payment_unable_create_account,
 	peer_not_found,
