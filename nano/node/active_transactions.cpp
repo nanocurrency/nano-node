@@ -509,7 +509,7 @@ nano::election_insertion_result nano::active_transactions::insert_impl (std::sha
 				auto hash (block_a->hash ());
 				auto difficulty (block_a->difficulty ());
 				auto epoch (block_a->sideband ().details.epoch);
-				auto previous_balance = previous_balance_a.value_or_eval ([& node = node, &block_a] {
+				auto previous_balance = block_a->previous ().is_zero () ? 0 : previous_balance_a.value_or_eval ([& node = node, &block_a] {
 					return node.ledger.balance (node.store.tx_begin_read (), block_a->previous ());
 				});
 				double multiplier (normalized_multiplier (*block_a));
