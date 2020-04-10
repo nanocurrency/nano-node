@@ -19,7 +19,7 @@ connections (connections_a),
 channel (channel_a),
 socket (socket_a),
 receive_buffer (std::make_shared<std::vector<uint8_t>> ()),
-start_time (std::chrono::steady_clock::now ())
+start_time_m (std::chrono::steady_clock::now ())
 {
 	++connections->connections_count;
 	receive_buffer->resize (256);
@@ -36,9 +36,16 @@ double nano::bootstrap_client::block_rate () const
 	return static_cast<double> (block_count.load () / elapsed);
 }
 
+void nano::bootstrap_client::set_start_time (std::chrono::steady_clock::time_point start_time_a)
+{
+	nano::lock_guard<std::mutex> guard (start_time_mutex);
+	start_time_m = start_time_a;
+}
+
 double nano::bootstrap_client::elapsed_seconds () const
 {
-	return std::chrono::duration_cast<std::chrono::duration<double>> (std::chrono::steady_clock::now () - start_time).count ();
+	nano::lock_guard<std::mutex> guard (start_time_mutex);
+	return std::chrono::duration_cast<std::chrono::duration<double>> (std::chrono::steady_clock::now () - start_time_m).count ();
 }
 
 void nano::bootstrap_client::stop (bool force)
