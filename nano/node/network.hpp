@@ -150,7 +150,8 @@ public:
 	size_t size () const;
 	float size_sqrt () const;
 	bool empty () const;
-	void erase (nano::transport::channel const & channel_a);
+	void erase (nano::transport::channel const &);
+	void erase_below_version (uint8_t);
 	nano::message_buffer_manager buffer_container;
 	boost::asio::ip::udp::resolver resolver;
 	std::vector<boost::thread> packet_processing_threads;

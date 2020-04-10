@@ -167,8 +167,9 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 					lk.lock ();
 					election->status.type = *election_status_type;
 					election->status.confirmation_request_count = election->confirmation_request_count;
-					node.observers.blocks.notify (election->status, account, amount, is_state_send);
+					auto status (election->status);
 					lk.unlock ();
+					node.observers.blocks.notify (status, account, amount, is_state_send);
 					if (amount > 0)
 					{
 						node.observers.account_balance.notify (account, false);
@@ -207,6 +208,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	nano::confirmation_solicitor solicitor (node.network, node.network_params.network);
 	solicitor.prepare (node.rep_crawler.principal_representatives (std::numeric_limits<size_t>::max ()));
 
+	nano::vote_generator_session generator_session (generator);
 	auto & sorted_roots_l (roots.get<tag_difficulty> ());
 	auto const election_ttl_cutoff_l (std::chrono::steady_clock::now () - election_time_to_live);
 	bool const check_all_elections_l (std::chrono::steady_clock::now () - last_check_all_elections > check_all_elections_period);
@@ -228,7 +230,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 
 		if (!election_l->prioritized () && unconfirmed_count_l < prioritized_cutoff)
 		{
-			election_l->prioritize_election ();
+			election_l->prioritize_election (generator_session);
 		}
 
 		unconfirmed_count_l += !confirmed_l;
@@ -245,6 +247,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	}
 	lock_a.unlock ();
 	solicitor.flush ();
+	generator_session.flush ();
 	lock_a.lock ();
 
 	// This is updated after the loop to ensure slow machines don't do the full check often
@@ -845,13 +848,13 @@ uint64_t nano::active_transactions::limited_active_difficulty (nano::block const
 	{
 		threshold = node.default_difficulty (block_a.work_version ());
 	}
-	return limited_active_difficulty (threshold);
+	return limited_active_difficulty (block_a.work_version (), threshold);
 }
 
-uint64_t nano::active_transactions::limited_active_difficulty (uint64_t const threshold_a)
+uint64_t nano::active_transactions::limited_active_difficulty (nano::work_version const version_a, uint64_t const threshold_a)
 {
 	auto difficulty (nano::difficulty::from_multiplier (nano::denormalized_multiplier (active_multiplier (), threshold_a), threshold_a));
-	return std::min (difficulty, node.config.max_work_generate_difficulty);
+	return std::min (difficulty, node.max_work_generate_difficulty (version_a));
 }
 
 double nano::active_transactions::active_multiplier ()

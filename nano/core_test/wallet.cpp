@@ -1164,7 +1164,7 @@ TEST (wallet, work_watcher_update)
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.enable_voting = false;
 	node_config.work_watcher_period = 1s;
-	node_config.max_work_generate_difficulty = std::numeric_limits<uint64_t>::max ();
+	node_config.max_work_generate_multiplier = 1e6;
 	nano::node_flags node_flags;
 	node_flags.disable_request_loop = true;
 	auto & node = *system.add_node (node_config, node_flags);
@@ -1275,7 +1275,6 @@ TEST (wallet, work_watcher_cancel)
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.work_watcher_period = 1s;
 	node_config.max_work_generate_multiplier = 1e6;
-	node_config.max_work_generate_difficulty = nano::difficulty::from_multiplier (node_config.max_work_generate_multiplier, nano::network_constants ().publish_thresholds.base);
 	node_config.enable_voting = false;
 	auto & node = *system.add_node (node_config);
 	auto & wallet (*system.wallet (0));
@@ -1326,7 +1325,7 @@ TEST (wallet, limited_difficulty)
 	nano::system system;
 	nano::genesis genesis;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
-	node_config.max_work_generate_difficulty = nano::network_constants ().publish_thresholds.base;
+	node_config.max_work_generate_multiplier = 1;
 	nano::node_flags node_flags;
 	node_flags.disable_request_loop = true;
 	auto & node = *system.add_node (node_config, node_flags);
@@ -1341,7 +1340,7 @@ TEST (wallet, limited_difficulty)
 		nano::lock_guard<std::mutex> guard (node.active.mutex);
 		node.active.trended_active_multiplier = 1024 * 1024 * 1024;
 	}
-	ASSERT_EQ (node_config.max_work_generate_difficulty, node.active.limited_active_difficulty (*genesis.open));
+	ASSERT_EQ (node.max_work_generate_difficulty (nano::work_version::work_1), node.active.limited_active_difficulty (*genesis.open));
 	auto send = wallet.send_action (nano::test_genesis_key.pub, nano::keypair ().pub, 1, 1);
 	ASSERT_NE (nullptr, send);
 }

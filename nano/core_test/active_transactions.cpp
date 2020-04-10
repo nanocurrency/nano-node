@@ -883,6 +883,32 @@ TEST (active_multiplier, normalization)
 	ASSERT_NEAR (nano::denormalized_multiplier (norm_multiplier15, node.network_params.network.publish_thresholds.epoch_2_receive), multiplier15, 1e-10);
 }
 
+namespace nano
+{
+TEST (active_transactions, vote_generator_session)
+{
+	nano::system system (1);
+	auto node (system.nodes[0]);
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	nano::vote_generator_session generator_session (node->active.generator);
+	boost::thread thread ([node, &generator_session]() {
+		nano::thread_role::set (nano::thread_role::name::request_loop);
+		for (unsigned i = 0; i < 100; ++i)
+		{
+			generator_session.add (nano::block_hash (i));
+		}
+		ASSERT_EQ (0, node->stats.count (nano::stat::type::vote, nano::stat::detail::vote_indeterminate));
+		generator_session.flush ();
+	});
+	thread.join ();
+	system.deadline_set (5s);
+	while (node->stats.count (nano::stat::type::vote, nano::stat::detail::vote_indeterminate) < (100 / nano::network::confirm_ack_hashes_max))
+	{
+		ASSERT_NO_ERROR (system.poll (5ms));
+	}
+}
+}
+
 TEST (active_transactions, election_difficulty_update_old)
 {
 	nano::system system;

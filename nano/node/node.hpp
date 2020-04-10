@@ -87,8 +87,8 @@ std::unique_ptr<container_info_component> collect_container_info (rep_crawler & 
 class node final : public std::enable_shared_from_this<nano::node>
 {
 public:
-	node (boost::asio::io_context &, uint16_t, boost::filesystem::path const &, nano::alarm &, nano::logging const &, nano::work_pool &, nano::node_flags = nano::node_flags ());
-	node (boost::asio::io_context &, boost::filesystem::path const &, nano::alarm &, nano::node_config const &, nano::work_pool &, nano::node_flags = nano::node_flags ());
+	node (boost::asio::io_context &, uint16_t, boost::filesystem::path const &, nano::alarm &, nano::logging const &, nano::work_pool &, nano::node_flags = nano::node_flags (), unsigned seq = 0);
+	node (boost::asio::io_context &, boost::filesystem::path const &, nano::alarm &, nano::node_config const &, nano::work_pool &, nano::node_flags = nano::node_flags (), unsigned seq = 0);
 	~node ();
 	template <typename T>
 	void background (T action_a)
@@ -128,6 +128,7 @@ public:
 	int price (nano::uint128_t const &, int);
 	// The default difficulty updates to base only when the first epoch_2 block is processed
 	uint64_t default_difficulty (nano::work_version const) const;
+	uint64_t max_work_generate_difficulty (nano::work_version const) const;
 	bool local_work_generation_enabled () const;
 	bool work_generation_enabled () const;
 	bool work_generation_enabled (std::vector<std::pair<std::string, uint16_t>> const &) const;
@@ -144,6 +145,7 @@ public:
 	void ongoing_online_weight_calculation_queue ();
 	bool online () const;
 	bool init_error () const;
+	void epoch_upgrader (nano::private_key const &, nano::epoch, uint64_t, uint64_t);
 	nano::worker worker;
 	nano::write_database_queue write_database_queue;
 	boost::asio::io_context & io_ctx;
@@ -193,6 +195,8 @@ public:
 	std::atomic<bool> stopped{ false };
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
+	// For tests only
+	unsigned node_seq;
 	// For tests only
 	boost::optional<uint64_t> work_generate_blocking (nano::block &);
 	// For tests only

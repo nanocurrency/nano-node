@@ -628,8 +628,12 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::tcp_write_drop:
 			res = "tcp_write_drop";
 			break;
+		case nano::stat::detail::tcp_write_no_socket_drop:
+			res = "tcp_write_no_socket_drop";
+			break;
 		case nano::stat::detail::tcp_excluded:
 			res = "tcp_excluded";
+			break;
 		case nano::stat::detail::unreachable_host:
 			res = "unreachable_host";
 			break;
@@ -713,6 +717,18 @@ std::string nano::stat::detail_to_string (uint32_t key)
 			break;
 		case nano::stat::detail::node_id_mismatch:
 			res = "node_id_mismatch";
+			break;
+		case nano::stat::detail::request_within_protection_cache_zone:
+			res = "request_within_protection_cache_zone";
+			break;
+		case nano::stat::detail::no_response_received:
+			res = "no_response_received";
+			break;
+		case nano::stat::detail::unsolicited_telemetry_ack:
+			res = "unsolicited_telemetry_ack";
+			break;
+		case nano::stat::detail::failed_send_telemetry_req:
+			res = "failed_send_telemetry_req";
 			break;
 	}
 	return res;

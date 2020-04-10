@@ -73,7 +73,7 @@ network_params (network_constants::active_network)
 }
 
 nano::network_params::network_params (nano::nano_networks network_a) :
-network (network_a), protocol (network_a), ledger (network), voting (network), node (network), portmapping (network), bootstrap (network)
+network (network_a), ledger (network), voting (network), node (network), portmapping (network), bootstrap (network)
 {
 	unsigned constexpr kdf_full_work = 64 * 1024;
 	unsigned constexpr kdf_test_work = 8;
@@ -81,8 +81,9 @@ network (network_a), protocol (network_a), ledger (network), voting (network), n
 	header_magic_number = network.is_test_network () ? std::array<uint8_t, 2>{ { 'R', 'A' } } : network.is_beta_network () ? std::array<uint8_t, 2>{ { 'N', 'D' } } : std::array<uint8_t, 2>{ { 'R', 'C' } };
 }
 
-nano::protocol_constants::protocol_constants (nano::nano_networks network_a)
+uint8_t nano::protocol_constants::protocol_version_min (bool use_epoch_2_min_version_a) const
 {
+	return use_epoch_2_min_version_a ? protocol_version_min_epoch_2 : protocol_version_min_pre_epoch_2;
 }
 
 nano::ledger_constants::ledger_constants (nano::network_constants & network_constants) :

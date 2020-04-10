@@ -124,7 +124,7 @@ public:
 	void update_active_multiplier (nano::unique_lock<std::mutex> &);
 	uint64_t active_difficulty ();
 	uint64_t limited_active_difficulty (nano::block const &);
-	uint64_t limited_active_difficulty (uint64_t const);
+	uint64_t limited_active_difficulty (nano::work_version const, uint64_t const);
 	double active_multiplier ();
 	std::deque<std::shared_ptr<nano::block>> list_blocks ();
 	void erase (nano::block const &);
@@ -233,6 +233,7 @@ private:
 	friend class confirmation_height_prioritize_frontiers_Test;
 	friend class confirmation_height_prioritize_frontiers_overwrite_Test;
 	friend class active_transactions_confirmation_consistency_Test;
+	friend class active_transactions_vote_generator_session_Test;
 	friend class node_vote_by_hash_bundle_Test;
 	friend std::unique_ptr<container_info_component> collect_container_info (active_transactions &, const std::string &);
 };

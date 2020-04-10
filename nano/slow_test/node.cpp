@@ -1071,6 +1071,57 @@ namespace transport
 }
 }
 
+TEST (node_telemetry, under_load)
+{
+	nano::system system;
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto node = system.add_node (node_config);
+	node_config.peering_port = nano::get_available_port ();
+	nano::node_flags node_flags;
+	node_flags.disable_ongoing_telemetry_requests = true;
+	auto node1 = system.add_node (node_config, node_flags);
+	nano::genesis genesis;
+	nano::keypair key;
+	nano::keypair key1;
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (key.prv);
+	auto latest_genesis = node->latest (nano::test_genesis_key.pub);
+	auto num_blocks = 150000;
+	auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, latest_genesis, nano::test_genesis_key.pub, nano::genesis_amount - num_blocks, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest_genesis)));
+	node->process_active (send);
+	latest_genesis = send->hash ();
+	auto open (std::make_shared<nano::state_block> (key.pub, 0, key.pub, num_blocks, send->hash (), key.prv, key.pub, *system.work.generate (key.pub)));
+	node->process_active (open);
+	auto latest_key = open->hash ();
+
+	auto thread_func = [key1, &system, node, num_blocks](nano::keypair const & keypair, nano::block_hash const & latest, nano::uint128_t const initial_amount) {
+		auto latest_l = latest;
+		for (int i = 0; i < num_blocks; ++i)
+		{
+			auto send (std::make_shared<nano::state_block> (keypair.pub, latest_l, keypair.pub, initial_amount - i - 1, key1.pub, keypair.prv, keypair.pub, *system.work.generate (latest_l)));
+			latest_l = send->hash ();
+			node->process_active (send);
+		}
+	};
+
+	std::thread thread1 (thread_func, nano::test_genesis_key, latest_genesis, nano::genesis_amount - num_blocks);
+	std::thread thread2 (thread_func, key, latest_key, num_blocks);
+
+	ASSERT_TIMELY (200s, node1->ledger.cache.block_count == num_blocks * 2 + 3);
+
+	thread1.join ();
+	thread2.join ();
+
+	for (auto const & node : system.nodes)
+	{
+		ASSERT_EQ (0, node->stats.count (nano::stat::type::telemetry, nano::stat::detail::failed_send_telemetry_req));
+		ASSERT_EQ (0, node->stats.count (nano::stat::type::telemetry, nano::stat::detail::request_within_protection_cache_zone));
+		ASSERT_EQ (0, node->stats.count (nano::stat::type::telemetry, nano::stat::detail::unsolicited_telemetry_ack));
+		ASSERT_EQ (0, node->stats.count (nano::stat::type::telemetry, nano::stat::detail::no_response_received));
+	}
+}
+
 // Similar to signature_checker.boundary_checks but more exhaustive. Can take up to 1 minute
 TEST (signature_checker, mass_boundary_checks)
 {
@@ -1123,6 +1174,114 @@ TEST (signature_checker, mass_boundary_checks)
 			bool all_valid = std::all_of (verifications.cbegin (), verifications.cend (), [](auto verification) { return verification == 1; });
 			ASSERT_TRUE (all_valid);
 			last_size = size;
+		}
+	}
+}
+
+// Test the node epoch_upgrader with a large number of accounts and threads
+// Possible to manually add work peers
+TEST (node, mass_epoch_upgrader)
+{
+	unsigned threads = 20;
+	size_t total_accounts = 2500;
+
+#ifndef NDEBUG
+	total_accounts /= 5;
+#endif
+
+	struct info
+	{
+		nano::keypair key;
+		nano::block_hash pending_hash;
+	};
+
+	std::vector<info> opened (total_accounts / 2);
+	std::vector<info> unopened (total_accounts / 2);
+
+	nano::system system;
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.work_threads = 4;
+	//node_config.work_peers = { { "192.168.1.101", 7000 } };
+	auto & node = *system.add_node (node_config);
+
+	auto balance = node.balance (nano::test_genesis_key.pub);
+	auto latest = node.latest (nano::test_genesis_key.pub);
+	nano::uint128_t amount = 1;
+
+	// Send to all accounts
+	std::array<std::vector<info> *, 2> all{ &opened, &unopened };
+	for (auto & accounts : all)
+	{
+		for (auto & info : *accounts)
+		{
+			balance -= amount;
+			nano::state_block_builder builder;
+			std::error_code ec;
+			auto block = builder
+			             .account (nano::test_genesis_key.pub)
+			             .previous (latest)
+			             .balance (balance)
+			             .link (info.key.pub)
+			             .representative (nano::test_genesis_key.pub)
+			             .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+			             .work (*node.work_generate_blocking (latest, nano::work_threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_0, false, false, false))))
+			             .build (ec);
+			ASSERT_FALSE (ec);
+			ASSERT_NE (nullptr, block);
+			ASSERT_EQ (nano::process_result::progress, node.process (*block).code);
+			latest = block->hash ();
+			info.pending_hash = block->hash ();
+		}
+	}
+	ASSERT_EQ (1 + total_accounts, node.ledger.cache.block_count);
+	ASSERT_EQ (1, node.ledger.cache.account_count);
+
+	// Receive for half of accounts
+	for (auto const & info : opened)
+	{
+		nano::state_block_builder builder;
+		std::error_code ec;
+		auto block = builder
+		             .account (info.key.pub)
+		             .previous (0)
+		             .balance (amount)
+		             .link (info.pending_hash)
+		             .representative (info.key.pub)
+		             .sign (info.key.prv, info.key.pub)
+		             .work (*node.work_generate_blocking (info.key.pub, nano::work_threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_0, false, false, false))))
+		             .build (ec);
+		ASSERT_FALSE (ec);
+		ASSERT_NE (nullptr, block);
+		ASSERT_EQ (nano::process_result::progress, node.process (*block).code);
+	}
+	ASSERT_EQ (1 + total_accounts + opened.size (), node.ledger.cache.block_count);
+	ASSERT_EQ (1 + opened.size (), node.ledger.cache.account_count);
+
+	nano::keypair epoch_signer (nano::test_genesis_key);
+
+	auto block_count_before = node.ledger.cache.block_count.load ();
+	std::cout << "Mass upgrading " << 1 + total_accounts << " accounts" << std::endl;
+	auto future = std::async (
+	std::launch::async, [node_l = node.shared (), signer = epoch_signer.prv.as_private_key (), epoch = nano::epoch::epoch_1, total = 1 + total_accounts, threads] {
+		node_l->epoch_upgrader (signer, epoch, total, threads);
+	});
+	auto expected_blocks = block_count_before + total_accounts + 1;
+	system.deadline_set (300s);
+	while (node.ledger.cache.block_count != expected_blocks)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+		std::this_thread::sleep_for (1s);
+		std::cout << node.ledger.cache.block_count - block_count_before << " / " << expected_blocks - block_count_before << std::endl;
+	}
+	ASSERT_EQ (expected_blocks, node.ledger.cache.block_count);
+	// Check upgrade
+	{
+		auto transaction (node.store.tx_begin_read ());
+		ASSERT_EQ (expected_blocks, node.store.block_count (transaction).sum ());
+		for (auto i (node.store.latest_begin (transaction)); i != node.store.latest_end (); ++i)
+		{
+			nano::account_info info (i->second);
+			ASSERT_EQ (info.epoch (), nano::epoch::epoch_1);
 		}
 	}
 }

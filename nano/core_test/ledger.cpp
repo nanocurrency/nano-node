@@ -3003,8 +3003,14 @@ TEST (ledger, work_validation)
 
 	// With random work the block doesn't pass, then modifies the block with sufficient work and ensures a correct result
 	auto process_block = [&store, &ledger, &pool](nano::block & block_a, nano::block_details const details_a) {
+		auto threshold = nano::work_threshold (block_a.work_version (), details_a);
+		// Rarely failed with random work, so modify until it doesn't have enough difficulty
+		while (block_a.difficulty () >= threshold)
+		{
+			block_a.block_work_set (block_a.block_work () + 1);
+		}
 		EXPECT_EQ (nano::process_result::insufficient_work, ledger.process (store->tx_begin_write (), block_a).code);
-		block_a.block_work_set (*pool.generate (block_a.root (), nano::work_threshold (block_a.work_version (), details_a)));
+		block_a.block_work_set (*pool.generate (block_a.root (), threshold));
 		EXPECT_EQ (nano::process_result::progress, ledger.process (store->tx_begin_write (), block_a).code);
 	};
 
@@ -3101,4 +3107,26 @@ TEST (ledger, epoch_2_started_flag)
 	nano::stat stats;
 	nano::ledger ledger (node1.store, stats);
 	ASSERT_TRUE (ledger.cache.epoch_2_started.load ());
+}
+
+TEST (ledger, epoch_2_upgrade_callback)
+{
+	nano::genesis genesis;
+	nano::stat stats;
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_TRUE (!store->init_error ());
+	bool cb_hit = false;
+	nano::ledger ledger (*store, stats, nano::generate_cache (), [&cb_hit]() {
+		cb_hit = true;
+	});
+	{
+		auto transaction (store->tx_begin_write ());
+		store->initialize (transaction, genesis, ledger.cache);
+	}
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+	upgrade_epoch (pool, ledger, nano::epoch::epoch_1);
+	ASSERT_FALSE (cb_hit);
+	auto latest = upgrade_epoch (pool, ledger, nano::epoch::epoch_2);
+	ASSERT_TRUE (cb_hit);
 }

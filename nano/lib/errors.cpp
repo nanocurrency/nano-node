@@ -199,6 +199,8 @@ std::string nano::error_rpc_messages::message (int ev) const
 			return "Invalid previous block for given subtype";
 		case nano::error_rpc::invalid_timestamp:
 			return "Invalid timestamp";
+		case nano::error_rpc::invalid_threads_count:
+			return "Invalid threads count";
 		case nano::error_rpc::payment_account_balance:
 			return "Account has non-zero balance";
 		case nano::error_rpc::payment_unable_create_account:
