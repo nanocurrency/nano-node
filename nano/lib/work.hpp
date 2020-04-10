@@ -50,17 +50,24 @@ public:
 	version (version_a), item (item_a), difficulty (difficulty_a), callback (callback_a)
 	{
 	}
+	work_item operator= (nano::work_item const &);
 	nano::work_version const version;
 	nano::root const item;
 	uint64_t const difficulty;
 	std::function<void(boost::optional<uint64_t> const &)> const callback;
 };
+enum class work_pool_order
+{
+	sequenced,
+	random
+};
 class work_pool final
 {
 public:
-	work_pool (unsigned, std::chrono::nanoseconds = std::chrono::nanoseconds (0), std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> = nullptr);
+	work_pool (unsigned, nano::work_pool_order = nano::work_pool_order::sequenced, std::chrono::nanoseconds = std::chrono::nanoseconds (0), std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> = nullptr);
 	~work_pool ();
 	void loop (uint64_t);
+	void next (nano::unique_lock<std::mutex> &, uint64_t);
 	void stop ();
 	void cancel (nano::root const &);
 	void generate (nano::work_version const, nano::root const &, uint64_t, std::function<void(boost::optional<uint64_t> const &)>);
@@ -71,14 +78,17 @@ public:
 	size_t size ();
 	nano::network_constants network_constants;
 	std::atomic<int> ticket;
+	boost::optional<nano::work_item> current;
 	bool done;
 	std::vector<boost::thread> threads;
 	std::list<nano::work_item> pending;
 	std::mutex mutex;
 	nano::condition_variable producer_condition;
+	nano::condition_variable next_item_condition;
 	std::chrono::nanoseconds pow_rate_limiter;
 	std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> opencl;
 	nano::observer_set<bool> work_observers;
+	nano::work_pool_order order;
 };
 
 std::unique_ptr<container_info_component> collect_container_info (work_pool & work_pool, const std::string & name);

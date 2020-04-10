@@ -93,7 +93,7 @@ TEST (work, opencl)
 		if (opencl != nullptr)
 		{
 			// 0 threads, should add 1 for managing OpenCL
-			nano::work_pool pool (0, std::chrono::nanoseconds (0), [&opencl](nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> & ticket_a) {
+			nano::work_pool pool (0, nano::work_pool_order::sequenced, std::chrono::nanoseconds (0), [&opencl](nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> & ticket_a) {
 				return opencl->generate_work (version_a, root_a, difficulty_a);
 			});
 			ASSERT_NE (nullptr, pool.opencl);
@@ -160,7 +160,7 @@ TEST (work, difficulty)
 TEST (work, eco_pow)
 {
 	auto work_func = [](std::promise<std::chrono::nanoseconds> & promise, std::chrono::nanoseconds interval) {
-		nano::work_pool pool (1, interval);
+		nano::work_pool pool (1, nano::work_pool_order::sequenced, interval);
 		constexpr auto num_iterations = 5;
 
 		nano::timer<std::chrono::nanoseconds> timer;
@@ -196,4 +196,42 @@ TEST (work, eco_pow)
 	// Confirm that the eco pow rate limiter is working.
 	// It's possible under some unlucky circumstances that this fails to the random nature of valid work generation.
 	ASSERT_LT (future1.get (), future2.get ());
+}
+
+TEST (work, shuffle)
+{
+	auto perform_test_on = [](nano::work_pool & pool) -> std::vector<unsigned> {
+		std::mutex mutex;
+		std::vector<unsigned> works;
+		auto get_callback = [&mutex, &works](unsigned i) {
+			return [&mutex, &works, i](boost::optional<uint64_t> const & work) {
+				nano::lock_guard<std::mutex> guard (mutex);
+				works.push_back (i);
+			};
+		};
+		for (unsigned i = 1; i <= 50; ++i)
+		{
+			auto callback = get_callback (i);
+			pool.generate (nano::work_version::work_1, nano::root (i), nano::network_constants ().publish_thresholds.base, callback);
+		}
+		bool done{ false };
+		while (pool.size () || !done)
+		{
+			std::this_thread::sleep_for (std::chrono::milliseconds (100));
+			nano::lock_guard<std::mutex> guard (mutex);
+			done = works.size () == 50;
+		}
+		EXPECT_EQ (works.size (), 50);
+		return works;
+	};
+	{
+		nano::work_pool pool (std::numeric_limits<unsigned>::max (), nano::work_pool_order::random);
+		auto works = perform_test_on (pool);
+		ASSERT_FALSE (std::is_sorted (works.begin (), works.end ()));
+	}
+	{
+		nano::work_pool pool (std::numeric_limits<unsigned>::max (), nano::work_pool_order::sequenced);
+		auto works = perform_test_on (pool);
+		ASSERT_TRUE (std::is_sorted (works.begin (), works.end ()));
+	}
 }

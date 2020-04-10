@@ -190,16 +190,17 @@ double nano::denormalized_multiplier (double const multiplier_a, uint64_t const 
 	return multiplier;
 }
 
-nano::work_pool::work_pool (unsigned max_threads_a, std::chrono::nanoseconds pow_rate_limiter_a, std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> opencl_a) :
+nano::work_pool::work_pool (unsigned max_threads_a, nano::work_pool_order order_a, std::chrono::nanoseconds pow_rate_limiter_a, std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> opencl_a) :
 ticket (0),
 done (false),
 pow_rate_limiter (pow_rate_limiter_a),
-opencl (opencl_a)
+opencl (opencl_a),
+order (order_a)
 {
 	static_assert (ATOMIC_INT_LOCK_FREE == 2, "Atomic int needed");
 	boost::thread::attributes attrs;
 	nano::thread_attributes::set (attrs);
-	auto count (network_constants.is_test_network () ? std::min (max_threads_a, 1u) : std::min (max_threads_a, std::max (1u, boost::thread::hardware_concurrency ())));
+	auto count (network_constants.is_test_network () ? std::min ({ max_threads_a, 2u, std::max (1u, boost::thread::hardware_concurrency ()) }) : std::min (max_threads_a, std::max (1u, boost::thread::hardware_concurrency ())));
 	if (opencl)
 	{
 		// One thread to handle OpenCL
@@ -245,7 +246,9 @@ void nano::work_pool::loop (uint64_t thread)
 		}
 		if (!empty)
 		{
-			auto current_l (pending.front ());
+			next (lock, thread);
+			debug_assert (current.is_initialized ());
+			auto current_l (*current);
 			int ticket_l (ticket);
 			lock.unlock ();
 			output = 0;
@@ -293,7 +296,7 @@ void nano::work_pool::loop (uint64_t thread)
 				debug_assert (current_l.difficulty == 0 || nano::work_v1::value (current_l.item, work) == output);
 				// Signal other threads to stop their work next time they check ticket
 				++ticket;
-				pending.pop_front ();
+				current.reset ();
 				lock.unlock ();
 				current_l.callback (work);
 				lock.lock ();
@@ -311,17 +314,37 @@ void nano::work_pool::loop (uint64_t thread)
 	}
 }
 
+void nano::work_pool::next (nano::unique_lock<std::mutex> & lock_a, uint64_t thread_a)
+{
+	if (thread_a == 0)
+	{
+		auto index (order == nano::work_pool_order::sequenced ? 0 : nano::random_pool::generate_word32 (0, static_cast<unsigned int> (pending.size () - 1)));
+		auto choice (std::next (pending.begin (), index));
+		current.reset (*choice);
+		pending.erase (choice);
+		lock_a.unlock ();
+		next_item_condition.notify_all ();
+		lock_a.lock ();
+	}
+	else if (!current.is_initialized ())
+	{
+		next_item_condition.wait (lock_a, [& current = current] { return current.is_initialized (); });
+	}
+}
+
 void nano::work_pool::cancel (nano::root const & root_a)
 {
 	nano::lock_guard<std::mutex> lock (mutex);
 	if (!done)
 	{
-		if (!pending.empty ())
+		if (current.is_initialized () && current->item == root_a)
 		{
-			if (pending.front ().item == root_a)
+			if (current->callback)
 			{
-				++ticket;
+				current->callback (boost::none);
 			}
+			current.reset ();
+			++ticket;
 		}
 		pending.remove_if ([&root_a](decltype (pending)::value_type const & item_a) {
 			bool result{ false };
@@ -398,6 +421,11 @@ size_t nano::work_pool::size ()
 {
 	nano::lock_guard<std::mutex> lock (mutex);
 	return pending.size ();
+}
+
+nano::work_item nano::work_item::operator= (nano::work_item const & item_a)
+{
+	return nano::work_item (item_a.version, item_a.item, item_a.difficulty, std::move (item_a.callback));
 }
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (work_pool & work_pool, const std::string & name)
