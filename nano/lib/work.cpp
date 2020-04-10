@@ -370,7 +370,7 @@ void nano::work_pool::stop ()
 void nano::work_pool::generate (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::function<void(boost::optional<uint64_t> const &)> callback_a)
 {
 	debug_assert (!root_a.is_zero ());
-	if (!threads.empty ())
+	if (!done && !threads.empty ())
 	{
 		{
 			nano::lock_guard<std::mutex> lock (mutex);
