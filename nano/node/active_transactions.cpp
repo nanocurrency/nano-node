@@ -633,29 +633,29 @@ std::shared_ptr<nano::election> nano::active_transactions::election (nano::quali
 	return result;
 }
 
-void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> block_a)
+void nano::active_transactions::update_difficulty (nano::block const & block_a)
 {
 	nano::unique_lock<std::mutex> lock (mutex);
-	auto existing_election (roots.get<tag_root> ().find (block_a->qualified_root ()));
+	auto existing_election (roots.get<tag_root> ().find (block_a.qualified_root ()));
 	if (existing_election != roots.get<tag_root> ().end ())
 	{
 		update_difficulty_impl (existing_election, block_a);
 	}
 }
 
-void nano::active_transactions::update_difficulty_impl (nano::active_transactions::roots_iterator const & root_it_a, std::shared_ptr<nano::block> block_a)
+void nano::active_transactions::update_difficulty_impl (nano::active_transactions::roots_iterator const & root_it_a, nano::block const & block_a)
 {
-	double multiplier (normalized_multiplier (*block_a, root_it_a));
+	double multiplier (normalized_multiplier (block_a, root_it_a));
 	if (multiplier > root_it_a->multiplier)
 	{
 		if (node.config.logging.active_update_logging ())
 		{
-			node.logger.try_log (boost::str (boost::format ("Block %1% was updated from multiplier %2% to %3%") % block_a->hash ().to_string () % root_it_a->multiplier % multiplier));
+			node.logger.try_log (boost::str (boost::format ("Block %1% was updated from multiplier %2% to %3%") % block_a.hash ().to_string () % root_it_a->multiplier % multiplier));
 		}
 		roots.get<tag_root> ().modify (root_it_a, [multiplier](nano::active_transactions::conflict_info & info_a) {
 			info_a.multiplier = multiplier;
 		});
-		add_adjust_difficulty (block_a->hash ());
+		add_adjust_difficulty (block_a.hash ());
 	}
 }
 
@@ -931,7 +931,7 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> block_a)
 	auto result (true);
 	if (existing != roots.get<tag_root> ().end ())
 	{
-		update_difficulty_impl (existing, block_a);
+		update_difficulty_impl (existing, *block_a);
 		auto election (existing->election);
 		result = election->publish (block_a);
 		if (!result)

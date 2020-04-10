@@ -368,7 +368,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 				node.logger.try_log (boost::str (boost::format ("Old for: %1%") % hash.to_string ()));
 			}
 			queue_unchecked (transaction_a, hash);
-			node.active.update_difficulty (info_a.block);
+			node.active.update_difficulty (*info_a.block);
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::old);
 			break;
 		}

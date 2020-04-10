@@ -117,7 +117,7 @@ public:
 	bool active (nano::block const &);
 	bool active (nano::qualified_root const &);
 	std::shared_ptr<nano::election> election (nano::qualified_root const &) const;
-	void update_difficulty (std::shared_ptr<nano::block>);
+	void update_difficulty (nano::block const &);
 	double normalized_multiplier (nano::block const &, boost::optional<roots_iterator> const & = boost::none) const;
 	void add_adjust_difficulty (nano::block_hash const &);
 	void update_adjusted_multiplier ();
@@ -166,7 +166,7 @@ private:
 	// clang-format off
 	nano::election_insertion_result insert_impl (std::shared_ptr<nano::block> const &, boost::optional<nano::uint128_t> const & = boost::none, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
 	// clang-format on
-	void update_difficulty_impl (ordered_roots::index_iterator<tag_root>::type const &, std::shared_ptr<nano::block>);
+	void update_difficulty_impl (roots_iterator const &, nano::block const &);
 	void request_loop ();
 	void confirm_prioritized_frontiers (nano::transaction const & transaction_a);
 	void request_confirm (nano::unique_lock<std::mutex> &);
