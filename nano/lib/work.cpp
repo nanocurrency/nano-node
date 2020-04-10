@@ -244,12 +244,16 @@ void nano::work_pool::loop (uint64_t thread)
 			// Only work thread 0 notifies work observers
 			work_observers.notify (!empty);
 		}
+		int ticket_l (ticket);
 		if (!empty)
 		{
+			// Can result in no item due to cancelling
 			next (lock, thread);
-			debug_assert (current != pending.end ());
+			empty = pending.empty ();
+		}
+		if (current != pending.end ())
+		{
 			auto current_l (*current);
-			int ticket_l (ticket);
 			lock.unlock ();
 			output = 0;
 			boost::optional<uint64_t> opt_work;
@@ -307,7 +311,7 @@ void nano::work_pool::loop (uint64_t thread)
 				// A different thread found a solution
 			}
 		}
-		else
+		else if (empty && !done)
 		{
 			// Wait for a work request
 			producer_condition.wait (lock);
@@ -317,10 +321,12 @@ void nano::work_pool::loop (uint64_t thread)
 
 void nano::work_pool::next (nano::unique_lock<std::mutex> & lock_a, uint64_t thread_a)
 {
+	debug_assert (!pending.empty ());
 	if (thread_a == 0)
 	{
 		auto index (order == nano::work_pool_order::sequenced ? 0 : nano::random_pool::generate_word32 (0, static_cast<unsigned int> (pending.size () - 1)));
 		auto choice (std::next (pending.begin (), index));
+		debug_assert (choice != pending.end ());
 		current = choice;
 		lock_a.unlock ();
 		next_item_condition.notify_all ();
@@ -328,7 +334,7 @@ void nano::work_pool::next (nano::unique_lock<std::mutex> & lock_a, uint64_t thr
 	}
 	else if (current == pending.end ())
 	{
-		next_item_condition.wait (lock_a, [this] { return this->current != this->pending.end (); });
+		next_item_condition.wait (lock_a, [this] { return this->done || this->current != this->pending.end (); });
 	}
 }
 
@@ -363,7 +369,9 @@ void nano::work_pool::stop ()
 		nano::lock_guard<std::mutex> lock (mutex);
 		done = true;
 		++ticket;
+		current = pending.end ();
 	}
+	next_item_condition.notify_all ();
 	producer_condition.notify_all ();
 }
 
