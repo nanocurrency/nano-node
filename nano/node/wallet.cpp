@@ -1471,20 +1471,23 @@ void nano::work_watcher::watching (nano::qualified_root const & root_a, std::sha
 			{
 				watcher_l->node.work_generate (
 				block_a->work_version (), block_a->root (), active_difficulty, [watcher_l, block_a, root_a](boost::optional<uint64_t> work_a) {
-					if (work_a.is_initialized ())
+					if (watcher_l->is_watched (root_a))
 					{
-						debug_assert (nano::work_difficulty (block_a->work_version (), block_a->root (), *work_a) > block_a->difficulty ());
-						nano::state_block_builder builder;
-						std::error_code ec;
-						std::shared_ptr<nano::state_block> block (builder.from (*block_a).work (*work_a).build (ec));
-						if (!ec)
+						if (work_a.is_initialized ())
 						{
-							watcher_l->node.network.flood_block_initial (block);
-							watcher_l->node.active.update_difficulty (block);
-							watcher_l->update (root_a, block);
+							debug_assert (nano::work_difficulty (block_a->work_version (), block_a->root (), *work_a) > block_a->difficulty ());
+							nano::state_block_builder builder;
+							std::error_code ec;
+							std::shared_ptr<nano::state_block> block (builder.from (*block_a).work (*work_a).build (ec));
+							if (!ec)
+							{
+								watcher_l->node.network.flood_block_initial (block);
+								watcher_l->node.active.update_difficulty (block);
+								watcher_l->update (root_a, block);
+							}
 						}
+						watcher_l->watching (root_a, block_a);
 					}
-					watcher_l->watching (root_a, block_a);
 				},
 				block_a->account ());
 			}
