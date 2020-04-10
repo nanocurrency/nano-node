@@ -264,7 +264,7 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 	}
 }
 
-void nano::block_processor::process_live (nano::block_hash const & hash_a, std::shared_ptr<nano::block> block_a, const bool watch_work_a, const bool initial_publish_a)
+void nano::block_processor::process_live (nano::block_hash const & hash_a, std::shared_ptr<nano::block> block_a, nano::process_return const & process_return_a, const bool watch_work_a, const bool initial_publish_a)
 {
 	// Add to work watcher to prevent dropping the election
 	if (watch_work_a)
@@ -273,7 +273,7 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	}
 
 	// Start collecting quorum on block
-	auto election = node.active.insert (block_a);
+	auto election = node.active.insert (block_a, process_return_a.previous_balance.number ());
 	if (election.inserted)
 	{
 		election.election->transition_passive ();
@@ -308,7 +308,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			}
 			if (info_a.modified > nano::seconds_since_epoch () - 300 && node.block_arrival.recent (hash))
 			{
-				process_live (hash, info_a.block, watch_work_a, first_publish_a);
+				process_live (hash, info_a.block, result, watch_work_a, first_publish_a);
 			}
 			queue_unchecked (transaction_a, hash);
 			break;
@@ -368,7 +368,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 				node.logger.try_log (boost::str (boost::format ("Old for: %1%") % hash.to_string ()));
 			}
 			queue_unchecked (transaction_a, hash);
-			node.active.update_difficulty (info_a.block);
+			node.active.update_difficulty (*info_a.block);
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::old);
 			break;
 		}

@@ -493,8 +493,9 @@ void nano::active_transactions::stop ()
 	roots.clear ();
 }
 
-nano::election_insertion_result nano::active_transactions::insert_impl (std::shared_ptr<nano::block> block_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
+nano::election_insertion_result nano::active_transactions::insert_impl (std::shared_ptr<nano::block> const & block_a, boost::optional<nano::uint128_t> const & previous_balance_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
 {
+	debug_assert (block_a->has_sideband ());
 	nano::election_insertion_result result;
 	if (!stopped)
 	{
@@ -507,10 +508,14 @@ nano::election_insertion_result nano::active_transactions::insert_impl (std::sha
 				result.inserted = true;
 				auto hash (block_a->hash ());
 				auto difficulty (block_a->difficulty ());
+				auto epoch (block_a->sideband ().details.epoch);
+				auto previous_balance = block_a->previous ().is_zero () ? 0 : previous_balance_a.value_or_eval ([& node = node, &block_a] {
+					return node.ledger.balance (node.store.tx_begin_read (), block_a->previous ());
+				});
 				double multiplier (normalized_multiplier (*block_a));
 				bool prioritized = roots.size () < prioritized_cutoff || multiplier > last_prioritized_multiplier.value_or (0);
 				result.election = nano::make_shared<nano::election> (node, block_a, confirmation_action_a, prioritized);
-				roots.get<tag_root> ().emplace (nano::conflict_info{ root, multiplier, multiplier, result.election });
+				roots.get<tag_root> ().emplace (nano::active_transactions::conflict_info{ root, multiplier, multiplier, result.election, epoch, previous_balance });
 				blocks.emplace (hash, result.election);
 				add_adjust_difficulty (hash);
 				result.election->insert_inactive_votes_cache (hash);
@@ -524,10 +529,10 @@ nano::election_insertion_result nano::active_transactions::insert_impl (std::sha
 	return result;
 }
 
-nano::election_insertion_result nano::active_transactions::insert (std::shared_ptr<nano::block> block_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
+nano::election_insertion_result nano::active_transactions::insert (std::shared_ptr<nano::block> const & block_a, boost::optional<nano::uint128_t> const & previous_balance_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
 {
 	nano::lock_guard<std::mutex> lock (mutex);
-	return insert_impl (block_a, confirmation_action_a);
+	return insert_impl (block_a, previous_balance_a, confirmation_action_a);
 }
 
 // Validate a vote and apply it to the current election if one exists
@@ -628,30 +633,35 @@ std::shared_ptr<nano::election> nano::active_transactions::election (nano::quali
 	return result;
 }
 
-void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> block_a)
+void nano::active_transactions::update_difficulty (nano::block const & block_a)
 {
 	nano::unique_lock<std::mutex> lock (mutex);
-	auto existing_election (roots.get<tag_root> ().find (block_a->qualified_root ()));
+	auto existing_election (roots.get<tag_root> ().find (block_a.qualified_root ()));
 	if (existing_election != roots.get<tag_root> ().end ())
 	{
-		double multiplier (normalized_multiplier (*block_a, existing_election->election->blocks));
-		if (multiplier > existing_election->multiplier)
-		{
-			if (node.config.logging.active_update_logging ())
-			{
-				node.logger.try_log (boost::str (boost::format ("Block %1% was updated from multiplier %2% to %3%") % block_a->hash ().to_string () % existing_election->multiplier % multiplier));
-			}
-			roots.get<tag_root> ().modify (existing_election, [multiplier](nano::conflict_info & info_a) {
-				info_a.multiplier = multiplier;
-			});
-			existing_election->election->publish (block_a);
-			add_adjust_difficulty (block_a->hash ());
-		}
+		update_difficulty_impl (existing_election, block_a);
 	}
 }
 
-double nano::active_transactions::normalized_multiplier (nano::block const & block_a, std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> const & blocks_a)
+void nano::active_transactions::update_difficulty_impl (nano::active_transactions::roots_iterator const & root_it_a, nano::block const & block_a)
 {
+	double multiplier (normalized_multiplier (block_a, root_it_a));
+	if (multiplier > root_it_a->multiplier)
+	{
+		if (node.config.logging.active_update_logging ())
+		{
+			node.logger.try_log (boost::str (boost::format ("Block %1% was updated from multiplier %2% to %3%") % block_a.hash ().to_string () % root_it_a->multiplier % multiplier));
+		}
+		roots.get<tag_root> ().modify (root_it_a, [multiplier](nano::active_transactions::conflict_info & info_a) {
+			info_a.multiplier = multiplier;
+		});
+		add_adjust_difficulty (block_a.hash ());
+	}
+}
+
+double nano::active_transactions::normalized_multiplier (nano::block const & block_a, boost::optional<nano::active_transactions::roots_iterator> const & root_it_a) const
+{
+	debug_assert (!mutex.try_lock ());
 	auto difficulty (block_a.difficulty ());
 	uint64_t threshold (0);
 	bool sideband_not_found (false);
@@ -659,16 +669,23 @@ double nano::active_transactions::normalized_multiplier (nano::block const & blo
 	{
 		threshold = nano::work_threshold (block_a.work_version (), block_a.sideband ().details);
 	}
-	else
+	else if (root_it_a.is_initialized ())
 	{
-		auto find_block (blocks_a.find (block_a.hash ()));
-		if (find_block != blocks_a.end () && find_block->second->has_sideband ())
+		auto election (*root_it_a);
+		debug_assert (election != roots.end ());
+		auto find_block (election->election->blocks.find (block_a.hash ()));
+		if (find_block != election->election->blocks.end () && find_block->second->has_sideband ())
 		{
 			threshold = nano::work_threshold (block_a.work_version (), find_block->second->sideband ().details);
 		}
 		else
 		{
-			threshold = nano::work_threshold_base (block_a.work_version ());
+			// This can have incorrect results during an epoch upgrade, but it only affects prioritization
+			bool is_send = election->previous_balance > block_a.balance ().number ();
+			bool is_receive = election->previous_balance < block_a.balance ().number ();
+			nano::block_details details (election->epoch, is_send, is_receive, false);
+
+			threshold = nano::work_threshold (block_a.work_version (), details);
 			sideband_not_found = true;
 		}
 	}
@@ -677,6 +694,11 @@ double nano::active_transactions::normalized_multiplier (nano::block const & blo
 	if (multiplier >= 1)
 	{
 		multiplier = nano::normalized_multiplier (multiplier, threshold);
+	}
+	else
+	{
+		// Inferred threshold was incorrect
+		multiplier = 1;
 	}
 	return multiplier;
 }
@@ -763,7 +785,7 @@ void nano::active_transactions::update_adjusted_multiplier ()
 				double multiplier_a = avg_multiplier + (double)item.second * min_unit;
 				if (existing_root->adjusted_multiplier != multiplier_a)
 				{
-					roots.get<tag_root> ().modify (existing_root, [multiplier_a](nano::conflict_info & info_a) {
+					roots.get<tag_root> ().modify (existing_root, [multiplier_a](nano::active_transactions::conflict_info & info_a) {
 						info_a.adjusted_multiplier = multiplier_a;
 					});
 				}
@@ -909,6 +931,7 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> block_a)
 	auto result (true);
 	if (existing != roots.get<tag_root> ().end ())
 	{
+		update_difficulty_impl (existing, *block_a);
 		auto election (existing->election);
 		result = election->publish (block_a);
 		if (!result)

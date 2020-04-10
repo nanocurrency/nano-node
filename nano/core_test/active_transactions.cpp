@@ -768,6 +768,10 @@ TEST (active_transactions, insertion_prioritization)
 
 	// Sort by difficulty, descending
 	std::vector<std::shared_ptr<nano::block>> blocks{ send1, send2, send3, send4, send5, send6, send7 };
+	for (auto const & block : blocks)
+	{
+		ASSERT_EQ (nano::process_result::progress, node.process (*block).code);
+	}
 	std::sort (blocks.begin (), blocks.end (), [](auto const & blockl, auto const & blockr) { return blockl->difficulty () > blockr->difficulty (); });
 
 	auto update_active_multiplier = [&node] {
@@ -903,4 +907,95 @@ TEST (active_transactions, vote_generator_session)
 		ASSERT_NO_ERROR (system.poll (5ms));
 	}
 }
+}
+
+TEST (active_transactions, election_difficulty_update_old)
+{
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_request_loop = true;
+	auto & node = *system.add_node (node_flags);
+	nano::genesis genesis;
+	nano::keypair key;
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 10 * nano::xrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+	auto send1_copy (std::make_shared<nano::state_block> (*send1));
+	node.process_active (send1);
+	node.block_processor.flush ();
+	auto root (send1->qualified_root ());
+	ASSERT_EQ (1, node.active.size ());
+	auto multiplier = node.active.roots.begin ()->multiplier;
+	{
+		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		ASSERT_EQ (node.active.normalized_multiplier (*send1), multiplier);
+	}
+	// Should not update with a lower difficulty
+	send1_copy->block_work_set (0);
+	ASSERT_EQ (nano::process_result::old, node.process (*send1_copy).code);
+	ASSERT_FALSE (send1_copy->has_sideband ());
+	node.process_active (send1);
+	node.block_processor.flush ();
+	ASSERT_EQ (1, node.active.size ());
+	ASSERT_EQ (node.active.roots.begin ()->multiplier, multiplier);
+	// Update work, even without a sideband it should find the block in the election and update the election multiplier
+	ASSERT_TRUE (node.work_generate_blocking (*send1_copy, send1->difficulty () + 1).is_initialized ());
+	node.process_active (send1_copy);
+	node.block_processor.flush ();
+	ASSERT_EQ (1, node.active.size ());
+	ASSERT_GT (node.active.roots.begin ()->multiplier, multiplier);
+}
+
+TEST (active_transactions, election_difficulty_update_fork)
+{
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_request_loop = true;
+	auto & node = *system.add_node (node_flags);
+
+	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (node, nano::epoch::epoch_1));
+	auto epoch2 = system.upgrade_genesis_epoch (node, nano::epoch::epoch_2);
+	ASSERT_NE (nullptr, epoch2);
+	nano::keypair key;
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, epoch2->hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (epoch2->hash ())));
+	auto open1 (std::make_shared<nano::state_block> (key.pub, 0, key.pub, nano::Gxrb_ratio, send1->hash (), key.prv, key.pub, *system.work.generate (key.pub)));
+	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send1->hash ())));
+	ASSERT_EQ (nano::process_result::progress, node.process (*send1).code);
+	ASSERT_EQ (nano::process_result::progress, node.process (*open1).code);
+	ASSERT_EQ (nano::process_result::progress, node.process (*send2).code);
+
+	// Verify an election with multiple blocks is correctly updated on arrival of another block
+	// Each subsequent block has difficulty at least higher than the previous one
+	auto fork_change (std::make_shared<nano::state_block> (key.pub, open1->hash (), nano::test_genesis_key.pub, nano::Gxrb_ratio, 0, key.prv, key.pub, *system.work.generate (open1->hash ())));
+	auto fork_send (std::make_shared<nano::state_block> (key.pub, open1->hash (), key.pub, 0, key.pub, key.prv, key.pub, *system.work.generate (open1->hash (), fork_change->difficulty ())));
+	auto fork_receive (std::make_shared<nano::state_block> (key.pub, open1->hash (), key.pub, 2 * nano::Gxrb_ratio, send2->hash (), key.prv, key.pub, *system.work.generate (open1->hash (), fork_send->difficulty ())));
+	ASSERT_GT (fork_send->difficulty (), fork_change->difficulty ());
+	ASSERT_GT (fork_receive->difficulty (), fork_send->difficulty ());
+
+	node.process_active (fork_change);
+	node.block_processor.flush ();
+	ASSERT_EQ (1, node.active.size ());
+	auto multiplier_change = node.active.roots.begin ()->multiplier;
+	node.process_active (fork_send);
+	node.block_processor.flush ();
+	ASSERT_EQ (1, node.active.size ());
+	auto multiplier_send = node.active.roots.begin ()->multiplier;
+	node.process_active (fork_receive);
+	node.block_processor.flush ();
+	ASSERT_EQ (1, node.active.size ());
+	auto multiplier_receive = node.active.roots.begin ()->multiplier;
+
+	ASSERT_GT (multiplier_send, multiplier_change);
+	ASSERT_GT (multiplier_receive, multiplier_send);
+
+	EXPECT_FALSE (fork_receive->has_sideband ());
+	auto threshold = nano::work_threshold (fork_receive->work_version (), nano::block_details (nano::epoch::epoch_2, false, true, false));
+	auto denormalized = nano::denormalized_multiplier (multiplier_receive, threshold);
+	ASSERT_NEAR (nano::difficulty::to_multiplier (fork_receive->difficulty (), threshold), denormalized, 1e-10);
+
+	// Ensure a fork with updated difficulty will also update the election difficulty
+	fork_receive->block_work_set (*system.work.generate (fork_receive->root (), fork_receive->difficulty () + 1));
+	node.process_active (fork_receive);
+	node.block_processor.flush ();
+	ASSERT_EQ (1, node.active.size ());
+	auto multiplier_receive_updated = node.active.roots.begin ()->multiplier;
+	ASSERT_GT (multiplier_receive_updated, multiplier_receive);
 }

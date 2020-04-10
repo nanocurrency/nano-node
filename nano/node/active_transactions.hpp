@@ -10,6 +10,7 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index_container.hpp>
+#include <boost/optional.hpp>
 #include <boost/thread/thread.hpp>
 
 #include <atomic>
@@ -30,15 +31,6 @@ class election;
 class vote;
 class transaction;
 class confirmation_height_processor;
-
-class conflict_info final
-{
-public:
-	nano::qualified_root root;
-	double multiplier;
-	double adjusted_multiplier;
-	std::shared_ptr<nano::election> election;
-};
 
 class cementable_account final
 {
@@ -76,6 +68,17 @@ public:
 // Holds all active blocks i.e. recently added blocks that need confirmation
 class active_transactions final
 {
+	class conflict_info final
+	{
+	public:
+		nano::qualified_root root;
+		double multiplier;
+		double adjusted_multiplier;
+		std::shared_ptr<nano::election> election;
+		nano::epoch epoch;
+		nano::uint128_t previous_balance;
+	};
+
 	friend class nano::election;
 
 	// clang-format off
@@ -89,12 +92,24 @@ class active_transactions final
 	// clang-format on
 
 public:
+	// clang-format off
+	using ordered_roots = boost::multi_index_container<conflict_info,
+	mi::indexed_by<
+		mi::hashed_unique<mi::tag<tag_root>,
+			mi::member<conflict_info, nano::qualified_root, &conflict_info::root>>,
+		mi::ordered_non_unique<mi::tag<tag_difficulty>,
+			mi::member<conflict_info, double, &conflict_info::adjusted_multiplier>,
+			std::greater<double>>>>;
+	// clang-format on
+	ordered_roots roots;
+	using roots_iterator = active_transactions::ordered_roots::index_iterator<tag_root>::type;
+
 	explicit active_transactions (nano::node &, nano::confirmation_height_processor &);
 	~active_transactions ();
 	// Start an election for a block
 	// Call action with confirmed block, may be different than what we started with
 	// clang-format off
-	nano::election_insertion_result insert (std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
+	nano::election_insertion_result insert (std::shared_ptr<nano::block> const &, boost::optional<nano::uint128_t> const & = boost::none, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
 	// clang-format on
 	// Distinguishes replay votes, cannot be determined if the block is not in any election
 	nano::vote_code vote (std::shared_ptr<nano::vote>);
@@ -102,8 +117,8 @@ public:
 	bool active (nano::block const &);
 	bool active (nano::qualified_root const &);
 	std::shared_ptr<nano::election> election (nano::qualified_root const &) const;
-	void update_difficulty (std::shared_ptr<nano::block>);
-	double normalized_multiplier (nano::block const &, std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> const & = {});
+	void update_difficulty (nano::block const &);
+	double normalized_multiplier (nano::block const &, boost::optional<roots_iterator> const & = boost::none) const;
 	void add_adjust_difficulty (nano::block_hash const &);
 	void update_adjusted_multiplier ();
 	void update_active_multiplier (nano::unique_lock<std::mutex> &);
@@ -120,16 +135,6 @@ public:
 	boost::optional<nano::election_status_type> confirm_block (nano::transaction const &, std::shared_ptr<nano::block>);
 	void block_cemented_callback (std::shared_ptr<nano::block> const & block_a);
 	void block_already_cemented_callback (nano::block_hash const &);
-	// clang-format off
-	boost::multi_index_container<nano::conflict_info,
-	mi::indexed_by<
-		mi::hashed_unique<mi::tag<tag_root>,
-			mi::member<nano::conflict_info, nano::qualified_root, &nano::conflict_info::root>>,
-		mi::ordered_non_unique<mi::tag<tag_difficulty>,
-			mi::member<nano::conflict_info, double, &nano::conflict_info::adjusted_multiplier>,
-			std::greater<double>>>>
-	roots;
-	// clang-format on
 	boost::optional<double> last_prioritized_multiplier{ boost::none };
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> blocks;
 	std::deque<nano::election_status> list_recently_cemented ();
@@ -159,8 +164,9 @@ private:
 
 	// Call action with confirmed block, may be different than what we started with
 	// clang-format off
-	nano::election_insertion_result insert_impl (std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
+	nano::election_insertion_result insert_impl (std::shared_ptr<nano::block> const &, boost::optional<nano::uint128_t> const & = boost::none, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
 	// clang-format on
+	void update_difficulty_impl (roots_iterator const &, nano::block const &);
 	void request_loop ();
 	void confirm_prioritized_frontiers (nano::transaction const & transaction_a);
 	void request_confirm (nano::unique_lock<std::mutex> &);

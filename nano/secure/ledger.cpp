@@ -280,8 +280,9 @@ void ledger_processor::state_block_impl (nano::state_block & block_a)
 				auto account_error (ledger.store.account_get (transaction, block_a.hashables.account, info));
 				if (!account_error)
 				{
-					epoch = info.epoch ();
 					// Account already exists
+					epoch = info.epoch ();
+					result.previous_balance = info.balance;
 					result.code = block_a.hashables.previous.is_zero () ? nano::process_result::fork : nano::process_result::progress; // Has this account already been opened? (Ambigious)
 					if (result.code == nano::process_result::progress)
 					{
@@ -298,6 +299,7 @@ void ledger_processor::state_block_impl (nano::state_block & block_a)
 				else
 				{
 					// Account does not yet exists
+					result.previous_balance = 0;
 					result.code = block_a.previous ().is_zero () ? nano::process_result::progress : nano::process_result::gap_previous; // Does the first block in an account yield 0 for previous() ? (Unambigious)
 					if (result.code == nano::process_result::progress)
 					{
@@ -399,6 +401,7 @@ void ledger_processor::epoch_block_impl (nano::state_block & block_a)
 				if (!account_error)
 				{
 					// Account already exists
+					result.previous_balance = info.balance;
 					result.code = block_a.hashables.previous.is_zero () ? nano::process_result::fork : nano::process_result::progress; // Has this account already been opened? (Ambigious)
 					if (result.code == nano::process_result::progress)
 					{
@@ -411,6 +414,7 @@ void ledger_processor::epoch_block_impl (nano::state_block & block_a)
 				}
 				else
 				{
+					result.previous_balance = 0;
 					result.code = block_a.hashables.representative.is_zero () ? nano::process_result::progress : nano::process_result::representative_mismatch;
 					// Non-exisitng account should have pending entries
 					if (result.code == nano::process_result::progress)
@@ -512,6 +516,7 @@ void ledger_processor::change_block (nano::change_block & block_a)
 							ledger.store.frontier_put (transaction, hash, account);
 							result.account = account;
 							result.amount = 0;
+							result.previous_balance = info.balance;
 							ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::change);
 						}
 					}
@@ -572,6 +577,7 @@ void ledger_processor::send_block (nano::send_block & block_a)
 								result.account = account;
 								result.amount = amount;
 								result.pending_account = block_a.hashables.destination;
+								result.previous_balance = info.balance;
 								ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::send);
 							}
 						}
@@ -644,6 +650,7 @@ void ledger_processor::receive_block (nano::receive_block & block_a)
 											ledger.store.frontier_put (transaction, hash, account);
 											result.account = account;
 											result.amount = pending.amount;
+											result.previous_balance = info.balance;
 											ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::receive);
 										}
 									}
@@ -712,6 +719,7 @@ void ledger_processor::open_block (nano::open_block & block_a)
 									ledger.store.frontier_put (transaction, hash, block_a.hashables.account);
 									result.account = block_a.hashables.account;
 									result.amount = pending.amount;
+									result.previous_balance = 0;
 									ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::open);
 								}
 							}

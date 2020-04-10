@@ -39,6 +39,7 @@ TEST (conflicts, add_existing)
 	node1.active.insert (send1);
 	nano::keypair key2;
 	auto send2 (std::make_shared<nano::send_block> (genesis.hash (), key2.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+	send2->sideband_set ({});
 	auto election1 = node1.active.insert (send2);
 	ASSERT_EQ (1, node1.active.size ());
 	auto vote1 (std::make_shared<nano::vote> (key2.pub, key2.prv, 0, send2));
