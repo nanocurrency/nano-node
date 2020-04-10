@@ -247,7 +247,7 @@ void nano::work_pool::loop (uint64_t thread)
 		if (!empty)
 		{
 			next (lock, thread);
-			debug_assert (current.is_initialized ());
+			debug_assert (current != pending.end ());
 			auto current_l (*current);
 			int ticket_l (ticket);
 			lock.unlock ();
@@ -296,7 +296,8 @@ void nano::work_pool::loop (uint64_t thread)
 				debug_assert (current_l.difficulty == 0 || nano::work_v1::value (current_l.item, work) == output);
 				// Signal other threads to stop their work next time they check ticket
 				++ticket;
-				current.reset ();
+				pending.erase (current);
+				current = pending.end ();
 				lock.unlock ();
 				current_l.callback (work);
 				lock.lock ();
@@ -320,15 +321,14 @@ void nano::work_pool::next (nano::unique_lock<std::mutex> & lock_a, uint64_t thr
 	{
 		auto index (order == nano::work_pool_order::sequenced ? 0 : nano::random_pool::generate_word32 (0, static_cast<unsigned int> (pending.size () - 1)));
 		auto choice (std::next (pending.begin (), index));
-		current.reset (*choice);
-		pending.erase (choice);
+		current = choice;
 		lock_a.unlock ();
 		next_item_condition.notify_all ();
 		lock_a.lock ();
 	}
-	else if (!current.is_initialized ())
+	else if (current == pending.end ())
 	{
-		next_item_condition.wait (lock_a, [& current = current] { return current.is_initialized (); });
+		next_item_condition.wait (lock_a, [this] { return this->current != this->pending.end (); });
 	}
 }
 
@@ -337,13 +337,9 @@ void nano::work_pool::cancel (nano::root const & root_a)
 	nano::lock_guard<std::mutex> lock (mutex);
 	if (!done)
 	{
-		if (current.is_initialized () && current->item == root_a)
+		if (current != pending.end () && current->item == root_a)
 		{
-			if (current->callback)
-			{
-				current->callback (boost::none);
-			}
-			current.reset ();
+			current = pending.end ();
 			++ticket;
 		}
 		pending.remove_if ([&root_a](decltype (pending)::value_type const & item_a) {
@@ -421,11 +417,6 @@ size_t nano::work_pool::size ()
 {
 	nano::lock_guard<std::mutex> lock (mutex);
 	return pending.size ();
-}
-
-nano::work_item nano::work_item::operator= (nano::work_item const & item_a)
-{
-	return nano::work_item (item_a.version, item_a.item, item_a.difficulty, std::move (item_a.callback));
 }
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (work_pool & work_pool, const std::string & name)

@@ -50,7 +50,6 @@ public:
 	version (version_a), item (item_a), difficulty (difficulty_a), callback (callback_a)
 	{
 	}
-	work_item operator= (nano::work_item const &);
 	nano::work_version const version;
 	nano::root const item;
 	uint64_t const difficulty;
@@ -78,10 +77,10 @@ public:
 	size_t size ();
 	nano::network_constants network_constants;
 	std::atomic<int> ticket;
-	boost::optional<nano::work_item> current;
 	bool done;
 	std::vector<boost::thread> threads;
 	std::list<nano::work_item> pending;
+	std::list<nano::work_item>::iterator current{ pending.end () };
 	std::mutex mutex;
 	nano::condition_variable producer_condition;
 	nano::condition_variable next_item_condition;
