@@ -7977,6 +7977,14 @@ TEST (rpc, epoch_upgrade)
 	}
 	ASSERT_EQ (200, response.status);
 	ASSERT_EQ ("1", response.json.get<std::string> ("started"));
+	test_response response_fail (request, rpc.config.port, system.io_ctx);
+	system.deadline_set (5s);
+	while (response_fail.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response_fail.status);
+	ASSERT_EQ ("0", response_fail.json.get<std::string> ("started"));
 	system.deadline_set (5s);
 	bool done (false);
 	while (!done)
