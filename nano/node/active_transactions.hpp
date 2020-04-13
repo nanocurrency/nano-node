@@ -57,6 +57,31 @@ public:
 	bool confirmed{ false }; // Did item reach votes quorum? (minimum config value)
 };
 
+class dropped_elections final
+{
+public:
+	void add (nano::qualified_root const &);
+	void erase (nano::qualified_root const &);
+	std::chrono::steady_clock::time_point find (nano::qualified_root const &) const;
+	size_t size () const;
+
+	static size_t constexpr capacity{ 16 * 1024 };
+
+	// clang-format off
+	class tag_sequence {};
+	class tag_root {};
+	using ordered_dropped = boost::multi_index_container<nano::election_timepoint,
+	mi::indexed_by<
+		mi::sequenced<mi::tag<tag_sequence>>,
+		mi::hashed_unique<mi::tag<tag_root>,
+			mi::member<nano::election_timepoint, decltype(nano::election_timepoint::root), &nano::election_timepoint::root>>>>;
+	// clang-format on
+
+private:
+	ordered_dropped items;
+	mutable std::mutex mutex;
+};
+
 class election_insertion_result final
 {
 public:
@@ -117,7 +142,9 @@ public:
 	bool active (nano::block const &);
 	bool active (nano::qualified_root const &);
 	std::shared_ptr<nano::election> election (nano::qualified_root const &) const;
-	void update_difficulty (nano::block const &);
+	// Returns true if this block was not active
+	bool update_difficulty (nano::block const &);
+	void restart (std::shared_ptr<nano::block> const &, nano::write_transaction const &);
 	double normalized_multiplier (nano::block const &, boost::optional<roots_iterator> const & = boost::none) const;
 	void add_adjust_difficulty (nano::block_hash const &);
 	void update_adjusted_multiplier ();
@@ -139,6 +166,7 @@ public:
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> blocks;
 	std::deque<nano::election_status> list_recently_cemented ();
 	std::deque<nano::election_status> recently_cemented;
+	dropped_elections recently_dropped;
 
 	void add_recently_cemented (nano::election_status const &);
 	void add_recently_confirmed (nano::qualified_root const &, nano::block_hash const &);
