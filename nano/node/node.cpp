@@ -1360,7 +1360,7 @@ bool nano::node::epoch_upgrader (nano::private_key const & prv_a, nano::epoch ep
 		error = epoch_upgrade->valid () && epoch_upgrade->wait_for (std::chrono::seconds (0)) == std::future_status::timeout;
 		if (!error)
 		{
-			epoch_upgrade.get () = std::async (std::launch::async, std::bind (&nano::node::epoch_upgrader_impl, this, prv_a, epoch_a, count_limit, threads));
+			*epoch_upgrade = std::async (std::launch::async, std::bind (&nano::node::epoch_upgrader_impl, this, prv_a, epoch_a, count_limit, threads));
 		}
 	}
 	return error;

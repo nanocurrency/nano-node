@@ -1267,10 +1267,9 @@ TEST (node, mass_epoch_upgrader)
 		{
 			auto const pre_upgrade = node.ledger.cache.block_count.load ();
 			auto upgrade_count = std::min (batch_size, block_count_before + total_to_upgrade - pre_upgrade);
-			std::thread ([node_l = node.shared (), signer = epoch_signer.prv.as_private_key (), epoch = nano::epoch::epoch_1, upgrade_count, threads] {
-				node_l->epoch_upgrader (signer, epoch, upgrade_count, threads);
-			})
-			.detach ();
+			ASSERT_FALSE (node.epoch_upgrader (epoch_signer.prv.as_private_key (), nano::epoch::epoch_1, upgrade_count, threads));
+			// Already ongoing - should fail
+			ASSERT_TRUE (node.epoch_upgrader (epoch_signer.prv.as_private_key (), nano::epoch::epoch_1, upgrade_count, threads));
 			system.deadline_set (60s);
 			while (node.ledger.cache.block_count != pre_upgrade + upgrade_count)
 			{
@@ -1278,6 +1277,7 @@ TEST (node, mass_epoch_upgrader)
 				std::this_thread::sleep_for (200ms);
 				std::cout << node.ledger.cache.block_count - block_count_before << " / " << total_to_upgrade << std::endl;
 			}
+			std::this_thread::sleep_for (50ms);
 		}
 		auto expected_blocks = block_count_before + total_accounts + 1;
 		ASSERT_EQ (expected_blocks, node.ledger.cache.block_count);
