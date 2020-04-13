@@ -106,15 +106,19 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 				if (!confirmation_height_bounded_processor.pending_empty ())
 				{
 					debug_assert (confirmation_height_unbounded_processor.pending_empty ());
-					auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
-					confirmation_height_bounded_processor.cement_blocks ();
+					{
+						auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
+						confirmation_height_bounded_processor.cement_blocks (scoped_write_guard);
+					}
 					lock_and_cleanup ();
 				}
 				else if (!confirmation_height_unbounded_processor.pending_empty ())
 				{
 					debug_assert (confirmation_height_bounded_processor.pending_empty ());
-					auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
-					confirmation_height_unbounded_processor.cement_blocks ();
+					{
+						auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
+						confirmation_height_unbounded_processor.cement_blocks (scoped_write_guard);
+					}
 					lock_and_cleanup ();
 				}
 				else

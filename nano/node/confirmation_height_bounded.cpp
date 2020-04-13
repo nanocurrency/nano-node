@@ -172,12 +172,12 @@ void nano::confirmation_height_bounded::process ()
 				if (write_database_queue.process (nano::writer::confirmation_height))
 				{
 					auto scoped_write_guard = write_database_queue.pop ();
-					error = cement_blocks ();
+					error = cement_blocks (scoped_write_guard);
 				}
 				else if (force_write)
 				{
 					auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
-					error = cement_blocks ();
+					error = cement_blocks (scoped_write_guard);
 				}
 				// Don't set any more cemented blocks from the original hash if an inconsistency is found
 				if (error)
@@ -332,7 +332,7 @@ void nano::confirmation_height_bounded::prepare_iterated_blocks_for_cementing (p
 	}
 }
 
-bool nano::confirmation_height_bounded::cement_blocks ()
+bool nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scoped_write_guard_a)
 {
 	// Will contain all blocks that have been cemented (bounded by batch_write_size)
 	// and will get run through the cemented observer callback
@@ -416,8 +416,10 @@ bool nano::confirmation_height_bounded::cement_blocks ()
 						total_blocks_cemented += num_blocks_cemented;
 						write_confirmation_height (num_blocks_cemented, start_height + total_blocks_cemented - 1, new_cemented_frontier);
 						transaction.commit ();
+						scoped_write_guard_a.release ();
 						notify_observers_callback (cemented_blocks);
 						cemented_blocks.clear ();
+						scoped_write_guard_a = write_database_queue.wait (nano::writer::confirmation_height);
 						transaction.renew ();
 					}
 
@@ -450,6 +452,7 @@ bool nano::confirmation_height_bounded::cement_blocks ()
 		}
 	}
 
+	scoped_write_guard_a.release ();
 	notify_observers_callback (cemented_blocks);
 
 	debug_assert (pending_writes.empty ());

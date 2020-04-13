@@ -140,7 +140,7 @@ void nano::confirmation_height_unbounded::process ()
 			if (write_database_queue.process (nano::writer::confirmation_height))
 			{
 				auto scoped_write_guard = write_database_queue.pop ();
-				auto error = cement_blocks ();
+				auto error = cement_blocks (scoped_write_guard);
 				// Don't set any more blocks as confirmed from the original hash if an inconsistency is found
 				if (error)
 				{
@@ -315,7 +315,7 @@ void nano::confirmation_height_unbounded::prepare_iterated_blocks_for_cementing 
 /*
  * Returns true if there was an error in finding one of the blocks to write a confirmation height for, false otherwise
  */
-bool nano::confirmation_height_unbounded::cement_blocks ()
+bool nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & scoped_write_guard_a)
 {
 	auto total_pending_write_block_count = std::accumulate (pending_writes.cbegin (), pending_writes.cend (), uint64_t (0), [](uint64_t total, conf_height_details const & receive_details_a) {
 		return total += receive_details_a.num_blocks_confirmed;
@@ -369,7 +369,7 @@ bool nano::confirmation_height_unbounded::cement_blocks ()
 			--pending_writes_size;
 		}
 	}
-
+	scoped_write_guard_a.release ();
 	notify_observers_callback (cemented_blocks);
 
 	debug_assert (total_pending_write_block_count == 0);

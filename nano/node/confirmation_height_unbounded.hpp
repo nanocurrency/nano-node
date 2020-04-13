@@ -13,6 +13,7 @@ class ledger;
 class read_transaction;
 class logger_mt;
 class write_database_queue;
+class write_guard;
 
 class confirmation_height_unbounded final
 {
@@ -21,7 +22,7 @@ public:
 	bool pending_empty () const;
 	void prepare_new ();
 	void process ();
-	bool cement_blocks ();
+	bool cement_blocks (nano::write_guard &);
 
 private:
 	class confirmed_iterated_pair
