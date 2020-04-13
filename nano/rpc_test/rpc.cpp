@@ -8089,6 +8089,7 @@ TEST (rpc, epoch_upgrade_multithreaded)
 	rpc.start ();
 	boost::property_tree::ptree request;
 	request.put ("action", "epoch_upgrade");
+	request.put ("threads", 2);
 	request.put ("epoch", 1);
 	request.put ("key", epoch_signer.prv.data.to_string ());
 	test_response response (request, rpc.config.port, system.io_ctx);

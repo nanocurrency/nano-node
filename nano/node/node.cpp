@@ -1348,6 +1348,7 @@ bool nano::node::init_error () const
 
 void nano::node::epoch_upgrader (nano::private_key const & prv_a, nano::epoch epoch_a, uint64_t count_limit, uint64_t threads)
 {
+	debug_assert (nano::thread_role::get () != nano::thread_role::name::worker);
 	auto upgrader_process = [](nano::node & node_a, std::atomic<uint64_t> & counter, std::shared_ptr<nano::block> epoch, uint64_t difficulty, nano::public_key const & signer_a, nano::root const & root_a, nano::account const & account_a) {
 		epoch->block_work_set (node_a.work_generate_blocking (nano::work_version::work_1, root_a, difficulty).value_or (0));
 		bool valid_signature (!nano::validate_message (signer_a, epoch->hash (), epoch->block_signature ()));
