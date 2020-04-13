@@ -321,57 +321,57 @@ bool nano::confirmation_height_unbounded::cement_blocks ()
 		return total += receive_details_a.num_blocks_confirmed;
 	});
 
-	auto transaction (ledger.store.tx_begin_write ({}, { nano::tables::confirmation_height }));
-	while (!pending_writes.empty ())
+	std::vector<std::shared_ptr<nano::block>> cemented_blocks;
 	{
-		auto & pending = pending_writes.front ();
-		nano::confirmation_height_info confirmation_height_info;
-		auto error = ledger.store.confirmation_height_get (transaction, pending.account, confirmation_height_info);
-		release_assert (!error);
-		auto confirmation_height = confirmation_height_info.height;
-		if (pending.height > confirmation_height)
+		auto transaction (ledger.store.tx_begin_write ({}, { nano::tables::confirmation_height }));
+		while (!pending_writes.empty ())
 		{
-#ifndef NDEBUG
-			// Do more thorough checking in Debug mode, indicates programming error.
-			auto block = ledger.store.block_get (transaction, pending.hash);
-			static nano::network_constants network_constants;
-			debug_assert (network_constants.is_test_network () || block != nullptr);
-			debug_assert (network_constants.is_test_network () || block->sideband ().height == pending.height);
-
-			if (!block)
+			auto & pending = pending_writes.front ();
+			nano::confirmation_height_info confirmation_height_info;
+			auto error = ledger.store.confirmation_height_get (transaction, pending.account, confirmation_height_info);
+			release_assert (!error);
+			auto confirmation_height = confirmation_height_info.height;
+			if (pending.height > confirmation_height)
 			{
-				logger.always_log ("Failed to write confirmation height for: ", pending.hash.to_string ());
-				ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block);
-				pending_writes.clear ();
-				pending_writes_size = 0;
-				return true;
-			}
+#ifndef NDEBUG
+				// Do more thorough checking in Debug mode, indicates programming error.
+				auto block = ledger.store.block_get (transaction, pending.hash);
+				static nano::network_constants network_constants;
+				debug_assert (network_constants.is_test_network () || block != nullptr);
+				debug_assert (network_constants.is_test_network () || block->sideband ().height == pending.height);
+
+				if (!block)
+				{
+					logger.always_log ("Failed to write confirmation height for: ", pending.hash.to_string ());
+					ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block);
+					pending_writes.clear ();
+					pending_writes_size = 0;
+					return true;
+				}
 #endif
-			ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in, pending.height - confirmation_height);
-			ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in, pending.height - confirmation_height);
-			debug_assert (pending.num_blocks_confirmed == pending.height - confirmation_height);
-			confirmation_height = pending.height;
-			ledger.cache.cemented_count += pending.num_blocks_confirmed;
-			ledger.store.confirmation_height_put (transaction, pending.account, { confirmation_height, pending.hash });
+				ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in, pending.height - confirmation_height);
+				ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in, pending.height - confirmation_height);
+				debug_assert (pending.num_blocks_confirmed == pending.height - confirmation_height);
+				confirmation_height = pending.height;
+				ledger.cache.cemented_count += pending.num_blocks_confirmed;
+				ledger.store.confirmation_height_put (transaction, pending.account, { confirmation_height, pending.hash });
 
-			transaction.commit ();
-			// Reverse it so that the callbacks start from the lowest newly cemented block and move upwards
-			std::reverse (pending.block_callback_data.begin (), pending.block_callback_data.end ());
+				// Reverse it so that the callbacks start from the lowest newly cemented block and move upwards
+				std::reverse (pending.block_callback_data.begin (), pending.block_callback_data.end ());
 
-			std::vector<std::shared_ptr<nano::block>> callback_data;
-			callback_data.reserve (pending.block_callback_data.size ());
-			std::transform (pending.block_callback_data.begin (), pending.block_callback_data.end (), std::back_inserter (callback_data), [& block_cache = block_cache](auto const & hash_a) {
-				debug_assert (block_cache.find (hash_a) != block_cache.end ());
-				return block_cache.at (hash_a);
-			});
-
-			notify_observers_callback (callback_data);
-			transaction.renew ();
+				std::transform (pending.block_callback_data.begin (), pending.block_callback_data.end (), std::back_inserter (cemented_blocks), [& block_cache = block_cache](auto const & hash_a) {
+					debug_assert (block_cache.find (hash_a) != block_cache.end ());
+					return block_cache.at (hash_a);
+				});
+			}
+			total_pending_write_block_count -= pending.num_blocks_confirmed;
+			pending_writes.erase (pending_writes.begin ());
+			--pending_writes_size;
 		}
-		total_pending_write_block_count -= pending.num_blocks_confirmed;
-		pending_writes.erase (pending_writes.begin ());
-		--pending_writes_size;
 	}
+
+	notify_observers_callback (cemented_blocks);
+
 	debug_assert (total_pending_write_block_count == 0);
 	debug_assert (pending_writes.empty ());
 	return false;
