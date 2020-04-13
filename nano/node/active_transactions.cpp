@@ -652,7 +652,7 @@ bool nano::active_transactions::update_difficulty (nano::block const & block_a)
 
 void nano::active_transactions::update_difficulty_impl (nano::active_transactions::roots_iterator const & root_it_a, nano::block const & block_a)
 {
-	assert (!mutex.try_lock ());
+	debug_assert (!mutex.try_lock ());
 	double multiplier (normalized_multiplier (block_a, root_it_a));
 	if (multiplier > root_it_a->multiplier)
 	{
