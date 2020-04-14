@@ -413,7 +413,7 @@ bool nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 					cemented_blocks.emplace_back (block);
 
 					// Flush these callbacks and continue as we write in batches (ideally maximum 250ms) to not hold write db transaction for too long.
-					// Include a 10% tolerance to save having to wait for  to save having
+					// Include a tolerance to save having to potentially wait on the block processor if the number of blocks to cement is only a bit higher than the max.
 					if (cemented_blocks.size () > batch_write_size + (batch_write_size / 10))
 					{
 						auto num_blocks_cemented = num_blocks_iterated - total_blocks_cemented + 1;
