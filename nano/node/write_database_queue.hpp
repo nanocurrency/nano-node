@@ -23,6 +23,10 @@ public:
 	write_guard (std::function<void()> guard_finish_callback_a);
 	void release ();
 	~write_guard ();
+	write_guard (write_guard const&) = delete;
+	write_guard& operator= (write_guard const&) = delete;
+	write_guard (write_guard &&) noexcept;
+	write_guard& operator= (write_guard &&) noexcept;
 
 private:
 	std::function<void()> guard_finish_callback;

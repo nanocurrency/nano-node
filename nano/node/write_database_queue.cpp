@@ -8,11 +8,22 @@ guard_finish_callback (guard_finish_callback_a)
 {
 }
 
-void nano::write_guard::release ()
+nano::write_guard::write_guard (nano::write_guard && write_guard_a) noexcept :
+owns (write_guard_a.owns),
+guard_finish_callback (std::move (write_guard_a.guard_finish_callback))
 {
-	debug_assert (owns);
-	guard_finish_callback ();
-	owns = false;
+	write_guard_a.owns = false;
+	write_guard_a.guard_finish_callback = nullptr;
+}
+
+nano::write_guard& nano::write_guard::operator= (nano::write_guard && write_guard_a) noexcept
+{
+	owns = write_guard_a.owns;
+	guard_finish_callback = std::move (write_guard_a.guard_finish_callback);
+
+	write_guard_a.owns = false;
+	write_guard_a.guard_finish_callback = nullptr;
+	return *this;
 }
 
 nano::write_guard::~write_guard ()
@@ -21,6 +32,13 @@ nano::write_guard::~write_guard ()
 	{
 		guard_finish_callback ();
 	}
+}
+
+void nano::write_guard::release ()
+{
+	debug_assert (owns);
+	guard_finish_callback ();
+	owns = false;
 }
 
 nano::write_database_queue::write_database_queue () :
