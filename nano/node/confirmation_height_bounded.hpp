@@ -54,9 +54,10 @@ private:
 	};
 
 	/** The maximum number of blocks to be read in while iterating over a long account chain */
-	static uint64_t constexpr batch_read_size = 4096;
+	static uint64_t constexpr batch_read_size = 65536;
 
-	static uint32_t constexpr max_items{ 65536 };
+	/** The maximum number of various containers to keep the memory bounded */
+	static uint32_t constexpr max_items{ 131072 };
 
 	// All of the atomic variables here just track the size for use in collect_container_info.
 	// This is so that no mutexes are needed during the algorithm itself, which would otherwise be needed
