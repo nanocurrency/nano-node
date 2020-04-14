@@ -2141,11 +2141,14 @@ void nano::json_handler::epoch_upgrade ()
 		{
 			if (nano::pub_key (prv) == node.ledger.epoch_signer (node.ledger.epoch_link (epoch)))
 			{
-				auto node_l (node.shared ());
-				node.worker.push_task ([node_l, prv, epoch, count_limit, threads]() {
-					node_l->epoch_upgrader (prv, epoch, count_limit, threads);
-				});
-				response_l.put ("started", "1");
+				if (!node.epoch_upgrader (prv, epoch, count_limit, threads))
+				{
+					response_l.put ("started", "1");
+				}
+				else
+				{
+					response_l.put ("started", "0");
+				}
 			}
 			else
 			{
