@@ -841,7 +841,7 @@ TEST (confirmation_height, dynamic_algorithm_no_transition_while_pending)
 	}
 }
 
-// Can take up to 1 hour
+// Can take up to 1 hour (recommend modiying test work difficulty base level to speed this up)
 TEST (confirmation_height, prioritize_frontiers_overwrite)
 {
 	nano::system system;
@@ -850,7 +850,7 @@ TEST (confirmation_height, prioritize_frontiers_overwrite)
 	auto node = system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 
-	auto num_accounts = node->active.max_priority_cementable_frontiers * 2 + 50;
+	auto num_accounts = node->active.max_priority_cementable_frontiers * 2;
 	nano::keypair last_keypair = nano::test_genesis_key;
 	auto last_open_hash = node->latest (nano::test_genesis_key.pub);
 	// Clear confirmation height so that the genesis account has the same amount of uncemented blocks as the other frontiers
