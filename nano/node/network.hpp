@@ -69,7 +69,6 @@ private:
 class tcp_message_manager final
 {
 public:
-	// Stats - Statistics
 	tcp_message_manager (nano::stat & stats_a, unsigned incoming_connections_max_a);
 	void put_message (nano::tcp_message_item const & item_a);
 	nano::tcp_message_item get_message ();

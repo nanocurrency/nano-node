@@ -904,7 +904,7 @@ nano::tcp_message_item nano::tcp_message_manager::get_message ()
 	}
 	else
 	{
-		return nano::tcp_message_item{ std::make_shared<nano::keepalive> (nano::keepalive ()), nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0), 0, nullptr, nano::bootstrap_server_type::undefined };
+		return nano::tcp_message_item{ std::make_shared<nano::keepalive> (), nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0), 0, nullptr, nano::bootstrap_server_type::undefined };
 	}
 }
 
