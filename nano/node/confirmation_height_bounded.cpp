@@ -408,10 +408,13 @@ bool nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 						return true;
 					}
 
+					auto last_iteration = (num_blocks_confirmed - num_blocks_iterated) == 1;
+
 					cemented_blocks.emplace_back (block);
 
 					// Flush these callbacks and continue as we write in batches (ideally maximum 250ms) to not hold write db transaction for too long.
-					if (cemented_blocks.size () == batch_write_size)
+					// Include a 10% tolerance to save having to wait for  to save having
+					if (cemented_blocks.size () > batch_write_size + (batch_write_size / 10))
 					{
 						auto num_blocks_cemented = num_blocks_iterated - total_blocks_cemented + 1;
 						total_blocks_cemented += num_blocks_cemented;
@@ -422,29 +425,34 @@ bool nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 						if (!network_params.network.is_test_network ())
 						{
 							auto const percentage_change = 10;
+							auto const amount_to_change = batch_write_size * percentage_change / 100.0;
 							auto const maximum_batch_write_time = 250; // milliseconds
 							if (timer.since_start ().count () > maximum_batch_write_time)
 							{
 								// Reduce by 10% (unless we have hit a floor)
-								batch_write_size = std::min<uint64_t> (16384u, batch_write_size - (batch_write_size / percentage_change));
+								batch_write_size = std::min<uint64_t> (16384u, batch_write_size - amount_to_change);
 							}
 							else
 							{
 								// Increase by 10%
-								batch_write_size += (batch_write_size / percentage_change);
+								batch_write_size += amount_to_change;
 							}
 						}
 
 						scoped_write_guard_a.release ();
 						notify_observers_callback (cemented_blocks);
 						cemented_blocks.clear ();
-						scoped_write_guard_a = write_database_queue.wait (nano::writer::confirmation_height);
-						transaction.renew ();
-						timer.restart ();
+
+						// Only aquire transaction if there are any blocks left
+						if (!(last_iteration && pending_writes.size () == 1))
+						{
+							scoped_write_guard_a = write_database_queue.wait (nano::writer::confirmation_height);
+							transaction.renew ();
+							timer.restart ();
+						}
 					}
 
 					// Get the next block in the chain until we have reached the final desired one
-					auto last_iteration = (num_blocks_confirmed - num_blocks_iterated) == 1;
 					if (!last_iteration)
 					{
 						new_cemented_frontier = block->sideband ().successor;
