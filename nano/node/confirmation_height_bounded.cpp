@@ -483,8 +483,12 @@ bool nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 		}
 	}
 
-	scoped_write_guard_a.release ();
-	notify_observers_callback (cemented_blocks);
+	// Scope guard could have been released earlier (0 cemented_blocks would indicate that)
+	if (!cemented_blocks.empty ())
+	{
+		scoped_write_guard_a.release ();
+		notify_observers_callback (cemented_blocks);
+	}
 
 	debug_assert (pending_writes.empty ());
 	debug_assert (pending_writes_size == 0);

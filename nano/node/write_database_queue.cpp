@@ -37,7 +37,10 @@ nano::write_guard::~write_guard ()
 void nano::write_guard::release ()
 {
 	debug_assert (owns);
-	guard_finish_callback ();
+	if (owns)
+	{
+		guard_finish_callback ();
+	}
 	owns = false;
 }
 
