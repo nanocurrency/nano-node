@@ -259,6 +259,18 @@ nano::tcp_endpoint nano::transport::tcp_channels::bootstrap_peer (uint8_t connec
 	return result;
 }
 
+void nano::transport::tcp_channels::process_messages ()
+{
+	while (!stopped)
+	{
+		auto item (node.network.tcp_message_manager.get_message ());
+		if (item.message != nullptr)
+		{
+			process_message (*item.message, item.endpoint, item.node_id, item.socket, item.type);
+		}
+	}
+}
+
 void nano::transport::tcp_channels::process_message (nano::message const & message_a, nano::tcp_endpoint const & endpoint_a, nano::account const & node_id_a, std::shared_ptr<nano::socket> socket_a, nano::bootstrap_server_type type_a)
 {
 	if (!stopped && message_a.header.version_using >= protocol_constants ().protocol_version_min (node.ledger.cache.epoch_2_started))
@@ -305,23 +317,6 @@ void nano::transport::tcp_channels::process_message (nano::message const & messa
 				}
 			}
 		}
-	}
-}
-
-void nano::transport::tcp_channels::process_keepalive (nano::keepalive const & message_a, nano::tcp_endpoint const & endpoint_a)
-{
-	if (!max_ip_connections (endpoint_a))
-	{
-		// Check for special node port data
-		auto peer0 (message_a.peers[0]);
-		if (peer0.address () == boost::asio::ip::address_v6{} && peer0.port () != 0)
-		{
-			nano::endpoint new_endpoint (endpoint_a.address (), peer0.port ());
-			node.network.merge_peer (new_endpoint);
-		}
-		// Used to store sender endpoint information only
-		auto udp_channel (std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, nano::transport::map_tcp_to_endpoint (endpoint_a), node.network_params.protocol.protocol_version));
-		node.network.process_message (message_a, udp_channel);
 	}
 }
 
