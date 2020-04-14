@@ -232,7 +232,7 @@ public:
 
 namespace confirmation_height
 {
-	/** The maximum amount of blocks to write  */
+	/** The maximum amount of blocks to write */
 	uint64_t const batch_write_size{ 65536 };
 	/** When the uncemented count (block count - cemented count) is less than this use the unbounded processor */
 	uint64_t const unbounded_cutoff{ 16384 };
