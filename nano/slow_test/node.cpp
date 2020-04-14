@@ -589,7 +589,7 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 		cemented_count += i->second.height;
 	}
 
-	ASSERT_EQ (num_blocks_to_confirm, cemented_count);
+	ASSERT_EQ (num_blocks_to_confirm + 1, cemented_count);
 	ASSERT_EQ (cemented_count, node->ledger.cache.cemented_count);
 	ASSERT_EQ (node->active.election_winner_details_size (), 0);
 }
