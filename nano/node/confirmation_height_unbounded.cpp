@@ -127,7 +127,7 @@ void nano::confirmation_height_unbounded::process ()
 			}
 		}
 
-		auto max_write_size_reached = (pending_writes.size () >= confirmation_height::batch_write_size);
+		auto max_write_size_reached = (pending_writes.size () >= confirmation_height::unbounded_cutoff);
 		// When there are a lot of pending confirmation height blocks, it is more efficient to
 		// bulk some of them up to enable better write performance which becomes the bottleneck.
 		auto min_time_exceeded = (timer.since_start () >= batch_separate_pending_min_time);

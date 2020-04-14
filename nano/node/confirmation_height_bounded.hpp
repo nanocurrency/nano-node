@@ -54,10 +54,13 @@ private:
 	};
 
 	/** The maximum number of blocks to be read in while iterating over a long account chain */
-	static uint64_t constexpr batch_read_size = 65536;
+	uint64_t const batch_read_size = 65536;
+
+	/** The maximum amount of blocks to write at once. This can be increased if the system can process more blocks within a 200ms period. */
+	uint64_t batch_write_size{ 65536 };
 
 	/** The maximum number of various containers to keep the memory bounded */
-	static uint32_t constexpr max_items{ 131072 };
+	uint32_t const max_items{ 131072 };
 
 	// All of the atomic variables here just track the size for use in collect_container_info.
 	// This is so that no mutexes are needed during the algorithm itself, which would otherwise be needed
@@ -66,7 +69,7 @@ private:
 	// This allows the load and stores to use relaxed atomic memory ordering.
 	std::deque<write_details> pending_writes;
 	nano::relaxed_atomic_integral<uint64_t> pending_writes_size{ 0 };
-	static uint32_t constexpr pending_writes_max_size{ max_items };
+	uint32_t const pending_writes_max_size{ max_items };
 	/* Holds confirmation height/cemented frontier in memory for accounts while iterating */
 	std::unordered_map<account, confirmed_info> accounts_confirmed_info;
 	nano::relaxed_atomic_integral<uint64_t> accounts_confirmed_info_size{ 0 };
@@ -125,7 +128,11 @@ private:
 	std::function<void(std::vector<std::shared_ptr<nano::block>> const &)> notify_observers_callback;
 	std::function<void(nano::block_hash const &)> notify_block_already_cemented_observers_callback;
 	std::function<uint64_t ()> awaiting_processing_size_callback;
+	nano::network_params network_params;
 
+	friend class confirmation_height_many_accounts_single_confirmation_Test;
+	friend class confirmation_height_many_accounts_many_confirmations_Test;
+	friend class confirmation_height_long_chains_Test;
 	friend std::unique_ptr<nano::container_info_component> collect_container_info (confirmation_height_bounded &, const std::string & name_a);
 };
 

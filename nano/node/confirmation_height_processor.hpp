@@ -70,6 +70,9 @@ private:
 	friend class confirmation_height_dependent_election_Test;
 	friend class confirmation_height_dependent_election_after_already_cemented_Test;
 	friend class confirmation_height_dynamic_algorithm_no_transition_while_pending_Test;
+	friend class confirmation_height_many_accounts_many_confirmations_Test;
+	friend class confirmation_height_long_chains_Test;
+	friend class confirmation_height_many_accounts_single_confirmation_Test;
 };
 
 std::unique_ptr<container_info_component> collect_container_info (confirmation_height_processor &, const std::string &);

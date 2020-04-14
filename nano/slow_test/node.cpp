@@ -456,6 +456,8 @@ TEST (node, mass_vote_by_hash)
 	}
 }
 
+namespace nano
+{
 TEST (confirmation_height, many_accounts_single_confirmation)
 {
 	nano::system system;
@@ -466,7 +468,8 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 
 	// The number of frontiers should be more than the batch_write_size to test the amount of blocks confirmed is correct.
-	auto num_accounts = nano::confirmation_height::batch_write_size * 2 + 50;
+	auto const batch_write_size = node->confirmation_height_processor.confirmation_height_bounded_processor.batch_write_size;
+	auto const num_accounts = batch_write_size * 2 + 50;
 	nano::keypair last_keypair = nano::test_genesis_key;
 	auto last_open_hash = node->latest (nano::test_genesis_key.pub);
 	{
@@ -540,7 +543,8 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 	auto node = system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 
-	auto num_accounts = nano::confirmation_height::batch_write_size * 2 + 50;
+	auto const batch_write_size = node->confirmation_height_processor.confirmation_height_bounded_processor.batch_write_size;
+	auto const num_accounts = batch_write_size * 2 + 50;
 	auto latest_genesis = node->latest (nano::test_genesis_key.pub);
 	std::vector<std::shared_ptr<nano::open_block>> open_blocks;
 	{
@@ -573,7 +577,7 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 	}
 
 	auto num_confirmed_bounded = node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_bounded, nano::stat::dir::in);
-	ASSERT_GE (num_confirmed_bounded, nano::confirmation_height::batch_write_size);
+	ASSERT_GE (num_confirmed_bounded, batch_write_size);
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in), num_blocks_to_confirm - num_confirmed_bounded);
 
 	system.deadline_set (60s);
@@ -605,7 +609,8 @@ TEST (confirmation_height, long_chains)
 	nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
 	system.wallet (0)->insert_adhoc (key1.prv);
 
-	constexpr auto num_blocks = nano::confirmation_height::batch_write_size * 2 + 50;
+	auto const batch_write_size = node->confirmation_height_processor.confirmation_height_bounded_processor.batch_write_size;
+	auto const num_blocks = batch_write_size * 2 + 50;
 
 	// First open the other account
 	nano::send_block send (latest, key1.pub, nano::genesis_amount - nano::Gxrb_ratio + num_blocks + 1, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest));
@@ -693,6 +698,7 @@ TEST (confirmation_height, long_chains)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (node->active.election_winner_details_size (), 0);
+}
 }
 
 TEST (confirmation_height, dynamic_algorithm)
