@@ -14,6 +14,7 @@
 #include <boost/program_options.hpp>
 #include <boost/range/adaptor/reversed.hpp>
 
+#include <numeric>
 #include <sstream>
 
 #include <argon2.h>
@@ -69,6 +70,7 @@ int main (int argc, char * const * argv)
 		("version", "Prints out version")
 		("config", boost::program_options::value<std::vector<std::string>>()->multitoken(), "Pass node configuration values. This takes precedence over any values in the configuration file. This option can be repeated multiple times.")
 		("daemon", "Start node daemon")
+		("compare_rep_weights", "Display a comparison between the representative weights from the ledger and the hardcoded bootstrap weights")
 		("debug_block_count", "Display the number of block")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
 		("debug_dump_frontier_unchecked_dependents", "Dump frontiers which have matching unchecked keys")
@@ -156,6 +158,47 @@ int main (int argc, char * const * argv)
 				std::exit (1);
 			}
 			daemon.run (data_path, flags);
+		}
+		else if (vm.count ("compare_rep_weights"))
+		{
+			nano::network_constants constants;
+			if (!constants.is_test_network ())
+			{
+				auto node_flags = nano::inactive_node_flag_defaults ();
+				nano::update_flags (node_flags, vm);
+				node_flags.generate_cache.reps = true;
+				auto inactive_node = nano::default_inactive_node (data_path, vm);
+				auto node = inactive_node->node;
+
+				auto hardcoded = node->get_bootstrap_weights ().second;
+				auto ledger = node->ledger.cache.rep_weights.get_rep_amounts ();
+
+				nano::uint128_union total_ledger = std::accumulate (ledger.begin (), ledger.end (), nano::uint128_t{ 0 }, [](auto sum, auto & rep) { return sum + rep.second; });
+				nano::uint128_union total_hardcoded = std::accumulate (hardcoded.begin (), hardcoded.end (), nano::uint128_t{ 0 }, [](auto sum, auto & rep) { return sum + rep.second; });
+
+				std::vector<nano::uint128_t> mismatch_samples;
+				std::transform (hardcoded.begin (), hardcoded.end (), std::back_inserter (mismatch_samples), [&ledger](auto const & rep) {
+					auto ledger_rep (ledger.find (rep.first));
+					nano::uint128_t ledger_weight = (ledger_rep == ledger.end () ? 0 : ledger_rep->second);
+					auto absolute = ledger_weight > rep.second ? ledger_weight - rep.second : rep.second - ledger_weight;
+					return absolute;
+				});
+
+				nano::uint128_union mismatch_total = std::accumulate (mismatch_samples.begin (), mismatch_samples.end (), nano::uint128_t (0));
+				nano::uint128_union mismatch_mean = mismatch_total.number () / mismatch_samples.size ();
+
+				std::cout << boost::str (boost::format ("ledger weight %1% Mnano\nhardcoded weight %2% Mnano\nmismatched\n\ttotal %3% Mnano\n\tsamples %4%\n\tmean %5% Mnano\n")
+				% total_ledger.format_balance (nano::Mxrb_ratio, 0, true)
+				% total_hardcoded.format_balance (nano::Mxrb_ratio, 0, true)
+				% mismatch_total.format_balance (nano::Mxrb_ratio, 0, true)
+				% mismatch_samples.size ()
+				% mismatch_mean.format_balance (nano::Mxrb_ratio, 0, true));
+			}
+			else
+			{
+				std::cout << "Not available for the test network" << std::endl;
+				result = -1;
+			}
 		}
 		else if (vm.count ("debug_block_count"))
 		{
