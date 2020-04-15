@@ -468,7 +468,7 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 
 	// The number of frontiers should be more than the nano::confirmation_height::unbounded_cutoff to test the amount of blocks confirmed is correct.
-	node->confirmation_height_processor.confirmation_height_bounded_processor.batch_write_size = 500;
+	node->confirmation_height_processor.batch_write_size = 500;
 	auto const num_accounts = nano::confirmation_height::unbounded_cutoff * 2 + 50;
 	nano::keypair last_keypair = nano::test_genesis_key;
 	auto last_open_hash = node->latest (nano::test_genesis_key.pub);
@@ -543,7 +543,7 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 	auto node = system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 
-	node->confirmation_height_processor.confirmation_height_bounded_processor.batch_write_size = 500;
+	node->confirmation_height_processor.batch_write_size = 500;
 	auto const num_accounts = nano::confirmation_height::unbounded_cutoff * 2 + 50;
 	auto latest_genesis = node->latest (nano::test_genesis_key.pub);
 	std::vector<std::shared_ptr<nano::open_block>> open_blocks;
@@ -609,7 +609,7 @@ TEST (confirmation_height, long_chains)
 	nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
 	system.wallet (0)->insert_adhoc (key1.prv);
 
-	node->confirmation_height_processor.confirmation_height_bounded_processor.batch_write_size = 500;
+	node->confirmation_height_processor.batch_write_size = 500;
 	auto const num_blocks = nano::confirmation_height::unbounded_cutoff * 2 + 50;
 
 	// First open the other account

@@ -17,7 +17,7 @@ class write_guard;
 class confirmation_height_bounded final
 {
 public:
-	confirmation_height_bounded (nano::ledger &, nano::write_database_queue &, std::chrono::milliseconds, nano::logger_mt &, std::atomic<bool> &, nano::block_hash const &, std::function<void(std::vector<std::shared_ptr<nano::block>> const &)> const &, std::function<void(nano::block_hash const &)> const &, std::function<uint64_t ()> const &);
+	confirmation_height_bounded (nano::ledger &, nano::write_database_queue &, std::chrono::milliseconds, nano::logger_mt &, std::atomic<bool> &, nano::block_hash const &, uint64_t &, std::function<void(std::vector<std::shared_ptr<nano::block>> const &)> const &, std::function<void(nano::block_hash const &)> const &, std::function<uint64_t ()> const &);
 	bool pending_empty () const;
 	void prepare_new ();
 	void process ();
@@ -55,9 +55,6 @@ private:
 
 	/** The maximum number of blocks to be read in while iterating over a long account chain */
 	uint64_t const batch_read_size = 65536;
-
-	/** The maximum amount of blocks to write at once. This can be increased if the system can process more blocks within a 200ms period. */
-	uint64_t batch_write_size{ 65536 };
 
 	/** The maximum number of various containers to keep the memory bounded */
 	uint32_t const max_items{ 131072 };
@@ -125,14 +122,12 @@ private:
 	nano::logger_mt & logger;
 	std::atomic<bool> & stopped;
 	nano::block_hash const & original_hash;
+	uint64_t & batch_write_size;
 	std::function<void(std::vector<std::shared_ptr<nano::block>> const &)> notify_observers_callback;
 	std::function<void(nano::block_hash const &)> notify_block_already_cemented_observers_callback;
 	std::function<uint64_t ()> awaiting_processing_size_callback;
 	nano::network_params network_params;
 
-	friend class confirmation_height_many_accounts_single_confirmation_Test;
-	friend class confirmation_height_many_accounts_many_confirmations_Test;
-	friend class confirmation_height_long_chains_Test;
 	friend std::unique_ptr<nano::container_info_component> collect_container_info (confirmation_height_bounded &, const std::string & name_a);
 };
 

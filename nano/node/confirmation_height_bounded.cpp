@@ -8,13 +8,14 @@
 
 #include <numeric>
 
-nano::confirmation_height_bounded::confirmation_height_bounded (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logger_mt & logger_a, std::atomic<bool> & stopped_a, nano::block_hash const & original_hash_a, std::function<void(std::vector<std::shared_ptr<nano::block>> const &)> const & notify_observers_callback_a, std::function<void(nano::block_hash const &)> const & notify_block_already_cemented_observers_callback_a, std::function<uint64_t ()> const & awaiting_processing_size_callback_a) :
+nano::confirmation_height_bounded::confirmation_height_bounded (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logger_mt & logger_a, std::atomic<bool> & stopped_a, nano::block_hash const & original_hash_a, uint64_t & batch_write_size_a, std::function<void(std::vector<std::shared_ptr<nano::block>> const &)> const & notify_observers_callback_a, std::function<void(nano::block_hash const &)> const & notify_block_already_cemented_observers_callback_a, std::function<uint64_t ()> const & awaiting_processing_size_callback_a) :
 ledger (ledger_a),
 write_database_queue (write_database_queue_a),
 batch_separate_pending_min_time (batch_separate_pending_min_time_a),
 logger (logger_a),
 stopped (stopped_a),
 original_hash (original_hash_a),
+batch_write_size (batch_write_size_a),
 notify_observers_callback (notify_observers_callback_a),
 notify_block_already_cemented_observers_callback (notify_block_already_cemented_observers_callback_a),
 awaiting_processing_size_callback (awaiting_processing_size_callback_a)
@@ -165,7 +166,7 @@ void nano::confirmation_height_bounded::process ()
 			auto should_output = finished_iterating && (non_awaiting_processing || min_time_exceeded);
 			auto force_write = pending_writes.size () >= pending_writes_max_size || accounts_confirmed_info.size () >= pending_writes_max_size;
 
-			if (((max_batch_write_size_reached || should_output) && !pending_writes.empty ()) || force_write)
+			if ((max_batch_write_size_reached || should_output || force_write) && !pending_writes.empty ())
 			{
 				bool error = false;
 				// If nothing is currently using the database write lock then write the cemented pending blocks otherwise continue iterating

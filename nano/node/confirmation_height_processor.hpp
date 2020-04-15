@@ -57,6 +57,9 @@ private:
 
 	nano::ledger & ledger;
 	nano::write_database_queue & write_database_queue;
+	/** The maximum amount of blocks to write at once. This is dynamically modified by the bounded processor based on previous write performance **/
+	uint64_t batch_write_size{ 65536 };
+
 	confirmation_height_unbounded confirmation_height_unbounded_processor;
 	confirmation_height_bounded confirmation_height_bounded_processor;
 	std::thread thread;
