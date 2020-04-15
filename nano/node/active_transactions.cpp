@@ -639,15 +639,14 @@ std::shared_ptr<nano::election> nano::active_transactions::election (nano::quali
 
 bool nano::active_transactions::update_difficulty (nano::block const & block_a)
 {
-	bool not_found{ true };
 	nano::lock_guard<std::mutex> guard (mutex);
 	auto existing_election (roots.get<tag_root> ().find (block_a.qualified_root ()));
-	if (existing_election != roots.get<tag_root> ().end ())
+	auto found = existing_election != roots.get<tag_root> ().end ();
+	if (found)
 	{
-		not_found = false;
 		update_difficulty_impl (existing_election, block_a);
 	}
-	return not_found;
+	return !found;
 }
 
 void nano::active_transactions::update_difficulty_impl (nano::active_transactions::roots_iterator const & root_it_a, nano::block const & block_a)
