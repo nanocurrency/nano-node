@@ -841,7 +841,7 @@ TEST (confirmation_height, dynamic_algorithm_no_transition_while_pending)
 	}
 }
 
-// Can take up to 1 hour (recommend modiying test work difficulty base level to speed this up)
+// Can take up to 1 hour (recommend modifying test work difficulty base level to speed this up)
 TEST (confirmation_height, prioritize_frontiers_overwrite)
 {
 	nano::system system;
