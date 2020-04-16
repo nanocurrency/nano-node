@@ -427,13 +427,14 @@ bool nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 						{
 							auto const amount_to_change = batch_write_size / 10; // 10%
 							auto const maximum_batch_write_time = 250; // milliseconds
+							auto const maximum_batch_write_time_increase_cutoff = maximum_batch_write_time - (maximum_batch_write_time / 5);
 							if (timer.since_start ().count () > maximum_batch_write_time)
 							{
 								// Reduce (unless we have hit a floor)
 								auto const minimum_batch_size = 16384u;
-								batch_write_size = std::min<uint64_t> (minimum_batch_size, batch_write_size - amount_to_change);
+								batch_write_size = std::max<uint64_t> (minimum_batch_size, batch_write_size - amount_to_change);
 							}
-							else if (timer.since_start ().count () > maximum_batch_write_time + (maximum_batch_write_time / 5)) // 20% less
+							else if (timer.since_start ().count () < maximum_batch_write_time_increase_cutoff)
 							{
 								// Increase amount of blocks written for next batch if the time for writing this one is sufficiently lower than the max time to warrant changing
 								batch_write_size += amount_to_change;
