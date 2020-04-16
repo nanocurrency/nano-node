@@ -34,6 +34,11 @@ nano::write_guard::~write_guard ()
 	}
 }
 
+bool nano::write_guard::is_owned () const
+{
+	return owns;
+}
+
 void nano::write_guard::release ()
 {
 	debug_assert (owns);

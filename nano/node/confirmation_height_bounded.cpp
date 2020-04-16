@@ -486,7 +486,7 @@ bool nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 	}
 
 	// Scope guard could have been released earlier (0 cemented_blocks would indicate that)
-	if (!cemented_blocks.empty ())
+	if (scoped_write_guard_a.is_owned () && !cemented_blocks.empty ())
 	{
 		scoped_write_guard_a.release ();
 		notify_observers_callback (cemented_blocks);

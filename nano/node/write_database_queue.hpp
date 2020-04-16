@@ -27,6 +27,7 @@ public:
 	write_guard & operator= (write_guard const &) = delete;
 	write_guard (write_guard &&) noexcept;
 	write_guard & operator= (write_guard &&) noexcept;
+	bool is_owned () const;
 
 private:
 	std::function<void()> guard_finish_callback;
