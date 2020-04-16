@@ -802,7 +802,7 @@ void nano::active_transactions::update_active_multiplier (nano::unique_lock<std:
 	last_prioritized_multiplier.reset ();
 	double multiplier (1.);
 	// Heurestic to filter out non-saturated network and frontier confirmation
-	if (roots.size () > prioritized_cutoff / 2 || (node.network_params.network.is_test_network () && !roots.empty ()))
+	if (roots.size () >= prioritized_cutoff || (node.network_params.network.is_test_network () && !roots.empty ()))
 	{
 		auto & sorted_roots = roots.get<tag_difficulty> ();
 		std::vector<double> prioritized;
