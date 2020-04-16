@@ -149,11 +149,12 @@ class generateMarkdown():
 
     def __init__(self, repo):
         self.mdFile = MdUtils(
-            file_name='CHANGELOG', title='NanoCurrency Changelog'
+            file_name='CHANGELOG', title='CHANGELOG'
         )
         self.mdFile.new_line(
-            "## **Release** [{0}](https://github.com/nanocurrency/nano-node/tree/\
-            {0})".format(repo.end))
+            "## **Release** " + \
+            "[{0}](https://github.com/nanocurrency/nano-node/tree/{0})"\
+                .format(repo.end))
         sort = self.pull_to_section(repo.commits)
 
         for section, prs in sort.items():
