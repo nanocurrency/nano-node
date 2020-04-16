@@ -259,7 +259,7 @@ void nano::election::activate_dependencies ()
 
 void nano::election::broadcast_block (nano::confirmation_solicitor & solicitor_a)
 {
-	if (base_latency () * 10 < std::chrono::steady_clock::now () - last_block)
+	if (base_latency () * 15 < std::chrono::steady_clock::now () - last_block)
 	{
 		if (!solicitor_a.broadcast (*this))
 		{
