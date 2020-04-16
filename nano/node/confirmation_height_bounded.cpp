@@ -430,7 +430,8 @@ bool nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 							if (timer.since_start ().count () > maximum_batch_write_time)
 							{
 								// Reduce (unless we have hit a floor)
-								batch_write_size = std::min<uint64_t> (16384u, batch_write_size - amount_to_change);
+								auto const minimum_batch_size = 16384u;
+								batch_write_size = std::min<uint64_t> (minimum_batch_size, batch_write_size - amount_to_change);
 							}
 							else if (timer.since_start ().count () > maximum_batch_write_time + (maximum_batch_write_time / 5)) // 20% less
 							{
