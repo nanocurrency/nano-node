@@ -246,7 +246,7 @@ void nano::election::activate_dependencies ()
 
 void nano::election::broadcast_block (nano::confirmation_solicitor & solicitor_a)
 {
-	if (base_latency () * 20 < std::chrono::steady_clock::now () - last_block)
+	if (confirmation_request_count >= 2 && base_latency () * 20 < std::chrono::steady_clock::now () - last_block)
 	{
 		if (!solicitor_a.broadcast (*this))
 		{
@@ -275,7 +275,7 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 		case nano::election::state_t::active:
 			broadcast_block (solicitor_a);
 			send_confirm_req (solicitor_a);
-			if (base_latency () * active_duration_factor < std::chrono::steady_clock::now () - state_start)
+			if (confirmation_request_count >= 2 && base_latency () * active_duration_factor < std::chrono::steady_clock::now () - state_start)
 			{
 				state_change (nano::election::state_t::active, nano::election::state_t::backtracking);
 				lock.unlock ();
