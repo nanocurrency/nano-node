@@ -297,7 +297,7 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 			send_confirm_req (solicitor_a);
 			if (base_latency () * active_broadcasting_duration_factor < std::chrono::steady_clock::now () - state_start)
 			{
-				state_change (nano::election::state_t::active, nano::election::state_t::backtracking);
+				state_change (nano::election::state_t::broadcasting, nano::election::state_t::backtracking);
 				lock.unlock ();
 				activate_dependencies ();
 				lock.lock ();
