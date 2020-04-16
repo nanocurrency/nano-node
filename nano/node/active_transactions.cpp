@@ -948,22 +948,36 @@ boost::optional<nano::election_status_type> nano::active_transactions::confirm_b
 	auto hash (block_a->hash ());
 	nano::unique_lock<std::mutex> lock (mutex);
 	auto existing (blocks.find (hash));
+	boost::optional<nano::election_status_type> status_type;
 	if (existing != blocks.end ())
 	{
-		if (!existing->second->confirmed () && existing->second->status.winner->hash () == hash)
+		if (existing->second->status.winner && existing->second->status.winner->hash () == hash)
 		{
-			existing->second->confirm_once (nano::election_status_type::active_confirmation_height);
-			return nano::election_status_type::active_confirmation_height;
+			if (!existing->second->confirmed ())
+			{
+				existing->second->confirm_once (nano::election_status_type::active_confirmation_height);
+				status_type = nano::election_status_type::active_confirmation_height;
+			}
+			else
+			{
+#ifndef NDEBUG
+				nano::unique_lock<std::mutex> election_winners_lk (election_winner_details_mutex);
+				debug_assert (election_winner_details.find (hash) != election_winner_details.cend ());
+#endif
+				status_type = nano::election_status_type::active_confirmed_quorum;
+			}
 		}
 		else
 		{
-			return boost::optional<nano::election_status_type>{};
+			status_type = boost::optional<nano::election_status_type>{};
 		}
 	}
 	else
 	{
-		return nano::election_status_type::inactive_confirmation_height;
+		status_type = nano::election_status_type::inactive_confirmation_height;
 	}
+
+	return status_type;
 }
 
 size_t nano::active_transactions::priority_cementable_frontiers_size ()

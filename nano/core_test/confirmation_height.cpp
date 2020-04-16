@@ -842,50 +842,6 @@ TEST (confirmation_height, modified_chain)
 
 namespace nano
 {
-TEST (confirmation_height, pending_observer_callbacks)
-{
-	auto test_mode = [](nano::confirmation_height_mode mode_a) {
-		nano::system system;
-		nano::node_flags node_flags;
-		node_flags.confirmation_height_processor_mode = mode_a;
-		nano::node_config node_config (nano::get_available_port (), system.logging);
-		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-		auto node = system.add_node (node_config, node_flags);
-
-		system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-		nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
-
-		nano::keypair key1;
-		nano::send_block send (latest, key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest));
-		auto send1 = std::make_shared<nano::send_block> (send.hash (), key1.pub, nano::genesis_amount - nano::Gxrb_ratio * 2, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send.hash ()));
-
-		{
-			auto transaction = node->store.tx_begin_write ();
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send).code);
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send1).code);
-		}
-
-		add_callback_stats (*node);
-
-		node->confirmation_height_processor.add (send1->hash ());
-
-		system.deadline_set (10s);
-		// Confirm the callback is not called under this circumstance because there is no election information
-		while (node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) != 1 || node->ledger.stats.count (nano::stat::type::observer, nano::stat::detail::all, nano::stat::dir::out) != 1)
-		{
-			ASSERT_NO_ERROR (system.poll ());
-		}
-
-		ASSERT_EQ (2, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
-		ASSERT_EQ (2, node->stats.count (nano::stat::type::confirmation_height, get_stats_detail (mode_a), nano::stat::dir::in));
-		ASSERT_EQ (3, node->ledger.cache.cemented_count);
-		ASSERT_EQ (0, node->active.election_winner_details_size ());
-	};
-
-	test_mode (nano::confirmation_height_mode::bounded);
-	test_mode (nano::confirmation_height_mode::unbounded);
-}
-
 TEST (confirmation_height, prioritize_frontiers)
 {
 	auto test_mode = [](nano::confirmation_height_mode mode_a) {

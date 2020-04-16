@@ -528,7 +528,6 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (node->active.election_winner_details_size (), 0);
 }
 
 // Can take up to 10 minutes
@@ -591,7 +590,11 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
-	ASSERT_EQ (node->active.election_winner_details_size (), 0);
+	system.deadline_set (10s);
+	while (node->active.election_winner_details_size () > 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 }
 
 TEST (confirmation_height, long_chains)
@@ -692,7 +695,11 @@ TEST (confirmation_height, long_chains)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (node->active.election_winner_details_size (), 0);
+	system.deadline_set (10s);
+	while (node->active.election_winner_details_size () > 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 }
 
 TEST (confirmation_height, dynamic_algorithm)
@@ -721,14 +728,14 @@ TEST (confirmation_height, dynamic_algorithm)
 		}
 	}
 
-	node->confirmation_height_processor.add (state_blocks.front ()->hash ());
+	node->block_confirm (state_blocks.front ());
 	system.deadline_set (20s);
 	while (node->ledger.cache.cemented_count != 2)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
-	node->confirmation_height_processor.add (latest_genesis);
+	node->block_confirm (state_blocks.back ());
 
 	system.deadline_set (20s);
 	while (node->ledger.cache.cemented_count != num_blocks + 1)
@@ -739,7 +746,11 @@ TEST (confirmation_height, dynamic_algorithm)
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in), num_blocks);
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_bounded, nano::stat::dir::in), 1);
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in), num_blocks - 1);
-	ASSERT_EQ (node->active.election_winner_details_size (), 0);
+	system.deadline_set (10s);
+	while (node->active.election_winner_details_size () > 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 }
 
 namespace nano
@@ -788,11 +799,7 @@ TEST (confirmation_height, dynamic_algorithm_no_transition_while_pending)
 
 		{
 			auto write_guard = node->write_database_queue.wait (nano::writer::testing);
-			// To limit any data races we are not calling node.block_confirm,
-			// the relevant code is replicated here (implementation detail):
-			node->confirmation_height_processor.pause ();
-			node->confirmation_height_processor.add (state_blocks.back ()->hash ());
-			node->confirmation_height_processor.unpause ();
+			node->block_confirm (state_blocks.back ());
 
 			nano::timer<> timer;
 			timer.start ();
@@ -801,7 +808,7 @@ TEST (confirmation_height, dynamic_algorithm_no_transition_while_pending)
 				ASSERT_LT (timer.since_start (), 2s);
 			}
 
-			// Pausing prevents any writes in the outer while loop in the confirmaiton height processor (implementation detail)
+			// Pausing prevents any writes in the outer while loop in the confirmation height processor (implementation detail)
 			node->confirmation_height_processor.pause ();
 
 			timer.restart ();
@@ -817,21 +824,24 @@ TEST (confirmation_height, dynamic_algorithm_no_transition_while_pending)
 				add_block_to_genesis_chain (transaction);
 			}
 			// Make sure this is at a height lower than the block in the add () call above
-			node->confirmation_height_processor.add (state_blocks.front ()->hash ());
+			node->block_confirm (state_blocks.front ());
 			node->confirmation_height_processor.unpause ();
 		}
 
 		system.deadline_set (10s);
-		while (node->confirmation_height_processor.awaiting_processing_size () != 0 || !node->confirmation_height_processor.current ().is_zero ())
+		while (node->ledger.cache.cemented_count != num_blocks + 1)
 		{
 			ASSERT_NO_ERROR (system.poll ());
 		}
 
-		ASSERT_EQ (node->ledger.cache.cemented_count, num_blocks + 1);
 		ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in), num_blocks);
 		ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_bounded, nano::stat::dir::in), 0);
 		ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in), num_blocks);
-		ASSERT_EQ (node->active.election_winner_details_size (), 0);
+		system.deadline_set (10s);
+		while (node->active.election_winner_details_size () > 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
 	}
 }
 

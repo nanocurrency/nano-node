@@ -372,6 +372,7 @@ bool nano::confirmation_height_unbounded::cement_blocks ()
 
 	notify_observers_callback (cemented_blocks);
 
+	debug_assert (ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed) == ledger.stats.count (nano::stat::type::observer, nano::stat::detail::all, nano::stat::dir::out));
 	debug_assert (total_pending_write_block_count == 0);
 	debug_assert (pending_writes.empty ());
 	return false;
