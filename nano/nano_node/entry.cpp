@@ -989,7 +989,7 @@ int main (int argc, char * const * argv)
 			nano::network_constants::set_active_network (nano::nano_networks::nano_test_network);
 			nano::network_params test_params;
 			nano::block_builder builder;
-			size_t count (1024 * 1024);
+			size_t count (32 * 1024);
 			auto count_it = vm.find ("count");
 			if (count_it != vm.end ())
 			{
@@ -1050,17 +1050,9 @@ int main (int argc, char * const * argv)
 				node1->block_processor.add (block);
 			}
 			node1->block_processor.flush ();
-			uint64_t iterator (1);
 			while (node1->ledger.cache.block_count != count * 2 + 1)
 			{
 				system.poll ();
-				if (node1->ledger.cache.block_count % 100 == 0)
-				{
-					if (++iterator % 1000 == 0)
-					{
-						std::cout << boost::str (boost::format ("%1% blocks processed\n") % node1->ledger.cache.block_count);
-					}
-				}
 			}
 			// Confirm blocks for node1
 			node1->confirmation_height_processor.pause ();
@@ -1069,16 +1061,14 @@ int main (int argc, char * const * argv)
 				node1->confirmation_height_processor.add (block->hash ());
 			}
 			node1->confirmation_height_processor.unpause ();
-			// Insert representative
+			uint64_t previous_cache_count (0);
 			while (node1->ledger.cache.cemented_count != node1->ledger.cache.block_count)
 			{
 				system.poll ();
-				if (node1->ledger.cache.cemented_count % 100 == 0)
+				if (std::chrono::duration_cast<std::chrono::nanoseconds> (std::chrono::high_resolution_clock::now ().time_since_epoch ()).count () % 250 * 1000000 == 0 && previous_cache_count != node1->ledger.cache.cemented_count)
 				{
-					if (++iterator % 1000 == 0)
-					{
-						std::cout << boost::str (boost::format ("%1% blocks cemented\n") % node1->ledger.cache.block_count);
-					}
+					std::cout << boost::str (boost::format ("%1% blocks cemented\n") % node1->ledger.cache.cemented_count);
+					previous_cache_count = node1->ledger.cache.cemented_count;
 				}
 			}
 
@@ -1126,14 +1116,14 @@ int main (int argc, char * const * argv)
 			while (node2->ledger.cache.block_count != count * 2 + 1)
 			{
 				system.poll ();
-				if (node2->ledger.cache.block_count % 100 == 0)
+				if (std::chrono::duration_cast<std::chrono::nanoseconds> (std::chrono::high_resolution_clock::now ().time_since_epoch ()).count () % 50 * 1000000 == 0 && previous_cache_count != node2->ledger.cache.block_count)
 				{
-					if (++iterator % 1000 == 0)
-					{
-						std::cout << boost::str (boost::format ("%1% blocks processed\n") % node2->ledger.cache.block_count);
-					}
+					std::cout << boost::str (boost::format ("%1% blocks processed\n") % node2->ledger.cache.block_count);
+					previous_cache_count = node2->ledger.cache.block_count;
 				}
 			}
+			// Insert representative
+			std::cout << "Initializing representative\n";
 			system.wallet (0)->insert_adhoc (test_params.ledger.test_genesis_key.prv);
 			while (node2->rep_crawler.representative_count () == 0)
 			{
@@ -1145,12 +1135,10 @@ int main (int argc, char * const * argv)
 			while (node2->ledger.cache.cemented_count != node2->ledger.cache.block_count)
 			{
 				system.poll ();
-				if (node2->ledger.cache.cemented_count % 50 == 0)
+				if (std::chrono::duration_cast<std::chrono::nanoseconds> (std::chrono::high_resolution_clock::now ().time_since_epoch ()).count () % 1000000 == 0 && previous_cache_count != node2->ledger.cache.cemented_count)
 				{
-					if (++iterator % 1000 == 0)
-					{
-						std::cout << boost::str (boost::format ("%1% blocks confirmed\n") % node2->ledger.cache.cemented_count);
-					}
+					std::cout << boost::str (boost::format ("%1% blocks confirmed\n") % node2->ledger.cache.cemented_count);
+					previous_cache_count = node2->ledger.cache.cemented_count;
 				}
 			}
 			auto end (std::chrono::high_resolution_clock::now ());
