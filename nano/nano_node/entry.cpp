@@ -1098,7 +1098,8 @@ int main (int argc, char * const * argv)
 				auto error = nano::read_node_config_toml (path, daemon_config, config_overrides);
 				if (error)
 				{
-					std::cerr << "\n" << error.get_message () << std::endl;
+					std::cerr << "\n"
+					          << error.get_message () << std::endl;
 					std::exit (1);
 				}
 				else
