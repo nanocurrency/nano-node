@@ -21,11 +21,14 @@ SECTIONS = {
     "RPC Updates": [
         "rpc",
     ],
-    "CLI Updates": [
-        "cli",
-    ],
     "IPC Updates": [
         "ipc",
+    ],
+    "Websocket Updates": [
+        "websockets",
+    ],
+    "CLI Updates": [
+        "cli",
     ],
     "Deprecation/Removal": [
         "deprecation",
@@ -167,14 +170,13 @@ class generateMarkdown():
         self.mdFile.new_header(level=3, title=section)
         self.mdFile.new_line("---")
         self.mdFile.new_line(
-            "|Pull Request|Title (*indicates breaking or configuration \
-                default change)")
+            "|Pull Request|Title")
         self.mdFile.new_line("|:-:|:--")
 
     def write_PR(self, pr, info):
         imp = ""
         if pr[1]:
-            imp = "* "
+            imp = "**BREAKING** "
         self.mdFile.new_line(
             "|[#{0}]({1})|{2}{3}".format(
                 pr[0], info['Url'], imp, info['Title']))
@@ -186,7 +188,7 @@ class generateMarkdown():
                     if any(
                         string in labels for string in [
                             'breaking',
-                            'configuration change default']):
+                            ]):
                         return section, True
                     else:
                         return section, False
@@ -199,7 +201,10 @@ class generateMarkdown():
             sect[a] = []
         for pull, info in commits.items():
             section, important = self.handle_labels(info['labels'])
-            sect[section].append([pull, important])
+            if important:
+                sect[section].insert(0,[pull, important])
+            else:
+                sect[section].append([pull, important])
         for a in sect:
             if len(sect[a]) > 0:
                 result[a] = sect[a]
