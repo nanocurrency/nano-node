@@ -300,7 +300,7 @@ TEST (active_transactions, prioritize_chains)
 		auto it (node1.active.roots.get<1> ().begin ());
 		while (!node1.active.roots.empty () && it != node1.active.roots.get<1> ().end ())
 		{
-			if (it->multiplier == (multiplier1 || multiplier2))
+			if (it->multiplier == multiplier1 || it->multiplier == multiplier2)
 			{
 				seen++;
 			}
