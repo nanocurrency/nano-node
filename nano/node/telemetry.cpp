@@ -627,7 +627,7 @@ nano::telemetry_data nano::consolidate_telemetry_data (std::vector<nano::telemet
 	return consolidated_data;
 }
 
-nano::telemetry_data nano::local_telemetry_data (nano::ledger_cache const & ledger_cache_a, nano::network & network_a, uint64_t bandwidth_limit_a, nano::network_params const & network_params_a, std::chrono::steady_clock::time_point statup_time_a, uint64_t active_diffciulty_a, nano::keypair const & node_id_a)
+nano::telemetry_data nano::local_telemetry_data (nano::ledger_cache const & ledger_cache_a, nano::network & network_a, uint64_t bandwidth_limit_a, nano::network_params const & network_params_a, std::chrono::steady_clock::time_point statup_time_a, uint64_t active_difficulty_a, nano::keypair const & node_id_a)
 {
 	nano::telemetry_data telemetry_data;
 	telemetry_data.node_id = node_id_a.pub;
@@ -646,7 +646,7 @@ nano::telemetry_data nano::local_telemetry_data (nano::ledger_cache const & ledg
 	telemetry_data.pre_release_version = nano::get_pre_release_node_version ();
 	telemetry_data.maker = 0; // 0 Indicates it originated from the NF
 	telemetry_data.timestamp = std::chrono::system_clock::now ();
-	telemetry_data.active_difficulty = active_diffciulty_a;
+	telemetry_data.active_difficulty = active_difficulty_a;
 	// Make sure this is the final operation!
 	telemetry_data.sign (node_id_a);
 	return telemetry_data;
