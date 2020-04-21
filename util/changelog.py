@@ -158,6 +158,8 @@ class generateMarkdown():
             "## **Release** " + \
             "[{0}](https://github.com/nanocurrency/nano-node/tree/{0})"\
                 .format(repo.end))
+        self.mdFile.new_line("[Full Changelog](https://github.com/nanocurrency"\
+            "/nano-node/compare/{0}...{1})".format(repo.start, repo.end))
         sort = self.pull_to_section(repo.commits)
 
         for section, prs in sort.items():
