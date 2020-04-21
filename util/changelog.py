@@ -169,8 +169,8 @@ class generateMarkdown():
         self.mdFile.create_md_file()
 
     def write_header(self, section):
-        self.mdFile.new_header(level=3, title=section)
         self.mdFile.new_line("---")
+        self.mdFile.new_header(level=3, title=section)
         self.mdFile.new_line(
             "|Pull Request|Title")
         self.mdFile.new_line("|:-:|:--")
