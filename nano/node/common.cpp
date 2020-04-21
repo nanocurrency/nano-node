@@ -1188,6 +1188,7 @@ void nano::telemetry_data::deserialize (nano::stream & stream_a, uint16_t payloa
 	uint64_t timestamp_l;
 	read (stream_a, timestamp_l);
 	timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (timestamp_l));
+	read (stream_a, active_difficulty);
 }
 
 void nano::telemetry_data::serialize_without_signature (nano::stream & stream_a, uint16_t /* size_a */) const
@@ -1208,6 +1209,7 @@ void nano::telemetry_data::serialize_without_signature (nano::stream & stream_a,
 	write (stream_a, pre_release_version);
 	write (stream_a, maker);
 	write (stream_a, std::chrono::duration_cast<std::chrono::milliseconds> (timestamp.time_since_epoch ()).count ());
+	write (stream_a, active_difficulty);
 }
 
 void nano::telemetry_data::serialize (nano::stream & stream_a) const
@@ -1218,11 +1220,6 @@ void nano::telemetry_data::serialize (nano::stream & stream_a) const
 
 nano::error nano::telemetry_data::serialize_json (nano::jsonconfig & json, bool ignore_identification_metrics_a) const
 {
-	if (!ignore_identification_metrics_a)
-	{
-		json.put ("signature", signature.to_string ());
-		json.put ("node_id", node_id.to_string ());
-	}
 	json.put ("block_count", block_count);
 	json.put ("cemented_count", cemented_count);
 	json.put ("unchecked_count", unchecked_count);
@@ -1238,6 +1235,13 @@ nano::error nano::telemetry_data::serialize_json (nano::jsonconfig & json, bool 
 	json.put ("pre_release_version", pre_release_version);
 	json.put ("maker", maker);
 	json.put ("timestamp", std::chrono::duration_cast<std::chrono::milliseconds> (timestamp.time_since_epoch ()).count ());
+	json.put ("active_difficulty", active_difficulty);
+	// Keep these last for UI purposes
+	if (!ignore_identification_metrics_a)
+	{
+		json.put ("node_id", node_id.to_string ());
+		json.put ("signature", signature.to_string ());
+	}
 	return json.get_error ();
 }
 
@@ -1290,12 +1294,13 @@ nano::error nano::telemetry_data::deserialize_json (nano::jsonconfig & json, boo
 	json.get ("maker", maker);
 	auto timestamp_l = json.get<uint64_t> ("timestamp");
 	timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (timestamp_l));
+	json.get ("active_difficulty", active_difficulty);
 	return json.get_error ();
 }
 
 bool nano::telemetry_data::operator== (nano::telemetry_data const & data_a) const
 {
-	return (signature == data_a.signature && node_id == data_a.node_id && block_count == data_a.block_count && cemented_count == data_a.cemented_count && unchecked_count == data_a.unchecked_count && account_count == data_a.account_count && bandwidth_cap == data_a.bandwidth_cap && uptime == data_a.uptime && peer_count == data_a.peer_count && protocol_version == data_a.protocol_version && genesis_block == data_a.genesis_block && major_version == data_a.major_version && minor_version == data_a.minor_version && patch_version == data_a.patch_version && pre_release_version == data_a.pre_release_version && maker == data_a.maker && timestamp == data_a.timestamp);
+	return (signature == data_a.signature && node_id == data_a.node_id && block_count == data_a.block_count && cemented_count == data_a.cemented_count && unchecked_count == data_a.unchecked_count && account_count == data_a.account_count && bandwidth_cap == data_a.bandwidth_cap && uptime == data_a.uptime && peer_count == data_a.peer_count && protocol_version == data_a.protocol_version && genesis_block == data_a.genesis_block && major_version == data_a.major_version && minor_version == data_a.minor_version && patch_version == data_a.patch_version && pre_release_version == data_a.pre_release_version && maker == data_a.maker && timestamp == data_a.timestamp && active_difficulty == data_a.active_difficulty);
 }
 
 bool nano::telemetry_data::operator!= (nano::telemetry_data const & data_a) const
