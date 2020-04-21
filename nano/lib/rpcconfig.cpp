@@ -270,7 +270,7 @@ nano::error read_rpc_config_toml (boost::filesystem::path const & data_path_a, n
 		}
 		else
 		{
-			toml.read (config_overrides_stream);
+			error = toml.read (config_overrides_stream);
 		}
 	}
 

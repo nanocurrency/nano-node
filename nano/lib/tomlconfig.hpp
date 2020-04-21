@@ -33,8 +33,8 @@ public:
 	void doc (std::string const & key, std::string const & doc);
 	nano::error & read (boost::filesystem::path const & path_a);
 	nano::error & read (std::istream & stream_overrides, boost::filesystem::path const & path_a);
-	void read (std::istream & stream_first_a, std::istream & stream_second_a);
-	void read (std::istream & stream_a);
+	nano::error & read (std::istream & stream_a);
+	nano::error & read (std::istream & stream_first_a, std::istream & stream_second_a);
 	void write (boost::filesystem::path const & path_a);
 	void write (std::ostream & stream_a) const;
 	void open_or_create (std::fstream & stream_a, std::string const & path_a);
