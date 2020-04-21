@@ -463,7 +463,7 @@ bool nano::confirmation_height_bounded::pending_empty () const
 	return pending_writes.empty ();
 }
 
-void nano::confirmation_height_bounded::prepare_new ()
+void nano::confirmation_height_bounded::reset ()
 {
 	accounts_confirmed_info.clear ();
 	accounts_confirmed_info_size = 0;

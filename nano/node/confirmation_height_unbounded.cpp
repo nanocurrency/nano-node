@@ -399,7 +399,7 @@ bool nano::confirmation_height_unbounded::pending_empty () const
 	return pending_writes.empty ();
 }
 
-void nano::confirmation_height_unbounded::prepare_new ()
+void nano::confirmation_height_unbounded::reset ()
 {
 	// Separate blocks which are pending confirmation height can be batched by a minimum processing time (to improve lmdb disk write performance),
 	// so make sure the slate is clean when a new batch is starting.
