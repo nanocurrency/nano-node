@@ -1235,7 +1235,7 @@ nano::error nano::telemetry_data::serialize_json (nano::jsonconfig & json, bool 
 	json.put ("pre_release_version", pre_release_version);
 	json.put ("maker", maker);
 	json.put ("timestamp", std::chrono::duration_cast<std::chrono::milliseconds> (timestamp.time_since_epoch ()).count ());
-	json.put ("active_difficulty", active_difficulty);
+	json.put ("active_difficulty", nano::to_string_hex (active_difficulty));
 	// Keep these last for UI purposes
 	if (!ignore_identification_metrics_a)
 	{
@@ -1294,7 +1294,9 @@ nano::error nano::telemetry_data::deserialize_json (nano::jsonconfig & json, boo
 	json.get ("maker", maker);
 	auto timestamp_l = json.get<uint64_t> ("timestamp");
 	timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (timestamp_l));
-	json.get ("active_difficulty", active_difficulty);
+	auto current_active_difficulty_text = json.get<std::string> ("active_difficulty");
+	auto ec = nano::from_string_hex (current_active_difficulty_text, active_difficulty);
+	debug_assert (!ec);
 	return json.get_error ();
 }
 
