@@ -34,8 +34,8 @@ public:
 	void encode_dec (std::string &) const;
 	bool decode_dec (std::string const &, bool = false);
 	bool decode_dec (std::string const &, nano::uint128_t);
-	std::string format_balance (nano::uint128_t scale, int precision, bool group_digits);
-	std::string format_balance (nano::uint128_t scale, int precision, bool group_digits, const std::locale & locale);
+	std::string format_balance (nano::uint128_t scale, int precision, bool group_digits) const;
+	std::string format_balance (nano::uint128_t scale, int precision, bool group_digits, const std::locale & locale) const;
 	nano::uint128_t number () const;
 	void clear ();
 	bool is_zero () const;
