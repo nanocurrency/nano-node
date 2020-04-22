@@ -986,7 +986,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_frontiers_confirmation"))
 		{
-			nano::network_constants::set_active_network (nano::nano_networks::nano_test_network);
+			nano::force_nano_test_network ();
 			nano::network_params test_params;
 			nano::block_builder builder;
 			size_t count (32 * 1024);
@@ -1055,12 +1055,10 @@ int main (int argc, char * const * argv)
 				system.poll ();
 			}
 			// Confirm blocks for node1
-			node1->confirmation_height_processor.pause ();
 			for (auto & block : blocks)
 			{
 				node1->confirmation_height_processor.add (block->hash ());
 			}
-			node1->confirmation_height_processor.unpause ();
 			uint64_t previous_cache_count (0);
 			while (node1->ledger.cache.cemented_count != node1->ledger.cache.block_count)
 			{
