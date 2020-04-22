@@ -69,16 +69,6 @@ void nano::rep_crawler::validate ()
 			if (updated_or_inserted)
 			{
 				node.logger.try_log (boost::str (boost::format ("Found a representative at %1%") % channel->to_string ()));
-				// Rebroadcasting all active votes to new representative
-				auto blocks (node.active.list_blocks ());
-				for (auto i (blocks.begin ()), n (blocks.end ()); i != n; ++i)
-				{
-					if (*i != nullptr)
-					{
-						nano::confirm_req req (*i);
-						channel->send (req);
-					}
-				}
 			}
 		}
 		// This tries to assist rep nodes that have lost track of their highest sequence number by replaying our highest known vote back to them
