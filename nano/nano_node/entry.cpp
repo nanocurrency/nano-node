@@ -173,18 +173,21 @@ int main (int argc, char * const * argv)
 				auto hardcoded = node->get_bootstrap_weights ().second;
 				auto ledger = node->ledger.cache.rep_weights.get_rep_amounts ();
 
-				nano::uint128_union const total_ledger = std::accumulate (ledger.begin (), ledger.end (), nano::uint128_t{ 0 }, [](auto sum, auto & rep) { return sum + rep.second; });
-				nano::uint128_union const total_hardcoded = std::accumulate (hardcoded.begin (), hardcoded.end (), nano::uint128_t{ 0 }, [](auto sum, auto & rep) { return sum + rep.second; });
+				auto get_total = [](decltype (hardcoded) const & reps) -> nano::uint128_union {
+					return std::accumulate (reps.begin (), reps.end (), nano::uint128_t{ 0 }, [](auto sum, auto const & rep) { return sum + rep.second; });
+				};
+				auto const total_ledger = get_total (ledger);
+				auto const total_hardcoded = get_total (hardcoded);
 
 				std::vector<nano::uint128_t> mismatch_samples;
-				std::transform (hardcoded.begin (), hardcoded.end (), std::back_inserter (mismatch_samples), [&ledger](auto const & rep) {
+				std::transform (hardcoded.begin (), hardcoded.end (), std::back_inserter (mismatch_samples), [&ledger, &node](auto const & rep) {
 					auto ledger_rep (ledger.find (rep.first));
 					nano::uint128_t ledger_weight = (ledger_rep == ledger.end () ? 0 : ledger_rep->second);
 					auto absolute = ledger_weight > rep.second ? ledger_weight - rep.second : rep.second - ledger_weight;
 					return absolute;
 				});
 
-				nano::uint128_union const mismatch_total = std::accumulate (mismatch_samples.begin (), mismatch_samples.end (), nano::uint128_t (0));
+				nano::uint128_union const mismatch_total = std::accumulate (mismatch_samples.begin (), mismatch_samples.end (), nano::uint128_t{ 0 });
 				nano::uint128_union const mismatch_mean = mismatch_total.number () / mismatch_samples.size ();
 
 				nano::uint512_union mismatch_variance = std::accumulate (mismatch_samples.begin (), mismatch_samples.end (), nano::uint512_t (0), [M = mismatch_mean.number (), N = mismatch_samples.size ()](nano::uint512_t sum, nano::uint128_t x) {
@@ -196,9 +199,9 @@ int main (int argc, char * const * argv)
 
 				nano::uint128_union const mismatch_stddev = nano::narrow_cast<nano::uint128_t> (boost::multiprecision::sqrt (mismatch_variance.number ()));
 
-				std::cout << boost::str (boost::format ("ledger weight %1% Mnano\nhardcoded weight %2% Mnano\nmismatched\n\ttotal %3% Mnano\n\tsamples %4%\n\tmean %5% Mnano\n\tsigma %6% Mnano\n")
-				% total_ledger.format_balance (nano::Mxrb_ratio, 0, true)
+				std::cout << boost::str (boost::format ("hardcoded weight %1% Mnano\nledger weight %2% Mnano\nmismatched\n\ttotal %3% Mnano\n\tsamples %4%\n\tmean %5% Mnano\n\tsigma %6% Mnano\n")
 				% total_hardcoded.format_balance (nano::Mxrb_ratio, 0, true)
+				% total_ledger.format_balance (nano::Mxrb_ratio, 0, true)
 				% mismatch_total.format_balance (nano::Mxrb_ratio, 0, true)
 				% mismatch_samples.size ()
 				% mismatch_mean.format_balance (nano::Mxrb_ratio, 0, true)
