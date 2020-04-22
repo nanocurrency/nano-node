@@ -184,6 +184,7 @@ int main (int argc, char * const * argv)
 					auto ledger_rep (ledger.find (rep.first));
 					nano::uint128_t ledger_weight = (ledger_rep == ledger.end () ? 0 : ledger_rep->second);
 					auto absolute = ledger_weight > rep.second ? ledger_weight - rep.second : rep.second - ledger_weight;
+					node->logger.always_log (boost::str (boost::format ("representative %1% hardcoded %2% ledger %3% mismatch %4%") % rep.first.to_account () % rep.second % ledger_weight % absolute));
 					return absolute;
 				});
 
