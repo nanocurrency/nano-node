@@ -20,12 +20,18 @@ enum class writer
 class write_guard final
 {
 public:
-	write_guard (nano::condition_variable & cv_a, std::function<void()> guard_finish_callback_a);
+	write_guard (std::function<void()> guard_finish_callback_a);
+	void release ();
 	~write_guard ();
+	write_guard (write_guard const &) = delete;
+	write_guard & operator= (write_guard const &) = delete;
+	write_guard (write_guard &&) noexcept;
+	write_guard & operator= (write_guard &&) noexcept;
+	bool is_owned () const;
 
 private:
-	nano::condition_variable & cv;
 	std::function<void()> guard_finish_callback;
+	bool owns{ true };
 };
 
 class write_database_queue final

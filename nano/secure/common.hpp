@@ -230,11 +230,10 @@ public:
 	nano::block_hash frontier;
 };
 
-/** The maximum amount of blocks to iterate over while writing */
 namespace confirmation_height
 {
-	uint64_t const batch_write_size{ 4096 };
-	uint64_t const unbounded_cutoff{ 4096 };
+	/** When the uncemented count (block count - cemented count) is less than this use the unbounded processor */
+	uint64_t const unbounded_cutoff{ 16384 };
 }
 
 using vote_blocks_vec_iter = std::vector<boost::variant<std::shared_ptr<nano::block>, nano::block_hash>>::const_iterator;
