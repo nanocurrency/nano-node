@@ -8,7 +8,8 @@
 using namespace std::chrono;
 
 int constexpr nano::election::passive_duration_factor;
-int constexpr nano::election::active_duration_factor;
+int constexpr nano::election::active_request_count_min;
+int constexpr nano::election::active_broadcasting_duration_factor;
 int constexpr nano::election::confirmed_duration_factor;
 
 std::chrono::milliseconds nano::election::base_latency () const
@@ -95,6 +96,18 @@ bool nano::election::valid_change (nano::election::state_t expected_a, nano::ele
 			}
 			break;
 		case nano::election::state_t::active:
+			switch (desired_a)
+			{
+				case nano::election::state_t::idle:
+				case nano::election::state_t::broadcasting:
+				case nano::election::state_t::confirmed:
+				case nano::election::state_t::expired_unconfirmed:
+					result = true;
+					break;
+				default:
+					break;
+			}
+		case nano::election::state_t::broadcasting:
 			switch (desired_a)
 			{
 				case nano::election::state_t::idle:
@@ -243,7 +256,7 @@ void nano::election::activate_dependencies ()
 
 void nano::election::broadcast_block (nano::confirmation_solicitor & solicitor_a)
 {
-	if (base_latency () * 20 < std::chrono::steady_clock::now () - last_block)
+	if (base_latency () * 15 < std::chrono::steady_clock::now () - last_block)
 	{
 		if (!solicitor_a.broadcast (*this))
 		{
@@ -270,11 +283,18 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 			break;
 		}
 		case nano::election::state_t::active:
+			send_confirm_req (solicitor_a);
+			if (confirmation_request_count > active_request_count_min)
+			{
+				state_change (nano::election::state_t::active, nano::election::state_t::broadcasting);
+			}
+			break;
+		case nano::election::state_t::broadcasting:
 			broadcast_block (solicitor_a);
 			send_confirm_req (solicitor_a);
-			if (base_latency () * active_duration_factor < std::chrono::steady_clock::now () - state_start)
+			if (base_latency () * active_broadcasting_duration_factor < std::chrono::steady_clock::now () - state_start)
 			{
-				state_change (nano::election::state_t::active, nano::election::state_t::backtracking);
+				state_change (nano::election::state_t::broadcasting, nano::election::state_t::backtracking);
 				lock.unlock ();
 				activate_dependencies ();
 				lock.lock ();

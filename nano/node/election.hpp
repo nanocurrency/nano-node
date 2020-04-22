@@ -40,15 +40,17 @@ private: // State management
 	enum class state_t
 	{
 		idle,
-		passive,
-		active,
-		backtracking,
-		confirmed,
+		passive, // only listening for incoming votes
+		active, // actively request confirmations
+		broadcasting, // request confirmations and broadcast the winner
+		backtracking, // start an election for unconfirmed dependent blocks
+		confirmed, // confirmed but still listening for votes
 		expired_confirmed,
 		expired_unconfirmed
 	};
 	static int constexpr passive_duration_factor = 5;
-	static int constexpr active_duration_factor = 30;
+	static int constexpr active_request_count_min = 2;
+	static int constexpr active_broadcasting_duration_factor = 30;
 	static int constexpr confirmed_duration_factor = 5;
 	std::atomic<nano::election::state_t> state_m = { state_t::idle };
 

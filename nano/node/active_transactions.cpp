@@ -275,7 +275,9 @@ void nano::active_transactions::frontiers_confirmation (nano::unique_lock<std::m
 	{
 		// Spend some time prioritizing accounts with the most uncemented blocks to reduce voting traffic
 		auto request_interval = std::chrono::milliseconds (node.network_params.network.request_interval_ms);
-		auto time_spent_prioritizing_ledger_accounts = request_interval / 100;
+		// Spend longer searching ledger accounts when there is a low amount of elections going on
+		auto low_active = roots.size () < 1000;
+		auto time_spent_prioritizing_ledger_accounts = request_interval / (low_active ? 20 : 100);
 		auto time_spent_prioritizing_wallet_accounts = request_interval / 250;
 		lock_a.unlock ();
 		auto transaction = node.store.tx_begin_read ();
@@ -800,7 +802,7 @@ void nano::active_transactions::update_active_multiplier (nano::unique_lock<std:
 	last_prioritized_multiplier.reset ();
 	double multiplier (1.);
 	// Heurestic to filter out non-saturated network and frontier confirmation
-	if (roots.size () > prioritized_cutoff / 2 || (node.network_params.network.is_test_network () && !roots.empty ()))
+	if (roots.size () >= prioritized_cutoff || (node.network_params.network.is_test_network () && !roots.empty ()))
 	{
 		auto & sorted_roots = roots.get<tag_difficulty> ();
 		std::vector<double> prioritized;

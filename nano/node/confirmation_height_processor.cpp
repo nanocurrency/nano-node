@@ -15,8 +15,8 @@ nano::confirmation_height_processor::confirmation_height_processor (nano::ledger
 ledger (ledger_a),
 write_database_queue (write_database_queue_a),
 // clang-format off
-confirmation_height_unbounded_processor (ledger_a, write_database_queue_a, batch_separate_pending_min_time_a, logger_a, stopped, original_hash, [this](auto & cemented_blocks) { this->notify_observers (cemented_blocks); }, [this](auto const & block_hash_a) { this->notify_observers (block_hash_a); }, [this]() { return this->awaiting_processing_size (); }),
-confirmation_height_bounded_processor (ledger_a, write_database_queue_a, batch_separate_pending_min_time_a, logger_a, stopped, original_hash, [this](auto & cemented_blocks) { this->notify_observers (cemented_blocks); }, [this](auto const & block_hash_a) { this->notify_observers (block_hash_a); }, [this]() { return this->awaiting_processing_size (); }),
+confirmation_height_unbounded_processor (ledger_a, write_database_queue_a, batch_separate_pending_min_time_a, logger_a, stopped, original_hash, batch_write_size, [this](auto & cemented_blocks) { this->notify_observers (cemented_blocks); }, [this](auto const & block_hash_a) { this->notify_observers (block_hash_a); }, [this]() { return this->awaiting_processing_size (); }),
+confirmation_height_bounded_processor (ledger_a, write_database_queue_a, batch_separate_pending_min_time_a, logger_a, stopped, original_hash, batch_write_size, [this](auto & cemented_blocks) { this->notify_observers (cemented_blocks); }, [this](auto const & block_hash_a) { this->notify_observers (block_hash_a); }, [this]() { return this->awaiting_processing_size (); }),
 // clang-format on
 thread ([this, &latch, mode_a]() {
 	nano::thread_role::set (nano::thread_role::name::confirmation_height_processing);
@@ -106,16 +106,20 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 				if (!confirmation_height_bounded_processor.pending_empty ())
 				{
 					debug_assert (confirmation_height_unbounded_processor.pending_empty ());
-					auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
-					confirmation_height_bounded_processor.cement_blocks ();
+					{
+						auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
+						confirmation_height_bounded_processor.cement_blocks (scoped_write_guard);
+					}
 					lock_and_cleanup ();
 					confirmation_height_bounded_processor.reset ();
 				}
 				else if (!confirmation_height_unbounded_processor.pending_empty ())
 				{
 					debug_assert (confirmation_height_bounded_processor.pending_empty ());
-					auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
-					confirmation_height_unbounded_processor.cement_blocks ();
+					{
+						auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
+						confirmation_height_unbounded_processor.cement_blocks (scoped_write_guard);
+					}
 					lock_and_cleanup ();
 					confirmation_height_unbounded_processor.reset ();
 				}

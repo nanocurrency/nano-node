@@ -456,6 +456,8 @@ TEST (node, mass_vote_by_hash)
 	}
 }
 
+namespace nano
+{
 TEST (confirmation_height, many_accounts_single_confirmation)
 {
 	nano::system system;
@@ -465,8 +467,9 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 	auto node = system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 
-	// The number of frontiers should be more than the batch_write_size to test the amount of blocks confirmed is correct.
-	auto num_accounts = nano::confirmation_height::batch_write_size * 2 + 50;
+	// The number of frontiers should be more than the nano::confirmation_height::unbounded_cutoff to test the amount of blocks confirmed is correct.
+	node->confirmation_height_processor.batch_write_size = 500;
+	auto const num_accounts = nano::confirmation_height::unbounded_cutoff * 2 + 50;
 	nano::keypair last_keypair = nano::test_genesis_key;
 	auto last_open_hash = node->latest (nano::test_genesis_key.pub);
 	{
@@ -492,7 +495,7 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 		node->block_confirm (block);
 	}
 
-	system.deadline_set (60s);
+	system.deadline_set (120s);
 	auto transaction = node->store.tx_begin_read ();
 	while (!node->ledger.block_confirmed (transaction, last_open_hash))
 	{
@@ -523,14 +526,13 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_bounded, nano::stat::dir::in), num_accounts * 2 - 2);
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in), 0);
 
-	system.deadline_set (20s);
+	system.deadline_set (40s);
 	while ((node->ledger.cache.cemented_count - 1) != node->stats.count (nano::stat::type::observer, nano::stat::detail::all, nano::stat::dir::out))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 }
 
-// Can take up to 10 minutes
 TEST (confirmation_height, many_accounts_many_confirmations)
 {
 	nano::system system;
@@ -540,7 +542,8 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 	auto node = system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 
-	auto num_accounts = nano::confirmation_height::batch_write_size * 2 + 50;
+	node->confirmation_height_processor.batch_write_size = 500;
+	auto const num_accounts = nano::confirmation_height::unbounded_cutoff * 2 + 50;
 	auto latest_genesis = node->latest (nano::test_genesis_key.pub);
 	std::vector<std::shared_ptr<nano::open_block>> open_blocks;
 	{
@@ -565,15 +568,22 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 		node->block_confirm (open_block);
 	}
 
-	system.deadline_set (600s);
-	while (node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in) != (num_accounts - 1) * 2)
+	system.deadline_set (1500s);
+	auto const num_blocks_to_confirm = (num_accounts - 1) * 2;
+	while (node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in) != num_blocks_to_confirm)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
 	auto num_confirmed_bounded = node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_bounded, nano::stat::dir::in);
-	ASSERT_GE (num_confirmed_bounded, nano::confirmation_height::batch_write_size);
-	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in), (num_accounts - 1) * 2 - num_confirmed_bounded);
+	ASSERT_GE (num_confirmed_bounded, nano::confirmation_height::unbounded_cutoff);
+	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in), num_blocks_to_confirm - num_confirmed_bounded);
+
+	system.deadline_set (60s);
+	while ((node->ledger.cache.cemented_count - 1) != node->stats.count (nano::stat::type::observer, nano::stat::detail::all, nano::stat::dir::out))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 
 	auto transaction = node->store.tx_begin_read ();
 	auto cemented_count = 0;
@@ -582,6 +592,7 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 		cemented_count += i->second.height;
 	}
 
+	ASSERT_EQ (num_blocks_to_confirm + 1, cemented_count);
 	ASSERT_EQ (cemented_count, node->ledger.cache.cemented_count);
 
 	system.deadline_set (20s);
@@ -608,7 +619,8 @@ TEST (confirmation_height, long_chains)
 	nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
 	system.wallet (0)->insert_adhoc (key1.prv);
 
-	constexpr auto num_blocks = nano::confirmation_height::batch_write_size * 2 + 50;
+	node->confirmation_height_processor.batch_write_size = 500;
+	auto const num_blocks = nano::confirmation_height::unbounded_cutoff * 2 + 50;
 
 	// First open the other account
 	nano::send_block send (latest, key1.pub, nano::genesis_amount - nano::Gxrb_ratio + num_blocks + 1, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest));
@@ -654,7 +666,7 @@ TEST (confirmation_height, long_chains)
 	// Call block confirm on the existing receive block on the genesis account which will confirm everything underneath on both accounts
 	node->block_confirm (receive1);
 
-	system.deadline_set (10s);
+	system.deadline_set (30s);
 	while (true)
 	{
 		auto transaction = node->store.tx_begin_read ();
@@ -690,7 +702,7 @@ TEST (confirmation_height, long_chains)
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_bounded, nano::stat::dir::in), num_blocks * 2 + 2);
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in), 0);
 
-	system.deadline_set (20s);
+	system.deadline_set (40s);
 	while ((node->ledger.cache.cemented_count - 1) != node->stats.count (nano::stat::type::observer, nano::stat::detail::all, nano::stat::dir::out))
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -845,7 +857,7 @@ TEST (confirmation_height, dynamic_algorithm_no_transition_while_pending)
 	}
 }
 
-// Can take up to 1 hour
+// Can take up to 1 hour (recommend modifying test work difficulty base level to speed this up)
 TEST (confirmation_height, prioritize_frontiers_overwrite)
 {
 	nano::system system;
@@ -854,7 +866,7 @@ TEST (confirmation_height, prioritize_frontiers_overwrite)
 	auto node = system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 
-	auto num_accounts = node->active.max_priority_cementable_frontiers * 2 + 50;
+	auto num_accounts = node->active.max_priority_cementable_frontiers * 2;
 	nano::keypair last_keypair = nano::test_genesis_key;
 	auto last_open_hash = node->latest (nano::test_genesis_key.pub);
 	// Clear confirmation height so that the genesis account has the same amount of uncemented blocks as the other frontiers

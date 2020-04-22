@@ -57,6 +57,9 @@ private:
 
 	nano::ledger & ledger;
 	nano::write_database_queue & write_database_queue;
+	/** The maximum amount of blocks to write at once. This is dynamically modified by the bounded processor based on previous write performance **/
+	uint64_t batch_write_size{ 65536 };
+
 	confirmation_height_unbounded confirmation_height_unbounded_processor;
 	confirmation_height_bounded confirmation_height_bounded_processor;
 	std::thread thread;
@@ -70,6 +73,9 @@ private:
 	friend class confirmation_height_dependent_election_Test;
 	friend class confirmation_height_dependent_election_after_already_cemented_Test;
 	friend class confirmation_height_dynamic_algorithm_no_transition_while_pending_Test;
+	friend class confirmation_height_many_accounts_many_confirmations_Test;
+	friend class confirmation_height_long_chains_Test;
+	friend class confirmation_height_many_accounts_single_confirmation_Test;
 };
 
 std::unique_ptr<container_info_component> collect_container_info (confirmation_height_processor &, const std::string &);
