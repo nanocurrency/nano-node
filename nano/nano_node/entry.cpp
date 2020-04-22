@@ -179,34 +179,72 @@ int main (int argc, char * const * argv)
 				auto const total_ledger = get_total (ledger);
 				auto const total_hardcoded = get_total (hardcoded);
 
-				std::vector<nano::uint128_t> mismatch_samples;
-				std::transform (hardcoded.begin (), hardcoded.end (), std::back_inserter (mismatch_samples), [&ledger, &node](auto const & rep) {
+				struct mismatched_t
+				{
+					nano::account rep;
+					nano::uint128_union hardcoded;
+					nano::uint128_union ledger;
+					nano::uint128_union diff;
+				};
+
+				std::vector<mismatched_t> mismatched;
+				std::transform (hardcoded.begin (), hardcoded.end (), std::back_inserter (mismatched), [&ledger, &node](auto const & rep) {
 					auto ledger_rep (ledger.find (rep.first));
 					nano::uint128_t ledger_weight = (ledger_rep == ledger.end () ? 0 : ledger_rep->second);
 					auto absolute = ledger_weight > rep.second ? ledger_weight - rep.second : rep.second - ledger_weight;
-					node->logger.always_log (boost::str (boost::format ("representative %1% hardcoded %2% ledger %3% mismatch %4%") % rep.first.to_account () % rep.second % ledger_weight % absolute));
-					return absolute;
+					return mismatched_t{ rep.first, rep.second, ledger_weight, absolute };
 				});
 
-				nano::uint128_union const mismatch_total = std::accumulate (mismatch_samples.begin (), mismatch_samples.end (), nano::uint128_t{ 0 });
-				nano::uint128_union const mismatch_mean = mismatch_total.number () / mismatch_samples.size ();
+				nano::uint128_union const mismatch_total = std::accumulate (mismatched.begin (), mismatched.end (), nano::uint128_t{ 0 }, [](auto sum, mismatched_t const & sample) { return sum + sample.diff.number (); });
+				nano::uint128_union const mismatch_mean = mismatch_total.number () / mismatched.size ();
 
-				nano::uint512_union mismatch_variance = std::accumulate (mismatch_samples.begin (), mismatch_samples.end (), nano::uint512_t (0), [M = mismatch_mean.number (), N = mismatch_samples.size ()](nano::uint512_t sum, nano::uint128_t x) {
-					nano::uint512_t const diff = x > M ? x - M : M - x;
-					nano::uint512_t const sqr = diff * diff;
+				nano::uint512_union mismatch_variance = std::accumulate (mismatched.begin (), mismatched.end (), nano::uint512_t (0), [M = mismatch_mean.number (), N = mismatched.size ()](nano::uint512_t sum, mismatched_t const & sample) {
+					auto x = sample.diff.number ();
+					nano::uint512_t const mean_diff = x > M ? x - M : M - x;
+					nano::uint512_t const sqr = mean_diff * mean_diff;
 					return sum + sqr;
 				})
-				/ mismatch_samples.size ();
+				/ mismatched.size ();
 
 				nano::uint128_union const mismatch_stddev = nano::narrow_cast<nano::uint128_t> (boost::multiprecision::sqrt (mismatch_variance.number ()));
 
-				std::cout << boost::str (boost::format ("hardcoded weight %1% Mnano\nledger weight %2% Mnano\nmismatched\n\ttotal %3% Mnano\n\tsamples %4%\n\tmean %5% Mnano\n\tsigma %6% Mnano\n")
+				std::cout << boost::str (boost::format ("hardcoded weight %1% Mnano\nledger weight %2% Mnano\nmismatched\n\tsamples %3%\n\ttotal %4% Mnano\n\tmean %5% Mnano\n\tsigma %6% Mnano\n")
 				% total_hardcoded.format_balance (nano::Mxrb_ratio, 0, true)
 				% total_ledger.format_balance (nano::Mxrb_ratio, 0, true)
+				% mismatched.size ()
 				% mismatch_total.format_balance (nano::Mxrb_ratio, 0, true)
-				% mismatch_samples.size ()
 				% mismatch_mean.format_balance (nano::Mxrb_ratio, 0, true)
 				% mismatch_stddev.format_balance (nano::Mxrb_ratio, 0, true));
+
+				// 3-sigma rule, only less than 1% would be outliers in a true gaussian distribution
+				auto outlier_threshold = mismatch_mean.number () + 3 * mismatch_stddev.number ();
+				decltype (mismatched) outliers;
+				std::copy_if (mismatched.begin (), mismatched.end (), std::back_inserter (outliers), [outlier_threshold](mismatched_t const & sample) {
+					return sample.diff > outlier_threshold;
+				});
+
+				auto entry = [](mismatched_t const & sample) {
+					return boost::str (boost::format ("representative %1% hardcoded %2% ledger %3% mismatch %4%")
+					% sample.rep.to_account ()
+					% sample.hardcoded.format_balance (nano::Mxrb_ratio, 0, true)
+					% sample.ledger.format_balance (nano::Mxrb_ratio, 0, true)
+					% sample.diff.format_balance (nano::Mxrb_ratio, 0, true));
+				};
+
+				if (!outliers.empty ())
+				{
+					std::cout << "outliers\n";
+					for (auto outlier : outliers)
+					{
+						std::cout << '\t' << entry (outlier) << '\n';
+					}
+				}
+
+				// Log everything
+				for (auto const & sample : mismatched)
+				{
+					node->logger.always_log (entry (sample));
+				}
 			}
 			else
 			{
