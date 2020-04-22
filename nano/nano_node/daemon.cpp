@@ -74,7 +74,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 				std::unique_ptr<boost::process::child> nano_pow_server_process;
 #endif
 
-				if (config.pow_server.enable)
+				/*if (config.pow_server.enable)
 				{
 					if (!boost::filesystem::exists (config.pow_server.pow_server_path))
 					{
@@ -88,7 +88,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 					std::cerr << "nano_pow_server is configured to start as a child process, but this is not supported on this system. Disable startup and start the server manually." << std::endl;
 					std::exit (1);
 #endif
-				}
+				}*/
 
 				std::unique_ptr<std::thread> rpc_process_thread;
 				std::unique_ptr<nano::rpc> rpc;

@@ -34,7 +34,8 @@ namespace thread_role
 		confirmation_height_processing,
 		worker,
 		request_aggregator,
-		state_block_signature_verification
+		state_block_signature_verification,
+		epoch_upgrader
 	};
 	/*
 	 * Get/Set the identifier for the current thread

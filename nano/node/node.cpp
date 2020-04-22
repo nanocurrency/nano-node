@@ -717,6 +717,11 @@ void nano::node::stop ()
 		wallets.stop ();
 		stats.stop ();
 		worker.stop ();
+		auto epoch_upgrade = epoch_upgrading.lock ();
+		if (epoch_upgrade->valid ())
+		{
+			epoch_upgrade->wait ();
+		}
 		// work pool is not stopped on purpose due to testing setup
 	}
 }
@@ -1346,8 +1351,24 @@ bool nano::node::init_error () const
 	return store.init_error () || wallets_store.init_error ();
 }
 
-void nano::node::epoch_upgrader (nano::private_key const & prv_a, nano::epoch epoch_a, uint64_t count_limit, uint64_t threads)
+bool nano::node::epoch_upgrader (nano::private_key const & prv_a, nano::epoch epoch_a, uint64_t count_limit, uint64_t threads)
 {
+	bool error = stopped.load ();
+	if (!error)
+	{
+		auto epoch_upgrade = epoch_upgrading.lock ();
+		error = epoch_upgrade->valid () && epoch_upgrade->wait_for (std::chrono::seconds (0)) == std::future_status::timeout;
+		if (!error)
+		{
+			*epoch_upgrade = std::async (std::launch::async, &nano::node::epoch_upgrader_impl, this, prv_a, epoch_a, count_limit, threads);
+		}
+	}
+	return error;
+}
+
+void nano::node::epoch_upgrader_impl (nano::private_key const & prv_a, nano::epoch epoch_a, uint64_t count_limit, uint64_t threads)
+{
+	nano::thread_role::set (nano::thread_role::name::epoch_upgrader);
 	auto upgrader_process = [](nano::node & node_a, std::atomic<uint64_t> & counter, std::shared_ptr<nano::block> epoch, uint64_t difficulty, nano::public_key const & signer_a, nano::root const & root_a, nano::account const & account_a) {
 		epoch->block_work_set (node_a.work_generate_blocking (nano::work_version::work_1, root_a, difficulty).value_or (0));
 		bool valid_signature (!nano::validate_message (signer_a, epoch->hash (), epoch->block_signature ()));
@@ -1413,7 +1434,7 @@ void nano::node::epoch_upgrader (nano::private_key const & prv_a, nano::epoch ep
 			{
 				auto transaction (store.tx_begin_read ());
 				// Collect accounts to upgrade
-				for (auto i (store.latest_begin (transaction)), n (store.latest_end ()); i != n; ++i)
+				for (auto i (store.latest_begin (transaction)), n (store.latest_end ()); i != n && accounts_list.size () < count_limit; ++i)
 				{
 					nano::account const & account (i->first);
 					nano::account_info const & info (i->second);
@@ -1429,13 +1450,15 @@ void nano::node::epoch_upgrader (nano::private_key const & prv_a, nano::epoch ep
 			Repeat until accounts with previous epoch exist in latest table */
 			std::atomic<uint64_t> upgraded_accounts (0);
 			uint64_t workers (0);
-			for (auto i (accounts_list.get<modified_tag> ().begin ()), n (accounts_list.get<modified_tag> ().end ()); i != n && upgraded_accounts < upgrade_batch_size && upgraded_accounts < count_limit && !stopped; ++i)
+			uint64_t attempts (0);
+			for (auto i (accounts_list.get<modified_tag> ().begin ()), n (accounts_list.get<modified_tag> ().end ()); i != n && attempts < upgrade_batch_size && attempts < count_limit && !stopped; ++i)
 			{
 				auto transaction (store.tx_begin_read ());
 				nano::account_info info;
 				nano::account const & account (i->account);
 				if (!store.account_get (transaction, account, info) && info.epoch () < epoch_a)
 				{
+					++attempts;
 					auto difficulty (nano::work_threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true)));
 					nano::root const & root (info.head);
 					std::shared_ptr<nano::block> epoch = builder.state ()
@@ -1501,8 +1524,9 @@ void nano::node::epoch_upgrader (nano::private_key const & prv_a, nano::epoch ep
 		{
 			std::atomic<uint64_t> upgraded_pending (0);
 			uint64_t workers (0);
+			uint64_t attempts (0);
 			auto transaction (store.tx_begin_read ());
-			for (auto i (store.pending_begin (transaction, nano::pending_key (1, 0))), n (store.pending_end ()); i != n && upgraded_pending < upgrade_batch_size && upgraded_pending < count_limit && !stopped;)
+			for (auto i (store.pending_begin (transaction, nano::pending_key (1, 0))), n (store.pending_end ()); i != n && attempts < upgrade_batch_size && attempts < count_limit && !stopped;)
 			{
 				bool to_next_account (false);
 				nano::pending_key const & key (i->first);
@@ -1511,6 +1535,7 @@ void nano::node::epoch_upgrader (nano::private_key const & prv_a, nano::epoch ep
 					nano::pending_info const & info (i->second);
 					if (info.epoch < epoch_a)
 					{
+						++attempts;
 						release_assert (nano::epochs::is_sequential (info.epoch, epoch_a));
 						auto difficulty (nano::work_threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true)));
 						nano::root const & root (key.account);

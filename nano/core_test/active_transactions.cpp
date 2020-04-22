@@ -302,7 +302,7 @@ TEST (active_transactions, prioritize_chains)
 		auto it (node1.active.roots.get<1> ().begin ());
 		while (!node1.active.roots.empty () && it != node1.active.roots.get<1> ().end ())
 		{
-			if (it->multiplier == (multiplier1 || multiplier2))
+			if (it->multiplier == multiplier1 || it->multiplier == multiplier2)
 			{
 				seen++;
 			}
@@ -1000,6 +1000,32 @@ TEST (active_transactions, election_difficulty_update_fork)
 	ASSERT_EQ (1, node.active.size ());
 	auto multiplier_receive_updated = node.active.roots.begin ()->multiplier;
 	ASSERT_GT (multiplier_receive_updated, multiplier_receive);
+}
+
+TEST (active_transactions, confirm_new)
+{
+	nano::system system (1);
+	auto & node1 = *system.nodes[0];
+	nano::genesis genesis;
+	auto send (std::make_shared<nano::send_block> (genesis.hash (), nano::public_key (), nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+	node1.process_active (send);
+	node1.block_processor.flush ();
+	ASSERT_EQ (1, node1.active.size ());
+	auto & node2 = *system.add_node ();
+	// Add key to node2
+	system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
+	system.deadline_set (5s);
+	// Let node2 know about the block
+	while (node2.block (send->hash ()) == nullptr)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	system.deadline_set (5s);
+	// Wait confirmation
+	while (node1.ledger.cache.cemented_count < 2 || node2.ledger.cache.cemented_count < 2)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 }
 
 TEST (active_transactions, restart_dropped)

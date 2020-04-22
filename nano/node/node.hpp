@@ -145,7 +145,7 @@ public:
 	void ongoing_online_weight_calculation_queue ();
 	bool online () const;
 	bool init_error () const;
-	void epoch_upgrader (nano::private_key const &, nano::epoch, uint64_t, uint64_t);
+	bool epoch_upgrader (nano::private_key const &, nano::epoch, uint64_t, uint64_t);
 	nano::worker worker;
 	nano::write_database_queue write_database_queue;
 	boost::asio::io_context & io_ctx;
@@ -206,6 +206,8 @@ public:
 
 private:
 	void long_inactivity_cleanup ();
+	void epoch_upgrader_impl (nano::private_key const &, nano::epoch, uint64_t, uint64_t);
+	nano::locked<std::future<void>> epoch_upgrading;
 };
 
 std::unique_ptr<container_info_component> collect_container_info (node & node, const std::string & name);
