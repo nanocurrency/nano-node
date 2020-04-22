@@ -1005,9 +1005,9 @@ TEST (active_transactions, election_difficulty_update_fork)
 TEST (active_transactions, restart_dropped)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.disable_request_loop = true;
-	auto & node = *system.add_node (node_flags);
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto & node = *system.add_node (node_config);
 	nano::genesis genesis;
 	auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::xrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
 	// Process only in ledger and simulate dropping the election
@@ -1031,9 +1031,20 @@ TEST (active_transactions, restart_dropped)
 	ASSERT_EQ (0, node.active.size ());
 	// Try to restart election with the same difficulty
 	node.process_active (send);
-	system.deadline_set (5s);
 	node.block_processor.flush ();
 	ASSERT_EQ (0, node.active.size ());
 	// Verify the block was not updated in the ledger
 	ASSERT_EQ (*node.store.block_get (node.store.tx_begin_read (), send->hash ()), *send);
+	// Generate even higher difficulty work
+	ASSERT_TRUE (node.work_generate_blocking (*send, send->difficulty () + 1).is_initialized ());
+	// Add voting
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	// Process the same block with updated work
+	ASSERT_EQ (0, node.active.size ());
+	node.process_active (send);
+	node.block_processor.flush ();
+	ASSERT_EQ (1, node.active.size ());
+	ASSERT_EQ (1, node.ledger.cache.cemented_count);
+	// Wait for the election to complete
+	ASSERT_TIMELY (5s, node.ledger.cache.cemented_count);
 }

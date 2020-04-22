@@ -93,10 +93,10 @@ void nano::active_transactions::confirm_prioritized_frontiers (nano::transaction
 						if (info.block_count > confirmation_height_info.height)
 						{
 							auto block (this->node.store.block_get (transaction_a, info.head));
-							auto election_insert_result = this->insert (block);
-							if (election_insert_result.inserted)
+							auto insert_result = this->insert (block);
+							if (insert_result.inserted)
 							{
-								election_insert_result.election->transition_active ();
+								insert_result.election->transition_active ();
 								++elections_count;
 							}
 						}
@@ -237,10 +237,6 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 		bool const overflow_l (unconfirmed_count_l > node.config.active_elections_size && election_l->election_start < election_ttl_cutoff_l && !node.wallets.watcher->is_watched (i->root));
 		if (overflow_l || election_l->transition_time (solicitor))
 		{
-			if (!confirmed_l)
-			{
-				recently_dropped.add (i->root);
-			}
 			election_l->cleanup ();
 			i = sorted_roots_l.erase (i);
 		}
@@ -688,8 +684,10 @@ void nano::active_transactions::restart (std::shared_ptr<nano::block> const & bl
 
 				// Restart election for the upgraded block, previously dropped from elections
 				auto previous_balance = node.ledger.balance (transaction_a, ledger_block->previous ());
-				if (insert (ledger_block, previous_balance).inserted)
+				auto insert_result = insert (ledger_block, previous_balance);
+				if (insert_result.inserted)
 				{
+					insert_result.election->transition_active ();
 					recently_dropped.erase (ledger_block->qualified_root ());
 				}
 			}
@@ -939,13 +937,14 @@ void nano::active_transactions::add_recently_confirmed (nano::qualified_root con
 
 void nano::active_transactions::erase (nano::block const & block_a)
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::unique_lock<std::mutex> lock (mutex);
 	auto root_it (roots.get<tag_root> ().find (block_a.qualified_root ()));
 	if (root_it != roots.get<tag_root> ().end ())
 	{
 		root_it->election->cleanup ();
 		root_it->election->adjust_dependent_difficulty ();
 		roots.get<tag_root> ().erase (root_it);
+		lock.unlock ();
 		node.logger.try_log (boost::str (boost::format ("Election erased for block block %1% root %2%") % block_a.hash ().to_string () % block_a.root ().to_string ()));
 	}
 }
