@@ -393,6 +393,10 @@ nano::websocket::topic to_topic (std::string const & topic_a)
 	{
 		topic = nano::websocket::topic::telemetry;
 	}
+	else if (topic_a == "new_unconfirmed_block")
+	{
+		topic = nano::websocket::topic::new_unconfirmed_block;
+	}
 
 	return topic;
 }
@@ -432,6 +436,11 @@ std::string from_topic (nano::websocket::topic topic_a)
 	{
 		topic = "telemetry";
 	}
+	else if (topic_a == nano::websocket::topic::new_unconfirmed_block)
+	{
+		topic = "new_unconfirmed_block";
+	}
+
 	return topic;
 }
 }
@@ -880,6 +889,20 @@ nano::websocket::message nano::websocket::message_builder::telemetry_received (n
 	telemetry_l.put ("port", endpoint_a.port ());
 
 	message_l.contents.add_child ("message", telemetry_l.get_tree ());
+	return message_l;
+}
+
+nano::websocket::message nano::websocket::message_builder::new_block_arrived (nano::block const & block_a)
+{
+	nano::websocket::message message_l (nano::websocket::topic::new_unconfirmed_block);
+	set_common_fields (message_l);
+
+	boost::property_tree::ptree block_l;
+	block_a.serialize_json (block_l);
+	auto subtype (nano::state_subtype (block_a.sideband ().details));
+	block_l.put ("subtype", subtype);
+
+	message_l.contents.add_child ("message", block_l);
 	return message_l;
 }
 

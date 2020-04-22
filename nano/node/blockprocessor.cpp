@@ -3,6 +3,7 @@
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/websocket.hpp>
 #include <nano/secure/blockstore.hpp>
 
 #include <boost/format.hpp>
@@ -287,6 +288,11 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	else if (!node.flags.disable_block_processor_republishing)
 	{
 		node.network.flood_block (block_a, nano::buffer_drop_policy::no_limiter_drop);
+	}
+
+	if (node.websocket_server && node.websocket_server->any_subscriber (nano::websocket::topic::new_unconfirmed_block))
+	{
+		node.websocket_server->broadcast (nano::websocket::message_builder ().new_block_arrived (*block_a));
 	}
 }
 
