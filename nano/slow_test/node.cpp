@@ -531,6 +531,11 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+	system.deadline_set (10s);
+	while (node->active.election_winner_details_size () > 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 }
 
 TEST (confirmation_height, many_accounts_many_confirmations)
@@ -740,14 +745,14 @@ TEST (confirmation_height, dynamic_algorithm)
 		}
 	}
 
-	node->block_confirm (state_blocks.front ());
+	node->confirmation_height_processor.add (state_blocks.front ()->hash ());
 	system.deadline_set (20s);
 	while (node->ledger.cache.cemented_count != 2)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
-	node->block_confirm (state_blocks.back ());
+	node->confirmation_height_processor.add (latest_genesis);
 
 	system.deadline_set (20s);
 	while (node->ledger.cache.cemented_count != num_blocks + 1)
@@ -765,8 +770,6 @@ TEST (confirmation_height, dynamic_algorithm)
 	}
 }
 
-namespace nano
-{
 /*
  * This tests an issue of incorrect cemented block counts during the transition of conf height algorithms
  * The scenario was as follows:
@@ -811,7 +814,8 @@ TEST (confirmation_height, dynamic_algorithm_no_transition_while_pending)
 
 		{
 			auto write_guard = node->write_database_queue.wait (nano::writer::testing);
-			node->block_confirm (state_blocks.back ());
+			// To limit any data races we are not calling node.block_confirm
+			node->confirmation_height_processor.add (state_blocks.back ()->hash ());
 
 			nano::timer<> timer;
 			timer.start ();
@@ -836,7 +840,7 @@ TEST (confirmation_height, dynamic_algorithm_no_transition_while_pending)
 				add_block_to_genesis_chain (transaction);
 			}
 			// Make sure this is at a height lower than the block in the add () call above
-			node->block_confirm (state_blocks.front ());
+			node->confirmation_height_processor.add (state_blocks.front ()->hash ());
 			node->confirmation_height_processor.unpause ();
 		}
 
