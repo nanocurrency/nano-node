@@ -195,8 +195,8 @@ public:
 		ipc,
 		tcp,
 		udp,
-		observer,
 		confirmation_height,
+		confirmation_observer,
 		drop,
 		aggregator,
 		requests,
@@ -215,10 +215,10 @@ public:
 		http_callback,
 		unreachable_host,
 
-		// observer specific
-		observer_confirmation_active_quorum,
-		observer_confirmation_active_conf_height,
-		observer_confirmation_inactive,
+		// confirmation_observer specific
+		active_quorum,
+		active_conf_height,
+		inactive_conf_height,
 
 		// ledger, block, bootstrap
 		send,

@@ -279,13 +279,13 @@ node_seq (seq)
 			switch (status_a.type)
 			{
 				case nano::election_status_type::active_confirmed_quorum:
-					this->stats.inc (nano::stat::type::observer, nano::stat::detail::observer_confirmation_active_quorum, nano::stat::dir::out);
+					this->stats.inc (nano::stat::type::confirmation_observer, nano::stat::detail::active_quorum, nano::stat::dir::out);
 					break;
 				case nano::election_status_type::active_confirmation_height:
-					this->stats.inc (nano::stat::type::observer, nano::stat::detail::observer_confirmation_active_conf_height, nano::stat::dir::out);
+					this->stats.inc (nano::stat::type::confirmation_observer, nano::stat::detail::active_conf_height, nano::stat::dir::out);
 					break;
 				case nano::election_status_type::inactive_confirmation_height:
-					this->stats.inc (nano::stat::type::observer, nano::stat::detail::observer_confirmation_inactive, nano::stat::dir::out);
+					this->stats.inc (nano::stat::type::confirmation_observer, nano::stat::detail::inactive_conf_height, nano::stat::dir::out);
 					break;
 				default:
 					break;
