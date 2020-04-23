@@ -1072,5 +1072,5 @@ TEST (active_transactions, restart_dropped)
 	ASSERT_EQ (1, node.active.size ());
 	ASSERT_EQ (1, node.ledger.cache.cemented_count);
 	// Wait for the election to complete
-	ASSERT_TIMELY (5s, node.ledger.cache.cemented_count);
+	ASSERT_TIMELY (5s, node.ledger.cache.cemented_count == 2);
 }
