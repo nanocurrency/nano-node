@@ -169,12 +169,27 @@ int main (int argc, char * const * argv)
 				auto inactive_node = nano::default_inactive_node (data_path, vm);
 				auto node = inactive_node->node;
 
-				auto hardcoded = node->get_bootstrap_weights ().second;
-				auto ledger = node->ledger.cache.rep_weights.get_rep_amounts ();
+				auto const hardcoded = node->get_bootstrap_weights ().second;
+				auto const ledger_unfiltered = node->ledger.cache.rep_weights.get_rep_amounts ();
 
 				auto get_total = [](decltype (hardcoded) const & reps) -> nano::uint128_union {
 					return std::accumulate (reps.begin (), reps.end (), nano::uint128_t{ 0 }, [](auto sum, auto const & rep) { return sum + rep.second; });
 				};
+
+				// Hardcoded weights are filtered to a cummulative weight of 99%, need to do the same for ledger weights
+				std::remove_const<decltype (ledger_unfiltered)>::type ledger;
+				{
+					std::vector<std::pair<nano::account, nano::uint128_t>> sorted;
+					std::copy (ledger_unfiltered.begin (), ledger_unfiltered.end (), std::back_inserter (sorted));
+					std::sort (sorted.begin (), sorted.end (), [](auto const & left, auto const & right) { return left.second > right.second; });
+					auto const total_unfiltered = get_total (ledger_unfiltered);
+					nano::uint128_t sum{ 0 };
+					auto target = (total_unfiltered.number () / 100) * 99;
+					for (auto i (sorted.begin ()), n (sorted.end ()); i != n && sum <= target; sum += i->second, ++i)
+					{
+						ledger.insert (*i);
+					}
+				}
 
 				auto const total_ledger = get_total (ledger);
 				auto const total_hardcoded = get_total (hardcoded);
@@ -217,13 +232,13 @@ int main (int argc, char * const * argv)
 
 				nano::uint128_union const mismatch_stddev = nano::narrow_cast<nano::uint128_t> (boost::multiprecision::sqrt (mismatch_variance.number ()));
 
-				auto const outlier_threshold = mismatch_mean.number () + 1 * mismatch_stddev.number ();
+				auto const outlier_threshold = std::max (nano::Gxrb_ratio, mismatch_mean.number () + 1 * mismatch_stddev.number ());
 				decltype (mismatched) outliers;
 				std::copy_if (mismatched.begin (), mismatched.end (), std::back_inserter (outliers), [outlier_threshold](mismatched_t const & sample) {
 					return sample.diff > outlier_threshold;
 				});
 
-				auto const newcomer_big_threshold = mismatch_mean;
+				auto const newcomer_threshold = std::max (nano::Gxrb_ratio, mismatch_mean.number ());
 				std::vector<std::pair<nano::account, nano::uint128_t>> newcomers;
 				std::copy_if (ledger.begin (), ledger.end (), std::back_inserter (newcomers), [&hardcoded](auto const & rep) {
 					return !hardcoded.count (rep.first) && rep.second;
@@ -258,7 +273,7 @@ int main (int argc, char * const * argv)
 					std::cout << "newcomers\n";
 					for (auto const & newcomer : newcomers)
 					{
-						if (newcomer.second > newcomer_big_threshold.number ())
+						if (newcomer.second > newcomer_threshold)
 						{
 							std::cout << '\t' << newcomer_entry (newcomer) << '\n';
 						}
