@@ -80,7 +80,7 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 			else
 			{
 				debug_assert (mode_a == confirmation_height_mode::bounded || mode_a == confirmation_height_mode::automatic);
-				debug_assert (confirmation_height_unbounded_processor.pending_empty ());
+				debug_assert (unbounded_processor.pending_empty ());
 				if (bounded_processor.pending_empty ())
 				{
 					bounded_processor.reset ();
@@ -105,7 +105,7 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 				// If there are blocks pending cementing, then make sure we flush out the remaining writes
 				if (!bounded_processor.pending_empty ())
 				{
-					debug_assert (confirmation_height_unbounded_processor.pending_empty ());
+					debug_assert (unbounded_processor.pending_empty ());
 					{
 						auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
 						bounded_processor.cement_blocks (scoped_write_guard);
