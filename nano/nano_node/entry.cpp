@@ -175,6 +175,7 @@ int main (int argc, char * const * argv)
 				auto get_total = [](decltype (hardcoded) const & reps) -> nano::uint128_union {
 					return std::accumulate (reps.begin (), reps.end (), nano::uint128_t{ 0 }, [](auto sum, auto const & rep) { return sum + rep.second; });
 				};
+
 				auto const total_ledger = get_total (ledger);
 				auto const total_hardcoded = get_total (hardcoded);
 
@@ -200,6 +201,9 @@ int main (int argc, char * const * argv)
 					return mismatched_t{ rep.first, rep.second, ledger_weight, absolute };
 				});
 
+				// Sort by descending difference
+				std::sort (mismatched.begin (), mismatched.end (), [](mismatched_t const & left, mismatched_t const & right) { return left.diff > right.diff; });
+
 				nano::uint128_union const mismatch_total = std::accumulate (mismatched.begin (), mismatched.end (), nano::uint128_t{ 0 }, [](auto sum, mismatched_t const & sample) { return sum + sample.diff.number (); });
 				nano::uint128_union const mismatch_mean = mismatch_total.number () / mismatched.size ();
 
@@ -213,6 +217,25 @@ int main (int argc, char * const * argv)
 
 				nano::uint128_union const mismatch_stddev = nano::narrow_cast<nano::uint128_t> (boost::multiprecision::sqrt (mismatch_variance.number ()));
 
+				auto const outlier_threshold = mismatch_mean.number () + 1 * mismatch_stddev.number ();
+				decltype (mismatched) outliers;
+				std::copy_if (mismatched.begin (), mismatched.end (), std::back_inserter (outliers), [outlier_threshold](mismatched_t const & sample) {
+					return sample.diff > outlier_threshold;
+				});
+
+				auto const newcomer_big_threshold = mismatch_mean;
+				std::vector<std::pair<nano::account, nano::uint128_t>> newcomers;
+				std::copy_if (ledger.begin (), ledger.end (), std::back_inserter (newcomers), [&hardcoded](auto const & rep) {
+					return !hardcoded.count (rep.first) && rep.second;
+				});
+
+				// Sort by descending weight
+				std::sort (newcomers.begin (), newcomers.end (), [](auto const & left, auto const & right) { return left.second > right.second; });
+
+				auto newcomer_entry = [](auto const & rep) {
+					return boost::str (boost::format ("representative %1% hardcoded --- ledger %2%") % rep.first.to_account () % nano::uint128_union (rep.second).format_balance (nano::Mxrb_ratio, 0, true));
+				};
+
 				std::cout << boost::str (boost::format ("hardcoded weight %1% Mnano\nledger weight %2% Mnano\nmismatched\n\tsamples %3%\n\ttotal %4% Mnano\n\tmean %5% Mnano\n\tsigma %6% Mnano\n")
 				% total_hardcoded.format_balance (nano::Mxrb_ratio, 0, true)
 				% total_ledger.format_balance (nano::Mxrb_ratio, 0, true)
@@ -220,13 +243,6 @@ int main (int argc, char * const * argv)
 				% mismatch_total.format_balance (nano::Mxrb_ratio, 0, true)
 				% mismatch_mean.format_balance (nano::Mxrb_ratio, 0, true)
 				% mismatch_stddev.format_balance (nano::Mxrb_ratio, 0, true));
-
-				// 3-sigma rule, only less than 1% would be outliers in a true gaussian distribution
-				auto outlier_threshold = mismatch_mean.number () + 3 * mismatch_stddev.number ();
-				decltype (mismatched) outliers;
-				std::copy_if (mismatched.begin (), mismatched.end (), std::back_inserter (outliers), [outlier_threshold](mismatched_t const & sample) {
-					return sample.diff > outlier_threshold;
-				});
 
 				if (!outliers.empty ())
 				{
@@ -237,10 +253,33 @@ int main (int argc, char * const * argv)
 					}
 				}
 
-				// Log everything
+				if (!newcomers.empty ())
+				{
+					std::cout << "newcomers\n";
+					for (auto const & newcomer : newcomers)
+					{
+						if (newcomer.second > newcomer_big_threshold.number ())
+						{
+							std::cout << '\t' << newcomer_entry (newcomer) << '\n';
+						}
+					}
+				}
+
+				// Log more data
+				auto const log_threshold = nano::Gxrb_ratio;
 				for (auto const & sample : mismatched)
 				{
-					node->logger.always_log (sample.get_entry ());
+					if (sample.diff > log_threshold)
+					{
+						node->logger.always_log (sample.get_entry ());
+					}
+				}
+				for (auto const & newcomer : newcomers)
+				{
+					if (newcomer.second > log_threshold)
+					{
+						node->logger.always_log (newcomer_entry (newcomer));
+					}
 				}
 			}
 			else
