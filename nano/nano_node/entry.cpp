@@ -70,7 +70,7 @@ int main (int argc, char * const * argv)
 		("version", "Prints out version")
 		("config", boost::program_options::value<std::vector<std::string>>()->multitoken(), "Pass node configuration values. This takes precedence over any values in the configuration file. This option can be repeated multiple times.")
 		("daemon", "Start node daemon")
-		("compare_rep_weights", "Display a comparison between the hardcoded bootstrap weights and representative weights from the ledger")
+		("compare_rep_weights", "Display a summarized comparison between the hardcoded bootstrap weights and representative weights from the ledger. Full comparison is output to logs")
 		("debug_block_count", "Display the number of block")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
 		("debug_dump_frontier_unchecked_dependents", "Dump frontiers which have matching unchecked keys")
@@ -184,9 +184,15 @@ int main (int argc, char * const * argv)
 					nano::uint128_union hardcoded;
 					nano::uint128_union ledger;
 					nano::uint128_union diff;
+					std::string get_entry () const
+					{
+						return boost::str (boost::format ("representative %1% hardcoded %2% ledger %3% mismatch %4%")
+						% rep.to_account () % hardcoded.format_balance (nano::Mxrb_ratio, 0, true) % ledger.format_balance (nano::Mxrb_ratio, 0, true) % diff.format_balance (nano::Mxrb_ratio, 0, true));
+					}
 				};
 
 				std::vector<mismatched_t> mismatched;
+				mismatched.reserve (hardcoded.size ());
 				std::transform (hardcoded.begin (), hardcoded.end (), std::back_inserter (mismatched), [&ledger, &node](auto const & rep) {
 					auto ledger_rep (ledger.find (rep.first));
 					nano::uint128_t ledger_weight = (ledger_rep == ledger.end () ? 0 : ledger_rep->second);
@@ -222,27 +228,19 @@ int main (int argc, char * const * argv)
 					return sample.diff > outlier_threshold;
 				});
 
-				auto entry = [](mismatched_t const & sample) {
-					return boost::str (boost::format ("representative %1% hardcoded %2% ledger %3% mismatch %4%")
-					% sample.rep.to_account ()
-					% sample.hardcoded.format_balance (nano::Mxrb_ratio, 0, true)
-					% sample.ledger.format_balance (nano::Mxrb_ratio, 0, true)
-					% sample.diff.format_balance (nano::Mxrb_ratio, 0, true));
-				};
-
 				if (!outliers.empty ())
 				{
 					std::cout << "outliers\n";
-					for (auto outlier : outliers)
+					for (auto const & outlier : outliers)
 					{
-						std::cout << '\t' << entry (outlier) << '\n';
+						std::cout << '\t' << outlier.get_entry () << '\n';
 					}
 				}
 
 				// Log everything
 				for (auto const & sample : mismatched)
 				{
-					node->logger.always_log (entry (sample));
+					node->logger.always_log (sample.get_entry ());
 				}
 			}
 			else
