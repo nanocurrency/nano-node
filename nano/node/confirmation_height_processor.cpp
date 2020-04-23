@@ -70,7 +70,7 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 			auto force_unbounded = (!unbounded_processor.pending_empty () || mode_a == confirmation_height_mode::unbounded);
 			if (force_unbounded || valid_unbounded)
 			{
-				debug_assert (confirmation_height_bounded_processor.pending_empty ());
+				debug_assert (bounded_processor.pending_empty ());
 				if (unbounded_processor.pending_empty ())
 				{
 					unbounded_processor.reset ();
@@ -115,7 +115,7 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 				}
 				else if (!unbounded_processor.pending_empty ())
 				{
-					debug_assert (confirmation_height_bounded_processor.pending_empty ());
+					debug_assert (bounded_processor.pending_empty ());
 					{
 						auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
 						unbounded_processor.cement_blocks (scoped_write_guard);
@@ -167,7 +167,7 @@ void nano::confirmation_height_processor::set_next_hash ()
 {
 	nano::lock_guard<std::mutex> guard (mutex);
 	debug_assert (!awaiting_processing.empty ());
-	original_hash = awaiting_processing.get<tag_sequence> ().front ().hash;
+	original_hash = awaiting_processing.get<tag_sequence> ().front ();
 	original_hashes_pending.insert (original_hash);
 	awaiting_processing.get<tag_sequence> ().pop_front ();
 }

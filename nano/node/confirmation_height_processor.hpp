@@ -46,24 +46,15 @@ public:
 
 private:
 	std::mutex mutex;
-	struct hash_wrapper
-	{
-		hash_wrapper (nano::block_hash const & hash_a) :
-		hash (hash_a)
-		{
-		}
-		nano::block_hash hash;
-	};
-
 	// Hashes which have been added to the confirmation height processor, but not yet processed
 	// clang-format off
 	class tag_sequence {};
 	class tag_hash {};
-	boost::multi_index_container<hash_wrapper,
+	boost::multi_index_container<nano::block_hash,
 	mi::indexed_by<
 		mi::sequenced<mi::tag<tag_sequence>>,
 		mi::hashed_unique<mi::tag<tag_hash>,
-			mi::member<hash_wrapper, nano::block_hash, &hash_wrapper::hash>>>> awaiting_processing;
+			mi::identity<nano::block_hash>>>> awaiting_processing;
 	// clang-format on
 
 	// Hashes which have been added and processed, but have not been cemented
