@@ -8537,7 +8537,7 @@ TEST (rpc, node_telemetry_single)
 		nano::telemetry_data telemetry_data;
 		auto const should_ignore_identification_metrics = false;
 		ASSERT_FALSE (telemetry_data.deserialize_json (config, should_ignore_identification_metrics));
-		nano::compare_default_telemetry_response_data (telemetry_data, node->network_params, node->config.bandwidth_limit, node->node_id);
+		nano::compare_default_telemetry_response_data (telemetry_data, node->network_params, node->config.bandwidth_limit, node->active.active_difficulty (), node->node_id);
 	}
 }
 
@@ -8591,7 +8591,7 @@ TEST (rpc, node_telemetry_all)
 		nano::telemetry_data telemetry_data;
 		auto const should_ignore_identification_metrics = true;
 		ASSERT_FALSE (telemetry_data.deserialize_json (config, should_ignore_identification_metrics));
-		nano::compare_default_telemetry_response_data_excluding_signature (telemetry_data, node->network_params, node->config.bandwidth_limit);
+		nano::compare_default_telemetry_response_data_excluding_signature (telemetry_data, node->network_params, node->config.bandwidth_limit, node->active.active_difficulty ());
 		ASSERT_FALSE (response.json.get_optional<std::string> ("node_id").is_initialized ());
 		ASSERT_FALSE (response.json.get_optional<std::string> ("signature").is_initialized ());
 	}
@@ -8614,7 +8614,7 @@ TEST (rpc, node_telemetry_all)
 	nano::telemetry_data data;
 	auto const should_ignore_identification_metrics = false;
 	ASSERT_FALSE (data.deserialize_json (config, should_ignore_identification_metrics));
-	nano::compare_default_telemetry_response_data (data, node->network_params, node->config.bandwidth_limit, node->node_id);
+	nano::compare_default_telemetry_response_data (data, node->network_params, node->config.bandwidth_limit, node->active.active_difficulty (), node->node_id);
 
 	ASSERT_EQ (node->network.endpoint ().address ().to_string (), metrics.get<std::string> ("address"));
 	ASSERT_EQ (node->network.endpoint ().port (), metrics.get<uint16_t> ("port"));
@@ -8653,7 +8653,7 @@ TEST (rpc, node_telemetry_self)
 		nano::telemetry_data data;
 		nano::jsonconfig config (response.json);
 		ASSERT_FALSE (data.deserialize_json (config, should_ignore_identification_metrics));
-		nano::compare_default_telemetry_response_data (data, node1.network_params, node1.config.bandwidth_limit, node1.node_id);
+		nano::compare_default_telemetry_response_data (data, node1.network_params, node1.config.bandwidth_limit, node1.active.active_difficulty (), node1.node_id);
 	}
 
 	request.put ("address", "[::1]");
@@ -8668,7 +8668,7 @@ TEST (rpc, node_telemetry_self)
 		nano::telemetry_data data;
 		nano::jsonconfig config (response.json);
 		ASSERT_FALSE (data.deserialize_json (config, should_ignore_identification_metrics));
-		nano::compare_default_telemetry_response_data (data, node1.network_params, node1.config.bandwidth_limit, node1.node_id);
+		nano::compare_default_telemetry_response_data (data, node1.network_params, node1.config.bandwidth_limit, node1.active.active_difficulty (), node1.node_id);
 	}
 
 	request.put ("address", "127.0.0.1");
@@ -8683,7 +8683,7 @@ TEST (rpc, node_telemetry_self)
 		nano::telemetry_data data;
 		nano::jsonconfig config (response.json);
 		ASSERT_FALSE (data.deserialize_json (config, should_ignore_identification_metrics));
-		nano::compare_default_telemetry_response_data (data, node1.network_params, node1.config.bandwidth_limit, node1.node_id);
+		nano::compare_default_telemetry_response_data (data, node1.network_params, node1.config.bandwidth_limit, node1.active.active_difficulty (), node1.node_id);
 	}
 
 	// Incorrect port should fail
