@@ -19,7 +19,7 @@ class confirmation_height_bounded final
 public:
 	confirmation_height_bounded (nano::ledger &, nano::write_database_queue &, std::chrono::milliseconds, nano::logger_mt &, std::atomic<bool> &, nano::block_hash const &, uint64_t &, std::function<void(std::vector<std::shared_ptr<nano::block>> const &)> const &, std::function<void(nano::block_hash const &)> const &, std::function<uint64_t ()> const &);
 	bool pending_empty () const;
-	void prepare_new ();
+	void reset ();
 	void process ();
 	bool cement_blocks (nano::write_guard & scoped_write_guard_a);
 

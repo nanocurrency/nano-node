@@ -73,7 +73,7 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 				debug_assert (confirmation_height_bounded_processor.pending_empty ());
 				if (confirmation_height_unbounded_processor.pending_empty ())
 				{
-					confirmation_height_unbounded_processor.prepare_new ();
+					confirmation_height_unbounded_processor.reset ();
 				}
 				confirmation_height_unbounded_processor.process ();
 			}
@@ -83,7 +83,7 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 				debug_assert (confirmation_height_unbounded_processor.pending_empty ());
 				if (confirmation_height_bounded_processor.pending_empty ())
 				{
-					confirmation_height_bounded_processor.prepare_new ();
+					confirmation_height_bounded_processor.reset ();
 				}
 				confirmation_height_bounded_processor.process ();
 			}
@@ -111,6 +111,7 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 						confirmation_height_bounded_processor.cement_blocks (scoped_write_guard);
 					}
 					lock_and_cleanup ();
+					confirmation_height_bounded_processor.reset ();
 				}
 				else if (!confirmation_height_unbounded_processor.pending_empty ())
 				{
@@ -120,6 +121,7 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 						confirmation_height_unbounded_processor.cement_blocks (scoped_write_guard);
 					}
 					lock_and_cleanup ();
+					confirmation_height_unbounded_processor.reset ();
 				}
 				else
 				{

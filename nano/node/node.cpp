@@ -279,13 +279,13 @@ node_seq (seq)
 			switch (status_a.type)
 			{
 				case nano::election_status_type::active_confirmed_quorum:
-					this->stats.inc (nano::stat::type::observer, nano::stat::detail::observer_confirmation_active_quorum, nano::stat::dir::out);
+					this->stats.inc (nano::stat::type::confirmation_observer, nano::stat::detail::active_quorum, nano::stat::dir::out);
 					break;
 				case nano::election_status_type::active_confirmation_height:
-					this->stats.inc (nano::stat::type::observer, nano::stat::detail::observer_confirmation_active_conf_height, nano::stat::dir::out);
+					this->stats.inc (nano::stat::type::confirmation_observer, nano::stat::detail::active_conf_height, nano::stat::dir::out);
 					break;
 				case nano::election_status_type::inactive_confirmation_height:
-					this->stats.inc (nano::stat::type::observer, nano::stat::detail::observer_confirmation_inactive, nano::stat::dir::out);
+					this->stats.inc (nano::stat::type::confirmation_observer, nano::stat::detail::inactive_conf_height, nano::stat::dir::out);
 					break;
 				default:
 					break;
@@ -1127,7 +1127,7 @@ void nano::node::block_confirm (std::shared_ptr<nano::block> block_a)
 
 bool nano::node::block_confirmed_or_being_confirmed (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
-	return ledger.block_confirmed (transaction_a, hash_a) || confirmation_height_processor.is_processing_block (hash_a);
+	return confirmation_height_processor.is_processing_block (hash_a) || ledger.block_confirmed (transaction_a, hash_a);
 }
 
 nano::uint128_t nano::node::delta () const
@@ -1272,32 +1272,23 @@ void nano::node::process_confirmed_data (nano::transaction const & transaction_a
 
 void nano::node::process_confirmed (nano::election_status const & status_a, std::shared_ptr<nano::election> const & election_a, uint8_t iteration_a)
 {
-	if (status_a.type == nano::election_status_type::active_confirmed_quorum)
+	auto block_a (status_a.winner);
+	auto hash (block_a->hash ());
+	if (ledger.block_exists (block_a->type (), hash))
 	{
-		auto block_a (status_a.winner);
-		auto hash (block_a->hash ());
-		if (ledger.block_exists (block_a->type (), hash))
-		{
-			// Pausing to prevent this block being processed before adding to election winner details.
-			confirmation_height_processor.pause ();
-			confirmation_height_processor.add (hash);
+		confirmation_height_processor.add (hash);
+	}
+	// Limit to 0.5 * 20 = 10 seconds (more than max block_processor::process_batch finish time)
+	else if (iteration_a < 20)
+	{
+		iteration_a++;
+		std::weak_ptr<nano::node> node_w (shared ());
+		alarm.add (std::chrono::steady_clock::now () + network_params.node.process_confirmed_interval, [node_w, status_a, iteration_a, election_a]() {
+			if (auto node_l = node_w.lock ())
 			{
-				active.add_election_winner_details (hash, election_a);
+				node_l->process_confirmed (status_a, election_a, iteration_a);
 			}
-			confirmation_height_processor.unpause ();
-		}
-		// Limit to 0.5 * 20 = 10 seconds (more than max block_processor::process_batch finish time)
-		else if (iteration_a < 20)
-		{
-			iteration_a++;
-			std::weak_ptr<nano::node> node_w (shared ());
-			alarm.add (std::chrono::steady_clock::now () + network_params.node.process_confirmed_interval, [node_w, status_a, iteration_a, election_a]() {
-				if (auto node_l = node_w.lock ())
-				{
-					node_l->process_confirmed (status_a, election_a, iteration_a);
-				}
-			});
-		}
+		});
 	}
 }
 
