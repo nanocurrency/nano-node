@@ -550,6 +550,7 @@ void nano::election::adjust_dependent_difficulty ()
 void nano::election::cleanup ()
 {
 	bool unconfirmed (!confirmed ());
+	auto winner_root (status.winner->qualified_root ());
 	auto winner_hash (status.winner->hash ());
 	for (auto const & block : blocks)
 	{
@@ -566,6 +567,8 @@ void nano::election::cleanup ()
 	}
 	if (unconfirmed)
 	{
+		node.active.recently_dropped.add (winner_root);
+
 		// Clear network filter in another thread
 		node.worker.push_task ([node_l = node.shared (), blocks_l = std::move (blocks)]() {
 			for (auto const & block : blocks_l)
