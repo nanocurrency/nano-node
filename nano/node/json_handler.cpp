@@ -4835,7 +4835,11 @@ void nano::json_handler::work_generate ()
 			{
 				if (node.local_work_generation_enabled ())
 				{
-					node.work.generate (work_version, hash, difficulty, callback);
+					auto error = node.distributed_work.make (work_version, hash, {}, difficulty, callback, {});
+					if (error)
+					{
+						ec = nano::error_common::failure_work_generation;
+					}
 				}
 				else
 				{
