@@ -1086,7 +1086,7 @@ int main (int argc, char * const * argv)
 				std::this_thread::sleep_for (std::chrono::milliseconds (500));
 				if (++iteration % 60 == 0)
 				{
-					std::cout << boost::str (boost::format ("%1% blocks cemented\n") % node1->ledger.cache.cemented_count);;
+					std::cout << boost::str (boost::format ("%1% blocks cemented\n") % node1->ledger.cache.cemented_count);
 				}
 			}
 
