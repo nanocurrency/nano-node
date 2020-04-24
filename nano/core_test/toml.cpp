@@ -798,3 +798,47 @@ TEST (toml, daemon_config_deserialize_errors)
 	ASSERT_EQ (toml2.get_error ().get_message (), "frontiers_confirmation value is invalid (available: always, auto, disabled)");
 	ASSERT_EQ (conf2.node.frontiers_confirmation, nano::frontiers_confirmation_mode::invalid);
 }
+
+TEST (toml, daemon_read_config)
+{
+	auto path (nano::unique_path ());
+	boost::filesystem::create_directories (path);
+	nano::daemon_config config;
+	std::vector<std::string> invalid_overrides1{ "node.max_work_generate_multiplier=0" };
+	std::string expected_message1{ "max_work_generate_multiplier must be greater than or equal to 1" };
+
+	std::vector<std::string> invalid_overrides2{ "node.websocket.enable=true", "node.foo" };
+	std::string expected_message2{ "Value must follow after a '=' at line 2" };
+
+	// Reading when there is no config file
+	ASSERT_FALSE (boost::filesystem::exists (nano::get_node_toml_config_path (path)));
+	ASSERT_FALSE (nano::read_node_config_toml (path, config));
+	{
+		auto error = nano::read_node_config_toml (path, config, invalid_overrides1);
+		ASSERT_TRUE (error);
+		ASSERT_EQ (error.get_message (), expected_message1);
+	}
+	{
+		auto error = nano::read_node_config_toml (path, config, invalid_overrides2);
+		ASSERT_TRUE (error);
+		ASSERT_EQ (error.get_message (), expected_message2);
+	}
+
+	// Create an empty config
+	nano::tomlconfig toml;
+	toml.write (nano::get_node_toml_config_path (path));
+
+	// Reading when there is a config file
+	ASSERT_TRUE (boost::filesystem::exists (nano::get_node_toml_config_path (path)));
+	ASSERT_FALSE (nano::read_node_config_toml (path, config));
+	{
+		auto error = nano::read_node_config_toml (path, config, invalid_overrides1);
+		ASSERT_TRUE (error);
+		ASSERT_EQ (error.get_message (), expected_message1);
+	}
+	{
+		auto error = nano::read_node_config_toml (path, config, invalid_overrides2);
+		ASSERT_TRUE (error);
+		ASSERT_EQ (error.get_message (), expected_message2);
+	}
+}
