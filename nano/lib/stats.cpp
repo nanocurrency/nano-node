@@ -613,6 +613,24 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::late_block_seconds:
 			res = "late_block_seconds";
 			break;
+		case nano::stat::detail::election_non_priority:
+			res = "election_non_priority";
+			break;
+		case nano::stat::detail::election_priority:
+			res = "election_priority";
+			break;
+		case nano::stat::detail::election_block_conflict:
+			res = "election_block_conflict";
+			break;
+		case nano::stat::detail::election_difficulty_update:
+			res = "election_difficulty_update";
+			break;
+		case nano::stat::detail::election_drop:
+			res = "election_drop";
+			break;
+		case nano::stat::detail::election_restart:
+			res = "election_restart";
+			break;
 		case nano::stat::detail::blocking:
 			res = "blocking";
 			break;

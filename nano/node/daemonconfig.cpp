@@ -223,7 +223,7 @@ nano::error nano::read_node_config_toml (boost::filesystem::path const & data_pa
 		}
 		else
 		{
-			toml.read (config_overrides_stream);
+			error = toml.read (config_overrides_stream);
 		}
 	}
 

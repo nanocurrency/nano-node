@@ -15,11 +15,12 @@
 using namespace std::chrono;
 
 nano::active_transactions::active_transactions (nano::node & node_a, nano::confirmation_height_processor & confirmation_height_processor_a) :
+recently_dropped (node_a.stats),
 confirmation_height_processor (confirmation_height_processor_a),
-generator (node_a.config, node_a.store, node_a.wallets, node_a.vote_processor, node_a.votes_cache, node_a.network),
 node (node_a),
 multipliers_cb (20, 1.),
 trended_active_multiplier (1.0),
+generator (node_a.config, node_a.store, node_a.wallets, node_a.vote_processor, node_a.votes_cache, node_a.network),
 check_all_elections_period (node_a.network_params.network.is_test_network () ? 10ms : 5s),
 election_time_to_live (node_a.network_params.network.is_test_network () ? 0s : 2s),
 prioritized_cutoff (std::max<size_t> (1, node_a.config.active_elections_size / 10)),
@@ -521,6 +522,7 @@ nano::election_insertion_result nano::active_transactions::insert_impl (std::sha
 				blocks.emplace (hash, result.election);
 				add_adjust_difficulty (hash);
 				result.election->insert_inactive_votes_cache (hash);
+				node.stats.inc (nano::stat::type::election, prioritized ? nano::stat::detail::election_priority : nano::stat::detail::election_non_priority);
 			}
 		}
 		else
@@ -661,6 +663,7 @@ void nano::active_transactions::update_difficulty_impl (nano::active_transaction
 			info_a.multiplier = multiplier;
 		});
 		add_adjust_difficulty (block_a.hash ());
+		node.stats.inc (nano::stat::type::election, nano::stat::detail::election_difficulty_update);
 	}
 }
 
@@ -691,6 +694,7 @@ void nano::active_transactions::restart (std::shared_ptr<nano::block> const & bl
 				{
 					insert_result.election->transition_active ();
 					recently_dropped.erase (ledger_block->qualified_root ());
+					node.stats.inc (nano::stat::type::election, nano::stat::detail::election_restart);
 				}
 			}
 		}
@@ -976,6 +980,7 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> block_a)
 		if (!result)
 		{
 			blocks.emplace (block_a->hash (), election);
+			node.stats.inc (nano::stat::type::election, nano::stat::detail::election_block_conflict);
 		}
 	}
 	return result;
@@ -1198,8 +1203,14 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (ac
 	return composite;
 }
 
+nano::dropped_elections::dropped_elections (nano::stat & stats_a) :
+stats (stats_a)
+{
+}
+
 void nano::dropped_elections::add (nano::qualified_root const & root_a)
 {
+	stats.inc (nano::stat::type::election, nano::stat::detail::election_drop);
 	nano::lock_guard<std::mutex> guard (mutex);
 	auto & items_by_sequence = items.get<tag_sequence> ();
 	items_by_sequence.emplace_back (nano::election_timepoint{ std::chrono::steady_clock::now (), root_a });

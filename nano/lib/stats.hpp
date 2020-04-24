@@ -201,7 +201,7 @@ public:
 		aggregator,
 		requests,
 		filter,
-		telemetry
+		telemetry,
 	};
 
 	/** Optional detail type */
@@ -273,6 +273,12 @@ public:
 		vote_cached,
 		late_block,
 		late_block_seconds,
+		election_non_priority,
+		election_priority,
+		election_block_conflict,
+		election_difficulty_update,
+		election_drop,
+		election_restart,
 
 		// udp
 		blocking,
