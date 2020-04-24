@@ -1004,8 +1004,22 @@ int main (int argc, char * const * argv)
 				}
 			}
 			std::cout << boost::str (boost::format ("Starting generating %1% blocks...\n") % (count * 2));
-			nano::system system (1);
-			auto node1 (system.nodes[0]);
+			boost::asio::io_context io_ctx1;
+			boost::asio::io_context io_ctx2;
+			nano::alarm alarm1 (io_ctx1);
+			nano::alarm alarm2 (io_ctx2);
+			nano::work_pool work (std::numeric_limits<unsigned>::max ());
+			nano::logging logging;
+			auto path1 (nano::unique_path ());
+			auto path2 (nano::unique_path ());
+			logging.init (path1);
+			nano::node_config config1 (24000, logging);
+			nano::node_flags flags;
+			flags.disable_lazy_bootstrap = true;
+			flags.disable_legacy_bootstrap = true;
+			flags.disable_wallet_bootstrap = true;
+			flags.disable_bootstrap_listener = true;
+			auto node1 (std::make_shared<nano::node> (io_ctx1, path1, alarm1, config1, work, flags, 0));
 			nano::block_hash genesis_latest (node1->latest (test_params.ledger.test_genesis_key.pub));
 			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
 			// Generating blocks
@@ -1022,7 +1036,7 @@ int main (int argc, char * const * argv)
 				            .balance (genesis_balance)
 				            .link (key.pub)
 				            .sign (test_params.ledger.test_genesis_key.prv, test_params.ledger.test_genesis_key.pub)
-				            .work (*system.work.generate (nano::work_version::work_1, genesis_latest, test_params.network.publish_thresholds.epoch_1))
+				            .work (*work.generate (nano::work_version::work_1, genesis_latest, test_params.network.publish_thresholds.epoch_1))
 				            .build ();
 
 				genesis_latest = send->hash ();
@@ -1034,7 +1048,7 @@ int main (int argc, char * const * argv)
 				            .balance (1)
 				            .link (genesis_latest)
 				            .sign (key.prv, key.pub)
-				            .work (*system.work.generate (nano::work_version::work_1, key.pub, test_params.network.publish_thresholds.epoch_1))
+				            .work (*work.generate (nano::work_version::work_1, key.pub, test_params.network.publish_thresholds.epoch_1))
 				            .build ();
 
 				blocks.push_back (std::move (send));
@@ -1044,34 +1058,40 @@ int main (int argc, char * const * argv)
 					std::cout << boost::str (boost::format ("%1% blocks generated\n") % (i * 2));
 				}
 			}
+			node1->start ();
+			nano::thread_runner runner1 (io_ctx1, node1->config.io_threads);
+
 			std::cout << boost::str (boost::format ("Processing %1% blocks\n") % (count * 2));
 			for (auto & block : blocks)
 			{
 				node1->block_processor.add (block);
 			}
 			node1->block_processor.flush ();
+			auto iteration (0);
 			while (node1->ledger.cache.block_count != count * 2 + 1)
 			{
-				system.poll ();
+				std::this_thread::sleep_for (std::chrono::milliseconds (500));
+				if (++iteration % 60 == 0)
+				{
+					std::cout << boost::str (boost::format ("%1% blocks processed\n") % node1->ledger.cache.block_count);
+				}
 			}
 			// Confirm blocks for node1
 			for (auto & block : blocks)
 			{
 				node1->confirmation_height_processor.add (block->hash ());
 			}
-			uint64_t previous_cache_count (0);
 			while (node1->ledger.cache.cemented_count != node1->ledger.cache.block_count)
 			{
-				system.poll ();
-				if (std::chrono::duration_cast<std::chrono::nanoseconds> (std::chrono::high_resolution_clock::now ().time_since_epoch ()).count () % 250 * 1000000 == 0 && previous_cache_count != node1->ledger.cache.cemented_count)
+				std::this_thread::sleep_for (std::chrono::milliseconds (500));
+				if (++iteration % 60 == 0)
 				{
-					std::cout << boost::str (boost::format ("%1% blocks cemented\n") % node1->ledger.cache.cemented_count);
-					previous_cache_count = node1->ledger.cache.cemented_count;
+					std::cout << boost::str (boost::format ("%1% blocks cemented\n") % node1->ledger.cache.cemented_count);;
 				}
 			}
 
 			// Start new node
-			nano::node_config node_config (24001, system.logging);
+			nano::node_config config2 (24001, logging);
 			// Config override
 			std::vector<std::string> config_overrides;
 			auto config (vm.find ("config"));
@@ -1092,16 +1112,13 @@ int main (int argc, char * const * argv)
 				}
 				else
 				{
-					node_config.frontiers_confirmation = daemon_config.node.frontiers_confirmation;
-					node_config.active_elections_size = daemon_config.node.active_elections_size;
+					config2.frontiers_confirmation = daemon_config.node.frontiers_confirmation;
+					config2.active_elections_size = daemon_config.node.active_elections_size;
 				}
 			}
-			nano::node_flags flags;
-			flags.disable_lazy_bootstrap = true;
-			flags.disable_legacy_bootstrap = true;
-			flags.disable_wallet_bootstrap = true;
-			flags.disable_bootstrap_listener = true;
-			auto node2 (system.add_node (node_config));
+			auto node2 (std::make_shared<nano::node> (io_ctx2, path2, alarm2, config2, work, flags, 1));
+			node2->start ();
+			nano::thread_runner runner2 (io_ctx2, node2->config.io_threads);
 			std::cout << boost::str (boost::format ("Processing %1% blocks (test node)\n") % (count * 2));
 			// Processing block
 			while (!blocks.empty ())
@@ -1113,35 +1130,45 @@ int main (int argc, char * const * argv)
 			node2->block_processor.flush ();
 			while (node2->ledger.cache.block_count != count * 2 + 1)
 			{
-				system.poll ();
-				if (std::chrono::duration_cast<std::chrono::nanoseconds> (std::chrono::high_resolution_clock::now ().time_since_epoch ()).count () % 50 * 1000000 == 0 && previous_cache_count != node2->ledger.cache.block_count)
+				std::this_thread::sleep_for (std::chrono::milliseconds (500));
+				if (++iteration % 60 == 0)
 				{
 					std::cout << boost::str (boost::format ("%1% blocks processed\n") % node2->ledger.cache.block_count);
-					previous_cache_count = node2->ledger.cache.block_count;
 				}
 			}
 			// Insert representative
 			std::cout << "Initializing representative\n";
-			system.wallet (0)->insert_adhoc (test_params.ledger.test_genesis_key.prv);
+			auto wallet (node1->wallets.create (nano::random_wallet_id ()));
+			wallet->insert_adhoc (test_params.ledger.test_genesis_key.prv);
+			node2->network.merge_peer (node1->network.endpoint ());
 			while (node2->rep_crawler.representative_count () == 0)
 			{
-				system.poll ();
+				std::this_thread::sleep_for (std::chrono::milliseconds (10));
+				if (++iteration % 500 == 0)
+				{
+					std::cout << "Representative initialization iteration...\n";
+				}
 			}
 			auto begin (std::chrono::high_resolution_clock::now ());
 			std::cout << boost::str (boost::format ("Starting confirming %1% frontiers (test node)\n") % (count + 1));
 			// Wait for full frontiers confirmation
 			while (node2->ledger.cache.cemented_count != node2->ledger.cache.block_count)
 			{
-				system.poll ();
-				if (std::chrono::duration_cast<std::chrono::nanoseconds> (std::chrono::high_resolution_clock::now ().time_since_epoch ()).count () % 1000000 == 0 && previous_cache_count != node2->ledger.cache.cemented_count)
+				std::this_thread::sleep_for (std::chrono::milliseconds (25));
+				if (++iteration % 1200 == 0)
 				{
 					std::cout << boost::str (boost::format ("%1% blocks confirmed\n") % node2->ledger.cache.cemented_count);
-					previous_cache_count = node2->ledger.cache.cemented_count;
 				}
 			}
 			auto end (std::chrono::high_resolution_clock::now ());
 			auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());
 			std::cout << boost::str (boost::format ("%|1$ 12d| us \n%2% frontiers per second\n") % time % ((count + 1) * 1000000 / time));
+			io_ctx1.stop ();
+			io_ctx2.stop ();
+			runner1.join ();
+			runner2.join ();
+			node1->stop ();
+			node2->stop ();
 		}
 		else if (vm.count ("debug_random_feed"))
 		{
