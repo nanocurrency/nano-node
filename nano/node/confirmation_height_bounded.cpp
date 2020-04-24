@@ -8,13 +8,14 @@
 
 #include <numeric>
 
-nano::confirmation_height_bounded::confirmation_height_bounded (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logger_mt & logger_a, std::atomic<bool> & stopped_a, nano::block_hash const & original_hash_a, std::function<void(std::vector<std::shared_ptr<nano::block>> const &)> const & notify_observers_callback_a, std::function<void(nano::block_hash const &)> const & notify_block_already_cemented_observers_callback_a, std::function<uint64_t ()> const & awaiting_processing_size_callback_a) :
+nano::confirmation_height_bounded::confirmation_height_bounded (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logger_mt & logger_a, std::atomic<bool> & stopped_a, nano::block_hash const & original_hash_a, uint64_t & batch_write_size_a, std::function<void(std::vector<std::shared_ptr<nano::block>> const &)> const & notify_observers_callback_a, std::function<void(nano::block_hash const &)> const & notify_block_already_cemented_observers_callback_a, std::function<uint64_t ()> const & awaiting_processing_size_callback_a) :
 ledger (ledger_a),
 write_database_queue (write_database_queue_a),
 batch_separate_pending_min_time (batch_separate_pending_min_time_a),
 logger (logger_a),
 stopped (stopped_a),
 original_hash (original_hash_a),
+batch_write_size (batch_write_size_a),
 notify_observers_callback (notify_observers_callback_a),
 notify_block_already_cemented_observers_callback (notify_block_already_cemented_observers_callback_a),
 awaiting_processing_size_callback (awaiting_processing_size_callback_a)
@@ -156,7 +157,7 @@ void nano::confirmation_height_bounded::process ()
 				return total += write_details_a.top_height - write_details_a.bottom_height + 1;
 			});
 
-			auto max_batch_write_size_reached = (total_pending_write_block_count >= confirmation_height::batch_write_size);
+			auto max_batch_write_size_reached = (total_pending_write_block_count >= batch_write_size);
 			// When there are a lot of pending confirmation height blocks, it is more efficient to
 			// bulk some of them up to enable better write performance which becomes the bottleneck.
 			auto min_time_exceeded = (timer.since_start () >= batch_separate_pending_min_time);
@@ -165,19 +166,19 @@ void nano::confirmation_height_bounded::process ()
 			auto should_output = finished_iterating && (non_awaiting_processing || min_time_exceeded);
 			auto force_write = pending_writes.size () >= pending_writes_max_size || accounts_confirmed_info.size () >= pending_writes_max_size;
 
-			if (((max_batch_write_size_reached || should_output) && !pending_writes.empty ()) || force_write)
+			if ((max_batch_write_size_reached || should_output || force_write) && !pending_writes.empty ())
 			{
 				bool error = false;
 				// If nothing is currently using the database write lock then write the cemented pending blocks otherwise continue iterating
 				if (write_database_queue.process (nano::writer::confirmation_height))
 				{
 					auto scoped_write_guard = write_database_queue.pop ();
-					error = cement_blocks ();
+					error = cement_blocks (scoped_write_guard);
 				}
 				else if (force_write)
 				{
 					auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
-					error = cement_blocks ();
+					error = cement_blocks (scoped_write_guard);
 				}
 				// Don't set any more cemented blocks from the original hash if an inconsistency is found
 				if (error)
@@ -332,7 +333,7 @@ void nano::confirmation_height_bounded::prepare_iterated_blocks_for_cementing (p
 	}
 }
 
-bool nano::confirmation_height_bounded::cement_blocks ()
+bool nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scoped_write_guard_a)
 {
 	// Will contain all blocks that have been cemented (bounded by batch_write_size)
 	// and will get run through the cemented observer callback
@@ -340,7 +341,8 @@ bool nano::confirmation_height_bounded::cement_blocks ()
 	{
 		// This only writes to the confirmation_height table and is the only place to do so in a single process
 		auto transaction (ledger.store.tx_begin_write ({}, { nano::tables::confirmation_height }));
-
+		nano::timer<> timer;
+		timer.start ();
 		// Cement all pending entries, each entry is specific to an account and contains the least amount
 		// of blocks to retain consistent cementing across all account chains to genesis.
 		while (!pending_writes.empty ())
@@ -407,22 +409,52 @@ bool nano::confirmation_height_bounded::cement_blocks ()
 						return true;
 					}
 
+					auto last_iteration = (num_blocks_confirmed - num_blocks_iterated) == 1;
+
 					cemented_blocks.emplace_back (block);
 
-					// We have likely hit a long chain, flush these callbacks and continue
-					if (cemented_blocks.size () == confirmation_height::batch_write_size)
+					// Flush these callbacks and continue as we write in batches (ideally maximum 250ms) to not hold write db transaction for too long.
+					// Include a tolerance to save having to potentially wait on the block processor if the number of blocks to cement is only a bit higher than the max.
+					if (cemented_blocks.size () > batch_write_size + (batch_write_size / 10))
 					{
 						auto num_blocks_cemented = num_blocks_iterated - total_blocks_cemented + 1;
 						total_blocks_cemented += num_blocks_cemented;
 						write_confirmation_height (num_blocks_cemented, start_height + total_blocks_cemented - 1, new_cemented_frontier);
 						transaction.commit ();
+
+						// Update the maximum amount of blocks to write next time based on the time it took to cement this batch.
+						if (!network_params.network.is_test_network ())
+						{
+							auto const amount_to_change = batch_write_size / 10; // 10%
+							auto const maximum_batch_write_time = 250; // milliseconds
+							auto const maximum_batch_write_time_increase_cutoff = maximum_batch_write_time - (maximum_batch_write_time / 5);
+							if (timer.since_start ().count () > maximum_batch_write_time)
+							{
+								// Reduce (unless we have hit a floor)
+								auto const minimum_batch_size = 16384u;
+								batch_write_size = std::max<uint64_t> (minimum_batch_size, batch_write_size - amount_to_change);
+							}
+							else if (timer.since_start ().count () < maximum_batch_write_time_increase_cutoff)
+							{
+								// Increase amount of blocks written for next batch if the time for writing this one is sufficiently lower than the max time to warrant changing
+								batch_write_size += amount_to_change;
+							}
+						}
+
+						scoped_write_guard_a.release ();
 						notify_observers_callback (cemented_blocks);
 						cemented_blocks.clear ();
-						transaction.renew ();
+
+						// Only aquire transaction if there are any blocks left
+						if (!(last_iteration && pending_writes.size () == 1))
+						{
+							scoped_write_guard_a = write_database_queue.wait (nano::writer::confirmation_height);
+							transaction.renew ();
+							timer.restart ();
+						}
 					}
 
 					// Get the next block in the chain until we have reached the final desired one
-					auto last_iteration = (num_blocks_confirmed - num_blocks_iterated) == 1;
 					if (!last_iteration)
 					{
 						new_cemented_frontier = block->sideband ().successor;
@@ -436,7 +468,10 @@ bool nano::confirmation_height_bounded::cement_blocks ()
 				}
 
 				auto num_blocks_cemented = num_blocks_confirmed - total_blocks_cemented;
-				write_confirmation_height (num_blocks_cemented, pending.top_height, new_cemented_frontier);
+				if (num_blocks_cemented > 0)
+				{
+					write_confirmation_height (num_blocks_cemented, pending.top_height, new_cemented_frontier);
+				}
 			}
 
 			auto it = accounts_confirmed_info.find (pending.account);
@@ -450,7 +485,19 @@ bool nano::confirmation_height_bounded::cement_blocks ()
 		}
 	}
 
-	notify_observers_callback (cemented_blocks);
+	// Scope guard could have been released earlier (0 cemented_blocks would indicate that)
+	if (scoped_write_guard_a.is_owned () && !cemented_blocks.empty ())
+	{
+		scoped_write_guard_a.release ();
+		notify_observers_callback (cemented_blocks);
+	}
+	// Tests should check this already at the end, but not all blocks may have elections (e.g from manual calls to confirmation_height_processor::add), this should catch any inconsistencies on live/beta though
+	if (!network_params.network.is_test_network ())
+	{
+		auto blocks_confirmed_stats = ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed);
+		auto observer_stats = ledger.stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out);
+		debug_assert (blocks_confirmed_stats == observer_stats);
+	}
 
 	debug_assert (pending_writes.empty ());
 	debug_assert (pending_writes_size == 0);
@@ -462,7 +509,7 @@ bool nano::confirmation_height_bounded::pending_empty () const
 	return pending_writes.empty ();
 }
 
-void nano::confirmation_height_bounded::prepare_new ()
+void nano::confirmation_height_bounded::reset ()
 {
 	accounts_confirmed_info.clear ();
 	accounts_confirmed_info_size = 0;

@@ -357,11 +357,12 @@ public:
 	uint8_t protocol_version{ 0 };
 	nano::block_hash genesis_block{ 0 };
 	uint8_t major_version{ 0 };
-	uint8_t minor_version;
-	uint8_t patch_version;
-	uint8_t pre_release_version;
-	uint8_t maker; // 0 for NF node
+	uint8_t minor_version{ 0 };
+	uint8_t patch_version{ 0 };
+	uint8_t pre_release_version{ 0 };
+	uint8_t maker{ 0 }; // 0 for NF node
 	std::chrono::system_clock::time_point timestamp;
+	uint64_t active_difficulty{ 0 };
 
 	void serialize (nano::stream &) const;
 	void deserialize (nano::stream &, uint16_t);
@@ -372,7 +373,7 @@ public:
 	bool operator== (nano::telemetry_data const &) const;
 	bool operator!= (nano::telemetry_data const &) const;
 
-	static auto constexpr size = sizeof (signature) + sizeof (node_id) + sizeof (block_count) + sizeof (cemented_count) + sizeof (unchecked_count) + sizeof (account_count) + sizeof (bandwidth_cap) + sizeof (peer_count) + sizeof (protocol_version) + sizeof (uptime) + sizeof (genesis_block) + sizeof (major_version) + sizeof (minor_version) + sizeof (patch_version) + sizeof (pre_release_version) + sizeof (maker) + sizeof (uint64_t);
+	static auto constexpr size = sizeof (signature) + sizeof (node_id) + sizeof (block_count) + sizeof (cemented_count) + sizeof (unchecked_count) + sizeof (account_count) + sizeof (bandwidth_cap) + sizeof (peer_count) + sizeof (protocol_version) + sizeof (uptime) + sizeof (genesis_block) + sizeof (major_version) + sizeof (minor_version) + sizeof (patch_version) + sizeof (pre_release_version) + sizeof (maker) + sizeof (uint64_t) + sizeof (active_difficulty);
 
 private:
 	void serialize_without_signature (nano::stream &, uint16_t) const;

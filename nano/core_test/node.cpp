@@ -1853,7 +1853,7 @@ TEST (node, broadcast_elected)
 			ASSERT_NO_ERROR (ec);
 		}
 		system.deadline_set (5s);
-		while (node1->stats.count (nano::stat::type::observer, nano::stat::detail::observer_confirmation_inactive, nano::stat::dir::out) == 0)
+		while (node1->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::inactive_conf_height, nano::stat::dir::out) == 0)
 		{
 			ASSERT_NO_ERROR (system.poll ());
 		}

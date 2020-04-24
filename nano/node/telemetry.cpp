@@ -513,6 +513,7 @@ nano::telemetry_data nano::consolidate_telemetry_data (std::vector<nano::telemet
 	std::multiset<uint64_t> uptimes;
 	std::multiset<uint64_t> bandwidths;
 	std::multiset<uint64_t> timestamps;
+	std::multiset<uint64_t> active_difficulties;
 
 	for (auto const & telemetry_data : telemetry_datas)
 	{
@@ -536,6 +537,7 @@ nano::telemetry_data nano::consolidate_telemetry_data (std::vector<nano::telemet
 
 		++bandwidth_caps[telemetry_data.bandwidth_cap];
 		++genesis_blocks[telemetry_data.genesis_block];
+		active_difficulties.insert (telemetry_data.active_difficulty);
 	}
 
 	// Remove 10% of the results from the lower and upper bounds to catch any outliers. Need at least 10 responses before any are removed.
@@ -556,6 +558,7 @@ nano::telemetry_data nano::consolidate_telemetry_data (std::vector<nano::telemet
 	auto unchecked_sum = strip_outliers_and_sum (unchecked_counts);
 	auto uptime_sum = strip_outliers_and_sum (uptimes);
 	auto bandwidth_sum = strip_outliers_and_sum (bandwidths);
+	auto active_difficulty_sum = strip_outliers_and_sum (active_difficulties);
 
 	nano::telemetry_data consolidated_data;
 	auto size = telemetry_datas.size () - num_either_side_to_remove * 2;
@@ -565,6 +568,7 @@ nano::telemetry_data nano::consolidate_telemetry_data (std::vector<nano::telemet
 	consolidated_data.peer_count = boost::numeric_cast<decltype (consolidated_data.peer_count)> (peer_sum / size);
 	consolidated_data.uptime = boost::numeric_cast<decltype (consolidated_data.uptime)> (uptime_sum / size);
 	consolidated_data.unchecked_count = boost::numeric_cast<decltype (consolidated_data.unchecked_count)> (unchecked_sum / size);
+	consolidated_data.active_difficulty = boost::numeric_cast<decltype (consolidated_data.unchecked_count)> (active_difficulty_sum / size);
 
 	if (!timestamps.empty ())
 	{
@@ -623,7 +627,7 @@ nano::telemetry_data nano::consolidate_telemetry_data (std::vector<nano::telemet
 	return consolidated_data;
 }
 
-nano::telemetry_data nano::local_telemetry_data (nano::ledger_cache const & ledger_cache_a, nano::network & network_a, uint64_t bandwidth_limit_a, nano::network_params const & network_params_a, std::chrono::steady_clock::time_point statup_time_a, nano::keypair const & node_id_a)
+nano::telemetry_data nano::local_telemetry_data (nano::ledger_cache const & ledger_cache_a, nano::network & network_a, uint64_t bandwidth_limit_a, nano::network_params const & network_params_a, std::chrono::steady_clock::time_point statup_time_a, uint64_t active_difficulty_a, nano::keypair const & node_id_a)
 {
 	nano::telemetry_data telemetry_data;
 	telemetry_data.node_id = node_id_a.pub;
@@ -642,6 +646,7 @@ nano::telemetry_data nano::local_telemetry_data (nano::ledger_cache const & ledg
 	telemetry_data.pre_release_version = nano::get_pre_release_node_version ();
 	telemetry_data.maker = 0; // 0 Indicates it originated from the NF
 	telemetry_data.timestamp = std::chrono::system_clock::now ();
+	telemetry_data.active_difficulty = active_difficulty_a;
 	// Make sure this is the final operation!
 	telemetry_data.sign (node_id_a);
 	return telemetry_data;

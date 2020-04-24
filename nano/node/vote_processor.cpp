@@ -165,7 +165,6 @@ void nano::vote_processor::verify_votes (decltype (votes) const & votes_a)
 	}
 }
 
-// node.active.mutex lock required
 nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a, bool validated)
 {
 	auto result (nano::vote_code::invalid);

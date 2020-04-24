@@ -213,6 +213,7 @@ TEST (active_transactions, keep_local)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+	ASSERT_EQ (0, node.active.recently_dropped.size ());
 	while (!node.active.empty ())
 	{
 		nano::lock_guard<std::mutex> active_guard (node.active.mutex);
@@ -234,6 +235,7 @@ TEST (active_transactions, keep_local)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+	ASSERT_EQ (1, node.active.recently_dropped.size ());
 }
 
 TEST (active_transactions, prioritize_chains)
@@ -998,4 +1000,77 @@ TEST (active_transactions, election_difficulty_update_fork)
 	ASSERT_EQ (1, node.active.size ());
 	auto multiplier_receive_updated = node.active.roots.begin ()->multiplier;
 	ASSERT_GT (multiplier_receive_updated, multiplier_receive);
+}
+
+TEST (active_transactions, confirm_new)
+{
+	nano::system system (1);
+	auto & node1 = *system.nodes[0];
+	nano::genesis genesis;
+	auto send (std::make_shared<nano::send_block> (genesis.hash (), nano::public_key (), nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+	node1.process_active (send);
+	node1.block_processor.flush ();
+	ASSERT_EQ (1, node1.active.size ());
+	auto & node2 = *system.add_node ();
+	// Add key to node2
+	system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
+	system.deadline_set (5s);
+	// Let node2 know about the block
+	while (node2.block (send->hash ()) == nullptr)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	system.deadline_set (5s);
+	// Wait confirmation
+	while (node1.ledger.cache.cemented_count < 2 || node2.ledger.cache.cemented_count < 2)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+}
+
+TEST (active_transactions, restart_dropped)
+{
+	nano::system system;
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto & node = *system.add_node (node_config);
+	nano::genesis genesis;
+	auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::xrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+	// Process only in ledger and simulate dropping the election
+	ASSERT_EQ (nano::process_result::progress, node.process (*send).code);
+	node.active.recently_dropped.add (send->qualified_root ());
+	// Generate higher difficulty work
+	ASSERT_TRUE (node.work_generate_blocking (*send, send->difficulty () + 1).is_initialized ());
+	// Process the same block with updated work
+	ASSERT_EQ (0, node.active.size ());
+	node.process_active (send);
+	node.block_processor.flush ();
+	ASSERT_EQ (1, node.active.size ());
+	auto ledger_block (node.store.block_get (node.store.tx_begin_read (), send->hash ()));
+	ASSERT_NE (nullptr, ledger_block);
+	// Exact same block, including work value must have been re-written
+	ASSERT_EQ (*send, *ledger_block);
+	// Removed from the dropped elections cache
+	ASSERT_EQ (std::chrono::steady_clock::time_point{}, node.active.recently_dropped.find (send->qualified_root ()));
+	// Drop election
+	node.active.erase (*send);
+	ASSERT_EQ (0, node.active.size ());
+	// Try to restart election with the same difficulty
+	node.process_active (send);
+	node.block_processor.flush ();
+	ASSERT_EQ (0, node.active.size ());
+	// Verify the block was not updated in the ledger
+	ASSERT_EQ (*node.store.block_get (node.store.tx_begin_read (), send->hash ()), *send);
+	// Generate even higher difficulty work
+	ASSERT_TRUE (node.work_generate_blocking (*send, send->difficulty () + 1).is_initialized ());
+	// Add voting
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	// Process the same block with updated work
+	ASSERT_EQ (0, node.active.size ());
+	node.process_active (send);
+	node.block_processor.flush ();
+	ASSERT_EQ (1, node.active.size ());
+	ASSERT_EQ (1, node.ledger.cache.cemented_count);
+	// Wait for the election to complete
+	ASSERT_TIMELY (5s, node.ledger.cache.cemented_count == 2);
 }

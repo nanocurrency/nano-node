@@ -42,7 +42,9 @@ prioritized_m (prioritized_a)
 void nano::election::confirm_once (nano::election_status_type type_a)
 {
 	debug_assert (!node.active.mutex.try_lock ());
-	if (state_m.exchange (nano::election::state_t::confirmed) != nano::election::state_t::confirmed)
+	// This must be kept above the setting of election state, as dependent confirmed elections require up to date changes to election_winner_details
+	nano::unique_lock<std::mutex> election_winners_lk (node.active.election_winner_details_mutex);
+	if (state_m.exchange (nano::election::state_t::confirmed) != nano::election::state_t::confirmed && node.active.election_winner_details.find (status.winner->hash ()) == node.active.election_winner_details.cend ())
 	{
 		status.election_end = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ());
 		status.election_duration = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::steady_clock::now () - election_start);
@@ -54,15 +56,10 @@ void nano::election::confirm_once (nano::election_status_type type_a)
 		auto node_l (node.shared ());
 		auto confirmation_action_l (confirmation_action);
 		auto this_l = shared_from_this ();
-		if (status_l.type == nano::election_status_type::active_confirmation_height)
-		{
-			// Need to add dependent election results here (and not in process_confirmed which is called asynchronously) so that
-			// election winner details can be cleared consistently sucessfully in active_transactions::block_cemented_callback
-			node.active.add_election_winner_details (status_l.winner->hash (), this_l);
-		}
+		node.active.election_winner_details.emplace (status.winner->hash (), this_l);
 		node.active.add_recently_confirmed (status_l.winner->qualified_root (), status_l.winner->hash ());
+		node_l->process_confirmed (status_l, this_l);
 		node.background ([node_l, status_l, confirmation_action_l, this_l]() {
-			node_l->process_confirmed (status_l, this_l);
 			confirmation_action_l (status_l.winner);
 		});
 		adjust_dependent_difficulty ();
@@ -550,6 +547,7 @@ void nano::election::adjust_dependent_difficulty ()
 void nano::election::cleanup ()
 {
 	bool unconfirmed (!confirmed ());
+	auto winner_root (status.winner->qualified_root ());
 	auto winner_hash (status.winner->hash ());
 	for (auto const & block : blocks)
 	{
@@ -566,6 +564,8 @@ void nano::election::cleanup ()
 	}
 	if (unconfirmed)
 	{
+		node.active.recently_dropped.add (winner_root);
+
 		// Clear network filter in another thread
 		node.worker.push_task ([node_l = node.shared (), blocks_l = std::move (blocks)]() {
 			for (auto const & block : blocks_l)
