@@ -61,7 +61,6 @@ public:
 class dropped_elections final
 {
 public:
-	dropped_elections () = delete;
 	dropped_elections (nano::stat &);
 	void add (nano::qualified_root const &);
 	void erase (nano::qualified_root const &);
