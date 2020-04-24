@@ -407,36 +407,19 @@ node_seq (seq)
 
 		if ((network_params.network.is_live_network () || network_params.network.is_beta_network ()) && !flags.inactive_node)
 		{
+			auto bootstrap_weights = get_bootstrap_weights ();
 			// Use bootstrap weights if initial bootstrap is not completed
-			bool use_bootstrap_weight (false);
-			const uint8_t * weight_buffer = network_params.network.is_live_network () ? nano_bootstrap_weights_live : nano_bootstrap_weights_beta;
-			size_t weight_size = network_params.network.is_live_network () ? nano_bootstrap_weights_live_size : nano_bootstrap_weights_beta_size;
-			nano::bufferstream weight_stream ((const uint8_t *)weight_buffer, weight_size);
-			nano::uint128_union block_height;
-			if (!nano::try_read (weight_stream, block_height))
+			bool use_bootstrap_weight = ledger.cache.block_count < bootstrap_weights.first;
+			if (use_bootstrap_weight)
 			{
-				auto max_blocks = (uint64_t)block_height.number ();
-				use_bootstrap_weight = ledger.cache.block_count < max_blocks;
-				if (use_bootstrap_weight)
+				ledger.bootstrap_weight_max_blocks = bootstrap_weights.first;
+				ledger.bootstrap_weights = bootstrap_weights.second;
+				for (auto const & rep : ledger.bootstrap_weights)
 				{
-					ledger.bootstrap_weight_max_blocks = max_blocks;
-					while (true)
-					{
-						nano::account account;
-						if (nano::try_read (weight_stream, account.bytes))
-						{
-							break;
-						}
-						nano::amount weight;
-						if (nano::try_read (weight_stream, weight.bytes))
-						{
-							break;
-						}
-						logger.always_log ("Using bootstrap rep weight: ", account.to_account (), " -> ", weight.format_balance (Mxrb_ratio, 0, true), " XRB");
-						ledger.bootstrap_weights[account] = weight.number ();
-					}
+					logger.always_log ("Using bootstrap rep weight: ", rep.first.to_account (), " -> ", nano::uint128_union (rep.second).format_balance (Mxrb_ratio, 0, true), " XRB");
 				}
 			}
+
 			// Drop unchecked blocks if initial bootstrap is completed
 			if (!flags.disable_unchecked_drop && !use_bootstrap_weight && !flags.read_only)
 			{
@@ -1614,6 +1597,35 @@ void nano::node::epoch_upgrader_impl (nano::private_key const & prv_a, nano::epo
 	}
 
 	logger.always_log ("Epoch upgrade is completed");
+}
+
+std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> nano::node::get_bootstrap_weights () const
+{
+	std::unordered_map<nano::account, nano::uint128_t> weights;
+	const uint8_t * weight_buffer = network_params.network.is_live_network () ? nano_bootstrap_weights_live : nano_bootstrap_weights_beta;
+	size_t weight_size = network_params.network.is_live_network () ? nano_bootstrap_weights_live_size : nano_bootstrap_weights_beta_size;
+	nano::bufferstream weight_stream ((const uint8_t *)weight_buffer, weight_size);
+	nano::uint128_union block_height;
+	uint64_t max_blocks = 0;
+	if (!nano::try_read (weight_stream, block_height))
+	{
+		max_blocks = nano::narrow_cast<uint64_t> (block_height.number ());
+		while (true)
+		{
+			nano::account account;
+			if (nano::try_read (weight_stream, account.bytes))
+			{
+				break;
+			}
+			nano::amount weight;
+			if (nano::try_read (weight_stream, weight.bytes))
+			{
+				break;
+			}
+			weights[account] = weight.number ();
+		}
+	}
+	return { max_blocks, weights };
 }
 
 nano::inactive_node::inactive_node (boost::filesystem::path const & path_a, nano::node_flags const & node_flags_a) :

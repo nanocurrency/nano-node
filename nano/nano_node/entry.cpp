@@ -14,6 +14,7 @@
 #include <boost/program_options.hpp>
 #include <boost/range/adaptor/reversed.hpp>
 
+#include <numeric>
 #include <sstream>
 
 #include <argon2.h>
@@ -69,6 +70,7 @@ int main (int argc, char * const * argv)
 		("version", "Prints out version")
 		("config", boost::program_options::value<std::vector<std::string>>()->multitoken(), "Pass node configuration values. This takes precedence over any values in the configuration file. This option can be repeated multiple times.")
 		("daemon", "Start node daemon")
+		("compare_rep_weights", "Display a summarized comparison between the hardcoded bootstrap weights and representative weights from the ledger. Full comparison is output to logs")
 		("debug_block_count", "Display the number of block")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
 		("debug_dump_frontier_unchecked_dependents", "Dump frontiers which have matching unchecked keys")
@@ -157,6 +159,151 @@ int main (int argc, char * const * argv)
 				std::exit (1);
 			}
 			daemon.run (data_path, flags);
+		}
+		else if (vm.count ("compare_rep_weights"))
+		{
+			if (!nano::network_constants ().is_test_network ())
+			{
+				auto node_flags = nano::inactive_node_flag_defaults ();
+				nano::update_flags (node_flags, vm);
+				node_flags.generate_cache.reps = true;
+				auto inactive_node = nano::default_inactive_node (data_path, vm);
+				auto node = inactive_node->node;
+
+				auto const hardcoded = node->get_bootstrap_weights ().second;
+				auto const ledger_unfiltered = node->ledger.cache.rep_weights.get_rep_amounts ();
+
+				auto get_total = [](decltype (hardcoded) const & reps) -> nano::uint128_union {
+					return std::accumulate (reps.begin (), reps.end (), nano::uint128_t{ 0 }, [](auto sum, auto const & rep) { return sum + rep.second; });
+				};
+
+				// Hardcoded weights are filtered to a cummulative weight of 99%, need to do the same for ledger weights
+				std::remove_const_t<decltype (ledger_unfiltered)> ledger;
+				{
+					std::vector<std::pair<nano::account, nano::uint128_t>> sorted;
+					sorted.reserve (ledger_unfiltered.size ());
+					std::copy (ledger_unfiltered.begin (), ledger_unfiltered.end (), std::back_inserter (sorted));
+					std::sort (sorted.begin (), sorted.end (), [](auto const & left, auto const & right) { return left.second > right.second; });
+					auto const total_unfiltered = get_total (ledger_unfiltered);
+					nano::uint128_t sum{ 0 };
+					auto target = (total_unfiltered.number () / 100) * 99;
+					for (auto i (sorted.begin ()), n (sorted.end ()); i != n && sum <= target; sum += i->second, ++i)
+					{
+						ledger.insert (*i);
+					}
+				}
+
+				auto const total_ledger = get_total (ledger);
+				auto const total_hardcoded = get_total (hardcoded);
+
+				struct mismatched_t
+				{
+					nano::account rep;
+					nano::uint128_union hardcoded;
+					nano::uint128_union ledger;
+					nano::uint128_union diff;
+					std::string get_entry () const
+					{
+						return boost::str (boost::format ("representative %1% hardcoded %2% ledger %3% mismatch %4%")
+						% rep.to_account () % hardcoded.format_balance (nano::Mxrb_ratio, 0, true) % ledger.format_balance (nano::Mxrb_ratio, 0, true) % diff.format_balance (nano::Mxrb_ratio, 0, true));
+					}
+				};
+
+				std::vector<mismatched_t> mismatched;
+				mismatched.reserve (hardcoded.size ());
+				std::transform (hardcoded.begin (), hardcoded.end (), std::back_inserter (mismatched), [&ledger, &node](auto const & rep) {
+					auto ledger_rep (ledger.find (rep.first));
+					nano::uint128_t ledger_weight = (ledger_rep == ledger.end () ? 0 : ledger_rep->second);
+					auto absolute = ledger_weight > rep.second ? ledger_weight - rep.second : rep.second - ledger_weight;
+					return mismatched_t{ rep.first, rep.second, ledger_weight, absolute };
+				});
+
+				// Sort by descending difference
+				std::sort (mismatched.begin (), mismatched.end (), [](mismatched_t const & left, mismatched_t const & right) { return left.diff > right.diff; });
+
+				nano::uint128_union const mismatch_total = std::accumulate (mismatched.begin (), mismatched.end (), nano::uint128_t{ 0 }, [](auto sum, mismatched_t const & sample) { return sum + sample.diff.number (); });
+				nano::uint128_union const mismatch_mean = mismatch_total.number () / mismatched.size ();
+
+				nano::uint512_union mismatch_variance = std::accumulate (mismatched.begin (), mismatched.end (), nano::uint512_t (0), [M = mismatch_mean.number (), N = mismatched.size ()](nano::uint512_t sum, mismatched_t const & sample) {
+					auto x = sample.diff.number ();
+					nano::uint512_t const mean_diff = x > M ? x - M : M - x;
+					nano::uint512_t const sqr = mean_diff * mean_diff;
+					return sum + sqr;
+				})
+				/ mismatched.size ();
+
+				nano::uint128_union const mismatch_stddev = nano::narrow_cast<nano::uint128_t> (boost::multiprecision::sqrt (mismatch_variance.number ()));
+
+				auto const outlier_threshold = std::max (nano::Gxrb_ratio, mismatch_mean.number () + 1 * mismatch_stddev.number ());
+				decltype (mismatched) outliers;
+				std::copy_if (mismatched.begin (), mismatched.end (), std::back_inserter (outliers), [outlier_threshold](mismatched_t const & sample) {
+					return sample.diff > outlier_threshold;
+				});
+
+				auto const newcomer_threshold = std::max (nano::Gxrb_ratio, mismatch_mean.number ());
+				std::vector<std::pair<nano::account, nano::uint128_t>> newcomers;
+				std::copy_if (ledger.begin (), ledger.end (), std::back_inserter (newcomers), [&hardcoded](auto const & rep) {
+					return !hardcoded.count (rep.first) && rep.second;
+				});
+
+				// Sort by descending weight
+				std::sort (newcomers.begin (), newcomers.end (), [](auto const & left, auto const & right) { return left.second > right.second; });
+
+				auto newcomer_entry = [](auto const & rep) {
+					return boost::str (boost::format ("representative %1% hardcoded --- ledger %2%") % rep.first.to_account () % nano::uint128_union (rep.second).format_balance (nano::Mxrb_ratio, 0, true));
+				};
+
+				std::cout << boost::str (boost::format ("hardcoded weight %1% Mnano\nledger weight %2% Mnano\nmismatched\n\tsamples %3%\n\ttotal %4% Mnano\n\tmean %5% Mnano\n\tsigma %6% Mnano\n")
+				% total_hardcoded.format_balance (nano::Mxrb_ratio, 0, true)
+				% total_ledger.format_balance (nano::Mxrb_ratio, 0, true)
+				% mismatched.size ()
+				% mismatch_total.format_balance (nano::Mxrb_ratio, 0, true)
+				% mismatch_mean.format_balance (nano::Mxrb_ratio, 0, true)
+				% mismatch_stddev.format_balance (nano::Mxrb_ratio, 0, true));
+
+				if (!outliers.empty ())
+				{
+					std::cout << "outliers\n";
+					for (auto const & outlier : outliers)
+					{
+						std::cout << '\t' << outlier.get_entry () << '\n';
+					}
+				}
+
+				if (!newcomers.empty ())
+				{
+					std::cout << "newcomers\n";
+					for (auto const & newcomer : newcomers)
+					{
+						if (newcomer.second > newcomer_threshold)
+						{
+							std::cout << '\t' << newcomer_entry (newcomer) << '\n';
+						}
+					}
+				}
+
+				// Log more data
+				auto const log_threshold = nano::Gxrb_ratio;
+				for (auto const & sample : mismatched)
+				{
+					if (sample.diff > log_threshold)
+					{
+						node->logger.always_log (sample.get_entry ());
+					}
+				}
+				for (auto const & newcomer : newcomers)
+				{
+					if (newcomer.second > log_threshold)
+					{
+						node->logger.always_log (newcomer_entry (newcomer));
+					}
+				}
+			}
+			else
+			{
+				std::cout << "Not available for the test network" << std::endl;
+				result = -1;
+			}
 		}
 		else if (vm.count ("debug_block_count"))
 		{
