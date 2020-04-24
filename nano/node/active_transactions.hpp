@@ -31,6 +31,7 @@ class election;
 class vote;
 class transaction;
 class confirmation_height_processor;
+class stat;
 
 class cementable_account final
 {
@@ -60,6 +61,7 @@ public:
 class dropped_elections final
 {
 public:
+	dropped_elections (nano::stat &);
 	void add (nano::qualified_root const &);
 	void erase (nano::qualified_root const &);
 	std::chrono::steady_clock::time_point find (nano::qualified_root const &) const;
@@ -80,6 +82,7 @@ public:
 private:
 	ordered_dropped items;
 	mutable std::mutex mutex;
+	nano::stat & stats;
 };
 
 class election_insertion_result final
