@@ -236,6 +236,7 @@ TEST (active_transactions, keep_local)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (1, node.active.recently_dropped.size ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::election_drop));
 }
 
 TEST (active_transactions, prioritize_chains)
@@ -794,6 +795,9 @@ TEST (active_transactions, insertion_prioritization)
 	ASSERT_FALSE (node.active.insert (blocks[5]).election->prioritized ());
 	update_active_multiplier ();
 	ASSERT_FALSE (node.active.insert (blocks[6]).election->prioritized ());
+
+	ASSERT_EQ (4, node.stats.count (nano::stat::type::election, nano::stat::detail::election_non_priority));
+	ASSERT_EQ (3, node.stats.count (nano::stat::type::election, nano::stat::detail::election_priority));
 }
 
 TEST (active_multiplier, less_than_one)
@@ -944,6 +948,8 @@ TEST (active_transactions, election_difficulty_update_old)
 	node.block_processor.flush ();
 	ASSERT_EQ (1, node.active.size ());
 	ASSERT_GT (node.active.roots.begin ()->multiplier, multiplier);
+
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::election_difficulty_update));
 }
 
 TEST (active_transactions, election_difficulty_update_fork)
@@ -979,10 +985,14 @@ TEST (active_transactions, election_difficulty_update_fork)
 	node.process_active (fork_send);
 	node.block_processor.flush ();
 	ASSERT_EQ (1, node.active.size ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::election_block_conflict));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::election_difficulty_update));
 	auto multiplier_send = node.active.roots.begin ()->multiplier;
 	node.process_active (fork_receive);
 	node.block_processor.flush ();
 	ASSERT_EQ (1, node.active.size ());
+	ASSERT_EQ (2, node.stats.count (nano::stat::type::election, nano::stat::detail::election_block_conflict));
+	ASSERT_EQ (2, node.stats.count (nano::stat::type::election, nano::stat::detail::election_difficulty_update));
 	auto multiplier_receive = node.active.roots.begin ()->multiplier;
 
 	ASSERT_GT (multiplier_send, multiplier_change);
@@ -998,6 +1008,8 @@ TEST (active_transactions, election_difficulty_update_fork)
 	node.process_active (fork_receive);
 	node.block_processor.flush ();
 	ASSERT_EQ (1, node.active.size ());
+	ASSERT_EQ (2, node.stats.count (nano::stat::type::election, nano::stat::detail::election_block_conflict));
+	ASSERT_EQ (3, node.stats.count (nano::stat::type::election, nano::stat::detail::election_difficulty_update));
 	auto multiplier_receive_updated = node.active.roots.begin ()->multiplier;
 	ASSERT_GT (multiplier_receive_updated, multiplier_receive);
 }
@@ -1046,6 +1058,7 @@ TEST (active_transactions, restart_dropped)
 	node.process_active (send);
 	node.block_processor.flush ();
 	ASSERT_EQ (1, node.active.size ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::election_restart));
 	auto ledger_block (node.store.block_get (node.store.tx_begin_read (), send->hash ()));
 	ASSERT_NE (nullptr, ledger_block);
 	// Exact same block, including work value must have been re-written
@@ -1059,6 +1072,7 @@ TEST (active_transactions, restart_dropped)
 	node.process_active (send);
 	node.block_processor.flush ();
 	ASSERT_EQ (0, node.active.size ());
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::election_restart));
 	// Verify the block was not updated in the ledger
 	ASSERT_EQ (*node.store.block_get (node.store.tx_begin_read (), send->hash ()), *send);
 	// Generate even higher difficulty work
@@ -1071,6 +1085,7 @@ TEST (active_transactions, restart_dropped)
 	node.block_processor.flush ();
 	ASSERT_EQ (1, node.active.size ());
 	ASSERT_EQ (1, node.ledger.cache.cemented_count);
+	ASSERT_EQ (2, node.stats.count (nano::stat::type::election, nano::stat::detail::election_restart));
 	// Wait for the election to complete
 	ASSERT_TIMELY (5s, node.ledger.cache.cemented_count == 2);
 }
