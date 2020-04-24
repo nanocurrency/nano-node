@@ -226,7 +226,7 @@ size_t nano::confirmation_height_processor::awaiting_processing_size ()
 bool nano::confirmation_height_processor::is_processing_block (nano::block_hash const & hash_a)
 {
 	nano::lock_guard<std::mutex> guard (mutex);
-	return original_hashes_pending.find (hash_a) != original_hashes_pending.cend () || awaiting_processing.get<tag_hash> ().find (hash_a) != awaiting_processing.get<tag_hash> ().cend ();
+	return original_hashes_pending.count (hash_a) > 0 || awaiting_processing.get<tag_hash> ().count (hash_a) > 0;
 }
 
 nano::block_hash nano::confirmation_height_processor::current ()
