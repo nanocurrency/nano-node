@@ -177,9 +177,10 @@ int main (int argc, char * const * argv)
 				};
 
 				// Hardcoded weights are filtered to a cummulative weight of 99%, need to do the same for ledger weights
-				std::remove_const<decltype (ledger_unfiltered)>::type ledger;
+				std::remove_const_t<decltype (ledger_unfiltered)> ledger;
 				{
 					std::vector<std::pair<nano::account, nano::uint128_t>> sorted;
+					sorted.reserve (ledger_unfiltered.size ());
 					std::copy (ledger_unfiltered.begin (), ledger_unfiltered.end (), std::back_inserter (sorted));
 					std::sort (sorted.begin (), sorted.end (), [](auto const & left, auto const & right) { return left.second > right.second; });
 					auto const total_unfiltered = get_total (ledger_unfiltered);
