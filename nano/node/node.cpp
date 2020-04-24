@@ -260,7 +260,7 @@ node_seq (seq)
 				if (this->websocket_server->any_subscriber (nano::websocket::topic::active_difficulty))
 				{
 					nano::websocket::message_builder builder;
-					auto msg (builder.difficulty_changed (network_params.network.publish_thresholds.epoch_1, active_difficulty));
+					auto msg (builder.difficulty_changed (this->default_difficulty (nano::work_version::work_1), active_difficulty));
 					this->websocket_server->broadcast (msg);
 				}
 			});

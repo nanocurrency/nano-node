@@ -60,6 +60,9 @@ TEST (websocket, active_difficulty)
 	config.websocket_config.enabled = true;
 	config.websocket_config.port = nano::get_available_port ();
 	auto node1 (system.add_node (config));
+	// "Start" epoch 2
+	node1->ledger.cache.epoch_2_started = true;
+	ASSERT_EQ (node1->default_difficulty (nano::work_version::work_1), node1->network_params.network.publish_thresholds.epoch_2);
 
 	ASSERT_EQ (0, node1->websocket_server->subscriber_count (nano::websocket::topic::active_difficulty));
 
@@ -104,14 +107,14 @@ TEST (websocket, active_difficulty)
 	auto message_contents = event.get_child ("message");
 	uint64_t network_minimum;
 	nano::from_string_hex (message_contents.get<std::string> ("network_minimum"), network_minimum);
-	ASSERT_EQ (network_minimum, node1->network_params.network.publish_thresholds.epoch_1);
+	ASSERT_EQ (network_minimum, node1->default_difficulty (nano::work_version::work_1));
 
 	uint64_t network_current;
 	nano::from_string_hex (message_contents.get<std::string> ("network_current"), network_current);
 	ASSERT_EQ (network_current, node1->active.active_difficulty ());
 
 	double multiplier = message_contents.get<double> ("multiplier");
-	ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (node1->active.active_difficulty (), node1->network_params.network.publish_thresholds.epoch_1), 1e-6);
+	ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (node1->active.active_difficulty (), node1->default_difficulty (nano::work_version::work_1)), 1e-6);
 }
 
 // Subscribes to block confirmations, confirms a block and then awaits websocket notification
