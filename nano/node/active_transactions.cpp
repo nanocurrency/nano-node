@@ -863,7 +863,7 @@ void nano::active_transactions::update_active_multiplier (nano::unique_lock<std:
 			last_prioritized_multiplier = prioritized.back ();
 		}
 	}
-	debug_assert (multiplier >= nano::difficulty::to_multiplier (node.network_params.network.publish_thresholds.entry, node.network_params.network.publish_thresholds.epoch_1));
+	debug_assert (multiplier >= nano::difficulty::to_multiplier (node.network_params.network.publish_thresholds.entry, node.network_params.network.publish_thresholds.base));
 	multipliers_cb.push_front (multiplier);
 	auto sum (std::accumulate (multipliers_cb.begin (), multipliers_cb.end (), double(0)));
 	double avg_multiplier (sum / multipliers_cb.size ());

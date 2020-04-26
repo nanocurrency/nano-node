@@ -954,31 +954,6 @@ void nano::json_handler::available_supply ()
 	response_errors ();
 }
 
-void state_subtype (nano::transaction const & transaction_a, nano::node & node_a, std::shared_ptr<nano::block> block_a, nano::uint128_t const & balance_a, boost::property_tree::ptree & tree_a)
-{
-	// Subtype check
-	auto previous_balance (node_a.ledger.balance (transaction_a, block_a->previous ()));
-	if (balance_a < previous_balance)
-	{
-		tree_a.put ("subtype", "send");
-	}
-	else
-	{
-		if (block_a->link ().is_zero ())
-		{
-			tree_a.put ("subtype", "change");
-		}
-		else if (balance_a == previous_balance && node_a.ledger.is_epoch_link (block_a->link ()))
-		{
-			tree_a.put ("subtype", "epoch");
-		}
-		else
-		{
-			tree_a.put ("subtype", "receive");
-		}
-	}
-}
-
 void nano::json_handler::block_info ()
 {
 	auto hash (hash_impl ());
@@ -1014,7 +989,8 @@ void nano::json_handler::block_info ()
 			}
 			if (block->type () == nano::block_type::state)
 			{
-				state_subtype (transaction, node, block, balance, response_l);
+				auto subtype (nano::state_subtype (block->sideband ().details));
+				response_l.put ("subtype", subtype);
 			}
 		}
 		else
@@ -1162,7 +1138,8 @@ void nano::json_handler::blocks_info ()
 					}
 					if (block->type () == nano::block_type::state)
 					{
-						state_subtype (transaction, node, block, balance, entry);
+						auto subtype (nano::state_subtype (block->sideband ().details));
+						entry.put ("subtype", subtype);
 					}
 					if (pending)
 					{
@@ -4835,7 +4812,11 @@ void nano::json_handler::work_generate ()
 			{
 				if (node.local_work_generation_enabled ())
 				{
-					node.work.generate (work_version, hash, difficulty, callback);
+					auto error = node.distributed_work.make (work_version, hash, {}, difficulty, callback, {});
+					if (error)
+					{
+						ec = nano::error_common::failure_work_generation;
+					}
 				}
 				else
 				{

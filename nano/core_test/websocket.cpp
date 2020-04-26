@@ -60,6 +60,9 @@ TEST (websocket, active_difficulty)
 	config.websocket_config.enabled = true;
 	config.websocket_config.port = nano::get_available_port ();
 	auto node1 (system.add_node (config));
+	// "Start" epoch 2
+	node1->ledger.cache.epoch_2_started = true;
+	ASSERT_EQ (node1->default_difficulty (nano::work_version::work_1), node1->network_params.network.publish_thresholds.epoch_2);
 
 	ASSERT_EQ (0, node1->websocket_server->subscriber_count (nano::websocket::topic::active_difficulty));
 
@@ -104,14 +107,14 @@ TEST (websocket, active_difficulty)
 	auto message_contents = event.get_child ("message");
 	uint64_t network_minimum;
 	nano::from_string_hex (message_contents.get<std::string> ("network_minimum"), network_minimum);
-	ASSERT_EQ (network_minimum, node1->network_params.network.publish_thresholds.epoch_1);
+	ASSERT_EQ (network_minimum, node1->default_difficulty (nano::work_version::work_1));
 
 	uint64_t network_current;
 	nano::from_string_hex (message_contents.get<std::string> ("network_current"), network_current);
 	ASSERT_EQ (network_current, node1->active.active_difficulty ());
 
 	double multiplier = message_contents.get<double> ("multiplier");
-	ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (node1->active.active_difficulty (), node1->network_params.network.publish_thresholds.epoch_1), 1e-6);
+	ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (node1->active.active_difficulty (), node1->default_difficulty (nano::work_version::work_1)), 1e-6);
 }
 
 // Subscribes to block confirmations, confirms a block and then awaits websocket notification
@@ -913,4 +916,46 @@ TEST (websocket, telemetry)
 
 	// Other node should have no subscribers
 	EXPECT_EQ (0, node2->websocket_server->subscriber_count (nano::websocket::topic::telemetry));
+}
+
+TEST (websocket, new_unconfirmed_block)
+{
+	nano::system system;
+	nano::node_config config (nano::get_available_port (), system.logging);
+	config.websocket_config.enabled = true;
+	config.websocket_config.port = nano::get_available_port ();
+	auto node1 (system.add_node (config));
+
+	std::atomic<bool> ack_ready{ false };
+	auto task = ([&ack_ready, config, node1]() {
+		fake_websocket_client client (config.websocket_config.port);
+		client.send_message (R"json({"action": "subscribe", "topic": "new_unconfirmed_block", "ack": "true"})json");
+		client.await_ack ();
+		ack_ready = true;
+		EXPECT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::new_unconfirmed_block));
+		return client.get_response ();
+	});
+	auto future = std::async (std::launch::async, task);
+
+	ASSERT_TIMELY (5s, ack_ready);
+
+	// Process a new block
+	nano::genesis genesis;
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 1, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+	ASSERT_EQ (nano::process_result::progress, node1->process_local (send1).code);
+
+	ASSERT_TIMELY (5s, future.wait_for (0s) == std::future_status::ready);
+
+	// Check the response
+	boost::optional<std::string> response = future.get ();
+	ASSERT_TRUE (response);
+	std::stringstream stream;
+	stream << response;
+	boost::property_tree::ptree event;
+	boost::property_tree::read_json (stream, event);
+	ASSERT_EQ (event.get<std::string> ("topic"), "new_unconfirmed_block");
+
+	auto message_contents = event.get_child ("message");
+	ASSERT_EQ ("state", message_contents.get<std::string> ("type"));
+	ASSERT_EQ ("send", message_contents.get<std::string> ("subtype"));
 }

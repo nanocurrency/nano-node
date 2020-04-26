@@ -221,13 +221,13 @@ inline uint16_t get_available_port ()
 	static uint16_t current = 0;
 	// Read the TEST_BASE_PORT environment and override the default base port if it exists
 	auto base_str = std::getenv ("TEST_BASE_PORT");
-	auto base_port = 24000;
+	uint16_t base_port = 24000;
 	if (base_str)
 	{
-		base_port = boost::lexical_cast<int> (base_str);
+		base_port = boost::lexical_cast<uint16_t> (base_str);
 	}
 
-	auto available_port = base_port + current;
+	uint16_t const available_port = base_port + current;
 	++current;
 	// Reset port number once we have reached the maximum
 	if (current == max)
