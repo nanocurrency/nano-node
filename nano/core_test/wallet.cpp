@@ -1339,7 +1339,7 @@ TEST (work_watcher, generation_disabled)
 		updated_multiplier = existing->multiplier;
 	}
 	ASSERT_EQ (updated_multiplier, multiplier);
-	ASSERT_TRUE (node.distributed_work.items.empty ());
+	ASSERT_EQ (0, node.distributed_work.size ());
 }
 
 TEST (work_watcher, cancel)
