@@ -743,15 +743,14 @@ TEST (node_telemetry, remove_peer_different_genesis)
 	node1->network.merge_peer (node0->network.endpoint ());
 	ASSERT_TIMELY (10s, node0->stats.count (nano::stat::type::telemetry, nano::stat::detail::different_genesis_hash) != 0 && node1->stats.count (nano::stat::type::telemetry, nano::stat::detail::different_genesis_hash) != 0);
 
-	ASSERT_EQ (0, node0->network.size ());
-	ASSERT_EQ (0, node1->network.size ());
-
+	ASSERT_TIMELY (1s, 0 == node0->network.size ());
+	ASSERT_TIMELY (1s, 0 == node1->network.size ());
 	ASSERT_EQ (node0->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::out), 1);
 	ASSERT_EQ (node1->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::out), 1);
-	system.poll_until_true (3s, [&node0, address = node1->network.endpoint ().address ()]() -> bool {
-		nano::lock_guard<std::mutex> guard (node0->network.excluded_peers.mutex);
-		return node0->network.excluded_peers.peers.get<nano::peer_exclusion::tag_endpoint> ().count (address);
-	});
+
+	nano::lock_guard<std::mutex> guard (node0->network.excluded_peers.mutex);
+	ASSERT_EQ (1, node0->network.excluded_peers.peers.get<nano::peer_exclusion::tag_endpoint> ().count (node1->network.endpoint ().address ()));
+	ASSERT_EQ (1, node1->network.excluded_peers.peers.get<nano::peer_exclusion::tag_endpoint> ().count (node0->network.endpoint ().address ()));
 }
 
 TEST (node_telemetry, remove_peer_different_genesis_udp)
