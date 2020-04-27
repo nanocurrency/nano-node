@@ -6596,28 +6596,17 @@ TEST (rpc, online_reps)
 	node2->stop ();
 }
 
-// If this test fails, try increasing the num_blocks size.
 TEST (rpc, confirmation_height_currently_processing)
 {
-	// The chains should be longer than the	batch_write_size to test the amount of blocks confirmed is correct.
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto node = add_ipc_enabled_node (system, node_config);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 
-	// Do enough blocks to reliably call RPC before the confirmation height has finished
 	auto previous_genesis_chain_hash = node->latest (nano::test_genesis_key.pub);
 	{
-		constexpr auto num_blocks = 1000;
 		auto transaction = node->store.tx_begin_write ();
-		for (auto i = num_blocks; i > 0; --i)
-		{
-			nano::send_block send (previous_genesis_chain_hash, nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio + i + 1, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (previous_genesis_chain_hash));
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send).code);
-			previous_genesis_chain_hash = send.hash ();
-		}
-
 		nano::keypair key1;
 		nano::send_block send (previous_genesis_chain_hash, key1.pub, nano::genesis_amount - nano::Gxrb_ratio - 1, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (previous_genesis_chain_hash));
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send).code);
@@ -6644,25 +6633,29 @@ TEST (rpc, confirmation_height_currently_processing)
 	rpc.start ();
 
 	// Begin process for confirming the block (and setting confirmation height)
-	node->block_confirm (frontier);
-
-	system.deadline_set (10s);
-	while (node->confirmation_height_processor.current () != frontier->hash ())
 	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+		// Write guard prevents the confirmation height processor writing the blocks, so that we can inspect contents during the response
+		auto write_guard = node->write_database_queue.wait (nano::writer::testing);
+		node->block_confirm (frontier);
 
-	// Make the request
-	{
-		test_response response (request, rpc.config.port, system.io_ctx);
 		system.deadline_set (10s);
-		while (response.status == 0)
+		while (node->confirmation_height_processor.current () != frontier->hash ())
 		{
 			ASSERT_NO_ERROR (system.poll ());
 		}
-		ASSERT_EQ (200, response.status);
-		auto hash (response.json.get<std::string> ("hash"));
-		ASSERT_EQ (frontier->hash ().to_string (), hash);
+
+		// Make the request
+		{
+			test_response response (request, rpc.config.port, system.io_ctx);
+			system.deadline_set (10s);
+			while (response.status == 0)
+			{
+				ASSERT_NO_ERROR (system.poll ());
+			}
+			ASSERT_EQ (200, response.status);
+			auto hash (response.json.get<std::string> ("hash"));
+			ASSERT_EQ (frontier->hash ().to_string (), hash);
+		}
 	}
 
 	// Wait until confirmation has been set and not processing anything
