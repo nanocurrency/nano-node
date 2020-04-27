@@ -7260,17 +7260,17 @@ TEST (rpc, uptime)
 TEST (rpc, wallet_history)
 {
 	nano::system system;
-	auto node = add_ipc_enabled_node (system);
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.enable_voting = false;
+	auto node = add_ipc_enabled_node (system, node_config);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	auto timestamp1 (nano::seconds_since_epoch ());
 	auto send (system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::test_genesis_key.pub, node->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, send);
-	std::this_thread::sleep_for (std::chrono::milliseconds (1000));
 	auto timestamp2 (nano::seconds_since_epoch ());
 	auto receive (system.wallet (0)->receive_action (*send, nano::test_genesis_key.pub, node->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, receive);
 	nano::keypair key;
-	std::this_thread::sleep_for (std::chrono::milliseconds (1000));
 	auto timestamp3 (nano::seconds_since_epoch ());
 	auto send2 (system.wallet (0)->send_action (nano::test_genesis_key.pub, key.pub, node->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, send2);
