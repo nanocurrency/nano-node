@@ -214,7 +214,7 @@ int main (int argc, char * const * argv)
 
 				std::vector<mismatched_t> mismatched;
 				mismatched.reserve (hardcoded.size ());
-				std::transform (hardcoded.begin (), hardcoded.end (), std::back_inserter (mismatched), [&ledger, &node](auto const & rep) {
+				std::transform (hardcoded.begin (), hardcoded.end (), std::back_inserter (mismatched), [&ledger](auto const & rep) {
 					auto ledger_rep (ledger.find (rep.first));
 					nano::uint128_t ledger_weight = (ledger_rep == ledger.end () ? 0 : ledger_rep->second);
 					auto absolute = ledger_weight > rep.second ? ledger_weight - rep.second : rep.second - ledger_weight;

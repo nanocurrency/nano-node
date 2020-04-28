@@ -9,8 +9,8 @@ guard_finish_callback (guard_finish_callback_a)
 }
 
 nano::write_guard::write_guard (nano::write_guard && write_guard_a) noexcept :
-owns (write_guard_a.owns),
-guard_finish_callback (std::move (write_guard_a.guard_finish_callback))
+guard_finish_callback (std::move (write_guard_a.guard_finish_callback)),
+owns (write_guard_a.owns)
 {
 	write_guard_a.owns = false;
 	write_guard_a.guard_finish_callback = nullptr;

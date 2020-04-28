@@ -13,9 +13,9 @@
 nano::network::network (nano::node & node_a, uint16_t port_a) :
 syn_cookies (node_a.network_params.node.max_peers_per_ip),
 buffer_container (node_a.stats, nano::network::buffer_size, 4096), // 2Mb receive buffer
-tcp_message_manager (node_a.stats, node_a.config.tcp_incoming_connections_max),
 resolver (node_a.io_ctx),
 limiter (node_a.config.bandwidth_limit_burst_ratio, node_a.config.bandwidth_limit),
+tcp_message_manager (node_a.config.tcp_incoming_connections_max),
 node (node_a),
 publish_filter (256 * 1024),
 udp_channels (node_a, port_a),
@@ -881,8 +881,7 @@ void nano::message_buffer_manager::stop ()
 	condition.notify_all ();
 }
 
-nano::tcp_message_manager::tcp_message_manager (nano::stat & stats_a, unsigned incoming_connections_max_a) :
-stats (stats_a),
+nano::tcp_message_manager::tcp_message_manager (unsigned incoming_connections_max_a) :
 max_entries (incoming_connections_max_a * nano::tcp_message_manager::max_entries_per_connection + 1)
 {
 	debug_assert (max_entries > 0);

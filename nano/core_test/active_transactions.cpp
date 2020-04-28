@@ -927,7 +927,6 @@ TEST (active_transactions, election_difficulty_update_old)
 	auto send1_copy (std::make_shared<nano::state_block> (*send1));
 	node.process_active (send1);
 	node.block_processor.flush ();
-	auto root (send1->qualified_root ());
 	ASSERT_EQ (1, node.active.size ());
 	auto multiplier = node.active.roots.begin ()->multiplier;
 	{

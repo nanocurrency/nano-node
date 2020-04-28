@@ -205,7 +205,6 @@ TEST (node_telemetry, no_peers)
 {
 	nano::system system (1);
 
-	std::atomic<bool> done{ false };
 	auto responses = system.nodes[0]->telemetry->get_metrics ();
 	ASSERT_TRUE (responses.empty ());
 }
