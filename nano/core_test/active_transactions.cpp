@@ -1089,3 +1089,31 @@ TEST (active_transactions, restart_dropped)
 	// Wait for the election to complete
 	ASSERT_TIMELY (5s, node.ledger.cache.cemented_count == 2);
 }
+
+// Ensures votes are tallied on election::publish even if no vote is inserted through inactive_votes_cache
+TEST (active_transactions, conflicting_block_vote_existing_election)
+{
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_request_loop = true;
+	auto & node = *system.add_node (node_flags);
+	nano::genesis genesis;
+	nano::keypair key;
+	auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 100, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+	auto fork (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 200, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+	auto vote_fork (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, fork));
+
+	ASSERT_EQ (nano::process_result::progress, node.process_local (send).code);
+	ASSERT_EQ (1, node.active.size ());
+
+	// Vote for conflicting block, but the block does not yet exist in the ledger
+	node.active.vote (vote_fork);
+
+	// Block now gets processed
+	ASSERT_EQ (nano::process_result::fork, node.process_local (fork).code);
+
+	// Election must be confirmed
+	auto election (node.active.election (fork->qualified_root ()));
+	ASSERT_NE (nullptr, election);
+	ASSERT_TRUE (election->confirmed ());
+}
