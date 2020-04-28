@@ -481,7 +481,11 @@ bool nano::election::publish (std::shared_ptr<nano::block> block_a)
 		if (existing == blocks.end ())
 		{
 			blocks.emplace (std::make_pair (block_a->hash (), block_a));
-			insert_inactive_votes_cache (block_a->hash ());
+			if (!insert_inactive_votes_cache (block_a->hash ()))
+			{
+				// Even if no votes were in cache, they could be in the election
+				confirm_if_quorum ();
+			}
 			node.network.flood_block (block_a, nano::buffer_drop_policy::no_limiter_drop);
 		}
 		else
@@ -576,10 +580,10 @@ void nano::election::cleanup ()
 	}
 }
 
-void nano::election::insert_inactive_votes_cache (nano::block_hash const & hash_a)
+size_t nano::election::insert_inactive_votes_cache (nano::block_hash const & hash_a)
 {
 	auto cache (node.active.find_inactive_votes_cache (hash_a));
-	for (auto & rep : cache.voters)
+	for (auto const & rep : cache.voters)
 	{
 		auto inserted (last_votes.emplace (rep, nano::vote_info{ std::chrono::steady_clock::time_point::min (), 0, hash_a }));
 		if (inserted.second)
@@ -597,6 +601,7 @@ void nano::election::insert_inactive_votes_cache (nano::block_hash const & hash_
 		}
 		confirm_if_quorum ();
 	}
+	return cache.voters.size ();
 }
 
 bool nano::election::prioritized () const
