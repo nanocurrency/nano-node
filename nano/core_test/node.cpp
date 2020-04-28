@@ -3087,32 +3087,38 @@ TEST (node, epoch_conflict_confirm)
 	}
 }
 
-// Test is unstable on github actions for windows, disable if CI detected and windows
-#if (defined(_WIN32) && CI)
-TEST (node, DISABLED_fork_invalid_block_signature)
-#else
 TEST (node, fork_invalid_block_signature)
-#endif
 {
-	nano::system system (2);
-	auto & node1 (*system.nodes[0]);
-	auto & node2 (*system.nodes[1]);
+	nano::system system;
+	nano::node_flags node_flags;
+	// Disabling republishing + waiting for a rollback before sending the correct vote below fixes an intermittent failure in this test
+	// If these are taken out, one of two things may cause the test two fail often:
+	// - Block *send2* might get processed before the rollback happens, simply due to timings, with code "fork", and not be processed again. Waiting for the rollback fixes this issue.
+	// - Block *send1* might get processed again after the rollback happens, which causes *send2* to be processed with code "fork". Disabling block republishing ensures "send1" is not processed again.
+	// An alternative would be to repeatedly flood the correct vote
+	node_flags.disable_block_processor_republishing = true;
+	auto & node1 (*system.add_node (node_flags));
+	auto & node2 (*system.add_node (node_flags));
 	nano::keypair key2;
 	nano::genesis genesis;
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key2.pub, std::numeric_limits<nano::uint128_t>::max () - node1.config.receive_minimum.number (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
 	auto send2 (std::make_shared<nano::send_block> (genesis.hash (), key2.pub, std::numeric_limits<nano::uint128_t>::max () - node1.config.receive_minimum.number () * 2, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
 	auto send2_corrupt (std::make_shared<nano::send_block> (*send2));
 	send2_corrupt->signature = nano::signature (123);
+	auto vote (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, send2));
+	auto vote_corrupt (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, send2_corrupt));
+
 	node1.process_active (send1);
 	system.deadline_set (5s);
 	while (!node1.block (send1->hash ()))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	auto vote (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, send2));
-	auto vote_corrupt (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, send2_corrupt));
+	// Send the vote with the corrupt block signature
 	node2.network.flood_vote (vote_corrupt, 1.0f);
-	ASSERT_NO_ERROR (system.poll ());
+	// Wait for the rollback
+	ASSERT_TIMELY (5s, node1.stats.count (nano::stat::type::rollback, nano::stat::detail::all));
+	// Send the vote with the correct block
 	node2.network.flood_vote (vote, 1.0f);
 	while (node1.block (send1->hash ()))
 	{
