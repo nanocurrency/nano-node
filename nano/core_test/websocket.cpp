@@ -780,10 +780,16 @@ TEST (websocket, bootstrap_exited)
 	// Start bootstrap, exit after subscription
 	std::atomic<bool> bootstrap_started{ false };
 	nano::util::counted_completion subscribed_completion (1);
-	std::thread bootstrap_thread ([node1, &bootstrap_started, &subscribed_completion]() {
-		node1->bootstrap_initiator.bootstrap (true, "123abc");
-		auto attempt (node1->bootstrap_initiator.current_attempt ());
-		EXPECT_NE (nullptr, attempt);
+	std::thread bootstrap_thread ([node1, &system, &bootstrap_started, &subscribed_completion]() {
+		std::shared_ptr<nano::bootstrap_attempt> attempt;
+		system.deadline_set (5s);
+		while (attempt == nullptr)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+			node1->bootstrap_initiator.bootstrap (true, "123abc");
+			attempt = node1->bootstrap_initiator.current_attempt ();
+		}
+		ASSERT_NE (nullptr, attempt);
 		bootstrap_started = true;
 		EXPECT_FALSE (subscribed_completion.await_count_for (5s));
 	});
