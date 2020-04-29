@@ -95,11 +95,11 @@ int main (int argc, char * const * argv)
 		("debug_profile_frontiers_confirmation", "Profile frontiers confirmation speed (only for nano_test_network)")
 		("debug_random_feed", "Generates output to RNG test suites")
 		("debug_rpc", "Read an RPC command from stdin and invoke it. Network operations will have no effect.")
-		("debug_validate_blocks", "Check all blocks for correct hash, signature, work value")
 		("debug_peers", "Display peer IPv6:port connections")
 		("debug_cemented_block_count", "Displays the number of cemented (confirmed) blocks")
 		("debug_stacktrace", "Display an example stacktrace")
 		("debug_account_versions", "Display the total counts of each version for all accounts (including unpocketed)")
+		("validate_blocks,debug_validate_blocks", "Check all blocks for correct hash, signature, work value")
 		("platform", boost::program_options::value<std::string> (), "Defines the <platform> for OpenCL commands")
 		("device", boost::program_options::value<std::string> (), "Defines <device> for OpenCL command")
 		("threads", boost::program_options::value<std::string> (), "Defines <threads> count for OpenCL command")
@@ -1356,7 +1356,7 @@ int main (int argc, char * const * argv)
 			auto handler_l (std::make_shared<nano::json_handler> (*inactive_node_l->node, config, command_l.str (), response_handler_l));
 			handler_l->process_request ();
 		}
-		else if (vm.count ("debug_validate_blocks"))
+		else if (vm.count ("validate_blocks") || vm.count ("debug_validate_blocks"))
 		{
 			auto begin (std::chrono::high_resolution_clock::now ());
 			auto inactive_node = nano::default_inactive_node (data_path, vm);
