@@ -59,7 +59,11 @@ TEST (websocket, active_difficulty)
 	nano::node_config config (nano::get_available_port (), system.logging);
 	config.websocket_config.enabled = true;
 	config.websocket_config.port = nano::get_available_port ();
-	auto node1 (system.add_node (config));
+	nano::node_flags node_flags;
+	// Disable auto-updating active difficulty (multiplier) to prevent intermittent failures
+	node_flags.disable_request_loop = true;
+	auto node1 (system.add_node (config, node_flags));
+
 	// "Start" epoch 2
 	node1->ledger.cache.epoch_2_started = true;
 	ASSERT_EQ (node1->default_difficulty (nano::work_version::work_1), node1->network_params.network.publish_thresholds.epoch_2);
@@ -83,10 +87,11 @@ TEST (websocket, active_difficulty)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
-	// Fake history records to force trended_active_multiplier change
+	// Fake history records and force a trended_active_multiplier change
 	{
 		nano::unique_lock<std::mutex> lock (node1->active.mutex);
 		node1->active.multipliers_cb.push_front (10.);
+		node1->active.update_active_multiplier (lock);
 	}
 
 	system.deadline_set (5s);
@@ -775,10 +780,16 @@ TEST (websocket, bootstrap_exited)
 	// Start bootstrap, exit after subscription
 	std::atomic<bool> bootstrap_started{ false };
 	nano::util::counted_completion subscribed_completion (1);
-	std::thread bootstrap_thread ([node1, &bootstrap_started, &subscribed_completion]() {
-		node1->bootstrap_initiator.bootstrap (true, "123abc");
-		auto attempt (node1->bootstrap_initiator.current_attempt ());
-		EXPECT_NE (nullptr, attempt);
+	std::thread bootstrap_thread ([node1, &system, &bootstrap_started, &subscribed_completion]() {
+		std::shared_ptr<nano::bootstrap_attempt> attempt;
+		system.deadline_set (5s);
+		while (attempt == nullptr)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+			node1->bootstrap_initiator.bootstrap (true, "123abc");
+			attempt = node1->bootstrap_initiator.current_attempt ();
+		}
+		ASSERT_NE (nullptr, attempt);
 		bootstrap_started = true;
 		EXPECT_FALSE (subscribed_completion.await_count_for (5s));
 	});
