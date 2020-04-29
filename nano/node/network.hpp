@@ -99,6 +99,7 @@ public:
 	// Also removes the syn cookie from the store if valid
 	bool validate (nano::endpoint const &, nano::account const &, nano::signature const &);
 	std::unique_ptr<container_info_component> collect_container_info (std::string const &);
+	size_t cookies_size ();
 
 private:
 	class syn_cookie_info final

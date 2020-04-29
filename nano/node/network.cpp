@@ -1007,6 +1007,12 @@ void nano::syn_cookies::purge (std::chrono::steady_clock::time_point const & cut
 	}
 }
 
+size_t nano::syn_cookies::cookies_size ()
+{
+	nano::lock_guard<std::mutex> lock (syn_cookie_mutex);
+	return cookies.size ();
+}
+
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (network & network, const std::string & name)
 {
 	auto composite = std::make_unique<container_info_composite> (name);
