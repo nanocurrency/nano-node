@@ -1377,7 +1377,7 @@ int main (int argc, char * const * argv)
 				}
 			}
 			threads_count = std::max (1u, threads_count);
-			std::vector<boost::thread> threads;
+			std::vector<std::thread> threads;
 			std::mutex mutex;
 			nano::condition_variable condition;
 			std::atomic<bool> finished (false);
@@ -1386,17 +1386,17 @@ int main (int argc, char * const * argv)
 			std::atomic<uint64_t> block_count (0);
 			std::atomic<uint64_t> errors (0);
 
-			auto error_message = [&silent, &errors](std::string const & string) {
+			auto print_error_message = [&silent, &errors](std::string const & error_message_a) {
 				if (!silent)
 				{
 					static std::mutex cerr_mutex;
 					nano::lock_guard<std::mutex> lock (cerr_mutex);
-					std::cerr << string;
+					std::cerr << error_message_a;
 				}
 				++errors;
 			};
 
-			auto check_account = [&error_message, &silent, &count, &block_count](std::shared_ptr<nano::node> node, nano::read_transaction const & transaction, nano::account const & account, nano::account_info const & info) {
+			auto check_account = [&print_error_message, &silent, &count, &block_count](std::shared_ptr<nano::node> const & node, nano::read_transaction const & transaction, nano::account const & account, nano::account_info const & info) {
 				++count;
 				if (!silent && (count % 20000) == 0)
 				{
@@ -1407,7 +1407,7 @@ int main (int argc, char * const * argv)
 
 				if (confirmation_height_info.height > info.block_count)
 				{
-					error_message (boost::str (boost::format ("Confirmation height %1% greater than block count %2% for account: %3%\n") % confirmation_height_info.height % info.block_count % account.to_account ()));
+					print_error_message (boost::str (boost::format ("Confirmation height %1% greater than block count %2% for account: %3%\n") % confirmation_height_info.height % info.block_count % account.to_account ()));
 				}
 
 				auto hash (info.open_block);
@@ -1425,33 +1425,33 @@ int main (int argc, char * const * argv)
 					{
 						if (block->account () != account)
 						{
-							error_message (boost::str (boost::format ("Incorrect account field for block %1%\n") % hash.to_string ()));
+							print_error_message (boost::str (boost::format ("Incorrect account field for block %1%\n") % hash.to_string ()));
 						}
 					}
 					// Check if sideband account is correct
 					else if (sideband.account != account)
 					{
-						error_message (boost::str (boost::format ("Incorrect sideband account for block %1%\n") % hash.to_string ()));
+						print_error_message (boost::str (boost::format ("Incorrect sideband account for block %1%\n") % hash.to_string ()));
 					}
 					// Check if previous field is correct
 					if (calculated_hash != block->previous ())
 					{
-						error_message (boost::str (boost::format ("Incorrect previous field for block %1%\n") % hash.to_string ()));
+						print_error_message (boost::str (boost::format ("Incorrect previous field for block %1%\n") % hash.to_string ()));
 					}
 					// Check if previous & type for open blocks are correct
 					if (height == 0 && !block->previous ().is_zero ())
 					{
-						error_message (boost::str (boost::format ("Incorrect previous for open block %1%\n") % hash.to_string ()));
+						print_error_message (boost::str (boost::format ("Incorrect previous for open block %1%\n") % hash.to_string ()));
 					}
 					if (height == 0 && block->type () != nano::block_type::open && block->type () != nano::block_type::state)
 					{
-						error_message (boost::str (boost::format ("Incorrect type for open block %1%\n") % hash.to_string ()));
+						print_error_message (boost::str (boost::format ("Incorrect type for open block %1%\n") % hash.to_string ()));
 					}
 					// Check if block data is correct (calculating hash)
 					calculated_hash = block->hash ();
 					if (calculated_hash != hash)
 					{
-						error_message (boost::str (boost::format ("Invalid data inside block %1% calculated hash: %2%\n") % hash.to_string () % calculated_hash.to_string ()));
+						print_error_message (boost::str (boost::format ("Invalid data inside block %1% calculated hash: %2%\n") % hash.to_string () % calculated_hash.to_string ()));
 					}
 					// Check if block signature is correct
 					if (validate_message (account, hash, block->block_signature ()))
@@ -1473,7 +1473,7 @@ int main (int argc, char * const * argv)
 						}
 						if (invalid)
 						{
-							error_message (boost::str (boost::format ("Invalid signature for block %1%\n") % hash.to_string ()));
+							print_error_message (boost::str (boost::format ("Invalid signature for block %1%\n") % hash.to_string ()));
 						}
 					}
 					// Validate block details set in the sideband
@@ -1513,23 +1513,23 @@ int main (int argc, char * const * argv)
 					}
 					if (block_details_error)
 					{
-						error_message (boost::str (boost::format ("Incorrect sideband block details for block %1%\n") % hash.to_string ()));
+						print_error_message (boost::str (boost::format ("Incorrect sideband block details for block %1%\n") % hash.to_string ()));
 					}
 					// Check if block work value is correct
 					if (block->difficulty () < nano::work_threshold (block->work_version (), block->sideband ().details))
 					{
-						error_message (boost::str (boost::format ("Invalid work for block %1% value: %2%\n") % hash.to_string () % nano::to_string_hex (block->block_work ())));
+						print_error_message (boost::str (boost::format ("Invalid work for block %1% value: %2%\n") % hash.to_string () % nano::to_string_hex (block->block_work ())));
 					}
 					// Check if sideband height is correct
 					++height;
 					if (sideband.height != height)
 					{
-						error_message (boost::str (boost::format ("Incorrect sideband height for block %1%. Sideband: %2%. Expected: %3%\n") % hash.to_string () % sideband.height % height));
+						print_error_message (boost::str (boost::format ("Incorrect sideband height for block %1%. Sideband: %2%. Expected: %3%\n") % hash.to_string () % sideband.height % height));
 					}
 					// Check if sideband timestamp is after previous timestamp
 					if (sideband.timestamp < previous_timestamp)
 					{
-						error_message (boost::str (boost::format ("Incorrect sideband timestamp for block %1%\n") % hash.to_string ()));
+						print_error_message (boost::str (boost::format ("Incorrect sideband timestamp for block %1%\n") % hash.to_string ()));
 					}
 					previous_timestamp = sideband.timestamp;
 					// Calculate representative block
@@ -1548,28 +1548,28 @@ int main (int argc, char * const * argv)
 				// Check if required block exists
 				if (!hash.is_zero () && block == nullptr)
 				{
-					error_message (boost::str (boost::format ("Required block in account %1% chain was not found in ledger: %2%\n") % account.to_account () % hash.to_string ()));
+					print_error_message (boost::str (boost::format ("Required block in account %1% chain was not found in ledger: %2%\n") % account.to_account () % hash.to_string ()));
 				}
 				// Check account block count
 				if (info.block_count != height)
 				{
-					error_message (boost::str (boost::format ("Incorrect block count for account %1%. Actual: %2%. Expected: %3%\n") % account.to_account () % height % info.block_count));
+					print_error_message (boost::str (boost::format ("Incorrect block count for account %1%. Actual: %2%. Expected: %3%\n") % account.to_account () % height % info.block_count));
 				}
 				// Check account head block (frontier)
 				if (info.head != calculated_hash)
 				{
-					error_message (boost::str (boost::format ("Incorrect frontier for account %1%. Actual: %2%. Expected: %3%\n") % account.to_account () % calculated_hash.to_string () % info.head.to_string ()));
+					print_error_message (boost::str (boost::format ("Incorrect frontier for account %1%. Actual: %2%. Expected: %3%\n") % account.to_account () % calculated_hash.to_string () % info.head.to_string ()));
 				}
 				// Check account representative block
 				if (info.representative != calculated_representative)
 				{
-					error_message (boost::str (boost::format ("Incorrect representative for account %1%. Actual: %2%. Expected: %3%\n") % account.to_account () % calculated_representative.to_string () % info.representative.to_string ()));
+					print_error_message (boost::str (boost::format ("Incorrect representative for account %1%. Actual: %2%. Expected: %3%\n") % account.to_account () % calculated_representative.to_string () % info.representative.to_string ()));
 				}
 			};
 
 			for (auto i (0); i < threads_count; ++i)
 			{
-				threads.push_back (boost::thread ([&check_account, node, &mutex, &condition, &finished, &accounts, i]() {
+				threads.emplace_back ([&check_account, node, &mutex, &condition, &finished, &accounts]() {
 					auto transaction (node->store.tx_begin_read ());
 					nano::unique_lock<std::mutex> lock (mutex);
 					while (!accounts.empty () || !finished)
@@ -1584,20 +1584,21 @@ int main (int argc, char * const * argv)
 						check_account (node, transaction, pair.first, pair.second);
 						lock.lock ();
 					}
-				}));
+				});
 			}
 			if (!silent)
 			{
 				std::cout << boost::str (boost::format ("Performing %1% threads blocks hash, signature, work validation...\n") % threads_count);
 			}
+			size_t const accounts_deque_overflow (32 * 1024);
 			auto transaction (node->store.tx_begin_read ());
 			for (auto i (node->store.latest_begin (transaction)), n (node->store.latest_end ()); i != n; ++i)
 			{
 				{
 					nano::unique_lock<std::mutex> lock (mutex);
-					if (accounts.size () > 32 * 1024)
+					if (accounts.size () > accounts_deque_overflow)
 					{
-						auto wait_ms (250 * accounts.size () / (32 * 1024));
+						auto wait_ms (250 * accounts.size () / accounts_deque_overflow);
 						const auto wakeup (std::chrono::steady_clock::now () + std::chrono::milliseconds (wait_ms));
 						condition.wait_until (lock, wakeup);
 					}
@@ -1620,7 +1621,7 @@ int main (int argc, char * const * argv)
 			auto ledger_block_count (node->store.block_count (transaction).sum ());
 			if (block_count != ledger_block_count)
 			{
-				error_message (boost::str (boost::format ("Incorrect total block count. Blocks validated %1%. Block count in database: %2%\n") % block_count % ledger_block_count));
+				print_error_message (boost::str (boost::format ("Incorrect total block count. Blocks validated %1%. Block count in database: %2%\n") % block_count % ledger_block_count));
 			}
 
 			// Validate pending blocks
@@ -1628,7 +1629,7 @@ int main (int argc, char * const * argv)
 			finished = false;
 			std::deque<std::pair<nano::pending_key, nano::pending_info>> pending;
 
-			auto check_pending = [&error_message, &silent, &count](std::shared_ptr<nano::node> node, nano::read_transaction const & transaction, nano::pending_key const & key, nano::pending_info const & info) {
+			auto check_pending = [&print_error_message, &silent, &count](std::shared_ptr<nano::node> const & node, nano::read_transaction const & transaction, nano::pending_key const & key, nano::pending_info const & info) {
 				++count;
 				if (!silent && (count % 500000) == 0)
 				{
@@ -1638,7 +1639,7 @@ int main (int argc, char * const * argv)
 				auto block (node->store.block_get_no_sideband (transaction, key.hash));
 				if (block == nullptr)
 				{
-					error_message (boost::str (boost::format ("Pending block does not exist %1%\n") % key.hash.to_string ()));
+					print_error_message (boost::str (boost::format ("Pending block does not exist %1%\n") % key.hash.to_string ()));
 				}
 				else
 				{
@@ -1657,30 +1658,30 @@ int main (int argc, char * const * argv)
 					}
 					else
 					{
-						error_message (boost::str (boost::format ("Incorrect type for pending block %1%\n") % key.hash.to_string ()));
+						print_error_message (boost::str (boost::format ("Incorrect type for pending block %1%\n") % key.hash.to_string ()));
 					}
 					if (key.account != destination)
 					{
-						error_message (boost::str (boost::format ("Incorrect destination for pending block %1%\n") % key.hash.to_string ()));
+						print_error_message (boost::str (boost::format ("Incorrect destination for pending block %1%\n") % key.hash.to_string ()));
 					}
 					// Check if pending source is correct
 					auto account (node->ledger.account (transaction, key.hash));
 					if (info.source != account)
 					{
-						error_message (boost::str (boost::format ("Incorrect source for pending block %1%\n") % key.hash.to_string ()));
+						print_error_message (boost::str (boost::format ("Incorrect source for pending block %1%\n") % key.hash.to_string ()));
 					}
 					// Check if pending amount is correct
 					auto amount (node->ledger.amount (transaction, key.hash));
 					if (info.amount != amount)
 					{
-						error_message (boost::str (boost::format ("Incorrect amount for pending block %1%\n") % key.hash.to_string ()));
+						print_error_message (boost::str (boost::format ("Incorrect amount for pending block %1%\n") % key.hash.to_string ()));
 					}
 				}
 			};
 
 			for (auto i (0); i < threads_count; ++i)
 			{
-				threads.push_back (boost::thread ([&check_pending, node, &mutex, &condition, &finished, &pending]() {
+				threads.emplace_back ([&check_pending, node, &mutex, &condition, &finished, &pending]() {
 					auto transaction (node->store.tx_begin_read ());
 					nano::unique_lock<std::mutex> lock (mutex);
 					while (!pending.empty () || !finished)
@@ -1695,16 +1696,17 @@ int main (int argc, char * const * argv)
 						check_pending (node, transaction, pair.first, pair.second);
 						lock.lock ();
 					}
-				}));
+				});
 			}
 
+			size_t const pending_deque_overflow (64 * 1024);
 			for (auto i (node->store.pending_begin (transaction)), n (node->store.pending_end ()); i != n; ++i)
 			{
 				{
 					nano::unique_lock<std::mutex> lock (mutex);
-					if (pending.size () > 64 * 1024)
+					if (pending.size () > pending_deque_overflow)
 					{
-						auto wait_ms (50 * pending.size () / (64 * 1024));
+						auto wait_ms (50 * pending.size () / pending_deque_overflow);
 						const auto wakeup (std::chrono::steady_clock::now () + std::chrono::milliseconds (wait_ms));
 						condition.wait_until (lock, wakeup);
 					}
