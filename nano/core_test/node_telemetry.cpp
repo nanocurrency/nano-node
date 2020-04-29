@@ -682,11 +682,13 @@ TEST (node_telemetry, remove_peer_different_genesis)
 	ASSERT_EQ (1, node1->network.excluded_peers.peers.get<nano::peer_exclusion::tag_endpoint> ().count (node0->network.endpoint ().address ()));
 }
 
+// Peer exclusion is only fully supported for TCP-only nodes; peers can still reconnect through UDP
 TEST (node_telemetry, remove_peer_different_genesis_udp)
 {
 	nano::node_flags node_flags;
 	node_flags.disable_udp = false;
 	node_flags.disable_tcp_realtime = true;
+	node_flags.disable_ongoing_telemetry_requests = true;
 	nano::system system (1, nano::transport::transport_type::udp, node_flags);
 	auto node0 (system.nodes[0]);
 	ASSERT_EQ (0, node0->network.size ());
@@ -694,17 +696,30 @@ TEST (node_telemetry, remove_peer_different_genesis_udp)
 	node1->network_params.ledger.genesis_hash = nano::block_hash ("0");
 	node1->start ();
 	system.nodes.push_back (node1);
-	node0->network.send_keepalive (std::make_shared<nano::transport::channel_udp> (node0->network.udp_channels, node1->network.endpoint (), node1->network_params.protocol.protocol_version));
-	node1->network.send_keepalive (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, node0->network.endpoint (), node0->network_params.protocol.protocol_version));
+	auto channel0 (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, node0->network.endpoint (), node0->network_params.protocol.protocol_version));
+	auto channel1 (std::make_shared<nano::transport::channel_udp> (node0->network.udp_channels, node1->network.endpoint (), node1->network_params.protocol.protocol_version));
+	node0->network.send_keepalive (channel1);
+	node1->network.send_keepalive (channel0);
 
 	ASSERT_TIMELY (10s, node0->network.udp_channels.size () != 0 && node1->network.udp_channels.size () != 0);
 	ASSERT_EQ (node0->network.tcp_channels.size (), 0);
 	ASSERT_EQ (node1->network.tcp_channels.size (), 0);
 
-	ASSERT_TIMELY (10s, node0->stats.count (nano::stat::type::telemetry, nano::stat::detail::different_genesis_hash) != 0 && node1->stats.count (nano::stat::type::telemetry, nano::stat::detail::different_genesis_hash) != 0);
+	std::atomic<bool> done0{ false };
+	std::atomic<bool> done1{ false };
 
-	ASSERT_TIMELY (1s, 0 == node0->network.size ());
-	ASSERT_TIMELY (1s, 0 == node1->network.size ());
+	node0->telemetry->get_metrics_single_peer_async (channel1, [&done0](nano::telemetry_data_response const & response_a) {
+		done0 = true;
+	});
+
+	node1->telemetry->get_metrics_single_peer_async (channel0, [&done1](nano::telemetry_data_response const & response_a) {
+		done1 = true;
+	});
+
+	ASSERT_TIMELY (10s, done0 && done1);
+
+	ASSERT_EQ (node0->network.tcp_channels.size (), 0);
+	ASSERT_EQ (node1->network.tcp_channels.size (), 0);
 
 	nano::lock_guard<std::mutex> guard (node0->network.excluded_peers.mutex);
 	ASSERT_EQ (1, node0->network.excluded_peers.peers.get<nano::peer_exclusion::tag_endpoint> ().count (node1->network.endpoint ().address ()));
