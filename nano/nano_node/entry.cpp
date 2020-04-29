@@ -1396,6 +1396,28 @@ int main (int argc, char * const * argv)
 				++errors;
 			};
 
+			auto start_threads = [node, &threads_count, &threads, &mutex, &condition, &finished](const auto & function_a, auto & deque_a) {
+				for (auto i (0); i < threads_count; ++i)
+				{
+					threads.emplace_back ([&function_a, node, &mutex, &condition, &finished, &deque_a]() {
+						auto transaction (node->store.tx_begin_read ());
+						nano::unique_lock<std::mutex> lock (mutex);
+						while (!deque_a.empty () || !finished)
+						{
+							while (deque_a.empty () && !finished)
+							{
+								condition.wait (lock);
+							}
+							auto pair (deque_a.front ());
+							deque_a.pop_front ();
+							lock.unlock ();
+							function_a (node, transaction, pair.first, pair.second);
+							lock.lock ();
+						}
+					});
+				}
+			};
+
 			auto check_account = [&print_error_message, &silent, &count, &block_count](std::shared_ptr<nano::node> const & node, nano::read_transaction const & transaction, nano::account const & account, nano::account_info const & info) {
 				++count;
 				if (!silent && (count % 20000) == 0)
@@ -1567,25 +1589,8 @@ int main (int argc, char * const * argv)
 				}
 			};
 
-			for (auto i (0); i < threads_count; ++i)
-			{
-				threads.emplace_back ([&check_account, node, &mutex, &condition, &finished, &accounts]() {
-					auto transaction (node->store.tx_begin_read ());
-					nano::unique_lock<std::mutex> lock (mutex);
-					while (!accounts.empty () || !finished)
-					{
-						while (accounts.empty () && !finished)
-						{
-							condition.wait (lock);
-						}
-						auto pair (accounts.front ());
-						accounts.pop_front ();
-						lock.unlock ();
-						check_account (node, transaction, pair.first, pair.second);
-						lock.lock ();
-					}
-				});
-			}
+			start_threads (check_account, accounts);
+
 			if (!silent)
 			{
 				std::cout << boost::str (boost::format ("Performing %1% threads blocks hash, signature, work validation...\n") % threads_count);
@@ -1679,25 +1684,7 @@ int main (int argc, char * const * argv)
 				}
 			};
 
-			for (auto i (0); i < threads_count; ++i)
-			{
-				threads.emplace_back ([&check_pending, node, &mutex, &condition, &finished, &pending]() {
-					auto transaction (node->store.tx_begin_read ());
-					nano::unique_lock<std::mutex> lock (mutex);
-					while (!pending.empty () || !finished)
-					{
-						while (pending.empty () && !finished)
-						{
-							condition.wait (lock);
-						}
-						auto pair (pending.front ());
-						pending.pop_front ();
-						lock.unlock ();
-						check_pending (node, transaction, pair.first, pair.second);
-						lock.lock ();
-					}
-				});
-			}
+			start_threads (check_pending, pending);
 
 			size_t const pending_deque_overflow (64 * 1024);
 			for (auto i (node->store.pending_begin (transaction)), n (node->store.pending_end ()); i != n; ++i)
