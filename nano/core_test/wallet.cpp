@@ -1212,6 +1212,7 @@ TEST (work_watcher, propagate)
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.enable_voting = false;
 	node_config.work_watcher_period = 1s;
+	node_config.max_work_generate_multiplier = 1e6;
 	nano::node_flags node_flags;
 	node_flags.disable_request_loop = true;
 	auto & node = *system.add_node (node_config, node_flags);
