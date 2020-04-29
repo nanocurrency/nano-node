@@ -1121,6 +1121,9 @@ TEST (network, tcp_no_connect_excluded_peers)
 	node0->network.excluded_peers.remove (endpoint1_tcp);
 	ASSERT_FALSE (node0->network.excluded_peers.check (endpoint1_tcp));
 
+	// Wait until there is a syn_cookie
+	ASSERT_TIMELY (5s, node1->network.syn_cookies.cookies_size () != 0);
+
 	// Manually cleanup previous attempt
 	node1->network.cleanup (std::chrono::steady_clock::now ());
 	node1->network.syn_cookies.purge (std::chrono::steady_clock::now ());
