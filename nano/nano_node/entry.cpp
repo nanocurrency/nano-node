@@ -1358,7 +1358,8 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("validate_blocks") || vm.count ("debug_validate_blocks"))
 		{
-			auto begin (std::chrono::high_resolution_clock::now ());
+			nano::timer<std::chrono::seconds> timer;
+			timer.start ();
 			auto inactive_node = nano::default_inactive_node (data_path, vm);
 			auto node = inactive_node->node;
 			bool const silent (vm.count ("silent"));
@@ -1710,9 +1711,8 @@ int main (int argc, char * const * argv)
 			if (!silent)
 			{
 				std::cout << boost::str (boost::format ("%1% pending blocks validated\n") % count);
-				auto end (std::chrono::high_resolution_clock::now ());
-				auto time (std::chrono::duration_cast<std::chrono::seconds> (end - begin).count ());
-				std::cout << boost::str (boost::format ("%1% seconds validation time\n") % time);
+				timer.stop ();
+				std::cout << boost::str (boost::format ("%1% %2% validation time\n") % timer.value ().count () % timer.unit ());
 			}
 			if (errors == 0)
 			{
