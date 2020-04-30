@@ -1612,7 +1612,10 @@ int main (int argc, char * const * argv)
 				}
 				condition.notify_all ();
 			}
-			finished = true;
+			{
+				nano::lock_guard<std::mutex> lock (mutex);
+				finished = true;
+			}
 			condition.notify_all ();
 			for (auto & thread : threads)
 			{
@@ -1703,7 +1706,10 @@ int main (int argc, char * const * argv)
 				}
 				condition.notify_all ();
 			}
-			finished = true;
+			{
+				nano::lock_guard<std::mutex> lock (mutex);
+				finished = true;
+			}
 			condition.notify_all ();
 			for (auto & thread : threads)
 			{
