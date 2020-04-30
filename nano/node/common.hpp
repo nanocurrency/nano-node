@@ -220,6 +220,7 @@ public:
 
 	static std::bitset<16> constexpr block_type_mask{ 0x0f00 };
 	static std::bitset<16> constexpr count_mask{ 0xf000 };
+	static std::bitset<16> constexpr telemetry_size_mask{ 0x07ff };
 };
 class message
 {

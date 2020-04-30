@@ -14,6 +14,7 @@
 
 std::bitset<16> constexpr nano::message_header::block_type_mask;
 std::bitset<16> constexpr nano::message_header::count_mask;
+std::bitset<16> constexpr nano::message_header::telemetry_size_mask;
 
 std::chrono::seconds constexpr nano::telemetry_cache_cutoffs::test;
 std::chrono::seconds constexpr nano::telemetry_cache_cutoffs::beta;
@@ -1115,7 +1116,9 @@ nano::telemetry_ack::telemetry_ack (nano::telemetry_data const & telemetry_data_
 message (nano::message_type::telemetry_ack),
 data (telemetry_data_a)
 {
-	header.extensions = telemetry_data::size;
+	debug_assert (telemetry_data::size < 2048); // Maximum size the mask allows
+	header.extensions &= ~message_header::telemetry_size_mask;
+	header.extensions |= std::bitset<16> (static_cast<unsigned long long> (telemetry_data::size));
 }
 
 void nano::telemetry_ack::serialize (nano::stream & stream_a, bool use_epoch_2_min_version_a) const
@@ -1158,7 +1161,7 @@ uint16_t nano::telemetry_ack::size () const
 
 uint16_t nano::telemetry_ack::size (nano::message_header const & message_header_a)
 {
-	return static_cast<uint16_t> (message_header_a.extensions.to_ulong ());
+	return static_cast<uint16_t> ((message_header_a.extensions & message_header::telemetry_size_mask).to_ullong ());
 }
 
 bool nano::telemetry_ack::is_empty_payload () const
@@ -1171,13 +1174,20 @@ void nano::telemetry_data::deserialize (nano::stream & stream_a, uint16_t payloa
 	read (stream_a, signature);
 	read (stream_a, node_id);
 	read (stream_a, block_count);
+	boost::endian::big_to_native_inplace (block_count);
 	read (stream_a, cemented_count);
+	boost::endian::big_to_native_inplace (cemented_count);
 	read (stream_a, unchecked_count);
+	boost::endian::big_to_native_inplace (unchecked_count);
 	read (stream_a, account_count);
+	boost::endian::big_to_native_inplace (account_count);
 	read (stream_a, bandwidth_cap);
+	boost::endian::big_to_native_inplace (bandwidth_cap);
 	read (stream_a, peer_count);
+	boost::endian::big_to_native_inplace (peer_count);
 	read (stream_a, protocol_version);
 	read (stream_a, uptime);
+	boost::endian::big_to_native_inplace (uptime);
 	read (stream_a, genesis_block.bytes);
 	read (stream_a, major_version);
 	read (stream_a, minor_version);
@@ -1187,29 +1197,32 @@ void nano::telemetry_data::deserialize (nano::stream & stream_a, uint16_t payloa
 
 	uint64_t timestamp_l;
 	read (stream_a, timestamp_l);
+	boost::endian::big_to_native_inplace (timestamp_l);
 	timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (timestamp_l));
 	read (stream_a, active_difficulty);
+	boost::endian::big_to_native_inplace (active_difficulty);
 }
 
 void nano::telemetry_data::serialize_without_signature (nano::stream & stream_a, uint16_t /* size_a */) const
 {
+	// All values should be serialized in big endian
 	write (stream_a, node_id);
-	write (stream_a, block_count);
-	write (stream_a, cemented_count);
-	write (stream_a, unchecked_count);
-	write (stream_a, account_count);
-	write (stream_a, bandwidth_cap);
-	write (stream_a, peer_count);
+	write (stream_a, boost::endian::native_to_big (block_count));
+	write (stream_a, boost::endian::native_to_big (cemented_count));
+	write (stream_a, boost::endian::native_to_big (unchecked_count));
+	write (stream_a, boost::endian::native_to_big (account_count));
+	write (stream_a, boost::endian::native_to_big (bandwidth_cap));
+	write (stream_a, boost::endian::native_to_big (peer_count));
 	write (stream_a, protocol_version);
-	write (stream_a, uptime);
+	write (stream_a, boost::endian::native_to_big (uptime));
 	write (stream_a, genesis_block.bytes);
 	write (stream_a, major_version);
 	write (stream_a, minor_version);
 	write (stream_a, patch_version);
 	write (stream_a, pre_release_version);
 	write (stream_a, maker);
-	write (stream_a, std::chrono::duration_cast<std::chrono::milliseconds> (timestamp.time_since_epoch ()).count ());
-	write (stream_a, active_difficulty);
+	write (stream_a, boost::endian::native_to_big (std::chrono::duration_cast<std::chrono::milliseconds> (timestamp.time_since_epoch ()).count ()));
+	write (stream_a, boost::endian::native_to_big (active_difficulty));
 }
 
 void nano::telemetry_data::serialize (nano::stream & stream_a) const
