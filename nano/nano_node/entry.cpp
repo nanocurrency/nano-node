@@ -728,7 +728,7 @@ int main (int argc, char * const * argv)
 						if (!boost::conversion::try_lexical_convert (address_column_it->second.as<std::string> (), column))
 						{
 							std::cerr << "Error: Invalid address column\n";
-							return -1;
+							result = -1;
 						}
 					}
 
@@ -1367,11 +1367,7 @@ int main (int argc, char * const * argv)
 			auto threads_it = vm.find ("threads");
 			if (threads_it != vm.end ())
 			{
-				try
-				{
-					threads_count = boost::lexical_cast<unsigned> (threads_it->second.as<std::string> ());
-				}
-				catch (boost::bad_lexical_cast &)
+				if (!boost::conversion::try_lexical_convert (threads_it->second.as<std::string> (), threads_count))
 				{
 					std::cerr << "Invalid threads count\n";
 					return -1;
