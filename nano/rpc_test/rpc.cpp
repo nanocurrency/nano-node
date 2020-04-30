@@ -5826,6 +5826,8 @@ TEST (rpc, block_create)
 	ASSERT_EQ (200, response.status);
 	std::string send_hash (response.json.get<std::string> ("hash"));
 	ASSERT_EQ (send.hash ().to_string (), send_hash);
+	std::string send_difficulty (response.json.get<std::string> ("difficulty"));
+	ASSERT_EQ (nano::to_string_hex (send.difficulty ()), send_difficulty);
 	auto send_text (response.json.get<std::string> ("block"));
 	boost::property_tree::ptree block_l;
 	std::stringstream block_stream (send_text);
