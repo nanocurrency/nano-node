@@ -472,7 +472,7 @@ int main (int argc, char * const * argv)
 				catch (boost::bad_lexical_cast &)
 				{
 					std::cerr << "Invalid multiplier\n";
-					result = -1;
+					return -1;
 				}
 			}
 			else
@@ -483,7 +483,7 @@ int main (int argc, char * const * argv)
 					if (nano::from_string_hex (difficulty_it->second.as<std::string> (), difficulty))
 					{
 						std::cerr << "Invalid difficulty\n";
-						result = -1;
+						return -1;
 					}
 				}
 			}
@@ -546,7 +546,7 @@ int main (int argc, char * const * argv)
 					catch (boost::bad_lexical_cast &)
 					{
 						std::cerr << "Invalid platform id\n";
-						result = -1;
+						return -1;
 					}
 				}
 				unsigned short device (0);
@@ -560,7 +560,7 @@ int main (int argc, char * const * argv)
 					catch (boost::bad_lexical_cast &)
 					{
 						std::cerr << "Invalid device id\n";
-						result = -1;
+						return -1;
 					}
 				}
 				unsigned threads (1024 * 1024);
@@ -574,7 +574,7 @@ int main (int argc, char * const * argv)
 					catch (boost::bad_lexical_cast &)
 					{
 						std::cerr << "Invalid threads count\n";
-						result = -1;
+						return -1;
 					}
 				}
 				uint64_t difficulty (network_constants.publish_full.base);
@@ -589,7 +589,7 @@ int main (int argc, char * const * argv)
 					catch (boost::bad_lexical_cast &)
 					{
 						std::cerr << "Invalid multiplier\n";
-						result = -1;
+						return -1;
 					}
 				}
 				else
@@ -600,7 +600,7 @@ int main (int argc, char * const * argv)
 						if (nano::from_string_hex (difficulty_it->second.as<std::string> (), difficulty))
 						{
 							std::cerr << "Invalid difficulty\n";
-							result = -1;
+							return -1;
 						}
 					}
 				}
@@ -728,7 +728,7 @@ int main (int argc, char * const * argv)
 						if (!boost::conversion::try_lexical_convert (address_column_it->second.as<std::string> (), column))
 						{
 							std::cerr << "Error: Invalid address column\n";
-							result = -1;
+							return -1;
 						}
 					}
 
@@ -1148,7 +1148,7 @@ int main (int argc, char * const * argv)
 				catch (boost::bad_lexical_cast &)
 				{
 					std::cerr << "Invalid count\n";
-					result = -1;
+					return -1;
 				}
 			}
 			std::cout << boost::str (boost::format ("Starting generating %1% blocks...\n") % (count * 2));
@@ -1374,7 +1374,7 @@ int main (int argc, char * const * argv)
 				catch (boost::bad_lexical_cast &)
 				{
 					std::cerr << "Invalid threads count\n";
-					result = -1;
+					return -1;
 				}
 			}
 			threads_count = std::max (1u, threads_count);
