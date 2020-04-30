@@ -1370,6 +1370,7 @@ void nano::json_handler::block_create ()
 		auto block_response_put_l = [rpc_l, this](nano::block const & block_a) {
 			boost::property_tree::ptree response_l;
 			response_l.put ("hash", block_a.hash ().to_string ());
+			response_l.put ("difficulty", nano::to_string_hex (block_a.difficulty ()));
 			bool json_block_l = request.get<bool> ("json_block", false);
 			if (json_block_l)
 			{
