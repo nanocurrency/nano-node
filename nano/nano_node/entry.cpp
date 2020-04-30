@@ -1608,7 +1608,7 @@ int main (int argc, char * const * argv)
 						const auto wakeup (std::chrono::steady_clock::now () + std::chrono::milliseconds (wait_ms));
 						condition.wait_until (lock, wakeup);
 					}
-					accounts.push_back (std::make_pair (i->first, i->second));
+					accounts.emplace_back (i->first, i->second);
 				}
 				condition.notify_all ();
 			}
@@ -1618,6 +1618,7 @@ int main (int argc, char * const * argv)
 			{
 				thread.join ();
 			}
+			threads.clear ();
 			if (!silent)
 			{
 				std::cout << boost::str (boost::format ("%1% accounts validated\n") % count);
@@ -1698,7 +1699,7 @@ int main (int argc, char * const * argv)
 						const auto wakeup (std::chrono::steady_clock::now () + std::chrono::milliseconds (wait_ms));
 						condition.wait_until (lock, wakeup);
 					}
-					pending.push_back (std::make_pair (i->first, i->second));
+					pending.emplace_back (i->first, i->second);
 				}
 				condition.notify_all ();
 			}
@@ -1720,7 +1721,7 @@ int main (int argc, char * const * argv)
 			}
 			else
 			{
-				std::cout << boost::str (boost::format ("%1% Validation status: Failed\n%1% errors found\n") % errors);
+				std::cout << boost::str (boost::format ("Validation status: Failed\n%1% errors found\n") % errors);
 			}
 		}
 		else if (vm.count ("debug_profile_bootstrap"))
