@@ -3321,6 +3321,7 @@ TEST (rpc, work_generate_block_ledger_epoch_2)
 	block.serialize_json (json);
 	request.put ("block", json);
 	bool finished (false);
+	auto iteration (0);
 	while (!finished)
 	{
 		test_response response (request, rpc.config.port, system.io_ctx);
@@ -3345,6 +3346,7 @@ TEST (rpc, work_generate_block_ledger_epoch_2)
 		ASSERT_EQ (result_difficulty, response_difficulty);
 		ASSERT_GE (result_difficulty, node->network_params.network.publish_thresholds.epoch_2_receive);
 		finished = result_difficulty < node->network_params.network.publish_thresholds.epoch_1;
+		ASSERT_LT (++iteration, 200);
 	}
 }
 
