@@ -21,6 +21,12 @@ class transaction;
 class write_transaction;
 class write_database_queue;
 
+enum class block_origin
+{
+	local,
+	remote
+};
+
 /**
  * Processing blocks is a potentially long IO operation.
  * This class isolates block insertion from other operations like servicing network operations
@@ -42,7 +48,7 @@ public:
 	bool should_log ();
 	bool have_blocks ();
 	void process_blocks ();
-	nano::process_return process_one (nano::write_transaction const &, nano::unchecked_info, const bool = false, const bool = false);
+	nano::process_return process_one (nano::write_transaction const &, nano::unchecked_info, const bool = false, nano::block_origin const = nano::block_origin::remote);
 	nano::process_return process_one (nano::write_transaction const &, std::shared_ptr<nano::block>, const bool = false);
 	std::atomic<bool> flushing{ false };
 	// Delay required for average network propagartion before requesting confirmation
@@ -51,7 +57,8 @@ public:
 private:
 	void queue_unchecked (nano::write_transaction const &, nano::block_hash const &);
 	void process_batch (nano::unique_lock<std::mutex> &);
-	void process_live (nano::block_hash const &, std::shared_ptr<nano::block>, nano::process_return const &, const bool = false, const bool = false);
+	void process_live (nano::block_hash const &, std::shared_ptr<nano::block>, nano::process_return const &, const bool = false, nano::block_origin const = nano::block_origin::remote);
+	void process_old (nano::write_transaction const &, std::shared_ptr<nano::block> const &, nano::block_origin const);
 	void requeue_invalid (nano::block_hash const &, nano::unchecked_info const &);
 	void process_verified_state_blocks (std::deque<nano::unchecked_info> &, std::vector<int> const &, std::vector<nano::block_hash> const &, std::vector<nano::signature> const &);
 	bool stopped{ false };
