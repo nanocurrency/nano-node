@@ -4747,7 +4747,32 @@ void nano::json_handler::work_generate ()
 		{
 			ec = nano::error_rpc::difficulty_limit;
 		}
-		if (!ec)
+		// Retrieving optional block
+		std::shared_ptr<nano::block> block;
+		boost::optional<std::string> block_text (request.get_optional<std::string> ("block"));
+		if (!ec && block_text.is_initialized ())
+		{
+			block = block_impl (true);
+			if (block != nullptr)
+			{
+				if (hash != block->root ())
+				{
+					ec = nano::error_rpc::block_root_mismatch;
+				}
+				if (!ec && block->difficulty () >= difficulty)
+				{
+					// If optional block difficulty if higher than requested difficulty, send response immediately
+					response_l.put ("hash", hash.to_string ());
+					response_l.put ("work", nano::to_string_hex (block->block_work ()));
+					auto result_difficulty (nano::work_difficulty (work_version, hash, block->block_work ()));
+					response_l.put ("difficulty", nano::to_string_hex (result_difficulty));
+					auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, node.default_difficulty (work_version));
+					response_l.put ("multiplier", nano::to_string (result_multiplier));
+					response_errors ();
+				}
+			}
+		}
+		if (!ec && response_l.empty ())
 		{
 			auto use_peers (request.get<bool> ("use_peers", false));
 			auto rpc_l (shared_from_this ());
