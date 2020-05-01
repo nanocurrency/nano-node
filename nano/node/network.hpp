@@ -69,14 +69,13 @@ private:
 class tcp_message_manager final
 {
 public:
-	tcp_message_manager (nano::stat & stats_a, unsigned incoming_connections_max_a);
+	tcp_message_manager (unsigned incoming_connections_max_a);
 	void put_message (nano::tcp_message_item const & item_a);
 	nano::tcp_message_item get_message ();
 	// Stop container and notify waiting threads
 	void stop ();
 
 private:
-	nano::stat & stats;
 	std::mutex mutex;
 	nano::condition_variable condition;
 	std::deque<nano::tcp_message_item> entries;

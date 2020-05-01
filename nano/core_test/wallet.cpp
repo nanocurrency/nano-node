@@ -692,7 +692,6 @@ TEST (wallet, work_cache_delayed)
 	nano::system system (1);
 	auto & node1 (*system.nodes[0]);
 	auto wallet (system.wallet (0));
-	nano::uint128_t amount1 (node1.balance (nano::test_genesis_key.pub));
 	uint64_t work1;
 	wallet->insert_adhoc (nano::test_genesis_key.prv);
 	nano::account account1;
@@ -1358,7 +1357,6 @@ TEST (work_watcher, cancel)
 	nano::keypair key;
 	auto work1 (node.work_generate_blocking (nano::test_genesis_key.pub));
 	auto const block1 (wallet.send_action (nano::test_genesis_key.pub, key.pub, 100, *work1, false));
-	auto difficulty1 (block1->difficulty ());
 	{
 		nano::unique_lock<std::mutex> lock (node.active.mutex);
 		// Prevent active difficulty repopulating multipliers

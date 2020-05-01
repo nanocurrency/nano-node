@@ -2124,7 +2124,6 @@ TEST (rpc, process_subtype_open)
 	ASSERT_EQ (200, response3.status);
 	ASSERT_EQ (open.hash ().to_string (), response3.json.get<std::string> ("hash"));
 	system.deadline_set (10s);
-	auto now (std::chrono::steady_clock::now ());
 	while (node2.latest (key.pub) != open.hash ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
