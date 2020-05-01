@@ -363,6 +363,45 @@ uint64_t nano::json_handler::difficulty_optional_impl (nano::work_version const 
 	return difficulty;
 }
 
+uint64_t nano::json_handler::difficulty_ledger (nano::block const & block_a, nano::work_version const version_a)
+{
+	uint64_t difficulty (0);
+	nano::block_details details (nano::epoch::epoch_0, false, false, false);
+	bool details_found (false);
+	auto transaction (node.store.tx_begin_read ());
+	// Previous block find
+	std::shared_ptr<nano::block> block_previous (nullptr);
+	auto previous (block_a.previous ());
+	if (!previous.is_zero ())
+	{
+		block_previous = node.store.block_get (transaction, previous);
+	}
+	// Send check
+	if (block_previous != nullptr)
+	{
+		details.is_send = node.store.block_balance (transaction, previous) > block_a.balance ().number ();
+		details_found = true;
+	}
+	// Epoch check
+	if (block_previous != nullptr)
+	{
+		details.epoch = block_previous->sideband ().details.epoch;
+	}
+	auto link (block_a.link ());
+	if (!link.is_zero () && !details.is_send)
+	{
+		auto block_link (node.store.block_get (transaction, link));
+		if (block_link != nullptr && node.store.pending_exists (transaction, nano::pending_key (block_a.account (), link)))
+		{
+			details.epoch = std::max (details.epoch, block_link->sideband ().details.epoch);
+			details.is_receive = true;
+			details_found = true;
+		}
+	}
+	difficulty = details_found ? nano::work_threshold (version_a, details) : node.default_difficulty (version_a);
+	return difficulty;
+}
+
 double nano::json_handler::multiplier_optional_impl (nano::work_version const version_a, uint64_t & difficulty)
 {
 	double multiplier (1.);
@@ -1543,37 +1582,7 @@ void nano::json_handler::block_create ()
 					// Difficulty calculation
 					if (request.count ("difficulty") == 0)
 					{
-						nano::block_details details (nano::epoch::epoch_0, false, false, false);
-						bool details_found (false);
-						auto transaction (node.store.tx_begin_read ());
-						// Previous block find
-						std::shared_ptr<nano::block> block_previous (nullptr);
-						if (!previous.is_zero ())
-						{
-							block_previous = node.store.block_get (transaction, previous);
-						}
-						// Send check
-						if (block_previous != nullptr)
-						{
-							details.is_send = node.store.block_balance (transaction, previous) > balance.number ();
-							details_found = true;
-						}
-						// Epoch check
-						if (block_previous != nullptr)
-						{
-							details.epoch = block_previous->sideband ().details.epoch;
-						}
-						if (!link.is_zero () && !details.is_send)
-						{
-							auto block_link (node.store.block_get (transaction, link));
-							if (block_link != nullptr && node.store.pending_exists (transaction, nano::pending_key (pub, link)))
-							{
-								details.epoch = std::max (details.epoch, block_link->sideband ().details.epoch);
-								details.is_receive = true;
-								details_found = true;
-							}
-						}
-						difficulty_l = details_found ? nano::work_threshold (work_version, details) : node.default_difficulty (work_version);
+						difficulty_l = difficulty_ledger (*block_l, work_version);
 					}
 					node.work_generate (work_version, root_l, difficulty_l, get_callback_l (block_l), nano::account (pub));
 				}
@@ -4758,9 +4767,14 @@ void nano::json_handler::work_generate ()
 				{
 					ec = nano::error_rpc::block_root_mismatch;
 				}
+				// Difficulty calculation
+				if (!ec && request.count ("difficulty") == 0 && request.count ("multiplier") == 0)
+				{
+					difficulty = difficulty_ledger (*block, work_version);
+				}
+				// If optional block difficulty is higher than requested difficulty, send response immediately
 				if (!ec && block->difficulty () >= difficulty)
 				{
-					// If optional block difficulty is higher than requested difficulty, send response immediately
 					response_l.put ("hash", hash.to_string ());
 					response_l.put ("work", nano::to_string_hex (block->block_work ()));
 					auto result_difficulty (nano::work_difficulty (work_version, hash, block->block_work ()));

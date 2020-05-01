@@ -3291,6 +3291,63 @@ TEST (rpc, work_generate_block_root_mismatch)
 	}
 }
 
+TEST (rpc, work_generate_block_ledger_epoch_2)
+{
+	nano::system system;
+	auto node = add_ipc_enabled_node (system);
+	auto epoch1 = system.upgrade_genesis_epoch (*node, nano::epoch::epoch_1);
+	ASSERT_NE (nullptr, epoch1);
+	auto epoch2 = system.upgrade_genesis_epoch (*node, nano::epoch::epoch_2);
+	ASSERT_NE (nullptr, epoch2);
+	nano::keypair key;
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	auto send_block (system.wallet (0)->send_action (nano::test_genesis_key.pub, key.pub, nano::Gxrb_ratio));
+	ASSERT_NE (nullptr, send_block);
+	scoped_io_thread_name_change scoped_thread_name_io;
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
+	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	rpc_config.rpc_process.ipc_port = node->config.ipc_config.transport_tcp.port;
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+	nano::state_block block (key.pub, 0, nano::test_genesis_key.pub, nano::Gxrb_ratio, send_block->hash (), key.prv, key.pub, 0);
+	nano::block_hash hash (block.root ());
+	boost::property_tree::ptree request;
+	request.put ("action", "work_generate");
+	request.put ("hash", hash.to_string ());
+	request.put ("json_block", "false");
+	std::string json;
+	block.serialize_json (json);
+	request.put ("block", json);
+	bool finished (false);
+	while (!finished)
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (10s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		auto work_text (response.json.get_optional<std::string> ("work"));
+		if (!work_text)
+		{
+			std::cout << response.json.get<std::string> ("error") << std::endl;
+		}
+		ASSERT_TRUE (work_text.is_initialized ());
+		uint64_t work;
+		ASSERT_FALSE (nano::from_string_hex (*work_text, work));
+		auto result_difficulty (nano::work_difficulty (nano::work_version::work_1, hash, work));
+		auto response_difficulty_text (response.json.get<std::string> ("difficulty"));
+		uint64_t response_difficulty;
+		ASSERT_FALSE (nano::from_string_hex (response_difficulty_text, response_difficulty));
+		ASSERT_EQ (result_difficulty, response_difficulty);
+		ASSERT_GE (result_difficulty, node->network_params.network.publish_thresholds.epoch_2_receive);
+		finished = result_difficulty < node->network_params.network.publish_thresholds.epoch_1;
+	}
+}
+
 TEST (rpc, work_cancel)
 {
 	nano::system system;
