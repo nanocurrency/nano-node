@@ -3587,8 +3587,7 @@ void nano::json_handler::sign ()
 	}
 	// Retrieving block
 	std::shared_ptr<nano::block> block;
-	boost::optional<std::string> block_text (request.get_optional<std::string> ("block"));
-	if (!ec && block_text.is_initialized ())
+	if (!ec && request.count ("block"))
 	{
 		block = block_impl (true);
 		if (block != nullptr)
@@ -4750,8 +4749,7 @@ void nano::json_handler::work_generate ()
 		}
 		// Retrieving optional block
 		std::shared_ptr<nano::block> block;
-		boost::optional<std::string> block_text (request.get_optional<std::string> ("block"));
-		if (!ec && block_text.is_initialized ())
+		if (!ec && request.count ("block"))
 		{
 			block = block_impl (true);
 			if (block != nullptr)
@@ -4762,7 +4760,7 @@ void nano::json_handler::work_generate ()
 				}
 				if (!ec && block->difficulty () >= difficulty)
 				{
-					// If optional block difficulty if higher than requested difficulty, send response immediately
+					// If optional block difficulty is higher than requested difficulty, send response immediately
 					response_l.put ("hash", hash.to_string ());
 					response_l.put ("work", nano::to_string_hex (block->block_work ()));
 					auto result_difficulty (nano::work_difficulty (work_version, hash, block->block_work ()));
