@@ -154,7 +154,6 @@ public:
 	nano::account_info account_info_impl (nano::transaction const &, nano::account const &);
 	nano::amount amount_impl ();
 	std::shared_ptr<nano::block> block_impl (bool = true);
-	std::shared_ptr<nano::block> block_json_impl (bool = true);
 	nano::block_hash hash_impl (std::string = "hash");
 	nano::amount threshold_optional_impl ();
 	uint64_t work_optional_impl ();

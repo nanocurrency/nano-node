@@ -268,19 +268,27 @@ nano::amount nano::json_handler::amount_impl ()
 
 std::shared_ptr<nano::block> nano::json_handler::block_impl (bool signature_work_required)
 {
+	const bool json_block_l = request.get<bool> ("json_block", false);
 	std::shared_ptr<nano::block> result{ nullptr };
 	if (!ec)
 	{
-		std::string block_text (request.get<std::string> ("block"));
 		boost::property_tree::ptree block_l;
-		std::stringstream block_stream (block_text);
-		try
+		if (json_block_l)
 		{
-			boost::property_tree::read_json (block_stream, block_l);
+			block_l = request.get_child ("block");
 		}
-		catch (...)
+		else
 		{
-			ec = nano::error_blocks::invalid_block;
+			std::string block_text (request.get<std::string> ("block"));
+			std::stringstream block_stream (block_text);
+			try
+			{
+				boost::property_tree::read_json (block_stream, block_l);
+			}
+			catch (...)
+			{
+				ec = nano::error_blocks::invalid_block;
+			}
 		}
 		if (!ec)
 		{
@@ -294,26 +302,6 @@ std::shared_ptr<nano::block> nano::json_handler::block_impl (bool signature_work
 			{
 				ec = nano::error_blocks::invalid_block;
 			}
-		}
-	}
-	return result;
-}
-
-std::shared_ptr<nano::block> nano::json_handler::block_json_impl (bool signature_work_required)
-{
-	std::shared_ptr<nano::block> result;
-	if (!ec)
-	{
-		auto block_l (request.get_child ("block"));
-		if (!signature_work_required)
-		{
-			block_l.put ("signature", "0");
-			block_l.put ("work", "0");
-		}
-		result = nano::deserialize_block_json (block_l);
-		if (result == nullptr)
-		{
-			ec = nano::error_blocks::invalid_block;
 		}
 	}
 	return result;
@@ -1610,16 +1598,7 @@ void nano::json_handler::block_create ()
 
 void nano::json_handler::block_hash ()
 {
-	const bool json_block_l = request.get<bool> ("json_block", false);
-	std::shared_ptr<nano::block> block;
-	if (json_block_l)
-	{
-		block = block_json_impl (true);
-	}
-	else
-	{
-		block = block_impl (true);
-	}
+	auto block (block_impl (true));
 
 	if (!ec)
 	{
@@ -3014,17 +2993,8 @@ void nano::json_handler::payment_wait ()
 void nano::json_handler::process ()
 {
 	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
-		const bool json_block_l = rpc_l->request.get<bool> ("json_block", false);
 		const bool watch_work_l = rpc_l->request.get<bool> ("watch_work", true);
-		std::shared_ptr<nano::block> block;
-		if (json_block_l)
-		{
-			block = rpc_l->block_json_impl (true);
-		}
-		else
-		{
-			block = rpc_l->block_impl (true);
-		}
+		auto block (rpc_l->block_impl (true));
 
 		// State blocks subtype check
 		if (!rpc_l->ec && block->type () == nano::block_type::state)
@@ -3607,7 +3577,6 @@ void nano::json_handler::send ()
 
 void nano::json_handler::sign ()
 {
-	const bool json_block_l = request.get<bool> ("json_block", false);
 	// Retrieving hash
 	nano::block_hash hash (0);
 	boost::optional<std::string> hash_text (request.get_optional<std::string> ("hash"));
@@ -3620,14 +3589,7 @@ void nano::json_handler::sign ()
 	boost::optional<std::string> block_text (request.get_optional<std::string> ("block"));
 	if (!ec && block_text.is_initialized ())
 	{
-		if (json_block_l)
-		{
-			block = block_json_impl (true);
-		}
-		else
-		{
-			block = block_impl (true);
-		}
+		block = block_impl (true);
 		if (block != nullptr)
 		{
 			hash = block->hash ();
