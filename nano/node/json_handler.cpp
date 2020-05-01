@@ -3577,6 +3577,7 @@ void nano::json_handler::send ()
 
 void nano::json_handler::sign ()
 {
+	const bool json_block_l = request.get<bool> ("json_block", false);
 	// Retrieving hash
 	nano::block_hash hash (0);
 	boost::optional<std::string> hash_text (request.get_optional<std::string> ("hash"));
