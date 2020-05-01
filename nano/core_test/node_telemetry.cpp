@@ -746,9 +746,9 @@ TEST (node_telemetry, remove_peer_invalid_signature)
 	node->network.process_message (telemetry_ack, channel);
 
 	ASSERT_TIMELY (10s, node->stats.count (nano::stat::type::telemetry, nano::stat::detail::invalid_signature) > 0);
-	system.poll_until_true (3s, [&node, address = channel->get_endpoint ().address ()]() -> bool {
+	ASSERT_NO_ERROR (system.poll_until_true (3s, [&node, address = channel->get_endpoint ().address ()]() -> bool {
 		nano::lock_guard<std::mutex> guard (node->network.excluded_peers.mutex);
 		return node->network.excluded_peers.peers.get<nano::peer_exclusion::tag_endpoint> ().count (address);
-	});
+	}));
 }
 }
