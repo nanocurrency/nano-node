@@ -1405,11 +1405,14 @@ int main (int argc, char * const * argv)
 							{
 								condition.wait (lock);
 							}
-							auto pair (deque_a.front ());
-							deque_a.pop_front ();
-							lock.unlock ();
-							function_a (node, transaction, pair.first, pair.second);
-							lock.lock ();
+							if (!deque_a.empty ())
+							{
+								auto pair (deque_a.front ());
+								deque_a.pop_front ();
+								lock.unlock ();
+								function_a (node, transaction, pair.first, pair.second);
+								lock.lock ();
+							}
 						}
 					});
 				}
