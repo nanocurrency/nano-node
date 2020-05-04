@@ -145,9 +145,10 @@ public:
 	bool active (nano::block const &);
 	bool active (nano::qualified_root const &);
 	std::shared_ptr<nano::election> election (nano::qualified_root const &) const;
-	// Returns true if this block was not active
+	// Returns false if the election difficulty was updated
 	bool update_difficulty (nano::block const &);
-	void restart (std::shared_ptr<nano::block> const &, nano::write_transaction const &);
+	// Returns false if the election was restarted
+	bool restart (std::shared_ptr<nano::block> const &, nano::write_transaction const &);
 	double normalized_multiplier (nano::block const &, boost::optional<roots_iterator> const & = boost::none) const;
 	void add_adjust_difficulty (nano::block_hash const &);
 	void update_adjusted_multiplier ();
@@ -197,7 +198,8 @@ private:
 	// clang-format off
 	nano::election_insertion_result insert_impl (std::shared_ptr<nano::block> const &, boost::optional<nano::uint128_t> const & = boost::none, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
 	// clang-format on
-	void update_difficulty_impl (roots_iterator const &, nano::block const &);
+	// Returns false if the election difficulty was updated
+	bool update_difficulty_impl (roots_iterator const &, nano::block const &);
 	void request_loop ();
 	void confirm_prioritized_frontiers (nano::transaction const & transaction_a);
 	void request_confirm (nano::unique_lock<std::mutex> &);

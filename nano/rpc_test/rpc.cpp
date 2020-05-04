@@ -2225,6 +2225,74 @@ TEST (rpc, process_ledger_insufficient_work)
 	ASSERT_EQ (response.json.get<std::string> ("error"), ec.message ());
 }
 
+// Ensure that processing an old block with updated work floods it to peers
+TEST (rpc, process_difficulty_update_flood)
+{
+	nano::system system (1);
+	auto & node_passive = *system.nodes[0];
+	auto & node = *add_ipc_enabled_node (system);
+
+	auto latest (node.latest (nano::test_genesis_key.pub));
+	nano::state_block send (nano::genesis_account, latest, nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *node.work_generate_blocking (latest));
+
+	scoped_io_thread_name_change scoped_thread_name_io;
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node, node_rpc_config);
+	nano::rpc_config rpc_config (nano::get_available_port (), true);
+
+	rpc_config.rpc_process.ipc_port = node.config.ipc_config.transport_tcp.port;
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+
+	boost::property_tree::ptree request;
+	request.put ("action", "process");
+	// Must not watch work, otherwise the work watcher could update the block and flood it, whereas we want to ensure flooding happens on demand, without the work watcher
+	request.put ("watch_work", false);
+	{
+		std::string json;
+		send.serialize_json (json);
+		request.put ("block", json);
+		test_response response (request, rpc.config.port, system.io_ctx);
+		ASSERT_TIMELY (5s, response.status != 0);
+		ASSERT_EQ (200, response.status);
+		ASSERT_EQ (0, response.json.count ("error"));
+	}
+
+	ASSERT_TIMELY (5s, node_passive.active.size () == 1 && node_passive.block (send.hash ()) != nullptr);
+
+	// Update block work
+	node.work_generate_blocking (send, send.difficulty ());
+	auto expected_multiplier = nano::normalized_multiplier (nano::difficulty::to_multiplier (send.difficulty (), nano::work_threshold (send.work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false))), node.network_params.network.publish_thresholds.epoch_1);
+
+	{
+		std::string json;
+		send.serialize_json (json);
+		request.put ("block", json);
+		std::error_code ec (nano::error_process::old);
+		test_response response (request, rpc.config.port, system.io_ctx);
+		ASSERT_TIMELY (5s, response.status != 0);
+		ASSERT_EQ (200, response.status);
+		ASSERT_EQ (response.json.get<std::string> ("error"), ec.message ());
+	}
+
+	// Ensure the difficulty update occurs in both nodes
+	ASSERT_NO_ERROR (system.poll_until_true (5s, [&node, &node_passive, &send, expected_multiplier] {
+		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		auto const existing (node.active.roots.find (send.qualified_root ()));
+		EXPECT_NE (existing, node.active.roots.end ());
+
+		nano::lock_guard<std::mutex> guard_passive (node_passive.active.mutex);
+		auto const existing_passive (node_passive.active.roots.find (send.qualified_root ()));
+		EXPECT_NE (existing_passive, node_passive.active.roots.end ());
+
+		bool updated = existing->multiplier == expected_multiplier;
+		bool updated_passive = existing_passive->multiplier == expected_multiplier;
+
+		return updated && updated_passive;
+	}));
+}
+
 TEST (rpc, keepalive)
 {
 	nano::system system;

@@ -265,7 +265,7 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 	}
 }
 
-void nano::block_processor::process_live (nano::block_hash const & hash_a, std::shared_ptr<nano::block> block_a, nano::process_return const & process_return_a, const bool watch_work_a, const bool initial_publish_a)
+void nano::block_processor::process_live (nano::block_hash const & hash_a, std::shared_ptr<nano::block> block_a, nano::process_return const & process_return_a, const bool watch_work_a, nano::block_origin const origin_a)
 {
 	// Add to work watcher to prevent dropping the election
 	if (watch_work_a)
@@ -281,7 +281,7 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	}
 
 	// Announce block contents to the network
-	if (initial_publish_a)
+	if (origin_a == nano::block_origin::local)
 	{
 		node.network.flood_block_initial (block_a);
 	}
@@ -296,7 +296,7 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	}
 }
 
-nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, nano::unchecked_info info_a, const bool watch_work_a, const bool first_publish_a)
+nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, nano::unchecked_info info_a, const bool watch_work_a, nano::block_origin const origin_a)
 {
 	nano::process_return result;
 	auto hash (info_a.block->hash ());
@@ -314,7 +314,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			}
 			if (info_a.modified > nano::seconds_since_epoch () - 300 && node.block_arrival.recent (hash))
 			{
-				process_live (hash, info_a.block, result, watch_work_a, first_publish_a);
+				process_live (hash, info_a.block, result, watch_work_a, origin_a);
 			}
 			queue_unchecked (transaction_a, hash);
 			break;
@@ -374,10 +374,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 				node.logger.try_log (boost::str (boost::format ("Old for: %1%") % hash.to_string ()));
 			}
 			queue_unchecked (transaction_a, hash);
-			if (node.active.update_difficulty (*info_a.block))
-			{
-				node.active.restart (info_a.block, transaction_a);
-			}
+			process_old (transaction_a, info_a.block, origin_a);
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::old);
 			break;
 		}
@@ -462,6 +459,19 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 	nano::unchecked_info info (block_a, block_a->account (), 0, nano::signature_verification::unknown);
 	auto result (process_one (transaction_a, info, watch_work_a));
 	return result;
+}
+
+void nano::block_processor::process_old (nano::write_transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a, nano::block_origin const origin_a)
+{
+	// First try to update election difficulty, then attempt to restart an election
+	if (!node.active.update_difficulty (*block_a) || !node.active.restart (block_a, transaction_a))
+	{
+		// Let others know about the difficulty update
+		if (origin_a == nano::block_origin::local)
+		{
+			node.network.flood_block_initial (block_a);
+		}
+	}
 }
 
 void nano::block_processor::queue_unchecked (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a)
