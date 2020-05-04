@@ -3157,7 +3157,7 @@ TEST (rpc, work_generate_epoch_2)
 	}
 }
 
-TEST (rpc, work_generate_block)
+TEST (rpc, work_generate_block_high)
 {
 	nano::system system;
 	auto node = add_ipc_enabled_node (system);
@@ -3188,21 +3188,8 @@ TEST (rpc, work_generate_block)
 			ASSERT_NO_ERROR (system.poll ());
 		}
 		ASSERT_EQ (200, response.status);
-		auto work_text (response.json.get_optional<std::string> ("work"));
-		if (!work_text)
-		{
-			std::cout << response.json.get<std::string> ("error") << std::endl;
-		}
-		ASSERT_TRUE (work_text.is_initialized ());
-		uint64_t work;
-		ASSERT_FALSE (nano::from_string_hex (*work_text, work));
-		ASSERT_EQ (block.block_work (), work);
-		auto result_difficulty (nano::work_difficulty (nano::work_version::work_1, hash, work));
-		auto response_difficulty_text (response.json.get<std::string> ("difficulty"));
-		uint64_t response_difficulty;
-		ASSERT_FALSE (nano::from_string_hex (response_difficulty_text, response_difficulty));
-		ASSERT_EQ (result_difficulty, response_difficulty);
-		ASSERT_EQ (block_difficulty, result_difficulty);
+		ASSERT_EQ (1, response.json.count ("error"));
+		ASSERT_EQ (std::error_code (nano::error_rpc::block_work_enough).message (), response.json.get<std::string> ("error"));
 	}
 }
 
