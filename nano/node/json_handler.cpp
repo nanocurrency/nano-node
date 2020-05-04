@@ -363,7 +363,7 @@ uint64_t nano::json_handler::difficulty_optional_impl (nano::work_version const 
 	return difficulty;
 }
 
-uint64_t nano::json_handler::difficulty_ledger (nano::block const & block_a, nano::work_version const version_a)
+uint64_t nano::json_handler::difficulty_ledger (nano::block const & block_a)
 {
 	uint64_t difficulty (0);
 	nano::block_details details (nano::epoch::epoch_0, false, false, false);
@@ -398,7 +398,7 @@ uint64_t nano::json_handler::difficulty_ledger (nano::block const & block_a, nan
 			details_found = true;
 		}
 	}
-	difficulty = details_found ? nano::work_threshold (version_a, details) : node.default_difficulty (version_a);
+	difficulty = details_found ? nano::work_threshold (block_a.work_version (), details) : node.default_difficulty (block_a.work_version ());
 	return difficulty;
 }
 
@@ -1582,7 +1582,7 @@ void nano::json_handler::block_create ()
 					// Difficulty calculation
 					if (request.count ("difficulty") == 0)
 					{
-						difficulty_l = difficulty_ledger (*block_l, work_version);
+						difficulty_l = difficulty_ledger (*block_l);
 					}
 					node.work_generate (work_version, root_l, difficulty_l, get_callback_l (block_l), nano::account (pub));
 				}
@@ -4767,21 +4767,23 @@ void nano::json_handler::work_generate ()
 				{
 					ec = nano::error_rpc::block_root_mismatch;
 				}
+				if (request.count ("version") == 0)
+				{
+					work_version = block->work_version ();
+				}
+				else if (!ec && work_version != block->work_version ())
+				{
+					ec = nano::error_rpc::block_work_version_mismatch;
+				}
 				// Difficulty calculation
 				if (!ec && request.count ("difficulty") == 0 && request.count ("multiplier") == 0)
 				{
-					difficulty = difficulty_ledger (*block, work_version);
+					difficulty = difficulty_ledger (*block);
 				}
-				// If optional block difficulty is higher than requested difficulty, send response immediately
+				// If optional block difficulty is higher than requested difficulty, send error
 				if (!ec && block->difficulty () >= difficulty)
 				{
-					response_l.put ("hash", hash.to_string ());
-					response_l.put ("work", nano::to_string_hex (block->block_work ()));
-					auto result_difficulty (nano::work_difficulty (work_version, hash, block->block_work ()));
-					response_l.put ("difficulty", nano::to_string_hex (result_difficulty));
-					auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, node.default_difficulty (work_version));
-					response_l.put ("multiplier", nano::to_string (result_multiplier));
-					response_errors ();
+					ec = nano::error_rpc::block_work_enough;
 				}
 			}
 		}

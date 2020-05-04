@@ -165,6 +165,10 @@ std::string nano::error_rpc_messages::message (int ev) const
 			return "Destination account, previous hash, current balance and amount required";
 		case nano::error_rpc::block_root_mismatch:
 			return "Root mismatch for block";
+		case nano::error_rpc::block_work_enough:
+			return "Provided work is already enough for given difficulty";
+		case nano::error_rpc::block_work_version_mismatch:
+			return "Work version mismatch for block";
 		case nano::error_rpc::confirmation_height_not_processing:
 			return "There are no blocks currently being processed for adding confirmation height";
 		case nano::error_rpc::confirmation_not_found:
