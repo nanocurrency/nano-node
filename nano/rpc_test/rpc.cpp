@@ -3226,10 +3226,6 @@ TEST (rpc, work_generate_block_low)
 		}
 		ASSERT_EQ (200, response.status);
 		auto work_text (response.json.get_optional<std::string> ("work"));
-		if (!work_text)
-		{
-			std::cout << response.json.get<std::string> ("error") << std::endl;
-		}
 		ASSERT_TRUE (work_text.is_initialized ());
 		uint64_t work;
 		ASSERT_FALSE (nano::from_string_hex (*work_text, work));
@@ -3319,10 +3315,6 @@ TEST (rpc, work_generate_block_ledger_epoch_2)
 		}
 		ASSERT_EQ (200, response.status);
 		auto work_text (response.json.get_optional<std::string> ("work"));
-		if (!work_text)
-		{
-			std::cout << response.json.get<std::string> ("error") << std::endl;
-		}
 		ASSERT_TRUE (work_text.is_initialized ());
 		uint64_t work;
 		ASSERT_FALSE (nano::from_string_hex (*work_text, work));
