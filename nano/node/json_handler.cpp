@@ -365,7 +365,6 @@ uint64_t nano::json_handler::difficulty_optional_impl (nano::work_version const 
 
 uint64_t nano::json_handler::difficulty_ledger (nano::block const & block_a)
 {
-	uint64_t difficulty (0);
 	nano::block_details details (nano::epoch::epoch_0, false, false, false);
 	bool details_found (false);
 	auto transaction (node.store.tx_begin_read ());
@@ -398,8 +397,7 @@ uint64_t nano::json_handler::difficulty_ledger (nano::block const & block_a)
 			details_found = true;
 		}
 	}
-	difficulty = details_found ? nano::work_threshold (block_a.work_version (), details) : node.default_difficulty (block_a.work_version ());
-	return difficulty;
+	return details_found ? nano::work_threshold (block_a.work_version (), details) : node.default_difficulty (block_a.work_version ());
 }
 
 double nano::json_handler::multiplier_optional_impl (nano::work_version const version_a, uint64_t & difficulty)
