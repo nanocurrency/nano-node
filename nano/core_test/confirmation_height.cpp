@@ -1504,3 +1504,52 @@ TEST (confirmation_height, election_winner_details_clearing)
 	test_mode (nano::confirmation_height_mode::unbounded);
 }
 }
+
+TEST (confirmation_height, unbounded_block_cache_iteration)
+{
+	nano::logger_mt logger;
+	auto path (nano::unique_path ());
+	nano::mdb_store store (logger, path);
+	ASSERT_TRUE (!store.init_error ());
+	nano::genesis genesis;
+	nano::stat stats;
+	nano::ledger ledger (store, stats);
+	nano::write_database_queue write_database_queue;
+	boost::latch initialized_latch{ 0 };
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+	nano::keypair key1;
+	auto send = std::make_shared<nano::send_block> (genesis.hash (), key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (genesis.hash ()));
+	auto send1 = std::make_shared<nano::send_block> (send->hash (), key1.pub, nano::genesis_amount - nano::Gxrb_ratio * 2, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (send->hash ()));
+	{
+		auto transaction (store.tx_begin_write ());
+		store.initialize (transaction, genesis, ledger.cache);
+		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send).code);
+		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send1).code);
+	}
+
+	nano::confirmation_height_processor confirmation_height_processor (ledger, write_database_queue, 10ms, logger, initialized_latch, nano::confirmation_height_mode::unbounded);
+	nano::timer<> timer;
+	timer.start ();
+	{
+		// Prevent conf height processor doing any writes, so that we can query is_processing_block correctly
+		auto write_guard = write_database_queue.wait (nano::writer::testing);
+		// Add the frontier block
+		confirmation_height_processor.add (send1->hash ());
+
+		// The most uncemented block (previous block) should be seen as processing by the unbounded processor
+		while (!confirmation_height_processor.is_processing_block (send->hash ()))
+		{
+			ASSERT_LT (timer.since_start (), 10s);
+		}
+	}
+
+	// Wait until the current block is finished processing
+	while (!confirmation_height_processor.current ().is_zero ())
+	{
+		ASSERT_LT (timer.since_start (), 10s);
+	}
+
+	ASSERT_EQ (2, stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
+	ASSERT_EQ (2, stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in));
+	ASSERT_EQ (3, ledger.cache.cemented_count);
+}
