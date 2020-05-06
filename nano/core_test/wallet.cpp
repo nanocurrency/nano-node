@@ -713,8 +713,6 @@ TEST (wallet, work_cache_delayed)
 		ASSERT_NO_ERROR (system.poll ());
 		if (!wallet->store.work_get (node1.wallets.tx_begin_read (), account1, work1))
 		{
-			ASSERT_LT (nano::work_difficulty (nano::work_version::work_1, nano::test_genesis_key.pub, work1), threshold);
-			ASSERT_LT (nano::work_difficulty (nano::work_version::work_1, block1->hash (), work1), threshold);
 			again = nano::work_difficulty (nano::work_version::work_1, block2->hash (), work1) < threshold;
 		}
 	}
