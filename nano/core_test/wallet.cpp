@@ -1565,6 +1565,13 @@ TEST (wallet, foreach_representative_deadlock)
 	node.wallets.compute_reps ();
 	ASSERT_EQ (1, node.wallets.rep_counts ().voting);
 	node.wallets.foreach_representative ([&node](nano::public_key const & pub, nano::raw_key const & prv) {
-		ASSERT_TRUE (node.wallets.mutex.try_lock ());
+		if (node.wallets.mutex.try_lock ())
+		{
+			node.wallets.mutex.unlock ();
+		}
+		else
+		{
+			ASSERT_FALSE (true);
+		}
 	});
 }
