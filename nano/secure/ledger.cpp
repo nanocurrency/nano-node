@@ -130,19 +130,19 @@ public:
 
 		if (is_send)
 		{
-			nano::pending_key key (block_a.hashables.link, hash);
+			nano::pending_key key (block_a.hashables.link.as_account (), hash);
 			while (!error && !ledger.store.pending_exists (transaction, key))
 			{
-				error = ledger.rollback (transaction, ledger.latest (transaction, block_a.hashables.link), list);
+				error = ledger.rollback (transaction, ledger.latest (transaction, block_a.hashables.link.as_account ()), list);
 			}
 			ledger.store.pending_del (transaction, key);
 			ledger.stats.inc (nano::stat::type::rollback, nano::stat::detail::send);
 		}
 		else if (!block_a.hashables.link.is_zero () && !ledger.is_epoch_link (block_a.hashables.link))
 		{
-			auto source_version (ledger.store.block_version (transaction, block_a.hashables.link));
-			nano::pending_info pending_info (ledger.account (transaction, block_a.hashables.link), block_a.hashables.balance.number () - balance, source_version);
-			ledger.store.pending_put (transaction, nano::pending_key (block_a.hashables.account, block_a.hashables.link), pending_info);
+			auto source_version (ledger.store.block_version (transaction, block_a.hashables.link.as_block_hash ()));
+			nano::pending_info pending_info (ledger.account (transaction, block_a.hashables.link.as_block_hash ()), block_a.hashables.balance.number () - balance, source_version);
+			ledger.store.pending_put (transaction, nano::pending_key (block_a.hashables.account, block_a.hashables.link.as_block_hash ()), pending_info);
 			ledger.stats.inc (nano::stat::type::rollback, nano::stat::detail::receive);
 		}
 
@@ -313,10 +313,10 @@ void ledger_processor::state_block_impl (nano::state_block & block_a)
 					{
 						if (!block_a.hashables.link.is_zero ())
 						{
-							result.code = ledger.store.source_exists (transaction, block_a.hashables.link) ? nano::process_result::progress : nano::process_result::gap_source; // Have we seen the source block already? (Harmless)
+							result.code = ledger.store.source_exists (transaction, block_a.hashables.link.as_block_hash ()) ? nano::process_result::progress : nano::process_result::gap_source; // Have we seen the source block already? (Harmless)
 							if (result.code == nano::process_result::progress)
 							{
-								nano::pending_key key (block_a.hashables.account, block_a.hashables.link);
+								nano::pending_key key (block_a.hashables.account, block_a.hashables.link.as_block_hash ());
 								nano::pending_info pending;
 								result.code = ledger.store.pending_get (transaction, key, pending) ? nano::process_result::unreceivable : nano::process_result::progress; // Has this source already been received (Malformed)
 								if (result.code == nano::process_result::progress)
@@ -353,13 +353,13 @@ void ledger_processor::state_block_impl (nano::state_block & block_a)
 
 						if (is_send)
 						{
-							nano::pending_key key (block_a.hashables.link, hash);
+							nano::pending_key key (block_a.hashables.link.as_account (), hash);
 							nano::pending_info info (block_a.hashables.account, result.amount.number (), epoch);
 							ledger.store.pending_put (transaction, key, info);
 						}
 						else if (!block_a.hashables.link.is_zero ())
 						{
-							ledger.store.pending_del (transaction, nano::pending_key (block_a.hashables.account, block_a.hashables.link));
+							ledger.store.pending_del (transaction, nano::pending_key (block_a.hashables.account, block_a.hashables.link.as_block_hash ()));
 						}
 
 						nano::account_info new_info (hash, block_a.representative (), info.open_block.is_zero () ? hash : info.open_block, block_a.hashables.balance, nano::seconds_since_epoch (), info.block_count + 1, epoch);
@@ -894,7 +894,7 @@ nano::account const & nano::ledger::block_destination (nano::transaction const &
 	}
 	else if (state_block != nullptr && is_send (transaction_a, *state_block))
 	{
-		return state_block->hashables.link;
+		return state_block->hashables.link.as_account ();
 	}
 	static nano::account result (0);
 	return result;
@@ -915,7 +915,7 @@ nano::block_hash nano::ledger::block_source (nano::transaction const & transacti
 	nano::state_block const * state_block (dynamic_cast<nano::state_block const *> (&block_a));
 	if (state_block != nullptr && !is_send (transaction_a, *state_block))
 	{
-		result = state_block->hashables.link;
+		result = state_block->hashables.link.as_block_hash ();
 	}
 	return result;
 }
@@ -1070,7 +1070,7 @@ public:
 		result = block_a.previous ().is_zero () || ledger.store.block_exists (transaction, block_a.previous ());
 		if (result && !ledger.is_send (transaction, block_a))
 		{
-			result &= ledger.store.block_exists (transaction, block_a.hashables.link) || block_a.hashables.link.is_zero () || ledger.is_epoch_link (block_a.hashables.link);
+			result &= ledger.store.block_exists (transaction, block_a.hashables.link.as_block_hash ()) || block_a.hashables.link.is_zero () || ledger.is_epoch_link (block_a.hashables.link);
 		}
 	}
 	nano::ledger & ledger;
@@ -1133,7 +1133,7 @@ std::shared_ptr<nano::block> nano::ledger::successor (nano::transaction const & 
 	if (root_a.previous ().is_zero ())
 	{
 		nano::account_info info;
-		if (!store.account_get (transaction_a, root_a.root (), info))
+		if (!store.account_get (transaction_a, root_a.root ().as_account (), info))
 		{
 			successor = info.open_block;
 		}
@@ -1164,12 +1164,12 @@ std::shared_ptr<nano::block> nano::ledger::forked_block (nano::transaction const
 {
 	debug_assert (!store.block_exists (transaction_a, block_a.type (), block_a.hash ()));
 	auto root (block_a.root ());
-	debug_assert (store.block_exists (transaction_a, root) || store.account_exists (transaction_a, root));
-	auto result (store.block_get (transaction_a, store.block_successor (transaction_a, root)));
+	debug_assert (store.block_exists (transaction_a, root.as_block_hash ()) || store.account_exists (transaction_a, root.as_account ()));
+	auto result (store.block_get (transaction_a, store.block_successor (transaction_a, root.as_block_hash ())));
 	if (result == nullptr)
 	{
 		nano::account_info info;
-		auto error (store.account_get (transaction_a, root, info));
+		auto error (store.account_get (transaction_a, root.as_account (), info));
 		(void)error;
 		debug_assert (!error);
 		result = store.block_get (transaction_a, info.open_block);

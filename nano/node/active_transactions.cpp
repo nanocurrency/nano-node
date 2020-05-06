@@ -788,7 +788,7 @@ void nano::active_transactions::update_adjusted_multiplier ()
 					auto link (existing->second->status.winner->link ());
 					if (!link.is_zero () && !node.ledger.is_epoch_link (link) && link != previous)
 					{
-						remaining_blocks.emplace_back (link, level + 1);
+						remaining_blocks.emplace_back (link.as_block_hash (), level + 1);
 					}
 					for (auto & dependent_block : existing->second->dependent_blocks)
 					{

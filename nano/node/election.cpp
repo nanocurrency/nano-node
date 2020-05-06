@@ -524,7 +524,7 @@ void nano::election::update_dependent ()
 	auto link (status.winner->link ());
 	if (!link.is_zero () && !node.ledger.is_epoch_link (link) && link != previous)
 	{
-		blocks_search.push_back (link);
+		blocks_search.push_back (link.as_block_hash ());
 	}
 	for (auto & block_search : blocks_search)
 	{

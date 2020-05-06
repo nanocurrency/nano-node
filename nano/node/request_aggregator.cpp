@@ -162,12 +162,12 @@ std::vector<nano::block_hash> nano::request_aggregator::aggregate (nano::transac
 		else if (!hash_root.second.is_zero ())
 		{
 			// Search for block root
-			auto successor (store.block_successor (transaction_a, hash_root.second));
+			auto successor (store.block_successor (transaction_a, hash_root.second.as_block_hash ()));
 			// Search for account root
 			if (successor.is_zero ())
 			{
 				nano::account_info info;
-				auto error (store.account_get (transaction_a, hash_root.second, info));
+				auto error (store.account_get (transaction_a, hash_root.second.as_account (), info));
 				if (!error)
 				{
 					successor = info.open_block;

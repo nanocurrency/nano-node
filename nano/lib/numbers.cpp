@@ -824,12 +824,12 @@ std::string nano::hash_or_account::to_account () const
 	return account.to_account ();
 }
 
-nano::hash_or_account::operator nano::block_hash const & () const
+nano::block_hash const & nano::hash_or_account::as_block_hash () const
 {
 	return hash;
 }
 
-nano::hash_or_account::operator nano::account const & () const
+nano::account const & nano::hash_or_account::as_account () const
 {
 	return account;
 }

@@ -3043,7 +3043,7 @@ TEST (node, epoch_conflict_confirm)
 	auto open (std::make_shared<nano::state_block> (key.pub, 0, key.pub, 1, send->hash (), key.prv, key.pub, *system.work.generate (key.pub)));
 	auto change (std::make_shared<nano::state_block> (key.pub, open->hash (), key.pub, 1, 0, key.prv, key.pub, *system.work.generate (open->hash ())));
 	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2, open->hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send->hash ())));
-	auto epoch_open (std::make_shared<nano::state_block> (change->root (), 0, 0, 0, node0->ledger.epoch_link (nano::epoch::epoch_1), epoch_signer.prv, epoch_signer.pub, *system.work.generate (open->hash ())));
+	auto epoch_open (std::make_shared<nano::state_block> (change->root ().as_account (), 0, 0, 0, node0->ledger.epoch_link (nano::epoch::epoch_1), epoch_signer.prv, epoch_signer.pub, *system.work.generate (open->hash ())));
 	{
 		auto transaction (node0->store.tx_begin_write ());
 		ASSERT_EQ (nano::process_result::progress, node0->block_processor.process_one (transaction, send).code);

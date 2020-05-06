@@ -191,7 +191,7 @@ public:
 
 	bool root_exists (nano::transaction const & transaction_a, nano::root const & root_a) override
 	{
-		return block_exists (transaction_a, root_a) || account_exists (transaction_a, root_a);
+		return block_exists (transaction_a, root_a.as_block_hash ()) || account_exists (transaction_a, root_a.as_account ());
 	}
 
 	bool source_exists (nano::transaction const & transaction_a, nano::block_hash const & source_a) override

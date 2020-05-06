@@ -522,7 +522,7 @@ bool nano::node::copy_with_compaction (boost::filesystem::path const & destinati
 void nano::node::process_fork (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a)
 {
 	auto root (block_a->root ());
-	if (!store.block_exists (transaction_a, block_a->type (), block_a->hash ()) && store.root_exists (transaction_a, block_a->root ()))
+	if (!store.block_exists (transaction_a, block_a->type (), block_a->hash ()) && store.root_exists (transaction_a, root))
 	{
 		std::shared_ptr<nano::block> ledger_block (ledger.forked_block (transaction_a, *block_a));
 		if (ledger_block && !block_confirmed_or_being_confirmed (transaction_a, ledger_block->hash ()))
@@ -535,12 +535,12 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 					if (attempt && attempt->mode == nano::bootstrap_mode::legacy)
 					{
 						auto transaction (this_l->store.tx_begin_read ());
-						auto account (this_l->ledger.store.frontier_get (transaction, root));
+						auto account (this_l->ledger.store.frontier_get (transaction, root.as_block_hash ()));
 						if (!account.is_zero ())
 						{
-							this_l->bootstrap_initiator.connections->requeue_pull (nano::pull_info (account, root, root, attempt->incremental_id));
+							this_l->bootstrap_initiator.connections->requeue_pull (nano::pull_info (account, root.as_block_hash (), root.as_block_hash (), attempt->incremental_id));
 						}
-						else if (this_l->ledger.store.account_exists (transaction, root))
+						else if (this_l->ledger.store.account_exists (transaction, root.as_account ()))
 						{
 							this_l->bootstrap_initiator.connections->requeue_pull (nano::pull_info (root, nano::block_hash (0), nano::block_hash (0), attempt->incremental_id));
 						}
@@ -1191,7 +1191,7 @@ public:
 	}
 	void state_block (nano::state_block const & block_a) override
 	{
-		scan_receivable (block_a.hashables.link);
+		scan_receivable (block_a.hashables.link.as_account ());
 	}
 	void send_block (nano::send_block const & block_a) override
 	{
@@ -1245,7 +1245,7 @@ void nano::node::process_confirmed_data (nano::transaction const & transaction_a
 		{
 			is_state_send_a = true;
 		}
-		pending_account_a = state->hashables.link;
+		pending_account_a = state->hashables.link.as_account ();
 	}
 	if (auto send = dynamic_cast<nano::send_block *> (block_a.get ()))
 	{

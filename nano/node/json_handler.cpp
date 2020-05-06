@@ -1577,8 +1577,8 @@ void nano::json_handler::block_create ()
 						}
 						if (!link.is_zero () && !details.is_send)
 						{
-							auto block_link (node.store.block_get (transaction, link));
-							if (block_link != nullptr && node.store.pending_exists (transaction, nano::pending_key (pub, link)))
+							auto block_link (node.store.block_get (transaction, link.as_block_hash ()));
+							if (block_link != nullptr && node.store.pending_exists (transaction, nano::pending_key (pub, link.as_block_hash ())))
 							{
 								details.epoch = std::max (details.epoch, block_link->sideband ().details.epoch);
 								details.is_receive = true;
@@ -2263,7 +2263,7 @@ public:
 		auto previous_balance (handler.node.ledger.balance (transaction, block_a.hashables.previous));
 		if (balance < previous_balance)
 		{
-			if (should_ignore_account (block_a.hashables.link))
+			if (should_ignore_account (block_a.hashables.link.as_account ()))
 			{
 				tree.clear ();
 				return;
@@ -2298,7 +2298,7 @@ public:
 			}
 			else
 			{
-				auto account (handler.node.ledger.account (transaction, block_a.hashables.link));
+				auto account (handler.node.ledger.account (transaction, block_a.hashables.link.as_block_hash ()));
 				if (should_ignore_account (account))
 				{
 					tree.clear ();
