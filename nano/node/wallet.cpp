@@ -1750,43 +1750,50 @@ void nano::wallets::foreach_representative (std::function<void(nano::public_key 
 {
 	if (node.config.enable_voting)
 	{
-		nano::lock_guard<std::mutex> lock (mutex);
-		auto transaction_l (tx_begin_read ());
-		for (auto i (items.begin ()), n (items.end ()); i != n; ++i)
+		std::vector<std::pair<nano::public_key const, nano::raw_key const>> action_accounts_l;
 		{
-			auto & wallet (*i->second);
-			nano::lock_guard<std::recursive_mutex> store_lock (wallet.store.mutex);
-			decltype (wallet.representatives) representatives_l;
+			auto transaction_l (tx_begin_read ());
+			nano::lock_guard<std::mutex> lock (mutex);
+			for (auto i (items.begin ()), n (items.end ()); i != n; ++i)
 			{
-				nano::lock_guard<std::mutex> representatives_lock (wallet.representatives_mutex);
-				representatives_l = wallet.representatives;
-			}
-			for (auto const & account : representatives_l)
-			{
-				if (wallet.store.exists (transaction_l, account))
+				auto & wallet (*i->second);
+				nano::lock_guard<std::recursive_mutex> store_lock (wallet.store.mutex);
+				decltype (wallet.representatives) representatives_l;
 				{
-					if (!node.ledger.weight (account).is_zero ())
+					nano::lock_guard<std::mutex> representatives_lock (wallet.representatives_mutex);
+					representatives_l = wallet.representatives;
+				}
+				for (auto const & account : representatives_l)
+				{
+					if (wallet.store.exists (transaction_l, account))
 					{
-						if (wallet.store.valid_password (transaction_l))
+						if (!node.ledger.weight (account).is_zero ())
 						{
-							nano::raw_key prv;
-							auto error (wallet.store.fetch (transaction_l, account, prv));
-							(void)error;
-							debug_assert (!error);
-							action_a (account, prv);
-						}
-						else
-						{
-							static auto last_log = std::chrono::steady_clock::time_point ();
-							if (last_log < std::chrono::steady_clock::now () - std::chrono::seconds (60))
+							if (wallet.store.valid_password (transaction_l))
 							{
-								last_log = std::chrono::steady_clock::now ();
-								node.logger.always_log (boost::str (boost::format ("Representative locked inside wallet %1%") % i->first.to_string ()));
+								nano::raw_key prv;
+								auto error (wallet.store.fetch (transaction_l, account, prv));
+								(void)error;
+								debug_assert (!error);
+								action_accounts_l.emplace_back (account, prv);
+							}
+							else
+							{
+								static auto last_log = std::chrono::steady_clock::time_point ();
+								if (last_log < std::chrono::steady_clock::now () - std::chrono::seconds (60))
+								{
+									last_log = std::chrono::steady_clock::now ();
+									node.logger.always_log (boost::str (boost::format ("Representative locked inside wallet %1%") % i->first.to_string ()));
+								}
 							}
 						}
 					}
 				}
 			}
+		}
+		for (auto const & representative : action_accounts_l)
+		{
+			action_a (representative.first, representative.second);
 		}
 	}
 }

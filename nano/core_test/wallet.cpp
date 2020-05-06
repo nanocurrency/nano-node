@@ -1556,3 +1556,15 @@ TEST (wallet, epoch_2_receive_unopened)
 	}
 	ASSERT_LT (tries, max_tries);
 }
+
+TEST (wallet, foreach_representative_deadlock)
+{
+	nano::system system (1);
+	auto & node (*system.nodes[0]);
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	node.wallets.compute_reps ();
+	ASSERT_EQ (1, node.wallets.rep_counts ().voting);
+	node.wallets.foreach_representative ([&node](nano::public_key const & pub, nano::raw_key const & prv) {
+		ASSERT_TRUE (node.wallets.mutex.try_lock ());
+	});
+}
