@@ -137,9 +137,12 @@ wallets (wallets_a)
 
 void nano::votes_cache::add (std::shared_ptr<nano::vote> const & vote_a)
 {
-	nano::lock_guard<std::mutex> lock (cache_mutex);
 	auto voting (wallets.rep_counts ().voting);
-	debug_assert (voting > 0);
+	if (voting == 0)
+	{
+		return;
+	}
+	nano::lock_guard<std::mutex> lock (cache_mutex);
 	auto const max_cache_size (network_params.voting.max_cache / std::max (voting, static_cast<decltype (voting)> (1)));
 	for (auto & block : vote_a->blocks)
 	{
