@@ -18,7 +18,7 @@ class write_guard;
 class confirmation_height_unbounded final
 {
 public:
-	confirmation_height_unbounded (nano::ledger &, nano::write_database_queue &, std::chrono::milliseconds, nano::logger_mt &, std::atomic<bool> &, nano::block_hash const &, uint64_t &, std::function<void(std::vector<std::shared_ptr<nano::block>> const &)> const &, std::function<void(nano::block_hash const &)> const &, std::function<uint64_t ()> const &);
+	confirmation_height_unbounded (nano::ledger &, nano::write_database_queue &, std::chrono::milliseconds, nano::logger_mt &, std::atomic<bool> &, std::shared_ptr<nano::block> const &, uint64_t &, std::function<void(std::vector<std::shared_ptr<nano::block>> const &)> const &, std::function<void(nano::block_hash const &)> const &, std::function<uint64_t ()> const &);
 	bool pending_empty () const;
 	void reset ();
 	void process ();
@@ -88,7 +88,7 @@ private:
 		std::vector<nano::block_hash> const & block_callback_data;
 	};
 
-	void collect_unconfirmed_receive_and_sources_for_account (uint64_t, uint64_t, nano::block_hash const &, nano::account const &, nano::read_transaction const &, std::vector<receive_source_pair> &, std::vector<nano::block_hash> &);
+	void collect_unconfirmed_receive_and_sources_for_account (uint64_t, uint64_t, std::shared_ptr<nano::block> const &, nano::block_hash const &, nano::account const &, nano::read_transaction const &, std::vector<receive_source_pair> &, std::vector<nano::block_hash> &);
 	void prepare_iterated_blocks_for_cementing (preparation_data &);
 
 	nano::network_params network_params;
@@ -97,7 +97,7 @@ private:
 	std::chrono::milliseconds batch_separate_pending_min_time;
 	nano::logger_mt & logger;
 	std::atomic<bool> & stopped;
-	nano::block_hash const & original_hash;
+	std::shared_ptr<nano::block> const & original_block;
 	uint64_t & batch_write_size;
 
 	std::function<void(std::vector<std::shared_ptr<nano::block>> const &)> notify_observers_callback;

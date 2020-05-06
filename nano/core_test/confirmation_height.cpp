@@ -788,7 +788,7 @@ TEST (confirmation_height, modified_chain)
 			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send).code);
 		}
 
-		node->confirmation_height_processor.add (send->hash ());
+		node->confirmation_height_processor.add (send);
 		{
 			// The write guard prevents the confirmation height processor doing any writes
 			system.deadline_set (10s);
@@ -867,7 +867,7 @@ TEST (confirmation_height, pending_observer_callbacks)
 
 		add_callback_stats (*node);
 
-		node->confirmation_height_processor.add (send1->hash ());
+		node->confirmation_height_processor.add (send1);
 
 		system.deadline_set (10s);
 		// Confirm the callback is not called under this circumstance because there is no election information
@@ -1484,7 +1484,7 @@ TEST (confirmation_height, election_winner_details_clearing)
 
 		// Add an already cemented block with fake election details. It should get removed
 		node->active.add_election_winner_details (send2->hash (), nullptr);
-		node->confirmation_height_processor.add (send2->hash ());
+		node->confirmation_height_processor.add (send2);
 
 		system.deadline_set (10s);
 		while (node->active.election_winner_details_size () > 0)

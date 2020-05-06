@@ -729,12 +729,12 @@ TEST (confirmation_height, dynamic_algorithm)
 	nano::keypair key;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	auto const num_blocks = nano::confirmation_height::unbounded_cutoff;
-	auto latest_genesis = node->latest (nano::test_genesis_key.pub);
+	auto latest_genesis = genesis.open;
 	std::vector<std::shared_ptr<nano::state_block>> state_blocks;
 	for (auto i = 0; i < num_blocks; ++i)
 	{
-		auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, latest_genesis, nano::test_genesis_key.pub, nano::genesis_amount - i - 1, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest_genesis)));
-		latest_genesis = send->hash ();
+		auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, latest_genesis->hash (), nano::test_genesis_key.pub, nano::genesis_amount - i - 1, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest_genesis->hash ())));
+		latest_genesis = send;
 		state_blocks.push_back (send);
 	}
 	{
@@ -745,7 +745,7 @@ TEST (confirmation_height, dynamic_algorithm)
 		}
 	}
 
-	node->confirmation_height_processor.add (state_blocks.front ()->hash ());
+	node->confirmation_height_processor.add (state_blocks.front ());
 	system.deadline_set (20s);
 	while (node->ledger.cache.cemented_count != 2)
 	{
@@ -815,7 +815,7 @@ TEST (confirmation_height, dynamic_algorithm_no_transition_while_pending)
 		{
 			auto write_guard = node->write_database_queue.wait (nano::writer::testing);
 			// To limit any data races we are not calling node.block_confirm
-			node->confirmation_height_processor.add (state_blocks.back ()->hash ());
+			node->confirmation_height_processor.add (state_blocks.back ());
 
 			nano::timer<> timer;
 			timer.start ();
@@ -840,7 +840,7 @@ TEST (confirmation_height, dynamic_algorithm_no_transition_while_pending)
 				add_block_to_genesis_chain (transaction);
 			}
 			// Make sure this is at a height lower than the block in the add () call above
-			node->confirmation_height_processor.add (state_blocks.front ()->hash ());
+			node->confirmation_height_processor.add (state_blocks.front ());
 			node->confirmation_height_processor.unpause ();
 		}
 

@@ -1255,11 +1255,11 @@ void nano::node::process_confirmed_data (nano::transaction const & transaction_a
 
 void nano::node::process_confirmed (nano::election_status const & status_a, std::shared_ptr<nano::election> const & election_a, uint8_t iteration_a)
 {
-	auto block_a (status_a.winner);
-	auto hash (block_a->hash ());
-	if (ledger.block_exists (block_a->type (), hash))
+	auto hash (status_a.winner->hash ());
+	// TODO: Needed?
+	if (auto block_l = ledger.store.block_get (ledger.store.tx_begin_read (), hash))
 	{
-		confirmation_height_processor.add (hash);
+		confirmation_height_processor.add (block_l);
 	}
 	// Limit to 0.5 * 20 = 10 seconds (more than max block_processor::process_batch finish time)
 	else if (iteration_a < 20)

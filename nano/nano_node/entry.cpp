@@ -1226,7 +1226,7 @@ int main (int argc, char * const * argv)
 			// Confirm blocks for node1
 			for (auto & block : blocks)
 			{
-				node1->confirmation_height_processor.add (block->hash ());
+				node1->confirmation_height_processor.add (block);
 			}
 			while (node1->ledger.cache.cemented_count != node1->ledger.cache.block_count)
 			{
