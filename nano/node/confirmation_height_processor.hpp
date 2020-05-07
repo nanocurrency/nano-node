@@ -45,7 +45,7 @@ public:
 	void add_block_already_cemented_observer (std::function<void(nano::block_hash const &)> const &);
 
 private:
-	std::mutex mutex;
+	nano::mutex mutex{ mutex_identifier (mutexes::confirmation_height_processor) };
 	// Hashes which have been added to the confirmation height processor, but not yet processed
 	// clang-format off
 	class tag_sequence {};

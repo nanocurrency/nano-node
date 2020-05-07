@@ -233,7 +233,7 @@ void nano::work_pool::loop (uint64_t thread)
 	uint64_t output;
 	blake2b_state hash;
 	blake2b_init (&hash, sizeof (output));
-	nano::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock lock (mutex);
 	auto pow_sleep = pow_rate_limiter;
 	while (!done)
 	{
@@ -313,7 +313,7 @@ void nano::work_pool::loop (uint64_t thread)
 
 void nano::work_pool::cancel (nano::root const & root_a)
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard lock (mutex);
 	if (!done)
 	{
 		if (!pending.empty ())
@@ -341,7 +341,7 @@ void nano::work_pool::cancel (nano::root const & root_a)
 void nano::work_pool::stop ()
 {
 	{
-		nano::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard lock (mutex);
 		done = true;
 		++ticket;
 	}
@@ -354,7 +354,7 @@ void nano::work_pool::generate (nano::work_version const version_a, nano::root c
 	if (!threads.empty ())
 	{
 		{
-			nano::lock_guard<std::mutex> lock (mutex);
+			nano::lock_guard lock (mutex);
 			pending.emplace_back (version_a, root_a, difficulty_a, callback_a);
 		}
 		producer_condition.notify_all ();
@@ -396,7 +396,7 @@ boost::optional<uint64_t> nano::work_pool::generate (nano::work_version const ve
 
 size_t nano::work_pool::size ()
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard lock (mutex);
 	return pending.size ();
 }
 
@@ -404,7 +404,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (wo
 {
 	size_t count;
 	{
-		nano::lock_guard<std::mutex> guard (work_pool.mutex);
+		nano::lock_guard guard (work_pool.mutex);
 		count = work_pool.pending.size ();
 	}
 	auto sizeof_element = sizeof (decltype (work_pool.pending)::value_type);

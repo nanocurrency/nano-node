@@ -23,7 +23,7 @@ nano::alarm::~alarm ()
 
 void nano::alarm::run ()
 {
-	nano::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock lock (mutex);
 	auto done (false);
 	while (!done)
 	{
@@ -58,7 +58,7 @@ void nano::alarm::run ()
 void nano::alarm::add (std::chrono::steady_clock::time_point const & wakeup_a, std::function<void()> const & operation)
 {
 	{
-		nano::lock_guard<std::mutex> guard (mutex);
+		nano::lock_guard guard (mutex);
 		operations.push (nano::operation ({ wakeup_a, operation }));
 	}
 	condition.notify_all ();
@@ -68,7 +68,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (al
 {
 	size_t count;
 	{
-		nano::lock_guard<std::mutex> guard (alarm.mutex);
+		nano::lock_guard guard (alarm.mutex);
 		count = alarm.operations.size ();
 	}
 	auto sizeof_element = sizeof (decltype (alarm.operations)::value_type);

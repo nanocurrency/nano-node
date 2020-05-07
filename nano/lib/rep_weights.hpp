@@ -21,7 +21,7 @@ public:
 	std::unordered_map<nano::account, nano::uint128_t> get_rep_amounts ();
 
 private:
-	std::mutex mutex;
+	nano::mutex mutex;
 	std::unordered_map<nano::account, nano::uint128_t> rep_amounts;
 	void put (nano::account const & account_a, nano::uint128_union const & representation_a);
 	nano::uint128_t get (nano::account const & account_a);

@@ -55,7 +55,7 @@ namespace transport
 
 		nano::endpoint get_endpoint () const override
 		{
-			nano::lock_guard<std::mutex> lk (channel_mutex);
+			nano::lock_guard lk (channel_mutex);
 			if (auto socket_l = socket.lock ())
 			{
 				return nano::transport::map_tcp_to_endpoint (socket_l->remote_endpoint ());
@@ -68,7 +68,7 @@ namespace transport
 
 		nano::tcp_endpoint get_tcp_endpoint () const override
 		{
-			nano::lock_guard<std::mutex> lk (channel_mutex);
+			nano::lock_guard lk (channel_mutex);
 			if (auto socket_l = socket.lock ())
 			{
 				return socket_l->remote_endpoint ();
@@ -201,7 +201,7 @@ namespace transport
 			{
 			}
 		};
-		mutable std::mutex mutex;
+		mutable nano::mutex mutex;
 		// clang-format off
 		boost::multi_index_container<channel_tcp_wrapper,
 		mi::indexed_by<

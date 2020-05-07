@@ -6,9 +6,106 @@
 #include <mutex>
 #include <unordered_map>
 
+#define USING_NANO_TIMED_LOCKS (NANO_TIMED_LOCKS > 0)
+
 namespace nano
 {
-#if NANO_TIMED_LOCKS > 0
+class mutex;
+extern nano::mutex * mutex_to_filter;
+extern nano::mutex mutex_to_filter_mutex;
+bool should_be_filtered (const char * name);
+bool any_filters_registered ();
+
+enum class mutexes
+{
+	active,
+	alarm,
+	block_arrival,
+	block_processor,
+	block_uniquer,
+	blockstore_cache,
+	confirmation_height_processor,
+	dropped_elections,
+	election_winner_details,
+	gap_cache,
+	network_filter,
+	observer_set,
+	request_aggregator,
+	state_block_signature_verification,
+	telemetry,
+	vote_generator,
+	vote_processor,
+	vote_uniquer,
+	votes_cache,
+	work_pool,
+	worker
+};
+
+char const * mutex_identifier (mutexes mutex);
+
+class mutex
+{
+public:
+	mutex () = default;
+	mutex (const char * name_a)
+#if USING_NANO_TIMED_LOCKS
+	:
+	name (name_a)
+#endif
+	{
+#if USING_NANO_TIMED_LOCKS
+		// This mutex should be filtered
+		if (name && should_be_filtered (name))
+		{
+			std::lock_guard guard (mutex_to_filter_mutex);
+			mutex_to_filter = this;
+		}
+#endif
+	}
+
+#if USING_NANO_TIMED_LOCKS
+	~mutex ()
+	{
+		// Unfilter this destroyed mutex
+		if (name && should_be_filtered (name))
+		{
+			// Unregister the mutex
+			std::lock_guard guard (mutex_to_filter_mutex);
+			mutex_to_filter = nullptr;
+		}
+	}
+#endif
+
+	void lock ()
+	{
+		mutex_m.lock ();
+	}
+
+	void unlock ()
+	{
+		mutex_m.unlock ();
+	}
+
+	bool try_lock ()
+	{
+		return mutex_m.try_lock ();
+	}
+
+#if USING_NANO_TIMED_LOCKS
+	const char * get_name () const
+	{
+		return name ? name : "";
+	}
+#endif
+
+private:
+#if USING_NANO_TIMED_LOCKS
+	const char * name{ nullptr };
+#endif
+	std::mutex mutex_m;
+};
+
+#if USING_NANO_TIMED_LOCKS
 template <typename Mutex>
 class lock_guard final
 {
@@ -26,21 +123,21 @@ private:
 };
 
 template <>
-class lock_guard<std::mutex> final
+class lock_guard<nano::mutex> final
 {
 public:
-	explicit lock_guard (std::mutex & mutex_a);
+	explicit lock_guard (nano::mutex & mutex_a);
 	~lock_guard () noexcept;
 
 	lock_guard (const lock_guard &) = delete;
 	lock_guard & operator= (const lock_guard &) = delete;
 
 private:
-	std::mutex & mut;
+	nano::mutex & mut;
 	nano::timer<std::chrono::milliseconds> timer;
 };
 
-template <typename Mutex, typename = std::enable_if_t<std::is_same<Mutex, std::mutex>::value>>
+template <typename Mutex, typename = std::enable_if_t<std::is_same<Mutex, nano::mutex>::value>>
 class unique_lock final
 {
 public:
@@ -129,7 +226,7 @@ public:
 
 	T & operator= (T const & other)
 	{
-		nano::unique_lock<std::mutex> lk (mutex);
+		nano::unique_lock lk (mutex);
 		obj = other;
 		return obj;
 	}
@@ -147,6 +244,6 @@ public:
 
 private:
 	T obj;
-	std::mutex mutex;
+	nano::mutex mutex;
 };
 }

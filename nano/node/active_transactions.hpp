@@ -81,7 +81,8 @@ public:
 
 private:
 	ordered_dropped items;
-	mutable std::mutex mutex;
+	mutable nano::mutex mutex{ mutex_identifier (mutexes::dropped_elections) };
+
 	nano::stat & stats;
 };
 
@@ -152,7 +153,7 @@ public:
 	double normalized_multiplier (nano::block const &, boost::optional<roots_iterator> const & = boost::none) const;
 	void add_adjust_difficulty (nano::block_hash const &);
 	void update_adjusted_multiplier ();
-	void update_active_multiplier (nano::unique_lock<std::mutex> &);
+	void update_active_multiplier (nano::unique_lock<nano::mutex> &);
 	uint64_t active_difficulty ();
 	uint64_t limited_active_difficulty (nano::block const &);
 	uint64_t limited_active_difficulty (nano::work_version const, uint64_t const);
@@ -179,7 +180,7 @@ public:
 	void erase_inactive_votes_cache (nano::block_hash const &);
 	nano::confirmation_height_processor & confirmation_height_processor;
 	nano::node & node;
-	mutable std::mutex mutex;
+	mutable nano::mutex mutex{ mutex_identifier (mutexes::active) };
 	boost::circular_buffer<double> multipliers_cb;
 	double trended_active_multiplier;
 	size_t priority_cementable_frontiers_size ();
@@ -190,7 +191,8 @@ public:
 	void add_election_winner_details (nano::block_hash const &, std::shared_ptr<nano::election> const &);
 
 private:
-	std::mutex election_winner_details_mutex;
+	nano::mutex election_winner_details_mutex{ mutex_identifier (mutexes::election_winner_details) };
+
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> election_winner_details;
 	nano::vote_generator generator;
 
@@ -202,8 +204,8 @@ private:
 	bool update_difficulty_impl (roots_iterator const &, nano::block const &);
 	void request_loop ();
 	void confirm_prioritized_frontiers (nano::transaction const & transaction_a);
-	void request_confirm (nano::unique_lock<std::mutex> &);
-	void frontiers_confirmation (nano::unique_lock<std::mutex> &);
+	void request_confirm (nano::unique_lock<nano::mutex> &);
+	void frontiers_confirmation (nano::unique_lock<nano::mutex> &);
 	nano::account next_frontier_account{ 0 };
 	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };
 	nano::condition_variable condition;

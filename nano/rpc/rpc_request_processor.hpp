@@ -59,8 +59,8 @@ private:
 	void make_available (nano::ipc_connection & connection);
 
 	std::vector<std::shared_ptr<nano::ipc_connection>> connections;
-	std::mutex request_mutex;
-	std::mutex connections_mutex;
+	nano::mutex request_mutex;
+	nano::mutex connections_mutex;
 	bool stopped{ false };
 	std::deque<std::shared_ptr<nano::rpc_request>> requests;
 	nano::condition_variable condition;

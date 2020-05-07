@@ -48,7 +48,7 @@ void nano::port_mapping::refresh_devices ()
 			}
 		}
 		// Update port mapping
-		nano::lock_guard<std::mutex> guard_l (mutex);
+		nano::lock_guard guard_l (mutex);
 		upnp = std::move (upnp_l);
 		if (igd_error_l == 1 || igd_error_l == 2)
 		{
@@ -61,7 +61,7 @@ void nano::port_mapping::refresh_devices ()
 nano::endpoint nano::port_mapping::external_address ()
 {
 	nano::endpoint result_l (boost::asio::ip::address_v6{}, 0);
-	nano::lock_guard<std::mutex> guard_l (mutex);
+	nano::lock_guard guard_l (mutex);
 	for (auto & protocol : protocols | boost::adaptors::filtered ([](auto const & p) { return p.enabled; }))
 	{
 		if (protocol.external_port != 0)
@@ -76,7 +76,7 @@ void nano::port_mapping::refresh_mapping ()
 {
 	if (!network_params.network.is_test_network ())
 	{
-		nano::lock_guard<std::mutex> guard_l (mutex);
+		nano::lock_guard guard_l (mutex);
 		auto node_port_l (std::to_string (node.network.endpoint ().port ()));
 		auto config_port_l (get_config_port (node_port_l));
 
@@ -112,7 +112,7 @@ int nano::port_mapping::check_mapping ()
 	if (!network_params.network.is_test_network ())
 	{
 		// Long discovery time and fast setup/teardown make this impractical for testing
-		nano::lock_guard<std::mutex> guard_l (mutex);
+		nano::lock_guard guard_l (mutex);
 		auto node_port_l (std::to_string (node.network.endpoint ().port ()));
 		auto config_port_l (get_config_port (node_port_l));
 		for (auto & protocol : protocols | boost::adaptors::filtered ([](auto const & p) { return p.enabled; }))
@@ -188,7 +188,7 @@ void nano::port_mapping::check_mapping_loop ()
 void nano::port_mapping::stop ()
 {
 	on = false;
-	nano::lock_guard<std::mutex> guard_l (mutex);
+	nano::lock_guard guard_l (mutex);
 	for (auto & protocol : protocols | boost::adaptors::filtered ([](auto const & p) { return p.enabled; }))
 	{
 		if (protocol.external_port != 0)

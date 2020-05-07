@@ -22,7 +22,7 @@ public:
 private:
 	nano::condition_variable cv;
 	std::deque<std::function<void()>> queue;
-	std::mutex mutex;
+	nano::mutex mutex{ mutex_identifier (mutexes::worker) };
 	bool stopped{ false };
 	std::thread thread;
 

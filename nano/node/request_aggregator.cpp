@@ -19,7 +19,7 @@ store (store_a),
 wallets (wallets_a),
 thread ([this]() { run (); })
 {
-	nano::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock lock (mutex);
 	condition.wait (lock, [& started = started] { return started; });
 }
 
@@ -28,7 +28,7 @@ void nano::request_aggregator::add (std::shared_ptr<nano::transport::channel> & 
 	debug_assert (wallets.rep_counts ().voting > 0);
 	bool error = true;
 	auto const endpoint (nano::transport::map_endpoint_to_v6 (channel_a->get_endpoint ()));
-	nano::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock lock (mutex);
 	// Protecting from ever-increasing memory usage when request are consumed slower than generated
 	// Reject request if the oldest request has not yet been processed after its deadline + a modest margin
 	if (requests.empty () || (requests.get<tag_deadline> ().begin ()->deadline + 2 * this->max_delay > std::chrono::steady_clock::now ()))
@@ -62,7 +62,7 @@ void nano::request_aggregator::add (std::shared_ptr<nano::transport::channel> & 
 void nano::request_aggregator::run ()
 {
 	nano::thread_role::set (nano::thread_role::name::request_aggregator);
-	nano::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock lock (mutex);
 	started = true;
 	lock.unlock ();
 	condition.notify_all ();
@@ -110,7 +110,7 @@ void nano::request_aggregator::run ()
 void nano::request_aggregator::stop ()
 {
 	{
-		nano::lock_guard<std::mutex> guard (mutex);
+		nano::lock_guard guard (mutex);
 		stopped = true;
 	}
 	condition.notify_all ();
@@ -122,7 +122,7 @@ void nano::request_aggregator::stop ()
 
 std::size_t nano::request_aggregator::size ()
 {
-	nano::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock lock (mutex);
 	return requests.size ();
 }
 

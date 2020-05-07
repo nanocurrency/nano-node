@@ -30,7 +30,7 @@ public:
 
 	nano::node & node;
 	std::unordered_map<nano::root, std::vector<std::weak_ptr<nano::distributed_work>>> items;
-	std::mutex mutex;
+	nano::mutex mutex;
 	std::atomic<bool> stopped{ false };
 };
 

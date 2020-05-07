@@ -11,7 +11,7 @@ thread ([this]() {
 
 void nano::worker::run ()
 {
-	nano::unique_lock<std::mutex> lk (mutex);
+	nano::unique_lock lk (mutex);
 	while (!stopped)
 	{
 		if (!queue.empty ())
@@ -40,7 +40,7 @@ nano::worker::~worker ()
 void nano::worker::push_task (std::function<void()> func_a)
 {
 	{
-		nano::lock_guard<std::mutex> guard (mutex);
+		nano::lock_guard guard (mutex);
 		if (!stopped)
 		{
 			queue.emplace_back (func_a);
@@ -53,7 +53,7 @@ void nano::worker::push_task (std::function<void()> func_a)
 void nano::worker::stop ()
 {
 	{
-		nano::unique_lock<std::mutex> lk (mutex);
+		nano::unique_lock lk (mutex);
 		stopped = true;
 		queue.clear ();
 	}
@@ -68,7 +68,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (na
 {
 	size_t count;
 	{
-		nano::lock_guard<std::mutex> guard (worker.mutex);
+		nano::lock_guard guard (worker.mutex);
 		count = worker.queue.size ();
 	}
 	auto sizeof_element = sizeof (decltype (worker.queue)::value_type);

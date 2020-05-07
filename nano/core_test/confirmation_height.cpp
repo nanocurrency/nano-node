@@ -10,13 +10,13 @@ using namespace std::chrono_literals;
 
 namespace
 {
-void add_callback_stats (nano::node & node, std::vector<nano::block_hash> * observer_order = nullptr, std::mutex * mutex = nullptr)
+void add_callback_stats (nano::node & node, std::vector<nano::block_hash> * observer_order = nullptr, nano::mutex * mutex = nullptr)
 {
 	node.observers.blocks.add ([& stats = node.stats, observer_order, mutex](nano::election_status const & status_a, nano::account const &, nano::amount const &, bool) {
 		stats.inc (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out);
 		if (mutex)
 		{
-			nano::lock_guard<std::mutex> guard (*mutex);
+			nano::lock_guard guard (*mutex);
 			debug_assert (observer_order);
 			observer_order->push_back (status_a.winner->hash ());
 		}
@@ -688,7 +688,7 @@ TEST (confirmation_height, conflict_rollback_cemented)
 		node1->block_processor.flush ();
 		node2->network.process_message (publish1, channel2);
 		node2->block_processor.flush ();
-		nano::unique_lock<std::mutex> lock (node2->active.mutex);
+		nano::unique_lock lock (node2->active.mutex);
 		auto conflict (node2->active.roots.find (nano::qualified_root (genesis.hash (), genesis.hash ())));
 		ASSERT_NE (node2->active.roots.end (), conflict);
 		auto votes1 (conflict->election);
@@ -1020,7 +1020,7 @@ TEST (confirmation_height, prioritize_frontiers)
 		std::array<nano::qualified_root, num_accounts> frontiers{ send17.qualified_root (), send6.qualified_root (), send7.qualified_root (), open2.qualified_root (), send11.qualified_root () };
 		for (auto & frontier : frontiers)
 		{
-			nano::lock_guard<std::mutex> guard (node->active.mutex);
+			nano::lock_guard guard (node->active.mutex);
 			ASSERT_NE (node->active.roots.find (frontier), node->active.roots.end ());
 		}
 	};
@@ -1133,7 +1133,7 @@ TEST (confirmation_height, callback_confirmed_history)
 
 			ASSERT_EQ (0, node->active.list_recently_cemented ().size ());
 			{
-				nano::lock_guard<std::mutex> guard (node->active.mutex);
+				nano::lock_guard guard (node->active.mutex);
 				ASSERT_EQ (0, node->active.blocks.size ());
 			}
 
@@ -1306,7 +1306,7 @@ TEST (confirmation_height, cemented_gap_below_receive)
 		}
 
 		std::vector<nano::block_hash> observer_order;
-		std::mutex mutex;
+		nano::mutex mutex;
 		add_callback_stats (*node, &observer_order, &mutex);
 
 		node->block_confirm (open1);
@@ -1328,7 +1328,7 @@ TEST (confirmation_height, cemented_gap_below_receive)
 
 		// Check that the order of callbacks is correct
 		std::vector<nano::block_hash> expected_order = { send.hash (), open.hash (), send1.hash (), receive1.hash (), send2.hash (), dummy_send.hash (), receive2.hash (), dummy_send1.hash (), send3.hash (), open1->hash () };
-		nano::lock_guard<std::mutex> guard (mutex);
+		nano::lock_guard guard (mutex);
 		ASSERT_EQ (observer_order, expected_order);
 	};
 

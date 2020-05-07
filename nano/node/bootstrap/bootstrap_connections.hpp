@@ -37,7 +37,7 @@ public:
 	std::atomic<bool> hard_stop{ false };
 
 private:
-	mutable std::mutex start_time_mutex;
+	mutable nano::mutex start_time_mutex;
 	std::chrono::steady_clock::time_point start_time_m;
 };
 
@@ -55,7 +55,7 @@ public:
 	void populate_connections (bool repeat = true);
 	void start_populate_connections ();
 	void add_pull (nano::pull_info const & pull_a);
-	void request_pull (nano::unique_lock<std::mutex> & lock_a);
+	void request_pull (nano::unique_lock<nano::mutex> & lock_a);
 	void requeue_pull (nano::pull_info const & pull_a, bool network_error = false);
 	void clear_pulls (uint64_t);
 	void run ();
@@ -68,7 +68,7 @@ public:
 	std::atomic<bool> populate_connections_started{ false };
 	std::atomic<bool> new_connections_empty{ false };
 	std::atomic<bool> stopped{ false };
-	std::mutex mutex;
+	nano::mutex mutex;
 	nano::condition_variable condition;
 };
 }

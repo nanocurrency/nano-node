@@ -40,7 +40,7 @@ public:
 	virtual void wallet_start (std::deque<nano::account> &);
 	virtual size_t wallet_size ();
 	virtual void get_information (boost::property_tree::ptree &) = 0;
-	std::mutex next_log_mutex;
+	nano::mutex next_log_mutex;
 	std::chrono::steady_clock::time_point next_log{ std::chrono::steady_clock::now () };
 	std::atomic<unsigned> pulling{ 0 };
 	std::shared_ptr<nano::node> node;
@@ -54,7 +54,7 @@ public:
 	std::atomic<bool> frontiers_received{ false };
 	std::atomic<bool> frontiers_confirmed{ false };
 	nano::bootstrap_mode mode;
-	std::mutex mutex;
+	nano::mutex mutex;
 	nano::condition_variable condition;
 };
 class bootstrap_attempt_legacy : public bootstrap_attempt
@@ -64,17 +64,17 @@ public:
 	void run () override;
 	bool consume_future (std::future<bool> &);
 	void stop () override;
-	bool request_frontier (nano::unique_lock<std::mutex> &, bool = false);
-	void request_pull (nano::unique_lock<std::mutex> &);
-	void request_push (nano::unique_lock<std::mutex> &);
+	bool request_frontier (nano::unique_lock<nano::mutex> &, bool = false);
+	void request_pull (nano::unique_lock<nano::mutex> &);
+	void request_push (nano::unique_lock<nano::mutex> &);
 	void add_frontier (nano::pull_info const &) override;
 	void add_bulk_push_target (nano::block_hash const &, nano::block_hash const &) override;
 	bool request_bulk_push_target (std::pair<nano::block_hash, nano::block_hash> &) override;
 	void add_recent_pull (nano::block_hash const &) override;
-	void run_start (nano::unique_lock<std::mutex> &);
+	void run_start (nano::unique_lock<nano::mutex> &);
 	void restart_condition () override;
-	void attempt_restart_check (nano::unique_lock<std::mutex> &);
-	bool confirm_frontiers (nano::unique_lock<std::mutex> &);
+	void attempt_restart_check (nano::unique_lock<nano::mutex> &);
+	bool confirm_frontiers (nano::unique_lock<nano::mutex> &);
 	void get_information (boost::property_tree::ptree &) override;
 	nano::tcp_endpoint endpoint_frontier_request;
 	std::weak_ptr<nano::frontier_req_client> frontiers;

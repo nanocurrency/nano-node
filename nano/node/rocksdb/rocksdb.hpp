@@ -79,7 +79,7 @@ private:
 	rocksdb::OptimisticTransactionDB * optimistic_db = nullptr;
 	rocksdb::DB * db = nullptr;
 	std::shared_ptr<rocksdb::TableFactory> table_factory;
-	std::unordered_map<nano::tables, std::mutex> write_lock_mutexes;
+	std::unordered_map<nano::tables, nano::mutex> write_lock_mutexes;
 
 	rocksdb::Transaction * tx (nano::transaction const & transaction_a) const;
 	std::vector<nano::tables> all_tables () const;

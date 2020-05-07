@@ -60,6 +60,6 @@ private:
 	std::array<mapping_protocol, 2> protocols;
 	uint64_t check_count{ 0 };
 	std::atomic<bool> on{ false };
-	std::mutex mutex;
+	nano::mutex mutex;
 };
 }

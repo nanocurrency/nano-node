@@ -21,13 +21,13 @@ votes_cache (votes_cache_a),
 network (network_a),
 thread ([this]() { run (); })
 {
-	nano::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock lock (mutex);
 	condition.wait (lock, [& started = started] { return started; });
 }
 
 void nano::vote_generator::add (nano::block_hash const & hash_a)
 {
-	nano::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock lock (mutex);
 	hashes.push_back (hash_a);
 	if (hashes.size () >= nano::network::confirm_ack_hashes_max)
 	{
@@ -38,7 +38,7 @@ void nano::vote_generator::add (nano::block_hash const & hash_a)
 
 void nano::vote_generator::add (std::vector<nano::block_hash> const & hashes_a)
 {
-	nano::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock lock (mutex);
 	hashes.insert (hashes.end (), hashes_a.begin (), hashes_a.end ());
 	if (hashes.size () >= nano::network::confirm_ack_hashes_max)
 	{
@@ -49,7 +49,7 @@ void nano::vote_generator::add (std::vector<nano::block_hash> const & hashes_a)
 
 void nano::vote_generator::stop ()
 {
-	nano::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock lock (mutex);
 	stopped = true;
 
 	lock.unlock ();
@@ -61,7 +61,7 @@ void nano::vote_generator::stop ()
 	}
 }
 
-void nano::vote_generator::send (nano::unique_lock<std::mutex> & lock_a)
+void nano::vote_generator::send (nano::unique_lock<nano::mutex> & lock_a)
 {
 	std::vector<nano::block_hash> hashes_l;
 	hashes_l.reserve (nano::network::confirm_ack_hashes_max);
@@ -87,7 +87,7 @@ void nano::vote_generator::send (nano::unique_lock<std::mutex> & lock_a)
 void nano::vote_generator::run ()
 {
 	nano::thread_role::set (nano::thread_role::name::voting);
-	nano::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock lock (mutex);
 	started = true;
 	lock.unlock ();
 	condition.notify_all ();
@@ -142,7 +142,7 @@ void nano::votes_cache::add (std::shared_ptr<nano::vote> const & vote_a)
 	{
 		return;
 	}
-	nano::lock_guard<std::mutex> lock (cache_mutex);
+	nano::lock_guard lock (cache_mutex);
 	auto const max_cache_size (network_params.voting.max_cache / std::max (voting, static_cast<decltype (voting)> (1)));
 	for (auto & block : vote_a->blocks)
 	{
@@ -187,7 +187,7 @@ void nano::votes_cache::add (std::shared_ptr<nano::vote> const & vote_a)
 std::vector<std::shared_ptr<nano::vote>> nano::votes_cache::find (nano::block_hash const & hash_a)
 {
 	std::vector<std::shared_ptr<nano::vote>> result;
-	nano::lock_guard<std::mutex> lock (cache_mutex);
+	nano::lock_guard lock (cache_mutex);
 	auto existing (cache.get<tag_hash> ().find (hash_a));
 	if (existing != cache.get<tag_hash> ().end ())
 	{
@@ -198,7 +198,7 @@ std::vector<std::shared_ptr<nano::vote>> nano::votes_cache::find (nano::block_ha
 
 void nano::votes_cache::remove (nano::block_hash const & hash_a)
 {
-	nano::lock_guard<std::mutex> lock (cache_mutex);
+	nano::lock_guard lock (cache_mutex);
 	cache.get<tag_hash> ().erase (hash_a);
 }
 
@@ -207,7 +207,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (vo
 	size_t hashes_count = 0;
 
 	{
-		nano::lock_guard<std::mutex> guard (vote_generator.mutex);
+		nano::lock_guard guard (vote_generator.mutex);
 		hashes_count = vote_generator.hashes.size ();
 	}
 	auto sizeof_element = sizeof (decltype (vote_generator.hashes)::value_type);
@@ -221,7 +221,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (vo
 	size_t cache_count;
 
 	{
-		nano::lock_guard<std::mutex> guard (votes_cache.cache_mutex);
+		nano::lock_guard guard (votes_cache.cache_mutex);
 		cache_count = votes_cache.cache.size ();
 	}
 	auto sizeof_element = sizeof (decltype (votes_cache.cache)::value_type);

@@ -28,7 +28,7 @@ nano::state_block_signature_verification::~state_block_signature_verification ()
 void nano::state_block_signature_verification::stop ()
 {
 	{
-		nano::lock_guard<std::mutex> guard (mutex);
+		nano::lock_guard guard (mutex);
 		stopped = true;
 	}
 
@@ -41,7 +41,7 @@ void nano::state_block_signature_verification::stop ()
 
 void nano::state_block_signature_verification::run (uint64_t state_block_signature_verification_size)
 {
-	nano::unique_lock<std::mutex> lk (mutex);
+	nano::unique_lock lk (mutex);
 	while (!stopped)
 	{
 		if (!state_blocks.empty ())
@@ -69,14 +69,14 @@ void nano::state_block_signature_verification::run (uint64_t state_block_signatu
 
 bool nano::state_block_signature_verification::is_active ()
 {
-	nano::lock_guard<std::mutex> guard (mutex);
+	nano::lock_guard guard (mutex);
 	return active;
 }
 
 void nano::state_block_signature_verification::add (nano::unchecked_info const & info_a)
 {
 	{
-		nano::lock_guard<std::mutex> guard (mutex);
+		nano::lock_guard guard (mutex);
 		state_blocks.push_back (info_a);
 	}
 	condition.notify_one ();
@@ -84,7 +84,7 @@ void nano::state_block_signature_verification::add (nano::unchecked_info const &
 
 size_t nano::state_block_signature_verification::size ()
 {
-	nano::lock_guard<std::mutex> guard (mutex);
+	nano::lock_guard guard (mutex);
 	return state_blocks.size ();
 }
 

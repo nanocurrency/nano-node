@@ -15,7 +15,7 @@ public:
 	void erase (nano::account & account_a);
 
 private:
-	std::mutex mutex;
+	nano::mutex mutex;
 	std::unordered_map<nano::account, std::shared_ptr<nano::json_payment_observer>> payment_observers;
 };
 }

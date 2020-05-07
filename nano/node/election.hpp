@@ -55,7 +55,7 @@ private: // State management
 	std::atomic<nano::election::state_t> state_m = { state_t::idle };
 
 	// These time points must be protected by this mutex
-	std::mutex timepoints_mutex;
+	nano::mutex timepoints_mutex;
 	std::chrono::steady_clock::time_point state_start = { std::chrono::steady_clock::now () };
 	std::chrono::steady_clock::time_point last_block = { std::chrono::steady_clock::now () };
 	std::chrono::steady_clock::time_point last_req = { std::chrono::steady_clock::time_point () };

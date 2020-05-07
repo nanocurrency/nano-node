@@ -89,7 +89,7 @@ TEST (websocket, active_difficulty)
 
 	// Fake history records and force a trended_active_multiplier change
 	{
-		nano::unique_lock<std::mutex> lock (node1->active.mutex);
+		nano::unique_lock lock (node1->active.mutex);
 		node1->active.multipliers_cb.push_front (10.);
 		node1->active.update_active_multiplier (lock);
 	}

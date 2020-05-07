@@ -37,7 +37,7 @@ public:
 	void add (std::chrono::steady_clock::time_point const &, std::function<void()> const &);
 	void run ();
 	boost::asio::io_context & io_ctx;
-	std::mutex mutex;
+	nano::mutex mutex{ mutex_identifier (mutexes::alarm) };
 	nano::condition_variable condition;
 	std::priority_queue<operation, std::vector<operation>, std::greater<operation>> operations;
 	std::thread thread;

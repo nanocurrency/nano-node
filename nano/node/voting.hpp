@@ -36,14 +36,14 @@ public:
 
 private:
 	void run ();
-	void send (nano::unique_lock<std::mutex> &);
+	void send (nano::unique_lock<nano::mutex> &);
 	nano::node_config & config;
 	nano::block_store & store;
 	nano::wallets & wallets;
 	nano::vote_processor & vote_processor;
 	nano::votes_cache & votes_cache;
 	nano::network & network;
-	std::mutex mutex;
+	nano::mutex mutex{ mutex_identifier (mutexes::vote_generator) };
 	nano::condition_variable condition;
 	std::deque<nano::block_hash> hashes;
 	nano::network_params network_params;
@@ -82,7 +82,7 @@ public:
 	void remove (nano::block_hash const &);
 
 private:
-	std::mutex cache_mutex;
+	nano::mutex cache_mutex{ mutex_identifier (mutexes::votes_cache) };
 	// clang-format off
 	class tag_sequence {};
 	class tag_hash {};

@@ -33,7 +33,7 @@ private:
 	nano::node_config & node_config;
 	nano::logger_mt & logger;
 
-	std::mutex mutex;
+	nano::mutex mutex{ mutex_identifier (mutexes::state_block_signature_verification) };
 	bool stopped{ false };
 	bool active{ false };
 	std::deque<nano::unchecked_info> state_blocks;

@@ -30,7 +30,7 @@ TEST (confirmation_solicitor, batches)
 	ASSERT_EQ (nano::test_genesis_key.pub, representatives.front ().account);
 	auto send (std::make_shared<nano::send_block> (nano::genesis_hash, nano::keypair ().pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (nano::genesis_hash)));
 	{
-		nano::lock_guard<std::mutex> guard (node2.active.mutex);
+		nano::lock_guard guard (node2.active.mutex);
 		for (size_t i (0); i < nano::network::confirm_req_hashes_max; ++i)
 		{
 			auto election (std::make_shared<nano::election> (node2, send, nullptr, false));

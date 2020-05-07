@@ -29,7 +29,7 @@ public:
 
 private:
 	nano::uint128_t trend (nano::transaction &);
-	mutable std::mutex mutex;
+	mutable nano::mutex mutex;
 	nano::ledger & ledger;
 	nano::network_params & network_params;
 	std::unordered_set<nano::account> reps;

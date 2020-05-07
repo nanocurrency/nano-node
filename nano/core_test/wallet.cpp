@@ -1176,14 +1176,14 @@ TEST (work_watcher, update)
 	auto multiplier2 (nano::normalized_multiplier (nano::difficulty::to_multiplier (difficulty2, nano::work_threshold (block2->work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false))), node.network_params.network.publish_thresholds.epoch_1));
 	double updated_multiplier1{ multiplier1 }, updated_multiplier2{ multiplier2 }, target_multiplier{ std::max (multiplier1, multiplier2) + 1e-6 };
 	{
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		nano::lock_guard guard (node.active.mutex);
 		node.active.trended_active_multiplier = target_multiplier;
 	}
 	system.deadline_set (20s);
 	while (updated_multiplier1 == multiplier1 || updated_multiplier2 == multiplier2)
 	{
 		{
-			nano::lock_guard<std::mutex> guard (node.active.mutex);
+			nano::lock_guard guard (node.active.mutex);
 			{
 				auto const existing (node.active.roots.find (block1->qualified_root ()));
 				//if existing is junk the block has been confirmed already
@@ -1228,7 +1228,7 @@ TEST (work_watcher, propagate)
 	auto updated_multiplier{ multiplier };
 	auto propagated_multiplier{ multiplier };
 	{
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		nano::lock_guard guard (node.active.mutex);
 		node.active.trended_active_multiplier = multiplier * 1.001;
 	}
 	bool updated{ false };
@@ -1237,7 +1237,7 @@ TEST (work_watcher, propagate)
 	while (!(updated && propagated))
 	{
 		{
-			nano::lock_guard<std::mutex> guard (node.active.mutex);
+			nano::lock_guard guard (node.active.mutex);
 			{
 				auto const existing (node.active.roots.find (block->qualified_root ()));
 				ASSERT_NE (existing, node.active.roots.end ());
@@ -1245,7 +1245,7 @@ TEST (work_watcher, propagate)
 			}
 		}
 		{
-			nano::lock_guard<std::mutex> guard (node_passive.active.mutex);
+			nano::lock_guard guard (node_passive.active.mutex);
 			{
 				auto const existing (node_passive.active.roots.find (block->qualified_root ()));
 				ASSERT_NE (existing, node_passive.active.roots.end ());
@@ -1327,13 +1327,13 @@ TEST (work_watcher, generation_disabled)
 	auto multiplier = nano::normalized_multiplier (nano::difficulty::to_multiplier (difficulty, nano::work_threshold (block->work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false))), node.network_params.network.publish_thresholds.epoch_1);
 	double updated_multiplier{ multiplier };
 	{
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		nano::lock_guard guard (node.active.mutex);
 		node.active.trended_active_multiplier = multiplier * 10;
 	}
 	std::this_thread::sleep_for (2s);
 	ASSERT_TRUE (node.wallets.watcher->is_watched (block->qualified_root ()));
 	{
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		nano::lock_guard guard (node.active.mutex);
 		auto const existing (node.active.roots.find (block->qualified_root ()));
 		ASSERT_NE (existing, node.active.roots.end ());
 		updated_multiplier = existing->multiplier;
@@ -1356,7 +1356,7 @@ TEST (work_watcher, cancel)
 	auto work1 (node.work_generate_blocking (nano::test_genesis_key.pub));
 	auto const block1 (wallet.send_action (nano::test_genesis_key.pub, key.pub, 100, *work1, false));
 	{
-		nano::unique_lock<std::mutex> lock (node.active.mutex);
+		nano::unique_lock lock (node.active.mutex);
 		// Prevent active difficulty repopulating multipliers
 		node.network_params.network.request_interval_ms = 10000;
 		// Fill multipliers_cb and update active difficulty;
@@ -1377,7 +1377,7 @@ TEST (work_watcher, cancel)
 	node.work.cancel (block1->root ());
 	ASSERT_EQ (0, node.work.size ());
 	{
-		nano::unique_lock<std::mutex> lock (wallet.wallets.watcher->mutex);
+		nano::unique_lock lock (wallet.wallets.watcher->mutex);
 		auto existing (wallet.wallets.watcher->watched.find (block1->qualified_root ()));
 		ASSERT_NE (wallet.wallets.watcher->watched.end (), existing);
 		auto block2 (existing->second);
@@ -1409,7 +1409,7 @@ TEST (wallet, limited_difficulty)
 	wallet.insert_adhoc (nano::test_genesis_key.prv, false);
 	{
 		// Force active difficulty to an impossibly high value
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		nano::lock_guard guard (node.active.mutex);
 		node.active.trended_active_multiplier = 1024 * 1024 * 1024;
 	}
 	ASSERT_EQ (node.max_work_generate_difficulty (nano::work_version::work_1), node.active.limited_active_difficulty (*genesis.open));
@@ -1491,7 +1491,7 @@ TEST (wallet, epoch_2_receive_propagation)
 
 		// Receiving should use the lower difficulty
 		{
-			nano::lock_guard<std::mutex> guard (node.active.mutex);
+			nano::lock_guard guard (node.active.mutex);
 			node.active.trended_active_multiplier = 1.0;
 		}
 		auto receive2 = wallet.receive_action (*send2, key.pub, amount, 1);
@@ -1540,7 +1540,7 @@ TEST (wallet, epoch_2_receive_unopened)
 
 		// Receiving should use the lower difficulty
 		{
-			nano::lock_guard<std::mutex> guard (node.active.mutex);
+			nano::lock_guard guard (node.active.mutex);
 			node.active.trended_active_multiplier = 1.0;
 		}
 		auto receive1 = wallet.receive_action (*send1, key.pub, amount, 1);

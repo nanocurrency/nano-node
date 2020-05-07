@@ -1023,7 +1023,7 @@ void nano::json_handler::block_confirm ()
 				// Add record in confirmation history for confirmed block
 				nano::election_status status{ block_l, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::active_confirmation_height };
 				{
-					nano::lock_guard<std::mutex> lock (node.active.mutex);
+					nano::lock_guard lock (node.active.mutex);
 					node.active.add_recently_cemented (status);
 				}
 				// Trigger callback for confirmed block
@@ -1710,7 +1710,7 @@ void nano::json_handler::bootstrap_status ()
 	response_l.put ("total_attempts_count", std::to_string (node.bootstrap_initiator.attempts.incremental));
 	boost::property_tree::ptree connections;
 	{
-		nano::lock_guard<std::mutex> connections_lock (node.bootstrap_initiator.connections->mutex);
+		nano::lock_guard connections_lock (node.bootstrap_initiator.connections->mutex);
 		connections.put ("clients", std::to_string (node.bootstrap_initiator.connections->clients.size ()));
 		connections.put ("connections", std::to_string (node.bootstrap_initiator.connections->connections_count));
 		connections.put ("idle", std::to_string (node.bootstrap_initiator.connections->idle.size ()));
@@ -1720,7 +1720,7 @@ void nano::json_handler::bootstrap_status ()
 	response_l.add_child ("connections", connections);
 	boost::property_tree::ptree attempts;
 	{
-		nano::lock_guard<std::mutex> attempts_lock (node.bootstrap_initiator.attempts.bootstrap_attempts_mutex);
+		nano::lock_guard attempts_lock (node.bootstrap_initiator.attempts.bootstrap_attempts_mutex);
 		for (auto i : node.bootstrap_initiator.attempts.attempts)
 		{
 			boost::property_tree::ptree entry;
@@ -1788,7 +1788,7 @@ void nano::json_handler::confirmation_active ()
 	}
 	boost::property_tree::ptree elections;
 	{
-		nano::lock_guard<std::mutex> lock (node.active.mutex);
+		nano::lock_guard lock (node.active.mutex);
 		for (auto i (node.active.roots.begin ()), n (node.active.roots.end ()); i != n; ++i)
 		{
 			if (i->election->confirmation_request_count >= announcements)
@@ -1877,7 +1877,7 @@ void nano::json_handler::confirmation_info ()
 	if (!root.decode_hex (root_text))
 	{
 		auto election (node.active.election (root));
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		nano::lock_guard guard (node.active.mutex);
 		if (election != nullptr && !election->confirmed ())
 		{
 			response_l.put ("announcements", std::to_string (election->confirmation_request_count));

@@ -18,7 +18,7 @@ public:
 	void accept_action (boost::system::error_code const &, std::shared_ptr<nano::socket>);
 	size_t connection_count ();
 
-	std::mutex mutex;
+	nano::mutex mutex;
 	std::unordered_map<nano::bootstrap_server *, std::weak_ptr<nano::bootstrap_server>> connections;
 	nano::tcp_endpoint endpoint ();
 	nano::node & node;
@@ -62,13 +62,13 @@ public:
 	void finish_request ();
 	void finish_request_async ();
 	void timeout ();
-	void run_next (nano::unique_lock<std::mutex> & lock_a);
+	void run_next (nano::unique_lock<nano::mutex> & lock_a);
 	bool is_bootstrap_connection ();
 	bool is_realtime_connection ();
 	std::shared_ptr<std::vector<uint8_t>> receive_buffer;
 	std::shared_ptr<nano::socket> socket;
 	std::shared_ptr<nano::node> node;
-	std::mutex mutex;
+	nano::mutex mutex;
 	std::queue<std::unique_ptr<nano::message>> requests;
 	std::atomic<bool> stopped{ false };
 	std::atomic<nano::bootstrap_server_type> type{ nano::bootstrap_server_type::undefined };

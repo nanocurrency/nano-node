@@ -236,7 +236,7 @@ TEST (node, node_receive_quorum)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	{
-		nano::lock_guard<std::mutex> guard (node1.active.mutex);
+		nano::lock_guard guard (node1.active.mutex);
 		auto info (node1.active.roots.find (nano::qualified_root (previous, previous)));
 		ASSERT_NE (node1.active.roots.end (), info);
 		ASSERT_FALSE (info->election->confirmed ());
@@ -458,7 +458,7 @@ TEST (node, search_pending_confirmed)
 	system.wallet (0)->insert_adhoc (key2.prv);
 	ASSERT_FALSE (system.wallet (0)->search_pending ());
 	{
-		nano::lock_guard<std::mutex> guard (node->active.mutex);
+		nano::lock_guard guard (node->active.mutex);
 		auto existing1 (node->active.blocks.find (send1->hash ()));
 		ASSERT_EQ (node->active.blocks.end (), existing1);
 		auto existing2 (node->active.blocks.find (send2->hash ()));
@@ -1229,7 +1229,7 @@ TEST (node, fork_publish)
 		node1.process_active (send1);
 		node1.block_processor.flush ();
 		ASSERT_EQ (1, node1.active.size ());
-		nano::unique_lock<std::mutex> lock (node1.active.mutex);
+		nano::unique_lock lock (node1.active.mutex);
 		auto existing (node1.active.roots.find (send1->qualified_root ()));
 		ASSERT_NE (node1.active.roots.end (), existing);
 		auto election (existing->election);
@@ -1270,7 +1270,7 @@ TEST (node, fork_publish_inactive)
 	auto election (node.active.election (send1->qualified_root ()));
 	ASSERT_NE (election, nullptr);
 	{
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		nano::lock_guard guard (node.active.mutex);
 		auto & blocks (election->blocks);
 		ASSERT_NE (blocks.end (), blocks.find (send1->hash ()));
 		ASSERT_NE (blocks.end (), blocks.find (send2->hash ()));
@@ -1302,7 +1302,7 @@ TEST (node, fork_keep)
 	node1.block_processor.flush ();
 	node2.process_active (send2);
 	node2.block_processor.flush ();
-	nano::unique_lock<std::mutex> lock (node2.active.mutex);
+	nano::unique_lock lock (node2.active.mutex);
 	auto conflict (node2.active.roots.find (nano::qualified_root (genesis.hash (), genesis.hash ())));
 	ASSERT_NE (node2.active.roots.end (), conflict);
 	auto votes1 (conflict->election);
@@ -1358,7 +1358,7 @@ TEST (node, fork_flip)
 	node1.block_processor.flush ();
 	node2.network.process_message (publish1, channel2);
 	node2.block_processor.flush ();
-	nano::unique_lock<std::mutex> lock (node2.active.mutex);
+	nano::unique_lock lock (node2.active.mutex);
 	auto conflict (node2.active.roots.find (nano::qualified_root (genesis.hash (), genesis.hash ())));
 	ASSERT_NE (node2.active.roots.end (), conflict);
 	auto votes1 (conflict->election);
@@ -1429,7 +1429,7 @@ TEST (node, fork_multi_flip)
 		node1.block_processor.flush ();
 		node2.network.process_message (publish1, node2.network.udp_channels.create (node2.network.endpoint ()));
 		node2.block_processor.flush ();
-		nano::unique_lock<std::mutex> lock (node2.active.mutex);
+		nano::unique_lock lock (node2.active.mutex);
 		auto conflict (node2.active.roots.find (nano::qualified_root (genesis.hash (), genesis.hash ())));
 		ASSERT_NE (node2.active.roots.end (), conflict);
 		auto votes1 (conflict->election);
@@ -1577,7 +1577,7 @@ TEST (node, fork_open_flip)
 	node1.block_processor.flush ();
 	node2.process_active (open1);
 	node2.block_processor.flush ();
-	nano::unique_lock<std::mutex> lock (node2.active.mutex);
+	nano::unique_lock lock (node2.active.mutex);
 	auto conflict (node2.active.roots.find (open1->qualified_root ()));
 	ASSERT_NE (node2.active.roots.end (), conflict);
 	auto votes1 (conflict->election);
@@ -1891,7 +1891,7 @@ TEST (node, rep_self_vote)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	nano::unique_lock<std::mutex> lock (active.mutex);
+	nano::unique_lock lock (active.mutex);
 	auto & rep_votes (election1.election->last_votes);
 	ASSERT_NE (rep_votes.end (), rep_votes.find (nano::test_genesis_key.pub));
 	ASSERT_NE (rep_votes.end (), rep_votes.find (rep_big.pub));
@@ -2031,7 +2031,7 @@ TEST (node, bootstrap_confirm_frontiers)
 		ASSERT_NO_ERROR (system1.poll ());
 	}
 	{
-		nano::lock_guard<std::mutex> guard (node1->active.mutex);
+		nano::lock_guard guard (node1->active.mutex);
 		auto existing1 (node1->active.blocks.find (send0.hash ()));
 		ASSERT_NE (node1->active.blocks.end (), existing1);
 	}
@@ -2404,7 +2404,7 @@ TEST (node, vote_replay)
 	auto node2 = system.add_node ();
 	{
 		auto transaction (node2->store.tx_begin_read ());
-		nano::lock_guard<std::mutex> lock (node2->store.get_cache_mutex ());
+		nano::lock_guard lock (node2->store.get_cache_mutex ());
 		auto vote (node2->store.vote_current (transaction, nano::test_genesis_key.pub));
 		ASSERT_EQ (nullptr, vote);
 	}
@@ -2415,7 +2415,7 @@ TEST (node, vote_replay)
 	{
 		auto ec = system.poll ();
 		auto transaction (node2->store.tx_begin_read ());
-		nano::lock_guard<std::mutex> lock (node2->store.get_cache_mutex ());
+		nano::lock_guard lock (node2->store.get_cache_mutex ());
 		auto vote (node2->store.vote_current (transaction, nano::test_genesis_key.pub));
 		done = vote && (vote->sequence >= 10000);
 		ASSERT_NO_ERROR (ec);
@@ -2628,7 +2628,7 @@ TEST (node, confirm_quorum)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	nano::lock_guard<std::mutex> guard (node1.active.mutex);
+	nano::lock_guard guard (node1.active.mutex);
 	auto info (node1.active.roots.find (nano::qualified_root (send1->hash (), send1->hash ())));
 	ASSERT_NE (node1.active.roots.end (), info);
 	ASSERT_FALSE (info->election->confirmed ());
@@ -2662,7 +2662,7 @@ TEST (node, local_votes_cache)
 		while (current_vote == nullptr || current_vote->sequence < sequence)
 		{
 			{
-				nano::lock_guard<std::mutex> lock (node.store.get_cache_mutex ());
+				nano::lock_guard lock (node.store.get_cache_mutex ());
 				auto transaction (node.store.tx_begin_read ());
 				current_vote = node.store.vote_current (transaction, nano::test_genesis_key.pub);
 			}
@@ -2684,7 +2684,7 @@ TEST (node, local_votes_cache)
 	}
 	// Make sure a new vote was not generated
 	{
-		nano::lock_guard<std::mutex> lock (node.store.get_cache_mutex ());
+		nano::lock_guard lock (node.store.get_cache_mutex ());
 		ASSERT_EQ (2, node.store.vote_current (node.store.tx_begin_read (), nano::test_genesis_key.pub)->sequence);
 	}
 	// Max cache
@@ -2800,7 +2800,7 @@ TEST (node, local_votes_cache_generate_new_vote)
 	ASSERT_EQ (1, votes1[0]->blocks.size ());
 	ASSERT_EQ (send1->hash (), boost::get<nano::block_hash> (votes1[0]->blocks[0]));
 	{
-		nano::lock_guard<std::mutex> lock (node.store.get_cache_mutex ());
+		nano::lock_guard lock (node.store.get_cache_mutex ());
 		auto transaction (node.store.tx_begin_read ());
 		auto current_vote (node.store.vote_current (transaction, nano::test_genesis_key.pub));
 		ASSERT_EQ (current_vote->sequence, 1);
@@ -2823,7 +2823,7 @@ TEST (node, local_votes_cache_generate_new_vote)
 	ASSERT_EQ (1, votes2.size ());
 	ASSERT_EQ (1, votes2[0]->blocks.size ());
 	{
-		nano::lock_guard<std::mutex> lock (node.store.get_cache_mutex ());
+		nano::lock_guard lock (node.store.get_cache_mutex ());
 		auto transaction (node.store.tx_begin_read ());
 		auto current_vote (node.store.vote_current (transaction, nano::test_genesis_key.pub));
 		ASSERT_EQ (current_vote->sequence, 2);
@@ -3070,7 +3070,7 @@ TEST (node, epoch_conflict_confirm)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	{
-		nano::lock_guard<std::mutex> lock (node0->active.mutex);
+		nano::lock_guard lock (node0->active.mutex);
 		ASSERT_TRUE (node0->active.blocks.find (change->hash ()) != node0->active.blocks.end ());
 		ASSERT_TRUE (node0->active.blocks.find (epoch_open->hash ()) != node0->active.blocks.end ());
 	}
@@ -3171,14 +3171,14 @@ TEST (node, fork_election_invalid_block_signature)
 	while (election == nullptr)
 	{
 		ASSERT_NO_ERROR (system.poll ());
-		nano::lock_guard<std::mutex> lock (node1.active.mutex);
+		nano::lock_guard lock (node1.active.mutex);
 		auto existing = node1.active.blocks.find (send1->hash ());
 		if (existing != node1.active.blocks.end ())
 		{
 			election = existing->second;
 		}
 	}
-	nano::unique_lock<std::mutex> lock (node1.active.mutex);
+	nano::unique_lock lock (node1.active.mutex);
 	ASSERT_EQ (1, election->blocks.size ());
 	lock.unlock ();
 	node1.network.process_message (nano::publish (send3), channel1);
@@ -3770,7 +3770,7 @@ TEST (active_difficulty, recalculate_work)
 	}
 	auto sum (std::accumulate (node1.active.multipliers_cb.begin (), node1.active.multipliers_cb.end (), double(0)));
 	ASSERT_EQ (node1.active.active_difficulty (), nano::difficulty::from_multiplier (sum / node1.active.multipliers_cb.size (), node1.network_params.network.publish_thresholds.epoch_1));
-	nano::unique_lock<std::mutex> lock (node1.active.mutex);
+	nano::unique_lock lock (node1.active.mutex);
 	// Fake history records to force work recalculation
 	for (auto i (0); i < node1.active.multipliers_cb.size (); i++)
 	{

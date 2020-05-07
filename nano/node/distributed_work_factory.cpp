@@ -26,7 +26,7 @@ bool nano::distributed_work_factory::make (std::chrono::seconds const & backoff_
 		{
 			auto distributed (std::make_shared<nano::distributed_work> (node, request_a, backoff_a));
 			{
-				nano::lock_guard<std::mutex> guard (mutex);
+				nano::lock_guard guard (mutex);
 				items[request_a.root].emplace_back (distributed);
 			}
 			distributed->start ();
@@ -38,7 +38,7 @@ bool nano::distributed_work_factory::make (std::chrono::seconds const & backoff_
 
 void nano::distributed_work_factory::cancel (nano::root const & root_a, bool const local_stop)
 {
-	nano::lock_guard<std::mutex> guard_l (mutex);
+	nano::lock_guard guard_l (mutex);
 	auto existing_l (items.find (root_a));
 	if (existing_l != items.end ())
 	{
@@ -56,7 +56,7 @@ void nano::distributed_work_factory::cancel (nano::root const & root_a, bool con
 
 void nano::distributed_work_factory::cleanup_finished ()
 {
-	nano::lock_guard<std::mutex> guard (mutex);
+	nano::lock_guard guard (mutex);
 	for (auto it (items.begin ()), end (items.end ()); it != end;)
 	{
 		it->second.erase (std::remove_if (it->second.begin (), it->second.end (), [](auto distributed_a) {
@@ -81,7 +81,7 @@ void nano::distributed_work_factory::stop ()
 	{
 		// Cancel any ongoing work
 		std::unordered_set<nano::root> roots_l;
-		nano::unique_lock<std::mutex> lock_l (mutex);
+		nano::unique_lock lock_l (mutex);
 		for (auto const & item_l : items)
 		{
 			roots_l.insert (item_l.first);
@@ -100,7 +100,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (di
 {
 	size_t item_count;
 	{
-		nano::lock_guard<std::mutex> guard (distributed_work.mutex);
+		nano::lock_guard guard (distributed_work.mutex);
 		item_count = distributed_work.items.size ();
 	}
 

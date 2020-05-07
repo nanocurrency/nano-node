@@ -58,7 +58,7 @@ public:
 
 private:
 	nano::stat & stats;
-	std::mutex mutex;
+	nano::mutex mutex;
 	nano::condition_variable condition;
 	boost::circular_buffer<nano::message_buffer *> free;
 	boost::circular_buffer<nano::message_buffer *> full;
@@ -76,7 +76,7 @@ public:
 	void stop ();
 
 private:
-	std::mutex mutex;
+	nano::mutex mutex;
 	nano::condition_variable condition;
 	std::deque<nano::tcp_message_item> entries;
 	unsigned max_entries;
@@ -107,7 +107,7 @@ private:
 		nano::uint256_union cookie;
 		std::chrono::steady_clock::time_point created_at;
 	};
-	mutable std::mutex syn_cookie_mutex;
+	mutable nano::mutex syn_cookie_mutex;
 	std::unordered_map<nano::endpoint, syn_cookie_info> cookies;
 	std::unordered_map<boost::asio::ip::address, unsigned> cookies_per_ip;
 	size_t max_cookies_per_ip;

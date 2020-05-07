@@ -25,7 +25,7 @@ public:
 	void start (uint64_t);
 	void observe ();
 	void complete (nano::payment_status);
-	std::mutex mutex;
+	nano::mutex mutex;
 	nano::condition_variable condition;
 	nano::node & node;
 	nano::account account;

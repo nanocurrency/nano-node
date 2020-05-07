@@ -71,7 +71,7 @@ public:
 	void add (uint64_t addend, bool update_timestamp = true);
 
 private:
-	mutable std::mutex datapoint_mutex;
+	mutable nano::mutex datapoint_mutex;
 	/** Value of the sample interval */
 	uint64_t value{ 0 };
 	/** When the sample was added. This is wall time (system_clock), suitable for display purposes. */
@@ -533,6 +533,6 @@ private:
 	bool stopped{ false };
 
 	/** All access to stat is thread safe, including calls from observers on the same thread */
-	std::mutex stat_mutex;
+	nano::mutex stat_mutex;
 };
 }

@@ -28,14 +28,14 @@ public:
 	std::vector<std::unique_ptr<nano::uint256_union>> values;
 
 private:
-	std::mutex mutex;
+	nano::mutex mutex;
 	void value_get (nano::raw_key &);
 };
 class kdf final
 {
 public:
 	void phs (nano::raw_key &, std::string const &, nano::uint256_union const &);
-	std::mutex mutex;
+	nano::mutex mutex;
 };
 enum class key_type
 {
@@ -161,7 +161,7 @@ public:
 	std::function<void(bool, bool)> lock_observer;
 	nano::wallet_store store;
 	nano::wallets & wallets;
-	std::mutex representatives_mutex;
+	nano::mutex representatives_mutex;
 	std::unordered_set<nano::account> representatives;
 };
 
@@ -177,7 +177,7 @@ public:
 	void remove (nano::block const &);
 	bool is_watched (nano::qualified_root const &);
 	size_t size ();
-	std::mutex mutex;
+	nano::mutex mutex;
 	nano::node & node;
 	std::unordered_map<nano::qualified_root, std::shared_ptr<nano::state_block>> watched;
 	std::atomic<bool> stopped;
@@ -226,8 +226,8 @@ public:
 	std::unordered_map<nano::wallet_id, std::shared_ptr<nano::wallet>> items;
 	std::multimap<nano::uint128_t, std::pair<std::shared_ptr<nano::wallet>, std::function<void(nano::wallet &)>>, std::greater<nano::uint128_t>> actions;
 	nano::locked<std::unordered_map<nano::account, nano::root>> delayed_work;
-	std::mutex mutex;
-	std::mutex action_mutex;
+	nano::mutex mutex;
+	nano::mutex action_mutex;
 	nano::condition_variable condition;
 	nano::kdf kdf;
 	MDB_dbi handle;
@@ -246,7 +246,7 @@ public:
 	nano::read_transaction tx_begin_read ();
 
 private:
-	std::mutex counts_mutex;
+	nano::mutex counts_mutex;
 	nano::wallet_representative_counts counts;
 };
 

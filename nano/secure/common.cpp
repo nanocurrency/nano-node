@@ -754,7 +754,7 @@ std::shared_ptr<nano::vote> nano::vote_uniquer::unique (std::shared_ptr<nano::vo
 			result->blocks.front () = uniquer.unique (boost::get<std::shared_ptr<nano::block>> (result->blocks.front ()));
 		}
 		nano::block_hash key (vote_a->full_hash ());
-		nano::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard lock (mutex);
 		auto & existing (votes[key]);
 		if (auto block_l = existing.lock ())
 		{
@@ -793,7 +793,7 @@ std::shared_ptr<nano::vote> nano::vote_uniquer::unique (std::shared_ptr<nano::vo
 
 size_t nano::vote_uniquer::size ()
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard lock (mutex);
 	return votes.size ();
 }
 

@@ -42,7 +42,7 @@ TEST (active_transactions, confirm_active)
 	auto peers (node2.network.random_set (1));
 	ASSERT_FALSE (peers.empty ());
 	{
-		nano::lock_guard<std::mutex> guard (node2.rep_crawler.probable_reps_mutex);
+		nano::lock_guard guard (node2.rep_crawler.probable_reps_mutex);
 		node2.rep_crawler.probable_reps.emplace (nano::test_genesis_key.pub, nano::genesis_amount, *peers.begin ());
 	}
 	while (node2.ledger.cache.cemented_count < 2 || !node2.active.empty ())
@@ -86,7 +86,7 @@ TEST (active_transactions, confirm_frontier)
 	auto peers (node2.network.random_set (1));
 	ASSERT_FALSE (peers.empty ());
 	{
-		nano::lock_guard<std::mutex> guard (node2.rep_crawler.probable_reps_mutex);
+		nano::lock_guard guard (node2.rep_crawler.probable_reps_mutex);
 		node2.rep_crawler.probable_reps.emplace (nano::test_genesis_key.pub, nano::genesis_amount, *peers.begin ());
 	}
 	system.deadline_set (5s);
@@ -123,7 +123,7 @@ TEST (active_transactions, adjusted_multiplier_priority)
 
 	// Check adjusted difficulty
 	{
-		nano::lock_guard<std::mutex> active_guard (node1.active.mutex);
+		nano::lock_guard active_guard (node1.active.mutex);
 		node1.active.update_adjusted_multiplier ();
 		ASSERT_EQ (node1.active.roots.get<1> ().begin ()->election->status.winner->hash (), send1->hash ());
 		ASSERT_LT (node1.active.roots.find (send2->qualified_root ())->adjusted_multiplier, node1.active.roots.find (send1->qualified_root ())->adjusted_multiplier);
@@ -135,7 +135,7 @@ TEST (active_transactions, adjusted_multiplier_priority)
 	system.deadline_set (10s);
 	while (!node1.active.empty ())
 	{
-		nano::lock_guard<std::mutex> active_guard (node1.active.mutex);
+		nano::lock_guard active_guard (node1.active.mutex);
 		if (!node1.active.roots.empty ())
 		{
 			node1.active.roots.begin ()->election->confirm_once ();
@@ -170,7 +170,7 @@ TEST (active_transactions, adjusted_multiplier_priority)
 	}
 
 	// Check adjusted difficulty
-	nano::lock_guard<std::mutex> lock (node1.active.mutex);
+	nano::lock_guard lock (node1.active.mutex);
 	node1.active.update_adjusted_multiplier ();
 	double last_adjusted (0.0);
 	for (auto i (node1.active.roots.get<1> ().begin ()), n (node1.active.roots.get<1> ().end ()); i != n; ++i)
@@ -216,7 +216,7 @@ TEST (active_transactions, keep_local)
 	ASSERT_EQ (0, node.active.recently_dropped.size ());
 	while (!node.active.empty ())
 	{
-		nano::lock_guard<std::mutex> active_guard (node.active.mutex);
+		nano::lock_guard active_guard (node.active.mutex);
 		if (!node.active.roots.empty ())
 		{
 			node.active.roots.begin ()->election->confirm_once ();
@@ -272,7 +272,7 @@ TEST (active_transactions, prioritize_chains)
 	}
 	while (!node1.active.empty ())
 	{
-		nano::lock_guard<std::mutex> active_guard (node1.active.mutex);
+		nano::lock_guard active_guard (node1.active.mutex);
 		if (!node1.active.roots.empty ())
 		{
 			node1.active.roots.begin ()->election->confirm_once ();
@@ -298,7 +298,7 @@ TEST (active_transactions, prioritize_chains)
 	}
 	size_t seen (0);
 	{
-		nano::lock_guard<std::mutex> active_guard (node1.active.mutex);
+		nano::lock_guard active_guard (node1.active.mutex);
 		node1.active.update_adjusted_multiplier ();
 		auto it (node1.active.roots.get<1> ().begin ());
 		while (!node1.active.roots.empty () && it != node1.active.roots.get<1> ().end ())
@@ -390,7 +390,7 @@ TEST (active_transactions, inactive_votes_cache_existing_vote)
 	}
 	std::shared_ptr<nano::election> election;
 	{
-		nano::lock_guard<std::mutex> active_guard (node.active.mutex);
+		nano::lock_guard active_guard (node.active.mutex);
 		auto it (node.active.roots.begin ());
 		ASSERT_NE (node.active.roots.end (), it);
 		election = it->election;
@@ -403,13 +403,13 @@ TEST (active_transactions, inactive_votes_cache_existing_vote)
 	bool done (false);
 	while (!done)
 	{
-		nano::unique_lock<std::mutex> active_lock (node.active.mutex);
+		nano::unique_lock active_lock (node.active.mutex);
 		done = (election->last_votes.size () == 2);
 		active_lock.unlock ();
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::vote_new));
-	nano::lock_guard<std::mutex> active_guard (node.active.mutex);
+	nano::lock_guard active_guard (node.active.mutex);
 	auto last_vote1 (election->last_votes[key.pub]);
 	ASSERT_EQ (send->hash (), last_vote1.hash);
 	ASSERT_EQ (1, last_vote1.sequence);
@@ -450,7 +450,7 @@ TEST (active_transactions, inactive_votes_cache_multiple_votes)
 	while (true)
 	{
 		{
-			nano::lock_guard<std::mutex> active_guard (node.active.mutex);
+			nano::lock_guard active_guard (node.active.mutex);
 			if (node.active.find_inactive_votes_cache (send1->hash ()).voters.size () == 2)
 			{
 				break;
@@ -462,7 +462,7 @@ TEST (active_transactions, inactive_votes_cache_multiple_votes)
 	// Start election
 	node.active.insert (send1);
 	{
-		nano::lock_guard<std::mutex> active_guard (node.active.mutex);
+		nano::lock_guard active_guard (node.active.mutex);
 		auto it (node.active.roots.begin ());
 		ASSERT_NE (node.active.roots.end (), it);
 		ASSERT_EQ (3, it->election->last_votes.size ()); // 2 votes and 1 default not_an_acount
@@ -512,13 +512,13 @@ TEST (active_transactions, update_difficulty)
 	{
 		{
 			// node1
-			nano::lock_guard<std::mutex> guard1 (node1.active.mutex);
+			nano::lock_guard guard1 (node1.active.mutex);
 			auto const existing1 (node1.active.roots.find (send1->qualified_root ()));
 			ASSERT_NE (existing1, node1.active.roots.end ());
 			auto const existing2 (node1.active.roots.find (send2->qualified_root ()));
 			ASSERT_NE (existing2, node1.active.roots.end ());
 			// node2
-			nano::lock_guard<std::mutex> guard2 (node2.active.mutex);
+			nano::lock_guard guard2 (node2.active.mutex);
 			auto const existing3 (node2.active.roots.find (send1->qualified_root ()));
 			ASSERT_NE (existing3, node2.active.roots.end ());
 			auto const existing4 (node2.active.roots.find (send2->qualified_root ()));
@@ -591,7 +591,7 @@ TEST (active_transactions, vote_replays)
 
 	// Removing blocks as recently confirmed makes every vote indeterminate
 	{
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		nano::lock_guard guard (node.active.mutex);
 		node.active.recently_confirmed.clear ();
 	}
 	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote_send1));
@@ -704,7 +704,7 @@ TEST (active_transactions, dropped_cleanup)
 	// Now simulate dropping the election, which performs a cleanup in the background using the node worker
 	ASSERT_FALSE (election->confirmed ());
 	{
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		nano::lock_guard guard (node.active.mutex);
 		election->cleanup ();
 	}
 
@@ -744,7 +744,7 @@ TEST (active_transactions, confirmation_consistency)
 			ASSERT_FALSE (node.active.insert (block).inserted);
 			ASSERT_NO_ERROR (system.poll (5ms));
 		}
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		nano::lock_guard guard (node.active.mutex);
 		ASSERT_EQ (i + 1, node.active.recently_confirmed.size ());
 		ASSERT_EQ (block->qualified_root (), node.active.recently_confirmed.back ().first);
 		ASSERT_TIMELY (1s, i + 1 == node.active.recently_cemented.size ()); // done after a callback
@@ -778,7 +778,7 @@ TEST (active_transactions, insertion_prioritization)
 	std::sort (blocks.begin (), blocks.end (), [](auto const & blockl, auto const & blockr) { return blockl->difficulty () > blockr->difficulty (); });
 
 	auto update_active_multiplier = [&node] {
-		nano::unique_lock<std::mutex> lock (node.active.mutex);
+		nano::unique_lock lock (node.active.mutex);
 		node.active.update_active_multiplier (lock);
 	};
 
@@ -804,7 +804,7 @@ TEST (active_multiplier, less_than_one)
 {
 	nano::system system (1);
 	auto & node (*system.nodes[0]);
-	nano::unique_lock<std::mutex> lock (node.active.mutex);
+	nano::unique_lock lock (node.active.mutex);
 	auto base_active_difficulty = node.network_params.network.publish_thresholds.epoch_1;
 	auto base_active_multiplier = 1.0;
 	auto min_active_difficulty = node.network_params.network.publish_thresholds.entry;
@@ -930,7 +930,7 @@ TEST (active_transactions, election_difficulty_update_old)
 	ASSERT_EQ (1, node.active.size ());
 	auto multiplier = node.active.roots.begin ()->multiplier;
 	{
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		nano::lock_guard guard (node.active.mutex);
 		ASSERT_EQ (node.active.normalized_multiplier (*send1), multiplier);
 	}
 	// Should not update with a lower difficulty

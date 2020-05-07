@@ -52,7 +52,7 @@ void nano::write_guard::release ()
 nano::write_database_queue::write_database_queue () :
 guard_finish_callback ([& queue = queue, &mutex = mutex, &cv = cv]() {
 	{
-		nano::lock_guard<std::mutex> guard (mutex);
+		nano::lock_guard guard (mutex);
 		queue.pop_front ();
 	}
 	cv.notify_all ();
@@ -62,7 +62,7 @@ guard_finish_callback ([& queue = queue, &mutex = mutex, &cv = cv]() {
 
 nano::write_guard nano::write_database_queue::wait (nano::writer writer)
 {
-	nano::unique_lock<std::mutex> lk (mutex);
+	nano::unique_lock lk (mutex);
 	// Add writer to the end of the queue if it's not already waiting
 	auto exists = std::find (queue.cbegin (), queue.cend (), writer) != queue.cend ();
 	if (!exists)
@@ -80,7 +80,7 @@ nano::write_guard nano::write_database_queue::wait (nano::writer writer)
 
 bool nano::write_database_queue::contains (nano::writer writer)
 {
-	nano::lock_guard<std::mutex> guard (mutex);
+	nano::lock_guard guard (mutex);
 	return std::find (queue.cbegin (), queue.cend (), writer) != queue.cend ();
 }
 
@@ -88,7 +88,7 @@ bool nano::write_database_queue::process (nano::writer writer)
 {
 	auto result = false;
 	{
-		nano::lock_guard<std::mutex> guard (mutex);
+		nano::lock_guard guard (mutex);
 		// Add writer to the end of the queue if it's not already waiting
 		auto exists = std::find (queue.cbegin (), queue.cend (), writer) != queue.cend ();
 		if (!exists)
@@ -115,7 +115,7 @@ nano::write_guard nano::write_database_queue::pop ()
 void nano::write_database_queue::stop ()
 {
 	{
-		nano::lock_guard<std::mutex> guard (mutex);
+		nano::lock_guard guard (mutex);
 		stopped = true;
 	}
 	cv.notify_all ();

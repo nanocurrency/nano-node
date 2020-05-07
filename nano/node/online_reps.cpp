@@ -19,7 +19,7 @@ void nano::online_reps::observe (nano::account const & rep_a)
 {
 	if (ledger.weight (rep_a) > 0)
 	{
-		nano::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard lock (mutex);
 		reps.insert (rep_a);
 	}
 }
@@ -38,7 +38,7 @@ void nano::online_reps::sample ()
 	nano::uint128_t current;
 	std::unordered_set<nano::account> reps_copy;
 	{
-		nano::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard lock (mutex);
 		reps_copy.swap (reps);
 	}
 	for (auto & i : reps_copy)
@@ -47,7 +47,7 @@ void nano::online_reps::sample ()
 	}
 	ledger.store.online_weight_put (transaction, std::chrono::system_clock::now ().time_since_epoch ().count (), current);
 	auto trend_l (trend (transaction));
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard lock (mutex);
 	online = trend_l;
 }
 
@@ -69,14 +69,14 @@ nano::uint128_t nano::online_reps::trend (nano::transaction & transaction_a)
 
 nano::uint128_t nano::online_reps::online_stake () const
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard lock (mutex);
 	return std::max (online, minimum);
 }
 
 std::vector<nano::account> nano::online_reps::list ()
 {
 	std::vector<nano::account> result;
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard lock (mutex);
 	result.insert (result.end (), reps.begin (), reps.end ());
 	return result;
 }
@@ -85,7 +85,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (on
 {
 	size_t count;
 	{
-		nano::lock_guard<std::mutex> guard (online_reps.mutex);
+		nano::lock_guard guard (online_reps.mutex);
 		count = online_reps.reps.size ();
 	}
 

@@ -72,7 +72,7 @@ public:
 	void erase (const nano::transaction_impl * transaction_impl);
 
 private:
-	std::mutex mutex;
+	nano::mutex mutex;
 	std::vector<mdb_txn_stats> stats;
 	nano::logger_mt & logger;
 	nano::txn_tracking_config txn_tracking_config;

@@ -21,7 +21,7 @@ TEST (conflicts, start_stop)
 	auto election1 = node1.active.insert (send1);
 	ASSERT_EQ (1, node1.active.size ());
 	{
-		nano::lock_guard<std::mutex> guard (node1.active.mutex);
+		nano::lock_guard guard (node1.active.mutex);
 		ASSERT_NE (nullptr, election1.election);
 		ASSERT_EQ (1, election1.election->last_votes.size ());
 	}
@@ -46,7 +46,7 @@ TEST (conflicts, add_existing)
 	node1.active.vote (vote1);
 	ASSERT_EQ (1, node1.active.size ());
 	{
-		nano::lock_guard<std::mutex> guard (node1.active.mutex);
+		nano::lock_guard guard (node1.active.mutex);
 		ASSERT_NE (nullptr, election1.election);
 		ASSERT_EQ (2, election1.election->last_votes.size ());
 		ASSERT_NE (election1.election->last_votes.end (), election1.election->last_votes.find (key2.pub));
@@ -172,7 +172,7 @@ TEST (conflicts, reprioritize)
 	node1.process_active (send1);
 	node1.block_processor.flush ();
 	{
-		nano::lock_guard<std::mutex> guard (node1.active.mutex);
+		nano::lock_guard guard (node1.active.mutex);
 		auto existing1 (node1.active.roots.find (send1->qualified_root ()));
 		ASSERT_NE (node1.active.roots.end (), existing1);
 		ASSERT_EQ (multiplier1, existing1->multiplier);
@@ -183,7 +183,7 @@ TEST (conflicts, reprioritize)
 	node1.process_active (std::make_shared<nano::send_block> (send1_copy));
 	node1.block_processor.flush ();
 	{
-		nano::lock_guard<std::mutex> guard (node1.active.mutex);
+		nano::lock_guard guard (node1.active.mutex);
 		auto existing2 (node1.active.roots.find (send1->qualified_root ()));
 		ASSERT_NE (node1.active.roots.end (), existing2);
 		ASSERT_EQ (multiplier2, existing2->multiplier);
@@ -210,7 +210,7 @@ TEST (conflicts, dependency)
 	ASSERT_EQ (2, node1->active.size ());
 	// Check dependency for send block
 	{
-		nano::lock_guard<std::mutex> guard (node1->active.mutex);
+		nano::lock_guard guard (node1->active.mutex);
 		ASSERT_NE (nullptr, election1.election);
 		ASSERT_EQ (1, election1.election->dependent_blocks.size ());
 		ASSERT_NE (election1.election->dependent_blocks.end (), election1.election->dependent_blocks.find (state_open1->hash ()));
@@ -258,7 +258,7 @@ TEST (conflicts, adjusted_multiplier)
 	}
 	std::unordered_map<nano::block_hash, double> adjusted_multipliers;
 	{
-		nano::lock_guard<std::mutex> guard (node1.active.mutex);
+		nano::lock_guard guard (node1.active.mutex);
 		node1.active.update_adjusted_multiplier ();
 		ASSERT_EQ (node1.active.roots.get<1> ().begin ()->election->status.winner->hash (), send1->hash ());
 		for (auto i (node1.active.roots.get<1> ().begin ()), n (node1.active.roots.get<1> ().end ()); i != n; ++i)
@@ -291,7 +291,7 @@ TEST (conflicts, adjusted_multiplier)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	{
-		nano::lock_guard<std::mutex> guard (node1.active.mutex);
+		nano::lock_guard guard (node1.active.mutex);
 		node1.active.update_adjusted_multiplier ();
 		ASSERT_EQ (node1.active.roots.size (), 12);
 		ASSERT_EQ (node1.active.roots.get<1> ().begin ()->election->status.winner->hash (), open_epoch2->hash ());

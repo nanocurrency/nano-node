@@ -759,7 +759,7 @@ public:
 	virtual nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_end () = 0;
 
 	virtual uint64_t block_account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const = 0;
-	virtual std::mutex & get_cache_mutex () = 0;
+	virtual nano::mutex & get_cache_mutex () = 0;
 
 	virtual bool copy_db (boost::filesystem::path const & destination) = 0;
 	virtual void rebuild_db (nano::write_transaction const & transaction_a) = 0;

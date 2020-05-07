@@ -1893,7 +1893,7 @@ TEST (rpc, process_block_with_work_watcher)
 	double updated_multiplier;
 	while (!updated)
 	{
-		nano::unique_lock<std::mutex> lock (node1.active.mutex);
+		nano::unique_lock lock (node1.active.mutex);
 		//fill multipliers_cb and update active difficulty;
 		for (auto i (0); i < node1.active.multipliers_cb.size (); i++)
 		{
@@ -2278,11 +2278,11 @@ TEST (rpc, process_difficulty_update_flood)
 
 	// Ensure the difficulty update occurs in both nodes
 	ASSERT_NO_ERROR (system.poll_until_true (5s, [&node, &node_passive, &send, expected_multiplier] {
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		nano::lock_guard guard (node.active.mutex);
 		auto const existing (node.active.roots.find (send.qualified_root ()));
 		EXPECT_NE (existing, node.active.roots.end ());
 
-		nano::lock_guard<std::mutex> guard_passive (node_passive.active.mutex);
+		nano::lock_guard guard_passive (node_passive.active.mutex);
 		auto const existing_passive (node_passive.active.roots.find (send.qualified_root ()));
 		EXPECT_NE (existing_passive, node_passive.active.roots.end ());
 
@@ -7750,7 +7750,7 @@ TEST (rpc, active_difficulty)
 	rpc.start ();
 	boost::property_tree::ptree request;
 	request.put ("action", "active_difficulty");
-	nano::unique_lock<std::mutex> lock (node->active.mutex);
+	nano::unique_lock lock (node->active.mutex);
 	node->active.multipliers_cb.push_front (1.5);
 	node->active.multipliers_cb.push_front (4.2);
 	// Also pushes 1.0 to the front of multipliers_cb
@@ -8791,7 +8791,7 @@ TEST (rpc, confirmation_active)
 	node1.block_processor.flush ();
 	ASSERT_EQ (2, node1.active.size ());
 	{
-		nano::lock_guard<std::mutex> guard (node1.active.mutex);
+		nano::lock_guard guard (node1.active.mutex);
 		auto info (node1.active.roots.find (send1->qualified_root ()));
 		ASSERT_NE (node1.active.roots.end (), info);
 		info->election->confirm_once ();

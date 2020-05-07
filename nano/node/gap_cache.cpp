@@ -11,7 +11,7 @@ node (node_a)
 
 void nano::gap_cache::add (nano::block_hash const & hash_a, std::chrono::steady_clock::time_point time_point_a)
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard lock (mutex);
 	auto existing (blocks.get<tag_hash> ().find (hash_a));
 	if (existing != blocks.get<tag_hash> ().end ())
 	{
@@ -31,13 +31,13 @@ void nano::gap_cache::add (nano::block_hash const & hash_a, std::chrono::steady_
 
 void nano::gap_cache::erase (nano::block_hash const & hash_a)
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard lock (mutex);
 	blocks.get<tag_hash> ().erase (hash_a);
 }
 
 void nano::gap_cache::vote (std::shared_ptr<nano::vote> vote_a)
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard lock (mutex);
 	for (auto hash : *vote_a)
 	{
 		auto & gap_blocks_by_hash (blocks.get<tag_hash> ());
@@ -119,7 +119,7 @@ nano::uint128_t nano::gap_cache::bootstrap_threshold ()
 
 size_t nano::gap_cache::size ()
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard lock (mutex);
 	return blocks.size ();
 }
 

@@ -361,7 +361,7 @@ TEST (bootstrap_processor, DISABLED_pull_requeue_network_error)
 	}
 	// Add non-existing pull & stop remote peer
 	{
-		nano::unique_lock<std::mutex> lock (node1->bootstrap_initiator.connections->mutex);
+		nano::unique_lock lock (node1->bootstrap_initiator.connections->mutex);
 		ASSERT_FALSE (attempt->stopped);
 		++attempt->pulling;
 		node1->bootstrap_initiator.connections->pulls.push_back (nano::pull_info (nano::test_genesis_key.pub, send1->hash (), genesis.hash (), attempt->incremental_id));

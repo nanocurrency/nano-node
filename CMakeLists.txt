@@ -63,6 +63,9 @@ set (NANO_ROCKSDB OFF CACHE BOOL "")
 set (NANO_POW_SERVER OFF CACHE BOOL "")
 set (NANO_WARN_TO_ERR OFF CACHE BOOL "")
 set (NANO_TIMED_LOCKS 0 CACHE STRING "")
+set (NANO_TIMED_LOCKS_FILTER "" CACHE STRING "Selects which mutex should be the only one to have stacktraces generated, empty string means report on all")
+set_property (CACHE NANO_TIMED_LOCKS_FILTER PROPERTY STRINGS active alarm block_arrival block_processor block_uniquer confirmation_height_processor dropped_elections, election_winner_details gap_cache network_filter observer_set request_aggregator state_block_signature_verification telemetry vote_generator vote_processor vote_uniquer votes_cache work_pool worker)
+
 set (NANO_FUZZER_TEST OFF CACHE BOOL "")
 
 option (NANO_STACKTRACE_BACKTRACE "Use BOOST_STACKTRACE_USE_BACKTRACE in stacktraces, for POSIX" OFF)
@@ -75,6 +78,7 @@ endif ()
 
 if (${NANO_TIMED_LOCKS} GREATER 0)
 	add_definitions (-DNANO_TIMED_LOCKS=${NANO_TIMED_LOCKS})
+	add_definitions (-DNANO_TIMED_LOCKS_FILTER=${NANO_TIMED_LOCKS_FILTER})
 endif ()
 
 add_definitions (-DNANO_ROCKSDB=$<STREQUAL:${NANO_ROCKSDB},ON>)
