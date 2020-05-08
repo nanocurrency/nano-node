@@ -1561,7 +1561,7 @@ TEST (wallet, foreach_representative_deadlock)
 	auto & node (*system.nodes[0]);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	node.wallets.compute_reps ();
-	ASSERT_EQ (1, node.wallets.rep_counts ().voting);
+	ASSERT_EQ (1, node.wallets.reps ().voting);
 	node.wallets.foreach_representative ([&node](nano::public_key const & pub, nano::raw_key const & prv) {
 		if (node.wallets.mutex.try_lock ())
 		{

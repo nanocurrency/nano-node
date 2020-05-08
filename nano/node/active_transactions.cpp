@@ -51,7 +51,7 @@ nano::active_transactions::~active_transactions ()
 void nano::active_transactions::confirm_prioritized_frontiers (nano::transaction const & transaction_a)
 {
 	// Limit maximum count of elections to start
-	auto rep_counts (node.wallets.rep_counts ());
+	auto rep_counts (node.wallets.reps ());
 	bool representative (node.config.enable_voting && rep_counts.voting > 0);
 	bool half_princpal_representative (representative && rep_counts.half_principal > 0);
 	/* Check less frequently for regular nodes in auto mode */
@@ -597,7 +597,7 @@ nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> vot
 	if (at_least_one)
 	{
 		// Republish vote if it is new and the node does not host a principal representative (or close to)
-		if (processed && !node.wallets.rep_counts ().have_half_rep ())
+		if (processed && !node.wallets.reps ().have_half_rep ())
 		{
 			node.network.flood_vote (vote_a, 0.5f);
 		}
