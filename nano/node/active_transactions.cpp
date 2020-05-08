@@ -640,19 +640,16 @@ bool nano::active_transactions::update_difficulty (nano::block const & block_a)
 {
 	nano::lock_guard<std::mutex> guard (mutex);
 	auto existing_election (roots.get<tag_root> ().find (block_a.qualified_root ()));
-	auto found = existing_election != roots.get<tag_root> ().end ();
-	if (found)
-	{
-		update_difficulty_impl (existing_election, block_a);
-	}
-	return !found;
+	bool error = existing_election == roots.get<tag_root> ().end () || update_difficulty_impl (existing_election, block_a);
+	return error;
 }
 
-void nano::active_transactions::update_difficulty_impl (nano::active_transactions::roots_iterator const & root_it_a, nano::block const & block_a)
+bool nano::active_transactions::update_difficulty_impl (nano::active_transactions::roots_iterator const & root_it_a, nano::block const & block_a)
 {
 	debug_assert (!mutex.try_lock ());
 	double multiplier (normalized_multiplier (block_a, root_it_a));
-	if (multiplier > root_it_a->multiplier)
+	bool error = multiplier <= root_it_a->multiplier;
+	if (!error)
 	{
 		if (node.config.logging.active_update_logging ())
 		{
@@ -664,12 +661,14 @@ void nano::active_transactions::update_difficulty_impl (nano::active_transaction
 		add_adjust_difficulty (block_a.hash ());
 		node.stats.inc (nano::stat::type::election, nano::stat::detail::election_difficulty_update);
 	}
+	return error;
 }
 
-void nano::active_transactions::restart (std::shared_ptr<nano::block> const & block_a, nano::write_transaction const & transaction_a)
+bool nano::active_transactions::restart (std::shared_ptr<nano::block> const & block_a, nano::write_transaction const & transaction_a)
 {
 	// Only guaranteed to restart the election if the new block is received within 2 minutes of its election being dropped
 	constexpr std::chrono::minutes recently_dropped_cutoff{ 2 };
+	bool error = true;
 	if (recently_dropped.find (block_a->qualified_root ()) > std::chrono::steady_clock::now () - recently_dropped_cutoff)
 	{
 		auto hash (block_a->hash ());
@@ -691,6 +690,7 @@ void nano::active_transactions::restart (std::shared_ptr<nano::block> const & bl
 				auto insert_result = insert (ledger_block, previous_balance);
 				if (insert_result.inserted)
 				{
+					error = false;
 					insert_result.election->transition_active ();
 					recently_dropped.erase (ledger_block->qualified_root ());
 					node.stats.inc (nano::stat::type::election, nano::stat::detail::election_restart);
@@ -698,6 +698,7 @@ void nano::active_transactions::restart (std::shared_ptr<nano::block> const & bl
 			}
 		}
 	}
+	return error;
 }
 
 double nano::active_transactions::normalized_multiplier (nano::block const & block_a, boost::optional<nano::active_transactions::roots_iterator> const & root_it_a) const
