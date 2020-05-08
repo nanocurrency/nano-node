@@ -597,9 +597,13 @@ nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> vot
 	if (at_least_one)
 	{
 		// Republish vote if it is new and the node does not host a principal representative (or close to)
-		if (processed && !node.wallets.reps ().have_half_rep ())
+		if (processed)
 		{
-			node.network.flood_vote (vote_a, 0.5f);
+			auto const reps (node.wallets.reps ());
+			if (!reps.have_half_rep () && !reps.exists (vote_a->account))
+			{
+				node.network.flood_vote (vote_a, 0.5f);
+			}
 		}
 		return replay ? nano::vote_code::replay : nano::vote_code::vote;
 	}
