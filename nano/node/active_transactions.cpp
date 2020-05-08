@@ -94,7 +94,8 @@ void nano::active_transactions::confirm_prioritized_frontiers (nano::transaction
 						if (info.block_count > confirmation_height_info.height)
 						{
 							auto block (this->node.store.block_get (transaction_a, info.head));
-							auto insert_result = this->insert (block);
+							auto previous_balance (this->node.ledger.balance (transaction_a, block->previous ()));
+							auto insert_result = this->insert (block, previous_balance);
 							if (insert_result.inserted)
 							{
 								insert_result.election->transition_active ();
@@ -511,9 +512,16 @@ nano::election_insertion_result nano::active_transactions::insert_impl (std::sha
 				result.inserted = true;
 				auto hash (block_a->hash ());
 				auto epoch (block_a->sideband ().details.epoch);
-				auto previous_balance = block_a->previous ().is_zero () ? 0 : previous_balance_a.value_or_eval ([& node = node, &block_a] {
-					return node.ledger.balance (node.store.tx_begin_read (), block_a->previous ());
-				});
+				nano::uint128_t previous_balance (previous_balance_a.value_or (0));
+				debug_assert (!(previous_balance_a.value_or (0) > 0 && block_a->previous ().is_zero ()));
+				if (!previous_balance_a.is_initialized () && !block_a->previous ().is_zero ())
+				{
+					auto transaction (node.store.tx_begin_read ());
+					if (node.ledger.block_exists (block_a->previous ()))
+					{
+						previous_balance = node.ledger.balance (transaction, block_a->previous ());
+					}
+				}
 				double multiplier (normalized_multiplier (*block_a));
 				bool prioritized = roots.size () < prioritized_cutoff || multiplier > last_prioritized_multiplier.value_or (0);
 				result.election = nano::make_shared<nano::election> (node, block_a, confirmation_action_a, prioritized);
