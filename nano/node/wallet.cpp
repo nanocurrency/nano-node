@@ -1798,9 +1798,15 @@ void nano::wallets::foreach_representative (std::function<void(nano::public_key 
 	}
 }
 
-bool nano::wallets::exists (nano::account const & account_a) const
+bool nano::wallets::exists (nano::transaction const & transaction_a, nano::account const & account_a)
 {
-	return reps ().exists (account_a);
+	nano::lock_guard<std::mutex> lock (mutex);
+	auto result (false);
+	for (auto i (items.begin ()), n (items.end ()); !result && i != n; ++i)
+	{
+		result = i->second->store.exists (transaction_a, account_a);
+	}
+	return result;
 }
 
 void nano::wallets::stop ()

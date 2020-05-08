@@ -142,13 +142,14 @@ void nano::ipc::broker::broadcast (std::shared_ptr<nanoapi::EventConfirmationT> 
 				{
 					if (itr->topic->options->all_local_accounts)
 					{
+						auto transaction_l (this->node.wallets.tx_begin_read ());
 						nano::account source_l (0), destination_l (0);
 						auto decode_source_ok_l (!source_l.decode_account (state->account));
 						auto decode_destination_ok_l (!destination_l.decode_account (state->link_as_account));
 						(void)decode_source_ok_l;
 						(void)decode_destination_ok_l;
 						debug_assert (decode_source_ok_l && decode_destination_ok_l);
-						if (this->node.wallets.exists (source_l) || this->node.wallets.exists (destination_l))
+						if (this->node.wallets.exists (transaction_l, source_l) || this->node.wallets.exists (transaction_l, destination_l))
 						{
 							should_filter_account_l = false;
 						}
