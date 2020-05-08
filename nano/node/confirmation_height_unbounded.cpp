@@ -383,9 +383,10 @@ bool nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 		}
 	}
 
-	if (cemented_batch_timer.since_start () > std::chrono::milliseconds (50))
+	auto time_spent_cementing = cemented_batch_timer.since_start ().count ();
+	if (time_spent_cementing > 50)
 	{
-		logger.always_log (boost::str (boost::format ("Cemented %1% blocks in %2% %3% (unbounded processor)") % cemented_blocks.size () % cemented_batch_timer.since_start ().count () % cemented_batch_timer.unit ()));
+		logger.always_log (boost::str (boost::format ("Cemented %1% blocks in %2% %3% (unbounded processor)") % cemented_blocks.size () % time_spent_cementing % cemented_batch_timer.unit ()));
 	}
 
 	scoped_write_guard_a.release ();
