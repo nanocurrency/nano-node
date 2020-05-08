@@ -3054,10 +3054,6 @@ TEST (rpc, work_generate_multiplier)
 		}
 		ASSERT_EQ (200, response.status);
 		auto work_text (response.json.get_optional<std::string> ("work"));
-		if (!work_text)
-		{
-			std::cout << response.json.get<std::string> ("error") << std::endl;
-		}
 		ASSERT_TRUE (work_text.is_initialized ());
 		uint64_t work;
 		ASSERT_FALSE (nano::from_string_hex (*work_text, work));
@@ -3206,9 +3202,11 @@ TEST (rpc, work_generate_block_low)
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
 	rpc.start ();
 	nano::keypair key;
-	nano::state_block block (key.pub, 0, nano::test_genesis_key.pub, nano::Gxrb_ratio, 123, key.prv, key.pub, *node->work_generate_blocking (key.pub));
+	nano::state_block block (key.pub, 0, nano::test_genesis_key.pub, nano::Gxrb_ratio, 123, key.prv, key.pub, 0);
+	auto threshold (node->default_difficulty (block.work_version ()));
+	block.block_work_set (system.work_generate_limited (block.root (), threshold, nano::difficulty::from_multiplier (node->config.max_work_generate_multiplier / 10, threshold)));
 	nano::block_hash hash (block.root ());
-	auto block_difficulty (nano::work_difficulty (nano::work_version::work_1, hash, block.block_work ()));
+	auto block_difficulty (block.difficulty ());
 	boost::property_tree::ptree request;
 	request.put ("action", "work_generate");
 	request.put ("hash", hash.to_string ());
@@ -3295,6 +3293,8 @@ TEST (rpc, work_generate_block_ledger_epoch_2)
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
 	rpc.start ();
 	nano::state_block block (key.pub, 0, nano::test_genesis_key.pub, nano::Gxrb_ratio, send_block->hash (), key.prv, key.pub, 0);
+	auto threshold (nano::work_threshold (block.work_version (), nano::block_details (nano::epoch::epoch_2, false, true, false)));
+	block.block_work_set (system.work_generate_limited (block.root (), 0, threshold - 1));
 	nano::block_hash hash (block.root ());
 	boost::property_tree::ptree request;
 	request.put ("action", "work_generate");
