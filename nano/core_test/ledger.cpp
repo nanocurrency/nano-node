@@ -598,7 +598,7 @@ TEST (system, generate_send_new)
 	std::vector<nano::account> accounts;
 	accounts.push_back (nano::test_genesis_key.pub);
 	// This indirectly waits for online weight to stabilize, required to prevent intermittent failures
-	ASSERT_TIMELY (5s, node1.wallets.rep_counts ().voting > 0);
+	ASSERT_TIMELY (5s, node1.wallets.reps ().voting > 0);
 	system.generate_send_new (node1, accounts);
 	nano::account new_account (0);
 	{

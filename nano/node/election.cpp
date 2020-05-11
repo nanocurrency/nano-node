@@ -618,7 +618,7 @@ void nano::election::prioritize_election (nano::vote_generator_session & generat
 
 void nano::election::generate_votes (nano::block_hash const & hash_a)
 {
-	if (node.config.enable_voting && node.wallets.rep_counts ().voting > 0)
+	if (node.config.enable_voting && node.wallets.reps ().voting > 0)
 	{
 		node.active.generator.add (hash_a);
 	}
@@ -626,7 +626,7 @@ void nano::election::generate_votes (nano::block_hash const & hash_a)
 
 void nano::election::remove_votes (nano::block_hash const & hash_a)
 {
-	if (node.config.enable_voting && node.wallets.rep_counts ().voting > 0)
+	if (node.config.enable_voting && node.wallets.reps ().voting > 0)
 	{
 		// Remove votes from election
 		auto list_generated_votes (node.votes_cache.find (hash_a));

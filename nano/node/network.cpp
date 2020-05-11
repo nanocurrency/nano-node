@@ -447,7 +447,7 @@ public:
 		}
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::in);
 		// Don't load nodes with disabled voting
-		if (node.config.enable_voting && node.wallets.rep_counts ().voting > 0)
+		if (node.config.enable_voting && node.wallets.reps ().voting > 0)
 		{
 			if (message_a.block != nullptr)
 			{

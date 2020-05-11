@@ -1879,7 +1879,7 @@ TEST (node, rep_self_vote)
 	}
 	system.wallet (0)->insert_adhoc (rep_big.prv);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	ASSERT_EQ (system.wallet (0)->wallets.rep_counts ().voting, 2);
+	ASSERT_EQ (system.wallet (0)->wallets.reps ().voting, 2);
 	auto block0 (std::make_shared<nano::send_block> (node0->latest (nano::test_genesis_key.pub), rep_big.pub, nano::uint128_t ("0x60000000000000000000000000000000"), nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node0->work_generate_blocking (*block0);
 	ASSERT_EQ (nano::process_result::progress, node0->process (*block0).code);
@@ -2848,7 +2848,7 @@ TEST (node, local_votes_cache_size)
 	auto & wallet (*system.wallet (0));
 	wallet.insert_adhoc (nano::test_genesis_key.prv);
 	wallet.insert_adhoc (nano::keypair ().prv);
-	ASSERT_EQ (2, node.wallets.rep_counts ().voting);
+	ASSERT_EQ (2, node.wallets.reps ().voting);
 	auto transaction (node.store.tx_begin_read ());
 	auto vote1 (node.store.vote_generate (transaction, nano::test_genesis_key.pub, nano::test_genesis_key.prv, { nano::genesis_hash }));
 	nano::block_hash hash (1);

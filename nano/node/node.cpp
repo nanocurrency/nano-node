@@ -390,7 +390,7 @@ node_seq (seq)
 		{
 			std::ostringstream stream;
 			stream << "Voting is enabled, more system resources will be used";
-			auto voting (wallets.rep_counts ().voting);
+			auto voting (wallets.reps ().voting);
 			if (voting > 0)
 			{
 				stream << ". " << voting << " representative(s) are configured";

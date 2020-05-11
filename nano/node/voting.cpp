@@ -137,7 +137,7 @@ wallets (wallets_a)
 
 void nano::votes_cache::add (std::shared_ptr<nano::vote> const & vote_a)
 {
-	auto voting (wallets.rep_counts ().voting);
+	auto voting (wallets.reps ().voting);
 	if (voting == 0)
 	{
 		return;

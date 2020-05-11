@@ -183,14 +183,25 @@ public:
 	std::atomic<bool> stopped;
 };
 
-class wallet_representative_counts
+class wallet_representatives
 {
 public:
-	uint64_t voting{ 0 }; // Representatives with at least the configured minimum voting weight
-	uint64_t half_principal{ 0 }; // Representatives with at least 50% of principal representative requirements
+	uint64_t voting{ 0 }; // Number of representatives with at least the configured minimum voting weight
+	uint64_t half_principal{ 0 }; // Number of representatives with at least 50% of principal representative requirements
+	std::unordered_set<nano::account> accounts; // Representatives with at least the configured minimum voting weight
 	bool have_half_rep () const
 	{
 		return half_principal > 0;
+	}
+	bool exists (nano::account const & rep_a) const
+	{
+		return accounts.count (rep_a) > 0;
+	}
+	void clear ()
+	{
+		voting = 0;
+		half_principal = 0;
+		accounts.clear ();
 	}
 };
 
@@ -212,10 +223,10 @@ public:
 	void do_wallet_actions ();
 	void queue_wallet_action (nano::uint128_t const &, std::shared_ptr<nano::wallet>, std::function<void(nano::wallet &)> const &);
 	void foreach_representative (std::function<void(nano::public_key const &, nano::raw_key const &)> const &);
-	bool exists (nano::transaction const &, nano::public_key const &);
+	bool exists (nano::transaction const &, nano::account const &);
 	void stop ();
 	void clear_send_ids (nano::transaction const &);
-	nano::wallet_representative_counts rep_counts ();
+	nano::wallet_representatives reps () const;
 	bool check_rep (nano::account const &, nano::uint128_t const &, const bool = true);
 	void compute_reps ();
 	void ongoing_compute_reps ();
@@ -246,8 +257,8 @@ public:
 	nano::read_transaction tx_begin_read ();
 
 private:
-	std::mutex counts_mutex;
-	nano::wallet_representative_counts counts;
+	mutable std::mutex reps_cache_mutex;
+	nano::wallet_representatives representatives;
 };
 
 std::unique_ptr<container_info_component> collect_container_info (wallets & wallets, const std::string & name);
