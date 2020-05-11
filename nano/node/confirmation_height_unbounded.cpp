@@ -351,14 +351,18 @@ bool nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 			auto & pending = pending_writes.front ();
 			nano::confirmation_height_info confirmation_height_info;
 			auto error = ledger.store.confirmation_height_get (transaction, pending.account, confirmation_height_info);
-			release_assert (!error);
+			if (error)
+			{
+				logger.always_log ("Failed to read confirmation height for account ", pending.account.to_account (), " when writing block ", pending.hash.to_string (), " (Unbounded processor)");
+				pending_writes.clear ();
+				pending_writes_size = 0;
+				ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block);
+				break;
+			}
 			auto confirmation_height = confirmation_height_info.height;
 			if (pending.height > confirmation_height)
 			{
-#ifndef NDEBUG
-				// Do more thorough checking in Debug mode, indicates programming error.
 				auto block = ledger.store.block_get (transaction, pending.hash);
-				static nano::network_constants network_constants;
 				debug_assert (network_constants.is_test_network () || block != nullptr);
 				debug_assert (network_constants.is_test_network () || block->sideband ().height == pending.height);
 
@@ -368,9 +372,8 @@ bool nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 					ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block);
 					pending_writes.clear ();
 					pending_writes_size = 0;
-					return true;
+					break;
 				}
-#endif
 				ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in, pending.height - confirmation_height);
 				ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in, pending.height - confirmation_height);
 				debug_assert (pending.num_blocks_confirmed == pending.height - confirmation_height);

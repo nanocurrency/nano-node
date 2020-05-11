@@ -378,7 +378,15 @@ bool nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 			};
 
 			nano::confirmation_height_info confirmation_height_info;
-			release_assert (!ledger.store.confirmation_height_get (transaction, pending.account, confirmation_height_info));
+			auto conf_height_read_error = ledger.store.confirmation_height_get (transaction, pending.account, confirmation_height_info);
+			if (conf_height_read_error)
+			{
+				logger.always_log ("Failed to read confirmation height for account ", pending.account.to_account (), " (Unbounded processor)");
+				ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block);
+				pending_writes.clear ();
+				pending_writes_size = 0;
+				break;
+			}
 
 			// Some blocks need to be cemented at least
 			if (pending.top_height > confirmation_height_info.height)
@@ -410,6 +418,7 @@ bool nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 
 				// Cementing starts from the bottom of the chain and works upwards. This is because chains can have effectively
 				// an infinite number of send/change blocks in a row. We don't want to hold the write transaction open for too long.
+				auto error = false;
 				for (; num_blocks_confirmed - num_blocks_iterated != 0; ++num_blocks_iterated)
 				{
 					if (!block)
@@ -418,7 +427,10 @@ bool nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 						ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block);
 						pending_writes.clear ();
 						pending_writes_size = 0;
-						return true;
+						// Remove the not yet written cemented blocks added from this account for this pending write
+						cemented_blocks.erase (cemented_blocks.end () - num_blocks_iterated, cemented_blocks.end ());
+						error = true;
+						break;
 					}
 
 					auto last_iteration = (num_blocks_confirmed - num_blocks_iterated) == 1;
@@ -475,6 +487,12 @@ bool nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 						// Confirm it is indeed the last one
 						debug_assert (new_cemented_frontier == pending.top_hash);
 					}
+				}
+
+				if (error)
+				{
+					// There was an error writing a block, do not process any more
+					break;
 				}
 
 				auto num_blocks_cemented = num_blocks_confirmed - total_blocks_cemented;

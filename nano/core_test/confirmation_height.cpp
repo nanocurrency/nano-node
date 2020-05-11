@@ -771,7 +771,7 @@ TEST (confirmation_height, rollback_added_block)
 			ASSERT_LT (timer.since_start (), 10s);
 		}
 
-		// No blocks should be cemented, and there should be something added to logs and syslog
+		// No blocks should be cemented
 		ASSERT_EQ (0, stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
 		ASSERT_EQ (1, stats.count (nano::stat::type::confirmation_height, nano::stat::detail::read_ledger_mismatch, nano::stat::dir::in));
 		ASSERT_EQ (1, ledger.cache.cemented_count);
@@ -840,11 +840,11 @@ TEST (confirmation_height, modified_chain)
 			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send).code);
 		}
 
-		node->confirmation_height_processor.add (send->hash ());
 		{
 			// The write guard prevents the confirmation height processor doing any writes
-			system.deadline_set (10s);
 			auto write_guard = node->write_database_queue.wait (nano::writer::testing);
+			system.deadline_set (10s);
+			node->confirmation_height_processor.add (send->hash ());
 			while (!node->write_database_queue.contains (nano::writer::confirmation_height))
 			{
 				ASSERT_NO_ERROR (system.poll ());
@@ -859,33 +859,70 @@ TEST (confirmation_height, modified_chain)
 			ASSERT_NO_ERROR (system.poll ());
 		}
 
-		auto check_for_modified_chains = true;
-		if (mode_a == nano::confirmation_height_mode::unbounded)
-		{
-#ifdef NDEBUG
-			// Unbounded processor in release config does not check that a chain has been modified prior to setting the confirmation height (as an optimization)
-			check_for_modified_chains = false;
-#endif
-		}
-
 		nano::confirmation_height_info confirmation_height_info;
 		ASSERT_FALSE (node->store.confirmation_height_get (node->store.tx_begin_read (), nano::test_genesis_key.pub, confirmation_height_info));
-		if (check_for_modified_chains)
+		ASSERT_EQ (1, confirmation_height_info.height);
+		ASSERT_EQ (nano::genesis_hash, confirmation_height_info.frontier);
+		ASSERT_EQ (1, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block, nano::stat::dir::in));
+		ASSERT_EQ (1, node->ledger.cache.cemented_count);
+		ASSERT_EQ (0, node->active.election_winner_details_size ());
+	};
+
+	test_mode (nano::confirmation_height_mode::bounded);
+	test_mode (nano::confirmation_height_mode::unbounded);
+}
+
+// This tests when a read has been done, but the account no longer exists by the time a write is done
+TEST (confirmation_height, modified_chain_account_removed)
+{
+	auto test_mode = [](nano::confirmation_height_mode mode_a) {
+		nano::logger_mt logger;
+		auto path (nano::unique_path ());
+		nano::mdb_store store (logger, path);
+		ASSERT_TRUE (!store.init_error ());
+		nano::genesis genesis;
+		nano::stat stats;
+		nano::ledger ledger (store, stats);
+		nano::write_database_queue write_database_queue;
+		boost::latch initialized_latch{ 0 };
+		nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+		nano::keypair key1;
+		auto send = std::make_shared<nano::send_block> (nano::genesis_hash, key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (nano::genesis_hash));
+		auto open = std::make_shared<nano::state_block> (key1.pub, 0, 0, nano::Gxrb_ratio, send->hash (), key1.prv, key1.pub, *pool.generate (key1.pub));
 		{
-			ASSERT_EQ (1, confirmation_height_info.height);
-			ASSERT_EQ (nano::genesis_hash, confirmation_height_info.frontier);
-			ASSERT_EQ (1, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block, nano::stat::dir::in));
-			ASSERT_EQ (1, node->ledger.cache.cemented_count);
-		}
-		else
-		{
-			// A non-existent block is cemented, expected given these conditions but is of course incorrect.
-			ASSERT_EQ (2, confirmation_height_info.height);
-			ASSERT_EQ (send->hash (), confirmation_height_info.frontier);
-			ASSERT_EQ (2, node->ledger.cache.cemented_count);
+			auto transaction (store.tx_begin_write ());
+			store.initialize (transaction, genesis, ledger.cache);
+			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send).code);
+			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *open).code);
 		}
 
-		ASSERT_EQ (0, node->active.election_winner_details_size ());
+		nano::confirmation_height_processor confirmation_height_processor (ledger, write_database_queue, 10ms, logger, initialized_latch, mode_a);
+
+		nano::timer<> timer;
+		{
+			// The write guard prevents the confirmation height processor doing any writes
+			auto write_guard = write_database_queue.wait (nano::writer::testing);
+			confirmation_height_processor.add (open->hash ());
+
+			timer.start ();
+			while (!write_database_queue.contains (nano::writer::confirmation_height))
+			{
+				ASSERT_LT (timer.since_start (), 10s);
+			}
+
+			ledger.rollback (store.tx_begin_write (), open->hash ());
+		}
+
+		while (confirmation_height_processor.is_processing_block (open->hash ()))
+		{
+			ASSERT_LT (timer.since_start (), 10s);
+		}
+
+		// The send block should be cemented, but not the open
+		ASSERT_EQ (1, stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
+		ASSERT_EQ (1, stats.count (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block, nano::stat::dir::in));
+		ASSERT_EQ (2, ledger.cache.cemented_count);
+		ASSERT_EQ (2, ledger.cache.block_count);
 	};
 
 	test_mode (nano::confirmation_height_mode::bounded);

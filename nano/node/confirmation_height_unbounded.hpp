@@ -99,6 +99,7 @@ private:
 	std::atomic<bool> & stopped;
 	nano::block_hash const & original_hash;
 	uint64_t & batch_write_size;
+	nano::network_constants network_constants;
 
 	std::function<void(std::vector<std::shared_ptr<nano::block>> const &)> notify_observers_callback;
 	std::function<void(nano::block_hash const &)> notify_block_already_cemented_observers_callback;
