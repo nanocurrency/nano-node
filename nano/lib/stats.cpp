@@ -703,9 +703,6 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::invalid_block:
 			res = "invalid_block";
 			break;
-		case nano::stat::detail::read_ledger_mismatch:
-			res = "read_ledger_mismatch";
-			break;
 		case nano::stat::detail::aggregator_accepted:
 			res = "aggregator_accepted";
 			break;

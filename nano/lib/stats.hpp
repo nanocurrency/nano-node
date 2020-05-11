@@ -314,7 +314,6 @@ public:
 		blocks_confirmed_unbounded,
 		blocks_confirmed_bounded,
 		invalid_block,
-		read_ledger_mismatch,
 
 		// [request] aggregator
 		aggregator_accepted,

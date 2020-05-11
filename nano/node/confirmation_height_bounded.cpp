@@ -74,10 +74,11 @@ void nano::confirmation_height_bounded::process ()
 		{
 			// Mismatch with ledger
 			logger.always_log ("Ledger mismatch trying to set confirmation height for block ", current.to_string (), " (Bounded processor)");
-			ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::read_ledger_mismatch);
+			ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block);
+			// Don't bail in test network so we can test for this explicitly and check the results
+			release_assert (network_params.network.is_test_network ());
 			return;
 		}
-
 		nano::account account (block->account ());
 		if (account.is_zero ())
 		{
@@ -351,13 +352,14 @@ bool nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 	auto const amount_to_change = batch_write_size / 10; // 10%
 	auto const minimum_batch_write_size = 16384u;
 	nano::timer<> cemented_batch_timer;
+	auto error = false;
 	{
 		// This only writes to the confirmation_height table and is the only place to do so in a single process
 		auto transaction (ledger.store.tx_begin_write ({}, { nano::tables::confirmation_height }));
 		cemented_batch_timer.start ();
 		// Cement all pending entries, each entry is specific to an account and contains the least amount
 		// of blocks to retain consistent cementing across all account chains to genesis.
-		while (!pending_writes.empty ())
+		while (!!error && !pending_writes.empty ())
 		{
 			const auto & pending = pending_writes.front ();
 			const auto & account = pending.account;
@@ -378,18 +380,15 @@ bool nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 			};
 
 			nano::confirmation_height_info confirmation_height_info;
-			auto conf_height_read_error = ledger.store.confirmation_height_get (transaction, pending.account, confirmation_height_info);
-			if (conf_height_read_error)
+			error = ledger.store.confirmation_height_get (transaction, pending.account, confirmation_height_info);
+			if (error)
 			{
 				logger.always_log ("Failed to read confirmation height for account ", pending.account.to_account (), " (Unbounded processor)");
 				ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block);
-				pending_writes.clear ();
-				pending_writes_size = 0;
-				break;
 			}
 
 			// Some blocks need to be cemented at least
-			if (pending.top_height > confirmation_height_info.height)
+			if (!error && pending.top_height > confirmation_height_info.height)
 			{
 				// The highest hash which will be cemented
 				nano::block_hash new_cemented_frontier;
@@ -412,22 +411,17 @@ bool nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 				}
 
 				auto total_blocks_cemented = 0;
-				auto num_blocks_iterated = 0;
-
 				auto block = ledger.store.block_get (transaction, new_cemented_frontier);
 
 				// Cementing starts from the bottom of the chain and works upwards. This is because chains can have effectively
 				// an infinite number of send/change blocks in a row. We don't want to hold the write transaction open for too long.
-				auto error = false;
-				for (; num_blocks_confirmed - num_blocks_iterated != 0; ++num_blocks_iterated)
+				for (auto num_blocks_iterated = 0; num_blocks_confirmed - num_blocks_iterated != 0; ++num_blocks_iterated)
 				{
 					if (!block)
 					{
-						logger.always_log ("Failed to write confirmation height for: ", new_cemented_frontier.to_string (), " (Bounded processor)");
+						logger.always_log ("Failed to write confirmation height for: ", new_cemented_frontier.to_string (), " (Unbounded processor)");
 						ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block);
-						pending_writes.clear ();
-						pending_writes_size = 0;
-						// Remove the not yet written cemented blocks added from this account for this pending write
+						// Undo any blocks about to be cemented from this account for this pending write.
 						cemented_blocks.erase (cemented_blocks.end () - num_blocks_iterated, cemented_blocks.end ());
 						error = true;
 						break;
@@ -527,6 +521,9 @@ bool nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 	// Tests should check this already at the end, but not all blocks may have elections (e.g from manual calls to confirmation_height_processor::add), this should catch any inconsistencies on live/beta though
 	if (!network_params.network.is_test_network ())
 	{
+		// Bail if there was an error. This indicates that there was a fatal issue with the ledger
+		// (the blocks probably got rolled back when they shouldn't have).
+		release_assert (!error);
 		auto blocks_confirmed_stats = ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed);
 		auto observer_stats = ledger.stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out);
 		debug_assert (blocks_confirmed_stats == observer_stats);
@@ -538,10 +535,16 @@ bool nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 			batch_write_size = std::max<uint64_t> (minimum_batch_write_size, batch_write_size - amount_to_change);
 		}
 	}
+	else if (error)
+	{
+		// Test only code so we can get passed the debug asserts
+		pending_writes.clear ();
+		pending_writes_size = 0;
+	}
 
 	debug_assert (pending_writes.empty ());
 	debug_assert (pending_writes_size == 0);
-	return false;
+	return error;
 }
 
 bool nano::confirmation_height_bounded::pending_empty () const

@@ -45,6 +45,7 @@ public:
 	nano::uint128_t block_balance (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override
 	{
 		auto block (block_get (transaction_a, hash_a));
+		release_assert (block);
 		nano::uint128_t result (block_balance_calculated (block));
 		return result;
 	}

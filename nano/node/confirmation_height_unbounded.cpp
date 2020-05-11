@@ -58,7 +58,8 @@ void nano::confirmation_height_unbounded::process ()
 		{
 			// Mismatch with ledger
 			logger.always_log ("Ledger mismatch trying to set confirmation height for block ", current.to_string (), " (Unbounded processor)");
-			ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::read_ledger_mismatch);
+			ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block);
+			release_assert (network_params.network.is_test_network ());
 			return;
 		}
 
@@ -343,6 +344,7 @@ bool nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 {
 	nano::timer<std::chrono::milliseconds> cemented_batch_timer;
 	std::vector<std::shared_ptr<nano::block>> cemented_blocks;
+	auto error = false;
 	{
 		auto transaction (ledger.store.tx_begin_write ({}, { nano::tables::confirmation_height }));
 		cemented_batch_timer.start ();
@@ -350,30 +352,29 @@ bool nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 		{
 			auto & pending = pending_writes.front ();
 			nano::confirmation_height_info confirmation_height_info;
-			auto error = ledger.store.confirmation_height_get (transaction, pending.account, confirmation_height_info);
+			error = ledger.store.confirmation_height_get (transaction, pending.account, confirmation_height_info);
 			if (error)
 			{
 				logger.always_log ("Failed to read confirmation height for account ", pending.account.to_account (), " when writing block ", pending.hash.to_string (), " (Unbounded processor)");
-				pending_writes.clear ();
-				pending_writes_size = 0;
 				ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block);
-				break;
 			}
 			auto confirmation_height = confirmation_height_info.height;
-			if (pending.height > confirmation_height)
+			if (!error && pending.height > confirmation_height)
 			{
+#ifndef NDEBUG
+				// Do more thorough checking in Debug mode, indicates programming error.
 				auto block = ledger.store.block_get (transaction, pending.hash);
-				debug_assert (network_constants.is_test_network () || block != nullptr);
-				debug_assert (network_constants.is_test_network () || block->sideband ().height == pending.height);
+				debug_assert (network_params.network.is_test_network () || block != nullptr);
+				debug_assert (network_params.network.is_test_network () || block->sideband ().height == pending.height);
 
 				if (!block)
 				{
 					logger.always_log ("Failed to write confirmation height for: ", pending.hash.to_string (), " (Unbounded processor)");
 					ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block);
-					pending_writes.clear ();
-					pending_writes_size = 0;
+					error = true;
 					break;
 				}
+#endif
 				ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in, pending.height - confirmation_height);
 				ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in, pending.height - confirmation_height);
 				debug_assert (pending.num_blocks_confirmed == pending.height - confirmation_height);
@@ -406,11 +407,19 @@ bool nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 	// Tests should check this already at the end, but not all blocks may have elections (e.g from manual calls to confirmation_height_processor::add), this should catch any inconsistencies on live/beta though
 	if (!network_params.network.is_test_network ())
 	{
+		release_assert (!error);
 		auto blocks_confirmed_stats = ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed);
 		auto observer_stats = ledger.stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out);
 		debug_assert (blocks_confirmed_stats == observer_stats);
 	}
+	else if (error)
+	{
+		// Test only code so we can get passed the debug asserts
+		pending_writes.clear ();
+		pending_writes_size = 0;
+	}
 	debug_assert (pending_writes.empty ());
+	debug_assert (pending_writes_size == 0);
 	return false;
 }
 

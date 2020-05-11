@@ -773,7 +773,7 @@ TEST (confirmation_height, rollback_added_block)
 
 		// No blocks should be cemented
 		ASSERT_EQ (0, stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
-		ASSERT_EQ (1, stats.count (nano::stat::type::confirmation_height, nano::stat::detail::read_ledger_mismatch, nano::stat::dir::in));
+		ASSERT_EQ (1, stats.count (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block, nano::stat::dir::in));
 		ASSERT_EQ (1, ledger.cache.cemented_count);
 		ASSERT_EQ (1, ledger.cache.block_count);
 	};
@@ -872,7 +872,7 @@ TEST (confirmation_height, modified_chain)
 	test_mode (nano::confirmation_height_mode::unbounded);
 }
 
-// This tests when a read has been done, but the account no longer exists by the time a write is done
+// This tests when a read has been done, but the account no longer exists by the time a write is done that it is not cemented.
 TEST (confirmation_height, modified_chain_account_removed)
 {
 	auto test_mode = [](nano::confirmation_height_mode mode_a) {
