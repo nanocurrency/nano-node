@@ -730,6 +730,58 @@ TEST (confirmation_height, conflict_rollback_cemented)
 	test_mode (nano::confirmation_height_mode::unbounded);
 }
 
+TEST (confirmation_height, rollback_added_block)
+{
+	auto test_mode = [](nano::confirmation_height_mode mode_a) {
+		nano::logger_mt logger;
+		auto path (nano::unique_path ());
+		nano::mdb_store store (logger, path);
+		ASSERT_TRUE (!store.init_error ());
+		nano::genesis genesis;
+		nano::stat stats;
+		nano::ledger ledger (store, stats);
+		nano::write_database_queue write_database_queue;
+		boost::latch initialized_latch{ 0 };
+		nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+		nano::keypair key1;
+		auto send = std::make_shared<nano::send_block> (genesis.hash (), key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (genesis.hash ()));
+		{
+			auto transaction (store.tx_begin_write ());
+			store.initialize (transaction, genesis, ledger.cache);
+			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send).code);
+		}
+
+		nano::confirmation_height_processor confirmation_height_processor (ledger, write_database_queue, 10ms, logger, initialized_latch, mode_a);
+		confirmation_height_processor.pause ();
+		confirmation_height_processor.add (send->hash ());
+
+		// Remove the block from the ledger which has been added to the confirmation height processor
+		{
+			auto transaction (store.tx_begin_write ());
+			ledger.rollback (transaction, send->hash ());
+		}
+
+		confirmation_height_processor.unpause ();
+
+		// Wait until processing has finished
+		nano::timer<> timer;
+		timer.start ();
+		while (confirmation_height_processor.is_processing_block (send->hash ()))
+		{
+			ASSERT_LT (timer.since_start (), 10s);
+		}
+
+		// No blocks should be cemented, and there should be something added to logs and syslog
+		ASSERT_EQ (0, stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
+		ASSERT_EQ (1, stats.count (nano::stat::type::confirmation_height, nano::stat::detail::read_ledger_mismatch, nano::stat::dir::in));
+		ASSERT_EQ (1, ledger.cache.cemented_count);
+		ASSERT_EQ (1, ledger.cache.block_count);
+	};
+
+	test_mode (nano::confirmation_height_mode::bounded);
+	test_mode (nano::confirmation_height_mode::unbounded);
+}
+
 TEST (confirmation_height, observers)
 {
 	auto test_mode = [](nano::confirmation_height_mode mode_a) {

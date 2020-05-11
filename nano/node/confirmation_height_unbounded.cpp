@@ -52,6 +52,14 @@ void nano::confirmation_height_unbounded::process ()
 		}
 
 		auto block (get_block_and_sideband (current, read_transaction));
+		if (!block)
+		{
+			// Mismatch with ledger
+			logger.always_log ("Ledger mismatch trying to set confirmation height for block ", current.to_string (), " (Unbounded processor)");
+			ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::read_ledger_mismatch);
+			return;
+		}
+
 		nano::account account (block->account ());
 		if (account.is_zero ())
 		{
@@ -352,7 +360,7 @@ bool nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 
 				if (!block)
 				{
-					logger.always_log ("Failed to write confirmation height for: ", pending.hash.to_string ());
+					logger.always_log ("Failed to write confirmation height for: ", pending.hash.to_string (), " (Unbounded processor)");
 					ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block);
 					pending_writes.clear ();
 					pending_writes_size = 0;

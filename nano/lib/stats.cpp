@@ -691,9 +691,6 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::outdated_version:
 			res = "outdated_version";
 			break;
-		case nano::stat::detail::invalid_block:
-			res = "invalid_block";
-			break;
 		case nano::stat::detail::blocks_confirmed:
 			res = "blocks_confirmed";
 			break;
@@ -702,6 +699,12 @@ std::string nano::stat::detail_to_string (uint32_t key)
 			break;
 		case nano::stat::detail::blocks_confirmed_bounded:
 			res = "blocks_confirmed_bounded";
+			break;
+		case nano::stat::detail::invalid_block:
+			res = "invalid_block";
+			break;
+		case nano::stat::detail::read_ledger_mismatch:
+			res = "read_ledger_mismatch";
 			break;
 		case nano::stat::detail::aggregator_accepted:
 			res = "aggregator_accepted";

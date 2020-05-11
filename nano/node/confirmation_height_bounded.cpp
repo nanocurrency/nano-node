@@ -69,7 +69,14 @@ void nano::confirmation_height_bounded::process ()
 
 		auto top_level_hash = current;
 		auto block = ledger.store.block_get (transaction, current);
-		debug_assert (block != nullptr);
+		if (!block)
+		{
+			// Mismatch with ledger
+			logger.always_log ("Ledger mismatch trying to set confirmation height for block ", current.to_string (), " (Bounded processor)");
+			ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::read_ledger_mismatch);
+			return;
+		}
+
 		nano::account account (block->account ());
 		if (account.is_zero ())
 		{
@@ -402,7 +409,7 @@ bool nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 				{
 					if (!block)
 					{
-						logger.always_log ("Failed to write confirmation height for: ", new_cemented_frontier.to_string ());
+						logger.always_log ("Failed to write confirmation height for: ", new_cemented_frontier.to_string (), " (Bounded processor)");
 						ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block);
 						pending_writes.clear ();
 						pending_writes_size = 0;
