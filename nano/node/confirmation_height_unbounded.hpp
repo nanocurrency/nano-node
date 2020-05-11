@@ -91,6 +91,7 @@ private:
 	void collect_unconfirmed_receive_and_sources_for_account (uint64_t, uint64_t, nano::block_hash const &, nano::account const &, nano::read_transaction const &, std::vector<receive_source_pair> &, std::vector<nano::block_hash> &);
 	void prepare_iterated_blocks_for_cementing (preparation_data &);
 
+	nano::network_params network_params;
 	nano::ledger & ledger;
 	nano::write_database_queue & write_database_queue;
 	std::chrono::milliseconds batch_separate_pending_min_time;
@@ -98,7 +99,6 @@ private:
 	std::atomic<bool> & stopped;
 	nano::block_hash const & original_hash;
 	uint64_t & batch_write_size;
-	nano::network_constants network_constants;
 
 	std::function<void(std::vector<std::shared_ptr<nano::block>> const &)> notify_observers_callback;
 	std::function<void(nano::block_hash const &)> notify_block_already_cemented_observers_callback;

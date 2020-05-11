@@ -359,7 +359,7 @@ bool nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 		cemented_batch_timer.start ();
 		// Cement all pending entries, each entry is specific to an account and contains the least amount
 		// of blocks to retain consistent cementing across all account chains to genesis.
-		while (!!error && !pending_writes.empty ())
+		while (!error && !pending_writes.empty ())
 		{
 			const auto & pending = pending_writes.front ();
 			const auto & account = pending.account;
