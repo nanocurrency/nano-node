@@ -58,10 +58,8 @@ void nano::confirmation_height_unbounded::process ()
 		{
 			// Mismatch with ledger
 			logger.always_log ("Ledger mismatch trying to set confirmation height for block ", current.to_string (), " (Unbounded processor)");
-			ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block);
-			release_assert (network_params.network.is_test_network ());
-			return;
 		}
+		release_assert (block);
 
 		nano::account account (block->account ());
 		if (account.is_zero ())
@@ -154,23 +152,16 @@ void nano::confirmation_height_unbounded::process ()
 
 		if ((max_write_size_reached || should_output || force_write) && !pending_writes.empty ())
 		{
-			bool error = false;
 			if (write_database_queue.process (nano::writer::confirmation_height))
 			{
 				auto scoped_write_guard = write_database_queue.pop ();
-				error = cement_blocks (scoped_write_guard);
+				cement_blocks (scoped_write_guard);
 			}
 			else if (force_write)
 			{
 				// Unbounded processor has grown too large, force a write
 				auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
-				error = cement_blocks (scoped_write_guard);
-			}
-
-			// Don't set any more cemented blocks from the original hash if an inconsistency is found
-			if (error)
-			{
-				break;
+				cement_blocks (scoped_write_guard);
 			}
 		}
 
@@ -340,7 +331,7 @@ void nano::confirmation_height_unbounded::prepare_iterated_blocks_for_cementing 
 /*
  * Returns true if there was an error in finding one of the blocks to write a confirmation height for, false otherwise
  */
-bool nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & scoped_write_guard_a)
+void nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & scoped_write_guard_a)
 {
 	nano::timer<std::chrono::milliseconds> cemented_batch_timer;
 	std::vector<std::shared_ptr<nano::block>> cemented_blocks;
@@ -356,7 +347,6 @@ bool nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 			if (error)
 			{
 				logger.always_log ("Failed to read confirmation height for account ", pending.account.to_account (), " when writing block ", pending.hash.to_string (), " (Unbounded processor)");
-				ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block);
 			}
 			auto confirmation_height = confirmation_height_info.height;
 			if (!error && pending.height > confirmation_height)
@@ -370,7 +360,6 @@ bool nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 				if (!block)
 				{
 					logger.always_log ("Failed to write confirmation height for: ", pending.hash.to_string (), " (Unbounded processor)");
-					ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block);
 					error = true;
 					break;
 				}
@@ -403,24 +392,17 @@ bool nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 
 	scoped_write_guard_a.release ();
 	notify_observers_callback (cemented_blocks);
+	release_assert (!error);
 
 	// Tests should check this already at the end, but not all blocks may have elections (e.g from manual calls to confirmation_height_processor::add), this should catch any inconsistencies on live/beta though
 	if (!network_params.network.is_test_network ())
 	{
-		release_assert (!error);
 		auto blocks_confirmed_stats = ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed);
 		auto observer_stats = ledger.stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out);
 		debug_assert (blocks_confirmed_stats == observer_stats);
 	}
-	else if (error)
-	{
-		// Test only code so we can get passed the debug asserts
-		pending_writes.clear ();
-		pending_writes_size = 0;
-	}
 	debug_assert (pending_writes.empty ());
 	debug_assert (pending_writes_size == 0);
-	return false;
 }
 
 std::shared_ptr<nano::block> nano::confirmation_height_unbounded::get_block_and_sideband (nano::block_hash const & hash_a, nano::transaction const & transaction_a)

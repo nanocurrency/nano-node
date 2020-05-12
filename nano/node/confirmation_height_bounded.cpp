@@ -74,11 +74,8 @@ void nano::confirmation_height_bounded::process ()
 		{
 			// Mismatch with ledger
 			logger.always_log ("Ledger mismatch trying to set confirmation height for block ", current.to_string (), " (Bounded processor)");
-			ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block);
-			// Don't bail in test network so we can test for this explicitly and check the results
-			release_assert (network_params.network.is_test_network ());
-			return;
 		}
+		release_assert (block);
 		nano::account account (block->account ());
 		if (account.is_zero ())
 		{
@@ -177,23 +174,16 @@ void nano::confirmation_height_bounded::process ()
 
 			if ((max_batch_write_size_reached || should_output || force_write) && !pending_writes.empty ())
 			{
-				bool error = false;
 				// If nothing is currently using the database write lock then write the cemented pending blocks otherwise continue iterating
 				if (write_database_queue.process (nano::writer::confirmation_height))
 				{
 					auto scoped_write_guard = write_database_queue.pop ();
-					error = cement_blocks (scoped_write_guard);
+					cement_blocks (scoped_write_guard);
 				}
 				else if (force_write)
 				{
 					auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
-					error = cement_blocks (scoped_write_guard);
-				}
-				// Don't set any more cemented blocks from the original hash if an inconsistency is found
-				if (error)
-				{
-					checkpoints.clear ();
-					break;
+					cement_blocks (scoped_write_guard);
 				}
 			}
 		}
@@ -342,7 +332,7 @@ void nano::confirmation_height_bounded::prepare_iterated_blocks_for_cementing (p
 	}
 }
 
-bool nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scoped_write_guard_a)
+void nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scoped_write_guard_a)
 {
 	// Will contain all blocks that have been cemented (bounded by batch_write_size)
 	// and will get run through the cemented observer callback
@@ -384,7 +374,6 @@ bool nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 			if (error)
 			{
 				logger.always_log ("Failed to read confirmation height for account ", pending.account.to_account (), " (Unbounded processor)");
-				ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block);
 			}
 
 			// Some blocks need to be cemented at least
@@ -420,7 +409,6 @@ bool nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 					if (!block)
 					{
 						logger.always_log ("Failed to write confirmation height for: ", new_cemented_frontier.to_string (), " (Unbounded processor)");
-						ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block);
 						// Undo any blocks about to be cemented from this account for this pending write.
 						cemented_blocks.erase (cemented_blocks.end () - num_blocks_iterated, cemented_blocks.end ());
 						error = true;
@@ -518,12 +506,12 @@ bool nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 		scoped_write_guard_a.release ();
 		notify_observers_callback (cemented_blocks);
 	}
+	release_assert (!error);
 	// Tests should check this already at the end, but not all blocks may have elections (e.g from manual calls to confirmation_height_processor::add), this should catch any inconsistencies on live/beta though
 	if (!network_params.network.is_test_network ())
 	{
 		// Bail if there was an error. This indicates that there was a fatal issue with the ledger
 		// (the blocks probably got rolled back when they shouldn't have).
-		release_assert (!error);
 		auto blocks_confirmed_stats = ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed);
 		auto observer_stats = ledger.stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out);
 		debug_assert (blocks_confirmed_stats == observer_stats);
@@ -535,16 +523,9 @@ bool nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 			batch_write_size = std::max<uint64_t> (minimum_batch_write_size, batch_write_size - amount_to_change);
 		}
 	}
-	else if (error)
-	{
-		// Test only code so we can get passed the debug asserts
-		pending_writes.clear ();
-		pending_writes_size = 0;
-	}
 
 	debug_assert (pending_writes.empty ());
 	debug_assert (pending_writes_size == 0);
-	return error;
 }
 
 bool nano::confirmation_height_bounded::pending_empty () const
