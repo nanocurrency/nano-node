@@ -7933,30 +7933,6 @@ TEST (rpc_config, serialization)
 	ASSERT_EQ (config2.rpc_process.num_ipc_connections, config1.rpc_process.num_ipc_connections);
 }
 
-TEST (rpc_config, migrate)
-{
-	nano::jsonconfig rpc;
-	rpc.put ("address", "::1");
-	rpc.put ("port", 11111);
-
-	bool updated = false;
-	auto data_path = nano::unique_path ();
-	boost::filesystem::create_directory (data_path);
-	nano::node_rpc_config nano_rpc_config;
-	nano_rpc_config.deserialize_json (updated, rpc, data_path);
-	ASSERT_TRUE (updated);
-
-	// Check that the rpc config file is created
-	auto rpc_path = nano::get_rpc_config_path (data_path);
-	nano::rpc_config rpc_config;
-	nano::jsonconfig json;
-	updated = false;
-	ASSERT_FALSE (json.read_and_update (rpc_config, rpc_path));
-	ASSERT_FALSE (updated);
-
-	ASSERT_EQ (rpc_config.port, 11111);
-}
-
 TEST (rpc, deprecated_account_format)
 {
 	nano::system system;

@@ -37,13 +37,11 @@ public:
 	using block_store_partial::block_exists;
 	using block_store_partial::unchecked_put;
 
-	mdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, size_t batch_size = 512, bool backup_before_upgrade = false);
+	mdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, bool backup_before_upgrade = false);
 	nano::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_requiring_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) override;
 	nano::read_transaction tx_begin_read () override;
 
 	std::string vendor_get () const override;
-
-	bool block_info_get (nano::transaction const &, nano::block_hash const &, nano::block_info &) const override;
 
 	void version_put (nano::write_transaction const &, int) override;
 
@@ -77,7 +75,7 @@ public:
 	MDB_dbi accounts_v1{ 0 };
 
 	/**
-	 * Maps account v0 to account information, head, rep, open, balance, timestamp, block count and epoch. (Removed)
+	 * Maps account v0 to account information, head, rep, open, balance, timestamp, block count and epoch
 	 * nano::account -> nano::block_hash, nano::block_hash, nano::block_hash, nano::amount, uint64_t, uint64_t, nano::epoch
 	 */
 	MDB_dbi accounts{ 0 };
@@ -141,12 +139,6 @@ public:
 	 * nano::account, nano::block_hash -> nano::account, nano::amount, nano::epoch
 	 */
 	MDB_dbi pending{ 0 };
-
-	/**
-	 * Maps block hash to account and balance. (Removed)
-	 * block_hash -> nano::account, nano::amount
-	 */
-	MDB_dbi blocks_info{ 0 };
 
 	/**
 	 * Representative weights. (Removed)
@@ -217,28 +209,13 @@ public:
 
 	// These are only use in the upgrade process.
 	std::shared_ptr<nano::block> block_get_v14 (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_sideband_v14 * sideband_a = nullptr, bool * is_state_v1 = nullptr) const override;
-	bool entry_has_sideband_v14 (size_t entry_size_a, nano::block_type type_a) const;
 	size_t block_successor_offset_v14 (nano::transaction const & transaction_a, size_t entry_size_a, nano::block_type type_a) const;
 	nano::block_hash block_successor_v14 (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const;
 	nano::mdb_val block_raw_get_v14 (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_type & type_a, bool * is_state_v1 = nullptr) const;
 	boost::optional<nano::mdb_val> block_raw_get_by_type_v14 (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_type & type_a, bool * is_state_v1) const;
-	nano::account block_account_computed_v14 (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const;
-	nano::account block_account_v14 (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const;
-	nano::uint128_t block_balance_computed_v14 (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const;
 
 private:
-	bool do_upgrades (nano::write_transaction &, bool &, size_t);
-	void upgrade_v1_to_v2 (nano::write_transaction const &);
-	void upgrade_v2_to_v3 (nano::write_transaction const &);
-	void upgrade_v3_to_v4 (nano::write_transaction const &);
-	void upgrade_v4_to_v5 (nano::write_transaction const &);
-	void upgrade_v5_to_v6 (nano::write_transaction const &);
-	void upgrade_v6_to_v7 (nano::write_transaction const &);
-	void upgrade_v7_to_v8 (nano::write_transaction const &);
-	void upgrade_v8_to_v9 (nano::write_transaction const &);
-	void upgrade_v10_to_v11 (nano::write_transaction const &);
-	void upgrade_v11_to_v12 (nano::write_transaction const &);
-	void upgrade_v12_to_v13 (nano::write_transaction &, size_t);
+	bool do_upgrades (nano::write_transaction &, bool &);
 	void upgrade_v13_to_v14 (nano::write_transaction const &);
 	void upgrade_v14_to_v15 (nano::write_transaction &);
 	void upgrade_v15_to_v16 (nano::write_transaction const &);

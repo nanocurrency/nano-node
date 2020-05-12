@@ -98,7 +98,6 @@ void nano::add_node_flag_options (boost::program_options::options_description & 
 		("disable_block_processor_unchecked_deletion", "Disable deletion of unchecked blocks after processing")
 		("allow_bootstrap_peers_duplicates", "Allow multiple connections to same peer in bootstrap attempts")
 		("fast_bootstrap", "Increase bootstrap speed for high end nodes with higher limits")
-		("batch_size", boost::program_options::value<std::size_t>(), "Increase sideband batch size, default 512")
 		("block_processor_batch_size", boost::program_options::value<std::size_t>(), "Increase block processor transaction batch write size, default 0 (limited by config block_processor_batch_max_time), 256k for fast_bootstrap")
 		("block_processor_full_size", boost::program_options::value<std::size_t>(), "Increase block processor allowed blocks queue size before dropping live network packets and holding bootstrap download, default 65536, 1 million for fast_bootstrap")
 		("block_processor_verification_size", boost::program_options::value<std::size_t>(), "Increase batch signature verification size in block processor, default 0 (limited by config signature_checker_threads), unlimited for fast_bootstrap")
@@ -111,11 +110,6 @@ void nano::add_node_flag_options (boost::program_options::options_description & 
 std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_options::variables_map const & vm)
 {
 	std::error_code ec;
-	auto batch_size_it = vm.find ("batch_size");
-	if (batch_size_it != vm.end ())
-	{
-		flags_a.sideband_batch_size = batch_size_it->second.as<size_t> ();
-	}
 	flags_a.disable_backup = (vm.count ("disable_backup") > 0);
 	flags_a.disable_lazy_bootstrap = (vm.count ("disable_lazy_bootstrap") > 0);
 	flags_a.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);

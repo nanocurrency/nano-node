@@ -58,64 +58,6 @@ TEST (logging, serialization)
 	ASSERT_EQ (logging1.min_time_between_log_output, logging2.min_time_between_log_output);
 }
 
-TEST (logging, upgrade_v1_v2)
-{
-	auto path1 (nano::unique_path ());
-	auto path2 (nano::unique_path ());
-	nano::logging logging1;
-	logging1.init (path1);
-	nano::logging logging2;
-	logging2.init (path2);
-	nano::jsonconfig tree;
-	logging1.serialize_json (tree);
-	tree.erase ("version");
-	tree.erase ("vote");
-	bool upgraded (false);
-	ASSERT_FALSE (logging2.deserialize_json (upgraded, tree));
-	ASSERT_LE (2, tree.get<int> ("version"));
-	ASSERT_FALSE (tree.get<bool> ("vote"));
-}
-
-TEST (logging, upgrade_v6_v7)
-{
-	auto path1 (nano::unique_path ());
-	auto path2 (nano::unique_path ());
-	nano::logging logging1;
-	logging1.init (path1);
-	nano::logging logging2;
-	logging2.init (path2);
-	nano::jsonconfig tree;
-	logging1.serialize_json (tree);
-	tree.erase ("version");
-	tree.erase ("min_time_between_output");
-	tree.erase ("network_timeout_logging_value");
-	bool upgraded (false);
-	ASSERT_FALSE (logging2.deserialize_json (upgraded, tree));
-	ASSERT_TRUE (upgraded);
-	ASSERT_LE (7, tree.get<int> ("version"));
-	ASSERT_EQ (5, tree.get<uintmax_t> ("min_time_between_output"));
-	ASSERT_EQ (false, tree.get<bool> ("network_timeout_logging_value"));
-}
-
-TEST (logging, upgrade_v7_v8)
-{
-	auto path1 (nano::unique_path ());
-	auto path2 (nano::unique_path ());
-	nano::logging logging1;
-	logging1.init (path1);
-	nano::logging logging2;
-	logging2.init (path2);
-	nano::jsonconfig tree;
-	logging1.serialize_json (tree);
-	tree.erase ("version");
-	tree.erase ("single_line_record");
-	bool upgraded (false);
-	ASSERT_FALSE (logging2.deserialize_json (upgraded, tree));
-	ASSERT_TRUE (upgraded);
-	ASSERT_LE (8, tree.get<int> ("version"));
-	ASSERT_EQ (false, tree.get<bool> ("single_line_record"));
-}
-
 TEST (logger, changing_time_interval)
 {
 	auto path1 (nano::unique_path ());

@@ -225,27 +225,6 @@ bool nano::logging::upgrade_json (unsigned version_a, nano::jsonconfig & json)
 	json.put ("version", json_version ());
 	switch (version_a)
 	{
-		case 1:
-			json.put ("vote", vote_logging_value);
-		case 2:
-			json.put ("rotation_size", rotation_size);
-			json.put ("flush", true);
-		case 3:
-			json.put ("network_node_id_handshake", false);
-		case 4:
-			json.put ("upnp_details", "false");
-			json.put ("timing", "false");
-		case 5:
-			uintmax_t config_max_size;
-			json.get<uintmax_t> ("max_size", config_max_size);
-			max_size = std::max (max_size, config_max_size);
-			json.put ("max_size", max_size);
-			json.put ("log_ipc", true);
-		case 6:
-			json.put ("min_time_between_output", min_time_between_log_output.count ());
-			json.put ("network_timeout", network_timeout_logging_value);
-			json.erase ("log_rpc");
-			break;
 		case 7:
 			json.put ("single_line_record", single_line_record_value);
 		case 8:
@@ -260,23 +239,7 @@ bool nano::logging::upgrade_json (unsigned version_a, nano::jsonconfig & json)
 nano::error nano::logging::deserialize_json (bool & upgraded_a, nano::jsonconfig & json)
 {
 	int version_l{ 1 };
-	if (!json.has_key ("version"))
-	{
-		json.put ("version", version_l);
-
-		auto work_peers_l (json.get_optional_child ("work_peers"));
-		if (!work_peers_l)
-		{
-			nano::jsonconfig peers;
-			json.put_child ("work_peers", peers);
-		}
-		upgraded_a = true;
-	}
-	else
-	{
-		json.get_required<int> ("version", version_l);
-	}
-
+	json.get_required<int> ("version", version_l);
 	upgraded_a |= upgrade_json (version_l, json);
 	json.get<bool> ("ledger", ledger_logging_value);
 	json.get<bool> ("ledger_duplicate", ledger_duplicate_logging_value);

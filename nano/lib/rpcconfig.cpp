@@ -89,25 +89,6 @@ nano::error nano::rpc_config::deserialize_json (bool & upgraded_a, nano::jsoncon
 {
 	if (!json.empty ())
 	{
-		auto version_l (json.get_optional<unsigned> ("version"));
-		if (!version_l)
-		{
-			version_l = 1;
-			json.put ("version", *version_l);
-			json.put ("max_request_size", max_request_size);
-			json.erase ("frontier_request_limit");
-			json.erase ("chain_request_limit");
-
-			nano::jsonconfig rpc_process_l;
-			rpc_process_l.put ("version", *version_l);
-			rpc_process_l.put ("io_threads", rpc_process.io_threads);
-			rpc_process_l.put ("ipc_address", rpc_process.ipc_address);
-			rpc_process_l.put ("ipc_port", rpc_process.ipc_port);
-			rpc_process_l.put ("num_ipc_connections", rpc_process.num_ipc_connections);
-			json.put_child ("process", rpc_process_l);
-			upgraded_a = true;
-		}
-
 		auto rpc_secure_l (json.get_optional_child ("secure"));
 		if (rpc_secure_l)
 		{
@@ -125,15 +106,6 @@ nano::error nano::rpc_config::deserialize_json (bool & upgraded_a, nano::jsoncon
 		auto rpc_process_l (json.get_optional_child ("process"));
 		if (rpc_process_l)
 		{
-			auto version_l (rpc_process_l->get_optional<unsigned> ("version"));
-			if (!version_l)
-			{
-				version_l = 1;
-				rpc_process_l->put ("version", *version_l);
-				rpc_process_l->put ("ipc_address", rpc_process.ipc_address);
-				upgraded_a = true;
-			}
-
 			rpc_process_l->get_optional<unsigned> ("io_threads", rpc_process.io_threads);
 			rpc_process_l->get_optional<uint16_t> ("ipc_port", rpc_process.ipc_port);
 			boost::asio::ip::address_v6 ipc_address_l;

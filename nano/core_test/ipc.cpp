@@ -94,25 +94,6 @@ TEST (ipc, synchronous)
 	ipc.stop ();
 }
 
-TEST (ipc, config_upgrade_v0_v1)
-{
-	auto path1 (nano::unique_path ());
-	auto path2 (nano::unique_path ());
-	nano::ipc::ipc_config config1;
-	nano::ipc::ipc_config config2;
-	nano::jsonconfig tree;
-	config1.serialize_json (tree);
-	nano::jsonconfig local = tree.get_required_child ("local");
-	local.erase ("version");
-	local.erase ("allow_unsafe");
-	bool upgraded (false);
-	ASSERT_FALSE (config2.deserialize_json (upgraded, tree));
-	nano::jsonconfig local2 = tree.get_required_child ("local");
-	ASSERT_TRUE (upgraded);
-	ASSERT_LE (1, local2.get<int> ("version"));
-	ASSERT_FALSE (local2.get<bool> ("allow_unsafe"));
-}
-
 TEST (ipc, permissions_default_user)
 {
 	// Test empty/nonexistant access config. The default user still exists with default permissions.
