@@ -20,7 +20,7 @@ usage() {
 	printf "    *\n"
 	printf "      usage\n\n"
 	printf "default:\n"
-	printf "  $0 nano_node daemon -l"
+	printf "  $0 nano_node daemon -l\n"
 }
 
 OPTIND=1
@@ -121,4 +121,4 @@ case $command in
 esac
 
 printf "EXECUTING: ${command}\n"
-exec "${command}"
+exec $command
