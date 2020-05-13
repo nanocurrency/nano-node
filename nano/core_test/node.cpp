@@ -819,6 +819,23 @@ TEST (node_config, random_rep)
 	ASSERT_NE (config1.preconfigured_representatives.end (), std::find (config1.preconfigured_representatives.begin (), config1.preconfigured_representatives.end (), rep));
 }
 
+TEST (node_config, unsupported_version_upgrade)
+{
+	auto path (nano::unique_path ());
+	nano::logging logging1;
+	logging1.init (path);
+	nano::node_config node_config (100, logging1);
+	nano::jsonconfig config;
+	node_config.serialize_json (config);
+	config.put ("version", "16"); // Version 16 and earlier is no longer supported for direct upgrade
+
+	nano::node_config node_config1;
+	bool upgraded{ false };
+	auto err = node_config1.deserialize_json (upgraded, config);
+	ASSERT_FALSE (upgraded);
+	ASSERT_TRUE (err);
+}
+
 class json_initial_value_test final
 {
 public:

@@ -225,6 +225,13 @@ bool nano::logging::upgrade_json (unsigned version_a, nano::jsonconfig & json)
 	json.put ("version", json_version ());
 	switch (version_a)
 	{
+		case 1:
+		case 2:
+		case 3:
+		case 4:
+		case 5:
+		case 6:
+			throw std::runtime_error ("logging_config version is unsupported for upgrade. Upgrade to a v19, v20 or v21 node first, or delete the config and ledger files");
 		case 7:
 			json.put ("single_line_record", single_line_record_value);
 		case 8:

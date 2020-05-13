@@ -27,7 +27,6 @@
 
 namespace
 {
-void modify_account_info_to_v13 (nano::mdb_store & store, nano::transaction const & transaction_a, nano::account const & account_a, nano::block_hash const & rep_block);
 void modify_account_info_to_v14 (nano::mdb_store & store, nano::transaction const & transaction_a, nano::account const & account_a, uint64_t confirmation_height, nano::block_hash const & rep_block);
 void modify_confirmation_height_to_v15 (nano::mdb_store & store, nano::transaction const & transaction, nano::account const & account, uint64_t confirmation_height);
 void write_sideband_v14 (nano::mdb_store & store_a, nano::transaction & transaction_a, nano::block const & block_a, MDB_dbi db_a);
@@ -651,6 +650,50 @@ TEST (block_store, latest_find)
 	ASSERT_EQ (second, find3);
 }
 
+TEST (mdb_block_store, supported_version_upgrades)
+{
+	// Check that upgrading from an unsupported version is not supported
+	auto path (nano::unique_path ());
+	nano::genesis genesis;
+	nano::logger_mt logger;
+	{
+		nano::mdb_store store (logger, path);
+		nano::stat stats;
+		nano::ledger ledger (store, stats);
+		auto transaction (store.tx_begin_write ());
+		store.initialize (transaction, genesis, ledger.cache);
+		// Lower the database to the max version unsupported for upgrades
+		store.version_put (transaction, store.minimum_version - 1);
+	}
+
+	// Upgrade should fail
+	{
+		nano::mdb_store store (logger, path);
+		ASSERT_TRUE (store.init_error ());
+	}
+
+	auto path1 (nano::unique_path ());
+	// Now try with the minimum version
+	{
+		nano::mdb_store store (logger, path1);
+		nano::stat stats;
+		nano::ledger ledger (store, stats);
+		auto transaction (store.tx_begin_write ());
+		store.initialize (transaction, genesis, ledger.cache);
+		// Lower the database version to the minimum version supported for upgrade.
+		store.version_put (transaction, store.minimum_version);
+		store.confirmation_height_del (transaction, nano::genesis_account);
+		ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "accounts_v1", MDB_CREATE, &store.accounts_v1));
+		modify_account_info_to_v14 (store, transaction, nano::genesis_account, 1, nano::genesis_hash);
+	}
+
+	// Upgrade should work
+	{
+		nano::mdb_store store (logger, path1);
+		ASSERT_FALSE (store.init_error ());
+	}
+}
+
 TEST (mdb_block_store, bad_path)
 {
 	nano::logger_mt logger;
@@ -1165,57 +1208,6 @@ TEST (block_store, online_weight)
 	ASSERT_EQ (store->online_weight_end (), store->online_weight_begin (transaction));
 }
 
-// Adding confirmation height to accounts
-TEST (mdb_block_store, upgrade_v13_v14)
-{
-	auto path (nano::unique_path ());
-	nano::genesis genesis;
-	{
-		nano::logger_mt logger;
-		nano::mdb_store store (logger, path);
-		auto transaction (store.tx_begin_write ());
-		nano::ledger_cache ledger_cache;
-		store.initialize (transaction, genesis, ledger_cache);
-		nano::account_info account_info;
-		ASSERT_FALSE (store.account_get (transaction, nano::genesis_account, account_info));
-		store.version_put (transaction, 13);
-		modify_account_info_to_v13 (store, transaction, nano::genesis_account, nano::genesis_hash);
-
-		// This should fail as sizes are no longer correct for account_info_v14
-		nano::mdb_val value;
-		ASSERT_FALSE (mdb_get (store.env.tx (transaction), store.accounts_v0, nano::mdb_val (nano::genesis_account), value));
-		nano::account_info_v14 info;
-		ASSERT_NE (value.size (), info.db_size ());
-		store.confirmation_height_del (transaction, nano::genesis_account);
-	}
-
-	// Now do the upgrade
-	nano::logger_mt logger;
-	auto error (false);
-	nano::mdb_store store (logger, path);
-	ASSERT_FALSE (error);
-	auto transaction (store.tx_begin_read ());
-
-	// Size of account_info should now equal that set in db
-	nano::mdb_val value;
-	ASSERT_FALSE (mdb_get (store.env.tx (transaction), store.accounts_v0, nano::mdb_val (nano::genesis_account), value));
-	nano::account_info info;
-	ASSERT_EQ (value.size (), info.db_size ());
-
-	// Confirmation height should exist and be correct
-	nano::confirmation_height_info confirmation_height_info;
-	ASSERT_FALSE (store.confirmation_height_get (transaction, nano::genesis_account, confirmation_height_info));
-	ASSERT_EQ (confirmation_height_info.height, 1);
-	ASSERT_EQ (confirmation_height_info.frontier, genesis.hash ());
-
-	// Test deleting node ID
-	nano::uint256_union node_id_mdb_key (3);
-	auto error_node_id (mdb_get (store.env.tx (transaction), store.meta, nano::mdb_val (node_id_mdb_key), value));
-	ASSERT_EQ (error_node_id, MDB_NOTFOUND);
-
-	ASSERT_LT (13, store.version_get (transaction));
-}
-
 TEST (mdb_block_store, upgrade_v14_v15)
 {
 	// Extract confirmation height to a separate database
@@ -1239,7 +1231,7 @@ TEST (mdb_block_store, upgrade_v14_v15)
 		ASSERT_FALSE (store.confirmation_height_get (transaction, nano::genesis_account, confirmation_height_info));
 		ASSERT_EQ (confirmation_height_info.height, 1);
 		ASSERT_EQ (confirmation_height_info.frontier, genesis.hash ());
-		// These databases get remove after an upgrade, so readd them
+		// These databases get removed after an upgrade, so readd them
 		ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "state_v1", MDB_CREATE, &store.state_blocks_v1));
 		ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "accounts_v1", MDB_CREATE, &store.accounts_v1));
 		ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "pending_v1", MDB_CREATE, &store.pending_v1));
@@ -1277,9 +1269,8 @@ TEST (mdb_block_store, upgrade_v14_v15)
 
 	// Now do the upgrade
 	nano::logger_mt logger;
-	auto error (false);
 	nano::mdb_store store (logger, path);
-	ASSERT_FALSE (error);
+	ASSERT_FALSE (store.init_error ());
 	auto transaction (store.tx_begin_read ());
 
 	// Size of account_info should now equal that set in db
@@ -1346,9 +1337,8 @@ TEST (mdb_block_store, upgrade_v15_v16)
 
 	// Now do the upgrade
 	nano::logger_mt logger;
-	auto error (false);
 	nano::mdb_store store (logger, path);
-	ASSERT_FALSE (error);
+	ASSERT_FALSE (store.init_error ());
 	auto transaction (store.tx_begin_read ());
 
 	// The representation table should now be deleted
@@ -1390,9 +1380,8 @@ TEST (mdb_block_store, upgrade_v16_v17)
 
 		// Now do the upgrade
 		nano::logger_mt logger;
-		auto error (false);
 		nano::mdb_store store (logger, path);
-		ASSERT_FALSE (error);
+		ASSERT_FALSE (store.init_error ());
 		auto transaction (store.tx_begin_read ());
 
 		nano::confirmation_height_info confirmation_height_info;
@@ -1474,9 +1463,8 @@ TEST (mdb_block_store, upgrade_v17_v18)
 
 	// Now do the upgrade
 	nano::logger_mt logger;
-	auto error (false);
 	nano::mdb_store store (logger, path);
-	ASSERT_FALSE (error);
+	ASSERT_FALSE (store.init_error ());
 	auto transaction (store.tx_begin_read ());
 
 	// Size of state block should equal that set in db (no change)
@@ -1681,54 +1669,6 @@ TEST (block_store, confirmation_height)
 	ASSERT_EQ (confirmation_height_info.frontier, nano::block_hash (0));
 }
 
-// Upgrade many accounts and check they all have a confirmation height of 0 (except genesis which should have 1)
-TEST (mdb_block_store, upgrade_confirmation_height_many)
-{
-	auto error (false);
-	nano::genesis genesis;
-	auto total_num_accounts = 1000; // Includes the genesis account
-
-	auto path (nano::unique_path ());
-	{
-		nano::logger_mt logger;
-		nano::mdb_store store (logger, path);
-		ASSERT_FALSE (error);
-		auto transaction (store.tx_begin_write ());
-		store.version_put (transaction, 13);
-		nano::ledger_cache ledger_cache;
-		store.initialize (transaction, genesis, ledger_cache);
-		modify_account_info_to_v13 (store, transaction, nano::genesis_account, nano::genesis_hash);
-
-		// Add many accounts
-		for (auto i = 0; i < total_num_accounts - 1; ++i)
-		{
-			nano::account account (i);
-			nano::open_block open (1, nano::genesis_account, 3, nullptr);
-			open.sideband_set ({});
-			store.block_put (transaction, open.hash (), open);
-			nano::account_info_v13 account_info_v13 (open.hash (), open.hash (), open.hash (), 3, 4, 1, nano::epoch::epoch_0);
-			auto status (mdb_put (store.env.tx (transaction), store.accounts_v0, nano::mdb_val (account), nano::mdb_val (account_info_v13), 0));
-			ASSERT_EQ (status, 0);
-		}
-		store.confirmation_height_del (transaction, nano::genesis_account);
-
-		ASSERT_EQ (store.count (transaction, store.accounts_v0), total_num_accounts);
-	}
-
-	// Loop over them all and confirm they all have the correct confirmation heights
-	nano::logger_mt logger;
-	nano::mdb_store store (logger, path);
-	auto transaction (store.tx_begin_read ());
-	ASSERT_EQ (store.account_count (transaction), total_num_accounts);
-	ASSERT_EQ (store.confirmation_height_count (transaction), total_num_accounts);
-
-	for (auto i (store.confirmation_height_begin (transaction)), n (store.confirmation_height_end ()); i != n; ++i)
-	{
-		ASSERT_EQ (i->second.height, (i->first == nano::genesis_account) ? 1 : 0);
-		ASSERT_EQ (i->second.frontier, (i->first == nano::genesis_account) ? genesis.hash () : nano::block_hash (0));
-	}
-}
-
 // Ledger versions are not forward compatible
 TEST (block_store, incompatible_version)
 {
@@ -1849,16 +1789,6 @@ void write_sideband_v15 (nano::mdb_store & store_a, nano::transaction & transact
 
 	MDB_val val{ data.size (), data.data () };
 	ASSERT_FALSE (mdb_put (store_a.env.tx (transaction_a), store_a.state_blocks, nano::mdb_val (block_a.hash ()), &val, 0));
-}
-
-// These functions take the latest account_info and create a legacy one so that upgrade tests can be emulated more easily.
-void modify_account_info_to_v13 (nano::mdb_store & store, nano::transaction const & transaction, nano::account const & account, nano::block_hash const & rep_block)
-{
-	nano::account_info info;
-	ASSERT_FALSE (store.account_get (transaction, account, info));
-	nano::account_info_v13 account_info_v13 (info.head, rep_block, info.open_block, info.balance, info.modified, info.block_count, info.epoch ());
-	auto status (mdb_put (store.env.tx (transaction), (info.epoch () == nano::epoch::epoch_0) ? store.accounts_v0 : store.accounts_v1, nano::mdb_val (account), nano::mdb_val (account_info_v13), 0));
-	ASSERT_EQ (status, 0);
 }
 
 void modify_account_info_to_v14 (nano::mdb_store & store, nano::transaction const & transaction, nano::account const & account, uint64_t confirmation_height, nano::block_hash const & rep_block)

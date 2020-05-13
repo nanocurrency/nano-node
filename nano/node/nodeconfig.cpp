@@ -507,6 +507,23 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 	json.put ("version", json_version ());
 	switch (version_a)
 	{
+		case 1:
+		case 2:
+		case 3:
+		case 4:
+		case 5:
+		case 6:
+		case 7:
+		case 8:
+		case 9:
+		case 10:
+		case 11:
+		case 12:
+		case 13:
+		case 14:
+		case 15:
+		case 16:
+			throw std::runtime_error ("node_config version unsupported for upgrade. Upgrade to a v19, v20 or v21 node first, or delete the config and ledger files");
 		case 17:
 		{
 			json.put ("active_elections_size", 10000); // Update value

@@ -231,11 +231,10 @@ bool nano::mdb_store::do_upgrades (nano::write_transaction & transaction_a, bool
 		case 10:
 		case 11:
 		case 12:
-			logger.always_log (boost::str (boost::format ("The version of the ledger (%1%) is lower than the minimum (%2%) which is supported for upgrades") % version_l % minimum_version));
+		case 13:
+			logger.always_log (boost::str (boost::format ("The version of the ledger (%1%) is lower than the minimum (%2%) which is supported for upgrades. Either upgrade to a v19, v20 or v21 node first or delete the ledger.") % version_l % minimum_version));
 			error = true;
 			break;
-		case 13:
-			upgrade_v13_to_v14 (transaction_a);
 		case 14:
 			upgrade_v14_to_v15 (transaction_a);
 			needs_vacuuming = true;
@@ -255,40 +254,6 @@ bool nano::mdb_store::do_upgrades (nano::write_transaction & transaction_a, bool
 			break;
 	}
 	return error;
-}
-
-void nano::mdb_store::upgrade_v13_to_v14 (nano::write_transaction const & transaction_a)
-{
-	// Upgrade all accounts to have a confirmation of 0 (except genesis which should have 1)
-	version_put (transaction_a, 14);
-	nano::mdb_merge_iterator<nano::account, nano::account_info_v13> i (transaction_a, accounts_v0, accounts_v1);
-	nano::mdb_merge_iterator<nano::account, nano::account_info_v13> n{};
-	std::vector<std::pair<nano::account, nano::account_info_v14>> account_infos;
-	account_infos.reserve (count (transaction_a, accounts_v0) + count (transaction_a, accounts_v1));
-	for (; i != n; ++i)
-	{
-		nano::account account (i->first);
-		nano::account_info_v13 account_info_v13 (i->second);
-
-		uint64_t confirmation_height = 0;
-		if (account == network_params.ledger.genesis_account)
-		{
-			confirmation_height = 1;
-		}
-		account_infos.emplace_back (account, nano::account_info_v14{ account_info_v13.head, account_info_v13.rep_block, account_info_v13.open_block, account_info_v13.balance, account_info_v13.modified, account_info_v13.block_count, confirmation_height, i.from_first_database ? nano::epoch::epoch_0 : nano::epoch::epoch_1 });
-	}
-
-	for (auto const & account_info : account_infos)
-	{
-		auto status1 (mdb_put (env.tx (transaction_a), account_info.second.epoch == nano::epoch::epoch_0 ? accounts_v0 : accounts_v1, nano::mdb_val (account_info.first), nano::mdb_val (account_info.second), 0));
-		release_assert (status1 == 0);
-	}
-
-	logger.always_log ("Completed confirmation height upgrade");
-
-	nano::uint256_union node_id_mdb_key (3);
-	auto error (mdb_del (env.tx (transaction_a), meta, nano::mdb_val (node_id_mdb_key), nullptr));
-	release_assert (!error || error == MDB_NOTFOUND);
 }
 
 void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction & transaction_a)

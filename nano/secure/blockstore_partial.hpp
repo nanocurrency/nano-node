@@ -772,11 +772,12 @@ public:
 		return count (transaction_a, tables::unchecked);
 	}
 
+	int const minimum_version{ 14 };
+
 protected:
 	nano::network_params network_params;
 	std::unordered_map<nano::account, std::shared_ptr<nano::vote>> vote_cache_l1;
 	std::unordered_map<nano::account, std::shared_ptr<nano::vote>> vote_cache_l2;
-	int const minimum_version{ 13 };
 	int const version{ 18 };
 
 	template <typename T>

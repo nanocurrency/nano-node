@@ -57,11 +57,6 @@ public:
 	{
 	}
 
-	db_val (nano::account_info_v13 const & val_a) :
-	db_val (val_a.db_size (), const_cast<nano::account_info_v13 *> (&val_a))
-	{
-	}
-
 	db_val (nano::account_info_v14 const & val_a) :
 	db_val (val_a.db_size (), const_cast<nano::account_info_v14 *> (&val_a))
 	{
@@ -147,14 +142,6 @@ public:
 	explicit operator nano::account_info () const
 	{
 		nano::account_info result;
-		debug_assert (size () == result.db_size ());
-		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + result.db_size (), reinterpret_cast<uint8_t *> (&result));
-		return result;
-	}
-
-	explicit operator nano::account_info_v13 () const
-	{
-		nano::account_info_v13 result;
 		debug_assert (size () == result.db_size ());
 		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + result.db_size (), reinterpret_cast<uint8_t *> (&result));
 		return result;

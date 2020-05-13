@@ -216,7 +216,6 @@ public:
 
 private:
 	bool do_upgrades (nano::write_transaction &, bool &);
-	void upgrade_v13_to_v14 (nano::write_transaction const &);
 	void upgrade_v14_to_v15 (nano::write_transaction &);
 	void upgrade_v15_to_v16 (nano::write_transaction const &);
 	void upgrade_v16_to_v17 (nano::write_transaction const &);
