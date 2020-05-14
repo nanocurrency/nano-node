@@ -72,8 +72,9 @@ void nano::confirmation_height_bounded::process ()
 		auto block = ledger.store.block_get (transaction, current);
 		if (!block)
 		{
-			// Mismatch with ledger
-			logger.always_log ("Ledger mismatch trying to set confirmation height for block ", current.to_string (), " (Bounded processor)");
+			auto error_str = (boost::format ("Ledger mismatch trying to set confirmation height for block %1% (bounded processor)") % current.to_string ()).str ();
+			logger.always_log (error_str);
+			std::cerr << error_str << std::endl;
 		}
 		release_assert (block);
 		nano::account account (block->account ());
@@ -373,7 +374,9 @@ void nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 			error = ledger.store.confirmation_height_get (transaction, pending.account, confirmation_height_info);
 			if (error)
 			{
-				logger.always_log ("Failed to read confirmation height for account ", pending.account.to_account (), " (Unbounded processor)");
+				auto error_str = (boost::format ("Failed to read confirmation height for account %1% (bounded processor)") % pending.account.to_account ()).str ();
+				logger.always_log (error_str);
+				std::cerr << error_str << std::endl;
 			}
 
 			// Some blocks need to be cemented at least
@@ -408,7 +411,9 @@ void nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 				{
 					if (!block)
 					{
-						logger.always_log ("Failed to write confirmation height for: ", new_cemented_frontier.to_string (), " (Unbounded processor)");
+						auto error_str = (boost::format ("Failed to write confirmation height for block %1% (bounded processor)") % new_cemented_frontier.to_string ()).str ();
+						logger.always_log (error_str);
+						std::cerr << error_str << std::endl;
 						// Undo any blocks about to be cemented from this account for this pending write.
 						cemented_blocks.erase (cemented_blocks.end () - num_blocks_iterated, cemented_blocks.end ());
 						error = true;
