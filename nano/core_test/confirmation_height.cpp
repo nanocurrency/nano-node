@@ -732,35 +732,42 @@ TEST (confirmation_height, conflict_rollback_cemented)
 
 TEST (confirmation_heightDeathTest, rollback_added_block)
 {
-	nano::logger_mt logger;
-	auto path (nano::unique_path ());
-	nano::mdb_store store (logger, path);
-	ASSERT_TRUE (!store.init_error ());
-	nano::genesis genesis;
-	nano::stat stats;
-	nano::ledger ledger (store, stats);
-	nano::write_database_queue write_database_queue;
-	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
-	nano::keypair key1;
-	auto send = std::make_shared<nano::send_block> (genesis.hash (), key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (genesis.hash ()));
+	// For ASSERT_DEATH_IF_SUPPORTED
+	testing::FLAGS_gtest_death_test_style = "threadsafe";
+
+	// valgrind can be noisy with death tests
+	if (!nano::running_within_valgrind ())
 	{
-		auto transaction (store.tx_begin_write ());
-		store.initialize (transaction, genesis, ledger.cache);
+		nano::logger_mt logger;
+		auto path (nano::unique_path ());
+		nano::mdb_store store (logger, path);
+		ASSERT_TRUE (!store.init_error ());
+		nano::genesis genesis;
+		nano::stat stats;
+		nano::ledger ledger (store, stats);
+		nano::write_database_queue write_database_queue;
+		nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+		nano::keypair key1;
+		auto send = std::make_shared<nano::send_block> (genesis.hash (), key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (genesis.hash ()));
+		{
+			auto transaction (store.tx_begin_write ());
+			store.initialize (transaction, genesis, ledger.cache);
+		}
+
+		auto block_hash_being_processed (send->hash ());
+		uint64_t batch_write_size = 2048;
+		std::atomic<bool> stopped{ false };
+		nano::confirmation_height_unbounded unbounded_processor (
+		ledger, write_database_queue, 10ms, logger, stopped, block_hash_being_processed, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
+
+		// Processing a block which doesn't exist should bail
+		ASSERT_DEATH_IF_SUPPORTED (unbounded_processor.process (), "");
+
+		nano::confirmation_height_bounded bounded_processor (
+		ledger, write_database_queue, 10ms, logger, stopped, block_hash_being_processed, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
+		// Processing a block which doesn't exist should bail
+		ASSERT_DEATH_IF_SUPPORTED (bounded_processor.process (), "");
 	}
-
-	auto block_hash_being_processed (send->hash ());
-	uint64_t batch_write_size = 2048;
-	std::atomic<bool> stopped{ false };
-	nano::confirmation_height_unbounded unbounded_processor (
-	ledger, write_database_queue, 10ms, logger, stopped, block_hash_being_processed, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
-
-	// Processing a block which doesn't exist should bail
-	ASSERT_DEATH_IF_SUPPORTED (unbounded_processor.process (), "");
-
-	nano::confirmation_height_bounded bounded_processor (
-	ledger, write_database_queue, 10ms, logger, stopped, block_hash_being_processed, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
-	// Processing a block which doesn't exist should bail
-	ASSERT_DEATH_IF_SUPPORTED (bounded_processor.process (), "");
 }
 
 TEST (confirmation_height, observers)
@@ -801,122 +808,136 @@ TEST (confirmation_height, observers)
 // This tests when a read has been done, but the block no longer exists by the time a write is done
 TEST (confirmation_heightDeathTest, modified_chain)
 {
-	nano::logger_mt logger;
-	auto path (nano::unique_path ());
-	nano::mdb_store store (logger, path);
-	ASSERT_TRUE (!store.init_error ());
-	nano::genesis genesis;
-	nano::stat stats;
-	nano::ledger ledger (store, stats);
-	nano::write_database_queue write_database_queue;
-	boost::latch initialized_latch{ 0 };
-	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
-	nano::keypair key1;
-	auto send = std::make_shared<nano::send_block> (nano::genesis_hash, key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (nano::genesis_hash));
+	// For ASSERT_DEATH_IF_SUPPORTED
+	testing::FLAGS_gtest_death_test_style = "threadsafe";
+
+	// valgrind can be noisy with death tests
+	if (!nano::running_within_valgrind ())
 	{
-		auto transaction (store.tx_begin_write ());
-		store.initialize (transaction, genesis, ledger.cache);
-		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send).code);
-	}
+		nano::logger_mt logger;
+		auto path (nano::unique_path ());
+		nano::mdb_store store (logger, path);
+		ASSERT_TRUE (!store.init_error ());
+		nano::genesis genesis;
+		nano::stat stats;
+		nano::ledger ledger (store, stats);
+		nano::write_database_queue write_database_queue;
+		boost::latch initialized_latch{ 0 };
+		nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+		nano::keypair key1;
+		auto send = std::make_shared<nano::send_block> (nano::genesis_hash, key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (nano::genesis_hash));
+		{
+			auto transaction (store.tx_begin_write ());
+			store.initialize (transaction, genesis, ledger.cache);
+			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send).code);
+		}
 
-	auto block_hash_being_processed (send->hash ());
-	uint64_t batch_write_size = 2048;
-	std::atomic<bool> stopped{ false };
-	nano::confirmation_height_unbounded unbounded_processor (
-	ledger, write_database_queue, 10ms, logger, stopped, block_hash_being_processed, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
+		auto block_hash_being_processed (send->hash ());
+		uint64_t batch_write_size = 2048;
+		std::atomic<bool> stopped{ false };
+		nano::confirmation_height_unbounded unbounded_processor (
+		ledger, write_database_queue, 10ms, logger, stopped, block_hash_being_processed, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
 
-	{
-		// This reads the blocks in the account, but prevents any writes from occuring yet
-		auto scoped_write_guard = write_database_queue.wait (nano::writer::testing);
-		unbounded_processor.process ();
-	}
+		{
+			// This reads the blocks in the account, but prevents any writes from occuring yet
+			auto scoped_write_guard = write_database_queue.wait (nano::writer::testing);
+			unbounded_processor.process ();
+		}
 
-	// Rollback the block and now try to write, the block no longer exists so should bail
+		// Rollback the block and now try to write, the block no longer exists so should bail
 
-	ledger.rollback (store.tx_begin_write (), send->hash ());
-	{
+		ledger.rollback (store.tx_begin_write (), send->hash ());
+		{
+			auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
+			ASSERT_DEATH_IF_SUPPORTED (unbounded_processor.cement_blocks (scoped_write_guard), "");
+		}
+
+		// Reset conditions and test with the bounded processor
+		ASSERT_EQ (nano::process_result::progress, ledger.process (store.tx_begin_write (), *send).code);
+		store.confirmation_height_put (store.tx_begin_write (), nano::genesis_account, { 1, nano::genesis_hash });
+
+		nano::confirmation_height_bounded bounded_processor (
+		ledger, write_database_queue, 10ms, logger, stopped, block_hash_being_processed, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
+
+		{
+			// This reads the blocks in the account, but prevents any writes from occuring yet
+			auto scoped_write_guard = write_database_queue.wait (nano::writer::testing);
+			bounded_processor.process ();
+		}
+
+		// Rollback the block and now try to write, the block no longer exists so should bail
+		ledger.rollback (store.tx_begin_write (), send->hash ());
 		auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
-		ASSERT_DEATH_IF_SUPPORTED (unbounded_processor.cement_blocks (scoped_write_guard), "");
+		ASSERT_DEATH_IF_SUPPORTED (bounded_processor.cement_blocks (scoped_write_guard), "");
 	}
-
-	// Reset conditions and test with the bounded processor
-	ASSERT_EQ (nano::process_result::progress, ledger.process (store.tx_begin_write (), *send).code);
-	store.confirmation_height_put (store.tx_begin_write (), nano::genesis_account, { 1, nano::genesis_hash });
-
-	nano::confirmation_height_bounded bounded_processor (
-	ledger, write_database_queue, 10ms, logger, stopped, block_hash_being_processed, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
-
-	{
-		// This reads the blocks in the account, but prevents any writes from occuring yet
-		auto scoped_write_guard = write_database_queue.wait (nano::writer::testing);
-		bounded_processor.process ();
-	}
-
-	// Rollback the block and now try to write, the block no longer exists so should bail
-	ledger.rollback (store.tx_begin_write (), send->hash ());
-	auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
-	ASSERT_DEATH_IF_SUPPORTED (bounded_processor.cement_blocks (scoped_write_guard), "");
 }
 
 // This tests when a read has been done, but the account no longer exists by the time a write is done
 TEST (confirmation_heightDeathTest, modified_chain_account_removed)
 {
-	nano::logger_mt logger;
-	auto path (nano::unique_path ());
-	nano::mdb_store store (logger, path);
-	ASSERT_TRUE (!store.init_error ());
-	nano::genesis genesis;
-	nano::stat stats;
-	nano::ledger ledger (store, stats);
-	nano::write_database_queue write_database_queue;
-	boost::latch initialized_latch{ 0 };
-	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
-	nano::keypair key1;
-	auto send = std::make_shared<nano::send_block> (nano::genesis_hash, key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (nano::genesis_hash));
-	auto open = std::make_shared<nano::state_block> (key1.pub, 0, 0, nano::Gxrb_ratio, send->hash (), key1.prv, key1.pub, *pool.generate (key1.pub));
-	{
-		auto transaction (store.tx_begin_write ());
-		store.initialize (transaction, genesis, ledger.cache);
-		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send).code);
-		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *open).code);
-	}
+	// For ASSERT_DEATH_IF_SUPPORTED
+	testing::FLAGS_gtest_death_test_style = "threadsafe";
 
-	auto block_hash_being_processed (open->hash ());
-	uint64_t batch_write_size = 2048;
-	std::atomic<bool> stopped{ false };
-	nano::confirmation_height_unbounded unbounded_processor (
-	ledger, write_database_queue, 10ms, logger, stopped, block_hash_being_processed, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
-
+	// valgrind can be noisy with death tests
+	if (!nano::running_within_valgrind ())
 	{
-		// This reads the blocks in the account, but prevents any writes from occuring yet
-		auto scoped_write_guard = write_database_queue.wait (nano::writer::testing);
-		unbounded_processor.process ();
-	}
+		nano::logger_mt logger;
+		auto path (nano::unique_path ());
+		nano::mdb_store store (logger, path);
+		ASSERT_TRUE (!store.init_error ());
+		nano::genesis genesis;
+		nano::stat stats;
+		nano::ledger ledger (store, stats);
+		nano::write_database_queue write_database_queue;
+		boost::latch initialized_latch{ 0 };
+		nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+		nano::keypair key1;
+		auto send = std::make_shared<nano::send_block> (nano::genesis_hash, key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (nano::genesis_hash));
+		auto open = std::make_shared<nano::state_block> (key1.pub, 0, 0, nano::Gxrb_ratio, send->hash (), key1.prv, key1.pub, *pool.generate (key1.pub));
+		{
+			auto transaction (store.tx_begin_write ());
+			store.initialize (transaction, genesis, ledger.cache);
+			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send).code);
+			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *open).code);
+		}
 
-	// Rollback the block and now try to write, the send should be cemented but the account which the open block belongs no longer exists so should bail
-	ledger.rollback (store.tx_begin_write (), open->hash ());
-	{
+		auto block_hash_being_processed (open->hash ());
+		uint64_t batch_write_size = 2048;
+		std::atomic<bool> stopped{ false };
+		nano::confirmation_height_unbounded unbounded_processor (
+		ledger, write_database_queue, 10ms, logger, stopped, block_hash_being_processed, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
+
+		{
+			// This reads the blocks in the account, but prevents any writes from occuring yet
+			auto scoped_write_guard = write_database_queue.wait (nano::writer::testing);
+			unbounded_processor.process ();
+		}
+
+		// Rollback the block and now try to write, the send should be cemented but the account which the open block belongs no longer exists so should bail
+		ledger.rollback (store.tx_begin_write (), open->hash ());
+		{
+			auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
+			ASSERT_DEATH_IF_SUPPORTED (unbounded_processor.cement_blocks (scoped_write_guard), "");
+		}
+
+		// Reset conditions and test with the bounded processor
+		ASSERT_EQ (nano::process_result::progress, ledger.process (store.tx_begin_write (), *open).code);
+		store.confirmation_height_put (store.tx_begin_write (), nano::genesis_account, { 1, nano::genesis_hash });
+
+		nano::confirmation_height_bounded bounded_processor (
+		ledger, write_database_queue, 10ms, logger, stopped, block_hash_being_processed, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
+
+		{
+			// This reads the blocks in the account, but prevents any writes from occuring yet
+			auto scoped_write_guard = write_database_queue.wait (nano::writer::testing);
+			bounded_processor.process ();
+		}
+
+		// Rollback the block and now try to write, the send should be cemented but the account which the open block belongs no longer exists so should bail
+		ledger.rollback (store.tx_begin_write (), open->hash ());
 		auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
-		ASSERT_DEATH_IF_SUPPORTED (unbounded_processor.cement_blocks (scoped_write_guard), "");
+		ASSERT_DEATH_IF_SUPPORTED (bounded_processor.cement_blocks (scoped_write_guard), "");
 	}
-
-	// Reset conditions and test with the bounded processor
-	ASSERT_EQ (nano::process_result::progress, ledger.process (store.tx_begin_write (), *open).code);
-	store.confirmation_height_put (store.tx_begin_write (), nano::genesis_account, { 1, nano::genesis_hash });
-
-	nano::confirmation_height_bounded bounded_processor (
-	ledger, write_database_queue, 10ms, logger, stopped, block_hash_being_processed, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
-
-	{
-		// This reads the blocks in the account, but prevents any writes from occuring yet
-		auto scoped_write_guard = write_database_queue.wait (nano::writer::testing);
-		bounded_processor.process ();
-	}
-
-	// Rollback the block and now try to write, the send should be cemented but the account which the open block belongs no longer exists so should bail
-	ledger.rollback (store.tx_begin_write (), open->hash ());
-	auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
-	ASSERT_DEATH_IF_SUPPORTED (bounded_processor.cement_blocks (scoped_write_guard), "");
 }
 
 namespace nano
