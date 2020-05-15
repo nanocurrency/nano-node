@@ -1,6 +1,5 @@
 #include <nano/boost/beast/core/flat_buffer.hpp>
 #include <nano/boost/beast/http.hpp>
-#include <nano/core_test/testutil.hpp>
 #include <nano/lib/rpcconfig.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
@@ -9,6 +8,7 @@
 #include <nano/node/testing.hpp>
 #include <nano/rpc/rpc.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
+#include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 

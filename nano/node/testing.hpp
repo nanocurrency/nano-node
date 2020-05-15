@@ -56,5 +56,7 @@ public:
 	unsigned node_sequence{ 0 };
 };
 std::unique_ptr<nano::state_block> upgrade_epoch (nano::work_pool &, nano::ledger &, nano::epoch);
+uint16_t get_available_port ();
+void cleanup_test_directories_on_exit ();
 }
 REGISTER_ERROR_CODES (nano, error_system);

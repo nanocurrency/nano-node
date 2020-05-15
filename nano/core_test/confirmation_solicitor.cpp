@@ -1,7 +1,7 @@
-#include <nano/core_test/testutil.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/node/confirmation_solicitor.hpp>
 #include <nano/node/testing.hpp>
+#include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 

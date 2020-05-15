@@ -1,6 +1,5 @@
 add_executable (core_test
 	core_test_main.cc
-	testutil.hpp
 	fakes/websocket_client.hpp
 	fakes/work_peer.hpp
 	active_transactions.cpp
@@ -8,14 +7,12 @@ add_executable (core_test
 	block_store.cpp
 	bootstrap.cpp
 	cli.cpp
-	common.hpp
 	confirmation_height.cpp
 	confirmation_solicitor.cpp
 	conflicts.cpp
 	difficulty.cpp
 	distributed_work.cpp
 	election.cpp
-	entry.cpp
 	epochs.cpp
 	gap_cache.cpp
 	ipc.cpp
@@ -52,4 +49,4 @@ target_compile_definitions(core_test
 			-DBOOST_PROCESS_SUPPORTED=${BOOST_PROCESS_SUPPORTED}
 			-DCI=${CI_TEST})
 
-target_link_libraries (core_test node secure gtest libminiupnpc-static Boost::log_setup Boost::log Boost::boost)
+target_link_libraries (core_test node secure test_common gtest libminiupnpc-static Boost::log_setup Boost::log Boost::boost)

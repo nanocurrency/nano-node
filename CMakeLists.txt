@@ -442,6 +442,7 @@ if (NANO_TEST OR RAIBLOCKS_TEST)
 	set_target_properties(gtest PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
 		"${CMAKE_SOURCE_DIR}/gtest/googletest/include")
 
+	add_subdirectory(nano/test_common)
 	add_subdirectory(nano/core_test)
 	add_subdirectory(nano/rpc_test)
 	add_subdirectory(nano/slow_test)
@@ -526,7 +527,7 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 			nano/qt_test/entry.cpp
 			nano/qt_test/qt.cpp)
 
-		target_link_libraries(qt_test gtest gtest_main qt Qt5::Test)
+		target_link_libraries(qt_test test_common gtest gtest_main qt Qt5::Test)
 
 		set_target_properties (qt_test PROPERTIES COMPILE_FLAGS "-DQT_NO_KEYWORDS -DBOOST_ASIO_HAS_STD_ARRAY=1")
 	endif ()

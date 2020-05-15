@@ -1,5 +1,5 @@
-#include <nano/core_test/testutil.hpp>
 #include <nano/secure/common.hpp>
+#include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 

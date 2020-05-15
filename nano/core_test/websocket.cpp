@@ -1,8 +1,7 @@
-#include <nano/core_test/common.hpp>
 #include <nano/core_test/fakes/websocket_client.hpp>
-#include <nano/core_test/testutil.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/node/websocket.hpp>
+#include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 

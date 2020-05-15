@@ -1,7 +1,6 @@
-#include <nano/core_test/testutil.hpp>
-#include <nano/node/node.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/secure/versioning.hpp>
+#include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -160,7 +159,7 @@ TEST (wallets, reload)
 	ASSERT_EQ (1, node1.wallets.items.size ());
 	{
 		nano::lock_guard<std::mutex> lock_wallet (node1.wallets.mutex);
-		nano::inactive_node node (node1.application_path);
+		nano::inactive_node node (node1.application_path, nano::inactive_node_flag_defaults ());
 		auto wallet (node.node->wallets.create (one));
 		ASSERT_NE (wallet, nullptr);
 	}
