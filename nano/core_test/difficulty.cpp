@@ -64,6 +64,8 @@ TEST (difficultyDeathTest, multipliers)
 		ASSERT_EQ (difficulty, nano::difficulty::from_multiplier (expected_multiplier, base));
 	}
 
+	// The death checks don't fail on a release config, so guard against them
+#ifndef NDEBUG
 	// Causes valgrind to be noisy
 	if (!nano::running_within_valgrind ())
 	{
@@ -74,6 +76,7 @@ TEST (difficultyDeathTest, multipliers)
 		ASSERT_DEATH_IF_SUPPORTED (nano::difficulty::to_multiplier (difficulty_nil, base), "");
 		ASSERT_DEATH_IF_SUPPORTED (nano::difficulty::from_multiplier (multiplier_nil, base), "");
 	}
+#endif
 }
 
 TEST (difficulty, overflow)
