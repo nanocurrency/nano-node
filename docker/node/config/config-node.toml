@@ -4,6 +4,7 @@
 # WebSocket server bind address
 # type:string,ip
 address = "::ffff:0.0.0.0"
+enable = true
 
 [rpc]
 
