@@ -1176,6 +1176,17 @@ bool nano::active_transactions::inactive_votes_bootstrap_check (std::vector<nano
 	return start_bootstrap;
 }
 
+std::vector<nano::block_hash> nano::active_transactions::get_election_winner_details ()
+{
+	nano::lock_guard<std::mutex> guard (election_winner_details_mutex);
+	std::vector<nano::block_hash> election_winner_detail_hashes;
+	election_winner_detail_hashes.reserve (election_winner_details.size ());
+	std::transform (election_winner_details.begin (), election_winner_details.end (), std::back_inserter (election_winner_detail_hashes), [](auto const & election_winner_detail) {
+		return election_winner_detail.first;
+	});
+	return election_winner_detail_hashes;
+}
+
 size_t nano::active_transactions::election_winner_details_size ()
 {
 	nano::lock_guard<std::mutex> guard (election_winner_details_mutex);

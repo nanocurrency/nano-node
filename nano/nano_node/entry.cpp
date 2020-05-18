@@ -99,6 +99,7 @@ int main (int argc, char * const * argv)
 		("debug_cemented_block_count", "Displays the number of cemented (confirmed) blocks")
 		("debug_stacktrace", "Display an example stacktrace")
 		("debug_account_versions", "Display the total counts of each version for all accounts (including unpocketed)")
+		("debug_unconfirmed_frontiers", "Displays the frontier for all accounts which are not fully confirmed")
 		("validate_blocks,debug_validate_blocks", "Check all blocks for correct hash, signature, work value")
 		("platform", boost::program_options::value<std::string> (), "Defines the <platform> for OpenCL commands")
 		("device", boost::program_options::value<std::string> (), "Defines <device> for OpenCL command")
@@ -1904,6 +1905,31 @@ int main (int argc, char * const * argv)
 			{
 				output_account_version_number (i, unopened_account_version_totals[i]);
 			}
+		}
+		else if (vm.count ("debug_unconfirmed_frontiers"))
+		{
+			auto inactive_node = nano::default_inactive_node (data_path, vm);
+			auto node = inactive_node->node;
+
+			auto transaction (node->store.tx_begin_read ());
+
+			auto conf_height_i = node->store.confirmation_height_begin (transaction);
+			auto count = 0;
+			for (auto i (node->store.latest_begin (transaction)), n (node->store.latest_end ()); i != n; ++i, ++conf_height_i)
+			{
+				// Make sure the accounts match
+				debug_assert (conf_height_i->first == i->first);
+				if (i->second.block_count != conf_height_i->second.height)
+				{
+					auto account = i->first.to_account ();
+					auto frontier = i->second.head.to_string ();
+					auto cemented_frontier = conf_height_i->second.frontier.to_string ();
+					std::cout << (boost::format ("Frontier %1% Confirmed frontier %2%\n") % account % frontier % cemented_frontier).str ();
+					++count;
+				}
+			}
+
+			std::cout << "Number of unconfirmed frontiers: " << count << std::endl;
 		}
 		else if (vm.count ("version"))
 		{

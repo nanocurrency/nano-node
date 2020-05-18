@@ -9029,3 +9029,40 @@ TEST (rpc, confirmation_info)
 		ASSERT_EQ (0, response.json.get<unsigned> ("total_tally"));
 	}
 }
+
+TEST (rpc, election_winner_details)
+{
+	nano::system system;
+	auto & node = *add_ipc_enabled_node (system);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node, node_rpc_config);
+	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	rpc_config.rpc_process.ipc_port = node.config.ipc_config.transport_tcp.port;
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	auto send (std::make_shared<nano::send_block> (nano::genesis_hash, nano::public_key (), nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (nano::genesis_hash)));
+	ASSERT_EQ (nano::process_result::progress, node.ledger.process (node.store.tx_begin_write (), *send).code);
+
+	scoped_io_thread_name_change scoped_thread_name_io;
+	// Guard against conf height processor writing anything, so that we can check the election_winner_details exists
+	auto write_guard = node.write_database_queue.wait (nano::writer::testing);
+	node.block_confirm (send);
+	ASSERT_TIMELY (10s, node.active.election_winner_details_size () != 0);
+
+	boost::property_tree::ptree request;
+	request.put ("action", "election_winner_details");
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		auto & election_winner_details (response.json.get_child ("election_winner_detail_hashes"));
+		ASSERT_EQ (1, election_winner_details.size ());
+		ASSERT_EQ (send->hash ().to_string (), election_winner_details.front ().second.get<std::string> (""));
+	}
+}
