@@ -69,7 +69,7 @@ int main (int argc, char * const * argv)
 		std::unordered_map<std::string, std::string> const alias_map{
 			{ "debug_validate_blocks", "validate_blocks" }
 		};
-		auto option = pre_parsed_a.size () > 2 ? pre_parsed_a.substr (2) : pre_parsed_a;
+		auto option = pre_parsed_a.size () > 2 ? pre_parsed_a.substr (2) : pre_parsed_a; // remove "--" from commands
 		auto existing (alias_map.find (option));
 		return { existing != alias_map.end () ? existing->second : "", "" };
 	};
