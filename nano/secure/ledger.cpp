@@ -1181,13 +1181,18 @@ std::shared_ptr<nano::block> nano::ledger::forked_block (nano::transaction const
 std::shared_ptr<nano::block> nano::ledger::backtrack (nano::transaction const & transaction_a, std::shared_ptr<nano::block> const & start_a, uint64_t const height_a)
 {
 	constexpr unsigned backtrack_max = 128;
-	auto block = start_a;
 	unsigned backtrack = 0;
-	for (backtrack; block != nullptr && !block->previous ().is_zero () && backtrack < backtrack_max && block->sideband ().height != height_a; ++backtrack)
+	auto block = start_a;
+	auto height (block && block->has_sideband () ? block->sideband ().height : std::numeric_limits<uint64_t>::max ());
+	for (; block != nullptr && !block->previous ().is_zero () && backtrack < backtrack_max && height > height_a; ++backtrack)
 	{
 		block = store.block_get (transaction_a, block->previous ());
+		if (block)
+		{
+			height = block->sideband ().height;
+		}
 	}
-	debug_assert (block == nullptr || block->previous ().is_zero () || block->sideband ().height == height_a || backtrack == backtrack_max);
+	debug_assert (block == nullptr || block->previous ().is_zero () || height <= height_a || backtrack == backtrack_max);
 	return block;
 }
 

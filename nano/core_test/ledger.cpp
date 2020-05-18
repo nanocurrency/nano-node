@@ -3185,4 +3185,8 @@ TEST (ledger, backtrack)
 	ASSERT_EQ (nullptr, ledger.backtrack (transaction, nullptr, 0));
 	ASSERT_EQ (nullptr, ledger.backtrack (transaction, nullptr, 10));
 	ASSERT_EQ (*blocks[1], *ledger.backtrack (transaction, blocks[1], 0));
+	auto block_228 = dynamic_cast<nano::state_block *> (blocks[228].get ());
+	std::shared_ptr<nano::block> block_228_no_sideband = nano::block_builder ().state ().from (*block_228).build ();
+	ASSERT_FALSE (block_228_no_sideband->has_sideband ());
+	ASSERT_EQ (*block_100, *ledger.backtrack (transaction, block_228_no_sideband, 100));
 }
