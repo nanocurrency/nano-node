@@ -27,7 +27,8 @@ nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> bloc
 confirmation_action (confirmation_action_a),
 prioritized_m (prioritized_a),
 node (node_a),
-status ({ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::ongoing })
+status ({ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::ongoing }),
+height (block_a->sideband ().height)
 {
 	last_votes.emplace (node.network_params.random.not_an_account, nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () });
 	blocks.emplace (block_a->hash (), block_a);
@@ -213,24 +214,30 @@ void nano::election::activate_dependencies ()
 {
 	auto transaction = node.store.tx_begin_read ();
 	bool escalated_l (false);
-	std::shared_ptr<nano::block> previous_l;
 	auto previous_hash_l (status.winner->previous ());
-	if (!previous_hash_l.is_zero () && node.active.blocks.find (previous_hash_l) == node.active.blocks.end ())
+	if (!previous_hash_l.is_zero ())
 	{
-		previous_l = node.store.block_get (transaction, previous_hash_l);
-		if (previous_l != nullptr && !node.block_confirmed_or_being_confirmed (transaction, previous_hash_l))
+		auto account (node.ledger.account (transaction, status.winner->hash ()));
+		nano::confirmation_height_info conf_info_l;
+		if (!node.store.confirmation_height_get (transaction, account, conf_info_l) && height > conf_info_l.height + 1)
 		{
-			auto election = node.active.insert_impl (previous_l);
-			if (election.inserted)
+			auto bisect_height_l = conf_info_l.height + (height - conf_info_l.height) / 2;
+			debug_assert (bisect_height_l > conf_info_l.height && bisect_height_l < height);
+			auto backtracked_l (node.ledger.backtrack (transaction, status.winner, bisect_height_l));
+			if (backtracked_l != nullptr)
 			{
-				election.election->transition_active ();
-				escalated_l = true;
+				auto election = node.active.insert_impl (backtracked_l);
+				if (election.inserted)
+				{
+					election.election->transition_active ();
+					escalated_l = true;
+				}
 			}
 		}
 	}
 	/* If previous block not existing/not commited yet, block_source can cause segfault for state blocks
 				So source check can be done only if previous != nullptr or previous is 0 (open account) */
-	if (previous_hash_l.is_zero () || previous_l != nullptr)
+	if (previous_hash_l.is_zero () || node.ledger.block_exists (previous_hash_l))
 	{
 		auto source_hash_l (node.ledger.block_source (transaction, *status.winner));
 		if (!source_hash_l.is_zero () && source_hash_l != previous_hash_l && node.active.blocks.find (source_hash_l) == node.active.blocks.end ())
