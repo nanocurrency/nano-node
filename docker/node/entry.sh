@@ -1,6 +1,6 @@
 #!/bin/sh
 
-set -euo pipefail
+set -euf -o pipefail | true
 
 usage() {
 	printf "Usage:\n"
@@ -13,9 +13,9 @@ usage() {
 	printf "      log to console <use docker logs {container}>\n\n"
 	printf "    -v<size>\n"
 	printf "      vacuum database if over size GB on startup\n\n"
-	printf "  $0 bash [other]\n"
+	printf "  $0 sh [other]\n"
 	printf "    other\n"
-	printf "      bash pass through\n"
+	printf "      sh pass through\n"
 	printf "  $0 [*]\n"
 	printf "    *\n"
 	printf "      usage\n\n"
@@ -67,6 +67,18 @@ if [ "$1" = 'bananode' ]; then
 				;;
 		esac
 	done
+elif [ "$1" = 'sh' ]; then
+	shift;
+	command=""
+	for i in $@; do
+		if [ "$command" = "" ]; then
+			command="$i"
+		else
+			command="${command} $i"
+		fi
+	done
+	printf "EXECUTING: ${command}\n"
+	exec $command	
 else
 	usage
 	exit 1;

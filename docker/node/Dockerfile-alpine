@@ -1,4 +1,4 @@
-FROM bananocoin/banano-build:latest
+FROM bananocoin/banano-build:latest-alpine
 
 ARG NETWORK=live
 ARG TRAVIS_TAG=DEV_BUILD
@@ -17,11 +17,11 @@ RUN mkdir /tmp/build && \
     cd .. && \
     echo ${NETWORK} > /etc/nano-network
 
-# Copy binaries to ubuntu base
-FROM ubuntu:20.04
+# Copy binaries to alpine base
+FROM alpine:3.11.6
 
 # Curl is useful to run monitoring from inside the container
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+RUN apk --no-cache add curl
 
 COPY --from=0 /tmp/build/bananode /usr/bin
 COPY --from=0 /tmp/build/banano_rpc /usr/bin
@@ -34,5 +34,5 @@ RUN chmod +x /usr/bin/entry.sh
 WORKDIR /root
 USER root
 
-ENTRYPOINT ["/bin/bash", "-c"]
+ENTRYPOINT ["/bin/sh", "-c"]
 CMD ["/usr/bin/entry.sh bananode daemon -l"]
