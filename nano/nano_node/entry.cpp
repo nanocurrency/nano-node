@@ -64,6 +64,16 @@ int main (int argc, char * const * argv)
 {
 	nano::set_umask ();
 	nano::node_singleton_memory_pool_purge_guard memory_pool_cleanup_guard;
+
+	auto alias_parser = [](const std::string & pre_parsed_a) -> std::pair<std::string, std::string> {
+		std::unordered_map<std::string, std::string> const alias_map{
+			{ "debug_validate_blocks", "validate_blocks" }
+		};
+		auto option = pre_parsed_a.size () > 2 ? pre_parsed_a.substr (2) : pre_parsed_a;
+		auto existing (alias_map.find (option));
+		return { existing != alias_map.end () ? existing->second : "", "" };
+	};
+
 	boost::program_options::options_description description ("Command line options");
 	// clang-format off
 	description.add_options ()
@@ -99,7 +109,7 @@ int main (int argc, char * const * argv)
 		("debug_cemented_block_count", "Displays the number of cemented (confirmed) blocks")
 		("debug_stacktrace", "Display an example stacktrace")
 		("debug_account_versions", "Display the total counts of each version for all accounts (including unpocketed)")
-		("validate_blocks,debug_validate_blocks", "Check all blocks for correct hash, signature, work value")
+		("validate_blocks", "Check all blocks for correct hash, signature, work value")
 		("platform", boost::program_options::value<std::string> (), "Defines the <platform> for OpenCL commands")
 		("device", boost::program_options::value<std::string> (), "Defines <device> for OpenCL command")
 		("threads", boost::program_options::value<std::string> (), "Defines <threads> count for various commands")
@@ -115,7 +125,7 @@ int main (int argc, char * const * argv)
 	boost::program_options::variables_map vm;
 	try
 	{
-		boost::program_options::store (boost::program_options::parse_command_line (argc, argv, description), vm);
+		boost::program_options::store (boost::program_options::command_line_parser (argc, argv).options (description).extra_parser (alias_parser).run (), vm);
 	}
 	catch (boost::program_options::error const & err)
 	{
