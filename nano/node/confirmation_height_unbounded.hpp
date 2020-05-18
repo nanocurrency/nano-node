@@ -22,7 +22,7 @@ public:
 	bool pending_empty () const;
 	void reset ();
 	void process ();
-	bool cement_blocks (nano::write_guard &);
+	void cement_blocks (nano::write_guard &);
 
 private:
 	class confirmed_iterated_pair

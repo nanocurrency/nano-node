@@ -54,6 +54,14 @@ void nano::confirmation_height_unbounded::process ()
 		}
 
 		auto block (get_block_and_sideband (current, read_transaction));
+		if (!block)
+		{
+			auto error_str = (boost::format ("Ledger mismatch trying to set confirmation height for block %1% (unbounded processor)") % current.to_string ()).str ();
+			logger.always_log (error_str);
+			std::cerr << error_str << std::endl;
+		}
+		release_assert (block);
+
 		nano::account account (block->account ());
 		if (account.is_zero ())
 		{
@@ -145,23 +153,16 @@ void nano::confirmation_height_unbounded::process ()
 
 		if ((max_write_size_reached || should_output || force_write) && !pending_writes.empty ())
 		{
-			bool error = false;
 			if (write_database_queue.process (nano::writer::confirmation_height))
 			{
 				auto scoped_write_guard = write_database_queue.pop ();
-				error = cement_blocks (scoped_write_guard);
+				cement_blocks (scoped_write_guard);
 			}
 			else if (force_write)
 			{
 				// Unbounded processor has grown too large, force a write
 				auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
-				error = cement_blocks (scoped_write_guard);
-			}
-
-			// Don't set any more cemented blocks from the original hash if an inconsistency is found
-			if (error)
-			{
-				break;
+				cement_blocks (scoped_write_guard);
 			}
 		}
 
@@ -331,10 +332,11 @@ void nano::confirmation_height_unbounded::prepare_iterated_blocks_for_cementing 
 /*
  * Returns true if there was an error in finding one of the blocks to write a confirmation height for, false otherwise
  */
-bool nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & scoped_write_guard_a)
+void nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & scoped_write_guard_a)
 {
 	nano::timer<std::chrono::milliseconds> cemented_batch_timer;
 	std::vector<std::shared_ptr<nano::block>> cemented_blocks;
+	auto error = false;
 	{
 		auto transaction (ledger.store.tx_begin_write ({}, { nano::tables::confirmation_height }));
 		cemented_batch_timer.start ();
@@ -342,25 +344,29 @@ bool nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 		{
 			auto & pending = pending_writes.front ();
 			nano::confirmation_height_info confirmation_height_info;
-			auto error = ledger.store.confirmation_height_get (transaction, pending.account, confirmation_height_info);
-			release_assert (!error);
+			error = ledger.store.confirmation_height_get (transaction, pending.account, confirmation_height_info);
+			if (error)
+			{
+				auto error_str = (boost::format ("Failed to read confirmation height for account %1% when writing block %2% (unbounded processor)") % pending.account.to_account () % pending.hash.to_string ()).str ();
+				logger.always_log (error_str);
+				std::cerr << error_str << std::endl;
+			}
 			auto confirmation_height = confirmation_height_info.height;
-			if (pending.height > confirmation_height)
+			if (!error && pending.height > confirmation_height)
 			{
 #ifndef NDEBUG
 				// Do more thorough checking in Debug mode, indicates programming error.
 				auto block = ledger.store.block_get (transaction, pending.hash);
-				static nano::network_constants network_constants;
-				debug_assert (network_constants.is_test_network () || block != nullptr);
-				debug_assert (network_constants.is_test_network () || block->sideband ().height == pending.height);
+				debug_assert (network_params.network.is_test_network () || block != nullptr);
+				debug_assert (network_params.network.is_test_network () || block->sideband ().height == pending.height);
 
 				if (!block)
 				{
-					logger.always_log ("Failed to write confirmation height for: ", pending.hash.to_string ());
-					ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block);
-					pending_writes.clear ();
-					pending_writes_size = 0;
-					return true;
+					auto error_str = (boost::format ("Failed to write confirmation height for block %1% (unbounded processor)") % pending.hash.to_string ()).str ();
+					logger.always_log (error_str);
+					std::cerr << error_str << std::endl;
+					error = true;
+					break;
 				}
 #endif
 				ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in, pending.height - confirmation_height);
@@ -391,6 +397,7 @@ bool nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 
 	scoped_write_guard_a.release ();
 	notify_observers_callback (cemented_blocks);
+	release_assert (!error);
 
 	// Tests should check this already at the end, but not all blocks may have elections (e.g from manual calls to confirmation_height_processor::add), this should catch any inconsistencies on live/beta though
 	if (!network_params.network.is_test_network ())
@@ -400,7 +407,7 @@ bool nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 		debug_assert (blocks_confirmed_stats == observer_stats);
 	}
 	debug_assert (pending_writes.empty ());
-	return false;
+	debug_assert (pending_writes_size == 0);
 }
 
 std::shared_ptr<nano::block> nano::confirmation_height_unbounded::get_block_and_sideband (nano::block_hash const & hash_a, nano::transaction const & transaction_a)

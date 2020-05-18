@@ -21,7 +21,7 @@ public:
 	bool pending_empty () const;
 	void reset ();
 	void process ();
-	bool cement_blocks (nano::write_guard & scoped_write_guard_a);
+	void cement_blocks (nano::write_guard & scoped_write_guard_a);
 
 private:
 	class top_and_next_hash final
