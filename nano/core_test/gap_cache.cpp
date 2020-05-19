@@ -24,11 +24,7 @@ TEST (gap_cache, add_existing)
 	ASSERT_NE (cache.blocks.get<1> ().end (), existing1);
 	auto arrival (existing1->arrival);
 	lock.unlock ();
-	system.deadline_set (20s);
-	while (arrival == std::chrono::steady_clock::now ())
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (20s, arrival != std::chrono::steady_clock::now ());
 	cache.add (block1->hash ());
 	ASSERT_EQ (1, cache.size ());
 	lock.lock ();
@@ -48,11 +44,7 @@ TEST (gap_cache, comparison)
 	ASSERT_NE (cache.blocks.get<1> ().end (), existing1);
 	auto arrival (existing1->arrival);
 	lock.unlock ();
-	system.deadline_set (20s);
-	while (std::chrono::steady_clock::now () == arrival)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (20s, std::chrono::steady_clock::now () != arrival);
 	auto block3 (std::make_shared<nano::send_block> (0, 42, 1, nano::keypair ().prv, 3, 4));
 	cache.add (block3->hash ());
 	ASSERT_EQ (2, cache.size ());
@@ -83,17 +75,13 @@ TEST (gap_cache, gap_bootstrap)
 	ASSERT_NE (nullptr, latest_block);
 	ASSERT_EQ (nano::genesis_amount - 200, node1.balance (nano::genesis_account));
 	ASSERT_EQ (nano::genesis_amount, node2.balance (nano::genesis_account));
-	system.deadline_set (10s);
 	{
 		// The separate publish and vote system doesn't work very well here because it's instantly confirmed.
 		// We help it get the block and vote out here.
 		auto transaction (node1.store.tx_begin_read ());
 		node1.network.flood_block (latest_block);
 	}
-	while (node2.balance (nano::genesis_account) != nano::genesis_amount - 200)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (10s, node2.balance (nano::genesis_account) == nano::genesis_amount - 200);
 }
 
 TEST (gap_cache, two_dependencies)

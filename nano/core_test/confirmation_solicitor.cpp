@@ -44,17 +44,9 @@ TEST (confirmation_solicitor, batches)
 		ASSERT_EQ (0, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));
 		ASSERT_FALSE (solicitor.broadcast (*election));
 	}
-	system.deadline_set (5s);
-	while (node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out) < 1)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out) == 1);
 	// From rep crawler
-	system.deadline_set (5s);
 	solicitor.flush ();
-	while (node2.stats.count (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::out) == 1)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, node2.stats.count (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::out) != 1);
 	ASSERT_LE (2, node2.stats.count (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::out));
 }

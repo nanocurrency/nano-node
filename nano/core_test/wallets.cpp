@@ -164,11 +164,7 @@ TEST (wallets, reload)
 		auto wallet (node.node->wallets.create (one));
 		ASSERT_NE (wallet, nullptr);
 	}
-	system.deadline_set (5s);
-	while (node1.wallets.open (one) == nullptr)
-	{
-		system.poll ();
-	}
+	ASSERT_TIMELY (5s, node1.wallets.open (one) != nullptr);
 	ASSERT_EQ (2, node1.wallets.items.size ());
 }
 

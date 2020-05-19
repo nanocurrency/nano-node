@@ -618,11 +618,7 @@ TEST (system, generate_send_new)
 		ASSERT_EQ (system.wallet (0)->store.end (), iterator2);
 		ASSERT_FALSE (new_account.is_zero ());
 	}
-	system.deadline_set (10s);
-	while (node1.balance (new_account) == 0)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (10s, node1.balance (new_account) != 0);
 	system.stop ();
 	runner.join ();
 }
