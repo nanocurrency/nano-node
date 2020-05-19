@@ -1911,25 +1911,13 @@ int main (int argc, char * const * argv)
 			auto inactive_node = nano::default_inactive_node (data_path, vm);
 			auto node = inactive_node->node;
 
-			auto transaction (node->store.tx_begin_read ());
-
-			auto conf_height_i = node->store.confirmation_height_begin (transaction);
-			auto count = 0;
-			for (auto i (node->store.latest_begin (transaction)), n (node->store.latest_end ()); i != n; ++i, ++conf_height_i)
+			auto unconfirmed_confirmed_frontiers = node->ledger.unconfirmed_frontiers ();
+			for (auto & pair : unconfirmed_confirmed_frontiers)
 			{
-				// Make sure the accounts match
-				debug_assert (conf_height_i->first == i->first);
-				if (i->second.block_count != conf_height_i->second.height)
-				{
-					auto account = i->first.to_account ();
-					auto frontier = i->second.head.to_string ();
-					auto cemented_frontier = conf_height_i->second.frontier.to_string ();
-					std::cout << (boost::format ("Frontier %1% Confirmed frontier %2%\n") % account % frontier % cemented_frontier).str ();
-					++count;
-				}
+				std::cout << (boost::format ("Frontier %1% Confirmed frontier %2%\n") % pair.first.to_string () % pair.second.to_string ()).str ();
 			}
 
-			std::cout << "Number of unconfirmed frontiers: " << count << std::endl;
+			std::cout << "Number of unconfirmed frontiers: " << unconfirmed_confirmed_frontiers.size () << std::endl;
 		}
 		else if (vm.count ("version"))
 		{

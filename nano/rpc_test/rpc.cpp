@@ -9045,14 +9045,47 @@ TEST (rpc, election_winner_details)
 	auto send (std::make_shared<nano::send_block> (nano::genesis_hash, nano::public_key (), nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (nano::genesis_hash)));
 	ASSERT_EQ (nano::process_result::progress, node.ledger.process (node.store.tx_begin_write (), *send).code);
 
-	scoped_io_thread_name_change scoped_thread_name_io;
-	// Guard against conf height processor writing anything, so that we can check the election_winner_details exists
 	auto write_guard = node.write_database_queue.wait (nano::writer::testing);
-	node.block_confirm (send);
-	ASSERT_TIMELY (10s, node.active.election_winner_details_size () != 0);
-
 	boost::property_tree::ptree request;
-	request.put ("action", "election_winner_details");
+	{
+		scoped_io_thread_name_change scoped_thread_name_io;
+		// Guard against conf height processor writing anything, so that we can check the election_winner_details exists
+		node.block_confirm (send);
+		ASSERT_TIMELY (10s, node.active.election_winner_details_size () != 0);
+
+		request.put ("action", "election_winner_details");
+		{
+			test_response response (request, rpc.config.port, system.io_ctx);
+			system.deadline_set (5s);
+			while (response.status == 0)
+			{
+				ASSERT_NO_ERROR (system.poll ());
+			}
+			ASSERT_EQ (200, response.status);
+			auto & election_winner_details (response.json.get_child ("election_winner_detail_hashes"));
+			ASSERT_EQ (1, election_winner_details.size ());
+			ASSERT_EQ (send->hash ().to_string (), election_winner_details.front ().second.get<std::string> (""));
+		}
+
+		// Only output election_winner_details for unconfirmed frontiers
+		request.put ("only_unconfirmed_frontiers", "true");
+		{
+			test_response response (request, rpc.config.port, system.io_ctx);
+			system.deadline_set (5s);
+			while (response.status == 0)
+			{
+				ASSERT_NO_ERROR (system.poll ());
+			}
+			ASSERT_EQ (200, response.status);
+			auto & election_winner_details (response.json.get_child ("election_winner_detail_hashes"));
+			ASSERT_EQ (1, election_winner_details.size ());
+			ASSERT_EQ (send->hash ().to_string (), election_winner_details.front ().second.get<std::string> (""));
+		}
+	}
+
+	// Manually set confirmation height so that the frontier is cemented, and this should no longer return anything.
+	node.store.confirmation_height_put (node.store.tx_begin_write (), nano::genesis_account, { 2, send->hash () });
+	scoped_io_thread_name_change scoped_thread_name_io;
 	{
 		test_response response (request, rpc.config.port, system.io_ctx);
 		system.deadline_set (5s);
@@ -9062,7 +9095,6 @@ TEST (rpc, election_winner_details)
 		}
 		ASSERT_EQ (200, response.status);
 		auto & election_winner_details (response.json.get_child ("election_winner_detail_hashes"));
-		ASSERT_EQ (1, election_winner_details.size ());
-		ASSERT_EQ (send->hash ().to_string (), election_winner_details.front ().second.get<std::string> (""));
+		ASSERT_EQ (0, election_winner_details.size ());
 	}
 }

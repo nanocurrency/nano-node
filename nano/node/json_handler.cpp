@@ -2076,12 +2076,26 @@ void nano::json_handler::election_winner_details ()
 		auto election_winner_detail_hashes = node.active.get_election_winner_details ();
 		if (!ec)
 		{
+			auto only_unconfirmed_frontiers = request.get_optional<bool> ("only_unconfirmed_frontiers").value_or (false);
+
 			boost::property_tree::ptree election_winner_details;
+			std::set<nano::block_hash> unconfirmed_frontiers;
+			if (only_unconfirmed_frontiers)
+			{
+				auto unconfirmed_confirmed_frontiers = node.ledger.unconfirmed_frontiers ();
+				std::transform (unconfirmed_confirmed_frontiers.begin (), unconfirmed_confirmed_frontiers.end (), std::inserter (unconfirmed_frontiers, unconfirmed_frontiers.begin ()), [](auto & unconfirmed_confirmed_frontier_pair) {
+					return unconfirmed_confirmed_frontier_pair.first;
+				});
+			}
+
 			for (auto & hash : election_winner_detail_hashes)
 			{
 				boost::property_tree::ptree entry;
 				entry.put ("", hash.to_string ());
-				election_winner_details.push_back (std::make_pair ("", entry));
+				if (!only_unconfirmed_frontiers || unconfirmed_frontiers.count (hash) > 0)
+				{
+					election_winner_details.push_back (std::make_pair ("", entry));
+				}
 			}
 			response_l.add_child ("election_winner_detail_hashes", election_winner_details);
 		}

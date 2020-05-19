@@ -47,6 +47,7 @@ public:
 	bool is_epoch_link (nano::link const &);
 	nano::account const & epoch_signer (nano::link const &) const;
 	nano::link const & epoch_link (nano::epoch) const;
+	std::vector<std::pair<nano::block_hash, nano::block_hash>> unconfirmed_frontiers () const;
 	static nano::uint128_t const unit;
 	nano::network_params network_params;
 	nano::block_store & store;
