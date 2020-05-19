@@ -35,7 +35,7 @@ TEST (election, bisect_dependencies)
 	blocks.push_back (genesis.open);
 	nano::block_builder builder;
 	auto amount = nano::genesis_amount;
-	for (int i = 0; i < 29; ++i)
+	for (int i = 0; i < 299; ++i)
 	{
 		auto latest = blocks.back ();
 		blocks.push_back (builder.state ()
@@ -49,12 +49,12 @@ TEST (election, bisect_dependencies)
 		                  .build ());
 		ASSERT_EQ (nano::process_result::progress, node.process (*blocks.back ()).code);
 	}
-	ASSERT_EQ (31, blocks.size ());
+	ASSERT_EQ (301, blocks.size ());
 	ASSERT_TRUE (node.active.empty ());
 	{
 		auto election = node.active.insert (blocks.back ()).election;
 		ASSERT_NE (nullptr, election);
-		ASSERT_EQ (30, election->blocks.begin ()->second->sideband ().height);
+		ASSERT_EQ (300, election->blocks.begin ()->second->sideband ().height);
 		nano::lock_guard<std::mutex> guard (node.active.mutex);
 		election->activate_dependencies ();
 	}
@@ -66,14 +66,24 @@ TEST (election, bisect_dependencies)
 		election->activate_dependencies ();
 	};
 	ASSERT_EQ (2, node.active.size ());
-	check_height_and_activate_next (15);
+	check_height_and_activate_next (300 - 128); // ensure limited by 128 jumps
 	ASSERT_EQ (3, node.active.size ());
-	check_height_and_activate_next (8);
+	check_height_and_activate_next (87);
 	ASSERT_EQ (4, node.active.size ());
+	check_height_and_activate_next (44);
+	ASSERT_EQ (5, node.active.size ());
+	check_height_and_activate_next (23);
+	ASSERT_EQ (6, node.active.size ());
+	check_height_and_activate_next (12);
+	ASSERT_EQ (7, node.active.size ());
+	check_height_and_activate_next (7);
+	ASSERT_EQ (8, node.active.size ());
 	check_height_and_activate_next (4);
-	ASSERT_EQ (5, node.active.size ());
+	ASSERT_EQ (9, node.active.size ());
+	check_height_and_activate_next (3);
+	ASSERT_EQ (10, node.active.size ());
 	check_height_and_activate_next (2);
-	ASSERT_EQ (5, node.active.size ());
+	ASSERT_EQ (10, node.active.size ()); // conf height is 1, no more blocks to activate
 	ASSERT_EQ (node.active.blocks.size (), node.active.roots.size ());
 }
 }

@@ -3173,20 +3173,13 @@ TEST (ledger, backtrack)
 	ASSERT_EQ (302, blocks.size ());
 	ASSERT_EQ (301, blocks[301]->sideband ().height);
 	auto transaction (store->tx_begin_read ());
-	auto block_100 = ledger.backtrack (transaction, blocks[228], 100);
+	auto block_100 = ledger.backtrack (transaction, blocks[300], 200);
 	ASSERT_NE (nullptr, block_100);
 	ASSERT_EQ (*block_100, *blocks[100]);
-	// Max backtracking
-	ASSERT_EQ (*block_100, *ledger.backtrack (transaction, blocks[228], 99));
-	ASSERT_EQ (*block_100, *ledger.backtrack (transaction, blocks[228], 0));
-	ASSERT_NE (nullptr, ledger.backtrack (transaction, blocks[10], 0));
-	ASSERT_NE (ledger.backtrack (transaction, blocks[10], 1), ledger.backtrack (transaction, blocks[10], 2));
-	ASSERT_NE (ledger.backtrack (transaction, blocks[10], 0), ledger.backtrack (transaction, blocks[10], 1));
+	ASSERT_NE (nullptr, ledger.backtrack (transaction, blocks[10], 10));
+	ASSERT_NE (ledger.backtrack (transaction, blocks[10], 1), ledger.backtrack (transaction, blocks[11], 2));
+	ASSERT_EQ (ledger.backtrack (transaction, blocks[1], 0), ledger.backtrack (transaction, blocks[1], 1));
+	ASSERT_NE (ledger.backtrack (transaction, blocks[2], 0), ledger.backtrack (transaction, blocks[2], 1));
 	ASSERT_EQ (nullptr, ledger.backtrack (transaction, nullptr, 0));
 	ASSERT_EQ (nullptr, ledger.backtrack (transaction, nullptr, 10));
-	ASSERT_EQ (*blocks[1], *ledger.backtrack (transaction, blocks[1], 0));
-	auto block_228 = dynamic_cast<nano::state_block *> (blocks[228].get ());
-	std::shared_ptr<nano::block> block_228_no_sideband = nano::block_builder ().state ().from (*block_228).build ();
-	ASSERT_FALSE (block_228_no_sideband->has_sideband ());
-	ASSERT_EQ (*block_100, *ledger.backtrack (transaction, block_228_no_sideband, 100));
 }

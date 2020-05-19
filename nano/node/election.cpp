@@ -221,9 +221,8 @@ void nano::election::activate_dependencies ()
 		nano::confirmation_height_info conf_info_l;
 		if (!node.store.confirmation_height_get (transaction, account, conf_info_l) && height > conf_info_l.height + 1)
 		{
-			auto bisect_height_l = conf_info_l.height + (height - conf_info_l.height) / 2;
-			debug_assert (bisect_height_l > conf_info_l.height && bisect_height_l < height);
-			auto backtracked_l (node.ledger.backtrack (transaction, status.winner, bisect_height_l));
+			auto const jumps_l = std::min<uint8_t> (128, (height - conf_info_l.height) / 2);
+			auto backtracked_l (node.ledger.backtrack (transaction, status.winner, jumps_l));
 			if (backtracked_l != nullptr)
 			{
 				auto election = node.active.insert_impl (backtracked_l);

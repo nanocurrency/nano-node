@@ -1178,21 +1178,15 @@ std::shared_ptr<nano::block> nano::ledger::forked_block (nano::transaction const
 	return result;
 }
 
-std::shared_ptr<nano::block> nano::ledger::backtrack (nano::transaction const & transaction_a, std::shared_ptr<nano::block> const & start_a, uint64_t const height_a)
+std::shared_ptr<nano::block> nano::ledger::backtrack (nano::transaction const & transaction_a, std::shared_ptr<nano::block> const & start_a, uint64_t jumps_a)
 {
-	constexpr unsigned backtrack_max = 128;
-	unsigned backtrack = 0;
 	auto block = start_a;
-	auto height (block && block->has_sideband () ? block->sideband ().height : std::numeric_limits<uint64_t>::max ());
-	for (; block != nullptr && !block->previous ().is_zero () && backtrack < backtrack_max && height > height_a; ++backtrack)
+	while (jumps_a > 0 && block != nullptr && !block->previous ().is_zero ())
 	{
 		block = store.block_get (transaction_a, block->previous ());
-		if (block)
-		{
-			height = block->sideband ().height;
-		}
+		--jumps_a;
 	}
-	debug_assert (block == nullptr || block->previous ().is_zero () || height <= height_a || backtrack == backtrack_max);
+	debug_assert (block == nullptr || block->previous ().is_zero () || jumps_a == 0);
 	return block;
 }
 
