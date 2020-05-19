@@ -212,51 +212,8 @@ bool nano::election::confirmed () const
 
 void nano::election::activate_dependencies ()
 {
-	auto transaction = node.store.tx_begin_read ();
-	bool escalated_l (false);
-	auto previous_hash_l (status.winner->previous ());
-	if (!previous_hash_l.is_zero ())
-	{
-		auto account (node.ledger.account (transaction, status.winner->hash ()));
-		nano::confirmation_height_info conf_info_l;
-		if (!node.store.confirmation_height_get (transaction, account, conf_info_l) && height > conf_info_l.height + 1)
-		{
-			auto const jumps_l = std::min<uint8_t> (128, (height - conf_info_l.height) / 2);
-			auto backtracked_l (node.ledger.backtrack (transaction, status.winner, jumps_l));
-			if (backtracked_l != nullptr)
-			{
-				auto election = node.active.insert_impl (backtracked_l);
-				if (election.inserted)
-				{
-					election.election->transition_active ();
-					escalated_l = true;
-				}
-			}
-		}
-	}
-	/* If previous block not existing/not commited yet, block_source can cause segfault for state blocks
-				So source check can be done only if previous != nullptr or previous is 0 (open account) */
-	if (previous_hash_l.is_zero () || node.ledger.block_exists (previous_hash_l))
-	{
-		auto source_hash_l (node.ledger.block_source (transaction, *status.winner));
-		if (!source_hash_l.is_zero () && source_hash_l != previous_hash_l && node.active.blocks.find (source_hash_l) == node.active.blocks.end ())
-		{
-			auto source_l (node.store.block_get (transaction, source_hash_l));
-			if (source_l != nullptr && !node.block_confirmed_or_being_confirmed (transaction, source_hash_l))
-			{
-				auto election = node.active.insert_impl (source_l);
-				if (election.inserted)
-				{
-					election.election->transition_active ();
-					escalated_l = true;
-				}
-			}
-		}
-	}
-	if (escalated_l)
-	{
-		update_dependent ();
-	}
+	debug_assert (!node.active.mutex.try_lock ());
+	node.active.pending_dependencies.emplace_back (status.winner, height);
 }
 
 void nano::election::broadcast_block (nano::confirmation_solicitor & solicitor_a)
@@ -273,7 +230,7 @@ void nano::election::broadcast_block (nano::confirmation_solicitor & solicitor_a
 bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a)
 {
 	debug_assert (!node.active.mutex.try_lock ());
-	nano::unique_lock<std::mutex> lock (timepoints_mutex);
+	nano::lock_guard<std::mutex> guard (timepoints_mutex);
 	bool result = false;
 	switch (state_m)
 	{
@@ -300,9 +257,7 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 			if (base_latency () * active_broadcasting_duration_factor < std::chrono::steady_clock::now () - state_start)
 			{
 				state_change (nano::election::state_t::broadcasting, nano::election::state_t::backtracking);
-				lock.unlock ();
 				activate_dependencies ();
-				lock.lock ();
 			}
 			break;
 		case nano::election::state_t::backtracking:

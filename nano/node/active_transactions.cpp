@@ -251,6 +251,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	solicitor.flush ();
 	generator_session.flush ();
 	lock_a.lock ();
+	activate_dependencies (lock_a);
 
 	// This is updated after the loop to ensure slow machines don't do the full check often
 	if (check_all_elections_l)
@@ -286,6 +287,64 @@ void nano::active_transactions::frontiers_confirmation (nano::unique_lock<std::m
 		prioritize_frontiers_for_confirmation (transaction, node.network_params.network.is_test_network () ? std::chrono::milliseconds (50) : time_spent_prioritizing_ledger_accounts, time_spent_prioritizing_wallet_accounts);
 		confirm_prioritized_frontiers (transaction);
 		lock_a.lock ();
+	}
+}
+
+void nano::active_transactions::activate_dependencies (nano::unique_lock<std::mutex> & lock_a)
+{
+	debug_assert (!mutex.try_lock ());
+	decltype (pending_dependencies) pending_l;
+	pending_l.swap (pending_dependencies);
+	lock_a.unlock ();
+	// Store blocks to activate when the lock is re-acquired, adding the hash of the original election as a dependency
+	std::vector<std::pair<std::shared_ptr<nano::block>, nano::block_hash>> activate_l;
+	{
+		auto transaction = node.store.tx_begin_read ();
+		for (auto const & entry_l : pending_l)
+		{
+			auto const & block_l (entry_l.first);
+			auto const height_l (entry_l.second);
+			bool escalated_l (false);
+			auto previous_hash_l (block_l->previous ());
+			if (!previous_hash_l.is_zero ())
+			{
+				auto account (node.ledger.account (transaction, block_l->hash ()));
+				nano::confirmation_height_info conf_info_l;
+				if (!node.store.confirmation_height_get (transaction, account, conf_info_l) && height_l > conf_info_l.height + 1)
+				{
+					auto const jumps_l = std::min<uint8_t> (128, (height_l - conf_info_l.height) / 2);
+					auto backtracked_l (node.ledger.backtrack (transaction, block_l, jumps_l));
+					if (backtracked_l != nullptr)
+					{
+						activate_l.emplace_back (backtracked_l, block_l->hash ());
+					}
+				}
+			}
+			/* If previous block not existing/not commited yet, block_source can cause segfault for state blocks
+				So source check can be done only if previous != nullptr or previous is 0 (open account) */
+			if (previous_hash_l.is_zero () || node.ledger.block_exists (previous_hash_l))
+			{
+				auto source_hash_l (node.ledger.block_source (transaction, *block_l));
+				if (!source_hash_l.is_zero () && source_hash_l != previous_hash_l && node.active.blocks.find (source_hash_l) == node.active.blocks.end ())
+				{
+					auto source_l (node.store.block_get (transaction, source_hash_l));
+					if (source_l != nullptr && !node.block_confirmed_or_being_confirmed (transaction, source_hash_l))
+					{
+						activate_l.emplace_back (source_l, block_l->hash ());
+					}
+				}
+			}
+		}
+	}
+	lock_a.lock ();
+	for (auto const & entry_l : activate_l)
+	{
+		auto election = node.active.insert_impl (entry_l.first);
+		if (election.inserted)
+		{
+			election.election->transition_active ();
+			election.election->dependent_blocks.insert (entry_l.second);
+		}
 	}
 }
 

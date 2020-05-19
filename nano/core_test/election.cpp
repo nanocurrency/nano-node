@@ -55,15 +55,17 @@ TEST (election, bisect_dependencies)
 		auto election = node.active.insert (blocks.back ()).election;
 		ASSERT_NE (nullptr, election);
 		ASSERT_EQ (300, election->blocks.begin ()->second->sideband ().height);
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		nano::unique_lock<std::mutex> lock (node.active.mutex);
 		election->activate_dependencies ();
+		node.active.activate_dependencies (lock);
 	}
 	auto check_height_and_activate_next = [&node, &blocks](uint64_t height_a) {
 		auto election = node.active.election (blocks[height_a]->qualified_root ());
 		ASSERT_NE (nullptr, election);
 		ASSERT_EQ (height_a, election->blocks.begin ()->second->sideband ().height);
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		nano::unique_lock<std::mutex> lock (node.active.mutex);
 		election->activate_dependencies ();
+		node.active.activate_dependencies (lock);
 	};
 	ASSERT_EQ (2, node.active.size ());
 	check_height_and_activate_next (300 - 128); // ensure limited by 128 jumps
