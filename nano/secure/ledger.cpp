@@ -1184,6 +1184,7 @@ std::shared_ptr<nano::block> nano::ledger::backtrack (nano::transaction const & 
 	while (jumps_a > 0 && block != nullptr && !block->previous ().is_zero ())
 	{
 		block = store.block_get (transaction_a, block->previous ());
+		debug_assert (block != nullptr);
 		--jumps_a;
 	}
 	debug_assert (block == nullptr || block->previous ().is_zero () || jumps_a == 0);
