@@ -466,6 +466,7 @@ TEST (uint64_t, parse)
 
 TEST (uint256_union, hash)
 {
+	ASSERT_EQ (4, nano::uint256_union{}.qwords.size ());
 	std::hash<nano::uint256_union> h{};
 	for (size_t i (0), n (nano::uint256_union{}.bytes.size ()); i < n; ++i)
 	{
@@ -478,6 +479,7 @@ TEST (uint256_union, hash)
 
 TEST (uint512_union, hash)
 {
+	ASSERT_EQ (2, nano::uint512_union{}.uint256s.size ());
 	std::hash<nano::uint512_union> h{};
 	for (size_t i (0), n (nano::uint512_union{}.bytes.size ()); i < n; ++i)
 	{

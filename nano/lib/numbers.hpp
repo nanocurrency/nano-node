@@ -272,7 +272,6 @@ namespace std
 template <>
 struct hash<::nano::uint256_union>
 {
-	static_assert (::nano::uint256_union{}.qwords.size () == 4, "");
 	size_t operator() (::nano::uint256_union const & data_a) const
 	{
 		return data_a.qwords[0] + data_a.qwords[1] + data_a.qwords[2] + data_a.qwords[3];
@@ -329,7 +328,6 @@ struct hash<::nano::uint256_t>
 template <>
 struct hash<::nano::uint512_union>
 {
-	static_assert (::nano::uint512_union{}.uint256s.size () == 2, "");
 	size_t operator() (::nano::uint512_union const & data_a) const
 	{
 		return hash<::nano::uint256_union> () (data_a.uint256s[0]) + hash<::nano::uint256_union> () (data_a.uint256s[1]);
