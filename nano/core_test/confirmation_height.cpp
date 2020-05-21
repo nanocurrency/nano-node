@@ -822,7 +822,6 @@ TEST (confirmation_heightDeathTest, modified_chain)
 		nano::stat stats;
 		nano::ledger ledger (store, stats);
 		nano::write_database_queue write_database_queue;
-		boost::latch initialized_latch{ 0 };
 		nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 		nano::keypair key1;
 		auto send = std::make_shared<nano::send_block> (nano::genesis_hash, key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (nano::genesis_hash));
@@ -894,7 +893,6 @@ TEST (confirmation_heightDeathTest, modified_chain_account_removed)
 		nano::stat stats;
 		nano::ledger ledger (store, stats);
 		nano::write_database_queue write_database_queue;
-		boost::latch initialized_latch{ 0 };
 		nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 		nano::keypair key1;
 		auto send = std::make_shared<nano::send_block> (nano::genesis_hash, key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (nano::genesis_hash));
@@ -1608,4 +1606,19 @@ TEST (confirmation_height, election_winner_details_clearing)
 	test_mode (nano::confirmation_height_mode::bounded);
 	test_mode (nano::confirmation_height_mode::unbounded);
 }
+}
+
+TEST (confirmation_height, election_winner_details_clearing_node_process_confirmed)
+{
+	// Make sure election_winner_details is also cleared if the block never enters the confirmation height processor from node::process_confirmed
+	nano::system system (1);
+	auto node = system.nodes.front ();
+
+	auto send = std::make_shared<nano::send_block> (nano::genesis_hash, nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (nano::genesis_hash));
+	// Add to election_winner_details. Use an unrealistic iteration so that it should fall into the else case and do a cleanup
+	node->active.add_election_winner_details (send->hash (), nullptr);
+	nano::election_status election;
+	election.winner = send;
+	node->process_confirmed (election, 1000000);
+	ASSERT_EQ (0, node->active.election_winner_details_size ());
 }

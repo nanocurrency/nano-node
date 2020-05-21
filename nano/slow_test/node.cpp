@@ -9,6 +9,7 @@
 #include <gtest/gtest.h>
 
 #include <numeric>
+#include <random>
 
 using namespace std::chrono_literals;
 
@@ -859,6 +860,218 @@ TEST (confirmation_height, dynamic_algorithm_no_transition_while_pending)
 			ASSERT_NO_ERROR (system.poll ());
 		}
 	}
+}
+
+TEST (confirmation_height, many_accounts_send_receive_self)
+{
+	nano::system system;
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.online_weight_minimum = 100;
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	nano::node_flags node_flags;
+	node_flags.confirmation_height_processor_mode = nano::confirmation_height_mode::unbounded;
+	auto node = system.add_node (node_config);
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+
+	auto const num_accounts = 100000;
+
+	auto latest_genesis = node->latest (nano::test_genesis_key.pub);
+	std::vector<nano::keypair> keys;
+	std::vector<std::shared_ptr<nano::open_block>> open_blocks;
+	{
+		auto transaction = node->store.tx_begin_write ();
+		for (auto i = 0; i < num_accounts; ++i)
+		{
+			nano::keypair key;
+			keys.emplace_back (key);
+			system.wallet (0)->insert_adhoc (key.prv);
+
+			nano::send_block send (latest_genesis, key.pub, nano::genesis_amount - 1 - i, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest_genesis));
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send).code);
+			auto open = std::make_shared<nano::open_block> (send.hash (), nano::test_genesis_key.pub, key.pub, key.prv, key.pub, *system.work.generate (key.pub));
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *open).code);
+			open_blocks.push_back (std::move (open));
+			latest_genesis = send.hash ();
+		}
+	}
+
+	// Confirm all of the accounts
+	for (auto & open_block : open_blocks)
+	{
+		node->block_confirm (open_block);
+	}
+
+	system.deadline_set (1000s);
+	auto num_blocks_to_confirm = num_accounts * 2;
+	while (node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in) != num_blocks_to_confirm)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	std::vector<std::shared_ptr<nano::send_block>> send_blocks;
+	std::vector<std::shared_ptr<nano::receive_block>> receive_blocks;
+
+	for (int i = 0; i < open_blocks.size (); ++i)
+	{
+		auto open_block = open_blocks[i];
+		auto & keypair = keys[i];
+		send_blocks.emplace_back (std::make_shared<nano::send_block> (open_block->hash (), keypair.pub, 1, keypair.prv, keypair.pub, *system.work.generate (open_block->hash ())));
+		receive_blocks.emplace_back (std::make_shared<nano::receive_block> (send_blocks.back ()->hash (), send_blocks.back ()->hash (), keypair.prv, keypair.pub, *system.work.generate (send_blocks.back ()->hash ())));
+	}
+
+	// Now send and receive to self
+	for (int i = 0; i < open_blocks.size (); ++i)
+	{
+		node->process_active (send_blocks[i]);
+		node->process_active (receive_blocks[i]);
+	}
+
+	system.deadline_set (60s);
+	num_blocks_to_confirm = num_accounts * 4;
+	while (node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in) != num_blocks_to_confirm)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	system.deadline_set (60s);
+	while ((node->ledger.cache.cemented_count - 1) != node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	auto transaction = node->store.tx_begin_read ();
+	auto cemented_count = 0;
+	for (auto i (node->ledger.store.confirmation_height_begin (transaction)), n (node->ledger.store.confirmation_height_end ()); i != n; ++i)
+	{
+		cemented_count += i->second.height;
+	}
+
+	ASSERT_EQ (num_blocks_to_confirm + 1, cemented_count);
+	ASSERT_EQ (cemented_count, node->ledger.cache.cemented_count);
+
+	system.deadline_set (20s);
+	while ((node->ledger.cache.cemented_count - 1) != node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	system.deadline_set (10s);
+	while (node->active.election_winner_details_size () > 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+}
+
+// Same as the many_accounts_send_receive_self test, except works on the confirmation height processor directly
+// as opposed to active transactions which implicitly calls confirmation height processor.
+TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
+{
+	nano::logger_mt logger;
+	auto path (nano::unique_path ());
+	nano::mdb_store store (logger, path);
+	ASSERT_TRUE (!store.init_error ());
+	nano::genesis genesis;
+	nano::stat stats;
+	nano::ledger ledger (store, stats);
+	nano::write_database_queue write_database_queue;
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+	std::atomic<bool> stopped{ false };
+	boost::latch initialized_latch{ 0 };
+
+	nano::block_hash block_hash_being_processed{ 0 };
+	nano::confirmation_height_processor confirmation_height_processor{ ledger, write_database_queue, 10ms, logger, initialized_latch, confirmation_height_mode::automatic };
+
+	auto const num_accounts = 100000;
+
+	auto latest_genesis = nano::genesis_hash;
+	std::vector<nano::keypair> keys;
+	std::vector<std::shared_ptr<nano::open_block>> open_blocks;
+
+	nano::system system;
+
+	{
+		auto transaction (store.tx_begin_write ());
+		store.initialize (transaction, genesis, ledger.cache);
+
+		// Send from genesis account to all other accounts and create open block for them
+		for (auto i = 0; i < num_accounts; ++i)
+		{
+			nano::keypair key;
+			keys.emplace_back (key);
+			nano::send_block send (latest_genesis, key.pub, nano::genesis_amount - 1 - i, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (latest_genesis));
+			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send).code);
+			auto open = std::make_shared<nano::open_block> (send.hash (), nano::test_genesis_key.pub, key.pub, key.prv, key.pub, *pool.generate (key.pub));
+			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *open).code);
+			open_blocks.push_back (std::move (open));
+			latest_genesis = send.hash ();
+		}
+	}
+
+	for (auto & open_block : open_blocks)
+	{
+		confirmation_height_processor.add (open_block->hash ());
+	}
+
+	system.deadline_set (1000s);
+	auto num_blocks_to_confirm = num_accounts * 2;
+	while (stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in) != num_blocks_to_confirm)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	std::vector<std::shared_ptr<nano::send_block>> send_blocks;
+	std::vector<std::shared_ptr<nano::receive_block>> receive_blocks;
+
+	// Now add all send/receive blocks
+	{
+		auto transaction (store.tx_begin_write ());
+		for (int i = 0; i < open_blocks.size (); ++i)
+		{
+			auto open_block = open_blocks[i];
+			auto & keypair = keys[i];
+			send_blocks.emplace_back (std::make_shared<nano::send_block> (open_block->hash (), keypair.pub, 1, keypair.prv, keypair.pub, *system.work.generate (open_block->hash ())));
+			receive_blocks.emplace_back (std::make_shared<nano::receive_block> (send_blocks.back ()->hash (), send_blocks.back ()->hash (), keypair.prv, keypair.pub, *system.work.generate (send_blocks.back ()->hash ())));
+
+			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send_blocks.back ()).code);
+			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *receive_blocks.back ()).code);
+		}
+	}
+
+	// Randomize the order that send and receive blocks are added to the confirmation height processor
+	std::random_device rd;
+	std::mt19937 g (rd ());
+	std::shuffle (send_blocks.begin (), send_blocks.end (), g);
+	std::mt19937 g1 (rd ());
+	std::shuffle (receive_blocks.begin (), receive_blocks.end (), g1);
+
+	// Now send and receive to self
+	for (int i = 0; i < open_blocks.size (); ++i)
+	{
+		confirmation_height_processor.add (send_blocks[i]->hash ());
+		confirmation_height_processor.add (receive_blocks[i]->hash ());
+	}
+
+	system.deadline_set (1000s);
+	num_blocks_to_confirm = num_accounts * 4;
+	while (stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in) != num_blocks_to_confirm)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	while (!confirmation_height_processor.current ().is_zero ())
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	auto transaction = store.tx_begin_read ();
+	auto cemented_count = 0;
+	for (auto i (ledger.store.confirmation_height_begin (transaction)), n (ledger.store.confirmation_height_end ()); i != n; ++i)
+	{
+		cemented_count += i->second.height;
+	}
+
+	ASSERT_EQ (num_blocks_to_confirm + 1, cemented_count);
+	ASSERT_EQ (cemented_count, ledger.cache.cemented_count);
 }
 
 // Can take up to 1 hour (recommend modifying test work difficulty base level to speed this up)

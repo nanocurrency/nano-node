@@ -25,8 +25,7 @@ void nano::confirmation_height_unbounded::process ()
 {
 	std::shared_ptr<conf_height_details> receive_details;
 	auto current = original_hash;
-	orig_block_callback_data.clear ();
-	orig_block_callback_data_size = 0;
+	std::vector<nano::block_hash> orig_block_callback_data;
 
 	std::vector<receive_source_pair> receive_source_pairs;
 	release_assert (receive_source_pairs.empty ());
@@ -98,7 +97,7 @@ void nano::confirmation_height_unbounded::process ()
 		auto already_traversed = iterated_height >= block_height;
 		if (!already_traversed)
 		{
-			collect_unconfirmed_receive_and_sources_for_account (block_height, iterated_height, current, account, read_transaction, receive_source_pairs, block_callback_datas_required);
+			collect_unconfirmed_receive_and_sources_for_account (block_height, iterated_height, current, account, read_transaction, receive_source_pairs, block_callback_datas_required, orig_block_callback_data);
 		}
 
 		// Exit early when the processor has been stopped, otherwise this function may take a
@@ -116,7 +115,7 @@ void nano::confirmation_height_unbounded::process ()
 		auto confirmed_receives_pending = (count_before_receive != receive_source_pairs.size ());
 		if (!confirmed_receives_pending)
 		{
-			preparation_data preparation_data{ block_height, confirmation_height, iterated_height, account_it, account, receive_details, already_traversed, current, block_callback_datas_required };
+			preparation_data preparation_data{ block_height, confirmation_height, iterated_height, account_it, account, receive_details, already_traversed, current, block_callback_datas_required, orig_block_callback_data };
 			prepare_iterated_blocks_for_cementing (preparation_data);
 
 			if (!receive_source_pairs.empty ())
@@ -171,7 +170,7 @@ void nano::confirmation_height_unbounded::process ()
 	} while ((!receive_source_pairs.empty () || current != original_hash) && !stopped);
 }
 
-void nano::confirmation_height_unbounded::collect_unconfirmed_receive_and_sources_for_account (uint64_t block_height_a, uint64_t confirmation_height_a, nano::block_hash const & hash_a, nano::account const & account_a, nano::read_transaction const & transaction_a, std::vector<receive_source_pair> & receive_source_pairs_a, std::vector<nano::block_hash> & block_callback_data_a)
+void nano::confirmation_height_unbounded::collect_unconfirmed_receive_and_sources_for_account (uint64_t block_height_a, uint64_t confirmation_height_a, nano::block_hash const & hash_a, nano::account const & account_a, nano::read_transaction const & transaction_a, std::vector<receive_source_pair> & receive_source_pairs_a, std::vector<nano::block_hash> & block_callback_data_a, std::vector<nano::block_hash> & orig_block_callback_data_a)
 {
 	auto hash (hash_a);
 	auto num_to_confirm = block_height_a - confirmation_height_a;
@@ -209,8 +208,7 @@ void nano::confirmation_height_unbounded::collect_unconfirmed_receive_and_source
 			}
 			else if (is_original_block)
 			{
-				orig_block_callback_data.push_back (hash);
-				++orig_block_callback_data_size;
+				orig_block_callback_data_a.push_back (hash);
 			}
 			else
 			{
@@ -265,7 +263,7 @@ void nano::confirmation_height_unbounded::prepare_iterated_blocks_for_cementing 
 		{
 			if (!receive_details)
 			{
-				block_callback_data = orig_block_callback_data;
+				block_callback_data = preparation_data_a.orig_block_callback_data;
 			}
 			else
 			{
@@ -472,6 +470,5 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (co
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "pending_writes", confirmation_height_unbounded.pending_writes_size, sizeof (decltype (confirmation_height_unbounded.pending_writes)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "implicit_receive_cemented_mapping", confirmation_height_unbounded.implicit_receive_cemented_mapping_size, sizeof (decltype (confirmation_height_unbounded.implicit_receive_cemented_mapping)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "block_cache", confirmation_height_unbounded.block_cache_size, sizeof (decltype (confirmation_height_unbounded.block_cache)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "orig_block_callback_data", confirmation_height_unbounded.orig_block_callback_data_size, sizeof (decltype (confirmation_height_unbounded.orig_block_callback_data)::value_type) }));
 	return composite;
 }
