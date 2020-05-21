@@ -159,9 +159,6 @@ inline boost::filesystem::path get_config_path (boost::filesystem::path const & 
 
 inline boost::filesystem::path get_rpc_config_path (boost::filesystem::path const & data_path)
 {
-	if (!boost::filesystem::exists (data_path / "rpc_config.json") && boost::filesystem::exists (data_path / "config.json")) {
-		boost::filesystem::copy_file(data_path / "config.json", data_path / "rpc_config.json", boost::filesystem::copy_option::overwrite_if_exists);
-	}
 	return data_path / "rpc_config.json";
 }
 
