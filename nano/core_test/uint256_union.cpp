@@ -467,7 +467,7 @@ TEST (uint64_t, parse)
 TEST (uint256_union, hash)
 {
 	std::hash<nano::uint256_union> h{};
-	for (unsigned i (0), n (nano::uint256_union{}.bytes.size ()); i < n; ++i)
+	for (size_t i (0), n (nano::uint256_union{}.bytes.size ()); i < n; ++i)
 	{
 		nano::uint256_union x1{ 0 };
 		nano::uint256_union x2{ 0 };
@@ -479,7 +479,7 @@ TEST (uint256_union, hash)
 TEST (uint512_union, hash)
 {
 	std::hash<nano::uint512_union> h{};
-	for (unsigned i (0), n (nano::uint512_union{}.bytes.size ()); i < n; ++i)
+	for (size_t i (0), n (nano::uint512_union{}.bytes.size ()); i < n; ++i)
 	{
 		nano::uint512_union x1{ 0 };
 		nano::uint512_union x2{ 0 };
@@ -488,7 +488,7 @@ TEST (uint512_union, hash)
 	}
 	for (auto part (0); part < nano::uint512_union{}.uint256s.size (); ++part)
 	{
-		for (unsigned i (0), n (nano::uint512_union{}.uint256s[part].bytes.size ()); i < n; ++i)
+		for (size_t i (0), n (nano::uint512_union{}.uint256s[part].bytes.size ()); i < n; ++i)
 		{
 			nano::uint512_union x1{ 0 };
 			nano::uint512_union x2{ 0 };
