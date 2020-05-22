@@ -12,15 +12,14 @@ TEST (confirmation_solicitor, batches)
 	nano::system system;
 	nano::node_flags node_flags;
 	node_flags.disable_request_loop = true;
+	node_flags.disable_rep_crawler = true;
 	node_flags.disable_udp = false;
 	auto & node1 = *system.add_node (node_flags);
-	// This tests instantiates a solicitor
 	node_flags.disable_request_loop = true;
 	auto & node2 = *system.add_node (node_flags);
-	// Solicitor will only solicit from this representative
 	auto channel1 (node2.network.udp_channels.create (node1.network.endpoint ()));
+	// Solicitor will only solicit from this representative
 	nano::representative representative (nano::test_genesis_key.pub, nano::genesis_amount, channel1);
-
 	std::vector<nano::representative> representatives{ representative };
 	nano::confirmation_solicitor solicitor (node2.network, node2.network_params.network);
 	solicitor.prepare (representatives);
@@ -28,6 +27,7 @@ TEST (confirmation_solicitor, batches)
 	ASSERT_EQ (1, representatives.size ());
 	ASSERT_EQ (channel1, representatives.front ().channel);
 	ASSERT_EQ (nano::test_genesis_key.pub, representatives.front ().account);
+	ASSERT_TIMELY (3s, node2.network.size () == 1);
 	auto send (std::make_shared<nano::send_block> (nano::genesis_hash, nano::keypair ().pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (nano::genesis_hash)));
 	{
 		nano::lock_guard<std::mutex> guard (node2.active.mutex);
@@ -44,17 +44,44 @@ TEST (confirmation_solicitor, batches)
 		ASSERT_EQ (0, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));
 		ASSERT_FALSE (solicitor.broadcast (*election));
 	}
-	system.deadline_set (5s);
-	while (node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out) < 1)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
-	// From rep crawler
-	system.deadline_set (5s);
+	// One publish through directed broadcasting and another through random flooding
+	ASSERT_EQ (2, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));
 	solicitor.flush ();
-	while (node2.stats.count (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::out) == 1)
+	ASSERT_EQ (1, node2.stats.count (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::out));
+}
+
+TEST (confirmation_solicitor, different_hash)
+{
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_request_loop = true;
+	node_flags.disable_rep_crawler = true;
+	node_flags.disable_udp = false;
+	auto & node1 = *system.add_node (node_flags);
+	auto & node2 = *system.add_node (node_flags);
+	auto channel1 (node2.network.udp_channels.create (node1.network.endpoint ()));
+	// Solicitor will only solicit from this representative
+	nano::representative representative (nano::test_genesis_key.pub, nano::genesis_amount, channel1);
+	std::vector<nano::representative> representatives{ representative };
+	nano::confirmation_solicitor solicitor (node2.network, node2.network_params.network);
+	solicitor.prepare (representatives);
+	// Ensure the representatives are correct
+	ASSERT_EQ (1, representatives.size ());
+	ASSERT_EQ (channel1, representatives.front ().channel);
+	ASSERT_EQ (nano::test_genesis_key.pub, representatives.front ().account);
+	ASSERT_TIMELY (3s, node2.network.size () == 1);
+	auto send (std::make_shared<nano::send_block> (nano::genesis_hash, nano::keypair ().pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (nano::genesis_hash)));
 	{
-		ASSERT_NO_ERROR (system.poll ());
+		nano::lock_guard<std::mutex> guard (node2.active.mutex);
+		auto election (std::make_shared<nano::election> (node2, send, nullptr, false));
+		// Add a vote for something else, not the winner
+		election->last_votes[representative.account] = { std::chrono::steady_clock::now (), 1, 1 };
+		// Ensure the request and broadcast goes through
+		ASSERT_FALSE (solicitor.add (*election));
+		ASSERT_FALSE (solicitor.broadcast (*election));
 	}
-	ASSERT_LE (2, node2.stats.count (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::out));
+	// One publish through directed broadcasting and another through random flooding
+	ASSERT_EQ (2, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));
+	solicitor.flush ();
+	ASSERT_EQ (1, node2.stats.count (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::out));
 }
