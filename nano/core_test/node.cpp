@@ -3045,16 +3045,18 @@ TEST (node, epoch_conflict_confirm)
 	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2, open->hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send->hash ())));
 	auto epoch_open (std::make_shared<nano::state_block> (change->root (), 0, 0, 0, node0->ledger.epoch_link (nano::epoch::epoch_1), epoch_signer.prv, epoch_signer.pub, *system.work.generate (open->hash ())));
 	{
+		nano::block_post_events events;
 		auto transaction (node0->store.tx_begin_write ());
-		ASSERT_EQ (nano::process_result::progress, node0->block_processor.process_one (transaction, send).code);
-		ASSERT_EQ (nano::process_result::progress, node0->block_processor.process_one (transaction, send2).code);
-		ASSERT_EQ (nano::process_result::progress, node0->block_processor.process_one (transaction, open).code);
+		ASSERT_EQ (nano::process_result::progress, node0->block_processor.process_one (transaction, events, send).code);
+		ASSERT_EQ (nano::process_result::progress, node0->block_processor.process_one (transaction, events, send2).code);
+		ASSERT_EQ (nano::process_result::progress, node0->block_processor.process_one (transaction, events, open).code);
 	}
 	{
+		nano::block_post_events events;
 		auto transaction (node1->store.tx_begin_write ());
-		ASSERT_EQ (nano::process_result::progress, node1->block_processor.process_one (transaction, send).code);
-		ASSERT_EQ (nano::process_result::progress, node1->block_processor.process_one (transaction, send2).code);
-		ASSERT_EQ (nano::process_result::progress, node1->block_processor.process_one (transaction, open).code);
+		ASSERT_EQ (nano::process_result::progress, node1->block_processor.process_one (transaction, events, send).code);
+		ASSERT_EQ (nano::process_result::progress, node1->block_processor.process_one (transaction, events, send2).code);
+		ASSERT_EQ (nano::process_result::progress, node1->block_processor.process_one (transaction, events, open).code);
 	}
 	node0->process_active (change);
 	node0->process_active (epoch_open);

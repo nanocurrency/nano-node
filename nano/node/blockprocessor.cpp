@@ -10,6 +10,14 @@
 
 std::chrono::milliseconds constexpr nano::block_processor::confirmation_request_delay;
 
+nano::block_post_events::~block_post_events ()
+{
+	for (auto const & i : events)
+	{
+		i ();
+	}
+}
+
 nano::block_processor::block_processor (nano::node & node_a, nano::write_database_queue & write_database_queue_a) :
 next_log (std::chrono::steady_clock::now ()),
 node (node_a),
@@ -193,6 +201,7 @@ void nano::block_processor::process_verified_state_blocks (std::deque<nano::unch
 void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_a)
 {
 	auto scoped_write_guard = write_database_queue.wait (nano::writer::process_batch);
+	block_post_events post_events;
 	auto transaction (node.store.tx_begin_write ({ tables::accounts, nano::tables::cached_counts, nano::tables::change_blocks, tables::frontiers, tables::open_blocks, tables::pending, tables::receive_blocks, tables::representation, tables::send_blocks, tables::state_blocks, tables::unchecked }, { tables::confirmation_height }));
 	nano::timer<std::chrono::milliseconds> timer_l;
 	lock_a.lock ();
@@ -253,7 +262,7 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 			}
 		}
 		number_of_blocks_processed++;
-		process_one (transaction, info);
+		process_one (transaction, post_events, info);
 		lock_a.lock ();
 	}
 	awaiting_write = false;
@@ -296,7 +305,7 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	}
 }
 
-nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, nano::unchecked_info info_a, const bool watch_work_a, nano::block_origin const origin_a)
+nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, block_post_events & events_a, nano::unchecked_info info_a, const bool watch_work_a, nano::block_origin const origin_a)
 {
 	nano::process_return result;
 	auto hash (info_a.block->hash ());
@@ -314,7 +323,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			}
 			if (info_a.modified > nano::seconds_since_epoch () - 300 && node.block_arrival.recent (hash))
 			{
-				process_live (hash, info_a.block, result, watch_work_a, origin_a);
+				events_a.events.emplace_back ([this, hash, block = info_a.block, result, watch_work_a, origin_a]() { process_live (hash, block, result, watch_work_a, origin_a); });
 			}
 			queue_unchecked (transaction_a, hash);
 			break;
@@ -454,10 +463,10 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 	return result;
 }
 
-nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, std::shared_ptr<nano::block> block_a, const bool watch_work_a)
+nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, block_post_events & events_a, std::shared_ptr<nano::block> block_a, const bool watch_work_a)
 {
 	nano::unchecked_info info (block_a, block_a->account (), 0, nano::signature_verification::unknown);
-	auto result (process_one (transaction_a, info, watch_work_a));
+	auto result (process_one (transaction_a, events_a, info, watch_work_a));
 	return result;
 }
 
