@@ -1495,3 +1495,132 @@ TEST (node, mass_epoch_upgrader)
 	perform_test (42);
 	perform_test (std::numeric_limits<size_t>::max ());
 }
+
+TEST (node, mass_block_new)
+{
+	nano::system system;
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto & node = *system.add_node (node_config);
+	node.network_params.network.request_interval_ms = 500;
+
+#ifndef NDEBUG
+	auto const num_blocks = 5000;
+#else
+	auto const num_blocks = 50000;
+#endif
+	std::cout << num_blocks << " x4 blocks" << std::endl;
+
+	// Upgrade to epoch_2
+	system.upgrade_genesis_epoch (node, nano::epoch::epoch_1);
+	system.upgrade_genesis_epoch (node, nano::epoch::epoch_2);
+
+	auto next_block_count = num_blocks + 3;
+	auto process_all = [&](std::vector<std::shared_ptr<nano::state_block>> const & blocks_a) {
+		for (auto const & block : blocks_a)
+		{
+			node.process_active (block);
+		}
+		ASSERT_TIMELY (200s, node.ledger.cache.block_count == next_block_count);
+		next_block_count += num_blocks;
+		node.block_processor.flush ();
+		// Clear all active
+		{
+			nano::lock_guard<std::mutex> guard (node.active.mutex);
+			node.active.roots.clear ();
+			node.active.blocks.clear ();
+		}
+	};
+
+	nano::genesis genesis;
+	nano::keypair key;
+	std::vector<nano::keypair> keys (num_blocks);
+	nano::state_block_builder builder;
+	std::vector<std::shared_ptr<nano::state_block>> send_blocks;
+	auto send_threshold (nano::work_threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_2, true, false, false)));
+	auto latest_genesis = node.latest (nano::test_genesis_key.pub);
+	for (auto i = 0; i < num_blocks; ++i)
+	{
+		auto send = builder.make_block ()
+		            .account (nano::test_genesis_key.pub)
+		            .previous (latest_genesis)
+		            .balance (nano::genesis_amount - i - 1)
+		            .representative (nano::test_genesis_key.pub)
+		            .link (keys[i].pub)
+		            .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+		            .work (*system.work.generate (nano::work_version::work_1, latest_genesis, send_threshold))
+		            .build ();
+		latest_genesis = send->hash ();
+		send_blocks.push_back (std::move (send));
+	}
+	std::cout << "Send blocks built, start processing" << std::endl;
+	nano::timer<> timer;
+	timer.start ();
+	process_all (send_blocks);
+	std::cout << "Send blocks time: " << timer.stop ().count () << " " << timer.unit () << "\n\n";
+
+	std::vector<std::shared_ptr<nano::state_block>> open_blocks;
+	auto receive_threshold (nano::work_threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_2, false, true, false)));
+	for (auto i = 0; i < num_blocks; ++i)
+	{
+		auto const & key = keys[i];
+		auto open = builder.make_block ()
+		            .account (key.pub)
+		            .previous (0)
+		            .balance (1)
+		            .representative (key.pub)
+		            .link (send_blocks[i]->hash ())
+		            .sign (key.prv, key.pub)
+		            .work (*system.work.generate (nano::work_version::work_1, key.pub, receive_threshold))
+		            .build ();
+		open_blocks.push_back (std::move (open));
+	}
+	std::cout << "Open blocks built, start processing" << std::endl;
+	timer.restart ();
+	process_all (open_blocks);
+	std::cout << "Open blocks time: " << timer.stop ().count () << " " << timer.unit () << "\n\n";
+
+	// These blocks are from each key to themselves
+	std::vector<std::shared_ptr<nano::state_block>> send_blocks2;
+	for (auto i = 0; i < num_blocks; ++i)
+	{
+		auto const & key = keys[i];
+		auto const & latest = open_blocks[i];
+		auto send2 = builder.make_block ()
+		             .account (key.pub)
+		             .previous (latest->hash ())
+		             .balance (0)
+		             .representative (key.pub)
+		             .link (key.pub)
+		             .sign (key.prv, key.pub)
+		             .work (*system.work.generate (nano::work_version::work_1, latest->hash (), send_threshold))
+		             .build ();
+		send_blocks2.push_back (std::move (send2));
+	}
+	std::cout << "Send2 blocks built, start processing" << std::endl;
+	timer.restart ();
+	process_all (send_blocks2);
+	std::cout << "Send2 blocks time: " << timer.stop ().count () << " " << timer.unit () << "\n\n";
+
+	// Each key receives the previously sent blocks
+	std::vector<std::shared_ptr<nano::state_block>> receive_blocks;
+	for (auto i = 0; i < num_blocks; ++i)
+	{
+		auto const & key = keys[i];
+		auto const & latest = send_blocks2[i];
+		auto send2 = builder.make_block ()
+		             .account (key.pub)
+		             .previous (latest->hash ())
+		             .balance (1)
+		             .representative (key.pub)
+		             .link (latest->hash ())
+		             .sign (key.prv, key.pub)
+		             .work (*system.work.generate (nano::work_version::work_1, latest->hash (), receive_threshold))
+		             .build ();
+		receive_blocks.push_back (std::move (send2));
+	}
+	std::cout << "Receive blocks built, start processing" << std::endl;
+	timer.restart ();
+	process_all (receive_blocks);
+	std::cout << "Receive blocks time: " << timer.stop ().count () << " " << timer.unit () << "\n\n";
+}
