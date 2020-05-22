@@ -308,15 +308,29 @@ void nano::active_transactions::activate_dependencies (nano::unique_lock<std::mu
 			auto previous_hash_l (block_l->previous ());
 			if (!previous_hash_l.is_zero ())
 			{
+				/* Insert first unconfirmed block (pessimistic) and bisect the chain (likelihood) */
 				auto account (node.ledger.account (transaction, block_l->hash ()));
 				nano::confirmation_height_info conf_info_l;
-				if (!node.store.confirmation_height_get (transaction, account, conf_info_l) && height_l > conf_info_l.height + 1)
+				if (!node.store.confirmation_height_get (transaction, account, conf_info_l))
 				{
-					auto const jumps_l = std::min<uint8_t> (128, (height_l - conf_info_l.height) / 2);
-					auto backtracked_l (node.ledger.backtrack (transaction, block_l, jumps_l));
-					if (backtracked_l != nullptr)
+					if (height_l > conf_info_l.height + 1 && !conf_info_l.frontier.is_zero ())
 					{
-						activate_l.emplace_back (backtracked_l, block_l->hash ());
+						auto successor_hash_l = node.store.block_successor (transaction, conf_info_l.frontier);
+						auto successor_l = node.store.block_get (transaction, successor_hash_l);
+						debug_assert (successor_l != nullptr);
+						if (successor_l != nullptr)
+						{
+							activate_l.emplace_back (successor_l, block_l->hash ());
+						}
+					}
+					if (height_l > conf_info_l.height + 2)
+					{
+						auto const jumps_l = std::min<uint8_t> (128, (height_l - conf_info_l.height) / 2);
+						auto backtracked_l (node.ledger.backtrack (transaction, block_l, jumps_l));
+						if (backtracked_l != nullptr)
+						{
+							activate_l.emplace_back (backtracked_l, block_l->hash ());
+						}
 					}
 				}
 			}

@@ -59,6 +59,14 @@ TEST (election, bisect_dependencies)
 		election->activate_dependencies ();
 		node.active.activate_dependencies (lock);
 	}
+	// The first dependency activation also starts an election for the first unconfirmed block
+	ASSERT_EQ (3, node.active.size ());
+	{
+		auto election = node.active.election (blocks[2]->qualified_root ());
+		ASSERT_NE (nullptr, election);
+		ASSERT_EQ (2, election->blocks.begin ()->second->sideband ().height);
+	}
+
 	auto check_height_and_activate_next = [&node, &blocks](uint64_t height_a) {
 		auto election = node.active.election (blocks[height_a]->qualified_root ());
 		ASSERT_NE (nullptr, election);
@@ -67,23 +75,22 @@ TEST (election, bisect_dependencies)
 		election->activate_dependencies ();
 		node.active.activate_dependencies (lock);
 	};
-	ASSERT_EQ (2, node.active.size ());
 	check_height_and_activate_next (300 - 128); // ensure limited by 128 jumps
-	ASSERT_EQ (3, node.active.size ());
-	check_height_and_activate_next (87);
 	ASSERT_EQ (4, node.active.size ());
-	check_height_and_activate_next (44);
+	check_height_and_activate_next (87);
 	ASSERT_EQ (5, node.active.size ());
-	check_height_and_activate_next (23);
+	check_height_and_activate_next (44);
 	ASSERT_EQ (6, node.active.size ());
-	check_height_and_activate_next (12);
+	check_height_and_activate_next (23);
 	ASSERT_EQ (7, node.active.size ());
-	check_height_and_activate_next (7);
+	check_height_and_activate_next (12);
 	ASSERT_EQ (8, node.active.size ());
-	check_height_and_activate_next (4);
+	check_height_and_activate_next (7);
 	ASSERT_EQ (9, node.active.size ());
-	check_height_and_activate_next (3);
+	check_height_and_activate_next (4);
 	ASSERT_EQ (10, node.active.size ());
+	check_height_and_activate_next (3);
+	ASSERT_EQ (10, node.active.size ()); // height 2 already inserted initially, no more blocks to activate
 	check_height_and_activate_next (2);
 	ASSERT_EQ (10, node.active.size ()); // conf height is 1, no more blocks to activate
 	ASSERT_EQ (node.active.blocks.size (), node.active.roots.size ());
