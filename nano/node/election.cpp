@@ -403,7 +403,10 @@ void nano::election::log_votes (nano::tally_t const & tally_a) const
 	}
 	for (auto i (last_votes.begin ()), n (last_votes.end ()); i != n; ++i)
 	{
-		tally << boost::str (boost::format ("%1%%2% %3%") % line_end % i->first.to_account () % i->second.hash.to_string ());
+		if (i->first != node.network_params.random.not_an_account)
+		{
+			tally << boost::str (boost::format ("%1%%2% %3% %4%") % line_end % i->first.to_account () % std::to_string (i->second.sequence) % i->second.hash.to_string ());
+		}
 	}
 	node.logger.try_log (tally.str ());
 }
