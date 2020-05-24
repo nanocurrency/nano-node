@@ -8,7 +8,10 @@
 
 #include <gtest/gtest.h>
 
+#include <boost/format.hpp>
+
 #include <numeric>
+#include <random>
 
 using namespace std::chrono_literals;
 
@@ -490,9 +493,13 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 
 	// Call block confirm on the last open block which will confirm everything
 	{
-		auto transaction = node->store.tx_begin_read ();
-		auto block = node->store.block_get (transaction, last_open_hash);
-		node->block_confirm (block);
+		auto block = node->block (last_open_hash);
+		ASSERT_NE (nullptr, block);
+		auto election_insertion_result (node->active.insert (block));
+		ASSERT_TRUE (election_insertion_result.inserted);
+		ASSERT_NE (nullptr, election_insertion_result.election);
+		nano::lock_guard<std::mutex> guard (node->active.mutex);
+		election_insertion_result.election->confirm_once ();
 	}
 
 	system.deadline_set (120s);
@@ -570,7 +577,11 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 	// Confirm all of the accounts
 	for (auto & open_block : open_blocks)
 	{
-		node->block_confirm (open_block);
+		auto election_insertion_result (node->active.insert (open_block));
+		ASSERT_TRUE (election_insertion_result.inserted);
+		ASSERT_NE (nullptr, election_insertion_result.election);
+		nano::lock_guard<std::mutex> guard (node->active.mutex);
+		election_insertion_result.election->confirm_once ();
 	}
 
 	system.deadline_set (1500s);
@@ -669,7 +680,13 @@ TEST (confirmation_height, long_chains)
 	}
 
 	// Call block confirm on the existing receive block on the genesis account which will confirm everything underneath on both accounts
-	node->block_confirm (receive1);
+	{
+		auto election_insertion_result (node->active.insert (receive1));
+		ASSERT_TRUE (election_insertion_result.inserted);
+		ASSERT_NE (nullptr, election_insertion_result.election);
+		nano::lock_guard<std::mutex> guard (node->active.mutex);
+		election_insertion_result.election->confirm_once ();
+	}
 
 	system.deadline_set (30s);
 	while (true)

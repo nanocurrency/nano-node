@@ -50,7 +50,7 @@ TEST (active_transactions, confirm_active)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	// At least one confirmation request
-	ASSERT_GT (election->confirmation_request_count, 0);
+	ASSERT_GT (election->confirmation_request_count, 0u);
 	// Blocks were cleared (except for not_an_account)
 	ASSERT_EQ (1, election->blocks.size ());
 }
@@ -94,7 +94,7 @@ TEST (active_transactions, confirm_frontier)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_GT (election->confirmation_request_count, 0);
+	ASSERT_GT (election->confirmation_request_count, 0u);
 }
 }
 
@@ -642,6 +642,9 @@ TEST (active_transactions, activate_dependencies)
 	              .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
 	              .work (node1->work_generate_blocking (block0->hash ()).value ())
 	              .build ();
+	// Wait for confirmation of the previous block, which tries to activate the successor
+	// We want to test that behavior through activating dependencies instead
+	ASSERT_TIMELY (3s, node2->block_confirmed (block0->hash ()));
 	{
 		auto transaction = node2->store.tx_begin_write ();
 		ASSERT_EQ (nano::process_result::progress, node2->ledger.process (transaction, *block1).code);

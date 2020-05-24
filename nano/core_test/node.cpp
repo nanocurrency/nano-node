@@ -1868,15 +1868,21 @@ TEST (node, rep_self_vote)
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto node0 = system.add_node (node_config);
 	nano::keypair rep_big;
+	nano::send_block fund_big (node0->ledger.latest (node0->store.tx_begin_read (), nano::test_genesis_key.pub), rep_big.pub, nano::uint128_t ("0xb0000000000000000000000000000000"), nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	nano::open_block open_big (fund_big.hash (), rep_big.pub, rep_big.pub, rep_big.prv, rep_big.pub, 0);
+	node0->work_generate_blocking (fund_big);
+	node0->work_generate_blocking (open_big);
+	ASSERT_EQ (nano::process_result::progress, node0->process (fund_big).code);
+	ASSERT_EQ (nano::process_result::progress, node0->process (open_big).code);
+	// Confirm both blocks, allowing voting on the upcoming block
+	node0->block_confirm (node0->block (open_big.hash ()));
 	{
-		auto transaction0 (node0->store.tx_begin_write ());
-		nano::send_block fund_big (node0->ledger.latest (transaction0, nano::test_genesis_key.pub), rep_big.pub, nano::uint128_t ("0xb0000000000000000000000000000000"), nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
-		nano::open_block open_big (fund_big.hash (), rep_big.pub, rep_big.pub, rep_big.prv, rep_big.pub, 0);
-		node0->work_generate_blocking (fund_big);
-		node0->work_generate_blocking (open_big);
-		ASSERT_EQ (nano::process_result::progress, node0->ledger.process (transaction0, fund_big).code);
-		ASSERT_EQ (nano::process_result::progress, node0->ledger.process (transaction0, open_big).code);
+		auto election = node0->active.election (open_big.qualified_root ());
+		ASSERT_NE (nullptr, election);
+		nano::lock_guard<std::mutex> guard (node0->active.mutex);
+		election->confirm_once ();
 	}
+
 	system.wallet (0)->insert_adhoc (rep_big.prv);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	ASSERT_EQ (system.wallet (0)->wallets.reps ().voting, 2);
