@@ -1119,3 +1119,78 @@ TEST (active_transactions, conflicting_block_vote_existing_election)
 	ASSERT_NE (nullptr, election);
 	ASSERT_TRUE (election->confirmed ());
 }
+
+TEST (active_transactions, activate_account_chain)
+{
+	nano::system system;
+	nano::node_flags flags;
+	nano::node_config config (nano::get_available_port (), system.logging);
+	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto & node = *system.add_node (config, flags);
+
+	nano::keypair key;
+	nano::state_block_builder builder;
+	auto send = builder.make_block ()
+	            .account (nano::test_genesis_key.pub)
+	            .previous (nano::genesis_hash)
+	            .representative (nano::test_genesis_key.pub)
+	            .link (nano::test_genesis_key.pub)
+	            .balance (nano::genesis_amount - 1)
+	            .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	            .work (*system.work.generate (nano::genesis_hash))
+	            .build ();
+	auto send2 = builder.make_block ()
+	             .account (nano::test_genesis_key.pub)
+	             .previous (send->hash ())
+	             .representative (nano::test_genesis_key.pub)
+	             .link (key.pub)
+	             .balance (nano::genesis_amount - 2)
+	             .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	             .work (*system.work.generate (send->hash ()))
+	             .build ();
+	auto open = builder.make_block ()
+	            .account (key.pub)
+	            .previous (0)
+	            .representative (key.pub)
+	            .link (send2->hash ())
+	            .balance (1)
+	            .sign (key.prv, key.pub)
+	            .work (*system.work.generate (key.pub))
+	            .build ();
+	ASSERT_EQ (nano::process_result::progress, node.process (*send).code);
+	ASSERT_EQ (nano::process_result::progress, node.process (*send2).code);
+	ASSERT_EQ (nano::process_result::progress, node.process (*open).code);
+
+	auto result = node.active.activate (nano::test_genesis_key.pub);
+	ASSERT_TRUE (result.inserted);
+	ASSERT_EQ (1, node.active.size ());
+	ASSERT_EQ (1, result.election->blocks.count (send->hash ()));
+	auto result2 = node.active.activate (nano::test_genesis_key.pub);
+	ASSERT_FALSE (result2.inserted);
+	ASSERT_EQ (result2.election, result.election);
+	{
+		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		result.election->confirm_once ();
+	}
+	ASSERT_TIMELY (3s, node.block_confirmed (send->hash ()));
+	// On cementing, the next election is started
+	ASSERT_TIMELY (3s, node.active.active (send2->qualified_root ()));
+	auto result3 = node.active.activate (nano::test_genesis_key.pub);
+	ASSERT_FALSE (result3.inserted);
+	ASSERT_NE (nullptr, result3.election);
+	ASSERT_EQ (1, result3.election->blocks.count (send2->hash ()));
+	{
+		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		result3.election->confirm_once ();
+	}
+	ASSERT_TIMELY (3s, node.block_confirmed (send2->hash ()));
+	// On cementing, the next election is started
+	ASSERT_TIMELY (3s, node.active.active (open->qualified_root ()));
+	auto result4 = node.active.activate (nano::test_genesis_key.pub);
+	ASSERT_FALSE (result4.inserted);
+	ASSERT_EQ (nullptr, result4.election);
+	auto result5 = node.active.activate (key.pub);
+	ASSERT_FALSE (result5.inserted);
+	ASSERT_NE (nullptr, result5.election);
+	ASSERT_EQ (1, result5.election->blocks.count (open->hash ()));
+}

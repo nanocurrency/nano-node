@@ -59,7 +59,7 @@ void nano::active_transactions::confirm_prioritized_frontiers (nano::transaction
 	auto is_test_network = node.network_params.network.is_test_network ();
 	auto roots_size = size ();
 	auto check_time_exceeded = std::chrono::steady_clock::now () >= next_frontier_check;
-	auto max_elections = 1000;
+	auto max_elections = 1000ull;
 	auto low_active_elections = roots_size < max_elections;
 	bool wallets_check_required = (!skip_wallets || !priority_wallet_cementable_frontiers.empty ()) && !agressive_mode;
 	// Minimise dropping real-time transactions, set the number of frontiers added to a factor of the maximum number of possible active elections
@@ -183,6 +183,9 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 				}
 			}
 		}
+		auto const & account (!block_a->account ().is_zero () ? block_a->account () : block_a->sideband ().account);
+		activate (account);
+		activate (block_a->link ());
 	}
 }
 
@@ -644,6 +647,37 @@ std::shared_ptr<nano::election> nano::active_transactions::election (nano::quali
 	if (existing != roots.get<tag_root> ().end ())
 	{
 		result = existing->election;
+	}
+	return result;
+}
+
+nano::election_insertion_result nano::active_transactions::activate (nano::account const & account_a)
+{
+	nano::election_insertion_result result;
+	auto transaction (node.store.tx_begin_read ());
+	nano::account_info account_info;
+	if (!node.store.account_get (transaction, account_a, account_info))
+	{
+		nano::confirmation_height_info conf_info;
+		auto error = node.store.confirmation_height_get (transaction, account_a, conf_info);
+		debug_assert (!error);
+		if (!error && conf_info.height < account_info.block_count)
+		{
+			debug_assert (conf_info.frontier != account_info.head);
+			auto hash = conf_info.height == 0 ? account_info.open_block : node.store.block_successor (transaction, conf_info.frontier);
+			auto block = node.store.block_get (transaction, hash);
+			release_assert (block != nullptr);
+			result = insert (block);
+			if (result.election)
+			{
+				if (result.inserted)
+				{
+					result.election->transition_active ();
+				}
+				// Generate vote for ongoing election
+				result.election->generate_votes (block->hash ());
+			}
+		}
 	}
 	return result;
 }
