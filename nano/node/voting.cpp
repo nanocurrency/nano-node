@@ -2,19 +2,21 @@
 
 #include <nano/lib/threading.hpp>
 #include <nano/node/network.hpp>
+#include <nano/node/node.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/voting.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/secure/blockstore.hpp>
+#include <nano/secure/ledger.hpp>
 
 #include <boost/variant/get.hpp>
 
 #include <chrono>
 
-nano::vote_generator::vote_generator (nano::node_config & config_a, nano::block_store & store_a, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::votes_cache & votes_cache_a, nano::network & network_a) :
+nano::vote_generator::vote_generator (nano::node_config const & config_a, nano::node_flags const & flags_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::votes_cache & votes_cache_a, nano::network & network_a) :
 config (config_a),
-store (store_a),
+ledger (ledger_a),
 wallets (wallets_a),
 vote_processor (vote_processor_a),
 votes_cache (votes_cache_a),
@@ -72,9 +74,9 @@ void nano::vote_generator::send (nano::unique_lock<std::mutex> & lock_a)
 	}
 	lock_a.unlock ();
 	{
-		auto transaction (store.tx_begin_read ());
+		auto transaction (ledger.store.tx_begin_read ());
 		wallets.foreach_representative ([this, &hashes_l, &transaction](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
-			auto vote (this->store.vote_generate (transaction, pub_a, prv_a, hashes_l));
+			auto vote (this->ledger.store.vote_generate (transaction, pub_a, prv_a, hashes_l));
 			this->votes_cache.add (vote);
 			this->network.flood_vote_pr (vote);
 			this->network.flood_vote (vote, 2.0f);
