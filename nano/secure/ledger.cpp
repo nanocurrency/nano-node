@@ -1048,6 +1048,27 @@ bool nano::ledger::could_fit (nano::transaction const & transaction_a, nano::blo
 	});
 }
 
+bool nano::ledger::can_vote (nano::transaction const & transaction_a, nano::block const & block_a)
+{
+	auto dependencies (dependent_blocks (transaction_a, block_a));
+	return std::all_of (dependencies.begin (), dependencies.end (), [this, &transaction_a](nano::block_hash const & hash_a) {
+		auto result (hash_a.is_zero ());
+		if (!result)
+		{
+			result = false;
+			auto block (store.block_get (transaction_a, hash_a));
+			if (block != nullptr)
+			{
+				nano::confirmation_height_info height;
+				auto error = store.confirmation_height_get (transaction_a, block->account ().is_zero () ? block->sideband ().account : block->account (), height);
+				debug_assert (!error);
+				result = block->sideband ().height <= height.height;
+			}
+		}
+		return result;
+	});
+}
+
 bool nano::ledger::is_epoch_link (nano::link const & link_a)
 {
 	return network_params.ledger.epochs.is_epoch_link (link_a);

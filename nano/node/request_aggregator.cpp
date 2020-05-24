@@ -157,7 +157,7 @@ std::vector<nano::block_hash> nano::request_aggregator::aggregate (nano::transac
 			++cached_hashes;
 			cached_votes.insert (cached_votes.end (), find_votes.begin (), find_votes.end ());
 		}
-		else if (!hash_root.first.is_zero () && ledger.store.block_exists (transaction_a, hash_root.first))
+		else if (block != nullptr && ledger.can_vote (transaction_a, *block))
 		{
 			to_generate.push_back (hash_root.first);
 		}

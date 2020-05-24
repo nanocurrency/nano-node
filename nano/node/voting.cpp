@@ -29,12 +29,17 @@ thread ([this]() { run (); })
 
 void nano::vote_generator::add (nano::block_hash const & hash_a)
 {
+	auto transaction (ledger.store.tx_begin_read ());
 	nano::unique_lock<std::mutex> lock (mutex);
-	hashes.push_back (hash_a);
-	if (hashes.size () >= nano::network::confirm_ack_hashes_max)
+	auto block (ledger.store.block_get (transaction, hash_a));
+	if (block != nullptr && ledger.can_vote (transaction, *block))
 	{
-		lock.unlock ();
-		condition.notify_all ();
+		hashes.push_back (hash_a);
+		if (hashes.size () >= nano::network::confirm_ack_hashes_max)
+		{
+			lock.unlock ();
+			condition.notify_all ();
+		}
 	}
 }
 
