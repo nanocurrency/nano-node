@@ -150,16 +150,22 @@ std::vector<nano::block_hash> nano::request_aggregator::aggregate (nano::transac
 	std::vector<std::shared_ptr<nano::vote>> cached_votes;
 	for (auto const & hash_root : requests_a)
 	{
-		auto block (ledger.store.block_get (transaction_a, hash_root.first));
 		auto find_votes (votes_cache.find (hash_root.first));
 		if (!find_votes.empty ())
 		{
 			++cached_hashes;
 			cached_votes.insert (cached_votes.end (), find_votes.begin (), find_votes.end ());
 		}
-		else if (block != nullptr && ledger.can_vote (transaction_a, *block))
+		else if (auto block = ledger.store.block_get (transaction_a, hash_root.first))
 		{
-			to_generate.push_back (hash_root.first);
+			if (ledger.can_vote (transaction_a, *block))
+			{
+				to_generate.push_back (hash_root.first);
+			}
+			else
+			{
+				stats.inc (nano::stat::type::requests, nano::stat::detail::requests_cannot_vote, stat::dir::in);
+			}
 		}
 		else if (!hash_root.second.is_zero ())
 		{
@@ -177,17 +183,21 @@ std::vector<nano::block_hash> nano::request_aggregator::aggregate (nano::transac
 			}
 			if (!successor.is_zero ())
 			{
+				auto successor_block (ledger.store.block_get (transaction_a, successor));
+				debug_assert (successor_block != nullptr);
 				auto find_successor_votes (votes_cache.find (successor));
 				if (!find_successor_votes.empty ())
 				{
 					cached_votes.insert (cached_votes.end (), find_successor_votes.begin (), find_successor_votes.end ());
 				}
-				else
+				else if (ledger.can_vote (transaction_a, *successor_block))
 				{
 					to_generate.push_back (successor);
 				}
-				auto successor_block (ledger.store.block_get (transaction_a, successor));
-				debug_assert (successor_block != nullptr);
+				else
+				{
+					stats.inc (nano::stat::type::requests, nano::stat::detail::requests_cannot_vote, stat::dir::in);
+				}
 				nano::publish publish (successor_block);
 				channel_a->send (publish);
 			}
