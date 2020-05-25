@@ -56,6 +56,12 @@ nano::confirmation_height_bounded::top_and_next_hash nano::confirmation_height_b
 
 void nano::confirmation_height_bounded::process ()
 {
+	if (pending_empty ())
+	{
+		clear_process_vars ();
+		timer.restart ();
+	}
+
 	boost::optional<top_and_next_hash> next_in_receive_chain;
 	boost::circular_buffer_space_optimized<nano::block_hash> checkpoints{ max_items };
 	boost::circular_buffer_space_optimized<receive_source_pair> receive_source_pairs{ max_items };
@@ -531,6 +537,7 @@ void nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 
 	debug_assert (pending_writes.empty ());
 	debug_assert (pending_writes_size == 0);
+	timer.restart ();
 }
 
 bool nano::confirmation_height_bounded::pending_empty () const
@@ -538,11 +545,10 @@ bool nano::confirmation_height_bounded::pending_empty () const
 	return pending_writes.empty ();
 }
 
-void nano::confirmation_height_bounded::reset ()
+void nano::confirmation_height_bounded::clear_process_vars ()
 {
 	accounts_confirmed_info.clear ();
 	accounts_confirmed_info_size = 0;
-	timer.restart ();
 }
 
 nano::confirmation_height_bounded::receive_chain_details::receive_chain_details (nano::account const & account_a, uint64_t height_a, nano::block_hash const & hash_a, nano::block_hash const & top_level_a, boost::optional<nano::block_hash> next_a, uint64_t bottom_height_a, nano::block_hash const & bottom_most_a) :

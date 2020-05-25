@@ -71,20 +71,12 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 			if (force_unbounded || valid_unbounded)
 			{
 				debug_assert (bounded_processor.pending_empty ());
-				if (unbounded_processor.pending_empty ())
-				{
-					unbounded_processor.reset ();
-				}
 				unbounded_processor.process ();
 			}
 			else
 			{
 				debug_assert (mode_a == confirmation_height_mode::bounded || mode_a == confirmation_height_mode::automatic);
 				debug_assert (unbounded_processor.pending_empty ());
-				if (bounded_processor.pending_empty ())
-				{
-					bounded_processor.reset ();
-				}
 				bounded_processor.process ();
 			}
 
@@ -96,6 +88,8 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 				lk.lock ();
 				original_hash.clear ();
 				original_hashes_pending.clear ();
+				bounded_processor.clear_process_vars ();
+				unbounded_processor.clear_process_vars ();
 			};
 
 			if (!paused)
@@ -111,7 +105,6 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 						bounded_processor.cement_blocks (scoped_write_guard);
 					}
 					lock_and_cleanup ();
-					bounded_processor.reset ();
 				}
 				else if (!unbounded_processor.pending_empty ())
 				{
@@ -121,7 +114,6 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 						unbounded_processor.cement_blocks (scoped_write_guard);
 					}
 					lock_and_cleanup ();
-					unbounded_processor.reset ();
 				}
 				else
 				{
