@@ -2,7 +2,6 @@
 
 #include <nano/lib/threading.hpp>
 #include <nano/node/network.hpp>
-#include <nano/node/node.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/voting.hpp>
@@ -14,7 +13,7 @@
 
 #include <chrono>
 
-nano::vote_generator::vote_generator (nano::node_config const & config_a, nano::node_flags const & flags_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::votes_cache & votes_cache_a, nano::network & network_a) :
+nano::vote_generator::vote_generator (nano::node_config const & config_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::votes_cache & votes_cache_a, nano::network & network_a) :
 config (config_a),
 ledger (ledger_a),
 wallets (wallets_a),
