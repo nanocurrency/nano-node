@@ -23,6 +23,11 @@ awaiting_processing_size_callback (awaiting_processing_size_callback_a)
 
 void nano::confirmation_height_unbounded::process ()
 {
+	if (pending_empty ())
+	{
+		clear_process_vars ();
+		timer.restart ();
+	}
 	std::shared_ptr<conf_height_details> receive_details;
 	auto current = original_hash;
 	std::vector<nano::block_hash> orig_block_callback_data;
@@ -406,6 +411,7 @@ void nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 	}
 	debug_assert (pending_writes.empty ());
 	debug_assert (pending_writes_size == 0);
+	timer.restart ();
 }
 
 std::shared_ptr<nano::block> nano::confirmation_height_unbounded::get_block_and_sideband (nano::block_hash const & hash_a, nano::transaction const & transaction_a)
@@ -429,7 +435,7 @@ bool nano::confirmation_height_unbounded::pending_empty () const
 	return pending_writes.empty ();
 }
 
-void nano::confirmation_height_unbounded::reset ()
+void nano::confirmation_height_unbounded::clear_process_vars ()
 {
 	// Separate blocks which are pending confirmation height can be batched by a minimum processing time (to improve lmdb disk write performance),
 	// so make sure the slate is clean when a new batch is starting.
@@ -439,7 +445,6 @@ void nano::confirmation_height_unbounded::reset ()
 	implicit_receive_cemented_mapping_size = 0;
 	block_cache.clear ();
 	block_cache_size = 0;
-	timer.restart ();
 }
 
 nano::confirmation_height_unbounded::conf_height_details::conf_height_details (nano::account const & account_a, nano::block_hash const & hash_a, uint64_t height_a, uint64_t num_blocks_confirmed_a, std::vector<nano::block_hash> const & block_callback_data_a) :
