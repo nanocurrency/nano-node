@@ -1539,11 +1539,7 @@ TEST (node, fork_open)
 	node1.block_processor.flush ();
 }
 
-#if (defined(_WIN32) && CI)
-TEST (node, DISABLED_fork_open_flip)
-#else
 TEST (node, fork_open_flip)
-#endif
 {
 	nano::system system (2);
 	auto & node1 (*system.nodes[0]);
