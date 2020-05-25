@@ -868,12 +868,17 @@ TEST (confirmation_height, many_accounts_send_receive_self)
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.online_weight_minimum = 100;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	node_config.active_elections_size = 400000;
 	nano::node_flags node_flags;
 	node_flags.confirmation_height_processor_mode = nano::confirmation_height_mode::unbounded;
 	auto node = system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 
+#ifndef NDEBUG
+	auto const num_accounts = 10000;
+#else
 	auto const num_accounts = 100000;
+#endif
 
 	auto latest_genesis = node->latest (nano::test_genesis_key.pub);
 	std::vector<nano::keypair> keys;
@@ -926,14 +931,14 @@ TEST (confirmation_height, many_accounts_send_receive_self)
 		node->process_active (receive_blocks[i]);
 	}
 
-	system.deadline_set (60s);
+	system.deadline_set (200s);
 	num_blocks_to_confirm = num_accounts * 4;
 	while (node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in) != num_blocks_to_confirm)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
-	system.deadline_set (60s);
+	system.deadline_set (200s);
 	while ((node->ledger.cache.cemented_count - 1) != node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out))
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -949,13 +954,13 @@ TEST (confirmation_height, many_accounts_send_receive_self)
 	ASSERT_EQ (num_blocks_to_confirm + 1, cemented_count);
 	ASSERT_EQ (cemented_count, node->ledger.cache.cemented_count);
 
-	system.deadline_set (20s);
+	system.deadline_set (60s);
 	while ((node->ledger.cache.cemented_count - 1) != node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
-	system.deadline_set (10s);
+	system.deadline_set (20s);
 	while (node->active.election_winner_details_size () > 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
