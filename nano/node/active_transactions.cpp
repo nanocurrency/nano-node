@@ -316,11 +316,14 @@ void nano::active_transactions::activate_dependencies (nano::unique_lock<std::mu
 					if (height_l > conf_info_l.height + 1 && !conf_info_l.frontier.is_zero ())
 					{
 						auto successor_hash_l = node.store.block_successor (transaction, conf_info_l.frontier);
-						auto successor_l = node.store.block_get (transaction, successor_hash_l);
-						debug_assert (successor_l != nullptr);
-						if (successor_l != nullptr)
+						if (!confirmation_height_processor.is_processing_block (successor_hash_l))
 						{
-							activate_l.emplace_back (successor_l, block_l->hash ());
+							auto successor_l = node.store.block_get (transaction, successor_hash_l);
+							debug_assert (successor_l != nullptr);
+							if (successor_l != nullptr)
+							{
+								activate_l.emplace_back (successor_l, block_l->hash ());
+							}
 						}
 					}
 					if (height_l > conf_info_l.height + 2)
