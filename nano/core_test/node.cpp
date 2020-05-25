@@ -3821,6 +3821,82 @@ TEST (node, node_sequence)
 	ASSERT_EQ (2, system.nodes[2]->node_seq);
 }
 
+TEST (node, rollback_vote_self)
+{
+	nano::system system;
+	nano::node_flags flags;
+	flags.disable_request_loop = true;
+	auto & node = *system.add_node (flags);
+	nano::state_block_builder builder;
+	nano::keypair key;
+	auto weight = node.config.online_weight_minimum.number ();
+	std::shared_ptr<nano::state_block> send1 = builder.make_block ()
+	                                           .account (nano::test_genesis_key.pub)
+	                                           .previous (nano::genesis_hash)
+	                                           .representative (nano::test_genesis_key.pub)
+	                                           .link (key.pub)
+	                                           .balance (nano::genesis_amount - weight)
+	                                           .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	                                           .work (*system.work.generate (nano::genesis_hash))
+	                                           .build ();
+	std::shared_ptr<nano::state_block> open = builder.make_block ()
+	                                          .account (key.pub)
+	                                          .previous (0)
+	                                          .representative (key.pub)
+	                                          .link (send1->hash ())
+	                                          .balance (weight)
+	                                          .sign (key.prv, key.pub)
+	                                          .work (*system.work.generate (key.pub))
+	                                          .build ();
+	std::shared_ptr<nano::state_block> send2 = builder.make_block ()
+	                                           .from (*send1)
+	                                           .previous (send1->hash ())
+	                                           .balance (send1->balance ().number () - 1)
+	                                           .link (nano::test_genesis_key.pub)
+	                                           .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	                                           .work (*system.work.generate (send1->hash ()))
+	                                           .build ();
+	std::shared_ptr<nano::state_block> fork = builder.make_block ()
+	                                          .from (*send2)
+	                                          .balance (send2->balance ().number () - 2)
+	                                          .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	                                          .build ();
+	ASSERT_EQ (nano::process_result::progress, node.process (*send1).code);
+	ASSERT_EQ (nano::process_result::progress, node.process (*open).code);
+	// Confirm blocks to allow voting
+	node.block_confirm (open);
+	{
+		auto election = node.active.election (open->qualified_root ());
+		ASSERT_NE (nullptr, election);
+		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		election->confirm_once ();
+	}
+	ASSERT_TIMELY (5s, node.ledger.cache.cemented_count == 3);
+	ASSERT_EQ (weight, node.weight (key.pub));
+	node.process_active (send2);
+	node.process_active (fork);
+	node.block_processor.flush ();
+	auto election = node.active.election (send2->qualified_root ());
+	ASSERT_NE (nullptr, election);
+	ASSERT_EQ (2, election->blocks.size ());
+	// Insert genesis key in the wallet
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	{
+		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		ASSERT_EQ (1, election->last_votes.size ());
+		// Vote with key to switch the winner
+		election->vote (key.pub, 0, fork->hash ());
+		ASSERT_EQ (2, election->last_votes.size ());
+		// The winner changed
+		ASSERT_EQ (election->status.winner, fork);
+	}
+	// A vote is eventually generated from the local representative
+	ASSERT_TIMELY (5s, 3 == election->last_votes_size ());
+	auto vote (election->last_votes.find (nano::test_genesis_key.pub));
+	ASSERT_NE (election->last_votes.end (), vote);
+	ASSERT_EQ (fork->hash (), vote->second.hash);
+}
+
 namespace
 {
 void add_required_children_node_config_tree (nano::jsonconfig & tree)

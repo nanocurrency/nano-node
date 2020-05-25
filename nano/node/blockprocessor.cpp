@@ -288,6 +288,10 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	{
 		election.election->transition_passive ();
 	}
+	else if (election.election)
+	{
+		election.election->try_generate_votes (block_a->hash ());
+	}
 
 	// Announce block contents to the network
 	if (origin_a == nano::block_origin::local)

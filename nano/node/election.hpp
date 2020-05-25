@@ -87,6 +87,8 @@ public:
 	size_t insert_inactive_votes_cache (nano::block_hash const &);
 	bool prioritized () const;
 	void prioritize_election (nano::vote_generator_session &);
+	// Calculate votes if the current winner matches \p hash_a
+	void try_generate_votes (nano::block_hash const & hash_a);
 	// Erase all blocks from active and, if not confirmed, clear digests from network filters
 	void cleanup ();
 
