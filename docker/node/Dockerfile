@@ -1,27 +1,25 @@
-FROM bananocoin/banano-build:latest
+FROM nanocurrency/nano-env:gcc
 
 ARG NETWORK=live
 ARG TRAVIS_TAG=DEV_BUILD
 ARG CI_BUILD=OFF
 ADD ./ /tmp/src
 
-# Build bananode
 RUN mkdir /tmp/build && \
     cd /tmp/build && \
-    cmake /tmp/src -DCI_BUILD=${CI_BUILD} -DACTIVE_NETWORK=nano_${NETWORK}_network \
-    -DNANO_ROCKSDB=ON -DNANO_POW_SERVER=ON -DROCKSDB_LIBRARIES=/usr/local/rocksdb/lib/librocksdb.a \
-    -DROCKSDB_INCLUDE_DIRS=/usr/local/rocksdb/include && \
-    make bananode -j$(nproc) && \
-    make banano_rpc -j$(nproc) && \
-    make nano_pow_server -j$(nproc) && \
+    cmake /tmp/src -DCI_BUILD=${CI_BUILD} -DBOOST_ROOT=${BOOST_ROOT} -DACTIVE_NETWORK=nano_${NETWORK}_network \
+    -DNANO_ROCKSDB=ON -DNANO_POW_SERVER=ON -DROCKSDB_LIBRARIES=/tmp/rocksdb/lib/librocksdb.a \
+    -DROCKSDB_INCLUDE_DIRS=/tmp/rocksdb/include && \
+    make bananode -j $(nproc) && \
+    make banano_rpc -j $(nproc) && \
+    make nano_pow_server -j $(nproc) && \
     cd .. && \
     echo ${NETWORK} > /etc/nano-network
 
-# Copy binaries to ubuntu base
-FROM ubuntu:20.04
+FROM ubuntu:16.04
 
-# Curl is useful to run monitoring from inside the container
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+RUN groupadd --gid 1000 nanocurrency && \
+    useradd --uid 1000 --gid nanocurrency --shell /bin/bash --create-home nanocurrency
 
 COPY --from=0 /tmp/build/bananode /usr/bin
 COPY --from=0 /tmp/build/banano_rpc /usr/bin
@@ -34,5 +32,6 @@ RUN chmod +x /usr/bin/entry.sh
 WORKDIR /root
 USER root
 
-ENTRYPOINT ["/bin/bash", "-c"]
+ENV PATH="${PATH}:/usr/bin"
+ENTRYPOINT ["/bin/sh", "-c"]
 CMD ["/usr/bin/entry.sh bananode daemon -l"]
