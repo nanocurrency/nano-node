@@ -2938,11 +2938,9 @@ TEST (node, vote_by_hash_bundle)
 		}
 	});
 
-	nano::genesis genesis;
 	for (int i = 1; i <= 200; i++)
 	{
-		nano::block_hash hash (i);
-		system.nodes[0]->active.generator.add (genesis.hash ());
+		system.nodes[0]->active.generator.add (nano::genesis_hash);
 	}
 
 	// Verify that bundling occurs. While reaching 12 should be common on most hardware in release mode,

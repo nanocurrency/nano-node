@@ -27,7 +27,7 @@ enum class block_origin
 	remote
 };
 
-class block_post_events
+class block_post_events final
 {
 public:
 	~block_post_events ();

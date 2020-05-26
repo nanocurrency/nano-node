@@ -896,16 +896,15 @@ namespace nano
 {
 TEST (active_transactions, vote_generator_session)
 {
-	nano::genesis genesis;
 	nano::system system (1);
 	auto node (system.nodes[0]);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::vote_generator_session generator_session (node->active.generator);
-	boost::thread thread ([node, &generator_session, &genesis]() {
+	boost::thread thread ([node, &generator_session]() {
 		nano::thread_role::set (nano::thread_role::name::request_loop);
 		for (unsigned i = 0; i < 100; ++i)
 		{
-			generator_session.add (genesis.hash ());
+			generator_session.add (nano::genesis_hash);
 		}
 		ASSERT_EQ (0, node->stats.count (nano::stat::type::vote, nano::stat::detail::vote_indeterminate));
 		generator_session.flush ();
