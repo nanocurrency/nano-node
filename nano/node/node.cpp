@@ -1260,25 +1260,30 @@ void nano::node::process_confirmed_data (nano::transaction const & transaction_a
 	}
 }
 
-void nano::node::process_confirmed (nano::election_status const & status_a, std::shared_ptr<nano::election> const & election_a, uint8_t iteration_a)
+void nano::node::process_confirmed (nano::election_status const & status_a, uint64_t iteration_a)
 {
 	auto block_a (status_a.winner);
 	auto hash (block_a->hash ());
+	const auto num_iters = (config.block_processor_batch_max_time / network_params.node.process_confirmed_interval) * 4;
 	if (ledger.block_exists (block_a->type (), hash))
 	{
 		confirmation_height_processor.add (hash);
 	}
-	// Limit to 0.5 * 20 = 10 seconds (more than max block_processor::process_batch finish time)
-	else if (iteration_a < 20)
+	else if (iteration_a < num_iters)
 	{
 		iteration_a++;
 		std::weak_ptr<nano::node> node_w (shared ());
-		alarm.add (std::chrono::steady_clock::now () + network_params.node.process_confirmed_interval, [node_w, status_a, iteration_a, election_a]() {
+		alarm.add (std::chrono::steady_clock::now () + network_params.node.process_confirmed_interval, [node_w, status_a, iteration_a]() {
 			if (auto node_l = node_w.lock ())
 			{
-				node_l->process_confirmed (status_a, election_a, iteration_a);
+				node_l->process_confirmed (status_a, iteration_a);
 			}
 		});
+	}
+	else
+	{
+		// Do some cleanup due to this block never being processed by confirmation height processor
+		active.remove_election_winner_details (hash);
 	}
 }
 

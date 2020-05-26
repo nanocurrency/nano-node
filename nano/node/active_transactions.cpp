@@ -195,14 +195,19 @@ void nano::active_transactions::add_election_winner_details (nano::block_hash co
 	election_winner_details.emplace (hash_a, election_a);
 }
 
+void nano::active_transactions::remove_election_winner_details (nano::block_hash const & hash_a)
+{
+	nano::lock_guard<std::mutex> guard (election_winner_details_mutex);
+	election_winner_details.erase (hash_a);
+}
+
 void nano::active_transactions::block_already_cemented_callback (nano::block_hash const & hash_a)
 {
 	// Depending on timing there is a situation where the election_winner_details is not reset.
 	// This can happen when a block wins an election, and the block is confirmed + observer
 	// called before the block hash gets added to election_winner_details. If the block is confirmed
 	// callbacks have already been done, so we can safely just remove it.
-	nano::lock_guard<std::mutex> guard (election_winner_details_mutex);
-	election_winner_details.erase (hash_a);
+	remove_election_winner_details (hash_a);
 }
 
 void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> & lock_a)

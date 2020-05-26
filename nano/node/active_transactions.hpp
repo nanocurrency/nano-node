@@ -190,6 +190,7 @@ public:
 	size_t inactive_votes_cache_size ();
 	size_t election_winner_details_size ();
 	void add_election_winner_details (nano::block_hash const &, std::shared_ptr<nano::election> const &);
+	void remove_election_winner_details (nano::block_hash const &);
 
 private:
 	std::mutex election_winner_details_mutex;
