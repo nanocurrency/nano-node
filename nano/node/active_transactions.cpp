@@ -342,7 +342,7 @@ void nano::active_transactions::activate_dependencies (nano::unique_lock<std::mu
 			if (previous_hash_l.is_zero () || node.ledger.block_exists (previous_hash_l))
 			{
 				auto source_hash_l (node.ledger.block_source (transaction, *block_l));
-				if (!source_hash_l.is_zero () && source_hash_l != previous_hash_l && node.active.blocks.find (source_hash_l) == node.active.blocks.end ())
+				if (!source_hash_l.is_zero () && source_hash_l != previous_hash_l && blocks.find (source_hash_l) == blocks.end ())
 				{
 					auto source_l (node.store.block_get (transaction, source_hash_l));
 					if (source_l != nullptr && !node.block_confirmed_or_being_confirmed (transaction, source_hash_l))
@@ -356,7 +356,7 @@ void nano::active_transactions::activate_dependencies (nano::unique_lock<std::mu
 	lock_a.lock ();
 	for (auto const & entry_l : activate_l)
 	{
-		auto election = node.active.insert_impl (entry_l.first);
+		auto election = insert_impl (entry_l.first);
 		if (election.inserted)
 		{
 			election.election->transition_active ();
