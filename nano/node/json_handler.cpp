@@ -2069,40 +2069,6 @@ void nano::json_handler::deterministic_key ()
 	response_errors ();
 }
 
-void nano::json_handler::election_winner_details ()
-{
-	if (!ec)
-	{
-		auto election_winner_detail_hashes = node.active.get_election_winner_details ();
-		if (!ec)
-		{
-			auto only_unconfirmed_frontiers = request.get_optional<bool> ("only_unconfirmed_frontiers").value_or (false);
-
-			boost::property_tree::ptree election_winner_details;
-			std::set<nano::block_hash> unconfirmed_frontiers;
-			if (only_unconfirmed_frontiers)
-			{
-				auto unconfirmed_confirmed_frontiers = node.ledger.unconfirmed_frontiers ();
-				std::transform (unconfirmed_confirmed_frontiers.begin (), unconfirmed_confirmed_frontiers.end (), std::inserter (unconfirmed_frontiers, unconfirmed_frontiers.begin ()), [](auto & unconfirmed_confirmed_frontier_pair) {
-					return unconfirmed_confirmed_frontier_pair.first;
-				});
-			}
-
-			for (auto & hash : election_winner_detail_hashes)
-			{
-				boost::property_tree::ptree entry;
-				entry.put ("", hash.to_string ());
-				if (!only_unconfirmed_frontiers || unconfirmed_frontiers.count (hash) > 0)
-				{
-					election_winner_details.push_back (std::make_pair ("", entry));
-				}
-			}
-			response_l.add_child ("election_winner_detail_hashes", election_winner_details);
-		}
-	}
-	response_errors ();
-}
-
 /*
  * @warning This is an internal/diagnostic RPC, do not rely on its interface being stable
  */
@@ -5098,7 +5064,6 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("delegators", &nano::json_handler::delegators);
 	no_arg_funcs.emplace ("delegators_count", &nano::json_handler::delegators_count);
 	no_arg_funcs.emplace ("deterministic_key", &nano::json_handler::deterministic_key);
-	no_arg_funcs.emplace ("election_winner_details", &nano::json_handler::election_winner_details);
 	no_arg_funcs.emplace ("epoch_upgrade", &nano::json_handler::epoch_upgrade);
 	no_arg_funcs.emplace ("frontiers", &nano::json_handler::frontiers);
 	no_arg_funcs.emplace ("frontier_count", &nano::json_handler::account_count);

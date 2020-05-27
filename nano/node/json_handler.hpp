@@ -68,7 +68,6 @@ public:
 	void delegators ();
 	void delegators_count ();
 	void deterministic_key ();
-	void election_winner_details ();
 	void epoch_upgrade ();
 	void frontiers ();
 	void keepalive ();
