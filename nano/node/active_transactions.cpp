@@ -328,7 +328,7 @@ void nano::active_transactions::activate_dependencies (nano::unique_lock<std::mu
 					}
 					if (height_l > conf_info_l.height + 2)
 					{
-						auto const jumps_l = std::min<uint8_t> (128, (height_l - conf_info_l.height) / 2);
+						auto const jumps_l = std::min<uint64_t> (128, (height_l - conf_info_l.height) / 2);
 						auto backtracked_l (node.ledger.backtrack (transaction, block_l, jumps_l));
 						if (backtracked_l != nullptr)
 						{
