@@ -183,9 +183,18 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 				}
 			}
 		}
+
+		// Start or vote for the next unconfirmed block in this account
 		auto const & account (!block_a->account ().is_zero () ? block_a->account () : block_a->sideband ().account);
+		debug_assert (!account.is_zero ());
 		activate (account);
-		activate (block_a->link ());
+
+		// Start or vote for the next unconfirmed block in the destination account
+		auto const & destination (node.ledger.block_destination (transaction, *block_a));
+		if (!destination.is_zero ())
+		{
+			activate (block_a->link ());
+		}
 	}
 }
 
