@@ -679,8 +679,11 @@ nano::election_insertion_result nano::active_transactions::activate (nano::accou
 				{
 					result.election->transition_active ();
 				}
-				// Generate vote for ongoing election
-				result.election->generate_votes (block->hash ());
+				else if (result.election->prioritized ())
+				{
+					// Generate vote for ongoing election
+					result.election->generate_votes (block->hash ());
+				}
 			}
 		}
 	}
