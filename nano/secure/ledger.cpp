@@ -1114,7 +1114,8 @@ public:
 	{
 		result[0] = block_a.hashables.previous;
 		result[1] = block_a.hashables.link;
-		if (ledger.is_epoch_link (block_a.hashables.link) || (ledger.store.block_exists (transaction, block_a.hashables.previous) && ledger.is_send (transaction, block_a)))
+		// ledger.is_send will check the sideband first, if block_a has a loaded sideband the check that previous block exists can be skipped
+		if (ledger.is_epoch_link (block_a.hashables.link) || ((block_a.has_sideband () || ledger.store.block_exists (transaction, block_a.hashables.previous)) && ledger.is_send (transaction, block_a)))
 		{
 			result[1].clear ();
 		}
