@@ -866,6 +866,13 @@ std::string nano::ledger::block_text (nano::block_hash const & hash_a)
 
 bool nano::ledger::is_send (nano::transaction const & transaction_a, nano::state_block const & block_a) const
 {
+	/*
+	 * if block_a does not have a sideband, then is_send()
+	 * requires that the previous block exists in the database.
+	 * This is because it must retrieve the balance of the previous block.
+	 */
+	debug_assert (block_a.has_sideband () || block_a.hashables.previous.is_zero () || store.block_exists (transaction_a, block_a.hashables.previous));
+
 	bool result (false);
 	if (block_a.has_sideband ())
 	{
