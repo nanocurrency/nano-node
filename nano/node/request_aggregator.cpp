@@ -8,14 +8,15 @@
 #include <nano/node/voting.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/secure/blockstore.hpp>
+#include <nano/secure/ledger.hpp>
 
-nano::request_aggregator::request_aggregator (nano::network_constants const & network_constants_a, nano::node_config const & config_a, nano::stat & stats_a, nano::votes_cache & cache_a, nano::block_store & store_a, nano::wallets & wallets_a) :
+nano::request_aggregator::request_aggregator (nano::network_constants const & network_constants_a, nano::node_config const & config_a, nano::stat & stats_a, nano::votes_cache & cache_a, nano::ledger & ledger_a, nano::wallets & wallets_a) :
 max_delay (network_constants_a.is_test_network () ? 50 : 300),
 small_delay (network_constants_a.is_test_network () ? 10 : 50),
 max_channel_requests (config_a.max_queued_requests),
 stats (stats_a),
 votes_cache (cache_a),
-store (store_a),
+ledger (ledger_a),
 wallets (wallets_a),
 thread ([this]() { run (); })
 {
@@ -85,7 +86,7 @@ void nano::request_aggregator::run ()
 				requests_by_deadline.erase (front);
 				lock.unlock ();
 				erase_duplicates (hashes_roots);
-				auto transaction (store.tx_begin_read ());
+				auto transaction (ledger.store.tx_begin_read ());
 				auto remaining = aggregate (transaction, hashes_roots, channel);
 				if (!remaining.empty ())
 				{
@@ -155,19 +156,26 @@ std::vector<nano::block_hash> nano::request_aggregator::aggregate (nano::transac
 			++cached_hashes;
 			cached_votes.insert (cached_votes.end (), find_votes.begin (), find_votes.end ());
 		}
-		else if (!hash_root.first.is_zero () && store.block_exists (transaction_a, hash_root.first))
+		else if (auto block = ledger.store.block_get (transaction_a, hash_root.first))
 		{
-			to_generate.push_back (hash_root.first);
+			if (ledger.can_vote (transaction_a, *block))
+			{
+				to_generate.push_back (hash_root.first);
+			}
+			else
+			{
+				stats.inc (nano::stat::type::requests, nano::stat::detail::requests_cannot_vote, stat::dir::in);
+			}
 		}
 		else if (!hash_root.second.is_zero ())
 		{
 			// Search for block root
-			auto successor (store.block_successor (transaction_a, hash_root.second));
+			auto successor (ledger.store.block_successor (transaction_a, hash_root.second));
 			// Search for account root
 			if (successor.is_zero ())
 			{
 				nano::account_info info;
-				auto error (store.account_get (transaction_a, hash_root.second, info));
+				auto error (ledger.store.account_get (transaction_a, hash_root.second, info));
 				if (!error)
 				{
 					successor = info.open_block;
@@ -175,17 +183,21 @@ std::vector<nano::block_hash> nano::request_aggregator::aggregate (nano::transac
 			}
 			if (!successor.is_zero ())
 			{
+				auto successor_block (ledger.store.block_get (transaction_a, successor));
+				debug_assert (successor_block != nullptr);
 				auto find_successor_votes (votes_cache.find (successor));
 				if (!find_successor_votes.empty ())
 				{
 					cached_votes.insert (cached_votes.end (), find_successor_votes.begin (), find_successor_votes.end ());
 				}
-				else
+				else if (ledger.can_vote (transaction_a, *successor_block))
 				{
 					to_generate.push_back (successor);
 				}
-				auto successor_block (store.block_get (transaction_a, successor));
-				debug_assert (successor_block != nullptr);
+				else
+				{
+					stats.inc (nano::stat::type::requests, nano::stat::detail::requests_cannot_vote, stat::dir::in);
+				}
 				nano::publish publish (successor_block);
 				channel_a->send (publish);
 			}
@@ -221,7 +233,7 @@ void nano::request_aggregator::generate (nano::transaction const & transaction_a
 			hashes_l.push_back (*i);
 		}
 		wallets.foreach_representative ([this, &generated_l, &hashes_l, &channel_a, &transaction_a](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
-			auto vote (this->store.vote_generate (transaction_a, pub_a, prv_a, hashes_l));
+			auto vote (this->ledger.store.vote_generate (transaction_a, pub_a, prv_a, hashes_l));
 			++generated_l;
 			nano::confirm_ack confirm (vote);
 			channel_a->send (confirm);

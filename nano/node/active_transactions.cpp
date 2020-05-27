@@ -20,7 +20,7 @@ confirmation_height_processor (confirmation_height_processor_a),
 node (node_a),
 multipliers_cb (20, 1.),
 trended_active_multiplier (1.0),
-generator (node_a.config, node_a.store, node_a.wallets, node_a.vote_processor, node_a.votes_cache, node_a.network),
+generator (node_a.config, node_a.ledger, node_a.wallets, node_a.vote_processor, node_a.votes_cache, node_a.network),
 check_all_elections_period (node_a.network_params.network.is_test_network () ? 10ms : 5s),
 election_time_to_live (node_a.network_params.network.is_test_network () ? 0s : 2s),
 prioritized_cutoff (std::max<size_t> (1, node_a.config.active_elections_size / 10)),
@@ -59,7 +59,7 @@ void nano::active_transactions::confirm_prioritized_frontiers (nano::transaction
 	auto is_test_network = node.network_params.network.is_test_network ();
 	auto roots_size = size ();
 	auto check_time_exceeded = std::chrono::steady_clock::now () >= next_frontier_check;
-	auto max_elections = 1000;
+	auto max_elections = 1000ull;
 	auto low_active_elections = roots_size < max_elections;
 	bool wallets_check_required = (!skip_wallets || !priority_wallet_cementable_frontiers.empty ()) && !agressive_mode;
 	// Minimise dropping real-time transactions, set the number of frontiers added to a factor of the maximum number of possible active elections
@@ -182,6 +182,18 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 					}
 				}
 			}
+		}
+
+		// Start or vote for the next unconfirmed block in this account
+		auto const & account (!block_a->account ().is_zero () ? block_a->account () : block_a->sideband ().account);
+		debug_assert (!account.is_zero ());
+		activate (account);
+
+		// Start or vote for the next unconfirmed block in the destination account
+		auto const & destination (node.ledger.block_destination (transaction, *block_a));
+		if (!destination.is_zero ())
+		{
+			activate (destination);
 		}
 	}
 }
@@ -725,6 +737,40 @@ std::shared_ptr<nano::election> nano::active_transactions::election (nano::quali
 	if (existing != roots.get<tag_root> ().end ())
 	{
 		result = existing->election;
+	}
+	return result;
+}
+
+nano::election_insertion_result nano::active_transactions::activate (nano::account const & account_a)
+{
+	nano::election_insertion_result result;
+	auto transaction (node.store.tx_begin_read ());
+	nano::account_info account_info;
+	if (!node.store.account_get (transaction, account_a, account_info))
+	{
+		nano::confirmation_height_info conf_info;
+		auto error = node.store.confirmation_height_get (transaction, account_a, conf_info);
+		debug_assert (!error);
+		if (!error && conf_info.height < account_info.block_count)
+		{
+			debug_assert (conf_info.frontier != account_info.head);
+			auto hash = conf_info.height == 0 ? account_info.open_block : node.store.block_successor (transaction, conf_info.frontier);
+			auto block = node.store.block_get (transaction, hash);
+			release_assert (block != nullptr);
+			result = insert (block);
+			if (result.election)
+			{
+				if (result.inserted)
+				{
+					result.election->transition_active ();
+				}
+				else if (result.election->prioritized ())
+				{
+					// Generate vote for ongoing election
+					result.election->generate_votes (block->hash ());
+				}
+			}
+		}
 	}
 	return result;
 }
