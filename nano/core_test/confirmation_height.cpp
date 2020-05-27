@@ -871,9 +871,6 @@ TEST (confirmation_heightDeathTest, modified_chain)
 			ASSERT_DEATH_IF_SUPPORTED (bounded_processor.cement_blocks (scoped_write_guard), "");
 		}
 
-#ifndef NDEBUG
-		// Reset conditions and test with the unbounded processor if in debug mode.
-		// Release config does not check that a chain has been modified prior to setting the confirmation height (as an optimization)
 		ASSERT_EQ (nano::process_result::progress, ledger.process (store.tx_begin_write (), *send).code);
 		store.confirmation_height_put (store.tx_begin_write (), nano::genesis_account, { 1, nano::genesis_hash });
 
@@ -887,13 +884,11 @@ TEST (confirmation_heightDeathTest, modified_chain)
 		}
 
 		// Rollback the block and now try to write, the block no longer exists so should bail
-
 		ledger.rollback (store.tx_begin_write (), send->hash ());
 		{
 			auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
 			ASSERT_DEATH_IF_SUPPORTED (unbounded_processor.cement_blocks (scoped_write_guard), "");
 		}
-#endif
 	}
 }
 

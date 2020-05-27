@@ -357,8 +357,6 @@ void nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 			auto confirmation_height = confirmation_height_info.height;
 			if (!error && pending.height > confirmation_height)
 			{
-#ifndef NDEBUG
-				// Do more thorough checking in Debug mode, indicates programming error.
 				auto block = ledger.store.block_get (transaction, pending.hash);
 				debug_assert (network_params.network.is_test_network () || block != nullptr);
 				debug_assert (network_params.network.is_test_network () || block->sideband ().height == pending.height);
@@ -371,7 +369,6 @@ void nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 					error = true;
 					break;
 				}
-#endif
 				ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in, pending.height - confirmation_height);
 				ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in, pending.height - confirmation_height);
 				debug_assert (pending.num_blocks_confirmed == pending.height - confirmation_height);
