@@ -292,7 +292,7 @@ void nano::active_transactions::frontiers_confirmation (nano::unique_lock<std::m
 
 void nano::active_transactions::activate_dependencies (nano::unique_lock<std::mutex> & lock_a)
 {
-	debug_assert (!mutex.try_lock ());
+	debug_assert (lock_a.owns_lock ());
 	decltype (pending_dependencies) pending_l;
 	pending_l.swap (pending_dependencies);
 	lock_a.unlock ();
