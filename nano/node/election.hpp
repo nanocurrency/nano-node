@@ -111,5 +111,8 @@ public:
 	std::unordered_map<nano::block_hash, nano::uint128_t> last_tally;
 	std::unordered_set<nano::block_hash> dependent_blocks;
 	std::chrono::seconds late_blocks_delay{ 5 };
+	uint64_t const height;
+
+	friend class election_bisect_dependencies_Test;
 };
 }
