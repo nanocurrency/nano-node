@@ -747,10 +747,12 @@ TEST (active_transactions, confirmation_consistency)
 			ASSERT_FALSE (node.active.insert (block).inserted);
 			ASSERT_NO_ERROR (system.poll (5ms));
 		}
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
-		ASSERT_EQ (i + 1, node.active.recently_confirmed.size ());
-		ASSERT_EQ (block->qualified_root (), node.active.recently_confirmed.back ().first);
-		ASSERT_TIMELY (1s, i + 1 == node.active.recently_cemented.size ()); // done after a callback
+		ASSERT_NO_ERROR (system.poll_until_true (1s, [&node, &block, i] {
+			nano::lock_guard<std::mutex> guard (node.active.mutex);
+			EXPECT_EQ (i + 1, node.active.recently_confirmed.size ());
+			EXPECT_EQ (block->qualified_root (), node.active.recently_confirmed.back ().first);
+			return i + 1 == node.active.recently_cemented.size (); // done after a callback
+		}));
 	}
 }
 }
