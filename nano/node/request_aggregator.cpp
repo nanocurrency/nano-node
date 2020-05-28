@@ -1,5 +1,6 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/threading.hpp>
+#include <nano/node/active_transactions.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
@@ -10,7 +11,7 @@
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/ledger.hpp>
 
-nano::request_aggregator::request_aggregator (nano::network_constants const & network_constants_a, nano::node_config const & config_a, nano::stat & stats_a, nano::votes_cache & cache_a, nano::ledger & ledger_a, nano::wallets & wallets_a) :
+nano::request_aggregator::request_aggregator (nano::network_constants const & network_constants_a, nano::node_config const & config_a, nano::stat & stats_a, nano::votes_cache & cache_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::active_transactions & active_a) :
 max_delay (network_constants_a.is_test_network () ? 50 : 300),
 small_delay (network_constants_a.is_test_network () ? 10 : 50),
 max_channel_requests (config_a.max_queued_requests),
@@ -18,6 +19,7 @@ stats (stats_a),
 votes_cache (cache_a),
 ledger (ledger_a),
 wallets (wallets_a),
+active (active_a),
 thread ([this]() { run (); })
 {
 	nano::unique_lock<std::mutex> lock (mutex);
@@ -155,6 +157,22 @@ std::vector<nano::block_hash> nano::request_aggregator::aggregate (nano::transac
 		{
 			++cached_hashes;
 			cached_votes.insert (cached_votes.end (), find_votes.begin (), find_votes.end ());
+		}
+		else if (auto winner = active.winner (hash_root.first))
+		{
+			if (ledger.can_vote (transaction_a, *winner))
+			{
+				to_generate.push_back (winner->hash ());
+			}
+			else
+			{
+				stats.inc (nano::stat::type::requests, nano::stat::detail::requests_cannot_vote, stat::dir::in);
+			}
+			if (winner->hash () != hash_root.first)
+			{
+				nano::publish publish (winner);
+				channel_a->send (publish);
+			}
 		}
 		else if (auto block = ledger.store.block_get (transaction_a, hash_root.first))
 		{

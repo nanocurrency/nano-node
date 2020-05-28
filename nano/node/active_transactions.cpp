@@ -665,6 +665,18 @@ std::shared_ptr<nano::election> nano::active_transactions::election (nano::quali
 	return result;
 }
 
+std::shared_ptr<nano::block> nano::active_transactions::winner (nano::block_hash const & hash_a) const
+{
+	std::shared_ptr<nano::block> result;
+	nano::lock_guard<std::mutex> lock (mutex);
+	auto existing = blocks.find (hash_a);
+	if (existing != blocks.end ())
+	{
+		result = existing->second->status.winner;
+	}
+	return result;
+}
+
 nano::election_insertion_result nano::active_transactions::activate (nano::account const & account_a)
 {
 	nano::election_insertion_result result;

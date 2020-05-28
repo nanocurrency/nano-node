@@ -374,9 +374,9 @@ void nano::election::confirm_if_quorum ()
 	}
 	if (sum >= node.config.online_weight_minimum.number () && winner_hash_l != status_winner_hash_l)
 	{
+		status.winner = block_l;
 		remove_votes (status_winner_hash_l);
 		node.block_processor.force (block_l);
-		status.winner = block_l;
 		update_dependent ();
 		node.active.add_adjust_difficulty (winner_hash_l);
 	}

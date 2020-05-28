@@ -3877,13 +3877,27 @@ TEST (node, rollback_vote_self)
 	// Insert genesis key in the wallet
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	{
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
-		ASSERT_EQ (1, election->last_votes.size ());
-		// Vote with key to switch the winner
-		election->vote (key.pub, 0, fork->hash ());
-		ASSERT_EQ (2, election->last_votes.size ());
-		// The winner changed
-		ASSERT_EQ (election->status.winner, fork);
+		// The write guard prevents the block processor from performing the rollback
+		auto write_guard = node.write_database_queue.wait (nano::writer::testing);
+		{
+			nano::lock_guard<std::mutex> guard (node.active.mutex);
+			ASSERT_EQ (1, election->last_votes.size ());
+			// Vote with key to switch the winner
+			election->vote (key.pub, 0, fork->hash ());
+			ASSERT_EQ (2, election->last_votes.size ());
+			// The winner changed
+			ASSERT_EQ (election->status.winner, fork);
+		}
+		// Even without the rollback being finished, the aggregator must reply with a vote for the new winner, not the old one
+		ASSERT_TRUE (node.votes_cache.find (send2->hash ()).empty ());
+		ASSERT_TRUE (node.votes_cache.find (fork->hash ()).empty ());
+		auto & node2 = *system.add_node ();
+		auto channel (node.network.udp_channels.create (node2.network.endpoint ()));
+		node.aggregator.add (channel, { { send2->hash (), send2->root () } });
+		ASSERT_TIMELY (5s, !node.votes_cache.find (fork->hash ()).empty ());
+		ASSERT_TRUE (node.votes_cache.find (send2->hash ()).empty ());
+
+		// Going out of the scope allows the rollback to complete
 	}
 	// A vote is eventually generated from the local representative
 	ASSERT_TIMELY (5s, 3 == election->last_votes_size ());

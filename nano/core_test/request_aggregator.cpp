@@ -302,9 +302,9 @@ TEST (request_aggregator, unique)
 TEST (request_aggregator, cannot_vote)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
-	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	auto & node (*system.add_node (node_config));
+	nano::node_flags flags;
+	flags.disable_request_loop = true;
+	auto & node (*system.add_node (flags));
 	nano::genesis genesis;
 	nano::state_block_builder builder;
 	std::shared_ptr<nano::state_block> send1 = builder.make_block ()
@@ -316,17 +316,18 @@ TEST (request_aggregator, cannot_vote)
 	                                           .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
 	                                           .work (*system.work.generate (nano::genesis_hash))
 	                                           .build ();
-	auto send2 = builder.make_block ()
-	             .from (*send1)
-	             .previous (send1->hash ())
-	             .balance (send1->balance ().number () - 1)
-	             .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
-	             .work (*system.work.generate (send1->hash ()))
-	             .build ();
+	std::shared_ptr<nano::state_block> send2 = builder.make_block ()
+	                                           .from (*send1)
+	                                           .previous (send1->hash ())
+	                                           .balance (send1->balance ().number () - 1)
+	                                           .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	                                           .work (*system.work.generate (send1->hash ()))
+	                                           .build ();
 	ASSERT_EQ (nano::process_result::progress, node.process (*send1).code);
 	ASSERT_EQ (nano::process_result::progress, node.process (*send2).code);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	ASSERT_FALSE (node.ledger.can_vote (node.store.tx_begin_read (), *send2));
+
 	std::vector<std::pair<nano::block_hash, nano::root>> request;
 	// Correct hash, correct root
 	request.emplace_back (send2->hash (), send2->root ());
@@ -343,6 +344,20 @@ TEST (request_aggregator, cannot_vote)
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_cached_votes));
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_unknown));
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
+
+	// With an ongoing election
+	node.block_confirm (send2);
+	node.aggregator.add (channel, request);
+	ASSERT_EQ (1, node.aggregator.size ());
+	ASSERT_TIMELY (3s, node.aggregator.empty ());
+	ASSERT_EQ (2, node.stats.count (nano::stat::type::aggregator, nano::stat::detail::aggregator_accepted));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::aggregator, nano::stat::detail::aggregator_dropped));
+	ASSERT_TIMELY (3s, 4 == node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_cannot_vote));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_cached_votes));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_unknown));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
+
 	// Confirm send1
 	node.block_confirm (send1);
 	{
@@ -355,9 +370,9 @@ TEST (request_aggregator, cannot_vote)
 	node.aggregator.add (channel, request);
 	ASSERT_EQ (1, node.aggregator.size ());
 	ASSERT_TIMELY (3s, node.aggregator.empty ());
-	ASSERT_EQ (2, node.stats.count (nano::stat::type::aggregator, nano::stat::detail::aggregator_accepted));
+	ASSERT_EQ (3, node.stats.count (nano::stat::type::aggregator, nano::stat::detail::aggregator_accepted));
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::aggregator, nano::stat::detail::aggregator_dropped));
-	ASSERT_EQ (2, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_cannot_vote));
+	ASSERT_EQ (4, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_cannot_vote));
 	ASSERT_TIMELY (3s, 2 == node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_hashes));
 	ASSERT_TIMELY (3s, 1 == node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes));
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_unknown));

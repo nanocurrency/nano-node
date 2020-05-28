@@ -145,6 +145,7 @@ public:
 	bool active (nano::block const &);
 	bool active (nano::qualified_root const &);
 	std::shared_ptr<nano::election> election (nano::qualified_root const &) const;
+	std::shared_ptr<nano::block> winner (nano::block_hash const &) const;
 	// Activates the first unconfirmed block of \p account_a
 	nano::election_insertion_result activate (nano::account const &);
 	// Returns false if the election difficulty was updated
