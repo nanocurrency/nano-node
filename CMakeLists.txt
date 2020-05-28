@@ -9,8 +9,8 @@ if (CMAKE_VERSION VERSION_GREATER 3.13 OR CMAKE_VERSION VERSION_EQUAL 3.13)
 	cmake_policy(SET CMP0077 NEW)
 endif()
 
-if (CMAKE_VERSION VERSION_LESS 3.11)
-	# compatibility for boost import targets use bundled 3.11 FindBoost.cmake
+if (CMAKE_VERSION VERSION_LESS 3.13)
+	# compatibility for boost import targets use bundled 3.13 FindBoost.cmake
 	list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/legacyModules")
 endif ()
 
