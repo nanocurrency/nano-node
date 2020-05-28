@@ -152,72 +152,73 @@ std::vector<nano::block_hash> nano::request_aggregator::aggregate (nano::transac
 	std::vector<std::shared_ptr<nano::vote>> cached_votes;
 	for (auto const & hash_root : requests_a)
 	{
+		// 1. Votes in cache
 		auto find_votes (votes_cache.find (hash_root.first));
 		if (!find_votes.empty ())
 		{
 			++cached_hashes;
 			cached_votes.insert (cached_votes.end (), find_votes.begin (), find_votes.end ());
 		}
-		else if (auto winner = active.winner (hash_root.first))
+		else
 		{
-			if (ledger.can_vote (transaction_a, *winner))
+			// 2. Election winner by hash
+			auto block = active.winner (hash_root.first);
+
+			// 3. Ledger by hash
+			if (block == nullptr)
 			{
-				to_generate.push_back (winner->hash ());
+				block = ledger.store.block_get (transaction_a, hash_root.first);
 			}
-			else
+
+			// 4. Ledger by root
+			if (block == nullptr && !hash_root.second.is_zero ())
 			{
-				stats.inc (nano::stat::type::requests, nano::stat::detail::requests_cannot_vote, stat::dir::in);
-			}
-			if (winner->hash () != hash_root.first)
-			{
-				nano::publish publish (winner);
-				channel_a->send (publish);
-			}
-		}
-		else if (auto block = ledger.store.block_get (transaction_a, hash_root.first))
-		{
-			if (ledger.can_vote (transaction_a, *block))
-			{
-				to_generate.push_back (hash_root.first);
-			}
-			else
-			{
-				stats.inc (nano::stat::type::requests, nano::stat::detail::requests_cannot_vote, stat::dir::in);
-			}
-		}
-		else if (!hash_root.second.is_zero ())
-		{
-			// Search for block root
-			auto successor (ledger.store.block_successor (transaction_a, hash_root.second));
-			// Search for account root
-			if (successor.is_zero ())
-			{
-				nano::account_info info;
-				auto error (ledger.store.account_get (transaction_a, hash_root.second, info));
-				if (!error)
+				// Search for block root
+				auto successor (ledger.store.block_successor (transaction_a, hash_root.second));
+				// Search for account root
+				if (successor.is_zero ())
 				{
-					successor = info.open_block;
+					nano::account_info info;
+					auto error (ledger.store.account_get (transaction_a, hash_root.second, info));
+					if (!error)
+					{
+						successor = info.open_block;
+					}
+				}
+				if (!successor.is_zero ())
+				{
+					auto successor_block = ledger.store.block_get (transaction_a, successor);
+					debug_assert (successor_block != nullptr);
+					// 5. Votes in cache for successor
+					auto find_successor_votes (votes_cache.find (successor));
+					if (!find_successor_votes.empty ())
+					{
+						cached_votes.insert (cached_votes.end (), find_successor_votes.begin (), find_successor_votes.end ());
+					}
+					else
+					{
+						block = std::move (successor_block);
+					}
 				}
 			}
-			if (!successor.is_zero ())
+
+			if (block)
 			{
-				auto successor_block (ledger.store.block_get (transaction_a, successor));
-				debug_assert (successor_block != nullptr);
-				auto find_successor_votes (votes_cache.find (successor));
-				if (!find_successor_votes.empty ())
+				// Attempt to vote for this block
+				if (ledger.can_vote (transaction_a, *block))
 				{
-					cached_votes.insert (cached_votes.end (), find_successor_votes.begin (), find_successor_votes.end ());
-				}
-				else if (ledger.can_vote (transaction_a, *successor_block))
-				{
-					to_generate.push_back (successor);
+					to_generate.push_back (block->hash ());
 				}
 				else
 				{
 					stats.inc (nano::stat::type::requests, nano::stat::detail::requests_cannot_vote, stat::dir::in);
 				}
-				nano::publish publish (successor_block);
-				channel_a->send (publish);
+				// Let the node know about the alternative block
+				if (block->hash () != hash_root.first)
+				{
+					nano::publish publish (block);
+					channel_a->send (publish);
+				}
 			}
 			else
 			{
