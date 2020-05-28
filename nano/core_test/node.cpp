@@ -2659,6 +2659,7 @@ TEST (node, local_votes_cache)
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	node_config.receive_minimum = nano::genesis_amount;
 	auto & node (*system.add_node (node_config));
 	nano::genesis genesis;
 	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *node.work_generate_blocking (genesis.hash ())));
@@ -2729,7 +2730,7 @@ TEST (node, local_votes_cache)
 		system.poll (node.aggregator.max_delay);
 	}
 	wait_vote_sequence (3);
-	ASSERT_TRUE (node.votes_cache.find (send1->hash ()).empty ());
+	ASSERT_TIMELY (3s, node.votes_cache.find (send1->hash ()).empty ());
 	ASSERT_FALSE (node.votes_cache.find (send2->hash ()).empty ());
 	ASSERT_FALSE (node.votes_cache.find (send3->hash ()).empty ());
 }
