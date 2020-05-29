@@ -210,6 +210,8 @@ private:
 	void frontiers_confirmation (nano::unique_lock<std::mutex> &);
 	nano::account next_frontier_account{ 0 };
 	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };
+	void activate_dependencies (nano::unique_lock<std::mutex> &);
+	std::vector<std::pair<std::shared_ptr<nano::block>, uint64_t>> pending_dependencies;
 	nano::condition_variable condition;
 	bool started{ false };
 	std::atomic<bool> stopped{ false };
@@ -265,6 +267,9 @@ private:
 	bool inactive_votes_bootstrap_check (std::vector<nano::account> const &, nano::block_hash const &, bool &);
 	boost::thread thread;
 
+	friend class election;
+	friend std::unique_ptr<container_info_component> collect_container_info (active_transactions &, const std::string &);
+
 	friend class active_transactions_dropped_cleanup_Test;
 	friend class active_transactions_vote_replays_Test;
 	friend class confirmation_height_prioritize_frontiers_Test;
@@ -272,7 +277,7 @@ private:
 	friend class active_transactions_confirmation_consistency_Test;
 	friend class active_transactions_vote_generator_session_Test;
 	friend class node_vote_by_hash_bundle_Test;
-	friend std::unique_ptr<container_info_component> collect_container_info (active_transactions &, const std::string &);
+	friend class election_bisect_dependencies_Test;
 };
 
 std::unique_ptr<container_info_component> collect_container_info (active_transactions & active_transactions, const std::string & name);
