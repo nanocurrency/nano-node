@@ -3906,6 +3906,203 @@ TEST (node, rollback_vote_self)
 	ASSERT_EQ (fork->hash (), vote->second.hash);
 }
 
+TEST (node, dependency_graph)
+{
+	nano::system system;
+	nano::node_config config (nano::get_available_port (), system.logging);
+	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto & node = *system.add_node (config);
+
+	nano::state_block_builder builder;
+	nano::keypair key1, key2, key3;
+
+	// Send to key1
+	std::shared_ptr<nano::state_block> gen_send1 = builder.make_block ()
+	                                               .account (nano::test_genesis_key.pub)
+	                                               .previous (nano::genesis_hash)
+	                                               .representative (nano::test_genesis_key.pub)
+	                                               .link (key1.pub)
+	                                               .balance (nano::genesis_amount - 1)
+	                                               .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	                                               .work (*system.work.generate (nano::genesis_hash))
+	                                               .build ();
+	// Receive from genesis
+	auto key1_open = builder.make_block ()
+	                 .account (key1.pub)
+	                 .previous (0)
+	                 .representative (key1.pub)
+	                 .link (gen_send1->hash ())
+	                 .balance (1)
+	                 .sign (key1.prv, key1.pub)
+	                 .work (*system.work.generate (key1.pub))
+	                 .build ();
+	// Send to genesis
+	auto key1_send1 = builder.make_block ()
+	                  .account (key1.pub)
+	                  .previous (key1_open->hash ())
+	                  .representative (key1.pub)
+	                  .link (nano::test_genesis_key.pub)
+	                  .balance (0)
+	                  .sign (key1.prv, key1.pub)
+	                  .work (*system.work.generate (key1_open->hash ()))
+	                  .build ();
+	// Receive from key1
+	auto gen_receive = builder.make_block ()
+	                   .from (*gen_send1)
+	                   .previous (gen_send1->hash ())
+	                   .link (key1_send1->hash ())
+	                   .balance (nano::genesis_amount)
+	                   .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	                   .work (*system.work.generate (gen_send1->hash ()))
+	                   .build ();
+	// Send to key2
+	auto gen_send2 = builder.make_block ()
+	                 .from (*gen_receive)
+	                 .previous (gen_receive->hash ())
+	                 .link (key2.pub)
+	                 .balance (gen_receive->balance ().number () - 2)
+	                 .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	                 .work (*system.work.generate (gen_receive->hash ()))
+	                 .build ();
+	// Receive from genesis
+	auto key2_open = builder.make_block ()
+	                 .account (key2.pub)
+	                 .previous (0)
+	                 .representative (key2.pub)
+	                 .link (gen_send2->hash ())
+	                 .balance (2)
+	                 .sign (key2.prv, key2.pub)
+	                 .work (*system.work.generate (key2.pub))
+	                 .build ();
+	// Send to key3
+	auto key2_send1 = builder.make_block ()
+	                  .account (key2.pub)
+	                  .previous (key2_open->hash ())
+	                  .representative (key2.pub)
+	                  .link (key3.pub)
+	                  .balance (1)
+	                  .sign (key2.prv, key2.pub)
+	                  .work (*system.work.generate (key2_open->hash ()))
+	                  .build ();
+	// Receive from key2
+	auto key3_open = builder.make_block ()
+	                 .account (key3.pub)
+	                 .previous (0)
+	                 .representative (key3.pub)
+	                 .link (key2_send1->hash ())
+	                 .balance (1)
+	                 .sign (key3.prv, key3.pub)
+	                 .work (*system.work.generate (key3.pub))
+	                 .build ();
+	// Send to key1
+	auto key2_send2 = builder.make_block ()
+	                  .from (*key2_send1)
+	                  .previous (key2_send1->hash ())
+	                  .link (key1.pub)
+	                  .balance (key2_send1->balance ().number () - 1)
+	                  .sign (key2.prv, key2.pub)
+	                  .work (*system.work.generate (key2_send1->hash ()))
+	                  .build ();
+	// Receive from key2
+	auto key1_receive = builder.make_block ()
+	                    .from (*key1_send1)
+	                    .previous (key1_send1->hash ())
+	                    .link (key2_send2->hash ())
+	                    .balance (key1_send1->balance ().number () + 1)
+	                    .sign (key1.prv, key1.pub)
+	                    .work (*system.work.generate (key1_send1->hash ()))
+	                    .build ();
+	// Send to key3
+	auto key1_send2 = builder.make_block ()
+	                  .from (*key1_receive)
+	                  .previous (key1_receive->hash ())
+	                  .link (key3.pub)
+	                  .balance (key1_receive->balance ().number () - 1)
+	                  .sign (key1.prv, key1.pub)
+	                  .work (*system.work.generate (key1_receive->hash ()))
+	                  .build ();
+	// Receive from key1
+	auto key3_receive = builder.make_block ()
+	                    .from (*key3_open)
+	                    .previous (key3_open->hash ())
+	                    .link (key1_send2->hash ())
+	                    .balance (key3_open->balance ().number () + 1)
+	                    .sign (key3.prv, key3.pub)
+	                    .work (*system.work.generate (key3_open->hash ()))
+	                    .build ();
+	// Upgrade key3
+	auto key3_epoch = builder.make_block ()
+	                  .from (*key3_receive)
+	                  .previous (key3_receive->hash ())
+	                  .link (node.ledger.epoch_link (nano::epoch::epoch_1))
+	                  .balance (key3_receive->balance ())
+	                  .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	                  .work (*system.work.generate (key3_receive->hash ()))
+	                  .build ();
+
+	ASSERT_EQ (nano::process_result::progress, node.process (*gen_send1).code);
+	ASSERT_EQ (nano::process_result::progress, node.process (*key1_open).code);
+	ASSERT_EQ (nano::process_result::progress, node.process (*key1_send1).code);
+	ASSERT_EQ (nano::process_result::progress, node.process (*gen_receive).code);
+	ASSERT_EQ (nano::process_result::progress, node.process (*gen_send2).code);
+	ASSERT_EQ (nano::process_result::progress, node.process (*key2_open).code);
+	ASSERT_EQ (nano::process_result::progress, node.process (*key2_send1).code);
+	ASSERT_EQ (nano::process_result::progress, node.process (*key3_open).code);
+	ASSERT_EQ (nano::process_result::progress, node.process (*key2_send2).code);
+	ASSERT_EQ (nano::process_result::progress, node.process (*key1_receive).code);
+	ASSERT_EQ (nano::process_result::progress, node.process (*key1_send2).code);
+	ASSERT_EQ (nano::process_result::progress, node.process (*key3_receive).code);
+	ASSERT_EQ (nano::process_result::progress, node.process (*key3_epoch).code);
+	ASSERT_TRUE (node.active.empty ());
+
+	// Hash -> Ancestors
+	std::unordered_map<nano::block_hash, std::vector<nano::block_hash>> dependency_graph{
+		{ key1_open->hash (), { gen_send1->hash () } },
+		{ key1_send1->hash (), { key1_open->hash () } },
+		{ gen_receive->hash (), { gen_send1->hash (), key1_open->hash () } },
+		{ gen_send2->hash (), { gen_receive->hash () } },
+		{ key2_open->hash (), { gen_send2->hash () } },
+		{ key2_send1->hash (), { key2_open->hash () } },
+		{ key3_open->hash (), { key2_send1->hash () } },
+		{ key2_send2->hash (), { key2_send1->hash () } },
+		{ key1_receive->hash (), { key1_send1->hash (), key2_send2->hash () } },
+		{ key1_send2->hash (), { key1_send1->hash () } },
+		{ key3_receive->hash (), { key3_open->hash (), key1_send2->hash () } },
+		{ key3_epoch->hash (), { key3_receive->hash () } },
+	};
+	ASSERT_EQ (node.ledger.cache.block_count - 2, dependency_graph.size ());
+
+	// Start an election for the first block of the dependency graph, and ensure all blocks are eventually confirmed
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	node.block_confirm (gen_send1);
+
+	ASSERT_NO_ERROR (system.poll_until_true (15s, [&] {
+		// Not many blocks should be active simultaneously
+		EXPECT_LT (node.active.size (), 6);
+		nano::lock_guard<std::mutex> guard (node.active.mutex);
+
+		// Ensure that active blocks have their ancestors confirmed
+		auto error = std::any_of (dependency_graph.cbegin (), dependency_graph.cend (), [&](auto entry) {
+			if (node.active.blocks.count (entry.first))
+			{
+				for (auto ancestor : entry.second)
+				{
+					if (!node.block_confirmed (ancestor))
+					{
+						return true;
+					}
+				}
+			}
+			return false;
+		});
+
+		EXPECT_FALSE (error);
+		return error || node.ledger.cache.cemented_count == node.ledger.cache.block_count;
+	}));
+	ASSERT_TIMELY (10s, node.ledger.cache.cemented_count == node.ledger.cache.block_count);
+	ASSERT_TIMELY (5s, node.active.empty ());
+}
+
 namespace
 {
 void add_required_children_node_config_tree (nano::jsonconfig & tree)
