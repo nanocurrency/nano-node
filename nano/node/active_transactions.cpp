@@ -693,17 +693,20 @@ nano::election_insertion_result nano::active_transactions::activate (nano::accou
 			auto hash = conf_info.height == 0 ? account_info.open_block : node.store.block_successor (transaction, conf_info.frontier);
 			auto block = node.store.block_get (transaction, hash);
 			release_assert (block != nullptr);
-			result = insert (block);
-			if (result.election)
+			if (node.ledger.can_vote (transaction, *block))
 			{
-				if (result.inserted)
+				result = insert (block);
+				if (result.election)
 				{
-					result.election->transition_active ();
-				}
-				else if (result.election->prioritized ())
-				{
-					// Generate vote for ongoing election
-					result.election->generate_votes (block->hash ());
+					if (result.inserted)
+					{
+						result.election->transition_active ();
+					}
+					else if (result.election->prioritized ())
+					{
+						// Generate vote for ongoing election
+						result.election->generate_votes (block->hash ());
+					}
 				}
 			}
 		}
