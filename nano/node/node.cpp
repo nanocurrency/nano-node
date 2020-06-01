@@ -1681,6 +1681,8 @@ nano::node_flags const & nano::inactive_node_flag_defaults ()
 	node_flags.generate_cache.reps = false;
 	node_flags.generate_cache.cemented_count = false;
 	node_flags.generate_cache.unchecked_count = false;
+	node_flags.generate_cache.account_count = false;
+	node_flags.generate_cache.epoch_2 = false;
 	node_flags.disable_bootstrap_listener = true;
 	node_flags.disable_tcp_realtime = true;
 	return node_flags;

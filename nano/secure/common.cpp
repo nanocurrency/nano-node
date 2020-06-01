@@ -858,3 +858,12 @@ nano::block_hash const & nano::unchecked_key::key () const
 {
 	return previous;
 }
+
+void nano::generate_cache::enable_all ()
+{
+	reps = true;
+	cemented_count = true;
+	unchecked_count = true;
+	account_count = true;
+	epoch_2 = true;
+}
