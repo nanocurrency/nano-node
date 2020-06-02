@@ -208,7 +208,7 @@ private:
 	nano::account next_frontier_account{ 0 };
 	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };
 	void activate_dependencies (nano::unique_lock<std::mutex> &);
-	std::vector<std::pair<std::shared_ptr<nano::block>, uint64_t>> pending_dependencies;
+	std::vector<std::pair<nano::block_hash, uint64_t>> pending_dependencies;
 	nano::condition_variable condition;
 	bool started{ false };
 	std::atomic<bool> stopped{ false };
@@ -267,6 +267,7 @@ private:
 	friend class election;
 	friend std::unique_ptr<container_info_component> collect_container_info (active_transactions &, const std::string &);
 
+	friend class active_transactions_activate_dependencies_invalid_Test;
 	friend class active_transactions_dropped_cleanup_Test;
 	friend class active_transactions_vote_replays_Test;
 	friend class confirmation_height_prioritize_frontiers_Test;

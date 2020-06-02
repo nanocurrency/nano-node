@@ -212,7 +212,7 @@ bool nano::election::confirmed () const
 void nano::election::activate_dependencies ()
 {
 	debug_assert (!node.active.mutex.try_lock ());
-	node.active.pending_dependencies.emplace_back (status.winner, height);
+	node.active.pending_dependencies.emplace_back (status.winner->hash (), height);
 }
 
 void nano::election::broadcast_block (nano::confirmation_solicitor & solicitor_a)

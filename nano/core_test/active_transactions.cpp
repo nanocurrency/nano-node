@@ -674,6 +674,24 @@ TEST (active_transactions, activate_dependencies)
 
 namespace nano
 {
+TEST (active_transactions, activate_dependencies_invalid)
+{
+	nano::system system;
+	nano::node_flags flags;
+	flags.disable_request_loop = true;
+	auto & node (*system.add_node (flags));
+	node.active.pending_dependencies.emplace_back (nano::genesis ().open->hash (), 10);
+	node.active.pending_dependencies.emplace_back (1, 1);
+	node.active.pending_dependencies.emplace_back (0, -1);
+	node.active.pending_dependencies.emplace_back (-1, 0);
+	{
+		nano::unique_lock<std::mutex> lock (node.active.mutex);
+		node.active.activate_dependencies (lock);
+	}
+	ASSERT_TRUE (node.active.empty ());
+	ASSERT_EQ (0, node.active.pending_dependencies.size ());
+}
+
 // Tests that blocks are correctly cleared from the duplicate filter for unconfirmed elections
 TEST (active_transactions, dropped_cleanup)
 {
