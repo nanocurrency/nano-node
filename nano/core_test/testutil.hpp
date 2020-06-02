@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/config.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/lib/timer.hpp>
 
@@ -271,4 +272,12 @@ inline void compare_default_telemetry_response_data (nano::telemetry_data const 
 	ASSERT_EQ (telemetry_data_a.node_id, node_id_a.pub);
 }
 #endif
+
+/** To use RocksDB in tests make sure the node is built with the cmake variable -DNANO_ROCKSDB=ON and the environment variable TEST_USE_ROCKSDB=1 is set */
+inline bool using_rocksdb_in_tests ()
+{
+	static nano::network_constants network_constants;
+	auto use_rocksdb_str = std::getenv ("TEST_USE_ROCKSDB");
+	return network_constants.is_test_network () && use_rocksdb_str && (boost::lexical_cast<int> (use_rocksdb_str) == 1);
+}
 }

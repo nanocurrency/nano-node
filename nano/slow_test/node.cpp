@@ -790,7 +790,9 @@ TEST (confirmation_height, dynamic_algorithm_no_transition_while_pending)
 		nano::system system;
 		nano::node_config node_config (nano::get_available_port (), system.logging);
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-		auto node = system.add_node (node_config);
+		nano::node_flags node_flags;
+		node_flags.force_use_write_database_queue = true;
+		auto node = system.add_node (node_config, node_flags);
 		nano::keypair key;
 		system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 
@@ -978,7 +980,7 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 	nano::genesis genesis;
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
-	nano::write_database_queue write_database_queue;
+	nano::write_database_queue write_database_queue (false);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	std::atomic<bool> stopped{ false };
 	boost::latch initialized_latch{ 0 };
