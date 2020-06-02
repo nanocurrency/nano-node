@@ -412,6 +412,11 @@ int main (int argc, char * const * argv)
 		}
 		node_path = node_filepath.string ();
 	}
+	if (!boost::filesystem::exists (node_path))
+	{
+		std::cerr << "nano_node executable could not be found in " << node_path << std::endl;
+		return 1;
+	}
 
 	auto rpc_path_it (vm.find ("rpc_path"));
 	std::string rpc_path;
@@ -427,6 +432,11 @@ int main (int argc, char * const * argv)
 			rpc_filepath.replace_extension (running_executable_filepath.extension ());
 		}
 		rpc_path = rpc_filepath.string ();
+	}
+	if (!boost::filesystem::exists (rpc_path))
+	{
+		std::cerr << "nano_rpc executable could not be found in " << rpc_path << std::endl;
+		return 1;
 	}
 
 	std::vector<boost::filesystem::path> data_paths;
