@@ -335,10 +335,9 @@ void nano::election::confirm_if_quorum ()
 	}
 	if (sum >= node.config.online_weight_minimum.number () && winner_hash_l != status_winner_hash_l)
 	{
-		remove_votes (status_winner_hash_l);
-		generate_votes (winner_hash_l);
-		node.block_processor.force (block_l);
 		status.winner = block_l;
+		remove_votes (status_winner_hash_l);
+		node.block_processor.force (block_l);
 		update_dependent ();
 		node.active.add_adjust_difficulty (winner_hash_l);
 	}
@@ -363,7 +362,10 @@ void nano::election::log_votes (nano::tally_t const & tally_a) const
 	}
 	for (auto i (last_votes.begin ()), n (last_votes.end ()); i != n; ++i)
 	{
-		tally << boost::str (boost::format ("%1%%2% %3%") % line_end % i->first.to_account () % i->second.hash.to_string ());
+		if (i->first != node.network_params.random.not_an_account)
+		{
+			tally << boost::str (boost::format ("%1%%2% %3% %4%") % line_end % i->first.to_account () % std::to_string (i->second.sequence) % i->second.hash.to_string ());
+		}
 	}
 	node.logger.try_log (tally.str ());
 }
@@ -574,6 +576,16 @@ void nano::election::prioritize_election (nano::vote_generator_session & generat
 	debug_assert (!prioritized_m);
 	prioritized_m = true;
 	generator_session_a.add (status.winner->hash ());
+}
+
+void nano::election::try_generate_votes (nano::block_hash const & hash_a)
+{
+	nano::unique_lock<std::mutex> lock (node.active.mutex);
+	if (status.winner->hash () == hash_a)
+	{
+		lock.unlock ();
+		generate_votes (hash_a);
+	}
 }
 
 void nano::election::generate_votes (nano::block_hash const & hash_a)

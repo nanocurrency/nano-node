@@ -137,6 +137,7 @@ public:
 	void work_generate (nano::work_version const, nano::root const &, uint64_t, std::function<void(boost::optional<uint64_t>)>, boost::optional<nano::account> const & = boost::none, bool const = false);
 	void add_initial_peers ();
 	void block_confirm (std::shared_ptr<nano::block>);
+	bool block_confirmed (nano::block_hash const &);
 	bool block_confirmed_or_being_confirmed (nano::transaction const &, nano::block_hash const &);
 	void process_fork (nano::transaction const &, std::shared_ptr<nano::block>);
 	void do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, std::string const &, uint16_t, std::shared_ptr<std::string>, std::shared_ptr<std::string>, std::shared_ptr<boost::asio::ip::tcp::resolver>);

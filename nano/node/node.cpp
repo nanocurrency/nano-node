@@ -126,7 +126,7 @@ votes_cache (wallets),
 vote_uniquer (block_uniquer),
 confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, logger, node_initialized_latch, flags.confirmation_height_processor_mode),
 active (*this, confirmation_height_processor),
-aggregator (network_params.network, config, stats, votes_cache, store, wallets),
+aggregator (network_params.network, config, stats, votes_cache, ledger, wallets, active),
 payment_observer_processor (observers.blocks),
 wallets (wallets_store.init_error (), *this),
 startup_time (std::chrono::steady_clock::now ()),
@@ -611,8 +611,9 @@ nano::process_return nano::node::process_local (std::shared_ptr<nano::block> blo
 	// Notify block processor to release write lock
 	block_processor.wait_write ();
 	// Process block
+	block_post_events events;
 	auto transaction (store.tx_begin_write ({ tables::accounts, tables::cached_counts, tables::change_blocks, tables::frontiers, tables::open_blocks, tables::pending, tables::receive_blocks, tables::representation, tables::send_blocks, tables::state_blocks }, { tables::confirmation_height }));
-	return block_processor.process_one (transaction, info, work_watcher_a, nano::block_origin::local);
+	return block_processor.process_one (transaction, events, info, work_watcher_a, nano::block_origin::local);
 }
 
 void nano::node::start ()
@@ -1106,6 +1107,12 @@ void nano::node::block_confirm (std::shared_ptr<nano::block> block_a)
 	{
 		election.election->transition_active ();
 	}
+}
+
+bool nano::node::block_confirmed (nano::block_hash const & hash_a)
+{
+	auto transaction (store.tx_begin_read ());
+	return store.block_exists (transaction, hash_a) && ledger.block_confirmed (transaction, hash_a);
 }
 
 bool nano::node::block_confirmed_or_being_confirmed (nano::transaction const & transaction_a, nano::block_hash const & hash_a)

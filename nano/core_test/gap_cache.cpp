@@ -72,8 +72,9 @@ TEST (gap_cache, gap_bootstrap)
 	nano::keypair key;
 	auto send (std::make_shared<nano::send_block> (latest, key.pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest)));
 	{
+		nano::block_post_events events;
 		auto transaction (node1.store.tx_begin_write ());
-		ASSERT_EQ (nano::process_result::progress, node1.block_processor.process_one (transaction, send).code);
+		ASSERT_EQ (nano::process_result::progress, node1.block_processor.process_one (transaction, events, send).code);
 	}
 	ASSERT_EQ (nano::genesis_amount - 100, node1.balance (nano::genesis_account));
 	ASSERT_EQ (nano::genesis_amount, node2.balance (nano::genesis_account));
