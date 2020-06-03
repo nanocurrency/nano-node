@@ -118,5 +118,6 @@ public:
 	friend class active_transactions;
 
 	friend class election_bisect_dependencies_Test;
+	friend class election_dependencies_open_link_Test;
 };
 }

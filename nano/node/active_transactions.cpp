@@ -313,6 +313,22 @@ void nano::active_transactions::activate_dependencies (nano::unique_lock<std::mu
 	decltype (pending_dependencies) pending_l;
 	pending_l.swap (pending_dependencies);
 	lock_a.unlock ();
+
+	auto first_unconfirmed = [this](nano::read_transaction const & transaction_a, nano::account const & account_a, nano::block_hash const & confirmed_frontier_a) {
+		if (!confirmed_frontier_a.is_zero ())
+		{
+			return this->node.store.block_successor (transaction_a, confirmed_frontier_a);
+		}
+		else
+		{
+			nano::account_info account_info_l;
+			auto error = node.store.account_get (transaction_a, account_a, account_info_l);
+			(void)error;
+			debug_assert (!error);
+			return account_info_l.open_block;
+		}
+	};
+
 	// Store blocks to activate when the lock is re-acquired, adding the hash of the original election as a dependency
 	std::vector<std::pair<std::shared_ptr<nano::block>, nano::block_hash>> activate_l;
 	{
@@ -332,9 +348,9 @@ void nano::active_transactions::activate_dependencies (nano::unique_lock<std::mu
 					nano::confirmation_height_info conf_info_l;
 					if (!node.store.confirmation_height_get (transaction, account, conf_info_l))
 					{
-						if (height_l > conf_info_l.height + 1 && !conf_info_l.frontier.is_zero ())
+						if (height_l > conf_info_l.height + 1)
 						{
-							auto const successor_hash_l = node.store.block_successor (transaction, conf_info_l.frontier);
+							auto const successor_hash_l = first_unconfirmed (transaction, account, conf_info_l.frontier);
 							if (!confirmation_height_processor.is_processing_block (successor_hash_l))
 							{
 								auto const successor_l = node.store.block_get (transaction, successor_hash_l);
@@ -366,7 +382,7 @@ void nano::active_transactions::activate_dependencies (nano::unique_lock<std::mu
 						auto source_l (node.store.block_get (transaction, source_hash_l));
 						if (source_l != nullptr && !node.block_confirmed_or_being_confirmed (transaction, source_hash_l))
 						{
-							activate_l.emplace_back (source_l, block_l->hash ());
+							activate_l.emplace_back (source_l, hash_l);
 						}
 					}
 				}
