@@ -931,7 +931,7 @@ TEST (confirmation_height, many_accounts_send_receive_self)
 		node->process_active (receive_blocks[i]);
 	}
 
-	system.deadline_set (200s);
+	system.deadline_set (300s);
 	num_blocks_to_confirm = num_accounts * 4;
 	while (node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in) != num_blocks_to_confirm)
 	{
