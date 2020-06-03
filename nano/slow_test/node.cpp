@@ -960,7 +960,7 @@ TEST (confirmation_height, many_accounts_send_receive_self)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
-	system.deadline_set (20s);
+	system.deadline_set (60s);
 	while (node->active.election_winner_details_size () > 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
