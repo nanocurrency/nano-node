@@ -889,7 +889,6 @@ TEST (confirmation_height, many_accounts_send_receive_self)
 		{
 			nano::keypair key;
 			keys.emplace_back (key);
-			system.wallet (0)->insert_adhoc (key.prv);
 
 			nano::send_block send (latest_genesis, key.pub, nano::genesis_amount - 1 - i, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest_genesis));
 			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send).code);
