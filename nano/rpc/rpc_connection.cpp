@@ -124,8 +124,11 @@ void nano::rpc_connection::parse_request (STREAM_TYPE & stream, std::shared_ptr<
 					}));
 
 					std::stringstream ss;
-					ss << "RPC request " << request_id << " completed in: " << std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - start).count () << " microseconds";
-					this_l->logger.always_log (ss.str ().c_str ());
+					if (this_l->rpc_config.rpc_logging.log_rpc)
+					{
+						ss << "RPC request " << request_id << " completed in: " << std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - start).count () << " microseconds";
+						this_l->logger.always_log (ss.str ().c_str ());
+					}
 				});
 
 				std::string api_path_l = "/api/v2";
