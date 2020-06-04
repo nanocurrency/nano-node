@@ -905,7 +905,6 @@ TEST (confirmation_height, many_accounts_send_receive_self)
 		{
 			nano::keypair key;
 			keys.emplace_back (key);
-			system.wallet (0)->insert_adhoc (key.prv);
 
 			nano::send_block send (latest_genesis, key.pub, nano::genesis_amount - 1 - i, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest_genesis));
 			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send).code);
@@ -951,7 +950,7 @@ TEST (confirmation_height, many_accounts_send_receive_self)
 		node->process_active (receive_blocks[i]);
 	}
 
-	system.deadline_set (200s);
+	system.deadline_set (300s);
 	num_blocks_to_confirm = num_accounts * 4;
 	while (node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in) != num_blocks_to_confirm)
 	{
@@ -980,7 +979,7 @@ TEST (confirmation_height, many_accounts_send_receive_self)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
-	system.deadline_set (20s);
+	system.deadline_set (60s);
 	while (node->active.election_winner_details_size () > 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -1340,10 +1339,10 @@ TEST (node_telemetry, under_load)
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	auto node = system.add_node (node_config);
-	node_config.peering_port = nano::get_available_port ();
 	nano::node_flags node_flags;
-	node_flags.disable_ongoing_telemetry_requests = true;
+	node_flags.disable_initial_telemetry_requests = true;
+	auto node = system.add_node (node_config, node_flags);
+	node_config.peering_port = nano::get_available_port ();
 	auto node1 = system.add_node (node_config, node_flags);
 	nano::genesis genesis;
 	nano::keypair key;
