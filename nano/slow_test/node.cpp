@@ -1319,11 +1319,13 @@ TEST (node_telemetry, under_load)
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	auto node = system.add_node (node_config);
-	node_config.peering_port = nano::get_available_port ();
 	nano::node_flags node_flags;
-	node_flags.disable_ongoing_telemetry_requests = true;
+	node_flags.disable_initial_telemetry_requests = true;
+	auto node = system.add_node (node_config, node_flags);
+	node->confirmation_height_processor.pause ();
+	node_config.peering_port = nano::get_available_port ();
 	auto node1 = system.add_node (node_config, node_flags);
+	node1->confirmation_height_processor.pause ();
 	nano::genesis genesis;
 	nano::keypair key;
 	nano::keypair key1;
@@ -1351,7 +1353,7 @@ TEST (node_telemetry, under_load)
 	std::thread thread1 (thread_func, nano::test_genesis_key, latest_genesis, nano::genesis_amount - num_blocks);
 	std::thread thread2 (thread_func, key, latest_key, num_blocks);
 
-	ASSERT_TIMELY (200s, node1->ledger.cache.block_count == num_blocks * 2 + 3);
+	ASSERT_TIMELY (400s, node1->ledger.cache.block_count == num_blocks * 2 + 3);
 
 	thread1.join ();
 	thread2.join ();
