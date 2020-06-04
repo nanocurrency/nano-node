@@ -115,6 +115,7 @@ TEST (active_transactions, adjusted_multiplier_priority)
 	node1.process_active (send2); // genesis
 	node1.process_active (open1); // key1
 	node1.process_active (open2); // key2
+	nano::blocks_confirm (node1, { send1, send2, open1, open2 });
 	system.deadline_set (10s);
 	while (node1.active.size () != 4)
 	{
@@ -162,6 +163,7 @@ TEST (active_transactions, adjusted_multiplier_priority)
 	node1.process_active (send4); // genesis
 	node1.process_active (send6); // key1
 	node1.process_active (send8); // key2
+	nano::blocks_confirm (node1, { send3, send4, send5, send6, send7, send8 });
 
 	system.deadline_set (10s);
 	while (node1.active.size () != 6)
@@ -265,6 +267,7 @@ TEST (active_transactions, prioritize_chains)
 	node1.process_active (send1);
 	node1.process_active (open1);
 	node1.process_active (send5);
+	nano::blocks_confirm (node1, { send1, open1, send5 });
 	system.deadline_set (10s);
 	while (node1.active.size () != 3)
 	{
@@ -282,7 +285,7 @@ TEST (active_transactions, prioritize_chains)
 	node1.process_active (send3);
 	node1.process_active (send4);
 	node1.process_active (send6);
-
+	nano::blocks_confirm (node1, { send2, send3, send4, send6 });
 	system.deadline_set (10s);
 	while (node1.active.size () != 4)
 	{
@@ -551,7 +554,7 @@ TEST (active_transactions, vote_replays)
 	ASSERT_NE (nullptr, open1);
 	node.process_active (send1);
 	node.process_active (open1);
-	node.block_processor.flush ();
+	nano::blocks_confirm (node, { send1, open1 });
 	ASSERT_EQ (2, node.active.size ());
 	// First vote is not a replay and confirms the election, second vote should be a replay since the election has confirmed but not yet removed
 	auto vote_send1 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, send1));
@@ -573,7 +576,7 @@ TEST (active_transactions, vote_replays)
 	auto send2 (std::make_shared<nano::state_block> (key.pub, open1->hash (), key.pub, nano::Gxrb_ratio - 1, key.pub, key.prv, key.pub, *system.work.generate (open1->hash ())));
 	ASSERT_NE (nullptr, send2);
 	node.process_active (send2);
-	node.block_processor.flush ();
+	nano::blocks_confirm (node, { send2 });
 	ASSERT_EQ (1, node.active.size ());
 	auto vote1_send2 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, send2));
 	auto vote2_send2 (std::make_shared<nano::vote> (key.pub, key.prv, 0, send2));
@@ -660,6 +663,7 @@ TEST (active_transactions, activate_dependencies)
 	                                      .build ();
 	node2->process_active (block2);
 	node2->block_processor.flush ();
+	node2->block_confirm (block2);
 	system.deadline_set (10s);
 	while (node1->block (block2->hash ()) == nullptr)
 	{
@@ -991,6 +995,19 @@ TEST (active_transactions, election_difficulty_update_fork)
 	ASSERT_EQ (nano::process_result::progress, node.process (*send1).code);
 	ASSERT_EQ (nano::process_result::progress, node.process (*open1).code);
 	ASSERT_EQ (nano::process_result::progress, node.process (*send2).code);
+	// Confirm blocks so far to allow starting elections for upcoming blocks
+	for (auto block : { open1, send2 })
+	{
+		node.block_confirm (block);
+		{
+			auto election = node.active.election (block->qualified_root ());
+			ASSERT_NE (nullptr, election);
+			nano::lock_guard<std::mutex> guard (node.active.mutex);
+			election->confirm_once ();
+		}
+		ASSERT_TIMELY (2s, node.block_confirmed (block->hash ()));
+		node.active.erase (*block);
+	}
 
 	// Verify an election with multiple blocks is correctly updated on arrival of another block
 	// Each subsequent block has difficulty at least higher than the previous one
