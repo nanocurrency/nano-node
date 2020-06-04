@@ -279,6 +279,7 @@ private:
 	friend class active_transactions_vote_generator_session_Test;
 	friend class node_vote_by_hash_bundle_Test;
 	friend class election_bisect_dependencies_Test;
+	friend class election_dependencies_open_link_Test;
 };
 
 std::unique_ptr<container_info_component> collect_container_info (active_transactions & active_transactions, const std::string & name);
