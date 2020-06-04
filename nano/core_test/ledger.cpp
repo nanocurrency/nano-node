@@ -930,8 +930,9 @@ TEST (votes, add_old_different_account)
 	node1.work_generate_blocking (*send1);
 	auto send2 (std::make_shared<nano::send_block> (send1->hash (), key1.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send2);
-	ASSERT_EQ (nano::process_result::progress, node1.process_local (send1).code);
-	ASSERT_EQ (nano::process_result::progress, node1.process_local (send2).code);
+	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
+	ASSERT_EQ (nano::process_result::progress, node1.process (*send2).code);
+	nano::blocks_confirm (node1, { send1, send2 });
 	auto election1 = node1.active.election (send1->qualified_root ());
 	ASSERT_NE (nullptr, election1);
 	auto election2 = node1.active.election (send2->qualified_root ());
@@ -2662,10 +2663,11 @@ TEST (ledger, block_hash_account_conflict)
 	node1.work_generate_blocking (*receive1);
 	node1.work_generate_blocking (*send2);
 	node1.work_generate_blocking (*open_epoch1);
-	ASSERT_EQ (nano::process_result::progress, node1.process_local (send1).code);
-	ASSERT_EQ (nano::process_result::progress, node1.process_local (receive1).code);
-	ASSERT_EQ (nano::process_result::progress, node1.process_local (send2).code);
-	ASSERT_EQ (nano::process_result::progress, node1.process_local (open_epoch1).code);
+	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
+	ASSERT_EQ (nano::process_result::progress, node1.process (*receive1).code);
+	ASSERT_EQ (nano::process_result::progress, node1.process (*send2).code);
+	ASSERT_EQ (nano::process_result::progress, node1.process (*open_epoch1).code);
+	nano::blocks_confirm (node1, { send1, receive1, send2, open_epoch1 });
 	auto election1 = node1.active.election (send1->qualified_root ());
 	ASSERT_NE (nullptr, election1);
 	auto election2 = node1.active.election (receive1->qualified_root ());
