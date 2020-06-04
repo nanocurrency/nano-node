@@ -314,7 +314,7 @@ void nano::active_transactions::activate_dependencies (nano::unique_lock<std::mu
 	pending_l.swap (pending_dependencies);
 	lock_a.unlock ();
 
-	auto first_unconfirmed = [this](nano::read_transaction const & transaction_a, nano::account const & account_a, nano::block_hash const & confirmed_frontier_a) {
+	auto first_unconfirmed = [this](nano::transaction const & transaction_a, nano::account const & account_a, nano::block_hash const & confirmed_frontier_a) {
 		if (!confirmed_frontier_a.is_zero ())
 		{
 			return this->node.store.block_successor (transaction_a, confirmed_frontier_a);
