@@ -826,7 +826,7 @@ bool nano::active_transactions::update_difficulty_impl (nano::active_transaction
 	{
 		if (node.config.logging.active_update_logging ())
 		{
-			node.logger.try_log (boost::str (boost::format ("Block %1% was updated from multiplier %2% to %3%") % block_a.hash ().to_string () % root_it_a->multiplier % multiplier));
+			node.logger.try_log (boost::str (boost::format ("Election %1% difficulty updated with block %2% from multiplier %3% to %4%") % root_it_a->root.to_string () % block_a.hash ().to_string () % root_it_a->multiplier % multiplier));
 		}
 		roots.get<tag_root> ().modify (root_it_a, [multiplier](nano::active_transactions::conflict_info & info_a) {
 			info_a.multiplier = multiplier;
