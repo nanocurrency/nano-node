@@ -154,6 +154,7 @@ TEST (confirmation_height, multiple_accounts)
 		auto receive3 = std::make_shared<nano::receive_block> (open3.hash (), send6.hash (), key3.prv, key3.pub, *system.work.generate (open3.hash ()));
 		node->process_active (receive3);
 		node->block_processor.flush ();
+		node->block_confirm (receive3);
 		{
 			auto election = node->active.election (receive3->qualified_root ());
 			ASSERT_NE (nullptr, election);
@@ -358,6 +359,7 @@ TEST (confirmation_height, gap_live)
 		// Now complete the chain where the block comes in on the live network
 		node->process_active (open1);
 		node->block_processor.flush ();
+		node->block_confirm (open1);
 		{
 			auto election = node->active.election (open1->qualified_root ());
 			ASSERT_NE (nullptr, election);
@@ -447,6 +449,7 @@ TEST (confirmation_height, send_receive_between_2_accounts)
 
 		node->process_active (receive4);
 		node->block_processor.flush ();
+		node->block_confirm (receive4);
 		{
 			auto election = node->active.election (receive4->qualified_root ());
 			ASSERT_NE (nullptr, election);
@@ -1237,7 +1240,7 @@ TEST (confirmation_height, callback_confirmed_history)
 
 		node->process_active (send1);
 		node->block_processor.flush ();
-
+		node->block_confirm (send1);
 		{
 			node->process_active (send);
 			node->block_processor.flush ();

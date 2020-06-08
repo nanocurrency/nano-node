@@ -278,6 +278,7 @@ private:
 	friend class active_transactions_confirmation_consistency_Test;
 	friend class active_transactions_vote_generator_session_Test;
 	friend class node_vote_by_hash_bundle_Test;
+	friend class node_deferred_dependent_elections_Test;
 	friend class election_bisect_dependencies_Test;
 	friend class election_dependencies_open_link_Test;
 };
