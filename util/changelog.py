@@ -39,6 +39,7 @@ SECTIONS = {
     ],
     "Developer/Debug Options": [
         "debug",
+        "logging",
     ],
     "Fixed Bugs": [
         "bug",
