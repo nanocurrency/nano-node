@@ -1224,7 +1224,7 @@ void callback_process (shared_data & shared_data_a, data & data, T & all_node_da
 };
 }
 
-TEST (node_telemetry, ongoing_requests)
+TEST (telemetry, ongoing_requests)
 {
 	nano::system system;
 	nano::node_flags node_flags;
@@ -1264,7 +1264,7 @@ namespace nano
 {
 namespace transport
 {
-	TEST (node_telemetry, simultaneous_requests)
+	TEST (telemetry, simultaneous_requests)
 	{
 		nano::system system;
 		nano::node_flags node_flags;
@@ -1334,7 +1334,7 @@ namespace transport
 }
 }
 
-TEST (node_telemetry, under_load)
+TEST (telemetry, under_load)
 {
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
@@ -1385,7 +1385,7 @@ TEST (node_telemetry, under_load)
 	}
 }
 
-TEST (node_telemetry, all_peers_use_single_request_cache)
+TEST (telemetry, all_peers_use_single_request_cache)
 {
 	nano::system system;
 	nano::node_flags node_flags;
@@ -1456,7 +1456,7 @@ TEST (node_telemetry, all_peers_use_single_request_cache)
 	ASSERT_EQ (0, node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::out));
 }
 
-TEST (node_telemetry, many_nodes)
+TEST (telemetry, many_nodes)
 {
 	nano::system system;
 	nano::node_flags node_flags;

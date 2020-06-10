@@ -8672,7 +8672,7 @@ TEST (rpc, receive_work_disabled)
 	}
 }
 
-TEST (rpc, node_telemetry_single)
+TEST (rpc, telemetry_single)
 {
 	nano::system system (1);
 	auto & node1 = *add_ipc_enabled_node (system);
@@ -8698,7 +8698,7 @@ TEST (rpc, node_telemetry_single)
 	// Missing port
 	boost::property_tree::ptree request;
 	auto node = system.nodes.front ();
-	request.put ("action", "node_telemetry");
+	request.put ("action", "telemetry");
 	request.put ("address", "not_a_valid_address");
 
 	{
@@ -8775,7 +8775,7 @@ TEST (rpc, node_telemetry_single)
 	}
 }
 
-TEST (rpc, node_telemetry_all)
+TEST (rpc, telemetry_all)
 {
 	nano::system system (1);
 	auto & node1 = *add_ipc_enabled_node (system);
@@ -8813,7 +8813,7 @@ TEST (rpc, node_telemetry_all)
 	}
 
 	boost::property_tree::ptree request;
-	request.put ("action", "node_telemetry");
+	request.put ("action", "telemetry");
 	{
 		test_response response (request, rpc.config.port, system.io_ctx);
 		system.deadline_set (10s);
@@ -8855,7 +8855,7 @@ TEST (rpc, node_telemetry_all)
 }
 
 // Also tests all forms of ipv4/ipv6
-TEST (rpc, node_telemetry_self)
+TEST (rpc, telemetry_self)
 {
 	nano::system system;
 	auto & node1 = *add_ipc_enabled_node (system);
@@ -8872,7 +8872,7 @@ TEST (rpc, node_telemetry_self)
 	node1.network.udp_channels.insert (nano::endpoint (boost::asio::ip::make_address_v6 ("::1"), nano::get_available_port ()), 0);
 
 	boost::property_tree::ptree request;
-	request.put ("action", "node_telemetry");
+	request.put ("action", "telemetry");
 	request.put ("address", "::1");
 	request.put ("port", node1.network.endpoint ().port ());
 	auto const should_ignore_identification_metrics = false;
