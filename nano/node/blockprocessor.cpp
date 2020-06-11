@@ -401,7 +401,6 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			{
 				node.logger.try_log (boost::str (boost::format ("Old for: %1%") % hash.to_string ()));
 			}
-			queue_unchecked (transaction_a, hash);
 			process_old (transaction_a, info_a.block, origin_a);
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::old);
 			break;
