@@ -497,9 +497,9 @@ TEST (active_transactions, update_difficulty)
 
 	std::error_code ec;
 	nano::state_block_builder builder;
-	send1 = std::shared_ptr<nano::state_block> (builder.from (*send1).work (*work1).build (ec));
+	send1 = builder.from (*send1).work (*work1).build_shared (ec);
 	nano::state_block_builder builder1;
-	send2 = std::shared_ptr<nano::state_block> (builder1.from (*send2).work (*work2).build (ec));
+	send2 = builder1.from (*send2).work (*work2).build_shared (ec);
 	ASSERT_FALSE (ec);
 
 	node1.process_active (send1);
