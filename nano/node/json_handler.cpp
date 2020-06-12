@@ -1675,7 +1675,7 @@ void nano::json_handler::bootstrap_lazy ()
 		{
 			std::string bootstrap_id (request.get<std::string> ("id", ""));
 			auto started (node.bootstrap_initiator.bootstrap_lazy (hash, force, true, bootstrap_id));
-			response_l.put ("started", started);
+			response_l.put ("started", started ? "1" : "0");
 		}
 		else
 		{
