@@ -749,12 +749,6 @@ epoch_2_started_cb (epoch_2_started_cb_a)
 {
 	if (!store.init_error ())
 	{
-		if (!network_params.network.is_test_network ())
-		{
-			// Setting up the ledger cache can take some time
-			std::cout << "Initializing ledger..." << std::endl;
-		}
-
 		auto transaction = store.tx_begin_read ();
 		if (generate_cache_a.reps || generate_cache_a.account_count || generate_cache_a.epoch_2)
 		{
