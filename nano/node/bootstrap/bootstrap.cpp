@@ -83,30 +83,36 @@ void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bo
 	condition.notify_all ();
 }
 
-void nano::bootstrap_initiator::bootstrap_lazy (nano::hash_or_account const & hash_or_account_a, bool force, bool confirmed, std::string id_a)
+bool nano::bootstrap_initiator::bootstrap_lazy (nano::hash_or_account const & hash_or_account_a, bool force, bool confirmed, std::string id_a)
 {
-	auto lazy_attempt (current_lazy_attempt ());
-	if (lazy_attempt == nullptr || force)
+	// Start lazy bootstrap attempt if legacy bootstrap is disabed or initial bootstrap is finished
+	bool start_allowed = force || node.flags.disable_legacy_bootstrap || node.ledger.cache.block_count >= node.ledger.bootstrap_weight_max_blocks;
+	if (start_allowed)
 	{
-		if (force)
+		auto lazy_attempt (current_lazy_attempt ());
+		if (lazy_attempt == nullptr || force)
 		{
-			stop_attempts ();
+			if (force)
+			{
+				stop_attempts ();
+			}
+			node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate_lazy, nano::stat::dir::out);
+			nano::lock_guard<std::mutex> lock (mutex);
+			if (!stopped && find_attempt (nano::bootstrap_mode::lazy) == nullptr)
+			{
+				lazy_attempt = std::make_shared<nano::bootstrap_attempt_lazy> (node.shared (), attempts.incremental++, id_a.empty () ? hash_or_account_a.to_string () : id_a);
+				attempts_list.push_back (lazy_attempt);
+				attempts.add (lazy_attempt);
+				lazy_attempt->lazy_start (hash_or_account_a, confirmed);
+			}
 		}
-		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate_lazy, nano::stat::dir::out);
-		nano::lock_guard<std::mutex> lock (mutex);
-		if (!stopped && find_attempt (nano::bootstrap_mode::lazy) == nullptr)
+		else
 		{
-			lazy_attempt = std::make_shared<nano::bootstrap_attempt_lazy> (node.shared (), attempts.incremental++, id_a.empty () ? hash_or_account_a.to_string () : id_a);
-			attempts_list.push_back (lazy_attempt);
-			attempts.add (lazy_attempt);
 			lazy_attempt->lazy_start (hash_or_account_a, confirmed);
 		}
+		condition.notify_all ();
 	}
-	else
-	{
-		lazy_attempt->lazy_start (hash_or_account_a, confirmed);
-	}
-	condition.notify_all ();
+	return start_allowed;
 }
 
 void nano::bootstrap_initiator::bootstrap_wallet (std::deque<nano::account> & accounts_a)
