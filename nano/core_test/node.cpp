@@ -4470,7 +4470,7 @@ TEST (node, gap_unchecked_replace)
 		auto const default_work = open->block_work ();
 		node.process_active (open);
 		node.block_processor.flush ();
-		nano::unchecked_key unchecked_key{ open->previous ().is_zero () ? open->link () : open->previous (), open->hash () };
+		nano::unchecked_key unchecked_key{ open->previous ().is_zero () ? static_cast<nano::block_hash> (open->link ()) : open->previous (), open->hash () };
 		ASSERT_TRUE (node.store.unchecked_exists (node.store.tx_begin_read (), unchecked_key));
 
 		ASSERT_LT (node.network_params.network.publish_thresholds.entry, node.default_difficulty (open->work_version ()));
