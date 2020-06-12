@@ -4448,6 +4448,60 @@ TEST (node, deferred_dependent_elections)
 }
 }
 
+TEST (node, unchecked_compare_work)
+{
+	nano::system system (1);
+	auto & node (*system.nodes[0]);
+	nano::state_block_builder builder;
+	auto test_unchecked = [&](nano::block_hash const & previous_a) {
+		nano::keypair key;
+		std::shared_ptr<nano::state_block> open = builder.make_block ()
+		                                          .account (key.pub)
+		                                          .previous (previous_a)
+		                                          .representative (key.pub)
+		                                          .balance (100)
+		                                          .link (0)
+		                                          .sign (key.prv, key.pub)
+		                                          .work (0)
+		                                          .build ();
+		node.work_generate_blocking (*open);
+		auto const default_work = open->block_work ();
+		node.process_active (open);
+		node.block_processor.flush ();
+		nano::unchecked_key unchecked_key{ open->previous ().is_zero () ? open->link () : open->previous (), open->hash () };
+		ASSERT_TRUE (node.store.unchecked_exists (node.store.tx_begin_read (), unchecked_key));
+
+		ASSERT_LT (node.network_params.network.publish_thresholds.entry, node.default_difficulty (open->work_version ()));
+		auto const low_work = system.work_generate_limited (open->root (), node.network_params.network.publish_thresholds.entry, node.default_difficulty (open->work_version ()));
+		ASSERT_LT (nano::work_difficulty (open->work_version (), open->root (), low_work), open->difficulty ());
+		open->block_work_set (low_work);
+		node.process_active (open);
+		node.block_processor.flush ();
+		{
+			auto transaction (node.store.tx_begin_read ());
+			ASSERT_TRUE (node.store.unchecked_exists (transaction, unchecked_key));
+			auto existing (node.store.unchecked_get (transaction, unchecked_key));
+			// The work must not have been replaced
+			ASSERT_NE (existing->block->block_work (), low_work);
+		}
+
+		auto const high_work = *node.work_generate_blocking (open->root (), nano::work_difficulty (open->work_version (), open->root (), default_work) + 1);
+		ASSERT_GT (nano::work_difficulty (open->work_version (), open->root (), high_work), open->difficulty ());
+		open->block_work_set (high_work);
+		node.process_active (open);
+		node.block_processor.flush ();
+		{
+			auto transaction (node.store.tx_begin_read ());
+			ASSERT_TRUE (node.store.unchecked_exists (transaction, unchecked_key));
+			auto existing (node.store.unchecked_get (transaction, unchecked_key));
+			// The work must must have been replaced
+			ASSERT_EQ (existing->block->block_work (), high_work);
+		}
+	};
+	test_unchecked (0); // gap_source
+	test_unchecked (1); // gap_previous
+}
+
 namespace
 {
 void add_required_children_node_config_tree (nano::jsonconfig & tree)

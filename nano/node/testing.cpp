@@ -162,7 +162,7 @@ nano::account nano::system::account (nano::transaction const & transaction_a, si
 	return nano::account (result);
 }
 
-uint64_t nano::system::work_generate_limited (nano::block_hash const & root_a, uint64_t min_a, uint64_t max_a)
+uint64_t nano::system::work_generate_limited (nano::root const & root_a, uint64_t min_a, uint64_t max_a)
 {
 	debug_assert (min_a > 0);
 	uint64_t result = 0;

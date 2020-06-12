@@ -92,6 +92,13 @@ public:
 		return (success (status));
 	}
 
+	boost::optional<nano::unchecked_info> unchecked_get (nano::transaction const & transaction_a, nano::unchecked_key const & unchecked_key_a) override
+	{
+		db_val<Val> value;
+		auto status (get (transaction_a, tables::unchecked, nano::db_val<Val> (unchecked_key_a), value));
+		return success (status) ? static_cast<boost::optional<nano::unchecked_info>> (nano::unchecked_info (value)) : boost::none;
+	}
+
 	std::vector<nano::unchecked_info> unchecked_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override
 	{
 		std::vector<nano::unchecked_info> result;
