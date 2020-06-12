@@ -1168,6 +1168,20 @@ void nano::ledger::change_latest (nano::write_transaction const & transaction_a,
 	}
 }
 
+void nano::ledger::unchecked_upsert (const nano::write_transaction & transaction_a, nano::unchecked_key & key_a, nano::unchecked_info & info_a)
+{
+	auto existing (store.unchecked_get (transaction_a, key_a));
+	// Only overwrite if the new block's difficulty is higher
+	if (!existing || info_a.block->difficulty () > existing->block->difficulty ())
+	{
+		store.unchecked_put (transaction_a, key_a, info_a);
+	}
+	if (!existing)
+	{
+		++cache.unchecked_count;
+	}
+}
+
 std::shared_ptr<nano::block> nano::ledger::successor (nano::transaction const & transaction_a, nano::qualified_root const & root_a)
 {
 	nano::block_hash successor (0);

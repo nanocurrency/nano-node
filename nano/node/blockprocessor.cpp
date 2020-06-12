@@ -360,7 +360,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			}
 
 			nano::unchecked_key unchecked_key (info_a.block->previous (), hash);
-			put_or_replace_unchecked (transaction_a, unchecked_key, info_a);
+			node.ledger.unchecked_upsert (transaction_a, unchecked_key, info_a);
 
 			node.gap_cache.add (hash);
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_previous);
@@ -379,7 +379,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			}
 
 			nano::unchecked_key unchecked_key (node.ledger.block_source (transaction_a, *(info_a.block)), hash);
-			put_or_replace_unchecked (transaction_a, unchecked_key, info_a);
+			node.ledger.unchecked_upsert (transaction_a, unchecked_key, info_a);
 
 			node.gap_cache.add (hash);
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_source);
@@ -470,20 +470,6 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 		}
 	}
 	return result;
-}
-
-void nano::block_processor::put_or_replace_unchecked (const nano::write_transaction & transaction_a, nano::unchecked_key & unchecked_key, nano::unchecked_info & info_a)
-{
-	auto existing (node.store.unchecked_get (transaction_a, unchecked_key));
-	// Only overwrite if the new block's difficulty is higher
-	if (!existing || info_a.block->difficulty () > existing->block->difficulty ())
-	{
-		node.store.unchecked_put (transaction_a, unchecked_key, info_a);
-	}
-	if (!existing)
-	{
-		++node.ledger.cache.unchecked_count;
-	}
 }
 
 nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, block_post_events & events_a, std::shared_ptr<nano::block> block_a, const bool watch_work_a)

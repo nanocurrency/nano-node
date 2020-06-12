@@ -4448,11 +4448,13 @@ TEST (node, deferred_dependent_elections)
 }
 }
 
-TEST (node, unchecked_compare_work)
+/** Ensure that blocks processed as gap_source and gap_previous only overwrite the existing entry if the work difficulty is higher */
+TEST (node, gap_unchecked_replace)
 {
 	nano::system system (1);
 	auto & node (*system.nodes[0]);
 	nano::state_block_builder builder;
+	// With previous_a zero it's a gap_source, otherwise it's a gap_previous
 	auto test_unchecked = [&](nano::block_hash const & previous_a) {
 		nano::keypair key;
 		std::shared_ptr<nano::state_block> open = builder.make_block ()

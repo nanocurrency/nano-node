@@ -3215,10 +3215,7 @@ TEST (ledger, backtrack)
 	nano::logger_mt logger;
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
-	bool cb_hit = false;
-	nano::ledger ledger (*store, stats, nano::generate_cache (), [&cb_hit]() {
-		cb_hit = true;
-	});
+	nano::ledger ledger (*store, stats, nano::generate_cache ());
 	{
 		auto transaction (store->tx_begin_write ());
 		store->initialize (transaction, genesis, ledger.cache);
@@ -3257,4 +3254,49 @@ TEST (ledger, backtrack)
 	ASSERT_NE (ledger.backtrack (transaction, blocks[2], 0), ledger.backtrack (transaction, blocks[2], 1));
 	ASSERT_EQ (nullptr, ledger.backtrack (transaction, nullptr, 0));
 	ASSERT_EQ (nullptr, ledger.backtrack (transaction, nullptr, 10));
+}
+
+TEST (ledger, unchecked_upsert)
+{
+	nano::genesis genesis;
+	nano::stat stats;
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_TRUE (!store->init_error ());
+	nano::ledger ledger (*store, stats);
+	{
+		auto transaction (store->tx_begin_write ());
+		store->initialize (transaction, genesis, ledger.cache);
+	}
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+	nano::state_block_builder builder;
+	std::shared_ptr<nano::block> block = builder.make_block ()
+	                                     .account (1)
+	                                     .representative (2)
+	                                     .previous (0)
+	                                     .balance (3)
+	                                     .link (4)
+	                                     .sign_zero ()
+	                                     .work (0)
+	                                     .build ();
+	nano::unchecked_key key (block->link (), block->hash ());
+	nano::unchecked_info info;
+	info.block = block;
+	auto transaction (store->tx_begin_write ());
+	ASSERT_EQ (0, ledger.cache.unchecked_count);
+	// Inserting a new entry
+	ledger.unchecked_upsert (transaction, key, info);
+	ASSERT_EQ (1, ledger.cache.unchecked_count);
+	// Higher work updates the table
+	block->block_work_set (*pool.generate (block->root ()));
+	ledger.unchecked_upsert (transaction, key, info);
+	ASSERT_EQ (1, ledger.cache.unchecked_count);
+	ASSERT_TRUE (store->unchecked_exists (transaction, key));
+	ASSERT_EQ (store->unchecked_get (transaction, key)->block->block_work (), block->block_work ());
+	// Lower work does not update the table
+	block->block_work_set (0);
+	ledger.unchecked_upsert (transaction, key, info);
+	ASSERT_TRUE (store->unchecked_exists (transaction, key));
+	ASSERT_NE (store->unchecked_get (transaction, key)->block->block_work (), block->block_work ());
+	ASSERT_EQ (1, ledger.cache.unchecked_count);
 }
