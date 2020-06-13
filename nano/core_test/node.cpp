@@ -4448,7 +4448,7 @@ TEST (node, deferred_dependent_elections)
 }
 }
 
-/** Ensure that blocks processed as gap_source and gap_previous only overwrite the existing entry if the work difficulty is higher */
+/** Ensure that blocks processed as gap_source and gap_previous only overwrite the existing entry if the work difficulty is higher. Other checks are done in test ledger.unchecked_upsert */
 TEST (node, gap_unchecked_replace)
 {
 	nano::system system (1);

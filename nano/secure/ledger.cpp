@@ -1171,13 +1171,20 @@ void nano::ledger::change_latest (nano::write_transaction const & transaction_a,
 void nano::ledger::unchecked_upsert (const nano::write_transaction & transaction_a, nano::unchecked_key & key_a, nano::unchecked_info & info_a)
 {
 	auto existing (store.unchecked_get (transaction_a, key_a));
-	// Only overwrite if the new block's difficulty is higher
-	if (!existing || info_a.block->difficulty () > existing->block->difficulty ())
+	if (existing.is_initialized ())
+	{
+		auto const existing_difficulty = existing->block->difficulty ();
+		auto const new_difficulty = info_a.block->difficulty ();
+		bool const invalidating = info_a.verified == nano::signature_verification::unknown && existing->verified != nano::signature_verification::unknown;
+		bool const validating = info_a.verified != nano::signature_verification::unknown && existing->verified == nano::signature_verification::unknown;
+		if ((new_difficulty >= existing_difficulty && !invalidating) || (new_difficulty == existing_difficulty && validating))
+		{
+			store.unchecked_put (transaction_a, key_a, info_a);
+		}
+	}
+	else
 	{
 		store.unchecked_put (transaction_a, key_a, info_a);
-	}
-	if (!existing)
-	{
 		++cache.unchecked_count;
 	}
 }
