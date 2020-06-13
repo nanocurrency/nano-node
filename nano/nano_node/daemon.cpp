@@ -54,6 +54,11 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 		nano::alarm alarm (io_ctx);
 		try
 		{
+			// This avoid a blank prompt during any node initialization delays
+			auto initialization_text = "Starting up Nano node...";
+			std::cout << initialization_text << std::endl;
+			logger.always_log (initialization_text);
+
 			auto node (std::make_shared<nano::node> (io_ctx, data_path, alarm, config.node, opencl_work, flags));
 			if (!node->init_error ())
 			{
