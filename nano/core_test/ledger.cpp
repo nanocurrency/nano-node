@@ -3290,23 +3290,23 @@ TEST (ledger, unchecked_upsert)
 	ASSERT_EQ (1, ledger.cache.unchecked_count);
 	// Higher work updates the table
 	block->block_work_set (*pool.generate (block->root ()));
-	ledger.unchecked_upsert (transaction, unchecked_key, info);
+	ASSERT_FALSE (ledger.unchecked_upsert (transaction, unchecked_key, info));
 	ASSERT_EQ (1, ledger.cache.unchecked_count);
 	ASSERT_TRUE (store->unchecked_exists (transaction, unchecked_key));
 	ASSERT_EQ (store->unchecked_get (transaction, unchecked_key)->block->block_work (), block->block_work ());
 	// Same work but valid signature (with existing invalid) updates
 	info.verified = nano::signature_verification::valid;
 	ASSERT_EQ (store->unchecked_get (transaction, unchecked_key)->verified, nano::signature_verification::unknown);
-	ledger.unchecked_upsert (transaction, unchecked_key, info);
+	ASSERT_FALSE (ledger.unchecked_upsert (transaction, unchecked_key, info));
 	ASSERT_EQ (store->unchecked_get (transaction, unchecked_key)->verified, nano::signature_verification::valid);
 	// Higher work but invalidating signature does not update
 	block->block_work_set (*pool.generate (block->root (), block->difficulty ()));
 	info.verified = nano::signature_verification::unknown;
-	ledger.unchecked_upsert (transaction, unchecked_key, info);
+	ASSERT_TRUE (ledger.unchecked_upsert (transaction, unchecked_key, info));
 	ASSERT_NE (store->unchecked_get (transaction, unchecked_key)->block->block_work (), block->block_work ());
-	// Lower work does not update the table
+	// Lower work does not update
 	block->block_work_set (0);
-	ledger.unchecked_upsert (transaction, unchecked_key, info);
+	ASSERT_TRUE (ledger.unchecked_upsert (transaction, unchecked_key, info));
 	ASSERT_TRUE (store->unchecked_exists (transaction, unchecked_key));
 	ASSERT_NE (store->unchecked_get (transaction, unchecked_key)->block->block_work (), block->block_work ());
 	ASSERT_EQ (1, ledger.cache.unchecked_count);

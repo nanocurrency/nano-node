@@ -1168,8 +1168,9 @@ void nano::ledger::change_latest (nano::write_transaction const & transaction_a,
 	}
 }
 
-void nano::ledger::unchecked_upsert (nano::write_transaction const & transaction_a, nano::unchecked_key const & key_a, nano::unchecked_info const & info_a)
+bool nano::ledger::unchecked_upsert (nano::write_transaction const & transaction_a, nano::unchecked_key const & key_a, nano::unchecked_info const & info_a)
 {
+	bool result{ true };
 	auto existing (store.unchecked_get (transaction_a, key_a));
 	if (existing.is_initialized ())
 	{
@@ -1179,14 +1180,17 @@ void nano::ledger::unchecked_upsert (nano::write_transaction const & transaction
 		bool const validating = info_a.verified != nano::signature_verification::unknown && existing->verified == nano::signature_verification::unknown;
 		if ((new_difficulty >= existing_difficulty && !invalidating) || (new_difficulty == existing_difficulty && validating))
 		{
+			result = false;
 			store.unchecked_put (transaction_a, key_a, info_a);
 		}
 	}
 	else
 	{
+		result = false;
 		store.unchecked_put (transaction_a, key_a, info_a);
 		++cache.unchecked_count;
 	}
+	return result;
 }
 
 std::shared_ptr<nano::block> nano::ledger::successor (nano::transaction const & transaction_a, nano::qualified_root const & root_a)
