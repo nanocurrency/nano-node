@@ -3286,7 +3286,7 @@ TEST (ledger, unchecked_upsert)
 	auto transaction (store->tx_begin_write ());
 	ASSERT_EQ (0, ledger.cache.unchecked_count);
 	// Inserting a new entry
-	ledger.unchecked_upsert (transaction, unchecked_key, info);
+	ASSERT_FALSE (ledger.unchecked_upsert (transaction, unchecked_key, info));
 	ASSERT_EQ (1, ledger.cache.unchecked_count);
 	// Higher work updates the table
 	block->block_work_set (*pool.generate (block->root ()));

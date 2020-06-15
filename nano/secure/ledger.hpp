@@ -43,6 +43,10 @@ public:
 	bool rollback (nano::write_transaction const &, nano::block_hash const &, std::vector<std::shared_ptr<nano::block>> &);
 	bool rollback (nano::write_transaction const &, nano::block_hash const &);
 	void change_latest (nano::write_transaction const &, nano::account const &, nano::account_info const &, nano::account_info const &);
+	/**
+	 * Insert or conditionally update an unchecked entry, based on signature and work difficulty of existing and \p info_a.
+	 * @return false if inserted or updated existing entry.
+	 */
 	bool unchecked_upsert (nano::write_transaction const & transaction_a, nano::unchecked_key const & key_a, nano::unchecked_info const & info_a);
 	void dump_account_chain (nano::account const &, std::ostream & = std::cout);
 	bool could_fit (nano::transaction const &, nano::block const &);
