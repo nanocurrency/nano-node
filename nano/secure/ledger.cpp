@@ -1168,7 +1168,7 @@ void nano::ledger::change_latest (nano::write_transaction const & transaction_a,
 	}
 }
 
-void nano::ledger::unchecked_upsert (const nano::write_transaction & transaction_a, nano::unchecked_key & key_a, nano::unchecked_info & info_a)
+void nano::ledger::unchecked_upsert (nano::write_transaction const & transaction_a, nano::unchecked_key const & key_a, nano::unchecked_info const & info_a)
 {
 	auto existing (store.unchecked_get (transaction_a, key_a));
 	if (existing.is_initialized ())
