@@ -20,7 +20,12 @@ target_compile_definitions(nano_rpc
 		-DGIT_COMMIT_HASH=${GIT_COMMIT_HASH})
 
 if ((NANO_GUI OR RAIBLOCKS_GUI) AND NOT APPLE)
-	install(TARGETS nano_rpc
-			RUNTIME DESTINATION .
-	)
+	if (WIN32)
+		install(TARGETS nano_rpc
+				RUNTIME DESTINATION .
+		)
+	else ()
+		install(TARGETS nano_rpc
+				RUNTIME DESTINATION ./bin)
+	endif()
 endif()
