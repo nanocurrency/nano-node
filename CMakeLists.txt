@@ -50,7 +50,7 @@ endif()
 if (APPLE)
 	set (CMAKE_INSTALL_RPATH "@executable_path/../Frameworks;@executable_path/../boost/lib")
 else()
-	set (CMAKE_INSTALL_RPATH "$ORIGIN/lib")
+	set (CMAKE_INSTALL_RPATH "$ORIGIN/../lib")
 endif()
 
 # Create all libraries and executables in the root binary dir
