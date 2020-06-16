@@ -5,6 +5,7 @@
 #include <nano/node/rocksdb/rocksdb_txn.hpp>
 
 #include <boost/endian/conversion.hpp>
+#include <boost/format.hpp>
 #include <boost/polymorphic_cast.hpp>
 
 #include <rocksdb/merge_operator.h>
@@ -126,7 +127,7 @@ nano::write_transaction nano::rocksdb_store::tx_begin_write (std::vector<nano::t
 	}
 
 	// Tables must be kept in alphabetical order. These can be used for mutex locking, so order is important to prevent deadlocking
-	assert (std::is_sorted (tables_requiring_locks_a.begin (), tables_requiring_locks_a.end ()));
+	debug_assert (std::is_sorted (tables_requiring_locks_a.begin (), tables_requiring_locks_a.end ()));
 
 	return nano::write_transaction{ std::move (txn) };
 }
@@ -136,6 +137,11 @@ nano::read_transaction nano::rocksdb_store::tx_begin_read ()
 	return nano::read_transaction{ std::make_unique<nano::read_rocksdb_txn> (db) };
 }
 
+std::string nano::rocksdb_store::vendor_get () const
+{
+	return boost::str (boost::format ("RocksDB %1%.%2%.%3%") % ROCKSDB_MAJOR % ROCKSDB_MINOR % ROCKSDB_PATCH);
+}
+
 rocksdb::ColumnFamilyHandle * nano::rocksdb_store::table_to_column_family (tables table_a) const
 {
 	auto & handles_l = handles;
@@ -143,7 +149,7 @@ rocksdb::ColumnFamilyHandle * nano::rocksdb_store::table_to_column_family (table
 		auto iter = std::find_if (handles_l.begin (), handles_l.end (), [name](auto handle) {
 			return (handle->GetName () == name);
 		});
-		assert (iter != handles_l.end ());
+		debug_assert (iter != handles_l.end ());
 		return *iter;
 	};
 
@@ -166,7 +172,7 @@ rocksdb::ColumnFamilyHandle * nano::rocksdb_store::table_to_column_family (table
 		case tables::pending:
 			return get_handle ("pending");
 		case tables::blocks_info:
-			assert (false);
+			debug_assert (false);
 		case tables::representation:
 			return get_handle ("representation");
 		case tables::unchecked:
@@ -208,18 +214,14 @@ bool nano::rocksdb_store::exists (nano::transaction const & transaction_a, table
 
 int nano::rocksdb_store::del (nano::write_transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a)
 {
-	assert (transaction_a.contains (table_a));
-	if (!exists (transaction_a, table_a, key_a))
+	debug_assert (transaction_a.contains (table_a));
+	// RocksDB does not report not_found status, it is a pre-condition that the key exists
+	debug_assert (exists (transaction_a, table_a, key_a));
+
+	// Removing an entry so counts may need adjusting
+	if (is_caching_counts (table_a))
 	{
-		return status_code_not_found ();
-	}
-	else
-	{
-		// Adding a new entry so counts need adjusting (use RMW otherwise known as merge)
-		if (is_caching_counts (table_a))
-		{
-			decrement (transaction_a, tables::cached_counts, rocksdb_val (rocksdb::Slice (table_to_column_family (table_a)->GetName ())), 1);
-		}
+		decrement (transaction_a, tables::cached_counts, rocksdb_val (rocksdb::Slice (table_to_column_family (table_a)->GetName ())), 1);
 	}
 
 	return tx (transaction_a)->Delete (table_to_column_family (table_a), key_a).code ();
@@ -227,14 +229,14 @@ int nano::rocksdb_store::del (nano::write_transaction const & transaction_a, tab
 
 bool nano::rocksdb_store::block_info_get (nano::transaction const &, nano::block_hash const &, nano::block_info &) const
 {
-	// Should not be called
-	assert (false);
+	// Should not be called as the RocksDB backend does not use this table
+	debug_assert (false);
 	return true;
 }
 
 void nano::rocksdb_store::version_put (nano::write_transaction const & transaction_a, int version_a)
 {
-	assert (transaction_a.contains (tables::meta));
+	debug_assert (transaction_a.contains (tables::meta));
 	nano::uint256_union version_key (1);
 	nano::uint256_union version_value (version_a);
 	auto status (put (transaction_a, tables::meta, version_key, nano::rocksdb_val (version_value)));
@@ -243,7 +245,7 @@ void nano::rocksdb_store::version_put (nano::write_transaction const & transacti
 
 rocksdb::Transaction * nano::rocksdb_store::tx (nano::transaction const & transaction_a) const
 {
-	assert (!is_read (transaction_a));
+	debug_assert (!is_read (transaction_a));
 	return static_cast<rocksdb::Transaction *> (transaction_a.get_handle ());
 }
 
@@ -276,8 +278,6 @@ bool nano::rocksdb_store::is_caching_counts (nano::tables table_a) const
 {
 	switch (table_a)
 	{
-		case tables::accounts:
-		case tables::unchecked:
 		case tables::send_blocks:
 		case tables::receive_blocks:
 		case tables::open_blocks:
@@ -318,7 +318,7 @@ int nano::rocksdb_store::decrement (nano::write_transaction const & transaction_
 
 int nano::rocksdb_store::put (nano::write_transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a, nano::rocksdb_val const & value_a)
 {
-	assert (transaction_a.contains (table_a));
+	debug_assert (transaction_a.contains (table_a));
 
 	auto txn = tx (transaction_a);
 	if (is_caching_counts (table_a))
@@ -366,7 +366,7 @@ uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, ro
 size_t nano::rocksdb_store::count (nano::transaction const & transaction_a, tables table_a) const
 {
 	size_t sum = 0;
-	// Some column families are small enough that they can just be iterated, rather than doing extra io caching counts
+	// Some column families are small enough (except unchecked) that they can just be iterated, rather than doing extra io caching counts
 	if (table_a == tables::peers)
 	{
 		for (auto i (peers_begin (transaction_a)), n (peers_end ()); i != n; ++i)
@@ -381,8 +381,26 @@ size_t nano::rocksdb_store::count (nano::transaction const & transaction_a, tabl
 			++sum;
 		}
 	}
+	// This should only be used during initialization as can be expensive during bootstrapping
+	else if (table_a == tables::unchecked)
+	{
+		for (auto i (unchecked_begin (transaction_a)), n (unchecked_end ()); i != n; ++i)
+		{
+			++sum;
+		}
+	}
+	// This should only be used in tests
+	else if (table_a == tables::accounts)
+	{
+		debug_assert (network_constants ().is_test_network ());
+		for (auto i (latest_begin (transaction_a)), n (latest_end ()); i != n; ++i)
+		{
+			++sum;
+		}
+	}
 	else
 	{
+		debug_assert (is_caching_counts (table_a));
 		return count (transaction_a, table_to_column_family (table_a));
 	}
 
@@ -391,7 +409,7 @@ size_t nano::rocksdb_store::count (nano::transaction const & transaction_a, tabl
 
 int nano::rocksdb_store::drop (nano::write_transaction const & transaction_a, tables table_a)
 {
-	assert (transaction_a.contains (table_a));
+	debug_assert (transaction_a.contains (table_a));
 	auto col = table_to_column_family (table_a);
 
 	int status = static_cast<int> (rocksdb::Status::Code::kOk);
@@ -432,7 +450,7 @@ int nano::rocksdb_store::clear (rocksdb::ColumnFamilyHandle * column_family)
 
 	// Need to add it back as we just want to clear the contents
 	auto handle_it = std::find (handles.begin (), handles.end (), column_family);
-	assert (handle_it != handles.cend ());
+	debug_assert (handle_it != handles.cend ());
 	status = db->CreateColumnFamily (get_cf_options (), name, &column_family);
 	release_assert (status.ok ());
 	*handle_it = column_family;
@@ -601,7 +619,14 @@ bool nano::rocksdb_store::copy_db (boost::filesystem::path const & destination_p
 	return false;
 }
 
+void nano::rocksdb_store::rebuild_db (nano::write_transaction const & transaction_a)
+{
+	release_assert (false && "Not available for RocksDB");
+}
+
 bool nano::rocksdb_store::init_error () const
 {
 	return error;
 }
+// Explicitly instantiate
+template class nano::block_store_partial<rocksdb::Slice, nano::rocksdb_store>;

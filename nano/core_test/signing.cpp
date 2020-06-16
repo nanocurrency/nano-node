@@ -1,4 +1,5 @@
-#include <nano/node/node.hpp>
+#include <nano/node/signatures.hpp>
+#include <nano/secure/common.hpp>
 
 #include <gtest/gtest.h>
 
@@ -72,7 +73,7 @@ TEST (signature_checker, many_multi_threaded)
 		for (int i = 0; i < num_check_sizes; ++i)
 		{
 			auto check_size = check_sizes[i];
-			assert (check_size > 0);
+			ASSERT_GT (check_size, 0);
 			auto last_signature_index = check_size - 1;
 
 			messages[i].resize (check_size);
@@ -145,4 +146,56 @@ TEST (signature_checker, one)
 	// Make it valid and check for succcess
 	block.signature.bytes[31] ^= 0x1;
 	verify_block (block, 1);
+}
+
+TEST (signature_checker, boundary_checks)
+{
+	// sizes container must be in incrementing order
+	std::vector<size_t> sizes{ 0, 1 };
+	auto add_boundary = [&sizes](size_t boundary) {
+		sizes.insert (sizes.end (), { boundary - 1, boundary, boundary + 1 });
+	};
+
+	for (auto i = 1; i <= 5; ++i)
+	{
+		add_boundary (nano::signature_checker::batch_size * i);
+	}
+
+	nano::signature_checker checker (1);
+	auto max_size = *(sizes.end () - 1);
+	std::vector<nano::uint256_union> hashes;
+	hashes.reserve (max_size);
+	std::vector<unsigned char const *> messages;
+	messages.reserve (max_size);
+	std::vector<size_t> lengths;
+	lengths.reserve (max_size);
+	std::vector<unsigned char const *> pub_keys;
+	pub_keys.reserve (max_size);
+	std::vector<unsigned char const *> signatures;
+	signatures.reserve (max_size);
+	nano::keypair key;
+	nano::state_block block (key.pub, 0, key.pub, 0, 0, key.prv, key.pub, 0);
+
+	auto last_size = 0;
+	for (auto size : sizes)
+	{
+		// The size needed to append to existing containers, saves re-initializing from scratch each iteration
+		auto extra_size = size - last_size;
+
+		std::vector<int> verifications;
+		verifications.resize (size);
+		for (auto i (0); i < extra_size; ++i)
+		{
+			hashes.push_back (block.hash ());
+			messages.push_back (hashes.back ().bytes.data ());
+			lengths.push_back (sizeof (decltype (hashes)::value_type));
+			pub_keys.push_back (block.hashables.account.bytes.data ());
+			signatures.push_back (block.signature.bytes.data ());
+		}
+		nano::signature_check_set check = { size, messages.data (), lengths.data (), pub_keys.data (), signatures.data (), verifications.data () };
+		checker.verify (check);
+		bool all_valid = std::all_of (verifications.cbegin (), verifications.cend (), [](auto verification) { return verification == 1; });
+		ASSERT_TRUE (all_valid);
+		last_size = size;
+	}
 }

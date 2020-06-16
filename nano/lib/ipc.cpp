@@ -1,4 +1,5 @@
 #include <nano/lib/ipc.hpp>
+#include <nano/lib/utility.hpp>
 
 nano::ipc::socket_base::socket_base (boost::asio::io_context & io_ctx_a) :
 io_timer (io_ctx_a)
@@ -28,7 +29,7 @@ void nano::ipc::socket_base::timer_cancel ()
 {
 	boost::system::error_code ec;
 	io_timer.cancel (ec);
-	assert (!ec);
+	debug_assert (!ec);
 }
 
 nano::ipc::dsock_file_remover::dsock_file_remover (std::string const & file_a) :

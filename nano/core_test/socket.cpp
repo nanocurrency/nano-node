@@ -1,18 +1,83 @@
 #include <nano/core_test/testutil.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/node/socket.hpp>
 #include <nano/node/testing.hpp>
 
 #include <gtest/gtest.h>
 
-#include <boost/thread.hpp>
-
 using namespace std::chrono_literals;
+
+TEST (socket, drop_policy)
+{
+	auto node_flags = nano::inactive_node_flag_defaults ();
+	node_flags.read_only = false;
+	nano::inactive_node inactivenode (nano::unique_path (), node_flags);
+	auto node = inactivenode.node;
+
+	nano::thread_runner runner (node->io_ctx, 1);
+
+	std::vector<std::shared_ptr<nano::socket>> connections;
+
+	// We're going to write twice the queue size + 1, and the server isn't reading
+	// The total number of drops should thus be 1 (the socket allows doubling the queue size for no_socket_drop)
+	size_t max_write_queue_size = 0;
+	{
+		auto client_dummy (std::make_shared<nano::socket> (node, boost::none, nano::socket::concurrency::multi_writer));
+		max_write_queue_size = client_dummy->get_max_write_queue_size ();
+	}
+
+	auto func = [&](size_t total_message_count, nano::buffer_drop_policy drop_policy) {
+		auto server_port (nano::get_available_port ());
+		boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v4::any (), server_port);
+
+		auto server_socket (std::make_shared<nano::server_socket> (node, endpoint, 1, nano::socket::concurrency::multi_writer));
+		boost::system::error_code ec;
+		server_socket->start (ec);
+		ASSERT_FALSE (ec);
+
+		// Accept connection, but don't read so the writer will drop.
+		server_socket->on_connection ([&connections](std::shared_ptr<nano::socket> new_connection, boost::system::error_code const & ec_a) {
+			connections.push_back (new_connection);
+			return true;
+		});
+
+		auto client (std::make_shared<nano::socket> (node, boost::none, nano::socket::concurrency::multi_writer));
+		nano::util::counted_completion write_completion (total_message_count);
+
+		client->async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::loopback (), server_port),
+		[client, total_message_count, node, &write_completion, &drop_policy](boost::system::error_code const & ec_a) {
+			for (int i = 0; i < total_message_count; i++)
+			{
+				std::vector<uint8_t> buff (1);
+				client->async_write (
+				nano::shared_const_buffer (std::move (buff)), [&write_completion](boost::system::error_code const & ec, size_t size_a) {
+					write_completion.increment ();
+				},
+				drop_policy);
+			}
+		});
+		write_completion.await_count_for (std::chrono::seconds (5));
+	};
+
+	func (max_write_queue_size * 2 + 1, nano::buffer_drop_policy::no_socket_drop);
+	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_write_no_socket_drop, nano::stat::dir::out));
+	ASSERT_EQ (0, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_write_drop, nano::stat::dir::out));
+
+	func (max_write_queue_size + 1, nano::buffer_drop_policy::limiter);
+	// The stats are accumulated from before
+	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_write_no_socket_drop, nano::stat::dir::out));
+	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_write_drop, nano::stat::dir::out));
+
+	node->stop ();
+	runner.stop_event_processing ();
+	runner.join ();
+}
 
 TEST (socket, concurrent_writes)
 {
 	auto node_flags = nano::inactive_node_flag_defaults ();
 	node_flags.read_only = false;
-	nano::inactive_node inactivenode (nano::unique_path (), 24000, node_flags);
+	nano::inactive_node inactivenode (nano::unique_path (), node_flags);
 	auto node = inactivenode.node;
 
 	// This gives more realistic execution than using system#poll, allowing writes to

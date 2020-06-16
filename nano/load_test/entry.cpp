@@ -1,7 +1,11 @@
-#include <nano/boost/asio.hpp>
-#include <nano/boost/beast.hpp>
-#include <nano/boost/process.hpp>
+#include <nano/boost/asio/bind_executor.hpp>
+#include <nano/boost/asio/connect.hpp>
+#include <nano/boost/beast/core/flat_buffer.hpp>
+#include <nano/boost/beast/http.hpp>
+#include <nano/boost/process/child.hpp>
+#define IGNORE_GTEST_INCL
 #include <nano/core_test/testutil.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/testing.hpp>
@@ -9,8 +13,10 @@
 
 #include <boost/dll/runtime_symbol_info.hpp>
 #include <boost/program_options.hpp>
+#include <boost/property_tree/json_parser.hpp>
 
 #include <csignal>
+#include <future>
 #include <iomanip>
 #include <random>
 
@@ -248,37 +254,93 @@ private:
 	tcp::resolver::results_type const & results;
 };
 
+class rpc_session final : public std::enable_shared_from_this<rpc_session>
+{
+public:
+	rpc_session (boost::property_tree::ptree const & request, boost::asio::io_context & ioc, tcp::resolver::results_type const & results, std::function<void(boost::property_tree::ptree const &)> callback) :
+	io_ctx (ioc),
+	socket (ioc),
+	request (request),
+	results (results),
+	callback (callback)
+	{
+	}
+
+	void run ()
+	{
+		auto this_l (shared_from_this ());
+		boost::asio::async_connect (this_l->socket, this_l->results.cbegin (), this_l->results.cend (), [this_l](boost::system::error_code const & ec, boost::asio::ip::tcp::resolver::iterator) {
+			if (ec)
+			{
+				fail (ec, "connect");
+			}
+
+			std::stringstream ostream;
+			boost::property_tree::write_json (ostream, this_l->request);
+
+			this_l->req.method (http::verb::post);
+			this_l->req.version (11);
+			this_l->req.target ("/");
+			this_l->req.body () = ostream.str ();
+			this_l->req.prepare_payload ();
+
+			http::async_write (this_l->socket, this_l->req, [this_l](boost::system::error_code ec, std::size_t) {
+				if (ec)
+				{
+					fail (ec, "write");
+				}
+
+				http::async_read (this_l->socket, this_l->buffer, this_l->res, [this_l](boost::system::error_code ec, std::size_t) {
+					if (ec)
+					{
+						fail (ec, "read");
+					}
+
+					boost::property_tree::ptree json;
+					std::stringstream body (this_l->res.body ());
+					boost::property_tree::read_json (body, json);
+
+					this_l->socket.shutdown (tcp::socket::shutdown_both, ec);
+					if (ec && ec != boost::system::errc::not_connected)
+					{
+						fail (ec, "shutdown");
+					}
+					else
+					{
+						return this_l->callback (json);
+					}
+				});
+			});
+		});
+	}
+
+private:
+	boost::asio::io_context & io_ctx;
+	socket_type socket;
+	boost::beast::flat_buffer buffer;
+	http::request<http::string_body> req;
+	http::response<http::string_body> res;
+	boost::property_tree::ptree request;
+	tcp::resolver::results_type const & results;
+	std::function<void(boost::property_tree::ptree const &)> callback;
+};
+
 boost::property_tree::ptree rpc_request (boost::property_tree::ptree const & request, boost::asio::io_context & ioc, tcp::resolver::results_type const & results)
 {
-	tcp::socket socket{ ioc };
-	boost::asio::connect (socket, results.begin (), results.end ());
-
-	std::stringstream ostream;
-	boost::property_tree::write_json (ostream, request);
-	auto request_string = ostream.str ();
-
-	http::request<http::string_body> req{ http::verb::post, "/", 11, request_string };
-	req.prepare_payload ();
-
-	http::write (socket, req);
-	boost::beast::flat_buffer buffer;
-
-	http::response<boost::beast::http::string_body> res;
-	http::read (socket, buffer, res);
-
-	boost::property_tree::ptree json;
-	std::stringstream body (res.body ());
-	boost::property_tree::read_json (body, json);
-
-	// Gracefully close the socket
-	boost::system::error_code ec;
-	socket.shutdown (tcp::socket::shutdown_both, ec);
-
-	if (ec && ec != boost::system::errc::not_connected)
+	debug_assert (results.size () == 1);
+	std::promise<boost::optional<boost::property_tree::ptree>> promise;
+	auto rpc_session (std::make_shared<rpc_session> (request, ioc, results, [&promise](auto const & response_a) {
+		promise.set_value (response_a);
+	}));
+	rpc_session->run ();
+	auto future = promise.get_future ();
+	if (future.wait_for (std::chrono::seconds (5)) != std::future_status::ready)
 	{
-		throw boost::system::system_error{ ec };
+		throw std::runtime_error ("RPC request timed out");
 	}
-	return json;
+	auto response = future.get ();
+	debug_assert (response.is_initialized ());
+	return response.value_or (decltype (response)::argument_type{});
 }
 
 void keepalive_rpc (boost::asio::io_context & ioc, tcp::resolver::results_type const & results, uint16_t port)
@@ -407,6 +469,11 @@ int main (int argc, char * const * argv)
 		}
 		node_path = node_filepath.string ();
 	}
+	if (!boost::filesystem::exists (node_path))
+	{
+		std::cerr << "nano_node executable could not be found in " << node_path << std::endl;
+		return 1;
+	}
 
 	auto rpc_path_it (vm.find ("rpc_path"));
 	std::string rpc_path;
@@ -422,6 +489,11 @@ int main (int argc, char * const * argv)
 			rpc_filepath.replace_extension (running_executable_filepath.extension ());
 		}
 		rpc_path = rpc_filepath.string ();
+	}
+	if (!boost::filesystem::exists (rpc_path))
+	{
+		std::cerr << "nano_rpc executable could not be found in " << rpc_path << std::endl;
+		return 1;
 	}
 
 	std::vector<boost::filesystem::path> data_paths;
@@ -446,7 +518,7 @@ int main (int argc, char * const * argv)
 #else
 	std::thread processes_thread ([&data_paths, &node_path, &rpc_path, &current_network]() {
 		auto formatted_command = "%1% --daemon --data_path=%2% --network=%3% %4%";
-		assert (!data_paths.empty ());
+		ASSERT_TRUE (!data_paths.empty ());
 		for (int i = 0; i < data_paths.size (); ++i)
 		{
 			auto node_exe_command = boost::str (boost::format (formatted_command) % node_path % data_paths[i].string () % current_network % "&");
@@ -470,7 +542,7 @@ int main (int argc, char * const * argv)
 
 	boost::asio::io_context ioc;
 
-	assert (!nano::signal_handler_impl);
+	debug_assert (!nano::signal_handler_impl);
 	nano::signal_handler_impl = [&ioc]() {
 		ioc.stop ();
 	};
@@ -481,35 +553,35 @@ int main (int argc, char * const * argv)
 	tcp::resolver resolver{ ioc };
 	auto const primary_node_results = resolver.resolve ("::1", std::to_string (rpc_port_start));
 
-	for (int i = 0; i < node_count; ++i)
-	{
-		keepalive_rpc (ioc, primary_node_results, peering_port_start + i);
-	}
+	std::thread t ([send_count, &ioc, &primary_node_results, &resolver, &node_count, &destination_count]() {
+		for (int i = 0; i < node_count; ++i)
+		{
+			keepalive_rpc (ioc, primary_node_results, peering_port_start + i);
+		}
 
-	std::cout << "Beginning tests" << std::endl;
+		std::cout << "Beginning tests" << std::endl;
 
-	// Create keys
-	std::vector<account> destination_accounts;
-	for (int i = 0; i < destination_count; ++i)
-	{
-		destination_accounts.emplace_back (key_create_rpc (ioc, primary_node_results));
-	}
+		// Create keys
+		std::vector<account> destination_accounts;
+		for (int i = 0; i < destination_count; ++i)
+		{
+			destination_accounts.emplace_back (key_create_rpc (ioc, primary_node_results));
+		}
 
-	// Create wallet
-	std::string wallet = wallet_create_rpc (ioc, primary_node_results);
+		// Create wallet
+		std::string wallet = wallet_create_rpc (ioc, primary_node_results);
 
-	// Add genesis account to it
-	wallet_add_rpc (ioc, primary_node_results, wallet, nano::test_genesis_key.prv.data.to_string ());
+		// Add genesis account to it
+		wallet_add_rpc (ioc, primary_node_results, wallet, nano::test_genesis_key.prv.data.to_string ());
 
-	// Add destination accounts
-	for (auto & account : destination_accounts)
-	{
-		wallet_add_rpc (ioc, primary_node_results, wallet, account.private_key);
-	}
+		// Add destination accounts
+		for (auto & account : destination_accounts)
+		{
+			wallet_add_rpc (ioc, primary_node_results, wallet, account.private_key);
+		}
 
-	std::cout << "\rPrimary node processing transactions: 00%";
+		std::cout << "\rPrimary node processing transactions: 00%";
 
-	std::thread t ([send_count, &destination_accounts, &ioc, &primary_node_results, &wallet, &resolver, &node_count]() {
 		std::random_device rd;
 		std::mt19937 mt (rd ());
 		std::uniform_int_distribution<size_t> dist (0, destination_accounts.size () - 1);

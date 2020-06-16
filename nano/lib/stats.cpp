@@ -1,4 +1,5 @@
-#include <nano/boost/asio.hpp>
+#include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/locks.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/tomlconfig.hpp>
 
@@ -7,9 +8,7 @@
 
 #include <ctime>
 #include <fstream>
-#include <iostream>
 #include <sstream>
-#include <tuple>
 
 nano::error nano::stat_config::deserialize_json (nano::jsonconfig & json)
 {
@@ -214,7 +213,7 @@ std::shared_ptr<nano::stat_entry> nano::stat::get_entry_impl (uint32_t key, size
 	auto entry = entries.find (key);
 	if (entry == entries.end ())
 	{
-		res = entries.insert (std::make_pair (key, std::make_shared<nano::stat_entry> (capacity, interval))).first->second;
+		res = entries.emplace (key, std::make_shared<nano::stat_entry> (capacity, interval)).first->second;
 	}
 	else
 	{
@@ -430,7 +429,7 @@ std::string nano::stat::type_to_string (uint32_t key)
 		case nano::stat::type::message:
 			res = "message";
 			break;
-		case nano::stat::type::observer:
+		case nano::stat::type::confirmation_observer:
 			res = "observer";
 			break;
 		case nano::stat::type::confirmation_height:
@@ -438,6 +437,19 @@ std::string nano::stat::type_to_string (uint32_t key)
 			break;
 		case nano::stat::type::drop:
 			res = "drop";
+			break;
+		case nano::stat::type::aggregator:
+			res = "aggregator";
+			break;
+		case nano::stat::type::requests:
+			res = "requests";
+			break;
+		case nano::stat::type::filter:
+			res = "filter";
+			break;
+		case nano::stat::type::telemetry:
+			res = "telemetry";
+			break;
 	}
 	return res;
 }
@@ -478,13 +490,13 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::bulk_push:
 			res = "bulk_push";
 			break;
-		case nano::stat::detail::observer_confirmation_active_quorum:
+		case nano::stat::detail::active_quorum:
 			res = "observer_confirmation_active_quorum";
 			break;
-		case nano::stat::detail::observer_confirmation_active_conf_height:
+		case nano::stat::detail::active_conf_height:
 			res = "observer_confirmation_active_conf_height";
 			break;
-		case nano::stat::detail::observer_confirmation_inactive:
+		case nano::stat::detail::inactive_conf_height:
 			res = "observer_confirmation_inactive";
 			break;
 		case nano::stat::detail::error_socket_close:
@@ -504,6 +516,15 @@ std::string nano::stat::detail_to_string (uint32_t key)
 			break;
 		case nano::stat::detail::fork:
 			res = "fork";
+			break;
+		case nano::stat::detail::old:
+			res = "old";
+			break;
+		case nano::stat::detail::gap_previous:
+			res = "gap_previous";
+			break;
+		case nano::stat::detail::gap_source:
+			res = "gap_source";
 			break;
 		case nano::stat::detail::frontier_confirmation_failed:
 			res = "frontier_confirmation_failed";
@@ -553,6 +574,12 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::send:
 			res = "send";
 			break;
+		case nano::stat::detail::telemetry_req:
+			res = "telemetry_req";
+			break;
+		case nano::stat::detail::telemetry_ack:
+			res = "telemetry_ack";
+			break;
 		case nano::stat::detail::state_block:
 			res = "state_block";
 			break;
@@ -564,6 +591,9 @@ std::string nano::stat::detail_to_string (uint32_t key)
 			break;
 		case nano::stat::detail::vote_replay:
 			res = "vote_replay";
+			break;
+		case nano::stat::detail::vote_indeterminate:
+			res = "vote_indeterminate";
 			break;
 		case nano::stat::detail::vote_invalid:
 			res = "vote_invalid";
@@ -583,6 +613,24 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::late_block_seconds:
 			res = "late_block_seconds";
 			break;
+		case nano::stat::detail::election_non_priority:
+			res = "election_non_priority";
+			break;
+		case nano::stat::detail::election_priority:
+			res = "election_priority";
+			break;
+		case nano::stat::detail::election_block_conflict:
+			res = "election_block_conflict";
+			break;
+		case nano::stat::detail::election_difficulty_update:
+			res = "election_difficulty_update";
+			break;
+		case nano::stat::detail::election_drop:
+			res = "election_drop";
+			break;
+		case nano::stat::detail::election_restart:
+			res = "election_restart";
+			break;
 		case nano::stat::detail::blocking:
 			res = "blocking";
 			break;
@@ -597,6 +645,12 @@ std::string nano::stat::detail_to_string (uint32_t key)
 			break;
 		case nano::stat::detail::tcp_write_drop:
 			res = "tcp_write_drop";
+			break;
+		case nano::stat::detail::tcp_write_no_socket_drop:
+			res = "tcp_write_no_socket_drop";
+			break;
+		case nano::stat::detail::tcp_excluded:
+			res = "tcp_excluded";
 			break;
 		case nano::stat::detail::unreachable_host:
 			res = "unreachable_host";
@@ -628,14 +682,72 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::invalid_node_id_handshake_message:
 			res = "invalid_node_id_handshake_message";
 			break;
+		case nano::stat::detail::invalid_telemetry_req_message:
+			res = "invalid_telemetry_req_message";
+			break;
+		case nano::stat::detail::invalid_telemetry_ack_message:
+			res = "invalid_telemetry_ack_message";
+			break;
 		case nano::stat::detail::outdated_version:
 			res = "outdated_version";
 			break;
-		case nano::stat::detail::invalid_block:
-			res = "invalid_block";
-			break;
 		case nano::stat::detail::blocks_confirmed:
 			res = "blocks_confirmed";
+			break;
+		case nano::stat::detail::blocks_confirmed_unbounded:
+			res = "blocks_confirmed_unbounded";
+			break;
+		case nano::stat::detail::blocks_confirmed_bounded:
+			res = "blocks_confirmed_bounded";
+			break;
+		case nano::stat::detail::aggregator_accepted:
+			res = "aggregator_accepted";
+			break;
+		case nano::stat::detail::aggregator_dropped:
+			res = "aggregator_dropped";
+			break;
+		case nano::stat::detail::requests_cached_hashes:
+			res = "requests_cached_hashes";
+			break;
+		case nano::stat::detail::requests_generated_hashes:
+			res = "requests_generated_hashes";
+			break;
+		case nano::stat::detail::requests_cached_votes:
+			res = "requests_cached_votes";
+			break;
+		case nano::stat::detail::requests_generated_votes:
+			res = "requests_generated_votes";
+			break;
+		case nano::stat::detail::requests_cannot_vote:
+			res = "requests_cannot_vote";
+			break;
+		case nano::stat::detail::requests_unknown:
+			res = "requests_unknown";
+			break;
+		case nano::stat::detail::duplicate_publish:
+			res = "duplicate_publish";
+			break;
+		case nano::stat::detail::different_genesis_hash:
+			res = "different_genesis_hash";
+			break;
+		case nano::stat::detail::invalid_signature:
+			res = "invalid_signature";
+			break;
+		case nano::stat::detail::node_id_mismatch:
+			res = "node_id_mismatch";
+			break;
+		case nano::stat::detail::request_within_protection_cache_zone:
+			res = "request_within_protection_cache_zone";
+			break;
+		case nano::stat::detail::no_response_received:
+			res = "no_response_received";
+			break;
+		case nano::stat::detail::unsolicited_telemetry_ack:
+			res = "unsolicited_telemetry_ack";
+			break;
+		case nano::stat::detail::failed_send_telemetry_req:
+			res = "failed_send_telemetry_req";
+			break;
 	}
 	return res;
 }
@@ -654,4 +766,54 @@ std::string nano::stat::dir_to_string (uint32_t key)
 			break;
 	}
 	return res;
+}
+
+nano::stat_datapoint::stat_datapoint (stat_datapoint const & other_a)
+{
+	nano::lock_guard<std::mutex> lock (other_a.datapoint_mutex);
+	value = other_a.value;
+	timestamp = other_a.timestamp;
+}
+
+nano::stat_datapoint & nano::stat_datapoint::operator= (stat_datapoint const & other_a)
+{
+	nano::lock_guard<std::mutex> lock (other_a.datapoint_mutex);
+	value = other_a.value;
+	timestamp = other_a.timestamp;
+	return *this;
+}
+
+uint64_t nano::stat_datapoint::get_value () const
+{
+	nano::lock_guard<std::mutex> lock (datapoint_mutex);
+	return value;
+}
+
+void nano::stat_datapoint::set_value (uint64_t value_a)
+{
+	nano::lock_guard<std::mutex> lock (datapoint_mutex);
+	value = value_a;
+}
+
+std::chrono::system_clock::time_point nano::stat_datapoint::get_timestamp () const
+{
+	nano::lock_guard<std::mutex> lock (datapoint_mutex);
+	return timestamp;
+}
+
+void nano::stat_datapoint::set_timestamp (std::chrono::system_clock::time_point timestamp_a)
+{
+	nano::lock_guard<std::mutex> lock (datapoint_mutex);
+	timestamp = timestamp_a;
+}
+
+/** Add \addend to the current value and optionally update the timestamp */
+void nano::stat_datapoint::add (uint64_t addend, bool update_timestamp)
+{
+	nano::lock_guard<std::mutex> lock (datapoint_mutex);
+	value += addend;
+	if (update_timestamp)
+	{
+		timestamp = std::chrono::system_clock::now ();
+	}
 }

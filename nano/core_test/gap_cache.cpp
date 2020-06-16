@@ -7,7 +7,7 @@ using namespace std::chrono_literals;
 
 TEST (gap_cache, add_new)
 {
-	nano::system system (24000, 1);
+	nano::system system (1);
 	nano::gap_cache cache (*system.nodes[0]);
 	auto block1 (std::make_shared<nano::send_block> (0, 1, 2, nano::keypair ().prv, 4, 5));
 	cache.add (block1->hash ());
@@ -15,7 +15,7 @@ TEST (gap_cache, add_new)
 
 TEST (gap_cache, add_existing)
 {
-	nano::system system (24000, 1);
+	nano::system system (1);
 	nano::gap_cache cache (*system.nodes[0]);
 	auto block1 (std::make_shared<nano::send_block> (0, 1, 2, nano::keypair ().prv, 4, 5));
 	cache.add (block1->hash ());
@@ -39,7 +39,7 @@ TEST (gap_cache, add_existing)
 
 TEST (gap_cache, comparison)
 {
-	nano::system system (24000, 1);
+	nano::system system (1);
 	nano::gap_cache cache (*system.nodes[0]);
 	auto block1 (std::make_shared<nano::send_block> (1, 0, 2, nano::keypair ().prv, 4, 5));
 	cache.add (block1->hash ());
@@ -63,57 +63,61 @@ TEST (gap_cache, comparison)
 	ASSERT_EQ (arrival, cache.blocks.get<1> ().begin ()->arrival);
 }
 
+// Upon receiving enough votes for a gapped block, a lazy bootstrap should be initiated
 TEST (gap_cache, gap_bootstrap)
 {
-	nano::system system (24000, 2);
-	nano::block_hash latest (system.nodes[0]->latest (nano::test_genesis_key.pub));
+	nano::node_flags node_flags;
+	node_flags.disable_legacy_bootstrap = true;
+	node_flags.disable_request_loop = true; // to avoid fallback behavior of broadcasting blocks
+	nano::system system (2, nano::transport::transport_type::tcp, node_flags);
+
+	auto & node1 (*system.nodes[0]);
+	auto & node2 (*system.nodes[1]);
+	nano::block_hash latest (node1.latest (nano::test_genesis_key.pub));
 	nano::keypair key;
 	auto send (std::make_shared<nano::send_block> (latest, key.pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest)));
+	node1.process (*send);
+	ASSERT_EQ (nano::genesis_amount - 100, node1.balance (nano::genesis_account));
+	ASSERT_EQ (nano::genesis_amount, node2.balance (nano::genesis_account));
+	// Confirm send block, allowing voting on the upcoming block
+	node1.block_confirm (send);
 	{
-		auto transaction (system.nodes[0]->store.tx_begin_write ());
-		ASSERT_EQ (nano::process_result::progress, system.nodes[0]->block_processor.process_one (transaction, send).code);
+		auto election = node1.active.election (send->qualified_root ());
+		ASSERT_NE (nullptr, election);
+		nano::lock_guard<std::mutex> guard (node1.active.mutex);
+		election->confirm_once ();
 	}
-	ASSERT_EQ (nano::genesis_amount - 100, system.nodes[0]->balance (nano::genesis_account));
-	ASSERT_EQ (nano::genesis_amount, system.nodes[1]->balance (nano::genesis_account));
+	ASSERT_TIMELY (2s, node1.block_confirmed (send->hash ()));
+	node1.active.erase (*send);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	system.wallet (0)->insert_adhoc (key.prv);
 	auto latest_block (system.wallet (0)->send_action (nano::test_genesis_key.pub, key.pub, 100));
 	ASSERT_NE (nullptr, latest_block);
-	ASSERT_EQ (nano::genesis_amount - 200, system.nodes[0]->balance (nano::genesis_account));
-	ASSERT_EQ (nano::genesis_amount, system.nodes[1]->balance (nano::genesis_account));
-	system.deadline_set (10s);
-	{
-		// The separate publish and vote system doesn't work very well here because it's instantly confirmed.
-		// We help it get the block and vote out here.
-		auto transaction (system.nodes[0]->store.tx_begin_read ());
-		system.nodes[0]->network.flood_block (latest_block);
-	}
-	while (system.nodes[1]->balance (nano::genesis_account) != nano::genesis_amount - 200)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_EQ (nano::genesis_amount - 200, node1.balance (nano::genesis_account));
+	ASSERT_EQ (nano::genesis_amount, node2.balance (nano::genesis_account));
+	ASSERT_TIMELY (10s, node2.balance (nano::genesis_account) == nano::genesis_amount - 200);
 }
 
 TEST (gap_cache, two_dependencies)
 {
-	nano::system system (24000, 1);
+	nano::system system (1);
+	auto & node1 (*system.nodes[0]);
 	nano::keypair key;
 	nano::genesis genesis;
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key.pub, 1, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
 	auto send2 (std::make_shared<nano::send_block> (send1->hash (), key.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send1->hash ())));
 	auto open (std::make_shared<nano::open_block> (send1->hash (), key.pub, key.pub, key.prv, key.pub, *system.work.generate (key.pub)));
-	ASSERT_EQ (0, system.nodes[0]->gap_cache.size ());
-	system.nodes[0]->block_processor.add (send2, nano::seconds_since_epoch ());
-	system.nodes[0]->block_processor.flush ();
-	ASSERT_EQ (1, system.nodes[0]->gap_cache.size ());
-	system.nodes[0]->block_processor.add (open, nano::seconds_since_epoch ());
-	system.nodes[0]->block_processor.flush ();
-	ASSERT_EQ (2, system.nodes[0]->gap_cache.size ());
-	system.nodes[0]->block_processor.add (send1, nano::seconds_since_epoch ());
-	system.nodes[0]->block_processor.flush ();
-	ASSERT_EQ (0, system.nodes[0]->gap_cache.size ());
-	auto transaction (system.nodes[0]->store.tx_begin_read ());
-	ASSERT_TRUE (system.nodes[0]->store.block_exists (transaction, send1->hash ()));
-	ASSERT_TRUE (system.nodes[0]->store.block_exists (transaction, send2->hash ()));
-	ASSERT_TRUE (system.nodes[0]->store.block_exists (transaction, open->hash ()));
+	ASSERT_EQ (0, node1.gap_cache.size ());
+	node1.block_processor.add (send2, nano::seconds_since_epoch ());
+	node1.block_processor.flush ();
+	ASSERT_EQ (1, node1.gap_cache.size ());
+	node1.block_processor.add (open, nano::seconds_since_epoch ());
+	node1.block_processor.flush ();
+	ASSERT_EQ (2, node1.gap_cache.size ());
+	node1.block_processor.add (send1, nano::seconds_since_epoch ());
+	node1.block_processor.flush ();
+	ASSERT_EQ (0, node1.gap_cache.size ());
+	auto transaction (node1.store.tx_begin_read ());
+	ASSERT_TRUE (node1.store.block_exists (transaction, send1->hash ()));
+	ASSERT_TRUE (node1.store.block_exists (transaction, send2->hash ()));
+	ASSERT_TRUE (node1.store.block_exists (transaction, open->hash ()));
 }

@@ -1,13 +1,18 @@
 #pragma once
 
-#include <nano/lib/errors.hpp>
-#include <nano/lib/numbers.hpp>
+#include <boost/config.hpp>
+#include <boost/version.hpp>
 
-#include <boost/filesystem.hpp>
-
-#include <array>
-#include <chrono>
+#include <algorithm>
 #include <string>
+
+namespace boost
+{
+namespace filesystem
+{
+	class path;
+}
+}
 
 #define xstr(a) ver_str (a)
 #define ver_str(a) #a
@@ -15,23 +20,35 @@
 /**
 * Returns build version information
 */
-static const char * NANO_VERSION_STRING = xstr (TAG_VERSION_STRING);
+const char * const NANO_VERSION_STRING = xstr (TAG_VERSION_STRING);
+const char * const NANO_MAJOR_VERSION_STRING = xstr (MAJOR_VERSION_STRING);
+const char * const NANO_MINOR_VERSION_STRING = xstr (MINOR_VERSION_STRING);
+const char * const NANO_PATCH_VERSION_STRING = xstr (PATCH_VERSION_STRING);
+const char * const NANO_PRE_RELEASE_VERSION_STRING = xstr (PRE_RELEASE_VERSION_STRING);
 
-static const char * BUILD_INFO = xstr (GIT_COMMIT_HASH BOOST_COMPILER) " \"BOOST " xstr (BOOST_VERSION) "\" BUILT " xstr (__DATE__);
+const char * const BUILD_INFO = xstr (GIT_COMMIT_HASH BOOST_COMPILER) " \"BOOST " xstr (BOOST_VERSION) "\" BUILT " xstr (__DATE__);
 
 /** Is TSAN/ASAN test build */
 #if defined(__has_feature)
 #if __has_feature(thread_sanitizer) || __has_feature(address_sanitizer)
-static const bool is_sanitizer_build = true;
+const bool is_sanitizer_build = true;
 #else
-static const bool is_sanitizer_build = false;
+const bool is_sanitizer_build = false;
 #endif
+// GCC builds
+#elif defined(__SANITIZE_THREAD__) || defined(__SANITIZE_ADDRESS__)
+const bool is_sanitizer_build = true;
 #else
-static const bool is_sanitizer_build = false;
+const bool is_sanitizer_build = false;
 #endif
 
 namespace nano
 {
+uint8_t get_major_node_version ();
+uint8_t get_minor_node_version ();
+uint8_t get_patch_node_version ();
+uint8_t get_pre_release_node_version ();
+
 /**
  * Network variants with different genesis blocks and network parameters
  * @warning Enum values are used in integral comparisons; do not change.
@@ -49,6 +66,31 @@ enum class nano_networks
 	rai_live_network = 2,
 };
 
+struct work_thresholds
+{
+	uint64_t const epoch_1;
+	uint64_t const epoch_2;
+	uint64_t const epoch_2_receive;
+
+	// Automatically calculated. The base threshold is the maximum of all thresholds and is used for all work multiplier calculations
+	uint64_t const base;
+
+	// Automatically calculated. The entry threshold is the minimum of all thresholds and defines the required work to enter the node, but does not guarantee a block is processed
+	uint64_t const entry;
+
+	constexpr work_thresholds (uint64_t epoch_1_a, uint64_t epoch_2_a, uint64_t epoch_2_receive_a) :
+	epoch_1 (epoch_1_a), epoch_2 (epoch_2_a), epoch_2_receive (epoch_2_receive_a),
+	base (std::max ({ epoch_1, epoch_2, epoch_2_receive })),
+	entry (std::min ({ epoch_1, epoch_2, epoch_2_receive }))
+	{
+	}
+	work_thresholds () = delete;
+	work_thresholds operator= (nano::work_thresholds const & other_a)
+	{
+		return other_a;
+	}
+};
+
 class network_constants
 {
 public:
@@ -58,10 +100,9 @@ public:
 	}
 
 	network_constants (nano_networks network_a) :
-	current_network (network_a)
+	current_network (network_a),
+	publish_thresholds (is_live_network () ? publish_full : is_beta_network () ? publish_beta : publish_test)
 	{
-		publish_threshold = is_test_network () ? publish_test_threshold : is_beta_network () ? publish_beta_threshold : publish_full_threshold;
-
 		// A representative is classified as principal based on its weight and this factor
 		principal_weight_factor = 1000; // 0.1%
 
@@ -69,17 +110,21 @@ public:
 		default_rpc_port = is_live_network () ? 7076 : is_beta_network () ? 55000 : 45000;
 		default_ipc_port = is_live_network () ? 7077 : is_beta_network () ? 56000 : 46000;
 		default_websocket_port = is_live_network () ? 7078 : is_beta_network () ? 57000 : 47000;
-		request_interval_ms = is_test_network () ? (is_sanitizer_build ? 100 : 20) : 500;
+		request_interval_ms = is_test_network () ? 20 : 500;
 	}
 
-	/** Network work thresholds. ~5 seconds of work for the live network */
-	static uint64_t const publish_full_threshold{ 0xffffffc000000000 };
-	static uint64_t const publish_beta_threshold{ 0xfffffc0000000000 }; // 16x lower than full
-	static uint64_t const publish_test_threshold{ 0xff00000000000000 }; // very low for tests
+	/** Network work thresholds. Define these inline as constexpr when moving to cpp17. */
+	static const nano::work_thresholds publish_full;
+	static const nano::work_thresholds publish_beta;
+	static const nano::work_thresholds publish_test;
+
+	/** Error message when an invalid network is specified */
+	static const char * active_network_err_msg;
 
 	/** The network this param object represents. This may differ from the global active network; this is needed for certain --debug... commands */
-	nano_networks current_network;
-	uint64_t publish_threshold;
+	nano_networks current_network{ nano::network_constants::active_network };
+	nano::work_thresholds publish_thresholds;
+
 	unsigned principal_weight_factor;
 	uint16_t default_node_port;
 	uint16_t default_rpc_port;
@@ -108,9 +153,9 @@ public:
 	 * If not called, the compile-time option will be used.
 	 * @param network_a The new active network. Valid values are "live", "beta" and "test"
 	 */
-	static nano::error set_active_network (std::string network_a)
+	static bool set_active_network (std::string network_a)
 	{
-		nano::error err;
+		auto error{ false };
 		if (network_a == "live")
 		{
 			active_network = nano::nano_networks::nano_live_network;
@@ -125,9 +170,9 @@ public:
 		}
 		else
 		{
-			err = "Invalid network. Valid values are live, beta and test.";
+			error = true;
 		}
-		return err;
+		return error;
 	}
 
 	const char * get_current_network_as_string () const
@@ -152,30 +197,12 @@ public:
 	static nano::nano_networks active_network;
 };
 
-inline boost::filesystem::path get_config_path (boost::filesystem::path const & data_path)
-{
-	return data_path / "config.json";
-}
-
-inline boost::filesystem::path get_rpc_config_path (boost::filesystem::path const & data_path)
-{
-	return data_path / "rpc_config.json";
-}
-
-inline boost::filesystem::path get_node_toml_config_path (boost::filesystem::path const & data_path)
-{
-	return data_path / "config-node.toml";
-}
-
-inline boost::filesystem::path get_rpc_toml_config_path (boost::filesystem::path const & data_path)
-{
-	return data_path / "config-rpc.toml";
-}
-
-inline boost::filesystem::path get_qtwallet_toml_config_path (boost::filesystem::path const & data_path)
-{
-	return data_path / "config-qtwallet.toml";
-}
+std::string get_config_path (boost::filesystem::path const & data_path);
+std::string get_rpc_config_path (boost::filesystem::path const & data_path);
+std::string get_node_toml_config_path (boost::filesystem::path const & data_path);
+std::string get_rpc_toml_config_path (boost::filesystem::path const & data_path);
+std::string get_access_toml_config_path (boost::filesystem::path const & data_path);
+std::string get_qtwallet_toml_config_path (boost::filesystem::path const & data_path);
 
 /** Called by gtest_main to enforce test network */
 void force_nano_test_network ();

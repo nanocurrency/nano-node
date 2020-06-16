@@ -1,8 +1,5 @@
 #pragma once
 
-#include <nano/boost/asio.hpp>
-#include <nano/lib/config.hpp>
-
 #include <miniupnp/miniupnpc/miniupnpc.h>
 
 #include <mutex>
@@ -20,6 +17,7 @@ public:
 	int remaining;
 	boost::asio::ip::address_v4 external_address;
 	uint16_t external_port;
+	bool enabled;
 };
 
 /** Collection of discovered UPnP devices and state*/
@@ -61,7 +59,7 @@ private:
 	boost::asio::ip::address_v4 address;
 	std::array<mapping_protocol, 2> protocols;
 	uint64_t check_count{ 0 };
-	bool on{ false };
+	std::atomic<bool> on{ false };
 	std::mutex mutex;
 };
 }

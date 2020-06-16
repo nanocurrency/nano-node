@@ -14,14 +14,14 @@ char const * account_lookup ("13456789abcdefghijkmnopqrstuwxyz");
 char const * account_reverse ("~0~1234567~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~89:;<=>?@AB~CDEFGHIJK~LMNO~~~~~");
 char account_encode (uint8_t value)
 {
-	assert (value < 32);
+	debug_assert (value < 32);
 	auto result (account_lookup[value]);
 	return result;
 }
 uint8_t account_decode (char value)
 {
-	assert (value >= '0');
-	assert (value <= '~');
+	debug_assert (value >= '0');
+	debug_assert (value <= '~');
 	auto result (account_reverse[value - 0x30]);
 	if (result != '~')
 	{
@@ -33,7 +33,7 @@ uint8_t account_decode (char value)
 
 void nano::public_key::encode_account (std::string & destination_a) const
 {
-	assert (destination_a.empty ());
+	debug_assert (destination_a.empty ());
 	destination_a.reserve (65);
 	uint64_t check (0);
 	blake2b_state hash;
@@ -200,7 +200,7 @@ nano::uint256_t nano::uint256_union::number () const
 
 void nano::uint256_union::encode_hex (std::string & text) const
 {
-	assert (text.empty ());
+	debug_assert (text.empty ());
 	std::stringstream stream;
 	stream << std::hex << std::uppercase << std::noshowbase << std::setw (64) << std::setfill ('0');
 	stream << number ();
@@ -238,7 +238,7 @@ bool nano::uint256_union::decode_hex (std::string const & text)
 
 void nano::uint256_union::encode_dec (std::string & text) const
 {
-	assert (text.empty ());
+	debug_assert (text.empty ());
 	std::stringstream stream;
 	stream << std::dec << std::noshowbase;
 	stream << number ();
@@ -317,7 +317,7 @@ nano::uint512_t nano::uint512_union::number () const
 
 void nano::uint512_union::encode_hex (std::string & text) const
 {
-	assert (text.empty ());
+	debug_assert (text.empty ());
 	std::stringstream stream;
 	stream << std::hex << std::uppercase << std::noshowbase << std::setw (128) << std::setfill ('0');
 	stream << number ();
@@ -396,13 +396,6 @@ nano::private_key const & nano::raw_key::as_private_key () const
 	return reinterpret_cast<nano::private_key const &> (data);
 }
 
-nano::signature nano::sign_message (nano::raw_key const & private_key, nano::public_key const & public_key, nano::uint256_union const & message)
-{
-	nano::signature result;
-	ed25519_sign (message.bytes.data (), sizeof (message.bytes), private_key.data.bytes.data (), public_key.bytes.data (), result.bytes.data ());
-	return result;
-}
-
 nano::private_key nano::deterministic_key (nano::raw_key const & seed_a, uint32_t index_a)
 {
 	nano::private_key prv_key;
@@ -422,16 +415,35 @@ nano::public_key nano::pub_key (nano::private_key const & privatekey_a)
 	return result;
 }
 
+nano::signature nano::sign_message (nano::raw_key const & private_key, nano::public_key const & public_key, uint8_t const * data, size_t size)
+{
+	nano::signature result;
+	ed25519_sign (data, size, private_key.data.bytes.data (), public_key.bytes.data (), result.bytes.data ());
+	return result;
+}
+
+nano::signature nano::sign_message (nano::raw_key const & private_key, nano::public_key const & public_key, nano::uint256_union const & message)
+{
+	return nano::sign_message (private_key, public_key, message.bytes.data (), sizeof (message.bytes));
+}
+
+bool nano::validate_message (nano::public_key const & public_key, uint8_t const * data, size_t size, nano::signature const & signature)
+{
+	return 0 != ed25519_sign_open (data, size, public_key.bytes.data (), signature.bytes.data ());
+}
+
 bool nano::validate_message (nano::public_key const & public_key, nano::uint256_union const & message, nano::signature const & signature)
 {
-	auto result (0 != ed25519_sign_open (message.bytes.data (), sizeof (message.bytes), public_key.bytes.data (), signature.bytes.data ()));
-	return result;
+	return validate_message (public_key, message.bytes.data (), sizeof (message.bytes), signature);
 }
 
 bool nano::validate_message_batch (const unsigned char ** m, size_t * mlen, const unsigned char ** pk, const unsigned char ** RS, size_t num, int * valid)
 {
-	bool result (0 == ed25519_sign_open_batch (m, mlen, pk, RS, num, valid));
-	return result;
+	for (size_t i{ 0 }; i < num; ++i)
+	{
+		valid[i] = (0 == ed25519_sign_open (m[i], mlen[i], pk[i], RS[i]));
+	}
+	return true;
 }
 
 nano::uint128_union::uint128_union (std::string const & string_a)
@@ -481,7 +493,7 @@ nano::uint128_t nano::uint128_union::number () const
 
 void nano::uint128_union::encode_hex (std::string & text) const
 {
-	assert (text.empty ());
+	debug_assert (text.empty ());
 	std::stringstream stream;
 	stream << std::hex << std::uppercase << std::noshowbase << std::setw (32) << std::setfill ('0');
 	stream << number ();
@@ -515,7 +527,7 @@ bool nano::uint128_union::decode_hex (std::string const & text)
 
 void nano::uint128_union::encode_dec (std::string & text) const
 {
-	assert (text.empty ());
+	debug_assert (text.empty ());
 	std::stringstream stream;
 	stream << std::dec << std::noshowbase;
 	stream << number ();
@@ -737,7 +749,7 @@ std::string format_balance (nano::uint128_t balance, nano::uint128_t scale, int 
 	return stream.str ();
 }
 
-std::string nano::uint128_union::format_balance (nano::uint128_t scale, int precision, bool group_digits)
+std::string nano::uint128_union::format_balance (nano::uint128_t scale, int precision, bool group_digits) const
 {
 	auto thousands_sep = std::use_facet<std::numpunct<char>> (std::locale ()).thousands_sep ();
 	auto decimal_point = std::use_facet<std::numpunct<char>> (std::locale ()).decimal_point ();
@@ -745,7 +757,7 @@ std::string nano::uint128_union::format_balance (nano::uint128_t scale, int prec
 	return ::format_balance (number (), scale, precision, group_digits, thousands_sep, decimal_point, grouping);
 }
 
-std::string nano::uint128_union::format_balance (nano::uint128_t scale, int precision, bool group_digits, const std::locale & locale)
+std::string nano::uint128_union::format_balance (nano::uint128_t scale, int precision, bool group_digits, const std::locale & locale) const
 {
 	auto thousands_sep = std::use_facet<std::moneypunct<char>> (locale).thousands_sep ();
 	auto decimal_point = std::use_facet<std::moneypunct<char>> (locale).decimal_point ();
@@ -894,7 +906,7 @@ std::string nano::to_string (double const value_a, int const precision_a)
 
 uint64_t nano::difficulty::from_multiplier (double const multiplier_a, uint64_t const base_difficulty_a)
 {
-	assert (multiplier_a > 0.);
+	debug_assert (multiplier_a > 0.);
 	nano::uint128_t reverse_difficulty ((-base_difficulty_a) / multiplier_a);
 	if (reverse_difficulty > std::numeric_limits<std::uint64_t>::max ())
 	{
@@ -912,7 +924,7 @@ uint64_t nano::difficulty::from_multiplier (double const multiplier_a, uint64_t 
 
 double nano::difficulty::to_multiplier (uint64_t const difficulty_a, uint64_t const base_difficulty_a)
 {
-	assert (difficulty_a > 0);
+	debug_assert (difficulty_a > 0);
 	return static_cast<double> (-base_difficulty_a) / (-difficulty_a);
 }
 

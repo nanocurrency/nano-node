@@ -1,12 +1,10 @@
 #include <nano/core_test/testutil.hpp>
 #include <nano/node/common.hpp>
-#include <nano/node/node.hpp>
+#include <nano/secure/buffer.hpp>
 
 #include <gtest/gtest.h>
 
 #include <boost/property_tree/json_parser.hpp>
-
-#include <fstream>
 
 #include <crypto/ed25519-donna/ed25519.h>
 
@@ -279,7 +277,7 @@ TEST (frontier_req, serialization)
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream (bytes);
-		request1.serialize (stream);
+		request1.serialize (stream, false);
 	}
 	auto error (false);
 	nano::bufferstream stream (bytes.data (), bytes.size ());
@@ -299,7 +297,7 @@ TEST (block, publish_req_serialization)
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream (bytes);
-		req.serialize (stream);
+		req.serialize (stream, false);
 	}
 	auto error (false);
 	nano::bufferstream stream2 (bytes.data (), bytes.size ());
@@ -309,6 +307,12 @@ TEST (block, publish_req_serialization)
 	ASSERT_FALSE (error);
 	ASSERT_EQ (req, req2);
 	ASSERT_EQ (*req.block, *req2.block);
+}
+
+TEST (block, difficulty)
+{
+	nano::send_block block (0, 1, 2, nano::keypair ().prv, 4, 5);
+	ASSERT_EQ (block.difficulty (), nano::work_difficulty (block.work_version (), block.root (), block.block_work ()));
 }
 
 TEST (state_block, serialization)
@@ -368,26 +372,46 @@ TEST (state_block, hashing)
 	nano::keypair key;
 	nano::state_block block (key.pub, 0, key.pub, 0, 0, key.prv, key.pub, 0);
 	auto hash (block.hash ());
+	ASSERT_EQ (hash, block.hash ()); // check cache works
 	block.hashables.account.bytes[0] ^= 0x1;
+	block.refresh ();
 	ASSERT_NE (hash, block.hash ());
 	block.hashables.account.bytes[0] ^= 0x1;
+	block.refresh ();
 	ASSERT_EQ (hash, block.hash ());
 	block.hashables.previous.bytes[0] ^= 0x1;
+	block.refresh ();
 	ASSERT_NE (hash, block.hash ());
 	block.hashables.previous.bytes[0] ^= 0x1;
+	block.refresh ();
 	ASSERT_EQ (hash, block.hash ());
 	block.hashables.representative.bytes[0] ^= 0x1;
+	block.refresh ();
 	ASSERT_NE (hash, block.hash ());
 	block.hashables.representative.bytes[0] ^= 0x1;
+	block.refresh ();
 	ASSERT_EQ (hash, block.hash ());
 	block.hashables.balance.bytes[0] ^= 0x1;
+	block.refresh ();
 	ASSERT_NE (hash, block.hash ());
 	block.hashables.balance.bytes[0] ^= 0x1;
+	block.refresh ();
 	ASSERT_EQ (hash, block.hash ());
 	block.hashables.link.bytes[0] ^= 0x1;
+	block.refresh ();
 	ASSERT_NE (hash, block.hash ());
 	block.hashables.link.bytes[0] ^= 0x1;
+	block.refresh ();
 	ASSERT_EQ (hash, block.hash ());
+}
+
+TEST (blocks, work_version)
+{
+	ASSERT_EQ (nano::work_version::work_1, nano::send_block ().work_version ());
+	ASSERT_EQ (nano::work_version::work_1, nano::receive_block ().work_version ());
+	ASSERT_EQ (nano::work_version::work_1, nano::change_block ().work_version ());
+	ASSERT_EQ (nano::work_version::work_1, nano::open_block ().work_version ());
+	ASSERT_EQ (nano::work_version::work_1, nano::state_block ().work_version ());
 }
 
 TEST (block_uniquer, null)

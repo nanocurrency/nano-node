@@ -1,10 +1,13 @@
-#include <nano/node/bootstrap/bootstrap.hpp>
+#include <nano/node/bootstrap/bootstrap_attempt.hpp>
 #include <nano/node/bootstrap/bootstrap_bulk_push.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
 
-nano::bulk_push_client::bulk_push_client (std::shared_ptr<nano::bootstrap_client> const & connection_a) :
-connection (connection_a)
+#include <boost/format.hpp>
+
+nano::bulk_push_client::bulk_push_client (std::shared_ptr<nano::bootstrap_client> const & connection_a, std::shared_ptr<nano::bootstrap_attempt> const & attempt_a) :
+connection (connection_a),
+attempt (attempt_a)
 {
 }
 
@@ -18,10 +21,9 @@ void nano::bulk_push_client::start ()
 	auto this_l (shared_from_this ());
 	connection->channel->send (
 	message, [this_l](boost::system::error_code const & ec, size_t size_a) {
-		auto transaction (this_l->connection->node->store.tx_begin_read ());
 		if (!ec)
 		{
-			this_l->push (transaction);
+			this_l->push ();
 		}
 		else
 		{
@@ -31,10 +33,10 @@ void nano::bulk_push_client::start ()
 			}
 		}
 	},
-	false); // is bootstrap traffic is_droppable false
+	nano::buffer_drop_policy::no_limiter_drop);
 }
 
-void nano::bulk_push_client::push (nano::transaction const & transaction_a)
+void nano::bulk_push_client::push ()
 {
 	std::shared_ptr<nano::block> block;
 	bool finished (false);
@@ -42,20 +44,11 @@ void nano::bulk_push_client::push (nano::transaction const & transaction_a)
 	{
 		if (current_target.first.is_zero () || current_target.first == current_target.second)
 		{
-			nano::lock_guard<std::mutex> guard (connection->attempt->mutex);
-			if (!connection->attempt->bulk_push_targets.empty ())
-			{
-				current_target = connection->attempt->bulk_push_targets.back ();
-				connection->attempt->bulk_push_targets.pop_back ();
-			}
-			else
-			{
-				finished = true;
-			}
+			finished = attempt->request_bulk_push_target (current_target);
 		}
 		if (!finished)
 		{
-			block = connection->node->store.block_get (transaction_a, current_target.first);
+			block = connection->node->block (current_target.first);
 			if (block == nullptr)
 			{
 				current_target.first = nano::block_hash (0);
@@ -106,8 +99,7 @@ void nano::bulk_push_client::push_block (nano::block const & block_a)
 	connection->channel->send_buffer (nano::shared_const_buffer (std::move (buffer)), nano::stat::detail::all, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{
-			auto transaction (this_l->connection->node->store.tx_begin_read ());
-			this_l->push (transaction);
+			this_l->push ();
 		}
 		else
 		{
@@ -240,7 +232,7 @@ void nano::bulk_push_server::received_block (boost::system::error_code const & e
 	{
 		nano::bufferstream stream (receive_buffer->data (), size_a);
 		auto block (nano::deserialize_block (stream, type_a));
-		if (block != nullptr && !nano::work_validate (*block))
+		if (block != nullptr && !nano::work_validate_entry (*block))
 		{
 			connection->node->process_active (std::move (block));
 			throttled_receive ();

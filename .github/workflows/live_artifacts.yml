@@ -1,0 +1,93 @@
+name: Live
+
+on:
+  push:
+    tags-ignore:
+      - '*RC*'
+      - '*DB*'
+env:
+  artifact: 1
+
+jobs:
+  osx_job:
+    runs-on: macOS-latest
+    env:
+      BOOST_ROOT: /tmp/boost
+    steps:
+      - uses: actions/checkout@722adc6
+      - uses: chrislennon/action-aws-cli@f0f8671
+      - name: tag
+        run: echo "::set-env name=TAG::`git describe --tags $GITHUB_SHA`"
+      - name: Checkout Submodules
+        run: git submodule update --init --recursive
+      - name: Fetch Deps
+        run: ci/actions/osx/install_deps.sh
+      - name: Build Artifact
+        run: TRAVIS_TAG=${TAG} ci/build-deploy.sh "/tmp/qt/lib/cmake/Qt5";            
+      - name: Deploy Artifact
+        run: ci/actions/deploy.sh
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-2
+  
+  linux_job:
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@722adc6
+      - uses: chrislennon/action-aws-cli@f0f8671
+      - name: tag
+        run: echo "::set-env name=TAG::`git describe --tags $GITHUB_SHA`"
+      - name: Checkout Submodules
+        run: git submodule update --init --recursive
+      - name: Fetch Deps
+        run: ci/actions/linux/install_deps.sh
+      - name: Build Artifact
+        run: docker run -v ${GITHUB_WORKSPACE}:/workspace nanocurrency/nano-env:gcc /bin/bash -c "cd /workspace && TRAVIS_TAG=${TAG} ci/build-deploy.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 ${PWD}"
+      - name: Deploy Artifact
+        run: ci/actions/deploy.sh
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-2     
+
+  linux_docker_job:
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@722adc6
+      - uses: chrislennon/action-aws-cli@f0f8671
+      - name: tag
+        run: echo "::set-env name=TAG::`git describe --tags $GITHUB_SHA`"
+      - name: Checkout Submodules
+        run: git submodule update --init --recursive
+      - name: Fetch Deps
+        run: ci/actions/linux/install_deps.sh
+      - name: Deploy Docker (nanocurrency/nano)
+        run: TRAVIS_TAG=${TAG} ci/actions/linux/deploy-docker.sh
+        env:
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+  
+  windows_job:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@722adc6
+      - uses: chrislennon/action-aws-cli@f0f8671
+      - name: tag
+        run: |
+          $TRAVIS_TAG=git describe --tags $GITHUB_SHA
+          echo "::set-env name=TAG::$TRAVIS_TAG"
+      - name: Checkout Submodules
+        run: git submodule update --init --recursive
+      - name: Fetch Deps
+        run: ci/actions/windows/install_deps.ps1
+      - name: Build Artifact
+        run: ci/actions/windows/build.ps1
+        env: 
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+      - name: Deploy Artifact
+        run: ci/actions/windows/deploy.ps1
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-2

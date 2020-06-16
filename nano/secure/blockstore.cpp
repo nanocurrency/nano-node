@@ -1,102 +1,5 @@
+#include <nano/lib/threading.hpp>
 #include <nano/secure/blockstore.hpp>
-
-#include <boost/endian/conversion.hpp>
-#include <boost/polymorphic_cast.hpp>
-
-nano::block_sideband::block_sideband (nano::block_type type_a, nano::account const & account_a, nano::block_hash const & successor_a, nano::amount const & balance_a, uint64_t height_a, uint64_t timestamp_a, nano::epoch epoch_a) :
-type (type_a),
-successor (successor_a),
-account (account_a),
-balance (balance_a),
-height (height_a),
-timestamp (timestamp_a),
-epoch (epoch_a)
-{
-}
-
-size_t nano::block_sideband::size (nano::block_type type_a)
-{
-	size_t result (0);
-	result += sizeof (successor);
-	if (type_a != nano::block_type::state && type_a != nano::block_type::open)
-	{
-		result += sizeof (account);
-	}
-	if (type_a != nano::block_type::open)
-	{
-		result += sizeof (height);
-	}
-	if (type_a == nano::block_type::receive || type_a == nano::block_type::change || type_a == nano::block_type::open)
-	{
-		result += sizeof (balance);
-	}
-	result += sizeof (timestamp);
-	if (type_a == nano::block_type::state)
-	{
-		result += sizeof (epoch);
-	}
-	return result;
-}
-
-void nano::block_sideband::serialize (nano::stream & stream_a) const
-{
-	nano::write (stream_a, successor.bytes);
-	if (type != nano::block_type::state && type != nano::block_type::open)
-	{
-		nano::write (stream_a, account.bytes);
-	}
-	if (type != nano::block_type::open)
-	{
-		nano::write (stream_a, boost::endian::native_to_big (height));
-	}
-	if (type == nano::block_type::receive || type == nano::block_type::change || type == nano::block_type::open)
-	{
-		nano::write (stream_a, balance.bytes);
-	}
-	nano::write (stream_a, boost::endian::native_to_big (timestamp));
-	if (type == nano::block_type::state)
-	{
-		nano::write (stream_a, epoch);
-	}
-}
-
-bool nano::block_sideband::deserialize (nano::stream & stream_a)
-{
-	bool result (false);
-	try
-	{
-		nano::read (stream_a, successor.bytes);
-		if (type != nano::block_type::state && type != nano::block_type::open)
-		{
-			nano::read (stream_a, account.bytes);
-		}
-		if (type != nano::block_type::open)
-		{
-			nano::read (stream_a, height);
-			boost::endian::big_to_native_inplace (height);
-		}
-		else
-		{
-			height = 1;
-		}
-		if (type == nano::block_type::receive || type == nano::block_type::change || type == nano::block_type::open)
-		{
-			nano::read (stream_a, balance.bytes);
-		}
-		nano::read (stream_a, timestamp);
-		boost::endian::big_to_native_inplace (timestamp);
-		if (type == nano::block_type::state)
-		{
-			nano::read (stream_a, epoch);
-		}
-	}
-	catch (std::runtime_error &)
-	{
-		result = true;
-	}
-
-	return result;
-}
 
 nano::summation_visitor::summation_visitor (nano::transaction const & transaction_a, nano::block_store const & store_a, bool is_v14_upgrade_a) :
 transaction (transaction_a),
@@ -107,7 +10,7 @@ is_v14_upgrade (is_v14_upgrade_a)
 
 void nano::summation_visitor::send_block (nano::send_block const & block_a)
 {
-	assert (current->type != summation_type::invalid && current != nullptr);
+	debug_assert (current->type != summation_type::invalid && current != nullptr);
 	if (current->type == summation_type::amount)
 	{
 		sum_set (block_a.hashables.balance.number ());
@@ -123,7 +26,7 @@ void nano::summation_visitor::send_block (nano::send_block const & block_a)
 
 void nano::summation_visitor::state_block (nano::state_block const & block_a)
 {
-	assert (current->type != summation_type::invalid && current != nullptr);
+	debug_assert (current->type != summation_type::invalid && current != nullptr);
 	sum_set (block_a.hashables.balance.number ());
 	if (current->type == summation_type::amount)
 	{
@@ -138,7 +41,7 @@ void nano::summation_visitor::state_block (nano::state_block const & block_a)
 
 void nano::summation_visitor::receive_block (nano::receive_block const & block_a)
 {
-	assert (current->type != summation_type::invalid && current != nullptr);
+	debug_assert (current->type != summation_type::invalid && current != nullptr);
 	if (current->type == summation_type::amount)
 	{
 		current->amount_hash = block_a.hashables.source;
@@ -161,7 +64,7 @@ void nano::summation_visitor::receive_block (nano::receive_block const & block_a
 
 void nano::summation_visitor::open_block (nano::open_block const & block_a)
 {
-	assert (current->type != summation_type::invalid && current != nullptr);
+	debug_assert (current->type != summation_type::invalid && current != nullptr);
 	if (current->type == summation_type::amount)
 	{
 		if (block_a.hashables.source != network_params.ledger.genesis_account)
@@ -183,7 +86,7 @@ void nano::summation_visitor::open_block (nano::open_block const & block_a)
 
 void nano::summation_visitor::change_block (nano::change_block const & block_a)
 {
-	assert (current->type != summation_type::invalid && current != nullptr);
+	debug_assert (current->type != summation_type::invalid && current != nullptr);
 	if (current->type == summation_type::amount)
 	{
 		sum_set (0);
@@ -237,7 +140,7 @@ nano::uint128_t nano::summation_visitor::compute_internal (nano::summation_visit
 	while (!frames.empty ())
 	{
 		current = &frames.top ();
-		assert (current->type != summation_type::invalid && current != nullptr);
+		debug_assert (current->type != summation_type::invalid && current != nullptr);
 
 		if (current->type == summation_type::balance)
 		{
@@ -259,7 +162,7 @@ nano::uint128_t nano::summation_visitor::compute_internal (nano::summation_visit
 				else
 				{
 					auto block (block_get (transaction, current->balance_hash));
-					assert (block != nullptr);
+					debug_assert (block != nullptr);
 					block->visit (*this);
 				}
 			}
@@ -292,7 +195,7 @@ nano::uint128_t nano::summation_visitor::compute_internal (nano::summation_visit
 						}
 						else
 						{
-							assert (false);
+							debug_assert (false);
 							sum_set (0);
 							current->amount_hash = 0;
 						}
@@ -338,7 +241,7 @@ nano::uint128_t nano::summation_visitor::compute_balance (nano::block_hash const
 
 std::shared_ptr<nano::block> nano::summation_visitor::block_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
 {
-	return is_v14_upgrade ? store.block_get_v14 (transaction, hash_a) : store.block_get (transaction, hash_a);
+	return is_v14_upgrade ? store.block_get_v14 (transaction, hash_a) : store.block_get_no_sideband (transaction, hash_a);
 }
 
 nano::representative_visitor::representative_visitor (nano::transaction const & transaction_a, nano::block_store & store_a) :
@@ -354,7 +257,7 @@ void nano::representative_visitor::compute (nano::block_hash const & hash_a)
 	while (result.is_zero ())
 	{
 		auto block (store.block_get (transaction, current));
-		assert (block != nullptr);
+		debug_assert (block != nullptr);
 		block->visit (*this);
 	}
 }
@@ -416,7 +319,7 @@ impl (std::move (write_transaction_impl))
 	/*
 	 * For IO threads, we do not want them to block on creating write transactions.
 	 */
-	assert (nano::thread_role::get () != nano::thread_role::name::io);
+	debug_assert (nano::thread_role::get () != nano::thread_role::name::io);
 }
 
 void * nano::write_transaction::get_handle () const

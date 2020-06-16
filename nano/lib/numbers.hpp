@@ -1,7 +1,5 @@
 #pragma once
 
-#include <crypto/cryptopp/osrng.h>
-
 #include <boost/multiprecision/cpp_int.hpp>
 
 namespace nano
@@ -36,8 +34,8 @@ public:
 	void encode_dec (std::string &) const;
 	bool decode_dec (std::string const &, bool = false);
 	bool decode_dec (std::string const &, nano::uint128_t);
-	std::string format_balance (nano::uint128_t scale, int precision, bool group_digits);
-	std::string format_balance (nano::uint128_t scale, int precision, bool group_digits, const std::locale & locale);
+	std::string format_balance (nano::uint128_t scale, int precision, bool group_digits) const;
+	std::string format_balance (nano::uint128_t scale, int precision, bool group_digits, const std::locale & locale) const;
 	nano::uint128_t number () const;
 	void clear ();
 	bool is_zero () const;
@@ -245,8 +243,10 @@ public:
 };
 
 nano::signature sign_message (nano::raw_key const &, nano::public_key const &, nano::uint256_union const &);
+nano::signature sign_message (nano::raw_key const &, nano::public_key const &, uint8_t const *, size_t);
 bool validate_message (nano::public_key const &, nano::uint256_union const &, nano::signature const &);
-bool validate_message_batch (const unsigned char **, size_t *, const unsigned char **, const unsigned char **, size_t, int *);
+bool validate_message (nano::public_key const &, uint8_t const *, size_t, nano::signature const &);
+bool validate_message_batch (unsigned const char **, size_t *, unsigned const char **, unsigned const char **, size_t, int *);
 nano::private_key deterministic_key (nano::raw_key const &, uint32_t);
 nano::public_key pub_key (nano::private_key const &);
 
@@ -274,7 +274,7 @@ struct hash<::nano::uint256_union>
 {
 	size_t operator() (::nano::uint256_union const & data_a) const
 	{
-		return *reinterpret_cast<size_t const *> (data_a.bytes.data ());
+		return data_a.qwords[0] + data_a.qwords[1] + data_a.qwords[2] + data_a.qwords[3];
 	}
 };
 template <>
@@ -330,7 +330,7 @@ struct hash<::nano::uint512_union>
 {
 	size_t operator() (::nano::uint512_union const & data_a) const
 	{
-		return *reinterpret_cast<size_t const *> (data_a.bytes.data ());
+		return hash<::nano::uint256_union> () (data_a.uint256s[0]) + hash<::nano::uint256_union> () (data_a.uint256s[1]);
 	}
 };
 template <>
@@ -338,7 +338,7 @@ struct hash<::nano::qualified_root>
 {
 	size_t operator() (::nano::qualified_root const & data_a) const
 	{
-		return *reinterpret_cast<size_t const *> (data_a.bytes.data ());
+		return hash<::nano::uint512_union> () (data_a);
 	}
 };
 }

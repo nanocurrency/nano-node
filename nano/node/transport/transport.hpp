@@ -1,34 +1,24 @@
 #pragma once
 
+#include <nano/lib/locks.hpp>
+#include <nano/lib/rate_limiting.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/socket.hpp>
-
-#include <unordered_set>
 
 namespace nano
 {
 class bandwidth_limiter final
 {
 public:
-	// initialize with rate 0 = unbounded
-	bandwidth_limiter (const size_t);
+	// initialize with limit 0 = unbounded
+	bandwidth_limiter (const double, const size_t);
 	bool should_drop (const size_t &);
-	size_t get_rate ();
 
 private:
-	//last time rate was adjusted
-	std::chrono::steady_clock::time_point next_trend;
-	//trend rate over 20 poll periods
-	boost::circular_buffer<size_t> rate_buffer{ 20, 0 };
-	//limit bandwidth to
-	const size_t limit;
-	//rate, increment if message_size + rate < rate
-	size_t rate;
-	//trended rate to even out spikes in traffic
-	size_t trended_rate;
-	std::mutex mutex;
+	nano::rate::token_bucket bucket;
 };
+
 namespace transport
 {
 	class message;
@@ -37,8 +27,6 @@ namespace transport
 	nano::tcp_endpoint map_endpoint_to_tcp (nano::endpoint const &);
 	// Unassigned, reserved, self
 	bool reserved_address (nano::endpoint const &, bool = false);
-	// Maximum number of peers per IP
-	static size_t constexpr max_peers_per_ip = 10;
 	static std::chrono::seconds constexpr syn_cookie_cutoff = std::chrono::seconds (5);
 	enum class transport_type : uint8_t
 	{
@@ -53,8 +41,8 @@ namespace transport
 		virtual ~channel () = default;
 		virtual size_t hash_code () const = 0;
 		virtual bool operator== (nano::transport::channel const &) const = 0;
-		void send (nano::message const &, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr, bool const = true);
-		virtual void send_buffer (nano::shared_const_buffer const &, nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) = 0;
+		void send (nano::message const &, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr, nano::buffer_drop_policy = nano::buffer_drop_policy::limiter);
+		virtual void send_buffer (nano::shared_const_buffer const &, nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr, nano::buffer_drop_policy = nano::buffer_drop_policy::limiter) = 0;
 		virtual std::function<void(boost::system::error_code const &, size_t)> callback (nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) const = 0;
 		virtual std::string to_string () const = 0;
 		virtual nano::endpoint get_endpoint () const = 0;
@@ -133,7 +121,6 @@ namespace transport
 		}
 
 		mutable std::mutex channel_mutex;
-		nano::bandwidth_limiter limiter;
 
 	private:
 		std::chrono::steady_clock::time_point last_bootstrap_attempt{ std::chrono::steady_clock::time_point () };

@@ -43,7 +43,7 @@ void show_button_success (QPushButton & button)
 
 bool nano_qt::eventloop_processor::event (QEvent * event_a)
 {
-	assert (dynamic_cast<nano_qt::eventloop_event *> (event_a) != nullptr);
+	debug_assert (dynamic_cast<nano_qt::eventloop_event *> (event_a) != nullptr);
 	static_cast<nano_qt::eventloop_event *> (event_a)->action ();
 	return true;
 }
@@ -163,7 +163,7 @@ wallet (wallet_a)
 		{
 			auto error (this->wallet.account.decode_account (model->item (selection[0].row (), 1)->text ().toStdString ()));
 			(void)error;
-			assert (!error);
+			debug_assert (!error);
 			this->wallet.refresh ();
 		}
 	});
@@ -599,7 +599,7 @@ void nano_qt::history::refresh ()
 	{
 		QList<QStandardItem *> items;
 		auto block (ledger.store.block_get (transaction, hash));
-		assert (block != nullptr);
+		debug_assert (block != nullptr);
 		block->visit (visitor);
 		items.push_back (new QStandardItem (QString (visitor.type.c_str ())));
 		items.push_back (new QStandardItem (QString (visitor.account.to_account ().c_str ())));
@@ -868,7 +868,7 @@ wallet (wallet_a)
 
 void nano_qt::status::erase (nano_qt::status_types status_a)
 {
-	assert (status_a != nano_qt::status_types::nominal);
+	debug_assert (status_a != nano_qt::status_types::nominal);
 	auto erased (active.erase (status_a));
 	(void)erased;
 	set_text ();
@@ -876,7 +876,7 @@ void nano_qt::status::erase (nano_qt::status_types status_a)
 
 void nano_qt::status::insert (nano_qt::status_types status_a)
 {
-	assert (status_a != nano_qt::status_types::nominal);
+	debug_assert (status_a != nano_qt::status_types::nominal);
 	active.insert (status_a);
 	set_text ();
 }
@@ -889,15 +889,14 @@ void nano_qt::status::set_text ()
 
 std::string nano_qt::status::text ()
 {
-	assert (!active.empty ());
+	debug_assert (!active.empty ());
 	std::string result;
 	size_t unchecked (0);
 	std::string count_string;
 	{
-		auto transaction (wallet.wallet_m->wallets.node.store.tx_begin_read ());
-		auto size (wallet.wallet_m->wallets.node.store.block_count (transaction));
-		unchecked = wallet.wallet_m->wallets.node.store.unchecked_count (transaction);
-		count_string = std::to_string (size.sum ());
+		auto size (wallet.wallet_m->wallets.node.ledger.cache.block_count.load ());
+		unchecked = wallet.wallet_m->wallets.node.ledger.cache.unchecked_count;
+		count_string = std::to_string (size);
 	}
 
 	switch (*active.begin ())
@@ -924,7 +923,7 @@ std::string nano_qt::status::text ()
 			result = "Status: Running";
 			break;
 		default:
-			assert (false);
+			debug_assert (false);
 			break;
 	}
 
@@ -940,7 +939,7 @@ std::string nano_qt::status::text ()
 
 std::string nano_qt::status::color ()
 {
-	assert (!active.empty ());
+	debug_assert (!active.empty ());
 	std::string result;
 	switch (*active.begin ())
 	{
@@ -966,7 +965,7 @@ std::string nano_qt::status::color ()
 			result = "color: black";
 			break;
 		default:
-			assert (false);
+			debug_assert (false);
 			break;
 	}
 	return result;
@@ -1388,7 +1387,7 @@ void nano_qt::wallet::refresh ()
 {
 	{
 		auto transaction (wallet_m->wallets.tx_begin_read ());
-		assert (wallet_m->store.exists (transaction, account));
+		debug_assert (wallet_m->store.exists (transaction, account));
 	}
 	self.account_text->setText (QString (account.to_account ().c_str ()));
 	needs_balance_refresh = true;
@@ -1604,7 +1603,7 @@ wallet (wallet_a)
 		}
 	});
 	QObject::connect (back, &QPushButton::released, [this]() {
-		assert (this->wallet.main_stack->currentWidget () == window);
+		debug_assert (this->wallet.main_stack->currentWidget () == window);
 		this->wallet.pop_main_stack ();
 	});
 	QObject::connect (lock_toggle, &QPushButton::released, [this]() {
@@ -1844,7 +1843,7 @@ wallet (wallet_a)
 	});
 	auto selected_ratio_id (QSettings ().value (saved_ratio_key, ratio_group->id (mnano_unit)).toInt ());
 	auto selected_ratio_button = ratio_group->button (selected_ratio_id);
-	assert (selected_ratio_button != nullptr);
+	debug_assert (selected_ratio_button != nullptr);
 
 	if (selected_ratio_button)
 	{
@@ -2003,7 +2002,15 @@ wallet (wallet_a)
 			{
 				show_label_ok (*status);
 				this->status->setText ("");
-				this->wallet.node.process_active (std::move (block_l));
+				if (!nano::work_validate_entry (*block_l))
+				{
+					this->wallet.node.process_active (std::move (block_l));
+				}
+				else
+				{
+					show_label_error (*status);
+					this->status->setText ("Invalid work");
+				}
 			}
 			else
 			{
@@ -2121,7 +2128,7 @@ wallet (wallet_a)
 				create_open ();
 				break;
 			default:
-				assert (false);
+				debug_assert (false);
 				break;
 		}
 	});
@@ -2228,7 +2235,7 @@ void nano_qt::block_creation::create_send ()
 						nano::account_info info;
 						auto error (wallet.node.store.account_get (block_transaction, account_l, info));
 						(void)error;
-						assert (!error);
+						debug_assert (!error);
 						nano::state_block send (account_l, info.head, info.representative, balance - amount_l.number (), destination_l, key, account_l, 0);
 						if (wallet.node.work_generate_blocking (send).is_initialized ())
 						{

@@ -1,15 +1,13 @@
 #include <nano/lib/errors.hpp>
-#include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
-#include <nano/nano_wallet/icon.hpp>
 #include <nano/node/cli.hpp>
-#include <nano/node/ipc.hpp>
+#include <nano/node/ipc/ipc_server.hpp>
 #include <nano/rpc/rpc.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
-#include <nano/secure/working.hpp>
+#include <nano/secure/utility.hpp>
 
-#include <boost/lexical_cast.hpp>
-#include <boost/log/expressions.hpp>
+#include <boost/filesystem.hpp>
 #include <boost/log/utility/setup/common_attributes.hpp>
 #include <boost/log/utility/setup/file.hpp>
 #include <boost/program_options.hpp>
@@ -54,7 +52,7 @@ void run (boost::filesystem::path const & data_path, std::vector<std::string> co
 			auto rpc = nano::get_rpc (io_ctx, rpc_config, ipc_rpc_processor);
 			rpc->start ();
 
-			assert (!nano::signal_handler_impl);
+			debug_assert (!nano::signal_handler_impl);
 			nano::signal_handler_impl = [&io_ctx]() {
 				io_ctx.stop ();
 				sig_int_or_term = 1;
@@ -117,7 +115,7 @@ int main (int argc, char * const * argv)
 		auto err (nano::network_constants::set_active_network (network->second.as<std::string> ()));
 		if (err)
 		{
-			std::cerr << err.get_message () << std::endl;
+			std::cerr << nano::network_constants::active_network_err_msg << std::endl;
 			std::exit (1);
 		}
 	}

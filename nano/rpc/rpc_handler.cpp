@@ -5,7 +5,6 @@
 #include <nano/lib/rpcconfig.hpp>
 #include <nano/rpc/rpc_handler.hpp>
 
-#include <boost/endian/conversion.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
 #include <unordered_set>
@@ -27,7 +26,7 @@ logger (logger)
 {
 }
 
-void nano::rpc_handler::process_request ()
+void nano::rpc_handler::process_request (nano::rpc_handler_request_params const & request_params)
 {
 	try
 	{
@@ -51,55 +50,73 @@ void nano::rpc_handler::process_request ()
 		}
 		else
 		{
-			boost::property_tree::ptree request;
+			if (request_params.rpc_version == 1)
 			{
-				std::stringstream ss;
-				ss << body;
-				boost::property_tree::read_json (ss, request);
+				boost::property_tree::ptree request;
+				{
+					std::stringstream ss;
+					ss << body;
+					boost::property_tree::read_json (ss, request);
+				}
+
+				auto action = request.get<std::string> ("action");
+				if (rpc_config.rpc_logging.log_rpc)
+				{
+					// Creating same string via stringstream as using it directly is generating a TSAN warning
+					std::stringstream ss;
+					ss << request_id;
+					logger.always_log (ss.str (), " ", filter_request (request));
+				}
+
+				// Check if this is a RPC command which requires RPC enabled control
+				std::error_code rpc_control_disabled_ec = nano::error_rpc::rpc_control_disabled;
+
+				bool error = false;
+				auto found = rpc_control_impl_set.find (action);
+				if (found != rpc_control_impl_set.cend () && !rpc_config.enable_control)
+				{
+					json_error_response (response, rpc_control_disabled_ec.message ());
+					error = true;
+				}
+				else
+				{
+					// Special case with stats, type -> objects
+					if (action == "stats" && !rpc_config.enable_control)
+					{
+						if (request.get<std::string> ("type") == "objects")
+						{
+							json_error_response (response, rpc_control_disabled_ec.message ());
+							error = true;
+						}
+					}
+					else if (action == "process")
+					{
+						auto force = request.get_optional<bool> ("force").value_or (false);
+						auto watch_work = request.get_optional<bool> ("watch_work").value_or (true);
+						if ((force || watch_work) && !rpc_config.enable_control)
+						{
+							json_error_response (response, rpc_control_disabled_ec.message ());
+							error = true;
+						}
+					}
+				}
+
+				if (!error)
+				{
+					rpc_handler_interface.process_request (action, body, this->response);
+				}
 			}
-
-			auto action = request.get<std::string> ("action");
-			// Creating same string via stringstream as using it directly is generating a TSAN warning
-			std::stringstream ss;
-			ss << request_id;
-			logger.always_log (ss.str (), " ", filter_request (request));
-
-			// Check if this is a RPC command which requires RPC enabled control
-			std::error_code rpc_control_disabled_ec = nano::error_rpc::rpc_control_disabled;
-
-			bool error = false;
-			auto found = rpc_control_impl_set.find (action);
-			if (found != rpc_control_impl_set.cend () && !rpc_config.enable_control)
+			else if (request_params.rpc_version == 2)
 			{
-				json_error_response (response, rpc_control_disabled_ec.message ());
-				error = true;
+				rpc_handler_interface.process_request_v2 (request_params, body, [response = response](std::shared_ptr<std::string> body) {
+					std::string body_l = *body;
+					response (body_l);
+				});
 			}
 			else
 			{
-				// Special case with stats, type -> objects
-				if (action == "stats" && !rpc_config.enable_control)
-				{
-					if (request.get<std::string> ("type") == "objects")
-					{
-						json_error_response (response, rpc_control_disabled_ec.message ());
-						error = true;
-					}
-				}
-				else if (action == "process")
-				{
-					auto force = request.get_optional<bool> ("force");
-					auto watch_work = request.get_optional<bool> ("watch_work");
-					if (((force.is_initialized () && *force) || (watch_work.is_initialized () && !*watch_work)) && !rpc_config.enable_control)
-					{
-						json_error_response (response, rpc_control_disabled_ec.message ());
-						error = true;
-					}
-				}
-			}
-
-			if (!error)
-			{
-				rpc_handler_interface.process_request (action, body, this->response);
+				debug_assert (false);
+				json_error_response (response, "Invalid RPC version");
 			}
 		}
 	}

@@ -1,14 +1,20 @@
 add_executable (core_test
 	core_test_main.cc
 	testutil.hpp
+	fakes/websocket_client.hpp
+	fakes/work_peer.hpp
 	active_transactions.cpp
 	block.cpp
 	block_store.cpp
 	bootstrap.cpp
+	cli.cpp
+	common.hpp
 	confirmation_height.cpp
+	confirmation_solicitor.cpp
 	conflicts.cpp
 	difficulty.cpp
 	distributed_work.cpp
+	election.cpp
 	entry.cpp
 	epochs.cpp
 	gap_cache.cpp
@@ -16,20 +22,24 @@ add_executable (core_test
 	ledger.cpp
 	locks.cpp
 	logger.cpp
-	network.cpp
-	node.cpp
 	message.cpp
 	message_parser.cpp
 	memory_pool.cpp
+	network.cpp
+	network_filter.cpp
+	node.cpp
 	processor_service.cpp
 	peer_container.cpp
+	request_aggregator.cpp
 	signing.cpp
 	socket.cpp
+	telemetry.cpp
 	toml.cpp
 	timer.cpp
 	uint256_union.cpp
 	utility.cpp
 	versioning.cpp
+	vote_processor.cpp
 	wallet.cpp
 	wallets.cpp
 	websocket.cpp
@@ -39,5 +49,7 @@ target_compile_definitions(core_test
 		PRIVATE
 			-DTAG_VERSION_STRING=${TAG_VERSION_STRING}
 			-DGIT_COMMIT_HASH=${GIT_COMMIT_HASH}
-			-DBOOST_PROCESS_SUPPORTED=${BOOST_PROCESS_SUPPORTED})
+			-DBOOST_PROCESS_SUPPORTED=${BOOST_PROCESS_SUPPORTED}
+			-DCI=${CI_TEST})
+
 target_link_libraries (core_test node secure gtest libminiupnpc-static Boost::log_setup Boost::log Boost::boost)

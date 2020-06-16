@@ -1,15 +1,11 @@
 #pragma once
 
-#include <nano/lib/errors.hpp>
 #include <nano/lib/ipc_client.hpp>
 #include <nano/lib/rpc_handler_interface.hpp>
 #include <nano/lib/rpcconfig.hpp>
-#include <nano/lib/utility.hpp>
 #include <nano/rpc/rpc.hpp>
-#include <nano/rpc/rpc_handler.hpp>
 
-#include <boost/endian/conversion.hpp>
-#include <boost/property_tree/json_parser.hpp>
+#include <deque>
 
 namespace nano
 {
@@ -31,6 +27,17 @@ struct rpc_request
 	{
 	}
 
+	rpc_request (int rpc_api_version_a, const std::string & body_a, std::function<void(std::string const &)> response_a) :
+	rpc_api_version (rpc_api_version_a), body (body_a), response (response_a)
+	{
+	}
+
+	rpc_request (int rpc_api_version_a, const std::string & action_a, const std::string & body_a, std::function<void(std::string const &)> response_a) :
+	rpc_api_version (rpc_api_version_a), action (action_a), body (body_a), response (response_a)
+	{
+	}
+
+	int rpc_api_version{ 1 };
 	std::string action;
 	std::string body;
 	std::function<void(std::string const &)> response;
@@ -73,6 +80,15 @@ public:
 	void process_request (std::string const & action_a, std::string const & body_a, std::function<void(std::string const &)> response_a) override
 	{
 		rpc_request_processor.add (std::make_shared<nano::rpc_request> (action_a, body_a, response_a));
+	}
+
+	void process_request_v2 (rpc_handler_request_params const & params_a, std::string const & body_a, std::function<void(std::shared_ptr<std::string>)> response_a) override
+	{
+		std::string body_l = params_a.json_envelope (body_a);
+		rpc_request_processor.add (std::make_shared<nano::rpc_request> (2 /* rpc version */, body_l, [response_a](std::string const & resp) {
+			auto resp_l (std::make_shared<std::string> (resp));
+			response_a (resp_l);
+		}));
 	}
 
 	void stop () override

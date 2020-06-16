@@ -1,12 +1,15 @@
 #include <nano/node/node.hpp>
 #include <nano/node/portmapping.hpp>
 
+#include <boost/format.hpp>
+#include <boost/range/adaptor/filtered.hpp>
+
 #include <upnpcommands.h>
 #include <upnperrors.h>
 
 nano::port_mapping::port_mapping (nano::node & node_a) :
 node (node_a),
-protocols ({ { { "TCP", 0, boost::asio::ip::address_v4::any (), 0 }, { "UDP", 0, boost::asio::ip::address_v4::any (), 0 } } })
+protocols ({ { { "TCP", 0, boost::asio::ip::address_v4::any (), 0, true }, { "UDP", 0, boost::asio::ip::address_v4::any (), 0, !node_a.flags.disable_udp } } })
 {
 }
 
@@ -59,7 +62,7 @@ nano::endpoint nano::port_mapping::external_address ()
 {
 	nano::endpoint result_l (boost::asio::ip::address_v6{}, 0);
 	nano::lock_guard<std::mutex> guard_l (mutex);
-	for (auto & protocol : protocols)
+	for (auto & protocol : protocols | boost::adaptors::filtered ([](auto const & p) { return p.enabled; }))
 	{
 		if (protocol.external_port != 0)
 		{
@@ -78,7 +81,7 @@ void nano::port_mapping::refresh_mapping ()
 		auto config_port_l (get_config_port (node_port_l));
 
 		// We don't map the RPC port because, unless RPC authentication was added, this would almost always be a security risk
-		for (auto & protocol : protocols)
+		for (auto & protocol : protocols | boost::adaptors::filtered ([](auto const & p) { return p.enabled; }))
 		{
 			auto upnp_description = std::string ("Nano Node (") + network_params.network.get_current_network_as_string () + ")";
 			auto add_port_mapping_error_l (UPNP_AddPortMapping (upnp.urls.controlURL, upnp.data.first.servicetype, config_port_l.c_str (), node_port_l.c_str (), address.to_string ().c_str (), upnp_description.c_str (), protocol.name, nullptr, nullptr));
@@ -112,7 +115,7 @@ int nano::port_mapping::check_mapping ()
 		nano::lock_guard<std::mutex> guard_l (mutex);
 		auto node_port_l (std::to_string (node.network.endpoint ().port ()));
 		auto config_port_l (get_config_port (node_port_l));
-		for (auto & protocol : protocols)
+		for (auto & protocol : protocols | boost::adaptors::filtered ([](auto const & p) { return p.enabled; }))
 		{
 			std::array<char, 64> int_client_l;
 			std::array<char, 6> int_port_l;
@@ -186,7 +189,7 @@ void nano::port_mapping::stop ()
 {
 	on = false;
 	nano::lock_guard<std::mutex> guard_l (mutex);
-	for (auto & protocol : protocols)
+	for (auto & protocol : protocols | boost::adaptors::filtered ([](auto const & p) { return p.enabled; }))
 	{
 		if (protocol.external_port != 0)
 		{

@@ -1,21 +1,39 @@
 #pragma once
 
 #include <nano/lib/errors.hpp>
-#include <nano/lib/jsonconfig.hpp>
-#include <nano/lib/logger_mt.hpp>
 
-#include <boost/filesystem.hpp>
-#include <boost/log/sources/logger.hpp>
-#include <boost/log/trivial.hpp>
-#include <boost/log/utility/setup/file.hpp>
+#include <boost/log/detail/config.hpp>
+#include <boost/shared_ptr.hpp>
 
+#include <atomic>
+#include <chrono>
 #include <cstdint>
 
 #define FATAL_LOG_PREFIX "FATAL ERROR: "
 
+namespace boost
+{
+BOOST_LOG_OPEN_NAMESPACE
+namespace sinks
+{
+	class text_file_backend;
+
+	template <class SinkBackendT>
+	class synchronous_sink;
+}
+
+BOOST_LOG_CLOSE_NAMESPACE
+
+namespace filesystem
+{
+	class path;
+}
+}
+
 namespace nano
 {
 class tomlconfig;
+class jsonconfig;
 class logging final
 {
 public:
@@ -34,6 +52,8 @@ public:
 	bool network_packet_logging () const;
 	bool network_keepalive_logging () const;
 	bool network_node_id_handshake_logging () const;
+	bool network_telemetry_logging () const;
+	bool network_rejected_logging () const;
 	bool node_lifetime_tracing () const;
 	bool insufficient_work_logging () const;
 	bool upnp_details_logging () const;
@@ -57,6 +77,8 @@ public:
 	bool network_packet_logging_value{ false };
 	bool network_keepalive_logging_value{ false };
 	bool network_node_id_handshake_logging_value{ false };
+	bool network_telemetry_logging_value{ false };
+	bool network_rejected_logging_value{ false };
 	bool node_lifetime_tracing_value{ false };
 	bool insufficient_work_logging_value{ true };
 	bool log_ipc_value{ true };
@@ -69,6 +91,7 @@ public:
 	bool flush{ true };
 	uintmax_t max_size{ 128 * 1024 * 1024 };
 	uintmax_t rotation_size{ 4 * 1024 * 1024 };
+	bool stable_log_filename{ false };
 	std::chrono::milliseconds min_time_between_log_output{ 5 };
 	bool single_line_record_value{ false };
 	static void release_file_sink ();

@@ -1,6 +1,8 @@
 #include <nano/core_test/testutil.hpp>
 #include <nano/lib/ipc_client.hpp>
-#include <nano/node/ipc.hpp>
+#include <nano/lib/tomlconfig.hpp>
+#include <nano/node/ipc/ipc_access_config.hpp>
+#include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/rpc/rpc.hpp>
 
@@ -17,14 +19,14 @@ using namespace std::chrono_literals;
 
 TEST (ipc, asynchronous)
 {
-	nano::system system (24000, 1);
+	nano::system system (1);
 	system.nodes[0]->config.ipc_config.transport_tcp.enabled = true;
 	system.nodes[0]->config.ipc_config.transport_tcp.port = 24077;
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc (*system.nodes[0], node_rpc_config);
 	nano::ipc::ipc_client client (system.nodes[0]->io_ctx);
 
-	auto req (nano::ipc::prepare_request (nano::ipc::payload_encoding::json_legacy, std::string (R"({"action": "block_count"})")));
+	auto req (nano::ipc::prepare_request (nano::ipc::payload_encoding::json_v1, std::string (R"({"action": "block_count"})")));
 	auto res (std::make_shared<std::vector<uint8_t>> ());
 	std::atomic<bool> call_completed{ false };
 	client.async_connect ("::1", 24077, [&client, &req, &res, &call_completed](nano::error err) {
@@ -56,11 +58,12 @@ TEST (ipc, asynchronous)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+	ipc.stop ();
 }
 
 TEST (ipc, synchronous)
 {
-	nano::system system (24000, 1);
+	nano::system system (1);
 	system.nodes[0]->config.ipc_config.transport_tcp.enabled = true;
 	system.nodes[0]->config.ipc_config.transport_tcp.port = 24077;
 	nano::node_rpc_config node_rpc_config;
@@ -71,7 +74,7 @@ TEST (ipc, synchronous)
 	std::atomic<bool> call_completed{ false };
 	std::thread client_thread ([&client, &call_completed]() {
 		client.connect ("::1", 24077);
-		std::string response (nano::ipc::request (client, std::string (R"({"action": "block_count"})")));
+		std::string response (nano::ipc::request (nano::ipc::payload_encoding::json_v1, client, std::string (R"({"action": "block_count"})")));
 		std::stringstream ss;
 		ss << response;
 		// Make sure the response is valid json
@@ -88,6 +91,7 @@ TEST (ipc, synchronous)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+	ipc.stop ();
 }
 
 TEST (ipc, config_upgrade_v0_v1)
@@ -107,4 +111,108 @@ TEST (ipc, config_upgrade_v0_v1)
 	ASSERT_TRUE (upgraded);
 	ASSERT_LE (1, local2.get<int> ("version"));
 	ASSERT_FALSE (local2.get<bool> ("allow_unsafe"));
+}
+
+TEST (ipc, permissions_default_user)
+{
+	// Test empty/nonexistant access config. The default user still exists with default permissions.
+	std::stringstream ss;
+	ss << R"toml(
+	)toml";
+
+	nano::tomlconfig toml;
+	toml.read (ss);
+
+	nano::ipc::access access;
+	access.deserialize_toml (toml);
+	ASSERT_TRUE (access.has_access ("", nano::ipc::access_permission::api_account_weight));
+}
+
+TEST (ipc, permissions_deny_default)
+{
+	// All users have api_account_weight permissions by default. This removes the permission for a specific user.
+	std::stringstream ss;
+	ss << R"toml(
+	[[user]]
+	id = "user1"
+	deny = "api_account_weight"
+	)toml";
+
+	nano::tomlconfig toml;
+	toml.read (ss);
+
+	nano::ipc::access access;
+	access.deserialize_toml (toml);
+	ASSERT_FALSE (access.has_access ("user1", nano::ipc::access_permission::api_account_weight));
+}
+
+TEST (ipc, permissions_groups)
+{
+	// Make sure role permissions are adopted by user
+	std::stringstream ss;
+	ss << R"toml(
+	[[role]]
+	id = "mywalletadmin"
+	allow = "wallet_read, wallet_write"
+
+	[[user]]
+	id = "user1"
+	roles = "mywalletadmin"
+	deny = "api_account_weight"
+	)toml";
+
+	nano::tomlconfig toml;
+	toml.read (ss);
+
+	nano::ipc::access access;
+	access.deserialize_toml (toml);
+	ASSERT_FALSE (access.has_access ("user1", nano::ipc::access_permission::api_account_weight));
+	ASSERT_TRUE (access.has_access_to_all ("user1", { nano::ipc::access_permission::wallet_read, nano::ipc::access_permission::wallet_write }));
+}
+
+TEST (ipc, permissions_oneof)
+{
+	// Test one of two permissions
+	std::stringstream ss;
+	ss << R"toml(
+	[[user]]
+	id = "user1"
+	allow = "api_account_weight"
+	[[user]]
+	id = "user2"
+	allow = "api_account_weight, account_query"
+	[[user]]
+	id = "user3"
+	deny = "api_account_weight, account_query"
+	)toml";
+
+	nano::tomlconfig toml;
+	toml.read (ss);
+
+	nano::ipc::access access;
+	access.deserialize_toml (toml);
+	ASSERT_TRUE (access.has_access ("user1", nano::ipc::access_permission::api_account_weight));
+	ASSERT_TRUE (access.has_access ("user2", nano::ipc::access_permission::api_account_weight));
+	ASSERT_FALSE (access.has_access ("user3", nano::ipc::access_permission::api_account_weight));
+	ASSERT_TRUE (access.has_access_to_oneof ("user1", { nano::ipc::access_permission::account_query, nano::ipc::access_permission::api_account_weight }));
+	ASSERT_TRUE (access.has_access_to_oneof ("user2", { nano::ipc::access_permission::account_query, nano::ipc::access_permission::api_account_weight }));
+	ASSERT_FALSE (access.has_access_to_oneof ("user3", { nano::ipc::access_permission::account_query, nano::ipc::access_permission::api_account_weight }));
+}
+
+TEST (ipc, permissions_default_user_order)
+{
+	// If changing the default user, it must come first
+	std::stringstream ss;
+	ss << R"toml(
+	[[user]]
+	id = "user1"
+	[[user]]
+	id = ""
+	)toml";
+
+	nano::tomlconfig toml;
+	toml.read (ss);
+
+	nano::ipc::access access;
+	ASSERT_TRUE (access.deserialize_toml (toml));
 }

@@ -1,9 +1,12 @@
 #include <nano/lib/asio.hpp>
 #include <nano/lib/json_error_response.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
 
+#include <boost/endian/conversion.hpp>
+
 nano::rpc_request_processor::rpc_request_processor (boost::asio::io_context & io_ctx, nano::rpc_config & rpc_config) :
-ipc_address (rpc_config.rpc_process.ipc_address.to_string ()),
+ipc_address (rpc_config.rpc_process.ipc_address),
 ipc_port (rpc_config.rpc_process.ipc_port),
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::rpc_request_processor);
@@ -16,13 +19,11 @@ thread ([this]() {
 	{
 		connections.push_back (std::make_shared<nano::ipc_connection> (nano::ipc::ipc_client (io_ctx), false));
 		auto connection = this->connections.back ();
-		// clang-format off
-		connection->client.async_connect (ipc_address, ipc_port, [ connection, &connections_mutex = this->connections_mutex ](nano::error err) {
+		connection->client.async_connect (ipc_address, ipc_port, [connection, &connections_mutex = this->connections_mutex](nano::error err) {
 			// Even if there is an error this needs to be set so that another attempt can be made to connect with the ipc connection
 			nano::lock_guard<std::mutex> lk (connections_mutex);
 			connection->is_available = true;
 		});
-		// clang-format on
 	}
 }
 
@@ -145,7 +146,8 @@ void nano::rpc_request_processor::run ()
 				auto connection = *it;
 				connection->is_available = false; // Make sure no one else can take it
 				conditions_lk.unlock ();
-				auto req (nano::ipc::prepare_request (nano::ipc::payload_encoding::json_legacy, rpc_request->body));
+				auto encoding (rpc_request->rpc_api_version == 1 ? nano::ipc::payload_encoding::json_v1 : nano::ipc::payload_encoding::flatbuffers_json);
+				auto req (nano::ipc::prepare_request (encoding, rpc_request->body));
 				auto res (std::make_shared<std::vector<uint8_t>> ());
 
 				// Have we tried to connect yet?

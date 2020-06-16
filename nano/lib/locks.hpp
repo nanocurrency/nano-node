@@ -79,4 +79,74 @@ using unique_lock = std::unique_lock<Mutex>;
 
 // For consistency wrapping the less well known _any variant which can be used with any lockable type
 using condition_variable = std::condition_variable_any;
+
+/** A general purpose monitor template */
+template <class T>
+class locked
+{
+public:
+	template <typename... Args>
+	locked (Args &&... args) :
+	obj (std::forward<Args> (args)...)
+	{
+	}
+
+	struct scoped_lock final
+	{
+		scoped_lock (locked * owner_a) :
+		owner (owner_a)
+		{
+			owner->mutex.lock ();
+		}
+
+		~scoped_lock ()
+		{
+			owner->mutex.unlock ();
+		}
+
+		T * operator-> ()
+		{
+			return &owner->obj;
+		}
+
+		T & get () const
+		{
+			return owner->obj;
+		}
+
+		T & operator* () const
+		{
+			return get ();
+		}
+
+		locked * owner{ nullptr };
+	};
+
+	scoped_lock operator-> ()
+	{
+		return scoped_lock (this);
+	}
+
+	T & operator= (T const & other)
+	{
+		nano::unique_lock<std::mutex> lk (mutex);
+		obj = other;
+		return obj;
+	}
+
+	operator T () const
+	{
+		return obj;
+	}
+
+	/** Returns a scoped lock wrapper, allowing multiple calls to the underlying object under the same lock */
+	scoped_lock lock ()
+	{
+		return scoped_lock (this);
+	}
+
+private:
+	T obj;
+	std::mutex mutex;
+};
 }

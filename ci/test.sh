@@ -44,7 +44,7 @@ run_tests() {
         TIMEOUT_TIME_ARG=""
     fi
 
-    if [ "$(date +%s)" -lt 1577836799 ]; then
+    if [ "$(date +%s)" -lt 1593561600 ]; then
         tries=(_initial_ 1 2 3 4 5 6 7 8 9)
     else
         tries=(_initial_)
@@ -71,7 +71,7 @@ run_tests() {
     xvfb_run_ ./qt_test
     qt_test_res=${?}
 
-    ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-${TIMEOUT_DEFAULT}} ./load_test -s 150
+    ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-${TIMEOUT_DEFAULT}} ./load_test -s 150 -n 5
     load_test_res=${?}
 
     echo "Core Test return code: ${core_test_res}"

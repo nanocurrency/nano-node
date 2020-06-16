@@ -1,10 +1,7 @@
 #pragma once
 
-#include <nano/boost/asio.hpp>
+#include <nano/boost/asio/deadline_timer.hpp>
 
-#include <boost/property_tree/ptree.hpp>
-
-#include <atomic>
 #include <string>
 
 namespace nano
@@ -52,7 +49,7 @@ namespace ipc
 	};
 
 	/**
-	 * Payload encodings; add protobuf, flatbuffers and so on as needed.
+	 * Payload encodings.
 	 */
 	enum class payload_encoding : uint8_t
 	{
@@ -60,9 +57,20 @@ namespace ipc
 		 * Request is preamble followed by 32-bit BE payload length and payload bytes.
 		 * Response is 32-bit BE payload length followed by payload bytes.
 		 */
-		json_legacy = 0x1,
-		/** Request/response is same as json_legacy and exposes unsafe RPC's */
-		json_unsafe = 0x2
+		json_v1 = 0x1,
+
+		/** Request/response is same as json_v1, but exposes unsafe RPC's */
+		json_v1_unsafe = 0x2,
+
+		/**
+		 * Request is preamble followed by 32-bit BE payload length and payload bytes.
+		 * Response is 32-bit BE payload length followed by payload bytes.
+		 * Payloads must be flatbuffer encoded.
+		 */
+		flatbuffers = 0x3,
+
+		/** JSON -> Flatbuffers -> JSON  */
+		flatbuffers_json = 0x4
 	};
 
 	/** IPC transport interface */

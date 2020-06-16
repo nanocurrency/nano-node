@@ -4,10 +4,11 @@
 #include <nano/lib/diagnosticsconfig.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/lmdbconfig.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/rocksdbconfig.hpp>
 #include <nano/lib/stats.hpp>
-#include <nano/node/ipcconfig.hpp>
+#include <nano/node/ipc/ipc_config.hpp>
 #include <nano/node/logging.hpp>
 #include <nano/node/websocketconfig.hpp>
 #include <nano/secure/common.hpp>
@@ -56,44 +57,50 @@ public:
 	nano::amount online_weight_minimum{ 60000 * nano::Gxrb_ratio };
 	unsigned online_weight_quorum{ 50 };
 	unsigned password_fanout{ 1024 };
-	unsigned io_threads{ std::max<unsigned> (4, boost::thread::hardware_concurrency ()) };
-	unsigned network_threads{ std::max<unsigned> (4, boost::thread::hardware_concurrency ()) };
-	unsigned work_threads{ std::max<unsigned> (4, boost::thread::hardware_concurrency ()) };
-	unsigned signature_checker_threads{ (boost::thread::hardware_concurrency () != 0) ? boost::thread::hardware_concurrency () - 1 : 0 }; /* The calling thread does checks as well so remove it from the number of threads used */
+	unsigned io_threads{ std::max<unsigned> (4, std::thread::hardware_concurrency ()) };
+	unsigned network_threads{ std::max<unsigned> (4, std::thread::hardware_concurrency ()) };
+	unsigned work_threads{ std::max<unsigned> (4, std::thread::hardware_concurrency ()) };
+	/* Use half available threads on the system for signature checking. The calling thread does checks as well, so these are extra worker threads */
+	unsigned signature_checker_threads{ std::thread::hardware_concurrency () / 2 };
 	bool enable_voting{ false };
 	unsigned bootstrap_connections{ 4 };
 	unsigned bootstrap_connections_max{ 64 };
+	unsigned bootstrap_initiator_threads{ network_params.network.is_test_network () ? 1u : std::min<unsigned> (2, std::max<unsigned> (1, std::thread::hardware_concurrency ())) };
 	nano::websocket::config websocket_config;
 	nano::diagnostics_config diagnostics_config;
 	size_t confirmation_history_size{ 2048 };
 	std::string callback_address;
 	uint16_t callback_port{ 0 };
 	std::string callback_target;
-	int lmdb_max_dbs{ 128 };
+	int deprecated_lmdb_max_dbs{ 128 };
 	bool allow_local_peers{ !network_params.network.is_live_network () }; // disable by default for live network
 	nano::stat_config stat_config;
 	nano::ipc::ipc_config ipc_config;
-	boost::asio::ip::address_v6 external_address{ boost::asio::ip::address_v6{} };
+	std::string external_address;
 	uint16_t external_port{ 0 };
-	std::chrono::milliseconds block_processor_batch_max_time{ std::chrono::milliseconds (5000) };
+	std::chrono::milliseconds block_processor_batch_max_time{ network_params.network.is_test_network () ? std::chrono::milliseconds (500) : std::chrono::milliseconds (5000) };
 	std::chrono::seconds unchecked_cutoff_time{ std::chrono::seconds (4 * 60 * 60) }; // 4 hours
 	/** Timeout for initiated async operations */
 	std::chrono::seconds tcp_io_timeout{ (network_params.network.is_test_network () && !is_sanitizer_build) ? std::chrono::seconds (5) : std::chrono::seconds (15) };
 	std::chrono::nanoseconds pow_sleep_interval{ 0 };
-	size_t active_elections_size{ 10000 };
+	size_t active_elections_size{ 50000 };
 	/** Default maximum incoming TCP connections, including realtime network & bootstrap */
 	unsigned tcp_incoming_connections_max{ 1024 };
 	bool use_memory_pools{ true };
 	static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
 	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
-	size_t bandwidth_limit{ 5 * 1024 * 1024 }; // 5MB/s
+	/** Default outbound traffic shaping is 10MB/s */
+	size_t bandwidth_limit{ 10 * 1024 * 1024 };
+	/** By default, allow bursts of 15MB/s (not sustainable) */
+	double bandwidth_limit_burst_ratio{ 3. };
 	std::chrono::milliseconds conf_height_processor_batch_min_time{ 50 };
 	bool backup_before_upgrade{ false };
 	std::chrono::seconds work_watcher_period{ std::chrono::seconds (5) };
 	double max_work_generate_multiplier{ 64. };
-	uint64_t max_work_generate_difficulty{ nano::network_constants::publish_full_threshold };
+	uint32_t max_queued_requests{ 512 };
 	nano::rocksdb_config rocksdb_config;
+	nano::lmdb_config lmdb_config;
 	nano::frontiers_confirmation_mode frontiers_confirmation{ nano::frontiers_confirmation_mode::automatic };
 	std::string serialize_frontiers_confirmation (nano::frontiers_confirmation_mode) const;
 	nano::frontiers_confirmation_mode deserialize_frontiers_confirmation (std::string const &);
@@ -118,20 +125,28 @@ public:
 	bool disable_bootstrap_bulk_pull_server{ false };
 	bool disable_bootstrap_bulk_push_client{ false };
 	bool disable_rep_crawler{ false };
+	bool disable_request_loop{ false };
 	bool disable_tcp_realtime{ false };
-	bool disable_udp{ false };
+	bool disable_udp{ true };
 	bool disable_unchecked_cleanup{ false };
 	bool disable_unchecked_drop{ true };
+	bool disable_providing_telemetry_metrics{ false };
+	bool disable_ongoing_telemetry_requests{ false };
+	bool disable_initial_telemetry_requests{ false };
+	bool disable_block_processor_unchecked_deletion{ false };
+	bool disable_block_processor_republishing{ false };
+	bool allow_bootstrap_peers_duplicates{ false };
+	bool disable_max_peers_per_ip{ false }; // For testing only
 	bool fast_bootstrap{ false };
 	bool read_only{ false };
-	/** Whether to read all frontiers and construct the representative weights */
-	bool cache_representative_weights_from_frontiers{ true };
-	/** Whether to read all frontiers and construct the total cemented count */
-	bool cache_cemented_count_from_frontiers{ true };
+	nano::confirmation_height_mode confirmation_height_processor_mode{ nano::confirmation_height_mode::automatic };
+	nano::generate_cache generate_cache;
 	bool inactive_node{ false };
 	size_t sideband_batch_size{ 512 };
 	size_t block_processor_batch_size{ 0 };
 	size_t block_processor_full_size{ 65536 };
 	size_t block_processor_verification_size{ 0 };
+	size_t inactive_votes_cache_size{ 16 * 1024 };
+	size_t vote_processor_capacity{ 144 * 1024 };
 };
 }

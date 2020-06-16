@@ -1,24 +1,21 @@
 #pragma once
 
 #include <nano/lib/errors.hpp>
-#include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/utility.hpp>
 
 #include <boost/circular_buffer.hpp>
-#include <boost/property_tree/ptree.hpp>
 
-#include <atomic>
 #include <chrono>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <string>
-#include <unordered_map>
 
 namespace nano
 {
 class node;
 class tomlconfig;
+class jsonconfig;
 /**
  * Serialize and deserialize the 'statistics' node from config.json
  * All configuration values have defaults. In particular, file logging of statistics
@@ -65,50 +62,13 @@ class stat_datapoint final
 {
 public:
 	stat_datapoint () = default;
-	stat_datapoint (stat_datapoint const & other_a)
-	{
-		nano::lock_guard<std::mutex> lock (other_a.datapoint_mutex);
-		value = other_a.value;
-		timestamp = other_a.timestamp;
-	}
-	stat_datapoint & operator= (stat_datapoint const & other_a)
-	{
-		nano::lock_guard<std::mutex> lock (other_a.datapoint_mutex);
-		value = other_a.value;
-		timestamp = other_a.timestamp;
-		return *this;
-	}
-
-	uint64_t get_value ()
-	{
-		nano::lock_guard<std::mutex> lock (datapoint_mutex);
-		return value;
-	}
-	void set_value (uint64_t value_a)
-	{
-		nano::lock_guard<std::mutex> lock (datapoint_mutex);
-		value = value_a;
-	}
-	std::chrono::system_clock::time_point get_timestamp ()
-	{
-		nano::lock_guard<std::mutex> lock (datapoint_mutex);
-		return timestamp;
-	}
-	void set_timestamp (std::chrono::system_clock::time_point timestamp_a)
-	{
-		nano::lock_guard<std::mutex> lock (datapoint_mutex);
-		timestamp = timestamp_a;
-	}
-	/** Add \addend to the current value and optionally update the timestamp */
-	void add (uint64_t addend, bool update_timestamp = true)
-	{
-		nano::lock_guard<std::mutex> lock (datapoint_mutex);
-		value += addend;
-		if (update_timestamp)
-		{
-			timestamp = std::chrono::system_clock::now ();
-		}
-	}
+	stat_datapoint (stat_datapoint const & other_a);
+	stat_datapoint & operator= (stat_datapoint const & other_a);
+	uint64_t get_value () const;
+	void set_value (uint64_t value_a);
+	std::chrono::system_clock::time_point get_timestamp () const;
+	void set_timestamp (std::chrono::system_clock::time_point timestamp_a);
+	void add (uint64_t addend, bool update_timestamp = true);
 
 private:
 	mutable std::mutex datapoint_mutex;
@@ -235,9 +195,13 @@ public:
 		ipc,
 		tcp,
 		udp,
-		observer,
 		confirmation_height,
-		drop
+		confirmation_observer,
+		drop,
+		aggregator,
+		requests,
+		filter,
+		telemetry,
 	};
 
 	/** Optional detail type */
@@ -251,10 +215,10 @@ public:
 		http_callback,
 		unreachable_host,
 
-		// observer specific
-		observer_confirmation_active_quorum,
-		observer_confirmation_active_conf_height,
-		observer_confirmation_inactive,
+		// confirmation_observer specific
+		active_quorum,
+		active_conf_height,
+		inactive_conf_height,
 
 		// ledger, block, bootstrap
 		send,
@@ -264,6 +228,9 @@ public:
 		state_block,
 		epoch_block,
 		fork,
+		old,
+		gap_previous,
+		gap_source,
 
 		// message specific
 		keepalive,
@@ -272,6 +239,8 @@ public:
 		confirm_req,
 		confirm_ack,
 		node_id_handshake,
+		telemetry_req,
+		telemetry_ack,
 
 		// bootstrap, callback
 		initiate,
@@ -295,6 +264,7 @@ public:
 		// vote specific
 		vote_valid,
 		vote_replay,
+		vote_indeterminate,
 		vote_invalid,
 		vote_overflow,
 
@@ -303,6 +273,12 @@ public:
 		vote_cached,
 		late_block,
 		late_block_seconds,
+		election_non_priority,
+		election_priority,
+		election_block_conflict,
+		election_difficulty_update,
+		election_drop,
+		election_restart,
 
 		// udp
 		blocking,
@@ -316,12 +292,16 @@ public:
 		invalid_confirm_req_message,
 		invalid_confirm_ack_message,
 		invalid_node_id_handshake_message,
+		invalid_telemetry_req_message,
+		invalid_telemetry_ack_message,
 		outdated_version,
 
 		// tcp
 		tcp_accept_success,
 		tcp_accept_failure,
 		tcp_write_drop,
+		tcp_write_no_socket_drop,
+		tcp_excluded,
 
 		// ipc
 		invocations,
@@ -331,7 +311,32 @@ public:
 
 		// confirmation height
 		blocks_confirmed,
-		invalid_block
+		blocks_confirmed_unbounded,
+		blocks_confirmed_bounded,
+
+		// [request] aggregator
+		aggregator_accepted,
+		aggregator_dropped,
+
+		// requests
+		requests_cached_hashes,
+		requests_generated_hashes,
+		requests_cached_votes,
+		requests_generated_votes,
+		requests_cannot_vote,
+		requests_unknown,
+
+		// duplicate
+		duplicate_publish,
+
+		// telemetry
+		invalid_signature,
+		different_genesis_hash,
+		node_id_mismatch,
+		request_within_protection_cache_zone,
+		no_response_received,
+		unsolicited_telemetry_ack,
+		failed_send_telemetry_req
 	};
 
 	/** Direction of the stat. If the direction is irrelevant, use in */

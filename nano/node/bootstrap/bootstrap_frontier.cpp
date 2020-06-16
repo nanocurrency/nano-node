@@ -1,7 +1,9 @@
-#include <nano/node/bootstrap/bootstrap.hpp>
+#include <nano/node/bootstrap/bootstrap_attempt.hpp>
 #include <nano/node/bootstrap/bootstrap_frontier.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
+
+#include <boost/format.hpp>
 
 constexpr double nano::bootstrap_limits::bootstrap_connection_warmup_time_sec;
 constexpr double nano::bootstrap_limits::bootstrap_minimum_elapsed_seconds_blockrate;
@@ -31,17 +33,17 @@ void nano::frontier_req_client::run ()
 			}
 		}
 	},
-	false); // is bootstrap traffic is_droppable false
+	nano::buffer_drop_policy::no_limiter_drop);
 }
 
-nano::frontier_req_client::frontier_req_client (std::shared_ptr<nano::bootstrap_client> connection_a) :
+nano::frontier_req_client::frontier_req_client (std::shared_ptr<nano::bootstrap_client> connection_a, std::shared_ptr<nano::bootstrap_attempt> attempt_a) :
 connection (connection_a),
+attempt (attempt_a),
 current (0),
 count (0),
 bulk_push_cost (0)
 {
-	auto transaction (connection->node->store.tx_begin_read ());
-	next (transaction);
+	next ();
 }
 
 nano::frontier_req_client::~frontier_req_client ()
@@ -75,7 +77,7 @@ void nano::frontier_req_client::unsynced (nano::block_hash const & head, nano::b
 {
 	if (bulk_push_cost < nano::bootstrap_limits::bulk_push_cost_limit)
 	{
-		connection->attempt->add_bulk_push_target (head, end);
+		attempt->add_bulk_push_target (head, end);
 		if (end.is_zero ())
 		{
 			bulk_push_cost += 2;
@@ -91,17 +93,17 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 {
 	if (!ec)
 	{
-		assert (size_a == nano::frontier_req_client::size_frontier);
+		debug_assert (size_a == nano::frontier_req_client::size_frontier);
 		nano::account account;
 		nano::bufferstream account_stream (connection->receive_buffer->data (), sizeof (account));
 		auto error1 (nano::try_read (account_stream, account));
 		(void)error1;
-		assert (!error1);
+		debug_assert (!error1);
 		nano::block_hash latest;
 		nano::bufferstream latest_stream (connection->receive_buffer->data () + sizeof (account), sizeof (latest));
 		auto error2 (nano::try_read (latest_stream, latest));
 		(void)error2;
-		assert (!error2);
+		debug_assert (!error2);
 		if (count == 0)
 		{
 			start_time = std::chrono::steady_clock::now ();
@@ -117,18 +119,17 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 			promise.set_value (true);
 			return;
 		}
-		if (connection->attempt->should_log ())
+		if (attempt->should_log ())
 		{
 			connection->node->logger.always_log (boost::str (boost::format ("Received %1% frontiers from %2%") % std::to_string (count) % connection->channel->to_string ()));
 		}
-		auto transaction (connection->node->store.tx_begin_read ());
 		if (!account.is_zero ())
 		{
 			while (!current.is_zero () && current < account)
 			{
 				// We know about an account they don't.
 				unsynced (frontier, 0);
-				next (transaction);
+				next ();
 			}
 			if (!current.is_zero ())
 			{
@@ -140,30 +141,30 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 					}
 					else
 					{
-						if (connection->node->store.block_exists (transaction, latest))
+						if (connection->node->ledger.block_exists (latest))
 						{
 							// We know about a block they don't.
 							unsynced (frontier, latest);
 						}
 						else
 						{
-							connection->attempt->add_pull (nano::pull_info (account, latest, frontier, 0, connection->node->network_params.bootstrap.frontier_retry_limit));
+							attempt->add_frontier (nano::pull_info (account, latest, frontier, attempt->incremental_id, 0, connection->node->network_params.bootstrap.frontier_retry_limit));
 							// Either we're behind or there's a fork we differ on
 							// Either way, bulk pushing will probably not be effective
 							bulk_push_cost += 5;
 						}
 					}
-					next (transaction);
+					next ();
 				}
 				else
 				{
-					assert (account < current);
-					connection->attempt->add_pull (nano::pull_info (account, latest, nano::block_hash (0), 0, connection->node->network_params.bootstrap.frontier_retry_limit));
+					debug_assert (account < current);
+					attempt->add_frontier (nano::pull_info (account, latest, nano::block_hash (0), attempt->incremental_id, 0, connection->node->network_params.bootstrap.frontier_retry_limit));
 				}
 			}
 			else
 			{
-				connection->attempt->add_pull (nano::pull_info (account, latest, nano::block_hash (0), 0, connection->node->network_params.bootstrap.frontier_retry_limit));
+				attempt->add_frontier (nano::pull_info (account, latest, nano::block_hash (0), attempt->incremental_id, 0, connection->node->network_params.bootstrap.frontier_retry_limit));
 			}
 			receive_frontier ();
 		}
@@ -173,7 +174,7 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 			{
 				// We know about an account they don't.
 				unsynced (frontier, 0);
-				next (transaction);
+				next ();
 			}
 			if (connection->node->config.logging.bulk_pull_logging ())
 			{
@@ -187,7 +188,7 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 				catch (std::future_error &)
 				{
 				}
-				connection->attempt->pool_connection (connection);
+				connection->connections->pool_connection (connection);
 			}
 		}
 	}
@@ -200,13 +201,14 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 	}
 }
 
-void nano::frontier_req_client::next (nano::transaction const & transaction_a)
+void nano::frontier_req_client::next ()
 {
 	// Filling accounts deque to prevent often read transactions
 	if (accounts.empty ())
 	{
 		size_t max_size (128);
-		for (auto i (connection->node->store.latest_begin (transaction_a, current.number () + 1)), n (connection->node->store.latest_end ()); i != n && accounts.size () != max_size; ++i)
+		auto transaction (connection->node->store.tx_begin_read ());
+		for (auto i (connection->node->store.latest_begin (transaction, current.number () + 1)), n (connection->node->store.latest_end ()); i != n && accounts.size () != max_size; ++i)
 		{
 			nano::account_info const & info (i->second);
 			nano::account const & account (i->first);

@@ -1,11 +1,12 @@
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/logger_mt.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/lmdb/lmdb_env.hpp>
 #include <nano/node/lmdb/lmdb_txn.hpp>
 #include <nano/secure/blockstore.hpp>
 
-#include <boost/polymorphic_cast.hpp>
+#include <boost/format.hpp>
 
 // Some builds (mac) fail due to "Boost.Stacktrace requires `_Unwind_Backtrace` function".
 #ifndef _WIN32
@@ -130,33 +131,36 @@ void nano::mdb_txn_tracker::serialize_json (boost::property_tree::ptree & json, 
 {
 	// Copying is cheap compared to generating the stack trace strings, so reduce time holding the mutex
 	std::vector<mdb_txn_stats> copy_stats;
+	std::vector<bool> are_writes;
 	{
 		nano::lock_guard<std::mutex> guard (mutex);
 		copy_stats = stats;
+		are_writes.reserve (stats.size ());
+		std::transform (stats.cbegin (), stats.cend (), std::back_inserter (are_writes), [](auto & mdb_txn_stat) {
+			return mdb_txn_stat.is_write ();
+		});
 	}
 
 	// Get the time difference now as creating stacktraces (Debug/Windows for instance) can take a while so results won't be as accurate
 	std::vector<std::chrono::milliseconds> times_since_start;
 	times_since_start.reserve (copy_stats.size ());
-	// clang-format off
-	std::transform (copy_stats.cbegin (), copy_stats.cend (), std::back_inserter (times_since_start), [] (const auto & stat) {
+	std::transform (copy_stats.cbegin (), copy_stats.cend (), std::back_inserter (times_since_start), [](const auto & stat) {
 		return stat.timer.since_start ();
 	});
-	// clang-format on
-	assert (times_since_start.size () == copy_stats.size ());
+	debug_assert (times_since_start.size () == copy_stats.size ());
 
 	for (size_t i = 0; i < times_since_start.size (); ++i)
 	{
 		auto const & stat = copy_stats[i];
 		auto time_held_open = times_since_start[i];
 
-		if ((stat.is_write () && time_held_open >= min_write_time) || (!stat.is_write () && time_held_open >= min_read_time))
+		if ((are_writes[i] && time_held_open >= min_write_time) || (!are_writes[i] && time_held_open >= min_read_time))
 		{
 			nano::jsonconfig mdb_lock_config;
 
 			mdb_lock_config.put ("thread", stat.thread_name);
 			mdb_lock_config.put ("time_held_open", time_held_open.count ());
-			mdb_lock_config.put ("write", stat.is_write ());
+			mdb_lock_config.put ("write", !!are_writes[i]);
 
 			boost::property_tree::ptree stacktrace_config;
 			for (auto frame : *stat.stacktrace)
@@ -193,7 +197,7 @@ void nano::mdb_txn_tracker::output_finished (nano::mdb_txn_stats const & mdb_txn
 
 	if (!should_ignore && ((is_write && time_open >= txn_tracking_config.min_write_txn_time) || (!is_write && time_open >= txn_tracking_config.min_read_txn_time)))
 	{
-		assert (mdb_txn_stats.stacktrace);
+		debug_assert (mdb_txn_stats.stacktrace);
 		logger.always_log (boost::str (boost::format ("%1%ms %2% held on thread %3%\n%4%") % mdb_txn_stats.timer.since_start ().count () % (is_write ? "write lock" : "read") % mdb_txn_stats.thread_name % *mdb_txn_stats.stacktrace));
 	}
 }
@@ -201,9 +205,7 @@ void nano::mdb_txn_tracker::output_finished (nano::mdb_txn_stats const & mdb_txn
 void nano::mdb_txn_tracker::add (const nano::transaction_impl * transaction_impl)
 {
 	nano::lock_guard<std::mutex> guard (mutex);
-	// clang-format off
-	assert (std::find_if (stats.cbegin (), stats.cend (), matches_txn (transaction_impl)) == stats.cend ());
-	// clang-format on
+	debug_assert (std::find_if (stats.cbegin (), stats.cend (), matches_txn (transaction_impl)) == stats.cend ());
 	stats.emplace_back (transaction_impl);
 }
 
@@ -211,9 +213,7 @@ void nano::mdb_txn_tracker::add (const nano::transaction_impl * transaction_impl
 void nano::mdb_txn_tracker::erase (const nano::transaction_impl * transaction_impl)
 {
 	nano::lock_guard<std::mutex> guard (mutex);
-	// clang-format off
 	auto it = std::find_if (stats.begin (), stats.end (), matches_txn (transaction_impl));
-	// clang-format on
 	if (it != stats.end ())
 	{
 		output_finished (*it);

@@ -1,9 +1,29 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
+#include <nano/lib/epoch.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/work.hpp>
+#include <nano/node/testing.hpp>
 
 #include <gtest/gtest.h>
 
-TEST (difficulty, multipliers)
+TEST (system, work_generate_limited)
+{
+	nano::system system;
+	nano::block_hash key (1);
+	nano::network_constants constants;
+	auto min = constants.publish_thresholds.entry;
+	auto max = constants.publish_thresholds.base;
+	for (int i = 0; i < 5; ++i)
+	{
+		auto work = system.work_generate_limited (key, min, max);
+		auto difficulty = nano::work_difficulty (nano::work_version::work_1, key, work);
+		ASSERT_GE (difficulty, min);
+		ASSERT_LT (difficulty, max);
+	}
+}
+
+TEST (difficultyDeathTest, multipliers)
 {
 	// For ASSERT_DEATH_IF_SUPPORTED
 	testing::FLAGS_gtest_death_test_style = "threadsafe";
@@ -44,25 +64,19 @@ TEST (difficulty, multipliers)
 		ASSERT_EQ (difficulty, nano::difficulty::from_multiplier (expected_multiplier, base));
 	}
 
-	{
+	// The death checks don't fail on a release config, so guard against them
 #ifndef NDEBUG
-		// Causes valgrind to be noisy
-		if (!nano::running_within_valgrind ())
-		{
-			uint64_t base = 0xffffffc000000000;
-			uint64_t difficulty_nil = 0;
-			double multiplier_nil = 0.;
+	// Causes valgrind to be noisy
+	if (!nano::running_within_valgrind ())
+	{
+		uint64_t base = 0xffffffc000000000;
+		uint64_t difficulty_nil = 0;
+		double multiplier_nil = 0.;
 
-			ASSERT_DEATH_IF_SUPPORTED (nano::difficulty::to_multiplier (difficulty_nil, base), "");
-			ASSERT_DEATH_IF_SUPPORTED (nano::difficulty::from_multiplier (multiplier_nil, base), "");
-		}
-#endif
+		ASSERT_DEATH_IF_SUPPORTED (nano::difficulty::to_multiplier (difficulty_nil, base), "");
+		ASSERT_DEATH_IF_SUPPORTED (nano::difficulty::from_multiplier (multiplier_nil, base), "");
 	}
-}
-
-TEST (difficulty, network_constants)
-{
-	ASSERT_NEAR (16., nano::difficulty::to_multiplier (nano::network_constants::publish_full_threshold, nano::network_constants::publish_beta_threshold), 1e-10);
+#endif
 }
 
 TEST (difficulty, overflow)
@@ -104,4 +118,45 @@ TEST (difficulty, zero)
 
 		ASSERT_EQ (difficulty, nano::difficulty::from_multiplier (multiplier, base));
 	}
+}
+
+TEST (difficulty, network_constants)
+{
+	nano::network_constants constants;
+	auto & full_thresholds = constants.publish_full;
+	auto & beta_thresholds = constants.publish_beta;
+	auto & test_thresholds = constants.publish_test;
+
+	ASSERT_NEAR (8., nano::difficulty::to_multiplier (full_thresholds.epoch_2, full_thresholds.epoch_1), 1e-10);
+	ASSERT_NEAR (1 / 8., nano::difficulty::to_multiplier (full_thresholds.epoch_2_receive, full_thresholds.epoch_1), 1e-10);
+	ASSERT_NEAR (1., nano::difficulty::to_multiplier (full_thresholds.epoch_2_receive, full_thresholds.entry), 1e-10);
+	ASSERT_NEAR (1., nano::difficulty::to_multiplier (full_thresholds.epoch_2, full_thresholds.base), 1e-10);
+
+	ASSERT_NEAR (1 / 64., nano::difficulty::to_multiplier (beta_thresholds.epoch_1, full_thresholds.epoch_1), 1e-10);
+	ASSERT_NEAR (2., nano::difficulty::to_multiplier (beta_thresholds.epoch_2, beta_thresholds.epoch_1), 1e-10);
+	ASSERT_NEAR (1 / 2., nano::difficulty::to_multiplier (beta_thresholds.epoch_2_receive, beta_thresholds.epoch_1), 1e-10);
+	ASSERT_NEAR (1., nano::difficulty::to_multiplier (beta_thresholds.epoch_2_receive, beta_thresholds.entry), 1e-10);
+	ASSERT_NEAR (1., nano::difficulty::to_multiplier (beta_thresholds.epoch_2, beta_thresholds.base), 1e-10);
+
+	ASSERT_NEAR (8., nano::difficulty::to_multiplier (test_thresholds.epoch_2, test_thresholds.epoch_1), 1e-10);
+	ASSERT_NEAR (1 / 8., nano::difficulty::to_multiplier (test_thresholds.epoch_2_receive, test_thresholds.epoch_1), 1e-10);
+	ASSERT_NEAR (1., nano::difficulty::to_multiplier (test_thresholds.epoch_2_receive, test_thresholds.entry), 1e-10);
+	ASSERT_NEAR (1., nano::difficulty::to_multiplier (test_thresholds.epoch_2, test_thresholds.base), 1e-10);
+
+	nano::work_version version{ nano::work_version::work_1 };
+	ASSERT_EQ (constants.publish_thresholds.base, constants.publish_thresholds.epoch_2);
+	ASSERT_EQ (constants.publish_thresholds.base, nano::work_threshold_base (version));
+	ASSERT_EQ (constants.publish_thresholds.entry, nano::work_threshold_entry (version));
+	ASSERT_EQ (constants.publish_thresholds.epoch_1, nano::work_threshold (version, nano::block_details (nano::epoch::epoch_0, false, false, false)));
+	ASSERT_EQ (constants.publish_thresholds.epoch_1, nano::work_threshold (version, nano::block_details (nano::epoch::epoch_1, false, false, false)));
+	ASSERT_EQ (constants.publish_thresholds.epoch_1, nano::work_threshold (version, nano::block_details (nano::epoch::epoch_1, false, false, false)));
+
+	// Send [+ change]
+	ASSERT_EQ (constants.publish_thresholds.epoch_2, nano::work_threshold (version, nano::block_details (nano::epoch::epoch_2, true, false, false)));
+	// Change
+	ASSERT_EQ (constants.publish_thresholds.epoch_2, nano::work_threshold (version, nano::block_details (nano::epoch::epoch_2, false, false, false)));
+	// Receive [+ change] / Open
+	ASSERT_EQ (constants.publish_thresholds.epoch_2_receive, nano::work_threshold (version, nano::block_details (nano::epoch::epoch_2, false, true, false)));
+	// Epoch
+	ASSERT_EQ (constants.publish_thresholds.epoch_2_receive, nano::work_threshold (version, nano::block_details (nano::epoch::epoch_2, false, false, true)));
 }

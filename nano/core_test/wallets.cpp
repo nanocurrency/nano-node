@@ -5,13 +5,11 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/polymorphic_cast.hpp>
-
 using namespace std::chrono_literals;
 
 TEST (wallets, open_create)
 {
-	nano::system system (24000, 1);
+	nano::system system (1);
 	bool error (false);
 	nano::wallets wallets (error, *system.nodes[0]);
 	ASSERT_FALSE (error);
@@ -25,7 +23,7 @@ TEST (wallets, open_create)
 
 TEST (wallets, open_existing)
 {
-	nano::system system (24000, 1);
+	nano::system system (1);
 	auto id (nano::random_wallet_id ());
 	{
 		bool error (false);
@@ -55,7 +53,7 @@ TEST (wallets, open_existing)
 
 TEST (wallets, remove)
 {
-	nano::system system (24000, 1);
+	nano::system system (1);
 	nano::wallet_id one (1);
 	{
 		bool error (false);
@@ -79,7 +77,6 @@ TEST (wallets, remove)
 TEST (wallets, upgrade)
 {
 	// Don't test this in rocksdb mode
-	static nano::network_constants network_constants;
 	auto use_rocksdb_str = std::getenv ("TEST_USE_ROCKSDB");
 	if (use_rocksdb_str && boost::lexical_cast<int> (use_rocksdb_str) == 1)
 	{
@@ -87,12 +84,12 @@ TEST (wallets, upgrade)
 	}
 
 	nano::system system;
-	nano::node_config node_config (24000, system.logging);
+	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	system.add_node (node_config);
 	auto path (nano::unique_path ());
 	auto id = nano::random_wallet_id ();
-	nano::node_config node_config1 (24001, system.logging);
+	nano::node_config node_config1 (nano::get_available_port (), system.logging);
 	node_config1.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	{
 		auto node1 (std::make_shared<nano::node> (system.io_ctx, path, system.alarm, node_config1, system.work));
@@ -113,8 +110,8 @@ TEST (wallets, upgrade)
 		auto rep_block = node1->rep_block (nano::genesis_account);
 		nano::account_info_v13 account_info_v13 (info.head, rep_block, info.open_block, info.balance, info.modified, info.block_count, info.epoch ());
 		auto status (mdb_put (mdb_store.env.tx (transaction_destination), info.epoch () == nano::epoch::epoch_0 ? mdb_store.accounts_v0 : mdb_store.accounts_v1, nano::mdb_val (nano::test_genesis_key.pub), nano::mdb_val (account_info_v13), 0));
-		(void)status;
-		assert (status == 0);
+		ASSERT_EQ (status, 0);
+		mdb_store.confirmation_height_del (transaction_destination, nano::genesis_account);
 	}
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, path, system.alarm, node_config1, system.work));
 	ASSERT_EQ (1, node1->wallets.items.size ());
@@ -132,11 +129,11 @@ TEST (wallets, upgrade)
 // Keeps breaking whenever we add new DBs
 TEST (wallets, DISABLED_wallet_create_max)
 {
-	nano::system system (24000, 1);
+	nano::system system (1);
 	bool error (false);
 	nano::wallets wallets (error, *system.nodes[0]);
 	const int nonWalletDbs = 19;
-	for (int i = 0; i < system.nodes[0]->config.lmdb_max_dbs - nonWalletDbs; i++)
+	for (int i = 0; i < system.nodes[0]->config.deprecated_lmdb_max_dbs - nonWalletDbs; i++)
 	{
 		auto wallet_id = nano::random_wallet_id ();
 		auto wallet = wallets.create (wallet_id);
@@ -155,28 +152,29 @@ TEST (wallets, DISABLED_wallet_create_max)
 
 TEST (wallets, reload)
 {
-	nano::system system (24000, 1);
+	nano::system system (1);
+	auto & node1 (*system.nodes[0]);
 	nano::wallet_id one (1);
 	bool error (false);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (1, system.nodes[0]->wallets.items.size ());
+	ASSERT_EQ (1, node1.wallets.items.size ());
 	{
-		nano::lock_guard<std::mutex> lock_wallet (system.nodes[0]->wallets.mutex);
-		nano::inactive_node node (system.nodes[0]->application_path, 24001);
+		nano::lock_guard<std::mutex> lock_wallet (node1.wallets.mutex);
+		nano::inactive_node node (node1.application_path);
 		auto wallet (node.node->wallets.create (one));
 		ASSERT_NE (wallet, nullptr);
 	}
 	system.deadline_set (5s);
-	while (system.nodes[0]->wallets.open (one) == nullptr)
+	while (node1.wallets.open (one) == nullptr)
 	{
 		system.poll ();
 	}
-	ASSERT_EQ (2, system.nodes[0]->wallets.items.size ());
+	ASSERT_EQ (2, node1.wallets.items.size ());
 }
 
 TEST (wallets, vote_minimum)
 {
-	nano::system system (24000, 1);
+	nano::system system (1);
 	auto & node1 (*system.nodes[0]);
 	nano::keypair key1;
 	nano::keypair key2;
@@ -197,4 +195,29 @@ TEST (wallets, vote_minimum)
 	wallet->insert_adhoc (key2.prv);
 	node1.wallets.compute_reps ();
 	ASSERT_EQ (2, wallet->representatives.size ());
+}
+
+TEST (wallets, exists)
+{
+	nano::system system (1);
+	auto & node (*system.nodes[0]);
+	nano::keypair key1;
+	nano::keypair key2;
+	{
+		auto transaction (node.wallets.tx_begin_read ());
+		ASSERT_FALSE (node.wallets.exists (transaction, key1.pub));
+		ASSERT_FALSE (node.wallets.exists (transaction, key2.pub));
+	}
+	system.wallet (0)->insert_adhoc (key1.prv);
+	{
+		auto transaction (node.wallets.tx_begin_read ());
+		ASSERT_TRUE (node.wallets.exists (transaction, key1.pub));
+		ASSERT_FALSE (node.wallets.exists (transaction, key2.pub));
+	}
+	system.wallet (0)->insert_adhoc (key2.prv);
+	{
+		auto transaction (node.wallets.tx_begin_read ());
+		ASSERT_TRUE (node.wallets.exists (transaction, key1.pub));
+		ASSERT_TRUE (node.wallets.exists (transaction, key2.pub));
+	}
 }

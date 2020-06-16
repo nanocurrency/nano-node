@@ -1,19 +1,29 @@
 #pragma once
 
-#include <nano/boost/asio.hpp>
+#include <nano/boost/asio/ip/tcp.hpp>
+#include <nano/boost/asio/strand.hpp>
 #include <nano/lib/asio.hpp>
-#include <nano/lib/utility.hpp>
 
 #include <boost/optional.hpp>
 
 #include <chrono>
 #include <deque>
 #include <memory>
-#include <utility>
 #include <vector>
 
 namespace nano
 {
+/** Policy to affect at which stage a buffer can be dropped */
+enum class buffer_drop_policy
+{
+	/** Can be dropped by bandwidth limiter (default) */
+	limiter,
+	/** Should not be dropped by bandwidth limiter */
+	no_limiter_drop,
+	/** Should not be dropped by bandwidth limiter or socket write queue limiter */
+	no_socket_drop
+};
+
 class node;
 class server_socket;
 
@@ -45,7 +55,7 @@ public:
 	virtual ~socket ();
 	void async_connect (boost::asio::ip::tcp::endpoint const &, std::function<void(boost::system::error_code const &)>);
 	void async_read (std::shared_ptr<std::vector<uint8_t>>, size_t, std::function<void(boost::system::error_code const &, size_t)>);
-	void async_write (nano::shared_const_buffer const &, std::function<void(boost::system::error_code const &, size_t)> = nullptr);
+	void async_write (nano::shared_const_buffer const &, std::function<void(boost::system::error_code const &, size_t)> = nullptr, nano::buffer_drop_policy = nano::buffer_drop_policy::limiter);
 
 	void close ();
 	boost::asio::ip::tcp::endpoint remote_endpoint () const;
@@ -56,6 +66,8 @@ public:
 	void start_timer (std::chrono::seconds deadline_a);
 	/** Change write concurrent */
 	void set_writer_concurrency (concurrency writer_concurrency_a);
+	/** Returns the maximum number of buffers in the write queue */
+	size_t get_max_write_queue_size () const;
 
 protected:
 	/** Holds the buffer and callback for queued writes */

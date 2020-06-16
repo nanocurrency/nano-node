@@ -25,6 +25,8 @@ add_library (nano_lib
 	configbase.hpp
 	diagnosticsconfig.hpp
 	diagnosticsconfig.cpp
+	epoch.hpp
+	epoch.cpp
 	errors.hpp
 	errors.cpp
 	ipc.hpp
@@ -33,6 +35,9 @@ add_library (nano_lib
 	ipc_client.cpp
 	json_error_response.hpp
 	jsonconfig.hpp
+	jsonconfig.cpp
+	lmdbconfig.hpp
+	lmdbconfig.cpp
 	locks.hpp
 	locks.cpp
 	logger_mt.hpp
@@ -40,6 +45,9 @@ add_library (nano_lib
 	memory.cpp
 	numbers.hpp
 	numbers.cpp
+	optional_ptr.hpp
+	rate_limiting.hpp
+	rate_limiting.cpp
 	rep_weights.hpp
 	rep_weights.cpp
 	rocksdbconfig.hpp
@@ -49,19 +57,27 @@ add_library (nano_lib
 	rpcconfig.cpp
 	stats.hpp
 	stats.cpp
+	stream.hpp
+	threading.hpp
+	threading.cpp
 	timer.hpp
+	timer.cpp
 	tomlconfig.hpp
+	tomlconfig.cpp
 	utility.hpp
 	utility.cpp
 	walletconfig.hpp
 	walletconfig.cpp
 	work.hpp
-	work.cpp)
+	work.cpp
+	worker.hpp
+	worker.cpp)
 
 target_link_libraries (nano_lib
 	ed25519
 	crypto_lib
 	blake2
+	ipc_flatbuffers_lib
 	${CRYPTOPP_LIBRARY}
 	${CMAKE_DL_LIBS}
 	Boost::boost)
@@ -71,6 +87,12 @@ if (NANO_STACKTRACE_BACKTRACE)
 endif ()
 
 target_compile_definitions(nano_lib
+	PRIVATE
+		-DMAJOR_VERSION_STRING=${CPACK_PACKAGE_VERSION_MAJOR}
+		-DMINOR_VERSION_STRING=${CPACK_PACKAGE_VERSION_MINOR}
+		-DPATCH_VERSION_STRING=${CPACK_PACKAGE_VERSION_PATCH}
+		-DPRE_RELEASE_VERSION_STRING=${CPACK_PACKAGE_VERSION_PRE_RELEASE}
+		-DCI=${CI_TEST}
 	PUBLIC
 		-DACTIVE_NETWORK=${ACTIVE_NETWORK}
 )
