@@ -25,6 +25,8 @@ add_subdirectory(../../flatbuffers ${CMAKE_CURRENT_BINARY_DIR}/flatbuffers-build
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/generated/flatbuffers)
 if (APPLE)
 	install (DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../api/flatbuffers/ DESTINATION Nano.app/Contents/MacOS/api/flatbuffers)
+elseif(LINUX)
+	install (DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../api/flatbuffers/ DESTINATION ./bin/api/flatbuffers)
 else()
 	install (DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../api/flatbuffers/ DESTINATION ./api/flatbuffers)
 endif()
