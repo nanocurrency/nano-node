@@ -2609,25 +2609,25 @@ TEST (ledger, block_hash_account_conflict)
 	 * Generate a send block whose destination is a block hash already
 	 * in the ledger and not an account
 	 */
-	std::shared_ptr<nano::state_block> send1 = builder.state ()
-	                                           .account (nano::genesis_account)
-	                                           .previous (genesis.hash ())
-	                                           .representative (nano::genesis_account)
-	                                           .balance (nano::genesis_amount - 100)
-	                                           .link (key1.pub)
-	                                           .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
-	                                           .work (*pool.generate (genesis.hash ()))
-	                                           .build ();
+	auto send1 = builder.state ()
+	             .account (nano::genesis_account)
+	             .previous (genesis.hash ())
+	             .representative (nano::genesis_account)
+	             .balance (nano::genesis_amount - 100)
+	             .link (key1.pub)
+	             .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	             .work (*pool.generate (genesis.hash ()))
+	             .build_shared ();
 
-	std::shared_ptr<nano::state_block> receive1 = builder.state ()
-	                                              .account (key1.pub)
-	                                              .previous (0)
-	                                              .representative (nano::genesis_account)
-	                                              .balance (100)
-	                                              .link (send1->hash ())
-	                                              .sign (key1.prv, key1.pub)
-	                                              .work (*pool.generate (key1.pub))
-	                                              .build ();
+	auto receive1 = builder.state ()
+	                .account (key1.pub)
+	                .previous (0)
+	                .representative (nano::genesis_account)
+	                .balance (100)
+	                .link (send1->hash ())
+	                .sign (key1.prv, key1.pub)
+	                .work (*pool.generate (key1.pub))
+	                .build_shared ();
 
 	/*
 	 * Note that the below link is a block hash when this is intended
@@ -2635,29 +2635,29 @@ TEST (ledger, block_hash_account_conflict)
 	 * received , except by epoch blocks, which can sign an open block
 	 * for arbitrary accounts.
 	 */
-	std::shared_ptr<nano::state_block> send2 = builder.state ()
-	                                           .account (key1.pub)
-	                                           .previous (receive1->hash ())
-	                                           .representative (nano::genesis_account)
-	                                           .balance (90)
-	                                           .link (receive1->hash ())
-	                                           .sign (key1.prv, key1.pub)
-	                                           .work (*pool.generate (receive1->hash ()))
-	                                           .build ();
+	auto send2 = builder.state ()
+	             .account (key1.pub)
+	             .previous (receive1->hash ())
+	             .representative (nano::genesis_account)
+	             .balance (90)
+	             .link (receive1->hash ())
+	             .sign (key1.prv, key1.pub)
+	             .work (*pool.generate (receive1->hash ()))
+	             .build_shared ();
 
 	/*
 	 * Generate an epoch open for the account with the same value as the block hash
 	 */
 	auto receive1_hash = receive1->hash ();
-	std::shared_ptr<nano::state_block> open_epoch1 = builder.state ()
-	                                                 .account (reinterpret_cast<nano::account const &> (receive1_hash))
-	                                                 .previous (0)
-	                                                 .representative (0)
-	                                                 .balance (0)
-	                                                 .link (node1.ledger.epoch_link (nano::epoch::epoch_1))
-	                                                 .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
-	                                                 .work (*pool.generate (receive1->hash ()))
-	                                                 .build ();
+	auto open_epoch1 = builder.state ()
+	                   .account (reinterpret_cast<nano::account const &> (receive1_hash))
+	                   .previous (0)
+	                   .representative (0)
+	                   .balance (0)
+	                   .link (node1.ledger.epoch_link (nano::epoch::epoch_1))
+	                   .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	                   .work (*pool.generate (receive1->hash ()))
+	                   .build_shared ();
 
 	node1.work_generate_blocking (*send1);
 	node1.work_generate_blocking (*receive1);
@@ -3149,37 +3149,37 @@ TEST (ledger, can_vote)
 	ASSERT_TRUE (ledger.can_vote (transaction, *genesis.open));
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::keypair key1;
-	std::shared_ptr<nano::state_block> send1 = builder.state ()
-	                                           .account (nano::genesis_account)
-	                                           .previous (genesis.hash ())
-	                                           .representative (nano::genesis_account)
-	                                           .balance (nano::genesis_amount - 100)
-	                                           .link (key1.pub)
-	                                           .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
-	                                           .work (*pool.generate (genesis.hash ()))
-	                                           .build ();
+	auto send1 = builder.state ()
+	             .account (nano::genesis_account)
+	             .previous (genesis.hash ())
+	             .representative (nano::genesis_account)
+	             .balance (nano::genesis_amount - 100)
+	             .link (key1.pub)
+	             .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	             .work (*pool.generate (genesis.hash ()))
+	             .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send1).code);
 	ASSERT_TRUE (ledger.can_vote (transaction, *send1));
-	std::shared_ptr<nano::state_block> send2 = builder.state ()
-	                                           .account (nano::genesis_account)
-	                                           .previous (send1->hash ())
-	                                           .representative (nano::genesis_account)
-	                                           .balance (nano::genesis_amount - 200)
-	                                           .link (key1.pub)
-	                                           .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
-	                                           .work (*pool.generate (send1->hash ()))
-	                                           .build ();
+	auto send2 = builder.state ()
+	             .account (nano::genesis_account)
+	             .previous (send1->hash ())
+	             .representative (nano::genesis_account)
+	             .balance (nano::genesis_amount - 200)
+	             .link (key1.pub)
+	             .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	             .work (*pool.generate (send1->hash ()))
+	             .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send2).code);
 	ASSERT_FALSE (ledger.can_vote (transaction, *send2));
-	std::shared_ptr<nano::state_block> receive1 = builder.state ()
-	                                              .account (key1.pub)
-	                                              .previous (0)
-	                                              .representative (nano::genesis_account)
-	                                              .balance (100)
-	                                              .link (send1->hash ())
-	                                              .sign (key1.prv, key1.pub)
-	                                              .work (*pool.generate (key1.pub))
-	                                              .build ();
+	auto receive1 = builder.state ()
+	                .account (key1.pub)
+	                .previous (0)
+	                .representative (nano::genesis_account)
+	                .balance (100)
+	                .link (send1->hash ())
+	                .sign (key1.prv, key1.pub)
+	                .work (*pool.generate (key1.pub))
+	                .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *receive1).code);
 	ASSERT_FALSE (ledger.can_vote (transaction, *receive1));
 	nano::confirmation_height_info height;
@@ -3187,15 +3187,15 @@ TEST (ledger, can_vote)
 	height.height += 1;
 	ledger.store.confirmation_height_put (transaction, nano::genesis_account, height);
 	ASSERT_TRUE (ledger.can_vote (transaction, *receive1));
-	std::shared_ptr<nano::state_block> receive2 = builder.state ()
-	                                              .account (key1.pub)
-	                                              .previous (receive1->hash ())
-	                                              .representative (nano::genesis_account)
-	                                              .balance (200)
-	                                              .link (send2->hash ())
-	                                              .sign (key1.prv, key1.pub)
-	                                              .work (*pool.generate (receive1->hash ()))
-	                                              .build ();
+	auto receive2 = builder.state ()
+	                .account (key1.pub)
+	                .previous (receive1->hash ())
+	                .representative (nano::genesis_account)
+	                .balance (200)
+	                .link (send2->hash ())
+	                .sign (key1.prv, key1.pub)
+	                .work (*pool.generate (receive1->hash ()))
+	                .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *receive2).code);
 	ASSERT_FALSE (ledger.can_vote (transaction, *receive2));
 	ASSERT_FALSE (ledger.store.confirmation_height_get (transaction, key1.pub, height));

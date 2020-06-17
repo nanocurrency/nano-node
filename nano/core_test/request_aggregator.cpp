@@ -307,22 +307,22 @@ TEST (request_aggregator, cannot_vote)
 	auto & node (*system.add_node (flags));
 	nano::genesis genesis;
 	nano::state_block_builder builder;
-	std::shared_ptr<nano::state_block> send1 = builder.make_block ()
-	                                           .account (nano::test_genesis_key.pub)
-	                                           .previous (nano::genesis_hash)
-	                                           .representative (nano::test_genesis_key.pub)
-	                                           .balance (nano::genesis_amount - 1)
-	                                           .link (nano::test_genesis_key.pub)
-	                                           .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
-	                                           .work (*system.work.generate (nano::genesis_hash))
-	                                           .build ();
-	std::shared_ptr<nano::state_block> send2 = builder.make_block ()
-	                                           .from (*send1)
-	                                           .previous (send1->hash ())
-	                                           .balance (send1->balance ().number () - 1)
-	                                           .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
-	                                           .work (*system.work.generate (send1->hash ()))
-	                                           .build ();
+	auto send1 = builder.make_block ()
+	             .account (nano::test_genesis_key.pub)
+	             .previous (nano::genesis_hash)
+	             .representative (nano::test_genesis_key.pub)
+	             .balance (nano::genesis_amount - 1)
+	             .link (nano::test_genesis_key.pub)
+	             .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	             .work (*system.work.generate (nano::genesis_hash))
+	             .build_shared ();
+	auto send2 = builder.make_block ()
+	             .from (*send1)
+	             .previous (send1->hash ())
+	             .balance (send1->balance ().number () - 1)
+	             .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	             .work (*system.work.generate (send1->hash ()))
+	             .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node.process (*send1).code);
 	ASSERT_EQ (nano::process_result::progress, node.process (*send2).code);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
