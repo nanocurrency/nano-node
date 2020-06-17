@@ -611,9 +611,9 @@ nano::process_return nano::node::process_local (std::shared_ptr<nano::block> blo
 	// Notify block processor to release write lock
 	block_processor.wait_write ();
 	// Process block
-	block_post_events events;
+	block_post_events post_events ([& store = store] { return store.tx_begin_read (); });
 	auto transaction (store.tx_begin_write ({ tables::accounts, tables::cached_counts, tables::change_blocks, tables::frontiers, tables::open_blocks, tables::pending, tables::receive_blocks, tables::representation, tables::send_blocks, tables::state_blocks }, { tables::confirmation_height }));
-	return block_processor.process_one (transaction, events, info, work_watcher_a, nano::block_origin::local);
+	return block_processor.process_one (transaction, post_events, info, work_watcher_a, nano::block_origin::local);
 }
 
 void nano::node::start ()

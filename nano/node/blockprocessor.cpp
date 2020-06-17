@@ -10,11 +10,18 @@
 
 std::chrono::milliseconds constexpr nano::block_processor::confirmation_request_delay;
 
+nano::block_post_events::block_post_events (std::function<nano::read_transaction ()> && get_transaction_a) :
+get_transaction (std::move (get_transaction_a))
+{
+}
+
 nano::block_post_events::~block_post_events ()
 {
+	debug_assert (get_transaction != nullptr);
+	auto transaction (get_transaction ());
 	for (auto const & i : events)
 	{
-		i ();
+		i (transaction);
 	}
 }
 
@@ -222,7 +229,7 @@ void nano::block_processor::process_verified_state_blocks (std::deque<nano::unch
 void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_a)
 {
 	auto scoped_write_guard = write_database_queue.wait (nano::writer::process_batch);
-	block_post_events post_events;
+	block_post_events post_events ([& store = node.store] { return store.tx_begin_read (); });
 	auto transaction (node.store.tx_begin_write ({ tables::accounts, nano::tables::cached_counts, nano::tables::change_blocks, tables::frontiers, tables::open_blocks, tables::pending, tables::receive_blocks, tables::representation, tables::send_blocks, tables::state_blocks, tables::unchecked }, { tables::confirmation_height }));
 	nano::timer<std::chrono::milliseconds> timer_l;
 	lock_a.lock ();
@@ -310,7 +317,7 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 	}
 }
 
-void nano::block_processor::process_live (nano::block_hash const & hash_a, std::shared_ptr<nano::block> const & block_a, nano::process_return const & process_return_a, const bool watch_work_a, nano::block_origin const origin_a)
+void nano::block_processor::process_live (nano::transaction const & transaction_a, nano::block_hash const & hash_a, std::shared_ptr<nano::block> const & block_a, nano::process_return const & process_return_a, const bool watch_work_a, nano::block_origin const origin_a)
 {
 	// Add to work watcher to prevent dropping the election
 	if (watch_work_a)
@@ -319,7 +326,7 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	}
 
 	// Start collecting quorum on block
-	if (watch_work_a || node.ledger.can_vote (node.store.tx_begin_read (), *block_a))
+	if (watch_work_a || node.ledger.can_vote (transaction_a, *block_a))
 	{
 		auto election = node.active.insert (block_a, process_return_a.previous_balance.number ());
 		if (election.inserted)
@@ -366,7 +373,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			}
 			if (info_a.modified > nano::seconds_since_epoch () - 300 && node.block_arrival.recent (hash))
 			{
-				events_a.events.emplace_back ([this, hash, block = info_a.block, result, watch_work_a, origin_a]() { process_live (hash, block, result, watch_work_a, origin_a); });
+				events_a.events.emplace_back ([this, hash, block = info_a.block, result, watch_work_a, origin_a](nano::transaction const & transaction_a) { process_live (transaction_a, hash, block, result, watch_work_a, origin_a); });
 			}
 			queue_unchecked (transaction_a, hash);
 			break;

@@ -17,6 +17,7 @@
 namespace nano
 {
 class node;
+class read_transaction;
 class transaction;
 class write_transaction;
 class write_database_queue;
@@ -30,8 +31,12 @@ enum class block_origin
 class block_post_events final
 {
 public:
+	explicit block_post_events (std::function<nano::read_transaction ()> &&);
 	~block_post_events ();
-	std::deque<std::function<void()>> events;
+	std::deque<std::function<void(nano::read_transaction const &)>> events;
+
+private:
+	std::function<nano::read_transaction ()> get_transaction;
 };
 
 /**
@@ -65,7 +70,7 @@ public:
 private:
 	void queue_unchecked (nano::write_transaction const &, nano::block_hash const &);
 	void process_batch (nano::unique_lock<std::mutex> &);
-	void process_live (nano::block_hash const &, std::shared_ptr<nano::block> const &, nano::process_return const &, const bool = false, nano::block_origin const = nano::block_origin::remote);
+	void process_live (nano::transaction const &, nano::block_hash const &, std::shared_ptr<nano::block> const &, nano::process_return const &, const bool = false, nano::block_origin const = nano::block_origin::remote);
 	void process_old (nano::transaction const &, std::shared_ptr<nano::block> const &, nano::block_origin const);
 	void requeue_invalid (nano::block_hash const &, nano::unchecked_info const &);
 	void process_verified_state_blocks (std::deque<nano::unchecked_info> &, std::vector<int> const &, std::vector<nano::block_hash> const &, std::vector<nano::signature> const &);

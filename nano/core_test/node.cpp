@@ -3524,13 +3524,9 @@ TEST (node, epoch_conflict_confirm)
 		election->confirm_once ();
 	}
 	ASSERT_TIMELY (3s, node1->block_confirmed (open->hash ()));
-	{
-		nano::block_post_events events;
-		auto transaction (node0->store.tx_begin_write ());
-		ASSERT_EQ (nano::process_result::progress, node0->block_processor.process_one (transaction, events, send).code);
-		ASSERT_EQ (nano::process_result::progress, node0->block_processor.process_one (transaction, events, send2).code);
-		ASSERT_EQ (nano::process_result::progress, node0->block_processor.process_one (transaction, events, open).code);
-	}
+	ASSERT_EQ (nano::process_result::progress, node0->process (*send).code);
+	ASSERT_EQ (nano::process_result::progress, node0->process (*send2).code);
+	ASSERT_EQ (nano::process_result::progress, node0->process (*open).code);
 	node0->process_active (change);
 	node0->process_active (epoch_open);
 	system.deadline_set (5s);
