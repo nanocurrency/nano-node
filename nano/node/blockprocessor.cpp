@@ -398,7 +398,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 				++node.ledger.cache.unchecked_count;
 			}
 
-			node.gap_cache.add (hash);
+			events_a.events.emplace_back ([this, hash](nano::transaction const & /* unused */) { this->node.gap_cache.add (hash); });
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_previous);
 			break;
 		}
@@ -422,7 +422,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 				++node.ledger.cache.unchecked_count;
 			}
 
-			node.gap_cache.add (hash);
+			events_a.events.emplace_back ([this, hash](nano::transaction const & /* unused */) { this->node.gap_cache.add (hash); });
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_source);
 			break;
 		}
@@ -442,7 +442,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			{
 				node.logger.try_log (boost::str (boost::format ("Bad signature for: %1%") % hash.to_string ()));
 			}
-			requeue_invalid (hash, info_a);
+			events_a.events.emplace_back ([this, hash, info_a](nano::transaction const & /* unused */) { requeue_invalid (hash, info_a); });
 			break;
 		}
 		case nano::process_result::negative_spend:
@@ -463,7 +463,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 		}
 		case nano::process_result::fork:
 		{
-			node.process_fork (transaction_a, info_a.block);
+			events_a.events.emplace_back ([this, block = info_a.block](nano::transaction const & transaction_a) { this->node.process_fork (transaction_a, block); });
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::fork);
 			if (node.config.logging.ledger_logging ())
 			{
