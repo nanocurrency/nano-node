@@ -165,7 +165,7 @@ TEST (distributed_work, peer_malicious)
 	ASSERT_FALSE (node->distributed_work.make (nano::work_version::work_1, hash, peers, node->network_params.network.publish_thresholds.base, callback, nano::account ()));
 	ASSERT_TIMELY (5s, done);
 	ASSERT_GE (nano::work_difficulty (nano::work_version::work_1, hash, *work), node->network_params.network.publish_thresholds.base);
-	ASSERT_TIMELY (5s, malicious_peer->generations_bad == 1)
+	ASSERT_TIMELY (5s, malicious_peer->generations_bad >= 1)
 	// make sure it was *not* the malicious peer that replied
 	ASSERT_EQ (0, malicious_peer->generations_good);
 	// initial generation + the second time when it also starts doing local generation
@@ -180,7 +180,7 @@ TEST (distributed_work, peer_malicious)
 	malicious_peer2->start ();
 	peers[0].second = malicious_peer2->port ();
 	ASSERT_FALSE (node->distributed_work.make (nano::work_version::work_1, hash, peers, node->network_params.network.publish_thresholds.base, {}, nano::account ()));
-	ASSERT_TIMELY (5s, malicious_peer->generations_bad == 2)
+	ASSERT_TIMELY (5s, malicious_peer2->generations_bad >= 2)
 	node->distributed_work.cancel (hash);
 	ASSERT_EQ (0, malicious_peer2->cancels);
 }
