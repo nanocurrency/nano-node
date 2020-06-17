@@ -519,7 +519,7 @@ bool nano::node::copy_with_compaction (boost::filesystem::path const & destinati
 	return store.copy_db (destination);
 }
 
-void nano::node::process_fork (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a)
+void nano::node::process_fork (nano::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a)
 {
 	auto root (block_a->root ());
 	if (!store.block_exists (transaction_a, block_a->type (), block_a->hash ()) && store.root_exists (transaction_a, block_a->root ()))
@@ -589,7 +589,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	return composite;
 }
 
-void nano::node::process_active (std::shared_ptr<nano::block> incoming)
+void nano::node::process_active (std::shared_ptr<nano::block> const & incoming)
 {
 	block_arrival.add (incoming->hash ());
 	block_processor.add (incoming, nano::seconds_since_epoch ());
@@ -602,7 +602,7 @@ nano::process_return nano::node::process (nano::block & block_a)
 	return result;
 }
 
-nano::process_return nano::node::process_local (std::shared_ptr<nano::block> block_a, bool const work_watcher_a)
+nano::process_return nano::node::process_local (std::shared_ptr<nano::block> const & block_a, bool const work_watcher_a)
 {
 	// Add block hash as recently arrived to trigger automatic rebroadcast and election
 	block_arrival.add (block_a->hash ());
@@ -1099,7 +1099,7 @@ void nano::node::add_initial_peers ()
 	}
 }
 
-void nano::node::block_confirm (std::shared_ptr<nano::block> block_a)
+void nano::node::block_confirm (std::shared_ptr<nano::block> const & block_a)
 {
 	auto election = active.insert (block_a);
 	if (election.inserted)
@@ -1219,13 +1219,13 @@ public:
 };
 }
 
-void nano::node::receive_confirmed (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, nano::block_hash const & hash_a)
+void nano::node::receive_confirmed (nano::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a, nano::block_hash const & hash_a)
 {
 	confirmed_visitor visitor (transaction_a, *this, block_a, hash_a);
 	block_a->visit (visitor);
 }
 
-void nano::node::process_confirmed_data (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, nano::block_hash const & hash_a, nano::account & account_a, nano::uint128_t & amount_a, bool & is_state_send_a, nano::account & pending_account_a)
+void nano::node::process_confirmed_data (nano::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a, nano::block_hash const & hash_a, nano::account & account_a, nano::uint128_t & amount_a, bool & is_state_send_a, nano::account & pending_account_a)
 {
 	// Faster account calculation
 	account_a = block_a->account ();
