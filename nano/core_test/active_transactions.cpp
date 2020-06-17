@@ -1511,8 +1511,8 @@ TEST (active_transactions, restart_dropped)
 	node.block_processor.flush ();
 	ASSERT_EQ (0, node.active.size ());
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::election_restart));
-	// Verify the block was not updated in the ledger
-	ASSERT_EQ (*node.store.block_get (node.store.tx_begin_read (), send->hash ()), *send);
+	// Verify the block is eventually updated in the ledger
+	ASSERT_TIMELY (3s, node.store.block_get (node.store.tx_begin_read (), send->hash ())->block_work (), send->block_work ());
 	// Generate even higher difficulty work
 	ASSERT_TRUE (node.work_generate_blocking (*send, send->difficulty () + 1).is_initialized ());
 	// Add voting

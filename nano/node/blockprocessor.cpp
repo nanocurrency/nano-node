@@ -432,7 +432,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			{
 				node.logger.try_log (boost::str (boost::format ("Old for: %1%") % hash.to_string ()));
 			}
-			process_old (transaction_a, info_a.block, origin_a);
+			events_a.events.emplace_back ([this, block = info_a.block, origin_a](nano::transaction const & transaction_a) { process_old (transaction_a, block, origin_a); });
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::old);
 			break;
 		}
