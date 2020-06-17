@@ -151,7 +151,7 @@ public:
 	// Returns false if the election difficulty was updated
 	bool update_difficulty (nano::block const &);
 	// Returns false if the election was restarted
-	bool restart (std::shared_ptr<nano::block> const &, nano::write_transaction const &);
+	bool restart (nano::transaction const &, std::shared_ptr<nano::block> const &);
 	double normalized_multiplier (nano::block const &, boost::optional<roots_iterator> const & = boost::none) const;
 	void add_adjust_difficulty (nano::block_hash const &);
 	void update_adjusted_multiplier ();
