@@ -208,7 +208,7 @@ TEST (wallet, send_async)
 	std::atomic<bool> success (false);
 	system.wallet (0)->send_async (nano::test_genesis_key.pub, key2.pub, std::numeric_limits<nano::uint128_t>::max (), [&success](std::shared_ptr<nano::block> block_a) { ASSERT_NE (nullptr, block_a); success = true; });
 	thread.join ();
-	ASSERT_TRUE (success);
+	ASSERT_TIMELY (2s, success);
 }
 
 TEST (wallet, spend)
@@ -713,8 +713,6 @@ TEST (wallet, work_cache_delayed)
 		ASSERT_NO_ERROR (system.poll ());
 		if (!wallet->store.work_get (node1.wallets.tx_begin_read (), account1, work1))
 		{
-			ASSERT_LT (nano::work_difficulty (nano::work_version::work_1, nano::test_genesis_key.pub, work1), threshold);
-			ASSERT_LT (nano::work_difficulty (nano::work_version::work_1, block1->hash (), work1), threshold);
 			again = nano::work_difficulty (nano::work_version::work_1, block2->hash (), work1) < threshold;
 		}
 	}
@@ -1555,4 +1553,23 @@ TEST (wallet, epoch_2_receive_unopened)
 		}
 	}
 	ASSERT_LT (tries, max_tries);
+}
+
+TEST (wallet, foreach_representative_deadlock)
+{
+	nano::system system (1);
+	auto & node (*system.nodes[0]);
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	node.wallets.compute_reps ();
+	ASSERT_EQ (1, node.wallets.reps ().voting);
+	node.wallets.foreach_representative ([&node](nano::public_key const & pub, nano::raw_key const & prv) {
+		if (node.wallets.mutex.try_lock ())
+		{
+			node.wallets.mutex.unlock ();
+		}
+		else
+		{
+			ASSERT_FALSE (true);
+		}
+	});
 }

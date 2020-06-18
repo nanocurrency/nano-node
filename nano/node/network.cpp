@@ -216,7 +216,7 @@ void nano::network::flood_block_initial (std::shared_ptr<nano::block> const & bl
 void nano::network::flood_vote (std::shared_ptr<nano::vote> const & vote_a, float scale)
 {
 	nano::confirm_ack message (vote_a);
-	for (auto & i : list_non_pr (fanout (scale)))
+	for (auto & i : list (fanout (scale)))
 	{
 		i->send (message, nullptr);
 	}
@@ -447,7 +447,7 @@ public:
 		}
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::in);
 		// Don't load nodes with disabled voting
-		if (node.config.enable_voting && node.wallets.rep_counts ().voting > 0)
+		if (node.config.enable_voting && node.wallets.reps ().voting > 0)
 		{
 			if (message_a.block != nullptr)
 			{

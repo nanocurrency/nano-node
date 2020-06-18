@@ -182,3 +182,110 @@ TEST (vote_processor, weights)
 	ASSERT_NE (node.vote_processor.representatives_3.end (), node.vote_processor.representatives_3.find (nano::test_genesis_key.pub));
 }
 }
+
+TEST (vote_processor, no_broadcast_local)
+{
+	nano::system system;
+	nano::node_flags flags;
+	flags.disable_request_loop = true;
+	auto & node (*system.add_node (flags));
+	system.add_node (flags);
+	nano::block_builder builder;
+	std::error_code ec;
+	// Reduce the weight of genesis to 2x default min voting weight
+	nano::keypair key;
+	std::shared_ptr<nano::block> send = builder.state ()
+	                                    .account (nano::test_genesis_key.pub)
+	                                    .representative (nano::test_genesis_key.pub)
+	                                    .previous (nano::genesis_hash)
+	                                    .balance (2 * node.config.vote_minimum.number ())
+	                                    .link (key.pub)
+	                                    .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	                                    .work (*system.work.generate (nano::genesis_hash))
+	                                    .build (ec);
+	ASSERT_FALSE (ec);
+	ASSERT_EQ (nano::process_result::progress, node.process_local (send).code);
+	ASSERT_EQ (2 * node.config.vote_minimum.number (), node.weight (nano::test_genesis_key.pub));
+	// Insert account in wallet
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	node.wallets.compute_reps ();
+	ASSERT_TRUE (node.wallets.reps ().exists (nano::test_genesis_key.pub));
+	ASSERT_FALSE (node.wallets.reps ().have_half_rep ());
+	// Process a vote
+	auto vote (node.store.vote_generate (node.store.tx_begin_read (), nano::test_genesis_key.pub, nano::test_genesis_key.prv, { send->hash () }));
+	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote));
+	// Make sure the vote was processed
+	auto election (node.active.election (send->qualified_root ()));
+	ASSERT_NE (nullptr, election);
+	auto existing (election->last_votes.find (nano::test_genesis_key.pub));
+	ASSERT_NE (election->last_votes.end (), existing);
+	ASSERT_EQ (vote->sequence, existing->second.sequence);
+	// Ensure the vote, from a local representative, was not broadcast on processing - it should be flooded on generation instead
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));
+
+	// Repeat test with no representative
+	// Erase account from the wallet
+	system.wallet (0)->store.erase (node.wallets.tx_begin_write (), nano::test_genesis_key.pub);
+	node.wallets.compute_reps ();
+	ASSERT_FALSE (node.wallets.reps ().exists (nano::test_genesis_key.pub));
+
+	std::shared_ptr<nano::block> send2 = builder.state ()
+	                                     .account (nano::test_genesis_key.pub)
+	                                     .representative (nano::test_genesis_key.pub)
+	                                     .previous (send->hash ())
+	                                     .balance (node.config.vote_minimum)
+	                                     .link (key.pub)
+	                                     .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	                                     .work (*system.work.generate (send->hash ()))
+	                                     .build (ec);
+	ASSERT_FALSE (ec);
+	ASSERT_EQ (nano::process_result::progress, node.process_local (send2).code);
+	ASSERT_EQ (node.config.vote_minimum, node.weight (nano::test_genesis_key.pub));
+	node.block_confirm (send2);
+	// Process a vote
+	auto vote2 (node.store.vote_generate (node.store.tx_begin_read (), nano::test_genesis_key.pub, nano::test_genesis_key.prv, { send2->hash () }));
+	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote2));
+	// Make sure the vote was processed
+	auto election2 (node.active.election (send2->qualified_root ()));
+	ASSERT_NE (nullptr, election2);
+	auto existing2 (election2->last_votes.find (nano::test_genesis_key.pub));
+	ASSERT_NE (election2->last_votes.end (), existing2);
+	ASSERT_EQ (vote2->sequence, existing2->second.sequence);
+	// Ensure the vote was broadcast
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
+	ASSERT_EQ (2, node.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));
+
+	// Repeat test with a PR in the wallet
+	// Increase the genesis weight again
+	std::shared_ptr<nano::block> open = builder.state ()
+	                                    .account (key.pub)
+	                                    .representative (nano::test_genesis_key.pub)
+	                                    .previous (0)
+	                                    .balance (nano::genesis_amount - 2 * node.config.vote_minimum.number ())
+	                                    .link (send->hash ())
+	                                    .sign (key.prv, key.pub)
+	                                    .work (*system.work.generate (key.pub))
+	                                    .build (ec);
+	ASSERT_FALSE (ec);
+	ASSERT_EQ (nano::process_result::progress, node.process_local (open).code);
+	ASSERT_EQ (nano::genesis_amount - node.config.vote_minimum.number (), node.weight (nano::test_genesis_key.pub));
+	node.block_confirm (open);
+	// Insert account in wallet
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	node.wallets.compute_reps ();
+	ASSERT_TRUE (node.wallets.reps ().exists (nano::test_genesis_key.pub));
+	ASSERT_TRUE (node.wallets.reps ().have_half_rep ());
+	// Process a vote
+	auto vote3 (node.store.vote_generate (node.store.tx_begin_read (), nano::test_genesis_key.pub, nano::test_genesis_key.prv, { open->hash () }));
+	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote3));
+	// Make sure the vote was processed
+	auto election3 (node.active.election (open->qualified_root ()));
+	ASSERT_NE (nullptr, election3);
+	auto existing3 (election3->last_votes.find (nano::test_genesis_key.pub));
+	ASSERT_NE (election3->last_votes.end (), existing3);
+	ASSERT_EQ (vote3->sequence, existing3->second.sequence);
+	// Ensure the vote wass not broadcasst
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
+	ASSERT_EQ (3, node.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));
+}

@@ -382,6 +382,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		}
 
 		// Validate ranges
+		nano::network_params network_params;
 		if (online_weight_quorum > 100)
 		{
 			toml.get_error ().set ("online_weight_quorum must be less than 100");
@@ -400,7 +401,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		}
 		if (bandwidth_limit > std::numeric_limits<size_t>::max ())
 		{
-			toml.get_error ().set ("bandwidth_limit unbounded = 0, default = 5242880, max = 18446744073709551615");
+			toml.get_error ().set ("bandwidth_limit unbounded = 0, default = 10485760, max = 18446744073709551615");
 		}
 		if (vote_generator_threshold < 1 || vote_generator_threshold > 11)
 		{
@@ -417,6 +418,10 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		if (frontiers_confirmation == nano::frontiers_confirmation_mode::invalid)
 		{
 			toml.get_error ().set ("frontiers_confirmation value is invalid (available: always, auto, disabled)");
+		}
+		if (block_processor_batch_max_time < network_params.node.process_confirmed_interval)
+		{
+			toml.get_error ().set ((boost::format ("block_processor_batch_max_time value must be equal or larger than %1%ms") % network_params.node.process_confirmed_interval.count ()).str ());
 		}
 	}
 	catch (std::runtime_error const & ex)
@@ -812,7 +817,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		}
 		if (bandwidth_limit > std::numeric_limits<size_t>::max ())
 		{
-			json.get_error ().set ("bandwidth_limit unbounded = 0, default = 5242880, max = 18446744073709551615");
+			json.get_error ().set ("bandwidth_limit unbounded = 0, default = 10485760, max = 18446744073709551615");
 		}
 		if (vote_generator_threshold < 1 || vote_generator_threshold > 11)
 		{

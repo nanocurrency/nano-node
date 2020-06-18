@@ -782,10 +782,9 @@ TEST (websocket, bootstrap_exited)
 	nano::util::counted_completion subscribed_completion (1);
 	std::thread bootstrap_thread ([node1, &system, &bootstrap_started, &subscribed_completion]() {
 		std::shared_ptr<nano::bootstrap_attempt> attempt;
-		system.deadline_set (5s);
 		while (attempt == nullptr)
 		{
-			ASSERT_NO_ERROR (system.poll ());
+			std::this_thread::sleep_for (50ms);
 			node1->bootstrap_initiator.bootstrap (true, "123abc");
 			attempt = node1->bootstrap_initiator.current_attempt ();
 		}
