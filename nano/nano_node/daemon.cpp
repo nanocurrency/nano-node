@@ -54,6 +54,11 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 		nano::alarm alarm (io_ctx);
 		try
 		{
+			// This avoid a blank prompt during any node initialization delays
+			auto initialization_text = "Starting up Nano node...";
+			std::cout << initialization_text << std::endl;
+			logger.always_log (initialization_text);
+
 			auto node (std::make_shared<nano::node> (io_ctx, data_path, alarm, config.node, opencl_work, flags));
 			if (!node->init_error ())
 			{
@@ -62,7 +67,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 				          << "Path: " << node->application_path.string () << "\n"
 				          << "Build Info: " << BUILD_INFO << "\n"
 				          << "Database backend: " << node->store.vendor_get () << std::endl;
-				auto voting (node->wallets.rep_counts ().voting);
+				auto voting (node->wallets.reps ().voting);
 				if (voting > 1)
 				{
 					std::cout << "Voting with more than one representative can limit performance: " << voting << " representatives are configured" << std::endl;

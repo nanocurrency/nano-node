@@ -56,5 +56,6 @@ public:
 	unsigned node_sequence{ 0 };
 };
 std::unique_ptr<nano::state_block> upgrade_epoch (nano::work_pool &, nano::ledger &, nano::epoch);
+void blocks_confirm (nano::node &, std::vector<std::shared_ptr<nano::block>> const &);
 }
 REGISTER_ERROR_CODES (nano, error_system);
