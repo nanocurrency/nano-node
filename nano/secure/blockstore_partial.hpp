@@ -834,27 +834,6 @@ protected:
 		return result;
 	}
 
-	// Return account containing hash
-	nano::account block_account_computed (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
-	{
-		nano::account result (0);
-		auto hash (hash_a);
-		while (result.is_zero ())
-		{
-			auto block (block_get_no_sideband (transaction_a, hash));
-			debug_assert (block);
-			result = block->account ();
-			if (result.is_zero ())
-			{
-				auto type (nano::block_type::invalid);
-				auto value (block_raw_get (transaction_a, block->previous (), type));
-				result = block_account (transaction_a, block->previous ());
-			}
-		}
-		debug_assert (!result.is_zero ());
-		return result;
-	}
-
 	size_t block_successor_offset (nano::transaction const & transaction_a, size_t entry_size_a, nano::block_type type_a) const
 	{
 		return entry_size_a - nano::block_sideband::size (type_a);
