@@ -144,7 +144,7 @@ private:
 	bool within_cache_plus_buffer_cutoff (telemetry_info const &) const;
 	bool verify_message (nano::telemetry_ack const &, nano::transport::channel const &);
 	friend std::unique_ptr<nano::container_info_component> collect_container_info (telemetry &, const std::string &);
-	friend class node_telemetry_remove_peer_invalid_signature_Test;
+	friend class telemetry_remove_peer_invalid_signature_Test;
 };
 
 std::unique_ptr<nano::container_info_component> collect_container_info (telemetry & telemetry, const std::string & name);

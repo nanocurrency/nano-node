@@ -125,7 +125,7 @@ votes_cache (wallets),
 vote_uniquer (block_uniquer),
 confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, logger, node_initialized_latch, flags.confirmation_height_processor_mode),
 active (*this, confirmation_height_processor),
-aggregator (network_params.network, config, stats, votes_cache, store, wallets),
+aggregator (network_params.network, config, stats, votes_cache, ledger, wallets, active),
 payment_observer_processor (observers.blocks),
 wallets (wallets_store.init_error (), *this),
 startup_time (std::chrono::steady_clock::now ()),
@@ -524,7 +524,7 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 	if (!store.block_exists (transaction_a, block_a->type (), block_a->hash ()) && store.root_exists (transaction_a, block_a->root ()))
 	{
 		std::shared_ptr<nano::block> ledger_block (ledger.forked_block (transaction_a, *block_a));
-		if (ledger_block && !block_confirmed_or_being_confirmed (transaction_a, ledger_block->hash ()))
+		if (ledger_block && !block_confirmed_or_being_confirmed (transaction_a, ledger_block->hash ()) && ledger.can_vote (transaction_a, *ledger_block))
 		{
 			std::weak_ptr<nano::node> this_w (shared_from_this ());
 			auto election = active.insert (ledger_block, boost::none, [this_w, root](std::shared_ptr<nano::block>) {
@@ -610,8 +610,9 @@ nano::process_return nano::node::process_local (std::shared_ptr<nano::block> blo
 	// Notify block processor to release write lock
 	block_processor.wait_write ();
 	// Process block
+	block_post_events events;
 	auto transaction (store.tx_begin_write ({ tables::accounts, tables::cached_counts, tables::change_blocks, tables::frontiers, tables::open_blocks, tables::pending, tables::receive_blocks, tables::representation, tables::send_blocks, tables::state_blocks }, { tables::confirmation_height }));
-	return block_processor.process_one (transaction, info, work_watcher_a, nano::block_origin::local);
+	return block_processor.process_one (transaction, events, info, work_watcher_a, nano::block_origin::local);
 }
 
 void nano::node::start ()
@@ -669,7 +670,6 @@ void nano::node::stop ()
 	if (!stopped.exchange (true))
 	{
 		logger.always_log ("Node stopping");
-		write_database_queue.stop ();
 		// Cancels ongoing work generation tasks, which may be blocking other threads
 		// No tasks may wait for work generation in I/O threads, or termination signal capturing will be unable to call node::stop()
 		distributed_work.stop ();
@@ -1107,6 +1107,12 @@ void nano::node::block_confirm (std::shared_ptr<nano::block> block_a)
 	}
 }
 
+bool nano::node::block_confirmed (nano::block_hash const & hash_a)
+{
+	auto transaction (store.tx_begin_read ());
+	return store.block_exists (transaction, hash_a) && ledger.block_confirmed (transaction, hash_a);
+}
+
 bool nano::node::block_confirmed_or_being_confirmed (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
 	return confirmation_height_processor.is_processing_block (hash_a) || ledger.block_confirmed (transaction_a, hash_a);
@@ -1252,25 +1258,30 @@ void nano::node::process_confirmed_data (nano::transaction const & transaction_a
 	}
 }
 
-void nano::node::process_confirmed (nano::election_status const & status_a, std::shared_ptr<nano::election> const & election_a, uint8_t iteration_a)
+void nano::node::process_confirmed (nano::election_status const & status_a, uint64_t iteration_a)
 {
 	auto block_a (status_a.winner);
 	auto hash (block_a->hash ());
+	const auto num_iters = (config.block_processor_batch_max_time / network_params.node.process_confirmed_interval) * 4;
 	if (ledger.block_exists (block_a->type (), hash))
 	{
 		confirmation_height_processor.add (hash);
 	}
-	// Limit to 0.5 * 20 = 10 seconds (more than max block_processor::process_batch finish time)
-	else if (iteration_a < 20)
+	else if (iteration_a < num_iters)
 	{
 		iteration_a++;
 		std::weak_ptr<nano::node> node_w (shared ());
-		alarm.add (std::chrono::steady_clock::now () + network_params.node.process_confirmed_interval, [node_w, status_a, iteration_a, election_a]() {
+		alarm.add (std::chrono::steady_clock::now () + network_params.node.process_confirmed_interval, [node_w, status_a, iteration_a]() {
 			if (auto node_l = node_w.lock ())
 			{
-				node_l->process_confirmed (status_a, election_a, iteration_a);
+				node_l->process_confirmed (status_a, iteration_a);
 			}
 		});
+	}
+	else
+	{
+		// Do some cleanup due to this block never being processed by confirmation height processor
+		active.remove_election_winner_details (hash);
 	}
 }
 
@@ -1675,6 +1686,8 @@ nano::node_flags const & nano::inactive_node_flag_defaults ()
 	node_flags.generate_cache.reps = false;
 	node_flags.generate_cache.cemented_count = false;
 	node_flags.generate_cache.unchecked_count = false;
+	node_flags.generate_cache.account_count = false;
+	node_flags.generate_cache.epoch_2 = false;
 	node_flags.disable_bootstrap_listener = true;
 	node_flags.disable_tcp_realtime = true;
 	return node_flags;

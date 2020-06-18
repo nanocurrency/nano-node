@@ -464,6 +464,42 @@ TEST (uint64_t, parse)
 	ASSERT_TRUE (nano::from_string_hex ("", value4));
 }
 
+TEST (uint256_union, hash)
+{
+	ASSERT_EQ (4, nano::uint256_union{}.qwords.size ());
+	std::hash<nano::uint256_union> h{};
+	for (size_t i (0), n (nano::uint256_union{}.bytes.size ()); i < n; ++i)
+	{
+		nano::uint256_union x1{ 0 };
+		nano::uint256_union x2{ 0 };
+		x2.bytes[i] = 1;
+		ASSERT_NE (h (x1), h (x2));
+	}
+}
+
+TEST (uint512_union, hash)
+{
+	ASSERT_EQ (2, nano::uint512_union{}.uint256s.size ());
+	std::hash<nano::uint512_union> h{};
+	for (size_t i (0), n (nano::uint512_union{}.bytes.size ()); i < n; ++i)
+	{
+		nano::uint512_union x1{ 0 };
+		nano::uint512_union x2{ 0 };
+		x2.bytes[i] = 1;
+		ASSERT_NE (h (x1), h (x2));
+	}
+	for (auto part (0); part < nano::uint512_union{}.uint256s.size (); ++part)
+	{
+		for (size_t i (0), n (nano::uint512_union{}.uint256s[part].bytes.size ()); i < n; ++i)
+		{
+			nano::uint512_union x1{ 0 };
+			nano::uint512_union x2{ 0 };
+			x2.uint256s[part].bytes[i] = 1;
+			ASSERT_NE (h (x1), h (x2));
+		}
+	}
+}
+
 namespace
 {
 template <typename Union, typename Bound>

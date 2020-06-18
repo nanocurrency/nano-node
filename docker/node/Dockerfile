@@ -9,7 +9,7 @@ RUN mkdir /tmp/build && \
     cd /tmp/build && \
     cmake /tmp/src -DCI_BUILD=${CI_BUILD} -DBOOST_ROOT=${BOOST_ROOT} -DACTIVE_NETWORK=nano_${NETWORK}_network \
     -DNANO_ROCKSDB=ON -DNANO_POW_SERVER=ON -DROCKSDB_LIBRARIES=/tmp/rocksdb/lib/librocksdb.a \
-    -DROCKSDB_INCLUDE_DIRS=/tmp/rocksdb/include && \
+    -DROCKSDB_INCLUDE_DIRS=/tmp/rocksdb/include -DNANO_SHARED_BOOST=ON && \
     make nano_node -j $(nproc) && \
     make nano_rpc -j $(nproc) && \
     make nano_pow_server -j $(nproc) && \
@@ -28,8 +28,10 @@ COPY --from=0 /tmp/src/api/ /usr/bin/api/
 COPY --from=0 /etc/nano-network /etc
 COPY docker/node/entry.sh /usr/bin/entry.sh
 COPY docker/node/config /usr/share/nano/config
+COPY --from=0 /tmp/boost/lib/* /usr/local/lib/
 RUN chmod +x /usr/bin/entry.sh
 RUN ln -s /usr/bin/nano_node /usr/bin/rai_node
+RUN ldconfig
 
 WORKDIR /root
 USER root

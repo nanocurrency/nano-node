@@ -110,7 +110,9 @@ burn_account (0)
 	epochs.add (nano::epoch::epoch_1, genesis_account, epoch_link_v1);
 
 	nano::link epoch_link_v2;
-	auto nano_live_epoch_v2_signer = genesis_account;
+	nano::account nano_live_epoch_v2_signer;
+	auto error (nano_live_epoch_v2_signer.decode_account ("nano_3qb6o6i1tkzr6jwr5s7eehfxwg9x6eemitdinbpi7u8bjjwsgqfj4wzser3x"));
+	debug_assert (!error);
 	auto epoch_v2_signer (network_a == nano::nano_networks::nano_test_network ? nano_test_account : network_a == nano::nano_networks::nano_beta_network ? nano_beta_account : nano_live_epoch_v2_signer);
 	const char * epoch_message_v2 ("epoch v2 block");
 	strncpy ((char *)epoch_link_v2.bytes.data (), epoch_message_v2, epoch_link_v2.bytes.size ());
@@ -840,4 +842,13 @@ bool nano::unchecked_key::operator== (nano::unchecked_key const & other_a) const
 nano::block_hash const & nano::unchecked_key::key () const
 {
 	return previous;
+}
+
+void nano::generate_cache::enable_all ()
+{
+	reps = true;
+	cemented_count = true;
+	unchecked_count = true;
+	account_count = true;
+	epoch_2 = true;
 }

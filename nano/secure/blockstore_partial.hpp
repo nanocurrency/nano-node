@@ -45,6 +45,7 @@ public:
 	nano::uint128_t block_balance (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override
 	{
 		auto block (block_get (transaction_a, hash_a));
+		release_assert (block);
 		nano::uint128_t result (block_balance_calculated (block));
 		return result;
 	}
@@ -202,10 +203,17 @@ public:
 	nano::account block_account (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override
 	{
 		auto block (block_get (transaction_a, hash_a));
-		nano::account result (block->account ());
+		debug_assert (block != nullptr);
+		return block_account_calculated (*block);
+	}
+
+	nano::account block_account_calculated (nano::block const & block_a) const override
+	{
+		debug_assert (block_a.has_sideband ());
+		nano::account result (block_a.account ());
 		if (result.is_zero ())
 		{
-			result = block->sideband ().account;
+			result = block_a.sideband ().account;
 		}
 		debug_assert (!result.is_zero ());
 		return result;

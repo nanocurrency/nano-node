@@ -56,6 +56,7 @@ public:
 	unsigned node_sequence{ 0 };
 };
 std::unique_ptr<nano::state_block> upgrade_epoch (nano::work_pool &, nano::ledger &, nano::epoch);
+void blocks_confirm (nano::node &, std::vector<std::shared_ptr<nano::block>> const &);
 uint16_t get_available_port ();
 void cleanup_test_directories_on_exit ();
 }

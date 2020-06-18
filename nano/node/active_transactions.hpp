@@ -145,6 +145,9 @@ public:
 	bool active (nano::block const &);
 	bool active (nano::qualified_root const &);
 	std::shared_ptr<nano::election> election (nano::qualified_root const &) const;
+	std::shared_ptr<nano::block> winner (nano::block_hash const &) const;
+	// Activates the first unconfirmed block of \p account_a
+	nano::election_insertion_result activate (nano::account const &);
 	// Returns false if the election difficulty was updated
 	bool update_difficulty (nano::block const &);
 	// Returns false if the election was restarted
@@ -188,6 +191,7 @@ public:
 	size_t inactive_votes_cache_size ();
 	size_t election_winner_details_size ();
 	void add_election_winner_details (nano::block_hash const &, std::shared_ptr<nano::election> const &);
+	void remove_election_winner_details (nano::block_hash const &);
 
 private:
 	std::mutex election_winner_details_mutex;
@@ -206,6 +210,8 @@ private:
 	void frontiers_confirmation (nano::unique_lock<std::mutex> &);
 	nano::account next_frontier_account{ 0 };
 	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };
+	void activate_dependencies (nano::unique_lock<std::mutex> &);
+	std::vector<std::pair<nano::block_hash, uint64_t>> pending_dependencies;
 	nano::condition_variable condition;
 	bool started{ false };
 	std::atomic<bool> stopped{ false };
@@ -261,6 +267,10 @@ private:
 	bool inactive_votes_bootstrap_check (std::vector<nano::account> const &, nano::block_hash const &, bool &);
 	boost::thread thread;
 
+	friend class election;
+	friend std::unique_ptr<container_info_component> collect_container_info (active_transactions &, const std::string &);
+
+	friend class active_transactions_activate_dependencies_invalid_Test;
 	friend class active_transactions_dropped_cleanup_Test;
 	friend class active_transactions_vote_replays_Test;
 	friend class confirmation_height_prioritize_frontiers_Test;
@@ -268,7 +278,9 @@ private:
 	friend class active_transactions_confirmation_consistency_Test;
 	friend class active_transactions_vote_generator_session_Test;
 	friend class node_vote_by_hash_bundle_Test;
-	friend std::unique_ptr<container_info_component> collect_container_info (active_transactions &, const std::string &);
+	friend class node_deferred_dependent_elections_Test;
+	friend class election_bisect_dependencies_Test;
+	friend class election_dependencies_open_link_Test;
 };
 
 std::unique_ptr<container_info_component> collect_container_info (active_transactions & active_transactions, const std::string & name);

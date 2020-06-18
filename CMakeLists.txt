@@ -9,8 +9,8 @@ if (CMAKE_VERSION VERSION_GREATER 3.13 OR CMAKE_VERSION VERSION_EQUAL 3.13)
 	cmake_policy(SET CMP0077 NEW)
 endif()
 
-if (CMAKE_VERSION VERSION_LESS 3.11)
-	# compatibility for boost import targets use bundled 3.11 FindBoost.cmake
+if (CMAKE_VERSION VERSION_LESS 3.13)
+	# compatibility for boost import targets use bundled 3.13 FindBoost.cmake
 	list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/legacyModules")
 endif ()
 
@@ -50,7 +50,7 @@ endif()
 if (APPLE)
 	set (CMAKE_INSTALL_RPATH "@executable_path/../Frameworks;@executable_path/../boost/lib")
 else()
-	set (CMAKE_INSTALL_RPATH "$ORIGIN/lib")
+	set (CMAKE_INSTALL_RPATH "$ORIGIN/../lib")
 endif()
 
 # Create all libraries and executables in the root binary dir
@@ -255,7 +255,7 @@ set(Boost_USE_MULTITHREADED ON)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
-find_package (Boost 1.67.0 REQUIRED COMPONENTS filesystem log log_setup thread program_options system)
+find_package (Boost 1.69.0 REQUIRED COMPONENTS filesystem log log_setup thread program_options system)
 
 if (NANO_ROCKSDB)
 	find_package (RocksDB REQUIRED)
@@ -617,9 +617,11 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 		install (FILES ${Qt5_bin_DIR}/Qt5WinExtras.dll DESTINATION .)
 		install (FILES ${Qt5WindowsPlugin} DESTINATION platforms)
 	else ()
-		set(CPACK_GENERATOR "TBZ2")
+		set(CPACK_GENERATOR "TBZ2;DEB")
+		set(CPACK_DEBIAN_PACKAGE_DEPENDS qt5-default)
+		set(CPACK_DEBIAN_PACKAGE_MAINTAINER "russel@nano.org")
 		install(TARGETS nano_wallet
-				RUNTIME DESTINATION .
+				RUNTIME DESTINATION ./bin
 		)
 		if (NANO_SHARED_BOOST)
 			get_filename_component(Boost_LIB_DIR ${BOOST_ROOT}/lib ABSOLUTE)
@@ -635,8 +637,8 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 			install (FILES ${Boost_LIB_DIR}/libboost_atomic.so.${Boost_VERSION_STRING} DESTINATION ./lib)
 		endif()
 		if (NANO_POW_SERVER)
-			install (TARGETS nano_pow_server DESTINATION .)
-			install (DIRECTORY ${PROJECT_SOURCE_DIR}/nano-pow-server/public DESTINATION .)
+			install (TARGETS nano_pow_server DESTINATION ./bin)
+			install (DIRECTORY ${PROJECT_SOURCE_DIR}/nano-pow-server/public DESTINATION ./bin)
 		endif ()
 	endif ()
 endif ()
