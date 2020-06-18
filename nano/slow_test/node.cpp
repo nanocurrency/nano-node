@@ -8,6 +8,8 @@
 
 #include <gtest/gtest.h>
 
+#include <boost/format.hpp>
+
 #include <numeric>
 #include <random>
 
@@ -491,9 +493,13 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 
 	// Call block confirm on the last open block which will confirm everything
 	{
-		auto transaction = node->store.tx_begin_read ();
-		auto block = node->store.block_get (transaction, last_open_hash);
-		node->block_confirm (block);
+		auto block = node->block (last_open_hash);
+		ASSERT_NE (nullptr, block);
+		auto election_insertion_result (node->active.insert (block));
+		ASSERT_TRUE (election_insertion_result.inserted);
+		ASSERT_NE (nullptr, election_insertion_result.election);
+		nano::lock_guard<std::mutex> guard (node->active.mutex);
+		election_insertion_result.election->confirm_once ();
 	}
 
 	system.deadline_set (120s);
@@ -571,7 +577,11 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 	// Confirm all of the accounts
 	for (auto & open_block : open_blocks)
 	{
-		node->block_confirm (open_block);
+		auto election_insertion_result (node->active.insert (open_block));
+		ASSERT_TRUE (election_insertion_result.inserted);
+		ASSERT_NE (nullptr, election_insertion_result.election);
+		nano::lock_guard<std::mutex> guard (node->active.mutex);
+		election_insertion_result.election->confirm_once ();
 	}
 
 	system.deadline_set (1500s);
@@ -670,7 +680,13 @@ TEST (confirmation_height, long_chains)
 	}
 
 	// Call block confirm on the existing receive block on the genesis account which will confirm everything underneath on both accounts
-	node->block_confirm (receive1);
+	{
+		auto election_insertion_result (node->active.insert (receive1));
+		ASSERT_TRUE (election_insertion_result.inserted);
+		ASSERT_NE (nullptr, election_insertion_result.election);
+		nano::lock_guard<std::mutex> guard (node->active.mutex);
+		election_insertion_result.election->confirm_once ();
+	}
 
 	system.deadline_set (30s);
 	while (true)
@@ -891,7 +907,6 @@ TEST (confirmation_height, many_accounts_send_receive_self)
 		{
 			nano::keypair key;
 			keys.emplace_back (key);
-			system.wallet (0)->insert_adhoc (key.prv);
 
 			nano::send_block send (latest_genesis, key.pub, nano::genesis_amount - 1 - i, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest_genesis));
 			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send).code);
@@ -906,9 +921,13 @@ TEST (confirmation_height, many_accounts_send_receive_self)
 	for (auto & open_block : open_blocks)
 	{
 		node->block_confirm (open_block);
+		auto election = node->active.election (open_block->qualified_root ());
+		ASSERT_NE (nullptr, election);
+		nano::lock_guard<std::mutex> guard (node->active.mutex);
+		election->confirm_once ();
 	}
 
-	system.deadline_set (1000s);
+	system.deadline_set (100s);
 	auto num_blocks_to_confirm = num_accounts * 2;
 	while (node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in) != num_blocks_to_confirm)
 	{
@@ -933,7 +952,7 @@ TEST (confirmation_height, many_accounts_send_receive_self)
 		node->process_active (receive_blocks[i]);
 	}
 
-	system.deadline_set (200s);
+	system.deadline_set (300s);
 	num_blocks_to_confirm = num_accounts * 4;
 	while (node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in) != num_blocks_to_confirm)
 	{
@@ -962,7 +981,7 @@ TEST (confirmation_height, many_accounts_send_receive_self)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
-	system.deadline_set (20s);
+	system.deadline_set (60s);
 	while (node->active.election_winner_details_size () > 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -1207,7 +1226,7 @@ void callback_process (shared_data & shared_data_a, data & data, T & all_node_da
 };
 }
 
-TEST (node_telemetry, ongoing_requests)
+TEST (telemetry, ongoing_requests)
 {
 	nano::system system;
 	nano::node_flags node_flags;
@@ -1247,7 +1266,7 @@ namespace nano
 {
 namespace transport
 {
-	TEST (node_telemetry, simultaneous_requests)
+	TEST (telemetry, simultaneous_requests)
 	{
 		nano::system system;
 		nano::node_flags node_flags;
@@ -1317,15 +1336,15 @@ namespace transport
 }
 }
 
-TEST (node_telemetry, under_load)
+TEST (telemetry, under_load)
 {
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	auto node = system.add_node (node_config);
-	node_config.peering_port = nano::get_available_port ();
 	nano::node_flags node_flags;
-	node_flags.disable_ongoing_telemetry_requests = true;
+	node_flags.disable_initial_telemetry_requests = true;
+	auto node = system.add_node (node_config, node_flags);
+	node_config.peering_port = nano::get_available_port ();
 	auto node1 = system.add_node (node_config, node_flags);
 	nano::genesis genesis;
 	nano::keypair key;
@@ -1368,7 +1387,7 @@ TEST (node_telemetry, under_load)
 	}
 }
 
-TEST (node_telemetry, all_peers_use_single_request_cache)
+TEST (telemetry, all_peers_use_single_request_cache)
 {
 	nano::system system;
 	nano::node_flags node_flags;
@@ -1439,7 +1458,7 @@ TEST (node_telemetry, all_peers_use_single_request_cache)
 	ASSERT_EQ (0, node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::out));
 }
 
-TEST (node_telemetry, many_nodes)
+TEST (telemetry, many_nodes)
 {
 	nano::system system;
 	nano::node_flags node_flags;

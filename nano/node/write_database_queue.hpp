@@ -50,15 +50,11 @@ public:
 	/** Doesn't actually pop anything until the returned write_guard is out of scope */
 	write_guard pop ();
 
-	/** This will release anything which is being blocked by the wait function */
-	void stop ();
-
 private:
 	std::deque<nano::writer> queue;
 	std::mutex mutex;
 	nano::condition_variable cv;
 	std::function<void()> guard_finish_callback;
-	bool stopped{ false };
 	bool use_noops;
 };
 }

@@ -7726,9 +7726,7 @@ TEST (rpc, block_confirmed)
 	ASSERT_EQ (std::error_code (nano::error_blocks::not_found).message (), response1.json.get<std::string> ("error"));
 
 	scoped_thread_name_io.reset ();
-	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::keypair key;
-	system.wallet (0)->insert_adhoc (key.prv);
 
 	// Open an account directly in the ledger
 	{
@@ -7759,15 +7757,14 @@ TEST (rpc, block_confirmed)
 	auto send = std::make_shared<nano::send_block> (latest, key.pub, 10, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest));
 	node->process_active (send);
 	node->block_processor.flush ();
-
-	// Wait until the confirmation height has been set
-	system.deadline_set (10s);
-	auto transaction = node->store.tx_begin_read ();
-	while (!node->ledger.block_confirmed (transaction, send->hash ()) || node->confirmation_height_processor.is_processing_block (send->hash ()))
+	node->block_confirm (send);
 	{
-		ASSERT_NO_ERROR (system.poll ());
-		transaction.refresh ();
+		auto election = node->active.election (send->qualified_root ());
+		ASSERT_NE (nullptr, election);
+		nano::lock_guard<std::mutex> guard (node->active.mutex);
+		election->confirm_once ();
 	}
+	ASSERT_TIMELY (3s, node->block_confirmed (send->hash ()));
 
 	// Requesting confirmation for this should now succeed
 	request.put ("hash", send->hash ().to_string ());
@@ -8683,7 +8680,7 @@ TEST (rpc, receive_work_disabled)
 	}
 }
 
-TEST (rpc, node_telemetry_single)
+TEST (rpc, telemetry_single)
 {
 	nano::system system (1);
 	auto & node1 = *add_ipc_enabled_node (system);
@@ -8709,7 +8706,7 @@ TEST (rpc, node_telemetry_single)
 	// Missing port
 	boost::property_tree::ptree request;
 	auto node = system.nodes.front ();
-	request.put ("action", "node_telemetry");
+	request.put ("action", "telemetry");
 	request.put ("address", "not_a_valid_address");
 
 	{
@@ -8786,7 +8783,7 @@ TEST (rpc, node_telemetry_single)
 	}
 }
 
-TEST (rpc, node_telemetry_all)
+TEST (rpc, telemetry_all)
 {
 	nano::system system (1);
 	auto & node1 = *add_ipc_enabled_node (system);
@@ -8824,7 +8821,7 @@ TEST (rpc, node_telemetry_all)
 	}
 
 	boost::property_tree::ptree request;
-	request.put ("action", "node_telemetry");
+	request.put ("action", "telemetry");
 	{
 		test_response response (request, rpc.config.port, system.io_ctx);
 		system.deadline_set (10s);
@@ -8866,7 +8863,7 @@ TEST (rpc, node_telemetry_all)
 }
 
 // Also tests all forms of ipv4/ipv6
-TEST (rpc, node_telemetry_self)
+TEST (rpc, telemetry_self)
 {
 	nano::system system;
 	auto & node1 = *add_ipc_enabled_node (system);
@@ -8883,7 +8880,7 @@ TEST (rpc, node_telemetry_self)
 	node1.network.udp_channels.insert (nano::endpoint (boost::asio::ip::make_address_v6 ("::1"), nano::get_available_port ()), 0);
 
 	boost::property_tree::ptree request;
-	request.put ("action", "node_telemetry");
+	request.put ("action", "telemetry");
 	request.put ("address", "::1");
 	request.put ("port", node1.network.endpoint ().port ());
 	auto const should_ignore_identification_metrics = false;
@@ -8968,7 +8965,7 @@ TEST (rpc, confirmation_active)
 	auto send2 (std::make_shared<nano::send_block> (send1->hash (), nano::public_key (), nano::genesis_amount - 200, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send1->hash ())));
 	node1.process_active (send1);
 	node1.process_active (send2);
-	node1.block_processor.flush ();
+	nano::blocks_confirm (node1, { send1, send2 });
 	ASSERT_EQ (2, node1.active.size ());
 	{
 		nano::lock_guard<std::mutex> guard (node1.active.mutex);

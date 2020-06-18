@@ -201,6 +201,18 @@ std::unique_ptr<nano::state_block> nano::upgrade_epoch (nano::work_pool & pool_a
 	return !error ? std::move (epoch) : nullptr;
 }
 
+void nano::blocks_confirm (nano::node & node_a, std::vector<std::shared_ptr<nano::block>> const & blocks_a)
+{
+	// Finish processing all blocks
+	node_a.block_processor.flush ();
+	for (auto const & block : blocks_a)
+	{
+		// A sideband is required to start an election
+		debug_assert (block->has_sideband ());
+		node_a.block_confirm (block);
+	}
+}
+
 std::unique_ptr<nano::state_block> nano::system::upgrade_genesis_epoch (nano::node & node_a, nano::epoch const epoch_a)
 {
 	return upgrade_epoch (work, node_a.ledger, epoch_a);

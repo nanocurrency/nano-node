@@ -487,7 +487,7 @@ enum class confirmation_height_mode
 };
 
 /* Holds flags for various cacheable data. For most CLI operations caching is unnecessary
- * (e.g getting the checked block count) so it can be disabled for performance reasons. */
+ * (e.g getting the cemented block count) so it can be disabled for performance reasons. */
 class generate_cache
 {
 public:
@@ -496,6 +496,8 @@ public:
 	bool unchecked_count = true;
 	bool account_count = true;
 	bool epoch_2 = true;
+
+	void enable_all ();
 };
 
 /* Holds an in-memory cache of various counts */

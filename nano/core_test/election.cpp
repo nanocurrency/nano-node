@@ -95,4 +95,83 @@ TEST (election, bisect_dependencies)
 	ASSERT_EQ (10, node.active.size ()); // conf height is 1, no more blocks to activate
 	ASSERT_EQ (node.active.blocks.size (), node.active.roots.size ());
 }
+
+// Tests successful dependency activation of the open block of an account, and its corresponding source
+TEST (election, dependencies_open_link)
+{
+	nano::system system;
+	nano::node_flags flags;
+	flags.disable_request_loop = true;
+	auto & node = *system.add_node (flags);
+
+	nano::state_block_builder builder;
+	nano::keypair key;
+
+	// Send to key
+	auto gen_send = builder.make_block ()
+	                .account (nano::test_genesis_key.pub)
+	                .previous (nano::genesis_hash)
+	                .representative (nano::test_genesis_key.pub)
+	                .link (key.pub)
+	                .balance (nano::genesis_amount - 1)
+	                .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	                .work (*system.work.generate (nano::genesis_hash))
+	                .build ();
+	// Receive from genesis
+	auto key_open = builder.make_block ()
+	                .account (key.pub)
+	                .previous (0)
+	                .representative (key.pub)
+	                .link (gen_send->hash ())
+	                .balance (1)
+	                .sign (key.prv, key.pub)
+	                .work (*system.work.generate (key.pub))
+	                .build ();
+
+	// Send to self
+	std::shared_ptr<nano::block> key_send = builder.make_block ()
+	                                        .account (key.pub)
+	                                        .previous (key_open->hash ())
+	                                        .representative (key.pub)
+	                                        .link (key.pub)
+	                                        .balance (0)
+	                                        .sign (key.prv, key.pub)
+	                                        .work (*system.work.generate (key_open->hash ()))
+	                                        .build ();
+
+	node.process (*gen_send);
+	node.process (*key_open);
+	node.process (*key_send);
+
+	// Insert frontier
+	node.block_confirm (key_send);
+	ASSERT_EQ (1, node.active.size ());
+	{
+		auto election = node.active.election (key_send->qualified_root ());
+		ASSERT_NE (nullptr, election);
+		nano::unique_lock<std::mutex> lock (node.active.mutex);
+		election->activate_dependencies ();
+		node.active.activate_dependencies (lock);
+	}
+	// Must have activated the open block
+	ASSERT_EQ (2, node.active.size ());
+	{
+		auto election = node.active.election (key_open->qualified_root ());
+		ASSERT_NE (nullptr, election);
+		nano::unique_lock<std::mutex> lock (node.active.mutex);
+		election->activate_dependencies ();
+		node.active.activate_dependencies (lock);
+	}
+	// Must have activated the open's source block
+	ASSERT_EQ (3, node.active.size ());
+	{
+		auto election = node.active.election (gen_send->qualified_root ());
+		ASSERT_NE (nullptr, election);
+		nano::unique_lock<std::mutex> lock (node.active.mutex);
+		election->activate_dependencies ();
+		node.active.activate_dependencies (lock);
+	}
+	// Nothing else to activate
+	ASSERT_EQ (3, node.active.size ());
+}
 }

@@ -3,6 +3,7 @@
 #include <nano/lib/utility.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/secure/blockstore.hpp>
+#include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
 
 namespace
@@ -865,6 +866,13 @@ std::string nano::ledger::block_text (nano::block_hash const & hash_a)
 
 bool nano::ledger::is_send (nano::transaction const & transaction_a, nano::state_block const & block_a) const
 {
+	/*
+	 * if block_a does not have a sideband, then is_send()
+	 * requires that the previous block exists in the database.
+	 * This is because it must retrieve the balance of the previous block.
+	 */
+	debug_assert (block_a.has_sideband () || block_a.hashables.previous.is_zero () || store.block_exists (transaction_a, block_a.hashables.previous));
+
 	bool result (false);
 	if (block_a.has_sideband ())
 	{
@@ -1039,55 +1047,89 @@ void nano::ledger::dump_account_chain (nano::account const & account_a, std::ost
 	}
 }
 
-class block_fit_visitor : public nano::block_visitor
-{
-public:
-	block_fit_visitor (nano::ledger & ledger_a, nano::transaction const & transaction_a) :
-	ledger (ledger_a),
-	transaction (transaction_a),
-	result (false)
-	{
-	}
-	void send_block (nano::send_block const & block_a) override
-	{
-		result = ledger.store.block_exists (transaction, block_a.previous ());
-	}
-	void receive_block (nano::receive_block const & block_a) override
-	{
-		result = ledger.store.block_exists (transaction, block_a.previous ());
-		result &= ledger.store.block_exists (transaction, block_a.source ());
-	}
-	void open_block (nano::open_block const & block_a) override
-	{
-		result = ledger.store.block_exists (transaction, block_a.source ());
-	}
-	void change_block (nano::change_block const & block_a) override
-	{
-		result = ledger.store.block_exists (transaction, block_a.previous ());
-	}
-	void state_block (nano::state_block const & block_a) override
-	{
-		result = block_a.previous ().is_zero () || ledger.store.block_exists (transaction, block_a.previous ());
-		if (result && !ledger.is_send (transaction, block_a))
-		{
-			result &= ledger.store.block_exists (transaction, block_a.hashables.link) || block_a.hashables.link.is_zero () || ledger.is_epoch_link (block_a.hashables.link);
-		}
-	}
-	nano::ledger & ledger;
-	nano::transaction const & transaction;
-	bool result;
-};
-
 bool nano::ledger::could_fit (nano::transaction const & transaction_a, nano::block const & block_a)
 {
-	block_fit_visitor visitor (*this, transaction_a);
-	block_a.visit (visitor);
-	return visitor.result;
+	auto dependencies (dependent_blocks (transaction_a, block_a));
+	return std::all_of (dependencies.begin (), dependencies.end (), [this, &transaction_a](nano::block_hash const & hash_a) {
+		return hash_a.is_zero () || store.block_exists (transaction_a, hash_a);
+	});
+}
+
+bool nano::ledger::can_vote (nano::transaction const & transaction_a, nano::block const & block_a)
+{
+	auto dependencies (dependent_blocks (transaction_a, block_a));
+	return std::all_of (dependencies.begin (), dependencies.end (), [this, &transaction_a](nano::block_hash const & hash_a) {
+		auto result (hash_a.is_zero ());
+		if (!result)
+		{
+			result = false;
+			auto block (store.block_get (transaction_a, hash_a));
+			if (block != nullptr)
+			{
+				nano::confirmation_height_info height;
+				auto error = store.confirmation_height_get (transaction_a, block->account ().is_zero () ? block->sideband ().account : block->account (), height);
+				debug_assert (!error);
+				result = block->sideband ().height <= height.height;
+			}
+		}
+		return result;
+	});
 }
 
 bool nano::ledger::is_epoch_link (nano::link const & link_a)
 {
 	return network_params.ledger.epochs.is_epoch_link (link_a);
+}
+
+class dependent_block_visitor : public nano::block_visitor
+{
+public:
+	dependent_block_visitor (nano::ledger & ledger_a, nano::transaction const & transaction_a) :
+	ledger (ledger_a),
+	transaction (transaction_a),
+	result ({ 0, 0 })
+	{
+	}
+	void send_block (nano::send_block const & block_a) override
+	{
+		result[0] = block_a.previous ();
+	}
+	void receive_block (nano::receive_block const & block_a) override
+	{
+		result[0] = block_a.previous ();
+		result[1] = block_a.source ();
+	}
+	void open_block (nano::open_block const & block_a) override
+	{
+		if (block_a.source () != ledger.network_params.ledger.genesis_account)
+		{
+			result[0] = block_a.source ();
+		}
+	}
+	void change_block (nano::change_block const & block_a) override
+	{
+		result[0] = block_a.previous ();
+	}
+	void state_block (nano::state_block const & block_a) override
+	{
+		result[0] = block_a.hashables.previous;
+		result[1] = block_a.hashables.link;
+		// ledger.is_send will check the sideband first, if block_a has a loaded sideband the check that previous block exists can be skipped
+		if (ledger.is_epoch_link (block_a.hashables.link) || ((block_a.has_sideband () || ledger.store.block_exists (transaction, block_a.hashables.previous)) && ledger.is_send (transaction, block_a)))
+		{
+			result[1].clear ();
+		}
+	}
+	nano::ledger & ledger;
+	nano::transaction const & transaction;
+	std::array<nano::block_hash, 2> result;
+};
+
+std::array<nano::block_hash, 2> nano::ledger::dependent_blocks (nano::transaction const & transaction_a, nano::block const & block_a)
+{
+	dependent_block_visitor visitor (*this, transaction_a);
+	block_a.visit (visitor);
+	return visitor.result;
 }
 
 nano::account const & nano::ledger::epoch_signer (nano::link const & link_a) const
