@@ -677,6 +677,7 @@ public:
 	virtual bool root_exists (nano::transaction const &, nano::root const &) = 0;
 	virtual bool source_exists (nano::transaction const &, nano::block_hash const &) = 0;
 	virtual nano::account block_account (nano::transaction const &, nano::block_hash const &) const = 0;
+	virtual nano::account block_account_calculated (nano::block const &) const = 0;
 
 	virtual void frontier_put (nano::write_transaction const &, nano::block_hash const &, nano::account const &) = 0;
 	virtual nano::account frontier_get (nano::transaction const &, nano::block_hash const &) const = 0;
@@ -697,6 +698,7 @@ public:
 	virtual void pending_del (nano::write_transaction const &, nano::pending_key const &) = 0;
 	virtual bool pending_get (nano::transaction const &, nano::pending_key const &, nano::pending_info &) = 0;
 	virtual bool pending_exists (nano::transaction const &, nano::pending_key const &) = 0;
+	virtual bool pending_any (nano::transaction const &, nano::account const &) = 0;
 	virtual nano::store_iterator<nano::pending_key, nano::pending_info> pending_begin (nano::transaction const &, nano::pending_key const &) = 0;
 	virtual nano::store_iterator<nano::pending_key, nano::pending_info> pending_begin (nano::transaction const &) = 0;
 	virtual nano::store_iterator<nano::pending_key, nano::pending_info> pending_end () = 0;

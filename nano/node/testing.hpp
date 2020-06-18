@@ -50,9 +50,12 @@ public:
 	nano::alarm alarm{ io_ctx };
 	std::vector<std::shared_ptr<nano::node>> nodes;
 	nano::logging logging;
-	nano::work_pool work{ 1 };
+	nano::work_pool work{ std::max (std::thread::hardware_concurrency (), 1u) };
 	std::chrono::time_point<std::chrono::steady_clock, std::chrono::duration<double>> deadline{ std::chrono::steady_clock::time_point::max () };
 	double deadline_scaling_factor{ 1.0 };
+	unsigned node_sequence{ 0 };
 };
+std::unique_ptr<nano::state_block> upgrade_epoch (nano::work_pool &, nano::ledger &, nano::epoch);
+void blocks_confirm (nano::node &, std::vector<std::shared_ptr<nano::block>> const &);
 }
 REGISTER_ERROR_CODES (nano, error_system);

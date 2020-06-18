@@ -62,6 +62,8 @@ namespace websocket
 		bootstrap,
 		/** A telemetry message */
 		telemetry,
+		/** New block arrival message*/
+		new_unconfirmed_block,
 		/** Auxiliary length, not a valid topic, must be the last enum */
 		_length
 	};
@@ -93,13 +95,13 @@ namespace websocket
 		message stopped_election (nano::block_hash const & hash_a);
 		message vote_received (std::shared_ptr<nano::vote> vote_a, nano::vote_code code_a);
 		message difficulty_changed (uint64_t publish_threshold_a, uint64_t difficulty_active_a);
-
 		message work_generation (nano::work_version const version_a, nano::block_hash const & root_a, uint64_t const work_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::string const & peer_a, std::vector<std::string> const & bad_peers_a, bool const completed_a = true, bool const cancelled_a = false);
 		message work_cancelled (nano::work_version const version_a, nano::block_hash const & root_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::vector<std::string> const & bad_peers_a);
 		message work_failed (nano::work_version const version_a, nano::block_hash const & root_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::vector<std::string> const & bad_peers_a);
 		message bootstrap_started (std::string const & id_a, std::string const & mode_a);
 		message bootstrap_exited (std::string const & id_a, std::string const & mode_a, std::chrono::steady_clock::time_point const start_time_a, uint64_t const total_blocks_a);
 		message telemetry_received (nano::telemetry_data const &, nano::endpoint const &);
+		message new_block_arrived (nano::block const & block_a);
 
 	private:
 		/** Set the common fields for messages: timestamp and topic. */
@@ -205,7 +207,6 @@ namespace websocket
 	class vote_options final : public options
 	{
 	public:
-		vote_options ();
 		vote_options (boost::property_tree::ptree const & options_a, nano::logger_mt & logger_a);
 
 		/**

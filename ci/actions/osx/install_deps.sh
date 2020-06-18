@@ -8,5 +8,5 @@ if [[ ${TEST-0} -eq 1 ]]; then
 else
     util/build_prep/fetch_rocksdb.sh
 fi
-util/build_prep/bootstrap_boost.sh -m -c -B 1.70 && \
+sudo util/build_prep/fetch_boost.sh 
 util/build_prep/macosx/build_qt.sh

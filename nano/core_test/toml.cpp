@@ -104,6 +104,8 @@ TEST (toml, rpc_config_deserialize_defaults)
 	ASSERT_EQ (conf.rpc_process.ipc_address, defaults.rpc_process.ipc_address);
 	ASSERT_EQ (conf.rpc_process.ipc_port, defaults.rpc_process.ipc_port);
 	ASSERT_EQ (conf.rpc_process.num_ipc_connections, defaults.rpc_process.num_ipc_connections);
+
+	ASSERT_EQ (conf.rpc_logging.log_rpc, defaults.rpc_logging.log_rpc);
 }
 
 /** Empty config file should match a default config object */
@@ -148,6 +150,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.allow_local_peers, defaults.node.allow_local_peers);
 	ASSERT_EQ (conf.node.backup_before_upgrade, defaults.node.backup_before_upgrade);
 	ASSERT_EQ (conf.node.bandwidth_limit, defaults.node.bandwidth_limit);
+	ASSERT_EQ (conf.node.bandwidth_limit_burst_ratio, defaults.node.bandwidth_limit_burst_ratio);
 	ASSERT_EQ (conf.node.block_processor_batch_max_time, defaults.node.block_processor_batch_max_time);
 	ASSERT_EQ (conf.node.bootstrap_connections, defaults.node.bootstrap_connections);
 	ASSERT_EQ (conf.node.bootstrap_connections_max, defaults.node.bootstrap_connections_max);
@@ -202,6 +205,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.logging.network_timeout_logging_value, defaults.node.logging.network_timeout_logging_value);
 	ASSERT_EQ (conf.node.logging.node_lifetime_tracing_value, defaults.node.logging.node_lifetime_tracing_value);
 	ASSERT_EQ (conf.node.logging.network_telemetry_logging_value, defaults.node.logging.network_telemetry_logging_value);
+	ASSERT_EQ (conf.node.logging.network_rejected_logging_value, defaults.node.logging.network_rejected_logging_value);
 	ASSERT_EQ (conf.node.logging.rotation_size, defaults.node.logging.rotation_size);
 	ASSERT_EQ (conf.node.logging.single_line_record_value, defaults.node.logging.single_line_record_value);
 	ASSERT_EQ (conf.node.logging.stable_log_filename, defaults.node.logging.stable_log_filename);
@@ -391,6 +395,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	allow_local_peers = false
 	backup_before_upgrade = true
 	bandwidth_limit = 999
+	bandwidth_limit_burst_ratio = 999.9
 	block_processor_batch_max_time = 999
 	bootstrap_connections = 999
 	bootstrap_connections_max = 999
@@ -469,6 +474,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	network_message = true
 	network_node_id_handshake = true
 	network_telemetry_logging = true
+	network_rejected_logging = true
 	network_packet = true
 	network_publish = true
 	network_timeout = true
@@ -556,6 +562,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.allow_local_peers, defaults.node.allow_local_peers);
 	ASSERT_NE (conf.node.backup_before_upgrade, defaults.node.backup_before_upgrade);
 	ASSERT_NE (conf.node.bandwidth_limit, defaults.node.bandwidth_limit);
+	ASSERT_NE (conf.node.bandwidth_limit_burst_ratio, defaults.node.bandwidth_limit_burst_ratio);
 	ASSERT_NE (conf.node.block_processor_batch_max_time, defaults.node.block_processor_batch_max_time);
 	ASSERT_NE (conf.node.bootstrap_connections, defaults.node.bootstrap_connections);
 	ASSERT_NE (conf.node.bootstrap_connections_max, defaults.node.bootstrap_connections_max);
@@ -607,6 +614,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.logging.network_message_logging_value, defaults.node.logging.network_message_logging_value);
 	ASSERT_NE (conf.node.logging.network_node_id_handshake_logging_value, defaults.node.logging.network_node_id_handshake_logging_value);
 	ASSERT_NE (conf.node.logging.network_telemetry_logging_value, defaults.node.logging.network_telemetry_logging_value);
+	ASSERT_NE (conf.node.logging.network_rejected_logging_value, defaults.node.logging.network_rejected_logging_value);
 	ASSERT_NE (conf.node.logging.network_packet_logging_value, defaults.node.logging.network_packet_logging_value);
 	ASSERT_NE (conf.node.logging.network_publish_logging_value, defaults.node.logging.network_publish_logging_value);
 	ASSERT_NE (conf.node.logging.network_timeout_logging_value, defaults.node.logging.network_timeout_logging_value);
@@ -719,6 +727,8 @@ TEST (toml, rpc_config_deserialize_no_defaults)
 	ipc_address = "0:0:0:0:0:ffff:7f01:101"
 	ipc_port = 999
 	num_ipc_connections = 999
+	[logging]
+	log_rpc = false
 	)toml";
 
 	nano::tomlconfig toml;
@@ -739,6 +749,8 @@ TEST (toml, rpc_config_deserialize_no_defaults)
 	ASSERT_NE (conf.rpc_process.ipc_address, defaults.rpc_process.ipc_address);
 	ASSERT_NE (conf.rpc_process.ipc_port, defaults.rpc_process.ipc_port);
 	ASSERT_NE (conf.rpc_process.num_ipc_connections, defaults.rpc_process.num_ipc_connections);
+
+	ASSERT_NE (conf.rpc_logging.log_rpc, defaults.rpc_logging.log_rpc);
 }
 
 /** There should be no required values **/
@@ -750,6 +762,7 @@ TEST (toml, rpc_config_no_required)
 	ss << R"toml(
 	[version]
 	[process]
+	[logging]
 	[secure]
 	)toml";
 
@@ -791,4 +804,48 @@ TEST (toml, daemon_config_deserialize_errors)
 
 	ASSERT_EQ (toml2.get_error ().get_message (), "frontiers_confirmation value is invalid (available: always, auto, disabled)");
 	ASSERT_EQ (conf2.node.frontiers_confirmation, nano::frontiers_confirmation_mode::invalid);
+}
+
+TEST (toml, daemon_read_config)
+{
+	auto path (nano::unique_path ());
+	boost::filesystem::create_directories (path);
+	nano::daemon_config config;
+	std::vector<std::string> invalid_overrides1{ "node.max_work_generate_multiplier=0" };
+	std::string expected_message1{ "max_work_generate_multiplier must be greater than or equal to 1" };
+
+	std::vector<std::string> invalid_overrides2{ "node.websocket.enable=true", "node.foo" };
+	std::string expected_message2{ "Value must follow after a '=' at line 2" };
+
+	// Reading when there is no config file
+	ASSERT_FALSE (boost::filesystem::exists (nano::get_node_toml_config_path (path)));
+	ASSERT_FALSE (nano::read_node_config_toml (path, config));
+	{
+		auto error = nano::read_node_config_toml (path, config, invalid_overrides1);
+		ASSERT_TRUE (error);
+		ASSERT_EQ (error.get_message (), expected_message1);
+	}
+	{
+		auto error = nano::read_node_config_toml (path, config, invalid_overrides2);
+		ASSERT_TRUE (error);
+		ASSERT_EQ (error.get_message (), expected_message2);
+	}
+
+	// Create an empty config
+	nano::tomlconfig toml;
+	toml.write (nano::get_node_toml_config_path (path));
+
+	// Reading when there is a config file
+	ASSERT_TRUE (boost::filesystem::exists (nano::get_node_toml_config_path (path)));
+	ASSERT_FALSE (nano::read_node_config_toml (path, config));
+	{
+		auto error = nano::read_node_config_toml (path, config, invalid_overrides1);
+		ASSERT_TRUE (error);
+		ASSERT_EQ (error.get_message (), expected_message1);
+	}
+	{
+		auto error = nano::read_node_config_toml (path, config, invalid_overrides2);
+		ASSERT_TRUE (error);
+		ASSERT_EQ (error.get_message (), expected_message2);
+	}
 }

@@ -429,7 +429,7 @@ std::string nano::stat::type_to_string (uint32_t key)
 		case nano::stat::type::message:
 			res = "message";
 			break;
-		case nano::stat::type::observer:
+		case nano::stat::type::confirmation_observer:
 			res = "observer";
 			break;
 		case nano::stat::type::confirmation_height:
@@ -490,13 +490,13 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::bulk_push:
 			res = "bulk_push";
 			break;
-		case nano::stat::detail::observer_confirmation_active_quorum:
+		case nano::stat::detail::active_quorum:
 			res = "observer_confirmation_active_quorum";
 			break;
-		case nano::stat::detail::observer_confirmation_active_conf_height:
+		case nano::stat::detail::active_conf_height:
 			res = "observer_confirmation_active_conf_height";
 			break;
-		case nano::stat::detail::observer_confirmation_inactive:
+		case nano::stat::detail::inactive_conf_height:
 			res = "observer_confirmation_inactive";
 			break;
 		case nano::stat::detail::error_socket_close:
@@ -613,6 +613,24 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::late_block_seconds:
 			res = "late_block_seconds";
 			break;
+		case nano::stat::detail::election_non_priority:
+			res = "election_non_priority";
+			break;
+		case nano::stat::detail::election_priority:
+			res = "election_priority";
+			break;
+		case nano::stat::detail::election_block_conflict:
+			res = "election_block_conflict";
+			break;
+		case nano::stat::detail::election_difficulty_update:
+			res = "election_difficulty_update";
+			break;
+		case nano::stat::detail::election_drop:
+			res = "election_drop";
+			break;
+		case nano::stat::detail::election_restart:
+			res = "election_restart";
+			break;
 		case nano::stat::detail::blocking:
 			res = "blocking";
 			break;
@@ -627,6 +645,12 @@ std::string nano::stat::detail_to_string (uint32_t key)
 			break;
 		case nano::stat::detail::tcp_write_drop:
 			res = "tcp_write_drop";
+			break;
+		case nano::stat::detail::tcp_write_no_socket_drop:
+			res = "tcp_write_no_socket_drop";
+			break;
+		case nano::stat::detail::tcp_excluded:
+			res = "tcp_excluded";
 			break;
 		case nano::stat::detail::unreachable_host:
 			res = "unreachable_host";
@@ -667,9 +691,6 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::outdated_version:
 			res = "outdated_version";
 			break;
-		case nano::stat::detail::invalid_block:
-			res = "invalid_block";
-			break;
 		case nano::stat::detail::blocks_confirmed:
 			res = "blocks_confirmed";
 			break;
@@ -697,6 +718,9 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::requests_generated_votes:
 			res = "requests_generated_votes";
 			break;
+		case nano::stat::detail::requests_cannot_vote:
+			res = "requests_cannot_vote";
+			break;
 		case nano::stat::detail::requests_unknown:
 			res = "requests_unknown";
 			break;
@@ -711,6 +735,18 @@ std::string nano::stat::detail_to_string (uint32_t key)
 			break;
 		case nano::stat::detail::node_id_mismatch:
 			res = "node_id_mismatch";
+			break;
+		case nano::stat::detail::request_within_protection_cache_zone:
+			res = "request_within_protection_cache_zone";
+			break;
+		case nano::stat::detail::no_response_received:
+			res = "no_response_received";
+			break;
+		case nano::stat::detail::unsolicited_telemetry_ack:
+			res = "unsolicited_telemetry_ack";
+			break;
+		case nano::stat::detail::failed_send_telemetry_req:
+			res = "failed_send_telemetry_req";
 			break;
 	}
 	return res;

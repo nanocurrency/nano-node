@@ -40,7 +40,7 @@ void mdb_val::convert_buffer_to_value ()
 }
 }
 
-nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, size_t const batch_size, bool backup_before_upgrade) :
+nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, size_t const batch_size_a, bool backup_before_upgrade_a) :
 logger (logger_a),
 env (error, path_a, nano::mdb_env::options::make ().set_config (lmdb_config_a).set_use_no_mem_init (true)),
 mdb_txn_tracker (logger_a, txn_tracking_config_a, block_processor_batch_max_time_a),
@@ -73,7 +73,7 @@ txn_tracking_enabled (txn_tracking_config_a.enable)
 				{
 					std::cout << "Upgrade in progress..." << std::endl;
 				}
-				if (backup_before_upgrade)
+				if (backup_before_upgrade_a)
 				{
 					create_backup_file (env, path_a, logger_a);
 				}
@@ -84,7 +84,7 @@ txn_tracking_enabled (txn_tracking_config_a.enable)
 				open_databases (error, transaction, MDB_CREATE);
 				if (!error)
 				{
-					error |= do_upgrades (transaction, needs_vacuuming, batch_size);
+					error |= do_upgrades (transaction, needs_vacuuming, batch_size_a);
 				}
 			}
 
@@ -792,7 +792,6 @@ void nano::mdb_store::upgrade_v17_to_v18 (nano::write_transaction const & transa
 
 	auto count_pre (count (transaction_a, state_blocks));
 
-	nano::network_params network_params;
 	auto num = 0u;
 	for (nano::mdb_iterator<nano::block_hash, nano::state_block_w_sideband> state_i (transaction_a, state_blocks), state_n{}; state_i != state_n; ++state_i, ++num)
 	{

@@ -89,17 +89,22 @@ void nano::transport::channel::send (nano::message const & message_a, std::funct
 {
 	callback_visitor visitor;
 	message_a.visit (visitor);
-	auto buffer (message_a.to_shared_const_buffer ());
+	auto buffer (message_a.to_shared_const_buffer (node.ledger.cache.epoch_2_started));
 	auto detail (visitor.result);
 	auto is_droppable_by_limiter = drop_policy_a == nano::buffer_drop_policy::limiter;
-	node.network.limiter.add (buffer.size (), !is_droppable_by_limiter);
-	if (!is_droppable_by_limiter || !node.network.limiter.should_drop (buffer.size ()))
+	auto should_drop (node.network.limiter.should_drop (buffer.size ()));
+	if (!is_droppable_by_limiter || !should_drop)
 	{
 		send_buffer (buffer, detail, callback_a, drop_policy_a);
 		node.stats.inc (nano::stat::type::message, detail, nano::stat::dir::out);
 	}
 	else
 	{
+		if (callback_a)
+		{
+			callback_a (boost::system::errc::make_error_code (boost::system::errc::not_supported), 0);
+		}
+
 		node.stats.inc (nano::stat::type::drop, detail, nano::stat::dir::out);
 		if (node.config.logging.network_packet_logging ())
 		{
@@ -218,61 +223,12 @@ bool nano::transport::reserved_address (nano::endpoint const & endpoint_a, bool 
 
 using namespace std::chrono_literals;
 
-nano::bandwidth_limiter::bandwidth_limiter (const size_t limit_a) :
-next_trend (std::chrono::steady_clock::now () + 50ms),
-limit (limit_a)
+nano::bandwidth_limiter::bandwidth_limiter (const double limit_burst_ratio_a, const size_t limit_a) :
+bucket (limit_a * limit_burst_ratio_a, limit_a)
 {
-}
-
-void nano::bandwidth_limiter::add (const size_t & message_size_a, bool force_a)
-{
-	if (limit == 0)
-	{
-		return;
-	}
-	nano::lock_guard<std::mutex> lock (mutex);
-	auto now = std::chrono::steady_clock::now ();
-	if (next_trend < now)
-	{
-		// Reset if too much time has passed
-		if (now - next_trend > period)
-		{
-			next_trend = now;
-			rate_buffer.clear ();
-		}
-		rate_buffer.push_back (rate);
-		rate = 0;
-		trended_rate = std::accumulate (rate_buffer.begin (), rate_buffer.end (), size_t{ 0 });
-		// Increment rather than setting to now + period, to account for fluctuations in sampling
-		next_trend += period;
-	}
-	// Unless forced, only add to the current rate if it will not go beyond the trended limit
-	if (force_a || !should_drop (message_size_a))
-	{
-		rate += message_size_a;
-	}
 }
 
 bool nano::bandwidth_limiter::should_drop (const size_t & message_size_a)
 {
-	// Never drop if limit is 0
-	if (limit == 0)
-	{
-		return false;
-	}
-	else
-	{
-		return (trended_rate + message_size_a > limit);
-	}
-}
-
-size_t nano::bandwidth_limiter::get_rate ()
-{
-	nano::lock_guard<std::mutex> lock (mutex);
-	return trended_rate;
-}
-
-size_t nano::bandwidth_limiter::get_limit () const
-{
-	return limit;
+	return !bucket.try_consume (message_size_a);
 }

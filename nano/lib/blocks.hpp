@@ -49,6 +49,8 @@ private:
 	void unpack (uint8_t);
 };
 
+std::string state_subtype (nano::block_details const);
+
 class block_sideband final
 {
 public:
