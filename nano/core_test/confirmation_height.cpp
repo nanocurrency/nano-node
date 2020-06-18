@@ -94,11 +94,7 @@ TEST (confirmation_height, multiple_accounts)
 		nano::keypair key1;
 		nano::keypair key2;
 		nano::keypair key3;
-		system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 		nano::block_hash latest1 (system.nodes[0]->latest (nano::test_genesis_key.pub));
-		system.wallet (0)->insert_adhoc (key1.prv);
-		system.wallet (0)->insert_adhoc (key2.prv);
-		system.wallet (0)->insert_adhoc (key3.prv);
 
 		// Send to all accounts
 		nano::send_block send1 (latest1, key1.pub, system.nodes.front ()->config.online_weight_minimum.number () + 300, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest1));
@@ -156,9 +152,15 @@ TEST (confirmation_height, multiple_accounts)
 
 		// The nodes process a live receive which propagates across to all accounts
 		auto receive3 = std::make_shared<nano::receive_block> (open3.hash (), send6.hash (), key3.prv, key3.pub, *system.work.generate (open3.hash ()));
-
 		node->process_active (receive3);
 		node->block_processor.flush ();
+		node->block_confirm (receive3);
+		{
+			auto election = node->active.election (receive3->qualified_root ());
+			ASSERT_NE (nullptr, election);
+			nano::lock_guard<std::mutex> guard (node->active.mutex);
+			election->confirm_once ();
+		}
 
 		system.deadline_set (10s);
 		while (node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) != 10)
@@ -357,6 +359,13 @@ TEST (confirmation_height, gap_live)
 		// Now complete the chain where the block comes in on the live network
 		node->process_active (open1);
 		node->block_processor.flush ();
+		node->block_confirm (open1);
+		{
+			auto election = node->active.election (open1->qualified_root ());
+			ASSERT_NE (nullptr, election);
+			nano::lock_guard<std::mutex> guard (node->active.mutex);
+			election->confirm_once ();
+		}
 
 		system.deadline_set (10s);
 		while (node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) != 6)
@@ -400,9 +409,7 @@ TEST (confirmation_height, send_receive_between_2_accounts)
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config, node_flags);
 		nano::keypair key1;
-		system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 		nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
-		system.wallet (0)->insert_adhoc (key1.prv);
 
 		nano::send_block send1 (latest, key1.pub, node->config.online_weight_minimum.number () + 2, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest));
 
@@ -442,6 +449,13 @@ TEST (confirmation_height, send_receive_between_2_accounts)
 
 		node->process_active (receive4);
 		node->block_processor.flush ();
+		node->block_confirm (receive4);
+		{
+			auto election = node->active.election (receive4->qualified_root ());
+			ASSERT_NE (nullptr, election);
+			nano::lock_guard<std::mutex> guard (node->active.mutex);
+			election->confirm_once ();
+		}
 
 		system.deadline_set (10s);
 		while (node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) != 10)
@@ -486,7 +500,6 @@ TEST (confirmation_height, send_receive_self)
 		nano::node_config node_config (nano::get_available_port (), system.logging);
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config, node_flags);
-		system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 		nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
 
 		nano::send_block send1 (latest, nano::test_genesis_key.pub, nano::genesis_amount - 2, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest));
@@ -515,6 +528,12 @@ TEST (confirmation_height, send_receive_self)
 		add_callback_stats (*node);
 
 		node->block_confirm (receive3);
+		{
+			auto election = node->active.election (receive3->qualified_root ());
+			ASSERT_NE (nullptr, election);
+			nano::lock_guard<std::mutex> guard (node->active.mutex);
+			election->confirm_once ();
+		}
 
 		system.deadline_set (10s);
 		while (node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) != 6)
@@ -551,7 +570,6 @@ TEST (confirmation_height, all_block_types)
 		nano::node_config node_config (nano::get_available_port (), system.logging);
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config, node_flags);
-		system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 		nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
 		nano::keypair key1;
 		nano::keypair key2;
@@ -614,6 +632,12 @@ TEST (confirmation_height, all_block_types)
 
 		add_callback_stats (*node);
 		node->block_confirm (state_send2);
+		{
+			auto election = node->active.election (state_send2->qualified_root ());
+			ASSERT_NE (nullptr, election);
+			nano::lock_guard<std::mutex> guard (node->active.mutex);
+			election->confirm_once ();
+		}
 
 		system.deadline_set (10s);
 		while (node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) != 15)
@@ -730,6 +754,46 @@ TEST (confirmation_height, conflict_rollback_cemented)
 	test_mode (nano::confirmation_height_mode::unbounded);
 }
 
+TEST (confirmation_heightDeathTest, rollback_added_block)
+{
+	// For ASSERT_DEATH_IF_SUPPORTED
+	testing::FLAGS_gtest_death_test_style = "threadsafe";
+
+	// valgrind can be noisy with death tests
+	if (!nano::running_within_valgrind ())
+	{
+		nano::logger_mt logger;
+		auto path (nano::unique_path ());
+		nano::mdb_store store (logger, path);
+		ASSERT_TRUE (!store.init_error ());
+		nano::genesis genesis;
+		nano::stat stats;
+		nano::ledger ledger (store, stats);
+		nano::write_database_queue write_database_queue;
+		nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+		nano::keypair key1;
+		auto send = std::make_shared<nano::send_block> (genesis.hash (), key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (genesis.hash ()));
+		{
+			auto transaction (store.tx_begin_write ());
+			store.initialize (transaction, genesis, ledger.cache);
+		}
+
+		auto block_hash_being_processed (send->hash ());
+		uint64_t batch_write_size = 2048;
+		std::atomic<bool> stopped{ false };
+		nano::confirmation_height_unbounded unbounded_processor (
+		ledger, write_database_queue, 10ms, logger, stopped, block_hash_being_processed, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
+
+		// Processing a block which doesn't exist should bail
+		ASSERT_DEATH_IF_SUPPORTED (unbounded_processor.process (), "");
+
+		nano::confirmation_height_bounded bounded_processor (
+		ledger, write_database_queue, 10ms, logger, stopped, block_hash_being_processed, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
+		// Processing a block which doesn't exist should bail
+		ASSERT_DEATH_IF_SUPPORTED (bounded_processor.process (), "");
+	}
+}
+
 TEST (confirmation_height, observers)
 {
 	auto test_mode = [](nano::confirmation_height_mode mode_a) {
@@ -766,78 +830,136 @@ TEST (confirmation_height, observers)
 }
 
 // This tests when a read has been done, but the block no longer exists by the time a write is done
-TEST (confirmation_height, modified_chain)
+TEST (confirmation_heightDeathTest, modified_chain)
 {
-	auto test_mode = [](nano::confirmation_height_mode mode_a) {
-		nano::system system;
-		nano::node_flags node_flags;
-		node_flags.confirmation_height_processor_mode = mode_a;
-		nano::node_config node_config (nano::get_available_port (), system.logging);
-		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-		auto node = system.add_node (node_config, node_flags);
+	// For ASSERT_DEATH_IF_SUPPORTED
+	testing::FLAGS_gtest_death_test_style = "threadsafe";
 
-		system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-		nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
-
+	// valgrind can be noisy with death tests
+	if (!nano::running_within_valgrind ())
+	{
+		nano::logger_mt logger;
+		auto path (nano::unique_path ());
+		nano::mdb_store store (logger, path);
+		ASSERT_TRUE (!store.init_error ());
+		nano::genesis genesis;
+		nano::stat stats;
+		nano::ledger ledger (store, stats);
+		nano::write_database_queue write_database_queue;
+		nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 		nano::keypair key1;
-		auto & store = node->store;
-		auto send = std::make_shared<nano::send_block> (latest, key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest));
-
+		auto send = std::make_shared<nano::send_block> (nano::genesis_hash, key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (nano::genesis_hash));
 		{
-			auto transaction = node->store.tx_begin_write ();
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send).code);
+			auto transaction (store.tx_begin_write ());
+			store.initialize (transaction, genesis, ledger.cache);
+			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send).code);
 		}
 
-		node->confirmation_height_processor.add (send->hash ());
-		{
-			// The write guard prevents the confirmation height processor doing any writes
-			system.deadline_set (10s);
-			auto write_guard = node->write_database_queue.wait (nano::writer::testing);
-			while (!node->write_database_queue.contains (nano::writer::confirmation_height))
-			{
-				ASSERT_NO_ERROR (system.poll ());
-			}
+		auto block_hash_being_processed (send->hash ());
+		uint64_t batch_write_size = 2048;
+		std::atomic<bool> stopped{ false };
+		nano::confirmation_height_bounded bounded_processor (
+		ledger, write_database_queue, 10ms, logger, stopped, block_hash_being_processed, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
 
-			store.block_del (store.tx_begin_write (), send->hash (), send->type ());
+		{
+			// This reads the blocks in the account, but prevents any writes from occuring yet
+			auto scoped_write_guard = write_database_queue.wait (nano::writer::testing);
+			bounded_processor.process ();
 		}
 
-		system.deadline_set (10s);
-		while (node->write_database_queue.contains (nano::writer::confirmation_height))
+		// Rollback the block and now try to write, the block no longer exists so should bail
+		ledger.rollback (store.tx_begin_write (), send->hash ());
 		{
-			ASSERT_NO_ERROR (system.poll ());
+			auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
+			ASSERT_DEATH_IF_SUPPORTED (bounded_processor.cement_blocks (scoped_write_guard), "");
 		}
 
-		auto check_for_modified_chains = true;
-		if (mode_a == nano::confirmation_height_mode::unbounded)
+		ASSERT_EQ (nano::process_result::progress, ledger.process (store.tx_begin_write (), *send).code);
+		store.confirmation_height_put (store.tx_begin_write (), nano::genesis_account, { 1, nano::genesis_hash });
+
+		nano::confirmation_height_unbounded unbounded_processor (
+		ledger, write_database_queue, 10ms, logger, stopped, block_hash_being_processed, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
+
 		{
-#ifdef NDEBUG
-			// Unbounded processor in release config does not check that a chain has been modified prior to setting the confirmation height (as an optimization)
-			check_for_modified_chains = false;
-#endif
+			// This reads the blocks in the account, but prevents any writes from occuring yet
+			auto scoped_write_guard = write_database_queue.wait (nano::writer::testing);
+			unbounded_processor.process ();
 		}
 
-		nano::confirmation_height_info confirmation_height_info;
-		ASSERT_FALSE (node->store.confirmation_height_get (node->store.tx_begin_read (), nano::test_genesis_key.pub, confirmation_height_info));
-		if (check_for_modified_chains)
+		// Rollback the block and now try to write, the block no longer exists so should bail
+		ledger.rollback (store.tx_begin_write (), send->hash ());
 		{
-			ASSERT_EQ (1, confirmation_height_info.height);
-			ASSERT_EQ (nano::genesis_hash, confirmation_height_info.frontier);
-			ASSERT_EQ (1, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block, nano::stat::dir::in));
-			ASSERT_EQ (1, node->ledger.cache.cemented_count);
+			auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
+			ASSERT_DEATH_IF_SUPPORTED (unbounded_processor.cement_blocks (scoped_write_guard), "");
 		}
-		else
+	}
+}
+
+// This tests when a read has been done, but the account no longer exists by the time a write is done
+TEST (confirmation_heightDeathTest, modified_chain_account_removed)
+{
+	// For ASSERT_DEATH_IF_SUPPORTED
+	testing::FLAGS_gtest_death_test_style = "threadsafe";
+
+	// valgrind can be noisy with death tests
+	if (!nano::running_within_valgrind ())
+	{
+		nano::logger_mt logger;
+		auto path (nano::unique_path ());
+		nano::mdb_store store (logger, path);
+		ASSERT_TRUE (!store.init_error ());
+		nano::genesis genesis;
+		nano::stat stats;
+		nano::ledger ledger (store, stats);
+		nano::write_database_queue write_database_queue;
+		nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+		nano::keypair key1;
+		auto send = std::make_shared<nano::send_block> (nano::genesis_hash, key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (nano::genesis_hash));
+		auto open = std::make_shared<nano::state_block> (key1.pub, 0, 0, nano::Gxrb_ratio, send->hash (), key1.prv, key1.pub, *pool.generate (key1.pub));
 		{
-			// A non-existent block is cemented, expected given these conditions but is of course incorrect.
-			ASSERT_EQ (2, confirmation_height_info.height);
-			ASSERT_EQ (send->hash (), confirmation_height_info.frontier);
-			ASSERT_EQ (2, node->ledger.cache.cemented_count);
+			auto transaction (store.tx_begin_write ());
+			store.initialize (transaction, genesis, ledger.cache);
+			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send).code);
+			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *open).code);
 		}
 
-		ASSERT_EQ (0, node->active.election_winner_details_size ());
-	};
+		auto block_hash_being_processed (open->hash ());
+		uint64_t batch_write_size = 2048;
+		std::atomic<bool> stopped{ false };
+		nano::confirmation_height_unbounded unbounded_processor (
+		ledger, write_database_queue, 10ms, logger, stopped, block_hash_being_processed, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
 
-	test_mode (nano::confirmation_height_mode::bounded);
-	test_mode (nano::confirmation_height_mode::unbounded);
+		{
+			// This reads the blocks in the account, but prevents any writes from occuring yet
+			auto scoped_write_guard = write_database_queue.wait (nano::writer::testing);
+			unbounded_processor.process ();
+		}
+
+		// Rollback the block and now try to write, the send should be cemented but the account which the open block belongs no longer exists so should bail
+		ledger.rollback (store.tx_begin_write (), open->hash ());
+		{
+			auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
+			ASSERT_DEATH_IF_SUPPORTED (unbounded_processor.cement_blocks (scoped_write_guard), "");
+		}
+
+		// Reset conditions and test with the bounded processor
+		ASSERT_EQ (nano::process_result::progress, ledger.process (store.tx_begin_write (), *open).code);
+		store.confirmation_height_put (store.tx_begin_write (), nano::genesis_account, { 1, nano::genesis_hash });
+
+		nano::confirmation_height_bounded bounded_processor (
+		ledger, write_database_queue, 10ms, logger, stopped, block_hash_being_processed, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
+
+		{
+			// This reads the blocks in the account, but prevents any writes from occuring yet
+			auto scoped_write_guard = write_database_queue.wait (nano::writer::testing);
+			bounded_processor.process ();
+		}
+
+		// Rollback the block and now try to write, the send should be cemented but the account which the open block belongs no longer exists so should bail
+		ledger.rollback (store.tx_begin_write (), open->hash ());
+		auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
+		ASSERT_DEATH_IF_SUPPORTED (bounded_processor.cement_blocks (scoped_write_guard), "");
+	}
 }
 
 namespace nano
@@ -1103,7 +1225,6 @@ TEST (confirmation_height, callback_confirmed_history)
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config, node_flags);
 
-		system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 		nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
 
 		nano::keypair key1;
@@ -1119,12 +1240,21 @@ TEST (confirmation_height, callback_confirmed_history)
 
 		node->process_active (send1);
 		node->block_processor.flush ();
-
+		node->block_confirm (send1);
 		{
 			node->process_active (send);
 			node->block_processor.flush ();
+
 			// The write guard prevents the confirmation height processor doing any writes
 			auto write_guard = node->write_database_queue.wait (nano::writer::testing);
+
+			// Confirm send1
+			{
+				auto election = node->active.election (send1->qualified_root ());
+				ASSERT_NE (nullptr, election);
+				nano::lock_guard<std::mutex> guard (node->active.mutex);
+				election->confirm_once ();
+			}
 			system.deadline_set (10s);
 			while (node->active.size () > 0)
 			{
@@ -1200,7 +1330,6 @@ TEST (confirmation_height, dependent_election)
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config, node_flags);
 
-		system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 		nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
 
 		nano::keypair key1;
@@ -1216,19 +1345,16 @@ TEST (confirmation_height, dependent_election)
 
 		add_callback_stats (*node);
 
-		{
-			// The write guard prevents the confirmation height processor doing any writes.
-			system.deadline_set (10s);
-			auto write_guard = node->write_database_queue.wait (nano::writer::testing);
-			// Start an election and vote, should confirm the block
-			node->block_confirm (send2);
-			while (!node->write_database_queue.contains (nano::writer::confirmation_height))
-			{
-				ASSERT_NO_ERROR (system.poll ());
-			}
-		}
-
+		// This election should be confirmed as active_conf_height
 		node->block_confirm (send1);
+		// Start an election and confirm it
+		node->block_confirm (send2);
+		{
+			auto election = node->active.election (send2->qualified_root ());
+			ASSERT_NE (nullptr, election);
+			nano::lock_guard<std::mutex> guard (node->active.mutex);
+			election->confirm_once ();
+		}
 
 		system.deadline_set (10s);
 		while (node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) != 3)
@@ -1261,7 +1387,6 @@ TEST (confirmation_height, cemented_gap_below_receive)
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config, node_flags);
 
-		system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 		nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
 
 		nano::keypair key1;
@@ -1310,6 +1435,12 @@ TEST (confirmation_height, cemented_gap_below_receive)
 		add_callback_stats (*node, &observer_order, &mutex);
 
 		node->block_confirm (open1);
+		{
+			auto election = node->active.election (open1->qualified_root ());
+			ASSERT_NE (nullptr, election);
+			nano::lock_guard<std::mutex> guard (node->active.mutex);
+			election->confirm_once ();
+		}
 		system.deadline_set (10s);
 		while (node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) != 10)
 		{
@@ -1348,7 +1479,6 @@ TEST (confirmation_height, cemented_gap_below_no_cache)
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config, node_flags);
 
-		system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 		nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
 
 		nano::keypair key1;
@@ -1402,6 +1532,12 @@ TEST (confirmation_height, cemented_gap_below_no_cache)
 		add_callback_stats (*node);
 
 		node->block_confirm (open1);
+		{
+			auto election = node->active.election (open1->qualified_root ());
+			ASSERT_NE (nullptr, election);
+			nano::lock_guard<std::mutex> guard (node->active.mutex);
+			election->confirm_once ();
+		}
 		system.deadline_set (10s);
 		while (node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) != 6)
 		{
@@ -1433,7 +1569,6 @@ TEST (confirmation_height, election_winner_details_clearing)
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config, node_flags);
 
-		system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 		nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
 
 		nano::keypair key1;
@@ -1451,6 +1586,12 @@ TEST (confirmation_height, election_winner_details_clearing)
 		add_callback_stats (*node);
 
 		node->block_confirm (send1);
+		{
+			auto election = node->active.election (send1->qualified_root ());
+			ASSERT_NE (nullptr, election);
+			nano::lock_guard<std::mutex> guard (node->active.mutex);
+			election->confirm_once ();
+		}
 
 		system.deadline_set (10s);
 		while (node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) != 2)
@@ -1460,10 +1601,11 @@ TEST (confirmation_height, election_winner_details_clearing)
 
 		ASSERT_EQ (0, node->active.election_winner_details_size ());
 		node->block_confirm (send);
-		system.deadline_set (10s);
-		while (node->active.size () > 0)
 		{
-			ASSERT_NO_ERROR (system.poll ());
+			auto election = node->active.election (send->qualified_root ());
+			ASSERT_NE (nullptr, election);
+			nano::lock_guard<std::mutex> guard (node->active.mutex);
+			election->confirm_once ();
 		}
 
 		// Wait until this block is confirmed
@@ -1476,6 +1618,13 @@ TEST (confirmation_height, election_winner_details_clearing)
 		ASSERT_EQ (1, node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::inactive_conf_height, nano::stat::dir::out));
 
 		node->block_confirm (send2);
+		{
+			auto election = node->active.election (send2->qualified_root ());
+			ASSERT_NE (nullptr, election);
+			nano::lock_guard<std::mutex> guard (node->active.mutex);
+			election->confirm_once ();
+		}
+
 		system.deadline_set (10s);
 		while (node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) != 3)
 		{
@@ -1503,4 +1652,19 @@ TEST (confirmation_height, election_winner_details_clearing)
 	test_mode (nano::confirmation_height_mode::bounded);
 	test_mode (nano::confirmation_height_mode::unbounded);
 }
+}
+
+TEST (confirmation_height, election_winner_details_clearing_node_process_confirmed)
+{
+	// Make sure election_winner_details is also cleared if the block never enters the confirmation height processor from node::process_confirmed
+	nano::system system (1);
+	auto node = system.nodes.front ();
+
+	auto send = std::make_shared<nano::send_block> (nano::genesis_hash, nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (nano::genesis_hash));
+	// Add to election_winner_details. Use an unrealistic iteration so that it should fall into the else case and do a cleanup
+	node->active.add_election_winner_details (send->hash (), nullptr);
+	nano::election_status election;
+	election.winner = send;
+	node->process_confirmed (election, 1000000);
+	ASSERT_EQ (0, node->active.election_winner_details_size ());
 }

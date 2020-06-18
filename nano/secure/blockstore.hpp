@@ -587,6 +587,7 @@ public:
 	virtual bool root_exists (nano::transaction const &, nano::root const &) = 0;
 	virtual bool source_exists (nano::transaction const &, nano::block_hash const &) = 0;
 	virtual nano::account block_account (nano::transaction const &, nano::block_hash const &) const = 0;
+	virtual nano::account block_account_calculated (nano::block const &) const = 0;
 
 	virtual void frontier_put (nano::write_transaction const &, nano::block_hash const &, nano::account const &) = 0;
 	virtual nano::account frontier_get (nano::transaction const &, nano::block_hash const &) const = 0;

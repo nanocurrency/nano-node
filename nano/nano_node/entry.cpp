@@ -78,7 +78,7 @@ int main (int argc, char * const * argv)
 		("debug_dump_online_weight", "Dump online_weights table")
 		("debug_dump_representatives", "List representatives and weights")
 		("debug_account_count", "Display the number of accounts")
-		("debug_mass_activity", "Generates fake debug activity")
+		("debug_mass_activity", "(Deprecated) Generates fake debug activity. Can use slow_test's generate_mass_activity test for the same behavior.")
 		("debug_profile_generate", "Profile work generation")
 		("debug_profile_validate", "Profile work validation")
 		("debug_opencl", "OpenCL work generation")
@@ -171,8 +171,8 @@ int main (int argc, char * const * argv)
 				auto node_flags = nano::inactive_node_flag_defaults ();
 				nano::update_flags (node_flags, vm);
 				node_flags.generate_cache.reps = true;
-				auto inactive_node = nano::default_inactive_node (data_path, vm);
-				auto node = inactive_node->node;
+				nano::inactive_node inactive_node (data_path, node_flags);
+				auto node = inactive_node.node;
 
 				auto const hardcoded = node->get_bootstrap_weights ().second;
 				auto const ledger_unfiltered = node->ledger.cache.rep_weights.get_rep_amounts ();
@@ -395,8 +395,8 @@ int main (int argc, char * const * argv)
 			auto node_flags = nano::inactive_node_flag_defaults ();
 			nano::update_flags (node_flags, vm);
 			node_flags.generate_cache.reps = true;
-			auto inactive_node = nano::default_inactive_node (data_path, vm);
-			auto node = inactive_node->node;
+			nano::inactive_node inactive_node (data_path, node_flags);
+			auto node = inactive_node.node;
 			auto transaction (node->store.tx_begin_read ());
 			nano::uint128_t total;
 			auto rep_amounts = node->ledger.cache.rep_weights.get_rep_amounts ();
@@ -433,8 +433,11 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_account_count"))
 		{
-			auto inactive_node = nano::default_inactive_node (data_path, vm);
-			std::cout << boost::str (boost::format ("Frontier count: %1%\n") % inactive_node->node->ledger.cache.account_count);
+			auto node_flags = nano::inactive_node_flag_defaults ();
+			nano::update_flags (node_flags, vm);
+			node_flags.generate_cache.account_count = true;
+			nano::inactive_node inactive_node (data_path, node_flags);
+			std::cout << boost::str (boost::format ("Frontier count: %1%\n") % inactive_node.node->ledger.cache.account_count);
 		}
 		else if (vm.count ("debug_mass_activity"))
 		{
@@ -1350,10 +1353,14 @@ int main (int argc, char * const * argv)
 				std::exit (0);
 			});
 
-			auto inactive_node_l = nano::default_inactive_node (data_path, vm);
+			auto node_flags = nano::inactive_node_flag_defaults ();
+			nano::update_flags (node_flags, vm);
+			node_flags.generate_cache.enable_all ();
+			nano::inactive_node inactive_node_l (data_path, node_flags);
+
 			nano::node_rpc_config config;
-			nano::ipc::ipc_server server (*inactive_node_l->node, config);
-			auto handler_l (std::make_shared<nano::json_handler> (*inactive_node_l->node, config, command_l.str (), response_handler_l));
+			nano::ipc::ipc_server server (*inactive_node_l.node, config);
+			auto handler_l (std::make_shared<nano::json_handler> (*inactive_node_l.node, config, command_l.str (), response_handler_l));
 			handler_l->process_request ();
 		}
 		else if (vm.count ("validate_blocks") || vm.count ("debug_validate_blocks"))
@@ -1743,7 +1750,7 @@ int main (int argc, char * const * argv)
 				auto inactive_node = nano::default_inactive_node (data_path, vm);
 				auto node = inactive_node->node;
 				auto transaction (node->store.tx_begin_read ());
-				block_count = node->store.block_count (transaction).sum ();
+				block_count = node->ledger.cache.block_count;
 				std::cout << boost::str (boost::format ("Performing bootstrap emulation, %1% blocks in ledger...") % block_count) << std::endl;
 				for (auto i (node->store.latest_begin (transaction)), n (node->store.latest_end ()); i != n; ++i)
 				{

@@ -691,9 +691,6 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::outdated_version:
 			res = "outdated_version";
 			break;
-		case nano::stat::detail::invalid_block:
-			res = "invalid_block";
-			break;
 		case nano::stat::detail::blocks_confirmed:
 			res = "blocks_confirmed";
 			break;
@@ -720,6 +717,9 @@ std::string nano::stat::detail_to_string (uint32_t key)
 			break;
 		case nano::stat::detail::requests_generated_votes:
 			res = "requests_generated_votes";
+			break;
+		case nano::stat::detail::requests_cannot_vote:
+			res = "requests_cannot_vote";
 			break;
 		case nano::stat::detail::requests_unknown:
 			res = "requests_unknown";

@@ -154,7 +154,6 @@ public:
 	nano::account_info account_info_impl (nano::transaction const &, nano::account const &);
 	nano::amount amount_impl ();
 	std::shared_ptr<nano::block> block_impl (bool = true);
-	std::shared_ptr<nano::block> block_json_impl (bool = true);
 	nano::block_hash hash_impl (std::string = "hash");
 	nano::amount threshold_optional_impl ();
 	uint64_t work_optional_impl ();
@@ -162,6 +161,7 @@ public:
 	uint64_t count_optional_impl (uint64_t = std::numeric_limits<uint64_t>::max ());
 	uint64_t offset_optional_impl (uint64_t = 0);
 	uint64_t difficulty_optional_impl (nano::work_version const);
+	uint64_t difficulty_ledger (nano::block const &);
 	double multiplier_optional_impl (nano::work_version const, uint64_t &);
 	nano::work_version work_version_optional_impl (nano::work_version const default_a);
 	bool enable_sign_hash{ false };

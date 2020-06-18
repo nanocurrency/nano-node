@@ -78,7 +78,7 @@ public:
 	nano::ipc::ipc_config ipc_config;
 	std::string external_address;
 	uint16_t external_port{ 0 };
-	std::chrono::milliseconds block_processor_batch_max_time{ std::chrono::milliseconds (5000) };
+	std::chrono::milliseconds block_processor_batch_max_time{ network_params.network.is_test_network () ? std::chrono::milliseconds (500) : std::chrono::milliseconds (5000) };
 	std::chrono::seconds unchecked_cutoff_time{ std::chrono::seconds (4 * 60 * 60) }; // 4 hours
 	/** Timeout for initiated async operations */
 	std::chrono::seconds tcp_io_timeout{ (network_params.network.is_test_network () && !is_sanitizer_build) ? std::chrono::seconds (5) : std::chrono::seconds (15) };
@@ -90,8 +90,8 @@ public:
 	static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
 	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
-	/** Default outbound traffic shaping is 5MB/s */
-	size_t bandwidth_limit{ 5 * 1024 * 1024 };
+	/** Default outbound traffic shaping is 10MB/s */
+	size_t bandwidth_limit{ 10 * 1024 * 1024 };
 	/** By default, allow bursts of 15MB/s (not sustainable) */
 	double bandwidth_limit_burst_ratio{ 3. };
 	std::chrono::milliseconds conf_height_processor_batch_min_time{ 50 };

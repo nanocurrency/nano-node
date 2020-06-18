@@ -28,12 +28,12 @@ add_executable (core_test
 	network.cpp
 	network_filter.cpp
 	node.cpp
-	node_telemetry.cpp
 	processor_service.cpp
 	peer_container.cpp
 	request_aggregator.cpp
 	signing.cpp
 	socket.cpp
+	telemetry.cpp
 	toml.cpp
 	timer.cpp
 	uint256_union.cpp

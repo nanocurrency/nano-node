@@ -19,7 +19,7 @@
 
 namespace nano
 {
-class block_store;
+class ledger;
 class network;
 class node_config;
 class vote_processor;
@@ -29,16 +29,15 @@ class wallets;
 class vote_generator final
 {
 public:
-	vote_generator (nano::node_config & config_a, nano::block_store & store_a, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::votes_cache & votes_cache_a, nano::network & network_a);
+	vote_generator (nano::node_config const & config_a, nano::ledger &, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::votes_cache & votes_cache_a, nano::network & network_a);
 	void add (nano::block_hash const &);
-	void add (std::vector<nano::block_hash> const &);
 	void stop ();
 
 private:
 	void run ();
 	void send (nano::unique_lock<std::mutex> &);
-	nano::node_config & config;
-	nano::block_store & store;
+	nano::node_config const & config;
+	nano::ledger & ledger;
 	nano::wallets & wallets;
 	nano::vote_processor & vote_processor;
 	nano::votes_cache & votes_cache;
