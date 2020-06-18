@@ -7,14 +7,15 @@
 #include <nano/node/voting.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/secure/blockstore.hpp>
+#include <nano/secure/ledger.hpp>
 
 #include <boost/variant/get.hpp>
 
 #include <chrono>
 
-nano::vote_generator::vote_generator (nano::node_config & config_a, nano::block_store & store_a, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::votes_cache & votes_cache_a, nano::network & network_a) :
+nano::vote_generator::vote_generator (nano::node_config const & config_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::votes_cache & votes_cache_a, nano::network & network_a) :
 config (config_a),
-store (store_a),
+ledger (ledger_a),
 wallets (wallets_a),
 vote_processor (vote_processor_a),
 votes_cache (votes_cache_a),
@@ -27,12 +28,17 @@ thread ([this]() { run (); })
 
 void nano::vote_generator::add (nano::block_hash const & hash_a)
 {
+	auto transaction (ledger.store.tx_begin_read ());
 	nano::unique_lock<std::mutex> lock (mutex);
-	hashes.push_back (hash_a);
-	if (hashes.size () >= nano::network::confirm_ack_hashes_max)
+	auto block (ledger.store.block_get (transaction, hash_a));
+	if (block != nullptr && ledger.can_vote (transaction, *block))
 	{
-		lock.unlock ();
-		condition.notify_all ();
+		hashes.push_back (hash_a);
+		if (hashes.size () >= nano::network::confirm_ack_hashes_max)
+		{
+			lock.unlock ();
+			condition.notify_all ();
+		}
 	}
 }
 
@@ -61,9 +67,9 @@ void nano::vote_generator::send (nano::unique_lock<std::mutex> & lock_a)
 	}
 	lock_a.unlock ();
 	{
-		auto transaction (store.tx_begin_read ());
+		auto transaction (ledger.store.tx_begin_read ());
 		wallets.foreach_representative ([this, &hashes_l, &transaction](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
-			auto vote (this->store.vote_generate (transaction, pub_a, prv_a, hashes_l));
+			auto vote (this->ledger.store.vote_generate (transaction, pub_a, prv_a, hashes_l));
 			this->votes_cache.add (vote);
 			this->network.flood_vote_pr (vote);
 			this->network.flood_vote (vote, 2.0f);
@@ -102,6 +108,26 @@ void nano::vote_generator::run ()
 	}
 }
 
+nano::vote_generator_session::vote_generator_session (nano::vote_generator & vote_generator_a) :
+generator (vote_generator_a)
+{
+}
+
+void nano::vote_generator_session::add (nano::block_hash const & hash_a)
+{
+	debug_assert (nano::thread_role::get () == nano::thread_role::name::request_loop);
+	hashes.push_back (hash_a);
+}
+
+void nano::vote_generator_session::flush ()
+{
+	debug_assert (nano::thread_role::get () == nano::thread_role::name::request_loop);
+	for (auto const & i : hashes)
+	{
+		generator.add (i);
+	}
+}
+
 nano::votes_cache::votes_cache (nano::wallets & wallets_a) :
 wallets (wallets_a)
 {
@@ -109,9 +135,12 @@ wallets (wallets_a)
 
 void nano::votes_cache::add (std::shared_ptr<nano::vote> const & vote_a)
 {
+	auto voting (wallets.reps ().voting);
+	if (voting == 0)
+	{
+		return;
+	}
 	nano::lock_guard<std::mutex> lock (cache_mutex);
-	auto voting (wallets.rep_counts ().voting);
-	debug_assert (voting > 0);
 	auto const max_cache_size (network_params.voting.max_cache / std::max (voting, static_cast<decltype (voting)> (1)));
 	for (auto & block : vote_a->blocks)
 	{

@@ -34,8 +34,8 @@ public:
 	void encode_dec (std::string &) const;
 	bool decode_dec (std::string const &, bool = false);
 	bool decode_dec (std::string const &, nano::uint128_t);
-	std::string format_balance (nano::uint128_t scale, int precision, bool group_digits);
-	std::string format_balance (nano::uint128_t scale, int precision, bool group_digits, const std::locale & locale);
+	std::string format_balance (nano::uint128_t scale, int precision, bool group_digits) const;
+	std::string format_balance (nano::uint128_t scale, int precision, bool group_digits, const std::locale & locale) const;
 	nano::uint128_t number () const;
 	void clear ();
 	bool is_zero () const;
@@ -274,7 +274,7 @@ struct hash<::nano::uint256_union>
 {
 	size_t operator() (::nano::uint256_union const & data_a) const
 	{
-		return *reinterpret_cast<size_t const *> (data_a.bytes.data ());
+		return data_a.qwords[0] + data_a.qwords[1] + data_a.qwords[2] + data_a.qwords[3];
 	}
 };
 template <>
@@ -330,7 +330,7 @@ struct hash<::nano::uint512_union>
 {
 	size_t operator() (::nano::uint512_union const & data_a) const
 	{
-		return *reinterpret_cast<size_t const *> (data_a.bytes.data ());
+		return hash<::nano::uint256_union> () (data_a.uint256s[0]) + hash<::nano::uint256_union> () (data_a.uint256s[1]);
 	}
 };
 template <>
@@ -338,7 +338,7 @@ struct hash<::nano::qualified_root>
 {
 	size_t operator() (::nano::qualified_root const & data_a) const
 	{
-		return *reinterpret_cast<size_t const *> (data_a.bytes.data ());
+		return hash<::nano::uint512_union> () (data_a);
 	}
 };
 }

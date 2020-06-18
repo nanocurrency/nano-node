@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/node/common.hpp>
+#include <nano/node/peer_exclusion.hpp>
 #include <nano/node/transport/tcp.hpp>
 #include <nano/node/transport/udp.hpp>
 #include <nano/secure/network_filter.hpp>
@@ -65,6 +66,23 @@ private:
 	std::vector<nano::message_buffer> entries;
 	bool stopped;
 };
+class tcp_message_manager final
+{
+public:
+	tcp_message_manager (unsigned incoming_connections_max_a);
+	void put_message (nano::tcp_message_item const & item_a);
+	nano::tcp_message_item get_message ();
+	// Stop container and notify waiting threads
+	void stop ();
+
+private:
+	std::mutex mutex;
+	nano::condition_variable condition;
+	std::deque<nano::tcp_message_item> entries;
+	unsigned max_entries;
+	static unsigned const max_entries_per_connection = 16;
+	bool stopped{ false };
+};
 /**
   * Node ID cookies for node ID handshakes
 */
@@ -80,6 +98,7 @@ public:
 	// Also removes the syn cookie from the store if valid
 	bool validate (nano::endpoint const &, nano::account const &, nano::signature const &);
 	std::unique_ptr<container_info_component> collect_container_info (std::string const &);
+	size_t cookies_size ();
 
 private:
 	class syn_cookie_info final
@@ -149,11 +168,14 @@ public:
 	size_t size () const;
 	float size_sqrt () const;
 	bool empty () const;
-	void erase (nano::transport::channel const & channel_a);
+	void erase (nano::transport::channel const &);
+	void erase_below_version (uint8_t);
 	nano::message_buffer_manager buffer_container;
 	boost::asio::ip::udp::resolver resolver;
 	std::vector<boost::thread> packet_processing_threads;
 	nano::bandwidth_limiter limiter;
+	nano::peer_exclusion excluded_peers;
+	nano::tcp_message_manager tcp_message_manager;
 	nano::node & node;
 	nano::network_filter publish_filter;
 	nano::transport::udp_channels udp_channels;

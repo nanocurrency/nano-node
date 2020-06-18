@@ -18,6 +18,15 @@ namespace nano
 {
 class bootstrap_server;
 enum class bootstrap_server_type;
+class tcp_message_item final
+{
+public:
+	std::shared_ptr<nano::message> message;
+	nano::tcp_endpoint endpoint;
+	nano::account node_id;
+	std::shared_ptr<nano::socket> socket;
+	nano::bootstrap_server_type type;
+};
 namespace transport
 {
 	class tcp_channels;
@@ -78,7 +87,7 @@ namespace transport
 	class tcp_channels final
 	{
 		friend class nano::transport::channel_tcp;
-		friend class node_telemetry_simultaneous_requests_Test;
+		friend class telemetry_simultaneous_requests_Test;
 
 	public:
 		tcp_channels (nano::node &);
@@ -95,14 +104,15 @@ namespace transport
 		void receive ();
 		void start ();
 		void stop ();
+		void process_messages ();
 		void process_message (nano::message const &, nano::tcp_endpoint const &, nano::account const &, std::shared_ptr<nano::socket>, nano::bootstrap_server_type);
-		void process_keepalive (nano::keepalive const &, nano::tcp_endpoint const &);
 		bool max_ip_connections (nano::tcp_endpoint const &);
 		// Should we reach out to this endpoint with a keepalive message
 		bool reachout (nano::endpoint const &);
 		std::unique_ptr<container_info_component> collect_container_info (std::string const &);
 		void purge (std::chrono::steady_clock::time_point const &);
 		void ongoing_keepalive ();
+		void list_below_version (std::vector<std::shared_ptr<nano::transport::channel>> &, uint8_t);
 		void list (std::deque<std::shared_ptr<nano::transport::channel>> &, uint8_t = 0, bool = true);
 		void modify (std::shared_ptr<nano::transport::channel_tcp>, std::function<void(std::shared_ptr<nano::transport::channel_tcp>)>);
 		void update (nano::tcp_endpoint const &);
@@ -137,6 +147,10 @@ namespace transport
 		class node_id_tag
 		{
 		};
+		class version_tag
+		{
+		};
+
 		class channel_tcp_wrapper final
 		{
 		public:
@@ -169,6 +183,10 @@ namespace transport
 				debug_assert (!node_id.is_zero ());
 				return node_id;
 			}
+			uint8_t network_version () const
+			{
+				return channel->get_network_version ();
+			}
 		};
 		class tcp_endpoint_attempt final
 		{
@@ -196,6 +214,8 @@ namespace transport
 				mi::const_mem_fun<channel_tcp_wrapper, nano::account, &channel_tcp_wrapper::node_id>>,
 			mi::ordered_non_unique<mi::tag<last_packet_sent_tag>,
 				mi::const_mem_fun<channel_tcp_wrapper, std::chrono::steady_clock::time_point, &channel_tcp_wrapper::last_packet_sent>>,
+			mi::ordered_non_unique<mi::tag<version_tag>,
+				mi::const_mem_fun<channel_tcp_wrapper, uint8_t, &channel_tcp_wrapper::network_version>>,			
 			mi::hashed_non_unique<mi::tag<ip_address_tag>,
 				mi::const_mem_fun<channel_tcp_wrapper, boost::asio::ip::address, &channel_tcp_wrapper::ip_address>>>>
 		channels;

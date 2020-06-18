@@ -57,6 +57,9 @@ void nano::state_block_signature_verification::run (uint64_t state_block_signatu
 				lk.lock ();
 			}
 			active = false;
+			lk.unlock ();
+			transition_inactive_callback ();
+			lk.lock ();
 		}
 		else
 		{

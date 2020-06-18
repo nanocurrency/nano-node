@@ -129,7 +129,7 @@ private:
 	std::chrono::seconds const cache_cutoff{ nano::telemetry_cache_cutoffs::network_to_time (network_params.network) };
 
 	// The maximum time spent waiting for a response to a telemetry request
-	std::chrono::seconds const response_time_cutoff{ is_sanitizer_build || nano::running_within_valgrind () ? 6 : 3 };
+	std::chrono::seconds const response_time_cutoff{ network_params.network.is_test_network () ? (is_sanitizer_build || nano::running_within_valgrind () ? 6 : 3) : 10 };
 
 	std::unordered_map<nano::endpoint, std::vector<std::function<void(telemetry_data_response const &)>>> callbacks;
 
@@ -144,11 +144,11 @@ private:
 	bool within_cache_plus_buffer_cutoff (telemetry_info const &) const;
 	bool verify_message (nano::telemetry_ack const &, nano::transport::channel const &);
 	friend std::unique_ptr<nano::container_info_component> collect_container_info (telemetry &, const std::string &);
-	friend class node_telemetry_remove_peer_invalid_signature_Test;
+	friend class telemetry_remove_peer_invalid_signature_Test;
 };
 
 std::unique_ptr<nano::container_info_component> collect_container_info (telemetry & telemetry, const std::string & name);
 
 nano::telemetry_data consolidate_telemetry_data (std::vector<telemetry_data> const & telemetry_data);
-nano::telemetry_data local_telemetry_data (nano::ledger_cache const &, nano::network &, uint64_t, nano::network_params const &, std::chrono::steady_clock::time_point, nano::keypair const & node_id_a);
+nano::telemetry_data local_telemetry_data (nano::ledger_cache const &, nano::network &, uint64_t, nano::network_params const &, std::chrono::steady_clock::time_point, uint64_t, nano::keypair const &);
 }

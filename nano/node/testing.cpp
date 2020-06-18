@@ -30,7 +30,7 @@ std::shared_ptr<nano::node> nano::system::add_node (nano::node_flags node_flags_
 /** Returns the node added. */
 std::shared_ptr<nano::node> nano::system::add_node (nano::node_config const & node_config_a, nano::node_flags node_flags_a, nano::transport::transport_type type_a)
 {
-	auto node (std::make_shared<nano::node> (io_ctx, nano::unique_path (), alarm, node_config_a, work, node_flags_a));
+	auto node (std::make_shared<nano::node> (io_ctx, nano::unique_path (), alarm, node_config_a, work, node_flags_a, node_sequence++));
 	debug_assert (!node->init_error ());
 	node->start ();
 	node->wallets.create (nano::random_wallet_id ());
@@ -38,7 +38,7 @@ std::shared_ptr<nano::node> nano::system::add_node (nano::node_config const & no
 	nodes.push_back (node);
 	if (nodes.size () > 1)
 	{
-		debug_assert (nodes.size () - 1 <= node->network_params.node.max_peers_per_ip); // Check that we don't start more nodes than limit for single IP address
+		debug_assert (nodes.size () - 1 <= node->network_params.node.max_peers_per_ip || node->flags.disable_max_peers_per_ip); // Check that we don't start more nodes than limit for single IP address
 		auto begin = nodes.end () - 2;
 		for (auto i (begin), j (begin + 1), n (nodes.end ()); j != n; ++i, ++j)
 		{
@@ -162,6 +162,62 @@ nano::account nano::system::account (nano::transaction const & transaction_a, si
 	return nano::account (result);
 }
 
+uint64_t nano::system::work_generate_limited (nano::block_hash const & root_a, uint64_t min_a, uint64_t max_a)
+{
+	debug_assert (min_a > 0);
+	uint64_t result = 0;
+	do
+	{
+		result = *work.generate (root_a, min_a);
+	} while (nano::work_difficulty (nano::work_version::work_1, root_a, result) >= max_a);
+	return result;
+}
+
+std::unique_ptr<nano::state_block> nano::upgrade_epoch (nano::work_pool & pool_a, nano::ledger & ledger_a, nano::epoch epoch_a)
+{
+	auto transaction (ledger_a.store.tx_begin_write ());
+	auto account = nano::test_genesis_key.pub;
+	auto latest = ledger_a.latest (transaction, account);
+	auto balance = ledger_a.account_balance (transaction, account);
+
+	nano::state_block_builder builder;
+	std::error_code ec;
+	auto epoch = builder
+	             .account (nano::test_genesis_key.pub)
+	             .previous (latest)
+	             .balance (balance)
+	             .link (ledger_a.epoch_link (epoch_a))
+	             .representative (nano::test_genesis_key.pub)
+	             .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	             .work (*pool_a.generate (latest, nano::work_threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true))))
+	             .build (ec);
+
+	bool error{ true };
+	if (!ec && epoch)
+	{
+		error = ledger_a.process (transaction, *epoch).code != nano::process_result::progress;
+	}
+
+	return !error ? std::move (epoch) : nullptr;
+}
+
+void nano::blocks_confirm (nano::node & node_a, std::vector<std::shared_ptr<nano::block>> const & blocks_a)
+{
+	// Finish processing all blocks
+	node_a.block_processor.flush ();
+	for (auto const & block : blocks_a)
+	{
+		// A sideband is required to start an election
+		debug_assert (block->has_sideband ());
+		node_a.block_confirm (block);
+	}
+}
+
+std::unique_ptr<nano::state_block> nano::system::upgrade_genesis_epoch (nano::node & node_a, nano::epoch const epoch_a)
+{
+	return upgrade_epoch (work, node_a.ledger, epoch_a);
+}
+
 void nano::system::deadline_set (std::chrono::duration<double, std::nano> const & delta_a)
 {
 	deadline = std::chrono::steady_clock::now () + delta_a * deadline_scaling_factor;
@@ -260,7 +316,7 @@ void nano::system::generate_rollback (nano::node & node_a, std::vector<nano::acc
 			debug_assert (!error);
 			for (auto & i : rollback_list)
 			{
-				node_a.wallets.watcher->remove (i);
+				node_a.wallets.watcher->remove (*i);
 				node_a.active.erase (*i);
 			}
 		}

@@ -39,6 +39,7 @@ TEST (conflicts, add_existing)
 	node1.active.insert (send1);
 	nano::keypair key2;
 	auto send2 (std::make_shared<nano::send_block> (genesis.hash (), key2.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+	send2->sideband_set ({});
 	auto election1 = node1.active.insert (send2);
 	ASSERT_EQ (1, node1.active.size ());
 	auto vote1 (std::make_shared<nano::vote> (key2.pub, key2.prv, 0, send2));
@@ -166,6 +167,7 @@ TEST (conflicts, reprioritize)
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send1);
 	auto difficulty1 (send1->difficulty ());
+	auto multiplier1 (nano::normalized_multiplier (nano::difficulty::to_multiplier (difficulty1, nano::work_threshold (send1->work_version (), nano::block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */))), node1.network_params.network.publish_thresholds.epoch_1));
 	nano::send_block send1_copy (*send1);
 	node1.process_active (send1);
 	node1.block_processor.flush ();
@@ -173,17 +175,18 @@ TEST (conflicts, reprioritize)
 		nano::lock_guard<std::mutex> guard (node1.active.mutex);
 		auto existing1 (node1.active.roots.find (send1->qualified_root ()));
 		ASSERT_NE (node1.active.roots.end (), existing1);
-		ASSERT_EQ (difficulty1, existing1->difficulty);
+		ASSERT_EQ (multiplier1, existing1->multiplier);
 	}
 	node1.work_generate_blocking (send1_copy, difficulty1);
 	auto difficulty2 (send1_copy.difficulty ());
+	auto multiplier2 (nano::normalized_multiplier (nano::difficulty::to_multiplier (difficulty2, nano::work_threshold (send1_copy.work_version (), nano::block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */))), node1.network_params.network.publish_thresholds.epoch_1));
 	node1.process_active (std::make_shared<nano::send_block> (send1_copy));
 	node1.block_processor.flush ();
 	{
 		nano::lock_guard<std::mutex> guard (node1.active.mutex);
 		auto existing2 (node1.active.roots.find (send1->qualified_root ()));
 		ASSERT_NE (node1.active.roots.end (), existing2);
-		ASSERT_EQ (difficulty2, existing2->difficulty);
+		ASSERT_EQ (multiplier2, existing2->multiplier);
 	}
 }
 
@@ -214,10 +217,12 @@ TEST (conflicts, dependency)
 	}
 }
 
-TEST (conflicts, adjusted_difficulty)
+TEST (conflicts, adjusted_multiplier)
 {
-	nano::system system (1);
-	auto & node1 (*system.nodes[0]);
+	nano::system system;
+	nano::node_flags flags;
+	flags.disable_request_loop = true;
+	auto & node1 (*system.add_node (flags));
 	nano::genesis genesis;
 	nano::keypair key1;
 	nano::keypair key2;
@@ -244,49 +249,54 @@ TEST (conflicts, adjusted_difficulty)
 	node1.process_active (open2);
 	auto change1 (std::make_shared<nano::state_block> (key3.pub, open2->hash (), nano::test_genesis_key.pub, nano::xrb_ratio, 0, key3.prv, key3.pub, *system.work.generate (open2->hash ())));
 	node1.process_active (change1);
-	node1.block_processor.flush ();
-	system.deadline_set (3s);
-	while (node1.active.size () != 10)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
-	std::unordered_map<nano::block_hash, uint64_t> adjusted_difficulties;
-	{
-		nano::lock_guard<std::mutex> guard (node1.active.mutex);
-		node1.active.update_adjusted_difficulty ();
-		ASSERT_EQ (node1.active.roots.get<1> ().begin ()->election->status.winner->hash (), send1->hash ());
-		for (auto i (node1.active.roots.get<1> ().begin ()), n (node1.active.roots.get<1> ().end ()); i != n; ++i)
-		{
-			adjusted_difficulties.insert (std::make_pair (i->election->status.winner->hash (), i->adjusted_difficulty));
-		}
-	}
-	// genesis
-	ASSERT_GT (adjusted_difficulties.find (send1->hash ())->second, adjusted_difficulties.find (send2->hash ())->second);
-	ASSERT_GT (adjusted_difficulties.find (send2->hash ())->second, adjusted_difficulties.find (receive1->hash ())->second);
-	// key1
-	ASSERT_GT (adjusted_difficulties.find (send1->hash ())->second, adjusted_difficulties.find (open1->hash ())->second);
-	ASSERT_GT (adjusted_difficulties.find (open1->hash ())->second, adjusted_difficulties.find (send3->hash ())->second);
-	ASSERT_GT (adjusted_difficulties.find (send3->hash ())->second, adjusted_difficulties.find (send4->hash ())->second);
-	//key2
-	ASSERT_GT (adjusted_difficulties.find (send3->hash ())->second, adjusted_difficulties.find (receive2->hash ())->second);
-	ASSERT_GT (adjusted_difficulties.find (open_epoch1->hash ())->second, adjusted_difficulties.find (receive2->hash ())->second);
-	// key3
-	ASSERT_GT (adjusted_difficulties.find (send4->hash ())->second, adjusted_difficulties.find (open2->hash ())->second);
-	ASSERT_GT (adjusted_difficulties.find (open2->hash ())->second, adjusted_difficulties.find (change1->hash ())->second);
-	// Independent elections can have higher difficulty than adjusted tree
 	nano::keypair key4;
-	auto open_epoch2 (std::make_shared<nano::state_block> (key4.pub, 0, 0, 0, node1.ledger.epoch_link (nano::epoch::epoch_1), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (key4.pub, adjusted_difficulties.find (send1->hash ())->second)));
-	ASSERT_GT (open_epoch2->difficulty (), adjusted_difficulties.find (send1->hash ())->second);
-	node1.process_active (open_epoch2);
-	node1.block_processor.flush ();
+	auto send5 (std::make_shared<nano::state_block> (key3.pub, change1->hash (), nano::test_genesis_key.pub, 0, key4.pub, key3.prv, key3.pub, *system.work.generate (change1->hash ()))); // Pending for open epoch block
+	node1.process_active (send5);
+	nano::blocks_confirm (node1, { send1, send2, receive1, open1, send3, send4, open_epoch1, receive2, open2, change1, send5 });
 	system.deadline_set (3s);
 	while (node1.active.size () != 11)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+	std::unordered_map<nano::block_hash, double> adjusted_multipliers;
 	{
 		nano::lock_guard<std::mutex> guard (node1.active.mutex);
-		node1.active.update_adjusted_difficulty ();
+		node1.active.update_adjusted_multiplier ();
+		ASSERT_EQ (node1.active.roots.get<1> ().begin ()->election->status.winner->hash (), send1->hash ());
+		for (auto i (node1.active.roots.get<1> ().begin ()), n (node1.active.roots.get<1> ().end ()); i != n; ++i)
+		{
+			adjusted_multipliers.insert (std::make_pair (i->election->status.winner->hash (), i->adjusted_multiplier));
+		}
+	}
+	// genesis
+	ASSERT_GT (adjusted_multipliers.find (send1->hash ())->second, adjusted_multipliers.find (send2->hash ())->second);
+	ASSERT_GT (adjusted_multipliers.find (send2->hash ())->second, adjusted_multipliers.find (receive1->hash ())->second);
+	// key1
+	ASSERT_GT (adjusted_multipliers.find (send1->hash ())->second, adjusted_multipliers.find (open1->hash ())->second);
+	ASSERT_GT (adjusted_multipliers.find (open1->hash ())->second, adjusted_multipliers.find (send3->hash ())->second);
+	ASSERT_GT (adjusted_multipliers.find (send3->hash ())->second, adjusted_multipliers.find (send4->hash ())->second);
+	//key2
+	ASSERT_GT (adjusted_multipliers.find (send3->hash ())->second, adjusted_multipliers.find (receive2->hash ())->second);
+	ASSERT_GT (adjusted_multipliers.find (open_epoch1->hash ())->second, adjusted_multipliers.find (receive2->hash ())->second);
+	// key3
+	ASSERT_GT (adjusted_multipliers.find (send4->hash ())->second, adjusted_multipliers.find (open2->hash ())->second);
+	ASSERT_GT (adjusted_multipliers.find (open2->hash ())->second, adjusted_multipliers.find (change1->hash ())->second);
+	ASSERT_GT (adjusted_multipliers.find (change1->hash ())->second, adjusted_multipliers.find (send5->hash ())->second);
+	// Independent elections can have higher difficulty than adjusted tree
+	auto open_epoch2 (std::make_shared<nano::state_block> (key4.pub, 0, 0, 0, node1.ledger.epoch_link (nano::epoch::epoch_1), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (key4.pub, nano::difficulty::from_multiplier ((adjusted_multipliers.find (send1->hash ())->second), node1.network_params.network.publish_thresholds.base))));
+	ASSERT_GT (open_epoch2->difficulty (), nano::difficulty::from_multiplier ((adjusted_multipliers.find (send1->hash ())->second), node1.network_params.network.publish_thresholds.base));
+	node1.process_active (open_epoch2);
+	node1.block_processor.flush ();
+	node1.block_confirm (open_epoch2);
+	system.deadline_set (3s);
+	while (node1.active.size () != 12)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	{
+		nano::lock_guard<std::mutex> guard (node1.active.mutex);
+		node1.active.update_adjusted_multiplier ();
+		ASSERT_EQ (node1.active.roots.size (), 12);
 		ASSERT_EQ (node1.active.roots.get<1> ().begin ()->election->status.winner->hash (), open_epoch2->hash ());
 	}
 }

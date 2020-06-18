@@ -1707,6 +1707,37 @@ bool nano::block_details::deserialize (nano::stream & stream_a)
 	return result;
 }
 
+std::string nano::state_subtype (nano::block_details const details_a)
+{
+	debug_assert (details_a.is_epoch + details_a.is_receive + details_a.is_send <= 1);
+	if (details_a.is_send)
+	{
+		return "send";
+	}
+	else if (details_a.is_receive)
+	{
+		return "receive";
+	}
+	else if (details_a.is_epoch)
+	{
+		return "epoch";
+	}
+	else
+	{
+		return "change";
+	}
+}
+
+nano::block_sideband::block_sideband (nano::account const & account_a, nano::block_hash const & successor_a, nano::amount const & balance_a, uint64_t height_a, uint64_t timestamp_a, nano::block_details const & details_a) :
+successor (successor_a),
+account (account_a),
+balance (balance_a),
+height (height_a),
+timestamp (timestamp_a),
+details (details_a)
+{
+}
+
 nano::block_sideband::block_sideband (nano::account const & account_a, nano::block_hash const & successor_a, nano::amount const & balance_a, uint64_t height_a, uint64_t timestamp_a, nano::epoch epoch_a, bool is_send, bool is_receive, bool is_epoch) :
 successor (successor_a),
 account (account_a),

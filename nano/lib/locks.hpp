@@ -194,6 +194,11 @@ public:
 			return owner->obj;
 		}
 
+		T & operator* () const
+		{
+			return get ();
+		}
+
 		locked * owner{ nullptr };
 	};
 

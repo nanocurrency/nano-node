@@ -230,11 +230,10 @@ public:
 	nano::block_hash frontier;
 };
 
-/** The maximum amount of blocks to iterate over while writing */
 namespace confirmation_height
 {
-	uint64_t const batch_write_size{ 4096 };
-	uint64_t const unbounded_cutoff{ 4096 };
+	/** When the uncemented count (block count - cemented count) is less than this use the unbounded processor */
+	uint64_t const unbounded_cutoff{ 16384 };
 }
 
 using vote_blocks_vec_iter = std::vector<boost::variant<std::shared_ptr<nano::block>, nano::block_hash>>::const_iterator;
@@ -318,7 +317,8 @@ enum class process_result
 	opened_burn_account, // The impossible happened, someone found the private key associated with the public key '0'.
 	balance_mismatch, // Balance and amount delta don't match
 	representative_mismatch, // Representative is changed when it is not allowed
-	block_position // This block cannot follow the previous block
+	block_position, // This block cannot follow the previous block
+	insufficient_work // Insufficient work for this block, even though it passed the minimal validation
 };
 class process_return final
 {
@@ -329,6 +329,7 @@ public:
 	nano::account pending_account;
 	boost::optional<bool> state_is_send;
 	nano::signature_verification verified;
+	nano::amount previous_balance;
 };
 enum class tally_result
 {
@@ -351,26 +352,24 @@ class network_params;
 class protocol_constants
 {
 public:
-	protocol_constants (nano::nano_networks network_a);
-
 	/** Current protocol version */
-	uint8_t protocol_version = 0x12;
+	uint8_t const protocol_version = 0x12;
 
 	/** Minimum accepted protocol version */
-	uint8_t protocol_version_min = 0x10;
-
-	/** Do not bootstrap from nodes older than this version. */
-	uint8_t protocol_version_bootstrap_min = 0x10;
-
-	/** Do not lazy bootstrap from nodes older than this version. */
-	uint8_t protocol_version_bootstrap_lazy_min = 0x10;
-
-	/** Do not start TCP realtime network connections to nodes older than this version */
-	uint8_t tcp_realtime_protocol_version_min = 0x11;
+	uint8_t protocol_version_min (bool epoch_2_started) const;
 
 	/** Do not request telemetry metrics to nodes older than this version */
-	uint8_t telemetry_protocol_version_min = 0x12;
+	uint8_t const telemetry_protocol_version_min = 0x12;
+
+private:
+	/* Minimum protocol version before an epoch 2 block is seen */
+	uint8_t const protocol_version_min_pre_epoch_2 = 0x11;
+	/* Minimum protocol version after an epoch 2 block is seen */
+	uint8_t const protocol_version_min_epoch_2 = 0x12;
 };
+
+// Some places use the decltype of protocol_version instead of protocol_version_min. To keep those checks simpler we check that the decltypes match ignoring differences in const
+static_assert (std::is_same<std::remove_const_t<decltype (protocol_constants ().protocol_version)>, decltype (protocol_constants ().protocol_version_min (false))>::value, "protocol_min should match");
 
 /** Genesis keys and ledger constants for network variants */
 class ledger_constants
@@ -488,7 +487,7 @@ enum class confirmation_height_mode
 };
 
 /* Holds flags for various cacheable data. For most CLI operations caching is unnecessary
- * (e.g getting the checked block count) so it can be disabled for performance reasons. */
+ * (e.g getting the cemented block count) so it can be disabled for performance reasons. */
 class generate_cache
 {
 public:
@@ -496,6 +495,9 @@ public:
 	bool cemented_count = true;
 	bool unchecked_count = true;
 	bool account_count = true;
+	bool epoch_2 = true;
+
+	void enable_all ();
 };
 
 /* Holds an in-memory cache of various counts */
@@ -507,6 +509,7 @@ public:
 	std::atomic<uint64_t> block_count{ 0 };
 	std::atomic<uint64_t> unchecked_count{ 0 };
 	std::atomic<uint64_t> account_count{ 0 };
+	std::atomic<bool> epoch_2_started{ false };
 };
 
 /* Defines the possible states for an election to stop in */
