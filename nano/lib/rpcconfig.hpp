@@ -60,6 +60,12 @@ public:
 	}
 };
 
+class rpc_logging_config final
+{
+public:
+	bool log_rpc{ true };
+};
+
 class rpc_config final
 {
 public:
@@ -77,6 +83,7 @@ public:
 	rpc_secure_config secure;
 	uint8_t max_json_depth{ 20 };
 	uint64_t max_request_size{ 32 * 1024 * 1024 };
+	nano::rpc_logging_config rpc_logging;
 	static unsigned json_version ()
 	{
 		return 1;

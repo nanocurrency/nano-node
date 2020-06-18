@@ -70,7 +70,7 @@ nano::write_guard nano::write_database_queue::wait (nano::writer writer)
 		queue.push_back (writer);
 	}
 
-	while (!stopped && queue.front () != writer)
+	while (queue.front () != writer)
 	{
 		cv.wait (lk);
 	}
@@ -110,13 +110,4 @@ bool nano::write_database_queue::process (nano::writer writer)
 nano::write_guard nano::write_database_queue::pop ()
 {
 	return write_guard (guard_finish_callback);
-}
-
-void nano::write_database_queue::stop ()
-{
-	{
-		nano::lock_guard<std::mutex> guard (mutex);
-		stopped = true;
-	}
-	cv.notify_all ();
 }

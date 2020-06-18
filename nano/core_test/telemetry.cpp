@@ -9,7 +9,7 @@
 
 using namespace std::chrono_literals;
 
-TEST (node_telemetry, consolidate_data)
+TEST (telemetry, consolidate_data)
 {
 	auto time = 1582117035109;
 
@@ -113,7 +113,7 @@ TEST (node_telemetry, consolidate_data)
 	ASSERT_EQ (consolidated_telemetry_data, consolidated_telemetry_data);
 }
 
-TEST (node_telemetry, consolidate_data_remove_outliers)
+TEST (telemetry, consolidate_data_remove_outliers)
 {
 	nano::telemetry_data data;
 	data.account_count = 2;
@@ -181,7 +181,7 @@ TEST (node_telemetry, consolidate_data_remove_outliers)
 	ASSERT_EQ (data, consolidated_telemetry_data);
 }
 
-TEST (node_telemetry, signatures)
+TEST (telemetry, signatures)
 {
 	nano::keypair node_id;
 	nano::telemetry_data data;
@@ -201,7 +201,7 @@ TEST (node_telemetry, signatures)
 	ASSERT_NE (data.signature, signature);
 }
 
-TEST (node_telemetry, no_peers)
+TEST (telemetry, no_peers)
 {
 	nano::system system (1);
 
@@ -209,7 +209,7 @@ TEST (node_telemetry, no_peers)
 	ASSERT_TRUE (responses.empty ());
 }
 
-TEST (node_telemetry, basic)
+TEST (telemetry, basic)
 {
 	nano::system system;
 	nano::node_flags node_flags;
@@ -264,7 +264,7 @@ TEST (node_telemetry, basic)
 	ASSERT_TIMELY (10s, done);
 }
 
-TEST (node_telemetry, receive_from_non_listening_channel)
+TEST (telemetry, receive_from_non_listening_channel)
 {
 	nano::system system;
 	auto node = system.add_node ();
@@ -274,7 +274,7 @@ TEST (node_telemetry, receive_from_non_listening_channel)
 	ASSERT_EQ (node->telemetry->telemetry_data_size (), 0);
 }
 
-TEST (node_telemetry, over_udp)
+TEST (telemetry, over_udp)
 {
 	nano::system system;
 	nano::node_flags node_flags;
@@ -306,7 +306,7 @@ TEST (node_telemetry, over_udp)
 	ASSERT_EQ (nano::transport::transport_type::udp, list2[0]->get_type ());
 }
 
-TEST (node_telemetry, invalid_channel)
+TEST (telemetry, invalid_channel)
 {
 	nano::system system (2);
 
@@ -322,7 +322,7 @@ TEST (node_telemetry, invalid_channel)
 	ASSERT_TIMELY (10s, done);
 }
 
-TEST (node_telemetry, blocking_request)
+TEST (telemetry, blocking_request)
 {
 	nano::system system (2);
 
@@ -360,7 +360,7 @@ TEST (node_telemetry, blocking_request)
 	promise.get_future ().wait ();
 }
 
-TEST (node_telemetry, disconnects)
+TEST (telemetry, disconnects)
 {
 	nano::system system;
 	nano::node_flags node_flags;
@@ -384,7 +384,7 @@ TEST (node_telemetry, disconnects)
 	ASSERT_TIMELY (10s, done);
 }
 
-TEST (node_telemetry, dos_tcp)
+TEST (telemetry, dos_tcp)
 {
 	// Confirm that telemetry_reqs are not processed
 	nano::system system;
@@ -425,7 +425,7 @@ TEST (node_telemetry, dos_tcp)
 	}
 }
 
-TEST (node_telemetry, dos_udp)
+TEST (telemetry, dos_udp)
 {
 	// Confirm that telemetry_reqs are not processed
 	nano::system system;
@@ -469,7 +469,7 @@ TEST (node_telemetry, dos_udp)
 	}
 }
 
-TEST (node_telemetry, disable_metrics)
+TEST (telemetry, disable_metrics)
 {
 	nano::system system;
 	nano::node_flags node_flags;
@@ -506,7 +506,7 @@ TEST (node_telemetry, disable_metrics)
 
 namespace nano
 {
-TEST (node_telemetry, remove_peer_different_genesis)
+TEST (telemetry, remove_peer_different_genesis)
 {
 	nano::system system (1);
 	auto node0 (system.nodes[0]);
@@ -532,7 +532,7 @@ TEST (node_telemetry, remove_peer_different_genesis)
 }
 
 // Peer exclusion is only fully supported for TCP-only nodes; peers can still reconnect through UDP
-TEST (node_telemetry, remove_peer_different_genesis_udp)
+TEST (telemetry, remove_peer_different_genesis_udp)
 {
 	nano::node_flags node_flags;
 	node_flags.disable_udp = false;
@@ -575,7 +575,7 @@ TEST (node_telemetry, remove_peer_different_genesis_udp)
 	ASSERT_EQ (1, node1->network.excluded_peers.peers.get<nano::peer_exclusion::tag_endpoint> ().count (node0->network.endpoint ().address ()));
 }
 
-TEST (node_telemetry, remove_peer_invalid_signature)
+TEST (telemetry, remove_peer_invalid_signature)
 {
 	nano::system system;
 	nano::node_flags node_flags;

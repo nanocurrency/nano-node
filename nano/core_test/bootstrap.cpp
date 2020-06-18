@@ -381,6 +381,10 @@ TEST (bootstrap_processor, frontiers_unconfirmed)
 	ASSERT_EQ (nano::process_result::progress, node2->process (*open3).code);
 	system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
 
+	// Ensure node2 can generate votes
+	node2->block_confirm (send3);
+	ASSERT_TIMELY (5s, node2->ledger.cache.cemented_count == 3);
+
 	// Test node to restart bootstrap
 	node_config.peering_port = nano::get_available_port ();
 	node_flags.disable_legacy_bootstrap = false;
@@ -413,7 +417,7 @@ TEST (bootstrap_processor, frontiers_confirmed)
 	auto node1 = system.add_node (node_config, node_flags);
 	nano::genesis genesis;
 	nano::keypair key1, key2;
-	// Generating invalid chain
+	// Generating valid chain
 	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
 	ASSERT_EQ (nano::process_result::progress, node1->process (*send1).code);
 	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::Gxrb_ratio, key2.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send1->hash ())));
@@ -423,6 +427,10 @@ TEST (bootstrap_processor, frontiers_confirmed)
 	auto open2 (std::make_shared<nano::state_block> (key2.pub, 0, key2.pub, nano::Gxrb_ratio, send2->hash (), key2.prv, key2.pub, *system.work.generate (key2.pub)));
 	ASSERT_EQ (nano::process_result::progress, node1->process (*open2).code);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+
+	// Confirm all blocks so node1 is free to generate votes
+	node1->block_confirm (send1);
+	ASSERT_TIMELY (5s, node1->ledger.cache.cemented_count == 5);
 
 	// Test node to bootstrap
 	node_config.peering_port = nano::get_available_port ();

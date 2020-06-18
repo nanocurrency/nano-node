@@ -104,6 +104,8 @@ TEST (toml, rpc_config_deserialize_defaults)
 	ASSERT_EQ (conf.rpc_process.ipc_address, defaults.rpc_process.ipc_address);
 	ASSERT_EQ (conf.rpc_process.ipc_port, defaults.rpc_process.ipc_port);
 	ASSERT_EQ (conf.rpc_process.num_ipc_connections, defaults.rpc_process.num_ipc_connections);
+
+	ASSERT_EQ (conf.rpc_logging.log_rpc, defaults.rpc_logging.log_rpc);
 }
 
 /** Empty config file should match a default config object */
@@ -725,6 +727,8 @@ TEST (toml, rpc_config_deserialize_no_defaults)
 	ipc_address = "0:0:0:0:0:ffff:7f01:101"
 	ipc_port = 999
 	num_ipc_connections = 999
+	[logging]
+	log_rpc = false
 	)toml";
 
 	nano::tomlconfig toml;
@@ -745,6 +749,8 @@ TEST (toml, rpc_config_deserialize_no_defaults)
 	ASSERT_NE (conf.rpc_process.ipc_address, defaults.rpc_process.ipc_address);
 	ASSERT_NE (conf.rpc_process.ipc_port, defaults.rpc_process.ipc_port);
 	ASSERT_NE (conf.rpc_process.num_ipc_connections, defaults.rpc_process.num_ipc_connections);
+
+	ASSERT_NE (conf.rpc_logging.log_rpc, defaults.rpc_logging.log_rpc);
 }
 
 /** There should be no required values **/
@@ -756,6 +762,7 @@ TEST (toml, rpc_config_no_required)
 	ss << R"toml(
 	[version]
 	[process]
+	[logging]
 	[secure]
 	)toml";
 

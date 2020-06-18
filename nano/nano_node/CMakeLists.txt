@@ -33,7 +33,12 @@ add_custom_command(TARGET nano_node
 				   COMMAND nano_node --generate_config rpc > ${PROJECT_BINARY_DIR}/config-rpc.toml.sample)
 
 if ((NANO_GUI OR RAIBLOCKS_GUI) AND NOT APPLE)
-	install(TARGETS nano_node
-			RUNTIME DESTINATION .
-	)
+	if (WIN32)
+		install(TARGETS nano_node
+				RUNTIME DESTINATION .
+		)
+	else ()
+		install(TARGETS nano_node
+				RUNTIME DESTINATION ./bin)
+	endif()
 endif()
