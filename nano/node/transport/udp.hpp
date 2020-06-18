@@ -103,6 +103,7 @@ namespace transport
 		std::unique_ptr<container_info_component> collect_container_info (std::string const &);
 		void purge (std::chrono::steady_clock::time_point const &);
 		void ongoing_keepalive ();
+		void list_below_version (std::vector<std::shared_ptr<nano::transport::channel>> &, uint8_t);
 		void list (std::deque<std::shared_ptr<nano::transport::channel>> &, uint8_t = 0);
 		void modify (std::shared_ptr<nano::transport::channel_udp>, std::function<void(std::shared_ptr<nano::transport::channel_udp>)>);
 		nano::node & node;

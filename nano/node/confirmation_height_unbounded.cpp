@@ -3,15 +3,18 @@
 #include <nano/node/write_database_queue.hpp>
 #include <nano/secure/ledger.hpp>
 
+#include <boost/format.hpp>
+
 #include <numeric>
 
-nano::confirmation_height_unbounded::confirmation_height_unbounded (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logger_mt & logger_a, std::atomic<bool> & stopped_a, nano::block_hash const & original_hash_a, std::function<void(std::vector<std::shared_ptr<nano::block>> const &)> const & notify_observers_callback_a, std::function<void(nano::block_hash const &)> const & notify_block_already_cemented_observers_callback_a, std::function<uint64_t ()> const & awaiting_processing_size_callback_a) :
+nano::confirmation_height_unbounded::confirmation_height_unbounded (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logger_mt & logger_a, std::atomic<bool> & stopped_a, nano::block_hash const & original_hash_a, uint64_t & batch_write_size_a, std::function<void(std::vector<std::shared_ptr<nano::block>> const &)> const & notify_observers_callback_a, std::function<void(nano::block_hash const &)> const & notify_block_already_cemented_observers_callback_a, std::function<uint64_t ()> const & awaiting_processing_size_callback_a) :
 ledger (ledger_a),
 write_database_queue (write_database_queue_a),
 batch_separate_pending_min_time (batch_separate_pending_min_time_a),
 logger (logger_a),
 stopped (stopped_a),
 original_hash (original_hash_a),
+batch_write_size (batch_write_size_a),
 notify_observers_callback (notify_observers_callback_a),
 notify_block_already_cemented_observers_callback (notify_block_already_cemented_observers_callback_a),
 awaiting_processing_size_callback (awaiting_processing_size_callback_a)
@@ -20,9 +23,14 @@ awaiting_processing_size_callback (awaiting_processing_size_callback_a)
 
 void nano::confirmation_height_unbounded::process ()
 {
+	if (pending_empty ())
+	{
+		clear_process_vars ();
+		timer.restart ();
+	}
 	std::shared_ptr<conf_height_details> receive_details;
 	auto current = original_hash;
-	orig_block_callback_data.clear ();
+	std::vector<nano::block_hash> orig_block_callback_data;
 
 	std::vector<receive_source_pair> receive_source_pairs;
 	release_assert (receive_source_pairs.empty ());
@@ -50,6 +58,14 @@ void nano::confirmation_height_unbounded::process ()
 		}
 
 		auto block (get_block_and_sideband (current, read_transaction));
+		if (!block)
+		{
+			auto error_str = (boost::format ("Ledger mismatch trying to set confirmation height for block %1% (unbounded processor)") % current.to_string ()).str ();
+			logger.always_log (error_str);
+			std::cerr << error_str << std::endl;
+		}
+		release_assert (block);
+
 		nano::account account (block->account ());
 		if (account.is_zero ())
 		{
@@ -86,7 +102,7 @@ void nano::confirmation_height_unbounded::process ()
 		auto already_traversed = iterated_height >= block_height;
 		if (!already_traversed)
 		{
-			collect_unconfirmed_receive_and_sources_for_account (block_height, iterated_height, current, account, read_transaction, receive_source_pairs, block_callback_datas_required);
+			collect_unconfirmed_receive_and_sources_for_account (block_height, iterated_height, current, account, read_transaction, receive_source_pairs, block_callback_datas_required, orig_block_callback_data);
 		}
 
 		// Exit early when the processor has been stopped, otherwise this function may take a
@@ -104,7 +120,7 @@ void nano::confirmation_height_unbounded::process ()
 		auto confirmed_receives_pending = (count_before_receive != receive_source_pairs.size ());
 		if (!confirmed_receives_pending)
 		{
-			preparation_data preparation_data{ block_height, confirmation_height, iterated_height, account_it, account, receive_details, already_traversed, current, block_callback_datas_required };
+			preparation_data preparation_data{ block_height, confirmation_height, iterated_height, account_it, account, receive_details, already_traversed, current, block_callback_datas_required, orig_block_callback_data };
 			prepare_iterated_blocks_for_cementing (preparation_data);
 
 			if (!receive_source_pairs.empty ())
@@ -122,10 +138,11 @@ void nano::confirmation_height_unbounded::process ()
 			else
 			{
 				confirmed_iterated_pairs.emplace (std::piecewise_construct, std::forward_as_tuple (account), std::forward_as_tuple (confirmation_height, block_height));
+				++confirmed_iterated_pairs_size;
 			}
 		}
 
-		auto max_write_size_reached = (pending_writes.size () >= confirmation_height::batch_write_size);
+		auto max_write_size_reached = (pending_writes.size () >= confirmation_height::unbounded_cutoff);
 		// When there are a lot of pending confirmation height blocks, it is more efficient to
 		// bulk some of them up to enable better write performance which becomes the bottleneck.
 		auto min_time_exceeded = (timer.since_start () >= batch_separate_pending_min_time);
@@ -133,17 +150,23 @@ void nano::confirmation_height_unbounded::process ()
 		auto no_pending = awaiting_processing_size_callback () == 0;
 		auto should_output = finished_iterating && (no_pending || min_time_exceeded);
 
-		if ((max_write_size_reached || should_output) && !pending_writes.empty ())
+		auto total_pending_write_block_count = std::accumulate (pending_writes.cbegin (), pending_writes.cend (), uint64_t (0), [](uint64_t total, conf_height_details const & receive_details_a) {
+			return total += receive_details_a.num_blocks_confirmed;
+		});
+		auto force_write = total_pending_write_block_count > batch_write_size;
+
+		if ((max_write_size_reached || should_output || force_write) && !pending_writes.empty ())
 		{
 			if (write_database_queue.process (nano::writer::confirmation_height))
 			{
 				auto scoped_write_guard = write_database_queue.pop ();
-				auto error = cement_blocks ();
-				// Don't set any more blocks as confirmed from the original hash if an inconsistency is found
-				if (error)
-				{
-					break;
-				}
+				cement_blocks (scoped_write_guard);
+			}
+			else if (force_write)
+			{
+				// Unbounded processor has grown too large, force a write
+				auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
+				cement_blocks (scoped_write_guard);
 			}
 		}
 
@@ -152,7 +175,7 @@ void nano::confirmation_height_unbounded::process ()
 	} while ((!receive_source_pairs.empty () || current != original_hash) && !stopped);
 }
 
-void nano::confirmation_height_unbounded::collect_unconfirmed_receive_and_sources_for_account (uint64_t block_height_a, uint64_t confirmation_height_a, nano::block_hash const & hash_a, nano::account const & account_a, nano::read_transaction const & transaction_a, std::vector<receive_source_pair> & receive_source_pairs_a, std::vector<nano::block_hash> & block_callback_data_a)
+void nano::confirmation_height_unbounded::collect_unconfirmed_receive_and_sources_for_account (uint64_t block_height_a, uint64_t confirmation_height_a, nano::block_hash const & hash_a, nano::account const & account_a, nano::read_transaction const & transaction_a, std::vector<receive_source_pair> & receive_source_pairs_a, std::vector<nano::block_hash> & block_callback_data_a, std::vector<nano::block_hash> & orig_block_callback_data_a)
 {
 	auto hash (hash_a);
 	auto num_to_confirm = block_height_a - confirmation_height_a;
@@ -190,7 +213,7 @@ void nano::confirmation_height_unbounded::collect_unconfirmed_receive_and_source
 			}
 			else if (is_original_block)
 			{
-				orig_block_callback_data.push_back (hash);
+				orig_block_callback_data_a.push_back (hash);
 			}
 			else
 			{
@@ -207,6 +230,7 @@ void nano::confirmation_height_unbounded::collect_unconfirmed_receive_and_source
 					last_receive_details->block_callback_data.push_back (hash);
 
 					implicit_receive_cemented_mapping[hash] = std::weak_ptr<conf_height_details> (last_receive_details);
+					implicit_receive_cemented_mapping_size = implicit_receive_cemented_mapping.size ();
 				}
 			}
 
@@ -235,6 +259,7 @@ void nano::confirmation_height_unbounded::prepare_iterated_blocks_for_cementing 
 		else
 		{
 			confirmed_iterated_pairs.emplace (std::piecewise_construct, std::forward_as_tuple (preparation_data_a.account), std::forward_as_tuple (block_height, block_height));
+			++confirmed_iterated_pairs_size;
 		}
 
 		auto num_blocks_confirmed = block_height - preparation_data_a.confirmation_height;
@@ -243,7 +268,7 @@ void nano::confirmation_height_unbounded::prepare_iterated_blocks_for_cementing 
 		{
 			if (!receive_details)
 			{
-				block_callback_data = orig_block_callback_data;
+				block_callback_data = preparation_data_a.orig_block_callback_data;
 			}
 			else
 			{
@@ -275,6 +300,7 @@ void nano::confirmation_height_unbounded::prepare_iterated_blocks_for_cementing 
 		}
 
 		pending_writes.emplace_back (preparation_data_a.account, preparation_data_a.current, block_height, num_blocks_confirmed, block_callback_data);
+		++pending_writes_size;
 	}
 
 	if (receive_details)
@@ -298,73 +324,91 @@ void nano::confirmation_height_unbounded::prepare_iterated_blocks_for_cementing 
 		else
 		{
 			confirmed_iterated_pairs.emplace (std::piecewise_construct, std::forward_as_tuple (receive_account), std::forward_as_tuple (receive_details->height, receive_details->height));
+			++confirmed_iterated_pairs_size;
 		}
 
 		pending_writes.push_back (*receive_details);
+		++pending_writes_size;
 	}
 }
 
 /*
  * Returns true if there was an error in finding one of the blocks to write a confirmation height for, false otherwise
  */
-bool nano::confirmation_height_unbounded::cement_blocks ()
+void nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & scoped_write_guard_a)
 {
-	auto total_pending_write_block_count = std::accumulate (pending_writes.cbegin (), pending_writes.cend (), uint64_t (0), [](uint64_t total, conf_height_details const & receive_details_a) {
-		return total += receive_details_a.num_blocks_confirmed;
-	});
-
-	auto transaction (ledger.store.tx_begin_write ({}, { nano::tables::confirmation_height }));
-	while (!pending_writes.empty ())
+	nano::timer<std::chrono::milliseconds> cemented_batch_timer;
+	std::vector<std::shared_ptr<nano::block>> cemented_blocks;
+	auto error = false;
 	{
-		auto & pending = pending_writes.front ();
-		nano::confirmation_height_info confirmation_height_info;
-		auto error = ledger.store.confirmation_height_get (transaction, pending.account, confirmation_height_info);
-		release_assert (!error);
-		auto confirmation_height = confirmation_height_info.height;
-		if (pending.height > confirmation_height)
+		auto transaction (ledger.store.tx_begin_write ({}, { nano::tables::confirmation_height }));
+		cemented_batch_timer.start ();
+		while (!pending_writes.empty ())
 		{
-#ifndef NDEBUG
-			// Do more thorough checking in Debug mode, indicates programming error.
-			auto block = ledger.store.block_get (transaction, pending.hash);
-			static nano::network_constants network_constants;
-			debug_assert (network_constants.is_test_network () || block != nullptr);
-			debug_assert (network_constants.is_test_network () || block->sideband ().height == pending.height);
-
-			if (!block)
+			auto & pending = pending_writes.front ();
+			nano::confirmation_height_info confirmation_height_info;
+			error = ledger.store.confirmation_height_get (transaction, pending.account, confirmation_height_info);
+			if (error)
 			{
-				logger.always_log ("Failed to write confirmation height for: ", pending.hash.to_string ());
-				ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block);
-				pending_writes.clear ();
-				return true;
+				auto error_str = (boost::format ("Failed to read confirmation height for account %1% when writing block %2% (unbounded processor)") % pending.account.to_account () % pending.hash.to_string ()).str ();
+				logger.always_log (error_str);
+				std::cerr << error_str << std::endl;
 			}
-#endif
-			ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in, pending.height - confirmation_height);
-			ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in, pending.height - confirmation_height);
-			debug_assert (pending.num_blocks_confirmed == pending.height - confirmation_height);
-			confirmation_height = pending.height;
-			ledger.cache.cemented_count += pending.num_blocks_confirmed;
-			ledger.store.confirmation_height_put (transaction, pending.account, { confirmation_height, pending.hash });
+			auto confirmation_height = confirmation_height_info.height;
+			if (!error && pending.height > confirmation_height)
+			{
+				auto block = ledger.store.block_get (transaction, pending.hash);
+				debug_assert (network_params.network.is_test_network () || block != nullptr);
+				debug_assert (network_params.network.is_test_network () || block->sideband ().height == pending.height);
 
-			transaction.commit ();
-			// Reverse it so that the callbacks start from the lowest newly cemented block and move upwards
-			std::reverse (pending.block_callback_data.begin (), pending.block_callback_data.end ());
+				if (!block)
+				{
+					auto error_str = (boost::format ("Failed to write confirmation height for block %1% (unbounded processor)") % pending.hash.to_string ()).str ();
+					logger.always_log (error_str);
+					std::cerr << error_str << std::endl;
+					error = true;
+					break;
+				}
+				ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in, pending.height - confirmation_height);
+				ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in, pending.height - confirmation_height);
+				debug_assert (pending.num_blocks_confirmed == pending.height - confirmation_height);
+				confirmation_height = pending.height;
+				ledger.cache.cemented_count += pending.num_blocks_confirmed;
+				ledger.store.confirmation_height_put (transaction, pending.account, { confirmation_height, pending.hash });
 
-			std::vector<std::shared_ptr<nano::block>> callback_data;
-			callback_data.reserve (pending.block_callback_data.size ());
-			std::transform (pending.block_callback_data.begin (), pending.block_callback_data.end (), std::back_inserter (callback_data), [& block_cache = block_cache](auto const & hash_a) {
-				debug_assert (block_cache.find (hash_a) != block_cache.end ());
-				return block_cache.at (hash_a);
-			});
+				// Reverse it so that the callbacks start from the lowest newly cemented block and move upwards
+				std::reverse (pending.block_callback_data.begin (), pending.block_callback_data.end ());
 
-			notify_observers_callback (callback_data);
-			transaction.renew ();
+				std::transform (pending.block_callback_data.begin (), pending.block_callback_data.end (), std::back_inserter (cemented_blocks), [& block_cache = block_cache](auto const & hash_a) {
+					debug_assert (block_cache.find (hash_a) != block_cache.end ());
+					return block_cache.at (hash_a);
+				});
+			}
+			pending_writes.erase (pending_writes.begin ());
+			--pending_writes_size;
 		}
-		total_pending_write_block_count -= pending.num_blocks_confirmed;
-		pending_writes.erase (pending_writes.begin ());
 	}
-	debug_assert (total_pending_write_block_count == 0);
+
+	auto time_spent_cementing = cemented_batch_timer.since_start ().count ();
+	if (time_spent_cementing > 50)
+	{
+		logger.always_log (boost::str (boost::format ("Cemented %1% blocks in %2% %3% (unbounded processor)") % cemented_blocks.size () % time_spent_cementing % cemented_batch_timer.unit ()));
+	}
+
+	scoped_write_guard_a.release ();
+	notify_observers_callback (cemented_blocks);
+	release_assert (!error);
+
+	// Tests should check this already at the end, but not all blocks may have elections (e.g from manual calls to confirmation_height_processor::add), this should catch any inconsistencies on live/beta though
+	if (!network_params.network.is_test_network ())
+	{
+		auto blocks_confirmed_stats = ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed);
+		auto observer_stats = ledger.stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out);
+		debug_assert (blocks_confirmed_stats == observer_stats);
+	}
 	debug_assert (pending_writes.empty ());
-	return false;
+	debug_assert (pending_writes_size == 0);
+	timer.restart ();
 }
 
 std::shared_ptr<nano::block> nano::confirmation_height_unbounded::get_block_and_sideband (nano::block_hash const & hash_a, nano::transaction const & transaction_a)
@@ -388,7 +432,7 @@ bool nano::confirmation_height_unbounded::pending_empty () const
 	return pending_writes.empty ();
 }
 
-void nano::confirmation_height_unbounded::prepare_new ()
+void nano::confirmation_height_unbounded::clear_process_vars ()
 {
 	// Separate blocks which are pending confirmation height can be batched by a minimum processing time (to improve lmdb disk write performance),
 	// so make sure the slate is clean when a new batch is starting.
@@ -398,7 +442,6 @@ void nano::confirmation_height_unbounded::prepare_new ()
 	implicit_receive_cemented_mapping_size = 0;
 	block_cache.clear ();
 	block_cache_size = 0;
-	timer.restart ();
 }
 
 nano::confirmation_height_unbounded::conf_height_details::conf_height_details (nano::account const & account_a, nano::block_hash const & hash_a, uint64_t height_a, uint64_t num_blocks_confirmed_a, std::vector<nano::block_hash> const & block_callback_data_a) :
@@ -429,6 +472,5 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (co
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "pending_writes", confirmation_height_unbounded.pending_writes_size, sizeof (decltype (confirmation_height_unbounded.pending_writes)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "implicit_receive_cemented_mapping", confirmation_height_unbounded.implicit_receive_cemented_mapping_size, sizeof (decltype (confirmation_height_unbounded.implicit_receive_cemented_mapping)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "block_cache", confirmation_height_unbounded.block_cache_size, sizeof (decltype (confirmation_height_unbounded.block_cache)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "orig_block_callback_data", confirmation_height_unbounded.orig_block_callback_data_size, sizeof (decltype (confirmation_height_unbounded.orig_block_callback_data)::value_type) }));
 	return composite;
 }

@@ -52,12 +52,12 @@ void nano::telemetry::set (nano::telemetry_ack const & message_a, nano::transpor
 		if (it == recent_or_initial_request_telemetry_data.cend () || !it->undergoing_request)
 		{
 			// Not requesting telemetry data from this peer so ignore it
+			stats.inc (nano::stat::type::telemetry, nano::stat::detail::unsolicited_telemetry_ack);
 			return;
 		}
 
 		recent_or_initial_request_telemetry_data.modify (it, [&message_a](nano::telemetry_info & telemetry_info_a) {
 			telemetry_info_a.data = message_a.data;
-			telemetry_info_a.undergoing_request = false;
 		});
 
 		// This can also remove the peer
@@ -65,7 +65,7 @@ void nano::telemetry::set (nano::telemetry_ack const & message_a, nano::transpor
 
 		if (!error)
 		{
-			// Received telemetry data from a peer which hasn't disabled providing telemetry metrics and there no errors with the data
+			// Received telemetry data from a peer which hasn't disabled providing telemetry metrics and there's no errors with the data
 			lk.unlock ();
 			observers.notify (message_a.data, endpoint);
 			lk.lock ();
@@ -110,6 +110,9 @@ bool nano::telemetry::verify_message (nano::telemetry_ack const & message_a, nan
 
 	if (remove_channel)
 	{
+		// Add to peer exclusion list
+		network.excluded_peers.add (channel_a.get_tcp_endpoint (), network.size ());
+
 		// Disconnect from peer with incorrect telemetry data
 		network.erase (channel_a);
 	}
@@ -160,16 +163,18 @@ void nano::telemetry::ongoing_req_all_peers (std::chrono::milliseconds next_requ
 					}
 				};
 
+				// clang-format off
 				namespace mi = boost::multi_index;
 				boost::multi_index_container<channel_wrapper,
 				mi::indexed_by<
-				mi::hashed_unique<mi::tag<tag_endpoint>,
-				mi::const_mem_fun<channel_wrapper, nano::endpoint, &channel_wrapper::endpoint>>,
-				mi::hashed_unique<mi::tag<tag_channel>,
-				mi::member<channel_wrapper, std::shared_ptr<nano::transport::channel>, &channel_wrapper::channel>>>>
-				peers;
+					mi::hashed_unique<mi::tag<tag_endpoint>,
+						mi::const_mem_fun<channel_wrapper, nano::endpoint, &channel_wrapper::endpoint>>,
+					mi::hashed_unique<mi::tag<tag_channel>,
+						mi::member<channel_wrapper, std::shared_ptr<nano::transport::channel>, &channel_wrapper::channel>>>> peers;
+				// clang-format on
 
 				{
+					// Copy peers to the multi index container so can get better asymptotic complexity in future operations
 					auto temp_peers = this_l->network.list (std::numeric_limits<size_t>::max (), this_l->network_params.protocol.telemetry_protocol_version_min);
 					peers.insert (temp_peers.begin (), temp_peers.end ());
 				}
@@ -212,23 +217,23 @@ void nano::telemetry::ongoing_req_all_peers (std::chrono::milliseconds next_requ
 					});
 				}
 
+				// Schedule the next request; Use the default request time unless a telemetry request cache expires sooner
 				nano::lock_guard<std::mutex> guard (this_l->mutex);
 				long long next_round = std::chrono::duration_cast<std::chrono::milliseconds> (this_l->cache_cutoff + this_l->response_time_cutoff).count ();
 				if (!this_l->recent_or_initial_request_telemetry_data.empty ())
 				{
-					// Use the default request time unless a telemetry request cache expires sooner
-					// Find the closest time with doesn't
 					auto range = boost::make_iterator_range (this_l->recent_or_initial_request_telemetry_data.get<tag_last_updated> ());
-					for (auto i : range)
+					for (auto telemetry_info : range)
 					{
-						if (peers.count (i.endpoint) == 0)
+						if (!telemetry_info.undergoing_request && peers.count (telemetry_info.endpoint) == 0)
 						{
-							auto const last_response = i.last_response;
+							auto const last_response = telemetry_info.last_response;
 							auto now = std::chrono::steady_clock::now ();
 							if (now > last_response + this_l->cache_cutoff)
 							{
 								next_round = std::min<long long> (next_round, std::chrono::duration_cast<std::chrono::milliseconds> (now - (last_response + this_l->cache_cutoff)).count ());
 							}
+							// We are iterating in sorted order from last_updated, so can break once we have found the first valid one.
 							break;
 						}
 					}
@@ -299,6 +304,7 @@ void nano::telemetry::get_metrics_single_peer_async (std::shared_ptr<nano::trans
 				{
 					if (it == recent_or_initial_request_telemetry_data.cend ())
 					{
+						// Insert dummy values, it's important not to use "last_response" time here without first checking that awaiting_first_response () returns false.
 						recent_or_initial_request_telemetry_data.emplace (channel_a->get_endpoint (), nano::telemetry_data (), std::chrono::steady_clock::now (), true);
 						it = recent_or_initial_request_telemetry_data.find (channel_a->get_endpoint ());
 					}
@@ -351,32 +357,36 @@ void nano::telemetry::fire_request_message (std::shared_ptr<nano::transport::cha
 	std::weak_ptr<nano::telemetry> this_w (shared_from_this ());
 	nano::telemetry_req message;
 	// clang-format off
-	channel_a->send (message, [this_w, endpoint = channel_a->get_endpoint ()](boost::system::error_code const & ec, size_t size_a) {
+	channel_a->send (message, [this_w, endpoint = channel_a->get_endpoint (), round_l](boost::system::error_code const & ec, size_t size_a) {
 		if (auto this_l = this_w.lock ())
 		{
 			if (ec)
 			{
 				// Error sending the telemetry_req message
+				this_l->stats.inc (nano::stat::type::telemetry, nano::stat::detail::failed_send_telemetry_req);
 				nano::lock_guard<std::mutex> guard (this_l->mutex);
 				this_l->channel_processed (endpoint, true);
+			}
+			else
+			{
+				// If no response is seen after a certain period of time remove it
+				this_l->alarm.add (std::chrono::steady_clock::now () + this_l->response_time_cutoff, [round_l, this_w, endpoint]() {
+					if (auto this_l = this_w.lock ())
+					{
+						nano::lock_guard<std::mutex> guard (this_l->mutex);
+						auto it = this_l->recent_or_initial_request_telemetry_data.find (endpoint);
+						if (it != this_l->recent_or_initial_request_telemetry_data.cend () && it->undergoing_request && round_l == it->round)
+						{
+							this_l->stats.inc (nano::stat::type::telemetry, nano::stat::detail::no_response_received);
+							this_l->channel_processed (endpoint, true);
+						}
+					}
+				});			
 			}
 		}
 	},
 	nano::buffer_drop_policy::no_socket_drop);
 	// clang-format on
-
-	// If no response is seen after a certain period of time remove it
-	alarm.add (std::chrono::steady_clock::now () + response_time_cutoff, [round_l, this_w, endpoint = channel_a->get_endpoint ()]() {
-		if (auto this_l = this_w.lock ())
-		{
-			nano::lock_guard<std::mutex> guard (this_l->mutex);
-			auto it = this_l->recent_or_initial_request_telemetry_data.find (endpoint);
-			if (it != this_l->recent_or_initial_request_telemetry_data.cend () && it->undergoing_request && round_l == it->round)
-			{
-				this_l->channel_processed (endpoint, true);
-			}
-		}
-	});
 }
 
 void nano::telemetry::channel_processed (nano::endpoint const & endpoint_a, bool error_a)
@@ -384,10 +394,14 @@ void nano::telemetry::channel_processed (nano::endpoint const & endpoint_a, bool
 	auto it = recent_or_initial_request_telemetry_data.find (endpoint_a);
 	if (it != recent_or_initial_request_telemetry_data.end ())
 	{
-		recent_or_initial_request_telemetry_data.modify (it, [](nano::telemetry_info & telemetry_info_a) {
-			telemetry_info_a.last_response = std::chrono::steady_clock::now ();
-		});
-		if (error_a)
+		if (!error_a)
+		{
+			recent_or_initial_request_telemetry_data.modify (it, [](nano::telemetry_info & telemetry_info_a) {
+				telemetry_info_a.last_response = std::chrono::steady_clock::now ();
+				telemetry_info_a.undergoing_request = false;
+			});
+		}
+		else
 		{
 			recent_or_initial_request_telemetry_data.erase (endpoint_a);
 		}
@@ -499,6 +513,7 @@ nano::telemetry_data nano::consolidate_telemetry_data (std::vector<nano::telemet
 	std::multiset<uint64_t> uptimes;
 	std::multiset<uint64_t> bandwidths;
 	std::multiset<uint64_t> timestamps;
+	std::multiset<uint64_t> active_difficulties;
 
 	for (auto const & telemetry_data : telemetry_datas)
 	{
@@ -522,6 +537,7 @@ nano::telemetry_data nano::consolidate_telemetry_data (std::vector<nano::telemet
 
 		++bandwidth_caps[telemetry_data.bandwidth_cap];
 		++genesis_blocks[telemetry_data.genesis_block];
+		active_difficulties.insert (telemetry_data.active_difficulty);
 	}
 
 	// Remove 10% of the results from the lower and upper bounds to catch any outliers. Need at least 10 responses before any are removed.
@@ -542,6 +558,7 @@ nano::telemetry_data nano::consolidate_telemetry_data (std::vector<nano::telemet
 	auto unchecked_sum = strip_outliers_and_sum (unchecked_counts);
 	auto uptime_sum = strip_outliers_and_sum (uptimes);
 	auto bandwidth_sum = strip_outliers_and_sum (bandwidths);
+	auto active_difficulty_sum = strip_outliers_and_sum (active_difficulties);
 
 	nano::telemetry_data consolidated_data;
 	auto size = telemetry_datas.size () - num_either_side_to_remove * 2;
@@ -551,6 +568,7 @@ nano::telemetry_data nano::consolidate_telemetry_data (std::vector<nano::telemet
 	consolidated_data.peer_count = boost::numeric_cast<decltype (consolidated_data.peer_count)> (peer_sum / size);
 	consolidated_data.uptime = boost::numeric_cast<decltype (consolidated_data.uptime)> (uptime_sum / size);
 	consolidated_data.unchecked_count = boost::numeric_cast<decltype (consolidated_data.unchecked_count)> (unchecked_sum / size);
+	consolidated_data.active_difficulty = boost::numeric_cast<decltype (consolidated_data.unchecked_count)> (active_difficulty_sum / size);
 
 	if (!timestamps.empty ())
 	{
@@ -609,7 +627,7 @@ nano::telemetry_data nano::consolidate_telemetry_data (std::vector<nano::telemet
 	return consolidated_data;
 }
 
-nano::telemetry_data nano::local_telemetry_data (nano::ledger_cache const & ledger_cache_a, nano::network & network_a, uint64_t bandwidth_limit_a, nano::network_params const & network_params_a, std::chrono::steady_clock::time_point statup_time_a, nano::keypair const & node_id_a)
+nano::telemetry_data nano::local_telemetry_data (nano::ledger_cache const & ledger_cache_a, nano::network & network_a, uint64_t bandwidth_limit_a, nano::network_params const & network_params_a, std::chrono::steady_clock::time_point statup_time_a, uint64_t active_difficulty_a, nano::keypair const & node_id_a)
 {
 	nano::telemetry_data telemetry_data;
 	telemetry_data.node_id = node_id_a.pub;
@@ -628,6 +646,7 @@ nano::telemetry_data nano::local_telemetry_data (nano::ledger_cache const & ledg
 	telemetry_data.pre_release_version = nano::get_pre_release_node_version ();
 	telemetry_data.maker = 0; // 0 Indicates it originated from the NF
 	telemetry_data.timestamp = std::chrono::system_clock::now ();
+	telemetry_data.active_difficulty = active_difficulty_a;
 	// Make sure this is the final operation!
 	telemetry_data.sign (node_id_a);
 	return telemetry_data;

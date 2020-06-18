@@ -69,16 +69,6 @@ void nano::rep_crawler::validate ()
 			if (updated_or_inserted)
 			{
 				node.logger.try_log (boost::str (boost::format ("Found a representative at %1%") % channel->to_string ()));
-				// Rebroadcasting all active votes to new representative
-				auto blocks (node.active.list_blocks ());
-				for (auto i (blocks.begin ()), n (blocks.end ()); i != n; ++i)
-				{
-					if (*i != nullptr)
-					{
-						nano::confirm_req req (*i);
-						channel->send (req);
-					}
-				}
 			}
 		}
 		// This tries to assist rep nodes that have lost track of their highest sequence number by replaying our highest known vote back to them
@@ -194,17 +184,20 @@ bool nano::rep_crawler::is_pr (nano::transport::channel const & channel_a) const
 	return result;
 }
 
-void nano::rep_crawler::response (std::shared_ptr<nano::transport::channel> & channel_a, std::shared_ptr<nano::vote> & vote_a)
+bool nano::rep_crawler::response (std::shared_ptr<nano::transport::channel> & channel_a, std::shared_ptr<nano::vote> & vote_a)
 {
+	bool error = true;
 	nano::lock_guard<std::mutex> lock (active_mutex);
 	for (auto i = vote_a->begin (), n = vote_a->end (); i != n; ++i)
 	{
 		if (active.count (*i) != 0)
 		{
 			responses.emplace_back (channel_a, vote_a);
+			error = false;
 			break;
 		}
 	}
+	return error;
 }
 
 nano::uint128_t nano::rep_crawler::total_weight () const
@@ -317,9 +310,9 @@ void nano::rep_crawler::update_weights ()
 	}
 }
 
-std::vector<nano::representative> nano::rep_crawler::representatives (size_t count_a, nano::uint128_t const weight_a, boost::optional<decltype (nano::protocol_constants::protocol_version_min)> const & opt_version_min_a)
+std::vector<nano::representative> nano::rep_crawler::representatives (size_t count_a, nano::uint128_t const weight_a, boost::optional<decltype (nano::protocol_constants::protocol_version)> const & opt_version_min_a)
 {
-	auto version_min (opt_version_min_a.value_or (node.network_params.protocol.protocol_version_min));
+	auto version_min (opt_version_min_a.value_or (node.network_params.protocol.protocol_version_min (node.ledger.cache.epoch_2_started)));
 	std::vector<representative> result;
 	nano::lock_guard<std::mutex> lock (probable_reps_mutex);
 	for (auto i (probable_reps.get<tag_weight> ().begin ()), n (probable_reps.get<tag_weight> ().end ()); i != n && result.size () < count_a; ++i)
@@ -332,7 +325,7 @@ std::vector<nano::representative> nano::rep_crawler::representatives (size_t cou
 	return result;
 }
 
-std::vector<nano::representative> nano::rep_crawler::principal_representatives (size_t count_a, boost::optional<decltype (nano::protocol_constants::protocol_version_min)> const & opt_version_min_a)
+std::vector<nano::representative> nano::rep_crawler::principal_representatives (size_t count_a, boost::optional<decltype (nano::protocol_constants::protocol_version)> const & opt_version_min_a)
 {
 	return representatives (count_a, node.minimum_principal_weight (), opt_version_min_a);
 }

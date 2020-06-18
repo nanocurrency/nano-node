@@ -63,37 +63,38 @@ TEST (gap_cache, comparison)
 	ASSERT_EQ (arrival, cache.blocks.get<1> ().begin ()->arrival);
 }
 
+// Upon receiving enough votes for a gapped block, a lazy bootstrap should be initiated
 TEST (gap_cache, gap_bootstrap)
 {
-	nano::system system (2);
+	nano::node_flags node_flags;
+	node_flags.disable_legacy_bootstrap = true;
+	node_flags.disable_request_loop = true; // to avoid fallback behavior of broadcasting blocks
+	nano::system system (2, nano::transport::transport_type::tcp, node_flags);
+
 	auto & node1 (*system.nodes[0]);
 	auto & node2 (*system.nodes[1]);
 	nano::block_hash latest (node1.latest (nano::test_genesis_key.pub));
 	nano::keypair key;
 	auto send (std::make_shared<nano::send_block> (latest, key.pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest)));
-	{
-		auto transaction (node1.store.tx_begin_write ());
-		ASSERT_EQ (nano::process_result::progress, node1.block_processor.process_one (transaction, send).code);
-	}
+	node1.process (*send);
 	ASSERT_EQ (nano::genesis_amount - 100, node1.balance (nano::genesis_account));
 	ASSERT_EQ (nano::genesis_amount, node2.balance (nano::genesis_account));
+	// Confirm send block, allowing voting on the upcoming block
+	node1.block_confirm (send);
+	{
+		auto election = node1.active.election (send->qualified_root ());
+		ASSERT_NE (nullptr, election);
+		nano::lock_guard<std::mutex> guard (node1.active.mutex);
+		election->confirm_once ();
+	}
+	ASSERT_TIMELY (2s, node1.block_confirmed (send->hash ()));
+	node1.active.erase (*send);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	system.wallet (0)->insert_adhoc (key.prv);
 	auto latest_block (system.wallet (0)->send_action (nano::test_genesis_key.pub, key.pub, 100));
 	ASSERT_NE (nullptr, latest_block);
 	ASSERT_EQ (nano::genesis_amount - 200, node1.balance (nano::genesis_account));
 	ASSERT_EQ (nano::genesis_amount, node2.balance (nano::genesis_account));
-	system.deadline_set (10s);
-	{
-		// The separate publish and vote system doesn't work very well here because it's instantly confirmed.
-		// We help it get the block and vote out here.
-		auto transaction (node1.store.tx_begin_read ());
-		node1.network.flood_block (latest_block);
-	}
-	while (node2.balance (nano::genesis_account) != nano::genesis_amount - 200)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (10s, node2.balance (nano::genesis_account) == nano::genesis_amount - 200);
 }
 
 TEST (gap_cache, two_dependencies)

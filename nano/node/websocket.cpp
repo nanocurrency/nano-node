@@ -393,6 +393,10 @@ nano::websocket::topic to_topic (std::string const & topic_a)
 	{
 		topic = nano::websocket::topic::telemetry;
 	}
+	else if (topic_a == "new_unconfirmed_block")
+	{
+		topic = nano::websocket::topic::new_unconfirmed_block;
+	}
 
 	return topic;
 }
@@ -432,6 +436,11 @@ std::string from_topic (nano::websocket::topic topic_a)
 	{
 		topic = "telemetry";
 	}
+	else if (topic_a == nano::websocket::topic::new_unconfirmed_block)
+	{
+		topic = "new_unconfirmed_block";
+	}
+
 	return topic;
 }
 }
@@ -797,7 +806,7 @@ nano::websocket::message nano::websocket::message_builder::work_generation (nano
 	request_l.put ("version", nano::to_string (version_a));
 	request_l.put ("hash", root_a.to_string ());
 	request_l.put ("difficulty", nano::to_string_hex (difficulty_a));
-	auto request_multiplier_l (nano::difficulty::to_multiplier (difficulty_a, nano::work_threshold (version_a)));
+	auto request_multiplier_l (nano::difficulty::to_multiplier (difficulty_a, publish_threshold_a));
 	request_l.put ("multiplier", nano::to_string (request_multiplier_l));
 	work_l.add_child ("request", request_l);
 
@@ -808,7 +817,7 @@ nano::websocket::message nano::websocket::message_builder::work_generation (nano
 		result_l.put ("work", nano::to_string_hex (work_a));
 		auto result_difficulty_l (nano::work_difficulty (version_a, root_a, work_a));
 		result_l.put ("difficulty", nano::to_string_hex (result_difficulty_l));
-		auto result_multiplier_l (nano::difficulty::to_multiplier (result_difficulty_l, nano::work_threshold (version_a)));
+		auto result_multiplier_l (nano::difficulty::to_multiplier (result_difficulty_l, publish_threshold_a));
 		result_l.put ("multiplier", nano::to_string (result_multiplier_l));
 		work_l.add_child ("result", result_l);
 	}
@@ -880,6 +889,20 @@ nano::websocket::message nano::websocket::message_builder::telemetry_received (n
 	telemetry_l.put ("port", endpoint_a.port ());
 
 	message_l.contents.add_child ("message", telemetry_l.get_tree ());
+	return message_l;
+}
+
+nano::websocket::message nano::websocket::message_builder::new_block_arrived (nano::block const & block_a)
+{
+	nano::websocket::message message_l (nano::websocket::topic::new_unconfirmed_block);
+	set_common_fields (message_l);
+
+	boost::property_tree::ptree block_l;
+	block_a.serialize_json (block_l);
+	auto subtype (nano::state_subtype (block_a.sideband ().details));
+	block_l.put ("subtype", subtype);
+
+	message_l.contents.add_child ("message", block_l);
 	return message_l;
 }
 

@@ -54,6 +54,11 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 		nano::alarm alarm (io_ctx);
 		try
 		{
+			// This avoid a blank prompt during any node initialization delays
+			auto initialization_text = "Starting up Nano node...";
+			std::cout << initialization_text << std::endl;
+			logger.always_log (initialization_text);
+
 			auto node (std::make_shared<nano::node> (io_ctx, data_path, alarm, config.node, opencl_work, flags));
 			if (!node->init_error ())
 			{
@@ -62,7 +67,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 				          << "Path: " << node->application_path.string () << "\n"
 				          << "Build Info: " << BUILD_INFO << "\n"
 				          << "Database backend: " << node->store.vendor_get () << std::endl;
-				auto voting (node->wallets.rep_counts ().voting);
+				auto voting (node->wallets.reps ().voting);
 				if (voting > 1)
 				{
 					std::cout << "Voting with more than one representative can limit performance: " << voting << " representatives are configured" << std::endl;
@@ -74,7 +79,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 				std::unique_ptr<boost::process::child> nano_pow_server_process;
 #endif
 
-				if (config.pow_server.enable)
+				/*if (config.pow_server.enable)
 				{
 					if (!boost::filesystem::exists (config.pow_server.pow_server_path))
 					{
@@ -88,7 +93,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 					std::cerr << "nano_pow_server is configured to start as a child process, but this is not supported on this system. Disable startup and start the server manually." << std::endl;
 					std::exit (1);
 #endif
-				}
+				}*/
 
 				std::unique_ptr<std::thread> rpc_process_thread;
 				std::unique_ptr<nano::rpc> rpc;

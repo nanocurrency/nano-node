@@ -23,10 +23,6 @@ void nano::tomlconfig::doc (std::string const & key, std::string const & doc)
 	tree->document (key, doc);
 }
 
-/**
-	 * Reads a json object from the stream
-	 * @return nano::error&, including a descriptive error message if the config file is malformed.
-	 */
 nano::error & nano::tomlconfig::read (boost::filesystem::path const & path_a)
 {
 	std::stringstream stream_override_empty;
@@ -40,34 +36,30 @@ nano::error & nano::tomlconfig::read (std::istream & stream_overrides, boost::fi
 	open_or_create (stream, path_a.string ());
 	if (!stream.fail ())
 	{
-		try
-		{
-			read (stream_overrides, stream);
-		}
-		catch (std::runtime_error const & ex)
-		{
-			auto pos (stream.tellg ());
-			if (pos != std::streampos (0))
-			{
-				*error = ex;
-			}
-		}
-		stream.close ();
+		read (stream_overrides, stream);
 	}
 	return *error;
 }
 
-/** Read from two streams where keys in the first will take precedence over those in the second stream. */
-void nano::tomlconfig::read (std::istream & stream_first_a, std::istream & stream_second_a)
-{
-	tree = cpptoml::parse_base_and_override_files (stream_first_a, stream_second_a, cpptoml::parser::merge_type::ignore, true);
-}
-
-void nano::tomlconfig::read (std::istream & stream_a)
+nano::error & nano::tomlconfig::read (std::istream & stream_a)
 {
 	std::stringstream stream_override_empty;
 	stream_override_empty << std::endl;
-	tree = cpptoml::parse_base_and_override_files (stream_override_empty, stream_a, cpptoml::parser::merge_type::ignore, true);
+	return read (stream_override_empty, stream_a);
+}
+
+/** Read from two streams where keys in the first will take precedence over those in the second stream. */
+nano::error & nano::tomlconfig::read (std::istream & stream_first_a, std::istream & stream_second_a)
+{
+	try
+	{
+		tree = cpptoml::parse_base_and_override_files (stream_first_a, stream_second_a, cpptoml::parser::merge_type::ignore, true);
+	}
+	catch (std::runtime_error const & ex)
+	{
+		*error = ex;
+	}
+	return *error;
 }
 
 void nano::tomlconfig::write (boost::filesystem::path const & path_a)

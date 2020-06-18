@@ -3,16 +3,22 @@
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/websocket.hpp>
 #include <nano/secure/blockstore.hpp>
 
 #include <boost/format.hpp>
 
 std::chrono::milliseconds constexpr nano::block_processor::confirmation_request_delay;
 
+nano::block_post_events::~block_post_events ()
+{
+	for (auto const & i : events)
+	{
+		i ();
+	}
+}
+
 nano::block_processor::block_processor (nano::node & node_a, nano::write_database_queue & write_database_queue_a) :
-generator (node_a.config, node_a.store, node_a.wallets, node_a.vote_processor, node_a.votes_cache, node_a.network),
-stopped (false),
-active (false),
 next_log (std::chrono::steady_clock::now ()),
 node (node_a),
 write_database_queue (write_database_queue_a),
@@ -40,7 +46,6 @@ nano::block_processor::~block_processor ()
 
 void nano::block_processor::stop ()
 {
-	generator.stop ();
 	{
 		nano::lock_guard<std::mutex> lock (mutex);
 		stopped = true;
@@ -83,12 +88,24 @@ void nano::block_processor::add (std::shared_ptr<nano::block> block_a, uint64_t 
 	add (info);
 }
 
-void nano::block_processor::add (nano::unchecked_info const & info_a)
+void nano::block_processor::add (nano::unchecked_info const & info_a, const bool push_front_preference_a)
 {
-	debug_assert (!nano::work_validate (*info_a.block));
+	debug_assert (!nano::work_validate_entry (*info_a.block));
+	bool quarter_full (size () > node.flags.block_processor_full_size / 4);
 	if (info_a.verified == nano::signature_verification::unknown && (info_a.block->type () == nano::block_type::state || info_a.block->type () == nano::block_type::open || !info_a.account.is_zero ()))
 	{
 		state_block_signature_verification.add (info_a);
+	}
+	else if (push_front_preference_a && !quarter_full)
+	{
+		/* Push blocks from unchecked to front of processing deque to keep more operations with unchecked inside of single write transaction.
+		It's designed to help with realtime blocks traffic if block processor is not performing large task like bootstrap.
+		If deque is a quarter full then push back to allow other blocks processing. */
+		{
+			nano::lock_guard<std::mutex> guard (mutex);
+			blocks.push_front (info_a);
+		}
+		condition.notify_all ();
 	}
 	else
 	{
@@ -196,6 +213,7 @@ void nano::block_processor::process_verified_state_blocks (std::deque<nano::unch
 void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_a)
 {
 	auto scoped_write_guard = write_database_queue.wait (nano::writer::process_batch);
+	block_post_events post_events;
 	auto transaction (node.store.tx_begin_write ({ tables::accounts, nano::tables::cached_counts, nano::tables::change_blocks, tables::frontiers, tables::open_blocks, tables::pending, tables::receive_blocks, tables::representation, tables::send_blocks, tables::state_blocks, tables::unchecked }, { tables::confirmation_height }));
 	nano::timer<std::chrono::milliseconds> timer_l;
 	lock_a.lock ();
@@ -246,7 +264,7 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 				for (auto & i : rollback_list)
 				{
 					node.votes_cache.remove (i->hash ());
-					node.wallets.watcher->remove (i);
+					node.wallets.watcher->remove (*i);
 					// Stop all rolled back active transactions except initial
 					if (i->hash () != successor->hash ())
 					{
@@ -256,7 +274,7 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 			}
 		}
 		number_of_blocks_processed++;
-		process_one (transaction, info);
+		process_one (transaction, post_events, info);
 		lock_a.lock ();
 	}
 	awaiting_write = false;
@@ -268,7 +286,7 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 	}
 }
 
-void nano::block_processor::process_live (nano::block_hash const & hash_a, std::shared_ptr<nano::block> block_a, const bool watch_work_a, const bool initial_publish_a)
+void nano::block_processor::process_live (nano::block_hash const & hash_a, std::shared_ptr<nano::block> block_a, nano::process_return const & process_return_a, const bool watch_work_a, nano::block_origin const origin_a)
 {
 	// Add to work watcher to prevent dropping the election
 	if (watch_work_a)
@@ -277,14 +295,21 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	}
 
 	// Start collecting quorum on block
-	auto election = node.active.insert (block_a);
-	if (election.inserted)
+	if (watch_work_a || node.ledger.can_vote (node.store.tx_begin_read (), *block_a))
 	{
-		election.election->transition_passive ();
+		auto election = node.active.insert (block_a, process_return_a.previous_balance.number ());
+		if (election.inserted)
+		{
+			election.election->transition_passive ();
+		}
+		else if (election.election)
+		{
+			election.election->try_generate_votes (block_a->hash ());
+		}
 	}
 
 	// Announce block contents to the network
-	if (initial_publish_a)
+	if (origin_a == nano::block_origin::local)
 	{
 		node.network.flood_block_initial (block_a);
 	}
@@ -292,14 +317,14 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	{
 		node.network.flood_block (block_a, nano::buffer_drop_policy::no_limiter_drop);
 	}
-	if (election.prioritized && node.config.enable_voting && node.wallets.rep_counts ().voting > 0)
+
+	if (node.websocket_server && node.websocket_server->any_subscriber (nano::websocket::topic::new_unconfirmed_block))
 	{
-		// Announce our weighted vote to the network
-		generator.add (hash_a);
+		node.websocket_server->broadcast (nano::websocket::message_builder ().new_block_arrived (*block_a));
 	}
 }
 
-nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, nano::unchecked_info info_a, const bool watch_work_a, const bool first_publish_a)
+nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, block_post_events & events_a, nano::unchecked_info info_a, const bool watch_work_a, nano::block_origin const origin_a)
 {
 	nano::process_return result;
 	auto hash (info_a.block->hash ());
@@ -317,7 +342,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			}
 			if (info_a.modified > nano::seconds_since_epoch () - 300 && node.block_arrival.recent (hash))
 			{
-				process_live (hash, info_a.block, watch_work_a, first_publish_a);
+				events_a.events.emplace_back ([this, hash, block = info_a.block, result, watch_work_a, origin_a]() { process_live (hash, block, result, watch_work_a, origin_a); });
 			}
 			queue_unchecked (transaction_a, hash);
 			break;
@@ -376,8 +401,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			{
 				node.logger.try_log (boost::str (boost::format ("Old for: %1%") % hash.to_string ()));
 			}
-			queue_unchecked (transaction_a, hash);
-			node.active.update_difficulty (info_a.block);
+			process_old (transaction_a, info_a.block, origin_a);
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::old);
 			break;
 		}
@@ -449,7 +473,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 		{
 			if (node.config.logging.ledger_logging ())
 			{
-				node.logger.try_log (boost::str (boost::format ("Insufficient work for %1% : %2 (difficulty %3)") % hash.to_string () % info_a.block->block_work () % info_a.block->difficulty ()));
+				node.logger.try_log (boost::str (boost::format ("Insufficient work for %1% : %2% (difficulty %3%)") % hash.to_string () % nano::to_string_hex (info_a.block->block_work ()) % nano::to_string_hex (info_a.block->difficulty ())));
 			}
 			break;
 		}
@@ -457,11 +481,24 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 	return result;
 }
 
-nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, std::shared_ptr<nano::block> block_a, const bool watch_work_a)
+nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, block_post_events & events_a, std::shared_ptr<nano::block> block_a, const bool watch_work_a)
 {
 	nano::unchecked_info info (block_a, block_a->account (), 0, nano::signature_verification::unknown);
-	auto result (process_one (transaction_a, info, watch_work_a));
+	auto result (process_one (transaction_a, events_a, info, watch_work_a));
 	return result;
+}
+
+void nano::block_processor::process_old (nano::write_transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a, nano::block_origin const origin_a)
+{
+	// First try to update election difficulty, then attempt to restart an election
+	if (!node.active.update_difficulty (*block_a) || !node.active.restart (block_a, transaction_a))
+	{
+		// Let others know about the difficulty update
+		if (origin_a == nano::block_origin::local)
+		{
+			node.network.flood_block_initial (block_a);
+		}
+	}
 }
 
 void nano::block_processor::queue_unchecked (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a)
@@ -475,7 +512,7 @@ void nano::block_processor::queue_unchecked (nano::write_transaction const & tra
 			debug_assert (node.ledger.cache.unchecked_count > 0);
 			--node.ledger.cache.unchecked_count;
 		}
-		add (info);
+		add (info, true);
 	}
 	node.gap_cache.erase (hash_a);
 }
@@ -501,6 +538,5 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (bl
 	composite->add_component (collect_container_info (block_processor.state_block_signature_verification, "state_block_signature_verification"));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "blocks", blocks_count, sizeof (decltype (block_processor.blocks)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "forced", forced_count, sizeof (decltype (block_processor.forced)::value_type) }));
-	composite->add_component (collect_container_info (block_processor.generator, "generator"));
 	return composite;
 }

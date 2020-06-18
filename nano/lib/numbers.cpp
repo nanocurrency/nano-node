@@ -749,7 +749,7 @@ std::string format_balance (nano::uint128_t balance, nano::uint128_t scale, int 
 	return stream.str ();
 }
 
-std::string nano::uint128_union::format_balance (nano::uint128_t scale, int precision, bool group_digits)
+std::string nano::uint128_union::format_balance (nano::uint128_t scale, int precision, bool group_digits) const
 {
 	auto thousands_sep = std::use_facet<std::numpunct<char>> (std::locale ()).thousands_sep ();
 	auto decimal_point = std::use_facet<std::numpunct<char>> (std::locale ()).decimal_point ();
@@ -757,7 +757,7 @@ std::string nano::uint128_union::format_balance (nano::uint128_t scale, int prec
 	return ::format_balance (number (), scale, precision, group_digits, thousands_sep, decimal_point, grouping);
 }
 
-std::string nano::uint128_union::format_balance (nano::uint128_t scale, int precision, bool group_digits, const std::locale & locale)
+std::string nano::uint128_union::format_balance (nano::uint128_t scale, int precision, bool group_digits, const std::locale & locale) const
 {
 	auto thousands_sep = std::use_facet<std::moneypunct<char>> (locale).thousands_sep ();
 	auto decimal_point = std::use_facet<std::moneypunct<char>> (locale).decimal_point ();

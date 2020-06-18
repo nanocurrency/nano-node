@@ -19,7 +19,7 @@
 
 namespace nano
 {
-class block_store;
+class ledger;
 class network;
 class node_config;
 class vote_processor;
@@ -29,15 +29,15 @@ class wallets;
 class vote_generator final
 {
 public:
-	vote_generator (nano::node_config & config_a, nano::block_store & store_a, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::votes_cache & votes_cache_a, nano::network & network_a);
+	vote_generator (nano::node_config const & config_a, nano::ledger &, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::votes_cache & votes_cache_a, nano::network & network_a);
 	void add (nano::block_hash const &);
 	void stop ();
 
 private:
 	void run ();
 	void send (nano::unique_lock<std::mutex> &);
-	nano::node_config & config;
-	nano::block_store & store;
+	nano::node_config const & config;
+	nano::ledger & ledger;
 	nano::wallets & wallets;
 	nano::vote_processor & vote_processor;
 	nano::votes_cache & votes_cache;
@@ -51,6 +51,18 @@ private:
 	std::thread thread;
 
 	friend std::unique_ptr<container_info_component> collect_container_info (vote_generator & vote_generator, const std::string & name);
+};
+
+class vote_generator_session final
+{
+public:
+	vote_generator_session (vote_generator & vote_generator_a);
+	void add (nano::block_hash const &);
+	void flush ();
+
+private:
+	nano::vote_generator & generator;
+	std::vector<nano::block_hash> hashes;
 };
 
 std::unique_ptr<container_info_component> collect_container_info (vote_generator & vote_generator, const std::string & name);
