@@ -1731,7 +1731,7 @@ TEST (node, fork_no_vote_quorum)
 	}
 	nano::transport::channel_udp channel (node2.network.udp_channels, node3.network.endpoint (), node1.network_params.protocol.protocol_version);
 	channel.send_buffer (nano::shared_const_buffer (std::move (buffer)), nano::stat::detail::confirm_ack);
-	ASSERT_TIMELY (10s, node3.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::in) == 3);
+	ASSERT_TIMELY (10s, node3.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::in) >= 3);
 	ASSERT_TRUE (node1.latest (nano::test_genesis_key.pub) == send1.hash ());
 	ASSERT_TRUE (node2.latest (nano::test_genesis_key.pub) == send1.hash ());
 	ASSERT_TRUE (node3.latest (nano::test_genesis_key.pub) == send1.hash ());
