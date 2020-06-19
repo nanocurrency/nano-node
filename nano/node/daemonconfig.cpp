@@ -97,8 +97,6 @@ nano::error nano::daemon_config::deserialize_json (bool & upgraded_a, nano::json
 	{
 		if (!json.empty ())
 		{
-			int version_l;
-			json.get_optional<int> ("version", version_l);
 			json.get_optional<bool> ("rpc_enable", rpc_enable);
 
 			auto rpc_l (json.get_required_child ("rpc"));
