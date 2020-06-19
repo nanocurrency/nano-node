@@ -157,12 +157,6 @@ bool nano::wallet_store::attempt_password (nano::transaction const & transaction
 	{
 		switch (version (transaction_a))
 		{
-			case version_1:
-				upgrade_v1_v2 (transaction_a);
-			case version_2:
-				upgrade_v2_v3 (transaction_a);
-			case version_3:
-				upgrade_v3_v4 (transaction_a);
 			case version_4:
 				break;
 			default:
@@ -649,102 +643,6 @@ void nano::wallet_store::version_put (nano::transaction const & transaction_a, u
 {
 	nano::uint256_union entry (version_a);
 	entry_put_raw (transaction_a, nano::wallet_store::version_special, nano::wallet_value (entry, 0));
-}
-
-void nano::wallet_store::upgrade_v1_v2 (nano::transaction const & transaction_a)
-{
-	debug_assert (version (transaction_a) == 1);
-	nano::raw_key zero_password;
-	nano::wallet_value value (entry_get_raw (transaction_a, nano::wallet_store::wallet_key_special));
-	nano::raw_key kdf;
-	kdf.data.clear ();
-	zero_password.decrypt (value.key, kdf, salt (transaction_a).owords[0]);
-	derive_key (kdf, transaction_a, "");
-	nano::raw_key empty_password;
-	empty_password.decrypt (value.key, kdf, salt (transaction_a).owords[0]);
-	for (auto i (begin (transaction_a)), n (end ()); i != n; ++i)
-	{
-		nano::public_key const & key (i->first);
-		nano::raw_key prv;
-		if (fetch (transaction_a, key, prv))
-		{
-			// Key failed to decrypt despite valid password
-			nano::wallet_value data (entry_get_raw (transaction_a, key));
-			prv.decrypt (data.key, zero_password, salt (transaction_a).owords[0]);
-			nano::public_key compare (nano::pub_key (prv.as_private_key ()));
-			if (compare == key)
-			{
-				// If we successfully decrypted it, rewrite the key back with the correct wallet key
-				insert_adhoc (transaction_a, prv);
-			}
-			else
-			{
-				// Also try the empty password
-				nano::wallet_value data (entry_get_raw (transaction_a, key));
-				prv.decrypt (data.key, empty_password, salt (transaction_a).owords[0]);
-				nano::public_key compare (nano::pub_key (prv.as_private_key ()));
-				if (compare == key)
-				{
-					// If we successfully decrypted it, rewrite the key back with the correct wallet key
-					insert_adhoc (transaction_a, prv);
-				}
-			}
-		}
-	}
-	version_put (transaction_a, 2);
-}
-
-void nano::wallet_store::upgrade_v2_v3 (nano::transaction const & transaction_a)
-{
-	debug_assert (version (transaction_a) == 2);
-	nano::raw_key seed;
-	random_pool::generate_block (seed.data.bytes.data (), seed.data.bytes.size ());
-	seed_set (transaction_a, seed);
-	entry_put_raw (transaction_a, nano::wallet_store::deterministic_index_special, nano::wallet_value (nano::uint256_union (0), 0));
-	version_put (transaction_a, 3);
-}
-
-void nano::wallet_store::upgrade_v3_v4 (nano::transaction const & transaction_a)
-{
-	debug_assert (version (transaction_a) == 3);
-	version_put (transaction_a, 4);
-	debug_assert (valid_password (transaction_a));
-	nano::raw_key seed;
-	nano::wallet_value value (entry_get_raw (transaction_a, nano::wallet_store::seed_special));
-	nano::raw_key password_l;
-	wallet_key (password_l, transaction_a);
-	seed.decrypt (value.key, password_l, salt (transaction_a).owords[0]);
-	nano::uint256_union ciphertext;
-	ciphertext.encrypt (seed, password_l, salt (transaction_a).owords[seed_iv_index]);
-	entry_put_raw (transaction_a, nano::wallet_store::seed_special, nano::wallet_value (ciphertext, 0));
-	for (auto i (begin (transaction_a)), n (end ()); i != n; ++i)
-	{
-		nano::wallet_value value (i->second);
-		if (!value.key.is_zero ())
-		{
-			switch (key_type (i->second))
-			{
-				case nano::key_type::adhoc:
-				{
-					nano::raw_key key;
-					if (fetch (transaction_a, nano::public_key (i->first), key))
-					{
-						// Key failed to decrypt despite valid password
-						key.decrypt (value.key, password_l, salt (transaction_a).owords[0]);
-						nano::uint256_union new_key_ciphertext;
-						new_key_ciphertext.encrypt (key, password_l, (nano::uint256_union (i->first)).owords[0].number ());
-						nano::wallet_value new_value (new_key_ciphertext, value.work);
-						erase (transaction_a, nano::public_key (i->first));
-						entry_put_raw (transaction_a, nano::public_key (i->first), new_value);
-					}
-				}
-				case nano::key_type::deterministic:
-					break;
-				default:
-					debug_assert (false);
-			}
-		}
-	}
 }
 
 void nano::kdf::phs (nano::raw_key & result_a, std::string const & password_a, nano::uint256_union const & salt_a)

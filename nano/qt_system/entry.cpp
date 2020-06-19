@@ -8,10 +8,9 @@
 #include <boost/format.hpp>
 
 #include <thread>
-
 int main (int argc, char ** argv)
 {
-	nano::network_constants::set_active_network (nano::nano_networks::nano_test_network);
+	nano::force_nano_test_network ();
 	nano::node_singleton_memory_pool_purge_guard memory_pool_cleanup_guard;
 	QApplication application (argc, argv);
 	QCoreApplication::setOrganizationName ("Nano");
