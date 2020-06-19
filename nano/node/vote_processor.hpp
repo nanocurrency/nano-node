@@ -22,6 +22,7 @@ class logger_mt;
 class online_reps;
 class ledger;
 class network_params;
+class node_flags;
 
 class transaction;
 namespace transport

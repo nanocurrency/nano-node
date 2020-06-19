@@ -1,8 +1,8 @@
-#include <nano/core_test/testutil.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/node/transport/udp.hpp>
+#include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -3681,7 +3681,7 @@ TEST (node, dont_write_lock_node)
 	write_lock_held_promise.get_future ().wait ();
 
 	// Check inactive node can finish executing while a write lock is open
-	nano::inactive_node node (path);
+	nano::inactive_node node (path, nano::inactive_node_flag_defaults ());
 	finished_promise.set_value ();
 }
 

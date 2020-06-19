@@ -1,4 +1,3 @@
-#include <nano/core_test/testutil.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/lmdbconfig.hpp>
 #include <nano/lib/stats.hpp>
@@ -8,6 +7,7 @@
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/utility.hpp>
 #include <nano/secure/versioning.hpp>
+#include <nano/test_common/testutil.hpp>
 
 #include <boost/filesystem.hpp>
 

@@ -1,8 +1,8 @@
-#include <nano/core_test/testutil.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/logger_mt.hpp>
 #include <nano/node/logging.hpp>
 #include <nano/secure/utility.hpp>
+#include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
