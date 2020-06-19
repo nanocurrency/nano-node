@@ -573,7 +573,7 @@ TEST (system, DISABLED_generate_send_existing)
 	runner.join ();
 }
 
-TEST (system, generate_send_new)
+TEST (system, DISABLED_generate_send_new)
 {
 	nano::system system (1);
 	auto & node1 (*system.nodes[0]);
