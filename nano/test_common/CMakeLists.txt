@@ -1,4 +1,6 @@
 add_library (test_common
+		telemetry.hpp
+		telemetry.cpp
 		testutil.hpp
 		testutil.cpp)
 

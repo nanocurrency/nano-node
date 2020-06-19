@@ -8,6 +8,7 @@
 #include <nano/node/testing.hpp>
 #include <nano/rpc/rpc.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
+#include <nano/test_common/telemetry.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
