@@ -5961,7 +5961,7 @@ TEST (rpc, online_reps)
 	scoped_thread_name_io.renew ();
 	ASSERT_NE (nullptr, change);
 	ASSERT_TIMELY (5s, node2->block (change->hash ()));
-	ASSERT_TIMELY (5s, node2->online_reps.list ().size () != 2);
+	ASSERT_TIMELY (5s, node2->online_reps.list ().size () == 2);
 	boost::property_tree::ptree child_rep;
 	child_rep.put ("", new_rep.to_account ());
 	boost::property_tree::ptree filtered_accounts;
