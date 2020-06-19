@@ -53,11 +53,7 @@ TEST (ipc, asynchronous)
 			});
 		});
 	});
-	system.deadline_set (5s);
-	while (!call_completed)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, call_completed);
 	ipc.stop ();
 }
 
@@ -86,11 +82,7 @@ TEST (ipc, synchronous)
 	});
 	client_thread.detach ();
 
-	system.deadline_set (5s);
-	while (!call_completed)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, call_completed);
 	ipc.stop ();
 }
 

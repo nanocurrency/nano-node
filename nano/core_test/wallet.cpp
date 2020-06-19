@@ -198,12 +198,8 @@ TEST (wallet, send_async)
 	nano::system system (1);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::keypair key2;
-	boost::thread thread ([&system]() {
-		system.deadline_set (10s);
-		while (!system.nodes[0]->balance (nano::test_genesis_key.pub).is_zero ())
-		{
-			ASSERT_NO_ERROR (system.poll ());
-		}
+	std::thread thread ([&system]() {
+		ASSERT_TIMELY (10s, system.nodes[0]->balance (nano::test_genesis_key.pub).is_zero ());
 	});
 	std::atomic<bool> success (false);
 	system.wallet (0)->send_async (nano::test_genesis_key.pub, key2.pub, std::numeric_limits<nano::uint128_t>::max (), [&success](std::shared_ptr<nano::block> block_a) { ASSERT_NE (nullptr, block_a); success = true; });
@@ -670,12 +666,8 @@ TEST (wallet, work_generate)
 	}
 	nano::keypair key;
 	auto block (wallet->send_action (nano::test_genesis_key.pub, key.pub, 100));
-	system.deadline_set (10s);
 	auto transaction (node1.store.tx_begin_read ());
-	while (node1.ledger.account_balance (transaction, nano::test_genesis_key.pub) == amount1)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (10s, node1.ledger.account_balance (transaction, nano::test_genesis_key.pub) != amount1);
 	system.deadline_set (10s);
 	auto again (true);
 	while (again)
@@ -1219,11 +1211,7 @@ TEST (work_watcher, propagate)
 	auto & node_passive = *system.add_node (node_config);
 	nano::keypair key;
 	auto const block (wallet.send_action (nano::test_genesis_key.pub, key.pub, 100));
-	system.deadline_set (5s);
-	while (!node_passive.ledger.block_exists (block->hash ()))
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, node_passive.ledger.block_exists (block->hash ()));
 	auto const multiplier (nano::normalized_multiplier (nano::difficulty::to_multiplier (block->difficulty (), nano::work_threshold (block->work_version (), nano::block_details (nano::epoch::epoch_0, false, false, false))), node.network_params.network.publish_thresholds.epoch_1));
 	auto updated_multiplier{ multiplier };
 	auto propagated_multiplier{ multiplier };
@@ -1270,11 +1258,7 @@ TEST (work_watcher, removed_after_win)
 	ASSERT_EQ (0, wallet.wallets.watcher->size ());
 	auto const block1 (wallet.send_action (nano::test_genesis_key.pub, key.pub, 100));
 	ASSERT_EQ (1, wallet.wallets.watcher->size ());
-	system.deadline_set (5s);
-	while (node.wallets.watcher->is_watched (block1->qualified_root ()))
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, !node.wallets.watcher->is_watched (block1->qualified_root ()));
 	ASSERT_EQ (0, node.wallets.watcher->size ());
 }
 
@@ -1297,11 +1281,7 @@ TEST (work_watcher, removed_after_lose)
 	auto vote (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, fork1));
 	nano::confirm_ack message (vote);
 	node.network.process_message (message, nullptr);
-	system.deadline_set (5s);
-	while (node.wallets.watcher->is_watched (block1->qualified_root ()))
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, !node.wallets.watcher->is_watched (block1->qualified_root ()));
 	ASSERT_EQ (0, node.wallets.watcher->size ());
 }
 
@@ -1367,11 +1347,7 @@ TEST (work_watcher, cancel)
 		node.active.update_active_multiplier (lock);
 	}
 	// Wait for work generation to start
-	system.deadline_set (5s);
-	while (0 == node.work.size ())
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, 0 != node.work.size ());
 	// Cancel the ongoing work
 	ASSERT_EQ (1, node.work.size ());
 	node.work.cancel (block1->root ());

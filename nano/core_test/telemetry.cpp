@@ -233,11 +233,7 @@ TEST (telemetry, basic)
 			done = true;
 		});
 
-		system.deadline_set (10s);
-		while (!done)
-		{
-			ASSERT_NO_ERROR (system.poll ());
-		}
+		ASSERT_TIMELY (10s, done);
 	}
 
 	// Check the metrics are correct
@@ -252,11 +248,7 @@ TEST (telemetry, basic)
 			done = true;
 		});
 
-		system.deadline_set (10s);
-		while (!done)
-		{
-			ASSERT_NO_ERROR (system.poll ());
-		}
+		ASSERT_TIMELY (10s, done);
 	}
 
 	// Wait the cache period and check cache is not used
@@ -269,11 +261,7 @@ TEST (telemetry, basic)
 		done = true;
 	});
 
-	system.deadline_set (10s);
-	while (!done)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (10s, done);
 }
 
 TEST (telemetry, receive_from_non_listening_channel)
@@ -305,11 +293,7 @@ TEST (telemetry, over_udp)
 		done = true;
 	});
 
-	system.deadline_set (10s);
-	while (!done)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (10s, done);
 
 	// Check channels are indeed udp
 	ASSERT_EQ (1, node_client->network.size ());
@@ -335,11 +319,7 @@ TEST (telemetry, invalid_channel)
 		done = true;
 	});
 
-	system.deadline_set (10s);
-	while (!done)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (10s, done);
 }
 
 TEST (telemetry, blocking_request)
@@ -401,11 +381,7 @@ TEST (telemetry, disconnects)
 		done = true;
 	});
 
-	system.deadline_set (10s);
-	while (!done)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (10s, done);
 }
 
 TEST (telemetry, dos_tcp)
@@ -426,11 +402,7 @@ TEST (telemetry, dos_tcp)
 		ASSERT_FALSE (ec);
 	});
 
-	system.deadline_set (10s);
-	while (1 != node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in))
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (10s, 1 == node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in));
 
 	auto orig = std::chrono::steady_clock::now ();
 	for (int i = 0; i < 10; ++i)
@@ -440,11 +412,7 @@ TEST (telemetry, dos_tcp)
 		});
 	}
 
-	system.deadline_set (10s);
-	while ((nano::telemetry_cache_cutoffs::test + orig) > std::chrono::steady_clock::now ())
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (10s, (nano::telemetry_cache_cutoffs::test + orig) <= std::chrono::steady_clock::now ());
 
 	// Should process no more telemetry_req messages
 	ASSERT_EQ (1, node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in));
@@ -477,11 +445,7 @@ TEST (telemetry, dos_udp)
 		ASSERT_FALSE (ec);
 	});
 
-	system.deadline_set (20s);
-	while (1 != node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in))
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (20s, 1 == node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in));
 
 	auto orig = std::chrono::steady_clock::now ();
 	for (int i = 0; i < 10; ++i)
@@ -491,11 +455,7 @@ TEST (telemetry, dos_udp)
 		});
 	}
 
-	system.deadline_set (20s);
-	while ((nano::telemetry_cache_cutoffs::test + orig) > std::chrono::steady_clock::now ())
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (20s, (nano::telemetry_cache_cutoffs::test + orig) <= std::chrono::steady_clock::now ());
 
 	// Should process no more telemetry_req messages
 	ASSERT_EQ (1, node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in));
@@ -530,11 +490,7 @@ TEST (telemetry, disable_metrics)
 		done = true;
 	});
 
-	system.deadline_set (10s);
-	while (!done)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (10s, done);
 
 	// It should still be able to receive metrics though
 	done = false;
@@ -545,11 +501,7 @@ TEST (telemetry, disable_metrics)
 		done = true;
 	});
 
-	system.deadline_set (10s);
-	while (!done)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (10s, done);
 }
 
 namespace nano
