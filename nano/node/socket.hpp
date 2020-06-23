@@ -102,6 +102,7 @@ protected:
 	void start_timer ();
 	void stop_timer ();
 	void checkup ();
+	void flush_send_queue_callbacks ();
 };
 
 /** Socket class for TCP servers */
