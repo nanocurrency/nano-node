@@ -114,6 +114,7 @@ public:
 	std::unordered_set<nano::block_hash> dependent_blocks;
 	std::chrono::seconds late_blocks_delay{ 5 };
 	uint64_t const height;
+	nano::root const root;
 
 	friend class active_transactions;
 
