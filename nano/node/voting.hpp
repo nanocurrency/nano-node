@@ -75,7 +75,7 @@ std::unique_ptr<container_info_component> collect_container_info (local_vote_his
 class vote_generator final
 {
 public:
-	nano::vote_generator::vote_generator (nano::node_config const & config_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::local_vote_history & history_a, nano::network & network_a);
+	vote_generator (nano::node_config const & config_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::local_vote_history & history_a, nano::network & network_a);
 	void add (nano::root const &, nano::block_hash const &);
 	void stop ();
 

@@ -248,8 +248,8 @@ void nano::request_aggregator::generate (nano::transaction const & transaction_a
 	{
 		std::vector<nano::block_hash> hashes_l;
 		std::vector<nano::root> roots;
-		hashes_l.reserve (std::min (hashes_a.size (), nano::network::confirm_ack_hashes_max));
-		roots.reserve (hashes_l.capacity ());
+		hashes_l.reserve (nano::network::confirm_ack_hashes_max);
+		roots.reserve (nano::network::confirm_ack_hashes_max);
 		for (; i != n && hashes_l.size () < nano::network::confirm_ack_hashes_max; ++i)
 		{
 			roots.push_back (i->first);
