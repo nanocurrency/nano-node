@@ -72,7 +72,7 @@ void nano::socket::async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a, s
 	}
 }
 
-void nano::socket::async_write (nano::shared_const_buffer const & buffer_a, std::function<void(boost::system::error_code const &, size_t)> callback_a, nano::buffer_drop_policy drop_policy_a)
+void nano::socket::async_write (nano::shared_const_buffer const & buffer_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a, nano::buffer_drop_policy drop_policy_a)
 {
 	auto this_l (shared_from_this ());
 	if (!closed)
@@ -183,12 +183,9 @@ void nano::socket::write_queued_messages ()
 							this_l->start_timer (node->network_params.node.idle_timeout);
 						}
 					}
-					else
+					else if (msg.callback)
 					{
-						if (msg.callback)
-						{
-							msg.callback (ec, size_a);
-						}
+						msg.callback (ec, size_a);
 					}
 				}
 			}
@@ -280,7 +277,7 @@ void nano::socket::flush_send_queue_callbacks ()
 		{
 			if (auto node_l = node.lock ())
 			{
-				node_l->background ([callback = item.callback]() {
+				node_l->background ([callback = std::move (item.callback)]() {
 					callback (boost::system::errc::make_error_code (boost::system::errc::not_supported), 0);
 				});
 			}
