@@ -13,6 +13,91 @@
 
 #include <chrono>
 
+void nano::local_vote_history::add (nano::root const & root_a, nano::block_hash const & hash_a, std::shared_ptr<nano::vote> const & vote_a)
+{
+	nano::lock_guard<std::mutex> guard (mutex);
+	clean ();
+	auto & history_by_root (history.get<tag_root> ());
+	// Erase any vote that is not for this hash
+	auto range (history_by_root.equal_range (root_a));
+	for (auto i (range.first); i != range.second;)
+	{
+		if (i->hash != hash_a)
+		{
+			i = history_by_root.erase (i);
+		}
+		else
+		{
+			++i;
+		}
+	}
+	auto result (history_by_root.emplace (root_a, hash_a, vote_a));
+	debug_assert (result.second);
+	debug_assert (std::all_of (history_by_root.equal_range (root_a).first, history_by_root.equal_range (root_a).second, [&hash_a](local_vote const & item_a) -> bool { return item_a.vote != nullptr && item_a.hash == hash_a; }));
+}
+
+void nano::local_vote_history::erase (nano::root const & root_a)
+{
+	nano::lock_guard<std::mutex> guard (mutex);
+	auto & history_by_root (history.get<tag_root> ());
+	auto range (history_by_root.equal_range (root_a));
+	history_by_root.erase (range.first, range.second);
+}
+
+std::vector<std::shared_ptr<nano::vote>> nano::local_vote_history::votes (nano::root const & root_a) const
+{
+	nano::lock_guard<std::mutex> guard (mutex);
+	std::vector<std::shared_ptr<nano::vote>> result;
+	auto range (history.get<tag_root> ().equal_range (root_a));
+	std::transform (range.first, range.second, std::back_inserter (result), [](auto const & entry) { return entry.vote; });
+	return result;
+}
+
+std::vector<std::shared_ptr<nano::vote>> nano::local_vote_history::votes (nano::root const & root_a, nano::block_hash const & hash_a) const
+{
+	nano::lock_guard<std::mutex> guard (mutex);
+	std::vector<std::shared_ptr<nano::vote>> result;
+	auto range (history.get<tag_root> ().equal_range (root_a));
+	// clang-format off
+	nano::transform_if (range.first, range.second, std::back_inserter (result),
+		[&hash_a](auto const & entry) { return entry.hash == hash_a; },
+		[](auto const & entry) { return entry.vote; });
+	// clang-format on
+	return result;
+}
+
+bool nano::local_vote_history::exists (nano::root const & root_a) const
+{
+	nano::lock_guard<std::mutex> guard (mutex);
+	return history.get<tag_root> ().find (root_a) != history.get<tag_root> ().end ();
+}
+
+void nano::local_vote_history::clean ()
+{
+	debug_assert (max_size > 0);
+	auto & history_by_sequence (history.get<tag_sequence> ());
+	while (history_by_sequence.size () > max_size)
+	{
+		history_by_sequence.erase (history_by_sequence.begin ());
+	}
+}
+
+size_t nano::local_vote_history::size () const
+{
+	nano::lock_guard<std::mutex> guard (mutex);
+	return history.size ();
+}
+
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::local_vote_history & history, const std::string & name)
+{
+	size_t history_count = history.size ();
+	auto sizeof_element = sizeof (decltype (history.history)::value_type);
+	auto composite = std::make_unique<container_info_composite> (name);
+	/* This does not currently loop over each element inside the cache to get the sizes of the votes inside cached_votes */
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "history", history_count, sizeof_element }));
+	return composite;
+}
+
 nano::vote_generator::vote_generator (nano::node_config const & config_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::votes_cache & votes_cache_a, nano::network & network_a) :
 config (config_a),
 ledger (ledger_a),
