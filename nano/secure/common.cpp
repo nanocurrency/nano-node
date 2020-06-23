@@ -144,7 +144,7 @@ nano::node_constants::node_constants (nano::network_constants & network_constant
 
 nano::voting_constants::voting_constants (nano::network_constants & network_constants)
 {
-	max_cache = network_constants.is_test_network () ? 2 : 64 * 1024;
+	max_cache = network_constants.is_test_network () ? 256 : 128 * 1024;
 }
 
 nano::portmapping_constants::portmapping_constants (nano::network_constants & network_constants)

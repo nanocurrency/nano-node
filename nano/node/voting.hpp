@@ -50,8 +50,6 @@ public:
 	bool exists (nano::root const &) const;
 	size_t size () const;
 
-	constexpr static size_t max_size{ 100'000 };
-
 private:
 	// clang-format off
 	boost::multi_index_container<local_vote,
@@ -62,6 +60,7 @@ private:
 	history;
 	// clang-format on
 
+	size_t const max_size{ nano::network_params{}.voting.max_cache };
 	void clean ();
 	std::vector<std::shared_ptr<nano::vote>> votes (nano::root const & root_a) const;
 	mutable std::mutex mutex;
