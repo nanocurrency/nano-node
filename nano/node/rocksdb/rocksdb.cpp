@@ -159,20 +159,10 @@ rocksdb::ColumnFamilyHandle * nano::rocksdb_store::table_to_column_family (table
 			return get_handle ("frontiers");
 		case tables::accounts:
 			return get_handle ("accounts");
-		case tables::send_blocks:
-			return get_handle ("send");
-		case tables::receive_blocks:
-			return get_handle ("receive");
-		case tables::open_blocks:
-			return get_handle ("open");
-		case tables::change_blocks:
-			return get_handle ("change");
-		case tables::state_blocks:
-			return get_handle ("state_blocks");
+		case tables::blocks:
+			return get_handle ("blocks");
 		case tables::pending:
 			return get_handle ("pending");
-		case tables::representation:
-			return get_handle ("representation");
 		case tables::unchecked:
 			return get_handle ("unchecked");
 		case tables::vote:
@@ -269,11 +259,7 @@ bool nano::rocksdb_store::is_caching_counts (nano::tables table_a) const
 {
 	switch (table_a)
 	{
-		case tables::send_blocks:
-		case tables::receive_blocks:
-		case tables::open_blocks:
-		case tables::change_blocks:
-		case tables::state_blocks:
+		case tables::blocks:
 			return true;
 		default:
 			return false;
@@ -539,7 +525,7 @@ rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_cf_options () const
 
 std::vector<nano::tables> nano::rocksdb_store::all_tables () const
 {
-	return std::vector<nano::tables>{ tables::accounts, tables::cached_counts, tables::change_blocks, tables::confirmation_height, tables::frontiers, tables::meta, tables::online_weight, tables::open_blocks, tables::peers, tables::pending, tables::receive_blocks, tables::representation, tables::send_blocks, tables::state_blocks, tables::unchecked, tables::vote };
+	return std::vector<nano::tables>{ tables::accounts, tables::blocks, tables::cached_counts, tables::confirmation_height, tables::frontiers, tables::meta, tables::online_weight, tables::peers, tables::pending, tables::unchecked, tables::vote };
 }
 
 bool nano::rocksdb_store::copy_db (boost::filesystem::path const & destination_path)
