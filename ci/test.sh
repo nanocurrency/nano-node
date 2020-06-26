@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 
 build_dir=${1-${PWD}}
-TIMEOUT_DEFAULT=360
+if [[ ${TEST_USE_ROCKSDB-0} == 1 ]]; then
+    TIMEOUT_DEFAULT=720
+else
+    TIMEOUT_DEFAULT=360
+fi
 
 BUSYBOX_BASH=${BUSYBOX_BASH-0}
 
