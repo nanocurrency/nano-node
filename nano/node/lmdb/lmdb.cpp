@@ -551,17 +551,17 @@ void nano::mdb_store::upgrade_v18_to_v19 (nano::write_transaction const & transa
 
 	for (auto i (nano::store_iterator<nano::block_hash, nano::block_w_sideband_v18<nano::change_block>> (std::make_unique<nano::mdb_iterator<nano::block_hash, nano::block_w_sideband_v18<nano::change_block>>> (transaction_a, change_blocks))), n (nano::store_iterator<nano::block_hash, nano::block_w_sideband_v18<nano::change_block>> (nullptr)); i != n; ++i)
 	{
-		legacy_open_receive_change_blocks[i->first] = { nano::block_w_sideband{ std::dynamic_pointer_cast<nano::block> (i->second.block), i->second.sideband } };
+		legacy_open_receive_change_blocks[i->first] = { nano::block_w_sideband{ i->second.block, i->second.sideband } };
 	}
 
 	for (auto i (nano::store_iterator<nano::block_hash, nano::block_w_sideband_v18<nano::open_block>> (std::make_unique<nano::mdb_iterator<nano::block_hash, nano::block_w_sideband_v18<nano::open_block>>> (transaction_a, open_blocks))), n (nano::store_iterator<nano::block_hash, nano::block_w_sideband_v18<nano::open_block>> (nullptr)); i != n; ++i)
 	{
-		legacy_open_receive_change_blocks[i->first] = { nano::block_w_sideband{ std::dynamic_pointer_cast<nano::block> (i->second.block), i->second.sideband } };
+		legacy_open_receive_change_blocks[i->first] = { nano::block_w_sideband{ i->second.block, i->second.sideband } };
 	}
 
 	for (auto i (nano::store_iterator<nano::block_hash, nano::block_w_sideband_v18<nano::receive_block>> (std::make_unique<nano::mdb_iterator<nano::block_hash, nano::block_w_sideband_v18<nano::receive_block>>> (transaction_a, receive_blocks))), n (nano::store_iterator<nano::block_hash, nano::block_w_sideband_v18<nano::receive_block>> (nullptr)); i != n; ++i)
 	{
-		legacy_open_receive_change_blocks[i->first] = { nano::block_w_sideband{ std::dynamic_pointer_cast<nano::block> (i->second.block), i->second.sideband } };
+		legacy_open_receive_change_blocks[i->first] = { nano::block_w_sideband{ i->second.block, i->second.sideband } };
 	}
 
 	release_assert (!mdb_drop (env.tx (transaction_a), receive_blocks, 1));

@@ -1637,18 +1637,18 @@ TEST (mdb_block_store, upgrade_v18_v19)
 		auto transaction (store.tx_begin_write ());
 		store.initialize (transaction, genesis, ledger.cache);
 
-		// Put the genesis block back into open blocks, and clear blocks. // Upgrade the genesis block
+		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send).code);
+		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive).code);
+		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, change).code);
+		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, state).code);
+
+		// These tables need to be re-opened and populated so that an upgrade can be done
 		auto txn = store.env.tx (transaction);
 		ASSERT_FALSE (mdb_dbi_open (txn, "open", MDB_CREATE, &store.open_blocks));
 		ASSERT_FALSE (mdb_dbi_open (txn, "receive", MDB_CREATE, &store.receive_blocks));
 		ASSERT_FALSE (mdb_dbi_open (txn, "send", MDB_CREATE, &store.send_blocks));
 		ASSERT_FALSE (mdb_dbi_open (txn, "change", MDB_CREATE, &store.change_blocks));
 		ASSERT_FALSE (mdb_dbi_open (txn, "state_blocks", MDB_CREATE, &store.state_blocks));
-
-		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send).code);
-		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive).code);
-		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, change).code);
-		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, state).code);
 
 		// Modify blocks back to the old tables
 		write_block_w_sideband_v18 (store, store.open_blocks, transaction, *genesis.open);
@@ -1896,7 +1896,6 @@ void write_block_w_sideband_v18 (nano::mdb_store & store_a, MDB_dbi database, na
 	auto block = store_a.block_get (transaction_a, block_a.hash ());
 	ASSERT_NE (block, nullptr);
 
-	// Simulated by writing 0 on every of the most significant bits, leaving out epoch only, as if pre-upgrade
 	std::vector<uint8_t> data;
 	{
 		nano::vectorstream stream (data);

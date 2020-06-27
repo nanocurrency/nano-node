@@ -220,7 +220,7 @@ public:
 		if (value.size () != 0)
 		{
 			debug_assert (value.size () >= result.bytes.size ());
-			auto type = static_cast<nano::block_type> ((reinterpret_cast<uint8_t const *> (value.data ()))[0]);
+			auto type = block_type_from_raw (value.data ());
 			nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()) + block_successor_offset (transaction_a, value.size (), type), result.bytes.size ());
 			auto error (nano::try_read (stream, result.bytes));
 			(void)error;
@@ -237,8 +237,8 @@ public:
 	{
 		auto value (block_raw_get (transaction_a, hash_a));
 		debug_assert (value.size () != 0);
+		auto type = block_type_from_raw (value.data ());
 		std::vector<uint8_t> data (static_cast<uint8_t *> (value.data ()), static_cast<uint8_t *> (value.data ()) + value.size ());
-		auto type = static_cast<nano::block_type> (data[0]);
 		std::fill_n (data.begin () + block_successor_offset (transaction_a, value.size (), type), sizeof (nano::block_hash), uint8_t{ 0 });
 		block_raw_put (transaction_a, data, hash_a);
 	}
@@ -604,8 +604,7 @@ public:
 			existing = make_iterator<nano::block_hash, std::shared_ptr<nano::block>> (transaction_a, tables::blocks);
 		}
 		debug_assert (existing != end);
-		return block_get (transaction_a, nano::block_hash (existing->first));
-		// TODO: Why can't this be used? return existing->second.block;
+		return existing->second;
 	}
 
 	uint64_t confirmation_height_count (nano::transaction const & transaction_a) override
@@ -738,6 +737,12 @@ protected:
 		return entry_size_a - nano::block_sideband::size (type_a);
 	}
 
+	static nano::block_type block_type_from_raw (void * data_a)
+	{
+		// The block type is the first byte
+		return static_cast<nano::block_type> ((reinterpret_cast<uint8_t const *> (data_a))[0]);
+	}
+
 	size_t count (nano::transaction const & transaction_a, std::initializer_list<tables> dbs_a) const
 	{
 		size_t total_count = 0;
@@ -788,8 +793,8 @@ public:
 		auto hash (block_a.hash ());
 		auto value (store.block_raw_get (transaction, block_a.previous ()));
 		debug_assert (value.size () != 0);
+		auto type = store.block_type_from_raw (value.data ());
 		std::vector<uint8_t> data (static_cast<uint8_t *> (value.data ()), static_cast<uint8_t *> (value.data ()) + value.size ());
-		auto type = static_cast<nano::block_type> (data[0]);
 		std::copy (hash.bytes.begin (), hash.bytes.end (), data.begin () + store.block_successor_offset (transaction, value.size (), type));
 		store.block_raw_put (transaction, data, block_a.previous ());
 	}
