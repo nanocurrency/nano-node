@@ -902,7 +902,7 @@ void nano::tcp_message_manager::put_message (nano::tcp_message_item const & item
 
 nano::tcp_message_item nano::tcp_message_manager::get_message ()
 {
-	nano::tcp_message_item result{ std::make_shared<nano::keepalive> (), nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0), 0, nullptr, nano::bootstrap_server_type::undefined };
+	nano::tcp_message_item result;
 	nano::unique_lock<std::mutex> lock (mutex);
 	while (entries.empty () && !stopped)
 	{
@@ -912,6 +912,10 @@ nano::tcp_message_item nano::tcp_message_manager::get_message ()
 	{
 		result = std::move (entries.front ());
 		entries.pop_front ();
+	}
+	else
+	{
+		result = nano::tcp_message_item{ std::make_shared<nano::keepalive> (), nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0), 0, nullptr, nano::bootstrap_server_type::undefined };
 	}
 	lock.unlock ();
 	condition.notify_one ();
