@@ -891,7 +891,7 @@ void nano::tcp_message_manager::put_message (nano::tcp_message_item const & item
 {
 	{
 		nano::unique_lock<std::mutex> lock (mutex);
-		while (entries.size () > max_entries && !stopped)
+		while (entries.size () >= max_entries && !stopped)
 		{
 			condition.wait (lock);
 		}

@@ -82,6 +82,8 @@ private:
 	unsigned max_entries;
 	static unsigned const max_entries_per_connection = 16;
 	bool stopped{ false };
+
+	friend class network_tcp_message_manager_Test;
 };
 /**
   * Node ID cookies for node ID handshakes

@@ -1014,3 +1014,39 @@ TEST (network, tcp_no_connect_excluded_peers)
 	node1->network.merge_peer (node0->network.endpoint ());
 	ASSERT_TIMELY (5s, node0->network.size () == 1);
 }
+
+namespace nano
+{
+TEST (network, tcp_message_manager)
+{
+	nano::tcp_message_manager manager (1);
+	nano::tcp_message_item item;
+	item.node_id = nano::account (100);
+	ASSERT_EQ (0, manager.entries.size ());
+	manager.put_message (item);
+	ASSERT_EQ (1, manager.entries.size ());
+	ASSERT_EQ (manager.get_message ().node_id, item.node_id);
+	ASSERT_EQ (0, manager.entries.size ());
+
+	// Fill the queue
+	manager.entries = decltype (manager.entries) (manager.max_entries, item);
+	ASSERT_EQ (manager.entries.size (), manager.max_entries);
+
+	// This task will wait until a message is consumed
+	auto future = std::async (std::launch::async, [&] {
+		manager.put_message (item);
+	});
+
+	bool waiting = false;
+	while (!waiting)
+	{
+		nano::unique_lock<std::mutex> lock (manager.mutex, std::defer_lock);
+		waiting = !lock.try_lock ();
+	}
+
+	ASSERT_EQ (manager.entries.size (), manager.max_entries);
+	ASSERT_EQ (manager.get_message ().node_id, item.node_id);
+	ASSERT_NE (std::future_status::timeout, future.wait_for (1s));
+	ASSERT_EQ (manager.entries.size (), manager.max_entries);
+}
+}
