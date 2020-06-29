@@ -897,7 +897,7 @@ void nano::tcp_message_manager::put_message (nano::tcp_message_item const & item
 		}
 		entries.push_back (item_a);
 	}
-	condition.notify_all ();
+	condition.notify_one ();
 }
 
 nano::tcp_message_item nano::tcp_message_manager::get_message ()
@@ -914,7 +914,7 @@ nano::tcp_message_item nano::tcp_message_manager::get_message ()
 		entries.pop_front ();
 	}
 	lock.unlock ();
-	condition.notify_all ();
+	condition.notify_one ();
 	return result;
 }
 
