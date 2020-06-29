@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 
 #include <boost/iostreams/stream_buffer.hpp>
+#include <boost/range/join.hpp>
 #include <boost/thread.hpp>
 
 using namespace std::chrono_literals;
@@ -1048,5 +1049,33 @@ TEST (network, tcp_message_manager)
 	ASSERT_EQ (manager.get_message ().node_id, item.node_id);
 	ASSERT_NE (std::future_status::timeout, future.wait_for (1s));
 	ASSERT_EQ (manager.entries.size (), manager.max_entries);
+
+	nano::tcp_message_manager manager2 (2);
+	size_t message_count = 10'000;
+	std::vector<std::thread> consumers;
+	for (auto i = 0; i < 4; ++i)
+	{
+		consumers.emplace_back ([&] {
+			for (auto i = 0; i < message_count; ++i)
+			{
+				ASSERT_EQ (manager.get_message ().node_id, item.node_id);
+			}
+		});
+	}
+	std::vector<std::thread> producers;
+	for (auto i = 0; i < 4; ++i)
+	{
+		producers.emplace_back ([&] {
+			for (auto i = 0; i < message_count; ++i)
+			{
+				manager.put_message (item);
+			}
+		});
+	}
+
+	for (auto & t : boost::range::join (producers, consumers))
+	{
+		t.join ();
+	}
 }
 }
