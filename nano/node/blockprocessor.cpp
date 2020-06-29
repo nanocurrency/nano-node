@@ -373,7 +373,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			}
 			if (info_a.modified > nano::seconds_since_epoch () - 300 && node.block_arrival.recent (hash))
 			{
-				events_a.events.emplace_back ([this, hash, block = info_a.block, result, watch_work_a, origin_a](nano::transaction const & transaction_a) { process_live (transaction_a, hash, block, result, watch_work_a, origin_a); });
+				events_a.events.emplace_back ([this, hash, block = info_a.block, result, watch_work_a, origin_a](nano::transaction const & post_event_transaction_a) { process_live (post_event_transaction_a, hash, block, result, watch_work_a, origin_a); });
 			}
 			queue_unchecked (transaction_a, hash);
 			break;
@@ -432,7 +432,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			{
 				node.logger.try_log (boost::str (boost::format ("Old for: %1%") % hash.to_string ()));
 			}
-			events_a.events.emplace_back ([this, block = info_a.block, origin_a](nano::transaction const & transaction_a) { process_old (transaction_a, block, origin_a); });
+			events_a.events.emplace_back ([this, block = info_a.block, origin_a](nano::transaction const & post_event_transaction_a) { process_old (post_event_transaction_a, block, origin_a); });
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::old);
 			break;
 		}
@@ -463,7 +463,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 		}
 		case nano::process_result::fork:
 		{
-			events_a.events.emplace_back ([this, block = info_a.block](nano::transaction const & transaction_a) { this->node.process_fork (transaction_a, block); });
+			events_a.events.emplace_back ([this, block = info_a.block](nano::transaction const & post_event_transaction_a) { this->node.process_fork (post_event_transaction_a, block); });
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::fork);
 			if (node.config.logging.ledger_logging ())
 			{
