@@ -1,3 +1,4 @@
+#include <nano/lib/cli.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/cli.hpp>
 #include <nano/node/common.hpp>
@@ -32,6 +33,8 @@ std::string nano::error_cli_messages::message (int ev) const
 			return "Flags --disable_tcp_realtime and --disable_udp cannot be used together";
 		case nano::error_cli::ambiguous_udp_options:
 			return "Flags --disable_udp and --enable_udp cannot be used together";
+		case nano::error_cli::config_override_error:
+			return "Config override parse error";
 	}
 
 	return "Invalid error code";
@@ -170,7 +173,12 @@ std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_o
 	auto config (vm.find ("config"));
 	if (config != vm.end ())
 	{
-		flags_a.config_overrides = config->second.as<std::vector<std::string>> ();
+		auto err (false);
+		flags_a.config_overrides = nano::config_overrides (config->second.as<std::vector<nano::config_key_value_pair>> (), err);
+		if (err)
+		{
+			ec = nano::error_cli::config_override_error;
+		}
 	}
 	return ec;
 }

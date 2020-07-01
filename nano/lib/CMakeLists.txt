@@ -20,6 +20,8 @@ add_library (nano_lib
 	blockbuilders.cpp
 	blocks.hpp
 	blocks.cpp
+	cli.hpp
+	cli.cpp
 	config.hpp
 	config.cpp
 	configbase.hpp
