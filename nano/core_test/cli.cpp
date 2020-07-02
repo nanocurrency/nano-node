@@ -46,26 +46,21 @@ TEST (cli, key_create)
 
 TEST (cli, config_override_parsing)
 {
-	auto error (false);
 	std::vector<nano::config_key_value_pair> key_value_pairs;
-	auto config_overrides = nano::config_overrides (key_value_pairs, error);
+	auto config_overrides = nano::config_overrides (key_value_pairs);
 	ASSERT_TRUE (config_overrides.empty ());
-	ASSERT_FALSE (error);
 	key_value_pairs.push_back ({ "key", "value" });
-	config_overrides = nano::config_overrides (key_value_pairs, error);
+	config_overrides = nano::config_overrides (key_value_pairs);
 	ASSERT_EQ (config_overrides[0], "key=\"value\"");
-	ASSERT_FALSE (error);
 	key_value_pairs.push_back ({ "node.online_weight_minimum", "40000000000000000000000000000000000000" });
-	config_overrides = nano::config_overrides (key_value_pairs, error);
+	config_overrides = nano::config_overrides (key_value_pairs);
 	ASSERT_EQ (config_overrides[1], "node.online_weight_minimum=\"40000000000000000000000000000000000000\"");
-	ASSERT_FALSE (error);
 
-	// Shouldn't add this as it contains escaped quotes
+	// Should add this as it contains escaped quotes, and make sure these are not escaped again
 	key_value_pairs.push_back ({ "key", "\"value\"" });
-	config_overrides = nano::config_overrides (key_value_pairs, error);
-	ASSERT_EQ (config_overrides[0], "key=\"value\"");
-	ASSERT_EQ (config_overrides.size (), 2);
-	ASSERT_TRUE (error);
+	config_overrides = nano::config_overrides (key_value_pairs);
+	ASSERT_EQ (config_overrides[2], "key=\"value\"");
+	ASSERT_EQ (config_overrides.size (), 3);
 }
 
 namespace

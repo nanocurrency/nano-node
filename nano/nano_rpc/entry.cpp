@@ -138,15 +138,9 @@ int main (int argc, char * const * argv)
 	{
 		std::vector<std::string> config_overrides;
 		auto config (vm.find ("config"));
-		auto err (false);
 		if (config != vm.end ())
 		{
-			config_overrides = nano::config_overrides (config->second.as<std::vector<nano::config_key_value_pair>> (), err);
-			if (err)
-			{
-				std::cerr << "Config override parse error" << std::endl;
-				return 1;
-			}
+			config_overrides = nano::config_overrides (config->second.as<std::vector<nano::config_key_value_pair>> ());
 		}
 		run (data_path, config_overrides);
 	}

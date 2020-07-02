@@ -17,8 +17,7 @@ enum class error_cli
 	database_write_error = 5,
 	reading_config = 6,
 	disable_all_network = 7,
-	ambiguous_udp_options = 8,
-	config_override_error = 9
+	ambiguous_udp_options = 8
 };
 
 void add_node_options (boost::program_options::options_description &);
