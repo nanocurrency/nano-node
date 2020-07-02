@@ -77,7 +77,8 @@ public:
 
 private:
 	std::mutex mutex;
-	nano::condition_variable condition;
+	nano::condition_variable producer_condition;
+	nano::condition_variable consumer_condition;
 	std::deque<nano::tcp_message_item> entries;
 	unsigned max_entries;
 	static unsigned const max_entries_per_connection = 16;

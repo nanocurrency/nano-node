@@ -893,11 +893,11 @@ void nano::tcp_message_manager::put_message (nano::tcp_message_item const & item
 		nano::unique_lock<std::mutex> lock (mutex);
 		while (entries.size () >= max_entries && !stopped)
 		{
-			condition.wait (lock);
+			producer_condition.wait (lock);
 		}
 		entries.push_back (item_a);
 	}
-	condition.notify_one ();
+	consumer_condition.notify_one ();
 }
 
 nano::tcp_message_item nano::tcp_message_manager::get_message ()
@@ -906,7 +906,7 @@ nano::tcp_message_item nano::tcp_message_manager::get_message ()
 	nano::unique_lock<std::mutex> lock (mutex);
 	while (entries.empty () && !stopped)
 	{
-		condition.wait (lock);
+		consumer_condition.wait (lock);
 	}
 	if (!entries.empty ())
 	{
@@ -918,7 +918,7 @@ nano::tcp_message_item nano::tcp_message_manager::get_message ()
 		result = nano::tcp_message_item{ std::make_shared<nano::keepalive> (), nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0), 0, nullptr, nano::bootstrap_server_type::undefined };
 	}
 	lock.unlock ();
-	condition.notify_one ();
+	producer_condition.notify_one ();
 	return result;
 }
 
@@ -928,7 +928,8 @@ void nano::tcp_message_manager::stop ()
 		nano::lock_guard<std::mutex> lock (mutex);
 		stopped = true;
 	}
-	condition.notify_all ();
+	consumer_condition.notify_all ();
+	producer_condition.notify_all ();
 }
 
 nano::syn_cookies::syn_cookies (size_t max_cookies_per_ip_a) :
