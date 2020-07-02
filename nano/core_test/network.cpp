@@ -1038,12 +1038,9 @@ TEST (network, tcp_message_manager)
 		manager.put_message (item);
 	});
 
-	bool waiting = false;
-	while (!waiting)
-	{
-		nano::unique_lock<std::mutex> lock (manager.mutex, std::defer_lock);
-		waiting = !lock.try_lock ();
-	}
+	// This should give sufficient time to execute put_message
+	// and prove that it waits on condition variable
+	std::this_thread::sleep_for (CI ? 200ms : 100ms);
 
 	ASSERT_EQ (manager.entries.size (), manager.max_entries);
 	ASSERT_EQ (manager.get_message ().node_id, item.node_id);
