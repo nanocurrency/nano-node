@@ -48,6 +48,8 @@ jobs:
   windows_test:
     runs-on: windows-latest
     timeout-minutes: 60
+    env:
+      RELEASE: 1
     steps:
       - uses: actions/checkout@722adc6
       - name: Windows Defender
