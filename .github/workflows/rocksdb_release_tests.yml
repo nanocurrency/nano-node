@@ -46,15 +46,3 @@ jobs:
         run: ci/actions/linux/install_deps.sh
       - name: Run Tests
         run: docker run -e TEST_USE_ROCKSDB -v ${PWD}:/workspace nanocurrency/nano-env:clang /bin/bash -c "cd /workspace && RELEASE=1 ./ci/build-travis.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 ${PWD}"
-
-  windows_test:
-    runs-on: windows-latest
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@722adc6
-      - name: Checkout Submodules
-        run: git submodule update --init --recursive
-      - name: Fetch Deps
-        run: ci/actions/windows/install_deps.ps1
-      - name: Run Tests
-        run: ci/actions/windows/build.ps1

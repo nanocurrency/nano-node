@@ -50,6 +50,7 @@ jobs:
     timeout-minutes: 60
     env:
       RELEASE: 1
+      DEADLINE_SCALE_FACTOR: 2
     steps:
       - uses: actions/checkout@722adc6
       - name: Windows Defender
