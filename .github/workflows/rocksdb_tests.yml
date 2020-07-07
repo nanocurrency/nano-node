@@ -12,6 +12,7 @@ jobs:
     runs-on: macOS-latest
     env:
       BOOST_ROOT: /tmp/boost
+      DEADLINE_SCALE_FACTOR: 2
     steps:
       - uses: actions/checkout@722adc6
       - name: Checkout Submodules
