@@ -6727,10 +6727,9 @@ TEST (rpc, block_confirmed)
 
 TEST (rpc, database_txn_tracker)
 {
-	// Don't test this with the rocksdb backend
-	auto use_rocksdb_str = std::getenv ("TEST_USE_ROCKSDB");
-	if (use_rocksdb_str && boost::lexical_cast<int> (use_rocksdb_str) == 1)
+	if (nano::is_rocksdb_test()) 
 	{
+		// Don't test this in rocksdb mode
 		return;
 	}
 

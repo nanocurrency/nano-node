@@ -535,6 +535,18 @@ uint16_t nano::get_available_port ()
 	return available_port;
 }
 
+bool nano::is_rocksdb_test ()
+{
+	// Don't test this in rocksdb mode
+	bool ret = false;
+	auto use_rocksdb_str = std::getenv ("TEST_USE_ROCKSDB");
+	if (use_rocksdb_str && boost::lexical_cast<int> (use_rocksdb_str) == 1)
+	{
+		ret = true;
+	}
+	return ret;
+}
+
 void nano::cleanup_test_directories_on_exit ()
 {
 	// Makes sure everything is cleaned up
