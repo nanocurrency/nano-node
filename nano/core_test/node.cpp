@@ -3666,13 +3666,13 @@ TEST (node, dont_write_lock_node)
 
 TEST (node, bidirectional_tcp)
 {
-	#ifdef _WIN32
-	if (nano::is_rocksdb_test()) 
+#ifdef _WIN32
+	if (nano::is_rocksdb_test ())
 	{
 		// Don't test this in rocksdb mode
 		return;
 	}
-	#endif
+#endif
 	nano::system system;
 	nano::node_flags node_flags;
 	// Disable bootstrap to start elections for new blocks
