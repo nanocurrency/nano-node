@@ -440,8 +440,8 @@ class portmapping_constants
 public:
 	portmapping_constants (nano::network_constants & network_constants);
 	// Timeouts are primes so they infrequently happen at the same time
-	int mapping_timeout;
-	int check_timeout;
+	std::chrono::seconds lease_duration;
+	std::chrono::seconds health_check_period;
 };
 
 /** Bootstrap related constants whose value depends on the active network */
