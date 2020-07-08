@@ -463,7 +463,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 		}
 		case nano::process_result::fork:
 		{
-			events_a.events.emplace_back ([this, block = info_a.block](nano::transaction const & post_event_transaction_a) { this->node.process_fork (post_event_transaction_a, block); });
+			events_a.events.emplace_back ([this, block = info_a.block, modified = info_a.modified](nano::transaction const & post_event_transaction_a) { this->node.process_fork (post_event_transaction_a, block, modified); });
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::fork);
 			if (node.config.logging.ledger_logging ())
 			{

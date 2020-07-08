@@ -102,7 +102,9 @@ void nano::transport::channel::send (nano::message const & message_a, std::funct
 	{
 		if (callback_a)
 		{
-			callback_a (boost::system::errc::make_error_code (boost::system::errc::not_supported), 0);
+			node.background ([callback_a]() {
+				callback_a (boost::system::errc::make_error_code (boost::system::errc::not_supported), 0);
+			});
 		}
 
 		node.stats.inc (nano::stat::type::drop, detail, nano::stat::dir::out);

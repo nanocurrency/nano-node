@@ -1,7 +1,7 @@
-#include <nano/core_test/testutil.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/node/vote_processor.hpp>
+#include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -158,11 +158,7 @@ TEST (vote_processor, weights)
 	system.wallet (0)->send_sync (nano::test_genesis_key.pub, key2.pub, level2);
 
 	// Wait for representatives
-	system.deadline_set (10s);
-	while (node.ledger.cache.rep_weights.get_rep_amounts ().size () != 4)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (10s, node.ledger.cache.rep_weights.get_rep_amounts ().size () == 4);
 	node.vote_processor.calculate_weights ();
 
 	ASSERT_EQ (node.vote_processor.representatives_1.end (), node.vote_processor.representatives_1.find (key0.pub));

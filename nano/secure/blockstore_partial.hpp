@@ -137,21 +137,9 @@ public:
 			result = nano::deserialize_block (stream, type);
 			debug_assert (result != nullptr);
 			nano::block_sideband sideband;
-			if (full_sideband (transaction_a) || entry_has_sideband (value.size (), type))
-			{
-				auto error (sideband.deserialize (stream, type));
-				(void)error;
-				debug_assert (!error);
-			}
-			else
-			{
-				// Reconstruct sideband data for block.
-				sideband.account = block_account_computed (transaction_a, hash_a);
-				sideband.balance = block_balance_computed (transaction_a, hash_a);
-				sideband.successor = block_successor (transaction_a, hash_a);
-				sideband.height = 0;
-				sideband.timestamp = 0;
-			}
+			auto error (sideband.deserialize (stream, type));
+			(void)error;
+			debug_assert (!error);
 			result->sideband_set (sideband);
 		}
 		return result;
@@ -261,11 +249,6 @@ public:
 			result.clear ();
 		}
 		return result;
-	}
-
-	bool full_sideband (nano::transaction const & transaction_a) const
-	{
-		return version_get (transaction_a) > 12;
 	}
 
 	void block_successor_clear (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a) override
@@ -416,7 +399,7 @@ public:
 		nano::uint256_union version_key (1);
 		nano::db_val<Val> data;
 		auto status = get (transaction_a, tables::meta, nano::db_val<Val> (version_key), data);
-		int result (1);
+		int result (minimum_version);
 		if (!not_found (status))
 		{
 			nano::uint256_union version_value (data);
@@ -797,11 +780,13 @@ public:
 		return count (transaction_a, tables::unchecked);
 	}
 
+	int const minimum_version{ 14 };
+
 protected:
 	nano::network_params network_params;
 	std::unordered_map<nano::account, std::shared_ptr<nano::vote>> vote_cache_l1;
 	std::unordered_map<nano::account, std::shared_ptr<nano::vote>> vote_cache_l2;
-	static int constexpr version{ 18 };
+	int const version{ 18 };
 
 	template <typename T>
 	std::shared_ptr<nano::block> block_random (nano::transaction const & transaction_a, tables table_a)
@@ -830,11 +815,6 @@ protected:
 		return static_cast<Derived_Store const &> (*this).template make_iterator<Key, Value> (transaction_a, table_a, key);
 	}
 
-	bool entry_has_sideband (size_t entry_size_a, nano::block_type type_a) const
-	{
-		return entry_size_a == nano::block::size (type_a) + nano::block_sideband::size (type_a);
-	}
-
 	nano::db_val<Val> block_raw_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_type & type_a) const
 	{
 		nano::db_val<Val> result;
@@ -854,70 +834,9 @@ protected:
 		return result;
 	}
 
-	// Return account containing hash
-	nano::account block_account_computed (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
-	{
-		debug_assert (!full_sideband (transaction_a));
-		nano::account result (0);
-		auto hash (hash_a);
-		while (result.is_zero ())
-		{
-			auto block (block_get_no_sideband (transaction_a, hash));
-			debug_assert (block);
-			result = block->account ();
-			if (result.is_zero ())
-			{
-				auto type (nano::block_type::invalid);
-				auto value (block_raw_get (transaction_a, block->previous (), type));
-				if (entry_has_sideband (value.size (), type))
-				{
-					result = block_account (transaction_a, block->previous ());
-				}
-				else
-				{
-					nano::block_info block_info;
-					if (!block_info_get (transaction_a, hash, block_info))
-					{
-						result = block_info.account;
-					}
-					else
-					{
-						result = frontier_get (transaction_a, hash);
-						if (result.is_zero ())
-						{
-							auto successor (block_successor (transaction_a, hash));
-							debug_assert (!successor.is_zero ());
-							hash = successor;
-						}
-					}
-				}
-			}
-		}
-		debug_assert (!result.is_zero ());
-		return result;
-	}
-
-	nano::uint128_t block_balance_computed (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
-	{
-		debug_assert (!full_sideband (transaction_a));
-		summation_visitor visitor (transaction_a, *this);
-		return visitor.compute_balance (hash_a);
-	}
-
 	size_t block_successor_offset (nano::transaction const & transaction_a, size_t entry_size_a, nano::block_type type_a) const
 	{
-		size_t result;
-		if (full_sideband (transaction_a) || entry_has_sideband (entry_size_a, type_a))
-		{
-			result = entry_size_a - nano::block_sideband::size (type_a);
-		}
-		else
-		{
-			// Read old successor-only sideband
-			debug_assert (entry_size_a == nano::block::size (type_a) + sizeof (nano::block_hash));
-			result = entry_size_a - sizeof (nano::block_hash);
-		}
-		return result;
+		return entry_size_a - nano::block_sideband::size (type_a);
 	}
 
 	boost::optional<nano::db_val<Val>> block_raw_get_by_type (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_type & type_a) const
