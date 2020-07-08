@@ -149,8 +149,8 @@ nano::voting_constants::voting_constants (nano::network_constants & network_cons
 
 nano::portmapping_constants::portmapping_constants (nano::network_constants & network_constants)
 {
-	mapping_timeout = network_constants.is_test_network () ? 53 : 3593;
-	check_timeout = network_constants.is_test_network () ? 17 : 53;
+	lease_duration = std::chrono::seconds (1787); // ~30 minutes
+	health_check_period = std::chrono::seconds (53);
 }
 
 nano::bootstrap_constants::bootstrap_constants (nano::network_constants & network_constants)
