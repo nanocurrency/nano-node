@@ -145,28 +145,7 @@ void nano::network::send_keepalive (std::shared_ptr<nano::transport::channel> ch
 void nano::network::send_keepalive_self (std::shared_ptr<nano::transport::channel> channel_a)
 {
 	nano::keepalive message;
-	random_fill (message.peers);
-	// Replace part of message with node external address or listening port
-	message.peers[1] = nano::endpoint (boost::asio::ip::address_v6{}, 0); // For node v19 (response channels)
-	if (node.config.external_address != boost::asio::ip::address_v6{}.to_string () && node.config.external_port != 0)
-	{
-		message.peers[0] = nano::endpoint (boost::asio::ip::make_address_v6 (node.config.external_address), node.config.external_port);
-	}
-	else
-	{
-		auto external_address (node.port_mapping.external_address ());
-		if (external_address.address () != boost::asio::ip::address_v4::any ())
-		{
-			message.peers[0] = nano::endpoint (boost::asio::ip::address_v6{}, endpoint ().port ());
-			boost::system::error_code ec;
-			auto external_v6 = boost::asio::ip::make_address_v6 (external_address.address ().to_string (), ec);
-			message.peers[1] = nano::endpoint (external_v6, external_address.port ());
-		}
-		else
-		{
-			message.peers[0] = nano::endpoint (boost::asio::ip::address_v6{}, endpoint ().port ());
-		}
-	}
+	fill_keepalive_self (message.peers);
 	channel_a->send (message);
 }
 
@@ -667,6 +646,32 @@ void nano::network::random_fill (std::array<nano::endpoint, 8> & target_a) const
 	}
 }
 
+void nano::network::fill_keepalive_self (std::array<nano::endpoint, 8> & target_a) const
+{
+	random_fill (target_a);
+	// Replace part of message with node external address or listening port
+	target_a[1] = nano::endpoint (boost::asio::ip::address_v6{}, 0); // For node v19 (response channels)
+	if (node.config.external_address != boost::asio::ip::address_v6{}.to_string () && node.config.external_port != 0)
+	{
+		target_a[0] = nano::endpoint (boost::asio::ip::make_address_v6 (node.config.external_address), node.config.external_port);
+	}
+	else
+	{
+		auto external_address (node.port_mapping.external_address ());
+		if (external_address.address () != boost::asio::ip::address_v4::any ())
+		{
+			target_a[0] = nano::endpoint (boost::asio::ip::address_v6{}, port);
+			boost::system::error_code ec;
+			auto external_v6 = boost::asio::ip::make_address_v6 (external_address.address ().to_string (), ec);
+			target_a[1] = nano::endpoint (external_v6, external_address.port ());
+		}
+		else
+		{
+			target_a[0] = nano::endpoint (boost::asio::ip::address_v6{}, port);
+		}
+	}
+}
+
 nano::tcp_endpoint nano::network::bootstrap_peer (bool lazy_bootstrap)
 {
 	nano::tcp_endpoint result (boost::asio::ip::address_v6::any (), 0);
@@ -743,7 +748,8 @@ void nano::network::ongoing_syn_cookie_cleanup ()
 
 void nano::network::ongoing_keepalive ()
 {
-	flood_keepalive ();
+	flood_keepalive (0.75f);
+	flood_keepalive_self (0.25f);
 	std::weak_ptr<nano::node> node_w (node.shared ());
 	node.alarm.add (std::chrono::steady_clock::now () + node.network_params.node.half_period, [node_w]() {
 		if (auto node_l = node_w.lock ())
