@@ -974,6 +974,47 @@ TEST (bootstrap_processor, multiple_attempts)
 	node2->stop ();
 }
 
+TEST (bootstrap_processor, bootstrap_fork)
+{
+	nano::system system;
+	nano::node_config config (nano::get_available_port (), system.logging);
+	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	nano::node_flags node_flags;
+	node_flags.disable_bootstrap_bulk_push_client = true;
+	node_flags.disable_lazy_bootstrap = true;
+	node_flags.disable_legacy_bootstrap = true;
+	auto node0 (system.add_node (config, node_flags));
+	nano::keypair key;
+	auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, node0->latest (nano::test_genesis_key.pub), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (node0->latest (nano::test_genesis_key.pub))));
+	ASSERT_EQ (nano::process_result::progress, node0->process (*send).code);
+	// Confirm send block to vote later
+	node0->block_confirm (send);
+	{
+		auto election = node0->active.election (send->qualified_root ());
+		ASSERT_NE (nullptr, election);
+		nano::lock_guard<std::mutex> guard (node0->active.mutex);
+		election->confirm_once ();
+	}
+	ASSERT_TIMELY (2s, node0->block_confirmed (send->hash ()));
+	node0->active.erase (*send);
+	auto open_work (*system.work.generate (key.pub));
+	auto open (std::make_shared<nano::state_block> (key.pub, 0, key.pub, nano::Gxrb_ratio, send->hash (), key.prv, key.pub, open_work));
+	ASSERT_EQ (nano::process_result::progress, node0->process (*open).code);
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	// Create forked node
+	config.peering_port = nano::get_available_port ();
+	node_flags.disable_legacy_bootstrap = false;
+	auto node1 (system.add_node (config, node_flags));
+	ASSERT_EQ (nano::process_result::progress, node1->process (*send).code);
+	auto open_fork (std::make_shared<nano::state_block> (key.pub, 0, nano::test_genesis_key.pub, nano::Gxrb_ratio, send->hash (), key.prv, key.pub, open_work));
+	ASSERT_EQ (nano::process_result::progress, node1->process (*open_fork).code);
+	// Resolve fork
+	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
+	ASSERT_TIMELY (10s, node1->ledger.block_exists (open->hash ()));
+	ASSERT_FALSE (node1->ledger.block_exists (open_fork->hash ()));
+	node1->stop ();
+}
+
 TEST (frontier_req_response, DISABLED_destruction)
 {
 	{
