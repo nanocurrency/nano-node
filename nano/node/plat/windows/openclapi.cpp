@@ -2,6 +2,8 @@
 
 #include <Windows.h>
 
+bool nano::opencl_loaded{ false };
+
 namespace
 {
 class opencl_initializer
