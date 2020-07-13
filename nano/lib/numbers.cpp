@@ -65,6 +65,11 @@ std::string nano::public_key::to_node_id () const
 	return to_account ().replace (0, 4, "node");
 }
 
+bool nano::public_key::decode_node_id (std::string const & source_a)
+{
+	return decode_account (source_a);
+}
+
 bool nano::public_key::decode_account (std::string const & source_a)
 {
 	auto error (source_a.size () < 5);
@@ -72,10 +77,11 @@ bool nano::public_key::decode_account (std::string const & source_a)
 	{
 		auto xrb_prefix (source_a[0] == 'x' && source_a[1] == 'r' && source_a[2] == 'b' && (source_a[3] == '_' || source_a[3] == '-'));
 		auto nano_prefix (source_a[0] == 'n' && source_a[1] == 'a' && source_a[2] == 'n' && source_a[3] == 'o' && (source_a[4] == '_' || source_a[4] == '-'));
+		auto node_id_prefix = (source_a[0] == 'n' && source_a[1] == 'o' && source_a[2] == 'd' && source_a[3] == 'e' && source_a[4] == '_');
 		error = (xrb_prefix && source_a.size () != 64) || (nano_prefix && source_a.size () != 65);
 		if (!error)
 		{
-			if (xrb_prefix || nano_prefix)
+			if (xrb_prefix || nano_prefix || node_id_prefix)
 			{
 				auto i (source_a.begin () + (xrb_prefix ? 4 : 5));
 				if (*i == '1' || *i == '3')
