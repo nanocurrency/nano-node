@@ -11,6 +11,8 @@
 #include <string>
 #include <vector>
 
+bool nano::opencl_loaded{ false };
+
 namespace
 {
 std::string opencl_program = R"%%%(
