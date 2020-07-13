@@ -61,6 +61,12 @@ TEST (cli, config_override_parsing)
 	config_overrides = nano::config_overrides (key_value_pairs);
 	ASSERT_EQ (config_overrides[2], "key=\"value\"");
 	ASSERT_EQ (config_overrides.size (), 3);
+
+	// Try it with arrays, with and without escaped quotes
+	key_value_pairs.push_back ({ "node.work_peers", "[127.0.0.1:7000,\"128.0.0.1:50000\"]"});
+	config_overrides = nano::config_overrides (key_value_pairs);
+	ASSERT_EQ (config_overrides[3], "node.work_peers=[\"127.0.0.1:7000\",\"128.0.0.1:50000\"]");
+	ASSERT_EQ (config_overrides.size (), 4);
 }
 
 namespace
