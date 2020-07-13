@@ -258,7 +258,7 @@ bool nano::mdb_store::do_upgrades (nano::write_transaction & transaction_a, bool
 			needs_vacuuming = true;
 		case 18:
 			upgrade_v18_to_v19 (transaction_a);
-			needs_vacuuming = true; // Make this optional via config
+			needs_vacuuming = true;
 		case 19:
 			break;
 		default:
