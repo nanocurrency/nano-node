@@ -138,7 +138,10 @@ class generateTree:
             if commit.sha == self.startCommit.sha:
                 break
             else:
-                for pull in commit.get_pulls():
+                message = commit.commit.message.partition('\n')[0]
+                try:
+                    pr_number = int(message[message.rfind('#')+1:message.rfind(')')])
+                    pull = self.repo.get_pull(pr_number)
                     labels = []
                     for label in pull.labels:
                         labels.append(label.name)
@@ -146,7 +149,10 @@ class generateTree:
                         "Title": pull.title,
                         "Url": pull.html_url,
                         "labels": labels
-                    }
+                        }
+                except ValueError:
+                    print("Commit has no associated PR {}: \"{}\"".format(commit.sha, message))
+                    continue
 
     def __repr__(self):
         return "<generateTree(repo='{0}', start='{1}', startCommit='{2}', " \
