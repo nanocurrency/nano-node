@@ -614,6 +614,14 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		nano::uint256_union junk2 (0);
 		nano::kdf kdf;
 		kdf.phs (junk1, "", junk2);
+		std::cout << "Testing time retrieval latency... " << std::flush;
+		nano::timer<std::chrono::nanoseconds> timer (nano::timer_state::started);
+		auto const iters = 2'000'000;
+		for (auto i (0); i < iters; ++i)
+		{
+			(void)std::chrono::steady_clock::now ();
+		}
+		std::cout << timer.stop ().count () / iters << " " << timer.unit () << std::endl;
 		std::cout << "Dumping OpenCL information" << std::endl;
 		bool error (false);
 		nano::opencl_environment environment (error);
