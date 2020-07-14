@@ -432,7 +432,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 		}
 		case nano::process_result::fork:
 		{
-			node.process_fork (transaction_a, info_a.block);
+			node.process_fork (transaction_a, info_a.block, info_a.modified);
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::fork);
 			if (node.config.logging.ledger_logging ())
 			{
