@@ -826,7 +826,7 @@ bool nano::mdb_store::copy_db (boost::filesystem::path const & destination_file)
 void nano::mdb_store::rebuild_db (nano::write_transaction const & transaction_a)
 {
 	// Tables with uint256_union key
-	std::vector<MDB_dbi> tables = { accounts, send_blocks, receive_blocks, open_blocks, change_blocks, state_blocks, vote, confirmation_height };
+	std::vector<MDB_dbi> tables = { accounts, blocks, vote, confirmation_height };
 	for (auto const & table : tables)
 	{
 		MDB_dbi temp;
