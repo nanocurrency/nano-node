@@ -1252,7 +1252,7 @@ nano::error nano::telemetry_data::serialize_json (nano::jsonconfig & json, bool 
 	// Keep these last for UI purposes
 	if (!ignore_identification_metrics_a)
 	{
-		json.put ("node_id", node_id.to_string ());
+		json.put ("node_id", node_id.to_node_id ());
 		json.put ("signature", signature.to_string ());
 	}
 	return json.get_error ();
@@ -1276,7 +1276,7 @@ nano::error nano::telemetry_data::deserialize_json (nano::jsonconfig & json, boo
 		json.get ("node_id", node_id_l);
 		if (!json.get_error ())
 		{
-			if (node_id.decode_hex (node_id_l))
+			if (node_id.decode_node_id (node_id_l))
 			{
 				json.get_error ().set ("Could not deserialize node id");
 			}
