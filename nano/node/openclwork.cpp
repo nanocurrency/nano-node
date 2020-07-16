@@ -550,23 +550,23 @@ logger (logger_a)
 				if (!error_a)
 				{
 					cl_int attempt_error (0);
-					attempt_buffer = clCreateBuffer (context, 0, sizeof (uint64_t), nullptr, &attempt_error);
+					attempt_buffer = clCreateBuffer (context, CL_MEM_READ_ONLY | CL_MEM_HOST_WRITE_ONLY, sizeof (uint64_t), nullptr, &attempt_error);
 					error_a |= attempt_error != CL_SUCCESS;
 					if (!error_a)
 					{
 						cl_int result_error (0);
-						result_buffer = clCreateBuffer (context, 0, sizeof (uint64_t), nullptr, &result_error);
+						result_buffer = clCreateBuffer (context, CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY, sizeof (uint64_t), nullptr, &result_error);
 						error_a |= result_error != CL_SUCCESS;
 						if (!error_a)
 						{
 							cl_int item_error (0);
 							size_t item_size (sizeof (nano::uint256_union));
-							item_buffer = clCreateBuffer (context, 0, item_size, nullptr, &item_error);
+							item_buffer = clCreateBuffer (context, CL_MEM_READ_ONLY | CL_MEM_HOST_WRITE_ONLY, item_size, nullptr, &item_error);
 							error_a |= item_error != CL_SUCCESS;
 							if (!error_a)
 							{
 								cl_int difficulty_error (0);
-								difficulty_buffer = clCreateBuffer (context, 0, sizeof (uint64_t), nullptr, &difficulty_error);
+								difficulty_buffer = clCreateBuffer (context, CL_MEM_READ_ONLY | CL_MEM_HOST_WRITE_ONLY, sizeof (uint64_t), nullptr, &difficulty_error);
 								error_a |= difficulty_error != CL_SUCCESS;
 								if (!error_a)
 								{
