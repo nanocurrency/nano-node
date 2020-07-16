@@ -3,6 +3,7 @@
 #include <boost/format.hpp>
 
 #include <iostream>
+#include <thread>
 
 namespace
 {
