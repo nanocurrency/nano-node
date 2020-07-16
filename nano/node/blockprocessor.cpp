@@ -153,7 +153,7 @@ void nano::block_processor::process_blocks ()
 	nano::unique_lock<std::mutex> lock (mutex);
 	while (!stopped)
 	{
-		if (!blocks.empty () || !forced.empty () || !updates.empty ())
+		if (have_blocks_ready ())
 		{
 			active = true;
 			lock.unlock ();
@@ -181,10 +181,16 @@ bool nano::block_processor::should_log ()
 	return result;
 }
 
+bool nano::block_processor::have_blocks_ready ()
+{
+	debug_assert (!mutex.try_lock ());
+	return !blocks.empty () || !forced.empty () || !updates.empty ();
+}
+
 bool nano::block_processor::have_blocks ()
 {
 	debug_assert (!mutex.try_lock ());
-	return !blocks.empty () || !forced.empty () || !updates.empty () || state_block_signature_verification.size () != 0;
+	return have_blocks_ready () || state_block_signature_verification.size () != 0;
 }
 
 void nano::block_processor::process_verified_state_blocks (std::deque<nano::unchecked_info> & items, std::vector<int> const & verifications, std::vector<nano::block_hash> const & hashes, std::vector<nano::signature> const & blocks_signatures)
@@ -236,7 +242,9 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 	timer_l.start ();
 	// Processing blocks
 	unsigned number_of_blocks_processed (0), number_of_forced_processed (0), number_of_updates_processed (0);
-	while ((!blocks.empty () || !forced.empty () || !updates.empty ()) && (timer_l.before_deadline (node.config.block_processor_batch_max_time) || (number_of_blocks_processed < node.flags.block_processor_batch_size)) && !awaiting_write)
+	auto deadline_reached = [&timer_l, deadline = node.config.block_processor_batch_max_time] { return timer_l.after_deadline (deadline); };
+	auto max_blocks_reached = [&number_of_blocks_processed, max = node.flags.block_processor_batch_size] { return number_of_blocks_processed >= max; };
+	while (have_blocks_ready () && (!deadline_reached () || !max_blocks_reached ()) && !awaiting_write)
 	{
 		if ((blocks.size () + state_block_signature_verification.size () + forced.size () + updates.size () > 64) && should_log ())
 		{

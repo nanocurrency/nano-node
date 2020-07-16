@@ -59,6 +59,7 @@ public:
 	void update (std::shared_ptr<nano::block> const &);
 	void wait_write ();
 	bool should_log ();
+	bool have_blocks_ready ();
 	bool have_blocks ();
 	void process_blocks ();
 	nano::process_return process_one (nano::write_transaction const &, block_post_events &, nano::unchecked_info, const bool = false, nano::block_origin const = nano::block_origin::remote);
