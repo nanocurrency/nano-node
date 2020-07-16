@@ -180,9 +180,9 @@ void nano::mdb_txn_tracker::serialize_json (boost::property_tree::ptree & json, 
 	}
 }
 
-void nano::mdb_txn_tracker::output_finished (nano::mdb_txn_stats const & mdb_txn_stats) const
+void nano::mdb_txn_tracker::log_if_held_long_enough (nano::mdb_txn_stats const & mdb_txn_stats) const
 {
-	// Only output them if transactions were held for longer than a certain period of time
+	// Only log these transactions if they were held for longer than the min_read_txn_time/min_write_txn_time config values
 	auto is_write = mdb_txn_stats.is_write ();
 	auto time_open = mdb_txn_stats.timer.since_start ();
 
@@ -212,13 +212,14 @@ void nano::mdb_txn_tracker::add (const nano::transaction_impl * transaction_impl
 /** Can be called without error if transaction does not exist */
 void nano::mdb_txn_tracker::erase (const nano::transaction_impl * transaction_impl)
 {
-	nano::lock_guard<std::mutex> guard (mutex);
+	nano::unique_lock<std::mutex> lk (mutex);
 	auto it = std::find_if (stats.begin (), stats.end (), matches_txn (transaction_impl));
 	if (it != stats.end ())
 	{
-		output_finished (*it);
-		it->timer.stop ();
+		auto tracker_stats_copy = *it;
 		stats.erase (it);
+		lk.unlock ();
+		log_if_held_long_enough (tracker_stats_copy);
 	}
 }
 
