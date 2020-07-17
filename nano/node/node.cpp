@@ -527,14 +527,18 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 		if (ledger_block && !block_confirmed_or_being_confirmed (transaction_a, ledger_block->hash ()) && (ledger.can_vote (transaction_a, *ledger_block) || modified_a < nano::seconds_since_epoch () - 300 || !block_arrival.recent (block_a->hash ())))
 		{
 			std::weak_ptr<nano::node> this_w (shared_from_this ());
-			auto election = active.insert (ledger_block, boost::none, [this_w, root](std::shared_ptr<nano::block>) {
+			auto election = active.insert (ledger_block, boost::none, [this_w, root, root_block_type = block_a->type ()](std::shared_ptr<nano::block>) {
 				if (auto this_l = this_w.lock ())
 				{
 					auto attempt (this_l->bootstrap_initiator.current_attempt ());
 					if (attempt && attempt->mode == nano::bootstrap_mode::legacy)
 					{
 						auto transaction (this_l->store.tx_begin_read ());
-						auto account (this_l->ledger.store.frontier_get (transaction, root));
+						nano::account account{ 0 };
+						if (root_block_type == nano::block_type::receive || root_block_type == nano::block_type::send || root_block_type == nano::block_type::change || root_block_type == nano::block_type::open)
+						{
+							account = this_l->ledger.store.frontier_get (transaction, root);
+						}
 						if (!account.is_zero ())
 						{
 							this_l->bootstrap_initiator.connections->requeue_pull (nano::pull_info (account, root, root, attempt->incremental_id));
