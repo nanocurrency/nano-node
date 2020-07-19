@@ -147,7 +147,11 @@ TEST (difficulty, network_constants)
 	nano::work_version version{ nano::work_version::work_1 };
 	ASSERT_EQ (constants.publish_thresholds.base, constants.publish_thresholds.epoch_2);
 	ASSERT_EQ (constants.publish_thresholds.base, nano::work_threshold_base (version));
-	ASSERT_EQ (constants.publish_thresholds.entry, nano::work_threshold_entry (version));
+	ASSERT_EQ (constants.publish_thresholds.entry, nano::work_threshold_entry (version, nano::block_type::state));
+	ASSERT_EQ (constants.publish_thresholds.epoch_1, nano::work_threshold_entry (version, nano::block_type::send));
+	ASSERT_EQ (constants.publish_thresholds.epoch_1, nano::work_threshold_entry (version, nano::block_type::receive));
+	ASSERT_EQ (constants.publish_thresholds.epoch_1, nano::work_threshold_entry (version, nano::block_type::open));
+	ASSERT_EQ (constants.publish_thresholds.epoch_1, nano::work_threshold_entry (version, nano::block_type::change));
 	ASSERT_EQ (constants.publish_thresholds.epoch_1, nano::work_threshold (version, nano::block_details (nano::epoch::epoch_0, false, false, false)));
 	ASSERT_EQ (constants.publish_thresholds.epoch_1, nano::work_threshold (version, nano::block_details (nano::epoch::epoch_1, false, false, false)));
 	ASSERT_EQ (constants.publish_thresholds.epoch_1, nano::work_threshold (version, nano::block_details (nano::epoch::epoch_1, false, false, false)));

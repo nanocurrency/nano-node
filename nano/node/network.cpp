@@ -452,13 +452,20 @@ public:
 				if (!vote_block.which ())
 				{
 					auto block (boost::get<std::shared_ptr<nano::block>> (vote_block));
-					if (!node.block_processor.full ())
+					if (!nano::work_validate_entry (*block))
 					{
-						node.process_active (block);
+						if (!node.block_processor.full ())
+						{
+							node.process_active (block);
+						}
+						else
+						{
+							node.stats.inc (nano::stat::type::drop, nano::stat::detail::confirm_ack, nano::stat::dir::in);
+						}
 					}
 					else
 					{
-						node.stats.inc (nano::stat::type::drop, nano::stat::detail::confirm_ack, nano::stat::dir::in);
+						node.stats.inc_detail_only (nano::stat::type::error, nano::stat::detail::insufficient_work);
 					}
 				}
 			}

@@ -431,7 +431,14 @@ void nano::bootstrap_server::receive_publish_action (boost::system::error_code c
 			{
 				if (is_realtime_connection ())
 				{
-					add_request (std::unique_ptr<nano::message> (request.release ()));
+					if (!nano::work_validate_entry (*request->block))
+					{
+						add_request (std::unique_ptr<nano::message> (request.release ()));
+					}
+					else
+					{
+						node->stats.inc_detail_only (nano::stat::type::error, nano::stat::detail::insufficient_work);
+					}
 				}
 				receive ();
 			}
