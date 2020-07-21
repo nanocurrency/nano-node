@@ -24,7 +24,6 @@ std::string nano::to_string (nano::work_version const version_a)
 
 bool nano::work_validate_entry (nano::block const & block_a)
 {
-	static nano::network_constants network_constants;
 	return block_a.difficulty () < nano::work_threshold_entry (block_a.work_version (), block_a.type ());
 }
 
