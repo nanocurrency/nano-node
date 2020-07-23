@@ -833,6 +833,46 @@ TEST (block_store, block_count)
 	ASSERT_EQ (1, store->block_count (transaction).sum ());
 }
 
+TEST (block_store, block_count_many)
+{
+	auto path = nano::unique_path ();
+	const auto num_blocks = 5000;
+	{
+		nano::logger_mt logger;
+		auto store = nano::make_store (logger, path, false, true);
+		ASSERT_FALSE (store->init_error ());
+		{
+			auto transaction (store->tx_begin_write ());
+			nano::ledger_cache ledger_cache;
+			nano::genesis genesis;
+			store->initialize (transaction, genesis, ledger_cache);
+
+			for (auto i = 0; i < num_blocks; ++i)
+			{
+				nano::state_block send (nano::test_genesis_key.pub, nano::genesis_hash, i + 1, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+				send.sideband_set ({});
+				store->block_put (transaction, send.hash (), send);
+				// Delete every other block
+				if (i % 2 == 0)
+				{
+					store->block_del (transaction, send.hash (), nano::block_type::state);
+					store->block_put (transaction, send.hash (), send);
+				}
+			}
+		}
+		auto transaction (store->tx_begin_read ());
+		ASSERT_EQ (num_blocks + 1, store->block_count (transaction).sum ());
+	}
+
+	// Re-open database and make sure count is still the same
+	{
+		nano::logger_mt logger;
+		auto store = nano::make_store (logger, path, false, true);
+		auto transaction (store->tx_begin_read ());
+		ASSERT_EQ (num_blocks + 1, store->block_count (transaction).sum ());
+	}
+}
+
 TEST (block_store, account_count)
 {
 	nano::logger_mt logger;

@@ -95,8 +95,8 @@ private:
 	uint64_t count (nano::transaction const & transaction_a, rocksdb::ColumnFamilyHandle * handle) const;
 	bool is_caching_counts (nano::tables table_a) const;
 
-	int increment (nano::write_transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a, uint64_t amount_a);
-	int decrement (nano::write_transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a, uint64_t amount_a);
+	rocksdb::Status increment (nano::write_transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a);
+	rocksdb::Status decrement (nano::write_transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a);
 	rocksdb::ColumnFamilyOptions get_cf_options () const;
 	void construct_column_family_mutexes ();
 	rocksdb::Options get_db_options () const;

@@ -14,6 +14,60 @@
 #include <rocksdb/utilities/transaction.h>
 #include <rocksdb/utilities/transaction_db.h>
 
+namespace
+{
+// This is a read-modify-write operator, to update a count atomically and more efficiently than 2 separate get/put operations
+class uint64_merge_operator : public rocksdb::AssociativeMergeOperator
+{
+public:
+	bool Merge (const rocksdb::Slice & key, const rocksdb::Slice * existing_value, const rocksdb::Slice & value, std::string * new_value, rocksdb::Logger * /*logger*/) const override
+	{
+		uint64_t existing = 0;
+		if (existing_value)
+		{
+			existing = decode_integer (*existing_value);
+		}
+
+		uint64_t oper = decode_integer (value);
+		// Values are in big endian, so first convert to native endian, perform calculation and convert back before storing it
+		auto val = boost::endian::big_to_native (existing);
+		if (oper == 0)
+		{
+			val -= 1;
+		}
+		else
+		{
+			val += boost::endian::big_to_native (oper);
+		}
+
+		boost::endian::native_to_big_inplace (val);
+
+		new_value->clear ();
+		new_value->append (const_cast<const char *> (reinterpret_cast<char *> (&val)), sizeof (val));
+		return true;
+	}
+
+	const char * Name () const override
+	{
+		return "uint64_merge_operator";
+	}
+
+	bool AllowSingleOperand () const override
+	{
+		return false;
+	}
+
+private:
+	// Takes the slice and decodes it into a uint64_t
+	uint64_t decode_integer (rocksdb::Slice const & value) const
+	{
+		uint64_t result = 0;
+		memcpy (&result, value.data (), sizeof (result));
+		return result;
+	}
+};
+}
+
 namespace nano
 {
 template <>
@@ -219,7 +273,8 @@ int nano::rocksdb_store::del (nano::write_transaction const & transaction_a, tab
 	// Removing an entry so counts may need adjusting
 	if (is_caching_counts (table_a))
 	{
-		decrement (transaction_a, tables::cached_counts, rocksdb_val (rocksdb::Slice (table_to_column_family (table_a)->GetName ())), 1);
+		auto status = decrement (transaction_a, tables::cached_counts, rocksdb_val (rocksdb::Slice (table_to_column_family (table_a)->GetName ())));
+		debug_assert (status.ok ());
 	}
 
 	return tx (transaction_a)->Delete (table_to_column_family (table_a), key_a).code ();
@@ -280,31 +335,19 @@ bool nano::rocksdb_store::is_caching_counts (nano::tables table_a) const
 	}
 }
 
-int nano::rocksdb_store::increment (nano::write_transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a, uint64_t amount_a)
+rocksdb::Status nano::rocksdb_store::increment (nano::write_transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a)
 {
-	release_assert (transaction_a.contains (table_a));
-	uint64_t base;
-	nano::rocksdb_val value;
-	if (!success (get (transaction_a, table_a, key_a, value)))
-	{
-		base = 0;
-	}
-	else
-	{
-		base = static_cast<uint64_t> (value);
-	}
-
-	return put (transaction_a, table_a, key_a, nano::rocksdb_val (base + amount_a));
+	debug_assert (transaction_a.contains (table_a));
+	auto txn = tx (transaction_a);
+	return txn->Merge (table_to_column_family (table_a), key_a, nano::rocksdb_val (1));
 }
 
-int nano::rocksdb_store::decrement (nano::write_transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a, uint64_t amount_a)
+rocksdb::Status nano::rocksdb_store::decrement (nano::write_transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a)
 {
-	release_assert (transaction_a.contains (table_a));
-	nano::rocksdb_val value;
-	auto status = get (transaction_a, table_a, key_a, value);
-	release_assert (success (status));
-	auto base = static_cast<uint64_t> (value);
-	return put (transaction_a, table_a, key_a, nano::rocksdb_val (base - amount_a));
+	debug_assert (transaction_a.contains (table_a));
+	auto txn = tx (transaction_a);
+	// The This uses a special encoding where 0 means that it should substract 1
+	return txn->Merge (table_to_column_family (table_a), key_a, nano::rocksdb_val (0));
 }
 
 int nano::rocksdb_store::put (nano::write_transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a, nano::rocksdb_val const & value_a)
@@ -317,7 +360,8 @@ int nano::rocksdb_store::put (nano::write_transaction const & transaction_a, tab
 		if (!exists (transaction_a, table_a, key_a))
 		{
 			// Adding a new entry so counts need adjusting
-			increment (transaction_a, tables::cached_counts, rocksdb_val (rocksdb::Slice (table_to_column_family (table_a)->GetName ())), 1);
+			auto status = increment (transaction_a, tables::cached_counts, rocksdb_val (rocksdb::Slice (table_to_column_family (table_a)->GetName ())));
+			debug_assert (status.ok ());
 		}
 	}
 
@@ -350,6 +394,7 @@ uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, ro
 		count = static_cast<uint64_t> (val);
 	}
 
+	// A status of 6 or (kMergeinProgress means the count is requested in the same transaction which has done a merge)
 	release_assert (success (status) || not_found (status));
 	return count;
 }
@@ -533,6 +578,9 @@ rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_cf_options () const
 
 	// Number of memtables to keep in memory (1 active, rest inactive/immutable)
 	cf_options.max_write_buffer_number = rocksdb_config.num_memtables;
+
+	// The operation to invoke when the merge operator is used
+	cf_options.merge_operator = std::make_shared<uint64_merge_operator> ();
 
 	return cf_options;
 }
