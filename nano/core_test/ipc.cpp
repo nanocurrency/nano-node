@@ -1,10 +1,10 @@
-#include <nano/core_test/testutil.hpp>
 #include <nano/lib/ipc_client.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/ipc/ipc_access_config.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/rpc/rpc.hpp>
+#include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -53,11 +53,7 @@ TEST (ipc, asynchronous)
 			});
 		});
 	});
-	system.deadline_set (5s);
-	while (!call_completed)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, call_completed);
 	ipc.stop ();
 }
 
@@ -86,31 +82,8 @@ TEST (ipc, synchronous)
 	});
 	client_thread.detach ();
 
-	system.deadline_set (5s);
-	while (!call_completed)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, call_completed);
 	ipc.stop ();
-}
-
-TEST (ipc, config_upgrade_v0_v1)
-{
-	auto path1 (nano::unique_path ());
-	auto path2 (nano::unique_path ());
-	nano::ipc::ipc_config config1;
-	nano::ipc::ipc_config config2;
-	nano::jsonconfig tree;
-	config1.serialize_json (tree);
-	nano::jsonconfig local = tree.get_required_child ("local");
-	local.erase ("version");
-	local.erase ("allow_unsafe");
-	bool upgraded (false);
-	ASSERT_FALSE (config2.deserialize_json (upgraded, tree));
-	nano::jsonconfig local2 = tree.get_required_child ("local");
-	ASSERT_TRUE (upgraded);
-	ASSERT_LE (1, local2.get<int> ("version"));
-	ASSERT_FALSE (local2.get<bool> ("allow_unsafe"));
 }
 
 TEST (ipc, permissions_default_user)

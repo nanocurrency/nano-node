@@ -124,7 +124,7 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 	auto transaction = node.store.tx_begin_read ();
 
 	boost::optional<nano::election_status_type> election_status_type;
-	if (!confirmation_height_processor.is_processing_block (block_a->hash ()))
+	if (!confirmation_height_processor.is_processing_added_block (block_a->hash ()))
 	{
 		election_status_type = confirm_block (transaction, block_a);
 	}

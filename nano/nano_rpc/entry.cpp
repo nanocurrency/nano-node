@@ -1,3 +1,4 @@
+#include <nano/lib/cli.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
@@ -90,7 +91,7 @@ int main (int argc, char * const * argv)
 	// clang-format off
 	description.add_options ()
 		("help", "Print out options")
-		("config", boost::program_options::value<std::vector<std::string>>()->multitoken(), "Pass RPC configuration values. This takes precedence over any values in the configuration file. This option can be repeated multiple times.")
+		("config", boost::program_options::value<std::vector<nano::config_key_value_pair>>()->multitoken(), "Pass RPC configuration values. This takes precedence over any values in the configuration file. This option can be repeated multiple times.")
 		("daemon", "Start RPC daemon")
 		("data_path", boost::program_options::value<std::string> (), "Use the supplied path as the data directory")
 		("network", boost::program_options::value<std::string> (), "Use the supplied network (live, beta or test)")
@@ -139,7 +140,7 @@ int main (int argc, char * const * argv)
 		auto config (vm.find ("config"));
 		if (config != vm.end ())
 		{
-			config_overrides = config->second.as<std::vector<std::string>> ();
+			config_overrides = nano::config_overrides (config->second.as<std::vector<nano::config_key_value_pair>> ());
 		}
 		run (data_path, config_overrides);
 	}
