@@ -171,8 +171,6 @@ rocksdb::ColumnFamilyHandle * nano::rocksdb_store::table_to_column_family (table
 			return get_handle ("state_blocks");
 		case tables::pending:
 			return get_handle ("pending");
-		case tables::blocks_info:
-			debug_assert (false);
 		case tables::representation:
 			return get_handle ("representation");
 		case tables::unchecked:
@@ -191,7 +189,7 @@ rocksdb::ColumnFamilyHandle * nano::rocksdb_store::table_to_column_family (table
 			return get_handle ("confirmation_height");
 		default:
 			release_assert (false);
-			return get_handle ("peers");
+			return get_handle ("");
 	}
 }
 
@@ -225,13 +223,6 @@ int nano::rocksdb_store::del (nano::write_transaction const & transaction_a, tab
 	}
 
 	return tx (transaction_a)->Delete (table_to_column_family (table_a), key_a).code ();
-}
-
-bool nano::rocksdb_store::block_info_get (nano::transaction const &, nano::block_hash const &, nano::block_info &) const
-{
-	// Should not be called as the RocksDB backend does not use this table
-	debug_assert (false);
-	return true;
 }
 
 void nano::rocksdb_store::version_put (nano::write_transaction const & transaction_a, int version_a)

@@ -1,8 +1,8 @@
-#include <nano/core_test/testutil.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/testing.hpp>
+#include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -573,7 +573,7 @@ TEST (system, DISABLED_generate_send_existing)
 	runner.join ();
 }
 
-TEST (system, generate_send_new)
+TEST (system, DISABLED_generate_send_new)
 {
 	nano::system system (1);
 	auto & node1 (*system.nodes[0]);
@@ -618,11 +618,7 @@ TEST (system, generate_send_new)
 		ASSERT_EQ (system.wallet (0)->store.end (), iterator2);
 		ASSERT_FALSE (new_account.is_zero ());
 	}
-	system.deadline_set (10s);
-	while (node1.balance (new_account) == 0)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (10s, node1.balance (new_account) != 0);
 	system.stop ();
 	runner.join ();
 }

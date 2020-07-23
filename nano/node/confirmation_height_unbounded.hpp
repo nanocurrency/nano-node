@@ -24,6 +24,7 @@ public:
 	void clear_process_vars ();
 	void process ();
 	void cement_blocks (nano::write_guard &);
+	bool has_iterated_over_block (nano::block_hash const &) const;
 
 private:
 	class confirmed_iterated_pair
@@ -63,13 +64,15 @@ private:
 	// This allows the load and stores to use relaxed atomic memory ordering.
 	std::unordered_map<account, confirmed_iterated_pair> confirmed_iterated_pairs;
 	nano::relaxed_atomic_integral<uint64_t> confirmed_iterated_pairs_size{ 0 };
-	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> block_cache;
-	nano::relaxed_atomic_integral<uint64_t> block_cache_size{ 0 };
 	std::shared_ptr<nano::block> get_block_and_sideband (nano::block_hash const &, nano::transaction const &);
 	std::deque<conf_height_details> pending_writes;
 	nano::relaxed_atomic_integral<uint64_t> pending_writes_size{ 0 };
 	std::unordered_map<nano::block_hash, std::weak_ptr<conf_height_details>> implicit_receive_cemented_mapping;
 	nano::relaxed_atomic_integral<uint64_t> implicit_receive_cemented_mapping_size{ 0 };
+
+	mutable std::mutex block_cache_mutex;
+	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> block_cache;
+	uint64_t block_cache_size () const;
 
 	nano::timer<std::chrono::milliseconds> timer;
 

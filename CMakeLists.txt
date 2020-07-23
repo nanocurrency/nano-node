@@ -63,7 +63,9 @@ set (NANO_ROCKSDB OFF CACHE BOOL "")
 set (NANO_POW_SERVER OFF CACHE BOOL "")
 set (NANO_WARN_TO_ERR OFF CACHE BOOL "")
 set (NANO_TIMED_LOCKS 0 CACHE STRING "")
+set (NANO_TIMED_LOCKS_IGNORE_BLOCKED OFF CACHE BOOL "")
 set (NANO_FUZZER_TEST OFF CACHE BOOL "")
+set (NANO_ASIO_HANDLER_TRACKING 0 CACHE STRING "")
 
 option (NANO_STACKTRACE_BACKTRACE "Use BOOST_STACKTRACE_USE_BACKTRACE in stacktraces, for POSIX" OFF)
 if (NANO_STACKTRACE_BACKTRACE)
@@ -75,6 +77,13 @@ endif ()
 
 if (${NANO_TIMED_LOCKS} GREATER 0)
 	add_definitions (-DNANO_TIMED_LOCKS=${NANO_TIMED_LOCKS})
+	if (NANO_TIMED_LOCKS_IGNORE_BLOCKED)
+		add_definitions(-DNANO_TIMED_LOCKS_IGNORE_BLOCKED)
+	endif ()
+endif ()
+
+if (${NANO_ASIO_HANDLER_TRACKING} GREATER 0)
+	add_definitions (-DNANO_ASIO_HANDLER_TRACKING=${NANO_ASIO_HANDLER_TRACKING} -DBOOST_ASIO_ENABLE_HANDLER_TRACKING)
 endif ()
 
 add_definitions (-DNANO_ROCKSDB=$<STREQUAL:${NANO_ROCKSDB},ON>)
@@ -442,6 +451,7 @@ if (NANO_TEST OR RAIBLOCKS_TEST)
 	set_target_properties(gtest PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
 		"${CMAKE_SOURCE_DIR}/gtest/googletest/include")
 
+	add_subdirectory(nano/test_common)
 	add_subdirectory(nano/core_test)
 	add_subdirectory(nano/rpc_test)
 	add_subdirectory(nano/slow_test)
@@ -526,7 +536,7 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 			nano/qt_test/entry.cpp
 			nano/qt_test/qt.cpp)
 
-		target_link_libraries(qt_test gtest gtest_main qt Qt5::Test)
+		target_link_libraries(qt_test test_common gtest gtest_main qt Qt5::Test)
 
 		set_target_properties (qt_test PROPERTIES COMPILE_FLAGS "-DQT_NO_KEYWORDS -DBOOST_ASIO_HAS_STD_ARRAY=1")
 	endif ()
