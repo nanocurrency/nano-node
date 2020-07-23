@@ -1601,7 +1601,7 @@ TEST (confirmation_height, unbounded_block_cache_iteration)
 		// Prevent conf height processor doing any writes, so that we can query is_processing_block correctly
 		auto write_guard = write_database_queue.wait (nano::writer::testing);
 		// Add the frontier block
-		confirmation_height_processor.add (send1->hash ());
+		confirmation_height_processor.add (send1);
 
 		// The most uncemented block (previous block) should be seen as processing by the unbounded processor
 		while (!confirmation_height_processor.is_processing_block (send->hash ()))
