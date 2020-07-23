@@ -1,3 +1,4 @@
+#include <nano/lib/cli.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/cli.hpp>
 #include <nano/node/common.hpp>
@@ -170,7 +171,7 @@ std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_o
 	auto config (vm.find ("config"));
 	if (config != vm.end ())
 	{
-		flags_a.config_overrides = config->second.as<std::vector<std::string>> ();
+		flags_a.config_overrides = nano::config_overrides (config->second.as<std::vector<nano::config_key_value_pair>> ());
 	}
 	return ec;
 }
