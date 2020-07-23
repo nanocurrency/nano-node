@@ -3698,6 +3698,10 @@ void nano::json_handler::stats ()
 		node.stats.log_samples (*sink);
 		use_sink = true;
 	}
+	else if (type == "other")
+	{
+		node.store.serialize_memory_stats (response_l);
+	}
 	else
 	{
 		ec = nano::error_rpc::invalid_missing_type;
