@@ -92,17 +92,6 @@ public:
 		return (success (status));
 	}
 
-	std::vector<nano::unchecked_info> unchecked_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override
-	{
-		std::vector<nano::unchecked_info> result;
-		for (auto i (unchecked_begin (transaction_a, nano::unchecked_key (hash_a, 0))), n (unchecked_end ()); i != n && i->first.key () == hash_a; ++i)
-		{
-			nano::unchecked_info const & unchecked_info (i->second);
-			result.push_back (unchecked_info);
-		}
-		return result;
-	}
-
 	void block_put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a, nano::block const & block_a) override
 	{
 		debug_assert (block_a.sideband ().successor.is_zero () || block_exists (transaction_a, block_a.sideband ().successor));
