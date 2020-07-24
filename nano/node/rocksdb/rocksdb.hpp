@@ -102,6 +102,9 @@ private:
 	rocksdb::Options get_db_options () const;
 	rocksdb::BlockBasedTableOptions get_table_options () const;
 	nano::rocksdb_config rocksdb_config;
+
+	constexpr static int base_memtable_size = 16;
+	constexpr static int base_block_cache_size = 16;
 };
 
 extern template class block_store_partial<rocksdb::Slice, rocksdb_store>;
