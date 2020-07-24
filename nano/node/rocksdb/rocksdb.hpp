@@ -46,13 +46,6 @@ public:
 		// Do nothing
 	}
 
-	std::shared_ptr<nano::block> block_get_v14 (nano::transaction const &, nano::block_hash const &, nano::block_sideband_v14 * = nullptr, bool * = nullptr) const override
-	{
-		// Should not be called as RocksDB has no such upgrade path
-		release_assert (false);
-		return nullptr;
-	}
-
 	bool copy_db (boost::filesystem::path const & destination) override;
 	void rebuild_db (nano::write_transaction const & transaction_a) override;
 
