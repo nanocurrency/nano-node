@@ -627,45 +627,45 @@ void nano::rocksdb_store::serialize_memory_stats (boost::property_tree::ptree & 
 
 	// Approximate size of active and unflushed immutable memtables (bytes).
 	db->GetAggregatedIntProperty (rocksdb::DB::Properties::kCurSizeAllMemTables, &val);
-	json.put ("rocksdb.cur-size-all-mem-tables", val);
+	json.put ("cur-size-all-mem-tables", val);
 
 	// Approximate size of active, unflushed immutable, and pinned immutable memtables (bytes).
 	db->GetAggregatedIntProperty (rocksdb::DB::Properties::kSizeAllMemTables, &val);
-	json.put ("rocksdb.size-all-mem-tables", val);
+	json.put ("size-all-mem-tables", val);
 
 	// Estimated memory used for reading SST tables, excluding memory used in block cache (e.g. filter and index blocks).
 	db->GetAggregatedIntProperty (rocksdb::DB::Properties::kEstimateTableReadersMem, &val);
-	json.put ("rocksdb.estimate-table-readers-mem", val);
+	json.put ("estimate-table-readers-mem", val);
 
 	//  An estimate of the amount of live data in bytes.
 	db->GetAggregatedIntProperty (rocksdb::DB::Properties::kEstimateLiveDataSize, &val);
-	json.put ("rocksdb.estimate-live-data-size", val);
+	json.put ("estimate-live-data-size", val);
 
 	//  Returns 1 if at least one compaction is pending; otherwise, returns 0.
 	db->GetAggregatedIntProperty (rocksdb::DB::Properties::kCompactionPending, &val);
-	json.put ("rocksdb.compaction-pending", val);
+	json.put ("compaction-pending", val);
 
 	// Estimated number of total keys in the active and unflushed immutable memtables and storage.
 	db->GetAggregatedIntProperty (rocksdb::DB::Properties::kEstimateNumKeys, &val);
-	json.put ("rocksdb.estimate-num-keys", val);
+	json.put ("estimate-num-keys", val);
 
 	// Estimated total number of bytes compaction needs to rewrite to get all levels down
 	// to under target size. Not valid for other compactions than level-based.
 	db->GetAggregatedIntProperty (rocksdb::DB::Properties::kEstimatePendingCompactionBytes, &val);
-	json.put ("rocksdb.estimate-pending-compaction-bytes", val);
+	json.put ("estimate-pending-compaction-bytes", val);
 
 	//  Total size (bytes) of all SST files.
 	//  WARNING: may slow down online queries if there are too many files.
 	db->GetAggregatedIntProperty (rocksdb::DB::Properties::kTotalSstFilesSize, &val);
-	json.put ("rocksdb.total-sst-files-size", val);
+	json.put ("total-sst-files-size", val);
 
 	// Block cache capacity.
 	db->GetAggregatedIntProperty (rocksdb::DB::Properties::kBlockCacheCapacity, &val);
-	json.put ("rocksdb.block-cache-capacity", val);
+	json.put ("block-cache-capacity", val);
 
 	// Memory size for the entries residing in block cache.
 	db->GetAggregatedIntProperty (rocksdb::DB::Properties::kBlockCacheUsage, &val);
-	json.put ("rocksdb.block-cache-usage", val);
+	json.put ("block-cache-usage", val);
 }
 
 // Explicitly instantiate
