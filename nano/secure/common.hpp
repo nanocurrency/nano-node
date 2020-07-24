@@ -208,16 +208,6 @@ public:
 	nano::account account{ 0 };
 	nano::amount balance{ 0 };
 };
-class block_counts final
-{
-public:
-	size_t sum () const;
-	size_t send{ 0 };
-	size_t receive{ 0 };
-	size_t open{ 0 };
-	size_t change{ 0 };
-	size_t state{ 0 };
-};
 
 class confirmation_height_info final
 {
