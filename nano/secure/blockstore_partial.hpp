@@ -32,7 +32,7 @@ public:
 		auto hash_l (genesis_a.hash ());
 		debug_assert (latest_begin (transaction_a) == latest_end ());
 		genesis_a.open->sideband_set (nano::block_sideband (network_params.ledger.genesis_account, 0, network_params.ledger.genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false));
-		block_put (transaction_a, hash_l, *genesis_a.open);
+		block_put (transaction_a, hash_l, *genesis_a.open, nano::store_hint::key_not_exists);
 		++ledger_cache_a.block_count;
 		confirmation_height_put (transaction_a, network_params.ledger.genesis_account, nano::confirmation_height_info{ 1, genesis_a.hash () });
 		++ledger_cache_a.cemented_count;
@@ -103,7 +103,7 @@ public:
 		return result;
 	}
 
-	void block_put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a, nano::block const & block_a) override
+	void block_put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a, nano::block const & block_a, nano::store_hint store_hint_a) override
 	{
 		debug_assert (block_a.sideband ().successor.is_zero () || block_exists (transaction_a, block_a.sideband ().successor));
 		std::vector<uint8_t> vector;
@@ -112,7 +112,7 @@ public:
 			block_a.serialize (stream);
 			block_a.sideband ().serialize (stream, block_a.type ());
 		}
-		block_raw_put (transaction_a, vector, block_a.type (), hash_a);
+		block_raw_put (transaction_a, vector, block_a.type (), hash_a, store_hint_a);
 		nano::block_predecessor_set<Val, Derived_Store> predecessor (transaction_a, *this);
 		block_a.visit (predecessor);
 		debug_assert (block_a.previous ().is_zero () || block_successor (transaction_a, block_a.previous ()) == hash_a);
@@ -258,7 +258,7 @@ public:
 		debug_assert (value.size () != 0);
 		std::vector<uint8_t> data (static_cast<uint8_t *> (value.data ()), static_cast<uint8_t *> (value.data ()) + value.size ());
 		std::fill_n (data.begin () + block_successor_offset (transaction_a, value.size (), type), sizeof (nano::block_hash), uint8_t{ 0 });
-		block_raw_put (transaction_a, data, type, hash_a);
+		block_raw_put (transaction_a, data, type, hash_a, store_hint::key_exists);
 	}
 
 	void unchecked_put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a, std::shared_ptr<nano::block> const & block_a) override
@@ -421,11 +421,11 @@ public:
 		return nano::epoch::epoch_0;
 	}
 
-	void block_raw_put (nano::write_transaction const & transaction_a, std::vector<uint8_t> const & data, nano::block_type block_type_a, nano::block_hash const & hash_a)
+	void block_raw_put (nano::write_transaction const & transaction_a, std::vector<uint8_t> const & data, nano::block_type block_type_a, nano::block_hash const & hash_a, nano::store_hint store_hint_a)
 	{
 		auto database_a = block_database (block_type_a);
 		nano::db_val<Val> value{ data.size (), (void *)data.data () };
-		auto status = put (transaction_a, database_a, hash_a, value);
+		auto status = put (transaction_a, database_a, hash_a, value, store_hint_a);
 		release_assert (success (status));
 	}
 
@@ -929,9 +929,9 @@ protected:
 		return static_cast<Derived_Store const &> (*this).get (transaction_a, table_a, key_a, value_a);
 	}
 
-	int put (nano::write_transaction const & transaction_a, tables table_a, nano::db_val<Val> const & key_a, nano::db_val<Val> const & value_a)
+	int put (nano::write_transaction const & transaction_a, tables table_a, nano::db_val<Val> const & key_a, nano::db_val<Val> const & value_a, nano::store_hint store_hint_a = store_hint::none)
 	{
-		return static_cast<Derived_Store &> (*this).put (transaction_a, table_a, key_a, value_a);
+		return static_cast<Derived_Store &> (*this).put (transaction_a, table_a, key_a, value_a, store_hint_a);
 	}
 
 	int del (nano::write_transaction const & transaction_a, tables table_a, nano::db_val<Val> const & key_a)
@@ -967,7 +967,7 @@ public:
 		debug_assert (value.size () != 0);
 		std::vector<uint8_t> data (static_cast<uint8_t *> (value.data ()), static_cast<uint8_t *> (value.data ()) + value.size ());
 		std::copy (hash.bytes.begin (), hash.bytes.end (), data.begin () + store.block_successor_offset (transaction, value.size (), type));
-		store.block_raw_put (transaction, data, type, block_a.previous ());
+		store.block_raw_put (transaction, data, type, block_a.previous (), store_hint::key_exists);
 	}
 	void send_block (nano::send_block const & block_a) override
 	{

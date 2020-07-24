@@ -500,6 +500,13 @@ enum class tables
 	vote
 };
 
+enum class store_hint
+{
+	key_exists,
+	key_not_exists,
+	none
+};
+
 class transaction_impl
 {
 public:
@@ -573,7 +580,7 @@ class block_store
 public:
 	virtual ~block_store () = default;
 	virtual void initialize (nano::write_transaction const &, nano::genesis const &, nano::ledger_cache &) = 0;
-	virtual void block_put (nano::write_transaction const &, nano::block_hash const &, nano::block const &) = 0;
+	virtual void block_put (nano::write_transaction const &, nano::block_hash const &, nano::block const &, nano::store_hint) = 0;
 	virtual nano::block_hash block_successor (nano::transaction const &, nano::block_hash const &) const = 0;
 	virtual void block_successor_clear (nano::write_transaction const &, nano::block_hash const &) = 0;
 	virtual std::shared_ptr<nano::block> block_get (nano::transaction const &, nano::block_hash const &) const = 0;

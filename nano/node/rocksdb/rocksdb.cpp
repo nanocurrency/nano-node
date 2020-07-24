@@ -230,7 +230,7 @@ void nano::rocksdb_store::version_put (nano::write_transaction const & transacti
 	debug_assert (transaction_a.contains (tables::meta));
 	nano::uint256_union version_key (1);
 	nano::uint256_union version_value (version_a);
-	auto status (put (transaction_a, tables::meta, version_key, nano::rocksdb_val (version_value)));
+	auto status (put (transaction_a, tables::meta, version_key, nano::rocksdb_val (version_value), nano::store_hint::none));
 	release_assert (success (status));
 }
 
@@ -294,7 +294,7 @@ int nano::rocksdb_store::increment (nano::write_transaction const & transaction_
 		base = static_cast<uint64_t> (value);
 	}
 
-	return put (transaction_a, table_a, key_a, nano::rocksdb_val (base + amount_a));
+	return put (transaction_a, table_a, key_a, nano::rocksdb_val (base + amount_a), nano::store_hint::none);
 }
 
 int nano::rocksdb_store::decrement (nano::write_transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a, uint64_t amount_a)
@@ -304,20 +304,24 @@ int nano::rocksdb_store::decrement (nano::write_transaction const & transaction_
 	auto status = get (transaction_a, table_a, key_a, value);
 	release_assert (success (status));
 	auto base = static_cast<uint64_t> (value);
-	return put (transaction_a, table_a, key_a, nano::rocksdb_val (base - amount_a));
+	return put (transaction_a, table_a, key_a, nano::rocksdb_val (base - amount_a), store_hint::none);
 }
 
-int nano::rocksdb_store::put (nano::write_transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a, nano::rocksdb_val const & value_a)
+int nano::rocksdb_store::put (nano::write_transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a, nano::rocksdb_val const & value_a, nano::store_hint store_hint_a)
 {
 	debug_assert (transaction_a.contains (table_a));
 
 	auto txn = tx (transaction_a);
 	if (is_caching_counts (table_a))
 	{
-		if (!exists (transaction_a, table_a, key_a))
+		if (store_hint_a == store_hint::key_not_exists || (store_hint_a == store_hint::none && !exists (transaction_a, table_a, key_a)))
 		{
 			// Adding a new entry so counts need adjusting
 			increment (transaction_a, tables::cached_counts, rocksdb_val (rocksdb::Slice (table_to_column_family (table_a)->GetName ())), 1);
+		}
+		else
+		{
+			debug_assert (store_hint_a == store_hint::key_exists && exists (transaction_a, table_a, key_a));
 		}
 	}
 
@@ -407,12 +411,12 @@ int nano::rocksdb_store::drop (nano::write_transaction const & transaction_a, ta
 	if (is_caching_counts (table_a))
 	{
 		// Reset counter to 0
-		status = put (transaction_a, tables::cached_counts, nano::rocksdb_val (rocksdb::Slice (col->GetName ())), nano::rocksdb_val (uint64_t{ 0 }));
+		status = put (transaction_a, tables::cached_counts, nano::rocksdb_val (rocksdb::Slice (col->GetName ())), nano::rocksdb_val (uint64_t{ 0 }), nano::store_hint::none);
 	}
 
 	if (success (status))
 	{
-		// Dropping/Creating families like in node::ongoing_peer_clear can cause write stalls, just delete them manually.
+		// Dropping/creating families like in node::ongoing_peer_clear can cause write stalls, just delete them manually.
 		if (table_a == tables::peers)
 		{
 			int status = 0;

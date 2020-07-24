@@ -855,7 +855,7 @@ bool nano::active_transactions::restart (std::shared_ptr<nano::block> const & bl
 				ledger_block->block_work_set (block_a->block_work ());
 
 				auto block_count = node.ledger.cache.block_count.load ();
-				node.store.block_put (transaction_a, hash, *ledger_block);
+				node.store.block_put (transaction_a, hash, *ledger_block, nano::store_hint::key_exists);
 				debug_assert (node.ledger.cache.block_count.load () == block_count);
 
 				// Restart election for the upgraded block, previously dropped from elections
