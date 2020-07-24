@@ -400,7 +400,7 @@ public:
 		nano::db_val<Val> data;
 		auto status = get (transaction_a, tables::meta, nano::db_val<Val> (version_key), data);
 		int result (minimum_version);
-		if (!not_found (status))
+		if (success (status))
 		{
 			nano::uint256_union version_value (data);
 			debug_assert (version_value.qwords[2] == 0 && version_value.qwords[1] == 0 && version_value.qwords[0] == 0);

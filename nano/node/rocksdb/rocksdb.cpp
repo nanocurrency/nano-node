@@ -62,16 +62,6 @@ rocksdb_config (rocksdb_config_a)
 	}
 }
 
-nano::rocksdb_store::~rocksdb_store ()
-{
-	for (auto handle : handles)
-	{
-		delete handle;
-	}
-
-	delete db;
-}
-
 void nano::rocksdb_store::open (bool & error_a, boost::filesystem::path const & path_a, bool open_read_only_a)
 {
 	std::initializer_list<const char *> names{ rocksdb::kDefaultColumnFamilyName.c_str (), "frontiers", "accounts", "send", "receive", "open", "change", "state_blocks", "pending", "representation", "unchecked", "vote", "online_weight", "meta", "peers", "cached_counts", "confirmation_height" };
@@ -84,17 +74,26 @@ void nano::rocksdb_store::open (bool & error_a, boost::filesystem::path const & 
 	auto options = get_db_options ();
 	rocksdb::Status s;
 
+	std::vector<rocksdb::ColumnFamilyHandle *> handles_l;
 	if (open_read_only_a)
 	{
-		s = rocksdb::DB::OpenForReadOnly (options, path_a.string (), column_families, &handles, &db);
+		rocksdb::DB * db_l;
+		s = rocksdb::DB::OpenForReadOnly (options, path_a.string (), column_families, &handles_l, &db_l);
+		db.reset (db_l);
 	}
 	else
 	{
-		s = rocksdb::OptimisticTransactionDB::Open (options, path_a.string (), column_families, &handles, &optimistic_db);
+		s = rocksdb::OptimisticTransactionDB::Open (options, path_a.string (), column_families, &handles_l, &optimistic_db);
 		if (optimistic_db)
 		{
-			db = optimistic_db;
+			db.reset (optimistic_db);
 		}
+	}
+
+	handles.resize (handles_l.size ());
+	for (auto i = 0; i < handles_l.size (); ++i)
+	{
+		handles[i].reset (handles_l[i]);
 	}
 
 	// Assign handles to supplied
@@ -134,7 +133,7 @@ nano::write_transaction nano::rocksdb_store::tx_begin_write (std::vector<nano::t
 
 nano::read_transaction nano::rocksdb_store::tx_begin_read ()
 {
-	return nano::read_transaction{ std::make_unique<nano::read_rocksdb_txn> (db) };
+	return nano::read_transaction{ std::make_unique<nano::read_rocksdb_txn> (db.get ()) };
 }
 
 std::string nano::rocksdb_store::vendor_get () const
@@ -146,11 +145,11 @@ rocksdb::ColumnFamilyHandle * nano::rocksdb_store::table_to_column_family (table
 {
 	auto & handles_l = handles;
 	auto get_handle = [&handles_l](const char * name) {
-		auto iter = std::find_if (handles_l.begin (), handles_l.end (), [name](auto handle) {
+		auto iter = std::find_if (handles_l.begin (), handles_l.end (), [name](auto & handle) {
 			return (handle->GetName () == name);
 		});
 		debug_assert (iter != handles_l.end ());
-		return *iter;
+		return (*iter).get ();
 	};
 
 	switch (table_a)
@@ -204,6 +203,7 @@ bool nano::rocksdb_store::exists (nano::transaction const & transaction_a, table
 	else
 	{
 		rocksdb::ReadOptions options;
+		options.fill_cache = false;
 		status = tx (transaction_a)->Get (options, table_to_column_family (table_a), key_a, &slice);
 	}
 
@@ -437,14 +437,15 @@ int nano::rocksdb_store::clear (rocksdb::ColumnFamilyHandle * column_family)
 	auto name = column_family->GetName ();
 	auto status = db->DropColumnFamily (column_family);
 	release_assert (status.ok ());
-	delete column_family;
 
 	// Need to add it back as we just want to clear the contents
-	auto handle_it = std::find (handles.begin (), handles.end (), column_family);
+	auto handle_it = std::find_if (handles.begin (), handles.end (), [column_family](auto & handle) {
+		return handle.get () == column_family;
+	});
 	debug_assert (handle_it != handles.cend ());
 	status = db->CreateColumnFamily (get_cf_options (), name, &column_family);
 	release_assert (status.ok ());
-	*handle_it = column_family;
+	handle_it->reset (column_family);
 	return status.code ();
 }
 
@@ -561,7 +562,7 @@ bool nano::rocksdb_store::copy_db (boost::filesystem::path const & destination_p
 		}
 	}
 
-	auto status = backup_engine->CreateNewBackup (db);
+	auto status = backup_engine->CreateNewBackup (db.get ());
 	if (!status.ok ())
 	{
 		return false;
@@ -579,27 +580,29 @@ bool nano::rocksdb_store::copy_db (boost::filesystem::path const & destination_p
 		}
 	}
 
-	rocksdb::BackupEngineReadOnly * backup_engine_read;
-	status = rocksdb::BackupEngineReadOnly::Open (rocksdb::Env::Default (), rocksdb::BackupableDBOptions (destination_path.string ()), &backup_engine_read);
-	if (!status.ok ())
 	{
-		delete backup_engine_read;
-		return false;
-	}
-
-	// First remove all files (not directories) in the destination
-	for (boost::filesystem::directory_iterator end_dir_it, it (destination_path); it != end_dir_it; ++it)
-	{
-		auto path = it->path ();
-		if (boost::filesystem::is_regular_file (path))
+		std::unique_ptr<rocksdb::BackupEngineReadOnly> backup_engine_read;
 		{
-			boost::filesystem::remove (it->path ());
+			rocksdb::BackupEngineReadOnly * backup_engine_read_raw;
+			status = rocksdb::BackupEngineReadOnly::Open (rocksdb::Env::Default (), rocksdb::BackupableDBOptions (destination_path.string ()), &backup_engine_read_raw);
 		}
-	}
+		if (!status.ok ())
+		{
+			return false;
+		}
 
-	// Now generate the relevant files from the backup
-	status = backup_engine->RestoreDBFromLatestBackup (destination_path.string (), destination_path.string ());
-	delete backup_engine_read;
+		// First remove all files (not directories) in the destination
+		for (auto const & path : boost::make_iterator_range (boost::filesystem::directory_iterator (destination_path)))
+		{
+			if (boost::filesystem::is_regular_file (path))
+			{
+				boost::filesystem::remove (path);
+			}
+		}
+
+		// Now generate the relevant files from the backup
+		status = backup_engine->RestoreDBFromLatestBackup (destination_path.string (), destination_path.string ());
+	}
 
 	// Open it so that it flushes all WAL files
 	if (status.ok ())
