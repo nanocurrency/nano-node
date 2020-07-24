@@ -150,5 +150,5 @@ private:
 std::unique_ptr<nano::container_info_component> collect_container_info (telemetry & telemetry, const std::string & name);
 
 nano::telemetry_data consolidate_telemetry_data (std::vector<telemetry_data> const & telemetry_data);
-nano::telemetry_data local_telemetry_data (nano::ledger_cache const &, nano::network &, uint64_t, nano::network_params const &, std::chrono::steady_clock::time_point, uint64_t, nano::keypair const &);
+nano::telemetry_data local_telemetry_data (nano::block_store &, nano::ledger_cache const &, nano::network &, uint64_t, nano::network_params const &, std::chrono::steady_clock::time_point, uint64_t, nano::keypair const &);
 }

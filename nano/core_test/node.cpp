@@ -290,9 +290,6 @@ TEST (node, auto_bootstrap)
 	// Confirmation for all blocks
 	ASSERT_TIMELY (5s, node1->ledger.cache.cemented_count == 3);
 
-	auto transaction = node1->store.tx_begin_read ();
-	ASSERT_EQ (node1->ledger.cache.unchecked_count, node1->store.unchecked_count (transaction));
-
 	node1->stop ();
 }
 
@@ -3275,7 +3272,6 @@ TEST (node, block_processor_signatures)
 	{
 		auto transaction (node1.store.tx_begin_write ());
 		node1.store.unchecked_put (transaction, send5->previous (), send5);
-		++node1.ledger.cache.unchecked_count;
 	}
 	auto receive1 = builder.make_block ()
 	                .account (key1.pub)
@@ -3632,7 +3628,7 @@ TEST (node, unchecked_cleanup)
 		auto transaction (node.store.tx_begin_read ());
 		auto unchecked_count (node.store.unchecked_count (transaction));
 		ASSERT_EQ (unchecked_count, 1);
-		ASSERT_EQ (unchecked_count, node.ledger.cache.unchecked_count);
+		ASSERT_EQ (unchecked_count, node.store.unchecked_count (transaction));
 	}
 	std::this_thread::sleep_for (std::chrono::seconds (1));
 	node.unchecked_cleanup ();
@@ -3641,7 +3637,7 @@ TEST (node, unchecked_cleanup)
 		auto transaction (node.store.tx_begin_read ());
 		auto unchecked_count (node.store.unchecked_count (transaction));
 		ASSERT_EQ (unchecked_count, 1);
-		ASSERT_EQ (unchecked_count, node.ledger.cache.unchecked_count);
+		ASSERT_EQ (unchecked_count, node.store.unchecked_count (transaction));
 	}
 	std::this_thread::sleep_for (std::chrono::seconds (2));
 	node.unchecked_cleanup ();
@@ -3650,7 +3646,7 @@ TEST (node, unchecked_cleanup)
 		auto transaction (node.store.tx_begin_read ());
 		auto unchecked_count (node.store.unchecked_count (transaction));
 		ASSERT_EQ (unchecked_count, 0);
-		ASSERT_EQ (unchecked_count, node.ledger.cache.unchecked_count);
+		ASSERT_EQ (unchecked_count, node.store.unchecked_count (transaction));
 	}
 }
 

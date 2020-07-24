@@ -1004,7 +1004,7 @@ int main (int argc, char * const * argv)
 				if (timer_l.after_deadline (std::chrono::seconds (15)))
 				{
 					timer_l.restart ();
-					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed (unchecked), %3% remaining") % node->ledger.cache.block_count % node->ledger.cache.unchecked_count % node->block_processor.size ()) << std::endl;
+					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed (unchecked), %3% remaining") % node->ledger.cache.block_count % node->store.unchecked_count (node->store.tx_begin_read ()) % node->block_processor.size ()) << std::endl;
 				}
 			}
 			// Waiting for final transaction commit
@@ -1779,7 +1779,7 @@ int main (int argc, char * const * argv)
 				if (timer_l.after_deadline (std::chrono::seconds (60)))
 				{
 					timer_l.restart ();
-					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed (unchecked)") % node.node->ledger.cache.block_count % node.node->ledger.cache.unchecked_count) << std::endl;
+					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed (unchecked)") % node.node->ledger.cache.block_count % node.node->store.unchecked_count (node.node->store.tx_begin_read ())) << std::endl;
 				}
 			}
 			// Waiting for final transaction commit

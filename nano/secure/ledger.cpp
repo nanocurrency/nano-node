@@ -771,11 +771,6 @@ epoch_2_started_cb (epoch_2_started_cb_a)
 			}
 		}
 
-		if (generate_cache_a.unchecked_count)
-		{
-			cache.unchecked_count = store.unchecked_count (transaction);
-		}
-
 		cache.block_count = store.block_count (transaction).sum ();
 	}
 }

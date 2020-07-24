@@ -380,6 +380,11 @@ size_t nano::rocksdb_store::count (nano::transaction const & transaction_a, tabl
 			++sum;
 		}
 	}
+	// This is only an estimation
+	else if (table_a == tables::unchecked)
+	{
+		db->GetIntProperty (table_to_column_family (table_a), "rocksdb.estimate-num-keys", &sum);
+	}
 	// This should only be used in tests
 	else if (table_a == tables::accounts)
 	{

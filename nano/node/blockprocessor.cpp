@@ -360,13 +360,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			}
 
 			nano::unchecked_key unchecked_key (info_a.block->previous (), hash);
-			auto exists = node.store.unchecked_exists (transaction_a, unchecked_key);
 			node.store.unchecked_put (transaction_a, unchecked_key, info_a);
-			if (!exists)
-			{
-				++node.ledger.cache.unchecked_count;
-			}
-
 			node.gap_cache.add (hash);
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_previous);
 			break;
@@ -384,13 +378,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			}
 
 			nano::unchecked_key unchecked_key (node.ledger.block_source (transaction_a, *(info_a.block)), hash);
-			auto exists = node.store.unchecked_exists (transaction_a, unchecked_key);
 			node.store.unchecked_put (transaction_a, unchecked_key, info_a);
-			if (!exists)
-			{
-				++node.ledger.cache.unchecked_count;
-			}
-
 			node.gap_cache.add (hash);
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_source);
 			break;
@@ -509,8 +497,6 @@ void nano::block_processor::queue_unchecked (nano::write_transaction const & tra
 		if (!node.flags.disable_block_processor_unchecked_deletion)
 		{
 			node.store.unchecked_del (transaction_a, nano::unchecked_key (hash_a, info.block->hash ()));
-			debug_assert (node.ledger.cache.unchecked_count > 0);
-			--node.ledger.cache.unchecked_count;
 		}
 		add (info, true);
 	}

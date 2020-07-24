@@ -424,7 +424,6 @@ node_seq (seq)
 			{
 				auto transaction (store.tx_begin_write ({ tables::unchecked }));
 				store.unchecked_clear (transaction);
-				ledger.cache.unchecked_count = 0;
 				logger.always_log ("Dropping unchecked blocks");
 			}
 		}
@@ -960,8 +959,6 @@ void nano::node::unchecked_cleanup ()
 			if (store.unchecked_exists (transaction, key))
 			{
 				store.unchecked_del (transaction, key);
-				debug_assert (ledger.cache.unchecked_count > 0);
-				--ledger.cache.unchecked_count;
 			}
 		}
 	}
