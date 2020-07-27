@@ -115,10 +115,10 @@ rep_crawler (*this),
 warmed_up (0),
 block_processor (*this, write_database_queue),
 // clang-format off
-	block_processor_thread([this]() {
-	nano::thread_role::set(nano::thread_role::name::block_processing);
-	this->block_processor.process_blocks();
-		}),
+block_processor_thread ([this]() {
+	nano::thread_role::set (nano::thread_role::name::block_processing);
+	this->block_processor.process_blocks ();
+}),
 // clang-format on
 online_reps (ledger, network_params, config.online_weight_minimum.number ()),
 votes_cache (wallets),
@@ -1401,14 +1401,14 @@ void nano::node::epoch_upgrader_impl (nano::private_key const & prv_a, nano::epo
 	{
 	};
 	// clang-format off
-			boost::multi_index_container<account_upgrade_item,
-				boost::multi_index::indexed_by<
-				boost::multi_index::ordered_non_unique<boost::multi_index::tag<modified_tag>,
-				boost::multi_index::member<account_upgrade_item, uint64_t, &account_upgrade_item::modified>,
-				std::greater<uint64_t>>,
-				boost::multi_index::hashed_unique<boost::multi_index::tag<account_tag>,
-				boost::multi_index::member<account_upgrade_item, nano::account, &account_upgrade_item::account>>>>
-				accounts_list;
+	boost::multi_index_container<account_upgrade_item,
+	boost::multi_index::indexed_by<
+		boost::multi_index::ordered_non_unique<boost::multi_index::tag<modified_tag>,
+			boost::multi_index::member<account_upgrade_item, uint64_t, &account_upgrade_item::modified>,
+			std::greater<uint64_t>>,
+		boost::multi_index::hashed_unique<boost::multi_index::tag<account_tag>,
+			boost::multi_index::member<account_upgrade_item, nano::account, &account_upgrade_item::account>>>>
+	accounts_list;
 	// clang-format on
 
 	bool finished_upgrade (false);
@@ -1435,7 +1435,7 @@ void nano::node::epoch_upgrader_impl (nano::private_key const & prv_a, nano::epo
 			}
 
 			/* Upgrade accounts
-					Repeat until accounts with previous epoch exist in latest table */
+			Repeat until accounts with previous epoch exist in latest table */
 			std::atomic<uint64_t> upgraded_accounts (0);
 			uint64_t workers (0);
 			uint64_t attempts (0);
@@ -1650,8 +1650,8 @@ work (1)
 	boost::system::error_code error_chmod;
 
 	/*
-			 * @warning May throw a filesystem exception
-			 */
+	 * @warning May throw a filesystem exception
+	 */
 	boost::filesystem::create_directories (path_a);
 	nano::set_secure_perm_directory (path_a, error_chmod);
 	nano::daemon_config daemon_config (path_a);
