@@ -72,6 +72,11 @@ private:
 	std::shared_ptr<rocksdb::TableFactory> table_factory;
 	std::unordered_map<nano::tables, std::mutex> write_lock_mutexes;
 
+	std::atomic<int> num_unchecked_tombstones_since_last_flush{ 0 };
+	std::atomic<int> num_block_tombstones_since_last_flush{ 0 };
+	std::atomic<int> num_account_tombstones_since_last_flush{ 0 };
+	std::atomic<int> num_pending_tombstones_since_last_flush{ 0 };
+
 	rocksdb::Transaction * tx (nano::transaction const & transaction_a) const;
 	std::vector<nano::tables> all_tables () const;
 
@@ -91,8 +96,12 @@ private:
 	int decrement (nano::write_transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a, uint64_t amount_a);
 	rocksdb::ColumnFamilyOptions get_cf_options () const;
 	void construct_column_family_mutexes ();
-	rocksdb::Options get_db_options () const;
+	rocksdb::Options get_db_options ();
 	rocksdb::BlockBasedTableOptions get_table_options () const;
+
+	void on_flush (rocksdb::FlushJobInfo const &);
+	void flush_table (nano::tables table_a);
+	void flush_tombstones_check (tables table_a);
 	nano::rocksdb_config rocksdb_config;
 
 	constexpr static int base_memtable_size = 16;

@@ -475,13 +475,13 @@ TEST (history, short_text)
 		account = system.account (transaction, 0);
 	}
 	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
-	nano::mdb_store store (system.nodes[0]->logger, nano::unique_path ());
-	ASSERT_TRUE (!store.init_error ());
+	auto store = nano::make_store (system.nodes[0]->logger, nano::unique_path ());
+	ASSERT_TRUE (!store->init_error ());
 	nano::genesis genesis;
-	nano::ledger ledger (store, system.nodes[0]->stats);
+	nano::ledger ledger (*store, system.nodes[0]->stats);
 	{
-		auto transaction (store.tx_begin_write ());
-		store.initialize (transaction, genesis, ledger.cache);
+		auto transaction (store->tx_begin_write ());
+		store->initialize (transaction, genesis, ledger.cache);
 		nano::keypair key;
 		auto latest (ledger.latest (transaction, nano::test_genesis_key.pub));
 		nano::send_block send (latest, nano::test_genesis_key.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest));

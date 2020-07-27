@@ -14,6 +14,26 @@
 #include <rocksdb/utilities/transaction.h>
 #include <rocksdb/utilities/transaction_db.h>
 
+namespace
+{
+class event_listener : public rocksdb::EventListener
+{
+public:
+	event_listener (std::function<void(rocksdb::FlushJobInfo const &)> const & flush_completed_cb_a) :
+	flush_completed_cb (flush_completed_cb_a)
+	{
+	}
+
+	void OnFlushCompleted (rocksdb::DB * /* db_a */, rocksdb::FlushJobInfo const & flush_info_a) override
+	{
+		flush_completed_cb (flush_info_a);
+	}
+
+private:
+	std::function<void(rocksdb::FlushJobInfo const &)> flush_completed_cb;
+};
+}
+
 namespace nano
 {
 template <>
@@ -212,7 +232,57 @@ int nano::rocksdb_store::del (nano::write_transaction const & transaction_a, tab
 		decrement (transaction_a, tables::cached_counts, rocksdb_val (rocksdb::Slice (table_to_column_family (table_a)->GetName ())), 1);
 	}
 
+	flush_tombstones_check (table_a);
+
 	return tx (transaction_a)->Delete (table_to_column_family (table_a), key_a).code ();
+}
+
+void nano::rocksdb_store::flush_tombstones_check (tables table_a)
+{
+	// Update the number of deletes for some tables, and force a flush if there are too many tombstones
+	// as it can affect read performance.
+	switch (table_a)
+	{
+		case nano::tables::unchecked:
+			++num_unchecked_tombstones_since_last_flush;
+			if (num_unchecked_tombstones_since_last_flush > 50000)
+			{
+				num_unchecked_tombstones_since_last_flush = 0;
+				flush_table (nano::tables::unchecked);
+			}
+			break;
+		case nano::tables::blocks:
+			++num_block_tombstones_since_last_flush;
+			if (num_block_tombstones_since_last_flush > 25000)
+			{
+				flush_table (nano::tables::blocks);
+				num_block_tombstones_since_last_flush = 0;
+			}
+			break;
+		case nano::tables::accounts:
+			++num_account_tombstones_since_last_flush;
+			if (num_account_tombstones_since_last_flush > 25000)
+			{
+				flush_table (nano::tables::accounts);
+				num_account_tombstones_since_last_flush = 0;
+			}
+			break;
+		case nano::tables::pending:
+			++num_pending_tombstones_since_last_flush;
+			if (num_pending_tombstones_since_last_flush > 25000)
+			{
+				flush_table (nano::tables::pending);
+				num_pending_tombstones_since_last_flush = 0;
+			}
+			break;
+		default:
+			break;
+	}
+}
+
+void nano::rocksdb_store::flush_table (nano::tables table_a)
+{
+	db->Flush (rocksdb::FlushOptions{}, table_to_column_family (table_a));
 }
 
 void nano::rocksdb_store::version_put (nano::write_transaction const & transaction_a, int version_a)
@@ -443,7 +513,7 @@ void nano::rocksdb_store::construct_column_family_mutexes ()
 	}
 }
 
-rocksdb::Options nano::rocksdb_store::get_db_options () const
+rocksdb::Options nano::rocksdb_store::get_db_options ()
 {
 	rocksdb::Options db_options;
 	db_options.create_if_missing = true;
@@ -461,6 +531,9 @@ rocksdb::Options nano::rocksdb_store::get_db_options () const
 
 	// Adds a separate write queue for memtable/WAL
 	db_options.enable_pipelined_write = true;
+
+	auto event_listener_l = new event_listener ([this](rocksdb::FlushJobInfo const & flush_job_info_a) { this->on_flush (flush_job_info_a); });
+	db_options.listeners.emplace_back (event_listener_l);
 
 	return db_options;
 }
@@ -515,6 +588,27 @@ rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_cf_options () const
 	cf_options.max_write_buffer_number = 2;
 
 	return cf_options;
+}
+
+void nano::rocksdb_store::on_flush (rocksdb::FlushJobInfo const & flush_job_info_a)
+{
+	// Reset appropriate tombstone counters
+	if (flush_job_info_a.cf_name == "unchecked")
+	{
+		num_unchecked_tombstones_since_last_flush = 0;
+	}
+	else if (flush_job_info_a.cf_name == "blocks")
+	{
+		num_block_tombstones_since_last_flush = 0;
+	}
+	else if (flush_job_info_a.cf_name == "pending")
+	{
+		num_pending_tombstones_since_last_flush = 0;
+	}
+	else if (flush_job_info_a.cf_name == "accounts")
+	{
+		num_account_tombstones_since_last_flush = 0;
+	}
 }
 
 std::vector<nano::tables> nano::rocksdb_store::all_tables () const
