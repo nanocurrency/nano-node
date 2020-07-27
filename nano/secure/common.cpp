@@ -144,7 +144,7 @@ nano::node_constants::node_constants (nano::network_constants & network_constant
 
 nano::voting_constants::voting_constants (nano::network_constants & network_constants)
 {
-	max_cache = network_constants.is_test_network () ? 2 : 64 * 1024;
+	max_cache = network_constants.is_test_network () ? 256 : 128 * 1024;
 }
 
 nano::portmapping_constants::portmapping_constants (nano::network_constants & network_constants)
@@ -250,11 +250,6 @@ size_t nano::account_info::db_size () const
 nano::epoch nano::account_info::epoch () const
 {
 	return epoch_m;
-}
-
-size_t nano::block_counts::sum () const
-{
-	return send + receive + open + change + state;
 }
 
 nano::pending_info::pending_info (nano::account const & source_a, nano::amount const & amount_a, nano::epoch epoch_a) :

@@ -28,7 +28,8 @@ confirmation_action (confirmation_action_a),
 prioritized_m (prioritized_a),
 node (node_a),
 status ({ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::ongoing }),
-height (block_a->sideband ().height)
+height (block_a->sideband ().height),
+root (block_a->root ())
 {
 	last_votes.emplace (node.network_params.random.not_an_account, nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () });
 	blocks.emplace (block_a->hash (), block_a);
@@ -355,7 +356,7 @@ void nano::election::log_votes (nano::tally_t const & tally_a) const
 {
 	std::stringstream tally;
 	std::string line_end (node.config.logging.single_line_record () ? "\t" : "\n");
-	tally << boost::str (boost::format ("%1%Vote tally for root %2%") % line_end % status.winner->root ().to_string ());
+	tally << boost::str (boost::format ("%1%Vote tally for root %2%") % line_end % root.to_string ());
 	for (auto i (tally_a.begin ()), n (tally_a.end ()); i != n; ++i)
 	{
 		tally << boost::str (boost::format ("%1%Block %2% weight %3%") % line_end % i->second->hash ().to_string () % i->first.convert_to<std::string> ());
@@ -575,7 +576,7 @@ void nano::election::prioritize_election (nano::vote_generator_session & generat
 	debug_assert (!node.active.mutex.try_lock ());
 	debug_assert (!prioritized_m);
 	prioritized_m = true;
-	generator_session_a.add (status.winner->hash ());
+	generator_session_a.add (root, status.winner->hash ());
 }
 
 void nano::election::try_generate_votes (nano::block_hash const & hash_a)
@@ -592,7 +593,7 @@ void nano::election::generate_votes (nano::block_hash const & hash_a)
 {
 	if (node.config.enable_voting && node.wallets.reps ().voting > 0)
 	{
-		node.active.generator.add (hash_a);
+		node.active.generator.add (root, hash_a);
 	}
 }
 
@@ -601,12 +602,12 @@ void nano::election::remove_votes (nano::block_hash const & hash_a)
 	if (node.config.enable_voting && node.wallets.reps ().voting > 0)
 	{
 		// Remove votes from election
-		auto list_generated_votes (node.votes_cache.find (hash_a));
+		auto list_generated_votes (node.history.votes (root, hash_a));
 		for (auto const & vote : list_generated_votes)
 		{
 			last_votes.erase (vote->account);
 		}
 		// Clear votes cache
-		node.votes_cache.remove (hash_a);
+		node.history.erase (root);
 	}
 }

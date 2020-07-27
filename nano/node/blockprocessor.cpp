@@ -214,7 +214,7 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 {
 	auto scoped_write_guard = write_database_queue.wait (nano::writer::process_batch);
 	block_post_events post_events;
-	auto transaction (node.store.tx_begin_write ({ tables::accounts, nano::tables::cached_counts, nano::tables::change_blocks, tables::frontiers, tables::open_blocks, tables::pending, tables::receive_blocks, tables::representation, tables::send_blocks, tables::state_blocks, tables::unchecked }, { tables::confirmation_height }));
+	auto transaction (node.store.tx_begin_write ({ tables::accounts, tables::blocks, tables::cached_counts, tables::frontiers, tables::pending, tables::unchecked }, { tables::confirmation_height }));
 	nano::timer<std::chrono::milliseconds> timer_l;
 	lock_a.lock ();
 	timer_l.start ();
@@ -263,7 +263,7 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 				// Deleting from votes cache & wallet work watcher, stop active transaction
 				for (auto & i : rollback_list)
 				{
-					node.votes_cache.remove (i->hash ());
+					node.history.erase (i->root ());
 					node.wallets.watcher->remove (*i);
 					// Stop all rolled back active transactions except initial
 					if (i->hash () != successor->hash ())
