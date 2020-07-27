@@ -81,25 +81,25 @@ public:
 	MDB_dbi accounts{ 0 };
 
 	/**
-	 * Maps block hash to send block.
+	 * Maps block hash to send block. (Removed)
 	 * nano::block_hash -> nano::send_block
 	 */
 	MDB_dbi send_blocks{ 0 };
 
 	/**
-	 * Maps block hash to receive block.
+	 * Maps block hash to receive block. (Removed)
 	 * nano::block_hash -> nano::receive_block
 	 */
 	MDB_dbi receive_blocks{ 0 };
 
 	/**
-	 * Maps block hash to open block.
+	 * Maps block hash to open block. (Removed)
 	 * nano::block_hash -> nano::open_block
 	 */
 	MDB_dbi open_blocks{ 0 };
 
 	/**
-	 * Maps block hash to change block.
+	 * Maps block hash to change block. (Removed)
 	 * nano::block_hash -> nano::change_block
 	 */
 	MDB_dbi change_blocks{ 0 };
@@ -117,7 +117,7 @@ public:
 	MDB_dbi state_blocks_v1{ 0 };
 
 	/**
-	 * Maps block hash to state block.
+	 * Maps block hash to state block. (Removed)
 	 * nano::block_hash -> nano::state_block
 	 */
 	MDB_dbi state_blocks{ 0 };
@@ -182,6 +182,12 @@ public:
 	 */
 	MDB_dbi confirmation_height{ 0 };
 
+	/*
+	 * Contains block_sideband and block for all block types (legacy send/change/open/receive & state blocks)
+	 * nano::block_hash -> nano::block_sideband, nano::block
+	 */
+	MDB_dbi blocks{ 0 };
+
 	bool exists (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a) const;
 
 	int get (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a, nano::mdb_val & value_a) const;
@@ -208,7 +214,7 @@ public:
 	size_t count (nano::transaction const &, MDB_dbi) const;
 
 	// These are only use in the upgrade process.
-	std::shared_ptr<nano::block> block_get_v14 (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_sideband_v14 * sideband_a = nullptr, bool * is_state_v1 = nullptr) const override;
+	std::shared_ptr<nano::block> block_get_v14 (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_sideband_v14 * sideband_a = nullptr, bool * is_state_v1 = nullptr) const;
 	size_t block_successor_offset_v14 (nano::transaction const & transaction_a, size_t entry_size_a, nano::block_type type_a) const;
 	nano::block_hash block_successor_v14 (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const;
 	nano::mdb_val block_raw_get_v14 (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_type & type_a, bool * is_state_v1 = nullptr) const;
@@ -220,6 +226,12 @@ private:
 	void upgrade_v15_to_v16 (nano::write_transaction const &);
 	void upgrade_v16_to_v17 (nano::write_transaction const &);
 	void upgrade_v17_to_v18 (nano::write_transaction const &);
+	void upgrade_v18_to_v19 (nano::write_transaction const & transaction_a);
+
+	std::shared_ptr<nano::block> block_get_v18 (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const;
+	nano::mdb_val block_raw_get_v18 (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_type & type_a) const;
+	boost::optional<nano::mdb_val> block_raw_get_by_type_v18 (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_type & type_a) const;
+	nano::uint128_t block_balance_v18 (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const;
 
 	void open_databases (bool &, nano::transaction const &, unsigned);
 
