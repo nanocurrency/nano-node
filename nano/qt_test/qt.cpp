@@ -465,6 +465,11 @@ TEST (wallet, create_change)
 
 TEST (history, short_text)
 {
+	if (nano::is_rocksdb_test ())
+	{
+		// Don't test this in rocksdb mode
+		return;
+	}
 	nano_qt::eventloop_processor processor;
 	nano::keypair key;
 	nano::system system (1);

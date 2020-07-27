@@ -912,6 +912,11 @@ TEST (confirmation_height, many_accounts_send_receive_self)
 // as opposed to active transactions which implicitly calls confirmation height processor.
 TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 {
+	if (nano::is_rocksdb_test ())
+	{
+		// Don't test this in rocksdb mode
+		return;
+	}
 	nano::logger_mt logger;
 	auto path (nano::unique_path ());
 	nano::mdb_store store (logger, path);

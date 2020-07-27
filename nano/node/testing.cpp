@@ -542,6 +542,7 @@ bool nano::is_rocksdb_test ()
 	auto use_rocksdb_str = std::getenv ("TEST_USE_ROCKSDB");
 	if (use_rocksdb_str && boost::lexical_cast<int> (use_rocksdb_str) == 1)
 	{
+		std::cout << "ROCKSDB RUN ignored test" << std::endl;
 		ret = true;
 	}
 	return ret;

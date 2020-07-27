@@ -8,6 +8,7 @@
 #include <nano/secure/utility.hpp>
 #include <nano/secure/versioning.hpp>
 #include <nano/test_common/testutil.hpp>
+#include <nano/node/testing.hpp>
 
 #include <boost/filesystem.hpp>
 
@@ -372,6 +373,11 @@ TEST (bootstrap, simple)
 
 TEST (unchecked, multiple)
 {
+	if (nano::is_rocksdb_test ())
+	{
+		// Don't test this in rocksdb mode
+		return;
+	}
 	nano::logger_mt logger;
 	nano::mdb_store store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store.init_error ());
@@ -653,6 +659,11 @@ TEST (block_store, latest_find)
 
 TEST (mdb_block_store, supported_version_upgrades)
 {
+	if (nano::is_rocksdb_test ())
+	{
+		// Don't test this in rocksdb mode
+		return;
+	}
 	// Check that upgrading from an unsupported version is not supported
 	auto path (nano::unique_path ());
 	nano::genesis genesis;
@@ -699,6 +710,11 @@ TEST (mdb_block_store, supported_version_upgrades)
 
 TEST (mdb_block_store, bad_path)
 {
+	if (nano::is_rocksdb_test ())
+	{
+		// Don't test this in rocksdb mode
+		return;
+	}
 	nano::logger_mt logger;
 	nano::mdb_store store (logger, boost::filesystem::path ("///"));
 	ASSERT_TRUE (store.init_error ());
@@ -1026,6 +1042,11 @@ TEST (block_store, state_block)
 
 TEST (mdb_block_store, sideband_height)
 {
+	if (nano::is_rocksdb_test ())
+	{
+		// Don't test this in rocksdb mode
+		return;
+	}
 	nano::logger_mt logger;
 	nano::genesis genesis;
 	nano::keypair key1;
@@ -1213,6 +1234,11 @@ TEST (block_store, online_weight)
 
 TEST (mdb_block_store, upgrade_v14_v15)
 {
+	if (nano::is_rocksdb_test ())
+	{
+		// Don't test this in rocksdb mode
+		return;
+	}
 	// Extract confirmation height to a separate database
 	auto path (nano::unique_path ());
 	nano::genesis genesis;
@@ -1321,6 +1347,11 @@ TEST (mdb_block_store, upgrade_v14_v15)
 
 TEST (mdb_block_store, upgrade_v15_v16)
 {
+	if (nano::is_rocksdb_test ())
+	{
+		// Don't test this in rocksdb mode
+		return;
+	}
 	auto path (nano::unique_path ());
 	nano::mdb_val value;
 	{
@@ -1362,6 +1393,11 @@ TEST (mdb_block_store, upgrade_v15_v16)
 
 TEST (mdb_block_store, upgrade_v16_v17)
 {
+	if (nano::is_rocksdb_test ())
+	{
+		// Don't test this in rocksdb mode
+		return;
+	}
 	nano::genesis genesis;
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::state_block block1 (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (genesis.hash ()));
@@ -1421,6 +1457,11 @@ TEST (mdb_block_store, upgrade_v16_v17)
 
 TEST (mdb_block_store, upgrade_v17_v18)
 {
+	if (nano::is_rocksdb_test ())
+	{
+		// Don't test this in rocksdb mode
+		return;
+	}
 	auto path (nano::unique_path ());
 	nano::genesis genesis;
 	nano::keypair key1;
@@ -1620,6 +1661,11 @@ TEST (mdb_block_store, upgrade_v17_v18)
 
 TEST (mdb_block_store, upgrade_v18_v19)
 {
+	if (nano::is_rocksdb_test ())
+	{
+		// Don't test this in rocksdb mode
+		return;
+	}
 	auto path (nano::unique_path ());
 	nano::keypair key1;
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1708,6 +1754,11 @@ TEST (mdb_block_store, upgrade_v18_v19)
 
 TEST (mdb_block_store, upgrade_backup)
 {
+	if (nano::is_rocksdb_test ())
+	{
+		// Don't test this in rocksdb mode
+		return;
+	}
 	auto dir (nano::unique_path ());
 	namespace fs = boost::filesystem;
 	fs::create_directory (dir);
@@ -1745,6 +1796,11 @@ TEST (mdb_block_store, upgrade_backup)
 // Test various confirmation height values as well as clearing them
 TEST (block_store, confirmation_height)
 {
+	if (nano::is_rocksdb_test ())
+	{
+		// Don't test this in rocksdb mode
+		return;
+	}
 	auto path (nano::unique_path ());
 	nano::logger_mt logger;
 	nano::mdb_store store (logger, path);
