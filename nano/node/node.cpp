@@ -620,7 +620,6 @@ nano::process_return nano::node::process_local (std::shared_ptr<nano::block> blo
 	auto res = block_processor.process_one (transaction, events, info, num_state_blocks_added, work_watcher_a, nano::block_origin::local);
 	store.increment_state_block_count (transaction, num_state_blocks_added);
 	return res;
-
 }
 
 void nano::node::start ()
