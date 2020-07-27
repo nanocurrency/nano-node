@@ -252,11 +252,6 @@ nano::epoch nano::account_info::epoch () const
 	return epoch_m;
 }
 
-size_t nano::block_counts::sum () const
-{
-	return send + receive + open + change + state;
-}
-
 nano::pending_info::pending_info (nano::account const & source_a, nano::amount const & amount_a, nano::epoch epoch_a) :
 source (source_a),
 amount (amount_a),

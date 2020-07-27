@@ -5100,40 +5100,6 @@ TEST (rpc, work_peers_all)
 	ASSERT_EQ (0, peers_node.size ());
 }
 
-TEST (rpc, block_count_type)
-{
-	nano::system system;
-	auto node = add_ipc_enabled_node (system);
-	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	auto send (system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::test_genesis_key.pub, node->config.receive_minimum.number ()));
-	ASSERT_NE (nullptr, send);
-	auto receive (system.wallet (0)->receive_action (*send, nano::test_genesis_key.pub, node->config.receive_minimum.number ()));
-	ASSERT_NE (nullptr, receive);
-	scoped_io_thread_name_change scoped_thread_name_io;
-	nano::node_rpc_config node_rpc_config;
-	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
-	nano::rpc_config rpc_config (nano::get_available_port (), true);
-	rpc_config.rpc_process.ipc_port = node->config.ipc_config.transport_tcp.port;
-	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
-	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
-	rpc.start ();
-	boost::property_tree::ptree request;
-	request.put ("action", "block_count_type");
-	test_response response (request, rpc.config.port, system.io_ctx);
-	ASSERT_TIMELY (5s, response.status != 0);
-	ASSERT_EQ (200, response.status);
-	std::string send_count (response.json.get<std::string> ("send"));
-	ASSERT_EQ ("0", send_count);
-	std::string receive_count (response.json.get<std::string> ("receive"));
-	ASSERT_EQ ("0", receive_count);
-	std::string open_count (response.json.get<std::string> ("open"));
-	ASSERT_EQ ("1", open_count);
-	std::string change_count (response.json.get<std::string> ("change"));
-	ASSERT_EQ ("0", change_count);
-	std::string state_count (response.json.get<std::string> ("state"));
-	ASSERT_EQ ("2", state_count);
-}
-
 TEST (rpc, ledger)
 {
 	nano::system system;
