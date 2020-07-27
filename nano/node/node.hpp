@@ -103,7 +103,7 @@ public:
 	int store_version ();
 	void receive_confirmed (nano::transaction const &, std::shared_ptr<nano::block>, nano::block_hash const &);
 	void process_confirmed_data (nano::transaction const &, std::shared_ptr<nano::block>, nano::block_hash const &, nano::account &, nano::uint128_t &, bool &, nano::account &);
-	void process_confirmed (nano::election_status const &, std::shared_ptr<nano::election> const &, uint8_t = 0);
+	void process_confirmed (nano::election_status const &, uint64_t = 0);
 	void process_active (std::shared_ptr<nano::block>);
 	nano::process_return process (nano::block &);
 	nano::process_return process_local (std::shared_ptr<nano::block>, bool const = false);
@@ -137,8 +137,9 @@ public:
 	void work_generate (nano::work_version const, nano::root const &, uint64_t, std::function<void(boost::optional<uint64_t>)>, boost::optional<nano::account> const & = boost::none, bool const = false);
 	void add_initial_peers ();
 	void block_confirm (std::shared_ptr<nano::block>);
+	bool block_confirmed (nano::block_hash const &);
 	bool block_confirmed_or_being_confirmed (nano::transaction const &, nano::block_hash const &);
-	void process_fork (nano::transaction const &, std::shared_ptr<nano::block>);
+	void process_fork (nano::transaction const &, std::shared_ptr<nano::block>, uint64_t);
 	void do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, std::string const &, uint16_t, std::shared_ptr<std::string>, std::shared_ptr<std::string>, std::shared_ptr<boost::asio::ip::tcp::resolver>);
 	nano::uint128_t delta () const;
 	void ongoing_online_weight_calculation ();
@@ -218,7 +219,7 @@ nano::node_flags const & inactive_node_flag_defaults ();
 class inactive_node final
 {
 public:
-	inactive_node (boost::filesystem::path const & path_a, nano::node_flags const & node_flags_a = nano::inactive_node_flag_defaults ());
+	inactive_node (boost::filesystem::path const & path_a, nano::node_flags const & node_flags_a);
 	~inactive_node ();
 	std::shared_ptr<boost::asio::io_context> io_context;
 	nano::alarm alarm;

@@ -268,19 +268,27 @@ nano::amount nano::json_handler::amount_impl ()
 
 std::shared_ptr<nano::block> nano::json_handler::block_impl (bool signature_work_required)
 {
+	const bool json_block_l = request.get<bool> ("json_block", false);
 	std::shared_ptr<nano::block> result{ nullptr };
 	if (!ec)
 	{
-		std::string block_text (request.get<std::string> ("block"));
 		boost::property_tree::ptree block_l;
-		std::stringstream block_stream (block_text);
-		try
+		if (json_block_l)
 		{
-			boost::property_tree::read_json (block_stream, block_l);
+			block_l = request.get_child ("block");
 		}
-		catch (...)
+		else
 		{
-			ec = nano::error_blocks::invalid_block;
+			std::string block_text (request.get<std::string> ("block"));
+			std::stringstream block_stream (block_text);
+			try
+			{
+				boost::property_tree::read_json (block_stream, block_l);
+			}
+			catch (...)
+			{
+				ec = nano::error_blocks::invalid_block;
+			}
 		}
 		if (!ec)
 		{
@@ -294,26 +302,6 @@ std::shared_ptr<nano::block> nano::json_handler::block_impl (bool signature_work
 			{
 				ec = nano::error_blocks::invalid_block;
 			}
-		}
-	}
-	return result;
-}
-
-std::shared_ptr<nano::block> nano::json_handler::block_json_impl (bool signature_work_required)
-{
-	std::shared_ptr<nano::block> result;
-	if (!ec)
-	{
-		auto block_l (request.get_child ("block"));
-		if (!signature_work_required)
-		{
-			block_l.put ("signature", "0");
-			block_l.put ("work", "0");
-		}
-		result = nano::deserialize_block_json (block_l);
-		if (result == nullptr)
-		{
-			ec = nano::error_blocks::invalid_block;
 		}
 	}
 	return result;
@@ -373,6 +361,43 @@ uint64_t nano::json_handler::difficulty_optional_impl (nano::work_version const 
 		}
 	}
 	return difficulty;
+}
+
+uint64_t nano::json_handler::difficulty_ledger (nano::block const & block_a)
+{
+	nano::block_details details (nano::epoch::epoch_0, false, false, false);
+	bool details_found (false);
+	auto transaction (node.store.tx_begin_read ());
+	// Previous block find
+	std::shared_ptr<nano::block> block_previous (nullptr);
+	auto previous (block_a.previous ());
+	if (!previous.is_zero ())
+	{
+		block_previous = node.store.block_get (transaction, previous);
+	}
+	// Send check
+	if (block_previous != nullptr)
+	{
+		details.is_send = node.store.block_balance (transaction, previous) > block_a.balance ().number ();
+		details_found = true;
+	}
+	// Epoch check
+	if (block_previous != nullptr)
+	{
+		details.epoch = block_previous->sideband ().details.epoch;
+	}
+	auto link (block_a.link ());
+	if (!link.is_zero () && !details.is_send)
+	{
+		auto block_link (node.store.block_get (transaction, link.as_block_hash ()));
+		if (block_link != nullptr && node.store.pending_exists (transaction, nano::pending_key (block_a.account (), link.as_block_hash ())))
+		{
+			details.epoch = std::max (details.epoch, block_link->sideband ().details.epoch);
+			details.is_receive = true;
+			details_found = true;
+		}
+	}
+	return details_found ? nano::work_threshold (block_a.work_version (), details) : node.default_difficulty (block_a.work_version ());
 }
 
 double nano::json_handler::multiplier_optional_impl (nano::work_version const version_a, uint64_t & difficulty)
@@ -1222,18 +1247,6 @@ void nano::json_handler::block_count ()
 	response_errors ();
 }
 
-void nano::json_handler::block_count_type ()
-{
-	auto transaction (node.store.tx_begin_read ());
-	nano::block_counts count (node.store.block_count (transaction));
-	response_l.put ("send", std::to_string (count.send));
-	response_l.put ("receive", std::to_string (count.receive));
-	response_l.put ("open", std::to_string (count.open));
-	response_l.put ("change", std::to_string (count.change));
-	response_l.put ("state", std::to_string (count.state));
-	response_errors ();
-}
-
 void nano::json_handler::block_create ()
 {
 	std::string type (request.get<std::string> ("type"));
@@ -1555,37 +1568,7 @@ void nano::json_handler::block_create ()
 					// Difficulty calculation
 					if (request.count ("difficulty") == 0)
 					{
-						nano::block_details details (nano::epoch::epoch_0, false, false, false);
-						bool details_found (false);
-						auto transaction (node.store.tx_begin_read ());
-						// Previous block find
-						std::shared_ptr<nano::block> block_previous (nullptr);
-						if (!previous.is_zero ())
-						{
-							block_previous = node.store.block_get (transaction, previous);
-						}
-						// Send check
-						if (block_previous != nullptr)
-						{
-							details.is_send = node.store.block_balance (transaction, previous) > balance.number ();
-							details_found = true;
-						}
-						// Epoch check
-						if (block_previous != nullptr)
-						{
-							details.epoch = block_previous->sideband ().details.epoch;
-						}
-						if (!link.is_zero () && !details.is_send)
-						{
-							auto block_link (node.store.block_get (transaction, link.as_block_hash ()));
-							if (block_link != nullptr && node.store.pending_exists (transaction, nano::pending_key (pub, link.as_block_hash ())))
-							{
-								details.epoch = std::max (details.epoch, block_link->sideband ().details.epoch);
-								details.is_receive = true;
-								details_found = true;
-							}
-						}
-						difficulty_l = details_found ? nano::work_threshold (work_version, details) : node.default_difficulty (work_version);
+						difficulty_l = difficulty_ledger (*block_l);
 					}
 					node.work_generate (work_version, root_l, difficulty_l, get_callback_l (block_l), nano::account (pub));
 				}
@@ -1610,16 +1593,7 @@ void nano::json_handler::block_create ()
 
 void nano::json_handler::block_hash ()
 {
-	const bool json_block_l = request.get<bool> ("json_block", false);
-	std::shared_ptr<nano::block> block;
-	if (json_block_l)
-	{
-		block = block_json_impl (true);
-	}
-	else
-	{
-		block = block_impl (true);
-	}
+	auto block (block_impl (true));
 
 	if (!ec)
 	{
@@ -3014,17 +2988,8 @@ void nano::json_handler::payment_wait ()
 void nano::json_handler::process ()
 {
 	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
-		const bool json_block_l = rpc_l->request.get<bool> ("json_block", false);
 		const bool watch_work_l = rpc_l->request.get<bool> ("watch_work", true);
-		std::shared_ptr<nano::block> block;
-		if (json_block_l)
-		{
-			block = rpc_l->block_json_impl (true);
-		}
-		else
-		{
-			block = rpc_l->block_impl (true);
-		}
+		auto block (rpc_l->block_impl (true));
 
 		// State blocks subtype check
 		if (!rpc_l->ec && block->type () == nano::block_type::state)
@@ -3617,17 +3582,9 @@ void nano::json_handler::sign ()
 	}
 	// Retrieving block
 	std::shared_ptr<nano::block> block;
-	boost::optional<std::string> block_text (request.get_optional<std::string> ("block"));
-	if (!ec && block_text.is_initialized ())
+	if (!ec && request.count ("block"))
 	{
-		if (json_block_l)
-		{
-			block = block_json_impl (true);
-		}
-		else
-		{
-			block = block_impl (true);
-		}
+		block = block_impl (true);
 		if (block != nullptr)
 		{
 			hash = block->hash ();
@@ -4785,7 +4742,38 @@ void nano::json_handler::work_generate ()
 		{
 			ec = nano::error_rpc::difficulty_limit;
 		}
-		if (!ec)
+		// Retrieving optional block
+		std::shared_ptr<nano::block> block;
+		if (!ec && request.count ("block"))
+		{
+			block = block_impl (true);
+			if (block != nullptr)
+			{
+				if (hash != block->root ())
+				{
+					ec = nano::error_rpc::block_root_mismatch;
+				}
+				if (request.count ("version") == 0)
+				{
+					work_version = block->work_version ();
+				}
+				else if (!ec && work_version != block->work_version ())
+				{
+					ec = nano::error_rpc::block_work_version_mismatch;
+				}
+				// Difficulty calculation
+				if (!ec && request.count ("difficulty") == 0 && request.count ("multiplier") == 0)
+				{
+					difficulty = difficulty_ledger (*block);
+				}
+				// If optional block difficulty is higher than requested difficulty, send error
+				if (!ec && block->difficulty () >= difficulty)
+				{
+					ec = nano::error_rpc::block_work_enough;
+				}
+			}
+		}
+		if (!ec && response_l.empty ())
 		{
 			auto use_peers (request.get<bool> ("use_peers", false));
 			auto rpc_l (shared_from_this ());
@@ -5048,7 +5036,6 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("blocks_info", &nano::json_handler::blocks_info);
 	no_arg_funcs.emplace ("block_account", &nano::json_handler::block_account);
 	no_arg_funcs.emplace ("block_count", &nano::json_handler::block_count);
-	no_arg_funcs.emplace ("block_count_type", &nano::json_handler::block_count_type);
 	no_arg_funcs.emplace ("block_create", &nano::json_handler::block_create);
 	no_arg_funcs.emplace ("block_hash", &nano::json_handler::block_hash);
 	no_arg_funcs.emplace ("bootstrap", &nano::json_handler::bootstrap);
@@ -5097,7 +5084,7 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("stats", &nano::json_handler::stats);
 	no_arg_funcs.emplace ("stats_clear", &nano::json_handler::stats_clear);
 	no_arg_funcs.emplace ("stop", &nano::json_handler::stop);
-	no_arg_funcs.emplace ("node_telemetry", &nano::json_handler::telemetry);
+	no_arg_funcs.emplace ("telemetry", &nano::json_handler::telemetry);
 	no_arg_funcs.emplace ("unchecked", &nano::json_handler::unchecked);
 	no_arg_funcs.emplace ("unchecked_clear", &nano::json_handler::unchecked_clear);
 	no_arg_funcs.emplace ("unchecked_get", &nano::json_handler::unchecked_get);

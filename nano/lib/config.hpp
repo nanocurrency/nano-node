@@ -209,4 +209,7 @@ void force_nano_test_network ();
 
 /** Checks if we are running inside a valgrind instance */
 bool running_within_valgrind ();
+
+/** Set the active network to the test network */
+void force_nano_test_network ();
 }

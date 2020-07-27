@@ -9,4 +9,4 @@ ENV BOOST_ROOT=/tmp/boost
 
 ADD util/build_prep/fetch_boost.sh fetch_boost.sh
 
-RUN TRAVIS_COMPILER=gcc ./fetch_boost.sh
+RUN COMPILER=gcc ./fetch_boost.sh

@@ -95,8 +95,6 @@ add_library (node
 	logging.cpp
 	network.hpp
 	network.cpp
-	telemetry.hpp
-	telemetry.cpp
 	nodeconfig.hpp
 	nodeconfig.cpp
 	node_observers.hpp
@@ -129,6 +127,8 @@ add_library (node
 	socket.cpp
 	state_block_signature_verification.hpp
 	state_block_signature_verification.cpp
+	telemetry.hpp
+	telemetry.cpp
 	testing.hpp
 	testing.cpp
 	transport/tcp.hpp

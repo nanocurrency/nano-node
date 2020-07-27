@@ -21,7 +21,8 @@ cmake .. ^
   -DNANO_SIMD_OPTIMIZATIONS=TRUE ^
   -Dgtest_force_shared_crt=on ^
   -DBoost_NO_SYSTEM_PATHS=TRUE ^
-  -DBoost_NO_BOOST_CMAKE=TRUE 
+  -DBoost_NO_BOOST_CMAKE=TRUE ^
+  -DNANO_SHARED_BOOST=%NANO_SHARED_BOOST%
 
 set exit_code=%errorlevel%
 if %exit_code% neq 0 goto exit

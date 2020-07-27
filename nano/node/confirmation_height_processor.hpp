@@ -37,15 +37,16 @@ public:
 	void stop ();
 	void add (nano::block_hash const & hash_a);
 	void run (confirmation_height_mode);
-	size_t awaiting_processing_size ();
-	bool is_processing_block (nano::block_hash const &);
-	nano::block_hash current ();
+	size_t awaiting_processing_size () const;
+	bool is_processing_added_block (nano::block_hash const & hash_a) const;
+	bool is_processing_block (nano::block_hash const &) const;
+	nano::block_hash current () const;
 
 	void add_cemented_observer (std::function<void(std::shared_ptr<nano::block>)> const &);
 	void add_block_already_cemented_observer (std::function<void(nano::block_hash const &)> const &);
 
 private:
-	std::mutex mutex;
+	mutable std::mutex mutex;
 	// Hashes which have been added to the confirmation height processor, but not yet processed
 	// clang-format off
 	class tag_sequence {};
@@ -73,7 +74,7 @@ private:
 	nano::ledger & ledger;
 	nano::write_database_queue & write_database_queue;
 	/** The maximum amount of blocks to write at once. This is dynamically modified by the bounded processor based on previous write performance **/
-	uint64_t batch_write_size{ 32768 };
+	uint64_t batch_write_size{ 16384 };
 
 	confirmation_height_unbounded unbounded_processor;
 	confirmation_height_bounded bounded_processor;

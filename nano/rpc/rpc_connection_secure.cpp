@@ -1,3 +1,4 @@
+#include <nano/boost/asio/bind_executor.hpp>
 #include <nano/rpc/rpc_connection_secure.hpp>
 #include <nano/rpc/rpc_secure.hpp>
 

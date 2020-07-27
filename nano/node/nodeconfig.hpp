@@ -65,7 +65,7 @@ public:
 	bool enable_voting{ false };
 	unsigned bootstrap_connections{ 4 };
 	unsigned bootstrap_connections_max{ 64 };
-	unsigned bootstrap_initiator_threads{ network_params.network.is_test_network () ? 1u : std::min<unsigned> (2, std::max<unsigned> (1, std::thread::hardware_concurrency ())) };
+	unsigned bootstrap_initiator_threads{ 1 };
 	nano::websocket::config websocket_config;
 	nano::diagnostics_config diagnostics_config;
 	size_t confirmation_history_size{ 2048 };
@@ -78,7 +78,7 @@ public:
 	nano::ipc::ipc_config ipc_config;
 	std::string external_address;
 	uint16_t external_port{ 0 };
-	std::chrono::milliseconds block_processor_batch_max_time{ std::chrono::milliseconds (5000) };
+	std::chrono::milliseconds block_processor_batch_max_time{ network_params.network.is_test_network () ? std::chrono::milliseconds (500) : std::chrono::milliseconds (5000) };
 	std::chrono::seconds unchecked_cutoff_time{ std::chrono::seconds (4 * 60 * 60) }; // 4 hours
 	/** Timeout for initiated async operations */
 	std::chrono::seconds tcp_io_timeout{ (network_params.network.is_test_network () && !is_sanitizer_build) ? std::chrono::seconds (5) : std::chrono::seconds (15) };
@@ -90,8 +90,8 @@ public:
 	static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
 	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
-	/** Default outbound traffic shaping is 5MB/s */
-	size_t bandwidth_limit{ 5 * 1024 * 1024 };
+	/** Default outbound traffic shaping is 10MB/s */
+	size_t bandwidth_limit{ 10 * 1024 * 1024 };
 	/** By default, allow bursts of 15MB/s (not sustainable) */
 	double bandwidth_limit_burst_ratio{ 3. };
 	std::chrono::milliseconds conf_height_processor_batch_min_time{ 50 };
@@ -142,7 +142,6 @@ public:
 	nano::confirmation_height_mode confirmation_height_processor_mode{ nano::confirmation_height_mode::automatic };
 	nano::generate_cache generate_cache;
 	bool inactive_node{ false };
-	size_t sideband_batch_size{ 512 };
 	size_t block_processor_batch_size{ 0 };
 	size_t block_processor_full_size{ 65536 };
 	size_t block_processor_verification_size{ 0 };
