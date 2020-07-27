@@ -1,6 +1,6 @@
-#include <nano/core_test/testutil.hpp>
 #include <nano/node/common.hpp>
 #include <nano/secure/buffer.hpp>
+#include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 

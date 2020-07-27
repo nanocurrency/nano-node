@@ -116,6 +116,7 @@ public:
 	using uint256_union::uint256_union;
 
 	std::string to_node_id () const;
+	bool decode_node_id (std::string const & source_a);
 	void encode_account (std::string &) const;
 	std::string to_account () const;
 	bool decode_account (std::string const &);

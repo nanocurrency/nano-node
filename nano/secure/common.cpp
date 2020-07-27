@@ -1,5 +1,3 @@
-#define IGNORE_GTEST_INCL
-#include <nano/core_test/testutil.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/numbers.hpp>
@@ -151,8 +149,8 @@ nano::voting_constants::voting_constants (nano::network_constants & network_cons
 
 nano::portmapping_constants::portmapping_constants (nano::network_constants & network_constants)
 {
-	mapping_timeout = network_constants.is_test_network () ? 53 : 3593;
-	check_timeout = network_constants.is_test_network () ? 17 : 53;
+	lease_duration = std::chrono::seconds (1787); // ~30 minutes
+	health_check_period = std::chrono::seconds (53);
 }
 
 nano::bootstrap_constants::bootstrap_constants (nano::network_constants & network_constants)
@@ -164,21 +162,6 @@ nano::bootstrap_constants::bootstrap_constants (nano::network_constants & networ
 	lazy_destinations_retry_limit = network_constants.is_test_network () ? 1 : frontier_retry_limit / 4;
 	gap_cache_bootstrap_start_interval = network_constants.is_test_network () ? std::chrono::milliseconds (5) : std::chrono::milliseconds (30 * 1000);
 }
-
-/* Convenience constants for core_test which is always on the test network */
-namespace
-{
-nano::ledger_constants test_constants (nano::nano_networks::nano_test_network);
-}
-
-nano::keypair const & nano::zero_key (test_constants.zero_key);
-nano::keypair const & nano::test_genesis_key (test_constants.test_genesis_key);
-nano::account const & nano::nano_test_account (test_constants.nano_test_account);
-std::string const & nano::nano_test_genesis (test_constants.nano_test_genesis);
-nano::account const & nano::genesis_account (test_constants.genesis_account);
-nano::block_hash const & nano::genesis_hash (test_constants.genesis_hash);
-nano::uint128_t const & nano::genesis_amount (test_constants.genesis_amount);
-nano::account const & nano::burn_account (test_constants.burn_account);
 
 // Create a new random keypair
 nano::keypair::keypair ()
@@ -267,11 +250,6 @@ size_t nano::account_info::db_size () const
 nano::epoch nano::account_info::epoch () const
 {
 	return epoch_m;
-}
-
-size_t nano::block_counts::sum () const
-{
-	return send + receive + open + change + state;
 }
 
 nano::pending_info::pending_info (nano::account const & source_a, nano::amount const & amount_a, nano::epoch epoch_a) :

@@ -208,16 +208,6 @@ public:
 	nano::account account{ 0 };
 	nano::amount balance{ 0 };
 };
-class block_counts final
-{
-public:
-	size_t sum () const;
-	size_t send{ 0 };
-	size_t receive{ 0 };
-	size_t open{ 0 };
-	size_t change{ 0 };
-	size_t state{ 0 };
-};
 
 class confirmation_height_info final
 {
@@ -440,8 +430,8 @@ class portmapping_constants
 public:
 	portmapping_constants (nano::network_constants & network_constants);
 	// Timeouts are primes so they infrequently happen at the same time
-	int mapping_timeout;
-	int check_timeout;
+	std::chrono::seconds lease_duration;
+	std::chrono::seconds health_check_period;
 };
 
 /** Bootstrap related constants whose value depends on the active network */

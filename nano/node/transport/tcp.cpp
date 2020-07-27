@@ -56,6 +56,12 @@ void nano::transport::channel_tcp::send_buffer (nano::shared_const_buffer const 
 	{
 		socket_l->async_write (buffer_a, tcp_callback (detail_a, socket_l->remote_endpoint (), callback_a), drop_policy_a);
 	}
+	else if (callback_a)
+	{
+		node.background ([callback_a]() {
+			callback_a (boost::system::errc::make_error_code (boost::system::errc::not_supported), 0);
+		});
+	}
 }
 
 std::function<void(boost::system::error_code const &, size_t)> nano::transport::channel_tcp::callback (nano::stat::detail detail_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a) const

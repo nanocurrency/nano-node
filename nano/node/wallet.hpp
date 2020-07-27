@@ -91,9 +91,6 @@ public:
 	void work_put (nano::transaction const &, nano::public_key const &, uint64_t);
 	unsigned version (nano::transaction const &);
 	void version_put (nano::transaction const &, unsigned);
-	void upgrade_v1_v2 (nano::transaction const &);
-	void upgrade_v2_v3 (nano::transaction const &);
-	void upgrade_v3_v4 (nano::transaction const &);
 	nano::fan password;
 	nano::fan wallet_key_mem;
 	static unsigned const version_1 = 1;
