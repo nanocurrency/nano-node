@@ -1,7 +1,7 @@
 #include <nano/boost/asio/bind_executor.hpp>
 #include <nano/boost/asio/connect.hpp>
-#include <nano/boost/asio/spawn.hpp>
 #include <nano/boost/asio/ip/tcp.hpp>
+#include <nano/boost/asio/spawn.hpp>
 #include <nano/boost/beast/core/flat_buffer.hpp>
 #include <nano/boost/beast/http.hpp>
 #include <nano/boost/process/child.hpp>
@@ -161,10 +161,9 @@ void send_receive (boost::asio::io_context & io_ctx, std::string const & wallet,
 boost::property_tree::ptree rpc_request (boost::property_tree::ptree const & request, boost::asio::io_context & ioc, tcp::resolver::results_type const & results)
 {
 	debug_assert (results.size () == 1);
-	
+
 	std::promise<boost::optional<boost::property_tree::ptree>> promise;
 	boost::asio::spawn (boost::asio::io_context::strand (ioc), [&ioc, &results, request, &promise](boost::asio::yield_context yield) {
-
 		socket_type socket (ioc);
 		boost::beast::flat_buffer buffer;
 		http::request<http::string_body> req;
