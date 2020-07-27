@@ -5,6 +5,7 @@
 #include <nano/node/transport/tcp.hpp>
 
 #include <boost/format.hpp>
+#include <boost/variant/get.hpp>
 
 nano::bootstrap_listener::bootstrap_listener (uint16_t port_a, nano::node & node_a) :
 node (node_a),
