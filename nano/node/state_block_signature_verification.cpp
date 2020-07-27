@@ -1,6 +1,7 @@
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/threading.hpp>
+#include <nano/lib/timer.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/signatures.hpp>
 #include <nano/node/state_block_signature_verification.hpp>
