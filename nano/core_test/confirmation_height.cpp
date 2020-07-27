@@ -1586,7 +1586,7 @@ TEST (confirmation_height, unbounded_block_cache_iteration)
 	nano::genesis genesis;
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
-	nano::write_database_queue write_database_queue;
+	nano::write_database_queue write_database_queue (false);
 	boost::latch initialized_latch{ 0 };
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::keypair key1;
