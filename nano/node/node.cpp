@@ -121,11 +121,10 @@ block_processor_thread ([this]() {
 }),
 // clang-format on
 online_reps (ledger, network_params, config.online_weight_minimum.number ()),
-votes_cache (wallets),
 vote_uniquer (block_uniquer),
 confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, logger, node_initialized_latch, flags.confirmation_height_processor_mode),
 active (*this, confirmation_height_processor),
-aggregator (network_params.network, config, stats, votes_cache, ledger, wallets, active),
+aggregator (network_params.network, config, stats, history, ledger, wallets, active),
 payment_observer_processor (observers.blocks),
 wallets (wallets_store.init_error (), *this),
 startup_time (std::chrono::steady_clock::now ()),
@@ -582,7 +581,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (collect_container_info (node.block_processor, "block_processor"));
 	composite->add_component (collect_container_info (node.block_arrival, "block_arrival"));
 	composite->add_component (collect_container_info (node.online_reps, "online_reps"));
-	composite->add_component (collect_container_info (node.votes_cache, "votes_cache"));
+	composite->add_component (collect_container_info (node.history, "history"));
 	composite->add_component (collect_container_info (node.block_uniquer, "block_uniquer"));
 	composite->add_component (collect_container_info (node.vote_uniquer, "vote_uniquer"));
 	composite->add_component (collect_container_info (node.confirmation_height_processor, "confirmation_height_processor"));

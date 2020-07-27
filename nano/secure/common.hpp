@@ -60,6 +60,14 @@ struct hash<::nano::qualified_root>
 		return std::hash<::nano::qualified_root> () (value_a);
 	}
 };
+template <>
+struct hash<::nano::root>
+{
+	size_t operator() (::nano::root const & value_a) const
+	{
+		return std::hash<::nano::root> () (value_a);
+	}
+};
 }
 namespace nano
 {
