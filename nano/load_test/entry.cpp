@@ -1,6 +1,7 @@
 #include <nano/boost/asio/bind_executor.hpp>
 #include <nano/boost/asio/connect.hpp>
 #include <nano/boost/asio/spawn.hpp>
+#include <nano/boost/asio/ip/tcp.hpp>
 #include <nano/boost/beast/core/flat_buffer.hpp>
 #include <nano/boost/beast/http.hpp>
 #include <nano/boost/process/child.hpp>
@@ -157,85 +158,37 @@ void send_receive (boost::asio::io_context & io_ctx, std::string const & wallet,
 	}
 }
 
-class rpc_session final : public std::enable_shared_from_this<rpc_session>
-{
-public:
-	rpc_session (boost::property_tree::ptree const & request, boost::asio::io_context & ioc, tcp::resolver::results_type const & results, std::function<void(boost::property_tree::ptree const &)> callback) :
-	io_ctx (ioc),
-	socket (ioc),
-	request (request),
-	results (results),
-	callback (callback)
-	{
-	}
-
-	void run ()
-	{
-		auto this_l (shared_from_this ());
-		boost::asio::async_connect (this_l->socket, this_l->results.cbegin (), this_l->results.cend (), [this_l](boost::system::error_code const & ec, boost::asio::ip::tcp::resolver::iterator) {
-			if (ec)
-			{
-				fail (ec, "connect");
-			}
-
-			std::stringstream ostream;
-			boost::property_tree::write_json (ostream, this_l->request);
-
-			this_l->req.method (http::verb::post);
-			this_l->req.version (11);
-			this_l->req.target ("/");
-			this_l->req.body () = ostream.str ();
-			this_l->req.prepare_payload ();
-
-			http::async_write (this_l->socket, this_l->req, [this_l](boost::system::error_code ec, std::size_t) {
-				if (ec)
-				{
-					fail (ec, "write");
-				}
-
-				http::async_read (this_l->socket, this_l->buffer, this_l->res, [this_l](boost::system::error_code ec, std::size_t) {
-					if (ec)
-					{
-						fail (ec, "read");
-					}
-
-					boost::property_tree::ptree json;
-					std::stringstream body (this_l->res.body ());
-					boost::property_tree::read_json (body, json);
-
-					this_l->socket.shutdown (tcp::socket::shutdown_both, ec);
-					if (ec && ec != boost::system::errc::not_connected)
-					{
-						fail (ec, "shutdown");
-					}
-					else
-					{
-						return this_l->callback (json);
-					}
-				});
-			});
-		});
-	}
-
-private:
-	boost::asio::io_context & io_ctx;
-	socket_type socket;
-	boost::beast::flat_buffer buffer;
-	http::request<http::string_body> req;
-	http::response<http::string_body> res;
-	boost::property_tree::ptree request;
-	tcp::resolver::results_type const & results;
-	std::function<void(boost::property_tree::ptree const &)> callback;
-};
-
 boost::property_tree::ptree rpc_request (boost::property_tree::ptree const & request, boost::asio::io_context & ioc, tcp::resolver::results_type const & results)
 {
 	debug_assert (results.size () == 1);
+	
 	std::promise<boost::optional<boost::property_tree::ptree>> promise;
-	auto rpc_session (std::make_shared<rpc_session> (request, ioc, results, [&promise](auto const & response_a) {
-		promise.set_value (response_a);
-	}));
-	rpc_session->run ();
+	boost::asio::spawn (boost::asio::io_context::strand (ioc), [&ioc, &results, request, &promise](boost::asio::yield_context yield) {
+
+		socket_type socket (ioc);
+		boost::beast::flat_buffer buffer;
+		http::request<http::string_body> req;
+		http::response<http::string_body> res;
+
+		boost::asio::async_connect (socket, results.cbegin (), results.cend (), yield);
+		std::stringstream ostream;
+		boost::property_tree::write_json (ostream, request);
+
+		req.method (http::verb::post);
+		req.version (11);
+		req.target ("/");
+		req.body () = ostream.str ();
+		req.prepare_payload ();
+
+		http::async_write (socket, req, yield);
+		http::async_read (socket, buffer, res, yield);
+
+		boost::property_tree::ptree json;
+		std::stringstream body (res.body ());
+		boost::property_tree::read_json (body, json);
+		promise.set_value (json);
+	});
+
 	auto future = promise.get_future ();
 	if (future.wait_for (std::chrono::seconds (5)) != std::future_status::ready)
 	{
