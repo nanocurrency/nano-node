@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/locks.hpp>
+#include <nano/lib/rate_limiting.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/socket.hpp>
@@ -11,28 +12,11 @@ class bandwidth_limiter final
 {
 public:
 	// initialize with limit 0 = unbounded
-	bandwidth_limiter (const size_t);
-	// force_a should be set for non-droppable packets
-	void add (const size_t &, bool const force_a = false);
+	bandwidth_limiter (const double, const size_t);
 	bool should_drop (const size_t &);
-	size_t get_rate ();
-	size_t get_limit () const;
-
-	std::chrono::milliseconds const period{ 50 };
-	static constexpr unsigned buffer_size{ 20 };
 
 private:
-	//last time rate was adjusted
-	std::chrono::steady_clock::time_point next_trend;
-	//trend rate over 20 poll periods
-	boost::circular_buffer<size_t> rate_buffer{ buffer_size };
-	//limit bandwidth to
-	const size_t limit;
-	//rate, increment if message_size + rate < rate
-	size_t rate{ 0 };
-	//trended rate to even out spikes in traffic
-	std::atomic<size_t> trended_rate{ 0 };
-	std::mutex mutex;
+	nano::rate::token_bucket bucket;
 };
 
 namespace transport
@@ -43,8 +27,6 @@ namespace transport
 	nano::tcp_endpoint map_endpoint_to_tcp (nano::endpoint const &);
 	// Unassigned, reserved, self
 	bool reserved_address (nano::endpoint const &, bool = false);
-	// Maximum number of peers per IP
-	static size_t constexpr max_peers_per_ip = 10;
 	static std::chrono::seconds constexpr syn_cookie_cutoff = std::chrono::seconds (5);
 	enum class transport_type : uint8_t
 	{

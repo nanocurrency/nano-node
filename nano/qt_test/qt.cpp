@@ -1,6 +1,6 @@
-#include <nano/core_test/testutil.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/qt/qt.hpp>
+#include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -420,7 +420,7 @@ TEST (wallet, create_open_receive)
 	ASSERT_EQ (nano::process_result::old, system.nodes[0]->process (open).code);
 	wallet->block_creation.block->clear ();
 	wallet->block_creation.source->clear ();
-	QTest::mouseClick (wallet->block_creation.receive, Qt::LeftButton);
+	wallet->block_creation.receive->click ();
 	QTest::keyClicks (wallet->block_creation.source, latest2.to_string ().c_str ());
 	QTest::mouseClick (wallet->block_creation.create, Qt::LeftButton);
 	std::string json2 (wallet->block_creation.block->toPlainText ().toStdString ());
@@ -447,10 +447,10 @@ TEST (wallet, create_change)
 	wallet->client_window->show ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	QTest::mouseClick (wallet->advanced.create_block, Qt::LeftButton);
-	QTest::mouseClick (wallet->block_creation.change, Qt::LeftButton);
+	wallet->block_creation.change->click ();
 	QTest::keyClicks (wallet->block_creation.account, nano::test_genesis_key.pub.to_account ().c_str ());
 	QTest::keyClicks (wallet->block_creation.representative, key.pub.to_account ().c_str ());
-	QTest::mouseClick (wallet->block_creation.create, Qt::LeftButton);
+	wallet->block_creation.create->click ();
 	std::string json (wallet->block_creation.block->toPlainText ().toStdString ());
 	ASSERT_FALSE (json.empty ());
 	boost::property_tree::ptree tree1;
@@ -727,7 +727,7 @@ TEST (wallet, seed_work_generation)
 		ASSERT_NO_ERROR (ec);
 	}
 	auto transaction (system.nodes[0]->store.tx_begin_read ());
-	ASSERT_FALSE (nano::work_validate (nano::work_version::work_1, system.nodes[0]->ledger.latest_root (transaction, pub), work));
+	ASSERT_GE (nano::work_difficulty (nano::work_version::work_1, system.nodes[0]->ledger.latest_root (transaction, pub), work), system.nodes[0]->default_difficulty (nano::work_version::work_1));
 }
 
 TEST (wallet, backup_seed)

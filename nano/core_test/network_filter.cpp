@@ -1,8 +1,8 @@
-#include <nano/core_test/testutil.hpp>
 #include <nano/node/common.hpp>
 #include <nano/secure/buffer.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/network_filter.hpp>
+#include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -12,7 +12,7 @@ TEST (network_filter, unit)
 	nano::network_filter filter (1);
 	auto one_block = [&filter](std::shared_ptr<nano::block> const & block_a, bool expect_duplicate_a) {
 		nano::publish message (block_a);
-		auto bytes (message.to_bytes ());
+		auto bytes (message.to_bytes (false));
 		nano::bufferstream stream (bytes->data (), bytes->size ());
 
 		// First read the header
@@ -60,7 +60,7 @@ TEST (network_filter, many)
 		auto block (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.open->hash (), nano::test_genesis_key.pub, nano::genesis_amount - i * 10 * nano::xrb_ratio, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 
 		nano::publish message (block);
-		auto bytes (message.to_bytes ());
+		auto bytes (message.to_bytes (false));
 		nano::bufferstream stream (bytes->data (), bytes->size ());
 
 		// First read the header

@@ -49,10 +49,13 @@ private:
 	void unpack (uint8_t);
 };
 
+std::string state_subtype (nano::block_details const);
+
 class block_sideband final
 {
 public:
 	block_sideband () = default;
+	block_sideband (nano::account const &, nano::block_hash const &, nano::amount const &, uint64_t, uint64_t, nano::block_details const &);
 	block_sideband (nano::account const &, nano::block_hash const &, nano::amount const &, uint64_t, uint64_t, nano::epoch, bool is_send, bool is_receive, bool is_epoch);
 	void serialize (nano::stream &, nano::block_type) const;
 	bool deserialize (nano::stream &, nano::block_type);
@@ -73,6 +76,7 @@ public:
 	nano::block_hash full_hash () const;
 	nano::block_sideband const & sideband () const;
 	void sideband_set (nano::block_sideband const &);
+	bool has_sideband () const;
 	std::string to_json () const;
 	virtual void hash (blake2b_state &) const = 0;
 	virtual uint64_t block_work () const = 0;

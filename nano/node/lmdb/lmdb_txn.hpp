@@ -78,6 +78,6 @@ private:
 	nano::txn_tracking_config txn_tracking_config;
 	std::chrono::milliseconds block_processor_batch_max_time;
 
-	void output_finished (nano::mdb_txn_stats const & mdb_txn_stats) const;
+	void log_if_held_long_enough (nano::mdb_txn_stats const & mdb_txn_stats) const;
 };
 }

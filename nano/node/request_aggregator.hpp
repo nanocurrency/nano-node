@@ -17,11 +17,12 @@ namespace mi = boost::multi_index;
 
 namespace nano
 {
-class votes_cache;
-class block_store;
-class wallets;
-class stat;
+class active_transactions;
+class ledger;
 class node_config;
+class stat;
+class votes_cache;
+class wallets;
 /**
  * Pools together confirmation requests, separately for each endpoint.
  * Requests are added from network messages, and aggregated to minimize bandwidth and vote generation. Example:
@@ -58,7 +59,7 @@ class request_aggregator final
 
 public:
 	request_aggregator () = delete;
-	request_aggregator (nano::network_constants const &, nano::node_config const & config, nano::stat & stats_a, nano::votes_cache &, nano::block_store &, nano::wallets &);
+	request_aggregator (nano::network_constants const &, nano::node_config const & config, nano::stat & stats_a, nano::votes_cache &, nano::ledger &, nano::wallets &, nano::active_transactions &);
 
 	/** Add a new request by \p channel_a for hashes \p hashes_roots_a */
 	void add (std::shared_ptr<nano::transport::channel> & channel_a, std::vector<std::pair<nano::block_hash, nano::root>> const & hashes_roots_a);
@@ -73,17 +74,18 @@ public:
 
 private:
 	void run ();
-	/** Aggregate and send cached votes for \p pool_a, returning the leftovers that were not found in cached votes **/
-	std::vector<nano::block_hash> aggregate (nano::transaction const &, channel_pool & pool_a) const;
-	/** Generate and send votes from \p hashes_a to \p channel_a, does not need a lock on the mutex **/
-	void generate (nano::transaction const &, std::vector<nano::block_hash> hashes_a, std::shared_ptr<nano::transport::channel> & channel_a) const;
-
-	unsigned const max_consecutive_requests;
+	/** Remove duplicate requests **/
+	void erase_duplicates (std::vector<std::pair<nano::block_hash, nano::root>> &) const;
+	/** Aggregate \p requests_a and send cached votes to \p channel_a . Return the remaining hashes that need vote generation **/
+	std::vector<nano::block_hash> aggregate (nano::transaction const &, std::vector<std::pair<nano::block_hash, nano::root>> const & requests_a, std::shared_ptr<nano::transport::channel> & channel_a) const;
+	/** Generate votes from \p hashes_a and send to \p channel_a **/
+	void generate (nano::transaction const &, std::vector<nano::block_hash> const & hashes_a, std::shared_ptr<nano::transport::channel> & channel_a) const;
 
 	nano::stat & stats;
 	nano::votes_cache & votes_cache;
-	nano::block_store & store;
+	nano::ledger & ledger;
 	nano::wallets & wallets;
+	nano::active_transactions & active;
 
 	// clang-format off
 	boost::multi_index_container<channel_pool,

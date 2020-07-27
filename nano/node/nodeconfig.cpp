@@ -1,7 +1,6 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/jsonconfig.hpp>
-#include <nano/lib/rocksdbconfig.hpp>
 #include <nano/lib/rpcconfig.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/nodeconfig.hpp>
@@ -36,7 +35,6 @@ external_address (boost::asio::ip::address_v6{}.to_string ())
 	{
 		peering_port = network_params.network.default_node_port;
 	}
-	max_work_generate_difficulty = nano::difficulty::from_multiplier (max_work_generate_multiplier, network_params.network.publish_threshold);
 	switch (network_params.network.network ())
 	{
 		case nano::nano_networks::nano_test_network:
@@ -73,16 +71,16 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("online_weight_minimum", online_weight_minimum.to_string_dec (), "Online weight minimum required to confirm a block.\ntype:string,amount,raw");
 	toml.put ("online_weight_quorum", online_weight_quorum, "Percentage of votes required to confirm blocks. A value below 50 is not recommended.\ntype:uint64");
 	toml.put ("password_fanout", password_fanout, "Password fanout factor.\ntype:uint64");
-	toml.put ("io_threads", io_threads, "Number of threads dedicated to I/O opeations. Defaults to the number of CPU threads, and at least 4.\ntype:uint64");
+	toml.put ("io_threads", io_threads, "Number of threads dedicated to I/O operations. Defaults to the number of CPU threads, and at least 4.\ntype:uint64");
 	toml.put ("network_threads", network_threads, "Number of threads dedicated to processing network messages. Defaults to the number of CPU threads, and at least 4.\ntype:uint64");
 	toml.put ("work_threads", work_threads, "Number of threads dedicated to CPU generated work. Defaults to all available CPU threads.\ntype:uint64");
-	toml.put ("signature_checker_threads", signature_checker_threads, "Number of additional threads dedicated to signature verification. Defaults to the number of CPU threads minus 1.\ntype:uint64");
+	toml.put ("signature_checker_threads", signature_checker_threads, "Number of additional threads dedicated to signature verification. Defaults to number of CPU threads / 2.\ntype:uint64");
 	toml.put ("enable_voting", enable_voting, "Enable or disable voting. Enabling this option requires additional system resources, namely increased CPU, bandwidth and disk usage.\ntype:bool");
 	toml.put ("bootstrap_connections", bootstrap_connections, "Number of outbound bootstrap connections. Must be a power of 2. Defaults to 4.\nWarning: a larger amount of connections may use substantially more system memory.\ntype:uint64");
 	toml.put ("bootstrap_connections_max", bootstrap_connections_max, "Maximum number of inbound bootstrap connections. Defaults to 64.\nWarning: a larger amount of connections may use additional system memory.\ntype:uint64");
-	toml.put ("bootstrap_initiator_threads", bootstrap_initiator_threads, "Number of threads dedicated to concurrent bootstrap attempts. Defaults to 2 (if the number of CPU threads is more than 1), otherwise 1.\nWarning: a larger amount of attempts may use additional system memory and disk IO.\ntype:uint64");
-	toml.put ("lmdb_max_dbs", lmdb_max_dbs, "Maximum open lmdb databases. Increase default if more than 100 wallets is required.\nNote: external management is recommended when a large amounts of wallets are required (see https://docs.nano.org/integration-guides/key-management/).\ntype:uint64");
-	toml.put ("block_processor_batch_max_time", block_processor_batch_max_time.count (), "The maximum time the block processor can continously process blocks for.\ntype:milliseconds");
+	toml.put ("bootstrap_initiator_threads", bootstrap_initiator_threads, "Number of threads dedicated to concurrent bootstrap attempts. Defaults to 1.\nWarning: a larger amount of attempts may use additional system memory and disk IO.\ntype:uint64");
+	toml.put ("lmdb_max_dbs", deprecated_lmdb_max_dbs, "DEPRECATED: use node.lmdb.max_databases instead.\nMaximum open lmdb databases. Increase default if more than 100 wallets is required.\nNote: external management is recommended when a large number of wallets is required (see https://docs.nano.org/integration-guides/key-management/).\ntype:uint64");
+	toml.put ("block_processor_batch_max_time", block_processor_batch_max_time.count (), "The maximum time the block processor can continuously process blocks for.\ntype:milliseconds");
 	toml.put ("allow_local_peers", allow_local_peers, "Enable or disable local host peering.\ntype:bool");
 	toml.put ("vote_minimum", vote_minimum.to_string_dec (), "Local representatives do not vote if the delegated weight is under this threshold. Saves on system resources.\ntype:string,amount,raw");
 	toml.put ("vote_generator_delay", vote_generator_delay.count (), "Delay before votes are sent to allow for efficient bundling of hashes in votes.\ntype:milliseconds");
@@ -96,7 +94,8 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("use_memory_pools", use_memory_pools, "If true, allocate memory from memory pools. Enabling this may improve performance. Memory is never released to the OS.\ntype:bool");
 	toml.put ("confirmation_history_size", confirmation_history_size, "Maximum confirmation history size. If tracking the rate of block confirmations, the websocket feature is recommended instead.\ntype:uint64");
 	toml.put ("active_elections_size", active_elections_size, "Number of active elections. Elections beyond this limit have limited survival time.\nWarning: modifying this value may result in a lower confirmation rate.\ntype:uint64,[250..]");
-	toml.put ("bandwidth_limit", bandwidth_limit, "Outbound traffic limit in bytes/sec after which messages will be dropped.\nNote: changing to unlimited bandwidth is not recommended for limited connections.\ntype:uint64");
+	toml.put ("bandwidth_limit", bandwidth_limit, "Outbound traffic limit in bytes/sec after which messages will be dropped.\nNote: changing to unlimited bandwidth (0) is not recommended for limited connections.\ntype:uint64");
+	toml.put ("bandwidth_limit_burst_ratio", bandwidth_limit_burst_ratio, "Burst ratio for outbound traffic shaping.\ntype:double");
 	toml.put ("conf_height_processor_batch_min_time", conf_height_processor_batch_min_time.count (), "Minimum write batching time when there are blocks pending confirmation height.\ntype:milliseconds");
 	toml.put ("backup_before_upgrade", backup_before_upgrade, "Backup the ledger database before performing upgrades.\nWarning: uses more disk storage and increases startup time when upgrading.\ntype:bool");
 	toml.put ("work_watcher_period", work_watcher_period.count (), "Time between checks for confirmation and re-generating higher difficulty work if unconfirmed, for blocks in the work watcher.\ntype:seconds");
@@ -160,6 +159,10 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	nano::tomlconfig rocksdb_l;
 	rocksdb_config.serialize_toml (rocksdb_l);
 	toml.put_child ("rocksdb", rocksdb_l);
+
+	nano::tomlconfig lmdb_l;
+	lmdb_config.serialize_toml (lmdb_l);
+	toml.put_child ("lmdb", lmdb_l);
 
 	return toml.get_error ();
 }
@@ -304,10 +307,32 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		toml.get<unsigned> ("bootstrap_connections", bootstrap_connections);
 		toml.get<unsigned> ("bootstrap_connections_max", bootstrap_connections_max);
 		toml.get<unsigned> ("bootstrap_initiator_threads", bootstrap_initiator_threads);
-		toml.get<int> ("lmdb_max_dbs", lmdb_max_dbs);
 		toml.get<bool> ("enable_voting", enable_voting);
 		toml.get<bool> ("allow_local_peers", allow_local_peers);
 		toml.get<unsigned> (signature_checker_threads_key, signature_checker_threads);
+
+		auto lmdb_max_dbs_default = deprecated_lmdb_max_dbs;
+		toml.get<int> ("lmdb_max_dbs", deprecated_lmdb_max_dbs);
+		bool is_deprecated_lmdb_dbs_used = lmdb_max_dbs_default != deprecated_lmdb_max_dbs;
+
+		// Note: using the deprecated setting will result in a fail-fast config error in the future
+		if (!network_params.network.is_test_network () && is_deprecated_lmdb_dbs_used)
+		{
+			std::cerr << "WARNING: The node.lmdb_max_dbs setting is deprecated and will be removed in a future version." << std::endl;
+			std::cerr << "Please use the node.lmdb.max_databases setting instead." << std::endl;
+		}
+
+		if (toml.has_key ("lmdb"))
+		{
+			auto lmdb_config_l (toml.get_required_child ("lmdb"));
+			lmdb_config.deserialize_toml (lmdb_config_l, is_deprecated_lmdb_dbs_used);
+
+			// Note that the lmdb config fails is both the deprecated and new setting are changed.
+			if (is_deprecated_lmdb_dbs_used)
+			{
+				lmdb_config.max_databases = deprecated_lmdb_max_dbs;
+			}
+		}
 
 		boost::asio::ip::address_v6 external_address_l;
 		toml.get<boost::asio::ip::address_v6> ("external_address", external_address_l);
@@ -322,6 +347,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		toml.get<size_t> ("confirmation_history_size", confirmation_history_size);
 		toml.get<size_t> ("active_elections_size", active_elections_size);
 		toml.get<size_t> ("bandwidth_limit", bandwidth_limit);
+		toml.get<double> ("bandwidth_limit_burst_ratio", bandwidth_limit_burst_ratio);
 		toml.get<bool> ("backup_before_upgrade", backup_before_upgrade);
 
 		auto work_watcher_period_l = work_watcher_period.count ();
@@ -334,7 +360,6 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 
 		nano::network_constants network;
 		toml.get<double> ("max_work_generate_multiplier", max_work_generate_multiplier);
-		max_work_generate_difficulty = nano::difficulty::from_multiplier (max_work_generate_multiplier, network.publish_threshold);
 
 		toml.get<uint32_t> ("max_queued_requests", max_queued_requests);
 
@@ -357,6 +382,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		}
 
 		// Validate ranges
+		nano::network_params network_params;
 		if (online_weight_quorum > 100)
 		{
 			toml.get_error ().set ("online_weight_quorum must be less than 100");
@@ -375,7 +401,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		}
 		if (bandwidth_limit > std::numeric_limits<size_t>::max ())
 		{
-			toml.get_error ().set ("bandwidth_limit unbounded = 0, default = 5242880, max = 18446744073709551615");
+			toml.get_error ().set ("bandwidth_limit unbounded = 0, default = 10485760, max = 18446744073709551615");
 		}
 		if (vote_generator_threshold < 1 || vote_generator_threshold > 11)
 		{
@@ -392,6 +418,10 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		if (frontiers_confirmation == nano::frontiers_confirmation_mode::invalid)
 		{
 			toml.get_error ().set ("frontiers_confirmation value is invalid (available: always, auto, disabled)");
+		}
+		if (block_processor_batch_max_time < network_params.node.process_confirmed_interval)
+		{
+			toml.get_error ().set ((boost::format ("block_processor_batch_max_time value must be equal or larger than %1%ms") % network_params.node.process_confirmed_interval.count ()).str ());
 		}
 	}
 	catch (std::runtime_error const & ex)
@@ -446,7 +476,7 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("callback_address", callback_address);
 	json.put ("callback_port", callback_port);
 	json.put ("callback_target", callback_target);
-	json.put ("lmdb_max_dbs", lmdb_max_dbs);
+	json.put ("lmdb_max_dbs", deprecated_lmdb_max_dbs);
 	json.put ("block_processor_batch_max_time", block_processor_batch_max_time.count ());
 	json.put ("allow_local_peers", allow_local_peers);
 	json.put ("vote_minimum", vote_minimum.to_string_dec ());
@@ -483,119 +513,22 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 	switch (version_a)
 	{
 		case 1:
-		{
-			auto reps_l (json.get_required_child ("preconfigured_representatives"));
-			nano::jsonconfig reps;
-			reps_l.array_entries<std::string> ([&reps](std::string entry) {
-				nano::account account;
-				account.decode_account (entry);
-				reps.push (account.to_account ());
-			});
-
-			json.replace_child ("preconfigured_representatives", reps);
-		}
 		case 2:
-		{
-			json.put ("inactive_supply", nano::uint128_union (0).to_string_dec ());
-			json.put ("password_fanout", std::to_string (1024));
-			json.put ("io_threads", std::to_string (io_threads));
-			json.put ("work_threads", std::to_string (work_threads));
-		}
 		case 3:
-			json.erase ("receive_minimum");
-			json.put ("receive_minimum", nano::xrb_ratio.convert_to<std::string> ());
 		case 4:
-			json.erase ("receive_minimum");
-			json.put ("receive_minimum", nano::xrb_ratio.convert_to<std::string> ());
 		case 5:
-			json.put ("enable_voting", enable_voting);
-			json.erase ("packet_delay_microseconds");
-			json.erase ("rebroadcast_delay");
-			json.erase ("creation_rebroadcast");
 		case 6:
-			json.put ("bootstrap_connections", 16);
-			json.put ("callback_address", "");
-			json.put ("callback_port", 0);
-			json.put ("callback_target", "");
 		case 7:
-			json.put ("lmdb_max_dbs", 128);
 		case 8:
-			json.put ("bootstrap_connections_max", "64");
 		case 9:
-			json.put ("state_block_parse_canary", nano::block_hash (0).to_string ());
-			json.put ("state_block_generate_canary", nano::block_hash (0).to_string ());
 		case 10:
-			json.put ("online_weight_minimum", online_weight_minimum.to_string_dec ());
-			json.put ("online_weight_quorom", std::to_string (online_weight_quorum));
-			json.erase ("inactive_supply");
 		case 11:
-		{
-			// Rename
-			std::string online_weight_quorum_l;
-			json.get<std::string> ("online_weight_quorom", online_weight_quorum_l);
-			json.erase ("online_weight_quorom");
-			json.put ("online_weight_quorum", online_weight_quorum_l);
-		}
 		case 12:
-			json.erase ("state_block_parse_canary");
-			json.erase ("state_block_generate_canary");
 		case 13:
-			json.put ("generate_hash_votes_at", 0);
 		case 14:
-			json.put ("network_threads", std::to_string (network_threads));
-			json.erase ("generate_hash_votes_at");
-			json.put ("block_processor_batch_max_time", block_processor_batch_max_time.count ());
 		case 15:
-		{
-			json.put ("allow_local_peers", allow_local_peers);
-
-			// Update to the new preconfigured_peers url for rebrand if it is found (rai -> nano)
-			auto peers_l (json.get_required_child (preconfigured_peers_key));
-			nano::jsonconfig peers;
-			peers_l.array_entries<std::string> ([&peers](std::string entry) {
-				if (entry == "rai-beta.raiblocks.net")
-				{
-					entry = default_beta_peer_network;
-				}
-				else if (entry == "rai.raiblocks.net")
-				{
-					entry = default_live_peer_network;
-				}
-
-				peers.push (std::move (entry));
-			});
-
-			json.replace_child (preconfigured_peers_key, peers);
-			json.put ("vote_minimum", vote_minimum.to_string_dec ());
-
-			nano::jsonconfig ipc_l;
-			ipc_config.serialize_json (ipc_l);
-			json.put_child ("ipc", ipc_l);
-
-			json.put (signature_checker_threads_key, signature_checker_threads);
-			json.put ("unchecked_cutoff_time", unchecked_cutoff_time.count ());
-		}
 		case 16:
-		{
-			nano::jsonconfig websocket_l;
-			websocket_config.serialize_json (websocket_l);
-			json.put_child ("websocket", websocket_l);
-			nano::jsonconfig diagnostics_l;
-			diagnostics_config.serialize_json (diagnostics_l);
-			json.put_child ("diagnostics", diagnostics_l);
-			json.put ("tcp_io_timeout", tcp_io_timeout.count ());
-			json.put (pow_sleep_interval_key, pow_sleep_interval.count ());
-			json.put ("external_address", external_address);
-			json.put ("external_port", external_port);
-			json.put ("tcp_incoming_connections_max", tcp_incoming_connections_max);
-			json.put ("vote_generator_delay", vote_generator_delay.count ());
-			json.put ("vote_generator_threshold", vote_generator_threshold);
-			json.put ("use_memory_pools", use_memory_pools);
-			json.put ("confirmation_history_size", confirmation_history_size);
-			json.put ("active_elections_size", active_elections_size);
-			json.put ("bandwidth_limit", bandwidth_limit);
-			json.put ("conf_height_processor_batch_min_time", conf_height_processor_batch_min_time.count ());
-		}
+			throw std::runtime_error ("node_config version unsupported for upgrade. Upgrade to a v19, v20 or v21 node first, or delete the config and ledger files");
 		case 17:
 		{
 			json.put ("active_elections_size", 10000); // Update value
@@ -615,21 +548,8 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 {
 	try
 	{
-		auto version_l (json.get_optional<unsigned> ("version"));
-		if (!version_l)
-		{
-			version_l = 1;
-			json.put ("version", version_l);
-			auto work_peers_l (json.get_optional_child ("work_peers"));
-			if (!work_peers_l)
-			{
-				nano::jsonconfig empty;
-				json.put_child ("work_peers", empty);
-			}
-			upgraded_a = true;
-		}
-
-		upgraded_a |= upgrade_json (version_l.get (), json);
+		auto version_l (json.get<unsigned> ("version"));
+		upgraded_a |= upgrade_json (version_l, json);
 
 		auto logging_l (json.get_required_child ("logging"));
 		logging.deserialize_json (upgraded_a, logging_l);
@@ -740,7 +660,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		json.get<std::string> ("callback_address", callback_address);
 		json.get<uint16_t> ("callback_port", callback_port);
 		json.get<std::string> ("callback_target", callback_target);
-		json.get<int> ("lmdb_max_dbs", lmdb_max_dbs);
+		json.get<int> ("lmdb_max_dbs", deprecated_lmdb_max_dbs);
 		json.get<bool> ("enable_voting", enable_voting);
 		json.get<bool> ("allow_local_peers", allow_local_peers);
 		json.get<unsigned> (signature_checker_threads_key, signature_checker_threads);
@@ -787,7 +707,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		}
 		if (bandwidth_limit > std::numeric_limits<size_t>::max ())
 		{
-			json.get_error ().set ("bandwidth_limit unbounded = 0, default = 5242880, max = 18446744073709551615");
+			json.get_error ().set ("bandwidth_limit unbounded = 0, default = 10485760, max = 18446744073709551615");
 		}
 		if (vote_generator_threshold < 1 || vote_generator_threshold > 11)
 		{

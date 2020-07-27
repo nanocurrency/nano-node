@@ -20,6 +20,8 @@ add_library (nano_lib
 	blockbuilders.cpp
 	blocks.hpp
 	blocks.cpp
+	cli.hpp
+	cli.cpp
 	config.hpp
 	config.cpp
 	configbase.hpp
@@ -36,6 +38,8 @@ add_library (nano_lib
 	json_error_response.hpp
 	jsonconfig.hpp
 	jsonconfig.cpp
+	lmdbconfig.hpp
+	lmdbconfig.cpp
 	locks.hpp
 	locks.cpp
 	logger_mt.hpp
@@ -44,6 +48,8 @@ add_library (nano_lib
 	numbers.hpp
 	numbers.cpp
 	optional_ptr.hpp
+	rate_limiting.hpp
+	rate_limiting.cpp
 	rep_weights.hpp
 	rep_weights.cpp
 	rocksdbconfig.hpp

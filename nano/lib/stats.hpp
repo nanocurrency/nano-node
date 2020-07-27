@@ -195,11 +195,13 @@ public:
 		ipc,
 		tcp,
 		udp,
-		observer,
 		confirmation_height,
+		confirmation_observer,
 		drop,
 		aggregator,
-		requests
+		requests,
+		filter,
+		telemetry,
 	};
 
 	/** Optional detail type */
@@ -213,10 +215,10 @@ public:
 		http_callback,
 		unreachable_host,
 
-		// observer specific
-		observer_confirmation_active_quorum,
-		observer_confirmation_active_conf_height,
-		observer_confirmation_inactive,
+		// confirmation_observer specific
+		active_quorum,
+		active_conf_height,
+		inactive_conf_height,
 
 		// ledger, block, bootstrap
 		send,
@@ -271,6 +273,12 @@ public:
 		vote_cached,
 		late_block,
 		late_block_seconds,
+		election_non_priority,
+		election_priority,
+		election_block_conflict,
+		election_difficulty_update,
+		election_drop,
+		election_restart,
 
 		// udp
 		blocking,
@@ -292,6 +300,8 @@ public:
 		tcp_accept_success,
 		tcp_accept_failure,
 		tcp_write_drop,
+		tcp_write_no_socket_drop,
+		tcp_excluded,
 
 		// ipc
 		invocations,
@@ -303,7 +313,6 @@ public:
 		blocks_confirmed,
 		blocks_confirmed_unbounded,
 		blocks_confirmed_bounded,
-		invalid_block,
 
 		// [request] aggregator
 		aggregator_accepted,
@@ -314,7 +323,20 @@ public:
 		requests_generated_hashes,
 		requests_cached_votes,
 		requests_generated_votes,
-		requests_unknown
+		requests_cannot_vote,
+		requests_unknown,
+
+		// duplicate
+		duplicate_publish,
+
+		// telemetry
+		invalid_signature,
+		different_genesis_hash,
+		node_id_mismatch,
+		request_within_protection_cache_zone,
+		no_response_received,
+		unsolicited_telemetry_ack,
+		failed_send_telemetry_req
 	};
 
 	/** Direction of the stat. If the direction is irrelevant, use in */

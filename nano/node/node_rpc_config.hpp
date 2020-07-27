@@ -36,8 +36,5 @@ public:
 	{
 		return 1;
 	}
-
-private:
-	void migrate (nano::jsonconfig & json, boost::filesystem::path const & data_path);
 };
 }

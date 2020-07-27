@@ -50,8 +50,7 @@ nano::bulk_pull_client::~bulk_pull_client ()
 	{
 		connection->node->bootstrap_initiator.cache.remove (pull);
 	}
-	--attempt->pulling;
-	attempt->condition.notify_all ();
+	attempt->pull_finished ();
 }
 
 void nano::bulk_pull_client::request ()
@@ -213,7 +212,7 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 	{
 		nano::bufferstream stream (connection->receive_buffer->data (), size_a);
 		std::shared_ptr<nano::block> block (nano::deserialize_block (stream, type_a));
-		if (block != nullptr && !nano::work_validate (*block))
+		if (block != nullptr && !nano::work_validate_entry (*block))
 		{
 			auto hash (block->hash ());
 			if (connection->node->config.logging.bulk_pull_logging ())
@@ -241,7 +240,7 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 			}
 			if (connection->block_count++ == 0)
 			{
-				connection->start_time = std::chrono::steady_clock::now ();
+				connection->set_start_time (std::chrono::steady_clock::now ());
 			}
 			attempt->total_blocks++;
 			bool stop_pull (attempt->process_block (block, known_account, pull_blocks, pull.count, block_expected, pull.retry_limit));
@@ -292,8 +291,7 @@ pull_blocks (0)
 
 nano::bulk_pull_account_client::~bulk_pull_account_client ()
 {
-	--attempt->pulling;
-	attempt->condition.notify_all ();
+	attempt->pull_finished ();
 }
 
 void nano::bulk_pull_account_client::request ()

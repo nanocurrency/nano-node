@@ -1,7 +1,8 @@
 #include <nano/core_test/fakes/websocket_client.hpp>
-#include <nano/core_test/testutil.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/node/websocket.hpp>
+#include <nano/test_common/telemetry.hpp>
+#include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -44,21 +45,24 @@ TEST (websocket, subscription_edge)
 	});
 	auto future = std::async (std::launch::async, task);
 
-	system.deadline_set (5s);
-	while (future.wait_for (0s) != std::future_status::ready)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, future.wait_for (0s) == std::future_status::ready);
 }
 
-// Test client subscribing to changes in active_difficulty
+// Test client subscribing to changes in active_multiplier
 TEST (websocket, active_difficulty)
 {
 	nano::system system;
 	nano::node_config config (nano::get_available_port (), system.logging);
 	config.websocket_config.enabled = true;
 	config.websocket_config.port = nano::get_available_port ();
-	auto node1 (system.add_node (config));
+	nano::node_flags node_flags;
+	// Disable auto-updating active difficulty (multiplier) to prevent intermittent failures
+	node_flags.disable_request_loop = true;
+	auto node1 (system.add_node (config, node_flags));
+
+	// "Start" epoch 2
+	node1->ledger.cache.epoch_2_started = true;
+	ASSERT_EQ (node1->default_difficulty (nano::work_version::work_1), node1->network_params.network.publish_thresholds.epoch_2);
 
 	ASSERT_EQ (0, node1->websocket_server->subscriber_count (nano::websocket::topic::active_difficulty));
 
@@ -73,23 +77,16 @@ TEST (websocket, active_difficulty)
 	});
 	auto future = std::async (std::launch::async, task);
 
-	system.deadline_set (5s);
-	while (!ack_ready)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, ack_ready);
 
-	// Fake history records to force trended_active_difficulty change
+	// Fake history records and force a trended_active_multiplier change
 	{
 		nano::unique_lock<std::mutex> lock (node1->active.mutex);
 		node1->active.multipliers_cb.push_front (10.);
+		node1->active.update_active_multiplier (lock);
 	}
 
-	system.deadline_set (5s);
-	while (future.wait_for (0s) != std::future_status::ready)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, future.wait_for (0s) == std::future_status::ready);
 
 	// Check active_difficulty response
 	boost::optional<std::string> response = future.get ();
@@ -103,14 +100,14 @@ TEST (websocket, active_difficulty)
 	auto message_contents = event.get_child ("message");
 	uint64_t network_minimum;
 	nano::from_string_hex (message_contents.get<std::string> ("network_minimum"), network_minimum);
-	ASSERT_EQ (network_minimum, node1->network_params.network.publish_threshold);
+	ASSERT_EQ (network_minimum, node1->default_difficulty (nano::work_version::work_1));
 
 	uint64_t network_current;
 	nano::from_string_hex (message_contents.get<std::string> ("network_current"), network_current);
 	ASSERT_EQ (network_current, node1->active.active_difficulty ());
 
 	double multiplier = message_contents.get<double> ("multiplier");
-	ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (node1->active.active_difficulty (), node1->network_params.network.publish_threshold), 1e-6);
+	ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (node1->active.active_difficulty (), node1->default_difficulty (nano::work_version::work_1)), 1e-6);
 }
 
 // Subscribes to block confirmations, confirms a block and then awaits websocket notification
@@ -144,11 +141,7 @@ TEST (websocket, confirmation)
 	});
 	auto future = std::async (std::launch::async, task);
 
-	system.deadline_set (5s);
-	while (!ack_ready)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, ack_ready);
 
 	nano::keypair key;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
@@ -162,11 +155,7 @@ TEST (websocket, confirmation)
 		node1->process_active (send);
 	}
 
-	system.deadline_set (5s);
-	while (!unsubscribed)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, unsubscribed);
 
 	// Quick confirm a state block
 	{
@@ -176,11 +165,7 @@ TEST (websocket, confirmation)
 		node1->process_active (send);
 	}
 
-	system.deadline_set (5s);
-	while (future.wait_for (0s) != std::future_status::ready)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, future.wait_for (0s) == std::future_status::ready);
 }
 
 // Tests getting notification of an erased election
@@ -203,11 +188,7 @@ TEST (websocket, stopped_election)
 	});
 	auto future = std::async (std::launch::async, task);
 
-	system.deadline_set (5s);
-	while (!ack_ready)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, ack_ready);
 
 	// Create election, then erase it, causing a websocket message to be emitted
 	nano::keypair key1;
@@ -219,11 +200,7 @@ TEST (websocket, stopped_election)
 	node1->block_processor.flush ();
 	node1->active.erase (*send1);
 
-	system.deadline_set (5s);
-	while (future.wait_for (0s) != std::future_status::ready)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, future.wait_for (0s) == std::future_status::ready);
 
 	auto response = future.get ();
 	ASSERT_TRUE (response);
@@ -255,11 +232,7 @@ TEST (websocket, confirmation_options)
 	});
 	auto future1 = std::async (std::launch::async, task1);
 
-	system.deadline_set (5s);
-	while (!ack_ready)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, ack_ready);
 
 	// Confirm a state block for an in-wallet account
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
@@ -274,11 +247,7 @@ TEST (websocket, confirmation_options)
 		previous = send->hash ();
 	}
 
-	system.deadline_set (5s);
-	while (future1.wait_for (0s) != std::future_status::ready)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, future1.wait_for (0s) == std::future_status::ready);
 
 	ack_ready = false;
 	auto task2 = ([&ack_ready, config, &node1]() {
@@ -291,11 +260,7 @@ TEST (websocket, confirmation_options)
 	});
 	auto future2 = std::async (std::launch::async, task2);
 
-	system.deadline_set (5s);
-	while (!ack_ready)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (10s, ack_ready);
 
 	// Quick-confirm another block
 	{
@@ -305,11 +270,7 @@ TEST (websocket, confirmation_options)
 		previous = send->hash ();
 	}
 
-	system.deadline_set (5s);
-	while (future2.wait_for (0s) != std::future_status::ready)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, future2.wait_for (0s) == std::future_status::ready);
 
 	auto response2 = future2.get ();
 	ASSERT_TRUE (response2);
@@ -349,11 +310,7 @@ TEST (websocket, confirmation_options)
 	});
 	auto future3 = std::async (std::launch::async, task3);
 
-	system.deadline_set (5s);
-	while (!ack_ready)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, ack_ready);
 
 	// Confirm a legacy block
 	// When filtering options are enabled, legacy blocks are always filtered
@@ -364,11 +321,7 @@ TEST (websocket, confirmation_options)
 		previous = send->hash ();
 	}
 
-	system.deadline_set (5s);
-	while (future1.wait_for (0s) != std::future_status::ready)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, future1.wait_for (0s) == std::future_status::ready);
 }
 
 // Tests updating options of block confirmations
@@ -406,11 +359,7 @@ TEST (websocket, confirmation_options_update)
 	auto future = std::async (std::launch::async, task);
 
 	// Wait for update acknowledgement
-	system.deadline_set (5s);
-	while (!added)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, added);
 
 	// Confirm a block
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
@@ -421,22 +370,14 @@ TEST (websocket, confirmation_options_update)
 	node1->process_active (send);
 
 	// Wait for delete acknowledgement
-	system.deadline_set (5s);
-	while (!deleted)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, deleted);
 
 	// Confirm another block
 	previous = send->hash ();
 	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous, nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (previous)));
 	node1->process_active (send2);
 
-	system.deadline_set (5s);
-	while (future.wait_for (0s) != std::future_status::ready)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, future.wait_for (0s) == std::future_status::ready);
 }
 
 // Subscribes to votes, sends a block and awaits websocket notification of a vote arrival
@@ -459,11 +400,7 @@ TEST (websocket, vote)
 	});
 	auto future = std::async (std::launch::async, task);
 
-	system.deadline_set (5s);
-	while (!ack_ready)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, ack_ready);
 
 	// Quick-confirm a block
 	nano::keypair key;
@@ -472,11 +409,7 @@ TEST (websocket, vote)
 	auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous, nano::test_genesis_key.pub, nano::genesis_amount - (node1->config.online_weight_minimum.number () + 1), key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (previous)));
 	node1->process_active (send);
 
-	system.deadline_set (5s);
-	while (future.wait_for (0s) != std::future_status::ready)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, future.wait_for (0s) == std::future_status::ready);
 
 	auto response = future.get ();
 	ASSERT_TRUE (response);
@@ -507,11 +440,7 @@ TEST (websocket, vote_options_type)
 	});
 	auto future = std::async (std::launch::async, task);
 
-	system.deadline_set (5s);
-	while (!ack_ready)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, ack_ready);
 
 	// Custom made votes for simplicity
 	nano::genesis genesis;
@@ -520,11 +449,7 @@ TEST (websocket, vote_options_type)
 	auto msg (builder.vote_received (vote, nano::vote_code::replay));
 	node1->websocket_server->broadcast (msg);
 
-	system.deadline_set (5s);
-	while (future.wait_for (0s) != std::future_status::ready)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, future.wait_for (0s) == std::future_status::ready);
 
 	auto response = future.get ();
 	ASSERT_TRUE (response);
@@ -564,11 +489,7 @@ TEST (websocket, vote_options_representatives)
 	});
 	auto future1 = std::async (std::launch::async, task1);
 
-	system.deadline_set (5s);
-	while (!ack_ready)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, ack_ready);
 
 	// Quick-confirm a block
 	nano::keypair key;
@@ -583,11 +504,7 @@ TEST (websocket, vote_options_representatives)
 	};
 	confirm_block ();
 
-	system.deadline_set (5s);
-	while (future1.wait_for (0s) != std::future_status::ready)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, future1.wait_for (0s) == std::future_status::ready);
 
 	ack_ready = false;
 	auto task2 = ([&ack_ready, config, &node1]() {
@@ -603,20 +520,12 @@ TEST (websocket, vote_options_representatives)
 	auto future2 = std::async (std::launch::async, task2);
 
 	// Wait for the subscription to be acknowledged
-	system.deadline_set (5s);
-	while (!ack_ready)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, ack_ready);
 
 	// Confirm another block
 	confirm_block ();
 
-	system.deadline_set (5s);
-	while (future2.wait_for (0s) != std::future_status::ready)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, future2.wait_for (0s) == std::future_status::ready);
 }
 
 // Test client subscribing to notifications for work generation
@@ -643,11 +552,7 @@ TEST (websocket, work)
 	auto future = std::async (std::launch::async, task);
 
 	// Wait for acknowledge
-	system.deadline_set (5s);
-	while (!ack_ready)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, ack_ready);
 	ASSERT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::work));
 
 	// Generate work
@@ -656,11 +561,7 @@ TEST (websocket, work)
 	ASSERT_TRUE (work.is_initialized ());
 
 	// Wait for the work notification
-	system.deadline_set (5s);
-	while (future.wait_for (0s) != std::future_status::ready)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, future.wait_for (0s) == std::future_status::ready);
 
 	// Check the work notification message
 	auto response = future.get ();
@@ -679,15 +580,15 @@ TEST (websocket, work)
 	auto & request = contents.get_child ("request");
 	ASSERT_EQ (request.get<std::string> ("version"), nano::to_string (nano::work_version::work_1));
 	ASSERT_EQ (request.get<std::string> ("hash"), hash.to_string ());
-	ASSERT_EQ (request.get<std::string> ("difficulty"), nano::to_string_hex (node1->network_params.network.publish_threshold));
+	ASSERT_EQ (request.get<std::string> ("difficulty"), nano::to_string_hex (node1->default_difficulty (nano::work_version::work_1)));
 	ASSERT_EQ (request.get<double> ("multiplier"), 1.0);
 
 	ASSERT_EQ (1, contents.count ("result"));
 	auto & result = contents.get_child ("result");
 	uint64_t result_difficulty;
 	nano::from_string_hex (result.get<std::string> ("difficulty"), result_difficulty);
-	ASSERT_GE (result_difficulty, node1->network_params.network.publish_threshold);
-	ASSERT_NEAR (result.get<double> ("multiplier"), nano::difficulty::to_multiplier (result_difficulty, node1->network_params.network.publish_threshold), 1e-6);
+	ASSERT_GE (result_difficulty, node1->default_difficulty (nano::work_version::work_1));
+	ASSERT_NEAR (result.get<double> ("multiplier"), nano::difficulty::to_multiplier (result_difficulty, node1->default_difficulty (nano::work_version::work_1)), 1e-6);
 	ASSERT_EQ (result.get<std::string> ("work"), nano::to_string_hex (work.get ()));
 
 	ASSERT_EQ (1, contents.count ("bad_peers"));
@@ -721,22 +622,14 @@ TEST (websocket, bootstrap)
 	auto future = std::async (std::launch::async, task);
 
 	// Wait for acknowledge
-	system.deadline_set (5s);
-	while (!ack_ready)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, ack_ready);
 
 	// Start bootstrap attempt
 	node1->bootstrap_initiator.bootstrap (true, "123abc");
 	ASSERT_NE (nullptr, node1->bootstrap_initiator.current_attempt ());
 
 	// Wait for the bootstrap notification
-	system.deadline_set (5s);
-	while (future.wait_for (0s) != std::future_status::ready)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, future.wait_for (0s) == std::future_status::ready);
 
 	// Check the bootstrap notification message
 	auto response = future.get ();
@@ -753,11 +646,7 @@ TEST (websocket, bootstrap)
 	ASSERT_EQ (contents.get<std::string> ("mode"), "legacy");
 
 	// Wait for bootstrap finish
-	system.deadline_set (5s);
-	while (node1->bootstrap_initiator.in_progress ())
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, !node1->bootstrap_initiator.in_progress ());
 }
 
 TEST (websocket, bootstrap_exited)
@@ -771,20 +660,21 @@ TEST (websocket, bootstrap_exited)
 	// Start bootstrap, exit after subscription
 	std::atomic<bool> bootstrap_started{ false };
 	nano::util::counted_completion subscribed_completion (1);
-	std::thread bootstrap_thread ([node1, &bootstrap_started, &subscribed_completion]() {
-		node1->bootstrap_initiator.bootstrap (true, "123abc");
-		auto attempt (node1->bootstrap_initiator.current_attempt ());
-		EXPECT_NE (nullptr, attempt);
+	std::thread bootstrap_thread ([node1, &system, &bootstrap_started, &subscribed_completion]() {
+		std::shared_ptr<nano::bootstrap_attempt> attempt;
+		while (attempt == nullptr)
+		{
+			std::this_thread::sleep_for (50ms);
+			node1->bootstrap_initiator.bootstrap (true, "123abc");
+			attempt = node1->bootstrap_initiator.current_attempt ();
+		}
+		ASSERT_NE (nullptr, attempt);
 		bootstrap_started = true;
 		EXPECT_FALSE (subscribed_completion.await_count_for (5s));
 	});
 
 	// Wait for bootstrap start
-	system.deadline_set (5s);
-	while (!bootstrap_started)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, bootstrap_started);
 
 	// Subscribe to bootstrap and wait for response asynchronously
 	std::atomic<bool> ack_ready{ false };
@@ -799,20 +689,12 @@ TEST (websocket, bootstrap_exited)
 	auto future = std::async (std::launch::async, task);
 
 	// Wait for acknowledge
-	system.deadline_set (5s);
-	while (!ack_ready)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, ack_ready);
 
 	// Wait for the bootstrap notification
 	subscribed_completion.increment ();
 	bootstrap_thread.join ();
-	system.deadline_set (5s);
-	while (future.wait_for (0s) != std::future_status::ready)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, future.wait_for (0s) == std::future_status::ready);
 
 	// Check the bootstrap notification message
 	auto response = future.get ();
@@ -847,9 +729,107 @@ TEST (websocket, ws_keepalive)
 	});
 	auto future = std::async (std::launch::async, task);
 
-	system.deadline_set (5s);
-	while (future.wait_for (0s) != std::future_status::ready)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, future.wait_for (0s) == std::future_status::ready);
+}
+
+// Tests sending telemetry
+TEST (websocket, telemetry)
+{
+	nano::system system;
+	nano::node_config config (nano::get_available_port (), system.logging);
+	config.websocket_config.enabled = true;
+	config.websocket_config.port = nano::get_available_port ();
+	nano::node_flags node_flags;
+	node_flags.disable_initial_telemetry_requests = true;
+	node_flags.disable_ongoing_telemetry_requests = true;
+	auto node1 (system.add_node (config, node_flags));
+	config.peering_port = nano::get_available_port ();
+	config.websocket_config.enabled = true;
+	config.websocket_config.port = nano::get_available_port ();
+	auto node2 (system.add_node (config, node_flags));
+
+	wait_peer_connections (system);
+
+	std::atomic<bool> done{ false };
+	auto task = ([config = node1->config, &node1, &done]() {
+		fake_websocket_client client (config.websocket_config.port);
+		client.send_message (R"json({"action": "subscribe", "topic": "telemetry", "ack": true})json");
+		client.await_ack ();
+		done = true;
+		EXPECT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::telemetry));
+		return client.get_response ();
+	});
+
+	auto future = std::async (std::launch::async, task);
+
+	ASSERT_TIMELY (10s, done);
+
+	node1->telemetry->get_metrics_single_peer_async (node1->network.find_channel (node2->network.endpoint ()), [](auto const & response_a) {
+		ASSERT_FALSE (response_a.error);
+	});
+
+	ASSERT_TIMELY (10s, future.wait_for (0s) == std::future_status::ready);
+
+	// Check the telemetry notification message
+	auto response = future.get ();
+
+	std::stringstream stream;
+	stream << response;
+	boost::property_tree::ptree event;
+	boost::property_tree::read_json (stream, event);
+	ASSERT_EQ (event.get<std::string> ("topic"), "telemetry");
+
+	auto & contents = event.get_child ("message");
+	nano::jsonconfig telemetry_contents (contents);
+	nano::telemetry_data telemetry_data;
+	telemetry_data.deserialize_json (telemetry_contents, false);
+	compare_default_telemetry_response_data (telemetry_data, node2->network_params, node2->config.bandwidth_limit, node2->active.active_difficulty (), node2->node_id);
+
+	ASSERT_EQ (contents.get<std::string> ("address"), node2->network.endpoint ().address ().to_string ());
+	ASSERT_EQ (contents.get<uint16_t> ("port"), node2->network.endpoint ().port ());
+
+	// Other node should have no subscribers
+	EXPECT_EQ (0, node2->websocket_server->subscriber_count (nano::websocket::topic::telemetry));
+}
+
+TEST (websocket, new_unconfirmed_block)
+{
+	nano::system system;
+	nano::node_config config (nano::get_available_port (), system.logging);
+	config.websocket_config.enabled = true;
+	config.websocket_config.port = nano::get_available_port ();
+	auto node1 (system.add_node (config));
+
+	std::atomic<bool> ack_ready{ false };
+	auto task = ([&ack_ready, config, node1]() {
+		fake_websocket_client client (config.websocket_config.port);
+		client.send_message (R"json({"action": "subscribe", "topic": "new_unconfirmed_block", "ack": "true"})json");
+		client.await_ack ();
+		ack_ready = true;
+		EXPECT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::new_unconfirmed_block));
+		return client.get_response ();
+	});
+	auto future = std::async (std::launch::async, task);
+
+	ASSERT_TIMELY (5s, ack_ready);
+
+	// Process a new block
+	nano::genesis genesis;
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 1, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+	ASSERT_EQ (nano::process_result::progress, node1->process_local (send1).code);
+
+	ASSERT_TIMELY (5s, future.wait_for (0s) == std::future_status::ready);
+
+	// Check the response
+	boost::optional<std::string> response = future.get ();
+	ASSERT_TRUE (response);
+	std::stringstream stream;
+	stream << response;
+	boost::property_tree::ptree event;
+	boost::property_tree::read_json (stream, event);
+	ASSERT_EQ (event.get<std::string> ("topic"), "new_unconfirmed_block");
+
+	auto message_contents = event.get_child ("message");
+	ASSERT_EQ ("state", message_contents.get<std::string> ("type"));
+	ASSERT_EQ ("send", message_contents.get<std::string> ("subtype"));
 }

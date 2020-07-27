@@ -1,15 +1,16 @@
 #pragma once
 
 #include <nano/node/common.hpp>
+#include <nano/node/peer_exclusion.hpp>
 #include <nano/node/transport/tcp.hpp>
 #include <nano/node/transport/udp.hpp>
+#include <nano/secure/network_filter.hpp>
 
 #include <boost/thread/thread.hpp>
 
 #include <memory>
 #include <queue>
 #include <unordered_set>
-
 namespace nano
 {
 class channel;
@@ -65,12 +66,33 @@ private:
 	std::vector<nano::message_buffer> entries;
 	bool stopped;
 };
+class tcp_message_manager final
+{
+public:
+	tcp_message_manager (unsigned incoming_connections_max_a);
+	void put_message (nano::tcp_message_item const & item_a);
+	nano::tcp_message_item get_message ();
+	// Stop container and notify waiting threads
+	void stop ();
+
+private:
+	std::mutex mutex;
+	nano::condition_variable producer_condition;
+	nano::condition_variable consumer_condition;
+	std::deque<nano::tcp_message_item> entries;
+	unsigned max_entries;
+	static unsigned const max_entries_per_connection = 16;
+	bool stopped{ false };
+
+	friend class network_tcp_message_manager_Test;
+};
 /**
   * Node ID cookies for node ID handshakes
 */
 class syn_cookies final
 {
 public:
+	syn_cookies (size_t);
 	void purge (std::chrono::steady_clock::time_point const &);
 	// Returns boost::none if the IP is rate capped on syn cookie requests,
 	// or if the endpoint already has a syn cookie query
@@ -79,6 +101,7 @@ public:
 	// Also removes the syn cookie from the store if valid
 	bool validate (nano::endpoint const &, nano::account const &, nano::signature const &);
 	std::unique_ptr<container_info_component> collect_container_info (std::string const &);
+	size_t cookies_size ();
 
 private:
 	class syn_cookie_info final
@@ -90,6 +113,7 @@ private:
 	mutable std::mutex syn_cookie_mutex;
 	std::unordered_map<nano::endpoint, syn_cookie_info> cookies;
 	std::unordered_map<boost::asio::ip::address, unsigned> cookies_per_ip;
+	size_t max_cookies_per_ip;
 };
 class network final
 {
@@ -98,12 +122,18 @@ public:
 	~network ();
 	void start ();
 	void stop ();
-	void flood_message (nano::message const &, nano::buffer_drop_policy = nano::buffer_drop_policy::limiter);
-	void flood_keepalive ()
+	void flood_message (nano::message const &, nano::buffer_drop_policy const = nano::buffer_drop_policy::limiter, float const = 1.0f);
+	void flood_keepalive (float const scale_a = 1.0f)
 	{
 		nano::keepalive message;
 		random_fill (message.peers);
-		flood_message (message);
+		flood_message (message, nano::buffer_drop_policy::limiter, scale_a);
+	}
+	void flood_keepalive_self (float const scale_a = 0.5f)
+	{
+		nano::keepalive message;
+		fill_keepalive_self (message.peers);
+		flood_message (message, nano::buffer_drop_policy::limiter, scale_a);
 	}
 	void flood_vote (std::shared_ptr<nano::vote> const &, float scale);
 	void flood_vote_pr (std::shared_ptr<nano::vote> const &);
@@ -133,6 +163,7 @@ public:
 	// Desired fanout for a given scale
 	size_t fanout (float scale = 1.0f) const;
 	void random_fill (std::array<nano::endpoint, 8> &) const;
+	void fill_keepalive_self (std::array<nano::endpoint, 8> &) const;
 	// Note: The minimum protocol version is used after the random selection, so number of peers can be less than expected.
 	std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (size_t, uint8_t = 0, bool = false) const;
 	// Get the next peer for attempting a tcp bootstrap connection
@@ -147,11 +178,16 @@ public:
 	size_t size () const;
 	float size_sqrt () const;
 	bool empty () const;
+	void erase (nano::transport::channel const &);
+	void erase_below_version (uint8_t);
 	nano::message_buffer_manager buffer_container;
 	boost::asio::ip::udp::resolver resolver;
 	std::vector<boost::thread> packet_processing_threads;
 	nano::bandwidth_limiter limiter;
+	nano::peer_exclusion excluded_peers;
+	nano::tcp_message_manager tcp_message_manager;
 	nano::node & node;
+	nano::network_filter publish_filter;
 	nano::transport::udp_channels udp_channels;
 	nano::transport::tcp_channels tcp_channels;
 	std::atomic<uint16_t> port{ 0 };

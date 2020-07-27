@@ -163,6 +163,12 @@ std::string nano::error_rpc_messages::message (int ev) const
 			return "Representative account and previous hash required";
 		case nano::error_rpc::block_create_requirements_send:
 			return "Destination account, previous hash, current balance and amount required";
+		case nano::error_rpc::block_root_mismatch:
+			return "Root mismatch for block";
+		case nano::error_rpc::block_work_enough:
+			return "Provided work is already enough for given difficulty";
+		case nano::error_rpc::block_work_version_mismatch:
+			return "Work version mismatch for block";
 		case nano::error_rpc::confirmation_height_not_processing:
 			return "There are no blocks currently being processed for adding confirmation height";
 		case nano::error_rpc::confirmation_not_found:
@@ -199,6 +205,8 @@ std::string nano::error_rpc_messages::message (int ev) const
 			return "Invalid previous block for given subtype";
 		case nano::error_rpc::invalid_timestamp:
 			return "Invalid timestamp";
+		case nano::error_rpc::invalid_threads_count:
+			return "Invalid threads count";
 		case nano::error_rpc::payment_account_balance:
 			return "Account has non-zero balance";
 		case nano::error_rpc::payment_unable_create_account:
@@ -244,6 +252,8 @@ std::string nano::error_process_messages::message (int ev) const
 			return "Balance and amount delta do not match";
 		case nano::error_process::block_position:
 			return "This block cannot follow the previous block";
+		case nano::error_process::insufficient_work:
+			return "Block work is insufficient";
 		case nano::error_process::other:
 			return "Error processing block";
 	}

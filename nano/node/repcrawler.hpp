@@ -87,7 +87,7 @@ public:
 	void query (std::vector<std::shared_ptr<nano::transport::channel>> const & channels_a);
 
 	/** Attempt to determine if the peer manages one or more representative accounts */
-	void query (std::shared_ptr<nano::transport::channel> & channel_a);
+	void query (std::shared_ptr<nano::transport::channel> const & channel_a);
 
 	/** Query if a peer manages a principle representative */
 	bool is_pr (nano::transport::channel const &) const;
@@ -95,18 +95,18 @@ public:
 	/**
 	 * Called when a non-replay vote on a block previously sent by query() is received. This indiciates
 	 * with high probability that the endpoint is a representative node.
-	 * @return True if the rep entry was updated with new information due to increase in weight.
+	 * @return false if the vote corresponded to any active hash.
 	 */
-	void response (std::shared_ptr<nano::transport::channel> &, std::shared_ptr<nano::vote> &);
+	bool response (std::shared_ptr<nano::transport::channel> &, std::shared_ptr<nano::vote> &);
 
 	/** Get total available weight from representatives */
 	nano::uint128_t total_weight () const;
 
-	/** Request a list of the top \p count_a known representatives in descending order of weight, optionally with a minimum version \p opt_version_min_a */
-	std::vector<representative> representatives (size_t count_a = std::numeric_limits<size_t>::max (), boost::optional<decltype (nano::protocol_constants::protocol_version_min)> const & opt_version_min_a = boost::none);
+	/** Request a list of the top \p count_a known representatives in descending order of weight, with at least \p weight_a voting weight, and optionally with a minimum version \p opt_version_min_a */
+	std::vector<representative> representatives (size_t count_a = std::numeric_limits<size_t>::max (), nano::uint128_t const weight_a = 0, boost::optional<decltype (nano::protocol_constants::protocol_version)> const & opt_version_min_a = boost::none);
 
-	/** Request a list of the top \p count_a known principal representatives in descending order of weight. */
-	std::vector<representative> principal_representatives (size_t count_a = std::numeric_limits<size_t>::max ());
+	/** Request a list of the top \p count_a known principal representatives in descending order of weight, optionally with a minimum version \p opt_version_min_a */
+	std::vector<representative> principal_representatives (size_t count_a = std::numeric_limits<size_t>::max (), boost::optional<decltype (nano::protocol_constants::protocol_version)> const & opt_version_min_a = boost::none);
 
 	/** Request a list of the top \p count_a known representative endpoints. */
 	std::vector<std::shared_ptr<nano::transport::channel>> representative_endpoints (size_t count_a);
@@ -146,6 +146,9 @@ private:
 
 	/** Probable representatives */
 	probably_rep_t probable_reps;
+
+	friend class active_transactions_confirm_active_Test;
+	friend class active_transactions_confirm_frontier_Test;
 
 	std::deque<std::pair<std::shared_ptr<nano::transport::channel>, std::shared_ptr<nano::vote>>> responses;
 };

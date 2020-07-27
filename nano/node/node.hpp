@@ -11,8 +11,8 @@
 #include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/confirmation_height_processor.hpp>
 #include <nano/node/distributed_work_factory.hpp>
+#include <nano/node/election.hpp>
 #include <nano/node/gap_cache.hpp>
-#include <nano/node/logging.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
@@ -34,6 +34,7 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index_container.hpp>
+#include <boost/program_options.hpp>
 #include <boost/thread/latch.hpp>
 
 #include <atomic>
@@ -47,7 +48,6 @@ namespace websocket
 {
 	class listener;
 }
-
 class node;
 class telemetry;
 class work_pool;
@@ -83,13 +83,12 @@ public:
 std::unique_ptr<container_info_component> collect_container_info (block_arrival & block_arrival, const std::string & name);
 
 std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, const std::string & name);
-std::unique_ptr<container_info_component> collect_container_info (block_processor & block_processor, const std::string & name);
 
 class node final : public std::enable_shared_from_this<nano::node>
 {
 public:
-	node (boost::asio::io_context &, uint16_t, boost::filesystem::path const &, nano::alarm &, nano::logging const &, nano::work_pool &, nano::node_flags = nano::node_flags ());
-	node (boost::asio::io_context &, boost::filesystem::path const &, nano::alarm &, nano::node_config const &, nano::work_pool &, nano::node_flags = nano::node_flags ());
+	node (boost::asio::io_context &, uint16_t, boost::filesystem::path const &, nano::alarm &, nano::logging const &, nano::work_pool &, nano::node_flags = nano::node_flags (), unsigned seq = 0);
+	node (boost::asio::io_context &, boost::filesystem::path const &, nano::alarm &, nano::node_config const &, nano::work_pool &, nano::node_flags = nano::node_flags (), unsigned seq = 0);
 	~node ();
 	template <typename T>
 	void background (T action_a)
@@ -104,7 +103,7 @@ public:
 	int store_version ();
 	void receive_confirmed (nano::transaction const &, std::shared_ptr<nano::block>, nano::block_hash const &);
 	void process_confirmed_data (nano::transaction const &, std::shared_ptr<nano::block>, nano::block_hash const &, nano::account &, nano::uint128_t &, bool &, nano::account &);
-	void process_confirmed (nano::election_status const &, std::shared_ptr<nano::election> const &, uint8_t = 0);
+	void process_confirmed (nano::election_status const &, uint64_t = 0);
 	void process_active (std::shared_ptr<nano::block>);
 	nano::process_return process (nano::block &);
 	nano::process_return process_local (std::shared_ptr<nano::block>, bool const = false);
@@ -127,25 +126,28 @@ public:
 	void bootstrap_wallet ();
 	void unchecked_cleanup ();
 	int price (nano::uint128_t const &, int);
+	// The default difficulty updates to base only when the first epoch_2 block is processed
+	uint64_t default_difficulty (nano::work_version const) const;
+	uint64_t max_work_generate_difficulty (nano::work_version const) const;
 	bool local_work_generation_enabled () const;
 	bool work_generation_enabled () const;
 	bool work_generation_enabled (std::vector<std::pair<std::string, uint16_t>> const &) const;
 	boost::optional<uint64_t> work_generate_blocking (nano::block &, uint64_t);
-	boost::optional<uint64_t> work_generate_blocking (nano::block &);
 	boost::optional<uint64_t> work_generate_blocking (nano::work_version const, nano::root const &, uint64_t, boost::optional<nano::account> const & = boost::none);
-	boost::optional<uint64_t> work_generate_blocking (nano::work_version const, nano::root const &, boost::optional<nano::account> const & = boost::none);
-	void work_generate (nano::work_version const, nano::root const &, std::function<void(boost::optional<uint64_t>)>, uint64_t, boost::optional<nano::account> const & = boost::none, bool const = false);
-	void work_generate (nano::work_version const, nano::root const &, std::function<void(boost::optional<uint64_t>)>, boost::optional<nano::account> const & = boost::none);
+	void work_generate (nano::work_version const, nano::root const &, uint64_t, std::function<void(boost::optional<uint64_t>)>, boost::optional<nano::account> const & = boost::none, bool const = false);
 	void add_initial_peers ();
 	void block_confirm (std::shared_ptr<nano::block>);
+	bool block_confirmed (nano::block_hash const &);
 	bool block_confirmed_or_being_confirmed (nano::transaction const &, nano::block_hash const &);
-	void process_fork (nano::transaction const &, std::shared_ptr<nano::block>);
+	void process_fork (nano::transaction const &, std::shared_ptr<nano::block>, uint64_t);
 	void do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, std::string const &, uint16_t, std::shared_ptr<std::string>, std::shared_ptr<std::string>, std::shared_ptr<boost::asio::ip::tcp::resolver>);
 	nano::uint128_t delta () const;
 	void ongoing_online_weight_calculation ();
 	void ongoing_online_weight_calculation_queue ();
 	bool online () const;
 	bool init_error () const;
+	bool epoch_upgrader (nano::private_key const &, nano::epoch, uint64_t, uint64_t);
+	std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> get_bootstrap_weights () const;
 	nano::worker worker;
 	nano::write_database_queue write_database_queue;
 	boost::asio::io_context & io_ctx;
@@ -196,12 +198,18 @@ public:
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
 	// For tests only
+	unsigned node_seq;
+	// For tests only
+	boost::optional<uint64_t> work_generate_blocking (nano::block &);
+	// For tests only
 	boost::optional<uint64_t> work_generate_blocking (nano::root const &, uint64_t);
 	// For tests only
 	boost::optional<uint64_t> work_generate_blocking (nano::root const &);
 
 private:
 	void long_inactivity_cleanup ();
+	void epoch_upgrader_impl (nano::private_key const &, nano::epoch, uint64_t, uint64_t);
+	nano::locked<std::future<void>> epoch_upgrading;
 };
 
 std::unique_ptr<container_info_component> collect_container_info (node & node, const std::string & name);
@@ -211,14 +219,12 @@ nano::node_flags const & inactive_node_flag_defaults ();
 class inactive_node final
 {
 public:
-	inactive_node (boost::filesystem::path const & path = nano::working_path (), uint16_t = 24000, nano::node_flags const & = nano::inactive_node_flag_defaults ());
+	inactive_node (boost::filesystem::path const & path_a, nano::node_flags const & node_flags_a);
 	~inactive_node ();
-	boost::filesystem::path path;
 	std::shared_ptr<boost::asio::io_context> io_context;
 	nano::alarm alarm;
-	nano::logging logging;
 	nano::work_pool work;
-	uint16_t peering_port;
 	std::shared_ptr<nano::node> node;
 };
+std::unique_ptr<nano::inactive_node> default_inactive_node (boost::filesystem::path const &, boost::program_options::variables_map const &);
 }

@@ -1,9 +1,9 @@
-#include <nano/core_test/testutil.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/rpcconfig.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/daemonconfig.hpp>
-#include <nano/node/testing.hpp>
+#include <nano/secure/utility.hpp>
+#include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -104,6 +104,8 @@ TEST (toml, rpc_config_deserialize_defaults)
 	ASSERT_EQ (conf.rpc_process.ipc_address, defaults.rpc_process.ipc_address);
 	ASSERT_EQ (conf.rpc_process.ipc_port, defaults.rpc_process.ipc_port);
 	ASSERT_EQ (conf.rpc_process.num_ipc_connections, defaults.rpc_process.num_ipc_connections);
+
+	ASSERT_EQ (conf.rpc_logging.log_rpc, defaults.rpc_logging.log_rpc);
 }
 
 /** Empty config file should match a default config object */
@@ -120,6 +122,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	[node.statistics.log]
 	[node.statistics.sampling]
 	[node.websocket]
+	[node.lmdb]
 	[node.rocksdb]
 	[opencl]
 	[rpc]
@@ -147,6 +150,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.allow_local_peers, defaults.node.allow_local_peers);
 	ASSERT_EQ (conf.node.backup_before_upgrade, defaults.node.backup_before_upgrade);
 	ASSERT_EQ (conf.node.bandwidth_limit, defaults.node.bandwidth_limit);
+	ASSERT_EQ (conf.node.bandwidth_limit_burst_ratio, defaults.node.bandwidth_limit_burst_ratio);
 	ASSERT_EQ (conf.node.block_processor_batch_max_time, defaults.node.block_processor_batch_max_time);
 	ASSERT_EQ (conf.node.bootstrap_connections, defaults.node.bootstrap_connections);
 	ASSERT_EQ (conf.node.bootstrap_connections_max, defaults.node.bootstrap_connections_max);
@@ -158,7 +162,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.external_address, defaults.node.external_address);
 	ASSERT_EQ (conf.node.external_port, defaults.node.external_port);
 	ASSERT_EQ (conf.node.io_threads, defaults.node.io_threads);
-	ASSERT_EQ (conf.node.lmdb_max_dbs, defaults.node.lmdb_max_dbs);
+	ASSERT_EQ (conf.node.deprecated_lmdb_max_dbs, defaults.node.deprecated_lmdb_max_dbs);
 	ASSERT_EQ (conf.node.max_work_generate_multiplier, defaults.node.max_work_generate_multiplier);
 	ASSERT_EQ (conf.node.network_threads, defaults.node.network_threads);
 	ASSERT_EQ (conf.node.secondary_work_peers, defaults.node.secondary_work_peers);
@@ -201,6 +205,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.logging.network_timeout_logging_value, defaults.node.logging.network_timeout_logging_value);
 	ASSERT_EQ (conf.node.logging.node_lifetime_tracing_value, defaults.node.logging.node_lifetime_tracing_value);
 	ASSERT_EQ (conf.node.logging.network_telemetry_logging_value, defaults.node.logging.network_telemetry_logging_value);
+	ASSERT_EQ (conf.node.logging.network_rejected_logging_value, defaults.node.logging.network_rejected_logging_value);
 	ASSERT_EQ (conf.node.logging.rotation_size, defaults.node.logging.rotation_size);
 	ASSERT_EQ (conf.node.logging.single_line_record_value, defaults.node.logging.single_line_record_value);
 	ASSERT_EQ (conf.node.logging.stable_log_filename, defaults.node.logging.stable_log_filename);
@@ -245,16 +250,13 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.stat_config.log_counters_filename, defaults.node.stat_config.log_counters_filename);
 	ASSERT_EQ (conf.node.stat_config.log_samples_filename, defaults.node.stat_config.log_samples_filename);
 
+	ASSERT_EQ (conf.node.lmdb_config.sync, defaults.node.lmdb_config.sync);
+	ASSERT_EQ (conf.node.lmdb_config.max_databases, defaults.node.lmdb_config.max_databases);
+	ASSERT_EQ (conf.node.lmdb_config.map_size, defaults.node.lmdb_config.map_size);
+
 	ASSERT_EQ (conf.node.rocksdb_config.enable, defaults.node.rocksdb_config.enable);
-	ASSERT_EQ (conf.node.rocksdb_config.bloom_filter_bits, defaults.node.rocksdb_config.bloom_filter_bits);
-	ASSERT_EQ (conf.node.rocksdb_config.block_cache, defaults.node.rocksdb_config.block_cache);
+	ASSERT_EQ (conf.node.rocksdb_config.memory_multiplier, defaults.node.rocksdb_config.memory_multiplier);
 	ASSERT_EQ (conf.node.rocksdb_config.io_threads, defaults.node.rocksdb_config.io_threads);
-	ASSERT_EQ (conf.node.rocksdb_config.enable_pipelined_write, defaults.node.rocksdb_config.enable_pipelined_write);
-	ASSERT_EQ (conf.node.rocksdb_config.cache_index_and_filter_blocks, defaults.node.rocksdb_config.cache_index_and_filter_blocks);
-	ASSERT_EQ (conf.node.rocksdb_config.block_size, defaults.node.rocksdb_config.block_size);
-	ASSERT_EQ (conf.node.rocksdb_config.memtable_size, defaults.node.rocksdb_config.memtable_size);
-	ASSERT_EQ (conf.node.rocksdb_config.num_memtables, defaults.node.rocksdb_config.num_memtables);
-	ASSERT_EQ (conf.node.rocksdb_config.total_memtable_size, defaults.node.rocksdb_config.total_memtable_size);
 }
 
 TEST (toml, optional_child)
@@ -386,6 +388,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	allow_local_peers = false
 	backup_before_upgrade = true
 	bandwidth_limit = 999
+	bandwidth_limit_burst_ratio = 999.9
 	block_processor_batch_max_time = 999
 	bootstrap_connections = 999
 	bootstrap_connections_max = 999
@@ -464,6 +467,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	network_message = true
 	network_node_id_handshake = true
 	network_telemetry_logging = true
+	network_rejected_logging = true
 	network_packet = true
 	network_publish = true
 	network_timeout = true
@@ -495,17 +499,15 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	enable = true
 	port = 999
 
+	[node.lmdb]
+	sync = "nosync_safe"
+	max_databases = 999
+	map_size = 999
+
 	[node.rocksdb]
 	enable = true
-	bloom_filter_bits = 10
-	block_cache = 512
+	memory_multiplier = 3
 	io_threads = 99
-	enable_pipelined_write = true
-	cache_index_and_filter_blocks = true
-	block_size = 16
-	memtable_size = 128
-	num_memtables = 3
-	total_memtable_size = 0
 
 	[node.experimental]
 	secondary_work_peers = ["test.org:998"]
@@ -546,6 +548,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.allow_local_peers, defaults.node.allow_local_peers);
 	ASSERT_NE (conf.node.backup_before_upgrade, defaults.node.backup_before_upgrade);
 	ASSERT_NE (conf.node.bandwidth_limit, defaults.node.bandwidth_limit);
+	ASSERT_NE (conf.node.bandwidth_limit_burst_ratio, defaults.node.bandwidth_limit_burst_ratio);
 	ASSERT_NE (conf.node.block_processor_batch_max_time, defaults.node.block_processor_batch_max_time);
 	ASSERT_NE (conf.node.bootstrap_connections, defaults.node.bootstrap_connections);
 	ASSERT_NE (conf.node.bootstrap_connections_max, defaults.node.bootstrap_connections_max);
@@ -557,7 +560,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.external_address, defaults.node.external_address);
 	ASSERT_NE (conf.node.external_port, defaults.node.external_port);
 	ASSERT_NE (conf.node.io_threads, defaults.node.io_threads);
-	ASSERT_NE (conf.node.lmdb_max_dbs, defaults.node.lmdb_max_dbs);
+	ASSERT_NE (conf.node.deprecated_lmdb_max_dbs, defaults.node.deprecated_lmdb_max_dbs);
 	ASSERT_NE (conf.node.max_work_generate_multiplier, defaults.node.max_work_generate_multiplier);
 	ASSERT_NE (conf.node.frontiers_confirmation, defaults.node.frontiers_confirmation);
 	ASSERT_NE (conf.node.network_threads, defaults.node.network_threads);
@@ -597,6 +600,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.logging.network_message_logging_value, defaults.node.logging.network_message_logging_value);
 	ASSERT_NE (conf.node.logging.network_node_id_handshake_logging_value, defaults.node.logging.network_node_id_handshake_logging_value);
 	ASSERT_NE (conf.node.logging.network_telemetry_logging_value, defaults.node.logging.network_telemetry_logging_value);
+	ASSERT_NE (conf.node.logging.network_rejected_logging_value, defaults.node.logging.network_rejected_logging_value);
 	ASSERT_NE (conf.node.logging.network_packet_logging_value, defaults.node.logging.network_packet_logging_value);
 	ASSERT_NE (conf.node.logging.network_publish_logging_value, defaults.node.logging.network_publish_logging_value);
 	ASSERT_NE (conf.node.logging.network_timeout_logging_value, defaults.node.logging.network_timeout_logging_value);
@@ -645,16 +649,13 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.stat_config.log_counters_filename, defaults.node.stat_config.log_counters_filename);
 	ASSERT_NE (conf.node.stat_config.log_samples_filename, defaults.node.stat_config.log_samples_filename);
 
+	ASSERT_NE (conf.node.lmdb_config.sync, defaults.node.lmdb_config.sync);
+	ASSERT_NE (conf.node.lmdb_config.max_databases, defaults.node.lmdb_config.max_databases);
+	ASSERT_NE (conf.node.lmdb_config.map_size, defaults.node.lmdb_config.map_size);
+
 	ASSERT_NE (conf.node.rocksdb_config.enable, defaults.node.rocksdb_config.enable);
-	ASSERT_NE (conf.node.rocksdb_config.bloom_filter_bits, defaults.node.rocksdb_config.bloom_filter_bits);
-	ASSERT_NE (conf.node.rocksdb_config.block_cache, defaults.node.rocksdb_config.block_cache);
+	ASSERT_NE (conf.node.rocksdb_config.memory_multiplier, defaults.node.rocksdb_config.memory_multiplier);
 	ASSERT_NE (conf.node.rocksdb_config.io_threads, defaults.node.rocksdb_config.io_threads);
-	ASSERT_NE (conf.node.rocksdb_config.enable_pipelined_write, defaults.node.rocksdb_config.enable_pipelined_write);
-	ASSERT_NE (conf.node.rocksdb_config.cache_index_and_filter_blocks, defaults.node.rocksdb_config.cache_index_and_filter_blocks);
-	ASSERT_NE (conf.node.rocksdb_config.block_size, defaults.node.rocksdb_config.block_size);
-	ASSERT_NE (conf.node.rocksdb_config.memtable_size, defaults.node.rocksdb_config.memtable_size);
-	ASSERT_NE (conf.node.rocksdb_config.num_memtables, defaults.node.rocksdb_config.num_memtables);
-	ASSERT_NE (conf.node.rocksdb_config.total_memtable_size, defaults.node.rocksdb_config.total_memtable_size);
 }
 
 /** There should be no required values **/
@@ -705,6 +706,8 @@ TEST (toml, rpc_config_deserialize_no_defaults)
 	ipc_address = "0:0:0:0:0:ffff:7f01:101"
 	ipc_port = 999
 	num_ipc_connections = 999
+	[logging]
+	log_rpc = false
 	)toml";
 
 	nano::tomlconfig toml;
@@ -725,6 +728,8 @@ TEST (toml, rpc_config_deserialize_no_defaults)
 	ASSERT_NE (conf.rpc_process.ipc_address, defaults.rpc_process.ipc_address);
 	ASSERT_NE (conf.rpc_process.ipc_port, defaults.rpc_process.ipc_port);
 	ASSERT_NE (conf.rpc_process.num_ipc_connections, defaults.rpc_process.num_ipc_connections);
+
+	ASSERT_NE (conf.rpc_logging.log_rpc, defaults.rpc_logging.log_rpc);
 }
 
 /** There should be no required values **/
@@ -736,6 +741,7 @@ TEST (toml, rpc_config_no_required)
 	ss << R"toml(
 	[version]
 	[process]
+	[logging]
 	[secure]
 	)toml";
 
@@ -777,4 +783,48 @@ TEST (toml, daemon_config_deserialize_errors)
 
 	ASSERT_EQ (toml2.get_error ().get_message (), "frontiers_confirmation value is invalid (available: always, auto, disabled)");
 	ASSERT_EQ (conf2.node.frontiers_confirmation, nano::frontiers_confirmation_mode::invalid);
+}
+
+TEST (toml, daemon_read_config)
+{
+	auto path (nano::unique_path ());
+	boost::filesystem::create_directories (path);
+	nano::daemon_config config;
+	std::vector<std::string> invalid_overrides1{ "node.max_work_generate_multiplier=0" };
+	std::string expected_message1{ "max_work_generate_multiplier must be greater than or equal to 1" };
+
+	std::vector<std::string> invalid_overrides2{ "node.websocket.enable=true", "node.foo" };
+	std::string expected_message2{ "Value must follow after a '=' at line 2" };
+
+	// Reading when there is no config file
+	ASSERT_FALSE (boost::filesystem::exists (nano::get_node_toml_config_path (path)));
+	ASSERT_FALSE (nano::read_node_config_toml (path, config));
+	{
+		auto error = nano::read_node_config_toml (path, config, invalid_overrides1);
+		ASSERT_TRUE (error);
+		ASSERT_EQ (error.get_message (), expected_message1);
+	}
+	{
+		auto error = nano::read_node_config_toml (path, config, invalid_overrides2);
+		ASSERT_TRUE (error);
+		ASSERT_EQ (error.get_message (), expected_message2);
+	}
+
+	// Create an empty config
+	nano::tomlconfig toml;
+	toml.write (nano::get_node_toml_config_path (path));
+
+	// Reading when there is a config file
+	ASSERT_TRUE (boost::filesystem::exists (nano::get_node_toml_config_path (path)));
+	ASSERT_FALSE (nano::read_node_config_toml (path, config));
+	{
+		auto error = nano::read_node_config_toml (path, config, invalid_overrides1);
+		ASSERT_TRUE (error);
+		ASSERT_EQ (error.get_message (), expected_message1);
+	}
+	{
+		auto error = nano::read_node_config_toml (path, config, invalid_overrides2);
+		ASSERT_TRUE (error);
+		ASSERT_EQ (error.get_message (), expected_message2);
+	}
 }

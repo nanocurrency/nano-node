@@ -95,8 +95,6 @@ add_library (node
 	logging.cpp
 	network.hpp
 	network.cpp
-	telemetry.hpp
-	telemetry.cpp
 	nodeconfig.hpp
 	nodeconfig.cpp
 	node_observers.hpp
@@ -113,6 +111,8 @@ add_library (node
 	openclwork.cpp
 	payment_observer_processor.hpp
 	payment_observer_processor.cpp
+	peer_exclusion.hpp
+	peer_exclusion.cpp
 	portmapping.hpp
 	portmapping.cpp
 	node_pow_server_config.hpp
@@ -121,6 +121,14 @@ add_library (node
 	repcrawler.cpp
 	request_aggregator.hpp
 	request_aggregator.cpp
+	signatures.hpp
+	signatures.cpp
+	socket.hpp
+	socket.cpp
+	state_block_signature_verification.hpp
+	state_block_signature_verification.cpp
+	telemetry.hpp
+	telemetry.cpp
 	testing.hpp
 	testing.cpp
 	transport/tcp.hpp
@@ -129,10 +137,6 @@ add_library (node
 	transport/transport.cpp
 	transport/udp.hpp
 	transport/udp.cpp
-	signatures.hpp
-	signatures.cpp
-	socket.hpp
-	socket.cpp
 	vote_processor.hpp
 	vote_processor.cpp
 	voting.hpp

@@ -24,17 +24,22 @@ public:
 	~bootstrap_client ();
 	std::shared_ptr<nano::bootstrap_client> shared ();
 	void stop (bool force);
-	double block_rate () const;
+	double sample_block_rate ();
 	double elapsed_seconds () const;
+	void set_start_time (std::chrono::steady_clock::time_point start_time_a);
 	std::shared_ptr<nano::node> node;
 	std::shared_ptr<nano::bootstrap_connections> connections;
 	std::shared_ptr<nano::transport::channel_tcp> channel;
 	std::shared_ptr<nano::socket> socket;
 	std::shared_ptr<std::vector<uint8_t>> receive_buffer;
-	std::chrono::steady_clock::time_point start_time;
 	std::atomic<uint64_t> block_count{ 0 };
+	std::atomic<double> block_rate{ 0 };
 	std::atomic<bool> pending_stop{ false };
 	std::atomic<bool> hard_stop{ false };
+
+private:
+	mutable std::mutex start_time_mutex;
+	std::chrono::steady_clock::time_point start_time_m;
 };
 
 class bootstrap_connections final : public std::enable_shared_from_this<bootstrap_connections>

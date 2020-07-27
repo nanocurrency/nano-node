@@ -19,7 +19,7 @@ connections (connections_a),
 channel (channel_a),
 socket (socket_a),
 receive_buffer (std::make_shared<std::vector<uint8_t>> ()),
-start_time (std::chrono::steady_clock::now ())
+start_time_m (std::chrono::steady_clock::now ())
 {
 	++connections->connections_count;
 	receive_buffer->resize (256);
@@ -30,15 +30,23 @@ nano::bootstrap_client::~bootstrap_client ()
 	--connections->connections_count;
 }
 
-double nano::bootstrap_client::block_rate () const
+double nano::bootstrap_client::sample_block_rate ()
 {
 	auto elapsed = std::max (elapsed_seconds (), nano::bootstrap_limits::bootstrap_minimum_elapsed_seconds_blockrate);
-	return static_cast<double> (block_count.load () / elapsed);
+	block_rate = static_cast<double> (block_count.load ()) / elapsed;
+	return block_rate;
+}
+
+void nano::bootstrap_client::set_start_time (std::chrono::steady_clock::time_point start_time_a)
+{
+	nano::lock_guard<std::mutex> guard (start_time_mutex);
+	start_time_m = start_time_a;
 }
 
 double nano::bootstrap_client::elapsed_seconds () const
 {
-	return std::chrono::duration_cast<std::chrono::duration<double>> (std::chrono::steady_clock::now () - start_time).count ();
+	nano::lock_guard<std::mutex> guard (start_time_mutex);
+	return std::chrono::duration_cast<std::chrono::duration<double>> (std::chrono::steady_clock::now () - start_time_m).count ();
 }
 
 void nano::bootstrap_client::stop (bool force)
@@ -85,7 +93,7 @@ std::shared_ptr<nano::bootstrap_client> nano::bootstrap_connections::connection 
 void nano::bootstrap_connections::pool_connection (std::shared_ptr<nano::bootstrap_client> client_a, bool new_client, bool push_front)
 {
 	nano::unique_lock<std::mutex> lock (mutex);
-	if (!stopped && !client_a->pending_stop && !node.bootstrap_initiator.excluded_peers.check (client_a->channel->get_tcp_endpoint ()))
+	if (!stopped && !client_a->pending_stop && !node.network.excluded_peers.check (client_a->channel->get_tcp_endpoint ()))
 	{
 		// Idle bootstrap client socket
 		if (auto socket_l = client_a->channel->socket.lock ())
@@ -194,7 +202,7 @@ struct block_rate_cmp
 {
 	bool operator() (const std::shared_ptr<nano::bootstrap_client> & lhs, const std::shared_ptr<nano::bootstrap_client> & rhs) const
 	{
-		return lhs->block_rate () > rhs->block_rate ();
+		return lhs->block_rate > rhs->block_rate;
 	}
 };
 
@@ -218,7 +226,7 @@ void nano::bootstrap_connections::populate_connections (bool repeat)
 					new_clients.push_back (client);
 					endpoints.insert (socket_l->remote_endpoint ());
 					double elapsed_sec = client->elapsed_seconds ();
-					auto blocks_per_sec = client->block_rate ();
+					auto blocks_per_sec = client->sample_block_rate ();
 					rate_sum += blocks_per_sec;
 					if (client->elapsed_seconds () > nano::bootstrap_limits::bootstrap_connection_warmup_time_sec && client->block_count > 0)
 					{
@@ -263,7 +271,7 @@ void nano::bootstrap_connections::populate_connections (bool repeat)
 
 			if (node.config.logging.bulk_pull_logging ())
 			{
-				node.logger.try_log (boost::str (boost::format ("Dropping peer with block rate %1%, block count %2% (%3%) ") % client->block_rate () % client->block_count % client->channel->to_string ()));
+				node.logger.try_log (boost::str (boost::format ("Dropping peer with block rate %1%, block count %2% (%3%) ") % client->block_rate % client->block_count % client->channel->to_string ()));
 			}
 
 			client->stop (false);
@@ -284,7 +292,7 @@ void nano::bootstrap_connections::populate_connections (bool repeat)
 		for (auto i = 0u; i < delta; i++)
 		{
 			auto endpoint (node.network.bootstrap_peer (true));
-			if (endpoint != nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0) && (node.flags.allow_bootstrap_peers_duplicates || endpoints.find (endpoint) == endpoints.end ()) && !node.bootstrap_initiator.excluded_peers.check (endpoint))
+			if (endpoint != nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0) && (node.flags.allow_bootstrap_peers_duplicates || endpoints.find (endpoint) == endpoints.end ()) && !node.network.excluded_peers.check (endpoint))
 			{
 				connect_client (endpoint);
 				endpoints.insert (endpoint);
@@ -293,7 +301,10 @@ void nano::bootstrap_connections::populate_connections (bool repeat)
 			}
 			else if (connections_count == 0)
 			{
-				new_connections_empty = true;
+				{
+					nano::lock_guard<std::mutex> lock (mutex);
+					new_connections_empty = true;
+				}
 				condition.notify_all ();
 			}
 		}
@@ -347,8 +358,7 @@ void nano::bootstrap_connections::request_pull (nano::unique_lock<std::mutex> & 
 			// Check if lazy pull is obsolete (head was processed or head is 0 for destinations requests)
 			if (attempt_l != nullptr && attempt_l->mode == nano::bootstrap_mode::lazy && !pull.head.is_zero () && attempt_l->lazy_processed_or_exists (pull.head))
 			{
-				--attempt_l->pulling;
-				attempt_l->condition.notify_all ();
+				attempt_l->pull_finished ();
 				attempt_l = nullptr;
 			}
 		}
@@ -394,14 +404,13 @@ void nano::bootstrap_connections::requeue_pull (nano::pull_info const & pull_a, 
 		{
 			pull.count = attempt_l->lazy_batch_size ();
 		}
-		if (pull.attempts < pull.retry_limit + (pull.processed / nano::bootstrap_limits::requeued_pulls_processed_blocks_factor))
+		if (attempt_l->mode == nano::bootstrap_mode::legacy && (pull.attempts < pull.retry_limit + (pull.processed / nano::bootstrap_limits::requeued_pulls_processed_blocks_factor)))
 		{
 			{
 				nano::lock_guard<std::mutex> lock (mutex);
 				pulls.push_front (pull);
 			}
-			++attempt_l->pulling;
-			attempt_l->condition.notify_all ();
+			attempt_l->pull_started ();
 			condition.notify_all ();
 		}
 		else if (attempt_l->mode == nano::bootstrap_mode::lazy && (pull.retry_limit == std::numeric_limits<unsigned>::max () || pull.attempts <= pull.retry_limit + (pull.processed / node.network_params.bootstrap.lazy_max_pull_blocks)))
@@ -413,8 +422,7 @@ void nano::bootstrap_connections::requeue_pull (nano::pull_info const & pull_a, 
 					nano::lock_guard<std::mutex> lock (mutex);
 					pulls.push_back (pull);
 				}
-				++attempt_l->pulling;
-				attempt_l->condition.notify_all ();
+				attempt_l->pull_started ();
 				condition.notify_all ();
 			}
 		}

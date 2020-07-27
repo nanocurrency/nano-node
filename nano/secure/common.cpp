@@ -1,4 +1,3 @@
-#include <nano/core_test/testutil.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/numbers.hpp>
@@ -72,7 +71,7 @@ network_params (network_constants::active_network)
 }
 
 nano::network_params::network_params (nano::nano_networks network_a) :
-network (network_a), protocol (network_a), ledger (network), voting (network), node (network), portmapping (network), bootstrap (network)
+network (network_a), ledger (network), voting (network), node (network), portmapping (network), bootstrap (network)
 {
 	unsigned constexpr kdf_full_work = 64 * 1024;
 	unsigned constexpr kdf_test_work = 8;
@@ -80,8 +79,9 @@ network (network_a), protocol (network_a), ledger (network), voting (network), n
 	header_magic_number = network.is_test_network () ? std::array<uint8_t, 2>{ { 'R', 'A' } } : network.is_beta_network () ? std::array<uint8_t, 2>{ { 'N', 'D' } } : std::array<uint8_t, 2>{ { 'R', 'C' } };
 }
 
-nano::protocol_constants::protocol_constants (nano::nano_networks network_a)
+uint8_t nano::protocol_constants::protocol_version_min (bool use_epoch_2_min_version_a) const
 {
+	return use_epoch_2_min_version_a ? protocol_version_min_epoch_2 : protocol_version_min_pre_epoch_2;
 }
 
 nano::ledger_constants::ledger_constants (nano::network_constants & network_constants) :
@@ -110,7 +110,9 @@ burn_account (0)
 	epochs.add (nano::epoch::epoch_1, genesis_account, epoch_link_v1);
 
 	nano::link epoch_link_v2;
-	auto nano_live_epoch_v2_signer = genesis_account;
+	nano::account nano_live_epoch_v2_signer;
+	auto error (nano_live_epoch_v2_signer.decode_account ("nano_3qb6o6i1tkzr6jwr5s7eehfxwg9x6eemitdinbpi7u8bjjwsgqfj4wzser3x"));
+	debug_assert (!error);
 	auto epoch_v2_signer (network_a == nano::nano_networks::nano_test_network ? nano_test_account : network_a == nano::nano_networks::nano_beta_network ? nano_beta_account : nano_live_epoch_v2_signer);
 	const char * epoch_message_v2 ("epoch v2 block");
 	strncpy ((char *)epoch_link_v2.bytes.data (), epoch_message_v2, epoch_link_v2.bytes.size ());
@@ -135,6 +137,7 @@ nano::node_constants::node_constants (nano::network_constants & network_constant
 	peer_interval = search_pending_interval;
 	unchecked_cleaning_interval = std::chrono::minutes (30);
 	process_confirmed_interval = network_constants.is_test_network () ? std::chrono::milliseconds (50) : std::chrono::milliseconds (500);
+	max_peers_per_ip = network_constants.is_test_network () ? 10 : 5;
 	max_weight_samples = network_constants.is_live_network () ? 4032 : 864;
 	weight_period = 5 * 60; // 5 minutes
 }
@@ -146,8 +149,8 @@ nano::voting_constants::voting_constants (nano::network_constants & network_cons
 
 nano::portmapping_constants::portmapping_constants (nano::network_constants & network_constants)
 {
-	mapping_timeout = network_constants.is_test_network () ? 53 : 3593;
-	check_timeout = network_constants.is_test_network () ? 17 : 53;
+	lease_duration = std::chrono::seconds (1787); // ~30 minutes
+	health_check_period = std::chrono::seconds (53);
 }
 
 nano::bootstrap_constants::bootstrap_constants (nano::network_constants & network_constants)
@@ -157,22 +160,8 @@ nano::bootstrap_constants::bootstrap_constants (nano::network_constants & networ
 	frontier_retry_limit = network_constants.is_test_network () ? 2 : 16;
 	lazy_retry_limit = network_constants.is_test_network () ? 2 : frontier_retry_limit * 10;
 	lazy_destinations_retry_limit = network_constants.is_test_network () ? 1 : frontier_retry_limit / 4;
+	gap_cache_bootstrap_start_interval = network_constants.is_test_network () ? std::chrono::milliseconds (5) : std::chrono::milliseconds (30 * 1000);
 }
-
-/* Convenience constants for core_test which is always on the test network */
-namespace
-{
-nano::ledger_constants test_constants (nano::nano_networks::nano_test_network);
-}
-
-nano::keypair const & nano::zero_key (test_constants.zero_key);
-nano::keypair const & nano::test_genesis_key (test_constants.test_genesis_key);
-nano::account const & nano::nano_test_account (test_constants.nano_test_account);
-std::string const & nano::nano_test_genesis (test_constants.nano_test_genesis);
-nano::account const & nano::genesis_account (test_constants.genesis_account);
-nano::block_hash const & nano::genesis_hash (test_constants.genesis_hash);
-nano::uint128_t const & nano::genesis_amount (test_constants.genesis_amount);
-nano::account const & nano::burn_account (test_constants.burn_account);
 
 // Create a new random keypair
 nano::keypair::keypair ()
@@ -261,11 +250,6 @@ size_t nano::account_info::db_size () const
 nano::epoch nano::account_info::epoch () const
 {
 	return epoch_m;
-}
-
-size_t nano::block_counts::sum () const
-{
-	return send + receive + open + change + state;
 }
 
 nano::pending_info::pending_info (nano::account const & source_a, nano::amount const & amount_a, nano::epoch epoch_a) :
@@ -853,4 +837,13 @@ bool nano::unchecked_key::operator== (nano::unchecked_key const & other_a) const
 nano::block_hash const & nano::unchecked_key::key () const
 {
 	return previous;
+}
+
+void nano::generate_cache::enable_all ()
+{
+	reps = true;
+	cemented_count = true;
+	unchecked_count = true;
+	account_count = true;
+	epoch_2 = true;
 }

@@ -1,5 +1,5 @@
-#include <nano/core_test/testutil.hpp>
 #include <nano/lib/timer.hpp>
+#include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -42,6 +42,8 @@ TEST (timer, measure_and_compare)
 	ASSERT_LT (t1.since_start (), 200ms);
 	ASSERT_GT (t1.since_start (), 10ms);
 	ASSERT_GE (t1.stop (), 50ms);
+	std::this_thread::sleep_for (50ms);
+	ASSERT_GT (t1.restart (), 10ms);
 }
 
 TEST (timer, cummulative_child)

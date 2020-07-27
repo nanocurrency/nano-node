@@ -65,6 +65,11 @@ std::string nano::public_key::to_node_id () const
 	return to_account ().replace (0, 4, "node");
 }
 
+bool nano::public_key::decode_node_id (std::string const & source_a)
+{
+	return decode_account (source_a);
+}
+
 bool nano::public_key::decode_account (std::string const & source_a)
 {
 	auto error (source_a.size () < 5);
@@ -72,10 +77,11 @@ bool nano::public_key::decode_account (std::string const & source_a)
 	{
 		auto xrb_prefix (source_a[0] == 'x' && source_a[1] == 'r' && source_a[2] == 'b' && (source_a[3] == '_' || source_a[3] == '-'));
 		auto nano_prefix (source_a[0] == 'n' && source_a[1] == 'a' && source_a[2] == 'n' && source_a[3] == 'o' && (source_a[4] == '_' || source_a[4] == '-'));
+		auto node_id_prefix = (source_a[0] == 'n' && source_a[1] == 'o' && source_a[2] == 'd' && source_a[3] == 'e' && source_a[4] == '_');
 		error = (xrb_prefix && source_a.size () != 64) || (nano_prefix && source_a.size () != 65);
 		if (!error)
 		{
-			if (xrb_prefix || nano_prefix)
+			if (xrb_prefix || nano_prefix || node_id_prefix)
 			{
 				auto i (source_a.begin () + (xrb_prefix ? 4 : 5));
 				if (*i == '1' || *i == '3')
@@ -396,13 +402,6 @@ nano::private_key const & nano::raw_key::as_private_key () const
 	return reinterpret_cast<nano::private_key const &> (data);
 }
 
-nano::signature nano::sign_message (nano::raw_key const & private_key, nano::public_key const & public_key, nano::uint256_union const & message)
-{
-	nano::signature result;
-	ed25519_sign (message.bytes.data (), sizeof (message.bytes), private_key.data.bytes.data (), public_key.bytes.data (), result.bytes.data ());
-	return result;
-}
-
 nano::private_key nano::deterministic_key (nano::raw_key const & seed_a, uint32_t index_a)
 {
 	nano::private_key prv_key;
@@ -422,16 +421,35 @@ nano::public_key nano::pub_key (nano::private_key const & privatekey_a)
 	return result;
 }
 
+nano::signature nano::sign_message (nano::raw_key const & private_key, nano::public_key const & public_key, uint8_t const * data, size_t size)
+{
+	nano::signature result;
+	ed25519_sign (data, size, private_key.data.bytes.data (), public_key.bytes.data (), result.bytes.data ());
+	return result;
+}
+
+nano::signature nano::sign_message (nano::raw_key const & private_key, nano::public_key const & public_key, nano::uint256_union const & message)
+{
+	return nano::sign_message (private_key, public_key, message.bytes.data (), sizeof (message.bytes));
+}
+
+bool nano::validate_message (nano::public_key const & public_key, uint8_t const * data, size_t size, nano::signature const & signature)
+{
+	return 0 != ed25519_sign_open (data, size, public_key.bytes.data (), signature.bytes.data ());
+}
+
 bool nano::validate_message (nano::public_key const & public_key, nano::uint256_union const & message, nano::signature const & signature)
 {
-	auto result (0 != ed25519_sign_open (message.bytes.data (), sizeof (message.bytes), public_key.bytes.data (), signature.bytes.data ()));
-	return result;
+	return validate_message (public_key, message.bytes.data (), sizeof (message.bytes), signature);
 }
 
 bool nano::validate_message_batch (const unsigned char ** m, size_t * mlen, const unsigned char ** pk, const unsigned char ** RS, size_t num, int * valid)
 {
-	bool result (0 == ed25519_sign_open_batch (m, mlen, pk, RS, num, valid));
-	return result;
+	for (size_t i{ 0 }; i < num; ++i)
+	{
+		valid[i] = (0 == ed25519_sign_open (m[i], mlen[i], pk[i], RS[i]));
+	}
+	return true;
 }
 
 nano::uint128_union::uint128_union (std::string const & string_a)
@@ -737,7 +755,7 @@ std::string format_balance (nano::uint128_t balance, nano::uint128_t scale, int 
 	return stream.str ();
 }
 
-std::string nano::uint128_union::format_balance (nano::uint128_t scale, int precision, bool group_digits)
+std::string nano::uint128_union::format_balance (nano::uint128_t scale, int precision, bool group_digits) const
 {
 	auto thousands_sep = std::use_facet<std::numpunct<char>> (std::locale ()).thousands_sep ();
 	auto decimal_point = std::use_facet<std::numpunct<char>> (std::locale ()).decimal_point ();
@@ -745,7 +763,7 @@ std::string nano::uint128_union::format_balance (nano::uint128_t scale, int prec
 	return ::format_balance (number (), scale, precision, group_digits, thousands_sep, decimal_point, grouping);
 }
 
-std::string nano::uint128_union::format_balance (nano::uint128_t scale, int precision, bool group_digits, const std::locale & locale)
+std::string nano::uint128_union::format_balance (nano::uint128_t scale, int precision, bool group_digits, const std::locale & locale) const
 {
 	auto thousands_sep = std::use_facet<std::moneypunct<char>> (locale).thousands_sep ();
 	auto decimal_point = std::use_facet<std::moneypunct<char>> (locale).decimal_point ();

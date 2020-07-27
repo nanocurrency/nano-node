@@ -94,6 +94,9 @@ enum class error_rpc
 	block_create_requirements_receive,
 	block_create_requirements_change,
 	block_create_requirements_send,
+	block_root_mismatch,
+	block_work_enough,
+	block_work_version_mismatch,
 	confirmation_height_not_processing,
 	confirmation_not_found,
 	difficulty_limit,
@@ -112,6 +115,7 @@ enum class error_rpc
 	invalid_subtype_epoch_link,
 	invalid_subtype_previous,
 	invalid_timestamp,
+	invalid_threads_count,
 	payment_account_balance,
 	payment_unable_create_account,
 	peer_not_found,
@@ -135,6 +139,7 @@ enum class error_process
 	opened_burn_account, // The impossible happened, someone found the private key associated with the public key '0'.
 	balance_mismatch, // Balance and amount delta don't match
 	block_position, // This block cannot follow the previous block
+	insufficient_work, // Insufficient work for this block, even though it passed the minimal validation
 	other
 };
 

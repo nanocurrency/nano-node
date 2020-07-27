@@ -1,6 +1,5 @@
-#include <nano/core_test/testutil.hpp>
-#include <nano/node/node.hpp>
 #include <nano/node/testing.hpp>
+#include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -182,7 +181,7 @@ TEST (peer_container, depeer)
 	nano::endpoint endpoint0 (boost::asio::ip::address_v6::loopback (), nano::get_available_port ());
 	nano::keepalive message;
 	message.header.version_using = 1;
-	auto bytes (message.to_bytes ());
+	auto bytes (message.to_bytes (false));
 	nano::message_buffer buffer = { bytes->data (), bytes->size (), endpoint0 };
 	system.nodes[0]->network.udp_channels.receive_action (&buffer);
 	ASSERT_EQ (1, system.nodes[0]->stats.count (nano::stat::type::udp, nano::stat::detail::outdated_version));

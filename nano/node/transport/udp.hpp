@@ -103,6 +103,7 @@ namespace transport
 		std::unique_ptr<container_info_component> collect_container_info (std::string const &);
 		void purge (std::chrono::steady_clock::time_point const &);
 		void ongoing_keepalive ();
+		void list_below_version (std::vector<std::shared_ptr<nano::transport::channel>> &, uint8_t);
 		void list (std::deque<std::shared_ptr<nano::transport::channel>> &, uint8_t = 0);
 		void modify (std::shared_ptr<nano::transport::channel_udp>, std::function<void(std::shared_ptr<nano::transport::channel_udp>)>);
 		nano::node & node;
@@ -122,6 +123,9 @@ namespace transport
 		{
 		};
 		class last_bootstrap_attempt_tag
+		{
+		};
+		class last_attempt_tag
 		{
 		};
 		class node_id_tag
@@ -191,9 +195,9 @@ namespace transport
 		boost::multi_index_container<
 		endpoint_attempt,
 		mi::indexed_by<
-			mi::hashed_unique<
+			mi::hashed_unique<mi::tag<endpoint_tag>,
 				mi::member<endpoint_attempt, nano::endpoint, &endpoint_attempt::endpoint>>,
-			mi::ordered_non_unique<
+			mi::ordered_non_unique<mi::tag<last_attempt_tag>,
 				mi::member<endpoint_attempt, std::chrono::steady_clock::time_point, &endpoint_attempt::last_attempt>>>>
 		attempts;
 		// clang-format on

@@ -12,27 +12,9 @@
 namespace nano
 {
 class channel;
+class confirmation_solicitor;
 class node;
-enum class election_status_type : uint8_t
-{
-	ongoing = 0,
-	active_confirmed_quorum = 1,
-	active_confirmation_height = 2,
-	inactive_confirmation_height = 3,
-	stopped = 5
-};
-class election_status final
-{
-public:
-	std::shared_ptr<nano::block> winner;
-	nano::amount tally;
-	std::chrono::milliseconds election_end;
-	std::chrono::milliseconds election_duration;
-	unsigned confirmation_request_count;
-	unsigned block_count;
-	unsigned voter_count;
-	election_status_type type;
-};
+class vote_generator_session;
 class vote_info final
 {
 public:
@@ -58,34 +40,38 @@ private: // State management
 	enum class state_t
 	{
 		idle,
-		passive,
-		active,
-		backtracking,
-		confirmed,
+		passive, // only listening for incoming votes
+		active, // actively request confirmations
+		broadcasting, // request confirmations and broadcast the winner
+		backtracking, // start an election for unconfirmed dependent blocks
+		confirmed, // confirmed but still listening for votes
 		expired_confirmed,
 		expired_unconfirmed
 	};
 	static int constexpr passive_duration_factor = 5;
-	static int constexpr active_duration_factor = 20;
-	static int constexpr confirmed_duration_factor = 10;
-	static int constexpr confirmed_duration_factor_saturated = 1;
+	static int constexpr active_request_count_min = 2;
+	static int constexpr active_broadcasting_duration_factor = 30;
+	static int constexpr confirmed_duration_factor = 5;
 	std::atomic<nano::election::state_t> state_m = { state_t::idle };
 
-	// Protects state_start, last_vote and last_block
+	// These time points must be protected by this mutex
 	std::mutex timepoints_mutex;
 	std::chrono::steady_clock::time_point state_start = { std::chrono::steady_clock::now () };
-	std::chrono::steady_clock::time_point last_vote = { std::chrono::steady_clock::time_point () };
-	std::chrono::steady_clock::time_point last_block = { std::chrono::steady_clock::time_point () };
+	std::chrono::steady_clock::time_point last_block = { std::chrono::steady_clock::now () };
 	std::chrono::steady_clock::time_point last_req = { std::chrono::steady_clock::time_point () };
 
 	bool valid_change (nano::election::state_t, nano::election::state_t) const;
 	bool state_change (nano::election::state_t, nano::election::state_t);
-	void broadcast_block ();
-	void send_confirm_req ();
+	void broadcast_block (nano::confirmation_solicitor &);
+	void send_confirm_req (nano::confirmation_solicitor &);
 	void activate_dependencies ();
+	// Calculate votes for local representatives
+	void generate_votes (nano::block_hash const &);
+	void remove_votes (nano::block_hash const &);
+	std::atomic<bool> prioritized_m = { false };
 
 public:
-	election (nano::node &, std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const &);
+	election (nano::node &, std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const &, bool);
 	nano::election_vote_result vote (nano::account, uint64_t, nano::block_hash);
 	nano::tally_t tally ();
 	// Check if we have vote quorum
@@ -97,11 +83,17 @@ public:
 	bool publish (std::shared_ptr<nano::block> block_a);
 	size_t last_votes_size ();
 	void update_dependent ();
-	void clear_blocks ();
-	void insert_inactive_votes_cache (nano::block_hash const &);
+	void adjust_dependent_difficulty ();
+	size_t insert_inactive_votes_cache (nano::block_hash const &);
+	bool prioritized () const;
+	void prioritize_election (nano::vote_generator_session &);
+	// Calculate votes if the current winner matches \p hash_a
+	void try_generate_votes (nano::block_hash const & hash_a);
+	// Erase all blocks from active and, if not confirmed, clear digests from network filters
+	void cleanup ();
 
 public: // State transitions
-	bool transition_time (bool const saturated);
+	bool transition_time (nano::confirmation_solicitor &);
 	void transition_passive ();
 	void transition_active ();
 
@@ -121,5 +113,11 @@ public:
 	std::unordered_map<nano::block_hash, nano::uint128_t> last_tally;
 	std::unordered_set<nano::block_hash> dependent_blocks;
 	std::chrono::seconds late_blocks_delay{ 5 };
+	uint64_t const height;
+
+	friend class active_transactions;
+
+	friend class election_bisect_dependencies_Test;
+	friend class election_dependencies_open_link_Test;
 };
 }

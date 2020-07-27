@@ -89,25 +89,6 @@ nano::error nano::rpc_config::deserialize_json (bool & upgraded_a, nano::jsoncon
 {
 	if (!json.empty ())
 	{
-		auto version_l (json.get_optional<unsigned> ("version"));
-		if (!version_l)
-		{
-			version_l = 1;
-			json.put ("version", *version_l);
-			json.put ("max_request_size", max_request_size);
-			json.erase ("frontier_request_limit");
-			json.erase ("chain_request_limit");
-
-			nano::jsonconfig rpc_process_l;
-			rpc_process_l.put ("version", *version_l);
-			rpc_process_l.put ("io_threads", rpc_process.io_threads);
-			rpc_process_l.put ("ipc_address", rpc_process.ipc_address);
-			rpc_process_l.put ("ipc_port", rpc_process.ipc_port);
-			rpc_process_l.put ("num_ipc_connections", rpc_process.num_ipc_connections);
-			json.put_child ("process", rpc_process_l);
-			upgraded_a = true;
-		}
-
 		auto rpc_secure_l (json.get_optional_child ("secure"));
 		if (rpc_secure_l)
 		{
@@ -125,15 +106,6 @@ nano::error nano::rpc_config::deserialize_json (bool & upgraded_a, nano::jsoncon
 		auto rpc_process_l (json.get_optional_child ("process"));
 		if (rpc_process_l)
 		{
-			auto version_l (rpc_process_l->get_optional<unsigned> ("version"));
-			if (!version_l)
-			{
-				version_l = 1;
-				rpc_process_l->put ("version", *version_l);
-				rpc_process_l->put ("ipc_address", rpc_process.ipc_address);
-				upgraded_a = true;
-			}
-
 			rpc_process_l->get_optional<unsigned> ("io_threads", rpc_process.io_threads);
 			rpc_process_l->get_optional<uint16_t> ("ipc_port", rpc_process.ipc_port);
 			boost::asio::ip::address_v6 ipc_address_l;
@@ -165,6 +137,10 @@ nano::error nano::rpc_config::serialize_toml (nano::tomlconfig & toml) const
 	rpc_process_l.put ("ipc_port", rpc_process.ipc_port, "Listening port of IPC server.\ntype:uint16");
 	rpc_process_l.put ("num_ipc_connections", rpc_process.num_ipc_connections, "Number of IPC connections to establish.\ntype:uint32");
 	toml.put_child ("process", rpc_process_l);
+
+	nano::tomlconfig rpc_logging_l;
+	rpc_logging_l.put ("log_rpc", rpc_logging.log_rpc, "Whether to log RPC calls.\ntype:bool");
+	toml.put_child ("logging", rpc_logging_l);
 	return toml.get_error ();
 }
 
@@ -185,6 +161,12 @@ nano::error nano::rpc_config::deserialize_toml (nano::tomlconfig & toml)
 		toml.get_optional<bool> ("enable_control", enable_control);
 		toml.get_optional<uint8_t> ("max_json_depth", max_json_depth);
 		toml.get_optional<uint64_t> ("max_request_size", max_request_size);
+
+		auto rpc_logging_l (toml.get_optional_child ("logging"));
+		if (rpc_logging_l)
+		{
+			rpc_logging_l->get_optional<bool> ("log_rpc", rpc_logging.log_rpc);
+		}
 
 		auto rpc_process_l (toml.get_optional_child ("process"));
 		if (rpc_process_l)
@@ -270,7 +252,7 @@ nano::error read_rpc_config_toml (boost::filesystem::path const & data_path_a, n
 		}
 		else
 		{
-			toml.read (config_overrides_stream);
+			error = toml.read (config_overrides_stream);
 		}
 	}
 
