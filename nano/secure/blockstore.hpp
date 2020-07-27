@@ -18,10 +18,18 @@
 namespace nano
 {
 // Move to versioning with a specific version if required for a future upgrade
-class state_block_w_sideband
+template <typename T>
+class block_w_sideband_v18
 {
 public:
-	std::shared_ptr<nano::state_block> state_block;
+	std::shared_ptr<T> block;
+	nano::block_sideband sideband;
+};
+
+class block_w_sideband
+{
+public:
+	std::shared_ptr<nano::block> block;
 	nano::block_sideband sideband;
 };
 
@@ -260,17 +268,28 @@ public:
 		return result;
 	}
 
-	explicit operator state_block_w_sideband () const
+	template <class Block>
+	explicit operator block_w_sideband_v18<Block> () const
 	{
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (data ()), size ());
 		auto error (false);
-		nano::state_block_w_sideband block_w_sideband;
-		block_w_sideband.state_block = std::make_shared<nano::state_block> (error, stream);
-		debug_assert (!error);
+		block_w_sideband_v18<Block> block_w_sideband;
+		block_w_sideband.block = std::make_shared<Block> (error, stream);
+		release_assert (!error);
 
-		error = block_w_sideband.sideband.deserialize (stream, nano::block_type::state);
-		debug_assert (!error);
+		error = block_w_sideband.sideband.deserialize (stream, block_w_sideband.block->type ());
+		release_assert (!error);
 
+		return block_w_sideband;
+	}
+
+	explicit operator block_w_sideband () const
+	{
+		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (data ()), size ());
+		nano::block_w_sideband block_w_sideband;
+		block_w_sideband.block = (nano::deserialize_block (stream));
+		auto error = block_w_sideband.sideband.deserialize (stream, block_w_sideband.block->type ());
+		release_assert (!error);
 		return block_w_sideband;
 	}
 
@@ -483,19 +502,14 @@ private:
 enum class tables
 {
 	accounts,
+	blocks,
 	cached_counts, // RocksDB only
-	change_blocks,
 	confirmation_height,
 	frontiers,
 	meta,
 	online_weight,
-	open_blocks,
 	peers,
 	pending,
-	receive_blocks,
-	representation,
-	send_blocks,
-	state_blocks,
 	unchecked,
 	vote
 };
@@ -578,14 +592,11 @@ public:
 	virtual void block_successor_clear (nano::write_transaction const &, nano::block_hash const &) = 0;
 	virtual std::shared_ptr<nano::block> block_get (nano::transaction const &, nano::block_hash const &) const = 0;
 	virtual std::shared_ptr<nano::block> block_get_no_sideband (nano::transaction const &, nano::block_hash const &) const = 0;
-	virtual std::shared_ptr<nano::block> block_get_v14 (nano::transaction const &, nano::block_hash const &, nano::block_sideband_v14 * = nullptr, bool * = nullptr) const = 0;
 	virtual std::shared_ptr<nano::block> block_random (nano::transaction const &) = 0;
-	virtual void block_del (nano::write_transaction const &, nano::block_hash const &, nano::block_type) = 0;
+	virtual void block_del (nano::write_transaction const &, nano::block_hash const &) = 0;
 	virtual bool block_exists (nano::transaction const &, nano::block_hash const &) = 0;
-	virtual bool block_exists (nano::transaction const &, nano::block_type, nano::block_hash const &) = 0;
-	virtual nano::block_counts block_count (nano::transaction const &) = 0;
+	virtual uint64_t block_count (nano::transaction const &) = 0;
 	virtual bool root_exists (nano::transaction const &, nano::root const &) = 0;
-	virtual bool source_exists (nano::transaction const &, nano::block_hash const &) = 0;
 	virtual nano::account block_account (nano::transaction const &, nano::block_hash const &) const = 0;
 	virtual nano::account block_account_calculated (nano::block const &) const = 0;
 

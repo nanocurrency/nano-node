@@ -1623,7 +1623,7 @@ TEST (node, mass_epoch_upgrader)
 		// Check upgrade
 		{
 			auto transaction (node.store.tx_begin_read ());
-			ASSERT_EQ (expected_blocks, node.store.block_count (transaction).sum ());
+			ASSERT_EQ (expected_blocks, node.store.block_count (transaction));
 			for (auto i (node.store.latest_begin (transaction)); i != node.store.latest_end (); ++i)
 			{
 				nano::account_info info (i->second);

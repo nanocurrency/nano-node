@@ -31,6 +31,7 @@ void modify_account_info_to_v14 (nano::mdb_store & store, nano::transaction cons
 void modify_confirmation_height_to_v15 (nano::mdb_store & store, nano::transaction const & transaction, nano::account const & account, uint64_t confirmation_height);
 void write_sideband_v14 (nano::mdb_store & store_a, nano::transaction & transaction_a, nano::block const & block_a, MDB_dbi db_a);
 void write_sideband_v15 (nano::mdb_store & store_a, nano::transaction & transaction_a, nano::block const & block_a);
+void write_block_w_sideband_v18 (nano::mdb_store & store_a, MDB_dbi database, nano::write_transaction & transaction_a, nano::block const & block_a);
 }
 
 TEST (block_store, construction)
@@ -126,7 +127,7 @@ TEST (block_store, add_item)
 	ASSERT_EQ (block, *latest2);
 	ASSERT_TRUE (store->block_exists (transaction, hash1));
 	ASSERT_FALSE (store->block_exists (transaction, hash1.number () - 1));
-	store->block_del (transaction, hash1, block.type ());
+	store->block_del (transaction, hash1);
 	auto latest3 (store->block_get (transaction, hash1));
 	ASSERT_EQ (nullptr, latest3);
 }
@@ -684,7 +685,9 @@ TEST (mdb_block_store, supported_version_upgrades)
 		store.version_put (transaction, store.minimum_version);
 		store.confirmation_height_del (transaction, nano::genesis_account);
 		ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "accounts_v1", MDB_CREATE, &store.accounts_v1));
+		ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "open", MDB_CREATE, &store.open_blocks));
 		modify_account_info_to_v14 (store, transaction, nano::genesis_account, 1, nano::genesis_hash);
+		write_block_w_sideband_v18 (store, store.open_blocks, transaction, *nano::genesis ().open);
 	}
 
 	// Upgrade should work
@@ -823,14 +826,14 @@ TEST (block_store, block_count)
 	ASSERT_TRUE (!store->init_error ());
 	{
 		auto transaction (store->tx_begin_write ());
-		ASSERT_EQ (0, store->block_count (transaction).sum ());
+		ASSERT_EQ (0, store->block_count (transaction));
 		nano::open_block block (0, 1, 0, nano::keypair ().prv, 0, 0);
 		block.sideband_set ({});
 		auto hash1 (block.hash ());
 		store->block_put (transaction, hash1, block);
 	}
 	auto transaction (store->tx_begin_read ());
-	ASSERT_EQ (1, store->block_count (transaction).sum ());
+	ASSERT_EQ (1, store->block_count (transaction));
 }
 
 TEST (block_store, account_count)
@@ -1012,13 +1015,13 @@ TEST (block_store, state_block)
 	{
 		auto transaction (store->tx_begin_write ());
 		auto count (store->block_count (transaction));
-		ASSERT_EQ (1, count.state);
-		store->block_del (transaction, block1.hash (), block1.type ());
+		ASSERT_EQ (2, count);
+		store->block_del (transaction, block1.hash ());
 		ASSERT_FALSE (store->block_exists (transaction, block1.hash ()));
 	}
 	auto transaction (store->tx_begin_read ());
 	auto count2 (store->block_count (transaction));
-	ASSERT_EQ (0, count2.state);
+	ASSERT_EQ (1, count2);
 }
 
 TEST (mdb_block_store, sideband_height)
@@ -1235,6 +1238,9 @@ TEST (mdb_block_store, upgrade_v14_v15)
 		ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "state_v1", MDB_CREATE, &store.state_blocks_v1));
 		ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "accounts_v1", MDB_CREATE, &store.accounts_v1));
 		ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "pending_v1", MDB_CREATE, &store.pending_v1));
+		ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "open", MDB_CREATE, &store.open_blocks));
+		ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "send", MDB_CREATE, &store.send_blocks));
+		ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "state_blocks", MDB_CREATE, &store.state_blocks));
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send).code);
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, epoch).code);
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, state_send).code);
@@ -1247,10 +1253,12 @@ TEST (mdb_block_store, upgrade_v14_v15)
 
 		write_sideband_v14 (store, transaction, state_send, store.state_blocks_v1);
 		write_sideband_v14 (store, transaction, epoch, store.state_blocks_v1);
+		write_block_w_sideband_v18 (store, store.open_blocks, transaction, *genesis.open);
+		write_block_w_sideband_v18 (store, store.send_blocks, transaction, send);
 
-		// Remove from state table
-		store.block_del (transaction, state_send.hash (), state_send.type ());
-		store.block_del (transaction, epoch.hash (), epoch.type ());
+		// Remove from blocks table
+		store.block_del (transaction, state_send.hash ());
+		store.block_del (transaction, epoch.hash ());
 
 		// Turn pending into v14
 		ASSERT_FALSE (mdb_put (store.env.tx (transaction), store.pending_v0, nano::mdb_val (nano::pending_key (nano::test_genesis_key.pub, send.hash ())), nano::mdb_val (nano::pending_info_v14 (nano::genesis_account, nano::Gxrb_ratio, nano::epoch::epoch_0)), 0));
@@ -1328,6 +1336,8 @@ TEST (mdb_block_store, upgrade_v15_v16)
 		ASSERT_FALSE (mdb_dbi_open (txn, "representation", MDB_CREATE, &store.representation));
 		auto weight = ledger.cache.rep_weights.representation_get (nano::genesis_account);
 		ASSERT_EQ (MDB_SUCCESS, mdb_put (txn, store.representation, nano::mdb_val (nano::genesis_account), nano::mdb_val (nano::uint128_union (weight)), 0));
+		ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "open", MDB_CREATE, &store.open_blocks));
+		write_block_w_sideband_v18 (store, store.open_blocks, transaction, *genesis.open);
 		// Lower the database to the previous version
 		store.version_put (transaction, 15);
 		// Confirm the rep weight exists in the database
@@ -1373,6 +1383,13 @@ TEST (mdb_block_store, upgrade_v16_v17)
 			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block2).code);
 			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block3).code);
 			modify_confirmation_height_to_v15 (store, transaction, nano::genesis_account, confirmation_height);
+
+			ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "open", MDB_CREATE, &store.open_blocks));
+			write_block_w_sideband_v18 (store, store.open_blocks, transaction, *genesis.open);
+			ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "state_blocks", MDB_CREATE, &store.state_blocks));
+			write_block_w_sideband_v18 (store, store.state_blocks, transaction, block1);
+			write_block_w_sideband_v18 (store, store.state_blocks, transaction, block2);
+			write_block_w_sideband_v18 (store, store.state_blocks, transaction, block3);
 
 			// Lower the database to the previous version
 			store.version_put (transaction, 16);
@@ -1443,22 +1460,37 @@ TEST (mdb_block_store, upgrade_v17_v18)
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, state_open).code);
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, state_send_epoch_link).code);
 
+		ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "open", MDB_CREATE, &store.open_blocks));
+		ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "send", MDB_CREATE, &store.send_blocks));
+		ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "state_blocks", MDB_CREATE, &store.state_blocks));
+
 		// Downgrade the store
 		store.version_put (transaction, 17);
+
+		write_block_w_sideband_v18 (store, store.state_blocks, transaction, state_receive);
+		write_block_w_sideband_v18 (store, store.state_blocks, transaction, epoch_first);
+		write_block_w_sideband_v18 (store, store.state_blocks, transaction, state_send2);
+		write_block_w_sideband_v18 (store, store.state_blocks, transaction, state_send_epoch_link);
+		write_block_w_sideband_v18 (store, store.open_blocks, transaction, *genesis.open);
+		write_block_w_sideband_v18 (store, store.send_blocks, transaction, send_zero);
 
 		// Replace with the previous sideband version for state blocks
 		// The upgrade can resume after upgrading some blocks, test this by only downgrading some of them
 		write_sideband_v15 (store, transaction, state_receive_zero);
 		write_sideband_v15 (store, transaction, epoch);
 		write_sideband_v15 (store, transaction, state_send);
-		// DISABLED write_sideband_v15 (store, transaction, state_receive);
 		write_sideband_v15 (store, transaction, state_change);
 		write_sideband_v15 (store, transaction, state_send_change);
-		// DISABLED write_sideband_v15 (store, transaction, epoch_first);
 		write_sideband_v15 (store, transaction, state_receive2);
-		// DISABLED write_sideband_v15 (store, transaction, state_send2);
 		write_sideband_v15 (store, transaction, state_open);
-		// DISABLED write_sideband_v15 (store, transaction, state_send_epoch_link);
+
+		store.block_del (transaction, state_receive_zero.hash ());
+		store.block_del (transaction, epoch.hash ());
+		store.block_del (transaction, state_send.hash ());
+		store.block_del (transaction, state_change.hash ());
+		store.block_del (transaction, state_send_change.hash ());
+		store.block_del (transaction, state_receive2.hash ());
+		store.block_del (transaction, state_open.hash ());
 	}
 
 	// Now do the upgrade
@@ -1469,8 +1501,8 @@ TEST (mdb_block_store, upgrade_v17_v18)
 
 	// Size of state block should equal that set in db (no change)
 	nano::mdb_val value;
-	ASSERT_FALSE (mdb_get (store.env.tx (transaction), store.state_blocks, nano::mdb_val (state_send.hash ()), value));
-	ASSERT_EQ (value.size (), nano::state_block::size + nano::block_sideband::size (nano::block_type::state));
+	ASSERT_FALSE (mdb_get (store.env.tx (transaction), store.blocks, nano::mdb_val (state_send.hash ()), value));
+	ASSERT_EQ (value.size (), sizeof (nano::block_type) + nano::state_block::size + nano::block_sideband::size (nano::block_type::state));
 
 	// Check that sidebands are correctly populated
 	{
@@ -1584,6 +1616,74 @@ TEST (mdb_block_store, upgrade_v17_v18)
 	}
 	// Version should be correct
 	ASSERT_LT (17, store.version_get (transaction));
+}
+
+TEST (mdb_block_store, upgrade_v18_v19)
+{
+	auto path (nano::unique_path ());
+	nano::keypair key1;
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+	nano::send_block send (nano::genesis_hash, nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (nano::genesis_hash));
+	nano::receive_block receive (send.hash (), send.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (send.hash ()));
+	nano::change_block change (receive.hash (), 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (receive.hash ()));
+	nano::state_block state (nano::test_genesis_key.pub, change.hash (), 0, nano::genesis_amount - nano::Gxrb_ratio, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (change.hash ()));
+
+	{
+		nano::genesis genesis;
+		nano::logger_mt logger;
+		nano::mdb_store store (logger, path);
+		nano::stat stats;
+		nano::ledger ledger (store, stats);
+		auto transaction (store.tx_begin_write ());
+		store.initialize (transaction, genesis, ledger.cache);
+
+		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send).code);
+		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive).code);
+		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, change).code);
+		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, state).code);
+
+		// These tables need to be re-opened and populated so that an upgrade can be done
+		auto txn = store.env.tx (transaction);
+		ASSERT_FALSE (mdb_dbi_open (txn, "open", MDB_CREATE, &store.open_blocks));
+		ASSERT_FALSE (mdb_dbi_open (txn, "receive", MDB_CREATE, &store.receive_blocks));
+		ASSERT_FALSE (mdb_dbi_open (txn, "send", MDB_CREATE, &store.send_blocks));
+		ASSERT_FALSE (mdb_dbi_open (txn, "change", MDB_CREATE, &store.change_blocks));
+		ASSERT_FALSE (mdb_dbi_open (txn, "state_blocks", MDB_CREATE, &store.state_blocks));
+
+		// Modify blocks back to the old tables
+		write_block_w_sideband_v18 (store, store.open_blocks, transaction, *genesis.open);
+		write_block_w_sideband_v18 (store, store.send_blocks, transaction, send);
+		write_block_w_sideband_v18 (store, store.receive_blocks, transaction, receive);
+		write_block_w_sideband_v18 (store, store.change_blocks, transaction, change);
+		write_block_w_sideband_v18 (store, store.state_blocks, transaction, state);
+
+		store.version_put (transaction, 18);
+	}
+
+	// Now do the upgrade
+	nano::logger_mt logger;
+	nano::mdb_store store (logger, path);
+	ASSERT_FALSE (store.init_error ());
+	auto transaction (store.tx_begin_read ());
+
+	// These tables should be deleted
+	ASSERT_EQ (store.send_blocks, 0);
+	ASSERT_EQ (store.receive_blocks, 0);
+	ASSERT_EQ (store.change_blocks, 0);
+	ASSERT_EQ (store.open_blocks, 0);
+	ASSERT_EQ (store.state_blocks, 0);
+
+	// Confirm these blocks all exist after the upgrade
+	ASSERT_TRUE (store.block_get (transaction, send.hash ()));
+	ASSERT_TRUE (store.block_get (transaction, receive.hash ()));
+	ASSERT_TRUE (store.block_get (transaction, change.hash ()));
+	ASSERT_TRUE (store.block_get (transaction, nano::genesis_hash));
+	ASSERT_TRUE (store.block_get (transaction, state.hash ()));
+
+	ASSERT_EQ (5, store.count (transaction, store.blocks));
+
+	// Version should be correct
+	ASSERT_LT (18, store.version_get (transaction));
 }
 
 TEST (mdb_block_store, upgrade_backup)
@@ -1789,6 +1889,23 @@ void write_sideband_v15 (nano::mdb_store & store_a, nano::transaction & transact
 
 	MDB_val val{ data.size (), data.data () };
 	ASSERT_FALSE (mdb_put (store_a.env.tx (transaction_a), store_a.state_blocks, nano::mdb_val (block_a.hash ()), &val, 0));
+}
+
+void write_block_w_sideband_v18 (nano::mdb_store & store_a, MDB_dbi database, nano::write_transaction & transaction_a, nano::block const & block_a)
+{
+	auto block = store_a.block_get (transaction_a, block_a.hash ());
+	ASSERT_NE (block, nullptr);
+
+	std::vector<uint8_t> data;
+	{
+		nano::vectorstream stream (data);
+		block->serialize (stream);
+		block->sideband ().serialize (stream, block->type ());
+	}
+
+	MDB_val val{ data.size (), data.data () };
+	ASSERT_FALSE (mdb_put (store_a.env.tx (transaction_a), database, nano::mdb_val (block_a.hash ()), &val, 0));
+	store_a.del (transaction_a, nano::tables::blocks, nano::mdb_val (block_a.hash ()));
 }
 
 void modify_account_info_to_v14 (nano::mdb_store & store, nano::transaction const & transaction, nano::account const & account, uint64_t confirmation_height, nano::block_hash const & rep_block)
