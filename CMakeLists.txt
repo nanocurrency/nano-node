@@ -9,8 +9,8 @@ if (CMAKE_VERSION VERSION_GREATER 3.13 OR CMAKE_VERSION VERSION_EQUAL 3.13)
 	cmake_policy(SET CMP0077 NEW)
 endif()
 
-if (CMAKE_VERSION VERSION_LESS 3.11)
-	# compatibility for boost import targets use bundled 3.11 FindBoost.cmake
+if (CMAKE_VERSION VERSION_LESS 3.13)
+	# compatibility for boost import targets use bundled 3.13 FindBoost.cmake
 	list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/legacyModules")
 endif ()
 
@@ -50,7 +50,7 @@ endif()
 if (APPLE)
 	set (CMAKE_INSTALL_RPATH "@executable_path/../Frameworks;@executable_path/../boost/lib")
 else()
-	set (CMAKE_INSTALL_RPATH "$ORIGIN/lib")
+	set (CMAKE_INSTALL_RPATH "$ORIGIN/../lib")
 endif()
 
 # Create all libraries and executables in the root binary dir
@@ -63,7 +63,9 @@ set (NANO_ROCKSDB OFF CACHE BOOL "")
 set (NANO_POW_SERVER OFF CACHE BOOL "")
 set (NANO_WARN_TO_ERR OFF CACHE BOOL "")
 set (NANO_TIMED_LOCKS 0 CACHE STRING "")
+set (NANO_TIMED_LOCKS_IGNORE_BLOCKED OFF CACHE BOOL "")
 set (NANO_FUZZER_TEST OFF CACHE BOOL "")
+set (NANO_ASIO_HANDLER_TRACKING 0 CACHE STRING "")
 
 option (NANO_STACKTRACE_BACKTRACE "Use BOOST_STACKTRACE_USE_BACKTRACE in stacktraces, for POSIX" OFF)
 if (NANO_STACKTRACE_BACKTRACE)
@@ -75,6 +77,13 @@ endif ()
 
 if (${NANO_TIMED_LOCKS} GREATER 0)
 	add_definitions (-DNANO_TIMED_LOCKS=${NANO_TIMED_LOCKS})
+	if (NANO_TIMED_LOCKS_IGNORE_BLOCKED)
+		add_definitions(-DNANO_TIMED_LOCKS_IGNORE_BLOCKED)
+	endif ()
+endif ()
+
+if (${NANO_ASIO_HANDLER_TRACKING} GREATER 0)
+	add_definitions (-DNANO_ASIO_HANDLER_TRACKING=${NANO_ASIO_HANDLER_TRACKING} -DBOOST_ASIO_ENABLE_HANDLER_TRACKING)
 endif ()
 
 add_definitions (-DNANO_ROCKSDB=$<STREQUAL:${NANO_ROCKSDB},ON>)
@@ -444,6 +453,7 @@ if (NANO_TEST OR RAIBLOCKS_TEST)
 	set_target_properties(gtest PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
 		"${CMAKE_SOURCE_DIR}/gtest/googletest/include")
 
+	add_subdirectory(nano/test_common)
 	add_subdirectory(nano/core_test)
 	add_subdirectory(nano/rpc_test)
 	add_subdirectory(nano/slow_test)
@@ -528,7 +538,7 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 			nano/qt_test/entry.cpp
 			nano/qt_test/qt.cpp)
 
-		target_link_libraries(qt_test gtest gtest_main qt Qt5::Test)
+		target_link_libraries(qt_test test_common gtest gtest_main qt Qt5::Test)
 
 		set_target_properties (qt_test PROPERTIES COMPILE_FLAGS "-DQT_NO_KEYWORDS -DBOOST_ASIO_HAS_STD_ARRAY=1")
 	endif ()
@@ -618,9 +628,11 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 		install (FILES ${Qt5_bin_DIR}/Qt5WinExtras.dll DESTINATION .)
 		install (FILES ${Qt5WindowsPlugin} DESTINATION platforms)
 	else ()
-		set(CPACK_GENERATOR "TBZ2")
+		set(CPACK_GENERATOR "TBZ2;DEB")
+		set(CPACK_DEBIAN_PACKAGE_DEPENDS qt5-default)
+		set(CPACK_DEBIAN_PACKAGE_MAINTAINER "russel@nano.org")
 		install(TARGETS nano_wallet
-				RUNTIME DESTINATION .
+				RUNTIME DESTINATION ./bin
 		)
 		if (NANO_SHARED_BOOST)
 			get_filename_component(Boost_LIB_DIR ${BOOST_ROOT}/lib ABSOLUTE)
@@ -636,8 +648,8 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 			install (FILES ${Boost_LIB_DIR}/libboost_atomic.so.${Boost_VERSION_STRING} DESTINATION ./lib)
 		endif()
 		if (NANO_POW_SERVER)
-			install (TARGETS nano_pow_server DESTINATION .)
-			install (DIRECTORY ${PROJECT_SOURCE_DIR}/nano-pow-server/public DESTINATION .)
+			install (TARGETS nano_pow_server DESTINATION ./bin)
+			install (DIRECTORY ${PROJECT_SOURCE_DIR}/nano-pow-server/public DESTINATION ./bin)
 		endif ()
 	endif ()
 endif ()

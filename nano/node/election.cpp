@@ -27,7 +27,8 @@ nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> bloc
 confirmation_action (confirmation_action_a),
 prioritized_m (prioritized_a),
 node (node_a),
-status ({ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::ongoing })
+status ({ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::ongoing }),
+height (block_a->sideband ().height)
 {
 	last_votes.emplace (node.network_params.random.not_an_account, nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () });
 	blocks.emplace (block_a->hash (), block_a);
@@ -210,46 +211,8 @@ bool nano::election::confirmed () const
 
 void nano::election::activate_dependencies ()
 {
-	auto transaction = node.store.tx_begin_read ();
-	bool escalated_l (false);
-	std::shared_ptr<nano::block> previous_l;
-	auto previous_hash_l (status.winner->previous ());
-	if (!previous_hash_l.is_zero () && node.active.blocks.find (previous_hash_l) == node.active.blocks.end ())
-	{
-		previous_l = node.store.block_get (transaction, previous_hash_l);
-		if (previous_l != nullptr && !node.block_confirmed_or_being_confirmed (transaction, previous_hash_l))
-		{
-			auto election = node.active.insert_impl (previous_l);
-			if (election.inserted)
-			{
-				election.election->transition_active ();
-				escalated_l = true;
-			}
-		}
-	}
-	/* If previous block not existing/not commited yet, block_source can cause segfault for state blocks
-				So source check can be done only if previous != nullptr or previous is 0 (open account) */
-	if (previous_hash_l.is_zero () || previous_l != nullptr)
-	{
-		auto source_hash_l (node.ledger.block_source (transaction, *status.winner));
-		if (!source_hash_l.is_zero () && source_hash_l != previous_hash_l && node.active.blocks.find (source_hash_l) == node.active.blocks.end ())
-		{
-			auto source_l (node.store.block_get (transaction, source_hash_l));
-			if (source_l != nullptr && !node.block_confirmed_or_being_confirmed (transaction, source_hash_l))
-			{
-				auto election = node.active.insert_impl (source_l);
-				if (election.inserted)
-				{
-					election.election->transition_active ();
-					escalated_l = true;
-				}
-			}
-		}
-	}
-	if (escalated_l)
-	{
-		update_dependent ();
-	}
+	debug_assert (!node.active.mutex.try_lock ());
+	node.active.pending_dependencies.emplace_back (status.winner->hash (), height);
 }
 
 void nano::election::broadcast_block (nano::confirmation_solicitor & solicitor_a)
@@ -266,7 +229,7 @@ void nano::election::broadcast_block (nano::confirmation_solicitor & solicitor_a
 bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a)
 {
 	debug_assert (!node.active.mutex.try_lock ());
-	nano::unique_lock<std::mutex> lock (timepoints_mutex);
+	nano::lock_guard<std::mutex> guard (timepoints_mutex);
 	bool result = false;
 	switch (state_m)
 	{
@@ -293,9 +256,7 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 			if (base_latency () * active_broadcasting_duration_factor < std::chrono::steady_clock::now () - state_start)
 			{
 				state_change (nano::election::state_t::broadcasting, nano::election::state_t::backtracking);
-				lock.unlock ();
 				activate_dependencies ();
-				lock.lock ();
 			}
 			break;
 		case nano::election::state_t::backtracking:
@@ -374,10 +335,9 @@ void nano::election::confirm_if_quorum ()
 	}
 	if (sum >= node.config.online_weight_minimum.number () && winner_hash_l != status_winner_hash_l)
 	{
-		remove_votes (status_winner_hash_l);
-		generate_votes (winner_hash_l);
-		node.block_processor.force (block_l);
 		status.winner = block_l;
+		remove_votes (status_winner_hash_l);
+		node.block_processor.force (block_l);
 		update_dependent ();
 		node.active.add_adjust_difficulty (winner_hash_l);
 	}
@@ -402,7 +362,10 @@ void nano::election::log_votes (nano::tally_t const & tally_a) const
 	}
 	for (auto i (last_votes.begin ()), n (last_votes.end ()); i != n; ++i)
 	{
-		tally << boost::str (boost::format ("%1%%2% %3%") % line_end % i->first.to_account () % i->second.hash.to_string ());
+		if (i->first != node.network_params.random.not_an_account)
+		{
+			tally << boost::str (boost::format ("%1%%2% %3% %4%") % line_end % i->first.to_account () % std::to_string (i->second.sequence) % i->second.hash.to_string ());
+		}
 	}
 	node.logger.try_log (tally.str ());
 }
@@ -613,6 +576,16 @@ void nano::election::prioritize_election (nano::vote_generator_session & generat
 	debug_assert (!prioritized_m);
 	prioritized_m = true;
 	generator_session_a.add (status.winner->hash ());
+}
+
+void nano::election::try_generate_votes (nano::block_hash const & hash_a)
+{
+	nano::unique_lock<std::mutex> lock (node.active.mutex);
+	if (status.winner->hash () == hash_a)
+	{
+		lock.unlock ();
+		generate_votes (hash_a);
+	}
 }
 
 void nano::election::generate_votes (nano::block_hash const & hash_a)

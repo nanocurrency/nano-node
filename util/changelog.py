@@ -1,6 +1,14 @@
 import argparse
 import copy
 
+"""
+Changelog generation script, requires PAT see https://github.com/settings/tokens
+Caveats V20 and prior release tags are tips on their respective release branches
+If you try to use a start tag with one of these a full changelog will be generated
+since the commit wont appear in your iterations
+
+"""
+
 try:
     from github import Github
     from mdutils import MdUtils
@@ -39,6 +47,7 @@ SECTIONS = {
     ],
     "Developer/Debug Options": [
         "debug",
+        "logging",
     ],
     "Fixed Bugs": [
         "bug",
@@ -109,7 +118,7 @@ class cliArgs():
             "and ending with {2}".format(self.repo, self.start, self.end)
 
 
-class changelogRepo:
+class generateTree:
     def __init__(self, args):
         github = Github(args.pat)
         self.repo = github.get_repo(args.repo)
@@ -123,21 +132,24 @@ class changelogRepo:
             self.endCommit = self.repo.get_commit(args.end)
         except BaseException:
             exit("Error finding commit for " + args.end)
-        self.tree = self.repo.compare(self.start, self.end).commits
+        commits = self.repo.get_commits(sha=self.endCommit.sha)
         self.commits = {}
-        for commit in self.tree:
-            for pull in commit.get_pulls():
-                labels = []
-                for label in pull.labels:
-                    labels.append(label.name)
-                self.commits[pull.number] = {
-                    "Title": pull.title,
-                    "Url": pull.html_url,
-                    "labels": labels
-                }
+        for commit in commits:
+            if commit.sha == self.startCommit.sha:
+                break
+            else:
+                for pull in commit.get_pulls():
+                    labels = []
+                    for label in pull.labels:
+                        labels.append(label.name)
+                    self.commits[pull.number] = {
+                        "Title": pull.title,
+                        "Url": pull.html_url,
+                        "labels": labels
+                    }
 
     def __repr__(self):
-        return "<changelogRepo(repo='{0}', start='{1}', startCommit='{2}', " \
+        return "<generateTree(repo='{0}', start='{1}', startCommit='{2}', " \
             "end='{3}', endCommit='{4}', tree='{5}', commits='{6}".format(
                 self.repo, self.start, self.startCommit, self.end,
                 self.endCommit, self.tree, self.commits,
@@ -215,5 +227,5 @@ class generateMarkdown():
 
 if __name__ == "__main__":
     args = cliArgs()
-    repo = changelogRepo(args)
+    repo = generateTree(args)
     generateMarkdown(repo)

@@ -194,7 +194,7 @@ void nano::confirmation_height_unbounded::collect_unconfirmed_receive_and_source
 				source = block->link ();
 			}
 
-			if (!source.is_zero () && !ledger.is_epoch_link (source) && ledger.store.source_exists (transaction_a, source))
+			if (!source.is_zero () && !ledger.is_epoch_link (source) && ledger.store.block_exists (transaction_a, source))
 			{
 				if (!hit_receive && !block_callback_data_a.empty ())
 				{
@@ -357,8 +357,6 @@ void nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 			auto confirmation_height = confirmation_height_info.height;
 			if (!error && pending.height > confirmation_height)
 			{
-#ifndef NDEBUG
-				// Do more thorough checking in Debug mode, indicates programming error.
 				auto block = ledger.store.block_get (transaction, pending.hash);
 				debug_assert (network_params.network.is_test_network () || block != nullptr);
 				debug_assert (network_params.network.is_test_network () || block->sideband ().height == pending.height);
@@ -371,7 +369,6 @@ void nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 					error = true;
 					break;
 				}
-#endif
 				ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in, pending.height - confirmation_height);
 				ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in, pending.height - confirmation_height);
 				debug_assert (pending.num_blocks_confirmed == pending.height - confirmation_height);
@@ -382,8 +379,9 @@ void nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 				// Reverse it so that the callbacks start from the lowest newly cemented block and move upwards
 				std::reverse (pending.block_callback_data.begin (), pending.block_callback_data.end ());
 
+				nano::lock_guard<std::mutex> guard (block_cache_mutex);
 				std::transform (pending.block_callback_data.begin (), pending.block_callback_data.end (), std::back_inserter (cemented_blocks), [& block_cache = block_cache](auto const & hash_a) {
-					debug_assert (block_cache.find (hash_a) != block_cache.end ());
+					debug_assert (block_cache.count (hash_a) == 1);
 					return block_cache.at (hash_a);
 				});
 			}
@@ -416,6 +414,7 @@ void nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 
 std::shared_ptr<nano::block> nano::confirmation_height_unbounded::get_block_and_sideband (nano::block_hash const & hash_a, nano::transaction const & transaction_a)
 {
+	nano::lock_guard<std::mutex> guard (block_cache_mutex);
 	auto block_cache_it = block_cache.find (hash_a);
 	if (block_cache_it != block_cache.cend ())
 	{
@@ -425,7 +424,6 @@ std::shared_ptr<nano::block> nano::confirmation_height_unbounded::get_block_and_
 	{
 		auto block (ledger.store.block_get (transaction_a, hash_a));
 		block_cache.emplace (hash_a, block);
-		++block_cache_size;
 		return block;
 	}
 }
@@ -443,8 +441,22 @@ void nano::confirmation_height_unbounded::clear_process_vars ()
 	confirmed_iterated_pairs_size = 0;
 	implicit_receive_cemented_mapping.clear ();
 	implicit_receive_cemented_mapping_size = 0;
-	block_cache.clear ();
-	block_cache_size = 0;
+	{
+		nano::lock_guard<std::mutex> guard (block_cache_mutex);
+		block_cache.clear ();
+	}
+}
+
+bool nano::confirmation_height_unbounded::has_iterated_over_block (nano::block_hash const & hash_a) const
+{
+	nano::lock_guard<std::mutex> guard (block_cache_mutex);
+	return block_cache.count (hash_a) == 1;
+}
+
+uint64_t nano::confirmation_height_unbounded::block_cache_size () const
+{
+	nano::lock_guard<std::mutex> guard (block_cache_mutex);
+	return block_cache.size ();
 }
 
 nano::confirmation_height_unbounded::conf_height_details::conf_height_details (nano::account const & account_a, nano::block_hash const & hash_a, uint64_t height_a, uint64_t num_blocks_confirmed_a, std::vector<nano::block_hash> const & block_callback_data_a) :
@@ -474,6 +486,6 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (co
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "confirmed_iterated_pairs", confirmation_height_unbounded.confirmed_iterated_pairs_size, sizeof (decltype (confirmation_height_unbounded.confirmed_iterated_pairs)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "pending_writes", confirmation_height_unbounded.pending_writes_size, sizeof (decltype (confirmation_height_unbounded.pending_writes)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "implicit_receive_cemented_mapping", confirmation_height_unbounded.implicit_receive_cemented_mapping_size, sizeof (decltype (confirmation_height_unbounded.implicit_receive_cemented_mapping)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "block_cache", confirmation_height_unbounded.block_cache_size, sizeof (decltype (confirmation_height_unbounded.block_cache)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "block_cache", confirmation_height_unbounded.block_cache_size (), sizeof (decltype (confirmation_height_unbounded.block_cache)::value_type) }));
 	return composite;
 }

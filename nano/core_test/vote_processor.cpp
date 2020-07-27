@@ -1,7 +1,7 @@
-#include <nano/core_test/testutil.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/node/vote_processor.hpp>
+#include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -158,11 +158,7 @@ TEST (vote_processor, weights)
 	system.wallet (0)->send_sync (nano::test_genesis_key.pub, key2.pub, level2);
 
 	// Wait for representatives
-	system.deadline_set (10s);
-	while (node.ledger.cache.rep_weights.get_rep_amounts ().size () != 4)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (10s, node.ledger.cache.rep_weights.get_rep_amounts ().size () == 4);
 	node.vote_processor.calculate_weights ();
 
 	ASSERT_EQ (node.vote_processor.representatives_1.end (), node.vote_processor.representatives_1.find (key0.pub));
@@ -242,6 +238,7 @@ TEST (vote_processor, no_broadcast_local)
 	ASSERT_FALSE (ec);
 	ASSERT_EQ (nano::process_result::progress, node.process_local (send2).code);
 	ASSERT_EQ (node.config.vote_minimum, node.weight (nano::test_genesis_key.pub));
+	node.block_confirm (send2);
 	// Process a vote
 	auto vote2 (node.store.vote_generate (node.store.tx_begin_read (), nano::test_genesis_key.pub, nano::test_genesis_key.prv, { send2->hash () }));
 	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote2));
@@ -269,6 +266,7 @@ TEST (vote_processor, no_broadcast_local)
 	ASSERT_FALSE (ec);
 	ASSERT_EQ (nano::process_result::progress, node.process_local (open).code);
 	ASSERT_EQ (nano::genesis_amount - node.config.vote_minimum.number (), node.weight (nano::test_genesis_key.pub));
+	node.block_confirm (open);
 	// Insert account in wallet
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	node.wallets.compute_reps ();

@@ -55,7 +55,7 @@ public:
 	virtual ~socket ();
 	void async_connect (boost::asio::ip::tcp::endpoint const &, std::function<void(boost::system::error_code const &)>);
 	void async_read (std::shared_ptr<std::vector<uint8_t>>, size_t, std::function<void(boost::system::error_code const &, size_t)>);
-	void async_write (nano::shared_const_buffer const &, std::function<void(boost::system::error_code const &, size_t)> = nullptr, nano::buffer_drop_policy = nano::buffer_drop_policy::limiter);
+	void async_write (nano::shared_const_buffer const &, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr, nano::buffer_drop_policy = nano::buffer_drop_policy::limiter);
 
 	void close ();
 	boost::asio::ip::tcp::endpoint remote_endpoint () const;
@@ -102,6 +102,7 @@ protected:
 	void start_timer ();
 	void stop_timer ();
 	void checkup ();
+	void flush_send_queue_callbacks ();
 };
 
 /** Socket class for TCP servers */

@@ -1,6 +1,6 @@
-#include <nano/core_test/testutil.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/testing.hpp>
+#include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -219,8 +219,10 @@ TEST (conflicts, dependency)
 
 TEST (conflicts, adjusted_multiplier)
 {
-	nano::system system (1);
-	auto & node1 (*system.nodes[0]);
+	nano::system system;
+	nano::node_flags flags;
+	flags.disable_request_loop = true;
+	auto & node1 (*system.add_node (flags));
 	nano::genesis genesis;
 	nano::keypair key1;
 	nano::keypair key2;
@@ -250,12 +252,8 @@ TEST (conflicts, adjusted_multiplier)
 	nano::keypair key4;
 	auto send5 (std::make_shared<nano::state_block> (key3.pub, change1->hash (), nano::test_genesis_key.pub, 0, key4.pub, key3.prv, key3.pub, *system.work.generate (change1->hash ()))); // Pending for open epoch block
 	node1.process_active (send5);
-	node1.block_processor.flush ();
-	system.deadline_set (3s);
-	while (node1.active.size () != 11)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	nano::blocks_confirm (node1, { send1, send2, receive1, open1, send3, send4, open_epoch1, receive2, open2, change1, send5 });
+	ASSERT_TIMELY (3s, node1.active.size () == 11);
 	std::unordered_map<nano::block_hash, double> adjusted_multipliers;
 	{
 		nano::lock_guard<std::mutex> guard (node1.active.mutex);
@@ -285,11 +283,8 @@ TEST (conflicts, adjusted_multiplier)
 	ASSERT_GT (open_epoch2->difficulty (), nano::difficulty::from_multiplier ((adjusted_multipliers.find (send1->hash ())->second), node1.network_params.network.publish_thresholds.base));
 	node1.process_active (open_epoch2);
 	node1.block_processor.flush ();
-	system.deadline_set (3s);
-	while (node1.active.size () != 12)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	node1.block_confirm (open_epoch2);
+	ASSERT_TIMELY (3s, node1.active.size () == 12);
 	{
 		nano::lock_guard<std::mutex> guard (node1.active.mutex);
 		node1.active.update_adjusted_multiplier ();
