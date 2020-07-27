@@ -109,10 +109,10 @@ public:
 		std::vector<uint8_t> vector;
 		{
 			nano::vectorstream stream (vector);
-			block_a.serialize (stream);
+			nano::serialize_block (stream, block_a);
 			block_a.sideband ().serialize (stream, block_a.type ());
 		}
-		block_raw_put (transaction_a, vector, block_a.type (), hash_a);
+		block_raw_put (transaction_a, vector, hash_a);
 		nano::block_predecessor_set<Val, Derived_Store> predecessor (transaction_a, *this);
 		block_a.visit (predecessor);
 		debug_assert (block_a.previous ().is_zero () || block_successor (transaction_a, block_a.previous ()) == hash_a);
@@ -128,64 +128,46 @@ public:
 
 	std::shared_ptr<nano::block> block_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override
 	{
-		nano::block_type type;
-		auto value (block_raw_get (transaction_a, hash_a, type));
+		auto value (block_raw_get (transaction_a, hash_a));
 		std::shared_ptr<nano::block> result;
 		if (value.size () != 0)
 		{
 			nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
+			nano::block_type type;
+			auto error (try_read (stream, type));
+			release_assert (!error);
 			result = nano::deserialize_block (stream, type);
-			debug_assert (result != nullptr);
+			release_assert (result != nullptr);
 			nano::block_sideband sideband;
-			auto error (sideband.deserialize (stream, type));
-			(void)error;
-			debug_assert (!error);
+			error = (sideband.deserialize (stream, type));
+			release_assert (!error);
 			result->sideband_set (sideband);
 		}
 		return result;
 	}
 
+	bool block_exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override
+	{
+		auto junk = block_raw_get (transaction_a, hash_a);
+		return junk.size () != 0;
+	}
+
 	std::shared_ptr<nano::block> block_get_no_sideband (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override
 	{
-		nano::block_type type;
-		auto value (block_raw_get (transaction_a, hash_a, type));
+		auto value (block_raw_get (transaction_a, hash_a));
 		std::shared_ptr<nano::block> result;
 		if (value.size () != 0)
 		{
 			nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
-			result = nano::deserialize_block (stream, type);
+			result = nano::deserialize_block (stream);
 			debug_assert (result != nullptr);
 		}
 		return result;
 	}
 
-	bool block_exists (nano::transaction const & transaction_a, nano::block_type type, nano::block_hash const & hash_a) override
-	{
-		auto junk = block_raw_get_by_type (transaction_a, hash_a, type);
-		return junk.is_initialized ();
-	}
-
-	bool block_exists (nano::transaction const & tx_a, nano::block_hash const & hash_a) override
-	{
-		// Table lookups are ordered by match probability
-		// clang-format off
-		return
-			block_exists (tx_a, nano::block_type::state, hash_a) ||
-			block_exists (tx_a, nano::block_type::send, hash_a) ||
-			block_exists (tx_a, nano::block_type::receive, hash_a) ||
-			block_exists (tx_a, nano::block_type::open, hash_a) ||
-			block_exists (tx_a, nano::block_type::change, hash_a);
-		// clang-format on
-	}
-
 	bool root_exists (nano::transaction const & transaction_a, nano::root const & root_a) override
 	{
 		return block_exists (transaction_a, root_a) || account_exists (transaction_a, root_a);
-	}
-
-	bool source_exists (nano::transaction const & transaction_a, nano::block_hash const & source_a) override
-	{
-		return block_exists (transaction_a, nano::block_type::state, source_a) || block_exists (transaction_a, nano::block_type::send, source_a);
 	}
 
 	nano::account block_account (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override
@@ -233,12 +215,12 @@ public:
 
 	nano::block_hash block_successor (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override
 	{
-		nano::block_type type;
-		auto value (block_raw_get (transaction_a, hash_a, type));
+		auto value (block_raw_get (transaction_a, hash_a));
 		nano::block_hash result;
 		if (value.size () != 0)
 		{
 			debug_assert (value.size () >= result.bytes.size ());
+			auto type = block_type_from_raw (value.data ());
 			nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()) + block_successor_offset (transaction_a, value.size (), type), result.bytes.size ());
 			auto error (nano::try_read (stream, result.bytes));
 			(void)error;
@@ -253,12 +235,12 @@ public:
 
 	void block_successor_clear (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a) override
 	{
-		nano::block_type type;
-		auto value (block_raw_get (transaction_a, hash_a, type));
+		auto value (block_raw_get (transaction_a, hash_a));
 		debug_assert (value.size () != 0);
+		auto type = block_type_from_raw (value.data ());
 		std::vector<uint8_t> data (static_cast<uint8_t *> (value.data ()), static_cast<uint8_t *> (value.data ()) + value.size ());
 		std::fill_n (data.begin () + block_successor_offset (transaction_a, value.size (), type), sizeof (nano::block_hash), uint8_t{ 0 });
-		block_raw_put (transaction_a, data, type, hash_a);
+		block_raw_put (transaction_a, data, hash_a);
 	}
 
 	void unchecked_put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a, std::shared_ptr<nano::block> const & block_a) override
@@ -366,31 +348,9 @@ public:
 		return cache_mutex;
 	}
 
-	void block_del (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_type block_type_a) override
+	void block_del (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a) override
 	{
-		auto table = tables::state_blocks;
-		switch (block_type_a)
-		{
-			case nano::block_type::open:
-				table = tables::open_blocks;
-				break;
-			case nano::block_type::receive:
-				table = tables::receive_blocks;
-				break;
-			case nano::block_type::send:
-				table = tables::send_blocks;
-				break;
-			case nano::block_type::change:
-				table = tables::change_blocks;
-				break;
-			case nano::block_type::state:
-				table = tables::state_blocks;
-				break;
-			default:
-				debug_assert (false);
-		}
-
-		auto status = del (transaction_a, table, hash_a);
+		auto status = del (transaction_a, tables::blocks, hash_a);
 		release_assert (success (status));
 	}
 
@@ -421,11 +381,10 @@ public:
 		return nano::epoch::epoch_0;
 	}
 
-	void block_raw_put (nano::write_transaction const & transaction_a, std::vector<uint8_t> const & data, nano::block_type block_type_a, nano::block_hash const & hash_a)
+	void block_raw_put (nano::write_transaction const & transaction_a, std::vector<uint8_t> const & data, nano::block_hash const & hash_a)
 	{
-		auto database_a = block_database (block_type_a);
 		nano::db_val<Val> value{ data.size (), (void *)data.data () };
-		auto status = put (transaction_a, database_a, hash_a, value);
+		auto status = put (transaction_a, tables::blocks, hash_a, value);
 		release_assert (success (status));
 	}
 
@@ -624,15 +583,9 @@ public:
 		return static_cast<const Derived_Store &> (*this).exists (transaction_a, table_a, key_a);
 	}
 
-	nano::block_counts block_count (nano::transaction const & transaction_a) override
+	uint64_t block_count (nano::transaction const & transaction_a) override
 	{
-		nano::block_counts result;
-		result.send = count (transaction_a, tables::send_blocks);
-		result.receive = count (transaction_a, tables::receive_blocks);
-		result.open = count (transaction_a, tables::open_blocks);
-		result.change = count (transaction_a, tables::change_blocks);
-		result.state = count (transaction_a, tables::state_blocks);
-		return result;
+		return count (transaction_a, tables::blocks);
 	}
 
 	size_t account_count (nano::transaction const & transaction_a) override
@@ -642,45 +595,16 @@ public:
 
 	std::shared_ptr<nano::block> block_random (nano::transaction const & transaction_a) override
 	{
-		auto count (block_count (transaction_a));
-		release_assert (std::numeric_limits<CryptoPP::word32>::max () > count.sum ());
-		auto region = static_cast<size_t> (nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (count.sum () - 1)));
-		std::shared_ptr<nano::block> result;
-		auto & derived_store = static_cast<Derived_Store &> (*this);
-		if (region < count.send)
+		nano::block_hash hash;
+		nano::random_pool::generate_block (hash.bytes.data (), hash.bytes.size ());
+		auto existing = make_iterator<nano::block_hash, std::shared_ptr<nano::block>> (transaction_a, tables::blocks, nano::db_val<Val> (hash));
+		auto end (nano::store_iterator<nano::block_hash, std::shared_ptr<nano::block>> (nullptr));
+		if (existing == end)
 		{
-			result = derived_store.template block_random<nano::send_block> (transaction_a, tables::send_blocks);
+			existing = make_iterator<nano::block_hash, std::shared_ptr<nano::block>> (transaction_a, tables::blocks);
 		}
-		else
-		{
-			region -= count.send;
-			if (region < count.receive)
-			{
-				result = derived_store.template block_random<nano::receive_block> (transaction_a, tables::receive_blocks);
-			}
-			else
-			{
-				region -= count.receive;
-				if (region < count.open)
-				{
-					result = derived_store.template block_random<nano::open_block> (transaction_a, tables::open_blocks);
-				}
-				else
-				{
-					region -= count.open;
-					if (region < count.change)
-					{
-						result = derived_store.template block_random<nano::change_block> (transaction_a, tables::change_blocks);
-					}
-					else
-					{
-						result = derived_store.template block_random<nano::state_block> (transaction_a, tables::state_blocks);
-					}
-				}
-			}
-		}
-		debug_assert (result != nullptr);
-		return result;
+		debug_assert (existing != end);
+		return existing->second;
 	}
 
 	uint64_t confirmation_height_count (nano::transaction const & transaction_a) override
@@ -786,22 +710,7 @@ protected:
 	nano::network_params network_params;
 	std::unordered_map<nano::account, std::shared_ptr<nano::vote>> vote_cache_l1;
 	std::unordered_map<nano::account, std::shared_ptr<nano::vote>> vote_cache_l2;
-	int const version{ 18 };
-
-	template <typename T>
-	std::shared_ptr<nano::block> block_random (nano::transaction const & transaction_a, tables table_a)
-	{
-		nano::block_hash hash;
-		nano::random_pool::generate_block (hash.bytes.data (), hash.bytes.size ());
-		auto existing = make_iterator<nano::block_hash, std::shared_ptr<T>> (transaction_a, table_a, nano::db_val<Val> (hash));
-		if (existing == nano::store_iterator<nano::block_hash, std::shared_ptr<T>> (nullptr))
-		{
-			existing = make_iterator<nano::block_hash, std::shared_ptr<T>> (transaction_a, table_a);
-		}
-		auto end (nano::store_iterator<nano::block_hash, std::shared_ptr<T>> (nullptr));
-		debug_assert (existing != end);
-		return block_get (transaction_a, nano::block_hash (existing->first));
-	}
+	int const version{ 19 };
 
 	template <typename Key, typename Value>
 	nano::store_iterator<Key, Value> make_iterator (nano::transaction const & transaction_a, tables table_a) const
@@ -815,22 +724,11 @@ protected:
 		return static_cast<Derived_Store const &> (*this).template make_iterator<Key, Value> (transaction_a, table_a, key);
 	}
 
-	nano::db_val<Val> block_raw_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_type & type_a) const
+	nano::db_val<Val> block_raw_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
 	{
 		nano::db_val<Val> result;
-		// Table lookups are ordered by match probability
-		nano::block_type block_types[]{ nano::block_type::state, nano::block_type::send, nano::block_type::receive, nano::block_type::open, nano::block_type::change };
-		for (auto current_type : block_types)
-		{
-			auto db_val (block_raw_get_by_type (transaction_a, hash_a, current_type));
-			if (db_val.is_initialized ())
-			{
-				type_a = current_type;
-				result = db_val.get ();
-				break;
-			}
-		}
-
+		auto status = get (transaction_a, tables::blocks, hash_a, result);
+		release_assert (success (status) || not_found (status));
 		return result;
 	}
 
@@ -839,79 +737,10 @@ protected:
 		return entry_size_a - nano::block_sideband::size (type_a);
 	}
 
-	boost::optional<nano::db_val<Val>> block_raw_get_by_type (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_type & type_a) const
+	static nano::block_type block_type_from_raw (void * data_a)
 	{
-		nano::db_val<Val> value;
-		nano::db_val<Val> hash (hash_a);
-		int status = status_code_not_found ();
-		switch (type_a)
-		{
-			case nano::block_type::send:
-			{
-				status = get (transaction_a, tables::send_blocks, hash, value);
-				break;
-			}
-			case nano::block_type::receive:
-			{
-				status = get (transaction_a, tables::receive_blocks, hash, value);
-				break;
-			}
-			case nano::block_type::open:
-			{
-				status = get (transaction_a, tables::open_blocks, hash, value);
-				break;
-			}
-			case nano::block_type::change:
-			{
-				status = get (transaction_a, tables::change_blocks, hash, value);
-				break;
-			}
-			case nano::block_type::state:
-			{
-				status = get (transaction_a, tables::state_blocks, hash, value);
-				break;
-			}
-			case nano::block_type::invalid:
-			case nano::block_type::not_a_block:
-			{
-				break;
-			}
-		}
-
-		release_assert (success (status) || not_found (status));
-		boost::optional<nano::db_val<Val>> result;
-		if (success (status))
-		{
-			result = value;
-		}
-		return result;
-	}
-
-	tables block_database (nano::block_type type_a)
-	{
-		tables result = tables::frontiers;
-		switch (type_a)
-		{
-			case nano::block_type::send:
-				result = tables::send_blocks;
-				break;
-			case nano::block_type::receive:
-				result = tables::receive_blocks;
-				break;
-			case nano::block_type::open:
-				result = tables::open_blocks;
-				break;
-			case nano::block_type::change:
-				result = tables::change_blocks;
-				break;
-			case nano::block_type::state:
-				result = tables::state_blocks;
-				break;
-			default:
-				debug_assert (false);
-				break;
-		}
-		return result;
+		// The block type is the first byte
+		return static_cast<nano::block_type> ((reinterpret_cast<uint8_t const *> (data_a))[0]);
 	}
 
 	size_t count (nano::transaction const & transaction_a, std::initializer_list<tables> dbs_a) const
@@ -962,12 +791,12 @@ public:
 	void fill_value (nano::block const & block_a)
 	{
 		auto hash (block_a.hash ());
-		nano::block_type type;
-		auto value (store.block_raw_get (transaction, block_a.previous (), type));
+		auto value (store.block_raw_get (transaction, block_a.previous ()));
 		debug_assert (value.size () != 0);
+		auto type = store.block_type_from_raw (value.data ());
 		std::vector<uint8_t> data (static_cast<uint8_t *> (value.data ()), static_cast<uint8_t *> (value.data ()) + value.size ());
 		std::copy (hash.bytes.begin (), hash.bytes.end (), data.begin () + store.block_successor_offset (transaction, value.size (), type));
-		store.block_raw_put (transaction, data, type, block_a.previous ());
+		store.block_raw_put (transaction, data, block_a.previous ());
 	}
 	void send_block (nano::send_block const & block_a) override
 	{

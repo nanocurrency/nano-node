@@ -115,10 +115,10 @@ rep_crawler (*this),
 warmed_up (0),
 block_processor (*this, write_database_queue),
 // clang-format off
-block_processor_thread ([this]() {
-	nano::thread_role::set (nano::thread_role::name::block_processing);
-	this->block_processor.process_blocks ();
-}),
+	block_processor_thread([this]() {
+	nano::thread_role::set(nano::thread_role::name::block_processing);
+	this->block_processor.process_blocks();
+		}),
 // clang-format on
 online_reps (ledger, network_params, config.online_weight_minimum.number ()),
 votes_cache (wallets),
@@ -365,7 +365,7 @@ node_seq (seq)
 		if (!is_initialized)
 		{
 			release_assert (!flags.read_only);
-			auto transaction (store.tx_begin_write ({ tables::accounts, tables::cached_counts, tables::confirmation_height, tables::frontiers, tables::open_blocks }));
+			auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::cached_counts, tables::confirmation_height, tables::frontiers }));
 			// Store was empty meaning we just created it, add the genesis block
 			store.initialize (transaction, genesis, ledger.cache);
 		}
@@ -521,20 +521,24 @@ bool nano::node::copy_with_compaction (boost::filesystem::path const & destinati
 void nano::node::process_fork (nano::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a, uint64_t const modified_a)
 {
 	auto root (block_a->root ());
-	if (!store.block_exists (transaction_a, block_a->type (), block_a->hash ()) && store.root_exists (transaction_a, block_a->root ()))
+	if (!store.block_exists (transaction_a, block_a->hash ()) && store.root_exists (transaction_a, block_a->root ()))
 	{
 		std::shared_ptr<nano::block> ledger_block (ledger.forked_block (transaction_a, *block_a));
 		if (ledger_block && !block_confirmed_or_being_confirmed (transaction_a, ledger_block->hash ()) && (ledger.can_vote (transaction_a, *ledger_block) || modified_a < nano::seconds_since_epoch () - 300 || !block_arrival.recent (block_a->hash ())))
 		{
 			std::weak_ptr<nano::node> this_w (shared_from_this ());
-			auto election = active.insert (ledger_block, boost::none, [this_w, root](std::shared_ptr<nano::block>) {
+			auto election = active.insert (ledger_block, boost::none, [this_w, root, root_block_type = block_a->type ()](std::shared_ptr<nano::block>) {
 				if (auto this_l = this_w.lock ())
 				{
 					auto attempt (this_l->bootstrap_initiator.current_attempt ());
 					if (attempt && attempt->mode == nano::bootstrap_mode::legacy)
 					{
 						auto transaction (this_l->store.tx_begin_read ());
-						auto account (this_l->ledger.store.frontier_get (transaction, root));
+						nano::account account{ 0 };
+						if (root_block_type == nano::block_type::receive || root_block_type == nano::block_type::send || root_block_type == nano::block_type::change || root_block_type == nano::block_type::open)
+						{
+							account = this_l->ledger.store.frontier_get (transaction, root);
+						}
 						if (!account.is_zero ())
 						{
 							this_l->bootstrap_initiator.connections->requeue_pull (nano::pull_info (account, root, root, attempt->incremental_id));
@@ -596,7 +600,7 @@ void nano::node::process_active (std::shared_ptr<nano::block> const & incoming)
 
 nano::process_return nano::node::process (nano::block & block_a)
 {
-	auto transaction (store.tx_begin_write ({ tables::accounts, tables::cached_counts, tables::change_blocks, tables::frontiers, tables::open_blocks, tables::pending, tables::receive_blocks, tables::representation, tables::send_blocks, tables::state_blocks }, { tables::confirmation_height }));
+	auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::cached_counts, tables::frontiers, tables::pending }, { tables::confirmation_height }));
 	auto result (ledger.process (transaction, block_a));
 	return result;
 }
@@ -611,7 +615,7 @@ nano::process_return nano::node::process_local (std::shared_ptr<nano::block> con
 	block_processor.wait_write ();
 	// Process block
 	block_post_events post_events ([& store = store] { return store.tx_begin_read (); });
-	auto transaction (store.tx_begin_write ({ tables::accounts, tables::cached_counts, tables::change_blocks, tables::frontiers, tables::open_blocks, tables::pending, tables::receive_blocks, tables::representation, tables::send_blocks, tables::state_blocks }, { tables::confirmation_height }));
+	auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::cached_counts, tables::frontiers, tables::pending }, { tables::confirmation_height }));
 	return block_processor.process_one (transaction, post_events, info, work_watcher_a, nano::block_origin::local);
 }
 
@@ -1263,7 +1267,7 @@ void nano::node::process_confirmed (nano::election_status const & status_a, uint
 	auto block_a (status_a.winner);
 	auto hash (block_a->hash ());
 	const auto num_iters = (config.block_processor_batch_max_time / network_params.node.process_confirmed_interval) * 4;
-	if (ledger.block_exists (block_a->type (), hash))
+	if (ledger.block_exists (hash))
 	{
 		confirmation_height_processor.add (hash);
 	}
@@ -1397,14 +1401,14 @@ void nano::node::epoch_upgrader_impl (nano::private_key const & prv_a, nano::epo
 	{
 	};
 	// clang-format off
-	boost::multi_index_container<account_upgrade_item,
-	boost::multi_index::indexed_by<
-		boost::multi_index::ordered_non_unique<boost::multi_index::tag<modified_tag>,
-			boost::multi_index::member<account_upgrade_item, uint64_t, &account_upgrade_item::modified>,
-			std::greater<uint64_t>>,
-		boost::multi_index::hashed_unique<boost::multi_index::tag<account_tag>,
-			boost::multi_index::member<account_upgrade_item, nano::account, &account_upgrade_item::account>>>>
-	accounts_list;
+			boost::multi_index_container<account_upgrade_item,
+				boost::multi_index::indexed_by<
+				boost::multi_index::ordered_non_unique<boost::multi_index::tag<modified_tag>,
+				boost::multi_index::member<account_upgrade_item, uint64_t, &account_upgrade_item::modified>,
+				std::greater<uint64_t>>,
+				boost::multi_index::hashed_unique<boost::multi_index::tag<account_tag>,
+				boost::multi_index::member<account_upgrade_item, nano::account, &account_upgrade_item::account>>>>
+				accounts_list;
 	// clang-format on
 
 	bool finished_upgrade (false);
@@ -1431,7 +1435,7 @@ void nano::node::epoch_upgrader_impl (nano::private_key const & prv_a, nano::epo
 			}
 
 			/* Upgrade accounts
-			Repeat until accounts with previous epoch exist in latest table */
+					Repeat until accounts with previous epoch exist in latest table */
 			std::atomic<uint64_t> upgraded_accounts (0);
 			uint64_t workers (0);
 			uint64_t attempts (0);
@@ -1646,8 +1650,8 @@ work (1)
 	boost::system::error_code error_chmod;
 
 	/*
-	 * @warning May throw a filesystem exception
-	 */
+			 * @warning May throw a filesystem exception
+			 */
 	boost::filesystem::create_directories (path_a);
 	nano::set_secure_perm_directory (path_a, error_chmod);
 	nano::daemon_config daemon_config (path_a);

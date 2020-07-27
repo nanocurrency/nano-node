@@ -74,7 +74,7 @@ nano::rocksdb_store::~rocksdb_store ()
 
 void nano::rocksdb_store::open (bool & error_a, boost::filesystem::path const & path_a, bool open_read_only_a)
 {
-	std::initializer_list<const char *> names{ rocksdb::kDefaultColumnFamilyName.c_str (), "frontiers", "accounts", "send", "receive", "open", "change", "state_blocks", "pending", "representation", "unchecked", "vote", "online_weight", "meta", "peers", "cached_counts", "confirmation_height" };
+	std::initializer_list<const char *> names{ rocksdb::kDefaultColumnFamilyName.c_str (), "frontiers", "accounts", "blocks", "pending", "representation", "unchecked", "vote", "online_weight", "meta", "peers", "cached_counts", "confirmation_height" };
 	std::vector<rocksdb::ColumnFamilyDescriptor> column_families;
 	for (const auto & cf_name : names)
 	{
@@ -159,20 +159,10 @@ rocksdb::ColumnFamilyHandle * nano::rocksdb_store::table_to_column_family (table
 			return get_handle ("frontiers");
 		case tables::accounts:
 			return get_handle ("accounts");
-		case tables::send_blocks:
-			return get_handle ("send");
-		case tables::receive_blocks:
-			return get_handle ("receive");
-		case tables::open_blocks:
-			return get_handle ("open");
-		case tables::change_blocks:
-			return get_handle ("change");
-		case tables::state_blocks:
-			return get_handle ("state_blocks");
+		case tables::blocks:
+			return get_handle ("blocks");
 		case tables::pending:
 			return get_handle ("pending");
-		case tables::representation:
-			return get_handle ("representation");
 		case tables::unchecked:
 			return get_handle ("unchecked");
 		case tables::vote:
@@ -269,11 +259,7 @@ bool nano::rocksdb_store::is_caching_counts (nano::tables table_a) const
 {
 	switch (table_a)
 	{
-		case tables::send_blocks:
-		case tables::receive_blocks:
-		case tables::open_blocks:
-		case tables::change_blocks:
-		case tables::state_blocks:
+		case tables::blocks:
 			return true;
 		default:
 			return false;
@@ -473,10 +459,7 @@ rocksdb::Options nano::rocksdb_store::get_db_options () const
 	db_options.OptimizeLevelStyleCompaction ();
 
 	// Adds a separate write queue for memtable/WAL
-	db_options.enable_pipelined_write = rocksdb_config.enable_pipelined_write;
-
-	// Total size of memtables across column families. This can be used to manage the total memory used by memtables.
-	db_options.db_write_buffer_size = rocksdb_config.total_memtable_size * 1024 * 1024ULL;
+	db_options.enable_pipelined_write = true;
 
 	return db_options;
 }
@@ -486,21 +469,17 @@ rocksdb::BlockBasedTableOptions nano::rocksdb_store::get_table_options () const
 	rocksdb::BlockBasedTableOptions table_options;
 
 	// Block cache for reads
-	table_options.block_cache = rocksdb::NewLRUCache (rocksdb_config.block_cache * 1024 * 1024ULL);
+	table_options.block_cache = rocksdb::NewLRUCache (1024ULL * 1024 * base_block_cache_size * rocksdb_config.memory_multiplier);
 
 	// Bloom filter to help with point reads
-	auto bloom_filter_bits = rocksdb_config.bloom_filter_bits;
-	if (bloom_filter_bits > 0)
-	{
-		table_options.filter_policy.reset (rocksdb::NewBloomFilterPolicy (bloom_filter_bits, false));
-	}
+	auto bloom_filter_bits = 10;
+	table_options.filter_policy.reset (rocksdb::NewBloomFilterPolicy (bloom_filter_bits, false));
 
 	// Increasing block_size decreases memory usage and space amplification, but increases read amplification.
-	table_options.block_size = rocksdb_config.block_size * 1024ULL;
+	table_options.block_size = 16 * 1024ULL;
 
-	// Whether index and filter blocks are stored in block_cache. These settings should be synced
-	table_options.cache_index_and_filter_blocks = rocksdb_config.cache_index_and_filter_blocks;
-	table_options.pin_l0_filter_and_index_blocks_in_cache = rocksdb_config.cache_index_and_filter_blocks;
+	// Whether index and filter blocks are stored in block_cache
+	table_options.pin_l0_filter_and_index_blocks_in_cache = true;
 
 	return table_options;
 }
@@ -514,7 +493,7 @@ rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_cf_options () const
 	cf_options.level0_file_num_compaction_trigger = 4;
 
 	// L1 size, compaction is triggered for L0 at this size (4 SST files in L1)
-	cf_options.max_bytes_for_level_base = 1024ULL * 1024 * 4 * rocksdb_config.memtable_size;
+	cf_options.max_bytes_for_level_base = 1024ULL * 1024 * 4 * rocksdb_config.memory_multiplier * base_memtable_size;
 
 	// Each level is a multiple of the above. If L1 is 512MB. L2 will be 512 * 8 = 2GB. L3 will be 2GB * 8 = 16GB, and so on...
 	cf_options.max_bytes_for_level_multiplier = 8;
@@ -523,23 +502,23 @@ rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_cf_options () const
 	cf_options.ttl = 1 * 24 * 60 * 60;
 
 	// Size of level 1 sst files
-	cf_options.target_file_size_base = 1024ULL * 1024 * rocksdb_config.memtable_size;
+	cf_options.target_file_size_base = 1024ULL * 1024 * rocksdb_config.memory_multiplier * base_memtable_size;
 
 	// Size of each memtable
-	cf_options.write_buffer_size = 1024ULL * 1024 * rocksdb_config.memtable_size;
+	cf_options.write_buffer_size = 1024ULL * 1024 * rocksdb_config.memory_multiplier * base_memtable_size;
 
 	// Size target of levels are changed dynamically based on size of the last level
 	cf_options.level_compaction_dynamic_level_bytes = true;
 
-	// Number of memtables to keep in memory (1 active, rest inactive/immutable)
-	cf_options.max_write_buffer_number = rocksdb_config.num_memtables;
+	// Number of memtables to keep in memory (1 active, 1 inactive)
+	cf_options.max_write_buffer_number = 2;
 
 	return cf_options;
 }
 
 std::vector<nano::tables> nano::rocksdb_store::all_tables () const
 {
-	return std::vector<nano::tables>{ tables::accounts, tables::cached_counts, tables::change_blocks, tables::confirmation_height, tables::frontiers, tables::meta, tables::online_weight, tables::open_blocks, tables::peers, tables::pending, tables::receive_blocks, tables::representation, tables::send_blocks, tables::state_blocks, tables::unchecked, tables::vote };
+	return std::vector<nano::tables>{ tables::accounts, tables::blocks, tables::cached_counts, tables::confirmation_height, tables::frontiers, tables::meta, tables::online_weight, tables::peers, tables::pending, tables::unchecked, tables::vote };
 }
 
 bool nano::rocksdb_store::copy_db (boost::filesystem::path const & destination_path)

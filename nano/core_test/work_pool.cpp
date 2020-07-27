@@ -85,7 +85,7 @@ TEST (work, opencl)
 	nano::logger_mt logger;
 	bool error (false);
 	nano::opencl_environment environment (error);
-	ASSERT_FALSE (error);
+	ASSERT_TRUE (!error || !nano::opencl_loaded);
 	if (!environment.platforms.empty () && !environment.platforms.begin ()->devices.empty ())
 	{
 		nano::opencl_config config (0, 0, 16 * 1024);

@@ -1,4 +1,5 @@
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/cli.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/nano_node/daemon.hpp>
 #include <nano/node/cli.hpp>
@@ -68,7 +69,7 @@ int main (int argc, char * const * argv)
 	description.add_options ()
 		("help", "Print out options")
 		("version", "Prints out version")
-		("config", boost::program_options::value<std::vector<std::string>>()->multitoken(), "Pass node configuration values. This takes precedence over any values in the configuration file. This option can be repeated multiple times.")
+		("config", boost::program_options::value<std::vector<nano::config_key_value_pair>>()->multitoken(), "Pass node configuration values. This takes precedence over any values in the configuration file. This option can be repeated multiple times.")
 		("daemon", "Start node daemon")
 		("compare_rep_weights", "Display a summarized comparison between the hardcoded bootstrap weights and representative weights from the ledger. Full comparison is output to logs")
 		("debug_block_count", "Display the number of block")
@@ -312,7 +313,7 @@ int main (int argc, char * const * argv)
 			auto inactive_node = nano::default_inactive_node (data_path, vm);
 			auto node = inactive_node->node;
 			auto transaction (node->store.tx_begin_read ());
-			std::cout << boost::str (boost::format ("Block count: %1%\n") % node->store.block_count (transaction).sum ());
+			std::cout << boost::str (boost::format ("Block count: %1%\n") % node->store.block_count (transaction));
 		}
 		else if (vm.count ("debug_bootstrap_generate"))
 		{
@@ -1012,7 +1013,7 @@ int main (int argc, char * const * argv)
 			{
 				std::this_thread::sleep_for (std::chrono::milliseconds (10));
 				auto transaction (node->store.tx_begin_read ());
-				block_count = node->store.block_count (transaction).sum ();
+				block_count = node->store.block_count (transaction);
 			}
 			auto end (std::chrono::high_resolution_clock::now ());
 			auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());
@@ -1530,7 +1531,7 @@ int main (int argc, char * const * argv)
 							{
 								// State receive
 								block_details_error = !sideband.details.is_receive || sideband.details.is_send || sideband.details.is_epoch;
-								block_details_error |= !node->store.source_exists (transaction, block->link ());
+								block_details_error |= !node->store.block_exists (transaction, block->link ());
 							}
 						}
 					}
@@ -1628,7 +1629,7 @@ int main (int argc, char * const * argv)
 			}
 
 			// Validate total block count
-			auto ledger_block_count (node->store.block_count (transaction).sum ());
+			auto ledger_block_count (node->store.block_count (transaction));
 			if (block_count != ledger_block_count)
 			{
 				print_error_message (boost::str (boost::format ("Incorrect total block count. Blocks validated %1%. Block count in database: %2%\n") % block_count % ledger_block_count));
@@ -1787,7 +1788,7 @@ int main (int argc, char * const * argv)
 			{
 				std::this_thread::sleep_for (std::chrono::milliseconds (50));
 				auto transaction_2 (node.node->store.tx_begin_read ());
-				block_count_2 = node.node->store.block_count (transaction_2).sum ();
+				block_count_2 = node.node->store.block_count (transaction_2);
 			}
 			auto end (std::chrono::high_resolution_clock::now ());
 			auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());
