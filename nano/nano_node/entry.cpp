@@ -1741,6 +1741,7 @@ int main (int argc, char * const * argv)
 			auto begin (std::chrono::high_resolution_clock::now ());
 			uint64_t block_count (0);
 			size_t count (0);
+			std::deque<nano::unchecked_info> epoch_open_blocks;
 			{
 				auto inactive_node = nano::default_inactive_node (data_path, vm);
 				auto source_node = inactive_node->node;
@@ -1765,6 +1766,11 @@ int main (int argc, char * const * argv)
 							}
 							nano::unchecked_info unchecked_info (block, account, 0, nano::signature_verification::unknown);
 							node.node->block_processor.add (unchecked_info);
+							if (block->type () == nano::block_type::state && block->previous ().is_zero () && source_node->ledger.is_epoch_link (block->link ()))
+							{
+								// Epoch open blocks can be rejected without processed pending blocks to account, push it later again
+								epoch_open_blocks.push_back (unchecked_info);
+							}
 							// Retrieving previous block hash
 							hash = block->previous ();
 						}
@@ -1774,7 +1780,15 @@ int main (int argc, char * const * argv)
 			nano::timer<std::chrono::seconds> timer_l (nano::timer_state::started);
 			while (node.node->ledger.cache.block_count != block_count)
 			{
-				std::this_thread::sleep_for (std::chrono::milliseconds (50));
+				std::this_thread::sleep_for (std::chrono::milliseconds (500));
+				// Add epoch open blocks again if required
+				if (node.node->block_processor.size () == 0)
+				{
+					for (auto & unchecked_info : epoch_open_blocks)
+					{
+						node.node->block_processor.add (unchecked_info);
+					}
+				}
 				// Message each 60 seconds
 				if (timer_l.after_deadline (std::chrono::seconds (60)))
 				{
