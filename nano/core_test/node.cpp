@@ -66,6 +66,15 @@ TEST (node, block_store_path_failure)
 	node->stop ();
 }
 
+TEST (node_DeathTest, readonly_block_store_not_exist)
+{
+	// For ASSERT_DEATH_IF_SUPPORTED
+	testing::FLAGS_gtest_death_test_style = "threadsafe";
+
+	// This is a read-only node with no ledger file
+	ASSERT_EXIT (nano::inactive_node (nano::unique_path (), nano::inactive_node_flag_defaults ()), ::testing::ExitedWithCode (1), "");
+}
+
 TEST (node, password_fanout)
 {
 	auto service (boost::make_shared<boost::asio::io_context> ());
