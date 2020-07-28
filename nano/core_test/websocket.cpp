@@ -288,7 +288,7 @@ TEST (websocket, confirmation_options)
 		ASSERT_EQ (1, election_info.count ("duration"));
 		ASSERT_EQ (1, election_info.count ("request_count"));
 		ASSERT_EQ (1, election_info.count ("voters"));
-		ASSERT_GE (1, election_info.get<unsigned> ("blocks"));
+		ASSERT_GE (1U, election_info.get<unsigned> ("blocks"));
 		// Make sure tally and time are non-zero.
 		ASSERT_NE ("0", tally);
 		ASSERT_NE ("0", time);
@@ -574,7 +574,7 @@ TEST (websocket, work)
 
 	auto & contents = event.get_child ("message");
 	ASSERT_EQ (contents.get<std::string> ("success"), "true");
-	ASSERT_LT (contents.get<unsigned> ("duration"), 10000);
+	ASSERT_LT (contents.get<unsigned> ("duration"), 10000U);
 
 	ASSERT_EQ (1, contents.count ("request"));
 	auto & request = contents.get_child ("request");
@@ -709,8 +709,8 @@ TEST (websocket, bootstrap_exited)
 	ASSERT_EQ (contents.get<std::string> ("reason"), "exited");
 	ASSERT_EQ (contents.get<std::string> ("id"), "123abc");
 	ASSERT_EQ (contents.get<std::string> ("mode"), "legacy");
-	ASSERT_EQ (contents.get<unsigned> ("total_blocks"), 0);
-	ASSERT_LT (contents.get<unsigned> ("duration"), 15000);
+	ASSERT_EQ (contents.get<unsigned> ("total_blocks"), 0U);
+	ASSERT_LT (contents.get<unsigned> ("duration"), 15000U);
 }
 
 // Tests sending keepalive

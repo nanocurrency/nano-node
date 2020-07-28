@@ -74,14 +74,14 @@ uint32_t nano::bootstrap_attempt_lazy::lazy_batch_size ()
 	auto result (node->network_params.bootstrap.lazy_max_pull_blocks);
 	if (total_blocks > nano::bootstrap_limits::lazy_batch_pull_count_resize_blocks_limit && lazy_blocks_count != 0)
 	{
-		double lazy_blocks_ratio (total_blocks / lazy_blocks_count);
+		auto lazy_blocks_ratio (static_cast<double> (total_blocks / lazy_blocks_count));
 		if (lazy_blocks_ratio > nano::bootstrap_limits::lazy_batch_pull_count_resize_ratio)
 		{
 			// Increasing blocks ratio weight as more important (^3). Small batch count should lower blocks ratio below target
 			double lazy_blocks_factor (std::pow (lazy_blocks_ratio / nano::bootstrap_limits::lazy_batch_pull_count_resize_ratio, 3.0));
 			// Decreasing total block count weight as less important (sqrt)
 			double total_blocks_factor (std::sqrt (total_blocks / nano::bootstrap_limits::lazy_batch_pull_count_resize_blocks_limit));
-			uint32_t batch_count_min (node->network_params.bootstrap.lazy_max_pull_blocks / (lazy_blocks_factor * total_blocks_factor));
+			uint32_t batch_count_min (node->network_params.bootstrap.lazy_max_pull_blocks / static_cast<uint32_t> (lazy_blocks_factor * total_blocks_factor));
 			result = std::max (node->network_params.bootstrap.lazy_min_pull_blocks, batch_count_min);
 		}
 	}
@@ -90,7 +90,7 @@ uint32_t nano::bootstrap_attempt_lazy::lazy_batch_size ()
 
 void nano::bootstrap_attempt_lazy::lazy_pull_flush (nano::unique_lock<std::mutex> & lock_a)
 {
-	static size_t const max_pulls (nano::bootstrap_limits::bootstrap_connection_scale_target_blocks * 3);
+	static size_t const max_pulls (static_cast<size_t> (nano::bootstrap_limits::bootstrap_connection_scale_target_blocks) * 3);
 	if (pulling < max_pulls)
 	{
 		debug_assert (node->network_params.bootstrap.lazy_max_pull_blocks <= std::numeric_limits<nano::pull_info::count_t>::max ());

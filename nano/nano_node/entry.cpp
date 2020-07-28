@@ -522,7 +522,6 @@ int main (int argc, char * const * argv)
 			auto total_time (std::chrono::duration_cast<std::chrono::nanoseconds> (std::chrono::steady_clock::now () - start).count ());
 			uint64_t average (total_time / count);
 			std::cout << "Average validation time: " << std::to_string (average) << " ns (" << std::to_string (static_cast<unsigned> (count * 1e9 / total_time)) << " validations/s)" << std::endl;
-			return average;
 		}
 		else if (vm.count ("debug_opencl"))
 		{
@@ -1396,7 +1395,7 @@ int main (int argc, char * const * argv)
 			};
 
 			auto start_threads = [node, &threads_count, &threads, &mutex, &condition, &finished](const auto & function_a, auto & deque_a) {
-				for (auto i (0); i < threads_count; ++i)
+				for (auto i (0U); i < threads_count; ++i)
 				{
 					threads.emplace_back ([&function_a, node, &mutex, &condition, &finished, &deque_a]() {
 						auto transaction (node->store.tx_begin_read ());

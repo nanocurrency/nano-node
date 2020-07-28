@@ -523,7 +523,7 @@ bool nano::bootstrap_attempt_legacy::request_frontier (nano::unique_lock<std::mu
 		}
 		else
 		{
-			account_count = frontier_pulls.size ();
+			account_count = nano::narrow_cast<unsigned int> (frontier_pulls.size ());
 			// Shuffle pulls
 			release_assert (std::numeric_limits<CryptoPP::word32>::max () > frontier_pulls.size ());
 			if (!frontier_pulls.empty ())
