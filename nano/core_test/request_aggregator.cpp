@@ -110,8 +110,8 @@ TEST (request_aggregator, two)
 	ASSERT_TIMELY (3s, 0 == node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_cannot_vote));
 	ASSERT_TIMELY (3s, 2 == node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
 	// Make sure the cached vote is for both hashes
-	auto vote2 (node.votes_cache.find (genesis.hash ()));
-	auto vote1 (node.votes_cache.find (send1->hash ()));
+	auto vote2 (node.history.votes (genesis.open->root (), genesis.hash ()));
+	auto vote1 (node.history.votes (send1->root (), send1->hash ()));
 	ASSERT_EQ (1, vote1.size ());
 	ASSERT_EQ (1, vote2.size ());
 	ASSERT_EQ (vote1.front (), vote2.front ());

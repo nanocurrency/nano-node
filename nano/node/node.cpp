@@ -121,11 +121,10 @@ block_processor_thread ([this]() {
 }),
 // clang-format on
 online_reps (ledger, network_params, config.online_weight_minimum.number ()),
-votes_cache (wallets),
 vote_uniquer (block_uniquer),
 confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, logger, node_initialized_latch, flags.confirmation_height_processor_mode),
 active (*this, confirmation_height_processor),
-aggregator (network_params.network, config, stats, votes_cache, ledger, wallets, active),
+aggregator (network_params.network, config, stats, history, ledger, wallets, active),
 payment_observer_processor (observers.blocks),
 wallets (wallets_store.init_error (), *this),
 startup_time (std::chrono::steady_clock::now ()),
@@ -362,10 +361,9 @@ node_seq (seq)
 		}
 
 		nano::genesis genesis;
-		if (!is_initialized)
+		if (!is_initialized && !flags.read_only)
 		{
-			release_assert (!flags.read_only);
-			auto transaction (store.tx_begin_write ({ tables::accounts, tables::cached_counts, tables::confirmation_height, tables::frontiers, tables::open_blocks }));
+			auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::cached_counts, tables::confirmation_height, tables::frontiers }));
 			// Store was empty meaning we just created it, add the genesis block
 			store.initialize (transaction, genesis, ledger.cache);
 		}
@@ -373,7 +371,8 @@ node_seq (seq)
 		if (!ledger.block_exists (genesis.hash ()))
 		{
 			std::stringstream ss;
-			ss << "Genesis block not found. Make sure the node network ID is correct.";
+			ss << "Genesis block not found. This commonly indicates a configuration issue, check that the --network or --data_path command line arguments are correct, "
+			      "and also the ledger backend node config option. If using a read-only CLI command a ledger must already exist, start the node with --daemon first.";
 			if (network_params.network.is_beta_network ())
 			{
 				ss << " Beta network may have reset, try clearing database files";
@@ -518,23 +517,27 @@ bool nano::node::copy_with_compaction (boost::filesystem::path const & destinati
 	return store.copy_db (destination);
 }
 
-void nano::node::process_fork (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a)
+void nano::node::process_fork (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, uint64_t modified_a)
 {
 	auto root (block_a->root ());
-	if (!store.block_exists (transaction_a, block_a->type (), block_a->hash ()) && store.root_exists (transaction_a, block_a->root ()))
+	if (!store.block_exists (transaction_a, block_a->hash ()) && store.root_exists (transaction_a, block_a->root ()))
 	{
 		std::shared_ptr<nano::block> ledger_block (ledger.forked_block (transaction_a, *block_a));
-		if (ledger_block && !block_confirmed_or_being_confirmed (transaction_a, ledger_block->hash ()) && ledger.can_vote (transaction_a, *ledger_block))
+		if (ledger_block && !block_confirmed_or_being_confirmed (transaction_a, ledger_block->hash ()) && (ledger.can_vote (transaction_a, *ledger_block) || modified_a < nano::seconds_since_epoch () - 300 || !block_arrival.recent (block_a->hash ())))
 		{
 			std::weak_ptr<nano::node> this_w (shared_from_this ());
-			auto election = active.insert (ledger_block, boost::none, [this_w, root](std::shared_ptr<nano::block>) {
+			auto election = active.insert (ledger_block, boost::none, [this_w, root, root_block_type = block_a->type ()](std::shared_ptr<nano::block>) {
 				if (auto this_l = this_w.lock ())
 				{
 					auto attempt (this_l->bootstrap_initiator.current_attempt ());
 					if (attempt && attempt->mode == nano::bootstrap_mode::legacy)
 					{
 						auto transaction (this_l->store.tx_begin_read ());
-						auto account (this_l->ledger.store.frontier_get (transaction, root));
+						nano::account account{ 0 };
+						if (root_block_type == nano::block_type::receive || root_block_type == nano::block_type::send || root_block_type == nano::block_type::change || root_block_type == nano::block_type::open)
+						{
+							account = this_l->ledger.store.frontier_get (transaction, root);
+						}
 						if (!account.is_zero ())
 						{
 							this_l->bootstrap_initiator.connections->requeue_pull (nano::pull_info (account, root, root, attempt->incremental_id));
@@ -578,7 +581,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (collect_container_info (node.block_processor, "block_processor"));
 	composite->add_component (collect_container_info (node.block_arrival, "block_arrival"));
 	composite->add_component (collect_container_info (node.online_reps, "online_reps"));
-	composite->add_component (collect_container_info (node.votes_cache, "votes_cache"));
+	composite->add_component (collect_container_info (node.history, "history"));
 	composite->add_component (collect_container_info (node.block_uniquer, "block_uniquer"));
 	composite->add_component (collect_container_info (node.vote_uniquer, "vote_uniquer"));
 	composite->add_component (collect_container_info (node.confirmation_height_processor, "confirmation_height_processor"));
@@ -596,7 +599,7 @@ void nano::node::process_active (std::shared_ptr<nano::block> incoming)
 
 nano::process_return nano::node::process (nano::block & block_a)
 {
-	auto transaction (store.tx_begin_write ({ tables::accounts, tables::cached_counts, tables::change_blocks, tables::frontiers, tables::open_blocks, tables::pending, tables::receive_blocks, tables::representation, tables::send_blocks, tables::state_blocks }, { tables::confirmation_height }));
+	auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::cached_counts, tables::frontiers, tables::pending }, { tables::confirmation_height }));
 	auto result (ledger.process (transaction, block_a));
 	return result;
 }
@@ -611,7 +614,7 @@ nano::process_return nano::node::process_local (std::shared_ptr<nano::block> blo
 	block_processor.wait_write ();
 	// Process block
 	block_post_events events;
-	auto transaction (store.tx_begin_write ({ tables::accounts, tables::cached_counts, tables::change_blocks, tables::frontiers, tables::open_blocks, tables::pending, tables::receive_blocks, tables::representation, tables::send_blocks, tables::state_blocks }, { tables::confirmation_height }));
+	auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::cached_counts, tables::frontiers, tables::pending }, { tables::confirmation_height }));
 	return block_processor.process_one (transaction, events, info, work_watcher_a, nano::block_origin::local);
 }
 
@@ -1263,7 +1266,7 @@ void nano::node::process_confirmed (nano::election_status const & status_a, uint
 	auto block_a (status_a.winner);
 	auto hash (block_a->hash ());
 	const auto num_iters = (config.block_processor_batch_max_time / network_params.node.process_confirmed_interval) * 4;
-	if (ledger.block_exists (block_a->type (), hash))
+	if (ledger.block_exists (hash))
 	{
 		confirmation_height_processor.add (hash);
 	}

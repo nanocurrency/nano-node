@@ -1247,18 +1247,6 @@ void nano::json_handler::block_count ()
 	response_errors ();
 }
 
-void nano::json_handler::block_count_type ()
-{
-	auto transaction (node.store.tx_begin_read ());
-	nano::block_counts count (node.store.block_count (transaction));
-	response_l.put ("send", std::to_string (count.send));
-	response_l.put ("receive", std::to_string (count.receive));
-	response_l.put ("open", std::to_string (count.open));
-	response_l.put ("change", std::to_string (count.change));
-	response_l.put ("state", std::to_string (count.state));
-	response_errors ();
-}
-
 void nano::json_handler::block_create ()
 {
 	std::string type (request.get<std::string> ("type"));
@@ -5048,7 +5036,6 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("blocks_info", &nano::json_handler::blocks_info);
 	no_arg_funcs.emplace ("block_account", &nano::json_handler::block_account);
 	no_arg_funcs.emplace ("block_count", &nano::json_handler::block_count);
-	no_arg_funcs.emplace ("block_count_type", &nano::json_handler::block_count_type);
 	no_arg_funcs.emplace ("block_create", &nano::json_handler::block_create);
 	no_arg_funcs.emplace ("block_hash", &nano::json_handler::block_hash);
 	no_arg_funcs.emplace ("bootstrap", &nano::json_handler::bootstrap);

@@ -1,3 +1,4 @@
+#include <nano/lib/cli.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/cli.hpp>
 #include <nano/node/common.hpp>
@@ -170,7 +171,7 @@ std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_o
 	auto config (vm.find ("config"));
 	if (config != vm.end ())
 	{
-		flags_a.config_overrides = config->second.as<std::vector<std::string>> ();
+		flags_a.config_overrides = nano::config_overrides (config->second.as<std::vector<nano::config_key_value_pair>> ());
 	}
 	return ec;
 }
@@ -614,6 +615,14 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		nano::uint256_union junk2 (0);
 		nano::kdf kdf;
 		kdf.phs (junk1, "", junk2);
+		std::cout << "Testing time retrieval latency... " << std::flush;
+		nano::timer<std::chrono::nanoseconds> timer (nano::timer_state::started);
+		auto const iters = 2'000'000;
+		for (auto i (0); i < iters; ++i)
+		{
+			(void)std::chrono::steady_clock::now ();
+		}
+		std::cout << timer.stop ().count () / iters << " " << timer.unit () << std::endl;
 		std::cout << "Dumping OpenCL information" << std::endl;
 		bool error (false);
 		nano::opencl_environment environment (error);

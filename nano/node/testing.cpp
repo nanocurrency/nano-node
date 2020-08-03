@@ -226,9 +226,24 @@ void nano::system::deadline_set (std::chrono::duration<double, std::nano> const 
 
 std::error_code nano::system::poll (std::chrono::nanoseconds const & wait_time)
 {
-	std::error_code ec;
+#if NANO_ASIO_HANDLER_TRACKING == 0
 	io_ctx.run_one_for (wait_time);
+#else
+	nano::timer<> timer;
+	timer.start ();
+	auto count = io_ctx.poll_one ();
+	if (count == 0)
+	{
+		std::this_thread::sleep_for (wait_time);
+	}
+	else if (count == 1 && timer.since_start ().count () >= NANO_ASIO_HANDLER_TRACKING)
+	{
+		auto timestamp = std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ();
+		std::cout << (boost::format ("[%1%] io_thread held for %2%ms") % timestamp % timer.since_start ().count ()).str () << std::endl;
+	}
+#endif
 
+	std::error_code ec;
 	if (std::chrono::steady_clock::now () > deadline)
 	{
 		ec = nano::error_system::deadline_expired;
@@ -476,14 +491,11 @@ void nano::system::generate_mass_activity (uint32_t count_a, nano::node & node_a
 			auto now (std::chrono::steady_clock::now ());
 			auto us (std::chrono::duration_cast<std::chrono::microseconds> (now - previous).count ());
 			uint64_t count (0);
-			uint64_t state (0);
 			{
 				auto transaction (node_a.store.tx_begin_read ());
-				auto block_counts (node_a.store.block_count (transaction));
-				count = block_counts.sum ();
-				state = block_counts.state;
+				count = node_a.store.block_count (transaction);
 			}
-			std::cerr << boost::str (boost::format ("Mass activity iteration %1% us %2% us/t %3% state: %4% old: %5%\n") % i % us % (us / 256) % state % (count - state));
+			std::cerr << boost::str (boost::format ("Mass activity iteration %1% us %2% us/t %3% block count: %4%\n") % i % us % (us / 256) % count);
 			previous = now;
 		}
 		generate_activity (node_a, accounts);

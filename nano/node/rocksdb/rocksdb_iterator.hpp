@@ -16,10 +16,10 @@ inline bool is_read (nano::transaction const & transaction_a)
 	return (dynamic_cast<const nano::read_transaction *> (&transaction_a) != nullptr);
 }
 
-inline rocksdb::ReadOptions const & snapshot_options (nano::transaction const & transaction_a)
+inline rocksdb::ReadOptions & snapshot_options (nano::transaction const & transaction_a)
 {
 	debug_assert (is_read (transaction_a));
-	return *static_cast<const rocksdb::ReadOptions *> (transaction_a.get_handle ());
+	return *static_cast<rocksdb::ReadOptions *> (transaction_a.get_handle ());
 }
 }
 
@@ -31,50 +31,33 @@ template <typename T, typename U>
 class rocksdb_iterator : public store_iterator_impl<T, U>
 {
 public:
-	rocksdb_iterator (rocksdb::DB * db, nano::transaction const & transaction_a, rocksdb::ColumnFamilyHandle * handle_a)
+	rocksdb_iterator () = default;
+
+	rocksdb_iterator (rocksdb::DB * db, nano::transaction const & transaction_a, rocksdb::ColumnFamilyHandle * handle_a, rocksdb_val const * val_a)
 	{
+		// Don't fill the block cache for any blocks read as a result of an iterator
 		rocksdb::Iterator * iter;
 		if (is_read (transaction_a))
 		{
-			iter = db->NewIterator (snapshot_options (transaction_a), handle_a);
+			auto & read_options = snapshot_options (transaction_a);
+			read_options.fill_cache = false;
+			cursor.reset (db->NewIterator (read_options, handle_a));
 		}
 		else
 		{
 			rocksdb::ReadOptions ropts;
 			ropts.fill_cache = false;
-			iter = tx (transaction_a)->GetIterator (ropts, handle_a);
+			cursor.reset (tx (transaction_a)->GetIterator (ropts, handle_a));
 		}
 
-		cursor.reset (iter);
-		cursor->SeekToFirst ();
-
-		if (cursor->Valid ())
+		if (val_a)
 		{
-			current.first.value = cursor->key ();
-			current.second.value = cursor->value ();
+			cursor->Seek (*val_a);
 		}
 		else
 		{
-			clear ();
+			cursor->SeekToFirst ();
 		}
-	}
-
-	rocksdb_iterator () = default;
-
-	rocksdb_iterator (rocksdb::DB * db, nano::transaction const & transaction_a, rocksdb::ColumnFamilyHandle * handle_a, rocksdb_val const & val_a)
-	{
-		rocksdb::Iterator * iter;
-		if (is_read (transaction_a))
-		{
-			iter = db->NewIterator (snapshot_options (transaction_a), handle_a);
-		}
-		else
-		{
-			iter = tx (transaction_a)->GetIterator (rocksdb::ReadOptions (), handle_a);
-		}
-
-		cursor.reset (iter);
-		cursor->Seek (val_a);
 
 		if (cursor->Valid ())
 		{
@@ -85,6 +68,11 @@ public:
 		{
 			clear ();
 		}
+	}
+
+	rocksdb_iterator (rocksdb::DB * db, nano::transaction const & transaction_a, rocksdb::ColumnFamilyHandle * handle_a) :
+	rocksdb_iterator (db, transaction_a, handle_a, nullptr)
+	{
 	}
 
 	rocksdb_iterator (nano::rocksdb_iterator<T, U> && other_a)

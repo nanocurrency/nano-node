@@ -66,6 +66,15 @@ TEST (node, block_store_path_failure)
 	node->stop ();
 }
 
+TEST (node_DeathTest, readonly_block_store_not_exist)
+{
+	// For ASSERT_DEATH_IF_SUPPORTED
+	testing::FLAGS_gtest_death_test_style = "threadsafe";
+
+	// This is a read-only node with no ledger file
+	ASSERT_EXIT (nano::inactive_node (nano::unique_path (), nano::inactive_node_flag_defaults ()), ::testing::ExitedWithCode (1), "");
+}
+
 TEST (node, password_fanout)
 {
 	auto service (boost::make_shared<boost::asio::io_context> ());
@@ -2714,9 +2723,9 @@ TEST (node, local_votes_cache)
 		ASSERT_NO_ERROR (system.poll (node.aggregator.max_delay));
 	}
 	wait_vote_sequence (3);
-	ASSERT_TIMELY (3s, node.votes_cache.find (send1->hash ()).empty ());
-	ASSERT_FALSE (node.votes_cache.find (send2->hash ()).empty ());
-	ASSERT_FALSE (node.votes_cache.find (send3->hash ()).empty ());
+	ASSERT_FALSE (node.history.votes (send1->root (), send1->hash ()).empty ());
+	ASSERT_FALSE (node.history.votes (send2->root (), send2->hash ()).empty ());
+	ASSERT_FALSE (node.history.votes (send3->root (), send3->hash ()).empty ());
 }
 
 TEST (node, local_votes_cache_batch)
@@ -2737,7 +2746,6 @@ TEST (node, local_votes_cache_batch)
 	             .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
 	             .work (*node.work_generate_blocking (genesis.hash ()))
 	             .build_shared ();
-	std::vector<std::shared_ptr<nano::block>> blocks{ genesis.open, send1 };
 	std::vector<std::pair<nano::block_hash, nano::root>> batch{ { genesis.open->hash (), genesis.open->root () }, { send1->hash (), send1->root () } };
 	{
 		auto transaction (node.store.tx_begin_write ());
@@ -2749,15 +2757,15 @@ TEST (node, local_votes_cache_batch)
 	node.network.process_message (message, channel);
 	ASSERT_TIMELY (3s, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out) == 1);
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
-	ASSERT_FALSE (node.votes_cache.find (genesis.open->hash ()).empty ());
-	ASSERT_FALSE (node.votes_cache.find (send1->hash ()).empty ());
+	ASSERT_FALSE (node.history.votes (genesis.open->root (), genesis.open->hash ()).empty ());
+	ASSERT_FALSE (node.history.votes (send1->root (), send1->hash ()).empty ());
 	// Only one confirm_ack should be sent if all hashes are part of the same vote
 	node.network.process_message (message, channel);
 	ASSERT_TIMELY (3s, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out) == 2);
 	ASSERT_EQ (2, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
 	// Test when votes are different
-	node.votes_cache.remove (genesis.open->hash ());
-	node.votes_cache.remove (send1->hash ());
+	node.history.erase (genesis.open->root ());
+	node.history.erase (send1->root ());
 	node.network.process_message (nano::confirm_req (genesis.open->hash (), genesis.open->root ()), channel);
 	ASSERT_TIMELY (3s, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out) == 3);
 	ASSERT_EQ (3, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
@@ -2782,8 +2790,8 @@ TEST (node, local_votes_cache_generate_new_vote)
 	nano::confirm_req message1 (genesis.open);
 	auto channel (node.network.udp_channels.create (node.network.endpoint ()));
 	node.network.process_message (message1, channel);
-	ASSERT_TIMELY (3s, !node.votes_cache.find (genesis.open->hash ()).empty ());
-	auto votes1 (node.votes_cache.find (genesis.open->hash ()));
+	ASSERT_TIMELY (3s, !node.history.votes (genesis.open->root (), genesis.open->hash ()).empty ());
+	auto votes1 (node.history.votes (genesis.open->root (), genesis.open->hash ()));
 	ASSERT_EQ (1, votes1.size ());
 	ASSERT_EQ (1, votes1[0]->blocks.size ());
 	ASSERT_EQ (genesis.open->hash (), boost::get<nano::block_hash> (votes1[0]->blocks[0]));
@@ -2808,8 +2816,8 @@ TEST (node, local_votes_cache_generate_new_vote)
 	std::vector<std::pair<nano::block_hash, nano::root>> roots_hashes{ std::make_pair (genesis.open->hash (), genesis.open->root ()), std::make_pair (send1->hash (), send1->root ()) };
 	nano::confirm_req message2 (roots_hashes);
 	node.network.process_message (message2, channel);
-	ASSERT_TIMELY (3s, !node.votes_cache.find (send1->hash ()).empty ());
-	auto votes2 (node.votes_cache.find (send1->hash ()));
+	ASSERT_TIMELY (3s, !node.history.votes (send1->root (), send1->hash ()).empty ());
+	auto votes2 (node.history.votes (send1->root (), send1->hash ()));
 	ASSERT_EQ (1, votes2.size ());
 	ASSERT_EQ (1, votes2[0]->blocks.size ());
 	{
@@ -2819,36 +2827,10 @@ TEST (node, local_votes_cache_generate_new_vote)
 		ASSERT_EQ (current_vote->sequence, 2);
 		ASSERT_EQ (current_vote, votes2[0]);
 	}
-	ASSERT_FALSE (node.votes_cache.find (genesis.open->hash ()).empty ());
-	ASSERT_FALSE (node.votes_cache.find (send1->hash ()).empty ());
+	ASSERT_FALSE (node.history.votes (genesis.open->root (), genesis.open->hash ()).empty ());
+	ASSERT_FALSE (node.history.votes (send1->root (), send1->hash ()).empty ());
 	// First generated + again cached + new generated
 	ASSERT_EQ (3, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
-}
-
-// Tests that the max cache size is inversely proportional to the number of voting accounts
-TEST (node, local_votes_cache_size)
-{
-	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
-	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	node_config.vote_minimum = 0; // wallet will pick up the second account as voting even if unopened
-	auto & node (*system.add_node (node_config));
-	ASSERT_EQ (node.network_params.voting.max_cache, 2); // effective cache size is 1 with 2 voting accounts
-	nano::keypair key;
-	auto & wallet (*system.wallet (0));
-	wallet.insert_adhoc (nano::test_genesis_key.prv);
-	wallet.insert_adhoc (nano::keypair ().prv);
-	ASSERT_EQ (2, node.wallets.reps ().voting);
-	auto transaction (node.store.tx_begin_read ());
-	auto vote1 (node.store.vote_generate (transaction, nano::test_genesis_key.pub, nano::test_genesis_key.prv, { nano::genesis_hash }));
-	nano::block_hash hash (1);
-	auto vote2 (node.store.vote_generate (transaction, nano::test_genesis_key.pub, nano::test_genesis_key.prv, { hash }));
-	node.votes_cache.add (vote1);
-	node.votes_cache.add (vote2);
-	auto existing2 (node.votes_cache.find (hash));
-	ASSERT_EQ (1, existing2.size ());
-	ASSERT_EQ (vote2, existing2.front ());
-	ASSERT_EQ (0, node.votes_cache.find (nano::genesis_hash).size ());
 }
 
 TEST (node, vote_republish)
@@ -2889,8 +2871,6 @@ TEST (node, vote_republish)
 	ASSERT_TIMELY (10s, node1.balance (key2.pub) == node1.config.receive_minimum.number () * 2);
 }
 
-namespace nano
-{
 TEST (node, vote_by_hash_bundle)
 {
 	// Keep max_hashes above system to ensure it is kept in scope as votes can be added during system destruction
@@ -2909,13 +2889,12 @@ TEST (node, vote_by_hash_bundle)
 
 	for (int i = 1; i <= 200; i++)
 	{
-		system.nodes[0]->active.generator.add (nano::genesis_hash);
+		system.nodes[0]->active.generator.add (nano::genesis_account, nano::genesis_hash);
 	}
 
 	// Verify that bundling occurs. While reaching 12 should be common on most hardware in release mode,
 	// we set this low enough to allow the test to pass on CI/with santitizers.
 	ASSERT_TIMELY (20s, max_hashes.load () >= 3);
-}
 }
 
 TEST (node, vote_by_hash_republish)
@@ -4002,13 +3981,13 @@ TEST (node, rollback_vote_self)
 			ASSERT_EQ (election->status.winner, fork);
 		}
 		// Even without the rollback being finished, the aggregator must reply with a vote for the new winner, not the old one
-		ASSERT_TRUE (node.votes_cache.find (send2->hash ()).empty ());
-		ASSERT_TRUE (node.votes_cache.find (fork->hash ()).empty ());
+		ASSERT_TRUE (node.history.votes (send2->root (), send2->hash ()).empty ());
+		ASSERT_TRUE (node.history.votes (fork->root (), fork->hash ()).empty ());
 		auto & node2 = *system.add_node ();
 		auto channel (node.network.udp_channels.create (node2.network.endpoint ()));
 		node.aggregator.add (channel, { { send2->hash (), send2->root () } });
-		ASSERT_TIMELY (5s, !node.votes_cache.find (fork->hash ()).empty ());
-		ASSERT_TRUE (node.votes_cache.find (send2->hash ()).empty ());
+		ASSERT_TIMELY (5s, !node.history.votes (fork->root (), fork->hash ()).empty ());
+		ASSERT_TRUE (node.history.votes (send2->root (), send2->hash ()).empty ());
 
 		// Going out of the scope allows the rollback to complete
 	}

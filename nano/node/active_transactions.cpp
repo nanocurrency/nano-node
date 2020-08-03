@@ -20,7 +20,7 @@ confirmation_height_processor (confirmation_height_processor_a),
 node (node_a),
 multipliers_cb (20, 1.),
 trended_active_multiplier (1.0),
-generator (node_a.config, node_a.ledger, node_a.wallets, node_a.vote_processor, node_a.votes_cache, node_a.network),
+generator (node_a.config, node_a.ledger, node_a.wallets, node_a.vote_processor, node_a.history, node_a.network),
 check_all_elections_period (node_a.network_params.network.is_test_network () ? 10ms : 5s),
 election_time_to_live (node_a.network_params.network.is_test_network () ? 0s : 2s),
 prioritized_cutoff (std::max<size_t> (1, node_a.config.active_elections_size / 10)),
@@ -124,7 +124,7 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 	auto transaction = node.store.tx_begin_read ();
 
 	boost::optional<nano::election_status_type> election_status_type;
-	if (!confirmation_height_processor.is_processing_block (block_a->hash ()))
+	if (!confirmation_height_processor.is_processing_added_block (block_a->hash ()))
 	{
 		election_status_type = confirm_block (transaction, block_a);
 	}
