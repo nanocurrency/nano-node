@@ -1741,13 +1741,14 @@ int main (int argc, char * const * argv)
 			auto begin (std::chrono::high_resolution_clock::now ());
 			uint64_t block_count (0);
 			size_t count (0);
+			std::deque<nano::unchecked_info> epoch_open_blocks;
 			{
 				auto inactive_node = nano::default_inactive_node (data_path, vm);
-				auto node = inactive_node->node;
-				auto transaction (node->store.tx_begin_read ());
-				block_count = node->ledger.cache.block_count;
+				auto source_node = inactive_node->node;
+				auto transaction (source_node->store.tx_begin_read ());
+				block_count = source_node->ledger.cache.block_count;
 				std::cout << boost::str (boost::format ("Performing bootstrap emulation, %1% blocks in ledger...") % block_count) << std::endl;
-				for (auto i (node->store.latest_begin (transaction)), n (node->store.latest_end ()); i != n; ++i)
+				for (auto i (source_node->store.latest_begin (transaction)), n (source_node->store.latest_end ()); i != n; ++i)
 				{
 					nano::account const & account (i->first);
 					nano::account_info const & info (i->second);
@@ -1755,7 +1756,7 @@ int main (int argc, char * const * argv)
 					while (!hash.is_zero ())
 					{
 						// Retrieving block data
-						auto block (node->store.block_get_no_sideband (transaction, hash));
+						auto block (source_node->store.block_get_no_sideband (transaction, hash));
 						if (block != nullptr)
 						{
 							++count;
@@ -1764,7 +1765,12 @@ int main (int argc, char * const * argv)
 								std::cout << boost::str (boost::format ("%1% blocks retrieved") % count) << std::endl;
 							}
 							nano::unchecked_info unchecked_info (block, account, 0, nano::signature_verification::unknown);
-							node->block_processor.add (unchecked_info);
+							node.node->block_processor.add (unchecked_info);
+							if (block->type () == nano::block_type::state && block->previous ().is_zero () && source_node->ledger.is_epoch_link (block->link ()))
+							{
+								// Epoch open blocks can be rejected without processed pending blocks to account, push it later again
+								epoch_open_blocks.push_back (unchecked_info);
+							}
 							// Retrieving previous block hash
 							hash = block->previous ();
 						}
@@ -1774,7 +1780,15 @@ int main (int argc, char * const * argv)
 			nano::timer<std::chrono::seconds> timer_l (nano::timer_state::started);
 			while (node.node->ledger.cache.block_count != block_count)
 			{
-				std::this_thread::sleep_for (std::chrono::milliseconds (50));
+				std::this_thread::sleep_for (std::chrono::milliseconds (500));
+				// Add epoch open blocks again if required
+				if (node.node->block_processor.size () == 0)
+				{
+					for (auto & unchecked_info : epoch_open_blocks)
+					{
+						node.node->block_processor.add (unchecked_info);
+					}
+				}
 				// Message each 60 seconds
 				if (timer_l.after_deadline (std::chrono::seconds (60)))
 				{
