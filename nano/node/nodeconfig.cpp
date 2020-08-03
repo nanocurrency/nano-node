@@ -42,11 +42,13 @@ external_address (boost::asio::ip::address_v6{}.to_string ())
 			preconfigured_representatives.push_back (network_params.ledger.genesis_account);
 			break;
 		case nano::nano_networks::nano_beta_network:
+		{
 			preconfigured_peers.push_back (default_beta_peer_network);
 			nano::account offline_representative;
 			release_assert (!offline_representative.decode_account ("nano_1defau1t9off1ine9rep99999999999999999999999999999999wgmuzxxy"));
 			preconfigured_representatives.emplace_back (offline_representative);
 			break;
+		}
 		case nano::nano_networks::nano_live_network:
 			preconfigured_peers.push_back (default_live_peer_network);
 			preconfigured_representatives.emplace_back ("A30E0A32ED41C8607AA9212843392E853FCBCB4E7CB194E35C94F07F91DE59EF");
