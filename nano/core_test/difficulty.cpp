@@ -133,7 +133,7 @@ TEST (difficulty, network_constants)
 	ASSERT_NEAR (1., nano::difficulty::to_multiplier (full_thresholds.epoch_2, full_thresholds.base), 1e-10);
 
 	ASSERT_NEAR (1 / 64., nano::difficulty::to_multiplier (beta_thresholds.epoch_1, full_thresholds.epoch_1), 1e-10);
-	ASSERT_NEAR (2., nano::difficulty::to_multiplier (beta_thresholds.epoch_2, beta_thresholds.epoch_1), 1e-10);
+	ASSERT_NEAR (1., nano::difficulty::to_multiplier (beta_thresholds.epoch_2, beta_thresholds.epoch_1), 1e-10);
 	ASSERT_NEAR (1 / 2., nano::difficulty::to_multiplier (beta_thresholds.epoch_2_receive, beta_thresholds.epoch_1), 1e-10);
 	ASSERT_NEAR (1., nano::difficulty::to_multiplier (beta_thresholds.epoch_2_receive, beta_thresholds.entry), 1e-10);
 	ASSERT_NEAR (1., nano::difficulty::to_multiplier (beta_thresholds.epoch_2, beta_thresholds.base), 1e-10);
