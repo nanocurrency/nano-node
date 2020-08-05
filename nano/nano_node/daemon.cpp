@@ -51,7 +51,6 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 			return opencl->generate_work (version_a, root_a, difficulty_a, ticket_a);
 		}
 		                                                                                              : std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> (nullptr));
-		nano::alarm alarm (io_ctx);
 		try
 		{
 			// This avoid a blank prompt during any node initialization delays
@@ -59,7 +58,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 			std::cout << initialization_text << std::endl;
 			logger.always_log (initialization_text);
 
-			auto node (std::make_shared<nano::node> (io_ctx, data_path, alarm, config.node, opencl_work, flags));
+			auto node (std::make_shared<nano::node> (io_ctx, data_path, config.node, opencl_work, flags));
 			if (!node->init_error ())
 			{
 				auto network_label = node->network_params.network.get_current_network_as_string ();
@@ -110,9 +109,9 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 							std::cout << error.get_message () << std::endl;
 							std::exit (1);
 						}
-						rpc_handler = std::make_unique<nano::inprocess_rpc_handler> (*node, ipc_server, config.rpc, [&ipc_server, &alarm, &io_ctx]() {
+						rpc_handler = std::make_unique<nano::inprocess_rpc_handler> (*node, ipc_server, config.rpc, [&ipc_server, &workers = node->workers, &io_ctx]() {
 							ipc_server.stop ();
-							alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (3), [&io_ctx]() {
+							workers.add_delayed_task (std::chrono::steady_clock::now () + std::chrono::seconds (3), [&io_ctx]() {
 								io_ctx.stop ();
 							});
 						});

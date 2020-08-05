@@ -100,7 +100,7 @@ void nano::rep_crawler::ongoing_crawl ()
 	// Reduce crawl frequency when there's enough total peer weight
 	unsigned next_run_ms = node.network_params.network.is_test_network () ? 100 : sufficient_weight ? 7000 : 3000;
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.alarm.add (now + std::chrono::milliseconds (next_run_ms), [node_w, this]() {
+	node.workers.add_delayed_task (now + std::chrono::milliseconds (next_run_ms), [node_w, this]() {
 		if (auto node_l = node_w.lock ())
 		{
 			this->ongoing_crawl ();
@@ -157,7 +157,7 @@ void nano::rep_crawler::query (std::vector<std::shared_ptr<nano::transport::chan
 
 	// A representative must respond with a vote within the deadline
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [node_w, hash]() {
+	node.workers.add_delayed_task (std::chrono::steady_clock::now () + std::chrono::seconds (5), [node_w, hash]() {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->rep_crawler.remove (hash);

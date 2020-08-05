@@ -58,7 +58,7 @@ void nano::transport::channel_tcp::send_buffer (nano::shared_const_buffer const 
 	}
 	else if (callback_a)
 	{
-		node.background ([callback_a]() {
+		node.workers.push_task ([callback_a]() {
 			callback_a (boost::system::errc::make_error_code (boost::system::errc::not_supported), 0);
 		});
 	}
@@ -455,7 +455,7 @@ void nano::transport::tcp_channels::ongoing_keepalive ()
 		}
 	}
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.alarm.add (std::chrono::steady_clock::now () + node.network_params.node.half_period, [node_w]() {
+	node.workers.add_delayed_task (std::chrono::steady_clock::now () + node.network_params.node.half_period, [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
 			if (!node_l->network.tcp_channels.stopped)

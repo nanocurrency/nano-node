@@ -935,7 +935,7 @@ TEST (active_transactions, dropped_cleanup)
 
 	// Push a worker task to ensure the cleanup is already performed
 	std::atomic<bool> flag{ false };
-	node.worker.push_task ([&flag]() {
+	node.workers.push_task ([&flag]() {
 		flag = true;
 	});
 	ASSERT_TIMELY (5s, flag);

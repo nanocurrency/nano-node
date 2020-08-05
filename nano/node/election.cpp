@@ -533,7 +533,7 @@ void nano::election::cleanup ()
 		node.active.recently_dropped.add (winner_root);
 
 		// Clear network filter in another thread
-		node.worker.push_task ([node_l = node.shared (), blocks_l = std::move (blocks)]() {
+		node.workers.push_task ([node_l = node.shared (), blocks_l = std::move (blocks)]() {
 			for (auto const & block : blocks_l)
 			{
 				node_l->network.publish_filter.clear (block.second);

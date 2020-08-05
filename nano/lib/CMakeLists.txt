@@ -12,8 +12,6 @@ endif ()
 
 add_library (nano_lib
 	${platform_sources}
-	alarm.hpp
-	alarm.cpp
 	asio.hpp
 	asio.cpp
 	blockbuilders.hpp
@@ -71,9 +69,7 @@ add_library (nano_lib
 	walletconfig.hpp
 	walletconfig.cpp
 	work.hpp
-	work.cpp
-	worker.hpp
-	worker.cpp)
+	work.cpp)
 
 target_link_libraries (nano_lib
 	ed25519

@@ -307,7 +307,7 @@ void nano::transport::udp_channels::receive ()
 				}
 				if (!this->stopped)
 				{
-					this->node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() { this->receive (); });
+					this->node.workers.add_delayed_task (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() { this->receive (); });
 				}
 			}
 		}));
@@ -708,7 +708,7 @@ void nano::transport::udp_channels::ongoing_keepalive ()
 		channel->send (message);
 	}
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.alarm.add (std::chrono::steady_clock::now () + node.network_params.node.period, [node_w]() {
+	node.workers.add_delayed_task (std::chrono::steady_clock::now () + node.network_params.node.period, [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->network.udp_channels.ongoing_keepalive ();

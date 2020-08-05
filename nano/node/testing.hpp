@@ -47,7 +47,6 @@ public:
 	std::shared_ptr<nano::node> add_node (nano::node_flags = nano::node_flags (), nano::transport::transport_type = nano::transport::transport_type::tcp);
 	std::shared_ptr<nano::node> add_node (nano::node_config const &, nano::node_flags = nano::node_flags (), nano::transport::transport_type = nano::transport::transport_type::tcp);
 	boost::asio::io_context io_ctx;
-	nano::alarm alarm{ io_ctx };
 	std::vector<std::shared_ptr<nano::node>> nodes;
 	nano::logging logging;
 	nano::work_pool work{ std::max (std::thread::hardware_concurrency (), 1u) };

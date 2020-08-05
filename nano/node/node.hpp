@@ -1,9 +1,7 @@
 #pragma once
 
-#include <nano/lib/alarm.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/work.hpp>
-#include <nano/lib/worker.hpp>
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
@@ -87,13 +85,13 @@ std::unique_ptr<container_info_component> collect_container_info (rep_crawler & 
 class node final : public std::enable_shared_from_this<nano::node>
 {
 public:
-	node (boost::asio::io_context &, uint16_t, boost::filesystem::path const &, nano::alarm &, nano::logging const &, nano::work_pool &, nano::node_flags = nano::node_flags (), unsigned seq = 0);
-	node (boost::asio::io_context &, boost::filesystem::path const &, nano::alarm &, nano::node_config const &, nano::work_pool &, nano::node_flags = nano::node_flags (), unsigned seq = 0);
+	node (boost::asio::io_context &, uint16_t, boost::filesystem::path const &, nano::logging const &, nano::work_pool &, nano::node_flags = nano::node_flags (), unsigned seq = 0);
+	node (boost::asio::io_context &, boost::filesystem::path const &, nano::node_config const &, nano::work_pool &, nano::node_flags = nano::node_flags (), unsigned seq = 0);
 	~node ();
 	template <typename T>
 	void background (T action_a)
 	{
-		alarm.io_ctx.post (action_a);
+		io_ctx.post (action_a);
 	}
 	bool copy_with_compaction (boost::filesystem::path const &);
 	void keepalive (std::string const &, uint16_t);
@@ -148,16 +146,15 @@ public:
 	bool init_error () const;
 	bool epoch_upgrader (nano::private_key const &, nano::epoch, uint64_t, uint64_t);
 	std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> get_bootstrap_weights () const;
-	nano::worker worker;
 	nano::write_database_queue write_database_queue;
 	boost::asio::io_context & io_ctx;
 	boost::latch node_initialized_latch;
 	nano::network_params network_params;
 	nano::node_config config;
 	nano::stat stats;
+	nano::thread_pool workers;
 	std::shared_ptr<nano::websocket::listener> websocket_server;
 	nano::node_flags flags;
-	nano::alarm & alarm;
 	nano::work_pool & work;
 	nano::distributed_work_factory distributed_work;
 	nano::logger_mt logger;
@@ -222,7 +219,6 @@ public:
 	inactive_node (boost::filesystem::path const & path_a, nano::node_flags const & node_flags_a);
 	~inactive_node ();
 	std::shared_ptr<boost::asio::io_context> io_context;
-	nano::alarm alarm;
 	nano::work_pool work;
 	std::shared_ptr<nano::node> node;
 };

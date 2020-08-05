@@ -17,9 +17,8 @@ namespace mi = boost::multi_index;
 namespace nano
 {
 class network;
-class alarm;
-class worker;
 class stat;
+class thread_pool;
 namespace transport
 {
 	class channel;
@@ -60,7 +59,7 @@ public:
 class telemetry : public std::enable_shared_from_this<telemetry>
 {
 public:
-	telemetry (nano::network &, nano::alarm &, nano::worker &, nano::observer_set<nano::telemetry_data const &, nano::endpoint const &> &, nano::stat &, nano::network_params &, bool);
+	telemetry (nano::network &, nano::thread_pool &, nano::observer_set<nano::telemetry_data const &, nano::endpoint const &> &, nano::stat &, nano::network_params &, bool);
 	void start ();
 	void stop ();
 
@@ -104,8 +103,7 @@ private:
 	};
 
 	nano::network & network;
-	nano::alarm & alarm;
-	nano::worker & worker;
+	nano::thread_pool & workers;
 	nano::observer_set<nano::telemetry_data const &, nano::endpoint const &> & observers;
 	nano::stat & stats;
 	/* Important that this is a reference to the node network_params for tests which want to modify genesis block */

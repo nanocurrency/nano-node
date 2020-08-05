@@ -1,7 +1,10 @@
 #pragma once
 
+#include <nano/boost/asio/deadline_timer.hpp>
 #include <nano/boost/asio/executor_work_guard.hpp>
 #include <nano/boost/asio/io_context.hpp>
+#include <nano/boost/asio/steady_timer.hpp>
+#include <nano/boost/asio/thread_pool.hpp>
 #include <nano/lib/utility.hpp>
 
 #include <boost/thread/thread.hpp>
@@ -19,7 +22,6 @@ namespace thread_role
 		io,
 		work,
 		packet_processing,
-		alarm,
 		vote_processing,
 		block_processing,
 		request_loop,
@@ -157,5 +159,29 @@ public:
 
 private:
 	std::atomic<T> atomic;
+};
+
+class thread_pool final
+{
+public:
+	explicit thread_pool (unsigned, nano::thread_role::name);
+	~thread_pool ();
+
+	void push_task (std::function<void()>);
+
+	// Run a task at a certain point in time
+	void add_delayed_task (std::chrono::steady_clock::time_point const & expiry_time, std::function<void()> task);
+
+	void stop ();
+
+	unsigned get_num_threads () const;
+
+private:
+	std::mutex mutex;
+	std::atomic<bool> stopped{ false };
+	unsigned num_threads;
+	std::unique_ptr<boost::asio::thread_pool> thread_pool_m;
+
+	void set_thread_names (unsigned num_threads, nano::thread_role::name thread_name);
 };
 }
