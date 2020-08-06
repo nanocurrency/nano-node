@@ -34,12 +34,13 @@ class block_details
 
 public:
 	block_details () = default;
-	block_details (nano::epoch const epoch_a, bool const is_send_a, bool const is_receive_a, bool const is_epoch_a);
+	block_details (nano::epoch const epoch_a, nano::epoch const source_epoch_a, bool const is_send_a, bool const is_receive_a, bool const is_epoch_a);
 	static constexpr size_t size ();
 	bool operator== (block_details const & other_a) const;
 	void serialize (nano::stream &) const;
 	bool deserialize (nano::stream &);
 	nano::epoch epoch{ nano::epoch::epoch_0 };
+	nano::epoch source_epoch{ nano::epoch::epoch_0 };
 	bool is_send{ false };
 	bool is_receive{ false };
 	bool is_epoch{ false };
@@ -56,7 +57,7 @@ class block_sideband final
 public:
 	block_sideband () = default;
 	block_sideband (nano::account const &, nano::block_hash const &, nano::amount const &, uint64_t, uint64_t, nano::block_details const &);
-	block_sideband (nano::account const &, nano::block_hash const &, nano::amount const &, uint64_t, uint64_t, nano::epoch, bool is_send, bool is_receive, bool is_epoch);
+	block_sideband (nano::account const &, nano::block_hash const &, nano::amount const &, uint64_t, uint64_t, nano::epoch, nano::epoch, bool is_send, bool is_receive, bool is_epoch);
 	void serialize (nano::stream &, nano::block_type) const;
 	bool deserialize (nano::stream &, nano::block_type);
 	static size_t size (nano::block_type);

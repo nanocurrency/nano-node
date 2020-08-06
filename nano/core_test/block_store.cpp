@@ -43,25 +43,25 @@ TEST (block_store, construction)
 
 TEST (block_store, block_details)
 {
-	nano::block_details details_send (nano::epoch::epoch_0, true, false, false);
+	nano::block_details details_send (nano::epoch::epoch_0, nano::epoch::epoch_0, true, false, false);
 	ASSERT_TRUE (details_send.is_send);
 	ASSERT_FALSE (details_send.is_receive);
 	ASSERT_FALSE (details_send.is_epoch);
 	ASSERT_EQ (nano::epoch::epoch_0, details_send.epoch);
 
-	nano::block_details details_receive (nano::epoch::epoch_1, false, true, false);
+	nano::block_details details_receive (nano::epoch::epoch_1, nano::epoch::epoch_1, false, true, false);
 	ASSERT_FALSE (details_receive.is_send);
 	ASSERT_TRUE (details_receive.is_receive);
 	ASSERT_FALSE (details_receive.is_epoch);
 	ASSERT_EQ (nano::epoch::epoch_1, details_receive.epoch);
 
-	nano::block_details details_epoch (nano::epoch::epoch_2, false, false, true);
+	nano::block_details details_epoch (nano::epoch::epoch_2,  nano::epoch::epoch_2, false, false, true);
 	ASSERT_FALSE (details_epoch.is_send);
 	ASSERT_FALSE (details_epoch.is_receive);
 	ASSERT_TRUE (details_epoch.is_epoch);
 	ASSERT_EQ (nano::epoch::epoch_2, details_epoch.epoch);
 
-	nano::block_details details_none (nano::epoch::unspecified, false, false, false);
+	nano::block_details details_none (nano::epoch::unspecified,  nano::epoch::unspecified, false, false, false);
 	ASSERT_FALSE (details_none.is_send);
 	ASSERT_FALSE (details_none.is_receive);
 	ASSERT_FALSE (details_none.is_epoch);
@@ -72,6 +72,7 @@ TEST (block_store, block_details_serialization)
 {
 	nano::block_details details1;
 	details1.epoch = nano::epoch::epoch_2;
+	details1.source_epoch = nano::epoch::epoch_1;
 	details1.is_epoch = false;
 	details1.is_receive = true;
 	details1.is_send = false;
@@ -1879,7 +1880,7 @@ void write_sideband_v15 (nano::mdb_store & store_a, nano::transaction & transact
 
 	ASSERT_LE (block->sideband ().details.epoch, nano::epoch::max);
 	// Simulated by writing 0 on every of the most significant bits, leaving out epoch only, as if pre-upgrade
-	nano::block_sideband sideband_v15 (block->sideband ().account, block->sideband ().successor, block->sideband ().balance, block->sideband ().timestamp, block->sideband ().height, block->sideband ().details.epoch, false, false, false);
+	nano::block_sideband_v18 sideband_v15 (block->sideband ().account, block->sideband ().successor, block->sideband ().balance, block->sideband ().timestamp, block->sideband ().height, block->sideband ().details.epoch, false, false, false);
 	std::vector<uint8_t> data;
 	{
 		nano::vectorstream stream (data);
@@ -1895,12 +1896,14 @@ void write_block_w_sideband_v18 (nano::mdb_store & store_a, MDB_dbi database, na
 {
 	auto block = store_a.block_get (transaction_a, block_a.hash ());
 	ASSERT_NE (block, nullptr);
+	auto new_sideband (block->sideband ());
+	nano::block_sideband_v18 sideband_v18 (new_sideband.account, new_sideband.successor, new_sideband.balance, new_sideband.height, new_sideband.timestamp, new_sideband.details.epoch, new_sideband.details.is_send, new_sideband.details.is_receive, new_sideband.details.is_epoch);
 
 	std::vector<uint8_t> data;
 	{
 		nano::vectorstream stream (data);
 		block->serialize (stream);
-		block->sideband ().serialize (stream, block->type ());
+		sideband_v18.serialize (stream, block->type ());
 	}
 
 	MDB_val val{ data.size (), data.data () };

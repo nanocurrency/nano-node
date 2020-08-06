@@ -1446,7 +1446,7 @@ void nano::node::epoch_upgrader_impl (nano::private_key const & prv_a, nano::epo
 				if (!store.account_get (transaction, account, info) && info.epoch () < epoch_a)
 				{
 					++attempts;
-					auto difficulty (nano::work_threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true)));
+					auto difficulty (nano::work_threshold (nano::work_version::work_1, nano::block_details (epoch_a, nano::epoch::epoch_0, false, false, true)));
 					nano::root const & root (info.head);
 					std::shared_ptr<nano::block> epoch = builder.state ()
 					                                     .account (account)
@@ -1524,7 +1524,7 @@ void nano::node::epoch_upgrader_impl (nano::private_key const & prv_a, nano::epo
 					{
 						++attempts;
 						release_assert (nano::epochs::is_sequential (info.epoch, epoch_a));
-						auto difficulty (nano::work_threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true)));
+						auto difficulty (nano::work_threshold (nano::work_version::work_1, nano::block_details (epoch_a, nano::epoch::epoch_0, false, false, true)));
 						nano::root const & root (key.account);
 						nano::account const & account (key.account);
 						std::shared_ptr<nano::block> epoch = builder.state ()

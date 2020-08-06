@@ -408,8 +408,8 @@ TEST (active_transactions, prioritize_chains)
 	             .work (*system.work.generate (key2.pub))
 	             .build_shared ();
 
-	auto multiplier1 (nano::normalized_multiplier (nano::difficulty::to_multiplier (open2->difficulty (), nano::work_threshold (open2->work_version (), nano::block_details (nano::epoch::epoch_0, false, true, false))), node1.network_params.network.publish_thresholds.epoch_1));
-	auto multiplier2 (nano::normalized_multiplier (nano::difficulty::to_multiplier (send6->difficulty (), nano::work_threshold (open2->work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false))), node1.network_params.network.publish_thresholds.epoch_1));
+	auto multiplier1 (nano::normalized_multiplier (nano::difficulty::to_multiplier (open2->difficulty (), nano::work_threshold (open2->work_version (), nano::block_details (nano::epoch::epoch_0, nano::epoch::epoch_0, false, true, false))), node1.network_params.network.publish_thresholds.epoch_1));
+	auto multiplier2 (nano::normalized_multiplier (nano::difficulty::to_multiplier (send6->difficulty (), nano::work_threshold (open2->work_version (), nano::block_details (nano::epoch::epoch_0, nano::epoch::epoch_0, true, false, false))), node1.network_params.network.publish_thresholds.epoch_1));
 
 	node1.process_active (send1);
 	node1.process_active (open1);
@@ -665,7 +665,7 @@ TEST (active_transactions, update_difficulty)
 	             .work (*system.work.generate (genesis.hash ()))
 	             .build_shared ();
 	auto difficulty1 (send1->difficulty ());
-	auto multiplier1 (nano::normalized_multiplier (nano::difficulty::to_multiplier (difficulty1, nano::work_threshold (send1->work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false))), node1.network_params.network.publish_thresholds.epoch_1));
+	auto multiplier1 (nano::normalized_multiplier (nano::difficulty::to_multiplier (difficulty1, nano::work_threshold (send1->work_version (), nano::block_details (nano::epoch::epoch_0, nano::epoch::epoch_0, true, false, false))), node1.network_params.network.publish_thresholds.epoch_1));
 	auto send2 = builder.make_block ()
 	             .account (nano::test_genesis_key.pub)
 	             .previous (send1->hash ())
@@ -676,7 +676,7 @@ TEST (active_transactions, update_difficulty)
 	             .work (*system.work.generate (send1->hash ()))
 	             .build_shared ();
 	auto difficulty2 (send2->difficulty ());
-	auto multiplier2 (nano::normalized_multiplier (nano::difficulty::to_multiplier (difficulty2, nano::work_threshold (send2->work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false))), node1.network_params.network.publish_thresholds.epoch_1));
+	auto multiplier2 (nano::normalized_multiplier (nano::difficulty::to_multiplier (difficulty2, nano::work_threshold (send2->work_version (), nano::block_details (nano::epoch::epoch_0, nano::epoch::epoch_0, true, false, false))), node1.network_params.network.publish_thresholds.epoch_1));
 	node1.process_active (send1);
 	node1.process_active (send2);
 	node1.block_processor.flush ();
@@ -909,7 +909,7 @@ TEST (active_transactions, dropped_cleanup)
 
 	nano::genesis genesis;
 	auto block = genesis.open;
-	block->sideband_set (nano::block_sideband (nano::genesis_account, 0, nano::genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false));
+	block->sideband_set (nano::block_sideband (nano::genesis_account, 0, nano::genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, nano::epoch::epoch_0, false, false, false));
 
 	// Add to network filter to ensure proper cleanup after the election is dropped
 	std::vector<uint8_t> block_bytes;
@@ -1322,7 +1322,7 @@ TEST (active_transactions, election_difficulty_update_fork)
 	ASSERT_GT (multiplier_receive, multiplier_send);
 
 	EXPECT_FALSE (fork_receive->has_sideband ());
-	auto threshold = nano::work_threshold (fork_receive->work_version (), nano::block_details (nano::epoch::epoch_2, false, true, false));
+	auto threshold = nano::work_threshold (fork_receive->work_version (), nano::block_details (nano::epoch::epoch_2, nano::epoch::epoch_2, false, true, false));
 	auto denormalized = nano::denormalized_multiplier (multiplier_receive, threshold);
 	ASSERT_NEAR (nano::difficulty::to_multiplier (fork_receive->difficulty (), threshold), denormalized, 1e-10);
 

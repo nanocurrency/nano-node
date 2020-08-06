@@ -573,7 +573,7 @@ TEST (rpc, send_epoch_2)
 
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv, false);
 
-	auto target_difficulty = nano::work_threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_2, true, false, false));
+	auto target_difficulty = nano::work_threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_2, nano::epoch::epoch_0, true, false, false));
 	ASSERT_LT (node.network_params.network.publish_thresholds.entry, target_difficulty);
 	auto min_difficulty = node.network_params.network.publish_thresholds.entry;
 
@@ -1970,7 +1970,7 @@ TEST (rpc, process_difficulty_update_flood)
 
 	// Update block work
 	node.work_generate_blocking (send, send.difficulty ());
-	auto expected_multiplier = nano::normalized_multiplier (nano::difficulty::to_multiplier (send.difficulty (), nano::work_threshold (send.work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false))), node.network_params.network.publish_thresholds.epoch_1);
+	auto expected_multiplier = nano::normalized_multiplier (nano::difficulty::to_multiplier (send.difficulty (), nano::work_threshold (send.work_version (), nano::block_details (nano::epoch::epoch_0, nano::epoch::epoch_0, true, false, false))), node.network_params.network.publish_thresholds.epoch_1);
 
 	{
 		std::string json;
@@ -2920,7 +2920,7 @@ TEST (rpc, work_generate_block_ledger_epoch_2)
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
 	rpc.start ();
 	nano::state_block block (key.pub, 0, nano::test_genesis_key.pub, nano::Gxrb_ratio, send_block->hash (), key.prv, key.pub, 0);
-	auto threshold (nano::work_threshold (block.work_version (), nano::block_details (nano::epoch::epoch_2, false, true, false)));
+	auto threshold (nano::work_threshold (block.work_version (), nano::block_details (nano::epoch::epoch_2, nano::epoch::epoch_2, false, true, false)));
 	block.block_work_set (system.work_generate_limited (block.root (), 1, threshold - 1));
 	nano::block_hash hash (block.root ());
 	boost::property_tree::ptree request;
@@ -3467,7 +3467,7 @@ TEST (rpc, account_representative_set_epoch_2)
 
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv, false);
 
-	auto target_difficulty = nano::work_threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_2, false, false, false));
+	auto target_difficulty = nano::work_threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_2, nano::epoch::epoch_0, false, false, false));
 	ASSERT_LT (node.network_params.network.publish_thresholds.entry, target_difficulty);
 	auto min_difficulty = node.network_params.network.publish_thresholds.entry;
 
@@ -5441,7 +5441,7 @@ TEST (rpc, block_create_state_open)
 	ASSERT_EQ (nano::block_type::state, state_block->type ());
 	ASSERT_EQ (state_hash, state_block->hash ().to_string ());
 	auto difficulty (state_block->difficulty ());
-	ASSERT_GT (difficulty, nano::work_threshold (state_block->work_version (), nano::block_details (nano::epoch::epoch_0, false, true, false)));
+	ASSERT_GT (difficulty, nano::work_threshold (state_block->work_version (), nano::block_details (nano::epoch::epoch_0, nano::epoch::epoch_0, false, true, false)));
 	ASSERT_TRUE (node->latest (key.pub).is_zero ());
 	scoped_thread_name_io.reset ();
 	auto process_result (node->process (*state_block));
@@ -5536,7 +5536,7 @@ TEST (rpc, block_create_open_epoch_v2)
 	ASSERT_EQ (nano::block_type::state, state_block->type ());
 	ASSERT_EQ (state_hash, state_block->hash ().to_string ());
 	auto difficulty (state_block->difficulty ());
-	ASSERT_GT (difficulty, nano::work_threshold (state_block->work_version (), nano::block_details (nano::epoch::epoch_2, false, true, false)));
+	ASSERT_GT (difficulty, nano::work_threshold (state_block->work_version (), nano::block_details (nano::epoch::epoch_2, nano::epoch::epoch_2, false, true, false)));
 	ASSERT_TRUE (node->latest (key.pub).is_zero ());
 	scoped_thread_name_io.reset ();
 	auto process_result (node->process (*state_block));
@@ -5590,7 +5590,7 @@ TEST (rpc, block_create_receive_epoch_v2)
 	ASSERT_EQ (nano::block_type::state, state_block->type ());
 	ASSERT_EQ (state_hash, state_block->hash ().to_string ());
 	auto difficulty (state_block->difficulty ());
-	ASSERT_GT (difficulty, nano::work_threshold (state_block->work_version (), nano::block_details (nano::epoch::epoch_2, false, true, false)));
+	ASSERT_GT (difficulty, nano::work_threshold (state_block->work_version (), nano::block_details (nano::epoch::epoch_2, nano::epoch::epoch_2, false, true, false)));
 	scoped_thread_name_io.reset ();
 	auto process_result (node->process (*state_block));
 	ASSERT_EQ (nano::process_result::progress, process_result.code);
@@ -5642,7 +5642,7 @@ TEST (rpc, block_create_send_epoch_v2)
 	ASSERT_EQ (nano::block_type::state, state_block->type ());
 	ASSERT_EQ (state_hash, state_block->hash ().to_string ());
 	auto difficulty (state_block->difficulty ());
-	ASSERT_GT (difficulty, nano::work_threshold (state_block->work_version (), nano::block_details (nano::epoch::epoch_2, true, false, false)));
+	ASSERT_GT (difficulty, nano::work_threshold (state_block->work_version (), nano::block_details (nano::epoch::epoch_2, nano::epoch::epoch_0, true, false, false)));
 	scoped_thread_name_io.reset ();
 	auto process_result (node->process (*state_block));
 	ASSERT_EQ (nano::process_result::progress, process_result.code);

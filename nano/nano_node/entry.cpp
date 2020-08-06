@@ -1532,6 +1532,8 @@ int main (int argc, char * const * argv)
 								// State receive
 								block_details_error = !sideband.details.is_receive || sideband.details.is_send || sideband.details.is_epoch;
 								block_details_error |= !node->store.block_exists (transaction, block->link ());
+								// Check link epoch version
+								block_details_error |= sideband.details.source_epoch != node->store.block_version (transaction, block->link ());
 							}
 						}
 					}

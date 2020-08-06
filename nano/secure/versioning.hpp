@@ -55,4 +55,41 @@ public:
 	std::shared_ptr<nano::state_block> state_block;
 	nano::block_sideband_v14 sideband;
 };
+class block_details_v18
+{
+	static_assert (std::is_same<std::underlying_type<nano::epoch>::type, uint8_t> (), "Epoch enum is not the proper type");
+	static_assert (static_cast<uint8_t> (nano::epoch::max) < (1 << 5), "Epoch max is too large for the sideband");
+
+public:
+	block_details_v18 () = default;
+	block_details_v18 (nano::epoch const epoch_a, bool const is_send_a, bool const is_receive_a, bool const is_epoch_a);
+	static constexpr size_t size ();
+	bool operator== (block_details_v18 const & other_a) const;
+	void serialize (nano::stream &) const;
+	bool deserialize (nano::stream &);
+	nano::epoch epoch{ nano::epoch::epoch_0 };
+	bool is_send{ false };
+	bool is_receive{ false };
+	bool is_epoch{ false };
+
+private:
+	uint8_t packed () const;
+	void unpack (uint8_t);
+};
+class block_sideband_v18 final
+{
+public:
+	block_sideband_v18 () = default;
+	block_sideband_v18 (nano::account const &, nano::block_hash const &, nano::amount const &, uint64_t, uint64_t, nano::block_details_v18 const &);
+	block_sideband_v18 (nano::account const &, nano::block_hash const &, nano::amount const &, uint64_t, uint64_t, nano::epoch, bool is_send, bool is_receive, bool is_epoch);
+	void serialize (nano::stream &, nano::block_type) const;
+	bool deserialize (nano::stream &, nano::block_type);
+	static size_t size (nano::block_type);
+	nano::block_hash successor{ 0 };
+	nano::account account{ 0 };
+	nano::amount balance{ 0 };
+	uint64_t height{ 0 };
+	uint64_t timestamp{ 0 };
+	nano::block_details_v18 details;
+};
 }
