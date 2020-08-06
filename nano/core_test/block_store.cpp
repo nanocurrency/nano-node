@@ -55,13 +55,13 @@ TEST (block_store, block_details)
 	ASSERT_FALSE (details_receive.is_epoch);
 	ASSERT_EQ (nano::epoch::epoch_1, details_receive.epoch);
 
-	nano::block_details details_epoch (nano::epoch::epoch_2,  nano::epoch::epoch_2, false, false, true);
+	nano::block_details details_epoch (nano::epoch::epoch_2, nano::epoch::epoch_2, false, false, true);
 	ASSERT_FALSE (details_epoch.is_send);
 	ASSERT_FALSE (details_epoch.is_receive);
 	ASSERT_TRUE (details_epoch.is_epoch);
 	ASSERT_EQ (nano::epoch::epoch_2, details_epoch.epoch);
 
-	nano::block_details details_none (nano::epoch::unspecified,  nano::epoch::unspecified, false, false, false);
+	nano::block_details details_none (nano::epoch::unspecified, nano::epoch::unspecified, false, false, false);
 	ASSERT_FALSE (details_none.is_send);
 	ASSERT_FALSE (details_none.is_receive);
 	ASSERT_FALSE (details_none.is_epoch);
