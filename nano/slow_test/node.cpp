@@ -1564,7 +1564,7 @@ TEST (node, mass_epoch_upgrader)
 				             .link (info.key.pub)
 				             .representative (nano::test_genesis_key.pub)
 				             .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
-				             .work (*node.work_generate_blocking (latest, nano::work_threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_0, nano::epoch::epoch_0, false, false, false))))
+				             .work (*node.work_generate_blocking (latest, nano::work_threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_0, false, false, false))))
 				             .build (ec);
 				ASSERT_FALSE (ec);
 				ASSERT_NE (nullptr, block);
@@ -1588,7 +1588,7 @@ TEST (node, mass_epoch_upgrader)
 			             .link (info.pending_hash)
 			             .representative (info.key.pub)
 			             .sign (info.key.prv, info.key.pub)
-			             .work (*node.work_generate_blocking (info.key.pub, nano::work_threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_0, nano::epoch::epoch_0, false, false, false))))
+			             .work (*node.work_generate_blocking (info.key.pub, nano::work_threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_0, false, false, false))))
 			             .build (ec);
 			ASSERT_FALSE (ec);
 			ASSERT_NE (nullptr, block);
@@ -1677,7 +1677,7 @@ TEST (node, mass_block_new)
 	std::vector<nano::keypair> keys (num_blocks);
 	nano::state_block_builder builder;
 	std::vector<std::shared_ptr<nano::state_block>> send_blocks;
-	auto send_threshold (nano::work_threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_2, nano::epoch::epoch_0, true, false, false)));
+	auto send_threshold (nano::work_threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_2, true, false, false)));
 	auto latest_genesis = node.latest (nano::test_genesis_key.pub);
 	for (auto i = 0; i < num_blocks; ++i)
 	{
@@ -1700,7 +1700,7 @@ TEST (node, mass_block_new)
 	std::cout << "Send blocks time: " << timer.stop ().count () << " " << timer.unit () << "\n\n";
 
 	std::vector<std::shared_ptr<nano::state_block>> open_blocks;
-	auto receive_threshold (nano::work_threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_2, nano::epoch::epoch_2, false, true, false)));
+	auto receive_threshold (nano::work_threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_2, false, true, false)));
 	for (auto i = 0; i < num_blocks; ++i)
 	{
 		auto const & key = keys[i];

@@ -148,16 +148,16 @@ TEST (difficulty, network_constants)
 	ASSERT_EQ (constants.publish_thresholds.base, constants.publish_thresholds.epoch_2);
 	ASSERT_EQ (constants.publish_thresholds.base, nano::work_threshold_base (version));
 	ASSERT_EQ (constants.publish_thresholds.entry, nano::work_threshold_entry (version));
-	ASSERT_EQ (constants.publish_thresholds.epoch_1, nano::work_threshold (version, nano::block_details (nano::epoch::epoch_0, nano::epoch::epoch_0, false, false, false)));
-	ASSERT_EQ (constants.publish_thresholds.epoch_1, nano::work_threshold (version, nano::block_details (nano::epoch::epoch_1, nano::epoch::epoch_1, false, false, false)));
-	ASSERT_EQ (constants.publish_thresholds.epoch_1, nano::work_threshold (version, nano::block_details (nano::epoch::epoch_1, nano::epoch::epoch_1, false, false, false)));
+	ASSERT_EQ (constants.publish_thresholds.epoch_1, nano::work_threshold (version, nano::block_details (nano::epoch::epoch_0, false, false, false)));
+	ASSERT_EQ (constants.publish_thresholds.epoch_1, nano::work_threshold (version, nano::block_details (nano::epoch::epoch_1, false, false, false)));
+	ASSERT_EQ (constants.publish_thresholds.epoch_1, nano::work_threshold (version, nano::block_details (nano::epoch::epoch_1, false, false, false)));
 
 	// Send [+ change]
-	ASSERT_EQ (constants.publish_thresholds.epoch_2, nano::work_threshold (version, nano::block_details (nano::epoch::epoch_2, nano::epoch::epoch_2, true, false, false)));
+	ASSERT_EQ (constants.publish_thresholds.epoch_2, nano::work_threshold (version, nano::block_details (nano::epoch::epoch_2, true, false, false)));
 	// Change
-	ASSERT_EQ (constants.publish_thresholds.epoch_2, nano::work_threshold (version, nano::block_details (nano::epoch::epoch_2, nano::epoch::epoch_2, false, false, false)));
+	ASSERT_EQ (constants.publish_thresholds.epoch_2, nano::work_threshold (version, nano::block_details (nano::epoch::epoch_2, false, false, false)));
 	// Receive [+ change] / Open
-	ASSERT_EQ (constants.publish_thresholds.epoch_2_receive, nano::work_threshold (version, nano::block_details (nano::epoch::epoch_2, nano::epoch::epoch_2, false, true, false)));
+	ASSERT_EQ (constants.publish_thresholds.epoch_2_receive, nano::work_threshold (version, nano::block_details (nano::epoch::epoch_2, false, true, false)));
 	// Epoch
-	ASSERT_EQ (constants.publish_thresholds.epoch_2_receive, nano::work_threshold (version, nano::block_details (nano::epoch::epoch_2, nano::epoch::epoch_0, false, false, true)));
+	ASSERT_EQ (constants.publish_thresholds.epoch_2_receive, nano::work_threshold (version, nano::block_details (nano::epoch::epoch_2, false, false, true)));
 }

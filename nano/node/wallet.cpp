@@ -864,7 +864,6 @@ std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block const & s
 						block = std::make_shared<nano::state_block> (account, 0, representative_a, pending_info.amount, reinterpret_cast<nano::link const &> (hash), prv, account, work_a);
 						details.epoch = send_a.sideband ().details.epoch;
 					}
-					details.source_epoch = pending_info.epoch;
 				}
 				else
 				{

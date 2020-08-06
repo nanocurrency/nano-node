@@ -1532,14 +1532,20 @@ int main (int argc, char * const * argv)
 								// State receive
 								block_details_error = !sideband.details.is_receive || sideband.details.is_send || sideband.details.is_epoch;
 								block_details_error |= !node->store.block_exists (transaction, block->link ());
-								// Check link epoch version
-								block_details_error |= sideband.details.source_epoch != node->store.block_version (transaction, block->link ());
 							}
 						}
 					}
 					if (block_details_error)
 					{
 						print_error_message (boost::str (boost::format ("Incorrect sideband block details for block %1%\n") % hash.to_string ()));
+					}
+					// Check link epoch version
+					if (sideband.details.is_receive)
+					{
+						if (sideband.source_epoch != node->store.block_version (transaction, block->link ()))
+						{
+							print_error_message (boost::str (boost::format ("Incorrect source epoch for block %1%\n") % hash.to_string ()));
+						}
 					}
 					// Check if block work value is correct
 					if (block->difficulty () < nano::work_threshold (block->work_version (), block->sideband ().details))

@@ -365,7 +365,7 @@ uint64_t nano::json_handler::difficulty_optional_impl (nano::work_version const 
 
 uint64_t nano::json_handler::difficulty_ledger (nano::block const & block_a)
 {
-	nano::block_details details (nano::epoch::epoch_0, nano::epoch::epoch_0 /* unused */, false, false, false);
+	nano::block_details details (nano::epoch::epoch_0, false, false, false);
 	bool details_found (false);
 	auto transaction (node.store.tx_begin_read ());
 	// Previous block find
@@ -755,7 +755,7 @@ void nano::json_handler::account_representative_set ()
 					auto info (rpc_l->account_info_impl (block_transaction, account));
 					if (!rpc_l->ec)
 					{
-						nano::block_details details (info.epoch (), nano::epoch::epoch_0 /* unused */, false, false, false);
+						nano::block_details details (info.epoch (), false, false, false);
 						if (nano::work_difficulty (nano::work_version::work_1, info.head, work) < nano::work_threshold (nano::work_version::work_1, details))
 						{
 							rpc_l->ec = nano::error_common::invalid_work;
@@ -3181,7 +3181,7 @@ void nano::json_handler::receive ()
 						{
 							head = account;
 						}
-						nano::block_details details (epoch, nano::epoch::epoch_0 /* unused */, false, true, false);
+						nano::block_details details (epoch, false, true, false);
 						if (nano::work_difficulty (nano::work_version::work_1, head, work) < nano::work_threshold (nano::work_version::work_1, details))
 						{
 							ec = nano::error_common::invalid_work;
@@ -3525,7 +3525,7 @@ void nano::json_handler::send ()
 			}
 			if (!ec && work)
 			{
-				nano::block_details details (info.epoch (), nano::epoch::epoch_0 /* unused */, true, false, false);
+				nano::block_details details (info.epoch (), true, false, false);
 				if (nano::work_difficulty (nano::work_version::work_1, info.head, work) < nano::work_threshold (nano::work_version::work_1, details))
 				{
 					ec = nano::error_common::invalid_work;
@@ -4916,7 +4916,7 @@ void nano::json_handler::work_validate ()
 			response_l.put ("valid", (result_difficulty >= difficulty) ? "1" : "0");
 		}
 		response_l.put ("valid_all", (result_difficulty >= node.default_difficulty (work_version)) ? "1" : "0");
-		response_l.put ("valid_receive", (result_difficulty >= nano::work_threshold (work_version, nano::block_details (nano::epoch::epoch_2, nano::epoch::epoch_0 /* unused */, false, true, false))) ? "1" : "0");
+		response_l.put ("valid_receive", (result_difficulty >= nano::work_threshold (work_version, nano::block_details (nano::epoch::epoch_2, false, true, false))) ? "1" : "0");
 		response_l.put ("difficulty", nano::to_string_hex (result_difficulty));
 		auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, node.default_difficulty (work_version));
 		response_l.put ("multiplier", nano::to_string (result_multiplier));

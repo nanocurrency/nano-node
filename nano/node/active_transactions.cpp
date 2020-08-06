@@ -898,7 +898,7 @@ double nano::active_transactions::normalized_multiplier (nano::block const & blo
 			// This can have incorrect results during an epoch upgrade, but it only affects prioritization
 			bool is_send = election->previous_balance > block_a.balance ().number ();
 			bool is_receive = election->previous_balance < block_a.balance ().number ();
-			nano::block_details details (election->epoch, nano::epoch::epoch_0 /* unused */, is_send, is_receive, false);
+			nano::block_details details (election->epoch, is_send, is_receive, false);
 
 			threshold = nano::work_threshold (block_a.work_version (), details);
 			sideband_not_found = true;

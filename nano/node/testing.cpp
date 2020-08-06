@@ -190,7 +190,7 @@ std::unique_ptr<nano::state_block> nano::upgrade_epoch (nano::work_pool & pool_a
 	             .link (ledger_a.epoch_link (epoch_a))
 	             .representative (test_genesis_key.pub)
 	             .sign (test_genesis_key.prv, test_genesis_key.pub)
-	             .work (*pool_a.generate (latest, nano::work_threshold (nano::work_version::work_1, nano::block_details (epoch_a, nano::epoch::epoch_0 /* unused */, false, false, true))))
+	             .work (*pool_a.generate (latest, nano::work_threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true))))
 	             .build (ec);
 
 	bool error{ true };
