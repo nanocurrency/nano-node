@@ -177,6 +177,7 @@ public:
 
 	void add_recently_cemented (nano::election_status const &);
 	void add_recently_confirmed (nano::qualified_root const &, nano::block_hash const &);
+	void erase_recently_confirmed (nano::block_hash const &);
 	void add_inactive_votes_cache (nano::block_hash const &, nano::account const &);
 	nano::inactive_cache_information find_inactive_votes_cache (nano::block_hash const &);
 	void erase_inactive_votes_cache (nano::block_hash const &);

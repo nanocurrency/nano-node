@@ -4520,6 +4520,24 @@ TEST (node, deferred_dependent_elections)
 }
 }
 
+TEST (rep_crawler, recently_confirmed)
+{
+	nano::system system (1);
+	auto & node1 (*system.nodes[0]);
+	ASSERT_EQ (1, node1.ledger.cache.block_count);
+	auto const block = nano::genesis ().open;
+	{
+		nano::lock_guard<std::mutex> guard (node1.active.mutex);
+		node1.active.add_recently_confirmed (block->qualified_root (), block->hash ());
+	}
+	auto & node2 (*system.add_node ());
+	system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
+	auto channel = node1.network.find_channel (node2.network.endpoint ());
+	ASSERT_NE (nullptr, channel);
+	node1.rep_crawler.query (channel);
+	ASSERT_TIMELY (3s, node1.rep_crawler.representative_count () == 1);
+}
+
 namespace
 {
 void add_required_children_node_config_tree (nano::jsonconfig & tree)

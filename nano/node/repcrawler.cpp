@@ -148,6 +148,10 @@ void nano::rep_crawler::query (std::vector<std::shared_ptr<nano::transport::chan
 		}
 		active.insert (hash);
 	}
+	if (!channels_a.empty ())
+	{
+		node.active.erase_recently_confirmed (hash);
+	}
 	for (auto i (channels_a.begin ()), n (channels_a.end ()); i != n; ++i)
 	{
 		debug_assert (*i != nullptr);
