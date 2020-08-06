@@ -157,7 +157,7 @@ TEST (difficulty, network_constants)
 	// Change
 	ASSERT_EQ (constants.publish_thresholds.epoch_2, nano::work_threshold (version, nano::block_details (nano::epoch::epoch_2, nano::epoch::epoch_2, false, false, false)));
 	// Receive [+ change] / Open
-	ASSERT_EQ (constants.publish_thresholds.epoch_2_receive, nano::work_threshold (version, nano::block_details (nano::epoch::epoch_2, nano::epoch::epoch_2,  false, true, false)));
+	ASSERT_EQ (constants.publish_thresholds.epoch_2_receive, nano::work_threshold (version, nano::block_details (nano::epoch::epoch_2, nano::epoch::epoch_2, false, true, false)));
 	// Epoch
 	ASSERT_EQ (constants.publish_thresholds.epoch_2_receive, nano::work_threshold (version, nano::block_details (nano::epoch::epoch_2, nano::epoch::epoch_0, false, false, true)));
 }

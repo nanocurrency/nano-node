@@ -141,7 +141,7 @@ public:
 		}
 		else if (!block_a.hashables.link.is_zero () && !ledger.is_epoch_link (block_a.hashables.link))
 		{
-			nano::pending_info pending_info (ledger.account (transaction, block_a.hashables.link), block_a.hashables.balance.number () - balance, block_a.sideband().details.source_epoch);
+			nano::pending_info pending_info (ledger.account (transaction, block_a.hashables.link), block_a.hashables.balance.number () - balance, block_a.sideband ().details.source_epoch);
 			ledger.store.pending_put (transaction, nano::pending_key (block_a.hashables.account, block_a.hashables.link), pending_info);
 			ledger.stats.inc (nano::stat::type::rollback, nano::stat::detail::receive);
 		}

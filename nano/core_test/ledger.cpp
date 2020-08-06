@@ -3105,7 +3105,7 @@ TEST (ledger, work_validation)
 	process_block (send, {});
 	process_block (receive, {});
 	process_block (change, {});
-	process_block (state, nano::block_details (nano::epoch::epoch_0, nano::epoch::epoch_0,true, false, false));
+	process_block (state, nano::block_details (nano::epoch::epoch_0, nano::epoch::epoch_0, true, false, false));
 	process_block (open, {});
 	process_block (epoch, nano::block_details (nano::epoch::epoch_1, nano::epoch::epoch_0, false, false, true));
 }
