@@ -2,8 +2,6 @@
 
 #include <boost/endian/conversion.hpp>
 
-#include <bitset>
-
 #include <lmdb/libraries/liblmdb/lmdb.h>
 
 nano::pending_info_v14::pending_info_v14 (nano::account const & source_a, nano::amount const & amount_a, nano::epoch epoch_a) :
