@@ -69,7 +69,7 @@ txn_tracking_enabled (txn_tracking_config_a.enable)
 			nano::network_constants network_constants;
 			if (!is_fresh_db)
 			{
-				if (!network_constants.is_test_network ())
+				if (!network_constants.is_dev_network ())
 				{
 					std::cout << "Upgrade in progress..." << std::endl;
 				}
@@ -88,7 +88,7 @@ txn_tracking_enabled (txn_tracking_config_a.enable)
 				}
 			}
 
-			if (needs_vacuuming && !network_constants.is_test_network ())
+			if (needs_vacuuming && !network_constants.is_dev_network ())
 			{
 				logger.always_log ("Preparing vacuum...");
 				auto vacuum_success = vacuum_after_upgrade (path_a, lmdb_config_a);

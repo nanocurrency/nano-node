@@ -94,7 +94,7 @@ int main (int argc, char * const * argv)
 		("config", boost::program_options::value<std::vector<nano::config_key_value_pair>>()->multitoken(), "Pass RPC configuration values. This takes precedence over any values in the configuration file. This option can be repeated multiple times.")
 		("daemon", "Start RPC daemon")
 		("data_path", boost::program_options::value<std::string> (), "Use the supplied path as the data directory")
-		("network", boost::program_options::value<std::string> (), "Use the supplied network (live, beta or test)")
+		("network", boost::program_options::value<std::string> (), "Use the supplied network (live, beta or dev)")
 		("version", "Prints out version");
 	// clang-format on
 

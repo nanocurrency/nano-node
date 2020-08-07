@@ -78,10 +78,10 @@ public:
 	nano::ipc::ipc_config ipc_config;
 	std::string external_address;
 	uint16_t external_port{ 0 };
-	std::chrono::milliseconds block_processor_batch_max_time{ network_params.network.is_test_network () ? std::chrono::milliseconds (500) : std::chrono::milliseconds (5000) };
+	std::chrono::milliseconds block_processor_batch_max_time{ network_params.network.is_dev_network () ? std::chrono::milliseconds (500) : std::chrono::milliseconds (5000) };
 	std::chrono::seconds unchecked_cutoff_time{ std::chrono::seconds (4 * 60 * 60) }; // 4 hours
 	/** Timeout for initiated async operations */
-	std::chrono::seconds tcp_io_timeout{ (network_params.network.is_test_network () && !is_sanitizer_build) ? std::chrono::seconds (5) : std::chrono::seconds (15) };
+	std::chrono::seconds tcp_io_timeout{ (network_params.network.is_dev_network () && !is_sanitizer_build) ? std::chrono::seconds (5) : std::chrono::seconds (15) };
 	std::chrono::nanoseconds pow_sleep_interval{ 0 };
 	size_t active_elections_size{ 50000 };
 	/** Default maximum incoming TCP connections, including realtime network & bootstrap */

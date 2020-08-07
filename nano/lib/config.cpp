@@ -19,13 +19,13 @@ work_thresholds const network_constants::publish_beta (
 0xffffe00000000000 // 2x lower than epoch_1
 );
 
-work_thresholds const network_constants::publish_test (
+work_thresholds const network_constants::publish_dev (
 0xfe00000000000000, // Very low for tests
 0xffc0000000000000, // 8x higher than epoch_1
 0xf000000000000000 // 8x lower than epoch_1
 );
 
-const char * network_constants::active_network_err_msg = "Invalid network. Valid values are live, beta and test.";
+const char * network_constants::active_network_err_msg = "Invalid network. Valid values are live, beta and dev.";
 
 uint8_t get_major_node_version ()
 {
@@ -44,9 +44,9 @@ uint8_t get_pre_release_node_version ()
 	return boost::numeric_cast<uint8_t> (boost::lexical_cast<int> (NANO_PRE_RELEASE_VERSION_STRING));
 }
 
-void force_nano_test_network ()
+void force_nano_dev_network ()
 {
-	nano::network_constants::set_active_network (nano::nano_networks::nano_test_network);
+	nano::network_constants::set_active_network (nano::nano_networks::nano_dev_network);
 }
 
 bool running_within_valgrind ()

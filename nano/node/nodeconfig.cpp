@@ -37,7 +37,7 @@ external_address (boost::asio::ip::address_v6{}.to_string ())
 	}
 	switch (network_params.network.network ())
 	{
-		case nano::nano_networks::nano_test_network:
+		case nano::nano_networks::nano_dev_network:
 			enable_voting = true;
 			preconfigured_representatives.push_back (network_params.ledger.genesis_account);
 			break;
@@ -319,7 +319,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		bool is_deprecated_lmdb_dbs_used = lmdb_max_dbs_default != deprecated_lmdb_max_dbs;
 
 		// Note: using the deprecated setting will result in a fail-fast config error in the future
-		if (!network_params.network.is_test_network () && is_deprecated_lmdb_dbs_used)
+		if (!network_params.network.is_dev_network () && is_deprecated_lmdb_dbs_used)
 		{
 			std::cerr << "WARNING: The node.lmdb_max_dbs setting is deprecated and will be removed in a future version." << std::endl;
 			std::cerr << "Please use the node.lmdb.max_databases setting instead." << std::endl;
@@ -398,7 +398,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			toml.get_error ().set ("io_threads must be non-zero");
 		}
-		if (active_elections_size <= 250 && !network.is_test_network ())
+		if (active_elections_size <= 250 && !network.is_dev_network ())
 		{
 			toml.get_error ().set ("active_elections_size must be greater than 250");
 		}
@@ -704,7 +704,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		{
 			json.get_error ().set ("io_threads must be non-zero");
 		}
-		if (active_elections_size <= 250 && !network.is_test_network ())
+		if (active_elections_size <= 250 && !network.is_dev_network ())
 		{
 			json.get_error ().set ("active_elections_size must be greater than 250");
 		}

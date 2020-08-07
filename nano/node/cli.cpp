@@ -48,7 +48,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("vacuum", "Compact database. If data_path is missing, the database in data directory is compacted.")
 	("snapshot", "Compact database and create snapshot, functions similar to vacuum but does not replace the existing database")
 	("data_path", boost::program_options::value<std::string> (), "Use the supplied path as the data directory")
-	("network", boost::program_options::value<std::string> (), "Use the supplied network (live, beta or test)")
+	("network", boost::program_options::value<std::string> (), "Use the supplied network (live, beta or dev)")
 	("clear_send_ids", "Remove all send IDs from the database (dangerous: not intended for production use)")
 	("online_weight_clear", "Clear online weight history records")
 	("peer_clear", "Clear online peers database dump")
