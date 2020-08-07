@@ -25,7 +25,7 @@ work_thresholds const network_constants::publish_dev (
 0xf000000000000000 // 8x lower than epoch_1
 );
 
-const char * network_constants::active_network_err_msg = "Invalid network. Valid values are live, beta and dev.";
+const char * network_constants::active_network_err_msg = "Invalid network. Valid values are live, test, beta and dev.";
 
 uint8_t get_major_node_version ()
 {

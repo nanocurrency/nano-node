@@ -376,9 +376,11 @@ public:
 	nano::account nano_dev_account;
 	nano::account nano_beta_account;
 	nano::account nano_live_account;
+	nano::account nano_test_account;
 	std::string nano_dev_genesis;
 	std::string nano_beta_genesis;
 	std::string nano_live_genesis;
+	std::string nano_test_genesis;
 	nano::account genesis_account;
 	std::string genesis_block;
 	nano::block_hash genesis_hash;

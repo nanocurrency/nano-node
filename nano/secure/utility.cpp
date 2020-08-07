@@ -42,6 +42,16 @@ boost::filesystem::path nano::working_path (bool legacy)
 				result /= "RaiBlocks";
 			}
 			break;
+		case nano::nano_networks::nano_test_network:
+			if (!legacy)
+			{
+				result /= "NanoTest";
+			}
+			else
+			{
+				result /= "RaiBlocksTest";
+			}
+			break;
 	}
 	return result;
 }

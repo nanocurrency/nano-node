@@ -64,6 +64,9 @@ enum class nano_networks
 	// Normal work parameters, secret live key, live IP ports
 	nano_live_network = 2,
 	rai_live_network = 2,
+	// Normal work parameters, secret test genesis key, test IP ports
+	nano_test_network = 3,
+	rai_test_network = 3,
 };
 
 struct work_thresholds
@@ -101,15 +104,15 @@ public:
 
 	network_constants (nano_networks network_a) :
 	current_network (network_a),
-	publish_thresholds (is_live_network () ? publish_full : is_beta_network () ? publish_beta : publish_dev)
+	publish_thresholds ((is_live_network () || is_test_network ()) ? publish_full : is_beta_network () ? publish_beta : publish_dev)
 	{
 		// A representative is classified as principal based on its weight and this factor
 		principal_weight_factor = 1000; // 0.1%
 
-		default_node_port = is_live_network () ? 7075 : is_beta_network () ? 54000 : 44000;
-		default_rpc_port = is_live_network () ? 7076 : is_beta_network () ? 55000 : 45000;
-		default_ipc_port = is_live_network () ? 7077 : is_beta_network () ? 56000 : 46000;
-		default_websocket_port = is_live_network () ? 7078 : is_beta_network () ? 57000 : 47000;
+		default_node_port = is_live_network () ? 7075 : is_beta_network () ? 54000 : is_test_network () ? 17075 : 44000;
+		default_rpc_port = is_live_network () ? 7076 : is_beta_network () ? 55000 : is_test_network () ? 17076 : 45000;
+		default_ipc_port = is_live_network () ? 7077 : is_beta_network () ? 56000 : is_test_network () ? 17077 : 46000;
+		default_websocket_port = is_live_network () ? 7078 : is_beta_network () ? 57000 : is_test_network () ? 17078 : 47000;
 		request_interval_ms = is_dev_network () ? 20 : 500;
 	}
 
@@ -168,6 +171,10 @@ public:
 		{
 			active_network = nano::nano_networks::nano_dev_network;
 		}
+		else if (network_a == "test")
+		{
+			active_network = nano::nano_networks::nano_test_network;
+		}
 		else
 		{
 			error = true;
@@ -177,7 +184,7 @@ public:
 
 	const char * get_current_network_as_string () const
 	{
-		return is_live_network () ? "live" : is_beta_network () ? "beta" : "dev";
+		return is_live_network () ? "live" : is_beta_network () ? "beta" : is_test_network () ? "test" : "dev";
 	}
 
 	bool is_live_network () const
@@ -191,6 +198,10 @@ public:
 	bool is_dev_network () const
 	{
 		return current_network == nano_networks::nano_dev_network;
+	}
+	bool is_test_network () const
+	{
+		return current_network == nano_networks::nano_test_network;
 	}
 
 	/** Initial value is ACTIVE_NETWORK compile flag, but can be overridden by a CLI flag */
