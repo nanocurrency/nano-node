@@ -86,7 +86,7 @@ network (network_a), ledger (network), voting (network), node (network), portmap
 	unsigned constexpr kdf_full_work = 64 * 1024;
 	unsigned constexpr kdf_dev_work = 8;
 	kdf_work = network.is_dev_network () ? kdf_dev_work : kdf_full_work;
-	header_magic_number = network.is_dev_network () ? std::array<uint8_t, 2>{ { 'R', 'A' } } : network.is_beta_network () ? std::array<uint8_t, 2>{ { 'R', 'B' } } : network.is_live_network () ? std::array<uint8_t, 2>{ { 'R', 'C' } } : std::array<uint8_t, 2>{ {'R', 'X'} };
+	header_magic_number = network.is_dev_network () ? std::array<uint8_t, 2>{ { 'R', 'A' } } : network.is_beta_network () ? std::array<uint8_t, 2>{ { 'R', 'B' } } : network.is_live_network () ? std::array<uint8_t, 2>{ { 'R', 'C' } } : std::array<uint8_t, 2>{ { 'R', 'X' } };
 }
 
 uint8_t nano::protocol_constants::protocol_version_min (bool use_epoch_2_min_version_a) const
