@@ -737,35 +737,76 @@ epoch_2_started_cb (epoch_2_started_cb_a)
 {
 	if (!store.init_error ())
 	{
-		auto transaction = store.tx_begin_read ();
-		if (generate_cache_a.reps || generate_cache_a.account_count || generate_cache_a.epoch_2)
+		initialize (generate_cache_a);
+	}
+}
+
+void nano::ledger::initialize (nano::generate_cache const & generate_cache_a)
+{
+	auto transaction = store.tx_begin_read ();
+	auto parallelize = [this, &transaction](std::function<void(nano::read_transaction const &, nano::uint256_t const, nano::uint256_t const, bool const)> && F) {
+		unsigned const thread_count = std::max (1u, std::min (12u, std::thread::hardware_concurrency ()));
+		auto const split = std::numeric_limits<nano::uint256_t>::max () / thread_count;
+		std::vector<std::thread> threads;
+		for (unsigned thread (0); thread < thread_count; ++thread)
 		{
+			auto const start = thread * split;
+			auto const end = (thread + 1) * split;
+			auto const last = thread == thread_count - 1;
+			threads.emplace_back ([this, &transaction, F, start, end, last] {
+				F (transaction, start, end, last);
+			});
+		}
+		for (auto & thread : threads)
+		{
+			thread.join ();
+		}
+	};
+
+	if (generate_cache_a.reps || generate_cache_a.account_count || generate_cache_a.epoch_2)
+	{
+		parallelize ([this](nano::read_transaction const & transaction, nano::uint256_t const start, nano::uint256_t const end, bool const last) {
+			decltype (this->cache.account_count)::value_type account_count_l (0);
+			decltype (this->cache.rep_weights) rep_weights_l;
 			bool epoch_2_started_l{ false };
-			for (auto i (store.latest_begin (transaction)), n (store.latest_end ()); i != n; ++i)
+			auto i (this->store.latest_begin (transaction, start));
+			auto n (last ? this->store.latest_end () : this->store.latest_begin (transaction, end));
+			for (; i != n; ++i)
 			{
 				nano::account_info const & info (i->second);
-				cache.rep_weights.representation_add (info.representative, info.balance.number ());
-				++cache.account_count;
+				rep_weights_l.representation_add (info.representative, info.balance.number ());
+				++account_count_l;
 				epoch_2_started_l = epoch_2_started_l || info.epoch () == nano::epoch::epoch_2;
 			}
-			cache.epoch_2_started.store (epoch_2_started_l);
-		}
-
-		if (generate_cache_a.cemented_count)
-		{
-			for (auto i (store.confirmation_height_begin (transaction)), n (store.confirmation_height_end ()); i != n; ++i)
+			if (epoch_2_started_l)
 			{
-				cache.cemented_count += i->second.height;
+				this->cache.epoch_2_started.store (true);
 			}
-		}
-
-		if (generate_cache_a.unchecked_count)
-		{
-			cache.unchecked_count = store.unchecked_count (transaction);
-		}
-
-		cache.block_count = store.block_count (transaction);
+			this->cache.account_count += account_count_l;
+			this->cache.rep_weights.copy_from (rep_weights_l);
+		});
 	}
+
+	if (generate_cache_a.cemented_count)
+	{
+		parallelize ([this](nano::read_transaction const & transaction, nano::uint256_t const start, nano::uint256_t const end, bool const last) {
+			decltype (this->cache.cemented_count)::value_type cemented_count_l (0);
+			auto i (this->store.confirmation_height_begin (transaction, start));
+			auto n (last ? this->store.confirmation_height_end () : this->store.confirmation_height_begin (transaction, end));
+			for (; i != n; ++i)
+			{
+				cemented_count_l += i->second.height;
+			}
+			this->cache.cemented_count += cemented_count_l;
+		});
+	}
+
+	if (generate_cache_a.unchecked_count)
+	{
+		cache.unchecked_count = store.unchecked_count (transaction);
+	}
+
+	cache.block_count = store.block_count (transaction);
 }
 
 // Balance for account containing hash

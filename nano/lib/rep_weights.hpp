@@ -19,6 +19,7 @@ public:
 	nano::uint128_t representation_get (nano::account const & account_a);
 	void representation_put (nano::account const & account_a, nano::uint128_union const & representation_a);
 	std::unordered_map<nano::account, nano::uint128_t> get_rep_amounts ();
+	void copy_from (rep_weights & other_a);
 
 private:
 	std::mutex mutex;

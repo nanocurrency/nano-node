@@ -27,6 +27,17 @@ std::unordered_map<nano::account, nano::uint128_t> nano::rep_weights::get_rep_am
 	return rep_amounts;
 }
 
+void nano::rep_weights::copy_from (nano::rep_weights & other_a)
+{
+	std::lock_guard<std::mutex> guard_this (mutex);
+	std::lock_guard<std::mutex> guard_other (other_a.mutex);
+	for (auto const & entry : other_a.rep_amounts)
+	{
+		auto prev_amount (get (entry.first));
+		put (entry.first, prev_amount + entry.second);
+	}
+}
+
 void nano::rep_weights::put (nano::account const & account_a, nano::uint128_union const & representation_a)
 {
 	auto it = rep_amounts.find (account_a);
