@@ -1240,6 +1240,8 @@ TEST (wallet, limited_difficulty)
 	ASSERT_EQ (node.max_work_generate_difficulty (nano::work_version::work_1), node.active.limited_active_difficulty (*genesis.open));
 	auto send = wallet.send_action (nano::test_genesis_key.pub, nano::keypair ().pub, 1, 1);
 	ASSERT_NE (nullptr, send);
+	ASSERT_EQ (nano::epoch::epoch_2, send->sideband ().details.epoch);
+	ASSERT_EQ (nano::epoch::epoch_0, send->sideband ().source_epoch); // Not used for send state blocks
 }
 
 TEST (wallet, epoch_2_validation)
@@ -1263,12 +1265,16 @@ TEST (wallet, epoch_2_validation)
 	{
 		auto send = wallet.send_action (nano::test_genesis_key.pub, nano::test_genesis_key.pub, amount, 1);
 		ASSERT_NE (nullptr, send);
+		ASSERT_EQ (nano::epoch::epoch_2, send->sideband ().details.epoch);
+		ASSERT_EQ (nano::epoch::epoch_0, send->sideband ().source_epoch); // Not used for send state blocks
 
 		auto receive = wallet.receive_action (*send, nano::test_genesis_key.pub, amount, 1);
 		ASSERT_NE (nullptr, receive);
 		if (receive->difficulty () < node.network_params.network.publish_thresholds.base)
 		{
 			ASSERT_GE (receive->difficulty (), node.network_params.network.publish_thresholds.epoch_2_receive);
+			ASSERT_EQ (nano::epoch::epoch_2, receive->sideband ().details.epoch);
+			ASSERT_EQ (nano::epoch::epoch_2, receive->sideband ().source_epoch);
 			break;
 		}
 	}
@@ -1325,6 +1331,7 @@ TEST (wallet, epoch_2_receive_propagation)
 		{
 			ASSERT_GE (receive2->difficulty (), node.network_params.network.publish_thresholds.epoch_2_receive);
 			ASSERT_EQ (nano::epoch::epoch_2, node.store.block_version (node.store.tx_begin_read (), receive2->hash ()));
+			ASSERT_EQ (nano::epoch::epoch_2, receive2->sideband ().source_epoch);
 			break;
 		}
 	}
@@ -1374,6 +1381,7 @@ TEST (wallet, epoch_2_receive_unopened)
 		{
 			ASSERT_GE (receive1->difficulty (), node.network_params.network.publish_thresholds.epoch_2_receive);
 			ASSERT_EQ (nano::epoch::epoch_2, node.store.block_version (node.store.tx_begin_read (), receive1->hash ()));
+			ASSERT_EQ (nano::epoch::epoch_1, receive1->sideband ().source_epoch);
 			break;
 		}
 	}

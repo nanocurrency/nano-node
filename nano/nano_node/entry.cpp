@@ -1544,6 +1544,14 @@ int main (int argc, char * const * argv)
 					{
 						print_error_message (boost::str (boost::format ("Incorrect sideband block details for block %1%\n") % hash.to_string ()));
 					}
+					// Check link epoch version
+					if (sideband.details.is_receive)
+					{
+						if (sideband.source_epoch != node->store.block_version (transaction, block->link ()))
+						{
+							print_error_message (boost::str (boost::format ("Incorrect source epoch for block %1%\n") % hash.to_string ()));
+						}
+					}
 					// Check if block work value is correct
 					if (block->difficulty () < nano::work_threshold (block->work_version (), block->sideband ().details))
 					{
