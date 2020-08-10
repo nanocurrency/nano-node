@@ -1623,10 +1623,13 @@ TEST (mdb_block_store, upgrade_v18_v19)
 	auto path (nano::unique_path ());
 	nano::keypair key1;
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+	nano::network_params network_params;
 	nano::send_block send (nano::genesis_hash, nano::dev_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (nano::genesis_hash));
 	nano::receive_block receive (send.hash (), send.hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (send.hash ()));
 	nano::change_block change (receive.hash (), 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (receive.hash ()));
-	nano::state_block state (nano::dev_genesis_key.pub, change.hash (), 0, nano::genesis_amount - nano::Gxrb_ratio, key1.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (change.hash ()));
+	nano::state_block state_epoch (nano::dev_genesis_key.pub, change.hash (), 0, nano::genesis_amount, network_params.ledger.epochs.link (nano::epoch::epoch_1), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (change.hash ()));
+	nano::state_block state_send (nano::dev_genesis_key.pub, state_epoch.hash (), 0, nano::genesis_amount - nano::Gxrb_ratio, key1.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (state_epoch.hash ()));
+	nano::state_block state_open (key1.pub, 0, 0, nano::Gxrb_ratio, state_send.hash (), key1.prv, key1.pub, *pool.generate (key1.pub));
 
 	{
 		nano::genesis genesis;
@@ -1640,7 +1643,9 @@ TEST (mdb_block_store, upgrade_v18_v19)
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send).code);
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive).code);
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, change).code);
-		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, state).code);
+		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, state_epoch).code);
+		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, state_send).code);
+		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, state_open).code);
 
 		// These tables need to be re-opened and populated so that an upgrade can be done
 		auto txn = store.env.tx (transaction);
@@ -1655,7 +1660,9 @@ TEST (mdb_block_store, upgrade_v18_v19)
 		write_block_w_sideband_v18 (store, store.send_blocks, transaction, send);
 		write_block_w_sideband_v18 (store, store.receive_blocks, transaction, receive);
 		write_block_w_sideband_v18 (store, store.change_blocks, transaction, change);
-		write_block_w_sideband_v18 (store, store.state_blocks, transaction, state);
+		write_block_w_sideband_v18 (store, store.state_blocks, transaction, state_epoch);
+		write_block_w_sideband_v18 (store, store.state_blocks, transaction, state_send);
+		write_block_w_sideband_v18 (store, store.state_blocks, transaction, state_open);
 
 		store.version_put (transaction, 18);
 	}
@@ -1678,9 +1685,22 @@ TEST (mdb_block_store, upgrade_v18_v19)
 	ASSERT_TRUE (store.block_get (transaction, receive.hash ()));
 	ASSERT_TRUE (store.block_get (transaction, change.hash ()));
 	ASSERT_TRUE (store.block_get (transaction, nano::genesis_hash));
-	ASSERT_TRUE (store.block_get (transaction, state.hash ()));
+	auto state_epoch_disk (store.block_get (transaction, state_epoch.hash ()));
+	ASSERT_NE (nullptr, state_epoch_disk);
+	ASSERT_EQ (nano::epoch::epoch_1, state_epoch_disk->sideband ().details.epoch);
+	ASSERT_EQ (nano::epoch::epoch_0, state_epoch_disk->sideband ().source_epoch); // Not used for epoch state blocks
+	ASSERT_TRUE (store.block_get (transaction, state_send.hash ()));
+	auto state_send_disk (store.block_get (transaction, state_send.hash ()));
+	ASSERT_NE (nullptr, state_send_disk);
+	ASSERT_EQ (nano::epoch::epoch_1, state_send_disk->sideband ().details.epoch);
+	ASSERT_EQ (nano::epoch::epoch_0, state_send_disk->sideband ().source_epoch); // Not used for send state blocks
+	ASSERT_TRUE (store.block_get (transaction, state_open.hash ()));
+	auto state_open_disk (store.block_get (transaction, state_open.hash ()));
+	ASSERT_NE (nullptr, state_open_disk);
+	ASSERT_EQ (nano::epoch::epoch_1, state_open_disk->sideband ().details.epoch);
+	ASSERT_EQ (nano::epoch::epoch_1, state_open_disk->sideband ().source_epoch);
 
-	ASSERT_EQ (5, store.count (transaction, store.blocks));
+	ASSERT_EQ (7, store.count (transaction, store.blocks));
 
 	// Version should be correct
 	ASSERT_LT (18, store.version_get (transaction));
@@ -1879,7 +1899,7 @@ void write_sideband_v15 (nano::mdb_store & store_a, nano::transaction & transact
 
 	ASSERT_LE (block->sideband ().details.epoch, nano::epoch::max);
 	// Simulated by writing 0 on every of the most significant bits, leaving out epoch only, as if pre-upgrade
-	nano::block_sideband sideband_v15 (block->sideband ().account, block->sideband ().successor, block->sideband ().balance, block->sideband ().timestamp, block->sideband ().height, block->sideband ().details.epoch, false, false, false);
+	nano::block_sideband_v18 sideband_v15 (block->sideband ().account, block->sideband ().successor, block->sideband ().balance, block->sideband ().timestamp, block->sideband ().height, block->sideband ().details.epoch, false, false, false);
 	std::vector<uint8_t> data;
 	{
 		nano::vectorstream stream (data);
@@ -1895,12 +1915,14 @@ void write_block_w_sideband_v18 (nano::mdb_store & store_a, MDB_dbi database, na
 {
 	auto block = store_a.block_get (transaction_a, block_a.hash ());
 	ASSERT_NE (block, nullptr);
+	auto new_sideband (block->sideband ());
+	nano::block_sideband_v18 sideband_v18 (new_sideband.account, new_sideband.successor, new_sideband.balance, new_sideband.height, new_sideband.timestamp, new_sideband.details.epoch, new_sideband.details.is_send, new_sideband.details.is_receive, new_sideband.details.is_epoch);
 
 	std::vector<uint8_t> data;
 	{
 		nano::vectorstream stream (data);
 		block->serialize (stream);
-		block->sideband ().serialize (stream, block->type ());
+		sideband_v18.serialize (stream, block->type ());
 	}
 
 	MDB_val val{ data.size (), data.data () };

@@ -173,10 +173,13 @@ int main (int argc, char * const * argv)
 				nano::inactive_node inactive_node (data_path, node_flags);
 				auto node = inactive_node.node;
 
-				auto const hardcoded = node->get_bootstrap_weights ().second;
+				auto const bootstrap_weights = node->get_bootstrap_weights ();
+				auto const & hardcoded = bootstrap_weights.second;
+				auto const hardcoded_height = bootstrap_weights.first;
 				auto const ledger_unfiltered = node->ledger.cache.rep_weights.get_rep_amounts ();
+				auto const ledger_height = node->ledger.cache.block_count.load ();
 
-				auto get_total = [](decltype (hardcoded) const & reps) -> nano::uint128_union {
+				auto get_total = [](decltype (bootstrap_weights.second) const & reps) -> nano::uint128_union {
 					return std::accumulate (reps.begin (), reps.end (), nano::uint128_t{ 0 }, [](auto sum, auto const & rep) { return sum + rep.second; });
 				};
 
@@ -256,9 +259,11 @@ int main (int argc, char * const * argv)
 					return boost::str (boost::format ("representative %1% hardcoded --- ledger %2%") % rep.first.to_account () % nano::uint128_union (rep.second).format_balance (nano::Mxrb_ratio, 0, true));
 				};
 
-				std::cout << boost::str (boost::format ("hardcoded weight %1% Mnano\nledger weight %2% Mnano\nmismatched\n\tsamples %3%\n\ttotal %4% Mnano\n\tmean %5% Mnano\n\tsigma %6% Mnano\n")
+				std::cout << boost::str (boost::format ("hardcoded weight %1% Mnano at %2% blocks\nledger weight %3% Mnano at %4% blocks\nmismatched\n\tsamples %5%\n\ttotal %6% Mnano\n\tmean %7% Mnano\n\tsigma %8% Mnano\n")
 				% total_hardcoded.format_balance (nano::Mxrb_ratio, 0, true)
+				% hardcoded_height
 				% total_ledger.format_balance (nano::Mxrb_ratio, 0, true)
+				% ledger_height
 				% mismatched.size ()
 				% mismatch_total.format_balance (nano::Mxrb_ratio, 0, true)
 				% mismatch_mean.format_balance (nano::Mxrb_ratio, 0, true)
@@ -1538,6 +1543,14 @@ int main (int argc, char * const * argv)
 					if (block_details_error)
 					{
 						print_error_message (boost::str (boost::format ("Incorrect sideband block details for block %1%\n") % hash.to_string ()));
+					}
+					// Check link epoch version
+					if (sideband.details.is_receive)
+					{
+						if (sideband.source_epoch != node->store.block_version (transaction, block->link ()))
+						{
+							print_error_message (boost::str (boost::format ("Incorrect source epoch for block %1%\n") % hash.to_string ()));
+						}
 					}
 					// Check if block work value is correct
 					if (block->difficulty () < nano::work_threshold (block->work_version (), block->sideband ().details))
