@@ -64,6 +64,8 @@ add_library (nano_lib
 	threading.cpp
 	timer.hpp
 	timer.cpp
+	timestamp.hpp
+	timestamp.cpp
 	tomlconfig.hpp
 	tomlconfig.cpp
 	utility.hpp
