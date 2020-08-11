@@ -564,12 +564,6 @@ void nano::transport::udp_channels::receive_action (nano::message_buffer * data_
 					// We've already increment error count, update detail only
 					node.stats.inc_detail_only (nano::stat::type::error, nano::stat::detail::insufficient_work);
 					break;
-				case nano::message_parser::parse_status::invalid_magic:
-					node.stats.inc (nano::stat::type::udp, nano::stat::detail::invalid_magic);
-					break;
-				case nano::message_parser::parse_status::invalid_network:
-					node.stats.inc (nano::stat::type::udp, nano::stat::detail::invalid_network);
-					break;
 				case nano::message_parser::parse_status::invalid_header:
 					node.stats.inc (nano::stat::type::udp, nano::stat::detail::invalid_header);
 					break;

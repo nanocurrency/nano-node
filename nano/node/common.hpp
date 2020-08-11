@@ -253,8 +253,6 @@ public:
 		invalid_telemetry_req_message,
 		invalid_telemetry_ack_message,
 		outdated_version,
-		invalid_magic,
-		invalid_network,
 		duplicate_publish_message
 	};
 	message_parser (nano::network_filter &, nano::block_uniquer &, nano::vote_uniquer &, nano::message_visitor &, nano::work_pool &, bool);
