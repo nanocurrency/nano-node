@@ -11,6 +11,7 @@ if [ -n "$DOCKER_PASSWORD" ]; then
         "$scripts"/custom-timeout.sh 30 docker push "nanocurrency/nano-env:base"
         "$scripts"/custom-timeout.sh 30 docker push "nanocurrency/nano-env:gcc"
         "$scripts"/custom-timeout.sh 30 docker push "nanocurrency/nano-env:clang"
+        "$scripts"/custom-timeout.sh 30 docker push "nanocurrency/nano-env:clang-6"
         echo "Deployed nano-env"
         exit 0
     else
