@@ -14,8 +14,8 @@ inline uint64_t seconds_since_epoch ()
 
 /**
  Creates a unique 64-bit timestamp each time timestamp_now is called.
- The upper 46-bits are the number of milliseconds since unix epoch
- The lower 18 bits are a monotonically increasing counter from 0, each millisecond
+ The upper 44-bits are the number of milliseconds since unix epoch
+ The lower 20 bits are a monotonically increasing counter from 0, each millisecond
  */
 
 class timestamp_generator
@@ -48,11 +48,22 @@ public:
 		uint64_t result (0);
 		while (result == 0)
 		{
-			result = ++last;
+			result = next;
 			auto now_l (now ());
-			if (component_time (result) != now ())
+			if (component_time (result) != now_l)
 			{
-				if (!last.compare_exchange_weak (result, now_l))
+				if (next.compare_exchange_weak (result, now_l + 1))
+				{
+					result = now_l;
+				}
+				else
+				{
+					result = 0;
+				}
+			}
+			else
+			{
+				if (!next.compare_exchange_weak (result, result + 1))
 				{
 					result = 0;
 				}
@@ -61,10 +72,10 @@ public:
 		return result;
 	}
 private:
-	std::atomic<uint64_t> last { 0 };
-	static int constexpr time_bits { 46 };
-	static int constexpr count_bits { 18 };
+	std::atomic<uint64_t> next { 0 };
+	static int constexpr time_bits { 44 }; // 34 bits for seconds = 17,179,869,184 ~ 545 years.
+	static int constexpr count_bits { 20 }; // 20-bit monotonic counter, 1,048,576 samples per ms
 	static uint64_t constexpr time_mask { ~0ULL << count_bits }; // Portion associated with timer
-	static uint64_t constexpr count_mask { ~0ULL >> time_bits }; // 18-bit monotonic counter, 262,144 samples per ms
+	static uint64_t constexpr count_mask { ~0ULL >> time_bits }; // Portion associated with counter
 };
 } // namespace nano

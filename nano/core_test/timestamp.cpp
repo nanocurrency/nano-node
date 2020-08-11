@@ -1,6 +1,12 @@
+#include <nano/lib/numbers.hpp>
 #include <nano/lib/timestamp.hpp>
 
 #include <gtest/gtest.h>
+
+#include <boost/format.hpp>
+
+#include <thread>
+#include <unordered_set>
 
 TEST (timestamp, now)
 {
@@ -16,10 +22,12 @@ TEST (timestamp, basic)
 {
 	nano::timestamp_generator generator;
 	auto one (generator.timestamp_now ());
+	ASSERT_EQ (0, generator.component_count (one));
+	ASSERT_NE (0, generator.component_time (one));
 	auto two (generator.timestamp_now ());
+	ASSERT_EQ (1, generator.component_count (two));
 	ASSERT_NE (one, two);
 }
-
 
 TEST (timestamp, count)
 {
@@ -32,4 +40,29 @@ TEST (timestamp, count)
 		two = generator.timestamp_now ();
 	}
 	ASSERT_EQ (one + 1, two);
+}
+
+TEST (timestamp, parallel)
+{
+	std::mutex mutex;
+	std::unordered_set<uint64_t> timestamps;
+	timestamps.reserve (100 * 10000);
+	nano::timestamp_generator generator;
+	std::vector<std::thread> threads;
+	for (auto i (0); i < 100; ++i)
+	{
+		threads.push_back (std::thread ([&timestamps, &generator, &mutex] () {
+			for (auto i (0); i < 1000; ++i)
+			{
+				auto stamp (generator.timestamp_now ());
+				std::lock_guard<std::mutex> lock (mutex);
+				auto inserted (timestamps.insert (stamp));
+				assert (inserted.second);
+			}
+		}));
+	}
+	for (auto & i: threads)
+	{
+		i.join ();
+	}
 }
