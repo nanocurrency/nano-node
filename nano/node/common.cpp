@@ -310,14 +310,6 @@ std::string nano::message_parser::status_string ()
 		{
 			return "outdated_version";
 		}
-		case nano::message_parser::parse_status::invalid_magic:
-		{
-			return "invalid_magic";
-		}
-		case nano::message_parser::parse_status::invalid_network:
-		{
-			return "invalid_network";
-		}
 		case nano::message_parser::parse_status::duplicate_publish_message:
 		{
 			return "duplicate_publish_message";
