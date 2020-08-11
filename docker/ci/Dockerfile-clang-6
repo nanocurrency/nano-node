@@ -1,6 +1,6 @@
 FROM nanocurrency/nano-env:base
 # need https for llvm
-RUN apt-get install apt-transport-https ca-certificates -yqq
+RUN apt-get update && apt-get install apt-transport-https ca-certificates -yqq
 
 RUN apt-get update && apt-get install -yqq software-properties-common && \
     wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
