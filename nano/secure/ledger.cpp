@@ -766,7 +766,7 @@ void nano::ledger::initialize (nano::generate_cache const & generate_cache_a)
 	if (generate_cache_a.reps || generate_cache_a.account_count || generate_cache_a.epoch_2)
 	{
 		parallelize ([this](nano::read_transaction const & transaction, nano::uint256_t const start, nano::uint256_t const end, bool const last) {
-			decltype (this->cache.account_count)::value_type account_count_l (0);
+			uint64_t account_count_l (0);
 			decltype (this->cache.rep_weights) rep_weights_l;
 			bool epoch_2_started_l{ false };
 			auto i (this->store.latest_begin (transaction, start));
@@ -790,7 +790,7 @@ void nano::ledger::initialize (nano::generate_cache const & generate_cache_a)
 	if (generate_cache_a.cemented_count)
 	{
 		parallelize ([this](nano::read_transaction const & transaction, nano::uint256_t const start, nano::uint256_t const end, bool const last) {
-			decltype (this->cache.cemented_count)::value_type cemented_count_l (0);
+			uint64_t cemented_count_l (0);
 			auto i (this->store.confirmation_height_begin (transaction, start));
 			auto n (last ? this->store.confirmation_height_end () : this->store.confirmation_height_begin (transaction, end));
 			for (; i != n; ++i)
