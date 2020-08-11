@@ -310,10 +310,12 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_block_count"))
 		{
-			auto inactive_node = nano::default_inactive_node (data_path, vm);
-			auto node = inactive_node->node;
-			auto transaction (node->store.tx_begin_read ());
-			std::cout << boost::str (boost::format ("Block count: %1%\n") % node->store.block_count (transaction));
+			auto node_flags = nano::inactive_node_flag_defaults ();
+			nano::update_flags (node_flags, vm);
+			node_flags.generate_cache.block_count;
+			nano::inactive_node inactive_node (data_path, node_flags);
+			auto node = inactive_node.node;
+			std::cout << boost::str (boost::format ("Block count: %1%\n") % node->ledger.cache.block_count);
 		}
 		else if (vm.count ("debug_bootstrap_generate"))
 		{
@@ -1012,8 +1014,7 @@ int main (int argc, char * const * argv)
 			while (block_count < max_blocks + 1)
 			{
 				std::this_thread::sleep_for (std::chrono::milliseconds (10));
-				auto transaction (node->store.tx_begin_read ());
-				block_count = node->store.block_count (transaction);
+				block_count = node->ledger.cache.block_count;
 			}
 			auto end (std::chrono::high_resolution_clock::now ());
 			auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());
@@ -1362,8 +1363,11 @@ int main (int argc, char * const * argv)
 		{
 			nano::timer<std::chrono::seconds> timer;
 			timer.start ();
-			auto inactive_node = nano::default_inactive_node (data_path, vm);
-			auto node = inactive_node->node;
+			auto node_flags = nano::inactive_node_flag_defaults ();
+			nano::update_flags (node_flags, vm);
+			node_flags.generate_cache.block_count;
+			nano::inactive_node inactive_node (data_path, node_flags);
+			auto node = inactive_node.node;
 			bool const silent (vm.count ("silent"));
 			unsigned threads_count (1);
 			auto threads_it = vm.find ("threads");
@@ -1629,7 +1633,7 @@ int main (int argc, char * const * argv)
 			}
 
 			// Validate total block count
-			auto ledger_block_count (node->store.block_count (transaction));
+			auto ledger_block_count = node->ledger.cache.block_count.load ();
 			if (block_count != ledger_block_count)
 			{
 				print_error_message (boost::str (boost::format ("Incorrect total block count. Blocks validated %1%. Block count in database: %2%\n") % block_count % ledger_block_count));
@@ -1742,8 +1746,11 @@ int main (int argc, char * const * argv)
 			uint64_t block_count (0);
 			size_t count (0);
 			{
-				auto inactive_node = nano::default_inactive_node (data_path, vm);
-				auto node = inactive_node->node;
+				auto node_flags = nano::inactive_node_flag_defaults ();
+				nano::update_flags (node_flags, vm);
+				node_flags.generate_cache.block_count;
+				nano::inactive_node inactive_node (data_path, node_flags);
+				auto node = inactive_node.node;
 				auto transaction (node->store.tx_begin_read ());
 				block_count = node->ledger.cache.block_count;
 				std::cout << boost::str (boost::format ("Performing bootstrap emulation, %1% blocks in ledger...") % block_count) << std::endl;
@@ -1787,8 +1794,7 @@ int main (int argc, char * const * argv)
 			while (block_count_2 != block_count)
 			{
 				std::this_thread::sleep_for (std::chrono::milliseconds (50));
-				auto transaction_2 (node.node->store.tx_begin_read ());
-				block_count_2 = node.node->store.block_count (transaction_2);
+				block_count_2 = node.node->ledger.cache.block_count;
 			}
 			auto end (std::chrono::high_resolution_clock::now ());
 			auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());

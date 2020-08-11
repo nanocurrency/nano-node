@@ -214,7 +214,7 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 {
 	auto scoped_write_guard = write_database_queue.wait (nano::writer::process_batch);
 	block_post_events post_events;
-	auto transaction (node.store.tx_begin_write ({ tables::accounts, tables::blocks, tables::cached_counts, tables::frontiers, tables::pending, tables::unchecked }, { tables::confirmation_height }));
+	auto transaction (node.store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending, tables::unchecked }, { tables::confirmation_height }));
 	nano::timer<std::chrono::milliseconds> timer_l;
 	lock_a.lock ();
 	timer_l.start ();

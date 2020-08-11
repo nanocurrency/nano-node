@@ -1623,12 +1623,14 @@ TEST (node, mass_epoch_upgrader)
 		// Check upgrade
 		{
 			auto transaction (node.store.tx_begin_read ());
-			ASSERT_EQ (expected_blocks, node.store.block_count (transaction));
+			auto block_count_sum = 0;
 			for (auto i (node.store.latest_begin (transaction)); i != node.store.latest_end (); ++i)
 			{
 				nano::account_info info (i->second);
 				ASSERT_EQ (info.epoch (), nano::epoch::epoch_1);
+				block_count_sum += info.block_count;
 			}
+			ASSERT_EQ (expected_blocks, block_count_sum);
 		}
 	};
 	// Test with a limited number of upgrades and an unlimited

@@ -338,6 +338,11 @@ public:
 		return nano::store_iterator<nano::account, nano::account_info> (nullptr);
 	}
 
+	nano::store_iterator<nano::block_hash, std::shared_ptr<nano::block>> blocks_end () const override
+	{
+		return nano::store_iterator<nano::block_hash, std::shared_ptr<nano::block>> (nullptr);
+	}
+
 	nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_end () override
 	{
 		return nano::store_iterator<nano::account, nano::confirmation_height_info> (nullptr);
@@ -652,6 +657,11 @@ public:
 	nano::store_iterator<nano::account, nano::account_info> latest_begin (nano::transaction const & transaction_a) const override
 	{
 		return make_iterator<nano::account, nano::account_info> (transaction_a, tables::accounts);
+	}
+
+	nano::store_iterator<nano::block_hash, std::shared_ptr<nano::block>> blocks_begin (nano::transaction const & transaction_a) const override
+	{
+		return make_iterator<nano::block_hash, std::shared_ptr<nano::block>> (transaction_a, tables::blocks);
 	}
 
 	nano::store_iterator<nano::pending_key, nano::pending_info> pending_begin (nano::transaction const & transaction_a, nano::pending_key const & key_a) override

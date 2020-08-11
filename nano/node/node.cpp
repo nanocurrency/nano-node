@@ -365,7 +365,7 @@ node_seq (seq)
 		if (!is_initialized)
 		{
 			release_assert (!flags.read_only);
-			auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::cached_counts, tables::confirmation_height, tables::frontiers }));
+			auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::confirmation_height, tables::frontiers }));
 			// Store was empty meaning we just created it, add the genesis block
 			store.initialize (transaction, genesis, ledger.cache);
 		}
@@ -599,7 +599,7 @@ void nano::node::process_active (std::shared_ptr<nano::block> incoming)
 
 nano::process_return nano::node::process (nano::block & block_a)
 {
-	auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::cached_counts, tables::frontiers, tables::pending }, { tables::confirmation_height }));
+	auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending }, { tables::confirmation_height }));
 	auto result (ledger.process (transaction, block_a));
 	return result;
 }
@@ -614,7 +614,7 @@ nano::process_return nano::node::process_local (std::shared_ptr<nano::block> blo
 	block_processor.wait_write ();
 	// Process block
 	block_post_events events;
-	auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::cached_counts, tables::frontiers, tables::pending }, { tables::confirmation_height }));
+	auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending }, { tables::confirmation_height }));
 	return block_processor.process_one (transaction, events, info, work_watcher_a, nano::block_origin::local);
 }
 

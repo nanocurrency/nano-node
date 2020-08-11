@@ -486,6 +486,7 @@ public:
 	bool unchecked_count = true;
 	bool account_count = true;
 	bool epoch_2 = true;
+	bool block_count = true;
 
 	void enable_all ();
 };
