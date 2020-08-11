@@ -60,7 +60,7 @@ TEST (timestamp, parallel)
 			}
 		}));
 	}
-	for (auto & i: threads)
+	for (auto & i : threads)
 	{
 		i.join ();
 	}
