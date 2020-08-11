@@ -745,9 +745,11 @@ void nano::ledger::initialize (nano::generate_cache const & generate_cache_a)
 {
 	auto transaction = store.tx_begin_read ();
 	auto parallelize = [this, &transaction](std::function<void(nano::read_transaction const &, nano::uint256_t const, nano::uint256_t const, bool const)> && F) {
-		unsigned const thread_count = std::max (1u, std::min (12u, std::thread::hardware_concurrency ()));
+		// Between 10 and 40 threads, scales well even in low power systems as these tasks are I/O bound
+		unsigned const thread_count = std::max (10u, std::min (40u, 10 * std::thread::hardware_concurrency ()));
 		auto const split = std::numeric_limits<nano::uint256_t>::max () / thread_count;
 		std::vector<std::thread> threads;
+		threads.reserve (thread_count);
 		for (unsigned thread (0); thread < thread_count; ++thread)
 		{
 			auto const start = thread * split;
