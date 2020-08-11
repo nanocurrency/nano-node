@@ -73,7 +73,7 @@ public:
 	uint16_t callback_port{ 0 };
 	std::string callback_target;
 	int deprecated_lmdb_max_dbs{ 128 };
-	bool allow_local_peers{ !network_params.network.is_live_network () }; // disable by default for live network
+	bool allow_local_peers{ !(network_params.network.is_live_network () || network_params.network.is_test_network ()) }; // disable by default for live network
 	nano::stat_config stat_config;
 	nano::ipc::ipc_config ipc_config;
 	std::string external_address;
