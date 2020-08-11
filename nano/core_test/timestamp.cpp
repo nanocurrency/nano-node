@@ -25,7 +25,6 @@ TEST (timestamp, basic)
 	ASSERT_EQ (0, generator.component_count (one));
 	ASSERT_NE (0, generator.component_time (one));
 	auto two (generator.timestamp_now ());
-	ASSERT_EQ (1, generator.component_count (two));
 	ASSERT_NE (one, two);
 }
 
