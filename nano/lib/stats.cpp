@@ -655,12 +655,6 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::unreachable_host:
 			res = "unreachable_host";
 			break;
-		case nano::stat::detail::invalid_magic:
-			res = "invalid_magic";
-			break;
-		case nano::stat::detail::invalid_network:
-			res = "invalid_network";
-			break;
 		case nano::stat::detail::invalid_header:
 			res = "invalid_header";
 			break;

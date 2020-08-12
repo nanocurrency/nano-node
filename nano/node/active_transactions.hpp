@@ -273,7 +273,7 @@ private:
 	friend std::unique_ptr<container_info_component> collect_container_info (active_transactions &, const std::string &);
 
 	friend class active_transactions_activate_dependencies_invalid_Test;
-	friend class active_transactions_dropped_cleanup_Test;
+	friend class active_transactions_dropped_cleanup_dev;
 	friend class active_transactions_vote_replays_Test;
 	friend class confirmation_height_prioritize_frontiers_Test;
 	friend class confirmation_height_prioritize_frontiers_overwrite_Test;

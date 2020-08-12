@@ -81,8 +81,8 @@ case "${network}" in
 	beta)
 	dirSuffix='Beta'
 	;;
-	test)
-	dirSuffix='Test'
+	dev)
+	dirSuffix='Dev'
 	;;
 esac
 

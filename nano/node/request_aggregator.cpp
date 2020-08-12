@@ -12,8 +12,8 @@
 #include <nano/secure/ledger.hpp>
 
 nano::request_aggregator::request_aggregator (nano::network_constants const & network_constants_a, nano::node_config const & config_a, nano::stat & stats_a, nano::local_vote_history & history_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::active_transactions & active_a) :
-max_delay (network_constants_a.is_test_network () ? 50 : 300),
-small_delay (network_constants_a.is_test_network () ? 10 : 50),
+max_delay (network_constants_a.is_dev_network () ? 50 : 300),
+small_delay (network_constants_a.is_dev_network () ? 10 : 50),
 max_channel_requests (config_a.max_queued_requests),
 stats (stats_a),
 local_votes (history_a),
