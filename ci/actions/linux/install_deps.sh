@@ -4,4 +4,4 @@ sudo mkdir -p /etc/docker && echo '{"ipv6":true,"fixed-cidr-v6":"2001:db8:1::/64
 
 ci/build-docker-image.sh docker/ci/Dockerfile-base nanocurrency/nano-env:base
 ci/build-docker-image.sh docker/ci/Dockerfile-gcc nanocurrency/nano-env:gcc
-ci/build-docker-image.sh docker/ci/Dockerfile-clang nanocurrency/nano-env:clang
+ci/build-docker-image.sh docker/ci/Dockerfile-clang-6 nanocurrency/nano-env:clang-6

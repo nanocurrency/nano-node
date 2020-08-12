@@ -20,7 +20,7 @@ apt autoremove --yes
 
 # Ensure we have a new enough Boost
 if ! have boost; then
-	bootstrap_boost -m -k
+	bootstrap_boost -m -s
 fi
 
 if ! have boost; then
