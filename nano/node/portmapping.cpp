@@ -28,7 +28,7 @@ std::string nano::port_mapping::get_config_port (std::string const & node_port_a
 
 void nano::port_mapping::refresh_devices ()
 {
-	if (!network_params.network.is_test_network ())
+	if (!network_params.network.is_dev_network ())
 	{
 		upnp_state upnp_l;
 		int discover_error_l = 0;
@@ -74,7 +74,7 @@ nano::endpoint nano::port_mapping::external_address ()
 
 void nano::port_mapping::refresh_mapping ()
 {
-	debug_assert (!network_params.network.is_test_network ());
+	debug_assert (!network_params.network.is_dev_network ());
 	if (on)
 	{
 		nano::lock_guard<std::mutex> guard_l (mutex);
@@ -113,7 +113,7 @@ void nano::port_mapping::refresh_mapping ()
 bool nano::port_mapping::check_mapping ()
 {
 	// Long discovery time and fast setup/teardown make this impractical for testing
-	debug_assert (!network_params.network.is_test_network ());
+	debug_assert (!network_params.network.is_dev_network ());
 	bool result_l (true);
 	nano::lock_guard<std::mutex> guard_l (mutex);
 	auto node_port_l (std::to_string (node.network.endpoint ().port ()));
