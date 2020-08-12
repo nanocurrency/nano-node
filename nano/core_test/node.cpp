@@ -65,8 +65,12 @@ TEST (node, block_store_path_failure)
 	ASSERT_TRUE (node->wallets.items.empty ());
 	node->stop ();
 }
-
+#if defined(__clang__) && defined(__linux__) && CI
+// Disable test due to instability with clang and actions
+TEST (node_DeathTest, DISABLED_readonly_block_store_not_exist)
+#else
 TEST (node_DeathTest, readonly_block_store_not_exist)
+#endif
 {
 	// For ASSERT_DEATH_IF_SUPPORTED
 	testing::FLAGS_gtest_death_test_style = "threadsafe";
