@@ -35,7 +35,7 @@ if(MSVC)
   add_definitions(/MP)
 endif()
 
-set (CPACK_PACKAGE_VERSION_MAJOR "21")
+set (CPACK_PACKAGE_VERSION_MAJOR "22")
 set (CPACK_PACKAGE_VERSION_MINOR "0")
 set (CPACK_PACKAGE_VERSION_PATCH "0")
 set (CPACK_PACKAGE_VERSION_PRE_RELEASE "0")
@@ -96,7 +96,7 @@ option(ENABLE_AES "Enable AES optimizations (enabled by default with NANO_SIMD_O
 option(ENABLE_AVX2 "Enable AVX2 optimizations" OFF)
 
 SET (ACTIVE_NETWORK nano_live_network CACHE STRING "Selects which network parameters are used")
-set_property (CACHE ACTIVE_NETWORK PROPERTY STRINGS nano_test_network nano_beta_network nano_live_network)
+set_property (CACHE ACTIVE_NETWORK PROPERTY STRINGS nano_dev_network nano_beta_network nano_live_network nano_test_network)
 
 if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)

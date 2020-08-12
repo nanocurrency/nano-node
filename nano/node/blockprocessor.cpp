@@ -301,7 +301,7 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 					// Deleting from votes cache & wallet work watcher, stop active transaction
 					for (auto & i : rollback_list)
 					{
-						node.votes_cache.remove (i->hash ());
+						node.history.erase (i->root ());
 						node.wallets.watcher->remove (*i);
 						// Stop all rolled back active transactions except initial
 						if (i->hash () != successor->hash ())
@@ -366,18 +366,19 @@ void nano::block_processor::process_live (nano::transaction const & transaction_
 nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, block_post_events & events_a, nano::unchecked_info info_a, const bool watch_work_a, nano::block_origin const origin_a)
 {
 	nano::process_return result;
-	auto hash (info_a.block->hash ());
-	result = node.ledger.process (transaction_a, *(info_a.block), info_a.verified);
+	auto block (info_a.block);
+	auto hash (block->hash ());
+	result = node.ledger.process (transaction_a, *block, info_a.verified);
 	switch (result.code)
 	{
 		case nano::process_result::progress:
 		{
-			release_assert (info_a.account.is_zero () || info_a.account == result.account);
+			release_assert (info_a.account.is_zero () || info_a.account == node.store.block_account_calculated (*block));
 			if (node.config.logging.ledger_logging ())
 			{
-				std::string block;
-				info_a.block->serialize_json (block, node.config.logging.single_line_record ());
-				node.logger.try_log (boost::str (boost::format ("Processing block %1%: %2%") % hash.to_string () % block));
+				std::string block_string;
+				block->serialize_json (block_string, node.config.logging.single_line_record ());
+				node.logger.try_log (boost::str (boost::format ("Processing block %1%: %2%") % hash.to_string () % block_string));
 			}
 			if (info_a.modified > nano::seconds_since_epoch () - 300 && node.block_arrival.recent (hash))
 			{
@@ -398,7 +399,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 				info_a.modified = nano::seconds_since_epoch ();
 			}
 
-			nano::unchecked_key unchecked_key (info_a.block->previous (), hash);
+			nano::unchecked_key unchecked_key (block->previous (), hash);
 			auto exists = node.store.unchecked_exists (transaction_a, unchecked_key);
 			node.store.unchecked_put (transaction_a, unchecked_key, info_a);
 			if (!exists)
@@ -422,7 +423,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 				info_a.modified = nano::seconds_since_epoch ();
 			}
 
-			nano::unchecked_key unchecked_key (node.ledger.block_source (transaction_a, *(info_a.block)), hash);
+			nano::unchecked_key unchecked_key (node.ledger.block_source (transaction_a, *block), hash);
 			auto exists = node.store.unchecked_exists (transaction_a, unchecked_key);
 			node.store.unchecked_put (transaction_a, unchecked_key, info_a);
 			if (!exists)
@@ -475,7 +476,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::fork);
 			if (node.config.logging.ledger_logging ())
 			{
-				node.logger.try_log (boost::str (boost::format ("Fork for: %1% root: %2%") % hash.to_string () % info_a.block->root ().to_string ()));
+				node.logger.try_log (boost::str (boost::format ("Fork for: %1% root: %2%") % hash.to_string () % block->root ().to_string ()));
 			}
 			break;
 		}
@@ -504,7 +505,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 		{
 			if (node.config.logging.ledger_logging ())
 			{
-				node.logger.try_log (boost::str (boost::format ("Block %1% cannot follow predecessor %2%") % hash.to_string () % info_a.block->previous ().to_string ()));
+				node.logger.try_log (boost::str (boost::format ("Block %1% cannot follow predecessor %2%") % hash.to_string () % block->previous ().to_string ()));
 			}
 			break;
 		}
@@ -512,7 +513,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 		{
 			if (node.config.logging.ledger_logging ())
 			{
-				node.logger.try_log (boost::str (boost::format ("Insufficient work for %1% : %2% (difficulty %3%)") % hash.to_string () % nano::to_string_hex (info_a.block->block_work ()) % nano::to_string_hex (info_a.block->difficulty ())));
+				node.logger.try_log (boost::str (boost::format ("Insufficient work for %1% : %2% (difficulty %3%)") % hash.to_string () % nano::to_string_hex (block->block_work ()) % nano::to_string_hex (block->difficulty ())));
 			}
 			break;
 		}

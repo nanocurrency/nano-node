@@ -31,7 +31,7 @@ public:
 	{
 		auto hash_l (genesis_a.hash ());
 		debug_assert (latest_begin (transaction_a) == latest_end ());
-		genesis_a.open->sideband_set (nano::block_sideband (network_params.ledger.genesis_account, 0, network_params.ledger.genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false));
+		genesis_a.open->sideband_set (nano::block_sideband (network_params.ledger.genesis_account, 0, network_params.ledger.genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
 		block_put (transaction_a, hash_l, *genesis_a.open);
 		++ledger_cache_a.block_count;
 		confirmation_height_put (transaction_a, network_params.ledger.genesis_account, nano::confirmation_height_info{ 1, genesis_a.hash () });
@@ -360,7 +360,7 @@ public:
 		nano::db_val<Val> data;
 		auto status = get (transaction_a, tables::meta, nano::db_val<Val> (version_key), data);
 		int result (minimum_version);
-		if (!not_found (status))
+		if (success (status))
 		{
 			nano::uint256_union version_value (data);
 			debug_assert (version_value.qwords[2] == 0 && version_value.qwords[1] == 0 && version_value.qwords[0] == 0);
@@ -371,7 +371,6 @@ public:
 
 	nano::epoch block_version (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override
 	{
-		nano::db_val<Val> value;
 		auto block = block_get (transaction_a, hash_a);
 		if (block && block->type () == nano::block_type::state)
 		{
