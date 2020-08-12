@@ -369,7 +369,7 @@ size_t nano::rocksdb_store::count (nano::transaction const & transaction_a, tabl
 	// This should only be used in tests
 	else if (table_a == tables::accounts)
 	{
-		debug_assert (network_constants ().is_test_network ());
+		debug_assert (network_constants ().is_dev_network ());
 		for (auto i (latest_begin (transaction_a)), n (latest_end ()); i != n; ++i)
 		{
 			++sum;

@@ -89,9 +89,9 @@ int main (int argc, char * const * argv)
 		("debug_verify_profile_batch", "Profile batch signature verification")
 		("debug_profile_bootstrap", "Profile bootstrap style blocks processing (at least 10GB of free storage space required)")
 		("debug_profile_sign", "Profile signature generation")
-		("debug_profile_process", "Profile active blocks processing (only for nano_test_network)")
-		("debug_profile_votes", "Profile votes processing (only for nano_test_network)")
-		("debug_profile_frontiers_confirmation", "Profile frontiers confirmation speed (only for nano_test_network)")
+		("debug_profile_process", "Profile active blocks processing (only for nano_dev_network)")
+		("debug_profile_votes", "Profile votes processing (only for nano_dev_network)")
+		("debug_profile_frontiers_confirmation", "Profile frontiers confirmation speed (only for nano_dev_network)")
 		("debug_random_feed", "Generates output to RNG test suites")
 		("debug_rpc", "Read an RPC command from stdin and invoke it. Network operations will have no effect.")
 		("debug_peers", "Display peer IPv6:port connections")
@@ -165,7 +165,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("compare_rep_weights"))
 		{
-			if (!nano::network_constants ().is_test_network ())
+			if (!nano::network_constants ().is_dev_network ())
 			{
 				auto node_flags = nano::inactive_node_flag_defaults ();
 				nano::update_flags (node_flags, vm);
@@ -173,10 +173,13 @@ int main (int argc, char * const * argv)
 				nano::inactive_node inactive_node (data_path, node_flags);
 				auto node = inactive_node.node;
 
-				auto const hardcoded = node->get_bootstrap_weights ().second;
+				auto const bootstrap_weights = node->get_bootstrap_weights ();
+				auto const & hardcoded = bootstrap_weights.second;
+				auto const hardcoded_height = bootstrap_weights.first;
 				auto const ledger_unfiltered = node->ledger.cache.rep_weights.get_rep_amounts ();
+				auto const ledger_height = node->ledger.cache.block_count.load ();
 
-				auto get_total = [](decltype (hardcoded) const & reps) -> nano::uint128_union {
+				auto get_total = [](decltype (bootstrap_weights.second) const & reps) -> nano::uint128_union {
 					return std::accumulate (reps.begin (), reps.end (), nano::uint128_t{ 0 }, [](auto sum, auto const & rep) { return sum + rep.second; });
 				};
 
@@ -256,9 +259,11 @@ int main (int argc, char * const * argv)
 					return boost::str (boost::format ("representative %1% hardcoded --- ledger %2%") % rep.first.to_account () % nano::uint128_union (rep.second).format_balance (nano::Mxrb_ratio, 0, true));
 				};
 
-				std::cout << boost::str (boost::format ("hardcoded weight %1% Mnano\nledger weight %2% Mnano\nmismatched\n\tsamples %3%\n\ttotal %4% Mnano\n\tmean %5% Mnano\n\tsigma %6% Mnano\n")
+				std::cout << boost::str (boost::format ("hardcoded weight %1% Mnano at %2% blocks\nledger weight %3% Mnano at %4% blocks\nmismatched\n\tsamples %5%\n\ttotal %6% Mnano\n\tmean %7% Mnano\n\tsigma %8% Mnano\n")
 				% total_hardcoded.format_balance (nano::Mxrb_ratio, 0, true)
+				% hardcoded_height
 				% total_ledger.format_balance (nano::Mxrb_ratio, 0, true)
+				% ledger_height
 				% mismatched.size ()
 				% mismatch_total.format_balance (nano::Mxrb_ratio, 0, true)
 				% mismatch_mean.format_balance (nano::Mxrb_ratio, 0, true)
@@ -896,8 +901,8 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_process"))
 		{
-			nano::network_constants::set_active_network (nano::nano_networks::nano_test_network);
-			nano::network_params test_params;
+			nano::network_constants::set_active_network (nano::nano_networks::nano_dev_network);
+			nano::network_params dev_params;
 			nano::block_builder builder;
 			size_t num_accounts (100000);
 			size_t num_iterations (5); // 100,000 * 5 * 2 = 1,000,000 blocks
@@ -912,7 +917,7 @@ int main (int argc, char * const * argv)
 			nano::node_flags node_flags;
 			nano::update_flags (node_flags, vm);
 			auto node (std::make_shared<nano::node> (io_ctx, 24001, path, alarm, logging, work, node_flags));
-			nano::block_hash genesis_latest (node->latest (test_params.ledger.test_genesis_key.pub));
+			nano::block_hash genesis_latest (node->latest (dev_params.ledger.dev_genesis_key.pub));
 			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
 			// Generating keys
 			std::vector<nano::keypair> keys (num_accounts);
@@ -925,12 +930,12 @@ int main (int argc, char * const * argv)
 				genesis_balance = genesis_balance - 1000000000;
 
 				auto send = builder.state ()
-				            .account (test_params.ledger.test_genesis_key.pub)
+				            .account (dev_params.ledger.dev_genesis_key.pub)
 				            .previous (genesis_latest)
-				            .representative (test_params.ledger.test_genesis_key.pub)
+				            .representative (dev_params.ledger.dev_genesis_key.pub)
 				            .balance (genesis_balance)
 				            .link (keys[i].pub)
-				            .sign (test_params.ledger.test_genesis_key.prv, test_params.ledger.test_genesis_key.pub)
+				            .sign (dev_params.ledger.dev_genesis_key.prv, dev_params.ledger.dev_genesis_key.pub)
 				            .work (*work.generate (nano::work_version::work_1, genesis_latest, node->network_params.network.publish_thresholds.epoch_1))
 				            .build ();
 
@@ -1022,8 +1027,8 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_votes"))
 		{
-			nano::network_constants::set_active_network (nano::nano_networks::nano_test_network);
-			nano::network_params test_params;
+			nano::network_constants::set_active_network (nano::nano_networks::nano_dev_network);
+			nano::network_params dev_params;
 			nano::block_builder builder;
 			size_t num_elections (40000);
 			size_t num_representatives (25);
@@ -1036,7 +1041,7 @@ int main (int argc, char * const * argv)
 			auto path (nano::unique_path ());
 			logging.init (path);
 			auto node (std::make_shared<nano::node> (io_ctx, 24001, path, alarm, logging, work));
-			nano::block_hash genesis_latest (node->latest (test_params.ledger.test_genesis_key.pub));
+			nano::block_hash genesis_latest (node->latest (dev_params.ledger.dev_genesis_key.pub));
 			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
 			// Generating keys
 			std::vector<nano::keypair> keys (num_representatives);
@@ -1047,12 +1052,12 @@ int main (int argc, char * const * argv)
 				genesis_balance = genesis_balance - balance;
 
 				auto send = builder.state ()
-				            .account (test_params.ledger.test_genesis_key.pub)
+				            .account (dev_params.ledger.dev_genesis_key.pub)
 				            .previous (genesis_latest)
-				            .representative (test_params.ledger.test_genesis_key.pub)
+				            .representative (dev_params.ledger.dev_genesis_key.pub)
 				            .balance (genesis_balance)
 				            .link (keys[i].pub)
-				            .sign (test_params.ledger.test_genesis_key.prv, test_params.ledger.test_genesis_key.pub)
+				            .sign (dev_params.ledger.dev_genesis_key.prv, dev_params.ledger.dev_genesis_key.pub)
 				            .work (*work.generate (nano::work_version::work_1, genesis_latest, node->network_params.network.publish_thresholds.epoch_1))
 				            .build ();
 
@@ -1079,12 +1084,12 @@ int main (int argc, char * const * argv)
 				nano::keypair destination;
 
 				auto send = builder.state ()
-				            .account (test_params.ledger.test_genesis_key.pub)
+				            .account (dev_params.ledger.dev_genesis_key.pub)
 				            .previous (genesis_latest)
-				            .representative (test_params.ledger.test_genesis_key.pub)
+				            .representative (dev_params.ledger.dev_genesis_key.pub)
 				            .balance (genesis_balance)
 				            .link (destination.pub)
-				            .sign (test_params.ledger.test_genesis_key.prv, test_params.ledger.test_genesis_key.pub)
+				            .sign (dev_params.ledger.dev_genesis_key.prv, dev_params.ledger.dev_genesis_key.pub)
 				            .work (*work.generate (nano::work_version::work_1, genesis_latest, node->network_params.network.publish_thresholds.epoch_1))
 				            .build ();
 
@@ -1132,8 +1137,8 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_frontiers_confirmation"))
 		{
-			nano::force_nano_test_network ();
-			nano::network_params test_params;
+			nano::force_nano_dev_network ();
+			nano::network_params dev_params;
 			nano::block_builder builder;
 			size_t count (32 * 1024);
 			auto count_it = vm.find ("count");
@@ -1166,7 +1171,7 @@ int main (int argc, char * const * argv)
 			flags.disable_wallet_bootstrap = true;
 			flags.disable_bootstrap_listener = true;
 			auto node1 (std::make_shared<nano::node> (io_ctx1, path1, alarm1, config1, work, flags, 0));
-			nano::block_hash genesis_latest (node1->latest (test_params.ledger.test_genesis_key.pub));
+			nano::block_hash genesis_latest (node1->latest (dev_params.ledger.dev_genesis_key.pub));
 			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
 			// Generating blocks
 			std::deque<std::shared_ptr<nano::block>> blocks;
@@ -1176,13 +1181,13 @@ int main (int argc, char * const * argv)
 				genesis_balance = genesis_balance - 1;
 
 				auto send = builder.state ()
-				            .account (test_params.ledger.test_genesis_key.pub)
+				            .account (dev_params.ledger.dev_genesis_key.pub)
 				            .previous (genesis_latest)
-				            .representative (test_params.ledger.test_genesis_key.pub)
+				            .representative (dev_params.ledger.dev_genesis_key.pub)
 				            .balance (genesis_balance)
 				            .link (key.pub)
-				            .sign (test_params.ledger.test_genesis_key.prv, test_params.ledger.test_genesis_key.pub)
-				            .work (*work.generate (nano::work_version::work_1, genesis_latest, test_params.network.publish_thresholds.epoch_1))
+				            .sign (dev_params.ledger.dev_genesis_key.prv, dev_params.ledger.dev_genesis_key.pub)
+				            .work (*work.generate (nano::work_version::work_1, genesis_latest, dev_params.network.publish_thresholds.epoch_1))
 				            .build ();
 
 				genesis_latest = send->hash ();
@@ -1194,7 +1199,7 @@ int main (int argc, char * const * argv)
 				            .balance (1)
 				            .link (genesis_latest)
 				            .sign (key.prv, key.pub)
-				            .work (*work.generate (nano::work_version::work_1, key.pub, test_params.network.publish_thresholds.epoch_1))
+				            .work (*work.generate (nano::work_version::work_1, key.pub, dev_params.network.publish_thresholds.epoch_1))
 				            .build ();
 
 				blocks.push_back (std::move (send));
@@ -1285,7 +1290,7 @@ int main (int argc, char * const * argv)
 			// Insert representative
 			std::cout << "Initializing representative\n";
 			auto wallet (node1->wallets.create (nano::random_wallet_id ()));
-			wallet->insert_adhoc (test_params.ledger.test_genesis_key.prv);
+			wallet->insert_adhoc (dev_params.ledger.dev_genesis_key.prv);
 			node2->network.merge_peer (node1->network.endpoint ());
 			while (node2->rep_crawler.representative_count () == 0)
 			{
@@ -1539,6 +1544,14 @@ int main (int argc, char * const * argv)
 					{
 						print_error_message (boost::str (boost::format ("Incorrect sideband block details for block %1%\n") % hash.to_string ()));
 					}
+					// Check link epoch version
+					if (sideband.details.is_receive)
+					{
+						if (sideband.source_epoch != node->store.block_version (transaction, block->link ()))
+						{
+							print_error_message (boost::str (boost::format ("Incorrect source epoch for block %1%\n") % hash.to_string ()));
+						}
+					}
 					// Check if block work value is correct
 					if (block->difficulty () < nano::work_threshold (block->work_version (), block->sideband ().details))
 					{
@@ -1741,13 +1754,14 @@ int main (int argc, char * const * argv)
 			auto begin (std::chrono::high_resolution_clock::now ());
 			uint64_t block_count (0);
 			size_t count (0);
+			std::deque<nano::unchecked_info> epoch_open_blocks;
 			{
 				auto inactive_node = nano::default_inactive_node (data_path, vm);
-				auto node = inactive_node->node;
-				auto transaction (node->store.tx_begin_read ());
-				block_count = node->ledger.cache.block_count;
+				auto source_node = inactive_node->node;
+				auto transaction (source_node->store.tx_begin_read ());
+				block_count = source_node->ledger.cache.block_count;
 				std::cout << boost::str (boost::format ("Performing bootstrap emulation, %1% blocks in ledger...") % block_count) << std::endl;
-				for (auto i (node->store.latest_begin (transaction)), n (node->store.latest_end ()); i != n; ++i)
+				for (auto i (source_node->store.latest_begin (transaction)), n (source_node->store.latest_end ()); i != n; ++i)
 				{
 					nano::account const & account (i->first);
 					nano::account_info const & info (i->second);
@@ -1755,7 +1769,7 @@ int main (int argc, char * const * argv)
 					while (!hash.is_zero ())
 					{
 						// Retrieving block data
-						auto block (node->store.block_get_no_sideband (transaction, hash));
+						auto block (source_node->store.block_get_no_sideband (transaction, hash));
 						if (block != nullptr)
 						{
 							++count;
@@ -1764,7 +1778,12 @@ int main (int argc, char * const * argv)
 								std::cout << boost::str (boost::format ("%1% blocks retrieved") % count) << std::endl;
 							}
 							nano::unchecked_info unchecked_info (block, account, 0, nano::signature_verification::unknown);
-							node->block_processor.add (unchecked_info);
+							node.node->block_processor.add (unchecked_info);
+							if (block->type () == nano::block_type::state && block->previous ().is_zero () && source_node->ledger.is_epoch_link (block->link ()))
+							{
+								// Epoch open blocks can be rejected without processed pending blocks to account, push it later again
+								epoch_open_blocks.push_back (unchecked_info);
+							}
 							// Retrieving previous block hash
 							hash = block->previous ();
 						}
@@ -1774,7 +1793,15 @@ int main (int argc, char * const * argv)
 			nano::timer<std::chrono::seconds> timer_l (nano::timer_state::started);
 			while (node.node->ledger.cache.block_count != block_count)
 			{
-				std::this_thread::sleep_for (std::chrono::milliseconds (50));
+				std::this_thread::sleep_for (std::chrono::milliseconds (500));
+				// Add epoch open blocks again if required
+				if (node.node->block_processor.size () == 0)
+				{
+					for (auto & unchecked_info : epoch_open_blocks)
+					{
+						node.node->block_processor.add (unchecked_info);
+					}
+				}
 				// Message each 60 seconds
 				if (timer_l.after_deadline (std::chrono::seconds (60)))
 				{
