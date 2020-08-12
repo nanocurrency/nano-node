@@ -72,6 +72,11 @@ TEST (node_DeathTest, DISABLED_readonly_block_store_not_exist)
 TEST (node_DeathTest, readonly_block_store_not_exist)
 #endif
 {
+	if (nano::is_rocksdb_test ())
+	{
+		// Don't test this in rocksdb mode
+		return;
+	}
 	// For ASSERT_DEATH_IF_SUPPORTED
 	testing::FLAGS_gtest_death_test_style = "threadsafe";
 
