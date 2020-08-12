@@ -126,7 +126,7 @@ TEST (difficulty, network_constants)
 	nano::network_constants constants;
 	auto & full_thresholds = constants.publish_full;
 	auto & beta_thresholds = constants.publish_beta;
-	auto & test_thresholds = constants.publish_test;
+	auto & dev_thresholds = constants.publish_dev;
 
 	ASSERT_NEAR (8., nano::difficulty::to_multiplier (full_thresholds.epoch_2, full_thresholds.epoch_1), 1e-10);
 	ASSERT_NEAR (1 / 8., nano::difficulty::to_multiplier (full_thresholds.epoch_2_receive, full_thresholds.epoch_1), 1e-10);
@@ -139,10 +139,10 @@ TEST (difficulty, network_constants)
 	ASSERT_NEAR (1., nano::difficulty::to_multiplier (beta_thresholds.epoch_2_receive, beta_thresholds.entry), 1e-10);
 	ASSERT_NEAR (1., nano::difficulty::to_multiplier (beta_thresholds.epoch_2, beta_thresholds.base), 1e-10);
 
-	ASSERT_NEAR (8., nano::difficulty::to_multiplier (test_thresholds.epoch_2, test_thresholds.epoch_1), 1e-10);
-	ASSERT_NEAR (1 / 8., nano::difficulty::to_multiplier (test_thresholds.epoch_2_receive, test_thresholds.epoch_1), 1e-10);
-	ASSERT_NEAR (1., nano::difficulty::to_multiplier (test_thresholds.epoch_2_receive, test_thresholds.entry), 1e-10);
-	ASSERT_NEAR (1., nano::difficulty::to_multiplier (test_thresholds.epoch_2, test_thresholds.base), 1e-10);
+	ASSERT_NEAR (8., nano::difficulty::to_multiplier (dev_thresholds.epoch_2, dev_thresholds.epoch_1), 1e-10);
+	ASSERT_NEAR (1 / 8., nano::difficulty::to_multiplier (dev_thresholds.epoch_2_receive, dev_thresholds.epoch_1), 1e-10);
+	ASSERT_NEAR (1., nano::difficulty::to_multiplier (dev_thresholds.epoch_2_receive, dev_thresholds.entry), 1e-10);
+	ASSERT_NEAR (1., nano::difficulty::to_multiplier (dev_thresholds.epoch_2, dev_thresholds.base), 1e-10);
 
 	nano::work_version version{ nano::work_version::work_1 };
 	ASSERT_EQ (constants.publish_thresholds.base, constants.publish_thresholds.epoch_2);

@@ -3,7 +3,7 @@
 network='live'
 
 print_usage() {
-	echo 'build.sh [-h] [-n {live|beta|test}]'
+	echo 'build.sh [-h] [-n {live|beta|dev}]'
 }
 
 while getopts 'hn:' OPT; do
@@ -26,7 +26,7 @@ case "${network}" in
 	live)
 		network_tag=''
 		;;
-	test|beta)
+	dev|beta)
 		network_tag="-${network}"
 		;;
 	*)
