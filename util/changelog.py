@@ -104,7 +104,7 @@ class cliArgs():
             required=True,
         )
         options = parse.parse_args()
-        self.repo = options.repo
+        self.repo = options.repo.rstrip("/")
         self.start = options.start
         self.end = options.end
         self.pat = options.pat
@@ -121,6 +121,7 @@ class cliArgs():
 class generateTree:
     def __init__(self, args):
         github = Github(args.pat)
+        self.name = args.repo
         self.repo = github.get_repo(args.repo)
         self.start = args.start
         self.end = args.end
@@ -134,11 +135,15 @@ class generateTree:
             exit("Error finding commit for " + args.end)
         commits = self.repo.get_commits(sha=self.endCommit.sha)
         self.commits = {}
+        self.other_commits = [] # for commits that do not have an associated pull
         for commit in commits:
             if commit.sha == self.startCommit.sha:
                 break
             else:
-                for pull in commit.get_pulls():
+                message = commit.commit.message.partition('\n')[0]
+                try:
+                    pr_number = int(message[message.rfind('#')+1:message.rfind(')')])
+                    pull = self.repo.get_pull(pr_number)
                     labels = []
                     for label in pull.labels:
                         labels.append(label.name)
@@ -146,7 +151,11 @@ class generateTree:
                         "Title": pull.title,
                         "Url": pull.html_url,
                         "labels": labels
-                    }
+                        }
+                except ValueError:
+                    print("Commit has no associated PR {}: \"{}\"".format(commit.sha, message))
+                    self.other_commits.append((commit.sha, message))
+                    continue
 
     def __repr__(self):
         return "<generateTree(repo='{0}', start='{1}', startCommit='{2}', " \
@@ -175,16 +184,29 @@ class generateMarkdown():
         sort = self.pull_to_section(repo.commits)
 
         for section, prs in sort.items():
-            self.write_header(section)
+            self.write_header_PR(section)
             for pr in prs:
                 self.write_PR(pr, repo.commits[pr[0]])
+
+        if repo.other_commits:
+            self.write_header_no_PR()
+            for sha, message in repo.other_commits:
+                self.write_no_PR(repo, sha, message)
+
         self.mdFile.create_md_file()
 
-    def write_header(self, section):
+    def write_header_PR(self, section):
         self.mdFile.new_line("---")
         self.mdFile.new_header(level=3, title=section)
         self.mdFile.new_line(
             "|Pull Request|Title")
+        self.mdFile.new_line("|:-:|:--")
+
+    def write_header_no_PR(self):
+        self.mdFile.new_line("---")
+        self.mdFile.new_header(level=3, title="Other Updates")
+        self.mdFile.new_line(
+            "|Commit|Title")
         self.mdFile.new_line("|:-:|:--")
 
     def write_PR(self, pr, info):
@@ -194,6 +216,12 @@ class generateMarkdown():
         self.mdFile.new_line(
             "|[#{0}]({1})|{2}{3}".format(
                 pr[0], info['Url'], imp, info['Title']))
+
+    def write_no_PR(self, repo, sha, message):
+         url = "https://github.com/{0}/commit/{1}".format(repo.name, sha)
+         self.mdFile.new_line(
+            "|[{0}]({1})|{2}".format(
+                sha[:8], url, message))
 
     def handle_labels(self, labels):
         for section, values in SECTIONS.items():

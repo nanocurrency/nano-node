@@ -96,7 +96,7 @@ option(ENABLE_AES "Enable AES optimizations (enabled by default with NANO_SIMD_O
 option(ENABLE_AVX2 "Enable AVX2 optimizations" OFF)
 
 SET (ACTIVE_NETWORK nano_live_network CACHE STRING "Selects which network parameters are used")
-set_property (CACHE ACTIVE_NETWORK PROPERTY STRINGS nano_test_network nano_beta_network nano_live_network)
+set_property (CACHE ACTIVE_NETWORK PROPERTY STRINGS nano_dev_network nano_beta_network nano_live_network nano_test_network)
 
 if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)
@@ -194,11 +194,7 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 #set(CMAKE_C_EXTENSIONS OFF)
 
-set(NANO_SUPPORTED_CPP_STANDARD "17" CACHE STRING "Supported C++ standard (14 or 17)")
-if (CI_BUILD OR CI_TEST)
-	set(NANO_SUPPORTED_CPP_STANDARD "14")
-endif()
-set(CMAKE_CXX_STANDARD ${NANO_SUPPORTED_CPP_STANDARD})
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 #set(CMAKE_CXX_EXTENSIONS OFF)
 

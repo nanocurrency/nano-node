@@ -63,7 +63,7 @@ fi
 
 cmake \
     -G'Unix Makefiles' \
-    -DACTIVE_NETWORK=nano_test_network \
+    -DACTIVE_NETWORK=nano_dev_network \
     -DNANO_TEST=ON \
     -DNANO_GUI=ON \
     -DNANO_ROCKSDB=ON \

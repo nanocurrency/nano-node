@@ -144,7 +144,7 @@ uint64_t nano::work_v1::value (nano::root const & root_a, uint64_t work_a)
 uint64_t nano::work_v1::value (nano::root const & root_a, uint64_t work_a)
 {
 	static nano::network_constants network_constants;
-	if (!network_constants.is_test_network ())
+	if (!network_constants.is_dev_network ())
 	{
 		debug_assert (false);
 		std::exit (1);
@@ -207,7 +207,7 @@ opencl (opencl_a)
 	static_assert (ATOMIC_INT_LOCK_FREE == 2, "Atomic int needed");
 	boost::thread::attributes attrs;
 	nano::thread_attributes::set (attrs);
-	auto count (network_constants.is_test_network () ? std::min (max_threads_a, 1u) : std::min (max_threads_a, std::max (1u, boost::thread::hardware_concurrency ())));
+	auto count (network_constants.is_dev_network () ? std::min (max_threads_a, 1u) : std::min (max_threads_a, std::max (1u, boost::thread::hardware_concurrency ())));
 	if (opencl)
 	{
 		// One thread to handle OpenCL
@@ -376,14 +376,14 @@ void nano::work_pool::generate (nano::work_version const version_a, nano::root c
 boost::optional<uint64_t> nano::work_pool::generate (nano::root const & root_a)
 {
 	static nano::network_constants network_constants;
-	debug_assert (network_constants.is_test_network ());
+	debug_assert (network_constants.is_dev_network ());
 	return generate (nano::work_version::work_1, root_a, network_constants.publish_thresholds.base);
 }
 
 boost::optional<uint64_t> nano::work_pool::generate (nano::root const & root_a, uint64_t difficulty_a)
 {
 	static nano::network_constants network_constants;
-	debug_assert (network_constants.is_test_network ());
+	debug_assert (network_constants.is_dev_network ());
 	return generate (nano::work_version::work_1, root_a, difficulty_a);
 }
 

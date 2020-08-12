@@ -71,7 +71,7 @@ void nano::json_handler::process_request (bool unsafe_a)
 			// Try the rest of the options
 			if (action == "wallet_seed")
 			{
-				if (unsafe_a || node.network_params.network.is_test_network ())
+				if (unsafe_a || node.network_params.network.is_dev_network ())
 				{
 					wallet_seed ();
 				}
