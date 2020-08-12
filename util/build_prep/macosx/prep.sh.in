@@ -40,7 +40,7 @@ if ! have boost; then
 	BOOST_ROOT="${KEEP_AROUND_DIRECTORY}/boost"
 
 	if ! have boost; then
-		bootstrap_boost -m -c -k
+		bootstrap_boost -m -c -s
 	fi
 fi
 

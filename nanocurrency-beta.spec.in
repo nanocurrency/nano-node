@@ -17,12 +17,12 @@ the nano daemon, and a service.
 %prep
 if [ ! -x "$(which cmake)" ]; then
 	echo "cmake must exist, try:" >&2
-	echo "      scl enable llvm-toolset-7 devtoolset-7 'rpmbuild ...'" >&2
+	echo "      scl enable devtoolset-7 'rpmbuild ...'" >&2
 	exit 1
 fi
 if cc --std=c++14 --version 2>&1 >/dev/null | grep '^' >/dev/null; then
 	echo "Unsupported C++ compiler, try:" >&2
-	echo "      scl enable llvm-toolset-7 devtoolset-7 'rpmbuild ...'" >&2
+	echo "      scl enable devtoolset-7 'rpmbuild ...'" >&2
 	exit 1
 fi
 if test ! -d /usr/local/boost; then
@@ -34,6 +34,7 @@ fi
 %build
 cmake -DCMAKE_VERBOSE_MAKEFILE=ON -DBOOST_ROOT=/usr/local/boost -DACTIVE_NETWORK=nano_beta_network .
 make nano_node %{?_smp_mflags}
+make nano_rpc %{?_smp_mflags}
 
 %install
 if [ ! %{buildroot} = "/" ]; then %{__rm} -rf %{buildroot}; fi
@@ -49,6 +50,7 @@ if [ ! %{buildroot} = "/" ]; then %{__rm} -rf %{buildroot}; fi
 %files
 %defattr(755,root,root)
 %{_bindir}/nano_node-beta
+%{_bindir}/nano_rpc-beta
 %attr(644,root,root) /etc/systemd/system/nanocurrency-beta.service
 
 %pre
