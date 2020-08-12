@@ -322,10 +322,6 @@ class process_return final
 {
 public:
 	nano::process_result code;
-	nano::account account;
-	nano::amount amount;
-	nano::account pending_account;
-	boost::optional<bool> state_is_send;
 	nano::signature_verification verified;
 	nano::amount previous_balance;
 };
@@ -419,7 +415,7 @@ public:
 	/** Maximum number of peers per IP */
 	size_t max_peers_per_ip;
 
-	/** The maximum amount of samples for a 2 week period on live or 3 days on beta */
+	/** The maximum amount of samples for a 2 week period on live or 1 day on beta */
 	uint64_t max_weight_samples;
 	uint64_t weight_period;
 };

@@ -361,9 +361,8 @@ node_seq (seq)
 		}
 
 		nano::genesis genesis;
-		if (!is_initialized)
+		if (!is_initialized && !flags.read_only)
 		{
-			release_assert (!flags.read_only);
 			auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::cached_counts, tables::confirmation_height, tables::frontiers }));
 			// Store was empty meaning we just created it, add the genesis block
 			store.initialize (transaction, genesis, ledger.cache);
@@ -372,7 +371,8 @@ node_seq (seq)
 		if (!ledger.block_exists (genesis.hash ()))
 		{
 			std::stringstream ss;
-			ss << "Genesis block not found. Make sure the node network ID is correct.";
+			ss << "Genesis block not found. This commonly indicates a configuration issue, check that the --network or --data_path command line arguments are correct, "
+			      "and also the ledger backend node config option. If using a read-only CLI command a ledger must already exist, start the node with --daemon first.";
 			if (network_params.network.is_beta_network ())
 			{
 				ss << " Beta network may have reset, try clearing database files";
