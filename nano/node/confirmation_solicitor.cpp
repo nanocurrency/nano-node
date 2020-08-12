@@ -4,8 +4,8 @@
 using namespace std::chrono_literals;
 
 nano::confirmation_solicitor::confirmation_solicitor (nano::network & network_a, nano::network_constants const & params_a) :
-max_confirm_req_batches (params_a.is_test_network () ? 1 : 20),
-max_block_broadcasts (params_a.is_test_network () ? 4 : 30),
+max_confirm_req_batches (params_a.is_dev_network () ? 1 : 20),
+max_block_broadcasts (params_a.is_dev_network () ? 4 : 30),
 max_election_requests (30),
 max_election_broadcasts (std::max<size_t> (network_a.fanout () / 2, 1)),
 network (network_a)

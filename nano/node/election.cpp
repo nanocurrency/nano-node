@@ -14,7 +14,7 @@ int constexpr nano::election::confirmed_duration_factor;
 
 std::chrono::milliseconds nano::election::base_latency () const
 {
-	return node.network_params.network.is_test_network () ? 25ms : 1000ms;
+	return node.network_params.network.is_dev_network () ? 25ms : 1000ms;
 }
 
 nano::election_vote_result::election_vote_result (bool replay_a, bool processed_a)
@@ -378,7 +378,7 @@ nano::election_vote_result nano::election::vote (nano::account rep, uint64_t seq
 	auto online_stake (node.online_reps.online_stake ());
 	auto weight (node.ledger.weight (rep));
 	auto should_process (false);
-	if (node.network_params.network.is_test_network () || weight > node.minimum_principal_weight (online_stake))
+	if (node.network_params.network.is_dev_network () || weight > node.minimum_principal_weight (online_stake))
 	{
 		unsigned int cooldown;
 		if (weight < online_stake / 100) // 0.1% to 1%
