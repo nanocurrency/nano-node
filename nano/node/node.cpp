@@ -121,11 +121,10 @@ block_processor_thread ([this]() {
 }),
 // clang-format on
 online_reps (ledger, network_params, config.online_weight_minimum.number ()),
-votes_cache (wallets),
 vote_uniquer (block_uniquer),
 confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, logger, node_initialized_latch, flags.confirmation_height_processor_mode),
 active (*this, confirmation_height_processor),
-aggregator (network_params.network, config, stats, votes_cache, ledger, wallets, active),
+aggregator (network_params.network, config, stats, history, ledger, wallets, active),
 payment_observer_processor (observers.blocks),
 wallets (wallets_store.init_error (), *this),
 startup_time (std::chrono::steady_clock::now ()),
@@ -362,9 +361,8 @@ node_seq (seq)
 		}
 
 		nano::genesis genesis;
-		if (!is_initialized)
+		if (!is_initialized && !flags.read_only)
 		{
-			release_assert (!flags.read_only);
 			auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::confirmation_height, tables::frontiers }));
 			// Store was empty meaning we just created it, add the genesis block
 			store.initialize (transaction, genesis, ledger.cache);
@@ -373,7 +371,8 @@ node_seq (seq)
 		if (!ledger.block_exists (genesis.hash ()))
 		{
 			std::stringstream ss;
-			ss << "Genesis block not found. Make sure the node network ID is correct.";
+			ss << "Genesis block not found. This commonly indicates a configuration issue, check that the --network or --data_path command line arguments are correct, "
+			      "and also the ledger backend node config option. If using a read-only CLI command a ledger must already exist, start the node with --daemon first.";
 			if (network_params.network.is_beta_network ())
 			{
 				ss << " Beta network may have reset, try clearing database files";
@@ -581,7 +580,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (collect_container_info (node.block_processor, "block_processor"));
 	composite->add_component (collect_container_info (node.block_arrival, "block_arrival"));
 	composite->add_component (collect_container_info (node.online_reps, "online_reps"));
-	composite->add_component (collect_container_info (node.votes_cache, "votes_cache"));
+	composite->add_component (collect_container_info (node.history, "history"));
 	composite->add_component (collect_container_info (node.block_uniquer, "block_uniquer"));
 	composite->add_component (collect_container_info (node.vote_uniquer, "vote_uniquer"));
 	composite->add_component (collect_container_info (node.confirmation_height_processor, "confirmation_height_processor"));
@@ -1060,19 +1059,19 @@ boost::optional<uint64_t> nano::node::work_generate_blocking (nano::work_version
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a)
 {
-	debug_assert (network_params.network.is_test_network ());
+	debug_assert (network_params.network.is_dev_network ());
 	return work_generate_blocking (block_a, default_difficulty (nano::work_version::work_1));
 }
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a)
 {
-	debug_assert (network_params.network.is_test_network ());
+	debug_assert (network_params.network.is_dev_network ());
 	return work_generate_blocking (root_a, default_difficulty (nano::work_version::work_1));
 }
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a, uint64_t difficulty_a)
 {
-	debug_assert (network_params.network.is_test_network ());
+	debug_assert (network_params.network.is_dev_network ());
 	return work_generate_blocking (nano::work_version::work_1, root_a, difficulty_a);
 }
 
@@ -1718,7 +1717,7 @@ std::unique_ptr<nano::block_store> nano::make_store (nano::logger_mt & logger, b
 		/** To use RocksDB in tests make sure the node is built with the cmake variable -DNANO_ROCKSDB=ON and the environment variable TEST_USE_ROCKSDB=1 is set */
 		static nano::network_constants network_constants;
 		auto use_rocksdb_str = std::getenv ("TEST_USE_ROCKSDB");
-		if (use_rocksdb_str && (boost::lexical_cast<int> (use_rocksdb_str) == 1) && network_constants.is_test_network ())
+		if (use_rocksdb_str && (boost::lexical_cast<int> (use_rocksdb_str) == 1) && network_constants.is_dev_network ())
 		{
 			return make_rocksdb ();
 		}

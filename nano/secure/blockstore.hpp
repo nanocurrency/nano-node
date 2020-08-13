@@ -23,7 +23,7 @@ class block_w_sideband_v18
 {
 public:
 	std::shared_ptr<T> block;
-	nano::block_sideband sideband;
+	nano::block_sideband_v18 sideband;
 };
 
 class block_w_sideband

@@ -442,7 +442,7 @@ void nano::transport::tcp_channels::ongoing_keepalive ()
 	}
 	// Attempt to start TCP connections to known UDP peers
 	nano::tcp_endpoint invalid_endpoint (boost::asio::ip::address_v6::any (), 0);
-	if (!node.network_params.network.is_test_network () && !node.flags.disable_udp)
+	if (!node.network_params.network.is_dev_network () && !node.flags.disable_udp)
 	{
 		size_t random_count (std::min (static_cast<size_t> (6), static_cast<size_t> (std::ceil (std::sqrt (node.network.udp_channels.size ())))));
 		for (auto i (0); i <= random_count; ++i)

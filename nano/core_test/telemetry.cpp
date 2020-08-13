@@ -252,7 +252,7 @@ TEST (telemetry, basic)
 	}
 
 	// Wait the cache period and check cache is not used
-	std::this_thread::sleep_for (nano::telemetry_cache_cutoffs::test);
+	std::this_thread::sleep_for (nano::telemetry_cache_cutoffs::dev);
 
 	std::atomic<bool> done{ false };
 	node_client->telemetry->get_metrics_single_peer_async (channel, [&done, &telemetry_data](nano::telemetry_data_response const & response_a) {
@@ -412,7 +412,7 @@ TEST (telemetry, dos_tcp)
 		});
 	}
 
-	ASSERT_TIMELY (10s, (nano::telemetry_cache_cutoffs::test + orig) <= std::chrono::steady_clock::now ());
+	ASSERT_TIMELY (10s, (nano::telemetry_cache_cutoffs::dev + orig) <= std::chrono::steady_clock::now ());
 
 	// Should process no more telemetry_req messages
 	ASSERT_EQ (1, node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in));
@@ -455,7 +455,7 @@ TEST (telemetry, dos_udp)
 		});
 	}
 
-	ASSERT_TIMELY (20s, (nano::telemetry_cache_cutoffs::test + orig) <= std::chrono::steady_clock::now ());
+	ASSERT_TIMELY (20s, (nano::telemetry_cache_cutoffs::dev + orig) <= std::chrono::steady_clock::now ());
 
 	// Should process no more telemetry_req messages
 	ASSERT_EQ (1, node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in));

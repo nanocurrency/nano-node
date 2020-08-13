@@ -36,7 +36,7 @@ void nano::logging::init (boost::filesystem::path const & application_path_a)
 		}
 
 		nano::network_constants network_constants;
-		if (!network_constants.is_test_network ())
+		if (!network_constants.is_dev_network ())
 		{
 #ifdef BOOST_WINDOWS
 			if (nano::event_log_reg_entry_exists () || nano::is_windows_elevated ())
