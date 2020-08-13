@@ -317,7 +317,7 @@ int main (int argc, char * const * argv)
 		{
 			auto node_flags = nano::inactive_node_flag_defaults ();
 			nano::update_flags (node_flags, vm);
-			node_flags.generate_cache.block_count;
+			node_flags.generate_cache.block_count = true;
 			nano::inactive_node inactive_node (data_path, node_flags);
 			auto node = inactive_node.node;
 			std::cout << boost::str (boost::format ("Block count: %1%\n") % node->ledger.cache.block_count);
@@ -1370,7 +1370,7 @@ int main (int argc, char * const * argv)
 			timer.start ();
 			auto node_flags = nano::inactive_node_flag_defaults ();
 			nano::update_flags (node_flags, vm);
-			node_flags.generate_cache.block_count;
+			node_flags.generate_cache.block_count = true;
 			nano::inactive_node inactive_node (data_path, node_flags);
 			auto node = inactive_node.node;
 			bool const silent (vm.count ("silent"));
@@ -1762,7 +1762,7 @@ int main (int argc, char * const * argv)
 			{
 				auto node_flags = nano::inactive_node_flag_defaults ();
 				nano::update_flags (node_flags, vm);
-				node_flags.generate_cache.block_count;
+				node_flags.generate_cache.block_count = true;
 				nano::inactive_node inactive_node (data_path, node_flags);
 				auto source_node = inactive_node.node;
 				auto transaction (source_node->store.tx_begin_read ());
