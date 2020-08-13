@@ -1765,8 +1765,8 @@ int main (int argc, char * const * argv)
 				node_flags.generate_cache.block_count;
 				nano::inactive_node inactive_node (data_path, node_flags);
 				auto source_node = inactive_node.node;
-				auto transaction (node->store.tx_begin_read ());
-				block_count = node->ledger.cache.block_count;
+				auto transaction (source_node->store.tx_begin_read ());
+				block_count = source_node->ledger.cache.block_count;
 				std::cout << boost::str (boost::format ("Performing bootstrap emulation, %1% blocks in ledger...") % block_count) << std::endl;
 				for (auto i (source_node->store.latest_begin (transaction)), n (source_node->store.latest_end ()); i != n; ++i)
 				{
