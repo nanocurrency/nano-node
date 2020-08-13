@@ -606,7 +606,7 @@ void nano_qt::history::refresh ()
 	{
 		QList<QStandardItem *> items;
 		auto block (ledger.store.block_get (transaction, hash));
-		if (block != nullptr);
+		if (block != nullptr)
 		{
 			block->visit (visitor);
 			items.push_back (new QStandardItem (QString (visitor.type.c_str ())));

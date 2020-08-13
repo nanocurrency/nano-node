@@ -44,7 +44,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 	nano::set_use_memory_pools (config.node.use_memory_pools);
 	if (!error)
 	{
-		error =  nano::flags_config_conflicts (flags, config.node);
+		error = nano::flags_config_conflicts (flags, config.node);
 	}
 	if (!error)
 	{

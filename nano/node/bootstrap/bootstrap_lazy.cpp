@@ -396,7 +396,6 @@ void nano::bootstrap_attempt_lazy::lazy_backlog_cleanup ()
 			auto balance (node->ledger.balance_safe (transaction, it->first, error_or_pruned));
 			if (!error_or_pruned)
 			{
-				
 				if (balance <= next_block.balance) // balance
 				{
 					lazy_add (next_block.link, next_block.retry_limit); // link
