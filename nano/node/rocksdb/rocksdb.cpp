@@ -263,6 +263,8 @@ bool nano::rocksdb_store::is_caching_counts (nano::tables table_a) const
 	{
 		case tables::blocks:
 			return true;
+		case tables::pruned:
+			return true;
 		default:
 			return false;
 	}
