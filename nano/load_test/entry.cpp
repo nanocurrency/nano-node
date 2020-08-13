@@ -29,7 +29,7 @@ using socket_type = boost::asio::basic_stream_socket<boost::asio::ip::tcp, boost
 
 namespace nano
 {
-void force_nano_test_network ();
+void force_nano_dev_network ();
 }
 
 namespace beast = boost::beast;
@@ -419,7 +419,7 @@ account_info account_info_rpc (boost::asio::io_context & ioc, tcp::resolver::res
 /** This launches a node and fires a lot of send/recieve RPC requests at it (configurable), then other nodes are tested to make sure they observe these blocks as well. */
 int main (int argc, char * const * argv)
 {
-	nano::force_nano_test_network ();
+	nano::force_nano_dev_network ();
 
 	boost::program_options::options_description description ("Command line options");
 
@@ -572,7 +572,7 @@ int main (int argc, char * const * argv)
 		std::string wallet = wallet_create_rpc (ioc, primary_node_results);
 
 		// Add genesis account to it
-		wallet_add_rpc (ioc, primary_node_results, wallet, nano::test_genesis_key.prv.data.to_string ());
+		wallet_add_rpc (ioc, primary_node_results, wallet, nano::dev_genesis_key.prv.data.to_string ());
 
 		// Add destination accounts
 		for (auto & account : destination_accounts)

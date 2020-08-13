@@ -9,7 +9,7 @@ TEST (election, construction)
 	nano::system system (1);
 	nano::genesis genesis;
 	auto & node = *system.nodes[0];
-	genesis.open->sideband_set (nano::block_sideband (nano::genesis_account, 0, nano::genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false));
+	genesis.open->sideband_set (nano::block_sideband (nano::genesis_account, 0, nano::genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
 	auto election = node.active.insert (genesis.open).election;
 	ASSERT_TRUE (election->idle ());
 	election->transition_active ();
@@ -28,7 +28,7 @@ TEST (election, bisect_dependencies)
 	auto & node = *system.add_node (flags);
 	nano::genesis genesis;
 	nano::confirmation_height_info conf_info;
-	ASSERT_FALSE (node.store.confirmation_height_get (node.store.tx_begin_read (), nano::test_genesis_key.pub, conf_info));
+	ASSERT_FALSE (node.store.confirmation_height_get (node.store.tx_begin_read (), nano::dev_genesis_key.pub, conf_info));
 	ASSERT_EQ (1, conf_info.height);
 	std::vector<std::shared_ptr<nano::block>> blocks;
 	blocks.push_back (nullptr); // idx == height
@@ -40,11 +40,11 @@ TEST (election, bisect_dependencies)
 		auto latest = blocks.back ();
 		blocks.push_back (builder.state ()
 		                  .previous (latest->hash ())
-		                  .account (nano::test_genesis_key.pub)
-		                  .representative (nano::test_genesis_key.pub)
+		                  .account (nano::dev_genesis_key.pub)
+		                  .representative (nano::dev_genesis_key.pub)
 		                  .balance (--amount)
-		                  .link (nano::test_genesis_key.pub)
-		                  .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+		                  .link (nano::dev_genesis_key.pub)
+		                  .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
 		                  .work (*system.work.generate (latest->hash ()))
 		                  .build ());
 		ASSERT_EQ (nano::process_result::progress, node.process (*blocks.back ()).code);
@@ -109,12 +109,12 @@ TEST (election, dependencies_open_link)
 
 	// Send to key
 	auto gen_send = builder.make_block ()
-	                .account (nano::test_genesis_key.pub)
+	                .account (nano::dev_genesis_key.pub)
 	                .previous (nano::genesis_hash)
-	                .representative (nano::test_genesis_key.pub)
+	                .representative (nano::dev_genesis_key.pub)
 	                .link (key.pub)
 	                .balance (nano::genesis_amount - 1)
-	                .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	                .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
 	                .work (*system.work.generate (nano::genesis_hash))
 	                .build ();
 	// Receive from genesis
