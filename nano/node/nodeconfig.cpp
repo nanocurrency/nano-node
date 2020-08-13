@@ -437,6 +437,10 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			toml.get_error ().set ((boost::format ("block_processor_batch_max_time value must be equal or larger than %1%ms") % network_params.node.process_confirmed_interval.count ()).str ());
 		}
+		if (max_pruning_age < std::chrono::seconds (5 * 60) && !network.is_dev_network ())
+		{
+			toml.get_error ().set ("max_pruning_age must be equal greater than or equal to 5 minutes");
+		}
 	}
 	catch (std::runtime_error const & ex)
 	{
