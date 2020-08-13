@@ -436,7 +436,7 @@ bool nano::bootstrap_attempt_legacy::confirm_frontiers (nano::unique_lock<std::m
 			// Find confirmed frontiers (tally > 12.5% of reps stake, 60% of requestsed reps responded
 			for (auto ii (frontiers.begin ()); ii != frontiers.end ();)
 			{
-				if (node->ledger.block_exists (*ii))
+				if (node->ledger.block_or_pruned_exists (*ii))
 				{
 					ii = frontiers.erase (ii);
 				}

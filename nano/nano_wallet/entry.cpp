@@ -87,6 +87,11 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 		error = read_wallet_config (wallet_config, data_path);
 	}
 
+	if (!error)
+	{
+		error =  nano::flags_config_conflicts (flags, config.node);
+	}
+
 #if !NANO_ROCKSDB
 	if (!error && config.node.rocksdb_config.enable)
 	{

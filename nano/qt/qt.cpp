@@ -554,8 +554,15 @@ public:
 	void state_block (nano::state_block const & block_a)
 	{
 		auto balance (block_a.hashables.balance.number ());
-		auto previous_balance (ledger.balance (transaction, block_a.hashables.previous));
-		if (balance < previous_balance)
+		bool error_or_pruned (false);
+		auto previous_balance (ledger.balance_safe (transaction, block_a.hashables.previous, error_or_pruned));
+		if (error_or_pruned)
+		{
+			type = "Unknown (pruned)";
+			amount = 0;
+			account = block_a.hashables.account;
+		}
+		else if (balance < previous_balance)
 		{
 			type = "Send";
 			amount = previous_balance - balance;
@@ -599,16 +606,18 @@ void nano_qt::history::refresh ()
 	{
 		QList<QStandardItem *> items;
 		auto block (ledger.store.block_get (transaction, hash));
-		debug_assert (block != nullptr);
-		block->visit (visitor);
-		items.push_back (new QStandardItem (QString (visitor.type.c_str ())));
-		items.push_back (new QStandardItem (QString (visitor.account.to_account ().c_str ())));
-		auto balanceItem = new QStandardItem (QString (wallet.format_balance (visitor.amount).c_str ()));
-		balanceItem->setData (Qt::AlignRight, Qt::TextAlignmentRole);
-		items.push_back (balanceItem);
-		items.push_back (new QStandardItem (QString (hash.to_string ().c_str ())));
-		hash = block->previous ();
-		model->appendRow (items);
+		if (block != nullptr);
+		{
+			block->visit (visitor);
+			items.push_back (new QStandardItem (QString (visitor.type.c_str ())));
+			items.push_back (new QStandardItem (QString (visitor.account.to_account ().c_str ())));
+			auto balanceItem = new QStandardItem (QString (wallet.format_balance (visitor.amount).c_str ()));
+			balanceItem->setData (Qt::AlignRight, Qt::TextAlignmentRole);
+			items.push_back (balanceItem);
+			items.push_back (new QStandardItem (QString (hash.to_string ().c_str ())));
+			hash = block->previous ();
+			model->appendRow (items);
+		}
 	}
 }
 

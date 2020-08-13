@@ -64,7 +64,7 @@ rocksdb_config (rocksdb_config_a)
 
 void nano::rocksdb_store::open (bool & error_a, boost::filesystem::path const & path_a, bool open_read_only_a)
 {
-	std::initializer_list<const char *> names{ rocksdb::kDefaultColumnFamilyName.c_str (), "frontiers", "accounts", "blocks", "pending", "representation", "unchecked", "vote", "online_weight", "meta", "peers", "cached_counts", "confirmation_height" };
+	std::initializer_list<const char *> names{ rocksdb::kDefaultColumnFamilyName.c_str (), "frontiers", "accounts", "blocks", "pending", "representation", "unchecked", "vote", "online_weight", "meta", "peers", "pruned", "cached_counts", "confirmation_height" };
 	std::vector<rocksdb::ColumnFamilyDescriptor> column_families;
 	for (const auto & cf_name : names)
 	{
@@ -172,6 +172,8 @@ rocksdb::ColumnFamilyHandle * nano::rocksdb_store::table_to_column_family (table
 			return get_handle ("meta");
 		case tables::peers:
 			return get_handle ("peers");
+		case tables::pruned:
+			return get_handle ("pruned");
 		case tables::cached_counts:
 			return get_handle ("cached_counts");
 		case tables::confirmation_height:
@@ -519,7 +521,7 @@ rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_cf_options () const
 
 std::vector<nano::tables> nano::rocksdb_store::all_tables () const
 {
-	return std::vector<nano::tables>{ tables::accounts, tables::blocks, tables::cached_counts, tables::confirmation_height, tables::frontiers, tables::meta, tables::online_weight, tables::peers, tables::pending, tables::unchecked, tables::vote };
+	return std::vector<nano::tables>{ tables::accounts, tables::blocks, tables::cached_counts, tables::confirmation_height, tables::frontiers, tables::meta, tables::online_weight, tables::peers, tables::pending, tables::pruned, tables::unchecked, tables::vote };
 }
 
 bool nano::rocksdb_store::copy_db (boost::filesystem::path const & destination_path)

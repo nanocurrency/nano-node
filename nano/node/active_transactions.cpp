@@ -94,7 +94,8 @@ void nano::active_transactions::confirm_prioritized_frontiers (nano::transaction
 						if (info.block_count > confirmation_height_info.height)
 						{
 							auto block (this->node.store.block_get (transaction_a, info.head));
-							auto previous_balance (this->node.ledger.balance (transaction_a, block->previous ()));
+							bool error (false);
+							auto previous_balance (this->node.ledger.balance_safe (transaction_a, block->previous (), error));
 							auto insert_result = this->insert (block, previous_balance);
 							if (insert_result.inserted)
 							{
@@ -291,7 +292,7 @@ void nano::active_transactions::frontiers_confirmation (nano::unique_lock<std::m
 	auto disabled_confirmation_mode = (node.config.frontiers_confirmation == nano::frontiers_confirmation_mode::disabled);
 	auto conf_height_capacity_reached = pending_confirmation_height_size > confirmed_frontiers_max_pending_size;
 	auto all_cemented = node.ledger.cache.block_count == node.ledger.cache.cemented_count;
-	if (!disabled_confirmation_mode && bootstrap_weight_reached && !conf_height_capacity_reached && !all_cemented)
+	if (!disabled_confirmation_mode && (bootstrap_weight_reached || node.flags.enable_pruning) && !conf_height_capacity_reached && !all_cemented)
 	{
 		// Spend some time prioritizing accounts with the most uncemented blocks to reduce voting traffic
 		auto request_interval = std::chrono::milliseconds (node.network_params.network.request_interval_ms);
@@ -859,7 +860,8 @@ bool nano::active_transactions::restart (std::shared_ptr<nano::block> const & bl
 				debug_assert (node.ledger.cache.block_count.load () == block_count);
 
 				// Restart election for the upgraded block, previously dropped from elections
-				auto previous_balance = node.ledger.balance (transaction_a, ledger_block->previous ());
+				bool error (false);
+				auto previous_balance = node.ledger.balance_safe (transaction_a, ledger_block->previous (), error);
 				auto insert_result = insert (ledger_block, previous_balance);
 				if (insert_result.inserted)
 				{
@@ -1316,8 +1318,7 @@ bool nano::active_transactions::inactive_votes_bootstrap_check (std::vector<nano
 	{
 		auto node_l (node.shared ());
 		node.alarm.add (std::chrono::steady_clock::now () + node.network_params.bootstrap.gap_cache_bootstrap_start_interval, [node_l, hash_a]() {
-			auto transaction (node_l->store.tx_begin_read ());
-			if (!node_l->store.block_exists (transaction, hash_a))
+			if (!node_l->ledger.block_or_pruned_exists (hash_a))
 			{
 				if (!node_l->bootstrap_initiator.in_progress ())
 				{

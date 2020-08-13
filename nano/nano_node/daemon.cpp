@@ -2,6 +2,7 @@
 #include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/nano_node/daemon.hpp>
+#include <nano/node/cli.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/json_handler.hpp>
@@ -41,6 +42,10 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 	nano::daemon_config config (data_path);
 	auto error = nano::read_node_config_toml (data_path, config, flags.config_overrides);
 	nano::set_use_memory_pools (config.node.use_memory_pools);
+	if (!error)
+	{
+		error =  nano::flags_config_conflicts (flags, config.node);
+	}
 	if (!error)
 	{
 		config.node.logging.init (data_path);

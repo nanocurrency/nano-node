@@ -170,6 +170,12 @@ public:
 	 */
 	MDB_dbi meta{ 0 };
 
+	/**
+	 * Pruned blocks hashes
+	 * nano::block_hash -> none
+	 */
+	MDB_dbi pruned{ 0 };
+
 	/*
 	 * Endpoints for peers
 	 * nano::endpoint_key -> no_value

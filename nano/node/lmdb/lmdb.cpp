@@ -181,6 +181,7 @@ void nano::mdb_store::open_databases (bool & error_a, nano::transaction const & 
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "online_weight", flags, &online_weight) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "meta", flags, &meta) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "peers", flags, &peers) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "pruned", flags, &pruned) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "confirmation_height", flags, &confirmation_height) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "accounts", flags, &accounts_v0) != 0;
 	accounts = accounts_v0;
@@ -710,6 +711,7 @@ void nano::mdb_store::upgrade_v18_to_v19 (nano::write_transaction const & transa
 	release_assert (count_pre == count_post);
 
 	version_put (transaction_a, 19);
+	mdb_dbi_open (env.tx (transaction_a), "pruned", MDB_CREATE, &pruned);
 	logger.always_log ("Finished upgrading all blocks to new blocks database");
 }
 
@@ -820,6 +822,8 @@ MDB_dbi nano::mdb_store::table_to_dbi (tables table_a) const
 			return meta;
 		case tables::peers:
 			return peers;
+		case tables::pruned:
+			return pruned;
 		case tables::confirmation_height:
 			return confirmation_height;
 		default:
@@ -851,7 +855,7 @@ bool nano::mdb_store::copy_db (boost::filesystem::path const & destination_file)
 void nano::mdb_store::rebuild_db (nano::write_transaction const & transaction_a)
 {
 	// Tables with uint256_union key
-	std::vector<MDB_dbi> tables = { accounts, blocks, vote, confirmation_height };
+	std::vector<MDB_dbi> tables = { accounts, blocks, vote, pruned, confirmation_height };
 	for (auto const & table : tables)
 	{
 		MDB_dbi temp;

@@ -125,6 +125,9 @@ public:
 	void search_pending ();
 	void bootstrap_wallet ();
 	void unchecked_cleanup ();
+	bool collect_ledger_pruning_targets (std::deque<nano::block_hash> &, nano::account &, uint64_t const, uint64_t const, uint64_t const);
+	void ledger_pruning (uint64_t const, bool, bool);
+	void ongoing_ledger_pruning ();
 	int price (nano::uint128_t const &, int);
 	// The default difficulty updates to base only when the first epoch_2 block is processed
 	uint64_t default_difficulty (nano::work_version const) const;

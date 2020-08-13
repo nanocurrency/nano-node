@@ -864,6 +864,24 @@ TEST (block_store, cemented_count_cache)
 	ASSERT_EQ (1, ledger_cache.cemented_count);
 }
 
+TEST (block_store, pruned_count)
+{
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_TRUE (!store->init_error ());
+	{
+		auto transaction (store->tx_begin_write ());
+		nano::open_block block (0, 1, 0, nano::keypair ().prv, 0, 0);
+		block.sideband_set ({});
+		auto hash1 (block.hash ());
+		store->block_put (transaction, hash1, block);
+		store->pruned_put (transaction, hash1);
+	}
+	auto transaction (store->tx_begin_read ());
+	ASSERT_EQ (1, store->pruned_count (transaction));
+	ASSERT_EQ (1, store->block_count (transaction));
+}
+
 TEST (block_store, sequence_increment)
 {
 	nano::logger_mt logger;
@@ -908,6 +926,26 @@ TEST (block_store, block_random)
 	auto block (store->block_random (transaction));
 	ASSERT_NE (nullptr, block);
 	ASSERT_EQ (*block, *genesis.open);
+}
+
+TEST (block_store, pruned_random)
+{
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_TRUE (!store->init_error ());
+	nano::genesis genesis;
+	nano::open_block block (0, 1, 0, nano::keypair ().prv, 0, 0);
+	block.sideband_set ({});
+	auto hash1 (block.hash ());
+	{
+		nano::ledger_cache ledger_cache;
+		auto transaction (store->tx_begin_write ());
+		store->initialize (transaction, genesis, ledger_cache);
+		store->pruned_put (transaction, hash1);
+	}
+	auto transaction (store->tx_begin_read ());
+	auto random_hash (store->pruned_random (transaction));
+	ASSERT_EQ (hash1, random_hash);
 }
 
 // Databases need to be dropped in order to convert to dupsort compatible
@@ -1209,6 +1247,81 @@ TEST (block_store, online_weight)
 	auto transaction (store->tx_begin_read ());
 	ASSERT_EQ (0, store->online_weight_count (transaction));
 	ASSERT_EQ (store->online_weight_end (), store->online_weight_begin (transaction));
+}
+
+TEST (block_store, pruned_blocks)
+{
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_TRUE (!store->init_error ());
+
+	nano::keypair key1;
+	nano::open_block block1 (0, 1, key1.pub, key1.prv, key1.pub, 0);
+	auto hash1 (block1.hash ());
+	{
+		auto transaction (store->tx_begin_write ());
+
+		// Confirm that the store is empty
+		ASSERT_FALSE (store->pruned_exists (transaction, hash1));
+		ASSERT_EQ (store->pruned_count (transaction), 0);
+
+		// Add one
+		store->pruned_put (transaction, hash1);
+		ASSERT_TRUE (store->pruned_exists (transaction, hash1));
+	}
+
+	// Confirm that it can be found
+	{
+		auto transaction (store->tx_begin_read ());
+		ASSERT_EQ (store->pruned_count (transaction), 1);
+	}
+
+	// Add another one and check that it (and the existing one) can be found
+	nano::open_block block2 (1, 2, key1.pub, key1.prv, key1.pub, 0);
+	block2.sideband_set ({});
+	auto hash2 (block2.hash ());
+	{
+		auto transaction (store->tx_begin_write ());
+		store->pruned_put (transaction, hash2);
+		ASSERT_TRUE (store->pruned_exists (transaction, hash2)); // Check new pruned hash is here
+		ASSERT_TRUE (store->block_or_pruned_exists (transaction, hash2));
+		ASSERT_TRUE (store->pruned_exists (transaction, hash1)); // Check first pruned hash is still here
+		ASSERT_TRUE (store->block_or_pruned_exists (transaction, hash1));
+	}
+
+	{
+		auto transaction (store->tx_begin_read ());
+		ASSERT_EQ (store->pruned_count (transaction), 2);
+	}
+
+	// Delete the first one
+	{
+		auto transaction (store->tx_begin_write ());
+		store->pruned_del (transaction, hash2);
+		ASSERT_FALSE (store->pruned_exists (transaction, hash2)); // Confirm it no longer exists
+		ASSERT_FALSE (store->block_or_pruned_exists (transaction, hash2));
+		store->block_put (transaction, hash2, block2); // Add corresponding block
+		ASSERT_TRUE (store->block_or_pruned_exists (transaction, hash2));
+		ASSERT_TRUE (store->pruned_exists (transaction, hash1)); // Check first pruned hash is still here
+		ASSERT_TRUE (store->block_or_pruned_exists (transaction, hash1));
+	}
+
+	{
+		auto transaction (store->tx_begin_read ());
+		ASSERT_EQ (store->pruned_count (transaction), 1);
+	}
+
+	// Delete original one
+	{
+		auto transaction (store->tx_begin_write ());
+		store->pruned_del (transaction, hash1);
+		ASSERT_FALSE (store->pruned_exists (transaction, hash1));
+	}
+
+	{
+		auto transaction (store->tx_begin_read ());
+		ASSERT_EQ (store->pruned_count (transaction), 0);
+	}
 }
 
 TEST (mdb_block_store, upgrade_v14_v15)

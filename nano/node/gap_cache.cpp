@@ -90,8 +90,7 @@ bool nano::gap_cache::bootstrap_check (std::vector<nano::account> const & voters
 	{
 		auto node_l (node.shared ());
 		node.alarm.add (std::chrono::steady_clock::now () + node.network_params.bootstrap.gap_cache_bootstrap_start_interval, [node_l, hash_a]() {
-			auto transaction (node_l->store.tx_begin_read ());
-			if (!node_l->store.block_exists (transaction, hash_a))
+			if (!node_l->ledger.block_or_pruned_exists (hash_a))
 			{
 				if (!node_l->bootstrap_initiator.in_progress ())
 				{
