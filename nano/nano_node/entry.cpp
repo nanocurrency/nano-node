@@ -1016,15 +1016,12 @@ int main (int argc, char * const * argv)
 			}
 
 			uint64_t block_count (0);
-			while (block_count < max_blocks + 1)
-			{
-				std::this_thread::sleep_for (std::chrono::milliseconds (10));
-				block_count = node->ledger.cache.block_count;
-			}
+			node->block_processor.flush ();
 			auto end (std::chrono::high_resolution_clock::now ());
 			auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());
 			node->stop ();
 			std::cout << boost::str (boost::format ("%|1$ 12d| us \n%2% blocks per second\n") % time % (max_blocks * 1000000 / time));
+			release_assert (node->ledger.cache.block_count == max_blocks + 1);
 		}
 		else if (vm.count ("debug_profile_votes"))
 		{
@@ -1816,18 +1813,16 @@ int main (int argc, char * const * argv)
 					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed (unchecked)") % node.node->ledger.cache.block_count % node.node->store.unchecked_count (node.node->store.tx_begin_read ())) << std::endl;
 				}
 			}
-			uint64_t block_count_2 (0);
-			while (block_count_2 != block_count)
-			{
-				std::this_thread::sleep_for (std::chrono::milliseconds (50));
-				block_count_2 = node.node->ledger.cache.block_count;
-			}
+
+			node.node->block_processor.flush ();
+
 			auto end (std::chrono::high_resolution_clock::now ());
 			auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());
 			auto us_in_second (1000000);
 			auto seconds (time / us_in_second);
 			nano::remove_temporary_directories ();
 			std::cout << boost::str (boost::format ("%|1$ 12d| seconds \n%2% blocks per second") % seconds % (block_count * us_in_second / time)) << std::endl;
+			release_assert (node.node->ledger.cache.block_count == block_count);
 		}
 		else if (vm.count ("debug_peers"))
 		{
