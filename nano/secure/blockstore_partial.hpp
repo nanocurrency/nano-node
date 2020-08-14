@@ -658,8 +658,14 @@ public:
 		{
 			existing = make_iterator<nano::block_hash, nano::db_val<Val>> (transaction_a, tables::pruned);
 		}
-		debug_assert (existing != end);
-		return existing->first;
+		if (existing != end)
+		{
+			return existing->first;
+		}
+		else
+		{
+			return 0;
+		}
 	}
 
 	uint64_t confirmation_height_count (nano::transaction const & transaction_a) override
