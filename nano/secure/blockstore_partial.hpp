@@ -752,9 +752,9 @@ protected:
 		return static_cast<nano::block_type> ((reinterpret_cast<uint8_t const *> (data_a))[0]);
 	}
 
-	size_t count (nano::transaction const & transaction_a, std::initializer_list<tables> dbs_a) const
+	uint64_t count (nano::transaction const & transaction_a, std::initializer_list<tables> dbs_a) const
 	{
-		size_t total_count = 0;
+		uint64_t total_count = 0;
 		for (auto db : dbs_a)
 		{
 			total_count += count (transaction_a, db);
@@ -777,7 +777,7 @@ protected:
 		return static_cast<Derived_Store &> (*this).del (transaction_a, table_a, key_a);
 	}
 
-	virtual size_t count (nano::transaction const & transaction_a, tables table_a) const = 0;
+	virtual uint64_t count (nano::transaction const & transaction_a, tables table_a) const = 0;
 	virtual int drop (nano::write_transaction const & transaction_a, tables table_a) = 0;
 	virtual bool not_found (int status) const = 0;
 	virtual bool success (int status) const = 0;

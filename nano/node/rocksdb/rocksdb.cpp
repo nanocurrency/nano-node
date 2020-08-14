@@ -267,9 +267,9 @@ int nano::rocksdb_store::status_code_not_found () const
 	return static_cast<int> (rocksdb::Status::Code::kNotFound);
 }
 
-size_t nano::rocksdb_store::count (nano::transaction const & transaction_a, tables table_a) const
+uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, tables table_a) const
 {
-	size_t sum = 0;
+	uint64_t sum = 0;
 	// Some column families are small enough (except unchecked) that they can just be iterated, rather than doing extra io caching counts
 	if (table_a == tables::peers)
 	{

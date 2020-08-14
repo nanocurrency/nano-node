@@ -32,7 +32,7 @@ public:
 
 	std::string vendor_get () const override;
 
-	size_t count (nano::transaction const & transaction_a, tables table_a) const override;
+	uint64_t count (nano::transaction const & transaction_a, tables table_a) const override;
 	void version_put (nano::write_transaction const &, int) override;
 
 	bool exists (nano::transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a) const;
