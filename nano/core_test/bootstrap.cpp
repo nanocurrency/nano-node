@@ -1380,7 +1380,6 @@ TEST (bulk, genesis_pruning)
 	{
 		auto transaction (node2->store.tx_begin_write ());
 		node2->store.unchecked_clear (transaction);
-		node2->ledger.cache.unchecked_count = 0;
 	}
 	// Insert pruned blocks
 	node2->process_active (send1);
