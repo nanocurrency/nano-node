@@ -1215,8 +1215,8 @@ std::vector<std::pair<nano::block_hash, nano::block_hash>> nano::ledger::unconfi
 		debug_assert (conf_height_i->first == i->first);
 		if (i->second.block_count != conf_height_i->second.height)
 		{
-			auto frontier = i->second.head.to_string ();
-			auto cemented_frontier = conf_height_i->second.frontier.to_string ();
+			auto const & frontier = i->second.head;
+			auto const & cemented_frontier = conf_height_i->second.frontier;
 			unconfirmed_confirmed_frontiers.emplace_back (frontier, cemented_frontier);
 		}
 	}
