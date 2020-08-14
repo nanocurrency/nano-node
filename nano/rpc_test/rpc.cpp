@@ -95,11 +95,16 @@ public:
 	std::atomic<int> status{ 0 };
 };
 
-std::shared_ptr<nano::node> add_ipc_enabled_node (nano::system & system, nano::node_config & node_config)
+std::shared_ptr<nano::node> add_ipc_enabled_node (nano::system & system, nano::node_config & node_config, nano::node_flags const & node_flags)
 {
 	node_config.ipc_config.transport_tcp.enabled = true;
 	node_config.ipc_config.transport_tcp.port = nano::get_available_port ();
-	return system.add_node (node_config);
+	return system.add_node (node_config, node_flags);
+}
+
+std::shared_ptr<nano::node> add_ipc_enabled_node (nano::system & system, nano::node_config & node_config)
+{
+	return add_ipc_enabled_node (system, node_config, nano::node_flags ());
 }
 
 std::shared_ptr<nano::node> add_ipc_enabled_node (nano::system & system)
@@ -5946,9 +5951,12 @@ TEST (rpc, online_reps)
 TEST (rpc, confirmation_height_currently_processing)
 {
 	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.force_use_write_database_queue = true;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	auto node = add_ipc_enabled_node (system, node_config);
+
+	auto node = add_ipc_enabled_node (system, node_config, node_flags);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 
 	auto previous_genesis_chain_hash = node->latest (nano::dev_genesis_key.pub);

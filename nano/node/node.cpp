@@ -88,6 +88,7 @@ node (io_ctx_a, application_path_a, alarm_a, nano::node_config (peering_port_a, 
 }
 
 nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path const & application_path_a, nano::alarm & alarm_a, nano::node_config const & config_a, nano::work_pool & work_a, nano::node_flags flags_a, unsigned seq) :
+write_database_queue (!flags_a.force_use_write_database_queue && (config_a.rocksdb_config.enable || nano::using_rocksdb_in_tests ())),
 io_ctx (io_ctx_a),
 node_initialized_latch (1),
 config (config_a),
@@ -1717,10 +1718,7 @@ std::unique_ptr<nano::block_store> nano::make_store (nano::logger_mt & logger, b
 	else
 	{
 #if NANO_ROCKSDB
-		/** To use RocksDB in tests make sure the node is built with the cmake variable -DNANO_ROCKSDB=ON and the environment variable TEST_USE_ROCKSDB=1 is set */
-		static nano::network_constants network_constants;
-		auto use_rocksdb_str = std::getenv ("TEST_USE_ROCKSDB");
-		if (use_rocksdb_str && (boost::lexical_cast<int> (use_rocksdb_str) == 1) && network_constants.is_dev_network ())
+		if (using_rocksdb_in_tests ())
 		{
 			return make_rocksdb ();
 		}
