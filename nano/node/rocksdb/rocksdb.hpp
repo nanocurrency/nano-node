@@ -26,7 +26,7 @@ class rocksdb_config;
 class rocksdb_store : public block_store_partial<rocksdb::Slice, rocksdb_store>
 {
 public:
-	rocksdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::rocksdb_config const & = nano::rocksdb_config{}, bool open_read_only = false);
+	rocksdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::rocksdb_config const & = nano::rocksdb_config{}, bool open_read_only = false, bool enable_pruning_a = false);
 	nano::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_requiring_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) override;
 	nano::read_transaction tx_begin_read () override;
 
@@ -83,7 +83,7 @@ private:
 	rocksdb::ColumnFamilyHandle * table_to_column_family (tables table_a) const;
 	int clear (rocksdb::ColumnFamilyHandle * column_family);
 
-	void open (bool & error_a, boost::filesystem::path const & path_a, bool open_read_only_a);
+	void open (bool & error_a, boost::filesystem::path const & path_a, bool open_read_only_a, bool enable_pruning_a);
 
 	rocksdb::ColumnFamilyOptions get_cf_options () const;
 	void construct_column_family_mutexes ();

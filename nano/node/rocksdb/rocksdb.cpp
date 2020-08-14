@@ -41,7 +41,7 @@ void rocksdb_val::convert_buffer_to_value ()
 }
 }
 
-nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a) :
+nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a, bool enable_pruning_a) :
 logger (logger_a),
 rocksdb_config (rocksdb_config_a)
 {
@@ -58,11 +58,11 @@ rocksdb_config (rocksdb_config_a)
 		{
 			construct_column_family_mutexes ();
 		}
-		open (error, path_a, open_read_only_a);
+		open (error, path_a, open_read_only_a, enable_pruning_a);
 	}
 }
 
-void nano::rocksdb_store::open (bool & error_a, boost::filesystem::path const & path_a, bool open_read_only_a)
+void nano::rocksdb_store::open (bool & error_a, boost::filesystem::path const & path_a, bool open_read_only_a, bool enable_pruning_a)
 {
 	std::initializer_list<const char *> names{ rocksdb::kDefaultColumnFamilyName.c_str (), "frontiers", "accounts", "blocks", "pending", "unchecked", "vote", "online_weight", "meta", "peers", "pruned", "confirmation_height" };
 	std::vector<rocksdb::ColumnFamilyDescriptor> column_families;
@@ -108,6 +108,18 @@ void nano::rocksdb_store::open (bool & error_a, boost::filesystem::path const & 
 			error_a = true;
 			logger.always_log (boost::str (boost::format ("The version of the ledger (%1%) is too high for this node") % version_l));
 		}
+	}
+
+	// Exact pruned block count
+	if (!error_a && !enable_pruning_a)
+	{
+		uint8_t start { 0 };
+		rocksdb::Slice start_slice (reinterpret_cast<const char *> (&start), 1);
+		std::vector<uint8_t> end (sizeof (nano::block_hash), 255);
+		rocksdb::Slice end_slice (reinterpret_cast<const char *> (end.data ()), end.size ());
+		rocksdb::CompactRangeOptions compactRangeOptions; 
+		compactRangeOptions.allow_write_stall = true;
+		db->CompactRange (compactRangeOptions, table_to_column_family (nano::tables::pruned), &start_slice, &end_slice);
 	}
 }
 
@@ -289,6 +301,11 @@ uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, ta
 	}
 	// This is only an estimation
 	else if (table_a == tables::unchecked)
+	{
+		db->GetIntProperty (table_to_column_family (table_a), "rocksdb.estimate-num-keys", &sum);
+	}
+	// This should be correct at node start, later only cache should be used
+	else if (table_a == tables::pruned)
 	{
 		db->GetIntProperty (table_to_column_family (table_a), "rocksdb.estimate-num-keys", &sum);
 	}
