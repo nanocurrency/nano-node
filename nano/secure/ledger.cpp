@@ -744,7 +744,7 @@ epoch_2_started_cb (epoch_2_started_cb_a)
 	if (!store.init_error ())
 	{
 		auto transaction = store.tx_begin_read ();
-		if (generate_cache_a.reps || generate_cache_a.account_count || generate_cache_a.epoch_2)
+		if (generate_cache_a.reps || generate_cache_a.account_count || generate_cache_a.epoch_2 || generate_cache_a.block_count)
 		{
 			bool epoch_2_started_l{ false };
 			for (auto i (store.latest_begin (transaction)), n (store.latest_end ()); i != n; ++i)
@@ -752,6 +752,7 @@ epoch_2_started_cb (epoch_2_started_cb_a)
 				nano::account_info const & info (i->second);
 				cache.rep_weights.representation_add (info.representative, info.balance.number ());
 				++cache.account_count;
+				cache.block_count += info.block_count;
 				epoch_2_started_l = epoch_2_started_l || info.epoch () == nano::epoch::epoch_2;
 			}
 			cache.epoch_2_started.store (epoch_2_started_l);
@@ -765,13 +766,7 @@ epoch_2_started_cb (epoch_2_started_cb_a)
 			}
 		}
 
-		if (generate_cache_a.unchecked_count)
-		{
-			cache.unchecked_count = store.unchecked_count (transaction);
-		}
-
 		cache.pruned_count = store.pruned_count (transaction);
-		cache.block_count = store.block_count (transaction) + cache.pruned_count;
 	}
 }
 
