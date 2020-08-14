@@ -785,12 +785,12 @@ int nano::mdb_store::clear (nano::write_transaction const & transaction_a, MDB_d
 	return mdb_drop (env.tx (transaction_a), handle_a, 0);
 }
 
-size_t nano::mdb_store::count (nano::transaction const & transaction_a, tables table_a) const
+uint64_t nano::mdb_store::count (nano::transaction const & transaction_a, tables table_a) const
 {
 	return count (transaction_a, table_to_dbi (table_a));
 }
 
-size_t nano::mdb_store::count (nano::transaction const & transaction_a, MDB_dbi db_a) const
+uint64_t nano::mdb_store::count (nano::transaction const & transaction_a, MDB_dbi db_a) const
 {
 	MDB_stat stats;
 	auto status (mdb_stat (env.tx (transaction_a), db_a, &stats));
