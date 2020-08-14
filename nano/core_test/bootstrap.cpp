@@ -1335,6 +1335,10 @@ TEST (bulk, genesis_pruning)
 	ASSERT_NE (nullptr, send2);
 	auto send3 (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key2.pub, 100));
 	ASSERT_NE (nullptr, send3);
+	{
+		auto transaction (node1->wallets.tx_begin_write ());
+		system.wallet (0)->store.erase (transaction, nano::dev_genesis_key.pub);
+	}
 	nano::block_hash latest3 (node1->latest (nano::dev_genesis_key.pub));
 	ASSERT_NE (latest1, latest3);
 	ASSERT_EQ (send3->hash (), latest3);
