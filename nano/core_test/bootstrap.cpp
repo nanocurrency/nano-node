@@ -1345,7 +1345,7 @@ TEST (bulk, genesis_pruning)
 		ASSERT_NE (nullptr, election);
 		election->confirm_once ();
 	}
-	ASSERT_TIMELY (2s, node1->block_confirmed (send1->hash ()));
+	ASSERT_TIMELY (2s, node1->block_confirmed (send1->hash ()) && node1->active.active (send2->qualified_root ()));
 	ASSERT_EQ (0, node1->ledger.cache.pruned_count);
 	{
 		auto election = node1->active.election (send2->qualified_root ());
@@ -1353,7 +1353,7 @@ TEST (bulk, genesis_pruning)
 		ASSERT_NE (nullptr, election);
 		election->confirm_once ();
 	}
-	ASSERT_TIMELY (2s, node1->block_confirmed (send2->hash ()));
+	ASSERT_TIMELY (2s, node1->block_confirmed (send2->hash ()) && node1->active.active (send3->qualified_root ()));
 	ASSERT_EQ (0, node1->ledger.cache.pruned_count);
 	{
 		auto election = node1->active.election (send3->qualified_root ());

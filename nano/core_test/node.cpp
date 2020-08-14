@@ -4559,7 +4559,7 @@ TEST (node, pruning_automatic)
 		ASSERT_NE (nullptr, election);
 		election->confirm_once ();
 	}
-	ASSERT_TIMELY (2s, node1.block_confirmed (send1->hash ()));
+	ASSERT_TIMELY (2s, node1.block_confirmed (send1->hash ()) && node1.active.active (send2->qualified_root ()));
 	ASSERT_EQ (0, node1.ledger.cache.pruned_count);
 	{
 		auto election = node1.active.election (send2->qualified_root ());
@@ -4612,7 +4612,7 @@ TEST (node, pruning_age)
 		ASSERT_NE (nullptr, election);
 		election->confirm_once ();
 	}
-	ASSERT_TIMELY (2s, node1.block_confirmed (send1->hash ()));
+	ASSERT_TIMELY (2s, node1.block_confirmed (send1->hash ()) && node1.active.active (send2->qualified_root ()));
 	ASSERT_EQ (0, node1.ledger.cache.pruned_count);
 	{
 		auto election = node1.active.election (send2->qualified_root ());
@@ -4669,7 +4669,7 @@ TEST (node, pruning_depth)
 		ASSERT_NE (nullptr, election);
 		election->confirm_once ();
 	}
-	ASSERT_TIMELY (2s, node1.block_confirmed (send1->hash ()));
+	ASSERT_TIMELY (2s, node1.block_confirmed (send1->hash ()) && node1.active.active (send2->qualified_root ()));
 	ASSERT_EQ (0, node1.ledger.cache.pruned_count);
 	{
 		auto election = node1.active.election (send2->qualified_root ());
