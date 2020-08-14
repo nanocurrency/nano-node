@@ -6687,21 +6687,12 @@ TEST (rpc, memory_stats)
 		ASSERT_EQ (response.json.get_child ("node").get_child ("vote_uniquer").get_child ("votes").get<std::string> ("count"), "1");
 	}
 
-	request.put ("type", "rocksdb");
+	request.put ("type", "database");
 	{
 		test_response response (request, rpc.config.port, system.io_ctx);
 		ASSERT_TIMELY (5s, response.status != 0);
 		ASSERT_EQ (200, response.status);
-
-		auto use_rocksdb_str = std::getenv ("TEST_USE_ROCKSDB");
-		if (use_rocksdb_str && boost::lexical_cast<int> (use_rocksdb_str) == 1)
-		{
-			ASSERT_TRUE (!response.json.empty ());
-		}
-		else
-		{
-			ASSERT_EQ ("Empty response", response.json.get<std::string> ("error"));
-		}
+		ASSERT_TRUE (!response.json.empty ());
 	}
 }
 

@@ -49,6 +49,8 @@ public:
 
 	static void create_backup_file (nano::mdb_env &, boost::filesystem::path const &, nano::logger_mt &);
 
+	void serialize_memory_stats (boost::property_tree::ptree &) override;
+
 private:
 	nano::logger_mt & logger;
 	bool error{ false };

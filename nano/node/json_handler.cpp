@@ -3698,7 +3698,7 @@ void nano::json_handler::stats ()
 		node.stats.log_samples (*sink);
 		use_sink = true;
 	}
-	else if (type == "rocksdb")
+	else if (type == "database")
 	{
 		node.store.serialize_memory_stats (response_l);
 	}
