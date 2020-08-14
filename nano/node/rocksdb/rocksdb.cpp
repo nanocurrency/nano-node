@@ -581,9 +581,6 @@ rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_active_cf_options (std::sh
 	rocksdb::ColumnFamilyOptions cf_options;
 	cf_options.table_factory = table_factory_a;
 
-	// Use hash to find data instead of binary search
-	cf_options.memtable_factory.reset (rocksdb::NewHashSkipListRepFactory ());
-
 	// Number of files in level 0 which triggers compaction. Size of L0 and L1 should be kept similar as this is the only compaction which is single threaded
 	cf_options.level0_file_num_compaction_trigger = 4;
 
