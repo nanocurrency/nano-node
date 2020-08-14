@@ -40,10 +40,7 @@ public:
 	int put (nano::write_transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a, nano::rocksdb_val const & value_a);
 	int del (nano::write_transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a);
 
-	void serialize_mdb_tracker (boost::property_tree::ptree &, std::chrono::milliseconds, std::chrono::milliseconds) override
-	{
-		// Do nothing
-	}
+	void serialize_memory_stats (boost::property_tree::ptree &) override;
 
 	bool copy_db (boost::filesystem::path const & destination) override;
 	void rebuild_db (nano::write_transaction const & transaction_a) override;

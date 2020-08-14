@@ -688,7 +688,8 @@ public:
 	virtual void rebuild_db (nano::write_transaction const & transaction_a) = 0;
 
 	/** Not applicable to all sub-classes */
-	virtual void serialize_mdb_tracker (boost::property_tree::ptree &, std::chrono::milliseconds, std::chrono::milliseconds) = 0;
+	virtual void serialize_mdb_tracker (boost::property_tree::ptree &, std::chrono::milliseconds, std::chrono::milliseconds){};
+	virtual void serialize_memory_stats (boost::property_tree::ptree &) = 0;
 
 	virtual bool init_error () const = 0;
 
