@@ -101,10 +101,11 @@ void nano::logging::init (boost::filesystem::path const & application_path_a)
 			{
 				// Create temp stream to first create the file
 				std::ofstream stream (file_name.string ());
-
-				// Set permissions before opening otherwise Windows only has read permissions
-				nano::set_secure_perm_file (file_name);
 			}
+
+			// Set permissions before opening otherwise Windows only has read permissions
+			nano::set_secure_perm_file (file_name);
+
 #else
 			debug_assert (false);
 #endif
