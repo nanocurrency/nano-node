@@ -301,7 +301,6 @@ size_t nano::rocksdb_store::count (nano::transaction const & transaction_a, tabl
 	}
 	else if (table_a == tables::blocks)
 	{
-		debug_assert (network_constants ().is_dev_network ());
 		for (auto i (blocks_begin (transaction_a)), n (blocks_end ()); i != n; ++i)
 		{
 			++sum;

@@ -1014,7 +1014,7 @@ int main (int argc, char * const * argv)
 					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed (unchecked), %3% remaining") % node->ledger.cache.block_count % node->store.unchecked_count (node->store.tx_begin_read ()) % node->block_processor.size ()) << std::endl;
 				}
 			}
-			// Waiting for final transaction commit
+
 			uint64_t block_count (0);
 			while (block_count < max_blocks + 1)
 			{
@@ -1646,7 +1646,7 @@ int main (int argc, char * const * argv)
 			}
 
 			// Validate total block count
-			auto ledger_block_count = node->ledger.cache.block_count.load ();
+			auto ledger_block_count (node->store.block_count (transaction));
 			if (block_count != ledger_block_count)
 			{
 				print_error_message (boost::str (boost::format ("Incorrect total block count. Blocks validated %1%. Block count in database: %2%\n") % block_count % ledger_block_count));
@@ -1816,7 +1816,6 @@ int main (int argc, char * const * argv)
 					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed (unchecked)") % node.node->ledger.cache.block_count % node.node->store.unchecked_count (node.node->store.tx_begin_read ())) << std::endl;
 				}
 			}
-			// Waiting for final transaction commit
 			uint64_t block_count_2 (0);
 			while (block_count_2 != block_count)
 			{
