@@ -193,10 +193,11 @@ public:
 	void add_election_winner_details (nano::block_hash const &, std::shared_ptr<nano::election> const &);
 	void remove_election_winner_details (nano::block_hash const &);
 
+	nano::vote_generator generator;
+
 private:
 	std::mutex election_winner_details_mutex;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> election_winner_details;
-	nano::vote_generator generator;
 
 	// Call action with confirmed block, may be different than what we started with
 	// clang-format off
@@ -271,13 +272,11 @@ private:
 	friend std::unique_ptr<container_info_component> collect_container_info (active_transactions &, const std::string &);
 
 	friend class active_transactions_activate_dependencies_invalid_Test;
-	friend class active_transactions_dropped_cleanup_Test;
+	friend class active_transactions_dropped_cleanup_dev;
 	friend class active_transactions_vote_replays_Test;
 	friend class confirmation_height_prioritize_frontiers_Test;
 	friend class confirmation_height_prioritize_frontiers_overwrite_Test;
 	friend class active_transactions_confirmation_consistency_Test;
-	friend class active_transactions_vote_generator_session_Test;
-	friend class node_vote_by_hash_bundle_Test;
 	friend class node_deferred_dependent_elections_Test;
 	friend class election_bisect_dependencies_Test;
 	friend class election_dependencies_open_link_Test;

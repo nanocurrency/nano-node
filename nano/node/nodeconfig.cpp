@@ -17,6 +17,7 @@ const char * signature_checker_threads_key = "signature_checker_threads";
 const char * pow_sleep_interval_key = "pow_sleep_interval";
 const char * default_beta_peer_network = "peering-beta.nano.org";
 const char * default_live_peer_network = "peering.nano.org";
+const char * default_test_peer_network = "peering-test.nano.org";
 }
 
 nano::node_config::node_config () :
@@ -37,15 +38,18 @@ external_address (boost::asio::ip::address_v6{}.to_string ())
 	}
 	switch (network_params.network.network ())
 	{
-		case nano::nano_networks::nano_test_network:
+		case nano::nano_networks::nano_dev_network:
 			enable_voting = true;
 			preconfigured_representatives.push_back (network_params.ledger.genesis_account);
 			break;
 		case nano::nano_networks::nano_beta_network:
+		{
 			preconfigured_peers.push_back (default_beta_peer_network);
-			preconfigured_representatives.emplace_back ("259A4011E6CAD1069A97C02C3C1F2AAA32BC093C8D82EE1334F937A4BE803071");
-			preconfigured_representatives.emplace_back ("259A40656144FAA16D2A8516F7BE9C74A63C6CA399960EDB747D144ABB0F7ABD");
+			nano::account offline_representative;
+			release_assert (!offline_representative.decode_account ("nano_1defau1t9off1ine9rep99999999999999999999999999999999wgmuzxxy"));
+			preconfigured_representatives.emplace_back (offline_representative);
 			break;
+		}
 		case nano::nano_networks::nano_live_network:
 			preconfigured_peers.push_back (default_live_peer_network);
 			preconfigured_representatives.emplace_back ("A30E0A32ED41C8607AA9212843392E853FCBCB4E7CB194E35C94F07F91DE59EF");
@@ -56,6 +60,10 @@ external_address (boost::asio::ip::address_v6{}.to_string ())
 			preconfigured_representatives.emplace_back ("2399A083C600AA0572F5E36247D978FCFC840405F8D4B6D33161C0066A55F431");
 			preconfigured_representatives.emplace_back ("2298FAB7C61058E77EA554CB93EDEEDA0692CBFCC540AB213B2836B29029E23A");
 			preconfigured_representatives.emplace_back ("3FE80B4BC842E82C1C18ABFEEC47EA989E63953BC82AC411F304D13833D52A56");
+			break;
+		case nano::nano_networks::nano_test_network:
+			preconfigured_peers.push_back (default_test_peer_network);
+			preconfigured_representatives.push_back (network_params.ledger.genesis_account);
 			break;
 		default:
 			debug_assert (false);
@@ -316,7 +324,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		bool is_deprecated_lmdb_dbs_used = lmdb_max_dbs_default != deprecated_lmdb_max_dbs;
 
 		// Note: using the deprecated setting will result in a fail-fast config error in the future
-		if (!network_params.network.is_test_network () && is_deprecated_lmdb_dbs_used)
+		if (!network_params.network.is_dev_network () && is_deprecated_lmdb_dbs_used)
 		{
 			std::cerr << "WARNING: The node.lmdb_max_dbs setting is deprecated and will be removed in a future version." << std::endl;
 			std::cerr << "Please use the node.lmdb.max_databases setting instead." << std::endl;
@@ -395,7 +403,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			toml.get_error ().set ("io_threads must be non-zero");
 		}
-		if (active_elections_size <= 250 && !network.is_test_network ())
+		if (active_elections_size <= 250 && !network.is_dev_network ())
 		{
 			toml.get_error ().set ("active_elections_size must be greater than 250");
 		}
@@ -701,7 +709,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		{
 			json.get_error ().set ("io_threads must be non-zero");
 		}
-		if (active_elections_size <= 250 && !network.is_test_network ())
+		if (active_elections_size <= 250 && !network.is_dev_network ())
 		{
 			json.get_error ().set ("active_elections_size must be greater than 250");
 		}

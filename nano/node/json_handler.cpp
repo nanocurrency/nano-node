@@ -71,7 +71,7 @@ void nano::json_handler::process_request (bool unsafe_a)
 			// Try the rest of the options
 			if (action == "wallet_seed")
 			{
-				if (unsafe_a || node.network_params.network.is_test_network ())
+				if (unsafe_a || node.network_params.network.is_dev_network ())
 				{
 					wallet_seed ();
 				}
@@ -1242,7 +1242,7 @@ void nano::json_handler::block_account ()
 void nano::json_handler::block_count ()
 {
 	response_l.put ("count", std::to_string (node.ledger.cache.block_count));
-	response_l.put ("unchecked", std::to_string (node.ledger.cache.unchecked_count));
+	response_l.put ("unchecked", std::to_string (node.store.unchecked_count (node.store.tx_begin_read ())));
 	response_l.put ("cemented", std::to_string (node.ledger.cache.cemented_count));
 	response_errors ();
 }
@@ -3747,7 +3747,7 @@ void nano::json_handler::telemetry ()
 					if (address.is_loopback () && port == rpc_l->node.network.endpoint ().port ())
 					{
 						// Requesting telemetry metrics locally
-						auto telemetry_data = nano::local_telemetry_data (rpc_l->node.ledger.cache, rpc_l->node.network, rpc_l->node.config.bandwidth_limit, rpc_l->node.network_params, rpc_l->node.startup_time, rpc_l->node.active.active_difficulty (), rpc_l->node.node_id);
+						auto telemetry_data = nano::local_telemetry_data (rpc_l->node.store, rpc_l->node.ledger.cache, rpc_l->node.network, rpc_l->node.config.bandwidth_limit, rpc_l->node.network_params, rpc_l->node.startup_time, rpc_l->node.active.active_difficulty (), rpc_l->node.node_id);
 
 						nano::jsonconfig config_l;
 						auto const should_ignore_identification_metrics = false;
@@ -3921,7 +3921,6 @@ void nano::json_handler::unchecked_clear ()
 	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		auto transaction (rpc_l->node.store.tx_begin_write ({ tables::unchecked }));
 		rpc_l->node.store.unchecked_clear (transaction);
-		rpc_l->node.ledger.cache.unchecked_count = 0;
 		rpc_l->response_l.put ("success", "");
 		rpc_l->response_errors ();
 	}));

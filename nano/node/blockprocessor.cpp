@@ -214,7 +214,7 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 {
 	auto scoped_write_guard = write_database_queue.wait (nano::writer::process_batch);
 	block_post_events post_events;
-	auto transaction (node.store.tx_begin_write ({ tables::accounts, tables::blocks, tables::cached_counts, tables::frontiers, tables::pending, tables::unchecked }, { tables::confirmation_height }));
+	auto transaction (node.store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending, tables::unchecked }, { tables::confirmation_height }));
 	nano::timer<std::chrono::milliseconds> timer_l;
 	lock_a.lock ();
 	timer_l.start ();
@@ -263,7 +263,7 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 				// Deleting from votes cache & wallet work watcher, stop active transaction
 				for (auto & i : rollback_list)
 				{
-					node.votes_cache.remove (i->hash ());
+					node.history.erase (i->root ());
 					node.wallets.watcher->remove (*i);
 					// Stop all rolled back active transactions except initial
 					if (i->hash () != successor->hash ())
@@ -327,22 +327,23 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, block_post_events & events_a, nano::unchecked_info info_a, const bool watch_work_a, nano::block_origin const origin_a)
 {
 	nano::process_return result;
-	auto hash (info_a.block->hash ());
-	result = node.ledger.process (transaction_a, *(info_a.block), info_a.verified);
+	auto block (info_a.block);
+	auto hash (block->hash ());
+	result = node.ledger.process (transaction_a, *block, info_a.verified);
 	switch (result.code)
 	{
 		case nano::process_result::progress:
 		{
-			release_assert (info_a.account.is_zero () || info_a.account == result.account);
+			release_assert (info_a.account.is_zero () || info_a.account == node.store.block_account_calculated (*block));
 			if (node.config.logging.ledger_logging ())
 			{
-				std::string block;
-				info_a.block->serialize_json (block, node.config.logging.single_line_record ());
-				node.logger.try_log (boost::str (boost::format ("Processing block %1%: %2%") % hash.to_string () % block));
+				std::string block_string;
+				block->serialize_json (block_string, node.config.logging.single_line_record ());
+				node.logger.try_log (boost::str (boost::format ("Processing block %1%: %2%") % hash.to_string () % block_string));
 			}
 			if (info_a.modified > nano::seconds_since_epoch () - 300 && node.block_arrival.recent (hash))
 			{
-				events_a.events.emplace_back ([this, hash, block = info_a.block, result, watch_work_a, origin_a]() { process_live (hash, block, result, watch_work_a, origin_a); });
+				events_a.events.emplace_back ([this, hash, block, result, watch_work_a, origin_a]() { process_live (hash, block, result, watch_work_a, origin_a); });
 			}
 			queue_unchecked (transaction_a, hash);
 			break;
@@ -359,14 +360,8 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 				info_a.modified = nano::seconds_since_epoch ();
 			}
 
-			nano::unchecked_key unchecked_key (info_a.block->previous (), hash);
-			auto exists = node.store.unchecked_exists (transaction_a, unchecked_key);
+			nano::unchecked_key unchecked_key (block->previous (), hash);
 			node.store.unchecked_put (transaction_a, unchecked_key, info_a);
-			if (!exists)
-			{
-				++node.ledger.cache.unchecked_count;
-			}
-
 			node.gap_cache.add (hash);
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_previous);
 			break;
@@ -383,14 +378,8 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 				info_a.modified = nano::seconds_since_epoch ();
 			}
 
-			nano::unchecked_key unchecked_key (node.ledger.block_source (transaction_a, *(info_a.block)), hash);
-			auto exists = node.store.unchecked_exists (transaction_a, unchecked_key);
+			nano::unchecked_key unchecked_key (node.ledger.block_source (transaction_a, *(block)), hash);
 			node.store.unchecked_put (transaction_a, unchecked_key, info_a);
-			if (!exists)
-			{
-				++node.ledger.cache.unchecked_count;
-			}
-
 			node.gap_cache.add (hash);
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_source);
 			break;
@@ -401,7 +390,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			{
 				node.logger.try_log (boost::str (boost::format ("Old for: %1%") % hash.to_string ()));
 			}
-			process_old (transaction_a, info_a.block, origin_a);
+			process_old (transaction_a, block, origin_a);
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::old);
 			break;
 		}
@@ -432,11 +421,11 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 		}
 		case nano::process_result::fork:
 		{
-			node.process_fork (transaction_a, info_a.block, info_a.modified);
+			node.process_fork (transaction_a, block, info_a.modified);
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::fork);
 			if (node.config.logging.ledger_logging ())
 			{
-				node.logger.try_log (boost::str (boost::format ("Fork for: %1% root: %2%") % hash.to_string () % info_a.block->root ().to_string ()));
+				node.logger.try_log (boost::str (boost::format ("Fork for: %1% root: %2%") % hash.to_string () % block->root ().to_string ()));
 			}
 			break;
 		}
@@ -465,7 +454,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 		{
 			if (node.config.logging.ledger_logging ())
 			{
-				node.logger.try_log (boost::str (boost::format ("Block %1% cannot follow predecessor %2%") % hash.to_string () % info_a.block->previous ().to_string ()));
+				node.logger.try_log (boost::str (boost::format ("Block %1% cannot follow predecessor %2%") % hash.to_string () % block->previous ().to_string ()));
 			}
 			break;
 		}
@@ -473,7 +462,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 		{
 			if (node.config.logging.ledger_logging ())
 			{
-				node.logger.try_log (boost::str (boost::format ("Insufficient work for %1% : %2% (difficulty %3%)") % hash.to_string () % nano::to_string_hex (info_a.block->block_work ()) % nano::to_string_hex (info_a.block->difficulty ())));
+				node.logger.try_log (boost::str (boost::format ("Insufficient work for %1% : %2% (difficulty %3%)") % hash.to_string () % nano::to_string_hex (block->block_work ()) % nano::to_string_hex (block->difficulty ())));
 			}
 			break;
 		}
@@ -509,8 +498,6 @@ void nano::block_processor::queue_unchecked (nano::write_transaction const & tra
 		if (!node.flags.disable_block_processor_unchecked_deletion)
 		{
 			node.store.unchecked_del (transaction_a, nano::unchecked_key (hash_a, info.block->hash ()));
-			debug_assert (node.ledger.cache.unchecked_count > 0);
-			--node.ledger.cache.unchecked_count;
 		}
 		add (info, true);
 	}

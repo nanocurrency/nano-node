@@ -32,7 +32,7 @@ public:
 
 	std::string vendor_get () const override;
 
-	size_t count (nano::transaction const & transaction_a, tables table_a) const override;
+	uint64_t count (nano::transaction const & transaction_a, tables table_a) const override;
 	void version_put (nano::write_transaction const &, int) override;
 	std::vector<nano::unchecked_info> unchecked_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override;
 
@@ -86,11 +86,8 @@ private:
 	int clear (rocksdb::ColumnFamilyHandle * column_family);
 
 	void open (bool & error_a, boost::filesystem::path const & path_a, bool open_read_only_a);
-	uint64_t count (nano::transaction const & transaction_a, rocksdb::ColumnFamilyHandle * handle) const;
-	bool is_caching_counts (nano::tables table_a) const;
 
-	int increment (nano::write_transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a, uint64_t amount_a);
-	int decrement (nano::write_transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a, uint64_t amount_a);
+	rocksdb::ColumnFamilyOptions get_cf_options () const;
 	void construct_column_family_mutexes ();
 	rocksdb::Options get_db_options () const;
 	rocksdb::ColumnFamilyOptions get_active_cf_options (std::shared_ptr<rocksdb::TableFactory> const & table_factory_a, unsigned long long memtable_size_bytes_a) const;

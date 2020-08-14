@@ -216,7 +216,7 @@ void nano::socket::checkup ()
 	std::weak_ptr<nano::socket> this_w (shared_from_this ());
 	if (auto node_l = node.lock ())
 	{
-		node_l->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (node_l->network_params.network.is_test_network () ? 1 : 2), [this_w, node_l]() {
+		node_l->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (node_l->network_params.network.is_dev_network () ? 1 : 2), [this_w, node_l]() {
 			if (auto this_l = this_w.lock ())
 			{
 				uint64_t now (nano::seconds_since_epoch ());
@@ -381,7 +381,7 @@ void nano::server_socket::on_connection (std::function<bool(std::shared_ptr<nano
 								// Make sure the new connection doesn't idle. Note that in most cases, the callback is going to start
 								// an IO operation immediately, which will start a timer.
 								new_connection->checkup ();
-								new_connection->start_timer (node_l->network_params.network.is_test_network () ? std::chrono::seconds (2) : node_l->network_params.node.idle_timeout);
+								new_connection->start_timer (node_l->network_params.network.is_dev_network () ? std::chrono::seconds (2) : node_l->network_params.node.idle_timeout);
 								node_l->stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_success, nano::stat::dir::in);
 								this_l->connections.push_back (new_connection);
 								this_l->evict_dead_connections ();
