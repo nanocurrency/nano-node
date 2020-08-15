@@ -291,7 +291,8 @@ uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, ta
 	{
 		db->GetIntProperty (table_to_column_family (table_a), "rocksdb.estimate-num-keys", &sum);
 	}
-	// These should only be used in tests to check database consistency
+	// Accounts and blocks should only be used in tests and CLI commands to check database consistency
+	// otherwise there can be performance issues.
 	else if (table_a == tables::accounts)
 	{
 		debug_assert (network_constants ().is_dev_network ());
@@ -302,6 +303,7 @@ uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, ta
 	}
 	else if (table_a == tables::blocks)
 	{
+		// This is also used in some CLI commands
 		for (auto i (blocks_begin (transaction_a)), n (blocks_end ()); i != n; ++i)
 		{
 			++sum;
@@ -385,6 +387,15 @@ rocksdb::Options nano::rocksdb_store::get_db_options () const
 	db_options.IncreaseParallelism (rocksdb_config.io_threads);
 	db_options.OptimizeLevelStyleCompaction ();
 
+	// The maximum number of threads that will concurrently perform a compaction job by breaking it into multiple,
+	// smaller ones that are run simultaneously. Can help L0 to L1 compaction
+	db_options.max_subcompactions = std::min (rocksdb_config.io_threads, 2u);
+
+	// Allows parallel writers to the memtables. We do not currently have any, and
+	// if enabled can only be used with the default skip list factory, and is not compatible
+	// or inplace updates.
+	db_options.allow_concurrent_memtable_write = false;
+
 	// Adds a separate write queue for memtable/WAL
 	db_options.enable_pipelined_write = true;
 
@@ -415,6 +426,9 @@ rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_cf_options () const
 {
 	rocksdb::ColumnFamilyOptions cf_options;
 	cf_options.table_factory = table_factory;
+
+	// Search for keys by hash instead of binary search
+	cf_options.memtable_factory.reset (rocksdb::NewHashSkipListRepFactory ());
 
 	// Number of files in level which triggers compaction. Size of L0 and L1 should be kept similar as this is the only compaction which is single threaded
 	cf_options.level0_file_num_compaction_trigger = 4;

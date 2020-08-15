@@ -122,7 +122,6 @@ public:
 	uint64_t block_account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override
 	{
 		auto block = block_get (transaction_a, hash_a);
-		debug_assert (block != nullptr);
 		return block->sideband ().height;
 	}
 
@@ -509,7 +508,6 @@ public:
 	void account_put (nano::write_transaction const & transaction_a, nano::account const & account_a, nano::account_info const & info_a) override
 	{
 		// Check we are still in sync with other tables
-		debug_assert (confirmation_height_exists (transaction_a, account_a));
 		nano::db_val<Val> info (info_a);
 		auto status = put (transaction_a, tables::accounts, account_a, info);
 		release_assert (success (status));
@@ -634,6 +632,12 @@ public:
 			nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
 			result = confirmation_height_info_a.deserialize (stream);
 		}
+		if (result)
+		{
+			confirmation_height_info_a.height = 0;
+			confirmation_height_info_a.frontier = 0;
+		}
+
 		return result;
 	}
 

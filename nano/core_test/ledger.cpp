@@ -2990,7 +2990,7 @@ TEST (ledger, confirmation_height_not_updated)
 	ASSERT_EQ (genesis.hash (), confirmation_height_info.frontier);
 	nano::open_block open1 (send1.hash (), nano::genesis_account, key.pub, key.prv, key.pub, *pool.generate (key.pub));
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, open1).code);
-	ASSERT_FALSE (store->confirmation_height_get (transaction, key.pub, confirmation_height_info));
+	ASSERT_TRUE (store->confirmation_height_get (transaction, key.pub, confirmation_height_info));
 	ASSERT_EQ (0, confirmation_height_info.height);
 	ASSERT_EQ (nano::block_hash (0), confirmation_height_info.frontier);
 }
@@ -3235,7 +3235,7 @@ TEST (ledger, can_vote)
 	                .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *receive2).code);
 	ASSERT_FALSE (ledger.can_vote (transaction, *receive2));
-	ASSERT_FALSE (ledger.store.confirmation_height_get (transaction, key1.pub, height));
+	ASSERT_TRUE (ledger.store.confirmation_height_get (transaction, key1.pub, height));
 	height.height += 1;
 	ledger.store.confirmation_height_put (transaction, key1.pub, height);
 	ASSERT_FALSE (ledger.can_vote (transaction, *receive2));

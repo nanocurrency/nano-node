@@ -88,8 +88,7 @@ void nano::active_transactions::confirm_prioritized_frontiers (nano::transaction
 					if (!this->confirmation_height_processor.is_processing_block (info.head))
 					{
 						nano::confirmation_height_info confirmation_height_info;
-						error = this->node.store.confirmation_height_get (transaction_a, cementable_account.account, confirmation_height_info);
-						release_assert (!error);
+						this->node.store.confirmation_height_get (transaction_a, cementable_account.account, confirmation_height_info);
 
 						if (info.block_count > confirmation_height_info.height)
 						{
@@ -346,29 +345,27 @@ void nano::active_transactions::activate_dependencies (nano::unique_lock<std::mu
 					/* Insert first unconfirmed block (pessimistic) and bisect the chain (likelihood) */
 					auto const account (node.store.block_account_calculated (*block_l));
 					nano::confirmation_height_info conf_info_l;
-					if (!node.store.confirmation_height_get (transaction, account, conf_info_l))
+					node.store.confirmation_height_get (transaction, account, conf_info_l);
+					if (height_l > conf_info_l.height + 1)
 					{
-						if (height_l > conf_info_l.height + 1)
+						auto const successor_hash_l = first_unconfirmed (transaction, account, conf_info_l.frontier);
+						if (!confirmation_height_processor.is_processing_block (successor_hash_l))
 						{
-							auto const successor_hash_l = first_unconfirmed (transaction, account, conf_info_l.frontier);
-							if (!confirmation_height_processor.is_processing_block (successor_hash_l))
+							auto const successor_l = node.store.block_get (transaction, successor_hash_l);
+							debug_assert (successor_l != nullptr);
+							if (successor_l != nullptr)
 							{
-								auto const successor_l = node.store.block_get (transaction, successor_hash_l);
-								debug_assert (successor_l != nullptr);
-								if (successor_l != nullptr)
-								{
-									activate_l.emplace_back (successor_l, hash_l);
-								}
+								activate_l.emplace_back (successor_l, hash_l);
 							}
 						}
-						if (height_l > conf_info_l.height + 2)
+					}
+					if (height_l > conf_info_l.height + 2)
+					{
+						auto const jumps_l = std::min<uint64_t> (128, (height_l - conf_info_l.height) / 2);
+						auto const backtracked_l (node.ledger.backtrack (transaction, block_l, jumps_l));
+						if (backtracked_l != nullptr)
 						{
-							auto const jumps_l = std::min<uint64_t> (128, (height_l - conf_info_l.height) / 2);
-							auto const backtracked_l (node.ledger.backtrack (transaction, block_l, jumps_l));
-							if (backtracked_l != nullptr)
-							{
-								activate_l.emplace_back (backtracked_l, hash_l);
-							}
+							activate_l.emplace_back (backtracked_l, hash_l);
 						}
 					}
 				}
@@ -516,12 +513,13 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 
 					auto i (wallet->store.begin (wallet_transaction, next_wallet_frontier_account));
 					auto n (wallet->store.end ());
-					nano::confirmation_height_info confirmation_height_info;
 					for (; i != n; ++i)
 					{
 						auto const & account (i->first);
-						if (!node.store.account_get (transaction_a, account, info) && !node.store.confirmation_height_get (transaction_a, account, confirmation_height_info))
+						if (!node.store.account_get (transaction_a, account, info))
 						{
+							nano::confirmation_height_info confirmation_height_info;
+							node.store.confirmation_height_get (transaction_a, account, confirmation_height_info);
 							// If it exists in normal priority collection delete from there.
 							auto it = priority_cementable_frontiers.find (account);
 							if (it != priority_cementable_frontiers.end ())
@@ -562,17 +560,15 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 
 		auto i (node.store.latest_begin (transaction_a, next_frontier_account));
 		auto n (node.store.latest_end ());
-		nano::confirmation_height_info confirmation_height_info;
 		for (; i != n && !stopped; ++i)
 		{
 			auto const & account (i->first);
 			auto const & info (i->second);
 			if (priority_wallet_cementable_frontiers.find (account) == priority_wallet_cementable_frontiers.end ())
 			{
-				if (!node.store.confirmation_height_get (transaction_a, account, confirmation_height_info))
-				{
-					prioritize_account_for_confirmation (priority_cementable_frontiers, priority_cementable_frontiers_size, account, info, confirmation_height_info.height);
-				}
+				nano::confirmation_height_info confirmation_height_info;
+				node.store.confirmation_height_get (transaction_a, account, confirmation_height_info);
+				prioritize_account_for_confirmation (priority_cementable_frontiers, priority_cementable_frontiers_size, account, info, confirmation_height_info.height);
 			}
 			next_frontier_account = account.number () + 1;
 			if (timer.since_start () >= ledger_account_traversal_max_time_a)
@@ -780,9 +776,8 @@ nano::election_insertion_result nano::active_transactions::activate (nano::accou
 	if (!node.store.account_get (transaction, account_a, account_info))
 	{
 		nano::confirmation_height_info conf_info;
-		auto error = node.store.confirmation_height_get (transaction, account_a, conf_info);
-		debug_assert (!error);
-		if (!error && conf_info.height < account_info.block_count)
+		node.store.confirmation_height_get (transaction, account_a, conf_info);
+		if (conf_info.height < account_info.block_count)
 		{
 			debug_assert (conf_info.frontier != account_info.head);
 			auto hash = conf_info.height == 0 ? account_info.open_block : node.store.block_successor (transaction, conf_info.frontier);
