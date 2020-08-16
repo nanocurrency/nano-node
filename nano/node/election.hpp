@@ -87,6 +87,8 @@ public:
 	size_t insert_inactive_votes_cache (nano::block_hash const &);
 	bool prioritized () const;
 	void prioritize_election (nano::vote_generator_session &);
+	// Calculate votes if the current winner matches \p hash_a
+	void try_generate_votes (nano::block_hash const & hash_a);
 	// Erase all blocks from active and, if not confirmed, clear digests from network filters
 	void cleanup ();
 
@@ -111,5 +113,12 @@ public:
 	std::unordered_map<nano::block_hash, nano::uint128_t> last_tally;
 	std::unordered_set<nano::block_hash> dependent_blocks;
 	std::chrono::seconds late_blocks_delay{ 5 };
+	uint64_t const height;
+	nano::root const root;
+
+	friend class active_transactions;
+
+	friend class election_bisect_dependencies_Test;
+	friend class election_dependencies_open_link_Test;
 };
 }

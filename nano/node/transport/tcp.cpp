@@ -56,6 +56,12 @@ void nano::transport::channel_tcp::send_buffer (nano::shared_const_buffer const 
 	{
 		socket_l->async_write (buffer_a, tcp_callback (detail_a, socket_l->remote_endpoint (), callback_a), drop_policy_a);
 	}
+	else if (callback_a)
+	{
+		node.background ([callback_a]() {
+			callback_a (boost::system::errc::make_error_code (boost::system::errc::not_supported), 0);
+		});
+	}
 }
 
 std::function<void(boost::system::error_code const &, size_t)> nano::transport::channel_tcp::callback (nano::stat::detail detail_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a) const
@@ -436,7 +442,7 @@ void nano::transport::tcp_channels::ongoing_keepalive ()
 	}
 	// Attempt to start TCP connections to known UDP peers
 	nano::tcp_endpoint invalid_endpoint (boost::asio::ip::address_v6::any (), 0);
-	if (!node.network_params.network.is_test_network () && !node.flags.disable_udp)
+	if (!node.network_params.network.is_dev_network () && !node.flags.disable_udp)
 	{
 		size_t random_count (std::min (static_cast<size_t> (6), static_cast<size_t> (std::ceil (std::sqrt (node.network.udp_channels.size ())))));
 		for (auto i (0); i <= random_count; ++i)

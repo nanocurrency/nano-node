@@ -1,9 +1,9 @@
-#include <nano/core_test/testutil.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/rpcconfig.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/daemonconfig.hpp>
-#include <nano/node/testing.hpp>
+#include <nano/secure/utility.hpp>
+#include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -70,10 +70,10 @@ TEST (toml, daemon_config_update_array)
 	nano::tomlconfig t;
 	boost::filesystem::path data_path (".");
 	nano::daemon_config c (data_path);
-	c.node.preconfigured_peers.push_back ("test-peer.org");
+	c.node.preconfigured_peers.push_back ("dev-peer.org");
 	c.serialize_toml (t);
 	c.deserialize_toml (t);
-	ASSERT_EQ (c.node.preconfigured_peers[0], "test-peer.org");
+	ASSERT_EQ (c.node.preconfigured_peers[0], "dev-peer.org");
 }
 
 /** Empty rpc config file should match a default config object */
@@ -81,7 +81,7 @@ TEST (toml, rpc_config_deserialize_defaults)
 {
 	std::stringstream ss;
 
-	// A config file with values that differs from test-net defaults
+	// A config file with values that differs from devnet defaults
 	ss << R"toml(
 	[process]
 	)toml";
@@ -104,6 +104,8 @@ TEST (toml, rpc_config_deserialize_defaults)
 	ASSERT_EQ (conf.rpc_process.ipc_address, defaults.rpc_process.ipc_address);
 	ASSERT_EQ (conf.rpc_process.ipc_port, defaults.rpc_process.ipc_port);
 	ASSERT_EQ (conf.rpc_process.num_ipc_connections, defaults.rpc_process.num_ipc_connections);
+
+	ASSERT_EQ (conf.rpc_logging.log_rpc, defaults.rpc_logging.log_rpc);
 }
 
 /** Empty config file should match a default config object */
@@ -253,15 +255,8 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.lmdb_config.map_size, defaults.node.lmdb_config.map_size);
 
 	ASSERT_EQ (conf.node.rocksdb_config.enable, defaults.node.rocksdb_config.enable);
-	ASSERT_EQ (conf.node.rocksdb_config.bloom_filter_bits, defaults.node.rocksdb_config.bloom_filter_bits);
-	ASSERT_EQ (conf.node.rocksdb_config.block_cache, defaults.node.rocksdb_config.block_cache);
+	ASSERT_EQ (conf.node.rocksdb_config.memory_multiplier, defaults.node.rocksdb_config.memory_multiplier);
 	ASSERT_EQ (conf.node.rocksdb_config.io_threads, defaults.node.rocksdb_config.io_threads);
-	ASSERT_EQ (conf.node.rocksdb_config.enable_pipelined_write, defaults.node.rocksdb_config.enable_pipelined_write);
-	ASSERT_EQ (conf.node.rocksdb_config.cache_index_and_filter_blocks, defaults.node.rocksdb_config.cache_index_and_filter_blocks);
-	ASSERT_EQ (conf.node.rocksdb_config.block_size, defaults.node.rocksdb_config.block_size);
-	ASSERT_EQ (conf.node.rocksdb_config.memtable_size, defaults.node.rocksdb_config.memtable_size);
-	ASSERT_EQ (conf.node.rocksdb_config.num_memtables, defaults.node.rocksdb_config.num_memtables);
-	ASSERT_EQ (conf.node.rocksdb_config.total_memtable_size, defaults.node.rocksdb_config.total_memtable_size);
 }
 
 TEST (toml, optional_child)
@@ -412,7 +407,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	password_fanout = 999
 	peering_port = 999
 	pow_sleep_interval= 999
-	preconfigured_peers = ["test.org"]
+	preconfigured_peers = ["dev.org"]
 	preconfigured_representatives = ["nano_3arg3asgtigae3xckabaaewkx3bzsh7nwz7jkmjos79ihyaxwphhm6qgjps4"]
 	receive_minimum = "999"
 	signature_checker_threads = 999
@@ -423,7 +418,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	vote_generator_delay = 999
 	vote_generator_threshold = 9
 	vote_minimum = "999"
-	work_peers = ["test.org:999"]
+	work_peers = ["dev.org:999"]
 	work_threads = 999
 	work_watcher_period = 999
 	max_work_generate_multiplier = 1.0
@@ -436,16 +431,16 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	min_write_txn_time = 999
 
 	[node.httpcallback]
-	address = "test.org"
+	address = "dev.org"
 	port = 999
-	target = "/test"
+	target = "/dev"
 
 	[node.ipc.local]
 	allow_unsafe = true
 	enable = true
 	io_timeout = 999
 	io_threads = 999
-	path = "/tmp/test"
+	path = "/tmp/dev"
 
 	[node.ipc.tcp]
 	enable = true
@@ -487,8 +482,8 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	work_generation_time = false
 
 	[node.statistics.log]
-	filename_counters = "testcounters.stat"
-	filename_samples = "testsamples.stat"
+	filename_counters = "devcounters.stat"
+	filename_samples = "devsamples.stat"
 	headers = false
 	interval_counters = 999
 	interval_samples = 999
@@ -511,18 +506,11 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 
 	[node.rocksdb]
 	enable = true
-	bloom_filter_bits = 10
-	block_cache = 512
+	memory_multiplier = 3
 	io_threads = 99
-	enable_pipelined_write = true
-	cache_index_and_filter_blocks = true
-	block_size = 16
-	memtable_size = 128
-	num_memtables = 3
-	total_memtable_size = 0
 
 	[node.experimental]
-	secondary_work_peers = ["test.org:998"]
+	secondary_work_peers = ["dev.org:998"]
 
 	[opencl]
 	device = 999
@@ -536,7 +524,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 
 	[rpc.child_process]
 	enable = true
-	rpc_path = "/test/nano_rpc"
+	rpc_path = "/dev/nano_rpc"
 	)toml";
 
 	nano::tomlconfig toml;
@@ -666,15 +654,8 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.lmdb_config.map_size, defaults.node.lmdb_config.map_size);
 
 	ASSERT_NE (conf.node.rocksdb_config.enable, defaults.node.rocksdb_config.enable);
-	ASSERT_NE (conf.node.rocksdb_config.bloom_filter_bits, defaults.node.rocksdb_config.bloom_filter_bits);
-	ASSERT_NE (conf.node.rocksdb_config.block_cache, defaults.node.rocksdb_config.block_cache);
+	ASSERT_NE (conf.node.rocksdb_config.memory_multiplier, defaults.node.rocksdb_config.memory_multiplier);
 	ASSERT_NE (conf.node.rocksdb_config.io_threads, defaults.node.rocksdb_config.io_threads);
-	ASSERT_NE (conf.node.rocksdb_config.enable_pipelined_write, defaults.node.rocksdb_config.enable_pipelined_write);
-	ASSERT_NE (conf.node.rocksdb_config.cache_index_and_filter_blocks, defaults.node.rocksdb_config.cache_index_and_filter_blocks);
-	ASSERT_NE (conf.node.rocksdb_config.block_size, defaults.node.rocksdb_config.block_size);
-	ASSERT_NE (conf.node.rocksdb_config.memtable_size, defaults.node.rocksdb_config.memtable_size);
-	ASSERT_NE (conf.node.rocksdb_config.num_memtables, defaults.node.rocksdb_config.num_memtables);
-	ASSERT_NE (conf.node.rocksdb_config.total_memtable_size, defaults.node.rocksdb_config.total_memtable_size);
 }
 
 /** There should be no required values **/
@@ -713,7 +694,7 @@ TEST (toml, rpc_config_deserialize_no_defaults)
 {
 	std::stringstream ss;
 
-	// A config file with values that differs from test-net defaults
+	// A config file with values that differs from devnet defaults
 	ss << R"toml(
 	address = "0:0:0:0:0:ffff:7f01:101"
 	enable_control = true
@@ -725,6 +706,8 @@ TEST (toml, rpc_config_deserialize_no_defaults)
 	ipc_address = "0:0:0:0:0:ffff:7f01:101"
 	ipc_port = 999
 	num_ipc_connections = 999
+	[logging]
+	log_rpc = false
 	)toml";
 
 	nano::tomlconfig toml;
@@ -745,6 +728,8 @@ TEST (toml, rpc_config_deserialize_no_defaults)
 	ASSERT_NE (conf.rpc_process.ipc_address, defaults.rpc_process.ipc_address);
 	ASSERT_NE (conf.rpc_process.ipc_port, defaults.rpc_process.ipc_port);
 	ASSERT_NE (conf.rpc_process.num_ipc_connections, defaults.rpc_process.num_ipc_connections);
+
+	ASSERT_NE (conf.rpc_logging.log_rpc, defaults.rpc_logging.log_rpc);
 }
 
 /** There should be no required values **/
@@ -756,6 +741,7 @@ TEST (toml, rpc_config_no_required)
 	ss << R"toml(
 	[version]
 	[process]
+	[logging]
 	[secure]
 	)toml";
 

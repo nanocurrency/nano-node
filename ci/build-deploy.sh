@@ -30,6 +30,7 @@ cmake \
     -DCMAKE_BUILD_TYPE=${CONFIGURATION} \
     -DCMAKE_VERBOSE_MAKEFILE=ON \
     -DBOOST_ROOT=/tmp/boost/ \
+    -DNANO_SHARED_BOOST=ON \
     -DQt5_DIR=${qt_dir} \
     -DCI_BUILD=true \
     ..

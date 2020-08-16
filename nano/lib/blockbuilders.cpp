@@ -674,6 +674,18 @@ std::unique_ptr<BLOCKTYPE> nano::abstract_builder<BLOCKTYPE, BUILDER>::build (st
 }
 
 template <typename BLOCKTYPE, typename BUILDER>
+std::shared_ptr<BLOCKTYPE> nano::abstract_builder<BLOCKTYPE, BUILDER>::build_shared ()
+{
+	return std::move (build ());
+}
+
+template <typename BLOCKTYPE, typename BUILDER>
+std::shared_ptr<BLOCKTYPE> nano::abstract_builder<BLOCKTYPE, BUILDER>::build_shared (std::error_code & ec)
+{
+	return std::move (build (ec));
+}
+
+template <typename BLOCKTYPE, typename BUILDER>
 nano::abstract_builder<BLOCKTYPE, BUILDER> & nano::abstract_builder<BLOCKTYPE, BUILDER>::work (uint64_t work)
 {
 	block->work = work;

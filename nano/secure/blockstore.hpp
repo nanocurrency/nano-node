@@ -18,10 +18,18 @@
 namespace nano
 {
 // Move to versioning with a specific version if required for a future upgrade
-class state_block_w_sideband
+template <typename T>
+class block_w_sideband_v18
 {
 public:
-	std::shared_ptr<nano::state_block> state_block;
+	std::shared_ptr<T> block;
+	nano::block_sideband_v18 sideband;
+};
+
+class block_w_sideband
+{
+public:
+	std::shared_ptr<nano::block> block;
 	nano::block_sideband sideband;
 };
 
@@ -54,11 +62,6 @@ public:
 
 	db_val (nano::account_info const & val_a) :
 	db_val (val_a.db_size (), const_cast<nano::account_info *> (&val_a))
-	{
-	}
-
-	db_val (nano::account_info_v13 const & val_a) :
-	db_val (val_a.db_size (), const_cast<nano::account_info_v13 *> (&val_a))
 	{
 	}
 
@@ -147,14 +150,6 @@ public:
 	explicit operator nano::account_info () const
 	{
 		nano::account_info result;
-		debug_assert (size () == result.db_size ());
-		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + result.db_size (), reinterpret_cast<uint8_t *> (&result));
-		return result;
-	}
-
-	explicit operator nano::account_info_v13 () const
-	{
-		nano::account_info_v13 result;
 		debug_assert (size () == result.db_size ());
 		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + result.db_size (), reinterpret_cast<uint8_t *> (&result));
 		return result;
@@ -273,17 +268,28 @@ public:
 		return result;
 	}
 
-	explicit operator state_block_w_sideband () const
+	template <class Block>
+	explicit operator block_w_sideband_v18<Block> () const
 	{
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (data ()), size ());
 		auto error (false);
-		nano::state_block_w_sideband block_w_sideband;
-		block_w_sideband.state_block = std::make_shared<nano::state_block> (error, stream);
-		debug_assert (!error);
+		block_w_sideband_v18<Block> block_w_sideband;
+		block_w_sideband.block = std::make_shared<Block> (error, stream);
+		release_assert (!error);
 
-		error = block_w_sideband.sideband.deserialize (stream, nano::block_type::state);
-		debug_assert (!error);
+		error = block_w_sideband.sideband.deserialize (stream, block_w_sideband.block->type ());
+		release_assert (!error);
 
+		return block_w_sideband;
+	}
+
+	explicit operator block_w_sideband () const
+	{
+		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (data ()), size ());
+		nano::block_w_sideband block_w_sideband;
+		block_w_sideband.block = (nano::deserialize_block (stream));
+		auto error = block_w_sideband.sideband.deserialize (stream, block_w_sideband.block->type ());
+		release_assert (!error);
 		return block_w_sideband;
 	}
 
@@ -404,82 +410,6 @@ class transaction;
 class block_store;
 
 /**
- * Summation visitor for blocks, supporting amount and balance computations. These
- * computations are mutually dependant. The natural solution is to use mutual recursion
- * between balance and amount visitors, but this leads to very deep stacks. Hence, the
- * summation visitor uses an iterative approach.
- */
-class summation_visitor final : public nano::block_visitor
-{
-	enum summation_type
-	{
-		invalid = 0,
-		balance = 1,
-		amount = 2
-	};
-
-	/** Represents an invocation frame */
-	class frame final
-	{
-	public:
-		frame (summation_type type_a, nano::block_hash balance_hash_a, nano::block_hash amount_hash_a) :
-		type (type_a), balance_hash (balance_hash_a), amount_hash (amount_hash_a)
-		{
-		}
-
-		/** The summation type guides the block visitor handlers */
-		summation_type type{ invalid };
-		/** Accumulated balance or amount */
-		nano::uint128_t sum{ 0 };
-		/** The current balance hash */
-		nano::block_hash balance_hash{ 0 };
-		/** The current amount hash */
-		nano::block_hash amount_hash{ 0 };
-		/** If true, this frame is awaiting an invocation result */
-		bool awaiting_result{ false };
-		/** Set by the invoked frame, representing the return value */
-		nano::uint128_t incoming_result{ 0 };
-	};
-
-public:
-	summation_visitor (nano::transaction const &, nano::block_store const &, bool is_v14_upgrade = false);
-	virtual ~summation_visitor () = default;
-	/** Computes the balance as of \p block_hash */
-	nano::uint128_t compute_balance (nano::block_hash const & block_hash);
-	/** Computes the amount delta between \p block_hash and its predecessor */
-	nano::uint128_t compute_amount (nano::block_hash const & block_hash);
-
-protected:
-	nano::transaction const & transaction;
-	nano::block_store const & store;
-	nano::network_params network_params;
-
-	/** The final result */
-	nano::uint128_t result{ 0 };
-	/** The current invocation frame */
-	frame * current{ nullptr };
-	/** Invocation frames */
-	std::stack<frame> frames;
-	/** Push a copy of \p hash of the given summation \p type */
-	nano::summation_visitor::frame push (nano::summation_visitor::summation_type type, nano::block_hash const & hash);
-	void sum_add (nano::uint128_t addend_a);
-	void sum_set (nano::uint128_t value_a);
-	/** The epilogue yields the result to previous frame, if any */
-	void epilogue ();
-
-	nano::uint128_t compute_internal (nano::summation_visitor::summation_type type, nano::block_hash const &);
-	void send_block (nano::send_block const &) override;
-	void receive_block (nano::receive_block const &) override;
-	void open_block (nano::open_block const &) override;
-	void change_block (nano::change_block const &) override;
-	void state_block (nano::state_block const &) override;
-
-private:
-	bool is_v14_upgrade;
-	std::shared_ptr<nano::block> block_get (nano::transaction const &, nano::block_hash const &) const;
-};
-
-/**
  * Determine the representative for this block
  */
 class representative_visitor final : public nano::block_visitor
@@ -572,20 +502,13 @@ private:
 enum class tables
 {
 	accounts,
-	blocks_info, // LMDB only
-	cached_counts, // RocksDB only
-	change_blocks,
+	blocks,
 	confirmation_height,
 	frontiers,
 	meta,
 	online_weight,
-	open_blocks,
 	peers,
 	pending,
-	receive_blocks,
-	representation,
-	send_blocks,
-	state_blocks,
 	unchecked,
 	vote
 };
@@ -668,15 +591,13 @@ public:
 	virtual void block_successor_clear (nano::write_transaction const &, nano::block_hash const &) = 0;
 	virtual std::shared_ptr<nano::block> block_get (nano::transaction const &, nano::block_hash const &) const = 0;
 	virtual std::shared_ptr<nano::block> block_get_no_sideband (nano::transaction const &, nano::block_hash const &) const = 0;
-	virtual std::shared_ptr<nano::block> block_get_v14 (nano::transaction const &, nano::block_hash const &, nano::block_sideband_v14 * = nullptr, bool * = nullptr) const = 0;
 	virtual std::shared_ptr<nano::block> block_random (nano::transaction const &) = 0;
-	virtual void block_del (nano::write_transaction const &, nano::block_hash const &, nano::block_type) = 0;
+	virtual void block_del (nano::write_transaction const &, nano::block_hash const &) = 0;
 	virtual bool block_exists (nano::transaction const &, nano::block_hash const &) = 0;
-	virtual bool block_exists (nano::transaction const &, nano::block_type, nano::block_hash const &) = 0;
-	virtual nano::block_counts block_count (nano::transaction const &) = 0;
+	virtual uint64_t block_count (nano::transaction const &) = 0;
 	virtual bool root_exists (nano::transaction const &, nano::root const &) = 0;
-	virtual bool source_exists (nano::transaction const &, nano::block_hash const &) = 0;
 	virtual nano::account block_account (nano::transaction const &, nano::block_hash const &) const = 0;
+	virtual nano::account block_account_calculated (nano::block const &) const = 0;
 
 	virtual void frontier_put (nano::write_transaction const &, nano::block_hash const &, nano::account const &) = 0;
 	virtual nano::account frontier_get (nano::transaction const &, nano::block_hash const &) const = 0;
@@ -702,7 +623,6 @@ public:
 	virtual nano::store_iterator<nano::pending_key, nano::pending_info> pending_begin (nano::transaction const &) = 0;
 	virtual nano::store_iterator<nano::pending_key, nano::pending_info> pending_end () = 0;
 
-	virtual bool block_info_get (nano::transaction const &, nano::block_hash const &, nano::block_info &) const = 0;
 	virtual nano::uint128_t block_balance (nano::transaction const &, nano::block_hash const &) = 0;
 	virtual nano::uint128_t block_balance_calculated (std::shared_ptr<nano::block> const &) const = 0;
 	virtual nano::epoch block_version (nano::transaction const &, nano::block_hash const &) = 0;
@@ -758,6 +678,9 @@ public:
 	virtual nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_begin (nano::transaction const & transaction_a) = 0;
 	virtual nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_end () = 0;
 
+	virtual nano::store_iterator<nano::block_hash, std::shared_ptr<nano::block>> blocks_begin (nano::transaction const & transaction_a) const = 0;
+	virtual nano::store_iterator<nano::block_hash, std::shared_ptr<nano::block>> blocks_end () const = 0;
+
 	virtual uint64_t block_account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const = 0;
 	virtual std::mutex & get_cache_mutex () = 0;
 
@@ -765,7 +688,8 @@ public:
 	virtual void rebuild_db (nano::write_transaction const & transaction_a) = 0;
 
 	/** Not applicable to all sub-classes */
-	virtual void serialize_mdb_tracker (boost::property_tree::ptree &, std::chrono::milliseconds, std::chrono::milliseconds) = 0;
+	virtual void serialize_mdb_tracker (boost::property_tree::ptree &, std::chrono::milliseconds, std::chrono::milliseconds){};
+	virtual void serialize_memory_stats (boost::property_tree::ptree &) = 0;
 
 	virtual bool init_error () const = 0;
 
@@ -778,7 +702,7 @@ public:
 	virtual std::string vendor_get () const = 0;
 };
 
-std::unique_ptr<nano::block_store> make_store (nano::logger_mt & logger, boost::filesystem::path const & path, bool open_read_only = false, bool add_db_postfix = false, nano::rocksdb_config const & rocksdb_config = nano::rocksdb_config{}, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, size_t batch_size = 512, bool backup_before_upgrade = false, bool rocksdb_backend = false);
+std::unique_ptr<nano::block_store> make_store (nano::logger_mt & logger, boost::filesystem::path const & path, bool open_read_only = false, bool add_db_postfix = false, nano::rocksdb_config const & rocksdb_config = nano::rocksdb_config{}, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, bool backup_before_upgrade = false, bool rocksdb_backend = false);
 }
 
 namespace std

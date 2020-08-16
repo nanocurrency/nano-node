@@ -244,7 +244,7 @@ bool nano::confirmation_height_bounded::iterate (nano::read_transaction const & 
 			source = block->link ();
 		}
 
-		if (!source.is_zero () && !ledger.is_epoch_link (source) && ledger.store.source_exists (transaction_a, source))
+		if (!source.is_zero () && !ledger.is_epoch_link (source) && ledger.store.block_exists (transaction_a, source))
 		{
 			hit_receive = true;
 			reached_target = true;
@@ -442,7 +442,7 @@ void nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 						logger.always_log (boost::str (boost::format ("Cemented %1% blocks in %2% %3% (bounded processor)") % cemented_blocks.size () % time_spent_cementing % cemented_batch_timer.unit ()));
 
 						// Update the maximum amount of blocks to write next time based on the time it took to cement this batch.
-						if (!network_params.network.is_test_network ())
+						if (!network_params.network.is_dev_network ())
 						{
 							if (time_spent_cementing > maximum_batch_write_time)
 							{
@@ -519,7 +519,7 @@ void nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 	}
 	release_assert (!error);
 	// Tests should check this already at the end, but not all blocks may have elections (e.g from manual calls to confirmation_height_processor::add), this should catch any inconsistencies on live/beta though
-	if (!network_params.network.is_test_network ())
+	if (!network_params.network.is_dev_network ())
 	{
 		// Bail if there was an error. This indicates that there was a fatal issue with the ledger
 		// (the blocks probably got rolled back when they shouldn't have).

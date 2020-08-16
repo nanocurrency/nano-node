@@ -60,10 +60,13 @@ void nano::rpc_handler::process_request (nano::rpc_handler_request_params const 
 				}
 
 				auto action = request.get<std::string> ("action");
-				// Creating same string via stringstream as using it directly is generating a TSAN warning
-				std::stringstream ss;
-				ss << request_id;
-				logger.always_log (ss.str (), " ", filter_request (request));
+				if (rpc_config.rpc_logging.log_rpc)
+				{
+					// Creating same string via stringstream as using it directly is generating a TSAN warning
+					std::stringstream ss;
+					ss << request_id;
+					logger.always_log (ss.str (), " ", filter_request (request));
+				}
 
 				// Check if this is a RPC command which requires RPC enabled control
 				std::error_code rpc_control_disabled_ec = nano::error_rpc::rpc_control_disabled;

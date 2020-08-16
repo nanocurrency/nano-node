@@ -1,3 +1,4 @@
+#include <nano/lib/cli.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/cli.hpp>
 #include <nano/node/common.hpp>
@@ -47,7 +48,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("vacuum", "Compact database. If data_path is missing, the database in data directory is compacted.")
 	("snapshot", "Compact database and create snapshot, functions similar to vacuum but does not replace the existing database")
 	("data_path", boost::program_options::value<std::string> (), "Use the supplied path as the data directory")
-	("network", boost::program_options::value<std::string> (), "Use the supplied network (live, beta or test)")
+	("network", boost::program_options::value<std::string> (), "Use the supplied network (live, test, beta or dev)")
 	("clear_send_ids", "Remove all send IDs from the database (dangerous: not intended for production use)")
 	("online_weight_clear", "Clear online weight history records")
 	("peer_clear", "Clear online peers database dump")
@@ -98,7 +99,6 @@ void nano::add_node_flag_options (boost::program_options::options_description & 
 		("disable_block_processor_unchecked_deletion", "Disable deletion of unchecked blocks after processing")
 		("allow_bootstrap_peers_duplicates", "Allow multiple connections to same peer in bootstrap attempts")
 		("fast_bootstrap", "Increase bootstrap speed for high end nodes with higher limits")
-		("batch_size", boost::program_options::value<std::size_t>(), "(Deprecated) Increase sideband batch size, default 512. This change only affects nodes upgrading from v17 (or earlier) of the node.")
 		("block_processor_batch_size", boost::program_options::value<std::size_t>(), "Increase block processor transaction batch write size, default 0 (limited by config block_processor_batch_max_time), 256k for fast_bootstrap")
 		("block_processor_full_size", boost::program_options::value<std::size_t>(), "Increase block processor allowed blocks queue size before dropping live network packets and holding bootstrap download, default 65536, 1 million for fast_bootstrap")
 		("block_processor_verification_size", boost::program_options::value<std::size_t>(), "Increase batch signature verification size in block processor, default 0 (limited by config signature_checker_threads), unlimited for fast_bootstrap")
@@ -111,11 +111,6 @@ void nano::add_node_flag_options (boost::program_options::options_description & 
 std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_options::variables_map const & vm)
 {
 	std::error_code ec;
-	auto batch_size_it = vm.find ("batch_size");
-	if (batch_size_it != vm.end ())
-	{
-		flags_a.sideband_batch_size = batch_size_it->second.as<size_t> ();
-	}
 	flags_a.disable_backup = (vm.count ("disable_backup") > 0);
 	flags_a.disable_lazy_bootstrap = (vm.count ("disable_lazy_bootstrap") > 0);
 	flags_a.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
@@ -176,7 +171,7 @@ std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_o
 	auto config (vm.find ("config"));
 	if (config != vm.end ())
 	{
-		flags_a.config_overrides = config->second.as<std::vector<std::string>> ();
+		flags_a.config_overrides = nano::config_overrides (config->second.as<std::vector<nano::config_key_value_pair>> ());
 	}
 	return ec;
 }
@@ -620,6 +615,14 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		nano::uint256_union junk2 (0);
 		nano::kdf kdf;
 		kdf.phs (junk1, "", junk2);
+		std::cout << "Testing time retrieval latency... " << std::flush;
+		nano::timer<std::chrono::nanoseconds> timer (nano::timer_state::started);
+		auto const iters = 2'000'000;
+		for (auto i (0); i < iters; ++i)
+		{
+			(void)std::chrono::steady_clock::now ();
+		}
+		std::cout << timer.stop ().count () / iters << " " << timer.unit () << std::endl;
 		std::cout << "Dumping OpenCL information" << std::endl;
 		bool error (false);
 		nano::opencl_environment environment (error);
