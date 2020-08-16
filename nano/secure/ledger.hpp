@@ -4,7 +4,6 @@
 #include <nano/secure/common.hpp>
 
 #include <map>
-#include <multimap>
 
 namespace nano
 {
@@ -17,6 +16,7 @@ using tally_t = std::map<nano::uint128_t, std::shared_ptr<nano::block>, std::gre
 class uncemented_info
 {
 public:
+	uncemented_info (nano::block_hash const & cemented_frontier, nano::block_hash const & frontier, nano::account const & account);
 	nano::block_hash cemented_frontier;
 	nano::block_hash frontier;
 	nano::account account;

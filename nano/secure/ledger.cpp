@@ -1228,6 +1228,11 @@ std::multimap<uint64_t, nano::uncemented_info, std::greater<>> nano::ledger::unc
 	return unconfirmed_frontiers_l;
 }
 
+nano::uncemented_info::uncemented_info (nano::block_hash const & cemented_frontier, nano::block_hash const & frontier, nano::account const & account) :
+cemented_frontier (cemented_frontier), frontier (frontier), account (account)
+{
+}
+
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (ledger & ledger, const std::string & name)
 {
 	auto count = ledger.bootstrap_weights_size.load ();
