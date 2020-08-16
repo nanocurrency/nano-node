@@ -4,6 +4,7 @@
 #include <nano/secure/common.hpp>
 
 #include <map>
+#include <multimap>
 
 namespace nano
 {
@@ -12,6 +13,15 @@ class stat;
 class write_transaction;
 
 using tally_t = std::map<nano::uint128_t, std::shared_ptr<nano::block>, std::greater<nano::uint128_t>>;
+
+class uncemented_info
+{
+public:
+	nano::block_hash cemented_frontier;
+	nano::block_hash frontier;
+	nano::account account;
+};
+
 class ledger final
 {
 public:
@@ -47,7 +57,7 @@ public:
 	bool is_epoch_link (nano::link const &);
 	nano::account const & epoch_signer (nano::link const &) const;
 	nano::link const & epoch_link (nano::epoch) const;
-	std::vector<std::pair<nano::block_hash, nano::block_hash>> unconfirmed_frontiers () const;
+	std::multimap<uint64_t, uncemented_info, std::greater<>> unconfirmed_frontiers () const;
 	static nano::uint128_t const unit;
 	nano::network_params network_params;
 	nano::block_store & store;

@@ -1911,13 +1911,15 @@ int main (int argc, char * const * argv)
 			auto inactive_node = nano::default_inactive_node (data_path, vm);
 			auto node = inactive_node->node;
 
-			auto unconfirmed_confirmed_frontiers = node->ledger.unconfirmed_frontiers ();
-			for (auto & pair : unconfirmed_confirmed_frontiers)
+			auto unconfirmed_frontiers = node->ledger.unconfirmed_frontiers ();
+			for (auto & unconfirmed_frontier : unconfirmed_frontiers)
 			{
-				std::cout << (boost::format ("Frontier %1% Confirmed frontier %2%\n") % pair.first.to_string () % pair.second.to_string ()).str ();
+				auto & unconfirmed_info = unconfirmed_frontier.second;
+
+				std::cout << (boost::format ("%1%: %2% Frontier %3% Confirmed frontier %4%\n") % unconfirmed_frontier.first % unconfirmed_info.account.to_account () % unconfirmed_info.frontier.to_string () % unconfirmed_info.cemented_frontier.to_string ()).str ();
 			}
 
-			std::cout << "Number of unconfirmed frontiers: " << unconfirmed_confirmed_frontiers.size () << std::endl;
+			std::cout << "Number of unconfirmed frontiers: " << unconfirmed_frontiers.size () << std::endl;
 		}
 		else if (vm.count ("version"))
 		{

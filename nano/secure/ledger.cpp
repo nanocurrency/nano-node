@@ -1203,24 +1203,29 @@ bool nano::ledger::block_not_confirmed_or_not_exists (nano::block const & block_
 	return result;
 }
 
-std::vector<std::pair<nano::block_hash, nano::block_hash>> nano::ledger::unconfirmed_frontiers () const
+std::multimap<uint64_t, nano::uncemented_info, std::greater<>> nano::ledger::unconfirmed_frontiers () const
 {
-	std::vector<std::pair<nano::block_hash, nano::block_hash>> unconfirmed_confirmed_frontiers;
+	std::multimap<uint64_t, nano::uncemented_info, std::greater<>> unconfirmed_frontiers_l;
 	auto transaction (store.tx_begin_read ());
 	auto conf_height_i = store.confirmation_height_begin (transaction);
 
-	for (auto i (store.latest_begin (transaction)), n (store.latest_end ()); i != n; ++i, ++conf_height_i)
+	for (auto i (store.latest_begin (transaction)), n (store.latest_end ()); i != n; ++i)
 	{
 		// Make sure the accounts match
-		debug_assert (conf_height_i->first == i->first);
-		if (i->second.block_count != conf_height_i->second.height)
+		if (conf_height_i->first == i->first)
 		{
-			auto const & frontier = i->second.head;
-			auto const & cemented_frontier = conf_height_i->second.frontier;
-			unconfirmed_confirmed_frontiers.emplace_back (frontier, cemented_frontier);
+			if (i->second.block_count != conf_height_i->second.height)
+			{
+				auto height_delta = i->second.block_count - conf_height_i->second.height;
+				auto const & frontier = i->second.head;
+				auto const & cemented_frontier = conf_height_i->second.frontier;
+				unconfirmed_frontiers_l.emplace (std::piecewise_construct, std::forward_as_tuple (height_delta), std::forward_as_tuple (cemented_frontier, frontier, i->first));
+			}
+
+			++conf_height_i;
 		}
 	}
-	return unconfirmed_confirmed_frontiers;
+	return unconfirmed_frontiers_l;
 }
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (ledger & ledger, const std::string & name)
