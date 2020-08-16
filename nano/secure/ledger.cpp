@@ -1243,17 +1243,29 @@ std::multimap<uint64_t, nano::uncemented_info, std::greater<>> nano::ledger::unc
 
 	for (auto i (store.latest_begin (transaction)), n (store.latest_end ()); i != n; ++i)
 	{
-		// Make sure the accounts match
-		if (conf_height_i->first == i->first)
+		// If the confirmation height of an account doesn't exist the iterator will point 1 past it.
+		auto conf_height_info = conf_height_i->second;
+		auto const & account (i->first);
+		auto conf_height_exists = (conf_height_i->first == account);
+		if (!conf_height_exists)
 		{
-			if (i->second.block_count != conf_height_i->second.height)
-			{
-				auto height_delta = i->second.block_count - conf_height_i->second.height;
-				auto const & frontier = i->second.head;
-				auto const & cemented_frontier = conf_height_i->second.frontier;
-				unconfirmed_frontiers_l.emplace (std::piecewise_construct, std::forward_as_tuple (height_delta), std::forward_as_tuple (cemented_frontier, frontier, i->first));
-			}
+			conf_height_info.height = 0;
+			conf_height_info.frontier = 0;
+		}
 
+		auto const & account_info (i->second);
+		if (account_info.block_count != conf_height_info.height)
+		{
+			// Always output as no confirmation height has been set on the account yet
+			auto height_delta = account_info.block_count - conf_height_info.height;
+			auto const & frontier = account_info.head;
+			auto const & cemented_frontier = conf_height_info.frontier;
+			unconfirmed_frontiers_l.emplace (std::piecewise_construct, std::forward_as_tuple (height_delta), std::forward_as_tuple (cemented_frontier, frontier, i->first));
+		}
+
+		if (conf_height_exists)
+		{
+			// Increment the iterator so that it stays in sync with accounts in the account table.
 			++conf_height_i;
 		}
 	}
