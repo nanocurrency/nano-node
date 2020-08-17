@@ -286,17 +286,13 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 	return result;
 }
 
-bool nano::election::have_quorum (nano::tally_t const & tally_a, nano::uint128_t tally_sum) const
+bool nano::election::have_quorum (nano::tally_t const & tally_a) const
 {
-	bool result = false;
-	if (tally_sum >= node.config.online_weight_minimum.number ())
-	{
-		auto i (tally_a.begin ());
-		++i;
-		auto second (i != tally_a.end () ? i->first : 0);
-		auto delta_l (node.delta ());
-		result = tally_a.begin ()->first > (second + delta_l);
-	}
+	auto i (tally_a.begin ());
+	++i;
+	auto second (i != tally_a.end () ? i->first : 0);
+	auto delta_l (node.delta ());
+	bool result { tally_a.begin ()->first >= (second + delta_l) };
 	return result;
 }
 
@@ -334,7 +330,7 @@ void nano::election::confirm_if_quorum ()
 	{
 		sum += i.first;
 	}
-	if (sum >= node.config.online_weight_minimum.number () && winner_hash_l != status_winner_hash_l)
+	if (sum >= node.delta () && winner_hash_l != status_winner_hash_l)
 	{
 		status.winner = block_l;
 		remove_votes (status_winner_hash_l);
@@ -342,7 +338,7 @@ void nano::election::confirm_if_quorum ()
 		update_dependent ();
 		node.active.add_adjust_difficulty (winner_hash_l);
 	}
-	if (have_quorum (tally_l, sum))
+	if (have_quorum (tally_l))
 	{
 		if (node.config.logging.vote_logging () || blocks.size () > 1)
 		{

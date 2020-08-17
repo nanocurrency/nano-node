@@ -75,7 +75,7 @@ public:
 	nano::election_vote_result vote (nano::account, uint64_t, nano::block_hash);
 	nano::tally_t tally ();
 	// Check if we have vote quorum
-	bool have_quorum (nano::tally_t const &, nano::uint128_t) const;
+	bool have_quorum (nano::tally_t const &) const;
 	void confirm_once (nano::election_status_type = nano::election_status_type::active_confirmed_quorum);
 	// Confirm this block if quorum is met
 	void confirm_if_quorum ();

@@ -836,7 +836,7 @@ TEST (votes, add_existing)
 {
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
-	node_config.online_weight_minimum = std::numeric_limits<nano::uint128_t>::max ();
+	node_config.online_weight_minimum = nano::genesis_amount;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node1 = *system.add_node (node_config);
 	nano::keypair key1;
@@ -845,7 +845,7 @@ TEST (votes, add_existing)
 		.account (nano::dev_genesis_key.pub)
 		.previous (nano::genesis_hash)
 		.representative (nano::dev_genesis_key.pub) // No representative, blocks can't confirm
-		.balance (nano::genesis_amount - nano::Gxrb_ratio)
+		.balance (nano::genesis_amount / 2 - nano::Gxrb_ratio)
 		.link (key1.pub)
 		.work (0)
 		.sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
@@ -864,7 +864,7 @@ TEST (votes, add_existing)
 		.account (nano::dev_genesis_key.pub)
 		.previous (nano::genesis_hash)
 		.representative (nano::dev_genesis_key.pub) // No representative, blocks can't confirm
-		.balance (nano::genesis_amount - nano::Gxrb_ratio)
+		.balance (nano::genesis_amount / 2 - nano::Gxrb_ratio)
 		.link (key2.pub)
 		.work (0)
 		.sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
