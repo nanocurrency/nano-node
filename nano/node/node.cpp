@@ -1142,7 +1142,7 @@ void nano::node::ongoing_online_weight_calculation_queue ()
 
 bool nano::node::online () const
 {
-	return rep_crawler.total_weight () > (std::max (config.online_weight_minimum.number (), delta ()));
+	return rep_crawler.total_weight () > delta ();
 }
 
 void nano::node::ongoing_online_weight_calculation ()

@@ -463,7 +463,7 @@ TEST (bootstrap_processor, frontiers_unconfirmed_threshold)
 	nano::keypair key1, key2;
 	// Generating invalid chain
 	auto threshold (node1->gap_cache.bootstrap_threshold () + 1);
-	ASSERT_LT (threshold, node1->config.online_weight_minimum.number ());
+	ASSERT_LT (threshold, node1->delta ());
 	auto send1 (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, genesis.hash (), nano::dev_genesis_key.pub, nano::genesis_amount - threshold, key1.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (genesis.hash ())));
 	ASSERT_EQ (nano::process_result::progress, node1->process (*send1).code);
 	auto send2 (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, send1->hash (), nano::dev_genesis_key.pub, nano::genesis_amount - threshold - nano::Gxrb_ratio, key2.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send1->hash ())));

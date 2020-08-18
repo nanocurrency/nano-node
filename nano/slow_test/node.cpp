@@ -474,7 +474,7 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 			nano::keypair key;
 			system.wallet (0)->insert_adhoc (key.prv);
 
-			nano::send_block send (last_open_hash, key.pub, node->config.online_weight_minimum.number (), last_keypair.prv, last_keypair.pub, *system.work.generate (last_open_hash));
+			nano::send_block send (last_open_hash, key.pub, node->delta (), last_keypair.prv, last_keypair.pub, *system.work.generate (last_open_hash));
 			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send).code);
 			nano::open_block open (send.hash (), last_keypair.pub, key.pub, key.prv, key.pub, *system.work.generate (key.pub));
 			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, open).code);
@@ -544,7 +544,7 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 			nano::keypair key;
 			system.wallet (0)->insert_adhoc (key.prv);
 
-			nano::send_block send (ladev_genesis, key.pub, node->config.online_weight_minimum.number (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (ladev_genesis));
+			nano::send_block send (ladev_genesis, key.pub, node->delta (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (ladev_genesis));
 			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send).code);
 			auto open = std::make_shared<nano::open_block> (send.hash (), nano::dev_genesis_key.pub, key.pub, key.prv, key.pub, *system.work.generate (key.pub));
 			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *open).code);

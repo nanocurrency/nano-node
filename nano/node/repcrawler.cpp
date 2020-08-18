@@ -91,7 +91,7 @@ void nano::rep_crawler::ongoing_crawl ()
 	update_weights ();
 	validate ();
 	query (get_crawl_targets (total_weight_l));
-	auto sufficient_weight (total_weight_l > node.config.online_weight_minimum.number ());
+	auto sufficient_weight (total_weight_l > node.delta ());
 	// If online weight drops below minimum, reach out to preconfigured peers
 	if (!sufficient_weight)
 	{
@@ -114,7 +114,7 @@ std::vector<std::shared_ptr<nano::transport::channel>> nano::rep_crawler::get_cr
 	constexpr size_t aggressive_count = 40;
 
 	// Crawl more aggressively if we lack sufficient total peer weight.
-	bool sufficient_weight (total_weight_a > node.config.online_weight_minimum.number ());
+	bool sufficient_weight (total_weight_a > node.delta ());
 	uint16_t required_peer_count = sufficient_weight ? conservative_count : aggressive_count;
 
 	// Add random peers. We do this even if we have enough weight, in order to pick up reps

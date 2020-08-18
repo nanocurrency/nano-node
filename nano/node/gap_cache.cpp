@@ -77,7 +77,7 @@ bool nano::gap_cache::bootstrap_check (std::vector<nano::account> const & voters
 	bool start_bootstrap (false);
 	if (!node.flags.disable_lazy_bootstrap)
 	{
-		if (tally >= node.config.online_weight_minimum.number ())
+		if (tally >= node.delta ())
 		{
 			start_bootstrap = true;
 		}

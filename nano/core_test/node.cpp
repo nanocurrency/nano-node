@@ -223,14 +223,14 @@ TEST (node, quick_confirm)
 	auto send = nano::send_block_builder ()
 	            .previous (previous)
 	            .destination (key.pub)
-	            .balance (node1.config.online_weight_minimum.number () + 1)
+	            .balance (node1.delta () + 1)
 	            .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
 	            .work (*system.work.generate (previous))
 	            .build_shared ();
 	node1.process_active (send);
 	ASSERT_TIMELY (10s, !node1.balance (key.pub).is_zero ());
-	ASSERT_EQ (node1.balance (nano::dev_genesis_key.pub), node1.config.online_weight_minimum.number () + 1);
-	ASSERT_EQ (node1.balance (key.pub), genesis_start_balance - (node1.config.online_weight_minimum.number () + 1));
+	ASSERT_EQ (node1.balance (nano::dev_genesis_key.pub), node1.delta () + 1);
+	ASSERT_EQ (node1.balance (key.pub), genesis_start_balance - (node1.delta () + 1));
 }
 
 TEST (node, node_receive_quorum)
@@ -2604,8 +2604,8 @@ TEST (node, confirm_quorum)
 	auto & node1 (*system.nodes[0]);
 	nano::genesis genesis;
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
-	// Put greater than online_weight_minimum in pending so quorum can't be reached
-	nano::amount new_balance (node1.config.online_weight_minimum.number () - nano::Gxrb_ratio);
+	// Put greater than node.delta () in pending so quorum can't be reached
+	nano::amount new_balance (node1.delta () - nano::Gxrb_ratio);
 	auto send1 = nano::state_block_builder ()
 	             .account (nano::dev_genesis_key.pub)
 	             .previous (genesis.hash ())
@@ -3920,7 +3920,7 @@ TEST (node, rollback_vote_self)
 	auto & node = *system.add_node (flags);
 	nano::state_block_builder builder;
 	nano::keypair key;
-	auto weight = node.config.online_weight_minimum.number ();
+	auto weight = node.delta ();
 	auto send1 = builder.make_block ()
 	             .account (nano::dev_genesis_key.pub)
 	             .previous (nano::genesis_hash)
