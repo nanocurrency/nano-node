@@ -24,7 +24,7 @@ std::string nano::error_system_messages::message (int ev) const
 
 std::shared_ptr<nano::node> nano::system::add_node (nano::node_flags node_flags_a, nano::transport::transport_type type_a)
 {
-	return add_node (nano::node_config (nano::get_available_port (), logging), node_flags_a, type_a);
+	return add_node (nano::node_config (nano::get_available_port ()), node_flags_a, type_a);
 }
 
 /** Returns the node added. */
@@ -108,7 +108,6 @@ nano::system::system ()
 	{
 		deadline_scaling_factor = std::stod (scale_str);
 	}
-	logging.init (nano::unique_path ());
 }
 
 nano::system::system (uint16_t count_a, nano::transport::transport_type type_a, nano::node_flags flags_a) :
@@ -117,7 +116,7 @@ system ()
 	nodes.reserve (count_a);
 	for (uint16_t i (0); i < count_a; ++i)
 	{
-		nano::node_config config (nano::get_available_port (), logging);
+		nano::node_config config (nano::get_available_port ());
 		add_node (config, flags_a, type_a);
 	}
 }

@@ -26,7 +26,7 @@ TEST (active_transactions, confirm_active)
 	            .work (*system.work.generate (genesis.hash ()))
 	            .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send).code);
-	nano::node_config node_config2 (nano::get_available_port (), system.logging);
+	nano::node_config node_config2 (nano::get_available_port ());
 	node_config2.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	nano::node_flags node_flags2;
 	// The rep crawler would otherwise request confirmations in order to find representatives
@@ -102,7 +102,7 @@ TEST (active_transactions, confirm_frontier)
 TEST (active_transactions, adjusted_multiplier_priority)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port () };
 	node_config.enable_voting = false;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node1 = *system.add_node (node_config);
@@ -262,7 +262,7 @@ TEST (active_transactions, adjusted_multiplier_priority)
 TEST (active_transactions, keep_local)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port () };
 	node_config.enable_voting = false;
 	node_config.active_elections_size = 2; //bound to 2, wont drop wallet created transactions, but good to test dropping remote
 	// Disable frontier confirmation to allow the test to finish before
@@ -331,7 +331,7 @@ TEST (active_transactions, keep_local)
 TEST (active_transactions, prioritize_chains)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port () };
 	node_config.enable_voting = false;
 	node_config.active_elections_size = 4; //bound to 4, wont drop wallet created transactions, but good to test dropping remote
 	// Disable frontier confirmation to allow the test to finish before
@@ -517,7 +517,7 @@ TEST (active_transactions, inactive_votes_cache_fork)
 TEST (active_transactions, inactive_votes_cache_existing_vote)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port () };
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node = *system.add_node (node_config);
 	nano::block_hash latest (node.latest (nano::dev_genesis_key.pub));
@@ -584,7 +584,7 @@ TEST (active_transactions, inactive_votes_cache_existing_vote)
 TEST (active_transactions, inactive_votes_cache_multiple_votes)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port () };
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node = *system.add_node (node_config);
 	nano::block_hash latest (node.latest (nano::dev_genesis_key.pub));
@@ -729,7 +729,7 @@ namespace nano
 TEST (active_transactions, vote_replays)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port () };
 	node_config.enable_voting = false;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node = *system.add_node (node_config);
@@ -820,7 +820,7 @@ TEST (active_transactions, activate_dependencies)
 {
 	// Ensure that we attempt to backtrack if an election isn't getting confirmed and there are more uncemented blocks to start elections for
 	nano::system system;
-	nano::node_config config (nano::get_available_port (), system.logging);
+	nano::node_config config{ nano::get_available_port () };
 	config.enable_voting = true;
 	nano::node_flags flags;
 	flags.disable_bootstrap_listener = true;
@@ -903,7 +903,7 @@ TEST (active_transactions, activate_dependencies_invalid)
 TEST (active_transactions, dropped_cleanup)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port () };
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node (*system.add_node (node_config));
 
@@ -951,7 +951,7 @@ namespace nano
 TEST (active_transactions, confirmation_consistency)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port () };
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node = *system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
@@ -978,7 +978,7 @@ TEST (active_transactions, confirmation_consistency)
 TEST (active_transactions, insertion_prioritization)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port () };
 	// 10% of elections (1) are prioritized
 	node_config.active_elections_size = 10;
 	nano::node_flags node_flags;
@@ -1364,7 +1364,7 @@ TEST (active_transactions, confirm_new)
 TEST (active_transactions, restart_dropped)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port () };
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node = *system.add_node (node_config);
 	nano::genesis genesis;
@@ -1467,7 +1467,7 @@ TEST (active_transactions, activate_account_chain)
 {
 	nano::system system;
 	nano::node_flags flags;
-	nano::node_config config (nano::get_available_port (), system.logging);
+	nano::node_config config{ nano::get_available_port () };
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node = *system.add_node (config, flags);
 

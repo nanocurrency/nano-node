@@ -104,7 +104,7 @@ std::shared_ptr<nano::node> add_ipc_enabled_node (nano::system & system, nano::n
 
 std::shared_ptr<nano::node> add_ipc_enabled_node (nano::system & system)
 {
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port () };
 	return add_ipc_enabled_node (system, node_config);
 }
 
@@ -490,7 +490,7 @@ TEST (rpc, send_work)
 TEST (rpc, send_work_disabled)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port () };
 	node_config.work_threads = 0;
 	auto & node = *add_ipc_enabled_node (system, node_config);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
@@ -1634,7 +1634,7 @@ TEST (rpc, process_json_block)
 TEST (rpc, process_block_with_work_watcher)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port () };
 	node_config.enable_voting = false;
 	node_config.work_watcher_period = 1s;
 	node_config.max_work_generate_multiplier = 1e6;
@@ -2004,7 +2004,7 @@ TEST (rpc, keepalive)
 {
 	nano::system system;
 	auto node0 = add_ipc_enabled_node (system);
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{ nano::get_available_port (), system.logging }, system.work));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{ nano::get_available_port () }, system.work));
 	node1->start ();
 	system.nodes.push_back (node1);
 	scoped_io_thread_name_change scoped_thread_name_io;
@@ -2295,7 +2295,7 @@ TEST (rpc, peers)
 	nano::system system;
 	auto node = add_ipc_enabled_node (system);
 	auto port = nano::get_available_port ();
-	system.add_node (nano::node_config (port, system.logging));
+	system.add_node (nano::node_config{ port });
 	scoped_io_thread_name_change scoped_thread_name_io;
 	nano::endpoint endpoint (boost::asio::ip::make_address_v6 ("fc00::1"), 4000);
 	node->network.udp_channels.insert (endpoint, node->network_params.protocol.protocol_version);
@@ -2325,7 +2325,7 @@ TEST (rpc, peers_node_id)
 	nano::system system;
 	auto node = add_ipc_enabled_node (system);
 	auto port = nano::get_available_port ();
-	system.add_node (nano::node_config (port, system.logging));
+	system.add_node (nano::node_config{ port });
 	scoped_io_thread_name_change scoped_thread_name_io;
 	nano::endpoint endpoint (boost::asio::ip::make_address_v6 ("fc00::1"), 4000);
 	node->network.udp_channels.insert (endpoint, node->network_params.protocol.protocol_version);
@@ -2620,7 +2620,7 @@ TEST (rpc, work_generate)
 TEST (rpc, work_generate_difficulty)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port () };
 	node_config.max_work_generate_multiplier = 1000;
 	auto node = add_ipc_enabled_node (system, node_config);
 	scoped_io_thread_name_change scoped_thread_name_io;
@@ -2680,7 +2680,7 @@ TEST (rpc, work_generate_difficulty)
 TEST (rpc, work_generate_multiplier)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port () };
 	node_config.max_work_generate_multiplier = 100;
 	auto node = add_ipc_enabled_node (system, node_config);
 	scoped_io_thread_name_change scoped_thread_name_io;
@@ -3430,7 +3430,7 @@ TEST (rpc, account_representative_set)
 TEST (rpc, account_representative_set_work_disabled)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port () };
 	node_config.work_threads = 0;
 	auto & node = *add_ipc_enabled_node (system, node_config);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
@@ -5946,7 +5946,7 @@ TEST (rpc, online_reps)
 TEST (rpc, confirmation_height_currently_processing)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port () };
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto node = add_ipc_enabled_node (system, node_config);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
@@ -6489,7 +6489,7 @@ TEST (rpc, uptime)
 TEST (rpc, wallet_history)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port () };
 	node_config.enable_voting = false;
 	auto node = add_ipc_enabled_node (system, node_config);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
@@ -6760,7 +6760,7 @@ TEST (rpc, database_txn_tracker)
 
 	// Now try enabling it but with invalid amounts
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port () };
 	node_config.diagnostics_config.txn_tracking.enable = true;
 	auto node = add_ipc_enabled_node (system, node_config);
 	scoped_io_thread_name_change scoped_thread_name_io;
@@ -7164,7 +7164,7 @@ TEST (rpc, epoch_upgrade)
 TEST (rpc, epoch_upgrade_multithreaded)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port () };
 	node_config.work_threads = 4;
 	auto node = add_ipc_enabled_node (system, node_config);
 	nano::keypair key1, key2, key3;
@@ -7276,7 +7276,7 @@ TEST (rpc, account_lazy_start)
 	ASSERT_EQ (nano::process_result::progress, node1->process (*open).code);
 
 	// Start lazy bootstrap with account
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port () };
 	node_config.ipc_config.transport_tcp.enabled = true;
 	node_config.ipc_config.transport_tcp.port = nano::get_available_port ();
 	auto node2 = system.add_node (node_config, node_flags);
@@ -7428,7 +7428,7 @@ TEST (rpc, receive_unopened)
 TEST (rpc, receive_work_disabled)
 {
 	nano::system system;
-	nano::node_config config (nano::get_available_port (), system.logging);
+	nano::node_config config{ nano::get_available_port () };
 	auto & worker_node = *system.add_node (config);
 	config.peering_port = nano::get_available_port ();
 	config.work_threads = 0;

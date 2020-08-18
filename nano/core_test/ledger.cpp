@@ -750,7 +750,7 @@ TEST (ledger, double_receive)
 TEST (votes, check_signature)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port () };
 	node_config.online_weight_minimum = std::numeric_limits<nano::uint128_t>::max ();
 	auto & node1 = *system.add_node (node_config);
 	nano::genesis genesis;
@@ -835,7 +835,7 @@ TEST (votes, add_two)
 TEST (votes, add_existing)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port () };
 	node_config.online_weight_minimum = std::numeric_limits<nano::uint128_t>::max ();
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node1 = *system.add_node (node_config);
@@ -2827,7 +2827,7 @@ TEST (ledger, unchecked_epoch)
 TEST (ledger, unchecked_epoch_invalid)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port () };
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node1 (*system.add_node (node_config));
 	nano::genesis genesis;

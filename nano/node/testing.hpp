@@ -49,7 +49,6 @@ public:
 	boost::asio::io_context io_ctx;
 	nano::alarm alarm{ io_ctx };
 	std::vector<std::shared_ptr<nano::node>> nodes;
-	nano::logging logging;
 	nano::work_pool work{ std::max (std::thread::hardware_concurrency (), 1u) };
 	std::chrono::time_point<std::chrono::steady_clock, std::chrono::duration<double>> deadline{ std::chrono::steady_clock::time_point::max () };
 	double deadline_scaling_factor{ 1.0 };

@@ -84,7 +84,7 @@ TEST (confirmation_height, multiple_accounts)
 		nano::system system;
 		nano::node_flags node_flags;
 		node_flags.confirmation_height_processor_mode = mode_a;
-		nano::node_config node_config (nano::get_available_port (), system.logging);
+		nano::node_config node_config{ nano::get_available_port () };
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config, node_flags);
 		nano::keypair key1;
@@ -303,7 +303,7 @@ TEST (confirmation_height, gap_live)
 		nano::system system;
 		nano::node_flags node_flags;
 		node_flags.confirmation_height_processor_mode = mode_a;
-		nano::node_config node_config (nano::get_available_port (), system.logging);
+		nano::node_config node_config{ nano::get_available_port () };
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config, node_flags);
 		node_config.peering_port = nano::get_available_port ();
@@ -393,7 +393,7 @@ TEST (confirmation_height, send_receive_between_2_accounts)
 		nano::system system;
 		nano::node_flags node_flags;
 		node_flags.confirmation_height_processor_mode = mode_a;
-		nano::node_config node_config (nano::get_available_port (), system.logging);
+		nano::node_config node_config{ nano::get_available_port () };
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config, node_flags);
 		nano::keypair key1;
@@ -481,7 +481,7 @@ TEST (confirmation_height, send_receive_self)
 		nano::system system;
 		nano::node_flags node_flags;
 		node_flags.confirmation_height_processor_mode = mode_a;
-		nano::node_config node_config (nano::get_available_port (), system.logging);
+		nano::node_config node_config{ nano::get_available_port () };
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config, node_flags);
 		nano::block_hash latest (node->latest (nano::dev_genesis_key.pub));
@@ -547,7 +547,7 @@ TEST (confirmation_height, all_block_types)
 		nano::system system;
 		nano::node_flags node_flags;
 		node_flags.confirmation_height_processor_mode = mode_a;
-		nano::node_config node_config (nano::get_available_port (), system.logging);
+		nano::node_config node_config{ nano::get_available_port () };
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config, node_flags);
 		nano::block_hash latest (node->latest (nano::dev_genesis_key.pub));
@@ -942,7 +942,7 @@ TEST (confirmation_height, pending_observer_callbacks)
 		nano::system system;
 		nano::node_flags node_flags;
 		node_flags.confirmation_height_processor_mode = mode_a;
-		nano::node_config node_config (nano::get_available_port (), system.logging);
+		nano::node_config node_config{ nano::get_available_port () };
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config, node_flags);
 
@@ -981,7 +981,7 @@ TEST (confirmation_height, prioritize_frontiers)
 	auto test_mode = [](nano::confirmation_height_mode mode_a) {
 		nano::system system;
 		// Prevent frontiers being confirmed as it will affect the priorization checking
-		nano::node_config node_config (nano::get_available_port (), system.logging);
+		nano::node_config node_config{ nano::get_available_port () };
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config);
 
@@ -1126,7 +1126,7 @@ TEST (confirmation_height, frontiers_confirmation_mode)
 		// Always mode
 		{
 			nano::system system;
-			nano::node_config node_config (nano::get_available_port (), system.logging);
+			nano::node_config node_config{ nano::get_available_port () };
 			node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::always;
 			auto node = system.add_node (node_config, node_flags);
 			nano::state_block send (nano::dev_genesis_key.pub, genesis.hash (), nano::dev_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node->work_generate_blocking (genesis.hash ()));
@@ -1139,7 +1139,7 @@ TEST (confirmation_height, frontiers_confirmation_mode)
 		// Auto mode
 		{
 			nano::system system;
-			nano::node_config node_config (nano::get_available_port (), system.logging);
+			nano::node_config node_config{ nano::get_available_port () };
 			node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::automatic;
 			auto node = system.add_node (node_config, node_flags);
 			nano::state_block send (nano::dev_genesis_key.pub, genesis.hash (), nano::dev_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node->work_generate_blocking (genesis.hash ()));
@@ -1152,7 +1152,7 @@ TEST (confirmation_height, frontiers_confirmation_mode)
 		// Disabled mode
 		{
 			nano::system system;
-			nano::node_config node_config (nano::get_available_port (), system.logging);
+			nano::node_config node_config{ nano::get_available_port () };
 			node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 			auto node = system.add_node (node_config, node_flags);
 			nano::state_block send (nano::dev_genesis_key.pub, genesis.hash (), nano::dev_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node->work_generate_blocking (genesis.hash ()));
@@ -1177,7 +1177,7 @@ TEST (confirmation_height, callback_confirmed_history)
 		nano::system system;
 		nano::node_flags node_flags;
 		node_flags.confirmation_height_processor_mode = mode_a;
-		nano::node_config node_config (nano::get_available_port (), system.logging);
+		nano::node_config node_config{ nano::get_available_port () };
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config, node_flags);
 
@@ -1260,7 +1260,7 @@ TEST (confirmation_height, dependent_election)
 		nano::system system;
 		nano::node_flags node_flags;
 		node_flags.confirmation_height_processor_mode = mode_a;
-		nano::node_config node_config (nano::get_available_port (), system.logging);
+		nano::node_config node_config{ nano::get_available_port () };
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config, node_flags);
 
@@ -1313,7 +1313,7 @@ TEST (confirmation_height, cemented_gap_below_receive)
 		nano::system system;
 		nano::node_flags node_flags;
 		node_flags.confirmation_height_processor_mode = mode_a;
-		nano::node_config node_config (nano::get_available_port (), system.logging);
+		nano::node_config node_config{ nano::get_available_port () };
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config, node_flags);
 
@@ -1401,7 +1401,7 @@ TEST (confirmation_height, cemented_gap_below_no_cache)
 		nano::system system;
 		nano::node_flags node_flags;
 		node_flags.confirmation_height_processor_mode = mode_a;
-		nano::node_config node_config (nano::get_available_port (), system.logging);
+		nano::node_config node_config{ nano::get_available_port () };
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config, node_flags);
 
@@ -1487,7 +1487,7 @@ TEST (confirmation_height, election_winner_details_clearing)
 		nano::system system;
 		nano::node_flags node_flags;
 		node_flags.confirmation_height_processor_mode = mode_a;
-		nano::node_config node_config (nano::get_available_port (), system.logging);
+		nano::node_config node_config{ nano::get_available_port () };
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config, node_flags);
 

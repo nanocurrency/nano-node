@@ -17,7 +17,7 @@ using namespace std::chrono_literals;
 TEST (system, generate_mass_activity)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port () };
 	node_config.enable_voting = false; // Prevent blocks cementing
 	auto node = system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
@@ -32,7 +32,7 @@ TEST (system, generate_mass_activity)
 TEST (system, generate_mass_activity_long)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port () };
 	node_config.enable_voting = false; // Prevent blocks cementing
 	auto node = system.add_node (node_config);
 	system.wallet (0)->wallets.watcher->stop (); // Stop work watcher
@@ -53,7 +53,7 @@ TEST (system, receive_while_synchronizing)
 	std::vector<boost::thread> threads;
 	{
 		nano::system system;
-		nano::node_config node_config (nano::get_available_port (), system.logging);
+		nano::node_config node_config{ nano::get_available_port () };
 		node_config.enable_voting = false; // Prevent blocks cementing
 		auto node = system.add_node (node_config);
 		nano::thread_runner runner (system.io_ctx, system.nodes[0]->config.io_threads);
@@ -61,7 +61,7 @@ TEST (system, receive_while_synchronizing)
 		uint32_t count (1000);
 		system.generate_mass_activity (count, *system.nodes[0]);
 		nano::keypair key;
-		auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{ nano::get_available_port (), system.logging }, system.work));
+		auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{ nano::get_available_port () }, system.work));
 		ASSERT_FALSE (node1->init_error ());
 		auto channel (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, system.nodes[0]->network.endpoint (), node1->network_params.protocol.protocol_version));
 		node1->network.send_keepalive (channel);
@@ -456,7 +456,7 @@ namespace nano
 TEST (confirmation_height, many_accounts_single_confirmation)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port () };
 	node_config.online_weight_minimum = 100;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto node = system.add_node (node_config);
@@ -527,7 +527,7 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 TEST (confirmation_height, many_accounts_many_confirmations)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port () };
 	node_config.online_weight_minimum = 100;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto node = system.add_node (node_config);
@@ -590,7 +590,7 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 TEST (confirmation_height, long_chains)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port () };
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto node = system.add_node (node_config);
 	nano::keypair key1;
@@ -684,7 +684,7 @@ TEST (confirmation_height, long_chains)
 TEST (confirmation_height, dynamic_algorithm)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port () };
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto node = system.add_node (node_config);
 	nano::genesis genesis;
@@ -737,7 +737,7 @@ TEST (confirmation_height, dynamic_algorithm_no_transition_while_pending)
 	for (auto _ = 0; _ < 3; ++_)
 	{
 		nano::system system;
-		nano::node_config node_config (nano::get_available_port (), system.logging);
+		nano::node_config node_config{ nano::get_available_port () };
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config);
 		nano::keypair key;
@@ -803,7 +803,7 @@ TEST (confirmation_height, dynamic_algorithm_no_transition_while_pending)
 TEST (confirmation_height, many_accounts_send_receive_self)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port () };
 	node_config.online_weight_minimum = 100;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	node_config.active_elections_size = 400000;
@@ -1024,7 +1024,7 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 TEST (confirmation_height, prioritize_frontiers_overwrite)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port () };
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto node = system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
@@ -1248,7 +1248,7 @@ namespace transport
 TEST (telemetry, under_load)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port () };
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	nano::node_flags node_flags;
 	node_flags.disable_initial_telemetry_requests = true;
@@ -1370,7 +1370,7 @@ TEST (telemetry, many_nodes)
 	const auto num_nodes = (is_sanitizer_build || nano::running_within_valgrind ()) ? 4 : 10;
 	for (auto i = 0; i < num_nodes; ++i)
 	{
-		nano::node_config node_config (nano::get_available_port (), system.logging);
+		nano::node_config node_config{ nano::get_available_port () };
 		// Make a metric completely different for each node so we can check afterwards that there are no duplicates
 		node_config.bandwidth_limit = 100000 + i;
 
@@ -1539,7 +1539,7 @@ TEST (node, mass_epoch_upgrader)
 		std::vector<info> unopened (total_accounts / 2);
 
 		nano::system system;
-		nano::node_config node_config (nano::get_available_port (), system.logging);
+		nano::node_config node_config{ nano::get_available_port () };
 		node_config.work_threads = 4;
 		//node_config.work_peers = { { "192.168.1.101", 7000 } };
 		auto & node = *system.add_node (node_config);
@@ -1639,7 +1639,7 @@ TEST (node, mass_epoch_upgrader)
 TEST (node, mass_block_new)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port () };
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node = *system.add_node (node_config);
 	node.network_params.network.request_interval_ms = 500;
