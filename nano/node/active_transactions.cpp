@@ -1292,6 +1292,7 @@ void nano::active_transactions::erase_inactive_votes_cache (nano::block_hash con
 nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_check (std::vector<nano::account> const & voters_a, nano::block_hash const & hash_a)
 {
 	nano::inactive_cache_status status;
+	constexpr unsigned election_start_voters_min{ 5 };
 	uint128_t tally;
 	for (auto const & voter : voters_a)
 	{
@@ -1306,27 +1307,41 @@ nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_
 	{
 		status.bootstrap_started = true;
 	}
-	if (status.bootstrap_started && !node.ledger.block_exists (hash_a))
+	if (voters_a.size () >= election_start_voters_min && tally >= (node.online_reps.online_stake () / 100) * node.config.election_hint_weight_percent)
 	{
-		auto node_l (node.shared ());
-		node.alarm.add (std::chrono::steady_clock::now () + node.network_params.bootstrap.gap_cache_bootstrap_start_interval, [node_l, hash_a]() {
-			auto transaction (node_l->store.tx_begin_read ());
-			if (!node_l->store.block_exists (transaction, hash_a))
-			{
-				if (!node_l->bootstrap_initiator.in_progress ())
+		status.election_started = true;
+	}
+
+	if (status.election_started || status.bootstrap_started)
+	{
+		auto transaction (node.store.tx_begin_read ());
+		auto block = node.store.block_get (transaction, hash_a);
+		if (block && status.election_started && !node.block_confirmed_or_being_confirmed (transaction, hash_a))
+		{
+			insert_impl (block);
+		}
+		else if (!block && status.bootstrap_started)
+		{
+			auto node_l (node.shared ());
+			node.alarm.add (std::chrono::steady_clock::now () + node.network_params.bootstrap.gap_cache_bootstrap_start_interval, [node_l, hash_a]() {
+				auto transaction (node_l->store.tx_begin_read ());
+				if (!node_l->store.block_exists (transaction, hash_a))
 				{
-					node_l->logger.try_log (boost::str (boost::format ("Missing block %1% which has enough votes to warrant lazy bootstrapping it") % hash_a.to_string ()));
+					if (!node_l->bootstrap_initiator.in_progress ())
+					{
+						node_l->logger.try_log (boost::str (boost::format ("Missing block %1% which has enough votes to warrant lazy bootstrapping it") % hash_a.to_string ()));
+					}
+					if (!node_l->flags.disable_lazy_bootstrap)
+					{
+						node_l->bootstrap_initiator.bootstrap_lazy (hash_a);
+					}
+					else if (!node_l->flags.disable_legacy_bootstrap)
+					{
+						node_l->bootstrap_initiator.bootstrap ();
+					}
 				}
-				if (!node_l->flags.disable_lazy_bootstrap)
-				{
-					node_l->bootstrap_initiator.bootstrap_lazy (hash_a);
-				}
-				else if (!node_l->flags.disable_legacy_bootstrap)
-				{
-					node_l->bootstrap_initiator.bootstrap ();
-				}
-			}
-		});
+			});
+		}
 	}
 	return status;
 }
