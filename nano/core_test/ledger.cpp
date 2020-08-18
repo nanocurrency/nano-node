@@ -842,14 +842,14 @@ TEST (votes, add_existing)
 	nano::keypair key1;
 	nano::block_builder builder;
 	std::shared_ptr<nano::block> send1 = builder.state ()
-		.account (nano::dev_genesis_key.pub)
-		.previous (nano::genesis_hash)
-		.representative (nano::dev_genesis_key.pub) // No representative, blocks can't confirm
-		.balance (nano::genesis_amount / 2 - nano::Gxrb_ratio)
-		.link (key1.pub)
-		.work (0)
-		.sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-		.build ();
+	                                     .account (nano::dev_genesis_key.pub)
+	                                     .previous (nano::genesis_hash)
+	                                     .representative (nano::dev_genesis_key.pub) // No representative, blocks can't confirm
+	                                     .balance (nano::genesis_amount / 2 - nano::Gxrb_ratio)
+	                                     .link (key1.pub)
+	                                     .work (0)
+	                                     .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	                                     .build ();
 	node1.work_generate_blocking (*send1);
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (node1.store.tx_begin_write (), *send1).code);
 	auto election1 = node1.active.insert (send1);
@@ -861,14 +861,14 @@ TEST (votes, add_existing)
 	ASSERT_EQ (1, election1.election->last_votes[nano::dev_genesis_key.pub].sequence);
 	nano::keypair key2;
 	std::shared_ptr<nano::block> send2 = builder.state ()
-		.account (nano::dev_genesis_key.pub)
-		.previous (nano::genesis_hash)
-		.representative (nano::dev_genesis_key.pub) // No representative, blocks can't confirm
-		.balance (nano::genesis_amount / 2 - nano::Gxrb_ratio)
-		.link (key2.pub)
-		.work (0)
-		.sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-		.build ();
+	                                     .account (nano::dev_genesis_key.pub)
+	                                     .previous (nano::genesis_hash)
+	                                     .representative (nano::dev_genesis_key.pub) // No representative, blocks can't confirm
+	                                     .balance (nano::genesis_amount / 2 - nano::Gxrb_ratio)
+	                                     .link (key2.pub)
+	                                     .work (0)
+	                                     .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	                                     .build ();
 	node1.work_generate_blocking (*send2);
 	auto vote2 (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 2, send2));
 	// Pretend we've waited the timeout

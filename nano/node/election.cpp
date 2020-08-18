@@ -292,7 +292,7 @@ bool nano::election::have_quorum (nano::tally_t const & tally_a) const
 	++i;
 	auto second (i != tally_a.end () ? i->first : 0);
 	auto delta_l (node.delta ());
-	bool result { tally_a.begin ()->first >= (second + delta_l) };
+	bool result{ tally_a.begin ()->first >= (second + delta_l) };
 	return result;
 }
 
