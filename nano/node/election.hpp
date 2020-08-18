@@ -69,9 +69,10 @@ private: // State management
 	void generate_votes (nano::block_hash const &);
 	void remove_votes (nano::block_hash const &);
 	std::atomic<bool> prioritized_m = { false };
+	bool is_optimistic = { false };
 
 public:
-	election (nano::node &, std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const &, bool);
+	election (nano::node &, std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const &, bool, bool);
 	nano::election_vote_result vote (nano::account, uint64_t, nano::block_hash);
 	nano::tally_t tally ();
 	// Check if we have vote quorum

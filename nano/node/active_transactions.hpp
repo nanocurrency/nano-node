@@ -58,6 +58,20 @@ public:
 	bool confirmed{ false }; // Did item reach votes quorum? (minimum config value)
 };
 
+class frontiers_confirmation_info
+{
+public:
+	size_t max_elections{ 0 };
+	bool aggressive_mode{ false };
+};
+
+enum class frontiers_confirmation_state
+{
+	wallet_frontiers,
+	frontiers,
+	pessimistic
+};
+
 class dropped_elections final
 {
 public:
@@ -137,7 +151,7 @@ public:
 	// Start an election for a block
 	// Call action with confirmed block, may be different than what we started with
 	// clang-format off
-	nano::election_insertion_result insert (std::shared_ptr<nano::block> const &, boost::optional<nano::uint128_t> const & = boost::none, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
+	nano::election_insertion_result insert (std::shared_ptr<nano::block> const &, boost::optional<nano::uint128_t> const & = boost::none, bool is_optimistic_a = false, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
 	// clang-format on
 	// Distinguishes replay votes, cannot be determined if the block is not in any election
 	nano::vote_code vote (std::shared_ptr<nano::vote>);
@@ -201,16 +215,12 @@ private:
 
 	// Call action with confirmed block, may be different than what we started with
 	// clang-format off
-	nano::election_insertion_result insert_impl (std::shared_ptr<nano::block> const &, boost::optional<nano::uint128_t> const & = boost::none, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
+	nano::election_insertion_result insert_impl (std::shared_ptr<nano::block> const &, boost::optional<nano::uint128_t> const & = boost::none, bool is_optimistic_a = false, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
 	// clang-format on
 	// Returns false if the election difficulty was updated
 	bool update_difficulty_impl (roots_iterator const &, nano::block const &);
 	void request_loop ();
-	void confirm_prioritized_frontiers (nano::transaction const & transaction_a);
 	void request_confirm (nano::unique_lock<std::mutex> &);
-	void frontiers_confirmation (nano::unique_lock<std::mutex> &);
-	nano::account next_frontier_account{ 0 };
-	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };
 	void activate_dependencies (nano::unique_lock<std::mutex> &);
 	std::vector<std::pair<nano::block_hash, uint64_t>> pending_dependencies;
 	nano::condition_variable condition;
@@ -245,13 +255,24 @@ private:
 		mi::ordered_non_unique<mi::tag<tag_uncemented>,
 			mi::member<nano::cementable_account, uint64_t, &nano::cementable_account::blocks_uncemented>,
 			std::greater<uint64_t>>>>;
+
+	nano::frontiers_confirmation_state frontiers_confirmation_state { nano::frontiers_confirmation_state::wallet_frontiers };
 	// clang-format on
+
+	// Frontiers confirmation
+	nano::frontiers_confirmation_info get_frontiers_confirmation_info ();
+	void confirm_prioritized_frontiers (nano::transaction const &);
+	void start_pessimistic_elections (nano::transaction const &, size_t, std::chrono::milliseconds);
+	void frontiers_confirmation (nano::unique_lock<std::mutex> &);
+	void insert_election_from_frontiers_confirmation (std::shared_ptr<nano::block> const &, nano::account const &, nano::uint128_t, uint64_t &, bool);
+	nano::account next_account{ 0 };
+	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };
 	prioritize_num_uncemented priority_wallet_cementable_frontiers;
 	prioritize_num_uncemented priority_cementable_frontiers;
-	void prioritize_frontiers_for_confirmation (nano::transaction const &, std::chrono::milliseconds, std::chrono::milliseconds);
 	std::unordered_set<nano::wallet_id> wallet_ids_already_iterated;
 	std::unordered_map<nano::wallet_id, nano::account> next_wallet_id_accounts;
 	bool skip_wallets{ false };
+	void prioritize_frontiers_for_confirmation (nano::transaction const &, std::chrono::milliseconds, std::chrono::milliseconds);
 	void prioritize_account_for_confirmation (prioritize_num_uncemented &, size_t &, nano::account const &, nano::account_info const &, uint64_t);
 	static size_t constexpr max_priority_cementable_frontiers{ 100000 };
 	static size_t constexpr confirmed_frontiers_max_pending_size{ 10000 };
@@ -280,6 +301,7 @@ private:
 	friend class node_deferred_dependent_elections_Test;
 	friend class election_bisect_dependencies_Test;
 	friend class election_dependencies_open_link_Test;
+	friend class active_transactions_pessimistic_elections_Test;
 };
 
 std::unique_ptr<container_info_component> collect_container_info (active_transactions & active_transactions, const std::string & name);

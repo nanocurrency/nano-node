@@ -1575,3 +1575,118 @@ TEST (active_transactions, activate_account_chain)
 	ASSERT_TIMELY (3s, node.block_confirmed (send3->hash ()));
 	ASSERT_TIMELY (3s, node.active.active (receive->qualified_root ()));
 }
+
+namespace nano
+{
+TEST (active_transactions, pessimistic_elections)
+{
+	nano::system system;
+	nano::node_flags flags;
+	nano::node_config config (nano::get_available_port (), system.logging);
+	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto & node = *system.add_node (config, flags);
+
+	nano::keypair key;
+	nano::state_block_builder builder;
+	auto send = builder.make_block ()
+	            .account (nano::dev_genesis_key.pub)
+	            .previous (nano::genesis_hash)
+	            .representative (nano::dev_genesis_key.pub)
+	            .link (nano::dev_genesis_key.pub)
+	            .balance (nano::genesis_amount - 1)
+	            .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	            .work (*system.work.generate (nano::genesis_hash))
+	            .build ();
+
+	ASSERT_EQ (nano::process_result::progress, node.process (*send).code);
+
+	auto send2 = builder.make_block ()
+	             .account (nano::dev_genesis_key.pub)
+	             .previous (send->hash ())
+	             .representative (nano::dev_genesis_key.pub)
+	             .link (key.pub)
+	             .balance (nano::genesis_amount - 2)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (*system.work.generate (send->hash ()))
+	             .build ();
+
+	ASSERT_EQ (nano::process_result::progress, node.process (*send2).code);
+
+	auto open = builder.make_block ()
+	            .account (key.pub)
+	            .previous (0)
+	            .representative (key.pub)
+	            .link (send2->hash ())
+	            .balance (1)
+	            .sign (key.prv, key.pub)
+	            .work (*system.work.generate (key.pub))
+	            .build ();
+
+	ASSERT_EQ (nano::process_result::progress, node.process (*open).code);
+
+	// This should only cement the first block in genesis account
+	node.active.start_pessimistic_elections (node.store.tx_begin_read (), 100, 50ms);
+	{
+		ASSERT_EQ (1, node.active.size ());
+		auto election = node.active.election (send->qualified_root ());
+		ASSERT_NE (nullptr, election);
+		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		election->confirm_once ();
+	}
+
+	ASSERT_TIMELY (3s, node.block_confirmed (send->hash ()));
+
+	nano::confirmation_height_info genesis_confirmation_height_info;
+	nano::confirmation_height_info key1_confirmation_height_info;
+	{
+		auto transaction = node.store.tx_begin_read ();
+		node.store.confirmation_height_get (transaction, nano::genesis_account, genesis_confirmation_height_info);
+		ASSERT_EQ (2, genesis_confirmation_height_info.height);
+		node.store.confirmation_height_get (transaction, key.pub, key1_confirmation_height_info);
+		ASSERT_EQ (0, key1_confirmation_height_info.height);
+	}
+
+	// This should cement the next block in genesis account but leave the open block uncemented
+	node.active.start_pessimistic_elections (node.store.tx_begin_read (), 100, 50ms);
+
+	{
+		auto election = node.active.election (send2->qualified_root ());
+		ASSERT_NE (nullptr, election);
+		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		election->confirm_once ();
+	}
+
+	ASSERT_TIMELY (3s, node.block_confirmed (send2->hash ()));
+
+	{
+		auto transaction = node.store.tx_begin_read ();
+		node.store.confirmation_height_get (transaction, nano::genesis_account, genesis_confirmation_height_info);
+		ASSERT_EQ (3, genesis_confirmation_height_info.height);
+		node.store.confirmation_height_get (transaction, key.pub, key1_confirmation_height_info);
+		ASSERT_EQ (0, key1_confirmation_height_info.height);
+	}
+
+	// This should cement the open block for key
+	node.active.start_pessimistic_elections (node.store.tx_begin_read (), 100, 50ms);
+
+	{
+		auto election = node.active.election (open->qualified_root ());
+		ASSERT_NE (nullptr, election);
+		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		election->confirm_once ();
+	}
+
+	ASSERT_TIMELY (3s, node.block_confirmed (open->hash ()));
+
+	{
+		auto transaction = node.store.tx_begin_read ();
+		node.store.confirmation_height_get (transaction, nano::genesis_account, genesis_confirmation_height_info);
+		ASSERT_EQ (3, genesis_confirmation_height_info.height);
+		node.store.confirmation_height_get (transaction, key.pub, key1_confirmation_height_info);
+		ASSERT_EQ (1, key1_confirmation_height_info.height);
+	}
+
+	// Sanity check that calling it again on a fully cemented chain has no adverse effects.
+	node.active.start_pessimistic_elections (node.store.tx_begin_read (), 100, 50ms);
+}
+}
