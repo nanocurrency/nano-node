@@ -914,7 +914,7 @@ int main (int argc, char * const * argv)
 			auto path (nano::unique_path ());
 			nano::node_flags node_flags;
 			nano::update_flags (node_flags, vm);
-			auto node (std::make_shared<nano::node> (io_ctx, path, alarm, nano::node_config{ 24001 }, work, node_flags));
+			auto node (std::make_shared<nano::node> (io_ctx, path, alarm, nano::node_config{}, work, node_flags));
 			nano::block_hash genesis_latest (node->latest (dev_params.ledger.dev_genesis_key.pub));
 			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
 			// Generating keys
@@ -1036,7 +1036,7 @@ int main (int argc, char * const * argv)
 			nano::alarm alarm (io_ctx);
 			nano::work_pool work (std::numeric_limits<unsigned>::max ());
 			auto path (nano::unique_path ());
-			auto node (std::make_shared<nano::node> (io_ctx, path, alarm, nano::node_config{ 24001 }, work));
+			auto node (std::make_shared<nano::node> (io_ctx, path, alarm, nano::node_config{}, work));
 			nano::block_hash genesis_latest (node->latest (dev_params.ledger.dev_genesis_key.pub));
 			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
 			// Generating keys
@@ -1158,13 +1158,12 @@ int main (int argc, char * const * argv)
 			nano::work_pool work (std::numeric_limits<unsigned>::max ());
 			auto path1 (nano::unique_path ());
 			auto path2 (nano::unique_path ());
-			nano::node_config config1{ 24000 };
 			nano::node_flags flags;
 			flags.disable_lazy_bootstrap = true;
 			flags.disable_legacy_bootstrap = true;
 			flags.disable_wallet_bootstrap = true;
 			flags.disable_bootstrap_listener = true;
-			auto node1 (std::make_shared<nano::node> (io_ctx1, path1, alarm1, config1, work, flags, 0));
+			auto node1 (std::make_shared<nano::node> (io_ctx1, path1, alarm1, nano::node_config{}, work, flags, 0));
 			nano::block_hash genesis_latest (node1->latest (dev_params.ledger.dev_genesis_key.pub));
 			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
 			// Generating blocks
@@ -1236,7 +1235,7 @@ int main (int argc, char * const * argv)
 			}
 
 			// Start new node
-			nano::node_config config2{ 24001 };
+			nano::node_config config2;
 			// Config override
 			std::vector<std::string> config_overrides;
 			auto config (vm.find ("config"));

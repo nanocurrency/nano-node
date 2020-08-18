@@ -21,7 +21,7 @@ using namespace std::chrono_literals;
 TEST (websocket, subscription_edge)
 {
 	nano::system system;
-	nano::node_config config{ nano::get_available_port () };
+	nano::node_config config;
 	config.websocket_config.enabled = true;
 	config.websocket_config.port = nano::get_available_port ();
 	auto node1 (system.add_node (config));
@@ -52,7 +52,7 @@ TEST (websocket, subscription_edge)
 TEST (websocket, active_difficulty)
 {
 	nano::system system;
-	nano::node_config config{ nano::get_available_port () };
+	nano::node_config config;
 	config.websocket_config.enabled = true;
 	config.websocket_config.port = nano::get_available_port ();
 	nano::node_flags node_flags;
@@ -114,7 +114,7 @@ TEST (websocket, active_difficulty)
 TEST (websocket, confirmation)
 {
 	nano::system system;
-	nano::node_config config{ nano::get_available_port () };
+	nano::node_config config;
 	config.websocket_config.enabled = true;
 	config.websocket_config.port = nano::get_available_port ();
 	auto node1 (system.add_node (config));
@@ -172,7 +172,7 @@ TEST (websocket, confirmation)
 TEST (websocket, stopped_election)
 {
 	nano::system system;
-	nano::node_config config{ nano::get_available_port () };
+	nano::node_config config;
 	config.websocket_config.enabled = true;
 	config.websocket_config.port = nano::get_available_port ();
 	auto node1 (system.add_node (config));
@@ -215,7 +215,7 @@ TEST (websocket, stopped_election)
 TEST (websocket, confirmation_options)
 {
 	nano::system system;
-	nano::node_config config{ nano::get_available_port () };
+	nano::node_config config;
 	config.websocket_config.enabled = true;
 	config.websocket_config.port = nano::get_available_port ();
 	auto node1 (system.add_node (config));
@@ -328,7 +328,7 @@ TEST (websocket, confirmation_options)
 TEST (websocket, confirmation_options_update)
 {
 	nano::system system;
-	nano::node_config config{ nano::get_available_port () };
+	nano::node_config config;
 	config.websocket_config.enabled = true;
 	config.websocket_config.port = nano::get_available_port ();
 	auto node1 (system.add_node (config));
@@ -384,7 +384,7 @@ TEST (websocket, confirmation_options_update)
 TEST (websocket, vote)
 {
 	nano::system system;
-	nano::node_config config{ nano::get_available_port () };
+	nano::node_config config;
 	config.websocket_config.enabled = true;
 	config.websocket_config.port = nano::get_available_port ();
 	auto node1 (system.add_node (config));
@@ -424,7 +424,7 @@ TEST (websocket, vote)
 TEST (websocket, vote_options_type)
 {
 	nano::system system;
-	nano::node_config config{ nano::get_available_port () };
+	nano::node_config config;
 	config.websocket_config.enabled = true;
 	config.websocket_config.port = nano::get_available_port ();
 	auto node1 (system.add_node (config));
@@ -466,7 +466,7 @@ TEST (websocket, vote_options_type)
 TEST (websocket, vote_options_representatives)
 {
 	nano::system system;
-	nano::node_config config{ nano::get_available_port () };
+	nano::node_config config;
 	config.websocket_config.enabled = true;
 	config.websocket_config.port = nano::get_available_port ();
 	auto node1 (system.add_node (config));
@@ -532,7 +532,7 @@ TEST (websocket, vote_options_representatives)
 TEST (websocket, work)
 {
 	nano::system system;
-	nano::node_config config{ nano::get_available_port () };
+	nano::node_config config;
 	config.websocket_config.enabled = true;
 	config.websocket_config.port = nano::get_available_port ();
 	auto node1 (system.add_node (config));
@@ -602,7 +602,7 @@ TEST (websocket, work)
 TEST (websocket, bootstrap)
 {
 	nano::system system;
-	nano::node_config config{ nano::get_available_port () };
+	nano::node_config config;
 	config.websocket_config.enabled = true;
 	config.websocket_config.port = nano::get_available_port ();
 	auto node1 (system.add_node (config));
@@ -652,7 +652,7 @@ TEST (websocket, bootstrap)
 TEST (websocket, bootstrap_exited)
 {
 	nano::system system;
-	nano::node_config config{ nano::get_available_port () };
+	nano::node_config config;
 	config.websocket_config.enabled = true;
 	config.websocket_config.port = nano::get_available_port ();
 	auto node1 (system.add_node (config));
@@ -717,7 +717,7 @@ TEST (websocket, bootstrap_exited)
 TEST (websocket, ws_keepalive)
 {
 	nano::system system;
-	nano::node_config config{ nano::get_available_port () };
+	nano::node_config config;
 	config.websocket_config.enabled = true;
 	config.websocket_config.port = nano::get_available_port ();
 	auto node1 (system.add_node (config));
@@ -736,7 +736,7 @@ TEST (websocket, ws_keepalive)
 TEST (websocket, telemetry)
 {
 	nano::system system;
-	nano::node_config config{ nano::get_available_port () };
+	nano::node_config config;
 	config.websocket_config.enabled = true;
 	config.websocket_config.port = nano::get_available_port ();
 	nano::node_flags node_flags;
@@ -795,7 +795,7 @@ TEST (websocket, telemetry)
 TEST (websocket, new_unconfirmed_block)
 {
 	nano::system system;
-	nano::node_config config{ nano::get_available_port () };
+	nano::node_config config;
 	config.websocket_config.enabled = true;
 	config.websocket_config.port = nano::get_available_port ();
 	auto node1 (system.add_node (config));

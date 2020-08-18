@@ -511,7 +511,7 @@ TEST (telemetry, remove_peer_different_genesis)
 	nano::system system (1);
 	auto node0 (system.nodes[0]);
 	ASSERT_EQ (0, node0->network.size ());
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{ nano::get_available_port () }, system.work));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{}, system.work));
 	// Change genesis block to something else in this test (this is the reference telemetry processing uses).
 	// Possible TSAN issue in the future if something else uses this, but will only appear in tests.
 	node1->network_params.ledger.genesis_hash = nano::block_hash ("0");
@@ -541,7 +541,7 @@ TEST (telemetry, remove_peer_different_genesis_udp)
 	nano::system system (1, nano::transport::transport_type::udp, node_flags);
 	auto node0 (system.nodes[0]);
 	ASSERT_EQ (0, node0->network.size ());
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{ nano::get_available_port () }, system.work, node_flags));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{}, system.work, node_flags));
 	node1->network_params.ledger.genesis_hash = nano::block_hash ("0");
 	node1->start ();
 	system.nodes.push_back (node1);

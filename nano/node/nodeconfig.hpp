@@ -34,7 +34,7 @@ enum class frontiers_confirmation_mode : uint8_t
 class node_config
 {
 public:
-	node_config (uint16_t = 0);
+	node_config ();
 	nano::error serialize_json (nano::jsonconfig &) const;
 	nano::error deserialize_json (bool &, nano::jsonconfig &);
 	nano::error serialize_toml (nano::tomlconfig &) const;

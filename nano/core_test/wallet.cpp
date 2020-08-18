@@ -999,7 +999,7 @@ TEST (wallet, deterministic_restore)
 TEST (work_watcher, update)
 {
 	nano::system system;
-	nano::node_config node_config{ nano::get_available_port () };
+	nano::node_config node_config;
 	node_config.enable_voting = false;
 	node_config.work_watcher_period = 1s;
 	node_config.max_work_generate_multiplier = 1e6;
@@ -1047,7 +1047,7 @@ TEST (work_watcher, update)
 TEST (work_watcher, propagate)
 {
 	nano::system system;
-	nano::node_config node_config{ nano::get_available_port () };
+	nano::node_config node_config;
 	node_config.enable_voting = false;
 	node_config.work_watcher_period = 1s;
 	node_config.max_work_generate_multiplier = 1e6;
@@ -1114,7 +1114,7 @@ TEST (work_watcher, removed_after_win)
 TEST (work_watcher, removed_after_lose)
 {
 	nano::system system;
-	nano::node_config node_config{ nano::get_available_port () };
+	nano::node_config node_config;
 	node_config.enable_voting = false;
 	node_config.work_watcher_period = 1s;
 	auto & node = *system.add_node (node_config);
@@ -1137,7 +1137,7 @@ TEST (work_watcher, removed_after_lose)
 TEST (work_watcher, generation_disabled)
 {
 	nano::system system;
-	nano::node_config node_config{ nano::get_available_port () };
+	nano::node_config node_config;
 	node_config.enable_voting = false;
 	node_config.work_watcher_period = 1s;
 	node_config.work_threads = 0;
@@ -1174,7 +1174,7 @@ TEST (work_watcher, generation_disabled)
 TEST (work_watcher, cancel)
 {
 	nano::system system;
-	nano::node_config node_config{ nano::get_available_port () };
+	nano::node_config node_config;
 	node_config.work_watcher_period = 1s;
 	node_config.max_work_generate_multiplier = 1e6;
 	node_config.enable_voting = false;
@@ -1221,7 +1221,7 @@ TEST (wallet, limited_difficulty)
 {
 	nano::system system;
 	nano::genesis genesis;
-	nano::node_config node_config{ nano::get_available_port () };
+	nano::node_config node_config;
 	node_config.max_work_generate_multiplier = 1;
 	nano::node_flags node_flags;
 	node_flags.disable_request_loop = true;

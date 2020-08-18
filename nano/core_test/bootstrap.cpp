@@ -173,7 +173,7 @@ TEST (bulk_pull, count_limit)
 TEST (bootstrap_processor, DISABLED_process_none)
 {
 	nano::system system (1);
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config { nano::get_available_port () }, system.work));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config {}, system.work));
 	ASSERT_FALSE (node1->init_error ());
 	auto done (false);
 	node1->bootstrap_initiator.bootstrap (system.nodes[0]->network.endpoint ());
@@ -188,7 +188,7 @@ TEST (bootstrap_processor, DISABLED_process_none)
 TEST (bootstrap_processor, process_one)
 {
 	nano::system system;
-	nano::node_config node_config{ nano::get_available_port () };
+	nano::node_config node_config;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	node_config.enable_voting = false;
 	nano::node_flags node_flags;
@@ -213,7 +213,7 @@ TEST (bootstrap_processor, process_one)
 TEST (bootstrap_processor, process_two)
 {
 	nano::system system;
-	nano::node_config config{ nano::get_available_port () };
+	nano::node_config config;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_push_client = true;
@@ -227,7 +227,7 @@ TEST (bootstrap_processor, process_two)
 	ASSERT_NE (hash1, hash2);
 	ASSERT_NE (hash1, hash3);
 	ASSERT_NE (hash2, hash3);
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{ nano::get_available_port () }, system.work));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config {}, system.work));
 	ASSERT_FALSE (node1->init_error ());
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
 	ASSERT_NE (node1->latest (nano::dev_genesis_key.pub), node0->latest (nano::dev_genesis_key.pub));
@@ -239,7 +239,7 @@ TEST (bootstrap_processor, process_two)
 TEST (bootstrap_processor, process_state)
 {
 	nano::system system;
-	nano::node_config config{ nano::get_available_port () };
+	nano::node_config config;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_push_client = true;
@@ -252,7 +252,7 @@ TEST (bootstrap_processor, process_state)
 	node0->work_generate_blocking (*block2);
 	node0->process (*block1);
 	node0->process (*block2);
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{ nano::get_available_port () }, system.work));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{}, system.work));
 	ASSERT_EQ (node0->latest (nano::dev_genesis_key.pub), block2->hash ());
 	ASSERT_NE (node1->latest (nano::dev_genesis_key.pub), block2->hash ());
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
@@ -265,7 +265,7 @@ TEST (bootstrap_processor, process_state)
 TEST (bootstrap_processor, process_new)
 {
 	nano::system system;
-	nano::node_config config{ nano::get_available_port () };
+	nano::node_config config;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_push_client = true;
@@ -279,7 +279,7 @@ TEST (bootstrap_processor, process_new)
 	ASSERT_TIMELY (10s, !node1->balance (key2.pub).is_zero ());
 	nano::uint128_t balance1 (node1->balance (nano::dev_genesis_key.pub));
 	nano::uint128_t balance2 (node1->balance (key2.pub));
-	auto node3 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{ nano::get_available_port () }, system.work));
+	auto node3 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{}, system.work));
 	ASSERT_FALSE (node3->init_error ());
 	node3->bootstrap_initiator.bootstrap (node1->network.endpoint ());
 	ASSERT_TIMELY (10s, node3->balance (key2.pub) == balance2);
@@ -290,7 +290,7 @@ TEST (bootstrap_processor, process_new)
 TEST (bootstrap_processor, pull_diamond)
 {
 	nano::system system;
-	nano::node_config config{ nano::get_available_port () };
+	nano::node_config config;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_push_client = true;
@@ -304,7 +304,7 @@ TEST (bootstrap_processor, pull_diamond)
 	ASSERT_EQ (nano::process_result::progress, node0->process (*send2).code);
 	auto receive (std::make_shared<nano::receive_block> (send1->hash (), send2->hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send1->hash ())));
 	ASSERT_EQ (nano::process_result::progress, node0->process (*receive).code);
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{ nano::get_available_port () }, system.work));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{}, system.work));
 	ASSERT_FALSE (node1->init_error ());
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
 	ASSERT_TIMELY (10s, node1->balance (nano::dev_genesis_key.pub) == 100);
@@ -316,7 +316,7 @@ TEST (bootstrap_processor, DISABLED_pull_requeue_network_error)
 {
 	// Bootstrap attempt stopped before requeue & then cannot be found in attempts list
 	nano::system system;
-	nano::node_config config{ nano::get_available_port () };
+	nano::node_config config;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_push_client = true;
@@ -347,7 +347,7 @@ TEST (bootstrap_processor, DISABLED_pull_requeue_network_error)
 TEST (bootstrap_processor, frontiers_unconfirmed)
 {
 	nano::system system;
-	nano::node_config node_config{ nano::get_available_port () };
+	nano::node_config node_config;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	node_config.tcp_io_timeout = std::chrono::seconds (2);
 	nano::node_flags node_flags;
@@ -404,7 +404,7 @@ TEST (bootstrap_processor, frontiers_unconfirmed)
 TEST (bootstrap_processor, frontiers_confirmed)
 {
 	nano::system system;
-	nano::node_config node_config{ nano::get_available_port () };
+	nano::node_config node_config;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	node_config.tcp_io_timeout = std::chrono::seconds (2);
 	nano::node_flags node_flags;
@@ -447,7 +447,7 @@ TEST (bootstrap_processor, frontiers_confirmed)
 TEST (bootstrap_processor, frontiers_unconfirmed_threshold)
 {
 	nano::system system;
-	nano::node_config node_config{ nano::get_available_port () };
+	nano::node_config node_config;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	node_config.tcp_io_timeout = std::chrono::seconds (2);
 	node_config.bootstrap_fraction_numerator = 4;
@@ -498,11 +498,11 @@ TEST (bootstrap_processor, frontiers_unconfirmed_threshold)
 TEST (bootstrap_processor, push_diamond)
 {
 	nano::system system;
-	nano::node_config config{ nano::get_available_port () };
+	nano::node_config config;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto node0 (system.add_node (config));
 	nano::keypair key;
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{ nano::get_available_port () }, system.work));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{}, system.work));
 	ASSERT_FALSE (node1->init_error ());
 	auto wallet1 (node1->wallets.create (100));
 	wallet1->insert_adhoc (nano::dev_genesis_key.prv);
@@ -524,11 +524,11 @@ TEST (bootstrap_processor, push_diamond)
 TEST (bootstrap_processor, push_one)
 {
 	nano::system system;
-	nano::node_config config{ nano::get_available_port () };
+	nano::node_config config;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto node0 (system.add_node (config));
 	nano::keypair key1;
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{ nano::get_available_port () }, system.work));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{}, system.work));
 	auto wallet (node1->wallets.create (nano::random_wallet_id ()));
 	ASSERT_NE (nullptr, wallet);
 	wallet->insert_adhoc (nano::dev_genesis_key.prv);
@@ -543,7 +543,7 @@ TEST (bootstrap_processor, push_one)
 TEST (bootstrap_processor, lazy_hash)
 {
 	nano::system system;
-	nano::node_config config{ nano::get_available_port () };
+	nano::node_config config;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_push_client = true;
@@ -563,7 +563,7 @@ TEST (bootstrap_processor, lazy_hash)
 	node0->block_processor.add (receive2);
 	node0->block_processor.flush ();
 	// Start lazy bootstrap with last block in chain known
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{ nano::get_available_port () }, system.work));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{}, system.work));
 	node1->network.udp_channels.insert (node0->network.endpoint (), node1->network_params.protocol.protocol_version);
 	node1->bootstrap_initiator.bootstrap_lazy (receive2->hash (), true);
 	{
@@ -579,7 +579,7 @@ TEST (bootstrap_processor, lazy_hash)
 TEST (bootstrap_processor, lazy_hash_bootstrap_id)
 {
 	nano::system system;
-	nano::node_config config{ nano::get_available_port () };
+	nano::node_config config;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_push_client = true;
@@ -599,7 +599,7 @@ TEST (bootstrap_processor, lazy_hash_bootstrap_id)
 	node0->block_processor.add (receive2);
 	node0->block_processor.flush ();
 	// Start lazy bootstrap with last block in chain known
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{ nano::get_available_port () }, system.work));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{}, system.work));
 	node1->network.udp_channels.insert (node0->network.endpoint (), node1->network_params.protocol.protocol_version);
 	node1->bootstrap_initiator.bootstrap_lazy (receive2->hash (), true, true, "123456");
 	{
@@ -615,7 +615,7 @@ TEST (bootstrap_processor, lazy_hash_bootstrap_id)
 TEST (bootstrap_processor, lazy_max_pull_count)
 {
 	nano::system system;
-	nano::node_config config{ nano::get_available_port () };
+	nano::node_config config;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_push_client = true;
@@ -641,7 +641,7 @@ TEST (bootstrap_processor, lazy_max_pull_count)
 	node0->block_processor.add (change3);
 	node0->block_processor.flush ();
 	// Start lazy bootstrap with last block in chain known
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{ nano::get_available_port () }, system.work));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{}, system.work));
 	node1->network.udp_channels.insert (node0->network.endpoint (), node1->network_params.protocol.protocol_version);
 	node1->bootstrap_initiator.bootstrap_lazy (change3->hash ());
 	// Check processed blocks
@@ -655,7 +655,7 @@ TEST (bootstrap_processor, lazy_max_pull_count)
 TEST (bootstrap_processor, lazy_unclear_state_link)
 {
 	nano::system system;
-	nano::node_config config{ nano::get_available_port () };
+	nano::node_config config;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_push_client = true;
@@ -673,7 +673,7 @@ TEST (bootstrap_processor, lazy_unclear_state_link)
 	auto receive (std::make_shared<nano::state_block> (key.pub, open->hash (), key.pub, 2 * nano::Gxrb_ratio, send2->hash (), key.prv, key.pub, *system.work.generate (open->hash ()))); // It is not possible to define this block send/receive status based on previous block (legacy open)
 	ASSERT_EQ (nano::process_result::progress, node1->process (*receive).code);
 	// Start lazy bootstrap with last block in chain known
-	auto node2 = system.add_node (nano::node_config{ nano::get_available_port () }, node_flags);
+	auto node2 = system.add_node (nano::node_config{}, node_flags);
 	node2->network.udp_channels.insert (node1->network.endpoint (), node1->network_params.protocol.protocol_version);
 	node2->bootstrap_initiator.bootstrap_lazy (receive->hash ());
 	// Check processed blocks
@@ -689,7 +689,7 @@ TEST (bootstrap_processor, lazy_unclear_state_link)
 TEST (bootstrap_processor, lazy_unclear_state_link_not_existing)
 {
 	nano::system system;
-	nano::node_config config{ nano::get_available_port () };
+	nano::node_config config;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_push_client = true;
@@ -705,7 +705,7 @@ TEST (bootstrap_processor, lazy_unclear_state_link_not_existing)
 	auto send2 (std::make_shared<nano::state_block> (key.pub, open->hash (), key.pub, 0, key2.pub, key.prv, key.pub, *system.work.generate (open->hash ()))); // It is not possible to define this block send/receive status based on previous block (legacy open)
 	ASSERT_EQ (nano::process_result::progress, node1->process (*send2).code);
 	// Start lazy bootstrap with last block in chain known
-	auto node2 = system.add_node (nano::node_config{ nano::get_available_port () }, node_flags);
+	auto node2 = system.add_node (nano::node_config{}, node_flags);
 	node2->network.udp_channels.insert (node1->network.endpoint (), node1->network_params.protocol.protocol_version);
 	node2->bootstrap_initiator.bootstrap_lazy (send2->hash ());
 	// Check processed blocks
@@ -720,7 +720,7 @@ TEST (bootstrap_processor, lazy_unclear_state_link_not_existing)
 TEST (bootstrap_processor, lazy_destinations)
 {
 	nano::system system;
-	nano::node_config config{ nano::get_available_port () };
+	nano::node_config config;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_push_client = true;
@@ -738,7 +738,7 @@ TEST (bootstrap_processor, lazy_destinations)
 	auto state_open (std::make_shared<nano::state_block> (key2.pub, 0, key2.pub, nano::Gxrb_ratio, send2->hash (), key2.prv, key2.pub, *system.work.generate (key2.pub)));
 	ASSERT_EQ (nano::process_result::progress, node1->process (*state_open).code);
 	// Start lazy bootstrap with last block in sender chain
-	auto node2 = system.add_node (nano::node_config{ nano::get_available_port () }, node_flags);
+	auto node2 = system.add_node (nano::node_config{}, node_flags);
 	node2->network.udp_channels.insert (node1->network.endpoint (), node1->network_params.protocol.protocol_version);
 	node2->bootstrap_initiator.bootstrap_lazy (send2->hash ());
 	// Check processed blocks
@@ -753,7 +753,7 @@ TEST (bootstrap_processor, lazy_destinations)
 TEST (bootstrap_processor, wallet_lazy_frontier)
 {
 	nano::system system;
-	nano::node_config config{ nano::get_available_port () };
+	nano::node_config config;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_push_client = true;
@@ -774,7 +774,7 @@ TEST (bootstrap_processor, wallet_lazy_frontier)
 	node0->block_processor.add (receive2);
 	node0->block_processor.flush ();
 	// Start wallet lazy bootstrap
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{ nano::get_available_port () }, system.work));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{}, system.work));
 	node1->network.udp_channels.insert (node0->network.endpoint (), node1->network_params.protocol.protocol_version);
 	auto wallet (node1->wallets.create (nano::random_wallet_id ()));
 	ASSERT_NE (nullptr, wallet);
@@ -793,7 +793,7 @@ TEST (bootstrap_processor, wallet_lazy_frontier)
 TEST (bootstrap_processor, wallet_lazy_pending)
 {
 	nano::system system;
-	nano::node_config config{ nano::get_available_port () };
+	nano::node_config config;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_push_client = true;
@@ -812,7 +812,7 @@ TEST (bootstrap_processor, wallet_lazy_pending)
 	node0->block_processor.add (send2);
 	node0->block_processor.flush ();
 	// Start wallet lazy bootstrap
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{ nano::get_available_port () }, system.work));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{}, system.work));
 	node1->network.udp_channels.insert (node0->network.endpoint (), node1->network_params.protocol.protocol_version);
 	auto wallet (node1->wallets.create (nano::random_wallet_id ()));
 	ASSERT_NE (nullptr, wallet);
@@ -826,7 +826,7 @@ TEST (bootstrap_processor, wallet_lazy_pending)
 TEST (bootstrap_processor, multiple_attempts)
 {
 	nano::system system;
-	nano::node_config config{ nano::get_available_port () };
+	nano::node_config config;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_push_client = true;
@@ -846,7 +846,7 @@ TEST (bootstrap_processor, multiple_attempts)
 	node1->block_processor.add (receive2);
 	node1->block_processor.flush ();
 	// Start 2 concurrent bootstrap attempts
-	nano::node_config node_config{ nano::get_available_port () };
+	nano::node_config node_config;
 	node_config.bootstrap_initiator_threads = 3;
 	auto node2 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, node_config, system.work));
 	node2->network.udp_channels.insert (node1->network.endpoint (), node2->network_params.protocol.protocol_version);
@@ -869,7 +869,7 @@ TEST (bootstrap_processor, multiple_attempts)
 TEST (bootstrap_processor, bootstrap_fork)
 {
 	nano::system system;
-	nano::node_config config{ nano::get_available_port () };
+	nano::node_config config;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_push_client = true;
@@ -1028,14 +1028,14 @@ TEST (frontier_req, time_cutoff)
 TEST (bulk, genesis)
 {
 	nano::system system;
-	nano::node_config config{ nano::get_available_port () };
+	nano::node_config config;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_push_client = true;
 	node_flags.disable_lazy_bootstrap = true;
 	auto node1 = system.add_node (config, node_flags);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
-	auto node2 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{ nano::get_available_port () }, system.work));
+	auto node2 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{}, system.work));
 	ASSERT_FALSE (node2->init_error ());
 	nano::block_hash latest1 (node1->latest (nano::dev_genesis_key.pub));
 	nano::block_hash latest2 (node2->latest (nano::dev_genesis_key.pub));
@@ -1053,14 +1053,14 @@ TEST (bulk, genesis)
 TEST (bulk, offline_send)
 {
 	nano::system system;
-	nano::node_config config{ nano::get_available_port () };
+	nano::node_config config;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_push_client = true;
 	node_flags.disable_lazy_bootstrap = true;
 	auto node1 = system.add_node (config, node_flags);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
-	auto node2 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{ nano::get_available_port () }, system.work));
+	auto node2 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{}, system.work));
 	ASSERT_FALSE (node2->init_error ());
 	node2->start ();
 	system.nodes.push_back (node2);

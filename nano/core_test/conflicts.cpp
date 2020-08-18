@@ -193,7 +193,7 @@ TEST (conflicts, reprioritize)
 TEST (conflicts, dependency)
 {
 	nano::system system;
-	nano::node_config node_config{ nano::get_available_port () };
+	nano::node_config node_config;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto node1 = system.add_node (node_config);
 	nano::genesis genesis;
