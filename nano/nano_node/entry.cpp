@@ -916,7 +916,7 @@ int main (int argc, char * const * argv)
 			logging.init (path);
 			nano::node_flags node_flags;
 			nano::update_flags (node_flags, vm);
-			auto node (std::make_shared<nano::node> (io_ctx, 24001, path, alarm, logging, work, node_flags));
+			auto node (std::make_shared<nano::node> (io_ctx, path, alarm, nano::node_config{ 24001, logging }, work, node_flags));
 			nano::block_hash genesis_latest (node->latest (dev_params.ledger.dev_genesis_key.pub));
 			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
 			// Generating keys
@@ -1040,7 +1040,7 @@ int main (int argc, char * const * argv)
 			nano::logging logging;
 			auto path (nano::unique_path ());
 			logging.init (path);
-			auto node (std::make_shared<nano::node> (io_ctx, 24001, path, alarm, logging, work));
+			auto node (std::make_shared<nano::node> (io_ctx, path, alarm, nano::node_config{ 24001, logging }, work));
 			nano::block_hash genesis_latest (node->latest (dev_params.ledger.dev_genesis_key.pub));
 			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
 			// Generating keys

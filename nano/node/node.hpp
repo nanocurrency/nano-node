@@ -87,7 +87,6 @@ std::unique_ptr<container_info_component> collect_container_info (rep_crawler & 
 class node final : public std::enable_shared_from_this<nano::node>
 {
 public:
-	node (boost::asio::io_context &, uint16_t, boost::filesystem::path const &, nano::alarm &, nano::logging const &, nano::work_pool &, nano::node_flags = nano::node_flags (), unsigned seq = 0);
 	node (boost::asio::io_context &, boost::filesystem::path const &, nano::alarm &, nano::node_config const &, nano::work_pool &, nano::node_flags = nano::node_flags (), unsigned seq = 0);
 	~node ();
 	template <typename T>

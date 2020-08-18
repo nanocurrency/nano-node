@@ -61,7 +61,7 @@ TEST (system, receive_while_synchronizing)
 		uint32_t count (1000);
 		system.generate_mass_activity (count, *system.nodes[0]);
 		nano::keypair key;
-		auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work));
+		auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{ nano::get_available_port (), system.logging }, system.work));
 		ASSERT_FALSE (node1->init_error ());
 		auto channel (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, system.nodes[0]->network.endpoint (), node1->network_params.protocol.protocol_version));
 		node1->network.send_keepalive (channel);
