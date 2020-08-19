@@ -798,7 +798,11 @@ uint16_t nano::network::port_to_use (uint16_t port_a) const
 				result = nano::get_available_port ();
 				break;
 			case nano::nano_networks::nano_beta_network:
+				result = node.network_params.network.default_node_port;
+				break;
 			case nano::nano_networks::nano_live_network:
+				result = node.network_params.network.default_node_port;
+				break;
 			case nano::nano_networks::nano_test_network:
 				result = node.network_params.network.default_node_port;
 				break;
