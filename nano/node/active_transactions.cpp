@@ -1322,25 +1322,7 @@ nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_
 		}
 		else if (!block && status.bootstrap_started)
 		{
-			auto node_l (node.shared ());
-			node.alarm.add (std::chrono::steady_clock::now () + node.network_params.bootstrap.gap_cache_bootstrap_start_interval, [node_l, hash_a]() {
-				auto transaction (node_l->store.tx_begin_read ());
-				if (!node_l->store.block_exists (transaction, hash_a))
-				{
-					if (!node_l->bootstrap_initiator.in_progress ())
-					{
-						node_l->logger.try_log (boost::str (boost::format ("Missing block %1% which has enough votes to warrant lazy bootstrapping it") % hash_a.to_string ()));
-					}
-					if (!node_l->flags.disable_lazy_bootstrap)
-					{
-						node_l->bootstrap_initiator.bootstrap_lazy (hash_a);
-					}
-					else if (!node_l->flags.disable_legacy_bootstrap)
-					{
-						node_l->bootstrap_initiator.bootstrap ();
-					}
-				}
-			});
+			node.gap_cache.bootstrap_start (hash_a);
 		}
 	}
 	return status;
