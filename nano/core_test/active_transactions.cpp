@@ -657,40 +657,40 @@ TEST (active_transactions, inactive_votes_cache_election_start)
 	nano::send_block_builder send_block_builder;
 	nano::state_block_builder state_block_builder;
 	auto send1 = send_block_builder.make_block ()
-	            .previous (latest)
-	            .destination (key1.pub)
-	            .balance (nano::genesis_amount - 2000 * nano::Gxrb_ratio)
-	            .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-	            .work (*system.work.generate (latest))
-	            .build_shared ();
+	             .previous (latest)
+	             .destination (key1.pub)
+	             .balance (nano::genesis_amount - 2000 * nano::Gxrb_ratio)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (*system.work.generate (latest))
+	             .build_shared ();
 	auto send2 = send_block_builder.make_block ()
-	            .previous (send1->hash ())
-	            .destination (key2.pub)
-	            .balance (nano::genesis_amount - 4000 * nano::Gxrb_ratio)
-	            .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-	            .work (*system.work.generate (send1->hash ()))
-	            .build_shared ();
+	             .previous (send1->hash ())
+	             .destination (key2.pub)
+	             .balance (nano::genesis_amount - 4000 * nano::Gxrb_ratio)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (*system.work.generate (send1->hash ()))
+	             .build_shared ();
 	auto send3 = send_block_builder.make_block ()
-	            .previous (send2->hash ())
-	            .destination (key3.pub)
-	            .balance (nano::genesis_amount - 6000 * nano::Gxrb_ratio)
-	            .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-	            .work (*system.work.generate (send2->hash ()))
-	            .build_shared ();
+	             .previous (send2->hash ())
+	             .destination (key3.pub)
+	             .balance (nano::genesis_amount - 6000 * nano::Gxrb_ratio)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (*system.work.generate (send2->hash ()))
+	             .build_shared ();
 	auto send4 = send_block_builder.make_block ()
-	            .previous (send3->hash ())
-	            .destination (key4.pub)
-	            .balance (nano::genesis_amount - 8000 * nano::Gxrb_ratio)
-	            .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-	            .work (*system.work.generate (send3->hash ()))
-	            .build_shared ();
+	             .previous (send3->hash ())
+	             .destination (key4.pub)
+	             .balance (nano::genesis_amount - 8000 * nano::Gxrb_ratio)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (*system.work.generate (send3->hash ()))
+	             .build_shared ();
 	auto send5 = send_block_builder.make_block ()
-	            .previous (send4->hash ())
-	            .destination (key5.pub)
-	            .balance (nano::genesis_amount - 10000 * nano::Gxrb_ratio)
-	            .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-	            .work (*system.work.generate (send4->hash ()))
-	            .build_shared ();
+	             .previous (send4->hash ())
+	             .destination (key5.pub)
+	             .balance (nano::genesis_amount - 10000 * nano::Gxrb_ratio)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (*system.work.generate (send4->hash ()))
+	             .build_shared ();
 	auto open1 = state_block_builder.make_block ()
 	             .account (key1.pub)
 	             .previous (0)
@@ -753,8 +753,10 @@ TEST (active_transactions, inactive_votes_cache_election_start)
 	// Inactive votes
 	std::vector<nano::block_hash> hashes{ open1->hash (), open2->hash (), open3->hash (), open4->hash (), open5->hash () };
 	auto vote1 (std::make_shared<nano::vote> (key1.pub, key1.prv, 0, hashes));
-	node.vote_processor.vote (vote1, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));auto vote2 (std::make_shared<nano::vote> (key2.pub, key2.prv, 0, hashes));
-	node.vote_processor.vote (vote2, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));auto vote3 (std::make_shared<nano::vote> (key3.pub, key3.prv, 0, hashes));
+	node.vote_processor.vote (vote1, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
+	auto vote2 (std::make_shared<nano::vote> (key2.pub, key2.prv, 0, hashes));
+	node.vote_processor.vote (vote2, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
+	auto vote3 (std::make_shared<nano::vote> (key3.pub, key3.prv, 0, hashes));
 	node.vote_processor.vote (vote3, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
 	auto vote4 (std::make_shared<nano::vote> (key4.pub, key4.prv, 0, hashes));
 	node.vote_processor.vote (vote4, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
