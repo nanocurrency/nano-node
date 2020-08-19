@@ -119,7 +119,6 @@ TEST (distributed_work, peer)
 {
 	nano::system system;
 	nano::node_config node_config;
-	node_config.peering_port = nano::get_available_port ();
 	// Disable local work generation
 	node_config.work_threads = 0;
 	auto node (system.add_node (node_config));

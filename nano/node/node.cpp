@@ -1663,7 +1663,6 @@ work (1)
 	}
 
 	auto & node_config = daemon_config.node;
-	node_config.peering_port = nano::get_available_port ();
 	node_config.logging.max_size = std::numeric_limits<std::uintmax_t>::max ();
 	node_config.logging.init (path_a);
 

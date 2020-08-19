@@ -2295,7 +2295,6 @@ TEST (rpc, peers)
 	nano::system system;
 	auto node = add_ipc_enabled_node (system);
 	nano::node_config config;
-	config.peering_port = nano::get_available_port ();
 	system.add_node ();
 	scoped_io_thread_name_change scoped_thread_name_io;
 	nano::endpoint endpoint (boost::asio::ip::make_address_v6 ("fc00::1"), 4000);
@@ -2326,7 +2325,6 @@ TEST (rpc, peers_node_id)
 	nano::system system;
 	auto node = add_ipc_enabled_node (system);
 	nano::node_config config;
-	config.peering_port = nano::get_available_port ();
 	system.add_node (config);
 	scoped_io_thread_name_change scoped_thread_name_io;
 	nano::endpoint endpoint (boost::asio::ip::make_address_v6 ("fc00::1"), 4000);
@@ -6146,7 +6144,6 @@ TEST (rpc, block_confirm_confirmed)
 	nano::system system (1);
 	auto path (nano::unique_path ());
 	nano::node_config config;
-	config.peering_port = nano::get_available_port ();
 	config.callback_address = "localhost";
 	config.callback_port = nano::get_available_port ();
 	config.callback_target = "/";
@@ -7432,7 +7429,6 @@ TEST (rpc, receive_work_disabled)
 	nano::system system;
 	nano::node_config config;
 	auto & worker_node = *system.add_node (config);
-	config.peering_port = nano::get_available_port ();
 	config.work_threads = 0;
 	auto & node = *add_ipc_enabled_node (system, config);
 	auto wallet = system.wallet (1);

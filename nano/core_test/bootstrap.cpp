@@ -197,7 +197,6 @@ TEST (bootstrap_processor, process_one)
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev_genesis_key.pub, nano::dev_genesis_key.pub, 100));
 
-	node_config.peering_port = nano::get_available_port ();
 	node_flags.disable_rep_crawler = true;
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, node_config, system.work, node_flags));
 	nano::block_hash hash1 (node0->latest (nano::dev_genesis_key.pub));
@@ -270,7 +269,6 @@ TEST (bootstrap_processor, process_new)
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_push_client = true;
 	auto node1 (system.add_node (config, node_flags));
-	config.peering_port = nano::get_available_port ();
 	auto node2 (system.add_node (config, node_flags));
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	nano::keypair key2;
@@ -321,7 +319,6 @@ TEST (bootstrap_processor, DISABLED_pull_requeue_network_error)
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_push_client = true;
 	auto node1 (system.add_node (config, node_flags));
-	config.peering_port = nano::get_available_port ();
 	auto node2 (system.add_node (config, node_flags));
 	nano::genesis genesis;
 	nano::keypair key1;
@@ -370,7 +367,6 @@ TEST (bootstrap_processor, frontiers_unconfirmed)
 	auto open2 (std::make_shared<nano::state_block> (key2.pub, 0, key2.pub, nano::Gxrb_ratio, send2->hash (), key2.prv, key2.pub, *system.work.generate (key2.pub)));
 	ASSERT_EQ (nano::process_result::progress, node1->process (*open2).code);
 
-	node_config.peering_port = nano::get_available_port ();
 	node_flags.disable_bootstrap_bulk_pull_server = false;
 	node_flags.disable_rep_crawler = false;
 	auto node2 = system.add_node (node_config, node_flags);
@@ -386,7 +382,6 @@ TEST (bootstrap_processor, frontiers_unconfirmed)
 	ASSERT_TIMELY (5s, node2->ledger.cache.cemented_count == 3);
 
 	// Test node to restart bootstrap
-	node_config.peering_port = nano::get_available_port ();
 	node_flags.disable_legacy_bootstrap = false;
 	auto node3 = system.add_node (node_config, node_flags);
 	ASSERT_TIMELY (5s, node3->rep_crawler.representative_count () != 0);
@@ -433,7 +428,6 @@ TEST (bootstrap_processor, frontiers_confirmed)
 	ASSERT_TIMELY (5s, node1->ledger.cache.cemented_count == 5);
 
 	// Test node to bootstrap
-	node_config.peering_port = nano::get_available_port ();
 	node_flags.disable_legacy_bootstrap = false;
 	node_flags.disable_rep_crawler = false;
 	auto node2 = system.add_node (node_config, node_flags);
@@ -475,12 +469,10 @@ TEST (bootstrap_processor, frontiers_unconfirmed_threshold)
 	system.wallet (0)->insert_adhoc (key1.prv); // Small representative
 
 	// Test node with large representative
-	node_config.peering_port = nano::get_available_port ();
 	auto node2 = system.add_node (node_config, node_flags);
 	system.wallet (1)->insert_adhoc (nano::dev_genesis_key.prv);
 
 	// Test node to bootstrap
-	node_config.peering_port = nano::get_available_port ();
 	node_flags.disable_legacy_bootstrap = false;
 	node_flags.disable_rep_crawler = false;
 	auto node3 = system.add_node (node_config, node_flags);
@@ -894,7 +886,6 @@ TEST (bootstrap_processor, bootstrap_fork)
 	ASSERT_EQ (nano::process_result::progress, node0->process (*open).code);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	// Create forked node
-	config.peering_port = nano::get_available_port ();
 	node_flags.disable_legacy_bootstrap = false;
 	auto node1 (system.add_node (config, node_flags));
 	ASSERT_EQ (nano::process_result::progress, node1->process (*send).code);

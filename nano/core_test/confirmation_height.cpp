@@ -306,7 +306,6 @@ TEST (confirmation_height, gap_live)
 		nano::node_config node_config;
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config, node_flags);
-		node_config.peering_port = nano::get_available_port ();
 		system.add_node (node_config, node_flags);
 		nano::keypair destination;
 		system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);

@@ -826,7 +826,6 @@ TEST (active_transactions, activate_dependencies)
 	flags.disable_bootstrap_listener = true;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto node1 (system.add_node (config, flags));
-	config.peering_port = nano::get_available_port ();
 	auto node2 (system.add_node (config, flags));
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	nano::genesis genesis;

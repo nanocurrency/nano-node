@@ -85,7 +85,6 @@ TEST (node, password_fanout)
 	nano::alarm alarm (*service);
 	auto path (nano::unique_path ());
 	nano::node_config config;
-	config.peering_port = nano::get_available_port ();
 	config.logging.init (path);
 	nano::work_pool work (std::numeric_limits<unsigned>::max ());
 	config.password_fanout = 10;
@@ -1229,7 +1228,6 @@ TEST (node, fork_multi_flip)
 		nano::node_config node_config;
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto & node1 (*system.add_node (node_config, node_flags, type));
-		node_config.peering_port = nano::get_available_port ();
 		auto & node2 (*system.add_node (node_config, node_flags, type));
 		ASSERT_EQ (1, node1.network.size ());
 		nano::keypair key1;
@@ -1722,9 +1720,7 @@ TEST (node, broadcast_elected)
 		nano::node_config node_config;
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node0 = system.add_node (node_config, node_flags, type);
-		node_config.peering_port = nano::get_available_port ();
 		auto node1 = system.add_node (node_config, node_flags, type);
-		node_config.peering_port = nano::get_available_port ();
 		auto node2 = system.add_node (node_config, node_flags, type);
 		nano::keypair rep_big;
 		nano::keypair rep_small;
@@ -1972,7 +1968,6 @@ TEST (node, bootstrap_fork_open)
 	nano::node_config node_config;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto node0 = system.add_node (node_config);
-	node_config.peering_port = nano::get_available_port ();
 	auto node1 = system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	nano::keypair key0;
@@ -2992,7 +2987,6 @@ TEST (node, epoch_conflict_confirm)
 	nano::node_config node_config;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto node0 = system.add_node (node_config);
-	node_config.peering_port = nano::get_available_port ();
 	auto node1 = system.add_node (node_config);
 	nano::keypair key;
 	nano::genesis genesis;
@@ -3674,7 +3668,6 @@ TEST (node, bidirectional_tcp)
 	nano::node_config node_config;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto node1 = system.add_node (node_config, node_flags);
-	node_config.peering_port = nano::get_available_port ();
 	node_config.tcp_incoming_connections_max = 0; // Disable incoming TCP connections for node 2
 	auto node2 = system.add_node (node_config, node_flags);
 	// Check network connections
@@ -4202,7 +4195,6 @@ TEST (node, dependency_graph_frontier)
 	nano::node_config config;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node1 = *system.add_node (config);
-	config.peering_port = nano::get_available_port ();
 	auto & node2 = *system.add_node (config);
 
 	nano::state_block_builder builder;

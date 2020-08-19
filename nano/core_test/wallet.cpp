@@ -1056,7 +1056,6 @@ TEST (work_watcher, propagate)
 	auto & node = *system.add_node (node_config, node_flags);
 	auto & wallet (*system.wallet (0));
 	wallet.insert_adhoc (nano::dev_genesis_key.prv);
-	node_config.peering_port = nano::get_available_port ();
 	auto & node_passive = *system.add_node (node_config);
 	nano::keypair key;
 	auto const block (wallet.send_action (nano::dev_genesis_key.pub, key.pub, 100));

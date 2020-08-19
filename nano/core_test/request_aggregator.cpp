@@ -125,7 +125,6 @@ TEST (request_aggregator, two_endpoints)
 	nano::node_flags node_flags;
 	node_flags.disable_rep_crawler = true;
 	auto & node1 (*system.add_node (node_config, node_flags));
-	node_config.peering_port = nano::get_available_port ();
 	auto & node2 (*system.add_node (node_config, node_flags));
 	nano::genesis genesis;
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
