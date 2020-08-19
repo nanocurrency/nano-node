@@ -28,6 +28,42 @@ enum class frontiers_confirmation_mode : uint8_t
 	invalid
 };
 
+class node_flags final
+{
+public:
+	std::vector<std::string> config_overrides;
+	bool disable_backup{ false };
+	bool disable_lazy_bootstrap{ false };
+	bool disable_legacy_bootstrap{ false };
+	bool disable_wallet_bootstrap{ false };
+	bool disable_bootstrap_listener{ false };
+	bool disable_bootstrap_bulk_pull_server{ false };
+	bool disable_bootstrap_bulk_push_client{ false };
+	bool disable_rep_crawler{ false };
+	bool disable_request_loop{ false };
+	bool disable_tcp_realtime{ false };
+	bool disable_udp{ true };
+	bool disable_unchecked_cleanup{ false };
+	bool disable_unchecked_drop{ true };
+	bool disable_providing_telemetry_metrics{ false };
+	bool disable_ongoing_telemetry_requests{ false };
+	bool disable_initial_telemetry_requests{ false };
+	bool disable_block_processor_unchecked_deletion{ false };
+	bool disable_block_processor_republishing{ false };
+	bool allow_bootstrap_peers_duplicates{ false };
+	bool disable_max_peers_per_ip{ false }; // For testing only
+	bool fast_bootstrap{ false };
+	bool read_only{ false };
+	nano::confirmation_height_mode confirmation_height_processor_mode{ nano::confirmation_height_mode::automatic };
+	nano::generate_cache generate_cache;
+	bool inactive_node{ false };
+	size_t block_processor_batch_size{ 0 };
+	size_t block_processor_full_size{ 65536 };
+	size_t block_processor_verification_size{ 0 };
+	size_t inactive_votes_cache_size{ 16 * 1024 };
+	size_t vote_processor_capacity{ 144 * 1024 };
+};
+
 /**
  * Node configuration
  */
@@ -42,6 +78,7 @@ public:
 	bool upgrade_json (unsigned, nano::jsonconfig &);
 	nano::account random_representative () const;
 	nano::network_params network_params;
+	nano::node_flags flags;
 	uint16_t peering_port{ 0 };
 	nano::logging logging;
 	std::vector<std::pair<std::string, uint16_t>> work_peers;
@@ -110,41 +147,5 @@ public:
 	{
 		return 18;
 	}
-};
-
-class node_flags final
-{
-public:
-	std::vector<std::string> config_overrides;
-	bool disable_backup{ false };
-	bool disable_lazy_bootstrap{ false };
-	bool disable_legacy_bootstrap{ false };
-	bool disable_wallet_bootstrap{ false };
-	bool disable_bootstrap_listener{ false };
-	bool disable_bootstrap_bulk_pull_server{ false };
-	bool disable_bootstrap_bulk_push_client{ false };
-	bool disable_rep_crawler{ false };
-	bool disable_request_loop{ false };
-	bool disable_tcp_realtime{ false };
-	bool disable_udp{ true };
-	bool disable_unchecked_cleanup{ false };
-	bool disable_unchecked_drop{ true };
-	bool disable_providing_telemetry_metrics{ false };
-	bool disable_ongoing_telemetry_requests{ false };
-	bool disable_initial_telemetry_requests{ false };
-	bool disable_block_processor_unchecked_deletion{ false };
-	bool disable_block_processor_republishing{ false };
-	bool allow_bootstrap_peers_duplicates{ false };
-	bool disable_max_peers_per_ip{ false }; // For testing only
-	bool fast_bootstrap{ false };
-	bool read_only{ false };
-	nano::confirmation_height_mode confirmation_height_processor_mode{ nano::confirmation_height_mode::automatic };
-	nano::generate_cache generate_cache;
-	bool inactive_node{ false };
-	size_t block_processor_batch_size{ 0 };
-	size_t block_processor_full_size{ 65536 };
-	size_t block_processor_verification_size{ 0 };
-	size_t inactive_votes_cache_size{ 16 * 1024 };
-	size_t vote_processor_capacity{ 144 * 1024 };
 };
 }

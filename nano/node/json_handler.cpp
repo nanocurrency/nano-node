@@ -1614,7 +1614,7 @@ void nano::json_handler::bootstrap ()
 		uint16_t port;
 		if (!nano::parse_port (port_text, port))
 		{
-			if (!node.flags.disable_legacy_bootstrap)
+			if (!node.config.flags.disable_legacy_bootstrap)
 			{
 				std::string bootstrap_id (request.get<std::string> ("id", ""));
 				node.bootstrap_initiator.bootstrap (nano::endpoint (address, port), true, bypass_frontier_confirmation, bootstrap_id);
@@ -1640,7 +1640,7 @@ void nano::json_handler::bootstrap ()
 void nano::json_handler::bootstrap_any ()
 {
 	const bool force = request.get<bool> ("force", false);
-	if (!node.flags.disable_legacy_bootstrap)
+	if (!node.config.flags.disable_legacy_bootstrap)
 	{
 		std::string bootstrap_id (request.get<std::string> ("id", ""));
 		node.bootstrap_initiator.bootstrap (force, bootstrap_id);
@@ -1659,7 +1659,7 @@ void nano::json_handler::bootstrap_lazy ()
 	const bool force = request.get<bool> ("force", false);
 	if (!ec)
 	{
-		if (!node.flags.disable_lazy_bootstrap)
+		if (!node.config.flags.disable_lazy_bootstrap)
 		{
 			std::string bootstrap_id (request.get<std::string> ("id", ""));
 			node.bootstrap_initiator.bootstrap_lazy (hash, force, true, bootstrap_id);

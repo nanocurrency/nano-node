@@ -580,7 +580,7 @@ void nano::bootstrap_attempt_legacy::run_start (nano::unique_lock<std::mutex> & 
 void nano::bootstrap_attempt_legacy::run ()
 {
 	debug_assert (started);
-	debug_assert (!node->flags.disable_legacy_bootstrap);
+	debug_assert (!node->config.flags.disable_legacy_bootstrap);
 	node->bootstrap_initiator.connections->populate_connections (false);
 	nano::unique_lock<std::mutex> lock (mutex);
 	run_start (lock);
@@ -603,7 +603,7 @@ void nano::bootstrap_attempt_legacy::run ()
 	if (!stopped)
 	{
 		node->logger.try_log ("Completed legacy pulls");
-		if (!node->flags.disable_bootstrap_bulk_push_client)
+		if (!node->config.flags.disable_bootstrap_bulk_push_client)
 		{
 			request_push (lock);
 		}

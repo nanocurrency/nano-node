@@ -10,13 +10,13 @@ using namespace std::chrono_literals;
 TEST (confirmation_solicitor, batches)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.disable_request_loop = true;
-	node_flags.disable_rep_crawler = true;
-	node_flags.disable_udp = false;
-	auto & node1 = *system.add_node (node_flags);
-	node_flags.disable_request_loop = true;
-	auto & node2 = *system.add_node (node_flags);
+	nano::node_config config;
+	config.flags.disable_request_loop = true;
+	config.flags.disable_rep_crawler = true;
+	config.flags.disable_udp = false;
+	auto & node1 = *system.add_node (config);
+	config.flags.disable_request_loop = true;
+	auto & node2 = *system.add_node (config);
 	auto channel1 (node2.network.udp_channels.create (node1.network.endpoint ()));
 	// Solicitor will only solicit from this representative
 	nano::representative representative (nano::dev_genesis_key.pub, nano::genesis_amount, channel1);
@@ -54,12 +54,12 @@ TEST (confirmation_solicitor, batches)
 TEST (confirmation_solicitor, different_hash)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.disable_request_loop = true;
-	node_flags.disable_rep_crawler = true;
-	node_flags.disable_udp = false;
-	auto & node1 = *system.add_node (node_flags);
-	auto & node2 = *system.add_node (node_flags);
+	nano::node_config config;
+	config.flags.disable_request_loop = true;
+	config.flags.disable_rep_crawler = true;
+	config.flags.disable_udp = false;
+	auto & node1 = *system.add_node (config);
+	auto & node2 = *system.add_node (config);
 	auto channel1 (node2.network.udp_channels.create (node1.network.endpoint ()));
 	// Solicitor will only solicit from this representative
 	nano::representative representative (nano::dev_genesis_key.pub, nano::genesis_amount, channel1);

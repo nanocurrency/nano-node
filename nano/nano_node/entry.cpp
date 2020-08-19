@@ -912,9 +912,9 @@ int main (int argc, char * const * argv)
 			nano::alarm alarm (io_ctx);
 			nano::work_pool work (std::numeric_limits<unsigned>::max ());
 			auto path (nano::unique_path ());
-			nano::node_flags node_flags;
-			nano::update_flags (node_flags, vm);
-			auto node (std::make_shared<nano::node> (io_ctx, path, alarm, nano::node_config{}, work, node_flags));
+			nano::node_config config;
+			nano::update_flags (config.flags, vm);
+			auto node (std::make_shared<nano::node> (io_ctx, path, alarm, config, work));
 			nano::block_hash genesis_latest (node->latest (dev_params.ledger.dev_genesis_key.pub));
 			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
 			// Generating keys
@@ -1158,12 +1158,12 @@ int main (int argc, char * const * argv)
 			nano::work_pool work (std::numeric_limits<unsigned>::max ());
 			auto path1 (nano::unique_path ());
 			auto path2 (nano::unique_path ());
-			nano::node_flags flags;
-			flags.disable_lazy_bootstrap = true;
-			flags.disable_legacy_bootstrap = true;
-			flags.disable_wallet_bootstrap = true;
-			flags.disable_bootstrap_listener = true;
-			auto node1 (std::make_shared<nano::node> (io_ctx1, path1, alarm1, nano::node_config{}, work, flags, 0));
+			nano::node_config node_config;
+			node_config.flags.disable_lazy_bootstrap = true;
+			node_config.flags.disable_legacy_bootstrap = true;
+			node_config.flags.disable_wallet_bootstrap = true;
+			node_config.flags.disable_bootstrap_listener = true;
+			auto node1 (std::make_shared<nano::node> (io_ctx1, path1, alarm1, node_config, work, 0));
 			nano::block_hash genesis_latest (node1->latest (dev_params.ledger.dev_genesis_key.pub));
 			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
 			// Generating blocks
@@ -1236,6 +1236,7 @@ int main (int argc, char * const * argv)
 
 			// Start new node
 			nano::node_config config2;
+			config2.flags = node_config.flags;
 			// Config override
 			std::vector<std::string> config_overrides;
 			auto config (vm.find ("config"));
@@ -1260,7 +1261,7 @@ int main (int argc, char * const * argv)
 					config2.active_elections_size = daemon_config.node.active_elections_size;
 				}
 			}
-			auto node2 (std::make_shared<nano::node> (io_ctx2, path2, alarm2, config2, work, flags, 1));
+			auto node2 (std::make_shared<nano::node> (io_ctx2, path2, alarm2, config2, work, 1));
 			node2->start ();
 			nano::thread_runner runner2 (io_ctx2, node2->config.io_threads);
 			std::cout << boost::str (boost::format ("Processing %1% blocks (test node)\n") % (count * 2));

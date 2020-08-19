@@ -23,9 +23,9 @@ namespace nano
 TEST (election, bisect_dependencies)
 {
 	nano::system system;
-	nano::node_flags flags;
-	flags.disable_request_loop = true;
-	auto & node = *system.add_node (flags);
+	nano::node_config config;
+	config.flags.disable_request_loop = true;
+	auto & node = *system.add_node (config);
 	nano::genesis genesis;
 	nano::confirmation_height_info conf_info;
 	ASSERT_FALSE (node.store.confirmation_height_get (node.store.tx_begin_read (), nano::dev_genesis_key.pub, conf_info));
@@ -100,9 +100,9 @@ TEST (election, bisect_dependencies)
 TEST (election, dependencies_open_link)
 {
 	nano::system system;
-	nano::node_flags flags;
-	flags.disable_request_loop = true;
-	auto & node = *system.add_node (flags);
+	nano::node_config config;
+	config.flags.disable_request_loop = true;
+	auto & node = *system.add_node (config);
 
 	nano::state_block_builder builder;
 	nano::keypair key;

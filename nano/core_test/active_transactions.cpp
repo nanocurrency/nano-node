@@ -14,9 +14,9 @@ namespace nano
 TEST (active_transactions, confirm_active)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.disable_request_loop = true;
-	auto & node1 = *system.add_node (node_flags);
+	nano::node_config config;
+	config.flags.disable_request_loop = true;
+	auto & node1 = *system.add_node (config);
 	nano::genesis genesis;
 	auto send = nano::send_block_builder ()
 	            .previous (genesis.hash ())
@@ -28,10 +28,9 @@ TEST (active_transactions, confirm_active)
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send).code);
 	nano::node_config node_config2;
 	node_config2.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	nano::node_flags node_flags2;
 	// The rep crawler would otherwise request confirmations in order to find representatives
-	node_flags2.disable_rep_crawler = true;
-	auto & node2 = *system.add_node (node_config2, node_flags2);
+	node_config2.flags.disable_rep_crawler = true;
+	auto & node2 = *system.add_node (node_config2);
 	system.deadline_set (5s);
 	// Let node2 know about the block
 	while (node2.active.empty ())
@@ -64,9 +63,9 @@ namespace nano
 TEST (active_transactions, confirm_frontier)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.disable_request_loop = true;
-	auto & node1 = *system.add_node (node_flags);
+	nano::node_config config;
+	config.flags.disable_request_loop = true;
+	auto & node1 = *system.add_node (config);
 	nano::genesis genesis;
 	auto send = nano::send_block_builder ()
 	            .previous (genesis.hash ())
@@ -76,10 +75,10 @@ TEST (active_transactions, confirm_frontier)
 	            .work (*system.work.generate (genesis.hash ()))
 	            .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send).code);
-	nano::node_flags node_flags2;
+	nano::node_config config2;
 	// The rep crawler would otherwise request confirmations in order to find representatives
-	node_flags2.disable_rep_crawler = true;
-	auto & node2 = *system.add_node (node_flags2);
+	config2.flags.disable_rep_crawler = true;
+	auto & node2 = *system.add_node (config2);
 	ASSERT_EQ (nano::process_result::progress, node2.process (*send).code);
 	ASSERT_TIMELY (5s, !node2.active.empty ());
 	// Save election to check request count afterwards
@@ -822,11 +821,10 @@ TEST (active_transactions, activate_dependencies)
 	nano::system system;
 	nano::node_config config;
 	config.enable_voting = true;
-	nano::node_flags flags;
-	flags.disable_bootstrap_listener = true;
+	config.flags.disable_bootstrap_listener = true;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	auto node1 (system.add_node (config, flags));
-	auto node2 (system.add_node (config, flags));
+	auto node1 (system.add_node (config));
+	auto node2 (system.add_node (config));
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	nano::genesis genesis;
 	nano::block_builder builder;
@@ -883,9 +881,9 @@ namespace nano
 TEST (active_transactions, activate_dependencies_invalid)
 {
 	nano::system system;
-	nano::node_flags flags;
-	flags.disable_request_loop = true;
-	auto & node (*system.add_node (flags));
+	nano::node_config config;
+	config.flags.disable_request_loop = true;
+	auto & node (*system.add_node (config));
 	node.active.pending_dependencies.emplace_back (nano::genesis ().open->hash (), 10);
 	node.active.pending_dependencies.emplace_back (1, 1);
 	node.active.pending_dependencies.emplace_back (0, -1);
@@ -980,9 +978,8 @@ TEST (active_transactions, insertion_prioritization)
 	nano::node_config node_config;
 	// 10% of elections (1) are prioritized
 	node_config.active_elections_size = 10;
-	nano::node_flags node_flags;
-	node_flags.disable_request_loop = true;
-	auto & node = *system.add_node (node_config, node_flags);
+	node_config.flags.disable_request_loop = true;
+	auto & node = *system.add_node (node_config);
 	nano::state_block_builder builder;
 	auto send1 = builder.make_block ()
 	             .account (nano::dev_genesis_key.pub)
@@ -1170,9 +1167,9 @@ TEST (active_multiplier, normalization)
 TEST (active_transactions, election_difficulty_update_old)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.disable_request_loop = true;
-	auto & node = *system.add_node (node_flags);
+	nano::node_config config;
+	config.flags.disable_request_loop = true;
+	auto & node = *system.add_node (config);
 	nano::genesis genesis;
 	nano::keypair key;
 	nano::state_block_builder builder;
@@ -1215,9 +1212,9 @@ TEST (active_transactions, election_difficulty_update_old)
 TEST (active_transactions, election_difficulty_update_fork)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.disable_request_loop = true;
-	auto & node = *system.add_node (node_flags);
+	nano::node_config config;
+	config.flags.disable_request_loop = true;
+	auto & node = *system.add_node (config);
 
 	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (node, nano::epoch::epoch_1));
 	auto epoch2 = system.upgrade_genesis_epoch (node, nano::epoch::epoch_2);
@@ -1351,7 +1348,7 @@ TEST (active_transactions, confirm_new)
 	node1.process_active (send);
 	node1.block_processor.flush ();
 	ASSERT_EQ (1, node1.active.size ());
-	auto & node2 = *system.add_node ();
+	auto & node2 = *system.add_node (nano::node_config{});
 	// Add key to node2
 	system.wallet (1)->insert_adhoc (nano::dev_genesis_key.prv);
 	// Let node2 know about the block
@@ -1421,9 +1418,9 @@ TEST (active_transactions, restart_dropped)
 TEST (active_transactions, conflicting_block_vote_existing_election)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.disable_request_loop = true;
-	auto & node = *system.add_node (node_flags);
+	nano::node_config config;
+	config.flags.disable_request_loop = true;
+	auto & node = *system.add_node (config);
 	nano::genesis genesis;
 	nano::keypair key;
 	nano::state_block_builder builder;
@@ -1465,10 +1462,9 @@ TEST (active_transactions, conflicting_block_vote_existing_election)
 TEST (active_transactions, activate_account_chain)
 {
 	nano::system system;
-	nano::node_flags flags;
 	nano::node_config config;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	auto & node = *system.add_node (config, flags);
+	auto & node = *system.add_node (config);
 
 	nano::keypair key;
 	nano::state_block_builder builder;

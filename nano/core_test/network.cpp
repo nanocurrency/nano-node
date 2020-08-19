@@ -63,9 +63,9 @@ TEST (network, construction)
 
 TEST (network, self_discard)
 {
-	nano::node_flags node_flags;
-	node_flags.disable_udp = false;
-	nano::system system (1, nano::transport::transport_type::tcp, node_flags);
+	nano::node_config config;
+	config.flags.disable_udp = false;
+	nano::system system (1, nano::transport::transport_type::tcp, config);
 	nano::message_buffer data;
 	data.endpoint = system.nodes[0]->network.endpoint ();
 	ASSERT_EQ (0, system.nodes[0]->stats.count (nano::stat::type::error, nano::stat::detail::bad_sender));
@@ -75,12 +75,12 @@ TEST (network, self_discard)
 
 TEST (network, send_node_id_handshake)
 {
-	nano::node_flags node_flags;
-	node_flags.disable_udp = false;
+	nano::node_config config;
+	config.flags.disable_udp = false;
 	nano::system system;
-	auto node0 = system.add_node (node_flags);
+	auto node0 = system.add_node (config);
 	ASSERT_EQ (0, node0->network.size ());
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{}, system.work, node_flags));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work));
 	node1->start ();
 	system.nodes.push_back (node1);
 	auto initial (node0->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in));
@@ -138,11 +138,11 @@ TEST (network, send_node_id_handshake_tcp)
 TEST (network, last_contacted)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.disable_udp = false;
-	auto node0 = system.add_node (node_flags);
+	nano::node_config config;
+	config.flags.disable_udp = false;
+	auto node0 = system.add_node (config);
 	ASSERT_EQ (0, node0->network.size ());
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{}, system.work, node_flags));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work));
 	node1->start ();
 	system.nodes.push_back (node1);
 	auto channel1 (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, nano::endpoint (boost::asio::ip::address_v6::loopback (), system.nodes.front ()->network.endpoint ().port ()), node1->network_params.protocol.protocol_version));
@@ -168,11 +168,11 @@ TEST (network, last_contacted)
 TEST (network, multi_keepalive)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.disable_udp = false;
-	auto node0 = system.add_node (node_flags);
+	nano::node_config config;
+	config.flags.disable_udp = false;
+	auto node0 = system.add_node (config);
 	ASSERT_EQ (0, node0->network.size ());
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{}, system.work, node_flags));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work));
 	ASSERT_FALSE (node1->init_error ());
 	node1->start ();
 	system.nodes.push_back (node1);
@@ -182,7 +182,7 @@ TEST (network, multi_keepalive)
 	ASSERT_EQ (0, node1->network.size ());
 	ASSERT_EQ (0, node0->network.size ());
 	ASSERT_TIMELY (10s, node0->network.size () == 1);
-	auto node2 = system.add_node (node_flags);
+	auto node2 = system.add_node (config);
 	ASSERT_FALSE (node2->init_error ());
 	auto channel2 (std::make_shared<nano::transport::channel_udp> (node2->network.udp_channels, node0->network.endpoint (), node2->network_params.protocol.protocol_version));
 	node2->network.send_keepalive (channel2);
@@ -234,14 +234,14 @@ TEST (network, send_valid_confirm_ack)
 	std::vector<nano::transport::transport_type> types{ nano::transport::transport_type::tcp, nano::transport::transport_type::udp };
 	for (auto & type : types)
 	{
-		nano::node_flags node_flags;
+		nano::node_config config;
 		if (type == nano::transport::transport_type::udp)
 		{
-			node_flags.disable_tcp_realtime = true;
-			node_flags.disable_bootstrap_listener = true;
-			node_flags.disable_udp = false;
+			config.flags.disable_tcp_realtime = true;
+			config.flags.disable_bootstrap_listener = true;
+			config.flags.disable_udp = false;
 		}
-		nano::system system (2, type, node_flags);
+		nano::system system (2, type, config);
 		auto & node1 (*system.nodes[0]);
 		auto & node2 (*system.nodes[1]);
 		nano::keypair key2;
@@ -263,14 +263,14 @@ TEST (network, send_valid_publish)
 	std::vector<nano::transport::transport_type> types{ nano::transport::transport_type::tcp, nano::transport::transport_type::udp };
 	for (auto & type : types)
 	{
-		nano::node_flags node_flags;
+		nano::node_config config;
 		if (type == nano::transport::transport_type::udp)
 		{
-			node_flags.disable_tcp_realtime = true;
-			node_flags.disable_bootstrap_listener = true;
-			node_flags.disable_udp = false;
+			config.flags.disable_tcp_realtime = true;
+			config.flags.disable_bootstrap_listener = true;
+			config.flags.disable_udp = false;
 		}
-		nano::system system (2, type, node_flags);
+		nano::system system (2, type, config);
 		auto & node1 (*system.nodes[0]);
 		auto & node2 (*system.nodes[1]);
 		node1.bootstrap_initiator.stop ();
@@ -293,10 +293,10 @@ TEST (network, send_valid_publish)
 TEST (network, send_insufficient_work)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.disable_udp = false;
-	auto & node1 = *system.add_node (node_flags);
-	auto & node2 = *system.add_node (node_flags);
+	nano::node_config config;
+	config.flags.disable_udp = false;
+	auto & node1 = *system.add_node (config);
+	auto & node2 = *system.add_node (config);
 	auto block (std::make_shared<nano::send_block> (0, 1, 20, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 	nano::publish publish (block);
 	nano::transport::channel_udp channel (node1.network.udp_channels, node2.network.endpoint (), node1.network_params.protocol.protocol_version);
@@ -340,14 +340,14 @@ TEST (receivable_processor, send_with_receive)
 	std::vector<nano::transport::transport_type> types{ nano::transport::transport_type::tcp, nano::transport::transport_type::udp };
 	for (auto & type : types)
 	{
-		nano::node_flags node_flags;
+		nano::node_config config;
 		if (type == nano::transport::transport_type::udp)
 		{
-			node_flags.disable_tcp_realtime = true;
-			node_flags.disable_bootstrap_listener = true;
-			node_flags.disable_udp = false;
+			config.flags.disable_tcp_realtime = true;
+			config.flags.disable_bootstrap_listener = true;
+			config.flags.disable_udp = false;
 		}
-		nano::system system (2, type, node_flags);
+		nano::system system (2, type, config);
 		auto & node1 (*system.nodes[0]);
 		auto & node2 (*system.nodes[1]);
 		auto amount (std::numeric_limits<nano::uint128_t>::max ());
@@ -786,13 +786,13 @@ TEST (tcp_listener, tcp_listener_timeout_node_id_handshake)
 TEST (network, replace_port)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.disable_udp = false;
-	node_flags.disable_ongoing_telemetry_requests = true;
-	node_flags.disable_initial_telemetry_requests = true;
-	auto node0 = system.add_node (node_flags);
+	nano::node_config config;
+	config.flags.disable_udp = false;
+	config.flags.disable_ongoing_telemetry_requests = true;
+	config.flags.disable_initial_telemetry_requests = true;
+	auto node0 = system.add_node (config);
 	ASSERT_EQ (0, node0->network.size ());
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{}, system.work, node_flags));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work));
 	node1->start ();
 	system.nodes.push_back (node1);
 	{
@@ -824,11 +824,11 @@ TEST (network, peer_max_tcp_attempts)
 	nano::system system (1);
 	auto node (system.nodes[0]);
 	// Add nodes that can accept TCP connection, but not node ID handshake
-	nano::node_flags node_flags;
-	node_flags.disable_tcp_realtime = true;
+	nano::node_config config;
+	config.flags.disable_tcp_realtime = true;
 	for (auto i (0); i < node->network_params.node.max_peers_per_ip; ++i)
 	{
-		auto node2 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{}, system.work, node_flags));
+		auto node2 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work));
 		node2->start ();
 		system.nodes.push_back (node2);
 		// Start TCP attempt
@@ -841,10 +841,10 @@ TEST (network, peer_max_tcp_attempts)
 TEST (network, duplicate_detection)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.disable_udp = false;
-	auto & node0 (*system.add_node (node_flags));
-	auto & node1 (*system.add_node (node_flags));
+	nano::node_config config;
+	config.flags.disable_udp = false;
+	auto & node0 (*system.add_node (config));
+	auto & node1 (*system.add_node (config));
 	auto udp_channel (std::make_shared<nano::transport::channel_udp> (node0.network.udp_channels, node1.network.endpoint (), node1.network_params.protocol.protocol_version));
 	nano::genesis genesis;
 	nano::publish publish (genesis.open);
@@ -865,9 +865,9 @@ TEST (network, duplicate_detection)
 TEST (network, duplicate_revert_publish)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.block_processor_full_size = 0;
-	auto & node (*system.add_node (node_flags));
+	nano::node_config config;
+	config.flags.block_processor_full_size = 0;
+	auto & node (*system.add_node (config));
 	ASSERT_TRUE (node.block_processor.full ());
 	nano::genesis genesis;
 	nano::publish publish (genesis.open);

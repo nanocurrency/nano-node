@@ -220,9 +220,9 @@ TEST (conflicts, dependency)
 TEST (conflicts, adjusted_multiplier)
 {
 	nano::system system;
-	nano::node_flags flags;
-	flags.disable_request_loop = true;
-	auto & node1 (*system.add_node (flags));
+	nano::node_config config;
+	config.flags.disable_request_loop = true;
+	auto & node1 (*system.add_node (config));
 	nano::genesis genesis;
 	nano::keypair key1;
 	nano::keypair key2;

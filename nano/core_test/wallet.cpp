@@ -1003,9 +1003,8 @@ TEST (work_watcher, update)
 	node_config.enable_voting = false;
 	node_config.work_watcher_period = 1s;
 	node_config.max_work_generate_multiplier = 1e6;
-	nano::node_flags node_flags;
-	node_flags.disable_request_loop = true;
-	auto & node = *system.add_node (node_config, node_flags);
+	node_config.flags.disable_request_loop = true;
+	auto & node = *system.add_node (node_config);
 	auto & wallet (*system.wallet (0));
 	wallet.insert_adhoc (nano::dev_genesis_key.prv);
 	nano::keypair key;
@@ -1051,9 +1050,8 @@ TEST (work_watcher, propagate)
 	node_config.enable_voting = false;
 	node_config.work_watcher_period = 1s;
 	node_config.max_work_generate_multiplier = 1e6;
-	nano::node_flags node_flags;
-	node_flags.disable_request_loop = true;
-	auto & node = *system.add_node (node_config, node_flags);
+	node_config.flags.disable_request_loop = true;
+	auto & node = *system.add_node (node_config);
 	auto & wallet (*system.wallet (0));
 	wallet.insert_adhoc (nano::dev_genesis_key.prv);
 	auto & node_passive = *system.add_node (node_config);
@@ -1222,9 +1220,8 @@ TEST (wallet, limited_difficulty)
 	nano::genesis genesis;
 	nano::node_config node_config;
 	node_config.max_work_generate_multiplier = 1;
-	nano::node_flags node_flags;
-	node_flags.disable_request_loop = true;
-	auto & node = *system.add_node (node_config, node_flags);
+	node_config.flags.disable_request_loop = true;
+	auto & node = *system.add_node (node_config);
 	auto & wallet (*system.wallet (0));
 	// Upgrade the genesis account to epoch 2
 	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (node, nano::epoch::epoch_1));
@@ -1291,9 +1288,9 @@ TEST (wallet, epoch_2_receive_propagation)
 	while (++tries < max_tries)
 	{
 		nano::system system;
-		nano::node_flags node_flags;
-		node_flags.disable_request_loop = true;
-		auto & node (*system.add_node (node_flags));
+		nano::node_config config;
+		config.flags.disable_request_loop = true;
+		auto & node (*system.add_node (config));
 		auto & wallet (*system.wallet (0));
 
 		// Upgrade the genesis account to epoch 1
@@ -1346,9 +1343,9 @@ TEST (wallet, epoch_2_receive_unopened)
 	while (++tries < max_tries)
 	{
 		nano::system system;
-		nano::node_flags node_flags;
-		node_flags.disable_request_loop = true;
-		auto & node (*system.add_node (node_flags));
+		nano::node_config config;
+		config.flags.disable_request_loop = true;
+		auto & node (*system.add_node (config));
 		auto & wallet (*system.wallet (0));
 
 		// Upgrade the genesis account to epoch 1

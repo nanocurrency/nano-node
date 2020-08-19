@@ -34,9 +34,9 @@ TEST (confirmation_height, single)
 	auto test_mode = [](nano::confirmation_height_mode mode_a) {
 		auto amount (std::numeric_limits<nano::uint128_t>::max ());
 		nano::system system;
-		nano::node_flags node_flags;
-		node_flags.confirmation_height_processor_mode = mode_a;
-		auto node = system.add_node (node_flags);
+		nano::node_config config;
+		config.flags.confirmation_height_processor_mode = mode_a;
+		auto node = system.add_node (config);
 		nano::keypair key1;
 		system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 		nano::block_hash latest1 (node->latest (nano::dev_genesis_key.pub));
@@ -82,11 +82,10 @@ TEST (confirmation_height, multiple_accounts)
 {
 	auto test_mode = [](nano::confirmation_height_mode mode_a) {
 		nano::system system;
-		nano::node_flags node_flags;
-		node_flags.confirmation_height_processor_mode = mode_a;
 		nano::node_config node_config;
+		node_config.flags.confirmation_height_processor_mode = mode_a;
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-		auto node = system.add_node (node_config, node_flags);
+		auto node = system.add_node (node_config);
 		nano::keypair key1;
 		nano::keypair key2;
 		nano::keypair key3;
@@ -223,9 +222,9 @@ TEST (confirmation_height, gap_bootstrap)
 {
 	auto test_mode = [](nano::confirmation_height_mode mode_a) {
 		nano::system system;
-		nano::node_flags node_flags;
-		node_flags.confirmation_height_processor_mode = mode_a;
-		auto & node1 = *system.add_node (node_flags);
+		nano::node_config config;
+		config.flags.confirmation_height_processor_mode = mode_a;
+		auto & node1 = *system.add_node (config);
 		nano::genesis genesis;
 		nano::keypair destination;
 		auto send1 (std::make_shared<nano::state_block> (nano::genesis_account, genesis.hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, destination.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
@@ -301,12 +300,11 @@ TEST (confirmation_height, gap_live)
 {
 	auto test_mode = [](nano::confirmation_height_mode mode_a) {
 		nano::system system;
-		nano::node_flags node_flags;
-		node_flags.confirmation_height_processor_mode = mode_a;
 		nano::node_config node_config;
+		node_config.flags.confirmation_height_processor_mode = mode_a;
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-		auto node = system.add_node (node_config, node_flags);
-		system.add_node (node_config, node_flags);
+		auto node = system.add_node (node_config);
+		system.add_node (node_config);
 		nano::keypair destination;
 		system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 		system.wallet (1)->insert_adhoc (destination.prv);
@@ -390,11 +388,10 @@ TEST (confirmation_height, send_receive_between_2_accounts)
 {
 	auto test_mode = [](nano::confirmation_height_mode mode_a) {
 		nano::system system;
-		nano::node_flags node_flags;
-		node_flags.confirmation_height_processor_mode = mode_a;
 		nano::node_config node_config;
+		node_config.flags.confirmation_height_processor_mode = mode_a;
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-		auto node = system.add_node (node_config, node_flags);
+		auto node = system.add_node (node_config);
 		nano::keypair key1;
 		nano::block_hash latest (node->latest (nano::dev_genesis_key.pub));
 
@@ -478,11 +475,10 @@ TEST (confirmation_height, send_receive_self)
 {
 	auto test_mode = [](nano::confirmation_height_mode mode_a) {
 		nano::system system;
-		nano::node_flags node_flags;
-		node_flags.confirmation_height_processor_mode = mode_a;
 		nano::node_config node_config;
+		node_config.flags.confirmation_height_processor_mode = mode_a;
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-		auto node = system.add_node (node_config, node_flags);
+		auto node = system.add_node (node_config);
 		nano::block_hash latest (node->latest (nano::dev_genesis_key.pub));
 
 		nano::send_block send1 (latest, nano::dev_genesis_key.pub, nano::genesis_amount - 2, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (latest));
@@ -544,11 +540,10 @@ TEST (confirmation_height, all_block_types)
 {
 	auto test_mode = [](nano::confirmation_height_mode mode_a) {
 		nano::system system;
-		nano::node_flags node_flags;
-		node_flags.confirmation_height_processor_mode = mode_a;
 		nano::node_config node_config;
+		node_config.flags.confirmation_height_processor_mode = mode_a;
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-		auto node = system.add_node (node_config, node_flags);
+		auto node = system.add_node (node_config);
 		nano::block_hash latest (node->latest (nano::dev_genesis_key.pub));
 		nano::keypair key1;
 		nano::keypair key2;
@@ -662,10 +657,10 @@ TEST (confirmation_height, conflict_rollback_cemented)
 		sb.open (nano::stringstream_mt_sink{});
 		nano::boost_log_cerr_redirect redirect_cerr (&sb);
 		nano::system system;
-		nano::node_flags node_flags;
-		node_flags.confirmation_height_processor_mode = mode_a;
-		auto node1 = system.add_node (node_flags);
-		auto node2 = system.add_node (node_flags);
+		nano::node_config config;
+		config.flags.confirmation_height_processor_mode = mode_a;
+		auto node1 = system.add_node (config);
+		auto node2 = system.add_node (config);
 		ASSERT_EQ (1, node1->network.size ());
 		nano::keypair key1;
 		nano::genesis genesis;
@@ -774,9 +769,9 @@ TEST (confirmation_height, observers)
 	auto test_mode = [](nano::confirmation_height_mode mode_a) {
 		auto amount (std::numeric_limits<nano::uint128_t>::max ());
 		nano::system system;
-		nano::node_flags node_flags;
-		node_flags.confirmation_height_processor_mode = mode_a;
-		auto node1 = system.add_node (node_flags);
+		nano::node_config config;
+		config.flags.confirmation_height_processor_mode = mode_a;
+		auto node1 = system.add_node (config);
 		nano::keypair key1;
 		system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 		nano::block_hash latest1 (node1->latest (nano::dev_genesis_key.pub));
@@ -939,11 +934,10 @@ TEST (confirmation_height, pending_observer_callbacks)
 {
 	auto test_mode = [](nano::confirmation_height_mode mode_a) {
 		nano::system system;
-		nano::node_flags node_flags;
-		node_flags.confirmation_height_processor_mode = mode_a;
 		nano::node_config node_config;
+		node_config.flags.confirmation_height_processor_mode = mode_a;
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-		auto node = system.add_node (node_config, node_flags);
+		auto node = system.add_node (node_config);
 
 		system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 		nano::block_hash latest (node->latest (nano::dev_genesis_key.pub));
@@ -1120,14 +1114,13 @@ TEST (confirmation_height, frontiers_confirmation_mode)
 	auto test_mode = [](nano::confirmation_height_mode mode_a) {
 		nano::genesis genesis;
 		nano::keypair key;
-		nano::node_flags node_flags;
-		node_flags.confirmation_height_processor_mode = mode_a;
 		// Always mode
 		{
 			nano::system system;
 			nano::node_config node_config;
+			node_config.flags.confirmation_height_processor_mode = mode_a;
 			node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::always;
-			auto node = system.add_node (node_config, node_flags);
+			auto node = system.add_node (node_config);
 			nano::state_block send (nano::dev_genesis_key.pub, genesis.hash (), nano::dev_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node->work_generate_blocking (genesis.hash ()));
 			{
 				auto transaction = node->store.tx_begin_write ();
@@ -1139,8 +1132,9 @@ TEST (confirmation_height, frontiers_confirmation_mode)
 		{
 			nano::system system;
 			nano::node_config node_config;
+			node_config.flags.confirmation_height_processor_mode = mode_a;
 			node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::automatic;
-			auto node = system.add_node (node_config, node_flags);
+			auto node = system.add_node (node_config);
 			nano::state_block send (nano::dev_genesis_key.pub, genesis.hash (), nano::dev_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node->work_generate_blocking (genesis.hash ()));
 			{
 				auto transaction = node->store.tx_begin_write ();
@@ -1152,8 +1146,9 @@ TEST (confirmation_height, frontiers_confirmation_mode)
 		{
 			nano::system system;
 			nano::node_config node_config;
+			node_config.flags.confirmation_height_processor_mode = mode_a;
 			node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-			auto node = system.add_node (node_config, node_flags);
+			auto node = system.add_node (node_config);
 			nano::state_block send (nano::dev_genesis_key.pub, genesis.hash (), nano::dev_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node->work_generate_blocking (genesis.hash ()));
 			{
 				auto transaction = node->store.tx_begin_write ();
@@ -1174,11 +1169,10 @@ TEST (confirmation_height, callback_confirmed_history)
 {
 	auto test_mode = [](nano::confirmation_height_mode mode_a) {
 		nano::system system;
-		nano::node_flags node_flags;
-		node_flags.confirmation_height_processor_mode = mode_a;
 		nano::node_config node_config;
+		node_config.flags.confirmation_height_processor_mode = mode_a;
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-		auto node = system.add_node (node_config, node_flags);
+		auto node = system.add_node (node_config);
 
 		nano::block_hash latest (node->latest (nano::dev_genesis_key.pub));
 
@@ -1257,11 +1251,10 @@ TEST (confirmation_height, dependent_election)
 {
 	auto test_mode = [](nano::confirmation_height_mode mode_a) {
 		nano::system system;
-		nano::node_flags node_flags;
-		node_flags.confirmation_height_processor_mode = mode_a;
 		nano::node_config node_config;
+		node_config.flags.confirmation_height_processor_mode = mode_a;
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-		auto node = system.add_node (node_config, node_flags);
+		auto node = system.add_node (node_config);
 
 		nano::block_hash latest (node->latest (nano::dev_genesis_key.pub));
 
@@ -1310,11 +1303,10 @@ TEST (confirmation_height, cemented_gap_below_receive)
 {
 	auto test_mode = [](nano::confirmation_height_mode mode_a) {
 		nano::system system;
-		nano::node_flags node_flags;
-		node_flags.confirmation_height_processor_mode = mode_a;
 		nano::node_config node_config;
+		node_config.flags.confirmation_height_processor_mode = mode_a;
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-		auto node = system.add_node (node_config, node_flags);
+		auto node = system.add_node (node_config);
 
 		nano::block_hash latest (node->latest (nano::dev_genesis_key.pub));
 
@@ -1398,11 +1390,10 @@ TEST (confirmation_height, cemented_gap_below_no_cache)
 {
 	auto test_mode = [](nano::confirmation_height_mode mode_a) {
 		nano::system system;
-		nano::node_flags node_flags;
-		node_flags.confirmation_height_processor_mode = mode_a;
 		nano::node_config node_config;
+		node_config.flags.confirmation_height_processor_mode = mode_a;
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-		auto node = system.add_node (node_config, node_flags);
+		auto node = system.add_node (node_config);
 
 		nano::block_hash latest (node->latest (nano::dev_genesis_key.pub));
 
@@ -1484,11 +1475,10 @@ TEST (confirmation_height, election_winner_details_clearing)
 {
 	auto test_mode = [](nano::confirmation_height_mode mode_a) {
 		nano::system system;
-		nano::node_flags node_flags;
-		node_flags.confirmation_height_processor_mode = mode_a;
 		nano::node_config node_config;
+		node_config.flags.confirmation_height_processor_mode = mode_a;
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-		auto node = system.add_node (node_config, node_flags);
+		auto node = system.add_node (node_config);
 
 		nano::block_hash latest (node->latest (nano::dev_genesis_key.pub));
 

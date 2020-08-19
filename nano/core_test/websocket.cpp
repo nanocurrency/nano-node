@@ -55,10 +55,9 @@ TEST (websocket, active_difficulty)
 	nano::node_config config;
 	config.websocket_config.enabled = true;
 	config.websocket_config.port = nano::get_available_port ();
-	nano::node_flags node_flags;
 	// Disable auto-updating active difficulty (multiplier) to prevent intermittent failures
-	node_flags.disable_request_loop = true;
-	auto node1 (system.add_node (config, node_flags));
+	config.flags.disable_request_loop = true;
+	auto node1 (system.add_node (config));
 
 	// "Start" epoch 2
 	node1->ledger.cache.epoch_2_started = true;
@@ -739,13 +738,12 @@ TEST (websocket, telemetry)
 	nano::node_config config;
 	config.websocket_config.enabled = true;
 	config.websocket_config.port = nano::get_available_port ();
-	nano::node_flags node_flags;
-	node_flags.disable_initial_telemetry_requests = true;
-	node_flags.disable_ongoing_telemetry_requests = true;
-	auto node1 (system.add_node (config, node_flags));
+	config.flags.disable_initial_telemetry_requests = true;
+	config.flags.disable_ongoing_telemetry_requests = true;
+	auto node1 (system.add_node (config));
 	config.websocket_config.enabled = true;
 	config.websocket_config.port = nano::get_available_port ();
-	auto node2 (system.add_node (config, node_flags));
+	auto node2 (system.add_node (config));
 
 	wait_peer_connections (system);
 

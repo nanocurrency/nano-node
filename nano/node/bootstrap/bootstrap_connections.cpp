@@ -292,7 +292,7 @@ void nano::bootstrap_connections::populate_connections (bool repeat)
 		for (auto i = 0u; i < delta; i++)
 		{
 			auto endpoint (node.network.bootstrap_peer (true));
-			if (endpoint != nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0) && (node.flags.allow_bootstrap_peers_duplicates || endpoints.find (endpoint) == endpoints.end ()) && !node.network.excluded_peers.check (endpoint))
+			if (endpoint != nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0) && (node.config.flags.allow_bootstrap_peers_duplicates || endpoints.find (endpoint) == endpoints.end ()) && !node.network.excluded_peers.check (endpoint))
 			{
 				connect_client (endpoint);
 				endpoints.insert (endpoint);

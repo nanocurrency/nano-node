@@ -122,10 +122,9 @@ TEST (request_aggregator, two_endpoints)
 	nano::system system;
 	nano::node_config node_config;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	nano::node_flags node_flags;
-	node_flags.disable_rep_crawler = true;
-	auto & node1 (*system.add_node (node_config, node_flags));
-	auto & node2 (*system.add_node (node_config, node_flags));
+	node_config.flags.disable_rep_crawler = true;
+	auto & node1 (*system.add_node (node_config));
+	auto & node2 (*system.add_node (node_config));
 	nano::genesis genesis;
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	auto send1 (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, genesis.hash (), nano::dev_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node1.work_generate_blocking (genesis.hash ())));
@@ -301,9 +300,9 @@ TEST (request_aggregator, unique)
 TEST (request_aggregator, cannot_vote)
 {
 	nano::system system;
-	nano::node_flags flags;
-	flags.disable_request_loop = true;
-	auto & node (*system.add_node (flags));
+	nano::node_config config;
+	config.flags.disable_request_loop = true;
+	auto & node (*system.add_node (config));
 	nano::genesis genesis;
 	nano::state_block_builder builder;
 	auto send1 = builder.make_block ()

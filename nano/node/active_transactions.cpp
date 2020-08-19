@@ -414,7 +414,7 @@ void nano::active_transactions::request_loop ()
 
 	lock.lock ();
 
-	while (!stopped && !node.flags.disable_request_loop)
+	while (!stopped && !node.config.flags.disable_request_loop)
 	{
 		// Account for the time spent in request_confirm by defining the wakeup point beforehand
 		const auto wakeup_l (std::chrono::steady_clock::now () + std::chrono::milliseconds (node.network_params.network.request_interval_ms));
@@ -1268,7 +1268,7 @@ void nano::active_transactions::add_inactive_votes_cache (nano::block_hash const
 			bool start_bootstrap (inactive_votes_bootstrap_check (representative_vector, hash_a, confirmed));
 			auto & inactive_by_arrival (inactive_votes_cache.get<tag_arrival> ());
 			inactive_by_arrival.emplace (nano::inactive_cache_information{ std::chrono::steady_clock::now (), hash_a, representative_vector, start_bootstrap, confirmed });
-			if (inactive_votes_cache.size () > node.flags.inactive_votes_cache_size)
+			if (inactive_votes_cache.size () > node.config.flags.inactive_votes_cache_size)
 			{
 				inactive_by_arrival.erase (inactive_by_arrival.begin ());
 			}
@@ -1308,7 +1308,7 @@ bool nano::active_transactions::inactive_votes_bootstrap_check (std::vector<nano
 		start_bootstrap = true;
 		confirmed_a = true;
 	}
-	else if (!node.flags.disable_legacy_bootstrap && tally > node.gap_cache.bootstrap_threshold ())
+	else if (!node.config.flags.disable_legacy_bootstrap && tally > node.gap_cache.bootstrap_threshold ())
 	{
 		start_bootstrap = true;
 	}
@@ -1323,11 +1323,11 @@ bool nano::active_transactions::inactive_votes_bootstrap_check (std::vector<nano
 				{
 					node_l->logger.try_log (boost::str (boost::format ("Missing block %1% which has enough votes to warrant lazy bootstrapping it") % hash_a.to_string ()));
 				}
-				if (!node_l->flags.disable_lazy_bootstrap)
+				if (!node_l->config.flags.disable_lazy_bootstrap)
 				{
 					node_l->bootstrap_initiator.bootstrap_lazy (hash_a);
 				}
-				else if (!node_l->flags.disable_legacy_bootstrap)
+				else if (!node_l->config.flags.disable_legacy_bootstrap)
 				{
 					node_l->bootstrap_initiator.bootstrap ();
 				}

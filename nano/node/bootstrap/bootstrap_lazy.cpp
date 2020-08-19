@@ -30,7 +30,7 @@ void nano::bootstrap_attempt_lazy::lazy_start (nano::hash_or_account const & has
 {
 	nano::unique_lock<std::mutex> lock (mutex);
 	// Add start blocks, limit 1024 (4k with disabled legacy bootstrap)
-	size_t max_keys (node->flags.disable_legacy_bootstrap ? 4 * 1024 : 1024);
+	size_t max_keys (node->config.flags.disable_legacy_bootstrap ? 4 * 1024 : 1024);
 	if (lazy_keys.size () < max_keys && lazy_keys.find (hash_or_account_a) == lazy_keys.end () && !lazy_blocks_processed (hash_or_account_a))
 	{
 		lazy_keys.insert (hash_or_account_a);
@@ -167,12 +167,12 @@ bool nano::bootstrap_attempt_lazy::lazy_has_expired () const
 {
 	bool result (false);
 	// Max 30 minutes run with enabled legacy bootstrap
-	static std::chrono::minutes const max_lazy_time (node->flags.disable_legacy_bootstrap ? 7 * 24 * 60 : 30);
+	static std::chrono::minutes const max_lazy_time (node->config.flags.disable_legacy_bootstrap ? 7 * 24 * 60 : 30);
 	if (std::chrono::steady_clock::now () - lazy_start_time >= max_lazy_time)
 	{
 		result = true;
 	}
-	else if (!node->flags.disable_legacy_bootstrap && lazy_blocks_count > nano::bootstrap_limits::lazy_blocks_restart_limit)
+	else if (!node->config.flags.disable_legacy_bootstrap && lazy_blocks_count > nano::bootstrap_limits::lazy_blocks_restart_limit)
 	{
 		result = true;
 	}
@@ -182,7 +182,7 @@ bool nano::bootstrap_attempt_lazy::lazy_has_expired () const
 void nano::bootstrap_attempt_lazy::run ()
 {
 	debug_assert (started);
-	debug_assert (!node->flags.disable_lazy_bootstrap);
+	debug_assert (!node->config.flags.disable_lazy_bootstrap);
 	node->bootstrap_initiator.connections->populate_connections (false);
 	lazy_start_time = std::chrono::steady_clock::now ();
 	nano::unique_lock<std::mutex> lock (mutex);
@@ -411,7 +411,7 @@ void nano::bootstrap_attempt_lazy::lazy_backlog_cleanup ()
 void nano::bootstrap_attempt_lazy::lazy_destinations_increment (nano::account const & destination_a)
 {
 	// Enabled only if legacy bootstrap is not available. Legacy bootstrap is a more effective way to receive all existing destinations
-	if (node->flags.disable_legacy_bootstrap)
+	if (node->config.flags.disable_legacy_bootstrap)
 	{
 		// Update accounts counter for send blocks
 		auto existing (lazy_destinations.get<account_tag> ().find (destination_a));
@@ -565,7 +565,7 @@ bool nano::bootstrap_attempt_wallet::wallet_finished ()
 void nano::bootstrap_attempt_wallet::run ()
 {
 	debug_assert (started);
-	debug_assert (!node->flags.disable_wallet_bootstrap);
+	debug_assert (!node->config.flags.disable_wallet_bootstrap);
 	node->bootstrap_initiator.connections->populate_connections (false);
 	auto start_time (std::chrono::steady_clock::now ());
 	auto max_time (std::chrono::minutes (10));

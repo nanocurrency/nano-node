@@ -39,6 +39,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 	nano::set_secure_perm_directory (data_path, error_chmod);
 	std::unique_ptr<nano::thread_runner> runner;
 	nano::daemon_config config (data_path);
+	config.node.flags = flags;
 	auto error = nano::read_node_config_toml (data_path, config, flags.config_overrides);
 	nano::set_use_memory_pools (config.node.use_memory_pools);
 	if (!error)
@@ -59,7 +60,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 			std::cout << initialization_text << std::endl;
 			logger.always_log (initialization_text);
 
-			auto node (std::make_shared<nano::node> (io_ctx, data_path, alarm, config.node, opencl_work, flags));
+			auto node (std::make_shared<nano::node> (io_ctx, data_path, alarm, config.node, opencl_work));
 			if (!node->init_error ())
 			{
 				auto network_label = node->network_params.network.get_current_network_as_string ();

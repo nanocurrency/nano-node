@@ -212,11 +212,11 @@ TEST (telemetry, no_peers)
 TEST (telemetry, basic)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.disable_ongoing_telemetry_requests = true;
-	node_flags.disable_initial_telemetry_requests = true;
-	auto node_client = system.add_node (node_flags);
-	auto node_server = system.add_node (node_flags);
+	nano::node_config config;
+	config.flags.disable_ongoing_telemetry_requests = true;
+	config.flags.disable_initial_telemetry_requests = true;
+	auto node_client = system.add_node (config);
+	auto node_server = system.add_node (config);
 
 	wait_peer_connections (system);
 
@@ -277,11 +277,11 @@ TEST (telemetry, receive_from_non_listening_channel)
 TEST (telemetry, over_udp)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.disable_tcp_realtime = true;
-	node_flags.disable_udp = false;
-	auto node_client = system.add_node (node_flags);
-	auto node_server = system.add_node (node_flags);
+	nano::node_config config;
+	config.flags.disable_tcp_realtime = true;
+	config.flags.disable_udp = false;
+	auto node_client = system.add_node (config);
+	auto node_server = system.add_node (config);
 
 	wait_peer_connections (system);
 
@@ -363,10 +363,10 @@ TEST (telemetry, blocking_request)
 TEST (telemetry, disconnects)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.disable_initial_telemetry_requests = true;
-	auto node_client = system.add_node (node_flags);
-	auto node_server = system.add_node (node_flags);
+	nano::node_config config;
+	config.flags.disable_initial_telemetry_requests = true;
+	auto node_client = system.add_node (config);
+	auto node_server = system.add_node (config);
 
 	wait_peer_connections (system);
 
@@ -388,11 +388,11 @@ TEST (telemetry, dos_tcp)
 {
 	// Confirm that telemetry_reqs are not processed
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.disable_initial_telemetry_requests = true;
-	node_flags.disable_ongoing_telemetry_requests = true;
-	auto node_client = system.add_node (node_flags);
-	auto node_server = system.add_node (node_flags);
+	nano::node_config config;
+	config.flags.disable_initial_telemetry_requests = true;
+	config.flags.disable_ongoing_telemetry_requests = true;
+	auto node_client = system.add_node (config);
+	auto node_server = system.add_node (config);
 
 	wait_peer_connections (system);
 
@@ -429,13 +429,13 @@ TEST (telemetry, dos_udp)
 {
 	// Confirm that telemetry_reqs are not processed
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.disable_udp = false;
-	node_flags.disable_tcp_realtime = true;
-	node_flags.disable_initial_telemetry_requests = true;
-	node_flags.disable_ongoing_telemetry_requests = true;
-	auto node_client = system.add_node (node_flags);
-	auto node_server = system.add_node (node_flags);
+	nano::node_config config;
+	config.flags.disable_udp = false;
+	config.flags.disable_tcp_realtime = true;
+	config.flags.disable_initial_telemetry_requests = true;
+	config.flags.disable_ongoing_telemetry_requests = true;
+	auto node_client = system.add_node (config);
+	auto node_server = system.add_node (config);
 
 	wait_peer_connections (system);
 
@@ -472,11 +472,11 @@ TEST (telemetry, dos_udp)
 TEST (telemetry, disable_metrics)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.disable_initial_telemetry_requests = true;
-	auto node_client = system.add_node (node_flags);
-	node_flags.disable_providing_telemetry_metrics = true;
-	auto node_server = system.add_node (node_flags);
+	nano::node_config config;
+	config.flags.disable_initial_telemetry_requests = true;
+	auto node_client = system.add_node (config);
+	config.flags.disable_providing_telemetry_metrics = true;
+	auto node_server = system.add_node (config);
 
 	wait_peer_connections (system);
 
@@ -534,14 +534,14 @@ TEST (telemetry, remove_peer_different_genesis)
 // Peer exclusion is only fully supported for TCP-only nodes; peers can still reconnect through UDP
 TEST (telemetry, remove_peer_different_genesis_udp)
 {
-	nano::node_flags node_flags;
-	node_flags.disable_udp = false;
-	node_flags.disable_tcp_realtime = true;
-	node_flags.disable_ongoing_telemetry_requests = true;
-	nano::system system (1, nano::transport::transport_type::udp, node_flags);
+	nano::node_config config;
+	config.flags.disable_udp = false;
+	config.flags.disable_tcp_realtime = true;
+	config.flags.disable_ongoing_telemetry_requests = true;
+	nano::system system (1, nano::transport::transport_type::udp, config);
 	auto node0 (system.nodes[0]);
 	ASSERT_EQ (0, node0->network.size ());
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{}, system.work, node_flags));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work));
 	node1->network_params.ledger.genesis_hash = nano::block_hash ("0");
 	node1->start ();
 	system.nodes.push_back (node1);
@@ -578,11 +578,11 @@ TEST (telemetry, remove_peer_different_genesis_udp)
 TEST (telemetry, remove_peer_invalid_signature)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.disable_udp = false;
-	node_flags.disable_initial_telemetry_requests = true;
-	node_flags.disable_ongoing_telemetry_requests = true;
-	auto node = system.add_node (node_flags);
+	nano::node_config config;
+	config.flags.disable_udp = false;
+	config.flags.disable_initial_telemetry_requests = true;
+	config.flags.disable_ongoing_telemetry_requests = true;
+	auto node = system.add_node (config);
 
 	auto channel = node->network.udp_channels.create (node->network.endpoint ());
 	channel->set_node_id (node->node_id.pub);

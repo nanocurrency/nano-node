@@ -183,9 +183,9 @@ TEST (store, load)
 // ulimit -n increasing may be required
 TEST (node, fork_storm)
 {
-	nano::node_flags flags;
-	flags.disable_max_peers_per_ip = true;
-	nano::system system (64, nano::transport::transport_type::tcp, flags);
+	nano::node_config config;
+	config.flags.disable_max_peers_per_ip = true;
+	nano::system system (64, nano::transport::transport_type::tcp, config);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	auto previous (system.nodes[0]->latest (nano::dev_genesis_key.pub));
 	auto balance (system.nodes[0]->balance (nano::dev_genesis_key.pub));
@@ -1149,10 +1149,10 @@ void callback_process (shared_data & shared_data_a, data & data, T & all_node_da
 TEST (telemetry, ongoing_requests)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.disable_initial_telemetry_requests = true;
-	auto node_client = system.add_node (node_flags);
-	auto node_server = system.add_node (node_flags);
+	nano::node_config config;
+	config.flags.disable_initial_telemetry_requests = true;
+	auto node_client = system.add_node (config);
+	auto node_server = system.add_node (config);
 
 	wait_peer_connections (system);
 
@@ -1182,12 +1182,12 @@ namespace transport
 	TEST (telemetry, simultaneous_requests)
 	{
 		nano::system system;
-		nano::node_flags node_flags;
-		node_flags.disable_initial_telemetry_requests = true;
+		nano::node_config config;
+		config.flags.disable_initial_telemetry_requests = true;
 		const auto num_nodes = 4;
 		for (int i = 0; i < num_nodes; ++i)
 		{
-			system.add_node (node_flags);
+			system.add_node (config);
 		}
 
 		wait_peer_connections (system);
@@ -1250,10 +1250,9 @@ TEST (telemetry, under_load)
 	nano::system system;
 	nano::node_config node_config;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	nano::node_flags node_flags;
-	node_flags.disable_initial_telemetry_requests = true;
-	auto node = system.add_node (node_config, node_flags);
-	auto node1 = system.add_node (node_config, node_flags);
+	node_config.flags.disable_initial_telemetry_requests = true;
+	auto node = system.add_node (node_config);
+	auto node1 = system.add_node (node_config);
 	nano::genesis genesis;
 	nano::keypair key;
 	nano::keypair key1;
@@ -1298,11 +1297,11 @@ TEST (telemetry, under_load)
 TEST (telemetry, all_peers_use_single_request_cache)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.disable_ongoing_telemetry_requests = true;
-	node_flags.disable_initial_telemetry_requests = true;
-	auto node_client = system.add_node (node_flags);
-	auto node_server = system.add_node (node_flags);
+	nano::node_config config;
+	config.flags.disable_ongoing_telemetry_requests = true;
+	config.flags.disable_initial_telemetry_requests = true;
+	auto node_client = system.add_node (config);
+	auto node_server = system.add_node (config);
 
 	wait_peer_connections (system);
 
@@ -1361,19 +1360,18 @@ TEST (telemetry, all_peers_use_single_request_cache)
 TEST (telemetry, many_nodes)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.disable_ongoing_telemetry_requests = true;
-	node_flags.disable_initial_telemetry_requests = true;
-	node_flags.disable_request_loop = true;
 	// The telemetry responses can timeout if using a large number of nodes under sanitizers, so lower the number.
 	const auto num_nodes = (is_sanitizer_build || nano::running_within_valgrind ()) ? 4 : 10;
 	for (auto i = 0; i < num_nodes; ++i)
 	{
-		nano::node_config node_config;
+		nano::node_config config;
+		config.flags.disable_ongoing_telemetry_requests = true;
+		config.flags.disable_initial_telemetry_requests = true;
+		config.flags.disable_request_loop = true;
 		// Make a metric completely different for each node so we can check afterwards that there are no duplicates
-		node_config.bandwidth_limit = 100000 + i;
+		config.bandwidth_limit = 100000 + i;
 
-		auto node = std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, node_config, system.work, node_flags);
+		auto node = std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work);
 		node->start ();
 		system.nodes.push_back (node);
 	}

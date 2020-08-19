@@ -92,9 +92,9 @@ TEST (vote_processor, invalid_signature)
 TEST (vote_processor, no_capacity)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.vote_processor_capacity = 0;
-	auto & node (*system.add_node (node_flags));
+	nano::node_config config;
+	config.flags.vote_processor_capacity = 0;
+	auto & node (*system.add_node (config));
 	nano::genesis genesis;
 	nano::keypair key;
 	auto vote (std::make_shared<nano::vote> (key.pub, key.prv, 1, std::vector<nano::block_hash>{ genesis.open->hash () }));
@@ -105,9 +105,9 @@ TEST (vote_processor, no_capacity)
 TEST (vote_processor, overflow)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.vote_processor_capacity = 1;
-	auto & node (*system.add_node (node_flags));
+	nano::node_config config;
+	config.flags.vote_processor_capacity = 1;
+	auto & node (*system.add_node (config));
 	nano::genesis genesis;
 	nano::keypair key;
 	auto vote (std::make_shared<nano::vote> (key.pub, key.prv, 1, std::vector<nano::block_hash>{ genesis.open->hash () }));
@@ -182,10 +182,10 @@ TEST (vote_processor, weights)
 TEST (vote_processor, no_broadcast_local)
 {
 	nano::system system;
-	nano::node_flags flags;
-	flags.disable_request_loop = true;
-	auto & node (*system.add_node (flags));
-	system.add_node (flags);
+	nano::node_config config;
+	config.flags.disable_request_loop = true;
+	auto & node (*system.add_node (config));
+	system.add_node (config);
 	nano::block_builder builder;
 	std::error_code ec;
 	// Reduce the weight of genesis to 2x default min voting weight

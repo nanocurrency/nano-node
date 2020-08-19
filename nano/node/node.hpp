@@ -87,7 +87,7 @@ std::unique_ptr<container_info_component> collect_container_info (rep_crawler & 
 class node final : public std::enable_shared_from_this<nano::node>
 {
 public:
-	node (boost::asio::io_context &, boost::filesystem::path const &, nano::alarm &, nano::node_config const &, nano::work_pool &, nano::node_flags = nano::node_flags (), unsigned seq = 0);
+	node (boost::asio::io_context &, boost::filesystem::path const &, nano::alarm &, nano::node_config const &, nano::work_pool &, unsigned seq = 0);
 	~node ();
 	template <typename T>
 	void background (T action_a)
@@ -155,7 +155,6 @@ public:
 	nano::node_config config;
 	nano::stat stats;
 	std::shared_ptr<nano::websocket::listener> websocket_server;
-	nano::node_flags flags;
 	nano::alarm & alarm;
 	nano::work_pool & work;
 	nano::distributed_work_factory distributed_work;

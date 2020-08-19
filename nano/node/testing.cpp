@@ -22,15 +22,10 @@ std::string nano::error_system_messages::message (int ev) const
 	return "Invalid error code";
 }
 
-std::shared_ptr<nano::node> nano::system::add_node (nano::node_flags node_flags_a, nano::transport::transport_type type_a)
-{
-	return add_node (nano::node_config {}, node_flags_a, type_a);
-}
-
 /** Returns the node added. */
-std::shared_ptr<nano::node> nano::system::add_node (nano::node_config const & node_config_a, nano::node_flags node_flags_a, nano::transport::transport_type type_a)
+std::shared_ptr<nano::node> nano::system::add_node (nano::node_config const & node_config_a, nano::transport::transport_type type_a)
 {
-	auto node (std::make_shared<nano::node> (io_ctx, nano::unique_path (), alarm, node_config_a, work, node_flags_a, node_sequence++));
+	auto node (std::make_shared<nano::node> (io_ctx, nano::unique_path (), alarm, node_config_a, work, node_sequence++));
 	debug_assert (!node->init_error ());
 	node->start ();
 	node->wallets.create (nano::random_wallet_id ());
@@ -38,7 +33,7 @@ std::shared_ptr<nano::node> nano::system::add_node (nano::node_config const & no
 	nodes.push_back (node);
 	if (nodes.size () > 1)
 	{
-		debug_assert (nodes.size () - 1 <= node->network_params.node.max_peers_per_ip || node->flags.disable_max_peers_per_ip); // Check that we don't start more nodes than limit for single IP address
+		debug_assert (nodes.size () - 1 <= node->network_params.node.max_peers_per_ip || node->config.flags.disable_max_peers_per_ip); // Check that we don't start more nodes than limit for single IP address
 		auto begin = nodes.end () - 2;
 		for (auto i (begin), j (begin + 1), n (nodes.end ()); j != n; ++i, ++j)
 		{
@@ -66,7 +61,7 @@ std::shared_ptr<nano::node> nano::system::add_node (nano::node_config const & no
 				new1 = node1->network.size ();
 				new2 = node2->network.size ();
 			} while (new1 == starting1 || new2 == starting2);
-			if (type_a == nano::transport::transport_type::tcp && node_config_a.tcp_incoming_connections_max != 0 && !node_flags_a.disable_tcp_realtime)
+			if (type_a == nano::transport::transport_type::tcp && node_config_a.tcp_incoming_connections_max != 0 && !node_config_a.flags.disable_tcp_realtime)
 			{
 				// Wait for initial connection finish
 				decltype (starting_listener1) new_listener1;
@@ -110,13 +105,13 @@ nano::system::system ()
 	}
 }
 
-nano::system::system (uint16_t count_a, nano::transport::transport_type type_a, nano::node_flags flags_a) :
+nano::system::system (uint16_t count_a, nano::transport::transport_type type_a, nano::node_config config_a) :
 system ()
 {
 	nodes.reserve (count_a);
 	for (uint16_t i (0); i < count_a; ++i)
 	{
-		add_node (nano::node_config {}, flags_a, type_a);
+		add_node (config_a, type_a);
 	}
 }
 

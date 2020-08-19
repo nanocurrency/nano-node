@@ -7264,9 +7264,9 @@ TEST (rpc, epoch_upgrade_multithreaded)
 TEST (rpc, account_lazy_start)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.disable_legacy_bootstrap = true;
-	auto node1 = system.add_node (node_flags);
+	nano::node_config config;
+	config.flags.disable_legacy_bootstrap = true;
+	auto node1 = system.add_node (config);
 	nano::keypair key;
 	// Generating test chain
 	auto send1 (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, nano::genesis_hash, nano::dev_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (nano::genesis_hash)));
@@ -7278,7 +7278,8 @@ TEST (rpc, account_lazy_start)
 	nano::node_config node_config;
 	node_config.ipc_config.transport_tcp.enabled = true;
 	node_config.ipc_config.transport_tcp.port = nano::get_available_port ();
-	auto node2 = system.add_node (node_config, node_flags);
+	node_config.flags = config.flags;
+	auto node2 = system.add_node (node_config);
 	node2->network.udp_channels.insert (node1->network.endpoint (), node1->network_params.protocol.protocol_version);
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (*node2, node_rpc_config);
@@ -7673,9 +7674,8 @@ TEST (rpc, confirmation_active)
 	nano::node_config node_config;
 	node_config.ipc_config.transport_tcp.enabled = true;
 	node_config.ipc_config.transport_tcp.port = nano::get_available_port ();
-	nano::node_flags node_flags;
-	node_flags.disable_request_loop = true;
-	auto & node1 (*system.add_node (node_config, node_flags));
+	node_config.flags.disable_request_loop = true;
+	auto & node1 (*system.add_node (node_config));
 	scoped_io_thread_name_change scoped_thread_name_io;
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
