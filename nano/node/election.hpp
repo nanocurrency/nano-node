@@ -79,7 +79,7 @@ public:
 	void confirm_once (nano::election_status_type = nano::election_status_type::active_confirmed_quorum);
 	// Confirm this block if quorum is met
 	void confirm_if_quorum ();
-	void log_votes (nano::tally_t const &) const;
+	void log_votes (nano::tally_t const &, std::string const & = "") const;
 	bool publish (std::shared_ptr<nano::block> block_a);
 	size_t last_votes_size ();
 	void update_dependent ();
