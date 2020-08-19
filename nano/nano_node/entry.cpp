@@ -1865,7 +1865,7 @@ int main (int argc, char * const * argv)
 			auto node = inactive_node->node;
 
 			auto transaction (node->store.tx_begin_read ());
-			std::vector<std::unordered_set<nano::account>> opened_account_versions (nano::normalized_epoch (nano::epoch::max));
+			std::vector<std::unordered_set<nano::account>> opened_account_versions (nano::normalized_epoch (nano::epoch::max) + 1);
 
 			// Cache the accounts in a collection to make searching quicker against unchecked keys. Group by epoch
 			for (auto i (node->store.latest_begin (transaction)), n (node->store.latest_end ()); i != n; ++i)
@@ -1896,7 +1896,7 @@ int main (int argc, char * const * argv)
 					if (it != unopened_highest_pending.cend ())
 					{
 						// Found it, compare against existing value
-						if (epoch > it->second)
+						if (epoch < it->second)
 						{
 							it->second = epoch;
 						}
