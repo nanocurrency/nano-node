@@ -307,6 +307,10 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 			election.election->try_generate_votes (block_a->hash ());
 		}
 	}
+	else
+	{
+		node.active.check_inactive_votes_cache_election (block_a);
+	}
 
 	// Announce block contents to the network
 	if (origin_a == nano::block_origin::local)

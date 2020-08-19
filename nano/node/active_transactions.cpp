@@ -1269,6 +1269,16 @@ void nano::active_transactions::add_inactive_votes_cache (nano::block_hash const
 	}
 }
 
+void nano::active_transactions::check_inactive_votes_cache_election (std::shared_ptr<nano::block> const & block_a)
+{
+	nano::lock_guard<std::mutex> guard (mutex);
+	auto const status = find_inactive_votes_cache (block_a->hash ()).status;
+	if (status.election_started)
+	{
+		insert_impl (block_a);
+	}
+}
+
 nano::inactive_cache_information nano::active_transactions::find_inactive_votes_cache (nano::block_hash const & hash_a)
 {
 	auto & inactive_by_hash (inactive_votes_cache.get<tag_hash> ());
@@ -1301,6 +1311,7 @@ nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_
 	{
 		tally += node.ledger.weight (voter);
 	}
+
 	if (!previously_a.confirmed && tally >= node.config.online_weight_minimum.number ())
 	{
 		status.bootstrap_started = true;

@@ -750,8 +750,23 @@ TEST (active_transactions, inactive_votes_cache_election_start)
 	ASSERT_TIMELY (5s, 11 == node.ledger.cache.block_count);
 	ASSERT_TRUE (node.active.empty ());
 	ASSERT_EQ (1, node.ledger.cache.cemented_count);
+	// These blocks will be processed later
+	auto send6 = send_block_builder.make_block ()
+	             .previous (send5->hash ())
+	             .destination (nano::keypair ().pub)
+	             .balance (send5->balance ().number () - 1)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (*system.work.generate (send5->hash ()))
+	             .build_shared ();
+	auto send7 = send_block_builder.make_block ()
+	             .previous (send6->hash ())
+	             .destination (nano::keypair ().pub)
+	             .balance (send6->balance ().number () - 1)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (*system.work.generate (send6->hash ()))
+	             .build_shared ();
 	// Inactive votes
-	std::vector<nano::block_hash> hashes{ open1->hash (), open2->hash (), open3->hash (), open4->hash (), open5->hash () };
+	std::vector<nano::block_hash> hashes{ open1->hash (), open2->hash (), open3->hash (), open4->hash (), open5->hash (), send7->hash () };
 	auto vote1 (std::make_shared<nano::vote> (key1.pub, key1.prv, 0, hashes));
 	node.vote_processor.vote (vote1, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
 	auto vote2 (std::make_shared<nano::vote> (key2.pub, key2.prv, 0, hashes));
@@ -760,7 +775,7 @@ TEST (active_transactions, inactive_votes_cache_election_start)
 	node.vote_processor.vote (vote3, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
 	auto vote4 (std::make_shared<nano::vote> (key4.pub, key4.prv, 0, hashes));
 	node.vote_processor.vote (vote4, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
-	ASSERT_TIMELY (5s, node.active.inactive_votes_cache_size () == 5);
+	ASSERT_TIMELY (5s, node.active.inactive_votes_cache_size () == 6);
 	ASSERT_TRUE (node.active.empty ());
 	ASSERT_EQ (1, node.ledger.cache.cemented_count);
 	// 5 votes are required to start election
@@ -772,6 +787,21 @@ TEST (active_transactions, inactive_votes_cache_election_start)
 	node.vote_processor.vote (vote0, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
 	ASSERT_TIMELY (5s, node.active.empty ());
 	ASSERT_TIMELY (5s, 11 == node.ledger.cache.cemented_count);
+	// A late block arrival also checks the inactive votes cache
+	ASSERT_TRUE (node.active.empty ());
+	auto send7_cache (node.active.find_inactive_votes_cache (send7->hash ()));
+	ASSERT_EQ (6, send7_cache.voters.size ());
+	ASSERT_TRUE (send7_cache.status.bootstrap_started);
+	ASSERT_TRUE (send7_cache.status.confirmed);
+	ASSERT_TRUE (send7_cache.status.election_started); // already marked even though the block does not exist
+	node.process_active (send6);
+	node.block_processor.flush ();
+	// An election is started for send6 but does not confirm
+	ASSERT_TIMELY (5s, 1 == node.active.size ());
+	// send7 cannot be voted on but an election should be started from inactive votes
+	node.process_active (send7);
+	node.block_processor.flush ();
+	ASSERT_TIMELY (5s, 13 == node.ledger.cache.cemented_count);
 }
 
 TEST (active_transactions, update_difficulty)
