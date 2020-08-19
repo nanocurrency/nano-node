@@ -2,6 +2,7 @@
 #include <nano/lib/threading.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/testing.hpp>
 #include <nano/node/telemetry.hpp>
 #include <nano/secure/buffer.hpp>
 
@@ -18,9 +19,9 @@ limiter (node_a.config.bandwidth_limit_burst_ratio, node_a.config.bandwidth_limi
 tcp_message_manager (node_a.config.tcp_incoming_connections_max),
 node (node_a),
 publish_filter (256 * 1024),
-udp_channels (node_a, port_a),
+port (port_to_use (port_a)),
+udp_channels (node_a, port),
 tcp_channels (node_a),
-port (port_a),
 disconnect_observer ([]() {})
 {
 	boost::thread::attributes attrs;
@@ -784,6 +785,33 @@ void nano::network::erase_below_version (uint8_t cutoff_version_a)
 		debug_assert (channel_to_remove->get_network_version () < cutoff_version_a);
 		erase (*channel_to_remove);
 	}
+}
+
+uint16_t nano::network::port_to_use (uint16_t port_a) const
+{
+	uint16_t result{port_a};
+	if (port_a == 0)
+	{
+		switch (node.network_params.network.network ())
+		{
+			case nano::nano_networks::nano_dev_network:
+				result = nano::get_available_port ();
+				break;
+			case nano::nano_networks::nano_beta_network:
+				result = node.network_params.network.default_node_port;
+				break;
+			case nano::nano_networks::nano_live_network:
+				result = node.network_params.network.default_node_port;
+				break;
+			case nano::nano_networks::nano_test_network:
+				result = node.network_params.network.default_node_port;
+				break;
+			default:
+				debug_assert (false);
+				break;
+		}
+	}
+	return result;
 }
 
 void nano::network::erase (nano::transport::channel const & channel_a)

@@ -29,7 +29,6 @@ external_address (boost::asio::ip::address_v6{}.to_string ())
 		case nano::nano_networks::nano_dev_network:
 			enable_voting = true;
 			preconfigured_representatives.push_back (network_params.ledger.genesis_account);
-			peering_port = nano::get_available_port ();
 			break;
 		case nano::nano_networks::nano_beta_network:
 		{
@@ -37,7 +36,6 @@ external_address (boost::asio::ip::address_v6{}.to_string ())
 			nano::account offline_representative;
 			release_assert (!offline_representative.decode_account ("nano_1defau1t9off1ine9rep99999999999999999999999999999999wgmuzxxy"));
 			preconfigured_representatives.emplace_back (offline_representative);
-			peering_port = network_params.network.default_node_port;
 			break;
 		}
 		case nano::nano_networks::nano_live_network:
@@ -50,12 +48,10 @@ external_address (boost::asio::ip::address_v6{}.to_string ())
 			preconfigured_representatives.emplace_back ("2399A083C600AA0572F5E36247D978FCFC840405F8D4B6D33161C0066A55F431");
 			preconfigured_representatives.emplace_back ("2298FAB7C61058E77EA554CB93EDEEDA0692CBFCC540AB213B2836B29029E23A");
 			preconfigured_representatives.emplace_back ("3FE80B4BC842E82C1C18ABFEEC47EA989E63953BC82AC411F304D13833D52A56");
-			peering_port = network_params.network.default_node_port;
 			break;
 		case nano::nano_networks::nano_test_network:
 			preconfigured_peers.push_back (default_test_peer_network);
 			preconfigured_representatives.push_back (network_params.ledger.genesis_account);
-			peering_port = network_params.network.default_node_port;
 			break;
 		default:
 			debug_assert (false);
