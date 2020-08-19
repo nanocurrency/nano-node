@@ -1328,7 +1328,7 @@ nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_
 		status.election_started = true;
 	}
 
-	if (status.election_started || status.bootstrap_started && (!previously_a.election_started || !previously_a.bootstrap_started))
+	if ((status.election_started && !previously_a.election_started) || (status.bootstrap_started && !previously_a.bootstrap_started))
 	{
 		auto transaction (node.store.tx_begin_read ());
 		auto block = node.store.block_get (transaction, hash_a);
