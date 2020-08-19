@@ -281,7 +281,7 @@ private:
 			mi::member<nano::inactive_cache_information, nano::block_hash, &nano::inactive_cache_information::hash>>>>;
 	ordered_cache inactive_votes_cache;
 	// clang-format on
-	nano::inactive_cache_status inactive_votes_bootstrap_check (std::vector<nano::account> const &, nano::block_hash const &);
+	nano::inactive_cache_status inactive_votes_bootstrap_check (std::vector<nano::account> const &, nano::block_hash const &, nano::inactive_cache_status const &);
 	boost::thread thread;
 
 	friend class election;

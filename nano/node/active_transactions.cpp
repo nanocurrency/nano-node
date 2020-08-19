@@ -1245,7 +1245,7 @@ void nano::active_transactions::add_inactive_votes_cache (nano::block_hash const
 
 				if (is_new)
 				{
-					auto const status = inactive_votes_bootstrap_check (existing->voters, hash_a);
+					auto const status = inactive_votes_bootstrap_check (existing->voters, hash_a, existing->status);
 					if (status != existing->status)
 					{
 						inactive_by_hash.modify (existing, [status](nano::inactive_cache_information & info) {
@@ -1259,7 +1259,8 @@ void nano::active_transactions::add_inactive_votes_cache (nano::block_hash const
 		{
 			std::vector<nano::account> representative_vector (1, representative_a);
 			bool confirmed (false);
-			auto const status (inactive_votes_bootstrap_check (representative_vector, hash_a));
+			nano::inactive_cache_status empty_status;
+			auto const status (inactive_votes_bootstrap_check (representative_vector, hash_a, empty_status));
 			auto & inactive_by_arrival (inactive_votes_cache.get<tag_arrival> ());
 			inactive_by_arrival.emplace (nano::inactive_cache_information{ std::chrono::steady_clock::now (), hash_a, representative_vector, status });
 			if (inactive_votes_cache.size () > node.flags.inactive_votes_cache_size)
@@ -1289,25 +1290,25 @@ void nano::active_transactions::erase_inactive_votes_cache (nano::block_hash con
 	inactive_votes_cache.get<tag_hash> ().erase (hash_a);
 }
 
-nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_check (std::vector<nano::account> const & voters_a, nano::block_hash const & hash_a)
+nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_check (std::vector<nano::account> const & voters_a, nano::block_hash const & hash_a, nano::inactive_cache_status const & status_a)
 {
-	nano::inactive_cache_status status;
+	nano::inactive_cache_status status (status_a);
 	constexpr unsigned election_start_voters_min{ 5 };
 	uint128_t tally;
 	for (auto const & voter : voters_a)
 	{
 		tally += node.ledger.weight (voter);
 	}
-	if (tally >= node.config.online_weight_minimum.number ())
+	if (!status.confirmed && tally >= node.config.online_weight_minimum.number ())
 	{
 		status.bootstrap_started = true;
 		status.confirmed = true;
 	}
-	else if (!node.flags.disable_legacy_bootstrap && tally > node.gap_cache.bootstrap_threshold ())
+	else if (!status.bootstrap_started && !node.flags.disable_legacy_bootstrap && node.flags.disable_lazy_bootstrap && tally > node.gap_cache.bootstrap_threshold ())
 	{
 		status.bootstrap_started = true;
 	}
-	if (voters_a.size () >= election_start_voters_min && tally >= (node.online_reps.online_stake () / 100) * node.config.election_hint_weight_percent)
+	if (!status.election_started && voters_a.size () >= election_start_voters_min && tally >= (node.online_reps.online_stake () / 100) * node.config.election_hint_weight_percent)
 	{
 		status.election_started = true;
 	}
@@ -1316,11 +1317,11 @@ nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_
 	{
 		auto transaction (node.store.tx_begin_read ());
 		auto block = node.store.block_get (transaction, hash_a);
-		if (block && status.election_started && !node.block_confirmed_or_being_confirmed (transaction, hash_a))
+		if (block && status.election_started && !status_a.election_started && !node.block_confirmed_or_being_confirmed (transaction, hash_a))
 		{
 			insert_impl (block);
 		}
-		else if (!block && status.bootstrap_started)
+		else if (!block && status.bootstrap_started && !status_a.bootstrap_started)
 		{
 			node.gap_cache.bootstrap_start (hash_a);
 		}
