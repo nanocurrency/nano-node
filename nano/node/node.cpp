@@ -1635,7 +1635,7 @@ std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> nano::node::get_
 	return { max_blocks, weights };
 }
 
-nano::inactive_node::inactive_node (boost::filesystem::path const & path_a, nano::node_flags const & node_flags_a) :
+nano::inactive_node::inactive_node (boost::filesystem::path const & path_a, nano::node_config const & config_a) :
 io_context (std::make_shared<boost::asio::io_context> ()),
 alarm (*io_context),
 work (1)
@@ -1648,11 +1648,11 @@ work (1)
 	boost::filesystem::create_directories (path_a);
 	nano::set_secure_perm_directory (path_a, error_chmod);
 	nano::daemon_config daemon_config (path_a);
-	auto error = nano::read_node_config_toml (path_a, daemon_config, node_flags_a.config_overrides);
+	auto error = nano::read_node_config_toml (path_a, daemon_config, config_a.flags.config_overrides);
 	if (error)
 	{
 		std::cerr << "Error deserializing config file";
-		if (!node_flags_a.config_overrides.empty ())
+		if (!config_a.flags.config_overrides.empty ())
 		{
 			std::cerr << " or --config option";
 		}
@@ -1664,7 +1664,7 @@ work (1)
 	auto & node_config = daemon_config.node;
 	node_config.logging.max_size = std::numeric_limits<std::uintmax_t>::max ();
 	node_config.logging.init (path_a);
-	node_config.flags = node_flags_a;
+	node_config.flags = config_a.flags;
 
 	node = std::make_shared<nano::node> (*io_context, path_a, alarm, node_config, work);
 	node->active.stop ();

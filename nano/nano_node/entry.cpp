@@ -167,10 +167,11 @@ int main (int argc, char * const * argv)
 		{
 			if (!nano::network_constants ().is_dev_network ())
 			{
-				auto node_flags = nano::inactive_node_flag_defaults ();
-				nano::update_flags (node_flags, vm);
-				node_flags.generate_cache.reps = true;
-				nano::inactive_node inactive_node (data_path, node_flags);
+				nano::node_config config;
+				config.flags = nano::inactive_node_flag_defaults ();
+				nano::update_flags (config.flags, vm);
+				config.flags.generate_cache.reps = true;
+				nano::inactive_node inactive_node (data_path, config);
 				auto node = inactive_node.node;
 
 				auto const bootstrap_weights = node->get_bootstrap_weights ();
@@ -396,10 +397,11 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_dump_representatives"))
 		{
-			auto node_flags = nano::inactive_node_flag_defaults ();
-			nano::update_flags (node_flags, vm);
-			node_flags.generate_cache.reps = true;
-			nano::inactive_node inactive_node (data_path, node_flags);
+			nano::node_config config;
+			config.flags = nano::inactive_node_flag_defaults ();
+			nano::update_flags (config.flags, vm);
+			config.flags.generate_cache.reps = true;
+			nano::inactive_node inactive_node (data_path, config);
 			auto node = inactive_node.node;
 			auto transaction (node->store.tx_begin_read ());
 			nano::uint128_t total;
@@ -437,10 +439,11 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_account_count"))
 		{
-			auto node_flags = nano::inactive_node_flag_defaults ();
-			nano::update_flags (node_flags, vm);
-			node_flags.generate_cache.account_count = true;
-			nano::inactive_node inactive_node (data_path, node_flags);
+			nano::node_config config;
+			config.flags = nano::inactive_node_flag_defaults ();
+			nano::update_flags (config.flags, vm);
+			config.flags.generate_cache.account_count = true;
+			nano::inactive_node inactive_node (data_path, config);
 			std::cout << boost::str (boost::format ("Frontier count: %1%\n") % inactive_node.node->ledger.cache.account_count);
 		}
 		else if (vm.count ("debug_profile_kdf"))
@@ -1347,10 +1350,11 @@ int main (int argc, char * const * argv)
 				std::exit (0);
 			});
 
-			auto node_flags = nano::inactive_node_flag_defaults ();
-			nano::update_flags (node_flags, vm);
-			node_flags.generate_cache.enable_all ();
-			nano::inactive_node inactive_node_l (data_path, node_flags);
+			nano::node_config node_config;
+			node_config.flags = nano::inactive_node_flag_defaults ();
+			nano::update_flags (node_config.flags, vm);
+			node_config.flags.generate_cache.enable_all ();
+			nano::inactive_node inactive_node_l (data_path, node_config);
 
 			nano::node_rpc_config config;
 			nano::ipc::ipc_server server (*inactive_node_l.node, config);
@@ -1740,10 +1744,11 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_bootstrap"))
 		{
-			auto node_flags = nano::inactive_node_flag_defaults ();
-			node_flags.read_only = false;
-			nano::update_flags (node_flags, vm);
-			nano::inactive_node node (nano::unique_path (), node_flags);
+			nano::node_config config;
+			config.flags = nano::inactive_node_flag_defaults ();
+			config.flags.read_only = false;
+			nano::update_flags (config.flags, vm);
+			nano::inactive_node node (nano::unique_path (), config);
 			nano::genesis genesis;
 			auto begin (std::chrono::high_resolution_clock::now ());
 			uint64_t block_count (0);
@@ -1831,10 +1836,11 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_cemented_block_count"))
 		{
-			auto node_flags = nano::inactive_node_flag_defaults ();
-			node_flags.generate_cache.cemented_count = true;
-			nano::update_flags (node_flags, vm);
-			nano::inactive_node node (data_path, node_flags);
+			nano::node_config config;
+			config.flags = nano::inactive_node_flag_defaults ();
+			config.flags.generate_cache.cemented_count = true;
+			nano::update_flags (config.flags, vm);
+			nano::inactive_node node (data_path, config);
 			std::cout << "Total cemented block count: " << node.node->ledger.cache.cemented_count << std::endl;
 		}
 		else if (vm.count ("debug_stacktrace"))

@@ -217,7 +217,7 @@ nano::node_flags const & inactive_node_flag_defaults ();
 class inactive_node final
 {
 public:
-	inactive_node (boost::filesystem::path const & path_a, nano::node_flags const & node_flags_a);
+	inactive_node (boost::filesystem::path const & path_a, nano::node_config const & config_a);
 	~inactive_node ();
 	std::shared_ptr<boost::asio::io_context> io_context;
 	nano::alarm alarm;
