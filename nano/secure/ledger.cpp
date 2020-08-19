@@ -1205,26 +1205,14 @@ std::shared_ptr<nano::block> nano::ledger::backtrack (nano::transaction const & 
 bool nano::ledger::block_confirmed (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
 {
 	auto confirmed (false);
-	auto block_height (store.block_account_height (transaction_a, hash_a));
-	if (block_height > 0) // 0 indicates that the block doesn't exist
+	auto block = store.block_get (transaction_a, hash_a);
+	if (block)
 	{
 		nano::confirmation_height_info confirmation_height_info;
-		release_assert (!store.confirmation_height_get (transaction_a, account (transaction_a, hash_a), confirmation_height_info));
-		confirmed = (confirmation_height_info.height >= block_height);
+		release_assert (!store.confirmation_height_get (transaction_a, block->account ().is_zero () ? block->sideband ().account : block->account (), confirmation_height_info));
+		confirmed = (confirmation_height_info.height >= block->sideband ().height);
 	}
 	return confirmed;
-}
-
-bool nano::ledger::block_not_confirmed_or_not_exists (nano::block const & block_a) const
-{
-	bool result (true);
-	auto hash (block_a.hash ());
-	auto transaction (store.tx_begin_read ());
-	if (store.block_exists (transaction, hash))
-	{
-		result = !block_confirmed (transaction, hash);
-	}
-	return result;
 }
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (ledger & ledger, const std::string & name)

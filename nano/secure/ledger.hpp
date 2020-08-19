@@ -27,7 +27,6 @@ public:
 	std::shared_ptr<nano::block> forked_block (nano::transaction const &, nano::block const &);
 	std::shared_ptr<nano::block> backtrack (nano::transaction const &, std::shared_ptr<nano::block> const &, uint64_t);
 	bool block_confirmed (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const;
-	bool block_not_confirmed_or_not_exists (nano::block const & block_a) const;
 	nano::block_hash latest (nano::transaction const &, nano::account const &);
 	nano::root latest_root (nano::transaction const &, nano::account const &);
 	nano::block_hash representative (nano::transaction const &, nano::block_hash const &);
