@@ -169,8 +169,6 @@ bool nano::election::state_change (nano::election::state_t expected_a, nano::ele
 
 void nano::election::send_confirm_req (nano::confirmation_solicitor & solicitor_a)
 {
-	// Don't send confirm_req as often for optimistic elections as there
-	// is a greater chance they will not get enough votes.
 	if ((base_latency () * 5) < (std::chrono::steady_clock::now () - last_req))
 	{
 		if (!solicitor_a.add (*this))

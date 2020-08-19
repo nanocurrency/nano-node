@@ -391,41 +391,7 @@ void nano::active_transactions::confirm_expired_frontiers_pessimistically (nano:
 
 				if (block && !node.confirmation_height_processor.is_processing_block (block->hash ()))
 				{
-					auto source{ block->source () };
-					if (source.is_zero ())
-					{
-						source = block->link ();
-					}
-
-					auto should_start_election{ false };
-
-					// Check if the source is confirmed (if open/receive) before trying to confirm this block
-					if (!source.is_zero () && !node.ledger.is_epoch_link (source))
-					{
-						auto source_block{ node.store.block_get (transaction_a, source) };
-						if (source_block)
-						{
-							auto source_account{ source_block->account () };
-							if (source_account.is_zero ())
-							{
-								source_account = source_block->sideband ().account;
-							}
-							nano::confirmation_height_info source_confirmation_height_info;
-							node.store.confirmation_height_get (transaction_a, source_account, source_confirmation_height_info);
-							// When the source block is confirmed we can confirm this one
-							should_start_election = source_confirmation_height_info.height >= source_block->sideband ().height;
-						}
-						else
-						{
-							should_start_election = true;
-						}
-					}
-					else
-					{
-						should_start_election = true;
-					}
-
-					if (should_start_election)
+					if (node.ledger.dependents_confirmed (transaction_a, *block))
 					{
 						nano::uint128_t previous_balance{ 0 };
 						if (previous_block && previous_block->balance ().is_zero ())
@@ -942,7 +908,7 @@ nano::election_insertion_result nano::active_transactions::activate (nano::accou
 			auto hash = conf_info.height == 0 ? account_info.open_block : node.store.block_successor (transaction, conf_info.frontier);
 			auto block = node.store.block_get (transaction, hash);
 			release_assert (block != nullptr);
-			if (node.ledger.can_vote (transaction, *block))
+			if (node.ledger.dependents_confirmed (transaction, *block))
 			{
 				result = insert (block);
 				if (result.election)

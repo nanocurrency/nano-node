@@ -326,7 +326,7 @@ TEST (request_aggregator, cannot_vote)
 	ASSERT_EQ (nano::process_result::progress, node.process (*send1).code);
 	ASSERT_EQ (nano::process_result::progress, node.process (*send2).code);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
-	ASSERT_FALSE (node.ledger.can_vote (node.store.tx_begin_read (), *send2));
+	ASSERT_FALSE (node.ledger.dependents_confirmed (node.store.tx_begin_read (), *send2));
 
 	std::vector<std::pair<nano::block_hash, nano::root>> request;
 	// Correct hash, correct root
@@ -366,7 +366,7 @@ TEST (request_aggregator, cannot_vote)
 		nano::lock_guard<std::mutex> guard (node.active.mutex);
 		election->confirm_once ();
 	}
-	ASSERT_TIMELY (3s, node.ledger.can_vote (node.store.tx_begin_read (), *send2));
+	ASSERT_TIMELY (3s, node.ledger.dependents_confirmed (node.store.tx_begin_read (), *send2));
 	node.aggregator.add (channel, request);
 	ASSERT_EQ (1, node.aggregator.size ());
 	ASSERT_TIMELY (3s, node.aggregator.empty ());
