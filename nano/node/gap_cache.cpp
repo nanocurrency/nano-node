@@ -69,7 +69,7 @@ void nano::gap_cache::vote (std::shared_ptr<nano::vote> vote_a)
 
 bool nano::gap_cache::bootstrap_check (std::vector<nano::account> const & voters_a, nano::block_hash const & hash_a)
 {
-	uint128_t tally;
+	nano::uint128_t tally;
 	for (auto const & voter : voters_a)
 	{
 		tally += node.ledger.weight (voter);
@@ -88,7 +88,7 @@ bool nano::gap_cache::bootstrap_check (std::vector<nano::account> const & voters
 	}
 	if (start_bootstrap && !node.ledger.block_exists (hash_a))
 	{
-		
+		bootstrap_start (hash_a);
 	}
 	return start_bootstrap;
 }

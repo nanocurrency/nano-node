@@ -1294,7 +1294,7 @@ nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_
 {
 	nano::inactive_cache_status status (status_a);
 	constexpr unsigned election_start_voters_min{ 5 };
-	uint128_t tally;
+	nano::uint128_t tally;
 	for (auto const & voter : voters_a)
 	{
 		tally += node.ledger.weight (voter);
