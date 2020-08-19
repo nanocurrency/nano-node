@@ -1248,6 +1248,8 @@ void nano::active_transactions::add_inactive_votes_cache (nano::block_hash const
 					auto const status = inactive_votes_bootstrap_check (existing->voters, hash_a, existing->status);
 					if (status != existing->status)
 					{
+						// The iterator is only valid if the container was unchanged, e.g., by erasing this item after inserting an election
+						debug_assert (inactive_by_hash.count (hash_a));
 						inactive_by_hash.modify (existing, [status](nano::inactive_cache_information & info) {
 							info.status = status;
 						});
