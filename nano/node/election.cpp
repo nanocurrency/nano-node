@@ -14,7 +14,7 @@ int constexpr nano::election::confirmed_duration_factor;
 
 std::chrono::milliseconds nano::election::base_latency () const
 {
-	return node.network_params.network.is_dev_network () ? 25ms : 1000ms;
+	return node.network_params.network.is_dev_network () ? 25ms : (1000ms * (optimistic () ? 12 : 1));
 }
 
 nano::election_vote_result::election_vote_result (bool replay_a, bool processed_a)
@@ -23,10 +23,10 @@ nano::election_vote_result::election_vote_result (bool replay_a, bool processed_
 	processed = processed_a;
 }
 
-nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> block_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a, bool prioritized_a, bool is_optimistic_a) :
+nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> block_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a, bool prioritized_a, bool optimistic_a) :
 confirmation_action (confirmation_action_a),
 prioritized_m (prioritized_a),
-is_optimistic (is_optimistic_a),
+optimistic_m (optimistic_a),
 node (node_a),
 status ({ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::ongoing }),
 height (block_a->sideband ().height),
@@ -171,8 +171,7 @@ void nano::election::send_confirm_req (nano::confirmation_solicitor & solicitor_
 {
 	// Don't send confirm_req as often for optimistic elections as there
 	// is a greater chance they will not get enough votes.
-	auto req_factor{ is_optimistic ? 60 : 5 };
-	if ((base_latency () * req_factor) < (std::chrono::steady_clock::now () - last_req))
+	if ((base_latency () * 5) < (std::chrono::steady_clock::now () - last_req))
 	{
 		if (!solicitor_a.add (*this))
 		{
@@ -212,6 +211,11 @@ bool nano::election::idle () const
 bool nano::election::confirmed () const
 {
 	return state_m == nano::election::state_t::confirmed || state_m == nano::election::state_t::expired_confirmed;
+}
+
+bool nano::election::failed () const
+{
+	return state_m == nano::election::state_t::expired_unconfirmed;
 }
 
 void nano::election::activate_dependencies ()
@@ -573,6 +577,11 @@ size_t nano::election::insert_inactive_votes_cache (nano::block_hash const & has
 bool nano::election::prioritized () const
 {
 	return prioritized_m;
+}
+
+bool nano::election::optimistic () const
+{
+	return optimistic_m;
 }
 
 void nano::election::prioritize_election (nano::vote_generator_session & generator_session_a)

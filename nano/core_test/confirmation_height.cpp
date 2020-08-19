@@ -1057,7 +1057,6 @@ TEST (confirmation_height, prioritize_frontiers)
 			system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 			system.wallet (0)->insert_adhoc (key1.prv);
 			system.wallet (0)->insert_adhoc (key2.prv);
-			node->active.frontiers_confirmation_state = nano::frontiers_confirmation_state::wallet_frontiers;
 			node->active.prioritize_frontiers_for_confirmation (transaction, std::chrono::seconds (1), std::chrono::seconds (1));
 			ASSERT_EQ (node->active.priority_cementable_frontiers_size (), num_accounts - 3);
 			ASSERT_EQ (node->active.priority_wallet_cementable_frontiers_size (), num_accounts - 2);
@@ -1072,7 +1071,6 @@ TEST (confirmation_height, prioritize_frontiers)
 			// Add the remainder of accounts to node wallets and check size/ordering is correct
 			system.wallet (0)->insert_adhoc (key3.prv);
 			system.wallet (0)->insert_adhoc (key4.prv);
-			node->active.frontiers_confirmation_state = nano::frontiers_confirmation_state::wallet_frontiers;
 			node->active.prioritize_frontiers_for_confirmation (transaction, std::chrono::seconds (1), std::chrono::seconds (1));
 			ASSERT_EQ (node->active.priority_cementable_frontiers_size (), 0);
 			ASSERT_EQ (node->active.priority_wallet_cementable_frontiers_size (), num_accounts);
@@ -1098,10 +1096,10 @@ TEST (confirmation_height, prioritize_frontiers)
 			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send17).code);
 		}
 		transaction.refresh ();
-		node->active.frontiers_confirmation_state = nano::frontiers_confirmation_state::wallet_frontiers;
 		node->active.prioritize_frontiers_for_confirmation (transaction, std::chrono::seconds (1), std::chrono::seconds (1));
 		ASSERT_TRUE (priority_orders_match (node->active.priority_wallet_cementable_frontiers, std::array<nano::account, num_accounts>{ key3.pub, nano::genesis_account, key4.pub, key1.pub, key2.pub }));
-		node->active.confirm_prioritized_frontiers (transaction);
+		uint64_t election_count = 0;
+		node->active.confirm_prioritized_frontiers (transaction, 100, election_count);
 
 		// Check that the active transactions roots contains the frontiers
 		ASSERT_TIMELY (10s, node->active.size () == num_accounts);

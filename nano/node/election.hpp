@@ -69,7 +69,7 @@ private: // State management
 	void generate_votes (nano::block_hash const &);
 	void remove_votes (nano::block_hash const &);
 	std::atomic<bool> prioritized_m = { false };
-	bool is_optimistic = { false };
+	bool optimistic_m = { false };
 
 public:
 	election (nano::node &, std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const &, bool, bool);
@@ -87,6 +87,7 @@ public:
 	void adjust_dependent_difficulty ();
 	size_t insert_inactive_votes_cache (nano::block_hash const &);
 	bool prioritized () const;
+	bool optimistic () const;
 	void prioritize_election (nano::vote_generator_session &);
 	// Calculate votes if the current winner matches \p hash_a
 	void try_generate_votes (nano::block_hash const & hash_a);
@@ -105,6 +106,7 @@ private:
 public:
 	bool idle () const;
 	bool confirmed () const;
+	bool failed () const;
 	nano::node & node;
 	std::unordered_map<nano::account, nano::vote_info> last_votes;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks;

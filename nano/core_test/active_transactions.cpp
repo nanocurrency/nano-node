@@ -1625,7 +1625,13 @@ TEST (active_transactions, pessimistic_elections)
 	ASSERT_EQ (nano::process_result::progress, node.process (*open).code);
 
 	// This should only cement the first block in genesis account
-	node.active.start_pessimistic_elections (node.store.tx_begin_read (), 100, 50ms);
+	uint64_t election_count = 0;
+	node.active.expired_optimistic_elections.emplace (std::chrono::steady_clock::now (), nano::genesis_account);
+	node.active.expired_optimistic_elections.emplace (std::chrono::steady_clock::now (), key.pub);
+	node.active.confirm_expired_frontiers_pessimistically (node.store.tx_begin_read (), 100, election_count);
+	ASSERT_EQ (1, election_count);
+	ASSERT_EQ (2, node.active.expired_optimistic_elections.size ());
+
 	{
 		ASSERT_EQ (1, node.active.size ());
 		auto election = node.active.election (send->qualified_root ());
@@ -1647,7 +1653,9 @@ TEST (active_transactions, pessimistic_elections)
 	}
 
 	// This should cement the next block in genesis account but leave the open block uncemented
-	node.active.start_pessimistic_elections (node.store.tx_begin_read (), 100, 50ms);
+	node.active.confirm_expired_frontiers_pessimistically (node.store.tx_begin_read (), 100, election_count);
+	ASSERT_EQ (1, election_count);
+	ASSERT_EQ (2, node.active.expired_optimistic_elections.size ());
 
 	{
 		auto election = node.active.election (send2->qualified_root ());
@@ -1667,7 +1675,9 @@ TEST (active_transactions, pessimistic_elections)
 	}
 
 	// This should cement the open block for key
-	node.active.start_pessimistic_elections (node.store.tx_begin_read (), 100, 50ms);
+	node.active.confirm_expired_frontiers_pessimistically (node.store.tx_begin_read (), 100, election_count);
+	ASSERT_EQ (1, election_count);
+	ASSERT_EQ (1, node.active.expired_optimistic_elections.size ());
 
 	{
 		auto election = node.active.election (open->qualified_root ());
@@ -1687,6 +1697,8 @@ TEST (active_transactions, pessimistic_elections)
 	}
 
 	// Sanity check that calling it again on a fully cemented chain has no adverse effects.
-	node.active.start_pessimistic_elections (node.store.tx_begin_read (), 100, 50ms);
+	node.active.confirm_expired_frontiers_pessimistically (node.store.tx_begin_read (), 100, election_count);
+	ASSERT_EQ (1, election_count);
+	ASSERT_TRUE (node.active.expired_optimistic_elections.empty ());
 }
 }
