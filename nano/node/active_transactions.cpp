@@ -110,7 +110,7 @@ void nano::active_transactions::confirm_prioritized_frontiers (nano::transaction
 			auto cementable_account_front_it = cementable_frontiers.get<tag_uncemented> ().begin ();
 			auto cementable_account = *cementable_account_front_it;
 			cementable_frontiers.get<tag_uncemented> ().erase (cementable_account_front_it);
-			if (expired_optimistic_elections.get<tag_account> ().count (cementable_account.account) == 0)
+			if (expired_optimistic_election_infos.get<tag_account> ().count (cementable_account.account) == 0)
 			{
 				lk.unlock ();
 				nano::account_info info;
@@ -285,24 +285,24 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 					account = election_l->status.winner->sideband ().account;
 				}
 
-				auto it = expired_optimistic_elections.get<tag_account> ().find (account);
-				if (it != expired_optimistic_elections.get<tag_account> ().end ())
+				auto it = expired_optimistic_election_infos.get<tag_account> ().find (account);
+				if (it != expired_optimistic_election_infos.get<tag_account> ().end ())
 				{
-					expired_optimistic_elections.get<tag_account> ().modify (it, [](auto & expired_optimistic_election) {
+					expired_optimistic_election_infos.get<tag_account> ().modify (it, [](auto & expired_optimistic_election) {
 						expired_optimistic_election.expired_time = std::chrono::steady_clock::now ();
 					});
 				}
 				else
 				{
-					expired_optimistic_elections.emplace (std::chrono::steady_clock::now (), account);
+					expired_optimistic_election_infos.emplace (std::chrono::steady_clock::now (), account);
 				}
 
 				// Expire the oldest one if a maximum is reached
-				if (expired_optimistic_elections.size () > 10000)
+				if (expired_optimistic_election_infos.size () > 10000)
 				{
-					expired_optimistic_elections.get<tag_expired_time> ().erase (expired_optimistic_elections.get<tag_expired_time> ().begin ());
+					expired_optimistic_election_infos.get<tag_expired_time> ().erase (expired_optimistic_election_infos.get<tag_expired_time> ().begin ());
 				}
-				expired_optimistic_elections_size = expired_optimistic_elections.size ();
+				expired_optimistic_election_infos_size = expired_optimistic_election_infos.size ();
 			}
 
 			election_l->cleanup ();
@@ -365,7 +365,7 @@ void nano::active_transactions::frontiers_confirmation (nano::unique_lock<std::m
 }
 
 /*
- * This function takes the expired_optimistic_elections generated from failed elections from frontiers confirmations and starts
+ * This function takes the expired_optimistic_election_infos generated from failed elections from frontiers confirmations and starts
  * confirming blocks at cemented height + 1 (cemented frontier successor) for an account only if all dependent blocks already
  * confirmed.
  */
@@ -377,7 +377,7 @@ void nano::active_transactions::confirm_expired_frontiers_pessimistically (nano:
 	nano::confirmation_height_info confirmation_height_info;
 	uint64_t elections_count{ 0 };
 
-	for (auto i = expired_optimistic_elections.get<tag_expired_time> ().begin (); i != expired_optimistic_elections.get<tag_expired_time> ().end ();)
+	for (auto i = expired_optimistic_election_infos.get<tag_expired_time> ().begin (); i != expired_optimistic_election_infos.get<tag_expired_time> ().end ();)
 	{
 		if (stopped || elections_count_a >= max_elections_a)
 		{
@@ -420,7 +420,7 @@ void nano::active_transactions::confirm_expired_frontiers_pessimistically (nano:
 		if (should_delete)
 		{
 			// This account is confirmed already or doesn't exist.
-			i = expired_optimistic_elections.erase (i);
+			i = expired_optimistic_election_infos.erase (i);
 		}
 		else
 		{
@@ -612,12 +612,12 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 		nano::timer<std::chrono::milliseconds> wallet_account_timer (nano::timer_state::started);
 
 		auto remove_from_expired_optimistic_election_if_old = [this](nano::account const & account_a) {
-			auto it = expired_optimistic_elections.get<tag_account> ().find (account_a);
-			auto exists = expired_optimistic_elections.get<tag_account> ().find (account_a) != expired_optimistic_elections.get<tag_account> ().end ();
+			auto it = expired_optimistic_election_infos.get<tag_account> ().find (account_a);
+			auto exists = expired_optimistic_election_infos.get<tag_account> ().find (account_a) != expired_optimistic_election_infos.get<tag_account> ().end ();
 			auto expired = std::chrono::steady_clock::now () + 30min > it->expired_time;
 			if (exists && expired)
 			{
-				expired_optimistic_elections.get<tag_account> ().erase (it);
+				expired_optimistic_election_infos.get<tag_account> ().erase (it);
 			}
 		};
 
@@ -653,7 +653,7 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 					{
 						auto const & account (i->first);
 						remove_from_expired_optimistic_election_if_old (account);
-						if (expired_optimistic_elections.get<tag_account> ().count (account) == 0 && !node.store.account_get (transaction_a, account, info) && !node.store.confirmation_height_get (transaction_a, account, confirmation_height_info))
+						if (expired_optimistic_election_infos.get<tag_account> ().count (account) == 0 && !node.store.account_get (transaction_a, account, info) && !node.store.confirmation_height_get (transaction_a, account, confirmation_height_info))
 						{
 							// If it exists in normal priority collection delete from there.
 							auto it = priority_cementable_frontiers.find (account);
@@ -701,7 +701,7 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 			if (priority_wallet_cementable_frontiers.find (account) == priority_wallet_cementable_frontiers.end ())
 			{
 				remove_from_expired_optimistic_election_if_old (account);
-				if (expired_optimistic_elections.get<tag_account> ().count (account) == 0 && !node.store.confirmation_height_get (transaction_a, account, confirmation_height_info))
+				if (expired_optimistic_election_infos.get<tag_account> ().count (account) == 0 && !node.store.confirmation_height_get (transaction_a, account, confirmation_height_info))
 				{
 					prioritize_account_for_confirmation (priority_cementable_frontiers, priority_cementable_frontiers_size, account, info, confirmation_height_info.height);
 				}
@@ -1480,7 +1480,7 @@ account (account_a), blocks_uncemented (blocks_uncemented_a)
 {
 }
 
-nano::expired_optimistic_election::expired_optimistic_election (std::chrono::steady_clock::time_point expired_time_a, nano::account account_a) :
+nano::expired_optimistic_election_info::expired_optimistic_election_info (std::chrono::steady_clock::time_point expired_time_a, nano::account account_a) :
 expired_time (expired_time_a),
 account (account_a)
 {
@@ -1514,7 +1514,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (ac
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "recently_cemented", recently_cemented_count, sizeof (decltype (active_transactions.recently_cemented)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "priority_wallet_cementable_frontiers", active_transactions.priority_wallet_cementable_frontiers_size (), sizeof (nano::cementable_account) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "priority_cementable_frontiers", active_transactions.priority_cementable_frontiers_size (), sizeof (nano::cementable_account) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "expired_optimistic_elections", active_transactions.expired_optimistic_elections_size, sizeof (decltype (active_transactions.expired_optimistic_elections)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "expired_optimistic_election_infos", active_transactions.expired_optimistic_election_infos_size, sizeof (decltype (active_transactions.expired_optimistic_election_infos)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "inactive_votes_cache", active_transactions.inactive_votes_cache_size (), sizeof (nano::gap_information) }));
 	composite->add_component (collect_container_info (active_transactions.generator, "generator"));
 	return composite;

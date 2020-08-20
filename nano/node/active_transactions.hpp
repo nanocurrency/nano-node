@@ -58,10 +58,10 @@ public:
 	bool confirmed{ false }; // Did item reach votes quorum? (minimum config value)
 };
 
-class expired_optimistic_election final
+class expired_optimistic_election_info final
 {
 public:
-	expired_optimistic_election (std::chrono::steady_clock::time_point, nano::account);
+	expired_optimistic_election_info (std::chrono::steady_clock::time_point, nano::account);
 
 	std::chrono::steady_clock::time_point expired_time;
 	nano::account account;
@@ -261,15 +261,15 @@ private:
 			mi::member<nano::cementable_account, uint64_t, &nano::cementable_account::blocks_uncemented>,
 			std::greater<uint64_t>>>>;
 
-	boost::multi_index_container<nano::expired_optimistic_election,
+	boost::multi_index_container<nano::expired_optimistic_election_info,
 	boost::multi_index::indexed_by<
 		boost::multi_index::ordered_non_unique<boost::multi_index::tag<tag_expired_time>,
-			boost::multi_index::member<expired_optimistic_election, std::chrono::steady_clock::time_point, &expired_optimistic_election::expired_time>>,
+			boost::multi_index::member<expired_optimistic_election_info, std::chrono::steady_clock::time_point, &expired_optimistic_election_info::expired_time>>,
 		boost::multi_index::hashed_unique<boost::multi_index::tag<tag_account>,
-			boost::multi_index::member<expired_optimistic_election, nano::account, &expired_optimistic_election::account>>>>
-	expired_optimistic_elections;
+			boost::multi_index::member<expired_optimistic_election_info, nano::account, &expired_optimistic_election_info::account>>>>
+	expired_optimistic_election_infos;
 	// clang-format on
-	std::atomic<uint64_t> expired_optimistic_elections_size{ 0 };
+	std::atomic<uint64_t> expired_optimistic_election_infos_size{ 0 };
 
 	// Frontiers confirmation
 	nano::frontiers_confirmation_info get_frontiers_confirmation_info ();
