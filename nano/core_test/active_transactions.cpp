@@ -1585,6 +1585,8 @@ TEST (active_transactions, pessimistic_elections)
 	nano::node_config config (nano::get_available_port (), system.logging);
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node = *system.add_node (config, flags);
+	// This prevents activation of blocks which are cemented
+	node.confirmation_height_processor.cemented_observers.clear ();
 
 	nano::keypair key;
 	nano::state_block_builder builder;
@@ -1654,7 +1656,7 @@ TEST (active_transactions, pessimistic_elections)
 
 	// This should cement the next block in genesis account but leave the open block uncemented
 	node.active.confirm_expired_frontiers_pessimistically (node.store.tx_begin_read (), 100, election_count);
-	ASSERT_EQ (1, election_count);
+	ASSERT_EQ (2, election_count);
 	ASSERT_EQ (2, node.active.expired_optimistic_election_infos.size ());
 
 	{
@@ -1676,7 +1678,7 @@ TEST (active_transactions, pessimistic_elections)
 
 	// This should cement the open block for key
 	node.active.confirm_expired_frontiers_pessimistically (node.store.tx_begin_read (), 100, election_count);
-	ASSERT_EQ (1, election_count);
+	ASSERT_EQ (3, election_count);
 	ASSERT_EQ (1, node.active.expired_optimistic_election_infos.size ());
 
 	{
@@ -1698,7 +1700,7 @@ TEST (active_transactions, pessimistic_elections)
 
 	// Sanity check that calling it again on a fully cemented chain has no adverse effects.
 	node.active.confirm_expired_frontiers_pessimistically (node.store.tx_begin_read (), 100, election_count);
-	ASSERT_EQ (1, election_count);
+	ASSERT_EQ (3, election_count);
 	ASSERT_TRUE (node.active.expired_optimistic_election_infos.empty ());
 }
 }
