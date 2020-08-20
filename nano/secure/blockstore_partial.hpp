@@ -11,7 +11,7 @@
 namespace
 {
 template <typename T, typename U, typename V>
-void parallel_traversal (nano::transaction const & transaction, std::function<void(V const &, V const &, bool const)> action);
+void parallel_traversal (std::function<void(V const &, V const &, bool const)> action);
 }
 
 namespace nano
@@ -721,19 +721,21 @@ public:
 		return count (transaction_a, tables::unchecked);
 	}
 
-	void latest_for_each_par (nano::read_transaction const & transaction_a, std::function<void(nano::store_iterator<nano::account, nano::account_info>, nano::store_iterator<nano::account, nano::account_info>)> action_a) override
+	void latest_for_each_par (std::function<void(nano::store_iterator<nano::account, nano::account_info>, nano::store_iterator<nano::account, nano::account_info>)> action_a) override
 	{
-		parallel_traversal<nano::account, nano::account_info, nano::uint256_t> (transaction_a,
-		[&transaction_a, &action_a, this](nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
-			action_a (this->latest_begin (transaction_a, start), !is_last ? this->latest_begin (transaction_a, end) : this->latest_end ());
+		parallel_traversal<nano::account, nano::account_info, nano::uint256_t> (
+		[&action_a, this](nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
+			auto transaction (this->tx_begin_read ());
+			action_a (this->latest_begin (transaction, start), !is_last ? this->latest_begin (transaction, end) : this->latest_end ());
 		});
 	}
 
-	void confirmation_height_for_each_par (nano::read_transaction const & transaction_a, std::function<void(nano::store_iterator<nano::account, nano::confirmation_height_info>, nano::store_iterator<nano::account, nano::confirmation_height_info>)> action_a) override
+	void confirmation_height_for_each_par (std::function<void(nano::store_iterator<nano::account, nano::confirmation_height_info>, nano::store_iterator<nano::account, nano::confirmation_height_info>)> action_a) override
 	{
-		parallel_traversal<nano::account, nano::confirmation_height_info, nano::uint256_t> (transaction_a,
-		[&transaction_a, &action_a, this](nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
-			action_a (this->confirmation_height_begin (transaction_a, start), !is_last ? this->confirmation_height_begin (transaction_a, end) : this->confirmation_height_end ());
+		parallel_traversal<nano::account, nano::confirmation_height_info, nano::uint256_t> (
+		[&action_a, this](nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
+			auto transaction (this->tx_begin_read ());
+			action_a (this->confirmation_height_begin (transaction, start), !is_last ? this->confirmation_height_begin (transaction, end) : this->confirmation_height_end ());
 		});
 	}
 
@@ -862,7 +864,7 @@ public:
 namespace
 {
 template <typename T, typename U, typename V>
-void parallel_traversal (nano::transaction const & transaction, std::function<void(V const &, V const &, bool const)> action)
+void parallel_traversal (std::function<void(V const &, V const &, bool const)> action)
 {
 	// Between 10 and 40 threads, scales well even in low power systems as long as actions are I/O bound
 	unsigned const thread_count = std::max (10u, std::min (40u, 10 * std::thread::hardware_concurrency ()));

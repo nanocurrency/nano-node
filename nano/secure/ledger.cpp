@@ -747,7 +747,7 @@ void nano::ledger::initialize (nano::generate_cache const & generate_cache_a)
 
 	if (generate_cache_a.reps || generate_cache_a.account_count || generate_cache_a.epoch_2 || generate_cache_a.block_count)
 	{
-		store.latest_for_each_par (transaction,
+		store.latest_for_each_par (
 		[this](nano::store_iterator<nano::account, nano::account_info> i, nano::store_iterator<nano::account, nano::account_info> n) {
 			uint64_t block_count_l{ 0 };
 			uint64_t account_count_l{ 0 };
@@ -773,7 +773,7 @@ void nano::ledger::initialize (nano::generate_cache const & generate_cache_a)
 
 	if (generate_cache_a.cemented_count)
 	{
-		store.confirmation_height_for_each_par (transaction,
+		store.confirmation_height_for_each_par (
 		[this](nano::store_iterator<nano::account, nano::confirmation_height_info> i, nano::store_iterator<nano::account, nano::confirmation_height_info> n) {
 			uint64_t cemented_count_l (0);
 			for (; i != n; ++i)
