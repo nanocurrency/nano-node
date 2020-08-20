@@ -1878,7 +1878,7 @@ int main (int argc, char * const * argv)
 				opened_account_versions[epoch_idx].emplace (account);
 			}
 
-			// Iterate all pending blocks and collect the highest version for each unopened account
+			// Iterate all pending blocks and collect the lowest version for each unopened account
 			std::unordered_map<nano::account, std::underlying_type_t<nano::epoch>> unopened_highest_pending;
 			for (auto i (node->store.pending_begin (transaction)), n (node->store.pending_end ()); i != n; ++i)
 			{
@@ -1890,7 +1890,7 @@ int main (int argc, char * const * argv)
 				});
 				if (!exists)
 				{
-					// This is an unopened account, store the highest pending version
+					// This is an unopened account, store the lowest pending version
 					auto it = unopened_highest_pending.find (key.account);
 					auto epoch = nano::normalized_epoch (info.epoch);
 					if (it != unopened_highest_pending.cend ())
