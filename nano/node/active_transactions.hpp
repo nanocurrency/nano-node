@@ -269,6 +269,7 @@ private:
 			boost::multi_index::member<expired_optimistic_election, nano::account, &expired_optimistic_election::account>>>>
 	expired_optimistic_elections;
 	// clang-format on
+	std::atomic<uint64_t> expired_optimistic_elections_size{ 0 };
 
 	// Frontiers confirmation
 	nano::frontiers_confirmation_info get_frontiers_confirmation_info ();

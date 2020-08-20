@@ -279,20 +279,30 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 		{
 			if (election_l->failed () && election_l->optimistic ())
 			{
-				std::chrono::steady_clock::time_point expired_time;
 				auto account = election_l->status.winner->account ();
 				if (account.is_zero ())
 				{
 					account = election_l->status.winner->sideband ().account;
 				}
 
-				expired_optimistic_elections.emplace (std::chrono::steady_clock::now (), account);
+				auto it = expired_optimistic_elections.get<tag_account> ().find (account);
+				if (it != expired_optimistic_elections.get<tag_account> ().end ())
+				{
+					expired_optimistic_elections.get<tag_account> ().modify (it, [](auto & expired_optimistic_election) {
+						expired_optimistic_election.expired_time = std::chrono::steady_clock::now ();
+					});
+				}
+				else
+				{
+					expired_optimistic_elections.emplace (std::chrono::steady_clock::now (), account);
+				}
 
 				// Expire the oldest one if a maximum is reached
 				if (expired_optimistic_elections.size () > 10000)
 				{
 					expired_optimistic_elections.get<tag_expired_time> ().erase (expired_optimistic_elections.get<tag_expired_time> ().begin ());
 				}
+				expired_optimistic_elections_size = expired_optimistic_elections.size ();
 			}
 
 			election_l->cleanup ();
@@ -1502,9 +1512,10 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (ac
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "election_winner_details", active_transactions.election_winner_details_size (), sizeof (decltype (active_transactions.election_winner_details)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "recently_confirmed", recently_confirmed_count, sizeof (decltype (active_transactions.recently_confirmed)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "recently_cemented", recently_cemented_count, sizeof (decltype (active_transactions.recently_cemented)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "priority_wallet_cementable_frontiers_count", active_transactions.priority_wallet_cementable_frontiers_size (), sizeof (nano::cementable_account) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "priority_cementable_frontiers_count", active_transactions.priority_cementable_frontiers_size (), sizeof (nano::cementable_account) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "inactive_votes_cache_count", active_transactions.inactive_votes_cache_size (), sizeof (nano::gap_information) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "priority_wallet_cementable_frontiers", active_transactions.priority_wallet_cementable_frontiers_size (), sizeof (nano::cementable_account) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "priority_cementable_frontiers", active_transactions.priority_cementable_frontiers_size (), sizeof (nano::cementable_account) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "expired_optimistic_elections", active_transactions.expired_optimistic_elections_size, sizeof (decltype (active_transactions.expired_optimistic_elections)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "inactive_votes_cache", active_transactions.inactive_votes_cache_size (), sizeof (nano::gap_information) }));
 	composite->add_component (collect_container_info (active_transactions.generator, "generator"));
 	return composite;
 }
