@@ -51,9 +51,12 @@ nano::active_transactions::~active_transactions ()
 void nano::active_transactions::insert_election_from_frontiers_confirmation (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, nano::uint128_t previous_balance_a, uint64_t & elections_count_a, bool is_optimistic_a)
 {
 	auto insert_result = insert (block_a, previous_balance_a, is_optimistic_a);
-	if (insert_result.inserted && is_optimistic_a)
+	if (insert_result.inserted)
 	{
-		insert_result.election->transition_active ();
+		if (is_optimistic_a)
+		{
+			insert_result.election->transition_active ();
+		}
 		++elections_count_a;
 	}
 }
