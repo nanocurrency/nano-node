@@ -51,7 +51,7 @@ nano::active_transactions::~active_transactions ()
 void nano::active_transactions::insert_election_from_frontiers_confirmation (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, nano::uint128_t previous_balance_a, uint64_t & elections_count_a, bool is_optimistic_a)
 {
 	auto insert_result = insert (block_a, previous_balance_a, is_optimistic_a);
-	if (insert_result.inserted)
+	if (insert_result.inserted && is_optimistic_a)
 	{
 		insert_result.election->transition_active ();
 		++elections_count_a;
@@ -354,6 +354,11 @@ void nano::active_transactions::frontiers_confirmation (nano::unique_lock<std::m
 	}
 }
 
+/*
+ * This function takes the expired_optimistic_elections generated from failed elections from frontiers confirmations and starts
+ * confirming blocks at cemented height + 1 (cemented frontier successor) for an account only if all dependent blocks already
+ * confirmed.
+ */
 void nano::active_transactions::confirm_expired_frontiers_pessimistically (nano::transaction const & transaction_a, uint64_t max_elections_a, uint64_t & elections_count_a)
 {
 	auto i{ node.store.latest_begin (transaction_a, next_frontier_account) };
@@ -389,18 +394,15 @@ void nano::active_transactions::confirm_expired_frontiers_pessimistically (nano:
 					block = node.store.block_get (transaction_a, previous_block->sideband ().successor);
 				}
 
-				if (block && !node.confirmation_height_processor.is_processing_block (block->hash ()))
+				if (block && !node.confirmation_height_processor.is_processing_block (block->hash ()) && node.ledger.dependents_confirmed (transaction_a, *block))
 				{
-					if (node.ledger.dependents_confirmed (transaction_a, *block))
+					nano::uint128_t previous_balance{ 0 };
+					if (previous_block && previous_block->balance ().is_zero ())
 					{
-						nano::uint128_t previous_balance{ 0 };
-						if (previous_block && previous_block->balance ().is_zero ())
-						{
-							previous_balance = previous_block->sideband ().balance.number ();
-						}
-
-						insert_election_from_frontiers_confirmation (block, account, previous_balance, elections_count_a, false);
+						previous_balance = previous_block->sideband ().balance.number ();
 					}
+
+					insert_election_from_frontiers_confirmation (block, account, previous_balance, elections_count_a, false);
 				}
 			}
 		}
