@@ -745,36 +745,14 @@ void nano::ledger::initialize (nano::generate_cache const & generate_cache_a)
 {
 	auto transaction = store.tx_begin_read ();
 
-	auto parallelize = [this, &transaction](std::function<void(nano::read_transaction const &, nano::uint256_t const, nano::uint256_t const, bool const)> && F) {
-		// Between 10 and 40 threads, scales well even in low power systems as these tasks are I/O bound
-		unsigned const thread_count = std::max (10u, std::min (40u, 10 * std::thread::hardware_concurrency ()));
-		auto const split = std::numeric_limits<nano::uint256_t>::max () / thread_count;
-		std::vector<std::thread> threads;
-		threads.reserve (thread_count);
-		for (unsigned thread (0); thread < thread_count; ++thread)
-		{
-			auto const start = thread * split;
-			auto const end = (thread + 1) * split;
-			auto const last = thread == thread_count - 1;
-			threads.emplace_back ([this, &transaction, F, start, end, last] {
-				F (transaction, start, end, last);
-			});
-		}
-		for (auto & thread : threads)
-		{
-			thread.join ();
-		}
-	};
-
 	if (generate_cache_a.reps || generate_cache_a.account_count || generate_cache_a.epoch_2 || generate_cache_a.block_count)
 	{
-		parallelize ([this](nano::read_transaction const & transaction, nano::uint256_t const start, nano::uint256_t const end, bool const last) {
+		store.latest_for_each_par (transaction,
+		[this](nano::store_iterator<nano::account, nano::account_info> i, nano::store_iterator<nano::account, nano::account_info> n) {
 			uint64_t block_count_l{ 0 };
 			uint64_t account_count_l{ 0 };
 			decltype (this->cache.rep_weights) rep_weights_l;
 			bool epoch_2_started_l{ false };
-			auto i (this->store.latest_begin (transaction, start));
-			auto n (last ? this->store.latest_end () : this->store.latest_begin (transaction, end));
 			for (; i != n; ++i)
 			{
 				nano::account_info const & info (i->second);
@@ -795,10 +773,9 @@ void nano::ledger::initialize (nano::generate_cache const & generate_cache_a)
 
 	if (generate_cache_a.cemented_count)
 	{
-		parallelize ([this](nano::read_transaction const & transaction, nano::uint256_t const start, nano::uint256_t const end, bool const last) {
+		store.confirmation_height_for_each_par (transaction,
+		[this](nano::store_iterator<nano::account, nano::confirmation_height_info> i, nano::store_iterator<nano::account, nano::confirmation_height_info> n) {
 			uint64_t cemented_count_l (0);
-			auto i (this->store.confirmation_height_begin (transaction, start));
-			auto n (last ? this->store.confirmation_height_end () : this->store.confirmation_height_begin (transaction, end));
 			for (; i != n; ++i)
 			{
 				cemented_count_l += i->second.height;

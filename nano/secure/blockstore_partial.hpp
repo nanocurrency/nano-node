@@ -6,6 +6,14 @@
 
 #include <crypto/cryptopp/words.h>
 
+#include <thread>
+
+namespace
+{
+template <typename T, typename U, typename V>
+void parallel_traversal (nano::transaction const & transaction, std::function<void(V const &, V const &, bool const)> action);
+}
+
 namespace nano
 {
 template <typename Val, typename Derived_Store>
@@ -713,6 +721,22 @@ public:
 		return count (transaction_a, tables::unchecked);
 	}
 
+	void latest_for_each_par (nano::read_transaction const & transaction_a, std::function<void(nano::store_iterator<nano::account, nano::account_info>, nano::store_iterator<nano::account, nano::account_info>)> action_a) override
+	{
+		parallel_traversal<nano::account, nano::account_info, nano::uint256_t> (transaction_a,
+		[&transaction_a, &action_a, this](nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
+			action_a (this->latest_begin (transaction_a, start), !is_last ? this->latest_begin (transaction_a, end) : this->latest_end ());
+		});
+	}
+
+	void confirmation_height_for_each_par (nano::read_transaction const & transaction_a, std::function<void(nano::store_iterator<nano::account, nano::confirmation_height_info>, nano::store_iterator<nano::account, nano::confirmation_height_info>)> action_a) override
+	{
+		parallel_traversal<nano::account, nano::confirmation_height_info, nano::uint256_t> (transaction_a,
+		[&transaction_a, &action_a, this](nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
+			action_a (this->confirmation_height_begin (transaction_a, start), !is_last ? this->confirmation_height_begin (transaction_a, end) : this->confirmation_height_end ());
+		});
+	}
+
 	int const minimum_version{ 14 };
 
 protected:
@@ -833,4 +857,32 @@ public:
 	nano::write_transaction const & transaction;
 	nano::block_store_partial<Val, Derived_Store> & store;
 };
+}
+
+namespace
+{
+template <typename T, typename U, typename V>
+void parallel_traversal (nano::transaction const & transaction, std::function<void(V const &, V const &, bool const)> action)
+{
+	// Between 10 and 40 threads, scales well even in low power systems as long as actions are I/O bound
+	unsigned const thread_count = std::max (10u, std::min (40u, 10 * std::thread::hardware_concurrency ()));
+	V const value_max{ std::numeric_limits<V>::max () };
+	V const split = value_max / thread_count;
+	std::vector<std::thread> threads;
+	threads.reserve (thread_count);
+	for (unsigned thread (0); thread < thread_count; ++thread)
+	{
+		V const start = thread * split;
+		V const end = (thread + 1) * split;
+		bool const is_last = thread == thread_count - 1;
+
+		threads.emplace_back ([&action, start, end, is_last] {
+			action (start, end, is_last);
+		});
+	}
+	for (auto & thread : threads)
+	{
+		thread.join ();
+	}
+}
 }
