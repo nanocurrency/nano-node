@@ -59,5 +59,7 @@ std::unique_ptr<nano::state_block> upgrade_epoch (nano::work_pool &, nano::ledge
 void blocks_confirm (nano::node &, std::vector<std::shared_ptr<nano::block>> const &);
 uint16_t get_available_port ();
 void cleanup_dev_directories_on_exit ();
+/** To use RocksDB in tests make sure the node is built with the cmake variable -DNANO_ROCKSDB=ON and the environment variable TEST_USE_ROCKSDB=1 is set */
+bool using_rocksdb_in_tests ();
 }
 REGISTER_ERROR_CODES (nano, error_system);

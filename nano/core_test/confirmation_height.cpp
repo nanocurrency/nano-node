@@ -745,7 +745,7 @@ TEST (confirmation_heightDeathTest, rollback_added_block)
 		nano::genesis genesis;
 		nano::stat stats;
 		nano::ledger ledger (store, stats);
-		nano::write_database_queue write_database_queue;
+		nano::write_database_queue write_database_queue (false);
 		nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 		nano::keypair key1;
 		auto send = std::make_shared<nano::send_block> (genesis.hash (), key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (genesis.hash ()));
@@ -817,7 +817,7 @@ TEST (confirmation_heightDeathTest, modified_chain)
 		nano::genesis genesis;
 		nano::stat stats;
 		nano::ledger ledger (store, stats);
-		nano::write_database_queue write_database_queue;
+		nano::write_database_queue write_database_queue (false);
 		nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 		nano::keypair key1;
 		auto send = std::make_shared<nano::send_block> (nano::genesis_hash, key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (nano::genesis_hash));
@@ -883,7 +883,7 @@ TEST (confirmation_heightDeathTest, modified_chain_account_removed)
 		nano::genesis genesis;
 		nano::stat stats;
 		nano::ledger ledger (store, stats);
-		nano::write_database_queue write_database_queue;
+		nano::write_database_queue write_database_queue (false);
 		nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 		nano::keypair key1;
 		auto send = std::make_shared<nano::send_block> (nano::genesis_hash, key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (nano::genesis_hash));
@@ -1176,6 +1176,7 @@ TEST (confirmation_height, callback_confirmed_history)
 	auto test_mode = [](nano::confirmation_height_mode mode_a) {
 		nano::system system;
 		nano::node_flags node_flags;
+		node_flags.force_use_write_database_queue = true;
 		node_flags.confirmation_height_processor_mode = mode_a;
 		nano::node_config node_config (nano::get_available_port (), system.logging);
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
@@ -1260,6 +1261,7 @@ TEST (confirmation_height, dependent_election)
 		nano::system system;
 		nano::node_flags node_flags;
 		node_flags.confirmation_height_processor_mode = mode_a;
+		node_flags.force_use_write_database_queue = true;
 		nano::node_config node_config (nano::get_available_port (), system.logging);
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config, node_flags);
@@ -1584,7 +1586,7 @@ TEST (confirmation_height, unbounded_block_cache_iteration)
 	nano::genesis genesis;
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
-	nano::write_database_queue write_database_queue;
+	nano::write_database_queue write_database_queue (false);
 	boost::latch initialized_latch{ 0 };
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::keypair key1;

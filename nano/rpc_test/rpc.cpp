@@ -95,11 +95,16 @@ public:
 	std::atomic<int> status{ 0 };
 };
 
-std::shared_ptr<nano::node> add_ipc_enabled_node (nano::system & system, nano::node_config & node_config)
+std::shared_ptr<nano::node> add_ipc_enabled_node (nano::system & system, nano::node_config & node_config, nano::node_flags const & node_flags)
 {
 	node_config.ipc_config.transport_tcp.enabled = true;
 	node_config.ipc_config.transport_tcp.port = nano::get_available_port ();
-	return system.add_node (node_config);
+	return system.add_node (node_config, node_flags);
+}
+
+std::shared_ptr<nano::node> add_ipc_enabled_node (nano::system & system, nano::node_config & node_config)
+{
+	return add_ipc_enabled_node (system, node_config, nano::node_flags ());
 }
 
 std::shared_ptr<nano::node> add_ipc_enabled_node (nano::system & system)
@@ -5946,9 +5951,12 @@ TEST (rpc, online_reps)
 TEST (rpc, confirmation_height_currently_processing)
 {
 	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.force_use_write_database_queue = true;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	auto node = add_ipc_enabled_node (system, node_config);
+
+	auto node = add_ipc_enabled_node (system, node_config, node_flags);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 
 	auto previous_genesis_chain_hash = node->latest (nano::dev_genesis_key.pub);
@@ -6324,10 +6332,8 @@ TEST (rpc, unchecked_clear)
 	node.process_active (open);
 	node.block_processor.flush ();
 	boost::property_tree::ptree request;
-	ASSERT_EQ (node.ledger.cache.unchecked_count, 1);
 	{
-		auto transaction = node.store.tx_begin_read ();
-		ASSERT_EQ (node.store.unchecked_count (transaction), 1);
+		ASSERT_EQ (node.store.unchecked_count (node.store.tx_begin_read ()), 1);
 	}
 	request.put ("action", "unchecked_clear");
 	test_response response (request, rpc.config.port, system.io_ctx);
@@ -6335,7 +6341,6 @@ TEST (rpc, unchecked_clear)
 	ASSERT_EQ (200, response.status);
 
 	ASSERT_TIMELY (10s, node.store.unchecked_count (node.store.tx_begin_read ()) == 0);
-	ASSERT_EQ (node.ledger.cache.unchecked_count, 0);
 }
 
 TEST (rpc, unopened)
@@ -6645,11 +6650,21 @@ TEST (rpc, memory_stats)
 	boost::property_tree::ptree request;
 	request.put ("action", "stats");
 	request.put ("type", "objects");
-	test_response response (request, rpc.config.port, system.io_ctx);
-	ASSERT_TIMELY (5s, response.status != 0);
-	ASSERT_EQ (200, response.status);
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		ASSERT_TIMELY (5s, response.status != 0);
+		ASSERT_EQ (200, response.status);
 
-	ASSERT_EQ (response.json.get_child ("node").get_child ("vote_uniquer").get_child ("votes").get<std::string> ("count"), "1");
+		ASSERT_EQ (response.json.get_child ("node").get_child ("vote_uniquer").get_child ("votes").get<std::string> ("count"), "1");
+	}
+
+	request.put ("type", "database");
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		ASSERT_TIMELY (5s, response.status != 0);
+		ASSERT_EQ (200, response.status);
+		ASSERT_TRUE (!response.json.empty ());
+	}
 }
 
 TEST (rpc, block_confirmed)

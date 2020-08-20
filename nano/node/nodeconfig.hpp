@@ -137,6 +137,7 @@ public:
 	bool disable_block_processor_republishing{ false };
 	bool allow_bootstrap_peers_duplicates{ false };
 	bool disable_max_peers_per_ip{ false }; // For testing only
+	bool force_use_write_database_queue{ false }; // For testing only. RocksDB does not use the database queue, but some tests rely on it being used.
 	bool fast_bootstrap{ false };
 	bool read_only{ false };
 	nano::confirmation_height_mode confirmation_height_processor_mode{ nano::confirmation_height_mode::automatic };

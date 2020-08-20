@@ -744,6 +744,7 @@ epoch_2_started_cb (epoch_2_started_cb_a)
 void nano::ledger::initialize (nano::generate_cache const & generate_cache_a)
 {
 	auto transaction = store.tx_begin_read ();
+
 	auto parallelize = [this, &transaction](std::function<void(nano::read_transaction const &, nano::uint256_t const, nano::uint256_t const, bool const)> && F) {
 		// Between 10 and 40 threads, scales well even in low power systems as these tasks are I/O bound
 		unsigned const thread_count = std::max (10u, std::min (40u, 10 * std::thread::hardware_concurrency ()));
@@ -765,10 +766,11 @@ void nano::ledger::initialize (nano::generate_cache const & generate_cache_a)
 		}
 	};
 
-	if (generate_cache_a.reps || generate_cache_a.account_count || generate_cache_a.epoch_2)
+	if (generate_cache_a.reps || generate_cache_a.account_count || generate_cache_a.epoch_2 || generate_cache_a.block_count)
 	{
 		parallelize ([this](nano::read_transaction const & transaction, nano::uint256_t const start, nano::uint256_t const end, bool const last) {
-			uint64_t account_count_l (0);
+			uint64_t block_count_l{ 0 };
+			uint64_t account_count_l{ 0 };
 			decltype (this->cache.rep_weights) rep_weights_l;
 			bool epoch_2_started_l{ false };
 			auto i (this->store.latest_begin (transaction, start));
@@ -776,14 +778,16 @@ void nano::ledger::initialize (nano::generate_cache const & generate_cache_a)
 			for (; i != n; ++i)
 			{
 				nano::account_info const & info (i->second);
-				rep_weights_l.representation_add (info.representative, info.balance.number ());
+				block_count_l += info.block_count;
 				++account_count_l;
+				rep_weights_l.representation_add (info.representative, info.balance.number ());
 				epoch_2_started_l = epoch_2_started_l || info.epoch () == nano::epoch::epoch_2;
 			}
 			if (epoch_2_started_l)
 			{
 				this->cache.epoch_2_started.store (true);
 			}
+			this->cache.block_count += block_count_l;
 			this->cache.account_count += account_count_l;
 			this->cache.rep_weights.copy_from (rep_weights_l);
 		});
@@ -802,13 +806,6 @@ void nano::ledger::initialize (nano::generate_cache const & generate_cache_a)
 			this->cache.cemented_count += cemented_count_l;
 		});
 	}
-
-	if (generate_cache_a.unchecked_count)
-	{
-		cache.unchecked_count = store.unchecked_count (transaction);
-	}
-
-	cache.block_count = store.block_count (transaction);
 }
 
 // Balance for account containing hash
