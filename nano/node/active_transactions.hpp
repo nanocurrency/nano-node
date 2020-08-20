@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/numbers.hpp>
+#include <nano/node/election.hpp>
 #include <nano/node/voting.hpp>
 #include <nano/secure/common.hpp>
 
@@ -156,7 +157,7 @@ public:
 	// Start an election for a block
 	// Call action with confirmed block, may be different than what we started with
 	// clang-format off
-	nano::election_insertion_result insert (std::shared_ptr<nano::block> const &, boost::optional<nano::uint128_t> const & = boost::none, bool is_optimistic_a = false, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
+	nano::election_insertion_result insert (std::shared_ptr<nano::block> const &, boost::optional<nano::uint128_t> const & = boost::none, nano::election_behavior = nano::election_behavior::default, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
 	// clang-format on
 	// Distinguishes replay votes, cannot be determined if the block is not in any election
 	nano::vote_code vote (std::shared_ptr<nano::vote>);
@@ -220,7 +221,7 @@ private:
 
 	// Call action with confirmed block, may be different than what we started with
 	// clang-format off
-	nano::election_insertion_result insert_impl (std::shared_ptr<nano::block> const &, boost::optional<nano::uint128_t> const & = boost::none, bool is_optimistic_a = false, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
+	nano::election_insertion_result insert_impl (std::shared_ptr<nano::block> const &, boost::optional<nano::uint128_t> const & = boost::none, nano::election_behavior = nano::election_behavior::default, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
 	// clang-format on
 	// Returns false if the election difficulty was updated
 	bool update_difficulty_impl (roots_iterator const &, nano::block const &);
@@ -262,11 +263,11 @@ private:
 			std::greater<uint64_t>>>>;
 
 	boost::multi_index_container<nano::expired_optimistic_election_info,
-	boost::multi_index::indexed_by<
-		boost::multi_index::ordered_non_unique<boost::multi_index::tag<tag_expired_time>,
-			boost::multi_index::member<expired_optimistic_election_info, std::chrono::steady_clock::time_point, &expired_optimistic_election_info::expired_time>>,
-		boost::multi_index::hashed_unique<boost::multi_index::tag<tag_account>,
-			boost::multi_index::member<expired_optimistic_election_info, nano::account, &expired_optimistic_election_info::account>>>>
+	mi::indexed_by<
+		mi::ordered_non_unique<mi::tag<tag_expired_time>,
+			mi::member<expired_optimistic_election_info, std::chrono::steady_clock::time_point, &expired_optimistic_election_info::expired_time>>,
+		mi::hashed_unique<mi::tag<tag_account>,
+			mi::member<expired_optimistic_election_info, nano::account, &expired_optimistic_election_info::account>>>>
 	expired_optimistic_election_infos;
 	// clang-format on
 	std::atomic<uint64_t> expired_optimistic_election_infos_size{ 0 };
@@ -276,7 +277,7 @@ private:
 	void confirm_prioritized_frontiers (nano::transaction const &, uint64_t, uint64_t &);
 	void confirm_expired_frontiers_pessimistically (nano::transaction const &, uint64_t, uint64_t &);
 	void frontiers_confirmation (nano::unique_lock<std::mutex> &);
-	void insert_election_from_frontiers_confirmation (std::shared_ptr<nano::block> const &, nano::account const &, nano::uint128_t, uint64_t &, bool);
+	void insert_election_from_frontiers_confirmation (std::shared_ptr<nano::block> const &, nano::account const &, nano::uint128_t, uint64_t &, nano::election_behavior);
 	nano::account next_frontier_account{ 0 };
 	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };
 	prioritize_num_uncemented priority_wallet_cementable_frontiers;
@@ -287,6 +288,7 @@ private:
 	void prioritize_frontiers_for_confirmation (nano::transaction const &, std::chrono::milliseconds, std::chrono::milliseconds);
 	void prioritize_account_for_confirmation (prioritize_num_uncemented &, size_t &, nano::account const &, nano::account_info const &, uint64_t);
 	void set_next_frontier_check (bool);
+	void add_expired_optimistic_election (nano::election const &);
 	static size_t constexpr max_priority_cementable_frontiers{ 100000 };
 	static size_t constexpr confirmed_frontiers_max_pending_size{ 10000 };
 	std::deque<nano::block_hash> adjust_difficulty_list;

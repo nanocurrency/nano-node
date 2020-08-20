@@ -48,14 +48,18 @@ nano::active_transactions::~active_transactions ()
 	stop ();
 }
 
-void nano::active_transactions::insert_election_from_frontiers_confirmation (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, nano::uint128_t previous_balance_a, uint64_t & elections_count_a, bool is_optimistic_a)
+void nano::active_transactions::insert_election_from_frontiers_confirmation (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, nano::uint128_t previous_balance_a, uint64_t & elections_count_a, nano::election_behavior election_behavior_a)
 {
-	auto insert_result = insert (block_a, previous_balance_a, is_optimistic_a);
+	auto insert_result = insert (block_a, previous_balance_a, election_behavior_a);
 	if (insert_result.inserted)
 	{
-		if (is_optimistic_a)
+		if (insert_result.election->optimistic ())
 		{
 			insert_result.election->transition_active ();
+		}
+		else
+		{
+			insert_result.election->transition_passive ();
 		}
 		++elections_count_a;
 	}
@@ -130,7 +134,7 @@ void nano::active_transactions::confirm_prioritized_frontiers (nano::transaction
 						{
 							auto block (this->node.store.block_get (transaction_a, info.head));
 							auto previous_balance (this->node.ledger.balance (transaction_a, block->previous ()));
-							this->insert_election_from_frontiers_confirmation (block, cementable_account.account, previous_balance, elections_count_a, true);
+							this->insert_election_from_frontiers_confirmation (block, cementable_account.account, previous_balance, elections_count_a, nano::election_behavior::optimistic);
 						}
 					}
 				}
@@ -282,30 +286,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 		{
 			if (election_l->failed () && election_l->optimistic ())
 			{
-				auto account = election_l->status.winner->account ();
-				if (account.is_zero ())
-				{
-					account = election_l->status.winner->sideband ().account;
-				}
-
-				auto it = expired_optimistic_election_infos.get<tag_account> ().find (account);
-				if (it != expired_optimistic_election_infos.get<tag_account> ().end ())
-				{
-					expired_optimistic_election_infos.get<tag_account> ().modify (it, [](auto & expired_optimistic_election) {
-						expired_optimistic_election.expired_time = std::chrono::steady_clock::now ();
-					});
-				}
-				else
-				{
-					expired_optimistic_election_infos.emplace (std::chrono::steady_clock::now (), account);
-				}
-
-				// Expire the oldest one if a maximum is reached
-				if (expired_optimistic_election_infos.size () > 10000)
-				{
-					expired_optimistic_election_infos.get<tag_expired_time> ().erase (expired_optimistic_election_infos.get<tag_expired_time> ().begin ());
-				}
-				expired_optimistic_election_infos_size = expired_optimistic_election_infos.size ();
+				add_expired_optimistic_election (*election_l);
 			}
 
 			election_l->cleanup ();
@@ -331,6 +312,35 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 			node.logger.try_log (boost::str (boost::format ("Processed %1% elections (%2% were already confirmed) in %3% %4%") % this_loop_target_l % (this_loop_target_l - unconfirmed_count_l) % elapsed.value ().count () % elapsed.unit ()));
 		}
 	}
+}
+
+void nano::active_transactions::add_expired_optimistic_election (nano::election const & election_a)
+{
+	auto account = election_a.status.winner->account ();
+	if (account.is_zero ())
+	{
+		account = election_a.status.winner->sideband ().account;
+	}
+
+	auto it = expired_optimistic_election_infos.get<tag_account> ().find (account);
+	if (it != expired_optimistic_election_infos.get<tag_account> ().end ())
+	{
+		expired_optimistic_election_infos.get<tag_account> ().modify (it, [](auto & expired_optimistic_election) {
+			expired_optimistic_election.expired_time = std::chrono::steady_clock::now ();
+		});
+	}
+	else
+	{
+		expired_optimistic_election_infos.emplace (std::chrono::steady_clock::now (), account);
+	}
+
+	// Expire the oldest one if a maximum is reached
+	auto const max_expired_optimistic_election_infos = 10000;
+	if (expired_optimistic_election_infos.size () > max_expired_optimistic_election_infos)
+	{
+		expired_optimistic_election_infos.get<tag_expired_time> ().erase (expired_optimistic_election_infos.get<tag_expired_time> ().begin ());
+	}
+	expired_optimistic_election_infos_size = expired_optimistic_election_infos.size ();
 }
 
 void nano::active_transactions::frontiers_confirmation (nano::unique_lock<std::mutex> & lock_a)
@@ -378,7 +388,6 @@ void nano::active_transactions::confirm_expired_frontiers_pessimistically (nano:
 	auto n{ node.store.latest_end () };
 	nano::timer<std::chrono::milliseconds> timer (nano::timer_state::started);
 	nano::confirmation_height_info confirmation_height_info;
-	uint64_t elections_count{ 0 };
 
 	for (auto i = expired_optimistic_election_infos.get<tag_expired_time> ().begin (); i != expired_optimistic_election_infos.get<tag_expired_time> ().end ();)
 	{
@@ -415,7 +424,7 @@ void nano::active_transactions::confirm_expired_frontiers_pessimistically (nano:
 						previous_balance = previous_block->sideband ().balance.number ();
 					}
 
-					insert_election_from_frontiers_confirmation (block, account, previous_balance, elections_count_a, false);
+					insert_election_from_frontiers_confirmation (block, account, previous_balance, elections_count_a, nano::election_behavior::default);
 				}
 			}
 		}
@@ -613,16 +622,10 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 		}
 
 		nano::timer<std::chrono::milliseconds> wallet_account_timer (nano::timer_state::started);
-
-		auto remove_from_expired_optimistic_election_if_old = [this](nano::account const & account_a) {
-			auto it = expired_optimistic_election_infos.get<tag_account> ().find (account_a);
-			auto exists = expired_optimistic_election_infos.get<tag_account> ().find (account_a) != expired_optimistic_election_infos.get<tag_account> ().end ();
-			auto expired = std::chrono::steady_clock::now () + 30min > it->expired_time;
-			if (exists && expired)
-			{
-				expired_optimistic_election_infos.get<tag_account> ().erase (it);
-			}
-		};
+		// Remove any expired optimistic elections older than 30 minutes so they are no longer excluded in subsequent checks
+		auto expired_cutoff (expired_optimistic_election_infos.get<tag_expired_time> ().lower_bound (std::chrono::steady_clock::now () + 30min));
+		expired_optimistic_election_infos.get<tag_expired_time> ().erase (expired_optimistic_election_infos.get<tag_expired_time> ().begin (), expired_cutoff);
+		expired_optimistic_election_infos_size = expired_optimistic_election_infos.size ();
 
 		if (!skip_wallets)
 		{
@@ -655,7 +658,6 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 					for (; i != n; ++i)
 					{
 						auto const & account (i->first);
-						remove_from_expired_optimistic_election_if_old (account);
 						if (expired_optimistic_election_infos.get<tag_account> ().count (account) == 0 && !node.store.account_get (transaction_a, account, info) && !node.store.confirmation_height_get (transaction_a, account, confirmation_height_info))
 						{
 							// If it exists in normal priority collection delete from there.
@@ -703,7 +705,6 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 			auto const & info (i->second);
 			if (priority_wallet_cementable_frontiers.find (account) == priority_wallet_cementable_frontiers.end ())
 			{
-				remove_from_expired_optimistic_election_if_old (account);
 				if (expired_optimistic_election_infos.get<tag_account> ().count (account) == 0 && !node.store.confirmation_height_get (transaction_a, account, confirmation_height_info))
 				{
 					prioritize_account_for_confirmation (priority_cementable_frontiers, priority_cementable_frontiers_size, account, info, confirmation_height_info.height);
@@ -744,7 +745,7 @@ void nano::active_transactions::stop ()
 	roots.clear ();
 }
 
-nano::election_insertion_result nano::active_transactions::insert_impl (std::shared_ptr<nano::block> const & block_a, boost::optional<nano::uint128_t> const & previous_balance_a, bool is_optimistic_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
+nano::election_insertion_result nano::active_transactions::insert_impl (std::shared_ptr<nano::block> const & block_a, boost::optional<nano::uint128_t> const & previous_balance_a, nano::election_behavior election_behavior_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
 {
 	debug_assert (block_a->has_sideband ());
 	nano::election_insertion_result result;
@@ -771,7 +772,7 @@ nano::election_insertion_result nano::active_transactions::insert_impl (std::sha
 				}
 				double multiplier (normalized_multiplier (*block_a));
 				bool prioritized = roots.size () < prioritized_cutoff || multiplier > last_prioritized_multiplier.value_or (0);
-				result.election = nano::make_shared<nano::election> (node, block_a, confirmation_action_a, prioritized, is_optimistic_a);
+				result.election = nano::make_shared<nano::election> (node, block_a, confirmation_action_a, prioritized, election_behavior_a);
 				roots.get<tag_root> ().emplace (nano::active_transactions::conflict_info{ root, multiplier, multiplier, result.election, epoch, previous_balance });
 				blocks.emplace (hash, result.election);
 				add_adjust_difficulty (hash);
@@ -787,10 +788,10 @@ nano::election_insertion_result nano::active_transactions::insert_impl (std::sha
 	return result;
 }
 
-nano::election_insertion_result nano::active_transactions::insert (std::shared_ptr<nano::block> const & block_a, boost::optional<nano::uint128_t> const & previous_balance_a, bool is_optimistic_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
+nano::election_insertion_result nano::active_transactions::insert (std::shared_ptr<nano::block> const & block_a, boost::optional<nano::uint128_t> const & previous_balance_a, nano::election_behavior election_behavior_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
 {
 	nano::lock_guard<std::mutex> lock (mutex);
-	return insert_impl (block_a, previous_balance_a, is_optimistic_a, confirmation_action_a);
+	return insert_impl (block_a, previous_balance_a, election_behavior_a, confirmation_action_a);
 }
 
 // Validate a vote and apply it to the current election if one exists
