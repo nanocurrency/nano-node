@@ -197,7 +197,7 @@ TEST (vote_processor, no_broadcast_local)
 	                                    .balance (2 * node.config.vote_minimum.number ())
 	                                    .link (key.pub)
 	                                    .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-	                                    .work (*system.work.generate (nano::genesis_hash))
+	                                    .work (*system.env.work.generate (nano::genesis_hash))
 	                                    .build (ec);
 	ASSERT_FALSE (ec);
 	ASSERT_EQ (nano::process_result::progress, node.process_local (send).code);
@@ -233,7 +233,7 @@ TEST (vote_processor, no_broadcast_local)
 	                                     .balance (node.config.vote_minimum)
 	                                     .link (key.pub)
 	                                     .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-	                                     .work (*system.work.generate (send->hash ()))
+	                                     .work (*system.env.work.generate (send->hash ()))
 	                                     .build (ec);
 	ASSERT_FALSE (ec);
 	ASSERT_EQ (nano::process_result::progress, node.process_local (send2).code);
@@ -261,7 +261,7 @@ TEST (vote_processor, no_broadcast_local)
 	                                    .balance (nano::genesis_amount - 2 * node.config.vote_minimum.number ())
 	                                    .link (send->hash ())
 	                                    .sign (key.prv, key.pub)
-	                                    .work (*system.work.generate (key.pub))
+	                                    .work (*system.env.work.generate (key.pub))
 	                                    .build (ec);
 	ASSERT_FALSE (ec);
 	ASSERT_EQ (nano::process_result::progress, node.process_local (open).code);

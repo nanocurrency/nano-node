@@ -174,7 +174,7 @@ TEST (request_aggregator, split)
 		                  .balance (nano::genesis_amount - (i + 1))
 		                  .link (nano::dev_genesis_key.pub)
 		                  .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-		                  .work (*system.work.generate (previous))
+		                  .work (*system.env.work.generate (previous))
 		                  .build ());
 		auto const & block = blocks.back ();
 		previous = block->hash ();
@@ -312,14 +312,14 @@ TEST (request_aggregator, cannot_vote)
 	             .balance (nano::genesis_amount - 1)
 	             .link (nano::dev_genesis_key.pub)
 	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-	             .work (*system.work.generate (nano::genesis_hash))
+	             .work (*system.env.work.generate (nano::genesis_hash))
 	             .build_shared ();
 	auto send2 = builder.make_block ()
 	             .from (*send1)
 	             .previous (send1->hash ())
 	             .balance (send1->balance ().number () - 1)
 	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-	             .work (*system.work.generate (send1->hash ()))
+	             .work (*system.env.work.generate (send1->hash ()))
 	             .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node.process (*send1).code);
 	ASSERT_EQ (nano::process_result::progress, node.process (*send2).code);

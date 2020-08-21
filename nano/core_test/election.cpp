@@ -45,7 +45,7 @@ TEST (election, bisect_dependencies)
 		                  .balance (--amount)
 		                  .link (nano::dev_genesis_key.pub)
 		                  .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-		                  .work (*system.work.generate (latest->hash ()))
+		                  .work (*system.env.work.generate (latest->hash ()))
 		                  .build ());
 		ASSERT_EQ (nano::process_result::progress, node.process (*blocks.back ()).code);
 	}
@@ -115,7 +115,7 @@ TEST (election, dependencies_open_link)
 	                .link (key.pub)
 	                .balance (nano::genesis_amount - 1)
 	                .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-	                .work (*system.work.generate (nano::genesis_hash))
+	                .work (*system.env.work.generate (nano::genesis_hash))
 	                .build ();
 	// Receive from genesis
 	auto key_open = builder.make_block ()
@@ -125,7 +125,7 @@ TEST (election, dependencies_open_link)
 	                .link (gen_send->hash ())
 	                .balance (1)
 	                .sign (key.prv, key.pub)
-	                .work (*system.work.generate (key.pub))
+	                .work (*system.env.work.generate (key.pub))
 	                .build ();
 
 	// Send to self
@@ -136,7 +136,7 @@ TEST (election, dependencies_open_link)
 	                                        .link (key.pub)
 	                                        .balance (0)
 	                                        .sign (key.prv, key.pub)
-	                                        .work (*system.work.generate (key_open->hash ()))
+	                                        .work (*system.env.work.generate (key_open->hash ()))
 	                                        .build ();
 
 	node.process (*gen_send);

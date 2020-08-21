@@ -289,7 +289,7 @@ public:
 		// Note that if the rpc action is async, the shared_ptr<json_handler> lifetime will be extended by the action handler
 		auto handler (std::make_shared<nano::json_handler> (node, server.node_rpc_config, body, response_handler_l, [& server = server]() {
 			server.stop ();
-			server.node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (3), [& io_ctx = server.node.alarm.io_ctx]() {
+			server.node.env.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (3), [& io_ctx = server.node.env.ctx]() {
 				io_ctx.stop ();
 			});
 		}));
@@ -503,7 +503,7 @@ public:
 
 	boost::asio::io_context & context () const
 	{
-		return io_ctx ? *io_ctx : server.node.io_ctx;
+		return io_ctx ? *io_ctx : server.node.env.ctx;
 	}
 
 	void accept ()
@@ -589,7 +589,7 @@ broker (node_a)
 		}
 #ifndef _WIN32
 		// Hook up config reloading through the HUP signal
-		auto signals (std::make_shared<boost::asio::signal_set> (node.io_ctx, SIGHUP));
+		auto signals (std::make_shared<boost::asio::signal_set> (node.env.ctx, SIGHUP));
 		await_hup_signal (signals, *this);
 #endif
 		if (node_a.config.ipc_config.transport_domain.enabled)

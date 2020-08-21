@@ -15,7 +15,7 @@ TEST (socket, drop_policy)
 	nano::inactive_node inactivenode (nano::unique_path (), config);
 	auto node = inactivenode.node;
 
-	nano::thread_runner runner (node->io_ctx, 1);
+	nano::thread_runner runner (node->env.ctx, 1);
 
 	std::vector<std::shared_ptr<nano::socket>> connections;
 
@@ -84,7 +84,7 @@ TEST (socket, concurrent_writes)
 
 	// This gives more realistic execution than using system#poll, allowing writes to
 	// queue up and drain concurrently.
-	nano::thread_runner runner (node->io_ctx, 1);
+	nano::thread_runner runner (node->env.ctx, 1);
 
 	constexpr size_t max_connections = 4;
 	constexpr size_t client_count = max_connections;

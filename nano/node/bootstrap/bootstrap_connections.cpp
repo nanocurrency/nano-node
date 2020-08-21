@@ -312,7 +312,7 @@ void nano::bootstrap_connections::populate_connections (bool repeat)
 	if (!stopped && repeat)
 	{
 		std::weak_ptr<nano::bootstrap_connections> this_w (shared_from_this ());
-		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (1), [this_w]() {
+		node.env.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (1), [this_w]() {
 			if (auto this_l = this_w.lock ())
 			{
 				this_l->populate_connections ();

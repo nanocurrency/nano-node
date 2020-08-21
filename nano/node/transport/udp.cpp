@@ -68,11 +68,11 @@ std::string nano::transport::channel_udp::to_string () const
 
 nano::transport::udp_channels::udp_channels (nano::node & node_a, uint16_t port_a) :
 node (node_a),
-strand (node_a.io_ctx.get_executor ())
+strand (node_a.env.ctx.get_executor ())
 {
 	if (!node.config.flags.disable_udp)
 	{
-		socket = std::make_unique<boost::asio::ip::udp::socket> (node_a.io_ctx, nano::endpoint (boost::asio::ip::address_v6::any (), port_a));
+		socket = std::make_unique<boost::asio::ip::udp::socket> (node_a.env.ctx, nano::endpoint (boost::asio::ip::address_v6::any (), port_a));
 		boost::system::error_code ec;
 		auto port (socket->local_endpoint (ec).port ());
 		if (ec)
@@ -307,7 +307,7 @@ void nano::transport::udp_channels::receive ()
 				}
 				if (!this->stopped)
 				{
-					this->node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() { this->receive (); });
+					this->node.env.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() { this->receive (); });
 				}
 			}
 		}));
@@ -544,7 +544,7 @@ void nano::transport::udp_channels::receive_action (nano::message_buffer * data_
 	if (allowed_sender)
 	{
 		udp_message_visitor visitor (node, data_a->endpoint);
-		nano::message_parser parser (node.network.publish_filter, node.block_uniquer, node.vote_uniquer, visitor, node.work, node.ledger.cache.epoch_2_started);
+		nano::message_parser parser (node.network.publish_filter, node.block_uniquer, node.vote_uniquer, visitor, node.env.work, node.ledger.cache.epoch_2_started);
 		parser.deserialize_buffer (data_a->buffer, data_a->size);
 		if (parser.status == nano::message_parser::parse_status::success)
 		{
@@ -702,7 +702,7 @@ void nano::transport::udp_channels::ongoing_keepalive ()
 		channel->send (message);
 	}
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.alarm.add (std::chrono::steady_clock::now () + node.network_params.node.period, [node_w]() {
+	node.env.alarm.add (std::chrono::steady_clock::now () + node.network_params.node.period, [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->network.udp_channels.ongoing_keepalive ();

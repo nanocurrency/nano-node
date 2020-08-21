@@ -14,7 +14,7 @@
 nano::network::network (nano::node & node_a, uint16_t port_a) :
 syn_cookies (node_a.network_params.node.max_peers_per_ip),
 buffer_container (node_a.stats, nano::network::buffer_size, 4096), // 2Mb receive buffer
-resolver (node_a.io_ctx),
+resolver (node_a.env.ctx),
 limiter (node_a.config.bandwidth_limit_burst_ratio, node_a.config.bandwidth_limit),
 tcp_message_manager (node_a.config.tcp_incoming_connections_max),
 node (node_a),
@@ -24,6 +24,7 @@ udp_channels (node_a, port),
 tcp_channels (node_a),
 disconnect_observer ([]() {})
 {
+	std::cerr << std::to_string (port) << ' ';
 	boost::thread::attributes attrs;
 	nano::thread_attributes::set (attrs);
 	// UDP
@@ -219,7 +220,7 @@ void nano::network::flood_block_many (std::deque<std::shared_ptr<nano::block>> b
 	if (!blocks_a.empty ())
 	{
 		std::weak_ptr<nano::node> node_w (node.shared ());
-		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a + std::rand () % delay_a), [node_w, blocks (std::move (blocks_a)), callback_a, delay_a]() {
+		node.env.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a + std::rand () % delay_a), [node_w, blocks (std::move (blocks_a)), callback_a, delay_a]() {
 			if (auto node_l = node_w.lock ())
 			{
 				node_l->network.flood_block_many (std::move (blocks), callback_a, delay_a);
@@ -287,7 +288,7 @@ void nano::network::broadcast_confirm_req_base (std::shared_ptr<nano::block> blo
 		delay_a += std::rand () % broadcast_interval_ms;
 
 		std::weak_ptr<nano::node> node_w (node.shared ());
-		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a), [node_w, block_a, endpoints_a, delay_a]() {
+		node.env.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a), [node_w, block_a, endpoints_a, delay_a]() {
 			if (auto node_l = node_w.lock ())
 			{
 				node_l->network.broadcast_confirm_req_base (block_a, endpoints_a, delay_a, true);
@@ -327,7 +328,7 @@ void nano::network::broadcast_confirm_req_batched_many (std::unordered_map<std::
 	if (!request_bundle_a.empty ())
 	{
 		std::weak_ptr<nano::node> node_w (node.shared ());
-		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a), [node_w, request_bundle_a, callback_a, delay_a]() {
+		node.env.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a), [node_w, request_bundle_a, callback_a, delay_a]() {
 			if (auto node_l = node_w.lock ())
 			{
 				node_l->network.broadcast_confirm_req_batched_many (request_bundle_a, callback_a, delay_a, true);
@@ -356,7 +357,7 @@ void nano::network::broadcast_confirm_req_many (std::deque<std::pair<std::shared
 	if (!requests_a.empty ())
 	{
 		std::weak_ptr<nano::node> node_w (node.shared ());
-		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a + std::rand () % delay_a), [node_w, requests_a, callback_a, delay_a]() {
+		node.env.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a + std::rand () % delay_a), [node_w, requests_a, callback_a, delay_a]() {
 			if (auto node_l = node_w.lock ())
 			{
 				node_l->network.broadcast_confirm_req_many (requests_a, callback_a, delay_a);
@@ -727,7 +728,7 @@ void nano::network::ongoing_cleanup ()
 {
 	cleanup (std::chrono::steady_clock::now () - node.network_params.node.cutoff);
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.alarm.add (std::chrono::steady_clock::now () + node.network_params.node.period, [node_w]() {
+	node.env.alarm.add (std::chrono::steady_clock::now () + node.network_params.node.period, [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->network.ongoing_cleanup ();
@@ -739,7 +740,7 @@ void nano::network::ongoing_syn_cookie_cleanup ()
 {
 	syn_cookies.purge (std::chrono::steady_clock::now () - nano::transport::syn_cookie_cutoff);
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.alarm.add (std::chrono::steady_clock::now () + (nano::transport::syn_cookie_cutoff * 2), [node_w]() {
+	node.env.alarm.add (std::chrono::steady_clock::now () + (nano::transport::syn_cookie_cutoff * 2), [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->network.ongoing_syn_cookie_cleanup ();
@@ -752,7 +753,7 @@ void nano::network::ongoing_keepalive ()
 	flood_keepalive (0.75f);
 	flood_keepalive_self (0.25f);
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.alarm.add (std::chrono::steady_clock::now () + node.network_params.node.half_period, [node_w]() {
+	node.env.alarm.add (std::chrono::steady_clock::now () + node.network_params.node.half_period, [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->network.ongoing_keepalive ();

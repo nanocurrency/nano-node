@@ -82,13 +82,11 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (re
 	return composite;
 }
 
-nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path const & application_path_a, nano::alarm & alarm_a, nano::node_config const & config_a, nano::work_pool & work_a, unsigned seq) :
-io_ctx (io_ctx_a),
+nano::node::node (nano::environment & env_a, boost::filesystem::path const & application_path_a, nano::node_config const & config_a, unsigned seq) :
+env (env_a),
 node_initialized_latch (1),
 config (config_a),
 stats (config.stat_config),
-alarm (alarm_a),
-work (work_a),
 distributed_work (*this),
 logger (config_a.logging.min_time_between_log_output),
 store_impl (nano::make_store (logger, application_path_a, config.flags.read_only, true, config_a.rocksdb_config, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_config, config_a.backup_before_upgrade, config_a.rocksdb_config.enable)),
@@ -99,7 +97,7 @@ gap_cache (*this),
 ledger (store, stats, config.flags.generate_cache, [this]() { this->network.erase_below_version (network_params.protocol.protocol_version_min (true)); }),
 checker (config.signature_checker_threads),
 network (*this, config.peering_port),
-telemetry (std::make_shared<nano::telemetry> (network, alarm, worker, observers.telemetry, stats, network_params, config.flags.disable_ongoing_telemetry_requests)),
+telemetry (std::make_shared<nano::telemetry> (network, env.alarm, worker, observers.telemetry, stats, network_params, config.flags.disable_ongoing_telemetry_requests)),
 bootstrap_initiator (*this),
 bootstrap (network.port, *this),
 application_path (application_path_a),
@@ -131,7 +129,7 @@ node_seq (seq)
 		if (config.websocket_config.enabled)
 		{
 			auto endpoint_l (nano::tcp_endpoint (boost::asio::ip::make_address_v6 (config.websocket_config.address), config.websocket_config.port));
-			websocket_server = std::make_shared<nano::websocket::listener> (logger, wallets, io_ctx, endpoint_l);
+			websocket_server = std::make_shared<nano::websocket::listener> (logger, wallets, env.ctx, endpoint_l);
 			this->websocket_server->run ();
 		}
 
@@ -188,7 +186,7 @@ node_seq (seq)
 						auto address (node_l->config.callback_address);
 						auto port (node_l->config.callback_port);
 						auto target (std::make_shared<std::string> (node_l->config.callback_target));
-						auto resolver (std::make_shared<boost::asio::ip::tcp::resolver> (node_l->io_ctx));
+						auto resolver (std::make_shared<boost::asio::ip::tcp::resolver> (node_l->env.ctx));
 						resolver->async_resolve (boost::asio::ip::tcp::resolver::query (address, std::to_string (port)), [node_l, address, port, target, body, resolver](boost::system::error_code const & ec, boost::asio::ip::tcp::resolver::iterator i_a) {
 							if (!ec)
 							{
@@ -322,7 +320,7 @@ node_seq (seq)
 		}
 		// Cancelling local work generation
 		observers.work_cancel.add ([this](nano::root const & root_a) {
-			this->work.cancel (root_a);
+			this->env.work.cancel (root_a);
 			this->distributed_work.cancel (root_a);
 		});
 
@@ -333,7 +331,7 @@ node_seq (seq)
 		auto network_label = network_params.network.get_current_network_as_string ();
 		logger.always_log ("Active network: ", network_label);
 
-		logger.always_log (boost::str (boost::format ("Work pool running %1% threads %2%") % work.threads.size () % (work.opencl ? "(1 for OpenCL)" : "")));
+		logger.always_log (boost::str (boost::format ("Work pool running %1% threads %2%") % env.work.threads.size () % (env.work.opencl ? "(1 for OpenCL)" : "")));
 		logger.always_log (boost::str (boost::format ("%1% work peers configured") % config.work_peers.size ()));
 		if (!work_generation_enabled ())
 		{
@@ -439,7 +437,7 @@ void nano::node::do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, 
 	if (i_a != boost::asio::ip::tcp::resolver::iterator{})
 	{
 		auto node_l (shared_from_this ());
-		auto sock (std::make_shared<boost::asio::ip::tcp::socket> (node_l->io_ctx));
+		auto sock (std::make_shared<boost::asio::ip::tcp::socket> (node_l->env.ctx));
 		sock->async_connect (i_a->endpoint (), [node_l, target, body, sock, address, port, i_a, resolver](boost::system::error_code const & ec) mutable {
 			if (!ec)
 			{
@@ -556,8 +554,8 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (node & node, const std::string & name)
 {
 	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (collect_container_info (node.alarm, "alarm"));
-	composite->add_component (collect_container_info (node.work, "work"));
+	composite->add_component (collect_container_info (node.env.alarm, "alarm"));
+	composite->add_component (collect_container_info (node.env.work, "work"));
 	composite->add_component (collect_container_info (node.gap_cache, "gap_cache"));
 	composite->add_component (collect_container_info (node.ledger, "ledger"));
 	composite->add_component (collect_container_info (node.active, "active"));
@@ -651,7 +649,7 @@ void nano::node::start ()
 	{
 		// Delay to start wallet lazy bootstrap
 		auto this_l (shared ());
-		alarm.add (std::chrono::steady_clock::now () + std::chrono::minutes (1), [this_l]() {
+		env.alarm.add (std::chrono::steady_clock::now () + std::chrono::minutes (1), [this_l]() {
 			this_l->bootstrap_wallet ();
 		});
 	}
@@ -797,7 +795,7 @@ void nano::node::ongoing_rep_calculation ()
 	auto now (std::chrono::steady_clock::now ());
 	vote_processor.calculate_weights ();
 	std::weak_ptr<nano::node> node_w (shared_from_this ());
-	alarm.add (now + std::chrono::minutes (10), [node_w]() {
+	env.alarm.add (now + std::chrono::minutes (10), [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->ongoing_rep_calculation ();
@@ -819,7 +817,7 @@ void nano::node::ongoing_bootstrap ()
 	}
 	bootstrap_initiator.bootstrap ();
 	std::weak_ptr<nano::node> node_w (shared_from_this ());
-	alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (next_wakeup), [node_w]() {
+	env.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (next_wakeup), [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->ongoing_bootstrap ();
@@ -834,7 +832,7 @@ void nano::node::ongoing_store_flush ()
 		store.flush (transaction);
 	}
 	std::weak_ptr<nano::node> node_w (shared_from_this ());
-	alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [node_w]() {
+	env.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->worker.push_task ([node_l]() {
@@ -849,7 +847,7 @@ void nano::node::ongoing_peer_store ()
 	bool stored (network.tcp_channels.store_all (true));
 	network.udp_channels.store_all (!stored);
 	std::weak_ptr<nano::node> node_w (shared_from_this ());
-	alarm.add (std::chrono::steady_clock::now () + network_params.node.peer_interval, [node_w]() {
+	env.alarm.add (std::chrono::steady_clock::now () + network_params.node.peer_interval, [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->worker.push_task ([node_l]() {
@@ -872,7 +870,7 @@ void nano::node::backup_wallet ()
 		i->second->store.write_backup (transaction, backup_path / (i->first.to_string () + ".json"));
 	}
 	auto this_l (shared ());
-	alarm.add (std::chrono::steady_clock::now () + network_params.node.backup_interval, [this_l]() {
+	env.alarm.add (std::chrono::steady_clock::now () + network_params.node.backup_interval, [this_l]() {
 		this_l->backup_wallet ();
 	});
 }
@@ -884,7 +882,7 @@ void nano::node::search_pending ()
 	// Search pending
 	wallets.search_pending_all ();
 	auto this_l (shared ());
-	alarm.add (std::chrono::steady_clock::now () + network_params.node.search_pending_interval, [this_l]() {
+	env.alarm.add (std::chrono::steady_clock::now () + network_params.node.search_pending_interval, [this_l]() {
 		this_l->worker.push_task ([this_l]() {
 			this_l->search_pending ();
 		});
@@ -966,7 +964,7 @@ void nano::node::ongoing_unchecked_cleanup ()
 {
 	unchecked_cleanup ();
 	auto this_l (shared ());
-	alarm.add (std::chrono::steady_clock::now () + network_params.node.unchecked_cleaning_interval, [this_l]() {
+	env.alarm.add (std::chrono::steady_clock::now () + network_params.node.unchecked_cleaning_interval, [this_l]() {
 		this_l->worker.push_task ([this_l]() {
 			this_l->ongoing_unchecked_cleanup ();
 		});
@@ -1010,7 +1008,7 @@ uint64_t nano::node::max_work_generate_difficulty (nano::work_version const vers
 
 bool nano::node::local_work_generation_enabled () const
 {
-	return config.work_threads > 0 || work.opencl;
+	return config.work_threads > 0 || env.work.opencl;
 }
 
 bool nano::node::work_generation_enabled () const
@@ -1124,7 +1122,7 @@ nano::uint128_t nano::node::delta () const
 void nano::node::ongoing_online_weight_calculation_queue ()
 {
 	std::weak_ptr<nano::node> node_w (shared_from_this ());
-	alarm.add (std::chrono::steady_clock::now () + (std::chrono::seconds (network_params.node.weight_period)), [node_w]() {
+	env.alarm.add (std::chrono::steady_clock::now () + (std::chrono::seconds (network_params.node.weight_period)), [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->worker.push_task ([node_l]() {
@@ -1268,7 +1266,7 @@ void nano::node::process_confirmed (nano::election_status const & status_a, uint
 	{
 		iteration_a++;
 		std::weak_ptr<nano::node> node_w (shared ());
-		alarm.add (std::chrono::steady_clock::now () + network_params.node.process_confirmed_interval, [node_w, status_a, iteration_a]() {
+		env.alarm.add (std::chrono::steady_clock::now () + network_params.node.process_confirmed_interval, [node_w, status_a, iteration_a]() {
 			if (auto node_l = node_w.lock ())
 			{
 				node_l->process_confirmed (status_a, iteration_a);
@@ -1635,10 +1633,7 @@ std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> nano::node::get_
 	return { max_blocks, weights };
 }
 
-nano::inactive_node::inactive_node (boost::filesystem::path const & path_a, nano::node_config const & config_a) :
-io_context (std::make_shared<boost::asio::io_context> ()),
-alarm (*io_context),
-work (1)
+nano::inactive_node::inactive_node (boost::filesystem::path const & path_a, nano::node_config const & config_a)
 {
 	boost::system::error_code error_chmod;
 
@@ -1666,7 +1661,7 @@ work (1)
 	node_config.logging.init (path_a);
 	node_config.flags = config_a.flags;
 
-	node = std::make_shared<nano::node> (*io_context, path_a, alarm, node_config, work);
+	node = std::make_shared<nano::node> (env, path_a, node_config);
 	node->active.stop ();
 }
 

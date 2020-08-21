@@ -844,7 +844,7 @@ TEST (wallet, send_race)
 TEST (wallet, password_race)
 {
 	nano::system system (1);
-	nano::thread_runner runner (system.io_ctx, system.nodes[0]->config.io_threads);
+	nano::thread_runner runner (system.env.ctx, system.nodes[0]->config.io_threads);
 	auto wallet = system.wallet (0);
 	std::thread thread ([&wallet]() {
 		for (int i = 0; i < 100; i++)
@@ -872,7 +872,7 @@ TEST (wallet, password_race)
 TEST (wallet, password_race_corrupt_seed)
 {
 	nano::system system (1);
-	nano::thread_runner runner (system.io_ctx, system.nodes[0]->config.io_threads);
+	nano::thread_runner runner (system.env.ctx, system.nodes[0]->config.io_threads);
 	auto wallet = system.wallet (0);
 	nano::raw_key seed;
 	{
@@ -1121,7 +1121,7 @@ TEST (work_watcher, removed_after_lose)
 	auto const block1 (wallet.send_action (nano::dev_genesis_key.pub, key.pub, 100));
 	ASSERT_TRUE (node.wallets.watcher->is_watched (block1->qualified_root ()));
 	nano::genesis genesis;
-	auto fork1 (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, genesis.hash (), nano::dev_genesis_key.pub, nano::genesis_amount - nano::xrb_ratio, nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (genesis.hash ())));
+	auto fork1 (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, genesis.hash (), nano::dev_genesis_key.pub, nano::genesis_amount - nano::xrb_ratio, nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.env.work.generate (genesis.hash ())));
 	node.process_active (fork1);
 	node.block_processor.flush ();
 	auto vote (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 0, fork1));
@@ -1193,11 +1193,11 @@ TEST (work_watcher, cancel)
 		node.active.update_active_multiplier (lock);
 	}
 	// Wait for work generation to start
-	ASSERT_TIMELY (5s, 0 != node.work.size ());
+	ASSERT_TIMELY (5s, 0 != node.env.work.size ());
 	// Cancel the ongoing work
-	ASSERT_EQ (1, node.work.size ());
-	node.work.cancel (block1->root ());
-	ASSERT_EQ (0, node.work.size ());
+	ASSERT_EQ (1, node.env.work.size ());
+	node.env.work.cancel (block1->root ());
+	ASSERT_EQ (0, node.env.work.size ());
 	{
 		nano::unique_lock<std::mutex> lock (wallet.wallets.watcher->mutex);
 		auto existing (wallet.wallets.watcher->watched.find (block1->qualified_root ()));
@@ -1361,7 +1361,7 @@ TEST (wallet, epoch_2_receive_unopened)
 		auto send1 = wallet.send_action (nano::dev_genesis_key.pub, key.pub, amount, 1);
 
 		// Upgrade unopened account to epoch_2
-		auto epoch2_unopened = nano::state_block (key.pub, 0, 0, 0, node.network_params.ledger.epochs.link (nano::epoch::epoch_2), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (key.pub, node.network_params.network.publish_thresholds.epoch_2));
+		auto epoch2_unopened = nano::state_block (key.pub, 0, 0, 0, node.network_params.ledger.epochs.link (nano::epoch::epoch_2), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.env.work.generate (key.pub, node.network_params.network.publish_thresholds.epoch_2));
 		ASSERT_EQ (nano::process_result::progress, node.process (epoch2_unopened).code);
 
 		wallet.insert_adhoc (key.prv, false);

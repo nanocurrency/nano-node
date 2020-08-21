@@ -25,7 +25,7 @@ std::string nano::error_system_messages::message (int ev) const
 /** Returns the node added. */
 std::shared_ptr<nano::node> nano::system::add_node (nano::node_config const & node_config_a, nano::transport::transport_type type_a)
 {
-	auto node (std::make_shared<nano::node> (io_ctx, nano::unique_path (), alarm, node_config_a, work, node_sequence++));
+	auto node (std::make_shared<nano::node> (env, nano::unique_path (), node_config_a, node_sequence++));
 	debug_assert (!node->init_error ());
 	node->start ();
 	node->wallets.create (nano::random_wallet_id ());
@@ -96,7 +96,9 @@ std::shared_ptr<nano::node> nano::system::add_node (nano::node_config const & no
 	return node;
 }
 
-nano::system::system ()
+nano::system::system () :
+env_impl{ std::make_shared<nano::environment> () },
+env (*env_impl)
 {
 	auto scale_str = std::getenv ("DEADLINE_SCALE_FACTOR");
 	if (scale_str)
@@ -121,7 +123,6 @@ nano::system::~system ()
 	{
 		i->stop ();
 	}
-
 #ifndef _WIN32
 	// Windows cannot remove the log and data files while they are still owned by this process.
 	// They will be removed later
@@ -161,7 +162,7 @@ uint64_t nano::system::work_generate_limited (nano::block_hash const & root_a, u
 	uint64_t result = 0;
 	do
 	{
-		result = *work.generate (root_a, min_a);
+		result = *env.work.generate (root_a, min_a);
 	} while (nano::work_difficulty (nano::work_version::work_1, root_a, result) >= max_a);
 	return result;
 }
@@ -209,7 +210,7 @@ void nano::blocks_confirm (nano::node & node_a, std::vector<std::shared_ptr<nano
 
 std::unique_ptr<nano::state_block> nano::system::upgrade_genesis_epoch (nano::node & node_a, nano::epoch const epoch_a)
 {
-	return upgrade_epoch (work, node_a.ledger, epoch_a);
+	return upgrade_epoch (env.work, node_a.ledger, epoch_a);
 }
 
 void nano::system::deadline_set (std::chrono::duration<double, std::nano> const & delta_a)
@@ -220,7 +221,7 @@ void nano::system::deadline_set (std::chrono::duration<double, std::nano> const 
 std::error_code nano::system::poll (std::chrono::nanoseconds const & wait_time)
 {
 #if NANO_ASIO_HANDLER_TRACKING == 0
-	io_ctx.run_one_for (wait_time);
+	env.ctx.run_one_for (wait_time);
 #else
 	nano::timer<> timer;
 	timer.start ();
@@ -276,7 +277,7 @@ public:
 		if (count_l > 0)
 		{
 			auto this_l (shared_from_this ());
-			node->alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (wait), [this_l]() { this_l->run (); });
+			node->env.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (wait), [this_l]() { this_l->run (); });
 		}
 	}
 	std::vector<nano::account> accounts;
@@ -501,7 +502,7 @@ void nano::system::stop ()
 	{
 		i->stop ();
 	}
-	work.stop ();
+	env.work.stop ();
 }
 
 uint16_t nano::get_available_port ()

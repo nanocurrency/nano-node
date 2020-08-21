@@ -80,7 +80,7 @@ TEST (network, send_node_id_handshake)
 	nano::system system;
 	auto node0 = system.add_node (config);
 	ASSERT_EQ (0, node0->network.size ());
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work));
+	auto node1 (std::make_shared<nano::node> (system.env, nano::unique_path (), config));
 	node1->start ();
 	system.nodes.push_back (node1);
 	auto initial (node0->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in));
@@ -105,7 +105,7 @@ TEST (network, send_node_id_handshake_tcp)
 	nano::system system (1);
 	auto node0 (system.nodes[0]);
 	ASSERT_EQ (0, node0->network.size ());
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{}, system.work));
+	auto node1 (std::make_shared<nano::node> (system.env, nano::unique_path (), nano::node_config{}));
 	node1->start ();
 	system.nodes.push_back (node1);
 	auto initial (node0->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in));
@@ -142,7 +142,7 @@ TEST (network, last_contacted)
 	config.flags.disable_udp = false;
 	auto node0 = system.add_node (config);
 	ASSERT_EQ (0, node0->network.size ());
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work));
+	auto node1 (std::make_shared<nano::node> (system.env, nano::unique_path (), config));
 	node1->start ();
 	system.nodes.push_back (node1);
 	auto channel1 (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, nano::endpoint (boost::asio::ip::address_v6::loopback (), system.nodes.front ()->network.endpoint ().port ()), node1->network_params.protocol.protocol_version));
@@ -172,7 +172,7 @@ TEST (network, multi_keepalive)
 	config.flags.disable_udp = false;
 	auto node0 = system.add_node (config);
 	ASSERT_EQ (0, node0->network.size ());
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work));
+	auto node1 (std::make_shared<nano::node> (system.env, nano::unique_path (), config));
 	ASSERT_FALSE (node1->init_error ());
 	node1->start ();
 	system.nodes.push_back (node1);
@@ -196,7 +196,7 @@ TEST (network, send_discarded_publish)
 	nano::system system (2);
 	auto & node1 (*system.nodes[0]);
 	auto & node2 (*system.nodes[1]);
-	auto block (std::make_shared<nano::send_block> (1, 1, 2, nano::keypair ().prv, 4, *system.work.generate (nano::root (1))));
+	auto block (std::make_shared<nano::send_block> (1, 1, 2, nano::keypair ().prv, 4, *system.env.work.generate (nano::root (1))));
 	nano::genesis genesis;
 	{
 		auto transaction (node1.store.tx_begin_read ());
@@ -216,7 +216,7 @@ TEST (network, send_invalid_publish)
 	auto & node1 (*system.nodes[0]);
 	auto & node2 (*system.nodes[1]);
 	nano::genesis genesis;
-	auto block (std::make_shared<nano::send_block> (1, 1, 20, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (nano::root (1))));
+	auto block (std::make_shared<nano::send_block> (1, 1, 20, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.env.work.generate (nano::root (1))));
 	{
 		auto transaction (node1.store.tx_begin_read ());
 		node1.network.flood_block (block);
@@ -248,7 +248,7 @@ TEST (network, send_valid_confirm_ack)
 		system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 		system.wallet (1)->insert_adhoc (key2.prv);
 		nano::block_hash latest1 (node1.latest (nano::dev_genesis_key.pub));
-		nano::send_block block2 (latest1, key2.pub, 50, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (latest1));
+		nano::send_block block2 (latest1, key2.pub, 50, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.env.work.generate (latest1));
 		nano::block_hash latest2 (node2.latest (nano::dev_genesis_key.pub));
 		node1.process_active (std::make_shared<nano::send_block> (block2));
 		// Keep polling until latest block changes
@@ -279,7 +279,7 @@ TEST (network, send_valid_publish)
 		nano::keypair key2;
 		system.wallet (1)->insert_adhoc (key2.prv);
 		nano::block_hash latest1 (node1.latest (nano::dev_genesis_key.pub));
-		nano::send_block block2 (latest1, key2.pub, 50, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (latest1));
+		nano::send_block block2 (latest1, key2.pub, 50, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.env.work.generate (latest1));
 		auto hash2 (block2.hash ());
 		nano::block_hash latest2 (node2.latest (nano::dev_genesis_key.pub));
 		node2.process_active (std::make_shared<nano::send_block> (block2));
@@ -355,7 +355,7 @@ TEST (receivable_processor, send_with_receive)
 		system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 		nano::block_hash latest1 (node1.latest (nano::dev_genesis_key.pub));
 		system.wallet (1)->insert_adhoc (key2.prv);
-		auto block1 (std::make_shared<nano::send_block> (latest1, key2.pub, amount - node1.config.receive_minimum.number (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (latest1)));
+		auto block1 (std::make_shared<nano::send_block> (latest1, key2.pub, amount - node1.config.receive_minimum.number (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.env.work.generate (latest1)));
 		ASSERT_EQ (amount, node1.balance (nano::dev_genesis_key.pub));
 		ASSERT_EQ (0, node1.balance (key2.pub));
 		ASSERT_EQ (amount, node2.balance (nano::dev_genesis_key.pub));
@@ -792,7 +792,7 @@ TEST (network, replace_port)
 	config.flags.disable_initial_telemetry_requests = true;
 	auto node0 = system.add_node (config);
 	ASSERT_EQ (0, node0->network.size ());
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work));
+	auto node1 (std::make_shared<nano::node> (system.env, nano::unique_path (), config));
 	node1->start ();
 	system.nodes.push_back (node1);
 	{
@@ -828,7 +828,7 @@ TEST (network, peer_max_tcp_attempts)
 	config.flags.disable_tcp_realtime = true;
 	for (auto i (0); i < node->network_params.node.max_peers_per_ip; ++i)
 	{
-		auto node2 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work));
+		auto node2 (std::make_shared<nano::node> (system.env, nano::unique_path (), config));
 		node2->start ();
 		system.nodes.push_back (node2);
 		// Start TCP attempt
@@ -983,7 +983,7 @@ TEST (network, tcp_no_connect_excluded_peers)
 	nano::system system (1);
 	auto node0 (system.nodes[0]);
 	ASSERT_EQ (0, node0->network.size ());
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config{}, system.work));
+	auto node1 (std::make_shared<nano::node> (system.env, nano::unique_path (), nano::node_config{}));
 	node1->start ();
 	system.nodes.push_back (node1);
 	auto endpoint1 (node1->network.endpoint ());

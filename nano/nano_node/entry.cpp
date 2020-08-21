@@ -911,13 +911,11 @@ int main (int argc, char * const * argv)
 			size_t num_iterations (5); // 100,000 * 5 * 2 = 1,000,000 blocks
 			size_t max_blocks (2 * num_accounts * num_iterations + num_accounts * 2); //  1,000,000 + 2 * 100,000 = 1,200,000 blocks
 			std::cout << boost::str (boost::format ("Starting pregenerating %1% blocks\n") % max_blocks);
-			boost::asio::io_context io_ctx;
-			nano::alarm alarm (io_ctx);
-			nano::work_pool work (std::numeric_limits<unsigned>::max ());
 			auto path (nano::unique_path ());
 			nano::node_config config;
 			nano::update_flags (config.flags, vm);
-			auto node (std::make_shared<nano::node> (io_ctx, path, alarm, config, work));
+			nano::environment env;
+			auto node (std::make_shared<nano::node> (env, path, config));
 			nano::block_hash genesis_latest (node->latest (dev_params.ledger.dev_genesis_key.pub));
 			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
 			// Generating keys
@@ -937,7 +935,7 @@ int main (int argc, char * const * argv)
 				            .balance (genesis_balance)
 				            .link (keys[i].pub)
 				            .sign (dev_params.ledger.dev_genesis_key.prv, dev_params.ledger.dev_genesis_key.pub)
-				            .work (*work.generate (nano::work_version::work_1, genesis_latest, node->network_params.network.publish_thresholds.epoch_1))
+				            .work (*node->env.work.generate (nano::work_version::work_1, genesis_latest, node->network_params.network.publish_thresholds.epoch_1))
 				            .build ();
 
 				genesis_latest = send->hash ();
@@ -950,7 +948,7 @@ int main (int argc, char * const * argv)
 				            .balance (balances[i])
 				            .link (genesis_latest)
 				            .sign (keys[i].prv, keys[i].pub)
-				            .work (*work.generate (nano::work_version::work_1, keys[i].pub, node->network_params.network.publish_thresholds.epoch_1))
+				            .work (*node->env.work.generate (nano::work_version::work_1, keys[i].pub, node->network_params.network.publish_thresholds.epoch_1))
 				            .build ();
 
 				frontiers[i] = open->hash ();
@@ -971,7 +969,7 @@ int main (int argc, char * const * argv)
 					            .balance (balances[j])
 					            .link (keys[other].pub)
 					            .sign (keys[j].prv, keys[j].pub)
-					            .work (*work.generate (nano::work_version::work_1, frontiers[j], node->network_params.network.publish_thresholds.epoch_1))
+					            .work (*node->env.work.generate (nano::work_version::work_1, frontiers[j], node->network_params.network.publish_thresholds.epoch_1))
 					            .build ();
 
 					frontiers[j] = send->hash ();
@@ -986,7 +984,7 @@ int main (int argc, char * const * argv)
 					               .balance (balances[other])
 					               .link (static_cast<nano::block_hash const &> (frontiers[j]))
 					               .sign (keys[other].prv, keys[other].pub)
-					               .work (*work.generate (nano::work_version::work_1, frontiers[other], node->network_params.network.publish_thresholds.epoch_1))
+					               .work (*node->env.work.generate (nano::work_version::work_1, frontiers[other], node->network_params.network.publish_thresholds.epoch_1))
 					               .build ();
 
 					frontiers[other] = receive->hash ();
@@ -1035,11 +1033,9 @@ int main (int argc, char * const * argv)
 			size_t num_representatives (25);
 			size_t max_votes (num_elections * num_representatives); // 40,000 * 25 = 1,000,000 votes
 			std::cerr << boost::str (boost::format ("Starting pregenerating %1% votes\n") % max_votes);
-			boost::asio::io_context io_ctx;
-			nano::alarm alarm (io_ctx);
-			nano::work_pool work (std::numeric_limits<unsigned>::max ());
 			auto path (nano::unique_path ());
-			auto node (std::make_shared<nano::node> (io_ctx, path, alarm, nano::node_config{}, work));
+			nano::environment env;
+			auto node (std::make_shared<nano::node> (env, path, nano::node_config{}));
 			nano::block_hash genesis_latest (node->latest (dev_params.ledger.dev_genesis_key.pub));
 			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
 			// Generating keys
@@ -1057,7 +1053,7 @@ int main (int argc, char * const * argv)
 				            .balance (genesis_balance)
 				            .link (keys[i].pub)
 				            .sign (dev_params.ledger.dev_genesis_key.prv, dev_params.ledger.dev_genesis_key.pub)
-				            .work (*work.generate (nano::work_version::work_1, genesis_latest, node->network_params.network.publish_thresholds.epoch_1))
+				            .work (*node->env.work.generate (nano::work_version::work_1, genesis_latest, node->network_params.network.publish_thresholds.epoch_1))
 				            .build ();
 
 				genesis_latest = send->hash ();
@@ -1070,7 +1066,7 @@ int main (int argc, char * const * argv)
 				            .balance (balance)
 				            .link (genesis_latest)
 				            .sign (keys[i].prv, keys[i].pub)
-				            .work (*work.generate (nano::work_version::work_1, keys[i].pub, node->network_params.network.publish_thresholds.epoch_1))
+				            .work (*node->env.work.generate (nano::work_version::work_1, keys[i].pub, node->network_params.network.publish_thresholds.epoch_1))
 				            .build ();
 
 				node->ledger.process (transaction, *open);
@@ -1089,7 +1085,7 @@ int main (int argc, char * const * argv)
 				            .balance (genesis_balance)
 				            .link (destination.pub)
 				            .sign (dev_params.ledger.dev_genesis_key.prv, dev_params.ledger.dev_genesis_key.pub)
-				            .work (*work.generate (nano::work_version::work_1, genesis_latest, node->network_params.network.publish_thresholds.epoch_1))
+				            .work (*node->env.work.generate (nano::work_version::work_1, genesis_latest, node->network_params.network.publish_thresholds.epoch_1))
 				            .build ();
 
 				genesis_latest = send->hash ();
@@ -1154,9 +1150,7 @@ int main (int argc, char * const * argv)
 				}
 			}
 			std::cout << boost::str (boost::format ("Starting generating %1% blocks...\n") % (count * 2));
-			boost::asio::io_context io_ctx1;
 			boost::asio::io_context io_ctx2;
-			nano::alarm alarm1 (io_ctx1);
 			nano::alarm alarm2 (io_ctx2);
 			nano::work_pool work (std::numeric_limits<unsigned>::max ());
 			auto path1 (nano::unique_path ());
@@ -1166,7 +1160,8 @@ int main (int argc, char * const * argv)
 			node_config.flags.disable_legacy_bootstrap = true;
 			node_config.flags.disable_wallet_bootstrap = true;
 			node_config.flags.disable_bootstrap_listener = true;
-			auto node1 (std::make_shared<nano::node> (io_ctx1, path1, alarm1, node_config, work, 0));
+			nano::environment env;
+			auto node1 (std::make_shared<nano::node> (env, path1, node_config));
 			nano::block_hash genesis_latest (node1->latest (dev_params.ledger.dev_genesis_key.pub));
 			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
 			// Generating blocks
@@ -1206,7 +1201,7 @@ int main (int argc, char * const * argv)
 				}
 			}
 			node1->start ();
-			nano::thread_runner runner1 (io_ctx1, node1->config.io_threads);
+			nano::thread_runner runner1 (node1->env.ctx, node1->config.io_threads);
 
 			std::cout << boost::str (boost::format ("Processing %1% blocks\n") % (count * 2));
 			for (auto & block : blocks)
@@ -1264,9 +1259,9 @@ int main (int argc, char * const * argv)
 					config2.active_elections_size = daemon_config.node.active_elections_size;
 				}
 			}
-			auto node2 (std::make_shared<nano::node> (io_ctx2, path2, alarm2, config2, work, 1));
+			auto node2 (std::make_shared<nano::node> (env, path2, config2));
 			node2->start ();
-			nano::thread_runner runner2 (io_ctx2, node2->config.io_threads);
+			nano::thread_runner runner2 (node2->env.ctx, node2->config.io_threads);
 			std::cout << boost::str (boost::format ("Processing %1% blocks (test node)\n") % (count * 2));
 			// Processing block
 			while (!blocks.empty ())
@@ -1311,8 +1306,8 @@ int main (int argc, char * const * argv)
 			auto end (std::chrono::high_resolution_clock::now ());
 			auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());
 			std::cout << boost::str (boost::format ("%|1$ 12d| us \n%2% frontiers per second\n") % time % ((count + 1) * 1000000 / time));
-			io_ctx1.stop ();
-			io_ctx2.stop ();
+			node1->env.ctx.stop ();
+			node2->env.ctx.stop ();
 			runner1.join ();
 			runner2.join ();
 			node1->stop ();

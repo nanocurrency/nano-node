@@ -28,7 +28,7 @@ TEST (confirmation_solicitor, batches)
 	ASSERT_EQ (channel1, representatives.front ().channel);
 	ASSERT_EQ (nano::dev_genesis_key.pub, representatives.front ().account);
 	ASSERT_TIMELY (3s, node2.network.size () == 1);
-	auto send (std::make_shared<nano::send_block> (nano::genesis_hash, nano::keypair ().pub, nano::genesis_amount - 100, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (nano::genesis_hash)));
+	auto send (std::make_shared<nano::send_block> (nano::genesis_hash, nano::keypair ().pub, nano::genesis_amount - 100, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.env.work.generate (nano::genesis_hash)));
 	send->sideband_set ({});
 	{
 		nano::lock_guard<std::mutex> guard (node2.active.mutex);
@@ -71,7 +71,7 @@ TEST (confirmation_solicitor, different_hash)
 	ASSERT_EQ (channel1, representatives.front ().channel);
 	ASSERT_EQ (nano::dev_genesis_key.pub, representatives.front ().account);
 	ASSERT_TIMELY (3s, node2.network.size () == 1);
-	auto send (std::make_shared<nano::send_block> (nano::genesis_hash, nano::keypair ().pub, nano::genesis_amount - 100, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (nano::genesis_hash)));
+	auto send (std::make_shared<nano::send_block> (nano::genesis_hash, nano::keypair ().pub, nano::genesis_amount - 100, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.env.work.generate (nano::genesis_hash)));
 	send->sideband_set ({});
 	{
 		nano::lock_guard<std::mutex> guard (node2.active.mutex);

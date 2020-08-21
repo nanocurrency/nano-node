@@ -9,8 +9,8 @@
 #include <limits>
 
 nano::socket::socket (std::shared_ptr<nano::node> node_a, boost::optional<std::chrono::seconds> io_timeout_a, nano::socket::concurrency concurrency_a) :
-strand (node_a->io_ctx.get_executor ()),
-tcp_socket (node_a->io_ctx),
+strand (node_a->env.ctx.get_executor ()),
+tcp_socket (node_a->env.ctx),
 node (node_a),
 writer_concurrency (concurrency_a),
 next_deadline (std::numeric_limits<uint64_t>::max ()),
@@ -216,7 +216,7 @@ void nano::socket::checkup ()
 	std::weak_ptr<nano::socket> this_w (shared_from_this ());
 	if (auto node_l = node.lock ())
 	{
-		node_l->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (node_l->network_params.network.is_dev_network () ? 1 : 2), [this_w, node_l]() {
+		node_l->env.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (node_l->network_params.network.is_dev_network () ? 1 : 2), [this_w, node_l]() {
 			if (auto this_l = this_w.lock ())
 			{
 				uint64_t now (nano::seconds_since_epoch ());
@@ -325,7 +325,7 @@ size_t nano::socket::get_max_write_queue_size () const
 }
 
 nano::server_socket::server_socket (std::shared_ptr<nano::node> node_a, boost::asio::ip::tcp::endpoint local_a, size_t max_connections_a, nano::socket::concurrency concurrency_a) :
-socket (node_a, std::chrono::seconds::max (), concurrency_a), acceptor (node_a->io_ctx), local (local_a), deferred_accept_timer (node_a->io_ctx), max_inbound_connections (max_connections_a), concurrency_new_connections (concurrency_a)
+socket (node_a, std::chrono::seconds::max (), concurrency_a), acceptor (node_a->env.ctx), local (local_a), deferred_accept_timer (node_a->env.ctx), max_inbound_connections (max_connections_a), concurrency_new_connections (concurrency_a)
 {
 }
 

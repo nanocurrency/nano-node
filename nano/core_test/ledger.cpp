@@ -528,7 +528,7 @@ TEST (system, DISABLED_generate_send_existing)
 {
 	nano::system system (1);
 	auto & node1 (*system.nodes[0]);
-	nano::thread_runner runner (system.io_ctx, node1.config.io_threads);
+	nano::thread_runner runner (system.env.ctx, node1.config.io_threads);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	nano::keypair stake_preserver;
 	auto send_block (system.wallet (0)->send_action (nano::genesis_account, stake_preserver.pub, nano::genesis_amount / 3 * 2, true));
@@ -575,7 +575,7 @@ TEST (system, DISABLED_generate_send_new)
 {
 	nano::system system (1);
 	auto & node1 (*system.nodes[0]);
-	nano::thread_runner runner (system.io_ctx, node1.config.io_threads);
+	nano::thread_runner runner (system.env.ctx, node1.config.io_threads);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	{
 		auto transaction (node1.store.tx_begin_read ());
@@ -3008,7 +3008,7 @@ TEST (ledger, zero_rep)
 	              .balance (nano::genesis_amount)
 	              .link (0)
 	              .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-	              .work (*system.work.generate (genesis.hash ()))
+	              .work (*system.env.work.generate (genesis.hash ()))
 	              .build ();
 	auto transaction (node1.store.tx_begin_write ());
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *block1).code);
@@ -3021,7 +3021,7 @@ TEST (ledger, zero_rep)
 	              .balance (nano::genesis_amount)
 	              .link (0)
 	              .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-	              .work (*system.work.generate (block1->hash ()))
+	              .work (*system.env.work.generate (block1->hash ()))
 	              .build ();
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *block2).code);
 	ASSERT_EQ (nano::genesis_amount, node1.ledger.cache.rep_weights.representation_get (nano::dev_genesis_key.pub));
@@ -3137,10 +3137,10 @@ TEST (ledger, epoch_2_started_flag)
 	auto epoch1 = system.upgrade_genesis_epoch (node2, nano::epoch::epoch_1);
 	ASSERT_NE (nullptr, epoch1);
 	ASSERT_FALSE (node2.ledger.cache.epoch_2_started.load ());
-	nano::state_block send (nano::dev_genesis_key.pub, epoch1->hash (), nano::dev_genesis_key.pub, nano::genesis_amount - 1, key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (epoch1->hash ()));
+	nano::state_block send (nano::dev_genesis_key.pub, epoch1->hash (), nano::dev_genesis_key.pub, nano::genesis_amount - 1, key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.env.work.generate (epoch1->hash ()));
 	ASSERT_EQ (nano::process_result::progress, node2.process (send).code);
 	ASSERT_FALSE (node2.ledger.cache.epoch_2_started.load ());
-	nano::state_block epoch2 (key.pub, 0, 0, 0, node2.ledger.epoch_link (nano::epoch::epoch_2), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (key.pub));
+	nano::state_block epoch2 (key.pub, 0, 0, 0, node2.ledger.epoch_link (nano::epoch::epoch_2), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.env.work.generate (key.pub));
 	ASSERT_EQ (nano::process_result::progress, node2.process (epoch2).code);
 	ASSERT_TRUE (node2.ledger.cache.epoch_2_started.load ());
 

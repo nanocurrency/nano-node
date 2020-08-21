@@ -102,19 +102,21 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 		config.node.logging.init (data_path);
 		nano::logger_mt logger{ config.node.logging.min_time_between_log_output };
 
-		boost::asio::io_context io_ctx;
-		nano::thread_runner runner (io_ctx, config.node.io_threads);
+
+		nano::environment env;
+		nano::thread_runner runner (env.ctx, config.node.io_threads);
 
 		std::shared_ptr<nano::node> node;
 		std::shared_ptr<nano_qt::wallet> gui;
 		nano::set_application_icon (application);
 		auto opencl (nano::opencl_work::create (config.opencl_enable, config.opencl, logger));
-		nano::work_pool work (config.node.work_threads, config.node.pow_sleep_interval, opencl ? [&opencl](nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> &) {
-			return opencl->generate_work (version_a, root_a, difficulty_a);
+		if (opencl != nullptr)
+		{
+			env.work_impl = std::make_unique<nano::work_pool> (config.node.work_threads, config.node.pow_sleep_interval, [&opencl](nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> &) {
+				return opencl->generate_work (version_a, root_a, difficulty_a);
+			});
 		}
-		                                                                                       : std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> (nullptr));
-		nano::alarm alarm (io_ctx);
-		node = std::make_shared<nano::node> (io_ctx, data_path, alarm, config.node, work);
+		node = std::make_shared<nano::node> (env, data_path, config.node);
 		if (!node->init_error ())
 		{
 			auto wallet (node->wallets.open (wallet_config.wallet));
@@ -185,7 +187,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 						show_error (error.get_message ());
 					}
 					rpc_handler = std::make_unique<nano::inprocess_rpc_handler> (*node, ipc, config.rpc);
-					rpc = nano::get_rpc (io_ctx, rpc_config, *rpc_handler);
+					rpc = nano::get_rpc (env.ctx, rpc_config, *rpc_handler);
 					rpc->start ();
 				}
 				else
