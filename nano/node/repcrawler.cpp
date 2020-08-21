@@ -98,7 +98,7 @@ void nano::rep_crawler::ongoing_crawl ()
 		node.keepalive_preconfigured (node.config.preconfigured_peers);
 	}
 	// Reduce crawl frequency when there's enough total peer weight
-	unsigned next_run_ms = node.network_params.network.is_dev_network () ? 100 : sufficient_weight ? 7000 : 3000;
+	unsigned next_run_ms = node.env.constants.network.is_dev_network () ? 100 : sufficient_weight ? 7000 : 3000;
 	std::weak_ptr<nano::node> node_w (node.shared ());
 	node.env.alarm.add (now + std::chrono::milliseconds (next_run_ms), [node_w, this]() {
 		if (auto node_l = node_w.lock ())
@@ -138,7 +138,7 @@ void nano::rep_crawler::query (std::vector<std::shared_ptr<nano::transport::chan
 	{
 		nano::lock_guard<std::mutex> lock (active_mutex);
 		// Don't send same block multiple times in tests
-		if (node.network_params.network.is_dev_network ())
+		if (node.env.constants.network.is_dev_network ())
 		{
 			for (auto i (0); active.count (hash) != 0 && i < 4; ++i)
 			{
@@ -312,7 +312,7 @@ void nano::rep_crawler::update_weights ()
 
 std::vector<nano::representative> nano::rep_crawler::representatives (size_t count_a, nano::uint128_t const weight_a, boost::optional<decltype (nano::protocol_constants::protocol_version)> const & opt_version_min_a)
 {
-	auto version_min (opt_version_min_a.value_or (node.network_params.protocol.protocol_version_min (node.ledger.cache.epoch_2_started)));
+	auto version_min (opt_version_min_a.value_or (node.env.constants.protocol.protocol_version_min (node.ledger.cache.epoch_2_started)));
 	std::vector<representative> result;
 	nano::lock_guard<std::mutex> lock (probable_reps_mutex);
 	for (auto i (probable_reps.get<tag_weight> ().begin ()), n (probable_reps.get<tag_weight> ().end ()); i != n && result.size () < count_a; ++i)

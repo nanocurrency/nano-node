@@ -167,7 +167,7 @@ TEST (conflicts, reprioritize)
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send1);
 	auto difficulty1 (send1->difficulty ());
-	auto multiplier1 (nano::normalized_multiplier (nano::difficulty::to_multiplier (difficulty1, nano::work_threshold (send1->work_version (), nano::block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */))), node1.network_params.network.publish_thresholds.epoch_1));
+	auto multiplier1 (nano::normalized_multiplier (nano::difficulty::to_multiplier (difficulty1, nano::work_threshold (send1->work_version (), nano::block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */))), node1.env.constants.network.publish_thresholds.epoch_1));
 	nano::send_block send1_copy (*send1);
 	node1.process_active (send1);
 	node1.block_processor.flush ();
@@ -179,7 +179,7 @@ TEST (conflicts, reprioritize)
 	}
 	node1.work_generate_blocking (send1_copy, difficulty1);
 	auto difficulty2 (send1_copy.difficulty ());
-	auto multiplier2 (nano::normalized_multiplier (nano::difficulty::to_multiplier (difficulty2, nano::work_threshold (send1_copy.work_version (), nano::block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */))), node1.network_params.network.publish_thresholds.epoch_1));
+	auto multiplier2 (nano::normalized_multiplier (nano::difficulty::to_multiplier (difficulty2, nano::work_threshold (send1_copy.work_version (), nano::block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */))), node1.env.constants.network.publish_thresholds.epoch_1));
 	node1.process_active (std::make_shared<nano::send_block> (send1_copy));
 	node1.block_processor.flush ();
 	{
@@ -279,8 +279,8 @@ TEST (conflicts, adjusted_multiplier)
 	ASSERT_GT (adjusted_multipliers.find (open2->hash ())->second, adjusted_multipliers.find (change1->hash ())->second);
 	ASSERT_GT (adjusted_multipliers.find (change1->hash ())->second, adjusted_multipliers.find (send5->hash ())->second);
 	// Independent elections can have higher difficulty than adjusted tree
-	auto open_epoch2 (std::make_shared<nano::state_block> (key4.pub, 0, 0, 0, node1.ledger.epoch_link (nano::epoch::epoch_1), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.env.work.generate (key4.pub, nano::difficulty::from_multiplier ((adjusted_multipliers.find (send1->hash ())->second), node1.network_params.network.publish_thresholds.base))));
-	ASSERT_GT (open_epoch2->difficulty (), nano::difficulty::from_multiplier ((adjusted_multipliers.find (send1->hash ())->second), node1.network_params.network.publish_thresholds.base));
+	auto open_epoch2 (std::make_shared<nano::state_block> (key4.pub, 0, 0, 0, node1.ledger.epoch_link (nano::epoch::epoch_1), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.env.work.generate (key4.pub, nano::difficulty::from_multiplier ((adjusted_multipliers.find (send1->hash ())->second), node1.env.constants.network.publish_thresholds.base))));
+	ASSERT_GT (open_epoch2->difficulty (), nano::difficulty::from_multiplier ((adjusted_multipliers.find (send1->hash ())->second), node1.env.constants.network.publish_thresholds.base));
 	node1.process_active (open_epoch2);
 	node1.block_processor.flush ();
 	node1.block_confirm (open_epoch2);

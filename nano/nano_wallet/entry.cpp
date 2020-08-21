@@ -199,7 +199,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 					}
 
 #if BOOST_PROCESS_SUPPORTED
-					auto network = node->network_params.network.get_current_network_as_string ();
+					auto network = node->env.constants.network.get_current_network_as_string ();
 					rpc_process = std::make_unique<boost::process::child> (config.rpc.child_process.rpc_path, "--daemon", "--data_path", data_path, "--network", network);
 #else
 					show_error ("rpc_enable is set to true in the config. Set it to false and start the RPC server manually.");

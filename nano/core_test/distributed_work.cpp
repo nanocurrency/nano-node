@@ -25,9 +25,9 @@ TEST (distributed_work, no_peers)
 		work = work_a;
 		done = true;
 	};
-	ASSERT_FALSE (node->distributed_work.make (nano::work_version::work_1, hash, node->config.work_peers, node->network_params.network.publish_thresholds.base, callback, nano::account ()));
+	ASSERT_FALSE (node->distributed_work.make (nano::work_version::work_1, hash, node->config.work_peers, node->env.constants.network.publish_thresholds.base, callback, nano::account ()));
 	ASSERT_TIMELY (5s, done);
-	ASSERT_GE (nano::work_difficulty (nano::work_version::work_1, hash, *work), node->network_params.network.publish_thresholds.base);
+	ASSERT_GE (nano::work_difficulty (nano::work_version::work_1, hash, *work), node->env.constants.network.publish_thresholds.base);
 	// should only be removed after cleanup
 	ASSERT_EQ (1, node->distributed_work.size ());
 	while (node->distributed_work.size () > 0)
@@ -58,7 +58,7 @@ TEST (distributed_work, no_peers_cancel)
 		ASSERT_FALSE (work_a.is_initialized ());
 		done = true;
 	};
-	ASSERT_FALSE (node.distributed_work.make (nano::work_version::work_1, hash, node.config.work_peers, nano::difficulty::from_multiplier (1e6, node.network_params.network.publish_thresholds.base), callback_to_cancel));
+	ASSERT_FALSE (node.distributed_work.make (nano::work_version::work_1, hash, node.config.work_peers, nano::difficulty::from_multiplier (1e6, node.env.constants.network.publish_thresholds.base), callback_to_cancel));
 	ASSERT_EQ (1, node.distributed_work.size ());
 	// cleanup should not cancel or remove an ongoing work
 	node.distributed_work.cleanup_finished ();
@@ -70,7 +70,7 @@ TEST (distributed_work, no_peers_cancel)
 
 	// now using observer
 	done = false;
-	ASSERT_FALSE (node.distributed_work.make (nano::work_version::work_1, hash, node.config.work_peers, nano::difficulty::from_multiplier (1e6, node.network_params.network.publish_thresholds.base), callback_to_cancel));
+	ASSERT_FALSE (node.distributed_work.make (nano::work_version::work_1, hash, node.config.work_peers, nano::difficulty::from_multiplier (1e6, node.env.constants.network.publish_thresholds.base), callback_to_cancel));
 	ASSERT_EQ (1, node.distributed_work.size ());
 	node.observers.work_cancel.notify (hash);
 	ASSERT_TIMELY (20s, done && node.distributed_work.size () == 0);
@@ -90,7 +90,7 @@ TEST (distributed_work, no_peers_multi)
 	// Test many works for the same root
 	for (unsigned i{ 0 }; i < total; ++i)
 	{
-		ASSERT_FALSE (node->distributed_work.make (nano::work_version::work_1, hash, node->config.work_peers, nano::difficulty::from_multiplier (10, node->network_params.network.publish_thresholds.base), callback));
+		ASSERT_FALSE (node->distributed_work.make (nano::work_version::work_1, hash, node->config.work_peers, nano::difficulty::from_multiplier (10, node->env.constants.network.publish_thresholds.base), callback));
 	}
 	ASSERT_TIMELY (5s, count == total);
 	system.deadline_set (5s);
@@ -104,7 +104,7 @@ TEST (distributed_work, no_peers_multi)
 	for (unsigned i{ 0 }; i < total; ++i)
 	{
 		nano::block_hash hash_i (i + 1);
-		ASSERT_FALSE (node->distributed_work.make (nano::work_version::work_1, hash_i, node->config.work_peers, node->network_params.network.publish_thresholds.base, callback));
+		ASSERT_FALSE (node->distributed_work.make (nano::work_version::work_1, hash_i, node->config.work_peers, node->env.constants.network.publish_thresholds.base, callback));
 	}
 	ASSERT_TIMELY (5s, count == total);
 	system.deadline_set (5s);
@@ -135,9 +135,9 @@ TEST (distributed_work, peer)
 	work_peer->start ();
 	decltype (node->config.work_peers) peers;
 	peers.emplace_back ("::ffff:127.0.0.1", work_peer->port ());
-	ASSERT_FALSE (node->distributed_work.make (nano::work_version::work_1, hash, peers, node->network_params.network.publish_thresholds.base, callback, nano::account ()));
+	ASSERT_FALSE (node->distributed_work.make (nano::work_version::work_1, hash, peers, node->env.constants.network.publish_thresholds.base, callback, nano::account ()));
 	ASSERT_TIMELY (5s, done);
-	ASSERT_GE (nano::work_difficulty (nano::work_version::work_1, hash, *work), node->network_params.network.publish_thresholds.base);
+	ASSERT_GE (nano::work_difficulty (nano::work_version::work_1, hash, *work), node->env.constants.network.publish_thresholds.base);
 	ASSERT_EQ (1, work_peer->generations_good);
 	ASSERT_EQ (0, work_peer->generations_bad);
 	ASSERT_NO_ERROR (system.poll ());
@@ -161,9 +161,9 @@ TEST (distributed_work, peer_malicious)
 	malicious_peer->start ();
 	decltype (node->config.work_peers) peers;
 	peers.emplace_back ("::ffff:127.0.0.1", malicious_peer->port ());
-	ASSERT_FALSE (node->distributed_work.make (nano::work_version::work_1, hash, peers, node->network_params.network.publish_thresholds.base, callback, nano::account ()));
+	ASSERT_FALSE (node->distributed_work.make (nano::work_version::work_1, hash, peers, node->env.constants.network.publish_thresholds.base, callback, nano::account ()));
 	ASSERT_TIMELY (5s, done);
-	ASSERT_GE (nano::work_difficulty (nano::work_version::work_1, hash, *work), node->network_params.network.publish_thresholds.base);
+	ASSERT_GE (nano::work_difficulty (nano::work_version::work_1, hash, *work), node->env.constants.network.publish_thresholds.base);
 	ASSERT_TIMELY (5s, malicious_peer->generations_bad >= 1);
 	// make sure it was *not* the malicious peer that replied
 	ASSERT_EQ (0, malicious_peer->generations_good);
@@ -178,7 +178,7 @@ TEST (distributed_work, peer_malicious)
 	auto malicious_peer2 (std::make_shared<fake_work_peer> (node->env.work, node->env.ctx, nano::get_available_port (), work_peer_type::malicious));
 	malicious_peer2->start ();
 	peers[0].second = malicious_peer2->port ();
-	ASSERT_FALSE (node->distributed_work.make (nano::work_version::work_1, hash, peers, node->network_params.network.publish_thresholds.base, {}, nano::account ()));
+	ASSERT_FALSE (node->distributed_work.make (nano::work_version::work_1, hash, peers, node->env.constants.network.publish_thresholds.base, {}, nano::account ()));
 	ASSERT_TIMELY (5s, malicious_peer2->generations_bad >= 2);
 	node->distributed_work.cancel (hash);
 	ASSERT_EQ (0, malicious_peer2->cancels);
@@ -207,9 +207,9 @@ TEST (distributed_work, peer_multi)
 	peers.emplace_back ("localhost", malicious_peer->port ());
 	peers.emplace_back ("localhost", slow_peer->port ());
 	peers.emplace_back ("localhost", good_peer->port ());
-	ASSERT_FALSE (node->distributed_work.make (nano::work_version::work_1, hash, peers, node->network_params.network.publish_thresholds.base, callback, nano::account ()));
+	ASSERT_FALSE (node->distributed_work.make (nano::work_version::work_1, hash, peers, node->env.constants.network.publish_thresholds.base, callback, nano::account ()));
 	ASSERT_TIMELY (5s, done);
-	ASSERT_GE (nano::work_difficulty (nano::work_version::work_1, hash, *work), node->network_params.network.publish_thresholds.base);
+	ASSERT_GE (nano::work_difficulty (nano::work_version::work_1, hash, *work), node->env.constants.network.publish_thresholds.base);
 	ASSERT_TIMELY (5s, slow_peer->cancels == 1);
 	ASSERT_EQ (0, malicious_peer->generations_good);
 	ASSERT_EQ (1, malicious_peer->generations_bad);
@@ -238,7 +238,7 @@ TEST (distributed_work, fail_resolve)
 	};
 	decltype (node->config.work_peers) peers;
 	peers.emplace_back ("beeb.boop.123z", 0);
-	ASSERT_FALSE (node->distributed_work.make (nano::work_version::work_1, hash, peers, node->network_params.network.publish_thresholds.base, callback, nano::account ()));
+	ASSERT_FALSE (node->distributed_work.make (nano::work_version::work_1, hash, peers, node->env.constants.network.publish_thresholds.base, callback, nano::account ()));
 	ASSERT_TIMELY (5s, done);
-	ASSERT_GE (nano::work_difficulty (nano::work_version::work_1, hash, *work), node->network_params.network.publish_thresholds.base);
+	ASSERT_GE (nano::work_difficulty (nano::work_version::work_1, hash, *work), node->env.constants.network.publish_thresholds.base);
 }

@@ -12,7 +12,7 @@
 #include <numeric>
 
 nano::network::network (nano::node & node_a, uint16_t port_a) :
-syn_cookies (node_a.network_params.node.max_peers_per_ip),
+syn_cookies (node_a.env.constants.node.max_peers_per_ip),
 buffer_container (node_a.stats, nano::network::buffer_size, 4096), // 2Mb receive buffer
 resolver (node_a.env.ctx),
 limiter (node_a.config.bandwidth_limit_burst_ratio, node_a.config.bandwidth_limit),
@@ -24,7 +24,6 @@ udp_channels (node_a, port),
 tcp_channels (node_a),
 disconnect_observer ([]() {})
 {
-	std::cerr << std::to_string (port) << ' ';
 	boost::thread::attributes attrs;
 	nano::thread_attributes::set (attrs);
 	// UDP
@@ -500,7 +499,7 @@ public:
 		nano::telemetry_ack telemetry_ack;
 		if (!node.config.flags.disable_providing_telemetry_metrics)
 		{
-			auto telemetry_data = nano::local_telemetry_data (node.ledger.cache, node.network, node.config.bandwidth_limit, node.network_params, node.startup_time, node.active.active_difficulty (), node.node_id);
+			auto telemetry_data = nano::local_telemetry_data (node.ledger.cache, node.network, node.config.bandwidth_limit, node.env.constants, node.startup_time, node.active.active_difficulty (), node.node_id);
 			telemetry_ack = nano::telemetry_ack (telemetry_data);
 		}
 		channel->send (telemetry_ack, nullptr, nano::buffer_drop_policy::no_socket_drop);
@@ -680,11 +679,11 @@ nano::tcp_endpoint nano::network::bootstrap_peer (bool lazy_bootstrap)
 	bool use_udp_peer (nano::random_pool::generate_word32 (0, 1));
 	if (use_udp_peer || tcp_channels.size () == 0)
 	{
-		result = udp_channels.bootstrap_peer (node.network_params.protocol.protocol_version_min (node.ledger.cache.epoch_2_started));
+		result = udp_channels.bootstrap_peer (node.env.constants.protocol.protocol_version_min (node.ledger.cache.epoch_2_started));
 	}
 	if (result == nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0))
 	{
-		result = tcp_channels.bootstrap_peer (node.network_params.protocol.protocol_version_min (node.ledger.cache.epoch_2_started));
+		result = tcp_channels.bootstrap_peer (node.env.constants.protocol.protocol_version_min (node.ledger.cache.epoch_2_started));
 	}
 	return result;
 }
@@ -726,9 +725,9 @@ void nano::network::cleanup (std::chrono::steady_clock::time_point const & cutof
 
 void nano::network::ongoing_cleanup ()
 {
-	cleanup (std::chrono::steady_clock::now () - node.network_params.node.cutoff);
+	cleanup (std::chrono::steady_clock::now () - node.env.constants.node.cutoff);
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.env.alarm.add (std::chrono::steady_clock::now () + node.network_params.node.period, [node_w]() {
+	node.env.alarm.add (std::chrono::steady_clock::now () + node.env.constants.node.period, [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->network.ongoing_cleanup ();
@@ -753,7 +752,7 @@ void nano::network::ongoing_keepalive ()
 	flood_keepalive (0.75f);
 	flood_keepalive_self (0.25f);
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.env.alarm.add (std::chrono::steady_clock::now () + node.network_params.node.half_period, [node_w]() {
+	node.env.alarm.add (std::chrono::steady_clock::now () + node.env.constants.node.half_period, [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->network.ongoing_keepalive ();
@@ -793,7 +792,7 @@ uint16_t nano::network::port_to_use (uint16_t port_a) const
 	uint16_t result{port_a};
 	if (port_a == 0)
 	{
-		switch (node.network_params.network.network ())
+		switch (node.env.constants.network.network ())
 		{
 			case nano::nano_networks::nano_dev_network:
 				result = nano::get_available_port ();
@@ -801,7 +800,7 @@ uint16_t nano::network::port_to_use (uint16_t port_a) const
 			case nano::nano_networks::nano_beta_network:
 			case nano::nano_networks::nano_live_network:
 			case nano::nano_networks::nano_test_network:
-				result = node.network_params.network.default_node_port;
+				result = node.env.constants.network.default_node_port;
 				break;
 			default:
 				debug_assert (false);

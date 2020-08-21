@@ -167,7 +167,7 @@ void nano::bootstrap_attempt::lazy_requeue (nano::block_hash const &, nano::bloc
 uint32_t nano::bootstrap_attempt::lazy_batch_size ()
 {
 	debug_assert (mode == nano::bootstrap_mode::lazy);
-	return node->network_params.bootstrap.lazy_min_pull_blocks;
+	return node->env.constants.bootstrap.lazy_min_pull_blocks;
 }
 
 bool nano::bootstrap_attempt::lazy_processed_or_exists (nano::block_hash const &)
@@ -320,7 +320,7 @@ void nano::bootstrap_attempt_legacy::restart_condition ()
 	- not completed frontiers confirmation
 	- more than 256 pull retries usually indicating issues with requested pulls
 	- or 128k processed blocks indicating large bootstrap */
-	if (!frontiers_confirmation_pending && !frontiers_confirmed && (requeued_pulls > (!node->network_params.network.is_dev_network () ? nano::bootstrap_limits::requeued_pulls_limit : nano::bootstrap_limits::requeued_pulls_limit_dev) || total_blocks > nano::bootstrap_limits::frontier_confirmation_blocks_limit))
+	if (!frontiers_confirmation_pending && !frontiers_confirmed && (requeued_pulls > (!node->env.constants.network.is_dev_network () ? nano::bootstrap_limits::requeued_pulls_limit : nano::bootstrap_limits::requeued_pulls_limit_dev) || total_blocks > nano::bootstrap_limits::frontier_confirmation_blocks_limit))
 	{
 		frontiers_confirmation_pending = true;
 	}
@@ -485,7 +485,7 @@ bool nano::bootstrap_attempt_legacy::confirm_frontiers (nano::unique_lock<std::m
 			else if (i < max_requests)
 			{
 				node->network.broadcast_confirm_req_batched_many (batched_confirm_req_bundle);
-				std::this_thread::sleep_for (std::chrono::milliseconds (!node->network_params.network.is_dev_network () ? 500 : 5));
+				std::this_thread::sleep_for (std::chrono::milliseconds (!node->env.constants.network.is_dev_network () ? 500 : 5));
 			}
 		}
 		if (!confirmed)

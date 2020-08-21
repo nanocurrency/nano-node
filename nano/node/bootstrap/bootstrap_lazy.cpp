@@ -34,7 +34,7 @@ void nano::bootstrap_attempt_lazy::lazy_start (nano::hash_or_account const & has
 	if (lazy_keys.size () < max_keys && lazy_keys.find (hash_or_account_a) == lazy_keys.end () && !lazy_blocks_processed (hash_or_account_a))
 	{
 		lazy_keys.insert (hash_or_account_a);
-		lazy_pulls.emplace_back (hash_or_account_a, confirmed ? std::numeric_limits<unsigned>::max () : node->network_params.bootstrap.lazy_retry_limit);
+		lazy_pulls.emplace_back (hash_or_account_a, confirmed ? std::numeric_limits<unsigned>::max () : node->env.constants.bootstrap.lazy_retry_limit);
 		lock.unlock ();
 		condition.notify_all ();
 	}
@@ -65,13 +65,13 @@ void nano::bootstrap_attempt_lazy::lazy_requeue (nano::block_hash const & hash_a
 	{
 		lazy_blocks_erase (hash_a);
 		lock.unlock ();
-		node->bootstrap_initiator.connections->requeue_pull (nano::pull_info (hash_a, hash_a, previous_a, incremental_id, static_cast<nano::pull_info::count_t> (1), confirmed_a ? std::numeric_limits<unsigned>::max () : node->network_params.bootstrap.lazy_destinations_retry_limit));
+		node->bootstrap_initiator.connections->requeue_pull (nano::pull_info (hash_a, hash_a, previous_a, incremental_id, static_cast<nano::pull_info::count_t> (1), confirmed_a ? std::numeric_limits<unsigned>::max () : node->env.constants.bootstrap.lazy_destinations_retry_limit));
 	}
 }
 
 uint32_t nano::bootstrap_attempt_lazy::lazy_batch_size ()
 {
-	auto result (node->network_params.bootstrap.lazy_max_pull_blocks);
+	auto result (node->env.constants.bootstrap.lazy_max_pull_blocks);
 	if (total_blocks > nano::bootstrap_limits::lazy_batch_pull_count_resize_blocks_limit && lazy_blocks_count != 0)
 	{
 		double lazy_blocks_ratio (total_blocks / lazy_blocks_count);
@@ -81,8 +81,8 @@ uint32_t nano::bootstrap_attempt_lazy::lazy_batch_size ()
 			double lazy_blocks_factor (std::pow (lazy_blocks_ratio / nano::bootstrap_limits::lazy_batch_pull_count_resize_ratio, 3.0));
 			// Decreasing total block count weight as less important (sqrt)
 			double total_blocks_factor (std::sqrt (total_blocks / nano::bootstrap_limits::lazy_batch_pull_count_resize_blocks_limit));
-			uint32_t batch_count_min (node->network_params.bootstrap.lazy_max_pull_blocks / (lazy_blocks_factor * total_blocks_factor));
-			result = std::max (node->network_params.bootstrap.lazy_min_pull_blocks, batch_count_min);
+			uint32_t batch_count_min (node->env.constants.bootstrap.lazy_max_pull_blocks / (lazy_blocks_factor * total_blocks_factor));
+			result = std::max (node->env.constants.bootstrap.lazy_min_pull_blocks, batch_count_min);
 		}
 	}
 	return result;
@@ -93,7 +93,7 @@ void nano::bootstrap_attempt_lazy::lazy_pull_flush (nano::unique_lock<std::mutex
 	static size_t const max_pulls (nano::bootstrap_limits::bootstrap_connection_scale_target_blocks * 3);
 	if (pulling < max_pulls)
 	{
-		debug_assert (node->network_params.bootstrap.lazy_max_pull_blocks <= std::numeric_limits<nano::pull_info::count_t>::max ());
+		debug_assert (node->env.constants.bootstrap.lazy_max_pull_blocks <= std::numeric_limits<nano::pull_info::count_t>::max ());
 		nano::pull_info::count_t batch_count (lazy_batch_size ());
 		uint64_t read_count (0);
 		size_t count (0);
@@ -251,7 +251,7 @@ bool nano::bootstrap_attempt_lazy::process_block_lazy (std::shared_ptr<nano::blo
 	if (!lazy_blocks_processed (hash))
 	{
 		// Search for new dependencies
-		if (!block_a->source ().is_zero () && !node->ledger.block_exists (block_a->source ()) && block_a->source () != node->network_params.ledger.genesis_account)
+		if (!block_a->source ().is_zero () && !node->ledger.block_exists (block_a->source ()) && block_a->source () != node->env.constants.ledger.genesis_account)
 		{
 			lazy_add (block_a->source (), retry_limit);
 		}
@@ -368,7 +368,7 @@ void nano::bootstrap_attempt_lazy::lazy_block_state_backlog_check (std::shared_p
 		// Assumption for other legacy block types
 		else if (lazy_undefined_links.find (next_block.link) == lazy_undefined_links.end ())
 		{
-			lazy_add (next_block.link, node->network_params.bootstrap.lazy_retry_limit); // Head is not confirmed. It can be account or hash or non-existing
+			lazy_add (next_block.link, node->env.constants.bootstrap.lazy_retry_limit); // Head is not confirmed. It can be account or hash or non-existing
 			lazy_undefined_links.insert (next_block.link);
 		}
 		lazy_state_backlog.erase (find_state);
@@ -435,7 +435,7 @@ void nano::bootstrap_attempt_lazy::lazy_destinations_flush ()
 	size_t count (0);
 	for (auto it (lazy_destinations.get<count_tag> ().begin ()), end (lazy_destinations.get<count_tag> ().end ()); it != end && count < nano::bootstrap_limits::lazy_destinations_request_limit && !stopped;)
 	{
-		lazy_add (it->account, node->network_params.bootstrap.lazy_destinations_retry_limit);
+		lazy_add (it->account, node->env.constants.bootstrap.lazy_destinations_retry_limit);
 		it = lazy_destinations.get<count_tag> ().erase (it);
 		++count;
 	}

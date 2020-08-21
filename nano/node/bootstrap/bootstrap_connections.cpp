@@ -98,7 +98,7 @@ void nano::bootstrap_connections::pool_connection (std::shared_ptr<nano::bootstr
 		// Idle bootstrap client socket
 		if (auto socket_l = client_a->channel->socket.lock ())
 		{
-			socket_l->start_timer (node.network_params.node.idle_timeout);
+			socket_l->start_timer (node.env.constants.node.idle_timeout);
 			// Push into idle deque
 			if (!push_front)
 			{
@@ -413,7 +413,7 @@ void nano::bootstrap_connections::requeue_pull (nano::pull_info const & pull_a, 
 			attempt_l->pull_started ();
 			condition.notify_all ();
 		}
-		else if (attempt_l->mode == nano::bootstrap_mode::lazy && (pull.retry_limit == std::numeric_limits<unsigned>::max () || pull.attempts <= pull.retry_limit + (pull.processed / node.network_params.bootstrap.lazy_max_pull_blocks)))
+		else if (attempt_l->mode == nano::bootstrap_mode::lazy && (pull.retry_limit == std::numeric_limits<unsigned>::max () || pull.attempts <= pull.retry_limit + (pull.processed / node.env.constants.bootstrap.lazy_max_pull_blocks)))
 		{
 			debug_assert (pull.account_or_head == pull.head);
 			if (!attempt_l->lazy_processed_or_exists (pull.account_or_head))

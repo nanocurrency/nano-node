@@ -70,7 +70,7 @@ balance_label (new QLabel),
 wallet (wallet_a)
 {
 	your_account_label->setStyleSheet ("font-weight: bold;");
-	std::string network = wallet.node.network_params.network.get_current_network_as_string ();
+	std::string network = wallet.node.env.constants.network.get_current_network_as_string ();
 	if (!network.empty ())
 	{
 		network[0] = std::toupper (network[0]);
@@ -1016,7 +1016,7 @@ needs_deterministic_restore (false)
 	empty_password ();
 	settings.update_locked (true, true);
 	send_blocks_layout->addWidget (send_account_label);
-	send_account->setPlaceholderText (node.network_params.ledger.zero_key.pub.to_account ().c_str ());
+	send_account->setPlaceholderText (node.env.constants.ledger.zero_key.pub.to_account ().c_str ());
 	send_blocks_layout->addWidget (send_account);
 	send_blocks_layout->addWidget (send_count_label);
 	send_count->setPlaceholderText ("0");
@@ -1496,7 +1496,7 @@ wallet (wallet_a)
 	layout->addWidget (representative);
 	current_representative->setTextInteractionFlags (Qt::TextSelectableByMouse);
 	layout->addWidget (current_representative);
-	new_representative->setPlaceholderText (wallet.node.network_params.ledger.zero_key.pub.to_account ().c_str ());
+	new_representative->setPlaceholderText (wallet.node.env.constants.ledger.zero_key.pub.to_account ().c_str ());
 	layout->addWidget (new_representative);
 	layout->addWidget (change_rep);
 	layout->addStretch ();

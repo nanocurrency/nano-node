@@ -574,8 +574,8 @@ TEST (rpc, send_epoch_2)
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv, false);
 
 	auto target_difficulty = nano::work_threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_2, true, false, false));
-	ASSERT_LT (node.network_params.network.publish_thresholds.entry, target_difficulty);
-	auto min_difficulty = node.network_params.network.publish_thresholds.entry;
+	ASSERT_LT (node.env.constants.network.publish_thresholds.entry, target_difficulty);
+	auto min_difficulty = node.env.constants.network.publish_thresholds.entry;
 
 	scoped_io_thread_name_change scoped_thread_name_io;
 	nano::node_rpc_config node_rpc_config;
@@ -1643,7 +1643,7 @@ TEST (rpc, process_block_with_work_watcher)
 	auto latest (node1.latest (nano::dev_genesis_key.pub));
 	auto send (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, latest, nano::dev_genesis_key.pub, nano::genesis_amount - 100, nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.env.work.generate (latest)));
 	auto difficulty1 (send->difficulty ());
-	auto multiplier1 = nano::normalized_multiplier (nano::difficulty::to_multiplier (difficulty1, node1.network_params.network.publish_thresholds.epoch_1), node1.network_params.network.publish_thresholds.epoch_1);
+	auto multiplier1 = nano::normalized_multiplier (nano::difficulty::to_multiplier (difficulty1, node1.env.constants.network.publish_thresholds.epoch_1), node1.env.constants.network.publish_thresholds.epoch_1);
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (nano::get_available_port (), true);
@@ -1903,10 +1903,10 @@ TEST (rpc, process_ledger_insufficient_work)
 {
 	nano::system system;
 	auto & node = *add_ipc_enabled_node (system);
-	ASSERT_LT (node.network_params.network.publish_thresholds.entry, node.network_params.network.publish_thresholds.epoch_1);
+	ASSERT_LT (node.env.constants.network.publish_thresholds.entry, node.env.constants.network.publish_thresholds.epoch_1);
 	auto latest (node.latest (nano::dev_genesis_key.pub));
-	auto min_difficulty = node.network_params.network.publish_thresholds.entry;
-	auto max_difficulty = node.network_params.network.publish_thresholds.epoch_1;
+	auto min_difficulty = node.env.constants.network.publish_thresholds.entry;
+	auto max_difficulty = node.env.constants.network.publish_thresholds.epoch_1;
 	nano::state_block send (nano::genesis_account, latest, nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, system.work_generate_limited (latest, min_difficulty, max_difficulty));
 	ASSERT_LT (send.difficulty (), max_difficulty);
 	ASSERT_GE (send.difficulty (), min_difficulty);
@@ -1970,7 +1970,7 @@ TEST (rpc, process_difficulty_update_flood)
 
 	// Update block work
 	node.work_generate_blocking (send, send.difficulty ());
-	auto expected_multiplier = nano::normalized_multiplier (nano::difficulty::to_multiplier (send.difficulty (), nano::work_threshold (send.work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false))), node.network_params.network.publish_thresholds.epoch_1);
+	auto expected_multiplier = nano::normalized_multiplier (nano::difficulty::to_multiplier (send.difficulty (), nano::work_threshold (send.work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false))), node.env.constants.network.publish_thresholds.epoch_1);
 
 	{
 		std::string json;
@@ -2298,7 +2298,7 @@ TEST (rpc, peers)
 	system.add_node ();
 	scoped_io_thread_name_change scoped_thread_name_io;
 	nano::endpoint endpoint (boost::asio::ip::make_address_v6 ("fc00::1"), 4000);
-	node->network.udp_channels.insert (endpoint, node->network_params.protocol.protocol_version);
+	node->network.udp_channels.insert (endpoint, node->env.constants.protocol.protocol_version);
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (nano::get_available_port (), true);
@@ -2313,11 +2313,11 @@ TEST (rpc, peers)
 	ASSERT_EQ (200, response.status);
 	auto & peers_node (response.json.get_child ("peers"));
 	ASSERT_EQ (2, peers_node.size ());
-	ASSERT_EQ (std::to_string (node->network_params.protocol.protocol_version), peers_node.get<std::string> ((boost::format ("[::1]:%1%") % config.peering_port).str ()));
+	ASSERT_EQ (std::to_string (node->env.constants.protocol.protocol_version), peers_node.get<std::string> ((boost::format ("[::1]:%1%") % config.peering_port).str ()));
 	// Previously "[::ffff:80.80.80.80]:4000", but IPv4 address cause "No such node thrown in the test body" issue with peers_node.get
 	std::stringstream endpoint_text;
 	endpoint_text << endpoint;
-	ASSERT_EQ (std::to_string (node->network_params.protocol.protocol_version), peers_node.get<std::string> (endpoint_text.str ()));
+	ASSERT_EQ (std::to_string (node->env.constants.protocol.protocol_version), peers_node.get<std::string> (endpoint_text.str ()));
 }
 
 TEST (rpc, peers_node_id)
@@ -2328,7 +2328,7 @@ TEST (rpc, peers_node_id)
 	system.add_node (config);
 	scoped_io_thread_name_change scoped_thread_name_io;
 	nano::endpoint endpoint (boost::asio::ip::make_address_v6 ("fc00::1"), 4000);
-	node->network.udp_channels.insert (endpoint, node->network_params.protocol.protocol_version);
+	node->network.udp_channels.insert (endpoint, node->env.constants.protocol.protocol_version);
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (nano::get_available_port (), true);
@@ -2345,12 +2345,12 @@ TEST (rpc, peers_node_id)
 	auto & peers_node (response.json.get_child ("peers"));
 	ASSERT_EQ (2, peers_node.size ());
 	auto tree1 (peers_node.get_child ((boost::format ("[::1]:%1%") % config.peering_port).str ()));
-	ASSERT_EQ (std::to_string (node->network_params.protocol.protocol_version), tree1.get<std::string> ("protocol_version"));
+	ASSERT_EQ (std::to_string (node->env.constants.protocol.protocol_version), tree1.get<std::string> ("protocol_version"));
 	ASSERT_EQ (system.nodes[1]->node_id.pub.to_node_id (), tree1.get<std::string> ("node_id"));
 	std::stringstream endpoint_text;
 	endpoint_text << endpoint;
 	auto tree2 (peers_node.get_child (endpoint_text.str ()));
-	ASSERT_EQ (std::to_string (node->network_params.protocol.protocol_version), tree2.get<std::string> ("protocol_version"));
+	ASSERT_EQ (std::to_string (node->env.constants.protocol.protocol_version), tree2.get<std::string> ("protocol_version"));
 	ASSERT_EQ ("", tree2.get<std::string> ("node_id"));
 }
 
@@ -2554,10 +2554,10 @@ TEST (rpc, version)
 		auto transaction (node1->store.tx_begin_read ());
 		ASSERT_EQ (std::to_string (node1->store.version_get (transaction)), response1.json.get<std::string> ("store_version"));
 	}
-	ASSERT_EQ (std::to_string (node1->network_params.protocol.protocol_version), response1.json.get<std::string> ("protocol_version"));
+	ASSERT_EQ (std::to_string (node1->env.constants.protocol.protocol_version), response1.json.get<std::string> ("protocol_version"));
 	ASSERT_EQ (boost::str (boost::format ("Nano %1%") % NANO_VERSION_STRING), response1.json.get<std::string> ("node_vendor"));
 	ASSERT_EQ (node1->store.vendor_get (), response1.json.get<std::string> ("store_vendor"));
-	auto network_label (node1->network_params.network.get_current_network_as_string ());
+	auto network_label (node1->env.constants.network.get_current_network_as_string ());
 	ASSERT_EQ (network_label, response1.json.get<std::string> ("network"));
 	auto genesis_open (node1->latest (nano::dev_genesis_key.pub));
 	ASSERT_EQ (genesis_open.to_string (), response1.json.get<std::string> ("network_identifier"));
@@ -2769,7 +2769,7 @@ TEST (rpc, work_generate_epoch_2)
 		while (++tries < max_tries)
 		{
 			verify_response (request, epoch1->hash (), difficulty);
-			if (difficulty < node->network_params.network.publish_thresholds.base)
+			if (difficulty < node->env.constants.network.publish_thresholds.base)
 			{
 				break;
 			}
@@ -2777,7 +2777,7 @@ TEST (rpc, work_generate_epoch_2)
 		ASSERT_LT (tries, max_tries);
 	}
 	// After upgrading, should always use the higher difficulty by default
-	ASSERT_EQ (node->network_params.network.publish_thresholds.epoch_2, node->network_params.network.publish_thresholds.base);
+	ASSERT_EQ (node->env.constants.network.publish_thresholds.epoch_2, node->env.constants.network.publish_thresholds.base);
 	scoped_thread_name_io.reset ();
 	auto epoch2 = system.upgrade_genesis_epoch (*node, nano::epoch::epoch_2);
 	ASSERT_NE (nullptr, epoch2);
@@ -2787,7 +2787,7 @@ TEST (rpc, work_generate_epoch_2)
 		{
 			uint64_t difficulty{ 0 };
 			verify_response (request, epoch1->hash (), difficulty);
-			ASSERT_GE (difficulty, node->network_params.network.publish_thresholds.base);
+			ASSERT_GE (difficulty, node->env.constants.network.publish_thresholds.base);
 		}
 	}
 }
@@ -2946,8 +2946,8 @@ TEST (rpc, work_generate_block_ledger_epoch_2)
 		uint64_t response_difficulty;
 		ASSERT_FALSE (nano::from_string_hex (response_difficulty_text, response_difficulty));
 		ASSERT_EQ (result_difficulty, response_difficulty);
-		ASSERT_GE (result_difficulty, node->network_params.network.publish_thresholds.epoch_2_receive);
-		finished = result_difficulty < node->network_params.network.publish_thresholds.epoch_1;
+		ASSERT_GE (result_difficulty, node->env.constants.network.publish_thresholds.epoch_2_receive);
+		finished = result_difficulty < node->env.constants.network.publish_thresholds.epoch_1;
 		ASSERT_LT (++iteration, 200);
 	}
 }
@@ -2975,7 +2975,7 @@ TEST (rpc, work_cancel)
 	system.deadline_set (10s);
 	while (!done)
 	{
-		system.env.work.generate (nano::work_version::work_1, hash1, node1.network_params.network.publish_thresholds.base, [&done](boost::optional<uint64_t> work_a) {
+		system.env.work.generate (nano::work_version::work_1, hash1, node1.env.constants.network.publish_thresholds.base, [&done](boost::optional<uint64_t> work_a) {
 			done = !work_a;
 		});
 		test_response response1 (request1, rpc.config.port, system.env.ctx);
@@ -3005,7 +3005,7 @@ TEST (rpc, work_peer_bad)
 	node2.config.work_peers.push_back (std::make_pair (boost::asio::ip::address_v6::any ().to_string (), 0));
 	nano::block_hash hash1 (1);
 	std::atomic<uint64_t> work (0);
-	node2.work_generate (nano::work_version::work_1, hash1, node2.network_params.network.publish_thresholds.base, [&work](boost::optional<uint64_t> work_a) {
+	node2.work_generate (nano::work_version::work_1, hash1, node2.env.constants.network.publish_thresholds.base, [&work](boost::optional<uint64_t> work_a) {
 		ASSERT_TRUE (work_a.is_initialized ());
 		work = *work_a;
 	});
@@ -3031,7 +3031,7 @@ TEST (rpc, work_peer_one)
 	node2.config.work_peers.push_back (std::make_pair (node1.network.endpoint ().address ().to_string (), rpc.config.port));
 	nano::keypair key1;
 	std::atomic<uint64_t> work (0);
-	node2.work_generate (nano::work_version::work_1, key1.pub, node1.network_params.network.publish_thresholds.base, [&work](boost::optional<uint64_t> work_a) {
+	node2.work_generate (nano::work_version::work_1, key1.pub, node1.env.constants.network.publish_thresholds.base, [&work](boost::optional<uint64_t> work_a) {
 		ASSERT_TRUE (work_a.is_initialized ());
 		work = *work_a;
 	});
@@ -3074,7 +3074,7 @@ TEST (rpc, work_peer_many)
 	for (auto i (0); i < works.size (); ++i)
 	{
 		nano::keypair key1;
-		node1.work_generate (nano::work_version::work_1, key1.pub, node1.network_params.network.publish_thresholds.base, [& work = works[i]](boost::optional<uint64_t> work_a) {
+		node1.work_generate (nano::work_version::work_1, key1.pub, node1.env.constants.network.publish_thresholds.base, [& work = works[i]](boost::optional<uint64_t> work_a) {
 			work = *work_a;
 		});
 		while (nano::work_difficulty (nano::work_version::work_1, key1.pub, works[i]) < nano::work_threshold_base (nano::work_version::work_1))
@@ -3468,8 +3468,8 @@ TEST (rpc, account_representative_set_epoch_2)
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv, false);
 
 	auto target_difficulty = nano::work_threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_2, false, false, false));
-	ASSERT_LT (node.network_params.network.publish_thresholds.entry, target_difficulty);
-	auto min_difficulty = node.network_params.network.publish_thresholds.entry;
+	ASSERT_LT (node.env.constants.network.publish_thresholds.entry, target_difficulty);
+	auto min_difficulty = node.env.constants.network.publish_thresholds.entry;
 
 	scoped_io_thread_name_change scoped_thread_name_io;
 	nano::node_rpc_config node_rpc_config;
@@ -3776,7 +3776,7 @@ TEST (rpc, work_validate)
 		ASSERT_EQ (200, response.status);
 		ASSERT_EQ (result_difficulty >= difficulty4, response.json.get<bool> ("valid"));
 		ASSERT_EQ (result_difficulty >= node1.default_difficulty (nano::work_version::work_1), response.json.get<bool> ("valid_all"));
-		ASSERT_EQ (result_difficulty >= node1.network_params.network.publish_thresholds.epoch_2_receive, response.json.get<bool> ("valid_all"));
+		ASSERT_EQ (result_difficulty >= node1.env.constants.network.publish_thresholds.epoch_2_receive, response.json.get<bool> ("valid_all"));
 	}
 	uint64_t work3 (*node1.work_generate_blocking (hash, difficulty4));
 	request.put ("work", nano::to_string_hex (work3));
@@ -3796,8 +3796,8 @@ TEST (rpc, work_validate_epoch_2)
 	auto node = add_ipc_enabled_node (system);
 	auto epoch1 = system.upgrade_genesis_epoch (*node, nano::epoch::epoch_1);
 	ASSERT_NE (nullptr, epoch1);
-	ASSERT_EQ (node->network_params.network.publish_thresholds.epoch_2, node->network_params.network.publish_thresholds.base);
-	auto work = system.work_generate_limited (epoch1->hash (), node->network_params.network.publish_thresholds.epoch_1, node->network_params.network.publish_thresholds.base);
+	ASSERT_EQ (node->env.constants.network.publish_thresholds.epoch_2, node->env.constants.network.publish_thresholds.base);
+	auto work = system.work_generate_limited (epoch1->hash (), node->env.constants.network.publish_thresholds.epoch_1, node->env.constants.network.publish_thresholds.base);
 	scoped_io_thread_name_change scoped_thread_name_io;
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
@@ -3821,7 +3821,7 @@ TEST (rpc, work_validate_epoch_2)
 		uint64_t difficulty{ 0 };
 		ASSERT_FALSE (nano::from_string_hex (difficulty_text, difficulty));
 		double multiplier (response.json.get<double> ("multiplier"));
-		ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (difficulty, node->network_params.network.publish_thresholds.epoch_1), 1e-6);
+		ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (difficulty, node->env.constants.network.publish_thresholds.epoch_1), 1e-6);
 	};
 	// After upgrading, the higher difficulty is used to validate and calculate the multiplier
 	scoped_thread_name_io.reset ();
@@ -6849,7 +6849,7 @@ TEST (rpc, active_difficulty)
 	auto node = add_ipc_enabled_node (system);
 	// "Start" epoch 2
 	node->ledger.cache.epoch_2_started = true;
-	ASSERT_EQ (node->default_difficulty (nano::work_version::work_1), node->network_params.network.publish_thresholds.epoch_2);
+	ASSERT_EQ (node->default_difficulty (nano::work_version::work_1), node->env.constants.network.publish_thresholds.epoch_2);
 	scoped_io_thread_name_change scoped_thread_name_io;
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
@@ -7280,7 +7280,7 @@ TEST (rpc, account_lazy_start)
 	node_config.ipc_config.transport_tcp.port = nano::get_available_port ();
 	node_config.flags = config.flags;
 	auto node2 = system.add_node (node_config);
-	node2->network.udp_channels.insert (node1->network.endpoint (), node1->network_params.protocol.protocol_version);
+	node2->network.udp_channels.insert (node1->network.endpoint (), node1->env.constants.protocol.protocol_version);
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (*node2, node_rpc_config);
 	nano::rpc_config rpc_config (nano::get_available_port (), true);
@@ -7539,7 +7539,7 @@ TEST (rpc, telemetry_single)
 		nano::telemetry_data telemetry_data;
 		auto const should_ignore_identification_metrics = false;
 		ASSERT_FALSE (telemetry_data.deserialize_json (config, should_ignore_identification_metrics));
-		nano::compare_default_telemetry_response_data (telemetry_data, node->network_params, node->config.bandwidth_limit, node->active.active_difficulty (), node->node_id);
+		nano::compare_default_telemetry_response_data (telemetry_data, node->env.constants, node->config.bandwidth_limit, node->active.active_difficulty (), node->node_id);
 	}
 }
 
@@ -7578,7 +7578,7 @@ TEST (rpc, telemetry_all)
 		nano::telemetry_data telemetry_data;
 		auto const should_ignore_identification_metrics = true;
 		ASSERT_FALSE (telemetry_data.deserialize_json (config, should_ignore_identification_metrics));
-		nano::compare_default_telemetry_response_data_excluding_signature (telemetry_data, node->network_params, node->config.bandwidth_limit, node->active.active_difficulty ());
+		nano::compare_default_telemetry_response_data_excluding_signature (telemetry_data, node->env.constants, node->config.bandwidth_limit, node->active.active_difficulty ());
 		ASSERT_FALSE (response.json.get_optional<std::string> ("node_id").is_initialized ());
 		ASSERT_FALSE (response.json.get_optional<std::string> ("signature").is_initialized ());
 	}
@@ -7597,7 +7597,7 @@ TEST (rpc, telemetry_all)
 	nano::telemetry_data data;
 	auto const should_ignore_identification_metrics = false;
 	ASSERT_FALSE (data.deserialize_json (config, should_ignore_identification_metrics));
-	nano::compare_default_telemetry_response_data (data, node->network_params, node->config.bandwidth_limit, node->active.active_difficulty (), node->node_id);
+	nano::compare_default_telemetry_response_data (data, node->env.constants, node->config.bandwidth_limit, node->active.active_difficulty (), node->node_id);
 
 	ASSERT_EQ (node->network.endpoint ().address ().to_string (), metrics.get<std::string> ("address"));
 	ASSERT_EQ (node->network.endpoint ().port (), metrics.get<uint16_t> ("port"));
@@ -7633,7 +7633,7 @@ TEST (rpc, telemetry_self)
 		nano::telemetry_data data;
 		nano::jsonconfig config (response.json);
 		ASSERT_FALSE (data.deserialize_json (config, should_ignore_identification_metrics));
-		nano::compare_default_telemetry_response_data (data, node1.network_params, node1.config.bandwidth_limit, node1.active.active_difficulty (), node1.node_id);
+		nano::compare_default_telemetry_response_data (data, node1.env.constants, node1.config.bandwidth_limit, node1.active.active_difficulty (), node1.node_id);
 	}
 
 	request.put ("address", "[::1]");
@@ -7644,7 +7644,7 @@ TEST (rpc, telemetry_self)
 		nano::telemetry_data data;
 		nano::jsonconfig config (response.json);
 		ASSERT_FALSE (data.deserialize_json (config, should_ignore_identification_metrics));
-		nano::compare_default_telemetry_response_data (data, node1.network_params, node1.config.bandwidth_limit, node1.active.active_difficulty (), node1.node_id);
+		nano::compare_default_telemetry_response_data (data, node1.env.constants, node1.config.bandwidth_limit, node1.active.active_difficulty (), node1.node_id);
 	}
 
 	request.put ("address", "127.0.0.1");
@@ -7655,7 +7655,7 @@ TEST (rpc, telemetry_self)
 		nano::telemetry_data data;
 		nano::jsonconfig config (response.json);
 		ASSERT_FALSE (data.deserialize_json (config, should_ignore_identification_metrics));
-		nano::compare_default_telemetry_response_data (data, node1.network_params, node1.config.bandwidth_limit, node1.active.active_difficulty (), node1.node_id);
+		nano::compare_default_telemetry_response_data (data, node1.env.constants, node1.config.bandwidth_limit, node1.active.active_difficulty (), node1.node_id);
 	}
 
 	// Incorrect port should fail

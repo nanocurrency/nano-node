@@ -64,7 +64,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 			auto node (std::make_shared<nano::node> (env, data_path, config.node));
 			if (!node->init_error ())
 			{
-				auto network_label = node->network_params.network.get_current_network_as_string ();
+				auto network_label = node->env.constants.network.get_current_network_as_string ();
 				std::cout << "Network: " << network_label << ", version: " << NANO_VERSION_STRING << "\n"
 				          << "Path: " << node->application_path.string () << "\n"
 				          << "Build Info: " << BUILD_INFO << "\n"
@@ -129,7 +129,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 							throw std::runtime_error (std::string ("RPC is configured to spawn a new process however the file cannot be found at: ") + config.rpc.child_process.rpc_path);
 						}
 
-						auto network = node->network_params.network.get_current_network_as_string ();
+						auto network = node->env.constants.network.get_current_network_as_string ();
 #if BOOST_PROCESS_SUPPORTED
 						rpc_process = std::make_unique<boost::process::child> (config.rpc.child_process.rpc_path, "--daemon", "--data_path", data_path, "--network", network);
 #else

@@ -94,15 +94,15 @@ store (*store_impl),
 wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (application_path_a / "wallets.ldb", config_a.lmdb_config)),
 wallets_store (*wallets_store_impl),
 gap_cache (*this),
-ledger (store, stats, config.flags.generate_cache, [this]() { this->network.erase_below_version (network_params.protocol.protocol_version_min (true)); }),
+ledger (store, stats, config.flags.generate_cache, [this]() { this->network.erase_below_version (env.constants.protocol.protocol_version_min (true)); }),
 checker (config.signature_checker_threads),
 network (*this, config.peering_port),
-telemetry (std::make_shared<nano::telemetry> (network, env.alarm, worker, observers.telemetry, stats, network_params, config.flags.disable_ongoing_telemetry_requests)),
+telemetry (std::make_shared<nano::telemetry> (network, env.alarm, worker, observers.telemetry, stats, env.constants, config.flags.disable_ongoing_telemetry_requests)),
 bootstrap_initiator (*this),
 bootstrap (network.port, *this),
 application_path (application_path_a),
 port_mapping (*this),
-vote_processor (checker, active, observers, stats, config, config.flags, logger, online_reps, ledger, network_params),
+vote_processor (checker, active, observers, stats, config, config.flags, logger, online_reps, ledger, env.constants),
 rep_crawler (*this),
 warmed_up (0),
 block_processor (*this, write_database_queue),
@@ -112,11 +112,11 @@ block_processor_thread ([this]() {
 	this->block_processor.process_blocks ();
 }),
 // clang-format on
-online_reps (ledger, network_params, config.online_weight_minimum.number ()),
+online_reps (ledger, env.constants, config.online_weight_minimum.number ()),
 vote_uniquer (block_uniquer),
 confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, logger, node_initialized_latch, config.flags.confirmation_height_processor_mode),
 active (*this, confirmation_height_processor),
-aggregator (network_params.network, config, stats, history, ledger, wallets, active),
+aggregator (env.constants.network, config, stats, history, ledger, wallets, active),
 payment_observer_processor (observers.blocks),
 wallets (wallets_store.init_error (), *this),
 startup_time (std::chrono::steady_clock::now ()),
@@ -328,7 +328,7 @@ node_seq (seq)
 		logger.always_log ("Build information: ", BUILD_INFO);
 		logger.always_log ("Database backend: ", store.vendor_get ());
 
-		auto network_label = network_params.network.get_current_network_as_string ();
+		auto network_label = env.constants.network.get_current_network_as_string ();
 		logger.always_log ("Active network: ", network_label);
 
 		logger.always_log (boost::str (boost::format ("Work pool running %1% threads %2%") % env.work.threads.size () % (env.work.opencl ? "(1 for OpenCL)" : "")));
@@ -365,7 +365,7 @@ node_seq (seq)
 			std::stringstream ss;
 			ss << "Genesis block not found. This commonly indicates a configuration issue, check that the --network or --data_path command line arguments are correct, "
 			      "and also the ledger backend node config option. If using a read-only CLI command a ledger must already exist, start the node with --daemon first.";
-			if (network_params.network.is_beta_network ())
+			if (env.constants.network.is_beta_network ())
 			{
 				ss << " Beta network may have reset, try clearing database files";
 			}
@@ -395,7 +395,7 @@ node_seq (seq)
 		node_id = nano::keypair ();
 		logger.always_log ("Node ID: ", node_id.pub.to_node_id ());
 
-		if ((network_params.network.is_live_network () || network_params.network.is_beta_network ()) && !config.flags.inactive_node)
+		if ((env.constants.network.is_live_network () || env.constants.network.is_beta_network ()) && !config.flags.inactive_node)
 		{
 			auto bootstrap_weights = get_bootstrap_weights ();
 			// Use bootstrap weights if initial bootstrap is not completed
@@ -707,7 +707,7 @@ void nano::node::keepalive_preconfigured (std::vector<std::string> const & peers
 {
 	for (auto i (peers_a.begin ()), n (peers_a.end ()); i != n; ++i)
 	{
-		keepalive (*i, network_params.network.default_node_port);
+		keepalive (*i, env.constants.network.default_node_port);
 	}
 }
 
@@ -762,7 +762,7 @@ nano::uint128_t nano::node::minimum_principal_weight ()
 
 nano::uint128_t nano::node::minimum_principal_weight (nano::uint128_t const & online_stake)
 {
-	return online_stake / network_params.network.principal_weight_factor;
+	return online_stake / env.constants.network.principal_weight_factor;
 }
 
 void nano::node::long_inactivity_cleanup ()
@@ -847,7 +847,7 @@ void nano::node::ongoing_peer_store ()
 	bool stored (network.tcp_channels.store_all (true));
 	network.udp_channels.store_all (!stored);
 	std::weak_ptr<nano::node> node_w (shared_from_this ());
-	env.alarm.add (std::chrono::steady_clock::now () + network_params.node.peer_interval, [node_w]() {
+	env.alarm.add (std::chrono::steady_clock::now () + env.constants.node.peer_interval, [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->worker.push_task ([node_l]() {
@@ -870,7 +870,7 @@ void nano::node::backup_wallet ()
 		i->second->store.write_backup (transaction, backup_path / (i->first.to_string () + ".json"));
 	}
 	auto this_l (shared ());
-	env.alarm.add (std::chrono::steady_clock::now () + network_params.node.backup_interval, [this_l]() {
+	env.alarm.add (std::chrono::steady_clock::now () + env.constants.node.backup_interval, [this_l]() {
 		this_l->backup_wallet ();
 	});
 }
@@ -882,7 +882,7 @@ void nano::node::search_pending ()
 	// Search pending
 	wallets.search_pending_all ();
 	auto this_l (shared ());
-	env.alarm.add (std::chrono::steady_clock::now () + network_params.node.search_pending_interval, [this_l]() {
+	env.alarm.add (std::chrono::steady_clock::now () + env.constants.node.search_pending_interval, [this_l]() {
 		this_l->worker.push_task ([this_l]() {
 			this_l->search_pending ();
 		});
@@ -964,7 +964,7 @@ void nano::node::ongoing_unchecked_cleanup ()
 {
 	unchecked_cleanup ();
 	auto this_l (shared ());
-	env.alarm.add (std::chrono::steady_clock::now () + network_params.node.unchecked_cleaning_interval, [this_l]() {
+	env.alarm.add (std::chrono::steady_clock::now () + env.constants.node.unchecked_cleaning_interval, [this_l]() {
 		this_l->worker.push_task ([this_l]() {
 			this_l->ongoing_unchecked_cleanup ();
 		});
@@ -993,7 +993,7 @@ uint64_t nano::node::default_difficulty (nano::work_version const version_a) con
 	switch (version_a)
 	{
 		case nano::work_version::work_1:
-			result = ledger.cache.epoch_2_started ? nano::work_threshold_base (version_a) : network_params.network.publish_thresholds.epoch_1;
+			result = ledger.cache.epoch_2_started ? nano::work_threshold_base (version_a) : env.constants.network.publish_thresholds.epoch_1;
 			break;
 		default:
 			debug_assert (false && "Invalid version specified to default_difficulty");
@@ -1054,19 +1054,19 @@ boost::optional<uint64_t> nano::node::work_generate_blocking (nano::work_version
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a)
 {
-	debug_assert (network_params.network.is_dev_network ());
+	debug_assert (env.constants.network.is_dev_network ());
 	return work_generate_blocking (block_a, default_difficulty (nano::work_version::work_1));
 }
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a)
 {
-	debug_assert (network_params.network.is_dev_network ());
+	debug_assert (env.constants.network.is_dev_network ());
 	return work_generate_blocking (root_a, default_difficulty (nano::work_version::work_1));
 }
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a, uint64_t difficulty_a)
 {
-	debug_assert (network_params.network.is_dev_network ());
+	debug_assert (env.constants.network.is_dev_network ());
 	return work_generate_blocking (nano::work_version::work_1, root_a, difficulty_a);
 }
 
@@ -1122,7 +1122,7 @@ nano::uint128_t nano::node::delta () const
 void nano::node::ongoing_online_weight_calculation_queue ()
 {
 	std::weak_ptr<nano::node> node_w (shared_from_this ());
-	env.alarm.add (std::chrono::steady_clock::now () + (std::chrono::seconds (network_params.node.weight_period)), [node_w]() {
+	env.alarm.add (std::chrono::steady_clock::now () + (std::chrono::seconds (env.constants.node.weight_period)), [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->worker.push_task ([node_l]() {
@@ -1257,7 +1257,7 @@ void nano::node::process_confirmed (nano::election_status const & status_a, uint
 {
 	auto block_a (status_a.winner);
 	auto hash (block_a->hash ());
-	const auto num_iters = (config.block_processor_batch_max_time / network_params.node.process_confirmed_interval) * 4;
+	const auto num_iters = (config.block_processor_batch_max_time / env.constants.node.process_confirmed_interval) * 4;
 	if (ledger.block_exists (hash))
 	{
 		confirmation_height_processor.add (hash);
@@ -1266,7 +1266,7 @@ void nano::node::process_confirmed (nano::election_status const & status_a, uint
 	{
 		iteration_a++;
 		std::weak_ptr<nano::node> node_w (shared ());
-		env.alarm.add (std::chrono::steady_clock::now () + network_params.node.process_confirmed_interval, [node_w, status_a, iteration_a]() {
+		env.alarm.add (std::chrono::steady_clock::now () + env.constants.node.process_confirmed_interval, [node_w, status_a, iteration_a]() {
 			if (auto node_l = node_w.lock ())
 			{
 				node_l->process_confirmed (status_a, iteration_a);
@@ -1607,8 +1607,8 @@ void nano::node::epoch_upgrader_impl (nano::private_key const & prv_a, nano::epo
 std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> nano::node::get_bootstrap_weights () const
 {
 	std::unordered_map<nano::account, nano::uint128_t> weights;
-	const uint8_t * weight_buffer = network_params.network.is_live_network () ? nano_bootstrap_weights_live : nano_bootstrap_weights_beta;
-	size_t weight_size = network_params.network.is_live_network () ? nano_bootstrap_weights_live_size : nano_bootstrap_weights_beta_size;
+	const uint8_t * weight_buffer = env.constants.network.is_live_network () ? nano_bootstrap_weights_live : nano_bootstrap_weights_beta;
+	size_t weight_size = env.constants.network.is_live_network () ? nano_bootstrap_weights_live_size : nano_bootstrap_weights_beta_size;
 	nano::bufferstream weight_stream ((const uint8_t *)weight_buffer, weight_size);
 	nano::uint128_union block_height;
 	uint64_t max_blocks = 0;

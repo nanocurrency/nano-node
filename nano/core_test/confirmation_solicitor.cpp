@@ -21,7 +21,7 @@ TEST (confirmation_solicitor, batches)
 	// Solicitor will only solicit from this representative
 	nano::representative representative (nano::dev_genesis_key.pub, nano::genesis_amount, channel1);
 	std::vector<nano::representative> representatives{ representative };
-	nano::confirmation_solicitor solicitor (node2.network, node2.network_params.network);
+	nano::confirmation_solicitor solicitor (node2.network, node2.env.constants.network);
 	solicitor.prepare (representatives);
 	// Ensure the representatives are correct
 	ASSERT_EQ (1, representatives.size ());
@@ -64,7 +64,7 @@ TEST (confirmation_solicitor, different_hash)
 	// Solicitor will only solicit from this representative
 	nano::representative representative (nano::dev_genesis_key.pub, nano::genesis_amount, channel1);
 	std::vector<nano::representative> representatives{ representative };
-	nano::confirmation_solicitor solicitor (node2.network, node2.network_params.network);
+	nano::confirmation_solicitor solicitor (node2.network, node2.env.constants.network);
 	solicitor.prepare (representatives);
 	// Ensure the representatives are correct
 	ASSERT_EQ (1, representatives.size ());

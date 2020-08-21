@@ -532,10 +532,10 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					{
 						auto transaction (node.node->store.tx_begin_write ());
 						auto conf_height_reset_num = 0;
-						if (account == node.node->network_params.ledger.genesis_account)
+						if (account == node.node->env.constants.ledger.genesis_account)
 						{
 							conf_height_reset_num = 1;
-							node.node->store.confirmation_height_put (transaction, account, { confirmation_height_info.height, node.node->network_params.ledger.genesis_block });
+							node.node->store.confirmation_height_put (transaction, account, { confirmation_height_info.height, node.node->env.constants.ledger.genesis_block });
 						}
 						else
 						{

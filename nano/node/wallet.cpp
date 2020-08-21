@@ -1150,7 +1150,7 @@ void nano::wallet::work_update (nano::transaction const & transaction_a, nano::a
 void nano::wallet::work_ensure (nano::account const & account_a, nano::root const & root_a)
 {
 	using namespace std::chrono_literals;
-	std::chrono::seconds const precache_delay = wallets.node.network_params.network.is_dev_network () ? 1s : 10s;
+	std::chrono::seconds const precache_delay = wallets.node.env.constants.network.is_dev_network () ? 1s : 10s;
 
 	wallets.delayed_work->operator[] (account_a) = root_a;
 

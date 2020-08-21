@@ -61,7 +61,7 @@ TEST (websocket, active_difficulty)
 
 	// "Start" epoch 2
 	node1->ledger.cache.epoch_2_started = true;
-	ASSERT_EQ (node1->default_difficulty (nano::work_version::work_1), node1->network_params.network.publish_thresholds.epoch_2);
+	ASSERT_EQ (node1->default_difficulty (nano::work_version::work_1), node1->env.constants.network.publish_thresholds.epoch_2);
 
 	ASSERT_EQ (0, node1->websocket_server->subscriber_count (nano::websocket::topic::active_difficulty));
 
@@ -780,7 +780,7 @@ TEST (websocket, telemetry)
 	nano::jsonconfig telemetry_contents (contents);
 	nano::telemetry_data telemetry_data;
 	telemetry_data.deserialize_json (telemetry_contents, false);
-	compare_default_telemetry_response_data (telemetry_data, node2->network_params, node2->config.bandwidth_limit, node2->active.active_difficulty (), node2->node_id);
+	compare_default_telemetry_response_data (telemetry_data, node2->env.constants, node2->config.bandwidth_limit, node2->active.active_difficulty (), node2->node_id);
 
 	ASSERT_EQ (contents.get<std::string> ("address"), node2->network.endpoint ().address ().to_string ());
 	ASSERT_EQ (contents.get<uint16_t> ("port"), node2->network.endpoint ().port ());

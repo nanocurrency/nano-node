@@ -2,6 +2,7 @@
 
 #include <nano/lib/alarm.hpp>
 #include <nano/lib/work.hpp>
+#include <nano/secure/common.hpp>
 
 #include <boost/asio/io_context.hpp>
 
@@ -20,5 +21,6 @@ public:
 	nano::alarm alarm;
 	std::unique_ptr<nano::work_pool> work_impl;
 	nano::work_pool & work;
+	nano::network_params constants;
 };
 }

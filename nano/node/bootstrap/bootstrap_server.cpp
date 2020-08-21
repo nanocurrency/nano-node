@@ -150,7 +150,7 @@ void nano::bootstrap_server::stop ()
 void nano::bootstrap_server::receive ()
 {
 	// Increase timeout to receive TCP header (idle server socket)
-	socket->set_timeout (node->network_params.node.idle_timeout);
+	socket->set_timeout (node->env.constants.node.idle_timeout);
 	auto this_l (shared_from_this ());
 	socket->async_read (receive_buffer, 8, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		// Set remote_endpoint
@@ -252,7 +252,7 @@ void nano::bootstrap_server::receive_header_action (boost::system::error_code co
 					{
 						// Only handle telemetry requests if they are outside of the cutoff time
 						auto is_very_first_message = last_telemetry_req == std::chrono::steady_clock::time_point{};
-						auto cache_exceeded = std::chrono::steady_clock::now () >= last_telemetry_req + nano::telemetry_cache_cutoffs::network_to_time (node->network_params.network);
+						auto cache_exceeded = std::chrono::steady_clock::now () >= last_telemetry_req + nano::telemetry_cache_cutoffs::network_to_time (node->env.constants.network);
 						if (is_very_first_message || cache_exceeded)
 						{
 							last_telemetry_req = std::chrono::steady_clock::now ();

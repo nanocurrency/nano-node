@@ -935,7 +935,7 @@ int main (int argc, char * const * argv)
 				            .balance (genesis_balance)
 				            .link (keys[i].pub)
 				            .sign (dev_params.ledger.dev_genesis_key.prv, dev_params.ledger.dev_genesis_key.pub)
-				            .work (*node->env.work.generate (nano::work_version::work_1, genesis_latest, node->network_params.network.publish_thresholds.epoch_1))
+				            .work (*node->env.work.generate (nano::work_version::work_1, genesis_latest, node->env.constants.network.publish_thresholds.epoch_1))
 				            .build ();
 
 				genesis_latest = send->hash ();
@@ -948,7 +948,7 @@ int main (int argc, char * const * argv)
 				            .balance (balances[i])
 				            .link (genesis_latest)
 				            .sign (keys[i].prv, keys[i].pub)
-				            .work (*node->env.work.generate (nano::work_version::work_1, keys[i].pub, node->network_params.network.publish_thresholds.epoch_1))
+				            .work (*node->env.work.generate (nano::work_version::work_1, keys[i].pub, node->env.constants.network.publish_thresholds.epoch_1))
 				            .build ();
 
 				frontiers[i] = open->hash ();
@@ -969,7 +969,7 @@ int main (int argc, char * const * argv)
 					            .balance (balances[j])
 					            .link (keys[other].pub)
 					            .sign (keys[j].prv, keys[j].pub)
-					            .work (*node->env.work.generate (nano::work_version::work_1, frontiers[j], node->network_params.network.publish_thresholds.epoch_1))
+					            .work (*node->env.work.generate (nano::work_version::work_1, frontiers[j], node->env.constants.network.publish_thresholds.epoch_1))
 					            .build ();
 
 					frontiers[j] = send->hash ();
@@ -984,7 +984,7 @@ int main (int argc, char * const * argv)
 					               .balance (balances[other])
 					               .link (static_cast<nano::block_hash const &> (frontiers[j]))
 					               .sign (keys[other].prv, keys[other].pub)
-					               .work (*node->env.work.generate (nano::work_version::work_1, frontiers[other], node->network_params.network.publish_thresholds.epoch_1))
+					               .work (*node->env.work.generate (nano::work_version::work_1, frontiers[other], node->env.constants.network.publish_thresholds.epoch_1))
 					               .build ();
 
 					frontiers[other] = receive->hash ();
@@ -1053,7 +1053,7 @@ int main (int argc, char * const * argv)
 				            .balance (genesis_balance)
 				            .link (keys[i].pub)
 				            .sign (dev_params.ledger.dev_genesis_key.prv, dev_params.ledger.dev_genesis_key.pub)
-				            .work (*node->env.work.generate (nano::work_version::work_1, genesis_latest, node->network_params.network.publish_thresholds.epoch_1))
+				            .work (*node->env.work.generate (nano::work_version::work_1, genesis_latest, node->env.constants.network.publish_thresholds.epoch_1))
 				            .build ();
 
 				genesis_latest = send->hash ();
@@ -1066,7 +1066,7 @@ int main (int argc, char * const * argv)
 				            .balance (balance)
 				            .link (genesis_latest)
 				            .sign (keys[i].prv, keys[i].pub)
-				            .work (*node->env.work.generate (nano::work_version::work_1, keys[i].pub, node->network_params.network.publish_thresholds.epoch_1))
+				            .work (*node->env.work.generate (nano::work_version::work_1, keys[i].pub, node->env.constants.network.publish_thresholds.epoch_1))
 				            .build ();
 
 				node->ledger.process (transaction, *open);
@@ -1085,7 +1085,7 @@ int main (int argc, char * const * argv)
 				            .balance (genesis_balance)
 				            .link (destination.pub)
 				            .sign (dev_params.ledger.dev_genesis_key.prv, dev_params.ledger.dev_genesis_key.pub)
-				            .work (*node->env.work.generate (nano::work_version::work_1, genesis_latest, node->network_params.network.publish_thresholds.epoch_1))
+				            .work (*node->env.work.generate (nano::work_version::work_1, genesis_latest, node->env.constants.network.publish_thresholds.epoch_1))
 				            .build ();
 
 				genesis_latest = send->hash ();
@@ -1117,7 +1117,7 @@ int main (int argc, char * const * argv)
 			while (!votes.empty ())
 			{
 				auto vote (votes.front ());
-				auto channel (std::make_shared<nano::transport::channel_udp> (node->network.udp_channels, node->network.endpoint (), node->network_params.protocol.protocol_version));
+				auto channel (std::make_shared<nano::transport::channel_udp> (node->network.udp_channels, node->network.endpoint (), node->env.constants.protocol.protocol_version));
 				node->vote_processor.vote (vote, channel);
 				votes.pop_front ();
 			}
