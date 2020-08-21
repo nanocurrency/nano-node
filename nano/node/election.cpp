@@ -94,6 +94,7 @@ bool nano::election::valid_change (nano::election::state_t expected_a, nano::ele
 				default:
 					break;
 			}
+			break;
 		case nano::election::state_t::broadcasting:
 			switch (desired_a)
 			{
@@ -105,6 +106,7 @@ bool nano::election::valid_change (nano::election::state_t expected_a, nano::ele
 				default:
 					break;
 			}
+			break;
 		case nano::election::state_t::backtracking:
 			switch (desired_a)
 			{
@@ -115,6 +117,7 @@ bool nano::election::valid_change (nano::election::state_t expected_a, nano::ele
 				default:
 					break;
 			}
+			break;
 		case nano::election::state_t::confirmed:
 			switch (desired_a)
 			{
@@ -124,8 +127,8 @@ bool nano::election::valid_change (nano::election::state_t expected_a, nano::ele
 				default:
 					break;
 			}
-		case nano::election::state_t::expired_unconfirmed:
 			break;
+		case nano::election::state_t::expired_unconfirmed:
 		case nano::election::state_t::expired_confirmed:
 			break;
 	}
@@ -204,13 +207,11 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 	switch (state_m)
 	{
 		case nano::election::state_t::passive:
-		{
 			if (base_latency () * passive_duration_factor < std::chrono::steady_clock::now () - state_start)
 			{
 				state_change (nano::election::state_t::passive, nano::election::state_t::active);
 			}
 			break;
-		}
 		case nano::election::state_t::active:
 			send_confirm_req (solicitor_a);
 			if (confirmation_request_count > active_request_count_min)
