@@ -95,12 +95,17 @@ void nano::active_transactions::confirm_prioritized_frontiers (nano::transaction
 						{
 							auto block (this->node.store.block_get (transaction_a, info.head));
 							auto previous_balance (this->node.ledger.balance (transaction_a, block->previous ()));
-							auto insert_result = this->insert (block, previous_balance);
-							if (insert_result.inserted)
+							lk.lock ();
+							if (roots.get<tag_root> ().find (block->qualified_root ()) == roots.get<tag_root> ().end ())
 							{
-								insert_result.election->transition_active ();
-								++elections_count;
+								auto insert_result = this->insert_impl (block, previous_balance);
+								if (insert_result.inserted)
+								{
+									insert_result.election->transition_active ();
+									++elections_count;
+								}
 							}
+							lk.unlock ();
 						}
 					}
 				}
@@ -648,6 +653,13 @@ nano::election_insertion_result nano::active_transactions::insert_impl (std::sha
 		{
 			result.election = existing->election;
 		}
+
+		// Votes are generated for inserted or ongoing elections if they're prioritized
+		// Non-priority elections generate votes when they gain priority in the future
+		if (result.election && result.election->prioritized ())
+		{
+			result.election->generate_votes ();
+		}
 	}
 	return result;
 }
@@ -791,17 +803,9 @@ nano::election_insertion_result nano::active_transactions::activate (nano::accou
 			if (node.ledger.can_vote (transaction, *block))
 			{
 				result = insert (block);
-				if (result.election)
+				if (result.inserted)
 				{
-					if (result.inserted)
-					{
-						result.election->transition_active ();
-					}
-					else if (result.election->prioritized ())
-					{
-						// Generate vote for ongoing election
-						result.election->generate_votes (block->hash ());
-					}
+					result.election->transition_active ();
 				}
 			}
 		}

@@ -34,10 +34,6 @@ root (block_a->root ())
 	last_votes.emplace (node.network_params.random.not_an_account, nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () });
 	blocks.emplace (block_a->hash (), block_a);
 	update_dependent ();
-	if (prioritized_a)
-	{
-		generate_votes (block_a->hash ());
-	}
 }
 
 void nano::election::confirm_once (nano::election_status_type type_a)
@@ -547,21 +543,12 @@ void nano::election::prioritize_election (nano::vote_generator_session & generat
 	generator_session_a.add (root, status.winner->hash ());
 }
 
-void nano::election::try_generate_votes (nano::block_hash const & hash_a)
+void nano::election::generate_votes ()
 {
-	nano::unique_lock<std::mutex> lock (node.active.mutex);
-	if (status.winner->hash () == hash_a)
-	{
-		lock.unlock ();
-		generate_votes (hash_a);
-	}
-}
-
-void nano::election::generate_votes (nano::block_hash const & hash_a)
-{
+	debug_assert (!node.active.mutex.try_lock ());
 	if (node.config.enable_voting && node.wallets.reps ().voting > 0)
 	{
-		node.active.generator.add (root, hash_a);
+		node.active.generator.add (root, status.winner->hash ());
 	}
 }
 

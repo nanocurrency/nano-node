@@ -65,7 +65,7 @@ private: // State management
 	void send_confirm_req (nano::confirmation_solicitor &);
 	void activate_dependencies ();
 	// Calculate votes for local representatives
-	void generate_votes (nano::block_hash const &);
+	void generate_votes ();
 	void remove_votes (nano::block_hash const &);
 	std::atomic<bool> prioritized_m = { false };
 
@@ -86,8 +86,6 @@ public:
 	size_t insert_inactive_votes_cache (nano::block_hash const &);
 	bool prioritized () const;
 	void prioritize_election (nano::vote_generator_session &);
-	// Calculate votes if the current winner matches \p hash_a
-	void try_generate_votes (nano::block_hash const & hash_a);
 	// Erase all blocks from active and, if not confirmed, clear digests from network filters
 	void cleanup ();
 
