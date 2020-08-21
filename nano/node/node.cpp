@@ -1231,13 +1231,13 @@ void nano::node::process_confirmed_data (nano::transaction const & transaction_a
 	auto previous (block_a->previous ());
 	auto previous_balance (ledger.balance (transaction_a, previous));
 	auto block_balance (store.block_balance_calculated (block_a));
-	if (hash_a != ledger.network_params.ledger.genesis_account)
+	if (hash_a != ledger.constants.ledger.genesis_account)
 	{
 		amount_a = block_balance > previous_balance ? block_balance - previous_balance : previous_balance - block_balance;
 	}
 	else
 	{
-		amount_a = ledger.network_params.ledger.genesis_amount;
+		amount_a = ledger.constants.ledger.genesis_amount;
 	}
 	if (auto state = dynamic_cast<nano::state_block *> (block_a.get ()))
 	{

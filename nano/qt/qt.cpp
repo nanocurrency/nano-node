@@ -532,17 +532,17 @@ public:
 	}
 	void open_block (nano::open_block const & block_a)
 	{
-		static nano::network_params params;
+		static nano::environment_constants constants;
 		type = "Receive";
-		if (block_a.hashables.source != params.ledger.genesis_account)
+		if (block_a.hashables.source != constants.ledger.genesis_account)
 		{
 			account = ledger.account (transaction, block_a.hashables.source);
 			amount = ledger.amount (transaction, block_a.hash ());
 		}
 		else
 		{
-			account = params.ledger.genesis_account;
-			amount = params.ledger.genesis_amount;
+			account = constants.ledger.genesis_account;
+			amount = constants.ledger.genesis_amount;
 		}
 	}
 	void change_block (nano::change_block const & block_a)

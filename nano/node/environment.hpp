@@ -21,6 +21,6 @@ public:
 	nano::alarm alarm;
 	std::unique_ptr<nano::work_pool> work_impl;
 	nano::work_pool & work;
-	nano::network_params constants;
+	nano::environment_constants constants;
 };
 }

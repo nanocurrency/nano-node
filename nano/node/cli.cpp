@@ -1236,8 +1236,8 @@ void reset_confirmation_heights (nano::block_store & store)
 	store.confirmation_height_clear (transaction);
 
 	// Then make sure the confirmation height of the genesis account open block is 1
-	nano::network_params network_params;
-	store.confirmation_height_put (transaction, network_params.ledger.genesis_account, { 1, network_params.ledger.genesis_hash });
+	nano::environment_constants constants;
+	store.confirmation_height_put (transaction, constants.ledger.genesis_account, { 1, constants.ledger.genesis_hash });
 }
 
 bool is_using_rocksdb (boost::filesystem::path const & data_path, std::error_code & ec)
