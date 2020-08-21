@@ -191,7 +191,7 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 
 		// Start or vote for the next unconfirmed block in the destination account
 		auto const & destination (node.ledger.block_destination (transaction, *block_a));
-		if (!destination.is_zero ())
+		if (!destination.is_zero () && destination != account)
 		{
 			activate (destination);
 		}
