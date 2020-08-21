@@ -34,10 +34,6 @@ root (block_a->root ())
 	last_votes.emplace (node.network_params.random.not_an_account, nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () });
 	blocks.emplace (block_a->hash (), block_a);
 	update_dependent ();
-	if (prioritized_a)
-	{
-		generate_votes (block_a->hash ());
-	}
 }
 
 void nano::election::confirm_once (nano::election_status_type type_a)
@@ -71,21 +67,9 @@ bool nano::election::valid_change (nano::election::state_t expected_a, nano::ele
 	bool result = false;
 	switch (expected_a)
 	{
-		case nano::election::state_t::idle:
-			switch (desired_a)
-			{
-				case nano::election::state_t::passive:
-				case nano::election::state_t::active:
-					result = true;
-					break;
-				default:
-					break;
-			}
-			break;
 		case nano::election::state_t::passive:
 			switch (desired_a)
 			{
-				case nano::election::state_t::idle:
 				case nano::election::state_t::active:
 				case nano::election::state_t::confirmed:
 				case nano::election::state_t::expired_unconfirmed:
@@ -98,7 +82,6 @@ bool nano::election::valid_change (nano::election::state_t expected_a, nano::ele
 		case nano::election::state_t::active:
 			switch (desired_a)
 			{
-				case nano::election::state_t::idle:
 				case nano::election::state_t::broadcasting:
 				case nano::election::state_t::confirmed:
 				case nano::election::state_t::expired_unconfirmed:
@@ -107,10 +90,10 @@ bool nano::election::valid_change (nano::election::state_t expected_a, nano::ele
 				default:
 					break;
 			}
+			break;
 		case nano::election::state_t::broadcasting:
 			switch (desired_a)
 			{
-				case nano::election::state_t::idle:
 				case nano::election::state_t::backtracking:
 				case nano::election::state_t::confirmed:
 				case nano::election::state_t::expired_unconfirmed:
@@ -119,10 +102,10 @@ bool nano::election::valid_change (nano::election::state_t expected_a, nano::ele
 				default:
 					break;
 			}
+			break;
 		case nano::election::state_t::backtracking:
 			switch (desired_a)
 			{
-				case nano::election::state_t::idle:
 				case nano::election::state_t::confirmed:
 				case nano::election::state_t::expired_unconfirmed:
 					result = true;
@@ -130,6 +113,7 @@ bool nano::election::valid_change (nano::election::state_t expected_a, nano::ele
 				default:
 					break;
 			}
+			break;
 		case nano::election::state_t::confirmed:
 			switch (desired_a)
 			{
@@ -139,8 +123,8 @@ bool nano::election::valid_change (nano::election::state_t expected_a, nano::ele
 				default:
 					break;
 			}
-		case nano::election::state_t::expired_unconfirmed:
 			break;
+		case nano::election::state_t::expired_unconfirmed:
 		case nano::election::state_t::expired_confirmed:
 			break;
 	}
@@ -178,17 +162,6 @@ void nano::election::send_confirm_req (nano::confirmation_solicitor & solicitor_
 	}
 }
 
-void nano::election::transition_passive ()
-{
-	nano::lock_guard<std::mutex> guard (timepoints_mutex);
-	transition_passive_impl ();
-}
-
-void nano::election::transition_passive_impl ()
-{
-	state_change (nano::election::state_t::idle, nano::election::state_t::passive);
-}
-
 void nano::election::transition_active ()
 {
 	nano::lock_guard<std::mutex> guard (timepoints_mutex);
@@ -197,12 +170,7 @@ void nano::election::transition_active ()
 
 void nano::election::transition_active_impl ()
 {
-	state_change (nano::election::state_t::idle, nano::election::state_t::active);
-}
-
-bool nano::election::idle () const
-{
-	return state_m == nano::election::state_t::idle;
+	state_change (nano::election::state_t::passive, nano::election::state_t::active);
 }
 
 bool nano::election::confirmed () const
@@ -234,16 +202,12 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 	bool result = false;
 	switch (state_m)
 	{
-		case nano::election::state_t::idle:
-			break;
 		case nano::election::state_t::passive:
-		{
 			if (base_latency () * passive_duration_factor < std::chrono::steady_clock::now () - state_start)
 			{
 				state_change (nano::election::state_t::passive, nano::election::state_t::active);
 			}
 			break;
-		}
 		case nano::election::state_t::active:
 			send_confirm_req (solicitor_a);
 			if (confirmation_request_count > active_request_count_min)
@@ -579,21 +543,12 @@ void nano::election::prioritize_election (nano::vote_generator_session & generat
 	generator_session_a.add (root, status.winner->hash ());
 }
 
-void nano::election::try_generate_votes (nano::block_hash const & hash_a)
+void nano::election::generate_votes ()
 {
-	nano::unique_lock<std::mutex> lock (node.active.mutex);
-	if (status.winner->hash () == hash_a)
-	{
-		lock.unlock ();
-		generate_votes (hash_a);
-	}
-}
-
-void nano::election::generate_votes (nano::block_hash const & hash_a)
-{
+	debug_assert (!node.active.mutex.try_lock ());
 	if (node.config.enable_voting && node.wallets.reps ().voting > 0)
 	{
-		node.active.generator.add (root, hash_a);
+		node.active.generator.add (root, status.winner->hash ());
 	}
 }
 
