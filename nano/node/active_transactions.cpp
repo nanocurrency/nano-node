@@ -424,7 +424,7 @@ void nano::active_transactions::confirm_expired_frontiers_pessimistically (nano:
 						previous_balance = previous_block->sideband ().balance.number ();
 					}
 
-					insert_election_from_frontiers_confirmation (block, account, previous_balance, elections_count_a, nano::election_behavior::default);
+					insert_election_from_frontiers_confirmation (block, account, previous_balance, elections_count_a, nano::election_behavior::normal);
 				}
 			}
 		}

@@ -32,7 +32,7 @@ public:
 };
 enum class election_behavior
 {
-	default,
+	normal,
 	optimistic
 };
 
@@ -112,7 +112,7 @@ public:
 	bool idle () const;
 	bool confirmed () const;
 	bool failed () const;
-	nano::election_behavior election_behavior{ nano::election_behavior::default };
+	nano::election_behavior election_behavior{ nano::election_behavior::normal };
 	nano::node & node;
 	std::unordered_map<nano::account, nano::vote_info> last_votes;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks;
