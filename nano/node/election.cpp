@@ -71,21 +71,9 @@ bool nano::election::valid_change (nano::election::state_t expected_a, nano::ele
 	bool result = false;
 	switch (expected_a)
 	{
-		case nano::election::state_t::idle:
-			switch (desired_a)
-			{
-				case nano::election::state_t::passive:
-				case nano::election::state_t::active:
-					result = true;
-					break;
-				default:
-					break;
-			}
-			break;
 		case nano::election::state_t::passive:
 			switch (desired_a)
 			{
-				case nano::election::state_t::idle:
 				case nano::election::state_t::active:
 				case nano::election::state_t::confirmed:
 				case nano::election::state_t::expired_unconfirmed:
@@ -98,7 +86,6 @@ bool nano::election::valid_change (nano::election::state_t expected_a, nano::ele
 		case nano::election::state_t::active:
 			switch (desired_a)
 			{
-				case nano::election::state_t::idle:
 				case nano::election::state_t::broadcasting:
 				case nano::election::state_t::confirmed:
 				case nano::election::state_t::expired_unconfirmed:
@@ -110,7 +97,6 @@ bool nano::election::valid_change (nano::election::state_t expected_a, nano::ele
 		case nano::election::state_t::broadcasting:
 			switch (desired_a)
 			{
-				case nano::election::state_t::idle:
 				case nano::election::state_t::backtracking:
 				case nano::election::state_t::confirmed:
 				case nano::election::state_t::expired_unconfirmed:
@@ -122,7 +108,6 @@ bool nano::election::valid_change (nano::election::state_t expected_a, nano::ele
 		case nano::election::state_t::backtracking:
 			switch (desired_a)
 			{
-				case nano::election::state_t::idle:
 				case nano::election::state_t::confirmed:
 				case nano::election::state_t::expired_unconfirmed:
 					result = true;
@@ -178,17 +163,6 @@ void nano::election::send_confirm_req (nano::confirmation_solicitor & solicitor_
 	}
 }
 
-void nano::election::transition_passive ()
-{
-	nano::lock_guard<std::mutex> guard (timepoints_mutex);
-	transition_passive_impl ();
-}
-
-void nano::election::transition_passive_impl ()
-{
-	state_change (nano::election::state_t::idle, nano::election::state_t::passive);
-}
-
 void nano::election::transition_active ()
 {
 	nano::lock_guard<std::mutex> guard (timepoints_mutex);
@@ -197,12 +171,7 @@ void nano::election::transition_active ()
 
 void nano::election::transition_active_impl ()
 {
-	state_change (nano::election::state_t::idle, nano::election::state_t::active);
-}
-
-bool nano::election::idle () const
-{
-	return state_m == nano::election::state_t::idle;
+	state_change (nano::election::state_t::passive, nano::election::state_t::active);
 }
 
 bool nano::election::confirmed () const
@@ -234,8 +203,6 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 	bool result = false;
 	switch (state_m)
 	{
-		case nano::election::state_t::idle:
-			break;
 		case nano::election::state_t::passive:
 		{
 			if (base_latency () * passive_duration_factor < std::chrono::steady_clock::now () - state_start)

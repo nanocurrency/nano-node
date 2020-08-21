@@ -298,11 +298,7 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	if (watch_work_a || node.ledger.can_vote (node.store.tx_begin_read (), *block_a))
 	{
 		auto election = node.active.insert (block_a, process_return_a.previous_balance.number ());
-		if (election.inserted)
-		{
-			election.election->transition_passive ();
-		}
-		else if (election.election)
+		if (!election.inserted && election.election)
 		{
 			election.election->try_generate_votes (block_a->hash ());
 		}

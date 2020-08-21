@@ -39,7 +39,6 @@ class election final : public std::enable_shared_from_this<nano::election>
 private: // State management
 	enum class state_t
 	{
-		idle,
 		passive, // only listening for incoming votes
 		active, // actively request confirmations
 		broadcasting, // request confirmations and broadcast the winner
@@ -52,7 +51,7 @@ private: // State management
 	static int constexpr active_request_count_min = 2;
 	static int constexpr active_broadcasting_duration_factor = 30;
 	static int constexpr confirmed_duration_factor = 5;
-	std::atomic<nano::election::state_t> state_m = { state_t::idle };
+	std::atomic<nano::election::state_t> state_m = { state_t::passive };
 
 	// These time points must be protected by this mutex
 	std::mutex timepoints_mutex;
@@ -94,15 +93,12 @@ public:
 
 public: // State transitions
 	bool transition_time (nano::confirmation_solicitor &);
-	void transition_passive ();
 	void transition_active ();
 
 private:
-	void transition_passive_impl ();
 	void transition_active_impl ();
 
 public:
-	bool idle () const;
 	bool confirmed () const;
 	nano::node & node;
 	std::unordered_map<nano::account, nano::vote_info> last_votes;
