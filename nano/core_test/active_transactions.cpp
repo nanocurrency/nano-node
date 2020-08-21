@@ -648,7 +648,7 @@ TEST (active_transactions, inactive_votes_cache_multiple_votes)
 
 TEST (active_transactions, inactive_votes_cache_election_start)
 {
-	nano::system system (1);
+	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node = *system.add_node (node_config);
