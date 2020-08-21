@@ -4197,7 +4197,7 @@ TEST (node, dependency_graph)
 }
 
 // Confirm a complex dependency graph starting from a frontier
-TEST (node, dependency_graph_frontier)
+TEST (node, DISABLED_dependency_graph_frontier)
 {
 	nano::system system;
 	nano::node_config config (nano::get_available_port (), system.logging);

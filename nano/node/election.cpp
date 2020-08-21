@@ -9,7 +9,6 @@ using namespace std::chrono;
 
 int constexpr nano::election::passive_duration_factor;
 int constexpr nano::election::active_request_count_min;
-int constexpr nano::election::active_broadcasting_duration_factor;
 int constexpr nano::election::confirmed_duration_factor;
 
 std::chrono::milliseconds nano::election::base_latency () const
@@ -33,7 +32,6 @@ root (block_a->root ())
 {
 	last_votes.emplace (node.network_params.random.not_an_account, nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () });
 	blocks.emplace (block_a->hash (), block_a);
-	update_dependent ();
 	if (prioritized_a)
 	{
 		generate_votes (block_a->hash ());
@@ -62,7 +60,6 @@ void nano::election::confirm_once (nano::election_status_type type_a)
 		node.background ([node_l, status_l, confirmation_action_l]() {
 			confirmation_action_l (status_l.winner);
 		});
-		adjust_dependent_difficulty ();
 	}
 }
 
@@ -108,18 +105,6 @@ bool nano::election::valid_change (nano::election::state_t expected_a, nano::ele
 					break;
 			}
 		case nano::election::state_t::broadcasting:
-			switch (desired_a)
-			{
-				case nano::election::state_t::idle:
-				case nano::election::state_t::backtracking:
-				case nano::election::state_t::confirmed:
-				case nano::election::state_t::expired_unconfirmed:
-					result = true;
-					break;
-				default:
-					break;
-			}
-		case nano::election::state_t::backtracking:
 			switch (desired_a)
 			{
 				case nano::election::state_t::idle:
@@ -210,12 +195,6 @@ bool nano::election::confirmed () const
 	return state_m == nano::election::state_t::confirmed || state_m == nano::election::state_t::expired_confirmed;
 }
 
-void nano::election::activate_dependencies ()
-{
-	debug_assert (!node.active.mutex.try_lock ());
-	node.active.pending_dependencies.emplace_back (status.winner->hash (), height);
-}
-
 void nano::election::broadcast_block (nano::confirmation_solicitor & solicitor_a)
 {
 	if (base_latency () * 15 < std::chrono::steady_clock::now () - last_block)
@@ -252,15 +231,6 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 			}
 			break;
 		case nano::election::state_t::broadcasting:
-			broadcast_block (solicitor_a);
-			send_confirm_req (solicitor_a);
-			if (base_latency () * active_broadcasting_duration_factor < std::chrono::steady_clock::now () - state_start)
-			{
-				state_change (nano::election::state_t::broadcasting, nano::election::state_t::backtracking);
-				activate_dependencies ();
-			}
-			break;
-		case nano::election::state_t::backtracking:
 			broadcast_block (solicitor_a);
 			send_confirm_req (solicitor_a);
 			break;
@@ -339,8 +309,6 @@ void nano::election::confirm_if_quorum ()
 		status.winner = block_l;
 		remove_votes (status_winner_hash_l);
 		node.block_processor.force (block_l);
-		update_dependent ();
-		node.active.add_adjust_difficulty (winner_hash_l);
 	}
 	if (have_quorum (tally_l, sum))
 	{
@@ -467,47 +435,6 @@ size_t nano::election::last_votes_size ()
 {
 	nano::lock_guard<std::mutex> lock (node.active.mutex);
 	return last_votes.size ();
-}
-
-void nano::election::update_dependent ()
-{
-	debug_assert (!node.active.mutex.try_lock ());
-	std::vector<nano::block_hash> blocks_search;
-	auto hash (status.winner->hash ());
-	auto previous (status.winner->previous ());
-	if (!previous.is_zero ())
-	{
-		blocks_search.push_back (previous);
-	}
-	auto source (status.winner->source ());
-	if (!source.is_zero () && source != previous)
-	{
-		blocks_search.push_back (source);
-	}
-	auto link (status.winner->link ());
-	if (!link.is_zero () && !node.ledger.is_epoch_link (link) && link != previous)
-	{
-		blocks_search.push_back (link);
-	}
-	for (auto & block_search : blocks_search)
-	{
-		auto existing (node.active.blocks.find (block_search));
-		if (existing != node.active.blocks.end () && !existing->second->confirmed ())
-		{
-			if (existing->second->dependent_blocks.find (hash) == existing->second->dependent_blocks.end ())
-			{
-				existing->second->dependent_blocks.insert (hash);
-			}
-		}
-	}
-}
-
-void nano::election::adjust_dependent_difficulty ()
-{
-	for (auto & dependent_block : dependent_blocks)
-	{
-		node.active.add_adjust_difficulty (dependent_block);
-	}
 }
 
 void nano::election::cleanup ()
