@@ -89,7 +89,7 @@ std::unique_ptr<container_info_component> collect_container_info (rep_crawler & 
 class node final : public std::enable_shared_from_this<nano::node>
 {
 public:
-	node (nano::environment & env_a, nano::node_config const &, unsigned seq = 0);
+	node (nano::environment & env_a, nano::node_config const &);
 	~node ();
 	template <typename T>
 	void background (T action_a)
@@ -196,7 +196,7 @@ public:
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
 	// For tests only
-	unsigned node_seq;
+	unsigned node_seq{ 0 };
 	// For tests only
 	boost::optional<uint64_t> work_generate_blocking (nano::block &);
 	// For tests only

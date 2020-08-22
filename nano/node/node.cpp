@@ -82,7 +82,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (re
 	return composite;
 }
 
-nano::node::node (nano::environment & env_a, nano::node_config const & config_a, unsigned seq) :
+nano::node::node (nano::environment & env_a, nano::node_config const & config_a) :
 env (env_a),
 path{ path_or_default (config_a.path) },
 node_initialized_latch (1),
@@ -119,8 +119,7 @@ active (*this, confirmation_height_processor),
 aggregator (env.constants.network, config, stats, history, ledger, wallets, active),
 payment_observer_processor (observers.blocks),
 wallets (wallets_store.init_error (), *this),
-startup_time (std::chrono::steady_clock::now ()),
-node_seq (seq)
+startup_time (std::chrono::steady_clock::now ())
 {
 	if (!init_error ())
 	{

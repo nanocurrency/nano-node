@@ -25,7 +25,8 @@ std::string nano::error_system_messages::message (int ev) const
 /** Returns the node added. */
 std::shared_ptr<nano::node> nano::system::add_node (nano::node_config const & node_config_a, nano::transport::transport_type type_a)
 {
-	auto node (std::make_shared<nano::node> (env, node_config_a, node_sequence++));
+	auto node (std::make_shared<nano::node> (env, node_config_a));
+	node->node_seq = node_sequence++;
 	debug_assert (!node->init_error ());
 	node->start ();
 	node->wallets.create (nano::random_wallet_id ());
