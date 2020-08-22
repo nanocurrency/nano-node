@@ -2004,7 +2004,7 @@ TEST (rpc, keepalive)
 {
 	nano::system system;
 	auto node0 = add_ipc_enabled_node (system);
-	auto node1 (std::make_shared<nano::node> (system.env, nano::unique_path (), nano::node_config{}));
+	auto node1 (std::make_shared<nano::node> (system.env, nano::node_config{}));
 	node1->start ();
 	system.nodes.push_back (node1);
 	scoped_io_thread_name_change scoped_thread_name_io;

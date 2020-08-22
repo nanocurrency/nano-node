@@ -89,7 +89,7 @@ std::unique_ptr<container_info_component> collect_container_info (rep_crawler & 
 class node final : public std::enable_shared_from_this<nano::node>
 {
 public:
-	node (nano::environment & env_a, boost::filesystem::path const &, nano::node_config const &, unsigned seq = 0);
+	node (nano::environment & env_a, nano::node_config const &, unsigned seq = 0);
 	~node ();
 	template <typename T>
 	void background (T action_a)
@@ -149,7 +149,9 @@ public:
 	bool init_error () const;
 	bool epoch_upgrader (nano::private_key const &, nano::epoch, uint64_t, uint64_t);
 	std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> get_bootstrap_weights () const;
+	boost::filesystem::path path_or_default (boost::filesystem::path const &) const;
 	nano::environment & env;
+	boost::filesystem::path path;
 	nano::worker worker;
 	nano::write_database_queue write_database_queue;
 	boost::latch node_initialized_latch;
@@ -169,7 +171,6 @@ public:
 	std::shared_ptr<nano::telemetry> telemetry;
 	nano::bootstrap_initiator bootstrap_initiator;
 	nano::bootstrap_listener bootstrap;
-	boost::filesystem::path application_path;
 	nano::node_observers observers;
 	nano::port_mapping port_mapping;
 	nano::vote_processor vote_processor;
@@ -216,7 +217,7 @@ nano::node_flags const & inactive_node_flag_defaults ();
 class inactive_node final
 {
 public:
-	inactive_node (boost::filesystem::path const & path_a, nano::node_config const & config_a);
+	inactive_node (nano::node_config const & config_a);
 	~inactive_node ();
 	nano::environment env;
 	std::shared_ptr<nano::node> node;

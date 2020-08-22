@@ -61,7 +61,7 @@ TEST (system, receive_while_synchronizing)
 		uint32_t count (1000);
 		system.generate_mass_activity (count, *system.nodes[0]);
 		nano::keypair key;
-		auto node1 (std::make_shared<nano::node> (system.env, nano::unique_path (), nano::node_config{}));
+		auto node1 (std::make_shared<nano::node> (system.env, nano::node_config{}));
 		ASSERT_FALSE (node1->init_error ());
 		auto channel (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, system.nodes[0]->network.endpoint (), node1->env.constants.protocol.protocol_version));
 		node1->network.send_keepalive (channel);
@@ -1371,7 +1371,7 @@ TEST (telemetry, many_nodes)
 		// Make a metric completely different for each node so we can check afterwards that there are no duplicates
 		config.bandwidth_limit = 100000 + i;
 
-		auto node = std::make_shared<nano::node> (system.env, nano::unique_path (), config);
+		auto node = std::make_shared<nano::node> (system.env, config);
 		node->start ();
 		system.nodes.push_back (node);
 	}

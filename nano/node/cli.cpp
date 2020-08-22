@@ -192,8 +192,9 @@ bool copy_database (boost::filesystem::path const & data_path, boost::program_op
 	nano::node_config config;
 	config.flags = nano::inactive_node_flag_defaults ();
 	config.flags.read_only = !needs_to_write;
+	config.path = data_path;
 	nano::update_flags (config.flags, vm);
-	nano::inactive_node node (data_path, config);
+	nano::inactive_node node (config);
 	if (!node.node->init_error ())
 	{
 		if (vm.count ("unchecked_clear"))
@@ -439,8 +440,9 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		nano::node_config config;
 		config.flags = nano::inactive_node_flag_defaults ();
 		config.flags.read_only = false;
+		config.path = data_path;
 		nano::update_flags (config.flags, vm);
-		nano::inactive_node node (data_path, config);
+		nano::inactive_node node (config);
 		if (!node.node->init_error ())
 		{
 			auto transaction (node.node->store.tx_begin_write ());
@@ -458,8 +460,9 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		nano::node_config config;
 		config.flags = nano::inactive_node_flag_defaults ();
 		config.flags.read_only = false;
+		config.path = data_path;
 		nano::update_flags (config.flags, vm);
-		nano::inactive_node node (data_path, config);
+		nano::inactive_node node (config);
 		if (!node.node->init_error ())
 		{
 			auto transaction (node.node->wallets.tx_begin_write ());
@@ -477,8 +480,9 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		nano::node_config config;
 		config.flags = nano::inactive_node_flag_defaults ();
 		config.flags.read_only = false;
+		config.path = data_path;
 		nano::update_flags (config.flags, vm);
-		nano::inactive_node node (data_path, config);
+		nano::inactive_node node (config);
 		if (!node.node->init_error ())
 		{
 			auto transaction (node.node->store.tx_begin_write ());
@@ -496,8 +500,9 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		nano::node_config config;
 		config.flags = nano::inactive_node_flag_defaults ();
 		config.flags.read_only = false;
+		config.path = data_path;
 		nano::update_flags (config.flags, vm);
-		nano::inactive_node node (data_path, config);
+		nano::inactive_node node (config);
 		if (!node.node->init_error ())
 		{
 			auto transaction (node.node->store.tx_begin_write ());
@@ -515,8 +520,9 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		nano::node_config config;
 		config.flags = nano::inactive_node_flag_defaults ();
 		config.flags.read_only = false;
+		config.path = data_path;
 		nano::update_flags (config.flags, vm);
-		nano::inactive_node node (data_path, config);
+		nano::inactive_node node (config);
 		if (!node.node->init_error ())
 		{
 			auto account_it = vm.find ("account");
@@ -1223,8 +1229,9 @@ std::unique_ptr<nano::inactive_node> nano::default_inactive_node (boost::filesys
 {
 	nano::node_config config;
 	config.flags = nano::inactive_node_flag_defaults ();
+	config.path = path_a;
 	nano::update_flags (config.flags, vm_a);
-	return std::make_unique<nano::inactive_node> (path_a, config);
+	return std::make_unique<nano::inactive_node> (config);
 }
 
 namespace

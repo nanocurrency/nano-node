@@ -171,7 +171,8 @@ int main (int argc, char * const * argv)
 				config.flags = nano::inactive_node_flag_defaults ();
 				nano::update_flags (config.flags, vm);
 				config.flags.generate_cache.reps = true;
-				nano::inactive_node inactive_node (data_path, config);
+				config.path = data_path;
+				nano::inactive_node inactive_node (config);
 				auto node = inactive_node.node;
 
 				auto const bootstrap_weights = node->get_bootstrap_weights ();
@@ -401,7 +402,8 @@ int main (int argc, char * const * argv)
 			config.flags = nano::inactive_node_flag_defaults ();
 			nano::update_flags (config.flags, vm);
 			config.flags.generate_cache.reps = true;
-			nano::inactive_node inactive_node (data_path, config);
+			config.path = data_path;
+			nano::inactive_node inactive_node (config);
 			auto node = inactive_node.node;
 			auto transaction (node->store.tx_begin_read ());
 			nano::uint128_t total;
@@ -443,7 +445,8 @@ int main (int argc, char * const * argv)
 			config.flags = nano::inactive_node_flag_defaults ();
 			nano::update_flags (config.flags, vm);
 			config.flags.generate_cache.account_count = true;
-			nano::inactive_node inactive_node (data_path, config);
+			config.path = data_path;
+			nano::inactive_node inactive_node (config);
 			std::cout << boost::str (boost::format ("Frontier count: %1%\n") % inactive_node.node->ledger.cache.account_count);
 		}
 		else if (vm.count ("debug_profile_kdf"))
@@ -911,11 +914,10 @@ int main (int argc, char * const * argv)
 			size_t num_iterations (5); // 100,000 * 5 * 2 = 1,000,000 blocks
 			size_t max_blocks (2 * num_accounts * num_iterations + num_accounts * 2); //  1,000,000 + 2 * 100,000 = 1,200,000 blocks
 			std::cout << boost::str (boost::format ("Starting pregenerating %1% blocks\n") % max_blocks);
-			auto path (nano::unique_path ());
 			nano::node_config config;
 			nano::update_flags (config.flags, vm);
 			nano::environment env;
-			auto node (std::make_shared<nano::node> (env, path, config));
+			auto node (std::make_shared<nano::node> (env, config));
 			nano::block_hash genesis_latest (node->latest (constants.ledger.dev_genesis_key.pub));
 			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
 			// Generating keys
@@ -1033,9 +1035,8 @@ int main (int argc, char * const * argv)
 			size_t num_representatives (25);
 			size_t max_votes (num_elections * num_representatives); // 40,000 * 25 = 1,000,000 votes
 			std::cerr << boost::str (boost::format ("Starting pregenerating %1% votes\n") % max_votes);
-			auto path (nano::unique_path ());
 			nano::environment env;
-			auto node (std::make_shared<nano::node> (env, path, nano::node_config{}));
+			auto node (std::make_shared<nano::node> (env, nano::node_config{}));
 			nano::block_hash genesis_latest (node->latest (constants.ledger.dev_genesis_key.pub));
 			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
 			// Generating keys
@@ -1153,15 +1154,13 @@ int main (int argc, char * const * argv)
 			boost::asio::io_context io_ctx2;
 			nano::alarm alarm2 (io_ctx2);
 			nano::work_pool work (std::numeric_limits<unsigned>::max ());
-			auto path1 (nano::unique_path ());
-			auto path2 (nano::unique_path ());
 			nano::node_config node_config;
 			node_config.flags.disable_lazy_bootstrap = true;
 			node_config.flags.disable_legacy_bootstrap = true;
 			node_config.flags.disable_wallet_bootstrap = true;
 			node_config.flags.disable_bootstrap_listener = true;
 			nano::environment env;
-			auto node1 (std::make_shared<nano::node> (env, path1, node_config));
+			auto node1 (std::make_shared<nano::node> (env, node_config));
 			nano::block_hash genesis_latest (node1->latest (constants.ledger.dev_genesis_key.pub));
 			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
 			// Generating blocks
@@ -1259,7 +1258,7 @@ int main (int argc, char * const * argv)
 					config2.active_elections_size = daemon_config.node.active_elections_size;
 				}
 			}
-			auto node2 (std::make_shared<nano::node> (env, path2, config2));
+			auto node2 (std::make_shared<nano::node> (env, config2));
 			node2->start ();
 			nano::thread_runner runner2 (node2->env.ctx, node2->config.io_threads);
 			std::cout << boost::str (boost::format ("Processing %1% blocks (test node)\n") % (count * 2));
@@ -1349,7 +1348,8 @@ int main (int argc, char * const * argv)
 			node_config.flags = nano::inactive_node_flag_defaults ();
 			nano::update_flags (node_config.flags, vm);
 			node_config.flags.generate_cache.enable_all ();
-			nano::inactive_node inactive_node_l (data_path, node_config);
+			node_config.path = data_path;
+			nano::inactive_node inactive_node_l (node_config);
 
 			nano::node_rpc_config config;
 			nano::ipc::ipc_server server (*inactive_node_l.node, config);
@@ -1743,7 +1743,7 @@ int main (int argc, char * const * argv)
 			config.flags = nano::inactive_node_flag_defaults ();
 			config.flags.read_only = false;
 			nano::update_flags (config.flags, vm);
-			nano::inactive_node node (nano::unique_path (), config);
+			nano::inactive_node node (config);
 			nano::genesis genesis;
 			auto begin (std::chrono::high_resolution_clock::now ());
 			uint64_t block_count (0);
@@ -1834,8 +1834,9 @@ int main (int argc, char * const * argv)
 			nano::node_config config;
 			config.flags = nano::inactive_node_flag_defaults ();
 			config.flags.generate_cache.cemented_count = true;
+			config.path = data_path;
 			nano::update_flags (config.flags, vm);
-			nano::inactive_node node (data_path, config);
+			nano::inactive_node node (config);
 			std::cout << "Total cemented block count: " << node.node->ledger.cache.cemented_count << std::endl;
 		}
 		else if (vm.count ("debug_stacktrace"))

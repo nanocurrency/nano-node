@@ -82,16 +82,17 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (re
 	return composite;
 }
 
-nano::node::node (nano::environment & env_a, boost::filesystem::path const & application_path_a, nano::node_config const & config_a, unsigned seq) :
+nano::node::node (nano::environment & env_a, nano::node_config const & config_a, unsigned seq) :
 env (env_a),
+path{ path_or_default (config_a.path) },
 node_initialized_latch (1),
 config (config_a),
 stats (config.stat_config),
 distributed_work (*this),
 logger (config_a.logging.min_time_between_log_output),
-store_impl (nano::make_store (logger, application_path_a, config.flags.read_only, true, config_a.rocksdb_config, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_config, config_a.backup_before_upgrade, config_a.rocksdb_config.enable)),
+store_impl (nano::make_store (logger, path, config.flags.read_only, true, config_a.rocksdb_config, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_config, config_a.backup_before_upgrade, config_a.rocksdb_config.enable)),
 store (*store_impl),
-wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (application_path_a / "wallets.ldb", config_a.lmdb_config)),
+wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (path / "wallets.ldb", config_a.lmdb_config)),
 wallets_store (*wallets_store_impl),
 gap_cache (*this),
 ledger (store, stats, config.flags.generate_cache, [this]() { this->network.erase_below_version (env.constants.protocol.protocol_version_min (true)); }),
@@ -100,7 +101,6 @@ network (*this, config.peering_port),
 telemetry (std::make_shared<nano::telemetry> (network, env.alarm, worker, observers.telemetry, stats, env.constants, config.flags.disable_ongoing_telemetry_requests)),
 bootstrap_initiator (*this),
 bootstrap (network.port, *this),
-application_path (application_path_a),
 port_mapping (*this),
 vote_processor (checker, active, observers, stats, config, config.flags, logger, online_reps, ledger, env.constants),
 rep_crawler (*this),
@@ -863,7 +863,7 @@ void nano::node::backup_wallet ()
 	for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n; ++i)
 	{
 		boost::system::error_code error_chmod;
-		auto backup_path (application_path / "backup");
+		auto backup_path (path / "backup");
 
 		boost::filesystem::create_directories (backup_path);
 		nano::set_secure_perm_directory (backup_path, error_chmod);
@@ -1633,17 +1633,40 @@ std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> nano::node::get_
 	return { max_blocks, weights };
 }
 
-nano::inactive_node::inactive_node (boost::filesystem::path const & path_a, nano::node_config const & config_a)
+boost::filesystem::path nano::node::path_or_default (boost::filesystem::path const & path_a) const
+{
+	auto result{ path_a };
+	if (path_a.empty ())
+	{
+		switch (env.constants.network.network ())
+		{
+			case nano::nano_networks::nano_dev_network:
+				result = nano::unique_path ();
+				break;
+			case nano::nano_networks::nano_beta_network:
+			case nano::nano_networks::nano_live_network:
+			case nano::nano_networks::nano_test_network:
+				result = nano::working_path ();
+				break;
+			default:
+				debug_assert (false);
+				break;
+		}
+	}
+	return result;
+}
+
+nano::inactive_node::inactive_node (nano::node_config const & config_a)
 {
 	boost::system::error_code error_chmod;
 
 	/*
 	 * @warning May throw a filesystem exception
 	 */
-	boost::filesystem::create_directories (path_a);
-	nano::set_secure_perm_directory (path_a, error_chmod);
-	nano::daemon_config daemon_config (path_a);
-	auto error = nano::read_node_config_toml (path_a, daemon_config, config_a.flags.config_overrides);
+	boost::filesystem::create_directories (config_a.path);
+	nano::set_secure_perm_directory (config_a.path, error_chmod);
+	nano::daemon_config daemon_config (config_a.path);
+	auto error = nano::read_node_config_toml (config_a.path, daemon_config, config_a.flags.config_overrides);
 	if (error)
 	{
 		std::cerr << "Error deserializing config file";
@@ -1658,10 +1681,11 @@ nano::inactive_node::inactive_node (boost::filesystem::path const & path_a, nano
 
 	auto & node_config = daemon_config.node;
 	node_config.logging.max_size = std::numeric_limits<std::uintmax_t>::max ();
-	node_config.logging.init (path_a);
+	node_config.logging.init (config_a.path);
 	node_config.flags = config_a.flags;
+	node_config.path = config_a.path;
 
-	node = std::make_shared<nano::node> (env, path_a, node_config);
+	node = std::make_shared<nano::node> (env, node_config);
 	node->active.stop ();
 }
 

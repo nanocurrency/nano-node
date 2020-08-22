@@ -109,7 +109,8 @@ TEST (wallets, reload)
 		nano::lock_guard<std::mutex> lock_wallet (node1.wallets.mutex);
 		nano::node_config config;
 		config.flags = nano::inactive_node_flag_defaults ();
-		nano::inactive_node node (node1.application_path, config);
+		config.path = node1.path;
+		nano::inactive_node node (config);
 		auto wallet (node.node->wallets.create (one));
 		ASSERT_NE (wallet, nullptr);
 	}

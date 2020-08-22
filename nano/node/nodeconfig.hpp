@@ -80,6 +80,7 @@ public:
 	nano::environment_constants constants;
 	nano::node_flags flags;
 	uint16_t peering_port{ 0 };
+	boost::filesystem::path path;
 	nano::logging logging;
 	std::vector<std::pair<std::string, uint16_t>> work_peers;
 	std::vector<std::pair<std::string, uint16_t>> secondary_work_peers{ { "127.0.0.1", 8076 } }; /* Default of nano-pow-server */

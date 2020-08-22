@@ -61,12 +61,12 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 			std::cout << initialization_text << std::endl;
 			logger.always_log (initialization_text);
 
-			auto node (std::make_shared<nano::node> (env, data_path, config.node));
+			auto node (std::make_shared<nano::node> (env, config.node));
 			if (!node->init_error ())
 			{
 				auto network_label = node->env.constants.network.get_current_network_as_string ();
 				std::cout << "Network: " << network_label << ", version: " << NANO_VERSION_STRING << "\n"
-				          << "Path: " << node->application_path.string () << "\n"
+				          << "Path: " << node->path.string () << "\n"
 				          << "Build Info: " << BUILD_INFO << "\n"
 				          << "Database backend: " << node->store.vendor_get () << std::endl;
 				auto voting (node->wallets.reps ().voting);

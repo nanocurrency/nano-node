@@ -60,7 +60,7 @@ TEST (node, work_generate)
 TEST (node, block_store_path_failure)
 {
 	nano::environment env;
-	auto node (std::make_shared<nano::node> (env, nano::unique_path (), nano::node_config{}));
+	auto node (std::make_shared<nano::node> (env, nano::node_config{}));
 	ASSERT_TRUE (node->wallets.items.empty ());
 	node->stop ();
 }
@@ -77,7 +77,8 @@ TEST (node_DeathTest, readonly_block_store_not_exist)
 	// This is a read-only node with no ledger file
 	nano::node_config config;
 	config.flags = nano::inactive_node_flag_defaults ();
-	ASSERT_EXIT (nano::inactive_node (nano::unique_path (), config), ::testing::ExitedWithCode (1), "");
+	config.path = nano::unique_path ();
+	ASSERT_EXIT (nano::inactive_node{ config }, ::testing::ExitedWithCode (1), "");
 }
 
 TEST (node, password_fanout)
@@ -85,7 +86,7 @@ TEST (node, password_fanout)
 	nano::environment env;
 	nano::node_config config;
 	config.password_fanout = 10;
-	auto node (std::make_shared<nano::node> (env, nano::unique_path (), config));
+	auto node (std::make_shared<nano::node> (env, config));
 	auto wallet (node->wallets.create (100));
 	ASSERT_EQ (10, wallet->store.password.values.size ());
 	node->stop ();
@@ -285,7 +286,7 @@ TEST (node, auto_bootstrap)
 	ASSERT_TIMELY (10s, node0->balance (key2.pub) == node0->config.receive_minimum.number ());
 	nano::node_config config2;
 	config2.flags = config.flags;
-	auto node1 (std::make_shared<nano::node> (system.env, nano::unique_path (), config2));
+	auto node1 (std::make_shared<nano::node> (system.env, config2));
 	ASSERT_FALSE (node1->init_error ());
 	auto channel (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, node0->network.endpoint (), node1->env.constants.protocol.protocol_version));
 	node1->network.send_keepalive (channel);
@@ -318,7 +319,7 @@ TEST (node, auto_bootstrap_reverse)
 	nano::keypair key2;
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	system.wallet (0)->insert_adhoc (key2.prv);
-	auto node1 (std::make_shared<nano::node> (system.env, nano::unique_path (), config));
+	auto node1 (std::make_shared<nano::node> (system.env, config));
 	ASSERT_FALSE (node1->init_error ());
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev_genesis_key.pub, key2.pub, node0->config.receive_minimum.number ()));
 	auto channel (std::make_shared<nano::transport::channel_udp> (node0->network.udp_channels, node1->network.endpoint (), node0->env.constants.protocol.protocol_version));
@@ -469,7 +470,7 @@ TEST (node, connect_after_junk)
 	nano::node_config config;
 	config.flags.disable_udp = false;
 	auto node0 = system.add_node (config);
-	auto node1 (std::make_shared<nano::node> (system.env, nano::unique_path (), config));
+	auto node1 (std::make_shared<nano::node> (system.env, config));
 	std::vector<uint8_t> junk_buffer;
 	junk_buffer.push_back (0);
 	auto channel1 (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, node0->network.endpoint (), node1->env.constants.protocol.protocol_version));
@@ -955,7 +956,7 @@ TEST (node_flags, disable_udp)
 	nano::node_config config;
 	config.flags.disable_udp = false;
 	auto node1 = system.add_node (config);
-	auto node2 (std::make_shared<nano::node> (system.env, nano::unique_path (), nano::node_config{}));
+	auto node2 (std::make_shared<nano::node> (system.env, nano::node_config{}));
 	system.nodes.push_back (node2);
 	node2->start ();
 	ASSERT_EQ (nano::endpoint (boost::asio::ip::address_v6::loopback (), 0), node2->network.udp_channels.get_local_endpoint ());
@@ -2287,7 +2288,7 @@ TEST (node, rep_remove)
 	node.rep_crawler.response (channel1, vote2);
 	ASSERT_TIMELY (10s, node.rep_crawler.representative_count () == 1);
 	// Add inactive TCP representative channel
-	auto node2 (std::make_shared<nano::node> (system.env, nano::unique_path (), nano::node_config{}));
+	auto node2 (std::make_shared<nano::node> (system.env, nano::node_config{}));
 	std::atomic<bool> done{ false };
 	std::weak_ptr<nano::node> node_w (node.shared ());
 	auto vote3 = std::make_shared<nano::vote> (keypair2.pub, keypair2.prv, 0, genesis.open);
@@ -3477,7 +3478,7 @@ TEST (node, peers)
 	auto node1 (system.nodes[0]);
 	ASSERT_TRUE (node1->network.empty ());
 
-	auto node2 (std::make_shared<nano::node> (system.env, nano::unique_path (), nano::node_config{}));
+	auto node2 (std::make_shared<nano::node> (system.env, nano::node_config{}));
 	system.nodes.push_back (node2);
 
 	auto endpoint = node1->network.endpoint ();
@@ -3529,7 +3530,9 @@ TEST (node, peer_cache_restart)
 	nano::endpoint_key endpoint_key{ endpoint.address ().to_v6 ().to_bytes (), endpoint.port () };
 	auto path (nano::unique_path ());
 	{
-		auto node2 (std::make_shared<nano::node> (system.env, path, nano::node_config{}));
+		nano::node_config config;
+		config.path = path;
+		auto node2 (std::make_shared<nano::node> (system.env, config));
 		system.nodes.push_back (node2);
 		auto & store = node2->store;
 		{
@@ -3549,7 +3552,8 @@ TEST (node, peer_cache_restart)
 	{
 		nano::node_config config;
 		config.flags.read_only = true;
-		auto node3 (std::make_shared<nano::node> (system.env, path, config));
+		config.path = path;
+		auto node3 (std::make_shared<nano::node> (system.env, config));
 		system.nodes.push_back (node3);
 		// Check cached peers after restart
 		node3->network.start ();
@@ -3650,7 +3654,8 @@ TEST (node, dont_write_lock_node)
 	// Check inactive node can finish executing while a write lock is open
 	nano::node_config config;
 	config.flags = nano::inactive_node_flag_defaults ();
-	nano::inactive_node node (path, config);
+	config.path = path;
+	nano::inactive_node node{ config };
 	finished_promise.set_value ();
 }
 

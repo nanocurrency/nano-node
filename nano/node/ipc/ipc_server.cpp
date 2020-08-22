@@ -648,7 +648,7 @@ nano::ipc::access & nano::ipc::ipc_server::get_access ()
 
 nano::error nano::ipc::ipc_server::reload_access_config ()
 {
-	nano::error access_config_error (nano::ipc::read_access_config_toml (node.application_path, access));
+	nano::error access_config_error (nano::ipc::read_access_config_toml (node.path, access));
 	if (access_config_error)
 	{
 		auto error (boost::str (boost::format ("IPC: invalid access configuration file: %1%") % access_config_error.get_message ()));

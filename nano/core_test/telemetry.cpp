@@ -515,7 +515,7 @@ TEST (telemetry, remove_peer_different_genesis)
 	// Change genesis block to something else in this test (this is the reference telemetry processing uses).
 	// Possible TSAN issue in the future if something else uses this, but will only appear in tests.
 	system1.env.constants.ledger.genesis_hash = nano::block_hash ("0");
-	auto node1 (std::make_shared<nano::node> (system1.env, nano::unique_path (), nano::node_config{}));
+	auto node1 (std::make_shared<nano::node> (system1.env, nano::node_config{}));
 	ASSERT_NE (node0->env.constants.ledger.genesis_hash, node1->env.constants.ledger.genesis_hash);
 	node1->start ();
 	system0.nodes.push_back (node1);
@@ -562,7 +562,7 @@ TEST (telemetry, remove_peer_different_genesis_udp)
 	auto node0 (system0.nodes[0]);
 	ASSERT_EQ (0, node0->network.size ());
 	nano::system system1;
-	auto node1 (std::make_shared<nano::node> (system1.env, nano::unique_path (), config));
+	auto node1 (std::make_shared<nano::node> (system1.env, config));
 	node1->env.constants.ledger.genesis_hash = nano::block_hash ("0");
 	node1->start ();
 	system1.nodes.push_back (node1);
