@@ -448,18 +448,21 @@ public:
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::in);
 		if (!message_a.vote->account.is_zero ())
 		{
-			for (auto & vote_block : message_a.vote->blocks)
+			if (message_a.header.block_type () != nano::block_type::not_a_block)
 			{
-				if (!vote_block.which ())
+				for (auto & vote_block : message_a.vote->blocks)
 				{
-					auto block (boost::get<std::shared_ptr<nano::block>> (vote_block));
-					if (!node.block_processor.full ())
+					if (!vote_block.which ())
 					{
-						node.process_active (block);
-					}
-					else
-					{
-						node.stats.inc (nano::stat::type::drop, nano::stat::detail::confirm_ack, nano::stat::dir::in);
+						auto block (boost::get<std::shared_ptr<nano::block>> (vote_block));
+						if (!node.block_processor.full ())
+						{
+							node.process_active (block);
+						}
+						else
+						{
+							node.stats.inc (nano::stat::type::drop, nano::stat::detail::confirm_ack, nano::stat::dir::in);
+						}
 					}
 				}
 			}
@@ -499,7 +502,7 @@ public:
 		nano::telemetry_ack telemetry_ack;
 		if (!node.config.flags.disable_providing_telemetry_metrics)
 		{
-			auto telemetry_data = nano::local_telemetry_data (node.ledger.cache, node.network, node.config.bandwidth_limit, node.env.constants, node.startup_time, node.active.active_difficulty (), node.node_id);
+			auto telemetry_data = nano::local_telemetry_data (node.store, node.ledger.cache, node.network, node.config.bandwidth_limit, node.env.constants, node.startup_time, node.active.active_difficulty (), node.node_id);
 			telemetry_ack = nano::telemetry_ack (telemetry_data);
 		}
 		channel->send (telemetry_ack, nullptr, nano::buffer_drop_policy::no_socket_drop);

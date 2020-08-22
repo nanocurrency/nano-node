@@ -214,7 +214,7 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 {
 	auto scoped_write_guard = write_database_queue.wait (nano::writer::process_batch);
 	block_post_events post_events;
-	auto transaction (node.store.tx_begin_write ({ tables::accounts, tables::blocks, tables::cached_counts, tables::frontiers, tables::pending, tables::unchecked }, { tables::confirmation_height }));
+	auto transaction (node.store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending, tables::unchecked }, { tables::confirmation_height }));
 	nano::timer<std::chrono::milliseconds> timer_l;
 	lock_a.lock ();
 	timer_l.start ();
@@ -297,15 +297,7 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	// Start collecting quorum on block
 	if (watch_work_a || node.ledger.can_vote (node.store.tx_begin_read (), *block_a))
 	{
-		auto election = node.active.insert (block_a, process_return_a.previous_balance.number ());
-		if (election.inserted)
-		{
-			election.election->transition_passive ();
-		}
-		else if (election.election)
-		{
-			election.election->try_generate_votes (block_a->hash ());
-		}
+		node.active.insert (block_a, process_return_a.previous_balance.number ());
 	}
 
 	// Announce block contents to the network
@@ -361,13 +353,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			}
 
 			nano::unchecked_key unchecked_key (block->previous (), hash);
-			auto exists = node.store.unchecked_exists (transaction_a, unchecked_key);
 			node.store.unchecked_put (transaction_a, unchecked_key, info_a);
-			if (!exists)
-			{
-				++node.ledger.cache.unchecked_count;
-			}
-
 			node.gap_cache.add (hash);
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_previous);
 			break;
@@ -384,14 +370,8 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 				info_a.modified = nano::seconds_since_epoch ();
 			}
 
-			nano::unchecked_key unchecked_key (node.ledger.block_source (transaction_a, *block), hash);
-			auto exists = node.store.unchecked_exists (transaction_a, unchecked_key);
+			nano::unchecked_key unchecked_key (node.ledger.block_source (transaction_a, *(block)), hash);
 			node.store.unchecked_put (transaction_a, unchecked_key, info_a);
-			if (!exists)
-			{
-				++node.ledger.cache.unchecked_count;
-			}
-
 			node.gap_cache.add (hash);
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_source);
 			break;
@@ -510,8 +490,6 @@ void nano::block_processor::queue_unchecked (nano::write_transaction const & tra
 		if (!node.config.flags.disable_block_processor_unchecked_deletion)
 		{
 			node.store.unchecked_del (transaction_a, nano::unchecked_key (hash_a, info.block->hash ()));
-			debug_assert (node.ledger.cache.unchecked_count > 0);
-			--node.ledger.cache.unchecked_count;
 		}
 		add (info, true);
 	}

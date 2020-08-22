@@ -237,12 +237,20 @@ void nano::bulk_push_server::received_block (boost::system::error_code const & e
 			connection->node->process_active (std::move (block));
 			throttled_receive ();
 		}
-		else
+		else if (block == nullptr)
 		{
 			if (connection->node->config.logging.bulk_pull_logging ())
 			{
 				connection->node->logger.try_log ("Error deserializing block received from pull request");
 			}
+		}
+		else // Work invalid
+		{
+			if (connection->node->config.logging.bulk_pull_logging ())
+			{
+				connection->node->logger.try_log (boost::str (boost::format ("Insufficient work for bulk push block: %1%") % block->hash ().to_string ()));
+			}
+			connection->node->stats.inc_detail_only (nano::stat::type::error, nano::stat::detail::insufficient_work);
 		}
 	}
 }

@@ -290,7 +290,7 @@ TEST (network, send_valid_publish)
 	}
 }
 
-TEST (network, send_insufficient_work)
+TEST (network, send_insufficient_work_udp)
 {
 	nano::system system;
 	nano::node_config config;
@@ -304,6 +304,41 @@ TEST (network, send_insufficient_work)
 	ASSERT_EQ (0, node1.stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work));
 	ASSERT_TIMELY (10s, node2.stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work) != 0);
 	ASSERT_EQ (1, node2.stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work));
+}
+
+TEST (network, send_insufficient_work)
+{
+	nano::system system (2);
+	auto & node1 = *system.nodes[0];
+	auto & node2 = *system.nodes[1];
+	// Block zero work
+	auto block1 (std::make_shared<nano::send_block> (0, 1, 20, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
+	nano::publish publish1 (block1);
+	auto tcp_channel (node1.network.tcp_channels.find_channel (nano::transport::map_endpoint_to_tcp (node2.network.endpoint ())));
+	tcp_channel->send (publish1, [](boost::system::error_code const & ec, size_t size) {});
+	ASSERT_EQ (0, node1.stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work));
+	ASSERT_TIMELY (10s, node2.stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work) != 0);
+	ASSERT_EQ (1, node2.stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work));
+	// Legacy block work between epoch_2_recieve & epoch_1
+	auto block2 (std::make_shared<nano::send_block> (block1->hash (), 1, 20, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, system.work_generate_limited (block1->hash (), node1.env.constants.network.publish_thresholds.epoch_2_receive, node1.env.constants.network.publish_thresholds.epoch_1 - 1)));
+	nano::publish publish2 (block2);
+	tcp_channel->send (publish2, [](boost::system::error_code const & ec, size_t size) {});
+	ASSERT_TIMELY (10s, node2.stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work) != 1);
+	ASSERT_EQ (2, node2.stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work));
+	// Legacy block work epoch_1
+	auto block3 (std::make_shared<nano::send_block> (block2->hash (), 1, 20, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.env.work.generate (block2->hash (), node1.env.constants.network.publish_thresholds.epoch_2)));
+	nano::publish publish3 (block3);
+	tcp_channel->send (publish3, [](boost::system::error_code const & ec, size_t size) {});
+	ASSERT_EQ (0, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in));
+	ASSERT_TIMELY (10s, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in) != 0);
+	ASSERT_EQ (1, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in));
+	// State block work epoch_2_recieve
+	auto block4 (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, block1->hash (), nano::dev_genesis_key.pub, 20, 1, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, system.work_generate_limited (block1->hash (), node1.env.constants.network.publish_thresholds.epoch_2_receive, node1.env.constants.network.publish_thresholds.epoch_1 - 1)));
+	nano::publish publish4 (block4);
+	tcp_channel->send (publish4, [](boost::system::error_code const & ec, size_t size) {});
+	ASSERT_TIMELY (10s, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in) != 0);
+	ASSERT_EQ (1, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in));
+	ASSERT_EQ (2, node2.stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work));
 }
 
 TEST (receivable_processor, confirm_insufficient_pos)

@@ -85,6 +85,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (re
 nano::node::node (nano::environment & env_a, nano::node_config const & config_a) :
 env (env_a),
 path{ path_or_default (config_a.path) },
+write_database_queue{ !config_a.flags.force_use_write_database_queue && (config_a.rocksdb_config.enable || nano::using_rocksdb_in_tests ()) },
 node_initialized_latch (1),
 config (config_a),
 stats (config.stat_config),
@@ -354,7 +355,7 @@ startup_time (std::chrono::steady_clock::now ())
 		nano::genesis genesis;
 		if (!is_initialized && !config.flags.read_only)
 		{
-			auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::cached_counts, tables::confirmation_height, tables::frontiers }));
+			auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::confirmation_height, tables::frontiers }));
 			// Store was empty meaning we just created it, add the genesis block
 			store.initialize (transaction, genesis, ledger.cache);
 		}
@@ -414,7 +415,6 @@ startup_time (std::chrono::steady_clock::now ())
 			{
 				auto transaction (store.tx_begin_write ({ tables::unchecked }));
 				store.unchecked_clear (transaction);
-				ledger.cache.unchecked_count = 0;
 				logger.always_log ("Dropping unchecked blocks");
 			}
 		}
@@ -590,7 +590,7 @@ void nano::node::process_active (std::shared_ptr<nano::block> incoming)
 
 nano::process_return nano::node::process (nano::block & block_a)
 {
-	auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::cached_counts, tables::frontiers, tables::pending }, { tables::confirmation_height }));
+	auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending }, { tables::confirmation_height }));
 	auto result (ledger.process (transaction, block_a));
 	return result;
 }
@@ -605,7 +605,7 @@ nano::process_return nano::node::process_local (std::shared_ptr<nano::block> blo
 	block_processor.wait_write ();
 	// Process block
 	block_post_events events;
-	auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::cached_counts, tables::frontiers, tables::pending }, { tables::confirmation_height }));
+	auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending }, { tables::confirmation_height }));
 	return block_processor.process_one (transaction, events, info, work_watcher_a, nano::block_origin::local);
 }
 
@@ -950,8 +950,6 @@ void nano::node::unchecked_cleanup ()
 			if (store.unchecked_exists (transaction, key))
 			{
 				store.unchecked_del (transaction, key);
-				debug_assert (ledger.cache.unchecked_count > 0);
-				--ledger.cache.unchecked_count;
 			}
 		}
 	}
@@ -1729,10 +1727,7 @@ std::unique_ptr<nano::block_store> nano::make_store (nano::logger_mt & logger, b
 	else
 	{
 #if NANO_ROCKSDB
-		/** To use RocksDB in tests make sure the node is built with the cmake variable -DNANO_ROCKSDB=ON and the environment variable TEST_USE_ROCKSDB=1 is set */
-		static nano::network_constants network_constants;
-		auto use_rocksdb_str = std::getenv ("TEST_USE_ROCKSDB");
-		if (use_rocksdb_str && (boost::lexical_cast<int> (use_rocksdb_str) == 1) && network_constants.is_dev_network ())
+		if (using_rocksdb_in_tests ())
 		{
 			return make_rocksdb ();
 		}

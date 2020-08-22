@@ -5947,7 +5947,9 @@ TEST (rpc, confirmation_height_currently_processing)
 {
 	nano::system system;
 	nano::node_config node_config;
+	node_config.flags.force_use_write_database_queue = true;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+
 	auto node = add_ipc_enabled_node (system, node_config);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 
@@ -6323,10 +6325,8 @@ TEST (rpc, unchecked_clear)
 	node.process_active (open);
 	node.block_processor.flush ();
 	boost::property_tree::ptree request;
-	ASSERT_EQ (node.ledger.cache.unchecked_count, 1);
 	{
-		auto transaction = node.store.tx_begin_read ();
-		ASSERT_EQ (node.store.unchecked_count (transaction), 1);
+		ASSERT_EQ (node.store.unchecked_count (node.store.tx_begin_read ()), 1);
 	}
 	request.put ("action", "unchecked_clear");
 	test_response response (request, rpc.config.port, system.env.ctx);
@@ -6334,7 +6334,6 @@ TEST (rpc, unchecked_clear)
 	ASSERT_EQ (200, response.status);
 
 	ASSERT_TIMELY (10s, node.store.unchecked_count (node.store.tx_begin_read ()) == 0);
-	ASSERT_EQ (node.ledger.cache.unchecked_count, 0);
 }
 
 TEST (rpc, unopened)
@@ -6644,11 +6643,21 @@ TEST (rpc, memory_stats)
 	boost::property_tree::ptree request;
 	request.put ("action", "stats");
 	request.put ("type", "objects");
-	test_response response (request, rpc.config.port, system.env.ctx);
-	ASSERT_TIMELY (5s, response.status != 0);
-	ASSERT_EQ (200, response.status);
+	{
+		test_response response (request, rpc.config.port, system.env.ctx);
+		ASSERT_TIMELY (5s, response.status != 0);
+		ASSERT_EQ (200, response.status);
 
-	ASSERT_EQ (response.json.get_child ("node").get_child ("vote_uniquer").get_child ("votes").get<std::string> ("count"), "1");
+		ASSERT_EQ (response.json.get_child ("node").get_child ("vote_uniquer").get_child ("votes").get<std::string> ("count"), "1");
+	}
+
+	request.put ("type", "database");
+	{
+		test_response response (request, rpc.config.port, system.env.ctx);
+		ASSERT_TIMELY (5s, response.status != 0);
+		ASSERT_EQ (200, response.status);
+		ASSERT_TRUE (!response.json.empty ());
+	}
 }
 
 TEST (rpc, block_confirmed)

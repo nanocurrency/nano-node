@@ -143,6 +143,19 @@ void nano::mdb_store::serialize_mdb_tracker (boost::property_tree::ptree & json,
 	mdb_txn_tracker.serialize_json (json, min_read_time, min_write_time);
 }
 
+void nano::mdb_store::serialize_memory_stats (boost::property_tree::ptree & json)
+{
+	MDB_stat stats;
+	auto status (mdb_env_stat (env.environment, &stats));
+	release_assert (status == 0);
+	json.put ("branch_pages", stats.ms_branch_pages);
+	json.put ("depth", stats.ms_depth);
+	json.put ("entries", stats.ms_entries);
+	json.put ("leaf_pages", stats.ms_leaf_pages);
+	json.put ("overflow_pages", stats.ms_overflow_pages);
+	json.put ("page_size", stats.ms_psize);
+}
+
 nano::write_transaction nano::mdb_store::tx_begin_write (std::vector<nano::tables> const &, std::vector<nano::tables> const &)
 {
 	return env.tx_begin_write (create_txn_callbacks ());
@@ -785,12 +798,12 @@ int nano::mdb_store::clear (nano::write_transaction const & transaction_a, MDB_d
 	return mdb_drop (env.tx (transaction_a), handle_a, 0);
 }
 
-size_t nano::mdb_store::count (nano::transaction const & transaction_a, tables table_a) const
+uint64_t nano::mdb_store::count (nano::transaction const & transaction_a, tables table_a) const
 {
 	return count (transaction_a, table_to_dbi (table_a));
 }
 
-size_t nano::mdb_store::count (nano::transaction const & transaction_a, MDB_dbi db_a) const
+uint64_t nano::mdb_store::count (nano::transaction const & transaction_a, MDB_dbi db_a) const
 {
 	MDB_stat stats;
 	auto status (mdb_stat (env.tx (transaction_a), db_a, &stats));

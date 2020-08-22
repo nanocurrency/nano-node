@@ -5,6 +5,7 @@
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/telemetry.hpp>
 #include <nano/node/transport/transport.hpp>
+#include <nano/secure/blockstore.hpp>
 #include <nano/secure/buffer.hpp>
 
 #include <boost/algorithm/string.hpp>
@@ -627,7 +628,7 @@ nano::telemetry_data nano::consolidate_telemetry_data (std::vector<nano::telemet
 	return consolidated_data;
 }
 
-nano::telemetry_data nano::local_telemetry_data (nano::ledger_cache const & ledger_cache_a, nano::network & network_a, uint64_t bandwidth_limit_a, nano::environment_constants const & constants_a, std::chrono::steady_clock::time_point statup_time_a, uint64_t active_difficulty_a, nano::keypair const & node_id_a)
+nano::telemetry_data nano::local_telemetry_data (nano::block_store & store_a, nano::ledger_cache const & ledger_cache_a, nano::network & network_a, uint64_t bandwidth_limit_a, nano::environment_constants const & constants_a, std::chrono::steady_clock::time_point statup_time_a, uint64_t active_difficulty_a, nano::keypair const & node_id_a)
 {
 	nano::telemetry_data telemetry_data;
 	telemetry_data.node_id = node_id_a.pub;
@@ -636,7 +637,7 @@ nano::telemetry_data nano::local_telemetry_data (nano::ledger_cache const & ledg
 	telemetry_data.bandwidth_cap = bandwidth_limit_a;
 	telemetry_data.protocol_version = constants_a.protocol.protocol_version;
 	telemetry_data.uptime = std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - statup_time_a).count ();
-	telemetry_data.unchecked_count = ledger_cache_a.unchecked_count;
+	telemetry_data.unchecked_count = store_a.unchecked_count (store_a.tx_begin_read ());
 	telemetry_data.genesis_block = constants_a.ledger.genesis_hash;
 	telemetry_data.peer_count = nano::narrow_cast<decltype (telemetry_data.peer_count)> (network_a.size ());
 	telemetry_data.account_count = ledger_cache_a.account_count;

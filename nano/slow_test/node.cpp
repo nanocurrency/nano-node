@@ -739,6 +739,7 @@ TEST (confirmation_height, dynamic_algorithm_no_transition_while_pending)
 		nano::system system;
 		nano::node_config node_config;
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+		node_config.flags.force_use_write_database_queue = true;
 		auto node = system.add_node (node_config);
 		nano::keypair key;
 		system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
@@ -919,7 +920,7 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 	nano::genesis genesis;
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
-	nano::write_database_queue write_database_queue;
+	nano::write_database_queue write_database_queue (false);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	std::atomic<bool> stopped{ false };
 	boost::latch initialized_latch{ 0 };
@@ -1620,12 +1621,14 @@ TEST (node, mass_epoch_upgrader)
 		// Check upgrade
 		{
 			auto transaction (node.store.tx_begin_read ());
-			ASSERT_EQ (expected_blocks, node.store.block_count (transaction));
+			auto block_count_sum = 0;
 			for (auto i (node.store.latest_begin (transaction)); i != node.store.latest_end (); ++i)
 			{
 				nano::account_info info (i->second);
 				ASSERT_EQ (info.epoch (), nano::epoch::epoch_1);
+				block_count_sum += info.block_count;
 			}
+			ASSERT_EQ (expected_blocks, block_count_sum);
 		}
 	};
 	// Test with a limited number of upgrades and an unlimited
