@@ -27,7 +27,6 @@ public:
 	bool opencl_enable{ false };
 	nano::opencl_config opencl;
 	nano::node_pow_server_config pow_server;
-	boost::filesystem::path data_path;
 	unsigned json_version () const
 	{
 		return 2;
