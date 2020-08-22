@@ -102,7 +102,6 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 		config.node.logging.init (data_path);
 		nano::logger_mt logger{ config.node.logging.min_time_between_log_output };
 
-
 		nano::environment env;
 		nano::thread_runner runner (env.ctx, config.node.io_threads);
 

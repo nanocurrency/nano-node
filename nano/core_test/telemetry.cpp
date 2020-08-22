@@ -528,7 +528,7 @@ TEST (telemetry, remove_peer_different_genesis)
 		ASSERT_NO_ERROR (system0.poll ());
 		ASSERT_NO_ERROR (system1.poll ());
 	}
-	
+
 	system0.deadline_set (1s);
 	system1.deadline_set (1s);
 	while (0 != node0->network.size ())
@@ -570,7 +570,7 @@ TEST (telemetry, remove_peer_different_genesis_udp)
 	auto channel1 (std::make_shared<nano::transport::channel_udp> (node0->network.udp_channels, node1->network.endpoint (), node1->env.constants.protocol.protocol_version));
 	node0->network.send_keepalive (channel1);
 	node1->network.send_keepalive (channel0);
-	
+
 	system0.deadline_set (10s);
 	system1.deadline_set (10s);
 	while (!(node0->network.udp_channels.size () != 0 && node1->network.udp_channels.size () != 0))
@@ -591,7 +591,7 @@ TEST (telemetry, remove_peer_different_genesis_udp)
 	node1->telemetry->get_metrics_single_peer_async (channel0, [&done1](nano::telemetry_data_response const & response_a) {
 		done1 = true;
 	});
-	
+
 	system0.deadline_set (10s);
 	system1.deadline_set (10s);
 	while (!(done0 && done1))

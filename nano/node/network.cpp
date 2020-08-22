@@ -2,8 +2,8 @@
 #include <nano/lib/threading.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
-#include <nano/node/testing.hpp>
 #include <nano/node/telemetry.hpp>
+#include <nano/node/testing.hpp>
 #include <nano/secure/buffer.hpp>
 
 #include <boost/format.hpp>
@@ -789,7 +789,7 @@ void nano::network::erase_below_version (uint8_t cutoff_version_a)
 
 uint16_t nano::network::port_to_use (uint16_t port_a) const
 {
-	uint16_t result{port_a};
+	uint16_t result{ port_a };
 	if (port_a == 0)
 	{
 		switch (node.env.constants.network.network ())

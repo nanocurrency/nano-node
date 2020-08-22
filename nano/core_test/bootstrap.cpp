@@ -173,7 +173,7 @@ TEST (bulk_pull, count_limit)
 TEST (bootstrap_processor, DISABLED_process_none)
 {
 	nano::system system (1);
-	auto node1 (std::make_shared<nano::node> (system.env, nano::node_config {}));
+	auto node1 (std::make_shared<nano::node> (system.env, nano::node_config{}));
 	ASSERT_FALSE (node1->init_error ());
 	auto done (false);
 	node1->bootstrap_initiator.bootstrap (system.nodes[0]->network.endpoint ());
@@ -224,7 +224,7 @@ TEST (bootstrap_processor, process_two)
 	ASSERT_NE (hash1, hash2);
 	ASSERT_NE (hash1, hash3);
 	ASSERT_NE (hash2, hash3);
-	auto node1 (std::make_shared<nano::node> (system.env, nano::node_config {}));
+	auto node1 (std::make_shared<nano::node> (system.env, nano::node_config{}));
 	ASSERT_FALSE (node1->init_error ());
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
 	ASSERT_NE (node1->latest (nano::dev_genesis_key.pub), node0->latest (nano::dev_genesis_key.pub));
