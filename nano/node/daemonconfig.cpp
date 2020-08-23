@@ -7,11 +7,6 @@
 #include <sstream>
 #include <vector>
 
-nano::daemon_config::daemon_config (boost::filesystem::path const & data_path_a)
-{
-	node.path = data_path_a;
-}
-
 nano::error nano::daemon_config::serialize_toml (nano::tomlconfig & toml)
 {
 	nano::tomlconfig rpc_l;

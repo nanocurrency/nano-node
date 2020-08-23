@@ -1662,7 +1662,7 @@ nano::inactive_node::inactive_node (nano::node_config const & config_a)
 	 */
 	boost::filesystem::create_directories (config_a.path);
 	nano::set_secure_perm_directory (config_a.path, error_chmod);
-	nano::daemon_config daemon_config (config_a.path);
+	nano::daemon_config daemon_config;
 	auto error = nano::read_node_config_toml (config_a.path, daemon_config, config_a.flags.config_overrides);
 	if (error)
 	{

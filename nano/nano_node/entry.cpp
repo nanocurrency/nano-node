@@ -1244,7 +1244,7 @@ int main (int argc, char * const * argv)
 			if (!config_overrides.empty ())
 			{
 				auto path (nano::unique_path ());
-				nano::daemon_config daemon_config (path);
+				nano::daemon_config daemon_config;
 				auto error = nano::read_node_config_toml (path, daemon_config, config_overrides);
 				if (error)
 				{

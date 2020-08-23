@@ -581,7 +581,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		if (type == "node")
 		{
 			valid_type = true;
-			nano::daemon_config config (data_path);
+			nano::daemon_config config;
 			config.serialize_toml (toml);
 		}
 		else if (type == "rpc")
@@ -1249,7 +1249,7 @@ void reset_confirmation_heights (nano::block_store & store)
 
 bool is_using_rocksdb (boost::filesystem::path const & data_path, std::error_code & ec)
 {
-	nano::daemon_config config (data_path);
+	nano::daemon_config config;
 	auto error = nano::read_node_config_toml (data_path, config);
 	if (!error)
 	{

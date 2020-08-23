@@ -38,7 +38,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 	boost::system::error_code error_chmod;
 	nano::set_secure_perm_directory (data_path, error_chmod);
 	std::unique_ptr<nano::thread_runner> runner;
-	nano::daemon_config config (data_path);
+	nano::daemon_config config;
 	config.node.flags = flags;
 	auto error = nano::read_node_config_toml (data_path, config, flags.config_overrides);
 	nano::set_use_memory_pools (config.node.use_memory_pools);

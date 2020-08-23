@@ -78,7 +78,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	splash->showMessage (QSplashScreen::tr ("Remember - Back Up Your Wallet Seed"), Qt::AlignBottom | Qt::AlignHCenter, Qt::darkGray);
 	application.processEvents ();
 
-	nano::daemon_config config (data_path);
+	nano::daemon_config config;
 	config.node.flags = flags;
 	nano::wallet_config wallet_config;
 

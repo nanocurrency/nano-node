@@ -68,8 +68,7 @@ TEST (toml, diff_equal)
 TEST (toml, daemon_config_update_array)
 {
 	nano::tomlconfig t;
-	boost::filesystem::path data_path (".");
-	nano::daemon_config c (data_path);
+	nano::daemon_config c;
 	c.node.preconfigured_peers.push_back ("dev-peer.org");
 	c.serialize_toml (t);
 	c.deserialize_toml (t);
