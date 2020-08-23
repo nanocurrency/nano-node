@@ -68,9 +68,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 {
 	int result (0);
 	nano_qt::eventloop_processor processor;
-	boost::system::error_code error_chmod;
-	boost::filesystem::create_directories (data_path);
-	nano::set_secure_perm_directory (data_path, error_chmod);
+	nano::environment env{ data_path };
 	QPixmap pixmap (":/logo.png");
 	QSplashScreen * splash = new QSplashScreen (pixmap);
 	splash->show ();
@@ -102,7 +100,6 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 		config.node.logging.init (data_path);
 		nano::logger_mt logger{ config.node.logging.min_time_between_log_output };
 
-		nano::environment env;
 		nano::thread_runner runner (env.ctx, config.node.io_threads);
 
 		std::shared_ptr<nano::node> node;

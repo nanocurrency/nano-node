@@ -34,9 +34,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 	std::signal (SIGSEGV, &my_abort_signal_handler);
 	std::signal (SIGABRT, &my_abort_signal_handler);
 
-	boost::filesystem::create_directories (data_path);
-	boost::system::error_code error_chmod;
-	nano::set_secure_perm_directory (data_path, error_chmod);
+	nano::environment env{ data_path };
 	std::unique_ptr<nano::thread_runner> runner;
 	nano::daemon_config config;
 	config.node.flags = flags;
@@ -46,7 +44,6 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 	{
 		config.node.logging.init (data_path);
 		nano::logger_mt logger{ config.node.logging.min_time_between_log_output };
-		nano::environment env;
 		auto opencl (nano::opencl_work::create (config.opencl_enable, config.opencl, logger));
 		if (opencl != nullptr)
 		{
