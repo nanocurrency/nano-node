@@ -14,10 +14,10 @@ namespace nano
  * *These are mostly useful in a testing context where more than one node may be running in a process
  * Sharing resources like worker threads removes the need for duplicating these resources
 */
-class environment
+class environment final
 {
 public:
-	environment (boost::filesystem::path const & = nano::working_path ());
+	explicit environment (boost::filesystem::path const & = nano::working_path ());
 	boost::filesystem::path path;
 	boost::asio::io_context ctx;
 	nano::alarm alarm;

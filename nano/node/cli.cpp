@@ -184,7 +184,7 @@ void database_write_lock_error (std::error_code & ec)
 	ec = nano::error_cli::database_write_error;
 }
 
-bool copy_database (boost::filesystem::path const & data_path, boost::program_options::variables_map const & vm, boost::filesystem::path const & output_path, std::error_code & ec)
+bool copy_database (nano::environment const & env_a, boost::program_options::variables_map const & vm, boost::filesystem::path const & output_path, std::error_code & ec)
 {
 	bool success = false;
 	bool needs_to_write = vm.count ("unchecked_clear") || vm.count ("clear_send_ids") || vm.count ("online_weight_clear") || vm.count ("peer_clear") || vm.count ("confirmation_height_clear") || vm.count ("rebuild_database");
@@ -192,7 +192,7 @@ bool copy_database (boost::filesystem::path const & data_path, boost::program_op
 	nano::node_config config;
 	config.flags = nano::inactive_node_flag_defaults ();
 	config.flags.read_only = !needs_to_write;
-	config.path = data_path;
+	config.path = env_a.path;
 	nano::update_flags (config.flags, vm);
 	nano::inactive_node node (config);
 	if (!node.node->init_error ())
@@ -242,6 +242,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	std::error_code ec;
 	boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
 
+	nano::environment env{ data_path };
 	if (vm.count ("account_create"))
 	{
 		if (vm.count ("wallet") == 1)
@@ -348,7 +349,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				}
 				std::cout << "This may take a while..." << std::endl;
 
-				bool success = copy_database (data_path, vm, vacuum_path, ec);
+				bool success = copy_database (env, vm, vacuum_path, ec);
 				if (success)
 				{
 					// Note that these throw on failure
@@ -410,7 +411,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				std::cout << "Database snapshot of " << source_path << " to " << snapshot_path << " in progress" << std::endl;
 				std::cout << "This may take a while..." << std::endl;
 
-				bool success = copy_database (data_path, vm, snapshot_path, ec);
+				bool success = copy_database (env, vm, snapshot_path, ec);
 				if (success)
 				{
 					std::cout << "Snapshot completed, This can be found at " << snapshot_path << std::endl;
