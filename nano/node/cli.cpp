@@ -437,7 +437,6 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	}
 	else if (vm.count ("unchecked_clear"))
 	{
-		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
 		nano::node_config config;
 		config.flags = nano::inactive_node_flag_defaults ();
 		config.flags.read_only = false;
@@ -457,7 +456,6 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	}
 	else if (vm.count ("clear_send_ids"))
 	{
-		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
 		nano::node_config config;
 		config.flags = nano::inactive_node_flag_defaults ();
 		config.flags.read_only = false;
@@ -477,7 +475,6 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	}
 	else if (vm.count ("online_weight_clear"))
 	{
-		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
 		nano::node_config config;
 		config.flags = nano::inactive_node_flag_defaults ();
 		config.flags.read_only = false;
@@ -497,7 +494,6 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	}
 	else if (vm.count ("peer_clear"))
 	{
-		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
 		nano::node_config config;
 		config.flags = nano::inactive_node_flag_defaults ();
 		config.flags.read_only = false;
@@ -517,7 +513,6 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	}
 	else if (vm.count ("confirmation_height_clear"))
 	{
-		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
 		nano::node_config config;
 		config.flags = nano::inactive_node_flag_defaults ();
 		config.flags.read_only = false;
