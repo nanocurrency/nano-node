@@ -22,7 +22,15 @@ work{ *work_impl }
 	nano::set_secure_perm_directory (path_a, error_chmod);
 }
 
-std::error_code nano::environment::update_flags (nano::node_flags & flags_a, boost::program_options::variables_map const & vm)
+std::error_code nano::environment::apply_overrides (nano::node_flags & flags_a, purpose purpose_a, boost::program_options::variables_map const & vm)
+{
+	std::error_code result{};
+	apply_purpose_overrides (flags_a, purpose_a);
+	result = apply_command_line_overrides (flags_a, vm);
+	return result;
+}
+
+std::error_code nano::environment::apply_command_line_overrides (nano::node_flags & flags_a, boost::program_options::variables_map const & vm)
 {
 	std::error_code ec;
 	flags_a.disable_backup = (vm.count ("disable_backup") > 0);
@@ -88,4 +96,24 @@ std::error_code nano::environment::update_flags (nano::node_flags & flags_a, boo
 		flags_a.config_overrides = nano::config_overrides (config->second.as<std::vector<nano::config_key_value_pair>> ());
 	}
 	return ec;
+}
+
+void nano::environment::apply_purpose_overrides (nano::node_flags & flags_a, purpose purpose_a) const
+{
+	switch (purpose_a)
+	{
+		case purpose::inactive:
+			flags_a.inactive_node = true;
+			flags_a.read_only = true;
+			flags_a.generate_cache.reps = false;
+			flags_a.generate_cache.cemented_count = false;
+			flags_a.generate_cache.unchecked_count = false;
+			flags_a.generate_cache.account_count = false;
+			flags_a.generate_cache.epoch_2 = false;
+			flags_a.disable_bootstrap_listener = true;
+			flags_a.disable_tcp_realtime = true;
+			break;
+		case purpose::normal:
+			break;
+	}
 }

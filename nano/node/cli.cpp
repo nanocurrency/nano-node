@@ -122,9 +122,9 @@ bool copy_database (nano::environment & env_a, boost::program_options::variables
 	bool needs_to_write = vm.count ("unchecked_clear") || vm.count ("clear_send_ids") || vm.count ("online_weight_clear") || vm.count ("peer_clear") || vm.count ("confirmation_height_clear") || vm.count ("rebuild_database");
 
 	nano::node_flags flags;
-	flags = nano::inactive_node_flag_defaults ();
+	auto error{ env_a.apply_overrides (flags, nano::environment::purpose::inactive, vm) };
+	debug_assert (!error);
 	flags.read_only = !needs_to_write;
-	env_a.update_flags (flags, vm);
 	nano::inactive_node node (env_a, flags);
 	if (!node.node->init_error ())
 	{
@@ -369,9 +369,8 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	else if (vm.count ("unchecked_clear"))
 	{
 		nano::node_flags flags;
-		flags = nano::inactive_node_flag_defaults ();
+		auto error{ env.apply_overrides (flags, nano::environment::purpose::inactive, vm) };
 		flags.read_only = false;
-		env.update_flags (flags, vm);
 		nano::inactive_node node (env, flags);
 		if (!node.node->init_error ())
 		{
@@ -387,9 +386,8 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	else if (vm.count ("clear_send_ids"))
 	{
 		nano::node_flags flags;
-		flags = nano::inactive_node_flag_defaults ();
+		auto error{ env.apply_overrides (flags, nano::environment::purpose::inactive, vm) };
 		flags.read_only = false;
-		env.update_flags (flags, vm);
 		nano::inactive_node node (env, flags);
 		if (!node.node->init_error ())
 		{
@@ -405,9 +403,8 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	else if (vm.count ("online_weight_clear"))
 	{
 		nano::node_flags flags;
-		flags = nano::inactive_node_flag_defaults ();
+		auto error{ env.apply_overrides (flags, nano::environment::purpose::inactive, vm) };
 		flags.read_only = false;
-		env.update_flags (flags, vm);
 		nano::inactive_node node (env, flags);
 		if (!node.node->init_error ())
 		{
@@ -423,9 +420,8 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	else if (vm.count ("peer_clear"))
 	{
 		nano::node_flags flags;
-		flags = nano::inactive_node_flag_defaults ();
+		auto error{ env.apply_overrides (flags, nano::environment::purpose::inactive, vm) };
 		flags.read_only = false;
-		env.update_flags (flags, vm);
 		nano::inactive_node node (env, flags);
 		if (!node.node->init_error ())
 		{
@@ -441,9 +437,8 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	else if (vm.count ("confirmation_height_clear"))
 	{
 		nano::node_flags flags;
-		flags = nano::inactive_node_flag_defaults ();
+		auto error{ env.apply_overrides (flags, nano::environment::purpose::inactive, vm) };
 		flags.read_only = false;
-		env.update_flags (flags, vm);
 		nano::inactive_node node (env, flags);
 		if (!node.node->init_error ())
 		{
@@ -1150,8 +1145,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 std::unique_ptr<nano::inactive_node> nano::default_inactive_node (nano::environment & env_a, boost::program_options::variables_map const & vm_a)
 {
 	nano::node_flags flags;
-	flags = nano::inactive_node_flag_defaults ();
-	env_a.update_flags (flags, vm_a);
+	auto error{ env_a.apply_overrides (flags, nano::environment::purpose::inactive, vm_a) };
 	return std::make_unique<nano::inactive_node> (env_a, flags);
 }
 

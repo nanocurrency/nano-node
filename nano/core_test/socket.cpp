@@ -11,7 +11,7 @@ TEST (socket, drop_policy)
 {
 	nano::environment env{ nano::unique_path () };
 	nano::node_flags flags;
-	flags = nano::inactive_node_flag_defaults ();
+	auto error{ env.apply_overrides (flags, nano::environment::purpose::inactive) };
 	flags.read_only = false;
 	nano::inactive_node inactivenode{ env, flags };
 	auto node = inactivenode.node;
@@ -79,7 +79,7 @@ TEST (socket, concurrent_writes)
 {
 	nano::environment env{ nano::unique_path () };
 	nano::node_flags flags;
-	flags = nano::inactive_node_flag_defaults ();
+	auto error{ env.apply_overrides (flags, nano::environment::purpose::inactive) };
 	flags.read_only = false;
 	nano::inactive_node inactivenode{ env, flags };
 	auto node = inactivenode.node;

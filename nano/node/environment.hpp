@@ -6,14 +6,8 @@
 #include <nano/secure/utility.hpp>
 
 #include <boost/asio/io_context.hpp>
+#include <boost/program_options.hpp>
 
-namespace boost
-{
-namespace program_options
-{
-	class variables_map;
-}
-}
 namespace nano
 {
 class node_flags;
@@ -25,13 +19,22 @@ class node_flags;
 class environment final
 {
 public:
+	enum class purpose
+	{
+		normal,
+		inactive,
+	};
+public:
 	explicit environment (boost::filesystem::path const & = nano::working_path ());
-	std::error_code update_flags (nano::node_flags &, boost::program_options::variables_map const &);
+	std::error_code apply_overrides (nano::node_flags & flags_a, purpose purpose_a, boost::program_options::variables_map const & = boost::program_options::variables_map{});
 	boost::filesystem::path path;
 	boost::asio::io_context ctx;
 	nano::alarm alarm;
 	std::unique_ptr<nano::work_pool> work_impl;
 	nano::work_pool & work;
 	nano::environment_constants constants;
+private:
+	void apply_purpose_overrides (nano::node_flags & flags_a, purpose purpose_a) const;
+	std::error_code apply_command_line_overrides (nano::node_flags & flags_a, boost::program_options::variables_map const &);
 };
 }

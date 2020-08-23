@@ -1682,21 +1682,6 @@ nano::inactive_node::~inactive_node ()
 	node->stop ();
 }
 
-nano::node_flags const & nano::inactive_node_flag_defaults ()
-{
-	static nano::node_flags node_flags;
-	node_flags.inactive_node = true;
-	node_flags.read_only = true;
-	node_flags.generate_cache.reps = false;
-	node_flags.generate_cache.cemented_count = false;
-	node_flags.generate_cache.unchecked_count = false;
-	node_flags.generate_cache.account_count = false;
-	node_flags.generate_cache.epoch_2 = false;
-	node_flags.disable_bootstrap_listener = true;
-	node_flags.disable_tcp_realtime = true;
-	return node_flags;
-}
-
 std::unique_ptr<nano::block_store> nano::make_store (nano::logger_mt & logger, boost::filesystem::path const & path, bool read_only, bool add_db_postfix, nano::rocksdb_config const & rocksdb_config, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade, bool use_rocksdb_backend)
 {
 #if NANO_ROCKSDB

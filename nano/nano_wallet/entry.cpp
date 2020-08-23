@@ -325,10 +325,10 @@ int main (int argc, char * const * argv)
 					}
 					nano::environment env{ data_path };
 					nano::node_flags flags;
-					auto flags_ec = env.update_flags (flags, vm);
-					if (flags_ec)
+					auto error{ env.apply_overrides (flags, nano::environment::purpose::normal, vm) };
+					if (error)
 					{
-						throw std::runtime_error (flags_ec.message ());
+						throw std::runtime_error (error.message ());
 					}
 					result = run_wallet (application, argc, argv, env, flags);
 				}

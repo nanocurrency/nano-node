@@ -77,7 +77,7 @@ TEST (node_DeathTest, readonly_block_store_not_exist)
 	// This is a read-only node with no ledger file
 	nano::environment env{ nano::unique_path () };
 	nano::node_flags flags;
-	flags = nano::inactive_node_flag_defaults ();
+	auto error{ env.apply_overrides (flags, nano::environment::purpose::inactive) };
 	ASSERT_EXIT ((nano::inactive_node{ env, flags }), ::testing::ExitedWithCode (1), "");
 }
 
@@ -3650,7 +3650,7 @@ TEST (node, dont_write_lock_node)
 	// Check inactive node can finish executing while a write lock is open
 	nano::environment env{ path };
 	nano::node_flags flags;
-	flags = nano::inactive_node_flag_defaults ();
+	auto error{ env.apply_overrides (flags, nano::environment::purpose::inactive) };
 	nano::inactive_node node{ env, flags };
 	finished_promise.set_value ();
 }

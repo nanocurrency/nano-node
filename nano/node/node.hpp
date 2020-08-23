@@ -212,8 +212,6 @@ private:
 
 std::unique_ptr<container_info_component> collect_container_info (node & node, const std::string & name);
 
-nano::node_flags const & inactive_node_flag_defaults ();
-
 class inactive_node final
 {
 public:

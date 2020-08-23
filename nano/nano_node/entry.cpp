@@ -156,10 +156,10 @@ int main (int argc, char * const * argv)
 		{
 			nano_daemon::daemon daemon;
 			nano::node_flags flags;
-			auto flags_ec = env.update_flags (flags, vm);
-			if (flags_ec)
+			auto error{ env.apply_overrides (flags, nano::environment::purpose::normal, vm) };
+			if (error)
 			{
-				std::cerr << flags_ec.message () << std::endl;
+				std::cerr << error.message () << std::endl;
 				std::exit (1);
 			}
 			daemon.run (data_path, flags);
@@ -169,8 +169,7 @@ int main (int argc, char * const * argv)
 			if (!nano::network_constants ().is_dev_network ())
 			{
 				nano::node_flags flags;
-				flags = nano::inactive_node_flag_defaults ();
-				env.update_flags (flags, vm);
+				auto error{ env.apply_overrides (flags, nano::environment::purpose::inactive, vm) };
 				flags.generate_cache.reps = true;
 				nano::inactive_node inactive_node (env, flags);
 				auto node = inactive_node.node;
@@ -318,8 +317,7 @@ int main (int argc, char * const * argv)
 		else if (vm.count ("debug_block_count"))
 		{
 			nano::node_flags flags;
-			flags = nano::inactive_node_flag_defaults ();
-			env.update_flags (flags, vm);
+			auto error{ env.apply_overrides (flags, nano::environment::purpose::inactive, vm) };
 			flags.generate_cache.block_count = true;
 			nano::inactive_node inactive_node (env, flags);
 			auto node = inactive_node.node;
@@ -402,8 +400,7 @@ int main (int argc, char * const * argv)
 		else if (vm.count ("debug_dump_representatives"))
 		{
 			nano::node_flags flags;
-			flags = nano::inactive_node_flag_defaults ();
-			env.update_flags (flags, vm);
+			auto error{ env.apply_overrides (flags, nano::environment::purpose::inactive, vm) };
 			flags.generate_cache.reps = true;
 			nano::inactive_node inactive_node (env, flags);
 			auto node = inactive_node.node;
@@ -444,8 +441,7 @@ int main (int argc, char * const * argv)
 		else if (vm.count ("debug_account_count"))
 		{
 			nano::node_flags flags;
-			flags = nano::inactive_node_flag_defaults ();
-			env.update_flags (flags, vm);
+			auto error{ env.apply_overrides (flags, nano::environment::purpose::inactive, vm) };
 			flags.generate_cache.account_count = true;
 			nano::inactive_node inactive_node (env, flags);
 			std::cout << boost::str (boost::format ("Frontier count: %1%\n") % inactive_node.node->ledger.cache.account_count);
@@ -916,7 +912,7 @@ int main (int argc, char * const * argv)
 			size_t max_blocks (2 * num_accounts * num_iterations + num_accounts * 2); //  1,000,000 + 2 * 100,000 = 1,200,000 blocks
 			std::cout << boost::str (boost::format ("Starting pregenerating %1% blocks\n") % max_blocks);
 			nano::node_config config;
-			env.update_flags (config.flags, vm);
+			auto error{ env.apply_overrides (config.flags, nano::environment::purpose::normal, vm) };
 			auto node (std::make_shared<nano::node> (env, config));
 			nano::block_hash genesis_latest (node->latest (constants.ledger.dev_genesis_key.pub));
 			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
@@ -1339,8 +1335,7 @@ int main (int argc, char * const * argv)
 			});
 
 			nano::node_flags flags;
-			flags = nano::inactive_node_flag_defaults ();
-			env.update_flags (flags, vm);
+			auto error{ env.apply_overrides (flags, nano::environment::purpose::inactive, vm) };
 			flags.generate_cache.enable_all ();
 			nano::inactive_node inactive_node_l (env, flags);
 
@@ -1354,8 +1349,7 @@ int main (int argc, char * const * argv)
 			nano::timer<std::chrono::seconds> timer;
 			timer.start ();
 			nano::node_flags flags;
-			flags = nano::inactive_node_flag_defaults ();
-			env.update_flags (flags, vm);
+			auto error{ env.apply_overrides (flags, nano::environment::purpose::inactive, vm) };
 			flags.generate_cache.block_count = true;
 			nano::inactive_node inactive_node (env, flags);
 			auto node = inactive_node.node;
@@ -1737,10 +1731,9 @@ int main (int argc, char * const * argv)
 		else if (vm.count ("debug_profile_bootstrap"))
 		{
 			nano::node_flags flags;
-			flags = nano::inactive_node_flag_defaults ();
+			auto error{ env.apply_overrides (flags, nano::environment::purpose::inactive, vm) };
 			flags.read_only = false;
 			flags.generate_cache.block_count = true;
-			env.update_flags (flags, vm);
 			nano::inactive_node node (env, flags);
 			nano::genesis genesis;
 			auto begin (std::chrono::high_resolution_clock::now ());
@@ -1826,9 +1819,8 @@ int main (int argc, char * const * argv)
 		else if (vm.count ("debug_cemented_block_count"))
 		{
 			nano::node_flags flags;
-			flags = nano::inactive_node_flag_defaults ();
+			auto error{ env.apply_overrides (flags, nano::environment::purpose::inactive, vm) };
 			flags.generate_cache.cemented_count = true;
-			env.update_flags (flags, vm);
 			nano::inactive_node node (env, flags);
 			std::cout << "Total cemented block count: " << node.node->ledger.cache.cemented_count << std::endl;
 		}
