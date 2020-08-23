@@ -108,74 +108,6 @@ void nano::add_node_flag_options (boost::program_options::options_description & 
 	// clang-format on
 }
 
-std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_options::variables_map const & vm)
-{
-	std::error_code ec;
-	flags_a.disable_backup = (vm.count ("disable_backup") > 0);
-	flags_a.disable_lazy_bootstrap = (vm.count ("disable_lazy_bootstrap") > 0);
-	flags_a.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
-	flags_a.disable_wallet_bootstrap = (vm.count ("disable_wallet_bootstrap") > 0);
-	if (!flags_a.inactive_node)
-	{
-		flags_a.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
-		flags_a.disable_tcp_realtime = (vm.count ("disable_tcp_realtime") > 0);
-	}
-	flags_a.disable_providing_telemetry_metrics = (vm.count ("disable_providing_telemetry_metrics") > 0);
-	if ((vm.count ("disable_udp") > 0) && (vm.count ("enable_udp") > 0))
-	{
-		ec = nano::error_cli::ambiguous_udp_options;
-	}
-	flags_a.disable_udp = (vm.count ("enable_udp") == 0);
-	if (flags_a.disable_tcp_realtime && flags_a.disable_udp)
-	{
-		ec = nano::error_cli::disable_all_network;
-	}
-	flags_a.disable_unchecked_cleanup = (vm.count ("disable_unchecked_cleanup") > 0);
-	flags_a.disable_unchecked_drop = (vm.count ("disable_unchecked_drop") > 0);
-	flags_a.disable_block_processor_unchecked_deletion = (vm.count ("disable_block_processor_unchecked_deletion") > 0);
-	flags_a.allow_bootstrap_peers_duplicates = (vm.count ("allow_bootstrap_peers_duplicates") > 0);
-	flags_a.fast_bootstrap = (vm.count ("fast_bootstrap") > 0);
-	if (flags_a.fast_bootstrap)
-	{
-		flags_a.disable_block_processor_unchecked_deletion = true;
-		flags_a.block_processor_batch_size = 256 * 1024;
-		flags_a.block_processor_full_size = 1024 * 1024;
-		flags_a.block_processor_verification_size = std::numeric_limits<size_t>::max ();
-	}
-	auto block_processor_batch_size_it = vm.find ("block_processor_batch_size");
-	if (block_processor_batch_size_it != vm.end ())
-	{
-		flags_a.block_processor_batch_size = block_processor_batch_size_it->second.as<size_t> ();
-	}
-	auto block_processor_full_size_it = vm.find ("block_processor_full_size");
-	if (block_processor_full_size_it != vm.end ())
-	{
-		flags_a.block_processor_full_size = block_processor_full_size_it->second.as<size_t> ();
-	}
-	auto block_processor_verification_size_it = vm.find ("block_processor_verification_size");
-	if (block_processor_verification_size_it != vm.end ())
-	{
-		flags_a.block_processor_verification_size = block_processor_verification_size_it->second.as<size_t> ();
-	}
-	auto inactive_votes_cache_size_it = vm.find ("inactive_votes_cache_size");
-	if (inactive_votes_cache_size_it != vm.end ())
-	{
-		flags_a.inactive_votes_cache_size = inactive_votes_cache_size_it->second.as<size_t> ();
-	}
-	auto vote_processor_capacity_it = vm.find ("vote_processor_capacity");
-	if (vote_processor_capacity_it != vm.end ())
-	{
-		flags_a.vote_processor_capacity = vote_processor_capacity_it->second.as<size_t> ();
-	}
-	// Config overriding
-	auto config (vm.find ("config"));
-	if (config != vm.end ())
-	{
-		flags_a.config_overrides = nano::config_overrides (config->second.as<std::vector<nano::config_key_value_pair>> ());
-	}
-	return ec;
-}
-
 namespace
 {
 void database_write_lock_error (std::error_code & ec)
@@ -192,7 +124,7 @@ bool copy_database (nano::environment & env_a, boost::program_options::variables
 	nano::node_flags flags;
 	flags = nano::inactive_node_flag_defaults ();
 	flags.read_only = !needs_to_write;
-	nano::update_flags (flags, vm);
+	env_a.update_flags (flags, vm);
 	nano::inactive_node node (env_a, flags);
 	if (!node.node->init_error ())
 	{
@@ -439,7 +371,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		nano::node_flags flags;
 		flags = nano::inactive_node_flag_defaults ();
 		flags.read_only = false;
-		nano::update_flags (flags, vm);
+		env.update_flags (flags, vm);
 		nano::inactive_node node (env, flags);
 		if (!node.node->init_error ())
 		{
@@ -457,7 +389,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		nano::node_flags flags;
 		flags = nano::inactive_node_flag_defaults ();
 		flags.read_only = false;
-		nano::update_flags (flags, vm);
+		env.update_flags (flags, vm);
 		nano::inactive_node node (env, flags);
 		if (!node.node->init_error ())
 		{
@@ -475,7 +407,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		nano::node_flags flags;
 		flags = nano::inactive_node_flag_defaults ();
 		flags.read_only = false;
-		nano::update_flags (flags, vm);
+		env.update_flags (flags, vm);
 		nano::inactive_node node (env, flags);
 		if (!node.node->init_error ())
 		{
@@ -493,7 +425,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		nano::node_flags flags;
 		flags = nano::inactive_node_flag_defaults ();
 		flags.read_only = false;
-		nano::update_flags (flags, vm);
+		env.update_flags (flags, vm);
 		nano::inactive_node node (env, flags);
 		if (!node.node->init_error ())
 		{
@@ -511,7 +443,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		nano::node_flags flags;
 		flags = nano::inactive_node_flag_defaults ();
 		flags.read_only = false;
-		nano::update_flags (flags, vm);
+		env.update_flags (flags, vm);
 		nano::inactive_node node (env, flags);
 		if (!node.node->init_error ())
 		{
@@ -1219,7 +1151,7 @@ std::unique_ptr<nano::inactive_node> nano::default_inactive_node (nano::environm
 {
 	nano::node_flags flags;
 	flags = nano::inactive_node_flag_defaults ();
-	nano::update_flags (flags, vm_a);
+	env_a.update_flags (flags, vm_a);
 	return std::make_unique<nano::inactive_node> (env_a, flags);
 }
 

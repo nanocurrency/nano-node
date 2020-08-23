@@ -64,11 +64,10 @@ nano::error read_wallet_config (nano::wallet_config & config_a, boost::filesyste
 }
 }
 
-int run_wallet (QApplication & application, int argc, char * const * argv, boost::filesystem::path const & data_path, nano::node_flags const & flags)
+int run_wallet (QApplication & application, int argc, char * const * argv, nano::environment & env_a, nano::node_flags const & flags)
 {
 	int result (0);
 	nano_qt::eventloop_processor processor;
-	nano::environment env{ data_path };
 	QPixmap pixmap (":/logo.png");
 	QSplashScreen * splash = new QSplashScreen (pixmap);
 	splash->show ();
@@ -80,10 +79,10 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	config.node.flags = flags;
 	nano::wallet_config wallet_config;
 
-	auto error = nano::read_node_config_toml (data_path, config, flags.config_overrides);
+	auto error = nano::read_node_config_toml (env_a.path, config, flags.config_overrides);
 	if (!error)
 	{
-		error = read_wallet_config (wallet_config, data_path);
+		error = read_wallet_config (wallet_config, env_a.path);
 	}
 
 #if !NANO_ROCKSDB
@@ -97,10 +96,10 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	{
 		nano::set_use_memory_pools (config.node.use_memory_pools);
 
-		config.node.logging.init (data_path);
+		config.node.logging.init (env_a.path);
 		nano::logger_mt logger{ config.node.logging.min_time_between_log_output };
 
-		nano::thread_runner runner (env.ctx, config.node.io_threads);
+		nano::thread_runner runner (env_a.ctx, config.node.io_threads);
 
 		std::shared_ptr<nano::node> node;
 		std::shared_ptr<nano_qt::wallet> gui;
@@ -108,11 +107,11 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 		auto opencl (nano::opencl_work::create (config.opencl_enable, config.opencl, logger));
 		if (opencl != nullptr)
 		{
-			env.work_impl = std::make_unique<nano::work_pool> (config.node.work_threads, config.node.pow_sleep_interval, [&opencl](nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> &) {
+			env_a.work_impl = std::make_unique<nano::work_pool> (config.node.work_threads, config.node.pow_sleep_interval, [&opencl](nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> &) {
 				return opencl->generate_work (version_a, root_a, difficulty_a);
 			});
 		}
-		node = std::make_shared<nano::node> (env, config.node);
+		node = std::make_shared<nano::node> (env_a, config.node);
 		if (!node->init_error ())
 		{
 			auto wallet (node->wallets.open (wallet_config.wallet));
@@ -143,7 +142,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 				}
 			}
 			debug_assert (wallet->exists (wallet_config.account));
-			write_wallet_config (wallet_config, data_path);
+			write_wallet_config (wallet_config, env_a.path);
 			node->start ();
 			nano::ipc::ipc_server ipc (*node, config.rpc);
 
@@ -162,7 +161,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 				}
 
 #if BOOST_PROCESS_SUPPORTED
-				nano_pow_server_process = std::make_unique<boost::process::child> (config.pow_server.pow_server_path, "--config_path", data_path / "config-nano-pow-server.toml");
+				nano_pow_server_process = std::make_unique<boost::process::child> (config.pow_server.pow_server_path, "--config_path", env_a.path / "config-nano-pow-server.toml");
 #else
 				splash->hide ();
 				show_error ("nano_pow_server is configured to start as a child process, but this is not supported on this system. Disable startup and start the server manually.");
@@ -177,13 +176,13 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 				{
 					// Launch rpc in-process
 					nano::rpc_config rpc_config;
-					auto error = nano::read_rpc_config_toml (data_path, rpc_config);
+					auto error = nano::read_rpc_config_toml (env_a.path, rpc_config);
 					if (error)
 					{
 						show_error (error.get_message ());
 					}
 					rpc_handler = std::make_unique<nano::inprocess_rpc_handler> (*node, ipc, config.rpc);
-					rpc = nano::get_rpc (env.ctx, rpc_config, *rpc_handler);
+					rpc = nano::get_rpc (env_a.ctx, rpc_config, *rpc_handler);
 					rpc->start ();
 				}
 				else
@@ -196,7 +195,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 
 #if BOOST_PROCESS_SUPPORTED
 					auto network = node->env.constants.network.get_current_network_as_string ();
-					rpc_process = std::make_unique<boost::process::child> (config.rpc.child_process.rpc_path, "--daemon", "--data_path", data_path, "--network", network);
+					rpc_process = std::make_unique<boost::process::child> (config.rpc.child_process.rpc_path, "--daemon", "--data_path", env_a.path, "--network", network);
 #else
 					show_error ("rpc_enable is set to true in the config. Set it to false and start the RPC server manually.");
 #endif
@@ -236,7 +235,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 			splash->hide ();
 			show_error ("Error initializing node");
 		}
-		write_wallet_config (wallet_config, data_path);
+		write_wallet_config (wallet_config, env_a.path);
 	}
 	else
 	{
@@ -324,13 +323,14 @@ int main (int argc, char * const * argv)
 					{
 						data_path = nano::working_path ();
 					}
+					nano::environment env{ data_path };
 					nano::node_flags flags;
-					auto flags_ec = nano::update_flags (flags, vm);
+					auto flags_ec = env.update_flags (flags, vm);
 					if (flags_ec)
 					{
 						throw std::runtime_error (flags_ec.message ());
 					}
-					result = run_wallet (application, argc, argv, data_path, flags);
+					result = run_wallet (application, argc, argv, env, flags);
 				}
 				catch (std::exception const & e)
 				{

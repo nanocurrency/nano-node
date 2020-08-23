@@ -156,7 +156,7 @@ int main (int argc, char * const * argv)
 		{
 			nano_daemon::daemon daemon;
 			nano::node_flags flags;
-			auto flags_ec = nano::update_flags (flags, vm);
+			auto flags_ec = env.update_flags (flags, vm);
 			if (flags_ec)
 			{
 				std::cerr << flags_ec.message () << std::endl;
@@ -170,7 +170,7 @@ int main (int argc, char * const * argv)
 			{
 				nano::node_flags flags;
 				flags = nano::inactive_node_flag_defaults ();
-				nano::update_flags (flags, vm);
+				env.update_flags (flags, vm);
 				flags.generate_cache.reps = true;
 				nano::inactive_node inactive_node (env, flags);
 				auto node = inactive_node.node;
@@ -319,7 +319,7 @@ int main (int argc, char * const * argv)
 		{
 			nano::node_flags flags;
 			flags = nano::inactive_node_flag_defaults ();
-			nano::update_flags (flags, vm);
+			env.update_flags (flags, vm);
 			flags.generate_cache.block_count = true;
 			nano::inactive_node inactive_node (env, flags);
 			auto node = inactive_node.node;
@@ -403,7 +403,7 @@ int main (int argc, char * const * argv)
 		{
 			nano::node_flags flags;
 			flags = nano::inactive_node_flag_defaults ();
-			nano::update_flags (flags, vm);
+			env.update_flags (flags, vm);
 			flags.generate_cache.reps = true;
 			nano::inactive_node inactive_node (env, flags);
 			auto node = inactive_node.node;
@@ -445,7 +445,7 @@ int main (int argc, char * const * argv)
 		{
 			nano::node_flags flags;
 			flags = nano::inactive_node_flag_defaults ();
-			nano::update_flags (flags, vm);
+			env.update_flags (flags, vm);
 			flags.generate_cache.account_count = true;
 			nano::inactive_node inactive_node (env, flags);
 			std::cout << boost::str (boost::format ("Frontier count: %1%\n") % inactive_node.node->ledger.cache.account_count);
@@ -916,7 +916,7 @@ int main (int argc, char * const * argv)
 			size_t max_blocks (2 * num_accounts * num_iterations + num_accounts * 2); //  1,000,000 + 2 * 100,000 = 1,200,000 blocks
 			std::cout << boost::str (boost::format ("Starting pregenerating %1% blocks\n") % max_blocks);
 			nano::node_config config;
-			nano::update_flags (config.flags, vm);
+			env.update_flags (config.flags, vm);
 			auto node (std::make_shared<nano::node> (env, config));
 			nano::block_hash genesis_latest (node->latest (constants.ledger.dev_genesis_key.pub));
 			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
@@ -1340,7 +1340,7 @@ int main (int argc, char * const * argv)
 
 			nano::node_flags flags;
 			flags = nano::inactive_node_flag_defaults ();
-			nano::update_flags (flags, vm);
+			env.update_flags (flags, vm);
 			flags.generate_cache.enable_all ();
 			nano::inactive_node inactive_node_l (env, flags);
 
@@ -1355,7 +1355,7 @@ int main (int argc, char * const * argv)
 			timer.start ();
 			nano::node_flags flags;
 			flags = nano::inactive_node_flag_defaults ();
-			nano::update_flags (flags, vm);
+			env.update_flags (flags, vm);
 			flags.generate_cache.block_count = true;
 			nano::inactive_node inactive_node (env, flags);
 			auto node = inactive_node.node;
@@ -1740,7 +1740,7 @@ int main (int argc, char * const * argv)
 			flags = nano::inactive_node_flag_defaults ();
 			flags.read_only = false;
 			flags.generate_cache.block_count = true;
-			nano::update_flags (flags, vm);
+			env.update_flags (flags, vm);
 			nano::inactive_node node (env, flags);
 			nano::genesis genesis;
 			auto begin (std::chrono::high_resolution_clock::now ());
@@ -1828,7 +1828,7 @@ int main (int argc, char * const * argv)
 			nano::node_flags flags;
 			flags = nano::inactive_node_flag_defaults ();
 			flags.generate_cache.cemented_count = true;
-			nano::update_flags (flags, vm);
+			env.update_flags (flags, vm);
 			nano::inactive_node node (env, flags);
 			std::cout << "Total cemented block count: " << node.node->ledger.cache.cemented_count << std::endl;
 		}
