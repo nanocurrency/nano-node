@@ -24,6 +24,7 @@ public:
 		normal,
 		inactive,
 	};
+
 public:
 	explicit environment (boost::filesystem::path const & = nano::working_path ());
 	std::error_code apply_overrides (nano::node_flags & flags_a, purpose purpose_a, boost::program_options::variables_map const & = boost::program_options::variables_map{});
@@ -33,6 +34,7 @@ public:
 	std::unique_ptr<nano::work_pool> work_impl;
 	nano::work_pool & work;
 	nano::environment_constants constants;
+
 private:
 	void apply_purpose_overrides (nano::node_flags & flags_a, purpose purpose_a) const;
 	std::error_code apply_command_line_overrides (nano::node_flags & flags_a, boost::program_options::variables_map const &);
