@@ -217,10 +217,9 @@ nano::node_flags const & inactive_node_flag_defaults ();
 class inactive_node final
 {
 public:
-	inactive_node (nano::node_config const & config_a);
+	inactive_node (nano::environment & env_a, nano::node_flags const & flags_a);
 	~inactive_node ();
-	nano::environment env;
 	std::shared_ptr<nano::node> node;
 };
-std::unique_ptr<nano::inactive_node> default_inactive_node (boost::filesystem::path const &, boost::program_options::variables_map const &);
+std::unique_ptr<nano::inactive_node> default_inactive_node (nano::environment & env_a, boost::program_options::variables_map const & vm_a);
 }

@@ -9,11 +9,11 @@ using namespace std::chrono_literals;
 
 TEST (socket, drop_policy)
 {
-	nano::node_config config;
-	config.flags = nano::inactive_node_flag_defaults ();
-	config.flags.read_only = false;
-	config.path = nano::unique_path ();
-	nano::inactive_node inactivenode{ config };
+	nano::environment env{ nano::unique_path () };
+	nano::node_flags flags;
+	flags = nano::inactive_node_flag_defaults ();
+	flags.read_only = false;
+	nano::inactive_node inactivenode{ env, flags };
 	auto node = inactivenode.node;
 
 	nano::thread_runner runner (node->env.ctx, 1);
@@ -77,11 +77,11 @@ TEST (socket, drop_policy)
 
 TEST (socket, concurrent_writes)
 {
-	nano::node_config config;
-	config.flags = nano::inactive_node_flag_defaults ();
-	config.flags.read_only = false;
-	config.path = nano::unique_path ();
-	nano::inactive_node inactivenode{ config };
+	nano::environment env{ nano::unique_path () };
+	nano::node_flags flags;
+	flags = nano::inactive_node_flag_defaults ();
+	flags.read_only = false;
+	nano::inactive_node inactivenode{ env, flags };
 	auto node = inactivenode.node;
 
 	// This gives more realistic execution than using system#poll, allowing writes to

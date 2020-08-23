@@ -148,6 +148,7 @@ int main (int argc, char * const * argv)
 	}
 
 	boost::filesystem::path data_path ((data_path_it != vm.end ()) ? data_path_it->second.as<std::string> () : nano::working_path ());
+	nano::environment env{ data_path };
 	auto ec = nano::handle_node_options (vm);
 	if (ec == nano::error_cli::unknown_command)
 	{
@@ -167,12 +168,11 @@ int main (int argc, char * const * argv)
 		{
 			if (!nano::network_constants ().is_dev_network ())
 			{
-				nano::node_config config;
-				config.flags = nano::inactive_node_flag_defaults ();
-				nano::update_flags (config.flags, vm);
-				config.flags.generate_cache.reps = true;
-				config.path = data_path;
-				nano::inactive_node inactive_node (config);
+				nano::node_flags flags;
+				flags = nano::inactive_node_flag_defaults ();
+				nano::update_flags (flags, vm);
+				flags.generate_cache.reps = true;
+				nano::inactive_node inactive_node (env, flags);
 				auto node = inactive_node.node;
 
 				auto const bootstrap_weights = node->get_bootstrap_weights ();
@@ -317,12 +317,11 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_block_count"))
 		{
-			nano::node_config config;
-			config.flags = nano::inactive_node_flag_defaults ();
-			nano::update_flags (config.flags, vm);
-			config.flags.generate_cache.block_count = true;
-			config.path = data_path;
-			nano::inactive_node inactive_node (config);
+			nano::node_flags flags;
+			flags = nano::inactive_node_flag_defaults ();
+			nano::update_flags (flags, vm);
+			flags.generate_cache.block_count = true;
+			nano::inactive_node inactive_node (env, flags);
 			auto node = inactive_node.node;
 			std::cout << boost::str (boost::format ("Block count: %1%\n") % node->ledger.cache.block_count);
 		}
@@ -385,7 +384,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_dump_online_weight"))
 		{
-			auto inactive_node = nano::default_inactive_node (data_path, vm);
+			auto inactive_node = nano::default_inactive_node (env, vm);
 			auto node = inactive_node->node;
 			auto current (node->online_reps.online_stake ());
 			std::cout << boost::str (boost::format ("Online Weight %1%\n") % current);
@@ -402,12 +401,11 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_dump_representatives"))
 		{
-			nano::node_config config;
-			config.flags = nano::inactive_node_flag_defaults ();
-			nano::update_flags (config.flags, vm);
-			config.flags.generate_cache.reps = true;
-			config.path = data_path;
-			nano::inactive_node inactive_node (config);
+			nano::node_flags flags;
+			flags = nano::inactive_node_flag_defaults ();
+			nano::update_flags (flags, vm);
+			flags.generate_cache.reps = true;
+			nano::inactive_node inactive_node (env, flags);
 			auto node = inactive_node.node;
 			auto transaction (node->store.tx_begin_read ());
 			nano::uint128_t total;
@@ -421,7 +419,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_dump_frontier_unchecked_dependents"))
 		{
-			auto inactive_node = nano::default_inactive_node (data_path, vm);
+			auto inactive_node = nano::default_inactive_node (env, vm);
 			auto node = inactive_node->node;
 			std::cout << "Outputting any frontier hashes which have associated key hashes in the unchecked table (may take some time)...\n";
 
@@ -445,12 +443,11 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_account_count"))
 		{
-			nano::node_config config;
-			config.flags = nano::inactive_node_flag_defaults ();
-			nano::update_flags (config.flags, vm);
-			config.flags.generate_cache.account_count = true;
-			config.path = data_path;
-			nano::inactive_node inactive_node (config);
+			nano::node_flags flags;
+			flags = nano::inactive_node_flag_defaults ();
+			nano::update_flags (flags, vm);
+			flags.generate_cache.account_count = true;
+			nano::inactive_node inactive_node (env, flags);
 			std::cout << boost::str (boost::format ("Frontier count: %1%\n") % inactive_node.node->ledger.cache.account_count);
 		}
 		else if (vm.count ("debug_profile_kdf"))
@@ -920,7 +917,6 @@ int main (int argc, char * const * argv)
 			std::cout << boost::str (boost::format ("Starting pregenerating %1% blocks\n") % max_blocks);
 			nano::node_config config;
 			nano::update_flags (config.flags, vm);
-			nano::environment env;
 			auto node (std::make_shared<nano::node> (env, config));
 			nano::block_hash genesis_latest (node->latest (constants.ledger.dev_genesis_key.pub));
 			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
@@ -1035,7 +1031,6 @@ int main (int argc, char * const * argv)
 			size_t num_representatives (25);
 			size_t max_votes (num_elections * num_representatives); // 40,000 * 25 = 1,000,000 votes
 			std::cerr << boost::str (boost::format ("Starting pregenerating %1% votes\n") % max_votes);
-			nano::environment env;
 			auto node (std::make_shared<nano::node> (env, nano::node_config{}));
 			nano::block_hash genesis_latest (node->latest (constants.ledger.dev_genesis_key.pub));
 			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
@@ -1159,7 +1154,6 @@ int main (int argc, char * const * argv)
 			node_config.flags.disable_legacy_bootstrap = true;
 			node_config.flags.disable_wallet_bootstrap = true;
 			node_config.flags.disable_bootstrap_listener = true;
-			nano::environment env;
 			auto node1 (std::make_shared<nano::node> (env, node_config));
 			nano::block_hash genesis_latest (node1->latest (constants.ledger.dev_genesis_key.pub));
 			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
@@ -1344,12 +1338,11 @@ int main (int argc, char * const * argv)
 				std::exit (0);
 			});
 
-			nano::node_config node_config;
-			node_config.flags = nano::inactive_node_flag_defaults ();
-			nano::update_flags (node_config.flags, vm);
-			node_config.flags.generate_cache.enable_all ();
-			node_config.path = data_path;
-			nano::inactive_node inactive_node_l (node_config);
+			nano::node_flags flags;
+			flags = nano::inactive_node_flag_defaults ();
+			nano::update_flags (flags, vm);
+			flags.generate_cache.enable_all ();
+			nano::inactive_node inactive_node_l (env, flags);
 
 			nano::node_rpc_config config;
 			nano::ipc::ipc_server server (*inactive_node_l.node, config);
@@ -1360,12 +1353,11 @@ int main (int argc, char * const * argv)
 		{
 			nano::timer<std::chrono::seconds> timer;
 			timer.start ();
-			nano::node_config config;
-			config.flags = nano::inactive_node_flag_defaults ();
-			nano::update_flags (config.flags, vm);
-			config.flags.generate_cache.block_count = true;
-			config.path = data_path;
-			nano::inactive_node inactive_node (config);
+			nano::node_flags flags;
+			flags = nano::inactive_node_flag_defaults ();
+			nano::update_flags (flags, vm);
+			flags.generate_cache.block_count = true;
+			nano::inactive_node inactive_node (env, flags);
 			auto node = inactive_node.node;
 			bool const silent (vm.count ("silent"));
 			unsigned threads_count (1);
@@ -1744,20 +1736,19 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_bootstrap"))
 		{
-			nano::node_config config;
-			config.flags = nano::inactive_node_flag_defaults ();
-			config.flags.read_only = false;
-			config.flags.generate_cache.block_count = true;
-			config.path = data_path;
-			nano::update_flags (config.flags, vm);
-			nano::inactive_node node (config);
+			nano::node_flags flags;
+			flags = nano::inactive_node_flag_defaults ();
+			flags.read_only = false;
+			flags.generate_cache.block_count = true;
+			nano::update_flags (flags, vm);
+			nano::inactive_node node (env, flags);
 			nano::genesis genesis;
 			auto begin (std::chrono::high_resolution_clock::now ());
 			uint64_t block_count (0);
 			size_t count (0);
 			std::deque<nano::unchecked_info> epoch_open_blocks;
 			{
-				nano::inactive_node inactive_node (config);
+				nano::inactive_node inactive_node (env, flags);
 				auto source_node = inactive_node.node;
 				auto transaction (source_node->store.tx_begin_read ());
 				block_count = source_node->ledger.cache.block_count;
@@ -1823,7 +1814,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_peers"))
 		{
-			auto inactive_node = nano::default_inactive_node (data_path, vm);
+			auto inactive_node = nano::default_inactive_node (env, vm);
 			auto node = inactive_node->node;
 			auto transaction (node->store.tx_begin_read ());
 
@@ -1834,12 +1825,11 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_cemented_block_count"))
 		{
-			nano::node_config config;
-			config.flags = nano::inactive_node_flag_defaults ();
-			config.flags.generate_cache.cemented_count = true;
-			config.path = data_path;
-			nano::update_flags (config.flags, vm);
-			nano::inactive_node node (config);
+			nano::node_flags flags;
+			flags = nano::inactive_node_flag_defaults ();
+			flags.generate_cache.cemented_count = true;
+			nano::update_flags (flags, vm);
+			nano::inactive_node node (env, flags);
 			std::cout << "Total cemented block count: " << node.node->ledger.cache.cemented_count << std::endl;
 		}
 		else if (vm.count ("debug_stacktrace"))
@@ -1855,12 +1845,12 @@ int main (int argc, char * const * argv)
 				return 1;
 			}
 #endif
-			auto inactive_node = nano::default_inactive_node (data_path, vm);
+			auto inactive_node = nano::default_inactive_node (env, vm);
 			inactive_node->node->logger.always_log (nano::severity_level::error, "Testing system logger");
 		}
 		else if (vm.count ("debug_account_versions"))
 		{
-			auto inactive_node = nano::default_inactive_node (data_path, vm);
+			auto inactive_node = nano::default_inactive_node (env, vm);
 			auto node = inactive_node->node;
 
 			auto transaction (node->store.tx_begin_read ());

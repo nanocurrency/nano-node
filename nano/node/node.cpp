@@ -1653,21 +1653,14 @@ boost::filesystem::path nano::node::path_or_default (boost::filesystem::path con
 	return result;
 }
 
-nano::inactive_node::inactive_node (nano::node_config const & config_a)
+nano::inactive_node::inactive_node (nano::environment & env_a, nano::node_flags const & flags_a)
 {
-	boost::system::error_code error_chmod;
-
-	/*
-	 * @warning May throw a filesystem exception
-	 */
-	boost::filesystem::create_directories (config_a.path);
-	nano::set_secure_perm_directory (config_a.path, error_chmod);
-	nano::daemon_config daemon_config;
-	auto error = nano::read_node_config_toml (config_a.path, daemon_config, config_a.flags.config_overrides);
+	nano::daemon_config config;
+	auto error = nano::read_node_config_toml (env_a.path, config, flags_a.config_overrides);
 	if (error)
 	{
 		std::cerr << "Error deserializing config file";
-		if (!config_a.flags.config_overrides.empty ())
+		if (!flags_a.config_overrides.empty ())
 		{
 			std::cerr << " or --config option";
 		}
@@ -1675,14 +1668,12 @@ nano::inactive_node::inactive_node (nano::node_config const & config_a)
 		          << error.get_message () << std::endl;
 		std::exit (1);
 	}
+	config.node.logging.max_size = std::numeric_limits<std::uintmax_t>::max ();
+	config.node.logging.init (env_a.path);
+	config.node.flags = flags_a;
+	config.node.path = env_a.path;
 
-	auto & node_config = daemon_config.node;
-	node_config.logging.max_size = std::numeric_limits<std::uintmax_t>::max ();
-	node_config.logging.init (config_a.path);
-	node_config.flags = config_a.flags;
-	node_config.path = config_a.path;
-
-	node = std::make_shared<nano::node> (env, node_config);
+	node = std::make_shared<nano::node> (env_a, config.node);
 	node->active.stop ();
 }
 

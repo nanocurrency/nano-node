@@ -75,10 +75,10 @@ TEST (node_DeathTest, readonly_block_store_not_exist)
 	testing::FLAGS_gtest_death_test_style = "threadsafe";
 
 	// This is a read-only node with no ledger file
-	nano::node_config config;
-	config.flags = nano::inactive_node_flag_defaults ();
-	config.path = nano::unique_path ();
-	ASSERT_EXIT (nano::inactive_node{ config }, ::testing::ExitedWithCode (1), "");
+	nano::environment env{ nano::unique_path () };
+	nano::node_flags flags;
+	flags = nano::inactive_node_flag_defaults ();
+	ASSERT_EXIT ((nano::inactive_node{ env, flags }), ::testing::ExitedWithCode (1), "");
 }
 
 TEST (node, password_fanout)
@@ -3648,10 +3648,10 @@ TEST (node, dont_write_lock_node)
 	write_lock_held_promise.get_future ().wait ();
 
 	// Check inactive node can finish executing while a write lock is open
-	nano::node_config config;
-	config.flags = nano::inactive_node_flag_defaults ();
-	config.path = path;
-	nano::inactive_node node{ config };
+	nano::environment env{ path };
+	nano::node_flags flags;
+	flags = nano::inactive_node_flag_defaults ();
+	nano::inactive_node node{ env, flags };
 	finished_promise.set_value ();
 }
 
