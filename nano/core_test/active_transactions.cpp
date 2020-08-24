@@ -1628,9 +1628,9 @@ TEST (active_transactions, pessimistic_elections)
 	uint64_t election_count = 0;
 	// Make dummy election with winner.
 	nano::election election1 (
-	node, send, [](auto & block) {}, false, nano::election_behavior::normal);
+	node, send, [](auto const & block) {}, false, nano::election_behavior::normal);
 	nano::election election2 (
-	node, open, [](auto & block) {}, false, nano::election_behavior::normal);
+	node, open, [](auto const & block) {}, false, nano::election_behavior::normal);
 	node.active.add_expired_optimistic_election (election1);
 	node.active.add_expired_optimistic_election (election2);
 	node.active.confirm_expired_frontiers_pessimistically (node.store.tx_begin_read (), 100, election_count);
@@ -1669,10 +1669,10 @@ TEST (active_transactions, pessimistic_elections)
 	}
 
 	// Activation of cemented frontier successor should get started after the first pessimistic block is confirmed
-	{
+	system.poll_until_true (10s, [&]() {
 		nano::lock_guard<std::mutex> guard (node.active.mutex);
-		ASSERT_TIMELY (10s, node.active.roots.count (send2->qualified_root ()) != 0);
-	}
+		return node.active.roots.count (send2->qualified_root ()) != 0;
+	});
 
 	node.active.confirm_expired_frontiers_pessimistically (node.store.tx_begin_read (), 100, election_count);
 	ASSERT_EQ (1, election_count);
