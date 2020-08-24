@@ -1585,8 +1585,6 @@ TEST (active_transactions, pessimistic_elections)
 	nano::node_config config (nano::get_available_port (), system.logging);
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node = *system.add_node (config, flags);
-	// This prevents activation of blocks which are cemented
-	node.confirmation_height_processor.cemented_observers.clear ();
 
 	nano::keypair key;
 	nano::state_block_builder builder;
@@ -1598,7 +1596,7 @@ TEST (active_transactions, pessimistic_elections)
 	            .balance (nano::genesis_amount - 1)
 	            .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
 	            .work (*system.work.generate (nano::genesis_hash))
-	            .build ();
+	            .build_shared ();
 
 	ASSERT_EQ (nano::process_result::progress, node.process (*send).code);
 
@@ -1622,17 +1620,33 @@ TEST (active_transactions, pessimistic_elections)
 	            .balance (1)
 	            .sign (key.prv, key.pub)
 	            .work (*system.work.generate (key.pub))
-	            .build ();
+	            .build_shared ();
 
 	ASSERT_EQ (nano::process_result::progress, node.process (*open).code);
 
 	// This should only cement the first block in genesis account
 	uint64_t election_count = 0;
-	node.active.expired_optimistic_election_infos.emplace (std::chrono::steady_clock::now (), nano::genesis_account);
-	node.active.expired_optimistic_election_infos.emplace (std::chrono::steady_clock::now (), key.pub);
+	// Make dummy election with winner.
+	nano::election election1 (
+	node, send, [](auto & block) {}, false, nano::election_behavior::normal);
+	nano::election election2 (
+	node, open, [](auto & block) {}, false, nano::election_behavior::normal);
+	node.active.add_expired_optimistic_election (election1);
+	node.active.add_expired_optimistic_election (election2);
 	node.active.confirm_expired_frontiers_pessimistically (node.store.tx_begin_read (), 100, election_count);
 	ASSERT_EQ (1, election_count);
 	ASSERT_EQ (2, node.active.expired_optimistic_election_infos.size ());
+	ASSERT_EQ (2, node.active.expired_optimistic_election_infos.size ());
+	auto election_started_it = node.active.expired_optimistic_election_infos.get<nano::active_transactions::tag_election_started> ().begin ();
+	ASSERT_EQ (election_started_it->account, nano::genesis_account);
+	ASSERT_EQ (election_started_it->election_started, true);
+	ASSERT_EQ ((++election_started_it)->election_started, false);
+
+	// No new elections should get started yet
+	node.active.confirm_expired_frontiers_pessimistically (node.store.tx_begin_read (), 100, election_count);
+	ASSERT_EQ (1, election_count);
+	ASSERT_EQ (2, node.active.expired_optimistic_election_infos.size ());
+	ASSERT_EQ (node.active.expired_optimistic_election_infos_size, node.active.expired_optimistic_election_infos.size ());
 
 	{
 		ASSERT_EQ (1, node.active.size ());
@@ -1654,11 +1668,17 @@ TEST (active_transactions, pessimistic_elections)
 		ASSERT_EQ (0, key1_confirmation_height_info.height);
 	}
 
-	// This should cement the next block in genesis account but leave the open block uncemented
+	// Activation of cemented frontier successor should get started after the first pessimistic block is confirmed
+	{
+		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		ASSERT_TIMELY (10s, node.active.roots.count (send2->qualified_root ()) != 0);
+	}
+
 	node.active.confirm_expired_frontiers_pessimistically (node.store.tx_begin_read (), 100, election_count);
-	ASSERT_EQ (2, election_count);
+	ASSERT_EQ (1, election_count);
 	ASSERT_EQ (2, node.active.expired_optimistic_election_infos.size ());
 
+	// Confirm it
 	{
 		auto election = node.active.election (send2->qualified_root ());
 		ASSERT_NE (nullptr, election);
@@ -1676,10 +1696,18 @@ TEST (active_transactions, pessimistic_elections)
 		ASSERT_EQ (0, key1_confirmation_height_info.height);
 	}
 
-	// This should cement the open block for key
+	// Wait until activation of destination account is done.
+	{
+		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		ASSERT_TIMELY (10s, node.active.roots.count (send2->qualified_root ()) != 0);
+	}
+
+	// Election count should not increase, but the elections should be marked as started for that account afterwards
+	ASSERT_EQ (election_started_it->election_started, false);
 	node.active.confirm_expired_frontiers_pessimistically (node.store.tx_begin_read (), 100, election_count);
-	ASSERT_EQ (3, election_count);
-	ASSERT_EQ (1, node.active.expired_optimistic_election_infos.size ());
+	ASSERT_EQ (1, election_count);
+	ASSERT_EQ (2, node.active.expired_optimistic_election_infos.size ());
+	node.active.confirm_expired_frontiers_pessimistically (node.store.tx_begin_read (), 100, election_count);
 
 	{
 		auto election = node.active.election (open->qualified_root ());
@@ -1700,7 +1728,7 @@ TEST (active_transactions, pessimistic_elections)
 
 	// Sanity check that calling it again on a fully cemented chain has no adverse effects.
 	node.active.confirm_expired_frontiers_pessimistically (node.store.tx_begin_read (), 100, election_count);
-	ASSERT_EQ (3, election_count);
-	ASSERT_TRUE (node.active.expired_optimistic_election_infos.empty ());
+	ASSERT_EQ (1, election_count);
+	ASSERT_EQ (2, node.active.expired_optimistic_election_infos.size ());
 }
 }

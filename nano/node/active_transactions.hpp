@@ -66,6 +66,7 @@ public:
 
 	std::chrono::steady_clock::time_point expired_time;
 	nano::account account;
+	bool election_started{ false };
 };
 
 class frontiers_confirmation_info
@@ -137,6 +138,7 @@ class active_transactions final
 	class tag_arrival {};
 	class tag_hash {};
 	class tag_expired_time {};
+	class tag_election_started {};
 	// clang-format on
 
 public:
@@ -267,7 +269,9 @@ private:
 		mi::ordered_non_unique<mi::tag<tag_expired_time>,
 			mi::member<expired_optimistic_election_info, std::chrono::steady_clock::time_point, &expired_optimistic_election_info::expired_time>>,
 		mi::hashed_unique<mi::tag<tag_account>,
-			mi::member<expired_optimistic_election_info, nano::account, &expired_optimistic_election_info::account>>>>
+			mi::member<expired_optimistic_election_info, nano::account, &expired_optimistic_election_info::account>>,
+		mi::ordered_non_unique<mi::tag<tag_election_started>,
+			mi::member<expired_optimistic_election_info, bool, &expired_optimistic_election_info::election_started>, std::greater<bool>>>>
 	expired_optimistic_election_infos;
 	// clang-format on
 	std::atomic<uint64_t> expired_optimistic_election_infos_size{ 0 };

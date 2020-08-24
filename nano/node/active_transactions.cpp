@@ -53,14 +53,7 @@ void nano::active_transactions::insert_election_from_frontiers_confirmation (std
 	auto insert_result = insert (block_a, previous_balance_a, election_behavior_a);
 	if (insert_result.inserted)
 	{
-		if (insert_result.election->optimistic ())
-		{
-			insert_result.election->transition_active ();
-		}
-		else
-		{
-			insert_result.election->transition_passive ();
-		}
+		insert_result.election->transition_active ();
 		++elections_count_a;
 	}
 }
@@ -327,6 +320,7 @@ void nano::active_transactions::add_expired_optimistic_election (nano::election 
 	{
 		expired_optimistic_election_infos.get<tag_account> ().modify (it, [](auto & expired_optimistic_election) {
 			expired_optimistic_election.expired_time = std::chrono::steady_clock::now ();
+			expired_optimistic_election.election_started = false;
 		});
 	}
 	else
@@ -335,7 +329,7 @@ void nano::active_transactions::add_expired_optimistic_election (nano::election 
 	}
 
 	// Expire the oldest one if a maximum is reached
-	auto const max_expired_optimistic_election_infos = 10000;
+	auto const max_expired_optimistic_election_infos = 50000;
 	if (expired_optimistic_election_infos.size () > max_expired_optimistic_election_infos)
 	{
 		expired_optimistic_election_infos.get<tag_expired_time> ().erase (expired_optimistic_election_infos.get<tag_expired_time> ().begin ());
@@ -389,7 +383,9 @@ void nano::active_transactions::confirm_expired_frontiers_pessimistically (nano:
 	nano::timer<std::chrono::milliseconds> timer (nano::timer_state::started);
 	nano::confirmation_height_info confirmation_height_info;
 
-	for (auto i = expired_optimistic_election_infos.get<tag_expired_time> ().begin (); i != expired_optimistic_election_infos.get<tag_expired_time> ().end ();)
+	// Loop through any expired optimistic elections which have not been started yet. This tag stores already started ones first
+	std::vector<nano::account> elections_started_for_account;
+	for (auto i = expired_optimistic_election_infos.get<tag_election_started> ().lower_bound (false); i != expired_optimistic_election_infos.get<tag_election_started> ().end ();)
 	{
 		if (stopped || elections_count_a >= max_elections_a)
 		{
@@ -425,6 +421,7 @@ void nano::active_transactions::confirm_expired_frontiers_pessimistically (nano:
 					}
 
 					insert_election_from_frontiers_confirmation (block, account, previous_balance, elections_count_a, nano::election_behavior::normal);
+					elections_started_for_account.push_back (i->account);
 				}
 			}
 		}
@@ -432,12 +429,21 @@ void nano::active_transactions::confirm_expired_frontiers_pessimistically (nano:
 		if (should_delete)
 		{
 			// This account is confirmed already or doesn't exist.
-			i = expired_optimistic_election_infos.erase (i);
+			i = expired_optimistic_election_infos.get<tag_election_started> ().erase (i);
 		}
 		else
 		{
 			++i;
 		}
+	}
+
+	for (auto const & account : elections_started_for_account)
+	{
+		auto it = expired_optimistic_election_infos.get<tag_account> ().find (account);
+		debug_assert (it != expired_optimistic_election_infos.get<tag_account> ().end ());
+		expired_optimistic_election_infos.get<tag_account> ().modify (it, [](auto & expired_optimistic_election_info_a) {
+			expired_optimistic_election_info_a.election_started = true;
+		});
 	}
 }
 
