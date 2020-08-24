@@ -59,6 +59,11 @@ void nano::json_handler::process_request (bool unsafe_a)
 	{
 		std::stringstream istream (body);
 		boost::property_tree::read_json (istream, request);
+		if (node_rpc_config.request_callback)
+		{
+			debug_assert (nano::network_constants ().is_dev_network ());
+			node_rpc_config.request_callback (request);
+		}
 		action = request.get<std::string> ("action");
 		auto no_arg_func_iter = ipc_json_handler_no_arg_funcs.find (action);
 		if (no_arg_func_iter != ipc_json_handler_no_arg_funcs.cend ())
