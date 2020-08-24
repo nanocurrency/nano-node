@@ -45,7 +45,6 @@ class election final : public std::enable_shared_from_this<nano::election>
 private: // State management
 	enum class state_t
 	{
-		idle,
 		passive, // only listening for incoming votes
 		active, // actively request confirmations
 		broadcasting, // request confirmations and broadcast the winner
@@ -58,7 +57,7 @@ private: // State management
 	static int constexpr active_request_count_min = 2;
 	static int constexpr active_broadcasting_duration_factor = 30;
 	static int constexpr confirmed_duration_factor = 5;
-	std::atomic<nano::election::state_t> state_m = { state_t::idle };
+	std::atomic<nano::election::state_t> state_m = { state_t::passive };
 
 	// These time points must be protected by this mutex
 	std::mutex timepoints_mutex;
@@ -72,7 +71,7 @@ private: // State management
 	void send_confirm_req (nano::confirmation_solicitor &);
 	void activate_dependencies ();
 	// Calculate votes for local representatives
-	void generate_votes (nano::block_hash const &);
+	void generate_votes ();
 	void remove_votes (nano::block_hash const &);
 	std::atomic<bool> prioritized_m = { false };
 
@@ -94,22 +93,17 @@ public:
 	bool prioritized () const;
 	bool optimistic () const;
 	void prioritize_election (nano::vote_generator_session &);
-	// Calculate votes if the current winner matches \p hash_a
-	void try_generate_votes (nano::block_hash const & hash_a);
 	// Erase all blocks from active and, if not confirmed, clear digests from network filters
 	void cleanup ();
 
 public: // State transitions
 	bool transition_time (nano::confirmation_solicitor &);
-	void transition_passive ();
 	void transition_active ();
 
 private:
-	void transition_passive_impl ();
 	void transition_active_impl ();
 
 public:
-	bool idle () const;
 	bool confirmed () const;
 	bool failed () const;
 	nano::election_behavior election_behavior{ nano::election_behavior::normal };

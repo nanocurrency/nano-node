@@ -50,11 +50,15 @@ nano::active_transactions::~active_transactions ()
 
 void nano::active_transactions::insert_election_from_frontiers_confirmation (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, nano::uint128_t previous_balance_a, uint64_t & elections_count_a, nano::election_behavior election_behavior_a)
 {
-	auto insert_result = insert (block_a, previous_balance_a, election_behavior_a);
-	if (insert_result.inserted)
+	nano::lock_guard<std::mutex> guard (mutex);
+	if (roots.get<tag_root> ().find (block_a->qualified_root ()) == roots.get<tag_root> ().end ())
 	{
-		insert_result.election->transition_active ();
-		++elections_count_a;
+		auto insert_result = insert_impl (block_a, previous_balance_a, election_behavior_a);
+		if (insert_result.inserted)
+		{
+			insert_result.election->transition_active ();
+			++elections_count_a;
+		}
 	}
 }
 
@@ -212,7 +216,7 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 
 		// Start or vote for the next unconfirmed block in the destination account
 		auto const & destination (node.ledger.block_destination (transaction, *block_a));
-		if (!destination.is_zero ())
+		if (!destination.is_zero () && destination != account)
 		{
 			activate (destination);
 		}
@@ -790,6 +794,13 @@ nano::election_insertion_result nano::active_transactions::insert_impl (std::sha
 		{
 			result.election = existing->election;
 		}
+
+		// Votes are generated for inserted or ongoing elections if they're prioritized
+		// Non-priority elections generate votes when they gain priority in the future
+		if (result.election && result.election->prioritized ())
+		{
+			result.election->generate_votes ();
+		}
 	}
 	return result;
 }
@@ -933,17 +944,9 @@ nano::election_insertion_result nano::active_transactions::activate (nano::accou
 			if (node.ledger.dependents_confirmed (transaction, *block))
 			{
 				result = insert (block);
-				if (result.election)
+				if (result.inserted)
 				{
-					if (result.inserted)
-					{
-						result.election->transition_active ();
-					}
-					else if (result.election->prioritized ())
-					{
-						// Generate vote for ongoing election
-						result.election->generate_votes (block->hash ());
-					}
+					result.election->transition_active ();
 				}
 			}
 		}

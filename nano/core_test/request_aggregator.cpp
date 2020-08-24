@@ -299,12 +299,16 @@ TEST (request_aggregator, unique)
 	ASSERT_TIMELY (3s, 1 == node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes));
 }
 
+namespace nano
+{
 TEST (request_aggregator, cannot_vote)
 {
 	nano::system system;
 	nano::node_flags flags;
 	flags.disable_request_loop = true;
 	auto & node (*system.add_node (flags));
+	// This prevents activation of blocks which are cemented
+	node.confirmation_height_processor.cemented_observers.clear ();
 	nano::genesis genesis;
 	nano::state_block_builder builder;
 	auto send1 = builder.make_block ()
@@ -377,4 +381,5 @@ TEST (request_aggregator, cannot_vote)
 	ASSERT_TIMELY (3s, 1 == node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes));
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_unknown));
 	ASSERT_TIMELY (3s, 1 == node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
+}
 }
