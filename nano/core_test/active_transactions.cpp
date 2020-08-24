@@ -1627,12 +1627,15 @@ TEST (active_transactions, pessimistic_elections)
 	// This should only cement the first block in genesis account
 	uint64_t election_count = 0;
 	// Make dummy election with winner.
-	nano::election election1 (
-	node, send, [](auto const & block) {}, false, nano::election_behavior::normal);
-	nano::election election2 (
-	node, open, [](auto const & block) {}, false, nano::election_behavior::normal);
-	node.active.add_expired_optimistic_election (election1);
-	node.active.add_expired_optimistic_election (election2);
+	{
+		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		nano::election election1 (
+		node, send, [](auto const & block) {}, false, nano::election_behavior::normal);
+		nano::election election2 (
+		node, open, [](auto const & block) {}, false, nano::election_behavior::normal);
+		node.active.add_expired_optimistic_election (election1);
+		node.active.add_expired_optimistic_election (election2);
+	}
 	node.active.confirm_expired_frontiers_pessimistically (node.store.tx_begin_read (), 100, election_count);
 	ASSERT_EQ (1, election_count);
 	ASSERT_EQ (2, node.active.expired_optimistic_election_infos.size ());
