@@ -53,7 +53,7 @@ void nano::election::confirm_once (nano::election_status_type type_a)
 		auto confirmation_action_l (confirmation_action);
 		node.active.election_winner_details.emplace (status.winner->hash (), shared_from_this ());
 		node.active.add_recently_confirmed (status_l.winner->qualified_root (), status_l.winner->hash ());
-		node_l->process_confirmed (status_l);
+		node.process_confirmed (status_l);
 		node.background ([node_l, status_l, confirmation_action_l]() {
 			confirmation_action_l (status_l.winner);
 		});

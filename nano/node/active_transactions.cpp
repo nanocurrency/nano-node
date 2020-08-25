@@ -53,7 +53,20 @@ void nano::active_transactions::insert_election_from_frontiers_confirmation (std
 	nano::lock_guard<std::mutex> guard (mutex);
 	if (roots.get<tag_root> ().find (block_a->qualified_root ()) == roots.get<tag_root> ().end ())
 	{
-		auto insert_result = insert_impl (block_a, previous_balance_a, election_behavior_a);
+		std::function<void(std::shared_ptr<nano::block> const &)> election_confirmation_cb;
+		if (election_behavior_a == nano::election_behavior::optimistic)
+		{
+			election_confirmation_cb = [this](std::shared_ptr<nano::block> const &) {
+				--optimistic_elections_count;
+			};
+		}
+		else
+		{
+			election_confirmation_cb = [](std::shared_ptr<nano::block> const &) {};
+		}
+
+		auto insert_result = insert_impl (block_a, previous_balance_a, election_behavior_a, election_confirmation_cb);
+
 		if (insert_result.inserted)
 		{
 			insert_result.election->transition_active ();
@@ -285,12 +298,9 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 		bool const overflow_l (unconfirmed_count_l > node.config.active_elections_size && election_l->election_start < election_ttl_cutoff_l && !node.wallets.watcher->is_watched (i->root));
 		if (overflow_l || election_l->transition_time (solicitor))
 		{
-			if (election_l->optimistic ())
+			if (election_l->optimistic () && election_l->failed ())
 			{
-				if (election_l->failed ())
-				{
-					add_expired_optimistic_election (*election_l);
-				}
+				add_expired_optimistic_election (*election_l);
 				--optimistic_elections_count;
 			}
 
