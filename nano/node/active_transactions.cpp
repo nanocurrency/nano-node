@@ -1281,11 +1281,7 @@ void nano::active_transactions::trigger_inactive_votes_cache_election (std::shar
 	auto const status = find_inactive_votes_cache (block_a->hash ()).status;
 	if (status.election_started)
 	{
-		auto election = insert_impl (block_a);
-		if (election.inserted)
-		{
-			election.election->transition_passive ();
-		}
+		insert_impl (block_a);
 	}
 }
 
@@ -1342,11 +1338,7 @@ nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_
 		auto block = node.store.block_get (transaction, hash_a);
 		if (block && status.election_started && !previously_a.election_started && !node.block_confirmed_or_being_confirmed (transaction, hash_a))
 		{
-			auto election = insert_impl (block);
-			if (election.inserted)
-			{
-				election.election->transition_passive ();
-			}
+			insert_impl (block);
 		}
 		else if (!block && status.bootstrap_started && !previously_a.bootstrap_started)
 		{
