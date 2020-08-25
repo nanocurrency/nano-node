@@ -538,7 +538,7 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 		nano::timer<std::chrono::milliseconds> wallet_account_timer (nano::timer_state::started);
 		// Remove any expired optimistic elections older than 30 minutes so they are no longer excluded in subsequent checks
 		auto expired_cutoff (expired_optimistic_election_infos.get<tag_expired_time> ().lower_bound (std::chrono::steady_clock::now () + 30min));
-		expired_optimistic_election_infos.get<tag_expired_time> ().erase (expired_optimistic_election_infos.get<tag_expired_time> ().begin (), expired_cutoff);
+		expired_optimistic_election_infos.get<tag_expired_time> ().erase (expired_cutoff, expired_optimistic_election_infos.get<tag_expired_time> ().end ());
 		expired_optimistic_election_infos_size = expired_optimistic_election_infos.size ();
 
 		if (!skip_wallets)
