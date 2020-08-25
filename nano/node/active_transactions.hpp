@@ -195,7 +195,7 @@ public:
 	void add_recently_confirmed (nano::qualified_root const &, nano::block_hash const &);
 	void add_inactive_votes_cache (nano::block_hash const &, nano::account const &);
 	// Inserts an election if conditions are met
-	void check_inactive_votes_cache_election (std::shared_ptr<nano::block> const &);
+	void trigger_inactive_votes_cache_election (std::shared_ptr<nano::block> const &);
 	nano::inactive_cache_information find_inactive_votes_cache (nano::block_hash const &);
 	void erase_inactive_votes_cache (nano::block_hash const &);
 	nano::confirmation_height_processor & confirmation_height_processor;

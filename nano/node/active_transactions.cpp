@@ -1271,7 +1271,7 @@ void nano::active_transactions::add_inactive_votes_cache (nano::block_hash const
 	}
 }
 
-void nano::active_transactions::check_inactive_votes_cache_election (std::shared_ptr<nano::block> const & block_a)
+void nano::active_transactions::trigger_inactive_votes_cache_election (std::shared_ptr<nano::block> const & block_a)
 {
 	nano::lock_guard<std::mutex> guard (mutex);
 	auto const status = find_inactive_votes_cache (block_a->hash ()).status;
