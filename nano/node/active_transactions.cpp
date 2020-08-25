@@ -559,7 +559,8 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 
 		auto num_new_inserted{ 0u };
 		auto should_iterate = [this, &num_new_inserted]() {
-			return !stopped && (max_optimistic () - optimistic_elections_count - num_new_inserted != 0);
+			auto max_optimistic_l = max_optimistic ();
+			return !stopped && (max_optimistic_l > optimistic_elections_count && max_optimistic_l - optimistic_elections_count > num_new_inserted);
 		};
 
 		if (!skip_wallets)
