@@ -217,7 +217,7 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 			break;
 	}
 	auto optimistic_expiration_time = node.network_params.network.is_dev_network () ? 500 : 60 * 1000;
-	auto expire_time = std::chrono::milliseconds (optimistic () ? optimistic_expiration_time : 5 * 60 * 1000 );
+	auto expire_time = std::chrono::milliseconds (optimistic () ? optimistic_expiration_time : 5 * 60 * 1000);
 	if (!confirmed () && expire_time < std::chrono::steady_clock::now () - election_start)
 	{
 		result = true;
