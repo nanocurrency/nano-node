@@ -299,6 +299,10 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	{
 		node.active.insert (block_a, process_return_a.previous_balance.number ());
 	}
+	else
+	{
+		node.active.trigger_inactive_votes_cache_election (block_a);
+	}
 
 	// Announce block contents to the network
 	if (origin_a == nano::block_origin::local)
