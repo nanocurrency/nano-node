@@ -308,6 +308,7 @@ private:
 	unsigned max_optimistic ();
 	void set_next_frontier_check (bool);
 	void add_expired_optimistic_election (nano::election const &);
+	bool should_do_frontiers_confirmation () const;
 	static size_t constexpr max_priority_cementable_frontiers{ 100000 };
 	static size_t constexpr confirmed_frontiers_max_pending_size{ 10000 };
 	// clang-format off
@@ -327,7 +328,8 @@ private:
 
 	friend class active_transactions_dropped_cleanup_dev;
 	friend class active_transactions_vote_replays_Test;
-	friend class confirmation_height_prioritize_frontiers_Test;
+	friend class frontiers_confirmation_prioritize_frontiers_Test;
+	friend class frontiers_confirmation_prioritize_frontiers_max_optimistic_elections_Test;
 	friend class confirmation_height_prioritize_frontiers_overwrite_Test;
 	friend class active_transactions_confirmation_consistency_Test;
 	friend class node_deferred_dependent_elections_Test;

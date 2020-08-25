@@ -355,36 +355,25 @@ unsigned nano::active_transactions::max_optimistic ()
 
 void nano::active_transactions::frontiers_confirmation (nano::unique_lock<std::mutex> & lock_a)
 {
-	/*
- 	 * Confirm frontiers when there aren't many confirmations already pending and node finished initial bootstrap
-  	 */
-	auto pending_confirmation_height_size (confirmation_height_processor.awaiting_processing_size ());
-	auto bootstrap_weight_reached (node.ledger.cache.block_count >= node.ledger.bootstrap_weight_max_blocks);
-	auto disabled_confirmation_mode = (node.config.frontiers_confirmation == nano::frontiers_confirmation_mode::disabled);
-	auto conf_height_capacity_reached = pending_confirmation_height_size > confirmed_frontiers_max_pending_size;
-	auto all_cemented = node.ledger.cache.block_count == node.ledger.cache.cemented_count;
-	if (!disabled_confirmation_mode && bootstrap_weight_reached && !conf_height_capacity_reached && !all_cemented)
+	// Spend some time prioritizing accounts with the most uncemented blocks to reduce voting traffic
+	auto request_interval = std::chrono::milliseconds (node.network_params.network.request_interval_ms);
+	// Spend longer searching ledger accounts when there is a low amount of elections going on
+	auto low_active = roots.size () < 1000;
+	auto time_to_spend_prioritizing_ledger_accounts = request_interval / (low_active ? 20 : 100);
+	auto time_to_spend_prioritizing_wallet_accounts = request_interval / 250;
+	auto time_to_spend_confirming_pessimistic_accounts = time_to_spend_prioritizing_ledger_accounts;
+	lock_a.unlock ();
+	auto transaction = node.store.tx_begin_read ();
+	prioritize_frontiers_for_confirmation (transaction, node.network_params.network.is_dev_network () ? std::chrono::milliseconds (50) : time_to_spend_prioritizing_ledger_accounts, time_to_spend_prioritizing_wallet_accounts);
+	auto frontiers_confirmation_info = get_frontiers_confirmation_info ();
+	if (frontiers_confirmation_info.can_start_elections ())
 	{
-		// Spend some time prioritizing accounts with the most uncemented blocks to reduce voting traffic
-		auto request_interval = std::chrono::milliseconds (node.network_params.network.request_interval_ms);
-		// Spend longer searching ledger accounts when there is a low amount of elections going on
-		auto low_active = roots.size () < 1000;
-		auto time_to_spend_prioritizing_ledger_accounts = request_interval / (low_active ? 20 : 100);
-		auto time_to_spend_prioritizing_wallet_accounts = request_interval / 250;
-		auto time_to_spend_confirming_pessimistic_accounts = time_to_spend_prioritizing_ledger_accounts;
-		lock_a.unlock ();
-		auto transaction = node.store.tx_begin_read ();
-		prioritize_frontiers_for_confirmation (transaction, node.network_params.network.is_dev_network () ? std::chrono::milliseconds (50) : time_to_spend_prioritizing_ledger_accounts, time_to_spend_prioritizing_wallet_accounts);
-		auto frontiers_confirmation_info = get_frontiers_confirmation_info ();
-		if (frontiers_confirmation_info.can_start_elections ())
-		{
-			uint64_t elections_count (0);
-			confirm_prioritized_frontiers (transaction, frontiers_confirmation_info.max_elections, elections_count);
-			confirm_expired_frontiers_pessimistically (transaction, frontiers_confirmation_info.max_elections, elections_count);
-			set_next_frontier_check (frontiers_confirmation_info.aggressive_mode);
-		}
-		lock_a.lock ();
+		uint64_t elections_count (0);
+		confirm_prioritized_frontiers (transaction, frontiers_confirmation_info.max_elections, elections_count);
+		confirm_expired_frontiers_pessimistically (transaction, frontiers_confirmation_info.max_elections, elections_count);
+		set_next_frontier_check (frontiers_confirmation_info.aggressive_mode);
 	}
+	lock_a.lock ();
 }
 
 /*
@@ -463,6 +452,19 @@ void nano::active_transactions::confirm_expired_frontiers_pessimistically (nano:
 	}
 }
 
+bool nano::active_transactions::should_do_frontiers_confirmation () const
+{
+	/*
+ 	 * Confirm frontiers when there aren't many confirmations already pending and node finished initial bootstrap
+ 	 */
+	auto pending_confirmation_height_size (confirmation_height_processor.awaiting_processing_size ());
+	auto bootstrap_weight_reached (node.ledger.cache.block_count >= node.ledger.bootstrap_weight_max_blocks);
+	auto disabled_confirmation_mode = (node.config.frontiers_confirmation == nano::frontiers_confirmation_mode::disabled);
+	auto conf_height_capacity_reached = pending_confirmation_height_size > confirmed_frontiers_max_pending_size;
+	auto all_cemented = node.ledger.cache.block_count == node.ledger.cache.cemented_count;
+	return (!disabled_confirmation_mode && bootstrap_weight_reached && !conf_height_capacity_reached && !all_cemented);
+}
+
 void nano::active_transactions::request_loop ()
 {
 	nano::unique_lock<std::mutex> lock (mutex);
@@ -482,7 +484,10 @@ void nano::active_transactions::request_loop ()
 		const auto wakeup_l (std::chrono::steady_clock::now () + std::chrono::milliseconds (node.network_params.network.request_interval_ms));
 
 		// frontiers_confirmation should be above update_active_multiplier to ensure new sorted roots are updated
-		frontiers_confirmation (lock);
+		if (should_do_frontiers_confirmation ())
+		{
+			frontiers_confirmation (lock);
+		}
 		update_active_multiplier (lock);
 		request_confirm (lock);
 
