@@ -798,7 +798,10 @@ TEST (active_transactions, inactive_votes_cache_election_start)
 	node.block_processor.flush ();
 	// An election is started for send6 but does not confirm
 	ASSERT_TIMELY (5s, 1 == node.active.size ());
+	node.vote_processor.flush ();
+	ASSERT_FALSE (node.block_confirmed_or_being_confirmed (node.store.tx_begin_read (), send6->hash ()));
 	// send7 cannot be voted on but an election should be started from inactive votes
+	ASSERT_FALSE (node.ledger.can_vote (node.store.tx_begin_read (), *send7));
 	node.process_active (send7);
 	node.block_processor.flush ();
 	ASSERT_TIMELY (5s, 13 == node.ledger.cache.cemented_count);
