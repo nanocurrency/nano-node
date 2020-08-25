@@ -447,18 +447,21 @@ public:
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::in);
 		if (!message_a.vote->account.is_zero ())
 		{
-			for (auto & vote_block : message_a.vote->blocks)
+			if (message_a.header.block_type () != nano::block_type::not_a_block)
 			{
-				if (!vote_block.which ())
+				for (auto & vote_block : message_a.vote->blocks)
 				{
-					auto block (boost::get<std::shared_ptr<nano::block>> (vote_block));
-					if (!node.block_processor.full ())
+					if (!vote_block.which ())
 					{
-						node.process_active (block);
-					}
-					else
-					{
-						node.stats.inc (nano::stat::type::drop, nano::stat::detail::confirm_ack, nano::stat::dir::in);
+						auto block (boost::get<std::shared_ptr<nano::block>> (vote_block));
+						if (!node.block_processor.full ())
+						{
+							node.process_active (block);
+						}
+						else
+						{
+							node.stats.inc (nano::stat::type::drop, nano::stat::detail::confirm_ack, nano::stat::dir::in);
+						}
 					}
 				}
 			}
