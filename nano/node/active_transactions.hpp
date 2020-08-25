@@ -302,8 +302,10 @@ private:
 	std::unordered_set<nano::wallet_id> wallet_ids_already_iterated;
 	std::unordered_map<nano::wallet_id, nano::account> next_wallet_id_accounts;
 	bool skip_wallets{ false };
+	std::atomic<unsigned> optimistic_elections_count{ 0 };
 	void prioritize_frontiers_for_confirmation (nano::transaction const &, std::chrono::milliseconds, std::chrono::milliseconds);
-	void prioritize_account_for_confirmation (prioritize_num_uncemented &, size_t &, nano::account const &, nano::account_info const &, uint64_t);
+	bool prioritize_account_for_confirmation (prioritize_num_uncemented &, size_t &, nano::account const &, nano::account_info const &, uint64_t);
+	unsigned max_optimistic ();
 	void set_next_frontier_check (bool);
 	void add_expired_optimistic_election (nano::election const &);
 	static size_t constexpr max_priority_cementable_frontiers{ 100000 };
