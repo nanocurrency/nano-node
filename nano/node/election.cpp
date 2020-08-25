@@ -283,7 +283,7 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 		status.type = nano::election_status_type::stopped;
 		if (node.config.logging.election_expiration_tally_logging ())
 		{
-			log_votes (tally (), "Election expired");
+			log_votes (tally (), "Election expired: ");
 		}
 	}
 	return result;
