@@ -1501,11 +1501,12 @@ void nano::work_watcher::watching (nano::qualified_root const & root_a, std::sha
 
 void nano::work_watcher::remove (nano::block const & block_a)
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::unique_lock<std::mutex> lock (mutex);
 	auto existing (watched.find (block_a.qualified_root ()));
 	if (existing != watched.end ())
 	{
 		watched.erase (existing);
+		lock.unlock ();
 		node.observers.work_cancel.notify (block_a.root ());
 	}
 }
