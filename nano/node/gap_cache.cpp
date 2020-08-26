@@ -69,7 +69,7 @@ void nano::gap_cache::vote (std::shared_ptr<nano::vote> vote_a)
 
 bool nano::gap_cache::bootstrap_check (std::vector<nano::account> const & voters_a, nano::block_hash const & hash_a)
 {
-	uint128_t tally;
+	nano::uint128_t tally;
 	for (auto const & voter : voters_a)
 	{
 		tally += node.ledger.weight (voter);
@@ -86,28 +86,34 @@ bool nano::gap_cache::bootstrap_check (std::vector<nano::account> const & voters
 	{
 		start_bootstrap = true;
 	}
-	if (start_bootstrap && !node.ledger.block_exists (hash_a))
+	if (start_bootstrap && !node.ledger.block_or_pruned_exists (hash_a))
 	{
-		auto node_l (node.shared ());
-		node.alarm.add (std::chrono::steady_clock::now () + node.network_params.bootstrap.gap_cache_bootstrap_start_interval, [node_l, hash_a]() {
-			if (!node_l->ledger.block_or_pruned_exists (hash_a))
-			{
-				if (!node_l->bootstrap_initiator.in_progress ())
-				{
-					node_l->logger.try_log (boost::str (boost::format ("Missing block %1% which has enough votes to warrant lazy bootstrapping it") % hash_a.to_string ()));
-				}
-				if (!node_l->flags.disable_lazy_bootstrap)
-				{
-					node_l->bootstrap_initiator.bootstrap_lazy (hash_a);
-				}
-				else if (!node_l->flags.disable_legacy_bootstrap)
-				{
-					node_l->bootstrap_initiator.bootstrap ();
-				}
-			}
-		});
+		bootstrap_start (hash_a);
 	}
 	return start_bootstrap;
+}
+
+void nano::gap_cache::bootstrap_start (nano::block_hash const & hash_a)
+{
+	auto node_l (node.shared ());
+	node.alarm.add (std::chrono::steady_clock::now () + node.network_params.bootstrap.gap_cache_bootstrap_start_interval, [node_l, hash_a]() {
+		auto transaction (node_l->store.tx_begin_read ());
+		if (!node_l->store.block_or_pruned_exists (transaction, hash_a))
+		{
+			if (!node_l->bootstrap_initiator.in_progress ())
+			{
+				node_l->logger.try_log (boost::str (boost::format ("Missing block %1% which has enough votes to warrant lazy bootstrapping it") % hash_a.to_string ()));
+			}
+			if (!node_l->flags.disable_lazy_bootstrap)
+			{
+				node_l->bootstrap_initiator.bootstrap_lazy (hash_a);
+			}
+			else if (!node_l->flags.disable_legacy_bootstrap)
+			{
+				node_l->bootstrap_initiator.bootstrap ();
+			}
+		}
+	});
 }
 
 nano::uint128_t nano::gap_cache::bootstrap_threshold ()

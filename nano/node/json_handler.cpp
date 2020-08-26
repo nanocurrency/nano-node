@@ -59,6 +59,11 @@ void nano::json_handler::process_request (bool unsafe_a)
 	{
 		std::stringstream istream (body);
 		boost::property_tree::read_json (istream, request);
+		if (node_rpc_config.request_callback)
+		{
+			debug_assert (nano::network_constants ().is_dev_network ());
+			node_rpc_config.request_callback (request);
+		}
 		action = request.get<std::string> ("action");
 		auto no_arg_func_iter = ipc_json_handler_no_arg_funcs.find (action);
 		if (no_arg_func_iter != ipc_json_handler_no_arg_funcs.cend ())
@@ -4800,7 +4805,7 @@ void nano::json_handler::work_generate ()
 		auto hash (hash_impl ());
 		auto difficulty (difficulty_optional_impl (work_version));
 		multiplier_optional_impl (work_version, difficulty);
-		if (!ec && (difficulty > node.max_work_generate_difficulty (work_version) || difficulty < nano::work_threshold_entry (work_version)))
+		if (!ec && (difficulty > node.max_work_generate_difficulty (work_version) || difficulty < nano::work_threshold_entry (work_version, nano::block_type::state)))
 		{
 			ec = nano::error_rpc::difficulty_limit;
 		}
