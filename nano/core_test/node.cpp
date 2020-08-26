@@ -2572,7 +2572,6 @@ TEST (node, block_confirm)
 		auto & node2 (*system.nodes[1]);
 		nano::genesis genesis;
 		nano::keypair key;
-		system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
 		auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *node1.work_generate_blocking (genesis.hash ())));
 		// A copy is necessary to avoid data races during ledger processing, which sets the sideband
 		auto send1_copy (std::make_shared<nano::state_block> (*send1));
@@ -2585,6 +2584,16 @@ TEST (node, block_confirm)
 		}
 		ASSERT_TRUE (node1.ledger.block_exists (send1->hash ()));
 		ASSERT_TRUE (node2.ledger.block_exists (send1_copy->hash ()));
+		// Confirm send1 on node2 so it can vote for send2
+		node2.block_confirm (send1_copy);
+		{
+			auto election = node2.active.election (send1_copy->qualified_root ());
+			ASSERT_NE (nullptr, election);
+			nano::lock_guard<std::mutex> guard (node2.active.mutex);
+			election->confirm_once ();
+		}
+		ASSERT_TIMELY (3s, node2.block_confirmed (send1_copy->hash ()) && node2.active.empty ());
+		system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
 		auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio * 2, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *node1.work_generate_blocking (send1->hash ())));
 		{
 			auto transaction (node1.store.tx_begin_write ());
@@ -2594,13 +2603,9 @@ TEST (node, block_confirm)
 			auto transaction (node2.store.tx_begin_write ());
 			ASSERT_EQ (nano::process_result::progress, node2.ledger.process (transaction, *send2).code);
 		}
-		node1.block_confirm (send2);
 		ASSERT_TRUE (node1.active.list_recently_cemented ().empty ());
-		system.deadline_set (10s);
-		while (node1.active.list_recently_cemented ().empty ())
-		{
-			ASSERT_NO_ERROR (system.poll ());
-		}
+		node1.block_confirm (send2);
+		ASSERT_TIMELY (10s, node1.active.list_recently_cemented ().size () == 2);
 	}
 }
 
@@ -4125,7 +4130,7 @@ TEST (node, dependency_graph)
 }
 
 // Confirm a complex dependency graph starting from a frontier
-TEST (node, dependency_graph_frontier)
+TEST (node, DISABLED_dependency_graph_frontier)
 {
 	nano::system system;
 	nano::node_config config (nano::get_available_port (), system.logging);
