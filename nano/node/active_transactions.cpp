@@ -189,16 +189,22 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 			}
 		}
 
-		// Start or vote for the next unconfirmed block in this account
 		auto const & account (!block_a->account ().is_zero () ? block_a->account () : block_a->sideband ().account);
 		debug_assert (!account.is_zero ());
-		activate (account);
 
-		// Start or vote for the next unconfirmed block in the destination account
-		auto const & destination (node.ledger.block_destination (transaction, *block_a));
-		if (!destination.is_zero () && destination != account)
+		// Next-block activations are only done for blocks with previously active elections
+		bool const was_active{ *election_status_type == nano::election_status_type::active_confirmed_quorum || *election_status_type == nano::election_status_type::active_confirmation_height };
+		if (was_active)
 		{
-			activate (destination);
+			// Start or vote for the next unconfirmed block
+			activate (account);
+
+			// Start or vote for the next unconfirmed block in the destination account
+			auto const & destination (node.ledger.block_destination (transaction, *block_a));
+			if (!destination.is_zero () && destination != account)
+			{
+				activate (destination);
+			}
 		}
 	}
 }
