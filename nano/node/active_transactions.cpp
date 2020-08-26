@@ -192,9 +192,13 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 		auto const & account (!block_a->account ().is_zero () ? block_a->account () : block_a->sideband ().account);
 		debug_assert (!account.is_zero ());
 
+		// Next-block activations are done after cementing hardcoded bootstrap count to allow confirming very large chains without interference
+		bool const cemented_bootstrap_count_reached{ node.ledger.cache.cemented_count >= node.ledger.bootstrap_weight_max_blocks };
+
 		// Next-block activations are only done for blocks with previously active elections
 		bool const was_active{ *election_status_type == nano::election_status_type::active_confirmed_quorum || *election_status_type == nano::election_status_type::active_confirmation_height };
-		if (was_active)
+
+		if (cemented_bootstrap_count_reached && was_active)
 		{
 			// Start or vote for the next unconfirmed block
 			activate (account);
