@@ -14,6 +14,8 @@
 
 using namespace std::chrono;
 
+size_t constexpr nano::active_transactions::max_active_elections_frontier_insertion;
+
 nano::active_transactions::active_transactions (nano::node & node_a, nano::confirmation_height_processor & confirmation_height_processor_a) :
 recently_dropped (node_a.stats),
 confirmation_height_processor (confirmation_height_processor_a),
@@ -59,7 +61,7 @@ void nano::active_transactions::confirm_prioritized_frontiers (nano::transaction
 	auto is_dev_network = node.network_params.network.is_dev_network ();
 	auto roots_size = size ();
 	auto check_time_exceeded = std::chrono::steady_clock::now () >= next_frontier_check;
-	auto max_elections = 1000ull;
+	auto max_elections = max_active_elections_frontier_insertion;
 	auto low_active_elections = roots_size < max_elections;
 	bool wallets_check_required = (!skip_wallets || !priority_wallet_cementable_frontiers.empty ()) && !agressive_mode;
 	// Minimise dropping real-time transactions, set the number of frontiers added to a factor of the maximum number of possible active elections
@@ -198,7 +200,10 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 		// Next-block activations are only done for blocks with previously active elections
 		bool const was_active{ *election_status_type == nano::election_status_type::active_confirmed_quorum || *election_status_type == nano::election_status_type::active_confirmation_height };
 
-		if (cemented_bootstrap_count_reached && was_active)
+		// Activations are only done if there is not a large amount of active elections, ensuring frontier confirmation takes place
+		bool const low_active_elections{ size () < max_active_elections_frontier_insertion / 2 };
+
+		if (cemented_bootstrap_count_reached && was_active && low_active_elections)
 		{
 			// Start or vote for the next unconfirmed block
 			activate (account);
