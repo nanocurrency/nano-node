@@ -60,10 +60,6 @@ void nano::active_transactions::insert_election_from_frontiers_confirmation (std
 				--optimistic_elections_count;
 			};
 		}
-		else
-		{
-			election_confirmation_cb = [](std::shared_ptr<nano::block> const &) {};
-		}
 
 		auto insert_result = insert_impl (block_a, previous_balance_a, election_behavior_a, election_confirmation_cb);
 
