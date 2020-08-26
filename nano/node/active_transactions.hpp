@@ -48,14 +48,30 @@ public:
 	nano::qualified_root root;
 };
 
+class inactive_cache_status final
+{
+public:
+	bool bootstrap_started{ false };
+	bool election_started{ false }; // Did item reach config threshold to start an impromptu election?
+	bool confirmed{ false }; // Did item reach votes quorum? (minimum config value)
+
+	bool operator!= (inactive_cache_status const other) const
+	{
+		return bootstrap_started != other.bootstrap_started || election_started != other.election_started || confirmed != other.confirmed;
+	}
+};
+
 class inactive_cache_information final
 {
 public:
 	std::chrono::steady_clock::time_point arrival;
 	nano::block_hash hash;
 	std::vector<nano::account> voters;
-	bool bootstrap_started{ false };
-	bool confirmed{ false }; // Did item reach votes quorum? (minimum config value)
+	nano::inactive_cache_status status;
+	bool needs_eval () const
+	{
+		return !status.bootstrap_started || !status.election_started || !status.confirmed;
+	}
 };
 
 class dropped_elections final
@@ -178,6 +194,8 @@ public:
 	void add_recently_cemented (nano::election_status const &);
 	void add_recently_confirmed (nano::qualified_root const &, nano::block_hash const &);
 	void add_inactive_votes_cache (nano::block_hash const &, nano::account const &);
+	// Inserts an election if conditions are met
+	void trigger_inactive_votes_cache_election (std::shared_ptr<nano::block> const &);
 	nano::inactive_cache_information find_inactive_votes_cache (nano::block_hash const &);
 	void erase_inactive_votes_cache (nano::block_hash const &);
 	nano::confirmation_height_processor & confirmation_height_processor;
@@ -264,7 +282,7 @@ private:
 			mi::member<nano::inactive_cache_information, nano::block_hash, &nano::inactive_cache_information::hash>>>>;
 	ordered_cache inactive_votes_cache;
 	// clang-format on
-	bool inactive_votes_bootstrap_check (std::vector<nano::account> const &, nano::block_hash const &, bool &);
+	nano::inactive_cache_status inactive_votes_bootstrap_check (std::vector<nano::account> const &, nano::block_hash const &, nano::inactive_cache_status const &);
 	boost::thread thread;
 
 	friend class election;

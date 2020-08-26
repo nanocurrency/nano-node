@@ -473,6 +473,167 @@ TEST (active_transactions, inactive_votes_cache_multiple_votes)
 	ASSERT_EQ (2, node.stats.count (nano::stat::type::election, nano::stat::detail::vote_cached));
 }
 
+TEST (active_transactions, inactive_votes_cache_election_start)
+{
+	nano::system system;
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto & node = *system.add_node (node_config);
+	nano::block_hash latest (node.latest (nano::test_genesis_key.pub));
+	nano::keypair key1, key2, key3, key4, key5;
+	nano::send_block_builder send_block_builder;
+	nano::state_block_builder state_block_builder;
+	std::shared_ptr<nano::block> send1 = send_block_builder.make_block ()
+	                                     .previous (latest)
+	                                     .destination (key1.pub)
+	                                     .balance (nano::genesis_amount - 2000 * nano::Gxrb_ratio)
+	                                     .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	                                     .work (*system.work.generate (latest))
+	                                     .build ();
+	std::shared_ptr<nano::block> send2 = send_block_builder.make_block ()
+	                                     .previous (send1->hash ())
+	                                     .destination (key2.pub)
+	                                     .balance (nano::genesis_amount - 4000 * nano::Gxrb_ratio)
+	                                     .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	                                     .work (*system.work.generate (send1->hash ()))
+	                                     .build ();
+	std::shared_ptr<nano::block> send3 = send_block_builder.make_block ()
+	                                     .previous (send2->hash ())
+	                                     .destination (key3.pub)
+	                                     .balance (nano::genesis_amount - 6000 * nano::Gxrb_ratio)
+	                                     .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	                                     .work (*system.work.generate (send2->hash ()))
+	                                     .build ();
+	std::shared_ptr<nano::block> send4 = send_block_builder.make_block ()
+	                                     .previous (send3->hash ())
+	                                     .destination (key4.pub)
+	                                     .balance (nano::genesis_amount - 8000 * nano::Gxrb_ratio)
+	                                     .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	                                     .work (*system.work.generate (send3->hash ()))
+	                                     .build ();
+	std::shared_ptr<nano::block> send5 = send_block_builder.make_block ()
+	                                     .previous (send4->hash ())
+	                                     .destination (key5.pub)
+	                                     .balance (nano::genesis_amount - 10000 * nano::Gxrb_ratio)
+	                                     .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	                                     .work (*system.work.generate (send4->hash ()))
+	                                     .build ();
+	std::shared_ptr<nano::block> open1 = state_block_builder.make_block ()
+	                                     .account (key1.pub)
+	                                     .previous (0)
+	                                     .representative (key1.pub)
+	                                     .balance (2000 * nano::Gxrb_ratio)
+	                                     .link (send1->hash ())
+	                                     .sign (key1.prv, key1.pub)
+	                                     .work (*system.work.generate (key1.pub))
+	                                     .build ();
+	std::shared_ptr<nano::block> open2 = state_block_builder.make_block ()
+	                                     .account (key2.pub)
+	                                     .previous (0)
+	                                     .representative (key2.pub)
+	                                     .balance (2000 * nano::Gxrb_ratio)
+	                                     .link (send2->hash ())
+	                                     .sign (key2.prv, key2.pub)
+	                                     .work (*system.work.generate (key2.pub))
+	                                     .build ();
+	std::shared_ptr<nano::block> open3 = state_block_builder.make_block ()
+	                                     .account (key3.pub)
+	                                     .previous (0)
+	                                     .representative (key3.pub)
+	                                     .balance (2000 * nano::Gxrb_ratio)
+	                                     .link (send3->hash ())
+	                                     .sign (key3.prv, key3.pub)
+	                                     .work (*system.work.generate (key3.pub))
+	                                     .build ();
+	std::shared_ptr<nano::block> open4 = state_block_builder.make_block ()
+	                                     .account (key4.pub)
+	                                     .previous (0)
+	                                     .representative (key4.pub)
+	                                     .balance (2000 * nano::Gxrb_ratio)
+	                                     .link (send4->hash ())
+	                                     .sign (key4.prv, key4.pub)
+	                                     .work (*system.work.generate (key4.pub))
+	                                     .build ();
+	std::shared_ptr<nano::block> open5 = state_block_builder.make_block ()
+	                                     .account (key5.pub)
+	                                     .previous (0)
+	                                     .representative (key5.pub)
+	                                     .balance (2000 * nano::Gxrb_ratio)
+	                                     .link (send5->hash ())
+	                                     .sign (key5.prv, key5.pub)
+	                                     .work (*system.work.generate (key5.pub))
+	                                     .build ();
+	node.block_processor.add (send1);
+	node.block_processor.add (send2);
+	node.block_processor.add (send3);
+	node.block_processor.add (send4);
+	node.block_processor.add (send5);
+	node.block_processor.add (open1);
+	node.block_processor.add (open2);
+	node.block_processor.add (open3);
+	node.block_processor.add (open4);
+	node.block_processor.add (open5);
+	node.block_processor.flush ();
+	ASSERT_TIMELY (5s, 11 == node.ledger.cache.block_count);
+	ASSERT_TRUE (node.active.empty ());
+	ASSERT_EQ (1, node.ledger.cache.cemented_count);
+	// These blocks will be processed later
+	std::shared_ptr<nano::block> send6 = send_block_builder.make_block ()
+	                                     .previous (send5->hash ())
+	                                     .destination (nano::keypair ().pub)
+	                                     .balance (send5->balance ().number () - 1)
+	                                     .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	                                     .work (*system.work.generate (send5->hash ()))
+	                                     .build ();
+	std::shared_ptr<nano::block> send7 = send_block_builder.make_block ()
+	                                     .previous (send6->hash ())
+	                                     .destination (nano::keypair ().pub)
+	                                     .balance (send6->balance ().number () - 1)
+	                                     .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	                                     .work (*system.work.generate (send6->hash ()))
+	                                     .build ();
+	// Inactive votes
+	std::vector<nano::block_hash> hashes{ open1->hash (), open2->hash (), open3->hash (), open4->hash (), open5->hash (), send7->hash () };
+	auto vote1 (std::make_shared<nano::vote> (key1.pub, key1.prv, 0, hashes));
+	node.vote_processor.vote (vote1, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
+	auto vote2 (std::make_shared<nano::vote> (key2.pub, key2.prv, 0, hashes));
+	node.vote_processor.vote (vote2, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
+	auto vote3 (std::make_shared<nano::vote> (key3.pub, key3.prv, 0, hashes));
+	node.vote_processor.vote (vote3, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
+	auto vote4 (std::make_shared<nano::vote> (key4.pub, key4.prv, 0, hashes));
+	node.vote_processor.vote (vote4, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
+	ASSERT_TIMELY (5s, node.active.inactive_votes_cache_size () == 6);
+	ASSERT_TRUE (node.active.empty ());
+	ASSERT_EQ (1, node.ledger.cache.cemented_count);
+	// 5 votes are required to start election
+	auto vote5 (std::make_shared<nano::vote> (key5.pub, key5.prv, 0, hashes));
+	node.vote_processor.vote (vote5, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
+	ASSERT_TIMELY (5s, 5 == node.active.size ());
+	// Confirm elections with weight quorum
+	auto vote0 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, hashes));
+	node.vote_processor.vote (vote0, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
+	ASSERT_TIMELY (5s, node.active.empty ());
+	ASSERT_TIMELY (5s, 11 == node.ledger.cache.cemented_count);
+	// A late block arrival also checks the inactive votes cache
+	ASSERT_TRUE (node.active.empty ());
+	auto send7_cache (node.active.find_inactive_votes_cache (send7->hash ()));
+	ASSERT_EQ (6, send7_cache.voters.size ());
+	ASSERT_TRUE (send7_cache.status.bootstrap_started);
+	ASSERT_TRUE (send7_cache.status.confirmed);
+	ASSERT_TRUE (send7_cache.status.election_started); // already marked even though the block does not exist
+	node.process_active (send6);
+	node.block_processor.flush ();
+	// An election is started for send6 but does not confirm
+	ASSERT_TIMELY (5s, 1 == node.active.size ());
+	node.vote_processor.flush ();
+	ASSERT_FALSE (node.block_confirmed_or_being_confirmed (node.store.tx_begin_read (), send6->hash ()));
+	// send7 cannot be voted on but an election should be started from inactive votes
+	ASSERT_FALSE (node.ledger.can_vote (node.store.tx_begin_read (), *send7));
+	node.process_active (send7);
+	node.block_processor.flush ();
+	ASSERT_TIMELY (5s, 13 == node.ledger.cache.cemented_count);
+}
+
 TEST (active_transactions, update_difficulty)
 {
 	nano::system system (2);
