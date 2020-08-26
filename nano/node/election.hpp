@@ -42,14 +42,12 @@ private: // State management
 		passive, // only listening for incoming votes
 		active, // actively request confirmations
 		broadcasting, // request confirmations and broadcast the winner
-		backtracking, // start an election for unconfirmed dependent blocks
 		confirmed, // confirmed but still listening for votes
 		expired_confirmed,
 		expired_unconfirmed
 	};
 	static int constexpr passive_duration_factor = 5;
 	static int constexpr active_request_count_min = 2;
-	static int constexpr active_broadcasting_duration_factor = 30;
 	static int constexpr confirmed_duration_factor = 5;
 	std::atomic<nano::election::state_t> state_m = { state_t::passive };
 
@@ -63,7 +61,6 @@ private: // State management
 	bool state_change (nano::election::state_t, nano::election::state_t);
 	void broadcast_block (nano::confirmation_solicitor &);
 	void send_confirm_req (nano::confirmation_solicitor &);
-	void activate_dependencies ();
 	// Calculate votes for local representatives
 	void generate_votes ();
 	void remove_votes (nano::block_hash const &);
@@ -81,8 +78,6 @@ public:
 	void log_votes (nano::tally_t const &) const;
 	bool publish (std::shared_ptr<nano::block> block_a);
 	size_t last_votes_size ();
-	void update_dependent ();
-	void adjust_dependent_difficulty ();
 	size_t insert_inactive_votes_cache (nano::block_hash const &);
 	bool prioritized () const;
 	void prioritize_election (nano::vote_generator_session &);
@@ -105,13 +100,9 @@ public:
 	nano::election_status status;
 	unsigned confirmation_request_count{ 0 };
 	std::unordered_map<nano::block_hash, nano::uint128_t> last_tally;
-	std::unordered_set<nano::block_hash> dependent_blocks;
 	std::chrono::seconds late_blocks_delay{ 5 };
 	uint64_t const height;
 
 	friend class active_transactions;
-
-	friend class election_bisect_dependencies_Test;
-	friend class election_dependencies_open_link_Test;
 };
 }
