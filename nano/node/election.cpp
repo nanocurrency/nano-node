@@ -226,7 +226,10 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 		result = true;
 		state_change (state_m.load (), nano::election::state_t::expired_unconfirmed);
 		status.type = nano::election_status_type::stopped;
-		log_votes (tally ());
+		if (node.config.logging.election_expiration_tally_logging ())
+		{
+			log_votes (tally (), "Election expired: ");
+		}
 	}
 	return result;
 }
@@ -287,7 +290,7 @@ void nano::election::confirm_if_quorum ()
 	}
 	if (have_quorum (tally_l, sum))
 	{
-		if (node.config.logging.vote_logging () || blocks.size () > 1)
+		if (node.config.logging.vote_logging () || (node.config.logging.election_fork_tally_logging () && blocks.size () > 1))
 		{
 			log_votes (tally_l);
 		}
@@ -295,11 +298,11 @@ void nano::election::confirm_if_quorum ()
 	}
 }
 
-void nano::election::log_votes (nano::tally_t const & tally_a) const
+void nano::election::log_votes (nano::tally_t const & tally_a, std::string const & prefix_a) const
 {
 	std::stringstream tally;
 	std::string line_end (node.config.logging.single_line_record () ? "\t" : "\n");
-	tally << boost::str (boost::format ("%1%Vote tally for root %2%") % line_end % root.to_string ());
+	tally << boost::str (boost::format ("%1%%2%Vote tally for root %3%") % prefix_a % line_end % root.to_string ());
 	for (auto i (tally_a.begin ()), n (tally_a.end ()); i != n; ++i)
 	{
 		tally << boost::str (boost::format ("%1%Block %2% weight %3%") % line_end % i->second->hash ().to_string () % i->first.convert_to<std::string> ());

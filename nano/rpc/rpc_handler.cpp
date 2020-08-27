@@ -1,6 +1,8 @@
+#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/json_error_response.hpp>
 #include <nano/lib/logger_mt.hpp>
+#include <nano/lib/numbers.hpp>
 #include <nano/lib/rpc_handler_interface.hpp>
 #include <nano/lib/rpcconfig.hpp>
 #include <nano/rpc/rpc_handler.hpp>
@@ -98,6 +100,18 @@ void nano::rpc_handler::process_request (nano::rpc_handler_request_params const 
 							json_error_response (response, rpc_control_disabled_ec.message ());
 							error = true;
 						}
+					}
+					// Add random id to RPC send via IPC if not included
+					else if (action == "send" && request.find ("id") == request.not_found ())
+					{
+						nano::uint128_union random_id;
+						nano::random_pool::generate_block (random_id.bytes.data (), random_id.bytes.size ());
+						std::string random_id_text;
+						random_id.encode_hex (random_id_text);
+						request.put ("id", random_id_text);
+						std::stringstream ostream;
+						boost::property_tree::write_json (ostream, request);
+						body = ostream.str ();
 					}
 				}
 
