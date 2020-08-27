@@ -36,10 +36,12 @@ bool nano::confirmation_solicitor::broadcast (nano::election const & election_a)
 		for (auto i (representatives_broadcasts.begin ()), n (representatives_broadcasts.end ()); i != n && count < max_election_broadcasts; ++i)
 		{
 			auto existing (election_a.last_votes.find (i->account));
-			if (existing == election_a.last_votes.end () || existing->second.hash != hash)
+			bool const exists (existing != election_a.last_votes.end ());
+			bool const different (exists && existing->second.hash != hash);
+			if (!exists || different)
 			{
 				i->channel->send (winner);
-				++count;
+				count += !different;
 			}
 		}
 		// Random flood for block propagation
@@ -52,21 +54,25 @@ bool nano::confirmation_solicitor::broadcast (nano::election const & election_a)
 bool nano::confirmation_solicitor::add (nano::election const & election_a)
 {
 	debug_assert (prepared);
-	auto const max_channel_requests (max_confirm_req_batches * nano::network::confirm_req_hashes_max);
+	bool error (true);
 	unsigned count = 0;
+	auto const max_channel_requests (max_confirm_req_batches * nano::network::confirm_req_hashes_max);
 	auto const & hash (election_a.status.winner->hash ());
 	for (auto i (representatives_requests.begin ()); i != representatives_requests.end () && count < max_election_requests;)
 	{
 		bool full_queue (false);
 		auto rep (*i);
 		auto existing (election_a.last_votes.find (rep.account));
-		if (existing == election_a.last_votes.end () || existing->second.hash != hash)
+		bool const exists (existing != election_a.last_votes.end ());
+		bool const different (exists && existing->second.hash != hash);
+		if (!exists || different)
 		{
 			auto & request_queue (requests[rep.channel]);
 			if (request_queue.size () < max_channel_requests)
 			{
 				request_queue.emplace_back (election_a.status.winner->hash (), election_a.status.winner->root ());
-				++count;
+				count += !different;
+				error = false;
 			}
 			else
 			{
@@ -75,7 +81,7 @@ bool nano::confirmation_solicitor::add (nano::election const & election_a)
 		}
 		i = !full_queue ? i + 1 : representatives_requests.erase (i);
 	}
-	return count == 0;
+	return error;
 }
 
 void nano::confirmation_solicitor::flush ()
