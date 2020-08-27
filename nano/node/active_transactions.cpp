@@ -50,31 +50,32 @@ nano::active_transactions::~active_transactions ()
 	stop ();
 }
 
-void nano::active_transactions::insert_election_from_frontiers_confirmation (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, nano::uint128_t previous_balance_a, uint64_t & elections_count_a, nano::election_behavior election_behavior_a)
+bool nano::active_transactions::insert_election_from_frontiers_confirmation (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, nano::uint128_t previous_balance_a, nano::election_behavior election_behavior_a)
 {
+	bool inserted{ false };
 	nano::lock_guard<std::mutex> guard (mutex);
 	if (roots.get<tag_root> ().find (block_a->qualified_root ()) == roots.get<tag_root> ().end ())
 	{
 		std::function<void(std::shared_ptr<nano::block> const &)> election_confirmation_cb;
 		if (election_behavior_a == nano::election_behavior::optimistic)
 		{
-			election_confirmation_cb = [this](std::shared_ptr<nano::block> const &) {
+			election_confirmation_cb = [this](std::shared_ptr<nano::block> const & block_a) {
 				--optimistic_elections_count;
 			};
 		}
 
 		auto insert_result = insert_impl (block_a, previous_balance_a, election_behavior_a, election_confirmation_cb);
-
-		if (insert_result.inserted)
+		inserted = insert_result.inserted;
+		if (inserted)
 		{
 			insert_result.election->transition_active ();
-			++elections_count_a;
 			if (insert_result.election->optimistic ())
 			{
 				++optimistic_elections_count;
 			}
 		}
 	}
+	return inserted;
 }
 
 nano::frontiers_confirmation_info nano::active_transactions::get_frontiers_confirmation_info ()
@@ -146,7 +147,11 @@ void nano::active_transactions::confirm_prioritized_frontiers (nano::transaction
 						{
 							auto block (this->node.store.block_get (transaction_a, info.head));
 							auto previous_balance (this->node.ledger.balance (transaction_a, block->previous ()));
-							this->insert_election_from_frontiers_confirmation (block, cementable_account.account, previous_balance, elections_count_a, nano::election_behavior::optimistic);
+							auto inserted_election = this->insert_election_from_frontiers_confirmation (block, cementable_account.account, previous_balance, nano::election_behavior::optimistic);
+							if (inserted_election)
+							{
+								++elections_count_a;
+							}
 						}
 					}
 				}
@@ -446,7 +451,11 @@ void nano::active_transactions::confirm_expired_frontiers_pessimistically (nano:
 						previous_balance = previous_block->sideband ().balance.number ();
 					}
 
-					insert_election_from_frontiers_confirmation (block, account, previous_balance, elections_count_a, nano::election_behavior::normal);
+					auto inserted_election = insert_election_from_frontiers_confirmation (block, account, previous_balance, nano::election_behavior::normal);
+					if (inserted_election)
+					{
+						++elections_count_a;
+					}
 					elections_started_for_account.push_back (i->account);
 				}
 			}

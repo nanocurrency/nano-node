@@ -294,7 +294,7 @@ private:
 	void confirm_prioritized_frontiers (nano::transaction const &, uint64_t, uint64_t &);
 	void confirm_expired_frontiers_pessimistically (nano::transaction const &, uint64_t, uint64_t &);
 	void frontiers_confirmation (nano::unique_lock<std::mutex> &);
-	void insert_election_from_frontiers_confirmation (std::shared_ptr<nano::block> const &, nano::account const &, nano::uint128_t, uint64_t &, nano::election_behavior);
+	bool insert_election_from_frontiers_confirmation (std::shared_ptr<nano::block> const &, nano::account const &, nano::uint128_t, nano::election_behavior);
 	nano::account next_frontier_account{ 0 };
 	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };
 	constexpr static size_t max_active_elections_frontier_insertion{ 1000 };
