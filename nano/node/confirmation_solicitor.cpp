@@ -41,7 +41,7 @@ bool nano::confirmation_solicitor::broadcast (nano::election const & election_a)
 			if (!exists || different)
 			{
 				i->channel->send (winner);
-				count += !different;
+				count += different ? 0 : 1;
 			}
 		}
 		// Random flood for block propagation
@@ -71,7 +71,7 @@ bool nano::confirmation_solicitor::add (nano::election const & election_a)
 			if (request_queue.size () < max_channel_requests)
 			{
 				request_queue.emplace_back (election_a.status.winner->hash (), election_a.status.winner->root ());
-				count += !different;
+				count += different ? 0 : 1;
 				error = false;
 			}
 			else
