@@ -225,6 +225,7 @@ private:
 	void frontiers_confirmation (nano::unique_lock<std::mutex> &);
 	nano::account next_frontier_account{ 0 };
 	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };
+	constexpr static size_t max_active_elections_frontier_insertion{ 1000 };
 	nano::condition_variable condition;
 	bool started{ false };
 	std::atomic<bool> stopped{ false };

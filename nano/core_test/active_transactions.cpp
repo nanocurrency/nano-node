@@ -1170,3 +1170,65 @@ TEST (active_transactions, activate_account_chain)
 	ASSERT_TIMELY (3s, node.block_confirmed (send3->hash ()));
 	ASSERT_TIMELY (3s, node.active.active (receive->qualified_root ()));
 }
+
+TEST (active_transactions, activate_inactive)
+{
+	nano::system system;
+	nano::node_flags flags;
+	nano::node_config config (nano::get_available_port (), system.logging);
+	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto & node = *system.add_node (config, flags);
+
+	nano::keypair key;
+	nano::state_block_builder builder;
+	std::shared_ptr<nano::block> send = builder.make_block ()
+	                                    .account (nano::test_genesis_key.pub)
+	                                    .previous (nano::genesis_hash)
+	                                    .representative (nano::test_genesis_key.pub)
+	                                    .link (key.pub)
+	                                    .balance (nano::genesis_amount - 1)
+	                                    .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	                                    .work (*system.work.generate (nano::genesis_hash))
+	                                    .build ();
+	std::shared_ptr<nano::block> send2 = builder.make_block ()
+	                                     .account (nano::test_genesis_key.pub)
+	                                     .previous (send->hash ())
+	                                     .representative (nano::test_genesis_key.pub)
+	                                     .link (nano::keypair ().pub)
+	                                     .balance (nano::genesis_amount - 2)
+	                                     .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	                                     .work (*system.work.generate (send->hash ()))
+	                                     .build ();
+	std::shared_ptr<nano::block> open = builder.make_block ()
+	                                    .account (key.pub)
+	                                    .previous (0)
+	                                    .representative (key.pub)
+	                                    .link (send->hash ())
+	                                    .balance (1)
+	                                    .sign (key.prv, key.pub)
+	                                    .work (*system.work.generate (key.pub))
+	                                    .build ();
+
+	ASSERT_EQ (nano::process_result::progress, node.process (*send).code);
+	ASSERT_EQ (nano::process_result::progress, node.process (*send2).code);
+	ASSERT_EQ (nano::process_result::progress, node.process (*open).code);
+
+	node.block_confirm (send2);
+	{
+		auto election = node.active.election (send2->qualified_root ());
+		ASSERT_NE (nullptr, election);
+		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		election->confirm_once ();
+	}
+
+	ASSERT_TIMELY (3s, !node.confirmation_height_processor.is_processing_block (send2->hash ()));
+	ASSERT_TRUE (node.block_confirmed (send2->hash ()));
+	ASSERT_TRUE (node.block_confirmed (send->hash ()));
+
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::inactive_conf_height, nano::stat::dir::out));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::active_quorum, nano::stat::dir::out));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::active_conf_height, nano::stat::dir::out));
+
+	// The first block was not active so no activation takes place
+	ASSERT_FALSE (node.active.active (open->qualified_root ()) || node.block_confirmed_or_being_confirmed (node.store.tx_begin_read (), open->hash ()));
+}
