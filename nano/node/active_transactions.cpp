@@ -441,6 +441,7 @@ void nano::active_transactions::confirm_expired_frontiers_pessimistically (nano:
 		{
 			// This account is confirmed already or doesn't exist.
 			i = expired_optimistic_election_infos.get<tag_election_started> ().erase (i);
+			expired_optimistic_election_infos_size = expired_optimistic_election_infos.size ();
 		}
 		else
 		{
