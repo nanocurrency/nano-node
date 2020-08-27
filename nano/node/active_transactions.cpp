@@ -316,7 +316,10 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 		{
 			if (election_l->optimistic () && election_l->failed ())
 			{
-				add_expired_optimistic_election (*election_l);
+				if (election_l->confirmation_request_count != 0)
+				{
+					add_expired_optimistic_election (*election_l);
+				}
 				--optimistic_elections_count;
 			}
 
@@ -1355,7 +1358,10 @@ nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_
 		auto block = node.store.block_get (transaction, hash_a);
 		if (block && status.election_started && !previously_a.election_started && !node.block_confirmed_or_being_confirmed (transaction, hash_a))
 		{
-			insert_impl (block);
+			if (node.ledger.cache.cemented_count >= node.ledger.bootstrap_weight_max_blocks)
+			{
+				insert_impl (block);
+			}
 		}
 		else if (!block && status.bootstrap_started && !previously_a.bootstrap_started)
 		{
