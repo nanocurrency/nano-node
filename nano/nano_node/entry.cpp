@@ -1451,7 +1451,7 @@ int main (int argc, char * const * argv)
 					++block_count;
 					auto const & sideband (block->sideband ());
 					// Check for state & open blocks if account field is correct
-					if (block->type () == nano::block_type::open || block->type () == nano::block_type::state)
+					if (block->type () == nano::block_type::open || block->type () >= nano::block_type::state)
 					{
 						if (block->account () != account)
 						{
@@ -1473,7 +1473,7 @@ int main (int argc, char * const * argv)
 					{
 						print_error_message (boost::str (boost::format ("Incorrect previous for open block %1%\n") % hash.to_string ()));
 					}
-					if (height == 0 && block->type () != nano::block_type::open && block->type () != nano::block_type::state)
+					if (height == 0 && block->type () != nano::block_type::open && block->type () != nano::block_type::state && block->type () != nano::block_type::state2)
 					{
 						print_error_message (boost::str (boost::format ("Incorrect type for open block %1%\n") % hash.to_string ()));
 					}
@@ -1488,7 +1488,7 @@ int main (int argc, char * const * argv)
 					{
 						bool invalid (true);
 						// Epoch blocks
-						if (block->type () == nano::block_type::state)
+						if (block->type () >= nano::block_type::state)
 						{
 							auto & state_block (static_cast<nano::state_block &> (*block.get ()));
 							nano::amount prev_balance (0);
@@ -1496,9 +1496,9 @@ int main (int argc, char * const * argv)
 							{
 								prev_balance = node->ledger.balance (transaction, state_block.hashables.previous);
 							}
-							if (node->ledger.is_epoch_link (state_block.hashables.link) && state_block.hashables.balance == prev_balance)
+							if (node->ledger.has_epoch_link (state_block) && state_block.hashables.balance == prev_balance)
 							{
-								invalid = validate_message (node->ledger.epoch_signer (block->link ()), hash, block->block_signature ());
+								invalid = validate_message (node->ledger.epoch_signer (*block), hash, block->block_signature ());
 							}
 						}
 						if (invalid)
@@ -1508,7 +1508,7 @@ int main (int argc, char * const * argv)
 					}
 					// Validate block details set in the sideband
 					bool block_details_error = false;
-					if (block->type () != nano::block_type::state)
+					if (block->type () < nano::block_type::state)
 					{
 						// Not state
 						block_details_error = sideband.details.is_send || sideband.details.is_receive || sideband.details.is_epoch;
@@ -1528,7 +1528,7 @@ int main (int argc, char * const * argv)
 								// State change
 								block_details_error = sideband.details.is_send || sideband.details.is_receive || sideband.details.is_epoch;
 							}
-							else if (block->balance () == prev_balance && node->ledger.is_epoch_link (block->link ()))
+							else if (block->balance () == prev_balance && node->ledger.has_epoch_link (*block))
 							{
 								// State epoch
 								block_details_error = !sideband.details.is_epoch || sideband.details.is_send || sideband.details.is_receive;
@@ -1560,9 +1560,9 @@ int main (int argc, char * const * argv)
 					}
 					// Check if sideband height is correct
 					++height;
-					if (sideband.height != height)
+					if (block->height () != height)
 					{
-						print_error_message (boost::str (boost::format ("Incorrect sideband height for block %1%. Sideband: %2%. Expected: %3%\n") % hash.to_string () % sideband.height % height));
+						print_error_message (boost::str (boost::format ("Incorrect sideband height for block %1%. Sideband: %2%. Expected: %3%\n") % hash.to_string () % block->height () % height));
 					}
 					// Check if sideband timestamp is after previous timestamp
 					if (sideband.timestamp < previous_timestamp)
@@ -1571,7 +1571,7 @@ int main (int argc, char * const * argv)
 					}
 					previous_timestamp = sideband.timestamp;
 					// Calculate representative block
-					if (block->type () == nano::block_type::open || block->type () == nano::block_type::change || block->type () == nano::block_type::state)
+					if (block->type () == nano::block_type::open || block->type () == nano::block_type::change || block->type () >= nano::block_type::state)
 					{
 						calculated_representative = block->representative ();
 					}
@@ -1783,7 +1783,7 @@ int main (int argc, char * const * argv)
 							}
 							nano::unchecked_info unchecked_info (block, account, 0, nano::signature_verification::unknown);
 							node.node->block_processor.add (unchecked_info);
-							if (block->type () == nano::block_type::state && block->previous ().is_zero () && source_node->ledger.is_epoch_link (block->link ()))
+							if (block->type () == nano::block_type::state && block->previous ().is_zero () && source_node->ledger.has_epoch_link (*block))
 							{
 								// Epoch open blocks can be rejected without processed pending blocks to account, push it later again
 								epoch_open_blocks.push_back (unchecked_info);

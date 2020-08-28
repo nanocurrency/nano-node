@@ -46,6 +46,7 @@ add_library (ipc_flatbuffers_lib
 	generated/flatbuffers/nanoapi_generated.h
 	flatbuffer_producer.hpp
 	flatbuffer_producer.cpp
+	../../api/flatbuffers/nanoapi.fbs
 )
 
 target_link_libraries (ipc_flatbuffers_lib flatbuffers)

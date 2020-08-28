@@ -63,13 +63,23 @@ enum class error_common
 /** Block related errors */
 enum class error_blocks
 {
-	generic = 1,
+	none = 0,
+	generic,
 	bad_hash_number,
 	invalid_block,
 	invalid_block_hash,
 	invalid_type,
 	not_found,
-	work_low
+	work_low,
+	incorrect_version,
+	zero_height,
+	epoch_upgrade_flag_not_set,
+	epoch_link_no_match,
+	open_upgrade_flag_not_set,
+	self_signed_epoch_opens_not_allowed,
+	epoch_open_balance_not_zero,
+	epoch_open_representative_not_zero,
+	epoch_link_flag_incorrect
 };
 
 /** RPC related errors */
@@ -80,11 +90,14 @@ enum class error_rpc
 	bad_difficulty_format,
 	bad_key,
 	bad_link,
+	bad_link_interpretation,
 	bad_multiplier_format,
 	bad_previous,
 	bad_representative_number,
+	bad_signer,
 	bad_source,
 	bad_timeout,
+	bad_version,
 	bad_work_version,
 	block_create_balance_mismatch,
 	block_create_key_required,
@@ -118,6 +131,7 @@ enum class error_rpc
 	invalid_threads_count,
 	payment_account_balance,
 	payment_unable_create_account,
+	pending_not_found,
 	peer_not_found,
 	requires_port_and_address,
 	rpc_control_disabled,
@@ -140,6 +154,11 @@ enum class error_process
 	balance_mismatch, // Balance and amount delta don't match
 	block_position, // This block cannot follow the previous block
 	insufficient_work, // Insufficient work for this block, even though it passed the minimal validation
+	version_mismatch, // Version is not correct
+	height_not_successor, // Height did not match expected height of root + 1
+	upgrade_flag_incorrect, // This is an epoch block, or state block with changed version but did not set the upgrade flag
+	incorrect_link_flag, // Link interpretation field does not match the link field is being used for
+	incorrect_signer, // A different signer was encountered
 	other
 };
 

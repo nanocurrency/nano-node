@@ -173,13 +173,13 @@ node_seq (seq)
 							event.add ("subtype", "send");
 						}
 						// Subtype field
-						else if (block_a->type () == nano::block_type::state)
+						else if (block_a->type () >= nano::block_type::state)
 						{
 							if (block_a->link ().is_zero ())
 							{
 								event.add ("subtype", "change");
 							}
-							else if (amount_a == 0 && node_l->ledger.is_epoch_link (block_a->link ()))
+							else if (amount_a == 0 && node_l->ledger.has_epoch_link (*block_a))
 							{
 								event.add ("subtype", "epoch");
 							}
@@ -188,6 +188,17 @@ node_seq (seq)
 								event.add ("subtype", "receive");
 							}
 						}
+
+						if (block_a->type () >= nano::block_type::state2)
+						{
+							auto state_block = boost::polymorphic_downcast<nano::state_block *> (block_a.get ());
+							event.add ("sig_flag", state_block->hashables.flags.sig_to_str ());
+							event.add ("link_interpretation", state_block->hashables.flags.link_interpretation_to_str ());
+							event.add ("is_upgrade", state_block->hashables.flags.is_upgrade ());
+							event.add ("version", nano::normalized_epoch (state_block->hashables.version));
+							event.add ("height", state_block->hashables.height);
+						}
+
 						std::stringstream ostream;
 						boost::property_tree::write_json (ostream, event);
 						ostream.flush ();
@@ -227,13 +238,13 @@ node_seq (seq)
 					{
 						subtype = "send";
 					}
-					else if (block_a->type () == nano::block_type::state)
+					else if (block_a->type () >= nano::block_type::state)
 					{
 						if (block_a->link ().is_zero ())
 						{
 							subtype = "change";
 						}
-						else if (amount_a == 0 && this->ledger.is_epoch_link (block_a->link ()))
+						else if (amount_a == 0 && this->ledger.has_epoch_link (*block_a))
 						{
 							subtype = "epoch";
 						}
@@ -1111,7 +1122,7 @@ void nano::node::block_confirm (std::shared_ptr<nano::block> block_a)
 bool nano::node::block_confirmed (nano::block_hash const & hash_a)
 {
 	auto transaction (store.tx_begin_read ());
-	return store.block_exists (transaction, hash_a) && ledger.block_confirmed (transaction, hash_a);
+	return ledger.block_confirmed (transaction, hash_a);
 }
 
 bool nano::node::block_confirmed_or_being_confirmed (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
@@ -1380,7 +1391,7 @@ void nano::node::epoch_upgrader_impl (nano::private_key const & prv_a, nano::epo
 	nano::raw_key raw_key;
 	raw_key.data = prv_a;
 	auto signer (nano::pub_key (prv_a));
-	debug_assert (signer == ledger.epoch_signer (link));
+	debug_assert (signer == network_params.ledger.epochs.signer (network_params.ledger.epochs.epoch (link)));
 
 	std::mutex upgrader_mutex;
 	nano::condition_variable upgrader_condition;
@@ -1425,7 +1436,6 @@ void nano::node::epoch_upgrader_impl (nano::private_key const & prv_a, nano::epo
 					nano::account_info const & info (i->second);
 					if (info.epoch () < epoch_a)
 					{
-						release_assert (nano::epochs::is_sequential (info.epoch (), epoch_a));
 						accounts_list.emplace (account_upgrade_item{ account, info.modified });
 					}
 				}
@@ -1521,7 +1531,6 @@ void nano::node::epoch_upgrader_impl (nano::private_key const & prv_a, nano::epo
 					if (info.epoch < epoch_a)
 					{
 						++attempts;
-						release_assert (nano::epochs::is_sequential (info.epoch, epoch_a));
 						auto difficulty (nano::work_threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true)));
 						nano::root const & root (key.account);
 						nano::account const & account (key.account);

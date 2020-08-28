@@ -59,8 +59,7 @@ TEST (bulk_pull, end_not_owned)
 	open.hashables.account = key2.pub;
 	open.hashables.representative = key2.pub;
 	open.hashables.source = latest;
-	open.refresh ();
-	open.signature = nano::sign_message (key2.prv, key2.pub, open.hash ());
+	open.rebuild (key2.prv, key2.pub);
 	system.nodes[0]->work_generate_blocking (open);
 	ASSERT_EQ (nano::process_result::progress, system.nodes[0]->process (open).code);
 	auto connection (std::make_shared<nano::bootstrap_server> (nullptr, system.nodes[0]));
@@ -258,6 +257,144 @@ TEST (bootstrap_processor, process_state)
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
 	ASSERT_NE (node1->latest (nano::dev_genesis_key.pub), node0->latest (nano::dev_genesis_key.pub));
 	ASSERT_TIMELY (10s, node1->latest (nano::dev_genesis_key.pub) == node0->latest (nano::dev_genesis_key.pub));
+	ASSERT_EQ (0, node1->active.size ());
+	node1->stop ();
+}
+
+TEST (bootstrap_processor, process_state_v2)
+{
+	nano::system system;
+	nano::node_config config (nano::get_available_port (), system.logging);
+	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	nano::node_flags node_flags;
+	node_flags.disable_bootstrap_bulk_push_client = true;
+	auto node0 (system.add_node (config, node_flags));
+	nano::genesis genesis;
+	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
+
+	nano::state_block_builder builder;
+	auto send1 = builder.make_block ()
+	             .account (nano::genesis_account)
+	             .previous (nano::genesis_hash)
+	             .representative (nano::genesis_account)
+	             .balance (nano::genesis_amount - 100)
+	             .link (nano::genesis_account)
+	             .version (nano::epoch::epoch_3)
+	             .upgrade (true)
+	             .signer (nano::sig_flag::self)
+	             .link_interpretation (nano::link_flag::send)
+	             .height (2)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (*system.work.generate (nano::genesis_hash))
+	             .build_shared ();
+
+	auto send2 = builder.make_block ()
+	             .account (nano::genesis_account)
+	             .previous (send1->hash ())
+	             .representative (nano::genesis_account)
+	             .balance (nano::genesis_amount - 200)
+	             .link (nano::genesis_account)
+	             .version (nano::epoch::epoch_3)
+	             .upgrade (false)
+	             .signer (nano::sig_flag::self)
+	             .link_interpretation (nano::link_flag::send)
+	             .height (3)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (*system.work.generate (send1->hash ()))
+	             .build_shared ();
+
+	node0->process (*send1);
+	node0->process (*send2);
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work));
+	ASSERT_EQ (node0->latest (nano::dev_genesis_key.pub), send2->hash ());
+	ASSERT_NE (node1->latest (nano::dev_genesis_key.pub), send2->hash ());
+	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
+	ASSERT_NE (node1->latest (nano::dev_genesis_key.pub), node0->latest (nano::dev_genesis_key.pub));
+	ASSERT_TIMELY (10s, node1->latest (nano::dev_genesis_key.pub) == node0->latest (nano::dev_genesis_key.pub));
+	ASSERT_EQ (0, node1->active.size ());
+	node1->stop ();
+}
+
+TEST (bootstrap_processor, process_state_v2_invalid_simple_block_validation)
+{
+	nano::system system;
+	nano::node_config config (nano::get_available_port (), system.logging);
+	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	nano::node_flags node_flags;
+	node_flags.disable_bootstrap_bulk_push_client = true;
+	auto node0 (system.add_node (config, node_flags));
+	nano::genesis genesis;
+	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
+
+	// Fail via simple block validation
+	nano::state_block_builder builder;
+	auto send1 = builder.make_block ()
+	             .account (nano::genesis_account)
+	             .previous (nano::genesis_hash)
+	             .representative (nano::genesis_account)
+	             .balance (nano::genesis_amount - 100)
+	             .link (nano::genesis_account)
+	             .version (nano::epoch::epoch_3)
+	             .upgrade (true)
+	             .signer (nano::sig_flag::self)
+	             .link_interpretation (nano::link_flag::send)
+	             .height (0) // incorrect height
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (*system.work.generate (nano::genesis_hash))
+	             .build_shared ();
+
+	// Force add this block into the database, it is not valid
+	node0->store.account_put (node0->store.tx_begin_write (), nano::genesis_account, nano::account_info{ send1->hash (), nano::genesis_account, nano::genesis_hash, nano::genesis_amount - 100, 0, 2, nano::epoch::epoch_3 });
+	send1->sideband_set ({});
+	node0->store.block_put (node0->store.tx_begin_write (), send1->hash (), *send1);
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work));
+	ASSERT_EQ (node0->latest (nano::dev_genesis_key.pub), send1->hash ());
+	ASSERT_NE (node1->latest (nano::dev_genesis_key.pub), send1->hash ());
+	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
+	ASSERT_NE (node1->latest (nano::dev_genesis_key.pub), node0->latest (nano::dev_genesis_key.pub));
+	ASSERT_TIMELY (10s, 1 == node1->stats.count (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_deserialize_receive_block, nano::stat::dir::in));
+	ASSERT_EQ (0, node1->active.size ());
+	node1->stop ();
+}
+
+TEST (bootstrap_processor, process_state_v2_invalid_ledger_process)
+{
+	nano::system system;
+	nano::node_config config (nano::get_available_port (), system.logging);
+	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	nano::node_flags node_flags;
+	node_flags.disable_bootstrap_bulk_push_client = true;
+	auto node0 (system.add_node (config, node_flags));
+	nano::genesis genesis;
+	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
+
+	// Fail via ledger processing
+	nano::state_block_builder builder;
+	auto send1 = builder.make_block ()
+	             .account (nano::genesis_account)
+	             .previous (nano::genesis_hash)
+	             .representative (nano::genesis_account)
+	             .balance (nano::genesis_amount - 100)
+	             .link (nano::genesis_account)
+	             .version (nano::epoch::epoch_3)
+	             .upgrade (true)
+	             .signer (nano::sig_flag::self)
+	             .link_interpretation (nano::link_flag::send)
+	             .height (3) // incorrect height
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (*system.work.generate (nano::genesis_hash))
+	             .build_shared ();
+
+	// Force add this block into the database, it is not valid
+	node0->store.account_put (node0->store.tx_begin_write (), nano::genesis_account, nano::account_info{ send1->hash (), nano::genesis_account, nano::genesis_hash, nano::genesis_amount - 100, 0, 2, nano::epoch::epoch_3 });
+	send1->sideband_set ({});
+	node0->store.block_put (node0->store.tx_begin_write (), send1->hash (), *send1);
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work));
+	ASSERT_EQ (node0->latest (nano::dev_genesis_key.pub), send1->hash ());
+	ASSERT_NE (node1->latest (nano::dev_genesis_key.pub), send1->hash ());
+	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
+	ASSERT_NE (node1->latest (nano::dev_genesis_key.pub), node0->latest (nano::dev_genesis_key.pub));
+	ASSERT_TIMELY (10s, 1 == node1->stats.count (nano::stat::type::ledger, nano::stat::detail::height_not_successor));
 	ASSERT_EQ (0, node1->active.size ());
 	node1->stop ();
 }

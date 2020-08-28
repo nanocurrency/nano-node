@@ -578,7 +578,7 @@ TEST (websocket, work)
 
 	ASSERT_EQ (1, contents.count ("request"));
 	auto & request = contents.get_child ("request");
-	ASSERT_EQ (request.get<std::string> ("version"), nano::to_string (nano::work_version::work_1));
+	ASSERT_EQ (request.get<std::string> ("work_version"), nano::to_string (nano::work_version::work_1));
 	ASSERT_EQ (request.get<std::string> ("hash"), hash.to_string ());
 	ASSERT_EQ (request.get<std::string> ("difficulty"), nano::to_string_hex (node1->default_difficulty (nano::work_version::work_1)));
 	ASSERT_EQ (request.get<double> ("multiplier"), 1.0);

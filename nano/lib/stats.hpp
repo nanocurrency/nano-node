@@ -214,6 +214,7 @@ public:
 		insufficient_work,
 		http_callback,
 		unreachable_host,
+		invalid_block,
 
 		// confirmation_observer specific
 		active_quorum,
@@ -226,11 +227,13 @@ public:
 		open,
 		change,
 		state_block,
+		state_block2,
 		epoch_block,
 		fork,
 		old,
 		gap_previous,
 		gap_source,
+		height_not_successor,
 
 		// message specific
 		keepalive,

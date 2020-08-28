@@ -122,8 +122,11 @@ public:
 	uint64_t block_account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override
 	{
 		auto block = block_get (transaction_a, hash_a);
-		debug_assert (block != nullptr);
-		return block->sideband ().height;
+		if (block)
+		{
+			return block->height ();
+		}
+		return 0;
 	}
 
 	std::shared_ptr<nano::block> block_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override
@@ -203,6 +206,7 @@ public:
 				result = boost::polymorphic_downcast<nano::send_block *> (block_a.get ())->hashables.balance.number ();
 				break;
 			case nano::block_type::state:
+			case nano::block_type::state2:
 				result = boost::polymorphic_downcast<nano::state_block *> (block_a.get ())->hashables.balance.number ();
 				break;
 			case nano::block_type::invalid:
@@ -377,11 +381,10 @@ public:
 	nano::epoch block_version (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override
 	{
 		auto block = block_get (transaction_a, hash_a);
-		if (block && block->type () == nano::block_type::state)
+		if (block)
 		{
-			return block->sideband ().details.epoch;
+			return block->version ();
 		}
-
 		return nano::epoch::epoch_0;
 	}
 

@@ -44,9 +44,10 @@ public:
 	void dump_account_chain (nano::account const &, std::ostream & = std::cout);
 	bool could_fit (nano::transaction const &, nano::block const &);
 	bool can_vote (nano::transaction const &, nano::block const &);
-	bool is_epoch_link (nano::link const &);
+	bool has_epoch_link (nano::block const &) const;
+	bool is_self_signed_epoch (nano::block const &) const;
 	std::array<nano::block_hash, 2> dependent_blocks (nano::transaction const &, nano::block const &);
-	nano::account const & epoch_signer (nano::link const &) const;
+	nano::account const & epoch_signer (nano::block const &) const;
 	nano::link const & epoch_link (nano::epoch) const;
 	static nano::uint128_t const unit;
 	nano::network_params network_params;

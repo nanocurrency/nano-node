@@ -568,10 +568,10 @@ public:
 				type = "Change";
 				account = block_a.hashables.representative;
 			}
-			else if (balance == previous_balance && ledger.is_epoch_link (block_a.hashables.link))
+			else if (balance == previous_balance && ledger.has_epoch_link (block_a))
 			{
 				type = "Epoch";
-				account = ledger.epoch_signer (block_a.hashables.link);
+				account = ledger.epoch_signer (block_a);
 			}
 			else
 			{

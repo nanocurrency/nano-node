@@ -545,7 +545,7 @@ void nano::transport::udp_channels::receive_action (nano::message_buffer * data_
 	{
 		udp_message_visitor visitor (node, data_a->endpoint);
 		nano::message_parser parser (node.network.publish_filter, node.block_uniquer, node.vote_uniquer, visitor, node.work, node.ledger.cache.epoch_2_started);
-		parser.deserialize_buffer (data_a->buffer, data_a->size);
+		parser.deserialize_buffer (data_a->buffer, data_a->size, node.network_params.ledger.epochs);
 		if (parser.status == nano::message_parser::parse_status::success)
 		{
 			node.stats.add (nano::stat::type::traffic_udp, nano::stat::dir::in, data_a->size);
@@ -563,6 +563,10 @@ void nano::transport::udp_channels::receive_action (nano::message_buffer * data_
 				case nano::message_parser::parse_status::insufficient_work:
 					// We've already increment error count, update detail only
 					node.stats.inc_detail_only (nano::stat::type::error, nano::stat::detail::insufficient_work);
+					break;
+				case nano::message_parser::parse_status::invalid_block:
+					// We've already increment error count, update detail only
+					node.stats.inc_detail_only (nano::stat::type::error, nano::stat::detail::invalid_block);
 					break;
 				case nano::message_parser::parse_status::invalid_header:
 					node.stats.inc (nano::stat::type::udp, nano::stat::detail::invalid_header);

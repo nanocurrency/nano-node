@@ -14,6 +14,7 @@
 #include <boost/polymorphic_cast.hpp>
 
 #include <stack>
+#include <type_traits>
 
 namespace nano
 {
@@ -274,7 +275,14 @@ public:
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (data ()), size ());
 		auto error (false);
 		block_w_sideband_v18<Block> block_w_sideband;
-		block_w_sideband.block = std::make_shared<Block> (error, stream);
+		if constexpr (std::is_same_v<Block, nano::state_block>)
+		{
+			block_w_sideband.block = std::make_shared<Block> (error, stream, nano::block_type::state);
+		}
+		else
+		{
+			block_w_sideband.block = std::make_shared<Block> (error, stream);
+		}
 		release_assert (!error);
 
 		error = block_w_sideband.sideband.deserialize (stream, block_w_sideband.block->type ());
@@ -298,7 +306,7 @@ public:
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (data ()), size ());
 		auto error (false);
 		nano::state_block_w_sideband_v14 block_w_sideband;
-		block_w_sideband.state_block = std::make_shared<nano::state_block> (error, stream);
+		block_w_sideband.state_block = std::make_shared<nano::state_block> (error, stream, nano::block_type::state);
 		debug_assert (!error);
 
 		block_w_sideband.sideband.type = nano::block_type::state;

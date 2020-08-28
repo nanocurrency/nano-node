@@ -220,6 +220,17 @@ nano::state_block_builder & nano::state_block_builder::from (nano::state_block c
 	build_state |= build_flags::previous_present;
 	block->hashables.representative = other_block.hashables.representative;
 	build_state |= build_flags::representative_present;
+	if (other_block.version () >= nano::epoch::epoch_3)
+	{
+		block->hashables.version = other_block.hashables.version;
+		build_state |= build_flags::version_present;
+		block->hashables.flags = other_block.hashables.flags;
+		build_state |= build_flags::signer_present;
+		build_state |= build_flags::link_interpretation_present;
+		build_state |= build_flags::is_upgrade_present;
+		block->hashables.height = other_block.hashables.height;
+		build_state |= build_flags::height_present;
+	}
 	return *this;
 }
 
@@ -227,7 +238,8 @@ void nano::state_block_builder::validate ()
 {
 	if (!ec)
 	{
-		ec = check_fields_set (required_fields, build_state);
+		auto required_fields_l = block->hashables.version >= nano::epoch::epoch_3 ? required_fields2 : required_fields;
+		ec = check_fields_set (required_fields_l, build_state);
 	}
 }
 
@@ -240,7 +252,18 @@ nano::state_block_builder & nano::state_block_builder::zero ()
 	block->hashables.link.clear ();
 	block->hashables.previous.clear ();
 	block->hashables.representative.clear ();
-	build_state = required_fields;
+	if (block->hashables.version >= nano::epoch::epoch_3)
+	{
+		block->hashables.version = nano::epoch::epoch_0;
+		block->hashables.flags.clear ();
+		block->hashables.height = 0;
+		build_state = required_fields2;
+	}
+	else
+	{
+		build_state = required_fields;
+	}
+
 	return *this;
 }
 
@@ -355,6 +378,40 @@ nano::state_block_builder & nano::state_block_builder::link_address (std::string
 	{
 		ec = nano::error_common::bad_link;
 	}
+	return *this;
+}
+
+nano::state_block_builder & nano::state_block_builder::version (nano::epoch version)
+{
+	block->hashables.version = version;
+	build_state |= build_flags::version_present;
+	return *this;
+}
+nano::state_block_builder & nano::state_block_builder::link_interpretation (nano::link_flag link_flag)
+{
+	block->hashables.flags.set_link_interpretation (link_flag);
+	build_state |= build_flags::link_interpretation_present;
+	return *this;
+}
+
+nano::state_block_builder & nano::state_block_builder::upgrade (bool is_upgrade)
+{
+	block->hashables.flags.set_upgrade (is_upgrade);
+	build_state |= build_flags::is_upgrade_present;
+	return *this;
+}
+
+nano::state_block_builder & nano::state_block_builder::signer (nano::sig_flag sig_flag)
+{
+	block->hashables.flags.set_signer (sig_flag);
+	build_state |= build_flags::signer_present;
+	return *this;
+}
+
+nano::state_block_builder & nano::state_block_builder::height (uint64_t height)
+{
+	block->hashables.height = height;
+	build_state |= build_flags::height_present;
 	return *this;
 }
 

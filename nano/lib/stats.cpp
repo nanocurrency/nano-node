@@ -553,6 +553,9 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::insufficient_work:
 			res = "insufficient_work";
 			break;
+		case nano::stat::detail::invalid_block:
+			res = "invalid_block";
+			break;
 		case nano::stat::detail::invocations:
 			res = "invocations";
 			break;
@@ -582,6 +585,9 @@ std::string nano::stat::detail_to_string (uint32_t key)
 			break;
 		case nano::stat::detail::state_block:
 			res = "state_block";
+			break;
+		case nano::stat::detail::state_block2:
+			res = "state_block2";
 			break;
 		case nano::stat::detail::epoch_block:
 			res = "epoch_block";
@@ -741,6 +747,9 @@ std::string nano::stat::detail_to_string (uint32_t key)
 			break;
 		case nano::stat::detail::failed_send_telemetry_req:
 			res = "failed_send_telemetry_req";
+			break;
+		case nano::stat::detail::height_not_successor:
+			res = "height_not_successor";
 			break;
 	}
 	return res;

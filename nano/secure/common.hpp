@@ -81,6 +81,7 @@ public:
 	keypair ();
 	keypair (std::string const &);
 	keypair (nano::raw_key &&);
+	bool operator== (nano::keypair const &) const;
 	nano::public_key pub;
 	nano::raw_key prv;
 };
@@ -316,7 +317,12 @@ enum class process_result
 	balance_mismatch, // Balance and amount delta don't match
 	representative_mismatch, // Representative is changed when it is not allowed
 	block_position, // This block cannot follow the previous block
-	insufficient_work // Insufficient work for this block, even though it passed the minimal validation
+	insufficient_work, // Insufficient work for this block, even though it passed the minimal validation
+	version_mismatch, // Version is not correct
+	height_not_successor, // Height did not match expected height of root + 1
+	upgrade_flag_incorrect, // This is an epoch block, or state block with changed version but did not set the upgrade flag
+	incorrect_link_flag, // Link interpretation field does not match the link field is being used for
+	incorrect_signer, // A different signer was encountered
 };
 class process_return final
 {
@@ -533,4 +539,16 @@ public:
 };
 
 nano::wallet_id random_wallet_id ();
+}
+
+namespace std
+{
+template <>
+struct hash<::nano::keypair>
+{
+	size_t operator() (::nano::keypair const & keypair_a) const
+	{
+		return std::hash<::nano::public_key> () (keypair_a.pub);
+	}
+};
 }

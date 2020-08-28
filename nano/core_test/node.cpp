@@ -72,9 +72,6 @@ TEST (node_DeathTest, DISABLED_readonly_block_store_not_exist)
 TEST (node_DeathTest, readonly_block_store_not_exist)
 #endif
 {
-	// For ASSERT_DEATH_IF_SUPPORTED
-	testing::FLAGS_gtest_death_test_style = "threadsafe";
-
 	// This is a read-only node with no ledger file
 	ASSERT_EXIT (nano::inactive_node (nano::unique_path (), nano::inactive_node_flag_defaults ()), ::testing::ExitedWithCode (1), "");
 }

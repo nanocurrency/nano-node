@@ -428,7 +428,7 @@ void nano::bootstrap_server::receive_publish_action (boost::system::error_code c
 			auto error (false);
 			nano::bufferstream stream (receive_buffer->data (), size_a);
 			auto request (std::make_unique<nano::publish> (error, stream, header_a, digest));
-			if (!error)
+			if (!error && nano::simple_block_validation (request->block.get (), node->network_params.ledger.epochs) == nano::error_blocks::none)
 			{
 				if (is_realtime_connection ())
 				{
@@ -468,11 +468,18 @@ void nano::bootstrap_server::receive_confirm_req_action (boost::system::error_co
 		auto request (std::make_unique<nano::confirm_req> (error, stream, header_a));
 		if (!error)
 		{
-			if (is_realtime_connection ())
+			if (request->header.block_type () != nano::block_type::not_a_block)
 			{
-				add_request (std::unique_ptr<nano::message> (request.release ()));
+				error = nano::simple_block_validation (request->block.get (), node->network_params.ledger.epochs) != nano::error_blocks::none;
 			}
-			receive ();
+			if (!error)
+			{
+				if (is_realtime_connection ())
+				{
+					add_request (std::unique_ptr<nano::message> (request.release ()));
+				}
+				receive ();
+			}
 		}
 	}
 	else if (node->config.logging.network_message_logging ())
@@ -504,6 +511,11 @@ void nano::bootstrap_server::receive_confirm_ack_action (boost::system::error_co
 							{
 								process_vote = false;
 								node->stats.inc_detail_only (nano::stat::type::error, nano::stat::detail::insufficient_work);
+							}
+							if (nano::simple_block_validation (block.get (), node->network_params.ledger.epochs) != nano::error_blocks::none)
+							{
+								process_vote = false;
+								node->stats.inc_detail_only (nano::stat::type::error, nano::stat::detail::invalid_block);
 							}
 						}
 					}

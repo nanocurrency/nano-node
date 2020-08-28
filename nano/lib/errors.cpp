@@ -102,6 +102,8 @@ std::string nano::error_blocks_messages::message (int ev) const
 {
 	switch (static_cast<nano::error_blocks> (ev))
 	{
+		case nano::error_blocks::none:
+			return "No error";
 		case nano::error_blocks::generic:
 			return "Unknown error";
 		case nano::error_blocks::bad_hash_number:
@@ -116,6 +118,24 @@ std::string nano::error_blocks_messages::message (int ev) const
 			return "Block not found";
 		case nano::error_blocks::work_low:
 			return "Block work is less than threshold";
+		case nano::error_blocks::incorrect_version:
+			return "Invalid block version";
+		case nano::error_blocks::zero_height:
+			return "Block height should not be 0";
+		case nano::error_blocks::epoch_upgrade_flag_not_set:
+			return "Block is upgrading but upgrade flag isn't true";
+		case nano::error_blocks::epoch_link_no_match:
+			return "Epoch link doesn't match any known ones";
+		case nano::error_blocks::open_upgrade_flag_not_set:
+			return "Block is an open but upgrade is not set";
+		case nano::error_blocks::self_signed_epoch_opens_not_allowed:
+			return "Self-signed epoch open blocks are not permitted";
+		case nano::error_blocks::epoch_open_balance_not_zero:
+			return "Epoch open balance should be 0";
+		case nano::error_blocks::epoch_open_representative_not_zero:
+			return "Epoch open representative should be 0";
+		case nano::error_blocks::epoch_link_flag_incorrect:
+			return "Link flag should be noop for epoch blocks";
 	}
 
 	return "Invalid error code";
@@ -135,16 +155,22 @@ std::string nano::error_rpc_messages::message (int ev) const
 			return "Bad key";
 		case nano::error_rpc::bad_link:
 			return "Bad link number";
+		case nano::error_rpc::bad_link_interpretation:
+			return "Bad link interpretation";
 		case nano::error_rpc::bad_multiplier_format:
 			return "Bad multiplier";
 		case nano::error_rpc::bad_previous:
 			return "Bad previous";
 		case nano::error_rpc::bad_representative_number:
 			return "Bad representative number";
+		case nano::error_rpc::bad_signer:
+			return "Bad signer";
 		case nano::error_rpc::bad_source:
 			return "Bad source";
 		case nano::error_rpc::bad_timeout:
 			return "Bad timeout number";
+		case nano::error_rpc::bad_version:
+			return "Bad version";
 		case nano::error_rpc::bad_work_version:
 			return "Bad work version";
 		case nano::error_rpc::block_create_balance_mismatch:
@@ -211,6 +237,8 @@ std::string nano::error_rpc_messages::message (int ev) const
 			return "Account has non-zero balance";
 		case nano::error_rpc::payment_unable_create_account:
 			return "Unable to create transaction account";
+		case nano::error_rpc::pending_not_found:
+			return "Pending not found";
 		case nano::error_rpc::peer_not_found:
 			return "Peer not found";
 		case nano::error_rpc::requires_port_and_address:
@@ -254,6 +282,16 @@ std::string nano::error_process_messages::message (int ev) const
 			return "This block cannot follow the previous block";
 		case nano::error_process::insufficient_work:
 			return "Block work is insufficient";
+		case nano::error_process::height_not_successor:
+			return "Height does not follow root";
+		case nano::error_process::incorrect_link_flag:
+			return "Link interpretation is not correct";
+		case nano::error_process::incorrect_signer:
+			return "Signer is invalid";
+		case nano::error_process::upgrade_flag_incorrect:
+			return "Upgrade flag incorrect";
+		case nano::error_process::version_mismatch:
+			return "Version mismatch";
 		case nano::error_process::other:
 			return "Error processing block";
 	}

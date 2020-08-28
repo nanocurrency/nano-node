@@ -803,7 +803,7 @@ nano::websocket::message nano::websocket::message_builder::work_generation (nano
 	work_l.put ("duration", duration_a.count ());
 
 	boost::property_tree::ptree request_l;
-	request_l.put ("version", nano::to_string (version_a));
+	request_l.put ("work_version", nano::to_string (version_a));
 	request_l.put ("hash", root_a.to_string ());
 	request_l.put ("difficulty", nano::to_string_hex (difficulty_a));
 	auto request_multiplier_l (nano::difficulty::to_multiplier (difficulty_a, publish_threshold_a));

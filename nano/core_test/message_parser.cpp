@@ -96,35 +96,59 @@ TEST (message_parser, exact_confirm_ack_size)
 
 TEST (message_parser, exact_confirm_req_size)
 {
-	nano::system system (1);
-	dev_visitor visitor;
-	nano::network_filter filter (1);
-	nano::block_uniquer block_uniquer;
-	nano::vote_uniquer vote_uniquer (block_uniquer);
-	nano::message_parser parser (filter, block_uniquer, vote_uniquer, visitor, system.work, false);
-	auto block (std::make_shared<nano::send_block> (1, 1, 2, nano::keypair ().prv, 4, *system.work.generate (nano::root (1))));
-	nano::confirm_req message (std::move (block));
-	std::vector<uint8_t> bytes;
-	{
-		nano::vectorstream stream (bytes);
-		message.serialize (stream, false);
-	}
-	ASSERT_EQ (0, visitor.confirm_req_count);
-	ASSERT_EQ (parser.status, nano::message_parser::parse_status::success);
-	auto error (false);
-	nano::bufferstream stream1 (bytes.data (), bytes.size ());
-	nano::message_header header1 (error, stream1);
-	ASSERT_FALSE (error);
-	parser.deserialize_confirm_req (stream1, header1);
-	ASSERT_EQ (1, visitor.confirm_req_count);
-	ASSERT_EQ (parser.status, nano::message_parser::parse_status::success);
-	bytes.push_back (0);
-	nano::bufferstream stream2 (bytes.data (), bytes.size ());
-	nano::message_header header2 (error, stream2);
-	ASSERT_FALSE (error);
-	parser.deserialize_confirm_req (stream2, header2);
-	ASSERT_EQ (1, visitor.confirm_req_count);
-	ASSERT_NE (parser.status, nano::message_parser::parse_status::success);
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+
+	auto check_message = [&pool](std::shared_ptr<nano::block> block) {
+		dev_visitor visitor;
+		nano::network_filter filter (1);
+		nano::block_uniquer block_uniquer;
+		nano::vote_uniquer vote_uniquer (block_uniquer);
+		nano::message_parser parser (filter, block_uniquer, vote_uniquer, visitor, pool, false);
+
+		nano::confirm_req message (std::move (block));
+		std::vector<uint8_t> bytes;
+		{
+			nano::vectorstream stream (bytes);
+			message.serialize (stream, false);
+		}
+		ASSERT_EQ (0, visitor.confirm_req_count);
+		ASSERT_EQ (parser.status, nano::message_parser::parse_status::success);
+		auto error (false);
+		nano::bufferstream stream1 (bytes.data (), bytes.size ());
+		nano::message_header header1 (error, stream1);
+		ASSERT_FALSE (error);
+		parser.deserialize_confirm_req (stream1, header1, nano::epochs{});
+		ASSERT_EQ (1, visitor.confirm_req_count);
+		ASSERT_EQ (parser.status, nano::message_parser::parse_status::success);
+		bytes.push_back (0);
+		nano::bufferstream stream2 (bytes.data (), bytes.size ());
+		nano::message_header header2 (error, stream2);
+		ASSERT_FALSE (error);
+		parser.deserialize_confirm_req (stream2, header2, nano::epochs{});
+		ASSERT_EQ (1, visitor.confirm_req_count);
+		ASSERT_NE (parser.status, nano::message_parser::parse_status::success);
+	};
+
+	auto block (std::make_shared<nano::send_block> (1, 1, 2, nano::keypair ().prv, 4, *pool.generate (nano::root (1))));
+	check_message (block);
+
+	// State v2 block
+	nano::state_block_builder builder;
+	auto block2 = builder.make_block ()
+	              .account (nano::dev_genesis_key.pub)
+	              .previous (nano::genesis_hash)
+	              .representative (nano::dev_genesis_key.pub)
+	              .balance (nano::genesis_amount - 100)
+	              .link (nano::dev_genesis_key.pub)
+	              .version (nano::epoch::epoch_3)
+	              .upgrade (true)
+	              .signer (nano::sig_flag::self)
+	              .link_interpretation (nano::link_flag::send)
+	              .height (1)
+	              .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	              .work (*pool.generate (nano::genesis_hash))
+	              .build_shared ();
+	check_message (block2);
 }
 
 TEST (message_parser, exact_confirm_req_hash_size)
@@ -148,49 +172,72 @@ TEST (message_parser, exact_confirm_req_hash_size)
 	nano::bufferstream stream1 (bytes.data (), bytes.size ());
 	nano::message_header header1 (error, stream1);
 	ASSERT_FALSE (error);
-	parser.deserialize_confirm_req (stream1, header1);
+	parser.deserialize_confirm_req (stream1, header1, nano::epochs{});
 	ASSERT_EQ (1, visitor.confirm_req_count);
 	ASSERT_EQ (parser.status, nano::message_parser::parse_status::success);
 	bytes.push_back (0);
 	nano::bufferstream stream2 (bytes.data (), bytes.size ());
 	nano::message_header header2 (error, stream2);
 	ASSERT_FALSE (error);
-	parser.deserialize_confirm_req (stream2, header2);
+	parser.deserialize_confirm_req (stream2, header2, nano::epochs{});
 	ASSERT_EQ (1, visitor.confirm_req_count);
 	ASSERT_NE (parser.status, nano::message_parser::parse_status::success);
 }
 
 TEST (message_parser, exact_publish_size)
 {
-	nano::system system (1);
-	dev_visitor visitor;
-	nano::network_filter filter (1);
-	nano::block_uniquer block_uniquer;
-	nano::vote_uniquer vote_uniquer (block_uniquer);
-	nano::message_parser parser (filter, block_uniquer, vote_uniquer, visitor, system.work, true);
-	auto block (std::make_shared<nano::send_block> (1, 1, 2, nano::keypair ().prv, 4, *system.work.generate (nano::root (1))));
-	nano::publish message (std::move (block));
-	std::vector<uint8_t> bytes;
-	{
-		nano::vectorstream stream (bytes);
-		message.serialize (stream, false);
-	}
-	ASSERT_EQ (0, visitor.publish_count);
-	ASSERT_EQ (parser.status, nano::message_parser::parse_status::success);
-	auto error (false);
-	nano::bufferstream stream1 (bytes.data (), bytes.size ());
-	nano::message_header header1 (error, stream1);
-	ASSERT_FALSE (error);
-	parser.deserialize_publish (stream1, header1);
-	ASSERT_EQ (1, visitor.publish_count);
-	ASSERT_EQ (parser.status, nano::message_parser::parse_status::success);
-	bytes.push_back (0);
-	nano::bufferstream stream2 (bytes.data (), bytes.size ());
-	nano::message_header header2 (error, stream2);
-	ASSERT_FALSE (error);
-	parser.deserialize_publish (stream2, header2);
-	ASSERT_EQ (1, visitor.publish_count);
-	ASSERT_NE (parser.status, nano::message_parser::parse_status::success);
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+
+	auto check_message = [&pool](std::shared_ptr<nano::block> block) {
+		dev_visitor visitor;
+		nano::network_filter filter (1);
+		nano::block_uniquer block_uniquer;
+		nano::vote_uniquer vote_uniquer (block_uniquer);
+		nano::message_parser parser (filter, block_uniquer, vote_uniquer, visitor, pool, true);
+		nano::publish message (std::move (block));
+		std::vector<uint8_t> bytes;
+		{
+			nano::vectorstream stream (bytes);
+			message.serialize (stream, false);
+		}
+		ASSERT_EQ (0, visitor.publish_count);
+		ASSERT_EQ (parser.status, nano::message_parser::parse_status::success);
+		auto error (false);
+		nano::bufferstream stream1 (bytes.data (), bytes.size ());
+		nano::message_header header1 (error, stream1);
+		ASSERT_FALSE (error);
+		parser.deserialize_publish (stream1, header1, nano::epochs{});
+		ASSERT_EQ (1, visitor.publish_count);
+		ASSERT_EQ (parser.status, nano::message_parser::parse_status::success);
+		bytes.push_back (0);
+		nano::bufferstream stream2 (bytes.data (), bytes.size ());
+		nano::message_header header2 (error, stream2);
+		ASSERT_FALSE (error);
+		parser.deserialize_publish (stream2, header2, nano::epochs{});
+		ASSERT_EQ (1, visitor.publish_count);
+		ASSERT_NE (parser.status, nano::message_parser::parse_status::success);
+	};
+
+	auto block (std::make_shared<nano::send_block> (1, 1, 2, nano::keypair ().prv, 4, *pool.generate (nano::root (1))));
+	check_message (block);
+
+	// State v2 block
+	nano::state_block_builder builder;
+	auto block2 = builder.make_block ()
+	              .account (nano::dev_genesis_key.pub)
+	              .previous (nano::genesis_hash)
+	              .representative (nano::dev_genesis_key.pub)
+	              .balance (nano::genesis_amount - 100)
+	              .link (nano::dev_genesis_key.pub)
+	              .version (nano::epoch::epoch_3)
+	              .upgrade (true)
+	              .signer (nano::sig_flag::self)
+	              .link_interpretation (nano::link_flag::send)
+	              .height (1)
+	              .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	              .work (*pool.generate (nano::genesis_hash))
+	              .build_shared ();
+	check_message (block2);
 }
 
 TEST (message_parser, exact_keepalive_size)

@@ -427,7 +427,7 @@ double nano::json_handler::multiplier_optional_impl (nano::work_version const ve
 nano::work_version nano::json_handler::work_version_optional_impl (nano::work_version const default_a)
 {
 	nano::work_version result = default_a;
-	boost::optional<std::string> version_text (request.get_optional<std::string> ("version"));
+	boost::optional<std::string> version_text (request.get_optional<std::string> ("work_version"));
 	if (!ec && version_text.is_initialized ())
 	{
 		if (*version_text == nano::to_string (nano::work_version::work_1))
@@ -999,7 +999,7 @@ void nano::json_handler::block_info ()
 			response_l.put ("amount", amount.convert_to<std::string> ());
 			auto balance (node.ledger.balance (transaction, hash));
 			response_l.put ("balance", balance.convert_to<std::string> ());
-			response_l.put ("height", std::to_string (block->sideband ().height));
+			response_l.put ("height", std::to_string (block->height ()));
 			response_l.put ("local_timestamp", std::to_string (block->sideband ().timestamp));
 			auto confirmed (node.ledger.block_confirmed (transaction, hash));
 			response_l.put ("confirmed", confirmed);
@@ -1017,7 +1017,7 @@ void nano::json_handler::block_info ()
 				block->serialize_json (contents);
 				response_l.put ("contents", contents);
 			}
-			if (block->type () == nano::block_type::state)
+			if (block->type () >= nano::block_type::state)
 			{
 				auto subtype (nano::state_subtype (block->sideband ().details));
 				response_l.put ("subtype", subtype);
@@ -1149,7 +1149,7 @@ void nano::json_handler::blocks_info ()
 					entry.put ("amount", amount.convert_to<std::string> ());
 					auto balance (node.ledger.balance (transaction, hash));
 					entry.put ("balance", balance.convert_to<std::string> ());
-					entry.put ("height", std::to_string (block->sideband ().height));
+					entry.put ("height", std::to_string (block->height ()));
 					entry.put ("local_timestamp", std::to_string (block->sideband ().timestamp));
 					auto confirmed (node.ledger.block_confirmed (transaction, hash));
 					entry.put ("confirmed", confirmed);
@@ -1166,7 +1166,7 @@ void nano::json_handler::blocks_info ()
 						block->serialize_json (contents);
 						entry.put ("contents", contents);
 					}
-					if (block->type () == nano::block_type::state)
+					if (block->type () >= nano::block_type::state)
 					{
 						auto subtype (nano::state_subtype (block->sideband ().details));
 						entry.put ("subtype", subtype);
@@ -1414,8 +1414,16 @@ void nano::json_handler::block_create ()
 				{
 					if (work_a.is_initialized ())
 					{
-						block_a->block_work_set (*work_a);
-						block_response_put_l (*block_a);
+						auto error_blocks = nano::simple_block_validation (block_a.get (), rpc_l->node.network_params.ledger.epochs);
+						if (error_blocks != nano::error_blocks::none)
+						{
+							rpc_l->ec = error_blocks;
+						}
+						else
+						{
+							block_a->block_work_set (*work_a);
+							block_response_put_l (*block_a);
+						}
 					}
 					else
 					{
@@ -1463,17 +1471,124 @@ void nano::json_handler::block_create ()
 			std::shared_ptr<nano::block> block_l{ nullptr };
 			nano::root root_l;
 			std::error_code ec_build;
-			if (type == "state")
+			if (type == "state" || type == "state2")
 			{
 				if (previous_text.is_initialized () && !representative.is_zero () && (!link.is_zero () || link_text.is_initialized ()))
 				{
-					block_l = builder_l.state ()
-					          .account (pub)
-					          .previous (previous)
-					          .representative (representative)
-					          .balance (balance)
-					          .link (link)
-					          .sign (prv, pub)
+					auto * state_block_builder = &builder_l.state ()
+					                              .account (pub)
+					                              .previous (previous)
+					                              .representative (representative)
+					                              .balance (balance)
+					                              .link (link);
+
+					// State v2 blocks require link_interpretation, the rest are optional and can be derived from this
+					if (type == "state2")
+					{
+						auto link_text{ request.get<std::string> ("link_interpretation") };
+						if (!ec)
+						{
+							nano::link_flag link_flag;
+							nano::epoch version;
+							auto version_l{ request.get_optional<uint8_t> ("version") };
+							auto transaction{ node.store.tx_begin_read () };
+							auto previous_block{ node.store.block_get (transaction, previous) };
+							if (!nano::decode_link_flag (link_text, link_flag))
+							{
+								bool is_upgrade;
+								auto get_version = [&] {
+									// Upgrade was not specified, so needs determining
+									if (version_l.is_initialized ())
+									{
+										if (*version_l == nano::normalized_epoch (nano::epoch::epoch_3))
+										{
+											version = static_cast<nano::epoch> (std::underlying_type_t<nano::epoch> (nano::epoch::epoch_0) + *version_l);
+										}
+										else
+										{
+											ec = nano::error_rpc::bad_version;
+										}
+									}
+									else
+									{
+										if (link_flag == nano::link_flag::receive)
+										{
+											nano::pending_info pending_info;
+											nano::pending_key pending_key (account, source);
+											// Get pending block
+											auto err = node.store.pending_get (transaction, pending_key, pending_info);
+											if (err)
+											{
+												ec = nano::error_rpc::pending_not_found;
+											}
+
+											version = std::max (pending_info.epoch, previous_block->version ());
+										}
+										else
+										{
+											version = previous_block->version ();
+										}
+									}
+									return version;
+								};
+
+								auto upgrade_l{ request.get_optional<bool> ("is_upgrade") };
+								if (upgrade_l.is_initialized ())
+								{
+									is_upgrade = *upgrade_l;
+									version = get_version ();
+								}
+								else
+								{
+									// Upgrade was not specified, so needs determining
+									version = get_version ();
+									is_upgrade = (version > previous_block->version ());
+								}
+
+								auto height_l = request.get_optional<uint64_t> ("height");
+								uint64_t height{ 0 };
+								if (height_l.is_initialized ())
+								{
+									height = *height_l;
+								}
+								else
+								{
+									height = previous_block->height () + 1;
+								}
+
+								auto signer_text = request.get_optional<std::string> ("signer");
+								nano::sig_flag sig_flag;
+								if (signer_text.is_initialized ())
+								{
+									if (nano::decode_sig_flag (*signer_text, sig_flag))
+									{
+										ec = nano::error_rpc::bad_signer;
+									}
+								}
+								else
+								{
+									// Default to self
+									sig_flag = nano::sig_flag::self;
+								}
+
+								if (!ec)
+								{
+									state_block_builder = &state_block_builder->height (height)
+									                       .signer (sig_flag)
+									                       .version (version)
+									                       .link_interpretation (link_flag)
+									                       .upgrade (is_upgrade);
+								}
+							}
+							else
+							{
+								ec = nano::error_rpc::bad_link_interpretation;
+							}
+						}
+					}
+
+					block_l = state_block_builder
+					          ->sign (prv, pub)
 					          .build (ec_build);
 					if (previous.is_zero ())
 					{
@@ -1580,7 +1695,16 @@ void nano::json_handler::block_create ()
 				else
 				{
 					block_l->block_work_set (work);
-					block_response_put_l (*block_l);
+
+					auto error_blocks = nano::simple_block_validation (block_l.get (), node.network_params.ledger.epochs);
+					if (error_blocks != nano::error_blocks::none)
+					{
+						ec = error_blocks;
+					}
+					else
+					{
+						block_response_put_l (*block_l);
+					}
 				}
 			}
 		}
@@ -2077,6 +2201,9 @@ void nano::json_handler::epoch_upgrade ()
 		case 2:
 			epoch = nano::epoch::epoch_2;
 			break;
+		case 3:
+			epoch = nano::epoch::epoch_3;
+			break;
 		default:
 			break;
 	}
@@ -2096,7 +2223,7 @@ void nano::json_handler::epoch_upgrade ()
 		nano::private_key prv;
 		if (!prv.decode_hex (key_text))
 		{
-			if (nano::pub_key (prv) == node.ledger.epoch_signer (node.ledger.epoch_link (epoch)))
+			if (nano::pub_key (prv) == node.ledger.network_params.ledger.epochs.signer (epoch))
 			{
 				if (!node.epoch_upgrader (prv, epoch, count_limit, threads))
 				{
@@ -2232,7 +2359,8 @@ public:
 	{
 		if (raw)
 		{
-			tree.put ("type", "state");
+			debug_assert (block_a.type () == nano::block_type::state || block_a.type () == nano::block_type::state2);
+			tree.put ("type", block_a.type () == nano::block_type::state ? "state" : "state2");
 			tree.put ("representative", block_a.hashables.representative.to_account ());
 			tree.put ("link", block_a.hashables.link.to_string ());
 			tree.put ("balance", block_a.hashables.balance.to_string_dec ());
@@ -2267,12 +2395,12 @@ public:
 					tree.put ("subtype", "change");
 				}
 			}
-			else if (balance == previous_balance && handler.node.ledger.is_epoch_link (block_a.hashables.link))
+			else if (balance == previous_balance && handler.node.ledger.has_epoch_link (block_a))
 			{
 				if (raw && accounts_filter.empty ())
 				{
 					tree.put ("subtype", "epoch");
-					tree.put ("account", handler.node.ledger.epoch_signer (block_a.link ()).to_account ());
+					tree.put ("account", handler.node.ledger.epoch_signer (block_a).to_account ());
 				}
 			}
 			else
@@ -2401,7 +2529,7 @@ void nano::json_handler::account_history ()
 				if (!entry.empty ())
 				{
 					entry.put ("local_timestamp", std::to_string (block->sideband ().timestamp));
-					entry.put ("height", std::to_string (block->sideband ().height));
+					entry.put ("height", std::to_string (block->height ()));
 					entry.put ("hash", hash.to_string ());
 					if (output_raw)
 					{
@@ -2997,12 +3125,12 @@ void nano::json_handler::process ()
 		auto block (rpc_l->block_impl (true));
 
 		// State blocks subtype check
-		if (!rpc_l->ec && block->type () == nano::block_type::state)
+		if (!rpc_l->ec && (block->type () >= nano::block_type::state))
 		{
 			std::string subtype_text (rpc_l->request.get<std::string> ("subtype", ""));
+			std::shared_ptr<nano::state_block> block_state (std::static_pointer_cast<nano::state_block> (block));
 			if (!subtype_text.empty ())
 			{
-				std::shared_ptr<nano::state_block> block_state (std::static_pointer_cast<nano::state_block> (block));
 				auto transaction (rpc_l->node.store.tx_begin_read ());
 				if (!block_state->hashables.previous.is_zero () && !rpc_l->node.store.block_exists (transaction, block_state->hashables.previous))
 				{
@@ -3051,7 +3179,7 @@ void nano::json_handler::process ()
 						{
 							rpc_l->ec = nano::error_rpc::invalid_subtype_balance;
 						}
-						else if (!rpc_l->node.ledger.is_epoch_link (block_state->hashables.link))
+						else if (!rpc_l->node.ledger.has_epoch_link (*block_state))
 						{
 							rpc_l->ec = nano::error_rpc::invalid_subtype_epoch_link;
 						}
@@ -3062,60 +3190,56 @@ void nano::json_handler::process ()
 					}
 				}
 			}
+			if (!rpc_l->ec)
+			{
+				auto error_blocks = nano::simple_block_validation (block_state.get (), rpc_l->node.network_params.ledger.epochs);
+				if (error_blocks != nano::error_blocks::none)
+				{
+					rpc_l->ec = error_blocks;
+				}
+			}
 		}
 		if (!rpc_l->ec)
 		{
-			if (!nano::work_validate_entry (*block))
+			auto valid_work = !nano::work_validate_entry (*block);
+			auto valid_version = block->version () < nano::epoch::epoch_3;
+			if (block->type () >= nano::block_type::state2)
+			{
+				valid_version = block->version () >= nano::epoch::epoch_3;
+			}
+
+			if (valid_work && valid_version)
 			{
 				auto result (rpc_l->node.process_local (block, watch_work_l));
 				switch (result.code)
 				{
 					case nano::process_result::progress:
-					{
 						rpc_l->response_l.put ("hash", block->hash ().to_string ());
 						break;
-					}
 					case nano::process_result::gap_previous:
-					{
 						rpc_l->ec = nano::error_process::gap_previous;
 						break;
-					}
 					case nano::process_result::gap_source:
-					{
 						rpc_l->ec = nano::error_process::gap_source;
 						break;
-					}
 					case nano::process_result::old:
-					{
 						rpc_l->ec = nano::error_process::old;
 						break;
-					}
 					case nano::process_result::bad_signature:
-					{
 						rpc_l->ec = nano::error_process::bad_signature;
 						break;
-					}
 					case nano::process_result::negative_spend:
-					{
-						// TODO once we get RPC versioning, this should be changed to "negative spend"
 						rpc_l->ec = nano::error_process::negative_spend;
 						break;
-					}
 					case nano::process_result::balance_mismatch:
-					{
 						rpc_l->ec = nano::error_process::balance_mismatch;
 						break;
-					}
 					case nano::process_result::unreceivable:
-					{
 						rpc_l->ec = nano::error_process::unreceivable;
 						break;
-					}
 					case nano::process_result::block_position:
-					{
 						rpc_l->ec = nano::error_process::block_position;
 						break;
-					}
 					case nano::process_result::fork:
 					{
 						const bool force = rpc_l->request.get<bool> ("force", false);
@@ -3132,10 +3256,23 @@ void nano::json_handler::process ()
 						break;
 					}
 					case nano::process_result::insufficient_work:
-					{
 						rpc_l->ec = nano::error_process::insufficient_work;
 						break;
-					}
+					case nano::process_result::height_not_successor:
+						rpc_l->ec = nano::error_process::height_not_successor;
+						break;
+					case nano::process_result::incorrect_link_flag:
+						rpc_l->ec = nano::error_process::incorrect_link_flag;
+						break;
+					case nano::process_result::incorrect_signer:
+						rpc_l->ec = nano::error_process::incorrect_signer;
+						break;
+					case nano::process_result::upgrade_flag_incorrect:
+						rpc_l->ec = nano::error_process::upgrade_flag_incorrect;
+						break;
+					case nano::process_result::version_mismatch:
+						rpc_l->ec = nano::error_process::version_mismatch;
+						break;
 					default:
 					{
 						rpc_l->ec = nano::error_process::other;
@@ -3145,7 +3282,19 @@ void nano::json_handler::process ()
 			}
 			else
 			{
-				rpc_l->ec = nano::error_blocks::work_low;
+				if (!valid_work)
+				{
+					rpc_l->ec = nano::error_blocks::work_low;
+				}
+				else if (!valid_version)
+				{
+					rpc_l->ec = nano::error_blocks::incorrect_version;
+				}
+				else
+				{
+					// There's a validation condition we haven't considered yet
+					debug_assert (false);
+				}
 			}
 		}
 		rpc_l->response_errors ();
@@ -4761,7 +4910,7 @@ void nano::json_handler::work_generate ()
 				{
 					ec = nano::error_rpc::block_root_mismatch;
 				}
-				if (request.count ("version") == 0)
+				if (request.count ("work_version") == 0)
 				{
 					work_version = block->work_version ();
 				}

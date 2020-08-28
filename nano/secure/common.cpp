@@ -129,6 +129,15 @@ burn_account (0)
 	const char * epoch_message_v2 ("epoch v2 block");
 	strncpy ((char *)epoch_link_v2.bytes.data (), epoch_message_v2, epoch_link_v2.bytes.size ());
 	epochs.add (nano::epoch::epoch_2, epoch_v2_signer, epoch_link_v2);
+
+	nano::link epoch_link_v3;
+	nano::account nano_live_epoch_v3_signer;
+	error = nano_live_epoch_v3_signer.decode_account ("nano_3qb6o6i1tkzr6jwr5s7eehfxwg9x6eemitdinbpi7u8bjjwsgqfj4wzser3x");
+	debug_assert (!error);
+	auto epoch_v3_signer (network_a == nano::nano_networks::nano_dev_network ? nano_dev_account : network_a == nano::nano_networks::nano_beta_network ? nano_beta_account : nano_live_epoch_v3_signer);
+	const char * epoch_message_v3 ("epoch v3 block");
+	strncpy ((char *)epoch_link_v3.bytes.data (), epoch_message_v3, epoch_link_v3.bytes.size ());
+	epochs.add (nano::epoch::epoch_3, epoch_v3_signer, epoch_link_v3);
 }
 
 nano::random_constants::random_constants ()
@@ -519,7 +528,7 @@ nano::vote::vote (bool & error_a, nano::stream & stream_a, nano::block_type type
 			}
 			else
 			{
-				std::shared_ptr<nano::block> block (nano::deserialize_block (stream_a, type_a, uniquer_a));
+				auto block (nano::deserialize_block (stream_a, type_a, uniquer_a));
 				if (block == nullptr)
 				{
 					throw std::runtime_error ("Block is null");
@@ -679,10 +688,10 @@ bool nano::vote::deserialize (nano::stream & stream_a, nano::block_uniquer * uni
 			}
 			else
 			{
-				std::shared_ptr<nano::block> block (nano::deserialize_block (stream_a, type, uniquer_a));
+				auto block (nano::deserialize_block (stream_a, type, uniquer_a));
 				if (block == nullptr)
 				{
-					throw std::runtime_error ("Block is empty");
+					throw std::runtime_error ("Block is null");
 				}
 
 				blocks.push_back (block);
@@ -858,4 +867,9 @@ void nano::generate_cache::enable_all ()
 	unchecked_count = true;
 	account_count = true;
 	epoch_2 = true;
+}
+
+bool nano::keypair::operator== (nano::keypair const& keypair_a) const
+{
+	return prv == keypair_a.prv && pub == keypair_a.pub;
 }

@@ -255,7 +255,7 @@ bool nano::bootstrap_attempt_lazy::process_block_lazy (std::shared_ptr<nano::blo
 		{
 			lazy_add (block_a->source (), retry_limit);
 		}
-		else if (block_a->type () == nano::block_type::state)
+		else if (block_a->type () >= nano::block_type::state)
 		{
 			lazy_block_state (block_a, retry_limit);
 		}
@@ -269,7 +269,7 @@ bool nano::bootstrap_attempt_lazy::process_block_lazy (std::shared_ptr<nano::blo
 		}
 		lazy_blocks_insert (hash);
 		// Adding lazy balances for first processed block in pull
-		if (pull_blocks == 0 && (block_a->type () == nano::block_type::state || block_a->type () == nano::block_type::send))
+		if (pull_blocks == 0 && (block_a->type () >= nano::block_type::state || block_a->type () == nano::block_type::send))
 		{
 			lazy_balances.emplace (hash, block_a->balance ().number ());
 		}
@@ -300,7 +300,7 @@ void nano::bootstrap_attempt_lazy::lazy_block_state (std::shared_ptr<nano::block
 		nano::uint128_t balance (block_l->hashables.balance.number ());
 		auto const & link (block_l->hashables.link);
 		// If link is not epoch link or 0. And if block from link is unknown
-		if (!link.is_zero () && !node->ledger.is_epoch_link (link) && !lazy_blocks_processed (link) && !node->store.block_exists (transaction, link))
+		if (!link.is_zero () && !node->ledger.has_epoch_link (*block_l) && !lazy_blocks_processed (link) && !node->store.block_exists (transaction, link))
 		{
 			auto const & previous (block_l->hashables.previous);
 			// If state block previous is 0 then source block required
@@ -354,7 +354,7 @@ void nano::bootstrap_attempt_lazy::lazy_block_state_backlog_check (std::shared_p
 	{
 		auto next_block (find_state->second);
 		// Retrieve balance for previous state & send blocks
-		if (block_a->type () == nano::block_type::state || block_a->type () == nano::block_type::send)
+		if (block_a->type () >= nano::block_type::state || block_a->type () == nano::block_type::send)
 		{
 			if (block_a->balance ().number () <= next_block.balance) // balance
 			{

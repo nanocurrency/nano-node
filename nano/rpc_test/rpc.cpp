@@ -2031,6 +2031,65 @@ TEST (rpc, process_difficulty_update_flood)
 	}));
 }
 
+TEST (rpc, process_state_v2)
+{
+	nano::system system;
+	auto & node1 = *add_ipc_enabled_node (system);
+	scoped_io_thread_name_change scoped_thread_name_io;
+	nano::keypair key;
+	auto latest (node1.latest (nano::dev_genesis_key.pub));
+
+	// Invalid height
+	auto block = nano::state_block_builder ().make_block ().account (nano::dev_genesis_key.pub).previous (nano::genesis_hash).representative (nano::dev_genesis_key.pub).balance (nano::genesis_amount - 100).link (key.pub).version (nano::epoch::epoch_3).upgrade (true).signer (nano::sig_flag::self).link_interpretation (nano::link_flag::send).height (0).sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub).work (*system.work.generate (nano::genesis_hash)).build ();
+
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
+	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	rpc_config.rpc_process.ipc_port = node1.config.ipc_config.transport_tcp.port;
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "process");
+	std::string json;
+	block->serialize_json (json);
+
+	// Will fail with simple block validation (height of 0 doesn't make sense)
+	request.put ("block", json);
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		ASSERT_TIMELY (5s, response.status != 0);
+		ASSERT_EQ (200, response.status);
+		ASSERT_EQ (response.json.get<std::string> ("error"), std::error_code (nano::error_blocks::zero_height).message ());
+	}
+
+	// Make the block fail during ledger processing
+	block->hashables.height = 3;
+	block->rebuild (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub);
+	block->serialize_json (json);
+	request.put ("block", json);
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		ASSERT_TIMELY (5s, response.status != 0);
+		ASSERT_EQ (200, response.status);
+		ASSERT_EQ (response.json.get<std::string> ("error"), std::error_code (nano::error_process::height_not_successor).message ());
+	}
+
+	// Make the block valid
+	block->hashables.height = 2;
+	block->rebuild (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub);
+	block->serialize_json (json);
+	request.put ("block", json);
+
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		ASSERT_TIMELY (5s, response.status != 0);
+		ASSERT_EQ (200, response.status);
+		ASSERT_EQ (0, response.json.count ("error"));
+		ASSERT_EQ (2, node1.ledger.cache.block_count);
+	}
+}
+
 TEST (rpc, keepalive)
 {
 	nano::system system;
@@ -3135,7 +3194,7 @@ TEST (rpc, work_version_invalid)
 	boost::property_tree::ptree request;
 	request.put ("action", "work_generate");
 	request.put ("hash", hash.to_string ());
-	request.put ("version", "work_invalid");
+	request.put ("work_version", "work_invalid");
 	{
 		test_response response (request, rpc.config.port, system.io_ctx);
 		ASSERT_TIMELY (5s, response.status != 0);
@@ -4933,6 +4992,24 @@ TEST (rpc, json_block_output)
 	auto latest (node1.latest (nano::dev_genesis_key.pub));
 	nano::send_block send (latest, key.pub, 100, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node1.work_generate_blocking (latest));
 	node1.process (send);
+
+	nano::state_block_builder builder;
+	auto state_v2 = builder.make_block ()
+	                .account (nano::dev_genesis_key.pub)
+	                .previous (send.hash ())
+	                .representative (nano::dev_genesis_key.pub)
+	                .balance (99)
+	                .link (key.pub)
+	                .version (nano::epoch::epoch_3)
+	                .upgrade (true)
+	                .signer (nano::sig_flag::self)
+	                .link_interpretation (nano::link_flag::send)
+	                .height (3)
+	                .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	                .work (*system.work.generate (send.hash ()))
+	                .build ();
+	node1.process (*state_v2);
+
 	scoped_io_thread_name_change scoped_thread_name_io;
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
@@ -4941,18 +5018,37 @@ TEST (rpc, json_block_output)
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
 	rpc.start ();
-	boost::property_tree::ptree request;
-	request.put ("action", "block_info");
-	request.put ("json_block", "true");
-	request.put ("hash", send.hash ().to_string ());
-	test_response response (request, rpc.config.port, system.io_ctx);
-	ASSERT_TIMELY (5s, response.status != 0);
-	ASSERT_EQ (200, response.status);
+	{
+		boost::property_tree::ptree request;
+		request.put ("action", "block_info");
+		request.put ("json_block", "true");
+		request.put ("hash", send.hash ().to_string ());
+		test_response response (request, rpc.config.port, system.io_ctx);
+		ASSERT_TIMELY (5s, response.status != 0);
+		ASSERT_EQ (200, response.status);
 
-	// Make sure contents contains a valid JSON subtree instread of stringified json
-	bool json_error{ false };
-	nano::send_block send_from_json (json_error, response.json.get_child ("contents"));
-	ASSERT_FALSE (json_error);
+		// Make sure contents contains a valid JSON subtree instread of stringified json
+		bool json_error{ false };
+		nano::send_block send_from_json (json_error, response.json.get_child ("contents"));
+		ASSERT_FALSE (json_error);
+		ASSERT_EQ (send_from_json, send);
+	}
+
+	{
+		boost::property_tree::ptree request;
+		request.put ("action", "block_info");
+		request.put ("json_block", "true");
+		request.put ("hash", state_v2->hash ().to_string ());
+		test_response response (request, rpc.config.port, system.io_ctx);
+		ASSERT_TIMELY (5s, response.status != 0);
+		ASSERT_EQ (200, response.status);
+
+		// Make sure contents contains a valid JSON subtree instread of stringified json
+		bool json_error{ false };
+		nano::state_block state_from_json (json_error, response.json.get_child ("contents"));
+		ASSERT_FALSE (json_error);
+		ASSERT_EQ (state_from_json, *state_v2);
+	}
 }
 
 TEST (rpc, blocks_info)
@@ -5680,6 +5776,100 @@ TEST (rpc, block_create_send_epoch_v2)
 	ASSERT_EQ (state_block->sideband ().details.epoch, nano::epoch::epoch_2);
 	ASSERT_TRUE (state_block->sideband ().details.is_send);
 	ASSERT_FALSE (node->latest (key.pub).is_zero ());
+}
+
+TEST (rpc, block_create_state_v2)
+{
+	nano::system system;
+	auto node = add_ipc_enabled_node (system);
+	nano::keypair key;
+	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
+	boost::property_tree::ptree request;
+	request.put ("action", "block_create");
+	request.put ("type", "state2");
+	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
+	request.put ("account", nano::dev_genesis_key.pub.to_account ());
+	request.put ("previous", nano::genesis_hash.to_string ());
+	request.put ("representative", nano::dev_genesis_key.pub.to_account ());
+	request.put ("balance", (nano::genesis_amount - nano::Gxrb_ratio).convert_to<std::string> ());
+	request.put ("link", key.pub.to_account ());
+	request.put ("link_interpretation", "send");
+	request.put ("version", 3);
+	request.put ("signer", "self");
+	request.put ("is_upgrade", true);
+	request.put ("height", 2);
+	request.put ("work", nano::to_string_hex (*system.work.generate (nano::genesis_hash)));
+
+	scoped_io_thread_name_change scoped_thread_name_io;
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
+	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	rpc_config.rpc_process.ipc_port = node->config.ipc_config.transport_tcp.port;
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+	test_response response (request, rpc.config.port, system.io_ctx);
+	ASSERT_TIMELY (5s, response.status != 0);
+	ASSERT_EQ (200, response.status);
+	std::string state_hash (response.json.get<std::string> ("hash"));
+	auto state_text (response.json.get<std::string> ("block"));
+	std::stringstream block_stream (state_text);
+	boost::property_tree::ptree block_l;
+	boost::property_tree::read_json (block_stream, block_l);
+	auto state_block (nano::deserialize_block_json (block_l));
+	ASSERT_NE (nullptr, state_block);
+	ASSERT_EQ (nano::block_type::state2, state_block->type ());
+	ASSERT_EQ (state_hash, state_block->hash ().to_string ());
+	scoped_thread_name_io.reset ();
+	auto process_result (node->process (*state_block));
+	ASSERT_EQ (nano::process_result::progress, process_result.code);
+}
+
+TEST (rpc, block_create_state_v2_invalid)
+{
+	nano::system system;
+	auto node = add_ipc_enabled_node (system);
+	nano::keypair key;
+	nano::genesis genesis;
+	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
+	boost::property_tree::ptree request;
+	request.put ("action", "block_create");
+	request.put ("type", "state2");
+	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
+	request.put ("account", nano::dev_genesis_key.pub.to_account ());
+	request.put ("previous", genesis.hash ().to_string ());
+	request.put ("representative", nano::dev_genesis_key.pub.to_account ());
+	request.put ("balance", (nano::genesis_amount - nano::Gxrb_ratio).convert_to<std::string> ());
+	request.put ("link", key.pub.to_account ());
+	request.put ("work", nano::to_string_hex (*node->work_generate_blocking (genesis.hash ())));
+	request.put ("link_interpretation", "send");
+	request.put ("version", 4);
+	request.put ("signer", "self");
+	request.put ("is_upgrade", true);
+	request.put ("height", 2);
+	scoped_io_thread_name_change scoped_thread_name_io;
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
+	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	rpc_config.rpc_process.ipc_port = node->config.ipc_config.transport_tcp.port;
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		ASSERT_TIMELY (5s, response.status != 0);
+		ASSERT_EQ (200, response.status);
+		ASSERT_EQ (std::error_code (nano::error_rpc::bad_version).message (), response.json.get<std::string> ("error"));
+	}
+
+	request.put ("version", 3);
+	request.put ("signer", "epoch");
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		ASSERT_TIMELY (5s, response.status != 0);
+		ASSERT_EQ (200, response.status);
+		ASSERT_EQ (std::error_code (nano::error_blocks::epoch_link_flag_incorrect).message (), response.json.get<std::string> ("error"));
+	}
 }
 
 TEST (rpc, block_hash)

@@ -116,6 +116,7 @@ uint64_t nano::work_v1::threshold (nano::block_details const details_a)
 	uint64_t result{ std::numeric_limits<uint64_t>::max () };
 	switch (details_a.epoch)
 	{
+		case nano::epoch::epoch_3:
 		case nano::epoch::epoch_2:
 			result = (details_a.is_receive || details_a.is_epoch) ? network_constants.publish_thresholds.epoch_2_receive : network_constants.publish_thresholds.epoch_2;
 			break;

@@ -173,9 +173,8 @@ uint64_t nano::system::work_generate_limited (nano::block_hash const & root_a, u
 	return result;
 }
 
-std::unique_ptr<nano::state_block> nano::upgrade_epoch (nano::work_pool & pool_a, nano::ledger & ledger_a, nano::epoch epoch_a)
+std::unique_ptr<nano::state_block> nano::upgrade_epoch (nano::write_transaction const & transaction, nano::work_pool & pool_a, nano::ledger & ledger_a, nano::epoch epoch_a)
 {
-	auto transaction (ledger_a.store.tx_begin_write ());
 	auto dev_genesis_key = nano::ledger_constants (nano::nano_networks::nano_dev_network).dev_genesis_key;
 	auto account = dev_genesis_key.pub;
 	auto latest = ledger_a.latest (transaction, account);
@@ -183,15 +182,39 @@ std::unique_ptr<nano::state_block> nano::upgrade_epoch (nano::work_pool & pool_a
 
 	nano::state_block_builder builder;
 	std::error_code ec;
-	auto epoch = builder
-	             .account (dev_genesis_key.pub)
-	             .previous (latest)
-	             .balance (balance)
-	             .link (ledger_a.epoch_link (epoch_a))
-	             .representative (dev_genesis_key.pub)
-	             .sign (dev_genesis_key.prv, dev_genesis_key.pub)
-	             .work (*pool_a.generate (latest, nano::work_threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true))))
-	             .build (ec);
+	std::unique_ptr<nano::state_block> epoch;
+
+	if (epoch_a <= nano::epoch::epoch_2)
+	{
+		epoch = builder
+		        .account (dev_genesis_key.pub)
+		        .previous (latest)
+		        .balance (balance)
+		        .link (ledger_a.epoch_link (epoch_a))
+		        .representative (dev_genesis_key.pub)
+		        .sign (dev_genesis_key.prv, dev_genesis_key.pub)
+		        .work (*pool_a.generate (latest, nano::work_threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true))))
+		        .build (ec);
+	}
+	else
+	{
+		auto block = ledger_a.store.block_get (transaction, latest);
+
+		epoch = builder
+		        .account (dev_genesis_key.pub)
+		        .previous (latest)
+		        .balance (balance)
+		        .link (ledger_a.epoch_link (epoch_a))
+		        .representative (dev_genesis_key.pub)
+		        .version (epoch_a)
+		        .height (block->height () + 1)
+		        .signer (nano::sig_flag::epoch)
+		        .upgrade (true)
+		        .link_interpretation (nano::link_flag::noop)
+		        .sign (dev_genesis_key.prv, dev_genesis_key.pub)
+		        .work (*pool_a.generate (latest, nano::work_threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true))))
+		        .build (ec);
+	}
 
 	bool error{ true };
 	if (!ec && epoch)
@@ -216,7 +239,7 @@ void nano::blocks_confirm (nano::node & node_a, std::vector<std::shared_ptr<nano
 
 std::unique_ptr<nano::state_block> nano::system::upgrade_genesis_epoch (nano::node & node_a, nano::epoch const epoch_a)
 {
-	return upgrade_epoch (work, node_a.ledger, epoch_a);
+	return upgrade_epoch (node_a.store.tx_begin_write (), work, node_a.ledger, epoch_a);
 }
 
 void nano::system::deadline_set (std::chrono::duration<double, std::nano> const & delta_a)

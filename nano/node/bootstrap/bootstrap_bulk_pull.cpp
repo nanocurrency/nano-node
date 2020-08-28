@@ -151,57 +151,48 @@ void nano::bulk_pull_client::received_type ()
 		switch (type)
 		{
 			case nano::block_type::send:
-			{
 				socket_l->async_read (connection->receive_buffer, nano::send_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 					this_l->received_block (ec, size_a, type);
 				});
 				break;
-			}
 			case nano::block_type::receive:
-			{
 				socket_l->async_read (connection->receive_buffer, nano::receive_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 					this_l->received_block (ec, size_a, type);
 				});
 				break;
-			}
 			case nano::block_type::open:
-			{
 				socket_l->async_read (connection->receive_buffer, nano::open_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 					this_l->received_block (ec, size_a, type);
 				});
 				break;
-			}
 			case nano::block_type::change:
-			{
 				socket_l->async_read (connection->receive_buffer, nano::change_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 					this_l->received_block (ec, size_a, type);
 				});
 				break;
-			}
 			case nano::block_type::state:
-			{
 				socket_l->async_read (connection->receive_buffer, nano::state_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 					this_l->received_block (ec, size_a, type);
 				});
 				break;
-			}
+			case nano::block_type::state2:
+				socket_l->async_read (connection->receive_buffer, nano::state_block::size2, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
+					this_l->received_block (ec, size_a, type);
+				});
+				break;
 			case nano::block_type::not_a_block:
-			{
 				// Avoid re-using slow peers, or peers that sent the wrong blocks.
 				if (!connection->pending_stop && (expected == pull.end || (pull.count != 0 && pull.count == pull_blocks)))
 				{
 					connection->connections->pool_connection (connection);
 				}
 				break;
-			}
 			default:
-			{
 				if (connection->node->config.logging.network_packet_logging ())
 				{
 					connection->node->logger.try_log (boost::str (boost::format ("Unknown type received as block type: %1%") % static_cast<int> (type)));
 				}
 				break;
-			}
 		}
 	}
 }
@@ -211,8 +202,9 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 	if (!ec)
 	{
 		nano::bufferstream stream (connection->receive_buffer->data (), size_a);
-		std::shared_ptr<nano::block> block (nano::deserialize_block (stream, type_a));
-		if (block != nullptr && !nano::work_validate_entry (*block))
+		auto block (nano::deserialize_block (stream, type_a));
+		auto block_passed_simple_validation{ nano::simple_block_validation (block.get (), connection->node->network_params.ledger.epochs) == nano::error_blocks::none };
+		if (block_passed_simple_validation && !nano::work_validate_entry (*block))
 		{
 			auto hash (block->hash ());
 			if (connection->node->config.logging.bulk_pull_logging ())
@@ -260,7 +252,7 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 				connection->connections->pool_connection (connection);
 			}
 		}
-		else if (block == nullptr)
+		else if (!block_passed_simple_validation)
 		{
 			if (connection->node->config.logging.bulk_pull_logging ())
 			{

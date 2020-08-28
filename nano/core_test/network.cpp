@@ -340,6 +340,100 @@ TEST (network, send_insufficient_work)
 	ASSERT_EQ (2, node2.stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work));
 }
 
+TEST (network, receive_insufficient_v2)
+{
+	nano::system system (2);
+
+	// Fail via simple block validation
+	nano::state_block_builder builder;
+	auto send1 = builder.make_block ()
+	             .account (nano::genesis_account)
+	             .previous (nano::genesis_hash)
+	             .representative (nano::genesis_account)
+	             .balance (nano::genesis_amount - 100)
+	             .link (nano::genesis_account)
+	             .version (nano::epoch::epoch_3)
+	             .upgrade (true)
+	             .signer (nano::sig_flag::self)
+	             .link_interpretation (nano::link_flag::send)
+	             .height (2)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (0)
+	             .build_shared ();
+
+	auto node0 = system.nodes.front ();
+	auto vote (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 0, send1));
+	nano::confirm_ack con1 (vote);
+	auto node1 = system.nodes.back ();
+	auto channel = node0->network.find_channel (node1->network.endpoint ());
+	channel->send (con1);
+	ASSERT_TIMELY (10s, node1->stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work) == 1);
+	ASSERT_EQ (0, node0->stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work));
+}
+
+TEST (network, receive_invalid_confirm_ack_state_v2)
+{
+	nano::system system (2);
+
+	// Fail via simple block validation
+	nano::state_block_builder builder;
+	auto send1 = builder.make_block ()
+	             .account (nano::genesis_account)
+	             .previous (nano::genesis_hash)
+	             .representative (nano::genesis_account)
+	             .balance (nano::genesis_amount - 100)
+	             .link (nano::genesis_account)
+	             .version (nano::epoch::epoch_3)
+	             .upgrade (true)
+	             .signer (nano::sig_flag::self)
+	             .link_interpretation (nano::link_flag::send)
+	             .height (0) // incorrect height
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (*system.work.generate (nano::genesis_hash))
+	             .build_shared ();
+
+	auto node0 = system.nodes.front ();
+	auto vote (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 0, send1));
+	nano::confirm_ack con1 (vote);
+	auto node1 = system.nodes.back ();
+	auto channel = node0->network.find_channel (node1->network.endpoint ());
+	channel->send (con1);
+	ASSERT_TIMELY (10s, node1->stats.count (nano::stat::type::error, nano::stat::detail::invalid_block) == 1);
+	ASSERT_EQ (0, node0->stats.count (nano::stat::type::error, nano::stat::detail::invalid_block));
+}
+
+TEST (network, send_invalid_block)
+{
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_udp = false;
+	auto & node1 = *system.add_node (node_flags);
+	auto & node2 = *system.add_node (node_flags);
+
+	nano::state_block_builder builder;
+	auto block = builder.make_block ()
+	             .account (nano::dev_genesis_key.pub)
+	             .previous (nano::genesis_hash)
+	             .representative (nano::dev_genesis_key.pub)
+	             .balance (nano::genesis_amount - 100)
+	             .link (nano::dev_genesis_key.pub)
+	             .version (nano::epoch::epoch_3)
+	             .upgrade (true)
+	             .signer (nano::sig_flag::self)
+	             .link_interpretation (nano::link_flag::send)
+	             .height (0) // Incorrect height
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (*system.work.generate (nano::genesis_hash))
+	             .build_shared ();
+
+	nano::publish publish (block);
+	nano::transport::channel_udp channel (node1.network.udp_channels, node2.network.endpoint (), node1.network_params.protocol.protocol_version);
+	channel.send (publish, [](boost::system::error_code const & ec, size_t size) {});
+	ASSERT_EQ (0, node1.stats.count (nano::stat::type::error, nano::stat::detail::invalid_block));
+	ASSERT_TIMELY (10s, node2.stats.count (nano::stat::type::error, nano::stat::detail::invalid_block) != 0);
+	ASSERT_EQ (1, node2.stats.count (nano::stat::type::error, nano::stat::detail::invalid_block));
+}
+
 TEST (receivable_processor, confirm_insufficient_pos)
 {
 	nano::system system (1);
