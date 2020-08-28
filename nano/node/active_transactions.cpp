@@ -16,6 +16,8 @@ using namespace std::chrono;
 
 size_t constexpr nano::active_transactions::max_active_elections_frontier_insertion;
 
+constexpr std::chrono::minutes nano::active_transactions::expired_optimistic_election_info_cutoff;
+
 nano::active_transactions::active_transactions (nano::node & node_a, nano::confirmation_height_processor & confirmation_height_processor_a) :
 recently_dropped (node_a.stats),
 confirmation_height_processor (confirmation_height_processor_a),
