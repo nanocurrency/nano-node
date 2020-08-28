@@ -524,8 +524,7 @@ void nano::active_transactions::request_loop ()
 		}
 		lock.lock ();
 
-		// Account for the time spent in request_confirm by defining the wakeup point beforehand
-		const auto wakeup_l (std::chrono::steady_clock::now () + std::chrono::milliseconds (node.network_params.network.request_interval_ms));
+		const auto stamp_l = std::chrono::steady_clock::now ();
 
 		// frontiers_confirmation should be above update_active_multiplier to ensure new sorted roots are updated
 		if (should_do_frontiers_confirmation ())
@@ -535,9 +534,10 @@ void nano::active_transactions::request_loop ()
 		update_active_multiplier (lock);
 		request_confirm (lock);
 
-		// Sleep until all broadcasts are done, plus the remaining loop time
 		if (!stopped)
 		{
+			constexpr auto min_sleep_l = std::chrono::milliseconds (250);
+			const auto wakeup_l = std::max (stamp_l + std::chrono::milliseconds (node.network_params.network.request_interval_ms), std::chrono::steady_clock::now () + min_sleep_l);
 			condition.wait_until (lock, wakeup_l, [&wakeup_l, &stopped = stopped] { return stopped || std::chrono::steady_clock::now () >= wakeup_l; });
 		}
 	}
