@@ -312,6 +312,7 @@ private:
 	bool should_do_frontiers_confirmation () const;
 	static size_t constexpr max_priority_cementable_frontiers{ 100000 };
 	static size_t constexpr confirmed_frontiers_max_pending_size{ 10000 };
+	static std::chrono::minutes constexpr expired_optimistic_election_info_cutoff{ 30 };
 	// clang-format off
 	using ordered_cache = boost::multi_index_container<nano::inactive_cache_information,
 	mi::indexed_by<
@@ -335,6 +336,7 @@ private:
 	friend class active_transactions_confirmation_consistency_Test;
 	friend class node_deferred_dependent_elections_Test;
 	friend class active_transactions_pessimistic_elections_Test;
+	friend class frontiers_confirmation_expired_optimistic_elections_removal_Test;
 };
 
 std::unique_ptr<container_info_component> collect_container_info (active_transactions & active_transactions, const std::string & name);
