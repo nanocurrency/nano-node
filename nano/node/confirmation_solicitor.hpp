@@ -26,7 +26,7 @@ public:
 	size_t const max_confirm_req_batches;
 	/** Global maximum amount of block broadcasts */
 	size_t const max_block_broadcasts;
-	/** Maximum amount of requests to be sent per election */
+	/** Maximum amount of requests to be sent per election, bypassed if an existing vote is for a different hash*/
 	size_t const max_election_requests;
 	/** Maximum amount of directed broadcasts to be sent per election */
 	size_t const max_election_broadcasts;
