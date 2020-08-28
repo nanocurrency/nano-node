@@ -869,7 +869,7 @@ void nano::generate_cache::enable_all ()
 	epoch_2 = true;
 }
 
-bool nano::keypair::operator== (nano::keypair const& keypair_a) const
+bool nano::keypair::operator== (nano::keypair const & keypair_a) const
 {
 	return prv == keypair_a.prv && pub == keypair_a.pub;
 }
