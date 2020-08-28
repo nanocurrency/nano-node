@@ -1518,7 +1518,7 @@ TEST (active_transactions, pessimistic_elections)
 		election->confirm_once ();
 	}
 
-	ASSERT_TIMELY (3s, node.block_confirmed (send->hash ()));
+	ASSERT_TIMELY (3s, node.block_confirmed (send->hash ()) && !node.confirmation_height_processor.is_processing_added_block (send->hash ()));
 
 	nano::confirmation_height_info genesis_confirmation_height_info;
 	nano::confirmation_height_info key1_confirmation_height_info;
