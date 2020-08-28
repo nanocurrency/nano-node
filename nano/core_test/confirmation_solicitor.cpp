@@ -114,7 +114,7 @@ TEST (confirmation_solicitor, bypass_max_requests_cap)
 	send->sideband_set ({});
 	{
 		nano::lock_guard<std::mutex> guard (node2.active.mutex);
-		auto election (std::make_shared<nano::election> (node2, send, nullptr, false));
+		auto election (std::make_shared<nano::election> (node2, send, nullptr, false, nano::election_behavior::normal));
 		// Add a vote for something else, not the winner
 		for (auto const & rep : representatives)
 		{
@@ -130,7 +130,7 @@ TEST (confirmation_solicitor, bypass_max_requests_cap)
 	solicitor.prepare (representatives);
 	{
 		nano::lock_guard<std::mutex> guard (node2.active.mutex);
-		auto election (std::make_shared<nano::election> (node2, send, nullptr, false));
+		auto election (std::make_shared<nano::election> (node2, send, nullptr, false, nano::election_behavior::normal));
 		// Erase all votes
 		election->last_votes.clear ();
 		ASSERT_FALSE (solicitor.add (*election));
