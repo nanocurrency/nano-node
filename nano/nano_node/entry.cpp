@@ -72,7 +72,7 @@ int main (int argc, char * const * argv)
 		("config", boost::program_options::value<std::vector<nano::config_key_value_pair>>()->multitoken(), "Pass node configuration values. This takes precedence over any values in the configuration file. This option can be repeated multiple times.")
 		("daemon", "Start node daemon")
 		("compare_rep_weights", "Display a summarized comparison between the hardcoded bootstrap weights and representative weights from the ledger. Full comparison is output to logs")
-		("debug_block_count", "Display the number of block")
+		("debug_block_count", "Display the number of blocks")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
 		("debug_dump_frontier_unchecked_dependents", "Dump frontiers which have matching unchecked keys")
 		("debug_dump_online_weight", "Dump online_weights table")
@@ -315,10 +315,12 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_block_count"))
 		{
-			auto inactive_node = nano::default_inactive_node (data_path, vm);
-			auto node = inactive_node->node;
-			auto transaction (node->store.tx_begin_read ());
-			std::cout << boost::str (boost::format ("Block count: %1%\n") % node->store.block_count (transaction));
+			auto node_flags = nano::inactive_node_flag_defaults ();
+			nano::update_flags (node_flags, vm);
+			node_flags.generate_cache.block_count = true;
+			nano::inactive_node inactive_node (data_path, node_flags);
+			auto node = inactive_node.node;
+			std::cout << boost::str (boost::format ("Block count: %1%\n") % node->ledger.cache.block_count);
 		}
 		else if (vm.count ("debug_bootstrap_generate"))
 		{
@@ -1009,21 +1011,17 @@ int main (int argc, char * const * argv)
 				if (timer_l.after_deadline (std::chrono::seconds (15)))
 				{
 					timer_l.restart ();
-					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed (unchecked), %3% remaining") % node->ledger.cache.block_count % node->ledger.cache.unchecked_count % node->block_processor.size ()) << std::endl;
+					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed (unchecked), %3% remaining") % node->ledger.cache.block_count % node->store.unchecked_count (node->store.tx_begin_read ()) % node->block_processor.size ()) << std::endl;
 				}
 			}
-			// Waiting for final transaction commit
+
 			uint64_t block_count (0);
-			while (block_count < max_blocks + 1)
-			{
-				std::this_thread::sleep_for (std::chrono::milliseconds (10));
-				auto transaction (node->store.tx_begin_read ());
-				block_count = node->store.block_count (transaction);
-			}
+			node->block_processor.flush ();
 			auto end (std::chrono::high_resolution_clock::now ());
 			auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());
 			node->stop ();
 			std::cout << boost::str (boost::format ("%|1$ 12d| us \n%2% blocks per second\n") % time % (max_blocks * 1000000 / time));
+			release_assert (node->ledger.cache.block_count == max_blocks + 1);
 		}
 		else if (vm.count ("debug_profile_votes"))
 		{
@@ -1367,8 +1365,11 @@ int main (int argc, char * const * argv)
 		{
 			nano::timer<std::chrono::seconds> timer;
 			timer.start ();
-			auto inactive_node = nano::default_inactive_node (data_path, vm);
-			auto node = inactive_node->node;
+			auto node_flags = nano::inactive_node_flag_defaults ();
+			nano::update_flags (node_flags, vm);
+			node_flags.generate_cache.block_count = true;
+			nano::inactive_node inactive_node (data_path, node_flags);
+			auto node = inactive_node.node;
 			bool const silent (vm.count ("silent"));
 			unsigned threads_count (1);
 			auto threads_it = vm.find ("threads");
@@ -1756,8 +1757,11 @@ int main (int argc, char * const * argv)
 			size_t count (0);
 			std::deque<nano::unchecked_info> epoch_open_blocks;
 			{
-				auto inactive_node = nano::default_inactive_node (data_path, vm);
-				auto source_node = inactive_node->node;
+				auto node_flags = nano::inactive_node_flag_defaults ();
+				nano::update_flags (node_flags, vm);
+				node_flags.generate_cache.block_count = true;
+				nano::inactive_node inactive_node (data_path, node_flags);
+				auto source_node = inactive_node.node;
 				auto transaction (source_node->store.tx_begin_read ());
 				block_count = source_node->ledger.cache.block_count;
 				std::cout << boost::str (boost::format ("Performing bootstrap emulation, %1% blocks in ledger...") % block_count) << std::endl;
@@ -1806,23 +1810,19 @@ int main (int argc, char * const * argv)
 				if (timer_l.after_deadline (std::chrono::seconds (60)))
 				{
 					timer_l.restart ();
-					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed (unchecked)") % node.node->ledger.cache.block_count % node.node->ledger.cache.unchecked_count) << std::endl;
+					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed (unchecked)") % node.node->ledger.cache.block_count % node.node->store.unchecked_count (node.node->store.tx_begin_read ())) << std::endl;
 				}
 			}
-			// Waiting for final transaction commit
-			uint64_t block_count_2 (0);
-			while (block_count_2 != block_count)
-			{
-				std::this_thread::sleep_for (std::chrono::milliseconds (50));
-				auto transaction_2 (node.node->store.tx_begin_read ());
-				block_count_2 = node.node->store.block_count (transaction_2);
-			}
+
+			node.node->block_processor.flush ();
+
 			auto end (std::chrono::high_resolution_clock::now ());
 			auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());
 			auto us_in_second (1000000);
 			auto seconds (time / us_in_second);
 			nano::remove_temporary_directories ();
 			std::cout << boost::str (boost::format ("%|1$ 12d| seconds \n%2% blocks per second") % seconds % (block_count * us_in_second / time)) << std::endl;
+			release_assert (node.node->ledger.cache.block_count == block_count);
 		}
 		else if (vm.count ("debug_peers"))
 		{
@@ -1865,7 +1865,7 @@ int main (int argc, char * const * argv)
 			auto node = inactive_node->node;
 
 			auto transaction (node->store.tx_begin_read ());
-			std::vector<std::unordered_set<nano::account>> opened_account_versions (nano::normalized_epoch (nano::epoch::max));
+			std::vector<std::unordered_set<nano::account>> opened_account_versions (nano::normalized_epoch (nano::epoch::max) + 1);
 
 			// Cache the accounts in a collection to make searching quicker against unchecked keys. Group by epoch
 			for (auto i (node->store.latest_begin (transaction)), n (node->store.latest_end ()); i != n; ++i)
@@ -1878,7 +1878,7 @@ int main (int argc, char * const * argv)
 				opened_account_versions[epoch_idx].emplace (account);
 			}
 
-			// Iterate all pending blocks and collect the highest version for each unopened account
+			// Iterate all pending blocks and collect the lowest version for each unopened account
 			std::unordered_map<nano::account, std::underlying_type_t<nano::epoch>> unopened_highest_pending;
 			for (auto i (node->store.pending_begin (transaction)), n (node->store.pending_end ()); i != n; ++i)
 			{
@@ -1890,13 +1890,13 @@ int main (int argc, char * const * argv)
 				});
 				if (!exists)
 				{
-					// This is an unopened account, store the highest pending version
+					// This is an unopened account, store the lowest pending version
 					auto it = unopened_highest_pending.find (key.account);
 					auto epoch = nano::normalized_epoch (info.epoch);
 					if (it != unopened_highest_pending.cend ())
 					{
 						// Found it, compare against existing value
-						if (epoch > it->second)
+						if (epoch < it->second)
 						{
 							it->second = epoch;
 						}

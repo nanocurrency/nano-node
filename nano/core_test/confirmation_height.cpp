@@ -348,16 +348,13 @@ TEST (confirmation_height, gap_live)
 			ASSERT_EQ (nano::genesis_hash, confirmation_height_info.frontier);
 		}
 
+		// Vote and confirm all existing blocks
+		node->block_confirm (send1);
+		ASSERT_TIMELY (10s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) == 3);
+
 		// Now complete the chain where the block comes in on the live network
 		node->process_active (open1);
 		node->block_processor.flush ();
-		node->block_confirm (open1);
-		{
-			auto election = node->active.election (open1->qualified_root ());
-			ASSERT_NE (nullptr, election);
-			nano::lock_guard<std::mutex> guard (node->active.mutex);
-			election->confirm_once ();
-		}
 
 		ASSERT_TIMELY (10s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) == 6);
 

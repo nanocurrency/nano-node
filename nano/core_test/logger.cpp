@@ -121,3 +121,35 @@ TEST (logger, always_log)
 	std::getline (ss, str, '\n');
 	ASSERT_STREQ (str.c_str (), output2);
 }
+
+TEST (logger, stable_filename)
+{
+	auto path (nano::unique_path ());
+	nano::logging logging;
+
+	// Releasing allows setting up logging again
+	logging.release_file_sink ();
+
+	logging.stable_log_filename = true;
+	logging.init (path);
+
+	nano::logger_mt logger (logging.min_time_between_log_output);
+	logger.always_log ("stable1");
+
+	auto log_file = path / "log" / "node.log";
+
+#if BOOST_VERSION >= 107000
+	EXPECT_TRUE (boost::filesystem::exists (log_file));
+	// Try opening it again
+	logging.release_file_sink ();
+	logging.init (path);
+	logger.always_log ("stable2");
+#else
+	// When using Boost < 1.70 , behavior is reverted to not using the stable filename
+	EXPECT_FALSE (boost::filesystem::exists (log_file));
+#endif
+
+	// Reset the logger
+	logging.release_file_sink ();
+	nano::logging ().init (path);
+}

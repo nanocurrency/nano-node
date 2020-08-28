@@ -612,6 +612,32 @@ TEST (rpc, send_epoch_2)
 	}
 }
 
+TEST (rpc, send_ipc_random_id)
+{
+	nano::system system;
+	auto node = add_ipc_enabled_node (system);
+	scoped_io_thread_name_change scoped_thread_name_io;
+	nano::node_rpc_config node_rpc_config;
+	std::atomic<bool> got_request{ false };
+	node_rpc_config.set_request_callback ([&got_request](boost::property_tree::ptree const & request_a) {
+		EXPECT_TRUE (request_a.count ("id"));
+		got_request = true;
+	});
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
+	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	rpc_config.rpc_process.ipc_port = node->config.ipc_config.transport_tcp.port;
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "send");
+	test_response response (request, rpc.config.port, system.io_ctx);
+	ASSERT_TIMELY (10s, response.status != 0);
+	ASSERT_EQ (1, response.json.count ("error"));
+	ASSERT_EQ ("Unable to parse JSON", response.json.get<std::string> ("error"));
+	ASSERT_TRUE (got_request);
+}
+
 TEST (rpc, stop)
 {
 	nano::system system;
@@ -6332,10 +6358,8 @@ TEST (rpc, unchecked_clear)
 	node.process_active (open);
 	node.block_processor.flush ();
 	boost::property_tree::ptree request;
-	ASSERT_EQ (node.ledger.cache.unchecked_count, 1);
 	{
-		auto transaction = node.store.tx_begin_read ();
-		ASSERT_EQ (node.store.unchecked_count (transaction), 1);
+		ASSERT_EQ (node.store.unchecked_count (node.store.tx_begin_read ()), 1);
 	}
 	request.put ("action", "unchecked_clear");
 	test_response response (request, rpc.config.port, system.io_ctx);
@@ -6343,7 +6367,6 @@ TEST (rpc, unchecked_clear)
 	ASSERT_EQ (200, response.status);
 
 	ASSERT_TIMELY (10s, node.store.unchecked_count (node.store.tx_begin_read ()) == 0);
-	ASSERT_EQ (node.ledger.cache.unchecked_count, 0);
 }
 
 TEST (rpc, unopened)
@@ -6653,11 +6676,21 @@ TEST (rpc, memory_stats)
 	boost::property_tree::ptree request;
 	request.put ("action", "stats");
 	request.put ("type", "objects");
-	test_response response (request, rpc.config.port, system.io_ctx);
-	ASSERT_TIMELY (5s, response.status != 0);
-	ASSERT_EQ (200, response.status);
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		ASSERT_TIMELY (5s, response.status != 0);
+		ASSERT_EQ (200, response.status);
 
-	ASSERT_EQ (response.json.get_child ("node").get_child ("vote_uniquer").get_child ("votes").get<std::string> ("count"), "1");
+		ASSERT_EQ (response.json.get_child ("node").get_child ("vote_uniquer").get_child ("votes").get<std::string> ("count"), "1");
+	}
+
+	request.put ("type", "database");
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		ASSERT_TIMELY (5s, response.status != 0);
+		ASSERT_EQ (200, response.status);
+		ASSERT_TRUE (!response.json.empty ());
+	}
 }
 
 TEST (rpc, block_confirmed)
