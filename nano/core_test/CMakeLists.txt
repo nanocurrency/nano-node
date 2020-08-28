@@ -17,6 +17,7 @@ add_executable (core_test
 	election.cpp
 	entry.cpp
 	epochs.cpp
+	frontiers_confirmation.cpp
 	gap_cache.cpp
 	ipc.cpp
 	ledger.cpp

@@ -205,7 +205,7 @@ std::vector<nano::block_hash> nano::request_aggregator::aggregate (nano::transac
 			if (block)
 			{
 				// Attempt to vote for this block
-				if (ledger.can_vote (transaction_a, *block))
+				if (ledger.dependents_confirmed (transaction_a, *block))
 				{
 					to_generate.push_back (block->hash ());
 				}
