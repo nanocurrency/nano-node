@@ -595,7 +595,7 @@ nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> vot
 				if (existing != blocks.end ())
 				{
 					at_least_one = true;
-					result = existing->second->vote (vote_a->account, vote_a->sequence, block_hash);
+					result = existing->second->vote (vote_a->account, vote_a->timestamp, block_hash);
 				}
 				else if (recently_confirmed_by_hash.count (block_hash) == 0)
 				{
@@ -613,7 +613,7 @@ nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> vot
 				if (existing != roots.get<tag_root> ().end ())
 				{
 					at_least_one = true;
-					result = existing->election->vote (vote_a->account, vote_a->sequence, block->hash ());
+					result = existing->election->vote (vote_a->account, vote_a->timestamp, block->hash ());
 				}
 				else if (recently_confirmed_by_hash.count (block->hash ()) == 0)
 				{

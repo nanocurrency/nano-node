@@ -19,7 +19,7 @@ class vote_info final
 {
 public:
 	std::chrono::steady_clock::time_point time;
-	uint64_t sequence;
+	uint64_t timestamp;
 	nano::block_hash hash;
 };
 class election_vote_result final

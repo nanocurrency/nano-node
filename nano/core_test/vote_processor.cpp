@@ -38,8 +38,8 @@ TEST (vote_processor, codes)
 	// Invalid takes precedence
 	ASSERT_EQ (nano::vote_code::invalid, node.vote_processor.vote_blocking (vote_invalid, channel));
 
-	// A higher sequence is not a replay
-	++vote->sequence;
+	// A higher timestamp is not a replay
+	++vote->timestamp;
 	ASSERT_EQ (nano::vote_code::invalid, node.vote_processor.vote_blocking (vote, channel));
 	vote->signature = nano::sign_message (key.prv, key.pub, vote->hash ());
 	ASSERT_EQ (nano::vote_code::vote, node.vote_processor.vote_blocking (vote, channel));
@@ -60,7 +60,7 @@ TEST (vote_processor, flush)
 	{
 		auto new_vote (std::make_shared<nano::vote> (*vote));
 		node.vote_processor.vote (new_vote, channel);
-		++vote->sequence; // invalidates votes without signing again
+		++vote->timestamp; // invalidates votes without signing again
 	}
 	node.vote_processor.flush ();
 	ASSERT_TRUE (node.vote_processor.empty ());
@@ -215,7 +215,7 @@ TEST (vote_processor, no_broadcast_local)
 	ASSERT_NE (nullptr, election);
 	auto existing (election->last_votes.find (nano::dev_genesis_key.pub));
 	ASSERT_NE (election->last_votes.end (), existing);
-	ASSERT_EQ (vote->sequence, existing->second.sequence);
+	ASSERT_EQ (vote->timestamp, existing->second.timestamp);
 	// Ensure the vote, from a local representative, was not broadcast on processing - it should be flooded on generation instead
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));
@@ -247,7 +247,7 @@ TEST (vote_processor, no_broadcast_local)
 	ASSERT_NE (nullptr, election2);
 	auto existing2 (election2->last_votes.find (nano::dev_genesis_key.pub));
 	ASSERT_NE (election2->last_votes.end (), existing2);
-	ASSERT_EQ (vote2->sequence, existing2->second.sequence);
+	ASSERT_EQ (vote2->timestamp, existing2->second.timestamp);
 	// Ensure the vote was broadcast
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
 	ASSERT_EQ (2, node.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));
@@ -280,7 +280,7 @@ TEST (vote_processor, no_broadcast_local)
 	ASSERT_NE (nullptr, election3);
 	auto existing3 (election3->last_votes.find (nano::dev_genesis_key.pub));
 	ASSERT_NE (election3->last_votes.end (), existing3);
-	ASSERT_EQ (vote3->sequence, existing3->second.sequence);
+	ASSERT_EQ (vote3->timestamp, existing3->second.timestamp);
 	// Ensure the vote wass not broadcasst
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
 	ASSERT_EQ (3, node.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));
