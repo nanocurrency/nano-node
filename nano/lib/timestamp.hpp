@@ -75,7 +75,7 @@ public:
 
 private:
 	std::atomic<uint64_t> next{ 0 };
-	static int constexpr time_bits{ 44 }; // 34 bits for seconds = 17,179,869,184 ~ 545 years.
+	static int constexpr time_bits{ 44 }; // 44 bits for milliseconds = 17,592,186,044,416 ~ 545 years.
 	static int constexpr count_bits{ 20 }; // 20-bit monotonic counter, 1,048,576 samples per ms
 	static uint64_t constexpr time_mask{ ~0ULL << count_bits }; // Portion associated with timer
 	static uint64_t constexpr count_mask{ ~0ULL >> time_bits }; // Portion associated with counter
