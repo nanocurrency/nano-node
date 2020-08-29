@@ -2677,23 +2677,9 @@ TEST (node, local_votes_cache)
 	nano::confirm_req message2 (send2);
 	auto channel (node.network.udp_channels.create (node.network.endpoint ()));
 	node.network.process_message (message1, channel);
-	auto wait_vote_sequence = [&node, &system](unsigned sequence) {
-		std::shared_ptr<nano::vote> current_vote;
-		system.deadline_set (5s);
-		while (current_vote == nullptr || current_vote->sequence < sequence)
-		{
-			{
-				nano::lock_guard<std::mutex> lock (node.store.get_cache_mutex ());
-				auto transaction (node.store.tx_begin_read ());
-				current_vote = node.store.vote_current (transaction, nano::test_genesis_key.pub);
-			}
-			ASSERT_NO_ERROR (system.poll ());
-		}
-		ASSERT_EQ (sequence, current_vote->sequence);
-	};
-	wait_vote_sequence (1);
+	ASSERT_TIMELY (3s, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes) == 1);
 	node.network.process_message (message2, channel);
-	wait_vote_sequence (2);
+	ASSERT_TIMELY (3s, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes) == 2);
 	for (auto i (0); i < 100; ++i)
 	{
 		node.network.process_message (message1, channel);
@@ -2722,7 +2708,7 @@ TEST (node, local_votes_cache)
 	{
 		ASSERT_NO_ERROR (system.poll (node.aggregator.max_delay));
 	}
-	wait_vote_sequence (3);
+	ASSERT_TIMELY (3s, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes) == 3);
 	ASSERT_FALSE (node.history.votes (send1->root (), send1->hash ()).empty ());
 	ASSERT_FALSE (node.history.votes (send2->root (), send2->hash ()).empty ());
 	ASSERT_FALSE (node.history.votes (send3->root (), send3->hash ()).empty ());
@@ -2795,13 +2781,7 @@ TEST (node, local_votes_cache_generate_new_vote)
 	ASSERT_EQ (1, votes1.size ());
 	ASSERT_EQ (1, votes1[0]->blocks.size ());
 	ASSERT_EQ (genesis.open->hash (), boost::get<nano::block_hash> (votes1[0]->blocks[0]));
-	{
-		nano::lock_guard<std::mutex> lock (node.store.get_cache_mutex ());
-		auto transaction (node.store.tx_begin_read ());
-		auto current_vote (node.store.vote_current (transaction, nano::test_genesis_key.pub));
-		ASSERT_EQ (current_vote->sequence, 1);
-		ASSERT_EQ (current_vote, votes1[0]);
-	}
+	ASSERT_TIMELY (3s, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes) == 1);
 	auto send1 = nano::state_block_builder ()
 	             .account (nano::test_genesis_key.pub)
 	             .previous (genesis.hash ())
@@ -2820,13 +2800,7 @@ TEST (node, local_votes_cache_generate_new_vote)
 	auto votes2 (node.history.votes (send1->root (), send1->hash ()));
 	ASSERT_EQ (1, votes2.size ());
 	ASSERT_EQ (1, votes2[0]->blocks.size ());
-	{
-		nano::lock_guard<std::mutex> lock (node.store.get_cache_mutex ());
-		auto transaction (node.store.tx_begin_read ());
-		auto current_vote (node.store.vote_current (transaction, nano::test_genesis_key.pub));
-		ASSERT_EQ (current_vote->sequence, 2);
-		ASSERT_EQ (current_vote, votes2[0]);
-	}
+	ASSERT_TIMELY (3s, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes) == 2);
 	ASSERT_FALSE (node.history.votes (genesis.open->root (), genesis.open->hash ()).empty ());
 	ASSERT_FALSE (node.history.votes (send1->root (), send1->hash ()).empty ());
 	// First generated + again cached + new generated
