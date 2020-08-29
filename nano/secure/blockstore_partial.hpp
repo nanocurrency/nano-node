@@ -276,22 +276,18 @@ public:
 		return result;
 	}
 
-	std::shared_ptr<nano::vote> vote_generate (nano::transaction const & transaction_a, nano::account const & account_a, nano::raw_key const & key_a, std::shared_ptr<nano::block> block_a) override
+	std::shared_ptr<nano::vote> vote_generate (nano::transaction const & transaction_a, uint64_t timestamp_a, nano::account const & account_a, nano::raw_key const & key_a, std::shared_ptr<nano::block> block_a) override
 	{
+		auto result = std::make_shared<nano::vote> (account_a, key_a, timestamp_a, block_a);
 		nano::lock_guard<std::mutex> lock (cache_mutex);
-		auto result (vote_current (transaction_a, account_a));
-		uint64_t sequence ((result ? result->sequence : 0) + 1);
-		result = std::make_shared<nano::vote> (account_a, key_a, sequence, block_a);
 		vote_cache_l1[account_a] = result;
 		return result;
 	}
 
-	std::shared_ptr<nano::vote> vote_generate (nano::transaction const & transaction_a, nano::account const & account_a, nano::raw_key const & key_a, std::vector<nano::block_hash> blocks_a) override
+	std::shared_ptr<nano::vote> vote_generate (nano::transaction const & transaction_a, uint64_t timestamp_a, nano::account const & account_a, nano::raw_key const & key_a, std::vector<nano::block_hash> blocks_a) override
 	{
+		auto result = std::make_shared<nano::vote> (account_a, key_a, timestamp_a, blocks_a);
 		nano::lock_guard<std::mutex> lock (cache_mutex);
-		auto result (vote_current (transaction_a, account_a));
-		uint64_t sequence ((result ? result->sequence : 0) + 1);
-		result = std::make_shared<nano::vote> (account_a, key_a, sequence, blocks_a);
 		vote_cache_l1[account_a] = result;
 		return result;
 	}

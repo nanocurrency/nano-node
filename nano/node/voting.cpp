@@ -98,8 +98,9 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (na
 	return composite;
 }
 
-nano::vote_generator::vote_generator (nano::node_config const & config_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::local_vote_history & history_a, nano::network & network_a) :
+nano::vote_generator::vote_generator (nano::timestamp_generator & timestamps_a, nano::node_config const & config_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::local_vote_history & history_a, nano::network & network_a) :
 config (config_a),
+timestamps{ timestamps_a },
 ledger (ledger_a),
 wallets (wallets_a),
 vote_processor (vote_processor_a),
@@ -158,7 +159,7 @@ void nano::vote_generator::send (nano::unique_lock<std::mutex> & lock_a)
 	{
 		auto transaction (ledger.store.tx_begin_read ());
 		wallets.foreach_representative ([this, &hashes_l, &roots, &transaction](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
-			auto vote (this->ledger.store.vote_generate (transaction, pub_a, prv_a, hashes_l));
+			auto vote (this->ledger.store.vote_generate (transaction, timestamps.now (), pub_a, prv_a, hashes_l));
 			for (size_t i (0), n (hashes_l.size ()); i != n; ++i)
 			{
 				this->history.add (roots[i], hashes_l[i], vote);

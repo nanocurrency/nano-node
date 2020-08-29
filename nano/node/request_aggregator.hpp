@@ -22,6 +22,7 @@ class ledger;
 class local_vote_history;
 class node_config;
 class stat;
+class timestamp_generator;
 class wallets;
 /**
  * Pools together confirmation requests, separately for each endpoint.
@@ -59,7 +60,7 @@ class request_aggregator final
 
 public:
 	request_aggregator () = delete;
-	request_aggregator (nano::network_constants const &, nano::node_config const & config, nano::stat & stats_a, nano::local_vote_history &, nano::ledger &, nano::wallets &, nano::active_transactions &);
+	request_aggregator (nano::timestamp_generator & timestamps_a, nano::network_constants const &, nano::node_config const & config, nano::stat & stats_a, nano::local_vote_history &, nano::ledger &, nano::wallets &, nano::active_transactions &);
 
 	/** Add a new request by \p channel_a for hashes \p hashes_roots_a */
 	void add (std::shared_ptr<nano::transport::channel> & channel_a, std::vector<std::pair<nano::block_hash, nano::root>> const & hashes_roots_a);
@@ -81,6 +82,7 @@ private:
 	/** Generate votes from \p hashes_a and send to \p channel_a **/
 	void generate (nano::transaction const &, std::vector<std::pair<nano::root, nano::block_hash>> const & hashes_a, std::shared_ptr<nano::transport::channel> & channel_a) const;
 
+	nano::timestamp_generator & timestamps;
 	nano::stat & stats;
 	nano::local_vote_history & local_votes;
 	nano::ledger & ledger;

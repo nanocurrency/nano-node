@@ -50,7 +50,7 @@ TEST (timestamp, parallel)
 	std::vector<std::thread> threads;
 	for (auto i (0); i < 100; ++i)
 	{
-		threads.push_back (std::thread ([&timestamps, &generator, &mutex] () {
+		threads.push_back (std::thread ([&timestamps, &generator, &mutex]() {
 			for (auto i (0); i < 1000; ++i)
 			{
 				auto stamp (generator.now ());

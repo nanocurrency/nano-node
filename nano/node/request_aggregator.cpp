@@ -1,5 +1,6 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/threading.hpp>
+#include <nano/lib/timestamp.hpp>
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/network.hpp>
@@ -11,10 +12,11 @@
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/ledger.hpp>
 
-nano::request_aggregator::request_aggregator (nano::network_constants const & network_constants_a, nano::node_config const & config_a, nano::stat & stats_a, nano::local_vote_history & history_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::active_transactions & active_a) :
+nano::request_aggregator::request_aggregator (nano::timestamp_generator & timestamps_a, nano::network_constants const & network_constants_a, nano::node_config const & config_a, nano::stat & stats_a, nano::local_vote_history & history_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::active_transactions & active_a) :
 max_delay (network_constants_a.is_test_network () ? 50 : 300),
 small_delay (network_constants_a.is_test_network () ? 10 : 50),
 max_channel_requests (config_a.max_queued_requests),
+timestamps{ timestamps_a },
 stats (stats_a),
 local_votes (history_a),
 ledger (ledger_a),
@@ -256,7 +258,7 @@ void nano::request_aggregator::generate (nano::transaction const & transaction_a
 			hashes_l.push_back (i->second);
 		}
 		wallets.foreach_representative ([this, &generated_l, &hashes_l, &roots, &channel_a, &transaction_a](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
-			auto vote (this->ledger.store.vote_generate (transaction_a, pub_a, prv_a, hashes_l));
+			auto vote (this->ledger.store.vote_generate (transaction_a, timestamps.now (), pub_a, prv_a, hashes_l));
 			++generated_l;
 			nano::confirm_ack confirm (vote);
 			channel_a->send (confirm);

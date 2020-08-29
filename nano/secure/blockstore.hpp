@@ -642,8 +642,8 @@ public:
 	// Return latest vote for an account from store
 	virtual std::shared_ptr<nano::vote> vote_get (nano::transaction const &, nano::account const &) = 0;
 	// Populate vote with the next sequence number
-	virtual std::shared_ptr<nano::vote> vote_generate (nano::transaction const &, nano::account const &, nano::raw_key const &, std::shared_ptr<nano::block>) = 0;
-	virtual std::shared_ptr<nano::vote> vote_generate (nano::transaction const &, nano::account const &, nano::raw_key const &, std::vector<nano::block_hash>) = 0;
+	virtual std::shared_ptr<nano::vote> vote_generate (nano::transaction const &, uint64_t timestamp_a, nano::account const &, nano::raw_key const &, std::shared_ptr<nano::block>) = 0;
+	virtual std::shared_ptr<nano::vote> vote_generate (nano::transaction const &, uint64_t timestamp_a, nano::account const &, nano::raw_key const &, std::vector<nano::block_hash>) = 0;
 	// Return either vote or the stored vote with a higher sequence number
 	virtual std::shared_ptr<nano::vote> vote_max (nano::transaction const &, std::shared_ptr<nano::vote>) = 0;
 	// Return latest vote for an account considering the vote cache

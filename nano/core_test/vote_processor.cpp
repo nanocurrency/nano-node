@@ -208,7 +208,7 @@ TEST (vote_processor, no_broadcast_local)
 	ASSERT_TRUE (node.wallets.reps ().exists (nano::test_genesis_key.pub));
 	ASSERT_FALSE (node.wallets.reps ().have_half_rep ());
 	// Process a vote
-	auto vote (node.store.vote_generate (node.store.tx_begin_read (), nano::test_genesis_key.pub, nano::test_genesis_key.prv, { send->hash () }));
+	auto vote (node.store.vote_generate (node.store.tx_begin_read (), node.timestamps.now (), nano::test_genesis_key.pub, nano::test_genesis_key.prv, { send->hash () }));
 	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote));
 	// Make sure the vote was processed
 	auto election (node.active.election (send->qualified_root ()));
@@ -240,7 +240,7 @@ TEST (vote_processor, no_broadcast_local)
 	ASSERT_EQ (node.config.vote_minimum, node.weight (nano::test_genesis_key.pub));
 	node.block_confirm (send2);
 	// Process a vote
-	auto vote2 (node.store.vote_generate (node.store.tx_begin_read (), nano::test_genesis_key.pub, nano::test_genesis_key.prv, { send2->hash () }));
+	auto vote2 (node.store.vote_generate (node.store.tx_begin_read (), node.timestamps.now (), nano::test_genesis_key.pub, nano::test_genesis_key.prv, { send2->hash () }));
 	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote2));
 	// Make sure the vote was processed
 	auto election2 (node.active.election (send2->qualified_root ()));
@@ -273,7 +273,7 @@ TEST (vote_processor, no_broadcast_local)
 	ASSERT_TRUE (node.wallets.reps ().exists (nano::test_genesis_key.pub));
 	ASSERT_TRUE (node.wallets.reps ().have_half_rep ());
 	// Process a vote
-	auto vote3 (node.store.vote_generate (node.store.tx_begin_read (), nano::test_genesis_key.pub, nano::test_genesis_key.prv, { open->hash () }));
+	auto vote3 (node.store.vote_generate (node.store.tx_begin_read (), node.timestamps.now (), nano::test_genesis_key.pub, nano::test_genesis_key.prv, { open->hash () }));
 	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote3));
 	// Make sure the vote was processed
 	auto election3 (node.active.election (open->qualified_root ()));
