@@ -159,7 +159,7 @@ void nano::vote_generator::send (nano::unique_lock<std::mutex> & lock_a)
 	{
 		auto transaction (ledger.store.tx_begin_read ());
 		wallets.foreach_representative ([this, &hashes_l, &roots, &transaction](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
-			auto vote (this->ledger.store.vote_generate (transaction, timestamps.now (), pub_a, prv_a, hashes_l));
+			auto vote = std::make_shared<nano::vote> (pub_a, prv_a, timestamps.now (), hashes_l);
 			for (size_t i (0), n (hashes_l.size ()); i != n; ++i)
 			{
 				this->history.add (roots[i], hashes_l[i], vote);

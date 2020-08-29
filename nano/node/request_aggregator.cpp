@@ -258,7 +258,7 @@ void nano::request_aggregator::generate (nano::transaction const & transaction_a
 			hashes_l.push_back (i->second);
 		}
 		wallets.foreach_representative ([this, &generated_l, &hashes_l, &roots, &channel_a, &transaction_a](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
-			auto vote (this->ledger.store.vote_generate (transaction_a, timestamps.now (), pub_a, prv_a, hashes_l));
+			auto vote = std::make_shared<nano::vote> (pub_a, prv_a, timestamps.now (), hashes_l);
 			++generated_l;
 			nano::confirm_ack confirm (vote);
 			channel_a->send (confirm);

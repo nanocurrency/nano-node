@@ -249,18 +249,6 @@ public:
 		unchecked_put (transaction_a, key, info);
 	}
 
-	std::shared_ptr<nano::vote> vote_generate (nano::transaction const & transaction_a, uint64_t timestamp_a, nano::account const & account_a, nano::raw_key const & key_a, std::shared_ptr<nano::block> block_a) override
-	{
-		auto result = std::make_shared<nano::vote> (account_a, key_a, timestamp_a, block_a);
-		return result;
-	}
-
-	std::shared_ptr<nano::vote> vote_generate (nano::transaction const & transaction_a, uint64_t timestamp_a, nano::account const & account_a, nano::raw_key const & key_a, std::vector<nano::block_hash> blocks_a) override
-	{
-		auto result = std::make_shared<nano::vote> (account_a, key_a, timestamp_a, blocks_a);
-		return result;
-	}
-
 	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_end () const override
 	{
 		return nano::store_iterator<nano::unchecked_key, nano::unchecked_info> (nullptr);

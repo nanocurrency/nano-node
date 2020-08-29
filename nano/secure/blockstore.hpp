@@ -638,10 +638,6 @@ public:
 	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_end () const = 0;
 	virtual size_t unchecked_count (nano::transaction const &) = 0;
 
-	// Populate vote with the next sequence number
-	virtual std::shared_ptr<nano::vote> vote_generate (nano::transaction const &, uint64_t timestamp_a, nano::account const &, nano::raw_key const &, std::shared_ptr<nano::block>) = 0;
-	virtual std::shared_ptr<nano::vote> vote_generate (nano::transaction const &, uint64_t timestamp_a, nano::account const &, nano::raw_key const &, std::vector<nano::block_hash>) = 0;
-
 	virtual void online_weight_put (nano::write_transaction const &, uint64_t, nano::amount const &) = 0;
 	virtual void online_weight_del (nano::write_transaction const &, uint64_t) = 0;
 	virtual nano::store_iterator<uint64_t, nano::amount> online_weight_begin (nano::transaction const &) const = 0;
