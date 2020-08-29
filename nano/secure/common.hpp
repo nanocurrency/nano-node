@@ -372,13 +372,15 @@ public:
 	ledger_constants (nano::network_constants & network_constants);
 	ledger_constants (nano::nano_networks network_a);
 	nano::keypair zero_key;
-	nano::keypair test_genesis_key;
-	nano::account nano_test_account;
+	nano::keypair dev_genesis_key;
+	nano::account nano_dev_account;
 	nano::account nano_beta_account;
 	nano::account nano_live_account;
-	std::string nano_test_genesis;
+	nano::account nano_test_account;
+	std::string nano_dev_genesis;
 	std::string nano_beta_genesis;
 	std::string nano_live_genesis;
+	std::string nano_test_genesis;
 	nano::account genesis_account;
 	std::string genesis_block;
 	nano::block_hash genesis_hash;
@@ -490,6 +492,7 @@ public:
 	bool unchecked_count = true;
 	bool account_count = true;
 	bool epoch_2 = true;
+	bool block_count = true;
 
 	void enable_all ();
 };
@@ -501,7 +504,6 @@ public:
 	nano::rep_weights rep_weights;
 	std::atomic<uint64_t> cemented_count{ 0 };
 	std::atomic<uint64_t> block_count{ 0 };
-	std::atomic<uint64_t> unchecked_count{ 0 };
 	std::atomic<uint64_t> account_count{ 0 };
 	std::atomic<bool> epoch_2_started{ false };
 };

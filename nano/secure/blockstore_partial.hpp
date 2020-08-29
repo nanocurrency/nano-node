@@ -30,7 +30,7 @@ public:
 	{
 		auto hash_l (genesis_a.hash ());
 		debug_assert (latest_begin (transaction_a) == latest_end ());
-		genesis_a.open->sideband_set (nano::block_sideband (network_params.ledger.genesis_account, 0, network_params.ledger.genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false));
+		genesis_a.open->sideband_set (nano::block_sideband (network_params.ledger.genesis_account, 0, network_params.ledger.genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
 		block_put (transaction_a, hash_l, *genesis_a.open);
 		++ledger_cache_a.block_count;
 		confirmation_height_put (transaction_a, network_params.ledger.genesis_account, nano::confirmation_height_info{ 1, genesis_a.hash () });
@@ -274,6 +274,11 @@ public:
 		return nano::store_iterator<nano::account, nano::account_info> (nullptr);
 	}
 
+	nano::store_iterator<nano::block_hash, std::shared_ptr<nano::block>> blocks_end () const override
+	{
+		return nano::store_iterator<nano::block_hash, std::shared_ptr<nano::block>> (nullptr);
+	}
+
 	nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_end () override
 	{
 		return nano::store_iterator<nano::account, nano::confirmation_height_info> (nullptr);
@@ -302,7 +307,6 @@ public:
 
 	nano::epoch block_version (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override
 	{
-		nano::db_val<Val> value;
 		auto block = block_get (transaction_a, hash_a);
 		if (block && block->type () == nano::block_type::state)
 		{
@@ -551,6 +555,11 @@ public:
 		return make_iterator<nano::account, nano::account_info> (transaction_a, tables::accounts);
 	}
 
+	nano::store_iterator<nano::block_hash, std::shared_ptr<nano::block>> blocks_begin (nano::transaction const & transaction_a) const override
+	{
+		return make_iterator<nano::block_hash, std::shared_ptr<nano::block>> (transaction_a, tables::blocks);
+	}
+
 	nano::store_iterator<nano::pending_key, nano::pending_info> pending_begin (nano::transaction const & transaction_a, nano::pending_key const & key_a) override
 	{
 		return make_iterator<nano::pending_key, nano::pending_info> (transaction_a, tables::pending, nano::db_val<Val> (key_a));
@@ -633,9 +642,9 @@ protected:
 		return static_cast<nano::block_type> ((reinterpret_cast<uint8_t const *> (data_a))[0]);
 	}
 
-	size_t count (nano::transaction const & transaction_a, std::initializer_list<tables> dbs_a) const
+	uint64_t count (nano::transaction const & transaction_a, std::initializer_list<tables> dbs_a) const
 	{
-		size_t total_count = 0;
+		uint64_t total_count = 0;
 		for (auto db : dbs_a)
 		{
 			total_count += count (transaction_a, db);
@@ -658,7 +667,7 @@ protected:
 		return static_cast<Derived_Store &> (*this).del (transaction_a, table_a, key_a);
 	}
 
-	virtual size_t count (nano::transaction const & transaction_a, tables table_a) const = 0;
+	virtual uint64_t count (nano::transaction const & transaction_a, tables table_a) const = 0;
 	virtual int drop (nano::write_transaction const & transaction_a, tables table_a) = 0;
 	virtual bool not_found (int status) const = 0;
 	virtual bool success (int status) const = 0;
