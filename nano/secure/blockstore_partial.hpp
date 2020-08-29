@@ -22,8 +22,6 @@ public:
 
 	friend class nano::block_predecessor_set<Val, Derived_Store>;
 
-	std::mutex cache_mutex;
-
 	/**
 	 * If using a different store version than the latest then you may need
 	 * to modify some of the objects in the store to be appropriate for the version before an upgrade.
@@ -251,68 +249,21 @@ public:
 		unchecked_put (transaction_a, key, info);
 	}
 
-	std::shared_ptr<nano::vote> vote_current (nano::transaction const & transaction_a, nano::account const & account_a) override
-	{
-		debug_assert (!cache_mutex.try_lock ());
-		std::shared_ptr<nano::vote> result;
-		auto existing (vote_cache_l1.find (account_a));
-		auto have_existing (true);
-		if (existing == vote_cache_l1.end ())
-		{
-			existing = vote_cache_l2.find (account_a);
-			if (existing == vote_cache_l2.end ())
-			{
-				have_existing = false;
-			}
-		}
-		if (have_existing)
-		{
-			result = existing->second;
-		}
-		else
-		{
-			result = vote_get (transaction_a, account_a);
-		}
-		return result;
-	}
-
 	std::shared_ptr<nano::vote> vote_generate (nano::transaction const & transaction_a, uint64_t timestamp_a, nano::account const & account_a, nano::raw_key const & key_a, std::shared_ptr<nano::block> block_a) override
 	{
 		auto result = std::make_shared<nano::vote> (account_a, key_a, timestamp_a, block_a);
-		nano::lock_guard<std::mutex> lock (cache_mutex);
-		vote_cache_l1[account_a] = result;
 		return result;
 	}
 
 	std::shared_ptr<nano::vote> vote_generate (nano::transaction const & transaction_a, uint64_t timestamp_a, nano::account const & account_a, nano::raw_key const & key_a, std::vector<nano::block_hash> blocks_a) override
 	{
 		auto result = std::make_shared<nano::vote> (account_a, key_a, timestamp_a, blocks_a);
-		nano::lock_guard<std::mutex> lock (cache_mutex);
-		vote_cache_l1[account_a] = result;
-		return result;
-	}
-
-	std::shared_ptr<nano::vote> vote_max (nano::transaction const & transaction_a, std::shared_ptr<nano::vote> vote_a) override
-	{
-		nano::lock_guard<std::mutex> lock (cache_mutex);
-		auto current (vote_current (transaction_a, vote_a->account));
-		auto result (vote_a);
-		if (current != nullptr && current->sequence > result->sequence)
-		{
-			result = current;
-		}
-		vote_cache_l1[vote_a->account] = result;
 		return result;
 	}
 
 	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_end () const override
 	{
 		return nano::store_iterator<nano::unchecked_key, nano::unchecked_info> (nullptr);
-	}
-
-	nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> vote_end () override
-	{
-		return nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> (nullptr);
 	}
 
 	nano::store_iterator<nano::endpoint_key, nano::no_value> peers_end () const override
@@ -338,11 +289,6 @@ public:
 	nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_end () override
 	{
 		return nano::store_iterator<nano::account, nano::confirmation_height_info> (nullptr);
-	}
-
-	std::mutex & get_cache_mutex () override
-	{
-		return cache_mutex;
 	}
 
 	void block_del (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a) override
@@ -450,40 +396,6 @@ public:
 	{
 		auto status (del (transaction_a, tables::unchecked, key_a));
 		release_assert (success (status));
-	}
-
-	std::shared_ptr<nano::vote> vote_get (nano::transaction const & transaction_a, nano::account const & account_a) override
-	{
-		nano::db_val<Val> value;
-		auto status (get (transaction_a, tables::vote, nano::db_val<Val> (account_a), value));
-		release_assert (success (status) || not_found (status));
-		if (success (status))
-		{
-			std::shared_ptr<nano::vote> result (value);
-			debug_assert (result != nullptr);
-			return result;
-		}
-		return nullptr;
-	}
-
-	void flush (nano::write_transaction const & transaction_a) override
-	{
-		{
-			nano::lock_guard<std::mutex> lock (cache_mutex);
-			vote_cache_l1.swap (vote_cache_l2);
-			vote_cache_l1.clear ();
-		}
-		for (auto i (vote_cache_l2.begin ()), n (vote_cache_l2.end ()); i != n; ++i)
-		{
-			std::vector<uint8_t> vector;
-			{
-				nano::vectorstream stream (vector);
-				i->second->serialize (stream);
-			}
-			nano::db_val<Val> value (vector.size (), vector.data ());
-			auto status1 (put (transaction_a, tables::vote, i->first, value));
-			release_assert (success (status1));
-		}
 	}
 
 	void online_weight_put (nano::write_transaction const & transaction_a, uint64_t time_a, nano::amount const & amount_a) override
@@ -671,11 +583,6 @@ public:
 		return make_iterator<nano::unchecked_key, nano::unchecked_info> (transaction_a, tables::unchecked, nano::db_val<Val> (key_a));
 	}
 
-	nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> vote_begin (nano::transaction const & transaction_a) override
-	{
-		return make_iterator<nano::account, std::shared_ptr<nano::vote>> (transaction_a, tables::vote);
-	}
-
 	nano::store_iterator<uint64_t, nano::amount> online_weight_begin (nano::transaction const & transaction_a) const override
 	{
 		return make_iterator<uint64_t, nano::amount> (transaction_a, tables::online_weight);
@@ -705,8 +612,6 @@ public:
 
 protected:
 	nano::network_params network_params;
-	std::unordered_map<nano::account, std::shared_ptr<nano::vote>> vote_cache_l1;
-	std::unordered_map<nano::account, std::shared_ptr<nano::vote>> vote_cache_l2;
 	int const version{ 19 };
 
 	template <typename Key, typename Value>

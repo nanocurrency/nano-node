@@ -2370,40 +2370,6 @@ TEST (node, send_callback)
 	ASSERT_EQ (std::numeric_limits<nano::uint128_t>::max () - node0.config.receive_minimum.number (), node0.balance (nano::test_genesis_key.pub));
 }
 
-// Check that votes get replayed back to nodes if they sent an old sequence number.
-// This helps representatives continue from their last sequence number if their node is reinitialized and the old sequence number is lost
-TEST (node, vote_replay)
-{
-	nano::system system (1);
-	auto & node1 (*system.nodes[0]);
-	nano::keypair key;
-	nano::genesis genesis;
-	for (auto i (0); i < 11000; ++i)
-	{
-		auto transaction (node1.store.tx_begin_read ());
-		auto vote (node1.store.vote_generate (transaction, node1.timestamps.now (), nano::test_genesis_key.pub, nano::test_genesis_key.prv, genesis.open));
-	}
-	auto node2 = system.add_node ();
-	{
-		auto transaction (node2->store.tx_begin_read ());
-		nano::lock_guard<std::mutex> lock (node2->store.get_cache_mutex ());
-		auto vote (node2->store.vote_current (transaction, nano::test_genesis_key.pub));
-		ASSERT_EQ (nullptr, vote);
-	}
-	system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
-	auto done (false);
-	system.deadline_set (20s);
-	while (!done)
-	{
-		auto ec = system.poll ();
-		auto transaction (node2->store.tx_begin_read ());
-		nano::lock_guard<std::mutex> lock (node2->store.get_cache_mutex ());
-		auto vote (node2->store.vote_current (transaction, nano::test_genesis_key.pub));
-		done = vote && (vote->sequence >= 10000);
-		ASSERT_NO_ERROR (ec);
-	}
-}
-
 TEST (node, balance_observer)
 {
 	nano::system system (1);

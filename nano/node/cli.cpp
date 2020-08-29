@@ -69,7 +69,6 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("wallet_remove", "Remove <account> from <wallet>")
 	("wallet_representative_get", "Prints default representative for <wallet>")
 	("wallet_representative_set", "Set <account> as default representative for <wallet>")
-	("vote_dump", "Dump most recent votes from representatives")
 	("account", boost::program_options::value<std::string> (), "Defines <account> for other commands")
 	("file", boost::program_options::value<std::string> (), "Defines <file> for other commands")
 	("key", boost::program_options::value<std::string> (), "Defines the <key> for other commands, hex")
@@ -1192,17 +1191,6 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		{
 			std::cerr << "wallet_representative_set requires one <wallet> option\n";
 			ec = nano::error_cli::invalid_arguments;
-		}
-	}
-	else if (vm.count ("vote_dump") == 1)
-	{
-		auto inactive_node = nano::default_inactive_node (data_path, vm);
-		auto node = inactive_node->node;
-		auto transaction (node->store.tx_begin_read ());
-		for (auto i (node->store.vote_begin (transaction)), n (node->store.vote_end ()); i != n; ++i)
-		{
-			auto const & vote (i->second);
-			std::cerr << boost::str (boost::format ("%1%\n") % vote->to_json ());
 		}
 	}
 	else

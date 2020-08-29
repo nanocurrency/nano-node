@@ -119,7 +119,6 @@ public:
 	nano::uint128_t minimum_principal_weight (nano::uint128_t const &);
 	void ongoing_rep_calculation ();
 	void ongoing_bootstrap ();
-	void ongoing_store_flush ();
 	void ongoing_peer_store ();
 	void ongoing_unchecked_cleanup ();
 	void backup_wallet ();

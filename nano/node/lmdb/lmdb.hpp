@@ -153,12 +153,6 @@ public:
 	MDB_dbi unchecked{ 0 };
 
 	/**
-	 * Highest vote observed for account.
-	 * nano::account -> uint64_t
-	 */
-	MDB_dbi vote{ 0 };
-
-	/**
 	 * Samples of online vote weight
 	 * uint64_t -> nano::amount
 	 */
