@@ -37,20 +37,20 @@ public:
 		auto result (value_a << count_bits);
 		return result;
 	}
-	static uint64_t now ()
+	static uint64_t now_base ()
 	{
 		uint64_t ms_since_epoch (std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ());
 		uint64_t result (timestamp_from_ms (ms_since_epoch));
 		return result;
 	}
-	uint64_t timestamp_now ()
+	uint64_t now ()
 	{
 		static_assert (time_bits + count_bits == 64);
 		uint64_t result (0);
 		while (result == 0)
 		{
 			result = next;
-			auto now_l (now ());
+			auto now_l (now_base ());
 			if (component_time (result) != now_l)
 			{
 				if (next.compare_exchange_weak (result, now_l + 1))
