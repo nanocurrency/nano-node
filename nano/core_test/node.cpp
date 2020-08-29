@@ -2690,10 +2690,7 @@ TEST (node, local_votes_cache)
 		ASSERT_NO_ERROR (system.poll (node.aggregator.max_delay));
 	}
 	// Make sure a new vote was not generated
-	{
-		nano::lock_guard<std::mutex> lock (node.store.get_cache_mutex ());
-		ASSERT_EQ (2, node.store.vote_current (node.store.tx_begin_read (), nano::test_genesis_key.pub)->sequence);
-	}
+	ASSERT_TIMELY (3s, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes) == 2);
 	// Max cache
 	{
 		auto transaction (node.store.tx_begin_write ());
