@@ -1,17 +1,16 @@
+#include <nano/node/nodeconfig.hpp>
 #include <nano/node/online_reps.hpp>
 #include <nano/secure/blockstore.hpp>
-#include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
 
-nano::online_reps::online_reps (nano::ledger & ledger_a, nano::network_params & network_params_a, nano::uint128_t minimum_a) :
-ledger (ledger_a),
-network_params (network_params_a),
-minimum (minimum_a)
+nano::online_reps::online_reps (nano::ledger & ledger_a, nano::node_config const & config_a) :
+ledger{ ledger_a },
+config{ config_a }
 {
 	if (!ledger.store.init_error ())
 	{
 		auto transaction (ledger.store.tx_begin_read ());
-		online = trend (transaction);
+		trended_m = calculate_trend (transaction);
 	}
 }
 
@@ -19,66 +18,103 @@ void nano::online_reps::observe (nano::account const & rep_a)
 {
 	if (ledger.weight (rep_a) > 0)
 	{
+		auto now = std::chrono::steady_clock::now ();
 		nano::lock_guard<std::mutex> lock (mutex);
-		reps.insert (rep_a);
+		auto new_insert = reps.get<tag_account> ().erase (rep_a) == 0;
+		reps.insert ({ now, rep_a });
+		auto cutoff = reps.get<tag_time> ().lower_bound (now - std::chrono::seconds (config.network_params.node.weight_period));
+		auto trimmed = reps.get<tag_time> ().begin () != cutoff;
+		reps.get<tag_time> ().erase (reps.get<tag_time> ().begin (), cutoff);
+		if (new_insert || trimmed)
+		{
+			online_m = calculate_online ();
+		}
 	}
 }
 
 void nano::online_reps::sample ()
 {
-	auto transaction (ledger.store.tx_begin_write ({ tables::online_weight }));
-	// Discard oldest entries
-	while (ledger.store.online_weight_count (transaction) >= network_params.node.max_weight_samples)
+	nano::unique_lock<std::mutex> lock (mutex);
+	nano::uint128_t online_l;
+	online_l = online_m;
+	lock.unlock ();
+	nano::uint128_t trend_l;
 	{
-		auto oldest (ledger.store.online_weight_begin (transaction));
-		debug_assert (oldest != ledger.store.online_weight_end ());
-		ledger.store.online_weight_del (transaction, oldest->first);
+		auto transaction (ledger.store.tx_begin_write ({ tables::online_weight }));
+		// Discard oldest entries
+		while (ledger.store.online_weight_count (transaction) >= config.network_params.node.max_weight_samples)
+		{
+			auto oldest (ledger.store.online_weight_begin (transaction));
+			debug_assert (oldest != ledger.store.online_weight_end ());
+			ledger.store.online_weight_del (transaction, oldest->first);
+		}
+		ledger.store.online_weight_put (transaction, std::chrono::system_clock::now ().time_since_epoch ().count (), online_l);
+		trend_l = calculate_trend (transaction);
 	}
-	// Calculate current active rep weight
-	nano::uint128_t current;
-	std::unordered_set<nano::account> reps_copy;
-	{
-		nano::lock_guard<std::mutex> lock (mutex);
-		reps_copy.swap (reps);
-	}
-	for (auto & i : reps_copy)
-	{
-		current += ledger.weight (i);
-	}
-	ledger.store.online_weight_put (transaction, std::chrono::system_clock::now ().time_since_epoch ().count (), current);
-	auto trend_l (trend (transaction));
-	nano::lock_guard<std::mutex> lock (mutex);
-	online = trend_l;
+	lock.lock ();
+	trended_m = trend_l;
 }
 
-nano::uint128_t nano::online_reps::trend (nano::transaction & transaction_a)
+nano::uint128_t nano::online_reps::calculate_online () const
+{
+	nano::uint128_t current;
+	for (auto & i : reps)
+	{
+		current += ledger.weight (i.account);
+	}
+	return current;
+}
+
+nano::uint128_t nano::online_reps::calculate_trend (nano::transaction & transaction_a) const
 {
 	std::vector<nano::uint128_t> items;
-	items.reserve (network_params.node.max_weight_samples + 1);
-	items.push_back (minimum);
+	items.push_back (config.online_weight_minimum.number ());
+	items.reserve (config.network_params.node.max_weight_samples + 1);
 	for (auto i (ledger.store.online_weight_begin (transaction_a)), n (ledger.store.online_weight_end ()); i != n; ++i)
 	{
 		items.push_back (i->second.number ());
 	}
-
+	nano::uint128_t result;
 	// Pick median value for our target vote weight
 	auto median_idx = items.size () / 2;
 	nth_element (items.begin (), items.begin () + median_idx, items.end ());
-	return nano::uint128_t{ items[median_idx] };
+	result = items[median_idx];
+	return result;
 }
 
 nano::uint128_t nano::online_reps::trended () const
 {
 	nano::lock_guard<std::mutex> lock (mutex);
-	return online;
+	return trended_m;
+}
+
+nano::uint128_t nano::online_reps::online () const
+{
+	nano::lock_guard<std::mutex> lock (mutex);
+	return online_m;
+}
+
+nano::uint128_t nano::online_reps::delta () const
+{
+	nano::lock_guard<std::mutex> lock (mutex);
+	auto weight = std::max ({ online_m, trended_m, config.online_weight_minimum.number () });
+	auto result ((weight / 100) * config.online_weight_quorum);
+	return result;
 }
 
 std::vector<nano::account> nano::online_reps::list ()
 {
 	std::vector<nano::account> result;
 	nano::lock_guard<std::mutex> lock (mutex);
-	result.insert (result.end (), reps.begin (), reps.end ());
+	std::for_each (reps.begin (), reps.end (), [&result](rep_info const & info_a) { result.push_back (info_a.account); });
 	return result;
+}
+
+void nano::online_reps::clear ()
+{
+	nano::lock_guard<std::mutex> lock (mutex);
+	reps.clear ();
+	online_m = 0;
 }
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (online_reps & online_reps, const std::string & name)

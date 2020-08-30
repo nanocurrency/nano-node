@@ -93,9 +93,9 @@ TEST (confirmation_height, multiple_accounts)
 		nano::block_hash latest1 (system.nodes[0]->latest (nano::dev_genesis_key.pub));
 
 		// Send to all accounts
-		nano::send_block send1 (latest1, key1.pub, node->delta () + 300, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (latest1));
-		nano::send_block send2 (send1.hash (), key2.pub, node->delta () + 200, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send1.hash ()));
-		nano::send_block send3 (send2.hash (), key3.pub, node->delta () + 100, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send2.hash ()));
+		nano::send_block send1 (latest1, key1.pub, node->online_reps.delta () + 300, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (latest1));
+		nano::send_block send2 (send1.hash (), key2.pub, node->online_reps.delta () + 200, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send1.hash ()));
+		nano::send_block send3 (send2.hash (), key3.pub, node->online_reps.delta () + 100, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send2.hash ()));
 
 		// Open all accounts
 		nano::open_block open1 (send1.hash (), nano::genesis_account, key1.pub, key1.prv, key1.pub, *system.work.generate (key1.pub));
@@ -399,7 +399,7 @@ TEST (confirmation_height, send_receive_between_2_accounts)
 		nano::keypair key1;
 		nano::block_hash latest (node->latest (nano::dev_genesis_key.pub));
 
-		nano::send_block send1 (latest, key1.pub, node->delta () + 2, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (latest));
+		nano::send_block send1 (latest, key1.pub, node->online_reps.delta () + 2, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (latest));
 
 		nano::open_block open1 (send1.hash (), nano::genesis_account, key1.pub, key1.prv, key1.pub, *system.work.generate (key1.pub));
 		nano::send_block send2 (open1.hash (), nano::genesis_account, 1000, key1.prv, key1.pub, *system.work.generate (open1.hash ()));
@@ -410,11 +410,11 @@ TEST (confirmation_height, send_receive_between_2_accounts)
 		nano::receive_block receive2 (receive1.hash (), send3.hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (receive1.hash ()));
 		nano::receive_block receive3 (receive2.hash (), send4.hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (receive2.hash ()));
 
-		nano::send_block send5 (receive3.hash (), key1.pub, node->delta () + 1, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (receive3.hash ()));
+		nano::send_block send5 (receive3.hash (), key1.pub, node->online_reps.delta () + 1, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (receive3.hash ()));
 		auto receive4 = std::make_shared<nano::receive_block> (send4.hash (), send5.hash (), key1.prv, key1.pub, *system.work.generate (send4.hash ()));
 		// Unpocketed send
 		nano::keypair key2;
-		nano::send_block send6 (send5.hash (), key2.pub, node->delta (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send5.hash ()));
+		nano::send_block send6 (send5.hash (), key2.pub, node->online_reps.delta (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send5.hash ()));
 		{
 			auto transaction = node->store.tx_begin_write ();
 			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send1).code);
@@ -496,7 +496,7 @@ TEST (confirmation_height, send_receive_self)
 
 		// Send to another account to prevent automatic receiving on the genesis account
 		nano::keypair key1;
-		nano::send_block send4 (receive3->hash (), key1.pub, node->delta (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (receive3->hash ()));
+		nano::send_block send4 (receive3->hash (), key1.pub, node->online_reps.delta (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (receive3->hash ()));
 		{
 			auto transaction = node->store.tx_begin_write ();
 			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send1).code);
@@ -992,12 +992,12 @@ TEST (confirmation_height, prioritize_frontiers)
 		nano::block_hash latest1 (node->latest (nano::dev_genesis_key.pub));
 
 		// Send different numbers of blocks all accounts
-		nano::send_block send1 (latest1, key1.pub, node->delta () + 10000, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (latest1));
-		nano::send_block send2 (send1.hash (), key1.pub, node->delta () + 8500, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send1.hash ()));
-		nano::send_block send3 (send2.hash (), key1.pub, node->delta () + 8000, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send2.hash ()));
-		nano::send_block send4 (send3.hash (), key2.pub, node->delta () + 7500, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send3.hash ()));
-		nano::send_block send5 (send4.hash (), key3.pub, node->delta () + 6500, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send4.hash ()));
-		nano::send_block send6 (send5.hash (), key4.pub, node->delta () + 6000, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send5.hash ()));
+		nano::send_block send1 (latest1, key1.pub, node->online_reps.delta () + 10000, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (latest1));
+		nano::send_block send2 (send1.hash (), key1.pub, node->online_reps.delta () + 8500, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send1.hash ()));
+		nano::send_block send3 (send2.hash (), key1.pub, node->online_reps.delta () + 8000, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send2.hash ()));
+		nano::send_block send4 (send3.hash (), key2.pub, node->online_reps.delta () + 7500, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send3.hash ()));
+		nano::send_block send5 (send4.hash (), key3.pub, node->online_reps.delta () + 6500, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send4.hash ()));
+		nano::send_block send6 (send5.hash (), key4.pub, node->online_reps.delta () + 6000, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send5.hash ()));
 
 		// Open all accounts and add other sends to get different uncemented counts (as well as some which are the same)
 		nano::open_block open1 (send1.hash (), nano::genesis_account, key1.pub, key1.prv, key1.pub, *system.work.generate (key1.pub));

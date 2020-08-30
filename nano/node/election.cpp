@@ -291,7 +291,7 @@ bool nano::election::have_quorum (nano::tally_t const & tally_a) const
 	auto i (tally_a.begin ());
 	++i;
 	auto second (i != tally_a.end () ? i->first : 0);
-	auto delta_l (node.delta ());
+	auto delta_l (node.online_reps.delta ());
 	bool result{ tally_a.begin ()->first >= (second + delta_l) };
 	return result;
 }
@@ -330,7 +330,7 @@ void nano::election::confirm_if_quorum ()
 	{
 		sum += i.first;
 	}
-	if (sum >= node.delta () && winner_hash_l != status_winner_hash_l)
+	if (sum >= node.online_reps.delta () && winner_hash_l != status_winner_hash_l)
 	{
 		status.winner = block_l;
 		remove_votes (status_winner_hash_l);
@@ -371,7 +371,7 @@ nano::election_vote_result nano::election::vote (nano::account rep, uint64_t seq
 {
 	// see republish_vote documentation for an explanation of these rules
 	auto replay (false);
-	auto online_stake (node.online_stake ());
+	auto online_stake (node.online_reps.trended ());
 	auto weight (node.ledger.weight (rep));
 	auto should_process (false);
 	if (node.network_params.network.is_dev_network () || weight > node.minimum_principal_weight (online_stake))
@@ -428,7 +428,7 @@ bool nano::election::publish (std::shared_ptr<nano::block> block_a)
 	auto result (confirmed ());
 	if (!result && blocks.size () >= 10)
 	{
-		if (last_tally[block_a->hash ()] < node.online_stake () / 10)
+		if (last_tally[block_a->hash ()] < node.online_reps.trended () / 10)
 		{
 			result = true;
 		}

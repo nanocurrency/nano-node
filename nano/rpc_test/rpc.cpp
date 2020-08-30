@@ -5876,7 +5876,7 @@ TEST (rpc, online_reps)
 	auto node2 = add_ipc_enabled_node (system);
 	nano::keypair key;
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
-	ASSERT_TRUE (node2->online_reps.online_stake () == node2->config.online_weight_minimum.number ());
+	ASSERT_TRUE (node2->online_reps.online () == node2->config.online_weight_minimum.number ());
 	auto send_block (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key.pub, nano::Gxrb_ratio));
 	ASSERT_NE (nullptr, send_block);
 	scoped_io_thread_name_change scoped_thread_name_io;

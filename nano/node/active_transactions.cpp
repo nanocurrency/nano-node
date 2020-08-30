@@ -1303,7 +1303,7 @@ bool nano::active_transactions::inactive_votes_bootstrap_check (std::vector<nano
 		tally += node.ledger.weight (voter);
 	}
 	bool start_bootstrap (false);
-	if (tally >= node.delta ())
+	if (tally >= node.online_reps.delta ())
 	{
 		start_bootstrap = true;
 		confirmed_a = true;
