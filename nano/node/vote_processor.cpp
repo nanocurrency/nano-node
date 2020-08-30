@@ -233,7 +233,7 @@ void nano::vote_processor::calculate_weights ()
 		representatives_1.clear ();
 		representatives_2.clear ();
 		representatives_3.clear ();
-		auto supply (node.online_reps.online_stake ());
+		auto supply (node.online_stake ());
 		auto rep_amounts = node.ledger.cache.rep_weights.get_rep_amounts ();
 		for (auto const & rep_amount : rep_amounts)
 		{

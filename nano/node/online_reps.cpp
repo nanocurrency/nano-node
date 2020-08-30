@@ -67,10 +67,10 @@ nano::uint128_t nano::online_reps::trend (nano::transaction & transaction_a)
 	return nano::uint128_t{ items[median_idx] };
 }
 
-nano::uint128_t nano::online_reps::online_stake () const
+nano::uint128_t nano::online_reps::trended () const
 {
 	nano::lock_guard<std::mutex> lock (mutex);
-	return std::max (online, minimum);
+	return online;
 }
 
 std::vector<nano::account> nano::online_reps::list ()

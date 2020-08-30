@@ -371,7 +371,7 @@ nano::election_vote_result nano::election::vote (nano::account rep, uint64_t seq
 {
 	// see republish_vote documentation for an explanation of these rules
 	auto replay (false);
-	auto online_stake (node.online_reps.online_stake ());
+	auto online_stake (node.online_stake ());
 	auto weight (node.ledger.weight (rep));
 	auto should_process (false);
 	if (node.network_params.network.is_dev_network () || weight > node.minimum_principal_weight (online_stake))
@@ -428,7 +428,7 @@ bool nano::election::publish (std::shared_ptr<nano::block> block_a)
 	auto result (confirmed ());
 	if (!result && blocks.size () >= 10)
 	{
-		if (last_tally[block_a->hash ()] < node.online_reps.online_stake () / 10)
+		if (last_tally[block_a->hash ()] < node.online_stake () / 10)
 		{
 			result = true;
 		}

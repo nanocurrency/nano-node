@@ -141,6 +141,7 @@ public:
 	bool block_confirmed_or_being_confirmed (nano::transaction const &, nano::block_hash const &);
 	void process_fork (nano::transaction const &, std::shared_ptr<nano::block>, uint64_t);
 	void do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, std::string const &, uint16_t, std::shared_ptr<std::string>, std::shared_ptr<std::string>, std::shared_ptr<boost::asio::ip::tcp::resolver>);
+	nano::uint128_t online_stake () const;
 	nano::uint128_t delta () const;
 	void ongoing_online_weight_calculation ();
 	void ongoing_online_weight_calculation_queue ();

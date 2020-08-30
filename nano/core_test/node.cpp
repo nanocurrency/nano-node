@@ -2488,15 +2488,15 @@ TEST (node, online_reps)
 	nano::system system (1);
 	auto & node1 (*system.nodes[0]);
 	// 1 sample of minimum weight
-	ASSERT_EQ (node1.config.online_weight_minimum, node1.online_reps.online_stake ());
+	ASSERT_EQ (node1.config.online_weight_minimum, node1.online_stake ());
 	auto vote (std::make_shared<nano::vote> ());
 	node1.online_reps.observe (nano::dev_genesis_key.pub);
 	// 1 minimum, 1 maximum
 	node1.online_reps.sample ();
-	ASSERT_EQ (nano::genesis_amount, node1.online_reps.online_stake ());
+	ASSERT_EQ (nano::genesis_amount, node1.online_stake ());
 	// 2 minimum, 1 maximum
 	node1.online_reps.sample ();
-	ASSERT_EQ (node1.config.online_weight_minimum, node1.online_reps.online_stake ());
+	ASSERT_EQ (node1.config.online_weight_minimum, node1.online_stake ());
 }
 
 TEST (node, block_confirm)

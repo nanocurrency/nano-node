@@ -22,8 +22,8 @@ public:
 	void observe (nano::account const & rep_account);
 	/** Called periodically to sample online weight */
 	void sample ();
-	/** Returns the trended online stake, but never less than configured minimum */
-	nano::uint128_t online_stake () const;
+	/** Returns the trended online stake */
+	nano::uint128_t trended () const;
 	/** List of online representatives */
 	std::vector<nano::account> list ();
 

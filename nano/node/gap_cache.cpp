@@ -113,7 +113,7 @@ bool nano::gap_cache::bootstrap_check (std::vector<nano::account> const & voters
 
 nano::uint128_t nano::gap_cache::bootstrap_threshold ()
 {
-	auto result ((node.online_reps.online_stake () / 256) * node.config.bootstrap_fraction_numerator);
+	auto result ((node.online_stake () / 256) * node.config.bootstrap_fraction_numerator);
 	return result;
 }
 
