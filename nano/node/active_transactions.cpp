@@ -874,9 +874,9 @@ void nano::active_transactions::update_active_multiplier (nano::unique_lock<std:
 	debug_assert (difficulty >= node.network_params.network.publish_thresholds.entry);
 
 	trended_active_multiplier = avg_multiplier;
-	//lock_a.unlock ();
+	lock_a.unlock ();
 	node.observers.difficulty.notify (difficulty);
-	//lock_a.lock ();
+	lock_a.lock ();
 }
 
 uint64_t nano::active_transactions::active_difficulty ()
