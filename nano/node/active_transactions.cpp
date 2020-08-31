@@ -904,8 +904,7 @@ uint64_t nano::active_transactions::limited_active_difficulty (nano::work_versio
 
 double nano::active_transactions::active_multiplier ()
 {
-	nano::lock_guard<std::mutex> lock (mutex);
-	return trended_active_multiplier;
+	return trended_active_multiplier.load ();
 }
 
 // List of active blocks in elections
