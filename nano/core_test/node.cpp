@@ -4529,6 +4529,21 @@ TEST (node, deferred_dependent_elections)
 }
 }
 
+TEST (node, default_difficulty)
+{
+	nano::system system (1);
+	auto & node (*system.nodes[0]);
+	auto const & thresholds = nano::network_params{}.network.publish_thresholds;
+	ASSERT_EQ (thresholds.epoch_1, node.default_difficulty (nano::work_version::work_1));
+	ASSERT_EQ (thresholds.epoch_1, node.default_receive_difficulty (nano::work_version::work_1));
+	nano::upgrade_epoch (system.work, node.ledger, nano::epoch::epoch_1);
+	ASSERT_EQ (thresholds.epoch_1, node.default_difficulty (nano::work_version::work_1));
+	ASSERT_EQ (thresholds.epoch_1, node.default_receive_difficulty (nano::work_version::work_1));
+	nano::upgrade_epoch (system.work, node.ledger, nano::epoch::epoch_2);
+	ASSERT_EQ (thresholds.epoch_2, node.default_difficulty (nano::work_version::work_1));
+	ASSERT_EQ (thresholds.epoch_2_receive, node.default_receive_difficulty (nano::work_version::work_1));
+}
+
 namespace
 {
 void add_required_children_node_config_tree (nano::jsonconfig & tree)

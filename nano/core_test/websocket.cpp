@@ -102,6 +102,10 @@ TEST (websocket, active_difficulty)
 	nano::from_string_hex (message_contents.get<std::string> ("network_minimum"), network_minimum);
 	ASSERT_EQ (network_minimum, node1->default_difficulty (nano::work_version::work_1));
 
+	uint64_t network_receive_minimum;
+	nano::from_string_hex (message_contents.get<std::string> ("network_receive_minimum"), network_receive_minimum);
+	ASSERT_EQ (network_receive_minimum, node1->default_receive_difficulty (nano::work_version::work_1));
+
 	uint64_t network_current;
 	nano::from_string_hex (message_contents.get<std::string> ("network_current"), network_current);
 	ASSERT_EQ (network_current, node1->active.active_difficulty ());

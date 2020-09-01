@@ -956,6 +956,7 @@ void nano::json_handler::active_difficulty ()
 	auto multiplier_active = node.active.active_multiplier ();
 	auto default_difficulty (node.default_difficulty (nano::work_version::work_1));
 	response_l.put ("network_minimum", nano::to_string_hex (default_difficulty));
+	response_l.put ("network_receive_minimum", nano::to_string_hex (node.default_receive_difficulty (nano::work_version::work_1)));
 	response_l.put ("network_current", nano::to_string_hex (nano::difficulty::from_multiplier (multiplier_active, default_difficulty)));
 	response_l.put ("multiplier", multiplier_active);
 	if (include_trend)
