@@ -112,6 +112,12 @@ TEST (websocket, active_difficulty)
 
 	double multiplier = message_contents.get<double> ("multiplier");
 	ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (node1->active.active_difficulty (), node1->default_difficulty (nano::work_version::work_1)), 1e-6);
+
+	uint64_t network_receive_current;
+	nano::from_string_hex (message_contents.get<std::string> ("network_receive_current"), network_receive_current);
+	auto network_receive_current_multiplier (nano::difficulty::to_multiplier (network_receive_current, network_receive_minimum));
+	auto network_receive_current_normalized_multiplier (nano::normalized_multiplier (network_receive_current_multiplier, network_receive_minimum));
+	ASSERT_NEAR (network_receive_current_normalized_multiplier, multiplier, 1e-6);
 }
 
 // Subscribes to block confirmations, confirms a block and then awaits websocket notification
