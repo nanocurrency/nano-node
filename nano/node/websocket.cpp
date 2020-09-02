@@ -787,8 +787,8 @@ nano::websocket::message nano::websocket::message_builder::difficulty_changed (u
 	difficulty_l.put ("network_current", nano::to_string_hex (difficulty_active_a));
 	auto multiplier = nano::difficulty::to_multiplier (difficulty_active_a, publish_threshold_a);
 	difficulty_l.put ("multiplier", nano::to_string (multiplier));
-	auto const receive_current_normalized (nano::denormalized_multiplier (multiplier, nano::network_params{}.network.publish_thresholds.epoch_2_receive));
-	difficulty_l.put ("network_receive_current", nano::to_string_hex (nano::difficulty::from_multiplier (receive_current_normalized, receive_threshold_a)));
+	auto const receive_current_denormalized (nano::denormalized_multiplier (multiplier, nano::network_params{}.network.publish_thresholds.epoch_2_receive));
+	difficulty_l.put ("network_receive_current", nano::to_string_hex (nano::difficulty::from_multiplier (receive_current_denormalized, receive_threshold_a)));
 
 	message_l.contents.add_child ("message", difficulty_l);
 	return message_l;
