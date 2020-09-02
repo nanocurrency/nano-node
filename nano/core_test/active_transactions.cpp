@@ -1434,3 +1434,16 @@ TEST (active_transactions, activate_inactive)
 	// The first block was not active so no activation takes place
 	ASSERT_FALSE (node.active.active (open->qualified_root ()) || node.block_confirmed_or_being_confirmed (node.store.tx_begin_read (), open->hash ()));
 }
+
+TEST (active_transactions, difficulty_update_observer)
+{
+	nano::system system (1);
+	auto & node (*system.nodes[0]);
+	std::atomic<bool> update_received (false);
+	node.observers.difficulty.add ([& mutex = node.active.mutex, &update_received](uint64_t difficulty_a) {
+		nano::unique_lock<std::mutex> lock (mutex, std::defer_lock);
+		EXPECT_TRUE (lock.try_lock ());
+		update_received = true;
+	});
+	ASSERT_TIMELY (3s, update_received);
+}
