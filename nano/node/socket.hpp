@@ -34,24 +34,12 @@ class socket : public std::enable_shared_from_this<nano::socket>
 
 public:
 	/**
-	 * If multi_writer is used, overlapping writes are allowed, including from multiple threads.
-	 * For bootstrapping, reading and writing alternates on a socket, thus single_writer
-	 * should be used to avoid queueing overhead. For live messages, multiple threads may want
-	 * to concurrenctly queue messages on the same socket, thus multi_writer should be used.
-	 */
-	enum class concurrency
-	{
-		single_writer,
-		multi_writer
-	};
-
-	/**
 	 * Constructor
 	 * @param node Owning node
 	 * @param io_timeout If tcp async operation is not completed within the timeout, the socket is closed. If not set, the tcp_io_timeout config option is used.
 	 * @param concurrency write concurrency
 	 */
-	explicit socket (std::shared_ptr<nano::node> node, boost::optional<std::chrono::seconds> io_timeout = boost::none, concurrency = concurrency::single_writer);
+	explicit socket (std::shared_ptr<nano::node> node, boost::optional<std::chrono::seconds> io_timeout = boost::none);
 	virtual ~socket ();
 	void async_connect (boost::asio::ip::tcp::endpoint const &, std::function<void(boost::system::error_code const &)>);
 	void async_read (std::shared_ptr<std::vector<uint8_t>>, size_t, std::function<void(boost::system::error_code const &, size_t)>);
@@ -64,8 +52,6 @@ public:
 	/** This can be called to change the maximum idle time, e.g. based on the type of traffic detected. */
 	void set_timeout (std::chrono::seconds io_timeout_a);
 	void start_timer (std::chrono::seconds deadline_a);
-	/** Change write concurrent */
-	void set_writer_concurrency (concurrency writer_concurrency_a);
 	/** Returns the maximum number of buffers in the write queue */
 	size_t get_max_write_queue_size () const;
 
@@ -86,7 +72,6 @@ protected:
 	boost::asio::ip::tcp::endpoint remote;
 	/** Send queue, protected by always being accessed in the strand */
 	std::deque<queue_item> send_queue;
-	std::atomic<concurrency> writer_concurrency;
 
 	std::atomic<uint64_t> next_deadline;
 	std::atomic<uint64_t> last_completion_time;
@@ -116,7 +101,7 @@ public:
 	 * @param max_connections_a Maximum number of concurrent connections
 	 * @param concurrency_a Write concurrency for new connections
 	 */
-	explicit server_socket (std::shared_ptr<nano::node> node_a, boost::asio::ip::tcp::endpoint local_a, size_t max_connections_a, concurrency concurrency_a = concurrency::single_writer);
+	explicit server_socket (std::shared_ptr<nano::node> node_a, boost::asio::ip::tcp::endpoint local_a, size_t max_connections_a);
 	/**Start accepting new connections */
 	void start (boost::system::error_code &);
 	/** Stop accepting new connections */
@@ -134,8 +119,6 @@ private:
 	boost::asio::ip::tcp::endpoint local;
 	boost::asio::steady_timer deferred_accept_timer;
 	size_t max_inbound_connections;
-	/** Concurrency setting for new connections */
-	concurrency concurrency_new_connections;
 	void evict_dead_connections ();
 };
 }
