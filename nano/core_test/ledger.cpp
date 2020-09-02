@@ -3244,3 +3244,37 @@ TEST (ledger, dependents_confirmed)
 	ledger.store.confirmation_height_put (transaction, nano::genesis_account, height);
 	ASSERT_TRUE (ledger.dependents_confirmed (transaction, *receive2));
 }
+
+TEST (ledger, block_confirmed)
+{
+	nano::block_builder builder;
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_FALSE (store->init_error ());
+	nano::stat stats;
+	nano::ledger ledger (*store, stats);
+	auto transaction (store->tx_begin_write ());
+	nano::genesis genesis;
+	store->initialize (transaction, genesis, ledger.cache);
+	ASSERT_TRUE (ledger.block_confirmed (transaction, genesis.open->hash ()));
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+	nano::keypair key1;
+	auto send1 = builder.state ()
+	             .account (nano::genesis_account)
+	             .previous (genesis.hash ())
+	             .representative (nano::genesis_account)
+	             .balance (nano::genesis_amount - 100)
+	             .link (key1.pub)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (*pool.generate (genesis.hash ()))
+	             .build ();
+	// Must be safe against non-existing blocks
+	ASSERT_FALSE (ledger.block_confirmed (transaction, send1->hash ()));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send1).code);
+	ASSERT_FALSE (ledger.block_confirmed (transaction, send1->hash ()));
+	nano::confirmation_height_info height;
+	ASSERT_FALSE (ledger.store.confirmation_height_get (transaction, nano::genesis_account, height));
+	++height.height;
+	ledger.store.confirmation_height_put (transaction, nano::genesis_account, height);
+	ASSERT_TRUE (ledger.block_confirmed (transaction, send1->hash ()));
+}

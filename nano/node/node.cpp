@@ -259,7 +259,7 @@ node_seq (seq)
 				if (this->websocket_server->any_subscriber (nano::websocket::topic::active_difficulty))
 				{
 					nano::websocket::message_builder builder;
-					auto msg (builder.difficulty_changed (this->default_difficulty (nano::work_version::work_1), active_difficulty));
+					auto msg (builder.difficulty_changed (this->default_difficulty (nano::work_version::work_1), this->default_receive_difficulty (nano::work_version::work_1), active_difficulty));
 					this->websocket_server->broadcast (msg);
 				}
 			});
@@ -1003,6 +1003,20 @@ uint64_t nano::node::default_difficulty (nano::work_version const version_a) con
 			break;
 		default:
 			debug_assert (false && "Invalid version specified to default_difficulty");
+	}
+	return result;
+}
+
+uint64_t nano::node::default_receive_difficulty (nano::work_version const version_a) const
+{
+	uint64_t result{ std::numeric_limits<uint64_t>::max () };
+	switch (version_a)
+	{
+		case nano::work_version::work_1:
+			result = ledger.cache.epoch_2_started ? network_params.network.publish_thresholds.epoch_2_receive : network_params.network.publish_thresholds.epoch_1;
+			break;
+		default:
+			debug_assert (false && "Invalid version specified to default_receive_difficulty");
 	}
 	return result;
 }
