@@ -1047,7 +1047,7 @@ void nano::ledger::dump_account_chain (nano::account const & account_a, std::ost
 	}
 }
 
-bool nano::ledger::could_fit (nano::transaction const & transaction_a, nano::block const & block_a)
+bool nano::ledger::could_fit (nano::transaction const & transaction_a, nano::block const & block_a) const
 {
 	auto dependencies (dependent_blocks (transaction_a, block_a));
 	return std::all_of (dependencies.begin (), dependencies.end (), [this, &transaction_a](nano::block_hash const & hash_a) {
@@ -1055,28 +1055,20 @@ bool nano::ledger::could_fit (nano::transaction const & transaction_a, nano::blo
 	});
 }
 
-bool nano::ledger::can_vote (nano::transaction const & transaction_a, nano::block const & block_a)
+bool nano::ledger::dependents_confirmed (nano::transaction const & transaction_a, nano::block const & block_a) const
 {
 	auto dependencies (dependent_blocks (transaction_a, block_a));
 	return std::all_of (dependencies.begin (), dependencies.end (), [this, &transaction_a](nano::block_hash const & hash_a) {
 		auto result (hash_a.is_zero ());
 		if (!result)
 		{
-			result = false;
-			auto block (store.block_get (transaction_a, hash_a));
-			if (block != nullptr)
-			{
-				nano::confirmation_height_info height;
-				auto error = store.confirmation_height_get (transaction_a, block->account ().is_zero () ? block->sideband ().account : block->account (), height);
-				debug_assert (!error);
-				result = block->sideband ().height <= height.height;
-			}
+			result = block_confirmed (transaction_a, hash_a);
 		}
 		return result;
 	});
 }
 
-bool nano::ledger::is_epoch_link (nano::link const & link_a)
+bool nano::ledger::is_epoch_link (nano::link const & link_a) const
 {
 	return network_params.ledger.epochs.is_epoch_link (link_a);
 }
@@ -1084,7 +1076,7 @@ bool nano::ledger::is_epoch_link (nano::link const & link_a)
 class dependent_block_visitor : public nano::block_visitor
 {
 public:
-	dependent_block_visitor (nano::ledger & ledger_a, nano::transaction const & transaction_a) :
+	dependent_block_visitor (nano::ledger const & ledger_a, nano::transaction const & transaction_a) :
 	ledger (ledger_a),
 	transaction (transaction_a),
 	result ({ 0, 0 })
@@ -1120,12 +1112,12 @@ public:
 			result[1].clear ();
 		}
 	}
-	nano::ledger & ledger;
+	nano::ledger const & ledger;
 	nano::transaction const & transaction;
 	std::array<nano::block_hash, 2> result;
 };
 
-std::array<nano::block_hash, 2> nano::ledger::dependent_blocks (nano::transaction const & transaction_a, nano::block const & block_a)
+std::array<nano::block_hash, 2> nano::ledger::dependent_blocks (nano::transaction const & transaction_a, nano::block const & block_a) const
 {
 	dependent_block_visitor visitor (*this, transaction_a);
 	block_a.visit (visitor);
@@ -1236,12 +1228,12 @@ std::shared_ptr<nano::block> nano::ledger::backtrack (nano::transaction const & 
 bool nano::ledger::block_confirmed (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
 {
 	auto confirmed (false);
-	auto block_height (store.block_account_height (transaction_a, hash_a));
-	if (block_height > 0) // 0 indicates that the block doesn't exist
+	auto block = store.block_get (transaction_a, hash_a);
+	if (block)
 	{
 		nano::confirmation_height_info confirmation_height_info;
-		release_assert (!store.confirmation_height_get (transaction_a, account (transaction_a, hash_a), confirmation_height_info));
-		confirmed = (confirmation_height_info.height >= block_height);
+		release_assert (!store.confirmation_height_get (transaction_a, block->account ().is_zero () ? block->sideband ().account : block->account (), confirmation_height_info));
+		confirmed = (confirmation_height_info.height >= block->sideband ().height);
 	}
 	return confirmed;
 }

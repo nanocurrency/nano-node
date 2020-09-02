@@ -726,7 +726,7 @@ nano::election_insertion_result nano::active_transactions::activate (nano::accou
 			auto hash = conf_info.height == 0 ? account_info.open_block : node.store.block_successor (transaction, conf_info.frontier);
 			auto block = node.store.block_get (transaction, hash);
 			release_assert (block != nullptr);
-			if (node.ledger.can_vote (transaction, *block))
+			if (node.ledger.dependents_confirmed (transaction, *block))
 			{
 				result = insert (block);
 				if (result.inserted)
