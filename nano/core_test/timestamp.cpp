@@ -1,3 +1,4 @@
+#include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/timestamp.hpp>
 
@@ -54,7 +55,7 @@ TEST (timestamp, parallel)
 			for (auto i (0); i < 1000; ++i)
 			{
 				auto stamp (generator.now ());
-				std::lock_guard<std::mutex> lock (mutex);
+				nano::lock_guard<std::mutex> lock (mutex);
 				auto inserted (timestamps.insert (stamp));
 				assert (inserted.second);
 			}
