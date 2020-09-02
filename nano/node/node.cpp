@@ -689,7 +689,6 @@ void nano::node::stop ()
 		if (telemetry)
 		{
 			telemetry->stop ();
-			telemetry = nullptr;
 		}
 		if (websocket_server)
 		{
