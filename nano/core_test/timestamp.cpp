@@ -57,7 +57,7 @@ TEST (timestamp, parallel)
 				auto stamp (generator.now ());
 				nano::lock_guard<std::mutex> lock (mutex);
 				auto inserted (timestamps.insert (stamp));
-				assert (inserted.second);
+				ASSERT_TRUE (inserted.second);
 			}
 		}));
 	}
