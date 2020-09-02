@@ -7966,12 +7966,22 @@ TEST (rpc, active_difficulty)
 		uint64_t network_minimum;
 		ASSERT_FALSE (nano::from_string_hex (network_minimum_text, network_minimum));
 		ASSERT_EQ (node->default_difficulty (nano::work_version::work_1), network_minimum);
+		auto network_receive_minimum_text (response.json.get<std::string> ("network_receive_minimum"));
+		uint64_t network_receive_minimum;
+		ASSERT_FALSE (nano::from_string_hex (network_receive_minimum_text, network_receive_minimum));
+		ASSERT_EQ (node->default_receive_difficulty (nano::work_version::work_1), network_receive_minimum);
 		auto multiplier (response.json.get<double> ("multiplier"));
 		ASSERT_NEAR (expected_multiplier, multiplier, 1e-6);
 		auto network_current_text (response.json.get<std::string> ("network_current"));
 		uint64_t network_current;
 		ASSERT_FALSE (nano::from_string_hex (network_current_text, network_current));
 		ASSERT_EQ (nano::difficulty::from_multiplier (expected_multiplier, node->default_difficulty (nano::work_version::work_1)), network_current);
+		auto network_receive_current_text (response.json.get<std::string> ("network_receive_current"));
+		uint64_t network_receive_current;
+		ASSERT_FALSE (nano::from_string_hex (network_receive_current_text, network_receive_current));
+		auto network_receive_current_multiplier (nano::difficulty::to_multiplier (network_receive_current, network_receive_minimum));
+		auto network_receive_current_normalized_multiplier (nano::normalized_multiplier (network_receive_current_multiplier, network_receive_minimum));
+		ASSERT_NEAR (network_receive_current_normalized_multiplier, multiplier, 1e-6);
 		ASSERT_EQ (response.json.not_found (), response.json.find ("difficulty_trend"));
 	}
 	// Test include_trend optional
