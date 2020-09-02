@@ -52,8 +52,6 @@ public:
 	/** This can be called to change the maximum idle time, e.g. based on the type of traffic detected. */
 	void set_timeout (std::chrono::seconds io_timeout_a);
 	void start_timer (std::chrono::seconds deadline_a);
-	/** Returns the maximum number of buffers in the write queue */
-	size_t get_max_write_queue_size () const;
 
 protected:
 	/** Holds the buffer and callback for queued writes */
@@ -70,24 +68,23 @@ protected:
 
 	/** The other end of the connection */
 	boost::asio::ip::tcp::endpoint remote;
-	/** Send queue, protected by always being accessed in the strand */
-	std::deque<queue_item> send_queue;
 
 	std::atomic<uint64_t> next_deadline;
 	std::atomic<uint64_t> last_completion_time;
 	std::atomic<bool> timed_out{ false };
 	boost::optional<std::chrono::seconds> io_timeout;
-	size_t const queue_size_max = 128;
+	std::atomic<size_t> queue_size{ 0 };
 
 	/** Set by close() - completion handlers must check this. This is more reliable than checking
 	 error codes as the OS may have already completed the async operation. */
 	std::atomic<bool> closed{ false };
 	void close_internal ();
-	void write_queued_messages ();
 	void start_timer ();
 	void stop_timer ();
 	void checkup ();
-	void flush_send_queue_callbacks ();
+
+public:
+	size_t const queue_size_max = 128;
 };
 
 /** Socket class for TCP servers */

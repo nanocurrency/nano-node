@@ -79,11 +79,24 @@ void nano::socket::async_write (nano::shared_const_buffer const & buffer_a, std:
 		boost::asio::post (strand, boost::asio::bind_executor (strand, [buffer_a, callback_a, this_l, drop_policy_a]() {
 			if (!this_l->closed)
 			{
-				bool write_in_progress = !this_l->send_queue.empty ();
-				auto queue_size = this_l->send_queue.size ();
-				if (queue_size < this_l->queue_size_max || (drop_policy_a == nano::buffer_drop_policy::no_socket_drop && queue_size < (this_l->queue_size_max * 2)))
+				if (this_l->queue_size < this_l->queue_size_max || (drop_policy_a == nano::buffer_drop_policy::no_socket_drop && this_l->queue_size < (this_l->queue_size_max * 2)))
 				{
-					this_l->send_queue.emplace_back (nano::socket::queue_item{ buffer_a, callback_a });
+					this_l->start_timer ();
+					++this_l->queue_size;
+					nano::async_write (this_l->tcp_socket, buffer_a,
+					boost::asio::bind_executor (this_l->strand,
+					[buffer_a, callback_a, this_l](boost::system::error_code ec, std::size_t size_a) {
+						--this_l->queue_size;
+						if (auto node = this_l->node.lock ())
+						{
+							node->stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::out, size_a);
+							this_l->stop_timer ();
+							if (callback_a)
+							{
+								callback_a (ec, size_a);
+							}
+						}
+					}));
 				}
 				else if (auto node_l = this_l->node.lock ())
 				{
@@ -100,10 +113,6 @@ void nano::socket::async_write (nano::shared_const_buffer const & buffer_a, std:
 					{
 						callback_a (boost::system::errc::make_error_code (boost::system::errc::no_buffer_space), 0);
 					}
-				}
-				if (!write_in_progress)
-				{
-					this_l->write_queued_messages ();
 				}
 			}
 			else
@@ -123,41 +132,6 @@ void nano::socket::async_write (nano::shared_const_buffer const & buffer_a, std:
 				callback_a (boost::system::errc::make_error_code (boost::system::errc::not_supported), 0);
 			});
 		}
-	}
-}
-
-void nano::socket::write_queued_messages ()
-{
-	if (!closed)
-	{
-		std::weak_ptr<nano::socket> this_w (shared_from_this ());
-		auto msg (send_queue.front ());
-		start_timer ();
-		nano::async_write (tcp_socket, msg.buffer,
-		boost::asio::bind_executor (strand,
-		[msg, this_w](boost::system::error_code ec, std::size_t size_a) {
-			if (auto this_l = this_w.lock ())
-			{
-				if (auto node = this_l->node.lock ())
-				{
-					node->stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::out, size_a);
-					this_l->stop_timer ();
-					if (msg.callback)
-					{
-						msg.callback (ec, size_a);
-					}
-
-					if (!ec && !this_l->closed)
-					{
-						this_l->send_queue.pop_front ();
-						if (!this_l->send_queue.empty ())
-						{
-							this_l->write_queued_messages ();
-						}
-					}
-				}
-			}
-		}));
 	}
 }
 
@@ -236,24 +210,6 @@ void nano::socket::close ()
 	}));
 }
 
-void nano::socket::flush_send_queue_callbacks ()
-{
-	while (!send_queue.empty ())
-	{
-		auto & item = send_queue.front ();
-		if (item.callback)
-		{
-			if (auto node_l = node.lock ())
-			{
-				node_l->background ([callback = std::move (item.callback)]() {
-					callback (boost::system::errc::make_error_code (boost::system::errc::not_supported), 0);
-				});
-			}
-		}
-		send_queue.pop_front ();
-	}
-}
-
 // This must be called from a strand or the destructor
 void nano::socket::close_internal ()
 {
@@ -265,7 +221,6 @@ void nano::socket::close_internal ()
 		// Ignore error code for shutdown as it is best-effort
 		tcp_socket.shutdown (boost::asio::ip::tcp::socket::shutdown_both, ec);
 		tcp_socket.close (ec);
-		flush_send_queue_callbacks ();
 		if (ec)
 		{
 			if (auto node_l = node.lock ())
@@ -280,11 +235,6 @@ void nano::socket::close_internal ()
 nano::tcp_endpoint nano::socket::remote_endpoint () const
 {
 	return remote;
-}
-
-size_t nano::socket::get_max_write_queue_size () const
-{
-	return queue_size_max;
 }
 
 nano::server_socket::server_socket (std::shared_ptr<nano::node> node_a, boost::asio::ip::tcp::endpoint local_a, size_t max_connections_a) :

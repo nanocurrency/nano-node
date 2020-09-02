@@ -23,7 +23,7 @@ TEST (socket, drop_policy)
 	size_t max_write_queue_size = 0;
 	{
 		auto client_dummy (std::make_shared<nano::socket> (node, boost::none));
-		max_write_queue_size = client_dummy->get_max_write_queue_size ();
+		max_write_queue_size = client_dummy->queue_size_max;
 	}
 
 	auto func = [&](size_t total_message_count, nano::buffer_drop_policy drop_policy) {
