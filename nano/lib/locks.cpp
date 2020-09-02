@@ -67,6 +67,12 @@ mut (std::addressof (mutex))
 }
 
 template <typename Mutex, typename U>
+unique_lock<Mutex, U>::unique_lock (Mutex & mutex, std::defer_lock_t) noexcept :
+mut (std::addressof (mutex))
+{
+}
+
+template <typename Mutex, typename U>
 void unique_lock<Mutex, U>::lock_impl ()
 {
 	timer.start ();

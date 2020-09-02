@@ -130,4 +130,15 @@ TEST (locks, condition_variable)
 	finished = true;
 	t.join ();
 }
+
+TEST (locks, defer_lock)
+{
+	std::mutex mutex;
+	nano::unique_lock<std::mutex> lock (mutex, std::defer_lock);
+	ASSERT_FALSE (lock.owns_lock ());
+	ASSERT_TRUE (lock.try_lock ());
+	ASSERT_TRUE (lock.owns_lock ());
+	lock.unlock ();
+	ASSERT_FALSE (lock.owns_lock ());
+}
 #endif
