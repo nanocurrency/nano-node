@@ -115,7 +115,7 @@ void nano::vote_generator::add (nano::root const & root_a, nano::block_hash cons
 {
 	auto transaction (ledger.store.tx_begin_read ());
 	auto block (ledger.store.block_get (transaction, hash_a));
-	if (block != nullptr && ledger.can_vote (transaction, *block))
+	if (block != nullptr && ledger.dependents_confirmed (transaction, *block))
 	{
 		nano::unique_lock<std::mutex> lock (mutex);
 		hashes.emplace_back (root_a, hash_a);
