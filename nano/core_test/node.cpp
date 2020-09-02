@@ -4498,7 +4498,7 @@ TEST (node, deferred_dependent_elections)
 		election_open->confirm_once ();
 	}
 	ASSERT_TIMELY (2s, node.block_confirmed (open->hash ()));
-	ASSERT_FALSE (node.ledger.can_vote (node.store.tx_begin_read (), *receive));
+	ASSERT_FALSE (node.ledger.dependents_confirmed (node.store.tx_begin_read (), *receive));
 	std::this_thread::sleep_for (500ms);
 	ASSERT_FALSE (node.active.active (receive->qualified_root ()));
 	ASSERT_FALSE (node.ledger.rollback (node.store.tx_begin_write (), receive->hash ()));
