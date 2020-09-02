@@ -40,8 +40,11 @@ public:
 	nano::vote_code vote_blocking (std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>, bool = false);
 	void verify_votes (std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>>> const &);
 	void flush ();
+	/** Block until the currently active processing cycle finishes */
+	void flush_active ();
 	size_t size ();
 	bool empty ();
+	bool half_full ();
 	void calculate_weights ();
 	void stop ();
 
@@ -49,6 +52,7 @@ private:
 	void process_loop ();
 
 	nano::node & node;
+	size_t max_votes;
 	std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>>> votes;
 	/** Representatives levels for random early detection */
 	std::unordered_set<nano::account> representatives_1;

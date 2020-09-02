@@ -303,9 +303,6 @@ TEST (node, auto_bootstrap)
 	// Confirmation for all blocks
 	ASSERT_TIMELY (5s, node1->ledger.cache.cemented_count == 3);
 
-	auto transaction = node1->store.tx_begin_read ();
-	ASSERT_EQ (node1->ledger.cache.unchecked_count, node1->store.unchecked_count (transaction));
-
 	node1->stop ();
 }
 
@@ -2520,7 +2517,6 @@ TEST (node, block_confirm)
 		auto & node2 (*system.nodes[1]);
 		nano::genesis genesis;
 		nano::keypair key;
-		system.wallet (1)->insert_adhoc (nano::dev_genesis_key.prv);
 		nano::state_block_builder builder;
 		auto send1 = builder.make_block ()
 		             .account (nano::dev_genesis_key.pub)
@@ -2540,6 +2536,16 @@ TEST (node, block_confirm)
 		ASSERT_TIMELY (5s, node1.ledger.block_exists (send1->hash ()) && node2.ledger.block_exists (send1_copy->hash ()));
 		ASSERT_TRUE (node1.ledger.block_exists (send1->hash ()));
 		ASSERT_TRUE (node2.ledger.block_exists (send1_copy->hash ()));
+		// Confirm send1 on node2 so it can vote for send2
+		node2.block_confirm (send1_copy);
+		{
+			auto election = node2.active.election (send1_copy->qualified_root ());
+			ASSERT_NE (nullptr, election);
+			nano::lock_guard<std::mutex> guard (node2.active.mutex);
+			election->confirm_once ();
+		}
+		ASSERT_TIMELY (3s, node2.block_confirmed (send1_copy->hash ()) && node2.active.empty ());
+		system.wallet (1)->insert_adhoc (nano::dev_genesis_key.prv);
 		auto send2 (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, send1->hash (), nano::dev_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio * 2, key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node1.work_generate_blocking (send1->hash ())));
 		{
 			auto transaction (node1.store.tx_begin_write ());
@@ -2549,9 +2555,9 @@ TEST (node, block_confirm)
 			auto transaction (node2.store.tx_begin_write ());
 			ASSERT_EQ (nano::process_result::progress, node2.ledger.process (transaction, *send2).code);
 		}
-		node1.block_confirm (send2);
 		ASSERT_TRUE (node1.active.list_recently_cemented ().empty ());
-		ASSERT_TIMELY (10s, !node1.active.list_recently_cemented ().empty ());
+		node1.block_confirm (send2);
+		ASSERT_TIMELY (10s, node1.active.list_recently_cemented ().size () == 2);
 	}
 }
 
@@ -3262,7 +3268,6 @@ TEST (node, block_processor_signatures)
 	{
 		auto transaction (node1.store.tx_begin_write ());
 		node1.store.unchecked_put (transaction, send5->previous (), send5);
-		++node1.ledger.cache.unchecked_count;
 	}
 	auto receive1 = builder.make_block ()
 	                .account (key1.pub)
@@ -3619,7 +3624,7 @@ TEST (node, unchecked_cleanup)
 		auto transaction (node.store.tx_begin_read ());
 		auto unchecked_count (node.store.unchecked_count (transaction));
 		ASSERT_EQ (unchecked_count, 1);
-		ASSERT_EQ (unchecked_count, node.ledger.cache.unchecked_count);
+		ASSERT_EQ (unchecked_count, node.store.unchecked_count (transaction));
 	}
 	std::this_thread::sleep_for (std::chrono::seconds (1));
 	node.unchecked_cleanup ();
@@ -3628,7 +3633,7 @@ TEST (node, unchecked_cleanup)
 		auto transaction (node.store.tx_begin_read ());
 		auto unchecked_count (node.store.unchecked_count (transaction));
 		ASSERT_EQ (unchecked_count, 1);
-		ASSERT_EQ (unchecked_count, node.ledger.cache.unchecked_count);
+		ASSERT_EQ (unchecked_count, node.store.unchecked_count (transaction));
 	}
 	std::this_thread::sleep_for (std::chrono::seconds (2));
 	node.unchecked_cleanup ();
@@ -3637,7 +3642,7 @@ TEST (node, unchecked_cleanup)
 		auto transaction (node.store.tx_begin_read ());
 		auto unchecked_count (node.store.unchecked_count (transaction));
 		ASSERT_EQ (unchecked_count, 0);
-		ASSERT_EQ (unchecked_count, node.ledger.cache.unchecked_count);
+		ASSERT_EQ (unchecked_count, node.store.unchecked_count (transaction));
 	}
 }
 
@@ -4205,7 +4210,7 @@ TEST (node, dependency_graph)
 }
 
 // Confirm a complex dependency graph starting from a frontier
-TEST (node, dependency_graph_frontier)
+TEST (node, DISABLED_dependency_graph_frontier)
 {
 	nano::system system;
 	nano::node_config config (nano::get_available_port (), system.logging);
@@ -4497,7 +4502,7 @@ TEST (node, deferred_dependent_elections)
 		election_open->confirm_once ();
 	}
 	ASSERT_TIMELY (2s, node.block_confirmed (open->hash ()));
-	ASSERT_FALSE (node.ledger.can_vote (node.store.tx_begin_read (), *receive));
+	ASSERT_FALSE (node.ledger.dependents_confirmed (node.store.tx_begin_read (), *receive));
 	std::this_thread::sleep_for (500ms);
 	ASSERT_FALSE (node.active.active (receive->qualified_root ()));
 	ASSERT_FALSE (node.ledger.rollback (node.store.tx_begin_write (), receive->hash ()));
@@ -4526,6 +4531,21 @@ TEST (node, deferred_dependent_elections)
 	node.block_processor.flush ();
 	ASSERT_TRUE (node.active.active (receive->qualified_root ()));
 }
+}
+
+TEST (node, default_difficulty)
+{
+	nano::system system (1);
+	auto & node (*system.nodes[0]);
+	auto const & thresholds = nano::network_params{}.network.publish_thresholds;
+	ASSERT_EQ (thresholds.epoch_1, node.default_difficulty (nano::work_version::work_1));
+	ASSERT_EQ (thresholds.epoch_1, node.default_receive_difficulty (nano::work_version::work_1));
+	nano::upgrade_epoch (system.work, node.ledger, nano::epoch::epoch_1);
+	ASSERT_EQ (thresholds.epoch_1, node.default_difficulty (nano::work_version::work_1));
+	ASSERT_EQ (thresholds.epoch_1, node.default_receive_difficulty (nano::work_version::work_1));
+	nano::upgrade_epoch (system.work, node.ledger, nano::epoch::epoch_2);
+	ASSERT_EQ (thresholds.epoch_2, node.default_difficulty (nano::work_version::work_1));
+	ASSERT_EQ (thresholds.epoch_2_receive, node.default_receive_difficulty (nano::work_version::work_1));
 }
 
 namespace

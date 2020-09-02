@@ -503,7 +503,6 @@ enum class tables
 {
 	accounts,
 	blocks,
-	cached_counts, // RocksDB only
 	confirmation_height,
 	frontiers,
 	meta,
@@ -679,6 +678,9 @@ public:
 	virtual nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_begin (nano::transaction const & transaction_a) = 0;
 	virtual nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_end () = 0;
 
+	virtual nano::store_iterator<nano::block_hash, std::shared_ptr<nano::block>> blocks_begin (nano::transaction const & transaction_a) const = 0;
+	virtual nano::store_iterator<nano::block_hash, std::shared_ptr<nano::block>> blocks_end () const = 0;
+
 	virtual uint64_t block_account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const = 0;
 	virtual std::mutex & get_cache_mutex () = 0;
 
@@ -686,7 +688,8 @@ public:
 	virtual void rebuild_db (nano::write_transaction const & transaction_a) = 0;
 
 	/** Not applicable to all sub-classes */
-	virtual void serialize_mdb_tracker (boost::property_tree::ptree &, std::chrono::milliseconds, std::chrono::milliseconds) = 0;
+	virtual void serialize_mdb_tracker (boost::property_tree::ptree &, std::chrono::milliseconds, std::chrono::milliseconds){};
+	virtual void serialize_memory_stats (boost::property_tree::ptree &) = 0;
 
 	virtual bool init_error () const = 0;
 
