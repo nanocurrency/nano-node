@@ -162,30 +162,19 @@ void nano::socket::write_queued_messages ()
 				if (auto node = this_l->node.lock ())
 				{
 					node->stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::out, size_a);
-
 					this_l->stop_timer ();
-
-					if (!this_l->closed)
+					if (msg.callback)
 					{
-						if (msg.callback)
-						{
-							msg.callback (ec, size_a);
-						}
+						msg.callback (ec, size_a);
+					}
 
+					if (!ec && !this_l->closed)
+					{
 						this_l->send_queue.pop_front ();
-						if (!ec && !this_l->send_queue.empty ())
+						if (!this_l->send_queue.empty ())
 						{
 							this_l->write_queued_messages ();
 						}
-						else if (this_l->send_queue.empty ())
-						{
-							// Idle TCP realtime client socket after writes
-							this_l->start_timer (node->network_params.node.idle_timeout);
-						}
-					}
-					else if (msg.callback)
-					{
-						msg.callback (ec, size_a);
 					}
 				}
 			}
