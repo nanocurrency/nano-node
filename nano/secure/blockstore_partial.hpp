@@ -122,7 +122,6 @@ public:
 	uint64_t block_account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override
 	{
 		auto block = block_get (transaction_a, hash_a);
-		debug_assert (block != nullptr);
 		return block->sideband ().height;
 	}
 
