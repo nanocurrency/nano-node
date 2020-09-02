@@ -516,8 +516,15 @@ void nano::active_transactions::request_loop ()
 
 	while (!stopped && !node.flags.disable_request_loop)
 	{
-		// Account for the time spent in request_confirm by defining the wakeup point beforehand
-		const auto wakeup_l (std::chrono::steady_clock::now () + std::chrono::milliseconds (node.network_params.network.request_interval_ms));
+		// If many votes are queued, ensure at least the currently active ones finish processing
+		lock.unlock ();
+		if (node.vote_processor.half_full ())
+		{
+			node.vote_processor.flush_active ();
+		}
+		lock.lock ();
+
+		const auto stamp_l = std::chrono::steady_clock::now ();
 
 		// frontiers_confirmation should be above update_active_multiplier to ensure new sorted roots are updated
 		if (should_do_frontiers_confirmation ())
@@ -527,9 +534,10 @@ void nano::active_transactions::request_loop ()
 		update_active_multiplier (lock);
 		request_confirm (lock);
 
-		// Sleep until all broadcasts are done, plus the remaining loop time
 		if (!stopped)
 		{
+			const auto min_sleep_l = std::chrono::milliseconds (node.network_params.network.request_interval_ms / 2);
+			const auto wakeup_l = std::max (stamp_l + std::chrono::milliseconds (node.network_params.network.request_interval_ms), std::chrono::steady_clock::now () + min_sleep_l);
 			condition.wait_until (lock, wakeup_l, [&wakeup_l, &stopped = stopped] { return stopped || std::chrono::steady_clock::now () >= wakeup_l; });
 		}
 	}
@@ -1071,7 +1079,9 @@ void nano::active_transactions::update_active_multiplier (nano::unique_lock<std:
 	debug_assert (difficulty >= node.network_params.network.publish_thresholds.entry);
 
 	trended_active_multiplier = avg_multiplier;
+	lock_a.unlock ();
 	node.observers.difficulty.notify (difficulty);
+	lock_a.lock ();
 }
 
 uint64_t nano::active_transactions::active_difficulty ()
@@ -1101,8 +1111,7 @@ uint64_t nano::active_transactions::limited_active_difficulty (nano::work_versio
 
 double nano::active_transactions::active_multiplier ()
 {
-	nano::lock_guard<std::mutex> lock (mutex);
-	return trended_active_multiplier;
+	return trended_active_multiplier.load ();
 }
 
 // List of active blocks in elections

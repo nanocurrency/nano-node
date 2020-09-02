@@ -16,7 +16,7 @@ RUN mkdir /tmp/build && \
     cd .. && \
     echo ${NETWORK} > /etc/nano-network
 
-FROM ubuntu:16.04
+FROM ubuntu:18.04
 
 RUN groupadd --gid 1000 nanocurrency && \
     useradd --uid 1000 --gid nanocurrency --shell /bin/bash --create-home nanocurrency
