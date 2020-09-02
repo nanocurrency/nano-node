@@ -221,12 +221,7 @@ private:
 	// Returns false if the election difficulty was updated
 	bool update_difficulty_impl (roots_iterator const &, nano::block const &);
 	void request_loop ();
-	void confirm_prioritized_frontiers (nano::transaction const & transaction_a);
 	void request_confirm (nano::unique_lock<std::mutex> &);
-	void frontiers_confirmation (nano::unique_lock<std::mutex> &);
-	nano::account next_frontier_account{ 0 };
-	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };
-	constexpr static size_t max_active_elections_frontier_insertion{ 1000 };
 	nano::condition_variable condition;
 	bool started{ false };
 	std::atomic<bool> stopped{ false };
@@ -260,6 +255,13 @@ private:
 			mi::member<nano::cementable_account, uint64_t, &nano::cementable_account::blocks_uncemented>,
 			std::greater<uint64_t>>>>;
 	// clang-format on
+
+	// Frontiers confirmation
+	void confirm_prioritized_frontiers (nano::transaction const &);
+	void frontiers_confirmation (nano::unique_lock<std::mutex> &);
+	nano::account next_frontier_account{ 0 };
+	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };
+	constexpr static size_t max_active_elections_frontier_insertion{ 1000 };
 	prioritize_num_uncemented priority_wallet_cementable_frontiers;
 	prioritize_num_uncemented priority_cementable_frontiers;
 	void prioritize_frontiers_for_confirmation (nano::transaction const &, std::chrono::milliseconds, std::chrono::milliseconds);
@@ -286,7 +288,7 @@ private:
 
 	friend class active_transactions_dropped_cleanup_dev;
 	friend class active_transactions_vote_replays_Test;
-	friend class confirmation_height_prioritize_frontiers_Test;
+	friend class frontiers_confirmation_prioritize_frontiers_Test;
 	friend class confirmation_height_prioritize_frontiers_overwrite_Test;
 	friend class active_transactions_confirmation_consistency_Test;
 	friend class node_deferred_dependent_elections_Test;
