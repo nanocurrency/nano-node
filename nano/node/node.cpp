@@ -811,11 +811,11 @@ void nano::node::ongoing_rep_calculation ()
 
 void nano::node::ongoing_bootstrap ()
 {
-	auto next_wakeup (300);
+	auto next_wakeup (network_params.node.bootstrap_interval);
 	if (warmed_up < 3)
 	{
 		// Re-attempt bootstrapping more aggressively on startup
-		next_wakeup = 5;
+		next_wakeup = std::chrono::seconds (5);
 		if (!bootstrap_initiator.in_progress () && !network.empty ())
 		{
 			++warmed_up;
@@ -823,7 +823,7 @@ void nano::node::ongoing_bootstrap ()
 	}
 	bootstrap_initiator.bootstrap ();
 	std::weak_ptr<nano::node> node_w (shared_from_this ());
-	alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (next_wakeup), [node_w]() {
+	alarm.add (std::chrono::steady_clock::now () + next_wakeup, [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->ongoing_bootstrap ();
