@@ -130,7 +130,7 @@ TEST (frontiers_confirmation, prioritize_frontiers)
 	node->active.prioritize_frontiers_for_confirmation (transaction, std::chrono::seconds (1), std::chrono::seconds (1));
 	ASSERT_TRUE (priority_orders_match (node->active.priority_wallet_cementable_frontiers, std::array<nano::account, num_accounts>{ key3.pub, nano::genesis_account, key4.pub, key1.pub, key2.pub }));
 	uint64_t election_count = 0;
-	node->active.confirm_prioritized_frontiers (transaction);
+	node->active.confirm_prioritized_frontiers (transaction, 100, election_count);
 
 	// Check that the active transactions roots contains the frontiers
 	ASSERT_TIMELY (10s, node->active.size () == num_accounts);
@@ -141,6 +141,72 @@ TEST (frontiers_confirmation, prioritize_frontiers)
 		nano::lock_guard<std::mutex> guard (node->active.mutex);
 		ASSERT_NE (node->active.roots.find (frontier), node->active.roots.end ());
 	}
+}
+
+TEST (frontiers_confirmation, prioritize_frontiers_max_optimistic_elections)
+{
+	nano::system system;
+	// Prevent frontiers being confirmed as it will affect the priorization checking
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto node = system.add_node (node_config);
+
+	node->ledger.cache.cemented_count = node->ledger.bootstrap_weight_max_blocks - 1;
+	auto max_optimistic_election_count_under_hardcoded_weight = node->active.max_optimistic ();
+	node->ledger.cache.cemented_count = node->ledger.bootstrap_weight_max_blocks;
+	auto max_optimistic_election_count = node->active.max_optimistic ();
+	ASSERT_GT (max_optimistic_election_count_under_hardcoded_weight, max_optimistic_election_count);
+
+	for (auto i = 0; i < max_optimistic_election_count * 2; ++i)
+	{
+		auto transaction = node->store.tx_begin_write ();
+		auto latest = node->latest (nano::genesis_account);
+		nano::keypair key;
+		nano::send_block send (latest, key.pub, node->config.online_weight_minimum.number () + 10000, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (latest));
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send).code);
+		nano::open_block open (send.hash (), nano::genesis_account, key.pub, key.prv, key.pub, *system.work.generate (key.pub));
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, open).code);
+	}
+
+	{
+		nano::unique_lock<std::mutex> lk (node->active.mutex);
+		node->active.frontiers_confirmation (lk);
+	}
+
+	ASSERT_EQ (max_optimistic_election_count, node->active.roots.size ());
+
+	nano::account next_frontier_account{ 2 };
+	node->active.next_frontier_account = next_frontier_account;
+
+	// Call frontiers confirmation again and confirm that next_frontier_account hasn't changed
+	{
+		nano::unique_lock<std::mutex> lk (node->active.mutex);
+		node->active.frontiers_confirmation (lk);
+	}
+
+	ASSERT_EQ (max_optimistic_election_count, node->active.roots.size ());
+	ASSERT_EQ (next_frontier_account, node->active.next_frontier_account);
+}
+
+TEST (frontiers_confirmation, expired_optimistic_elections_removal)
+{
+	nano::system system;
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto node = system.add_node (node_config);
+
+	// This should be removed on the next prioritization call
+	node->active.expired_optimistic_election_infos.emplace (std::chrono::steady_clock::now () - (node->active.expired_optimistic_election_info_cutoff + 1min), nano::account (1));
+	ASSERT_EQ (1, node->active.expired_optimistic_election_infos.size ());
+	node->active.prioritize_frontiers_for_confirmation (node->store.tx_begin_read (), 0s, 0s);
+	ASSERT_EQ (0, node->active.expired_optimistic_election_infos.size ());
+
+	// This should not be removed on the next prioritization call
+	node->active.expired_optimistic_election_infos.emplace (std::chrono::steady_clock::now () - (node->active.expired_optimistic_election_info_cutoff - 1min), nano::account (1));
+	ASSERT_EQ (1, node->active.expired_optimistic_election_infos.size ());
+	node->active.prioritize_frontiers_for_confirmation (node->store.tx_begin_read (), 0s, 0s);
+	ASSERT_EQ (1, node->active.expired_optimistic_election_infos.size ());
+}
 }
 
 TEST (frontiers_confirmation, mode)
@@ -189,5 +255,4 @@ TEST (frontiers_confirmation, mode)
 		std::this_thread::sleep_for (std::chrono::seconds (1));
 		ASSERT_EQ (0, node->active.size ());
 	}
-}
 }

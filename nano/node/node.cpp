@@ -526,7 +526,7 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 		if (ledger_block && !block_confirmed_or_being_confirmed (transaction_a, ledger_block->hash ()) && (ledger.dependents_confirmed (transaction_a, *ledger_block) || modified_a < nano::seconds_since_epoch () - 300 || !block_arrival.recent (block_a->hash ())))
 		{
 			std::weak_ptr<nano::node> this_w (shared_from_this ());
-			auto election = active.insert (ledger_block, boost::none, [this_w, root, root_block_type = block_a->type ()](std::shared_ptr<nano::block>) {
+			auto election = active.insert (ledger_block, boost::none, nano::election_behavior::normal, [this_w, root, root_block_type = block_a->type ()](std::shared_ptr<nano::block>) {
 				if (auto this_l = this_w.lock ())
 				{
 					auto attempt (this_l->bootstrap_initiator.current_attempt ());
