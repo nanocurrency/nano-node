@@ -122,7 +122,6 @@ public:
 	uint64_t block_account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override
 	{
 		auto block = block_get (transaction_a, hash_a);
-		debug_assert (block != nullptr);
 		return block->sideband ().height;
 	}
 
@@ -336,6 +335,11 @@ public:
 	nano::store_iterator<nano::account, nano::account_info> latest_end () const override
 	{
 		return nano::store_iterator<nano::account, nano::account_info> (nullptr);
+	}
+
+	nano::store_iterator<nano::block_hash, std::shared_ptr<nano::block>> blocks_end () const override
+	{
+		return nano::store_iterator<nano::block_hash, std::shared_ptr<nano::block>> (nullptr);
 	}
 
 	nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_end () override
@@ -653,6 +657,11 @@ public:
 		return make_iterator<nano::account, nano::account_info> (transaction_a, tables::accounts);
 	}
 
+	nano::store_iterator<nano::block_hash, std::shared_ptr<nano::block>> blocks_begin (nano::transaction const & transaction_a) const override
+	{
+		return make_iterator<nano::block_hash, std::shared_ptr<nano::block>> (transaction_a, tables::blocks);
+	}
+
 	nano::store_iterator<nano::pending_key, nano::pending_info> pending_begin (nano::transaction const & transaction_a, nano::pending_key const & key_a) override
 	{
 		return make_iterator<nano::pending_key, nano::pending_info> (transaction_a, tables::pending, nano::db_val<Val> (key_a));
@@ -742,9 +751,9 @@ protected:
 		return static_cast<nano::block_type> ((reinterpret_cast<uint8_t const *> (data_a))[0]);
 	}
 
-	size_t count (nano::transaction const & transaction_a, std::initializer_list<tables> dbs_a) const
+	uint64_t count (nano::transaction const & transaction_a, std::initializer_list<tables> dbs_a) const
 	{
-		size_t total_count = 0;
+		uint64_t total_count = 0;
 		for (auto db : dbs_a)
 		{
 			total_count += count (transaction_a, db);
@@ -767,7 +776,7 @@ protected:
 		return static_cast<Derived_Store &> (*this).del (transaction_a, table_a, key_a);
 	}
 
-	virtual size_t count (nano::transaction const & transaction_a, tables table_a) const = 0;
+	virtual uint64_t count (nano::transaction const & transaction_a, tables table_a) const = 0;
 	virtual int drop (nano::write_transaction const & transaction_a, tables table_a) = 0;
 	virtual bool not_found (int status) const = 0;
 	virtual bool success (int status) const = 0;
