@@ -222,6 +222,15 @@ void nano::vote_processor::flush ()
 	}
 }
 
+void nano::vote_processor::flush_active ()
+{
+	nano::unique_lock<std::mutex> lock (mutex);
+	while (is_active)
+	{
+		condition.wait (lock);
+	}
+}
+
 size_t nano::vote_processor::size ()
 {
 	nano::lock_guard<std::mutex> guard (mutex);
@@ -232,6 +241,11 @@ bool nano::vote_processor::empty ()
 {
 	nano::lock_guard<std::mutex> guard (mutex);
 	return votes.empty ();
+}
+
+bool nano::vote_processor::half_full ()
+{
+	return size () >= max_votes / 2;
 }
 
 void nano::vote_processor::calculate_weights ()

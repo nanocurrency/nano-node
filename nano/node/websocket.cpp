@@ -775,7 +775,7 @@ nano::websocket::message nano::websocket::message_builder::vote_received (std::s
 	return message_l;
 }
 
-nano::websocket::message nano::websocket::message_builder::difficulty_changed (uint64_t publish_threshold_a, uint64_t difficulty_active_a)
+nano::websocket::message nano::websocket::message_builder::difficulty_changed (uint64_t publish_threshold_a, uint64_t receive_threshold_a, uint64_t difficulty_active_a)
 {
 	nano::websocket::message message_l (nano::websocket::topic::active_difficulty);
 	set_common_fields (message_l);
@@ -783,9 +783,12 @@ nano::websocket::message nano::websocket::message_builder::difficulty_changed (u
 	// Active difficulty information
 	boost::property_tree::ptree difficulty_l;
 	difficulty_l.put ("network_minimum", nano::to_string_hex (publish_threshold_a));
+	difficulty_l.put ("network_receive_minimum", nano::to_string_hex (receive_threshold_a));
 	difficulty_l.put ("network_current", nano::to_string_hex (difficulty_active_a));
 	auto multiplier = nano::difficulty::to_multiplier (difficulty_active_a, publish_threshold_a);
 	difficulty_l.put ("multiplier", nano::to_string (multiplier));
+	auto const receive_current_denormalized (nano::denormalized_multiplier (multiplier, nano::network_params{}.network.publish_thresholds.epoch_2_receive));
+	difficulty_l.put ("network_receive_current", nano::to_string_hex (nano::difficulty::from_multiplier (receive_current_denormalized, receive_threshold_a)));
 
 	message_l.contents.add_child ("message", difficulty_l);
 	return message_l;

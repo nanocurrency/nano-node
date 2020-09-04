@@ -142,7 +142,7 @@ void nano::vote_generator::add (nano::root const & root_a, nano::block_hash cons
 	{
 		auto transaction (ledger.store.tx_begin_read ());
 		auto block (ledger.store.block_get (transaction, hash_a));
-		if (block != nullptr && ledger.can_vote (transaction, *block))
+		if (block != nullptr && ledger.dependents_confirmed (transaction, *block))
 		{
 			nano::unique_lock<std::mutex> lock (mutex);
 			candidates.emplace_back (root_a, hash_a);
@@ -172,14 +172,14 @@ void nano::vote_generator::stop ()
 size_t nano::vote_generator::generate (std::vector<std::shared_ptr<nano::block>> const & blocks_a, std::shared_ptr<nano::transport::channel> const & channel_a)
 {
 	auto transaction (ledger.store.tx_begin_read ());
-	auto can_vote = [&blocks_a, &transaction, this](auto const & block_a) {
-		return this->ledger.can_vote (transaction, *block_a);
+	auto dependents_confirmed = [&blocks_a, &transaction, this](auto const & block_a) {
+		return this->ledger.dependents_confirmed (transaction, *block_a);
 	};
 	auto as_candidate = [](auto const & block_a) {
 		return candidate_t{ block_a->root (), block_a->hash () };
 	};
 	request_t::first_type candidates;
-	nano::transform_if (blocks_a.begin (), blocks_a.end (), std::back_inserter (candidates), can_vote, as_candidate);
+	nano::transform_if (blocks_a.begin (), blocks_a.end (), std::back_inserter (candidates), dependents_confirmed, as_candidate);
 	auto const result = candidates.size ();
 	nano::lock_guard<std::mutex> guard (mutex);
 	requests.emplace_back (std::move (candidates), channel_a);
