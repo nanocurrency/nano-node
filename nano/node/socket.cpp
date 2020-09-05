@@ -182,12 +182,17 @@ void nano::socket::async_write (nano::shared_const_buffer const & buffer_a, boos
 		{
 			++queue_size;
 			start_timer ();
-			nano::async_write (tcp_socket, buffer_a, yield);
+			boost::system::error_code ec;
+			nano::async_write (tcp_socket, buffer_a, yield[ec]);
 			stop_timer ();
+			handler (ec, ec ? 0 : buffer_a.size ());
 			--queue_size;
-			if (auto node_l = node.lock ())
+			if (!ec)
 			{
-				node_l->stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::out, buffer_a.size ());
+				if (auto node_l = node.lock ())
+				{
+					node_l->stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::out, buffer_a.size ());
+				}
 			}
 		}
 		else if (auto node_l = node.lock ())

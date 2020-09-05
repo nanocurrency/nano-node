@@ -292,6 +292,7 @@ TEST (socket_yield, async_write_fail)
 	});
 	ASSERT_TIMELY (1s, future.wait_for (std::chrono::milliseconds (0)) == std::future_status::ready);
 	ASSERT_TRUE (future.get ());
+	ASSERT_EQ (0, node->stats.count (nano::stat::type::traffic_tcp, nano::stat::dir::out));
 }
 
 TEST (socket_yield, async_write_closed_fail)
