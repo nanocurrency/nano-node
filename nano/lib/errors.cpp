@@ -127,6 +127,8 @@ std::string nano::error_rpc_messages::message (int ev) const
 	{
 		case nano::error_rpc::generic:
 			return "Unknown error";
+		case nano::error_rpc::empty_response:
+			return "Empty response";
 		case nano::error_rpc::bad_destination:
 			return "Bad destination account";
 		case nano::error_rpc::bad_difficulty_format:
