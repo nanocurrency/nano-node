@@ -148,10 +148,16 @@ void nano::json_handler::process_request (bool unsafe_a)
 
 void nano::json_handler::response_errors ()
 {
-	if (ec || response_l.empty ())
+	// Return an error code if no response data was given
+	if (!ec && response_l.empty ())
+	{
+		ec = nano::error_rpc::empty_response;
+	}
+	
+	if (ec)
 	{
 		boost::property_tree::ptree response_error;
-		response_error.put ("error", ec ? ec.message () : "Empty response");
+		response_error.put ("error", ec.message ());
 		std::stringstream ostream;
 		boost::property_tree::write_json (ostream, response_error);
 		response (ostream.str ());
