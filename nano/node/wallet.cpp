@@ -1150,7 +1150,7 @@ void nano::wallet::work_update (nano::transaction const & transaction_a, nano::a
 void nano::wallet::work_ensure (nano::account const & account_a, nano::root const & root_a)
 {
 	using namespace std::chrono_literals;
-	std::chrono::seconds const precache_delay = wallets.node.network_params.network.is_test_network () ? 1s : 10s;
+	std::chrono::seconds const precache_delay = wallets.node.network_params.network.is_dev_network () ? 1s : 10s;
 
 	wallets.delayed_work->operator[] (account_a) = root_a;
 
@@ -1399,11 +1399,12 @@ void nano::work_watcher::watching (nano::qualified_root const & root_a, std::sha
 
 void nano::work_watcher::remove (nano::block const & block_a)
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::unique_lock<std::mutex> lock (mutex);
 	auto existing (watched.find (block_a.qualified_root ()));
 	if (existing != watched.end ())
 	{
 		watched.erase (existing);
+		lock.unlock ();
 		node.observers.work_cancel.notify (block_a.root ());
 	}
 }
@@ -1795,7 +1796,7 @@ void nano::wallets::ongoing_compute_reps ()
 {
 	compute_reps ();
 	auto & node_l (node);
-	auto compute_delay (network_params.network.is_test_network () ? std::chrono::milliseconds (10) : std::chrono::milliseconds (15 * 60 * 1000)); // Representation drifts quickly on the test network but very slowly on the live network
+	auto compute_delay (network_params.network.is_dev_network () ? std::chrono::milliseconds (10) : std::chrono::milliseconds (15 * 60 * 1000)); // Representation drifts quickly on the test network but very slowly on the live network
 	node.alarm.add (std::chrono::steady_clock::now () + compute_delay, [&node_l]() {
 		node_l.wallets.ongoing_compute_reps ();
 	});
