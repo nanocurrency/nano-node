@@ -176,20 +176,20 @@ uint64_t nano::system::work_generate_limited (nano::block_hash const & root_a, u
 std::unique_ptr<nano::state_block> nano::upgrade_epoch (nano::work_pool & pool_a, nano::ledger & ledger_a, nano::epoch epoch_a)
 {
 	auto transaction (ledger_a.store.tx_begin_write ());
-	auto test_genesis_key = nano::ledger_constants (nano::nano_networks::nano_test_network).test_genesis_key;
-	auto account = test_genesis_key.pub;
+	auto dev_genesis_key = nano::ledger_constants (nano::nano_networks::nano_dev_network).dev_genesis_key;
+	auto account = dev_genesis_key.pub;
 	auto latest = ledger_a.latest (transaction, account);
 	auto balance = ledger_a.account_balance (transaction, account);
 
 	nano::state_block_builder builder;
 	std::error_code ec;
 	auto epoch = builder
-	             .account (test_genesis_key.pub)
+	             .account (dev_genesis_key.pub)
 	             .previous (latest)
 	             .balance (balance)
 	             .link (ledger_a.epoch_link (epoch_a))
-	             .representative (test_genesis_key.pub)
-	             .sign (test_genesis_key.prv, test_genesis_key.pub)
+	             .representative (dev_genesis_key.pub)
+	             .sign (dev_genesis_key.prv, dev_genesis_key.pub)
 	             .work (*pool_a.generate (latest, nano::work_threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true))))
 	             .build (ec);
 
@@ -355,7 +355,7 @@ void nano::system::generate_receive (nano::node & node_a)
 	}
 	if (send_block != nullptr)
 	{
-		auto receive_error (wallet (0)->receive_sync (send_block, nano::ledger_constants (nano::nano_networks::nano_test_network).genesis_account, std::numeric_limits<nano::uint128_t>::max ()));
+		auto receive_error (wallet (0)->receive_sync (send_block, nano::ledger_constants (nano::nano_networks::nano_dev_network).genesis_account, std::numeric_limits<nano::uint128_t>::max ()));
 		(void)receive_error;
 	}
 }
@@ -480,9 +480,9 @@ void nano::system::generate_send_new (nano::node & node_a, std::vector<nano::acc
 void nano::system::generate_mass_activity (uint32_t count_a, nano::node & node_a)
 {
 	std::vector<nano::account> accounts;
-	auto test_genesis_key = nano::ledger_constants (nano::nano_networks::nano_test_network).test_genesis_key;
-	wallet (0)->insert_adhoc (test_genesis_key.prv);
-	accounts.push_back (test_genesis_key.pub);
+	auto dev_genesis_key = nano::ledger_constants (nano::nano_networks::nano_dev_network).dev_genesis_key;
+	wallet (0)->insert_adhoc (dev_genesis_key.prv);
+	accounts.push_back (dev_genesis_key.pub);
 	auto previous (std::chrono::steady_clock::now ());
 	for (uint32_t i (0); i < count_a; ++i)
 	{
@@ -490,11 +490,7 @@ void nano::system::generate_mass_activity (uint32_t count_a, nano::node & node_a
 		{
 			auto now (std::chrono::steady_clock::now ());
 			auto us (std::chrono::duration_cast<std::chrono::microseconds> (now - previous).count ());
-			uint64_t count (0);
-			{
-				auto transaction (node_a.store.tx_begin_read ());
-				count = node_a.store.block_count (transaction);
-			}
+			auto count = node_a.ledger.cache.block_count.load ();
 			std::cerr << boost::str (boost::format ("Mass activity iteration %1% us %2% us/t %3% block count: %4%\n") % i % us % (us / 256) % count);
 			previous = now;
 		}
@@ -535,7 +531,7 @@ uint16_t nano::get_available_port ()
 	return available_port;
 }
 
-void nano::cleanup_test_directories_on_exit ()
+void nano::cleanup_dev_directories_on_exit ()
 {
 	// Makes sure everything is cleaned up
 	nano::logging::release_file_sink ();
@@ -546,4 +542,11 @@ void nano::cleanup_test_directories_on_exit ()
 	{
 		nano::remove_temporary_directories ();
 	}
+}
+
+bool nano::using_rocksdb_in_tests ()
+{
+	static nano::network_constants network_constants;
+	auto use_rocksdb_str = std::getenv ("TEST_USE_ROCKSDB");
+	return network_constants.is_dev_network () && use_rocksdb_str && (boost::lexical_cast<int> (use_rocksdb_str) == 1);
 }

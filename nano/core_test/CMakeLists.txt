@@ -14,6 +14,7 @@ add_executable (core_test
 	distributed_work.cpp
 	election.cpp
 	epochs.cpp
+	frontiers_confirmation.cpp
 	gap_cache.cpp
 	ipc.cpp
 	ledger.cpp
@@ -36,6 +37,7 @@ add_executable (core_test
 	uint256_union.cpp
 	utility.cpp
 	vote_processor.cpp
+	voting.cpp
 	wallet.cpp
 	wallets.cpp
 	websocket.cpp

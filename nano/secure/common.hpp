@@ -60,6 +60,14 @@ struct hash<::nano::qualified_root>
 		return std::hash<::nano::qualified_root> () (value_a);
 	}
 };
+template <>
+struct hash<::nano::root>
+{
+	size_t operator() (::nano::root const & value_a) const
+	{
+		return std::hash<::nano::root> () (value_a);
+	}
+};
 }
 namespace nano
 {
@@ -314,10 +322,6 @@ class process_return final
 {
 public:
 	nano::process_result code;
-	nano::account account;
-	nano::amount amount;
-	nano::account pending_account;
-	boost::optional<bool> state_is_send;
 	nano::signature_verification verified;
 	nano::amount previous_balance;
 };
@@ -368,13 +372,15 @@ public:
 	ledger_constants (nano::network_constants & network_constants);
 	ledger_constants (nano::nano_networks network_a);
 	nano::keypair zero_key;
-	nano::keypair test_genesis_key;
-	nano::account nano_test_account;
+	nano::keypair dev_genesis_key;
+	nano::account nano_dev_account;
 	nano::account nano_beta_account;
 	nano::account nano_live_account;
-	std::string nano_test_genesis;
+	nano::account nano_test_account;
+	std::string nano_dev_genesis;
 	std::string nano_beta_genesis;
 	std::string nano_live_genesis;
+	std::string nano_test_genesis;
 	nano::account genesis_account;
 	std::string genesis_block;
 	nano::block_hash genesis_hash;
@@ -404,6 +410,7 @@ public:
 	std::chrono::seconds cutoff;
 	std::chrono::seconds syn_cookie_cutoff;
 	std::chrono::minutes backup_interval;
+	std::chrono::seconds bootstrap_interval;
 	std::chrono::seconds search_pending_interval;
 	std::chrono::seconds peer_interval;
 	std::chrono::minutes unchecked_cleaning_interval;
@@ -411,7 +418,7 @@ public:
 	/** Maximum number of peers per IP */
 	size_t max_peers_per_ip;
 
-	/** The maximum amount of samples for a 2 week period on live or 3 days on beta */
+	/** The maximum amount of samples for a 2 week period on live or 1 day on beta */
 	uint64_t max_weight_samples;
 	uint64_t weight_period;
 };
@@ -486,6 +493,7 @@ public:
 	bool unchecked_count = true;
 	bool account_count = true;
 	bool epoch_2 = true;
+	bool block_count = true;
 
 	void enable_all ();
 };
@@ -497,7 +505,6 @@ public:
 	nano::rep_weights rep_weights;
 	std::atomic<uint64_t> cemented_count{ 0 };
 	std::atomic<uint64_t> block_count{ 0 };
-	std::atomic<uint64_t> unchecked_count{ 0 };
 	std::atomic<uint64_t> account_count{ 0 };
 	std::atomic<bool> epoch_2_started{ false };
 };
