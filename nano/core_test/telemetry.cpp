@@ -252,7 +252,7 @@ TEST (telemetry, basic)
 	}
 
 	// Wait the cache period and check cache is not used
-	std::this_thread::sleep_for (nano::telemetry_cache_cutoffs::test);
+	std::this_thread::sleep_for (nano::telemetry_cache_cutoffs::dev);
 
 	std::atomic<bool> done{ false };
 	node_client->telemetry->get_metrics_single_peer_async (channel, [&done, &telemetry_data](nano::telemetry_data_response const & response_a) {
@@ -412,7 +412,7 @@ TEST (telemetry, dos_tcp)
 		});
 	}
 
-	ASSERT_TIMELY (10s, (nano::telemetry_cache_cutoffs::test + orig) <= std::chrono::steady_clock::now ());
+	ASSERT_TIMELY (10s, (nano::telemetry_cache_cutoffs::dev + orig) <= std::chrono::steady_clock::now ());
 
 	// Should process no more telemetry_req messages
 	ASSERT_EQ (1, node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in));
@@ -455,7 +455,7 @@ TEST (telemetry, dos_udp)
 		});
 	}
 
-	ASSERT_TIMELY (20s, (nano::telemetry_cache_cutoffs::test + orig) <= std::chrono::steady_clock::now ());
+	ASSERT_TIMELY (20s, (nano::telemetry_cache_cutoffs::dev + orig) <= std::chrono::steady_clock::now ());
 
 	// Should process no more telemetry_req messages
 	ASSERT_EQ (1, node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in));
@@ -589,7 +589,7 @@ TEST (telemetry, remove_peer_invalid_signature)
 	// (Implementation detail) So that messages are not just discarded when requests were not sent.
 	node->telemetry->recent_or_initial_request_telemetry_data.emplace (channel->get_endpoint (), nano::telemetry_data (), std::chrono::steady_clock::now (), true);
 
-	auto telemetry_data = nano::local_telemetry_data (node->ledger.cache, node->network, node->config.bandwidth_limit, node->network_params, node->startup_time, node->active.active_difficulty (), node->node_id);
+	auto telemetry_data = nano::local_telemetry_data (node->store, node->ledger.cache, node->network, node->config.bandwidth_limit, node->network_params, node->startup_time, node->active.active_difficulty (), node->node_id);
 	// Change anything so that the signed message is incorrect
 	telemetry_data.block_count = 0;
 	auto telemetry_ack = nano::telemetry_ack (telemetry_data);

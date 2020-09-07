@@ -446,7 +446,7 @@ void nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 						logger.always_log (boost::str (boost::format ("Cemented %1% blocks in %2% %3% (bounded processor)") % cemented_blocks.size () % time_spent_cementing % cemented_batch_timer.unit ()));
 
 						// Update the maximum amount of blocks to write next time based on the time it took to cement this batch.
-						if (!network_params.network.is_test_network ())
+						if (!network_params.network.is_dev_network ())
 						{
 							if (time_spent_cementing > maximum_batch_write_time)
 							{
@@ -521,12 +521,13 @@ void nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 		scoped_write_guard_a.release ();
 		notify_observers_callback (cemented_blocks);
 	}
+
+	// Bail if there was an error. This indicates that there was a fatal issue with the ledger
+	// (the blocks probably got rolled back when they shouldn't have).
 	release_assert (!error);
 	// Tests should check this already at the end, but not all blocks may have elections (e.g from manual calls to confirmation_height_processor::add), this should catch any inconsistencies on live/beta though
-	if (!network_params.network.is_test_network ())
+	if (!network_params.network.is_dev_network ())
 	{
-		// Bail if there was an error. This indicates that there was a fatal issue with the ledger
-		// (the blocks probably got rolled back when they shouldn't have).
 		auto blocks_confirmed_stats = ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed);
 		auto observer_stats = ledger.stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out);
 		debug_assert (blocks_confirmed_stats == observer_stats);

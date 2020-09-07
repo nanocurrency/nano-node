@@ -128,6 +128,7 @@ public:
 	int price (nano::uint128_t const &, int);
 	// The default difficulty updates to base only when the first epoch_2 block is processed
 	uint64_t default_difficulty (nano::work_version const) const;
+	uint64_t default_receive_difficulty (nano::work_version const) const;
 	uint64_t max_work_generate_difficulty (nano::work_version const) const;
 	bool local_work_generation_enabled () const;
 	bool work_generation_enabled () const;
@@ -182,7 +183,7 @@ public:
 	std::thread block_processor_thread;
 	nano::block_arrival block_arrival;
 	nano::online_reps online_reps;
-	nano::votes_cache votes_cache;
+	nano::local_vote_history history;
 	nano::keypair node_id;
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer;

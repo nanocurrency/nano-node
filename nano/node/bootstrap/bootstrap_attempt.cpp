@@ -16,7 +16,7 @@ constexpr size_t nano::bootstrap_limits::bootstrap_max_confirm_frontiers;
 constexpr double nano::bootstrap_limits::required_frontier_confirmation_ratio;
 constexpr unsigned nano::bootstrap_limits::frontier_confirmation_blocks_limit;
 constexpr unsigned nano::bootstrap_limits::requeued_pulls_limit;
-constexpr unsigned nano::bootstrap_limits::requeued_pulls_limit_test;
+constexpr unsigned nano::bootstrap_limits::requeued_pulls_limit_dev;
 
 nano::bootstrap_attempt::bootstrap_attempt (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a, uint64_t incremental_id_a, std::string id_a) :
 node (node_a),
@@ -320,7 +320,7 @@ void nano::bootstrap_attempt_legacy::restart_condition ()
 	- not completed frontiers confirmation
 	- more than 256 pull retries usually indicating issues with requested pulls
 	- or 128k processed blocks indicating large bootstrap */
-	if (!frontiers_confirmation_pending && !frontiers_confirmed && (requeued_pulls > (!node->network_params.network.is_test_network () ? nano::bootstrap_limits::requeued_pulls_limit : nano::bootstrap_limits::requeued_pulls_limit_test) || total_blocks > nano::bootstrap_limits::frontier_confirmation_blocks_limit))
+	if (!frontiers_confirmation_pending && !frontiers_confirmed && (requeued_pulls > (!node->network_params.network.is_dev_network () ? nano::bootstrap_limits::requeued_pulls_limit : nano::bootstrap_limits::requeued_pulls_limit_dev) || total_blocks > nano::bootstrap_limits::frontier_confirmation_blocks_limit))
 	{
 		frontiers_confirmation_pending = true;
 	}
@@ -450,7 +450,7 @@ bool nano::bootstrap_attempt_legacy::confirm_frontiers (nano::unique_lock<std::m
 					{
 						tally += node->ledger.weight (voter);
 					}
-					if (existing.confirmed || (tally > reps_weight / 8 && existing.voters.size () >= representatives.size () * 0.6)) // 12.5% of weight, 60% of reps
+					if (existing.status.confirmed || (tally > reps_weight / 8 && existing.voters.size () >= representatives.size () * 0.6)) // 12.5% of weight, 60% of reps
 					{
 						ii = frontiers.erase (ii);
 					}
@@ -485,7 +485,7 @@ bool nano::bootstrap_attempt_legacy::confirm_frontiers (nano::unique_lock<std::m
 			else if (i < max_requests)
 			{
 				node->network.broadcast_confirm_req_batched_many (batched_confirm_req_bundle);
-				std::this_thread::sleep_for (std::chrono::milliseconds (!node->network_params.network.is_test_network () ? 500 : 5));
+				std::this_thread::sleep_for (std::chrono::milliseconds (!node->network_params.network.is_dev_network () ? 500 : 5));
 			}
 		}
 		if (!confirmed)
