@@ -20,6 +20,7 @@
 
 namespace nano
 {
+extern bool opencl_loaded;
 class logger_mt;
 class opencl_platform
 {

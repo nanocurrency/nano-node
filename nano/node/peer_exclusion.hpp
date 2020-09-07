@@ -52,9 +52,9 @@ public:
 	size_t limited_size (size_t const) const;
 	size_t size () const;
 
-	friend class node_telemetry_remove_peer_different_genesis_Test;
-	friend class node_telemetry_remove_peer_different_genesis_udp_Test;
-	friend class node_telemetry_remove_peer_invalid_signature_Test;
+	friend class telemetry_remove_peer_different_genesis_Test;
+	friend class telemetry_remove_peer_different_genesis_udp_Test;
+	friend class telemetry_remove_peer_invalid_signature_Test;
 	friend class peer_exclusion_validate_Test;
 };
 std::unique_ptr<container_info_component> collect_container_info (peer_exclusion const & excluded_peers, const std::string & name);

@@ -9,8 +9,8 @@ if (CMAKE_VERSION VERSION_GREATER 3.13 OR CMAKE_VERSION VERSION_EQUAL 3.13)
 	cmake_policy(SET CMP0077 NEW)
 endif()
 
-if (CMAKE_VERSION VERSION_LESS 3.11)
-	# compatibility for boost import targets use bundled 3.11 FindBoost.cmake
+if (CMAKE_VERSION VERSION_LESS 3.13)
+	# compatibility for boost import targets use bundled 3.13 FindBoost.cmake
 	list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/legacyModules")
 endif ()
 
@@ -35,7 +35,7 @@ if(MSVC)
   add_definitions(/MP)
 endif()
 
-set (CPACK_PACKAGE_VERSION_MAJOR "21")
+set (CPACK_PACKAGE_VERSION_MAJOR "22")
 set (CPACK_PACKAGE_VERSION_MINOR "0")
 set (CPACK_PACKAGE_VERSION_PATCH "0")
 set (CPACK_PACKAGE_VERSION_PRE_RELEASE "0")
@@ -50,7 +50,7 @@ endif()
 if (APPLE)
 	set (CMAKE_INSTALL_RPATH "@executable_path/../Frameworks;@executable_path/../boost/lib")
 else()
-	set (CMAKE_INSTALL_RPATH "$ORIGIN/lib")
+	set (CMAKE_INSTALL_RPATH "$ORIGIN/../lib")
 endif()
 
 # Create all libraries and executables in the root binary dir
@@ -63,10 +63,12 @@ set (NANO_ROCKSDB OFF CACHE BOOL "")
 set (NANO_POW_SERVER OFF CACHE BOOL "")
 set (NANO_WARN_TO_ERR OFF CACHE BOOL "")
 set (NANO_TIMED_LOCKS 0 CACHE STRING "")
+set (NANO_TIMED_LOCKS_IGNORE_BLOCKED OFF CACHE BOOL "")
 set (NANO_TIMED_LOCKS_FILTER "" CACHE STRING "Selects which mutex should be the only one to have stacktraces generated, empty string means report on all")
 set_property (CACHE NANO_TIMED_LOCKS_FILTER PROPERTY STRINGS active alarm block_arrival block_processor block_uniquer confirmation_height_processor dropped_elections, election_winner_details gap_cache network_filter observer_set request_aggregator state_block_signature_verification telemetry vote_generator vote_processor vote_uniquer votes_cache work_pool worker)
 
 set (NANO_FUZZER_TEST OFF CACHE BOOL "")
+set (NANO_ASIO_HANDLER_TRACKING 0 CACHE STRING "")
 
 option (NANO_STACKTRACE_BACKTRACE "Use BOOST_STACKTRACE_USE_BACKTRACE in stacktraces, for POSIX" OFF)
 if (NANO_STACKTRACE_BACKTRACE)
@@ -79,6 +81,13 @@ endif ()
 if (${NANO_TIMED_LOCKS} GREATER 0)
 	add_definitions (-DNANO_TIMED_LOCKS=${NANO_TIMED_LOCKS})
 	add_definitions (-DNANO_TIMED_LOCKS_FILTER=${NANO_TIMED_LOCKS_FILTER})
+	if (NANO_TIMED_LOCKS_IGNORE_BLOCKED)
+		add_definitions(-DNANO_TIMED_LOCKS_IGNORE_BLOCKED)
+	endif ()
+endif ()
+
+if (${NANO_ASIO_HANDLER_TRACKING} GREATER 0)
+	add_definitions (-DNANO_ASIO_HANDLER_TRACKING=${NANO_ASIO_HANDLER_TRACKING} -DBOOST_ASIO_ENABLE_HANDLER_TRACKING)
 endif ()
 
 add_definitions (-DNANO_ROCKSDB=$<STREQUAL:${NANO_ROCKSDB},ON>)
@@ -91,7 +100,7 @@ option(ENABLE_AES "Enable AES optimizations (enabled by default with NANO_SIMD_O
 option(ENABLE_AVX2 "Enable AVX2 optimizations" OFF)
 
 SET (ACTIVE_NETWORK nano_live_network CACHE STRING "Selects which network parameters are used")
-set_property (CACHE ACTIVE_NETWORK PROPERTY STRINGS nano_test_network nano_beta_network nano_live_network)
+set_property (CACHE ACTIVE_NETWORK PROPERTY STRINGS nano_dev_network nano_beta_network nano_live_network nano_test_network)
 
 if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)
@@ -189,11 +198,7 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 #set(CMAKE_C_EXTENSIONS OFF)
 
-set(NANO_SUPPORTED_CPP_STANDARD "17" CACHE STRING "Supported C++ standard (14 or 17)")
-if (CI_BUILD OR CI_TEST)
-	set(NANO_SUPPORTED_CPP_STANDARD "14")
-endif()
-set(CMAKE_CXX_STANDARD ${NANO_SUPPORTED_CPP_STANDARD})
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 #set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -259,7 +264,7 @@ set(Boost_USE_MULTITHREADED ON)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
-find_package (Boost 1.67.0 REQUIRED COMPONENTS filesystem log log_setup thread program_options system)
+find_package (Boost 1.69.0 REQUIRED COMPONENTS filesystem log log_setup thread program_options system)
 
 if (NANO_ROCKSDB)
 	find_package (RocksDB REQUIRED)
@@ -425,6 +430,8 @@ if (NANO_FUZZER_TEST)
 endif ()
 
 if (NANO_TEST OR RAIBLOCKS_TEST)
+	find_package (Boost 1.69.0 REQUIRED COMPONENTS coroutine)
+
 	if(WIN32)
 		if(MSVC_VERSION)
 			if(MSVC_VERSION GREATER_EQUAL 1910)
@@ -446,6 +453,7 @@ if (NANO_TEST OR RAIBLOCKS_TEST)
 	set_target_properties(gtest PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
 		"${CMAKE_SOURCE_DIR}/gtest/googletest/include")
 
+	add_subdirectory(nano/test_common)
 	add_subdirectory(nano/core_test)
 	add_subdirectory(nano/rpc_test)
 	add_subdirectory(nano/slow_test)
@@ -530,7 +538,7 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 			nano/qt_test/entry.cpp
 			nano/qt_test/qt.cpp)
 
-		target_link_libraries(qt_test gtest gtest_main qt Qt5::Test)
+		target_link_libraries(qt_test test_common gtest gtest_main qt Qt5::Test)
 
 		set_target_properties (qt_test PROPERTIES COMPILE_FLAGS "-DQT_NO_KEYWORDS -DBOOST_ASIO_HAS_STD_ARRAY=1")
 	endif ()
@@ -620,9 +628,11 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 		install (FILES ${Qt5_bin_DIR}/Qt5WinExtras.dll DESTINATION .)
 		install (FILES ${Qt5WindowsPlugin} DESTINATION platforms)
 	else ()
-		set(CPACK_GENERATOR "TBZ2")
+		set(CPACK_GENERATOR "TBZ2;DEB")
+		set(CPACK_DEBIAN_PACKAGE_DEPENDS qt5-default)
+		set(CPACK_DEBIAN_PACKAGE_MAINTAINER "russel@nano.org")
 		install(TARGETS nano_wallet
-				RUNTIME DESTINATION .
+				RUNTIME DESTINATION ./bin
 		)
 		if (NANO_SHARED_BOOST)
 			get_filename_component(Boost_LIB_DIR ${BOOST_ROOT}/lib ABSOLUTE)
@@ -638,8 +648,8 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 			install (FILES ${Boost_LIB_DIR}/libboost_atomic.so.${Boost_VERSION_STRING} DESTINATION ./lib)
 		endif()
 		if (NANO_POW_SERVER)
-			install (TARGETS nano_pow_server DESTINATION .)
-			install (DIRECTORY ${PROJECT_SOURCE_DIR}/nano-pow-server/public DESTINATION .)
+			install (TARGETS nano_pow_server DESTINATION ./bin)
+			install (DIRECTORY ${PROJECT_SOURCE_DIR}/nano-pow-server/public DESTINATION ./bin)
 		endif ()
 	endif ()
 endif ()

@@ -283,8 +283,6 @@ public:
 		// udp
 		blocking,
 		overflow,
-		invalid_magic,
-		invalid_network,
 		invalid_header,
 		invalid_message_type,
 		invalid_keepalive_message,
@@ -313,7 +311,6 @@ public:
 		blocks_confirmed,
 		blocks_confirmed_unbounded,
 		blocks_confirmed_bounded,
-		invalid_block,
 
 		// [request] aggregator
 		aggregator_accepted,
@@ -324,6 +321,7 @@ public:
 		requests_generated_hashes,
 		requests_cached_votes,
 		requests_generated_votes,
+		requests_cannot_vote,
 		requests_unknown,
 
 		// duplicate

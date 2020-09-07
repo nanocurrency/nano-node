@@ -127,12 +127,12 @@ class observer_set final
 public:
 	void add (std::function<void(T...)> const & observer_a)
 	{
-		nano::lock_guard lock (mutex);
+		nano::lock_guard<nano::mutex> lock (mutex);
 		observers.push_back (observer_a);
 	}
 	void notify (T... args)
 	{
-		nano::lock_guard lock (mutex);
+		nano::lock_guard<nano::mutex> lock (mutex);
 		for (auto & i : observers)
 		{
 			i (args...);
@@ -147,7 +147,7 @@ std::unique_ptr<container_info_component> collect_container_info (observer_set<T
 {
 	size_t count = 0;
 	{
-		nano::lock_guard lock (observer_set.mutex);
+		nano::lock_guard<nano::mutex> lock (observer_set.mutex);
 		count = observer_set.observers.size ();
 	}
 

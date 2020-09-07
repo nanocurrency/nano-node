@@ -35,7 +35,7 @@ nano::confirmation_height_processor::~confirmation_height_processor ()
 void nano::confirmation_height_processor::stop ()
 {
 	{
-		nano::lock_guard guard (mutex);
+		nano::lock_guard<nano::mutex> guard (mutex);
 		stopped = true;
 	}
 	condition.notify_one ();
@@ -47,7 +47,7 @@ void nano::confirmation_height_processor::stop ()
 
 void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 {
-	nano::unique_lock lk (mutex);
+	nano::unique_lock<nano::mutex> lk (mutex);
 	while (!stopped)
 	{
 		if (!paused && !awaiting_processing.empty ())
@@ -71,20 +71,12 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 			if (force_unbounded || valid_unbounded)
 			{
 				debug_assert (bounded_processor.pending_empty ());
-				if (unbounded_processor.pending_empty ())
-				{
-					unbounded_processor.reset ();
-				}
 				unbounded_processor.process ();
 			}
 			else
 			{
 				debug_assert (mode_a == confirmation_height_mode::bounded || mode_a == confirmation_height_mode::automatic);
 				debug_assert (unbounded_processor.pending_empty ());
-				if (bounded_processor.pending_empty ())
-				{
-					bounded_processor.reset ();
-				}
 				bounded_processor.process ();
 			}
 
@@ -96,6 +88,8 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 				lk.lock ();
 				original_hash.clear ();
 				original_hashes_pending.clear ();
+				bounded_processor.clear_process_vars ();
+				unbounded_processor.clear_process_vars ();
 			};
 
 			if (!paused)
@@ -111,7 +105,6 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 						bounded_processor.cement_blocks (scoped_write_guard);
 					}
 					lock_and_cleanup ();
-					bounded_processor.reset ();
 				}
 				else if (!unbounded_processor.pending_empty ())
 				{
@@ -121,7 +114,6 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 						unbounded_processor.cement_blocks (scoped_write_guard);
 					}
 					lock_and_cleanup ();
-					unbounded_processor.reset ();
 				}
 				else
 				{
@@ -141,14 +133,14 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 // Pausing only affects processing new blocks, not the current one being processed. Currently only used in tests
 void nano::confirmation_height_processor::pause ()
 {
-	nano::lock_guard lk (mutex);
+	nano::lock_guard<nano::mutex> lk (mutex);
 	paused = true;
 }
 
 void nano::confirmation_height_processor::unpause ()
 {
 	{
-		nano::lock_guard lk (mutex);
+		nano::lock_guard<nano::mutex> lk (mutex);
 		paused = false;
 	}
 	condition.notify_one ();
@@ -157,7 +149,7 @@ void nano::confirmation_height_processor::unpause ()
 void nano::confirmation_height_processor::add (nano::block_hash const & hash_a)
 {
 	{
-		nano::lock_guard lk (mutex);
+		nano::lock_guard<nano::mutex> lk (mutex);
 		awaiting_processing.get<tag_sequence> ().emplace_back (hash_a);
 	}
 	condition.notify_one ();
@@ -165,7 +157,7 @@ void nano::confirmation_height_processor::add (nano::block_hash const & hash_a)
 
 void nano::confirmation_height_processor::set_next_hash ()
 {
-	nano::lock_guard guard (mutex);
+	nano::lock_guard<nano::mutex> guard (mutex);
 	debug_assert (!awaiting_processing.empty ());
 	original_hash = awaiting_processing.get<tag_sequence> ().front ();
 	original_hashes_pending.insert (original_hash);
@@ -217,20 +209,25 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (co
 	return composite;
 }
 
-size_t nano::confirmation_height_processor::awaiting_processing_size ()
+size_t nano::confirmation_height_processor::awaiting_processing_size () const
 {
-	nano::lock_guard guard (mutex);
+	nano::lock_guard<nano::mutex> guard (mutex);
 	return awaiting_processing.size ();
 }
 
-bool nano::confirmation_height_processor::is_processing_block (nano::block_hash const & hash_a)
+bool nano::confirmation_height_processor::is_processing_added_block (nano::block_hash const & hash_a) const
 {
-	nano::lock_guard guard (mutex);
+	nano::lock_guard<nano::mutex> guard (mutex);
 	return original_hashes_pending.count (hash_a) > 0 || awaiting_processing.get<tag_hash> ().count (hash_a) > 0;
 }
 
-nano::block_hash nano::confirmation_height_processor::current ()
+bool nano::confirmation_height_processor::is_processing_block (nano::block_hash const & hash_a) const
 {
-	nano::lock_guard lk (mutex);
+	return is_processing_added_block (hash_a) || unbounded_processor.has_iterated_over_block (hash_a);
+}
+
+nano::block_hash nano::confirmation_height_processor::current () const
+{
+	nano::lock_guard<nano::mutex> lk (mutex);
 	return original_hash;
 }

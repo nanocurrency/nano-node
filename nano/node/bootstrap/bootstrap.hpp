@@ -132,7 +132,7 @@ public:
 	static constexpr double required_frontier_confirmation_ratio = 0.8;
 	static constexpr unsigned frontier_confirmation_blocks_limit = 128 * 1024;
 	static constexpr unsigned requeued_pulls_limit = 256;
-	static constexpr unsigned requeued_pulls_limit_test = 2;
+	static constexpr unsigned requeued_pulls_limit_dev = 2;
 	static constexpr unsigned requeued_pulls_processed_blocks_factor = 4096;
 	static constexpr unsigned bulk_push_cost_limit = 200;
 	static constexpr std::chrono::seconds lazy_flush_delay_sec = std::chrono::seconds (5);

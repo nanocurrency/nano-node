@@ -72,7 +72,7 @@ void nano::socket::async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a, s
 	}
 }
 
-void nano::socket::async_write (nano::shared_const_buffer const & buffer_a, std::function<void(boost::system::error_code const &, size_t)> callback_a, nano::buffer_drop_policy drop_policy_a)
+void nano::socket::async_write (nano::shared_const_buffer const & buffer_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a, nano::buffer_drop_policy drop_policy_a)
 {
 	auto this_l (shared_from_this ());
 	if (!closed)
@@ -80,31 +80,41 @@ void nano::socket::async_write (nano::shared_const_buffer const & buffer_a, std:
 		if (writer_concurrency == nano::socket::concurrency::multi_writer)
 		{
 			boost::asio::post (strand, boost::asio::bind_executor (strand, [buffer_a, callback_a, this_l, drop_policy_a]() {
-				bool write_in_progress = !this_l->send_queue.empty ();
-				auto queue_size = this_l->send_queue.size ();
-				if (queue_size < this_l->queue_size_max || (drop_policy_a == nano::buffer_drop_policy::no_socket_drop && queue_size < (this_l->queue_size_max * 2)))
+				if (!this_l->closed)
 				{
-					this_l->send_queue.emplace_back (nano::socket::queue_item{ buffer_a, callback_a });
-				}
-				else if (auto node_l = this_l->node.lock ())
-				{
-					if (drop_policy_a == nano::buffer_drop_policy::no_socket_drop)
+					bool write_in_progress = !this_l->send_queue.empty ();
+					auto queue_size = this_l->send_queue.size ();
+					if (queue_size < this_l->queue_size_max || (drop_policy_a == nano::buffer_drop_policy::no_socket_drop && queue_size < (this_l->queue_size_max * 2)))
 					{
-						node_l->stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_write_no_socket_drop, nano::stat::dir::out);
+						this_l->send_queue.emplace_back (nano::socket::queue_item{ buffer_a, callback_a });
 					}
-					else
+					else if (auto node_l = this_l->node.lock ())
 					{
-						node_l->stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_write_drop, nano::stat::dir::out);
-					}
+						if (drop_policy_a == nano::buffer_drop_policy::no_socket_drop)
+						{
+							node_l->stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_write_no_socket_drop, nano::stat::dir::out);
+						}
+						else
+						{
+							node_l->stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_write_drop, nano::stat::dir::out);
+						}
 
+						if (callback_a)
+						{
+							callback_a (boost::system::errc::make_error_code (boost::system::errc::no_buffer_space), 0);
+						}
+					}
+					if (!write_in_progress)
+					{
+						this_l->write_queued_messages ();
+					}
+				}
+				else
+				{
 					if (callback_a)
 					{
-						callback_a (boost::system::errc::make_error_code (boost::system::errc::no_buffer_space), 0);
+						callback_a (boost::system::errc::make_error_code (boost::system::errc::not_supported), 0);
 					}
-				}
-				if (!write_in_progress)
-				{
-					this_l->write_queued_messages ();
 				}
 			}));
 		}
@@ -124,6 +134,15 @@ void nano::socket::async_write (nano::shared_const_buffer const & buffer_a, std:
 					}
 				}
 			}));
+		}
+	}
+	else if (callback_a)
+	{
+		if (auto node = this_l->node.lock ())
+		{
+			node->background ([callback_a]() {
+				callback_a (boost::system::errc::make_error_code (boost::system::errc::not_supported), 0);
+			});
 		}
 	}
 }
@@ -164,6 +183,10 @@ void nano::socket::write_queued_messages ()
 							this_l->start_timer (node->network_params.node.idle_timeout);
 						}
 					}
+					else if (msg.callback)
+					{
+						msg.callback (ec, size_a);
+					}
 				}
 			}
 		}));
@@ -193,7 +216,7 @@ void nano::socket::checkup ()
 	std::weak_ptr<nano::socket> this_w (shared_from_this ());
 	if (auto node_l = node.lock ())
 	{
-		node_l->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (node_l->network_params.network.is_test_network () ? 1 : 2), [this_w, node_l]() {
+		node_l->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (node_l->network_params.network.is_dev_network () ? 1 : 2), [this_w, node_l]() {
 			if (auto this_l = this_w.lock ())
 			{
 				uint64_t now (nano::seconds_since_epoch ());
@@ -245,6 +268,24 @@ void nano::socket::close ()
 	}));
 }
 
+void nano::socket::flush_send_queue_callbacks ()
+{
+	while (!send_queue.empty ())
+	{
+		auto & item = send_queue.front ();
+		if (item.callback)
+		{
+			if (auto node_l = node.lock ())
+			{
+				node_l->background ([callback = std::move (item.callback)]() {
+					callback (boost::system::errc::make_error_code (boost::system::errc::not_supported), 0);
+				});
+			}
+		}
+		send_queue.pop_front ();
+	}
+}
+
 // This must be called from a strand or the destructor
 void nano::socket::close_internal ()
 {
@@ -256,7 +297,7 @@ void nano::socket::close_internal ()
 		// Ignore error code for shutdown as it is best-effort
 		tcp_socket.shutdown (boost::asio::ip::tcp::socket::shutdown_both, ec);
 		tcp_socket.close (ec);
-		send_queue.clear ();
+		flush_send_queue_callbacks ();
 		if (ec)
 		{
 			if (auto node_l = node.lock ())
@@ -340,7 +381,7 @@ void nano::server_socket::on_connection (std::function<bool(std::shared_ptr<nano
 								// Make sure the new connection doesn't idle. Note that in most cases, the callback is going to start
 								// an IO operation immediately, which will start a timer.
 								new_connection->checkup ();
-								new_connection->start_timer (node_l->network_params.network.is_test_network () ? std::chrono::seconds (2) : node_l->network_params.node.idle_timeout);
+								new_connection->start_timer (node_l->network_params.network.is_dev_network () ? std::chrono::seconds (2) : node_l->network_params.node.idle_timeout);
 								node_l->stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_success, nano::stat::dir::in);
 								this_l->connections.push_back (new_connection);
 								this_l->evict_dead_connections ();

@@ -31,12 +31,14 @@ public:
 			clEnqueueNDRangeKernel = reinterpret_cast<decltype (clEnqueueNDRangeKernel)> (GetProcAddress (opencl_library, "clEnqueueNDRangeKernel"));
 			clEnqueueReadBuffer = reinterpret_cast<decltype (clEnqueueReadBuffer)> (GetProcAddress (opencl_library, "clEnqueueReadBuffer"));
 			clFinish = reinterpret_cast<decltype (clFinish)> (GetProcAddress (opencl_library, "clFinish"));
+			nano::opencl_loaded = true;
 		}
 	}
 	~opencl_initializer ()
 	{
 		if (opencl_library != nullptr)
 		{
+			nano::opencl_loaded = false;
 			FreeLibrary (opencl_library);
 		}
 	}

@@ -27,6 +27,13 @@ enum class block_origin
 	remote
 };
 
+class block_post_events final
+{
+public:
+	~block_post_events ();
+	std::deque<std::function<void()>> events;
+};
+
 /**
  * Processing blocks is a potentially long IO operation.
  * This class isolates block insertion from other operations like servicing network operations
@@ -41,15 +48,15 @@ public:
 	size_t size ();
 	bool full ();
 	bool half_full ();
-	void add (nano::unchecked_info const &);
+	void add (nano::unchecked_info const &, const bool = false);
 	void add (std::shared_ptr<nano::block>, uint64_t = 0);
 	void force (std::shared_ptr<nano::block>);
 	void wait_write ();
 	bool should_log ();
 	bool have_blocks ();
 	void process_blocks ();
-	nano::process_return process_one (nano::write_transaction const &, nano::unchecked_info, const bool = false, nano::block_origin const = nano::block_origin::remote);
-	nano::process_return process_one (nano::write_transaction const &, std::shared_ptr<nano::block>, const bool = false);
+	nano::process_return process_one (nano::write_transaction const &, block_post_events &, nano::unchecked_info, const bool = false, nano::block_origin const = nano::block_origin::remote);
+	nano::process_return process_one (nano::write_transaction const &, block_post_events &, std::shared_ptr<nano::block>, const bool = false);
 	std::atomic<bool> flushing{ false };
 	// Delay required for average network propagartion before requesting confirmation
 	static std::chrono::milliseconds constexpr confirmation_request_delay{ 1500 };

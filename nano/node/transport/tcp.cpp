@@ -12,7 +12,7 @@ socket (socket_a)
 
 nano::transport::channel_tcp::~channel_tcp ()
 {
-	nano::lock_guard lk (channel_mutex);
+	nano::lock_guard<nano::mutex> lk (channel_mutex);
 	// Close socket. Exception: socket is used by bootstrap_server
 	if (auto socket_l = socket.lock ())
 	{
@@ -55,6 +55,12 @@ void nano::transport::channel_tcp::send_buffer (nano::shared_const_buffer const 
 	if (auto socket_l = socket.lock ())
 	{
 		socket_l->async_write (buffer_a, tcp_callback (detail_a, socket_l->remote_endpoint (), callback_a), drop_policy_a);
+	}
+	else if (callback_a)
+	{
+		node.background ([callback_a]() {
+			callback_a (boost::system::errc::make_error_code (boost::system::errc::not_supported), 0);
+		});
 	}
 }
 
@@ -106,7 +112,7 @@ bool nano::transport::tcp_channels::insert (std::shared_ptr<nano::transport::cha
 	bool error (true);
 	if (!node.network.not_a_peer (udp_endpoint, node.config.allow_local_peers) && !stopped)
 	{
-		nano::unique_lock lock (mutex);
+		nano::unique_lock<nano::mutex> lock (mutex);
 		auto existing (channels.get<endpoint_tag> ().find (endpoint));
 		if (existing == channels.get<endpoint_tag> ().end ())
 		{
@@ -131,19 +137,19 @@ bool nano::transport::tcp_channels::insert (std::shared_ptr<nano::transport::cha
 
 void nano::transport::tcp_channels::erase (nano::tcp_endpoint const & endpoint_a)
 {
-	nano::lock_guard lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	channels.get<endpoint_tag> ().erase (endpoint_a);
 }
 
 size_t nano::transport::tcp_channels::size () const
 {
-	nano::lock_guard lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	return channels.size ();
 }
 
 std::shared_ptr<nano::transport::channel_tcp> nano::transport::tcp_channels::find_channel (nano::tcp_endpoint const & endpoint_a) const
 {
-	nano::lock_guard lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	std::shared_ptr<nano::transport::channel_tcp> result;
 	auto existing (channels.get<endpoint_tag> ().find (endpoint_a));
 	if (existing != channels.get<endpoint_tag> ().end ())
@@ -157,7 +163,7 @@ std::unordered_set<std::shared_ptr<nano::transport::channel>> nano::transport::t
 {
 	std::unordered_set<std::shared_ptr<nano::transport::channel>> result;
 	result.reserve (count_a);
-	nano::lock_guard lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	// Stop trying to fill result with random samples after this many attempts
 	auto random_cutoff (count_a * 2);
 	auto peers_size (channels.size ());
@@ -201,7 +207,7 @@ bool nano::transport::tcp_channels::store_all (bool clear_peers)
 	// we collect endpoints to be saved and then relase the lock.
 	std::vector<nano::endpoint> endpoints;
 	{
-		nano::lock_guard lock (mutex);
+		nano::lock_guard<nano::mutex> lock (mutex);
 		endpoints.reserve (channels.size ());
 		std::transform (channels.begin (), channels.end (),
 		std::back_inserter (endpoints), [](const auto & channel) { return nano::transport::map_tcp_to_endpoint (channel.endpoint ()); });
@@ -228,7 +234,7 @@ bool nano::transport::tcp_channels::store_all (bool clear_peers)
 std::shared_ptr<nano::transport::channel_tcp> nano::transport::tcp_channels::find_node_id (nano::account const & node_id_a)
 {
 	std::shared_ptr<nano::transport::channel_tcp> result;
-	nano::lock_guard lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	auto existing (channels.get<node_id_tag> ().find (node_id_a));
 	if (existing != channels.get<node_id_tag> ().end ())
 	{
@@ -240,7 +246,7 @@ std::shared_ptr<nano::transport::channel_tcp> nano::transport::tcp_channels::fin
 nano::tcp_endpoint nano::transport::tcp_channels::bootstrap_peer (uint8_t connection_protocol_version_min)
 {
 	nano::tcp_endpoint result (boost::asio::ip::address_v6::any (), 0);
-	nano::lock_guard lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	for (auto i (channels.get<last_bootstrap_attempt_tag> ().begin ()), n (channels.get<last_bootstrap_attempt_tag> ().end ()); i != n;)
 	{
 		if (i->channel->get_network_version () >= connection_protocol_version_min)
@@ -328,7 +334,7 @@ void nano::transport::tcp_channels::start ()
 void nano::transport::tcp_channels::stop ()
 {
 	stopped = true;
-	nano::unique_lock lock (mutex);
+	nano::unique_lock<nano::mutex> lock (mutex);
 	// Close all TCP sockets
 	for (auto i (channels.begin ()), j (channels.end ()); i != j; ++i)
 	{
@@ -351,7 +357,7 @@ bool nano::transport::tcp_channels::max_ip_connections (nano::tcp_endpoint const
 	bool result (false);
 	if (!node.flags.disable_max_peers_per_ip)
 	{
-		nano::unique_lock lock (mutex);
+		nano::unique_lock<nano::mutex> lock (mutex);
 		result = channels.get<ip_address_tag> ().count (endpoint_a.address ()) >= node.network_params.node.max_peers_per_ip;
 		if (!result)
 		{
@@ -370,7 +376,7 @@ bool nano::transport::tcp_channels::reachout (nano::endpoint const & endpoint_a)
 	{
 		// Don't keepalive to nodes that already sent us something
 		error |= find_channel (tcp_endpoint) != nullptr;
-		nano::lock_guard lock (mutex);
+		nano::lock_guard<nano::mutex> lock (mutex);
 		auto inserted (attempts.emplace (tcp_endpoint));
 		error |= !inserted.second;
 	}
@@ -383,7 +389,7 @@ std::unique_ptr<nano::container_info_component> nano::transport::tcp_channels::c
 	size_t attemps_count;
 	size_t node_id_handshake_sockets_count;
 	{
-		nano::lock_guard guard (mutex);
+		nano::lock_guard<nano::mutex> guard (mutex);
 		channels_count = channels.size ();
 		attemps_count = attempts.size ();
 		node_id_handshake_sockets_count = node_id_handshake_sockets.size ();
@@ -399,7 +405,7 @@ std::unique_ptr<nano::container_info_component> nano::transport::tcp_channels::c
 
 void nano::transport::tcp_channels::purge (std::chrono::steady_clock::time_point const & cutoff_a)
 {
-	nano::lock_guard lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	auto disconnect_cutoff (channels.get<last_packet_sent_tag> ().lower_bound (cutoff_a));
 	channels.get<last_packet_sent_tag> ().erase (channels.get<last_packet_sent_tag> ().begin (), disconnect_cutoff);
 	// Remove keepalive attempt tracking for attempts older than cutoff
@@ -421,7 +427,7 @@ void nano::transport::tcp_channels::ongoing_keepalive ()
 {
 	nano::keepalive message;
 	node.network.random_fill (message.peers);
-	nano::unique_lock lock (mutex);
+	nano::unique_lock<nano::mutex> lock (mutex);
 	// Wake up channels
 	std::vector<std::shared_ptr<nano::transport::channel_tcp>> send_list;
 	auto keepalive_sent_cutoff (channels.get<last_packet_sent_tag> ().lower_bound (std::chrono::steady_clock::now () - node.network_params.node.period));
@@ -436,7 +442,7 @@ void nano::transport::tcp_channels::ongoing_keepalive ()
 	}
 	// Attempt to start TCP connections to known UDP peers
 	nano::tcp_endpoint invalid_endpoint (boost::asio::ip::address_v6::any (), 0);
-	if (!node.network_params.network.is_test_network () && !node.flags.disable_udp)
+	if (!node.network_params.network.is_dev_network () && !node.flags.disable_udp)
 	{
 		size_t random_count (std::min (static_cast<size_t> (6), static_cast<size_t> (std::ceil (std::sqrt (node.network.udp_channels.size ())))));
 		for (auto i (0); i <= random_count; ++i)
@@ -462,7 +468,7 @@ void nano::transport::tcp_channels::ongoing_keepalive ()
 
 void nano::transport::tcp_channels::list_below_version (std::vector<std::shared_ptr<nano::transport::channel>> & channels_a, uint8_t cutoff_version_a)
 {
-	nano::lock_guard lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	// clang-format off
 	nano::transform_if (channels.get<random_access_tag> ().begin (), channels.get<random_access_tag> ().end (), std::back_inserter (channels_a),
 		[cutoff_version_a](auto & channel_a) { return channel_a.channel->get_network_version () < cutoff_version_a; },
@@ -472,7 +478,7 @@ void nano::transport::tcp_channels::list_below_version (std::vector<std::shared_
 
 void nano::transport::tcp_channels::list (std::deque<std::shared_ptr<nano::transport::channel>> & deque_a, uint8_t minimum_version_a, bool include_temporary_channels_a)
 {
-	nano::lock_guard lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	// clang-format off
 	nano::transform_if (channels.get<random_access_tag> ().begin (), channels.get<random_access_tag> ().end (), std::back_inserter (deque_a),
 		[include_temporary_channels_a, minimum_version_a](auto & channel_a) { return channel_a.channel->get_network_version () >= minimum_version_a && (include_temporary_channels_a || !channel_a.channel->temporary); },
@@ -482,7 +488,7 @@ void nano::transport::tcp_channels::list (std::deque<std::shared_ptr<nano::trans
 
 void nano::transport::tcp_channels::modify (std::shared_ptr<nano::transport::channel_tcp> channel_a, std::function<void(std::shared_ptr<nano::transport::channel_tcp>)> modify_callback_a)
 {
-	nano::lock_guard lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	auto existing (channels.get<endpoint_tag> ().find (channel_a->get_tcp_endpoint ()));
 	if (existing != channels.get<endpoint_tag> ().end ())
 	{
@@ -494,7 +500,7 @@ void nano::transport::tcp_channels::modify (std::shared_ptr<nano::transport::cha
 
 void nano::transport::tcp_channels::update (nano::tcp_endpoint const & endpoint_a)
 {
-	nano::lock_guard lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	auto existing (channels.get<endpoint_tag> ().find (endpoint_a));
 	if (existing != channels.get<endpoint_tag> ().end ())
 	{
@@ -506,13 +512,13 @@ void nano::transport::tcp_channels::update (nano::tcp_endpoint const & endpoint_
 
 bool nano::transport::tcp_channels::node_id_handhake_sockets_empty () const
 {
-	nano::lock_guard guard (mutex);
+	nano::lock_guard<nano::mutex> guard (mutex);
 	return node_id_handshake_sockets.empty ();
 }
 
 void nano::transport::tcp_channels::push_node_id_handshake_socket (std::shared_ptr<nano::socket> const & socket_a)
 {
-	nano::lock_guard guard (mutex);
+	nano::lock_guard<nano::mutex> guard (mutex);
 	node_id_handshake_sockets.push_back (socket_a);
 }
 
@@ -521,7 +527,7 @@ void nano::transport::tcp_channels::remove_node_id_handshake_socket (std::shared
 	std::weak_ptr<nano::node> node_w (node.shared ());
 	if (auto node_l = node_w.lock ())
 	{
-		nano::lock_guard guard (mutex);
+		nano::lock_guard<nano::mutex> guard (mutex);
 		node_id_handshake_sockets.erase (std::remove (node_id_handshake_sockets.begin (), node_id_handshake_sockets.end (), socket_a), node_id_handshake_sockets.end ());
 	}
 }
@@ -700,7 +706,7 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 							// Version of channel is not high enough, just abort. Don't fallback to udp, instead cleanup attempt
 							cleanup_node_id_handshake_socket (endpoint_a, callback_a);
 							{
-								nano::lock_guard lock (node_l->network.tcp_channels.mutex);
+								nano::lock_guard<nano::mutex> lock (node_l->network.tcp_channels.mutex);
 								node_l->network.tcp_channels.attempts.get<endpoint_tag> ().erase (nano::transport::map_endpoint_to_tcp (endpoint_a));
 							}
 						}
@@ -726,7 +732,7 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 void nano::transport::tcp_channels::udp_fallback (nano::endpoint const & endpoint_a, std::function<void(std::shared_ptr<nano::transport::channel>)> const & callback_a)
 {
 	{
-		nano::lock_guard lock (mutex);
+		nano::lock_guard<nano::mutex> lock (mutex);
 		attempts.get<endpoint_tag> ().erase (nano::transport::map_endpoint_to_tcp (endpoint_a));
 	}
 	if (callback_a && !node.flags.disable_udp)

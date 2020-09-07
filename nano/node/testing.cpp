@@ -1,5 +1,3 @@
-#define IGNORE_GTEST_INCL
-#include <nano/core_test/testutil.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/testing.hpp>
@@ -8,6 +6,8 @@
 #include <boost/property_tree/json_parser.hpp>
 
 #include <cstdlib>
+
+using namespace std::chrono_literals;
 
 std::string nano::error_system_messages::message (int ev) const
 {
@@ -164,6 +164,7 @@ nano::account nano::system::account (nano::transaction const & transaction_a, si
 
 uint64_t nano::system::work_generate_limited (nano::block_hash const & root_a, uint64_t min_a, uint64_t max_a)
 {
+	debug_assert (min_a > 0);
 	uint64_t result = 0;
 	do
 	{
@@ -175,19 +176,20 @@ uint64_t nano::system::work_generate_limited (nano::block_hash const & root_a, u
 std::unique_ptr<nano::state_block> nano::upgrade_epoch (nano::work_pool & pool_a, nano::ledger & ledger_a, nano::epoch epoch_a)
 {
 	auto transaction (ledger_a.store.tx_begin_write ());
-	auto account = nano::test_genesis_key.pub;
+	auto dev_genesis_key = nano::ledger_constants (nano::nano_networks::nano_dev_network).dev_genesis_key;
+	auto account = dev_genesis_key.pub;
 	auto latest = ledger_a.latest (transaction, account);
 	auto balance = ledger_a.account_balance (transaction, account);
 
 	nano::state_block_builder builder;
 	std::error_code ec;
 	auto epoch = builder
-	             .account (nano::test_genesis_key.pub)
+	             .account (dev_genesis_key.pub)
 	             .previous (latest)
 	             .balance (balance)
 	             .link (ledger_a.epoch_link (epoch_a))
-	             .representative (nano::test_genesis_key.pub)
-	             .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	             .representative (dev_genesis_key.pub)
+	             .sign (dev_genesis_key.prv, dev_genesis_key.pub)
 	             .work (*pool_a.generate (latest, nano::work_threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true))))
 	             .build (ec);
 
@@ -198,6 +200,18 @@ std::unique_ptr<nano::state_block> nano::upgrade_epoch (nano::work_pool & pool_a
 	}
 
 	return !error ? std::move (epoch) : nullptr;
+}
+
+void nano::blocks_confirm (nano::node & node_a, std::vector<std::shared_ptr<nano::block>> const & blocks_a)
+{
+	// Finish processing all blocks
+	node_a.block_processor.flush ();
+	for (auto const & block : blocks_a)
+	{
+		// A sideband is required to start an election
+		debug_assert (block->has_sideband ());
+		node_a.block_confirm (block);
+	}
 }
 
 std::unique_ptr<nano::state_block> nano::system::upgrade_genesis_epoch (nano::node & node_a, nano::epoch const epoch_a)
@@ -212,9 +226,24 @@ void nano::system::deadline_set (std::chrono::duration<double, std::nano> const 
 
 std::error_code nano::system::poll (std::chrono::nanoseconds const & wait_time)
 {
-	std::error_code ec;
+#if NANO_ASIO_HANDLER_TRACKING == 0
 	io_ctx.run_one_for (wait_time);
+#else
+	nano::timer<> timer;
+	timer.start ();
+	auto count = io_ctx.poll_one ();
+	if (count == 0)
+	{
+		std::this_thread::sleep_for (wait_time);
+	}
+	else if (count == 1 && timer.since_start ().count () >= NANO_ASIO_HANDLER_TRACKING)
+	{
+		auto timestamp = std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ();
+		std::cout << (boost::format ("[%1%] io_thread held for %2%ms") % timestamp % timer.since_start ().count ()).str () << std::endl;
+	}
+#endif
 
+	std::error_code ec;
 	if (std::chrono::steady_clock::now () > deadline)
 	{
 		ec = nano::error_system::deadline_expired;
@@ -326,7 +355,7 @@ void nano::system::generate_receive (nano::node & node_a)
 	}
 	if (send_block != nullptr)
 	{
-		auto receive_error (wallet (0)->receive_sync (send_block, nano::genesis_account, std::numeric_limits<nano::uint128_t>::max ()));
+		auto receive_error (wallet (0)->receive_sync (send_block, nano::ledger_constants (nano::nano_networks::nano_dev_network).genesis_account, std::numeric_limits<nano::uint128_t>::max ()));
 		(void)receive_error;
 	}
 }
@@ -451,8 +480,9 @@ void nano::system::generate_send_new (nano::node & node_a, std::vector<nano::acc
 void nano::system::generate_mass_activity (uint32_t count_a, nano::node & node_a)
 {
 	std::vector<nano::account> accounts;
-	wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	accounts.push_back (nano::test_genesis_key.pub);
+	auto dev_genesis_key = nano::ledger_constants (nano::nano_networks::nano_dev_network).dev_genesis_key;
+	wallet (0)->insert_adhoc (dev_genesis_key.prv);
+	accounts.push_back (dev_genesis_key.pub);
 	auto previous (std::chrono::steady_clock::now ());
 	for (uint32_t i (0); i < count_a; ++i)
 	{
@@ -460,15 +490,8 @@ void nano::system::generate_mass_activity (uint32_t count_a, nano::node & node_a
 		{
 			auto now (std::chrono::steady_clock::now ());
 			auto us (std::chrono::duration_cast<std::chrono::microseconds> (now - previous).count ());
-			uint64_t count (0);
-			uint64_t state (0);
-			{
-				auto transaction (node_a.store.tx_begin_read ());
-				auto block_counts (node_a.store.block_count (transaction));
-				count = block_counts.sum ();
-				state = block_counts.state;
-			}
-			std::cerr << boost::str (boost::format ("Mass activity iteration %1% us %2% us/t %3% state: %4% old: %5%\n") % i % us % (us / 256) % state % (count - state));
+			auto count = node_a.ledger.cache.block_count.load ();
+			std::cerr << boost::str (boost::format ("Mass activity iteration %1% us %2% us/t %3% block count: %4%\n") % i % us % (us / 256) % count);
 			previous = now;
 		}
 		generate_activity (node_a, accounts);
@@ -484,9 +507,31 @@ void nano::system::stop ()
 	work.stop ();
 }
 
-namespace nano
+uint16_t nano::get_available_port ()
 {
-void cleanup_test_directories_on_exit ()
+	// Maximum possible sockets which may feasibly be used in 1 test
+	constexpr auto max = 200;
+	static uint16_t current = 0;
+	// Read the TEST_BASE_PORT environment and override the default base port if it exists
+	auto base_str = std::getenv ("TEST_BASE_PORT");
+	uint16_t base_port = 24000;
+	if (base_str)
+	{
+		base_port = boost::lexical_cast<uint16_t> (base_str);
+	}
+
+	uint16_t const available_port = base_port + current;
+	++current;
+	// Reset port number once we have reached the maximum
+	if (current == max)
+	{
+		current = 0;
+	}
+
+	return available_port;
+}
+
+void nano::cleanup_dev_directories_on_exit ()
 {
 	// Makes sure everything is cleaned up
 	nano::logging::release_file_sink ();
@@ -498,4 +543,10 @@ void cleanup_test_directories_on_exit ()
 		nano::remove_temporary_directories ();
 	}
 }
+
+bool nano::using_rocksdb_in_tests ()
+{
+	static nano::network_constants network_constants;
+	auto use_rocksdb_str = std::getenv ("TEST_USE_ROCKSDB");
+	return network_constants.is_dev_network () && use_rocksdb_str && (boost::lexical_cast<int> (use_rocksdb_str) == 1);
 }

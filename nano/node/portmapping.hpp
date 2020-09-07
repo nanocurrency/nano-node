@@ -14,7 +14,6 @@ class mapping_protocol
 public:
 	/** Protocol name; TPC or UDP */
 	char const * name;
-	int remaining;
 	boost::asio::ip::address_v4 external_address;
 	uint16_t external_port;
 	bool enabled;
@@ -49,9 +48,10 @@ public:
 private:
 	/** Add port mappings for the node port (not RPC). Refresh when the lease ends. */
 	void refresh_mapping ();
-	/** Refresh occasionally in case router loses mapping */
+	/** Check occasionally to refresh in case router loses mapping */
 	void check_mapping_loop ();
-	int check_mapping ();
+	/** Returns false if mapping still exists */
+	bool check_mapping ();
 	std::string get_config_port (std::string const &);
 	upnp_state upnp;
 	nano::node & node;

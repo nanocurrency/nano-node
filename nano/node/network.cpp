@@ -145,28 +145,7 @@ void nano::network::send_keepalive (std::shared_ptr<nano::transport::channel> ch
 void nano::network::send_keepalive_self (std::shared_ptr<nano::transport::channel> channel_a)
 {
 	nano::keepalive message;
-	random_fill (message.peers);
-	// Replace part of message with node external address or listening port
-	message.peers[1] = nano::endpoint (boost::asio::ip::address_v6{}, 0); // For node v19 (response channels)
-	if (node.config.external_address != boost::asio::ip::address_v6{}.to_string () && node.config.external_port != 0)
-	{
-		message.peers[0] = nano::endpoint (boost::asio::ip::make_address_v6 (node.config.external_address), node.config.external_port);
-	}
-	else
-	{
-		auto external_address (node.port_mapping.external_address ());
-		if (external_address.address () != boost::asio::ip::address_v4::any ())
-		{
-			message.peers[0] = nano::endpoint (boost::asio::ip::address_v6{}, endpoint ().port ());
-			boost::system::error_code ec;
-			auto external_v6 = boost::asio::ip::make_address_v6 (external_address.address ().to_string (), ec);
-			message.peers[1] = nano::endpoint (external_v6, external_address.port ());
-		}
-		else
-		{
-			message.peers[0] = nano::endpoint (boost::asio::ip::address_v6{}, endpoint ().port ());
-		}
-	}
+	fill_keepalive_self (message.peers);
 	channel_a->send (message);
 }
 
@@ -216,7 +195,7 @@ void nano::network::flood_block_initial (std::shared_ptr<nano::block> const & bl
 void nano::network::flood_vote (std::shared_ptr<nano::vote> const & vote_a, float scale)
 {
 	nano::confirm_ack message (vote_a);
-	for (auto & i : list_non_pr (fanout (scale)))
+	for (auto & i : list (fanout (scale)))
 	{
 		i->send (message, nullptr);
 	}
@@ -447,7 +426,7 @@ public:
 		}
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::in);
 		// Don't load nodes with disabled voting
-		if (node.config.enable_voting && node.wallets.rep_counts ().voting > 0)
+		if (node.config.enable_voting && node.wallets.reps ().voting > 0)
 		{
 			if (message_a.block != nullptr)
 			{
@@ -468,18 +447,21 @@ public:
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::in);
 		if (!message_a.vote->account.is_zero ())
 		{
-			for (auto & vote_block : message_a.vote->blocks)
+			if (message_a.header.block_type () != nano::block_type::not_a_block)
 			{
-				if (!vote_block.which ())
+				for (auto & vote_block : message_a.vote->blocks)
 				{
-					auto block (boost::get<std::shared_ptr<nano::block>> (vote_block));
-					if (!node.block_processor.full ())
+					if (!vote_block.which ())
 					{
-						node.process_active (block);
-					}
-					else
-					{
-						node.stats.inc (nano::stat::type::drop, nano::stat::detail::confirm_ack, nano::stat::dir::in);
+						auto block (boost::get<std::shared_ptr<nano::block>> (vote_block));
+						if (!node.block_processor.full ())
+						{
+							node.process_active (block);
+						}
+						else
+						{
+							node.stats.inc (nano::stat::type::drop, nano::stat::detail::confirm_ack, nano::stat::dir::in);
+						}
 					}
 				}
 			}
@@ -519,7 +501,7 @@ public:
 		nano::telemetry_ack telemetry_ack;
 		if (!node.flags.disable_providing_telemetry_metrics)
 		{
-			auto telemetry_data = nano::local_telemetry_data (node.ledger.cache, node.network, node.config.bandwidth_limit, node.network_params, node.startup_time, node.active.active_difficulty (), node.node_id);
+			auto telemetry_data = nano::local_telemetry_data (node.store, node.ledger.cache, node.network, node.config.bandwidth_limit, node.network_params, node.startup_time, node.active.active_difficulty (), node.node_id);
 			telemetry_ack = nano::telemetry_ack (telemetry_data);
 		}
 		channel->send (telemetry_ack, nullptr, nano::buffer_drop_policy::no_socket_drop);
@@ -667,6 +649,32 @@ void nano::network::random_fill (std::array<nano::endpoint, 8> & target_a) const
 	}
 }
 
+void nano::network::fill_keepalive_self (std::array<nano::endpoint, 8> & target_a) const
+{
+	random_fill (target_a);
+	// Replace part of message with node external address or listening port
+	target_a[1] = nano::endpoint (boost::asio::ip::address_v6{}, 0); // For node v19 (response channels)
+	if (node.config.external_address != boost::asio::ip::address_v6{}.to_string () && node.config.external_port != 0)
+	{
+		target_a[0] = nano::endpoint (boost::asio::ip::make_address_v6 (node.config.external_address), node.config.external_port);
+	}
+	else
+	{
+		auto external_address (node.port_mapping.external_address ());
+		if (external_address.address () != boost::asio::ip::address_v4::any ())
+		{
+			target_a[0] = nano::endpoint (boost::asio::ip::address_v6{}, port);
+			boost::system::error_code ec;
+			auto external_v6 = boost::asio::ip::make_address_v6 (external_address.address ().to_string (), ec);
+			target_a[1] = nano::endpoint (external_v6, external_address.port ());
+		}
+		else
+		{
+			target_a[0] = nano::endpoint (boost::asio::ip::address_v6{}, port);
+		}
+	}
+}
+
 nano::tcp_endpoint nano::network::bootstrap_peer (bool lazy_bootstrap)
 {
 	nano::tcp_endpoint result (boost::asio::ip::address_v6::any (), 0);
@@ -743,7 +751,8 @@ void nano::network::ongoing_syn_cookie_cleanup ()
 
 void nano::network::ongoing_keepalive ()
 {
-	flood_keepalive ();
+	flood_keepalive (0.75f);
+	flood_keepalive_self (0.25f);
 	std::weak_ptr<nano::node> node_w (node.shared ());
 	node.alarm.add (std::chrono::steady_clock::now () + node.network_params.node.half_period, [node_w]() {
 		if (auto node_l = node_w.lock ())
@@ -814,7 +823,7 @@ stopped (false)
 
 nano::message_buffer * nano::message_buffer_manager::allocate ()
 {
-	nano::unique_lock lock (mutex);
+	nano::unique_lock<nano::mutex> lock (mutex);
 	if (!stopped && free.empty () && full.empty ())
 	{
 		stats.inc (nano::stat::type::udp, nano::stat::detail::blocking, nano::stat::dir::in);
@@ -840,7 +849,7 @@ void nano::message_buffer_manager::enqueue (nano::message_buffer * data_a)
 {
 	debug_assert (data_a != nullptr);
 	{
-		nano::lock_guard lock (mutex);
+		nano::lock_guard<nano::mutex> lock (mutex);
 		full.push_back (data_a);
 	}
 	condition.notify_all ();
@@ -848,7 +857,7 @@ void nano::message_buffer_manager::enqueue (nano::message_buffer * data_a)
 
 nano::message_buffer * nano::message_buffer_manager::dequeue ()
 {
-	nano::unique_lock lock (mutex);
+	nano::unique_lock<nano::mutex> lock (mutex);
 	while (!stopped && full.empty ())
 	{
 		condition.wait (lock);
@@ -866,7 +875,7 @@ void nano::message_buffer_manager::release (nano::message_buffer * data_a)
 {
 	debug_assert (data_a != nullptr);
 	{
-		nano::lock_guard lock (mutex);
+		nano::lock_guard<nano::mutex> lock (mutex);
 		free.push_back (data_a);
 	}
 	condition.notify_all ();
@@ -875,7 +884,7 @@ void nano::message_buffer_manager::release (nano::message_buffer * data_a)
 void nano::message_buffer_manager::stop ()
 {
 	{
-		nano::lock_guard lock (mutex);
+		nano::lock_guard<nano::mutex> lock (mutex);
 		stopped = true;
 	}
 	condition.notify_all ();
@@ -890,42 +899,46 @@ max_entries (incoming_connections_max_a * nano::tcp_message_manager::max_entries
 void nano::tcp_message_manager::put_message (nano::tcp_message_item const & item_a)
 {
 	{
-		nano::unique_lock lock (mutex);
-		while (entries.size () > max_entries && !stopped)
+		nano::unique_lock<nano::mutex> lock (mutex);
+		while (entries.size () >= max_entries && !stopped)
 		{
-			condition.wait (lock);
+			producer_condition.wait (lock);
 		}
 		entries.push_back (item_a);
 	}
-	condition.notify_all ();
+	consumer_condition.notify_one ();
 }
 
 nano::tcp_message_item nano::tcp_message_manager::get_message ()
 {
-	nano::unique_lock lock (mutex);
+	nano::tcp_message_item result;
+	nano::unique_lock<nano::mutex> lock (mutex);
 	while (entries.empty () && !stopped)
 	{
-		condition.wait (lock);
+		consumer_condition.wait (lock);
 	}
 	if (!entries.empty ())
 	{
-		auto result (entries.front ());
+		result = std::move (entries.front ());
 		entries.pop_front ();
-		return result;
 	}
 	else
 	{
-		return nano::tcp_message_item{ std::make_shared<nano::keepalive> (), nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0), 0, nullptr, nano::bootstrap_server_type::undefined };
+		result = nano::tcp_message_item{ std::make_shared<nano::keepalive> (), nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0), 0, nullptr, nano::bootstrap_server_type::undefined };
 	}
+	lock.unlock ();
+	producer_condition.notify_one ();
+	return result;
 }
 
 void nano::tcp_message_manager::stop ()
 {
 	{
-		nano::lock_guard lock (mutex);
+		nano::lock_guard<nano::mutex> lock (mutex);
 		stopped = true;
 	}
-	condition.notify_all ();
+	consumer_condition.notify_all ();
+	producer_condition.notify_all ();
 }
 
 nano::syn_cookies::syn_cookies (size_t max_cookies_per_ip_a) :
@@ -937,7 +950,7 @@ boost::optional<nano::uint256_union> nano::syn_cookies::assign (nano::endpoint c
 {
 	auto ip_addr (endpoint_a.address ());
 	debug_assert (ip_addr.is_v6 ());
-	nano::lock_guard lock (syn_cookie_mutex);
+	nano::lock_guard<nano::mutex> lock (syn_cookie_mutex);
 	unsigned & ip_cookies = cookies_per_ip[ip_addr];
 	boost::optional<nano::uint256_union> result;
 	if (ip_cookies < max_cookies_per_ip)
@@ -959,7 +972,7 @@ bool nano::syn_cookies::validate (nano::endpoint const & endpoint_a, nano::accou
 {
 	auto ip_addr (endpoint_a.address ());
 	debug_assert (ip_addr.is_v6 ());
-	nano::lock_guard lock (syn_cookie_mutex);
+	nano::lock_guard<nano::mutex> lock (syn_cookie_mutex);
 	auto result (true);
 	auto cookie_it (cookies.find (endpoint_a));
 	if (cookie_it != cookies.end () && !nano::validate_message (node_id, cookie_it->second.cookie, sig))
@@ -981,7 +994,7 @@ bool nano::syn_cookies::validate (nano::endpoint const & endpoint_a, nano::accou
 
 void nano::syn_cookies::purge (std::chrono::steady_clock::time_point const & cutoff_a)
 {
-	nano::lock_guard lock (syn_cookie_mutex);
+	nano::lock_guard<nano::mutex> lock (syn_cookie_mutex);
 	auto it (cookies.begin ());
 	while (it != cookies.end ())
 	{
@@ -1008,7 +1021,7 @@ void nano::syn_cookies::purge (std::chrono::steady_clock::time_point const & cut
 
 size_t nano::syn_cookies::cookies_size ()
 {
-	nano::lock_guard lock (syn_cookie_mutex);
+	nano::lock_guard<nano::mutex> lock (syn_cookie_mutex);
 	return cookies.size ();
 }
 
@@ -1027,7 +1040,7 @@ std::unique_ptr<nano::container_info_component> nano::syn_cookies::collect_conta
 	size_t syn_cookies_count;
 	size_t syn_cookies_per_ip_count;
 	{
-		nano::lock_guard syn_cookie_guard (syn_cookie_mutex);
+		nano::lock_guard<nano::mutex> syn_cookie_guard (syn_cookie_mutex);
 		syn_cookies_count = cookies.size ();
 		syn_cookies_per_ip_count = cookies_per_ip.size ();
 	}

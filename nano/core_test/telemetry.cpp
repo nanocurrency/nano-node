@@ -1,7 +1,7 @@
-#include <nano/core_test/common.hpp>
-#include <nano/core_test/testutil.hpp>
 #include <nano/node/telemetry.hpp>
 #include <nano/node/testing.hpp>
+#include <nano/test_common/telemetry.hpp>
+#include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -9,7 +9,7 @@
 
 using namespace std::chrono_literals;
 
-TEST (node_telemetry, consolidate_data)
+TEST (telemetry, consolidate_data)
 {
 	auto time = 1582117035109;
 
@@ -113,7 +113,7 @@ TEST (node_telemetry, consolidate_data)
 	ASSERT_EQ (consolidated_telemetry_data, consolidated_telemetry_data);
 }
 
-TEST (node_telemetry, consolidate_data_remove_outliers)
+TEST (telemetry, consolidate_data_remove_outliers)
 {
 	nano::telemetry_data data;
 	data.account_count = 2;
@@ -181,7 +181,7 @@ TEST (node_telemetry, consolidate_data_remove_outliers)
 	ASSERT_EQ (data, consolidated_telemetry_data);
 }
 
-TEST (node_telemetry, signatures)
+TEST (telemetry, signatures)
 {
 	nano::keypair node_id;
 	nano::telemetry_data data;
@@ -201,7 +201,7 @@ TEST (node_telemetry, signatures)
 	ASSERT_NE (data.signature, signature);
 }
 
-TEST (node_telemetry, no_peers)
+TEST (telemetry, no_peers)
 {
 	nano::system system (1);
 
@@ -209,7 +209,7 @@ TEST (node_telemetry, no_peers)
 	ASSERT_TRUE (responses.empty ());
 }
 
-TEST (node_telemetry, basic)
+TEST (telemetry, basic)
 {
 	nano::system system;
 	nano::node_flags node_flags;
@@ -233,11 +233,7 @@ TEST (node_telemetry, basic)
 			done = true;
 		});
 
-		system.deadline_set (10s);
-		while (!done)
-		{
-			ASSERT_NO_ERROR (system.poll ());
-		}
+		ASSERT_TIMELY (10s, done);
 	}
 
 	// Check the metrics are correct
@@ -252,15 +248,11 @@ TEST (node_telemetry, basic)
 			done = true;
 		});
 
-		system.deadline_set (10s);
-		while (!done)
-		{
-			ASSERT_NO_ERROR (system.poll ());
-		}
+		ASSERT_TIMELY (10s, done);
 	}
 
 	// Wait the cache period and check cache is not used
-	std::this_thread::sleep_for (nano::telemetry_cache_cutoffs::test);
+	std::this_thread::sleep_for (nano::telemetry_cache_cutoffs::dev);
 
 	std::atomic<bool> done{ false };
 	node_client->telemetry->get_metrics_single_peer_async (channel, [&done, &telemetry_data](nano::telemetry_data_response const & response_a) {
@@ -269,14 +261,10 @@ TEST (node_telemetry, basic)
 		done = true;
 	});
 
-	system.deadline_set (10s);
-	while (!done)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (10s, done);
 }
 
-TEST (node_telemetry, receive_from_non_listening_channel)
+TEST (telemetry, receive_from_non_listening_channel)
 {
 	nano::system system;
 	auto node = system.add_node ();
@@ -286,7 +274,7 @@ TEST (node_telemetry, receive_from_non_listening_channel)
 	ASSERT_EQ (node->telemetry->telemetry_data_size (), 0);
 }
 
-TEST (node_telemetry, over_udp)
+TEST (telemetry, over_udp)
 {
 	nano::system system;
 	nano::node_flags node_flags;
@@ -305,11 +293,7 @@ TEST (node_telemetry, over_udp)
 		done = true;
 	});
 
-	system.deadline_set (10s);
-	while (!done)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (10s, done);
 
 	// Check channels are indeed udp
 	ASSERT_EQ (1, node_client->network.size ());
@@ -322,7 +306,7 @@ TEST (node_telemetry, over_udp)
 	ASSERT_EQ (nano::transport::transport_type::udp, list2[0]->get_type ());
 }
 
-TEST (node_telemetry, invalid_channel)
+TEST (telemetry, invalid_channel)
 {
 	nano::system system (2);
 
@@ -335,14 +319,10 @@ TEST (node_telemetry, invalid_channel)
 		done = true;
 	});
 
-	system.deadline_set (10s);
-	while (!done)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (10s, done);
 }
 
-TEST (node_telemetry, blocking_request)
+TEST (telemetry, blocking_request)
 {
 	nano::system system (2);
 
@@ -380,7 +360,7 @@ TEST (node_telemetry, blocking_request)
 	promise.get_future ().wait ();
 }
 
-TEST (node_telemetry, disconnects)
+TEST (telemetry, disconnects)
 {
 	nano::system system;
 	nano::node_flags node_flags;
@@ -401,14 +381,10 @@ TEST (node_telemetry, disconnects)
 		done = true;
 	});
 
-	system.deadline_set (10s);
-	while (!done)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (10s, done);
 }
 
-TEST (node_telemetry, dos_tcp)
+TEST (telemetry, dos_tcp)
 {
 	// Confirm that telemetry_reqs are not processed
 	nano::system system;
@@ -426,11 +402,7 @@ TEST (node_telemetry, dos_tcp)
 		ASSERT_FALSE (ec);
 	});
 
-	system.deadline_set (10s);
-	while (1 != node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in))
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (10s, 1 == node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in));
 
 	auto orig = std::chrono::steady_clock::now ();
 	for (int i = 0; i < 10; ++i)
@@ -440,11 +412,7 @@ TEST (node_telemetry, dos_tcp)
 		});
 	}
 
-	system.deadline_set (10s);
-	while ((nano::telemetry_cache_cutoffs::test + orig) > std::chrono::steady_clock::now ())
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (10s, (nano::telemetry_cache_cutoffs::dev + orig) <= std::chrono::steady_clock::now ());
 
 	// Should process no more telemetry_req messages
 	ASSERT_EQ (1, node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in));
@@ -457,7 +425,7 @@ TEST (node_telemetry, dos_tcp)
 	}
 }
 
-TEST (node_telemetry, dos_udp)
+TEST (telemetry, dos_udp)
 {
 	// Confirm that telemetry_reqs are not processed
 	nano::system system;
@@ -477,11 +445,7 @@ TEST (node_telemetry, dos_udp)
 		ASSERT_FALSE (ec);
 	});
 
-	system.deadline_set (20s);
-	while (1 != node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in))
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (20s, 1 == node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in));
 
 	auto orig = std::chrono::steady_clock::now ();
 	for (int i = 0; i < 10; ++i)
@@ -491,11 +455,7 @@ TEST (node_telemetry, dos_udp)
 		});
 	}
 
-	system.deadline_set (20s);
-	while ((nano::telemetry_cache_cutoffs::test + orig) > std::chrono::steady_clock::now ())
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (20s, (nano::telemetry_cache_cutoffs::dev + orig) <= std::chrono::steady_clock::now ());
 
 	// Should process no more telemetry_req messages
 	ASSERT_EQ (1, node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in));
@@ -509,7 +469,7 @@ TEST (node_telemetry, dos_udp)
 	}
 }
 
-TEST (node_telemetry, disable_metrics)
+TEST (telemetry, disable_metrics)
 {
 	nano::system system;
 	nano::node_flags node_flags;
@@ -530,11 +490,7 @@ TEST (node_telemetry, disable_metrics)
 		done = true;
 	});
 
-	system.deadline_set (10s);
-	while (!done)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (10s, done);
 
 	// It should still be able to receive metrics though
 	done = false;
@@ -545,16 +501,12 @@ TEST (node_telemetry, disable_metrics)
 		done = true;
 	});
 
-	system.deadline_set (10s);
-	while (!done)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (10s, done);
 }
 
 namespace nano
 {
-TEST (node_telemetry, remove_peer_different_genesis)
+TEST (telemetry, remove_peer_different_genesis)
 {
 	nano::system system (1);
 	auto node0 (system.nodes[0]);
@@ -574,13 +526,13 @@ TEST (node_telemetry, remove_peer_different_genesis)
 	ASSERT_EQ (node0->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::out), 1);
 	ASSERT_EQ (node1->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::out), 1);
 
-	nano::lock_guard guard (node0->network.excluded_peers.mutex);
+	nano::lock_guard<nano::mutex> guard (node0->network.excluded_peers.mutex);
 	ASSERT_EQ (1, node0->network.excluded_peers.peers.get<nano::peer_exclusion::tag_endpoint> ().count (node1->network.endpoint ().address ()));
 	ASSERT_EQ (1, node1->network.excluded_peers.peers.get<nano::peer_exclusion::tag_endpoint> ().count (node0->network.endpoint ().address ()));
 }
 
 // Peer exclusion is only fully supported for TCP-only nodes; peers can still reconnect through UDP
-TEST (node_telemetry, remove_peer_different_genesis_udp)
+TEST (telemetry, remove_peer_different_genesis_udp)
 {
 	nano::node_flags node_flags;
 	node_flags.disable_udp = false;
@@ -618,12 +570,12 @@ TEST (node_telemetry, remove_peer_different_genesis_udp)
 	ASSERT_EQ (node0->network.tcp_channels.size (), 0);
 	ASSERT_EQ (node1->network.tcp_channels.size (), 0);
 
-	nano::lock_guard guard (node0->network.excluded_peers.mutex);
+	nano::lock_guard<nano::mutex> guard (node0->network.excluded_peers.mutex);
 	ASSERT_EQ (1, node0->network.excluded_peers.peers.get<nano::peer_exclusion::tag_endpoint> ().count (node1->network.endpoint ().address ()));
 	ASSERT_EQ (1, node1->network.excluded_peers.peers.get<nano::peer_exclusion::tag_endpoint> ().count (node0->network.endpoint ().address ()));
 }
 
-TEST (node_telemetry, remove_peer_invalid_signature)
+TEST (telemetry, remove_peer_invalid_signature)
 {
 	nano::system system;
 	nano::node_flags node_flags;
@@ -637,7 +589,7 @@ TEST (node_telemetry, remove_peer_invalid_signature)
 	// (Implementation detail) So that messages are not just discarded when requests were not sent.
 	node->telemetry->recent_or_initial_request_telemetry_data.emplace (channel->get_endpoint (), nano::telemetry_data (), std::chrono::steady_clock::now (), true);
 
-	auto telemetry_data = nano::local_telemetry_data (node->ledger.cache, node->network, node->config.bandwidth_limit, node->network_params, node->startup_time, node->active.active_difficulty (), node->node_id);
+	auto telemetry_data = nano::local_telemetry_data (node->store, node->ledger.cache, node->network, node->config.bandwidth_limit, node->network_params, node->startup_time, node->active.active_difficulty (), node->node_id);
 	// Change anything so that the signed message is incorrect
 	telemetry_data.block_count = 0;
 	auto telemetry_ack = nano::telemetry_ack (telemetry_data);
@@ -645,7 +597,7 @@ TEST (node_telemetry, remove_peer_invalid_signature)
 
 	ASSERT_TIMELY (10s, node->stats.count (nano::stat::type::telemetry, nano::stat::detail::invalid_signature) > 0);
 	ASSERT_NO_ERROR (system.poll_until_true (3s, [&node, address = channel->get_endpoint ().address ()]() -> bool {
-		nano::lock_guard guard (node->network.excluded_peers.mutex);
+		nano::lock_guard<nano::mutex> guard (node->network.excluded_peers.mutex);
 		return node->network.excluded_peers.peers.get<nano::peer_exclusion::tag_endpoint> ().count (address);
 	}));
 }

@@ -28,7 +28,7 @@ const char * const NANO_PRE_RELEASE_VERSION_STRING = xstr (PRE_RELEASE_VERSION_S
 
 const char * const BUILD_INFO = xstr (GIT_COMMIT_HASH BOOST_COMPILER) " \"BOOST " xstr (BOOST_VERSION) "\" BUILT " xstr (__DATE__);
 
-/** Is TSAN/ASAN test build */
+/** Is TSAN/ASAN dev build */
 #if defined(__has_feature)
 #if __has_feature(thread_sanitizer) || __has_feature(address_sanitizer)
 const bool is_sanitizer_build = true;
@@ -55,15 +55,18 @@ uint8_t get_pre_release_node_version ();
  */
 enum class nano_networks
 {
-	// Low work parameters, publicly known genesis key, test IP ports
-	nano_test_network = 0,
-	rai_test_network = 0,
+	// Low work parameters, publicly known genesis key, dev IP ports
+	nano_dev_network = 0,
+	rai_dev_network = 0,
 	// Normal work parameters, secret beta genesis key, beta IP ports
 	nano_beta_network = 1,
 	rai_beta_network = 1,
 	// Normal work parameters, secret live key, live IP ports
 	nano_live_network = 2,
 	rai_live_network = 2,
+	// Normal work parameters, secret test genesis key, test IP ports
+	nano_test_network = 3,
+	rai_test_network = 3,
 };
 
 struct work_thresholds
@@ -101,22 +104,22 @@ public:
 
 	network_constants (nano_networks network_a) :
 	current_network (network_a),
-	publish_thresholds (is_live_network () ? publish_full : is_beta_network () ? publish_beta : publish_test)
+	publish_thresholds ((is_live_network () || is_test_network ()) ? publish_full : is_beta_network () ? publish_beta : publish_dev)
 	{
 		// A representative is classified as principal based on its weight and this factor
 		principal_weight_factor = 1000; // 0.1%
 
-		default_node_port = is_live_network () ? 7075 : is_beta_network () ? 54000 : 44000;
-		default_rpc_port = is_live_network () ? 7076 : is_beta_network () ? 55000 : 45000;
-		default_ipc_port = is_live_network () ? 7077 : is_beta_network () ? 56000 : 46000;
-		default_websocket_port = is_live_network () ? 7078 : is_beta_network () ? 57000 : 47000;
-		request_interval_ms = is_test_network () ? 20 : 500;
+		default_node_port = is_live_network () ? 7075 : is_beta_network () ? 54000 : is_test_network () ? 17075 : 44000;
+		default_rpc_port = is_live_network () ? 7076 : is_beta_network () ? 55000 : is_test_network () ? 17076 : 45000;
+		default_ipc_port = is_live_network () ? 7077 : is_beta_network () ? 56000 : is_test_network () ? 17077 : 46000;
+		default_websocket_port = is_live_network () ? 7078 : is_beta_network () ? 57000 : is_test_network () ? 17078 : 47000;
+		request_interval_ms = is_dev_network () ? 20 : 500;
 	}
 
 	/** Network work thresholds. Define these inline as constexpr when moving to cpp17. */
 	static const nano::work_thresholds publish_full;
 	static const nano::work_thresholds publish_beta;
-	static const nano::work_thresholds publish_test;
+	static const nano::work_thresholds publish_dev;
 
 	/** Error message when an invalid network is specified */
 	static const char * active_network_err_msg;
@@ -151,7 +154,7 @@ public:
 	/**
 	 * Optionally called on startup to override the global active network.
 	 * If not called, the compile-time option will be used.
-	 * @param network_a The new active network. Valid values are "live", "beta" and "test"
+	 * @param network_a The new active network. Valid values are "live", "beta" and "dev"
 	 */
 	static bool set_active_network (std::string network_a)
 	{
@@ -163,6 +166,10 @@ public:
 		else if (network_a == "beta")
 		{
 			active_network = nano::nano_networks::nano_beta_network;
+		}
+		else if (network_a == "dev")
+		{
+			active_network = nano::nano_networks::nano_dev_network;
 		}
 		else if (network_a == "test")
 		{
@@ -177,7 +184,7 @@ public:
 
 	const char * get_current_network_as_string () const
 	{
-		return is_live_network () ? "live" : is_beta_network () ? "beta" : "test";
+		return is_live_network () ? "live" : is_beta_network () ? "beta" : is_test_network () ? "test" : "dev";
 	}
 
 	bool is_live_network () const
@@ -187,6 +194,10 @@ public:
 	bool is_beta_network () const
 	{
 		return current_network == nano_networks::nano_beta_network;
+	}
+	bool is_dev_network () const
+	{
+		return current_network == nano_networks::nano_dev_network;
 	}
 	bool is_test_network () const
 	{
@@ -204,9 +215,12 @@ std::string get_rpc_toml_config_path (boost::filesystem::path const & data_path)
 std::string get_access_toml_config_path (boost::filesystem::path const & data_path);
 std::string get_qtwallet_toml_config_path (boost::filesystem::path const & data_path);
 
-/** Called by gtest_main to enforce test network */
-void force_nano_test_network ();
+/** Called by gtest_main to enforce dev network */
+void force_nano_dev_network ();
 
 /** Checks if we are running inside a valgrind instance */
 bool running_within_valgrind ();
+
+/** Set the active network to the dev network */
+void force_nano_dev_network ();
 }

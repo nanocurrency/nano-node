@@ -37,27 +37,24 @@ private:
 class write_database_queue final
 {
 public:
-	write_database_queue ();
+	write_database_queue (bool use_noops_a);
 	/** Blocks until we are at the head of the queue */
 	write_guard wait (nano::writer writer);
 
 	/** Returns true if this writer is now at the front of the queue */
 	bool process (nano::writer writer);
 
-	/** Returns true if this writer is anywhere in the queue */
+	/** Returns true if this writer is anywhere in the queue. Currently only used in tests */
 	bool contains (nano::writer writer);
 
 	/** Doesn't actually pop anything until the returned write_guard is out of scope */
 	write_guard pop ();
-
-	/** This will release anything which is being blocked by the wait function */
-	void stop ();
 
 private:
 	std::deque<nano::writer> queue;
 	nano::mutex mutex;
 	nano::condition_variable cv;
 	std::function<void()> guard_finish_callback;
-	bool stopped{ false };
+	bool use_noops;
 };
 }

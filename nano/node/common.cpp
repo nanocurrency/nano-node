@@ -16,7 +16,7 @@ std::bitset<16> constexpr nano::message_header::block_type_mask;
 std::bitset<16> constexpr nano::message_header::count_mask;
 std::bitset<16> constexpr nano::message_header::telemetry_size_mask;
 
-std::chrono::seconds constexpr nano::telemetry_cache_cutoffs::test;
+std::chrono::seconds constexpr nano::telemetry_cache_cutoffs::dev;
 std::chrono::seconds constexpr nano::telemetry_cache_cutoffs::beta;
 std::chrono::seconds constexpr nano::telemetry_cache_cutoffs::live;
 
@@ -309,14 +309,6 @@ std::string nano::message_parser::status_string ()
 		case nano::message_parser::parse_status::outdated_version:
 		{
 			return "outdated_version";
-		}
-		case nano::message_parser::parse_status::invalid_magic:
-		{
-			return "invalid_magic";
-		}
-		case nano::message_parser::parse_status::invalid_network:
-		{
-			return "invalid_network";
 		}
 		case nano::message_parser::parse_status::duplicate_publish_message:
 		{
@@ -1252,7 +1244,7 @@ nano::error nano::telemetry_data::serialize_json (nano::jsonconfig & json, bool 
 	// Keep these last for UI purposes
 	if (!ignore_identification_metrics_a)
 	{
-		json.put ("node_id", node_id.to_string ());
+		json.put ("node_id", node_id.to_node_id ());
 		json.put ("signature", signature.to_string ());
 	}
 	return json.get_error ();
@@ -1276,7 +1268,7 @@ nano::error nano::telemetry_data::deserialize_json (nano::jsonconfig & json, boo
 		json.get ("node_id", node_id_l);
 		if (!json.get_error ())
 		{
-			if (node_id.decode_hex (node_id_l))
+			if (node_id.decode_node_id (node_id_l))
 			{
 				json.get_error ().set ("Could not deserialize node id");
 			}
@@ -1544,7 +1536,7 @@ bool nano::parse_tcp_endpoint (std::string const & string, nano::tcp_endpoint & 
 
 std::chrono::seconds nano::telemetry_cache_cutoffs::network_to_time (network_constants const & network_constants)
 {
-	return std::chrono::seconds{ network_constants.is_live_network () ? live : network_constants.is_beta_network () ? beta : test };
+	return std::chrono::seconds{ (network_constants.is_live_network () || network_constants.is_test_network ()) ? live : network_constants.is_beta_network () ? beta : dev };
 }
 
 nano::node_singleton_memory_pool_purge_guard::node_singleton_memory_pool_purge_guard () :

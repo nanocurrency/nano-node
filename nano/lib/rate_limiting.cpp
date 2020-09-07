@@ -20,7 +20,7 @@ nano::rate::token_bucket::token_bucket (size_t max_token_count_a, size_t refill_
 bool nano::rate::token_bucket::try_consume (unsigned tokens_required_a)
 {
 	debug_assert (tokens_required_a <= 1e9);
-	nano::lock_guard lk (bucket_mutex);
+	nano::lock_guard<nano::mutex> lk (bucket_mutex);
 	refill ();
 	bool possible = current_size >= tokens_required_a;
 	if (possible)
@@ -48,6 +48,6 @@ void nano::rate::token_bucket::refill ()
 
 size_t nano::rate::token_bucket::largest_burst () const
 {
-	nano::lock_guard lk (bucket_mutex);
+	nano::lock_guard<nano::mutex> lk (bucket_mutex);
 	return max_token_count - smallest_size;
 }

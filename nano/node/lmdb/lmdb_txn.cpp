@@ -133,7 +133,7 @@ void nano::mdb_txn_tracker::serialize_json (boost::property_tree::ptree & json, 
 	std::vector<mdb_txn_stats> copy_stats;
 	std::vector<bool> are_writes;
 	{
-		nano::lock_guard guard (mutex);
+		nano::lock_guard<nano::mutex> guard (mutex);
 		copy_stats = stats;
 		are_writes.reserve (stats.size ());
 		std::transform (stats.cbegin (), stats.cend (), std::back_inserter (are_writes), [](auto & mdb_txn_stat) {
@@ -180,9 +180,9 @@ void nano::mdb_txn_tracker::serialize_json (boost::property_tree::ptree & json, 
 	}
 }
 
-void nano::mdb_txn_tracker::output_finished (nano::mdb_txn_stats const & mdb_txn_stats) const
+void nano::mdb_txn_tracker::log_if_held_long_enough (nano::mdb_txn_stats const & mdb_txn_stats) const
 {
-	// Only output them if transactions were held for longer than a certain period of time
+	// Only log these transactions if they were held for longer than the min_read_txn_time/min_write_txn_time config values
 	auto is_write = mdb_txn_stats.is_write ();
 	auto time_open = mdb_txn_stats.timer.since_start ();
 
@@ -204,7 +204,7 @@ void nano::mdb_txn_tracker::output_finished (nano::mdb_txn_stats const & mdb_txn
 
 void nano::mdb_txn_tracker::add (const nano::transaction_impl * transaction_impl)
 {
-	nano::lock_guard guard (mutex);
+	nano::lock_guard<nano::mutex> guard (mutex);
 	debug_assert (std::find_if (stats.cbegin (), stats.cend (), matches_txn (transaction_impl)) == stats.cend ());
 	stats.emplace_back (transaction_impl);
 }
@@ -212,13 +212,14 @@ void nano::mdb_txn_tracker::add (const nano::transaction_impl * transaction_impl
 /** Can be called without error if transaction does not exist */
 void nano::mdb_txn_tracker::erase (const nano::transaction_impl * transaction_impl)
 {
-	nano::lock_guard guard (mutex);
+	nano::unique_lock<nano::mutex> lk (mutex);
 	auto it = std::find_if (stats.begin (), stats.end (), matches_txn (transaction_impl));
 	if (it != stats.end ())
 	{
-		output_finished (*it);
-		it->timer.stop ();
+		auto tracker_stats_copy = *it;
 		stats.erase (it);
+		lk.unlock ();
+		log_if_held_long_enough (tracker_stats_copy);
 	}
 }
 

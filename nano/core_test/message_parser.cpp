@@ -1,10 +1,11 @@
 #include <nano/node/testing.hpp>
+#include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
 namespace
 {
-class test_visitor : public nano::message_visitor
+class dev_visitor : public nano::message_visitor
 {
 public:
 	void keepalive (nano::keepalive const &) override
@@ -62,7 +63,7 @@ public:
 TEST (message_parser, exact_confirm_ack_size)
 {
 	nano::system system (1);
-	test_visitor visitor;
+	dev_visitor visitor;
 	nano::network_filter filter (1);
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer (block_uniquer);
@@ -96,7 +97,7 @@ TEST (message_parser, exact_confirm_ack_size)
 TEST (message_parser, exact_confirm_req_size)
 {
 	nano::system system (1);
-	test_visitor visitor;
+	dev_visitor visitor;
 	nano::network_filter filter (1);
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer (block_uniquer);
@@ -129,7 +130,7 @@ TEST (message_parser, exact_confirm_req_size)
 TEST (message_parser, exact_confirm_req_hash_size)
 {
 	nano::system system (1);
-	test_visitor visitor;
+	dev_visitor visitor;
 	nano::network_filter filter (1);
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer (block_uniquer);
@@ -162,7 +163,7 @@ TEST (message_parser, exact_confirm_req_hash_size)
 TEST (message_parser, exact_publish_size)
 {
 	nano::system system (1);
-	test_visitor visitor;
+	dev_visitor visitor;
 	nano::network_filter filter (1);
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer (block_uniquer);
@@ -195,7 +196,7 @@ TEST (message_parser, exact_publish_size)
 TEST (message_parser, exact_keepalive_size)
 {
 	nano::system system (1);
-	test_visitor visitor;
+	dev_visitor visitor;
 	nano::network_filter filter (1);
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer (block_uniquer);

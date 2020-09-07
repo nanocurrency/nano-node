@@ -1,5 +1,5 @@
-#include <nano/core_test/testutil.hpp>
 #include <nano/secure/common.hpp>
+#include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
@@ -375,9 +375,9 @@ TEST (uint256_union, decode_nano_variant)
 TEST (uint256_union, account_transcode)
 {
 	nano::account value;
-	auto text (nano::test_genesis_key.pub.to_account ());
+	auto text (nano::dev_genesis_key.pub.to_account ());
 	ASSERT_FALSE (value.decode_account (text));
-	ASSERT_EQ (nano::test_genesis_key.pub, value);
+	ASSERT_EQ (nano::dev_genesis_key.pub, value);
 
 	/*
 	 * Handle different offsets for the underscore separator
@@ -462,6 +462,42 @@ TEST (uint64_t, parse)
 	ASSERT_TRUE (nano::from_string_hex ("ffffffffffffffff0", value3));
 	uint64_t value4 (1);
 	ASSERT_TRUE (nano::from_string_hex ("", value4));
+}
+
+TEST (uint256_union, hash)
+{
+	ASSERT_EQ (4, nano::uint256_union{}.qwords.size ());
+	std::hash<nano::uint256_union> h{};
+	for (size_t i (0), n (nano::uint256_union{}.bytes.size ()); i < n; ++i)
+	{
+		nano::uint256_union x1{ 0 };
+		nano::uint256_union x2{ 0 };
+		x2.bytes[i] = 1;
+		ASSERT_NE (h (x1), h (x2));
+	}
+}
+
+TEST (uint512_union, hash)
+{
+	ASSERT_EQ (2, nano::uint512_union{}.uint256s.size ());
+	std::hash<nano::uint512_union> h{};
+	for (size_t i (0), n (nano::uint512_union{}.bytes.size ()); i < n; ++i)
+	{
+		nano::uint512_union x1{ 0 };
+		nano::uint512_union x2{ 0 };
+		x2.bytes[i] = 1;
+		ASSERT_NE (h (x1), h (x2));
+	}
+	for (auto part (0); part < nano::uint512_union{}.uint256s.size (); ++part)
+	{
+		for (size_t i (0), n (nano::uint512_union{}.uint256s[part].bytes.size ()); i < n; ++i)
+		{
+			nano::uint512_union x1{ 0 };
+			nano::uint512_union x2{ 0 };
+			x2.uint256s[part].bytes[i] = 1;
+			ASSERT_NE (h (x1), h (x2));
+		}
+	}
 }
 
 namespace

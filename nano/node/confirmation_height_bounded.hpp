@@ -2,6 +2,7 @@
 
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/threading.hpp>
+#include <nano/lib/timer.hpp>
 #include <nano/secure/blockstore.hpp>
 
 #include <boost/circular_buffer.hpp>
@@ -19,9 +20,9 @@ class confirmation_height_bounded final
 public:
 	confirmation_height_bounded (nano::ledger &, nano::write_database_queue &, std::chrono::milliseconds, nano::logger_mt &, std::atomic<bool> &, nano::block_hash const &, uint64_t &, std::function<void(std::vector<std::shared_ptr<nano::block>> const &)> const &, std::function<void(nano::block_hash const &)> const &, std::function<uint64_t ()> const &);
 	bool pending_empty () const;
-	void reset ();
+	void clear_process_vars ();
 	void process ();
-	bool cement_blocks (nano::write_guard & scoped_write_guard_a);
+	void cement_blocks (nano::write_guard & scoped_write_guard_a);
 
 private:
 	class top_and_next_hash final

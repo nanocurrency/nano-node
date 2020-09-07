@@ -1,5 +1,6 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/threading.hpp>
+#include <nano/node/active_transactions.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
@@ -8,27 +9,29 @@
 #include <nano/node/voting.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/secure/blockstore.hpp>
+#include <nano/secure/ledger.hpp>
 
-nano::request_aggregator::request_aggregator (nano::network_constants const & network_constants_a, nano::node_config const & config_a, nano::stat & stats_a, nano::votes_cache & cache_a, nano::block_store & store_a, nano::wallets & wallets_a) :
-max_delay (network_constants_a.is_test_network () ? 50 : 300),
-small_delay (network_constants_a.is_test_network () ? 10 : 50),
+nano::request_aggregator::request_aggregator (nano::network_constants const & network_constants_a, nano::node_config const & config_a, nano::stat & stats_a, nano::local_vote_history & history_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::active_transactions & active_a) :
+max_delay (network_constants_a.is_dev_network () ? 50 : 300),
+small_delay (network_constants_a.is_dev_network () ? 10 : 50),
 max_channel_requests (config_a.max_queued_requests),
 stats (stats_a),
-votes_cache (cache_a),
-store (store_a),
+local_votes (history_a),
+ledger (ledger_a),
 wallets (wallets_a),
+active (active_a),
 thread ([this]() { run (); })
 {
-	nano::unique_lock lock (mutex);
+	nano::unique_lock<nano::mutex> lock (mutex);
 	condition.wait (lock, [& started = started] { return started; });
 }
 
 void nano::request_aggregator::add (std::shared_ptr<nano::transport::channel> & channel_a, std::vector<std::pair<nano::block_hash, nano::root>> const & hashes_roots_a)
 {
-	debug_assert (wallets.rep_counts ().voting > 0);
+	debug_assert (wallets.reps ().voting > 0);
 	bool error = true;
 	auto const endpoint (nano::transport::map_endpoint_to_v6 (channel_a->get_endpoint ()));
-	nano::unique_lock lock (mutex);
+	nano::unique_lock<nano::mutex> lock (mutex);
 	// Protecting from ever-increasing memory usage when request are consumed slower than generated
 	// Reject request if the oldest request has not yet been processed after its deadline + a modest margin
 	if (requests.empty () || (requests.get<tag_deadline> ().begin ()->deadline + 2 * this->max_delay > std::chrono::steady_clock::now ()))
@@ -62,7 +65,7 @@ void nano::request_aggregator::add (std::shared_ptr<nano::transport::channel> & 
 void nano::request_aggregator::run ()
 {
 	nano::thread_role::set (nano::thread_role::name::request_aggregator);
-	nano::unique_lock lock (mutex);
+	nano::unique_lock<nano::mutex> lock (mutex);
 	started = true;
 	lock.unlock ();
 	condition.notify_all ();
@@ -85,7 +88,7 @@ void nano::request_aggregator::run ()
 				requests_by_deadline.erase (front);
 				lock.unlock ();
 				erase_duplicates (hashes_roots);
-				auto transaction (store.tx_begin_read ());
+				auto transaction (ledger.store.tx_begin_read ());
 				auto remaining = aggregate (transaction, hashes_roots, channel);
 				if (!remaining.empty ())
 				{
@@ -110,7 +113,7 @@ void nano::request_aggregator::run ()
 void nano::request_aggregator::stop ()
 {
 	{
-		nano::lock_guard guard (mutex);
+		nano::lock_guard<nano::mutex> guard (mutex);
 		stopped = true;
 	}
 	condition.notify_all ();
@@ -122,7 +125,7 @@ void nano::request_aggregator::stop ()
 
 std::size_t nano::request_aggregator::size ()
 {
-	nano::unique_lock lock (mutex);
+	nano::unique_lock<nano::mutex> lock (mutex);
 	return requests.size ();
 }
 
@@ -142,52 +145,80 @@ void nano::request_aggregator::erase_duplicates (std::vector<std::pair<nano::blo
 	requests_a.end ());
 }
 
-std::vector<nano::block_hash> nano::request_aggregator::aggregate (nano::transaction const & transaction_a, std::vector<std::pair<nano::block_hash, nano::root>> const & requests_a, std::shared_ptr<nano::transport::channel> & channel_a) const
+std::vector<std::pair<nano::root, nano::block_hash>> nano::request_aggregator::aggregate (nano::transaction const & transaction_a, std::vector<std::pair<nano::block_hash, nano::root>> const & requests_a, std::shared_ptr<nano::transport::channel> & channel_a) const
 {
 	size_t cached_hashes = 0;
-	std::vector<nano::block_hash> to_generate;
+	std::vector<std::pair<nano::root, nano::block_hash>> to_generate;
 	std::vector<std::shared_ptr<nano::vote>> cached_votes;
 	for (auto const & hash_root : requests_a)
 	{
-		auto find_votes (votes_cache.find (hash_root.first));
+		// 1. Votes in cache
+		auto find_votes (local_votes.votes (hash_root.second, hash_root.first));
 		if (!find_votes.empty ())
 		{
 			++cached_hashes;
 			cached_votes.insert (cached_votes.end (), find_votes.begin (), find_votes.end ());
 		}
-		else if (!hash_root.first.is_zero () && store.block_exists (transaction_a, hash_root.first))
+		else
 		{
-			to_generate.push_back (hash_root.first);
-		}
-		else if (!hash_root.second.is_zero ())
-		{
-			// Search for block root
-			auto successor (store.block_successor (transaction_a, hash_root.second));
-			// Search for account root
-			if (successor.is_zero ())
+			// 2. Election winner by hash
+			auto block = active.winner (hash_root.first);
+
+			// 3. Ledger by hash
+			if (block == nullptr)
 			{
-				nano::account_info info;
-				auto error (store.account_get (transaction_a, hash_root.second, info));
-				if (!error)
+				block = ledger.store.block_get (transaction_a, hash_root.first);
+			}
+
+			// 4. Ledger by root
+			if (block == nullptr && !hash_root.second.is_zero ())
+			{
+				// Search for block root
+				auto successor (ledger.store.block_successor (transaction_a, hash_root.second));
+				// Search for account root
+				if (successor.is_zero ())
 				{
-					successor = info.open_block;
+					nano::account_info info;
+					auto error (ledger.store.account_get (transaction_a, hash_root.second, info));
+					if (!error)
+					{
+						successor = info.open_block;
+					}
+				}
+				if (!successor.is_zero ())
+				{
+					auto successor_block = ledger.store.block_get (transaction_a, successor);
+					debug_assert (successor_block != nullptr);
+					// 5. Votes in cache for successor
+					auto find_successor_votes (local_votes.votes (hash_root.second, successor));
+					if (!find_successor_votes.empty ())
+					{
+						cached_votes.insert (cached_votes.end (), find_successor_votes.begin (), find_successor_votes.end ());
+					}
+					else
+					{
+						block = std::move (successor_block);
+					}
 				}
 			}
-			if (!successor.is_zero ())
+
+			if (block)
 			{
-				auto find_successor_votes (votes_cache.find (successor));
-				if (!find_successor_votes.empty ())
+				// Attempt to vote for this block
+				if (ledger.dependents_confirmed (transaction_a, *block))
 				{
-					cached_votes.insert (cached_votes.end (), find_successor_votes.begin (), find_successor_votes.end ());
+					to_generate.emplace_back (block->root (), block->hash ());
 				}
 				else
 				{
-					to_generate.push_back (successor);
+					stats.inc (nano::stat::type::requests, nano::stat::detail::requests_cannot_vote, stat::dir::in);
 				}
-				auto successor_block (store.block_get (transaction_a, successor));
-				debug_assert (successor_block != nullptr);
-				nano::publish publish (successor_block);
-				channel_a->send (publish);
+				// Let the node know about the alternative block
+				if (block->hash () != hash_root.first)
+				{
+					nano::publish publish (block);
+					channel_a->send (publish);
+				}
 			}
 			else
 			{
@@ -208,7 +239,7 @@ std::vector<nano::block_hash> nano::request_aggregator::aggregate (nano::transac
 	return to_generate;
 }
 
-void nano::request_aggregator::generate (nano::transaction const & transaction_a, std::vector<nano::block_hash> const & hashes_a, std::shared_ptr<nano::transport::channel> & channel_a) const
+void nano::request_aggregator::generate (nano::transaction const & transaction_a, std::vector<std::pair<nano::root, nano::block_hash>> const & hashes_a, std::shared_ptr<nano::transport::channel> & channel_a) const
 {
 	size_t generated_l = 0;
 	auto i (hashes_a.begin ());
@@ -216,16 +247,23 @@ void nano::request_aggregator::generate (nano::transaction const & transaction_a
 	while (i != n)
 	{
 		std::vector<nano::block_hash> hashes_l;
+		std::vector<nano::root> roots;
+		hashes_l.reserve (nano::network::confirm_ack_hashes_max);
+		roots.reserve (nano::network::confirm_ack_hashes_max);
 		for (; i != n && hashes_l.size () < nano::network::confirm_ack_hashes_max; ++i)
 		{
-			hashes_l.push_back (*i);
+			roots.push_back (i->first);
+			hashes_l.push_back (i->second);
 		}
-		wallets.foreach_representative ([this, &generated_l, &hashes_l, &channel_a, &transaction_a](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
-			auto vote (this->store.vote_generate (transaction_a, pub_a, prv_a, hashes_l));
+		wallets.foreach_representative ([this, &generated_l, &hashes_l, &roots, &channel_a, &transaction_a](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
+			auto vote (this->ledger.store.vote_generate (transaction_a, pub_a, prv_a, hashes_l));
 			++generated_l;
 			nano::confirm_ack confirm (vote);
 			channel_a->send (confirm);
-			this->votes_cache.add (vote);
+			for (size_t i (0), n (hashes_l.size ()); i != n; ++i)
+			{
+				this->local_votes.add (roots[i], hashes_l[i], vote);
+			}
 		});
 	}
 	stats.add (nano::stat::type::requests, nano::stat::detail::requests_generated_hashes, stat::dir::in, hashes_a.size ());

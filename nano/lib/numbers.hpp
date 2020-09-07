@@ -116,6 +116,7 @@ public:
 	using uint256_union::uint256_union;
 
 	std::string to_node_id () const;
+	bool decode_node_id (std::string const & source_a);
 	void encode_account (std::string &) const;
 	std::string to_account () const;
 	bool decode_account (std::string const &);
@@ -274,7 +275,7 @@ struct hash<::nano::uint256_union>
 {
 	size_t operator() (::nano::uint256_union const & data_a) const
 	{
-		return *reinterpret_cast<size_t const *> (data_a.bytes.data ());
+		return data_a.qwords[0] + data_a.qwords[1] + data_a.qwords[2] + data_a.qwords[3];
 	}
 };
 template <>
@@ -330,7 +331,7 @@ struct hash<::nano::uint512_union>
 {
 	size_t operator() (::nano::uint512_union const & data_a) const
 	{
-		return *reinterpret_cast<size_t const *> (data_a.bytes.data ());
+		return hash<::nano::uint256_union> () (data_a.uint256s[0]) + hash<::nano::uint256_union> () (data_a.uint256s[1]);
 	}
 };
 template <>
@@ -338,7 +339,7 @@ struct hash<::nano::qualified_root>
 {
 	size_t operator() (::nano::qualified_root const & data_a) const
 	{
-		return *reinterpret_cast<size_t const *> (data_a.bytes.data ());
+		return hash<::nano::uint512_union> () (data_a);
 	}
 };
 }

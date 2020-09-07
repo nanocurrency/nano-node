@@ -1656,11 +1656,6 @@ epoch (epoch_a), is_send (is_send_a), is_receive (is_receive_a), is_epoch (is_ep
 {
 }
 
-constexpr size_t nano::block_details::size ()
-{
-	return 1;
-}
-
 bool nano::block_details::operator== (nano::block_details const & other_a) const
 {
 	return epoch == other_a.epoch && is_send == other_a.is_send && is_receive == other_a.is_receive && is_epoch == other_a.is_epoch;
@@ -1728,23 +1723,25 @@ std::string nano::state_subtype (nano::block_details const details_a)
 	}
 }
 
-nano::block_sideband::block_sideband (nano::account const & account_a, nano::block_hash const & successor_a, nano::amount const & balance_a, uint64_t height_a, uint64_t timestamp_a, nano::block_details const & details_a) :
+nano::block_sideband::block_sideband (nano::account const & account_a, nano::block_hash const & successor_a, nano::amount const & balance_a, uint64_t const height_a, uint64_t const timestamp_a, nano::block_details const & details_a, nano::epoch const source_epoch_a) :
 successor (successor_a),
 account (account_a),
 balance (balance_a),
 height (height_a),
 timestamp (timestamp_a),
-details (details_a)
+details (details_a),
+source_epoch (source_epoch_a)
 {
 }
 
-nano::block_sideband::block_sideband (nano::account const & account_a, nano::block_hash const & successor_a, nano::amount const & balance_a, uint64_t height_a, uint64_t timestamp_a, nano::epoch epoch_a, bool is_send, bool is_receive, bool is_epoch) :
+nano::block_sideband::block_sideband (nano::account const & account_a, nano::block_hash const & successor_a, nano::amount const & balance_a, uint64_t const height_a, uint64_t const timestamp_a, nano::epoch const epoch_a, bool const is_send, bool const is_receive, bool const is_epoch, nano::epoch const source_epoch_a) :
 successor (successor_a),
 account (account_a),
 balance (balance_a),
 height (height_a),
 timestamp (timestamp_a),
-details (epoch_a, is_send, is_receive, is_epoch)
+details (epoch_a, is_send, is_receive, is_epoch),
+source_epoch (source_epoch_a)
 {
 }
 
@@ -1768,7 +1765,7 @@ size_t nano::block_sideband::size (nano::block_type type_a)
 	if (type_a == nano::block_type::state)
 	{
 		static_assert (sizeof (nano::epoch) == nano::block_details::size (), "block_details is larger than the epoch enum");
-		result += nano::block_details::size ();
+		result += nano::block_details::size () + sizeof (nano::epoch);
 	}
 	return result;
 }
@@ -1792,6 +1789,7 @@ void nano::block_sideband::serialize (nano::stream & stream_a, nano::block_type 
 	if (type_a == nano::block_type::state)
 	{
 		details.serialize (stream_a);
+		nano::write (stream_a, static_cast<uint8_t> (source_epoch));
 	}
 }
 
@@ -1823,6 +1821,9 @@ bool nano::block_sideband::deserialize (nano::stream & stream_a, nano::block_typ
 		if (type_a == nano::block_type::state)
 		{
 			result = details.deserialize (stream_a);
+			uint8_t source_epoch_uint8_t{ 0 };
+			nano::read (stream_a, source_epoch_uint8_t);
+			source_epoch = static_cast<nano::epoch> (source_epoch_uint8_t);
 		}
 	}
 	catch (std::runtime_error &)
@@ -1839,7 +1840,7 @@ std::shared_ptr<nano::block> nano::block_uniquer::unique (std::shared_ptr<nano::
 	if (result != nullptr)
 	{
 		nano::uint256_union key (block_a->full_hash ());
-		nano::lock_guard lock (mutex);
+		nano::lock_guard<nano::mutex> lock (mutex);
 		auto & existing (blocks[key]);
 		if (auto block_l = existing.lock ())
 		{
@@ -1876,7 +1877,7 @@ std::shared_ptr<nano::block> nano::block_uniquer::unique (std::shared_ptr<nano::
 
 size_t nano::block_uniquer::size ()
 {
-	nano::lock_guard lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	return blocks.size ();
 }
 

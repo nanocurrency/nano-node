@@ -55,7 +55,7 @@ namespace transport
 
 		nano::endpoint get_endpoint () const override
 		{
-			nano::lock_guard lk (channel_mutex);
+			nano::lock_guard<nano::mutex> lk (channel_mutex);
 			if (auto socket_l = socket.lock ())
 			{
 				return nano::transport::map_tcp_to_endpoint (socket_l->remote_endpoint ());
@@ -68,7 +68,7 @@ namespace transport
 
 		nano::tcp_endpoint get_tcp_endpoint () const override
 		{
-			nano::lock_guard lk (channel_mutex);
+			nano::lock_guard<nano::mutex> lk (channel_mutex);
 			if (auto socket_l = socket.lock ())
 			{
 				return socket_l->remote_endpoint ();
@@ -87,7 +87,7 @@ namespace transport
 	class tcp_channels final
 	{
 		friend class nano::transport::channel_tcp;
-		friend class node_telemetry_simultaneous_requests_Test;
+		friend class telemetry_simultaneous_requests_Test;
 
 	public:
 		tcp_channels (nano::node &);

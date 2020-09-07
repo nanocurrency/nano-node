@@ -3,27 +3,27 @@
 
 void nano::rep_weights::representation_add (nano::account const & source_rep, nano::uint128_t const & amount_a)
 {
-	nano::lock_guard guard (mutex);
+	nano::lock_guard<nano::mutex> guard (mutex);
 	auto source_previous (get (source_rep));
 	put (source_rep, source_previous + amount_a);
 }
 
 void nano::rep_weights::representation_put (nano::account const & account_a, nano::uint128_union const & representation_a)
 {
-	nano::lock_guard guard (mutex);
+	nano::lock_guard<nano::mutex> guard (mutex);
 	put (account_a, representation_a);
 }
 
 nano::uint128_t nano::rep_weights::representation_get (nano::account const & account_a)
 {
-	nano::lock_guard lk (mutex);
+	nano::lock_guard<nano::mutex> lk (mutex);
 	return get (account_a);
 }
 
 /** Makes a copy */
 std::unordered_map<nano::account, nano::uint128_t> nano::rep_weights::get_rep_amounts ()
 {
-	nano::lock_guard guard (mutex);
+	nano::lock_guard<nano::mutex> guard (mutex);
 	return rep_amounts;
 }
 
@@ -59,7 +59,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (na
 	size_t rep_amounts_count;
 
 	{
-		nano::lock_guard guard (rep_weights.mutex);
+		nano::lock_guard<nano::mutex> guard (rep_weights.mutex);
 		rep_amounts_count = rep_weights.rep_amounts.size ();
 	}
 	auto sizeof_element = sizeof (decltype (rep_weights.rep_amounts)::value_type);

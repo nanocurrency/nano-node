@@ -1,6 +1,7 @@
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/threading.hpp>
+#include <nano/lib/timer.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/signatures.hpp>
 #include <nano/node/state_block_signature_verification.hpp>
@@ -28,7 +29,7 @@ nano::state_block_signature_verification::~state_block_signature_verification ()
 void nano::state_block_signature_verification::stop ()
 {
 	{
-		nano::lock_guard guard (mutex);
+		nano::lock_guard<nano::mutex> guard (mutex);
 		stopped = true;
 	}
 
@@ -41,7 +42,7 @@ void nano::state_block_signature_verification::stop ()
 
 void nano::state_block_signature_verification::run (uint64_t state_block_signature_verification_size)
 {
-	nano::unique_lock lk (mutex);
+	nano::unique_lock<nano::mutex> lk (mutex);
 	while (!stopped)
 	{
 		if (!state_blocks.empty ())
@@ -69,14 +70,14 @@ void nano::state_block_signature_verification::run (uint64_t state_block_signatu
 
 bool nano::state_block_signature_verification::is_active ()
 {
-	nano::lock_guard guard (mutex);
+	nano::lock_guard<nano::mutex> guard (mutex);
 	return active;
 }
 
 void nano::state_block_signature_verification::add (nano::unchecked_info const & info_a)
 {
 	{
-		nano::lock_guard guard (mutex);
+		nano::lock_guard<nano::mutex> guard (mutex);
 		state_blocks.push_back (info_a);
 	}
 	condition.notify_one ();
@@ -84,7 +85,7 @@ void nano::state_block_signature_verification::add (nano::unchecked_info const &
 
 size_t nano::state_block_signature_verification::size ()
 {
-	nano::lock_guard guard (mutex);
+	nano::lock_guard<nano::mutex> guard (mutex);
 	return state_blocks.size ();
 }
 

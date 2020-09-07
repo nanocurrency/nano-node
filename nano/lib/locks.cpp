@@ -8,7 +8,7 @@
 #include <iostream>
 
 #if USING_NANO_TIMED_LOCKS
-namespace
+namespace nano
 {
 // These mutexes must have std::mutex interface in addition to "const char* get_name ()" method
 template <typename Mutex>
@@ -35,9 +35,13 @@ void output_if_held_long_enough (nano::timer<std::chrono::milliseconds> & timer,
 			output ("held", time_held, mutex);
 		}
 	}
-	timer.stop ();
+	if (timer.current_state () != nano::timer_state::stopped)
+	{
+		timer.stop ();
+	}
 }
 
+#ifndef NANO_TIMED_LOCKS_IGNORE_BLOCKED
 template <typename Mutex>
 void output_if_blocked_long_enough (nano::timer<std::chrono::milliseconds> & timer, Mutex & mutex)
 {
@@ -52,17 +56,17 @@ void output_if_blocked_long_enough (nano::timer<std::chrono::milliseconds> & tim
 		}
 	}
 }
-}
+#endif
 
-namespace nano
-{
 lock_guard<nano::mutex>::lock_guard (nano::mutex & mutex) :
 mut (mutex)
 {
 	timer.start ();
 
 	mut.lock ();
+#ifndef NANO_TIMED_LOCKS_IGNORE_BLOCKED
 	output_if_blocked_long_enough (timer, mut);
+#endif
 }
 
 lock_guard<nano::mutex>::~lock_guard () noexcept
@@ -70,9 +74,6 @@ lock_guard<nano::mutex>::~lock_guard () noexcept
 	mut.unlock ();
 	output_if_held_long_enough (timer, mut);
 }
-
-// Explicit instantiations for allowed types
-template class lock_guard<nano::mutex>;
 
 template <typename Mutex, typename U>
 unique_lock<Mutex, U>::unique_lock (Mutex & mutex) :
@@ -82,14 +83,21 @@ mut (std::addressof (mutex))
 }
 
 template <typename Mutex, typename U>
+unique_lock<Mutex, U>::unique_lock (Mutex & mutex, std::defer_lock_t) noexcept :
+mut (std::addressof (mutex))
+{
+}
+
+template <typename Mutex, typename U>
 void unique_lock<Mutex, U>::lock_impl ()
 {
 	timer.start ();
 
 	mut->lock ();
 	owns = true;
-
+#ifndef NANO_TIMED_LOCKS_IGNORE_BLOCKED
 	output_if_blocked_long_enough (timer, *mut);
+#endif
 }
 
 template <typename Mutex, typename U>
@@ -197,7 +205,47 @@ void unique_lock<Mutex, U>::validate () const
 // Explicit instantiations for allowed types
 template class unique_lock<nano::mutex>;
 
-char const * mutex_identifier (mutexes mutex)
+void condition_variable::notify_one () noexcept
+{
+	cnd.notify_one ();
+}
+
+void condition_variable::notify_all () noexcept
+{
+	cnd.notify_all ();
+}
+
+void condition_variable::wait (nano::unique_lock<nano::mutex> & lk)
+{
+	if (!lk.mut || !lk.owns)
+	{
+		throw (std::system_error (std::make_error_code (std::errc::operation_not_permitted)));
+	}
+
+	output_if_held_long_enough (lk.timer, *lk.mut);
+	// Start again in case cnd.wait calls unique_lock::lock/unlock () depending on some implementations
+	lk.timer.start ();
+	cnd.wait (lk);
+	lk.timer.restart ();
+}
+template class unique_lock<nano::mutex>;
+
+nano::mutex * mutex_to_filter{ nullptr };
+nano::mutex mutex_to_filter_mutex;
+
+bool should_be_filtered (const char * name)
+{
+	return std::strcmp (name, xstr (NANO_TIMED_LOCKS_FILTER)) == 0;
+}
+
+bool any_filters_registered ()
+{
+	return std::strcmp ("", xstr (NANO_TIMED_LOCKS_FILTER)) != 0;
+}
+}
+#endif
+
+char const * nano::mutex_identifier (mutexes mutex)
 {
 	switch (mutex)
 	{
@@ -247,18 +295,3 @@ char const * mutex_identifier (mutexes mutex)
 
 	throw std::runtime_error ("Invalid mutexes enum specified");
 }
-
-nano::mutex * mutex_to_filter{ nullptr };
-nano::mutex mutex_to_filter_mutex;
-
-bool should_be_filtered (const char * name)
-{
-	return std::strcmp (name, xstr (NANO_TIMED_LOCKS_FILTER)) == 0;
-}
-
-bool any_filters_registered ()
-{
-	return std::strcmp ("", xstr (NANO_TIMED_LOCKS_FILTER)) != 0;
-}
-}
-#endif

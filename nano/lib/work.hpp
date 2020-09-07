@@ -22,13 +22,14 @@ std::string to_string (nano::work_version const version_a);
 
 class block;
 class block_details;
+enum class block_type : uint8_t;
 bool work_validate_entry (nano::block const &);
 bool work_validate_entry (nano::work_version const, nano::root const &, uint64_t const);
 
 uint64_t work_difficulty (nano::work_version const, nano::root const &, uint64_t const);
 
 uint64_t work_threshold_base (nano::work_version const);
-uint64_t work_threshold_entry (nano::work_version const);
+uint64_t work_threshold_entry (nano::work_version const, nano::block_type const);
 // Ledger threshold
 uint64_t work_threshold (nano::work_version const, nano::block_details const);
 

@@ -157,12 +157,6 @@ bool nano::wallet_store::attempt_password (nano::transaction const & transaction
 	{
 		switch (version (transaction_a))
 		{
-			case version_1:
-				upgrade_v1_v2 (transaction_a);
-			case version_2:
-				upgrade_v2_v3 (transaction_a);
-			case version_3:
-				upgrade_v3_v4 (transaction_a);
 			case version_4:
 				break;
 			default:
@@ -220,7 +214,7 @@ nano::fan::fan (nano::uint256_union const & key, size_t count_a)
 
 void nano::fan::value (nano::raw_key & prv_a)
 {
-	nano::lock_guard lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	value_get (prv_a);
 }
 
@@ -236,7 +230,7 @@ void nano::fan::value_get (nano::raw_key & prv_a)
 
 void nano::fan::value_set (nano::raw_key const & value_a)
 {
-	nano::lock_guard lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	nano::raw_key value_l;
 	value_get (value_l);
 	*(values[0]) ^= value_l.data;
@@ -651,106 +645,10 @@ void nano::wallet_store::version_put (nano::transaction const & transaction_a, u
 	entry_put_raw (transaction_a, nano::wallet_store::version_special, nano::wallet_value (entry, 0));
 }
 
-void nano::wallet_store::upgrade_v1_v2 (nano::transaction const & transaction_a)
-{
-	debug_assert (version (transaction_a) == 1);
-	nano::raw_key zero_password;
-	nano::wallet_value value (entry_get_raw (transaction_a, nano::wallet_store::wallet_key_special));
-	nano::raw_key kdf;
-	kdf.data.clear ();
-	zero_password.decrypt (value.key, kdf, salt (transaction_a).owords[0]);
-	derive_key (kdf, transaction_a, "");
-	nano::raw_key empty_password;
-	empty_password.decrypt (value.key, kdf, salt (transaction_a).owords[0]);
-	for (auto i (begin (transaction_a)), n (end ()); i != n; ++i)
-	{
-		nano::public_key const & key (i->first);
-		nano::raw_key prv;
-		if (fetch (transaction_a, key, prv))
-		{
-			// Key failed to decrypt despite valid password
-			nano::wallet_value data (entry_get_raw (transaction_a, key));
-			prv.decrypt (data.key, zero_password, salt (transaction_a).owords[0]);
-			nano::public_key compare (nano::pub_key (prv.as_private_key ()));
-			if (compare == key)
-			{
-				// If we successfully decrypted it, rewrite the key back with the correct wallet key
-				insert_adhoc (transaction_a, prv);
-			}
-			else
-			{
-				// Also try the empty password
-				nano::wallet_value data (entry_get_raw (transaction_a, key));
-				prv.decrypt (data.key, empty_password, salt (transaction_a).owords[0]);
-				nano::public_key compare (nano::pub_key (prv.as_private_key ()));
-				if (compare == key)
-				{
-					// If we successfully decrypted it, rewrite the key back with the correct wallet key
-					insert_adhoc (transaction_a, prv);
-				}
-			}
-		}
-	}
-	version_put (transaction_a, 2);
-}
-
-void nano::wallet_store::upgrade_v2_v3 (nano::transaction const & transaction_a)
-{
-	debug_assert (version (transaction_a) == 2);
-	nano::raw_key seed;
-	random_pool::generate_block (seed.data.bytes.data (), seed.data.bytes.size ());
-	seed_set (transaction_a, seed);
-	entry_put_raw (transaction_a, nano::wallet_store::deterministic_index_special, nano::wallet_value (nano::uint256_union (0), 0));
-	version_put (transaction_a, 3);
-}
-
-void nano::wallet_store::upgrade_v3_v4 (nano::transaction const & transaction_a)
-{
-	debug_assert (version (transaction_a) == 3);
-	version_put (transaction_a, 4);
-	debug_assert (valid_password (transaction_a));
-	nano::raw_key seed;
-	nano::wallet_value value (entry_get_raw (transaction_a, nano::wallet_store::seed_special));
-	nano::raw_key password_l;
-	wallet_key (password_l, transaction_a);
-	seed.decrypt (value.key, password_l, salt (transaction_a).owords[0]);
-	nano::uint256_union ciphertext;
-	ciphertext.encrypt (seed, password_l, salt (transaction_a).owords[seed_iv_index]);
-	entry_put_raw (transaction_a, nano::wallet_store::seed_special, nano::wallet_value (ciphertext, 0));
-	for (auto i (begin (transaction_a)), n (end ()); i != n; ++i)
-	{
-		nano::wallet_value value (i->second);
-		if (!value.key.is_zero ())
-		{
-			switch (key_type (i->second))
-			{
-				case nano::key_type::adhoc:
-				{
-					nano::raw_key key;
-					if (fetch (transaction_a, nano::public_key (i->first), key))
-					{
-						// Key failed to decrypt despite valid password
-						key.decrypt (value.key, password_l, salt (transaction_a).owords[0]);
-						nano::uint256_union new_key_ciphertext;
-						new_key_ciphertext.encrypt (key, password_l, (nano::uint256_union (i->first)).owords[0].number ());
-						nano::wallet_value new_value (new_key_ciphertext, value.work);
-						erase (transaction_a, nano::public_key (i->first));
-						entry_put_raw (transaction_a, nano::public_key (i->first), new_value);
-					}
-				}
-				case nano::key_type::deterministic:
-					break;
-				default:
-					debug_assert (false);
-			}
-		}
-	}
-}
-
 void nano::kdf::phs (nano::raw_key & result_a, std::string const & password_a, nano::uint256_union const & salt_a)
 {
 	static nano::network_params network_params;
-	nano::lock_guard lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	auto success (argon2_hash (1, network_params.kdf_work, 1, password_a.data (), password_a.size (), salt_a.bytes.data (), salt_a.bytes.size (), result_a.data.bytes.data (), result_a.data.bytes.size (), NULL, 0, Argon2_d, 0x10));
 	debug_assert (success == 0);
 	(void)success;
@@ -824,7 +722,7 @@ nano::public_key nano::wallet::deterministic_insert (nano::transaction const & t
 		auto half_principal_weight (wallets.node.minimum_principal_weight () / 2);
 		if (wallets.check_rep (key, half_principal_weight))
 		{
-			nano::lock_guard lock (representatives_mutex);
+			nano::lock_guard<nano::mutex> lock (representatives_mutex);
 			representatives.insert (key);
 		}
 	}
@@ -867,7 +765,7 @@ nano::public_key nano::wallet::insert_adhoc (nano::transaction const & transacti
 		auto half_principal_weight (wallets.node.minimum_principal_weight () / 2);
 		if (wallets.check_rep (key, half_principal_weight))
 		{
-			nano::lock_guard lock (representatives_mutex);
+			nano::lock_guard<nano::mutex> lock (representatives_mutex);
 			representatives.insert (key);
 		}
 	}
@@ -1252,7 +1150,7 @@ void nano::wallet::work_update (nano::transaction const & transaction_a, nano::a
 void nano::wallet::work_ensure (nano::account const & account_a, nano::root const & root_a)
 {
 	using namespace std::chrono_literals;
-	std::chrono::seconds const precache_delay = wallets.node.network_params.network.is_test_network () ? 1s : 10s;
+	std::chrono::seconds const precache_delay = wallets.node.network_params.network.is_dev_network () ? 1s : 10s;
 
 	wallets.delayed_work->operator[] (account_a) = root_a;
 
@@ -1431,7 +1329,7 @@ nano::work_watcher::~work_watcher ()
 
 void nano::work_watcher::stop ()
 {
-	nano::unique_lock lock (mutex);
+	nano::unique_lock<nano::mutex> lock (mutex);
 	watched.clear ();
 	stopped = true;
 }
@@ -1442,7 +1340,7 @@ void nano::work_watcher::add (std::shared_ptr<nano::block> block_a)
 	if (!stopped && block_l != nullptr)
 	{
 		auto root_l (block_l->qualified_root ());
-		nano::unique_lock lock (mutex);
+		nano::unique_lock<nano::mutex> lock (mutex);
 		watched[root_l] = block_l;
 		lock.unlock ();
 		watching (root_l, block_l);
@@ -1451,7 +1349,7 @@ void nano::work_watcher::add (std::shared_ptr<nano::block> block_a)
 
 void nano::work_watcher::update (nano::qualified_root const & root_a, std::shared_ptr<nano::state_block> block_a)
 {
-	nano::lock_guard guard (mutex);
+	nano::lock_guard<nano::mutex> guard (mutex);
 	watched[root_a] = block_a;
 }
 
@@ -1501,31 +1399,32 @@ void nano::work_watcher::watching (nano::qualified_root const & root_a, std::sha
 
 void nano::work_watcher::remove (nano::block const & block_a)
 {
-	nano::lock_guard lock (mutex);
+	nano::unique_lock<nano::mutex> lock (mutex);
 	auto existing (watched.find (block_a.qualified_root ()));
 	if (existing != watched.end ())
 	{
 		watched.erase (existing);
+		lock.unlock ();
 		node.observers.work_cancel.notify (block_a.root ());
 	}
 }
 
 bool nano::work_watcher::is_watched (nano::qualified_root const & root_a)
 {
-	nano::lock_guard guard (mutex);
+	nano::lock_guard<nano::mutex> guard (mutex);
 	auto exists (watched.find (root_a));
 	return exists != watched.end ();
 }
 
 size_t nano::work_watcher::size ()
 {
-	nano::lock_guard guard (mutex);
+	nano::lock_guard<nano::mutex> guard (mutex);
 	return watched.size ();
 }
 
 void nano::wallets::do_wallet_actions ()
 {
-	nano::unique_lock action_lock (action_mutex);
+	nano::unique_lock<nano::mutex> action_lock (action_mutex);
 	while (!stopped)
 	{
 		if (!actions.empty ())
@@ -1561,7 +1460,7 @@ thread ([this]() {
 	do_wallet_actions ();
 })
 {
-	nano::unique_lock lock (mutex);
+	nano::unique_lock<nano::mutex> lock (mutex);
 	if (!error_a)
 	{
 		auto transaction (tx_begin_write ());
@@ -1630,7 +1529,7 @@ nano::wallets::~wallets ()
 
 std::shared_ptr<nano::wallet> nano::wallets::open (nano::wallet_id const & id_a)
 {
-	nano::lock_guard lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	std::shared_ptr<nano::wallet> result;
 	auto existing (items.find (id_a));
 	if (existing != items.end ())
@@ -1642,7 +1541,7 @@ std::shared_ptr<nano::wallet> nano::wallets::open (nano::wallet_id const & id_a)
 
 std::shared_ptr<nano::wallet> nano::wallets::create (nano::wallet_id const & id_a)
 {
-	nano::lock_guard lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	debug_assert (items.find (id_a) == items.end ());
 	std::shared_ptr<nano::wallet> result;
 	bool error;
@@ -1660,7 +1559,7 @@ std::shared_ptr<nano::wallet> nano::wallets::create (nano::wallet_id const & id_
 
 bool nano::wallets::search_pending (nano::wallet_id const & wallet_a)
 {
-	nano::lock_guard lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	auto result (false);
 	auto existing (items.find (wallet_a));
 	result = existing == items.end ();
@@ -1674,7 +1573,7 @@ bool nano::wallets::search_pending (nano::wallet_id const & wallet_a)
 
 void nano::wallets::search_pending_all ()
 {
-	nano::lock_guard lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	for (auto i : items)
 	{
 		i.second->search_pending ();
@@ -1683,10 +1582,10 @@ void nano::wallets::search_pending_all ()
 
 void nano::wallets::destroy (nano::wallet_id const & id_a)
 {
-	nano::lock_guard lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	auto transaction (tx_begin_write ());
 	// action_mutex should be after transactions to prevent deadlocks in deterministic_insert () & insert_adhoc ()
-	nano::lock_guard action_lock (action_mutex);
+	nano::lock_guard<nano::mutex> action_lock (action_mutex);
 	auto existing (items.find (id_a));
 	debug_assert (existing != items.end ());
 	auto wallet (existing->second);
@@ -1696,7 +1595,7 @@ void nano::wallets::destroy (nano::wallet_id const & id_a)
 
 void nano::wallets::reload ()
 {
-	nano::lock_guard lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	auto transaction (tx_begin_write ());
 	std::unordered_set<nano::uint256_union> stored_items;
 	std::string beginning (nano::uint256_union (0).to_string ());
@@ -1740,7 +1639,7 @@ void nano::wallets::reload ()
 void nano::wallets::queue_wallet_action (nano::uint128_t const & amount_a, std::shared_ptr<nano::wallet> wallet_a, std::function<void(nano::wallet &)> const & action_a)
 {
 	{
-		nano::lock_guard action_lock (action_mutex);
+		nano::lock_guard<nano::mutex> action_lock (action_mutex);
 		actions.emplace (amount_a, std::make_pair (wallet_a, std::move (action_a)));
 	}
 	condition.notify_all ();
@@ -1753,14 +1652,14 @@ void nano::wallets::foreach_representative (std::function<void(nano::public_key 
 		std::vector<std::pair<nano::public_key const, nano::raw_key const>> action_accounts_l;
 		{
 			auto transaction_l (tx_begin_read ());
-			nano::lock_guard lock (mutex);
+			nano::lock_guard<nano::mutex> lock (mutex);
 			for (auto i (items.begin ()), n (items.end ()); i != n; ++i)
 			{
 				auto & wallet (*i->second);
 				nano::lock_guard<std::recursive_mutex> store_lock (wallet.store.mutex);
 				decltype (wallet.representatives) representatives_l;
 				{
-					nano::lock_guard representatives_lock (wallet.representatives_mutex);
+					nano::lock_guard<nano::mutex> representatives_lock (wallet.representatives_mutex);
 					representatives_l = wallet.representatives;
 				}
 				for (auto const & account : representatives_l)
@@ -1800,7 +1699,7 @@ void nano::wallets::foreach_representative (std::function<void(nano::public_key 
 
 bool nano::wallets::exists (nano::transaction const & transaction_a, nano::account const & account_a)
 {
-	nano::lock_guard lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	auto result (false);
 	for (auto i (items.begin ()), n (items.end ()); !result && i != n; ++i)
 	{
@@ -1812,7 +1711,7 @@ bool nano::wallets::exists (nano::transaction const & transaction_a, nano::accou
 void nano::wallets::stop ()
 {
 	{
-		nano::lock_guard action_lock (action_mutex);
+		nano::lock_guard<nano::mutex> action_lock (action_mutex);
 		stopped = true;
 		actions.clear ();
 	}
@@ -1841,10 +1740,10 @@ void nano::wallets::clear_send_ids (nano::transaction const & transaction_a)
 	debug_assert (status == 0);
 }
 
-nano::wallet_representative_counts nano::wallets::rep_counts ()
+nano::wallet_representatives nano::wallets::reps () const
 {
-	nano::lock_guard counts_guard (counts_mutex);
-	return counts;
+	nano::lock_guard<nano::mutex> counts_guard (reps_cache_mutex);
+	return representatives;
 }
 
 bool nano::wallets::check_rep (nano::account const & account_a, nano::uint128_t const & half_principal_weight_a, const bool acquire_lock_a)
@@ -1856,13 +1755,14 @@ bool nano::wallets::check_rep (nano::account const & account_a, nano::uint128_t 
 		nano::unique_lock<nano::mutex> lock;
 		if (acquire_lock_a)
 		{
-			lock = nano::unique_lock (counts_mutex);
+			lock = nano::unique_lock<nano::mutex> (reps_cache_mutex);
 		}
 		result = true;
-		++counts.voting;
+		representatives.accounts.insert (account_a);
+		++representatives.voting;
 		if (weight >= half_principal_weight_a)
 		{
-			++counts.half_principal;
+			++representatives.half_principal;
 		}
 	}
 	return result;
@@ -1870,9 +1770,9 @@ bool nano::wallets::check_rep (nano::account const & account_a, nano::uint128_t 
 
 void nano::wallets::compute_reps ()
 {
-	nano::lock_guard guard (mutex);
-	nano::lock_guard counts_guard (counts_mutex);
-	counts = { 0, 0 };
+	nano::lock_guard<nano::mutex> guard (mutex);
+	nano::lock_guard<nano::mutex> counts_guard (reps_cache_mutex);
+	representatives.clear ();
 	auto half_principal_weight (node.minimum_principal_weight () / 2);
 	auto transaction (tx_begin_read ());
 	for (auto i (items.begin ()), n (items.end ()); i != n; ++i)
@@ -1887,7 +1787,7 @@ void nano::wallets::compute_reps ()
 				representatives_l.insert (account);
 			}
 		}
-		nano::lock_guard representatives_guard (wallet.representatives_mutex);
+		nano::lock_guard<nano::mutex> representatives_guard (wallet.representatives_mutex);
 		wallet.representatives.swap (representatives_l);
 	}
 }
@@ -1896,7 +1796,7 @@ void nano::wallets::ongoing_compute_reps ()
 {
 	compute_reps ();
 	auto & node_l (node);
-	auto compute_delay (network_params.network.is_test_network () ? std::chrono::milliseconds (10) : std::chrono::milliseconds (15 * 60 * 1000)); // Representation drifts quickly on the test network but very slowly on the live network
+	auto compute_delay (network_params.network.is_dev_network () ? std::chrono::milliseconds (10) : std::chrono::milliseconds (15 * 60 * 1000)); // Representation drifts quickly on the test network but very slowly on the live network
 	node.alarm.add (std::chrono::steady_clock::now () + compute_delay, [&node_l]() {
 		node_l.wallets.ongoing_compute_reps ();
 	});
@@ -2037,7 +1937,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (wa
 	size_t items_count;
 	size_t actions_count;
 	{
-		nano::lock_guard guard (wallets.mutex);
+		nano::lock_guard<nano::mutex> guard (wallets.mutex);
 		items_count = wallets.items.size ();
 		actions_count = wallets.actions.size ();
 	}

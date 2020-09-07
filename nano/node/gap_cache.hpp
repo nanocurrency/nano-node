@@ -39,6 +39,7 @@ public:
 	void erase (nano::block_hash const & hash_a);
 	void vote (std::shared_ptr<nano::vote>);
 	bool bootstrap_check (std::vector<nano::account> const &, nano::block_hash const &);
+	void bootstrap_start (nano::block_hash const & hash_a);
 	nano::uint128_t bootstrap_threshold ();
 	size_t size ();
 	// clang-format off

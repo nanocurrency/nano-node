@@ -3,7 +3,10 @@
 nano::read_rocksdb_txn::read_rocksdb_txn (rocksdb::DB * db_a) :
 db (db_a)
 {
-	options.snapshot = db_a->GetSnapshot ();
+	if (db_a)
+	{
+		options.snapshot = db_a->GetSnapshot ();
+	}
 }
 
 nano::read_rocksdb_txn::~read_rocksdb_txn ()
@@ -13,7 +16,10 @@ nano::read_rocksdb_txn::~read_rocksdb_txn ()
 
 void nano::read_rocksdb_txn::reset ()
 {
-	db->ReleaseSnapshot (options.snapshot);
+	if (db)
+	{
+		db->ReleaseSnapshot (options.snapshot);
+	}
 }
 
 void nano::read_rocksdb_txn::renew ()
