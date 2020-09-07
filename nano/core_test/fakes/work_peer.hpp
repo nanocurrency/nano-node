@@ -124,7 +124,7 @@ private:
 		ptree::write_json (ostream, error_l);
 		beast::ostream (response.body ()) << ostream.str ();
 	}
-	
+
 	void handle_cancel ()
 	{
 		on_cancel ();
