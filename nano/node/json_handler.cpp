@@ -4861,6 +4861,7 @@ void nano::json_handler::work_cancel ()
 	if (!ec)
 	{
 		node.observers.work_cancel.notify (hash);
+		rpc_l->response_l.put ("success", "");
 	}
 	response_errors ();
 }
