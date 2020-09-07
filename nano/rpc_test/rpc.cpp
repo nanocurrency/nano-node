@@ -2999,7 +2999,7 @@ TEST (rpc, work_cancel)
 		ASSERT_TIMELY (10s, response1.status != 0);
 		ASSERT_EQ (200, response1.status);
 		ASSERT_NO_ERROR (ec);
-		std::string success (response.json.get<std::string> ("success"));
+		std::string success (response1.json.get<std::string> ("success"));
 		ASSERT_TRUE (success.empty ());
 	}
 }
