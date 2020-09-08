@@ -46,8 +46,8 @@ public:
 	void async_connect (boost::asio::ip::tcp::endpoint const &, boost::asio::yield_context yield);
 	void async_read (std::shared_ptr<std::vector<uint8_t>>, size_t, std::function<void(boost::system::error_code const &, size_t)>);
 	size_t async_read (std::shared_ptr<std::vector<uint8_t>>, size_t, boost::asio::yield_context yield);
-	void async_write (nano::shared_const_buffer const &, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr, nano::buffer_drop_policy = nano::buffer_drop_policy::limiter);
-	void async_write (nano::shared_const_buffer const & buffer_a, boost::asio::yield_context yield, nano::buffer_drop_policy policy_a = nano::buffer_drop_policy::limiter);
+	void async_write (nano::shared_const_buffer const &, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr);
+	void async_write (nano::shared_const_buffer const & buffer_a, boost::asio::yield_context yield);
 
 	void close ();
 	boost::asio::ip::tcp::endpoint remote_endpoint () const;
@@ -56,6 +56,14 @@ public:
 	/** This can be called to change the maximum idle time, e.g. based on the type of traffic detected. */
 	void set_timeout (std::chrono::seconds io_timeout_a);
 	void start_timer (std::chrono::seconds deadline_a);
+	bool max () const
+	{
+		return queue_size >= queue_size_max;
+	}
+	bool full () const
+	{
+		return queue_size >= queue_size_max * 2;
+	}
 
 protected:
 	/** Holds the buffer and callback for queued writes */

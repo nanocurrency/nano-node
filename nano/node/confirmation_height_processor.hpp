@@ -94,6 +94,7 @@ private:
 	friend class confirmation_height_long_chains_Test;
 	friend class confirmation_height_many_accounts_single_confirmation_Test;
 	friend class request_aggregator_cannot_vote_Test;
+	friend class active_transactions_pessimistic_elections_Test;
 };
 
 std::unique_ptr<container_info_component> collect_container_info (confirmation_height_processor &, const std::string &);

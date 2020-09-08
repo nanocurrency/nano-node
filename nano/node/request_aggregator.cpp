@@ -205,7 +205,7 @@ std::vector<std::pair<nano::root, nano::block_hash>> nano::request_aggregator::a
 			if (block)
 			{
 				// Attempt to vote for this block
-				if (ledger.can_vote (transaction_a, *block))
+				if (ledger.dependents_confirmed (transaction_a, *block))
 				{
 					to_generate.emplace_back (block->root (), block->hash ());
 				}
