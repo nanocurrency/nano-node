@@ -95,7 +95,7 @@ void nano::transport::channel::send (nano::message const & message_a, std::funct
 	auto should_drop (node.network.limiter.should_drop (buffer.size ()));
 	if (!is_droppable_by_limiter || !should_drop)
 	{
-		send_buffer (buffer, detail, callback_a, drop_policy_a);
+		send_buffer (buffer, callback_a, drop_policy_a);
 		node.stats.inc (nano::stat::type::message, detail, nano::stat::dir::out);
 	}
 	else

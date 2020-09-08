@@ -30,6 +30,12 @@ public:
 	bool replay{ false };
 	bool processed{ false };
 };
+enum class election_behavior
+{
+	normal,
+	optimistic
+};
+
 class election final : public std::enable_shared_from_this<nano::election>
 {
 	// Minimum time between broadcasts of the current winner of an election, as a backup to requesting confirmations
@@ -67,7 +73,7 @@ private: // State management
 	std::atomic<bool> prioritized_m = { false };
 
 public:
-	election (nano::node &, std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const &, bool);
+	election (nano::node &, std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const &, bool, nano::election_behavior);
 	nano::election_vote_result vote (nano::account, uint64_t, nano::block_hash);
 	nano::tally_t tally ();
 	// Check if we have vote quorum
@@ -80,6 +86,7 @@ public:
 	size_t last_votes_size ();
 	size_t insert_inactive_votes_cache (nano::block_hash const &);
 	bool prioritized () const;
+	bool optimistic () const;
 	void prioritize_election (nano::vote_generator_session &);
 	// Erase all blocks from active and, if not confirmed, clear digests from network filters
 	void cleanup ();
@@ -93,6 +100,8 @@ private:
 
 public:
 	bool confirmed () const;
+	bool failed () const;
+	nano::election_behavior election_behavior{ nano::election_behavior::normal };
 	nano::node & node;
 	std::unordered_map<nano::account, nano::vote_info> last_votes;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks;
