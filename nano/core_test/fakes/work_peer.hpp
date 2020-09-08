@@ -133,6 +133,7 @@ private:
 		std::stringstream ostream;
 		ptree::write_json (ostream, message_l);
 		beast::ostream (response.body ()) << ostream.str ();
+		write_response ();
 	}
 
 	void handle_generate (nano::block_hash const & hash_a)
