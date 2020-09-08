@@ -64,7 +64,8 @@ void rocksdb_val::convert_buffer_to_value ()
 
 nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a) :
 logger (logger_a),
-rocksdb_config (rocksdb_config_a)
+rocksdb_config (rocksdb_config_a),
+cf_name_table_map (generate_cf_name_table_map ())
 {
 	boost::system::error_code error_mkdir, error_chmod;
 	boost::filesystem::create_directories (path_a, error_mkdir);
@@ -83,19 +84,27 @@ rocksdb_config (rocksdb_config_a)
 	}
 }
 
+std::unordered_map<const char *, nano::tables> nano::rocksdb_store::generate_cf_name_table_map () const
+{
+	return { { rocksdb::kDefaultColumnFamilyName.c_str (), tables::default_unused },
+		{ "frontiers", tables::frontiers },
+		{ "accounts", tables::accounts },
+		{ "blocks", tables::blocks },
+		{ "pending", tables::pending },
+		{ "unchecked", tables::unchecked },
+		{ "vote", tables::vote },
+		{ "online_weight", tables::online_weight },
+		{ "meta", tables::meta },
+		{ "peers", tables::peers },
+		{ "confirmation_height", tables::confirmation_height } };
+}
+
 void nano::rocksdb_store::open (bool & error_a, boost::filesystem::path const & path_a, bool open_read_only_a)
 {
-	std::array names{ rocksdb::kDefaultColumnFamilyName.c_str (), "frontiers", "accounts", "blocks", "pending", "unchecked", "vote", "online_weight", "meta", "peers", "confirmation_height" };
-	std::array tables{ tables::default_unused, tables::frontiers, tables::accounts, tables::blocks, tables::pending, tables::unchecked, tables::vote, tables::online_weight, tables::meta, tables::peers, tables::confirmation_height };
-	debug_assert (names.size () == tables.size ());
-
 	std::vector<rocksdb::ColumnFamilyDescriptor> column_families;
-	for (auto i = 0; i < names.size (); ++i)
+	for (auto & [cf_name, table] : cf_name_table_map)
 	{
-		auto cf_name = names[i];
-		auto table = tables[i];
 		column_families.emplace_back (cf_name, get_cf_options ());
-		cf_name_to_table_map.emplace (cf_name, table);
 	}
 
 	auto options = get_db_options ();
@@ -249,7 +258,6 @@ void nano::rocksdb_store::flush_tombstones_check (tables table_a)
 	if (auto it = tombstone_map.find (table_a); it != tombstone_map.end ())
 	{
 		auto & tombstone_info = it->second;
-		++tombstone_info.num_since_last_flush;
 		if (++tombstone_info.num_since_last_flush > tombstone_info.max)
 		{
 			tombstone_info.num_since_last_flush = 0;
@@ -505,7 +513,7 @@ rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_cf_options () const
 void nano::rocksdb_store::on_flush (rocksdb::FlushJobInfo const & flush_job_info_a)
 {
 	// Reset appropriate tombstone counters
-	if (auto it = tombstone_map.find (cf_name_to_table_map[flush_job_info_a.cf_name]); it != tombstone_map.end ())
+	if (auto it = tombstone_map.find (cf_name_table_map[flush_job_info_a.cf_name.c_str ()]); it != tombstone_map.end ())
 	{
 		it->second.num_since_last_flush = 0;
 	}

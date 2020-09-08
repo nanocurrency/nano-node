@@ -4,6 +4,7 @@
 #include <nano/lib/utility.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/testing.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/utility.hpp>
 #include <nano/secure/versioning.hpp>
@@ -1871,6 +1872,24 @@ TEST (block_store, rocksdb_force_test_env_variable)
 #else
 	ASSERT_NE (mdb_cast, nullptr);
 #endif
+}
+
+namespace nano
+{
+TEST (rocksdb_block_store, tombstone_count)
+{
+	if (nano::using_rocksdb_in_tests ())
+	{
+		auto store = std::make_unique<nano::rocksdb_store> (nano::logger_mt (), nano::unique_path ());
+		ASSERT_TRUE (!store->init_error ());
+		auto transaction = store->tx_begin_write ();
+		auto block1 (std::make_shared<nano::send_block> (0, 1, 2, nano::keypair ().prv, 4, 5));
+		store->unchecked_put (transaction, block1->previous (), block1);
+		ASSERT_EQ (store->tombstone_map.at (nano::tables::unchecked).num_since_last_flush.load (), 0);
+		store->unchecked_del (transaction, nano::unchecked_key (block1->previous (), block1->hash ()));
+		ASSERT_EQ (store->tombstone_map.at (nano::tables::unchecked).num_since_last_flush.load (), 1);
+	}
+}
 }
 
 namespace
