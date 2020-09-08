@@ -65,7 +65,7 @@ void rocksdb_val::convert_buffer_to_value ()
 nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a) :
 logger (logger_a),
 rocksdb_config (rocksdb_config_a),
-cf_name_table_map (generate_cf_name_table_map ())
+cf_name_table_map (create_cf_name_table_map ())
 {
 	boost::system::error_code error_mkdir, error_chmod;
 	boost::filesystem::create_directories (path_a, error_mkdir);
@@ -84,7 +84,7 @@ cf_name_table_map (generate_cf_name_table_map ())
 	}
 }
 
-std::unordered_map<const char *, nano::tables> nano::rocksdb_store::generate_cf_name_table_map () const
+std::unordered_map<const char *, nano::tables> nano::rocksdb_store::create_cf_name_table_map () const
 {
 	return { { rocksdb::kDefaultColumnFamilyName.c_str (), tables::default_unused },
 		{ "frontiers", tables::frontiers },
