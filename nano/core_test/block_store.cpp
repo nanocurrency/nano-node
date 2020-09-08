@@ -1880,7 +1880,8 @@ TEST (rocksdb_block_store, tombstone_count)
 {
 	if (nano::using_rocksdb_in_tests ())
 	{
-		auto store = std::make_unique<nano::rocksdb_store> (nano::logger_mt (), nano::unique_path ());
+		nano::logger_mt logger;
+		auto store = std::make_unique<nano::rocksdb_store> (logger, nano::unique_path ());
 		ASSERT_TRUE (!store->init_error ());
 		auto transaction = store->tx_begin_write ();
 		auto block1 (std::make_shared<nano::send_block> (0, 1, 2, nano::keypair ().prv, 4, 5));
