@@ -43,7 +43,7 @@ public:
 	virtual ~socket ();
 	void async_connect (boost::asio::ip::tcp::endpoint const &, std::function<void(boost::system::error_code const &)>);
 	void async_read (std::shared_ptr<std::vector<uint8_t>>, size_t, std::function<void(boost::system::error_code const &, size_t)>);
-	void async_write (nano::shared_const_buffer const &, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr, nano::buffer_drop_policy = nano::buffer_drop_policy::limiter);
+	void async_write (nano::shared_const_buffer const &, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr);
 
 	void close ();
 	boost::asio::ip::tcp::endpoint remote_endpoint () const;
@@ -52,6 +52,14 @@ public:
 	/** This can be called to change the maximum idle time, e.g. based on the type of traffic detected. */
 	void set_timeout (std::chrono::seconds io_timeout_a);
 	void start_timer (std::chrono::seconds deadline_a);
+	bool max () const
+	{
+		return queue_size >= queue_size_max;
+	}
+	bool full () const
+	{
+		return queue_size >= queue_size_max * 2;
+	}
 
 protected:
 	/** Holds the buffer and callback for queued writes */

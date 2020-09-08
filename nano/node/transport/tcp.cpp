@@ -50,29 +50,46 @@ bool nano::transport::channel_tcp::operator== (nano::transport::channel const & 
 	return result;
 }
 
-void nano::transport::channel_tcp::send_buffer (nano::shared_const_buffer const & buffer_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a, nano::buffer_drop_policy drop_policy_a)
+void nano::transport::channel_tcp::send_buffer (nano::shared_const_buffer const & buffer_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a, nano::buffer_drop_policy policy_a)
 {
 	if (auto socket_l = socket.lock ())
 	{
-		socket_l->async_write (
-		buffer_a, [endpoint_a = socket_l->remote_endpoint (), node = std::weak_ptr<nano::node> (node.shared ()), callback_a](boost::system::error_code const & ec, size_t size_a) {
-			if (auto node_l = node.lock ())
+		if (!socket_l->max () || (policy_a == nano::buffer_drop_policy::no_socket_drop && !socket_l->full ()))
+		{
+			socket_l->async_write (
+			buffer_a, [endpoint_a = socket_l->remote_endpoint (), node = std::weak_ptr<nano::node> (node.shared ()), callback_a](boost::system::error_code const & ec, size_t size_a) {
+				if (auto node_l = node.lock ())
+				{
+					if (!ec)
+					{
+						node_l->network.tcp_channels.update (endpoint_a);
+					}
+					if (ec == boost::system::errc::host_unreachable)
+					{
+						node_l->stats.inc (nano::stat::type::error, nano::stat::detail::unreachable_host, nano::stat::dir::out);
+					}
+					if (callback_a)
+					{
+						callback_a (ec, size_a);
+					}
+				}
+			});
+		}
+		else
+		{
+			if (policy_a == nano::buffer_drop_policy::no_socket_drop)
 			{
-				if (!ec)
-				{
-					node_l->network.tcp_channels.update (endpoint_a);
-				}
-				if (ec == boost::system::errc::host_unreachable)
-				{
-					node_l->stats.inc (nano::stat::type::error, nano::stat::detail::unreachable_host, nano::stat::dir::out);
-				}
-				if (callback_a)
-				{
-					callback_a (ec, size_a);
-				}
+				node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_write_no_socket_drop, nano::stat::dir::out);
 			}
-		},
-		drop_policy_a);
+			else
+			{
+				node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_write_drop, nano::stat::dir::out);
+			}
+			if (callback_a)
+			{
+				callback_a (boost::system::errc::make_error_code (boost::system::errc::no_buffer_space), 0);
+			}
+		}
 	}
 	else if (callback_a)
 	{

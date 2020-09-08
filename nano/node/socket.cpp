@@ -71,49 +71,30 @@ void nano::socket::async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a, s
 	}
 }
 
-void nano::socket::async_write (nano::shared_const_buffer const & buffer_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a, nano::buffer_drop_policy drop_policy_a)
+void nano::socket::async_write (nano::shared_const_buffer const & buffer_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a)
 {
 	auto this_l (shared_from_this ());
 	if (!closed)
 	{
-		boost::asio::post (strand, boost::asio::bind_executor (strand, [buffer_a, callback_a, this_l, drop_policy_a]() {
+		++queue_size;
+		boost::asio::post (strand, boost::asio::bind_executor (strand, [buffer_a, callback_a, this_l]() {
 			if (!this_l->closed)
 			{
-				if (this_l->queue_size < this_l->queue_size_max || (drop_policy_a == nano::buffer_drop_policy::no_socket_drop && this_l->queue_size < (this_l->queue_size_max * 2)))
-				{
-					this_l->start_timer ();
-					++this_l->queue_size;
-					nano::async_write (this_l->tcp_socket, buffer_a,
-					boost::asio::bind_executor (this_l->strand,
-					[buffer_a, callback_a, this_l](boost::system::error_code ec, std::size_t size_a) {
-						--this_l->queue_size;
-						if (auto node = this_l->node.lock ())
+				this_l->start_timer ();
+				nano::async_write (this_l->tcp_socket, buffer_a,
+				boost::asio::bind_executor (this_l->strand,
+				[buffer_a, callback_a, this_l](boost::system::error_code ec, std::size_t size_a) {
+					--this_l->queue_size;
+					if (auto node = this_l->node.lock ())
+					{
+						node->stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::out, size_a);
+						this_l->stop_timer ();
+						if (callback_a)
 						{
-							node->stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::out, size_a);
-							this_l->stop_timer ();
-							if (callback_a)
-							{
-								callback_a (ec, size_a);
-							}
+							callback_a (ec, size_a);
 						}
-					}));
-				}
-				else if (auto node_l = this_l->node.lock ())
-				{
-					if (drop_policy_a == nano::buffer_drop_policy::no_socket_drop)
-					{
-						node_l->stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_write_no_socket_drop, nano::stat::dir::out);
 					}
-					else
-					{
-						node_l->stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_write_drop, nano::stat::dir::out);
-					}
-
-					if (callback_a)
-					{
-						callback_a (boost::system::errc::make_error_code (boost::system::errc::no_buffer_space), 0);
-					}
-				}
+				}));
 			}
 			else
 			{
