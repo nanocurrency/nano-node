@@ -92,7 +92,7 @@ protected:
 	void checkup ();
 
 public:
-	size_t const queue_size_max = 128;
+	static size_t constexpr queue_size_max = 128;
 };
 
 /** Socket class for TCP servers */
