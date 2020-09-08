@@ -68,11 +68,18 @@ private:
 	std::vector<std::unique_ptr<rocksdb::ColumnFamilyHandle>> handles;
 	std::shared_ptr<rocksdb::TableFactory> table_factory;
 	std::unordered_map<nano::tables, std::mutex> write_lock_mutexes;
+	nano::rocksdb_config rocksdb_config;
 
-	std::atomic<int> num_unchecked_tombstones_since_last_flush{ 0 };
-	std::atomic<int> num_block_tombstones_since_last_flush{ 0 };
-	std::atomic<int> num_account_tombstones_since_last_flush{ 0 };
-	std::atomic<int> num_pending_tombstones_since_last_flush{ 0 };
+	class tombstone_info
+	{
+	public:
+		tombstone_info (uint64_t, uint64_t const);
+		std::atomic<uint64_t> num_since_last_flush;
+		uint64_t const max;
+	};
+
+	std::unordered_map<nano::tables, tombstone_info> tombstone_map;
+	std::unordered_map<std::string_view, nano::tables> cf_name_to_table_map;
 
 	rocksdb::Transaction * tx (nano::transaction const & transaction_a) const;
 	std::vector<nano::tables> all_tables () const;
@@ -95,7 +102,7 @@ private:
 	void on_flush (rocksdb::FlushJobInfo const &);
 	void flush_table (nano::tables table_a);
 	void flush_tombstones_check (tables table_a);
-	nano::rocksdb_config rocksdb_config;
+	void generate_tombstone_map ();
 
 	constexpr static int base_memtable_size = 16;
 	constexpr static int base_block_cache_size = 16;
