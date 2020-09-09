@@ -34,6 +34,7 @@ public:
 
 	uint64_t count (nano::transaction const & transaction_a, tables table_a) const override;
 	void version_put (nano::write_transaction const &, int) override;
+	std::vector<nano::unchecked_info> unchecked_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override;
 
 	bool exists (nano::transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a) const;
 	int get (nano::transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a, nano::rocksdb_val & value_a) const;
@@ -66,7 +67,7 @@ private:
 	rocksdb::OptimisticTransactionDB * optimistic_db = nullptr;
 	std::unique_ptr<rocksdb::DB> db;
 	std::vector<std::unique_ptr<rocksdb::ColumnFamilyHandle>> handles;
-	std::shared_ptr<rocksdb::TableFactory> table_factory;
+	std::shared_ptr<rocksdb::TableFactory> small_table_factory;
 	std::unordered_map<nano::tables, std::mutex> write_lock_mutexes;
 	nano::rocksdb_config rocksdb_config;
 
@@ -94,10 +95,13 @@ private:
 
 	void open (bool & error_a, boost::filesystem::path const & path_a, bool open_read_only_a);
 
-	rocksdb::ColumnFamilyOptions get_cf_options () const;
 	void construct_column_family_mutexes ();
 	rocksdb::Options get_db_options ();
-	rocksdb::BlockBasedTableOptions get_table_options () const;
+	rocksdb::ColumnFamilyOptions get_active_cf_options (std::shared_ptr<rocksdb::TableFactory> const & table_factory_a, unsigned long long memtable_size_bytes_a) const;
+	rocksdb::ColumnFamilyOptions get_small_cf_options (std::shared_ptr<rocksdb::TableFactory> const & table_factory_a) const;
+	rocksdb::BlockBasedTableOptions get_active_table_options (int lru_size) const;
+	rocksdb::BlockBasedTableOptions get_small_table_options () const;
+	rocksdb::ColumnFamilyOptions get_cf_options (std::string const & cf_name_a) const;
 
 	void on_flush (rocksdb::FlushJobInfo const &);
 	void flush_table (nano::tables table_a);
@@ -105,8 +109,10 @@ private:
 	void generate_tombstone_map ();
 	std::unordered_map<const char *, nano::tables> create_cf_name_table_map () const;
 
+	std::vector<rocksdb::ColumnFamilyDescriptor> create_column_families ();
+
 	constexpr static int base_memtable_size = 16;
-	constexpr static int base_block_cache_size = 16;
+	constexpr static int base_block_cache_size = 8;
 
 	friend class rocksdb_block_store_tombstone_count_Test;
 };

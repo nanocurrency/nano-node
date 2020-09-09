@@ -11,6 +11,7 @@
 
 #include <rocksdb/merge_operator.h>
 #include <rocksdb/slice.h>
+#include <rocksdb/slice_transform.h>
 #include <rocksdb/utilities/backupable_db.h>
 #include <rocksdb/utilities/transaction.h>
 #include <rocksdb/utilities/transaction_db.h>
@@ -75,7 +76,7 @@ cf_name_table_map (create_cf_name_table_map ())
 	if (!error)
 	{
 		generate_tombstone_map ();
-		table_factory.reset (rocksdb::NewBlockBasedTableFactory (get_table_options ()));
+		small_table_factory.reset (rocksdb::NewBlockBasedTableFactory (get_small_table_options ()));
 		if (!open_read_only_a)
 		{
 			construct_column_family_mutexes ();
@@ -104,12 +105,7 @@ std::unordered_map<const char *, nano::tables> nano::rocksdb_store::create_cf_na
 
 void nano::rocksdb_store::open (bool & error_a, boost::filesystem::path const & path_a, bool open_read_only_a)
 {
-	std::vector<rocksdb::ColumnFamilyDescriptor> column_families;
-	for (auto & [cf_name, table] : cf_name_table_map)
-	{
-		column_families.emplace_back (cf_name, get_cf_options ());
-	}
-
+	auto column_families = create_column_families ();
 	auto options = get_db_options ();
 	rocksdb::Status s;
 
@@ -156,6 +152,98 @@ void nano::rocksdb_store::generate_tombstone_map ()
 	tombstone_map.emplace (std::piecewise_construct, std::forward_as_tuple (nano::tables::blocks), std::forward_as_tuple (0, 25000));
 	tombstone_map.emplace (std::piecewise_construct, std::forward_as_tuple (nano::tables::accounts), std::forward_as_tuple (0, 25000));
 	tombstone_map.emplace (std::piecewise_construct, std::forward_as_tuple (nano::tables::pending), std::forward_as_tuple (0, 25000));
+}
+
+rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_cf_options (std::string const & cf_name_a) const
+{
+	rocksdb::ColumnFamilyOptions cf_options;
+	auto const memtable_size_bytes = 1024ULL * 1024 * rocksdb_config.memory_multiplier * base_memtable_size;
+	auto const block_cache_size_bytes = 1024ULL * 1024 * rocksdb_config.memory_multiplier * base_block_cache_size;
+	if (cf_name_a == "unchecked")
+	{
+		// Unchecked table can have a lot of deletions, so increase compaction frequency.
+		std::shared_ptr<rocksdb::TableFactory> table_factory (rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes * 2)));
+		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
+
+		// Create prefix bloom for memtable with the size of write_buffer_size * memtable_prefix_bloom_size_ratio
+		cf_options.memtable_prefix_bloom_size_ratio = 0.1;
+		// The prefix to use is the size of the unchecked key (root)
+		cf_options.prefix_extractor.reset (rocksdb::NewFixedPrefixTransform (sizeof (nano::root)));
+
+		// Number of files in level 0 which triggers compaction. Size of L0 and L1 should be kept similar as this is the only compaction which is single threaded
+		cf_options.level0_file_num_compaction_trigger = 2;
+
+		// L1 size, compaction is triggered for L0 at this size (2 SST files in L1)
+		cf_options.max_bytes_for_level_base = memtable_size_bytes * 2;
+		cf_options.max_bytes_for_level_multiplier = 10; // Default
+	}
+	else if (cf_name_a == "blocks")
+	{
+		std::shared_ptr<rocksdb::TableFactory> table_factory (rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes * 4)));
+		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
+	}
+	else if (cf_name_a == "confirmation_height")
+	{
+		// Entries will not be deleted in the normal case, so can make memtables a lot bigger
+		std::shared_ptr<rocksdb::TableFactory> table_factory (rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes)));
+		cf_options = get_active_cf_options (table_factory, memtable_size_bytes * 2);
+	}
+	else if (cf_name_a == "meta" || cf_name_a == "online_weight" || cf_name_a == "peers")
+	{
+		// Meta - It contains just version key
+		// Online weight - Periodically deleted
+		// Peers - Cleaned periodically, a lot of deletions. This is never read outside of initializing? Keep this small
+		cf_options = get_small_cf_options (small_table_factory);
+	}
+	else if (cf_name_a == "cached_counts")
+	{
+		// Really small (keys are blocks tables, value is uint64_t)
+		cf_options = get_small_cf_options (small_table_factory);
+	}
+	else if (cf_name_a == "pending")
+	{
+		// Pending can have a lot of deletions too
+		std::shared_ptr<rocksdb::TableFactory> table_factory (rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes)));
+		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
+	}
+	else if (cf_name_a == "frontiers")
+	{
+		// Frontiers is only needed during bootstrap for legacy blocks
+		std::shared_ptr<rocksdb::TableFactory> table_factory (rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes)));
+		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
+	}
+	else if (cf_name_a == "accounts")
+	{
+		// Can have deletions from rollbacks
+		std::shared_ptr<rocksdb::TableFactory> table_factory (rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes * 2)));
+		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
+	}
+	else if (cf_name_a == "vote")
+	{
+		// No deletes it seems, only overwrites.
+		std::shared_ptr<rocksdb::TableFactory> table_factory (rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes * 2)));
+		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
+	}
+	else if (cf_name_a == rocksdb::kDefaultColumnFamilyName)
+	{
+		// Do nothing.
+	}
+	else
+	{
+		debug_assert (false);
+	}
+
+	return cf_options;
+}
+
+std::vector<rocksdb::ColumnFamilyDescriptor> nano::rocksdb_store::create_column_families ()
+{
+	std::vector<rocksdb::ColumnFamilyDescriptor> column_families;
+	for (auto & [cf_name, table] : cf_name_table_map)
+	{
+		column_families.emplace_back (cf_name, get_cf_options (cf_name));
+	}
+	return column_families;
 }
 
 nano::write_transaction nano::rocksdb_store::tx_begin_write (std::vector<nano::tables> const & tables_requiring_locks_a, std::vector<nano::tables> const & tables_no_locks_a)
@@ -422,10 +510,38 @@ int nano::rocksdb_store::clear (rocksdb::ColumnFamilyHandle * column_family)
 		return handle.get () == column_family;
 	});
 	debug_assert (handle_it != handles.cend ());
-	status = db->CreateColumnFamily (get_cf_options (), name, &column_family);
+	status = db->CreateColumnFamily (get_cf_options (name), name, &column_family);
 	release_assert (status.ok ());
 	handle_it->reset (column_family);
 	return status.code ();
+}
+
+std::vector<nano::unchecked_info> nano::rocksdb_store::unchecked_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
+{
+	auto cf = table_to_column_family (tables::unchecked);
+
+	std::unique_ptr<rocksdb::Iterator> iter;
+	if (is_read (transaction_a))
+	{
+		iter.reset (db->NewIterator (snapshot_options (transaction_a), cf));
+	}
+	else
+	{
+		rocksdb::ReadOptions ropts;
+		ropts.fill_cache = false;
+		iter.reset (tx (transaction_a)->GetIterator (ropts, cf));
+	}
+
+	// Uses prefix extraction
+	std::vector<nano::unchecked_info> result;
+
+	auto prefix = nano::rocksdb_val (hash_a);
+	for (iter->Seek (prefix); iter->Valid () && iter->key ().starts_with (prefix); iter->Next ())
+	{
+		auto unchecked_info = static_cast<nano::unchecked_info> (nano::rocksdb_val (iter->value ()));
+		result.push_back (unchecked_info);
+	}
+	return result;
 }
 
 void nano::rocksdb_store::construct_column_family_mutexes ()
@@ -455,42 +571,90 @@ rocksdb::Options nano::rocksdb_store::get_db_options ()
 	// Adds a separate write queue for memtable/WAL
 	db_options.enable_pipelined_write = true;
 
+	// Default is 16, setting to -1 allows faster startup times for SSDs by allowings more files to be read in parallel.
+	db_options.max_file_opening_threads = -1;
+
+	// The MANIFEST file contains a history of all file operations since the last time the DB was opened and is replayed during DB open.
+	// Default is 1GB, lowering this to avoid replaying for too long (100MB)
+	db_options.max_manifest_file_size = 100 * 1024 * 1024ULL;
+
 	auto event_listener_l = new event_listener ([this](rocksdb::FlushJobInfo const & flush_job_info_a) { this->on_flush (flush_job_info_a); });
 	db_options.listeners.emplace_back (event_listener_l);
 
 	return db_options;
 }
 
-rocksdb::BlockBasedTableOptions nano::rocksdb_store::get_table_options () const
+rocksdb::BlockBasedTableOptions nano::rocksdb_store::get_active_table_options (int lru_size) const
 {
 	rocksdb::BlockBasedTableOptions table_options;
+
+	// Improve point lookup performance be using the data block hash index (uses about 5% more space).
+	table_options.data_block_index_type = rocksdb::BlockBasedTableOptions::DataBlockIndexType::kDataBlockBinaryAndHash;
+	table_options.data_block_hash_table_util_ratio = 0.75;
 
 	// Block cache for reads
 	table_options.block_cache = rocksdb::NewLRUCache (1024ULL * 1024 * base_block_cache_size * rocksdb_config.memory_multiplier);
 
-	// Bloom filter to help with point reads
-	auto bloom_filter_bits = 10;
-	table_options.filter_policy.reset (rocksdb::NewBloomFilterPolicy (bloom_filter_bits, false));
+	// Bloom filter to help with point reads. 10bits gives 1% false positive rate.
+	table_options.filter_policy.reset (rocksdb::NewBloomFilterPolicy (10, false));
 
 	// Increasing block_size decreases memory usage and space amplification, but increases read amplification.
 	table_options.block_size = 16 * 1024ULL;
 
-	// Whether index and filter blocks are stored in block_cache
+	// Whether level 0 index and filter blocks are stored in block_cache
 	table_options.pin_l0_filter_and_index_blocks_in_cache = true;
 
 	return table_options;
 }
 
-rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_cf_options () const
+rocksdb::BlockBasedTableOptions nano::rocksdb_store::get_small_table_options () const
+{
+	rocksdb::BlockBasedTableOptions table_options;
+	// Improve point lookup performance be using the data block hash index (uses about 5% more space).
+	table_options.data_block_index_type = rocksdb::BlockBasedTableOptions::DataBlockIndexType::kDataBlockBinaryAndHash;
+	table_options.data_block_hash_table_util_ratio = 0.75;
+	table_options.block_size = 1024ULL;
+	return table_options;
+}
+
+rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_small_cf_options (std::shared_ptr<rocksdb::TableFactory> const & table_factory_a) const
 {
 	rocksdb::ColumnFamilyOptions cf_options;
-	cf_options.table_factory = table_factory;
+	cf_options.table_factory = table_factory_a;
 
-	// Number of files in level which triggers compaction. Size of L0 and L1 should be kept similar as this is the only compaction which is single threaded
+	// Number of files in level 0 which triggers compaction. Size of L0 and L1 should be kept similar as this is the only compaction which is single threaded
+	cf_options.level0_file_num_compaction_trigger = 1;
+
+	auto const memtable_size_bytes = 10000;
+
+	// L1 size, compaction is triggered for L0 at this size (1 SST file in L1)
+	cf_options.max_bytes_for_level_base = memtable_size_bytes;
+
+	// Files older than this (1 day) will be scheduled for compaction when there is no other background work
+	cf_options.ttl = 1 * 24 * 60 * 60;
+
+	// Multiplier for each level
+	cf_options.target_file_size_multiplier = 10;
+
+	// Size of level 1 sst files
+	cf_options.target_file_size_base = memtable_size_bytes;
+
+	// Size of each memtable
+	cf_options.write_buffer_size = memtable_size_bytes;
+
+	return cf_options;
+}
+
+rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_active_cf_options (std::shared_ptr<rocksdb::TableFactory> const & table_factory_a, unsigned long long memtable_size_bytes_a) const
+{
+	rocksdb::ColumnFamilyOptions cf_options;
+	cf_options.table_factory = table_factory_a;
+
+	// Number of files in level 0 which triggers compaction. Size of L0 and L1 should be kept similar as this is the only compaction which is single threaded
 	cf_options.level0_file_num_compaction_trigger = 4;
 
 	// L1 size, compaction is triggered for L0 at this size (4 SST files in L1)
-	cf_options.max_bytes_for_level_base = 1024ULL * 1024 * 4 * rocksdb_config.memory_multiplier * base_memtable_size;
+	cf_options.max_bytes_for_level_base = memtable_size_bytes_a * 4;
 
 	// Each level is a multiple of the above. If L1 is 512MB. L2 will be 512 * 8 = 2GB. L3 will be 2GB * 8 = 16GB, and so on...
 	cf_options.max_bytes_for_level_multiplier = 8;
@@ -498,11 +662,14 @@ rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_cf_options () const
 	// Files older than this (1 day) will be scheduled for compaction when there is no other background work. This can lead to more writes however.
 	cf_options.ttl = 1 * 24 * 60 * 60;
 
+	// Multiplier for each level
+	cf_options.target_file_size_multiplier = 10;
+
 	// Size of level 1 sst files
-	cf_options.target_file_size_base = 1024ULL * 1024 * rocksdb_config.memory_multiplier * base_memtable_size;
+	cf_options.target_file_size_base = memtable_size_bytes_a;
 
 	// Size of each memtable
-	cf_options.write_buffer_size = 1024ULL * 1024 * rocksdb_config.memory_multiplier * base_memtable_size;
+	cf_options.write_buffer_size = memtable_size_bytes_a;
 
 	// Size target of levels are changed dynamically based on size of the last level
 	cf_options.level_compaction_dynamic_level_bytes = true;
