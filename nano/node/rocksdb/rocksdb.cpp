@@ -66,7 +66,8 @@ void rocksdb_val::convert_buffer_to_value ()
 nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a) :
 logger (logger_a),
 rocksdb_config (rocksdb_config_a),
-cf_name_table_map (create_cf_name_table_map ())
+cf_name_table_map (create_cf_name_table_map ()),
+max_block_write_batch_num_m (nano::narrow_cast<unsigned> (blocks_memtable_size_bytes () / (2 * (sizeof (nano::block_type) + nano::state_block::size + nano::block_sideband::size (nano::block_type::state)))))
 {
 	boost::system::error_code error_mkdir, error_chmod;
 	boost::filesystem::create_directories (path_a, error_mkdir);
@@ -241,6 +242,7 @@ std::vector<rocksdb::ColumnFamilyDescriptor> nano::rocksdb_store::create_column_
 	std::vector<rocksdb::ColumnFamilyDescriptor> column_families;
 	for (auto & [cf_name, table] : cf_name_table_map)
 	{
+		(void)table;
 		column_families.emplace_back (cf_name, get_cf_options (cf_name));
 	}
 	return column_families;
@@ -458,6 +460,14 @@ uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, ta
 	else if (table_a == tables::blocks)
 	{
 		for (auto i (blocks_begin (transaction_a)), n (blocks_end ()); i != n; ++i)
+		{
+			++sum;
+		}
+	}
+	else if (table_a == tables::confirmation_height)
+	{
+		debug_assert (network_constants ().is_dev_network ());
+		for (auto i (confirmation_height_begin (transaction_a)), n (confirmation_height_end ()); i != n; ++i)
 		{
 			++sum;
 		}
@@ -831,10 +841,10 @@ unsigned long long nano::rocksdb_store::base_memtable_size_bytes () const
 	return 1024ULL * 1024 * rocksdb_config.memory_multiplier * base_memtable_size;
 }
 
-// This is a ratio (50%) of the blocks memtable size to keep total write transaction commits down.
+// This is a ratio of the blocks memtable size to keep total write transaction commit size down.
 unsigned nano::rocksdb_store::max_block_write_batch_num () const
 {
-	return nano::narrow_cast<unsigned> (blocks_memtable_size_bytes () / 2);
+	return max_block_write_batch_num_m;
 }
 
 nano::rocksdb_store::tombstone_info::tombstone_info (uint64_t num_since_last_flush_a, uint64_t const max_a) :

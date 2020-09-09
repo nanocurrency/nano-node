@@ -72,6 +72,7 @@ private:
 	std::shared_ptr<rocksdb::TableFactory> small_table_factory;
 	std::unordered_map<nano::tables, std::mutex> write_lock_mutexes;
 	nano::rocksdb_config rocksdb_config;
+	unsigned const max_block_write_batch_num_m;
 
 	class tombstone_info
 	{
