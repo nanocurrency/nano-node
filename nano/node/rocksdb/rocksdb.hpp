@@ -101,7 +101,7 @@ private:
 
 	void on_flush (rocksdb::FlushJobInfo const &);
 	void flush_table (nano::tables table_a);
-	void flush_tombstones_check (tables table_a);
+	void flush_tombstones_check (nano::tables table_a);
 	void generate_tombstone_map ();
 	std::unordered_map<const char *, nano::tables> create_cf_name_table_map () const;
 

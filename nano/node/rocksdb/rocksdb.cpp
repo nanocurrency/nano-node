@@ -86,7 +86,7 @@ cf_name_table_map (create_cf_name_table_map ())
 
 std::unordered_map<const char *, nano::tables> nano::rocksdb_store::create_cf_name_table_map () const
 {
-	return { { rocksdb::kDefaultColumnFamilyName.c_str (), tables::default_unused },
+	std::unordered_map<const char *, nano::tables> map{ { rocksdb::kDefaultColumnFamilyName.c_str (), tables::default_unused },
 		{ "frontiers", tables::frontiers },
 		{ "accounts", tables::accounts },
 		{ "blocks", tables::blocks },
@@ -97,6 +97,9 @@ std::unordered_map<const char *, nano::tables> nano::rocksdb_store::create_cf_na
 		{ "meta", tables::meta },
 		{ "peers", tables::peers },
 		{ "confirmation_height", tables::confirmation_height } };
+
+	debug_assert (map.size () == all_tables ().size ());
+	return map;
 }
 
 void nano::rocksdb_store::open (bool & error_a, boost::filesystem::path const & path_a, bool open_read_only_a)
