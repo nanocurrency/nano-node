@@ -1878,6 +1878,7 @@ namespace nano
 {
 TEST (rocksdb_block_store, tombstone_count)
 {
+#if NANO_ROCKSDB
 	if (nano::using_rocksdb_in_tests ())
 	{
 		nano::logger_mt logger;
@@ -1890,6 +1891,7 @@ TEST (rocksdb_block_store, tombstone_count)
 		store->unchecked_del (transaction, nano::unchecked_key (block1->previous (), block1->hash ()));
 		ASSERT_EQ (store->tombstone_map.at (nano::tables::unchecked).num_since_last_flush.load (), 1);
 	}
+#endif
 }
 }
 
