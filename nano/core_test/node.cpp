@@ -4537,6 +4537,51 @@ TEST (node, default_difficulty)
 	ASSERT_EQ (thresholds.epoch_2_receive, node.default_receive_difficulty (nano::work_version::work_1));
 }
 
+TEST (rep_crawler, recently_confirmed)
+{
+	nano::system system (1);
+	auto & node1 (*system.nodes[0]);
+	ASSERT_EQ (1, node1.ledger.cache.block_count);
+	auto const block = nano::genesis ().open;
+	{
+		nano::lock_guard<std::mutex> guard (node1.active.mutex);
+		node1.active.add_recently_confirmed (block->qualified_root (), block->hash ());
+	}
+	auto & node2 (*system.add_node ());
+	system.wallet (1)->insert_adhoc (nano::dev_genesis_key.prv);
+	auto channel = node1.network.find_channel (node2.network.endpoint ());
+	ASSERT_NE (nullptr, channel);
+	node1.rep_crawler.query (channel);
+	ASSERT_TIMELY (3s, node1.rep_crawler.representative_count () == 1);
+}
+
+TEST (online_reps, backup)
+{
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_TRUE (!store->init_error ());
+	nano::stat stats;
+	nano::ledger ledger (*store, stats);
+	{
+		nano::genesis genesis;
+		auto transaction (store->tx_begin_write ());
+		store->initialize (transaction, genesis, ledger.cache);
+	}
+	nano::network_params params;
+	nano::online_reps online_reps (ledger, params, 0);
+	ASSERT_EQ (0, online_reps.list ().size ());
+	online_reps.observe (nano::dev_genesis_key.pub);
+	// The reported list of online reps is the union of the current list and the backup list, which changes when sampling
+	ASSERT_EQ (1, online_reps.list ().size ());
+	ASSERT_TRUE (online_reps.online_stake ().is_zero ());
+	online_reps.sample ();
+	ASSERT_EQ (1, online_reps.list ().size ());
+	// The trend is also correctly updated
+	ASSERT_EQ (nano::genesis_amount, online_reps.online_stake ());
+	online_reps.sample ();
+	ASSERT_EQ (0, online_reps.list ().size ());
+}
+
 namespace
 {
 void add_required_children_node_config_tree (nano::jsonconfig & tree)
