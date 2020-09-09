@@ -742,18 +742,18 @@ TEST (confirmation_heightDeathTest, rollback_added_block)
 	{
 		nano::logger_mt logger;
 		auto path (nano::unique_path ());
-		nano::mdb_store store (logger, path);
-		ASSERT_TRUE (!store.init_error ());
+		auto store = nano::make_store (logger, path);
+		ASSERT_TRUE (!store->init_error ());
 		nano::genesis genesis;
 		nano::stat stats;
-		nano::ledger ledger (store, stats);
+		nano::ledger ledger (*store, stats);
 		nano::write_database_queue write_database_queue (false);
 		nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 		nano::keypair key1;
 		auto send = std::make_shared<nano::send_block> (genesis.hash (), key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (genesis.hash ()));
 		{
-			auto transaction (store.tx_begin_write ());
-			store.initialize (transaction, genesis, ledger.cache);
+			auto transaction (store->tx_begin_write ());
+			store->initialize (transaction, genesis, ledger.cache);
 		}
 
 		auto block_hash_being_processed (send->hash ());
@@ -819,18 +819,18 @@ TEST (confirmation_heightDeathTest, modified_chain)
 	{
 		nano::logger_mt logger;
 		auto path (nano::unique_path ());
-		nano::mdb_store store (logger, path);
-		ASSERT_TRUE (!store.init_error ());
+		auto store = nano::make_store (logger, path);
+		ASSERT_TRUE (!store->init_error ());
 		nano::genesis genesis;
 		nano::stat stats;
-		nano::ledger ledger (store, stats);
+		nano::ledger ledger (*store, stats);
 		nano::write_database_queue write_database_queue (false);
 		nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 		nano::keypair key1;
 		auto send = std::make_shared<nano::send_block> (nano::genesis_hash, key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (nano::genesis_hash));
 		{
-			auto transaction (store.tx_begin_write ());
-			store.initialize (transaction, genesis, ledger.cache);
+			auto transaction (store->tx_begin_write ());
+			store->initialize (transaction, genesis, ledger.cache);
 			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send).code);
 		}
 
@@ -847,14 +847,14 @@ TEST (confirmation_heightDeathTest, modified_chain)
 		}
 
 		// Rollback the block and now try to write, the block no longer exists so should bail
-		ledger.rollback (store.tx_begin_write (), send->hash ());
+		ledger.rollback (store->tx_begin_write (), send->hash ());
 		{
 			auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
 			ASSERT_DEATH_IF_SUPPORTED (bounded_processor.cement_blocks (scoped_write_guard), "");
 		}
 
-		ASSERT_EQ (nano::process_result::progress, ledger.process (store.tx_begin_write (), *send).code);
-		store.confirmation_height_put (store.tx_begin_write (), nano::genesis_account, { 1, nano::genesis_hash });
+		ASSERT_EQ (nano::process_result::progress, ledger.process (store->tx_begin_write (), *send).code);
+		store->confirmation_height_put (store->tx_begin_write (), nano::genesis_account, { 1, nano::genesis_hash });
 
 		nano::confirmation_height_unbounded unbounded_processor (
 		ledger, write_database_queue, 10ms, logger, stopped, block_hash_being_processed, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
@@ -866,7 +866,7 @@ TEST (confirmation_heightDeathTest, modified_chain)
 		}
 
 		// Rollback the block and now try to write, the block no longer exists so should bail
-		ledger.rollback (store.tx_begin_write (), send->hash ());
+		ledger.rollback (store->tx_begin_write (), send->hash ());
 		{
 			auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
 			ASSERT_DEATH_IF_SUPPORTED (unbounded_processor.cement_blocks (scoped_write_guard), "");
@@ -890,19 +890,19 @@ TEST (confirmation_heightDeathTest, modified_chain_account_removed)
 	{
 		nano::logger_mt logger;
 		auto path (nano::unique_path ());
-		nano::mdb_store store (logger, path);
-		ASSERT_TRUE (!store.init_error ());
+		auto store = nano::make_store (logger, path);
+		ASSERT_TRUE (!store->init_error ());
 		nano::genesis genesis;
 		nano::stat stats;
-		nano::ledger ledger (store, stats);
+		nano::ledger ledger (*store, stats);
 		nano::write_database_queue write_database_queue (false);
 		nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 		nano::keypair key1;
 		auto send = std::make_shared<nano::send_block> (nano::genesis_hash, key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (nano::genesis_hash));
 		auto open = std::make_shared<nano::state_block> (key1.pub, 0, 0, nano::Gxrb_ratio, send->hash (), key1.prv, key1.pub, *pool.generate (key1.pub));
 		{
-			auto transaction (store.tx_begin_write ());
-			store.initialize (transaction, genesis, ledger.cache);
+			auto transaction (store->tx_begin_write ());
+			store->initialize (transaction, genesis, ledger.cache);
 			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send).code);
 			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *open).code);
 		}
@@ -920,15 +920,15 @@ TEST (confirmation_heightDeathTest, modified_chain_account_removed)
 		}
 
 		// Rollback the block and now try to write, the send should be cemented but the account which the open block belongs no longer exists so should bail
-		ledger.rollback (store.tx_begin_write (), open->hash ());
+		ledger.rollback (store->tx_begin_write (), open->hash ());
 		{
 			auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
 			ASSERT_DEATH_IF_SUPPORTED (unbounded_processor.cement_blocks (scoped_write_guard), "");
 		}
 
 		// Reset conditions and test with the bounded processor
-		ASSERT_EQ (nano::process_result::progress, ledger.process (store.tx_begin_write (), *open).code);
-		store.confirmation_height_put (store.tx_begin_write (), nano::genesis_account, { 1, nano::genesis_hash });
+		ASSERT_EQ (nano::process_result::progress, ledger.process (store->tx_begin_write (), *open).code);
+		store->confirmation_height_put (store->tx_begin_write (), nano::genesis_account, { 1, nano::genesis_hash });
 
 		nano::confirmation_height_bounded bounded_processor (
 		ledger, write_database_queue, 10ms, logger, stopped, block_hash_being_processed, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
@@ -940,7 +940,7 @@ TEST (confirmation_heightDeathTest, modified_chain_account_removed)
 		}
 
 		// Rollback the block and now try to write, the send should be cemented but the account which the open block belongs no longer exists so should bail
-		ledger.rollback (store.tx_begin_write (), open->hash ());
+		ledger.rollback (store->tx_begin_write (), open->hash ());
 		auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
 		ASSERT_DEATH_IF_SUPPORTED (bounded_processor.cement_blocks (scoped_write_guard), "");
 	}
@@ -1405,11 +1405,11 @@ TEST (confirmation_height, unbounded_block_cache_iteration)
 	}
 	nano::logger_mt logger;
 	auto path (nano::unique_path ());
-	nano::mdb_store store (logger, path);
-	ASSERT_TRUE (!store.init_error ());
+	auto store = nano::make_store (logger, path);
+	ASSERT_TRUE (!store->init_error ());
 	nano::genesis genesis;
 	nano::stat stats;
-	nano::ledger ledger (store, stats);
+	nano::ledger ledger (*store, stats);
 	nano::write_database_queue write_database_queue (false);
 	boost::latch initialized_latch{ 0 };
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1417,8 +1417,8 @@ TEST (confirmation_height, unbounded_block_cache_iteration)
 	auto send = std::make_shared<nano::send_block> (genesis.hash (), key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (genesis.hash ()));
 	auto send1 = std::make_shared<nano::send_block> (send->hash (), key1.pub, nano::genesis_amount - nano::Gxrb_ratio * 2, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (send->hash ()));
 	{
-		auto transaction (store.tx_begin_write ());
-		store.initialize (transaction, genesis, ledger.cache);
+		auto transaction (store->tx_begin_write ());
+		store->initialize (transaction, genesis, ledger.cache);
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send).code);
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send1).code);
 	}

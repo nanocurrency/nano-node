@@ -921,11 +921,11 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 	}
 	nano::logger_mt logger;
 	auto path (nano::unique_path ());
-	nano::mdb_store store (logger, path);
-	ASSERT_TRUE (!store.init_error ());
+	auto store = nano::make_store (logger, path);
+	ASSERT_TRUE (!store->init_error ());
 	nano::genesis genesis;
 	nano::stat stats;
-	nano::ledger ledger (store, stats);
+	nano::ledger ledger (*store, stats);
 	nano::write_database_queue write_database_queue (false);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	std::atomic<bool> stopped{ false };
@@ -943,8 +943,8 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 	nano::system system;
 
 	{
-		auto transaction (store.tx_begin_write ());
-		store.initialize (transaction, genesis, ledger.cache);
+		auto transaction (store->tx_begin_write ());
+		store->initialize (transaction, genesis, ledger.cache);
 
 		// Send from genesis account to all other accounts and create open block for them
 		for (auto i = 0; i < num_accounts; ++i)
@@ -977,7 +977,7 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 
 	// Now add all send/receive blocks
 	{
-		auto transaction (store.tx_begin_write ());
+		auto transaction (store->tx_begin_write ());
 		for (int i = 0; i < open_blocks.size (); ++i)
 		{
 			auto open_block = open_blocks[i];
@@ -1016,9 +1016,9 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
-	auto transaction = store.tx_begin_read ();
+	auto transaction = store->tx_begin_read ();
 	auto cemented_count = 0;
-	for (auto i (ledger.store.confirmation_height_begin (transaction)), n (ledger.store.confirmation_height_end ()); i != n; ++i)
+	for (auto i (store->confirmation_height_begin (transaction)), n (store->confirmation_height_end ()); i != n; ++i)
 	{
 		cemented_count += i->second.height;
 	}
