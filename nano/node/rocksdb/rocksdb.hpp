@@ -41,10 +41,7 @@ public:
 	int put (nano::write_transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a, nano::rocksdb_val const & value_a);
 	int del (nano::write_transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a);
 
-	void serialize_mdb_tracker (boost::property_tree::ptree &, std::chrono::milliseconds, std::chrono::milliseconds) override
-	{
-		// Do nothing
-	}
+	void serialize_memory_stats (boost::property_tree::ptree &) override;
 
 	bool copy_db (boost::filesystem::path const & destination) override;
 	void rebuild_db (nano::write_transaction const & transaction_a) override;
@@ -74,6 +71,17 @@ private:
 	std::unordered_map<nano::tables, std::mutex> write_lock_mutexes;
 	nano::rocksdb_config rocksdb_config;
 
+	class tombstone_info
+	{
+	public:
+		tombstone_info (uint64_t, uint64_t const);
+		std::atomic<uint64_t> num_since_last_flush;
+		uint64_t const max;
+	};
+
+	std::unordered_map<nano::tables, tombstone_info> tombstone_map;
+	std::unordered_map<const char *, nano::tables> cf_name_table_map;
+
 	rocksdb::Transaction * tx (nano::transaction const & transaction_a) const;
 	std::vector<nano::tables> all_tables () const;
 
@@ -87,19 +95,26 @@ private:
 
 	void open (bool & error_a, boost::filesystem::path const & path_a, bool open_read_only_a);
 
-	rocksdb::ColumnFamilyOptions get_cf_options () const;
 	void construct_column_family_mutexes ();
-	rocksdb::Options get_db_options () const;
+	rocksdb::Options get_db_options ();
 	rocksdb::ColumnFamilyOptions get_active_cf_options (std::shared_ptr<rocksdb::TableFactory> const & table_factory_a, unsigned long long memtable_size_bytes_a) const;
 	rocksdb::ColumnFamilyOptions get_small_cf_options (std::shared_ptr<rocksdb::TableFactory> const & table_factory_a) const;
 	rocksdb::BlockBasedTableOptions get_active_table_options (int lru_size) const;
 	rocksdb::BlockBasedTableOptions get_small_table_options () const;
 	rocksdb::ColumnFamilyOptions get_cf_options (std::string const & cf_name_a) const;
 
+	void on_flush (rocksdb::FlushJobInfo const &);
+	void flush_table (nano::tables table_a);
+	void flush_tombstones_check (nano::tables table_a);
+	void generate_tombstone_map ();
+	std::unordered_map<const char *, nano::tables> create_cf_name_table_map () const;
+
 	std::vector<rocksdb::ColumnFamilyDescriptor> create_column_families ();
 
 	constexpr static int base_memtable_size = 16;
 	constexpr static int base_block_cache_size = 8;
+
+	friend class rocksdb_block_store_tombstone_count_Test;
 };
 
 extern template class block_store_partial<rocksdb::Slice, rocksdb_store>;

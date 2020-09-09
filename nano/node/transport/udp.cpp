@@ -33,15 +33,10 @@ bool nano::transport::channel_udp::operator== (nano::transport::channel const & 
 	return result;
 }
 
-void nano::transport::channel_udp::send_buffer (nano::shared_const_buffer const & buffer_a, nano::stat::detail detail_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a, nano::buffer_drop_policy drop_policy_a)
+void nano::transport::channel_udp::send_buffer (nano::shared_const_buffer const & buffer_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a, nano::buffer_drop_policy drop_policy_a)
 {
 	set_last_packet_sent (std::chrono::steady_clock::now ());
-	channels.send (buffer_a, endpoint, callback (detail_a, callback_a));
-}
-
-std::function<void(boost::system::error_code const &, size_t)> nano::transport::channel_udp::callback (nano::stat::detail detail_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a) const
-{
-	return [node = std::weak_ptr<nano::node> (channels.node.shared ()), callback_a](boost::system::error_code const & ec, size_t size_a) {
+	channels.send (buffer_a, endpoint, [node = std::weak_ptr<nano::node> (channels.node.shared ()), callback_a](boost::system::error_code const & ec, size_t size_a) {
 		if (auto node_l = node.lock ())
 		{
 			if (ec == boost::system::errc::host_unreachable)
@@ -58,7 +53,7 @@ std::function<void(boost::system::error_code const &, size_t)> nano::transport::
 				callback_a (ec, size_a);
 			}
 		}
-	};
+	});
 }
 
 std::string nano::transport::channel_udp::to_string () const

@@ -1,3 +1,4 @@
+#include <nano/boost/asio/spawn.hpp>
 #include <nano/boost/beast/core/flat_buffer.hpp>
 #include <nano/boost/beast/http.hpp>
 #include <nano/lib/rpcconfig.hpp>
@@ -25,24 +26,27 @@ namespace
 class test_response
 {
 public:
-	test_response (boost::property_tree::ptree const & request_a, boost::asio::io_context & io_ctx) :
-	request (request_a),
-	sock (io_ctx)
+	test_response (boost::property_tree::ptree const & request_a, boost::asio::io_context & io_ctx_a) :
+	request (request_a)
 	{
 	}
 
-	test_response (boost::property_tree::ptree const & request_a, uint16_t port, boost::asio::io_context & io_ctx) :
-	request (request_a),
-	sock (io_ctx)
+	test_response (boost::property_tree::ptree const & request_a, uint16_t port_a, boost::asio::io_context & io_ctx_a) :
+	request (request_a)
 	{
-		run (port);
+		run (port_a, io_ctx_a);
 	}
 
-	void run (uint16_t port)
+	void run (uint16_t port_a, boost::asio::io_context & io_ctx_a)
 	{
-		sock.async_connect (nano::tcp_endpoint (boost::asio::ip::address_v6::loopback (), port), [this](boost::system::error_code const & ec) {
-			if (!ec)
+		boost::asio::spawn (io_ctx_a, [this, &io_ctx_a, port_a](boost::asio::yield_context yield) {
+			boost::asio::ip::tcp::socket sock (io_ctx_a);
+			boost::beast::flat_buffer sb;
+			boost::beast::http::request<boost::beast::http::string_body> req;
+
+			try
 			{
+				sock.async_connect (nano::tcp_endpoint (boost::asio::ip::address_v6::loopback (), port_a), yield);
 				std::stringstream ostream;
 				boost::property_tree::write_json (ostream, request);
 				req.method (boost::beast::http::verb::post);
@@ -51,46 +55,27 @@ public:
 				ostream.flush ();
 				req.body () = ostream.str ();
 				req.prepare_payload ();
-				boost::beast::http::async_write (sock, req, [this](boost::system::error_code const & ec, size_t bytes_transferred) {
-					if (!ec)
-					{
-						boost::beast::http::async_read (sock, sb, resp, [this](boost::system::error_code const & ec, size_t bytes_transferred) {
-							if (!ec)
-							{
-								std::stringstream body (resp.body ());
-								try
-								{
-									boost::property_tree::read_json (body, json);
-									status = 200;
-								}
-								catch (std::exception &)
-								{
-									status = 500;
-								}
-							}
-							else
-							{
-								status = 400;
-							};
-						});
-					}
-					else
-					{
-						status = 600;
-					}
-				});
+				boost::beast::http::async_write (sock, req, yield);
+				boost::beast::http::async_read (sock, sb, resp, yield);
+				std::stringstream body (resp.body ());
+				try
+				{
+					boost::property_tree::read_json (body, json);
+					status = 200;
+				}
+				catch (std::exception const &)
+				{
+					status = 400;
+				}
 			}
-			else
+			catch (boost::system::error_code const &)
 			{
 				status = 400;
 			}
 		});
 	}
 	boost::property_tree::ptree const & request;
-	boost::asio::ip::tcp::socket sock;
 	boost::property_tree::ptree json;
-	boost::beast::flat_buffer sb;
-	boost::beast::http::request<boost::beast::http::string_body> req;
 	boost::beast::http::response<boost::beast::http::string_body> resp;
 	std::atomic<int> status{ 0 };
 };
@@ -610,6 +595,32 @@ TEST (rpc, send_epoch_2)
 		ASSERT_EQ (1, response.json.count ("error"));
 		ASSERT_EQ (response.json.get<std::string> ("error"), ec.message ());
 	}
+}
+
+TEST (rpc, send_ipc_random_id)
+{
+	nano::system system;
+	auto node = add_ipc_enabled_node (system);
+	scoped_io_thread_name_change scoped_thread_name_io;
+	nano::node_rpc_config node_rpc_config;
+	std::atomic<bool> got_request{ false };
+	node_rpc_config.set_request_callback ([&got_request](boost::property_tree::ptree const & request_a) {
+		EXPECT_TRUE (request_a.count ("id"));
+		got_request = true;
+	});
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
+	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	rpc_config.rpc_process.ipc_port = node->config.ipc_config.transport_tcp.port;
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "send");
+	test_response response (request, rpc.config.port, system.io_ctx);
+	ASSERT_TIMELY (10s, response.status != 0);
+	ASSERT_EQ (1, response.json.count ("error"));
+	ASSERT_EQ ("Unable to parse JSON", response.json.get<std::string> ("error"));
+	ASSERT_TRUE (got_request);
 }
 
 TEST (rpc, stop)
@@ -6650,11 +6661,21 @@ TEST (rpc, memory_stats)
 	boost::property_tree::ptree request;
 	request.put ("action", "stats");
 	request.put ("type", "objects");
-	test_response response (request, rpc.config.port, system.io_ctx);
-	ASSERT_TIMELY (5s, response.status != 0);
-	ASSERT_EQ (200, response.status);
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		ASSERT_TIMELY (5s, response.status != 0);
+		ASSERT_EQ (200, response.status);
 
-	ASSERT_EQ (response.json.get_child ("node").get_child ("vote_uniquer").get_child ("votes").get<std::string> ("count"), "1");
+		ASSERT_EQ (response.json.get_child ("node").get_child ("vote_uniquer").get_child ("votes").get<std::string> ("count"), "1");
+	}
+
+	request.put ("type", "database");
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		ASSERT_TIMELY (5s, response.status != 0);
+		ASSERT_EQ (200, response.status);
+		ASSERT_TRUE (!response.json.empty ());
+	}
 }
 
 TEST (rpc, block_confirmed)
@@ -6883,12 +6904,22 @@ TEST (rpc, active_difficulty)
 		uint64_t network_minimum;
 		ASSERT_FALSE (nano::from_string_hex (network_minimum_text, network_minimum));
 		ASSERT_EQ (node->default_difficulty (nano::work_version::work_1), network_minimum);
+		auto network_receive_minimum_text (response.json.get<std::string> ("network_receive_minimum"));
+		uint64_t network_receive_minimum;
+		ASSERT_FALSE (nano::from_string_hex (network_receive_minimum_text, network_receive_minimum));
+		ASSERT_EQ (node->default_receive_difficulty (nano::work_version::work_1), network_receive_minimum);
 		auto multiplier (response.json.get<double> ("multiplier"));
 		ASSERT_NEAR (expected_multiplier, multiplier, 1e-6);
 		auto network_current_text (response.json.get<std::string> ("network_current"));
 		uint64_t network_current;
 		ASSERT_FALSE (nano::from_string_hex (network_current_text, network_current));
 		ASSERT_EQ (nano::difficulty::from_multiplier (expected_multiplier, node->default_difficulty (nano::work_version::work_1)), network_current);
+		auto network_receive_current_text (response.json.get<std::string> ("network_receive_current"));
+		uint64_t network_receive_current;
+		ASSERT_FALSE (nano::from_string_hex (network_receive_current_text, network_receive_current));
+		auto network_receive_current_multiplier (nano::difficulty::to_multiplier (network_receive_current, network_receive_minimum));
+		auto network_receive_current_normalized_multiplier (nano::normalized_multiplier (network_receive_current_multiplier, network_receive_minimum));
+		ASSERT_NEAR (network_receive_current_normalized_multiplier, multiplier, 1e-6);
 		ASSERT_EQ (response.json.not_found (), response.json.find ("difficulty_trend"));
 	}
 	// Test include_trend optional
@@ -6947,8 +6978,8 @@ TEST (rpc, simultaneous_calls)
 	std::atomic<int> count{ num };
 	for (int i = 0; i < num; ++i)
 	{
-		std::thread ([&test_responses, &promise, &count, i, port = rpc.config.port]() {
-			test_responses[i]->run (port);
+		std::thread ([&test_responses, &promise, &count, i, port = rpc.config.port, &io_ctx = system.io_ctx]() {
+			test_responses[i]->run (port, io_ctx);
 			if (--count == 0)
 			{
 				promise.set_value ();

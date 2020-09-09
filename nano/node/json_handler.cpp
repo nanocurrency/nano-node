@@ -59,6 +59,11 @@ void nano::json_handler::process_request (bool unsafe_a)
 	{
 		std::stringstream istream (body);
 		boost::property_tree::read_json (istream, request);
+		if (node_rpc_config.request_callback)
+		{
+			debug_assert (nano::network_constants ().is_dev_network ());
+			node_rpc_config.request_callback (request);
+		}
 		action = request.get<std::string> ("action");
 		auto no_arg_func_iter = ipc_json_handler_no_arg_funcs.find (action);
 		if (no_arg_func_iter != ipc_json_handler_no_arg_funcs.cend ())
@@ -948,10 +953,14 @@ void nano::json_handler::accounts_pending ()
 void nano::json_handler::active_difficulty ()
 {
 	auto include_trend (request.get<bool> ("include_trend", false));
-	auto multiplier_active = node.active.active_multiplier ();
-	auto default_difficulty (node.default_difficulty (nano::work_version::work_1));
+	auto const multiplier_active = node.active.active_multiplier ();
+	auto const default_difficulty (node.default_difficulty (nano::work_version::work_1));
+	auto const default_receive_difficulty (node.default_receive_difficulty (nano::work_version::work_1));
+	auto const receive_current_denormalized (nano::denormalized_multiplier (multiplier_active, node.network_params.network.publish_thresholds.epoch_2_receive));
 	response_l.put ("network_minimum", nano::to_string_hex (default_difficulty));
+	response_l.put ("network_receive_minimum", nano::to_string_hex (default_receive_difficulty));
 	response_l.put ("network_current", nano::to_string_hex (nano::difficulty::from_multiplier (multiplier_active, default_difficulty)));
+	response_l.put ("network_receive_current", nano::to_string_hex (nano::difficulty::from_multiplier (receive_current_denormalized, default_receive_difficulty)));
 	response_l.put ("multiplier", multiplier_active);
 	if (include_trend)
 	{
@@ -3686,6 +3695,10 @@ void nano::json_handler::stats ()
 		node.stats.log_samples (*sink);
 		use_sink = true;
 	}
+	else if (type == "database")
+	{
+		node.store.serialize_memory_stats (response_l);
+	}
 	else
 	{
 		ec = nano::error_rpc::invalid_missing_type;
@@ -4737,7 +4750,7 @@ void nano::json_handler::work_generate ()
 		auto hash (hash_impl ());
 		auto difficulty (difficulty_optional_impl (work_version));
 		multiplier_optional_impl (work_version, difficulty);
-		if (!ec && (difficulty > node.max_work_generate_difficulty (work_version) || difficulty < nano::work_threshold_entry (work_version)))
+		if (!ec && (difficulty > node.max_work_generate_difficulty (work_version) || difficulty < nano::work_threshold_entry (work_version, nano::block_type::state)))
 		{
 			ec = nano::error_rpc::difficulty_limit;
 		}
