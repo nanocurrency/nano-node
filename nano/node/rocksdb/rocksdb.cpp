@@ -15,6 +15,26 @@
 #include <rocksdb/utilities/transaction.h>
 #include <rocksdb/utilities/transaction_db.h>
 
+namespace
+{
+class event_listener : public rocksdb::EventListener
+{
+public:
+	event_listener (std::function<void(rocksdb::FlushJobInfo const &)> const & flush_completed_cb_a) :
+	flush_completed_cb (flush_completed_cb_a)
+	{
+	}
+
+	void OnFlushCompleted (rocksdb::DB * /* db_a */, rocksdb::FlushJobInfo const & flush_info_a) override
+	{
+		flush_completed_cb (flush_info_a);
+	}
+
+private:
+	std::function<void(rocksdb::FlushJobInfo const &)> flush_completed_cb;
+};
+}
+
 namespace nano
 {
 template <>
@@ -44,7 +64,8 @@ void rocksdb_val::convert_buffer_to_value ()
 
 nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a) :
 logger (logger_a),
-rocksdb_config (rocksdb_config_a)
+rocksdb_config (rocksdb_config_a),
+cf_name_table_map (create_cf_name_table_map ())
 {
 	boost::system::error_code error_mkdir, error_chmod;
 	boost::filesystem::create_directories (path_a, error_mkdir);
@@ -53,8 +74,8 @@ rocksdb_config (rocksdb_config_a)
 
 	if (!error)
 	{
-		auto table_options = get_table_options ();
-		table_factory.reset (rocksdb::NewBlockBasedTableFactory (table_options));
+		generate_tombstone_map ();
+		table_factory.reset (rocksdb::NewBlockBasedTableFactory (get_table_options ()));
 		if (!open_read_only_a)
 		{
 			construct_column_family_mutexes ();
@@ -63,11 +84,28 @@ rocksdb_config (rocksdb_config_a)
 	}
 }
 
+std::unordered_map<const char *, nano::tables> nano::rocksdb_store::create_cf_name_table_map () const
+{
+	std::unordered_map<const char *, nano::tables> map{ { rocksdb::kDefaultColumnFamilyName.c_str (), tables::default_unused },
+		{ "frontiers", tables::frontiers },
+		{ "accounts", tables::accounts },
+		{ "blocks", tables::blocks },
+		{ "pending", tables::pending },
+		{ "unchecked", tables::unchecked },
+		{ "vote", tables::vote },
+		{ "online_weight", tables::online_weight },
+		{ "meta", tables::meta },
+		{ "peers", tables::peers },
+		{ "confirmation_height", tables::confirmation_height } };
+
+	debug_assert (map.size () == all_tables ().size ());
+	return map;
+}
+
 void nano::rocksdb_store::open (bool & error_a, boost::filesystem::path const & path_a, bool open_read_only_a)
 {
-	std::initializer_list<const char *> names{ rocksdb::kDefaultColumnFamilyName.c_str (), "frontiers", "accounts", "blocks", "pending", "unchecked", "vote", "online_weight", "meta", "peers", "confirmation_height" };
 	std::vector<rocksdb::ColumnFamilyDescriptor> column_families;
-	for (const auto & cf_name : names)
+	for (auto & [cf_name, table] : cf_name_table_map)
 	{
 		column_families.emplace_back (cf_name, get_cf_options ());
 	}
@@ -110,6 +148,14 @@ void nano::rocksdb_store::open (bool & error_a, boost::filesystem::path const & 
 			logger.always_log (boost::str (boost::format ("The version of the ledger (%1%) is too high for this node") % version_l));
 		}
 	}
+}
+
+void nano::rocksdb_store::generate_tombstone_map ()
+{
+	tombstone_map.emplace (std::piecewise_construct, std::forward_as_tuple (nano::tables::unchecked), std::forward_as_tuple (0, 50000));
+	tombstone_map.emplace (std::piecewise_construct, std::forward_as_tuple (nano::tables::blocks), std::forward_as_tuple (0, 25000));
+	tombstone_map.emplace (std::piecewise_construct, std::forward_as_tuple (nano::tables::accounts), std::forward_as_tuple (0, 25000));
+	tombstone_map.emplace (std::piecewise_construct, std::forward_as_tuple (nano::tables::pending), std::forward_as_tuple (0, 25000));
 }
 
 nano::write_transaction nano::rocksdb_store::tx_begin_write (std::vector<nano::tables> const & tables_requiring_locks_a, std::vector<nano::tables> const & tables_no_locks_a)
@@ -204,7 +250,28 @@ int nano::rocksdb_store::del (nano::write_transaction const & transaction_a, tab
 	debug_assert (transaction_a.contains (table_a));
 	// RocksDB does not report not_found status, it is a pre-condition that the key exists
 	debug_assert (exists (transaction_a, table_a, key_a));
+	flush_tombstones_check (table_a);
 	return tx (transaction_a)->Delete (table_to_column_family (table_a), key_a).code ();
+}
+
+void nano::rocksdb_store::flush_tombstones_check (tables table_a)
+{
+	// Update the number of deletes for some tables, and force a flush if there are too many tombstones
+	// as it can affect read performance.
+	if (auto it = tombstone_map.find (table_a); it != tombstone_map.end ())
+	{
+		auto & tombstone_info = it->second;
+		if (++tombstone_info.num_since_last_flush > tombstone_info.max)
+		{
+			tombstone_info.num_since_last_flush = 0;
+			flush_table (table_a);
+		}
+	}
+}
+
+void nano::rocksdb_store::flush_table (nano::tables table_a)
+{
+	db->Flush (rocksdb::FlushOptions{}, table_to_column_family (table_a));
 }
 
 void nano::rocksdb_store::version_put (nano::write_transaction const & transaction_a, int version_a)
@@ -369,7 +436,7 @@ void nano::rocksdb_store::construct_column_family_mutexes ()
 	}
 }
 
-rocksdb::Options nano::rocksdb_store::get_db_options () const
+rocksdb::Options nano::rocksdb_store::get_db_options ()
 {
 	rocksdb::Options db_options;
 	db_options.create_if_missing = true;
@@ -387,6 +454,9 @@ rocksdb::Options nano::rocksdb_store::get_db_options () const
 
 	// Adds a separate write queue for memtable/WAL
 	db_options.enable_pipelined_write = true;
+
+	auto event_listener_l = new event_listener ([this](rocksdb::FlushJobInfo const & flush_job_info_a) { this->on_flush (flush_job_info_a); });
+	db_options.listeners.emplace_back (event_listener_l);
 
 	return db_options;
 }
@@ -441,6 +511,15 @@ rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_cf_options () const
 	cf_options.max_write_buffer_number = 2;
 
 	return cf_options;
+}
+
+void nano::rocksdb_store::on_flush (rocksdb::FlushJobInfo const & flush_job_info_a)
+{
+	// Reset appropriate tombstone counters
+	if (auto it = tombstone_map.find (cf_name_table_map[flush_job_info_a.cf_name.c_str ()]); it != tombstone_map.end ())
+	{
+		it->second.num_since_last_flush = 0;
+	}
 }
 
 std::vector<nano::tables> nano::rocksdb_store::all_tables () const
@@ -573,6 +652,12 @@ void nano::rocksdb_store::serialize_memory_stats (boost::property_tree::ptree & 
 	// Memory size for the entries residing in block cache.
 	db->GetAggregatedIntProperty (rocksdb::DB::Properties::kBlockCacheUsage, &val);
 	json.put ("block-cache-usage", val);
+}
+
+nano::rocksdb_store::tombstone_info::tombstone_info (uint64_t num_since_last_flush_a, uint64_t const max_a) :
+num_since_last_flush (num_since_last_flush_a),
+max (max_a)
+{
 }
 
 // Explicitly instantiate
