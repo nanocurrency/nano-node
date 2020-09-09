@@ -114,10 +114,7 @@ void nano::socket::async_write (nano::shared_const_buffer const & buffer_a, std:
 
 void nano::socket::start_timer ()
 {
-	if (auto node_l = node.lock ())
-	{
-		start_timer (io_timeout);
-	}
+	start_timer (io_timeout);
 }
 
 void nano::socket::start_timer (std::chrono::seconds deadline_a)
@@ -173,10 +170,7 @@ bool nano::socket::has_timed_out () const
 
 void nano::socket::timeout_set (std::chrono::seconds io_timeout_a)
 {
-	auto this_l (shared_from_this ());
-	boost::asio::dispatch (strand, boost::asio::bind_executor (strand, [this_l, io_timeout_a]() {
-		this_l->io_timeout = io_timeout_a;
-	}));
+	io_timeout = io_timeout_a;
 }
 
 void nano::socket::close ()
