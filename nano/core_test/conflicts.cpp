@@ -20,11 +20,8 @@ TEST (conflicts, start_stop)
 	ASSERT_EQ (0, node1.active.size ());
 	auto election1 = node1.active.insert (send1);
 	ASSERT_EQ (1, node1.active.size ());
-	{
-		nano::lock_guard<std::mutex> guard (node1.active.mutex);
-		ASSERT_NE (nullptr, election1.election);
-		ASSERT_EQ (1, election1.election->last_votes.size ());
-	}
+	ASSERT_NE (nullptr, election1.election);
+	ASSERT_EQ (1, election1.election->votes ().size ());
 }
 
 TEST (conflicts, add_existing)
@@ -48,8 +45,9 @@ TEST (conflicts, add_existing)
 	{
 		nano::lock_guard<std::mutex> guard (node1.active.mutex);
 		ASSERT_NE (nullptr, election1.election);
-		ASSERT_EQ (2, election1.election->last_votes.size ());
-		ASSERT_NE (election1.election->last_votes.end (), election1.election->last_votes.find (key2.pub));
+		ASSERT_EQ (2, election1.election->votes ().size ());
+		auto votes (election1.election->votes ());
+		ASSERT_NE (votes.end (), votes.find (key2.pub));
 	}
 }
 

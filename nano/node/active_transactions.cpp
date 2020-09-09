@@ -305,6 +305,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	for (auto i = sorted_roots_l.begin (), n = sorted_roots_l.end (); i != n && unconfirmed_count_l < this_loop_target_l;)
 	{
 		auto & election_l (i->election);
+		nano::unique_lock<std::mutex> lock_election_l (election_l->mutex);
 		bool const confirmed_l (election_l->confirmed ());
 
 		if (!election_l->prioritized () && unconfirmed_count_l < prioritized_cutoff)
@@ -326,6 +327,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 			}
 
 			election_l->cleanup ();
+			lock_election_l.unlock ();
 			i = sorted_roots_l.erase (i);
 		}
 		else
@@ -902,7 +904,7 @@ std::shared_ptr<nano::block> nano::active_transactions::winner (nano::block_hash
 	auto existing = blocks.find (hash_a);
 	if (existing != blocks.end ())
 	{
-		result = existing->second->status.winner;
+		result = existing->second->winner ();
 	}
 	return result;
 }
@@ -1014,8 +1016,8 @@ double nano::active_transactions::normalized_multiplier (nano::block const & blo
 	{
 		auto election (*root_it_a);
 		debug_assert (election != roots.end ());
-		auto find_block (election->election->blocks.find (block_a.hash ()));
-		if (find_block != election->election->blocks.end () && find_block->second->has_sideband ())
+		auto find_block (election->election->last_blocks.find (block_a.hash ()));
+		if (find_block != election->election->last_blocks.end () && find_block->second->has_sideband ())
 		{
 			threshold = nano::work_threshold (block_a.work_version (), find_block->second->sideband ().details);
 		}
@@ -1119,9 +1121,9 @@ std::deque<std::shared_ptr<nano::block>> nano::active_transactions::list_blocks 
 {
 	std::deque<std::shared_ptr<nano::block>> result;
 	nano::lock_guard<std::mutex> lock (mutex);
-	for (auto & root : roots)
+	for (auto const & root : roots)
 	{
-		result.push_back (root.election->status.winner);
+		result.push_back (root.election->winner ());
 	}
 	return result;
 }
@@ -1203,6 +1205,7 @@ boost::optional<nano::election_status_type> nano::active_transactions::confirm_b
 	boost::optional<nano::election_status_type> status_type;
 	if (existing != blocks.end ())
 	{
+		nano::lock_guard<std::mutex> election_guard (existing->second->mutex);
 		if (existing->second->status.winner && existing->second->status.winner->hash () == hash)
 		{
 			if (!existing->second->confirmed ())

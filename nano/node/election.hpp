@@ -13,6 +13,7 @@ namespace nano
 {
 class channel;
 class confirmation_solicitor;
+class json_handler;
 class node;
 class vote_generator_session;
 class vote_info final
@@ -57,62 +58,84 @@ private: // State management
 	static int constexpr confirmed_duration_factor = 5;
 	std::atomic<nano::election::state_t> state_m = { state_t::passive };
 
-	// These time points must be protected by this mutex
-	std::mutex timepoints_mutex;
 	std::chrono::steady_clock::time_point state_start = { std::chrono::steady_clock::now () };
 	std::chrono::steady_clock::time_point last_block = { std::chrono::steady_clock::now () };
 	std::chrono::steady_clock::time_point last_req = { std::chrono::steady_clock::time_point () };
 
 	bool valid_change (nano::election::state_t, nano::election::state_t) const;
 	bool state_change (nano::election::state_t, nano::election::state_t);
-	void broadcast_block (nano::confirmation_solicitor &);
-	void send_confirm_req (nano::confirmation_solicitor &);
-	// Calculate votes for local representatives
-	void generate_votes ();
-	void remove_votes (nano::block_hash const &);
 	std::atomic<bool> prioritized_m = { false };
-
-public:
-	election (nano::node &, std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const &, bool, nano::election_behavior);
-	nano::election_vote_result vote (nano::account, uint64_t, nano::block_hash);
-	nano::tally_t tally ();
-	// Check if we have vote quorum
-	bool have_quorum (nano::tally_t const &, nano::uint128_t) const;
-	void confirm_once (nano::election_status_type = nano::election_status_type::active_confirmed_quorum);
-	// Confirm this block if quorum is met
-	void confirm_if_quorum ();
-	void log_votes (nano::tally_t const &, std::string const & = "") const;
-	bool publish (std::shared_ptr<nano::block> block_a);
-	size_t last_votes_size ();
-	size_t insert_inactive_votes_cache (nano::block_hash const &);
-	bool prioritized () const;
-	bool optimistic () const;
-	void prioritize_election (nano::vote_generator_session &);
-	// Erase all blocks from active and, if not confirmed, clear digests from network filters
-	void cleanup ();
 
 public: // State transitions
 	bool transition_time (nano::confirmation_solicitor &);
 	void transition_active ();
 
-private:
-	void transition_active_impl ();
-
-public:
+public: // Status
 	bool confirmed () const;
 	bool failed () const;
-	nano::election_behavior election_behavior{ nano::election_behavior::normal };
-	nano::node & node;
-	std::unordered_map<nano::account, nano::vote_info> last_votes;
-	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks;
-	std::chrono::steady_clock::time_point election_start = { std::chrono::steady_clock::now () };
+	bool prioritized () const;
+	bool optimistic () const;
+	unsigned announcements () const;
+	std::shared_ptr<nano::block> winner ();
+
+	void log_votes (nano::tally_t const &, std::string const & = "") const;
+	nano::tally_t tally ();
+	bool have_quorum (nano::tally_t const &, nano::uint128_t) const;
+
+public: // Interface
+	election (nano::node &, std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const &, bool, nano::election_behavior);
+	nano::election_vote_result vote (nano::account, uint64_t, nano::block_hash);
+	bool publish (std::shared_ptr<nano::block> block_a);
+	size_t insert_inactive_votes_cache (nano::block_hash const &);
+	// Confirm this block if quorum is met
+	void confirm_if_quorum ();
+	void prioritize_election (nano::vote_generator_session &);
+	// Erase all blocks from active and, if not confirmed, clear digests from network filters
+	void cleanup ();
+
+private:
+	void confirm_once (nano::election_status_type = nano::election_status_type::active_confirmed_quorum);
+	void broadcast_block (nano::confirmation_solicitor &);
+	void send_confirm_req (nano::confirmation_solicitor &);
+	// Calculate votes for local representatives
+	void generate_votes ();
+	void remove_votes (nano::block_hash const &);
+	void transition_active_impl ();
+	size_t insert_inactive_votes_cache_impl (nano::block_hash const &);
+
+public:
+	// Guarded by mutex
 	nano::election_status status;
-	unsigned confirmation_request_count{ 0 };
-	std::unordered_map<nano::block_hash, nano::uint128_t> last_tally;
-	std::chrono::seconds late_blocks_delay{ 5 };
+
 	uint64_t const height;
 	nano::root const root;
 
+private:
+	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> last_blocks;
+	std::unordered_map<nano::account, nano::vote_info> last_votes;
+	std::unordered_map<nano::block_hash, nano::uint128_t> last_tally;
+
+	nano::election_behavior const behavior{ nano::election_behavior::normal };
+	std::chrono::steady_clock::time_point election_start = { std::chrono::steady_clock::now () };
+	std::atomic<unsigned> confirmation_request_count{ 0 };
+
+	nano::node & node;
+	std::mutex mutex;
+
+	static std::chrono::seconds constexpr late_blocks_delay{ 5 };
+
+public: // Only for tests
+	void force_confirm (nano::election_status_type = nano::election_status_type::active_confirmed_quorum);
+	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks ();
+	std::unordered_map<nano::account, nano::vote_info> votes ();
+
+	friend class json_handler;
 	friend class active_transactions;
+	friend class confirmation_solicitor;
+
+	friend class confirmation_solicitor_different_hash_Test;
+	friend class confirmation_solicitor_bypass_max_requests_cap_Test;
+	friend class votes_add_existing_Test;
+	friend class votes_add_old_Test;
 };
 }

@@ -1774,7 +1774,7 @@ void nano::json_handler::confirmation_active ()
 		nano::lock_guard<std::mutex> lock (node.active.mutex);
 		for (auto i (node.active.roots.begin ()), n (node.active.roots.end ()); i != n; ++i)
 		{
-			if (i->election->confirmation_request_count >= announcements)
+			if (i->election->announcements () >= announcements)
 			{
 				if (!i->election->confirmed ())
 				{
@@ -1860,9 +1860,9 @@ void nano::json_handler::confirmation_info ()
 	if (!root.decode_hex (root_text))
 	{
 		auto election (node.active.election (root));
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
 		if (election != nullptr && !election->confirmed ())
 		{
+			nano::lock_guard<std::mutex> guard (election->mutex);
 			response_l.put ("announcements", std::to_string (election->confirmation_request_count));
 			response_l.put ("voters", std::to_string (election->last_votes.size ()));
 			response_l.put ("last_winner", election->status.winner->hash ().to_string ());

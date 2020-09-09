@@ -53,9 +53,9 @@ TEST (active_transactions, confirm_active)
 	}
 	ASSERT_TIMELY (10s, node2.ledger.cache.cemented_count == 2 && node2.active.empty ());
 	// At least one confirmation request
-	ASSERT_GT (election->confirmation_request_count, 0u);
+	ASSERT_GT (election->announcements (), 0u);
 	// Blocks were cleared (except for not_an_account)
-	ASSERT_EQ (1, election->blocks.size ());
+	ASSERT_EQ (1, election->blocks ().size ());
 }
 }
 
@@ -95,7 +95,7 @@ TEST (active_transactions, confirm_frontier)
 		node2.rep_crawler.probable_reps.emplace (nano::dev_genesis_key.pub, nano::genesis_amount, *peers.begin ());
 	}
 	ASSERT_TIMELY (5s, node2.ledger.cache.cemented_count == 2 && node2.active.empty ());
-	ASSERT_GT (election->confirmation_request_count, 0u);
+	ASSERT_GT (election->announcements (), 0u);
 }
 }
 
@@ -122,14 +122,13 @@ TEST (active_transactions, keep_local)
 	// should not drop wallet created transactions
 	ASSERT_TIMELY (5s, node.active.size () == 6);
 	ASSERT_EQ (0, node.active.recently_dropped.size ());
-	while (!node.active.empty ())
+	for (auto const & block : { send1, send2, send3, send4, send5, send6 })
 	{
-		nano::lock_guard<std::mutex> active_guard (node.active.mutex);
-		if (!node.active.roots.empty ())
-		{
-			node.active.roots.begin ()->election->confirm_once ();
-		}
+		auto election = node.active.election (block->qualified_root ());
+		ASSERT_NE (nullptr, election);
+		election->force_confirm ();
 	}
+	ASSERT_TIMELY (5s, node.active.empty ());
 	nano::state_block_builder builder;
 	auto open1 = builder.make_block ()
 	             .account (key1.pub)
@@ -271,18 +270,10 @@ TEST (active_transactions, inactive_votes_cache_existing_vote)
 	// Insert vote
 	auto vote1 (std::make_shared<nano::vote> (key.pub, key.prv, 1, std::vector<nano::block_hash> (1, send->hash ())));
 	node.vote_processor.vote (vote1, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
-	system.deadline_set (5s);
-	bool done (false);
-	while (!done)
-	{
-		nano::unique_lock<std::mutex> active_lock (node.active.mutex);
-		done = (election->last_votes.size () == 2);
-		active_lock.unlock ();
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, election->votes ().size () == 2)
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::vote_new));
 	nano::lock_guard<std::mutex> active_guard (node.active.mutex);
-	auto last_vote1 (election->last_votes[key.pub]);
+	auto last_vote1 (election->votes ()[key.pub]);
 	ASSERT_EQ (send->hash (), last_vote1.hash);
 	ASSERT_EQ (1, last_vote1.sequence);
 	// Attempt to change vote with inactive_votes_cache
@@ -290,8 +281,8 @@ TEST (active_transactions, inactive_votes_cache_existing_vote)
 	ASSERT_EQ (1, node.active.find_inactive_votes_cache (send->hash ()).voters.size ());
 	election->insert_inactive_votes_cache (send->hash ());
 	// Check that election data is not changed
-	ASSERT_EQ (2, election->last_votes.size ());
-	auto last_vote2 (election->last_votes[key.pub]);
+	ASSERT_EQ (2, election->votes ().size ());
+	auto last_vote2 (election->votes ()[key.pub]);
 	ASSERT_EQ (last_vote1.hash, last_vote2.hash);
 	ASSERT_EQ (last_vote1.sequence, last_vote2.sequence);
 	ASSERT_EQ (last_vote1.time, last_vote2.time);
@@ -353,13 +344,8 @@ TEST (active_transactions, inactive_votes_cache_multiple_votes)
 	}
 	ASSERT_EQ (1, node.active.inactive_votes_cache_size ());
 	// Start election
-	node.active.insert (send1);
-	{
-		nano::lock_guard<std::mutex> active_guard (node.active.mutex);
-		auto it (node.active.roots.begin ());
-		ASSERT_NE (node.active.roots.end (), it);
-		ASSERT_EQ (3, it->election->last_votes.size ()); // 2 votes and 1 default not_an_acount
-	}
+	auto election = node.active.insert (send1).election;
+	ASSERT_EQ (3, election->votes ().size ()); // 2 votes and 1 default not_an_acount
 	ASSERT_EQ (2, node.stats.count (nano::stat::type::election, nano::stat::detail::vote_cached));
 }
 
@@ -1056,12 +1042,9 @@ TEST (active_transactions, election_difficulty_update_fork)
 	for (auto block : { open1, send2 })
 	{
 		node.block_confirm (block);
-		{
-			auto election = node.active.election (block->qualified_root ());
-			ASSERT_NE (nullptr, election);
-			nano::lock_guard<std::mutex> guard (node.active.mutex);
-			election->confirm_once ();
-		}
+		auto election = node.active.election (block->qualified_root ());
+		ASSERT_NE (nullptr, election);
+		election->force_confirm ();
 		ASSERT_TIMELY (2s, node.block_confirmed (block->hash ()));
 		node.active.erase (*block);
 	}
@@ -1324,25 +1307,19 @@ TEST (active_transactions, activate_account_chain)
 	auto result = node.active.activate (nano::dev_genesis_key.pub);
 	ASSERT_TRUE (result.inserted);
 	ASSERT_EQ (1, node.active.size ());
-	ASSERT_EQ (1, result.election->blocks.count (send->hash ()));
+	ASSERT_EQ (1, result.election->blocks ().count (send->hash ()));
 	auto result2 = node.active.activate (nano::dev_genesis_key.pub);
 	ASSERT_FALSE (result2.inserted);
 	ASSERT_EQ (result2.election, result.election);
-	{
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
-		result.election->confirm_once ();
-	}
+	result.election->force_confirm ();
 	ASSERT_TIMELY (3s, node.block_confirmed (send->hash ()));
 	// On cementing, the next election is started
 	ASSERT_TIMELY (3s, node.active.active (send2->qualified_root ()));
 	auto result3 = node.active.activate (nano::dev_genesis_key.pub);
 	ASSERT_FALSE (result3.inserted);
 	ASSERT_NE (nullptr, result3.election);
-	ASSERT_EQ (1, result3.election->blocks.count (send2->hash ()));
-	{
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
-		result3.election->confirm_once ();
-	}
+	ASSERT_EQ (1, result3.election->blocks ().count (send2->hash ()));
+	result3.election->force_confirm ();
 	ASSERT_TIMELY (3s, node.block_confirmed (send2->hash ()));
 	// On cementing, the next election is started
 	ASSERT_TIMELY (3s, node.active.active (open->qualified_root ()));
@@ -1350,25 +1327,19 @@ TEST (active_transactions, activate_account_chain)
 	auto result4 = node.active.activate (nano::dev_genesis_key.pub);
 	ASSERT_FALSE (result4.inserted);
 	ASSERT_NE (nullptr, result4.election);
-	ASSERT_EQ (1, result4.election->blocks.count (send3->hash ()));
+	ASSERT_EQ (1, result4.election->blocks ().count (send3->hash ()));
 	auto result5 = node.active.activate (key.pub);
 	ASSERT_FALSE (result5.inserted);
 	ASSERT_NE (nullptr, result5.election);
-	ASSERT_EQ (1, result5.election->blocks.count (open->hash ()));
-	{
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
-		result5.election->confirm_once ();
-	}
+	ASSERT_EQ (1, result5.election->blocks ().count (open->hash ()));
+	result5.election->force_confirm ();
 	ASSERT_TIMELY (3s, node.block_confirmed (open->hash ()));
 	// Until send3 is also confirmed, the receive block should not activate
 	std::this_thread::sleep_for (200ms);
 	auto result6 = node.active.activate (key.pub);
 	ASSERT_FALSE (result6.inserted);
 	ASSERT_EQ (nullptr, result6.election);
-	{
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
-		result4.election->confirm_once ();
-	}
+	result4.election->force_confirm ();
 	ASSERT_TIMELY (3s, node.block_confirmed (send3->hash ()));
 	ASSERT_TIMELY (3s, node.active.active (receive->qualified_root ()));
 }
@@ -1416,12 +1387,9 @@ TEST (active_transactions, activate_inactive)
 	ASSERT_EQ (nano::process_result::progress, node.process (*open).code);
 
 	node.block_confirm (send2);
-	{
-		auto election = node.active.election (send2->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
-		election->confirm_once ();
-	}
+	auto election = node.active.election (send2->qualified_root ());
+	ASSERT_NE (nullptr, election);
+	election->force_confirm ();
 
 	ASSERT_TIMELY (3s, !node.confirmation_height_processor.is_processing_added_block (send2->hash ()));
 	ASSERT_TRUE (node.block_confirmed (send2->hash ()));
@@ -1523,13 +1491,10 @@ TEST (active_transactions, pessimistic_elections)
 	ASSERT_EQ (2, node.active.expired_optimistic_election_infos.size ());
 	ASSERT_EQ (node.active.expired_optimistic_election_infos_size, node.active.expired_optimistic_election_infos.size ());
 
-	{
-		ASSERT_EQ (1, node.active.size ());
-		auto election = node.active.election (send->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
-		election->confirm_once ();
-	}
+	ASSERT_EQ (1, node.active.size ());
+	auto election = node.active.election (send->qualified_root ());
+	ASSERT_NE (nullptr, election);
+	election->force_confirm ();
 
 	ASSERT_TIMELY (3s, node.block_confirmed (send->hash ()) && !node.confirmation_height_processor.is_processing_added_block (send->hash ()));
 
@@ -1551,12 +1516,9 @@ TEST (active_transactions, pessimistic_elections)
 	ASSERT_EQ (2, node.active.expired_optimistic_election_infos.size ());
 
 	// Confirm it
-	{
-		auto election = node.active.election (send2->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
-		election->confirm_once ();
-	}
+	election = node.active.election (send2->qualified_root ());
+	ASSERT_NE (nullptr, election);
+	election->force_confirm ();
 
 	ASSERT_TIMELY (3s, node.block_confirmed (send2->hash ()));
 
@@ -1578,12 +1540,9 @@ TEST (active_transactions, pessimistic_elections)
 	ASSERT_EQ (2, node.active.expired_optimistic_election_infos.size ());
 	node.active.confirm_expired_frontiers_pessimistically (node.store.tx_begin_read (), 100, election_count);
 
-	{
-		auto election = node.active.election (open->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
-		election->confirm_once ();
-	}
+	election = node.active.election (open->qualified_root ());
+	ASSERT_NE (nullptr, election);
+	election->force_confirm ();
 
 	ASSERT_TIMELY (3s, node.block_confirmed (open->hash ()));
 
