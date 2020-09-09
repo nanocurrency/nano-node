@@ -99,7 +99,7 @@ std::unordered_map<const char *, nano::tables> nano::rocksdb_store::create_cf_na
 		{ "peers", tables::peers },
 		{ "confirmation_height", tables::confirmation_height } };
 
-	debug_assert (map.size () == all_tables ().size ());
+	debug_assert (map.size () == all_tables ().size () + 1);
 	return map;
 }
 
@@ -157,7 +157,7 @@ void nano::rocksdb_store::generate_tombstone_map ()
 rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_cf_options (std::string const & cf_name_a) const
 {
 	rocksdb::ColumnFamilyOptions cf_options;
-	auto const memtable_size_bytes = 1024ULL * 1024 * rocksdb_config.memory_multiplier * base_memtable_size;
+	auto const memtable_size_bytes = base_memtable_size_bytes ();
 	auto const block_cache_size_bytes = 1024ULL * 1024 * rocksdb_config.memory_multiplier * base_block_cache_size;
 	if (cf_name_a == "unchecked")
 	{
@@ -180,7 +180,7 @@ rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_cf_options (std::string co
 	else if (cf_name_a == "blocks")
 	{
 		std::shared_ptr<rocksdb::TableFactory> table_factory (rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes * 4)));
-		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
+		cf_options = get_active_cf_options (table_factory, blocks_memtable_size_bytes ());
 	}
 	else if (cf_name_a == "confirmation_height")
 	{
@@ -819,6 +819,22 @@ void nano::rocksdb_store::serialize_memory_stats (boost::property_tree::ptree & 
 	// Memory size for the entries residing in block cache.
 	db->GetAggregatedIntProperty (rocksdb::DB::Properties::kBlockCacheUsage, &val);
 	json.put ("block-cache-usage", val);
+}
+
+unsigned long long nano::rocksdb_store::blocks_memtable_size_bytes () const
+{
+	return base_memtable_size_bytes ();
+}
+
+unsigned long long nano::rocksdb_store::base_memtable_size_bytes () const
+{
+	return 1024ULL * 1024 * rocksdb_config.memory_multiplier * base_memtable_size;
+}
+
+// This is a ratio (50%) of the blocks memtable size to keep total write transaction commits down.
+unsigned nano::rocksdb_store::max_block_write_batch_num () const
+{
+	return nano::narrow_cast<unsigned> (blocks_memtable_size_bytes () / 2);
 }
 
 nano::rocksdb_store::tombstone_info::tombstone_info (uint64_t num_since_last_flush_a, uint64_t const max_a) :

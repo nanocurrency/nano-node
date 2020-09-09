@@ -46,6 +46,8 @@ public:
 	bool copy_db (boost::filesystem::path const & destination) override;
 	void rebuild_db (nano::write_transaction const & transaction_a) override;
 
+	unsigned max_block_write_batch_num () const override;
+
 	template <typename Key, typename Value>
 	nano::store_iterator<Key, Value> make_iterator (nano::transaction const & transaction_a, tables table_a) const
 	{
@@ -110,6 +112,8 @@ private:
 	std::unordered_map<const char *, nano::tables> create_cf_name_table_map () const;
 
 	std::vector<rocksdb::ColumnFamilyDescriptor> create_column_families ();
+	unsigned long long base_memtable_size_bytes () const;
+	unsigned long long blocks_memtable_size_bytes () const;
 
 	constexpr static int base_memtable_size = 16;
 	constexpr static int base_block_cache_size = 8;
