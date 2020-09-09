@@ -394,9 +394,7 @@ TEST (rpc, send)
 	request.put ("source", nano::dev_genesis_key.pub.to_account ());
 	request.put ("destination", nano::dev_genesis_key.pub.to_account ());
 	request.put ("amount", "100");
-	std::thread thread2 ([&system, node]() {
-		ASSERT_TIMELY (10s, node->balance (nano::dev_genesis_key.pub) != nano::genesis_amount);
-	});
+	ASSERT_EQ (node->balance (nano::dev_genesis_key.pub), nano::genesis_amount);
 	test_response response (request, rpc.config.port, system.io_ctx);
 	ASSERT_TIMELY (10s, response.status != 0);
 	ASSERT_EQ (200, response.status);
@@ -405,7 +403,7 @@ TEST (rpc, send)
 	ASSERT_FALSE (block.decode_hex (block_text));
 	ASSERT_TRUE (node->ledger.block_exists (block));
 	ASSERT_EQ (node->latest (nano::dev_genesis_key.pub), block);
-	thread2.join ();
+	ASSERT_NE (node->balance (nano::dev_genesis_key.pub), nano::genesis_amount);
 }
 
 TEST (rpc, send_fail)
