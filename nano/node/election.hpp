@@ -66,7 +66,9 @@ private: // State management
 	static unsigned constexpr confirmed_duration_factor = 5;
 	std::atomic<nano::election::state_t> state_m = { state_t::passive };
 
-	std::chrono::steady_clock::time_point state_start = { std::chrono::steady_clock::now () };
+	std::atomic<std::chrono::steady_clock::time_point> state_start = { std::chrono::steady_clock::now () };
+
+	// These are modified while not holding the mutex from transition_time only
 	std::chrono::steady_clock::time_point last_block = { std::chrono::steady_clock::now () };
 	std::chrono::steady_clock::time_point last_req = { std::chrono::steady_clock::time_point () };
 
@@ -120,6 +122,7 @@ public:
 
 	uint64_t const height;
 	nano::root const root;
+	nano::qualified_root const qualified_root;
 
 private:
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> last_blocks;
@@ -127,7 +130,7 @@ private:
 	std::unordered_map<nano::block_hash, nano::uint128_t> last_tally;
 
 	nano::election_behavior const behavior{ nano::election_behavior::normal };
-	std::chrono::steady_clock::time_point election_start = { std::chrono::steady_clock::now () };
+	std::chrono::steady_clock::time_point const election_start = { std::chrono::steady_clock::now () };
 	std::atomic<unsigned> confirmation_request_count{ 0 };
 
 	nano::node & node;

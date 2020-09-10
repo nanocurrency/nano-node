@@ -1454,7 +1454,6 @@ TEST (active_transactions, pessimistic_elections)
 	uint64_t election_count = 0;
 	// Make dummy election with winner.
 	{
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
 		nano::election election1 (
 		node, send, [](auto const & block) {}, false, nano::election_behavior::normal);
 		nano::election election2 (

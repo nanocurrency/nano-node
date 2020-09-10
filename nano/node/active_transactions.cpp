@@ -282,17 +282,27 @@ void nano::active_transactions::block_already_cemented_callback (nano::block_has
 
 void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> & lock_a)
 {
-	debug_assert (!mutex.try_lock ());
+	debug_assert (lock_a.owns_lock ());
 
-	// Only representatives ready to receive batched confirm_req
+	bool const check_all_elections_l (std::chrono::steady_clock::now () - last_check_all_elections > check_all_elections_period);
+	size_t const this_loop_target_l (check_all_elections_l ? roots.size () : prioritized_cutoff);
+	std::vector<std::shared_ptr<nano::election>> elections_l;
+	{
+		auto & sorted_roots_l (roots.get<tag_difficulty> ());
+		size_t count_l{ 0 };
+		for (auto i = sorted_roots_l.begin (), n = sorted_roots_l.end (); i != n && count_l < this_loop_target_l; ++i)
+		{
+			elections_l.push_back (i->election);
+		}
+	}
+
+	lock_a.unlock ();
+
 	nano::confirmation_solicitor solicitor (node.network, node.network_params.network);
 	solicitor.prepare (node.rep_crawler.principal_representatives (std::numeric_limits<size_t>::max ()));
-
 	nano::vote_generator_session generator_session (generator);
-	auto & sorted_roots_l (roots.get<tag_difficulty> ());
+
 	auto const election_ttl_cutoff_l (std::chrono::steady_clock::now () - election_time_to_live);
-	bool const check_all_elections_l (std::chrono::steady_clock::now () - last_check_all_elections > check_all_elections_period);
-	size_t const this_loop_target_l (check_all_elections_l ? sorted_roots_l.size () : prioritized_cutoff);
 	size_t unconfirmed_count_l (0);
 	nano::timer<std::chrono::milliseconds> elapsed (nano::timer_state::started);
 
@@ -303,10 +313,8 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	 * Elections extending the soft config.active_elections_size limit are flushed after a certain time-to-live cutoff
 	 * Flushed elections are later re-activated via frontier confirmation
 	 */
-	for (auto i = sorted_roots_l.begin (), n = sorted_roots_l.end (); i != n && unconfirmed_count_l < this_loop_target_l;)
+	for (auto const & election_l : elections_l)
 	{
-		auto & election_l (i->election);
-		nano::unique_lock<std::mutex> lock_election_l (election_l->mutex);
 		bool const confirmed_l (election_l->confirmed ());
 
 		if (!election_l->prioritized () && unconfirmed_count_l < prioritized_cutoff)
@@ -315,28 +323,24 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 		}
 
 		unconfirmed_count_l += !confirmed_l;
-		bool const overflow_l (unconfirmed_count_l > node.config.active_elections_size && election_l->election_start < election_ttl_cutoff_l && !node.wallets.watcher->is_watched (i->root));
+		bool const overflow_l (unconfirmed_count_l > node.config.active_elections_size && election_l->election_start < election_ttl_cutoff_l && !node.wallets.watcher->is_watched (election_l->qualified_root));
 		if (overflow_l || election_l->transition_time (solicitor))
 		{
 			if (election_l->optimistic () && election_l->failed ())
 			{
 				if (election_l->confirmation_request_count != 0)
 				{
+					// Locks active mutex
 					add_expired_optimistic_election (*election_l);
 				}
 				--optimistic_elections_count;
 			}
 
-			cleanup_election (lock_a, election_l->cleanup_info_impl ());
-			lock_election_l.unlock ();
-			i = sorted_roots_l.erase (i);
-		}
-		else
-		{
-			++i;
+			// Locks active mutex, cleans up the election and erases it from the main container
+			erase (*election_l->winner ());
 		}
 	}
-	lock_a.unlock ();
+
 	solicitor.flush ();
 	generator_session.flush ();
 	lock_a.lock ();
@@ -387,6 +391,7 @@ void nano::active_transactions::cleanup_election (nano::unique_lock<std::mutex> 
 
 void nano::active_transactions::add_expired_optimistic_election (nano::election const & election_a)
 {
+	nano::lock_guard<std::mutex> guard (mutex);
 	auto account = election_a.status.winner->account ();
 	if (account.is_zero ())
 	{
