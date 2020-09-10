@@ -255,7 +255,7 @@ void nano::bootstrap_attempt_legacy::request_push (nano::unique_lock<std::mutex>
 	lock_a.unlock ();
 	auto connection_l (node->bootstrap_initiator.connections->find_connection (endpoint_frontier_request));
 	lock_a.lock ();
-	if (connection_l)
+	if (connection_l && !connection_l->pending_stop)
 	{
 		std::future<bool> future;
 		{

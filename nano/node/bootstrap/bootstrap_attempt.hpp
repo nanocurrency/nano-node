@@ -76,7 +76,7 @@ public:
 	void attempt_restart_check (nano::unique_lock<std::mutex> &);
 	bool confirm_frontiers (nano::unique_lock<std::mutex> &);
 	void get_information (boost::property_tree::ptree &) override;
-	nano::tcp_endpoint endpoint_frontier_request;
+	nano::tcp_endpoint endpoint_frontier_request{ boost::asio::ip::address_v6::loopback (), 0 };
 	std::weak_ptr<nano::frontier_req_client> frontiers;
 	std::weak_ptr<nano::bulk_push_client> push;
 	std::deque<nano::pull_info> frontier_pulls;
