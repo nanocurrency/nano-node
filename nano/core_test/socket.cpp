@@ -244,8 +244,9 @@ TEST (socket_yield, context)
 		ASSERT_FALSE (ec);
 		auto buffer = std::make_shared<std::vector<uint8_t>> (1);
 		buffer->operator[] (0) = 42;
-		socket->async_write (nano::shared_const_buffer{ buffer }, yield[ec]);
+		auto written = socket->async_write (nano::shared_const_buffer{ buffer }, yield[ec]);
 		ASSERT_FALSE (ec);
+		ASSERT_EQ (1, written);
 	});
 	ASSERT_TIMELY (1s, future.wait_for (std::chrono::milliseconds (0)) == std::future_status::ready);
 	ASSERT_EQ (42, future.get ());

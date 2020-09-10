@@ -46,7 +46,7 @@ public:
 	void async_read (std::shared_ptr<std::vector<uint8_t>>, size_t, std::function<void(boost::system::error_code const &, size_t)>);
 	size_t async_read (std::shared_ptr<std::vector<uint8_t>>, size_t, boost::asio::yield_context yield);
 	void async_write (nano::shared_const_buffer const &, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr);
-	void async_write (nano::shared_const_buffer const & buffer_a, boost::asio::yield_context yield);
+	size_t async_write (nano::shared_const_buffer const & buffer_a, boost::asio::yield_context yield);
 
 	void close ();
 	boost::asio::ip::tcp::endpoint remote_endpoint () const;

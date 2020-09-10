@@ -134,7 +134,7 @@ void nano::socket::async_write (nano::shared_const_buffer const & buffer_a, std:
 	}
 }
 
-void nano::socket::async_write (nano::shared_const_buffer const & buffer_a, boost::asio::yield_context yield)
+size_t nano::socket::async_write (nano::shared_const_buffer const & buffer_a, boost::asio::yield_context yield)
 {
 	++queue_size;
 	start_timer ();
@@ -145,6 +145,7 @@ void nano::socket::async_write (nano::shared_const_buffer const & buffer_a, boos
 	{
 		node_l->stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::out, written);
 	}
+	return written;
 }
 
 void nano::socket::start_timer ()
