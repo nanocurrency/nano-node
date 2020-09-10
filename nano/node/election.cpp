@@ -428,38 +428,20 @@ bool nano::election::publish (std::shared_ptr<nano::block> const & block_a, nano
 	return result;
 }
 
-void nano::election::cleanup ()
+nano::election_cleanup_info nano::election::cleanup_info ()
 {
-	debug_assert (!node.active.mutex.try_lock ());
-	debug_assert (!mutex.try_lock ());
-	bool unconfirmed (!confirmed ());
-	auto winner_root (status.winner->qualified_root ());
-	auto const & winner_hash (status.winner->hash ());
-	for (auto const & block : last_blocks)
-	{
-		auto & hash (block.first);
-		auto erased (node.active.blocks.erase (hash));
-		(void)erased;
-		debug_assert (erased == 1);
-		node.active.erase_inactive_votes_cache (hash);
-		// Notify observers about dropped elections & blocks lost confirmed elections
-		if (unconfirmed || hash != winner_hash)
-		{
-			node.observers.active_stopped.notify (hash);
-		}
-	}
-	if (unconfirmed)
-	{
-		node.active.recently_dropped.add (winner_root);
+	nano::lock_guard<std::mutex> guard (mutex);
+	return cleanup_info_impl ();
+}
 
-		// Clear network filter in another thread
-		node.worker.push_task ([node_l = node.shared (), blocks_l = std::move (last_blocks)]() {
-			for (auto const & block : blocks_l)
-			{
-				node_l->network.publish_filter.clear (block.second);
-			}
-		});
-	}
+nano::election_cleanup_info nano::election::cleanup_info_impl () const
+{
+	return nano::election_cleanup_info{
+		confirmed (),
+		status.winner->qualified_root (),
+		status.winner->hash (),
+		last_blocks
+	};
 }
 
 size_t nano::election::insert_inactive_votes_cache (nano::inactive_cache_information const & cache_a)

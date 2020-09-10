@@ -327,7 +327,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 				--optimistic_elections_count;
 			}
 
-			election_l->cleanup ();
+			cleanup_election (lock_a, election_l->cleanup_info_impl ());
 			lock_election_l.unlock ();
 			i = sorted_roots_l.erase (i);
 		}
@@ -350,6 +350,39 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 			node.logger.try_log (boost::str (boost::format ("Processed %1% elections (%2% were already confirmed) in %3% %4%") % this_loop_target_l % (this_loop_target_l - unconfirmed_count_l) % elapsed.value ().count () % elapsed.unit ()));
 		}
 	}
+}
+
+void nano::active_transactions::cleanup_election (nano::unique_lock<std::mutex> & lock_a, nano::election_cleanup_info const & info_a)
+{
+	debug_assert (lock_a.owns_lock ());
+
+	if (!info_a.confirmed)
+	{
+		recently_dropped.add (info_a.root);
+	}
+
+	std::vector<nano::block_hash> hashes_lost;
+	for (auto const & [hash, block] : info_a.blocks)
+	{
+		auto erased (blocks.erase (hash));
+		(void)erased;
+		debug_assert (erased == 1);
+		erase_inactive_votes_cache (hash);
+	}
+
+	//lock_a.unlock ();
+	for (auto const & [hash, block] : info_a.blocks)
+	{
+		// Notify observers about dropped elections & blocks lost confirmed elections
+		if (!info_a.confirmed || hash != info_a.winner)
+		{
+			node.observers.active_stopped.notify (hash);
+		}
+
+		// Clear from publish filter
+		node.network.publish_filter.clear (block);
+	}
+	//lock_a.lock ();
 }
 
 void nano::active_transactions::add_expired_optimistic_election (nano::election const & election_a)
@@ -1165,10 +1198,7 @@ void nano::active_transactions::erase (nano::block const & block_a)
 	auto root_it (roots.get<tag_root> ().find (block_a.qualified_root ()));
 	if (root_it != roots.get<tag_root> ().end ())
 	{
-		{
-			nano::lock_guard<std::mutex> guard (root_it->election->mutex);
-			root_it->election->cleanup ();
-		}
+		cleanup_election (lock, root_it->election->cleanup_info ());
 		roots.get<tag_root> ().erase (root_it);
 		lock.unlock ();
 		node.logger.try_log (boost::str (boost::format ("Election erased for block block %1% root %2%") % block_a.hash ().to_string () % block_a.root ().to_string ()));

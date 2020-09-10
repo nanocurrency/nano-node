@@ -244,6 +244,9 @@ private:
 	bool update_difficulty_impl (roots_iterator const &, nano::block const &);
 	void request_loop ();
 	void request_confirm (nano::unique_lock<std::mutex> &);
+	// Erase all blocks from active and, if not confirmed, clear digests from network filters
+	void cleanup_election (nano::unique_lock<std::mutex> &, nano::election_cleanup_info const &);
+
 	nano::condition_variable condition;
 	bool started{ false };
 	std::atomic<bool> stopped{ false };
