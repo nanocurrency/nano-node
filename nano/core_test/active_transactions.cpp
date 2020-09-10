@@ -272,14 +272,17 @@ TEST (active_transactions, inactive_votes_cache_existing_vote)
 	node.vote_processor.vote (vote1, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
 	ASSERT_TIMELY (5s, election->votes ().size () == 2)
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::vote_new));
-	nano::lock_guard<std::mutex> active_guard (node.active.mutex);
+	nano::unique_lock<std::mutex> active_lock (node.active.mutex);
 	auto last_vote1 (election->votes ()[key.pub]);
 	ASSERT_EQ (send->hash (), last_vote1.hash);
 	ASSERT_EQ (1, last_vote1.sequence);
 	// Attempt to change vote with inactive_votes_cache
-	node.active.add_inactive_votes_cache (send->hash (), key.pub);
-	ASSERT_EQ (1, node.active.find_inactive_votes_cache (send->hash ()).voters.size ());
-	election->insert_inactive_votes_cache (send->hash ());
+	node.active.add_inactive_votes_cache (active_lock, send->hash (), key.pub);
+	active_lock.unlock ();
+	auto cache (node.active.find_inactive_votes_cache (send->hash ()));
+	active_lock.lock ();
+	ASSERT_EQ (1, cache.voters.size ());
+	election->insert_inactive_votes_cache (cache);
 	// Check that election data is not changed
 	ASSERT_EQ (2, election->votes ().size ());
 	auto last_vote2 (election->votes ()[key.pub]);
@@ -330,18 +333,7 @@ TEST (active_transactions, inactive_votes_cache_multiple_votes)
 	node.vote_processor.vote (vote1, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
 	auto vote2 (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 0, std::vector<nano::block_hash> (1, send1->hash ())));
 	node.vote_processor.vote (vote2, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
-	system.deadline_set (5s);
-	while (true)
-	{
-		{
-			nano::lock_guard<std::mutex> active_guard (node.active.mutex);
-			if (node.active.find_inactive_votes_cache (send1->hash ()).voters.size () == 2)
-			{
-				break;
-			}
-		}
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, node.active.find_inactive_votes_cache (send1->hash ()).voters.size () == 2);
 	ASSERT_EQ (1, node.active.inactive_votes_cache_size ());
 	// Start election
 	auto election = node.active.insert (send1).election;
@@ -680,8 +672,6 @@ TEST (active_transactions, vote_replays)
 }
 }
 
-namespace nano
-{
 // Tests that blocks are correctly cleared from the duplicate filter for unconfirmed elections
 TEST (active_transactions, dropped_cleanup)
 {
@@ -711,10 +701,7 @@ TEST (active_transactions, dropped_cleanup)
 
 	// Now simulate dropping the election, which performs a cleanup in the background using the node worker
 	ASSERT_FALSE (election->confirmed ());
-	{
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
-		election->cleanup ();
-	}
+	node.active.erase (*block);
 
 	// Push a worker task to ensure the cleanup is already performed
 	std::atomic<bool> flag{ false };
@@ -725,7 +712,6 @@ TEST (active_transactions, dropped_cleanup)
 
 	// The filter must have been cleared
 	ASSERT_FALSE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
-}
 }
 
 namespace nano
@@ -1240,7 +1226,7 @@ TEST (active_transactions, conflicting_block_vote_existing_election)
 	// Election must be confirmed
 	auto election (node.active.election (fork->qualified_root ()));
 	ASSERT_NE (nullptr, election);
-	ASSERT_TRUE (election->confirmed ());
+	ASSERT_TIMELY (3s, election->confirmed ());
 }
 
 TEST (active_transactions, activate_account_chain)

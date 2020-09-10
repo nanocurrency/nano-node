@@ -212,7 +212,7 @@ public:
 
 	void add_recently_cemented (nano::election_status const &);
 	void add_recently_confirmed (nano::qualified_root const &, nano::block_hash const &);
-	void add_inactive_votes_cache (nano::block_hash const &, nano::account const &);
+	void add_inactive_votes_cache (nano::unique_lock<std::mutex> &, nano::block_hash const &, nano::account const &);
 	// Inserts an election if conditions are met
 	void trigger_inactive_votes_cache_election (std::shared_ptr<nano::block> const &);
 	nano::inactive_cache_information find_inactive_votes_cache (nano::block_hash const &);
@@ -238,7 +238,7 @@ private:
 
 	// Call action with confirmed block, may be different than what we started with
 	// clang-format off
-	nano::election_insertion_result insert_impl (std::shared_ptr<nano::block> const &, boost::optional<nano::uint128_t> const & = boost::none, nano::election_behavior = nano::election_behavior::normal, std::function<void(std::shared_ptr<nano::block>)> const & = nullptr);
+	nano::election_insertion_result insert_impl (nano::unique_lock<std::mutex> &, std::shared_ptr<nano::block> const &, boost::optional<nano::uint128_t> const & = boost::none, nano::election_behavior = nano::election_behavior::normal, std::function<void(std::shared_ptr<nano::block>)> const & = nullptr);
 	// clang-format on
 	// Returns false if the election difficulty was updated
 	bool update_difficulty_impl (roots_iterator const &, nano::block const &);
@@ -322,13 +322,13 @@ private:
 			mi::member<nano::inactive_cache_information, nano::block_hash, &nano::inactive_cache_information::hash>>>>;
 	ordered_cache inactive_votes_cache;
 	// clang-format on
-	nano::inactive_cache_status inactive_votes_bootstrap_check (std::vector<nano::account> const &, nano::block_hash const &, nano::inactive_cache_status const &);
+	nano::inactive_cache_status inactive_votes_bootstrap_check (nano::unique_lock<std::mutex> &, std::vector<nano::account> const &, nano::block_hash const &, nano::inactive_cache_status const &);
+	nano::inactive_cache_information find_inactive_votes_cache_impl (nano::block_hash const &);
 	boost::thread thread;
 
 	friend class election;
 	friend std::unique_ptr<container_info_component> collect_container_info (active_transactions &, const std::string &);
 
-	friend class active_transactions_dropped_cleanup_dev;
 	friend class active_transactions_vote_replays_Test;
 	friend class frontiers_confirmation_prioritize_frontiers_Test;
 	friend class frontiers_confirmation_prioritize_frontiers_max_optimistic_elections_Test;

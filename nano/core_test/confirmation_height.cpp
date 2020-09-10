@@ -640,8 +640,6 @@ TEST (confirmation_height, all_block_types)
 	test_mode (nano::confirmation_height_mode::unbounded);
 }
 
-namespace nano
-{
 /* Bulk of the this test was taken from the node.fork_flip test */
 TEST (confirmation_height, conflict_rollback_cemented)
 {
@@ -675,13 +673,9 @@ TEST (confirmation_height, conflict_rollback_cemented)
 		node1->block_processor.flush ();
 		node2->network.process_message (publish1, channel2);
 		node2->block_processor.flush ();
-		nano::unique_lock<std::mutex> lock (node2->active.mutex);
-		auto conflict (node2->active.roots.find (nano::qualified_root (genesis.hash (), genesis.hash ())));
-		ASSERT_NE (node2->active.roots.end (), conflict);
-		auto election1 (conflict->election);
+		auto election1 (node2->active.election (nano::qualified_root (genesis.hash (), genesis.hash ())));
 		ASSERT_NE (nullptr, election1);
 		ASSERT_EQ (1, election1->votes ().size ());
-		lock.unlock ();
 		// Force blocks to be cemented on both nodes
 		{
 			auto transaction (node1->store.tx_begin_write ());
@@ -695,27 +689,17 @@ TEST (confirmation_height, conflict_rollback_cemented)
 		}
 
 		auto rollback_log_entry = boost::str (boost::format ("Failed to roll back %1%") % send2->hash ().to_string ());
-		system.deadline_set (20s);
-		auto done (false);
-		while (!done)
-		{
-			ASSERT_NO_ERROR (system.poll ());
-			done = (sb.component ()->str ().find (rollback_log_entry) != std::string::npos);
-		}
-		auto transaction1 (node1->store.tx_begin_read ());
-		auto transaction2 (node2->store.tx_begin_read ());
-		lock.lock ();
+		ASSERT_TIMELY (20s, sb.component ()->str ().find (rollback_log_entry) != std::string::npos);
 		auto winner (*election1->tally ().begin ());
 		ASSERT_EQ (*publish1.block, *winner.second);
 		ASSERT_EQ (nano::genesis_amount - 100, winner.first);
-		ASSERT_TRUE (node1->store.block_exists (transaction1, publish1.block->hash ()));
-		ASSERT_TRUE (node2->store.block_exists (transaction2, publish2.block->hash ()));
-		ASSERT_FALSE (node2->store.block_exists (transaction2, publish1.block->hash ()));
+		ASSERT_TRUE (node1->ledger.block_exists (publish1.block->hash ()));
+		ASSERT_TRUE (node2->ledger.block_exists (publish2.block->hash ()));
+		ASSERT_FALSE (node2->ledger.block_exists (publish1.block->hash ()));
 	};
 
 	test_mode (nano::confirmation_height_mode::bounded);
 	test_mode (nano::confirmation_height_mode::unbounded);
-}
 }
 
 TEST (confirmation_heightDeathTest, rollback_added_block)

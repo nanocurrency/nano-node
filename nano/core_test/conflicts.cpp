@@ -42,13 +42,10 @@ TEST (conflicts, add_existing)
 	auto vote1 (std::make_shared<nano::vote> (key2.pub, key2.prv, 0, send2));
 	node1.active.vote (vote1);
 	ASSERT_EQ (1, node1.active.size ());
-	{
-		nano::lock_guard<std::mutex> guard (node1.active.mutex);
-		ASSERT_NE (nullptr, election1.election);
-		ASSERT_EQ (2, election1.election->votes ().size ());
-		auto votes (election1.election->votes ());
-		ASSERT_NE (votes.end (), votes.find (key2.pub));
-	}
+	ASSERT_NE (nullptr, election1.election);
+	ASSERT_EQ (2, election1.election->votes ().size ());
+	auto votes (election1.election->votes ());
+	ASSERT_NE (votes.end (), votes.find (key2.pub));
 }
 
 TEST (conflicts, add_two)
