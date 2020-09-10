@@ -241,7 +241,7 @@ bool nano::confirmation_height_bounded::iterate (nano::read_transaction const & 
 		auto source (block->source ());
 		if (source.is_zero ())
 		{
-			source = block->link ();
+			source = block->link ().as_block_hash ();
 		}
 
 		if (!source.is_zero () && !ledger.is_epoch_link (source) && ledger.store.block_exists (transaction_a, source))

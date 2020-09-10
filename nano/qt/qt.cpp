@@ -559,7 +559,7 @@ public:
 		{
 			type = "Send";
 			amount = previous_balance - balance;
-			account = block_a.hashables.link;
+			account = block_a.hashables.link.as_account ();
 		}
 		else
 		{
@@ -576,7 +576,7 @@ public:
 			else
 			{
 				type = "Receive";
-				account = ledger.account (transaction, block_a.hashables.link);
+				account = ledger.account (transaction, block_a.hashables.link.as_block_hash ());
 			}
 			amount = balance - previous_balance;
 		}
