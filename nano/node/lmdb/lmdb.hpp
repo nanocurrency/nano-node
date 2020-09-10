@@ -51,6 +51,8 @@ public:
 
 	void serialize_memory_stats (boost::property_tree::ptree &) override;
 
+	unsigned max_block_write_batch_num () const override;
+
 private:
 	nano::logger_mt & logger;
 	bool error{ false };

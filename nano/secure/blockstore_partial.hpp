@@ -331,7 +331,7 @@ public:
 		return nano::store_iterator<nano::block_hash, std::shared_ptr<nano::block>> (nullptr);
 	}
 
-	nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_end () override
+	nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_end () const override
 	{
 		return nano::store_iterator<nano::account, nano::confirmation_height_info> (nullptr);
 	}
@@ -686,12 +686,12 @@ public:
 		return make_iterator<nano::endpoint_key, nano::no_value> (transaction_a, tables::peers);
 	}
 
-	nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_begin (nano::transaction const & transaction_a, nano::account const & account_a) override
+	nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_begin (nano::transaction const & transaction_a, nano::account const & account_a) const override
 	{
 		return make_iterator<nano::account, nano::confirmation_height_info> (transaction_a, tables::confirmation_height, nano::db_val<Val> (account_a));
 	}
 
-	nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_begin (nano::transaction const & transaction_a) override
+	nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_begin (nano::transaction const & transaction_a) const override
 	{
 		return make_iterator<nano::account, nano::confirmation_height_info> (transaction_a, tables::confirmation_height);
 	}

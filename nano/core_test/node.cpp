@@ -72,11 +72,20 @@ TEST (node_DeathTest, DISABLED_readonly_block_store_not_exist)
 TEST (node_DeathTest, readonly_block_store_not_exist)
 #endif
 {
-	// For ASSERT_DEATH_IF_SUPPORTED
-	testing::FLAGS_gtest_death_test_style = "threadsafe";
-
 	// This is a read-only node with no ledger file
-	ASSERT_EXIT (nano::inactive_node (nano::unique_path (), nano::inactive_node_flag_defaults ()), ::testing::ExitedWithCode (1), "");
+#if NANO_ROCKSDB
+	if (nano::using_rocksdb_in_tests ())
+	{
+		nano::inactive_node node (nano::unique_path (), nano::inactive_node_flag_defaults ());
+		ASSERT_TRUE (node.node->init_error ());
+	}
+	else
+	{
+		ASSERT_EXIT (nano::inactive_node node (nano::unique_path (), nano::inactive_node_flag_defaults ()), ::testing::ExitedWithCode (1), "");
+	}
+#else
+	ASSERT_EXIT (nano::inactive_node node (nano::unique_path (), nano::inactive_node_flag_defaults ()), ::testing::ExitedWithCode (1), "");
+#endif
 }
 
 TEST (node, password_fanout)
@@ -3358,6 +3367,7 @@ TEST (node, block_processor_full)
 {
 	nano::system system;
 	nano::node_flags node_flags;
+	node_flags.force_use_write_database_queue = true;
 	node_flags.block_processor_full_size = 3;
 	auto & node = *system.add_node (nano::node_config (nano::get_available_port (), system.logging), node_flags);
 	nano::genesis genesis;
@@ -3405,6 +3415,7 @@ TEST (node, block_processor_half_full)
 	nano::system system;
 	nano::node_flags node_flags;
 	node_flags.block_processor_full_size = 6;
+	node_flags.force_use_write_database_queue = true;
 	auto & node = *system.add_node (nano::node_config (nano::get_available_port (), system.logging), node_flags);
 	nano::genesis genesis;
 	nano::state_block_builder builder;
