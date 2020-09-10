@@ -212,6 +212,7 @@ public:
 
 	void add_recently_cemented (nano::election_status const &);
 	void add_recently_confirmed (nano::qualified_root const &, nano::block_hash const &);
+	void erase_recently_confirmed (nano::block_hash const &);
 	void add_inactive_votes_cache (nano::unique_lock<std::mutex> &, nano::block_hash const &, nano::account const &);
 	// Inserts an election if conditions are met
 	void trigger_inactive_votes_cache_election (std::shared_ptr<nano::block> const &);
