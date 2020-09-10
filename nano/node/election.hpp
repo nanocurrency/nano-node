@@ -66,7 +66,7 @@ private: // State management
 	static unsigned constexpr confirmed_duration_factor = 5;
 	std::atomic<nano::election::state_t> state_m = { state_t::passive };
 
-	std::atomic<std::chrono::steady_clock::time_point> state_start = { std::chrono::steady_clock::now () };
+	std::atomic<std::chrono::steady_clock::time_point> state_start{ std::chrono::steady_clock::now () };
 
 	// These are modified while not holding the mutex from transition_time only
 	std::chrono::steady_clock::time_point last_block = { std::chrono::steady_clock::now () };
@@ -96,7 +96,7 @@ public: // Interface
 	election (nano::node &, std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const &, bool, nano::election_behavior);
 	std::shared_ptr<nano::block> find (nano::block_hash const &);
 	nano::election_vote_result vote (nano::account const &, uint64_t, nano::block_hash const &);
-	bool publish (std::shared_ptr<nano::block> const & block_a, nano::inactive_cache_information const &);
+	bool publish (std::shared_ptr<nano::block> const & block_a);
 	size_t insert_inactive_votes_cache (nano::inactive_cache_information const &);
 	// Confirm this block if quorum is met
 	void confirm_if_quorum (nano::unique_lock<std::mutex> &);
@@ -113,7 +113,6 @@ private:
 	void generate_votes ();
 	void remove_votes (nano::block_hash const &);
 	void transition_active_impl ();
-	size_t insert_inactive_votes_cache_impl (nano::unique_lock<std::mutex> &, nano::inactive_cache_information const &);
 	nano::election_cleanup_info cleanup_info_impl () const;
 
 public:

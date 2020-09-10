@@ -395,7 +395,7 @@ nano::election_vote_result nano::election::vote (nano::account const & rep, uint
 	return nano::election_vote_result (replay, should_process);
 }
 
-bool nano::election::publish (std::shared_ptr<nano::block> const & block_a, nano::inactive_cache_information const & cache_a)
+bool nano::election::publish (std::shared_ptr<nano::block> const & block_a)
 {
 	nano::unique_lock<std::mutex> lock (mutex);
 
@@ -414,12 +414,6 @@ bool nano::election::publish (std::shared_ptr<nano::block> const & block_a, nano
 		if (existing == last_blocks.end ())
 		{
 			last_blocks.emplace (std::make_pair (block_a->hash (), block_a));
-			if (!insert_inactive_votes_cache_impl (lock, cache_a))
-			{
-				// Even if no votes were in cache, they could be in the election
-				confirm_if_quorum (lock);
-			}
-			node.network.flood_block (block_a, nano::buffer_drop_policy::no_limiter_drop);
 		}
 		else
 		{
@@ -453,11 +447,6 @@ nano::election_cleanup_info nano::election::cleanup_info_impl () const
 size_t nano::election::insert_inactive_votes_cache (nano::inactive_cache_information const & cache_a)
 {
 	nano::unique_lock<std::mutex> lock (mutex);
-	return insert_inactive_votes_cache_impl (lock, cache_a);
-}
-
-size_t nano::election::insert_inactive_votes_cache_impl (nano::unique_lock<std::mutex> & lock_a, nano::inactive_cache_information const & cache_a)
-{
 	for (auto const & rep : cache_a.voters)
 	{
 		auto inserted (last_votes.emplace (rep, nano::vote_info{ std::chrono::steady_clock::time_point::min (), 0, cache_a.hash }));
@@ -466,15 +455,22 @@ size_t nano::election::insert_inactive_votes_cache_impl (nano::unique_lock<std::
 			node.stats.inc (nano::stat::type::election, nano::stat::detail::vote_cached);
 		}
 	}
-	if (!confirmed () && !cache_a.voters.empty ())
+	if (!confirmed ())
 	{
-		auto delay (std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - cache_a.arrival));
-		if (delay > late_blocks_delay)
+		if (!cache_a.voters.empty ())
 		{
-			node.stats.inc (nano::stat::type::election, nano::stat::detail::late_block);
-			node.stats.add (nano::stat::type::election, nano::stat::detail::late_block_seconds, nano::stat::dir::in, delay.count (), true);
+			auto delay (std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - cache_a.arrival));
+			if (delay > late_blocks_delay)
+			{
+				node.stats.inc (nano::stat::type::election, nano::stat::detail::late_block);
+				node.stats.add (nano::stat::type::election, nano::stat::detail::late_block_seconds, nano::stat::dir::in, delay.count (), true);
+			}
 		}
-		confirm_if_quorum (lock_a);
+		if (last_votes.size () > 1) // not_an_account
+		{
+			// Even if no votes were in cache, they could be in the election
+			confirm_if_quorum (lock);
+		}
 	}
 	return cache_a.voters.size ();
 }
