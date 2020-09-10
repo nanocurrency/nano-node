@@ -284,6 +284,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	bool const check_all_elections_l (std::chrono::steady_clock::now () - last_check_all_elections > check_all_elections_period);
 	size_t const this_loop_target_l (check_all_elections_l ? roots.size () : prioritized_cutoff);
 	std::vector<std::shared_ptr<nano::election>> elections_l;
+	elections_l.reserve (this_loop_target_l);
 	{
 		auto & sorted_roots_l (roots.get<tag_difficulty> ());
 		size_t count_l{ 0 };
@@ -362,7 +363,6 @@ void nano::active_transactions::cleanup_election (nano::unique_lock<std::mutex> 
 		recently_dropped.add (info_a.root);
 	}
 
-	std::vector<nano::block_hash> hashes_lost;
 	for (auto const & [hash, block] : info_a.blocks)
 	{
 		auto erased (blocks.erase (hash));
