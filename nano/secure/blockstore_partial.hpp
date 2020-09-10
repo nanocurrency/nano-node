@@ -10,8 +10,8 @@
 
 namespace
 {
-template <typename T, typename U, typename V>
-void parallel_traversal (std::function<void(V const &, V const &, bool const)> action);
+template <typename T>
+void parallel_traversal (std::function<void(T const &, T const &, bool const)> action);
 }
 
 namespace nano
@@ -711,7 +711,7 @@ public:
 
 	void latest_for_each_par (std::function<void(nano::store_iterator<nano::account, nano::account_info>, nano::store_iterator<nano::account, nano::account_info>)> action_a) override
 	{
-		parallel_traversal<nano::account, nano::account_info, nano::uint256_t> (
+		parallel_traversal<nano::uint256_t> (
 		[&action_a, this](nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
 			auto transaction (this->tx_begin_read ());
 			action_a (this->latest_begin (transaction, start), !is_last ? this->latest_begin (transaction, end) : this->latest_end ());
@@ -720,7 +720,7 @@ public:
 
 	void confirmation_height_for_each_par (std::function<void(nano::store_iterator<nano::account, nano::confirmation_height_info>, nano::store_iterator<nano::account, nano::confirmation_height_info>)> action_a) override
 	{
-		parallel_traversal<nano::account, nano::confirmation_height_info, nano::uint256_t> (
+		parallel_traversal<nano::uint256_t> (
 		[&action_a, this](nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
 			auto transaction (this->tx_begin_read ());
 			action_a (this->confirmation_height_begin (transaction, start), !is_last ? this->confirmation_height_begin (transaction, end) : this->confirmation_height_end ());
@@ -851,19 +851,19 @@ public:
 
 namespace
 {
-template <typename T, typename U, typename V>
-void parallel_traversal (std::function<void(V const &, V const &, bool const)> action)
+template <typename T>
+void parallel_traversal (std::function<void(T const &, T const &, bool const)> action)
 {
 	// Between 10 and 40 threads, scales well even in low power systems as long as actions are I/O bound
 	unsigned const thread_count = std::max (10u, std::min (40u, 10 * std::thread::hardware_concurrency ()));
-	V const value_max{ std::numeric_limits<V>::max () };
-	V const split = value_max / thread_count;
+	T const value_max{ std::numeric_limits<T>::max () };
+	T const split = value_max / thread_count;
 	std::vector<std::thread> threads;
 	threads.reserve (thread_count);
 	for (unsigned thread (0); thread < thread_count; ++thread)
 	{
-		V const start = thread * split;
-		V const end = (thread + 1) * split;
+		T const start = thread * split;
+		T const end = (thread + 1) * split;
 		bool const is_last = thread == thread_count - 1;
 
 		threads.emplace_back ([&action, start, end, is_last] {
