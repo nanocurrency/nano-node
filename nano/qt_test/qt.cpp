@@ -465,7 +465,7 @@ TEST (wallet, create_change)
 
 TEST (history, short_text)
 {
-	if (nano::is_rocksdb_test ())
+	if (nano::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;

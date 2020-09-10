@@ -11,7 +11,7 @@ using namespace std::chrono_literals;
 // Init returns an error if it can't open files at the path
 TEST (ledger, store_error)
 {
-	if (nano::is_rocksdb_test ())
+	if (nano::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;

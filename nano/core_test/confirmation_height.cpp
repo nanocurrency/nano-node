@@ -729,7 +729,7 @@ TEST (confirmation_height, conflict_rollback_cemented)
 
 TEST (confirmation_heightDeathTest, rollback_added_block)
 {
-	if (nano::is_rocksdb_test ())
+	if (nano::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -806,7 +806,7 @@ TEST (confirmation_height, observers)
 // This tests when a read has been done, but the block no longer exists by the time a write is done
 TEST (confirmation_heightDeathTest, modified_chain)
 {
-	if (nano::is_rocksdb_test ())
+	if (nano::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -877,7 +877,7 @@ TEST (confirmation_heightDeathTest, modified_chain)
 // This tests when a read has been done, but the account no longer exists by the time a write is done
 TEST (confirmation_heightDeathTest, modified_chain_account_removed)
 {
-	if (nano::is_rocksdb_test ())
+	if (nano::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -1398,7 +1398,7 @@ TEST (confirmation_height, election_winner_details_clearing_node_process_confirm
 
 TEST (confirmation_height, unbounded_block_cache_iteration)
 {
-	if (nano::is_rocksdb_test ())
+	if (nano::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;

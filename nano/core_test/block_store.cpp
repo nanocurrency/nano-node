@@ -373,7 +373,7 @@ TEST (bootstrap, simple)
 
 TEST (unchecked, multiple)
 {
-	if (nano::is_rocksdb_test ())
+	if (nano::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -659,7 +659,7 @@ TEST (block_store, latest_find)
 
 TEST (mdb_block_store, supported_version_upgrades)
 {
-	if (nano::is_rocksdb_test ())
+	if (nano::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -710,7 +710,7 @@ TEST (mdb_block_store, supported_version_upgrades)
 
 TEST (mdb_block_store, bad_path)
 {
-	if (nano::is_rocksdb_test ())
+	if (nano::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -1042,7 +1042,7 @@ TEST (block_store, state_block)
 
 TEST (mdb_block_store, sideband_height)
 {
-	if (nano::is_rocksdb_test ())
+	if (nano::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -1234,7 +1234,7 @@ TEST (block_store, online_weight)
 
 TEST (mdb_block_store, upgrade_v14_v15)
 {
-	if (nano::is_rocksdb_test ())
+	if (nano::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -1347,7 +1347,7 @@ TEST (mdb_block_store, upgrade_v14_v15)
 
 TEST (mdb_block_store, upgrade_v15_v16)
 {
-	if (nano::is_rocksdb_test ())
+	if (nano::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -1393,7 +1393,7 @@ TEST (mdb_block_store, upgrade_v15_v16)
 
 TEST (mdb_block_store, upgrade_v16_v17)
 {
-	if (nano::is_rocksdb_test ())
+	if (nano::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -1457,7 +1457,7 @@ TEST (mdb_block_store, upgrade_v16_v17)
 
 TEST (mdb_block_store, upgrade_v17_v18)
 {
-	if (nano::is_rocksdb_test ())
+	if (nano::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -1661,7 +1661,7 @@ TEST (mdb_block_store, upgrade_v17_v18)
 
 TEST (mdb_block_store, upgrade_v18_v19)
 {
-	if (nano::is_rocksdb_test ())
+	if (nano::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -1754,7 +1754,7 @@ TEST (mdb_block_store, upgrade_v18_v19)
 
 TEST (mdb_block_store, upgrade_backup)
 {
-	if (nano::is_rocksdb_test ())
+	if (nano::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -1796,7 +1796,7 @@ TEST (mdb_block_store, upgrade_backup)
 // Test various confirmation height values as well as clearing them
 TEST (block_store, confirmation_height)
 {
-	if (nano::is_rocksdb_test ())
+	if (nano::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
