@@ -73,7 +73,6 @@ TEST (node_DeathTest, readonly_block_store_not_exist)
 #endif
 {
 	// This is a read-only node with no ledger file
-#if NANO_ROCKSDB
 	if (nano::using_rocksdb_in_tests ())
 	{
 		nano::inactive_node node (nano::unique_path (), nano::inactive_node_flag_defaults ());
@@ -83,9 +82,6 @@ TEST (node_DeathTest, readonly_block_store_not_exist)
 	{
 		ASSERT_EXIT (nano::inactive_node node (nano::unique_path (), nano::inactive_node_flag_defaults ()), ::testing::ExitedWithCode (1), "");
 	}
-#else
-	ASSERT_EXIT (nano::inactive_node node (nano::unique_path (), nano::inactive_node_flag_defaults ()), ::testing::ExitedWithCode (1), "");
-#endif
 }
 
 TEST (node, password_fanout)
@@ -3686,6 +3682,13 @@ TEST (node, dont_write_lock_node)
 
 TEST (node, bidirectional_tcp)
 {
+#ifdef _WIN32
+	if (nano::using_rocksdb_in_tests ())
+	{
+		// Don't test this in rocksdb mode
+		return;
+	}
+#endif
 	nano::system system;
 	nano::node_flags node_flags;
 	// Disable bootstrap to start elections for new blocks
