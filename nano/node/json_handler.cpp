@@ -1056,10 +1056,7 @@ void nano::json_handler::block_confirm ()
 			{
 				// Add record in confirmation history for confirmed block
 				nano::election_status status{ block_l, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::active_confirmation_height };
-				{
-					nano::lock_guard<std::mutex> lock (node.active.mutex);
-					node.active.add_recently_cemented (status);
-				}
+				node.active.add_recently_cemented (status);
 				// Trigger callback for confirmed block
 				node.block_arrival.add (hash);
 				auto account (node.ledger.account (transaction, hash));

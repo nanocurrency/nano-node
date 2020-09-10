@@ -204,10 +204,7 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 				election_winners_lk.unlock ();
 				if (election->confirmed () && election->winner ()->hash () == hash)
 				{
-					{
-						nano::lock_guard<std::mutex> guard (mutex);
-						add_recently_cemented (election->status);
-					}
+					add_recently_cemented (election->status);
 					node.receive_confirmed (transaction, block_a, hash);
 					nano::account account (0);
 					nano::uint128_t amount (0);
@@ -1180,6 +1177,7 @@ std::deque<nano::election_status> nano::active_transactions::list_recently_cemen
 
 void nano::active_transactions::add_recently_cemented (nano::election_status const & status_a)
 {
+	nano::lock_guard<std::mutex> lock (mutex);
 	recently_cemented.push_back (status_a);
 	if (recently_cemented.size () > node.config.confirmation_history_size)
 	{
