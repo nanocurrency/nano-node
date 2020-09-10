@@ -960,7 +960,7 @@ int main (int argc, char * const * argv)
 
 					auto send = builder.state ()
 					            .account (keys[j].pub)
-					            .previous (frontiers[j])
+					            .previous (frontiers[j].as_block_hash ())
 					            .representative (keys[j].pub)
 					            .balance (balances[j])
 					            .link (keys[other].pub)
@@ -975,10 +975,10 @@ int main (int argc, char * const * argv)
 
 					auto receive = builder.state ()
 					               .account (keys[other].pub)
-					               .previous (frontiers[other])
+					               .previous (frontiers[other].as_block_hash ())
 					               .representative (keys[other].pub)
 					               .balance (balances[other])
-					               .link (static_cast<nano::block_hash const &> (frontiers[j]))
+					               .link (frontiers[j].as_block_hash ())
 					               .sign (keys[other].prv, keys[other].pub)
 					               .work (*work.generate (nano::work_version::work_1, frontiers[other], node->network_params.network.publish_thresholds.epoch_1))
 					               .build ();
@@ -1567,7 +1567,7 @@ int main (int argc, char * const * argv)
 								{
 									// State receive
 									block_details_error = !sideband.details.is_receive || sideband.details.is_send || sideband.details.is_epoch;
-									block_details_error |= !node->ledger.block_or_pruned_exists (transaction, block->link ());
+									block_details_error |= !node->ledger.block_or_pruned_exists (transaction, block->link ().as_block_hash ());
 								}
 							}
 						}
@@ -1583,7 +1583,7 @@ int main (int argc, char * const * argv)
 					// Check link epoch version
 					if (sideband.details.is_receive && (!node->flags.enable_pruning || !node->store.pruned_exists (transaction, block->link ())))
 					{
-						if (sideband.source_epoch != node->store.block_version (transaction, block->link ()))
+						if (sideband.source_epoch != node->store.block_version (transaction, block->link ().as_block_hash ()))
 						{
 							print_error_message (boost::str (boost::format ("Incorrect source epoch for block %1%\n") % hash.to_string ()));
 						}
@@ -1723,7 +1723,7 @@ int main (int argc, char * const * argv)
 					{
 						if (node->ledger.is_send (transaction, *state))
 						{
-							destination = state->hashables.link;
+							destination = state->hashables.link.as_account ();
 						}
 					}
 					else if (auto send = dynamic_cast<nano::send_block *> (block.get ()))

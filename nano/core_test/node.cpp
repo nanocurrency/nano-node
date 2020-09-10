@@ -3046,7 +3046,7 @@ TEST (node, epoch_conflict_confirm)
 	             .work (*system.work.generate (send->hash ()))
 	             .build_shared ();
 	auto epoch_open = builder.make_block ()
-	                  .account (change->root ())
+	                  .account (change->root ().as_account ())
 	                  .previous (0)
 	                  .representative (0)
 	                  .balance (0)
