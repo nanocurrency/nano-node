@@ -474,7 +474,7 @@ TEST (node, connect_after_junk)
 	std::vector<uint8_t> junk_buffer;
 	junk_buffer.push_back (0);
 	auto channel1 (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, node0->network.endpoint (), node1->network_params.protocol.protocol_version));
-	channel1->send_buffer (nano::shared_const_buffer (std::move (junk_buffer)), nano::stat::detail::bulk_pull, [](boost::system::error_code const &, size_t) {});
+	channel1->send_buffer (nano::shared_const_buffer (std::move (junk_buffer)), [](boost::system::error_code const &, size_t) {});
 	ASSERT_TIMELY (10s, node0->stats.count (nano::stat::type::error) != 0);
 	node1->start ();
 	system.nodes.push_back (node1);
@@ -1566,7 +1566,7 @@ TEST (node, fork_no_vote_quorum)
 		confirm.serialize (stream, false);
 	}
 	nano::transport::channel_udp channel (node2.network.udp_channels, node3.network.endpoint (), node1.network_params.protocol.protocol_version);
-	channel.send_buffer (nano::shared_const_buffer (std::move (buffer)), nano::stat::detail::confirm_ack);
+	channel.send_buffer (nano::shared_const_buffer (std::move (buffer)));
 	ASSERT_TIMELY (10s, node3.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::in) >= 3);
 	ASSERT_TRUE (node1.latest (nano::dev_genesis_key.pub) == send1.hash ());
 	ASSERT_TRUE (node2.latest (nano::dev_genesis_key.pub) == send1.hash ());
@@ -3048,7 +3048,7 @@ TEST (node, epoch_conflict_confirm)
 	             .work (*system.work.generate (send->hash ()))
 	             .build_shared ();
 	auto epoch_open = builder.make_block ()
-	                  .account (change->root ())
+	                  .account (change->root ().as_account ())
 	                  .previous (0)
 	                  .representative (0)
 	                  .balance (0)
@@ -4537,6 +4537,51 @@ TEST (node, default_difficulty)
 	nano::upgrade_epoch (system.work, node.ledger, nano::epoch::epoch_2);
 	ASSERT_EQ (thresholds.epoch_2, node.default_difficulty (nano::work_version::work_1));
 	ASSERT_EQ (thresholds.epoch_2_receive, node.default_receive_difficulty (nano::work_version::work_1));
+}
+
+TEST (rep_crawler, recently_confirmed)
+{
+	nano::system system (1);
+	auto & node1 (*system.nodes[0]);
+	ASSERT_EQ (1, node1.ledger.cache.block_count);
+	auto const block = nano::genesis ().open;
+	{
+		nano::lock_guard<std::mutex> guard (node1.active.mutex);
+		node1.active.add_recently_confirmed (block->qualified_root (), block->hash ());
+	}
+	auto & node2 (*system.add_node ());
+	system.wallet (1)->insert_adhoc (nano::dev_genesis_key.prv);
+	auto channel = node1.network.find_channel (node2.network.endpoint ());
+	ASSERT_NE (nullptr, channel);
+	node1.rep_crawler.query (channel);
+	ASSERT_TIMELY (3s, node1.rep_crawler.representative_count () == 1);
+}
+
+TEST (online_reps, backup)
+{
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_TRUE (!store->init_error ());
+	nano::stat stats;
+	nano::ledger ledger (*store, stats);
+	{
+		nano::genesis genesis;
+		auto transaction (store->tx_begin_write ());
+		store->initialize (transaction, genesis, ledger.cache);
+	}
+	nano::network_params params;
+	nano::online_reps online_reps (ledger, params, 0);
+	ASSERT_EQ (0, online_reps.list ().size ());
+	online_reps.observe (nano::dev_genesis_key.pub);
+	// The reported list of online reps is the union of the current list and the backup list, which changes when sampling
+	ASSERT_EQ (1, online_reps.list ().size ());
+	ASSERT_TRUE (online_reps.online_stake ().is_zero ());
+	online_reps.sample ();
+	ASSERT_EQ (1, online_reps.list ().size ());
+	// The trend is also correctly updated
+	ASSERT_EQ (nano::genesis_amount, online_reps.online_stake ());
+	online_reps.sample ();
+	ASSERT_EQ (0, online_reps.list ().size ());
 }
 
 namespace

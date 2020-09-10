@@ -186,12 +186,13 @@ std::vector<std::shared_ptr<nano::block>> nano::request_aggregator::aggregate (s
 			if (block == nullptr && !hash_root.second.is_zero ())
 			{
 				// Search for block root
-				auto successor (ledger.store.block_successor (transaction, hash_root.second));
+				auto successor (ledger.store.block_successor (transaction, hash_root.second.as_block_hash ()));
+
 				// Search for account root
 				if (successor.is_zero ())
 				{
 					nano::account_info info;
-					auto error (ledger.store.account_get (transaction, hash_root.second, info));
+					auto error (ledger.store.account_get (transaction, hash_root.second.as_account (), info));
 					if (!error)
 					{
 						successor = info.open_block;
