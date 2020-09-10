@@ -4,6 +4,7 @@
 #include <nano/lib/utility.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/testing.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/utility.hpp>
 #include <nano/secure/versioning.hpp>
@@ -373,17 +374,17 @@ TEST (bootstrap, simple)
 TEST (unchecked, multiple)
 {
 	nano::logger_mt logger;
-	nano::mdb_store store (logger, nano::unique_path ());
-	ASSERT_TRUE (!store.init_error ());
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_TRUE (!store->init_error ());
 	auto block1 (std::make_shared<nano::send_block> (4, 1, 2, nano::keypair ().prv, 4, 5));
-	auto transaction (store.tx_begin_write ());
-	auto block2 (store.unchecked_get (transaction, block1->previous ()));
+	auto transaction (store->tx_begin_write ());
+	auto block2 (store->unchecked_get (transaction, block1->previous ()));
 	ASSERT_TRUE (block2.empty ());
-	store.unchecked_put (transaction, block1->previous (), block1);
-	store.unchecked_put (transaction, block1->source (), block1);
-	auto block3 (store.unchecked_get (transaction, block1->previous ()));
+	store->unchecked_put (transaction, block1->previous (), block1);
+	store->unchecked_put (transaction, block1->source (), block1);
+	auto block3 (store->unchecked_get (transaction, block1->previous ()));
 	ASSERT_FALSE (block3.empty ());
-	auto block4 (store.unchecked_get (transaction, block1->source ()));
+	auto block4 (store->unchecked_get (transaction, block1->source ()));
 	ASSERT_FALSE (block4.empty ());
 }
 
@@ -1747,7 +1748,7 @@ TEST (block_store, confirmation_height)
 {
 	auto path (nano::unique_path ());
 	nano::logger_mt logger;
-	nano::mdb_store store (logger, path);
+	auto store = nano::make_store (logger, path);
 
 	nano::account account1 (0);
 	nano::account account2 (1);
@@ -1756,35 +1757,35 @@ TEST (block_store, confirmation_height)
 	nano::block_hash cemented_frontier2 (4);
 	nano::block_hash cemented_frontier3 (5);
 	{
-		auto transaction (store.tx_begin_write ());
-		store.confirmation_height_put (transaction, account1, { 500, cemented_frontier1 });
-		store.confirmation_height_put (transaction, account2, { std::numeric_limits<uint64_t>::max (), cemented_frontier2 });
-		store.confirmation_height_put (transaction, account3, { 10, cemented_frontier3 });
+		auto transaction (store->tx_begin_write ());
+		store->confirmation_height_put (transaction, account1, { 500, cemented_frontier1 });
+		store->confirmation_height_put (transaction, account2, { std::numeric_limits<uint64_t>::max (), cemented_frontier2 });
+		store->confirmation_height_put (transaction, account3, { 10, cemented_frontier3 });
 
 		nano::confirmation_height_info confirmation_height_info;
-		ASSERT_FALSE (store.confirmation_height_get (transaction, account1, confirmation_height_info));
+		ASSERT_FALSE (store->confirmation_height_get (transaction, account1, confirmation_height_info));
 		ASSERT_EQ (confirmation_height_info.height, 500);
 		ASSERT_EQ (confirmation_height_info.frontier, cemented_frontier1);
-		ASSERT_FALSE (store.confirmation_height_get (transaction, account2, confirmation_height_info));
+		ASSERT_FALSE (store->confirmation_height_get (transaction, account2, confirmation_height_info));
 		ASSERT_EQ (confirmation_height_info.height, std::numeric_limits<uint64_t>::max ());
 		ASSERT_EQ (confirmation_height_info.frontier, cemented_frontier2);
-		ASSERT_FALSE (store.confirmation_height_get (transaction, account3, confirmation_height_info));
+		ASSERT_FALSE (store->confirmation_height_get (transaction, account3, confirmation_height_info));
 		ASSERT_EQ (confirmation_height_info.height, 10);
 		ASSERT_EQ (confirmation_height_info.frontier, cemented_frontier3);
 
 		// Check cleaning of confirmation heights
-		store.confirmation_height_clear (transaction);
+		store->confirmation_height_clear (transaction);
 	}
-	auto transaction (store.tx_begin_read ());
-	ASSERT_EQ (store.confirmation_height_count (transaction), 3);
+	auto transaction (store->tx_begin_read ());
+	ASSERT_EQ (store->confirmation_height_count (transaction), 3);
 	nano::confirmation_height_info confirmation_height_info;
-	ASSERT_FALSE (store.confirmation_height_get (transaction, account1, confirmation_height_info));
+	ASSERT_FALSE (store->confirmation_height_get (transaction, account1, confirmation_height_info));
 	ASSERT_EQ (confirmation_height_info.height, 0);
 	ASSERT_EQ (confirmation_height_info.frontier, nano::block_hash (0));
-	ASSERT_FALSE (store.confirmation_height_get (transaction, account2, confirmation_height_info));
+	ASSERT_FALSE (store->confirmation_height_get (transaction, account2, confirmation_height_info));
 	ASSERT_EQ (confirmation_height_info.height, 0);
 	ASSERT_EQ (confirmation_height_info.frontier, nano::block_hash (0));
-	ASSERT_FALSE (store.confirmation_height_get (transaction, account3, confirmation_height_info));
+	ASSERT_FALSE (store->confirmation_height_get (transaction, account3, confirmation_height_info));
 	ASSERT_EQ (confirmation_height_info.height, 0);
 	ASSERT_EQ (confirmation_height_info.frontier, nano::block_hash (0));
 }
@@ -1871,6 +1872,27 @@ TEST (block_store, rocksdb_force_test_env_variable)
 #else
 	ASSERT_NE (mdb_cast, nullptr);
 #endif
+}
+
+namespace nano
+{
+TEST (rocksdb_block_store, tombstone_count)
+{
+#if NANO_ROCKSDB
+	if (nano::using_rocksdb_in_tests ())
+	{
+		nano::logger_mt logger;
+		auto store = std::make_unique<nano::rocksdb_store> (logger, nano::unique_path ());
+		ASSERT_TRUE (!store->init_error ());
+		auto transaction = store->tx_begin_write ();
+		auto block1 (std::make_shared<nano::send_block> (0, 1, 2, nano::keypair ().prv, 4, 5));
+		store->unchecked_put (transaction, block1->previous (), block1);
+		ASSERT_EQ (store->tombstone_map.at (nano::tables::unchecked).num_since_last_flush.load (), 0);
+		store->unchecked_del (transaction, nano::unchecked_key (block1->previous (), block1->hash ()));
+		ASSERT_EQ (store->tombstone_map.at (nano::tables::unchecked).num_since_last_flush.load (), 1);
+	}
+#endif
+}
 }
 
 namespace

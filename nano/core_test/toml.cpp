@@ -169,6 +169,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.work_watcher_period, defaults.node.work_watcher_period);
 	ASSERT_EQ (conf.node.online_weight_minimum, defaults.node.online_weight_minimum);
 	ASSERT_EQ (conf.node.online_weight_quorum, defaults.node.online_weight_quorum);
+	ASSERT_EQ (conf.node.election_hint_weight_percent, defaults.node.election_hint_weight_percent);
 	ASSERT_EQ (conf.node.password_fanout, defaults.node.password_fanout);
 	ASSERT_EQ (conf.node.peering_port, defaults.node.peering_port);
 	ASSERT_EQ (conf.node.pow_sleep_interval, defaults.node.pow_sleep_interval);
@@ -404,6 +405,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	network_threads = 999
 	online_weight_minimum = "999"
 	online_weight_quorum = 99
+	election_hint_weight_percent = 19
 	password_fanout = 999
 	peering_port = 999
 	pow_sleep_interval= 999
@@ -568,6 +570,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.work_watcher_period, defaults.node.work_watcher_period);
 	ASSERT_NE (conf.node.online_weight_minimum, defaults.node.online_weight_minimum);
 	ASSERT_NE (conf.node.online_weight_quorum, defaults.node.online_weight_quorum);
+	ASSERT_NE (conf.node.election_hint_weight_percent, defaults.node.election_hint_weight_percent);
 	ASSERT_NE (conf.node.password_fanout, defaults.node.password_fanout);
 	ASSERT_NE (conf.node.peering_port, defaults.node.peering_port);
 	ASSERT_NE (conf.node.pow_sleep_interval, defaults.node.pow_sleep_interval);
@@ -757,32 +760,66 @@ TEST (toml, rpc_config_no_required)
 /** Deserialize a node config with incorrect values */
 TEST (toml, daemon_config_deserialize_errors)
 {
-	std::stringstream ss_max_work_generate_multiplier;
-	ss_max_work_generate_multiplier << R"toml(
-	[node]
-	max_work_generate_multiplier = 0.9
-	)toml";
+	{
+		std::stringstream ss;
+		ss << R"toml(
+		[node]
+		max_work_generate_multiplier = 0.9
+		)toml";
 
-	nano::tomlconfig toml;
-	toml.read (ss_max_work_generate_multiplier);
-	nano::daemon_config conf;
-	conf.deserialize_toml (toml);
+		nano::tomlconfig toml;
+		toml.read (ss);
+		nano::daemon_config conf;
+		conf.deserialize_toml (toml);
 
-	ASSERT_EQ (toml.get_error ().get_message (), "max_work_generate_multiplier must be greater than or equal to 1");
+		ASSERT_EQ (toml.get_error ().get_message (), "max_work_generate_multiplier must be greater than or equal to 1");
+	}
 
-	std::stringstream ss_frontiers_confirmation;
-	ss_frontiers_confirmation << R"toml(
-	[node]
-	frontiers_confirmation = "randomstring"
-	)toml";
+	{
+		std::stringstream ss;
+		ss << R"toml(
+		[node]
+		frontiers_confirmation = "randomstring"
+		)toml";
 
-	nano::tomlconfig toml2;
-	toml2.read (ss_frontiers_confirmation);
-	nano::daemon_config conf2;
-	conf2.deserialize_toml (toml2);
+		nano::tomlconfig toml;
+		toml.read (ss);
+		nano::daemon_config conf;
+		conf.deserialize_toml (toml);
 
-	ASSERT_EQ (toml2.get_error ().get_message (), "frontiers_confirmation value is invalid (available: always, auto, disabled)");
-	ASSERT_EQ (conf2.node.frontiers_confirmation, nano::frontiers_confirmation_mode::invalid);
+		ASSERT_EQ (toml.get_error ().get_message (), "frontiers_confirmation value is invalid (available: always, auto, disabled)");
+		ASSERT_EQ (conf.node.frontiers_confirmation, nano::frontiers_confirmation_mode::invalid);
+	}
+
+	{
+		std::stringstream ss;
+		ss << R"toml(
+		[node]
+		election_hint_weight_percent = 4
+		)toml";
+
+		nano::tomlconfig toml;
+		toml.read (ss);
+		nano::daemon_config conf;
+		conf.deserialize_toml (toml);
+
+		ASSERT_EQ (toml.get_error ().get_message (), "election_hint_weight_percent must be a number between 5 and 50");
+	}
+
+	{
+		std::stringstream ss;
+		ss << R"toml(
+		[node]
+		election_hint_weight_percent = 51
+		)toml";
+
+		nano::tomlconfig toml;
+		toml.read (ss);
+		nano::daemon_config conf;
+		conf.deserialize_toml (toml);
+
+		ASSERT_EQ (toml.get_error ().get_message (), "election_hint_weight_percent must be a number between 5 and 50");
+	}
 }
 
 TEST (toml, daemon_read_config)

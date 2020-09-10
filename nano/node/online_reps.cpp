@@ -39,6 +39,7 @@ void nano::online_reps::sample ()
 	std::unordered_set<nano::account> reps_copy;
 	{
 		nano::lock_guard<std::mutex> lock (mutex);
+		last_reps = reps;
 		reps_copy.swap (reps);
 	}
 	for (auto & i : reps_copy)
@@ -76,8 +77,13 @@ nano::uint128_t nano::online_reps::online_stake () const
 std::vector<nano::account> nano::online_reps::list ()
 {
 	std::vector<nano::account> result;
-	nano::lock_guard<std::mutex> lock (mutex);
-	result.insert (result.end (), reps.begin (), reps.end ());
+	decltype (reps) all_reps;
+	{
+		nano::lock_guard<std::mutex> lock (mutex);
+		all_reps.insert (last_reps.begin (), last_reps.end ());
+		all_reps.insert (reps.begin (), reps.end ());
+	}
+	result.insert (result.end (), all_reps.begin (), all_reps.end ());
 	return result;
 }
 
@@ -86,10 +92,10 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (on
 	size_t count;
 	{
 		nano::lock_guard<std::mutex> guard (online_reps.mutex);
-		count = online_reps.reps.size ();
+		count = online_reps.last_reps.size ();
 	}
 
-	auto sizeof_element = sizeof (decltype (online_reps.reps)::value_type);
+	auto sizeof_element = sizeof (decltype (online_reps.last_reps)::value_type);
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "reps", count, sizeof_element }));
 	return composite;

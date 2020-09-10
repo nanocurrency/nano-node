@@ -3172,7 +3172,7 @@ TEST (ledger, epoch_2_upgrade_callback)
 	ASSERT_TRUE (cb_hit);
 }
 
-TEST (ledger, can_vote)
+TEST (ledger, dependents_confirmed)
 {
 	nano::block_builder builder;
 	nano::logger_mt logger;
@@ -3183,7 +3183,7 @@ TEST (ledger, can_vote)
 	auto transaction (store->tx_begin_write ());
 	nano::genesis genesis;
 	store->initialize (transaction, genesis, ledger.cache);
-	ASSERT_TRUE (ledger.can_vote (transaction, *genesis.open));
+	ASSERT_TRUE (ledger.dependents_confirmed (transaction, *genesis.open));
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::keypair key1;
 	auto send1 = builder.state ()
@@ -3196,7 +3196,7 @@ TEST (ledger, can_vote)
 	             .work (*pool.generate (genesis.hash ()))
 	             .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send1).code);
-	ASSERT_TRUE (ledger.can_vote (transaction, *send1));
+	ASSERT_TRUE (ledger.dependents_confirmed (transaction, *send1));
 	auto send2 = builder.state ()
 	             .account (nano::genesis_account)
 	             .previous (send1->hash ())
@@ -3207,7 +3207,7 @@ TEST (ledger, can_vote)
 	             .work (*pool.generate (send1->hash ()))
 	             .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send2).code);
-	ASSERT_FALSE (ledger.can_vote (transaction, *send2));
+	ASSERT_FALSE (ledger.dependents_confirmed (transaction, *send2));
 	auto receive1 = builder.state ()
 	                .account (key1.pub)
 	                .previous (0)
@@ -3218,12 +3218,12 @@ TEST (ledger, can_vote)
 	                .work (*pool.generate (key1.pub))
 	                .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *receive1).code);
-	ASSERT_FALSE (ledger.can_vote (transaction, *receive1));
+	ASSERT_FALSE (ledger.dependents_confirmed (transaction, *receive1));
 	nano::confirmation_height_info height;
 	ASSERT_FALSE (ledger.store.confirmation_height_get (transaction, nano::genesis_account, height));
 	height.height += 1;
 	ledger.store.confirmation_height_put (transaction, nano::genesis_account, height);
-	ASSERT_TRUE (ledger.can_vote (transaction, *receive1));
+	ASSERT_TRUE (ledger.dependents_confirmed (transaction, *receive1));
 	auto receive2 = builder.state ()
 	                .account (key1.pub)
 	                .previous (receive1->hash ())
@@ -3234,64 +3234,47 @@ TEST (ledger, can_vote)
 	                .work (*pool.generate (receive1->hash ()))
 	                .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *receive2).code);
-	ASSERT_FALSE (ledger.can_vote (transaction, *receive2));
+	ASSERT_FALSE (ledger.dependents_confirmed (transaction, *receive2));
 	ASSERT_FALSE (ledger.store.confirmation_height_get (transaction, key1.pub, height));
 	height.height += 1;
 	ledger.store.confirmation_height_put (transaction, key1.pub, height);
-	ASSERT_FALSE (ledger.can_vote (transaction, *receive2));
+	ASSERT_FALSE (ledger.dependents_confirmed (transaction, *receive2));
 	ASSERT_FALSE (ledger.store.confirmation_height_get (transaction, nano::genesis_account, height));
 	height.height += 1;
 	ledger.store.confirmation_height_put (transaction, nano::genesis_account, height);
-	ASSERT_TRUE (ledger.can_vote (transaction, *receive2));
+	ASSERT_TRUE (ledger.dependents_confirmed (transaction, *receive2));
 }
 
-TEST (ledger, backtrack)
+TEST (ledger, block_confirmed)
 {
-	nano::genesis genesis;
-	nano::stat stats;
+	nano::block_builder builder;
 	nano::logger_mt logger;
 	auto store = nano::make_store (logger, nano::unique_path ());
-	ASSERT_TRUE (!store->init_error ());
-	bool cb_hit = false;
-	nano::ledger ledger (*store, stats, nano::generate_cache (), [&cb_hit]() {
-		cb_hit = true;
-	});
-	{
-		auto transaction (store->tx_begin_write ());
-		store->initialize (transaction, genesis, ledger.cache);
-	}
+	ASSERT_FALSE (store->init_error ());
+	nano::stat stats;
+	nano::ledger ledger (*store, stats);
+	auto transaction (store->tx_begin_write ());
+	nano::genesis genesis;
+	store->initialize (transaction, genesis, ledger.cache);
+	ASSERT_TRUE (ledger.block_confirmed (transaction, genesis.open->hash ()));
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
-	std::vector<std::shared_ptr<nano::block>> blocks;
-	blocks.push_back (nullptr); // idx == height
-	blocks.push_back (genesis.open);
-	auto amount = nano::genesis_amount;
-	for (auto i = 0; i < 300; ++i)
-	{
-		nano::block_builder builder;
-		std::error_code ec;
-		auto latest = blocks.back ();
-		blocks.push_back (builder.state ()
-		                  .previous (latest->hash ())
-		                  .account (nano::dev_genesis_key.pub)
-		                  .representative (nano::dev_genesis_key.pub)
-		                  .balance (--amount)
-		                  .link (nano::dev_genesis_key.pub)
-		                  .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-		                  .work (*pool.generate (latest->hash ()))
-		                  .build (ec));
-		ASSERT_FALSE (ec);
-		ASSERT_EQ (nano::process_result::progress, ledger.process (store->tx_begin_write (), *blocks.back ()).code);
-	}
-	ASSERT_EQ (302, blocks.size ());
-	ASSERT_EQ (301, blocks[301]->sideband ().height);
-	auto transaction (store->tx_begin_read ());
-	auto block_100 = ledger.backtrack (transaction, blocks[300], 200);
-	ASSERT_NE (nullptr, block_100);
-	ASSERT_EQ (*block_100, *blocks[100]);
-	ASSERT_NE (nullptr, ledger.backtrack (transaction, blocks[10], 10));
-	ASSERT_NE (ledger.backtrack (transaction, blocks[10], 1), ledger.backtrack (transaction, blocks[11], 2));
-	ASSERT_EQ (ledger.backtrack (transaction, blocks[1], 0), ledger.backtrack (transaction, blocks[1], 1));
-	ASSERT_NE (ledger.backtrack (transaction, blocks[2], 0), ledger.backtrack (transaction, blocks[2], 1));
-	ASSERT_EQ (nullptr, ledger.backtrack (transaction, nullptr, 0));
-	ASSERT_EQ (nullptr, ledger.backtrack (transaction, nullptr, 10));
+	nano::keypair key1;
+	auto send1 = builder.state ()
+	             .account (nano::genesis_account)
+	             .previous (genesis.hash ())
+	             .representative (nano::genesis_account)
+	             .balance (nano::genesis_amount - 100)
+	             .link (key1.pub)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (*pool.generate (genesis.hash ()))
+	             .build ();
+	// Must be safe against non-existing blocks
+	ASSERT_FALSE (ledger.block_confirmed (transaction, send1->hash ()));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send1).code);
+	ASSERT_FALSE (ledger.block_confirmed (transaction, send1->hash ()));
+	nano::confirmation_height_info height;
+	ASSERT_FALSE (ledger.store.confirmation_height_get (transaction, nano::genesis_account, height));
+	++height.height;
+	ledger.store.confirmation_height_put (transaction, nano::genesis_account, height);
+	ASSERT_TRUE (ledger.block_confirmed (transaction, send1->hash ()));
 }

@@ -1,11 +1,27 @@
 #include <nano/lib/rep_weights.hpp>
 #include <nano/secure/blockstore.hpp>
 
-void nano::rep_weights::representation_add (nano::account const & source_rep, nano::uint128_t const & amount_a)
+void nano::rep_weights::representation_add (nano::account const & source_rep_a, nano::uint128_t const & amount_a)
 {
 	nano::lock_guard<std::mutex> guard (mutex);
-	auto source_previous (get (source_rep));
-	put (source_rep, source_previous + amount_a);
+	auto source_previous (get (source_rep_a));
+	put (source_rep_a, source_previous + amount_a);
+}
+
+void nano::rep_weights::representation_add_dual (nano::account const & source_rep_1, nano::uint128_t const & amount_1, nano::account const & source_rep_2, nano::uint128_t const & amount_2)
+{
+	if (source_rep_1 != source_rep_2)
+	{
+		nano::lock_guard<std::mutex> guard (mutex);
+		auto source_previous_1 (get (source_rep_1));
+		put (source_rep_1, source_previous_1 + amount_1);
+		auto source_previous_2 (get (source_rep_2));
+		put (source_rep_2, source_previous_2 + amount_2);
+	}
+	else
+	{
+		representation_add (source_rep_1, amount_1 + amount_2);
+	}
 }
 
 void nano::rep_weights::representation_put (nano::account const & account_a, nano::uint128_union const & representation_a)
