@@ -1864,7 +1864,7 @@ void nano::json_handler::confirmation_info ()
 			response_l.put ("voters", std::to_string (election->last_votes.size ()));
 			response_l.put ("last_winner", election->status.winner->hash ().to_string ());
 			nano::uint128_t total (0);
-			auto tally_l (election->tally ());
+			auto tally_l (election->tally_impl ());
 			boost::property_tree::ptree blocks;
 			for (auto i (tally_l.begin ()), n (tally_l.end ()); i != n; ++i)
 			{
