@@ -2865,7 +2865,7 @@ TEST (node, vote_by_hash_republish)
 		             .work (*system.work.generate (genesis.hash ()))
 		             .build_shared ();
 		node1.process_active (send1);
-		ASSERT_TIMELY (5s, node2.block (send1->hash ()));
+		ASSERT_TIMELY (5s, node2.active.active (*send1));
 		node1.active.publish (send2);
 		std::vector<nano::block_hash> vote_blocks;
 		vote_blocks.push_back (send2->hash ());
@@ -2907,7 +2907,7 @@ TEST (node, vote_by_hash_epoch_block_republish)
 	              .work (*system.work.generate (genesis.hash ()))
 	              .build_shared ();
 	node1.process_active (send1);
-	ASSERT_TIMELY (5s, node2.block (send1->hash ()));
+	ASSERT_TIMELY (5s, node2.active.active (*send1));
 	node1.active.publish (epoch1);
 	std::vector<nano::block_hash> vote_blocks;
 	vote_blocks.push_back (epoch1->hash ());
