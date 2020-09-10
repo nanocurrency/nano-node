@@ -277,7 +277,7 @@ void nano::network::broadcast_confirm_req_base (std::shared_ptr<nano::block> blo
 	while (!endpoints_a->empty () && count < max_reps)
 	{
 		auto channel (endpoints_a->back ());
-		send_confirm_req (channel, std::make_pair (block_a->hash (), block_a->root ()));
+		send_confirm_req (channel, std::make_pair (block_a->hash (), block_a->root ().as_block_hash ()));
 		endpoints_a->pop_back ();
 		count++;
 	}

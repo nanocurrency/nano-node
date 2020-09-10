@@ -959,7 +959,7 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 	ASSERT_FALSE (node2->ledger.block_exists (state_open->hash ()));
 	{
 		auto transaction (node2->store.tx_begin_read ());
-		ASSERT_TRUE (node2->store.unchecked_exists (transaction, nano::unchecked_key (send2->root (), send2->hash ())));
+		ASSERT_TRUE (node2->store.unchecked_exists (transaction, nano::unchecked_key (send2->root ().as_block_hash (), send2->hash ())));
 	}
 	// Insert missing block
 	node2->process_active (send1);

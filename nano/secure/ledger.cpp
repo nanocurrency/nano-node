@@ -947,7 +947,7 @@ std::pair<nano::block_hash, nano::block_hash> nano::ledger::hash_root_random (na
 	if (!enable_pruning)
 	{
 		auto block (store.block_random (transaction_a));
-		return std::make_pair (block->hash (), block->root ());
+		return std::make_pair (block->hash (), block->root ().as_block_hash ());
 	}
 	else
 	{
@@ -965,7 +965,7 @@ std::pair<nano::block_hash, nano::block_hash> nano::ledger::hash_root_random (na
 		{
 			auto block (store.block_random (transaction_a));
 			hash = block->hash ();
-			root = block->root ();
+			root = block->root ().as_block_hash ();
 		}
 		return std::make_pair (hash, root);
 	}

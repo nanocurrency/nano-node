@@ -402,7 +402,7 @@ void nano::bootstrap_attempt_lazy::lazy_backlog_cleanup ()
 				}
 				else
 				{
-					lazy_destinations_increment (next_block.link);
+					lazy_destinations_increment (next_block.link.as_account ());
 				}
 			}
 			else
