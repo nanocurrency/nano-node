@@ -1157,5 +1157,10 @@ bool nano::mdb_store::upgrade_counters::are_equal () const
 	return (before_v0 == after_v0) && (before_v1 == after_v1);
 }
 
+unsigned nano::mdb_store::max_block_write_batch_num () const
+{
+	return std::numeric_limits<unsigned>::max ();
+}
+
 // Explicitly instantiate
 template class nano::block_store_partial<MDB_val, nano::mdb_store>;
