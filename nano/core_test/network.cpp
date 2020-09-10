@@ -746,11 +746,10 @@ TEST (tcp_listener, tcp_node_id_handshake)
 		boost::system::error_code ec;
 		socket->async_connect (bootstrap_endpoint, yield[ec]);
 		ASSERT_FALSE (ec);
-		socket->async_write (input, [&input, &write_done](boost::system::error_code const & ec, size_t size_a) {
-			ASSERT_FALSE (ec);
-			ASSERT_EQ (input.size (), size_a);
-			write_done = true;
-		});
+		auto written = socket->async_write (input, yield[ec]);
+		ASSERT_FALSE (ec);
+		ASSERT_EQ (input.size (), written);
+		write_done = true;
 	});
 
 	ASSERT_TIMELY (5s, write_done);
