@@ -47,8 +47,10 @@ TEST (socket, drop_policy)
 		nano::transport::channel_tcp channel{ *node, client };
 		nano::util::counted_completion write_completion (total_message_count);
 
-		client->async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), server_port),
-		[&channel, total_message_count, node, &write_completion, &drop_policy, client](boost::system::error_code const & ec_a) mutable {
+		boost::asio::spawn (node->io_ctx,
+		[client, &channel, total_message_count, node, &write_completion, &drop_policy, server_port](boost::asio::yield_context yield) {
+			boost::system::error_code ec;
+			client->async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), server_port), yield[ec]);
 			for (int i = 0; i < total_message_count; i++)
 			{
 				std::vector<uint8_t> buff (1);
@@ -155,11 +157,13 @@ TEST (socket, concurrent_writes)
 	{
 		auto client (std::make_shared<nano::socket> (node));
 		clients.push_back (client);
-		client->async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::loopback (), 25000),
-		[&connection_count_completion](boost::system::error_code const & ec_a) {
-			if (ec_a)
+		boost::asio::spawn (node->io_ctx,
+		[client, &connection_count_completion](boost::asio::yield_context yield) {
+			boost::system::error_code ec;
+			client->async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::loopback (), 25000), yield[ec]);
+			if (ec)
 			{
-				std::cerr << "async_connect: " << ec_a.message () << std::endl;
+				std::cerr << "async_connect: " << ec.message () << std::endl;
 			}
 			else
 			{

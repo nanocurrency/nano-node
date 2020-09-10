@@ -446,7 +446,10 @@ void nano::node::do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, 
 	{
 		auto node_l (shared_from_this ());
 		auto sock (std::make_shared<boost::asio::ip::tcp::socket> (node_l->io_ctx));
-		sock->async_connect (i_a->endpoint (), [node_l, target, body, sock, address, port, i_a, resolver](boost::system::error_code const & ec) mutable {
+		boost::asio::spawn (io_ctx,
+		[node_l = shared_from_this (), target, body, sock, address, port, i_a, resolver](boost::asio::yield_context yield) mutable {
+			boost::system::error_code ec;
+			sock->async_connect (i_a->endpoint (), yield[ec]);
 			if (!ec)
 			{
 				auto req (std::make_shared<boost::beast::http::request<boost::beast::http::string_body>> ());

@@ -32,20 +32,6 @@ void nano::socket::async_connect (nano::tcp_endpoint const & endpoint_a, boost::
 	remote = endpoint_a;
 }
 
-void nano::socket::async_connect (nano::tcp_endpoint const & endpoint_a, std::function<void(boost::system::error_code const &)> callback_a)
-{
-	checkup ();
-	auto this_l (shared_from_this ());
-	start_timer ();
-	this_l->tcp_socket.async_connect (endpoint_a,
-	boost::asio::bind_executor (this_l->strand,
-	[this_l, callback_a, endpoint_a](boost::system::error_code const & ec) {
-		this_l->stop_timer ();
-		this_l->remote = endpoint_a;
-		callback_a (ec);
-	}));
-}
-
 void nano::socket::async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a, size_t size_a, std::function<void(boost::system::error_code const &, size_t)> callback_a)
 {
 	if (size_a <= buffer_a->size ())

@@ -42,7 +42,6 @@ public:
 	 */
 	explicit socket (std::shared_ptr<nano::node> node);
 	virtual ~socket ();
-	void async_connect (boost::asio::ip::tcp::endpoint const &, std::function<void(boost::system::error_code const &)>);
 	void async_connect (boost::asio::ip::tcp::endpoint const &, boost::asio::yield_context yield);
 	void async_read (std::shared_ptr<std::vector<uint8_t>>, size_t, std::function<void(boost::system::error_code const &, size_t)>);
 	size_t async_read (std::shared_ptr<std::vector<uint8_t>>, size_t, boost::asio::yield_context yield);
