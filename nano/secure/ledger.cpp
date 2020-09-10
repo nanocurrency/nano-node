@@ -944,15 +944,16 @@ nano::block_hash nano::ledger::block_source (nano::transaction const & transacti
 
 std::pair<nano::block_hash, nano::block_hash> nano::ledger::hash_root_random (nano::transaction const & transaction_a)
 {
+	nano::block_hash hash (0);
+	nano::root root (0);
 	if (!enable_pruning)
 	{
 		auto block (store.block_random (transaction_a));
-		return std::make_pair (block->hash (), block->root ().as_block_hash ());
+		hash = block->hash ();
+		root = block->root ();
 	}
 	else
 	{
-		nano::block_hash hash (0);
-		nano::block_hash root (0);
 		uint64_t count (cache.block_count);
 		release_assert (std::numeric_limits<CryptoPP::word32>::max () > count);
 		auto region = static_cast<size_t> (nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (count - 1)));
@@ -965,10 +966,10 @@ std::pair<nano::block_hash, nano::block_hash> nano::ledger::hash_root_random (na
 		{
 			auto block (store.block_random (transaction_a));
 			hash = block->hash ();
-			root = block->root ().as_block_hash ();
+			root = block->root ();
 		}
-		return std::make_pair (hash, root);
 	}
+	return std::make_pair (hash, root.as_block_hash ());
 }
 
 // Vote weight of an account
@@ -1297,7 +1298,7 @@ bool nano::ledger::block_confirmed (nano::transaction const & transaction_a, nan
 	return confirmed;
 }
 
-uint64_t nano::ledger::prune (nano::write_transaction & transaction_a, nano::block_hash const & hash_a, uint64_t const bath_size_a)
+uint64_t nano::ledger::prune (nano::write_transaction & transaction_a, nano::block_hash const & hash_a, uint64_t const batch_size_a)
 {
 	uint64_t pruned_count (0);
 	nano::block_hash hash (hash_a);
@@ -1311,7 +1312,7 @@ uint64_t nano::ledger::prune (nano::write_transaction & transaction_a, nano::blo
 			hash = block->previous ();
 			++pruned_count;
 			++cache.pruned_count;
-			if (pruned_count % bath_size_a == 0)
+			if (pruned_count % batch_size_a == 0)
 			{
 				transaction_a.commit ();
 				transaction_a.renew ();

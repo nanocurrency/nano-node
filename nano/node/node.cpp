@@ -1040,10 +1040,10 @@ bool nano::node::collect_ledger_pruning_targets (std::deque<nano::block_hash> & 
 	return !finish_transaction || last_account_a.is_zero ();
 }
 
-void nano::node::ledger_pruning (uint64_t const batch_size_a, bool bootstrap_weight_reached, bool log_to_cout)
+void nano::node::ledger_pruning (uint64_t const batch_size_a, bool bootstrap_weight_reached_a, bool log_to_cout_a)
 {
 	uint64_t const max_depth (config.max_pruning_depth != 0 ? config.max_pruning_depth : std::numeric_limits<uint64_t>::max ());
-	uint64_t const cutoff_time (bootstrap_weight_reached ? nano::seconds_since_epoch () - config.max_pruning_age.count () : std::numeric_limits<uint64_t>::max ());
+	uint64_t const cutoff_time (bootstrap_weight_reached_a ? nano::seconds_since_epoch () - config.max_pruning_age.count () : std::numeric_limits<uint64_t>::max ());
 	uint64_t pruned_count (0);
 	uint64_t transaction_write_count (0);
 	nano::account last_account (1); // 0 Burn account is never opened. So it can be used to break loop
@@ -1071,7 +1071,7 @@ void nano::node::ledger_pruning (uint64_t const batch_size_a, bool bootstrap_wei
 			}
 			pruned_count += transaction_write_count;
 			auto log_message (boost::str (boost::format ("%1% blocks pruned") % pruned_count));
-			if (!log_to_cout)
+			if (!log_to_cout_a)
 			{
 				logger.try_log (log_message);
 			}
@@ -1082,7 +1082,7 @@ void nano::node::ledger_pruning (uint64_t const batch_size_a, bool bootstrap_wei
 		}
 	}
 	auto log_message (boost::str (boost::format ("Total recently pruned block count: %1%") % pruned_count));
-	if (!log_to_cout)
+	if (!log_to_cout_a)
 	{
 		logger.always_log (log_message);
 	}

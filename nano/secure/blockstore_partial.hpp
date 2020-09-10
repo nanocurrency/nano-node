@@ -543,9 +543,6 @@ public:
 
 	void pruned_put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a) override
 	{
-		// Disabled path if TSAN/ASAN/Valgrind complain
-		//nano::db_val<Val> zero (static_cast<uint8_t> (0));
-		//auto status = put (transaction_a, tables::pruned, hash_a, zero);
 		nano::db_val<Val> junk; // No data to insert, only key
 		auto status = put (transaction_a, tables::pruned, hash_a, junk);
 		release_assert (success (status));
@@ -646,14 +643,7 @@ public:
 		{
 			existing = make_iterator<nano::block_hash, nano::db_val<Val>> (transaction_a, tables::pruned);
 		}
-		if (existing != end)
-		{
-			return existing->first;
-		}
-		else
-		{
-			return 0;
-		}
+		return existing != end ? existing->first : 0;
 	}
 
 	uint64_t confirmation_height_count (nano::transaction const & transaction_a) override
