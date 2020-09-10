@@ -80,6 +80,10 @@ void nano::confirmation_height_bounded::process ()
 		{
 			if (ledger.enable_pruning && ledger.store.pruned_exists (transaction, current))
 			{
+				if (!receive_source_pairs.empty ())
+				{
+					receive_source_pairs.pop_back ();
+				}
 				continue;
 			}
 			else

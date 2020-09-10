@@ -365,6 +365,8 @@ void nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 				{
 					if (ledger.enable_pruning && ledger.store.pruned_exists (transaction, pending.hash))
 					{
+						pending_writes.erase (pending_writes.begin ());
+						--pending_writes_size;
 						continue;
 					}
 					else
