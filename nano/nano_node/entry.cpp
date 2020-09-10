@@ -1581,7 +1581,7 @@ int main (int argc, char * const * argv)
 						print_error_message (boost::str (boost::format ("Incorrect sideband block details for block %1%\n") % hash.to_string ()));
 					}
 					// Check link epoch version
-					if (sideband.details.is_receive && (!node->flags.enable_pruning || !node->store.pruned_exists (transaction, block->link ())))
+					if (sideband.details.is_receive && (!node->flags.enable_pruning || !node->store.pruned_exists (transaction, block->link ().as_block_hash ())))
 					{
 						if (sideband.source_epoch != node->store.block_version (transaction, block->link ().as_block_hash ()))
 						{
