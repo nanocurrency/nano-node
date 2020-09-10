@@ -140,6 +140,7 @@ void nano::election::send_confirm_req (nano::confirmation_solicitor & solicitor_
 {
 	if ((base_latency () * (optimistic () ? 10 : 5)) < (std::chrono::steady_clock::now () - last_req))
 	{
+		nano::lock_guard<std::mutex> guard (mutex);
 		if (!solicitor_a.add (*this))
 		{
 			last_req = std::chrono::steady_clock::now ();
@@ -173,6 +174,7 @@ void nano::election::broadcast_block (nano::confirmation_solicitor & solicitor_a
 {
 	if (base_latency () * 15 < std::chrono::steady_clock::now () - last_block)
 	{
+		nano::lock_guard<std::mutex> guard (mutex);
 		if (!solicitor_a.broadcast (*this))
 		{
 			last_block = std::chrono::steady_clock::now ();
