@@ -371,7 +371,7 @@ void nano::active_transactions::cleanup_election (nano::unique_lock<std::mutex> 
 		erase_inactive_votes_cache (hash);
 	}
 
-	//lock_a.unlock ();
+	lock_a.unlock ();
 	for (auto const & [hash, block] : info_a.blocks)
 	{
 		// Notify observers about dropped elections & blocks lost confirmed elections
@@ -383,7 +383,7 @@ void nano::active_transactions::cleanup_election (nano::unique_lock<std::mutex> 
 		// Clear from publish filter
 		node.network.publish_filter.clear (block);
 	}
-	//lock_a.lock ();
+	lock_a.lock ();
 }
 
 void nano::active_transactions::add_expired_optimistic_election (nano::election const & election_a)
