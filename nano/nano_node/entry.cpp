@@ -829,18 +829,6 @@ int main (int argc, char * const * argv)
 						std::cerr << "Error: Check that addr2line is installed and that nano_node_crash_load_address_dump_*.txt files exist." << std::endl;
 						result = -1;
 					}
-					else
-					{
-						// Delete the crash dump files. The user won't care about them after this.
-						num = 0;
-						while (boost::filesystem::exists (boost::str (format % num)))
-						{
-							boost::filesystem::remove (boost::str (format % num));
-							++num;
-						}
-
-						boost::filesystem::remove ("nano_node_backtrace.dump");
-					}
 				}
 				else
 				{
@@ -848,6 +836,10 @@ int main (int argc, char * const * argv)
 					result = -1;
 				}
 #endif
+				if (result == 0)
+				{
+					std::cout << (boost::format ("%1% created") % crash_report_filename).str () << std::endl;
+				}
 			}
 			else
 			{

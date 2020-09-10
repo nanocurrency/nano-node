@@ -515,6 +515,7 @@ enum class tables
 	accounts,
 	blocks,
 	confirmation_height,
+	default_unused, // RocksDB only
 	frontiers,
 	meta,
 	online_weight,
