@@ -11,7 +11,7 @@
 namespace
 {
 template <typename T>
-void parallel_traversal (std::function<void(T const &, T const &, bool const)> action);
+void parallel_traversal (std::function<void(T const &, T const &, bool const)> const & action);
 }
 
 namespace nano
@@ -709,7 +709,7 @@ public:
 		return count (transaction_a, tables::unchecked);
 	}
 
-	void latest_for_each_par (std::function<void(nano::store_iterator<nano::account, nano::account_info>, nano::store_iterator<nano::account, nano::account_info>)> action_a) override
+	void latest_for_each_par (std::function<void(nano::store_iterator<nano::account, nano::account_info>, nano::store_iterator<nano::account, nano::account_info>)> const & action_a) override
 	{
 		parallel_traversal<nano::uint256_t> (
 		[&action_a, this](nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
@@ -718,7 +718,7 @@ public:
 		});
 	}
 
-	void confirmation_height_for_each_par (std::function<void(nano::store_iterator<nano::account, nano::confirmation_height_info>, nano::store_iterator<nano::account, nano::confirmation_height_info>)> action_a) override
+	void confirmation_height_for_each_par (std::function<void(nano::store_iterator<nano::account, nano::confirmation_height_info>, nano::store_iterator<nano::account, nano::confirmation_height_info>)> const & action_a) override
 	{
 		parallel_traversal<nano::uint256_t> (
 		[&action_a, this](nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
@@ -852,7 +852,7 @@ public:
 namespace
 {
 template <typename T>
-void parallel_traversal (std::function<void(T const &, T const &, bool const)> action)
+void parallel_traversal (std::function<void(T const &, T const &, bool const)> const & action)
 {
 	// Between 10 and 40 threads, scales well even in low power systems as long as actions are I/O bound
 	unsigned const thread_count = std::max (10u, std::min (40u, 10 * std::thread::hardware_concurrency ()));
