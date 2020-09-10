@@ -104,7 +104,7 @@ std::unordered_map<const char *, nano::tables> nano::rocksdb_store::create_cf_na
 	return map;
 }
 
-void nano::rocksdb_store::open (bool & error_a, boost::filesystem::path const & path_a, bool open_read_only_a)
+void nano::rocksdb_store::open (bool & error_a, boost::filesystem::path const & path_a, bool open_read_only_a, bool enable_pruning_a)
 {
 	auto column_families = create_column_families ();
 	auto options = get_db_options ();
