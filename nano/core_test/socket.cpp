@@ -24,7 +24,7 @@ TEST (socket, drop_policy)
 	// The total number of drops should thus be 1 (the socket allows doubling the queue size for no_socket_drop)
 	size_t max_write_queue_size = 0;
 	{
-		auto client_dummy (std::make_shared<nano::socket> (node, boost::none));
+		auto client_dummy (std::make_shared<nano::socket> (node));
 		max_write_queue_size = client_dummy->queue_size_max;
 	}
 
@@ -43,7 +43,7 @@ TEST (socket, drop_policy)
 			return true;
 		});
 
-		auto client (std::make_shared<nano::socket> (node, boost::none));
+		auto client (std::make_shared<nano::socket> (node));
 		nano::transport::channel_tcp channel{ *node, client };
 		nano::util::counted_completion write_completion (total_message_count);
 
@@ -153,7 +153,7 @@ TEST (socket, concurrent_writes)
 	std::vector<std::shared_ptr<nano::socket>> clients;
 	for (unsigned i = 0; i < client_count; i++)
 	{
-		auto client (std::make_shared<nano::socket> (node, boost::none));
+		auto client (std::make_shared<nano::socket> (node));
 		clients.push_back (client);
 		client->async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::loopback (), 25000),
 		[&connection_count_completion](boost::system::error_code const & ec_a) {
@@ -313,5 +313,5 @@ TEST (socket_yield, async_write_closed_fail)
 		promise.set_value (ec);
 	});
 	ASSERT_TIMELY (1s, future.wait_for (std::chrono::milliseconds (0)) == std::future_status::ready);
-	ASSERT_EQ (boost::system::errc::not_supported, future.get ().value ());
+	ASSERT_TRUE (future.get ().value ());
 }
