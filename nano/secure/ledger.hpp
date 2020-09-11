@@ -30,7 +30,8 @@ public:
 	nano::account account_safe (nano::transaction const &, nano::block_hash const &, bool &);
 	nano::uint128_t amount (nano::transaction const &, nano::account const &);
 	nano::uint128_t amount (nano::transaction const &, nano::block_hash const &);
-	nano::uint128_t amount_safe (nano::transaction const &, nano::block_hash const &, bool &);
+	/** Safe for previous block, but block \p hash_a must exist */
+	nano::uint128_t amount_safe (nano::transaction const &, nano::block_hash const & hash_a, bool &);
 	nano::uint128_t balance (nano::transaction const &, nano::block_hash const &) const;
 	nano::uint128_t balance_safe (nano::transaction const &, nano::block_hash const &, bool &);
 	nano::uint128_t account_balance (nano::transaction const &, nano::account const &);
