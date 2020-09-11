@@ -120,10 +120,9 @@ void nano::bulk_pull_client::throttled_receive_block ()
 
 void nano::bulk_pull_client::receive_block ()
 {
-	auto this_l (shared_from_this ());
 	if (auto socket_l = connection->channel->socket.lock ())
 	{
-		socket_l->async_read (connection->receive_buffer, 1, [this_l](boost::system::error_code const & ec, size_t size_a) {
+		socket_l->async_read (connection->receive_buffer, 1, [this_l = shared_from_this ()](boost::system::error_code const & ec, size_t size_a) {
 			if (!ec)
 			{
 				this_l->received_type ();
