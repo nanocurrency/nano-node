@@ -534,7 +534,7 @@ public:
 		type = "Receive";
 		bool error_or_pruned (false);
 		account = ledger.account_safe (transaction, block_a.hashables.source, error_or_pruned);
-		amount = ledger.amount_safe (transaction, block_a.hashables.source, error_or_pruned);
+		amount = ledger.amount_safe (transaction, block_a.hash (), error_or_pruned);
 		if (error_or_pruned)
 		{
 			type = "Receive (pruned)";
