@@ -522,13 +522,23 @@ public:
 	{
 		type = "Send";
 		account = block_a.hashables.destination;
-		amount = ledger.amount (transaction, block_a.hash ());
+		bool error_or_pruned (false);
+		amount = ledger.amount_safe (transaction, block_a.hash (), error_or_pruned);
+		if (error_or_pruned)
+		{
+			type = "Send (pruned)";
+		}
 	}
 	void receive_block (nano::receive_block const & block_a)
 	{
 		type = "Receive";
-		account = ledger.account (transaction, block_a.source ());
-		amount = ledger.amount (transaction, block_a.source ());
+		bool error_or_pruned (false);
+		account = ledger.account_safe (transaction, block_a.hashables.source, error_or_pruned);
+		amount = ledger.amount_safe (transaction, block_a.hashables.source, error_or_pruned);
+		if (error_or_pruned)
+		{
+			type = "Receive (pruned)";
+		}
 	}
 	void open_block (nano::open_block const & block_a)
 	{
@@ -536,8 +546,13 @@ public:
 		type = "Receive";
 		if (block_a.hashables.source != params.ledger.genesis_account)
 		{
-			account = ledger.account (transaction, block_a.hashables.source);
-			amount = ledger.amount (transaction, block_a.hash ());
+			bool error_or_pruned (false);
+			account = ledger.account_safe (transaction, block_a.hashables.source, error_or_pruned);
+			amount = ledger.amount_safe (transaction, block_a.hash (), error_or_pruned);
+			if (error_or_pruned)
+			{
+				type = "Receive (pruned)";
+			}
 		}
 		else
 		{
@@ -583,7 +598,11 @@ public:
 			else
 			{
 				type = "Receive";
-				account = ledger.account (transaction, block_a.hashables.link.as_block_hash ());
+				account = ledger.account_safe (transaction, block_a.hashables.link.as_block_hash (), error_or_pruned);
+				if (error_or_pruned)
+				{
+					type = "Receive (pruned)";
+				}
 			}
 			amount = balance - previous_balance;
 		}
