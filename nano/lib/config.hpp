@@ -4,6 +4,7 @@
 #include <boost/version.hpp>
 
 #include <algorithm>
+#include <array>
 #include <string>
 
 namespace boost
@@ -48,6 +49,15 @@ uint8_t get_major_node_version ();
 uint8_t get_minor_node_version ();
 uint8_t get_patch_node_version ();
 uint8_t get_pre_release_node_version ();
+
+std::string GetEnvOrDefault (const std::string & variable_name, const std::string & default_value);
+uint64_t GetEnvThresholdOrDefault (const std::string & variable_name, const uint64_t & default_value);
+
+int test_node_port ();
+int test_rpc_port ();
+int test_ipc_port ();
+int test_websocket_port ();
+std::array<uint8_t, 2> test_magic_number ();
 
 /**
  * Network variants with different genesis blocks and network parameters
@@ -104,15 +114,15 @@ public:
 
 	network_constants (nano_networks network_a) :
 	current_network (network_a),
-	publish_thresholds ((is_live_network () || is_test_network ()) ? publish_full : is_beta_network () ? publish_beta : publish_dev)
+	publish_thresholds (is_live_network () ? publish_full : is_beta_network () ? publish_beta : is_test_network () ? publish_test : publish_dev)
 	{
 		// A representative is classified as principal based on its weight and this factor
 		principal_weight_factor = 1000; // 0.1%
 
-		default_node_port = is_live_network () ? 7075 : is_beta_network () ? 54000 : is_test_network () ? 17075 : 44000;
-		default_rpc_port = is_live_network () ? 7076 : is_beta_network () ? 55000 : is_test_network () ? 17076 : 45000;
-		default_ipc_port = is_live_network () ? 7077 : is_beta_network () ? 56000 : is_test_network () ? 17077 : 46000;
-		default_websocket_port = is_live_network () ? 7078 : is_beta_network () ? 57000 : is_test_network () ? 17078 : 47000;
+		default_node_port = is_live_network () ? 7075 : is_beta_network () ? 54000 : is_test_network () ? test_node_port () : 44000;
+		default_rpc_port = is_live_network () ? 7076 : is_beta_network () ? 55000 : is_test_network () ? test_rpc_port () : 45000;
+		default_ipc_port = is_live_network () ? 7077 : is_beta_network () ? 56000 : is_test_network () ? test_ipc_port () : 46000;
+		default_websocket_port = is_live_network () ? 7078 : is_beta_network () ? 57000 : is_test_network () ? test_websocket_port () : 47000;
 		request_interval_ms = is_dev_network () ? 20 : 500;
 	}
 
@@ -120,6 +130,7 @@ public:
 	static const nano::work_thresholds publish_full;
 	static const nano::work_thresholds publish_beta;
 	static const nano::work_thresholds publish_dev;
+	static const nano::work_thresholds publish_test;
 
 	/** Error message when an invalid network is specified */
 	static const char * active_network_err_msg;

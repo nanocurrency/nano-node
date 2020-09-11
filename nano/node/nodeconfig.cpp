@@ -17,7 +17,7 @@ const char * signature_checker_threads_key = "signature_checker_threads";
 const char * pow_sleep_interval_key = "pow_sleep_interval";
 const char * default_beta_peer_network = "peering-beta.nano.org";
 const char * default_live_peer_network = "peering.nano.org";
-const char * default_test_peer_network = "peering-test.nano.org";
+const std::string default_test_peer_network = nano::GetEnvOrDefault ("NANO_TEST_PEER_NETWORK", "peering-test.nano.org");
 }
 
 nano::node_config::node_config () :
