@@ -429,6 +429,14 @@ node_seq (seq)
 		}
 
 		ledger.enable_pruning = flags.enable_pruning;
+
+		if (config.enable_voting && store.pruned_count (store.tx_begin_read ()) > 0)
+		{
+			std::string str = "Incompatibility detected between config node.enable_voting and existing pruned blocks";
+			logger.always_log (str);
+			std::cerr << str << std::endl;
+			std::exit (1);
+		}
 	}
 	node_initialized_latch.count_down ();
 }
