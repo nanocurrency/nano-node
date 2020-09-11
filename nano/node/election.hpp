@@ -66,8 +66,8 @@ private: // State management
 	static unsigned constexpr confirmed_duration_factor = 5;
 	std::atomic<nano::election::state_t> state_m = { state_t::passive };
 
+	static_assert (std::is_trivial<std::chrono::steady_clock::duration> ());
 	std::atomic<std::chrono::steady_clock::duration> state_start{ std::chrono::steady_clock::now ().time_since_epoch () };
-	static_assert (std::is_trivial<decltype (state_start)::value_type> ());
 
 	// These are modified while not holding the mutex from transition_time only
 	std::chrono::steady_clock::time_point last_block = { std::chrono::steady_clock::now () };
