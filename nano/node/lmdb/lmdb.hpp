@@ -51,6 +51,8 @@ public:
 
 	void serialize_memory_stats (boost::property_tree::ptree &) override;
 
+	unsigned max_block_write_batch_num () const override;
+
 private:
 	nano::logger_mt & logger;
 	bool error{ false };
@@ -191,6 +193,7 @@ public:
 	MDB_dbi blocks{ 0 };
 
 	bool exists (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a) const;
+	std::vector<nano::unchecked_info> unchecked_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override;
 
 	int get (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a, nano::mdb_val & value_a) const;
 	int put (nano::write_transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a, const nano::mdb_val & value_a) const;

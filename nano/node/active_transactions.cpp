@@ -1149,6 +1149,12 @@ void nano::active_transactions::add_recently_confirmed (nano::qualified_root con
 	}
 }
 
+void nano::active_transactions::erase_recently_confirmed (nano::block_hash const & hash_a)
+{
+	nano::lock_guard<std::mutex> guard (mutex);
+	recently_confirmed.get<tag_hash> ().erase (hash_a);
+}
+
 void nano::active_transactions::erase (nano::block const & block_a)
 {
 	nano::unique_lock<std::mutex> lock (mutex);

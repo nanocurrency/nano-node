@@ -243,8 +243,9 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 	// Processing blocks
 	unsigned number_of_blocks_processed (0), number_of_forced_processed (0), number_of_updates_processed (0);
 	auto deadline_reached = [&timer_l, deadline = node.config.block_processor_batch_max_time] { return timer_l.after_deadline (deadline); };
-	auto max_blocks_reached = [&number_of_blocks_processed, max = node.flags.block_processor_batch_size] { return number_of_blocks_processed >= max; };
-	while (have_blocks_ready () && (!deadline_reached () || !max_blocks_reached ()) && !awaiting_write)
+	auto processor_batch_reached = [&number_of_blocks_processed, max = node.flags.block_processor_batch_size] { return number_of_blocks_processed >= max; };
+	auto store_batch_reached = [&number_of_blocks_processed, max = node.store.max_block_write_batch_num ()] { return number_of_blocks_processed >= max; };
+	while (have_blocks_ready () && (!deadline_reached () || !processor_batch_reached ()) && !awaiting_write && !store_batch_reached ())
 	{
 		if ((blocks.size () + state_block_signature_verification.size () + forced.size () + updates.size () > 64) && should_log ())
 		{
