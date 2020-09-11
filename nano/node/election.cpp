@@ -151,12 +151,6 @@ void nano::election::send_confirm_req (nano::confirmation_solicitor & solicitor_
 
 void nano::election::transition_active ()
 {
-	nano::lock_guard<std::mutex> guard (mutex);
-	transition_active_impl ();
-}
-
-void nano::election::transition_active_impl ()
-{
 	state_change (nano::election::state_t::passive, nano::election::state_t::active);
 }
 

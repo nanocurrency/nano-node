@@ -204,19 +204,22 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 				election_winners_lk.unlock ();
 				if (election->confirmed () && election->winner ()->hash () == hash)
 				{
-					add_recently_cemented (election->status);
+					nano::unique_lock<std::mutex> election_lk (election->mutex);
+					auto status_l = election->status;
+					election_lk.unlock ();
+					add_recently_cemented (status_l);
 					node.receive_confirmed (transaction, block_a, hash);
 					nano::account account (0);
 					nano::uint128_t amount (0);
 					bool is_state_send (false);
 					nano::account pending_account (0);
 					node.process_confirmed_data (transaction, block_a, hash, account, amount, is_state_send, pending_account);
-					nano::unique_lock<std::mutex> election_lk (election->mutex);
+					election_lk.lock ();
 					election->status.type = *election_status_type;
 					election->status.confirmation_request_count = election->confirmation_request_count;
-					auto status (election->status);
+					status_l = election->status;
 					election_lk.unlock ();
-					node.observers.blocks.notify (status, account, amount, is_state_send);
+					node.observers.blocks.notify (status_l, account, amount, is_state_send);
 					if (amount > 0)
 					{
 						node.observers.account_balance.notify (account, false);
@@ -335,7 +338,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 			}
 
 			// Locks active mutex, cleans up the election and erases it from the main container
-			erase (*election_l->winner ());
+			erase (election_l->qualified_root);
 		}
 	}
 
@@ -944,11 +947,13 @@ std::shared_ptr<nano::election> nano::active_transactions::election (nano::quali
 std::shared_ptr<nano::block> nano::active_transactions::winner (nano::block_hash const & hash_a) const
 {
 	std::shared_ptr<nano::block> result;
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::unique_lock<std::mutex> lock (mutex);
 	auto existing = blocks.find (hash_a);
 	if (existing != blocks.end ())
 	{
-		result = existing->second->winner ();
+		auto election = existing->second;
+		lock.unlock ();
+		result = election->winner ();
 	}
 	return result;
 }
@@ -1060,7 +1065,7 @@ double nano::active_transactions::normalized_multiplier (nano::block const & blo
 	{
 		auto election (*root_it_a);
 		debug_assert (election != roots.end ());
-		// This is the only location where the active mutex and election mutexes are both held
+		// This is one of few places where both the active mutex and election mutexes are held
 		if (auto election_block = election->election->find (block_a.hash ()); election_block && election_block->has_sideband ())
 		{
 			threshold = nano::work_threshold (block_a.work_version (), election_block->sideband ().details);
@@ -1160,18 +1165,6 @@ double nano::active_transactions::active_multiplier ()
 	return trended_active_multiplier.load ();
 }
 
-// List of active blocks in elections
-std::deque<std::shared_ptr<nano::block>> nano::active_transactions::list_blocks ()
-{
-	std::deque<std::shared_ptr<nano::block>> result;
-	nano::lock_guard<std::mutex> lock (mutex);
-	for (auto const & root : roots)
-	{
-		result.push_back (root.election->winner ());
-	}
-	return result;
-}
-
 std::deque<nano::election_status> nano::active_transactions::list_recently_cemented ()
 {
 	nano::lock_guard<std::mutex> lock (mutex);
@@ -1210,10 +1203,23 @@ void nano::active_transactions::erase (nano::block const & block_a)
 	auto root_it (roots.get<tag_root> ().find (block_a.qualified_root ()));
 	if (root_it != roots.get<tag_root> ().end ())
 	{
+		// This is one of few places where both the active mutex and election mutexes are held
 		cleanup_election (lock, root_it->election->cleanup_info ());
 		roots.get<tag_root> ().erase (root_it);
 		lock.unlock ();
 		node.logger.try_log (boost::str (boost::format ("Election erased for block block %1% root %2%") % block_a.hash ().to_string () % block_a.root ().to_string ()));
+	}
+}
+
+void nano::active_transactions::erase (nano::qualified_root const & root_a)
+{
+	nano::unique_lock<std::mutex> lock (mutex);
+	auto root_it (roots.get<tag_root> ().find (root_a));
+	if (root_it != roots.get<tag_root> ().end ())
+	{
+		// This is one of few places where both the active mutex and election mutexes are held
+		cleanup_election (lock, root_it->election->cleanup_info ());
+		roots.get<tag_root> ().erase (root_it);
 	}
 }
 

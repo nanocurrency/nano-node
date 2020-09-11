@@ -113,7 +113,7 @@ private:
 	// Calculate votes for local representatives
 	void generate_votes ();
 	void remove_votes (nano::block_hash const &);
-	void transition_active_impl ();
+	size_t insert_inactive_votes_cache_impl (nano::unique_lock<std::mutex> &, nano::inactive_cache_information const &);
 	nano::election_cleanup_info cleanup_info_impl () const;
 
 public:
