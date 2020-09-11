@@ -98,6 +98,7 @@ int main (int argc, char * const * argv)
 		("debug_cemented_block_count", "Displays the number of cemented (confirmed) blocks")
 		("debug_stacktrace", "Display an example stacktrace")
 		("debug_account_versions", "Display the total counts of each version for all accounts (including unpocketed)")
+		("debug_unconfirmed_frontiers", "Displays the account, height (sorted), frontier and cemented frontier for all accounts which are not fully confirmed")
 		("validate_blocks,debug_validate_blocks", "Check all blocks for correct hash, signature, work value")
 		("debug_prune", "Prune accounts up to last confirmed blocks (EXPERIMENTAL)")
 		("platform", boost::program_options::value<std::string> (), "Defines the <platform> for OpenCL commands")
@@ -1994,6 +1995,22 @@ int main (int argc, char * const * argv)
 			{
 				output_account_version_number (i, unopened_account_version_totals[i]);
 			}
+		}
+		else if (vm.count ("debug_unconfirmed_frontiers"))
+		{
+			auto inactive_node = nano::default_inactive_node (data_path, vm);
+			auto node = inactive_node->node;
+
+			auto unconfirmed_frontiers = node->ledger.unconfirmed_frontiers ();
+			std::cout << "Account: Height delta | Frontier | Confirmed frontier\n";
+			for (auto & unconfirmed_frontier : unconfirmed_frontiers)
+			{
+				auto const & unconfirmed_info = unconfirmed_frontier.second;
+
+				std::cout << (boost::format ("%1%: %2% %3% %4%\n") % unconfirmed_info.account.to_account () % unconfirmed_frontier.first % unconfirmed_info.frontier.to_string () % unconfirmed_info.cemented_frontier.to_string ()).str ();
+			}
+
+			std::cout << "\nNumber of unconfirmed frontiers: " << unconfirmed_frontiers.size () << std::endl;
 		}
 		else if (vm.count ("version"))
 		{

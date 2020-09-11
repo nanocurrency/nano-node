@@ -1,7 +1,6 @@
 #pragma once
 
 #include <nano/node/bootstrap/bootstrap_attempt.hpp>
-#include <nano/node/bootstrap/bootstrap_bulk_pull.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
