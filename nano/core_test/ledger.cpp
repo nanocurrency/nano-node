@@ -3306,7 +3306,7 @@ TEST (ledger, cache)
 		auto cemented_count = 1 + 2 * (i + 1) - 2;
 		auto genesis_weight = nano::genesis_amount - i;
 
-		auto cache_check = [&, i](nano::ledger_cache & cache_a) {
+		auto cache_check = [&, i](nano::ledger_cache const & cache_a) {
 			ASSERT_EQ (account_count, cache_a.account_count);
 			ASSERT_EQ (block_count, cache_a.block_count);
 			ASSERT_EQ (cemented_count, cache_a.cemented_count);

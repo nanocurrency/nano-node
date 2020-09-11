@@ -30,14 +30,14 @@ void nano::rep_weights::representation_put (nano::account const & account_a, nan
 	put (account_a, representation_a);
 }
 
-nano::uint128_t nano::rep_weights::representation_get (nano::account const & account_a)
+nano::uint128_t nano::rep_weights::representation_get (nano::account const & account_a) const
 {
 	nano::lock_guard<std::mutex> lk (mutex);
 	return get (account_a);
 }
 
 /** Makes a copy */
-std::unordered_map<nano::account, nano::uint128_t> nano::rep_weights::get_rep_amounts ()
+std::unordered_map<nano::account, nano::uint128_t> nano::rep_weights::get_rep_amounts () const
 {
 	nano::lock_guard<std::mutex> guard (mutex);
 	return rep_amounts;
@@ -68,7 +68,7 @@ void nano::rep_weights::put (nano::account const & account_a, nano::uint128_unio
 	}
 }
 
-nano::uint128_t nano::rep_weights::get (nano::account const & account_a)
+nano::uint128_t nano::rep_weights::get (nano::account const & account_a) const
 {
 	auto it = rep_amounts.find (account_a);
 	if (it != rep_amounts.end ())
@@ -81,7 +81,7 @@ nano::uint128_t nano::rep_weights::get (nano::account const & account_a)
 	}
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::rep_weights & rep_weights, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::rep_weights const & rep_weights, const std::string & name)
 {
 	size_t rep_amounts_count;
 
