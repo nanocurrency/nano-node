@@ -430,16 +430,16 @@ TEST (bootstrap_processor, frontiers_confirmed)
 
 	// Confirm all blocks so node1 is free to generate votes
 	node1->block_confirm (send1);
-	ASSERT_TIMELY (50s, node1->ledger.cache.cemented_count == 5);
+	ASSERT_TIMELY (5s, node1->ledger.cache.cemented_count == 5);
 
 	// Test node to bootstrap
 	node_config.peering_port = nano::get_available_port ();
 	node_flags.disable_legacy_bootstrap = false;
 	node_flags.disable_rep_crawler = false;
 	auto node2 = system.add_node (node_config, node_flags);
-	ASSERT_TIMELY (50s, node2->rep_crawler.representative_count () != 0);
+	ASSERT_TIMELY (5s, node2->rep_crawler.representative_count () != 0);
 	node2->bootstrap_initiator.bootstrap (node1->network.endpoint ());
-	ASSERT_TIMELY (100s, node2->bootstrap_initiator.current_attempt () == nullptr || node2->bootstrap_initiator.current_attempt ()->frontiers_confirmed);
+	ASSERT_TIMELY (10s, node2->bootstrap_initiator.current_attempt () == nullptr || node2->bootstrap_initiator.current_attempt ()->frontiers_confirmed);
 	ASSERT_EQ (1, node2->stats.count (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_successful, nano::stat::dir::in)); // Successful request from node1
 	ASSERT_EQ (0, node2->stats.count (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_failed, nano::stat::dir::in));
 }
