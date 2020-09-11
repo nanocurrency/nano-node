@@ -66,7 +66,8 @@ void rocksdb_val::convert_buffer_to_value ()
 nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a) :
 logger (logger_a),
 rocksdb_config (rocksdb_config_a),
-cf_name_table_map (create_cf_name_table_map ())
+cf_name_table_map (create_cf_name_table_map ()),
+max_block_write_batch_num_m (nano::narrow_cast<unsigned> (blocks_memtable_size_bytes () / (2 * (sizeof (nano::block_type) + nano::state_block::size + nano::block_sideband::size (nano::block_type::state)))))
 {
 	boost::system::error_code error_mkdir, error_chmod;
 	boost::filesystem::create_directories (path_a, error_mkdir);
@@ -99,7 +100,7 @@ std::unordered_map<const char *, nano::tables> nano::rocksdb_store::create_cf_na
 		{ "peers", tables::peers },
 		{ "confirmation_height", tables::confirmation_height } };
 
-	debug_assert (map.size () == all_tables ().size ());
+	debug_assert (map.size () == all_tables ().size () + 1);
 	return map;
 }
 
@@ -157,7 +158,7 @@ void nano::rocksdb_store::generate_tombstone_map ()
 rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_cf_options (std::string const & cf_name_a) const
 {
 	rocksdb::ColumnFamilyOptions cf_options;
-	auto const memtable_size_bytes = 1024ULL * 1024 * rocksdb_config.memory_multiplier * base_memtable_size;
+	auto const memtable_size_bytes = base_memtable_size_bytes ();
 	auto const block_cache_size_bytes = 1024ULL * 1024 * rocksdb_config.memory_multiplier * base_block_cache_size;
 	if (cf_name_a == "unchecked")
 	{
@@ -180,7 +181,7 @@ rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_cf_options (std::string co
 	else if (cf_name_a == "blocks")
 	{
 		std::shared_ptr<rocksdb::TableFactory> table_factory (rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes * 4)));
-		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
+		cf_options = get_active_cf_options (table_factory, blocks_memtable_size_bytes ());
 	}
 	else if (cf_name_a == "confirmation_height")
 	{
@@ -241,6 +242,7 @@ std::vector<rocksdb::ColumnFamilyDescriptor> nano::rocksdb_store::create_column_
 	std::vector<rocksdb::ColumnFamilyDescriptor> column_families;
 	for (auto & [cf_name, table] : cf_name_table_map)
 	{
+		(void)table;
 		column_families.emplace_back (cf_name, get_cf_options (cf_name));
 	}
 	return column_families;
@@ -458,6 +460,14 @@ uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, ta
 	else if (table_a == tables::blocks)
 	{
 		for (auto i (blocks_begin (transaction_a)), n (blocks_end ()); i != n; ++i)
+		{
+			++sum;
+		}
+	}
+	else if (table_a == tables::confirmation_height)
+	{
+		debug_assert (network_constants ().is_dev_network ());
+		for (auto i (confirmation_height_begin (transaction_a)), n (confirmation_height_end ()); i != n; ++i)
 		{
 			++sum;
 		}
@@ -819,6 +829,22 @@ void nano::rocksdb_store::serialize_memory_stats (boost::property_tree::ptree & 
 	// Memory size for the entries residing in block cache.
 	db->GetAggregatedIntProperty (rocksdb::DB::Properties::kBlockCacheUsage, &val);
 	json.put ("block-cache-usage", val);
+}
+
+unsigned long long nano::rocksdb_store::blocks_memtable_size_bytes () const
+{
+	return base_memtable_size_bytes ();
+}
+
+unsigned long long nano::rocksdb_store::base_memtable_size_bytes () const
+{
+	return 1024ULL * 1024 * rocksdb_config.memory_multiplier * base_memtable_size;
+}
+
+// This is a ratio of the blocks memtable size to keep total write transaction commit size down.
+unsigned nano::rocksdb_store::max_block_write_batch_num () const
+{
+	return max_block_write_batch_num_m;
 }
 
 nano::rocksdb_store::tombstone_info::tombstone_info (uint64_t num_since_last_flush_a, uint64_t const max_a) :
