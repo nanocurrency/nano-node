@@ -550,7 +550,8 @@ void nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint_a
 	auto socket (std::make_shared<nano::socket> (node.shared_from_this ()));
 	std::weak_ptr<nano::socket> socket_w (socket);
 	auto channel (std::make_shared<nano::transport::channel_tcp> (node, socket_w));
-	boost::asio::spawn (node.io_ctx,
+	boost::asio::spawn (
+	node.io_ctx,
 	[node_w = std::weak_ptr<nano::node>{ node.shared () }, channel, socket, endpoint_a, callback_a](boost::asio::yield_context yield) {
 		boost::system::error_code ec;
 		socket->async_connect (nano::transport::map_endpoint_to_tcp (endpoint_a), yield[ec]);

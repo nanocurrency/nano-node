@@ -150,7 +150,8 @@ void nano::bootstrap_connections::connect_client (nano::tcp_endpoint const & end
 {
 	++connections_count;
 	auto socket (std::make_shared<nano::socket> (node.shared ()));
-	boost::asio::spawn (node.io_ctx,
+	boost::asio::spawn (
+	node.io_ctx,
 	[this_l = shared_from_this (), endpoint_a, socket = socket, push_front](boost::asio::yield_context yield) {
 		boost::system::error_code ec;
 		socket->async_connect (endpoint_a, yield[ec]);

@@ -131,7 +131,8 @@ void nano::distributed_work::do_request (nano::tcp_endpoint const & endpoint_a)
 		nano::lock_guard<std::mutex> lock (mutex);
 		connections.emplace_back (connection);
 	}
-	boost::asio::spawn (strand,
+	boost::asio::spawn (
+	strand,
 	[this_l = shared_from_this (), connection = connection](boost::asio::yield_context yield) {
 		boost::system::error_code ec;
 		connection->socket.async_connect (connection->endpoint, yield[ec]);
