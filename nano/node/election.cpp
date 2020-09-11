@@ -125,7 +125,7 @@ bool nano::election::state_change (nano::election::state_t expected_a, nano::ele
 	{
 		if (state_m.compare_exchange_strong (expected_a, desired_a))
 		{
-			state_start = std::chrono::steady_clock::now ();
+			state_start = std::chrono::steady_clock::now ().time_since_epoch ();
 			result = false;
 		}
 	}
@@ -188,7 +188,7 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 	switch (state_m)
 	{
 		case nano::election::state_t::passive:
-			if (base_latency () * passive_duration_factor < std::chrono::steady_clock::now () - state_start.load ())
+			if (base_latency () * passive_duration_factor < std::chrono::steady_clock::now ().time_since_epoch () - state_start.load ())
 			{
 				state_change (nano::election::state_t::passive, nano::election::state_t::active);
 			}
@@ -205,7 +205,7 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 			send_confirm_req (solicitor_a);
 			break;
 		case nano::election::state_t::confirmed:
-			if (base_latency () * confirmed_duration_factor < std::chrono::steady_clock::now () - state_start.load ())
+			if (base_latency () * confirmed_duration_factor < std::chrono::steady_clock::now ().time_since_epoch () - state_start.load ())
 			{
 				result = true;
 				state_change (nano::election::state_t::confirmed, nano::election::state_t::expired_confirmed);
