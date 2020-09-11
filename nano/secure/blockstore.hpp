@@ -147,6 +147,17 @@ public:
 		convert_buffer_to_value ();
 	}
 
+	db_val (uint8_t val_a) :
+	buffer (std::make_shared<std::vector<uint8_t>> ())
+	{
+		{
+			boost::endian::native_to_big_inplace (val_a);
+			nano::vectorstream stream (*buffer);
+			nano::write (stream, val_a);
+		}
+		convert_buffer_to_value ();
+	}
+
 	explicit operator nano::account_info () const
 	{
 		nano::account_info result;
@@ -510,6 +521,7 @@ enum class tables
 	online_weight,
 	peers,
 	pending,
+	pruned,
 	unchecked,
 	vote
 };
@@ -662,6 +674,14 @@ public:
 	virtual void version_put (nano::write_transaction const &, int) = 0;
 	virtual int version_get (nano::transaction const &) const = 0;
 
+	virtual void pruned_put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a) = 0;
+	virtual void pruned_del (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a) = 0;
+	virtual bool pruned_exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const = 0;
+	virtual bool block_or_pruned_exists (nano::transaction const &, nano::block_hash const &) = 0;
+	virtual nano::block_hash pruned_random (nano::transaction const & transaction_a) = 0;
+	virtual size_t pruned_count (nano::transaction const & transaction_a) const = 0;
+	virtual void pruned_clear (nano::write_transaction const &) = 0;
+
 	virtual void peer_put (nano::write_transaction const & transaction_a, nano::endpoint_key const & endpoint_a) = 0;
 	virtual void peer_del (nano::write_transaction const & transaction_a, nano::endpoint_key const & endpoint_a) = 0;
 	virtual bool peer_exists (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a) const = 0;
@@ -705,7 +725,7 @@ public:
 	virtual std::string vendor_get () const = 0;
 };
 
-std::unique_ptr<nano::block_store> make_store (nano::logger_mt & logger, boost::filesystem::path const & path, bool open_read_only = false, bool add_db_postfix = false, nano::rocksdb_config const & rocksdb_config = nano::rocksdb_config{}, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, bool backup_before_upgrade = false, bool rocksdb_backend = false);
+std::unique_ptr<nano::block_store> make_store (nano::logger_mt & logger, boost::filesystem::path const & path, bool open_read_only = false, bool add_db_postfix = false, nano::rocksdb_config const & rocksdb_config = nano::rocksdb_config{}, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, bool backup_before_upgrade = false, bool rocksdb_backend = false, bool enable_pruning = false);
 }
 
 namespace std

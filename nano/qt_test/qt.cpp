@@ -501,6 +501,78 @@ TEST (history, short_text)
 	ASSERT_EQ (4, history.model->rowCount ());
 }
 
+TEST (history, pruned_source)
+{
+	if (nano::using_rocksdb_in_tests ())
+	{
+		// Don't test this in rocksdb mode
+		return;
+	}
+	nano_qt::eventloop_processor processor;
+	nano::keypair key;
+	nano::system system (1);
+	system.wallet (0)->insert_adhoc (key.prv);
+	nano::account account;
+	{
+		auto transaction (system.nodes[0]->wallets.tx_begin_read ());
+		account = system.account (transaction, 0);
+	}
+	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
+	auto store = nano::make_store (system.nodes[0]->logger, nano::unique_path ());
+	ASSERT_TRUE (!store->init_error ());
+	nano::genesis genesis;
+	nano::ledger ledger (*store, system.nodes[0]->stats);
+	ledger.enable_pruning = true;
+	nano::block_hash next_pruning;
+	// Basic pruning for legacy blocks. Previous block is pruned, source is pruned
+	{
+		auto transaction (store->tx_begin_write ());
+		store->initialize (transaction, genesis, ledger.cache);
+		auto latest (ledger.latest (transaction, nano::dev_genesis_key.pub));
+		nano::send_block send1 (latest, nano::dev_genesis_key.pub, nano::genesis_amount - 100, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (latest));
+		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send1).code);
+		nano::send_block send2 (send1.hash (), key.pub, nano::genesis_amount - 200, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send1.hash ()));
+		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send2).code);
+		nano::receive_block receive (send2.hash (), send1.hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send2.hash ()));
+		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive).code);
+		nano::open_block open (send2.hash (), key.pub, key.pub, key.prv, key.pub, *system.work.generate (key.pub));
+		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, open).code);
+		ASSERT_EQ (1, ledger.prune (transaction, send1.hash (), 2));
+		next_pruning = send2.hash ();
+	}
+	nano_qt::history history1 (ledger, nano::dev_genesis_key.pub, *wallet);
+	history1.refresh ();
+	ASSERT_EQ (2, history1.model->rowCount ());
+	nano_qt::history history2 (ledger, key.pub, *wallet);
+	history2.refresh ();
+	ASSERT_EQ (1, history2.model->rowCount ());
+	// Additional legacy test
+	{
+		auto transaction (store->tx_begin_write ());
+		ASSERT_EQ (1, ledger.prune (transaction, next_pruning, 2));
+	}
+	history1.refresh ();
+	ASSERT_EQ (1, history1.model->rowCount ());
+	history2.refresh ();
+	ASSERT_EQ (1, history2.model->rowCount ());
+	// Pruning for state blocks. Previous block is pruned, source is pruned
+	{
+		auto transaction (store->tx_begin_write ());
+		auto latest (ledger.latest (transaction, nano::dev_genesis_key.pub));
+		nano::state_block send (nano::dev_genesis_key.pub, latest, nano::dev_genesis_key.pub, nano::genesis_amount - 200, key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (latest));
+		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send).code);
+		auto latest_key (ledger.latest (transaction, key.pub));
+		nano::state_block receive (key.pub, latest_key, key.pub, 200, send.hash (), key.prv, key.pub, *system.work.generate (latest_key));
+		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive).code);
+		ASSERT_EQ (1, ledger.prune (transaction, latest, 2));
+		ASSERT_EQ (1, ledger.prune (transaction, latest_key, 2));
+	}
+	history1.refresh ();
+	ASSERT_EQ (1, history1.model->rowCount ());
+	history2.refresh ();
+	ASSERT_EQ (1, history2.model->rowCount ());
+}
+
 TEST (wallet, startup_work)
 {
 	nano_qt::eventloop_processor processor;

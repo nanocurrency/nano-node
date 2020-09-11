@@ -98,7 +98,7 @@ alarm (alarm_a),
 work (work_a),
 distributed_work (*this),
 logger (config_a.logging.min_time_between_log_output),
-store_impl (nano::make_store (logger, application_path_a, flags.read_only, true, config_a.rocksdb_config, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_config, config_a.backup_before_upgrade, config_a.rocksdb_config.enable)),
+store_impl (nano::make_store (logger, application_path_a, flags.read_only, true, config_a.rocksdb_config, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_config, config_a.backup_before_upgrade, config_a.rocksdb_config.enable, flags.enable_pruning)),
 store (*store_impl),
 wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (application_path_a / "wallets.ldb", config_a.lmdb_config)),
 wallets_store (*wallets_store_impl),
@@ -427,6 +427,26 @@ node_seq (seq)
 				logger.always_log ("Dropping unchecked blocks");
 			}
 		}
+
+		ledger.enable_pruning = flags.enable_pruning;
+
+		if (store.pruned_count (store.tx_begin_read ()) > 0)
+		{
+			if (config.enable_voting)
+			{
+				std::string str = "Incompatibility detected between config node.enable_voting and existing pruned blocks";
+				logger.always_log (str);
+				std::cerr << str << std::endl;
+				std::exit (1);
+			}
+			else if (!flags.enable_pruning)
+			{
+				std::string str = "To start node with existing pruned blocks use launch flag --enable_pruning";
+				logger.always_log (str);
+				std::cerr << str << std::endl;
+				std::exit (1);
+			}
+		}
 	}
 	node_initialized_latch.count_down ();
 }
@@ -635,6 +655,13 @@ void nano::node::start ()
 		});
 	}
 	ongoing_store_flush ();
+	if (flags.enable_pruning)
+	{
+		auto this_l (shared ());
+		worker.push_task ([this_l]() {
+			this_l->ongoing_ledger_pruning ();
+		});
+	}
 	if (!flags.disable_rep_crawler)
 	{
 		rep_crawler.start ();
@@ -977,6 +1004,125 @@ void nano::node::ongoing_unchecked_cleanup ()
 	});
 }
 
+bool nano::node::collect_ledger_pruning_targets (std::deque<nano::block_hash> & pruning_targets_a, nano::account & last_account_a, uint64_t const batch_read_size_a, uint64_t const max_depth_a, uint64_t const cutoff_time_a)
+{
+	uint64_t read_operations (0);
+	bool finish_transaction (false);
+	auto transaction (store.tx_begin_read ());
+	for (auto i (store.confirmation_height_begin (transaction, last_account_a)), n (store.confirmation_height_end ()); i != n && !finish_transaction;)
+	{
+		++read_operations;
+		auto const & account (i->first);
+		nano::block_hash hash (i->second.frontier);
+		uint64_t depth (0);
+		while (!hash.is_zero () && depth < max_depth_a)
+		{
+			auto block (store.block_get (transaction, hash));
+			if (block != nullptr)
+			{
+				if (block->sideband ().timestamp > cutoff_time_a || depth == 0)
+				{
+					hash = block->previous ();
+				}
+				else
+				{
+					break;
+				}
+			}
+			else
+			{
+				release_assert (depth != 0);
+				hash = 0;
+			}
+			if (++depth % batch_read_size_a == 0)
+			{
+				transaction.reset ();
+				transaction.renew ();
+			}
+		}
+		if (!hash.is_zero ())
+		{
+			pruning_targets_a.push_back (hash);
+		}
+		read_operations += depth;
+		if (read_operations >= batch_read_size_a)
+		{
+			last_account_a = account.number () + 1;
+			finish_transaction = true;
+		}
+		else
+		{
+			++i;
+		}
+	}
+	return !finish_transaction || last_account_a.is_zero ();
+}
+
+void nano::node::ledger_pruning (uint64_t const batch_size_a, bool bootstrap_weight_reached_a, bool log_to_cout_a)
+{
+	uint64_t const max_depth (config.max_pruning_depth != 0 ? config.max_pruning_depth : std::numeric_limits<uint64_t>::max ());
+	uint64_t const cutoff_time (bootstrap_weight_reached_a ? nano::seconds_since_epoch () - config.max_pruning_age.count () : std::numeric_limits<uint64_t>::max ());
+	uint64_t pruned_count (0);
+	uint64_t transaction_write_count (0);
+	nano::account last_account (1); // 0 Burn account is never opened. So it can be used to break loop
+	std::deque<nano::block_hash> pruning_targets;
+	bool target_finished (false);
+	while ((transaction_write_count != 0 || !target_finished) && !stopped)
+	{
+		// Search pruning targets
+		while (pruning_targets.size () < batch_size_a && !target_finished && !stopped)
+		{
+			target_finished = collect_ledger_pruning_targets (pruning_targets, last_account, batch_size_a * 2, max_depth, cutoff_time);
+		}
+		// Pruning write operation
+		transaction_write_count = 0;
+		if (!pruning_targets.empty () && !stopped)
+		{
+			auto scoped_write_guard = write_database_queue.wait (nano::writer::pruning);
+			auto write_transaction (store.tx_begin_write ({ tables::blocks, tables::pruned }));
+			while (!pruning_targets.empty () && transaction_write_count < batch_size_a && !stopped)
+			{
+				auto const & pruning_hash (pruning_targets.front ());
+				auto account_pruned_count (ledger.prune (write_transaction, pruning_hash, batch_size_a));
+				transaction_write_count += account_pruned_count;
+				pruning_targets.pop_front ();
+			}
+			pruned_count += transaction_write_count;
+			auto log_message (boost::str (boost::format ("%1% blocks pruned") % pruned_count));
+			if (!log_to_cout_a)
+			{
+				logger.try_log (log_message);
+			}
+			else
+			{
+				std::cout << log_message << std::endl;
+			}
+		}
+	}
+	auto log_message (boost::str (boost::format ("Total recently pruned block count: %1%") % pruned_count));
+	if (!log_to_cout_a)
+	{
+		logger.always_log (log_message);
+	}
+	else
+	{
+		std::cout << log_message << std::endl;
+	}
+}
+
+void nano::node::ongoing_ledger_pruning ()
+{
+	auto bootstrap_weight_reached (ledger.cache.block_count >= ledger.bootstrap_weight_max_blocks);
+	ledger_pruning (flags.block_processor_batch_size != 0 ? flags.block_processor_batch_size : 2 * 1024, bootstrap_weight_reached, false);
+	auto ledger_pruning_interval (bootstrap_weight_reached ? config.max_pruning_age : std::min (config.max_pruning_age, std::chrono::seconds (15 * 60)));
+	auto this_l (shared ());
+	alarm.add (std::chrono::steady_clock::now () + ledger_pruning_interval, [this_l]() {
+		this_l->worker.push_task ([this_l]() {
+			this_l->ongoing_ledger_pruning ();
+		});
+	});
+}
+
 int nano::node::price (nano::uint128_t const & balance_a, int amount_a)
 {
 	debug_assert (balance_a >= amount_a * nano::Gxrb_ratio);
@@ -1249,11 +1395,19 @@ void nano::node::process_confirmed_data (nano::transaction const & transaction_a
 	}
 	// Faster amount calculation
 	auto previous (block_a->previous ());
-	auto previous_balance (ledger.balance (transaction_a, previous));
+	bool error (false);
+	auto previous_balance (ledger.balance_safe (transaction_a, previous, error));
 	auto block_balance (store.block_balance_calculated (block_a));
 	if (hash_a != ledger.network_params.ledger.genesis_account)
 	{
-		amount_a = block_balance > previous_balance ? block_balance - previous_balance : previous_balance - block_balance;
+		if (!error)
+		{
+			amount_a = block_balance > previous_balance ? block_balance - previous_balance : previous_balance - block_balance;
+		}
+		else
+		{
+			amount_a = 0;
+		}
 	}
 	else
 	{
@@ -1708,11 +1862,11 @@ nano::node_flags const & nano::inactive_node_flag_defaults ()
 	return node_flags;
 }
 
-std::unique_ptr<nano::block_store> nano::make_store (nano::logger_mt & logger, boost::filesystem::path const & path, bool read_only, bool add_db_postfix, nano::rocksdb_config const & rocksdb_config, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade, bool use_rocksdb_backend)
+std::unique_ptr<nano::block_store> nano::make_store (nano::logger_mt & logger, boost::filesystem::path const & path, bool read_only, bool add_db_postfix, nano::rocksdb_config const & rocksdb_config, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade, bool use_rocksdb_backend, bool enable_pruning)
 {
 #if NANO_ROCKSDB
-	auto make_rocksdb = [&logger, add_db_postfix, &path, &rocksdb_config, read_only]() {
-		return std::make_unique<nano::rocksdb_store> (logger, add_db_postfix ? path / "rocksdb" : path, rocksdb_config, read_only);
+	auto make_rocksdb = [&logger, add_db_postfix, &path, &rocksdb_config, read_only, enable_pruning]() {
+		return std::make_unique<nano::rocksdb_store> (logger, add_db_postfix ? path / "rocksdb" : path, rocksdb_config, read_only, enable_pruning);
 	};
 #endif
 

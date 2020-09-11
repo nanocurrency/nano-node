@@ -1004,8 +1004,12 @@ void nano::json_handler::block_info ()
 		{
 			nano::account account (block->account ().is_zero () ? block->sideband ().account : block->account ());
 			response_l.put ("block_account", account.to_account ());
-			auto amount (node.ledger.amount (transaction, hash));
-			response_l.put ("amount", amount.convert_to<std::string> ());
+			bool error_or_pruned (false);
+			auto amount (node.ledger.amount_safe (transaction, hash, error_or_pruned));
+			if (!error_or_pruned)
+			{
+				response_l.put ("amount", amount.convert_to<std::string> ());
+			}
 			auto balance (node.ledger.balance (transaction, hash));
 			response_l.put ("balance", balance.convert_to<std::string> ());
 			response_l.put ("height", std::to_string (block->sideband ().height));
@@ -1068,11 +1072,15 @@ void nano::json_handler::block_confirm ()
 				// Trigger callback for confirmed block
 				node.block_arrival.add (hash);
 				auto account (node.ledger.account (transaction, hash));
-				auto amount (node.ledger.amount (transaction, hash));
+				bool error_or_pruned (false);
+				auto amount (node.ledger.amount_safe (transaction, hash, error_or_pruned));
 				bool is_state_send (false);
-				if (auto state = dynamic_cast<nano::state_block *> (block_l.get ()))
+				if (!error_or_pruned)
 				{
-					is_state_send = node.ledger.is_send (transaction, *state);
+					if (auto state = dynamic_cast<nano::state_block *> (block_l.get ()))
+					{
+						is_state_send = node.ledger.is_send (transaction, *state);
+					}
 				}
 				node.observers.blocks.notify (status, account, amount, is_state_send);
 			}
@@ -1154,8 +1162,12 @@ void nano::json_handler::blocks_info ()
 					boost::property_tree::ptree entry;
 					nano::account account (block->account ().is_zero () ? block->sideband ().account : block->account ());
 					entry.put ("block_account", account.to_account ());
-					auto amount (node.ledger.amount (transaction, hash));
-					entry.put ("amount", amount.convert_to<std::string> ());
+					bool error_or_pruned (false);
+					auto amount (node.ledger.amount_safe (transaction, hash, error_or_pruned));
+					if (!error_or_pruned)
+					{
+						entry.put ("amount", amount.convert_to<std::string> ());
+					}
 					auto balance (node.ledger.balance (transaction, hash));
 					entry.put ("balance", balance.convert_to<std::string> ());
 					entry.put ("height", std::to_string (block->sideband ().height));
@@ -1258,6 +1270,11 @@ void nano::json_handler::block_count ()
 	response_l.put ("count", std::to_string (node.ledger.cache.block_count));
 	response_l.put ("unchecked", std::to_string (node.store.unchecked_count (node.store.tx_begin_read ())));
 	response_l.put ("cemented", std::to_string (node.ledger.cache.cemented_count));
+	if (node.flags.enable_pruning)
+	{
+		response_l.put ("full", std::to_string (node.ledger.cache.block_count - node.ledger.cache.pruned_count));
+		response_l.put ("pruned", std::to_string (node.ledger.cache.pruned_count));
+	}
 	response_errors ();
 }
 
@@ -2181,8 +2198,12 @@ public:
 		tree.put ("type", "send");
 		auto account (block_a.hashables.destination.to_account ());
 		tree.put ("account", account);
-		auto amount (handler.node.ledger.amount (transaction, hash).convert_to<std::string> ());
-		tree.put ("amount", amount);
+		bool error_or_pruned (false);
+		auto amount (handler.node.ledger.amount_safe (transaction, hash, error_or_pruned).convert_to<std::string> ());
+		if (!error_or_pruned)
+		{
+			tree.put ("amount", amount);
+		}
 		if (raw)
 		{
 			tree.put ("destination", account);
@@ -2193,10 +2214,17 @@ public:
 	void receive_block (nano::receive_block const & block_a)
 	{
 		tree.put ("type", "receive");
-		auto account (handler.node.ledger.account (transaction, block_a.hashables.source).to_account ());
-		tree.put ("account", account);
-		auto amount (handler.node.ledger.amount (transaction, hash).convert_to<std::string> ());
-		tree.put ("amount", amount);
+		bool error_or_pruned (false);
+		auto amount (handler.node.ledger.amount_safe (transaction, hash, error_or_pruned).convert_to<std::string> ());
+		if (!error_or_pruned)
+		{
+			auto source_account (handler.node.ledger.account_safe (transaction, block_a.hashables.source, error_or_pruned));
+			if (!error_or_pruned)
+			{
+				tree.put ("account", source_account.to_account ());
+			}
+			tree.put ("amount", amount);
+		}
 		if (raw)
 		{
 			tree.put ("source", block_a.hashables.source.to_string ());
@@ -2219,8 +2247,17 @@ public:
 		}
 		if (block_a.hashables.source != network_params.ledger.genesis_account)
 		{
-			tree.put ("account", handler.node.ledger.account (transaction, block_a.hashables.source).to_account ());
-			tree.put ("amount", handler.node.ledger.amount (transaction, hash).convert_to<std::string> ());
+			bool error_or_pruned (false);
+			auto amount (handler.node.ledger.amount_safe (transaction, hash, error_or_pruned).convert_to<std::string> ());
+			if (!error_or_pruned)
+			{
+				auto source_account (handler.node.ledger.account_safe (transaction, block_a.hashables.source, error_or_pruned));
+				if (!error_or_pruned)
+				{
+					tree.put ("account", source_account.to_account ());
+				}
+				tree.put ("amount", amount);
+			}
 		}
 		else
 		{
@@ -2248,8 +2285,20 @@ public:
 			tree.put ("previous", block_a.hashables.previous.to_string ());
 		}
 		auto balance (block_a.hashables.balance.number ());
-		auto previous_balance (handler.node.ledger.balance (transaction, block_a.hashables.previous));
-		if (balance < previous_balance)
+		bool error_or_pruned (false);
+		auto previous_balance (handler.node.ledger.balance_safe (transaction, block_a.hashables.previous, error_or_pruned));
+		if (error_or_pruned)
+		{
+			if (raw)
+			{
+				tree.put ("subtype", "unknown");
+			}
+			else
+			{
+				tree.put ("type", "unknown");
+			}
+		}
+		else if (balance < previous_balance)
 		{
 			if (should_ignore_account (block_a.hashables.link.as_account ()))
 			{
@@ -2286,8 +2335,8 @@ public:
 			}
 			else
 			{
-				auto account (handler.node.ledger.account (transaction, block_a.hashables.link.as_block_hash ()));
-				if (should_ignore_account (account))
+				auto source_account (handler.node.ledger.account_safe (transaction, block_a.hashables.link.as_block_hash (), error_or_pruned));
+				if (!error_or_pruned && should_ignore_account (source_account))
 				{
 					tree.clear ();
 					return;
@@ -2300,7 +2349,10 @@ public:
 				{
 					tree.put ("type", "receive");
 				}
-				tree.put ("account", account.to_account ());
+				if (!error_or_pruned)
+				{
+					tree.put ("account", source_account.to_account ());
+				}
 				tree.put ("amount", (balance - previous_balance).convert_to<std::string> ());
 			}
 		}
@@ -4682,7 +4734,14 @@ void nano::json_handler::wallet_republish ()
 			{
 				hashes.push_back (latest);
 				block = node.store.block_get (block_transaction, latest);
-				latest = block->previous ();
+				if (block != nullptr)
+				{
+					latest = block->previous ();
+				}
+				else
+				{
+					latest.clear ();
+				}
 			}
 			std::reverse (hashes.begin (), hashes.end ());
 			for (auto & hash : hashes)
