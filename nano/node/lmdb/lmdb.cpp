@@ -274,6 +274,8 @@ bool nano::mdb_store::do_upgrades (nano::write_transaction & transaction_a, bool
 			upgrade_v18_to_v19 (transaction_a);
 			needs_vacuuming = true;
 		case 19:
+			upgrade_v19_to_v20 (transaction_a);
+		case 20:
 			break;
 		default:
 			logger.always_log (boost::str (boost::format ("The version of the ledger (%1%) is too high for this node") % version_l));
@@ -724,8 +726,15 @@ void nano::mdb_store::upgrade_v18_to_v19 (nano::write_transaction const & transa
 	release_assert (count_pre == count_post);
 
 	version_put (transaction_a, 19);
-	mdb_dbi_open (env.tx (transaction_a), "pruned", MDB_CREATE, &pruned);
 	logger.always_log ("Finished upgrading all blocks to new blocks database");
+}
+
+void nano::mdb_store::upgrade_v19_to_v20 (nano::write_transaction const & transaction_a)
+{
+	logger.always_log ("Preparing v19 to v20 database upgrade...");
+	mdb_dbi_open (env.tx (transaction_a), "pruned", MDB_CREATE, &pruned);
+	version_put (transaction_a, 20);
+	logger.always_log ("Finished creating new pruned table");
 }
 
 /** Takes a filepath, appends '_backup_<timestamp>' to the end (but before any extension) and saves that file in the same directory */

@@ -1865,6 +1865,36 @@ TEST (mdb_block_store, upgrade_v18_v19)
 	ASSERT_LT (18, store.version_get (transaction));
 }
 
+TEST (mdb_block_store, upgrade_v19_v20)
+{
+	if (nano::using_rocksdb_in_tests ())
+	{
+		// Don't test this in rocksdb mode
+		return;
+	}
+	auto path (nano::unique_path ());
+	nano::genesis genesis;
+	nano::logger_mt logger;
+	nano::stat stats;
+	{
+		nano::mdb_store store (logger, path);
+		nano::ledger ledger (store, stats);
+		auto transaction (store.tx_begin_write ());
+		store.initialize (transaction, genesis, ledger.cache);
+		// Delete pruned table
+		ASSERT_FALSE (mdb_drop (store.env.tx (transaction), store.pruned, 1));
+		store.version_put (transaction, 19);
+	}
+	// Upgrading should create the table
+	nano::mdb_store store (logger, path);
+	ASSERT_FALSE (store.init_error ());
+	ASSERT_NE (store.pruned, 0);
+
+	// Version should be correct
+	auto transaction (store.tx_begin_read ());
+	ASSERT_LT (19, store.version_get (transaction));
+}
+
 TEST (mdb_block_store, upgrade_backup)
 {
 	if (nano::using_rocksdb_in_tests ())

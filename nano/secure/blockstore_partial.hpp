@@ -754,7 +754,7 @@ protected:
 	nano::network_params network_params;
 	std::unordered_map<nano::account, std::shared_ptr<nano::vote>> vote_cache_l1;
 	std::unordered_map<nano::account, std::shared_ptr<nano::vote>> vote_cache_l2;
-	int const version{ 19 };
+	int const version{ 20 };
 
 	template <typename Key, typename Value>
 	nano::store_iterator<Key, Value> make_iterator (nano::transaction const & transaction_a, tables table_a) const
