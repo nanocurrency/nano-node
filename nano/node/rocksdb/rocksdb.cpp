@@ -63,7 +63,7 @@ void rocksdb_val::convert_buffer_to_value ()
 }
 }
 
-nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a) :
+nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a, bool enable_pruning_a) :
 logger (logger_a),
 rocksdb_config (rocksdb_config_a),
 cf_name_table_map (create_cf_name_table_map ()),
@@ -82,7 +82,7 @@ max_block_write_batch_num_m (nano::narrow_cast<unsigned> (blocks_memtable_size_b
 		{
 			construct_column_family_mutexes ();
 		}
-		open (error, path_a, open_read_only_a);
+		open (error, path_a, open_read_only_a, enable_pruning_a);
 	}
 }
 
@@ -98,13 +98,14 @@ std::unordered_map<const char *, nano::tables> nano::rocksdb_store::create_cf_na
 		{ "online_weight", tables::online_weight },
 		{ "meta", tables::meta },
 		{ "peers", tables::peers },
-		{ "confirmation_height", tables::confirmation_height } };
+		{ "confirmation_height", tables::confirmation_height },
+		{ "pruned", tables::pruned } };
 
 	debug_assert (map.size () == all_tables ().size () + 1);
 	return map;
 }
 
-void nano::rocksdb_store::open (bool & error_a, boost::filesystem::path const & path_a, bool open_read_only_a)
+void nano::rocksdb_store::open (bool & error_a, boost::filesystem::path const & path_a, bool open_read_only_a, bool enable_pruning_a)
 {
 	auto column_families = create_column_families ();
 	auto options = get_db_options ();
@@ -144,6 +145,18 @@ void nano::rocksdb_store::open (bool & error_a, boost::filesystem::path const & 
 			error_a = true;
 			logger.always_log (boost::str (boost::format ("The version of the ledger (%1%) is too high for this node") % version_l));
 		}
+	}
+
+	// Exact pruned block count
+	if (!error_a && !enable_pruning_a)
+	{
+		uint8_t start{ 0 };
+		rocksdb::Slice start_slice (reinterpret_cast<const char *> (&start), 1);
+		std::vector<uint8_t> end (sizeof (nano::block_hash), 255);
+		rocksdb::Slice end_slice (reinterpret_cast<const char *> (end.data ()), end.size ());
+		rocksdb::CompactRangeOptions compactRangeOptions;
+		compactRangeOptions.allow_write_stall = true;
+		db->CompactRange (compactRangeOptions, table_to_column_family (nano::tables::pruned), &start_slice, &end_slice);
 	}
 }
 
@@ -222,6 +235,11 @@ rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_cf_options (std::string co
 	else if (cf_name_a == "vote")
 	{
 		// No deletes it seems, only overwrites.
+		std::shared_ptr<rocksdb::TableFactory> table_factory (rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes * 2)));
+		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
+	}
+	else if (cf_name_a == "pruned")
+	{
 		std::shared_ptr<rocksdb::TableFactory> table_factory (rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes * 2)));
 		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
 	}
@@ -309,6 +327,8 @@ rocksdb::ColumnFamilyHandle * nano::rocksdb_store::table_to_column_family (table
 			return get_handle ("meta");
 		case tables::peers:
 			return get_handle ("peers");
+		case tables::pruned:
+			return get_handle ("pruned");
 		case tables::confirmation_height:
 			return get_handle ("confirmation_height");
 		default:
@@ -445,6 +465,11 @@ uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, ta
 	}
 	// This is only an estimation
 	else if (table_a == tables::unchecked)
+	{
+		db->GetIntProperty (table_to_column_family (table_a), "rocksdb.estimate-num-keys", &sum);
+	}
+	// This should be correct at node start, later only cache should be used
+	else if (table_a == tables::pruned)
 	{
 		db->GetIntProperty (table_to_column_family (table_a), "rocksdb.estimate-num-keys", &sum);
 	}
@@ -701,7 +726,7 @@ void nano::rocksdb_store::on_flush (rocksdb::FlushJobInfo const & flush_job_info
 
 std::vector<nano::tables> nano::rocksdb_store::all_tables () const
 {
-	return std::vector<nano::tables>{ tables::accounts, tables::blocks, tables::confirmation_height, tables::frontiers, tables::meta, tables::online_weight, tables::peers, tables::pending, tables::unchecked, tables::vote };
+	return std::vector<nano::tables>{ tables::accounts, tables::blocks, tables::confirmation_height, tables::frontiers, tables::meta, tables::online_weight, tables::peers, tables::pending, tables::pruned, tables::unchecked, tables::vote };
 }
 
 bool nano::rocksdb_store::copy_db (boost::filesystem::path const & destination_path)
