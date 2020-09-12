@@ -1314,7 +1314,7 @@ TEST (wallet, epoch_2_validation)
 		ASSERT_EQ (nano::epoch::epoch_2, send->sideband ().details.epoch);
 		ASSERT_EQ (nano::epoch::epoch_0, send->sideband ().source_epoch); // Not used for send state blocks
 
-		auto receive = wallet.receive_action (*send, nano::dev_genesis_key.pub, amount, 1);
+		auto receive = wallet.receive_action (send->hash (), nano::dev_genesis_key.pub, amount, send->link ().as_account (), 1);
 		ASSERT_NE (nullptr, receive);
 		if (receive->difficulty () < node.network_params.network.publish_thresholds.base)
 		{
@@ -1356,7 +1356,7 @@ TEST (wallet, epoch_2_receive_propagation)
 		auto amount = node.config.receive_minimum.number ();
 		auto send1 = wallet.send_action (nano::dev_genesis_key.pub, key.pub, amount, 1);
 		ASSERT_NE (nullptr, send1);
-		ASSERT_NE (nullptr, wallet.receive_action (*send1, nano::dev_genesis_key.pub, amount, 1));
+		ASSERT_NE (nullptr, wallet.receive_action (send1->hash (), nano::dev_genesis_key.pub, amount, send1->link ().as_account (), 1));
 
 		// Upgrade the genesis account to epoch 2
 		auto epoch2 = system.upgrade_genesis_epoch (node, nano::epoch::epoch_2);
@@ -1371,7 +1371,7 @@ TEST (wallet, epoch_2_receive_propagation)
 			nano::lock_guard<std::mutex> guard (node.active.mutex);
 			node.active.trended_active_multiplier = 1.0;
 		}
-		auto receive2 = wallet.receive_action (*send2, key.pub, amount, 1);
+		auto receive2 = wallet.receive_action (send2->hash (), key.pub, amount, send2->link ().as_account (), 1);
 		ASSERT_NE (nullptr, receive2);
 		if (receive2->difficulty () < node.network_params.network.publish_thresholds.base)
 		{
@@ -1421,7 +1421,7 @@ TEST (wallet, epoch_2_receive_unopened)
 			nano::lock_guard<std::mutex> guard (node.active.mutex);
 			node.active.trended_active_multiplier = 1.0;
 		}
-		auto receive1 = wallet.receive_action (*send1, key.pub, amount, 1);
+		auto receive1 = wallet.receive_action (send1->hash (), key.pub, amount, send1->link ().as_account (), 1);
 		ASSERT_NE (nullptr, receive1);
 		if (receive1->difficulty () < node.network_params.network.publish_thresholds.base)
 		{

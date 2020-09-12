@@ -1311,78 +1311,44 @@ void nano::node::ongoing_online_weight_calculation ()
 
 namespace
 {
-class confirmed_visitor : public nano::block_visitor
-{
-public:
-	confirmed_visitor (nano::transaction const & transaction_a, nano::node & node_a, std::shared_ptr<nano::block> const & block_a, nano::block_hash const & hash_a) :
-	transaction (transaction_a),
-	node (node_a),
-	block (block_a),
-	hash (hash_a)
+	void scan_receivable (nano::transaction const & transaction_a, nano::node & node_a, nano::account const & account_a, nano::block_hash const & hash_a)
 	{
-	}
-	virtual ~confirmed_visitor () = default;
-	void scan_receivable (nano::account const & account_a)
-	{
-		for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)
+		for (auto i (node_a.wallets.items.begin ()), n (node_a.wallets.items.end ()); i != n; ++i)
 		{
 			auto const & wallet (i->second);
-			auto transaction_l (node.wallets.tx_begin_read ());
+			auto transaction_l (node_a.wallets.tx_begin_read ());
 			if (wallet->store.exists (transaction_l, account_a))
 			{
 				nano::account representative;
 				nano::pending_info pending;
 				representative = wallet->store.representative (transaction_l);
-				auto error (node.store.pending_get (transaction, nano::pending_key (account_a, hash), pending));
+				auto error (node_a.store.pending_get (transaction_a, nano::pending_key (account_a, hash_a), pending));
 				if (!error)
 				{
-					auto node_l (node.shared ());
+					auto node_l (node_a.shared ());
 					auto amount (pending.amount.number ());
-					wallet->receive_async (block, representative, amount, [](std::shared_ptr<nano::block>) {});
+					wallet->receive_async (hash_a, representative, amount, account_a, [](std::shared_ptr<nano::block>) {});
 				}
 				else
 				{
-					if (!node.store.block_exists (transaction, hash))
+					if (!node_a.store.block_exists (transaction_a, hash_a))
 					{
-						node.logger.try_log (boost::str (boost::format ("Confirmed block is missing:  %1%") % hash.to_string ()));
+						node_a.logger.try_log (boost::str (boost::format ("Confirmed block is missing:  %1%") % hash_a.to_string ()));
 						debug_assert (false && "Confirmed block is missing");
 					}
 					else
 					{
-						node.logger.try_log (boost::str (boost::format ("Block %1% has already been received") % hash.to_string ()));
+						node_a.logger.try_log (boost::str (boost::format ("Block %1% has already been received") % hash_a.to_string ()));
 					}
 				}
 			}
 		}
 	}
-	void state_block (nano::state_block const & block_a) override
-	{
-		scan_receivable (block_a.hashables.link.as_account ());
-	}
-	void send_block (nano::send_block const & block_a) override
-	{
-		scan_receivable (block_a.hashables.destination);
-	}
-	void receive_block (nano::receive_block const &) override
-	{
-	}
-	void open_block (nano::open_block const &) override
-	{
-	}
-	void change_block (nano::change_block const &) override
-	{
-	}
-	nano::transaction const & transaction;
-	nano::node & node;
-	std::shared_ptr<nano::block> block;
-	nano::block_hash const & hash;
-};
 }
 
-void nano::node::receive_confirmed (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, nano::block_hash const & hash_a)
+void nano::node::receive_confirmed (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::account const & account_a)
 {
-	confirmed_visitor visitor (transaction_a, *this, block_a, hash_a);
-	block_a->visit (visitor);
+	scan_receivable (transaction_a, *this, account_a, hash_a);
 }
 
 void nano::node::process_confirmed_data (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, nano::block_hash const & hash_a, nano::account & account_a, nano::uint128_t & amount_a, bool & is_state_send_a, nano::account & pending_account_a)
