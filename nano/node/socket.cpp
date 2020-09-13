@@ -248,7 +248,6 @@ nano::server_socket::server_socket (std::shared_ptr<nano::node> node_a, boost::a
 socket{ node_a },
 acceptor{ node_a->io_ctx },
 local{ local_a },
-deferred_accept_timer{ node_a->io_ctx },
 max_inbound_connections{ max_connections_a }
 {
 	io_timeout = std::chrono::seconds::max ();
@@ -297,14 +296,15 @@ void nano::server_socket::on_connection (std::function<bool(std::shared_ptr<nano
 		{
 			if (this_l->acceptor.is_open ())
 			{
-				if (this_l->connections.size () < this_l->max_inbound_connections)
-				{
-					// Prepare new connection
-					auto new_connection (std::make_shared<nano::socket> (node_l->shared ()));
-					this_l->acceptor.async_accept (new_connection->tcp_socket, new_connection->remote,
-					boost::asio::bind_executor (this_l->strand,
-					[this_l, new_connection, callback_a](boost::system::error_code const & ec_a) {
-						if (auto node_l = this_l->node.lock ())
+				// Prepare new connection
+				auto new_connection (std::make_shared<nano::socket> (node_l->shared ()));
+				this_l->acceptor.async_accept (new_connection->tcp_socket, new_connection->remote,
+				boost::asio::bind_executor (this_l->strand,
+				[this_l, new_connection, callback_a](boost::system::error_code const & ec_a) {
+					this_l->evict_dead_connections ();
+					if (auto node_l = this_l->node.lock ())
+					{
+						if (this_l->connections.size () < this_l->max_inbound_connections)
 						{
 							if (!ec_a)
 							{
@@ -314,7 +314,6 @@ void nano::server_socket::on_connection (std::function<bool(std::shared_ptr<nano
 								new_connection->start_timer (node_l->network_params.network.is_dev_network () ? std::chrono::seconds (2) : node_l->network_params.node.idle_timeout);
 								node_l->stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_success, nano::stat::dir::in);
 								this_l->connections.push_back (new_connection);
-								this_l->evict_dead_connections ();
 							}
 							else
 							{
@@ -331,28 +330,15 @@ void nano::server_socket::on_connection (std::function<bool(std::shared_ptr<nano
 								node_l->logger.try_log ("Stopping to accept connections");
 							}
 						}
-					}));
-				}
-				else
-				{
-					this_l->evict_dead_connections ();
-					node_l->stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_failure, nano::stat::dir::in);
-					this_l->deferred_accept_timer.expires_after (std::chrono::seconds (2));
-					this_l->deferred_accept_timer.async_wait ([this_l, callback_a](const boost::system::error_code & ec_a) {
-						if (!ec_a)
-						{
-							// Try accepting again
-							std::static_pointer_cast<nano::server_socket> (this_l)->on_connection (callback_a);
-						}
 						else
 						{
-							if (auto node_l = this_l->node.lock ())
-							{
-								node_l->logger.try_log ("Unable to accept connection (deferred): ", ec_a.message ());
-							}
+							node_l->stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_failure, nano::stat::dir::in);
+							boost::asio::post (this_l->strand, boost::asio::bind_executor (this_l->strand, [this_l, callback_a]() {
+								this_l->on_connection (callback_a);
+							}));
 						}
-					});
-				}
+					};
+				}));
 			}
 		}
 	}));
