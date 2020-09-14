@@ -1331,7 +1331,7 @@ void scan_receivable (nano::transaction const & transaction_a, nano::node & node
 			}
 			else
 			{
-				if (!node_a.store.block_exists (transaction_a, hash_a))
+				if (!node_a.store.block_or_pending_exists (transaction_a, hash_a))
 				{
 					node_a.logger.try_log (boost::str (boost::format ("Confirmed block is missing:  %1%") % hash_a.to_string ()));
 					debug_assert (false && "Confirmed block is missing");
