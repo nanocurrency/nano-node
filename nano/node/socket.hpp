@@ -41,6 +41,7 @@ public:
 	 * @param concurrency write concurrency
 	 */
 	explicit socket (std::shared_ptr<nano::node> node);
+	explicit socket (boost::asio::io_context & ctx_a, std::shared_ptr<nano::node> node_a);
 	virtual ~socket ();
 	void async_connect (boost::asio::ip::tcp::endpoint const &, boost::asio::yield_context yield);
 	void async_read (std::shared_ptr<std::vector<uint8_t>>, size_t, std::function<void(boost::system::error_code const &, size_t)>);
@@ -109,6 +110,7 @@ public:
 	 * @param concurrency_a Write concurrency for new connections
 	 */
 	explicit server_socket (std::shared_ptr<nano::node> node_a, boost::asio::ip::tcp::endpoint local_a, size_t max_connections_a);
+	explicit server_socket (boost::asio::io_context & ctx_a, std::shared_ptr<nano::node> node_a, boost::asio::ip::tcp::endpoint local_a, size_t max_connections_a);
 	void async_accept (socket & socket_a, boost::asio::yield_context yield);
 	/**Start accepting new connections */
 	void start (boost::system::error_code &);

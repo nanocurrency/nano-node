@@ -9,8 +9,13 @@
 #include <limits>
 
 nano::socket::socket (std::shared_ptr<nano::node> node_a) :
-strand{ node_a->io_ctx.get_executor () },
-tcp_socket{ node_a->io_ctx },
+socket{ node_a->io_ctx, node_a }
+{
+}
+
+nano::socket::socket (boost::asio::io_context & ctx_a, std::shared_ptr<nano::node> node_a) :
+strand{ ctx_a.get_executor () },
+tcp_socket{ ctx_a },
 node{ node_a },
 next_deadline{ std::numeric_limits<uint64_t>::max () },
 last_completion_time{ 0 },
@@ -230,32 +235,19 @@ void nano::socket::close ()
 	}
 }
 
-void nano::socket::flush_send_queue_callbacks ()
-{
-	while (!send_queue.empty ())
-	{
-		auto & item = send_queue.front ();
-		if (item.callback)
-		{
-			if (auto node_l = node.lock ())
-			{
-				node_l->background ([callback = std::move (item.callback)]() {
-					callback (boost::system::errc::make_error_code (boost::system::errc::not_supported), 0);
-				});
-			}
-		}
-		send_queue.pop_front ();
-	}
-}
-
 nano::tcp_endpoint nano::socket::remote_endpoint () const
 {
 	return remote;
 }
 
 nano::server_socket::server_socket (std::shared_ptr<nano::node> node_a, boost::asio::ip::tcp::endpoint local_a, size_t max_connections_a) :
-socket{ node_a },
-acceptor{ node_a->io_ctx },
+server_socket{ node_a->io_ctx, node_a, local_a, max_connections_a }
+{
+}
+
+nano::server_socket::server_socket (boost::asio::io_context & ctx_a, std::shared_ptr<nano::node> node_a, boost::asio::ip::tcp::endpoint local_a, size_t max_connections_a) :
+socket{ ctx_a, node_a },
+acceptor{ ctx_a },
 local{ local_a },
 max_inbound_connections{ max_connections_a }
 {
@@ -354,6 +346,5 @@ void nano::server_socket::on_connection (std::function<bool(std::shared_ptr<nano
 // This must be called from a strand
 void nano::server_socket::evict_dead_connections ()
 {
-	debug_assert (strand.running_in_this_thread ());
 	connections.erase (std::remove_if (connections.begin (), connections.end (), [](auto & connection) { return connection.expired (); }), connections.end ());
 }
