@@ -1459,7 +1459,7 @@ TEST (confirmation_height, pruned_source)
 	nano::genesis genesis;
 	nano::stat stats;
 	nano::ledger ledger (*store, stats);
-	ledger.enable_pruning = true;
+	ledger.pruning = true;
 	nano::write_database_queue write_database_queue (false);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::keypair key1, key2;

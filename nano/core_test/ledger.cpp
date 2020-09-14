@@ -3392,7 +3392,7 @@ TEST (ledger, pruning_action)
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats);
-	ledger.enable_pruning = true;
+	ledger.pruning = true;
 	nano::genesis genesis;
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, genesis, ledger.cache);
@@ -3414,9 +3414,9 @@ TEST (ledger, pruning_action)
 	ASSERT_FALSE (store->block_exists (transaction, send1.hash ()));
 	ASSERT_TRUE (ledger.block_or_pruned_exists (transaction, send1.hash ()));
 	// Pruned ledger start without proper flags emulation
-	ledger.enable_pruning = false;
+	ledger.pruning = false;
 	ASSERT_FALSE (ledger.block_or_pruned_exists (transaction, send1.hash ()));
-	ledger.enable_pruning = true;
+	ledger.pruning = true;
 	ASSERT_TRUE (store->pruned_exists (transaction, send1.hash ()));
 	ASSERT_TRUE (store->block_exists (transaction, genesis.hash ()));
 	ASSERT_TRUE (store->block_exists (transaction, send2.hash ()));
@@ -3449,7 +3449,7 @@ TEST (ledger, pruning_large_chain)
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats);
-	ledger.enable_pruning = true;
+	ledger.pruning = true;
 	nano::genesis genesis;
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, genesis, ledger.cache);
@@ -3486,7 +3486,7 @@ TEST (ledger, pruning_source_rollback)
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats);
-	ledger.enable_pruning = true;
+	ledger.pruning = true;
 	nano::genesis genesis;
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, genesis, ledger.cache);
@@ -3533,7 +3533,7 @@ TEST (ledger, pruning_process_error)
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats);
-	ledger.enable_pruning = true;
+	ledger.pruning = true;
 	nano::genesis genesis;
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, genesis, ledger.cache);
@@ -3562,7 +3562,7 @@ TEST (ledger, pruning_legacy_blocks)
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats);
-	ledger.enable_pruning = true;
+	ledger.pruning = true;
 	nano::genesis genesis;
 	nano::keypair key1;
 	auto transaction (store->tx_begin_write ());

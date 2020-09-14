@@ -522,7 +522,7 @@ TEST (history, pruned_source)
 	ASSERT_TRUE (!store->init_error ());
 	nano::genesis genesis;
 	nano::ledger ledger (*store, system.nodes[0]->stats);
-	ledger.enable_pruning = true;
+	ledger.pruning = true;
 	nano::block_hash next_pruning;
 	// Basic pruning for legacy blocks. Previous block is pruned, source is pruned
 	{

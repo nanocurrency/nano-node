@@ -428,9 +428,9 @@ node_seq (seq)
 			}
 		}
 
-		ledger.enable_pruning = flags.enable_pruning || store.pruned_count (store.tx_begin_read ()) > 0;
+		ledger.pruning = flags.enable_pruning || store.pruned_count (store.tx_begin_read ()) > 0;
 
-		if (ledger.enable_pruning)
+		if (ledger.pruning)
 		{
 			if (config.enable_voting)
 			{

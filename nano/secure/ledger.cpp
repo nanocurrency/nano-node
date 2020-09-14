@@ -805,7 +805,7 @@ nano::uint128_t nano::ledger::balance (nano::transaction const & transaction_a, 
 nano::uint128_t nano::ledger::balance_safe (nano::transaction const & transaction_a, nano::block_hash const & hash_a, bool & error_a)
 {
 	nano::uint128_t result (0);
-	if (enable_pruning && !hash_a.is_zero () && !store.block_exists (transaction_a, hash_a))
+	if (pruning && !hash_a.is_zero () && !store.block_exists (transaction_a, hash_a))
 	{
 		error_a = true;
 		result = 0;
@@ -875,7 +875,7 @@ bool nano::ledger::block_exists (nano::block_hash const & hash_a)
 
 bool nano::ledger::block_or_pruned_exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
-	return enable_pruning ? store.block_or_pruned_exists (transaction_a, hash_a) : store.block_exists (transaction_a, hash_a);
+	return pruning ? store.block_or_pruned_exists (transaction_a, hash_a) : store.block_exists (transaction_a, hash_a);
 }
 
 bool nano::ledger::block_or_pruned_exists (nano::block_hash const & hash_a)
@@ -968,7 +968,7 @@ std::pair<nano::block_hash, nano::block_hash> nano::ledger::hash_root_random (na
 {
 	nano::block_hash hash (0);
 	nano::root root (0);
-	if (!enable_pruning)
+	if (!pruning)
 	{
 		auto block (store.block_random (transaction_a));
 		hash = block->hash ();
@@ -1065,7 +1065,7 @@ nano::account nano::ledger::account (nano::transaction const & transaction_a, na
 
 nano::account nano::ledger::account_safe (nano::transaction const & transaction_a, nano::block_hash const & hash_a, bool & error_a)
 {
-	if (!enable_pruning)
+	if (!pruning)
 	{
 		return store.block_account (transaction_a, hash_a);
 	}

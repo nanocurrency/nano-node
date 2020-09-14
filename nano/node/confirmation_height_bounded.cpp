@@ -78,7 +78,7 @@ void nano::confirmation_height_bounded::process ()
 		auto block = ledger.store.block_get (transaction, current);
 		if (!block)
 		{
-			if (ledger.enable_pruning && ledger.store.pruned_exists (transaction, current))
+			if (ledger.pruning && ledger.store.pruned_exists (transaction, current))
 			{
 				if (!receive_source_pairs.empty ())
 				{
