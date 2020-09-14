@@ -186,7 +186,7 @@ void nano::confirmation_height_unbounded::collect_unconfirmed_receive_and_source
 			auto source (block->source ());
 			if (source.is_zero ())
 			{
-				source = block->link ();
+				source = block->link ().as_block_hash ();
 			}
 
 			if (!source.is_zero () && !ledger.has_epoch_link (*block) && ledger.store.block_exists (transaction_a, source))

@@ -427,20 +427,20 @@ void nano::bulk_pull_server::set_current_end ()
 		request->end.clear ();
 	}
 
-	if (connection->node->store.block_exists (transaction, request->start))
+	if (connection->node->store.block_exists (transaction, request->start.as_block_hash ()))
 	{
 		if (connection->node->config.logging.bulk_pull_logging ())
 		{
 			connection->node->logger.try_log (boost::str (boost::format ("Bulk pull request for block hash: %1%") % request->start.to_string ()));
 		}
 
-		current = request->start;
+		current = request->start.as_block_hash ();
 		include_start = true;
 	}
 	else
 	{
 		nano::account_info info;
-		auto no_address (connection->node->store.account_get (transaction, request->start, info));
+		auto no_address (connection->node->store.account_get (transaction, request->start.as_account (), info));
 		if (no_address)
 		{
 			if (connection->node->config.logging.bulk_pull_logging ())

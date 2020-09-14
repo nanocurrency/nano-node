@@ -86,6 +86,7 @@ enum class error_blocks
 enum class error_rpc
 {
 	generic = 1,
+	empty_response,
 	bad_destination,
 	bad_difficulty_format,
 	bad_key,

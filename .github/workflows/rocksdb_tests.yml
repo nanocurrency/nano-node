@@ -1,16 +1,18 @@
-name: Tests
+name: RocksDB Tests
 
 on: [push, pull_request]
 
 env:
   RELEASE: 0
   artifact: 0
+  TEST_USE_ROCKSDB: 1
   
 jobs:
   osx_test:
     runs-on: macOS-latest
     env:
       BOOST_ROOT: /tmp/boost
+      DEADLINE_SCALE_FACTOR: 2
     steps:
       - uses: actions/checkout@722adc6
       - name: Checkout Submodules
@@ -30,7 +32,7 @@ jobs:
       - name: Fetch Deps
         run: ci/actions/linux/install_deps.sh
       - name: Run Tests
-        run: docker run -v ${PWD}:/workspace nanocurrency/nano-env:gcc /bin/bash -c "cd /workspace && export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/tmp/boost/lib && ldconfig && ./ci/build-travis.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 ${PWD}"
+        run: docker run -e TEST_USE_ROCKSDB -v ${PWD}:/workspace nanocurrency/nano-env:gcc /bin/bash -c "cd /workspace && export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/tmp/boost/lib && ldconfig && ./ci/build-travis.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 ${PWD}"
   
   clang_test:
     runs-on: ubuntu-18.04
@@ -42,11 +44,14 @@ jobs:
       - name: Fetch Deps
         run: ci/actions/linux/install_deps.sh
       - name: Run Tests
-        run: docker run -v ${PWD}:/workspace nanocurrency/nano-env:clang-6 /bin/bash -c "cd /workspace && export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/tmp/boost/lib && ldconfig && ./ci/build-travis.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 ${PWD}"
+        run: docker run -e TEST_USE_ROCKSDB -v ${PWD}:/workspace nanocurrency/nano-env:clang-6 /bin/bash -c "cd /workspace && export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/tmp/boost/lib && ldconfig && ./ci/build-travis.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 ${PWD}"
 
   windows_test:
     runs-on: windows-latest
     timeout-minutes: 60
+    env:
+      RELEASE: 1
+      DEADLINE_SCALE_FACTOR: 2
     steps:
       - uses: actions/checkout@722adc6
       - name: Windows Defender

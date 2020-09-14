@@ -24,7 +24,7 @@ public:
 	void sample ();
 	/** Returns the trended online stake, but never less than configured minimum */
 	nano::uint128_t online_stake () const;
-	/** List of online representatives */
+	/** List of online representatives, both the currently sampling ones and the ones observed in the previous sampling period */
 	std::vector<nano::account> list ();
 
 private:
@@ -33,6 +33,7 @@ private:
 	nano::ledger & ledger;
 	nano::network_params & network_params;
 	std::unordered_set<nano::account> reps;
+	std::unordered_set<nano::account> last_reps;
 	nano::uint128_t online;
 	nano::uint128_t minimum;
 

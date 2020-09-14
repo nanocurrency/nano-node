@@ -1,6 +1,5 @@
 #pragma once
 
-#include <nano/node/bootstrap/bootstrap_bulk_pull.hpp>
 #include <nano/node/bootstrap/bootstrap_connections.hpp>
 #include <nano/node/common.hpp>
 

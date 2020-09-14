@@ -6,6 +6,14 @@
 
 #include <crypto/cryptopp/words.h>
 
+#include <thread>
+
+namespace
+{
+template <typename T>
+void parallel_traversal (std::function<void(T const &, T const &, bool const)> const & action);
+}
+
 namespace nano
 {
 template <typename Val, typename Derived_Store>
@@ -92,17 +100,6 @@ public:
 		return (success (status));
 	}
 
-	std::vector<nano::unchecked_info> unchecked_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override
-	{
-		std::vector<nano::unchecked_info> result;
-		for (auto i (unchecked_begin (transaction_a, nano::unchecked_key (hash_a, 0))), n (unchecked_end ()); i != n && i->first.key () == hash_a; ++i)
-		{
-			nano::unchecked_info const & unchecked_info (i->second);
-			result.push_back (unchecked_info);
-		}
-		return result;
-	}
-
 	void block_put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a, nano::block const & block_a) override
 	{
 		debug_assert (block_a.sideband ().successor.is_zero () || block_exists (transaction_a, block_a.sideband ().successor));
@@ -122,11 +119,7 @@ public:
 	uint64_t block_account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override
 	{
 		auto block = block_get (transaction_a, hash_a);
-		if (block)
-		{
-			return block->height ();
-		}
-		return 0;
+		return block->sideband ().height;
 	}
 
 	std::shared_ptr<nano::block> block_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override
@@ -170,7 +163,7 @@ public:
 
 	bool root_exists (nano::transaction const & transaction_a, nano::root const & root_a) override
 	{
-		return block_exists (transaction_a, root_a) || account_exists (transaction_a, root_a);
+		return block_exists (transaction_a, root_a.as_block_hash ()) || account_exists (transaction_a, root_a.as_account ());
 	}
 
 	nano::account block_account (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override
@@ -347,7 +340,7 @@ public:
 		return nano::store_iterator<nano::block_hash, std::shared_ptr<nano::block>> (nullptr);
 	}
 
-	nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_end () override
+	nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_end () const override
 	{
 		return nano::store_iterator<nano::account, nano::confirmation_height_info> (nullptr);
 	}
@@ -701,12 +694,12 @@ public:
 		return make_iterator<nano::endpoint_key, nano::no_value> (transaction_a, tables::peers);
 	}
 
-	nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_begin (nano::transaction const & transaction_a, nano::account const & account_a) override
+	nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_begin (nano::transaction const & transaction_a, nano::account const & account_a) const override
 	{
 		return make_iterator<nano::account, nano::confirmation_height_info> (transaction_a, tables::confirmation_height, nano::db_val<Val> (account_a));
 	}
 
-	nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_begin (nano::transaction const & transaction_a) override
+	nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_begin (nano::transaction const & transaction_a) const override
 	{
 		return make_iterator<nano::account, nano::confirmation_height_info> (transaction_a, tables::confirmation_height);
 	}
@@ -714,6 +707,24 @@ public:
 	size_t unchecked_count (nano::transaction const & transaction_a) override
 	{
 		return count (transaction_a, tables::unchecked);
+	}
+
+	void latest_for_each_par (std::function<void(nano::store_iterator<nano::account, nano::account_info>, nano::store_iterator<nano::account, nano::account_info>)> const & action_a) override
+	{
+		parallel_traversal<nano::uint256_t> (
+		[&action_a, this](nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
+			auto transaction (this->tx_begin_read ());
+			action_a (this->latest_begin (transaction, start), !is_last ? this->latest_begin (transaction, end) : this->latest_end ());
+		});
+	}
+
+	void confirmation_height_for_each_par (std::function<void(nano::store_iterator<nano::account, nano::confirmation_height_info>, nano::store_iterator<nano::account, nano::confirmation_height_info>)> const & action_a) override
+	{
+		parallel_traversal<nano::uint256_t> (
+		[&action_a, this](nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
+			auto transaction (this->tx_begin_read ());
+			action_a (this->confirmation_height_begin (transaction, start), !is_last ? this->confirmation_height_begin (transaction, end) : this->confirmation_height_end ());
+		});
 	}
 
 	int const minimum_version{ 14 };
@@ -836,4 +847,32 @@ public:
 	nano::write_transaction const & transaction;
 	nano::block_store_partial<Val, Derived_Store> & store;
 };
+}
+
+namespace
+{
+template <typename T>
+void parallel_traversal (std::function<void(T const &, T const &, bool const)> const & action)
+{
+	// Between 10 and 40 threads, scales well even in low power systems as long as actions are I/O bound
+	unsigned const thread_count = std::max (10u, std::min (40u, 10 * std::thread::hardware_concurrency ()));
+	T const value_max{ std::numeric_limits<T>::max () };
+	T const split = value_max / thread_count;
+	std::vector<std::thread> threads;
+	threads.reserve (thread_count);
+	for (unsigned thread (0); thread < thread_count; ++thread)
+	{
+		T const start = thread * split;
+		T const end = (thread + 1) * split;
+		bool const is_last = thread == thread_count - 1;
+
+		threads.emplace_back ([&action, start, end, is_last] {
+			action (start, end, is_last);
+		});
+	}
+	for (auto & thread : threads)
+	{
+		thread.join ();
+	}
+}
 }
