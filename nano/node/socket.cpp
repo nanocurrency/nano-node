@@ -9,13 +9,8 @@
 #include <limits>
 
 nano::socket::socket (nano::node & node_a) :
-socket{ node_a.io_ctx, node_a }
-{
-}
-
-nano::socket::socket (boost::asio::io_context & ctx_a, nano::node & node_a) :
-strand{ ctx_a.get_executor () },
-tcp_socket{ ctx_a },
+strand{ node_a.io_ctx.get_executor () },
+tcp_socket{ node_a.io_ctx },
 node{ node_a },
 next_deadline{ std::numeric_limits<uint64_t>::max () },
 last_completion_time{ 0 },
@@ -217,13 +212,8 @@ nano::tcp_endpoint nano::socket::remote_endpoint () const
 }
 
 nano::server_socket::server_socket (nano::node & node_a, boost::asio::ip::tcp::endpoint local_a, size_t max_connections_a) :
-server_socket{ node_a.io_ctx, node_a, local_a, max_connections_a }
-{
-}
-
-nano::server_socket::server_socket (boost::asio::io_context & ctx_a, nano::node & node_a, boost::asio::ip::tcp::endpoint local_a, size_t max_connections_a) :
-socket{ ctx_a, node_a },
-acceptor{ ctx_a },
+socket{ node_a },
+acceptor{ node_a.io_ctx },
 local{ local_a },
 max_inbound_connections{ max_connections_a }
 {
