@@ -1313,10 +1313,9 @@ namespace
 {
 void scan_receivable (nano::transaction const & transaction_a, nano::node & node_a, nano::account const & account_a, nano::block_hash const & hash_a)
 {
-	for (auto i (node_a.wallets.items.begin ()), n (node_a.wallets.items.end ()); i != n; ++i)
+	for (auto const & [id /*unused*/, wallet] : node.wallets.get_wallets ())
 	{
-		auto const & wallet (i->second);
-		auto transaction_l (node_a.wallets.tx_begin_read ());
+		auto transaction_l (node.wallets.tx_begin_read ());
 		if (wallet->store.exists (transaction_l, account_a))
 		{
 			nano::account representative;
@@ -1331,7 +1330,7 @@ void scan_receivable (nano::transaction const & transaction_a, nano::node & node
 			}
 			else
 			{
-				if (!node_a.store.block_or_pending_exists (transaction_a, hash_a))
+				if (!node_a.store.block_or_pruned_exists (transaction_a, hash_a))
 				{
 					node_a.logger.try_log (boost::str (boost::format ("Confirmed block is missing:  %1%") % hash_a.to_string ()));
 					debug_assert (false && "Confirmed block is missing");
