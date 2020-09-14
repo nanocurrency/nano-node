@@ -432,7 +432,7 @@ node_seq (seq)
 
 		if (ledger.pruning)
 		{
-			if (config.enable_voting)
+			if (config.enable_voting && !flags.inactive_node)
 			{
 				std::string str = "Incompatibility detected between config node.enable_voting and existing pruned blocks";
 				logger.always_log (str);
