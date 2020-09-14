@@ -20,7 +20,7 @@ io_timeout{ node_a->config.tcp_io_timeout }
 
 nano::socket::~socket ()
 {
-	close_internal ();
+	close ();
 }
 
 void nano::socket::async_connect (nano::tcp_endpoint const & endpoint_a, boost::asio::yield_context yield)
@@ -211,15 +211,6 @@ void nano::socket::timeout_set (std::chrono::seconds io_timeout_a)
 
 void nano::socket::close ()
 {
-	auto this_l (shared_from_this ());
-	boost::asio::dispatch (strand, boost::asio::bind_executor (strand, [this_l] {
-		this_l->close_internal ();
-	}));
-}
-
-// This must be called from a strand or the destructor
-void nano::socket::close_internal ()
-{
 	if (!closed.exchange (true))
 	{
 		io_timeout = std::chrono::seconds (0);
@@ -236,6 +227,24 @@ void nano::socket::close_internal ()
 				node_l->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::error_socket_close);
 			}
 		}
+	}
+}
+
+void nano::socket::flush_send_queue_callbacks ()
+{
+	while (!send_queue.empty ())
+	{
+		auto & item = send_queue.front ();
+		if (item.callback)
+		{
+			if (auto node_l = node.lock ())
+			{
+				node_l->background ([callback = std::move (item.callback)]() {
+					callback (boost::system::errc::make_error_code (boost::system::errc::not_supported), 0);
+				});
+			}
+		}
+		send_queue.pop_front ();
 	}
 }
 
@@ -271,11 +280,9 @@ void nano::server_socket::start (boost::system::error_code & ec_a)
 
 void nano::server_socket::close ()
 {
-	auto this_l (std::static_pointer_cast<nano::server_socket> (shared_from_this ()));
-
-	boost::asio::dispatch (strand, boost::asio::bind_executor (strand, [this_l]() {
-		this_l->close_internal ();
-		this_l->acceptor.close ();
+	socket::close ();
+	acceptor.close ();
+	boost::asio::dispatch (strand, boost::asio::bind_executor (strand, [this_l = std::static_pointer_cast<nano::server_socket> (shared_from_this ())]() {
 		for (auto & connection_w : this_l->connections)
 		{
 			if (auto connection_l = connection_w.lock ())
