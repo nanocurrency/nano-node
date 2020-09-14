@@ -1178,9 +1178,8 @@ public:
 	virtual ~confirmed_visitor () = default;
 	void scan_receivable (nano::account const & account_a)
 	{
-		for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)
+		for (auto const & [id /*unused*/, wallet] : node.wallets.get_wallets ())
 		{
-			auto const & wallet (i->second);
 			auto transaction_l (node.wallets.tx_begin_read ());
 			if (wallet->store.exists (transaction_l, account_a))
 			{

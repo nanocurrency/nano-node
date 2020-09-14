@@ -1876,6 +1876,12 @@ void nano::wallets::move_table (std::string const & name_a, MDB_txn * tx_source,
 	debug_assert (!error6);
 }
 
+std::unordered_map<nano::wallet_id, std::shared_ptr<nano::wallet>> nano::wallets::get_wallets ()
+{
+	nano::lock_guard<std::mutex> guard (mutex);
+	return items;
+}
+
 nano::uint128_t const nano::wallets::generate_priority = std::numeric_limits<nano::uint128_t>::max ();
 nano::uint128_t const nano::wallets::high_priority = std::numeric_limits<nano::uint128_t>::max () - 1;
 
