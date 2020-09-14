@@ -3226,17 +3226,17 @@ void nano::json_handler::receive ()
 		if (!ec)
 		{
 			auto block_transaction (node.store.tx_begin_read ());
-			auto block (node.store.block_get (block_transaction, hash));
-			if (block != nullptr)
+			if (node.ledger.block_or_pruned_exists (block_transaction, hash))
 			{
-				if (node.store.pending_exists (block_transaction, nano::pending_key (account, hash)))
+				nano::pending_info pending_info;
+				if (!node.store.pending_get (block_transaction, nano::pending_key (account, hash), pending_info))
 				{
 					auto work (work_optional_impl ());
 					if (!ec && work)
 					{
 						nano::account_info info;
 						nano::root head;
-						nano::epoch epoch = block->sideband ().details.epoch;
+						nano::epoch epoch = pending_info.epoch;
 						if (!node.store.account_get (block_transaction, account, info))
 						{
 							head = info.head;
