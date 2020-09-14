@@ -673,7 +673,7 @@ void nano::mdb_store::upgrade_v18_to_v19 (nano::write_transaction const & transa
 			// Source block v18 epoch
 			if (old_sideband.details.is_receive)
 			{
-				auto db_val (block_raw_get_by_type_v18 (transaction_a, block_w_sideband_v18.block->link (), type_state));
+				auto db_val (block_raw_get_by_type_v18 (transaction_a, block_w_sideband_v18.block->link ().as_block_hash (), type_state));
 				if (db_val.is_initialized ())
 				{
 					nano::bufferstream stream (reinterpret_cast<uint8_t const *> (db_val.get ().data ()), db_val.get ().size ());
@@ -755,6 +755,17 @@ void nano::mdb_store::create_backup_file (nano::mdb_env & env_a, boost::filesyst
 		logger_a.always_log (success_message);
 		std::cout << success_message << std::endl;
 	}
+}
+
+std::vector<nano::unchecked_info> nano::mdb_store::unchecked_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
+{
+	std::vector<nano::unchecked_info> result;
+	for (auto i (unchecked_begin (transaction_a, nano::unchecked_key (hash_a, 0))), n (unchecked_end ()); i != n && i->first.key () == hash_a; ++i)
+	{
+		nano::unchecked_info const & unchecked_info (i->second);
+		result.push_back (unchecked_info);
+	}
+	return result;
 }
 
 void nano::mdb_store::version_put (nano::write_transaction const & transaction_a, int version_a)
@@ -1140,6 +1151,11 @@ before_v1 (count_before_v1)
 bool nano::mdb_store::upgrade_counters::are_equal () const
 {
 	return (before_v0 == after_v0) && (before_v1 == after_v1);
+}
+
+unsigned nano::mdb_store::max_block_write_batch_num () const
+{
+	return std::numeric_limits<unsigned>::max ();
 }
 
 // Explicitly instantiate

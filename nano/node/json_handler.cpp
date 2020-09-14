@@ -148,10 +148,15 @@ void nano::json_handler::process_request (bool unsafe_a)
 
 void nano::json_handler::response_errors ()
 {
-	if (ec || response_l.empty ())
+	if (!ec && response_l.empty ())
+	{
+		// Return an error code if no response data was given
+		ec = nano::error_rpc::empty_response;
+	}
+	if (ec)
 	{
 		boost::property_tree::ptree response_error;
-		response_error.put ("error", ec ? ec.message () : "Empty response");
+		response_error.put ("error", ec.message ());
 		std::stringstream ostream;
 		boost::property_tree::write_json (ostream, response_error);
 		response (ostream.str ());
@@ -394,8 +399,8 @@ uint64_t nano::json_handler::difficulty_ledger (nano::block const & block_a)
 	auto link (block_a.link ());
 	if (!link.is_zero () && !details.is_send)
 	{
-		auto block_link (node.store.block_get (transaction, link));
-		if (block_link != nullptr && node.store.pending_exists (transaction, nano::pending_key (block_a.account (), link)))
+		auto block_link (node.store.block_get (transaction, link.as_block_hash ()));
+		if (block_link != nullptr && node.store.pending_exists (transaction, nano::pending_key (block_a.account (), link.as_block_hash ())))
 		{
 			details.epoch = std::max (details.epoch, block_link->sideband ().details.epoch);
 			details.is_receive = true;
@@ -2246,7 +2251,7 @@ public:
 		auto previous_balance (handler.node.ledger.balance (transaction, block_a.hashables.previous));
 		if (balance < previous_balance)
 		{
-			if (should_ignore_account (block_a.hashables.link))
+			if (should_ignore_account (block_a.hashables.link.as_account ()))
 			{
 				tree.clear ();
 				return;
@@ -2281,7 +2286,7 @@ public:
 			}
 			else
 			{
-				auto account (handler.node.ledger.account (transaction, block_a.hashables.link));
+				auto account (handler.node.ledger.account (transaction, block_a.hashables.link.as_block_hash ()));
 				if (should_ignore_account (account))
 				{
 					tree.clear ();
@@ -4861,6 +4866,7 @@ void nano::json_handler::work_cancel ()
 	if (!ec)
 	{
 		node.observers.work_cancel.notify (hash);
+		response_l.put ("success", "");
 	}
 	response_errors ();
 }

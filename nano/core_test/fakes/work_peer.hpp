@@ -33,7 +33,6 @@ enum class work_peer_type
 class work_peer_connection : public std::enable_shared_from_this<work_peer_connection>
 {
 	const std::string generic_error = "Unable to parse JSON";
-	const std::string empty_response = "Empty response";
 
 public:
 	work_peer_connection (asio::io_context & ioc_a, work_peer_type const type_a, nano::work_version const version_a, nano::work_pool & pool_a, std::function<void(bool const)> on_generation_a, std::function<void()> on_cancel_a) :
@@ -126,6 +125,17 @@ private:
 		beast::ostream (response.body ()) << ostream.str ();
 	}
 
+	void handle_cancel ()
+	{
+		on_cancel ();
+		ptree::ptree message_l;
+		message_l.put ("success", "");
+		std::stringstream ostream;
+		ptree::write_json (ostream, message_l);
+		beast::ostream (response.body ()) << ostream.str ();
+		write_response ();
+	}
+
 	void handle_generate (nano::block_hash const & hash_a)
 	{
 		if (type == work_peer_type::good)
@@ -176,9 +186,7 @@ private:
 		}
 		else if (action_text == "work_cancel")
 		{
-			error (empty_response);
-			on_cancel ();
-			write_response ();
+			handle_cancel ();
 		}
 		else
 		{

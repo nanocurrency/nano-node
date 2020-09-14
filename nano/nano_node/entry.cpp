@@ -98,6 +98,7 @@ int main (int argc, char * const * argv)
 		("debug_cemented_block_count", "Displays the number of cemented (confirmed) blocks")
 		("debug_stacktrace", "Display an example stacktrace")
 		("debug_account_versions", "Display the total counts of each version for all accounts (including unpocketed)")
+		("debug_unconfirmed_frontiers", "Displays the account, height (sorted), frontier and cemented frontier for all accounts which are not fully confirmed")
 		("validate_blocks,debug_validate_blocks", "Check all blocks for correct hash, signature, work value")
 		("platform", boost::program_options::value<std::string> (), "Defines the <platform> for OpenCL commands")
 		("device", boost::program_options::value<std::string> (), "Defines <device> for OpenCL command")
@@ -828,18 +829,6 @@ int main (int argc, char * const * argv)
 						std::cerr << "Error: Check that addr2line is installed and that nano_node_crash_load_address_dump_*.txt files exist." << std::endl;
 						result = -1;
 					}
-					else
-					{
-						// Delete the crash dump files. The user won't care about them after this.
-						num = 0;
-						while (boost::filesystem::exists (boost::str (format % num)))
-						{
-							boost::filesystem::remove (boost::str (format % num));
-							++num;
-						}
-
-						boost::filesystem::remove ("nano_node_backtrace.dump");
-					}
 				}
 				else
 				{
@@ -847,6 +836,10 @@ int main (int argc, char * const * argv)
 					result = -1;
 				}
 #endif
+				if (result == 0)
+				{
+					std::cout << (boost::format ("%1% created") % crash_report_filename).str () << std::endl;
+				}
 			}
 			else
 			{
@@ -967,7 +960,7 @@ int main (int argc, char * const * argv)
 
 					auto send = builder.state ()
 					            .account (keys[j].pub)
-					            .previous (frontiers[j])
+					            .previous (frontiers[j].as_block_hash ())
 					            .representative (keys[j].pub)
 					            .balance (balances[j])
 					            .link (keys[other].pub)
@@ -982,10 +975,10 @@ int main (int argc, char * const * argv)
 
 					auto receive = builder.state ()
 					               .account (keys[other].pub)
-					               .previous (frontiers[other])
+					               .previous (frontiers[other].as_block_hash ())
 					               .representative (keys[other].pub)
 					               .balance (balances[other])
-					               .link (static_cast<nano::block_hash const &> (frontiers[j]))
+					               .link (frontiers[j].as_block_hash ())
 					               .sign (keys[other].prv, keys[other].pub)
 					               .work (*work.generate (nano::work_version::work_1, frontiers[other], node->network_params.network.publish_thresholds.epoch_1))
 					               .build ();
@@ -1537,7 +1530,7 @@ int main (int argc, char * const * argv)
 							{
 								// State receive
 								block_details_error = !sideband.details.is_receive || sideband.details.is_send || sideband.details.is_epoch;
-								block_details_error |= !node->store.block_exists (transaction, block->link ());
+								block_details_error |= !node->store.block_exists (transaction, block->link ().as_block_hash ());
 							}
 						}
 					}
@@ -1548,7 +1541,7 @@ int main (int argc, char * const * argv)
 					// Check link epoch version
 					if (sideband.details.is_receive)
 					{
-						if (sideband.source_epoch != node->store.block_version (transaction, block->link ()))
+						if (sideband.source_epoch != node->store.block_version (transaction, block->link ().as_block_hash ()))
 						{
 							print_error_message (boost::str (boost::format ("Incorrect source epoch for block %1%\n") % hash.to_string ()));
 						}
@@ -1674,7 +1667,7 @@ int main (int argc, char * const * argv)
 					{
 						if (node->ledger.is_send (transaction, *state))
 						{
-							destination = state->hashables.link;
+							destination = state->hashables.link.as_account ();
 						}
 					}
 					else if (auto send = dynamic_cast<nano::send_block *> (block.get ()))
@@ -1933,6 +1926,22 @@ int main (int argc, char * const * argv)
 			{
 				output_account_version_number (i, unopened_account_version_totals[i]);
 			}
+		}
+		else if (vm.count ("debug_unconfirmed_frontiers"))
+		{
+			auto inactive_node = nano::default_inactive_node (data_path, vm);
+			auto node = inactive_node->node;
+
+			auto unconfirmed_frontiers = node->ledger.unconfirmed_frontiers ();
+			std::cout << "Account: Height delta | Frontier | Confirmed frontier\n";
+			for (auto & unconfirmed_frontier : unconfirmed_frontiers)
+			{
+				auto const & unconfirmed_info = unconfirmed_frontier.second;
+
+				std::cout << (boost::format ("%1%: %2% %3% %4%\n") % unconfirmed_info.account.to_account () % unconfirmed_frontier.first % unconfirmed_info.frontier.to_string () % unconfirmed_info.cemented_frontier.to_string ()).str ();
+			}
+
+			std::cout << "\nNumber of unconfirmed frontiers: " << unconfirmed_frontiers.size () << std::endl;
 		}
 		else if (vm.count ("version"))
 		{

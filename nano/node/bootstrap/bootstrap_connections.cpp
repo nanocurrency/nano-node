@@ -149,7 +149,7 @@ std::shared_ptr<nano::bootstrap_client> nano::bootstrap_connections::find_connec
 void nano::bootstrap_connections::connect_client (nano::tcp_endpoint const & endpoint_a, bool push_front)
 {
 	++connections_count;
-	auto socket (std::make_shared<nano::socket> (node.shared ()));
+	auto socket (std::make_shared<nano::socket> (node));
 	boost::asio::spawn (
 	node.io_ctx,
 	[this_l = shared_from_this (), endpoint_a, socket = socket, push_front](boost::asio::yield_context yield) {
@@ -419,7 +419,7 @@ void nano::bootstrap_connections::requeue_pull (nano::pull_info const & pull_a, 
 		else if (attempt_l->mode == nano::bootstrap_mode::lazy && (pull.retry_limit == std::numeric_limits<unsigned>::max () || pull.attempts <= pull.retry_limit + (pull.processed / node.network_params.bootstrap.lazy_max_pull_blocks)))
 		{
 			debug_assert (pull.account_or_head == pull.head);
-			if (!attempt_l->lazy_processed_or_exists (pull.account_or_head))
+			if (!attempt_l->lazy_processed_or_exists (pull.account_or_head.as_block_hash ()))
 			{
 				{
 					nano::lock_guard<std::mutex> lock (mutex);

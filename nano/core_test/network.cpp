@@ -735,7 +735,7 @@ TEST (message_buffer_manager, stats)
 TEST (tcp_listener, tcp_node_id_handshake)
 {
 	nano::system system (1);
-	auto socket (std::make_shared<nano::socket> (system.nodes[0]));
+	auto socket (std::make_shared<nano::socket> (*system.nodes[0]));
 	auto bootstrap_endpoint (system.nodes[0]->bootstrap.endpoint ());
 	auto cookie (system.nodes[0]->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (bootstrap_endpoint)));
 	nano::node_id_handshake node_id_handshake (cookie, boost::none);
@@ -770,7 +770,7 @@ TEST (tcp_listener, tcp_listener_timeout_empty)
 {
 	nano::system system (1);
 	auto node0 (system.nodes[0]);
-	auto socket (std::make_shared<nano::socket> (node0));
+	auto socket (std::make_shared<nano::socket> (*node0));
 	std::atomic<bool> connected (false);
 	boost::asio::spawn (system.io_ctx,
 	[socket, node0, &connected](boost::asio::yield_context yield) {
@@ -796,7 +796,7 @@ TEST (tcp_listener, tcp_listener_timeout_node_id_handshake)
 {
 	nano::system system (1);
 	auto node0 (system.nodes[0]);
-	auto socket (std::make_shared<nano::socket> (node0));
+	auto socket (std::make_shared<nano::socket> (*node0));
 	auto cookie (node0->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (node0->bootstrap.endpoint ())));
 	nano::node_id_handshake node_id_handshake (cookie, boost::none);
 	auto input (node_id_handshake.to_shared_const_buffer (false));

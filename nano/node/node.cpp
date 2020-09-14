@@ -539,13 +539,13 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 						nano::account account{ 0 };
 						if (root_block_type == nano::block_type::receive || root_block_type == nano::block_type::send || root_block_type == nano::block_type::change || root_block_type == nano::block_type::open)
 						{
-							account = this_l->ledger.store.frontier_get (transaction, root);
+							account = this_l->ledger.store.frontier_get (transaction, root.as_block_hash ());
 						}
 						if (!account.is_zero ())
 						{
-							this_l->bootstrap_initiator.connections->requeue_pull (nano::pull_info (account, root, root, attempt->incremental_id));
+							this_l->bootstrap_initiator.connections->requeue_pull (nano::pull_info (account, root.as_block_hash (), root.as_block_hash (), attempt->incremental_id));
 						}
-						else if (this_l->ledger.store.account_exists (transaction, root))
+						else if (this_l->ledger.store.account_exists (transaction, root.as_account ()))
 						{
 							this_l->bootstrap_initiator.connections->requeue_pull (nano::pull_info (root, nano::block_hash (0), nano::block_hash (0), attempt->incremental_id));
 						}
@@ -1180,9 +1180,8 @@ public:
 	virtual ~confirmed_visitor () = default;
 	void scan_receivable (nano::account const & account_a)
 	{
-		for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)
+		for (auto const & [id /*unused*/, wallet] : node.wallets.get_wallets ())
 		{
-			auto const & wallet (i->second);
 			auto transaction_l (node.wallets.tx_begin_read ());
 			if (wallet->store.exists (transaction_l, account_a))
 			{
@@ -1213,7 +1212,7 @@ public:
 	}
 	void state_block (nano::state_block const & block_a) override
 	{
-		scan_receivable (block_a.hashables.link);
+		scan_receivable (block_a.hashables.link.as_account ());
 	}
 	void send_block (nano::send_block const & block_a) override
 	{
@@ -1267,7 +1266,7 @@ void nano::node::process_confirmed_data (nano::transaction const & transaction_a
 		{
 			is_state_send_a = true;
 		}
-		pending_account_a = state->hashables.link;
+		pending_account_a = state->hashables.link.as_account ();
 	}
 	if (auto send = dynamic_cast<nano::send_block *> (block_a.get ()))
 	{
