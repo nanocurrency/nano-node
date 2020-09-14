@@ -731,6 +731,19 @@ public:
 		});
 	}
 
+	void pending_for_each_par (std::function<void(nano::store_iterator<nano::pending_key, nano::pending_info>, nano::store_iterator<nano::pending_key, nano::pending_info>)> const & action_a) override
+	{
+		parallel_traversal<nano::uint512_t> (
+		[&action_a, this](nano::uint512_t const & start, nano::uint512_t const & end, bool const is_last) {
+			auto transaction (this->tx_begin_read ());
+			nano::uint512_union union_start (start);
+			nano::uint512_union union_end (end);
+			nano::pending_key key_start (union_start.uint256s[0].number (), union_start.uint256s[1].number ());
+			nano::pending_key key_end (union_end.uint256s[0].number (), union_end.uint256s[1].number ());
+			action_a (this->pending_begin (transaction, key_start), !is_last ? this->pending_begin (transaction, key_end) : this->pending_end ());
+		});
+	}
+
 	int const minimum_version{ 14 };
 
 protected:
