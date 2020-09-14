@@ -50,7 +50,7 @@ function Get-RedirectedUri {
 }
 
 $qt5_root = "c:\qt"
-$rocksdb_url = Get-RedirectedUri "https://repo.nano.org/artifacts/rocksdb-msvc-14.2-6.6.4.7z"
+$rocksdb_url = Get-RedirectedUri "https://repo.nano.org/artifacts/rocksdb-msvc-14.2-6.6.4-Md.7z"
 $qt5base_url = Get-RedirectedUri "https://repo.nano.org/artifacts/5.13.1-0-201909031231qtbase-Windows-Windows_10-MSVC2017-Windows-Windows_10-X86_64.7z"
 $qt5winextra_url = Get-RedirectedUri "https://repo.nano.org/artifacts/5.13.1-0-201909031231qtwinextras-Windows-Windows_10-MSVC2017-Windows-Windows_10-X86_64.7z"
 $rocksdb_artifact = "${env:TMP}\rocksdb.7z"
@@ -61,10 +61,10 @@ $qt5winextra_artifact = "${env:TMP}\qt5winextra.7z"
 (New-Object System.Net.WebClient).DownloadFile($qt5winextra_url, $qt5winextra_artifact)
 mkdir $qt5_root
 Push-Location $qt5_root
-7z x "${env:TMP}\qt5*.7z"
+7z x "${env:TMP}\qt5*.7z" -aoa
 Pop-Location
 
 Push-Location ${env:VCPKG_INSTALLATION_ROOT} 
 (New-Object System.Net.WebClient).DownloadFile($rocksdb_url, $rocksdb_artifact)
-7z x $rocksdb_artifact
+7z x $rocksdb_artifact -aoa
 Pop-Location 
