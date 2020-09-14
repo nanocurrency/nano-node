@@ -1313,9 +1313,9 @@ namespace
 {
 void scan_receivable (nano::transaction const & transaction_a, nano::node & node_a, nano::account const & account_a, nano::block_hash const & hash_a)
 {
-	for (auto const & [id /*unused*/, wallet] : node.wallets.get_wallets ())
+	for (auto const & [id /*unused*/, wallet] : node_a.wallets.get_wallets ())
 	{
-		auto transaction_l (node.wallets.tx_begin_read ());
+		auto transaction_l (node_a.wallets.tx_begin_read ());
 		if (wallet->store.exists (transaction_l, account_a))
 		{
 			nano::account representative;
