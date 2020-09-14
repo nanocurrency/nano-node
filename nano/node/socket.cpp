@@ -306,6 +306,43 @@ void nano::server_socket::on_connection (std::function<bool(std::shared_ptr<nano
 	}));
 }
 
+void nano::server_socket::run (std::function<bool(std::shared_ptr<nano::socket>, boost::system::error_code const &)> callback_a, boost::asio::yield_context yield)
+{
+	while (acceptor.is_open ())
+	{
+		auto new_connection (std::make_shared<nano::socket> (node));
+		boost::system::error_code ec;
+		acceptor.async_accept (new_connection->tcp_socket, new_connection->remote, yield[ec]);
+		if (!ec)
+		{
+			evict_dead_connections ();
+			if (connections.size () < max_inbound_connections)
+			{
+				// Make sure the new connection doesn't idle. Note that in most cases, the callback is going to start
+				// an IO operation immediately, which will start a timer.
+				new_connection->checkup ();
+				new_connection->start_timer (node.network_params.network.is_dev_network () ? std::chrono::seconds (2) : node.network_params.node.idle_timeout);
+				node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_success, nano::stat::dir::in);
+				connections.push_back (new_connection);
+
+				// If the callback returns true, keep accepting new connections
+				if (!callback_a (new_connection, ec))
+				{
+					ec = boost::system::errc::make_error_code (boost::system::errc::not_supported);
+				}
+			}
+			else
+			{
+				node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_failure, nano::stat::dir::in);
+			}
+		}
+		else
+		{
+			node.logger.try_log ("Unable to accept connection: ", ec.message ());
+		}
+	}
+}
+
 // This must be called from a strand
 void nano::server_socket::evict_dead_connections ()
 {

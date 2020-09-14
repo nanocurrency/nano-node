@@ -26,18 +26,23 @@ void nano::bootstrap_listener::start ()
 		throw std::runtime_error (ec.message ());
 	}
 	debug_assert (node.network.endpoint ().port () == listening_socket->listening_port ());
-	listening_socket->on_connection ([this](std::shared_ptr<nano::socket> new_connection, boost::system::error_code const & ec_a) {
-		bool keep_accepting = true;
-		if (ec_a)
-		{
-			keep_accepting = false;
-			this->node.logger.try_log (boost::str (boost::format ("Error while accepting incoming TCP/bootstrap connections: %1%") % ec_a.message ()));
-		}
-		else
-		{
-			accept_action (ec_a, new_connection);
-		}
-		return keep_accepting;
+	boost::asio::spawn (
+	node.io_ctx,
+	[this](boost::asio::yield_context yield) {
+		listening_socket->run ([this](std::shared_ptr<nano::socket> new_connection, boost::system::error_code const & ec_a) {
+			bool keep_accepting = true;
+			if (ec_a)
+			{
+				keep_accepting = false;
+				this->node.logger.try_log (boost::str (boost::format ("Error while accepting incoming TCP/bootstrap connections: %1%") % ec_a.message ()));
+			}
+			else
+			{
+				accept_action (ec_a, new_connection);
+			}
+			return keep_accepting;
+		},
+		yield);
 	});
 }
 

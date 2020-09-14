@@ -116,6 +116,7 @@ public:
 	void close ();
 	/** Register callback for new connections. The callback must return true to keep accepting new connections. */
 	void on_connection (std::function<bool(std::shared_ptr<nano::socket> new_connection, boost::system::error_code const &)>);
+	void run (std::function<bool(std::shared_ptr<nano::socket>, boost::system::error_code const &)> callback_a, boost::asio::yield_context yield);
 	uint16_t listening_port ()
 	{
 		return local.port ();
