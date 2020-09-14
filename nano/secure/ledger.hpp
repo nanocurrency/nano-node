@@ -77,6 +77,9 @@ public:
 	std::atomic<bool> check_bootstrap_weights;
 	std::atomic<bool> enable_pruning{ false };
 	std::function<void()> epoch_2_started_cb;
+
+private:
+	void initialize (nano::generate_cache const &);
 };
 
 std::unique_ptr<container_info_component> collect_container_info (ledger & ledger, const std::string & name);
