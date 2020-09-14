@@ -1573,6 +1573,7 @@ TEST (rpc, history_pruning)
 {
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.enable_voting = false; // Remove after allowing pruned voting
 	nano::node_flags node_flags;
 	node_flags.enable_pruning = true;
 	auto node0 = add_ipc_enabled_node (system, node_config, node_flags);
@@ -3345,6 +3346,7 @@ TEST (rpc, block_count_pruning)
 {
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.enable_voting = false; // Remove after allowing pruned voting
 	nano::node_flags node_flags;
 	node_flags.enable_pruning = true;
 	auto & node1 = *add_ipc_enabled_node (system, node_config, node_flags);
@@ -5263,6 +5265,7 @@ TEST (rpc, block_info_pruning)
 {
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.enable_voting = false; // Remove after allowing pruned voting
 	nano::node_flags node_flags;
 	node_flags.enable_pruning = true;
 	auto & node1 = *add_ipc_enabled_node (system, node_config, node_flags);

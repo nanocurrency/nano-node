@@ -4601,6 +4601,7 @@ TEST (node, pruning_automatic)
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.max_pruning_age = std::chrono::seconds (1);
+	node_config.enable_voting = false; // Remove after allowing pruned voting
 	nano::node_flags node_flags;
 	node_flags.enable_pruning = true;
 	auto & node1 = *system.add_node (node_config, node_flags);
@@ -4653,10 +4654,12 @@ TEST (node, pruning_automatic)
 
 TEST (node, pruning_age)
 {
+	nano::system system;
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.enable_voting = false; // Remove after allowing pruned voting
 	nano::node_flags node_flags;
 	node_flags.enable_pruning = true;
-	nano::system system (1, nano::transport::transport_type::tcp, node_flags);
-	auto & node1 = *system.nodes[0];
+	auto & node1 = *system.add_node (node_config, node_flags);
 	nano::genesis genesis;
 	nano::keypair key1;
 	auto send1 = nano::send_block_builder ()
@@ -4710,10 +4713,12 @@ TEST (node, pruning_age)
 
 TEST (node, pruning_depth)
 {
+	nano::system system;
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.enable_voting = false; // Remove after allowing pruned voting
 	nano::node_flags node_flags;
 	node_flags.enable_pruning = true;
-	nano::system system (1, nano::transport::transport_type::tcp, node_flags);
-	auto & node1 = *system.nodes[0];
+	auto & node1 = *system.add_node (node_config, node_flags);
 	nano::genesis genesis;
 	nano::keypair key1;
 	auto send1 = nano::send_block_builder ()

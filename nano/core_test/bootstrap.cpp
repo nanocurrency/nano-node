@@ -529,6 +529,7 @@ TEST (bootstrap_processor, push_diamond_pruning)
 	auto node0 (system.add_node (config));
 	nano::keypair key;
 	config.peering_port = nano::get_available_port ();
+	config.enable_voting = false; // Remove after allowing pruned voting
 	nano::node_flags node_flags;
 	node_flags.enable_pruning = true;
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags, 1));
@@ -663,6 +664,7 @@ TEST (bootstrap_processor, lazy_hash_pruning)
 	nano::system system;
 	nano::node_config config (nano::get_available_port (), system.logging);
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	config.enable_voting = false; // Remove after allowing pruned voting
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_push_client = true;
 	node_flags.enable_pruning = true;
@@ -885,6 +887,7 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 	nano::system system;
 	nano::node_config config (nano::get_available_port (), system.logging);
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	config.enable_voting = false; // Remove after allowing pruned voting
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_push_client = true;
 	node_flags.disable_legacy_bootstrap = true;
@@ -1315,6 +1318,7 @@ TEST (bulk, genesis_pruning)
 	nano::system system;
 	nano::node_config config (nano::get_available_port (), system.logging);
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	config.enable_voting = false; // Remove after allowing pruned voting
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_push_client = true;
 	node_flags.disable_lazy_bootstrap = true;
