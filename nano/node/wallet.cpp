@@ -1194,7 +1194,7 @@ bool nano::wallet::search_pending ()
 							auto block (wallets.node.store.block_get (block_transaction, hash));
 							release_assert (block->type () == nano::block_type::state || block->type () == nano::block_type::send);
 						}
-						else
+						else if (wallets.node.ledger.pruning)
 						{
 							// All pruned blocks should be confirmed
 							confirmed = wallets.node.store.pruned_exists (block_transaction, hash);
