@@ -439,7 +439,7 @@ node_seq (seq)
 				std::cerr << str << std::endl;
 				std::exit (1);
 			}
-			else if (!flags.enable_pruning)
+			else if (!flags.enable_pruning && !flags.inactive_node)
 			{
 				std::string str = "To start node with existing pruned blocks use launch flag --enable_pruning";
 				logger.always_log (str);
