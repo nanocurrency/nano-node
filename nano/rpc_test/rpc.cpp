@@ -1502,7 +1502,7 @@ TEST (rpc, account_history)
 	auto account2 (system.wallet (0)->deterministic_insert ());
 	auto send2 (system.wallet (0)->send_action (nano::dev_genesis_key.pub, account2, node0->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, send2);
-	auto receive2 (system.wallet (0)->receive_action (send2->hash (), account2, node0->config.receive_minimum.number (), send2->link ().as_account ())); 
+	auto receive2 (system.wallet (0)->receive_action (send2->hash (), account2, node0->config.receive_minimum.number (), send2->link ().as_account ()));
 	scoped_thread_name_io.renew ();
 	// Test filter for send state blocks
 	ASSERT_NE (nullptr, receive2);
@@ -5224,7 +5224,7 @@ TEST (rpc, blocks_info_subtype)
 	system.wallet (0)->insert_adhoc (key.prv);
 	auto send (system.wallet (0)->send_action (nano::dev_genesis_key.pub, nano::dev_genesis_key.pub, nano::Gxrb_ratio));
 	ASSERT_NE (nullptr, send);
-	auto receive (system.wallet (0)->receive_action (send->hash (), key.pub, nano::Gxrb_ratio, send->link ().as_account ())); 
+	auto receive (system.wallet (0)->receive_action (send->hash (), key.pub, nano::Gxrb_ratio, send->link ().as_account ()));
 	ASSERT_NE (nullptr, receive);
 	auto change (system.wallet (0)->change_action (nano::dev_genesis_key.pub, key.pub));
 	ASSERT_NE (nullptr, change);
