@@ -1194,11 +1194,7 @@ bool nano::wallet::search_pending ()
 						if (wallets.node.ledger.block_confirmed (block_transaction, hash))
 						{
 							// Receive confirmed block
-							auto node_l (wallets.node.shared ());
-							wallets.node.background ([node_l, block, hash]() {
-								auto transaction (node_l->store.tx_begin_read ());
-								node_l->receive_confirmed (transaction, block, hash);
-							});
+							wallets.node.receive_confirmed (block_transaction, block, hash);
 						}
 						else
 						{
