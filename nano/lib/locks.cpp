@@ -46,7 +46,9 @@ void output_if_blocked_long_enough (nano::timer<std::chrono::milliseconds> & tim
 // Explicit instantations
 template void output (const char * str, std::chrono::milliseconds time, std::mutex & mutex);
 template void output_if_held_long_enough (nano::timer<std::chrono::milliseconds> & timer, std::mutex & mutex);
+#ifndef NANO_TIMED_LOCKS_IGNORE_BLOCKED
 template void output_if_blocked_long_enough (nano::timer<std::chrono::milliseconds> & timer, std::mutex & mutex);
+#endif
 
 lock_guard<std::mutex>::lock_guard (std::mutex & mutex) :
 mut (mutex)
