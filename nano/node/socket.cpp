@@ -298,7 +298,7 @@ size_t nano::socket::get_max_write_queue_size () const
 }
 
 nano::server_socket::server_socket (nano::node & node_a, boost::asio::ip::tcp::endpoint local_a, size_t max_connections_a, nano::socket::concurrency concurrency_a) :
-socket (node_a, std::chrono::seconds::max (), concurrency_a), acceptor (node_a.io_ctx), local (local_a), deferred_accept_timer (node_a.io_ctx), max_inbound_connections (max_connections_a), concurrency_new_connections (concurrency_a)
+socket (node_a, std::chrono::seconds::max (), concurrency_a), acceptor (node_a.io_ctx), local (local_a), max_inbound_connections (max_connections_a), concurrency_new_connections (concurrency_a)
 {
 }
 
@@ -345,48 +345,41 @@ void nano::server_socket::on_connection (std::function<bool(std::shared_ptr<nano
 				this_l->acceptor.async_accept (new_connection->tcp_socket, new_connection->remote,
 				boost::asio::bind_executor (this_l->strand,
 				[this_l, new_connection, callback_a](boost::system::error_code const & ec_a) {
-					if (!ec_a)
+					this_l->evict_dead_connections ();
+					if (this_l->connections.size () < this_l->max_inbound_connections)
 					{
-						// Make sure the new connection doesn't idle. Note that in most cases, the callback is going to start
-						// an IO operation immediately, which will start a timer.
-						new_connection->checkup ();
-						new_connection->start_timer (this_l->node.network_params.network.is_dev_network () ? std::chrono::seconds (2) : this_l->node.network_params.node.idle_timeout);
-						this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_success, nano::stat::dir::in);
-						this_l->connections.push_back (new_connection);
-						this_l->evict_dead_connections ();
-					}
-					else
-					{
-						this_l->node.logger.try_log ("Unable to accept connection: ", ec_a.message ());
-					}
+						if (!ec_a)
+						{
+							// Make sure the new connection doesn't idle. Note that in most cases, the callback is going to start
+							// an IO operation immediately, which will start a timer.
+							new_connection->checkup ();
+							new_connection->start_timer (this_l->node.network_params.network.is_dev_network () ? std::chrono::seconds (2) : this_l->node.network_params.node.idle_timeout);
+							this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_success, nano::stat::dir::in);
+							this_l->connections.push_back (new_connection);
+						}
+						else
+						{
+							this_l->node.logger.try_log ("Unable to accept connection: ", ec_a.message ());
+						}
 
-					// If the callback returns true, keep accepting new connections
-					if (callback_a (new_connection, ec_a))
-					{
-						this_l->on_connection (callback_a);
+						// If the callback returns true, keep accepting new connections
+						if (callback_a (new_connection, ec_a))
+						{
+							this_l->on_connection (callback_a);
+						}
+						else
+						{
+							this_l->node.logger.try_log ("Stopping to accept connections");
+						}
 					}
 					else
 					{
-						this_l->node.logger.try_log ("Stopping to accept connections");
+						this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_failure, nano::stat::dir::in);
+						boost::asio::post (this_l->strand, boost::asio::bind_executor (this_l->strand, [this_l, callback_a]() {
+							this_l->on_connection (callback_a);
+						}));
 					}
 				}));
-			}
-			else
-			{
-				this_l->evict_dead_connections ();
-				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_failure, nano::stat::dir::in);
-				this_l->deferred_accept_timer.expires_after (std::chrono::seconds (2));
-				this_l->deferred_accept_timer.async_wait ([this_l, callback_a](const boost::system::error_code & ec_a) {
-					if (!ec_a)
-					{
-						// Try accepting again
-						std::static_pointer_cast<nano::server_socket> (this_l)->on_connection (callback_a);
-					}
-					else
-					{
-						this_l->node.logger.try_log ("Unable to accept connection (deferred): ", ec_a.message ());
-					}
-				});
 			}
 		}
 	}));

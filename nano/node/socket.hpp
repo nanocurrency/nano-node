@@ -132,7 +132,6 @@ private:
 	std::vector<std::weak_ptr<nano::socket>> connections;
 	boost::asio::ip::tcp::acceptor acceptor;
 	boost::asio::ip::tcp::endpoint local;
-	boost::asio::steady_timer deferred_accept_timer;
 	size_t max_inbound_connections;
 	/** Concurrency setting for new connections */
 	concurrency concurrency_new_connections;

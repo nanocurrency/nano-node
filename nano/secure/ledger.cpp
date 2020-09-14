@@ -741,28 +741,51 @@ epoch_2_started_cb (epoch_2_started_cb_a)
 {
 	if (!store.init_error ())
 	{
-		auto transaction = store.tx_begin_read ();
-		if (generate_cache_a.reps || generate_cache_a.account_count || generate_cache_a.epoch_2 || generate_cache_a.block_count)
-		{
+		initialize (generate_cache_a);
+	}
+}
+
+void nano::ledger::initialize (nano::generate_cache const & generate_cache_a)
+{
+	auto transaction = store.tx_begin_read ();
+
+	if (generate_cache_a.reps || generate_cache_a.account_count || generate_cache_a.epoch_2 || generate_cache_a.block_count)
+	{
+		store.latest_for_each_par (
+		[this](nano::store_iterator<nano::account, nano::account_info> i, nano::store_iterator<nano::account, nano::account_info> n) {
+			uint64_t block_count_l{ 0 };
+			uint64_t account_count_l{ 0 };
+			decltype (this->cache.rep_weights) rep_weights_l;
 			bool epoch_2_started_l{ false };
-			for (auto i (store.latest_begin (transaction)), n (store.latest_end ()); i != n; ++i)
+			for (; i != n; ++i)
 			{
 				nano::account_info const & info (i->second);
-				cache.rep_weights.representation_add (info.representative, info.balance.number ());
-				++cache.account_count;
-				cache.block_count += info.block_count;
+				block_count_l += info.block_count;
+				++account_count_l;
+				rep_weights_l.representation_add (info.representative, info.balance.number ());
 				epoch_2_started_l = epoch_2_started_l || info.epoch () == nano::epoch::epoch_2;
 			}
-			cache.epoch_2_started.store (epoch_2_started_l);
-		}
-
-		if (generate_cache_a.cemented_count)
-		{
-			for (auto i (store.confirmation_height_begin (transaction)), n (store.confirmation_height_end ()); i != n; ++i)
+			if (epoch_2_started_l)
 			{
-				cache.cemented_count += i->second.height;
+				this->cache.epoch_2_started.store (true);
 			}
-		}
+			this->cache.block_count += block_count_l;
+			this->cache.account_count += account_count_l;
+			this->cache.rep_weights.copy_from (rep_weights_l);
+		});
+	}
+
+	if (generate_cache_a.cemented_count)
+	{
+		store.confirmation_height_for_each_par (
+		[this](nano::store_iterator<nano::account, nano::confirmation_height_info> i, nano::store_iterator<nano::account, nano::confirmation_height_info> n) {
+			uint64_t cemented_count_l (0);
+			for (; i != n; ++i)
+			{
+				cemented_count_l += i->second.height;
+			}
+			this->cache.cemented_count += cemented_count_l;
+		});
 	}
 }
 
