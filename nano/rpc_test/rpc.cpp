@@ -7787,7 +7787,7 @@ TEST (rpc, receive_pruned)
 	ASSERT_TRUE (node2.ledger.block_or_pruned_exists (send2->hash ()));
 	ASSERT_FALSE (node2.ledger.block_exists (send2->hash ()));
 	ASSERT_TRUE (node2.ledger.block_exists (send3->hash ()));
-	
+
 	scoped_io_thread_name_change scoped_thread_name_io;
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (node2, node_rpc_config);
