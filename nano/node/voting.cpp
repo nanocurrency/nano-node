@@ -11,7 +11,6 @@
 
 #include <chrono>
 
-#ifndef NDEBUG
 bool nano::local_vote_history::consistency_check (nano::root const & root_a) const
 {
 	auto & history_by_root (history.get<tag_root> ());
@@ -25,7 +24,6 @@ bool nano::local_vote_history::consistency_check (nano::root const & root_a) con
 	consistent = consistent && accounts.size () == std::unique (accounts.begin (), accounts.end ()) - accounts.begin ();
 	return consistent;
 }
-#endif
 
 void nano::local_vote_history::add (nano::root const & root_a, nano::block_hash const & hash_a, std::shared_ptr<nano::vote> const & vote_a)
 {
