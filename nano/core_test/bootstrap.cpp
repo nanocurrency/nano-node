@@ -1391,6 +1391,7 @@ TEST (bulk, genesis_pruning)
 	node2->block_processor.flush ();
 	ASSERT_EQ (3, node2->ledger.cache.block_count);
 	// New bootstrap
+	node2->network.excluded_peers.remove (nano::transport::map_endpoint_to_tcp (node1->network.endpoint ()));
 	node2->bootstrap_initiator.bootstrap (node1->network.endpoint ());
 	ASSERT_TIMELY (10s, node2->latest (nano::dev_genesis_key.pub) == node1->latest (nano::dev_genesis_key.pub));
 	ASSERT_EQ (node2->latest (nano::dev_genesis_key.pub), node1->latest (nano::dev_genesis_key.pub));
