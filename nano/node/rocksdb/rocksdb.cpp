@@ -577,7 +577,6 @@ rocksdb::Options nano::rocksdb_store::get_db_options ()
 	// smaller ones that are run simultaneously. Can help L0 to L1 compaction
 	db_options.max_subcompactions = std::min (rocksdb_config.io_threads / 2, 1u);
 
-
 	// Sets the compaction priority
 	db_options.compaction_pri = rocksdb::CompactionPri::kMinOverlappingRatio;
 
