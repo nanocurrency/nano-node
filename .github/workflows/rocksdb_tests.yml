@@ -13,6 +13,7 @@ jobs:
     env:
       BOOST_ROOT: /tmp/boost
       DEADLINE_SCALE_FACTOR: 2
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
       - uses: actions/checkout@722adc6
       - name: Checkout Submodules
@@ -25,6 +26,7 @@ jobs:
   gcc_test:
     runs-on: ubuntu-18.04
     timeout-minutes: 60
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
       - uses: actions/checkout@722adc6
       - name: Checkout Submodules
@@ -37,6 +39,7 @@ jobs:
   clang_test:
     runs-on: ubuntu-18.04
     timeout-minutes: 60
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
       - uses: actions/checkout@722adc6
       - name: Checkout Submodules
@@ -52,6 +55,7 @@ jobs:
     env:
       RELEASE: 1
       DEADLINE_SCALE_FACTOR: 2
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
       - uses: actions/checkout@722adc6
       - name: Windows Defender
