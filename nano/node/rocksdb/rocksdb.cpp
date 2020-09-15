@@ -583,8 +583,16 @@ rocksdb::Options nano::rocksdb_store::get_db_options ()
 	rocksdb::Options db_options;
 	db_options.create_if_missing = true;
 	db_options.create_missing_column_families = true;
-	db_options.allow_concurrent_memtable_write = false;
 	db_options.memtable_whole_key_filtering = true;
+
+	// The maximum number of threads that will concurrently perform a compaction job by breaking it into multiple,
+	// smaller ones that are run simultaneously. Can help L0 to L1 compaction
+	db_options.max_subcompactions = std::min (rocksdb_config.io_threads / 2, 1u);
+
+	// Allows parallel writers to the memtables. We do not currently have any, and
+	// if enabled can only be used with the default skip list factory, and is not compatible
+	// or inplace updates.
+	db_options.allow_concurrent_memtable_write = false;
 
 	// Sets the compaction priority
 	db_options.compaction_pri = rocksdb::CompactionPri::kMinOverlappingRatio;
