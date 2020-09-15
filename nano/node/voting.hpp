@@ -68,13 +68,15 @@ private:
 	size_t const max_size{ nano::network_params{}.voting.max_cache };
 	void clean ();
 	std::vector<std::shared_ptr<nano::vote>> votes (nano::root const & root_a) const;
-	// Only used in debug
-	bool consistency_check (nano::root const &);
 	mutable std::mutex mutex;
 
 	friend std::unique_ptr<container_info_component> collect_container_info (local_vote_history & history, const std::string & name);
 
 	friend class local_vote_history_basic_Test;
+
+#ifndef NDEBUG
+	bool consistency_check (nano::root const &) const;
+#endif
 };
 
 std::unique_ptr<container_info_component> collect_container_info (local_vote_history & history, const std::string & name);

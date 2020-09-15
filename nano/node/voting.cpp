@@ -11,11 +11,9 @@
 
 #include <chrono>
 
-bool nano::local_vote_history::consistency_check (nano::root const & root_a)
+#ifndef NDEBUG
+bool nano::local_vote_history::consistency_check (nano::root const & root_a) const
 {
-#ifdef NDEBUG
-	release_assert (false);
-#endif
 	auto & history_by_root (history.get<tag_root> ());
 	auto const range (history_by_root.equal_range (root_a));
 	// All cached votes for a root must be for the same hash, this is actively enforced in local_vote_history::add
@@ -27,6 +25,7 @@ bool nano::local_vote_history::consistency_check (nano::root const & root_a)
 	consistent = consistent && accounts.size () == std::unique (accounts.begin (), accounts.end ()) - accounts.begin ();
 	return consistent;
 }
+#endif
 
 void nano::local_vote_history::add (nano::root const & root_a, nano::block_hash const & hash_a, std::shared_ptr<nano::vote> const & vote_a)
 {
@@ -48,6 +47,7 @@ void nano::local_vote_history::add (nano::root const & root_a, nano::block_hash 
 		}
 	}
 	auto result (history_by_root.emplace (root_a, hash_a, vote_a));
+	(void)result;
 	debug_assert (result.second);
 	debug_assert (consistency_check (root_a));
 }
