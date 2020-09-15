@@ -268,6 +268,7 @@ void nano::vote_generator::reply (nano::unique_lock<std::mutex> & lock_a, reques
 			stats.add (nano::stat::type::requests, nano::stat::detail::requests_generated_hashes, stat::dir::in, hashes.size ());
 			vote (hashes, roots, [this, &channel = request_a.second](std::shared_ptr<nano::vote> const & vote_a) {
 				this->reply_action (vote_a, channel);
+				this->stats.inc (nano::stat::type::requests, nano::stat::detail::requests_generated_votes, stat::dir::in);
 			});
 		}
 	}
