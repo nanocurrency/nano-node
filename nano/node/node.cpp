@@ -98,7 +98,7 @@ alarm (alarm_a),
 work (work_a),
 distributed_work (*this),
 logger (config_a.logging.min_time_between_log_output),
-store_impl (nano::make_store (logger, application_path_a, flags.read_only, true, config_a.rocksdb_config, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_config, config_a.backup_before_upgrade, config_a.rocksdb_config.enable)),
+store_impl (nano::make_store (logger, application_path_a, flags.read_only, true, config_a.rocksdb_config, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_config, config_a.backup_before_upgrade, config_a.rocksdb_config.enable, flags.enable_pruning)),
 store (*store_impl),
 wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (application_path_a / "wallets.ldb", config_a.lmdb_config)),
 wallets_store (*wallets_store_impl),
@@ -427,6 +427,26 @@ node_seq (seq)
 				logger.always_log ("Dropping unchecked blocks");
 			}
 		}
+
+		ledger.pruning = flags.enable_pruning || store.pruned_count (store.tx_begin_read ()) > 0;
+
+		if (ledger.pruning)
+		{
+			if (config.enable_voting && !flags.inactive_node)
+			{
+				std::string str = "Incompatibility detected between config node.enable_voting and existing pruned blocks";
+				logger.always_log (str);
+				std::cerr << str << std::endl;
+				std::exit (1);
+			}
+			else if (!flags.enable_pruning && !flags.inactive_node)
+			{
+				std::string str = "To start node with existing pruned blocks use launch flag --enable_pruning";
+				logger.always_log (str);
+				std::cerr << str << std::endl;
+				std::exit (1);
+			}
+		}
 	}
 	node_initialized_latch.count_down ();
 }
@@ -635,6 +655,13 @@ void nano::node::start ()
 		});
 	}
 	ongoing_store_flush ();
+	if (flags.enable_pruning)
+	{
+		auto this_l (shared ());
+		worker.push_task ([this_l]() {
+			this_l->ongoing_ledger_pruning ();
+		});
+	}
 	if (!flags.disable_rep_crawler)
 	{
 		rep_crawler.start ();
@@ -977,6 +1004,125 @@ void nano::node::ongoing_unchecked_cleanup ()
 	});
 }
 
+bool nano::node::collect_ledger_pruning_targets (std::deque<nano::block_hash> & pruning_targets_a, nano::account & last_account_a, uint64_t const batch_read_size_a, uint64_t const max_depth_a, uint64_t const cutoff_time_a)
+{
+	uint64_t read_operations (0);
+	bool finish_transaction (false);
+	auto transaction (store.tx_begin_read ());
+	for (auto i (store.confirmation_height_begin (transaction, last_account_a)), n (store.confirmation_height_end ()); i != n && !finish_transaction;)
+	{
+		++read_operations;
+		auto const & account (i->first);
+		nano::block_hash hash (i->second.frontier);
+		uint64_t depth (0);
+		while (!hash.is_zero () && depth < max_depth_a)
+		{
+			auto block (store.block_get (transaction, hash));
+			if (block != nullptr)
+			{
+				if (block->sideband ().timestamp > cutoff_time_a || depth == 0)
+				{
+					hash = block->previous ();
+				}
+				else
+				{
+					break;
+				}
+			}
+			else
+			{
+				release_assert (depth != 0);
+				hash = 0;
+			}
+			if (++depth % batch_read_size_a == 0)
+			{
+				transaction.reset ();
+				transaction.renew ();
+			}
+		}
+		if (!hash.is_zero ())
+		{
+			pruning_targets_a.push_back (hash);
+		}
+		read_operations += depth;
+		if (read_operations >= batch_read_size_a)
+		{
+			last_account_a = account.number () + 1;
+			finish_transaction = true;
+		}
+		else
+		{
+			++i;
+		}
+	}
+	return !finish_transaction || last_account_a.is_zero ();
+}
+
+void nano::node::ledger_pruning (uint64_t const batch_size_a, bool bootstrap_weight_reached_a, bool log_to_cout_a)
+{
+	uint64_t const max_depth (config.max_pruning_depth != 0 ? config.max_pruning_depth : std::numeric_limits<uint64_t>::max ());
+	uint64_t const cutoff_time (bootstrap_weight_reached_a ? nano::seconds_since_epoch () - config.max_pruning_age.count () : std::numeric_limits<uint64_t>::max ());
+	uint64_t pruned_count (0);
+	uint64_t transaction_write_count (0);
+	nano::account last_account (1); // 0 Burn account is never opened. So it can be used to break loop
+	std::deque<nano::block_hash> pruning_targets;
+	bool target_finished (false);
+	while ((transaction_write_count != 0 || !target_finished) && !stopped)
+	{
+		// Search pruning targets
+		while (pruning_targets.size () < batch_size_a && !target_finished && !stopped)
+		{
+			target_finished = collect_ledger_pruning_targets (pruning_targets, last_account, batch_size_a * 2, max_depth, cutoff_time);
+		}
+		// Pruning write operation
+		transaction_write_count = 0;
+		if (!pruning_targets.empty () && !stopped)
+		{
+			auto scoped_write_guard = write_database_queue.wait (nano::writer::pruning);
+			auto write_transaction (store.tx_begin_write ({ tables::blocks, tables::pruned }));
+			while (!pruning_targets.empty () && transaction_write_count < batch_size_a && !stopped)
+			{
+				auto const & pruning_hash (pruning_targets.front ());
+				auto account_pruned_count (ledger.prune (write_transaction, pruning_hash, batch_size_a));
+				transaction_write_count += account_pruned_count;
+				pruning_targets.pop_front ();
+			}
+			pruned_count += transaction_write_count;
+			auto log_message (boost::str (boost::format ("%1% blocks pruned") % pruned_count));
+			if (!log_to_cout_a)
+			{
+				logger.try_log (log_message);
+			}
+			else
+			{
+				std::cout << log_message << std::endl;
+			}
+		}
+	}
+	auto log_message (boost::str (boost::format ("Total recently pruned block count: %1%") % pruned_count));
+	if (!log_to_cout_a)
+	{
+		logger.always_log (log_message);
+	}
+	else
+	{
+		std::cout << log_message << std::endl;
+	}
+}
+
+void nano::node::ongoing_ledger_pruning ()
+{
+	auto bootstrap_weight_reached (ledger.cache.block_count >= ledger.bootstrap_weight_max_blocks);
+	ledger_pruning (flags.block_processor_batch_size != 0 ? flags.block_processor_batch_size : 2 * 1024, bootstrap_weight_reached, false);
+	auto ledger_pruning_interval (bootstrap_weight_reached ? config.max_pruning_age : std::min (config.max_pruning_age, std::chrono::seconds (15 * 60)));
+	auto this_l (shared ());
+	alarm.add (std::chrono::steady_clock::now () + ledger_pruning_interval, [this_l]() {
+		this_l->worker.push_task ([this_l]() {
+			this_l->ongoing_ledger_pruning ();
+		});
+	});
+}
+
 int nano::node::price (nano::uint128_t const & balance_a, int amount_a)
 {
 	debug_assert (balance_a >= amount_a * nano::Gxrb_ratio);
@@ -1165,77 +1311,43 @@ void nano::node::ongoing_online_weight_calculation ()
 
 namespace
 {
-class confirmed_visitor : public nano::block_visitor
+void scan_receivable (nano::transaction const & transaction_a, nano::node & node_a, nano::account const & account_a, nano::block_hash const & hash_a)
 {
-public:
-	confirmed_visitor (nano::transaction const & transaction_a, nano::node & node_a, std::shared_ptr<nano::block> const & block_a, nano::block_hash const & hash_a) :
-	transaction (transaction_a),
-	node (node_a),
-	block (block_a),
-	hash (hash_a)
+	for (auto const & [id /*unused*/, wallet] : node_a.wallets.get_wallets ())
 	{
-	}
-	virtual ~confirmed_visitor () = default;
-	void scan_receivable (nano::account const & account_a)
-	{
-		for (auto const & [id /*unused*/, wallet] : node.wallets.get_wallets ())
+		auto transaction_l (node_a.wallets.tx_begin_read ());
+		if (wallet->store.exists (transaction_l, account_a))
 		{
-			auto transaction_l (node.wallets.tx_begin_read ());
-			if (wallet->store.exists (transaction_l, account_a))
+			nano::account representative;
+			nano::pending_info pending;
+			representative = wallet->store.representative (transaction_l);
+			auto error (node_a.store.pending_get (transaction_a, nano::pending_key (account_a, hash_a), pending));
+			if (!error)
 			{
-				nano::account representative;
-				nano::pending_info pending;
-				representative = wallet->store.representative (transaction_l);
-				auto error (node.store.pending_get (transaction, nano::pending_key (account_a, hash), pending));
-				if (!error)
+				auto node_l (node_a.shared ());
+				auto amount (pending.amount.number ());
+				wallet->receive_async (hash_a, representative, amount, account_a, [](std::shared_ptr<nano::block>) {});
+			}
+			else
+			{
+				if (!node_a.store.block_or_pruned_exists (transaction_a, hash_a))
 				{
-					auto node_l (node.shared ());
-					auto amount (pending.amount.number ());
-					wallet->receive_async (block, representative, amount, [](std::shared_ptr<nano::block>) {});
+					node_a.logger.try_log (boost::str (boost::format ("Confirmed block is missing:  %1%") % hash_a.to_string ()));
+					debug_assert (false && "Confirmed block is missing");
 				}
 				else
 				{
-					if (!node.store.block_exists (transaction, hash))
-					{
-						node.logger.try_log (boost::str (boost::format ("Confirmed block is missing:  %1%") % hash.to_string ()));
-						debug_assert (false && "Confirmed block is missing");
-					}
-					else
-					{
-						node.logger.try_log (boost::str (boost::format ("Block %1% has already been received") % hash.to_string ()));
-					}
+					node_a.logger.try_log (boost::str (boost::format ("Block %1% has already been received") % hash_a.to_string ()));
 				}
 			}
 		}
 	}
-	void state_block (nano::state_block const & block_a) override
-	{
-		scan_receivable (block_a.hashables.link.as_account ());
-	}
-	void send_block (nano::send_block const & block_a) override
-	{
-		scan_receivable (block_a.hashables.destination);
-	}
-	void receive_block (nano::receive_block const &) override
-	{
-	}
-	void open_block (nano::open_block const &) override
-	{
-	}
-	void change_block (nano::change_block const &) override
-	{
-	}
-	nano::transaction const & transaction;
-	nano::node & node;
-	std::shared_ptr<nano::block> block;
-	nano::block_hash const & hash;
-};
+}
 }
 
-void nano::node::receive_confirmed (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, nano::block_hash const & hash_a)
+void nano::node::receive_confirmed (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::account const & account_a)
 {
-	confirmed_visitor visitor (transaction_a, *this, block_a, hash_a);
-	block_a->visit (visitor);
+	scan_receivable (transaction_a, *this, account_a, hash_a);
 }
 
 void nano::node::process_confirmed_data (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, nano::block_hash const & hash_a, nano::account & account_a, nano::uint128_t & amount_a, bool & is_state_send_a, nano::account & pending_account_a)
@@ -1248,11 +1360,19 @@ void nano::node::process_confirmed_data (nano::transaction const & transaction_a
 	}
 	// Faster amount calculation
 	auto previous (block_a->previous ());
-	auto previous_balance (ledger.balance (transaction_a, previous));
+	bool error (false);
+	auto previous_balance (ledger.balance_safe (transaction_a, previous, error));
 	auto block_balance (store.block_balance_calculated (block_a));
 	if (hash_a != ledger.network_params.ledger.genesis_account)
 	{
-		amount_a = block_balance > previous_balance ? block_balance - previous_balance : previous_balance - block_balance;
+		if (!error)
+		{
+			amount_a = block_balance > previous_balance ? block_balance - previous_balance : previous_balance - block_balance;
+		}
+		else
+		{
+			amount_a = 0;
+		}
 	}
 	else
 	{
@@ -1707,11 +1827,11 @@ nano::node_flags const & nano::inactive_node_flag_defaults ()
 	return node_flags;
 }
 
-std::unique_ptr<nano::block_store> nano::make_store (nano::logger_mt & logger, boost::filesystem::path const & path, bool read_only, bool add_db_postfix, nano::rocksdb_config const & rocksdb_config, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade, bool use_rocksdb_backend)
+std::unique_ptr<nano::block_store> nano::make_store (nano::logger_mt & logger, boost::filesystem::path const & path, bool read_only, bool add_db_postfix, nano::rocksdb_config const & rocksdb_config, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade, bool use_rocksdb_backend, bool enable_pruning)
 {
 #if NANO_ROCKSDB
-	auto make_rocksdb = [&logger, add_db_postfix, &path, &rocksdb_config, read_only]() {
-		return std::make_unique<nano::rocksdb_store> (logger, add_db_postfix ? path / "rocksdb" : path, rocksdb_config, read_only);
+	auto make_rocksdb = [&logger, add_db_postfix, &path, &rocksdb_config, read_only, enable_pruning]() {
+		return std::make_unique<nano::rocksdb_store> (logger, add_db_postfix ? path / "rocksdb" : path, rocksdb_config, read_only, enable_pruning);
 	};
 #endif
 
