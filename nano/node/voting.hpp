@@ -89,7 +89,7 @@ public:
 	vote_generator (nano::node_config const & config_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::local_vote_history & history_a, nano::network & network_a, nano::stat & stats_a);
 	/** Queue items for vote generation, or broadcast votes already in cache */
 	void add (nano::root const &, nano::block_hash const &);
-	/** Queue blocks for vote generation, returning the number of successfull candidates.*/
+	/** Queue blocks for vote generation, returning the number of successful candidates.*/
 	size_t generate (std::vector<std::shared_ptr<nano::block>> const & blocks_a, std::shared_ptr<nano::transport::channel> const & channel_a);
 	void set_reply_action (std::function<void(std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> &)>);
 	void stop ();

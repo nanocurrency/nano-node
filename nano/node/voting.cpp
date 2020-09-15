@@ -184,7 +184,7 @@ size_t nano::vote_generator::generate (std::vector<std::shared_ptr<nano::block>>
 	requests.emplace_back (std::move (candidates), channel_a);
 	while (requests.size () > max_requests)
 	{
-		// On a large queue of requests, erase the oldest ones
+		// On a large queue of requests, erase the oldest one
 		requests.pop_front ();
 		stats.inc (nano::stat::type::vote_generator, nano::stat::detail::generator_replies_discarded);
 	}
