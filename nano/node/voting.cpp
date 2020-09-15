@@ -210,8 +210,8 @@ void nano::vote_generator::broadcast (nano::unique_lock<std::mutex> & lock_a)
 	roots.reserve (nano::network::confirm_ack_hashes_max);
 	while (!candidates.empty () && hashes.size () < nano::network::confirm_ack_hashes_max)
 	{
-		auto const & front (candidates.front ());
-		auto cached_votes = history.votes (front.first, front.second);
+		auto const & [root, hash] = candidates.front ();
+		auto cached_votes = history.votes (root, hash);
 		for (auto const & cached_vote : cached_votes)
 		{
 			if (cached_sent.insert (cached_vote).second)
@@ -221,8 +221,8 @@ void nano::vote_generator::broadcast (nano::unique_lock<std::mutex> & lock_a)
 		}
 		if (cached_votes.empty ())
 		{
-			roots.push_back (front.first);
-			hashes.push_back (front.second);
+			roots.push_back (root);
+			hashes.push_back (hash);
 		}
 		candidates.pop_front ();
 	}
@@ -354,9 +354,9 @@ void nano::vote_generator_session::add (nano::root const & root_a, nano::block_h
 void nano::vote_generator_session::flush ()
 {
 	debug_assert (nano::thread_role::get () == nano::thread_role::name::request_loop);
-	for (auto const & i : items)
+	for (auto const & [root, hash] : items)
 	{
-		generator.add (i.first, i.second);
+		generator.add (root, hash);
 	}
 }
 
