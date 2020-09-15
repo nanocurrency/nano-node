@@ -36,8 +36,7 @@ void nano::local_vote_history::add (nano::root const & root_a, nano::block_hash 
 	auto range (history_by_root.equal_range (root_a));
 	for (auto i (range.first); i != range.second;)
 	{
-		bool const same_hash (i->hash == hash_a);
-		if (!same_hash || (same_hash && vote_a->account == i->vote->account))
+		if (i->hash != hash_a || vote_a->account == i->vote->account)
 		{
 			i = history_by_root.erase (i);
 		}
