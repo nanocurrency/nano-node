@@ -162,20 +162,8 @@ rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_cf_options (std::string co
 	auto const block_cache_size_bytes = 1024ULL * 1024 * rocksdb_config.memory_multiplier * base_block_cache_size;
 	if (cf_name_a == "unchecked")
 	{
-		rocksdb::PlainTableOptions table_options;
-		table_options.bloom_bits_per_key = 10;
-		table_options.full_scan_mode = false;
-		table_options.store_index_in_file = true;
-		table_options.encoding_type = rocksdb::EncodingType::kPrefix;
-		table_options.hash_table_ratio = 0.75;
-		table_options.user_key_len = sizeof (nano::unchecked_key);
-		std::shared_ptr<rocksdb::TableFactory> table_factory (rocksdb::NewPlainTableFactory (table_options));
-
-		cf_options = get_active_cf_options (table_factory, memtable_size_bytes * 2);
-		cf_options.memtable_factory.reset (rocksdb::NewHashSkipListRepFactory ());
-
-		// TTL is not supported, so disable it
-		cf_options.ttl = 0;
+		std::shared_ptr<rocksdb::TableFactory> table_factory (rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes * 4)));
+		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
 
 		// Create prefix bloom for memtable with the size of write_buffer_size * memtable_prefix_bloom_size_ratio
 		cf_options.memtable_prefix_bloom_size_ratio = 0.25;
@@ -589,9 +577,8 @@ rocksdb::Options nano::rocksdb_store::get_db_options ()
 	// smaller ones that are run simultaneously. Can help L0 to L1 compaction
 	db_options.max_subcompactions = std::min (rocksdb_config.io_threads / 2, 1u);
 
-	// Allows parallel writers to the memtables. We do not currently have any, and
-	// if enabled can only be used with the default skip list factory, and is not compatible
-	// or inplace updates.
+	// Disallows parallel writers to the memtables. We do not currently have any and
+	// if enabled can only be used with the default skip list factory.
 	db_options.allow_concurrent_memtable_write = false;
 
 	// Sets the compaction priority

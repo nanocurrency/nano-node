@@ -3600,9 +3600,11 @@ TEST (node, peer_cache_restart)
 
 TEST (node, unchecked_cleanup)
 {
-	nano::system system (1);
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_unchecked_cleanup = true;
 	nano::keypair key;
-	auto & node (*system.nodes[0]);
+	auto & node (*system.add_node (node_flags));
 	auto open = nano::state_block_builder ()
 	            .account (key.pub)
 	            .previous (0)
