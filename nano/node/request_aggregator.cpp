@@ -174,12 +174,12 @@ std::vector<std::pair<nano::root, nano::block_hash>> nano::request_aggregator::a
 			if (block == nullptr && !hash_root.second.is_zero ())
 			{
 				// Search for block root
-				auto successor (ledger.store.block_successor (transaction_a, hash_root.second));
+				auto successor (ledger.store.block_successor (transaction_a, hash_root.second.as_block_hash ()));
 				// Search for account root
 				if (successor.is_zero ())
 				{
 					nano::account_info info;
-					auto error (ledger.store.account_get (transaction_a, hash_root.second, info));
+					auto error (ledger.store.account_get (transaction_a, hash_root.second.as_account (), info));
 					if (!error)
 					{
 						successor = info.open_block;
@@ -205,7 +205,7 @@ std::vector<std::pair<nano::root, nano::block_hash>> nano::request_aggregator::a
 			if (block)
 			{
 				// Attempt to vote for this block
-				if (ledger.can_vote (transaction_a, *block))
+				if (ledger.dependents_confirmed (transaction_a, *block))
 				{
 					to_generate.emplace_back (block->root (), block->hash ());
 				}

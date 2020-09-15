@@ -59,6 +59,11 @@ void nano::json_handler::process_request (bool unsafe_a)
 	{
 		std::stringstream istream (body);
 		boost::property_tree::read_json (istream, request);
+		if (node_rpc_config.request_callback)
+		{
+			debug_assert (nano::network_constants ().is_dev_network ());
+			node_rpc_config.request_callback (request);
+		}
 		action = request.get<std::string> ("action");
 		auto no_arg_func_iter = ipc_json_handler_no_arg_funcs.find (action);
 		if (no_arg_func_iter != ipc_json_handler_no_arg_funcs.cend ())
@@ -143,10 +148,15 @@ void nano::json_handler::process_request (bool unsafe_a)
 
 void nano::json_handler::response_errors ()
 {
-	if (ec || response_l.empty ())
+	if (!ec && response_l.empty ())
+	{
+		// Return an error code if no response data was given
+		ec = nano::error_rpc::empty_response;
+	}
+	if (ec)
 	{
 		boost::property_tree::ptree response_error;
-		response_error.put ("error", ec ? ec.message () : "Empty response");
+		response_error.put ("error", ec.message ());
 		std::stringstream ostream;
 		boost::property_tree::write_json (ostream, response_error);
 		response (ostream.str ());
@@ -389,8 +399,8 @@ uint64_t nano::json_handler::difficulty_ledger (nano::block const & block_a)
 	auto link (block_a.link ());
 	if (!link.is_zero () && !details.is_send)
 	{
-		auto block_link (node.store.block_get (transaction, link));
-		if (block_link != nullptr && node.store.pending_exists (transaction, nano::pending_key (block_a.account (), link)))
+		auto block_link (node.store.block_get (transaction, link.as_block_hash ()));
+		if (block_link != nullptr && node.store.pending_exists (transaction, nano::pending_key (block_a.account (), link.as_block_hash ())))
 		{
 			details.epoch = std::max (details.epoch, block_link->sideband ().details.epoch);
 			details.is_receive = true;
@@ -945,10 +955,14 @@ void nano::json_handler::accounts_pending ()
 void nano::json_handler::active_difficulty ()
 {
 	auto include_trend (request.get<bool> ("include_trend", false));
-	auto multiplier_active = node.active.active_multiplier ();
-	auto default_difficulty (node.default_difficulty (nano::work_version::work_1));
+	auto const multiplier_active = node.active.active_multiplier ();
+	auto const default_difficulty (node.default_difficulty (nano::work_version::work_1));
+	auto const default_receive_difficulty (node.default_receive_difficulty (nano::work_version::work_1));
+	auto const receive_current_denormalized (nano::denormalized_multiplier (multiplier_active, node.network_params.network.publish_thresholds.epoch_2_receive));
 	response_l.put ("network_minimum", nano::to_string_hex (default_difficulty));
+	response_l.put ("network_receive_minimum", nano::to_string_hex (default_receive_difficulty));
 	response_l.put ("network_current", nano::to_string_hex (nano::difficulty::from_multiplier (multiplier_active, default_difficulty)));
+	response_l.put ("network_receive_current", nano::to_string_hex (nano::difficulty::from_multiplier (receive_current_denormalized, default_receive_difficulty)));
 	response_l.put ("multiplier", multiplier_active);
 	if (include_trend)
 	{
@@ -2234,7 +2248,7 @@ public:
 		auto previous_balance (handler.node.ledger.balance (transaction, block_a.hashables.previous));
 		if (balance < previous_balance)
 		{
-			if (should_ignore_account (block_a.hashables.link))
+			if (should_ignore_account (block_a.hashables.link.as_account ()))
 			{
 				tree.clear ();
 				return;
@@ -2269,7 +2283,7 @@ public:
 			}
 			else
 			{
-				auto account (handler.node.ledger.account (transaction, block_a.hashables.link));
+				auto account (handler.node.ledger.account (transaction, block_a.hashables.link.as_block_hash ()));
 				if (should_ignore_account (account))
 				{
 					tree.clear ();
@@ -4738,7 +4752,7 @@ void nano::json_handler::work_generate ()
 		auto hash (hash_impl ());
 		auto difficulty (difficulty_optional_impl (work_version));
 		multiplier_optional_impl (work_version, difficulty);
-		if (!ec && (difficulty > node.max_work_generate_difficulty (work_version) || difficulty < nano::work_threshold_entry (work_version)))
+		if (!ec && (difficulty > node.max_work_generate_difficulty (work_version) || difficulty < nano::work_threshold_entry (work_version, nano::block_type::state)))
 		{
 			ec = nano::error_rpc::difficulty_limit;
 		}
@@ -4849,6 +4863,7 @@ void nano::json_handler::work_cancel ()
 	if (!ec)
 	{
 		node.observers.work_cancel.notify (hash);
+		response_l.put ("success", "");
 	}
 	response_errors ();
 }

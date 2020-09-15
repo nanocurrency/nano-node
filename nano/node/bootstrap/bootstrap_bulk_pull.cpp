@@ -260,13 +260,21 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 				connection->connections->pool_connection (connection);
 			}
 		}
-		else
+		else if (block == nullptr)
 		{
 			if (connection->node->config.logging.bulk_pull_logging ())
 			{
 				connection->node->logger.try_log ("Error deserializing block received from pull request");
 			}
 			connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_deserialize_receive_block, nano::stat::dir::in);
+		}
+		else // Work invalid
+		{
+			if (connection->node->config.logging.bulk_pull_logging ())
+			{
+				connection->node->logger.try_log (boost::str (boost::format ("Insufficient work for bulk pull block: %1%") % block->hash ().to_string ()));
+			}
+			connection->node->stats.inc_detail_only (nano::stat::type::error, nano::stat::detail::insufficient_work);
 		}
 	}
 	else
@@ -427,20 +435,20 @@ void nano::bulk_pull_server::set_current_end ()
 		request->end.clear ();
 	}
 
-	if (connection->node->store.block_exists (transaction, request->start))
+	if (connection->node->store.block_exists (transaction, request->start.as_block_hash ()))
 	{
 		if (connection->node->config.logging.bulk_pull_logging ())
 		{
 			connection->node->logger.try_log (boost::str (boost::format ("Bulk pull request for block hash: %1%") % request->start.to_string ()));
 		}
 
-		current = request->start;
+		current = request->start.as_block_hash ();
 		include_start = true;
 	}
 	else
 	{
 		nano::account_info info;
-		auto no_address (connection->node->store.account_get (transaction, request->start, info));
+		auto no_address (connection->node->store.account_get (transaction, request->start.as_account (), info));
 		if (no_address)
 		{
 			if (connection->node->config.logging.bulk_pull_logging ())
