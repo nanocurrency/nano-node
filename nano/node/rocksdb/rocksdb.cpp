@@ -570,6 +570,10 @@ rocksdb::Options nano::rocksdb_store::get_db_options ()
 	db_options.create_if_missing = true;
 	db_options.create_missing_column_families = true;
 
+	// Disallows parallel writers to the memtables. We do not currently have any and
+	// if enabled can only be used with the default skip list factory.
+	db_options.allow_concurrent_memtable_write = false;
+
 	// Sets the compaction priority
 	db_options.compaction_pri = rocksdb::CompactionPri::kMinOverlappingRatio;
 
