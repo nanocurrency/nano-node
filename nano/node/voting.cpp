@@ -171,15 +171,17 @@ void nano::vote_generator::stop ()
 
 size_t nano::vote_generator::generate (std::vector<std::shared_ptr<nano::block>> const & blocks_a, std::shared_ptr<nano::transport::channel> const & channel_a)
 {
-	auto transaction (ledger.store.tx_begin_read ());
-	auto dependents_confirmed = [&blocks_a, &transaction, this](auto const & block_a) {
-		return this->ledger.dependents_confirmed (transaction, *block_a);
-	};
-	auto as_candidate = [](auto const & block_a) {
-		return candidate_t{ block_a->root (), block_a->hash () };
-	};
 	request_t::first_type candidates;
-	nano::transform_if (blocks_a.begin (), blocks_a.end (), std::back_inserter (candidates), dependents_confirmed, as_candidate);
+	{
+		auto transaction (ledger.store.tx_begin_read ());
+		auto dependents_confirmed = [&blocks_a, &transaction, this](auto const & block_a) {
+			return this->ledger.dependents_confirmed (transaction, *block_a);
+		};
+		auto as_candidate = [](auto const & block_a) {
+			return candidate_t{ block_a->root (), block_a->hash () };
+		};
+		nano::transform_if (blocks_a.begin (), blocks_a.end (), std::back_inserter (candidates), dependents_confirmed, as_candidate);
+	}
 	auto const result = candidates.size ();
 	nano::lock_guard<std::mutex> guard (mutex);
 	requests.emplace_back (std::move (candidates), channel_a);
