@@ -61,8 +61,6 @@ void nano::socket::async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a, s
 
 size_t nano::socket::async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a, size_t size_a, boost::asio::yield_context yield)
 {
-	boost::asio::async_result<decltype (yield), void(boost::system::error_code, size_t)>::completion_handler_type handler{ yield };
-	boost::asio::async_result<decltype (yield), void(boost::system::error_code, size_t)> res{ handler };
 	size_t result (0);
 	if (size_a <= buffer_a->size ())
 	{
@@ -77,7 +75,6 @@ size_t nano::socket::async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a,
 	else
 	{
 		debug_assert (false && "nano::socket::async_read called with incorrect buffer size");
-		handler (boost::system::errc::make_error_code (boost::system::errc::no_buffer_space), 0);
 		result = 0;
 	}
 	return result;
