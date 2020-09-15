@@ -583,6 +583,8 @@ rocksdb::Options nano::rocksdb_store::get_db_options ()
 	rocksdb::Options db_options;
 	db_options.create_if_missing = true;
 	db_options.create_missing_column_families = true;
+	db_options.allow_concurrent_memtable_write = false;
+	db_options.memtable_whole_key_filtering = true;
 
 	// Sets the compaction priority
 	db_options.compaction_pri = rocksdb::CompactionPri::kMinOverlappingRatio;
