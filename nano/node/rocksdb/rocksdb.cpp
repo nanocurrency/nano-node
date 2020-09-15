@@ -577,9 +577,6 @@ rocksdb::Options nano::rocksdb_store::get_db_options ()
 	// smaller ones that are run simultaneously. Can help L0 to L1 compaction
 	db_options.max_subcompactions = std::min (rocksdb_config.io_threads / 2, 1u);
 
-	// Disallows parallel writers to the memtables. We do not currently have any and
-	// if enabled can only be used with the default skip list factory.
-	db_options.allow_concurrent_memtable_write = false;
 
 	// Sets the compaction priority
 	db_options.compaction_pri = rocksdb::CompactionPri::kMinOverlappingRatio;
