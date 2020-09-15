@@ -168,6 +168,40 @@ void nano::rocksdb_store::generate_tombstone_map ()
 	tombstone_map.emplace (std::piecewise_construct, std::forward_as_tuple (nano::tables::pending), std::forward_as_tuple (0, 25000));
 }
 
+rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_common_cf_options (std::shared_ptr<rocksdb::TableFactory> const & table_factory_a, unsigned long long memtable_size_bytes_a) const
+{
+	rocksdb::ColumnFamilyOptions cf_options;
+	cf_options.table_factory = table_factory_a;
+
+	auto write_buffer_size = memtable_size_bytes_a;
+
+	// (1 active, 1 inactive)
+	auto num_memtables = 2;
+
+	// Each level is a multiple of the above. If L1 is 512MB. L2 will be 512 * 8 = 2GB. L3 will be 2GB * 8 = 16GB, and so on...
+	cf_options.max_bytes_for_level_multiplier = 8;
+
+	// Although this should be the default provided by RocksDB, not setting this is causing sequence conflict checks if not using
+	cf_options.max_write_buffer_size_to_maintain = memtable_size_bytes_a * num_memtables;
+
+	// Files older than this (1 day) will be scheduled for compaction when there is no other background work. This can lead to more writes however.
+	cf_options.ttl = 1 * 24 * 60 * 60;
+
+	// Multiplier for each level
+	cf_options.target_file_size_multiplier = 10;
+
+	// Size of level 1 sst files
+	cf_options.target_file_size_base = memtable_size_bytes_a;
+
+	// Size of each memtable
+	cf_options.write_buffer_size = memtable_size_bytes_a;
+
+	// Number of memtables to keep in memory
+	cf_options.max_write_buffer_number = num_memtables;
+
+	return cf_options;
+}
+
 rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_cf_options (std::string const & cf_name_a) const
 {
 	rocksdb::ColumnFamilyOptions cf_options;
@@ -654,36 +688,21 @@ rocksdb::BlockBasedTableOptions nano::rocksdb_store::get_small_table_options () 
 
 rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_small_cf_options (std::shared_ptr<rocksdb::TableFactory> const & table_factory_a) const
 {
-	rocksdb::ColumnFamilyOptions cf_options;
-	cf_options.table_factory = table_factory_a;
+	auto const memtable_size_bytes = 10000;
+	auto cf_options = get_common_cf_options (table_factory_a, memtable_size_bytes);
 
 	// Number of files in level 0 which triggers compaction. Size of L0 and L1 should be kept similar as this is the only compaction which is single threaded
 	cf_options.level0_file_num_compaction_trigger = 1;
 
-	auto const memtable_size_bytes = 10000;
-
 	// L1 size, compaction is triggered for L0 at this size (1 SST file in L1)
 	cf_options.max_bytes_for_level_base = memtable_size_bytes;
-
-	// Files older than this (1 day) will be scheduled for compaction when there is no other background work
-	cf_options.ttl = 1 * 24 * 60 * 60;
-
-	// Multiplier for each level
-	cf_options.target_file_size_multiplier = 10;
-
-	// Size of level 1 sst files
-	cf_options.target_file_size_base = memtable_size_bytes;
-
-	// Size of each memtable
-	cf_options.write_buffer_size = memtable_size_bytes;
 
 	return cf_options;
 }
 
 rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_active_cf_options (std::shared_ptr<rocksdb::TableFactory> const & table_factory_a, unsigned long long memtable_size_bytes_a) const
 {
-	rocksdb::ColumnFamilyOptions cf_options;
-	cf_options.table_factory = table_factory_a;
+	auto cf_options = get_common_cf_options (table_factory_a, memtable_size_bytes_a);
 
 	// Number of files in level 0 which triggers compaction. Size of L0 and L1 should be kept similar as this is the only compaction which is single threaded
 	cf_options.level0_file_num_compaction_trigger = 4;
@@ -691,26 +710,8 @@ rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_active_cf_options (std::sh
 	// L1 size, compaction is triggered for L0 at this size (4 SST files in L1)
 	cf_options.max_bytes_for_level_base = memtable_size_bytes_a * 4;
 
-	// Each level is a multiple of the above. If L1 is 512MB. L2 will be 512 * 8 = 2GB. L3 will be 2GB * 8 = 16GB, and so on...
-	cf_options.max_bytes_for_level_multiplier = 8;
-
-	// Files older than this (1 day) will be scheduled for compaction when there is no other background work. This can lead to more writes however.
-	cf_options.ttl = 1 * 24 * 60 * 60;
-
-	// Multiplier for each level
-	cf_options.target_file_size_multiplier = 10;
-
-	// Size of level 1 sst files
-	cf_options.target_file_size_base = memtable_size_bytes_a;
-
-	// Size of each memtable
-	cf_options.write_buffer_size = memtable_size_bytes_a;
-
 	// Size target of levels are changed dynamically based on size of the last level
 	cf_options.level_compaction_dynamic_level_bytes = true;
-
-	// Number of memtables to keep in memory (1 active, 1 inactive)
-	cf_options.max_write_buffer_number = 2;
 
 	return cf_options;
 }
