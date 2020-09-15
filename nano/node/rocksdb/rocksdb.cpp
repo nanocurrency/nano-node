@@ -216,6 +216,12 @@ rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_cf_options (std::string co
 		// Pending can have a lot of deletions too
 		std::shared_ptr<rocksdb::TableFactory> table_factory (rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes)));
 		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
+
+		// Number of files in level 0 which triggers compaction. Size of L0 and L1 should be kept similar as this is the only compaction which is single threaded
+		cf_options.level0_file_num_compaction_trigger = 2;
+
+		// L1 size, compaction is triggered for L0 at this size (2 SST files in L1)
+		cf_options.max_bytes_for_level_base = memtable_size_bytes * 2;
 	}
 	else if (cf_name_a == "frontiers")
 	{
