@@ -28,7 +28,7 @@ void nano::bootstrap_listener::start ()
 	debug_assert (node.network.endpoint ().port () == listening_socket->listening_port ());
 	boost::asio::spawn (
 	node.io_ctx,
-	[this](boost::asio::yield_context yield) {
+	[this, listening_socket = listening_socket](boost::asio::yield_context yield) {
 		listening_socket->run ([this](std::shared_ptr<nano::socket> new_connection, boost::system::error_code const & ec_a) {
 			bool keep_accepting = true;
 			if (ec_a)
