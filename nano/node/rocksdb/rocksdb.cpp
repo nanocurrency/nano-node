@@ -162,12 +162,23 @@ rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_cf_options (std::string co
 	auto const block_cache_size_bytes = 1024ULL * 1024 * rocksdb_config.memory_multiplier * base_block_cache_size;
 	if (cf_name_a == "unchecked")
 	{
-		// Unchecked table can have a lot of deletions, so increase compaction frequency.
-		std::shared_ptr<rocksdb::TableFactory> table_factory (rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes * 2)));
-		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
+		rocksdb::PlainTableOptions table_options;
+		table_options.bloom_bits_per_key = 10;
+		table_options.full_scan_mode = false;
+		table_options.store_index_in_file = true;
+		table_options.encoding_type = rocksdb::EncodingType::kPrefix;
+		table_options.hash_table_ratio = 0.75;
+		table_options.user_key_len = sizeof (nano::unchecked_key);
+		std::shared_ptr<rocksdb::TableFactory> table_factory (rocksdb::NewPlainTableFactory (table_options));
+
+		cf_options = get_active_cf_options (table_factory, memtable_size_bytes * 2);
+		cf_options.memtable_factory.reset (rocksdb::NewHashSkipListRepFactory ());
+
+		// TTL is not supported, so disable it
+		cf_options.ttl = 0;
 
 		// Create prefix bloom for memtable with the size of write_buffer_size * memtable_prefix_bloom_size_ratio
-		cf_options.memtable_prefix_bloom_size_ratio = 0.1;
+		cf_options.memtable_prefix_bloom_size_ratio = 0.25;
 		// The prefix to use is the size of the unchecked key (root)
 		cf_options.prefix_extractor.reset (rocksdb::NewFixedPrefixTransform (sizeof (nano::root)));
 
@@ -176,7 +187,6 @@ rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_cf_options (std::string co
 
 		// L1 size, compaction is triggered for L0 at this size (2 SST files in L1)
 		cf_options.max_bytes_for_level_base = memtable_size_bytes * 2;
-		cf_options.max_bytes_for_level_multiplier = 10; // Default
 	}
 	else if (cf_name_a == "blocks")
 	{
