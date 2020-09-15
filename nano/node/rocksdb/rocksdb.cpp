@@ -209,12 +209,11 @@ rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_cf_options (std::string co
 	auto const block_cache_size_bytes = 1024ULL * 1024 * rocksdb_config.memory_multiplier * base_block_cache_size;
 	if (cf_name_a == "unchecked")
 	{
-		// Unchecked table can have a lot of deletions, so increase compaction frequency.
-		std::shared_ptr<rocksdb::TableFactory> table_factory (rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes * 2)));
+		std::shared_ptr<rocksdb::TableFactory> table_factory (rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes * 4)));
 		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
 
 		// Create prefix bloom for memtable with the size of write_buffer_size * memtable_prefix_bloom_size_ratio
-		cf_options.memtable_prefix_bloom_size_ratio = 0.1;
+		cf_options.memtable_prefix_bloom_size_ratio = 0.25;
 		// The prefix to use is the size of the unchecked key (root)
 		cf_options.prefix_extractor.reset (rocksdb::NewFixedPrefixTransform (sizeof (nano::root)));
 
@@ -223,7 +222,6 @@ rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_cf_options (std::string co
 
 		// L1 size, compaction is triggered for L0 at this size (2 SST files in L1)
 		cf_options.max_bytes_for_level_base = memtable_size_bytes * 2;
-		cf_options.max_bytes_for_level_multiplier = 10; // Default
 	}
 	else if (cf_name_a == "blocks")
 	{
@@ -253,6 +251,12 @@ rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_cf_options (std::string co
 		// Pending can have a lot of deletions too
 		std::shared_ptr<rocksdb::TableFactory> table_factory (rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes)));
 		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
+
+		// Number of files in level 0 which triggers compaction. Size of L0 and L1 should be kept similar as this is the only compaction which is single threaded
+		cf_options.level0_file_num_compaction_trigger = 2;
+
+		// L1 size, compaction is triggered for L0 at this size (2 SST files in L1)
+		cf_options.max_bytes_for_level_base = memtable_size_bytes * 2;
 	}
 	else if (cf_name_a == "frontiers")
 	{
@@ -626,6 +630,11 @@ rocksdb::Options nano::rocksdb_store::get_db_options ()
 	rocksdb::Options db_options;
 	db_options.create_if_missing = true;
 	db_options.create_missing_column_families = true;
+	db_options.memtable_whole_key_filtering = true;
+
+	// The maximum number of threads that will concurrently perform a compaction job by breaking it into multiple,
+	// smaller ones that are run simultaneously. Can help L0 to L1 compaction
+	db_options.max_subcompactions = std::min (rocksdb_config.io_threads / 2, 1u);
 
 	// Sets the compaction priority
 	db_options.compaction_pri = rocksdb::CompactionPri::kMinOverlappingRatio;
