@@ -29,6 +29,7 @@
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/utility.hpp>
 
+#include <boost/asio/spawn.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
@@ -94,6 +95,17 @@ public:
 	void background (T action_a)
 	{
 		alarm.io_ctx.post (action_a);
+	}
+	template <typename... Params>
+	void spawn (Params... args)
+	{
+		boost::coroutines::attributes attributes (boost::coroutines::stack_allocator::traits_type::default_size ());
+#if defined(__has_feature)
+#if __has_feature(thread_sanitizer)
+		attributes = boost::coroutines::attributes (128 * 1024);
+#endif
+#endif
+		boost::asio::spawn (io_ctx, std::forward<Params> (args)..., attributes);
 	}
 	bool copy_with_compaction (boost::filesystem::path const &);
 	void keepalive (std::string const &, uint16_t);
