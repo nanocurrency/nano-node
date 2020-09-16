@@ -1378,7 +1378,8 @@ TEST (bulk, genesis_pruning)
 	ASSERT_TRUE (node1->ledger.block_exists (send3->hash ()));
 	// Bootstrap with missing blocks for node2
 	node2->bootstrap_initiator.bootstrap (node1->network.endpoint ());
-	ASSERT_TIMELY (15s, !node2->bootstrap_initiator.in_progress ());
+	// 3 bootstraps including automatic after node start, test bootstrap & restart after frontier confirmation failure
+	ASSERT_TIMELY (15s, node2->stats.count (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out) >= 3 && !node2->bootstrap_initiator.in_progress ());
 	// node2 still missing blocks
 	ASSERT_EQ (1, node2->ledger.cache.block_count);
 	{
@@ -1391,6 +1392,7 @@ TEST (bulk, genesis_pruning)
 	node2->block_processor.flush ();
 	ASSERT_EQ (3, node2->ledger.cache.block_count);
 	// New bootstrap
+	ASSERT_TIMELY (5s, node2->bootstrap_initiator.connections->connections_count == 0);
 	node2->network.excluded_peers.remove (nano::transport::map_endpoint_to_tcp (node1->network.endpoint ()));
 	node2->bootstrap_initiator.bootstrap (node1->network.endpoint ());
 	ASSERT_TIMELY (10s, node2->latest (nano::dev_genesis_key.pub) == node1->latest (nano::dev_genesis_key.pub));
