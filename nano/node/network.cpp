@@ -754,7 +754,7 @@ void nano::network::ongoing_syn_cookie_cleanup ()
 		boost::system::error_code ec;
 		while (!stopped && !ec)
 		{
-			syn_cookies.purge (std::chrono::steady_clock::now () - nano::transport::syn_cookie_cutoff);
+			this->syn_cookies.purge (std::chrono::steady_clock::now () - nano::transport::syn_cookie_cutoff);
 			cookie_timer.expires_from_now (nano::transport::syn_cookie_cutoff * 2);
 			cookie_timer.async_wait (yield[ec]);
 		}
