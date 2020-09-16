@@ -48,8 +48,6 @@ fi
 ulimit -S -n 8192
 
 if [[ "$OS" == 'Linux' ]]; then
-    ROCKSDB="-DROCKSDB_LIBRARIES=/tmp/rocksdb/lib/librocksdb.a \
-    -DROCKSDB_INCLUDE_DIRS=/tmp/rocksdb/include"
     if clang --version; then
         BACKTRACE="-DNANO_STACKTRACE_BACKTRACE=ON \
         -DBACKTRACE_INCLUDE=</tmp/backtrace.h>"
@@ -57,7 +55,6 @@ if [[ "$OS" == 'Linux' ]]; then
         BACKTRACE="-DNANO_STACKTRACE_BACKTRACE=ON"
     fi
 else
-    ROCKSDB=""
     BACKTRACE=""
 fi
 
@@ -66,8 +63,6 @@ cmake \
     -DACTIVE_NETWORK=nano_dev_network \
     -DNANO_TEST=ON \
     -DNANO_GUI=ON \
-    -DNANO_ROCKSDB=ON \
-    ${ROCKSDB} \
     -DNANO_WARN_TO_ERR=ON \
     -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
     -DCMAKE_VERBOSE_MAKEFILE=ON \

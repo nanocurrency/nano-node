@@ -1,16 +1,9 @@
-if (NANO_ROCKSDB)
-	set (rocksdb_libs ${ROCKSDB_LIBRARIES} ${ZLIB_LIBRARIES})
-	set (rocksdb_sources rocksdb/rocksdb.hpp rocksdb/rocksdb.cpp rocksdb/rocksdb_iterator.hpp rocksdb/rocksdb_txn.hpp rocksdb/rocksdb_txn.cpp)
-endif ()
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	# No opencl
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
 	set (platform_sources plat/windows/openclapi.cpp)
 	set (psapi_lib Psapi)
-	if (NANO_ROCKSDB)
-		set (rocksdb_libs ${rocksdb_libs} Shlwapi Rpcrt4)
-	endif ()
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	set (platform_sources plat/posix/openclapi.cpp)
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
@@ -21,7 +14,6 @@ endif ()
 
 add_library (node
 	${platform_sources}
-	${rocksdb_sources}
 	active_transactions.hpp
 	active_transactions.cpp
 	blockprocessor.hpp
@@ -121,6 +113,11 @@ add_library (node
 	repcrawler.cpp
 	request_aggregator.hpp
 	request_aggregator.cpp
+	rocksdb/rocksdb.hpp
+	rocksdb/rocksdb.cpp
+	rocksdb/rocksdb_iterator.hpp
+	rocksdb/rocksdb_txn.hpp
+	rocksdb/rocksdb_txn.cpp
 	signatures.hpp
 	signatures.cpp
 	socket.hpp
@@ -165,7 +162,7 @@ target_link_libraries (node
 	Boost::system
 	Boost::thread
 	Boost::boost
-	${rocksdb_libs}
+	rocksdb
 	${CMAKE_DL_LIBS}
 	${psapi_lib}
 	)
