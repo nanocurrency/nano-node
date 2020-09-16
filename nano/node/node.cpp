@@ -98,7 +98,7 @@ alarm (alarm_a),
 work (work_a),
 distributed_work (*this),
 logger (config_a.logging.min_time_between_log_output),
-store_impl (nano::make_store (logger, application_path_a, flags.read_only, true, config_a.rocksdb_config, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_config, config_a.backup_before_upgrade, config_a.rocksdb_config.enable)),
+store_impl (nano::make_store (logger, application_path_a, flags.read_only, true, config_a.rocksdb_config, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_config, config_a.backup_before_upgrade, config_a.rocksdb_config.enable, flags.enable_pruning)),
 store (*store_impl),
 wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (application_path_a / "wallets.ldb", config_a.lmdb_config)),
 wallets_store (*wallets_store_impl),
@@ -425,6 +425,26 @@ node_seq (seq)
 				auto transaction (store.tx_begin_write ({ tables::unchecked }));
 				store.unchecked_clear (transaction);
 				logger.always_log ("Dropping unchecked blocks");
+			}
+		}
+
+		ledger.pruning = flags.enable_pruning; // Additional check store.pruned_count (store.tx_begin_read ()) > 0 after PR#2946
+
+		if (ledger.pruning)
+		{
+			if (config.enable_voting && !flags.inactive_node)
+			{
+				std::string str = "Incompatibility detected between config node.enable_voting and existing pruned blocks";
+				logger.always_log (str);
+				std::cerr << str << std::endl;
+				std::exit (1);
+			}
+			else if (!flags.enable_pruning && !flags.inactive_node)
+			{
+				std::string str = "To start node with existing pruned blocks use launch flag --enable_pruning";
+				logger.always_log (str);
+				std::cerr << str << std::endl;
+				std::exit (1);
 			}
 		}
 	}
@@ -1707,11 +1727,11 @@ nano::node_flags const & nano::inactive_node_flag_defaults ()
 	return node_flags;
 }
 
-std::unique_ptr<nano::block_store> nano::make_store (nano::logger_mt & logger, boost::filesystem::path const & path, bool read_only, bool add_db_postfix, nano::rocksdb_config const & rocksdb_config, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade, bool use_rocksdb_backend)
+std::unique_ptr<nano::block_store> nano::make_store (nano::logger_mt & logger, boost::filesystem::path const & path, bool read_only, bool add_db_postfix, nano::rocksdb_config const & rocksdb_config, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade, bool use_rocksdb_backend, bool enable_pruning)
 {
 #if NANO_ROCKSDB
-	auto make_rocksdb = [&logger, add_db_postfix, &path, &rocksdb_config, read_only]() {
-		return std::make_unique<nano::rocksdb_store> (logger, add_db_postfix ? path / "rocksdb" : path, rocksdb_config, read_only);
+	auto make_rocksdb = [&logger, add_db_postfix, &path, &rocksdb_config, read_only, enable_pruning]() {
+		return std::make_unique<nano::rocksdb_store> (logger, add_db_postfix ? path / "rocksdb" : path, rocksdb_config, read_only, enable_pruning);
 	};
 #endif
 
