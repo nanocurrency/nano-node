@@ -207,7 +207,7 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 				{
 					add_recently_cemented (election->status);
 					lk.unlock ();
-					node.receive_confirmed (transaction, block_a, hash);
+					node.receive_confirmed (node.wallets.tx_begin_read (), transaction, block_a, hash);
 					nano::account account (0);
 					nano::uint128_t amount (0);
 					bool is_state_send (false);
