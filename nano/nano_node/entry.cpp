@@ -1862,7 +1862,8 @@ int main (int argc, char * const * argv)
 			// Cache the accounts in a collection to make searching quicker against unchecked keys. Group by epoch
 			nano::locked<std::vector<boost::unordered_set<nano::account>>> opened_account_versions_shared (epoch_count);
 			using opened_account_versions_t = decltype (opened_account_versions_shared)::value_type;
-			node->store.latest_for_each_par ([&opened_account_versions_shared, epoch_count](nano::store_iterator<nano::account, nano::account_info> i, nano::store_iterator<nano::account, nano::account_info> n) {
+			node->store.latest_for_each_par (
+			[&opened_account_versions_shared, epoch_count](nano::read_transaction const & /*unused*/, nano::store_iterator<nano::account, nano::account_info> i, nano::store_iterator<nano::account, nano::account_info> n) {
 				// First cache locally
 				opened_account_versions_t opened_account_versions_l (epoch_count);
 				for (; i != n; ++i)
@@ -1898,7 +1899,8 @@ int main (int argc, char * const * argv)
 			// Iterate all pending blocks and collect the lowest version for each unopened account
 			nano::locked<boost::unordered_map<nano::account, std::underlying_type_t<nano::epoch>>> unopened_highest_pending_shared;
 			using unopened_highest_pending_t = decltype (unopened_highest_pending_shared)::value_type;
-			node->store.pending_for_each_par ([&unopened_highest_pending_shared, &opened_accounts](nano::store_iterator<nano::pending_key, nano::pending_info> i, nano::store_iterator<nano::pending_key, nano::pending_info> n) {
+			node->store.pending_for_each_par (
+			[&unopened_highest_pending_shared, &opened_accounts](nano::read_transaction const & /*unused*/, nano::store_iterator<nano::pending_key, nano::pending_info> i, nano::store_iterator<nano::pending_key, nano::pending_info> n) {
 				// First cache locally
 				unopened_highest_pending_t unopened_highest_pending_l;
 				for (; i != n; ++i)

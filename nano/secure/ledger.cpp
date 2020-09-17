@@ -747,12 +747,10 @@ epoch_2_started_cb (epoch_2_started_cb_a)
 
 void nano::ledger::initialize (nano::generate_cache const & generate_cache_a)
 {
-	auto transaction = store.tx_begin_read ();
-
 	if (generate_cache_a.reps || generate_cache_a.account_count || generate_cache_a.epoch_2 || generate_cache_a.block_count)
 	{
 		store.latest_for_each_par (
-		[this](nano::store_iterator<nano::account, nano::account_info> i, nano::store_iterator<nano::account, nano::account_info> n) {
+		[this](nano::read_transaction const & /*unused*/, nano::store_iterator<nano::account, nano::account_info> i, nano::store_iterator<nano::account, nano::account_info> n) {
 			uint64_t block_count_l{ 0 };
 			uint64_t account_count_l{ 0 };
 			decltype (this->cache.rep_weights) rep_weights_l;
@@ -778,7 +776,7 @@ void nano::ledger::initialize (nano::generate_cache const & generate_cache_a)
 	if (generate_cache_a.cemented_count)
 	{
 		store.confirmation_height_for_each_par (
-		[this](nano::store_iterator<nano::account, nano::confirmation_height_info> i, nano::store_iterator<nano::account, nano::confirmation_height_info> n) {
+		[this](nano::read_transaction const & /*unused*/, nano::store_iterator<nano::account, nano::confirmation_height_info> i, nano::store_iterator<nano::account, nano::confirmation_height_info> n) {
 			uint64_t cemented_count_l (0);
 			for (; i != n; ++i)
 			{
@@ -1234,16 +1232,15 @@ std::multimap<uint64_t, nano::uncemented_info, std::greater<>> nano::ledger::unc
 	nano::locked<std::multimap<uint64_t, nano::uncemented_info, std::greater<>>> result;
 	using result_t = decltype (result)::value_type;
 
-	store.latest_for_each_par ([this, &result](nano::store_iterator<nano::account, nano::account_info> i, nano::store_iterator<nano::account, nano::account_info> n) {
+	store.latest_for_each_par ([this, &result](nano::read_transaction const & transaction_a, nano::store_iterator<nano::account, nano::account_info> i, nano::store_iterator<nano::account, nano::account_info> n) {
 		result_t unconfirmed_frontiers_l;
-		auto transaction (this->store.tx_begin_read ());
 		for (; i != n; ++i)
 		{
 			auto const & account (i->first);
 			auto const & account_info (i->second);
 
 			nano::confirmation_height_info conf_height_info;
-			this->store.confirmation_height_get (transaction, account, conf_height_info);
+			this->store.confirmation_height_get (transaction_a, account, conf_height_info);
 
 			if (account_info.block_count != conf_height_info.height)
 			{
