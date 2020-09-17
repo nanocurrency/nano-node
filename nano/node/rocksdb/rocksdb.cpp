@@ -581,6 +581,9 @@ rocksdb::Options nano::rocksdb_store::get_db_options ()
 	rocksdb::Options db_options;
 	db_options.create_if_missing = true;
 	db_options.create_missing_column_families = true;
+
+	// Enable whole key bloom filter in memtables for ones with memtable_prefix_bloom_size_ratio set (unchecked table currently).
+	// It can potentially reduce CPU usage for point-look-ups.
 	db_options.memtable_whole_key_filtering = true;
 
 	// The maximum number of threads that will concurrently perform a compaction job by breaking it into multiple,
@@ -620,6 +623,12 @@ rocksdb::BlockBasedTableOptions nano::rocksdb_store::get_active_table_options (i
 	// Improve point lookup performance be using the data block hash index (uses about 5% more space).
 	table_options.data_block_index_type = rocksdb::BlockBasedTableOptions::DataBlockIndexType::kDataBlockBinaryAndHash;
 	table_options.data_block_hash_table_util_ratio = 0.75;
+
+	// Using format_version=4 significantly reduces the index block size, in some cases around 4-5x.
+	// This frees more space in block cache, which would result in higher hit rate for data and filter blocks,
+	// or offer the same performance with a smaller block cache size.
+	table_options.format_version = 4;
+	table_options.index_block_restart_interval = 16;
 
 	// Block cache for reads
 	table_options.block_cache = rocksdb::NewLRUCache (1024ULL * 1024 * base_block_cache_size * rocksdb_config.memory_multiplier);
