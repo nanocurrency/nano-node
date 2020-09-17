@@ -1,4 +1,5 @@
 #include <boost/asio/spawn.hpp>
+#include <boost/asio/steady_timer.hpp>
 
 #include <gtest/gtest.h>
 
@@ -8,7 +9,7 @@
 TEST (coroutines, multithreaded_insert)
 {
 	size_t threads = 16;
-	size_t inserts = 100;
+	size_t inserts = 1000;
 	boost::asio::io_context ctx;
 	std::vector<std::thread> consumers;
 	auto guard = boost::asio::make_work_guard (ctx);
@@ -27,7 +28,10 @@ TEST (coroutines, multithreaded_insert)
 			for (auto i = 0; i < inserts; ++i)
 			{
 				++items;
-				boost::asio::spawn (ctx, [&runs] (boost::asio::yield_context yield) {
+				boost::asio::spawn (ctx, [&ctx, &runs] (boost::asio::yield_context yield) {
+					boost::asio::steady_timer timer{ ctx };
+					timer.expires_from_now (std::chrono::milliseconds (10));
+					timer.async_wait (yield);
 					++runs;
 				});
 			}
