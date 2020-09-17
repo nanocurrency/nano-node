@@ -158,6 +158,7 @@ target_link_libraries (node
 	libminiupnpc-static
 	argon2
 	lmdb
+	Boost::coroutine
 	Boost::filesystem
 	Boost::log_setup
 	Boost::log
