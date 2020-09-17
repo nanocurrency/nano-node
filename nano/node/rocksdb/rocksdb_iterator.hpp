@@ -39,7 +39,7 @@ public:
 		rocksdb::Iterator * iter;
 		if (is_read (transaction_a))
 		{
-			auto & read_options = snapshot_options (transaction_a);
+			auto read_options = snapshot_options (transaction_a);
 			read_options.fill_cache = false;
 			cursor.reset (db->NewIterator (read_options, handle_a));
 		}

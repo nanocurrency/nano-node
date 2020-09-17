@@ -535,15 +535,25 @@ std::vector<nano::unchecked_info> nano::rocksdb_store::unchecked_get (nano::tran
 	auto cf = table_to_column_family (tables::unchecked);
 
 	std::unique_ptr<rocksdb::Iterator> iter;
+	nano::qualified_root upper (hash_a, nano::block_hash (std::numeric_limits<nano::uint256_t>::max ()));
+	nano::rocksdb_val upper_bound (sizeof (upper), (void *)&upper);
 	if (is_read (transaction_a))
 	{
-		iter.reset (db->NewIterator (snapshot_options (transaction_a), cf));
+		auto read_options = snapshot_options (transaction_a);
+		read_options.prefix_same_as_start = true;
+		read_options.auto_prefix_mode = true;
+		read_options.iterate_upper_bound = upper_bound;
+		read_options.fill_cache = false;
+		iter.reset (db->NewIterator (read_options, cf));
 	}
 	else
 	{
-		rocksdb::ReadOptions ropts;
-		ropts.fill_cache = false;
-		iter.reset (tx (transaction_a)->GetIterator (ropts, cf));
+		rocksdb::ReadOptions read_options;
+		read_options.prefix_same_as_start = true;
+		read_options.auto_prefix_mode = true;
+		read_options.iterate_upper_bound = upper_bound;
+		read_options.fill_cache = false;
+		iter.reset (tx (transaction_a)->GetIterator (read_options, cf));
 	}
 
 	// Uses prefix extraction
