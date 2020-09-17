@@ -18,7 +18,7 @@ public:
 	explicit frontier_req_client (std::shared_ptr<nano::bootstrap_client>, std::shared_ptr<nano::bootstrap_attempt>);
 	~frontier_req_client ();
 	void run ();
-	void receive_frontiers (nano::socket & socket_a, boost::asio::yield_context yield);
+	void receive_frontiers (boost::asio::yield_context yield);
 	void unsynced (nano::block_hash const &, nano::block_hash const &);
 	void next ();
 	std::shared_ptr<nano::bootstrap_client> connection;

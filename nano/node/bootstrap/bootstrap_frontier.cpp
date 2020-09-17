@@ -25,10 +25,7 @@ void nano::frontier_req_client::run ()
 		{
 			this_l->connection->node->spawn (
 			[this_l](boost::asio::yield_context yield) {
-				if (auto socket_l = this_l->connection->channel->socket.lock ())
-				{
-					this_l->receive_frontiers (*socket_l, yield);
-				}
+				this_l->receive_frontiers (yield);
 			});
 		}
 		else
@@ -56,14 +53,14 @@ nano::frontier_req_client::~frontier_req_client ()
 {
 }
 
-void nano::frontier_req_client::receive_frontiers (nano::socket & socket_a, boost::asio::yield_context yield)
+void nano::frontier_req_client::receive_frontiers (boost::asio::yield_context yield)
 {
 	start_time = std::chrono::steady_clock::now ();
 	nano::account account{ 0 };
 	do
 	{
 		boost::system::error_code ec;
-		auto read = socket_a.async_read (connection->receive_buffer, nano::frontier_req_client::size_frontier, yield[ec]);
+		auto read = connection->socket->async_read (connection->receive_buffer, nano::frontier_req_client::size_frontier, yield[ec]);
 		// An issue with asio is that sometimes, instead of reporting a bad file descriptor during disconnect,
 		// we simply get a size of 0.
 		if (!ec && read == nano::frontier_req_client::size_frontier)

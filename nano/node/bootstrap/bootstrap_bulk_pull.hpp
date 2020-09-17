@@ -33,7 +33,7 @@ public:
 	void request ();
 	void receive_block ();
 	void throttled_receive_block ();
-	void received_type (nano::socket & socket_a, nano::block_type type_a, boost::asio::yield_context yield);
+	void received_type (nano::block_type type_a, boost::asio::yield_context yield);
 	void received_block (nano::block_type type_a, size_t size_a);
 	nano::block_hash first ();
 	std::shared_ptr<nano::bootstrap_client> connection;
