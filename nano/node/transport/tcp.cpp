@@ -550,8 +550,7 @@ void nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint_a
 	auto socket (std::make_shared<nano::socket> (node));
 	std::weak_ptr<nano::socket> socket_w (socket);
 	auto channel (std::make_shared<nano::transport::channel_tcp> (node, socket_w));
-	boost::asio::spawn (
-	node.io_ctx,
+	node.spawn (
 	[node_w = std::weak_ptr<nano::node>{ node.shared () }, channel, socket, endpoint_a, callback_a](boost::asio::yield_context yield) {
 		boost::system::error_code ec;
 		socket->async_connect (nano::transport::map_endpoint_to_tcp (endpoint_a), yield[ec]);
@@ -598,8 +597,7 @@ void nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint_a
 				node_l->network.tcp_channels.udp_fallback (endpoint_a, callback_a);
 			}
 		}
-	},
-	boost::coroutines::attributes (128 * 1024));
+	});
 }
 
 void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<nano::transport::channel_tcp> channel_a, nano::endpoint const & endpoint_a, std::shared_ptr<std::vector<uint8_t>> receive_buffer_a, std::function<void(std::shared_ptr<nano::transport::channel>)> const & callback_a)
@@ -684,9 +682,8 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 													// Listen for possible responses
 													response_server->type = nano::bootstrap_server_type::realtime_response_server;
 													response_server->remote_node_id = channel_a->get_node_id ();
-													boost::asio::spawn (
-													node_l->io_ctx,
-													[response_server] (boost::asio::yield_context yield) {
+													node_l->spawn (
+													[response_server](boost::asio::yield_context yield) {
 														response_server->run (yield);
 													});
 													node_l->network.tcp_channels.remove_node_id_handshake_socket (socket_l);

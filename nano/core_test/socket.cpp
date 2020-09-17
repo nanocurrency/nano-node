@@ -47,7 +47,7 @@ TEST (socket, drop_policy)
 		nano::transport::channel_tcp channel{ *node, client };
 		nano::util::counted_completion write_completion (total_message_count);
 
-		boost::asio::spawn (node->io_ctx,
+		node->spawn (
 		[client, &channel, total_message_count, node, &write_completion, &drop_policy, server_port](boost::asio::yield_context yield) {
 			boost::system::error_code ec;
 			client->async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), server_port), yield[ec]);
@@ -157,7 +157,7 @@ TEST (socket, concurrent_writes)
 	{
 		auto client (std::make_shared<nano::socket> (*node));
 		clients.push_back (client);
-		boost::asio::spawn (node->io_ctx,
+		node->spawn (
 		[client, &connection_count_completion](boost::asio::yield_context yield) {
 			boost::system::error_code ec;
 			client->async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::loopback (), 25000), yield[ec]);

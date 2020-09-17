@@ -122,12 +122,10 @@ void nano::bulk_push_server::throttled_receive ()
 {
 	if (!connection->node->block_processor.half_full ())
 	{
-		boost::asio::spawn (
-		connection->node->io_ctx,
+		connection->node->spawn (
 		[this_l = shared_from_this ()](boost::asio::yield_context yield) {
 			this_l->receive (yield);
-		},
-		boost::coroutines::attributes (128 * 1024));
+		});
 	}
 	else
 	{

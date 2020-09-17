@@ -26,8 +26,7 @@ void nano::bootstrap_listener::start ()
 		throw std::runtime_error (ec.message ());
 	}
 	debug_assert (node.network.endpoint ().port () == listening_socket->listening_port ());
-	boost::asio::spawn (
-	node.io_ctx,
+	node.spawn (
 	[this, listening_socket = listening_socket](boost::asio::yield_context yield) {
 		listening_socket->run ([this](std::shared_ptr<nano::socket> new_connection, boost::system::error_code const & ec_a) {
 			bool keep_accepting = true;
@@ -43,8 +42,7 @@ void nano::bootstrap_listener::start ()
 			return keep_accepting;
 		},
 		yield);
-	},
-	boost::coroutines::attributes (128 * 1024));
+	});
 }
 
 void nano::bootstrap_listener::stop ()
@@ -76,12 +74,10 @@ void nano::bootstrap_listener::accept_action (boost::system::error_code const & 
 		auto connection (std::make_shared<nano::bootstrap_server> (socket_a, node.shared ()));
 		nano::lock_guard<std::mutex> lock (mutex);
 		connections[connection.get ()] = connection;
-		boost::asio::spawn (
-		node.io_ctx,
-		[connection] (boost::asio::yield_context yield) {
+		node.spawn (
+		[connection](boost::asio::yield_context yield) {
 			connection->run (yield);
-		},
-		boost::coroutines::attributes (128 * 1024));
+		});
 	}
 	else
 	{

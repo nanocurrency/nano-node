@@ -126,12 +126,10 @@ void nano::bulk_pull_client::receive_block ()
 			if (!ec)
 			{
 				nano::block_type type (static_cast<nano::block_type> (this_l->connection->receive_buffer->data ()[0]));
-				boost::asio::spawn (
-				this_l->connection->node->io_ctx,
+				this_l->connection->node->spawn (
 				[this_l, type, socket_l](boost::asio::yield_context yield) {
 					this_l->received_type (*socket_l, type, yield);
-				},
-				boost::coroutines::attributes (128 * 1024));
+				});
 			}
 			else
 			{
@@ -317,12 +315,10 @@ void nano::bulk_pull_account_client::request ()
 	req, [this_l = shared_from_this ()](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{
-			boost::asio::spawn (
-			this_l->connection->node->io_ctx,
+			this_l->connection->node->spawn (
 			[this_l](boost::asio::yield_context yield) {
 				this_l->receive_pending (yield);
-			},
-			boost::coroutines::attributes (128 * 1024));
+			});
 		}
 		else
 		{

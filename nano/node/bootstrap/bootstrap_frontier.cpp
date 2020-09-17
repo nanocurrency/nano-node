@@ -23,15 +23,13 @@ void nano::frontier_req_client::run ()
 	request, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{
-			boost::asio::spawn (
-			this_l->connection->node->io_ctx,
+			this_l->connection->node->spawn (
 			[this_l](boost::asio::yield_context yield) {
 				if (auto socket_l = this_l->connection->channel->socket.lock ())
 				{
 					this_l->receive_frontiers (*socket_l, yield);
 				}
-			},
-			boost::coroutines::attributes (128 * 1024));
+			});
 		}
 		else
 		{
