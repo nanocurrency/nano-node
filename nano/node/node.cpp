@@ -1168,8 +1168,9 @@ namespace
 class confirmed_visitor : public nano::block_visitor
 {
 public:
-	confirmed_visitor (nano::transaction const & transaction_a, nano::node & node_a, std::shared_ptr<nano::block> const & block_a, nano::block_hash const & hash_a) :
-	transaction (transaction_a),
+	confirmed_visitor (nano::transaction const & wallet_transaction_a, nano::transaction const & block_transaction_a, nano::node & node_a, std::shared_ptr<nano::block> const & block_a, nano::block_hash const & hash_a) :
+	wallet_transaction (wallet_transaction_a),
+	block_transaction (block_transaction_a),
 	node (node_a),
 	block (block_a),
 	hash (hash_a)
@@ -1180,13 +1181,12 @@ public:
 	{
 		for (auto const & [id /*unused*/, wallet] : node.wallets.get_wallets ())
 		{
-			auto transaction_l (node.wallets.tx_begin_read ());
-			if (wallet->store.exists (transaction_l, account_a))
+			if (wallet->store.exists (wallet_transaction, account_a))
 			{
 				nano::account representative;
 				nano::pending_info pending;
-				representative = wallet->store.representative (transaction_l);
-				auto error (node.store.pending_get (transaction, nano::pending_key (account_a, hash), pending));
+				representative = wallet->store.representative (wallet_transaction);
+				auto error (node.store.pending_get (block_transaction, nano::pending_key (account_a, hash), pending));
 				if (!error)
 				{
 					auto node_l (node.shared ());
@@ -1195,7 +1195,7 @@ public:
 				}
 				else
 				{
-					if (!node.store.block_exists (transaction, hash))
+					if (!node.store.block_exists (block_transaction, hash))
 					{
 						node.logger.try_log (boost::str (boost::format ("Confirmed block is missing:  %1%") % hash.to_string ()));
 						debug_assert (false && "Confirmed block is missing");
@@ -1225,16 +1225,17 @@ public:
 	void change_block (nano::change_block const &) override
 	{
 	}
-	nano::transaction const & transaction;
+	nano::transaction const & wallet_transaction;
+	nano::transaction const & block_transaction;
 	nano::node & node;
 	std::shared_ptr<nano::block> block;
 	nano::block_hash const & hash;
 };
 }
 
-void nano::node::receive_confirmed (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, nano::block_hash const & hash_a)
+void nano::node::receive_confirmed (nano::transaction const & wallet_transaction_a, nano::transaction const & block_transaction_a, std::shared_ptr<nano::block> const & block_a, nano::block_hash const & hash_a)
 {
-	confirmed_visitor visitor (transaction_a, *this, block_a, hash_a);
+	confirmed_visitor visitor (wallet_transaction_a, block_transaction_a, *this, block_a, hash_a);
 	block_a->visit (visitor);
 }
 
