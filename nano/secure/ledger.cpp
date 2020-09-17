@@ -1232,9 +1232,10 @@ bool nano::ledger::block_confirmed (nano::transaction const & transaction_a, nan
 std::multimap<uint64_t, nano::uncemented_info, std::greater<>> nano::ledger::unconfirmed_frontiers () const
 {
 	nano::locked<std::multimap<uint64_t, nano::uncemented_info, std::greater<>>> result;
+	using result_t = decltype (result)::value_type;
 
 	store.latest_for_each_par ([this, &result](nano::store_iterator<nano::account, nano::account_info> i, nano::store_iterator<nano::account, nano::account_info> n) {
-		std::multimap<uint64_t, nano::uncemented_info, std::greater<>> unconfirmed_frontiers_l;
+		result_t unconfirmed_frontiers_l;
 		auto transaction (this->store.tx_begin_read ());
 		for (; i != n; ++i)
 		{
