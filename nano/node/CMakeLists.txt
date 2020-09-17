@@ -159,6 +159,7 @@ target_link_libraries (node
 	argon2
 	lmdb
 	Boost::coroutine
+	Boost::context
 	Boost::filesystem
 	Boost::log_setup
 	Boost::log

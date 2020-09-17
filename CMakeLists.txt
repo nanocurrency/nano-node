@@ -260,7 +260,7 @@ set(Boost_USE_MULTITHREADED ON)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
-find_package (Boost 1.69.0 REQUIRED COMPONENTS coroutine filesystem log log_setup thread program_options system)
+find_package (Boost 1.69.0 REQUIRED COMPONENTS coroutine context filesystem log log_setup thread program_options system)
 
 if (NANO_ROCKSDB)
 	find_package (RocksDB REQUIRED)
