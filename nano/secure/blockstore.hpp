@@ -147,15 +147,9 @@ public:
 		convert_buffer_to_value ();
 	}
 
-	db_val (uint8_t val_a) :
-	buffer (std::make_shared<std::vector<uint8_t>> ())
+	db_val (uint8_t const & junk_a) :
+	db_val (0, const_cast<uint8_t *> (&junk_a))
 	{
-		{
-			boost::endian::native_to_big_inplace (val_a);
-			nano::vectorstream stream (*buffer);
-			nano::write (stream, val_a);
-		}
-		convert_buffer_to_value ();
 	}
 
 	explicit operator nano::account_info () const

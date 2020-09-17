@@ -555,8 +555,8 @@ public:
 
 	void peer_put (nano::write_transaction const & transaction_a, nano::endpoint_key const & endpoint_a) override
 	{
-		nano::db_val<Val> zero (static_cast<uint8_t> (0));
-		auto status = put (transaction_a, tables::peers, endpoint_a, zero);
+		nano::db_val<Val> junk (static_cast<uint8_t> (0));
+		auto status = put (transaction_a, tables::peers, endpoint_a, junk);
 		release_assert (success (status));
 	}
 
