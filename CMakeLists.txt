@@ -262,13 +262,15 @@ find_package (Boost 1.69.0 REQUIRED COMPONENTS filesystem log log_setup thread p
 
 # RocksDB
 include_directories(rocksdb/include)
-set(USE_RTTI ON)
+set(USE_RTTI ON CACHE BOOL "")
 set(WITH_GFLAGS OFF CACHE BOOL "")
 set(WITH_TESTS OFF CACHE BOOL "")
 set(WITH_BENCHMARK_TOOLS OFF CACHE BOOL "")
 set(ROCKSDB_BUILD_SHARED OFF CACHE BOOL "")
-set(WITH_CORE_TOOLS ${NANO_ROCKSDB_TOOLS$} CACHE BOOL "")
-set(WITH_TOOLS ${NANO_ROCKSDB_TOOLS} CACHE BOOL "")
+set(WITH_CORE_TOOLS OFF CACHE BOOL "")
+set(WITH_TOOLS OFF CACHE BOOL "")
+set(WITH_CORE_TOOLS ${NANO_ROCKSDB_TOOLS})
+set(WITH_TOOLS ${NANO_ROCKSDB_TOOLS})
 add_subdirectory(rocksdb)
 
 # There is a compile bug with boost 1.69 interprocess headers on Mac
