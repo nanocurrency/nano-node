@@ -50,6 +50,11 @@ public:
 	{
 	}
 
+	db_val (std::nullptr_t) :
+	db_val (0, this)
+	{
+	}
+
 	db_val (nano::uint128_union const & val_a) :
 	db_val (sizeof (val_a), const_cast<nano::uint128_union *> (&val_a))
 	{
@@ -145,11 +150,6 @@ public:
 			nano::write (stream, val_a);
 		}
 		convert_buffer_to_value ();
-	}
-
-	db_val (uint8_t const & junk_a) :
-	db_val (0, const_cast<uint8_t *> (&junk_a))
-	{
 	}
 
 	explicit operator nano::account_info () const
