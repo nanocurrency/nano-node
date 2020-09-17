@@ -1196,13 +1196,10 @@ bool nano::wallet::search_pending ()
 							// Receive confirmed block
 							wallets.node.receive_confirmed (block_transaction, block, hash);
 						}
-						else
+						else if (!wallets.node.confirmation_height_processor.is_processing_block (hash))
 						{
-							if (!wallets.node.confirmation_height_processor.is_processing_block (hash))
-							{
-								// Request confirmation for block which is not being processed yet
-								wallets.node.block_confirm (block);
-							}
+							// Request confirmation for block which is not being processed yet
+							wallets.node.block_confirm (block);
 						}
 					}
 				}
