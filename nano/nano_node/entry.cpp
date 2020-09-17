@@ -1958,11 +1958,9 @@ int main (int argc, char * const * argv)
 
 			auto unconfirmed_frontiers = node->ledger.unconfirmed_frontiers ();
 			std::cout << "Account: Height delta | Frontier | Confirmed frontier\n";
-			for (auto & unconfirmed_frontier : unconfirmed_frontiers)
+			for (auto const & [height_delta, unconfirmed_info] : unconfirmed_frontiers)
 			{
-				auto const & unconfirmed_info = unconfirmed_frontier.second;
-
-				std::cout << (boost::format ("%1%: %2% %3% %4%\n") % unconfirmed_info.account.to_account () % unconfirmed_frontier.first % unconfirmed_info.frontier.to_string () % unconfirmed_info.cemented_frontier.to_string ()).str ();
+				std::cout << (boost::format ("%1%: %2% %3% %4%\n") % unconfirmed_info.account.to_account () % height_delta % unconfirmed_info.frontier.to_string () % unconfirmed_info.cemented_frontier.to_string ()).str ();
 			}
 
 			std::cout << "\nNumber of unconfirmed frontiers: " << unconfirmed_frontiers.size () << std::endl;
