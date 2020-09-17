@@ -48,7 +48,7 @@ TEST (socket, drop_policy)
 		nano::util::counted_completion write_completion (total_message_count);
 
 		node->spawn (
-		[client, &channel, total_message_count, node, &write_completion, &drop_policy, server_port](boost::asio::yield_context yield) {
+		[client, &channel, total_message_count, node, &write_completion, &drop_policy, server_port](boost::asio::yield_context yield) mutable {
 			boost::system::error_code ec;
 			client->async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), server_port), yield[ec]);
 			for (int i = 0; i < total_message_count; i++)
