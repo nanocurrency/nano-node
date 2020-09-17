@@ -586,10 +586,6 @@ rocksdb::Options nano::rocksdb_store::get_db_options ()
 	// It can potentially reduce CPU usage for point-look-ups.
 	db_options.memtable_whole_key_filtering = true;
 
-	// The maximum number of threads that will concurrently perform a compaction job by breaking it into multiple,
-	// smaller ones that are run simultaneously. Can help L0 to L1 compaction
-	db_options.max_subcompactions = std::max (rocksdb_config.io_threads / 2, 1u);
-
 	// Sets the compaction priority
 	db_options.compaction_pri = rocksdb::CompactionPri::kMinOverlappingRatio;
 
