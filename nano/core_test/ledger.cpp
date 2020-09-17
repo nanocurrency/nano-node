@@ -11,6 +11,11 @@ using namespace std::chrono_literals;
 // Init returns an error if it can't open files at the path
 TEST (ledger, store_error)
 {
+	if (nano::using_rocksdb_in_tests ())
+	{
+		// Don't test this in rocksdb mode
+		return;
+	}
 	nano::logger_mt logger;
 	nano::mdb_store store (logger, boost::filesystem::path ("///"));
 	ASSERT_TRUE (store.init_error ());
@@ -3266,4 +3271,105 @@ TEST (ledger, block_confirmed)
 	++height.height;
 	ledger.store.confirmation_height_put (transaction, nano::genesis_account, height);
 	ASSERT_TRUE (ledger.block_confirmed (transaction, send1->hash ()));
+}
+
+TEST (ledger, cache)
+{
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_TRUE (!store->init_error ());
+	nano::stat stats;
+	nano::ledger ledger (*store, stats);
+	nano::genesis genesis;
+	store->initialize (store->tx_begin_write (), genesis, ledger.cache);
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+	nano::block_builder builder;
+
+	size_t const total = 100;
+
+	// Check existing ledger (incremental cache update) and reload on a new ledger
+	for (size_t i (0); i < total; ++i)
+	{
+		auto account_count = 1 + i;
+		auto block_count = 1 + 2 * (i + 1) - 2;
+		auto cemented_count = 1 + 2 * (i + 1) - 2;
+		auto genesis_weight = nano::genesis_amount - i;
+
+		auto cache_check = [&, i](nano::ledger_cache const & cache_a) {
+			ASSERT_EQ (account_count, cache_a.account_count);
+			ASSERT_EQ (block_count, cache_a.block_count);
+			ASSERT_EQ (cemented_count, cache_a.cemented_count);
+			ASSERT_EQ (genesis_weight, cache_a.rep_weights.representation_get (nano::genesis_account));
+		};
+
+		nano::keypair key;
+		auto const latest = ledger.latest (store->tx_begin_read (), nano::genesis_account);
+		auto send = builder.state ()
+		            .account (nano::genesis_account)
+		            .previous (latest)
+		            .representative (nano::genesis_account)
+		            .balance (nano::genesis_amount - (i + 1))
+		            .link (key.pub)
+		            .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+		            .work (*pool.generate (latest))
+		            .build ();
+		auto open = builder.state ()
+		            .account (key.pub)
+		            .previous (0)
+		            .representative (key.pub)
+		            .balance (1)
+		            .link (send->hash ())
+		            .sign (key.prv, key.pub)
+		            .work (*pool.generate (key.pub))
+		            .build ();
+		{
+			auto transaction (store->tx_begin_write ());
+			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send).code);
+		}
+
+		++block_count;
+		--genesis_weight;
+		cache_check (ledger.cache);
+		cache_check (nano::ledger (*store, stats).cache);
+
+		{
+			auto transaction (store->tx_begin_write ());
+			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *open).code);
+		}
+
+		++block_count;
+		++account_count;
+		cache_check (ledger.cache);
+		cache_check (nano::ledger (*store, stats).cache);
+
+		{
+			auto transaction (store->tx_begin_write ());
+			nano::confirmation_height_info height;
+			ASSERT_FALSE (ledger.store.confirmation_height_get (transaction, nano::genesis_account, height));
+			++height.height;
+			height.frontier = send->hash ();
+			ledger.store.confirmation_height_put (transaction, nano::genesis_account, height);
+			ASSERT_TRUE (ledger.block_confirmed (transaction, send->hash ()));
+			++ledger.cache.cemented_count;
+		}
+
+		++cemented_count;
+		cache_check (ledger.cache);
+		cache_check (nano::ledger (*store, stats).cache);
+
+		{
+			auto transaction (store->tx_begin_write ());
+			nano::confirmation_height_info height;
+			ledger.store.confirmation_height_get (transaction, key.pub, height);
+			height.height += 1;
+			height.frontier = open->hash ();
+			ledger.store.confirmation_height_put (transaction, key.pub, height);
+			ASSERT_TRUE (ledger.block_confirmed (transaction, open->hash ()));
+			++ledger.cache.cemented_count;
+		}
+
+		++cemented_count;
+		cache_check (ledger.cache);
+		cache_check (nano::ledger (*store, stats).cache);
+	}
 }

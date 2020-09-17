@@ -741,28 +741,51 @@ epoch_2_started_cb (epoch_2_started_cb_a)
 {
 	if (!store.init_error ())
 	{
-		auto transaction = store.tx_begin_read ();
-		if (generate_cache_a.reps || generate_cache_a.account_count || generate_cache_a.epoch_2 || generate_cache_a.block_count)
-		{
+		initialize (generate_cache_a);
+	}
+}
+
+void nano::ledger::initialize (nano::generate_cache const & generate_cache_a)
+{
+	auto transaction = store.tx_begin_read ();
+
+	if (generate_cache_a.reps || generate_cache_a.account_count || generate_cache_a.epoch_2 || generate_cache_a.block_count)
+	{
+		store.latest_for_each_par (
+		[this](nano::store_iterator<nano::account, nano::account_info> i, nano::store_iterator<nano::account, nano::account_info> n) {
+			uint64_t block_count_l{ 0 };
+			uint64_t account_count_l{ 0 };
+			decltype (this->cache.rep_weights) rep_weights_l;
 			bool epoch_2_started_l{ false };
-			for (auto i (store.latest_begin (transaction)), n (store.latest_end ()); i != n; ++i)
+			for (; i != n; ++i)
 			{
 				nano::account_info const & info (i->second);
-				cache.rep_weights.representation_add (info.representative, info.balance.number ());
-				++cache.account_count;
-				cache.block_count += info.block_count;
+				block_count_l += info.block_count;
+				++account_count_l;
+				rep_weights_l.representation_add (info.representative, info.balance.number ());
 				epoch_2_started_l = epoch_2_started_l || info.epoch () == nano::epoch::epoch_2;
 			}
-			cache.epoch_2_started.store (epoch_2_started_l);
-		}
-
-		if (generate_cache_a.cemented_count)
-		{
-			for (auto i (store.confirmation_height_begin (transaction)), n (store.confirmation_height_end ()); i != n; ++i)
+			if (epoch_2_started_l)
 			{
-				cache.cemented_count += i->second.height;
+				this->cache.epoch_2_started.store (true);
 			}
-		}
+			this->cache.block_count += block_count_l;
+			this->cache.account_count += account_count_l;
+			this->cache.rep_weights.copy_from (rep_weights_l);
+		});
+	}
+
+	if (generate_cache_a.cemented_count)
+	{
+		store.confirmation_height_for_each_par (
+		[this](nano::store_iterator<nano::account, nano::confirmation_height_info> i, nano::store_iterator<nano::account, nano::confirmation_height_info> n) {
+			uint64_t cemented_count_l (0);
+			for (; i != n; ++i)
+			{
+				cemented_count_l += i->second.height;
+			}
+			this->cache.cemented_count += cemented_count_l;
+		});
 	}
 }
 
@@ -1204,6 +1227,48 @@ bool nano::ledger::block_confirmed (nano::transaction const & transaction_a, nan
 		confirmed = (confirmation_height_info.height >= block->sideband ().height);
 	}
 	return confirmed;
+}
+
+std::multimap<uint64_t, nano::uncemented_info, std::greater<>> nano::ledger::unconfirmed_frontiers () const
+{
+	std::multimap<uint64_t, nano::uncemented_info, std::greater<>> unconfirmed_frontiers_l;
+	auto transaction (store.tx_begin_read ());
+	auto conf_height_i = store.confirmation_height_begin (transaction);
+
+	for (auto i (store.latest_begin (transaction)), n (store.latest_end ()); i != n; ++i)
+	{
+		// If the confirmation height of an account doesn't exist the iterator will point 1 past it.
+		auto conf_height_info = conf_height_i->second;
+		auto const & account (i->first);
+		auto conf_height_exists = (conf_height_i->first == account);
+		if (!conf_height_exists)
+		{
+			conf_height_info.height = 0;
+			conf_height_info.frontier = 0;
+		}
+
+		auto const & account_info (i->second);
+		if (account_info.block_count != conf_height_info.height)
+		{
+			// Always output as no confirmation height has been set on the account yet
+			auto height_delta = account_info.block_count - conf_height_info.height;
+			auto const & frontier = account_info.head;
+			auto const & cemented_frontier = conf_height_info.frontier;
+			unconfirmed_frontiers_l.emplace (std::piecewise_construct, std::forward_as_tuple (height_delta), std::forward_as_tuple (cemented_frontier, frontier, i->first));
+		}
+
+		if (conf_height_exists)
+		{
+			// Increment the iterator so that it stays in sync with accounts in the account table.
+			++conf_height_i;
+		}
+	}
+	return unconfirmed_frontiers_l;
+}
+
+nano::uncemented_info::uncemented_info (nano::block_hash const & cemented_frontier, nano::block_hash const & frontier, nano::account const & account) :
+cemented_frontier (cemented_frontier), frontier (frontier), account (account)
+{
 }
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (ledger & ledger, const std::string & name)

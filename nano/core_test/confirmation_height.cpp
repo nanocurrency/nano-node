@@ -704,6 +704,11 @@ TEST (confirmation_height, conflict_rollback_cemented)
 
 TEST (confirmation_heightDeathTest, rollback_added_block)
 {
+	if (nano::using_rocksdb_in_tests ())
+	{
+		// Don't test this in rocksdb mode
+		return;
+	}
 	// For ASSERT_DEATH_IF_SUPPORTED
 	testing::FLAGS_gtest_death_test_style = "threadsafe";
 
@@ -776,6 +781,11 @@ TEST (confirmation_height, observers)
 // This tests when a read has been done, but the block no longer exists by the time a write is done
 TEST (confirmation_heightDeathTest, modified_chain)
 {
+	if (nano::using_rocksdb_in_tests ())
+	{
+		// Don't test this in rocksdb mode
+		return;
+	}
 	// For ASSERT_DEATH_IF_SUPPORTED
 	testing::FLAGS_gtest_death_test_style = "threadsafe";
 
@@ -842,6 +852,11 @@ TEST (confirmation_heightDeathTest, modified_chain)
 // This tests when a read has been done, but the account no longer exists by the time a write is done
 TEST (confirmation_heightDeathTest, modified_chain_account_removed)
 {
+	if (nano::using_rocksdb_in_tests ())
+	{
+		// Don't test this in rocksdb mode
+		return;
+	}
 	// For ASSERT_DEATH_IF_SUPPORTED
 	testing::FLAGS_gtest_death_test_style = "threadsafe";
 
@@ -1337,6 +1352,11 @@ TEST (confirmation_height, election_winner_details_clearing_node_process_confirm
 
 TEST (confirmation_height, unbounded_block_cache_iteration)
 {
+	if (nano::using_rocksdb_in_tests ())
+	{
+		// Don't test this in rocksdb mode
+		return;
+	}
 	nano::logger_mt logger;
 	auto path (nano::unique_path ());
 	auto store = nano::make_store (logger, path);

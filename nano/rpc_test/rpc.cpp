@@ -2997,6 +2997,8 @@ TEST (rpc, work_cancel)
 		ASSERT_TIMELY (10s, response1.status != 0);
 		ASSERT_EQ (200, response1.status);
 		ASSERT_NO_ERROR (ec);
+		std::string success (response1.json.get<std::string> ("success"));
+		ASSERT_TRUE (success.empty ());
 	}
 }
 
@@ -6748,10 +6750,9 @@ TEST (rpc, block_confirmed)
 
 TEST (rpc, database_txn_tracker)
 {
-	// Don't test this with the rocksdb backend
-	auto use_rocksdb_str = std::getenv ("TEST_USE_ROCKSDB");
-	if (use_rocksdb_str && boost::lexical_cast<int> (use_rocksdb_str) == 1)
+	if (nano::using_rocksdb_in_tests ())
 	{
+		// Don't test this in rocksdb mode
 		return;
 	}
 

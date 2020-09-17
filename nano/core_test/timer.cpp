@@ -72,3 +72,13 @@ TEST (timer, cummulative_child)
 
 	ASSERT_GT (t1.stop (), 100ms);
 }
+
+TEST (timer, stop)
+{
+	using namespace std::chrono_literals;
+	nano::timer<std::chrono::milliseconds> t1 (nano::timer_state::started);
+	std::this_thread::sleep_for (50ms);
+	auto stop_value = t1.stop ();
+	std::this_thread::sleep_for (50ms);
+	ASSERT_EQ (t1.value (), stop_value);
+}

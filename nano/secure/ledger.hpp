@@ -12,6 +12,16 @@ class stat;
 class write_transaction;
 
 using tally_t = std::map<nano::uint128_t, std::shared_ptr<nano::block>, std::greater<nano::uint128_t>>;
+
+class uncemented_info
+{
+public:
+	uncemented_info (nano::block_hash const & cemented_frontier, nano::block_hash const & frontier, nano::account const & account);
+	nano::block_hash cemented_frontier;
+	nano::block_hash frontier;
+	nano::account account;
+};
+
 class ledger final
 {
 public:
@@ -47,6 +57,7 @@ public:
 	std::array<nano::block_hash, 2> dependent_blocks (nano::transaction const &, nano::block const &) const;
 	nano::account const & epoch_signer (nano::link const &) const;
 	nano::link const & epoch_link (nano::epoch) const;
+	std::multimap<uint64_t, uncemented_info, std::greater<>> unconfirmed_frontiers () const;
 	static nano::uint128_t const unit;
 	nano::network_params network_params;
 	nano::block_store & store;
@@ -57,6 +68,9 @@ public:
 	uint64_t bootstrap_weight_max_blocks{ 1 };
 	std::atomic<bool> check_bootstrap_weights;
 	std::function<void()> epoch_2_started_cb;
+
+private:
+	void initialize (nano::generate_cache const &);
 };
 
 std::unique_ptr<container_info_component> collect_container_info (ledger & ledger, const std::string & name);
