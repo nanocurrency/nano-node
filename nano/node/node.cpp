@@ -125,7 +125,7 @@ online_reps (ledger, network_params, config.online_weight_minimum.number ()),
 vote_uniquer (block_uniquer),
 confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, logger, node_initialized_latch, flags.confirmation_height_processor_mode),
 active (*this, confirmation_height_processor),
-aggregator (network_params.network, config, stats, history, ledger, wallets, active),
+aggregator (network_params.network, config, stats, active.generator, history, ledger, wallets, active),
 payment_observer_processor (observers.blocks),
 wallets (wallets_store.init_error (), *this),
 startup_time (std::chrono::steady_clock::now ()),
@@ -1179,9 +1179,8 @@ public:
 	virtual ~confirmed_visitor () = default;
 	void scan_receivable (nano::account const & account_a)
 	{
-		for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)
+		for (auto const & [id /*unused*/, wallet] : node.wallets.get_wallets ())
 		{
-			auto const & wallet (i->second);
 			if (wallet->store.exists (wallet_transaction, account_a))
 			{
 				nano::account representative;

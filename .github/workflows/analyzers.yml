@@ -5,6 +5,7 @@ on: [push, pull_request]
 jobs:
   clang_format:
     runs-on: ubuntu-18.04
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
       - uses: actions/checkout@50fbc62
       - name: Get clang-format 8
