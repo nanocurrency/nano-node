@@ -122,7 +122,7 @@ io_guard (boost::asio::make_work_guard (io_ctx_a))
 {
 	boost::thread::attributes attrs;
 	nano::thread_attributes::set (attrs);
-	auto count = is_sanitizer_build ? 1 : service_threads_a; // This is a workaround to a bad interaction between TSAN, multiple coroutines, and multiple threads servicing io_context. Only use 1 thread if sanitizers are attached
+	auto count = (is_sanitizer_build && nano::network_constants{}.is_dev_network ()) ? 1 : service_threads_a; // This is a workaround to a bad interaction between TSAN, multiple coroutines, and multiple threads servicing io_context. Only use 1 thread if sanitizers are attached
 	for (auto i (0u); i < count; ++i)
 	{
 		threads.emplace_back (attrs, [&io_ctx_a]() {
