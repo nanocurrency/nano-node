@@ -11,14 +11,6 @@ TEST (coroutines, multithreaded_insert)
 	size_t threads = 16;
 	size_t inserts = 1000;
 	boost::asio::io_context ctx;
-	std::vector<std::thread> consumers;
-	auto guard = boost::asio::make_work_guard (ctx);
-	for (auto i = 0; i < threads; ++i)
-	{
-		consumers.emplace_back ([&ctx] () {
-			ctx.run ();
-		});
-	}
 	std::vector<std::thread> producers;
 	std::atomic<uint64_t> items = 0;
 	std::atomic<uint64_t> runs = 0;
@@ -30,18 +22,24 @@ TEST (coroutines, multithreaded_insert)
 				++items;
 				boost::asio::spawn (ctx, [&ctx, &runs] (boost::asio::yield_context yield) {
 					boost::asio::steady_timer timer{ ctx };
-					timer.expires_from_now (std::chrono::milliseconds (10));
+					timer.expires_from_now (std::chrono::milliseconds (1000));
 					timer.async_wait (yield);
 					++runs;
 				});
 			}
 		});
 	}
+	std::vector<std::thread> consumers;
+	for (auto i = 0; i < threads; ++i)
+	{
+		consumers.emplace_back ([&ctx] () {
+			ctx.run ();
+		});
+	}
 	for (auto & i: producers)
 	{
 		i.join ();
 	}
-	guard.reset ();
 	for (auto & i : consumers)
 	{
 		i.join ();
