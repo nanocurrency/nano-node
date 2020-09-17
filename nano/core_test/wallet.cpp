@@ -844,7 +844,7 @@ TEST (wallet, send_race)
 TEST (wallet, password_race)
 {
 	nano::system system (1);
-	nano::thread_runner runner (system.io_ctx, 1);
+	nano::thread_runner runner (system.io_ctx, system.nodes[0]->config.io_threads);
 	auto wallet = system.wallet (0);
 	std::thread thread ([&wallet]() {
 		for (int i = 0; i < 100; i++)
@@ -872,7 +872,7 @@ TEST (wallet, password_race)
 TEST (wallet, password_race_corrupt_seed)
 {
 	nano::system system (1);
-	nano::thread_runner runner (system.io_ctx, 1);
+	nano::thread_runner runner (system.io_ctx, system.nodes[0]->config.io_threads);
 	auto wallet = system.wallet (0);
 	nano::raw_key seed;
 	{

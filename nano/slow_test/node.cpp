@@ -36,7 +36,7 @@ TEST (system, generate_mass_activity_long)
 	node_config.enable_voting = false; // Prevent blocks cementing
 	auto node = system.add_node (node_config);
 	system.wallet (0)->wallets.watcher->stop (); // Stop work watcher
-	nano::thread_runner runner (system.io_ctx, 1);
+	nano::thread_runner runner (system.io_ctx, system.nodes[0]->config.io_threads);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	uint32_t count (1000000000);
 	system.generate_mass_activity (count, *system.nodes[0]);
@@ -56,7 +56,7 @@ TEST (system, receive_while_synchronizing)
 		nano::node_config node_config (nano::get_available_port (), system.logging);
 		node_config.enable_voting = false; // Prevent blocks cementing
 		auto node = system.add_node (node_config);
-		nano::thread_runner runner (system.io_ctx, 1);
+		nano::thread_runner runner (system.io_ctx, system.nodes[0]->config.io_threads);
 		system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 		uint32_t count (1000);
 		system.generate_mass_activity (count, *system.nodes[0]);

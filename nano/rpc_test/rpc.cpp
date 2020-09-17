@@ -6953,7 +6953,7 @@ TEST (rpc, simultaneous_calls)
 	nano::system system;
 	auto node = add_ipc_enabled_node (system);
 	scoped_io_thread_name_change scoped_thread_name_io;
-	nano::thread_runner runner (system.io_ctx, 1);
+	nano::thread_runner runner (system.io_ctx, node->config.io_threads);
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (nano::get_available_port (), true);
