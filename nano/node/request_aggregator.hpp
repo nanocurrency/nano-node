@@ -22,6 +22,7 @@ class ledger;
 class local_vote_history;
 class node_config;
 class stat;
+class vote_generator;
 class wallets;
 /**
  * Pools together confirmation requests, separately for each endpoint.
@@ -58,8 +59,7 @@ class request_aggregator final
 	// clang-format on
 
 public:
-	request_aggregator () = delete;
-	request_aggregator (nano::network_constants const &, nano::node_config const & config, nano::stat & stats_a, nano::local_vote_history &, nano::ledger &, nano::wallets &, nano::active_transactions &);
+	request_aggregator (nano::network_constants const &, nano::node_config const & config, nano::stat & stats_a, nano::vote_generator &, nano::local_vote_history &, nano::ledger &, nano::wallets &, nano::active_transactions &);
 
 	/** Add a new request by \p channel_a for hashes \p hashes_roots_a */
 	void add (std::shared_ptr<nano::transport::channel> & channel_a, std::vector<std::pair<nano::block_hash, nano::root>> const & hashes_roots_a);
@@ -77,15 +77,15 @@ private:
 	/** Remove duplicate requests **/
 	void erase_duplicates (std::vector<std::pair<nano::block_hash, nano::root>> &) const;
 	/** Aggregate \p requests_a and send cached votes to \p channel_a . Return the remaining hashes that need vote generation **/
-	std::vector<std::pair<nano::root, nano::block_hash>> aggregate (nano::transaction const &, std::vector<std::pair<nano::block_hash, nano::root>> const & requests_a, std::shared_ptr<nano::transport::channel> & channel_a) const;
-	/** Generate votes from \p hashes_a and send to \p channel_a **/
-	void generate (nano::transaction const &, std::vector<std::pair<nano::root, nano::block_hash>> const & hashes_a, std::shared_ptr<nano::transport::channel> & channel_a) const;
+	std::vector<std::shared_ptr<nano::block>> aggregate (std::vector<std::pair<nano::block_hash, nano::root>> const & requests_a, std::shared_ptr<nano::transport::channel> & channel_a) const;
+	void reply_action (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> & channel_a) const;
 
 	nano::stat & stats;
 	nano::local_vote_history & local_votes;
 	nano::ledger & ledger;
 	nano::wallets & wallets;
 	nano::active_transactions & active;
+	nano::vote_generator & generator;
 
 	// clang-format off
 	boost::multi_index_container<channel_pool,
