@@ -1167,12 +1167,12 @@ void nano::wallet::work_ensure (nano::account const & account_a, nano::root cons
 
 bool nano::wallet::search_pending ()
 {
-	auto transaction (wallets.tx_begin_read ());
-	auto result (!store.valid_password (transaction));
+	auto wallet_transaction (wallets.tx_begin_read ());
+	auto result (!store.valid_password (wallet_transaction));
 	if (!result)
 	{
 		wallets.node.logger.try_log ("Beginning pending block search");
-		for (auto i (store.begin (transaction)), n (store.end ()); i != n; ++i)
+		for (auto i (store.begin (wallet_transaction)), n (store.end ()); i != n; ++i)
 		{
 			auto block_transaction (wallets.node.store.tx_begin_read ());
 			nano::account const & account (i->first);
@@ -1202,23 +1202,16 @@ bool nano::wallet::search_pending ()
 						if (confirmed)
 						{
 							// Receive confirmed block
-							auto node_l (wallets.node.shared ());
-							wallets.node.background ([node_l, hash, account]() {
-								auto transaction (node_l->store.tx_begin_read ());
-								node_l->receive_confirmed (transaction, hash, account);
-							});
+							wallets.node.receive_confirmed (wallet_transaction, block_transaction, hash, account);
 						}
-						else
+						else if (!wallets.node.confirmation_height_processor.is_processing_block (hash))
 						{
-							if (!wallets.node.confirmation_height_processor.is_processing_block (hash))
-							{
 								auto block (wallets.node.store.block_get (block_transaction, hash));
 								if (block)
 								{
 									// Request confirmation for block which is not being processed yet
 									wallets.node.block_confirm (block);
 								}
-							}
 						}
 					}
 				}

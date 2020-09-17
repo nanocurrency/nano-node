@@ -1311,22 +1311,21 @@ void nano::node::ongoing_online_weight_calculation ()
 
 namespace
 {
-void scan_receivable (nano::transaction const & transaction_a, nano::node & node_a, nano::account const & account_a, nano::block_hash const & hash_a)
+void scan_receivable (nano::transaction const & wallet_transaction_a, nano::transaction const & transaction_a, nano::node & node_a, nano::account const & destination_a, nano::block_hash const & hash_a)
 {
 	for (auto const & [id /*unused*/, wallet] : node_a.wallets.get_wallets ())
 	{
-		auto transaction_l (node_a.wallets.tx_begin_read ());
-		if (wallet->store.exists (transaction_l, account_a))
+		if (wallet->store.exists (wallet_transaction_a, destination_a))
 		{
 			nano::account representative;
 			nano::pending_info pending;
-			representative = wallet->store.representative (transaction_l);
-			auto error (node_a.store.pending_get (transaction_a, nano::pending_key (account_a, hash_a), pending));
+			representative = wallet->store.representative (wallet_transaction_a);
+			auto error (node_a.store.pending_get (transaction_a, nano::pending_key (destination_a, hash_a), pending));
 			if (!error)
 			{
 				auto node_l (node_a.shared ());
 				auto amount (pending.amount.number ());
-				wallet->receive_async (hash_a, representative, amount, account_a, [](std::shared_ptr<nano::block>) {});
+				wallet->receive_async (hash_a, representative, amount, destination_a, [](std::shared_ptr<nano::block>) {});
 			}
 			else
 			{
@@ -1345,9 +1344,9 @@ void scan_receivable (nano::transaction const & transaction_a, nano::node & node
 }
 }
 
-void nano::node::receive_confirmed (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::account const & account_a)
+void nano::node::receive_confirmed (nano::transaction const & wallet_transaction_a, nano::transaction const & block_transaction_a, nano::block_hash const & hash_a, nano::account const & destination_a)
 {
-	scan_receivable (transaction_a, *this, account_a, hash_a);
+	scan_receivable (wallet_transaction_a, transaction_a, *this, destination_a, hash_a);
 }
 
 void nano::node::process_confirmed_data (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, nano::block_hash const & hash_a, nano::account & account_a, nano::uint128_t & amount_a, bool & is_state_send_a, nano::account & pending_account_a)
