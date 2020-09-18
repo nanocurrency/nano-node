@@ -1111,3 +1111,42 @@ TEST (network, tcp_message_manager)
 	}
 }
 }
+
+TEST (network, cleanup_purge)
+{
+	auto test_start = std::chrono::steady_clock::now ();
+
+	nano::system system (1);
+	auto & node1 (*system.nodes[0]);
+
+	auto node2 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work));
+	node2->start ();
+	system.nodes.push_back (node2);
+
+	ASSERT_EQ (0, node1.network.size ());
+	node1.network.cleanup (test_start);
+	ASSERT_EQ (0, node1.network.size ());
+
+	node1.network.udp_channels.insert (node2->network.endpoint (), node1.network_params.protocol.protocol_version);
+	ASSERT_EQ (1, node1.network.size ());
+	node1.network.cleanup (test_start);
+	ASSERT_EQ (1, node1.network.size ());
+
+	node1.network.cleanup (std::chrono::steady_clock::now ());
+	ASSERT_EQ (0, node1.network.size ());
+
+	std::weak_ptr<nano::node> node_w = node1.shared ();
+	node1.network.tcp_channels.start_tcp (node2->network.endpoint (), [node_w](std::shared_ptr<nano::transport::channel> channel_a) {
+		if (auto node_l = node_w.lock ())
+		{
+			node_l->network.send_keepalive (channel_a);
+		}
+	});
+
+	ASSERT_TIMELY (3s, node1.network.size () == 1);
+	node1.network.cleanup (test_start);
+	ASSERT_EQ (1, node1.network.size ());
+
+	node1.network.cleanup (std::chrono::steady_clock::now ());
+	ASSERT_EQ (0, node1.network.size ());
+}
