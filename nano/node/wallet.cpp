@@ -1206,12 +1206,12 @@ bool nano::wallet::search_pending ()
 						}
 						else if (!wallets.node.confirmation_height_processor.is_processing_block (hash))
 						{
-								auto block (wallets.node.store.block_get (block_transaction, hash));
-								if (block)
-								{
-									// Request confirmation for block which is not being processed yet
-									wallets.node.block_confirm (block);
-								}
+							auto block (wallets.node.store.block_get (block_transaction, hash));
+							if (block)
+							{
+								// Request confirmation for block which is not being processed yet
+								wallets.node.block_confirm (block);
+							}
 						}
 					}
 				}
