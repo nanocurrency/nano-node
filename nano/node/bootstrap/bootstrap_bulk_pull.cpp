@@ -143,7 +143,7 @@ void nano::bulk_pull_client::received_type ()
 	auto this_l (shared_from_this ());
 	nano::block_type type (static_cast<nano::block_type> (connection->receive_buffer->data ()[0]));
 
-	auto socket_l = connection->socket;
+	auto const & socket_l = connection->socket;
 	switch (type)
 	{
 		case nano::block_type::send:
