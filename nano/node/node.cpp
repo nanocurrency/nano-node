@@ -686,11 +686,7 @@ void nano::node::stop ()
 		active.stop ();
 		confirmation_height_processor.stop ();
 		network.stop ();
-		if (telemetry)
-		{
-			telemetry->stop ();
-			telemetry = nullptr;
-		}
+		telemetry->stop ();
 		if (websocket_server)
 		{
 			websocket_server->stop ();
