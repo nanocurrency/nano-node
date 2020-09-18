@@ -63,6 +63,7 @@ cmake \
     -DACTIVE_NETWORK=nano_dev_network \
     -DNANO_TEST=ON \
     -DNANO_GUI=ON \
+    -DPORTABLE=1 \
     -DNANO_WARN_TO_ERR=ON \
     -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
     -DCMAKE_VERBOSE_MAKEFILE=ON \
