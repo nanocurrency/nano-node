@@ -555,7 +555,7 @@ public:
 
 	void peer_put (nano::write_transaction const & transaction_a, nano::endpoint_key const & endpoint_a) override
 	{
-		auto status = put (transaction_a, tables::peers, endpoint_a, nano::db_val<Val>{ std::nullptr_t{} });
+		auto status = put_key (transaction_a, tables::peers, endpoint_a);
 		release_assert (success (status));
 	}
 
@@ -787,6 +787,12 @@ protected:
 	int put (nano::write_transaction const & transaction_a, tables table_a, nano::db_val<Val> const & key_a, nano::db_val<Val> const & value_a)
 	{
 		return static_cast<Derived_Store &> (*this).put (transaction_a, table_a, key_a, value_a);
+	}
+
+	// Put only key without value
+	int put_key (nano::write_transaction const & transaction_a, tables table_a, nano::db_val<Val> const & key_a)
+	{
+		return put (transaction_a, table_a, key_a, nano::db_val<Val>{ std::nullptr_t{} });
 	}
 
 	int del (nano::write_transaction const & transaction_a, tables table_a, nano::db_val<Val> const & key_a)
