@@ -4,15 +4,12 @@
 #include <nano/node/common.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/rocksdb/rocksdb.hpp>
 #include <nano/node/telemetry.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/node/websocket.hpp>
 #include <nano/rpc/rpc.hpp>
 #include <nano/secure/buffer.hpp>
-
-#if NANO_ROCKSDB
-#include <nano/node/rocksdb/rocksdb.hpp>
-#endif
 
 #include <boost/filesystem.hpp>
 #include <boost/property_tree/json_parser.hpp>
@@ -706,11 +703,7 @@ void nano::node::stop ()
 		active.stop ();
 		confirmation_height_processor.stop ();
 		network.stop ();
-		if (telemetry)
-		{
-			telemetry->stop ();
-			telemetry = nullptr;
-		}
+		telemetry->stop ();
 		if (websocket_server)
 		{
 			websocket_server->stop ();
@@ -1188,8 +1181,9 @@ namespace
 class confirmed_visitor : public nano::block_visitor
 {
 public:
-	confirmed_visitor (nano::transaction const & transaction_a, nano::node & node_a, std::shared_ptr<nano::block> const & block_a, nano::block_hash const & hash_a) :
-	transaction (transaction_a),
+	confirmed_visitor (nano::transaction const & wallet_transaction_a, nano::transaction const & block_transaction_a, nano::node & node_a, std::shared_ptr<nano::block> const & block_a, nano::block_hash const & hash_a) :
+	wallet_transaction (wallet_transaction_a),
+	block_transaction (block_transaction_a),
 	node (node_a),
 	block (block_a),
 	hash (hash_a)
@@ -1200,13 +1194,12 @@ public:
 	{
 		for (auto const & [id /*unused*/, wallet] : node.wallets.get_wallets ())
 		{
-			auto transaction_l (node.wallets.tx_begin_read ());
-			if (wallet->store.exists (transaction_l, account_a))
+			if (wallet->store.exists (wallet_transaction, account_a))
 			{
 				nano::account representative;
 				nano::pending_info pending;
-				representative = wallet->store.representative (transaction_l);
-				auto error (node.store.pending_get (transaction, nano::pending_key (account_a, hash), pending));
+				representative = wallet->store.representative (wallet_transaction);
+				auto error (node.store.pending_get (block_transaction, nano::pending_key (account_a, hash), pending));
 				if (!error)
 				{
 					auto node_l (node.shared ());
@@ -1215,7 +1208,7 @@ public:
 				}
 				else
 				{
-					if (!node.store.block_exists (transaction, hash))
+					if (!node.store.block_exists (block_transaction, hash))
 					{
 						node.logger.try_log (boost::str (boost::format ("Confirmed block is missing:  %1%") % hash.to_string ()));
 						debug_assert (false && "Confirmed block is missing");
@@ -1245,16 +1238,17 @@ public:
 	void change_block (nano::change_block const &) override
 	{
 	}
-	nano::transaction const & transaction;
+	nano::transaction const & wallet_transaction;
+	nano::transaction const & block_transaction;
 	nano::node & node;
 	std::shared_ptr<nano::block> block;
 	nano::block_hash const & hash;
 };
 }
 
-void nano::node::receive_confirmed (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, nano::block_hash const & hash_a)
+void nano::node::receive_confirmed (nano::transaction const & wallet_transaction_a, nano::transaction const & block_transaction_a, std::shared_ptr<nano::block> const & block_a, nano::block_hash const & hash_a)
 {
-	confirmed_visitor visitor (transaction_a, *this, block_a, hash_a);
+	confirmed_visitor visitor (wallet_transaction_a, block_transaction_a, *this, block_a, hash_a);
 	block_a->visit (visitor);
 }
 
@@ -1729,30 +1723,9 @@ nano::node_flags const & nano::inactive_node_flag_defaults ()
 
 std::unique_ptr<nano::block_store> nano::make_store (nano::logger_mt & logger, boost::filesystem::path const & path, bool read_only, bool add_db_postfix, nano::rocksdb_config const & rocksdb_config, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade, bool use_rocksdb_backend, bool enable_pruning)
 {
-#if NANO_ROCKSDB
-	auto make_rocksdb = [&logger, add_db_postfix, &path, &rocksdb_config, read_only, enable_pruning]() {
-		return std::make_unique<nano::rocksdb_store> (logger, add_db_postfix ? path / "rocksdb" : path, rocksdb_config, read_only, enable_pruning);
-	};
-#endif
-
-	if (use_rocksdb_backend)
+	if (use_rocksdb_backend || using_rocksdb_in_tests ())
 	{
-#if NANO_ROCKSDB
-		return make_rocksdb ();
-#else
-		logger.always_log (std::error_code (nano::error_config::rocksdb_enabled_but_not_supported).message ());
-		release_assert (false);
-		return nullptr;
-#endif
-	}
-	else
-	{
-#if NANO_ROCKSDB
-		if (using_rocksdb_in_tests ())
-		{
-			return make_rocksdb ();
-		}
-#endif
+		return std::make_unique<nano::rocksdb_store> (logger, add_db_postfix ? path / "rocksdb" : path, rocksdb_config, read_only);
 	}
 
 	return std::make_unique<nano::mdb_store> (logger, add_db_postfix ? path / "data.ldb" : path, txn_tracking_config_a, block_processor_batch_max_time_a, lmdb_config_a, backup_before_upgrade);

@@ -1,6 +1,8 @@
 #pragma once
 
+#include <nano/boost/asio/spawn.hpp>
 #include <nano/lib/alarm.hpp>
+#include <nano/lib/config.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/lib/worker.hpp>
@@ -95,13 +97,19 @@ public:
 	{
 		alarm.io_ctx.post (action_a);
 	}
+	template <typename... Params>
+	void spawn (Params... args)
+	{
+		boost::coroutines::attributes attributes{ boost::coroutines::stack_allocator::traits_type::default_size () * (is_sanitizer_build ? 2 : 1) };
+		boost::asio::spawn (io_ctx, std::forward<Params> (args)..., attributes);
+	}
 	bool copy_with_compaction (boost::filesystem::path const &);
 	void keepalive (std::string const &, uint16_t);
 	void start ();
 	void stop ();
 	std::shared_ptr<nano::node> shared ();
 	int store_version ();
-	void receive_confirmed (nano::transaction const &, std::shared_ptr<nano::block>, nano::block_hash const &);
+	void receive_confirmed (nano::transaction const & wallet_transaction_a, nano::transaction const & block_transaction_a, std::shared_ptr<nano::block> const &, nano::block_hash const &);
 	void process_confirmed_data (nano::transaction const &, std::shared_ptr<nano::block>, nano::block_hash const &, nano::account &, nano::uint128_t &, bool &, nano::account &);
 	void process_confirmed (nano::election_status const &, uint64_t = 0);
 	void process_active (std::shared_ptr<nano::block>);
