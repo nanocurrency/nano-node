@@ -4,15 +4,12 @@
 #include <nano/node/common.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/rocksdb/rocksdb.hpp>
 #include <nano/node/telemetry.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/node/websocket.hpp>
 #include <nano/rpc/rpc.hpp>
 #include <nano/secure/buffer.hpp>
-
-#if NANO_ROCKSDB
-#include <nano/node/rocksdb/rocksdb.hpp>
-#endif
 
 #include <boost/filesystem.hpp>
 #include <boost/property_tree/json_parser.hpp>
@@ -1706,30 +1703,9 @@ nano::node_flags const & nano::inactive_node_flag_defaults ()
 
 std::unique_ptr<nano::block_store> nano::make_store (nano::logger_mt & logger, boost::filesystem::path const & path, bool read_only, bool add_db_postfix, nano::rocksdb_config const & rocksdb_config, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade, bool use_rocksdb_backend)
 {
-#if NANO_ROCKSDB
-	auto make_rocksdb = [&logger, add_db_postfix, &path, &rocksdb_config, read_only]() {
+	if (use_rocksdb_backend || using_rocksdb_in_tests ())
+	{
 		return std::make_unique<nano::rocksdb_store> (logger, add_db_postfix ? path / "rocksdb" : path, rocksdb_config, read_only);
-	};
-#endif
-
-	if (use_rocksdb_backend)
-	{
-#if NANO_ROCKSDB
-		return make_rocksdb ();
-#else
-		logger.always_log (std::error_code (nano::error_config::rocksdb_enabled_but_not_supported).message ());
-		release_assert (false);
-		return nullptr;
-#endif
-	}
-	else
-	{
-#if NANO_ROCKSDB
-		if (using_rocksdb_in_tests ())
-		{
-			return make_rocksdb ();
-		}
-#endif
 	}
 
 	return std::make_unique<nano::mdb_store> (logger, add_db_postfix ? path / "data.ldb" : path, txn_tracking_config_a, block_processor_batch_max_time_a, lmdb_config_a, backup_before_upgrade);
