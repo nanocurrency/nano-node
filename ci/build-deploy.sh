@@ -24,9 +24,7 @@ cmake \
     -DACTIVE_NETWORK=nano_${NETWORK_CFG}_network \
     -DNANO_POW_SERVER=ON \
     -DNANO_GUI=ON \
-    -DNANO_ROCKSDB=ON \
-    -DROCKSDB_LIBRARIES=/tmp/rocksdb/lib/librocksdb.a \
-    -DROCKSDB_INCLUDE_DIRS=/tmp/rocksdb/include \
+    -DPORTABLE=1 \
     -DCMAKE_BUILD_TYPE=${CONFIGURATION} \
     -DCMAKE_VERBOSE_MAKEFILE=ON \
     -DBOOST_ROOT=/tmp/boost/ \

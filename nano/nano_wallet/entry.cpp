@@ -92,13 +92,6 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 		error = nano::flags_config_conflicts (flags, config.node);
 	}
 
-#if !NANO_ROCKSDB
-	if (!error && config.node.rocksdb_config.enable)
-	{
-		error = nano::error_config::rocksdb_enabled_but_not_supported;
-	}
-#endif
-
 	if (!error)
 	{
 		nano::set_use_memory_pools (config.node.use_memory_pools);
