@@ -829,19 +829,23 @@ TEST (network, replace_port)
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work, node_flags));
 	node1->start ();
 	system.nodes.push_back (node1);
-	{
-		auto channel (node0->network.udp_channels.insert (nano::endpoint (node1->network.endpoint ().address (), 23000), node1->network_params.protocol.protocol_version));
-		if (channel)
-		{
-			channel->set_node_id (node1->node_id.pub);
-		}
-	}
+	auto channel0 (node0->network.udp_channels.insert (nano::endpoint (node1->network.endpoint ().address (), 23000), node1->network_params.protocol.protocol_version));
+	ASSERT_NE (nullptr, channel0);
+	channel0->set_node_id (node1->node_id.pub);
 	auto peers_list (node0->network.list (std::numeric_limits<size_t>::max ()));
 	ASSERT_EQ (peers_list[0]->get_node_id (), node1->node_id.pub);
-	auto channel (std::make_shared<nano::transport::channel_udp> (node0->network.udp_channels, node1->network.endpoint (), node1->network_params.protocol.protocol_version));
-	node0->network.send_keepalive (channel);
+	auto channel1 (std::make_shared<nano::transport::channel_udp> (node0->network.udp_channels, node1->network.endpoint (), node1->network_params.protocol.protocol_version));
+	ASSERT_EQ (node0->network.udp_channels.size (), 1);
+	node0->network.send_keepalive (channel1);
 	ASSERT_TIMELY (5s, node0->network.udp_channels.channel (node1->network.endpoint ()));
-	ASSERT_TIMELY (5s, node0->network.udp_channels.size () <= 1);
+	ASSERT_EQ (node0->network.udp_channels.size (), 2);
+	// Modify last_packet_received so the channel is removed faster
+	std::chrono::steady_clock::time_point fake_timepoint{};
+	node0->network.udp_channels.modify (channel0, [fake_timepoint](std::shared_ptr<nano::transport::channel_udp> channel_a) {
+		channel_a->set_last_packet_received (fake_timepoint);
+		channel_a->set_last_packet_sent (fake_timepoint);
+	});
+	ASSERT_TIMELY (10s, node0->network.udp_channels.size () <= 1);
 	ASSERT_EQ (node0->network.udp_channels.size (), 1);
 	auto list1 (node0->network.list (1));
 	ASSERT_EQ (node1->network.endpoint (), list1[0]->get_endpoint ());
