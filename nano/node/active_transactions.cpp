@@ -24,7 +24,7 @@ confirmation_height_processor (confirmation_height_processor_a),
 node (node_a),
 multipliers_cb (20, 1.),
 trended_active_multiplier (1.0),
-generator (node_a.config, node_a.ledger, node_a.wallets, node_a.vote_processor, node_a.history, node_a.network),
+generator (node_a.config, node_a.ledger, node_a.wallets, node_a.vote_processor, node_a.history, node_a.network, node_a.stats),
 check_all_elections_period (node_a.network_params.network.is_dev_network () ? 10ms : 5s),
 election_time_to_live (node_a.network_params.network.is_dev_network () ? 0s : 2s),
 prioritized_cutoff (std::max<size_t> (1, node_a.config.active_elections_size / 10)),
@@ -207,7 +207,7 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 				{
 					add_recently_cemented (election->status);
 					lk.unlock ();
-					node.receive_confirmed (transaction, block_a, hash);
+					node.receive_confirmed (node.wallets.tx_begin_read (), transaction, block_a, hash);
 					nano::account account (0);
 					nano::uint128_t amount (0);
 					bool is_state_send (false);
