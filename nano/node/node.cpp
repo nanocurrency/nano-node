@@ -1725,7 +1725,7 @@ std::unique_ptr<nano::block_store> nano::make_store (nano::logger_mt & logger, b
 {
 	if (use_rocksdb_backend || using_rocksdb_in_tests ())
 	{
-		return std::make_unique<nano::rocksdb_store> (logger, add_db_postfix ? path / "rocksdb" : path, rocksdb_config, read_only);
+		return std::make_unique<nano::rocksdb_store> (logger, add_db_postfix ? path / "rocksdb" : path, rocksdb_config, read_only, enable_pruning);
 	}
 
 	return std::make_unique<nano::mdb_store> (logger, add_db_postfix ? path / "data.ldb" : path, txn_tracking_config_a, block_processor_batch_max_time_a, lmdb_config_a, backup_before_upgrade);
