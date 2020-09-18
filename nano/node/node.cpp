@@ -1346,7 +1346,7 @@ void scan_receivable (nano::transaction const & wallet_transaction_a, nano::tran
 
 void nano::node::receive_confirmed (nano::transaction const & wallet_transaction_a, nano::transaction const & block_transaction_a, nano::block_hash const & hash_a, nano::account const & destination_a)
 {
-	scan_receivable (wallet_transaction_a, transaction_a, *this, destination_a, hash_a);
+	scan_receivable (wallet_transaction_a, block_transaction_a, *this, destination_a, hash_a);
 }
 
 void nano::node::process_confirmed_data (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, nano::block_hash const & hash_a, nano::account & account_a, nano::uint128_t & amount_a, bool & is_state_send_a, nano::account & pending_account_a)
