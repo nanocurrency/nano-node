@@ -202,6 +202,7 @@ public:
 		requests,
 		filter,
 		telemetry,
+		vote_generator
 	};
 
 	/** Optional detail type */
@@ -321,6 +322,8 @@ public:
 		requests_generated_hashes,
 		requests_cached_votes,
 		requests_generated_votes,
+		requests_cached_late_hashes,
+		requests_cached_late_votes,
 		requests_cannot_vote,
 		requests_unknown,
 
@@ -334,7 +337,12 @@ public:
 		request_within_protection_cache_zone,
 		no_response_received,
 		unsolicited_telemetry_ack,
-		failed_send_telemetry_req
+		failed_send_telemetry_req,
+
+		// vote generator
+		generator_broadcasts,
+		generator_replies,
+		generator_replies_discarded
 	};
 
 	/** Direction of the stat. If the direction is irrelevant, use in */
@@ -407,6 +415,11 @@ public:
 	 */
 	void add (stat::type type, stat::detail detail, stat::dir dir, uint64_t value, bool detail_only = false)
 	{
+		if (value == 0)
+		{
+			return;
+		}
+
 		constexpr uint32_t no_detail_mask = 0xffff00ff;
 		uint32_t key = key_of (type, detail, dir);
 

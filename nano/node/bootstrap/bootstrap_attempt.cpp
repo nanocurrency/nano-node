@@ -485,7 +485,7 @@ bool nano::bootstrap_attempt_legacy::confirm_frontiers (nano::unique_lock<std::m
 			else if (i < max_requests)
 			{
 				node->network.broadcast_confirm_req_batched_many (batched_confirm_req_bundle);
-				std::this_thread::sleep_for (std::chrono::milliseconds (!node->network_params.network.is_dev_network () ? 500 : 5));
+				std::this_thread::sleep_for (std::chrono::milliseconds (!node->network_params.network.is_dev_network () ? 500 : 100));
 			}
 		}
 		if (!confirmed)

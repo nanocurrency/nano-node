@@ -2483,6 +2483,8 @@ TEST (node, stat_counting)
 	ASSERT_EQ (10, node1.stats.count (nano::stat::type::ledger, nano::stat::dir::in));
 	ASSERT_EQ (2, node1.stats.count (nano::stat::type::ledger, nano::stat::detail::send, nano::stat::dir::in));
 	ASSERT_EQ (1, node1.stats.count (nano::stat::type::ledger, nano::stat::detail::receive, nano::stat::dir::in));
+	node1.stats.add (nano::stat::type::ledger, nano::stat::dir::in, 0);
+	ASSERT_EQ (10, node1.stats.count (nano::stat::type::ledger, nano::stat::dir::in));
 }
 
 TEST (node, online_reps)

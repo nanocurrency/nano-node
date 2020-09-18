@@ -33,7 +33,7 @@ while getopts 'hmscCkpvB:j:' OPT; do
 			LINK_TYPE+=('link=shared')
 			;;
 		m)
-			bootstrapArgs+=('--with-libraries=system,thread,log,filesystem,program_options,coroutine')
+			bootstrapArgs+=('--with-libraries=system,thread,log,filesystem,program_options,coroutine,context')
 			;;
 		j)
 			buildThreads=${OPTARG}

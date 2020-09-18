@@ -100,6 +100,7 @@ private:
 
 	void construct_column_family_mutexes ();
 	rocksdb::Options get_db_options ();
+	rocksdb::ColumnFamilyOptions get_common_cf_options (std::shared_ptr<rocksdb::TableFactory> const & table_factory_a, unsigned long long memtable_size_bytes_a) const;
 	rocksdb::ColumnFamilyOptions get_active_cf_options (std::shared_ptr<rocksdb::TableFactory> const & table_factory_a, unsigned long long memtable_size_bytes_a) const;
 	rocksdb::ColumnFamilyOptions get_small_cf_options (std::shared_ptr<rocksdb::TableFactory> const & table_factory_a) const;
 	rocksdb::BlockBasedTableOptions get_active_table_options (int lru_size) const;
