@@ -163,7 +163,7 @@ boost::property_tree::ptree rpc_request (boost::property_tree::ptree const & req
 	debug_assert (results.size () == 1);
 
 	std::promise<boost::optional<boost::property_tree::ptree>> promise;
-	boost::asio::spawn (boost::asio::io_context::strand (ioc), [&ioc, &results, request, &promise](boost::asio::yield_context yield) {
+	boost::asio::spawn (ioc, [&ioc, &results, request, &promise](boost::asio::yield_context yield) {
 		socket_type socket (ioc);
 		boost::beast::flat_buffer buffer;
 		http::request<http::string_body> req;
@@ -457,7 +457,7 @@ int main (int argc, char * const * argv)
 			}
 
 			// Send from genesis account to different accounts and receive the funds
-			boost::asio::spawn (boost::asio::io_context::strand (ioc), [&ioc, &primary_node_results, &wallet, &resolver, &node_count, destination_account, &send_calls_remaining](boost::asio::yield_context yield) {
+			boost::asio::spawn (ioc, [&ioc, &primary_node_results, &wallet, destination_account, &send_calls_remaining](boost::asio::yield_context yield) {
 				send_receive (ioc, wallet, nano::genesis_account.to_account (), destination_account->as_string, send_calls_remaining, primary_node_results, yield);
 			});
 		}
