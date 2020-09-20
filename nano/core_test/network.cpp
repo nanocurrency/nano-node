@@ -845,6 +845,7 @@ TEST (network, replace_port)
 		channel_a->set_last_packet_received (fake_timepoint);
 		channel_a->set_last_packet_sent (fake_timepoint);
 	});
+	channel0.reset ();
 	ASSERT_TIMELY (10s, node0->network.udp_channels.size () <= 1);
 	ASSERT_EQ (node0->network.udp_channels.size (), 1);
 	auto list1 (node0->network.list (1));
