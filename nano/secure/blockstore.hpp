@@ -50,6 +50,11 @@ public:
 	{
 	}
 
+	db_val (std::nullptr_t) :
+	db_val (0, this)
+	{
+	}
+
 	db_val (nano::uint128_union const & val_a) :
 	db_val (sizeof (val_a), const_cast<nano::uint128_union *> (&val_a))
 	{
