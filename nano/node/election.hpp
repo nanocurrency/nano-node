@@ -36,6 +36,13 @@ enum class election_behavior
 	normal,
 	optimistic
 };
+struct election_cleanup_info final
+{
+	bool confirmed;
+	nano::qualified_root root;
+	nano::block_hash winner;
+	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks;
+};
 
 class election final : public std::enable_shared_from_this<nano::election>
 {
@@ -94,8 +101,7 @@ public: // Interface
 	// Confirm this block if quorum is met
 	void confirm_if_quorum ();
 	void prioritize_election (nano::vote_generator_session &);
-	// Erase all blocks from active and, if not confirmed, clear digests from network filters
-	void cleanup ();
+	nano::election_cleanup_info cleanup_info () const;
 
 public: // Information
 	uint64_t const height;

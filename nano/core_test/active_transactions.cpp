@@ -710,10 +710,7 @@ TEST (active_transactions, dropped_cleanup)
 
 	// Now simulate dropping the election, which performs a cleanup in the background using the node worker
 	ASSERT_FALSE (election->confirmed ());
-	{
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
-		election->cleanup ();
-	}
+	node.active.erase (*block);
 
 	// Push a worker task to ensure the cleanup is already performed
 	std::atomic<bool> flag{ false };

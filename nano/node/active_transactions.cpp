@@ -324,7 +324,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 				--optimistic_elections_count;
 			}
 
-			election_l->cleanup ();
+			cleanup_election (election_l->cleanup_info ());
 			i = sorted_roots_l.erase (i);
 		}
 		else
@@ -345,6 +345,37 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 		{
 			node.logger.try_log (boost::str (boost::format ("Processed %1% elections (%2% were already confirmed) in %3% %4%") % this_loop_target_l % (this_loop_target_l - unconfirmed_count_l) % elapsed.value ().count () % elapsed.unit ()));
 		}
+	}
+}
+
+void nano::active_transactions::cleanup_election (nano::election_cleanup_info const & info_a)
+{
+	debug_assert (!mutex.try_lock ());
+
+	for (auto const & [hash, block] : info_a.blocks)
+	{
+		auto erased (blocks.erase (hash));
+		(void)erased;
+		debug_assert (erased == 1);
+		erase_inactive_votes_cache (hash);
+		// Notify observers about dropped elections & blocks lost confirmed elections
+		if (!info_a.confirmed || hash != info_a.winner)
+		{
+			node.observers.active_stopped.notify (hash);
+		}
+	}
+
+	if (!info_a.confirmed)
+	{
+		recently_dropped.add (info_a.root);
+
+		// Clear network filter in another thread
+		node.worker.push_task ([node_l = node.shared (), blocks_l = std::move (info_a.blocks)]() {
+			for (auto const & block : blocks_l)
+			{
+				node_l->network.publish_filter.clear (block.second);
+			}
+		});
 	}
 }
 
@@ -1149,7 +1180,7 @@ void nano::active_transactions::erase (nano::block const & block_a)
 	auto root_it (roots.get<tag_root> ().find (block_a.qualified_root ()));
 	if (root_it != roots.get<tag_root> ().end ())
 	{
-		root_it->election->cleanup ();
+		cleanup_election (root_it->election->cleanup_info ());
 		roots.get<tag_root> ().erase (root_it);
 		lock.unlock ();
 		node.logger.try_log (boost::str (boost::format ("Election erased for block block %1% root %2%") % block_a.hash ().to_string () % block_a.root ().to_string ()));
