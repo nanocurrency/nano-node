@@ -21,7 +21,7 @@ nano::election_vote_result::election_vote_result (bool replay_a, bool processed_
 nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> block_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a, bool prioritized_a, nano::election_behavior election_behavior_a) :
 confirmation_action (confirmation_action_a),
 prioritized_m (prioritized_a),
-election_behavior (election_behavior_a),
+behavior (election_behavior_a),
 node (node_a),
 status ({ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::ongoing }),
 height (block_a->sideband ().height),
@@ -474,7 +474,7 @@ bool nano::election::prioritized () const
 
 bool nano::election::optimistic () const
 {
-	return election_behavior == nano::election_behavior::optimistic;
+	return behavior == nano::election_behavior::optimistic;
 }
 
 void nano::election::prioritize_election (nano::vote_generator_session & generator_session_a)

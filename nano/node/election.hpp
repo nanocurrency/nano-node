@@ -114,7 +114,7 @@ private:
 private:
 	std::unordered_map<nano::block_hash, nano::uint128_t> last_tally;
 
-	nano::election_behavior const election_behavior{ nano::election_behavior::normal };
+	nano::election_behavior const behavior{ nano::election_behavior::normal };
 	std::chrono::steady_clock::time_point const election_start = { std::chrono::steady_clock::now () };
 
 	nano::node & node;
