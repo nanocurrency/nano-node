@@ -7,10 +7,6 @@
 
 using namespace std::chrono;
 
-int constexpr nano::election::passive_duration_factor;
-int constexpr nano::election::active_request_count_min;
-int constexpr nano::election::confirmed_duration_factor;
-
 std::chrono::milliseconds nano::election::base_latency () const
 {
 	return node.network_params.network.is_dev_network () ? 25ms : 1000ms;

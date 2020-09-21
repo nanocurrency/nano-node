@@ -52,9 +52,9 @@ private: // State management
 		expired_confirmed,
 		expired_unconfirmed
 	};
-	static int constexpr passive_duration_factor = 5;
-	static int constexpr active_request_count_min = 2;
-	static int constexpr confirmed_duration_factor = 5;
+	static unsigned constexpr passive_duration_factor = 5;
+	static unsigned constexpr active_request_count_min = 2;
+	static unsigned constexpr confirmed_duration_factor = 5;
 	std::atomic<nano::election::state_t> state_m = { state_t::passive };
 
 	// These time points must be protected by this mutex
