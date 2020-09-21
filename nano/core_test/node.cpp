@@ -1397,11 +1397,8 @@ TEST (node, fork_open)
 	auto channel1 (node1.network.udp_channels.create (node1.network.endpoint ()));
 	node1.network.process_message (publish1, channel1);
 	node1.block_processor.flush ();
-	{
-		auto election = node1.active.election (publish1.block->qualified_root ());
-		nano::lock_guard<std::mutex> guard (node1.active.mutex);
-		election->confirm_once ();
-	}
+	auto election = node1.active.election (publish1.block->qualified_root ());
+	election->force_confirm ();
 	ASSERT_TIMELY (3s, node1.active.empty () && node1.block_confirmed (publish1.block->hash ()));
 	nano::open_block_builder builder;
 	auto open1 = builder.make_block ()
@@ -1810,10 +1807,7 @@ TEST (node, broadcast_elected)
 			node->block_confirm (block);
 			auto election (node->active.election (block->qualified_root ()));
 			ASSERT_NE (nullptr, election);
-			{
-				nano::lock_guard<std::mutex> guard (node->active.mutex);
-				election->confirm_once ();
-			}
+			election->force_confirm ();
 			ASSERT_TIMELY (5s, 4 == node->ledger.cache.cemented_count)
 		}
 
@@ -1880,12 +1874,9 @@ TEST (node, rep_self_vote)
 	ASSERT_EQ (nano::process_result::progress, node0->process (open_big).code);
 	// Confirm both blocks, allowing voting on the upcoming block
 	node0->block_confirm (node0->block (open_big.hash ()));
-	{
-		auto election = node0->active.election (open_big.qualified_root ());
-		ASSERT_NE (nullptr, election);
-		nano::lock_guard<std::mutex> guard (node0->active.mutex);
-		election->confirm_once ();
-	}
+	auto election = node0->active.election (open_big.qualified_root ());
+	ASSERT_NE (nullptr, election);
+	election->force_confirm ();
 
 	system.wallet (0)->insert_adhoc (rep_big.prv);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
@@ -2012,12 +2003,9 @@ TEST (node, bootstrap_fork_open)
 	for (auto node : system.nodes)
 	{
 		node->block_confirm (node->block (node->latest (nano::dev_genesis_key.pub)));
-		{
-			auto election = node->active.election (send0.qualified_root ());
-			ASSERT_NE (nullptr, election);
-			nano::lock_guard<std::mutex> guard (node->active.mutex);
-			election->confirm_once ();
-		}
+		auto election = node->active.election (send0.qualified_root ());
+		ASSERT_NE (nullptr, election);
+		election->force_confirm ();
 		ASSERT_TIMELY (2s, node->active.empty ());
 	}
 	ASSERT_TIMELY (3s, node0->block_confirmed (send0.hash ()));
@@ -2541,12 +2529,9 @@ TEST (node, block_confirm)
 		ASSERT_TRUE (node2.ledger.block_exists (send1_copy->hash ()));
 		// Confirm send1 on node2 so it can vote for send2
 		node2.block_confirm (send1_copy);
-		{
-			auto election = node2.active.election (send1_copy->qualified_root ());
-			ASSERT_NE (nullptr, election);
-			nano::lock_guard<std::mutex> guard (node2.active.mutex);
-			election->confirm_once ();
-		}
+		auto election = node2.active.election (send1_copy->qualified_root ());
+		ASSERT_NE (nullptr, election);
+		election->force_confirm ();
 		ASSERT_TIMELY (3s, node2.block_confirmed (send1_copy->hash ()) && node2.active.empty ());
 		system.wallet (1)->insert_adhoc (nano::dev_genesis_key.prv);
 		auto send2 (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, send1->hash (), nano::dev_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio * 2, key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node1.work_generate_blocking (send1->hash ())));
@@ -2682,12 +2667,9 @@ TEST (node, local_votes_cache)
 	}
 	// Confirm blocks to allow voting
 	node.block_confirm (send2);
-	{
-		auto election = node.active.election (send2->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
-		election->confirm_once ();
-	}
+	auto election = node.active.election (send2->qualified_root ());
+	ASSERT_NE (nullptr, election);
+	election->force_confirm ();
 	ASSERT_TIMELY (3s, node.ledger.cache.cemented_count == 3);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	nano::confirm_req message1 (send1);
@@ -3066,12 +3048,9 @@ TEST (node, epoch_conflict_confirm)
 	ASSERT_EQ (nano::process_result::progress, node1->process (*open).code);
 	// Confirm block in node1 to allow generating votes
 	node1->block_confirm (open);
-	{
-		auto election (node1->active.election (open->qualified_root ()));
-		ASSERT_NE (nullptr, election);
-		nano::lock_guard<std::mutex> guard (node1->active.mutex);
-		election->confirm_once ();
-	}
+	auto election (node1->active.election (open->qualified_root ()));
+	ASSERT_NE (nullptr, election);
+	election->force_confirm ();
 	ASSERT_TIMELY (3s, node1->block_confirmed (open->hash ()));
 	{
 		nano::block_post_events events;
@@ -3977,18 +3956,15 @@ TEST (node, rollback_vote_self)
 	ASSERT_EQ (nano::process_result::progress, node.process (*open).code);
 	// Confirm blocks to allow voting
 	node.block_confirm (open);
-	{
-		auto election = node.active.election (open->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
-		election->confirm_once ();
-	}
+	auto election = node.active.election (open->qualified_root ());
+	ASSERT_NE (nullptr, election);
+	election->force_confirm ();
 	ASSERT_TIMELY (5s, node.ledger.cache.cemented_count == 3);
 	ASSERT_EQ (weight, node.weight (key.pub));
 	node.process_active (send2);
 	node.process_active (fork);
 	node.block_processor.flush ();
-	auto election = node.active.election (send2->qualified_root ());
+	election = node.active.election (send2->qualified_root ());
 	ASSERT_NE (nullptr, election);
 	ASSERT_EQ (2, election->blocks.size ());
 	// Insert genesis key in the wallet
@@ -4488,10 +4464,7 @@ TEST (node, deferred_dependent_elections)
 	ASSERT_FALSE (node.active.active (send2->qualified_root ()));
 
 	// Confirming send1 will automatically start elections for the dependents
-	{
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
-		election_send1->confirm_once ();
-	}
+	election_send1->force_confirm ();
 	ASSERT_TIMELY (2s, node.block_confirmed (send1->hash ()));
 	ASSERT_TIMELY (2s, node.active.active (open->qualified_root ()) && node.active.active (send2->qualified_root ()));
 	auto election_open = node.active.election (open->qualified_root ());
@@ -4502,10 +4475,7 @@ TEST (node, deferred_dependent_elections)
 	// Confirm one of the dependents of the receive but not the other, to ensure both have to be confirmed to start an election on processing
 	ASSERT_EQ (nano::process_result::progress, node.process (*receive).code);
 	ASSERT_FALSE (node.active.active (receive->qualified_root ()));
-	{
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
-		election_open->confirm_once ();
-	}
+	election_open->force_confirm ();
 	ASSERT_TIMELY (2s, node.block_confirmed (open->hash ()));
 	ASSERT_FALSE (node.ledger.dependents_confirmed (node.store.tx_begin_read (), *receive));
 	std::this_thread::sleep_for (500ms);
@@ -4524,10 +4494,7 @@ TEST (node, deferred_dependent_elections)
 	ASSERT_FALSE (node.active.active (receive->qualified_root ()));
 
 	// Confirming the other dependency allows starting an election from a fork
-	{
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
-		election_send2->confirm_once ();
-	}
+	election_send2->force_confirm ();
 	ASSERT_TIMELY (2s, node.block_confirmed (send2->hash ()));
 	ASSERT_TIMELY (2s, node.active.active (receive->qualified_root ()));
 	node.active.erase (*receive);

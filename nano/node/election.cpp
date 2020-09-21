@@ -508,3 +508,10 @@ void nano::election::remove_votes (nano::block_hash const & hash_a)
 		node.history.erase (root);
 	}
 }
+
+void nano::election::force_confirm (nano::election_status_type type_a)
+{
+	release_assert (node.network_params.network.is_dev_network ());
+	nano::lock_guard<std::mutex> guard (node.active.mutex);
+	confirm_once (type_a);
+}

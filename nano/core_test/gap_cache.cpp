@@ -73,12 +73,9 @@ TEST (gap_cache, gap_bootstrap)
 	ASSERT_EQ (nano::genesis_amount, node2.balance (nano::genesis_account));
 	// Confirm send block, allowing voting on the upcoming block
 	node1.block_confirm (send);
-	{
-		auto election = node1.active.election (send->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		nano::lock_guard<std::mutex> guard (node1.active.mutex);
-		election->confirm_once ();
-	}
+	auto election = node1.active.election (send->qualified_root ());
+	ASSERT_NE (nullptr, election);
+	election->force_confirm ();
 	ASSERT_TIMELY (2s, node1.block_confirmed (send->hash ()));
 	node1.active.erase (*send);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);

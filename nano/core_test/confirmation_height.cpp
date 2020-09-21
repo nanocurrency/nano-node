@@ -151,12 +151,9 @@ TEST (confirmation_height, multiple_accounts)
 		node->process_active (receive3);
 		node->block_processor.flush ();
 		node->block_confirm (receive3);
-		{
-			auto election = node->active.election (receive3->qualified_root ());
-			ASSERT_NE (nullptr, election);
-			nano::lock_guard<std::mutex> guard (node->active.mutex);
-			election->confirm_once ();
-		}
+		auto election = node->active.election (receive3->qualified_root ());
+		ASSERT_NE (nullptr, election);
+		election->force_confirm ();
 
 		ASSERT_TIMELY (10s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) == 10);
 
@@ -435,12 +432,9 @@ TEST (confirmation_height, send_receive_between_2_accounts)
 		node->process_active (receive4);
 		node->block_processor.flush ();
 		node->block_confirm (receive4);
-		{
-			auto election = node->active.election (receive4->qualified_root ());
-			ASSERT_NE (nullptr, election);
-			nano::lock_guard<std::mutex> guard (node->active.mutex);
-			election->confirm_once ();
-		}
+		auto election = node->active.election (receive4->qualified_root ());
+		ASSERT_NE (nullptr, election);
+		election->force_confirm ();
 
 		ASSERT_TIMELY (10s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) == 10);
 
@@ -509,12 +503,9 @@ TEST (confirmation_height, send_receive_self)
 		add_callback_stats (*node);
 
 		node->block_confirm (receive3);
-		{
-			auto election = node->active.election (receive3->qualified_root ());
-			ASSERT_NE (nullptr, election);
-			nano::lock_guard<std::mutex> guard (node->active.mutex);
-			election->confirm_once ();
-		}
+		auto election = node->active.election (receive3->qualified_root ());
+		ASSERT_NE (nullptr, election);
+		election->force_confirm ();
 
 		ASSERT_TIMELY (10s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) == 6);
 
@@ -609,12 +600,9 @@ TEST (confirmation_height, all_block_types)
 
 		add_callback_stats (*node);
 		node->block_confirm (state_send2);
-		{
-			auto election = node->active.election (state_send2->qualified_root ());
-			ASSERT_NE (nullptr, election);
-			nano::lock_guard<std::mutex> guard (node->active.mutex);
-			election->confirm_once ();
-		}
+		auto election = node->active.election (state_send2->qualified_root ());
+		ASSERT_NE (nullptr, election);
+		election->force_confirm ();
 
 		ASSERT_TIMELY (10s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) == 15);
 
@@ -1025,12 +1013,9 @@ TEST (confirmation_height, callback_confirmed_history)
 			auto write_guard = node->write_database_queue.wait (nano::writer::testing);
 
 			// Confirm send1
-			{
-				auto election = node->active.election (send1->qualified_root ());
-				ASSERT_NE (nullptr, election);
-				nano::lock_guard<std::mutex> guard (node->active.mutex);
-				election->confirm_once ();
-			}
+			auto election = node->active.election (send1->qualified_root ());
+			ASSERT_NE (nullptr, election);
+			election->force_confirm ();
 			ASSERT_TIMELY (10s, node->active.size () == 0);
 			ASSERT_EQ (0, node->active.list_recently_cemented ().size ());
 			{
@@ -1104,12 +1089,9 @@ TEST (confirmation_height, dependent_election)
 		node->block_confirm (send1);
 		// Start an election and confirm it
 		node->block_confirm (send2);
-		{
-			auto election = node->active.election (send2->qualified_root ());
-			ASSERT_NE (nullptr, election);
-			nano::lock_guard<std::mutex> guard (node->active.mutex);
-			election->confirm_once ();
-		}
+		auto election = node->active.election (send2->qualified_root ());
+		ASSERT_NE (nullptr, election);
+		election->force_confirm ();
 
 		ASSERT_TIMELY (10s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) == 3);
 
@@ -1186,12 +1168,9 @@ TEST (confirmation_height, cemented_gap_below_receive)
 		add_callback_stats (*node, &observer_order, &mutex);
 
 		node->block_confirm (open1);
-		{
-			auto election = node->active.election (open1->qualified_root ());
-			ASSERT_NE (nullptr, election);
-			nano::lock_guard<std::mutex> guard (node->active.mutex);
-			election->confirm_once ();
-		}
+		auto election = node->active.election (open1->qualified_root ());
+		ASSERT_NE (nullptr, election);
+		election->force_confirm ();
 		ASSERT_TIMELY (10s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) == 10);
 
 		auto transaction = node->store.tx_begin_read ();
@@ -1279,12 +1258,9 @@ TEST (confirmation_height, cemented_gap_below_no_cache)
 		add_callback_stats (*node);
 
 		node->block_confirm (open1);
-		{
-			auto election = node->active.election (open1->qualified_root ());
-			ASSERT_NE (nullptr, election);
-			nano::lock_guard<std::mutex> guard (node->active.mutex);
-			election->confirm_once ();
-		}
+		auto election = node->active.election (open1->qualified_root ());
+		ASSERT_NE (nullptr, election);
+		election->force_confirm ();
 		ASSERT_TIMELY (10s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) == 6);
 
 		auto transaction = node->store.tx_begin_read ();
@@ -1329,23 +1305,17 @@ TEST (confirmation_height, election_winner_details_clearing)
 		add_callback_stats (*node);
 
 		node->block_confirm (send1);
-		{
-			auto election = node->active.election (send1->qualified_root ());
-			ASSERT_NE (nullptr, election);
-			nano::lock_guard<std::mutex> guard (node->active.mutex);
-			election->confirm_once ();
-		}
+		auto election = node->active.election (send1->qualified_root ());
+		ASSERT_NE (nullptr, election);
+		election->force_confirm ();
 
 		ASSERT_TIMELY (10s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) == 2);
 
 		ASSERT_EQ (0, node->active.election_winner_details_size ());
 		node->block_confirm (send);
-		{
-			auto election = node->active.election (send->qualified_root ());
-			ASSERT_NE (nullptr, election);
-			nano::lock_guard<std::mutex> guard (node->active.mutex);
-			election->confirm_once ();
-		}
+		election = node->active.election (send->qualified_root ());
+		ASSERT_NE (nullptr, election);
+		election->force_confirm ();
 
 		// Wait until this block is confirmed
 		ASSERT_TIMELY (10s, node->active.election_winner_details_size () == 1 || node->confirmation_height_processor.current ().is_zero ());
@@ -1353,12 +1323,9 @@ TEST (confirmation_height, election_winner_details_clearing)
 		ASSERT_EQ (1, node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::inactive_conf_height, nano::stat::dir::out));
 
 		node->block_confirm (send2);
-		{
-			auto election = node->active.election (send2->qualified_root ());
-			ASSERT_NE (nullptr, election);
-			nano::lock_guard<std::mutex> guard (node->active.mutex);
-			election->confirm_once ();
-		}
+		election = node->active.election (send2->qualified_root ());
+		ASSERT_NE (nullptr, election);
+		election->force_confirm ();
 
 		ASSERT_TIMELY (10s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) == 3);
 

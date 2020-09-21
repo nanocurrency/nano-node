@@ -90,7 +90,6 @@ public: // Interface
 	election (nano::node &, std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const &, bool, nano::election_behavior);
 	nano::election_vote_result vote (nano::account, uint64_t, nano::block_hash);
 	bool publish (std::shared_ptr<nano::block> block_a);
-	void confirm_once (nano::election_status_type = nano::election_status_type::active_confirmed_quorum);
 	size_t insert_inactive_votes_cache (nano::block_hash const &);
 	// Confirm this block if quorum is met
 	void confirm_if_quorum ();
@@ -105,6 +104,7 @@ public: // Information
 
 private:
 	void transition_active_impl ();
+	void confirm_once (nano::election_status_type = nano::election_status_type::active_confirmed_quorum);
 	void broadcast_block (nano::confirmation_solicitor &);
 	void send_confirm_req (nano::confirmation_solicitor &);
 	// Calculate votes for local representatives
@@ -122,5 +122,8 @@ private:
 	static std::chrono::seconds constexpr late_blocks_delay{ 5 };
 
 	friend class active_transactions;
+
+public: // Only used in tests
+	void force_confirm (nano::election_status_type = nano::election_status_type::active_confirmed_quorum);
 };
 }
