@@ -555,8 +555,7 @@ public:
 
 	void pruned_put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a) override
 	{
-		nano::db_val<Val> junk; // No data to insert, only key
-		auto status = put (transaction_a, tables::pruned, hash_a, junk);
+		auto status = put_key (transaction_a, tables::pruned, hash_a);
 		release_assert (success (status));
 	}
 
