@@ -1,25 +1,21 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/lmdbconfig.hpp>
+#include <nano/lib/logger_mt.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/lmdb/lmdb.hpp>
+#include <nano/node/rocksdb/rocksdb.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/utility.hpp>
 #include <nano/secure/versioning.hpp>
 #include <nano/test_common/testutil.hpp>
 
-#include <boost/filesystem.hpp>
-
-#if NANO_ROCKSDB
-#include <nano/node/rocksdb/rocksdb.hpp>
-#endif
-
-#include <nano/lib/logger_mt.hpp>
-#include <nano/node/lmdb/lmdb.hpp>
-
 #include <gtest/gtest.h>
+
+#include <boost/filesystem.hpp>
 
 #include <fstream>
 #include <unordered_set>
@@ -1914,8 +1910,6 @@ TEST (block_store, rocksdb_force_test_env_variable)
 	auto store = nano::make_store (logger, nano::unique_path ());
 
 	auto mdb_cast = dynamic_cast<nano::mdb_store *> (store.get ());
-
-#if NANO_ROCKSDB
 	if (value && boost::lexical_cast<int> (value) == 1)
 	{
 		ASSERT_NE (boost::polymorphic_downcast<nano::rocksdb_store *> (store.get ()), nullptr);
@@ -1924,16 +1918,12 @@ TEST (block_store, rocksdb_force_test_env_variable)
 	{
 		ASSERT_NE (mdb_cast, nullptr);
 	}
-#else
-	ASSERT_NE (mdb_cast, nullptr);
-#endif
 }
 
 namespace nano
 {
 TEST (rocksdb_block_store, tombstone_count)
 {
-#if NANO_ROCKSDB
 	if (nano::using_rocksdb_in_tests ())
 	{
 		nano::logger_mt logger;
@@ -1946,7 +1936,6 @@ TEST (rocksdb_block_store, tombstone_count)
 		store->unchecked_del (transaction, nano::unchecked_key (block1->previous (), block1->hash ()));
 		ASSERT_EQ (store->tombstone_map.at (nano::tables::unchecked).num_since_last_flush.load (), 1);
 	}
-#endif
 }
 }
 
