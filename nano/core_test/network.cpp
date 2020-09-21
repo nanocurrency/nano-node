@@ -832,13 +832,14 @@ TEST (network, replace_port)
 	auto wrong_endpoint = nano::endpoint (node1->network.endpoint ().address (), 23000);
 	auto channel0 (node0->network.udp_channels.insert (wrong_endpoint, node1->network_params.protocol.protocol_version));
 	ASSERT_NE (nullptr, channel0);
-	channel0->set_node_id (node1->node_id.pub);
+	node0->network.udp_channels.modify (channel0, [&node1](std::shared_ptr<nano::transport::channel> channel_a) {
+		channel_a->set_node_id (node1->node_id.pub);
+	});
 	auto peers_list (node0->network.list (std::numeric_limits<size_t>::max ()));
 	ASSERT_EQ (peers_list[0]->get_node_id (), node1->node_id.pub);
 	auto channel1 (std::make_shared<nano::transport::channel_udp> (node0->network.udp_channels, node1->network.endpoint (), node1->network_params.protocol.protocol_version));
 	ASSERT_EQ (node0->network.udp_channels.size (), 1);
 	node0->network.send_keepalive (channel1);
-	node0->network.udp_channels.modify (channel0, [](auto) {});
 	// On handshake, the channel is replaced
 	ASSERT_TIMELY (5s, !node0->network.udp_channels.channel (wrong_endpoint) && node0->network.udp_channels.channel (node1->network.endpoint ()));
 }
