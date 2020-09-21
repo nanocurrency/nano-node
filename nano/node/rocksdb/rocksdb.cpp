@@ -64,10 +64,10 @@ void rocksdb_val::convert_buffer_to_value ()
 }
 
 nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a, bool pruning_a) :
-logger (logger_a),
-rocksdb_config (rocksdb_config_a),
-cf_name_table_map (create_cf_name_table_map ()),
-max_block_write_batch_num_m (nano::narrow_cast<unsigned> (blocks_memtable_size_bytes () / (2 * (sizeof (nano::block_type) + nano::state_block::size + nano::block_sideband::size (nano::block_type::state)))))
+logger{ logger_a },
+rocksdb_config{ rocksdb_config_a },
+max_block_write_batch_num_m{ nano::narrow_cast<unsigned> (blocks_memtable_size_bytes () / (2 * (sizeof (nano::block_type) + nano::state_block::size + nano::block_sideband::size (nano::block_type::state)))) },
+cf_name_table_map{ create_cf_name_table_map () }
 {
 	boost::system::error_code error_mkdir, error_chmod;
 	boost::filesystem::create_directories (path_a, error_mkdir);
@@ -172,8 +172,6 @@ rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_common_cf_options (std::sh
 {
 	rocksdb::ColumnFamilyOptions cf_options;
 	cf_options.table_factory = table_factory_a;
-
-	auto write_buffer_size = memtable_size_bytes_a;
 
 	// (1 active, 1 inactive)
 	auto num_memtables = 2;

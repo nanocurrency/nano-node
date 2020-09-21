@@ -1009,7 +1009,6 @@ int main (int argc, char * const * argv)
 				}
 			}
 
-			uint64_t block_count (0);
 			node->block_processor.flush ();
 			auto end (std::chrono::high_resolution_clock::now ());
 			auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());

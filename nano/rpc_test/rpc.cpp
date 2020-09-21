@@ -426,16 +426,9 @@ TEST (rpc, send_fail)
 	request.put ("source", nano::dev_genesis_key.pub.to_account ());
 	request.put ("destination", nano::dev_genesis_key.pub.to_account ());
 	request.put ("amount", "100");
-	std::atomic<bool> done (false);
-	system.deadline_set (10s);
-	std::thread thread2 ([&system, &done]() {
-		ASSERT_TIMELY (10s, done);
-	});
 	test_response response (request, rpc.config.port, system.io_ctx);
 	ASSERT_TIMELY (10s, response.status != 0);
-	done = true;
 	ASSERT_EQ (std::error_code (nano::error_common::account_not_found_wallet).message (), response.json.get<std::string> ("error"));
-	thread2.join ();
 }
 
 TEST (rpc, send_work)
