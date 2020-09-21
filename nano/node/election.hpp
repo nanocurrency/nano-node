@@ -65,53 +65,61 @@ private: // State management
 
 	bool valid_change (nano::election::state_t, nano::election::state_t) const;
 	bool state_change (nano::election::state_t, nano::election::state_t);
-	void broadcast_block (nano::confirmation_solicitor &);
-	void send_confirm_req (nano::confirmation_solicitor &);
-	// Calculate votes for local representatives
-	void generate_votes ();
-	void remove_votes (nano::block_hash const &);
 	std::atomic<bool> prioritized_m = { false };
-
-public:
-	election (nano::node &, std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const &, bool, nano::election_behavior);
-	nano::election_vote_result vote (nano::account, uint64_t, nano::block_hash);
-	nano::tally_t tally ();
-	// Check if we have vote quorum
-	bool have_quorum (nano::tally_t const &, nano::uint128_t) const;
-	void confirm_once (nano::election_status_type = nano::election_status_type::active_confirmed_quorum);
-	// Confirm this block if quorum is met
-	void confirm_if_quorum ();
-	void log_votes (nano::tally_t const &, std::string const & = "") const;
-	bool publish (std::shared_ptr<nano::block> block_a);
-	size_t last_votes_size ();
-	size_t insert_inactive_votes_cache (nano::block_hash const &);
-	bool prioritized () const;
-	bool optimistic () const;
-	void prioritize_election (nano::vote_generator_session &);
-	// Erase all blocks from active and, if not confirmed, clear digests from network filters
-	void cleanup ();
 
 public: // State transitions
 	bool transition_time (nano::confirmation_solicitor &);
 	void transition_active ();
 
-private:
-	void transition_active_impl ();
-
-public:
+public: // Status
 	bool confirmed () const;
 	bool failed () const;
-	nano::election_behavior election_behavior{ nano::election_behavior::normal };
-	nano::node & node;
-	std::unordered_map<nano::account, nano::vote_info> last_votes;
-	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks;
-	std::chrono::steady_clock::time_point election_start = { std::chrono::steady_clock::now () };
+	bool prioritized () const;
+	bool optimistic () const;
+
+	void log_votes (nano::tally_t const &, std::string const & = "") const;
+	nano::tally_t tally ();
+	bool have_quorum (nano::tally_t const &, nano::uint128_t) const;
+
 	nano::election_status status;
+	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks;
+	std::unordered_map<nano::account, nano::vote_info> last_votes;
 	unsigned confirmation_request_count{ 0 };
-	std::unordered_map<nano::block_hash, nano::uint128_t> last_tally;
-	std::chrono::seconds late_blocks_delay{ 5 };
+
+public: // Interface
+	election (nano::node &, std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const &, bool, nano::election_behavior);
+	nano::election_vote_result vote (nano::account, uint64_t, nano::block_hash);
+	bool publish (std::shared_ptr<nano::block> block_a);
+	void confirm_once (nano::election_status_type = nano::election_status_type::active_confirmed_quorum);
+	size_t insert_inactive_votes_cache (nano::block_hash const &);
+	// Confirm this block if quorum is met
+	void confirm_if_quorum ();
+	void prioritize_election (nano::vote_generator_session &);
+	// Erase all blocks from active and, if not confirmed, clear digests from network filters
+	void cleanup ();
+	size_t last_votes_size ();
+
+public: // Information
 	uint64_t const height;
 	nano::root const root;
+
+private:
+	void transition_active_impl ();
+	void broadcast_block (nano::confirmation_solicitor &);
+	void send_confirm_req (nano::confirmation_solicitor &);
+	// Calculate votes for local representatives
+	void generate_votes ();
+	void remove_votes (nano::block_hash const &);
+
+private:
+	std::unordered_map<nano::block_hash, nano::uint128_t> last_tally;
+
+	nano::election_behavior const election_behavior{ nano::election_behavior::normal };
+	std::chrono::steady_clock::time_point const election_start = { std::chrono::steady_clock::now () };
+
+	nano::node & node;
+
+	static std::chrono::seconds constexpr late_blocks_delay{ 5 };
 
 	friend class active_transactions;
 };
