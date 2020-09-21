@@ -84,7 +84,6 @@ public: // Status
 	bool have_quorum (nano::tally_t const &, nano::uint128_t) const;
 
 	nano::election_status status;
-	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks;
 	unsigned confirmation_request_count{ 0 };
 
 public: // Interface
@@ -112,6 +111,7 @@ private:
 	void remove_votes (nano::block_hash const &);
 
 private:
+	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> last_blocks;
 	std::unordered_map<nano::account, nano::vote_info> last_votes;
 	std::unordered_map<nano::block_hash, nano::uint128_t> last_tally;
 
@@ -129,6 +129,7 @@ private:
 public: // Only used in tests
 	void force_confirm (nano::election_status_type = nano::election_status_type::active_confirmed_quorum);
 	std::unordered_map<nano::account, nano::vote_info> votes ();
+	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks ();
 
 	friend class confirmation_solicitor_different_hash_Test;
 	friend class confirmation_solicitor_bypass_max_requests_cap_Test;

@@ -1013,8 +1013,8 @@ double nano::active_transactions::normalized_multiplier (nano::block const & blo
 	{
 		auto election (*root_it_a);
 		debug_assert (election != roots.end ());
-		auto find_block (election->election->blocks.find (block_a.hash ()));
-		if (find_block != election->election->blocks.end () && find_block->second->has_sideband ())
+		auto find_block (election->election->last_blocks.find (block_a.hash ()));
+		if (find_block != election->election->last_blocks.end () && find_block->second->has_sideband ())
 		{
 			threshold = nano::work_threshold (block_a.work_version (), find_block->second->sideband ().details);
 		}

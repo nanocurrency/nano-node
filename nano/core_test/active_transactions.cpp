@@ -55,7 +55,7 @@ TEST (active_transactions, confirm_active)
 	// At least one confirmation request
 	ASSERT_GT (election->confirmation_request_count, 0u);
 	// Blocks were cleared (except for not_an_account)
-	ASSERT_EQ (1, election->blocks.size ());
+	ASSERT_EQ (1, election->blocks ().size ());
 }
 }
 
@@ -1306,7 +1306,7 @@ TEST (active_transactions, activate_account_chain)
 	auto result = node.active.activate (nano::dev_genesis_key.pub);
 	ASSERT_TRUE (result.inserted);
 	ASSERT_EQ (1, node.active.size ());
-	ASSERT_EQ (1, result.election->blocks.count (send->hash ()));
+	ASSERT_EQ (1, result.election->blocks ().count (send->hash ()));
 	auto result2 = node.active.activate (nano::dev_genesis_key.pub);
 	ASSERT_FALSE (result2.inserted);
 	ASSERT_EQ (result2.election, result.election);
@@ -1317,7 +1317,7 @@ TEST (active_transactions, activate_account_chain)
 	auto result3 = node.active.activate (nano::dev_genesis_key.pub);
 	ASSERT_FALSE (result3.inserted);
 	ASSERT_NE (nullptr, result3.election);
-	ASSERT_EQ (1, result3.election->blocks.count (send2->hash ()));
+	ASSERT_EQ (1, result3.election->blocks ().count (send2->hash ()));
 	result3.election->force_confirm ();
 	ASSERT_TIMELY (3s, node.block_confirmed (send2->hash ()));
 	// On cementing, the next election is started
@@ -1326,11 +1326,11 @@ TEST (active_transactions, activate_account_chain)
 	auto result4 = node.active.activate (nano::dev_genesis_key.pub);
 	ASSERT_FALSE (result4.inserted);
 	ASSERT_NE (nullptr, result4.election);
-	ASSERT_EQ (1, result4.election->blocks.count (send3->hash ()));
+	ASSERT_EQ (1, result4.election->blocks ().count (send3->hash ()));
 	auto result5 = node.active.activate (key.pub);
 	ASSERT_FALSE (result5.inserted);
 	ASSERT_NE (nullptr, result5.election);
-	ASSERT_EQ (1, result5.election->blocks.count (open->hash ()));
+	ASSERT_EQ (1, result5.election->blocks ().count (open->hash ()));
 	result5.election->force_confirm ();
 	ASSERT_TIMELY (3s, node.block_confirmed (open->hash ()));
 	// Until send3 is also confirmed, the receive block should not activate

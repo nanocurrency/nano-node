@@ -28,7 +28,7 @@ height (block_a->sideband ().height),
 root (block_a->root ())
 {
 	last_votes.emplace (node.network_params.random.not_an_account, nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () });
-	blocks.emplace (block_a->hash (), block_a);
+	last_blocks.emplace (block_a->hash (), block_a);
 }
 
 void nano::election::confirm_once (nano::election_status_type type_a)
@@ -41,7 +41,7 @@ void nano::election::confirm_once (nano::election_status_type type_a)
 		status.election_end = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ());
 		status.election_duration = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::steady_clock::now () - election_start);
 		status.confirmation_request_count = confirmation_request_count;
-		status.block_count = nano::narrow_cast<decltype (status.block_count)> (blocks.size ());
+		status.block_count = nano::narrow_cast<decltype (status.block_count)> (last_blocks.size ());
 		status.voter_count = nano::narrow_cast<decltype (status.voter_count)> (last_votes.size ());
 		status.type = type_a;
 		auto status_l (status);
@@ -255,8 +255,8 @@ nano::tally_t nano::election::tally ()
 	nano::tally_t result;
 	for (auto item : block_weights)
 	{
-		auto block (blocks.find (item.first));
-		if (block != blocks.end ())
+		auto block (last_blocks.find (item.first));
+		if (block != last_blocks.end ())
 		{
 			result.emplace (item.second, block->second);
 		}
@@ -286,7 +286,7 @@ void nano::election::confirm_if_quorum ()
 	}
 	if (have_quorum (tally_l, sum))
 	{
-		if (node.config.logging.vote_logging () || (node.config.logging.election_fork_tally_logging () && blocks.size () > 1))
+		if (node.config.logging.vote_logging () || (node.config.logging.election_fork_tally_logging () && last_blocks.size () > 1))
 		{
 			log_votes (tally_l);
 		}
@@ -372,7 +372,7 @@ bool nano::election::publish (std::shared_ptr<nano::block> block_a)
 {
 	// Do not insert new blocks if already confirmed
 	auto result (confirmed ());
-	if (!result && blocks.size () >= 10)
+	if (!result && last_blocks.size () >= 10)
 	{
 		if (last_tally[block_a->hash ()] < node.online_reps.online_stake () / 10)
 		{
@@ -381,10 +381,10 @@ bool nano::election::publish (std::shared_ptr<nano::block> block_a)
 	}
 	if (!result)
 	{
-		auto existing = blocks.find (block_a->hash ());
-		if (existing == blocks.end ())
+		auto existing = last_blocks.find (block_a->hash ());
+		if (existing == last_blocks.end ())
 		{
-			blocks.emplace (std::make_pair (block_a->hash (), block_a));
+			last_blocks.emplace (std::make_pair (block_a->hash (), block_a));
 			if (!insert_inactive_votes_cache (block_a->hash ()))
 			{
 				// Even if no votes were in cache, they could be in the election
@@ -410,7 +410,7 @@ void nano::election::cleanup ()
 	bool unconfirmed (!confirmed ());
 	auto winner_root (status.winner->qualified_root ());
 	auto const & winner_hash (status.winner->hash ());
-	for (auto const & block : blocks)
+	for (auto const & block : last_blocks)
 	{
 		auto & hash (block.first);
 		auto erased (node.active.blocks.erase (hash));
@@ -428,7 +428,7 @@ void nano::election::cleanup ()
 		node.active.recently_dropped.add (winner_root);
 
 		// Clear network filter in another thread
-		node.worker.push_task ([node_l = node.shared (), blocks_l = std::move (blocks)]() {
+		node.worker.push_task ([node_l = node.shared (), blocks_l = std::move (last_blocks)]() {
 			for (auto const & block : blocks_l)
 			{
 				node_l->network.publish_filter.clear (block.second);
@@ -514,6 +514,13 @@ void nano::election::force_confirm (nano::election_status_type type_a)
 	release_assert (node.network_params.network.is_dev_network ());
 	nano::lock_guard<std::mutex> guard (node.active.mutex);
 	confirm_once (type_a);
+}
+
+std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> nano::election::blocks ()
+{
+	debug_assert (node.network_params.network.is_dev_network ());
+	nano::lock_guard<std::mutex> guard (node.active.mutex);
+	return last_blocks;
 }
 
 std::unordered_map<nano::account, nano::vote_info> nano::election::votes ()
