@@ -1113,18 +1113,6 @@ double nano::active_transactions::active_multiplier ()
 	return trended_active_multiplier.load ();
 }
 
-// List of active blocks in elections
-std::deque<std::shared_ptr<nano::block>> nano::active_transactions::list_blocks ()
-{
-	std::deque<std::shared_ptr<nano::block>> result;
-	nano::lock_guard<std::mutex> lock (mutex);
-	for (auto & root : roots)
-	{
-		result.push_back (root.election->status.winner);
-	}
-	return result;
-}
-
 std::deque<nano::election_status> nano::active_transactions::list_recently_cemented ()
 {
 	nano::lock_guard<std::mutex> lock (mutex);
