@@ -247,9 +247,9 @@ bool nano::election::have_quorum (nano::tally_t const & tally_a, nano::uint128_t
 nano::tally_t nano::election::tally ()
 {
 	std::unordered_map<nano::block_hash, nano::uint128_t> block_weights;
-	for (auto vote_info : last_votes)
+	for (auto const & [account, info] : last_votes)
 	{
-		block_weights[vote_info.second.hash] += node.ledger.weight (vote_info.first);
+		block_weights[info.hash] += node.ledger.weight (account);
 	}
 	last_tally = block_weights;
 	nano::tally_t result;
@@ -270,9 +270,9 @@ void nano::election::confirm_if_quorum ()
 	debug_assert (!tally_l.empty ());
 	auto winner (tally_l.begin ());
 	auto block_l (winner->second);
-	auto winner_hash_l (block_l->hash ());
+	auto const & winner_hash_l (block_l->hash ());
 	status.tally = winner->first;
-	auto status_winner_hash_l (status.winner->hash ());
+	auto const & status_winner_hash_l (status.winner->hash ());
 	nano::uint128_t sum (0);
 	for (auto & i : tally_l)
 	{
@@ -415,7 +415,7 @@ void nano::election::cleanup ()
 {
 	bool unconfirmed (!confirmed ());
 	auto winner_root (status.winner->qualified_root ());
-	auto winner_hash (status.winner->hash ());
+	auto const & winner_hash (status.winner->hash ());
 	for (auto const & block : blocks)
 	{
 		auto & hash (block.first);
