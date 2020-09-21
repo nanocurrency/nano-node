@@ -479,6 +479,12 @@ void nano::election::prioritize_election (nano::vote_generator_session & generat
 	generator_session_a.add (root, status.winner->hash ());
 }
 
+std::shared_ptr<nano::block> nano::election::winner ()
+{
+	nano::lock_guard<std::mutex> guard (node.active.mutex);
+	return status.winner;
+}
+
 void nano::election::generate_votes ()
 {
 	debug_assert (!node.active.mutex.try_lock ());

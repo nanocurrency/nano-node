@@ -1070,9 +1070,9 @@ TEST (node, fork_publish_inactive)
 		auto & blocks (election->blocks);
 		ASSERT_NE (blocks.end (), blocks.find (send1->hash ()));
 		ASSERT_NE (blocks.end (), blocks.find (send2->hash ()));
-		ASSERT_NE (election->status.winner, send1);
-		ASSERT_NE (election->status.winner, send2);
 	}
+	ASSERT_NE (election->winner (), send1);
+	ASSERT_NE (election->winner (), send2);
 }
 
 TEST (node, fork_keep)
@@ -1372,9 +1372,9 @@ TEST (node, fork_open)
 		election = node1.active.election (publish3.block->qualified_root ());
 		nano::lock_guard<std::mutex> guard (node1.active.mutex);
 		ASSERT_EQ (2, election->blocks.size ());
-		ASSERT_EQ (publish2.block->hash (), election->status.winner->hash ());
-		ASSERT_FALSE (election->confirmed ());
 	}
+	ASSERT_EQ (publish2.block->hash (), election->winner ()->hash ());
+	ASSERT_FALSE (election->confirmed ());
 	ASSERT_TRUE (node1.block (publish2.block->hash ()));
 	ASSERT_FALSE (node1.block (publish3.block->hash ()));
 }
@@ -3919,7 +3919,7 @@ TEST (node, rollback_vote_self)
 			lock.unlock ();
 			ASSERT_EQ (2, election->votes ().size ());
 			// The winner changed
-			ASSERT_EQ (election->status.winner, fork);
+			ASSERT_EQ (election->winner (), fork);
 		}
 		// Even without the rollback being finished, the aggregator must reply with a vote for the new winner, not the old one
 		ASSERT_TRUE (node.history.votes (send2->root (), send2->hash ()).empty ());

@@ -77,6 +77,7 @@ public: // Status
 	bool failed () const;
 	bool prioritized () const;
 	bool optimistic () const;
+	std::shared_ptr<nano::block> winner ();
 
 	void log_votes (nano::tally_t const &, std::string const & = "") const;
 	nano::tally_t tally ();

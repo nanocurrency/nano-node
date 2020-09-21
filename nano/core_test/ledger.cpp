@@ -826,9 +826,7 @@ TEST (votes, add_two)
 	ASSERT_EQ (send1->hash (), votes1[nano::dev_genesis_key.pub].hash);
 	ASSERT_NE (votes1.end (), votes1.find (key2.pub));
 	ASSERT_EQ (send2->hash (), votes1[key2.pub].hash);
-	nano::lock_guard<std::mutex> guard (node1.active.mutex);
-	auto winner (*election1.election->tally ().begin ());
-	ASSERT_EQ (*send1, *winner.second);
+	ASSERT_EQ (*send1, *election1.election->winner ());
 }
 
 namespace nano
@@ -854,33 +852,30 @@ TEST (votes, add_existing)
 	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote1));
 	// Block is already processed from vote
 	ASSERT_TRUE (node1.active.publish (send1));
-	nano::unique_lock<std::mutex> lock (node1.active.mutex);
-	ASSERT_EQ (1, election1.election->last_votes[nano::dev_genesis_key.pub].sequence);
+	ASSERT_EQ (1, election1.election->votes ()[nano::dev_genesis_key.pub].sequence);
 	nano::keypair key2;
 	auto send2 (std::make_shared<nano::send_block> (genesis.hash (), key2.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send2);
 	auto vote2 (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 2, send2));
 	// Pretend we've waited the timeout
+	nano::unique_lock<std::mutex> lock (node1.active.mutex);
 	election1.election->last_votes[nano::dev_genesis_key.pub].time = std::chrono::steady_clock::now () - std::chrono::seconds (20);
 	lock.unlock ();
 	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote2));
 	ASSERT_FALSE (node1.active.publish (send2));
-	lock.lock ();
-	ASSERT_EQ (2, election1.election->last_votes[nano::dev_genesis_key.pub].sequence);
+	ASSERT_EQ (2, election1.election->votes ()[nano::dev_genesis_key.pub].sequence);
 	// Also resend the old vote, and see if we respect the sequence number
+	lock.lock ();
 	election1.election->last_votes[nano::dev_genesis_key.pub].time = std::chrono::steady_clock::now () - std::chrono::seconds (20);
 	lock.unlock ();
 	ASSERT_EQ (nano::vote_code::replay, node1.active.vote (vote1));
+	ASSERT_EQ (2, election1.election->votes ()[nano::dev_genesis_key.pub].sequence);
+	auto votes (election1.election->votes ());
+	ASSERT_EQ (2, votes.size ());
+	ASSERT_NE (votes.end (), votes.find (nano::dev_genesis_key.pub));
+	ASSERT_EQ (send2->hash (), votes[nano::dev_genesis_key.pub].hash);
 	lock.lock ();
-	ASSERT_EQ (2, election1.election->last_votes[nano::dev_genesis_key.pub].sequence);
-	ASSERT_EQ (2, election1.election->last_votes.size ());
-	ASSERT_NE (election1.election->last_votes.end (), election1.election->last_votes.find (nano::dev_genesis_key.pub));
-	ASSERT_EQ (send2->hash (), election1.election->last_votes[nano::dev_genesis_key.pub].hash);
-	{
-		auto transaction (node1.store.tx_begin_read ());
-		auto winner (*election1.election->tally ().begin ());
-		ASSERT_EQ (*send2, *winner.second);
-	}
+	ASSERT_EQ (*send2, *election1.election->tally ().begin ()->second);
 }
 
 // Lower sequence numbers are ignored
@@ -911,9 +906,7 @@ TEST (votes, add_old)
 	auto votes (election1.election->votes ());
 	ASSERT_NE (votes.end (), votes.find (nano::dev_genesis_key.pub));
 	ASSERT_EQ (send1->hash (), votes[nano::dev_genesis_key.pub].hash);
-	nano::lock_guard<std::mutex> lock (node1.active.mutex);
-	auto winner (*election1.election->tally ().begin ());
-	ASSERT_EQ (*send1, *winner.second);
+	ASSERT_EQ (*send1, *election1.election->winner ());
 }
 }
 
@@ -954,11 +947,8 @@ TEST (votes, add_old_different_account)
 	ASSERT_NE (votes2.end (), votes2.find (nano::dev_genesis_key.pub));
 	ASSERT_EQ (send1->hash (), votes1[nano::dev_genesis_key.pub].hash);
 	ASSERT_EQ (send2->hash (), votes2[nano::dev_genesis_key.pub].hash);
-	nano::lock_guard<std::mutex> lock (node1.active.mutex);
-	auto winner1 (*election1->tally ().begin ());
-	ASSERT_EQ (*send1, *winner1.second);
-	auto winner2 (*election2->tally ().begin ());
-	ASSERT_EQ (*send2, *winner2.second);
+	ASSERT_EQ (*send1, *election1->winner ());
+	ASSERT_EQ (*send2, *election2->winner ());
 }
 
 // The voting cooldown is respected
@@ -985,9 +975,7 @@ TEST (votes, add_cooldown)
 	auto votes (election1.election->votes ());
 	ASSERT_NE (votes.end (), votes.find (nano::dev_genesis_key.pub));
 	ASSERT_EQ (send1->hash (), votes[nano::dev_genesis_key.pub].hash);
-	nano::lock_guard<std::mutex> lock (node1.active.mutex);
-	auto winner (*election1.election->tally ().begin ());
-	ASSERT_EQ (*send1, *winner.second);
+	ASSERT_EQ (*send1, *election1.election->winner ());
 }
 
 // Query for block successor
@@ -2720,15 +2708,14 @@ TEST (ledger, block_hash_account_conflict)
 	ASSERT_NE (nullptr, election3);
 	auto election4 = node1.active.election (open_epoch1->qualified_root ());
 	ASSERT_NE (nullptr, election4);
-	nano::lock_guard<std::mutex> lock (node1.active.mutex);
-	auto winner1 (*election1->tally ().begin ());
-	auto winner2 (*election2->tally ().begin ());
-	auto winner3 (*election3->tally ().begin ());
-	auto winner4 (*election4->tally ().begin ());
-	ASSERT_EQ (*send1, *winner1.second);
-	ASSERT_EQ (*receive1, *winner2.second);
-	ASSERT_EQ (*send2, *winner3.second);
-	ASSERT_EQ (*open_epoch1, *winner4.second);
+	auto winner1 (election1->winner ());
+	auto winner2 (election2->winner ());
+	auto winner3 (election3->winner ());
+	auto winner4 (election4->winner ());
+	ASSERT_EQ (*send1, *winner1);
+	ASSERT_EQ (*receive1, *winner2);
+	ASSERT_EQ (*send2, *winner3);
+	ASSERT_EQ (*open_epoch1, *winner4);
 }
 
 TEST (ledger, could_fit)
