@@ -405,12 +405,6 @@ bool nano::election::publish (std::shared_ptr<nano::block> block_a)
 	return result;
 }
 
-size_t nano::election::last_votes_size ()
-{
-	nano::lock_guard<std::mutex> lock (node.active.mutex);
-	return last_votes.size ();
-}
-
 void nano::election::cleanup ()
 {
 	bool unconfirmed (!confirmed ());
@@ -514,4 +508,11 @@ void nano::election::force_confirm (nano::election_status_type type_a)
 	release_assert (node.network_params.network.is_dev_network ());
 	nano::lock_guard<std::mutex> guard (node.active.mutex);
 	confirm_once (type_a);
+}
+
+std::unordered_map<nano::account, nano::vote_info> nano::election::votes ()
+{
+	debug_assert (node.network_params.network.is_dev_network ());
+	nano::lock_guard<std::mutex> guard (node.active.mutex);
+	return last_votes;
 }

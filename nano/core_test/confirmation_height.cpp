@@ -673,13 +673,9 @@ TEST (confirmation_height, conflict_rollback_cemented)
 		node1->block_processor.flush ();
 		node2->network.process_message (publish1, channel2);
 		node2->block_processor.flush ();
-		nano::unique_lock<std::mutex> lock (node2->active.mutex);
-		auto conflict (node2->active.roots.find (nano::qualified_root (genesis.hash (), genesis.hash ())));
-		ASSERT_NE (node2->active.roots.end (), conflict);
-		auto votes1 (conflict->election);
-		ASSERT_NE (nullptr, votes1);
-		ASSERT_EQ (1, votes1->last_votes.size ());
-		lock.unlock ();
+		auto election (node2->active.election (nano::qualified_root (genesis.hash (), genesis.hash ())));
+		ASSERT_NE (nullptr, election);
+		ASSERT_EQ (1, election->votes ().size ());
 		// Force blocks to be cemented on both nodes
 		{
 			auto transaction (node1->store.tx_begin_write ());
@@ -702,8 +698,8 @@ TEST (confirmation_height, conflict_rollback_cemented)
 		}
 		auto transaction1 (node1->store.tx_begin_read ());
 		auto transaction2 (node2->store.tx_begin_read ());
-		lock.lock ();
-		auto winner (*votes1->tally ().begin ());
+		nano::unique_lock<std::mutex> lock (node2->active.mutex);
+		auto winner (*election->tally ().begin ());
 		ASSERT_EQ (*publish1.block, *winner.second);
 		ASSERT_EQ (nano::genesis_amount - 100, winner.first);
 		ASSERT_TRUE (node1->store.block_exists (transaction1, publish1.block->hash ()));

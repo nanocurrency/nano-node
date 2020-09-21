@@ -13,6 +13,7 @@ namespace nano
 {
 class channel;
 class confirmation_solicitor;
+class json_handler;
 class node;
 class vote_generator_session;
 class vote_info final
@@ -83,7 +84,6 @@ public: // Status
 
 	nano::election_status status;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks;
-	std::unordered_map<nano::account, nano::vote_info> last_votes;
 	unsigned confirmation_request_count{ 0 };
 
 public: // Interface
@@ -96,7 +96,6 @@ public: // Interface
 	void prioritize_election (nano::vote_generator_session &);
 	// Erase all blocks from active and, if not confirmed, clear digests from network filters
 	void cleanup ();
-	size_t last_votes_size ();
 
 public: // Information
 	uint64_t const height;
@@ -112,6 +111,7 @@ private:
 	void remove_votes (nano::block_hash const &);
 
 private:
+	std::unordered_map<nano::account, nano::vote_info> last_votes;
 	std::unordered_map<nano::block_hash, nano::uint128_t> last_tally;
 
 	nano::election_behavior const behavior{ nano::election_behavior::normal };
@@ -122,8 +122,16 @@ private:
 	static std::chrono::seconds constexpr late_blocks_delay{ 5 };
 
 	friend class active_transactions;
+	friend class confirmation_solicitor;
+	friend class json_handler;
 
 public: // Only used in tests
 	void force_confirm (nano::election_status_type = nano::election_status_type::active_confirmed_quorum);
+	std::unordered_map<nano::account, nano::vote_info> votes ();
+
+	friend class confirmation_solicitor_different_hash_Test;
+	friend class confirmation_solicitor_bypass_max_requests_cap_Test;
+	friend class votes_add_existing_Test;
+	friend class votes_add_old_Test;
 };
 }

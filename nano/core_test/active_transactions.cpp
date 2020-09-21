@@ -259,38 +259,28 @@ TEST (active_transactions, inactive_votes_cache_existing_vote)
 	node.block_processor.add (open);
 	node.block_processor.flush ();
 	ASSERT_TIMELY (5s, node.active.size () == 1);
-	std::shared_ptr<nano::election> election;
-	{
-		nano::lock_guard<std::mutex> active_guard (node.active.mutex);
-		auto it (node.active.roots.begin ());
-		ASSERT_NE (node.active.roots.end (), it);
-		election = it->election;
-	}
+	auto election (node.active.election (send->qualified_root ()));
+	ASSERT_NE (nullptr, election);
 	ASSERT_GT (node.weight (key.pub), node.minimum_principal_weight ());
 	// Insert vote
 	auto vote1 (std::make_shared<nano::vote> (key.pub, key.prv, 1, std::vector<nano::block_hash> (1, send->hash ())));
 	node.vote_processor.vote (vote1, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
 	system.deadline_set (5s);
-	bool done (false);
-	while (!done)
-	{
-		nano::unique_lock<std::mutex> active_lock (node.active.mutex);
-		done = (election->last_votes.size () == 2);
-		active_lock.unlock ();
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, election->votes ().size () == 2)
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::vote_new));
-	nano::lock_guard<std::mutex> active_guard (node.active.mutex);
-	auto last_vote1 (election->last_votes[key.pub]);
+	auto last_vote1 (election->votes ()[key.pub]);
 	ASSERT_EQ (send->hash (), last_vote1.hash);
 	ASSERT_EQ (1, last_vote1.sequence);
 	// Attempt to change vote with inactive_votes_cache
-	node.active.add_inactive_votes_cache (send->hash (), key.pub);
-	ASSERT_EQ (1, node.active.find_inactive_votes_cache (send->hash ()).voters.size ());
-	election->insert_inactive_votes_cache (send->hash ());
+	{
+		nano::lock_guard<std::mutex> active_guard (node.active.mutex);
+		node.active.add_inactive_votes_cache (send->hash (), key.pub);
+		ASSERT_EQ (1, node.active.find_inactive_votes_cache (send->hash ()).voters.size ());
+		election->insert_inactive_votes_cache (send->hash ());
+	}
 	// Check that election data is not changed
-	ASSERT_EQ (2, election->last_votes.size ());
-	auto last_vote2 (election->last_votes[key.pub]);
+	ASSERT_EQ (2, election->votes ().size ());
+	auto last_vote2 (election->votes ()[key.pub]);
 	ASSERT_EQ (last_vote1.hash, last_vote2.hash);
 	ASSERT_EQ (last_vote1.sequence, last_vote2.sequence);
 	ASSERT_EQ (last_vote1.time, last_vote2.time);
@@ -353,12 +343,8 @@ TEST (active_transactions, inactive_votes_cache_multiple_votes)
 	ASSERT_EQ (1, node.active.inactive_votes_cache_size ());
 	// Start election
 	node.active.insert (send1);
-	{
-		nano::lock_guard<std::mutex> active_guard (node.active.mutex);
-		auto it (node.active.roots.begin ());
-		ASSERT_NE (node.active.roots.end (), it);
-		ASSERT_EQ (3, it->election->last_votes.size ()); // 2 votes and 1 default not_an_acount
-	}
+	auto election = node.active.insert (send1).election;
+	ASSERT_EQ (3, election->votes ().size ()); // 2 votes and 1 default not_an_acount
 	ASSERT_EQ (2, node.stats.count (nano::stat::type::election, nano::stat::detail::vote_cached));
 }
 
