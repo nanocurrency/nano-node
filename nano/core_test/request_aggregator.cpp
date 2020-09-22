@@ -185,12 +185,9 @@ TEST (request_aggregator, split)
 	}
 	// Confirm all blocks
 	node.block_confirm (blocks.back ());
-	{
-		auto election (node.active.election (blocks.back ()->qualified_root ()));
-		ASSERT_NE (nullptr, election);
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
-		election->confirm_once ();
-	}
+	auto election (node.active.election (blocks.back ()->qualified_root ()));
+	ASSERT_NE (nullptr, election);
+	election->force_confirm ();
 	ASSERT_TIMELY (5s, max_vbh + 2 == node.ledger.cache.cemented_count);
 	ASSERT_EQ (max_vbh + 1, request.size ());
 	auto channel (node.network.udp_channels.create (node.network.endpoint ()));
@@ -364,12 +361,9 @@ TEST (request_aggregator, cannot_vote)
 
 	// Confirm send1
 	node.block_confirm (send1);
-	{
-		auto election (node.active.election (send1->qualified_root ()));
-		ASSERT_NE (nullptr, election);
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
-		election->confirm_once ();
-	}
+	auto election (node.active.election (send1->qualified_root ()));
+	ASSERT_NE (nullptr, election);
+	election->force_confirm ();
 	ASSERT_TIMELY (3s, node.ledger.dependents_confirmed (node.store.tx_begin_read (), *send2));
 	node.aggregator.add (channel, request);
 	ASSERT_EQ (1, node.aggregator.size ());
