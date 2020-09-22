@@ -118,7 +118,11 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 				else
 				{
 					lock_and_cleanup ();
-					condition.wait (lk);
+					// A block could have been confirmed during the re-locking
+					if (!awaiting_processing.empty ())
+					{
+						condition.wait (lk);
+					}
 				}
 			}
 			else
