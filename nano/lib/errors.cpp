@@ -127,6 +127,8 @@ std::string nano::error_rpc_messages::message (int ev) const
 	{
 		case nano::error_rpc::generic:
 			return "Unknown error";
+		case nano::error_rpc::empty_response:
+			return "Empty response";
 		case nano::error_rpc::bad_destination:
 			return "Bad destination account";
 		case nano::error_rpc::bad_difficulty_format:
@@ -271,8 +273,6 @@ std::string nano::error_config_messages::message (int ev) const
 			return "Invalid configuration value";
 		case nano::error_config::missing_value:
 			return "Missing value in configuration";
-		case nano::error_config::rocksdb_enabled_but_not_supported:
-			return "RocksDB has been enabled, but the node has not been built with RocksDB support. Set the CMake flag -DNANO_ROCKSDB=ON";
 	}
 
 	return "Invalid error code";

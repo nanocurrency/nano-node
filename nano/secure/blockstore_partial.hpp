@@ -1,10 +1,20 @@
 #pragma once
 
+#include <nano/lib/config.hpp>
 #include <nano/lib/rep_weights.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/buffer.hpp>
 
 #include <crypto/cryptopp/words.h>
+
+#include <thread>
+
+namespace
+{
+template <typename T>
+void parallel_traversal (std::function<void(T const &, T const &, bool const)> const & action);
+}
 
 namespace nano
 {
@@ -265,6 +275,7 @@ public:
 
 	std::shared_ptr<nano::vote> vote_generate (nano::transaction const & transaction_a, nano::account const & account_a, nano::raw_key const & key_a, std::shared_ptr<nano::block> block_a) override
 	{
+		debug_assert (nano::network_constants ().is_dev_network () || nano::thread_role::get () == nano::thread_role::name::voting);
 		nano::lock_guard<std::mutex> lock (cache_mutex);
 		auto result (vote_current (transaction_a, account_a));
 		uint64_t sequence ((result ? result->sequence : 0) + 1);
@@ -275,6 +286,7 @@ public:
 
 	std::shared_ptr<nano::vote> vote_generate (nano::transaction const & transaction_a, nano::account const & account_a, nano::raw_key const & key_a, std::vector<nano::block_hash> blocks_a) override
 	{
+		debug_assert (nano::network_constants ().is_dev_network () || nano::thread_role::get () == nano::thread_role::name::voting);
 		nano::lock_guard<std::mutex> lock (cache_mutex);
 		auto result (vote_current (transaction_a, account_a));
 		uint64_t sequence ((result ? result->sequence : 0) + 1);
@@ -543,8 +555,7 @@ public:
 
 	void peer_put (nano::write_transaction const & transaction_a, nano::endpoint_key const & endpoint_a) override
 	{
-		nano::db_val<Val> zero (static_cast<uint64_t> (0));
-		auto status = put (transaction_a, tables::peers, endpoint_a, zero);
+		auto status = put_key (transaction_a, tables::peers, endpoint_a);
 		release_assert (success (status));
 	}
 
@@ -701,6 +712,24 @@ public:
 		return count (transaction_a, tables::unchecked);
 	}
 
+	void latest_for_each_par (std::function<void(nano::store_iterator<nano::account, nano::account_info>, nano::store_iterator<nano::account, nano::account_info>)> const & action_a) override
+	{
+		parallel_traversal<nano::uint256_t> (
+		[&action_a, this](nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
+			auto transaction (this->tx_begin_read ());
+			action_a (this->latest_begin (transaction, start), !is_last ? this->latest_begin (transaction, end) : this->latest_end ());
+		});
+	}
+
+	void confirmation_height_for_each_par (std::function<void(nano::store_iterator<nano::account, nano::confirmation_height_info>, nano::store_iterator<nano::account, nano::confirmation_height_info>)> const & action_a) override
+	{
+		parallel_traversal<nano::uint256_t> (
+		[&action_a, this](nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
+			auto transaction (this->tx_begin_read ());
+			action_a (this->confirmation_height_begin (transaction, start), !is_last ? this->confirmation_height_begin (transaction, end) : this->confirmation_height_end ());
+		});
+	}
+
 	int const minimum_version{ 14 };
 
 protected:
@@ -758,6 +787,12 @@ protected:
 	int put (nano::write_transaction const & transaction_a, tables table_a, nano::db_val<Val> const & key_a, nano::db_val<Val> const & value_a)
 	{
 		return static_cast<Derived_Store &> (*this).put (transaction_a, table_a, key_a, value_a);
+	}
+
+	// Put only key without value
+	int put_key (nano::write_transaction const & transaction_a, tables table_a, nano::db_val<Val> const & key_a)
+	{
+		return put (transaction_a, table_a, key_a, nano::db_val<Val>{ std::nullptr_t{} });
 	}
 
 	int del (nano::write_transaction const & transaction_a, tables table_a, nano::db_val<Val> const & key_a)
@@ -821,4 +856,32 @@ public:
 	nano::write_transaction const & transaction;
 	nano::block_store_partial<Val, Derived_Store> & store;
 };
+}
+
+namespace
+{
+template <typename T>
+void parallel_traversal (std::function<void(T const &, T const &, bool const)> const & action)
+{
+	// Between 10 and 40 threads, scales well even in low power systems as long as actions are I/O bound
+	unsigned const thread_count = std::max (10u, std::min (40u, 10 * std::thread::hardware_concurrency ()));
+	T const value_max{ std::numeric_limits<T>::max () };
+	T const split = value_max / thread_count;
+	std::vector<std::thread> threads;
+	threads.reserve (thread_count);
+	for (unsigned thread (0); thread < thread_count; ++thread)
+	{
+		T const start = thread * split;
+		T const end = (thread + 1) * split;
+		bool const is_last = thread == thread_count - 1;
+
+		threads.emplace_back ([&action, start, end, is_last] {
+			action (start, end, is_last);
+		});
+	}
+	for (auto & thread : threads)
+	{
+		thread.join ();
+	}
+}
 }
