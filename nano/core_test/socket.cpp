@@ -33,7 +33,7 @@ TEST (socket, drop_policy)
 			return true;
 		});
 
-		auto client = std::make_shared<nano::socket> (*node, boost::none);
+		auto client = std::make_shared<nano::socket> (*node);
 		nano::transport::channel_tcp channel{ *node, client };
 		nano::util::counted_completion write_completion (total_message_count);
 
@@ -145,7 +145,7 @@ TEST (socket, concurrent_writes)
 	std::vector<std::shared_ptr<nano::socket>> clients;
 	for (unsigned i = 0; i < client_count; i++)
 	{
-		auto client = std::make_shared<nano::socket> (*node, boost::none);
+		auto client = std::make_shared<nano::socket> (*node);
 		clients.push_back (client);
 		client->async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::loopback (), 25000),
 		[&connection_count_completion](boost::system::error_code const & ec_a) {
@@ -201,4 +201,36 @@ TEST (socket, concurrent_writes)
 	{
 		t.join ();
 	}
+}
+
+TEST (socket_timer, construct_destruct)
+{
+	nano::system system (1);
+	auto socket = std::make_shared<nano::socket> (*system.nodes[0]);
+	nano::socket::timer timer{ socket };
+}
+
+TEST (socket_timer, construct_release)
+{
+	nano::system system (1);
+	auto socket = std::make_shared<nano::socket> (*system.nodes[0]);
+	nano::socket::timer timer{ socket };
+	timer.release ();
+}
+
+TEST (socket_timer, construct_move_destruct)
+{
+	nano::system system (1);
+	auto socket = std::make_shared<nano::socket> (*system.nodes[0]);
+	nano::socket::timer timer0{ socket };
+	nano::socket::timer timer1{ std::move (timer0) };
+}
+
+TEST (socket_timer, construct_move_release)
+{
+	nano::system system (1);
+	auto socket = std::make_shared<nano::socket> (*system.nodes[0]);
+	nano::socket::timer timer0{ socket };
+	nano::socket::timer timer1{ std::move (timer0) };
+	timer1.release ();
 }
