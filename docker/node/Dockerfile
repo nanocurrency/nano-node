@@ -7,9 +7,10 @@ ADD ./ /tmp/src
 
 RUN mkdir /tmp/build && \
     cd /tmp/build && \
-    cmake /tmp/src -DCI_BUILD=${CI_BUILD} -DBOOST_ROOT=${BOOST_ROOT} -DACTIVE_NETWORK=nano_${NETWORK}_network \
-    -DNANO_ROCKSDB=ON -DNANO_POW_SERVER=ON -DROCKSDB_LIBRARIES=/tmp/rocksdb/lib/librocksdb.a \
-    -DROCKSDB_INCLUDE_DIRS=/tmp/rocksdb/include -DNANO_SHARED_BOOST=ON && \
+    cmake /tmp/src -DCI_BUILD=${CI_BUILD} \
+    -DBOOST_ROOT=${BOOST_ROOT} -DPORTABLE=1 \
+    -DACTIVE_NETWORK=nano_${NETWORK}_network \
+    -DNANO_POW_SERVER=ON -DNANO_SHARED_BOOST=ON && \
     make nano_node -j $(nproc) && \
     make nano_rpc -j $(nproc) && \
     make nano_pow_server -j $(nproc) && \
