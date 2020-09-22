@@ -1,6 +1,8 @@
 #pragma once
 
+#include <nano/lib/config.hpp>
 #include <nano/lib/rep_weights.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/buffer.hpp>
 
@@ -273,6 +275,7 @@ public:
 
 	std::shared_ptr<nano::vote> vote_generate (nano::transaction const & transaction_a, nano::account const & account_a, nano::raw_key const & key_a, std::shared_ptr<nano::block> block_a) override
 	{
+		debug_assert (nano::network_constants ().is_dev_network () || nano::thread_role::get () == nano::thread_role::name::voting);
 		nano::lock_guard<std::mutex> lock (cache_mutex);
 		auto result (vote_current (transaction_a, account_a));
 		uint64_t sequence ((result ? result->sequence : 0) + 1);
@@ -283,6 +286,7 @@ public:
 
 	std::shared_ptr<nano::vote> vote_generate (nano::transaction const & transaction_a, nano::account const & account_a, nano::raw_key const & key_a, std::vector<nano::block_hash> blocks_a) override
 	{
+		debug_assert (nano::network_constants ().is_dev_network () || nano::thread_role::get () == nano::thread_role::name::voting);
 		nano::lock_guard<std::mutex> lock (cache_mutex);
 		auto result (vote_current (transaction_a, account_a));
 		uint64_t sequence ((result ? result->sequence : 0) + 1);

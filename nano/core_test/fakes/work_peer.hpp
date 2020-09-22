@@ -109,7 +109,7 @@ private:
 	void write_response ()
 	{
 		auto this_l = shared_from_this ();
-		response.set (http::field::content_length, response.body ().size ());
+		response.content_length (response.body ().size ());
 		http::async_write (socket, response, [this_l](beast::error_code ec, std::size_t /*size_a*/) {
 			this_l->socket.shutdown (tcp::socket::shutdown_send, ec);
 			this_l->socket.close ();
