@@ -426,16 +426,9 @@ TEST (rpc, send_fail)
 	request.put ("source", nano::dev_genesis_key.pub.to_account ());
 	request.put ("destination", nano::dev_genesis_key.pub.to_account ());
 	request.put ("amount", "100");
-	std::atomic<bool> done (false);
-	system.deadline_set (10s);
-	std::thread thread2 ([&system, &done]() {
-		ASSERT_TIMELY (10s, done);
-	});
 	test_response response (request, rpc.config.port, system.io_ctx);
 	ASSERT_TIMELY (10s, response.status != 0);
-	done = true;
 	ASSERT_EQ (std::error_code (nano::error_common::account_not_found_wallet).message (), response.json.get<std::string> ("error"));
-	thread2.join ();
 }
 
 TEST (rpc, send_work)
@@ -6733,12 +6726,9 @@ TEST (rpc, block_confirmed)
 	node->process_active (send);
 	node->block_processor.flush ();
 	node->block_confirm (send);
-	{
-		auto election = node->active.election (send->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		nano::lock_guard<std::mutex> guard (node->active.mutex);
-		election->confirm_once ();
-	}
+	auto election = node->active.election (send->qualified_root ());
+	ASSERT_NE (nullptr, election);
+	election->force_confirm ();
 
 	// Wait until the confirmation height has been set
 	ASSERT_TIMELY (10s, node->ledger.block_confirmed (node->store.tx_begin_read (), send->hash ()) && !node->confirmation_height_processor.is_processing_block (send->hash ()));
@@ -7729,12 +7719,9 @@ TEST (rpc, confirmation_active)
 	node1.process_active (send2);
 	nano::blocks_confirm (node1, { send1, send2 });
 	ASSERT_EQ (2, node1.active.size ());
-	{
-		nano::lock_guard<std::mutex> guard (node1.active.mutex);
-		auto info (node1.active.roots.find (send1->qualified_root ()));
-		ASSERT_NE (node1.active.roots.end (), info);
-		info->election->confirm_once ();
-	}
+	auto election (node1.active.election (send1->qualified_root ()));
+	ASSERT_NE (nullptr, election);
+	election->force_confirm ();
 
 	boost::property_tree::ptree request;
 	request.put ("action", "confirmation_active");

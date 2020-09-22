@@ -36,7 +36,6 @@ public:
 	rocksdb_iterator (rocksdb::DB * db, nano::transaction const & transaction_a, rocksdb::ColumnFamilyHandle * handle_a, rocksdb_val const * val_a)
 	{
 		// Don't fill the block cache for any blocks read as a result of an iterator
-		rocksdb::Iterator * iter;
 		if (is_read (transaction_a))
 		{
 			auto & read_options = snapshot_options (transaction_a);

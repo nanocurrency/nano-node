@@ -8,9 +8,6 @@ RUN apt-get update && apt-get install -yqq software-properties-common && \
     apt-get update -qq && apt-get install -yqq \
     clang-6.0 lldb-6.0 libfuzzer-6.0-dev git
 
-ADD util/build_prep/fetch_rocksdb.sh fetch_rocksdb.sh
-RUN ./fetch_rocksdb.sh
-
 ENV CXX=/usr/bin/clang++
 ENV CC=/usr/bin/clang
 RUN ln -s /usr/bin/clang-6.0 /usr/bin/clang

@@ -24,3 +24,7 @@
 [submodule "flatbuffers"]
 	path = flatbuffers
 	url = https://github.com/google/flatbuffers.git
+[submodule "rocksdb"]
+	path = rocksdb
+	url = https://github.com/nanocurrency/rocksdb.git
+	branch = 6.11.4
