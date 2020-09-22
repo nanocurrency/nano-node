@@ -3373,3 +3373,42 @@ TEST (ledger, cache)
 		cache_check (nano::ledger (*store, stats).cache);
 	}
 }
+
+TEST (ledger, unconfirmed_frontiers)
+{
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_TRUE (!store->init_error ());
+	nano::stat stats;
+	nano::ledger ledger (*store, stats);
+	nano::genesis genesis;
+	store->initialize (store->tx_begin_write (), genesis, ledger.cache);
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+
+	auto unconfirmed_frontiers = ledger.unconfirmed_frontiers ();
+	ASSERT_TRUE (unconfirmed_frontiers.empty ());
+
+	nano::state_block_builder builder;
+	nano::keypair key;
+	auto const latest = ledger.latest (store->tx_begin_read (), nano::genesis_account);
+	auto send = builder.make_block ()
+	            .account (nano::genesis_account)
+	            .previous (latest)
+	            .representative (nano::genesis_account)
+	            .balance (nano::genesis_amount - 100)
+	            .link (key.pub)
+	            .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	            .work (*pool.generate (latest))
+	            .build ();
+
+	ASSERT_EQ (nano::process_result::progress, ledger.process (store->tx_begin_write (), *send).code);
+
+	unconfirmed_frontiers = ledger.unconfirmed_frontiers ();
+	ASSERT_EQ (unconfirmed_frontiers.size (), 1);
+	ASSERT_EQ (unconfirmed_frontiers.begin ()->first, 1);
+	nano::uncemented_info uncemented_info1{ latest, send->hash (), nano::genesis_account };
+	auto uncemented_info2 = unconfirmed_frontiers.begin ()->second;
+	ASSERT_EQ (uncemented_info1.account, uncemented_info2.account);
+	ASSERT_EQ (uncemented_info1.cemented_frontier, uncemented_info2.cemented_frontier);
+	ASSERT_EQ (uncemented_info1.frontier, uncemented_info2.frontier);
+}

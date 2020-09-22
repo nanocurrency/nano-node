@@ -76,10 +76,7 @@ public:
 
 	void confirmation_height_clear (nano::write_transaction const & transaction_a) override
 	{
-		for (auto i (confirmation_height_begin (transaction_a)), n (confirmation_height_end ()); i != n; ++i)
-		{
-			confirmation_height_clear (transaction_a, i->first, i->second.height);
-		}
+		drop (transaction_a, nano::tables::confirmation_height);
 	}
 
 	bool pending_exists (nano::transaction const & transaction_a, nano::pending_key const & key_a) override
