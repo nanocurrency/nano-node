@@ -256,13 +256,11 @@ TEST (node, node_receive_quorum)
 	            .build_shared ();
 	node1.process_active (send);
 	ASSERT_TIMELY (10s, node1.ledger.block_exists (send->hash ()));
-	{
-		nano::lock_guard<std::mutex> guard (node1.active.mutex);
-		auto info (node1.active.roots.find (nano::qualified_root (previous, previous)));
-		ASSERT_NE (node1.active.roots.end (), info);
-		ASSERT_FALSE (info->election->confirmed ());
-		ASSERT_EQ (1, info->election->votes ().size ());
-	}
+	auto election (node1.active.election (nano::qualified_root (previous, previous)));
+	ASSERT_NE (nullptr, election);
+	ASSERT_FALSE (election->confirmed ());
+	ASSERT_EQ (1, election->votes ().size ());
+
 	nano::system system2;
 	system2.add_node (node_flags);
 
@@ -2549,11 +2547,10 @@ TEST (node, confirm_quorum)
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
 	system.wallet (0)->send_action (nano::dev_genesis_key.pub, nano::dev_genesis_key.pub, new_balance.number ());
 	ASSERT_TIMELY (10s, !node1.active.empty ());
-	nano::lock_guard<std::mutex> guard (node1.active.mutex);
-	auto info (node1.active.roots.find (nano::qualified_root (send1->hash (), send1->hash ())));
-	ASSERT_NE (node1.active.roots.end (), info);
-	ASSERT_FALSE (info->election->confirmed ());
-	ASSERT_EQ (1, info->election->votes ().size ());
+	auto election (node1.active.election (nano::qualified_root (send1->hash (), send1->hash ())));
+	ASSERT_NE (nullptr, election);
+	ASSERT_FALSE (election->confirmed ());
+	ASSERT_EQ (1, election->votes ().size ());
 	ASSERT_EQ (0, node1.balance (nano::dev_genesis_key.pub));
 }
 
@@ -3093,25 +3090,14 @@ TEST (node, fork_election_invalid_block_signature)
 	             .build_shared ();
 	auto channel1 (node1.network.udp_channels.create (node1.network.endpoint ()));
 	node1.network.process_message (nano::publish (send1), channel1);
-	system.deadline_set (5s);
-	std::shared_ptr<nano::election> election;
-	while (election == nullptr)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-		nano::lock_guard<std::mutex> lock (node1.active.mutex);
-		auto existing = node1.active.blocks.find (send1->hash ());
-		if (existing != node1.active.blocks.end ())
-		{
-			election = existing->second;
-		}
-	}
+	ASSERT_TIMELY (5s, node1.active.active (send1->qualified_root ()));
+	auto election (node1.active.election (send1->qualified_root ()));
+	ASSERT_NE (nullptr, election);
 	ASSERT_EQ (1, election->blocks ().size ());
 	node1.network.process_message (nano::publish (send3), channel1);
 	node1.network.process_message (nano::publish (send2), channel1);
-	ASSERT_TIMELY (5s, election->blocks ().size () > 1);
-	auto blocks = election->blocks ();
-	ASSERT_EQ (1, blocks.count (send2->hash ()));
-	ASSERT_EQ (*blocks[send2->hash ()], *send2);
+	ASSERT_TIMELY (3s, election->blocks ().size () > 1);
+	ASSERT_EQ (election->blocks ()[send2->hash ()]->block_signature (), send2->block_signature ());
 }
 
 TEST (node, block_processor_signatures)

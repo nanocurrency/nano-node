@@ -86,12 +86,15 @@ public: // Status
 	bool failed () const;
 	bool prioritized () const;
 	bool optimistic () const;
-	unsigned announcements () const;
 	std::shared_ptr<nano::block> winner ();
+	std::atomic<unsigned> confirmation_request_count{ 0 };
 
 	void log_votes (nano::tally_t const &, std::string const & = "") const;
 	nano::tally_t tally ();
 	bool have_quorum (nano::tally_t const &, nano::uint128_t) const;
+
+	// Guarded by mutex
+	nano::election_status status;
 
 public: // Interface
 	election (nano::node &, std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const &, bool, nano::election_behavior);
@@ -103,6 +106,11 @@ public: // Interface
 	void confirm_if_quorum (nano::unique_lock<std::mutex> &);
 	void prioritize (nano::vote_generator_session &);
 	nano::election_cleanup_info cleanup_info ();
+
+public: // Information
+	uint64_t const height;
+	nano::root const root;
+	nano::qualified_root const qualified_root;
 
 private:
 	nano::tally_t tally_impl ();
@@ -116,14 +124,6 @@ private:
 	size_t insert_inactive_votes_cache_impl (nano::unique_lock<std::mutex> &, nano::inactive_cache_information const &);
 	nano::election_cleanup_info cleanup_info_impl () const;
 
-public:
-	// Guarded by mutex
-	nano::election_status status;
-
-	uint64_t const height;
-	nano::root const root;
-	nano::qualified_root const qualified_root;
-
 private:
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> last_blocks;
 	std::unordered_map<nano::account, nano::vote_info> last_votes;
@@ -131,21 +131,20 @@ private:
 
 	nano::election_behavior const behavior{ nano::election_behavior::normal };
 	std::chrono::steady_clock::time_point const election_start = { std::chrono::steady_clock::now () };
-	std::atomic<unsigned> confirmation_request_count{ 0 };
 
 	nano::node & node;
 	std::mutex mutex;
 
 	static std::chrono::seconds constexpr late_blocks_delay{ 5 };
 
-	friend class json_handler;
 	friend class active_transactions;
 	friend class confirmation_solicitor;
+	friend class json_handler;
 
-public: // Only for tests
+public: // Only used in tests
 	void force_confirm (nano::election_status_type = nano::election_status_type::active_confirmed_quorum);
-	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks ();
 	std::unordered_map<nano::account, nano::vote_info> votes ();
+	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks ();
 
 	friend class confirmation_solicitor_different_hash_Test;
 	friend class confirmation_solicitor_bypass_max_requests_cap_Test;

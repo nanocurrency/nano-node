@@ -673,9 +673,9 @@ TEST (confirmation_height, conflict_rollback_cemented)
 		node1->block_processor.flush ();
 		node2->network.process_message (publish1, channel2);
 		node2->block_processor.flush ();
-		auto election1 (node2->active.election (nano::qualified_root (genesis.hash (), genesis.hash ())));
-		ASSERT_NE (nullptr, election1);
-		ASSERT_EQ (1, election1->votes ().size ());
+		auto election (node2->active.election (nano::qualified_root (genesis.hash (), genesis.hash ())));
+		ASSERT_NE (nullptr, election);
+		ASSERT_EQ (1, election->votes ().size ());
 		// Force blocks to be cemented on both nodes
 		{
 			auto transaction (node1->store.tx_begin_write ());
@@ -690,7 +690,7 @@ TEST (confirmation_height, conflict_rollback_cemented)
 
 		auto rollback_log_entry = boost::str (boost::format ("Failed to roll back %1%") % send2->hash ().to_string ());
 		ASSERT_TIMELY (20s, sb.component ()->str ().find (rollback_log_entry) != std::string::npos);
-		auto winner (*election1->tally ().begin ());
+		auto winner (*election->tally ().begin ());
 		ASSERT_EQ (*publish1.block, *winner.second);
 		ASSERT_EQ (nano::genesis_amount - 100, winner.first);
 		ASSERT_TRUE (node1->ledger.block_exists (publish1.block->hash ()));
@@ -1292,17 +1292,17 @@ TEST (confirmation_height, election_winner_details_clearing)
 		add_callback_stats (*node);
 
 		node->block_confirm (send1);
-		auto election_send1 = node->active.election (send1->qualified_root ());
-		ASSERT_NE (nullptr, election_send1);
-		election_send1->force_confirm ();
+		auto election = node->active.election (send1->qualified_root ());
+		ASSERT_NE (nullptr, election);
+		election->force_confirm ();
 
 		ASSERT_TIMELY (10s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) == 2);
 
 		ASSERT_EQ (0, node->active.election_winner_details_size ());
 		node->block_confirm (send);
-		auto election_send = node->active.election (send->qualified_root ());
-		ASSERT_NE (nullptr, election_send);
-		election_send->force_confirm ();
+		election = node->active.election (send->qualified_root ());
+		ASSERT_NE (nullptr, election);
+		election->force_confirm ();
 
 		// Wait until this block is confirmed
 		ASSERT_TIMELY (10s, node->active.election_winner_details_size () == 1 || node->confirmation_height_processor.current ().is_zero ());
@@ -1310,9 +1310,9 @@ TEST (confirmation_height, election_winner_details_clearing)
 		ASSERT_EQ (1, node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::inactive_conf_height, nano::stat::dir::out));
 
 		node->block_confirm (send2);
-		auto election_send2 = node->active.election (send2->qualified_root ());
-		ASSERT_NE (nullptr, election_send2);
-		election_send2->force_confirm ();
+		election = node->active.election (send2->qualified_root ());
+		ASSERT_NE (nullptr, election);
+		election->force_confirm ();
 
 		ASSERT_TIMELY (10s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) == 3);
 

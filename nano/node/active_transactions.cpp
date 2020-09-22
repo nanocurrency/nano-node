@@ -83,7 +83,6 @@ bool nano::active_transactions::insert_election_from_frontiers_confirmation (std
 nano::frontiers_confirmation_info nano::active_transactions::get_frontiers_confirmation_info ()
 {
 	// Limit maximum count of elections to start
-	nano::frontiers_confirmation_info frontiers_confirmation_info;
 	auto rep_counts (node.wallets.reps ());
 	bool representative (node.config.enable_voting && rep_counts.voting > 0);
 	bool half_princpal_representative (representative && rep_counts.half_principal > 0);
@@ -1173,7 +1172,7 @@ std::deque<nano::election_status> nano::active_transactions::list_recently_cemen
 
 void nano::active_transactions::add_recently_cemented (nano::election_status const & status_a)
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<std::mutex> guard (mutex);
 	recently_cemented.push_back (status_a);
 	if (recently_cemented.size () > node.config.confirmation_history_size)
 	{

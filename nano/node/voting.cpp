@@ -171,7 +171,7 @@ size_t nano::vote_generator::generate (std::vector<std::shared_ptr<nano::block>>
 	request_t::first_type candidates;
 	{
 		auto transaction (ledger.store.tx_begin_read ());
-		auto dependents_confirmed = [&blocks_a, &transaction, this](auto const & block_a) {
+		auto dependents_confirmed = [&transaction, this](auto const & block_a) {
 			return this->ledger.dependents_confirmed (transaction, *block_a);
 		};
 		auto as_candidate = [](auto const & block_a) {
@@ -282,7 +282,7 @@ void nano::vote_generator::vote (std::vector<nano::block_hash> const & hashes_a,
 	std::vector<std::shared_ptr<nano::vote>> votes_l;
 	{
 		auto transaction (ledger.store.tx_begin_read ());
-		wallets.foreach_representative ([this, &hashes_a, &roots_a, &transaction, &votes_l](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
+		wallets.foreach_representative ([this, &hashes_a, &transaction, &votes_l](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
 			votes_l.emplace_back (this->ledger.store.vote_generate (transaction, pub_a, prv_a, hashes_a));
 		});
 	}

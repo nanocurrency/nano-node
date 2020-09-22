@@ -1251,7 +1251,8 @@ TEST (work_watcher, confirm_while_generating)
 		notified = true;
 	});
 	// Confirm the block
-	auto election = node.active.election (block1->qualified_root ());
+	ASSERT_EQ (1, node.active.size ());
+	auto election (node.active.election (block1->qualified_root ()));
 	ASSERT_NE (nullptr, election);
 	election->force_confirm ();
 	ASSERT_TIMELY (5s, node.block_confirmed (block1->hash ()));

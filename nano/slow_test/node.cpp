@@ -224,8 +224,10 @@ TEST (node, fork_storm)
 			}
 			else
 			{
-				nano::lock_guard<std::mutex> lock (node_a->active.mutex);
-				if (node_a->active.roots.begin ()->election->votes ().size () == 1)
+				nano::unique_lock<std::mutex> lock (node_a->active.mutex);
+				auto election = node_a->active.roots.begin ()->election;
+				lock.unlock ();
+				if (election->votes ().size () == 1)
 				{
 					++single;
 				}

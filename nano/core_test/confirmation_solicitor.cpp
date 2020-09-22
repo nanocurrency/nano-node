@@ -113,12 +113,10 @@ TEST (confirmation_solicitor, bypass_max_requests_cap)
 	send->sideband_set ({});
 	auto election (std::make_shared<nano::election> (node2, send, nullptr, false, nano::election_behavior::normal));
 	// Add a vote for something else, not the winner
+	for (auto const & rep : representatives)
 	{
 		nano::lock_guard<std::mutex> guard (election->mutex);
-		for (auto const & rep : representatives)
-		{
-			election->last_votes[rep.account] = { std::chrono::steady_clock::now (), 1, 1 };
-		}
+		election->last_votes[rep.account] = { std::chrono::steady_clock::now (), 1, 1 };
 	}
 	ASSERT_FALSE (solicitor.add (*election));
 	ASSERT_FALSE (solicitor.broadcast (*election));
@@ -130,6 +128,7 @@ TEST (confirmation_solicitor, bypass_max_requests_cap)
 	auto election2 (std::make_shared<nano::election> (node2, send, nullptr, false, nano::election_behavior::normal));
 	ASSERT_FALSE (solicitor.add (*election2));
 	ASSERT_FALSE (solicitor.broadcast (*election2));
+
 	solicitor.flush ();
 
 	// All requests but one went through, due to the cap

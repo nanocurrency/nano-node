@@ -41,7 +41,6 @@ TEST (conflicts, add_existing)
 	ASSERT_EQ (1, node1.active.size ());
 	auto vote1 (std::make_shared<nano::vote> (key2.pub, key2.prv, 0, send2));
 	node1.active.vote (vote1);
-	ASSERT_EQ (1, node1.active.size ());
 	ASSERT_NE (nullptr, election1.election);
 	ASSERT_EQ (2, election1.election->votes ().size ());
 	auto votes (election1.election->votes ());

@@ -53,7 +53,7 @@ TEST (active_transactions, confirm_active)
 	}
 	ASSERT_TIMELY (10s, node2.ledger.cache.cemented_count == 2 && node2.active.empty ());
 	// At least one confirmation request
-	ASSERT_GT (election->announcements (), 0u);
+	ASSERT_GT (election->confirmation_request_count, 0u);
 	// Blocks were cleared (except for not_an_account)
 	ASSERT_EQ (1, election->blocks ().size ());
 }
@@ -95,7 +95,7 @@ TEST (active_transactions, confirm_frontier)
 		node2.rep_crawler.probable_reps.emplace (nano::dev_genesis_key.pub, nano::genesis_amount, *peers.begin ());
 	}
 	ASSERT_TIMELY (5s, node2.ledger.cache.cemented_count == 2 && node2.active.empty ());
-	ASSERT_GT (election->announcements (), 0u);
+	ASSERT_GT (election->confirmation_request_count, 0u);
 }
 }
 
@@ -259,24 +259,19 @@ TEST (active_transactions, inactive_votes_cache_existing_vote)
 	node.block_processor.add (open);
 	node.block_processor.flush ();
 	ASSERT_TIMELY (5s, node.active.size () == 1);
-	std::shared_ptr<nano::election> election;
-	{
-		nano::lock_guard<std::mutex> active_guard (node.active.mutex);
-		auto it (node.active.roots.begin ());
-		ASSERT_NE (node.active.roots.end (), it);
-		election = it->election;
-	}
+	auto election (node.active.election (send->qualified_root ()));
+	ASSERT_NE (nullptr, election);
 	ASSERT_GT (node.weight (key.pub), node.minimum_principal_weight ());
 	// Insert vote
 	auto vote1 (std::make_shared<nano::vote> (key.pub, key.prv, 1, std::vector<nano::block_hash> (1, send->hash ())));
 	node.vote_processor.vote (vote1, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
 	ASSERT_TIMELY (5s, election->votes ().size () == 2)
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::vote_new));
-	nano::unique_lock<std::mutex> active_lock (node.active.mutex);
 	auto last_vote1 (election->votes ()[key.pub]);
 	ASSERT_EQ (send->hash (), last_vote1.hash);
 	ASSERT_EQ (1, last_vote1.sequence);
 	// Attempt to change vote with inactive_votes_cache
+	nano::unique_lock<std::mutex> active_lock (node.active.mutex);
 	node.active.add_inactive_votes_cache (active_lock, send->hash (), key.pub);
 	active_lock.unlock ();
 	auto cache (node.active.find_inactive_votes_cache (send->hash ()));

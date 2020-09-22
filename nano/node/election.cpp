@@ -18,10 +18,10 @@ nano::election_vote_result::election_vote_result (bool replay_a, bool processed_
 	processed = processed_a;
 }
 
-nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> block_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a, bool prioritized_a, nano::election_behavior behavior_a) :
+nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> block_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a, bool prioritized_a, nano::election_behavior election_behavior_a) :
 confirmation_action (confirmation_action_a),
 prioritized_m (prioritized_a),
-behavior (behavior_a),
+behavior (election_behavior_a),
 node (node_a),
 status ({ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::ongoing }),
 height (block_a->sideband ().height),
@@ -253,9 +253,9 @@ nano::tally_t nano::election::tally ()
 nano::tally_t nano::election::tally_impl ()
 {
 	std::unordered_map<nano::block_hash, nano::uint128_t> block_weights;
-	for (auto const & vote_info : last_votes)
+	for (auto const & [account, info] : last_votes)
 	{
-		block_weights[vote_info.second.hash] += node.ledger.weight (vote_info.first);
+		block_weights[info.hash] += node.ledger.weight (account);
 	}
 	last_tally = block_weights;
 	nano::tally_t result;
@@ -492,11 +492,6 @@ std::shared_ptr<nano::block> nano::election::winner ()
 {
 	nano::lock_guard<std::mutex> guard (mutex);
 	return status.winner;
-}
-
-unsigned nano::election::announcements () const
-{
-	return confirmation_request_count.load ();
 }
 
 void nano::election::generate_votes ()
