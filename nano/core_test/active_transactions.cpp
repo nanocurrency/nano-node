@@ -671,9 +671,9 @@ TEST (active_transactions, vote_replays)
 TEST (active_transactions, dropped_cleanup)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
-	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	auto & node (*system.add_node (node_config));
+	nano::node_flags flags;
+	flags.disable_request_loop = true;
+	auto & node (*system.add_node (flags));
 
 	nano::genesis genesis;
 	auto block = genesis.open;
@@ -693,6 +693,7 @@ TEST (active_transactions, dropped_cleanup)
 
 	// Not yet removed
 	ASSERT_TRUE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
+	ASSERT_EQ (1, node.active.blocks.count (block->hash ()));
 
 	// Now simulate dropping the election
 	ASSERT_FALSE (election->confirmed ());
@@ -700,6 +701,30 @@ TEST (active_transactions, dropped_cleanup)
 
 	// The filter must have been cleared
 	ASSERT_FALSE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
+
+	// Added as recently dropped
+	ASSERT_NE (std::chrono::steady_clock::time_point{}, node.active.recently_dropped.find (block->qualified_root ()));
+
+	// Block cleared from active
+	ASSERT_EQ (0, node.active.blocks.count (block->hash ()));
+
+	// Repeat test for a confirmed election
+	node.active.recently_dropped.erase (block->qualified_root ());
+	ASSERT_TRUE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
+	election = node.active.insert (block).election;
+	ASSERT_NE (nullptr, election);
+	election->force_confirm ();
+	ASSERT_TRUE (election->confirmed ());
+	node.active.erase (*block);
+
+	// The filter should not have been cleared
+	ASSERT_TRUE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
+
+	// Not added as recently dropped
+	ASSERT_EQ (std::chrono::steady_clock::time_point{}, node.active.recently_dropped.find (block->qualified_root ()));
+
+	// Block cleared from active
+	ASSERT_EQ (0, node.active.blocks.count (block->hash ()));
 }
 
 namespace nano
