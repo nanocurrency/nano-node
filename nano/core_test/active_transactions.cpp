@@ -694,16 +694,9 @@ TEST (active_transactions, dropped_cleanup)
 	// Not yet removed
 	ASSERT_TRUE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
 
-	// Now simulate dropping the election, which performs a cleanup in the background using the node worker
+	// Now simulate dropping the election
 	ASSERT_FALSE (election->confirmed ());
 	node.active.erase (*block);
-
-	// Push a worker task to ensure the cleanup is already performed
-	std::atomic<bool> flag{ false };
-	node.worker.push_task ([&flag]() {
-		flag = true;
-	});
-	ASSERT_TIMELY (5s, flag);
 
 	// The filter must have been cleared
 	ASSERT_FALSE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
