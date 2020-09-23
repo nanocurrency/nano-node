@@ -146,6 +146,18 @@ void nano::rocksdb_store::open (bool & error_a, boost::filesystem::path const & 
 			logger.always_log (boost::str (boost::format ("The version of the ledger (%1%) is too high for this node") % version_l));
 		}
 	}
+
+	// Exact pruned block count
+	if (!error_a && !pruning_a)
+	{
+		uint8_t start{ 0 };
+		rocksdb::Slice start_slice (reinterpret_cast<const char *> (&start), 1);
+		std::vector<uint8_t> end (sizeof (nano::block_hash), 255);
+		rocksdb::Slice end_slice (reinterpret_cast<const char *> (end.data ()), end.size ());
+		rocksdb::CompactRangeOptions compactRangeOptions;
+		compactRangeOptions.allow_write_stall = true;
+		db->CompactRange (compactRangeOptions, table_to_column_family (nano::tables::pruned), &start_slice, &end_slice);
+	}
 }
 
 void nano::rocksdb_store::generate_tombstone_map ()
