@@ -798,7 +798,7 @@ nano::uint128_t nano::ledger::balance (nano::transaction const & transaction_a, 
 	return hash_a.is_zero () ? 0 : store.block_balance (transaction_a, hash_a);
 }
 
-nano::uint128_t nano::ledger::balance_safe (nano::transaction const & transaction_a, nano::block_hash const & hash_a, bool & error_a)
+nano::uint128_t nano::ledger::balance_safe (nano::transaction const & transaction_a, nano::block_hash const & hash_a, bool & error_a) const
 {
 	nano::uint128_t result (0);
 	if (pruning && !hash_a.is_zero () && !store.block_exists (transaction_a, hash_a))
@@ -864,17 +864,17 @@ nano::block_hash nano::ledger::representative_calculated (nano::transaction cons
 	return visitor.result;
 }
 
-bool nano::ledger::block_exists (nano::block_hash const & hash_a)
+bool nano::ledger::block_exists (nano::block_hash const & hash_a) const
 {
 	return store.block_exists (store.tx_begin_read (), hash_a);
 }
 
-bool nano::ledger::block_or_pruned_exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
+bool nano::ledger::block_or_pruned_exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
 {
 	return pruning ? store.block_or_pruned_exists (transaction_a, hash_a) : store.block_exists (transaction_a, hash_a);
 }
 
-bool nano::ledger::block_or_pruned_exists (nano::block_hash const & hash_a)
+bool nano::ledger::block_or_pruned_exists (nano::block_hash const & hash_a) const
 {
 	return block_or_pruned_exists (store.tx_begin_read (), hash_a);
 }
@@ -960,7 +960,7 @@ nano::block_hash nano::ledger::block_source (nano::transaction const & transacti
 	return result;
 }
 
-std::pair<nano::block_hash, nano::block_hash> nano::ledger::hash_root_random (nano::transaction const & transaction_a)
+std::pair<nano::block_hash, nano::block_hash> nano::ledger::hash_root_random (nano::transaction const & transaction_a) const
 {
 	nano::block_hash hash (0);
 	nano::root root (0);
@@ -1059,7 +1059,7 @@ nano::account nano::ledger::account (nano::transaction const & transaction_a, na
 	return store.block_account (transaction_a, hash_a);
 }
 
-nano::account nano::ledger::account_safe (nano::transaction const & transaction_a, nano::block_hash const & hash_a, bool & error_a)
+nano::account nano::ledger::account_safe (nano::transaction const & transaction_a, nano::block_hash const & hash_a, bool & error_a) const
 {
 	if (!pruning)
 	{
@@ -1095,7 +1095,7 @@ nano::uint128_t nano::ledger::amount (nano::transaction const & transaction_a, n
 	return block_balance > previous_balance ? block_balance - previous_balance : previous_balance - block_balance;
 }
 
-nano::uint128_t nano::ledger::amount_safe (nano::transaction const & transaction_a, nano::block_hash const & hash_a, bool & error_a)
+nano::uint128_t nano::ledger::amount_safe (nano::transaction const & transaction_a, nano::block_hash const & hash_a, bool & error_a) const
 {
 	auto block (store.block_get (transaction_a, hash_a));
 	debug_assert (block);
