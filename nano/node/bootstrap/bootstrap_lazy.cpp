@@ -300,7 +300,7 @@ void nano::bootstrap_attempt_lazy::lazy_block_state (std::shared_ptr<nano::block
 		nano::uint128_t balance (block_l->hashables.balance.number ());
 		auto const & link (block_l->hashables.link);
 		// If link is not epoch link or 0. And if block from link is unknown
-		if (!link.is_zero () && !node->ledger.has_epoch_link (*block_l) && !lazy_blocks_processed (link.as_block_hash ()) && !node->store.block_exists (transaction, link.as_block_hash ()))
+		if (!link.is_zero () && !block_l->has_epoch_link (node->network_params.ledger.epochs) && !lazy_blocks_processed (link.as_block_hash ()) && !node->store.block_exists (transaction, link.as_block_hash ()))
 		{
 			auto const & previous (block_l->hashables.previous);
 			// If state block previous is 0 then source block required

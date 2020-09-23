@@ -176,7 +176,7 @@ node_seq (seq)
 							{
 								event.add ("subtype", "change");
 							}
-							else if (amount_a == 0 && node_l->ledger.has_epoch_link (*block_a))
+							else if (amount_a == 0 && block_a->has_epoch_link (node_l->network_params.ledger.epochs))
 							{
 								event.add ("subtype", "epoch");
 							}
@@ -241,7 +241,7 @@ node_seq (seq)
 						{
 							subtype = "change";
 						}
-						else if (amount_a == 0 && this->ledger.has_epoch_link (*block_a))
+						else if (amount_a == 0 && block_a->has_epoch_link (this->network_params.ledger.epochs))
 						{
 							subtype = "epoch";
 						}

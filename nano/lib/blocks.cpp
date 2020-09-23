@@ -113,6 +113,16 @@ nano::block_hash nano::block::generate_hash () const
 	return result;
 }
 
+bool nano::block::has_epoch_link (nano::epochs const &) const
+{
+	return false;
+}
+
+bool nano::block::is_self_signed_epoch () const
+{
+	return false;
+}
+
 void nano::block::rebuild (nano::raw_key const & prv_key, nano::public_key const & pub_key)
 {
 	if (!cached_hash.is_zero ())
@@ -1461,6 +1471,38 @@ nano::signature const & nano::state_block::block_signature () const
 void nano::state_block::signature_set (nano::signature const & signature_a)
 {
 	signature = signature_a;
+}
+
+/*
+ * An epoch link will be the account for self-signed epochs, otherwise will be pre-determined epoch links
+ */
+bool nano::state_block::has_epoch_link (nano::epochs const & epochs_a) const
+{
+	if (type () >= nano::block_type::state2)
+	{
+		if (hashables.flags.is_epoch_signer () && epochs_a.is_epoch_link (link ()))
+		{
+			// Epoch-signed epoch block
+			return true;
+		}
+		else
+		{
+			// Can be a self-signed epoch block
+			return (hashables.flags.link_interpretation () == nano::link_flag::noop && link () == account ());
+		}
+	}
+
+	return epochs_a.is_epoch_link (link ());
+}
+
+bool nano::state_block::is_self_signed_epoch () const
+{
+	if (type () >= nano::block_type::state2)
+	{
+		return (hashables.flags.link_interpretation () == nano::link_flag::noop && link () == account ());
+	}
+
+	return false;
 }
 
 std::shared_ptr<nano::block> nano::deserialize_block_json (boost::property_tree::ptree const & tree_a, nano::block_uniquer * uniquer_a)

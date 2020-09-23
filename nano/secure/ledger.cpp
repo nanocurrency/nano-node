@@ -141,7 +141,7 @@ public:
 			ledger.store.pending_del (transaction, key);
 			ledger.stats.inc (nano::stat::type::rollback, nano::stat::detail::send);
 		}
-		else if (!block_a.hashables.link.is_zero () && !ledger.has_epoch_link (block_a))
+		else if (!block_a.hashables.link.is_zero () && !block_a.has_epoch_link (ledger.network_params.ledger.epochs))
 		{
 			nano::pending_info pending_info (ledger.account (transaction, block_a.hashables.link.as_block_hash ()), block_a.hashables.balance.number () - balance, block_a.sideband ().source_epoch);
 			ledger.store.pending_put (transaction, nano::pending_key (block_a.hashables.account, block_a.hashables.link.as_block_hash ()), pending_info);
@@ -198,7 +198,7 @@ private:
 // Returns true if this block which has an epoch link is correctly formed and is an epoch block.
 bool ledger_processor::validate_epoch_block (nano::state_block const & block_a)
 {
-	debug_assert (ledger.has_epoch_link (block_a));
+	debug_assert (block_a.has_epoch_link (ledger.network_params.ledger.epochs));
 	bool epoch_block_balance{ (block_a.version () >= nano::epoch::epoch_3 && block_a.hashables.flags.is_epoch_signer ()) || block_a.version () < nano::epoch::epoch_3 };
 	if (!block_a.hashables.previous.is_zero ())
 	{
@@ -275,7 +275,7 @@ void ledger_processor::state_block (nano::state_block & block_a)
 	debug_assert (nano::simple_block_validation (&block_a, ledger.network_params.ledger.epochs) == nano::error_blocks::none);
 	result.code = nano::process_result::progress;
 	auto is_epoch_block = false;
-	if (ledger.has_epoch_link (block_a))
+	if (block_a.has_epoch_link (ledger.network_params.ledger.epochs))
 	{
 		// This function also modifies the result variable if epoch is mal-formed
 		is_epoch_block = validate_epoch_block (block_a);
@@ -1237,46 +1237,6 @@ bool nano::ledger::dependents_confirmed (nano::transaction const & transaction_a
 	});
 }
 
-/*
- * An epoch link will be the account for self-signed epochs, otherwise will be pre-determined epoch links
- */
-bool nano::ledger::has_epoch_link (nano::block const & block_a) const
-{
-	if (block_a.type () >= nano::block_type::state2)
-	{
-		auto state_block = dynamic_cast<nano::state_block const *> (&block_a);
-		if (state_block)
-		{
-			if (state_block->hashables.flags.is_epoch_signer () && network_params.ledger.epochs.is_epoch_link (block_a.link ()))
-			{
-				// Epoch-signed epoch block
-				return true;
-			}
-			else
-			{
-				// Can be a self-signed epoch block
-				return (state_block->hashables.flags.link_interpretation () == nano::link_flag::noop && block_a.link () == block_a.account ());
-			}
-		}
-	}
-
-	return network_params.ledger.epochs.is_epoch_link (block_a.link ());
-}
-
-bool nano::ledger::is_self_signed_epoch (nano::block const & block_a) const
-{
-	if (block_a.type () >= nano::block_type::state2)
-	{
-		auto state_block = dynamic_cast<nano::state_block const *> (&block_a);
-		if (state_block)
-		{
-			return (state_block->hashables.flags.link_interpretation () == nano::link_flag::noop && block_a.link () == block_a.account ());
-		}
-	}
-
-	return false;
-}
-
 class dependent_block_visitor : public nano::block_visitor
 {
 public:
@@ -1311,7 +1271,7 @@ public:
 		result[0] = block_a.hashables.previous;
 		result[1] = block_a.hashables.link.as_block_hash ();
 		// ledger.is_send will check the sideband first, if block_a has a loaded sideband the check that previous block exists can be skipped
-		if (ledger.has_epoch_link (block_a) || ((block_a.has_sideband () || ledger.store.block_exists (transaction, block_a.hashables.previous)) && ledger.is_send (transaction, block_a)))
+		if (block_a.has_epoch_link (ledger.network_params.ledger.epochs) || ((block_a.has_sideband () || ledger.store.block_exists (transaction, block_a.hashables.previous)) && ledger.is_send (transaction, block_a)))
 		{
 			result[1].clear ();
 		}
@@ -1330,7 +1290,7 @@ std::array<nano::block_hash, 2> nano::ledger::dependent_blocks (nano::transactio
 
 nano::account const & nano::ledger::epoch_signer (nano::block const & block_a) const
 {
-	return is_self_signed_epoch (block_a) ? block_a.account () : network_params.ledger.epochs.signer (network_params.ledger.epochs.epoch (block_a.link ()));
+	return block_a.is_self_signed_epoch () ? block_a.account () : network_params.ledger.epochs.signer (network_params.ledger.epochs.epoch (block_a.link ()));
 }
 
 nano::link const & nano::ledger::epoch_link (nano::epoch epoch_a) const

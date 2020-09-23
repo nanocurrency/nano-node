@@ -2404,7 +2404,7 @@ public:
 					tree.put ("subtype", "change");
 				}
 			}
-			else if (balance == previous_balance && handler.node.ledger.has_epoch_link (block_a))
+			else if (balance == previous_balance && block_a.has_epoch_link (handler.node.network_params.ledger.epochs))
 			{
 				if (raw && accounts_filter.empty ())
 				{
@@ -3188,7 +3188,7 @@ void nano::json_handler::process ()
 						{
 							rpc_l->ec = nano::error_rpc::invalid_subtype_balance;
 						}
-						else if (!rpc_l->node.ledger.has_epoch_link (*block_state))
+						else if (!block_state->has_epoch_link (rpc_l->node.network_params.ledger.epochs))
 						{
 							rpc_l->ec = nano::error_rpc::invalid_subtype_epoch_link;
 						}

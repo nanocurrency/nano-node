@@ -139,7 +139,7 @@ void nano::state_block_signature_verification::verify_state_blocks (std::deque<n
 			messages.push_back (hashes.back ().bytes.data ());
 			lengths.push_back (sizeof (decltype (hashes)::value_type));
 			nano::account account (item.block->account ());
-			if (!item.block->link ().is_zero () && ledger.has_epoch_link (*item.block))
+			if (!item.block->link ().is_zero () && item.block->has_epoch_link (ledger.network_params.ledger.epochs))
 			{
 				account = ledger.epoch_signer (*item.block);
 			}

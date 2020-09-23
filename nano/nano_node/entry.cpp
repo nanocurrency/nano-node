@@ -1488,7 +1488,7 @@ int main (int argc, char * const * argv)
 							{
 								prev_balance = node->ledger.balance (transaction, state_block.hashables.previous);
 							}
-							if (node->ledger.has_epoch_link (state_block) && state_block.hashables.balance == prev_balance)
+							if (state_block.has_epoch_link (node->network_params.ledger.epochs) && state_block.hashables.balance == prev_balance)
 							{
 								invalid = validate_message (node->ledger.epoch_signer (*block), hash, block->block_signature ());
 							}
@@ -1520,7 +1520,7 @@ int main (int argc, char * const * argv)
 								// State change
 								block_details_error = sideband.details.is_send || sideband.details.is_receive || sideband.details.is_epoch;
 							}
-							else if (block->balance () == prev_balance && node->ledger.has_epoch_link (*block))
+							else if (block->balance () == prev_balance && block->has_epoch_link (node->network_params.ledger.epochs))
 							{
 								// State epoch
 								block_details_error = !sideband.details.is_epoch || sideband.details.is_send || sideband.details.is_receive;
@@ -1775,7 +1775,7 @@ int main (int argc, char * const * argv)
 							}
 							nano::unchecked_info unchecked_info (block, account, 0, nano::signature_verification::unknown);
 							node.node->block_processor.add (unchecked_info);
-							if (block->type () == nano::block_type::state && block->previous ().is_zero () && source_node->ledger.has_epoch_link (*block))
+							if (block->type () == nano::block_type::state && block->previous ().is_zero () && block->has_epoch_link (source_node->network_params.ledger.epochs))
 							{
 								// Epoch open blocks can be rejected without processed pending blocks to account, push it later again
 								epoch_open_blocks.push_back (unchecked_info);

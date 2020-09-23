@@ -180,7 +180,7 @@ void nano::block_processor::process_verified_state_blocks (std::deque<nano::unch
 		{
 			debug_assert (verifications[i] == 1 || verifications[i] == 0);
 			auto & item (items.front ());
-			if (!item.block->link ().is_zero () && node.ledger.has_epoch_link (*item.block))
+			if (!item.block->link ().is_zero () && item.block->has_epoch_link (node.network_params.ledger.epochs))
 			{
 				// Epoch blocks
 				if (verifications[i] == 1)

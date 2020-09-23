@@ -17,6 +17,7 @@
 namespace nano
 {
 class block_visitor;
+class epochs;
 class mutable_block_visitor;
 enum class block_type : uint8_t
 {
@@ -115,6 +116,8 @@ public:
 	virtual nano::work_version work_version () const;
 	virtual nano::epoch version () const;
 	virtual uint64_t height () const;
+	virtual bool has_epoch_link (nano::epochs const &) const;
+	virtual bool is_self_signed_epoch () const;
 	uint64_t difficulty () const;
 	// If there are any changes to the hashables, call this to update the cached hash and signature
 	void rebuild (nano::raw_key const &, nano::public_key const &);
@@ -456,6 +459,8 @@ public:
 	bool valid_predecessor (nano::block const &) const override;
 	uint64_t height () const override;
 	nano::epoch version () const override;
+	bool has_epoch_link (nano::epochs const &) const override;
+	bool is_self_signed_epoch () const override;
 	nano::state_hashables hashables;
 	nano::signature signature;
 	uint64_t work;

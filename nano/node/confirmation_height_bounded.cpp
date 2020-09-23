@@ -240,7 +240,7 @@ bool nano::confirmation_height_bounded::iterate (nano::read_transaction const & 
 			source = block->link ().as_block_hash ();
 		}
 
-		if (!source.is_zero () && !ledger.has_epoch_link (*block) && ledger.store.block_exists (transaction_a, source))
+		if (!source.is_zero () && !block->has_epoch_link (ledger.network_params.ledger.epochs) && ledger.store.block_exists (transaction_a, source))
 		{
 			hit_receive = true;
 			reached_target = true;
