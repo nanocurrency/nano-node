@@ -1588,44 +1588,38 @@ TEST (rpc, history_pruning)
 	// Confirm last block to prune previous
 	{
 		auto election = node0->active.election (change->qualified_root ());
-		nano::lock_guard<std::mutex> guard (node0->active.mutex);
 		ASSERT_NE (nullptr, election);
-		election->confirm_once ();
+		election->force_confirm ();
 	}
 	ASSERT_TIMELY (2s, node0->block_confirmed (change->hash ()) && node0->active.active (send->qualified_root ()));
 	{
 		auto election = node0->active.election (send->qualified_root ());
-		nano::lock_guard<std::mutex> guard (node0->active.mutex);
 		ASSERT_NE (nullptr, election);
-		election->confirm_once ();
+		election->force_confirm ();
 	}
 	ASSERT_TIMELY (2s, node0->block_confirmed (send->hash ()) && node0->active.active (receive->qualified_root ()));
 	{
 		auto election = node0->active.election (receive->qualified_root ());
-		nano::lock_guard<std::mutex> guard (node0->active.mutex);
 		ASSERT_NE (nullptr, election);
-		election->confirm_once ();
+		election->force_confirm ();
 	}
 	ASSERT_TIMELY (2s, node0->block_confirmed (receive->hash ()) && node0->active.active (usend->qualified_root ()));
 	{
 		auto election = node0->active.election (usend->qualified_root ());
-		nano::lock_guard<std::mutex> guard (node0->active.mutex);
 		ASSERT_NE (nullptr, election);
-		election->confirm_once ();
+		election->force_confirm ();
 	}
 	ASSERT_TIMELY (2s, node0->block_confirmed (usend->hash ()) && node0->active.active (ureceive->qualified_root ()));
 	{
 		auto election = node0->active.election (ureceive->qualified_root ());
-		nano::lock_guard<std::mutex> guard (node0->active.mutex);
 		ASSERT_NE (nullptr, election);
-		election->confirm_once ();
+		election->force_confirm ();
 	}
 	ASSERT_TIMELY (2s, node0->block_confirmed (ureceive->hash ()) && node0->active.active (uchange->qualified_root ()));
 	{
 		auto election = node0->active.election (uchange->qualified_root ());
-		nano::lock_guard<std::mutex> guard (node0->active.mutex);
 		ASSERT_NE (nullptr, election);
-		election->confirm_once ();
+		election->force_confirm ();
 	}
 	ASSERT_TIMELY (2s, node0->active.empty () && node0->block_confirmed (uchange->hash ()));
 	ASSERT_TIMELY (2s, node0->ledger.cache.cemented_count == 7);

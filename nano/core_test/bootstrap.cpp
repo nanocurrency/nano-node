@@ -704,30 +704,26 @@ TEST (bootstrap_processor, lazy_hash_pruning)
 	// Confirm last block to prune previous
 	{
 		auto election = node1->active.election (send1->qualified_root ());
-		nano::lock_guard<std::mutex> guard (node1->active.mutex);
 		ASSERT_NE (nullptr, election);
-		election->confirm_once ();
+		election->force_confirm ();
 	}
 	ASSERT_TIMELY (2s, node1->block_confirmed (send1->hash ()) && node1->active.active (receive1->qualified_root ()));
 	{
 		auto election = node1->active.election (receive1->qualified_root ());
-		nano::lock_guard<std::mutex> guard (node1->active.mutex);
 		ASSERT_NE (nullptr, election);
-		election->confirm_once ();
+		election->force_confirm ();
 	}
 	ASSERT_TIMELY (2s, node1->block_confirmed (receive1->hash ()) && node1->active.active (change1->qualified_root ()));
 	{
 		auto election = node1->active.election (change1->qualified_root ());
-		nano::lock_guard<std::mutex> guard (node1->active.mutex);
 		ASSERT_NE (nullptr, election);
-		election->confirm_once ();
+		election->force_confirm ();
 	}
 	ASSERT_TIMELY (2s, node1->block_confirmed (change1->hash ()) && node1->active.active (change2->qualified_root ()));
 	{
 		auto election = node1->active.election (change2->qualified_root ());
-		nano::lock_guard<std::mutex> guard (node1->active.mutex);
 		ASSERT_NE (nullptr, election);
-		election->confirm_once ();
+		election->force_confirm ();
 	}
 	ASSERT_TIMELY (2s, node1->active.empty () && node1->block_confirmed (change2->hash ()));
 	// Pruning action
@@ -909,30 +905,26 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 	// Confirm last block to prune previous
 	{
 		auto election = node1->active.election (send1->qualified_root ());
-		nano::lock_guard<std::mutex> guard (node1->active.mutex);
 		ASSERT_NE (nullptr, election);
-		election->confirm_once ();
+		election->force_confirm ();
 	}
 	ASSERT_TIMELY (2s, node1->block_confirmed (send1->hash ()) && node1->active.active (send2->qualified_root ()));
 	{
 		auto election = node1->active.election (send2->qualified_root ());
-		nano::lock_guard<std::mutex> guard (node1->active.mutex);
 		ASSERT_NE (nullptr, election);
-		election->confirm_once ();
+		election->force_confirm ();
 	}
 	ASSERT_TIMELY (2s, node1->block_confirmed (send2->hash ()) && node1->active.active (open->qualified_root ()));
 	{
 		auto election = node1->active.election (open->qualified_root ());
-		nano::lock_guard<std::mutex> guard (node1->active.mutex);
 		ASSERT_NE (nullptr, election);
-		election->confirm_once ();
+		election->force_confirm ();
 	}
 	ASSERT_TIMELY (2s, node1->block_confirmed (open->hash ()) && node1->active.active (state_open->qualified_root ()));
 	{
 		auto election = node1->active.election (state_open->qualified_root ());
-		nano::lock_guard<std::mutex> guard (node1->active.mutex);
 		ASSERT_NE (nullptr, election);
-		election->confirm_once ();
+		election->force_confirm ();
 	}
 	ASSERT_TIMELY (2s, node1->active.empty () && node1->block_confirmed (state_open->hash ()));
 	// Pruning action
@@ -1344,25 +1336,22 @@ TEST (bulk, genesis_pruning)
 	// Confirm last block to prune previous
 	{
 		auto election = node1->active.election (send1->qualified_root ());
-		nano::lock_guard<std::mutex> guard (node1->active.mutex);
 		ASSERT_NE (nullptr, election);
-		election->confirm_once ();
+		election->force_confirm ();
 	}
 	ASSERT_TIMELY (2s, node1->block_confirmed (send1->hash ()) && node1->active.active (send2->qualified_root ()));
 	ASSERT_EQ (0, node1->ledger.cache.pruned_count);
 	{
 		auto election = node1->active.election (send2->qualified_root ());
-		nano::lock_guard<std::mutex> guard (node1->active.mutex);
 		ASSERT_NE (nullptr, election);
-		election->confirm_once ();
+		election->force_confirm ();
 	}
 	ASSERT_TIMELY (2s, node1->block_confirmed (send2->hash ()) && node1->active.active (send3->qualified_root ()));
 	ASSERT_EQ (0, node1->ledger.cache.pruned_count);
 	{
 		auto election = node1->active.election (send3->qualified_root ());
-		nano::lock_guard<std::mutex> guard (node1->active.mutex);
 		ASSERT_NE (nullptr, election);
-		election->confirm_once ();
+		election->force_confirm ();
 	}
 	ASSERT_TIMELY (2s, node1->active.empty () && node1->block_confirmed (send3->hash ()));
 	node1->ledger_pruning (2, false, false);

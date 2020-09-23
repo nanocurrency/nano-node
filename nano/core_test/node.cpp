@@ -4572,17 +4572,15 @@ TEST (node, pruning_automatic)
 	// Confirm last block to prune previous
 	{
 		auto election = node1.active.election (send1->qualified_root ());
-		nano::lock_guard<std::mutex> guard (node1.active.mutex);
 		ASSERT_NE (nullptr, election);
-		election->confirm_once ();
+		election->force_confirm ();
 	}
 	ASSERT_TIMELY (2s, node1.block_confirmed (send1->hash ()) && node1.active.active (send2->qualified_root ()));
 	ASSERT_EQ (0, node1.ledger.cache.pruned_count);
 	{
 		auto election = node1.active.election (send2->qualified_root ());
-		nano::lock_guard<std::mutex> guard (node1.active.mutex);
 		ASSERT_NE (nullptr, election);
-		election->confirm_once ();
+		election->force_confirm ();
 	}
 	ASSERT_TIMELY (2s, node1.active.empty () && node1.block_confirmed (send2->hash ()));
 	// Check pruning result
@@ -4627,17 +4625,15 @@ TEST (node, pruning_age)
 	// Confirm last block to prune previous
 	{
 		auto election = node1.active.election (send1->qualified_root ());
-		nano::lock_guard<std::mutex> guard (node1.active.mutex);
 		ASSERT_NE (nullptr, election);
-		election->confirm_once ();
+		election->force_confirm ();
 	}
 	ASSERT_TIMELY (2s, node1.block_confirmed (send1->hash ()) && node1.active.active (send2->qualified_root ()));
 	ASSERT_EQ (0, node1.ledger.cache.pruned_count);
 	{
 		auto election = node1.active.election (send2->qualified_root ());
-		nano::lock_guard<std::mutex> guard (node1.active.mutex);
 		ASSERT_NE (nullptr, election);
-		election->confirm_once ();
+		election->force_confirm ();
 	}
 	ASSERT_TIMELY (2s, node1.active.empty () && node1.block_confirmed (send2->hash ()));
 	// Pruning with default age 1 day
@@ -4686,17 +4682,15 @@ TEST (node, pruning_depth)
 	// Confirm last block to prune previous
 	{
 		auto election = node1.active.election (send1->qualified_root ());
-		nano::lock_guard<std::mutex> guard (node1.active.mutex);
 		ASSERT_NE (nullptr, election);
-		election->confirm_once ();
+		election->force_confirm ();
 	}
 	ASSERT_TIMELY (2s, node1.block_confirmed (send1->hash ()) && node1.active.active (send2->qualified_root ()));
 	ASSERT_EQ (0, node1.ledger.cache.pruned_count);
 	{
 		auto election = node1.active.election (send2->qualified_root ());
-		nano::lock_guard<std::mutex> guard (node1.active.mutex);
 		ASSERT_NE (nullptr, election);
-		election->confirm_once ();
+		election->force_confirm ();
 	}
 	ASSERT_TIMELY (2s, node1.active.empty () && node1.block_confirmed (send2->hash ()));
 	// Pruning with default depth (unlimited)
