@@ -340,7 +340,7 @@ TEST (network, send_insufficient_work)
 	ASSERT_EQ (2, node2.stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work));
 }
 
-TEST (network, receive_insufficient_v2)
+TEST (network, receive_insufficient_work)
 {
 	nano::system system (2);
 
