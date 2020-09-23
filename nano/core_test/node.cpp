@@ -2261,17 +2261,22 @@ TEST (node, rep_remove)
 	// Add inactive UDP representative channel
 	nano::endpoint endpoint0 (boost::asio::ip::address_v6::loopback (), nano::get_available_port ());
 	std::shared_ptr<nano::transport::channel> channel0 (std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, endpoint0, node.network_params.protocol.protocol_version));
-	nano::amount amount100 (100);
-	node.network.udp_channels.insert (endpoint0, node.network_params.protocol.protocol_version);
+	auto channel_udp = node.network.udp_channels.insert (endpoint0, node.network_params.protocol.protocol_version);
 	auto vote1 = std::make_shared<nano::vote> (keypair1.pub, keypair1.prv, 0, genesis.open);
-	node.rep_crawler.response (channel0, vote1);
+	ASSERT_FALSE (node.rep_crawler.response (channel0, vote1));
 	ASSERT_TIMELY (5s, node.rep_crawler.representative_count () == 1);
 	auto reps (node.rep_crawler.representatives (1));
 	ASSERT_EQ (1, reps.size ());
 	ASSERT_EQ (node.minimum_principal_weight () * 2, reps[0].weight.number ());
 	ASSERT_EQ (keypair1.pub, reps[0].account);
 	ASSERT_EQ (*channel0, reps[0].channel_ref ());
+	// Modify last_packet_received so the channel is removed faster
+	std::chrono::steady_clock::time_point fake_timepoint{};
+	node.network.udp_channels.modify (channel_udp, [fake_timepoint](std::shared_ptr<nano::transport::channel_udp> channel_a) {
+		channel_a->set_last_packet_received (fake_timepoint);
+	});
 	// This UDP channel is not reachable and should timeout
+	ASSERT_EQ (1, node.rep_crawler.representative_count ());
 	ASSERT_TIMELY (10s, node.rep_crawler.representative_count () == 0);
 	// Add working representative
 	auto node1 = system.add_node (nano::node_config (nano::get_available_port (), system.logging));
@@ -2283,20 +2288,16 @@ TEST (node, rep_remove)
 	ASSERT_TIMELY (10s, node.rep_crawler.representative_count () == 1);
 	// Add inactive TCP representative channel
 	auto node2 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config (nano::get_available_port (), system.logging), system.work));
-	std::atomic<bool> done{ false };
 	std::weak_ptr<nano::node> node_w (node.shared ());
 	auto vote3 = std::make_shared<nano::vote> (keypair2.pub, keypair2.prv, 0, genesis.open);
-	node.network.tcp_channels.start_tcp (node2->network.endpoint (), [node_w, &done, &vote3, &system](std::shared_ptr<nano::transport::channel> channel2) {
+	node.network.tcp_channels.start_tcp (node2->network.endpoint (), [node_w, &vote3](std::shared_ptr<nano::transport::channel> channel2) {
 		if (auto node_l = node_w.lock ())
 		{
-			node_l->rep_crawler.response (channel2, vote3);
-			ASSERT_TIMELY (10s, node_l->rep_crawler.representative_count () == 2);
-			done = true;
+			ASSERT_FALSE (node_l->rep_crawler.response (channel2, vote3));
 		}
 	});
-	ASSERT_TIMELY (10s, done);
+	ASSERT_TIMELY (10s, node.rep_crawler.representative_count () == 2);
 	node2->stop ();
-	// Remove inactive representatives
 	ASSERT_TIMELY (10s, node.rep_crawler.representative_count () == 1);
 	reps = node.rep_crawler.representatives (1);
 	ASSERT_EQ (nano::dev_genesis_key.pub, reps[0].account);
