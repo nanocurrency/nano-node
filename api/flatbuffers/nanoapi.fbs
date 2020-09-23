@@ -93,11 +93,11 @@ enum BlockSubType: byte {
 /** Block union */
 union Block {
 	BlockState,
-	BlockState2,
 	BlockOpen,
 	BlockReceive,
 	BlockSend,
-	BlockChange
+	BlockChange,
+	BlockState2
 }
 
 table BlockOpen {
