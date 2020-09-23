@@ -467,27 +467,27 @@ void ledger_processor::state_block_impl (nano::state_block & block_a)
 							block_a.sideband_set (nano::block_sideband (block_a.hashables.account /* unused */, 0, 0 /* unused */, info.block_count + 1, nano::seconds_since_epoch (), block_details, source_epoch));
 							ledger.store.block_put (transaction, hash, block_a);
 
-						if (!info.head.is_zero ())
-						{
-							// Move existing representation & add in amount delta
-							ledger.cache.rep_weights.representation_add_dual (info.representative, 0 - info.balance.number (), block_a.representative (), block_a.hashables.balance.number ());
-						}
-						else
-						{
-							// Add in amount delta only
-							ledger.cache.rep_weights.representation_add (block_a.representative (), block_a.hashables.balance.number ());
-						}
+							if (!info.head.is_zero ())
+							{
+								// Move existing representation & add in amount delta
+								ledger.cache.rep_weights.representation_add_dual (info.representative, 0 - info.balance.number (), block_a.representative (), block_a.hashables.balance.number ());
+							}
+							else
+							{
+								// Add in amount delta only
+								ledger.cache.rep_weights.representation_add (block_a.representative (), block_a.hashables.balance.number ());
+							}
 
-						if (is_send)
-						{
-							nano::pending_key key (block_a.hashables.link.as_account (), hash);
-							nano::pending_info info (block_a.hashables.account, amount.number (), epoch);
-							ledger.store.pending_put (transaction, key, info);
-						}
-						else if (!block_a.hashables.link.is_zero ())
-						{
-							ledger.store.pending_del (transaction, nano::pending_key (block_a.hashables.account, block_a.hashables.link.as_block_hash ()));
-						}
+							if (is_send)
+							{
+								nano::pending_key key (block_a.hashables.link.as_account (), hash);
+								nano::pending_info info (block_a.hashables.account, amount.number (), epoch);
+								ledger.store.pending_put (transaction, key, info);
+							}
+							else if (!block_a.hashables.link.is_zero ())
+							{
+								ledger.store.pending_del (transaction, nano::pending_key (block_a.hashables.account, block_a.hashables.link.as_block_hash ()));
+							}
 
 							nano::account_info new_info (hash, block_a.representative (), info.open_block.is_zero () ? hash : info.open_block, block_a.hashables.balance, nano::seconds_since_epoch (), info.block_count + 1, epoch);
 							ledger.change_latest (transaction, block_a.hashables.account, info, new_info);
