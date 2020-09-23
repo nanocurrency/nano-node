@@ -63,7 +63,7 @@ void rocksdb_val::convert_buffer_to_value ()
 }
 }
 
-nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a, bool pruning_a) :
+nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a) :
 logger{ logger_a },
 rocksdb_config{ rocksdb_config_a },
 max_block_write_batch_num_m{ nano::narrow_cast<unsigned> (blocks_memtable_size_bytes () / (2 * (sizeof (nano::block_type) + nano::state_block::size + nano::block_sideband::size (nano::block_type::state)))) },
@@ -82,7 +82,7 @@ cf_name_table_map{ create_cf_name_table_map () }
 		{
 			construct_column_family_mutexes ();
 		}
-		open (error, path_a, open_read_only_a, pruning_a);
+		open (error, path_a, open_read_only_a);
 	}
 }
 
@@ -105,7 +105,7 @@ std::unordered_map<const char *, nano::tables> nano::rocksdb_store::create_cf_na
 	return map;
 }
 
-void nano::rocksdb_store::open (bool & error_a, boost::filesystem::path const & path_a, bool open_read_only_a, bool pruning_a)
+void nano::rocksdb_store::open (bool & error_a, boost::filesystem::path const & path_a, bool open_read_only_a)
 {
 	auto column_families = create_column_families ();
 	auto options = get_db_options ();
