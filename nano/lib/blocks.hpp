@@ -356,6 +356,8 @@ public:
 	uint8_t packed () const;
 	void unpack (uint8_t);
 
+	static size_t constexpr packed_size = sizeof (uint8_t);
+
 private:
 	std::bitset<8> flags;
 
@@ -415,7 +417,7 @@ public:
 
 	// Serialized size
 	static size_t constexpr size = sizeof (account) + sizeof (previous) + sizeof (representative) + sizeof (balance) + sizeof (link);
-	static size_t constexpr size2 = size + sizeof (height) + sizeof (version) + sizeof (flags);
+	static size_t constexpr size2 = size + sizeof (height) + sizeof (nano::epoch) + block_flags::packed_size;
 
 	bool operator== (nano::state_hashables const & other_a) const;
 };
