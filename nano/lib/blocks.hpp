@@ -365,13 +365,14 @@ private:
 	// = 1 is reserved
 
 	// Link field interpretation
-	static uint8_t constexpr send_pos = 2;
-	static uint8_t constexpr receive_pos = 3;
-	static uint8_t constexpr noop_pos = 4;
-	// = 5 is reserved
+	static std::bitset<8> constexpr link_field_mask = 0b00011100;
+	static std::bitset<8> constexpr send_val = 0b00000000;
+	static std::bitset<8> constexpr receive_val = 0b00000100;
+	static std::bitset<8> constexpr noop_val = 0b00001100;
 
-	// Is this doing a version upgrade
+	// Is this doing a version upgrade?
 	static uint8_t constexpr upgrade_pos = 6;
+	// = 7 is reserved
 };
 
 class state_hashables

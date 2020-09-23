@@ -2164,17 +2164,17 @@ bool nano::block_flags::is_self_signer () const
 
 bool nano::block_flags::is_send () const
 {
-	return flags.test (send_pos);
+	return (flags & link_field_mask) == send_val;
 }
 
 bool nano::block_flags::is_receive () const
 {
-	return flags.test (receive_pos);
+	return (flags & link_field_mask) == receive_val;
 }
 
 bool nano::block_flags::is_noop () const
 {
-	return flags.test (noop_pos);
+	return (flags & link_field_mask) == noop_val;
 }
 
 nano::link_flag nano::block_flags::link_interpretation () const
@@ -2195,22 +2195,22 @@ nano::link_flag nano::block_flags::link_interpretation () const
 
 void nano::block_flags::set_link_interpretation (nano::link_flag link_flag)
 {
-	flags.reset (send_pos);
-	flags.reset (receive_pos);
-	flags.reset (noop_pos);
+	flags &= ~link_field_mask; // Clear link
 
+	std::bitset<8> link_bits;
 	switch (link_flag)
 	{
 		case nano::link_flag::send:
-			flags.set (send_pos);
+			link_bits = send_val;
 			break;
 		case nano::link_flag::receive:
-			flags.set (receive_pos);
+			link_bits = receive_val;
 			break;
 		case nano::link_flag::noop:
-			flags.set (noop_pos);
+			link_bits = noop_val;
 			break;
 	}
+	flags |= link_bits;
 }
 
 nano::sig_flag nano::block_flags::signer () const
