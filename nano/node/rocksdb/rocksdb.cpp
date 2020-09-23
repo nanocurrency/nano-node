@@ -640,6 +640,9 @@ rocksdb::Options nano::rocksdb_store::get_db_options ()
 	// Default is 1GB, lowering this to avoid replaying for too long (100MB)
 	db_options.max_manifest_file_size = 100 * 1024 * 1024ULL;
 
+	// Not compressing any SST files for compatibility reasons.
+	db_options.compression = rocksdb::kNoCompression;
+
 	auto event_listener_l = new event_listener ([this](rocksdb::FlushJobInfo const & flush_job_info_a) { this->on_flush (flush_job_info_a); });
 	db_options.listeners.emplace_back (event_listener_l);
 
