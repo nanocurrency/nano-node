@@ -425,7 +425,7 @@ node_seq (seq)
 			}
 		}
 
-		ledger.pruning = flags.enable_pruning; // Additional check store.pruned_count (store.tx_begin_read ()) > 0 after PR#2946
+		ledger.pruning = flags.enable_pruning || store.pruned_count (store.tx_begin_read ()) > 0;
 
 		if (ledger.pruning)
 		{
