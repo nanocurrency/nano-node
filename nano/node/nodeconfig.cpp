@@ -445,7 +445,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		}
 		if (max_pruning_age < std::chrono::seconds (5 * 60) && !network.is_dev_network ())
 		{
-			toml.get_error ().set ("max_pruning_age must be equal greater than or equal to 5 minutes");
+			toml.get_error ().set ("max_pruning_age must be greater than or equal to 5 minutes");
 		}
 	}
 	catch (std::runtime_error const & ex)
