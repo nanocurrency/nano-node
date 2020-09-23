@@ -17,7 +17,7 @@ void nano::bootstrap_listener::start ()
 {
 	nano::lock_guard<std::mutex> lock (mutex);
 	on = true;
-	listening_socket = std::make_shared<nano::server_socket> (node.shared (), boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::any (), port), node.config.tcp_incoming_connections_max);
+	listening_socket = std::make_shared<nano::server_socket> (node, boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::any (), port), node.config.tcp_incoming_connections_max);
 	boost::system::error_code ec;
 	listening_socket->start (ec);
 	if (ec)

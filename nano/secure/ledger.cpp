@@ -911,8 +911,6 @@ epoch_2_started_cb (epoch_2_started_cb_a)
 
 void nano::ledger::initialize (nano::generate_cache const & generate_cache_a)
 {
-	auto transaction = store.tx_begin_read ();
-
 	if (generate_cache_a.reps || generate_cache_a.account_count || generate_cache_a.epoch_2 || generate_cache_a.block_count)
 	{
 		store.latest_for_each_par (
@@ -951,6 +949,9 @@ void nano::ledger::initialize (nano::generate_cache const & generate_cache_a)
 			this->cache.cemented_count += cemented_count_l;
 		});
 	}
+
+	auto transaction (store.tx_begin_read ());
+	cache.pruned_count = store.pruned_count (transaction);
 }
 
 // Balance for account containing hash

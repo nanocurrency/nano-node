@@ -1,6 +1,8 @@
 #pragma once
 
+#include <nano/lib/config.hpp>
 #include <nano/lib/rep_weights.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/buffer.hpp>
 
@@ -274,6 +276,7 @@ public:
 
 	std::shared_ptr<nano::vote> vote_generate (nano::transaction const & transaction_a, nano::account const & account_a, nano::raw_key const & key_a, std::shared_ptr<nano::block> block_a) override
 	{
+		debug_assert (nano::network_constants ().is_dev_network () || nano::thread_role::get () == nano::thread_role::name::voting);
 		nano::lock_guard<std::mutex> lock (cache_mutex);
 		auto result (vote_current (transaction_a, account_a));
 		uint64_t sequence ((result ? result->sequence : 0) + 1);
@@ -284,6 +287,7 @@ public:
 
 	std::shared_ptr<nano::vote> vote_generate (nano::transaction const & transaction_a, nano::account const & account_a, nano::raw_key const & key_a, std::vector<nano::block_hash> blocks_a) override
 	{
+		debug_assert (nano::network_constants ().is_dev_network () || nano::thread_role::get () == nano::thread_role::name::voting);
 		nano::lock_guard<std::mutex> lock (cache_mutex);
 		auto result (vote_current (transaction_a, account_a));
 		uint64_t sequence ((result ? result->sequence : 0) + 1);
@@ -549,10 +553,42 @@ public:
 		release_assert (success (status));
 	}
 
+	void pruned_put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a) override
+	{
+		auto status = put_key (transaction_a, tables::pruned, hash_a);
+		release_assert (success (status));
+	}
+
+	void pruned_del (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a) override
+	{
+		auto status = del (transaction_a, tables::pruned, hash_a);
+		release_assert (success (status));
+	}
+
+	bool pruned_exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override
+	{
+		return exists (transaction_a, tables::pruned, nano::db_val<Val> (hash_a));
+	}
+
+	bool block_or_pruned_exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override
+	{
+		return block_exists (transaction_a, hash_a) || pruned_exists (transaction_a, hash_a);
+	}
+
+	size_t pruned_count (nano::transaction const & transaction_a) const override
+	{
+		return count (transaction_a, tables::pruned);
+	}
+
+	void pruned_clear (nano::write_transaction const & transaction_a) override
+	{
+		auto status = drop (transaction_a, tables::pruned);
+		release_assert (success (status));
+	}
+
 	void peer_put (nano::write_transaction const & transaction_a, nano::endpoint_key const & endpoint_a) override
 	{
-		nano::db_val<Val> zero (static_cast<uint64_t> (0));
-		auto status = put (transaction_a, tables::peers, endpoint_a, zero);
+		auto status = put_key (transaction_a, tables::peers, endpoint_a);
 		release_assert (success (status));
 	}
 
@@ -605,6 +641,19 @@ public:
 		}
 		debug_assert (existing != end);
 		return existing->second;
+	}
+
+	nano::block_hash pruned_random (nano::transaction const & transaction_a) override
+	{
+		nano::block_hash random_hash;
+		nano::random_pool::generate_block (random_hash.bytes.data (), random_hash.bytes.size ());
+		auto existing = make_iterator<nano::block_hash, nano::db_val<Val>> (transaction_a, tables::pruned, nano::db_val<Val> (random_hash));
+		auto end (nano::store_iterator<nano::block_hash, nano::db_val<Val>> (nullptr));
+		if (existing == end)
+		{
+			existing = make_iterator<nano::block_hash, nano::db_val<Val>> (transaction_a, tables::pruned);
+		}
+		return existing != end ? existing->first : 0;
 	}
 
 	uint64_t confirmation_height_count (nano::transaction const & transaction_a) override
@@ -733,7 +782,7 @@ protected:
 	nano::network_params network_params;
 	std::unordered_map<nano::account, std::shared_ptr<nano::vote>> vote_cache_l1;
 	std::unordered_map<nano::account, std::shared_ptr<nano::vote>> vote_cache_l2;
-	int const version{ 19 };
+	int const version{ 20 };
 
 	template <typename Key, typename Value>
 	nano::store_iterator<Key, Value> make_iterator (nano::transaction const & transaction_a, tables table_a) const
@@ -784,6 +833,12 @@ protected:
 	int put (nano::write_transaction const & transaction_a, tables table_a, nano::db_val<Val> const & key_a, nano::db_val<Val> const & value_a)
 	{
 		return static_cast<Derived_Store &> (*this).put (transaction_a, table_a, key_a, value_a);
+	}
+
+	// Put only key without value
+	int put_key (nano::write_transaction const & transaction_a, tables table_a, nano::db_val<Val> const & key_a)
+	{
+		return put (transaction_a, table_a, key_a, nano::db_val<Val>{ std::nullptr_t{} });
 	}
 
 	int del (nano::write_transaction const & transaction_a, tables table_a, nano::db_val<Val> const & key_a)

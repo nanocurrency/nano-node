@@ -480,7 +480,6 @@ public:
 					{
 						node.network.udp_channels.modify (new_channel, [&message_a](std::shared_ptr<nano::transport::channel_udp> channel_a) {
 							channel_a->set_node_id (message_a.response->first);
-							channel_a->set_last_packet_received (std::chrono::steady_clock::now ());
 						});
 					}
 				}

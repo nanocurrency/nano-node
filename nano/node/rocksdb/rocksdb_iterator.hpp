@@ -36,7 +36,6 @@ public:
 	rocksdb_iterator (rocksdb::DB * db, nano::transaction const & transaction_a, rocksdb::ColumnFamilyHandle * handle_a, rocksdb_val const * val_a)
 	{
 		// Don't fill the block cache for any blocks read as a result of an iterator
-		rocksdb::Iterator * iter;
 		if (is_read (transaction_a))
 		{
 			auto & read_options = snapshot_options (transaction_a);
@@ -125,7 +124,7 @@ public:
 
 		auto result (std::memcmp (current.first.data (), other_a->current.first.data (), current.first.size ()) == 0);
 		debug_assert (!result || (current.first.size () == other_a->current.first.size ()));
-		debug_assert (!result || (current.second.data () == other_a->current.second.data ()));
+		debug_assert (!result || std::memcmp (current.second.data (), other_a->current.second.data (), current.second.size ()) == 0);
 		debug_assert (!result || (current.second.size () == other_a->current.second.size ()));
 		return result;
 	}

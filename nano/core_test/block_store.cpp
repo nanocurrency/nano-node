@@ -1,25 +1,21 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/lmdbconfig.hpp>
+#include <nano/lib/logger_mt.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/lmdb/lmdb.hpp>
+#include <nano/node/rocksdb/rocksdb.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/utility.hpp>
 #include <nano/secure/versioning.hpp>
 #include <nano/test_common/testutil.hpp>
 
-#include <boost/filesystem.hpp>
-
-#if NANO_ROCKSDB
-#include <nano/node/rocksdb/rocksdb.hpp>
-#endif
-
-#include <nano/lib/logger_mt.hpp>
-#include <nano/node/lmdb/lmdb.hpp>
-
 #include <gtest/gtest.h>
+
+#include <boost/filesystem.hpp>
 
 #include <fstream>
 #include <unordered_set>
@@ -880,6 +876,24 @@ TEST (block_store, cemented_count_cache)
 	ASSERT_EQ (1, ledger_cache.cemented_count);
 }
 
+TEST (block_store, pruned_count)
+{
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_TRUE (!store->init_error ());
+	{
+		auto transaction (store->tx_begin_write ());
+		nano::open_block block (0, 1, 0, nano::keypair ().prv, 0, 0);
+		block.sideband_set ({});
+		auto hash1 (block.hash ());
+		store->block_put (transaction, hash1, block);
+		store->pruned_put (transaction, hash1);
+	}
+	auto transaction (store->tx_begin_read ());
+	ASSERT_EQ (1, store->pruned_count (transaction));
+	ASSERT_EQ (1, store->block_count (transaction));
+}
+
 TEST (block_store, sequence_increment)
 {
 	nano::logger_mt logger;
@@ -924,6 +938,26 @@ TEST (block_store, block_random)
 	auto block (store->block_random (transaction));
 	ASSERT_NE (nullptr, block);
 	ASSERT_EQ (*block, *genesis.open);
+}
+
+TEST (block_store, pruned_random)
+{
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_TRUE (!store->init_error ());
+	nano::genesis genesis;
+	nano::open_block block (0, 1, 0, nano::keypair ().prv, 0, 0);
+	block.sideband_set ({});
+	auto hash1 (block.hash ());
+	{
+		nano::ledger_cache ledger_cache;
+		auto transaction (store->tx_begin_write ());
+		store->initialize (transaction, genesis, ledger_cache);
+		store->pruned_put (transaction, hash1);
+	}
+	auto transaction (store->tx_begin_read ());
+	auto random_hash (store->pruned_random (transaction));
+	ASSERT_EQ (hash1, random_hash);
 }
 
 // Databases need to be dropped in order to convert to dupsort compatible
@@ -1230,6 +1264,69 @@ TEST (block_store, online_weight)
 	auto transaction (store->tx_begin_read ());
 	ASSERT_EQ (0, store->online_weight_count (transaction));
 	ASSERT_EQ (store->online_weight_end (), store->online_weight_begin (transaction));
+}
+
+TEST (block_store, pruned_blocks)
+{
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_TRUE (!store->init_error ());
+
+	nano::keypair key1;
+	nano::open_block block1 (0, 1, key1.pub, key1.prv, key1.pub, 0);
+	auto hash1 (block1.hash ());
+	{
+		auto transaction (store->tx_begin_write ());
+
+		// Confirm that the store is empty
+		ASSERT_FALSE (store->pruned_exists (transaction, hash1));
+		ASSERT_EQ (store->pruned_count (transaction), 0);
+
+		// Add one
+		store->pruned_put (transaction, hash1);
+		ASSERT_TRUE (store->pruned_exists (transaction, hash1));
+	}
+
+	// Confirm that it can be found
+	ASSERT_EQ (store->pruned_count (store->tx_begin_read ()), 1);
+
+	// Add another one and check that it (and the existing one) can be found
+	nano::open_block block2 (1, 2, key1.pub, key1.prv, key1.pub, 0);
+	block2.sideband_set ({});
+	auto hash2 (block2.hash ());
+	{
+		auto transaction (store->tx_begin_write ());
+		store->pruned_put (transaction, hash2);
+		ASSERT_TRUE (store->pruned_exists (transaction, hash2)); // Check new pruned hash is here
+		ASSERT_TRUE (store->block_or_pruned_exists (transaction, hash2));
+		ASSERT_TRUE (store->pruned_exists (transaction, hash1)); // Check first pruned hash is still here
+		ASSERT_TRUE (store->block_or_pruned_exists (transaction, hash1));
+	}
+
+	ASSERT_EQ (store->pruned_count (store->tx_begin_read ()), 2);
+
+	// Delete the first one
+	{
+		auto transaction (store->tx_begin_write ());
+		store->pruned_del (transaction, hash2);
+		ASSERT_FALSE (store->pruned_exists (transaction, hash2)); // Confirm it no longer exists
+		ASSERT_FALSE (store->block_or_pruned_exists (transaction, hash2));
+		store->block_put (transaction, hash2, block2); // Add corresponding block
+		ASSERT_TRUE (store->block_or_pruned_exists (transaction, hash2));
+		ASSERT_TRUE (store->pruned_exists (transaction, hash1)); // Check first pruned hash is still here
+		ASSERT_TRUE (store->block_or_pruned_exists (transaction, hash1));
+	}
+
+	ASSERT_EQ (store->pruned_count (store->tx_begin_read ()), 1);
+
+	// Delete original one
+	{
+		auto transaction (store->tx_begin_write ());
+		store->pruned_del (transaction, hash1);
+		ASSERT_FALSE (store->pruned_exists (transaction, hash1));
+	}
+
+	ASSERT_EQ (store->pruned_count (store->tx_begin_read ()), 0);
 }
 
 TEST (mdb_block_store, upgrade_v14_v15)
@@ -1752,6 +1849,36 @@ TEST (mdb_block_store, upgrade_v18_v19)
 	ASSERT_LT (18, store.version_get (transaction));
 }
 
+TEST (mdb_block_store, upgrade_v19_v20)
+{
+	if (nano::using_rocksdb_in_tests ())
+	{
+		// Don't test this in rocksdb mode
+		return;
+	}
+	auto path (nano::unique_path ());
+	nano::genesis genesis;
+	nano::logger_mt logger;
+	nano::stat stats;
+	{
+		nano::mdb_store store (logger, path);
+		nano::ledger ledger (store, stats);
+		auto transaction (store.tx_begin_write ());
+		store.initialize (transaction, genesis, ledger.cache);
+		// Delete pruned table
+		ASSERT_FALSE (mdb_drop (store.env.tx (transaction), store.pruned, 1));
+		store.version_put (transaction, 19);
+	}
+	// Upgrading should create the table
+	nano::mdb_store store (logger, path);
+	ASSERT_FALSE (store.init_error ());
+	ASSERT_NE (store.pruned, 0);
+
+	// Version should be correct
+	auto transaction (store.tx_begin_read ());
+	ASSERT_LT (19, store.version_get (transaction));
+}
+
 TEST (mdb_block_store, upgrade_backup)
 {
 	if (nano::using_rocksdb_in_tests ())
@@ -1914,8 +2041,6 @@ TEST (block_store, rocksdb_force_test_env_variable)
 	auto store = nano::make_store (logger, nano::unique_path ());
 
 	auto mdb_cast = dynamic_cast<nano::mdb_store *> (store.get ());
-
-#if NANO_ROCKSDB
 	if (value && boost::lexical_cast<int> (value) == 1)
 	{
 		ASSERT_NE (boost::polymorphic_downcast<nano::rocksdb_store *> (store.get ()), nullptr);
@@ -1924,16 +2049,12 @@ TEST (block_store, rocksdb_force_test_env_variable)
 	{
 		ASSERT_NE (mdb_cast, nullptr);
 	}
-#else
-	ASSERT_NE (mdb_cast, nullptr);
-#endif
 }
 
 namespace nano
 {
 TEST (rocksdb_block_store, tombstone_count)
 {
-#if NANO_ROCKSDB
 	if (nano::using_rocksdb_in_tests ())
 	{
 		nano::logger_mt logger;
@@ -1946,7 +2067,6 @@ TEST (rocksdb_block_store, tombstone_count)
 		store->unchecked_del (transaction, nano::unchecked_key (block1->previous (), block1->hash ()));
 		ASSERT_EQ (store->tombstone_map.at (nano::tables::unchecked).num_since_last_flush.load (), 1);
 	}
-#endif
 }
 }
 
