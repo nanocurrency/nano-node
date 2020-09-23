@@ -8,6 +8,7 @@
 #include <gtest/gtest.h>
 
 #include <boost/format.hpp>
+#include <boost/unordered_set.hpp>
 
 #include <numeric>
 #include <random>
@@ -413,6 +414,51 @@ TEST (store, vote_load)
 	{
 		auto vote (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, i, block));
 		node.vote_processor.vote (vote, std::make_shared<nano::transport::channel_udp> (system.nodes[0]->network.udp_channels, system.nodes[0]->network.endpoint (), system.nodes[0]->network_params.protocol.protocol_version));
+	}
+}
+
+TEST (store, pruned_load)
+{
+	nano::logger_mt logger;
+	auto path (nano::unique_path ());
+	constexpr auto num_pruned = 2000000;
+	auto const expected_result = nano::using_rocksdb_in_tests () ? num_pruned : num_pruned / 2;
+	constexpr auto batch_size = 20;
+	boost::unordered_set<nano::block_hash> hashes;
+	{
+		auto store = nano::make_store (logger, path);
+		ASSERT_FALSE (store->init_error ());
+		for (auto i (0); i < num_pruned / batch_size; ++i)
+		{
+			{
+				auto transaction (store->tx_begin_write ());
+				for (auto k (0); k < batch_size; ++k)
+				{
+					nano::block_hash random_hash;
+					nano::random_pool::generate_block (random_hash.bytes.data (), random_hash.bytes.size ());
+					store->pruned_put (transaction, random_hash);
+				}
+			}
+			if (!nano::using_rocksdb_in_tests ())
+			{
+				auto transaction (store->tx_begin_write ());
+				for (auto k (0); k < batch_size / 2; ++k)
+				{
+					auto hash (hashes.begin ());
+					store->pruned_del (transaction, *hash);
+					hashes.erase (hash);
+				}
+			}
+		}
+		auto transaction (store->tx_begin_read ());
+		ASSERT_EQ (expected_result, store->pruned_count (transaction));
+	}
+	// Reinitialize store
+	{
+		auto store = nano::make_store (logger, path);
+		ASSERT_FALSE (store->init_error ());
+		auto transaction (store->tx_begin_read ());
+		ASSERT_EQ (expected_result, store->pruned_count (transaction));
 	}
 }
 
