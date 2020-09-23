@@ -1076,7 +1076,7 @@ void nano::node::ledger_pruning (uint64_t const batch_size_a, bool bootstrap_wei
 			while (!pruning_targets.empty () && transaction_write_count < batch_size_a && !stopped)
 			{
 				auto const & pruning_hash (pruning_targets.front ());
-				auto account_pruned_count (ledger.prune (write_transaction, pruning_hash, batch_size_a));
+				auto account_pruned_count (ledger.pruning_action (write_transaction, pruning_hash, batch_size_a));
 				transaction_write_count += account_pruned_count;
 				pruning_targets.pop_front ();
 			}

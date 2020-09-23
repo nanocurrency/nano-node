@@ -30,7 +30,7 @@ public:
 	nano::account account_safe (nano::transaction const &, nano::block_hash const &, bool &);
 	nano::uint128_t amount (nano::transaction const &, nano::account const &);
 	nano::uint128_t amount (nano::transaction const &, nano::block_hash const &);
-	/** Safe for previous block, but block \p hash_a must exist */
+	/** Safe for previous block, but block hash_a must exist */
 	nano::uint128_t amount_safe (nano::transaction const &, nano::block_hash const & hash_a, bool &);
 	nano::uint128_t balance (nano::transaction const &, nano::block_hash const &) const;
 	nano::uint128_t balance_safe (nano::transaction const &, nano::block_hash const &, bool &);
@@ -57,7 +57,7 @@ public:
 	bool rollback (nano::write_transaction const &, nano::block_hash const &, std::vector<std::shared_ptr<nano::block>> &);
 	bool rollback (nano::write_transaction const &, nano::block_hash const &);
 	void change_latest (nano::write_transaction const &, nano::account const &, nano::account_info const &, nano::account_info const &);
-	uint64_t prune (nano::write_transaction &, nano::block_hash const &, uint64_t const);
+	uint64_t pruning_action (nano::write_transaction &, nano::block_hash const &, uint64_t const);
 	void dump_account_chain (nano::account const &, std::ostream & = std::cout);
 	bool could_fit (nano::transaction const &, nano::block const &) const;
 	bool dependents_confirmed (nano::transaction const &, nano::block const &) const;

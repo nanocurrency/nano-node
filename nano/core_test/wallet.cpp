@@ -1529,7 +1529,7 @@ TEST (wallet, receive_pruned)
 	ASSERT_TIMELY (5s, node2.ledger.cache.cemented_count == 3);
 	{
 		auto transaction (node2.store.tx_begin_write ());
-		ASSERT_EQ (1, node2.ledger.prune (transaction, send1->hash (), 2));
+		ASSERT_EQ (1, node2.ledger.pruning_action (transaction, send1->hash (), 2));
 	}
 	ASSERT_EQ (1, node2.ledger.cache.pruned_count);
 	ASSERT_TRUE (node2.ledger.block_or_pruned_exists (send1->hash ()));

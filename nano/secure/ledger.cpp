@@ -1321,7 +1321,7 @@ bool nano::ledger::block_confirmed (nano::transaction const & transaction_a, nan
 	return confirmed;
 }
 
-uint64_t nano::ledger::prune (nano::write_transaction & transaction_a, nano::block_hash const & hash_a, uint64_t const batch_size_a)
+uint64_t nano::ledger::pruning_action (nano::write_transaction & transaction_a, nano::block_hash const & hash_a, uint64_t const batch_size_a)
 {
 	uint64_t pruned_count (0);
 	nano::block_hash hash (hash_a);

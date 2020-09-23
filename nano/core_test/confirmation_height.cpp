@@ -1450,7 +1450,7 @@ TEST (confirmation_height, pruned_source)
 		{
 			// Prune the send
 			auto transaction (store->tx_begin_write ());
-			ASSERT_EQ (2, ledger.prune (transaction, send2->hash (), 2));
+			ASSERT_EQ (2, ledger.pruning_action (transaction, send2->hash (), 2));
 		}
 		first_time = false; },
 	[](auto const &) {}, []() { return 0; });

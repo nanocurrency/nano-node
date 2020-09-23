@@ -1626,7 +1626,7 @@ TEST (rpc, history_pruning)
 	// Pruning action
 	{
 		auto transaction (node0->store.tx_begin_write ());
-		ASSERT_EQ (1, node0->ledger.prune (transaction, change->hash (), 1));
+		ASSERT_EQ (1, node0->ledger.pruning_action (transaction, change->hash (), 1));
 	}
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (*node0, node_rpc_config);
@@ -1658,7 +1658,7 @@ TEST (rpc, history_pruning)
 	// Pruning action
 	{
 		auto transaction (node0->store.tx_begin_write ());
-		ASSERT_EQ (1, node0->ledger.prune (transaction, send->hash (), 1));
+		ASSERT_EQ (1, node0->ledger.pruning_action (transaction, send->hash (), 1));
 	}
 	boost::property_tree::ptree request2;
 	request2.put ("action", "history");
@@ -1685,7 +1685,7 @@ TEST (rpc, history_pruning)
 	// Pruning action
 	{
 		auto transaction (node0->store.tx_begin_write ());
-		ASSERT_EQ (1, node0->ledger.prune (transaction, receive->hash (), 1));
+		ASSERT_EQ (1, node0->ledger.pruning_action (transaction, receive->hash (), 1));
 	}
 	boost::property_tree::ptree request3;
 	request3.put ("action", "history");
@@ -3345,7 +3345,7 @@ TEST (rpc, block_count_pruning)
 	// Pruning action
 	{
 		auto transaction (node1.store.tx_begin_write ());
-		ASSERT_EQ (1, node1.ledger.prune (transaction, send1.hash (), 1));
+		ASSERT_EQ (1, node1.ledger.pruning_action (transaction, send1.hash (), 1));
 	}
 	scoped_io_thread_name_change scoped_thread_name_io;
 	nano::node_rpc_config node_rpc_config;
@@ -5264,7 +5264,7 @@ TEST (rpc, block_info_pruning)
 	// Pruning action
 	{
 		auto transaction (node1.store.tx_begin_write ());
-		ASSERT_EQ (1, node1.ledger.prune (transaction, send1.hash (), 1));
+		ASSERT_EQ (1, node1.ledger.pruning_action (transaction, send1.hash (), 1));
 	}
 	scoped_io_thread_name_change scoped_thread_name_io;
 	nano::node_rpc_config node_rpc_config;
@@ -7763,7 +7763,7 @@ TEST (rpc, receive_pruned)
 	ASSERT_TIMELY (5s, node2.ledger.cache.cemented_count == 4);
 	{
 		auto transaction (node2.store.tx_begin_write ());
-		ASSERT_EQ (2, node2.ledger.prune (transaction, send2->hash (), 1));
+		ASSERT_EQ (2, node2.ledger.pruning_action (transaction, send2->hash (), 1));
 	}
 	ASSERT_EQ (2, node2.ledger.cache.pruned_count);
 	ASSERT_TRUE (node2.ledger.block_or_pruned_exists (send1->hash ()));

@@ -549,8 +549,8 @@ TEST (bootstrap_processor, push_diamond_pruning)
 	ASSERT_EQ (nano::process_result::progress, node1->process (*receive).code);
 	{
 		auto transaction (node1->store.tx_begin_write ());
-		ASSERT_EQ (1, node1->ledger.prune (transaction, send1->hash (), 2));
-		ASSERT_EQ (1, node1->ledger.prune (transaction, open->hash (), 1));
+		ASSERT_EQ (1, node1->ledger.pruning_action (transaction, send1->hash (), 2));
+		ASSERT_EQ (1, node1->ledger.pruning_action (transaction, open->hash (), 1));
 		ASSERT_TRUE (node1->store.block_exists (transaction, latest));
 		ASSERT_FALSE (node1->store.block_exists (transaction, send1->hash ()));
 		ASSERT_TRUE (node1->store.pruned_exists (transaction, send1->hash ()));

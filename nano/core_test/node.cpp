@@ -477,7 +477,7 @@ TEST (node, search_pending_pruned)
 	// Pruning
 	{
 		auto transaction (node2->store.tx_begin_write ());
-		ASSERT_EQ (1, node2->ledger.prune (transaction, send1->hash (), 1));
+		ASSERT_EQ (1, node2->ledger.pruning_action (transaction, send1->hash (), 1));
 	}
 	ASSERT_EQ (1, node2->ledger.cache.pruned_count);
 	ASSERT_TRUE (node2->ledger.block_or_pruned_exists (send1->hash ()));
