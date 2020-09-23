@@ -824,12 +824,16 @@ TEST (network, replace_port)
 	node_flags.disable_udp = false;
 	node_flags.disable_ongoing_telemetry_requests = true;
 	node_flags.disable_initial_telemetry_requests = true;
-	auto node0 = system.add_node (node_flags);
+	nano::node_config node0_config (nano::get_available_port (), system.logging);
+	node0_config.io_threads = 8;
+	auto node0 = system.add_node (node0_config, node_flags);
 	ASSERT_EQ (0, node0->network.size ());
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work, node_flags));
+	nano::node_config node1_config (nano::get_available_port (), system.logging);
+	node1_config.io_threads = 1;
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, node1_config, system.work, node_flags));
 	node1->start ();
 	system.nodes.push_back (node1);
-	auto wrong_endpoint = nano::endpoint (node1->network.endpoint ().address (), 23000);
+	auto wrong_endpoint = nano::endpoint (node1->network.endpoint ().address (), nano::get_available_port ());
 	auto channel0 (node0->network.udp_channels.insert (wrong_endpoint, node1->network_params.protocol.protocol_version));
 	ASSERT_NE (nullptr, channel0);
 	node0->network.udp_channels.modify (channel0, [&node1](std::shared_ptr<nano::transport::channel> channel_a) {
