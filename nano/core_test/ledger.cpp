@@ -770,10 +770,10 @@ TEST (votes, check_signature)
 	ASSERT_EQ (1, election1.election->votes ().size ());
 	auto vote1 (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 1, send1));
 	vote1->signature.bytes[0] ^= 1;
-	ASSERT_EQ (nano::vote_code::invalid, node1.vote_processor.vote_blocking (vote1, std::make_shared<nano::transport::channel_udp> (node1.network.udp_channels, nano::endpoint (boost::asio::ip::address_v6 (), 0), node1.network_params.protocol.protocol_version)));
+	ASSERT_EQ (nano::vote_code::invalid, node1.vote_processor.vote_blocking (vote1, std::make_shared<nano::transport::channel_loopback> (node1)));
 	vote1->signature.bytes[0] ^= 1;
-	ASSERT_EQ (nano::vote_code::vote, node1.vote_processor.vote_blocking (vote1, std::make_shared<nano::transport::channel_udp> (node1.network.udp_channels, nano::endpoint (boost::asio::ip::address_v6 (), 0), node1.network_params.protocol.protocol_version)));
-	ASSERT_EQ (nano::vote_code::replay, node1.vote_processor.vote_blocking (vote1, std::make_shared<nano::transport::channel_udp> (node1.network.udp_channels, nano::endpoint (boost::asio::ip::address_v6 (), 0), node1.network_params.protocol.protocol_version)));
+	ASSERT_EQ (nano::vote_code::vote, node1.vote_processor.vote_blocking (vote1, std::make_shared<nano::transport::channel_loopback> (node1)));
+	ASSERT_EQ (nano::vote_code::replay, node1.vote_processor.vote_blocking (vote1, std::make_shared<nano::transport::channel_loopback> (node1)));
 }
 
 TEST (votes, add_one)
@@ -891,7 +891,7 @@ TEST (votes, add_old)
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
 	auto election1 = node1.active.insert (send1);
 	auto vote1 (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 2, send1));
-	auto channel (std::make_shared<nano::transport::channel_udp> (node1.network.udp_channels, node1.network.endpoint (), node1.network_params.protocol.protocol_version));
+	auto channel (std::make_shared<nano::transport::channel_loopback> (node1));
 	node1.vote_processor.vote_blocking (vote1, channel);
 	nano::keypair key2;
 	auto send2 (std::make_shared<nano::send_block> (genesis.hash (), key2.pub, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
@@ -931,7 +931,7 @@ TEST (votes, add_old_different_account)
 	ASSERT_EQ (1, election1->votes ().size ());
 	ASSERT_EQ (1, election2->votes ().size ());
 	auto vote1 (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 2, send1));
-	auto channel (std::make_shared<nano::transport::channel_udp> (node1.network.udp_channels, node1.network.endpoint (), node1.network_params.protocol.protocol_version));
+	auto channel (std::make_shared<nano::transport::channel_loopback> (node1));
 	auto vote_result1 (node1.vote_processor.vote_blocking (vote1, channel));
 	ASSERT_EQ (nano::vote_code::vote, vote_result1);
 	ASSERT_EQ (2, election1->votes ().size ());
@@ -964,7 +964,7 @@ TEST (votes, add_cooldown)
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
 	auto election1 = node1.active.insert (send1);
 	auto vote1 (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 1, send1));
-	auto channel (std::make_shared<nano::transport::channel_udp> (node1.network.udp_channels, node1.network.endpoint (), node1.network_params.protocol.protocol_version));
+	auto channel (std::make_shared<nano::transport::channel_loopback> (node1));
 	node1.vote_processor.vote_blocking (vote1, channel);
 	nano::keypair key2;
 	auto send2 (std::make_shared<nano::send_block> (genesis.hash (), key2.pub, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));

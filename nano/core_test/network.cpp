@@ -1145,3 +1145,18 @@ TEST (network, cleanup_purge)
 	node1.network.cleanup (std::chrono::steady_clock::now ());
 	ASSERT_EQ (0, node1.network.size ());
 }
+
+TEST (network, loopback_channel)
+{
+	nano::system system (1);
+	auto & node = *system.nodes[0];
+	auto loopback_channel = std::make_shared<nano::transport::channel_loopback> (node);
+	ASSERT_EQ (loopback_channel->get_type (), nano::transport::transport_type::loopback);
+	ASSERT_EQ (loopback_channel->get_endpoint (), node.network.endpoint ());
+	ASSERT_EQ (loopback_channel->get_tcp_endpoint (), nano::transport::map_endpoint_to_tcp (node.network.endpoint ()));
+	ASSERT_EQ (loopback_channel->get_network_version (), node.network_params.protocol.protocol_version);
+	ASSERT_EQ (loopback_channel->get_node_id (), node.node_id.pub);
+	ASSERT_EQ (loopback_channel->get_node_id_optional ().value_or (0), node.node_id.pub);
+	++node.network.port;
+	ASSERT_NE (loopback_channel->get_endpoint (), node.network.endpoint ());
+}
