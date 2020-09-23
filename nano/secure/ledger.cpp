@@ -1383,8 +1383,8 @@ bool nano::ledger::block_confirmed (nano::transaction const & transaction_a, nan
 	if (block)
 	{
 		nano::confirmation_height_info confirmation_height_info;
-		release_assert (!store.confirmation_height_get (transaction_a, block->account ().is_zero () ? block->sideband ().account : block->account (), confirmation_height_info));
-		confirmed = (confirmation_height_info.height >= block->sideband ().height);
+		release_assert (!store.confirmation_height_get (transaction_a, block->account (), confirmation_height_info));
+		confirmed = (confirmation_height_info.height >= block->height ());
 	}
 	return confirmed;
 }

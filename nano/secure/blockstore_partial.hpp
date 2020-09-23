@@ -121,7 +121,7 @@ public:
 	uint64_t block_account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override
 	{
 		auto block = block_get (transaction_a, hash_a);
-		return block->sideband ().height;
+		return block->height ();
 	}
 
 	std::shared_ptr<nano::block> block_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override
@@ -178,13 +178,7 @@ public:
 	nano::account block_account_calculated (nano::block const & block_a) const override
 	{
 		debug_assert (block_a.has_sideband ());
-		nano::account result (block_a.account ());
-		if (result.is_zero ())
-		{
-			result = block_a.sideband ().account;
-		}
-		debug_assert (!result.is_zero ());
-		return result;
+		return block_a.account ();
 	}
 
 	nano::uint128_t block_balance_calculated (std::shared_ptr<nano::block> const & block_a) const override

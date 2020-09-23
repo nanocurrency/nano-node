@@ -1152,7 +1152,7 @@ void nano::json_handler::blocks_info ()
 				if (block != nullptr)
 				{
 					boost::property_tree::ptree entry;
-					nano::account account (block->account ().is_zero () ? block->sideband ().account : block->account ());
+					nano::account account (block->account ());
 					entry.put ("block_account", account.to_account ());
 					auto amount (node.ledger.amount (transaction, hash));
 					entry.put ("amount", amount.convert_to<std::string> ());
