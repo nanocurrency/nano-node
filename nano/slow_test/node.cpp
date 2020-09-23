@@ -224,8 +224,10 @@ TEST (node, fork_storm)
 			}
 			else
 			{
-				nano::lock_guard<std::mutex> lock (node_a->active.mutex);
-				if (node_a->active.roots.begin ()->election->last_votes_size () == 1)
+				nano::unique_lock<std::mutex> lock (node_a->active.mutex);
+				auto election = node_a->active.roots.begin ()->election;
+				lock.unlock ();
+				if (election->votes ().size () == 1)
 				{
 					++single;
 				}
@@ -490,8 +492,7 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 		auto election_insertion_result (node->active.insert (block));
 		ASSERT_TRUE (election_insertion_result.inserted);
 		ASSERT_NE (nullptr, election_insertion_result.election);
-		nano::lock_guard<std::mutex> guard (node->active.mutex);
-		election_insertion_result.election->confirm_once ();
+		election_insertion_result.election->force_confirm ();
 	}
 
 	ASSERT_TIMELY (120s, node->ledger.block_confirmed (node->store.tx_begin_read (), last_open_hash));
@@ -559,8 +560,7 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 		auto election_insertion_result (node->active.insert (open_block));
 		ASSERT_TRUE (election_insertion_result.inserted);
 		ASSERT_NE (nullptr, election_insertion_result.election);
-		nano::lock_guard<std::mutex> guard (node->active.mutex);
-		election_insertion_result.election->confirm_once ();
+		election_insertion_result.election->force_confirm ();
 	}
 
 	auto const num_blocks_to_confirm = (num_accounts - 1) * 2;
@@ -647,8 +647,7 @@ TEST (confirmation_height, long_chains)
 		auto election_insertion_result (node->active.insert (receive1));
 		ASSERT_TRUE (election_insertion_result.inserted);
 		ASSERT_NE (nullptr, election_insertion_result.election);
-		nano::lock_guard<std::mutex> guard (node->active.mutex);
-		election_insertion_result.election->confirm_once ();
+		election_insertion_result.election->force_confirm ();
 	}
 
 	ASSERT_TIMELY (30s, node->ledger.block_confirmed (node->store.tx_begin_read (), receive1->hash ()));
@@ -845,8 +844,7 @@ TEST (confirmation_height, many_accounts_send_receive_self)
 		node->block_confirm (open_block);
 		auto election = node->active.election (open_block->qualified_root ());
 		ASSERT_NE (nullptr, election);
-		nano::lock_guard<std::mutex> guard (node->active.mutex);
-		election->confirm_once ();
+		election->force_confirm ();
 	}
 
 	system.deadline_set (100s);

@@ -1288,10 +1288,7 @@ TEST (block_store, pruned_blocks)
 	}
 
 	// Confirm that it can be found
-	{
-		auto transaction (store->tx_begin_read ());
-		ASSERT_EQ (store->pruned_count (transaction), 1);
-	}
+	ASSERT_EQ (store->pruned_count (store->tx_begin_read ()), 1);
 
 	// Add another one and check that it (and the existing one) can be found
 	nano::open_block block2 (1, 2, key1.pub, key1.prv, key1.pub, 0);
@@ -1306,10 +1303,7 @@ TEST (block_store, pruned_blocks)
 		ASSERT_TRUE (store->block_or_pruned_exists (transaction, hash1));
 	}
 
-	{
-		auto transaction (store->tx_begin_read ());
-		ASSERT_EQ (store->pruned_count (transaction), 2);
-	}
+	ASSERT_EQ (store->pruned_count (store->tx_begin_read ()), 2);
 
 	// Delete the first one
 	{
@@ -1323,10 +1317,7 @@ TEST (block_store, pruned_blocks)
 		ASSERT_TRUE (store->block_or_pruned_exists (transaction, hash1));
 	}
 
-	{
-		auto transaction (store->tx_begin_read ());
-		ASSERT_EQ (store->pruned_count (transaction), 1);
-	}
+	ASSERT_EQ (store->pruned_count (store->tx_begin_read ()), 1);
 
 	// Delete original one
 	{
@@ -1335,10 +1326,7 @@ TEST (block_store, pruned_blocks)
 		ASSERT_FALSE (store->pruned_exists (transaction, hash1));
 	}
 
-	{
-		auto transaction (store->tx_begin_read ());
-		ASSERT_EQ (store->pruned_count (transaction), 0);
-	}
+	ASSERT_EQ (store->pruned_count (store->tx_begin_read ()), 0);
 }
 
 TEST (mdb_block_store, upgrade_v14_v15)
