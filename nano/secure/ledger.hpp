@@ -27,13 +27,13 @@ class ledger final
 public:
 	ledger (nano::block_store &, nano::stat &, nano::generate_cache const & = nano::generate_cache (), std::function<void()> = nullptr);
 	nano::account account (nano::transaction const &, nano::block_hash const &) const;
-	nano::account account_safe (nano::transaction const &, nano::block_hash const &, bool &);
+	nano::account account_safe (nano::transaction const &, nano::block_hash const &, bool &) const;
 	nano::uint128_t amount (nano::transaction const &, nano::account const &);
 	nano::uint128_t amount (nano::transaction const &, nano::block_hash const &);
 	/** Safe for previous block, but block hash_a must exist */
-	nano::uint128_t amount_safe (nano::transaction const &, nano::block_hash const & hash_a, bool &);
+	nano::uint128_t amount_safe (nano::transaction const &, nano::block_hash const & hash_a, bool &) const;
 	nano::uint128_t balance (nano::transaction const &, nano::block_hash const &) const;
-	nano::uint128_t balance_safe (nano::transaction const &, nano::block_hash const &, bool &);
+	nano::uint128_t balance_safe (nano::transaction const &, nano::block_hash const &, bool &) const;
 	nano::uint128_t account_balance (nano::transaction const &, nano::account const &);
 	nano::uint128_t account_pending (nano::transaction const &, nano::account const &);
 	nano::uint128_t weight (nano::account const &);
@@ -44,15 +44,15 @@ public:
 	nano::root latest_root (nano::transaction const &, nano::account const &);
 	nano::block_hash representative (nano::transaction const &, nano::block_hash const &);
 	nano::block_hash representative_calculated (nano::transaction const &, nano::block_hash const &);
-	bool block_exists (nano::block_hash const &);
-	bool block_or_pruned_exists (nano::transaction const &, nano::block_hash const &);
-	bool block_or_pruned_exists (nano::block_hash const &);
+	bool block_exists (nano::block_hash const &) const;
+	bool block_or_pruned_exists (nano::transaction const &, nano::block_hash const &) const;
+	bool block_or_pruned_exists (nano::block_hash const &) const;
 	std::string block_text (char const *);
 	std::string block_text (nano::block_hash const &);
 	bool is_send (nano::transaction const &, nano::state_block const &) const;
 	nano::account const & block_destination (nano::transaction const &, nano::block const &);
 	nano::block_hash block_source (nano::transaction const &, nano::block const &);
-	std::pair<nano::block_hash, nano::block_hash> hash_root_random (nano::transaction const &);
+	std::pair<nano::block_hash, nano::block_hash> hash_root_random (nano::transaction const &) const;
 	nano::process_return process (nano::write_transaction const &, nano::block &, nano::signature_verification = nano::signature_verification::unknown);
 	bool rollback (nano::write_transaction const &, nano::block_hash const &, std::vector<std::shared_ptr<nano::block>> &);
 	bool rollback (nano::write_transaction const &, nano::block_hash const &);
