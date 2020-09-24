@@ -67,6 +67,7 @@ public:
 	std::atomic<size_t> bootstrap_weights_size{ 0 };
 	uint64_t bootstrap_weight_max_blocks{ 1 };
 	std::atomic<bool> check_bootstrap_weights;
+	bool pruning{ false };
 	std::function<void()> epoch_2_started_cb;
 
 private:

@@ -770,10 +770,10 @@ TEST (votes, check_signature)
 	ASSERT_EQ (1, election1.election->votes ().size ());
 	auto vote1 (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 1, send1));
 	vote1->signature.bytes[0] ^= 1;
-	ASSERT_EQ (nano::vote_code::invalid, node1.vote_processor.vote_blocking (vote1, std::make_shared<nano::transport::channel_udp> (node1.network.udp_channels, nano::endpoint (boost::asio::ip::address_v6 (), 0), node1.network_params.protocol.protocol_version)));
+	ASSERT_EQ (nano::vote_code::invalid, node1.vote_processor.vote_blocking (vote1, std::make_shared<nano::transport::channel_loopback> (node1)));
 	vote1->signature.bytes[0] ^= 1;
-	ASSERT_EQ (nano::vote_code::vote, node1.vote_processor.vote_blocking (vote1, std::make_shared<nano::transport::channel_udp> (node1.network.udp_channels, nano::endpoint (boost::asio::ip::address_v6 (), 0), node1.network_params.protocol.protocol_version)));
-	ASSERT_EQ (nano::vote_code::replay, node1.vote_processor.vote_blocking (vote1, std::make_shared<nano::transport::channel_udp> (node1.network.udp_channels, nano::endpoint (boost::asio::ip::address_v6 (), 0), node1.network_params.protocol.protocol_version)));
+	ASSERT_EQ (nano::vote_code::vote, node1.vote_processor.vote_blocking (vote1, std::make_shared<nano::transport::channel_loopback> (node1)));
+	ASSERT_EQ (nano::vote_code::replay, node1.vote_processor.vote_blocking (vote1, std::make_shared<nano::transport::channel_loopback> (node1)));
 }
 
 TEST (votes, add_one)
@@ -890,7 +890,7 @@ TEST (votes, add_old)
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
 	auto election1 = node1.active.insert (send1);
 	auto vote1 (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 2, send1));
-	auto channel (std::make_shared<nano::transport::channel_udp> (node1.network.udp_channels, node1.network.endpoint (), node1.network_params.protocol.protocol_version));
+	auto channel (std::make_shared<nano::transport::channel_loopback> (node1));
 	node1.vote_processor.vote_blocking (vote1, channel);
 	nano::keypair key2;
 	auto send2 (std::make_shared<nano::send_block> (genesis.hash (), key2.pub, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
@@ -930,7 +930,7 @@ TEST (votes, add_old_different_account)
 	ASSERT_EQ (1, election1->votes ().size ());
 	ASSERT_EQ (1, election2->votes ().size ());
 	auto vote1 (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 2, send1));
-	auto channel (std::make_shared<nano::transport::channel_udp> (node1.network.udp_channels, node1.network.endpoint (), node1.network_params.protocol.protocol_version));
+	auto channel (std::make_shared<nano::transport::channel_loopback> (node1));
 	auto vote_result1 (node1.vote_processor.vote_blocking (vote1, channel));
 	ASSERT_EQ (nano::vote_code::vote, vote_result1);
 	ASSERT_EQ (2, election1->votes ().size ());
@@ -963,7 +963,7 @@ TEST (votes, add_cooldown)
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
 	auto election1 = node1.active.insert (send1);
 	auto vote1 (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 1, send1));
-	auto channel (std::make_shared<nano::transport::channel_udp> (node1.network.udp_channels, node1.network.endpoint (), node1.network_params.protocol.protocol_version));
+	auto channel (std::make_shared<nano::transport::channel_loopback> (node1));
 	node1.vote_processor.vote_blocking (vote1, channel);
 	nano::keypair key2;
 	auto send2 (std::make_shared<nano::send_block> (genesis.hash (), key2.pub, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
@@ -3293,12 +3293,14 @@ TEST (ledger, cache)
 		auto block_count = 1 + 2 * (i + 1) - 2;
 		auto cemented_count = 1 + 2 * (i + 1) - 2;
 		auto genesis_weight = nano::genesis_amount - i;
+		auto pruned_count = i;
 
 		auto cache_check = [&, i](nano::ledger_cache const & cache_a) {
 			ASSERT_EQ (account_count, cache_a.account_count);
 			ASSERT_EQ (block_count, cache_a.block_count);
 			ASSERT_EQ (cemented_count, cache_a.cemented_count);
 			ASSERT_EQ (genesis_weight, cache_a.rep_weights.representation_get (nano::genesis_account));
+			ASSERT_EQ (pruned_count, cache_a.pruned_count);
 		};
 
 		nano::keypair key;
@@ -3368,6 +3370,15 @@ TEST (ledger, cache)
 		}
 
 		++cemented_count;
+		cache_check (ledger.cache);
+		cache_check (nano::ledger (*store, stats).cache);
+
+		{
+			auto transaction (store->tx_begin_write ());
+			ledger.store.pruned_put (transaction, open->hash ());
+			++ledger.cache.pruned_count;
+		}
+		++pruned_count;
 		cache_check (ledger.cache);
 		cache_check (nano::ledger (*store, stats).cache);
 	}
