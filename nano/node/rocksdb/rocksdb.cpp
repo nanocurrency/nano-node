@@ -64,10 +64,10 @@ void rocksdb_val::convert_buffer_to_value ()
 }
 
 nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a) :
-logger (logger_a),
-rocksdb_config (rocksdb_config_a),
-cf_name_table_map (create_cf_name_table_map ()),
-max_block_write_batch_num_m (nano::narrow_cast<unsigned> (blocks_memtable_size_bytes () / (2 * (sizeof (nano::block_type) + nano::state_block::size + nano::block_sideband::size (nano::block_type::state)))))
+logger{ logger_a },
+rocksdb_config{ rocksdb_config_a },
+max_block_write_batch_num_m{ nano::narrow_cast<unsigned> (blocks_memtable_size_bytes () / (2 * (sizeof (nano::block_type) + nano::state_block::size + nano::block_sideband::size (nano::block_type::state)))) },
+cf_name_table_map{ create_cf_name_table_map () }
 {
 	boost::system::error_code error_mkdir, error_chmod;
 	boost::filesystem::create_directories (path_a, error_mkdir);
@@ -98,7 +98,8 @@ std::unordered_map<const char *, nano::tables> nano::rocksdb_store::create_cf_na
 		{ "online_weight", tables::online_weight },
 		{ "meta", tables::meta },
 		{ "peers", tables::peers },
-		{ "confirmation_height", tables::confirmation_height } };
+		{ "confirmation_height", tables::confirmation_height },
+		{ "pruned", tables::pruned } };
 
 	debug_assert (map.size () == all_tables ().size () + 1);
 	return map;
@@ -159,8 +160,6 @@ rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_common_cf_options (std::sh
 {
 	rocksdb::ColumnFamilyOptions cf_options;
 	cf_options.table_factory = table_factory_a;
-
-	auto write_buffer_size = memtable_size_bytes_a;
 
 	// (1 active, 1 inactive)
 	auto num_memtables = 2;
@@ -263,6 +262,11 @@ rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_cf_options (std::string co
 		std::shared_ptr<rocksdb::TableFactory> table_factory (rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes * 2)));
 		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
 	}
+	else if (cf_name_a == "pruned")
+	{
+		std::shared_ptr<rocksdb::TableFactory> table_factory (rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes * 2)));
+		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
+	}
 	else if (cf_name_a == rocksdb::kDefaultColumnFamilyName)
 	{
 		// Do nothing.
@@ -347,6 +351,8 @@ rocksdb::ColumnFamilyHandle * nano::rocksdb_store::table_to_column_family (table
 			return get_handle ("meta");
 		case tables::peers:
 			return get_handle ("peers");
+		case tables::pruned:
+			return get_handle ("pruned");
 		case tables::confirmation_height:
 			return get_handle ("confirmation_height");
 		default:
@@ -483,6 +489,11 @@ uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, ta
 	}
 	// This is only an estimation
 	else if (table_a == tables::unchecked)
+	{
+		db->GetIntProperty (table_to_column_family (table_a), "rocksdb.estimate-num-keys", &sum);
+	}
+	// This should be correct at node start, later only cache should be used
+	else if (table_a == tables::pruned)
 	{
 		db->GetIntProperty (table_to_column_family (table_a), "rocksdb.estimate-num-keys", &sum);
 	}
@@ -729,7 +740,7 @@ void nano::rocksdb_store::on_flush (rocksdb::FlushJobInfo const & flush_job_info
 
 std::vector<nano::tables> nano::rocksdb_store::all_tables () const
 {
-	return std::vector<nano::tables>{ tables::accounts, tables::blocks, tables::confirmation_height, tables::frontiers, tables::meta, tables::online_weight, tables::peers, tables::pending, tables::unchecked, tables::vote };
+	return std::vector<nano::tables>{ tables::accounts, tables::blocks, tables::confirmation_height, tables::frontiers, tables::meta, tables::online_weight, tables::peers, tables::pending, tables::pruned, tables::unchecked, tables::vote };
 }
 
 bool nano::rocksdb_store::copy_db (boost::filesystem::path const & destination_path)

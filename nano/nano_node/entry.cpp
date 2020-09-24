@@ -1008,7 +1008,6 @@ int main (int argc, char * const * argv)
 				}
 			}
 
-			uint64_t block_count (0);
 			node->block_processor.flush ();
 			auto end (std::chrono::high_resolution_clock::now ());
 			auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());
@@ -1113,7 +1112,7 @@ int main (int argc, char * const * argv)
 			while (!votes.empty ())
 			{
 				auto vote (votes.front ());
-				auto channel (std::make_shared<nano::transport::channel_udp> (node->network.udp_channels, node->network.endpoint (), node->network_params.protocol.protocol_version));
+				auto channel (std::make_shared<nano::transport::channel_loopback> (*node));
 				node->vote_processor.vote (vote, channel);
 				votes.pop_front ();
 			}
@@ -1437,6 +1436,36 @@ int main (int argc, char * const * argv)
 				nano::block_hash calculated_hash (0);
 				auto block (node->store.block_get (transaction, hash)); // Block data
 				uint64_t height (0);
+				if (node->ledger.pruning && confirmation_height_info.height != 0)
+				{
+					hash = confirmation_height_info.frontier;
+					block = node->store.block_get (transaction, hash);
+					// Iteration until pruned block
+					bool pruned_block (false);
+					while (!pruned_block && !block->previous ().is_zero ())
+					{
+						auto previous_block (node->store.block_get (transaction, block->previous ()));
+						if (previous_block != nullptr)
+						{
+							hash = previous_block->hash ();
+							block = previous_block;
+						}
+						else
+						{
+							pruned_block = true;
+							if (!node->store.pruned_exists (transaction, block->previous ()))
+							{
+								print_error_message (boost::str (boost::format ("Pruned previous block does not exist %1%\n") % block->previous ().to_string ()));
+							}
+						}
+					}
+					calculated_hash = block->previous ();
+					height = block->sideband ().height - 1;
+					if (!node->store.block_or_pruned_exists (transaction, info.open_block))
+					{
+						print_error_message (boost::str (boost::format ("Open block does not exist %1%\n") % info.open_block.to_string ()));
+					}
+				}
 				uint64_t previous_timestamp (0);
 				nano::account calculated_representative (0);
 				while (!hash.is_zero () && block != nullptr)
@@ -1485,13 +1514,17 @@ int main (int argc, char * const * argv)
 						{
 							auto & state_block (static_cast<nano::state_block &> (*block.get ()));
 							nano::amount prev_balance (0);
+							bool error_or_pruned (false);
 							if (!state_block.hashables.previous.is_zero ())
 							{
-								prev_balance = node->ledger.balance (transaction, state_block.hashables.previous);
+								prev_balance = node->ledger.balance_safe (transaction, state_block.hashables.previous, error_or_pruned);
 							}
-							if (node->ledger.is_epoch_link (state_block.hashables.link) && state_block.hashables.balance == prev_balance)
+							if (node->ledger.is_epoch_link (state_block.hashables.link))
 							{
-								invalid = validate_message (node->ledger.epoch_signer (block->link ()), hash, block->block_signature ());
+								if ((state_block.hashables.balance == prev_balance && !error_or_pruned) || (node->ledger.pruning && error_or_pruned && block->sideband ().details.is_epoch))
+								{
+									invalid = validate_message (node->ledger.epoch_signer (block->link ()), hash, block->block_signature ());
+								}
 							}
 						}
 						if (invalid)
@@ -1508,30 +1541,38 @@ int main (int argc, char * const * argv)
 					}
 					else
 					{
-						auto prev_balance (node->ledger.balance (transaction, block->previous ()));
-						if (block->balance () < prev_balance)
+						bool error_or_pruned (false);
+						auto prev_balance (node->ledger.balance_safe (transaction, block->previous (), error_or_pruned));
+						if (!node->ledger.pruning || !error_or_pruned)
 						{
-							// State send
-							block_details_error = !sideband.details.is_send || sideband.details.is_receive || sideband.details.is_epoch;
-						}
-						else
-						{
-							if (block->link ().is_zero ())
+							if (block->balance () < prev_balance)
 							{
-								// State change
-								block_details_error = sideband.details.is_send || sideband.details.is_receive || sideband.details.is_epoch;
-							}
-							else if (block->balance () == prev_balance && node->ledger.is_epoch_link (block->link ()))
-							{
-								// State epoch
-								block_details_error = !sideband.details.is_epoch || sideband.details.is_send || sideband.details.is_receive;
+								// State send
+								block_details_error = !sideband.details.is_send || sideband.details.is_receive || sideband.details.is_epoch;
 							}
 							else
 							{
-								// State receive
-								block_details_error = !sideband.details.is_receive || sideband.details.is_send || sideband.details.is_epoch;
-								block_details_error |= !node->store.block_exists (transaction, block->link ().as_block_hash ());
+								if (block->link ().is_zero ())
+								{
+									// State change
+									block_details_error = sideband.details.is_send || sideband.details.is_receive || sideband.details.is_epoch;
+								}
+								else if (block->balance () == prev_balance && node->ledger.is_epoch_link (block->link ()))
+								{
+									// State epoch
+									block_details_error = !sideband.details.is_epoch || sideband.details.is_send || sideband.details.is_receive;
+								}
+								else
+								{
+									// State receive
+									block_details_error = !sideband.details.is_receive || sideband.details.is_send || sideband.details.is_epoch;
+									block_details_error |= !node->ledger.block_or_pruned_exists (transaction, block->link ().as_block_hash ());
+								}
 							}
+						}
+						else if (!node->store.pruned_exists (transaction, block->previous ()))
+						{
+							print_error_message (boost::str (boost::format ("Previous pruned block does not exist %1%\n") % block->previous ().to_string ()));
 						}
 					}
 					if (block_details_error)
@@ -1539,7 +1580,7 @@ int main (int argc, char * const * argv)
 						print_error_message (boost::str (boost::format ("Incorrect sideband block details for block %1%\n") % hash.to_string ()));
 					}
 					// Check link epoch version
-					if (sideband.details.is_receive)
+					if (sideband.details.is_receive && (!node->ledger.pruning || !node->store.pruned_exists (transaction, block->link ().as_block_hash ())))
 					{
 						if (sideband.source_epoch != node->store.block_version (transaction, block->link ().as_block_hash ()))
 						{
@@ -1637,6 +1678,10 @@ int main (int argc, char * const * argv)
 
 			// Validate total block count
 			auto ledger_block_count (node->store.block_count (transaction));
+			if (node->flags.enable_pruning)
+			{
+				block_count += 1; // Add disconnected genesis block
+			}
 			if (block_count != ledger_block_count)
 			{
 				print_error_message (boost::str (boost::format ("Incorrect total block count. Blocks validated %1%. Block count in database: %2%\n") % block_count % ledger_block_count));
@@ -1655,14 +1700,24 @@ int main (int argc, char * const * argv)
 				}
 				// Check block existance
 				auto block (node->store.block_get_no_sideband (transaction, key.hash));
+				bool pruned (false);
 				if (block == nullptr)
 				{
-					print_error_message (boost::str (boost::format ("Pending block does not exist %1%\n") % key.hash.to_string ()));
+					pruned = node->ledger.pruning && node->store.pruned_exists (transaction, key.hash);
+					if (!pruned)
+					{
+						print_error_message (boost::str (boost::format ("Pending block does not exist %1%\n") % key.hash.to_string ()));
+					}
 				}
 				else
 				{
 					// Check if pending destination is correct
 					nano::account destination (0);
+					bool previous_pruned = node->ledger.pruning && node->store.pruned_exists (transaction, block->previous ());
+					if (previous_pruned)
+					{
+						block = node->store.block_get (transaction, key.hash);
+					}
 					if (auto state = dynamic_cast<nano::state_block *> (block.get ()))
 					{
 						if (node->ledger.is_send (transaction, *state))
@@ -1684,15 +1739,18 @@ int main (int argc, char * const * argv)
 					}
 					// Check if pending source is correct
 					auto account (node->ledger.account (transaction, key.hash));
-					if (info.source != account)
+					if (info.source != account && !pruned)
 					{
 						print_error_message (boost::str (boost::format ("Incorrect source for pending block %1%\n") % key.hash.to_string ()));
 					}
 					// Check if pending amount is correct
-					auto amount (node->ledger.amount (transaction, key.hash));
-					if (info.amount != amount)
+					if (!pruned && !previous_pruned)
 					{
-						print_error_message (boost::str (boost::format ("Incorrect amount for pending block %1%\n") % key.hash.to_string ()));
+						auto amount (node->ledger.amount (transaction, key.hash));
+						if (info.amount != amount)
+						{
+							print_error_message (boost::str (boost::format ("Incorrect amount for pending block %1%\n") % key.hash.to_string ()));
+						}
 					}
 				}
 			};

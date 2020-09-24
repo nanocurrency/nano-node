@@ -16,7 +16,7 @@ TEST (vote_processor, codes)
 	auto vote (std::make_shared<nano::vote> (key.pub, key.prv, 1, std::vector<nano::block_hash>{ genesis.open->hash () }));
 	auto vote_invalid = std::make_shared<nano::vote> (*vote);
 	vote_invalid->signature.bytes[0] ^= 1;
-	auto channel (std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
+	auto channel (std::make_shared<nano::transport::channel_loopback> (node));
 
 	// Invalid signature
 	ASSERT_EQ (nano::vote_code::invalid, node.vote_processor.vote_blocking (vote_invalid, channel, false));
@@ -55,7 +55,7 @@ TEST (vote_processor, flush)
 	auto & node (*system.nodes[0]);
 	nano::genesis genesis;
 	auto vote (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 1, std::vector<nano::block_hash>{ genesis.open->hash () }));
-	auto channel (std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
+	auto channel (std::make_shared<nano::transport::channel_loopback> (node));
 	for (unsigned i = 0; i < 2000; ++i)
 	{
 		auto new_vote (std::make_shared<nano::vote> (*vote));
@@ -75,18 +75,18 @@ TEST (vote_processor, invalid_signature)
 	auto vote (std::make_shared<nano::vote> (key.pub, key.prv, 1, std::vector<nano::block_hash>{ genesis.open->hash () }));
 	auto vote_invalid = std::make_shared<nano::vote> (*vote);
 	vote_invalid->signature.bytes[0] ^= 1;
-	auto channel (std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
+	auto channel (std::make_shared<nano::transport::channel_loopback> (node));
 
 	genesis.open->sideband_set (nano::block_sideband (nano::genesis_account, 0, nano::genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
 	auto election (node.active.insert (genesis.open));
 	ASSERT_TRUE (election.election && election.inserted);
-	ASSERT_EQ (1, election.election->last_votes.size ());
+	ASSERT_EQ (1, election.election->votes ().size ());
 	node.vote_processor.vote (vote_invalid, channel);
 	node.vote_processor.flush ();
-	ASSERT_EQ (1, election.election->last_votes.size ());
+	ASSERT_EQ (1, election.election->votes ().size ());
 	node.vote_processor.vote (vote, channel);
 	node.vote_processor.flush ();
-	ASSERT_EQ (2, election.election->last_votes.size ());
+	ASSERT_EQ (2, election.election->votes ().size ());
 }
 
 TEST (vote_processor, no_capacity)
@@ -98,7 +98,7 @@ TEST (vote_processor, no_capacity)
 	nano::genesis genesis;
 	nano::keypair key;
 	auto vote (std::make_shared<nano::vote> (key.pub, key.prv, 1, std::vector<nano::block_hash>{ genesis.open->hash () }));
-	auto channel (std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
+	auto channel (std::make_shared<nano::transport::channel_loopback> (node));
 	ASSERT_TRUE (node.vote_processor.vote (vote, channel));
 }
 
@@ -111,7 +111,7 @@ TEST (vote_processor, overflow)
 	nano::genesis genesis;
 	nano::keypair key;
 	auto vote (std::make_shared<nano::vote> (key.pub, key.prv, 1, std::vector<nano::block_hash>{ genesis.open->hash () }));
-	auto channel (std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
+	auto channel (std::make_shared<nano::transport::channel_loopback> (node));
 
 	// No way to lock the processor, but queueing votes in quick succession must result in overflow
 	size_t not_processed{ 0 };
@@ -213,8 +213,9 @@ TEST (vote_processor, no_broadcast_local)
 	// Make sure the vote was processed
 	auto election (node.active.election (send->qualified_root ()));
 	ASSERT_NE (nullptr, election);
-	auto existing (election->last_votes.find (nano::dev_genesis_key.pub));
-	ASSERT_NE (election->last_votes.end (), existing);
+	auto votes (election->votes ());
+	auto existing (votes.find (nano::dev_genesis_key.pub));
+	ASSERT_NE (votes.end (), existing);
 	ASSERT_EQ (vote->sequence, existing->second.sequence);
 	// Ensure the vote, from a local representative, was not broadcast on processing - it should be flooded on generation instead
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
@@ -245,8 +246,9 @@ TEST (vote_processor, no_broadcast_local)
 	// Make sure the vote was processed
 	auto election2 (node.active.election (send2->qualified_root ()));
 	ASSERT_NE (nullptr, election2);
-	auto existing2 (election2->last_votes.find (nano::dev_genesis_key.pub));
-	ASSERT_NE (election2->last_votes.end (), existing2);
+	auto votes2 (election2->votes ());
+	auto existing2 (votes2.find (nano::dev_genesis_key.pub));
+	ASSERT_NE (votes2.end (), existing2);
 	ASSERT_EQ (vote2->sequence, existing2->second.sequence);
 	// Ensure the vote was broadcast
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
@@ -278,8 +280,9 @@ TEST (vote_processor, no_broadcast_local)
 	// Make sure the vote was processed
 	auto election3 (node.active.election (open->qualified_root ()));
 	ASSERT_NE (nullptr, election3);
-	auto existing3 (election3->last_votes.find (nano::dev_genesis_key.pub));
-	ASSERT_NE (election3->last_votes.end (), existing3);
+	auto votes3 (election3->votes ());
+	auto existing3 (votes3.find (nano::dev_genesis_key.pub));
+	ASSERT_NE (votes3.end (), existing3);
 	ASSERT_EQ (vote3->sequence, existing3->second.sequence);
 	// Ensure the vote wass not broadcasst
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
