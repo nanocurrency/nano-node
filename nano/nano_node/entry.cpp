@@ -1112,7 +1112,7 @@ int main (int argc, char * const * argv)
 			while (!votes.empty ())
 			{
 				auto vote (votes.front ());
-				auto channel (std::make_shared<nano::transport::channel_udp> (node->network.udp_channels, node->network.endpoint (), node->network_params.protocol.protocol_version));
+				auto channel (std::make_shared<nano::transport::channel_loopback> (*node));
 				node->vote_processor.vote (vote, channel);
 				votes.pop_front ();
 			}
