@@ -1674,7 +1674,7 @@ TEST (node, mass_epoch_upgrader)
 		// Check upgrade
 		{
 			auto transaction (node.store.tx_begin_read ());
-			auto block_count_sum = 0;
+			size_t block_count_sum = 0;
 			for (auto i (node.store.latest_begin (transaction)); i != node.store.latest_end (); ++i)
 			{
 				nano::account_info info (i->second);
