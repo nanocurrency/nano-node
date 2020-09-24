@@ -3533,8 +3533,6 @@ TEST (ledger, pruning_safe_functions)
 	ASSERT_TRUE (store->block_exists (transaction, send2.hash ()));
 	// Pruning action
 	ASSERT_EQ (1, ledger.pruning_action (transaction, send1.hash (), 1));
-	ASSERT_EQ (0, ledger.pruning_action (transaction, genesis.hash (), 1));
-	ASSERT_TRUE (store->pending_exists (transaction, nano::pending_key (nano::genesis_account, send1.hash ())));
 	ASSERT_FALSE (store->block_exists (transaction, send1.hash ()));
 	ASSERT_TRUE (ledger.block_or_pruned_exists (transaction, send1.hash ()));
 	ASSERT_TRUE (store->pruned_exists (transaction, send1.hash ()));
@@ -3556,4 +3554,48 @@ TEST (ledger, pruning_safe_functions)
 	error = false;
 	ASSERT_EQ (nano::genesis_account, ledger.account_safe (transaction, send2.hash (), error));
 	ASSERT_FALSE (error);
+}
+
+TEST (ledger, hash_root_random)
+{
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_TRUE (!store->init_error ());
+	nano::stat stats;
+	nano::ledger ledger (*store, stats);
+	ledger.pruning = true;
+	nano::genesis genesis;
+	auto transaction (store->tx_begin_write ());
+	store->initialize (transaction, genesis, ledger.cache);
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+	nano::state_block send1 (nano::genesis_account, genesis.hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, nano::genesis_account, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (genesis.hash ()));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send1).code);
+	ASSERT_TRUE (store->block_exists (transaction, send1.hash ()));
+	nano::state_block send2 (nano::genesis_account, send1.hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio * 2, nano::genesis_account, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (send1.hash ()));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send2).code);
+	ASSERT_TRUE (store->block_exists (transaction, send2.hash ()));
+	// Pruning action
+	ASSERT_EQ (1, ledger.pruning_action (transaction, send1.hash (), 1));
+	ASSERT_FALSE (store->block_exists (transaction, send1.hash ()));
+	ASSERT_TRUE (store->pruned_exists (transaction, send1.hash ()));
+	ASSERT_TRUE (store->block_exists (transaction, genesis.hash ()));
+	ASSERT_TRUE (store->block_exists (transaction, send2.hash ()));
+	// Test random block including pruned
+	bool done (false);
+	auto iteration (0);
+	while (!done)
+	{
+		++iteration;
+		auto root_hash (ledger.hash_root_random (transaction));
+		done = (root_hash.first == send1.hash ()) && (root_hash.second.is_zero ());
+		ASSERT_LE (iteration, 1000);
+	}
+	done = false;
+	while (!done)
+	{
+		++iteration;
+		auto root_hash (ledger.hash_root_random (transaction));
+		done = (root_hash.first == send2.hash ()) && (root_hash.second == send2.root ().as_block_hash ());
+		ASSERT_LE (iteration, 1000);
+	}
 }
