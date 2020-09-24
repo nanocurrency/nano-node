@@ -76,6 +76,7 @@ private:
 	nano::write_database_queue & write_database_queue;
 	/** The maximum amount of blocks to write at once. This is dynamically modified by the bounded processor based on previous write performance **/
 	uint64_t batch_write_size{ 16384 };
+	nano::network_params network_params;
 
 	confirmation_height_unbounded unbounded_processor;
 	confirmation_height_bounded bounded_processor;
@@ -93,6 +94,8 @@ private:
 	friend class confirmation_height_many_accounts_many_confirmations_Test;
 	friend class confirmation_height_long_chains_Test;
 	friend class confirmation_height_many_accounts_single_confirmation_Test;
+	friend class request_aggregator_cannot_vote_Test;
+	friend class active_transactions_pessimistic_elections_Test;
 };
 
 std::unique_ptr<container_info_component> collect_container_info (confirmation_height_processor &, const std::string &);

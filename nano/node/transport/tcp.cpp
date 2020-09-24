@@ -50,11 +50,46 @@ bool nano::transport::channel_tcp::operator== (nano::transport::channel const & 
 	return result;
 }
 
-void nano::transport::channel_tcp::send_buffer (nano::shared_const_buffer const & buffer_a, nano::stat::detail detail_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a, nano::buffer_drop_policy drop_policy_a)
+void nano::transport::channel_tcp::send_buffer (nano::shared_const_buffer const & buffer_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a, nano::buffer_drop_policy policy_a)
 {
 	if (auto socket_l = socket.lock ())
 	{
-		socket_l->async_write (buffer_a, tcp_callback (detail_a, socket_l->remote_endpoint (), callback_a), drop_policy_a);
+		if (!socket_l->max () || (policy_a == nano::buffer_drop_policy::no_socket_drop && !socket_l->full ()))
+		{
+			socket_l->async_write (
+			buffer_a, [endpoint_a = socket_l->remote_endpoint (), node = std::weak_ptr<nano::node> (node.shared ()), callback_a](boost::system::error_code const & ec, size_t size_a) {
+				if (auto node_l = node.lock ())
+				{
+					if (!ec)
+					{
+						node_l->network.tcp_channels.update (endpoint_a);
+					}
+					if (ec == boost::system::errc::host_unreachable)
+					{
+						node_l->stats.inc (nano::stat::type::error, nano::stat::detail::unreachable_host, nano::stat::dir::out);
+					}
+					if (callback_a)
+					{
+						callback_a (ec, size_a);
+					}
+				}
+			});
+		}
+		else
+		{
+			if (policy_a == nano::buffer_drop_policy::no_socket_drop)
+			{
+				node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_write_no_socket_drop, nano::stat::dir::out);
+			}
+			else
+			{
+				node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_write_drop, nano::stat::dir::out);
+			}
+			if (callback_a)
+			{
+				callback_a (boost::system::errc::make_error_code (boost::system::errc::no_buffer_space), 0);
+			}
+		}
 	}
 	else if (callback_a)
 	{
@@ -62,32 +97,6 @@ void nano::transport::channel_tcp::send_buffer (nano::shared_const_buffer const 
 			callback_a (boost::system::errc::make_error_code (boost::system::errc::not_supported), 0);
 		});
 	}
-}
-
-std::function<void(boost::system::error_code const &, size_t)> nano::transport::channel_tcp::callback (nano::stat::detail detail_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a) const
-{
-	return callback_a;
-}
-
-std::function<void(boost::system::error_code const &, size_t)> nano::transport::channel_tcp::tcp_callback (nano::stat::detail detail_a, nano::tcp_endpoint const & endpoint_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a) const
-{
-	return [endpoint_a, node = std::weak_ptr<nano::node> (node.shared ()), callback_a](boost::system::error_code const & ec, size_t size_a) {
-		if (auto node_l = node.lock ())
-		{
-			if (!ec)
-			{
-				node_l->network.tcp_channels.update (endpoint_a);
-			}
-			if (ec == boost::system::errc::host_unreachable)
-			{
-				node_l->stats.inc (nano::stat::type::error, nano::stat::detail::unreachable_host, nano::stat::dir::out);
-			}
-			if (callback_a)
-			{
-				callback_a (ec, size_a);
-			}
-		}
-	};
 }
 
 std::string nano::transport::channel_tcp::to_string () const
@@ -298,13 +307,10 @@ void nano::transport::tcp_channels::process_message (nano::message const & messa
 				if (!node_id_a.is_zero ())
 				{
 					// Add temporary channel
-					socket_a->set_writer_concurrency (nano::socket::concurrency::multi_writer);
 					auto temporary_channel (std::make_shared<nano::transport::channel_tcp> (node, socket_a));
 					debug_assert (endpoint_a == temporary_channel->get_tcp_endpoint ());
 					temporary_channel->set_node_id (node_id_a);
 					temporary_channel->set_network_version (message_a.header.version_using);
-					temporary_channel->set_last_packet_received (std::chrono::steady_clock::now ());
-					temporary_channel->set_last_packet_sent (std::chrono::steady_clock::now ());
 					temporary_channel->temporary = true;
 					debug_assert (type_a == nano::bootstrap_server_type::realtime || type_a == nano::bootstrap_server_type::realtime_response_server);
 					// Don't insert temporary channels for response_server
@@ -539,7 +545,7 @@ void nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint_a
 		node.network.tcp_channels.udp_fallback (endpoint_a, callback_a);
 		return;
 	}
-	auto socket (std::make_shared<nano::socket> (node.shared_from_this (), boost::none, nano::socket::concurrency::multi_writer));
+	auto socket = std::make_shared<nano::socket> (node, boost::none);
 	std::weak_ptr<nano::socket> socket_w (socket);
 	auto channel (std::make_shared<nano::transport::channel_tcp> (node, socket_w));
 	std::weak_ptr<nano::node> node_w (node.shared ());
@@ -560,7 +566,7 @@ void nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint_a
 				std::shared_ptr<std::vector<uint8_t>> receive_buffer (std::make_shared<std::vector<uint8_t>> ());
 				receive_buffer->resize (256);
 				node_l->network.tcp_channels.push_node_id_handshake_socket (socket);
-				channel->send_buffer (bytes, nano::stat::detail::node_id_handshake, [node_w, channel, endpoint_a, receive_buffer, callback_a](boost::system::error_code const & ec, size_t size_a) {
+				channel->send_buffer (bytes, [node_w, channel, endpoint_a, receive_buffer, callback_a](boost::system::error_code const & ec, size_t size_a) {
 					if (auto node_l = node_w.lock ())
 					{
 						if (!ec && channel)
@@ -655,7 +661,7 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 									{
 										node_l->logger.try_log (boost::str (boost::format ("Node ID handshake response sent with node ID %1% to %2%: query %3%") % node_l->node_id.pub.to_node_id () % endpoint_a % (*message.query).to_string ()));
 									}
-									channel_a->send_buffer (bytes, nano::stat::detail::node_id_handshake, [node_w, channel_a, endpoint_a, callback_a, cleanup_and_udp_fallback](boost::system::error_code const & ec, size_t size_a) {
+									channel_a->send_buffer (bytes, [node_w, channel_a, endpoint_a, callback_a, cleanup_and_udp_fallback](boost::system::error_code const & ec, size_t size_a) {
 										if (auto node_l = node_w.lock ())
 										{
 											if (!ec && channel_a)

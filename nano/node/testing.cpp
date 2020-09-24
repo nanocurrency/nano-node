@@ -490,11 +490,7 @@ void nano::system::generate_mass_activity (uint32_t count_a, nano::node & node_a
 		{
 			auto now (std::chrono::steady_clock::now ());
 			auto us (std::chrono::duration_cast<std::chrono::microseconds> (now - previous).count ());
-			uint64_t count (0);
-			{
-				auto transaction (node_a.store.tx_begin_read ());
-				count = node_a.store.block_count (transaction);
-			}
+			auto count = node_a.ledger.cache.block_count.load ();
 			std::cerr << boost::str (boost::format ("Mass activity iteration %1% us %2% us/t %3% block count: %4%\n") % i % us % (us / 256) % count);
 			previous = now;
 		}
@@ -546,4 +542,11 @@ void nano::cleanup_dev_directories_on_exit ()
 	{
 		nano::remove_temporary_directories ();
 	}
+}
+
+bool nano::using_rocksdb_in_tests ()
+{
+	static nano::network_constants network_constants;
+	auto use_rocksdb_str = std::getenv ("TEST_USE_ROCKSDB");
+	return network_constants.is_dev_network () && use_rocksdb_str && (boost::lexical_cast<int> (use_rocksdb_str) == 1);
 }

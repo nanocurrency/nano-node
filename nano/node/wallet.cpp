@@ -1169,12 +1169,12 @@ void nano::wallet::work_ensure (nano::account const & account_a, nano::root cons
 
 bool nano::wallet::search_pending ()
 {
-	auto transaction (wallets.tx_begin_read ());
-	auto result (!store.valid_password (transaction));
+	auto wallet_transaction (wallets.tx_begin_read ());
+	auto result (!store.valid_password (wallet_transaction));
 	if (!result)
 	{
 		wallets.node.logger.try_log ("Beginning pending block search");
-		for (auto i (store.begin (transaction)), n (store.end ()); i != n; ++i)
+		for (auto i (store.begin (wallet_transaction)), n (store.end ()); i != n; ++i)
 		{
 			auto block_transaction (wallets.node.store.tx_begin_read ());
 			nano::account const & account (i->first);
@@ -1194,19 +1194,12 @@ bool nano::wallet::search_pending ()
 						if (wallets.node.ledger.block_confirmed (block_transaction, hash))
 						{
 							// Receive confirmed block
-							auto node_l (wallets.node.shared ());
-							wallets.node.background ([node_l, block, hash]() {
-								auto transaction (node_l->store.tx_begin_read ());
-								node_l->receive_confirmed (transaction, block, hash);
-							});
+							wallets.node.receive_confirmed (wallet_transaction, block_transaction, block, hash);
 						}
-						else
+						else if (!wallets.node.confirmation_height_processor.is_processing_block (hash))
 						{
-							if (!wallets.node.confirmation_height_processor.is_processing_block (hash))
-							{
-								// Request confirmation for block which is not being processed yet
-								wallets.node.block_confirm (block);
-							}
+							// Request confirmation for block which is not being processed yet
+							wallets.node.block_confirm (block);
 						}
 					}
 				}
@@ -1399,11 +1392,12 @@ void nano::work_watcher::watching (nano::qualified_root const & root_a, std::sha
 
 void nano::work_watcher::remove (nano::block const & block_a)
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::unique_lock<std::mutex> lock (mutex);
 	auto existing (watched.find (block_a.qualified_root ()));
 	if (existing != watched.end ())
 	{
 		watched.erase (existing);
+		lock.unlock ();
 		node.observers.work_cancel.notify (block_a.root ());
 	}
 }
@@ -1873,6 +1867,12 @@ void nano::wallets::move_table (std::string const & name_a, MDB_txn * tx_source,
 	auto error6 (mdb_drop (tx_source, handle_source, 1));
 	(void)error6;
 	debug_assert (!error6);
+}
+
+std::unordered_map<nano::wallet_id, std::shared_ptr<nano::wallet>> nano::wallets::get_wallets ()
+{
+	nano::lock_guard<std::mutex> guard (mutex);
+	return items;
 }
 
 nano::uint128_t const nano::wallets::generate_priority = std::numeric_limits<nano::uint128_t>::max ();

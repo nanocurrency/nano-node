@@ -50,6 +50,11 @@ public:
 	{
 	}
 
+	db_val (std::nullptr_t) :
+	db_val (0, this)
+	{
+	}
+
 	db_val (nano::uint128_union const & val_a) :
 	db_val (sizeof (val_a), const_cast<nano::uint128_union *> (&val_a))
 	{
@@ -503,13 +508,14 @@ enum class tables
 {
 	accounts,
 	blocks,
-	cached_counts, // RocksDB only
 	confirmation_height,
+	default_unused, // RocksDB only
 	frontiers,
 	meta,
 	online_weight,
 	peers,
 	pending,
+	pruned,
 	unchecked,
 	vote
 };
@@ -662,6 +668,14 @@ public:
 	virtual void version_put (nano::write_transaction const &, int) = 0;
 	virtual int version_get (nano::transaction const &) const = 0;
 
+	virtual void pruned_put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a) = 0;
+	virtual void pruned_del (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a) = 0;
+	virtual bool pruned_exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const = 0;
+	virtual bool block_or_pruned_exists (nano::transaction const &, nano::block_hash const &) = 0;
+	virtual nano::block_hash pruned_random (nano::transaction const & transaction_a) = 0;
+	virtual size_t pruned_count (nano::transaction const & transaction_a) const = 0;
+	virtual void pruned_clear (nano::write_transaction const &) = 0;
+
 	virtual void peer_put (nano::write_transaction const & transaction_a, nano::endpoint_key const & endpoint_a) = 0;
 	virtual void peer_del (nano::write_transaction const & transaction_a, nano::endpoint_key const & endpoint_a) = 0;
 	virtual bool peer_exists (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a) const = 0;
@@ -675,18 +689,27 @@ public:
 	virtual bool confirmation_height_exists (nano::transaction const & transaction_a, nano::account const & account_a) const = 0;
 	virtual void confirmation_height_del (nano::write_transaction const & transaction_a, nano::account const & account_a) = 0;
 	virtual uint64_t confirmation_height_count (nano::transaction const & transaction_a) = 0;
-	virtual nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_begin (nano::transaction const & transaction_a, nano::account const & account_a) = 0;
-	virtual nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_begin (nano::transaction const & transaction_a) = 0;
-	virtual nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_end () = 0;
+	virtual nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_begin (nano::transaction const & transaction_a, nano::account const & account_a) const = 0;
+	virtual nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_begin (nano::transaction const & transaction_a) const = 0;
+	virtual nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_end () const = 0;
+
+	virtual nano::store_iterator<nano::block_hash, std::shared_ptr<nano::block>> blocks_begin (nano::transaction const & transaction_a) const = 0;
+	virtual nano::store_iterator<nano::block_hash, std::shared_ptr<nano::block>> blocks_end () const = 0;
+
+	virtual void latest_for_each_par (std::function<void(nano::store_iterator<nano::account, nano::account_info>, nano::store_iterator<nano::account, nano::account_info>)> const &) = 0;
+	virtual void confirmation_height_for_each_par (std::function<void(nano::store_iterator<nano::account, nano::confirmation_height_info>, nano::store_iterator<nano::account, nano::confirmation_height_info>)> const &) = 0;
 
 	virtual uint64_t block_account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const = 0;
 	virtual std::mutex & get_cache_mutex () = 0;
+
+	virtual unsigned max_block_write_batch_num () const = 0;
 
 	virtual bool copy_db (boost::filesystem::path const & destination) = 0;
 	virtual void rebuild_db (nano::write_transaction const & transaction_a) = 0;
 
 	/** Not applicable to all sub-classes */
-	virtual void serialize_mdb_tracker (boost::property_tree::ptree &, std::chrono::milliseconds, std::chrono::milliseconds) = 0;
+	virtual void serialize_mdb_tracker (boost::property_tree::ptree &, std::chrono::milliseconds, std::chrono::milliseconds){};
+	virtual void serialize_memory_stats (boost::property_tree::ptree &) = 0;
 
 	virtual bool init_error () const = 0;
 

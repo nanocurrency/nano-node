@@ -559,7 +559,7 @@ public:
 		{
 			type = "Send";
 			amount = previous_balance - balance;
-			account = block_a.hashables.link;
+			account = block_a.hashables.link.as_account ();
 		}
 		else
 		{
@@ -576,7 +576,7 @@ public:
 			else
 			{
 				type = "Receive";
-				account = ledger.account (transaction, block_a.hashables.link);
+				account = ledger.account (transaction, block_a.hashables.link.as_block_hash ());
 			}
 			amount = balance - previous_balance;
 		}
@@ -895,7 +895,7 @@ std::string nano_qt::status::text ()
 	std::string count_string;
 	{
 		auto size (wallet.wallet_m->wallets.node.ledger.cache.block_count.load ());
-		unchecked = wallet.wallet_m->wallets.node.ledger.cache.unchecked_count;
+		unchecked = wallet.wallet_m->wallets.node.store.unchecked_count (wallet.wallet_m->wallets.node.store.tx_begin_read ());
 		count_string = std::to_string (size);
 	}
 

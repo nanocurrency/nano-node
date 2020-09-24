@@ -78,6 +78,7 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("receive_minimum", receive_minimum.to_string_dec (), "Minimum receive amount. Only affects node wallets. A large amount is recommended to avoid automatic work generation for tiny transactions.\ntype:string,amount,raw");
 	toml.put ("online_weight_minimum", online_weight_minimum.to_string_dec (), "Online weight minimum required to confirm a block.\ntype:string,amount,raw");
 	toml.put ("online_weight_quorum", online_weight_quorum, "Percentage of votes required to confirm blocks. A value below 50 is not recommended.\ntype:uint64");
+	toml.put ("election_hint_weight_percent", election_hint_weight_percent, "Percentage of online weight to hint at starting an election. Defaults to 10.\ntype:uint32,[5,50]");
 	toml.put ("password_fanout", password_fanout, "Password fanout factor.\ntype:uint64");
 	toml.put ("io_threads", io_threads, "Number of threads dedicated to I/O operations. Defaults to the number of CPU threads, and at least 4.\ntype:uint64");
 	toml.put ("network_threads", network_threads, "Number of threads dedicated to processing network messages. Defaults to the number of CPU threads, and at least 4.\ntype:uint64");
@@ -136,6 +137,8 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	{
 		secondary_work_peers_l->push_back (boost::str (boost::format ("%1%:%2%") % i->first % i->second));
 	}
+	experimental_l.put ("max_pruning_age", max_pruning_age.count (), "Time limit for blocks age after pruning.\ntype:seconds");
+	experimental_l.put ("max_pruning_depth", max_pruning_depth, "Limit for full blocks in chain after pruning.\ntype:uint64");
 	toml.put_child ("experimental", experimental_l);
 
 	nano::tomlconfig callback_l;
@@ -308,6 +311,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		toml.get<uint16_t> ("peering_port", peering_port);
 		toml.get<unsigned> ("bootstrap_fraction_numerator", bootstrap_fraction_numerator);
 		toml.get<unsigned> ("online_weight_quorum", online_weight_quorum);
+		toml.get<unsigned> ("election_hint_weight_percent", election_hint_weight_percent);
 		toml.get<unsigned> ("password_fanout", password_fanout);
 		toml.get<unsigned> ("io_threads", io_threads);
 		toml.get<unsigned> ("work_threads", work_threads);
@@ -387,6 +391,10 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 					this->deserialize_address (entry_a, this->secondary_work_peers);
 				});
 			}
+			auto max_pruning_age_l (max_pruning_age.count ());
+			experimental_config_l.get ("max_pruning_age", max_pruning_age_l);
+			max_pruning_age = std::chrono::seconds (max_pruning_age_l);
+			experimental_config_l.get<uint64_t> ("max_pruning_depth", max_pruning_depth);
 		}
 
 		// Validate ranges
@@ -394,6 +402,10 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		if (online_weight_quorum > 100)
 		{
 			toml.get_error ().set ("online_weight_quorum must be less than 100");
+		}
+		if (election_hint_weight_percent < 5 || election_hint_weight_percent > 50)
+		{
+			toml.get_error ().set ("election_hint_weight_percent must be a number between 5 and 50");
 		}
 		if (password_fanout < 16 || password_fanout > 1024 * 1024)
 		{
@@ -430,6 +442,10 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		if (block_processor_batch_max_time < network_params.node.process_confirmed_interval)
 		{
 			toml.get_error ().set ((boost::format ("block_processor_batch_max_time value must be equal or larger than %1%ms") % network_params.node.process_confirmed_interval.count ()).str ());
+		}
+		if (max_pruning_age < std::chrono::seconds (5 * 60) && !network.is_dev_network ())
+		{
+			toml.get_error ().set ("max_pruning_age must be greater than or equal to 5 minutes");
 		}
 	}
 	catch (std::runtime_error const & ex)

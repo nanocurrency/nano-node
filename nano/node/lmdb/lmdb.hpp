@@ -49,6 +49,10 @@ public:
 
 	static void create_backup_file (nano::mdb_env &, boost::filesystem::path const &, nano::logger_mt &);
 
+	void serialize_memory_stats (boost::property_tree::ptree &) override;
+
+	unsigned max_block_write_batch_num () const override;
+
 private:
 	nano::logger_mt & logger;
 	bool error{ false };
@@ -170,6 +174,12 @@ public:
 	 */
 	MDB_dbi meta{ 0 };
 
+	/**
+	 * Pruned blocks hashes
+	 * nano::block_hash -> none
+	 */
+	MDB_dbi pruned{ 0 };
+
 	/*
 	 * Endpoints for peers
 	 * nano::endpoint_key -> no_value
@@ -189,6 +199,7 @@ public:
 	MDB_dbi blocks{ 0 };
 
 	bool exists (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a) const;
+	std::vector<nano::unchecked_info> unchecked_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override;
 
 	int get (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a, nano::mdb_val & value_a) const;
 	int put (nano::write_transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a, const nano::mdb_val & value_a) const;
@@ -211,7 +222,7 @@ public:
 
 	bool init_error () const override;
 
-	size_t count (nano::transaction const &, MDB_dbi) const;
+	uint64_t count (nano::transaction const &, MDB_dbi) const;
 
 	// These are only use in the upgrade process.
 	std::shared_ptr<nano::block> block_get_v14 (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_sideband_v14 * sideband_a = nullptr, bool * is_state_v1 = nullptr) const;
@@ -226,7 +237,8 @@ private:
 	void upgrade_v15_to_v16 (nano::write_transaction const &);
 	void upgrade_v16_to_v17 (nano::write_transaction const &);
 	void upgrade_v17_to_v18 (nano::write_transaction const &);
-	void upgrade_v18_to_v19 (nano::write_transaction const & transaction_a);
+	void upgrade_v18_to_v19 (nano::write_transaction const &);
+	void upgrade_v19_to_v20 (nano::write_transaction const &);
 
 	std::shared_ptr<nano::block> block_get_v18 (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const;
 	nano::mdb_val block_raw_get_v18 (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_type & type_a) const;
@@ -248,7 +260,7 @@ private:
 	nano::mdb_txn_callbacks create_txn_callbacks ();
 	bool txn_tracking_enabled;
 
-	size_t count (nano::transaction const & transaction_a, tables table_a) const override;
+	uint64_t count (nano::transaction const & transaction_a, tables table_a) const override;
 
 	bool vacuum_after_upgrade (boost::filesystem::path const & path_a, nano::lmdb_config const & lmdb_config_a);
 

@@ -45,6 +45,8 @@ public:
 	bool ledger_logging () const;
 	bool ledger_duplicate_logging () const;
 	bool vote_logging () const;
+	bool election_fork_tally_logging () const;
+	bool election_expiration_tally_logging () const;
 	bool network_logging () const;
 	bool network_timeout_logging () const;
 	bool network_message_logging () const;
@@ -70,6 +72,8 @@ public:
 	bool ledger_logging_value{ false };
 	bool ledger_duplicate_logging_value{ false };
 	bool vote_logging_value{ false };
+	bool election_fork_tally_logging_value{ false };
+	bool election_expiration_tally_logging_value{ false };
 	bool network_logging_value{ true };
 	bool network_timeout_logging_value{ false };
 	bool network_message_logging_value{ false };

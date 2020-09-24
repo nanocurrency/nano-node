@@ -647,8 +647,6 @@ TEST (bootstrap_processor, lazy_max_pull_count)
 	// Check processed blocks
 	ASSERT_TIMELY (10s, node1->block (change3->hash ()));
 
-	auto transaction = node1->store.tx_begin_read ();
-	ASSERT_EQ (node1->ledger.cache.unchecked_count, node1->store.unchecked_count (transaction));
 	node1->stop ();
 }
 
@@ -881,12 +879,9 @@ TEST (bootstrap_processor, bootstrap_fork)
 	ASSERT_EQ (nano::process_result::progress, node0->process (*send).code);
 	// Confirm send block to vote later
 	node0->block_confirm (send);
-	{
-		auto election = node0->active.election (send->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		nano::lock_guard<std::mutex> guard (node0->active.mutex);
-		election->confirm_once ();
-	}
+	auto election = node0->active.election (send->qualified_root ());
+	ASSERT_NE (nullptr, election);
+	election->force_confirm ();
 	ASSERT_TIMELY (2s, node0->block_confirmed (send->hash ()));
 	node0->active.erase (*send);
 	auto open_work (*system.work.generate (key.pub));

@@ -40,7 +40,7 @@ void nano::rep_crawler::validate ()
 		auto & channel = i.first;
 		debug_assert (channel != nullptr);
 		nano::uint128_t rep_weight = node.ledger.weight (vote->account);
-		if (rep_weight > minimum)
+		if (rep_weight > minimum && channel->get_type () != nano::transport::transport_type::loopback)
 		{
 			auto updated_or_inserted = false;
 			nano::unique_lock<std::mutex> lock (probable_reps_mutex);
@@ -147,6 +147,10 @@ void nano::rep_crawler::query (std::vector<std::shared_ptr<nano::transport::chan
 			}
 		}
 		active.insert (hash);
+	}
+	if (!channels_a.empty ())
+	{
+		node.active.erase_recently_confirmed (hash);
 	}
 	for (auto i (channels_a.begin ()), n (channels_a.end ()); i != n; ++i)
 	{
