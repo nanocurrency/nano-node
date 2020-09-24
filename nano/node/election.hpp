@@ -114,7 +114,7 @@ public: // Information
 
 private:
 	nano::tally_t tally_impl ();
-	// lock_a state is unknown upon return
+	// lock_a does not own the mutex on return
 	void confirm_once (nano::unique_lock<std::mutex> & lock_a, nano::election_status_type = nano::election_status_type::active_confirmed_quorum);
 	void broadcast_block (nano::confirmation_solicitor &);
 	void send_confirm_req (nano::confirmation_solicitor &);

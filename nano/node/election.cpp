@@ -58,7 +58,10 @@ void nano::election::confirm_once (nano::unique_lock<std::mutex> & lock_a, nano:
 			}
 		});
 	}
-	// lock_a may or may not own the mutex
+	else
+	{
+		lock_a.unlock ();
+	}
 }
 
 bool nano::election::valid_change (nano::election::state_t expected_a, nano::election::state_t desired_a) const
@@ -128,10 +131,6 @@ bool nano::election::state_change (nano::election::state_t expected_a, nano::ele
 			state_start = std::chrono::steady_clock::now ().time_since_epoch ();
 			result = false;
 		}
-	}
-	else
-	{
-		// Noop
 	}
 	return result;
 }
