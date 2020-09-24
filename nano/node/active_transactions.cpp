@@ -147,7 +147,7 @@ void nano::active_transactions::confirm_prioritized_frontiers (nano::transaction
 						if (info.block_count > confirmation_height_info.height)
 						{
 							auto block (this->node.store.block_get (transaction_a, info.head));
-							auto previous_balance (this->node.ledger.balance (transaction_a, block->previous ()));
+							auto previous_balance (this->node.ledger.balance_safe (transaction_a, block->previous (), error));
 							auto inserted_election = this->insert_election_from_frontiers_confirmation (block, cementable_account.account, previous_balance, nano::election_behavior::optimistic);
 							if (inserted_election)
 							{
@@ -528,7 +528,7 @@ bool nano::active_transactions::should_do_frontiers_confirmation () const
 	auto disabled_confirmation_mode = (node.config.frontiers_confirmation == nano::frontiers_confirmation_mode::disabled);
 	auto conf_height_capacity_reached = pending_confirmation_height_size > confirmed_frontiers_max_pending_size;
 	auto all_cemented = node.ledger.cache.block_count == node.ledger.cache.cemented_count;
-	return (!disabled_confirmation_mode && bootstrap_weight_reached && !conf_height_capacity_reached && !all_cemented);
+	return (!disabled_confirmation_mode && (bootstrap_weight_reached || node.flags.enable_pruning) && !conf_height_capacity_reached && !all_cemented);
 }
 
 void nano::active_transactions::request_loop ()
@@ -1015,7 +1015,8 @@ bool nano::active_transactions::restart (std::shared_ptr<nano::block> const & bl
 				debug_assert (node.ledger.cache.block_count.load () == block_count);
 
 				// Restart election for the upgraded block, previously dropped from elections
-				auto previous_balance = node.ledger.balance (transaction_a, ledger_block->previous ());
+				bool error (false);
+				auto previous_balance = node.ledger.balance_safe (transaction_a, ledger_block->previous (), error);
 				auto insert_result = insert (ledger_block, previous_balance);
 				if (insert_result.inserted)
 				{
@@ -1398,7 +1399,7 @@ nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_
 				insert_impl (block);
 			}
 		}
-		else if (!block && status.bootstrap_started && !previously_a.bootstrap_started)
+		else if (!block && status.bootstrap_started && !previously_a.bootstrap_started && (!node.flags.enable_pruning || !node.store.pruned_exists (transaction, hash_a)))
 		{
 			node.gap_cache.bootstrap_start (hash_a);
 		}
