@@ -3515,7 +3515,7 @@ TEST (ledger, pruning_legacy_blocks)
 
 TEST (ledger, pruning_safe_functions)
 {
-nano::logger_mt logger;
+	nano::logger_mt logger;
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
