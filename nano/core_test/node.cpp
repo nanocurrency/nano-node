@@ -3352,6 +3352,28 @@ TEST (node, block_processor_half_full)
 	ASSERT_FALSE (node.block_processor.full ());
 }
 
+TEST (node, block_processor_epoch_send)
+{
+	nano::system system;
+	auto & node = *system.add_node (nano::node_config (nano::get_available_port (), system.logging));
+	auto epoch_link = node.ledger.epoch_link (nano::epoch::epoch_1);
+
+	nano::state_block_builder builder;
+	auto send1 = builder.make_block ()
+	             .account (nano::dev_genesis_key.pub)
+	             .previous (nano::genesis_hash)
+	             .representative (nano::dev_genesis_key.pub)
+	             .balance (nano::genesis_amount - nano::Gxrb_ratio)
+	             .link (epoch_link)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (*node.work_generate_blocking (nano::genesis_hash))
+	             .build_shared ();
+
+	node.block_processor.add (send1);
+	node.block_processor.flush ();
+	ASSERT_EQ (node.ledger.cache.block_count, 2);
+}
+
 TEST (node, confirm_back)
 {
 	nano::system system (1);

@@ -99,7 +99,7 @@ void nano::confirmation_height_bounded::process ()
 			(void)error;
 			debug_assert (!error);
 			// This block was added to the confirmation height processor but is already confirmed
-			if (first_iter && confirmation_height_info.height >= block->sideband ().height && current == original_hash)
+			if (first_iter && confirmation_height_info.height >= block->height () && current == original_hash)
 			{
 				notify_block_already_cemented_observers_callback (original_hash);
 			}
