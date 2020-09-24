@@ -727,7 +727,10 @@ TEST (bootstrap_processor, lazy_hash_pruning)
 	}
 	ASSERT_TIMELY (2s, node1->active.empty () && node1->block_confirmed (change2->hash ()));
 	// Pruning action
-	node1->ledger_pruning (2, false, false);
+	{
+		auto transaction (node1->store.tx_begin_write ());
+		ASSERT_EQ (3, node1->ledger.pruning_action (transaction, change1->hash (), 1));
+	}
 	ASSERT_EQ (9, node0->ledger.cache.block_count);
 	ASSERT_EQ (0, node0->ledger.cache.pruned_count);
 	ASSERT_EQ (5, node1->ledger.cache.block_count);
@@ -928,7 +931,10 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 	}
 	ASSERT_TIMELY (2s, node1->active.empty () && node1->block_confirmed (state_open->hash ()));
 	// Pruning action
-	node1->ledger_pruning (2, false, false);
+	{
+		auto transaction (node1->store.tx_begin_write ());
+		ASSERT_EQ (2, node1->ledger.pruning_action (transaction, send1->hash (), 1));
+	}
 	ASSERT_EQ (5, node1->ledger.cache.block_count);
 	ASSERT_EQ (1, node1->ledger.cache.pruned_count);
 	ASSERT_FALSE (node1->ledger.block_exists (send1->hash ()));
@@ -1354,7 +1360,10 @@ TEST (bulk, genesis_pruning)
 		election->force_confirm ();
 	}
 	ASSERT_TIMELY (2s, node1->active.empty () && node1->block_confirmed (send3->hash ()));
-	node1->ledger_pruning (2, false, false);
+	{
+		auto transaction (node1->store.tx_begin_write ());
+		ASSERT_EQ (2, node1->ledger.pruning_action (transaction, send2->hash (), 2));
+	}
 	ASSERT_EQ (2, node1->ledger.cache.pruned_count);
 	ASSERT_EQ (4, node1->ledger.cache.block_count);
 	ASSERT_FALSE (node1->ledger.block_exists (send1->hash ()));
