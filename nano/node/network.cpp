@@ -807,11 +807,12 @@ void nano::network::erase_below_version (uint8_t cutoff_version_a)
 
 void nano::network::erase (nano::transport::channel const & channel_a)
 {
-	if (channel_a.get_type () == nano::transport::transport_type::tcp)
+	auto const channel_type = channel_a.get_type ();
+	if (channel_type == nano::transport::transport_type::tcp)
 	{
 		tcp_channels.erase (channel_a.get_tcp_endpoint ());
 	}
-	else
+	else if (channel_type != nano::transport::transport_type::loopback)
 	{
 		udp_channels.erase (channel_a.get_endpoint ());
 		udp_channels.clean_node_id (channel_a.get_node_id ());
