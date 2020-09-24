@@ -436,7 +436,7 @@ bool nano::bootstrap_attempt_legacy::confirm_frontiers (nano::unique_lock<std::m
 			// Find confirmed frontiers (tally > 12.5% of reps stake, 60% of requestsed reps responded
 			for (auto ii (frontiers.begin ()); ii != frontiers.end ();)
 			{
-				if (node->ledger.block_exists (*ii))
+				if (node->ledger.block_or_pruned_exists (*ii))
 				{
 					ii = frontiers.erase (ii);
 				}
@@ -485,7 +485,7 @@ bool nano::bootstrap_attempt_legacy::confirm_frontiers (nano::unique_lock<std::m
 			else if (i < max_requests)
 			{
 				node->network.broadcast_confirm_req_batched_many (batched_confirm_req_bundle);
-				std::this_thread::sleep_for (std::chrono::milliseconds (!node->network_params.network.is_dev_network () ? 500 : 100));
+				std::this_thread::sleep_for (std::chrono::milliseconds (!node->network_params.network.is_dev_network () ? 500 : 25));
 			}
 		}
 		if (!confirmed)
