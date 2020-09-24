@@ -3512,3 +3512,48 @@ TEST (ledger, pruning_legacy_blocks)
 	ASSERT_EQ (store->pruned_count (transaction), ledger.cache.pruned_count);
 	ASSERT_EQ (store->block_count (transaction), ledger.cache.block_count - ledger.cache.pruned_count);
 }
+
+TEST (ledger, pruning_safe_functions)
+{
+nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_TRUE (!store->init_error ());
+	nano::stat stats;
+	nano::ledger ledger (*store, stats);
+	ledger.pruning = true;
+	nano::genesis genesis;
+	auto transaction (store->tx_begin_write ());
+	store->initialize (transaction, genesis, ledger.cache);
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+	nano::state_block send1 (nano::genesis_account, genesis.hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, nano::genesis_account, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (genesis.hash ()));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send1).code);
+	ASSERT_TRUE (store->block_exists (transaction, send1.hash ()));
+	nano::state_block send2 (nano::genesis_account, send1.hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio * 2, nano::genesis_account, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (send1.hash ()));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send2).code);
+	ASSERT_TRUE (store->block_exists (transaction, send2.hash ()));
+	// Pruning action
+	ASSERT_EQ (1, ledger.pruning_action (transaction, send1.hash (), 1));
+	ASSERT_EQ (0, ledger.pruning_action (transaction, genesis.hash (), 1));
+	ASSERT_TRUE (store->pending_exists (transaction, nano::pending_key (nano::genesis_account, send1.hash ())));
+	ASSERT_FALSE (store->block_exists (transaction, send1.hash ()));
+	ASSERT_TRUE (ledger.block_or_pruned_exists (transaction, send1.hash ()));
+	ASSERT_TRUE (store->pruned_exists (transaction, send1.hash ()));
+	ASSERT_TRUE (store->block_exists (transaction, genesis.hash ()));
+	ASSERT_TRUE (store->block_exists (transaction, send2.hash ()));
+	// Safe ledger actions
+	bool error (false);
+	ASSERT_EQ (0, ledger.balance_safe (transaction, send1.hash (), error));
+	ASSERT_TRUE (error);
+	error = false;
+	ASSERT_EQ (nano::genesis_amount - nano::Gxrb_ratio * 2, ledger.balance_safe (transaction, send2.hash (), error));
+	ASSERT_FALSE (error);
+	error = false;
+	ASSERT_EQ (0, ledger.amount_safe (transaction, send2.hash (), error));
+	ASSERT_TRUE (error);
+	error = false;
+	ASSERT_TRUE (ledger.account_safe (transaction, send1.hash (), error).is_zero ());
+	ASSERT_TRUE (error);
+	error = false;
+	ASSERT_EQ (nano::genesis_account, ledger.account_safe (transaction, send2.hash (), error));
+	ASSERT_FALSE (error);
+}
