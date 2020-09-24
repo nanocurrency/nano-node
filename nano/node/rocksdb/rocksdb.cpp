@@ -649,7 +649,7 @@ rocksdb::Options nano::rocksdb_store::get_db_options ()
 	return db_options;
 }
 
-rocksdb::BlockBasedTableOptions nano::rocksdb_store::get_active_table_options (int lru_size) const
+rocksdb::BlockBasedTableOptions nano::rocksdb_store::get_active_table_options (size_t lru_size) const
 {
 	rocksdb::BlockBasedTableOptions table_options;
 
@@ -664,7 +664,7 @@ rocksdb::BlockBasedTableOptions nano::rocksdb_store::get_active_table_options (i
 	table_options.index_block_restart_interval = 16;
 
 	// Block cache for reads
-	table_options.block_cache = rocksdb::NewLRUCache (1024ULL * 1024 * base_block_cache_size * rocksdb_config.memory_multiplier);
+	table_options.block_cache = rocksdb::NewLRUCache (lru_size);
 
 	// Bloom filter to help with point reads. 10bits gives 1% false positive rate.
 	table_options.filter_policy.reset (rocksdb::NewBloomFilterPolicy (10, false));
