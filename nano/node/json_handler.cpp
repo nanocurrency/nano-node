@@ -3226,7 +3226,8 @@ void nano::json_handler::receive ()
 		if (!ec)
 		{
 			auto block_transaction (node.store.tx_begin_read ());
-			if (node.ledger.block_or_pruned_exists (block_transaction, hash))
+			auto block (node.store.block_get (block_transaction, hash));
+			if (block != nullptr)
 			{
 				nano::pending_info pending_info;
 				if (!node.store.pending_get (block_transaction, nano::pending_key (account, hash), pending_info))
