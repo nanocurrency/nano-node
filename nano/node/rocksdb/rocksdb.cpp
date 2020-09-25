@@ -468,7 +468,7 @@ int nano::rocksdb_store::status_code_not_found () const
 uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, tables table_a) const
 {
 	uint64_t sum = 0;
-	// Some column families are small enough (except unchecked) that they can just be iterated, rather than doing extra io caching counts
+	// Peers/online weight are small enough that they can just be iterated to get accurate counts.
 	if (table_a == tables::peers)
 	{
 		for (auto i (peers_begin (transaction_a)), n (peers_end ()); i != n; ++i)
@@ -500,10 +500,12 @@ uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, ta
 		std::atomic<uint64_t> sum_l;
 		latest_for_each_par (
 		[&sum_l](auto i, auto n) {
+			uint64_t account_count_l (0);
 			for (; i != n; ++i)
 			{
-				++sum_l;
+				++account_count_l;
 			}
+			sum_l += account_count_l;
 		});
 
 		sum = sum_l;
@@ -513,10 +515,12 @@ uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, ta
 		std::atomic<uint64_t> sum_l;
 		blocks_for_each_par (
 		[&sum_l](auto i, auto n) {
+			uint64_t block_count_l (0);
 			for (; i != n; ++i)
 			{
-				++sum_l;
+				++block_count_l;
 			}
+			sum_l += block_count_l;
 		});
 		sum = sum_l;
 	}
@@ -525,10 +529,12 @@ uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, ta
 		std::atomic<uint64_t> sum_l;
 		confirmation_height_for_each_par (
 		[&sum_l](auto i, auto n) {
+			uint64_t confirmation_height_count_l (0);
 			for (; i != n; ++i)
 			{
-				++sum_l;
+				++confirmation_height_count_l;
 			}
+			sum_l += confirmation_height_count_l;
 		});
 		sum = sum_l;
 	}
