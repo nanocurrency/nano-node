@@ -1355,7 +1355,7 @@ std::multimap<uint64_t, nano::uncemented_info, std::greater<>> nano::ledger::unc
 	nano::locked<std::multimap<uint64_t, nano::uncemented_info, std::greater<>>> result;
 	using result_t = decltype (result)::value_type;
 
-	store.latest_for_each_par ([this, &result](nano::read_transaction const & transaction_a, nano::store_iterator<nano::account, nano::account_info> i, nano::store_iterator<nano::account, nano::account_info> n) {
+	store.accounts_for_each_par ([this, &result](nano::read_transaction const & transaction_a, nano::store_iterator<nano::account, nano::account_info> i, nano::store_iterator<nano::account, nano::account_info> n) {
 		result_t unconfirmed_frontiers_l;
 		for (; i != n; ++i)
 		{

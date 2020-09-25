@@ -355,7 +355,7 @@ node_seq (seq)
 		auto is_initialized (false);
 		{
 			auto transaction (store.tx_begin_read ());
-			is_initialized = (store.latest_begin (transaction) != store.latest_end ());
+			is_initialized = (store.accounts_begin (transaction) != store.accounts_end ());
 		}
 
 		nano::genesis genesis;
@@ -1446,7 +1446,7 @@ void nano::node::epoch_upgrader_impl (nano::private_key const & prv_a, nano::epo
 			{
 				auto transaction (store.tx_begin_read ());
 				// Collect accounts to upgrade
-				for (auto i (store.latest_begin (transaction)), n (store.latest_end ()); i != n && accounts_list.size () < count_limit; ++i)
+				for (auto i (store.accounts_begin (transaction)), n (store.accounts_end ()); i != n && accounts_list.size () < count_limit; ++i)
 				{
 					nano::account const & account (i->first);
 					nano::account_info const & info (i->second);
