@@ -669,7 +669,10 @@ void nano::node::start ()
 	{
 		backup_wallet ();
 	}
-	search_pending ();
+	if (!flags.disable_search_pending)
+	{
+		search_pending ();
+	}
 	if (!flags.disable_wallet_bootstrap)
 	{
 		// Delay to start wallet lazy bootstrap

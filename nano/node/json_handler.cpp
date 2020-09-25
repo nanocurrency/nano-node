@@ -177,10 +177,9 @@ std::shared_ptr<nano::wallet> nano::json_handler::wallet_impl ()
 		nano::wallet_id wallet;
 		if (!wallet.decode_hex (wallet_text))
 		{
-			auto existing (node.wallets.items.find (wallet));
-			if (existing != node.wallets.items.end ())
+			if (auto existing = node.wallets.open (wallet); existing != nullptr)
 			{
-				return existing->second;
+				return existing;
 			}
 			else
 			{
