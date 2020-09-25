@@ -15,7 +15,7 @@ public:
 	nano::error serialize_toml (nano::tomlconfig & toml_a) const;
 	nano::error deserialize_toml (nano::tomlconfig & toml_a);
 
-	bool enable{ false };
+	bool enable{ true };
 	uint8_t memory_multiplier{ 2 };
 	unsigned io_threads{ std::thread::hardware_concurrency () };
 };
