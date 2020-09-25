@@ -40,7 +40,7 @@ public:
 	void initialize (nano::write_transaction const & transaction_a, nano::genesis const & genesis_a, nano::ledger_cache & ledger_cache_a) override
 	{
 		auto hash_l (genesis_a.hash ());
-		debug_assert (latest_begin (transaction_a) == latest_end ());
+		debug_assert (accounts_begin (transaction_a) == accounts_end ());
 		genesis_a.open->sideband_set (nano::block_sideband (network_params.ledger.genesis_account, 0, network_params.ledger.genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
 		block_put (transaction_a, hash_l, *genesis_a.open);
 		++ledger_cache_a.block_count;
@@ -62,8 +62,8 @@ public:
 
 	bool account_exists (nano::transaction const & transaction_a, nano::account const & account_a) override
 	{
-		auto iterator (latest_begin (transaction_a, account_a));
-		return iterator != latest_end () && nano::account (iterator->first) == account_a;
+		auto iterator (accounts_begin (transaction_a, account_a));
+		return iterator != accounts_end () && nano::account (iterator->first) == account_a;
 	}
 
 	void confirmation_height_clear (nano::write_transaction const & transaction_a, nano::account const & account_a, uint64_t existing_confirmation_height_a) override
@@ -333,7 +333,7 @@ public:
 		return nano::store_iterator<uint64_t, nano::amount> (nullptr);
 	}
 
-	nano::store_iterator<nano::account, nano::account_info> latest_end () const override
+	nano::store_iterator<nano::account, nano::account_info> accounts_end () const override
 	{
 		return nano::store_iterator<nano::account, nano::account_info> (nullptr);
 	}
@@ -693,12 +693,12 @@ public:
 		return exists (transaction_a, tables::confirmation_height, nano::db_val<Val> (account_a));
 	}
 
-	nano::store_iterator<nano::account, nano::account_info> latest_begin (nano::transaction const & transaction_a, nano::account const & account_a) const override
+	nano::store_iterator<nano::account, nano::account_info> accounts_begin (nano::transaction const & transaction_a, nano::account const & account_a) const override
 	{
 		return make_iterator<nano::account, nano::account_info> (transaction_a, tables::accounts, nano::db_val<Val> (account_a));
 	}
 
-	nano::store_iterator<nano::account, nano::account_info> latest_begin (nano::transaction const & transaction_a) const override
+	nano::store_iterator<nano::account, nano::account_info> accounts_begin (nano::transaction const & transaction_a) const override
 	{
 		return make_iterator<nano::account, nano::account_info> (transaction_a, tables::accounts);
 	}
@@ -758,12 +758,12 @@ public:
 		return count (transaction_a, tables::unchecked);
 	}
 
-	void latest_for_each_par (std::function<void(nano::read_transaction const &, nano::store_iterator<nano::account, nano::account_info>, nano::store_iterator<nano::account, nano::account_info>)> const & action_a) override
+	void accounts_for_each_par (std::function<void(nano::read_transaction const &, nano::store_iterator<nano::account, nano::account_info>, nano::store_iterator<nano::account, nano::account_info>)> const & action_a) override
 	{
 		parallel_traversal<nano::uint256_t> (
 		[&action_a, this](nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
 			auto transaction (this->tx_begin_read ());
-			action_a (transaction, this->latest_begin (transaction, start), !is_last ? this->latest_begin (transaction, end) : this->latest_end ());
+			action_a (transaction, this->accounts_begin (transaction, start), !is_last ? this->accounts_begin (transaction, end) : this->accounts_end ());
 		});
 	}
 
