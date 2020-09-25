@@ -1552,14 +1552,9 @@ std::shared_ptr<nano::wallet> nano::wallets::create (nano::wallet_id const & id_
 
 bool nano::wallets::search_pending (nano::wallet_id const & wallet_a)
 {
-	nano::unique_lock<std::mutex> lock (mutex);
 	auto result (false);
-	auto existing (items.find (wallet_a));
-	result = existing == items.end ();
-	if (!result)
+	if (auto wallet = open (wallet_a); wallet != nullptr)
 	{
-		auto wallet (existing->second);
-		lock.unlock ();
 		result = wallet->search_pending ();
 	}
 	return result;
