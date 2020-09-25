@@ -5,6 +5,8 @@
 
 #include <gtest/gtest.h>
 
+#include <boost/asio/read.hpp>
+
 using namespace std::chrono_literals;
 
 TEST (socket, drop_policy)
@@ -233,4 +235,176 @@ TEST (socket_timer, construct_move_release)
 	nano::socket::timer timer0{ socket };
 	nano::socket::timer timer1{ std::move (timer0) };
 	timer1.release ();
+}
+
+TEST (socket_timeout, connect)
+{
+	nano::system system{ 1 };
+	system.nodes[0]->config.tcp_io_timeout = std::chrono::seconds (1);
+	boost::asio::ip::tcp::endpoint endpoint{ boost::asio::ip::address_v6::loopback (), nano::get_available_port () };
+	boost::asio::ip::tcp::acceptor acceptor{ system.io_ctx };
+	acceptor.open (endpoint.protocol ());
+	acceptor.bind (endpoint);
+	auto socket = std::make_shared<nano::socket> (*system.nodes[0]);
+	std::atomic<bool> done = false;
+	boost::system::error_code ec;
+	socket->async_connect (endpoint,
+	[&ec, &done](boost::system::error_code const & ec_a) {
+		if (ec_a)
+		{
+			ec = ec_a;
+			done = true;
+		}
+	});
+	ASSERT_TIMELY (5s, done == true);
+	ASSERT_TRUE (ec);
+}
+
+TEST (socket_timeout, read)
+{
+	nano::system system{ 1 };
+	system.nodes[0]->config.tcp_io_timeout = std::chrono::seconds (1);
+	boost::asio::ip::tcp::endpoint endpoint{ boost::asio::ip::address_v6::loopback (), nano::get_available_port () };
+	boost::asio::ip::tcp::acceptor acceptor{ system.io_ctx };
+	acceptor.open (endpoint.protocol ());
+	acceptor.bind (endpoint);
+	auto socket = std::make_shared<nano::socket> (*system.nodes[0]);
+	auto buffer = std::make_shared<std::vector<uint8_t>> (1);
+	std::atomic<bool> done = false;
+	boost::system::error_code ec;
+	acceptor.listen (boost::asio::socket_base::max_listen_connections, ec);
+	boost::asio::ip::tcp::socket remote{ system.io_ctx };
+	acceptor.async_accept (remote, [](boost::system::error_code const & ec_a) {
+		debug_assert (!ec_a);
+	});
+	socket->async_connect (endpoint,
+	[&socket, buffer, &ec, &done](boost::system::error_code const & ec_a) {
+		debug_assert (!ec_a);
+		socket->async_read (buffer, 1, [&ec, &done](boost::system::error_code const & ec_a, size_t size_a) {
+			if (ec_a)
+			{
+				ec = ec_a;
+				done = true;
+			}
+		});
+	});
+	ASSERT_TIMELY (50s, done == true);
+	ASSERT_TRUE (ec);
+}
+
+TEST (socket_timeout, write)
+{
+	nano::system system{ 1 };
+	system.nodes[0]->config.tcp_io_timeout = std::chrono::seconds (1);
+	boost::asio::ip::tcp::endpoint endpoint{ boost::asio::ip::address_v6::loopback (), nano::get_available_port () };
+	boost::asio::ip::tcp::acceptor acceptor{ system.io_ctx };
+	acceptor.open (endpoint.protocol ());
+	acceptor.bind (endpoint);
+	auto socket = std::make_shared<nano::socket> (*system.nodes[0]);
+	auto buffer = std::make_shared<std::vector<uint8_t>> (128 * 1024);
+	std::atomic<bool> done = false;
+	boost::system::error_code ec;
+	acceptor.listen (boost::asio::socket_base::max_listen_connections, ec);
+	boost::asio::ip::tcp::socket remote{ system.io_ctx };
+	acceptor.async_accept (remote, [](boost::system::error_code const & ec_a) {
+		debug_assert (!ec_a);
+	});
+	socket->async_connect (endpoint,
+	[&socket, buffer, &ec, &done](boost::system::error_code const & ec_a) {
+		debug_assert (!ec_a);
+		for (auto i = 0; i < 1024; ++i)
+		{
+			socket->async_write (nano::shared_const_buffer{ buffer }, [&ec, &done](boost::system::error_code const & ec_a, size_t size_a) {
+				if (ec_a)
+				{
+					ec = ec_a;
+					done = true;
+				}
+			});
+		}
+	});
+	ASSERT_TIMELY (50s, done == true);
+	ASSERT_TRUE (ec);
+}
+
+TEST (socket_timeout, read_overlapped)
+{
+	nano::system system{ 1 };
+	system.nodes[0]->config.tcp_io_timeout = std::chrono::seconds (1);
+	boost::asio::ip::tcp::endpoint endpoint{ boost::asio::ip::address_v6::loopback (), nano::get_available_port () };
+	boost::asio::ip::tcp::acceptor acceptor{ system.io_ctx };
+	acceptor.open (endpoint.protocol ());
+	acceptor.bind (endpoint);
+	auto socket = std::make_shared<nano::socket> (*system.nodes[0]);
+	auto buffer = std::make_shared<std::vector<uint8_t>> (1);
+	std::atomic<bool> done = false;
+	boost::system::error_code ec;
+	acceptor.listen (boost::asio::socket_base::max_listen_connections, ec);
+	boost::asio::ip::tcp::socket remote{ system.io_ctx };
+	acceptor.async_accept (remote, [&remote, buffer](boost::system::error_code const & ec_a) {
+		debug_assert (!ec_a);
+		nano::async_write (remote, nano::shared_const_buffer{ buffer }, [](boost::system::error_code const & ec_a, size_t size_a) {
+			debug_assert (!ec_a);
+			debug_assert (size_a == 1);
+		});
+	});
+	socket->async_connect (endpoint,
+	[&socket, buffer, &ec, &done](boost::system::error_code const & ec_a) {
+		debug_assert (!ec_a);
+		socket->async_read (buffer, 1, [](boost::system::error_code const & ec_a, size_t size_a) {
+			debug_assert (size_a == 1);
+		});
+		socket->async_read (buffer, 1, [&ec, &done](boost::system::error_code const & ec_a, size_t size_a) {
+			debug_assert (size_a == 0);
+			if (ec_a)
+			{
+				ec = ec_a;
+				done = true;
+			}
+		});
+	});
+	ASSERT_TIMELY (5s, done == true);
+	ASSERT_TRUE (ec);
+}
+
+TEST (socket_timeout, write_overlapped)
+{
+	nano::system system{ 1 };
+	system.nodes[0]->config.tcp_io_timeout = std::chrono::seconds (1);
+	boost::asio::ip::tcp::endpoint endpoint{ boost::asio::ip::address_v6::loopback (), nano::get_available_port () };
+	boost::asio::ip::tcp::acceptor acceptor{ system.io_ctx };
+	acceptor.open (endpoint.protocol ());
+	acceptor.bind (endpoint);
+	auto socket = std::make_shared<nano::socket> (*system.nodes[0]);
+	auto buffer1 = std::make_shared<std::vector<uint8_t>> (1);
+	auto buffer2 = std::make_shared<std::vector<uint8_t>> (128 * 1024);
+	std::atomic<bool> done = false;
+	boost::system::error_code ec;
+	acceptor.listen (boost::asio::socket_base::max_listen_connections, ec);
+	boost::asio::ip::tcp::socket remote{ system.io_ctx };
+	acceptor.async_accept (remote, [&remote, buffer1](boost::system::error_code const & ec_a) {
+		debug_assert (!ec_a);
+		boost::asio::async_read (remote, boost::asio::buffer (buffer1->data (), buffer1->size ()), [](boost::system::error_code const & ec_a, size_t size_a) {
+			debug_assert (size_a == 1);
+		});
+	});
+	socket->async_connect (endpoint,
+	[&socket, buffer1, buffer2, &ec, &done](boost::system::error_code const & ec_a) {
+		debug_assert (!ec_a);
+		socket->async_write (nano::shared_const_buffer{ buffer1 }, [](boost::system::error_code const & ec_a, size_t size_a) {
+			debug_assert (size_a == 1);
+		});
+		for (auto i = 0; i < 1024; ++i)
+		{
+			socket->async_write (nano::shared_const_buffer{ buffer2 }, [&ec, &done](boost::system::error_code const & ec_a, size_t size_a) {
+				if (ec_a)
+				{
+					ec = ec_a;
+					done = true;
+				}
+			});
+		}
+	});
+	ASSERT_TIMELY (5s, done == true);
+	ASSERT_TRUE (ec);
 }
