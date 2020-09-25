@@ -1494,14 +1494,26 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 		}
 
 		// Compare counts
-		error |= store.account_count (lmdb_transaction) != rocksdb_store->account_count (rocksdb_transaction);
-		error |= store.block_count (lmdb_transaction) != rocksdb_store->block_count (rocksdb_transaction);
 		error |= store.unchecked_count (lmdb_transaction) != rocksdb_store->unchecked_count (rocksdb_transaction);
-		error |= store.confirmation_height_count (lmdb_transaction) != rocksdb_store->confirmation_height_count (rocksdb_transaction);
 		error |= store.peer_count (lmdb_transaction) != rocksdb_store->peer_count (rocksdb_transaction);
 		error |= store.pruned_count (lmdb_transaction) != rocksdb_store->pruned_count (rocksdb_transaction);
 		error |= store.online_weight_count (lmdb_transaction) != rocksdb_store->online_weight_count (rocksdb_transaction);
 		error |= store.version_get (lmdb_transaction) != rocksdb_store->version_get (rocksdb_transaction);
+
+		// For large tables a random key is used instead and makes sure it exists
+		auto random_block (store.block_random (lmdb_transaction));
+		error |= rocksdb_store->block_get (rocksdb_transaction, random_block->hash ()) == nullptr;
+
+		auto account = random_block->account ().is_zero () ? random_block->sideband ().account : random_block->account ();
+		nano::account_info account_info;
+		error |= rocksdb_store->account_get (rocksdb_transaction, account, account_info);
+
+		// If confirmation height exists in the lmdb ledger for this account it should exist in the rocksdb ledger
+		nano::confirmation_height_info confirmation_height_info;
+		if (!store.confirmation_height_get (lmdb_transaction, account, confirmation_height_info))
+		{
+			error |= rocksdb_store->confirmation_height_get (rocksdb_transaction, account, confirmation_height_info);
+		}
 	}
 	else
 	{
