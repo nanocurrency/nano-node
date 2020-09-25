@@ -306,7 +306,7 @@ nano::write_transaction nano::rocksdb_store::tx_begin_write (std::vector<nano::t
 	return nano::write_transaction{ std::move (txn) };
 }
 
-nano::read_transaction nano::rocksdb_store::tx_begin_read ()
+nano::read_transaction nano::rocksdb_store::tx_begin_read () const
 {
 	return nano::read_transaction{ std::make_unique<nano::read_rocksdb_txn> (db.get ()) };
 }
@@ -497,25 +497,40 @@ uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, ta
 	else if (table_a == tables::accounts)
 	{
 		debug_assert (network_constants ().is_dev_network ());
-		for (auto i (latest_begin (transaction_a)), n (latest_end ()); i != n; ++i)
-		{
-			++sum;
-		}
+		std::atomic<uint64_t> sum_l;
+		latest_for_each_par (
+		[&sum_l](auto i, auto n) {
+			for (; i != n; ++i)
+			{
+				++sum_l;
+			}
+		});
+
+		sum = sum_l;
 	}
 	else if (table_a == tables::blocks)
 	{
-		for (auto i (blocks_begin (transaction_a)), n (blocks_end ()); i != n; ++i)
-		{
-			++sum;
-		}
+		std::atomic<uint64_t> sum_l;
+		blocks_for_each_par (
+		[&sum_l](auto i, auto n) {
+			for (; i != n; ++i)
+			{
+				++sum_l;
+			}
+		});
+		sum = sum_l;
 	}
 	else if (table_a == tables::confirmation_height)
 	{
-		debug_assert (network_constants ().is_dev_network ());
-		for (auto i (confirmation_height_begin (transaction_a)), n (confirmation_height_end ()); i != n; ++i)
-		{
-			++sum;
-		}
+		std::atomic<uint64_t> sum_l;
+		confirmation_height_for_each_par (
+		[&sum_l](auto i, auto n) {
+			for (; i != n; ++i)
+			{
+				++sum_l;
+			}
+		});
+		sum = sum_l;
 	}
 	else
 	{

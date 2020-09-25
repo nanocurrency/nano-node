@@ -161,7 +161,7 @@ nano::write_transaction nano::mdb_store::tx_begin_write (std::vector<nano::table
 	return env.tx_begin_write (create_txn_callbacks ());
 }
 
-nano::read_transaction nano::mdb_store::tx_begin_read ()
+nano::read_transaction nano::mdb_store::tx_begin_read () const
 {
 	return env.tx_begin_read (create_txn_callbacks ());
 }
@@ -171,7 +171,7 @@ std::string nano::mdb_store::vendor_get () const
 	return boost::str (boost::format ("LMDB %1%.%2%.%3%") % MDB_VERSION_MAJOR % MDB_VERSION_MINOR % MDB_VERSION_PATCH);
 }
 
-nano::mdb_txn_callbacks nano::mdb_store::create_txn_callbacks ()
+nano::mdb_txn_callbacks nano::mdb_store::create_txn_callbacks () const
 {
 	nano::mdb_txn_callbacks mdb_txn_callbacks;
 	if (txn_tracking_enabled)

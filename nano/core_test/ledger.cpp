@@ -1,6 +1,7 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/rocksdb/rocksdb.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -3598,4 +3599,87 @@ TEST (ledger, hash_root_random)
 		done = (root_hash.first == send2.hash ()) && (root_hash.second == send2.root ().as_block_hash ());
 		ASSERT_LE (iteration, 1000);
 	}
+}
+
+TEST (ledger, migrate_lmdb_to_rocksdb)
+{
+	auto path (nano::unique_path ());
+	nano::genesis genesis;
+	nano::logger_mt logger;
+	boost::asio::ip::address_v6 address (boost::asio::ip::make_address_v6 ("::ffff:127.0.0.1"));
+	uint16_t port = 100;
+	nano::mdb_store store (logger, path / "data.ldb");
+	nano::stat stats;
+	nano::ledger ledger (store, stats);
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+
+	auto send = nano::state_block_builder ()
+	            .account (nano::dev_genesis_key.pub)
+	            .previous (nano::genesis_hash)
+	            .representative (0)
+	            .link (nano::account (10))
+	            .balance (nano::genesis_amount - 100)
+	            .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	            .work (*pool.generate (nano::genesis_hash))
+	            .build_shared ();
+
+	auto vote (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 0, std::vector<nano::block_hash> (1, send->hash ())));
+
+	nano::endpoint_key endpoint_key (address.to_bytes (), port);
+	auto version = 99;
+
+	{
+		auto transaction (store.tx_begin_write ());
+		store.initialize (transaction, genesis, ledger.cache);
+		ASSERT_FALSE (store.init_error ());
+
+		// Lower the database to the max version unsupported for upgrades
+		store.confirmation_height_put (transaction, nano::genesis_account, { 2, send->hash () });
+
+		store.online_weight_put (transaction, 100, nano::amount (2));
+		store.frontier_put (transaction, nano::block_hash (2), nano::account (5));
+		store.peer_put (transaction, endpoint_key);
+
+		store.pending_put (transaction, nano::pending_key (nano::genesis_account, send->hash ()), nano::pending_info (nano::genesis_account, 100, nano::epoch::epoch_0));
+		store.pruned_put (transaction, send->hash ());
+		store.unchecked_put (transaction, nano::genesis_hash, send);
+		store.version_put (transaction, version);
+		send->sideband_set ({});
+		store.block_put (transaction, send->hash (), *send);
+		store.vote_put (transaction, nano::account (5), vote);
+	}
+
+	auto error = ledger.migrate_lmdb_to_rocksdb (path);
+	ASSERT_FALSE (error);
+
+	nano::rocksdb_store rocksdb_store (logger, path / "rocksdb");
+	auto rocksdb_transaction (rocksdb_store.tx_begin_read ());
+
+	nano::pending_info pending_info;
+	ASSERT_FALSE (rocksdb_store.pending_get (rocksdb_transaction, nano::pending_key (nano::genesis_account, send->hash ()), pending_info));
+
+	for (auto i = rocksdb_store.online_weight_begin (rocksdb_transaction); i != rocksdb_store.online_weight_end (); ++i)
+	{
+		ASSERT_EQ (i->first, 100);
+		ASSERT_EQ (i->second, 2);
+	}
+
+	ASSERT_EQ (rocksdb_store.online_weight_count (rocksdb_transaction), 1);
+
+	auto block1 = rocksdb_store.block_get (rocksdb_transaction, send->hash ());
+
+	ASSERT_EQ (*send, *block1);
+	ASSERT_EQ (*vote, *rocksdb_store.vote_get (rocksdb_transaction, nano::account (5)));
+	ASSERT_TRUE (rocksdb_store.peer_exists (rocksdb_transaction, endpoint_key));
+	ASSERT_EQ (rocksdb_store.version_get (rocksdb_transaction), version);
+	ASSERT_EQ (rocksdb_store.frontier_get (rocksdb_transaction, 2), 5);
+	nano::confirmation_height_info confirmation_height_info;
+	ASSERT_FALSE (rocksdb_store.confirmation_height_get (rocksdb_transaction, nano::genesis_account, confirmation_height_info));
+	ASSERT_EQ (confirmation_height_info.height, 2);
+	ASSERT_EQ (confirmation_height_info.frontier, send->hash ());
+
+	auto unchecked_infos = rocksdb_store.unchecked_get (rocksdb_transaction, nano::genesis_hash);
+	ASSERT_EQ (unchecked_infos.size (), 1);
+	ASSERT_EQ (unchecked_infos.front ().account, nano::genesis_account);
+	ASSERT_EQ (*unchecked_infos.front ().block, *send);
 }

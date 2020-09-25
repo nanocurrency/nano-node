@@ -1387,6 +1387,135 @@ std::multimap<uint64_t, nano::uncemented_info, std::greater<>> nano::ledger::unc
 	return unconfirmed_frontiers_l;
 }
 
+// A precondition is that the store is an LMDB store
+bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data_path_a) const
+{
+	boost::system::error_code error_chmod;
+	nano::set_secure_perm_directory (data_path_a, error_chmod);
+	auto rockdb_data_path = data_path_a / "rocksdb";
+	boost::filesystem::remove_all (rockdb_data_path);
+
+	nano::logger_mt logger;
+	auto error (false);
+
+	// Open rocksdb database
+	nano::rocksdb_config rocksdb_config;
+	rocksdb_config.enable = true;
+	auto rocksdb_store = nano::make_store (logger, data_path_a, false, true, rocksdb_config);
+
+	if (!rocksdb_store->init_error ())
+	{
+		store.blocks_for_each_par (
+		[&rocksdb_store](auto i, auto n) {
+			for (; i != n; ++i)
+			{
+				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::blocks }));
+
+				std::vector<uint8_t> vector;
+				{
+					nano::vectorstream stream (vector);
+					nano::serialize_block (stream, *i->second.block);
+					i->second.sideband.serialize (stream, i->second.block->type ());
+				}
+				rocksdb_store->block_raw_put (rocksdb_transaction, vector, i->first);
+			}
+		});
+
+		store.unchecked_for_each_par (
+		[&rocksdb_store](auto i, auto n) {
+			for (; i != n; ++i)
+			{
+				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::unchecked }));
+				rocksdb_store->unchecked_put (rocksdb_transaction, i->first, i->second);
+			}
+		});
+
+		store.pending_for_each_par (
+		[&rocksdb_store](auto i, auto n) {
+			for (; i != n; ++i)
+			{
+				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::pending }));
+				rocksdb_store->pending_put (rocksdb_transaction, i->first, i->second);
+			}
+		});
+
+		store.confirmation_height_for_each_par (
+		[&rocksdb_store](auto i, auto n) {
+			for (; i != n; ++i)
+			{
+				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::confirmation_height }));
+				rocksdb_store->confirmation_height_put (rocksdb_transaction, i->first, i->second);
+			}
+		});
+
+		store.latest_for_each_par (
+		[&rocksdb_store](auto i, auto n) {
+			for (; i != n; ++i)
+			{
+				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::accounts }));
+				rocksdb_store->account_put (rocksdb_transaction, i->first, i->second);
+			}
+		});
+
+		store.frontiers_for_each_par (
+		[&rocksdb_store](auto i, auto n) {
+			for (; i != n; ++i)
+			{
+				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::frontiers }));
+				rocksdb_store->frontier_put (rocksdb_transaction, i->first, i->second);
+			}
+		});
+
+		store.pruned_for_each_par (
+		[&rocksdb_store](auto i, auto n) {
+			for (; i != n; ++i)
+			{
+				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::pruned }));
+				rocksdb_store->pruned_put (rocksdb_transaction, i->first);
+			}
+		});
+
+		store.votes_for_each_par (
+		[&rocksdb_store](auto i, auto n) {
+			for (; i != n; ++i)
+			{
+				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::vote }));
+				rocksdb_store->vote_put (rocksdb_transaction, i->first, i->second);
+			}
+		});
+
+		auto lmdb_transaction (store.tx_begin_read ());
+		auto version = store.version_get (lmdb_transaction);
+		auto rocksdb_transaction (rocksdb_store->tx_begin_write ());
+		rocksdb_store->version_put (rocksdb_transaction, version);
+
+		for (auto i (store.online_weight_begin (lmdb_transaction)), n (store.online_weight_end ()); i != n; ++i)
+		{
+			rocksdb_store->online_weight_put (rocksdb_transaction, i->first, i->second);
+		}
+
+		for (auto i (store.peers_begin (lmdb_transaction)), n (store.peers_end ()); i != n; ++i)
+		{
+			rocksdb_store->peer_put (rocksdb_transaction, i->first);
+		}
+
+		// Compare counts
+		error |= store.account_count (lmdb_transaction) != rocksdb_store->account_count (rocksdb_transaction);
+		error |= store.block_count (lmdb_transaction) != rocksdb_store->block_count (rocksdb_transaction);
+		error |= store.unchecked_count (lmdb_transaction) != rocksdb_store->unchecked_count (rocksdb_transaction);
+		error |= store.confirmation_height_count (lmdb_transaction) != rocksdb_store->confirmation_height_count (rocksdb_transaction);
+		error |= store.peer_count (lmdb_transaction) != rocksdb_store->peer_count (rocksdb_transaction);
+		error |= store.pruned_count (lmdb_transaction) != rocksdb_store->pruned_count (rocksdb_transaction);
+		error |= store.online_weight_count (lmdb_transaction) != rocksdb_store->online_weight_count (rocksdb_transaction);
+		error |= store.version_get (lmdb_transaction) != rocksdb_store->version_get (rocksdb_transaction);
+	}
+	else
+	{
+		error = true;
+	}
+	return error;
+}
+
 nano::uncemented_info::uncemented_info (nano::block_hash const & cemented_frontier, nano::block_hash const & frontier, nano::account const & account) :
 cemented_frontier (cemented_frontier), frontier (frontier), account (account)
 {
