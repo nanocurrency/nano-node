@@ -1193,8 +1193,9 @@ bool nano::wallet::search_pending ()
 						auto block (wallets.node.store.block_get (block_transaction, hash));
 						if (wallets.node.ledger.block_confirmed (block_transaction, hash))
 						{
+							auto representative = store.representative (wallet_transaction);
 							// Receive confirmed block
-							wallets.node.receive_confirmed (wallet_transaction, block_transaction, block, hash);
+							receive_async (block, representative, amount, [](std::shared_ptr<nano::block>) {});
 						}
 						else if (!wallets.node.confirmation_height_processor.is_processing_block (hash))
 						{
