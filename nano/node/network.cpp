@@ -238,7 +238,7 @@ void nano::network::flood_block_many (std::deque<std::shared_ptr<nano::block>> b
 	}
 }
 
-void nano::network::send_confirm_req (std::shared_ptr<nano::transport::channel> channel_a, std::pair<nano::block_hash, nano::block_hash> hash_root_a)
+void nano::network::send_confirm_req (std::shared_ptr<nano::transport::channel> channel_a, std::pair<nano::block_hash, nano::block_hash> const & hash_root_a)
 {
 	// Confirmation request with hash + root
 	nano::confirm_req req (hash_root_a.first, hash_root_a.second);
