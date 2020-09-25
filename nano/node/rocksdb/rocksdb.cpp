@@ -501,7 +501,7 @@ uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, ta
 	else if (table_a == tables::accounts)
 	{
 		debug_assert (network_constants ().is_dev_network ());
-		std::atomic<uint64_t> sum_l;
+		std::atomic<uint64_t> sum_l{ 0 };
 		latest_for_each_par (
 		[&sum_l](nano::read_transaction const & /*unused*/, auto i, auto n) {
 			uint64_t account_count_l (0);
@@ -516,7 +516,7 @@ uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, ta
 	}
 	else if (table_a == tables::blocks)
 	{
-		std::atomic<uint64_t> sum_l;
+		std::atomic<uint64_t> sum_l{ 0 };
 		blocks_for_each_par (
 		[&sum_l](nano::read_transaction const & /*unused*/, auto i, auto n) {
 			uint64_t block_count_l (0);
@@ -530,7 +530,7 @@ uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, ta
 	}
 	else if (table_a == tables::confirmation_height)
 	{
-		std::atomic<uint64_t> sum_l;
+		std::atomic<uint64_t> sum_l{ 0 };
 		confirmation_height_for_each_par (
 		[&sum_l](nano::read_transaction const & /*unused*/, auto i, auto n) {
 			uint64_t confirmation_height_count_l (0);
