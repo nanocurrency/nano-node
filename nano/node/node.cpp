@@ -800,7 +800,7 @@ void nano::node::long_inactivity_cleanup ()
 			++sample;
 		}
 		debug_assert (sample != n);
-		auto const one_week_ago = (std::chrono::system_clock::now () - std::chrono::hours (7 * 24)).time_since_epoch ().count ();
+		auto const one_week_ago = static_cast<size_t> ((std::chrono::system_clock::now () - std::chrono::hours (7 * 24)).time_since_epoch ().count ());
 		perform_cleanup = sample->first < one_week_ago;
 	}
 	if (perform_cleanup)
@@ -1290,7 +1290,7 @@ void nano::node::process_confirmed (nano::election_status const & status_a, uint
 {
 	auto block_a (status_a.winner);
 	auto hash (block_a->hash ());
-	const auto num_iters = (config.block_processor_batch_max_time / network_params.node.process_confirmed_interval) * 4;
+	const size_t num_iters = (config.block_processor_batch_max_time / network_params.node.process_confirmed_interval) * 4;
 	if (ledger.block_exists (hash))
 	{
 		confirmation_height_processor.add (hash);
