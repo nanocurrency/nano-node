@@ -281,7 +281,7 @@ void nano::vote_generator::vote (std::vector<nano::block_hash> const & hashes_a,
 {
 	debug_assert (hashes_a.size () == roots_a.size ());
 	std::vector<std::shared_ptr<nano::vote>> votes_l;
-	wallets.foreach_representative ([this, &hashes_a,&votes_l](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
+	wallets.foreach_representative ([this, &hashes_a, &votes_l](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
 		votes_l.emplace_back (std::make_shared<nano::vote> (pub_a, prv_a, timestamps.now (), hashes_a));
 	});
 	for (auto const & vote_l : votes_l)

@@ -25,7 +25,7 @@ class timestamp_generator_base
 public:
 	// If CLOCK::is_steady, this class will be a steady
 	static bool constexpr is_steady = CLOCK::is_steady;
-	
+
 	static uint64_t mask_time (uint64_t timestamp)
 	{
 		auto result (timestamp & time_mask);
