@@ -23,8 +23,13 @@ namespace nano
 class ledger;
 class network;
 class node_config;
+class stat;
 class vote_processor;
 class wallets;
+namespace transport
+{
+	class channel;
+}
 
 class local_vote_history final
 {
@@ -63,6 +68,8 @@ private:
 	size_t const max_size{ nano::network_params{}.voting.max_cache };
 	void clean ();
 	std::vector<std::shared_ptr<nano::vote>> votes (nano::root const & root_a) const;
+	// Only used in Debug
+	bool consistency_check (nano::root const &) const;
 	mutable std::mutex mutex;
 
 	friend std::unique_ptr<container_info_component> collect_container_info (local_vote_history & history, const std::string & name);
@@ -74,14 +81,26 @@ std::unique_ptr<container_info_component> collect_container_info (local_vote_his
 
 class vote_generator final
 {
+private:
+	using candidate_t = std::pair<nano::root, nano::block_hash>;
+	using request_t = std::pair<std::vector<candidate_t>, std::shared_ptr<nano::transport::channel>>;
+
 public:
-	vote_generator (nano::timestamp_generator & timestamps_a, nano::node_config const & config_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::local_vote_history & history_a, nano::network & network_a);
+	vote_generator (nano::timestamp_generator & timestamps_a, nano::node_config const & config_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::local_vote_history & history_a, nano::network & network_a, nano::stat & stats_a);
+	/** Queue items for vote generation, or broadcast votes already in cache */
 	void add (nano::root const &, nano::block_hash const &);
+	/** Queue blocks for vote generation, returning the number of successful candidates.*/
+	size_t generate (std::vector<std::shared_ptr<nano::block>> const & blocks_a, std::shared_ptr<nano::transport::channel> const & channel_a);
+	void set_reply_action (std::function<void(std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> &)>);
 	void stop ();
 
 private:
 	void run ();
-	void send (nano::unique_lock<std::mutex> &);
+	void broadcast (nano::unique_lock<std::mutex> &);
+	void reply (nano::unique_lock<std::mutex> &, request_t &&);
+	void vote (std::vector<nano::block_hash> const &, std::vector<nano::root> const &, std::function<void(std::shared_ptr<nano::vote> const &)> const &);
+	void broadcast_action (std::shared_ptr<nano::vote> const &) const;
+	std::function<void(std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> &)> reply_action; // must be set only during initialization by using set_reply_action
 	nano::node_config const & config;
 	nano::timestamp_generator & timestamps;
 	nano::ledger & ledger;
@@ -89,11 +108,14 @@ private:
 	nano::vote_processor & vote_processor;
 	nano::local_vote_history & history;
 	nano::network & network;
+	nano::stat & stats;
 	mutable std::mutex mutex;
 	nano::condition_variable condition;
-	std::deque<std::pair<nano::root, nano::block_hash>> hashes;
+	static size_t constexpr max_requests{ 2048 };
+	std::deque<request_t> requests;
+	std::deque<candidate_t> candidates;
 	nano::network_params network_params;
-	bool stopped{ false };
+	std::atomic<bool> stopped{ false };
 	bool started{ false };
 	std::thread thread;
 
@@ -111,6 +133,6 @@ public:
 
 private:
 	nano::vote_generator & generator;
-	std::vector<std::pair<nano::root, nano::block_hash>> hashes;
+	std::vector<std::pair<nano::root, nano::block_hash>> items;
 };
 }

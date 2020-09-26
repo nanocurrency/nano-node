@@ -410,6 +410,7 @@ public:
 	std::chrono::seconds cutoff;
 	std::chrono::seconds syn_cookie_cutoff;
 	std::chrono::minutes backup_interval;
+	std::chrono::seconds bootstrap_interval;
 	std::chrono::seconds search_pending_interval;
 	std::chrono::seconds peer_interval;
 	std::chrono::minutes unchecked_cleaning_interval;
@@ -504,6 +505,7 @@ public:
 	nano::rep_weights rep_weights;
 	std::atomic<uint64_t> cemented_count{ 0 };
 	std::atomic<uint64_t> block_count{ 0 };
+	std::atomic<uint64_t> pruned_count{ 0 };
 	std::atomic<uint64_t> account_count{ 0 };
 	std::atomic<bool> epoch_2_started{ false };
 };

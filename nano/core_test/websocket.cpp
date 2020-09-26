@@ -102,12 +102,22 @@ TEST (websocket, active_difficulty)
 	nano::from_string_hex (message_contents.get<std::string> ("network_minimum"), network_minimum);
 	ASSERT_EQ (network_minimum, node1->default_difficulty (nano::work_version::work_1));
 
+	uint64_t network_receive_minimum;
+	nano::from_string_hex (message_contents.get<std::string> ("network_receive_minimum"), network_receive_minimum);
+	ASSERT_EQ (network_receive_minimum, node1->default_receive_difficulty (nano::work_version::work_1));
+
 	uint64_t network_current;
 	nano::from_string_hex (message_contents.get<std::string> ("network_current"), network_current);
 	ASSERT_EQ (network_current, node1->active.active_difficulty ());
 
 	double multiplier = message_contents.get<double> ("multiplier");
 	ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (node1->active.active_difficulty (), node1->default_difficulty (nano::work_version::work_1)), 1e-6);
+
+	uint64_t network_receive_current;
+	nano::from_string_hex (message_contents.get<std::string> ("network_receive_current"), network_receive_current);
+	auto network_receive_current_multiplier (nano::difficulty::to_multiplier (network_receive_current, network_receive_minimum));
+	auto network_receive_current_normalized_multiplier (nano::normalized_multiplier (network_receive_current_multiplier, network_receive_minimum));
+	ASSERT_NEAR (network_receive_current_normalized_multiplier, multiplier, 1e-6);
 }
 
 // Subscribes to block confirmations, confirms a block and then awaits websocket notification
@@ -288,7 +298,7 @@ TEST (websocket, confirmation_options)
 		ASSERT_EQ (1, election_info.count ("duration"));
 		ASSERT_EQ (1, election_info.count ("request_count"));
 		ASSERT_EQ (1, election_info.count ("voters"));
-		ASSERT_GE (1, election_info.get<unsigned> ("blocks"));
+		ASSERT_GE (1U, election_info.get<unsigned> ("blocks"));
 		// Make sure tally and time are non-zero.
 		ASSERT_NE ("0", tally);
 		ASSERT_NE ("0", time);
@@ -574,7 +584,7 @@ TEST (websocket, work)
 
 	auto & contents = event.get_child ("message");
 	ASSERT_EQ (contents.get<std::string> ("success"), "true");
-	ASSERT_LT (contents.get<unsigned> ("duration"), 10000);
+	ASSERT_LT (contents.get<unsigned> ("duration"), 10000U);
 
 	ASSERT_EQ (1, contents.count ("request"));
 	auto & request = contents.get_child ("request");
@@ -709,8 +719,8 @@ TEST (websocket, bootstrap_exited)
 	ASSERT_EQ (contents.get<std::string> ("reason"), "exited");
 	ASSERT_EQ (contents.get<std::string> ("id"), "123abc");
 	ASSERT_EQ (contents.get<std::string> ("mode"), "legacy");
-	ASSERT_EQ (contents.get<unsigned> ("total_blocks"), 0);
-	ASSERT_LT (contents.get<unsigned> ("duration"), 15000);
+	ASSERT_EQ (contents.get<unsigned> ("total_blocks"), 0U);
+	ASSERT_LT (contents.get<unsigned> ("duration"), 15000U);
 }
 
 // Tests sending keepalive

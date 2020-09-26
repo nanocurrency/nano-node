@@ -1129,7 +1129,7 @@ TEST (work_watcher, removed_after_lose)
 	node.block_processor.flush ();
 	auto vote (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 0, fork1));
 	nano::confirm_ack message (vote);
-	node.network.process_message (message, nullptr);
+	node.network.process_message (message, std::make_shared<nano::transport::channel_loopback> (node));
 	ASSERT_TIMELY (5s, !node.wallets.watcher->is_watched (block1->qualified_root ()));
 	ASSERT_EQ (0, node.wallets.watcher->size ());
 }
@@ -1251,11 +1251,10 @@ TEST (work_watcher, confirm_while_generating)
 		notified = true;
 	});
 	// Confirm the block
-	{
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
-		ASSERT_EQ (1, node.active.roots.size ());
-		node.active.roots.begin ()->election->confirm_once ();
-	}
+	ASSERT_EQ (1, node.active.size ());
+	auto election (node.active.election (block1->qualified_root ()));
+	ASSERT_NE (nullptr, election);
+	election->force_confirm ();
 	ASSERT_TIMELY (5s, node.block_confirmed (block1->hash ()));
 	ASSERT_EQ (0, node.work.size ());
 	ASSERT_TRUE (notified);
@@ -1451,4 +1450,54 @@ TEST (wallet, foreach_representative_deadlock)
 			ASSERT_FALSE (true);
 		}
 	});
+}
+
+TEST (wallet, search_pending)
+{
+	nano::system system;
+	nano::node_config config (nano::get_available_port (), system.logging);
+	config.enable_voting = false;
+	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto & node (*system.add_node ());
+	auto & wallet (*system.wallet (0));
+
+	wallet.insert_adhoc (nano::dev_genesis_key.prv);
+	nano::block_builder builder;
+	auto send = builder.state ()
+	            .account (nano::genesis_account)
+	            .previous (nano::genesis_hash)
+	            .representative (nano::genesis_account)
+	            .balance (nano::genesis_amount - node.config.receive_minimum.number ())
+	            .link (nano::genesis_account)
+	            .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	            .work (*system.work.generate (nano::genesis_hash))
+	            .build ();
+	ASSERT_EQ (nano::process_result::progress, node.process (*send).code);
+
+	// Pending search should start an election
+	ASSERT_TRUE (node.active.empty ());
+	ASSERT_FALSE (wallet.search_pending ());
+	auto election = node.active.election (send->qualified_root ());
+	ASSERT_NE (nullptr, election);
+
+	// Erase the key so the confirmation does not trigger an automatic receive
+	wallet.store.erase (node.wallets.tx_begin_write (), nano::genesis_account);
+
+	// Now confirm the election
+	election->force_confirm ();
+
+	ASSERT_TIMELY (5s, node.block_confirmed (send->hash ()) && node.active.empty ());
+
+	// Re-insert the key
+	wallet.insert_adhoc (nano::dev_genesis_key.prv);
+
+	// Pending search should create the receive block
+	ASSERT_EQ (2, node.ledger.cache.block_count);
+	ASSERT_FALSE (wallet.search_pending ());
+	ASSERT_TIMELY (3s, node.balance (nano::genesis_account) == nano::genesis_amount);
+	auto receive_hash = node.ledger.latest (node.store.tx_begin_read (), nano::genesis_account);
+	auto receive = node.block (receive_hash);
+	ASSERT_NE (nullptr, receive);
+	ASSERT_EQ (receive->sideband ().height, 3);
+	ASSERT_EQ (send->hash (), receive->link ().as_block_hash ());
 }

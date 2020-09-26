@@ -8,6 +8,7 @@
 #include <gtest/gtest.h>
 
 #include <boost/format.hpp>
+#include <boost/unordered_set.hpp>
 
 #include <numeric>
 #include <random>
@@ -224,8 +225,10 @@ TEST (node, fork_storm)
 			}
 			else
 			{
-				nano::lock_guard<std::mutex> lock (node_a->active.mutex);
-				if (node_a->active.roots.begin ()->election->last_votes_size () == 1)
+				nano::unique_lock<std::mutex> lock (node_a->active.mutex);
+				auto election = node_a->active.roots.begin ()->election;
+				lock.unlock ();
+				if (election->votes ().size () == 1)
 				{
 					++single;
 				}
@@ -410,7 +413,52 @@ TEST (store, vote_load)
 	for (auto i (0); i < 1000000; ++i)
 	{
 		auto vote (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, i, block));
-		node.vote_processor.vote (vote, std::make_shared<nano::transport::channel_udp> (system.nodes[0]->network.udp_channels, system.nodes[0]->network.endpoint (), system.nodes[0]->network_params.protocol.protocol_version));
+		node.vote_processor.vote (vote, std::make_shared<nano::transport::channel_loopback> (node));
+	}
+}
+
+TEST (store, pruned_load)
+{
+	nano::logger_mt logger;
+	auto path (nano::unique_path ());
+	constexpr auto num_pruned = 2000000;
+	auto const expected_result = nano::using_rocksdb_in_tests () ? num_pruned : num_pruned / 2;
+	constexpr auto batch_size = 20;
+	boost::unordered_set<nano::block_hash> hashes;
+	{
+		auto store = nano::make_store (logger, path);
+		ASSERT_FALSE (store->init_error ());
+		for (auto i (0); i < num_pruned / batch_size; ++i)
+		{
+			{
+				auto transaction (store->tx_begin_write ());
+				for (auto k (0); k < batch_size; ++k)
+				{
+					nano::block_hash random_hash;
+					nano::random_pool::generate_block (random_hash.bytes.data (), random_hash.bytes.size ());
+					store->pruned_put (transaction, random_hash);
+				}
+			}
+			if (!nano::using_rocksdb_in_tests ())
+			{
+				auto transaction (store->tx_begin_write ());
+				for (auto k (0); k < batch_size / 2; ++k)
+				{
+					auto hash (hashes.begin ());
+					store->pruned_del (transaction, *hash);
+					hashes.erase (hash);
+				}
+			}
+		}
+		auto transaction (store->tx_begin_read ());
+		ASSERT_EQ (expected_result, store->pruned_count (transaction));
+	}
+	// Reinitialize store
+	{
+		auto store = nano::make_store (logger, path);
+		ASSERT_FALSE (store->init_error ());
+		auto transaction (store->tx_begin_read ());
+		ASSERT_EQ (expected_result, store->pruned_count (transaction));
 	}
 }
 
@@ -490,8 +538,7 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 		auto election_insertion_result (node->active.insert (block));
 		ASSERT_TRUE (election_insertion_result.inserted);
 		ASSERT_NE (nullptr, election_insertion_result.election);
-		nano::lock_guard<std::mutex> guard (node->active.mutex);
-		election_insertion_result.election->confirm_once ();
+		election_insertion_result.election->force_confirm ();
 	}
 
 	ASSERT_TIMELY (120s, node->ledger.block_confirmed (node->store.tx_begin_read (), last_open_hash));
@@ -509,7 +556,7 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 		ASSERT_EQ (count, account_info.block_count);
 	}
 
-	auto cemented_count = 0;
+	size_t cemented_count = 0;
 	for (auto i (node->ledger.store.confirmation_height_begin (transaction)), n (node->ledger.store.confirmation_height_end ()); i != n; ++i)
 	{
 		cemented_count += i->second.height;
@@ -559,8 +606,7 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 		auto election_insertion_result (node->active.insert (open_block));
 		ASSERT_TRUE (election_insertion_result.inserted);
 		ASSERT_NE (nullptr, election_insertion_result.election);
-		nano::lock_guard<std::mutex> guard (node->active.mutex);
-		election_insertion_result.election->confirm_once ();
+		election_insertion_result.election->force_confirm ();
 	}
 
 	auto const num_blocks_to_confirm = (num_accounts - 1) * 2;
@@ -573,7 +619,7 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 	ASSERT_TIMELY (60s, (node->ledger.cache.cemented_count - 1) == node->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out));
 
 	auto transaction = node->store.tx_begin_read ();
-	auto cemented_count = 0;
+	size_t cemented_count = 0;
 	for (auto i (node->ledger.store.confirmation_height_begin (transaction)), n (node->ledger.store.confirmation_height_end ()); i != n; ++i)
 	{
 		cemented_count += i->second.height;
@@ -647,8 +693,7 @@ TEST (confirmation_height, long_chains)
 		auto election_insertion_result (node->active.insert (receive1));
 		ASSERT_TRUE (election_insertion_result.inserted);
 		ASSERT_NE (nullptr, election_insertion_result.election);
-		nano::lock_guard<std::mutex> guard (node->active.mutex);
-		election_insertion_result.election->confirm_once ();
+		election_insertion_result.election->force_confirm ();
 	}
 
 	ASSERT_TIMELY (30s, node->ledger.block_confirmed (node->store.tx_begin_read (), receive1->hash ()));
@@ -666,7 +711,7 @@ TEST (confirmation_height, long_chains)
 	ASSERT_EQ (num_blocks + 1, confirmation_height_info.height);
 	ASSERT_EQ (num_blocks + 1, account_info.block_count);
 
-	auto cemented_count = 0;
+	size_t cemented_count = 0;
 	for (auto i (node->ledger.store.confirmation_height_begin (transaction)), n (node->ledger.store.confirmation_height_end ()); i != n; ++i)
 	{
 		cemented_count += i->second.height;
@@ -845,8 +890,7 @@ TEST (confirmation_height, many_accounts_send_receive_self)
 		node->block_confirm (open_block);
 		auto election = node->active.election (open_block->qualified_root ());
 		ASSERT_NE (nullptr, election);
-		nano::lock_guard<std::mutex> guard (node->active.mutex);
-		election->confirm_once ();
+		election->force_confirm ();
 	}
 
 	system.deadline_set (100s);
@@ -888,7 +932,7 @@ TEST (confirmation_height, many_accounts_send_receive_self)
 	}
 
 	auto transaction = node->store.tx_begin_read ();
-	auto cemented_count = 0;
+	size_t cemented_count = 0;
 	for (auto i (node->ledger.store.confirmation_height_begin (transaction)), n (node->ledger.store.confirmation_height_end ()); i != n; ++i)
 	{
 		cemented_count += i->second.height;
@@ -914,13 +958,18 @@ TEST (confirmation_height, many_accounts_send_receive_self)
 // as opposed to active transactions which implicitly calls confirmation height processor.
 TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 {
+	if (nano::using_rocksdb_in_tests ())
+	{
+		// Don't test this in rocksdb mode
+		return;
+	}
 	nano::logger_mt logger;
 	auto path (nano::unique_path ());
-	nano::mdb_store store (logger, path);
-	ASSERT_TRUE (!store.init_error ());
+	auto store = nano::make_store (logger, path);
+	ASSERT_TRUE (!store->init_error ());
 	nano::genesis genesis;
 	nano::stat stats;
-	nano::ledger ledger (store, stats);
+	nano::ledger ledger (*store, stats);
 	nano::write_database_queue write_database_queue (false);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	std::atomic<bool> stopped{ false };
@@ -938,8 +987,8 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 	nano::system system;
 
 	{
-		auto transaction (store.tx_begin_write ());
-		store.initialize (transaction, genesis, ledger.cache);
+		auto transaction (store->tx_begin_write ());
+		store->initialize (transaction, genesis, ledger.cache);
 
 		// Send from genesis account to all other accounts and create open block for them
 		for (auto i = 0; i < num_accounts; ++i)
@@ -972,7 +1021,7 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 
 	// Now add all send/receive blocks
 	{
-		auto transaction (store.tx_begin_write ());
+		auto transaction (store->tx_begin_write ());
 		for (int i = 0; i < open_blocks.size (); ++i)
 		{
 			auto open_block = open_blocks[i];
@@ -1011,9 +1060,9 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
-	auto transaction = store.tx_begin_read ();
-	auto cemented_count = 0;
-	for (auto i (ledger.store.confirmation_height_begin (transaction)), n (ledger.store.confirmation_height_end ()); i != n; ++i)
+	auto transaction = store->tx_begin_read ();
+	size_t cemented_count = 0;
+	for (auto i (store->confirmation_height_begin (transaction)), n (store->confirmation_height_end ()); i != n; ++i)
 	{
 		cemented_count += i->second.height;
 	}
@@ -1437,7 +1486,7 @@ TEST (telemetry, many_nodes)
 	{
 		ASSERT_EQ (data.unchecked_count, 0);
 		ASSERT_EQ (data.cemented_count, 1);
-		ASSERT_LE (data.peer_count, 9);
+		ASSERT_LE (data.peer_count, 9U);
 		ASSERT_EQ (data.account_count, 1);
 		ASSERT_TRUE (data.block_count == 2);
 		ASSERT_EQ (data.protocol_version, params.protocol.telemetry_protocol_version_min);
@@ -1494,7 +1543,7 @@ TEST (signature_checker, mass_boundary_checks)
 		nano::keypair key;
 		nano::state_block block (key.pub, 0, key.pub, 0, 0, key.prv, key.pub, 0);
 
-		auto last_size = 0;
+		size_t last_size = 0;
 		for (auto size : sizes)
 		{
 			// The size needed to append to existing containers, saves re-initializing from scratch each iteration
@@ -1625,7 +1674,7 @@ TEST (node, mass_epoch_upgrader)
 		// Check upgrade
 		{
 			auto transaction (node.store.tx_begin_read ());
-			auto block_count_sum = 0;
+			size_t block_count_sum = 0;
 			for (auto i (node.store.latest_begin (transaction)); i != node.store.latest_end (); ++i)
 			{
 				nano::account_info info (i->second);
