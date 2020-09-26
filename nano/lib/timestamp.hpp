@@ -28,42 +28,37 @@ public:
 
 	static uint64_t mask_time (uint64_t timestamp)
 	{
-		auto result (timestamp & time_mask);
+		auto result = timestamp & time_mask;
 		return result;
 	}
 	static uint64_t mask_count (uint64_t timestamp)
 	{
-		auto result (timestamp & count_mask);
+		auto result = timestamp & count_mask;
 		return result;
 	}
-	static uint64_t timestamp_from_ms (uint64_t ms_count)
+	// Return a timestamp based on `ms' the number of milliseconds since the UTC epoch
+	static uint64_t timestamp_from_ms (std::chrono::milliseconds ms)
 	{
-		auto result (ms_count << count_bits);
+		auto result = static_cast<uint64_t> (ms.count ()) << count_bits;
 		return result;
 	}
-	static uint64_t ms_from_timestamp (uint64_t timestamp)
+	// Return the number of milliseconds since the UTC epoch, represented in `timestamp'
+	static std::chrono::milliseconds ms_from_timestamp (uint64_t timestamp)
 	{
-		auto result (timestamp >> count_bits);
-		return result;
-	}
-	/**
-		Return a timestamp based on CLOCK::now () as the ms component and 0 as the count component
-	 */
-	static uint64_t now_base ()
-	{
-		uint64_t ms_since_epoch = std::chrono::duration_cast<std::chrono::milliseconds> (CLOCK::now ().time_since_epoch ()).count ();
-		uint64_t result = timestamp_from_ms (ms_since_epoch);
-		return result;
+		auto result = timestamp >> count_bits;
+		return std::chrono::milliseconds{ result };
 	}
 	// If CLOCK::is_steady, now is guaranteed to produce monotonically increasing timestamps
 	static uint64_t now ()
 	{
-		uint64_t stored = 0;
-		uint64_t result = 0;
+		uint64_t stored;
+		uint64_t result;
 		do
 		{
 			stored = last.load ();
-			auto now_l = now_base ();
+			std::chrono::milliseconds delta = std::chrono::duration_cast<std::chrono::milliseconds> (CLOCK::now ().time_since_epoch ());
+			auto now_l = timestamp_from_ms (delta);
+			// If `delta` hasn't changed since the last call, increment the counter, otherwise use the current value with a zero counter.
 			result = mask_time (stored) == now_l ? stored + 1 : now_l;
 		} while (!last.compare_exchange_weak (stored, result));
 		return result;

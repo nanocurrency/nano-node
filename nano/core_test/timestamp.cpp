@@ -13,11 +13,11 @@ TEST (timestamp, now)
 {
 	nano::timestamp_generator generator;
 	ASSERT_FALSE (nano::timestamp_generator::is_steady);
-	auto before_ms = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ();
+	auto before_ms = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ());
 	auto before = generator.timestamp_from_ms (before_ms);
 	ASSERT_EQ (before_ms, generator.ms_from_timestamp (before));
-	auto now = generator.now_base ();
-	auto after_ms = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ();
+	auto now = generator.now ();
+	auto after_ms = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ());
 	auto after (generator.timestamp_from_ms (after_ms));
 	ASSERT_EQ (after_ms, generator.ms_from_timestamp (after));
 	ASSERT_LE (before, now);
@@ -28,10 +28,10 @@ TEST (timestamp, basic)
 {
 	nano::timestamp_generator generator;
 	auto one = generator.now ();
-	ASSERT_EQ (0, generator.mask_count (one));
 	ASSERT_NE (0, generator.mask_time (one));
 	auto two = generator.now ();
-	ASSERT_NE (one, two);
+	ASSERT_NE (0, generator.mask_time (two));
+	ASSERT_LT (one, two);
 }
 
 TEST (timestamp, count)
