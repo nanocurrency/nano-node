@@ -12,6 +12,7 @@
 TEST (timestamp, now)
 {
 	nano::timestamp_generator generator;
+	ASSERT_FALSE (nano::timestamp_generator::is_steady);
 	auto before_ms = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ();
 	auto before = generator.timestamp_from_ms (before_ms);
 	ASSERT_EQ (before_ms, generator.ms_from_timestamp (before));

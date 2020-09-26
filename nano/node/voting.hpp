@@ -2,6 +2,7 @@
 
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/timestamp_fwd.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/secure/common.hpp>

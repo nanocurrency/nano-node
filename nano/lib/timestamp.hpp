@@ -19,9 +19,13 @@ inline uint64_t seconds_since_epoch ()
  The lower 20 bits are a monotonically increasing counter from 0, each millisecond
  */
 
-class timestamp_generator
+template <typename CLOCK>
+class timestamp_generator_base
 {
 public:
+	// If CLOCK::is_steady, this class will be a steady
+	static bool constexpr is_steady = CLOCK::is_steady;
+	
 	static uint64_t mask_time (uint64_t timestamp)
 	{
 		auto result (timestamp & time_mask);
@@ -47,10 +51,11 @@ public:
 	 */
 	static uint64_t now_base ()
 	{
-		uint64_t ms_since_epoch = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ();
+		uint64_t ms_since_epoch = std::chrono::duration_cast<std::chrono::milliseconds> (CLOCK::now ().time_since_epoch ()).count ();
 		uint64_t result = timestamp_from_ms (ms_since_epoch);
 		return result;
 	}
+	// If CLOCK::is_steady, now is guaranteed to produce monotonically increasing timestamps
 	uint64_t now ()
 	{
 		static_assert (time_bits + count_bits == 64);
@@ -59,21 +64,26 @@ public:
 		{
 			result = next;
 			auto now_l = now_base ();
-			if (mask_time (result) != now_l)
+			if (mask_time (result) == now_l)
 			{
+				// We're in a different millisecond, use a count of 0 set next' count to be 1
 				if (next.compare_exchange_weak (result, now_l + 1))
 				{
+					// No concurrent change
 					result = now_l;
 				}
 				else
 				{
+					// Concurrent change
 					result = 0;
 				}
 			}
 			else
 			{
+				// We're in the same millisecond, use the next count and increment next' count
 				if (!next.compare_exchange_weak (result, result + 1))
 				{
+					// Concurrent change
 					result = 0;
 				}
 			}
@@ -88,4 +98,5 @@ private:
 	static uint64_t constexpr time_mask{ ~0ULL << count_bits }; // Portion associated with timer
 	static uint64_t constexpr count_mask{ ~0ULL >> time_bits }; // Portion associated with counter
 };
+using timestamp_generator = timestamp_generator_base<std::chrono::system_clock>;
 } // namespace nano
