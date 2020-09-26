@@ -56,45 +56,24 @@ public:
 		return result;
 	}
 	// If CLOCK::is_steady, now is guaranteed to produce monotonically increasing timestamps
-	uint64_t now ()
+	static uint64_t now ()
 	{
-		static_assert (time_bits + count_bits == 64);
+		uint64_t stored = 0;
 		uint64_t result = 0;
-		while (result == 0)
+		do
 		{
-			result = next;
+			stored = last.load ();
 			auto now_l = now_base ();
-			if (mask_time (result) == now_l)
-			{
-				// We're in a different millisecond, use a count of 0 set next' count to be 1
-				if (next.compare_exchange_weak (result, now_l + 1))
-				{
-					// No concurrent change
-					result = now_l;
-				}
-				else
-				{
-					// Concurrent change
-					result = 0;
-				}
-			}
-			else
-			{
-				// We're in the same millisecond, use the next count and increment next' count
-				if (!next.compare_exchange_weak (result, result + 1))
-				{
-					// Concurrent change
-					result = 0;
-				}
-			}
-		}
+			result = mask_time (stored) == now_l ? stored + 1 : now_l;
+		} while (!last.compare_exchange_weak (stored, result));
 		return result;
 	}
 
 private:
-	std::atomic<uint64_t> next{ 0 };
+	static inline std::atomic<uint64_t> last{ 0 };
 	static int constexpr time_bits{ 44 }; // 44 bits for milliseconds = 17,592,186,044,416 ~ 545 years.
 	static int constexpr count_bits{ 20 }; // 20-bit monotonic counter, 1,048,576 samples per ms
+	static_assert (time_bits + count_bits == 64);
 	static uint64_t constexpr time_mask{ ~0ULL << count_bits }; // Portion associated with timer
 	static uint64_t constexpr count_mask{ ~0ULL >> time_bits }; // Portion associated with counter
 };
