@@ -1458,7 +1458,9 @@ TEST (wallet, search_pending)
 	nano::node_config config (nano::get_available_port (), system.logging);
 	config.enable_voting = false;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	auto & node (*system.add_node ());
+	nano::node_flags flags;
+	flags.disable_search_pending = true;
+	auto & node (*system.add_node (config, flags));
 	auto & wallet (*system.wallet (0));
 
 	wallet.insert_adhoc (nano::dev_genesis_key.prv);
