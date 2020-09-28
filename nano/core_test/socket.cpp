@@ -35,7 +35,7 @@ TEST (socket, drop_policy)
 
 		auto client = std::make_shared<nano::socket> (*node, boost::none);
 		nano::transport::channel_tcp channel{ *node, client };
-		nano::util::counted_completion write_completion (total_message_count);
+		nano::util::counted_completion write_completion (static_cast<unsigned> (total_message_count));
 
 		client->async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), server_port),
 		[&channel, total_message_count, node, &write_completion, &drop_policy, client](boost::system::error_code const & ec_a) mutable {
