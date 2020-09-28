@@ -1420,6 +1420,7 @@ TEST (confirmation_height, unbounded_block_cache_iteration)
 TEST (confirmation_height, pruned_source)
 {
 	nano::logger_mt logger;
+	nano::logging logging;
 	auto path (nano::unique_path ());
 	auto store = nano::make_store (logger, path);
 	ASSERT_TRUE (!store->init_error ());
@@ -1449,7 +1450,7 @@ TEST (confirmation_height, pruned_source)
 	std::atomic<bool> stopped{ false };
 	bool first_time{ true };
 	nano::confirmation_height_bounded bounded_processor (
-	ledger, write_database_queue, 10ms, logger, stopped, block_hash_being_processed, batch_write_size, [&](auto const & cemented_blocks_a) {
+	ledger, write_database_queue, 10ms, logging, logger, stopped, block_hash_being_processed, batch_write_size, [&](auto const & cemented_blocks_a) {
 		if (first_time)
 		{
 			// Prune the send
