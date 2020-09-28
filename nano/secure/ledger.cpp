@@ -52,9 +52,9 @@ public:
 	void receive_block (nano::receive_block const & block_a) override
 	{
 		auto hash (block_a.hash ());
-		auto amount (ledger.amount (transaction, block_a.hashables.source));
+		auto amount (ledger.amount (transaction, hash));
 		auto destination_account (ledger.account (transaction, hash));
-		// Pending account entry is incorrect
+		// Pending account entry can be incorrect if block was pruned. But it's not affecting correct ledger processing
 		bool error_or_pruned (false);
 		auto source_account (ledger.account_safe (transaction, block_a.hashables.source, error_or_pruned));
 		nano::account_info info;
@@ -74,9 +74,11 @@ public:
 	void open_block (nano::open_block const & block_a) override
 	{
 		auto hash (block_a.hash ());
-		auto amount (ledger.amount (transaction, block_a.hashables.source));
+		auto amount (ledger.amount (transaction, hash));
 		auto destination_account (ledger.account (transaction, hash));
-		auto source_account (ledger.account (transaction, block_a.hashables.source));
+		// Pending account entry can be incorrect if block was pruned. But it's not affecting correct ledger processing
+		bool error_or_pruned (false);
+		auto source_account (ledger.account_safe (transaction, block_a.hashables.source, error_or_pruned));
 		ledger.cache.rep_weights.representation_add (block_a.representative (), 0 - amount);
 		nano::account_info new_info;
 		ledger.update_account (transaction, destination_account, new_info, new_info);
