@@ -584,10 +584,10 @@ TEST (system, DISABLED_generate_send_new)
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	{
 		auto transaction (node1.store.tx_begin_read ());
-		auto iterator1 (node1.store.latest_begin (transaction));
-		ASSERT_NE (node1.store.latest_end (), iterator1);
+		auto iterator1 (node1.store.accounts_begin (transaction));
+		ASSERT_NE (node1.store.accounts_end (), iterator1);
 		++iterator1;
-		ASSERT_EQ (node1.store.latest_end (), iterator1);
+		ASSERT_EQ (node1.store.accounts_end (), iterator1);
 	}
 	nano::keypair stake_preserver;
 	auto send_block (system.wallet (0)->send_action (nano::genesis_account, stake_preserver.pub, nano::genesis_amount / 3 * 2, true));
