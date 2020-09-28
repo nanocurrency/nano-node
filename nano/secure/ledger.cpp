@@ -54,9 +54,9 @@ public:
 		auto hash (block_a.hash ());
 		auto amount (ledger.amount (transaction, hash));
 		auto destination_account (ledger.account (transaction, hash));
-		// Pending account entry can be incorrect if block was pruned. But it's not affecting correct ledger processing
-		bool error_or_pruned (false);
-		auto source_account (ledger.account_safe (transaction, block_a.hashables.source, error_or_pruned));
+		// Pending account entry can be incorrect if source block was pruned. But it's not affecting correct ledger processing
+		bool is_pruned (false);
+		auto source_account (ledger.account_safe (transaction, block_a.hashables.source, is_pruned));
 		nano::account_info info;
 		auto error (ledger.store.account_get (transaction, destination_account, info));
 		(void)error;
@@ -76,9 +76,9 @@ public:
 		auto hash (block_a.hash ());
 		auto amount (ledger.amount (transaction, hash));
 		auto destination_account (ledger.account (transaction, hash));
-		// Pending account entry can be incorrect if block was pruned. But it's not affecting correct ledger processing
-		bool error_or_pruned (false);
-		auto source_account (ledger.account_safe (transaction, block_a.hashables.source, error_or_pruned));
+		// Pending account entry can be incorrect if source block was pruned. But it's not affecting correct ledger processing
+		bool is_pruned (false);
+		auto source_account (ledger.account_safe (transaction, block_a.hashables.source, is_pruned));
 		ledger.cache.rep_weights.representation_add (block_a.representative (), 0 - amount);
 		nano::account_info new_info;
 		ledger.update_account (transaction, destination_account, new_info, new_info);
@@ -149,9 +149,10 @@ public:
 		}
 		else if (!block_a.hashables.link.is_zero () && !ledger.is_epoch_link (block_a.hashables.link))
 		{
-			// Pending account is incorrect
-			bool error_or_pruned (false);
-			nano::pending_info pending_info (ledger.account_safe (transaction, block_a.hashables.link.as_block_hash (), error_or_pruned), block_a.hashables.balance.number () - balance, block_a.sideband ().source_epoch);
+			// Pending account entry can be incorrect if source block was pruned. But it's not affecting correct ledger processing
+			bool is_pruned (false);
+			auto source_account (ledger.account_safe (transaction, block_a.hashables.link.as_block_hash (), is_pruned));
+			nano::pending_info pending_info (source_account, block_a.hashables.balance.number () - balance, block_a.sideband ().source_epoch);
 			ledger.store.pending_put (transaction, nano::pending_key (block_a.hashables.account, block_a.hashables.link.as_block_hash ()), pending_info);
 			ledger.stats.inc (nano::stat::type::rollback, nano::stat::detail::receive);
 		}
