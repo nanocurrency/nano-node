@@ -935,6 +935,7 @@ void parallel_traversal (std::function<void(T const &, T const &, bool const)> c
 		bool const is_last = thread == thread_count - 1;
 
 		threads.emplace_back ([&action, start, end, is_last] {
+			nano::thread_role::set (nano::thread_role::name::db_parallel_traversal);
 			action (start, end, is_last);
 		});
 	}
