@@ -5,9 +5,6 @@ ARG TRAVIS_TAG=DEV_BUILD
 ARG CI_BUILD=OFF
 ADD ./ /tmp/src
 
-ARG LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/tmp/boost/lib
-RUN ldconfig
-
 RUN mkdir /tmp/build && \
     cd /tmp/build && \
     cmake /tmp/src -DCI_BUILD=${CI_BUILD} \
