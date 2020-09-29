@@ -147,7 +147,7 @@ void nano::active_transactions::confirm_prioritized_frontiers (nano::transaction
 						if (info.block_count > confirmation_height_info.height)
 						{
 							auto block (this->node.store.block_get (transaction_a, info.head));
-							auto previous_balance (this->node.ledger.balance_safe (transaction_a, block->previous (), error));
+							auto previous_balance (this->node.ledger.balance (transaction_a, block->previous ()));
 							auto inserted_election = this->insert_election_from_frontiers_confirmation (block, cementable_account.account, previous_balance, nano::election_behavior::optimistic);
 							if (inserted_election)
 							{
@@ -1016,8 +1016,7 @@ bool nano::active_transactions::restart (std::shared_ptr<nano::block> const & bl
 				debug_assert (node.ledger.cache.block_count.load () == block_count);
 
 				// Restart election for the upgraded block, previously dropped from elections
-				bool error (false);
-				auto previous_balance = node.ledger.balance_safe (transaction_a, ledger_block->previous (), error);
+				auto previous_balance = node.ledger.balance (transaction_a, ledger_block->previous ());
 				auto insert_result = insert (ledger_block, previous_balance);
 				if (insert_result.inserted)
 				{
