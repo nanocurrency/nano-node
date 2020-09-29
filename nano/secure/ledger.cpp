@@ -57,6 +57,7 @@ public:
 		// Pending account entry can be incorrect if source block was pruned. But it's not affecting correct ledger processing
 		bool is_pruned (false);
 		auto source_account (ledger.account_safe (transaction, block_a.hashables.source, is_pruned));
+		(void)is_pruned;
 		nano::account_info info;
 		auto error (ledger.store.account_get (transaction, destination_account, info));
 		(void)error;
@@ -79,6 +80,7 @@ public:
 		// Pending account entry can be incorrect if source block was pruned. But it's not affecting correct ledger processing
 		bool is_pruned (false);
 		auto source_account (ledger.account_safe (transaction, block_a.hashables.source, is_pruned));
+		(void)is_pruned;
 		ledger.cache.rep_weights.representation_add (block_a.representative (), 0 - amount);
 		nano::account_info new_info;
 		ledger.update_account (transaction, destination_account, new_info, new_info);
@@ -152,6 +154,7 @@ public:
 			// Pending account entry can be incorrect if source block was pruned. But it's not affecting correct ledger processing
 			bool is_pruned (false);
 			auto source_account (ledger.account_safe (transaction, block_a.hashables.link.as_block_hash (), is_pruned));
+			(void)is_pruned;
 			nano::pending_info pending_info (source_account, block_a.hashables.balance.number () - balance, block_a.sideband ().source_epoch);
 			ledger.store.pending_put (transaction, nano::pending_key (block_a.hashables.account, block_a.hashables.link.as_block_hash ()), pending_info);
 			ledger.stats.inc (nano::stat::type::rollback, nano::stat::detail::receive);
@@ -642,10 +645,15 @@ void ledger_processor::receive_block (nano::receive_block & block_a)
 										if (result.code == nano::process_result::progress)
 										{
 											auto new_balance (info.balance.number () + pending.amount.number ());
-											nano::account_info source_info;
-											auto error (ledger.store.account_get (transaction, pending.source, source_info));
-											(void)error;
-											debug_assert (!error);
+#ifdef NDEBUG
+											if (ledger.store.block_exists (block_a.hashables.source))
+											{
+												nano::account_info source_info;
+												auto error (ledger.store.account_get (transaction, pending.source, source_info));
+												(void)error;
+												debug_assert (!error);
+											}
+#endif
 											ledger.store.pending_del (transaction, key);
 											block_a.sideband_set (nano::block_sideband (account, 0, new_balance, info.block_count + 1, nano::seconds_since_epoch (), block_details, nano::epoch::epoch_0 /* unused */));
 											ledger.store.block_put (transaction, hash, block_a);
@@ -710,10 +718,15 @@ void ledger_processor::open_block (nano::open_block & block_a)
 								result.code = block_a.difficulty () >= nano::work_threshold (block_a.work_version (), block_details) ? nano::process_result::progress : nano::process_result::insufficient_work; // Does this block have sufficient work? (Malformed)
 								if (result.code == nano::process_result::progress)
 								{
-									nano::account_info source_info;
-									auto error (ledger.store.account_get (transaction, pending.source, source_info));
-									(void)error;
-									debug_assert (!error);
+#ifdef NDEBUG
+									if (ledger.store.block_exists (block_a.hashables.source))
+									{
+										nano::account_info source_info;
+										auto error (ledger.store.account_get (transaction, pending.source, source_info));
+										(void)error;
+										debug_assert (!error);
+									}
+#endif
 									ledger.store.pending_del (transaction, key);
 									block_a.sideband_set (nano::block_sideband (block_a.hashables.account, 0, pending.amount, 1, nano::seconds_since_epoch (), block_details, nano::epoch::epoch_0 /* unused */));
 									ledger.store.block_put (transaction, hash, block_a);
