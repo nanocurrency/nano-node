@@ -3524,6 +3524,11 @@ TEST (ledger, pruning_source_rollback)
 	ASSERT_NE (nano::genesis_account, info2.source); // Tradeoff to not store pruned blocks accounts
 	ASSERT_EQ (nano::Gxrb_ratio, info2.amount.number ());
 	ASSERT_EQ (nano::epoch::epoch_1, info2.epoch);
+	// Process receive block again
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive1).code);
+	ASSERT_FALSE (store->pending_exists (transaction, nano::pending_key (nano::genesis_account, send1.hash ())));
+	ASSERT_EQ (2, ledger.cache.pruned_count);
+	ASSERT_EQ (5, ledger.cache.block_count);
 }
 
 TEST (ledger, pruning_source_rollback_legacy)
@@ -3580,12 +3585,17 @@ TEST (ledger, pruning_source_rollback_legacy)
 	ASSERT_NE (nano::genesis_account, info3.source); // Tradeoff to not store pruned blocks accounts
 	ASSERT_EQ (nano::Gxrb_ratio, info3.amount.number ());
 	ASSERT_EQ (nano::epoch::epoch_0, info3.epoch);
+	// Process receive block again
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive1).code);
+	ASSERT_FALSE (store->pending_exists (transaction, nano::pending_key (nano::genesis_account, send1.hash ())));
+	ASSERT_EQ (2, ledger.cache.pruned_count);
+	ASSERT_EQ (5, ledger.cache.block_count);
 	// Receiving pruned block (open)
 	nano::open_block open1 (send2.hash (), nano::genesis_account, key1.pub, key1.prv, key1.pub, *pool.generate (key1.pub));
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, open1).code);
 	ASSERT_FALSE (store->pending_exists (transaction, nano::pending_key (key1.pub, send2.hash ())));
 	ASSERT_EQ (2, ledger.cache.pruned_count);
-	ASSERT_EQ (5, ledger.cache.block_count);
+	ASSERT_EQ (6, ledger.cache.block_count);
 	// Rollback open block
 	ASSERT_FALSE (ledger.rollback (transaction, open1.hash ()));
 	nano::pending_info info4;
@@ -3593,6 +3603,11 @@ TEST (ledger, pruning_source_rollback_legacy)
 	ASSERT_NE (nano::genesis_account, info4.source); // Tradeoff to not store pruned blocks accounts
 	ASSERT_EQ (nano::Gxrb_ratio, info4.amount.number ());
 	ASSERT_EQ (nano::epoch::epoch_0, info4.epoch);
+	// Process open block again
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, open1).code);
+	ASSERT_FALSE (store->pending_exists (transaction, nano::pending_key (key1.pub, send2.hash ())));
+	ASSERT_EQ (2, ledger.cache.pruned_count);
+	ASSERT_EQ (6, ledger.cache.block_count);
 }
 
 TEST (ledger, pruning_process_error)
