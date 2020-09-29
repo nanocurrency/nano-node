@@ -6297,7 +6297,7 @@ TEST (rpc, confirmation_history)
 	ASSERT_EQ (1, item->second.count ("time"));
 	ASSERT_EQ (1, item->second.count ("request_count"));
 	ASSERT_EQ (1, item->second.count ("voters"));
-	ASSERT_GE (1, item->second.get<unsigned> ("blocks"));
+	ASSERT_GE (1U, item->second.get<unsigned> ("blocks"));
 	ASSERT_EQ (block->hash ().to_string (), hash);
 	nano::amount tally_num;
 	tally_num.decode_dec (tally);
@@ -7349,7 +7349,7 @@ TEST (rpc, epoch_upgrade)
 	{
 		auto transaction (node->store.tx_begin_read ());
 		ASSERT_EQ (2, node->store.account_count (transaction));
-		for (auto i (node->store.latest_begin (transaction)); i != node->store.latest_end (); ++i)
+		for (auto i (node->store.accounts_begin (transaction)); i != node->store.accounts_end (); ++i)
 		{
 			nano::account_info info (i->second);
 			ASSERT_EQ (info.epoch (), nano::epoch::epoch_0);
@@ -7379,7 +7379,7 @@ TEST (rpc, epoch_upgrade)
 	{
 		auto transaction (node->store.tx_begin_read ());
 		ASSERT_EQ (4, node->store.account_count (transaction));
-		for (auto i (node->store.latest_begin (transaction)); i != node->store.latest_end (); ++i)
+		for (auto i (node->store.accounts_begin (transaction)); i != node->store.accounts_end (); ++i)
 		{
 			nano::account_info info (i->second);
 			ASSERT_EQ (info.epoch (), nano::epoch::epoch_1);
@@ -7417,7 +7417,7 @@ TEST (rpc, epoch_upgrade)
 	{
 		auto transaction (node->store.tx_begin_read ());
 		ASSERT_EQ (5, node->store.account_count (transaction));
-		for (auto i (node->store.latest_begin (transaction)); i != node->store.latest_end (); ++i)
+		for (auto i (node->store.accounts_begin (transaction)); i != node->store.accounts_end (); ++i)
 		{
 			nano::account_info info (i->second);
 			ASSERT_EQ (info.epoch (), nano::epoch::epoch_2);
@@ -7453,7 +7453,7 @@ TEST (rpc, epoch_upgrade_multithreaded)
 	{
 		auto transaction (node->store.tx_begin_read ());
 		ASSERT_EQ (2, node->store.account_count (transaction));
-		for (auto i (node->store.latest_begin (transaction)); i != node->store.latest_end (); ++i)
+		for (auto i (node->store.accounts_begin (transaction)); i != node->store.accounts_end (); ++i)
 		{
 			nano::account_info info (i->second);
 			ASSERT_EQ (info.epoch (), nano::epoch::epoch_0);
@@ -7480,7 +7480,7 @@ TEST (rpc, epoch_upgrade_multithreaded)
 	{
 		auto transaction (node->store.tx_begin_read ());
 		ASSERT_EQ (4, node->store.account_count (transaction));
-		for (auto i (node->store.latest_begin (transaction)); i != node->store.latest_end (); ++i)
+		for (auto i (node->store.accounts_begin (transaction)); i != node->store.accounts_end (); ++i)
 		{
 			nano::account_info info (i->second);
 			ASSERT_EQ (info.epoch (), nano::epoch::epoch_1);
@@ -7518,7 +7518,7 @@ TEST (rpc, epoch_upgrade_multithreaded)
 	{
 		auto transaction (node->store.tx_begin_read ());
 		ASSERT_EQ (5, node->store.account_count (transaction));
-		for (auto i (node->store.latest_begin (transaction)); i != node->store.latest_end (); ++i)
+		for (auto i (node->store.accounts_begin (transaction)); i != node->store.accounts_end (); ++i)
 		{
 			nano::account_info info (i->second);
 			ASSERT_EQ (info.epoch (), nano::epoch::epoch_2);

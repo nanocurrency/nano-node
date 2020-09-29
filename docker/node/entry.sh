@@ -84,6 +84,9 @@ case "${network}" in
 	dev)
 	dirSuffix='Dev'
 	;;
+	test)
+	dirSuffix='Test'
+	;;
 esac
 
 raidir="${HOME}/RaiBlocks${dirSuffix}"
