@@ -243,13 +243,13 @@ bool nano::election::have_quorum (nano::tally_t const & tally_a, nano::uint128_t
 	return result;
 }
 
-nano::tally_t nano::election::tally ()
+nano::tally_t nano::election::tally () const
 {
 	nano::lock_guard<std::mutex> guard (mutex);
 	return tally_impl ();
 }
 
-nano::tally_t nano::election::tally_impl ()
+nano::tally_t nano::election::tally_impl () const
 {
 	std::unordered_map<nano::block_hash, nano::uint128_t> block_weights;
 	for (auto const & [account, info] : last_votes)
@@ -319,7 +319,7 @@ void nano::election::log_votes (nano::tally_t const & tally_a, std::string const
 	node.logger.try_log (tally.str ());
 }
 
-std::shared_ptr<nano::block> nano::election::find (nano::block_hash const & hash_a)
+std::shared_ptr<nano::block> nano::election::find (nano::block_hash const & hash_a) const
 {
 	std::shared_ptr<nano::block> result;
 	nano::lock_guard<std::mutex> guard (mutex);
@@ -421,7 +421,7 @@ bool nano::election::publish (std::shared_ptr<nano::block> const & block_a)
 	return result;
 }
 
-nano::election_cleanup_info nano::election::cleanup_info ()
+nano::election_cleanup_info nano::election::cleanup_info () const
 {
 	nano::lock_guard<std::mutex> guard (mutex);
 	return cleanup_info_impl ();
@@ -487,7 +487,7 @@ void nano::election::prioritize (nano::vote_generator_session & generator_sessio
 	}
 }
 
-nano::election_extended_status nano::election::current_status ()
+nano::election_extended_status nano::election::current_status () const
 {
 	nano::lock_guard<std::mutex> guard (mutex);
 	nano::election_status status_l = status;
@@ -497,13 +497,13 @@ nano::election_extended_status nano::election::current_status ()
 	return nano::election_extended_status{ status_l, last_votes, tally_impl () };
 }
 
-std::shared_ptr<nano::block> nano::election::winner ()
+std::shared_ptr<nano::block> nano::election::winner () const
 {
 	nano::lock_guard<std::mutex> guard (mutex);
 	return status.winner;
 }
 
-void nano::election::generate_votes ()
+void nano::election::generate_votes () const
 {
 	if (node.config.enable_voting && node.wallets.reps ().voting > 0)
 	{
@@ -534,14 +534,14 @@ void nano::election::force_confirm (nano::election_status_type type_a)
 	confirm_once (lock, type_a);
 }
 
-std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> nano::election::blocks ()
+std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> nano::election::blocks () const
 {
 	debug_assert (node.network_params.network.is_dev_network ());
 	nano::lock_guard<std::mutex> guard (mutex);
 	return last_blocks;
 }
 
-std::unordered_map<nano::account, nano::vote_info> nano::election::votes ()
+std::unordered_map<nano::account, nano::vote_info> nano::election::votes () const
 {
 	debug_assert (node.network_params.network.is_dev_network ());
 	nano::lock_guard<std::mutex> guard (mutex);
