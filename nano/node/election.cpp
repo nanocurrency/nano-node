@@ -487,6 +487,16 @@ void nano::election::prioritize (nano::vote_generator_session & generator_sessio
 	}
 }
 
+nano::election_extended_status nano::election::current_status ()
+{
+	nano::lock_guard<std::mutex> guard (mutex);
+	nano::election_status status_l = status;
+	status_l.confirmation_request_count = confirmation_request_count;
+	status_l.block_count = nano::narrow_cast<decltype (status_l.block_count)> (last_blocks.size ());
+	status_l.voter_count = nano::narrow_cast<decltype (status_l.voter_count)> (last_votes.size ());
+	return nano::election_extended_status{ status_l, last_votes, tally_impl () };
+}
+
 std::shared_ptr<nano::block> nano::election::winner ()
 {
 	nano::lock_guard<std::mutex> guard (mutex);

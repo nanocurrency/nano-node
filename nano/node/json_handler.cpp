@@ -1860,17 +1860,15 @@ void nano::json_handler::confirmation_info ()
 		auto election (node.active.election (root));
 		if (election != nullptr && !election->confirmed ())
 		{
-			nano::lock_guard<std::mutex> guard (election->mutex);
-			response_l.put ("announcements", std::to_string (election->confirmation_request_count));
-			response_l.put ("voters", std::to_string (election->last_votes.size ()));
-			response_l.put ("last_winner", election->status.winner->hash ().to_string ());
+			auto info = election->current_status ();
+			response_l.put ("announcements", std::to_string (info.status.confirmation_request_count));
+			response_l.put ("voters", std::to_string (info.votes.size ()));
+			response_l.put ("last_winner", info.status.winner->hash ().to_string ());
 			nano::uint128_t total (0);
-			auto tally_l (election->tally_impl ());
 			boost::property_tree::ptree blocks;
-			for (auto i (tally_l.begin ()), n (tally_l.end ()); i != n; ++i)
+			for (auto const & [tally, block] : info.tally)
 			{
 				boost::property_tree::ptree entry;
-				auto const & tally (i->first);
 				entry.put ("tally", tally.convert_to<std::string> ());
 				total += tally;
 				if (contents)
@@ -1878,36 +1876,35 @@ void nano::json_handler::confirmation_info ()
 					if (json_block_l)
 					{
 						boost::property_tree::ptree block_node_l;
-						i->second->serialize_json (block_node_l);
+						block->serialize_json (block_node_l);
 						entry.add_child ("contents", block_node_l);
 					}
 					else
 					{
 						std::string contents;
-						i->second->serialize_json (contents);
+						block->serialize_json (contents);
 						entry.put ("contents", contents);
 					}
 				}
 				if (representatives)
 				{
 					std::multimap<nano::uint128_t, nano::account, std::greater<nano::uint128_t>> representatives;
-					for (auto ii (election->last_votes.begin ()), nn (election->last_votes.end ()); ii != nn; ++ii)
+					for (auto const & [representative, vote] : info.votes)
 					{
-						if (i->second->hash () == ii->second.hash)
+						if (block->hash () == vote.hash)
 						{
-							nano::account const & representative (ii->first);
 							auto amount (node.ledger.cache.rep_weights.representation_get (representative));
 							representatives.emplace (std::move (amount), representative);
 						}
 					}
 					boost::property_tree::ptree representatives_list;
-					for (auto ii (representatives.begin ()), nn (representatives.end ()); ii != nn; ++ii)
+					for (auto const & [amount, representative] : representatives)
 					{
-						representatives_list.put (ii->second.to_account (), ii->first.convert_to<std::string> ());
+						representatives_list.put (representative.to_account (), amount.convert_to<std::string> ());
 					}
 					entry.add_child ("representatives", representatives_list);
 				}
-				blocks.add_child ((i->second->hash ()).to_string (), entry);
+				blocks.add_child ((block->hash ()).to_string (), entry);
 			}
 			response_l.put ("total_tally", total.convert_to<std::string> ());
 			response_l.add_child ("blocks", blocks);

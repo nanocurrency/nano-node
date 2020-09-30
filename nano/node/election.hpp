@@ -14,7 +14,6 @@ namespace nano
 class channel;
 class confirmation_solicitor;
 class inactive_cache_information;
-class json_handler;
 class node;
 class vote_generator_session;
 class vote_info final
@@ -44,7 +43,12 @@ struct election_cleanup_info final
 	nano::block_hash winner;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks;
 };
-
+struct election_extended_status final
+{
+	nano::election_status status;
+	std::unordered_map<nano::account, nano::vote_info> votes;
+	nano::tally_t tally;
+};
 class election final : public std::enable_shared_from_this<nano::election>
 {
 	// Minimum time between broadcasts of the current winner of an election, as a backup to requesting confirmations
@@ -86,6 +90,7 @@ public: // Status
 	bool failed () const;
 	bool prioritized () const;
 	bool optimistic () const;
+	nano::election_extended_status current_status ();
 	std::shared_ptr<nano::block> winner ();
 	std::atomic<unsigned> confirmation_request_count{ 0 };
 
@@ -139,7 +144,6 @@ private:
 
 	friend class active_transactions;
 	friend class confirmation_solicitor;
-	friend class json_handler;
 
 public: // Only used in tests
 	void force_confirm (nano::election_status_type = nano::election_status_type::active_confirmed_quorum);
