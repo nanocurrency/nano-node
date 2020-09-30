@@ -177,10 +177,9 @@ std::shared_ptr<nano::wallet> nano::json_handler::wallet_impl ()
 		nano::wallet_id wallet;
 		if (!wallet.decode_hex (wallet_text))
 		{
-			auto existing (node.wallets.items.find (wallet));
-			if (existing != node.wallets.items.end ())
+			if (auto existing = node.wallets.open (wallet); existing != nullptr)
 			{
-				return existing->second;
+				return existing;
 			}
 			else
 			{
@@ -2004,7 +2003,7 @@ void nano::json_handler::delegators ()
 	{
 		boost::property_tree::ptree delegators;
 		auto transaction (node.store.tx_begin_read ());
-		for (auto i (node.store.latest_begin (transaction)), n (node.store.latest_end ()); i != n; ++i)
+		for (auto i (node.store.accounts_begin (transaction)), n (node.store.accounts_end ()); i != n; ++i)
 		{
 			nano::account_info const & info (i->second);
 			if (info.representative == account)
@@ -2027,7 +2026,7 @@ void nano::json_handler::delegators_count ()
 	{
 		uint64_t count (0);
 		auto transaction (node.store.tx_begin_read ());
-		for (auto i (node.store.latest_begin (transaction)), n (node.store.latest_end ()); i != n; ++i)
+		for (auto i (node.store.accounts_begin (transaction)), n (node.store.accounts_end ()); i != n; ++i)
 		{
 			nano::account_info const & info (i->second);
 			if (info.representative == account)
@@ -2138,7 +2137,7 @@ void nano::json_handler::frontiers ()
 	{
 		boost::property_tree::ptree frontiers;
 		auto transaction (node.store.tx_begin_read ());
-		for (auto i (node.store.latest_begin (transaction, start)), n (node.store.latest_end ()); i != n && frontiers.size () < count; ++i)
+		for (auto i (node.store.accounts_begin (transaction, start)), n (node.store.accounts_end ()); i != n && frontiers.size () < count; ++i)
 		{
 			frontiers.put (i->first.to_account (), i->second.head.to_string ());
 		}
@@ -2506,7 +2505,7 @@ void nano::json_handler::ledger ()
 		auto transaction (node.store.tx_begin_read ());
 		if (!ec && !sorting) // Simple
 		{
-			for (auto i (node.store.latest_begin (transaction, start)), n (node.store.latest_end ()); i != n && accounts.size () < count; ++i)
+			for (auto i (node.store.accounts_begin (transaction, start)), n (node.store.accounts_end ()); i != n && accounts.size () < count; ++i)
 			{
 				nano::account_info const & info (i->second);
 				if (info.modified >= modified_since && (pending || info.balance.number () >= threshold.number ()))
@@ -2546,7 +2545,7 @@ void nano::json_handler::ledger ()
 		else if (!ec) // Sorting
 		{
 			std::vector<std::pair<nano::uint128_union, nano::account>> ledger_l;
-			for (auto i (node.store.latest_begin (transaction, start)), n (node.store.latest_end ()); i != n; ++i)
+			for (auto i (node.store.accounts_begin (transaction, start)), n (node.store.accounts_end ()); i != n; ++i)
 			{
 				nano::account_info const & info (i->second);
 				nano::uint128_union balance (info.balance);

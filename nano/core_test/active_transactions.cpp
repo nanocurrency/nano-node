@@ -870,16 +870,16 @@ TEST (active_multiplier, less_than_one)
 	auto base_active_multiplier = 1.0;
 	auto min_active_difficulty = node.network_params.network.publish_thresholds.entry;
 	auto min_multiplier = nano::difficulty::to_multiplier (min_active_difficulty, base_active_difficulty);
-	ASSERT_EQ (node.active.trended_active_multiplier, base_active_multiplier);
+	ASSERT_EQ (node.active.trended_active_multiplier.load (), base_active_multiplier);
 	for (int i = 0; i < node.active.multipliers_cb.size () - 1; ++i)
 	{
 		node.active.multipliers_cb.push_front (min_multiplier);
 	}
-	auto sum (std::accumulate (node.active.multipliers_cb.begin (), node.active.multipliers_cb.end (), double(0)));
+	auto sum (std::accumulate (node.active.multipliers_cb.begin (), node.active.multipliers_cb.end (), 0.));
 	auto multiplier = sum / node.active.multipliers_cb.size ();
 	node.active.multipliers_cb.push_front (min_multiplier);
 	node.active.update_active_multiplier (lock);
-	ASSERT_EQ (node.active.trended_active_multiplier, multiplier);
+	ASSERT_EQ (node.active.trended_active_multiplier.load (), multiplier);
 }
 
 TEST (active_multiplier, normalization)

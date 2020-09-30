@@ -176,7 +176,7 @@ TEST (signature_checker, boundary_checks)
 	nano::keypair key;
 	nano::state_block block (key.pub, 0, key.pub, 0, 0, key.prv, key.pub, 0);
 
-	auto last_size = 0;
+	size_t last_size = 0;
 	for (auto size : sizes)
 	{
 		// The size needed to append to existing containers, saves re-initializing from scratch each iteration

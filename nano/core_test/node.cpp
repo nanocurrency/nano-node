@@ -2761,7 +2761,7 @@ TEST (node, local_votes_cache_generate_new_vote)
 	ASSERT_FALSE (node.history.votes (genesis.open->root (), genesis.open->hash ()).empty ());
 	ASSERT_FALSE (node.history.votes (send1->root (), send1->hash ()).empty ());
 	// First generated + again cached + new generated
-	ASSERT_EQ (3, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
+	ASSERT_TIMELY (3s, 3 == node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
 }
 
 TEST (node, vote_republish)
@@ -3496,9 +3496,11 @@ TEST (node, peer_cache_restart)
 
 TEST (node, unchecked_cleanup)
 {
-	nano::system system (1);
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_unchecked_cleanup = true;
 	nano::keypair key;
-	auto & node (*system.nodes[0]);
+	auto & node (*system.add_node (node_flags));
 	auto open = nano::state_block_builder ()
 	            .account (key.pub)
 	            .previous (0)
@@ -3814,7 +3816,7 @@ TEST (active_difficulty, recalculate_work)
 	node1.process_active (send1);
 	node1.active.update_active_multiplier (lock);
 	sum = std::accumulate (node1.active.multipliers_cb.begin (), node1.active.multipliers_cb.end (), double(0));
-	ASSERT_EQ (node1.active.trended_active_multiplier, sum / node1.active.multipliers_cb.size ());
+	ASSERT_EQ (node1.active.trended_active_multiplier.load (), sum / node1.active.multipliers_cb.size ());
 	lock.unlock ();
 }
 

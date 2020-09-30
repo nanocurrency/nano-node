@@ -205,13 +205,13 @@ void nano::frontier_req_client::next ()
 	{
 		size_t max_size (128);
 		auto transaction (connection->node->store.tx_begin_read ());
-		for (auto i (connection->node->store.latest_begin (transaction, current.number () + 1)), n (connection->node->store.latest_end ()); i != n && accounts.size () != max_size; ++i)
+		for (auto i (connection->node->store.accounts_begin (transaction, current.number () + 1)), n (connection->node->store.accounts_end ()); i != n && accounts.size () != max_size; ++i)
 		{
 			nano::account_info const & info (i->second);
 			nano::account const & account (i->first);
 			accounts.emplace_back (account, info.head);
 		}
-		/* If loop breaks before max_size, then latest_end () is reached
+		/* If loop breaks before max_size, then accounts_end () is reached
 		Add empty record to finish frontier_req_server */
 		if (accounts.size () != max_size)
 		{
@@ -320,7 +320,7 @@ void nano::frontier_req_server::next ()
 		bool skip_old (request->age != std::numeric_limits<decltype (request->age)>::max ());
 		size_t max_size (128);
 		auto transaction (connection->node->store.tx_begin_read ());
-		for (auto i (connection->node->store.latest_begin (transaction, current.number () + 1)), n (connection->node->store.latest_end ()); i != n && accounts.size () != max_size; ++i)
+		for (auto i (connection->node->store.accounts_begin (transaction, current.number () + 1)), n (connection->node->store.accounts_end ()); i != n && accounts.size () != max_size; ++i)
 		{
 			nano::account_info const & info (i->second);
 			if (!skip_old || (now - info.modified) <= request->age)
@@ -329,7 +329,7 @@ void nano::frontier_req_server::next ()
 				accounts.emplace_back (account, info.head);
 			}
 		}
-		/* If loop breaks before max_size, then latest_end () is reached
+		/* If loop breaks before max_size, then accounts_end () is reached
 		Add empty record to finish frontier_req_server */
 		if (accounts.size () != max_size)
 		{
