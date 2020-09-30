@@ -1771,22 +1771,20 @@ void nano::json_handler::confirmation_active ()
 		announcements = strtoul (announcements_text.get ().c_str (), NULL, 10);
 	}
 	boost::property_tree::ptree elections;
+	auto active_elections = node.active.list_active ();
+	for (auto const & election : active_elections)
 	{
-		nano::lock_guard<std::mutex> lock (node.active.mutex);
-		for (auto i (node.active.roots.begin ()), n (node.active.roots.end ()); i != n; ++i)
+		if (election->confirmation_request_count >= announcements)
 		{
-			if (i->election->confirmation_request_count >= announcements)
+			if (!election->confirmed ())
 			{
-				if (!i->election->confirmed ())
-				{
-					boost::property_tree::ptree entry;
-					entry.put ("", i->root.to_string ());
-					elections.push_back (std::make_pair ("", entry));
-				}
-				else
-				{
-					++confirmed;
-				}
+				boost::property_tree::ptree entry;
+				entry.put ("", election->qualified_root.to_string ());
+				elections.push_back (std::make_pair ("", entry));
+			}
+			else
+			{
+				++confirmed;
 			}
 		}
 	}
