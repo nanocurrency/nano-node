@@ -173,6 +173,7 @@ public:
 	void watching (nano::qualified_root const &, std::shared_ptr<nano::state_block>);
 	void remove (nano::block const &);
 	bool is_watched (nano::qualified_root const &);
+	std::vector<nano::qualified_root> list_watched ();
 	size_t size ();
 	std::mutex mutex;
 	nano::node & node;

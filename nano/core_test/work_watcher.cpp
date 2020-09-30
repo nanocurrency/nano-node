@@ -269,3 +269,31 @@ TEST (work_watcher, confirm_while_generating)
 	ASSERT_TRUE (notified);
 	ASSERT_FALSE (node.wallets.watcher->is_watched (block1->qualified_root ()));
 }
+
+TEST (work_watcher, list_watched)
+{
+	nano::system system;
+	nano::node_config config (nano::get_available_port (), system.logging);
+	config.enable_voting = false;
+	auto & node = *system.add_node (config);
+	auto & wallet = *system.wallet (0);
+	nano::keypair key;
+	wallet.insert_adhoc (nano::dev_genesis_key.prv);
+	ASSERT_TRUE (wallet.wallets.watcher->list_watched ().empty ());
+	auto const block1 (wallet.send_action (nano::dev_genesis_key.pub, key.pub, 100));
+	auto watched1 = wallet.wallets.watcher->list_watched ();
+	ASSERT_EQ (1, watched1.size ());
+	ASSERT_EQ (block1->qualified_root (), watched1.front ());
+	auto const block2 (wallet.send_action (nano::dev_genesis_key.pub, key.pub, 100));
+	auto watched2 = wallet.wallets.watcher->list_watched ();
+	ASSERT_EQ (2, watched2.size ());
+	ASSERT_EQ (1, std::count (watched2.cbegin (), watched2.cend (), block1->qualified_root ()));
+	ASSERT_EQ (1, std::count (watched2.cbegin (), watched2.cend (), block2->qualified_root ()));
+	wallet.wallets.watcher->remove (*block1);
+	auto watched3 = wallet.wallets.watcher->list_watched ();
+	ASSERT_EQ (1, watched3.size ());
+	ASSERT_EQ (block2->qualified_root (), watched3.front ());
+	wallet.wallets.watcher->remove (*block2);
+	auto watched4 = wallet.wallets.watcher->list_watched ();
+	ASSERT_TRUE (watched4.empty ());
+}

@@ -1410,6 +1410,15 @@ bool nano::work_watcher::is_watched (nano::qualified_root const & root_a)
 	return exists != watched.end ();
 }
 
+std::vector<nano::qualified_root> nano::work_watcher::list_watched ()
+{
+	std::vector<nano::qualified_root> result;
+	nano::lock_guard<std::mutex> guard (mutex);
+	result.reserve (watched.size ());
+	std::transform (watched.cbegin (), watched.cend (), std::back_inserter (result), [](decltype (watched)::value_type const & item) { return item.first; });
+	return result;
+}
+
 size_t nano::work_watcher::size ()
 {
 	nano::lock_guard<std::mutex> guard (mutex);
