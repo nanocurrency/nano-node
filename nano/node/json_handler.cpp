@@ -1821,22 +1821,21 @@ void nano::json_handler::confirmation_history ()
 	}
 	if (!ec)
 	{
-		auto confirmed (node.active.list_recently_cemented ());
-		for (auto i (confirmed.begin ()), n (confirmed.end ()); i != n; ++i)
+		for (auto const & status : node.active.list_recently_cemented ())
 		{
-			if (hash.is_zero () || i->winner->hash () == hash)
+			if (hash.is_zero () || status.winner->hash () == hash)
 			{
 				boost::property_tree::ptree election;
-				election.put ("hash", i->winner->hash ().to_string ());
-				election.put ("duration", i->election_duration.count ());
-				election.put ("time", i->election_end.count ());
-				election.put ("tally", i->tally.to_string_dec ());
-				election.put ("blocks", std::to_string (i->block_count));
-				election.put ("voters", std::to_string (i->voter_count));
-				election.put ("request_count", std::to_string (i->confirmation_request_count));
+				election.put ("hash", status.winner->hash ().to_string ());
+				election.put ("duration", status.election_duration.count ());
+				election.put ("time", status.election_end.count ());
+				election.put ("tally", status.tally.to_string_dec ());
+				election.put ("blocks", std::to_string (status.block_count));
+				election.put ("voters", std::to_string (status.voter_count));
+				election.put ("request_count", std::to_string (status.confirmation_request_count));
 				elections.push_back (std::make_pair ("", election));
 			}
-			running_total += i->election_duration;
+			running_total += status.election_duration;
 		}
 	}
 	confirmation_stats.put ("count", elections.size ());
