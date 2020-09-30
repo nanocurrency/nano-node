@@ -189,6 +189,8 @@ public:
 	bool update_difficulty (nano::block const &);
 	// Returns false if the election was restarted
 	bool restart (std::shared_ptr<nano::block> const &, nano::write_transaction const &);
+	// Returns a list of elections sorted by difficulty
+	std::vector<std::shared_ptr<nano::election>> list_active (size_t = std::numeric_limits<size_t>::max ());
 	double normalized_multiplier (nano::block const &, boost::optional<roots_iterator> const & = boost::none) const;
 	void update_active_multiplier (nano::unique_lock<std::mutex> &);
 	uint64_t active_difficulty ();
@@ -247,6 +249,8 @@ private:
 	void erase (nano::qualified_root const &);
 	// Erase all blocks from active and, if not confirmed, clear digests from network filters
 	void cleanup_election (nano::unique_lock<std::mutex> &, nano::election_cleanup_info const &);
+	// Returns a list of elections sorted by difficulty, mutex must be locked
+	std::vector<std::shared_ptr<nano::election>> list_active_impl (size_t) const;
 
 	nano::condition_variable condition;
 	bool started{ false };

@@ -285,16 +285,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 
 	bool const check_all_elections_l (std::chrono::steady_clock::now () - last_check_all_elections > check_all_elections_period);
 	size_t const this_loop_target_l (check_all_elections_l ? roots.size () : prioritized_cutoff);
-	std::vector<std::shared_ptr<nano::election>> elections_l;
-	elections_l.reserve (this_loop_target_l);
-	{
-		auto & sorted_roots_l (roots.get<tag_difficulty> ());
-		size_t count_l{ 0 };
-		for (auto i = sorted_roots_l.begin (), n = sorted_roots_l.end (); i != n && count_l < this_loop_target_l; ++i)
-		{
-			elections_l.push_back (i->election);
-		}
-	}
+	auto const elections_l{ list_active_impl (this_loop_target_l) };
 
 	lock_a.unlock ();
 
@@ -389,6 +380,27 @@ void nano::active_transactions::cleanup_election (nano::unique_lock<std::mutex> 
 		}
 	}
 	lock_a.lock ();
+}
+
+std::vector<std::shared_ptr<nano::election>> nano::active_transactions::list_active (size_t max_a)
+{
+	nano::lock_guard<std::mutex> guard (mutex);
+	return list_active_impl (max_a);
+}
+
+std::vector<std::shared_ptr<nano::election>> nano::active_transactions::list_active_impl (size_t max_a) const
+{
+	std::vector<std::shared_ptr<nano::election>> result_l;
+	result_l.reserve (std::min (max_a, roots.size ()));
+	{
+		auto & sorted_roots_l (roots.get<tag_difficulty> ());
+		size_t count_l{ 0 };
+		for (auto i = sorted_roots_l.begin (), n = sorted_roots_l.end (); i != n && count_l < max_a; ++i, ++count_l)
+		{
+			result_l.push_back (i->election);
+		}
+	}
+	return result_l;
 }
 
 void nano::active_transactions::add_expired_optimistic_election (nano::election const & election_a)

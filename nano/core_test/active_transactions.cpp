@@ -1558,3 +1558,63 @@ TEST (active_transactions, pessimistic_elections)
 	ASSERT_EQ (2, node.active.expired_optimistic_election_infos.size ());
 }
 }
+
+TEST (active_transactions, list_active)
+{
+	nano::system system (1);
+	auto & node = *system.nodes[0];
+
+	nano::keypair key;
+	nano::state_block_builder builder;
+	auto send = builder.make_block ()
+	            .account (nano::dev_genesis_key.pub)
+	            .previous (nano::genesis_hash)
+	            .representative (nano::dev_genesis_key.pub)
+	            .link (nano::dev_genesis_key.pub)
+	            .balance (nano::genesis_amount - 1)
+	            .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	            .work (*system.work.generate (nano::genesis_hash))
+	            .build_shared ();
+
+	ASSERT_EQ (nano::process_result::progress, node.process (*send).code);
+
+	auto send2 = builder.make_block ()
+	             .account (nano::dev_genesis_key.pub)
+	             .previous (send->hash ())
+	             .representative (nano::dev_genesis_key.pub)
+	             .link (key.pub)
+	             .balance (nano::genesis_amount - 2)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (*system.work.generate (send->hash ()))
+	             .build_shared ();
+
+	ASSERT_EQ (nano::process_result::progress, node.process (*send2).code);
+
+	auto open = builder.make_block ()
+	            .account (key.pub)
+	            .previous (0)
+	            .representative (key.pub)
+	            .link (send2->hash ())
+	            .balance (1)
+	            .sign (key.prv, key.pub)
+	            .work (*system.work.generate (key.pub))
+	            .build_shared ();
+
+	ASSERT_EQ (nano::process_result::progress, node.process (*open).code);
+
+	nano::blocks_confirm (node, { send, send2, open });
+	ASSERT_EQ (3, node.active.size ());
+	ASSERT_EQ (1, node.active.list_active (1).size ());
+	ASSERT_EQ (2, node.active.list_active (2).size ());
+	ASSERT_EQ (3, node.active.list_active (3).size ());
+	ASSERT_EQ (3, node.active.list_active (4).size ());
+	ASSERT_EQ (3, node.active.list_active (99999).size ());
+	ASSERT_EQ (3, node.active.list_active ().size ());
+
+	auto active = node.active.list_active ();
+
+	auto difficulty_cmp = [](std::shared_ptr<nano::election> const & election_l, std::shared_ptr<nano::election> const & election_r) {
+		return election_l->winner ()->difficulty () >= election_r->winner ()->difficulty ();
+	};
+	ASSERT_TRUE (std::is_sorted (active.cbegin (), active.cend (), difficulty_cmp));
+}
