@@ -640,7 +640,7 @@ void ledger_processor::receive_block (nano::receive_block & block_a)
 										{
 											auto new_balance (info.balance.number () + pending.amount.number ());
 #ifdef NDEBUG
-											if (ledger.store.block_exists (block_a.hashables.source))
+											if (ledger.store.block_exists (transaction, block_a.hashables.source))
 											{
 												nano::account_info source_info;
 												[[maybe_unused]] auto error (ledger.store.account_get (transaction, pending.source, source_info));
@@ -712,7 +712,7 @@ void ledger_processor::open_block (nano::open_block & block_a)
 								if (result.code == nano::process_result::progress)
 								{
 #ifdef NDEBUG
-									if (ledger.store.block_exists (block_a.hashables.source))
+									if (ledger.store.block_exists (transaction, block_a.hashables.source))
 									{
 										nano::account_info source_info;
 										[[maybe_unused]] auto error (ledger.store.account_get (transaction, pending.source, source_info));
