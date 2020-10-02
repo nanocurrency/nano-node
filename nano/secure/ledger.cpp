@@ -35,8 +35,7 @@ public:
 		if (!error)
 		{
 			nano::account_info info;
-			auto error (ledger.store.account_get (transaction, pending.source, info));
-			(void)error;
+			[[maybe_unused]] auto error (ledger.store.account_get (transaction, pending.source, info));
 			debug_assert (!error);
 			ledger.store.pending_del (transaction, key);
 			ledger.cache.rep_weights.representation_add (info.representative, pending.amount.number ());
@@ -55,12 +54,10 @@ public:
 		auto amount (ledger.amount (transaction, hash));
 		auto destination_account (ledger.account (transaction, hash));
 		// Pending account entry can be incorrect if source block was pruned. But it's not affecting correct ledger processing
-		bool is_pruned (false);
+		[[maybe_unused]] bool is_pruned (false);
 		auto source_account (ledger.account_safe (transaction, block_a.hashables.source, is_pruned));
-		(void)is_pruned;
 		nano::account_info info;
-		auto error (ledger.store.account_get (transaction, destination_account, info));
-		(void)error;
+		[[maybe_unused]] auto error (ledger.store.account_get (transaction, destination_account, info));
 		debug_assert (!error);
 		ledger.cache.rep_weights.representation_add (info.representative, 0 - amount);
 		nano::account_info new_info (block_a.hashables.previous, info.representative, info.open_block, ledger.balance (transaction, block_a.hashables.previous), nano::seconds_since_epoch (), info.block_count - 1, nano::epoch::epoch_0);
@@ -78,9 +75,8 @@ public:
 		auto amount (ledger.amount (transaction, hash));
 		auto destination_account (ledger.account (transaction, hash));
 		// Pending account entry can be incorrect if source block was pruned. But it's not affecting correct ledger processing
-		bool is_pruned (false);
+		[[maybe_unused]] bool is_pruned (false);
 		auto source_account (ledger.account_safe (transaction, block_a.hashables.source, is_pruned));
-		(void)is_pruned;
 		ledger.cache.rep_weights.representation_add (block_a.representative (), 0 - amount);
 		nano::account_info new_info;
 		ledger.update_account (transaction, destination_account, new_info, new_info);
@@ -95,8 +91,7 @@ public:
 		auto rep_block (ledger.representative (transaction, block_a.hashables.previous));
 		auto account (ledger.account (transaction, block_a.hashables.previous));
 		nano::account_info info;
-		auto error (ledger.store.account_get (transaction, account, info));
-		(void)error;
+		[[maybe_unused]] auto error (ledger.store.account_get (transaction, account, info));
 		debug_assert (!error);
 		auto balance (ledger.balance (transaction, block_a.hashables.previous));
 		auto block = ledger.store.block_get (transaction, rep_block);
@@ -152,9 +147,8 @@ public:
 		else if (!block_a.hashables.link.is_zero () && !ledger.is_epoch_link (block_a.hashables.link))
 		{
 			// Pending account entry can be incorrect if source block was pruned. But it's not affecting correct ledger processing
-			bool is_pruned (false);
+			[[maybe_unused]] bool is_pruned (false);
 			auto source_account (ledger.account_safe (transaction, block_a.hashables.link.as_block_hash (), is_pruned));
-			(void)is_pruned;
 			nano::pending_info pending_info (source_account, block_a.hashables.balance.number () - balance, block_a.sideband ().source_epoch);
 			ledger.store.pending_put (transaction, nano::pending_key (block_a.hashables.account, block_a.hashables.link.as_block_hash ()), pending_info);
 			ledger.stats.inc (nano::stat::type::rollback, nano::stat::detail::receive);
@@ -649,8 +643,7 @@ void ledger_processor::receive_block (nano::receive_block & block_a)
 											if (ledger.store.block_exists (block_a.hashables.source))
 											{
 												nano::account_info source_info;
-												auto error (ledger.store.account_get (transaction, pending.source, source_info));
-												(void)error;
+												[[maybe_unused]] auto error (ledger.store.account_get (transaction, pending.source, source_info));
 												debug_assert (!error);
 											}
 #endif
@@ -722,8 +715,7 @@ void ledger_processor::open_block (nano::open_block & block_a)
 									if (ledger.store.block_exists (block_a.hashables.source))
 									{
 										nano::account_info source_info;
-										auto error (ledger.store.account_get (transaction, pending.source, source_info));
-										(void)error;
+										[[maybe_unused]] auto error (ledger.store.account_get (transaction, pending.source, source_info));
 										debug_assert (!error);
 									}
 #endif
