@@ -521,15 +521,12 @@ void nano::active_transactions::confirm_expired_frontiers_pessimistically (nano:
 
 bool nano::active_transactions::should_do_frontiers_confirmation () const
 {
-	/*
- 	 * Confirm frontiers when there aren't many confirmations already pending and node finished initial bootstrap
- 	 */
 	auto pending_confirmation_height_size (confirmation_height_processor.awaiting_processing_size ());
 	auto bootstrap_weight_reached (node.ledger.cache.block_count >= node.ledger.bootstrap_weight_max_blocks);
 	auto disabled_confirmation_mode = (node.config.frontiers_confirmation == nano::frontiers_confirmation_mode::disabled);
 	auto conf_height_capacity_reached = pending_confirmation_height_size > confirmed_frontiers_max_pending_size;
 	auto all_cemented = node.ledger.cache.block_count == node.ledger.cache.cemented_count;
-	return (!disabled_confirmation_mode && (bootstrap_weight_reached || node.flags.enable_pruning) && !conf_height_capacity_reached && !all_cemented);
+	return (!disabled_confirmation_mode && (bootstrap_weight_reached || node.ledger.pruning) && !conf_height_capacity_reached && !all_cemented);
 }
 
 void nano::active_transactions::request_loop ()
@@ -1399,7 +1396,7 @@ nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_
 				insert_impl (block);
 			}
 		}
-		else if (!block && status.bootstrap_started && !previously_a.bootstrap_started && (!node.flags.enable_pruning || !node.store.pruned_exists (transaction, hash_a)))
+		else if (!block && status.bootstrap_started && !previously_a.bootstrap_started && (!node.ledger.pruning || !node.store.pruned_exists (transaction, hash_a)))
 		{
 			node.gap_cache.bootstrap_start (hash_a);
 		}
