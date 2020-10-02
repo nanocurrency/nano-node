@@ -80,11 +80,22 @@ void nano::confirmation_height_bounded::process ()
 		auto block = ledger.store.block_get (transaction, current);
 		if (!block)
 		{
-			auto error_str = (boost::format ("Ledger mismatch trying to set confirmation height for block %1% (bounded processor)") % current.to_string ()).str ();
-			logger.always_log (error_str);
-			std::cerr << error_str << std::endl;
+			if (ledger.pruning && ledger.store.pruned_exists (transaction, current))
+			{
+				if (!receive_source_pairs.empty ())
+				{
+					receive_source_pairs.pop_back ();
+				}
+				continue;
+			}
+			else
+			{
+				auto error_str = (boost::format ("Ledger mismatch trying to set confirmation height for block %1% (bounded processor)") % current.to_string ()).str ();
+				logger.always_log (error_str);
+				std::cerr << error_str << std::endl;
+				release_assert (block);
+			}
 		}
-		release_assert (block);
 		nano::account account (block->account ());
 		if (account.is_zero ())
 		{
