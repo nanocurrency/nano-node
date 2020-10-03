@@ -414,12 +414,12 @@ void nano::system::generate_send_existing (nano::node & node_a, std::vector<nano
 		nano::account account;
 		random_pool::generate_block (account.bytes.data (), sizeof (account.bytes));
 		auto transaction (node_a.store.tx_begin_read ());
-		nano::store_iterator<nano::account, nano::account_info> entry (node_a.store.latest_begin (transaction, account));
-		if (entry == node_a.store.latest_end ())
+		nano::store_iterator<nano::account, nano::account_info> entry (node_a.store.accounts_begin (transaction, account));
+		if (entry == node_a.store.accounts_end ())
 		{
-			entry = node_a.store.latest_begin (transaction);
+			entry = node_a.store.accounts_begin (transaction);
 		}
-		debug_assert (entry != node_a.store.latest_end ());
+		debug_assert (entry != node_a.store.accounts_end ());
 		destination = nano::account (entry->first);
 		source = get_random_account (accounts_a);
 		amount = get_random_amount (transaction, node_a, source);
