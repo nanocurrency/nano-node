@@ -1188,7 +1188,7 @@ void nano::node::receive_confirmed (nano::transaction const & wallet_transaction
 			nano::account representative;
 			nano::pending_info pending;
 			representative = wallet->store.representative (wallet_transaction_a);
-			auto error (store.pending_get (transaction_a, nano::pending_key (destination_a, hash_a), pending));
+			auto error (store.pending_get (block_transaction_a, nano::pending_key (destination_a, hash_a), pending));
 			if (!error)
 			{
 				auto amount (pending.amount.number ());
@@ -1196,7 +1196,7 @@ void nano::node::receive_confirmed (nano::transaction const & wallet_transaction
 			}
 			else
 			{
-				if (!store.block_or_pruned_exists (transaction_a, hash_a))
+				if (!store.block_or_pruned_exists (block_transaction_a, hash_a))
 				{
 					logger.try_log (boost::str (boost::format ("Confirmed block is missing:  %1%") % hash_a.to_string ()));
 					debug_assert (false && "Confirmed block is missing");
