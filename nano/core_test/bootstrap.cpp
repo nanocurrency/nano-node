@@ -933,7 +933,7 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 	// Pruning action
 	{
 		auto transaction (node1->store.tx_begin_write ());
-		ASSERT_EQ (2, node1->ledger.pruning_action (transaction, send1->hash (), 1));
+		ASSERT_EQ (1, node1->ledger.pruning_action (transaction, send1->hash (), 1));
 	}
 	ASSERT_EQ (5, node1->ledger.cache.block_count);
 	ASSERT_EQ (1, node1->ledger.cache.pruned_count);
