@@ -90,7 +90,7 @@ public:
 	virtual nano::block_hash const & previous () const = 0;
 	// Source block for open/receive blocks, zero otherwise.
 	virtual nano::block_hash const & source () const;
-	// Destination account for open/receive blocks, zero otherwise.
+	// Destination account for send blocks, zero otherwise.
 	virtual nano::account const & destination () const;
 	// Previous block or account number for open blocks
 	virtual nano::root const & root () const = 0;
