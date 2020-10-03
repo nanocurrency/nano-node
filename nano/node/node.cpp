@@ -1179,80 +1179,36 @@ void nano::node::ongoing_online_weight_calculation ()
 	ongoing_online_weight_calculation_queue ();
 }
 
-namespace
+
+void nano::node::receive_confirmed (nano::transaction const & wallet_transaction_a, nano::transaction const & block_transaction_a, nano::block_hash const & hash_a, nano::account const & destination_a)
 {
-class confirmed_visitor : public nano::block_visitor
-{
-public:
-	confirmed_visitor (nano::transaction const & wallet_transaction_a, nano::transaction const & block_transaction_a, nano::node & node_a, std::shared_ptr<nano::block> const & block_a, nano::block_hash const & hash_a) :
-	wallet_transaction (wallet_transaction_a),
-	block_transaction (block_transaction_a),
-	node (node_a),
-	block (block_a),
-	hash (hash_a)
+	for (auto const & [id /*unused*/, wallet] : wallets.get_wallets ())
 	{
-	}
-	virtual ~confirmed_visitor () = default;
-	void scan_receivable (nano::account const & account_a)
-	{
-		for (auto const & [id /*unused*/, wallet] : node.wallets.get_wallets ())
+		if (wallet->store.exists (wallet_transaction_a, destination_a))
 		{
-			if (wallet->store.exists (wallet_transaction, account_a))
+			nano::account representative;
+			nano::pending_info pending;
+			representative = wallet->store.representative (wallet_transaction_a);
+			auto error (store.pending_get (transaction_a, nano::pending_key (destination_a, hash_a), pending));
+			if (!error)
 			{
-				nano::account representative;
-				nano::pending_info pending;
-				representative = wallet->store.representative (wallet_transaction);
-				auto error (node.store.pending_get (block_transaction, nano::pending_key (account_a, hash), pending));
-				if (!error)
+				auto amount (pending.amount.number ());
+				wallet->receive_async (hash_a, representative, amount, destination_a, [](std::shared_ptr<nano::block>) {});
+			}
+			else
+			{
+				if (!store.block_or_pruned_exists (transaction_a, hash_a))
 				{
-					auto node_l (node.shared ());
-					auto amount (pending.amount.number ());
-					wallet->receive_async (block, representative, amount, [](std::shared_ptr<nano::block>) {});
+					logger.try_log (boost::str (boost::format ("Confirmed block is missing:  %1%") % hash_a.to_string ()));
+					debug_assert (false && "Confirmed block is missing");
 				}
 				else
 				{
-					if (!node.store.block_exists (block_transaction, hash))
-					{
-						node.logger.try_log (boost::str (boost::format ("Confirmed block is missing:  %1%") % hash.to_string ()));
-						debug_assert (false && "Confirmed block is missing");
-					}
-					else
-					{
-						node.logger.try_log (boost::str (boost::format ("Block %1% has already been received") % hash.to_string ()));
-					}
+					logger.try_log (boost::str (boost::format ("Block %1% has already been received") % hash_a.to_string ()));
 				}
 			}
 		}
 	}
-	void state_block (nano::state_block const & block_a) override
-	{
-		scan_receivable (block_a.hashables.link.as_account ());
-	}
-	void send_block (nano::send_block const & block_a) override
-	{
-		scan_receivable (block_a.hashables.destination);
-	}
-	void receive_block (nano::receive_block const &) override
-	{
-	}
-	void open_block (nano::open_block const &) override
-	{
-	}
-	void change_block (nano::change_block const &) override
-	{
-	}
-	nano::transaction const & wallet_transaction;
-	nano::transaction const & block_transaction;
-	nano::node & node;
-	std::shared_ptr<nano::block> block;
-	nano::block_hash const & hash;
-};
-}
-
-void nano::node::receive_confirmed (nano::transaction const & wallet_transaction_a, nano::transaction const & block_transaction_a, std::shared_ptr<nano::block> const & block_a, nano::block_hash const & hash_a)
-{
-	confirmed_visitor visitor (wallet_transaction_a, block_transaction_a, *this, block_a, hash_a);
-	block_a->visit (visitor);
 }
 
 void nano::node::process_confirmed_data (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, nano::block_hash const & hash_a, nano::account & account_a, nano::uint128_t & amount_a, bool & is_state_send_a, nano::account & pending_account_a)
@@ -1265,11 +1221,19 @@ void nano::node::process_confirmed_data (nano::transaction const & transaction_a
 	}
 	// Faster amount calculation
 	auto previous (block_a->previous ());
-	auto previous_balance (ledger.balance (transaction_a, previous));
+	bool error (false);
+	auto previous_balance (ledger.balance_safe (transaction_a, previous, error));
 	auto block_balance (store.block_balance_calculated (block_a));
 	if (hash_a != ledger.network_params.ledger.genesis_account)
 	{
-		amount_a = block_balance > previous_balance ? block_balance - previous_balance : previous_balance - block_balance;
+		if (!error)
+		{
+			amount_a = block_balance > previous_balance ? block_balance - previous_balance : previous_balance - block_balance;
+		}
+		else
+		{
+			amount_a = 0;
+		}
 	}
 	else
 	{
