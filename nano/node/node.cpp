@@ -1305,44 +1305,36 @@ void nano::node::ongoing_online_weight_calculation ()
 	ongoing_online_weight_calculation_queue ();
 }
 
-namespace
+
+void nano::node::receive_confirmed (nano::transaction const & wallet_transaction_a, nano::transaction const & block_transaction_a, nano::block_hash const & hash_a, nano::account const & destination_a)
 {
-void scan_receivable (nano::transaction const & wallet_transaction_a, nano::transaction const & transaction_a, nano::node & node_a, nano::account const & destination_a, nano::block_hash const & hash_a)
-{
-	for (auto const & [id /*unused*/, wallet] : node_a.wallets.get_wallets ())
+	for (auto const & [id /*unused*/, wallet] : wallets.get_wallets ())
 	{
 		if (wallet->store.exists (wallet_transaction_a, destination_a))
 		{
 			nano::account representative;
 			nano::pending_info pending;
 			representative = wallet->store.representative (wallet_transaction_a);
-			auto error (node_a.store.pending_get (transaction_a, nano::pending_key (destination_a, hash_a), pending));
+			auto error (store.pending_get (transaction_a, nano::pending_key (destination_a, hash_a), pending));
 			if (!error)
 			{
-				auto node_l (node_a.shared ());
 				auto amount (pending.amount.number ());
 				wallet->receive_async (hash_a, representative, amount, destination_a, [](std::shared_ptr<nano::block>) {});
 			}
 			else
 			{
-				if (!node_a.store.block_or_pruned_exists (transaction_a, hash_a))
+				if (!store.block_or_pruned_exists (transaction_a, hash_a))
 				{
-					node_a.logger.try_log (boost::str (boost::format ("Confirmed block is missing:  %1%") % hash_a.to_string ()));
+					logger.try_log (boost::str (boost::format ("Confirmed block is missing:  %1%") % hash_a.to_string ()));
 					debug_assert (false && "Confirmed block is missing");
 				}
 				else
 				{
-					node_a.logger.try_log (boost::str (boost::format ("Block %1% has already been received") % hash_a.to_string ()));
+					logger.try_log (boost::str (boost::format ("Block %1% has already been received") % hash_a.to_string ()));
 				}
 			}
 		}
 	}
-}
-}
-
-void nano::node::receive_confirmed (nano::transaction const & wallet_transaction_a, nano::transaction const & block_transaction_a, nano::block_hash const & hash_a, nano::account const & destination_a)
-{
-	scan_receivable (wallet_transaction_a, block_transaction_a, *this, destination_a, hash_a);
 }
 
 void nano::node::process_confirmed_data (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, nano::block_hash const & hash_a, nano::account & account_a, nano::uint128_t & amount_a, bool & is_state_send_a, nano::account & pending_account_a)
