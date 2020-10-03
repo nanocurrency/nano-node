@@ -1503,3 +1503,47 @@ TEST (wallet, search_pending)
 	ASSERT_EQ (receive->sideband ().height, 3);
 	ASSERT_EQ (send->hash (), receive->link ().as_block_hash ());
 }
+
+TEST (wallet, receive_pruned)
+{
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_request_loop = true;
+	auto & node1 (*system.add_node (node_flags));
+	node_flags.enable_pruning = true;
+	nano::node_config config (nano::get_available_port (), system.logging);
+	config.enable_voting = false; // Remove after allowing pruned voting
+	auto & node2 (*system.add_node (config, node_flags));
+
+	auto & wallet1 (*system.wallet (0));
+	auto & wallet2 (*system.wallet (1));
+
+	nano::keypair key;
+	nano::state_block_builder builder;
+
+	// Send
+	wallet1.insert_adhoc (nano::dev_genesis_key.prv, false);
+	auto amount = node2.config.receive_minimum.number ();
+	auto send1 = wallet1.send_action (nano::dev_genesis_key.pub, key.pub, amount, 1);
+	auto send2 = wallet1.send_action (nano::dev_genesis_key.pub, key.pub, 1, 1);
+
+	// Pruning
+	ASSERT_TIMELY (5s, node2.ledger.cache.cemented_count == 3);
+	{
+		auto transaction (node2.store.tx_begin_write ());
+		ASSERT_EQ (1, node2.ledger.pruning_action (transaction, send1->hash (), 2));
+	}
+	ASSERT_EQ (1, node2.ledger.cache.pruned_count);
+	ASSERT_TRUE (node2.ledger.block_or_pruned_exists (send1->hash ()));
+	ASSERT_FALSE (node2.ledger.block_exists (send1->hash ()));
+
+	wallet2.insert_adhoc (key.prv, false);
+
+	auto open1 = wallet2.receive_action (send1->hash (), key.pub, amount, send1->link ().as_account (), 1);
+	ASSERT_NE (nullptr, open1);
+	{
+		auto transaction (node2.store.tx_begin_read ());
+		ASSERT_EQ (amount, node2.ledger.balance (transaction, open1->hash ()));
+	}
+	ASSERT_TIMELY (5s, node2.ledger.cache.cemented_count == 4);
+}
