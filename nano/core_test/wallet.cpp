@@ -1129,7 +1129,7 @@ TEST (work_watcher, removed_after_lose)
 	node.block_processor.flush ();
 	auto vote (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 0, fork1));
 	nano::confirm_ack message (vote);
-	node.network.process_message (message, nullptr);
+	node.network.process_message (message, std::make_shared<nano::transport::channel_loopback> (node));
 	ASSERT_TIMELY (5s, !node.wallets.watcher->is_watched (block1->qualified_root ()));
 	ASSERT_EQ (0, node.wallets.watcher->size ());
 }
@@ -1458,7 +1458,9 @@ TEST (wallet, search_pending)
 	nano::node_config config (nano::get_available_port (), system.logging);
 	config.enable_voting = false;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	auto & node (*system.add_node ());
+	nano::node_flags flags;
+	flags.disable_search_pending = true;
+	auto & node (*system.add_node (config, flags));
 	auto & wallet (*system.wallet (0));
 
 	wallet.insert_adhoc (nano::dev_genesis_key.prv);

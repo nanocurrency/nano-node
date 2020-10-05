@@ -181,7 +181,7 @@ TEST (active_transactions, inactive_votes_cache)
 	            .work (*system.work.generate (latest))
 	            .build_shared ();
 	auto vote (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 0, std::vector<nano::block_hash> (1, send->hash ())));
-	node.vote_processor.vote (vote, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
+	node.vote_processor.vote (vote, std::make_shared<nano::transport::channel_loopback> (node));
 	ASSERT_TIMELY (5s, node.active.inactive_votes_cache_size () == 1);
 	node.process_active (send);
 	node.block_processor.flush ();
@@ -211,7 +211,7 @@ TEST (active_transactions, inactive_votes_cache_fork)
 	             .work (*system.work.generate (latest))
 	             .build_shared ();
 	auto vote (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 0, std::vector<nano::block_hash> (1, send1->hash ())));
-	node.vote_processor.vote (vote, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
+	node.vote_processor.vote (vote, std::make_shared<nano::transport::channel_loopback> (node));
 	auto channel1 (node.network.udp_channels.create (node.network.endpoint ()));
 	ASSERT_TIMELY (5s, node.active.inactive_votes_cache_size () == 1);
 	node.network.process_message (nano::publish (send2), channel1);
@@ -264,7 +264,7 @@ TEST (active_transactions, inactive_votes_cache_existing_vote)
 	ASSERT_GT (node.weight (key.pub), node.minimum_principal_weight ());
 	// Insert vote
 	auto vote1 (std::make_shared<nano::vote> (key.pub, key.prv, 1, std::vector<nano::block_hash> (1, send->hash ())));
-	node.vote_processor.vote (vote1, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
+	node.vote_processor.vote (vote1, std::make_shared<nano::transport::channel_loopback> (node));
 	system.deadline_set (5s);
 	ASSERT_TIMELY (5s, election->votes ().size () == 2)
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::vote_new));
@@ -325,9 +325,9 @@ TEST (active_transactions, inactive_votes_cache_multiple_votes)
 	node.block_processor.flush ();
 	// Process votes
 	auto vote1 (std::make_shared<nano::vote> (key1.pub, key1.prv, 0, std::vector<nano::block_hash> (1, send1->hash ())));
-	node.vote_processor.vote (vote1, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
+	node.vote_processor.vote (vote1, std::make_shared<nano::transport::channel_loopback> (node));
 	auto vote2 (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 0, std::vector<nano::block_hash> (1, send1->hash ())));
-	node.vote_processor.vote (vote2, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
+	node.vote_processor.vote (vote2, std::make_shared<nano::transport::channel_loopback> (node));
 	system.deadline_set (5s);
 	while (true)
 	{
@@ -470,23 +470,23 @@ TEST (active_transactions, inactive_votes_cache_election_start)
 	// Inactive votes
 	std::vector<nano::block_hash> hashes{ open1->hash (), open2->hash (), open3->hash (), open4->hash (), open5->hash (), send7->hash () };
 	auto vote1 (std::make_shared<nano::vote> (key1.pub, key1.prv, 0, hashes));
-	node.vote_processor.vote (vote1, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
+	node.vote_processor.vote (vote1, std::make_shared<nano::transport::channel_loopback> (node));
 	auto vote2 (std::make_shared<nano::vote> (key2.pub, key2.prv, 0, hashes));
-	node.vote_processor.vote (vote2, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
+	node.vote_processor.vote (vote2, std::make_shared<nano::transport::channel_loopback> (node));
 	auto vote3 (std::make_shared<nano::vote> (key3.pub, key3.prv, 0, hashes));
-	node.vote_processor.vote (vote3, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
+	node.vote_processor.vote (vote3, std::make_shared<nano::transport::channel_loopback> (node));
 	auto vote4 (std::make_shared<nano::vote> (key4.pub, key4.prv, 0, hashes));
-	node.vote_processor.vote (vote4, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
+	node.vote_processor.vote (vote4, std::make_shared<nano::transport::channel_loopback> (node));
 	ASSERT_TIMELY (5s, node.active.inactive_votes_cache_size () == 6);
 	ASSERT_TRUE (node.active.empty ());
 	ASSERT_EQ (1, node.ledger.cache.cemented_count);
 	// 5 votes are required to start election
 	auto vote5 (std::make_shared<nano::vote> (key5.pub, key5.prv, 0, hashes));
-	node.vote_processor.vote (vote5, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
+	node.vote_processor.vote (vote5, std::make_shared<nano::transport::channel_loopback> (node));
 	ASSERT_TIMELY (5s, 5 == node.active.size ());
 	// Confirm elections with weight quorum
 	auto vote0 (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 0, hashes));
-	node.vote_processor.vote (vote0, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
+	node.vote_processor.vote (vote0, std::make_shared<nano::transport::channel_loopback> (node));
 	ASSERT_TIMELY (5s, node.active.empty ());
 	ASSERT_TIMELY (5s, 11 == node.ledger.cache.cemented_count);
 	// A late block arrival also checks the inactive votes cache
@@ -867,16 +867,16 @@ TEST (active_multiplier, less_than_one)
 	auto base_active_multiplier = 1.0;
 	auto min_active_difficulty = node.network_params.network.publish_thresholds.entry;
 	auto min_multiplier = nano::difficulty::to_multiplier (min_active_difficulty, base_active_difficulty);
-	ASSERT_EQ (node.active.trended_active_multiplier, base_active_multiplier);
+	ASSERT_EQ (node.active.trended_active_multiplier.load (), base_active_multiplier);
 	for (int i = 0; i < node.active.multipliers_cb.size () - 1; ++i)
 	{
 		node.active.multipliers_cb.push_front (min_multiplier);
 	}
-	auto sum (std::accumulate (node.active.multipliers_cb.begin (), node.active.multipliers_cb.end (), double(0)));
+	auto sum (std::accumulate (node.active.multipliers_cb.begin (), node.active.multipliers_cb.end (), 0.));
 	auto multiplier = sum / node.active.multipliers_cb.size ();
 	node.active.multipliers_cb.push_front (min_multiplier);
 	node.active.update_active_multiplier (lock);
-	ASSERT_EQ (node.active.trended_active_multiplier, multiplier);
+	ASSERT_EQ (node.active.trended_active_multiplier.load (), multiplier);
 }
 
 TEST (active_multiplier, normalization)
