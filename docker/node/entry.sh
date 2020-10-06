@@ -1,6 +1,6 @@
-#!/bin/sh
+#!/usr/bin/env sh
 
-set -euf -o pipefail | true
+set -euf
 
 usage() {
 	printf "Usage:\n"
