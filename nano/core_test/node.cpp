@@ -2792,14 +2792,14 @@ TEST (node, local_votes_cache_fork)
 	             .work (*node1.work_generate_blocking (genesis.hash ()))
 	             .build_shared ();
 	auto send1_fork = nano::state_block_builder ()
-	             .account (nano::dev_genesis_key.pub)
-	             .previous (genesis.hash ())
-	             .representative (nano::dev_genesis_key.pub)
-	             .balance (nano::genesis_amount - 2 * nano::Gxrb_ratio)
-	             .link (nano::dev_genesis_key.pub)
-	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-	             .work (*node1.work_generate_blocking (genesis.hash ()))
-	             .build_shared ();
+	                  .account (nano::dev_genesis_key.pub)
+	                  .previous (genesis.hash ())
+	                  .representative (nano::dev_genesis_key.pub)
+	                  .balance (nano::genesis_amount - 2 * nano::Gxrb_ratio)
+	                  .link (nano::dev_genesis_key.pub)
+	                  .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	                  .work (*node1.work_generate_blocking (genesis.hash ()))
+	                  .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
 	// Cache vote
 	auto vote (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 0, std::vector<nano::block_hash> (1, send1->hash ())));
