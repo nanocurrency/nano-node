@@ -461,7 +461,7 @@ TEST (node, search_pending_pruned)
 
 	// Confirmation
 	ASSERT_TIMELY (10s, node1->active.empty () && node2->active.empty ());
-	ASSERT_TIMELY (5s, node1->ledger.block_confirmed (node1->store.tx_begin (), send2->hash ()));
+	ASSERT_TIMELY (5s, node1->ledger.block_confirmed (node1->store.tx_begin_read (), send2->hash ()));
 	ASSERT_TIMELY (5s, node2->ledger.cache.cemented_count == 3);
 	system.wallet (0)->store.erase (node1->wallets.tx_begin_write (), nano::dev_genesis_key.pub);
 
