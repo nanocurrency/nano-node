@@ -461,25 +461,12 @@ TEST (node, search_pending_pruned)
 
 	// Confirmation
 	ASSERT_TIMELY (10s, node1->active.empty () && node2->active.empty ());
-	bool confirmed (false);
-	system.deadline_set (5s);
-	while (!confirmed)
-	{
-		auto transaction (node1->store.tx_begin_read ());
-		confirmed = node1->ledger.block_confirmed (transaction, send2->hash ());
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_TIMELY (5s, node1->ledger.block_confirmed (node1->store.tx_begin ()), send2->hash ()));
 	ASSERT_TIMELY (5s, node2->ledger.cache.cemented_count == 3);
-	{
-		auto transaction (node1->wallets.tx_begin_write ());
-		system.wallet (0)->store.erase (transaction, nano::dev_genesis_key.pub);
-	}
+	system.wallet (0)->store.erase (node1->wallets.tx_begin_write (), nano::dev_genesis_key.pub);
 
 	// Pruning
-	{
-		auto transaction (node2->store.tx_begin_write ());
-		ASSERT_EQ (1, node2->ledger.pruning_action (transaction, send1->hash (), 1));
-	}
+	ASSERT_EQ (1, node2->ledger.pruning_action (node2->store.tx_begin_write (), send1->hash (), 1));
 	ASSERT_EQ (1, node2->ledger.cache.pruned_count);
 	ASSERT_TRUE (node2->ledger.block_or_pruned_exists (send1->hash ()));
 	ASSERT_FALSE (node2->ledger.block_exists (send1->hash ()));
