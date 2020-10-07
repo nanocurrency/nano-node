@@ -1183,6 +1183,7 @@ void nano::node::receive_confirmed (nano::transaction const & wallet_transaction
 {
 	for (auto const & [id /*unused*/, wallet] : wallets.get_wallets ())
 	{
+		(void)id;
 		if (wallet->store.exists (wallet_transaction_a, destination_a))
 		{
 			nano::account representative;
