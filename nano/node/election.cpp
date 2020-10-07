@@ -377,6 +377,7 @@ bool nano::election::publish (std::shared_ptr<nano::block> block_a)
 		if (last_tally[block_a->hash ()] < node.online_reps.online_stake () / 10)
 		{
 			result = true;
+			node.network.publish_filter.clear (block_a);
 		}
 	}
 	if (!result)
