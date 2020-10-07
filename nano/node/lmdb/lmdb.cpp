@@ -194,6 +194,7 @@ void nano::mdb_store::open_databases (bool & error_a, nano::transaction const & 
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "online_weight", flags, &online_weight) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "meta", flags, &meta) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "peers", flags, &peers) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "pruned", flags, &pruned) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "confirmation_height", flags, &confirmation_height) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "accounts", flags, &accounts_v0) != 0;
 	accounts = accounts_v0;
@@ -273,6 +274,8 @@ bool nano::mdb_store::do_upgrades (nano::write_transaction & transaction_a, bool
 			upgrade_v18_to_v19 (transaction_a);
 			needs_vacuuming = true;
 		case 19:
+			upgrade_v19_to_v20 (transaction_a);
+		case 20:
 			break;
 		default:
 			logger.always_log (boost::str (boost::format ("The version of the ledger (%1%) is too high for this node") % version_l));
@@ -417,8 +420,8 @@ void nano::mdb_store::upgrade_v16_to_v17 (nano::write_transaction const & transa
 {
 	logger.always_log ("Preparing v16 to v17 database upgrade...");
 
-	auto account_info_i = latest_begin (transaction_a);
-	auto account_info_n = latest_end ();
+	auto account_info_i = accounts_begin (transaction_a);
+	auto account_info_n = accounts_end ();
 
 	// Set the confirmed frontier for each account in the confirmation height table
 	std::vector<std::pair<nano::account, nano::confirmation_height_info>> confirmation_height_infos;
@@ -673,7 +676,7 @@ void nano::mdb_store::upgrade_v18_to_v19 (nano::write_transaction const & transa
 			// Source block v18 epoch
 			if (old_sideband.details.is_receive)
 			{
-				auto db_val (block_raw_get_by_type_v18 (transaction_a, block_w_sideband_v18.block->link (), type_state));
+				auto db_val (block_raw_get_by_type_v18 (transaction_a, block_w_sideband_v18.block->link ().as_block_hash (), type_state));
 				if (db_val.is_initialized ())
 				{
 					nano::bufferstream stream (reinterpret_cast<uint8_t const *> (db_val.get ().data ()), db_val.get ().size ());
@@ -726,6 +729,14 @@ void nano::mdb_store::upgrade_v18_to_v19 (nano::write_transaction const & transa
 	logger.always_log ("Finished upgrading all blocks to new blocks database");
 }
 
+void nano::mdb_store::upgrade_v19_to_v20 (nano::write_transaction const & transaction_a)
+{
+	logger.always_log ("Preparing v19 to v20 database upgrade...");
+	mdb_dbi_open (env.tx (transaction_a), "pruned", MDB_CREATE, &pruned);
+	version_put (transaction_a, 20);
+	logger.always_log ("Finished creating new pruned table");
+}
+
 /** Takes a filepath, appends '_backup_<timestamp>' to the end (but before any extension) and saves that file in the same directory */
 void nano::mdb_store::create_backup_file (nano::mdb_env & env_a, boost::filesystem::path const & filepath_a, nano::logger_mt & logger_a)
 {
@@ -755,6 +766,17 @@ void nano::mdb_store::create_backup_file (nano::mdb_env & env_a, boost::filesyst
 		logger_a.always_log (success_message);
 		std::cout << success_message << std::endl;
 	}
+}
+
+std::vector<nano::unchecked_info> nano::mdb_store::unchecked_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
+{
+	std::vector<nano::unchecked_info> result;
+	for (auto i (unchecked_begin (transaction_a, nano::unchecked_key (hash_a, 0))), n (unchecked_end ()); i != n && i->first.key () == hash_a; ++i)
+	{
+		nano::unchecked_info const & unchecked_info (i->second);
+		result.push_back (unchecked_info);
+	}
+	return result;
 }
 
 void nano::mdb_store::version_put (nano::write_transaction const & transaction_a, int version_a)
@@ -833,6 +855,8 @@ MDB_dbi nano::mdb_store::table_to_dbi (tables table_a) const
 			return meta;
 		case tables::peers:
 			return peers;
+		case tables::pruned:
+			return pruned;
 		case tables::confirmation_height:
 			return confirmation_height;
 		default:
@@ -864,7 +888,7 @@ bool nano::mdb_store::copy_db (boost::filesystem::path const & destination_file)
 void nano::mdb_store::rebuild_db (nano::write_transaction const & transaction_a)
 {
 	// Tables with uint256_union key
-	std::vector<MDB_dbi> tables = { accounts, blocks, vote, confirmation_height };
+	std::vector<MDB_dbi> tables = { accounts, blocks, vote, pruned, confirmation_height };
 	for (auto const & table : tables)
 	{
 		MDB_dbi temp;
@@ -1140,6 +1164,11 @@ before_v1 (count_before_v1)
 bool nano::mdb_store::upgrade_counters::are_equal () const
 {
 	return (before_v0 == after_v0) && (before_v1 == after_v1);
+}
+
+unsigned nano::mdb_store::max_block_write_batch_num () const
+{
+	return std::numeric_limits<unsigned>::max ();
 }
 
 // Explicitly instantiate

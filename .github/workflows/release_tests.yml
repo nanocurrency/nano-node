@@ -1,9 +1,11 @@
-name: Tests
+name: Release Tests
 
-on: [push, pull_request]
+on: 
+  push: 
+    tags: '*'
 
 env:
-  RELEASE: 0
+  RELEASE: 1
   artifact: 0
   
 jobs:
@@ -11,7 +13,6 @@ jobs:
     runs-on: macOS-latest
     env:
       BOOST_ROOT: /tmp/boost
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
       - uses: actions/checkout@722adc6
       - name: Checkout Submodules
@@ -24,7 +25,6 @@ jobs:
   gcc_test:
     runs-on: ubuntu-18.04
     timeout-minutes: 60
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
       - uses: actions/checkout@722adc6
       - name: Checkout Submodules
@@ -32,12 +32,11 @@ jobs:
       - name: Fetch Deps
         run: ci/actions/linux/install_deps.sh
       - name: Run Tests
-        run: docker run -v ${PWD}:/workspace nanocurrency/nano-env:gcc /bin/bash -c "cd /workspace && ./ci/build-travis.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 ${PWD}"
+        run: docker run -v ${PWD}:/workspace nanocurrency/nano-env:gcc /bin/bash -c "cd /workspace && RELEASE=1 ./ci/build-travis.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 ${PWD}"
   
   clang_test:
     runs-on: ubuntu-18.04
     timeout-minutes: 60
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
       - uses: actions/checkout@722adc6
       - name: Checkout Submodules
@@ -45,16 +44,13 @@ jobs:
       - name: Fetch Deps
         run: ci/actions/linux/install_deps.sh
       - name: Run Tests
-        run: docker run -v ${PWD}:/workspace nanocurrency/nano-env:clang-6 /bin/bash -c "cd /workspace && ./ci/build-travis.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 ${PWD}"
+        run: docker run -v ${PWD}:/workspace nanocurrency/nano-env:clang-6 /bin/bash -c "cd /workspace && RELEASE=1 ./ci/build-travis.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 ${PWD}"
 
   windows_test:
     runs-on: windows-latest
     timeout-minutes: 60
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
       - uses: actions/checkout@722adc6
-      - name: Windows Defender
-        run: ci/actions/windows/disable_windows_defender.ps1
       - name: Checkout Submodules
         run: git submodule update --init --recursive
       - name: Fetch Deps

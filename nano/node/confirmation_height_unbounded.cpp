@@ -1,5 +1,6 @@
 #include <nano/lib/stats.hpp>
 #include <nano/node/confirmation_height_unbounded.hpp>
+#include <nano/node/logging.hpp>
 #include <nano/node/write_database_queue.hpp>
 #include <nano/secure/ledger.hpp>
 
@@ -7,10 +8,11 @@
 
 #include <numeric>
 
-nano::confirmation_height_unbounded::confirmation_height_unbounded (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logger_mt & logger_a, std::atomic<bool> & stopped_a, nano::block_hash const & original_hash_a, uint64_t & batch_write_size_a, std::function<void(std::vector<std::shared_ptr<nano::block>> const &)> const & notify_observers_callback_a, std::function<void(nano::block_hash const &)> const & notify_block_already_cemented_observers_callback_a, std::function<uint64_t ()> const & awaiting_processing_size_callback_a) :
+nano::confirmation_height_unbounded::confirmation_height_unbounded (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logging const & logging_a, nano::logger_mt & logger_a, std::atomic<bool> & stopped_a, nano::block_hash const & original_hash_a, uint64_t & batch_write_size_a, std::function<void(std::vector<std::shared_ptr<nano::block>> const &)> const & notify_observers_callback_a, std::function<void(nano::block_hash const &)> const & notify_block_already_cemented_observers_callback_a, std::function<uint64_t ()> const & awaiting_processing_size_callback_a) :
 ledger (ledger_a),
 write_database_queue (write_database_queue_a),
 batch_separate_pending_min_time (batch_separate_pending_min_time_a),
+logging (logging_a),
 logger (logger_a),
 stopped (stopped_a),
 original_hash (original_hash_a),
@@ -191,7 +193,7 @@ void nano::confirmation_height_unbounded::collect_unconfirmed_receive_and_source
 			auto source (block->source ());
 			if (source.is_zero ())
 			{
-				source = block->link ();
+				source = block->link ().as_block_hash ();
 			}
 
 			if (!source.is_zero () && !ledger.is_epoch_link (source) && ledger.store.block_exists (transaction_a, source))
@@ -358,16 +360,25 @@ void nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 			if (!error && pending.height > confirmation_height)
 			{
 				auto block = ledger.store.block_get (transaction, pending.hash);
-				debug_assert (network_params.network.is_dev_network () || block != nullptr);
-				debug_assert (network_params.network.is_dev_network () || block->sideband ().height == pending.height);
+				debug_assert (network_params.network.is_dev_network () || ledger.pruning || block != nullptr);
+				debug_assert (network_params.network.is_dev_network () || ledger.pruning || block->sideband ().height == pending.height);
 
 				if (!block)
 				{
-					auto error_str = (boost::format ("Failed to write confirmation height for block %1% (unbounded processor)") % pending.hash.to_string ()).str ();
-					logger.always_log (error_str);
-					std::cerr << error_str << std::endl;
-					error = true;
-					break;
+					if (ledger.pruning && ledger.store.pruned_exists (transaction, pending.hash))
+					{
+						pending_writes.erase (pending_writes.begin ());
+						--pending_writes_size;
+						continue;
+					}
+					else
+					{
+						auto error_str = (boost::format ("Failed to write confirmation height for block %1% (unbounded processor)") % pending.hash.to_string ()).str ();
+						logger.always_log (error_str);
+						std::cerr << error_str << std::endl;
+						error = true;
+						break;
+					}
 				}
 				ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in, pending.height - confirmation_height);
 				ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in, pending.height - confirmation_height);
@@ -391,7 +402,7 @@ void nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 	}
 
 	auto time_spent_cementing = cemented_batch_timer.since_start ().count ();
-	if (time_spent_cementing > 50)
+	if (logging.timing_logging () && time_spent_cementing > 50)
 	{
 		logger.always_log (boost::str (boost::format ("Cemented %1% blocks in %2% %3% (unbounded processor)") % cemented_blocks.size () % time_spent_cementing % cemented_batch_timer.unit ()));
 	}

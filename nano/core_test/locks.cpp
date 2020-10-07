@@ -178,4 +178,15 @@ TEST (locks, condition_variable_wait_until)
 	// Should be 1 report
 	ASSERT_EQ (num_matches (ss.str ()), 1);
 }
+
+TEST (locks, defer_lock)
+{
+	std::mutex mutex;
+	nano::unique_lock<std::mutex> lock (mutex, std::defer_lock);
+	ASSERT_FALSE (lock.owns_lock ());
+	ASSERT_TRUE (lock.try_lock ());
+	ASSERT_TRUE (lock.owns_lock ());
+	lock.unlock ();
+	ASSERT_FALSE (lock.owns_lock ());
+}
 #endif

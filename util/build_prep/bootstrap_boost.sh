@@ -33,7 +33,7 @@ while getopts 'hmscCkpvB:j:' OPT; do
 			LINK_TYPE+=('link=shared')
 			;;
 		m)
-			bootstrapArgs+=('--with-libraries=system,thread,log,filesystem,program_options')
+			bootstrapArgs+=('--with-libraries=system,thread,log,filesystem,program_options,coroutine,context')
 			;;
 		j)
 			buildThreads=${OPTARG}
@@ -141,7 +141,7 @@ tar xf "${BOOST_ARCHIVE}"
 
 pushd "${BOOST_BASENAME}"
 ./bootstrap.sh "${bootstrapArgs[@]}"
-./b2 -d${debugLevel} -j${buildThreads} --prefix="${BOOST_ROOT}" ${LINK_TYPE[@]} "${buildArgs[@]}" install
+./b2 -d${debugLevel} -j${buildThreads} hardcode-dll-paths=true dll-path="'\$ORIGIN/../lib'" --prefix="${BOOST_ROOT}" ${LINK_TYPE[@]} "${buildArgs[@]}" install
 popd
 
 rm -rf "${BOOST_BASENAME}"

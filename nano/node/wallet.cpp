@@ -1169,12 +1169,12 @@ void nano::wallet::work_ensure (nano::account const & account_a, nano::root cons
 
 bool nano::wallet::search_pending ()
 {
-	auto transaction (wallets.tx_begin_read ());
-	auto result (!store.valid_password (transaction));
+	auto wallet_transaction (wallets.tx_begin_read ());
+	auto result (!store.valid_password (wallet_transaction));
 	if (!result)
 	{
 		wallets.node.logger.try_log ("Beginning pending block search");
-		for (auto i (store.begin (transaction)), n (store.end ()); i != n; ++i)
+		for (auto i (store.begin (wallet_transaction)), n (store.end ()); i != n; ++i)
 		{
 			auto block_transaction (wallets.node.store.tx_begin_read ());
 			nano::account const & account (i->first);
@@ -1193,20 +1193,14 @@ bool nano::wallet::search_pending ()
 						auto block (wallets.node.store.block_get (block_transaction, hash));
 						if (wallets.node.ledger.block_confirmed (block_transaction, hash))
 						{
+							auto representative = store.representative (wallet_transaction);
 							// Receive confirmed block
-							auto node_l (wallets.node.shared ());
-							wallets.node.background ([node_l, block, hash]() {
-								auto transaction (node_l->store.tx_begin_read ());
-								node_l->receive_confirmed (transaction, block, hash);
-							});
+							receive_async (block, representative, amount, [](std::shared_ptr<nano::block>) {});
 						}
-						else
+						else if (!wallets.node.confirmation_height_processor.is_processing_block (hash))
 						{
-							if (!wallets.node.confirmation_height_processor.is_processing_block (hash))
-							{
-								// Request confirmation for block which is not being processed yet
-								wallets.node.block_confirm (block);
-							}
+							// Request confirmation for block which is not being processed yet
+							wallets.node.block_confirm (block);
 						}
 					}
 				}
@@ -1559,13 +1553,9 @@ std::shared_ptr<nano::wallet> nano::wallets::create (nano::wallet_id const & id_
 
 bool nano::wallets::search_pending (nano::wallet_id const & wallet_a)
 {
-	nano::lock_guard<std::mutex> lock (mutex);
 	auto result (false);
-	auto existing (items.find (wallet_a));
-	result = existing == items.end ();
-	if (!result)
+	if (auto wallet = open (wallet_a); wallet != nullptr)
 	{
-		auto wallet (existing->second);
 		result = wallet->search_pending ();
 	}
 	return result;
@@ -1573,10 +1563,9 @@ bool nano::wallets::search_pending (nano::wallet_id const & wallet_a)
 
 void nano::wallets::search_pending_all ()
 {
-	nano::lock_guard<std::mutex> lock (mutex);
-	for (auto i : items)
+	for (auto const & [id, wallet] : get_wallets ())
 	{
-		i.second->search_pending ();
+		wallet->search_pending ();
 	}
 }
 
@@ -1874,6 +1863,12 @@ void nano::wallets::move_table (std::string const & name_a, MDB_txn * tx_source,
 	auto error6 (mdb_drop (tx_source, handle_source, 1));
 	(void)error6;
 	debug_assert (!error6);
+}
+
+std::unordered_map<nano::wallet_id, std::shared_ptr<nano::wallet>> nano::wallets::get_wallets ()
+{
+	nano::lock_guard<std::mutex> guard (mutex);
+	return items;
 }
 
 nano::uint128_t const nano::wallets::generate_priority = std::numeric_limits<nano::uint128_t>::max ();

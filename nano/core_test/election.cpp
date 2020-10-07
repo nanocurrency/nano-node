@@ -50,7 +50,7 @@ TEST (election, quorum_minimum_flip_success)
 	auto election{ node1.active.insert (send1) };
 	ASSERT_FALSE (election.inserted);
 	ASSERT_NE (nullptr, election.election);
-	ASSERT_EQ (2, election.election->blocks.size ());
+	ASSERT_EQ (2, election.election->blocks ().size ());
 	auto vote1 (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 1, send2));
 	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote1));
 	node1.block_processor.flush ();
@@ -94,7 +94,7 @@ TEST (election, quorum_minimum_flip_fail)
 	auto election{ node1.active.insert (send1) };
 	ASSERT_FALSE (election.inserted);
 	ASSERT_NE (nullptr, election.election);
-	ASSERT_EQ (2, election.election->blocks.size ());
+	ASSERT_EQ (2, election.election->blocks ().size ());
 	auto vote1 (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 1, send2));
 	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote1));
 	node1.block_processor.flush ();
@@ -126,7 +126,7 @@ TEST (election, quorum_minimum_confirm_success)
 	auto election{ node1.active.insert (send1) };
 	ASSERT_FALSE (election.inserted);
 	ASSERT_NE (nullptr, election.election);
-	ASSERT_EQ (1, election.election->blocks.size ());
+	ASSERT_EQ (1, election.election->blocks ().size ());
 	auto vote1 (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 1, send1));
 	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote1));
 	node1.block_processor.flush ();
@@ -158,7 +158,7 @@ TEST (election, quorum_minimum_confirm_fail)
 	auto election{ node1.active.insert (send1) };
 	ASSERT_FALSE (election.inserted);
 	ASSERT_NE (nullptr, election.election);
-	ASSERT_EQ (1, election.election->blocks.size ());
+	ASSERT_EQ (1, election.election->blocks ().size ());
 	auto vote1 (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 1, send1));
 	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote1));
 	node1.block_processor.flush ();

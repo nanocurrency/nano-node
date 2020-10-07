@@ -83,6 +83,7 @@ void nano::vote_processor::process_loop ()
 
 bool nano::vote_processor::vote (std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a)
 {
+	debug_assert (channel_a != nullptr);
 	bool process (false);
 	nano::unique_lock<std::mutex> lock (mutex);
 	if (!stopped)
