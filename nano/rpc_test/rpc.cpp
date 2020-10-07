@@ -7769,10 +7769,7 @@ TEST (rpc, receive_pruned)
 	auto send3 (wallet1->send_action (nano::dev_genesis_key.pub, key1.pub, node2.config.receive_minimum.number (), *node2.work_generate_blocking (send1->hash ())));
 	// Pruning
 	ASSERT_TIMELY (5s, node2.ledger.cache.cemented_count == 6 && node2.confirmation_height_processor.current ().is_zero () && node2.confirmation_height_processor.awaiting_processing_size () == 0);
-	{
-		auto transaction (node2.store.tx_begin_write ());
-		ASSERT_EQ (2, node2.ledger.pruning_action (transaction, send2->hash (), 1));
-	}
+	ASSERT_EQ (2, node2.ledger.pruning_action (node2.store.tx_begin_write (), send2->hash (), 1));
 	ASSERT_EQ (2, node2.ledger.cache.pruned_count);
 	ASSERT_TRUE (node2.ledger.block_or_pruned_exists (send1->hash ()));
 	ASSERT_FALSE (node2.ledger.block_exists (send1->hash ()));
