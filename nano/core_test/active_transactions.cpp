@@ -753,14 +753,14 @@ TEST (active_transactions, fork_filter_cleanup)
 	for (auto i (0); i < 10; i++)
 	{
 		auto fork = builder.make_block ()
-		             .account (nano::dev_genesis_key.pub)
-		             .previous (genesis.hash ())
-		             .representative (nano::dev_genesis_key.pub)
-		             .balance (nano::genesis_amount - 1 - i)
-		             .link (key.pub)
-		             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-		             .work (*system.work.generate (genesis.hash ()))
-		             .build_shared ();
+		            .account (nano::dev_genesis_key.pub)
+		            .previous (genesis.hash ())
+		            .representative (nano::dev_genesis_key.pub)
+		            .balance (nano::genesis_amount - 1 - i)
+		            .link (key.pub)
+		            .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+		            .work (*system.work.generate (genesis.hash ()))
+		            .build_shared ();
 		node1.process_active (fork);
 	}
 	node1.block_processor.flush ();
