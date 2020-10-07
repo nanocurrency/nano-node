@@ -25,7 +25,7 @@ TEST (system, generate_mass_activity)
 	uint32_t count (20);
 	system.generate_mass_activity (count, *system.nodes[0]);
 	auto transaction (system.nodes[0]->store.tx_begin_read ());
-	for (auto i (system.nodes[0]->store.latest_begin (transaction)), n (system.nodes[0]->store.latest_end ()); i != n; ++i)
+	for (auto i (system.nodes[0]->store.accounts_begin (transaction)), n (system.nodes[0]->store.accounts_end ()); i != n; ++i)
 	{
 	}
 }
@@ -42,7 +42,7 @@ TEST (system, generate_mass_activity_long)
 	uint32_t count (1000000000);
 	system.generate_mass_activity (count, *system.nodes[0]);
 	auto transaction (system.nodes[0]->store.tx_begin_read ());
-	for (auto i (system.nodes[0]->store.latest_begin (transaction)), n (system.nodes[0]->store.latest_end ()); i != n; ++i)
+	for (auto i (system.nodes[0]->store.accounts_begin (transaction)), n (system.nodes[0]->store.accounts_end ()); i != n; ++i)
 	{
 	}
 	system.stop ();
@@ -545,7 +545,7 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 
 	// All frontiers (except last) should have 2 blocks and both should be confirmed
 	auto transaction = node->store.tx_begin_read ();
-	for (auto i (node->store.latest_begin (transaction)), n (node->store.latest_end ()); i != n; ++i)
+	for (auto i (node->store.accounts_begin (transaction)), n (node->store.accounts_end ()); i != n; ++i)
 	{
 		auto & account = i->first;
 		auto & account_info = i->second;
@@ -964,6 +964,7 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 		return;
 	}
 	nano::logger_mt logger;
+	nano::logging logging;
 	auto path (nano::unique_path ());
 	auto store = nano::make_store (logger, path);
 	ASSERT_TRUE (!store->init_error ());
@@ -976,7 +977,7 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 	boost::latch initialized_latch{ 0 };
 
 	nano::block_hash block_hash_being_processed{ 0 };
-	nano::confirmation_height_processor confirmation_height_processor{ ledger, write_database_queue, 10ms, logger, initialized_latch, confirmation_height_mode::automatic };
+	nano::confirmation_height_processor confirmation_height_processor{ ledger, write_database_queue, 10ms, logging, logger, initialized_latch, confirmation_height_mode::automatic };
 
 	auto const num_accounts = 100000;
 
@@ -1675,7 +1676,7 @@ TEST (node, mass_epoch_upgrader)
 		{
 			auto transaction (node.store.tx_begin_read ());
 			size_t block_count_sum = 0;
-			for (auto i (node.store.latest_begin (transaction)); i != node.store.latest_end (); ++i)
+			for (auto i (node.store.accounts_begin (transaction)); i != node.store.accounts_end (); ++i)
 			{
 				nano::account_info info (i->second);
 				ASSERT_EQ (info.epoch (), nano::epoch::epoch_1);

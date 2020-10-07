@@ -461,8 +461,8 @@ TEST (block_store, empty_accounts)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	auto transaction (store->tx_begin_read ());
-	auto begin (store->latest_begin (transaction));
-	auto end (store->latest_end ());
+	auto begin (store->accounts_begin (transaction));
+	auto end (store->accounts_end ());
 	ASSERT_EQ (end, begin);
 }
 
@@ -545,8 +545,8 @@ TEST (block_store, one_account)
 	auto transaction (store->tx_begin_write ());
 	store->confirmation_height_put (transaction, account, { 20, nano::block_hash (15) });
 	store->account_put (transaction, account, { hash, account, hash, 42, 100, 200, nano::epoch::epoch_0 });
-	auto begin (store->latest_begin (transaction));
-	auto end (store->latest_end ());
+	auto begin (store->accounts_begin (transaction));
+	auto end (store->accounts_end ());
 	ASSERT_NE (end, begin);
 	ASSERT_EQ (account, nano::account (begin->first));
 	nano::account_info info (begin->second);
@@ -599,8 +599,8 @@ TEST (block_store, two_account)
 	store->account_put (transaction, account1, { hash1, account1, hash1, 42, 100, 300, nano::epoch::epoch_0 });
 	store->confirmation_height_put (transaction, account2, { 30, nano::block_hash (20) });
 	store->account_put (transaction, account2, { hash2, account2, hash2, 84, 200, 400, nano::epoch::epoch_0 });
-	auto begin (store->latest_begin (transaction));
-	auto end (store->latest_end ());
+	auto begin (store->accounts_begin (transaction));
+	auto end (store->accounts_end ());
 	ASSERT_NE (end, begin);
 	ASSERT_EQ (account1, nano::account (begin->first));
 	nano::account_info info1 (begin->second);
@@ -641,14 +641,14 @@ TEST (block_store, latest_find)
 	store->account_put (transaction, account1, { hash1, account1, hash1, 100, 0, 300, nano::epoch::epoch_0 });
 	store->confirmation_height_put (transaction, account2, { 0, nano::block_hash (0) });
 	store->account_put (transaction, account2, { hash2, account2, hash2, 200, 0, 400, nano::epoch::epoch_0 });
-	auto first (store->latest_begin (transaction));
-	auto second (store->latest_begin (transaction));
+	auto first (store->accounts_begin (transaction));
+	auto second (store->accounts_begin (transaction));
 	++second;
-	auto find1 (store->latest_begin (transaction, 1));
+	auto find1 (store->accounts_begin (transaction, 1));
 	ASSERT_EQ (first, find1);
-	auto find2 (store->latest_begin (transaction, 3));
+	auto find2 (store->accounts_begin (transaction, 3));
 	ASSERT_EQ (second, find2);
-	auto find3 (store->latest_begin (transaction, 2));
+	auto find3 (store->accounts_begin (transaction, 2));
 	ASSERT_EQ (second, find3);
 }
 
@@ -788,7 +788,7 @@ TEST (block_store, large_iteration)
 	std::unordered_set<nano::account> accounts2;
 	nano::account previous (0);
 	auto transaction (store->tx_begin_read ());
-	for (auto i (store->latest_begin (transaction, 0)), n (store->latest_end ()); i != n; ++i)
+	for (auto i (store->accounts_begin (transaction, 0)), n (store->accounts_end ()); i != n; ++i)
 	{
 		nano::account current (i->first);
 		ASSERT_GT (current.number (), previous.number ());

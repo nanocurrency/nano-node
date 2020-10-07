@@ -124,35 +124,33 @@ std::vector<std::shared_ptr<nano::transport::channel>> nano::rep_crawler::get_cr
 void nano::rep_crawler::query (std::vector<std::shared_ptr<nano::transport::channel>> const & channels_a)
 {
 	auto transaction (node.store.tx_begin_read ());
-	std::shared_ptr<nano::block> block (node.store.block_random (transaction));
-	auto hash (block->hash ());
+	auto hash_root (node.ledger.hash_root_random (transaction));
 	{
 		nano::lock_guard<std::mutex> lock (active_mutex);
 		// Don't send same block multiple times in tests
 		if (node.network_params.network.is_dev_network ())
 		{
-			for (auto i (0); active.count (hash) != 0 && i < 4; ++i)
+			for (auto i (0); active.count (hash_root.first) != 0 && i < 4; ++i)
 			{
-				block = node.store.block_random (transaction);
-				hash = block->hash ();
+				hash_root = node.ledger.hash_root_random (transaction);
 			}
 		}
-		active.insert (hash);
+		active.insert (hash_root.first);
 	}
 	if (!channels_a.empty ())
 	{
-		node.active.erase_recently_confirmed (hash);
+		node.active.erase_recently_confirmed (hash_root.first);
 	}
 	for (auto i (channels_a.begin ()), n (channels_a.end ()); i != n; ++i)
 	{
 		debug_assert (*i != nullptr);
 		on_rep_request (*i);
-		node.network.send_confirm_req (*i, block);
+		node.network.send_confirm_req (*i, hash_root);
 	}
 
 	// A representative must respond with a vote within the deadline
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [node_w, hash]() {
+	node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [node_w, hash = hash_root.first]() {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->rep_crawler.remove (hash);

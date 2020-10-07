@@ -120,7 +120,7 @@ block_processor_thread ([this]() {
 // clang-format on
 online_reps (ledger, network_params, config.online_weight_minimum.number ()),
 vote_uniquer (block_uniquer),
-confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, logger, node_initialized_latch, flags.confirmation_height_processor_mode),
+confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, config.logging, logger, node_initialized_latch, flags.confirmation_height_processor_mode),
 active (*this, confirmation_height_processor),
 aggregator (timestamps, network_params.network, config, stats, active.generator, history, ledger, wallets, active),
 payment_observer_processor (observers.blocks),
@@ -355,7 +355,7 @@ node_seq (seq)
 		auto is_initialized (false);
 		{
 			auto transaction (store.tx_begin_read ());
-			is_initialized = (store.latest_begin (transaction) != store.latest_end ());
+			is_initialized = (store.accounts_begin (transaction) != store.accounts_end ());
 		}
 
 		nano::genesis genesis;
@@ -668,7 +668,10 @@ void nano::node::start ()
 	{
 		backup_wallet ();
 	}
-	search_pending ();
+	if (!flags.disable_search_pending)
+	{
+		search_pending ();
+	}
 	if (!flags.disable_wallet_bootstrap)
 	{
 		// Delay to start wallet lazy bootstrap
@@ -922,7 +925,7 @@ void nano::node::unchecked_cleanup ()
 	auto attempt (bootstrap_initiator.current_attempt ());
 	bool long_attempt (attempt != nullptr && std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt->attempt_start).count () > config.unchecked_cutoff_time.count ());
 	// Collect old unchecked keys
-	if (!flags.disable_unchecked_cleanup && ledger.cache.block_count >= ledger.bootstrap_weight_max_blocks && !long_attempt)
+	if (ledger.cache.block_count >= ledger.bootstrap_weight_max_blocks && !long_attempt)
 	{
 		auto now (nano::seconds_since_epoch ());
 		auto transaction (store.tx_begin_read ());
@@ -1428,7 +1431,7 @@ void nano::node::epoch_upgrader_impl (nano::private_key const & prv_a, nano::epo
 			{
 				auto transaction (store.tx_begin_read ());
 				// Collect accounts to upgrade
-				for (auto i (store.latest_begin (transaction)), n (store.latest_end ()); i != n && accounts_list.size () < count_limit; ++i)
+				for (auto i (store.accounts_begin (transaction)), n (store.accounts_end ()); i != n && accounts_list.size () < count_limit; ++i)
 				{
 					nano::account const & account (i->first);
 					nano::account_info const & info (i->second);
