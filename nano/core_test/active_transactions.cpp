@@ -774,6 +774,7 @@ TEST (active_transactions, fork_filter_cleanup)
 	node1.block_processor.flush ();
 	std::this_thread::sleep_for (50ms);
 
+	// Block is erased from the duplicate filter
 	ASSERT_FALSE (node1.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
 
 	auto election (node1.active.election (send1->qualified_root ()));
