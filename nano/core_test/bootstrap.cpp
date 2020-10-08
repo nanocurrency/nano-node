@@ -1320,7 +1320,8 @@ TEST (bulk, genesis_pruning)
 	node_flags.enable_pruning = true;
 	auto node1 = system.add_node (config, node_flags);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
-	auto node2 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work));
+	node_flags.enable_pruning = false;
+	auto node2 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work, node_flags));
 	ASSERT_FALSE (node2->init_error ());
 	nano::block_hash latest1 (node1->latest (nano::dev_genesis_key.pub));
 	nano::block_hash latest2 (node2->latest (nano::dev_genesis_key.pub));
