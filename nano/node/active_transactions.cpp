@@ -206,7 +206,8 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 				{
 					add_recently_cemented (election->status);
 					lk.unlock ();
-					node.receive_confirmed (node.wallets.tx_begin_read (), transaction, block_a, hash);
+					auto destination (block_a->link ().is_zero () ? block_a->destination () : block_a->link ().as_account ());
+					node.receive_confirmed (node.wallets.tx_begin_read (), transaction, hash, destination);
 					nano::account account (0);
 					nano::uint128_t amount (0);
 					bool is_state_send (false);
@@ -324,7 +325,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 				--optimistic_elections_count;
 			}
 
-			election_l->cleanup ();
+			cleanup_election (election_l->cleanup_info ());
 			i = sorted_roots_l.erase (i);
 		}
 		else
@@ -345,6 +346,37 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 		{
 			node.logger.try_log (boost::str (boost::format ("Processed %1% elections (%2% were already confirmed) in %3% %4%") % this_loop_target_l % (this_loop_target_l - unconfirmed_count_l) % elapsed.value ().count () % elapsed.unit ()));
 		}
+	}
+}
+
+void nano::active_transactions::cleanup_election (nano::election_cleanup_info const & info_a)
+{
+	debug_assert (!mutex.try_lock ());
+
+	for (auto const & [hash, block] : info_a.blocks)
+	{
+		auto erased (blocks.erase (hash));
+		(void)erased;
+		debug_assert (erased == 1);
+		erase_inactive_votes_cache (hash);
+		// Notify observers about dropped elections & blocks lost confirmed elections
+		if (!info_a.confirmed || hash != info_a.winner)
+		{
+			node.observers.active_stopped.notify (hash);
+		}
+	}
+
+	if (!info_a.confirmed)
+	{
+		recently_dropped.add (info_a.root);
+
+		// Clear network filter in another thread
+		node.worker.push_task ([node_l = node.shared (), blocks_l = std::move (info_a.blocks)]() {
+			for (auto const & block : blocks_l)
+			{
+				node_l->network.publish_filter.clear (block.second);
+			}
+		});
 	}
 }
 
@@ -413,8 +445,8 @@ void nano::active_transactions::frontiers_confirmation (nano::unique_lock<std::m
  */
 void nano::active_transactions::confirm_expired_frontiers_pessimistically (nano::transaction const & transaction_a, uint64_t max_elections_a, uint64_t & elections_count_a)
 {
-	auto i{ node.store.latest_begin (transaction_a, next_frontier_account) };
-	auto n{ node.store.latest_end () };
+	auto i{ node.store.accounts_begin (transaction_a, next_frontier_account) };
+	auto n{ node.store.accounts_end () };
 	nano::timer<std::chrono::milliseconds> timer (nano::timer_state::started);
 	nano::confirmation_height_info confirmation_height_info;
 
@@ -489,15 +521,12 @@ void nano::active_transactions::confirm_expired_frontiers_pessimistically (nano:
 
 bool nano::active_transactions::should_do_frontiers_confirmation () const
 {
-	/*
- 	 * Confirm frontiers when there aren't many confirmations already pending and node finished initial bootstrap
- 	 */
 	auto pending_confirmation_height_size (confirmation_height_processor.awaiting_processing_size ());
 	auto bootstrap_weight_reached (node.ledger.cache.block_count >= node.ledger.bootstrap_weight_max_blocks);
 	auto disabled_confirmation_mode = (node.config.frontiers_confirmation == nano::frontiers_confirmation_mode::disabled);
 	auto conf_height_capacity_reached = pending_confirmation_height_size > confirmed_frontiers_max_pending_size;
 	auto all_cemented = node.ledger.cache.block_count == node.ledger.cache.cemented_count;
-	return (!disabled_confirmation_mode && bootstrap_weight_reached && !conf_height_capacity_reached && !all_cemented);
+	return (!disabled_confirmation_mode && (bootstrap_weight_reached || node.ledger.pruning) && !conf_height_capacity_reached && !all_cemented);
 }
 
 void nano::active_transactions::request_loop ()
@@ -684,8 +713,8 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 		}
 
 		nano::timer<std::chrono::milliseconds> timer (nano::timer_state::started);
-		auto i (node.store.latest_begin (transaction_a, next_frontier_account));
-		auto n (node.store.latest_end ());
+		auto i (node.store.accounts_begin (transaction_a, next_frontier_account));
+		auto n (node.store.accounts_end ());
 		nano::confirmation_height_info confirmation_height_info;
 		for (; i != n && should_iterate (); ++i)
 		{
@@ -1013,8 +1042,8 @@ double nano::active_transactions::normalized_multiplier (nano::block const & blo
 	{
 		auto election (*root_it_a);
 		debug_assert (election != roots.end ());
-		auto find_block (election->election->blocks.find (block_a.hash ()));
-		if (find_block != election->election->blocks.end () && find_block->second->has_sideband ())
+		auto find_block (election->election->last_blocks.find (block_a.hash ()));
+		if (find_block != election->election->last_blocks.end () && find_block->second->has_sideband ())
 		{
 			threshold = nano::work_threshold (block_a.work_version (), find_block->second->sideband ().details);
 		}
@@ -1113,18 +1142,6 @@ double nano::active_transactions::active_multiplier ()
 	return trended_active_multiplier.load ();
 }
 
-// List of active blocks in elections
-std::deque<std::shared_ptr<nano::block>> nano::active_transactions::list_blocks ()
-{
-	std::deque<std::shared_ptr<nano::block>> result;
-	nano::lock_guard<std::mutex> lock (mutex);
-	for (auto & root : roots)
-	{
-		result.push_back (root.election->status.winner);
-	}
-	return result;
-}
-
 std::deque<nano::election_status> nano::active_transactions::list_recently_cemented ()
 {
 	nano::lock_guard<std::mutex> lock (mutex);
@@ -1161,7 +1178,7 @@ void nano::active_transactions::erase (nano::block const & block_a)
 	auto root_it (roots.get<tag_root> ().find (block_a.qualified_root ()));
 	if (root_it != roots.get<tag_root> ().end ())
 	{
-		root_it->election->cleanup ();
+		cleanup_election (root_it->election->cleanup_info ());
 		roots.get<tag_root> ().erase (root_it);
 		lock.unlock ();
 		node.logger.try_log (boost::str (boost::format ("Election erased for block block %1% root %2%") % block_a.hash ().to_string () % block_a.root ().to_string ()));
@@ -1379,7 +1396,7 @@ nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_
 				insert_impl (block);
 			}
 		}
-		else if (!block && status.bootstrap_started && !previously_a.bootstrap_started)
+		else if (!block && status.bootstrap_started && !previously_a.bootstrap_started && (!node.ledger.pruning || !node.store.pruned_exists (transaction, hash_a)))
 		{
 			node.gap_cache.bootstrap_start (hash_a);
 		}

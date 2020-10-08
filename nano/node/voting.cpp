@@ -300,7 +300,7 @@ void nano::vote_generator::broadcast_action (std::shared_ptr<nano::vote> const &
 {
 	network.flood_vote_pr (vote_a);
 	network.flood_vote (vote_a, 2.0f);
-	vote_processor.vote (vote_a, std::make_shared<nano::transport::channel_udp> (network.udp_channels, network.endpoint (), network_params.protocol.protocol_version));
+	vote_processor.vote (vote_a, std::make_shared<nano::transport::channel_loopback> (network.node));
 }
 
 void nano::vote_generator::run ()
