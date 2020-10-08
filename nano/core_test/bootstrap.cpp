@@ -1317,6 +1317,7 @@ TEST (bulk, genesis_pruning)
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_push_client = true;
 	node_flags.disable_lazy_bootstrap = true;
+	node_flags.disable_ongoing_bootstrap = true;
 	node_flags.enable_pruning = true;
 	auto node1 = system.add_node (config, node_flags);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
@@ -1375,8 +1376,8 @@ TEST (bulk, genesis_pruning)
 	// Bootstrap with missing blocks for node2
 	node2->bootstrap_initiator.bootstrap (node1->network.endpoint ());
 	node2->network.merge_peer (node1->network.endpoint ());
-	// 3 bootstraps including automatic after node start, test bootstrap & restart after frontier confirmation failure
-	ASSERT_TIMELY (25s, node2->stats.count (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out) >= 3 && !node2->bootstrap_initiator.in_progress ());
+	// 2 bootstraps including automatic after node start, test bootstrap & restart after frontier confirmation failure
+	ASSERT_TIMELY (25s, node2->stats.count (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out) >= 2 && !node2->bootstrap_initiator.in_progress ());
 	// node2 still missing blocks
 	ASSERT_EQ (1, node2->ledger.cache.block_count);
 	{
