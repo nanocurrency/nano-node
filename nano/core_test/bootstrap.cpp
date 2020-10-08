@@ -1374,7 +1374,7 @@ TEST (bulk, genesis_pruning)
 	// Bootstrap with missing blocks for node2
 	node2->bootstrap_initiator.bootstrap (node1->network.endpoint ());
 	// 3 bootstraps including automatic after node start, test bootstrap & restart after frontier confirmation failure
-	ASSERT_TIMELY (15s, node2->stats.count (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out) >= 3 && !node2->bootstrap_initiator.in_progress ());
+	ASSERT_TIMELY (25s, node2->stats.count (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out) >= 3 && !node2->bootstrap_initiator.in_progress ());
 	// node2 still missing blocks
 	ASSERT_EQ (1, node2->ledger.cache.block_count);
 	{
