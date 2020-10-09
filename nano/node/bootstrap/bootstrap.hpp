@@ -93,6 +93,7 @@ public:
 	std::shared_ptr<nano::bootstrap_connections> connections;
 	std::shared_ptr<nano::bootstrap_attempt> new_attempt ();
 	bool has_new_attempts ();
+	void remove_attempt (std::shared_ptr<nano::bootstrap_attempt>);
 	std::shared_ptr<nano::bootstrap_attempt> current_attempt ();
 	std::shared_ptr<nano::bootstrap_attempt> current_lazy_attempt ();
 	std::shared_ptr<nano::bootstrap_attempt> current_wallet_attempt ();
@@ -103,7 +104,6 @@ public:
 private:
 	nano::node & node;
 	std::shared_ptr<nano::bootstrap_attempt> find_attempt (nano::bootstrap_mode);
-	void remove_attempt (std::shared_ptr<nano::bootstrap_attempt>);
 	void stop_attempts ();
 	std::vector<std::shared_ptr<nano::bootstrap_attempt>> attempts_list;
 	std::atomic<bool> stopped{ false };
