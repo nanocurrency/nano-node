@@ -238,10 +238,10 @@ void nano::network::flood_block_many (std::deque<std::shared_ptr<nano::block>> b
 	}
 }
 
-void nano::network::send_confirm_req (std::shared_ptr<nano::transport::channel> channel_a, std::shared_ptr<nano::block> block_a)
+void nano::network::send_confirm_req (std::shared_ptr<nano::transport::channel> channel_a, std::pair<nano::block_hash, nano::block_hash> const & hash_root_a)
 {
 	// Confirmation request with hash + root
-	nano::confirm_req req (block_a->hash (), block_a->root ());
+	nano::confirm_req req (hash_root_a.first, hash_root_a.second);
 	channel_a->send (req);
 }
 
@@ -284,7 +284,7 @@ void nano::network::broadcast_confirm_req_base (std::shared_ptr<nano::block> blo
 	while (!endpoints_a->empty () && count < max_reps)
 	{
 		auto channel (endpoints_a->back ());
-		send_confirm_req (channel, block_a);
+		send_confirm_req (channel, std::make_pair (block_a->hash (), block_a->root ().as_block_hash ()));
 		endpoints_a->pop_back ();
 		count++;
 	}
@@ -807,11 +807,12 @@ void nano::network::erase_below_version (uint8_t cutoff_version_a)
 
 void nano::network::erase (nano::transport::channel const & channel_a)
 {
-	if (channel_a.get_type () == nano::transport::transport_type::tcp)
+	auto const channel_type = channel_a.get_type ();
+	if (channel_type == nano::transport::transport_type::tcp)
 	{
 		tcp_channels.erase (channel_a.get_tcp_endpoint ());
 	}
-	else
+	else if (channel_type != nano::transport::transport_type::loopback)
 	{
 		udp_channels.erase (channel_a.get_endpoint ());
 		udp_channels.clean_node_id (channel_a.get_node_id ());
