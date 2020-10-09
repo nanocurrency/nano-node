@@ -207,7 +207,8 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 					auto status_l = election->status;
 					election_lk.unlock ();
 					add_recently_cemented (status_l);
-					node.receive_confirmed (node.wallets.tx_begin_read (), transaction, block_a, hash);
+					auto destination (block_a->link ().is_zero () ? block_a->destination () : block_a->link ().as_account ());
+					node.receive_confirmed (node.wallets.tx_begin_read (), transaction, hash, destination);
 					nano::account account (0);
 					nano::uint128_t amount (0);
 					bool is_state_send (false);
@@ -545,15 +546,12 @@ void nano::active_transactions::confirm_expired_frontiers_pessimistically (nano:
 
 bool nano::active_transactions::should_do_frontiers_confirmation () const
 {
-	/*
- 	 * Confirm frontiers when there aren't many confirmations already pending and node finished initial bootstrap
- 	 */
 	auto pending_confirmation_height_size (confirmation_height_processor.awaiting_processing_size ());
 	auto bootstrap_weight_reached (node.ledger.cache.block_count >= node.ledger.bootstrap_weight_max_blocks);
 	auto disabled_confirmation_mode = (node.config.frontiers_confirmation == nano::frontiers_confirmation_mode::disabled);
 	auto conf_height_capacity_reached = pending_confirmation_height_size > confirmed_frontiers_max_pending_size;
 	auto all_cemented = node.ledger.cache.block_count == node.ledger.cache.cemented_count;
-	return (!disabled_confirmation_mode && bootstrap_weight_reached && !conf_height_capacity_reached && !all_cemented);
+	return (!disabled_confirmation_mode && (bootstrap_weight_reached || node.ledger.pruning) && !conf_height_capacity_reached && !all_cemented);
 }
 
 void nano::active_transactions::request_loop ()
@@ -1485,7 +1483,7 @@ nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_
 				insert_impl (lock_a, block);
 			}
 		}
-		else if (!block && status.bootstrap_started && !previously_a.bootstrap_started)
+		else if (!block && status.bootstrap_started && !previously_a.bootstrap_started && (!node.ledger.pruning || !node.store.pruned_exists (transaction, hash_a)))
 		{
 			node.gap_cache.bootstrap_start (hash_a);
 		}
