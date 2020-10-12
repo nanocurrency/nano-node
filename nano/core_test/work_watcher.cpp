@@ -211,16 +211,15 @@ TEST (work_watcher, cancel)
 	node.work.cancel (block1->root ());
 	ASSERT_EQ (0, node.work.size ());
 	{
-		nano::unique_lock<std::mutex> lock (wallet.wallets.watcher->mutex);
-		auto existing (wallet.wallets.watcher->watched.find (block1->qualified_root ()));
-		ASSERT_NE (wallet.wallets.watcher->watched.end (), existing);
+		auto watched = wallet.wallets.watcher->list_watched ();
+		auto existing = watched.find (block1->qualified_root ());
+		ASSERT_NE (watched.end (), existing);
 		auto block2 (existing->second);
 		// Block must be the same
 		ASSERT_NE (nullptr, block1);
 		ASSERT_NE (nullptr, block2);
 		ASSERT_EQ (*block1, *block2);
 		// but should still be under watch
-		lock.unlock ();
 		ASSERT_TRUE (wallet.wallets.watcher->is_watched (block1->qualified_root ()));
 	}
 }
@@ -275,7 +274,7 @@ TEST (work_watcher, list_watched)
 	nano::system system;
 	nano::node_config config (nano::get_available_port (), system.logging);
 	config.enable_voting = false;
-	auto & node = *system.add_node (config);
+	system.add_node (config);
 	auto & wallet = *system.wallet (0);
 	nano::keypair key;
 	wallet.insert_adhoc (nano::dev_genesis_key.prv);
@@ -283,16 +282,16 @@ TEST (work_watcher, list_watched)
 	auto const block1 (wallet.send_action (nano::dev_genesis_key.pub, key.pub, 100));
 	auto watched1 = wallet.wallets.watcher->list_watched ();
 	ASSERT_EQ (1, watched1.size ());
-	ASSERT_EQ (block1->qualified_root (), watched1.front ());
+	ASSERT_NE (watched1.end (), watched1.find (block1->qualified_root ()));
 	auto const block2 (wallet.send_action (nano::dev_genesis_key.pub, key.pub, 100));
 	auto watched2 = wallet.wallets.watcher->list_watched ();
 	ASSERT_EQ (2, watched2.size ());
-	ASSERT_EQ (1, std::count (watched2.cbegin (), watched2.cend (), block1->qualified_root ()));
-	ASSERT_EQ (1, std::count (watched2.cbegin (), watched2.cend (), block2->qualified_root ()));
+	ASSERT_NE (watched2.end (), watched2.find (block1->qualified_root ()));
+	ASSERT_NE (watched2.end (), watched2.find (block2->qualified_root ()));
 	wallet.wallets.watcher->remove (*block1);
 	auto watched3 = wallet.wallets.watcher->list_watched ();
 	ASSERT_EQ (1, watched3.size ());
-	ASSERT_EQ (block2->qualified_root (), watched3.front ());
+	ASSERT_NE (watched3.end (), watched3.find (block2->qualified_root ()));
 	wallet.wallets.watcher->remove (*block2);
 	auto watched4 = wallet.wallets.watcher->list_watched ();
 	ASSERT_TRUE (watched4.empty ());

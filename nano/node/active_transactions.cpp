@@ -295,7 +295,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	nano::timer<std::chrono::milliseconds> elapsed (nano::timer_state::started);
 
 	auto const is_watched = [watched = node.wallets.watcher->list_watched ()](nano::qualified_root const & root_a) -> bool {
-		return std::find (watched.cbegin (), watched.cend (), root_a) != watched.cend ();
+		return watched.find (root_a) != watched.end ();
 	};
 
 	/*
