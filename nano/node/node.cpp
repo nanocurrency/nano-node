@@ -640,7 +640,7 @@ void nano::node::start ()
 	long_inactivity_cleanup ();
 	network.start ();
 	add_initial_peers ();
-	if (!flags.disable_legacy_bootstrap)
+	if (!flags.disable_legacy_bootstrap && !flags.disable_ongoing_bootstrap)
 	{
 		ongoing_bootstrap ();
 	}
