@@ -1422,6 +1422,12 @@ bool nano::work_watcher::is_watched (nano::qualified_root const & root_a)
 	return exists != watched.end ();
 }
 
+auto nano::work_watcher::list_watched () -> decltype (watched)
+{
+	nano::lock_guard<std::mutex> guard (mutex);
+	return watched;
+}
+
 size_t nano::work_watcher::size ()
 {
 	nano::lock_guard<std::mutex> guard (mutex);
@@ -1951,7 +1957,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (wa
 
 	auto sizeof_item_element = sizeof (decltype (wallets.items)::value_type);
 	auto sizeof_actions_element = sizeof (decltype (wallets.actions)::value_type);
-	auto sizeof_watcher_element = sizeof (decltype (wallets.watcher->watched)::value_type);
+	auto sizeof_watcher_element = sizeof (decltype (wallets.watcher->list_watched ())::value_type);
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "items", items_count, sizeof_item_element }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "actions", actions_count, sizeof_actions_element }));
