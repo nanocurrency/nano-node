@@ -44,6 +44,7 @@ public:
 	bool upgrade_json (unsigned, nano::jsonconfig &);
 	bool ledger_logging () const;
 	bool ledger_duplicate_logging () const;
+	bool ledger_rollback_logging () const;
 	bool vote_logging () const;
 	bool election_fork_tally_logging () const;
 	bool election_expiration_tally_logging () const;
@@ -71,6 +72,7 @@ public:
 
 	bool ledger_logging_value{ false };
 	bool ledger_duplicate_logging_value{ false };
+	bool ledger_rollback_logging_value{ false };
 	bool vote_logging_value{ false };
 	bool election_fork_tally_logging_value{ false };
 	bool election_expiration_tally_logging_value{ false };
