@@ -148,6 +148,7 @@ nano::error nano::logging::serialize_toml (nano::tomlconfig & toml) const
 {
 	toml.put ("ledger", ledger_logging_value, "Log ledger related messages.\ntype:bool");
 	toml.put ("ledger_duplicate", ledger_duplicate_logging_value, "Log when a duplicate block is attempted inserted into the ledger.\ntype:bool");
+	toml.put ("ledger_rollback", election_fork_tally_logging_value, "Log when a block is replaced in the ledger.\ntype:bool");
 	toml.put ("vote", vote_logging_value, "Vote logging. Enabling this option leads to a high volume.\nof log messages which may affect node performance.\ntype:bool");
 	toml.put ("election_expiration", election_expiration_tally_logging_value, "Log election tally on expiration.\ntype:bool");
 	toml.put ("election_fork", election_fork_tally_logging_value, "Log election tally when more than one block is seen.\ntype:bool");
@@ -183,6 +184,7 @@ nano::error nano::logging::deserialize_toml (nano::tomlconfig & toml)
 {
 	toml.get<bool> ("ledger", ledger_logging_value);
 	toml.get<bool> ("ledger_duplicate", ledger_duplicate_logging_value);
+	toml.get<bool> ("ledger_rollback", ledger_rollback_logging_value);
 	toml.get<bool> ("vote", vote_logging_value);
 	toml.get<bool> ("election_expiration", election_expiration_tally_logging_value);
 	toml.get<bool> ("election_fork", election_fork_tally_logging_value);
@@ -311,6 +313,11 @@ bool nano::logging::ledger_logging () const
 bool nano::logging::ledger_duplicate_logging () const
 {
 	return ledger_logging () && ledger_duplicate_logging_value;
+}
+
+bool nano::logging::ledger_rollback_logging () const
+{
+	return ledger_rollback_logging_value;
 }
 
 bool nano::logging::vote_logging () const
