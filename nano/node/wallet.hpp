@@ -164,6 +164,8 @@ public:
 
 class work_watcher final : public std::enable_shared_from_this<nano::work_watcher>
 {
+	std::unordered_map<nano::qualified_root, std::shared_ptr<nano::state_block>> watched;
+
 public:
 	work_watcher (nano::node &);
 	~work_watcher ();
@@ -173,10 +175,12 @@ public:
 	void watching (nano::qualified_root const &, std::shared_ptr<nano::state_block>);
 	void remove (nano::block const &);
 	bool is_watched (nano::qualified_root const &);
+	decltype (watched) list_watched ();
 	size_t size ();
+
+private:
 	std::mutex mutex;
 	nano::node & node;
-	std::unordered_map<nano::qualified_root, std::shared_ptr<nano::state_block>> watched;
 	std::atomic<bool> stopped;
 };
 
