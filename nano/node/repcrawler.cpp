@@ -39,46 +39,49 @@ void nano::rep_crawler::validate ()
 		auto & vote = i.second;
 		auto & channel = i.first;
 		debug_assert (channel != nullptr);
-		nano::uint128_t rep_weight = node.ledger.weight (vote->account);
-		if (rep_weight > minimum && channel->get_type () != nano::transport::transport_type::loopback)
+		if (channel->get_type () != nano::transport::transport_type::loopback)
 		{
-			auto updated_or_inserted = false;
-			nano::unique_lock<std::mutex> lock (probable_reps_mutex);
-			auto existing (probable_reps.find (vote->account));
-			if (existing != probable_reps.end ())
+			nano::uint128_t rep_weight = node.ledger.weight (vote->account);
+			if (rep_weight > minimum)
 			{
-				probable_reps.modify (existing, [rep_weight, &updated_or_inserted, &vote, &channel](nano::representative & info) {
-					info.last_response = std::chrono::steady_clock::now ();
+				auto updated_or_inserted = false;
+				nano::unique_lock<std::mutex> lock (probable_reps_mutex);
+				auto existing (probable_reps.find (vote->account));
+				if (existing != probable_reps.end ())
+				{
+					probable_reps.modify (existing, [rep_weight, &updated_or_inserted, &vote, &channel](nano::representative & info) {
+						info.last_response = std::chrono::steady_clock::now ();
 
-					// Update if representative channel was changed
-					if (info.channel->get_endpoint () != channel->get_endpoint ())
-					{
-						debug_assert (info.account == vote->account);
-						updated_or_inserted = true;
-						info.weight = rep_weight;
-						info.channel = channel;
-					}
-				});
+						// Update if representative channel was changed
+						if (info.channel->get_endpoint () != channel->get_endpoint ())
+						{
+							debug_assert (info.account == vote->account);
+							updated_or_inserted = true;
+							info.weight = rep_weight;
+							info.channel = channel;
+						}
+					});
+				}
+				else
+				{
+					probable_reps.emplace (nano::representative (vote->account, rep_weight, channel));
+					updated_or_inserted = true;
+				}
+				lock.unlock ();
+				if (updated_or_inserted)
+				{
+					node.logger.try_log (boost::str (boost::format ("Found a representative at %1%") % channel->to_string ()));
+				}
 			}
-			else
+			// This tries to assist rep nodes that have lost track of their highest sequence number by replaying our highest known vote back to them
+			// Only do this if the sequence number is significantly different to account for network reordering
+			// Amplify attack considerations: We're sending out a confirm_ack in response to a confirm_ack for no net traffic increase
+			auto max_vote (node.store.vote_max (transaction, vote));
+			if (max_vote->sequence > vote->sequence + 10000)
 			{
-				probable_reps.emplace (nano::representative (vote->account, rep_weight, channel));
-				updated_or_inserted = true;
+				nano::confirm_ack confirm (max_vote);
+				channel->send (confirm); // this is non essential traffic as it will be resolicited if not received
 			}
-			lock.unlock ();
-			if (updated_or_inserted)
-			{
-				node.logger.try_log (boost::str (boost::format ("Found a representative at %1%") % channel->to_string ()));
-			}
-		}
-		// This tries to assist rep nodes that have lost track of their highest sequence number by replaying our highest known vote back to them
-		// Only do this if the sequence number is significantly different to account for network reordering
-		// Amplify attack considerations: We're sending out a confirm_ack in response to a confirm_ack for no net traffic increase
-		auto max_vote (node.store.vote_max (transaction, vote));
-		if (max_vote->sequence > vote->sequence + 10000)
-		{
-			nano::confirm_ack confirm (max_vote);
-			channel->send (confirm); // this is non essential traffic as it will be resolicited if not received
 		}
 	}
 }
