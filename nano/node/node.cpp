@@ -1032,8 +1032,7 @@ bool nano::node::collect_ledger_pruning_targets (std::deque<nano::block_hash> & 
 			}
 			if (++depth % batch_read_size_a == 0)
 			{
-				transaction.reset ();
-				transaction.renew ();
+				transaction.refresh ();
 			}
 		}
 		if (!hash.is_zero ())
