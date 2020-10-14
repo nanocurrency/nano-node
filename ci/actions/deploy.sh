@@ -7,6 +7,8 @@ OS=`uname`
 
 if [[ "${BETA-0}" -eq 1 ]]; then
     BUILD="beta"
+elif [[ "${test_network-0}" -eq 1 ]]; then
+    BUILD="test"
 else
     BUILD="live"
 fi
