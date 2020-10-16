@@ -82,7 +82,7 @@ bool nano::block_processor::half_full ()
 	return size () >= node.flags.block_processor_full_size / 2;
 }
 
-void nano::block_processor::add (std::shared_ptr<nano::block> block_a, uint64_t origination)
+void nano::block_processor::add (std::shared_ptr<nano::block> const & block_a, uint64_t origination)
 {
 	nano::unchecked_info info (block_a, 0, origination, nano::signature_verification::unknown);
 	add (info);
@@ -117,7 +117,7 @@ void nano::block_processor::add (nano::unchecked_info const & info_a, const bool
 	}
 }
 
-void nano::block_processor::force (std::shared_ptr<nano::block> block_a)
+void nano::block_processor::force (std::shared_ptr<nano::block> const & block_a)
 {
 	{
 		nano::lock_guard<std::mutex> lock (mutex);
@@ -289,7 +289,7 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 	}
 }
 
-void nano::block_processor::process_live (nano::block_hash const & hash_a, std::shared_ptr<nano::block> block_a, nano::process_return const & process_return_a, const bool watch_work_a, nano::block_origin const origin_a)
+void nano::block_processor::process_live (nano::block_hash const & hash_a, std::shared_ptr<nano::block> const & block_a, nano::process_return const & process_return_a, const bool watch_work_a, nano::block_origin const origin_a)
 {
 	// Add to work watcher to prevent dropping the election
 	if (watch_work_a)
@@ -469,7 +469,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 	return result;
 }
 
-nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, block_post_events & events_a, std::shared_ptr<nano::block> block_a, const bool watch_work_a)
+nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, block_post_events & events_a, std::shared_ptr<nano::block> const & block_a, const bool watch_work_a)
 {
 	nano::unchecked_info info (block_a, block_a->account (), 0, nano::signature_verification::unknown);
 	auto result (process_one (transaction_a, events_a, info, watch_work_a));
