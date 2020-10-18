@@ -995,7 +995,7 @@ bool nano::active_transactions::update_difficulty_impl (nano::active_transaction
 	return error;
 }
 
-bool nano::active_transactions::restart (std::shared_ptr<nano::block> const & block_a, nano::write_transaction const & transaction_a)
+bool nano::active_transactions::restart (nano::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a)
 {
 	// Only guaranteed to restart the election if the new block is received within 2 minutes of its election being dropped
 	constexpr std::chrono::minutes recently_dropped_cutoff{ 2 };
@@ -1012,9 +1012,8 @@ bool nano::active_transactions::restart (std::shared_ptr<nano::block> const & bl
 				// The existing block is re-written, not the arriving block, as that one might not have gone through a full signature check
 				ledger_block->block_work_set (block_a->block_work ());
 
-				auto block_count = node.ledger.cache.block_count.load ();
-				node.store.block_put (transaction_a, hash, *ledger_block);
-				debug_assert (node.ledger.cache.block_count.load () == block_count);
+				// Queue for writing in the block processor to avoid opening a new write transaction for a single operation
+				node.block_processor.update (ledger_block);
 
 				// Restart election for the upgraded block, previously dropped from elections
 				auto previous_balance = node.ledger.balance (transaction_a, ledger_block->previous ());

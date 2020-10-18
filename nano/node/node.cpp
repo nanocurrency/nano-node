@@ -534,7 +534,7 @@ bool nano::node::copy_with_compaction (boost::filesystem::path const & destinati
 	return store.copy_db (destination);
 }
 
-void nano::node::process_fork (nano::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a, uint64_t modified_a)
+void nano::node::process_fork (nano::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a, uint64_t const modified_a)
 {
 	auto root (block_a->root ());
 	if (!store.block_exists (transaction_a, block_a->hash ()) && store.root_exists (transaction_a, block_a->root ()))
@@ -630,9 +630,9 @@ nano::process_return nano::node::process_local (std::shared_ptr<nano::block> con
 	// Notify block processor to release write lock
 	block_processor.wait_write ();
 	// Process block
-	block_post_events events;
+	block_post_events post_events ([& store = store] { return store.tx_begin_read (); });
 	auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending }, { tables::confirmation_height }));
-	return block_processor.process_one (transaction, events, info, work_watcher_a, nano::block_origin::local);
+	return block_processor.process_one (transaction, post_events, info, work_watcher_a, nano::block_origin::local);
 }
 
 void nano::node::start ()
