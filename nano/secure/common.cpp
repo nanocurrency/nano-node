@@ -462,6 +462,7 @@ void nano::vote::serialize_json (boost::property_tree::ptree & tree) const
 {
 	tree.put ("account", account.to_account ());
 	tree.put ("signature", signature.number ());
+	tree.put ("sequence", std::to_string (timestamp));
 	tree.put ("timestamp", std::to_string (timestamp));
 	boost::property_tree::ptree blocks_tree;
 	for (auto block : blocks)
