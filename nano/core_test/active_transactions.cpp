@@ -1180,8 +1180,6 @@ TEST (active_transactions, restart_dropped)
 	node.block_processor.flush ();
 	ASSERT_EQ (0, node.active.size ());
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::election_restart));
-	// Verify the block was not updated in the ledger
-	ASSERT_EQ (*node.store.block_get (node.store.tx_begin_read (), send->hash ()), *send);
 	// Generate even higher difficulty work
 	ASSERT_TRUE (node.work_generate_blocking (*send, send->difficulty () + 1).is_initialized ());
 	// Add voting
@@ -1195,6 +1193,8 @@ TEST (active_transactions, restart_dropped)
 	ASSERT_EQ (2, node.stats.count (nano::stat::type::election, nano::stat::detail::election_restart));
 	// Wait for the election to complete
 	ASSERT_TIMELY (5s, node.ledger.cache.cemented_count == 2);
+	// Verify the block is eventually updated in the ledger
+	ASSERT_TIMELY (3s, node.store.block_get (node.store.tx_begin_read (), send->hash ())->block_work () == send->block_work ());
 }
 
 // Ensures votes are tallied on election::publish even if no vote is inserted through inactive_votes_cache
