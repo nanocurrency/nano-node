@@ -120,6 +120,7 @@ enum class error_rpc
 	payment_account_balance,
 	payment_unable_create_account,
 	peer_not_found,
+	pruning_disabled,
 	requires_port_and_address,
 	rpc_control_disabled,
 	sign_hash_disabled,
