@@ -1442,12 +1442,11 @@ TEST (confirmation_height, pruned_source)
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send3).code);
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *open2).code);
 	}
-	auto block_hash_being_processed (open2->hash ());
 	uint64_t batch_write_size = 2;
 	std::atomic<bool> stopped{ false };
 	bool first_time{ true };
 	nano::confirmation_height_bounded bounded_processor (
-	ledger, write_database_queue, 10ms, logging, logger, stopped, block_hash_being_processed, batch_write_size, [&](auto const & cemented_blocks_a) {
+	ledger, write_database_queue, 10ms, logging, logger, stopped, open2, batch_write_size, [&](auto const & cemented_blocks_a) {
 		if (first_time)
 		{
 			// Prune the send
