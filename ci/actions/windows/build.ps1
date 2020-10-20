@@ -6,7 +6,7 @@ if (${env:artifact} -eq 1) {
         $env:NETWORK_CFG = "beta"
         $env:BUILD_TYPE = "RelWithDebInfo"
     }
-    elseif(${env:test_network} -eq 1) {
+    elseif(${env:TEST} -eq 1) {
         $env:NETWORK_CFG= "test"
     }
     else {

@@ -6,7 +6,7 @@ on:
       - '*DB*'
 env:
   artifact: 1
-  test_network: 1
+  TEST: 1
 
 jobs:
   osx_job:
@@ -43,7 +43,7 @@ jobs:
       - name: Fetch Deps
         run: ci/actions/linux/install_deps.sh
       - name: Build Artifact
-        run: docker run -e test_network -v ${GITHUB_WORKSPACE}:/workspace nanocurrency/nano-env:gcc /bin/bash -c "cd /workspace && TRAVIS_TAG=${TAG} ci/build-deploy.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 ${PWD}"
+        run: docker run -e TEST -v ${GITHUB_WORKSPACE}:/workspace nanocurrency/nano-env:gcc /bin/bash -c "cd /workspace && TRAVIS_TAG=${TAG} ci/build-deploy.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 ${PWD}"
       - name: Deploy Artifact
         run: ci/actions/deploy.sh
         env:
