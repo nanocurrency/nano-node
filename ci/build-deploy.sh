@@ -10,13 +10,15 @@ OS=`uname`
 
 mkdir build
 pushd build
+CONFIGURATION="Release"
 
 if [[ "${BETA:-0}" -eq 1 ]]; then
     NETWORK_CFG="beta"
     CONFIGURATION="RelWithDebInfo"
+elif [[ "${TEST:-0}" -eq 1 ]]; then
+    NETWORK_CFG="test"
 else
     NETWORK_CFG="live"
-    CONFIGURATION="Release"
 fi
 
 cmake \
