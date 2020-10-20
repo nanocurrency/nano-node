@@ -110,11 +110,11 @@ public:
 	std::shared_ptr<nano::node> shared ();
 	int store_version ();
 	void receive_confirmed (nano::transaction const & wallet_transaction_a, nano::transaction const & block_transaction_a, nano::block_hash const & hash_a, nano::account const & destination_a);
-	void process_confirmed_data (nano::transaction const &, std::shared_ptr<nano::block>, nano::block_hash const &, nano::account &, nano::uint128_t &, bool &, nano::account &);
+	void process_confirmed_data (nano::transaction const &, std::shared_ptr<nano::block> const &, nano::block_hash const &, nano::account &, nano::uint128_t &, bool &, nano::account &);
 	void process_confirmed (nano::election_status const &, uint64_t = 0);
-	void process_active (std::shared_ptr<nano::block>);
+	void process_active (std::shared_ptr<nano::block> const &);
 	nano::process_return process (nano::block &);
-	nano::process_return process_local (std::shared_ptr<nano::block>, bool const = false);
+	nano::process_return process_local (std::shared_ptr<nano::block> const &, bool const = false);
 	void keepalive_preconfigured (std::vector<std::string> const &);
 	nano::block_hash latest (nano::account const &);
 	nano::uint128_t balance (nano::account const &);
@@ -145,10 +145,10 @@ public:
 	boost::optional<uint64_t> work_generate_blocking (nano::work_version const, nano::root const &, uint64_t, boost::optional<nano::account> const & = boost::none);
 	void work_generate (nano::work_version const, nano::root const &, uint64_t, std::function<void(boost::optional<uint64_t>)>, boost::optional<nano::account> const & = boost::none, bool const = false);
 	void add_initial_peers ();
-	void block_confirm (std::shared_ptr<nano::block>);
+	void block_confirm (std::shared_ptr<nano::block> const &);
 	bool block_confirmed (nano::block_hash const &);
 	bool block_confirmed_or_being_confirmed (nano::transaction const &, nano::block_hash const &);
-	void process_fork (nano::transaction const &, std::shared_ptr<nano::block>, uint64_t);
+	void process_fork (nano::transaction const &, std::shared_ptr<nano::block> const &, uint64_t);
 	void do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, std::string const &, uint16_t, std::shared_ptr<std::string>, std::shared_ptr<std::string>, std::shared_ptr<boost::asio::ip::tcp::resolver>);
 	nano::uint128_t delta () const;
 	void ongoing_online_weight_calculation ();
