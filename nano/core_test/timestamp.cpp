@@ -50,7 +50,7 @@ TEST (timestamp, count)
 TEST (timestamp, parallel)
 {
 	auto constexpr thread_count = 100;
-	auto constexpr iteration_count = 1000;
+	auto iteration_count = 1000;
 	std::mutex mutex;
 	std::unordered_set<uint64_t> timestamps;
 	timestamps.reserve (thread_count * iteration_count);
@@ -58,7 +58,7 @@ TEST (timestamp, parallel)
 	std::vector<std::thread> threads;
 	for (auto i = 0; i < thread_count; ++i)
 	{
-		threads.emplace_back ([&timestamps, &generator, &mutex]() {
+		threads.emplace_back ([&timestamps, &generator, &mutex, &iteration_count]() {
 			for (auto i = 0; i < iteration_count; ++i)
 			{
 				auto stamp = generator.now ();
