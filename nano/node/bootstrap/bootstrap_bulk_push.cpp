@@ -77,7 +77,7 @@ void nano::bulk_push_client::send_finished ()
 {
 	nano::shared_const_buffer buffer (static_cast<uint8_t> (nano::block_type::not_a_block));
 	auto this_l (shared_from_this ());
-	connection->channel->send_buffer (buffer, nano::stat::detail::all, [this_l](boost::system::error_code const & ec, size_t size_a) {
+	connection->channel->send_buffer (buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		try
 		{
 			this_l->promise.set_value (false);
@@ -96,7 +96,7 @@ void nano::bulk_push_client::push_block (nano::block const & block_a)
 		nano::serialize_block (stream, block_a);
 	}
 	auto this_l (shared_from_this ());
-	connection->channel->send_buffer (nano::shared_const_buffer (std::move (buffer)), nano::stat::detail::all, [this_l](boost::system::error_code const & ec, size_t size_a) {
+	connection->channel->send_buffer (nano::shared_const_buffer (std::move (buffer)), [this_l](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{
 			this_l->push ();

@@ -166,6 +166,8 @@ template <class T>
 class locked
 {
 public:
+	using value_type = T;
+
 	template <typename... Args>
 	locked (Args &&... args) :
 	obj (std::forward<Args> (args)...)

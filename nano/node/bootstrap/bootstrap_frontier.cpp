@@ -53,24 +53,21 @@ nano::frontier_req_client::~frontier_req_client ()
 void nano::frontier_req_client::receive_frontier ()
 {
 	auto this_l (shared_from_this ());
-	if (auto socket_l = connection->channel->socket.lock ())
-	{
-		socket_l->async_read (connection->receive_buffer, nano::frontier_req_client::size_frontier, [this_l](boost::system::error_code const & ec, size_t size_a) {
-			// An issue with asio is that sometimes, instead of reporting a bad file descriptor during disconnect,
-			// we simply get a size of 0.
-			if (size_a == nano::frontier_req_client::size_frontier)
+	connection->socket->async_read (connection->receive_buffer, nano::frontier_req_client::size_frontier, [this_l](boost::system::error_code const & ec, size_t size_a) {
+		// An issue with asio is that sometimes, instead of reporting a bad file descriptor during disconnect,
+		// we simply get a size of 0.
+		if (size_a == nano::frontier_req_client::size_frontier)
+		{
+			this_l->received_frontier (ec, size_a);
+		}
+		else
+		{
+			if (this_l->connection->node->config.logging.network_message_logging ())
 			{
-				this_l->received_frontier (ec, size_a);
+				this_l->connection->node->logger.try_log (boost::str (boost::format ("Invalid size: expected %1%, got %2%") % nano::frontier_req_client::size_frontier % size_a));
 			}
-			else
-			{
-				if (this_l->connection->node->config.logging.network_message_logging ())
-				{
-					this_l->connection->node->logger.try_log (boost::str (boost::format ("Invalid size: expected %1%, got %2%") % nano::frontier_req_client::size_frontier % size_a));
-				}
-			}
-		});
-	}
+		}
+	});
 }
 
 void nano::frontier_req_client::unsynced (nano::block_hash const & head, nano::block_hash const & end)
@@ -141,7 +138,7 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 					}
 					else
 					{
-						if (connection->node->ledger.block_exists (latest))
+						if (connection->node->ledger.block_or_pruned_exists (latest))
 						{
 							// We know about a block they don't.
 							unsynced (frontier, latest);
@@ -208,13 +205,13 @@ void nano::frontier_req_client::next ()
 	{
 		size_t max_size (128);
 		auto transaction (connection->node->store.tx_begin_read ());
-		for (auto i (connection->node->store.latest_begin (transaction, current.number () + 1)), n (connection->node->store.latest_end ()); i != n && accounts.size () != max_size; ++i)
+		for (auto i (connection->node->store.accounts_begin (transaction, current.number () + 1)), n (connection->node->store.accounts_end ()); i != n && accounts.size () != max_size; ++i)
 		{
 			nano::account_info const & info (i->second);
 			nano::account const & account (i->first);
 			accounts.emplace_back (account, info.head);
 		}
-		/* If loop breaks before max_size, then latest_end () is reached
+		/* If loop breaks before max_size, then accounts_end () is reached
 		Add empty record to finish frontier_req_server */
 		if (accounts.size () != max_size)
 		{
@@ -323,7 +320,7 @@ void nano::frontier_req_server::next ()
 		bool skip_old (request->age != std::numeric_limits<decltype (request->age)>::max ());
 		size_t max_size (128);
 		auto transaction (connection->node->store.tx_begin_read ());
-		for (auto i (connection->node->store.latest_begin (transaction, current.number () + 1)), n (connection->node->store.latest_end ()); i != n && accounts.size () != max_size; ++i)
+		for (auto i (connection->node->store.accounts_begin (transaction, current.number () + 1)), n (connection->node->store.accounts_end ()); i != n && accounts.size () != max_size; ++i)
 		{
 			nano::account_info const & info (i->second);
 			if (!skip_old || (now - info.modified) <= request->age)
@@ -332,7 +329,7 @@ void nano::frontier_req_server::next ()
 				accounts.emplace_back (account, info.head);
 			}
 		}
-		/* If loop breaks before max_size, then latest_end () is reached
+		/* If loop breaks before max_size, then accounts_end () is reached
 		Add empty record to finish frontier_req_server */
 		if (accounts.size () != max_size)
 		{

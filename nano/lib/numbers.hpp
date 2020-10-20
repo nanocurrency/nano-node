@@ -147,8 +147,9 @@ public:
 	bool decode_account (std::string const &);
 	std::string to_account () const;
 
-	operator nano::block_hash const & () const;
-	operator nano::account const & () const;
+	nano::account const & as_account () const;
+	nano::block_hash const & as_block_hash () const;
+
 	operator nano::uint256_union const & () const;
 
 	bool operator== (nano::hash_or_account const &) const;
