@@ -507,7 +507,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	map_size = 999
 
 	[node.rocksdb]
-	enable = true
+	enable = false
 	memory_multiplier = 3
 	io_threads = 99
 
