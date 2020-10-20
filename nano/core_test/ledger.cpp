@@ -831,7 +831,7 @@ TEST (votes, add_two)
 
 namespace nano
 {
-// Higher sequence numbers change the vote
+// Higher timestamps change the vote
 TEST (votes, add_existing)
 {
 	nano::system system;
@@ -852,7 +852,7 @@ TEST (votes, add_existing)
 	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote1));
 	// Block is already processed from vote
 	ASSERT_TRUE (node1.active.publish (send1));
-	ASSERT_EQ (1, election1.election->votes ()[nano::dev_genesis_key.pub].sequence);
+	ASSERT_EQ (1, election1.election->last_votes[nano::dev_genesis_key.pub].timestamp);
 	nano::keypair key2;
 	auto send2 (std::make_shared<nano::send_block> (genesis.hash (), key2.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send2);
@@ -863,13 +863,13 @@ TEST (votes, add_existing)
 	lock.unlock ();
 	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote2));
 	ASSERT_FALSE (node1.active.publish (send2));
-	ASSERT_EQ (2, election1.election->votes ()[nano::dev_genesis_key.pub].sequence);
-	// Also resend the old vote, and see if we respect the sequence number
+	ASSERT_EQ (2, election1.election->last_votes[nano::dev_genesis_key.pub].timestamp);
+	// Also resend the old vote, and see if we respect the timestamp
 	lock.lock ();
 	election1.election->last_votes[nano::dev_genesis_key.pub].time = std::chrono::steady_clock::now () - std::chrono::seconds (20);
 	lock.unlock ();
 	ASSERT_EQ (nano::vote_code::replay, node1.active.vote (vote1));
-	ASSERT_EQ (2, election1.election->votes ()[nano::dev_genesis_key.pub].sequence);
+	ASSERT_EQ (2, election1.election->votes ()[nano::dev_genesis_key.pub].timestamp);
 	auto votes (election1.election->votes ());
 	ASSERT_EQ (2, votes.size ());
 	ASSERT_NE (votes.end (), votes.find (nano::dev_genesis_key.pub));
@@ -878,7 +878,7 @@ TEST (votes, add_existing)
 	ASSERT_EQ (*send2, *election1.election->tally ().begin ()->second);
 }
 
-// Lower sequence numbers are ignored
+// Lower timestamps are ignored
 TEST (votes, add_old)
 {
 	nano::system system (1);
@@ -910,7 +910,7 @@ TEST (votes, add_old)
 }
 }
 
-// Lower sequence numbers are accepted for different accounts
+// Lower timestamps are accepted for different accounts
 TEST (votes, add_old_different_account)
 {
 	nano::system system (1);

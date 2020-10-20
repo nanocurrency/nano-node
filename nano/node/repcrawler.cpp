@@ -32,7 +32,6 @@ void nano::rep_crawler::validate ()
 		nano::lock_guard<std::mutex> lock (active_mutex);
 		responses_l.swap (responses);
 	}
-	auto transaction (node.store.tx_begin_read ());
 	auto minimum = node.minimum_principal_weight ();
 	for (auto const & i : responses_l)
 	{
@@ -72,15 +71,6 @@ void nano::rep_crawler::validate ()
 				{
 					node.logger.try_log (boost::str (boost::format ("Found a representative at %1%") % channel->to_string ()));
 				}
-			}
-			// This tries to assist rep nodes that have lost track of their highest sequence number by replaying our highest known vote back to them
-			// Only do this if the sequence number is significantly different to account for network reordering
-			// Amplify attack considerations: We're sending out a confirm_ack in response to a confirm_ack for no net traffic increase
-			auto max_vote (node.store.vote_max (transaction, vote));
-			if (max_vote->sequence > vote->sequence + 10000)
-			{
-				nano::confirm_ack confirm (max_vote);
-				channel->send (confirm); // this is non essential traffic as it will be resolicited if not received
 			}
 		}
 	}
