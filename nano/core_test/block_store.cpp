@@ -497,7 +497,6 @@ TEST (block_store, one_bootstrap)
 	auto block1 (std::make_shared<nano::send_block> (0, 1, 2, nano::keypair ().prv, 4, 5));
 	auto transaction (store->tx_begin_write ());
 	store->unchecked_put (transaction, block1->hash (), block1);
-	store->flush (transaction);
 	auto begin (store->unchecked_begin (transaction));
 	auto end (store->unchecked_end ());
 	ASSERT_NE (end, begin);
@@ -876,53 +875,6 @@ TEST (block_store, cemented_count_cache)
 	ASSERT_EQ (1, ledger_cache.cemented_count);
 }
 
-TEST (block_store, pruned_count)
-{
-	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
-	ASSERT_TRUE (!store->init_error ());
-	{
-		auto transaction (store->tx_begin_write ());
-		nano::open_block block (0, 1, 0, nano::keypair ().prv, 0, 0);
-		block.sideband_set ({});
-		auto hash1 (block.hash ());
-		store->block_put (transaction, hash1, block);
-		store->pruned_put (transaction, hash1);
-	}
-	auto transaction (store->tx_begin_read ());
-	ASSERT_EQ (1, store->pruned_count (transaction));
-	ASSERT_EQ (1, store->block_count (transaction));
-}
-
-TEST (block_store, sequence_increment)
-{
-	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
-	ASSERT_TRUE (!store->init_error ());
-	nano::keypair key1;
-	nano::keypair key2;
-	auto block1 (std::make_shared<nano::open_block> (0, 1, 0, nano::keypair ().prv, 0, 0));
-	auto transaction (store->tx_begin_write ());
-	auto vote1 (store->vote_generate (transaction, key1.pub, key1.prv, block1));
-	ASSERT_EQ (1, vote1->sequence);
-	auto vote2 (store->vote_generate (transaction, key1.pub, key1.prv, block1));
-	ASSERT_EQ (2, vote2->sequence);
-	auto vote3 (store->vote_generate (transaction, key2.pub, key2.prv, block1));
-	ASSERT_EQ (1, vote3->sequence);
-	auto vote4 (store->vote_generate (transaction, key2.pub, key2.prv, block1));
-	ASSERT_EQ (2, vote4->sequence);
-	vote1->sequence = 20;
-	auto seq5 (store->vote_max (transaction, vote1));
-	ASSERT_EQ (20, seq5->sequence);
-	vote3->sequence = 30;
-	auto seq6 (store->vote_max (transaction, vote3));
-	ASSERT_EQ (30, seq6->sequence);
-	auto vote5 (store->vote_generate (transaction, key1.pub, key1.prv, block1));
-	ASSERT_EQ (21, vote5->sequence);
-	auto vote6 (store->vote_generate (transaction, key2.pub, key2.prv, block1));
-	ASSERT_EQ (31, vote6->sequence);
-}
-
 TEST (block_store, block_random)
 {
 	nano::logger_mt logger;
@@ -974,7 +926,6 @@ TEST (block_store, DISABLED_change_dupsort) // Unchecked is no longer dupsort ta
 	ASSERT_NE (send1->hash (), send2->hash ());
 	store.unchecked_put (transaction, send1->hash (), send1);
 	store.unchecked_put (transaction, send1->hash (), send2);
-	store.flush (transaction);
 	{
 		auto iterator1 (store.unchecked_begin (transaction));
 		++iterator1;
@@ -985,7 +936,6 @@ TEST (block_store, DISABLED_change_dupsort) // Unchecked is no longer dupsort ta
 	ASSERT_EQ (0, mdb_dbi_open (store.env.tx (transaction), "unchecked", MDB_CREATE | MDB_DUPSORT, &store.unchecked));
 	store.unchecked_put (transaction, send1->hash (), send1);
 	store.unchecked_put (transaction, send1->hash (), send2);
-	store.flush (transaction);
 	{
 		auto iterator1 (store.unchecked_begin (transaction));
 		++iterator1;
@@ -995,7 +945,6 @@ TEST (block_store, DISABLED_change_dupsort) // Unchecked is no longer dupsort ta
 	ASSERT_EQ (0, mdb_dbi_open (store.env.tx (transaction), "unchecked", MDB_CREATE | MDB_DUPSORT, &store.unchecked));
 	store.unchecked_put (transaction, send1->hash (), send1);
 	store.unchecked_put (transaction, send1->hash (), send2);
-	store.flush (transaction);
 	{
 		auto iterator1 (store.unchecked_begin (transaction));
 		++iterator1;
@@ -1003,43 +952,6 @@ TEST (block_store, DISABLED_change_dupsort) // Unchecked is no longer dupsort ta
 		++iterator1;
 		ASSERT_EQ (store.unchecked_end (), iterator1);
 	}
-}
-
-TEST (block_store, sequence_flush)
-{
-	auto path (nano::unique_path ());
-	nano::logger_mt logger;
-	auto store = nano::make_store (logger, path);
-	ASSERT_FALSE (store->init_error ());
-	auto transaction (store->tx_begin_write ());
-	nano::keypair key1;
-	auto send1 (std::make_shared<nano::send_block> (0, 0, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
-	auto vote1 (store->vote_generate (transaction, key1.pub, key1.prv, send1));
-	auto seq2 (store->vote_get (transaction, vote1->account));
-	ASSERT_EQ (nullptr, seq2);
-	store->flush (transaction);
-	auto seq3 (store->vote_get (transaction, vote1->account));
-	ASSERT_EQ (*seq3, *vote1);
-}
-
-TEST (block_store, sequence_flush_by_hash)
-{
-	auto path (nano::unique_path ());
-	nano::logger_mt logger;
-	auto store = nano::make_store (logger, path);
-	ASSERT_FALSE (store->init_error ());
-	auto transaction (store->tx_begin_write ());
-	nano::keypair key1;
-	std::vector<nano::block_hash> blocks1;
-	blocks1.push_back (nano::genesis_hash);
-	blocks1.push_back (1234);
-	blocks1.push_back (5678);
-	auto vote1 (store->vote_generate (transaction, key1.pub, key1.prv, blocks1));
-	auto seq2 (store->vote_get (transaction, vote1->account));
-	ASSERT_EQ (nullptr, seq2);
-	store->flush (transaction);
-	auto seq3 (store->vote_get (transaction, vote1->account));
-	ASSERT_EQ (*seq3, *vote1);
 }
 
 TEST (block_store, state_block)

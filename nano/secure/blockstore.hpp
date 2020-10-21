@@ -645,19 +645,6 @@ public:
 	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_end () const = 0;
 	virtual size_t unchecked_count (nano::transaction const &) = 0;
 
-	// Return latest vote for an account from store
-	virtual std::shared_ptr<nano::vote> vote_get (nano::transaction const &, nano::account const &) = 0;
-	// Populate vote with the next sequence number
-	virtual std::shared_ptr<nano::vote> vote_generate (nano::transaction const &, nano::account const &, nano::raw_key const &, std::shared_ptr<nano::block>) = 0;
-	virtual std::shared_ptr<nano::vote> vote_generate (nano::transaction const &, nano::account const &, nano::raw_key const &, std::vector<nano::block_hash>) = 0;
-	// Return either vote or the stored vote with a higher sequence number
-	virtual std::shared_ptr<nano::vote> vote_max (nano::transaction const &, std::shared_ptr<nano::vote>) = 0;
-	// Return latest vote for an account considering the vote cache
-	virtual std::shared_ptr<nano::vote> vote_current (nano::transaction const &, nano::account const &) = 0;
-	virtual void flush (nano::write_transaction const &) = 0;
-	virtual nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> vote_begin (nano::transaction const &) = 0;
-	virtual nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> vote_end () = 0;
-
 	virtual void online_weight_put (nano::write_transaction const &, uint64_t, nano::amount const &) = 0;
 	virtual void online_weight_del (nano::write_transaction const &, uint64_t) = 0;
 	virtual nano::store_iterator<uint64_t, nano::amount> online_weight_begin (nano::transaction const &) const = 0;
@@ -701,7 +688,6 @@ public:
 	virtual void pending_for_each_par (std::function<void(nano::read_transaction const &, nano::store_iterator<nano::pending_key, nano::pending_info>, nano::store_iterator<nano::pending_key, nano::pending_info>)> const &) = 0;
 
 	virtual uint64_t block_account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const = 0;
-	virtual std::mutex & get_cache_mutex () = 0;
 
 	virtual unsigned max_block_write_batch_num () const = 0;
 

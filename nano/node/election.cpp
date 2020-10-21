@@ -307,13 +307,13 @@ void nano::election::log_votes (nano::tally_t const & tally_a, std::string const
 	{
 		if (i->first != node.network_params.random.not_an_account)
 		{
-			tally << boost::str (boost::format ("%1%%2% %3% %4%") % line_end % i->first.to_account () % std::to_string (i->second.sequence) % i->second.hash.to_string ());
+			tally << boost::str (boost::format ("%1%%2% %3% %4%") % line_end % i->first.to_account () % std::to_string (i->second.timestamp) % i->second.hash.to_string ());
 		}
 	}
 	node.logger.try_log (tally.str ());
 }
 
-nano::election_vote_result nano::election::vote (nano::account rep, uint64_t sequence, nano::block_hash block_hash)
+nano::election_vote_result nano::election::vote (nano::account rep, uint64_t timestamp_a, nano::block_hash block_hash)
 {
 	// see republish_vote documentation for an explanation of these rules
 	auto replay (false);
@@ -343,7 +343,7 @@ nano::election_vote_result nano::election::vote (nano::account rep, uint64_t seq
 		else
 		{
 			auto last_vote_l (last_vote_it->second);
-			if (last_vote_l.sequence < sequence || (last_vote_l.sequence == sequence && last_vote_l.hash < block_hash))
+			if (last_vote_l.timestamp < timestamp_a || (last_vote_l.timestamp == timestamp_a && last_vote_l.hash < block_hash))
 			{
 				if (last_vote_l.time <= std::chrono::steady_clock::now () - std::chrono::seconds (cooldown))
 				{
@@ -358,7 +358,7 @@ nano::election_vote_result nano::election::vote (nano::account rep, uint64_t seq
 		if (should_process)
 		{
 			node.stats.inc (nano::stat::type::election, nano::stat::detail::vote_new);
-			last_votes[rep] = { std::chrono::steady_clock::now (), sequence, block_hash };
+			last_votes[rep] = { std::chrono::steady_clock::now (), timestamp_a, block_hash };
 			if (!confirmed ())
 			{
 				confirm_if_quorum ();

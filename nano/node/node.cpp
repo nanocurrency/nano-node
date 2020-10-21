@@ -651,7 +651,6 @@ void nano::node::start ()
 			this_l->ongoing_unchecked_cleanup ();
 		});
 	}
-	ongoing_store_flush ();
 	if (flags.enable_pruning)
 	{
 		auto this_l (shared ());
@@ -852,23 +851,6 @@ void nano::node::ongoing_bootstrap ()
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->ongoing_bootstrap ();
-		}
-	});
-}
-
-void nano::node::ongoing_store_flush ()
-{
-	{
-		auto transaction (store.tx_begin_write ({ tables::vote }));
-		store.flush (transaction);
-	}
-	std::weak_ptr<nano::node> node_w (shared_from_this ());
-	alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [node_w]() {
-		if (auto node_l = node_w.lock ())
-		{
-			node_l->worker.push_task ([node_l]() {
-				node_l->ongoing_store_flush ();
-			});
 		}
 	});
 }
