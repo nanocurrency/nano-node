@@ -38,5 +38,5 @@ WORKDIR /root
 USER root
 
 ENV PATH="${PATH}:/usr/bin"
-ENTRYPOINT ["/bin/bash",  "/usr/bin/entry.sh"]
-CMD ["nano_node daemon -l"]
+ENTRYPOINT ["/usr/bin/entry.sh"]
+CMD ["nano_node", "daemon", "-l"]

@@ -205,7 +205,8 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 				{
 					add_recently_cemented (election->status);
 					lk.unlock ();
-					node.receive_confirmed (node.wallets.tx_begin_read (), transaction, block_a, hash);
+					auto destination (block_a->link ().is_zero () ? block_a->destination () : block_a->link ().as_account ());
+					node.receive_confirmed (node.wallets.tx_begin_read (), transaction, hash, destination);
 					nano::account account (0);
 					nano::uint128_t amount (0);
 					bool is_state_send (false);
@@ -293,6 +294,10 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	size_t unconfirmed_count_l (0);
 	nano::timer<std::chrono::milliseconds> elapsed (nano::timer_state::started);
 
+	auto const is_watched = [watched = node.wallets.watcher->list_watched ()](nano::qualified_root const & root_a) -> bool {
+		return watched.find (root_a) != watched.end ();
+	};
+
 	/*
 	 * Loop through active elections in descending order of proof-of-work difficulty, requesting confirmation
 	 *
@@ -311,7 +316,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 		}
 
 		unconfirmed_count_l += !confirmed_l;
-		bool const overflow_l (unconfirmed_count_l > node.config.active_elections_size && election_l->election_start < election_ttl_cutoff_l && !node.wallets.watcher->is_watched (i->root));
+		bool const overflow_l (unconfirmed_count_l > node.config.active_elections_size && election_l->election_start < election_ttl_cutoff_l && !is_watched (i->root));
 		if (overflow_l || election_l->transition_time (solicitor))
 		{
 			if (election_l->optimistic () && election_l->failed ())
@@ -991,7 +996,7 @@ bool nano::active_transactions::update_difficulty_impl (nano::active_transaction
 	return error;
 }
 
-bool nano::active_transactions::restart (std::shared_ptr<nano::block> const & block_a, nano::write_transaction const & transaction_a)
+bool nano::active_transactions::restart (nano::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a)
 {
 	// Only guaranteed to restart the election if the new block is received within 2 minutes of its election being dropped
 	constexpr std::chrono::minutes recently_dropped_cutoff{ 2 };
@@ -1008,9 +1013,8 @@ bool nano::active_transactions::restart (std::shared_ptr<nano::block> const & bl
 				// The existing block is re-written, not the arriving block, as that one might not have gone through a full signature check
 				ledger_block->block_work_set (block_a->block_work ());
 
-				auto block_count = node.ledger.cache.block_count.load ();
-				node.store.block_put (transaction_a, hash, *ledger_block);
-				debug_assert (node.ledger.cache.block_count.load () == block_count);
+				// Queue for writing in the block processor to avoid opening a new write transaction for a single operation
+				node.block_processor.update (ledger_block);
 
 				// Restart election for the upgraded block, previously dropped from elections
 				auto previous_balance = node.ledger.balance (transaction_a, ledger_block->previous ());
