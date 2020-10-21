@@ -120,7 +120,7 @@ block_processor_thread ([this]() {
 // clang-format on
 online_reps (ledger, network_params, config.online_weight_minimum.number ()),
 vote_uniquer (block_uniquer),
-confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, logger, node_initialized_latch, flags.confirmation_height_processor_mode),
+confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, config.logging, logger, node_initialized_latch, flags.confirmation_height_processor_mode),
 active (*this, confirmation_height_processor),
 aggregator (network_params.network, config, stats, active.generator, history, ledger, wallets, active),
 payment_observer_processor (observers.blocks),
@@ -366,7 +366,7 @@ node_seq (seq)
 		auto is_initialized (false);
 		{
 			auto transaction (store.tx_begin_read ());
-			is_initialized = (store.latest_begin (transaction) != store.latest_end ());
+			is_initialized = (store.accounts_begin (transaction) != store.accounts_end ());
 		}
 
 		nano::genesis genesis;
@@ -433,6 +433,26 @@ node_seq (seq)
 				auto transaction (store.tx_begin_write ({ tables::unchecked }));
 				store.unchecked_clear (transaction);
 				logger.always_log ("Dropping unchecked blocks");
+			}
+		}
+
+		ledger.pruning = flags.enable_pruning || store.pruned_count (store.tx_begin_read ()) > 0;
+
+		if (ledger.pruning)
+		{
+			if (config.enable_voting && !flags.inactive_node)
+			{
+				std::string str = "Incompatibility detected between config node.enable_voting and existing pruned blocks";
+				logger.always_log (str);
+				std::cerr << str << std::endl;
+				std::exit (1);
+			}
+			else if (!flags.enable_pruning && !flags.inactive_node)
+			{
+				std::string str = "To start node with existing pruned blocks use launch flag --enable_pruning";
+				logger.always_log (str);
+				std::cerr << str << std::endl;
+				std::exit (1);
 			}
 		}
 	}
@@ -525,7 +545,7 @@ bool nano::node::copy_with_compaction (boost::filesystem::path const & destinati
 	return store.copy_db (destination);
 }
 
-void nano::node::process_fork (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, uint64_t modified_a)
+void nano::node::process_fork (nano::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a, uint64_t const modified_a)
 {
 	auto root (block_a->root ());
 	if (!store.block_exists (transaction_a, block_a->hash ()) && store.root_exists (transaction_a, block_a->root ()))
@@ -599,7 +619,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	return composite;
 }
 
-void nano::node::process_active (std::shared_ptr<nano::block> incoming)
+void nano::node::process_active (std::shared_ptr<nano::block> const & incoming)
 {
 	block_arrival.add (incoming->hash ());
 	block_processor.add (incoming, nano::seconds_since_epoch ());
@@ -612,7 +632,7 @@ nano::process_return nano::node::process (nano::block & block_a)
 	return result;
 }
 
-nano::process_return nano::node::process_local (std::shared_ptr<nano::block> block_a, bool const work_watcher_a)
+nano::process_return nano::node::process_local (std::shared_ptr<nano::block> const & block_a, bool const work_watcher_a)
 {
 	// Add block hash as recently arrived to trigger automatic rebroadcast and election
 	block_arrival.add (block_a->hash ());
@@ -621,9 +641,9 @@ nano::process_return nano::node::process_local (std::shared_ptr<nano::block> blo
 	// Notify block processor to release write lock
 	block_processor.wait_write ();
 	// Process block
-	block_post_events events;
+	block_post_events post_events ([& store = store] { return store.tx_begin_read (); });
 	auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending }, { tables::confirmation_height }));
-	return block_processor.process_one (transaction, events, info, work_watcher_a, nano::block_origin::local);
+	return block_processor.process_one (transaction, post_events, info, work_watcher_a, nano::block_origin::local);
 }
 
 void nano::node::start ()
@@ -631,7 +651,7 @@ void nano::node::start ()
 	long_inactivity_cleanup ();
 	network.start ();
 	add_initial_peers ();
-	if (!flags.disable_legacy_bootstrap)
+	if (!flags.disable_legacy_bootstrap && !flags.disable_ongoing_bootstrap)
 	{
 		ongoing_bootstrap ();
 	}
@@ -660,7 +680,10 @@ void nano::node::start ()
 	{
 		backup_wallet ();
 	}
-	search_pending ();
+	if (!flags.disable_search_pending)
+	{
+		search_pending ();
+	}
 	if (!flags.disable_wallet_bootstrap)
 	{
 		// Delay to start wallet lazy bootstrap
@@ -791,7 +814,7 @@ void nano::node::long_inactivity_cleanup ()
 			++sample;
 		}
 		debug_assert (sample != n);
-		auto const one_week_ago = (std::chrono::system_clock::now () - std::chrono::hours (7 * 24)).time_since_epoch ().count ();
+		auto const one_week_ago = static_cast<size_t> ((std::chrono::system_clock::now () - std::chrono::hours (7 * 24)).time_since_epoch ().count ());
 		perform_cleanup = sample->first < one_week_ago;
 	}
 	if (perform_cleanup)
@@ -931,7 +954,7 @@ void nano::node::unchecked_cleanup ()
 	auto attempt (bootstrap_initiator.current_attempt ());
 	bool long_attempt (attempt != nullptr && std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt->attempt_start).count () > config.unchecked_cutoff_time.count ());
 	// Collect old unchecked keys
-	if (!flags.disable_unchecked_cleanup && ledger.cache.block_count >= ledger.bootstrap_weight_max_blocks && !long_attempt)
+	if (ledger.cache.block_count >= ledger.bootstrap_weight_max_blocks && !long_attempt)
 	{
 		auto now (nano::seconds_since_epoch ());
 		auto transaction (store.tx_begin_read ());
@@ -1117,7 +1140,7 @@ void nano::node::add_initial_peers ()
 	}
 }
 
-void nano::node::block_confirm (std::shared_ptr<nano::block> block_a)
+void nano::node::block_confirm (std::shared_ptr<nano::block> const & block_a)
 {
 	auto election = active.insert (block_a);
 	if (election.inserted)
@@ -1167,83 +1190,39 @@ void nano::node::ongoing_online_weight_calculation ()
 	ongoing_online_weight_calculation_queue ();
 }
 
-namespace
+void nano::node::receive_confirmed (nano::transaction const & wallet_transaction_a, nano::transaction const & block_transaction_a, nano::block_hash const & hash_a, nano::account const & destination_a)
 {
-class confirmed_visitor : public nano::block_visitor
-{
-public:
-	confirmed_visitor (nano::transaction const & wallet_transaction_a, nano::transaction const & block_transaction_a, nano::node & node_a, std::shared_ptr<nano::block> const & block_a, nano::block_hash const & hash_a) :
-	wallet_transaction (wallet_transaction_a),
-	block_transaction (block_transaction_a),
-	node (node_a),
-	block (block_a),
-	hash (hash_a)
+	for (auto const & [id /*unused*/, wallet] : wallets.get_wallets ())
 	{
-	}
-	virtual ~confirmed_visitor () = default;
-	void scan_receivable (nano::account const & account_a)
-	{
-		for (auto const & [id /*unused*/, wallet] : node.wallets.get_wallets ())
+		(void)id;
+		if (wallet->store.exists (wallet_transaction_a, destination_a))
 		{
-			if (wallet->store.exists (wallet_transaction, account_a))
+			nano::account representative;
+			nano::pending_info pending;
+			representative = wallet->store.representative (wallet_transaction_a);
+			auto error (store.pending_get (block_transaction_a, nano::pending_key (destination_a, hash_a), pending));
+			if (!error)
 			{
-				nano::account representative;
-				nano::pending_info pending;
-				representative = wallet->store.representative (wallet_transaction);
-				auto error (node.store.pending_get (block_transaction, nano::pending_key (account_a, hash), pending));
-				if (!error)
+				auto amount (pending.amount.number ());
+				wallet->receive_async (hash_a, representative, amount, destination_a, [](std::shared_ptr<nano::block>) {});
+			}
+			else
+			{
+				if (!store.block_or_pruned_exists (block_transaction_a, hash_a))
 				{
-					auto node_l (node.shared ());
-					auto amount (pending.amount.number ());
-					wallet->receive_async (block, representative, amount, [](std::shared_ptr<nano::block>) {});
+					logger.try_log (boost::str (boost::format ("Confirmed block is missing:  %1%") % hash_a.to_string ()));
+					debug_assert (false && "Confirmed block is missing");
 				}
 				else
 				{
-					if (!node.store.block_exists (block_transaction, hash))
-					{
-						node.logger.try_log (boost::str (boost::format ("Confirmed block is missing:  %1%") % hash.to_string ()));
-						debug_assert (false && "Confirmed block is missing");
-					}
-					else
-					{
-						node.logger.try_log (boost::str (boost::format ("Block %1% has already been received") % hash.to_string ()));
-					}
+					logger.try_log (boost::str (boost::format ("Block %1% has already been received") % hash_a.to_string ()));
 				}
 			}
 		}
 	}
-	void state_block (nano::state_block const & block_a) override
-	{
-		scan_receivable (block_a.hashables.link.as_account ());
-	}
-	void send_block (nano::send_block const & block_a) override
-	{
-		scan_receivable (block_a.hashables.destination);
-	}
-	void receive_block (nano::receive_block const &) override
-	{
-	}
-	void open_block (nano::open_block const &) override
-	{
-	}
-	void change_block (nano::change_block const &) override
-	{
-	}
-	nano::transaction const & wallet_transaction;
-	nano::transaction const & block_transaction;
-	nano::node & node;
-	std::shared_ptr<nano::block> block;
-	nano::block_hash const & hash;
-};
 }
 
-void nano::node::receive_confirmed (nano::transaction const & wallet_transaction_a, nano::transaction const & block_transaction_a, std::shared_ptr<nano::block> const & block_a, nano::block_hash const & hash_a)
-{
-	confirmed_visitor visitor (wallet_transaction_a, block_transaction_a, *this, block_a, hash_a);
-	block_a->visit (visitor);
-}
-
-void nano::node::process_confirmed_data (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, nano::block_hash const & hash_a, nano::account & account_a, nano::uint128_t & amount_a, bool & is_state_send_a, nano::account & pending_account_a)
+void nano::node::process_confirmed_data (nano::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a, nano::block_hash const & hash_a, nano::account & account_a, nano::uint128_t & amount_a, bool & is_state_send_a, nano::account & pending_account_a)
 {
 	// Faster account calculation
 	account_a = block_a->account ();
@@ -1253,11 +1232,19 @@ void nano::node::process_confirmed_data (nano::transaction const & transaction_a
 	}
 	// Faster amount calculation
 	auto previous (block_a->previous ());
-	auto previous_balance (ledger.balance (transaction_a, previous));
+	bool error (false);
+	auto previous_balance (ledger.balance_safe (transaction_a, previous, error));
 	auto block_balance (store.block_balance_calculated (block_a));
 	if (hash_a != ledger.network_params.ledger.genesis_account)
 	{
-		amount_a = block_balance > previous_balance ? block_balance - previous_balance : previous_balance - block_balance;
+		if (!error)
+		{
+			amount_a = block_balance > previous_balance ? block_balance - previous_balance : previous_balance - block_balance;
+		}
+		else
+		{
+			amount_a = 0;
+		}
 	}
 	else
 	{
@@ -1281,7 +1268,7 @@ void nano::node::process_confirmed (nano::election_status const & status_a, uint
 {
 	auto block_a (status_a.winner);
 	auto hash (block_a->hash ());
-	const auto num_iters = (config.block_processor_batch_max_time / network_params.node.process_confirmed_interval) * 4;
+	const size_t num_iters = (config.block_processor_batch_max_time / network_params.node.process_confirmed_interval) * 4;
 	if (ledger.block_exists (hash))
 	{
 		confirmation_height_processor.add (hash);
@@ -1437,7 +1424,7 @@ void nano::node::epoch_upgrader_impl (nano::private_key const & prv_a, nano::epo
 			{
 				auto transaction (store.tx_begin_read ());
 				// Collect accounts to upgrade
-				for (auto i (store.latest_begin (transaction)), n (store.latest_end ()); i != n && accounts_list.size () < count_limit; ++i)
+				for (auto i (store.accounts_begin (transaction)), n (store.accounts_end ()); i != n && accounts_list.size () < count_limit; ++i)
 				{
 					nano::account const & account (i->first);
 					nano::account_info const & info (i->second);

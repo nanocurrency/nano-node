@@ -190,6 +190,12 @@ nano::block_hash const & nano::block::source () const
 	return source;
 }
 
+nano::account const & nano::block::destination () const
+{
+	static nano::account destination{ 0 };
+	return destination;
+}
+
 nano::link const & nano::block::link () const
 {
 	static nano::link link{ 0 };
@@ -469,6 +475,11 @@ bool nano::send_block::operator== (nano::send_block const & other_a) const
 nano::block_hash const & nano::send_block::previous () const
 {
 	return hashables.previous;
+}
+
+nano::account const & nano::send_block::destination () const
+{
+	return hashables.destination;
 }
 
 nano::root const & nano::send_block::root () const

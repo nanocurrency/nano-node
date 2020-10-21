@@ -89,6 +89,11 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 
 	if (!error)
 	{
+		error = nano::flags_config_conflicts (flags, config.node);
+	}
+
+	if (!error)
+	{
 		nano::set_use_memory_pools (config.node.use_memory_pools);
 
 		config.node.logging.init (data_path);

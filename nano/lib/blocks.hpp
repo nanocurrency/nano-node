@@ -93,6 +93,8 @@ public:
 	virtual nano::block_hash const & previous () const = 0;
 	// Source block for open/receive blocks, zero otherwise.
 	virtual nano::block_hash const & source () const;
+	// Destination account for send blocks, zero otherwise.
+	virtual nano::account const & destination () const;
 	// Previous block or account number for open blocks
 	virtual nano::root const & root () const = 0;
 	// Qualified root value based on previous() and root()
@@ -160,6 +162,7 @@ public:
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
 	nano::block_hash const & previous () const override;
+	nano::account const & destination () const override;
 	nano::root const & root () const override;
 	nano::amount const & balance () const override;
 	void serialize (nano::stream &) const override;

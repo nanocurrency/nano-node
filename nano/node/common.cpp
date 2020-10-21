@@ -1106,7 +1106,7 @@ bool nano::telemetry_ack::deserialize (nano::stream & stream_a)
 	{
 		if (!is_empty_payload ())
 		{
-			data.deserialize (stream_a, header.extensions.to_ulong ());
+			data.deserialize (stream_a, nano::narrow_cast<uint16_t> (header.extensions.to_ulong ()));
 		}
 	}
 	catch (std::runtime_error const &)

@@ -1029,7 +1029,7 @@ TEST (network, bandwidth_limiter)
 	auto channel1 (node.network.udp_channels.create (node.network.endpoint ()));
 	auto channel2 (node.network.udp_channels.create (node.network.endpoint ()));
 	// Send droppable messages
-	for (unsigned i = 0; i < message_limit; i += 2) // number of channels
+	for (auto i = 0; i < message_limit; i += 2) // number of channels
 	{
 		channel1->send (message);
 		channel2->send (message);
@@ -1069,7 +1069,7 @@ TEST (peer_exclusion, validate)
 	ASSERT_EQ (peers_by_endpoint.end (), peers_by_endpoint.find (oldest.address ()));
 
 	auto to_seconds = [](std::chrono::steady_clock::time_point const & timepoint) {
-		return std::chrono::duration_cast<std::chrono::seconds> (timepoint.time_since_epoch ()).count ();
+		return static_cast<double> (std::chrono::duration_cast<std::chrono::seconds> (timepoint.time_since_epoch ()).count ());
 	};
 	nano::tcp_endpoint first (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0x1)), 0);
 	ASSERT_NE (peers_by_endpoint.end (), peers_by_endpoint.find (first.address ()));
@@ -1238,4 +1238,23 @@ TEST (network, cleanup_purge)
 
 	node1.network.cleanup (std::chrono::steady_clock::now ());
 	ASSERT_EQ (0, node1.network.size ());
+}
+
+TEST (network, loopback_channel)
+{
+	nano::system system (2);
+	auto & node1 = *system.nodes[0];
+	auto & node2 = *system.nodes[1];
+	nano::transport::channel_loopback channel1 (node1);
+	ASSERT_EQ (channel1.get_type (), nano::transport::transport_type::loopback);
+	ASSERT_EQ (channel1.get_endpoint (), node1.network.endpoint ());
+	ASSERT_EQ (channel1.get_tcp_endpoint (), nano::transport::map_endpoint_to_tcp (node1.network.endpoint ()));
+	ASSERT_EQ (channel1.get_network_version (), node1.network_params.protocol.protocol_version);
+	ASSERT_EQ (channel1.get_node_id (), node1.node_id.pub);
+	ASSERT_EQ (channel1.get_node_id_optional ().value_or (0), node1.node_id.pub);
+	nano::transport::channel_loopback channel2 (node2);
+	ASSERT_TRUE (channel1 == channel1);
+	ASSERT_FALSE (channel1 == channel2);
+	++node1.network.port;
+	ASSERT_NE (channel1.get_endpoint (), node1.network.endpoint ());
 }

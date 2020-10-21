@@ -137,6 +137,8 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	{
 		secondary_work_peers_l->push_back (boost::str (boost::format ("%1%:%2%") % i->first % i->second));
 	}
+	experimental_l.put ("max_pruning_age", max_pruning_age.count (), "Time limit for blocks age after pruning.\ntype:seconds");
+	experimental_l.put ("max_pruning_depth", max_pruning_depth, "Limit for full blocks in chain after pruning.\ntype:uint64");
 	toml.put_child ("experimental", experimental_l);
 
 	nano::tomlconfig callback_l;
@@ -389,6 +391,10 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 					this->deserialize_address (entry_a, this->secondary_work_peers);
 				});
 			}
+			auto max_pruning_age_l (max_pruning_age.count ());
+			experimental_config_l.get ("max_pruning_age", max_pruning_age_l);
+			max_pruning_age = std::chrono::seconds (max_pruning_age_l);
+			experimental_config_l.get<uint64_t> ("max_pruning_depth", max_pruning_depth);
 		}
 
 		// Validate ranges
@@ -436,6 +442,10 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		if (block_processor_batch_max_time < network_params.node.process_confirmed_interval)
 		{
 			toml.get_error ().set ((boost::format ("block_processor_batch_max_time value must be equal or larger than %1%ms") % network_params.node.process_confirmed_interval.count ()).str ());
+		}
+		if (max_pruning_age < std::chrono::seconds (5 * 60) && !network.is_dev_network ())
+		{
+			toml.get_error ().set ("max_pruning_age must be greater than or equal to 5 minutes");
 		}
 	}
 	catch (std::runtime_error const & ex)

@@ -206,7 +206,8 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 				{
 					add_recently_cemented (election->status);
 					lk.unlock ();
-					node.receive_confirmed (node.wallets.tx_begin_read (), transaction, block_a, hash);
+					auto destination (block_a->link ().is_zero () ? block_a->destination () : block_a->link ().as_account ());
+					node.receive_confirmed (node.wallets.tx_begin_read (), transaction, hash, destination);
 					nano::account account (0);
 					nano::uint128_t amount (0);
 					bool is_state_send (false);
@@ -294,6 +295,10 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	size_t unconfirmed_count_l (0);
 	nano::timer<std::chrono::milliseconds> elapsed (nano::timer_state::started);
 
+	auto const is_watched = [watched = node.wallets.watcher->list_watched ()](nano::qualified_root const & root_a) -> bool {
+		return watched.find (root_a) != watched.end ();
+	};
+
 	/*
 	 * Loop through active elections in descending order of proof-of-work difficulty, requesting confirmation
 	 *
@@ -312,7 +317,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 		}
 
 		unconfirmed_count_l += !confirmed_l;
-		bool const overflow_l (unconfirmed_count_l > node.config.active_elections_size && election_l->election_start < election_ttl_cutoff_l && !node.wallets.watcher->is_watched (i->root));
+		bool const overflow_l (unconfirmed_count_l > node.config.active_elections_size && election_l->election_start < election_ttl_cutoff_l && !is_watched (i->root));
 		if (overflow_l || election_l->transition_time (solicitor))
 		{
 			if (election_l->optimistic () && election_l->failed ())
@@ -444,8 +449,8 @@ void nano::active_transactions::frontiers_confirmation (nano::unique_lock<std::m
  */
 void nano::active_transactions::confirm_expired_frontiers_pessimistically (nano::transaction const & transaction_a, uint64_t max_elections_a, uint64_t & elections_count_a)
 {
-	auto i{ node.store.latest_begin (transaction_a, next_frontier_account) };
-	auto n{ node.store.latest_end () };
+	auto i{ node.store.accounts_begin (transaction_a, next_frontier_account) };
+	auto n{ node.store.accounts_end () };
 	nano::timer<std::chrono::milliseconds> timer (nano::timer_state::started);
 	nano::confirmation_height_info confirmation_height_info;
 
@@ -520,15 +525,12 @@ void nano::active_transactions::confirm_expired_frontiers_pessimistically (nano:
 
 bool nano::active_transactions::should_do_frontiers_confirmation () const
 {
-	/*
- 	 * Confirm frontiers when there aren't many confirmations already pending and node finished initial bootstrap
- 	 */
 	auto pending_confirmation_height_size (confirmation_height_processor.awaiting_processing_size ());
 	auto bootstrap_weight_reached (node.ledger.cache.block_count >= node.ledger.bootstrap_weight_max_blocks);
 	auto disabled_confirmation_mode = (node.config.frontiers_confirmation == nano::frontiers_confirmation_mode::disabled);
 	auto conf_height_capacity_reached = pending_confirmation_height_size > confirmed_frontiers_max_pending_size;
 	auto all_cemented = node.ledger.cache.block_count == node.ledger.cache.cemented_count;
-	return (!disabled_confirmation_mode && bootstrap_weight_reached && !conf_height_capacity_reached && !all_cemented);
+	return (!disabled_confirmation_mode && (bootstrap_weight_reached || node.ledger.pruning) && !conf_height_capacity_reached && !all_cemented);
 }
 
 void nano::active_transactions::request_loop ()
@@ -715,8 +717,8 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 		}
 
 		nano::timer<std::chrono::milliseconds> timer (nano::timer_state::started);
-		auto i (node.store.latest_begin (transaction_a, next_frontier_account));
-		auto n (node.store.latest_end ());
+		auto i (node.store.accounts_begin (transaction_a, next_frontier_account));
+		auto n (node.store.accounts_end ());
 		nano::confirmation_height_info confirmation_height_info;
 		for (; i != n && should_iterate (); ++i)
 		{
@@ -993,7 +995,7 @@ bool nano::active_transactions::update_difficulty_impl (nano::active_transaction
 	return error;
 }
 
-bool nano::active_transactions::restart (std::shared_ptr<nano::block> const & block_a, nano::write_transaction const & transaction_a)
+bool nano::active_transactions::restart (nano::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a)
 {
 	// Only guaranteed to restart the election if the new block is received within 2 minutes of its election being dropped
 	constexpr std::chrono::minutes recently_dropped_cutoff{ 2 };
@@ -1010,9 +1012,8 @@ bool nano::active_transactions::restart (std::shared_ptr<nano::block> const & bl
 				// The existing block is re-written, not the arriving block, as that one might not have gone through a full signature check
 				ledger_block->block_work_set (block_a->block_work ());
 
-				auto block_count = node.ledger.cache.block_count.load ();
-				node.store.block_put (transaction_a, hash, *ledger_block);
-				debug_assert (node.ledger.cache.block_count.load () == block_count);
+				// Queue for writing in the block processor to avoid opening a new write transaction for a single operation
+				node.block_processor.update (ledger_block);
 
 				// Restart election for the upgraded block, previously dropped from elections
 				auto previous_balance = node.ledger.balance (transaction_a, ledger_block->previous ());
@@ -1398,7 +1399,7 @@ nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_
 				insert_impl (block);
 			}
 		}
-		else if (!block && status.bootstrap_started && !previously_a.bootstrap_started)
+		else if (!block && status.bootstrap_started && !previously_a.bootstrap_started && (!node.ledger.pruning || !node.store.pruned_exists (transaction, hash_a)))
 		{
 			node.gap_cache.bootstrap_start (hash_a);
 		}

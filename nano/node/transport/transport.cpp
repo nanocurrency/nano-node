@@ -116,6 +116,34 @@ void nano::transport::channel::send (nano::message const & message_a, std::funct
 	}
 }
 
+nano::transport::channel_loopback::channel_loopback (nano::node & node_a) :
+channel (node_a), endpoint (node_a.network.endpoint ())
+{
+	set_node_id (node_a.node_id.pub);
+	set_network_version (node_a.network_params.protocol.protocol_version);
+}
+
+size_t nano::transport::channel_loopback::hash_code () const
+{
+	std::hash<::nano::endpoint> hash;
+	return hash (endpoint);
+}
+
+bool nano::transport::channel_loopback::operator== (nano::transport::channel const & other_a) const
+{
+	return endpoint == other_a.get_endpoint ();
+}
+
+void nano::transport::channel_loopback::send_buffer (nano::shared_const_buffer const & buffer_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a, nano::buffer_drop_policy drop_policy_a)
+{
+	release_assert (false && "sending to a loopback channel is not supported");
+}
+
+std::string nano::transport::channel_loopback::to_string () const
+{
+	return boost::str (boost::format ("%1%") % endpoint);
+}
+
 namespace
 {
 boost::asio::ip::address_v6 mapped_from_v4_bytes (unsigned long address_a)
@@ -226,11 +254,11 @@ bool nano::transport::reserved_address (nano::endpoint const & endpoint_a, bool 
 using namespace std::chrono_literals;
 
 nano::bandwidth_limiter::bandwidth_limiter (const double limit_burst_ratio_a, const size_t limit_a) :
-bucket (limit_a * limit_burst_ratio_a, limit_a)
+bucket (static_cast<size_t> (limit_a * limit_burst_ratio_a), limit_a)
 {
 }
 
 bool nano::bandwidth_limiter::should_drop (const size_t & message_size_a)
 {
-	return !bucket.try_consume (message_size_a);
+	return !bucket.try_consume (nano::narrow_cast<unsigned int> (message_size_a));
 }

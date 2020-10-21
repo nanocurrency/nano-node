@@ -32,7 +32,8 @@ namespace transport
 	{
 		undefined = 0,
 		udp = 1,
-		tcp = 2
+		tcp = 2,
+		loopback = 3
 	};
 	class channel
 	{
@@ -130,6 +131,38 @@ namespace transport
 
 	protected:
 		nano::node & node;
+	};
+
+	class channel_loopback final : public nano::transport::channel
+	{
+	public:
+		channel_loopback (nano::node &);
+		size_t hash_code () const override;
+		bool operator== (nano::transport::channel const &) const override;
+		void send_buffer (nano::shared_const_buffer const &, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr, nano::buffer_drop_policy = nano::buffer_drop_policy::limiter) override;
+		std::string to_string () const override;
+		bool operator== (nano::transport::channel_loopback const & other_a) const
+		{
+			return endpoint == other_a.get_endpoint ();
+		}
+
+		nano::endpoint get_endpoint () const override
+		{
+			return endpoint;
+		}
+
+		nano::tcp_endpoint get_tcp_endpoint () const override
+		{
+			return nano::transport::map_endpoint_to_tcp (endpoint);
+		}
+
+		nano::transport::transport_type get_type () const override
+		{
+			return nano::transport::transport_type::loopback;
+		}
+
+	private:
+		nano::endpoint const endpoint;
 	};
 } // namespace transport
 } // namespace nano
