@@ -89,7 +89,7 @@ bool nano::telemetry::verify_message (nano::telemetry_ack const & message_a, nan
 	if (!node_id_mismatch)
 	{
 		// The data could be correctly signed but for a different node id
-		remove_channel = message_a.data.validate_signature (message_a.size ());
+		remove_channel = message_a.data.validate_signature ();
 		if (!remove_channel)
 		{
 			// Check for different genesis blocks

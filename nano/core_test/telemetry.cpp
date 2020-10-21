@@ -193,12 +193,28 @@ TEST (telemetry, signatures)
 	data.maker = 1;
 	data.timestamp = std::chrono::system_clock::time_point (100ms);
 	data.sign (node_id);
-	ASSERT_FALSE (data.validate_signature (nano::telemetry_data::size));
+	ASSERT_FALSE (data.validate_signature ());
 	auto signature = data.signature;
 	// Check that the signature is different if changing a piece of data
 	data.maker = 2;
 	data.sign (node_id);
 	ASSERT_NE (data.signature, signature);
+}
+
+TEST (telemetry, unknown_data)
+{
+	nano::keypair node_id;
+	nano::telemetry_data data;
+	data.node_id = node_id.pub;
+	data.major_version = 20;
+	data.minor_version = 1;
+	data.patch_version = 5;
+	data.pre_release_version = 2;
+	data.maker = 1;
+	data.timestamp = std::chrono::system_clock::time_point (100ms);
+	data.unknown_data.push_back (1);
+	data.sign (node_id);
+	ASSERT_FALSE (data.validate_signature ());
 }
 
 TEST (telemetry, no_peers)
