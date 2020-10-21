@@ -127,6 +127,7 @@ public:
 	bool disable_bootstrap_listener{ false };
 	bool disable_bootstrap_bulk_pull_server{ false };
 	bool disable_bootstrap_bulk_push_client{ false };
+	bool disable_ongoing_bootstrap{ false }; // For testing only
 	bool disable_rep_crawler{ false };
 	bool disable_request_loop{ false }; // For testing only
 	bool disable_tcp_realtime{ false };
@@ -141,6 +142,7 @@ public:
 	bool allow_bootstrap_peers_duplicates{ false };
 	bool disable_max_peers_per_ip{ false }; // For testing only
 	bool force_use_write_database_queue{ false }; // For testing only. RocksDB does not use the database queue, but some tests rely on it being used.
+	bool disable_search_pending{ false }; // For testing only
 	bool enable_pruning{ false };
 	bool fast_bootstrap{ false };
 	bool read_only{ false };

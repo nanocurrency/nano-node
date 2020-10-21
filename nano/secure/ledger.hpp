@@ -56,7 +56,7 @@ public:
 	nano::process_return process (nano::write_transaction const &, nano::block &, nano::signature_verification = nano::signature_verification::unknown);
 	bool rollback (nano::write_transaction const &, nano::block_hash const &, std::vector<std::shared_ptr<nano::block>> &);
 	bool rollback (nano::write_transaction const &, nano::block_hash const &);
-	void change_latest (nano::write_transaction const &, nano::account const &, nano::account_info const &, nano::account_info const &);
+	void update_account (nano::write_transaction const &, nano::account const &, nano::account_info const &, nano::account_info const &);
 	uint64_t pruning_action (nano::write_transaction &, nano::block_hash const &, uint64_t const);
 	void dump_account_chain (nano::account const &, std::ostream & = std::cout);
 	bool could_fit (nano::transaction const &, nano::block const &) const;

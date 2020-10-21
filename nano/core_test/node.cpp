@@ -441,6 +441,52 @@ TEST (node, search_pending_confirmed)
 	ASSERT_TIMELY (10s, node->balance (key2.pub) == 2 * node->config.receive_minimum.number ());
 }
 
+TEST (node, search_pending_pruned)
+{
+	nano::system system;
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto node1 = system.add_node (node_config);
+	nano::node_flags node_flags;
+	node_flags.enable_pruning = true;
+	nano::node_config config (nano::get_available_port (), system.logging);
+	config.enable_voting = false; // Remove after allowing pruned voting
+	auto node2 = system.add_node (config, node_flags);
+	nano::keypair key2;
+	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
+	auto send1 (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key2.pub, node2->config.receive_minimum.number ()));
+	ASSERT_NE (nullptr, send1);
+	auto send2 (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key2.pub, node2->config.receive_minimum.number ()));
+	ASSERT_NE (nullptr, send2);
+
+	// Confirmation
+	ASSERT_TIMELY (10s, node1->active.empty () && node2->active.empty ());
+	ASSERT_TIMELY (5s, node1->ledger.block_confirmed (node1->store.tx_begin_read (), send2->hash ()));
+	ASSERT_TIMELY (5s, node2->ledger.cache.cemented_count == 3);
+	system.wallet (0)->store.erase (node1->wallets.tx_begin_write (), nano::dev_genesis_key.pub);
+
+	// Pruning
+	{
+		auto transaction (node2->store.tx_begin_write ());
+		ASSERT_EQ (1, node2->ledger.pruning_action (transaction, send1->hash (), 1));
+	}
+	ASSERT_EQ (1, node2->ledger.cache.pruned_count);
+	ASSERT_TRUE (node2->ledger.block_or_pruned_exists (send1->hash ()));
+	ASSERT_FALSE (node2->ledger.block_exists (send1->hash ()));
+
+	// Receive pruned block
+	system.wallet (1)->insert_adhoc (key2.prv);
+	ASSERT_FALSE (system.wallet (1)->search_pending ());
+	{
+		nano::lock_guard<std::mutex> guard (node2->active.mutex);
+		auto existing1 (node2->active.blocks.find (send1->hash ()));
+		ASSERT_EQ (node2->active.blocks.end (), existing1);
+		auto existing2 (node2->active.blocks.find (send2->hash ()));
+		ASSERT_EQ (node2->active.blocks.end (), existing2);
+	}
+	ASSERT_TIMELY (10s, node2->balance (key2.pub) == 2 * node2->config.receive_minimum.number ());
+}
+
 TEST (node, unlock_search)
 {
 	nano::system system (1);
@@ -2764,7 +2810,7 @@ TEST (node, local_votes_cache_generate_new_vote)
 	ASSERT_FALSE (node.history.votes (genesis.open->root (), genesis.open->hash ()).empty ());
 	ASSERT_FALSE (node.history.votes (send1->root (), send1->hash ()).empty ());
 	// First generated + again cached + new generated
-	ASSERT_EQ (3, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
+	ASSERT_TIMELY (3s, 3 == node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
 }
 
 TEST (node, vote_republish)
@@ -2987,13 +3033,9 @@ TEST (node, epoch_conflict_confirm)
 	ASSERT_NE (nullptr, election);
 	election->force_confirm ();
 	ASSERT_TIMELY (3s, node1->block_confirmed (open->hash ()));
-	{
-		nano::block_post_events events;
-		auto transaction (node0->store.tx_begin_write ());
-		ASSERT_EQ (nano::process_result::progress, node0->block_processor.process_one (transaction, events, send).code);
-		ASSERT_EQ (nano::process_result::progress, node0->block_processor.process_one (transaction, events, send2).code);
-		ASSERT_EQ (nano::process_result::progress, node0->block_processor.process_one (transaction, events, open).code);
-	}
+	ASSERT_EQ (nano::process_result::progress, node0->process (*send).code);
+	ASSERT_EQ (nano::process_result::progress, node0->process (*send2).code);
+	ASSERT_EQ (nano::process_result::progress, node0->process (*open).code);
 	node0->process_active (change);
 	node0->process_active (epoch_open);
 	ASSERT_TIMELY (10s, node0->block (change->hash ()) && node0->block (epoch_open->hash ()) && node1->block (change->hash ()) && node1->block (epoch_open->hash ()));
