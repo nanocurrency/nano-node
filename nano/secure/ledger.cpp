@@ -1253,6 +1253,7 @@ void nano::ledger::update_account (nano::write_transaction const & transaction_a
 	}
 	else
 	{
+		debug_assert (!store.confirmation_height_exists (transaction_a, account_a));
 		store.account_del (transaction_a, account_a);
 		debug_assert (cache.account_count > 0);
 		--cache.account_count;
