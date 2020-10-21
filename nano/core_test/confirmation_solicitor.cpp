@@ -115,7 +115,7 @@ TEST (confirmation_solicitor, bypass_max_requests_cap)
 	// Add a vote for something else, not the winner
 	for (auto const & rep : representatives)
 	{
-		nano::lock_guard<std::mutex> guard (node1.active.mutex);
+		nano::lock_guard<std::mutex> guard (election->mutex);
 		election->last_votes[rep.account] = { std::chrono::steady_clock::now (), 1, 1 };
 	}
 	ASSERT_FALSE (solicitor.add (*election));
@@ -130,6 +130,7 @@ TEST (confirmation_solicitor, bypass_max_requests_cap)
 	ASSERT_FALSE (solicitor.broadcast (*election2));
 
 	solicitor.flush ();
+
 	// All requests but one went through, due to the cap
 	ASSERT_EQ (2 * max_representatives + 1, node2.stats.count (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::out));
 }
