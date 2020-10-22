@@ -1453,6 +1453,7 @@ nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_
 	constexpr unsigned election_start_voters_min{ 5 };
 	nano::uint128_t tally;
 
+	debug_assert (lock_a.owns_lock ());
 	lock_a.unlock ();
 
 	for (auto const & voter : voters_a)
