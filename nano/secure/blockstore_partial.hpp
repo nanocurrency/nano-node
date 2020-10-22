@@ -66,12 +66,9 @@ public:
 		return iterator != accounts_end () && nano::account (iterator->first) == account_a;
 	}
 
-	void confirmation_height_clear (nano::write_transaction const & transaction_a, nano::account const & account_a, uint64_t existing_confirmation_height_a) override
+	void confirmation_height_clear (nano::write_transaction const & transaction_a, nano::account const & account_a) override
 	{
-		if (existing_confirmation_height_a > 0)
-		{
-			confirmation_height_del (transaction_a, account_a);
-		}
+		confirmation_height_del (transaction_a, account_a);
 	}
 
 	void confirmation_height_clear (nano::write_transaction const & transaction_a) override
