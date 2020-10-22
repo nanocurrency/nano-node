@@ -40,13 +40,15 @@ template <typename T>
 void write (nano::stream & stream_a, T const & value_a)
 {
 	static_assert (std::is_standard_layout<T>::value, "Can't stream write non-standard layout types");
-	[[maybed_unused]] auto amount_written (stream_a.sputn (reinterpret_cast<uint8_t const *> (&value_a), sizeof (value_a)));
+	auto amount_written (stream_a.sputn (reinterpret_cast<uint8_t const *> (&value_a), sizeof (value_a)));
+	(void)amount_written;
 	debug_assert (amount_written == sizeof (value_a));
 }
 
 inline void write (nano::stream & stream_a, std::vector<uint8_t> const & value_a)
 {
-	[[maybe_unused]] auto amount_written (stream_a.sputn (value_a.data (), value_a.size ()));
+	auto amount_written (stream_a.sputn (value_a.data (), value_a.size ()));
+	(void)amount_written;
 	debug_assert (amount_written == value_a.size ());
 }
 }
