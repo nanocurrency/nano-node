@@ -70,7 +70,7 @@ public:
 	{
 		if (existing_confirmation_height_a > 0)
 		{
-			confirmation_height_put (transaction_a, account_a, { 0, nano::block_hash{ 0 } });
+			confirmation_height_del (transaction_a, account_a);
 		}
 	}
 
