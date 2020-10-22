@@ -589,7 +589,7 @@ TEST (telemetry, remove_peer_invalid_signature)
 	// (Implementation detail) So that messages are not just discarded when requests were not sent.
 	node->telemetry->recent_or_initial_request_telemetry_data.emplace (channel->get_endpoint (), nano::telemetry_data (), std::chrono::steady_clock::now (), true);
 
-	auto telemetry_data = nano::local_telemetry_data (node->store, node->ledger.cache, node->network, node->config.bandwidth_limit, node->network_params, node->startup_time, node->active.active_difficulty (), node->node_id);
+	auto telemetry_data = nano::local_telemetry_data (node->ledger, node->network, node->config.bandwidth_limit, node->network_params, node->startup_time, node->active.active_difficulty (), node->node_id);
 	// Change anything so that the signed message is incorrect
 	telemetry_data.block_count = 0;
 	auto telemetry_ack = nano::telemetry_ack (telemetry_data);
@@ -601,4 +601,37 @@ TEST (telemetry, remove_peer_invalid_signature)
 		return node->network.excluded_peers.peers.get<nano::peer_exclusion::tag_endpoint> ().count (address);
 	}));
 }
+}
+
+TEST (telemetry, maker_pruning)
+{
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_ongoing_telemetry_requests = true;
+	node_flags.disable_initial_telemetry_requests = true;
+	auto node_client = system.add_node (node_flags);
+	node_flags.enable_pruning = true;
+	nano::node_config config;
+	config.enable_voting = false;
+	auto node_server = system.add_node (config, node_flags);
+
+	wait_peer_connections (system);
+
+	// Request telemetry metrics
+	nano::telemetry_data telemetry_data;
+	auto server_endpoint = node_server->network.endpoint ();
+	auto channel = node_client->network.find_channel (node_server->network.endpoint ());
+	{
+		std::atomic<bool> done{ false };
+		node_client->telemetry->get_metrics_single_peer_async (channel, [&done, &server_endpoint, &telemetry_data](nano::telemetry_data_response const & response_a) {
+			ASSERT_FALSE (response_a.error);
+			ASSERT_EQ (server_endpoint, response_a.endpoint);
+			telemetry_data = response_a.telemetry_data;
+			done = true;
+		});
+
+		ASSERT_TIMELY (10s, done);
+	}
+
+	ASSERT_EQ (nano::telemetry_maker::nf_pruned_node, static_cast<nano::telemetry_maker> (telemetry_data.maker));
 }
