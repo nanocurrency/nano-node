@@ -33,6 +33,8 @@ std::string nano::error_cli_messages::message (int ev) const
 			return "Flags --disable_tcp_realtime and --disable_udp cannot be used together";
 		case nano::error_cli::ambiguous_udp_options:
 			return "Flags --disable_udp and --enable_udp cannot be used together";
+		case nano::error_cli::ambiguous_pruning_voting_options:
+			return "Flag --enable_pruning and enable_voting in node config cannot be used together";
 	}
 
 	return "Invalid error code";
@@ -97,6 +99,7 @@ void nano::add_node_flag_options (boost::program_options::options_description & 
 		("disable_unchecked_drop", "Disables drop of unchecked table at startup")
 		("disable_providing_telemetry_metrics", "Disable using any node information in the telemetry_ack messages.")
 		("disable_block_processor_unchecked_deletion", "Disable deletion of unchecked blocks after processing")
+		("enable_pruning", "Enable experimental ledger pruning")
 		("allow_bootstrap_peers_duplicates", "Allow multiple connections to same peer in bootstrap attempts")
 		("fast_bootstrap", "Increase bootstrap speed for high end nodes with higher limits")
 		("block_processor_batch_size", boost::program_options::value<std::size_t>(), "Increase block processor transaction batch write size, default 0 (limited by config block_processor_batch_max_time), 256k for fast_bootstrap")
@@ -133,6 +136,7 @@ std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_o
 	flags_a.disable_unchecked_cleanup = (vm.count ("disable_unchecked_cleanup") > 0);
 	flags_a.disable_unchecked_drop = (vm.count ("disable_unchecked_drop") > 0);
 	flags_a.disable_block_processor_unchecked_deletion = (vm.count ("disable_block_processor_unchecked_deletion") > 0);
+	flags_a.enable_pruning = (vm.count ("enable_pruning") > 0);
 	flags_a.allow_bootstrap_peers_duplicates = (vm.count ("allow_bootstrap_peers_duplicates") > 0);
 	flags_a.fast_bootstrap = (vm.count ("fast_bootstrap") > 0);
 	if (flags_a.fast_bootstrap)
@@ -172,6 +176,16 @@ std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_o
 	if (config != vm.end ())
 	{
 		flags_a.config_overrides = nano::config_overrides (config->second.as<std::vector<nano::config_key_value_pair>> ());
+	}
+	return ec;
+}
+
+std::error_code nano::flags_config_conflicts (nano::node_flags const & flags_a, nano::node_config const & config_a)
+{
+	std::error_code ec;
+	if (flags_a.enable_pruning && config_a.enable_voting)
+	{
+		ec = nano::error_cli::ambiguous_pruning_voting_options;
 	}
 	return ec;
 }
@@ -1239,14 +1253,7 @@ bool is_using_rocksdb (boost::filesystem::path const & data_path, std::error_cod
 	auto error = nano::read_node_config_toml (data_path, config);
 	if (!error)
 	{
-		bool use_rocksdb = config.node.rocksdb_config.enable;
-		if (use_rocksdb)
-		{
-#if !NANO_ROCKSDB
-			ec = nano::error_cli::database_write_error;
-#endif
-			return (NANO_ROCKSDB == 1);
-		}
+		return config.node.rocksdb_config.enable;
 	}
 	else
 	{

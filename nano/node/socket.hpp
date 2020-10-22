@@ -39,7 +39,7 @@ public:
 	 * @param io_timeout If tcp async operation is not completed within the timeout, the socket is closed. If not set, the tcp_io_timeout config option is used.
 	 * @param concurrency write concurrency
 	 */
-	explicit socket (std::shared_ptr<nano::node> node);
+	explicit socket (nano::node & node);
 	virtual ~socket ();
 	void async_connect (boost::asio::ip::tcp::endpoint const &, std::function<void(boost::system::error_code const &)>);
 	void async_read (std::shared_ptr<std::vector<uint8_t>>, size_t, std::function<void(boost::system::error_code const &, size_t)>);
@@ -72,7 +72,7 @@ protected:
 
 	boost::asio::strand<boost::asio::io_context::executor_type> strand;
 	boost::asio::ip::tcp::socket tcp_socket;
-	std::weak_ptr<nano::node> node;
+	nano::node & node;
 
 	/** The other end of the connection */
 	boost::asio::ip::tcp::endpoint remote;
@@ -106,7 +106,7 @@ public:
 	 * @param max_connections_a Maximum number of concurrent connections
 	 * @param concurrency_a Write concurrency for new connections
 	 */
-	explicit server_socket (std::shared_ptr<nano::node> node_a, boost::asio::ip::tcp::endpoint local_a, size_t max_connections_a);
+	explicit server_socket (nano::node & node_a, boost::asio::ip::tcp::endpoint local_a, size_t max_connections_a);
 	/**Start accepting new connections */
 	void start (boost::system::error_code &);
 	/** Stop accepting new connections */
@@ -122,7 +122,6 @@ private:
 	std::vector<std::weak_ptr<nano::socket>> connections;
 	boost::asio::ip::tcp::acceptor acceptor;
 	boost::asio::ip::tcp::endpoint local;
-	boost::asio::steady_timer deferred_accept_timer;
 	size_t max_inbound_connections;
 	void evict_dead_connections ();
 };

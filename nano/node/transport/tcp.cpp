@@ -311,8 +311,6 @@ void nano::transport::tcp_channels::process_message (nano::message const & messa
 					debug_assert (endpoint_a == temporary_channel->get_tcp_endpoint ());
 					temporary_channel->set_node_id (node_id_a);
 					temporary_channel->set_network_version (message_a.header.version_using);
-					temporary_channel->set_last_packet_received (std::chrono::steady_clock::now ());
-					temporary_channel->set_last_packet_sent (std::chrono::steady_clock::now ());
 					temporary_channel->temporary = true;
 					debug_assert (type_a == nano::bootstrap_server_type::realtime || type_a == nano::bootstrap_server_type::realtime_response_server);
 					// Don't insert temporary channels for response_server
@@ -547,7 +545,7 @@ void nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint_a
 		node.network.tcp_channels.udp_fallback (endpoint_a, callback_a);
 		return;
 	}
-	auto socket (std::make_shared<nano::socket> (node.shared_from_this ()));
+	auto socket = std::make_shared<nano::socket> (node);
 	std::weak_ptr<nano::socket> socket_w (socket);
 	auto channel (std::make_shared<nano::transport::channel_tcp> (node, socket_w));
 	std::weak_ptr<nano::node> node_w (node.shared ());

@@ -134,7 +134,10 @@ UNIT nano::timer<UNIT, CLOCK>::stop ()
 template <typename UNIT, typename CLOCK>
 UNIT nano::timer<UNIT, CLOCK>::value ()
 {
-	update_ticks ();
+	if (state != nano::timer_state::stopped)
+	{
+		update_ticks ();
+	}
 	return ticks;
 }
 

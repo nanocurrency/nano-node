@@ -394,9 +394,7 @@ TEST (rpc, send)
 	request.put ("source", nano::dev_genesis_key.pub.to_account ());
 	request.put ("destination", nano::dev_genesis_key.pub.to_account ());
 	request.put ("amount", "100");
-	std::thread thread2 ([&system, node]() {
-		ASSERT_TIMELY (10s, node->balance (nano::dev_genesis_key.pub) != nano::genesis_amount);
-	});
+	ASSERT_EQ (node->balance (nano::dev_genesis_key.pub), nano::genesis_amount);
 	test_response response (request, rpc.config.port, system.io_ctx);
 	ASSERT_TIMELY (10s, response.status != 0);
 	ASSERT_EQ (200, response.status);
@@ -405,7 +403,7 @@ TEST (rpc, send)
 	ASSERT_FALSE (block.decode_hex (block_text));
 	ASSERT_TRUE (node->ledger.block_exists (block));
 	ASSERT_EQ (node->latest (nano::dev_genesis_key.pub), block);
-	thread2.join ();
+	ASSERT_NE (node->balance (nano::dev_genesis_key.pub), nano::genesis_amount);
 }
 
 TEST (rpc, send_fail)
@@ -428,16 +426,9 @@ TEST (rpc, send_fail)
 	request.put ("source", nano::dev_genesis_key.pub.to_account ());
 	request.put ("destination", nano::dev_genesis_key.pub.to_account ());
 	request.put ("amount", "100");
-	std::atomic<bool> done (false);
-	system.deadline_set (10s);
-	std::thread thread2 ([&system, &done]() {
-		ASSERT_TIMELY (10s, done);
-	});
 	test_response response (request, rpc.config.port, system.io_ctx);
 	ASSERT_TIMELY (10s, response.status != 0);
-	done = true;
 	ASSERT_EQ (std::error_code (nano::error_common::account_not_found_wallet).message (), response.json.get<std::string> ("error"));
-	thread2.join ();
 }
 
 TEST (rpc, send_work)
@@ -2822,7 +2813,7 @@ TEST (rpc, work_generate_block_high)
 	rpc.start ();
 	nano::keypair key;
 	nano::state_block block (key.pub, 0, nano::dev_genesis_key.pub, nano::Gxrb_ratio, 123, key.prv, key.pub, *node->work_generate_blocking (key.pub));
-	nano::block_hash hash (block.root ());
+	nano::block_hash hash (block.root ().as_block_hash ());
 	auto block_difficulty (nano::work_difficulty (nano::work_version::work_1, hash, block.block_work ()));
 	boost::property_tree::ptree request;
 	request.put ("action", "work_generate");
@@ -2855,8 +2846,8 @@ TEST (rpc, work_generate_block_low)
 	nano::keypair key;
 	nano::state_block block (key.pub, 0, nano::dev_genesis_key.pub, nano::Gxrb_ratio, 123, key.prv, key.pub, 0);
 	auto threshold (node->default_difficulty (block.work_version ()));
-	block.block_work_set (system.work_generate_limited (block.root (), threshold, nano::difficulty::from_multiplier (node->config.max_work_generate_multiplier / 10, threshold)));
-	nano::block_hash hash (block.root ());
+	block.block_work_set (system.work_generate_limited (block.root ().as_block_hash (), threshold, nano::difficulty::from_multiplier (node->config.max_work_generate_multiplier / 10, threshold)));
+	nano::block_hash hash (block.root ().as_block_hash ());
 	auto block_difficulty (block.difficulty ());
 	boost::property_tree::ptree request;
 	request.put ("action", "work_generate");
@@ -2937,8 +2928,8 @@ TEST (rpc, work_generate_block_ledger_epoch_2)
 	rpc.start ();
 	nano::state_block block (key.pub, 0, nano::dev_genesis_key.pub, nano::Gxrb_ratio, send_block->hash (), key.prv, key.pub, 0);
 	auto threshold (nano::work_threshold (block.work_version (), nano::block_details (nano::epoch::epoch_2, false, true, false)));
-	block.block_work_set (system.work_generate_limited (block.root (), 1, threshold - 1));
-	nano::block_hash hash (block.root ());
+	block.block_work_set (system.work_generate_limited (block.root ().as_block_hash (), 1, threshold - 1));
+	nano::block_hash hash (block.root ().as_block_hash ());
 	boost::property_tree::ptree request;
 	request.put ("action", "work_generate");
 	request.put ("hash", hash.to_string ());
@@ -2999,6 +2990,8 @@ TEST (rpc, work_cancel)
 		ASSERT_TIMELY (10s, response1.status != 0);
 		ASSERT_EQ (200, response1.status);
 		ASSERT_NO_ERROR (ec);
+		std::string success (response1.json.get<std::string> ("success"));
+		ASSERT_TRUE (success.empty ());
 	}
 }
 
@@ -6060,7 +6053,7 @@ TEST (rpc, confirmation_history)
 	ASSERT_EQ (1, item->second.count ("time"));
 	ASSERT_EQ (1, item->second.count ("request_count"));
 	ASSERT_EQ (1, item->second.count ("voters"));
-	ASSERT_GE (1, item->second.get<unsigned> ("blocks"));
+	ASSERT_GE (1U, item->second.get<unsigned> ("blocks"));
 	ASSERT_EQ (block->hash ().to_string (), hash);
 	nano::amount tally_num;
 	tally_num.decode_dec (tally);
@@ -6733,12 +6726,9 @@ TEST (rpc, block_confirmed)
 	node->process_active (send);
 	node->block_processor.flush ();
 	node->block_confirm (send);
-	{
-		auto election = node->active.election (send->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		nano::lock_guard<std::mutex> guard (node->active.mutex);
-		election->confirm_once ();
-	}
+	auto election = node->active.election (send->qualified_root ());
+	ASSERT_NE (nullptr, election);
+	election->force_confirm ();
 
 	// Wait until the confirmation height has been set
 	ASSERT_TIMELY (10s, node->ledger.block_confirmed (node->store.tx_begin_read (), send->hash ()) && !node->confirmation_height_processor.is_processing_block (send->hash ()));
@@ -6753,10 +6743,9 @@ TEST (rpc, block_confirmed)
 
 TEST (rpc, database_txn_tracker)
 {
-	// Don't test this with the rocksdb backend
-	auto use_rocksdb_str = std::getenv ("TEST_USE_ROCKSDB");
-	if (use_rocksdb_str && boost::lexical_cast<int> (use_rocksdb_str) == 1)
+	if (nano::using_rocksdb_in_tests ())
 	{
+		// Don't test this in rocksdb mode
 		return;
 	}
 
@@ -7116,7 +7105,7 @@ TEST (rpc, epoch_upgrade)
 	{
 		auto transaction (node->store.tx_begin_read ());
 		ASSERT_EQ (2, node->store.account_count (transaction));
-		for (auto i (node->store.latest_begin (transaction)); i != node->store.latest_end (); ++i)
+		for (auto i (node->store.accounts_begin (transaction)); i != node->store.accounts_end (); ++i)
 		{
 			nano::account_info info (i->second);
 			ASSERT_EQ (info.epoch (), nano::epoch::epoch_0);
@@ -7146,7 +7135,7 @@ TEST (rpc, epoch_upgrade)
 	{
 		auto transaction (node->store.tx_begin_read ());
 		ASSERT_EQ (4, node->store.account_count (transaction));
-		for (auto i (node->store.latest_begin (transaction)); i != node->store.latest_end (); ++i)
+		for (auto i (node->store.accounts_begin (transaction)); i != node->store.accounts_end (); ++i)
 		{
 			nano::account_info info (i->second);
 			ASSERT_EQ (info.epoch (), nano::epoch::epoch_1);
@@ -7184,7 +7173,7 @@ TEST (rpc, epoch_upgrade)
 	{
 		auto transaction (node->store.tx_begin_read ());
 		ASSERT_EQ (5, node->store.account_count (transaction));
-		for (auto i (node->store.latest_begin (transaction)); i != node->store.latest_end (); ++i)
+		for (auto i (node->store.accounts_begin (transaction)); i != node->store.accounts_end (); ++i)
 		{
 			nano::account_info info (i->second);
 			ASSERT_EQ (info.epoch (), nano::epoch::epoch_2);
@@ -7220,7 +7209,7 @@ TEST (rpc, epoch_upgrade_multithreaded)
 	{
 		auto transaction (node->store.tx_begin_read ());
 		ASSERT_EQ (2, node->store.account_count (transaction));
-		for (auto i (node->store.latest_begin (transaction)); i != node->store.latest_end (); ++i)
+		for (auto i (node->store.accounts_begin (transaction)); i != node->store.accounts_end (); ++i)
 		{
 			nano::account_info info (i->second);
 			ASSERT_EQ (info.epoch (), nano::epoch::epoch_0);
@@ -7247,7 +7236,7 @@ TEST (rpc, epoch_upgrade_multithreaded)
 	{
 		auto transaction (node->store.tx_begin_read ());
 		ASSERT_EQ (4, node->store.account_count (transaction));
-		for (auto i (node->store.latest_begin (transaction)); i != node->store.latest_end (); ++i)
+		for (auto i (node->store.accounts_begin (transaction)); i != node->store.accounts_end (); ++i)
 		{
 			nano::account_info info (i->second);
 			ASSERT_EQ (info.epoch (), nano::epoch::epoch_1);
@@ -7285,7 +7274,7 @@ TEST (rpc, epoch_upgrade_multithreaded)
 	{
 		auto transaction (node->store.tx_begin_read ());
 		ASSERT_EQ (5, node->store.account_count (transaction));
-		for (auto i (node->store.latest_begin (transaction)); i != node->store.latest_end (); ++i)
+		for (auto i (node->store.accounts_begin (transaction)); i != node->store.accounts_end (); ++i)
 		{
 			nano::account_info info (i->second);
 			ASSERT_EQ (info.epoch (), nano::epoch::epoch_2);
@@ -7730,12 +7719,9 @@ TEST (rpc, confirmation_active)
 	node1.process_active (send2);
 	nano::blocks_confirm (node1, { send1, send2 });
 	ASSERT_EQ (2, node1.active.size ());
-	{
-		nano::lock_guard<std::mutex> guard (node1.active.mutex);
-		auto info (node1.active.roots.find (send1->qualified_root ()));
-		ASSERT_NE (node1.active.roots.end (), info);
-		info->election->confirm_once ();
-	}
+	auto election (node1.active.election (send1->qualified_root ()));
+	ASSERT_NE (nullptr, election);
+	election->force_confirm ();
 
 	boost::property_tree::ptree request;
 	request.put ("action", "confirmation_active");

@@ -16,7 +16,7 @@ endif ()
 
 # compatibility for osx sierra and on
 # needs to be set before project
-set (CMAKE_OSX_DEPLOYMENT_TARGET 10.12 CACHE STRING "")
+set (CMAKE_OSX_DEPLOYMENT_TARGET 10.14 CACHE STRING "")
 
 project (nano-node)
 
@@ -59,13 +59,13 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set (NANO_GUI OFF CACHE BOOL "")
 set (NANO_TEST OFF CACHE BOOL "")
 set (NANO_SECURE_RPC OFF CACHE BOOL "")
-set (NANO_ROCKSDB OFF CACHE BOOL "")
 set (NANO_POW_SERVER OFF CACHE BOOL "")
 set (NANO_WARN_TO_ERR OFF CACHE BOOL "")
 set (NANO_TIMED_LOCKS 0 CACHE STRING "")
 set (NANO_TIMED_LOCKS_IGNORE_BLOCKED OFF CACHE BOOL "")
 set (NANO_FUZZER_TEST OFF CACHE BOOL "")
 set (NANO_ASIO_HANDLER_TRACKING 0 CACHE STRING "")
+set (NANO_ROCKSDB_TOOLS OFF CACHE BOOL "")
 
 option (NANO_STACKTRACE_BACKTRACE "Use BOOST_STACKTRACE_USE_BACKTRACE in stacktraces, for POSIX" OFF)
 if (NANO_STACKTRACE_BACKTRACE)
@@ -85,8 +85,6 @@ endif ()
 if (${NANO_ASIO_HANDLER_TRACKING} GREATER 0)
 	add_definitions (-DNANO_ASIO_HANDLER_TRACKING=${NANO_ASIO_HANDLER_TRACKING} -DBOOST_ASIO_ENABLE_HANDLER_TRACKING)
 endif ()
-
-add_definitions (-DNANO_ROCKSDB=$<STREQUAL:${NANO_ROCKSDB},ON>)
 
 option(NANO_ASAN_INT "Enable ASan+UBSan+Integer overflow" OFF)
 option(NANO_ASAN "Enable ASan+UBSan" OFF)
@@ -252,7 +250,7 @@ if (NANO_SHARED_BOOST)
 	SET(Boost_USE_STATIC_LIBS OFF)
 	SET(Boost_USE_STATIC_RUNTIME OFF)
 	SET(Boost_NO_BOOST_CMAKE ON)
-	add_definitions( -DBOOST_ALL_DYN_LINK -DBoost_ALL_NO_LIB)
+	add_definitions(-DBOOST_ALL_DYN_LINK -DBoost_ALL_NO_LIB)
 else()
 	set(Boost_USE_STATIC_LIBS ON)
 endif()
@@ -260,13 +258,23 @@ set(Boost_USE_MULTITHREADED ON)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
-find_package (Boost 1.69.0 REQUIRED COMPONENTS filesystem log log_setup thread program_options system)
+find_package (Boost 1.69.0 REQUIRED COMPONENTS coroutine context filesystem log log_setup thread program_options system)
 
-if (NANO_ROCKSDB)
-	find_package (RocksDB REQUIRED)
-	find_package (ZLIB REQUIRED)
-	include_directories (${ROCKSDB_INCLUDE_DIRS})
-endif ()
+# RocksDB
+include_directories(rocksdb/include)
+set(USE_RTTI ON CACHE BOOL "")
+set(WITH_GFLAGS OFF CACHE BOOL "")
+set(WITH_TESTS OFF CACHE BOOL "")
+set(WITH_BENCHMARK_TOOLS OFF CACHE BOOL "")
+set(ROCKSDB_BUILD_SHARED OFF CACHE BOOL "")
+set(WITH_CORE_TOOLS ${NANO_ROCKSDB_TOOLS} CACHE BOOL "" FORCE)
+set(WITH_TOOLS ${NANO_ROCKSDB_TOOLS} CACHE BOOL "" FORCE)
+if (ENABLE_AVX2)
+	set(PORTABLE OFF CACHE BOOL "" FORCE)
+else()
+	set(PORTABLE ON CACHE BOOL "" FORCE)
+endif()
+add_subdirectory(rocksdb)
 
 # There is a compile bug with boost 1.69 interprocess headers on Mac
 if (APPLE AND Boost_VERSION EQUAL 106900)
@@ -426,8 +434,6 @@ if (NANO_FUZZER_TEST)
 endif ()
 
 if (NANO_TEST OR RAIBLOCKS_TEST)
-	find_package (Boost 1.69.0 REQUIRED COMPONENTS coroutine)
-
 	if(WIN32)
 		if(MSVC_VERSION)
 			if(MSVC_VERSION GREATER_EQUAL 1910)

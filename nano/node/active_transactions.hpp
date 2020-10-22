@@ -195,7 +195,6 @@ public:
 	uint64_t limited_active_difficulty (nano::block const &);
 	uint64_t limited_active_difficulty (nano::work_version const, uint64_t const);
 	double active_multiplier ();
-	std::deque<std::shared_ptr<nano::block>> list_blocks ();
 	void erase (nano::block const &);
 	bool empty ();
 	size_t size ();
@@ -212,6 +211,7 @@ public:
 
 	void add_recently_cemented (nano::election_status const &);
 	void add_recently_confirmed (nano::qualified_root const &, nano::block_hash const &);
+	void erase_recently_confirmed (nano::block_hash const &);
 	void add_inactive_votes_cache (nano::block_hash const &, nano::account const &);
 	// Inserts an election if conditions are met
 	void trigger_inactive_votes_cache_election (std::shared_ptr<nano::block> const &);
@@ -244,6 +244,8 @@ private:
 	bool update_difficulty_impl (roots_iterator const &, nano::block const &);
 	void request_loop ();
 	void request_confirm (nano::unique_lock<std::mutex> &);
+	// Erase all blocks from active and, if not confirmed, clear digests from network filters
+	void cleanup_election (nano::election_cleanup_info const &);
 	nano::condition_variable condition;
 	bool started{ false };
 	std::atomic<bool> stopped{ false };
