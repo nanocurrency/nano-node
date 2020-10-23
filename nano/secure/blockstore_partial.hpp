@@ -313,7 +313,7 @@ public:
 		return nano::store_iterator<nano::unchecked_key, nano::unchecked_info> (nullptr);
 	}
 
-	nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> vote_end () override
+	nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> vote_end () const override
 	{
 		return nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> (nullptr);
 	}
@@ -323,7 +323,7 @@ public:
 		return nano::store_iterator<nano::endpoint_key, nano::no_value> (nullptr);
 	}
 
-	nano::store_iterator<nano::pending_key, nano::pending_info> pending_end () override
+	nano::store_iterator<nano::pending_key, nano::pending_info> pending_end () const override
 	{
 		return nano::store_iterator<nano::pending_key, nano::pending_info> (nullptr);
 	}
@@ -338,14 +338,24 @@ public:
 		return nano::store_iterator<nano::account, nano::account_info> (nullptr);
 	}
 
-	nano::store_iterator<nano::block_hash, std::shared_ptr<nano::block>> blocks_end () const override
+	nano::store_iterator<nano::block_hash, nano::block_w_sideband> blocks_end () const override
 	{
-		return nano::store_iterator<nano::block_hash, std::shared_ptr<nano::block>> (nullptr);
+		return nano::store_iterator<nano::block_hash, nano::block_w_sideband> (nullptr);
 	}
 
 	nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_end () const override
 	{
 		return nano::store_iterator<nano::account, nano::confirmation_height_info> (nullptr);
+	}
+
+	nano::store_iterator<nano::block_hash, std::nullptr_t> pruned_end () const override
+	{
+		return nano::store_iterator<nano::block_hash, std::nullptr_t> (nullptr);
+	}
+
+	nano::store_iterator<nano::block_hash, nano::account> frontiers_end () const override
+	{
+		return nano::store_iterator<nano::block_hash, nano::account> (nullptr);
 	}
 
 	std::mutex & get_cache_mutex () override
@@ -385,7 +395,7 @@ public:
 		return nano::epoch::epoch_0;
 	}
 
-	void block_raw_put (nano::write_transaction const & transaction_a, std::vector<uint8_t> const & data, nano::block_hash const & hash_a)
+	void block_raw_put (nano::write_transaction const & transaction_a, std::vector<uint8_t> const & data, nano::block_hash const & hash_a) override
 	{
 		nano::db_val<Val> value{ data.size (), (void *)data.data () };
 		auto status = put (transaction_a, tables::blocks, hash_a, value);
@@ -473,6 +483,19 @@ public:
 		return nullptr;
 	}
 
+	void vote_put (nano::write_transaction const & transaction_a, nano::account const & account_a, std::shared_ptr<nano::vote> const & vote_a) override
+	{
+		std::vector<uint8_t> vector;
+		{
+			nano::vectorstream stream (vector);
+			vote_a->serialize (stream);
+		}
+
+		nano::db_val<Val> value (vector.size (), vector.data ());
+		auto status1 (put (transaction_a, tables::vote, account_a, value));
+		release_assert (success (status1));
+	}
+
 	void flush (nano::write_transaction const & transaction_a) override
 	{
 		{
@@ -482,14 +505,7 @@ public:
 		}
 		for (auto i (vote_cache_l2.begin ()), n (vote_cache_l2.end ()); i != n; ++i)
 		{
-			std::vector<uint8_t> vector;
-			{
-				nano::vectorstream stream (vector);
-				i->second->serialize (stream);
-			}
-			nano::db_val<Val> value (vector.size (), vector.data ());
-			auto status1 (put (transaction_a, tables::vote, i->first, value));
-			release_assert (success (status1));
+			vote_put (transaction_a, i->first, i->second);
 		}
 	}
 
@@ -703,17 +719,32 @@ public:
 		return make_iterator<nano::account, nano::account_info> (transaction_a, tables::accounts);
 	}
 
-	nano::store_iterator<nano::block_hash, std::shared_ptr<nano::block>> blocks_begin (nano::transaction const & transaction_a) const override
+	nano::store_iterator<nano::block_hash, nano::block_w_sideband> blocks_begin (nano::transaction const & transaction_a) const override
 	{
-		return make_iterator<nano::block_hash, std::shared_ptr<nano::block>> (transaction_a, tables::blocks);
+		return make_iterator<nano::block_hash, nano::block_w_sideband> (transaction_a, tables::blocks);
 	}
 
-	nano::store_iterator<nano::pending_key, nano::pending_info> pending_begin (nano::transaction const & transaction_a, nano::pending_key const & key_a) override
+	nano::store_iterator<nano::block_hash, nano::block_w_sideband> blocks_begin (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override
+	{
+		return make_iterator<nano::block_hash, nano::block_w_sideband> (transaction_a, tables::blocks, nano::db_val<Val> (hash_a));
+	}
+
+	nano::store_iterator<nano::block_hash, nano::account> frontiers_begin (nano::transaction const & transaction_a) const override
+	{
+		return make_iterator<nano::block_hash, nano::account> (transaction_a, tables::frontiers);
+	}
+
+	nano::store_iterator<nano::block_hash, nano::account> frontiers_begin (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override
+	{
+		return make_iterator<nano::block_hash, nano::account> (transaction_a, tables::frontiers, nano::db_val<Val> (hash_a));
+	}
+
+	nano::store_iterator<nano::pending_key, nano::pending_info> pending_begin (nano::transaction const & transaction_a, nano::pending_key const & key_a) const override
 	{
 		return make_iterator<nano::pending_key, nano::pending_info> (transaction_a, tables::pending, nano::db_val<Val> (key_a));
 	}
 
-	nano::store_iterator<nano::pending_key, nano::pending_info> pending_begin (nano::transaction const & transaction_a) override
+	nano::store_iterator<nano::pending_key, nano::pending_info> pending_begin (nano::transaction const & transaction_a) const override
 	{
 		return make_iterator<nano::pending_key, nano::pending_info> (transaction_a, tables::pending);
 	}
@@ -728,7 +759,12 @@ public:
 		return make_iterator<nano::unchecked_key, nano::unchecked_info> (transaction_a, tables::unchecked, nano::db_val<Val> (key_a));
 	}
 
-	nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> vote_begin (nano::transaction const & transaction_a) override
+	nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> vote_begin (nano::transaction const & transaction_a, nano::account const & account_a) const override
+	{
+		return make_iterator<nano::account, std::shared_ptr<nano::vote>> (transaction_a, tables::vote, nano::db_val<Val> (account_a));
+	}
+
+	nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> vote_begin (nano::transaction const & transaction_a) const override
 	{
 		return make_iterator<nano::account, std::shared_ptr<nano::vote>> (transaction_a, tables::vote);
 	}
@@ -753,12 +789,22 @@ public:
 		return make_iterator<nano::account, nano::confirmation_height_info> (transaction_a, tables::confirmation_height);
 	}
 
+	nano::store_iterator<nano::block_hash, std::nullptr_t> pruned_begin (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override
+	{
+		return make_iterator<nano::block_hash, std::nullptr_t> (transaction_a, tables::pruned, nano::db_val<Val> (hash_a));
+	}
+
+	nano::store_iterator<nano::block_hash, std::nullptr_t> pruned_begin (nano::transaction const & transaction_a) const override
+	{
+		return make_iterator<nano::block_hash, std::nullptr_t> (transaction_a, tables::pruned);
+	}
+
 	size_t unchecked_count (nano::transaction const & transaction_a) override
 	{
 		return count (transaction_a, tables::unchecked);
 	}
 
-	void accounts_for_each_par (std::function<void(nano::read_transaction const &, nano::store_iterator<nano::account, nano::account_info>, nano::store_iterator<nano::account, nano::account_info>)> const & action_a) override
+	void accounts_for_each_par (std::function<void(nano::read_transaction const &, nano::store_iterator<nano::account, nano::account_info>, nano::store_iterator<nano::account, nano::account_info>)> const & action_a) const override
 	{
 		parallel_traversal<nano::uint256_t> (
 		[&action_a, this](nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
@@ -767,7 +813,7 @@ public:
 		});
 	}
 
-	void confirmation_height_for_each_par (std::function<void(nano::read_transaction const &, nano::store_iterator<nano::account, nano::confirmation_height_info>, nano::store_iterator<nano::account, nano::confirmation_height_info>)> const & action_a) override
+	void confirmation_height_for_each_par (std::function<void(nano::read_transaction const &, nano::store_iterator<nano::account, nano::confirmation_height_info>, nano::store_iterator<nano::account, nano::confirmation_height_info>)> const & action_a) const override
 	{
 		parallel_traversal<nano::uint256_t> (
 		[&action_a, this](nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
@@ -776,7 +822,7 @@ public:
 		});
 	}
 
-	void pending_for_each_par (std::function<void(nano::read_transaction const &, nano::store_iterator<nano::pending_key, nano::pending_info>, nano::store_iterator<nano::pending_key, nano::pending_info>)> const & action_a) override
+	void pending_for_each_par (std::function<void(nano::read_transaction const &, nano::store_iterator<nano::pending_key, nano::pending_info>, nano::store_iterator<nano::pending_key, nano::pending_info>)> const & action_a) const override
 	{
 		parallel_traversal<nano::uint512_t> (
 		[&action_a, this](nano::uint512_t const & start, nano::uint512_t const & end, bool const is_last) {
@@ -786,6 +832,55 @@ public:
 			nano::pending_key key_end (union_end.uint256s[0].number (), union_end.uint256s[1].number ());
 			auto transaction (this->tx_begin_read ());
 			action_a (transaction, this->pending_begin (transaction, key_start), !is_last ? this->pending_begin (transaction, key_end) : this->pending_end ());
+		});
+	}
+
+	void unchecked_for_each_par (std::function<void(nano::read_transaction const &, nano::store_iterator<nano::unchecked_key, nano::unchecked_info>, nano::store_iterator<nano::unchecked_key, nano::unchecked_info>)> const & action_a) const override
+	{
+		parallel_traversal<nano::uint512_t> (
+		[&action_a, this](nano::uint512_t const & start, nano::uint512_t const & end, bool const is_last) {
+			nano::uint512_union union_start (start);
+			nano::uint512_union union_end (end);
+			nano::unchecked_key key_start (union_start.uint256s[0].number (), union_start.uint256s[1].number ());
+			nano::unchecked_key key_end (union_end.uint256s[0].number (), union_end.uint256s[1].number ());
+			auto transaction (this->tx_begin_read ());
+			action_a (transaction, this->unchecked_begin (transaction, key_start), !is_last ? this->unchecked_begin (transaction, key_end) : this->unchecked_end ());
+		});
+	}
+
+	void blocks_for_each_par (std::function<void(nano::read_transaction const &, nano::store_iterator<nano::block_hash, block_w_sideband>, nano::store_iterator<nano::block_hash, block_w_sideband>)> const & action_a) const override
+	{
+		parallel_traversal<nano::uint256_t> (
+		[&action_a, this](nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
+			auto transaction (this->tx_begin_read ());
+			action_a (transaction, this->blocks_begin (transaction, start), !is_last ? this->blocks_begin (transaction, end) : this->blocks_end ());
+		});
+	}
+
+	void pruned_for_each_par (std::function<void(nano::read_transaction const &, nano::store_iterator<nano::block_hash, std::nullptr_t>, nano::store_iterator<nano::block_hash, std::nullptr_t>)> const & action_a) const override
+	{
+		parallel_traversal<nano::uint256_t> (
+		[&action_a, this](nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
+			auto transaction (this->tx_begin_read ());
+			action_a (transaction, this->pruned_begin (transaction, start), !is_last ? this->pruned_begin (transaction, end) : this->pruned_end ());
+		});
+	}
+
+	void frontiers_for_each_par (std::function<void(nano::read_transaction const &, nano::store_iterator<nano::block_hash, nano::account>, nano::store_iterator<nano::block_hash, nano::account>)> const & action_a) const override
+	{
+		parallel_traversal<nano::uint256_t> (
+		[&action_a, this](nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
+			auto transaction (this->tx_begin_read ());
+			action_a (transaction, this->frontiers_begin (transaction, start), !is_last ? this->frontiers_begin (transaction, end) : this->frontiers_end ());
+		});
+	}
+
+	void votes_for_each_par (std::function<void(nano::read_transaction const &, nano::store_iterator<nano::account, std::shared_ptr<nano::vote>>, nano::store_iterator<nano::account, std::shared_ptr<nano::vote>>)> const & action_a) const override
+	{
+		parallel_traversal<nano::uint256_t> (
+		[&action_a, this](nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
+			auto transaction (this->tx_begin_read ());
+			action_a (transaction, this->vote_begin (transaction, start), !is_last ? this->vote_begin (transaction, end) : this->vote_end ());
 		});
 	}
 
@@ -851,7 +946,7 @@ protected:
 	// Put only key without value
 	int put_key (nano::write_transaction const & transaction_a, tables table_a, nano::db_val<Val> const & key_a)
 	{
-		return put (transaction_a, table_a, key_a, nano::db_val<Val>{ std::nullptr_t{} });
+		return put (transaction_a, table_a, key_a, nano::db_val<Val>{ nullptr });
 	}
 
 	int del (nano::write_transaction const & transaction_a, tables table_a, nano::db_val<Val> const & key_a)
