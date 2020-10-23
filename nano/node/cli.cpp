@@ -57,7 +57,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("unchecked_clear", "Clear unchecked blocks")
 	("confirmation_height_clear", "Clear confirmation height")
 	("rebuild_database", "Rebuild LMDB database with vacuum for best compaction")
-	("migrate_database", "Migrates LMDB database to RocksDB")
+	("migrate_database_lmdb_to_rocksdb", "Migrates LMDB database to RocksDB")
 	("diagnostics", "Run internal diagnostics")
 	("generate_config", boost::program_options::value<std::string> (), "Write configuration to stdout, populated with defaults suitable for this system. Pass the configuration type node or rpc. See also use_defaults.")
 	("key_create", "Generates a adhoc random keypair and prints it to stdout")
@@ -447,7 +447,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			std::cerr << "Snapshot failed (unknown reason)" << std::endl;
 		}
 	}
-	else if (vm.count ("migrate_database"))
+	else if (vm.count ("migrate_database_lmdb_to_rocksdb"))
 	{
 		auto data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
 		auto node_flags = nano::inactive_node_flag_defaults ();
