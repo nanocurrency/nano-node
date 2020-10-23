@@ -504,7 +504,6 @@ std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> nano::electio
 
 std::unordered_map<nano::account, nano::vote_info> nano::election::votes ()
 {
-	debug_assert (node.network_params.network.is_dev_network ());
 	nano::lock_guard<std::mutex> guard (node.active.mutex);
 	return last_votes;
 }
