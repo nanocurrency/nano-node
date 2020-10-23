@@ -3,7 +3,7 @@
 
 nano::payment_observer_processor::payment_observer_processor (nano::node_observers::blocks_t & blocks)
 {
-	blocks.add ([this](nano::election_status const &, nano::account const & account_a, nano::uint128_t const &, bool) {
+	blocks.add ([this](nano::election_status const &, std::vector<nano::vote_with_weight_info> const &, nano::account const & account_a, nano::uint128_t const &, bool) {
 		observer_action (account_a);
 	});
 }
