@@ -152,9 +152,9 @@ void nano::websocket::payment_validator::ongoing_payment_tracking ()
 	static nano::network_constants network_constants;
 	payment_tracker_timer.expires_from_now (network_constants.is_dev_network () ? std::chrono::seconds (1) : std::chrono::seconds (5));
 	payment_tracker_timer.async_wait ([this](const boost::system::error_code & ec) {
-		if (!node.stopped && !ec)
+		if (!this->node.stopped && !ec)
 		{
-			auto sessions_l (node.websocket_server->find_sessions (nano::websocket::topic::payment));
+			auto sessions_l (this->node.websocket_server->find_sessions (nano::websocket::topic::payment));
 			for (auto & session_ptr : sessions_l)
 			{
 				std::vector<std::string> timed_out_l;
@@ -174,19 +174,19 @@ void nano::websocket::payment_validator::ongoing_payment_tracking ()
 							block_hash_l = tracking_info_l.tracked_block->hash ();
 						}
 
-						check_payment (destination_account_l, block_hash_l, session_ptr);
+						this->check_payment (destination_account_l, block_hash_l, session_ptr);
 					}
 				});
 
 				// Remove timed-out trackings
 				for (auto const & account : timed_out_l)
 				{
-					node.logger.always_log ("Websocket: payment tracking timed out for account: ", account);
+					this->node.logger.always_log ("Websocket: payment tracking timed out for account: ", account);
 					session_ptr->get_payment_tracker ().untrack (account);
 				}
 			}
 
-			ongoing_payment_tracking ();
+			this->ongoing_payment_tracking ();
 		}
 	});
 }
