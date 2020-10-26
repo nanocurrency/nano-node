@@ -20,7 +20,6 @@
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/online_reps.hpp>
-#include <nano/node/payment_observer_processor.hpp>
 #include <nano/node/portmapping.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/request_aggregator.hpp>
@@ -199,7 +198,6 @@ public:
 	nano::confirmation_height_processor confirmation_height_processor;
 	nano::active_transactions active;
 	nano::request_aggregator aggregator;
-	nano::payment_observer_processor payment_observer_processor;
 	nano::wallets wallets;
 	const std::chrono::steady_clock::time_point startup_time;
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week

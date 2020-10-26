@@ -57,6 +57,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("unchecked_clear", "Clear unchecked blocks")
 	("confirmation_height_clear", "Clear confirmation height")
 	("rebuild_database", "Rebuild LMDB database with vacuum for best compaction")
+	("migrate_database_lmdb_to_rocksdb", "Migrates LMDB database to RocksDB")
 	("diagnostics", "Run internal diagnostics")
 	("generate_config", boost::program_options::value<std::string> (), "Write configuration to stdout, populated with defaults suitable for this system. Pass the configuration type node or rpc. See also use_defaults.")
 	("key_create", "Generates a adhoc random keypair and prints it to stdout")
@@ -443,6 +444,33 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		catch (...)
 		{
 			std::cerr << "Snapshot failed (unknown reason)" << std::endl;
+		}
+	}
+	else if (vm.count ("migrate_database_lmdb_to_rocksdb"))
+	{
+		auto data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
+		auto node_flags = nano::inactive_node_flag_defaults ();
+		node_flags.config_overrides.push_back ("node.rocksdb.enable=false");
+		nano::update_flags (node_flags, vm);
+		nano::inactive_node node (data_path, node_flags);
+		auto error (false);
+		if (!node.node->init_error ())
+		{
+			std::cout << "Migrating LMDB database to RocksDB, might take a while..." << std::endl;
+			error = node.node->ledger.migrate_lmdb_to_rocksdb (data_path);
+		}
+		else
+		{
+			error = true;
+		}
+
+		if (!error)
+		{
+			std::cout << "Migration completed, after confirming it is correct the data.ldb file can be deleted if no longer required" << std::endl;
+		}
+		else
+		{
+			std::cerr << "There was an error migrating" << std::endl;
 		}
 	}
 	else if (vm.count ("unchecked_clear"))
