@@ -5,7 +5,6 @@
 #include <nano/node/common.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/json_handler.hpp>
-#include <nano/node/json_payment_observer.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/node_rpc_config.hpp>
 #include <nano/node/telemetry.hpp>
@@ -2903,153 +2902,6 @@ void nano::json_handler::pending_exists ()
 	response_errors ();
 }
 
-void nano::json_handler::payment_begin ()
-{
-	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
-		std::string id_text (rpc_l->request.get<std::string> ("wallet"));
-		nano::wallet_id id;
-		if (!id.decode_hex (id_text))
-		{
-			auto existing (rpc_l->node.wallets.items.find (id));
-			if (existing != rpc_l->node.wallets.items.end ())
-			{
-				auto transaction (rpc_l->node.wallets.tx_begin_write ());
-				std::shared_ptr<nano::wallet> wallet (existing->second);
-				if (wallet->store.valid_password (transaction))
-				{
-					nano::account account (0);
-					do
-					{
-						auto existing (wallet->free_accounts.begin ());
-						if (existing != wallet->free_accounts.end ())
-						{
-							account = *existing;
-							wallet->free_accounts.erase (existing);
-							if (wallet->store.find (transaction, account) == wallet->store.end ())
-							{
-								rpc_l->node.logger.always_log (boost::str (boost::format ("Transaction wallet %1% externally modified listing account %2% as free but no longer exists") % id.to_string () % account.to_account ()));
-								account.clear ();
-							}
-							else
-							{
-								auto block_transaction (rpc_l->node.store.tx_begin_read ());
-								if (!rpc_l->node.ledger.account_balance (block_transaction, account).is_zero ())
-								{
-									rpc_l->node.logger.always_log (boost::str (boost::format ("Skipping account %1% for use as a transaction account: non-zero balance") % account.to_account ()));
-									account.clear ();
-								}
-							}
-						}
-						else
-						{
-							account = wallet->deterministic_insert (transaction);
-							break;
-						}
-					} while (account.is_zero ());
-					if (!account.is_zero ())
-					{
-						rpc_l->response_l.put ("deprecated", "1");
-						rpc_l->response_l.put ("account", account.to_account ());
-					}
-					else
-					{
-						rpc_l->ec = nano::error_rpc::payment_unable_create_account;
-					}
-				}
-				else
-				{
-					rpc_l->ec = nano::error_common::wallet_locked;
-				}
-			}
-			else
-			{
-				rpc_l->ec = nano::error_common::wallet_not_found;
-			}
-		}
-		else
-		{
-			rpc_l->ec = nano::error_common::bad_wallet_number;
-		}
-		rpc_l->response_errors ();
-	}));
-}
-
-void nano::json_handler::payment_init ()
-{
-	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
-		auto wallet (rpc_l->wallet_impl ());
-		if (!rpc_l->ec)
-		{
-			auto transaction (rpc_l->node.wallets.tx_begin_write ());
-			if (wallet->store.valid_password (transaction))
-			{
-				wallet->init_free_accounts (transaction);
-				rpc_l->response_l.put ("deprecated", "1");
-				rpc_l->response_l.put ("status", "Ready");
-			}
-			else
-			{
-				rpc_l->ec = nano::error_common::wallet_locked;
-			}
-		}
-		rpc_l->response_errors ();
-	}));
-}
-
-void nano::json_handler::payment_end ()
-{
-	auto account (account_impl ());
-	auto wallet (wallet_impl ());
-	if (!ec)
-	{
-		auto transaction (node.wallets.tx_begin_read ());
-		auto block_transaction (node.store.tx_begin_read ());
-		wallet_account_impl (transaction, wallet, account);
-		if (!ec)
-		{
-			if (node.ledger.account_balance (block_transaction, account).is_zero ())
-			{
-				wallet->free_accounts.insert (account);
-				response_l.put ("deprecated", "1");
-				response_l.put ("ended", "1");
-			}
-			else
-			{
-				ec = nano::error_rpc::payment_account_balance;
-			}
-		}
-	}
-	response_errors ();
-}
-
-void nano::json_handler::payment_wait ()
-{
-	std::string timeout_text (request.get<std::string> ("timeout"));
-	auto account (account_impl ());
-	auto amount (amount_impl ());
-	if (!ec)
-	{
-		uint64_t timeout;
-		if (!decode_unsigned (timeout_text, timeout))
-		{
-			{
-				auto observer (std::make_shared<nano::json_payment_observer> (node, response, account, amount));
-				observer->start (timeout);
-				node.payment_observer_processor.add (account, observer);
-			}
-			node.payment_observer_processor.observer_action (account);
-		}
-		else
-		{
-			ec = nano::error_rpc::bad_timeout;
-		}
-	}
-	if (ec)
-	{
-		response_errors ();
-	}
-}
-
 void nano::json_handler::process ()
 {
 	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
@@ -5139,10 +4991,6 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("password_change", &nano::json_handler::password_change);
 	no_arg_funcs.emplace ("password_enter", &nano::json_handler::password_enter);
 	no_arg_funcs.emplace ("wallet_unlock", &nano::json_handler::password_enter);
-	no_arg_funcs.emplace ("payment_begin", &nano::json_handler::payment_begin);
-	no_arg_funcs.emplace ("payment_init", &nano::json_handler::payment_init);
-	no_arg_funcs.emplace ("payment_end", &nano::json_handler::payment_end);
-	no_arg_funcs.emplace ("payment_wait", &nano::json_handler::payment_wait);
 	no_arg_funcs.emplace ("peers", &nano::json_handler::peers);
 	no_arg_funcs.emplace ("pending", &nano::json_handler::pending);
 	no_arg_funcs.emplace ("pending_exists", &nano::json_handler::pending_exists);
