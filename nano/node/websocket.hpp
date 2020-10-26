@@ -4,9 +4,11 @@
 #include <nano/boost/beast/core.hpp>
 #include <nano/boost/beast/websocket.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/errors.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/websocket_payment_tracking.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
@@ -14,6 +16,7 @@
 #include <deque>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -50,6 +53,8 @@ namespace websocket
 		ack,
 		/** A confirmation message */
 		confirmation,
+		/** Payment tracking */
+		payment,
 		/** Stopped election message (dropped elections due to bounding or block lost the elections) */
 		stopped_election,
 		/** A vote message **/
@@ -102,6 +107,7 @@ namespace websocket
 		message bootstrap_exited (std::string const & id_a, std::string const & mode_a, std::chrono::steady_clock::time_point const start_time_a, uint64_t const total_blocks_a);
 		message telemetry_received (nano::telemetry_data const &, nano::endpoint const &);
 		message new_block_arrived (nano::block const & block_a);
+		message payment_notification (nano::websocket::payment_tracker::payment_tracking_info const & tracking_info_a, nano::account const & account_a, nano::amount const & account_balance_a, nano::amount const & pending_a, std::optional<std::reference_wrapper<nano::confirmation_height_info>> const & confirmation_info_a, bool is_partial_payment_a);
 
 	private:
 		/** Set the common fields for messages: timestamp and topic. */
@@ -134,6 +140,39 @@ namespace websocket
 		}
 
 		friend class session;
+	};
+
+	/**
+	 * Options for payment tracking
+	 */
+	class payment_tracking_options final : public options
+	{
+	public:
+		payment_tracking_options (boost::property_tree::ptree const & options_a);
+
+		/** Validate options */
+		nano::error validate () const;
+
+		/** We keep the subscribe message id so it can be included in notifications. This can be used by clients for message correlation. */
+		std::string id;
+
+		/** The tracked desination account */
+		std::string tracked_account;
+
+		/** Set only if tracking a block */
+		std::shared_ptr<nano::state_block> tracked_block;
+
+		/** Tracking a block also means publishing it. With this flag enabled, work is watched. */
+		bool watch_work{ false };
+
+		/** Set if tracking total account balance */
+		nano::amount minimum_amount;
+
+		/** How long to track */
+		std::chrono::seconds max_tracking_duration;
+
+		/** Tracking policy */
+		nano::websocket::payment_tracker::policy tracking_policy{ nano::websocket::payment_tracker::policy::invalid };
 	};
 
 	/**
@@ -244,6 +283,11 @@ namespace websocket
 		/** Enqueue \p message_a for writing to the websockets */
 		void write (nano::websocket::message message_a);
 
+		nano::websocket::payment_tracker & get_payment_tracker ()
+		{
+			return payment_tracker;
+		}
+
 	private:
 		/** The owning listener */
 		nano::websocket::listener & ws_listener;
@@ -255,6 +299,8 @@ namespace websocket
 		boost::asio::strand<boost::asio::io_context::executor_type> strand;
 		/** Outgoing messages. The send queue is protected by accessing it only through the strand */
 		std::deque<message> send_queue;
+		/** Payment tracker for this session */
+		nano::websocket::payment_tracker payment_tracker;
 
 		/** Hash functor for topic enums */
 		struct topic_hash
@@ -272,7 +318,9 @@ namespace websocket
 		/** Handle incoming message */
 		void handle_message (boost::property_tree::ptree const & message_a);
 		/** Acknowledge incoming message */
-		void send_ack (std::string action_a, std::string id_a);
+		void send_ack (std::string const & action_a, std::string const & id_a);
+		/** Send error in response to subscription, such as when options are invalid */
+		void send_error (std::string const & action_a, std::string const & id_a, nano::error const & error_a);
 		/** Send all queued messages. This must be called from the write strand. */
 		void write_queued_messages ();
 	};
@@ -281,7 +329,7 @@ namespace websocket
 	class listener final : public std::enable_shared_from_this<listener>
 	{
 	public:
-		listener (nano::logger_mt & logger_a, nano::wallets & wallets_a, boost::asio::io_context & io_ctx_a, boost::asio::ip::tcp::endpoint endpoint_a);
+		listener (std::shared_ptr<nano::websocket::payment_validator> const & payment_validator_a, nano::logger_mt & logger_a, nano::wallets & wallets_a, boost::asio::io_context & io_ctx_a, boost::asio::ip::tcp::endpoint endpoint_a);
 
 		/** Start accepting connections */
 		void run ();
@@ -297,6 +345,12 @@ namespace websocket
 		/** Broadcast \p message to all session subscribing to the message topic. */
 		void broadcast (nano::websocket::message message_a);
 
+		/**
+		 * Called when there is a confirmed send state block and one or more sessions are tracking payments.
+		 * Check if destination account is tracked, then notify relevant sessions if the tracking criteria are met.
+		 */
+		void broadcast_payment_notification (nano::account const & destination_account_a, nano::block_hash const & block_hash_a);
+
 		nano::logger_mt & get_logger () const
 		{
 			return logger;
@@ -305,6 +359,11 @@ namespace websocket
 		nano::wallets & get_wallets () const
 		{
 			return wallets;
+		}
+
+		std::shared_ptr<nano::websocket::payment_validator> get_payment_validator ()
+		{
+			return payment_validator;
 		}
 
 		/**
@@ -321,6 +380,9 @@ namespace websocket
 			return topic_subscriber_count[static_cast<std::size_t> (topic_a)];
 		}
 
+		/** Returns a list of sessions currently subscribing to the given topic */
+		std::vector<std::shared_ptr<session>> find_sessions (nano::websocket::topic const & topic_a) const;
+
 	private:
 		/** A websocket session can increase and decrease subscription counts. */
 		friend nano::websocket::session;
@@ -330,13 +392,15 @@ namespace websocket
 		/** Removes from subscription count of a specific topic*/
 		void decrease_subscriber_count (nano::websocket::topic const & topic_a);
 
+		std::shared_ptr<nano::websocket::payment_validator> payment_validator;
 		nano::logger_mt & logger;
 		nano::wallets & wallets;
 		boost::asio::ip::tcp::acceptor acceptor;
 		socket_type socket;
-		std::mutex sessions_mutex;
+		mutable std::mutex sessions_mutex;
 		std::vector<std::weak_ptr<session>> sessions;
 		std::array<std::atomic<std::size_t>, number_topics> topic_subscriber_count;
+		boost::asio::steady_timer payment_tracker_timer;
 		std::atomic<bool> stopped{ false };
 	};
 }

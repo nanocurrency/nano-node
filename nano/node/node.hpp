@@ -45,6 +45,7 @@ namespace nano
 namespace websocket
 {
 	class listener;
+	class payment_validator;
 }
 class node;
 class telemetry;
@@ -156,6 +157,7 @@ public:
 	nano::node_config config;
 	nano::stat stats;
 	nano::thread_pool workers;
+	std::shared_ptr<nano::websocket::payment_validator> websocket_payment_validator;
 	std::shared_ptr<nano::websocket::listener> websocket_server;
 	nano::node_flags flags;
 	nano::work_pool & work;

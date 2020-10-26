@@ -841,3 +841,281 @@ TEST (websocket, new_unconfirmed_block)
 	ASSERT_EQ ("state", message_contents.get<std::string> ("type"));
 	ASSERT_EQ ("send", message_contents.get<std::string> ("subtype"));
 }
+
+// Subscribes to payment with invalid options, awaits a websocket error notification
+TEST (websocket, payment_invalid_options)
+{
+	nano::system system;
+	nano::node_config config (nano::get_available_port (), system.logging);
+	config.websocket_config.enabled = true;
+	config.websocket_config.port = nano::get_available_port ();
+	auto node1 (system.add_node (config));
+	ASSERT_EQ (0, node1->websocket_server->subscriber_count (nano::websocket::topic::payment));
+
+	// Each test subscription returns future of true if the result is as expected
+	std::future<bool> valid;
+
+	// Invalid account
+	valid = std::async (std::launch::async, ([config]() {
+		fake_websocket_client client (config.websocket_config.port);
+		client.send_message (R"json({"action": "subscribe", "topic": "payment", "options": {"track": "account", "account": "invalid","minimum_amount": "1","timeout_seconds": "3600"}})json");
+		auto event = client.string_to_json (client.get_response ());
+		return !event.get<std::string> ("error", "").empty ();
+	}));
+
+	ASSERT_TIMELY (5s, valid.wait_for (0s) == std::future_status::ready);
+	ASSERT_TRUE (valid.get ());
+
+	// Missing minimum amount
+	valid = std::async (std::launch::async, ([config]() {
+		fake_websocket_client client (config.websocket_config.port);
+		client.send_message (R"json({"action": "subscribe", "topic": "payment", "options": {"track": "account", "account": "nano_3t6k35gi95xu6tergt6p69ck76ogmitsa8mnijtpxm9fkcm736xtoncuohr3","timeout_seconds": "3600"}})json");
+		auto event = client.string_to_json (client.get_response ());
+		return !event.get<std::string> ("error", "").empty ();
+	}));
+
+	ASSERT_TIMELY (5s, valid.wait_for (0s) == std::future_status::ready);
+	ASSERT_TRUE (valid.get ());
+
+	// Missing timeout value
+	valid = std::async (std::launch::async, ([config]() {
+		fake_websocket_client client (config.websocket_config.port);
+		client.send_message (R"json({"action": "subscribe", "topic": "payment", "options": {"track": "account", "account": "nano_3t6k35gi95xu6tergt6p69ck76ogmitsa8mnijtpxm9fkcm736xtoncuohr3","minimum_amount": "1"}})json");
+		auto event = client.string_to_json (client.get_response ());
+		return !event.get<std::string> ("error", "").empty ();
+	}));
+
+	ASSERT_TIMELY (5s, valid.wait_for (0s) == std::future_status::ready);
+	ASSERT_TRUE (valid.get ());
+
+	// Missing block
+	valid = std::async (std::launch::async, ([config]() {
+		fake_websocket_client client (config.websocket_config.port);
+		client.send_message (R"json({"action": "subscribe", "topic": "payment", "options": {"track": "block", "account": "nano_3t6k35gi95xu6tergt6p69ck76ogmitsa8mnijtpxm9fkcm736xtoncuohr3","minimum_amount": "1"}})json");
+		auto event = client.string_to_json (client.get_response ());
+		return !event.get<std::string> ("error", "").empty ();
+	}));
+
+	ASSERT_TIMELY (10s, valid.wait_for (0s) == std::future_status::ready);
+	ASSERT_TRUE (valid.get ());
+}
+
+// Subscribes to payment tracking with valid options, awaits payment notification
+// This test uses the account tracking policy
+TEST (websocket, payment_confirmation)
+{
+	auto confirmation_test = [](bool partial_payment) {
+		nano::system system;
+		nano::node_config config (nano::get_available_port (), system.logging);
+		config.websocket_config.enabled = true;
+		config.websocket_config.port = nano::get_available_port ();
+		auto node1 (system.add_node (config));
+		ASSERT_EQ (0, node1->websocket_server->subscriber_count (nano::websocket::topic::payment));
+
+		nano::keypair key;
+		auto balance = nano::genesis_amount;
+		auto send_amount = node1->config.online_weight_minimum.number () + 1;
+
+		// Returns future of true if the result is as expected
+		std::future<bool> valid = std::async (std::launch::async, ([&config, &key, &send_amount, &partial_payment]() {
+			fake_websocket_client client (config.websocket_config.port);
+
+			auto minimum_amount = partial_payment ? nano::amount (send_amount + 1).to_string_dec () : "1";
+
+			// clang-format off
+			client.send_message (R"json(
+								 {
+									 "action": "subscribe",
+									 "topic": "payment",
+									 "options": {
+										 "track": "account",
+										 "account": ")json" + key.pub.to_account () + R"json(",
+										 "minimum_amount": ")json" + minimum_amount + R"json(",
+										 "timeout_seconds": "3600"
+									 }
+								 })json");
+			// clang-format on
+
+			auto response = client.get_response ();
+			auto event = client.string_to_json (response);
+			bool is_error = !event.get<std::string> ("error", "").empty ();
+			is_error |= !partial_payment && event.get<std::string> ("topic", "") != "payment";
+			is_error |= partial_payment && event.get<std::string> ("topic", "") != "partial_payment";
+
+			if (!is_error)
+			{
+				// We expect message.total_balance in the notification to match the send amount
+				nano::amount total_balance;
+				total_balance.decode_dec (event.get_child ("message").get<std::string> ("total_balance", "0"));
+
+				// The send is not received, so the same amount should show up in pending
+				nano::amount pending;
+				pending.decode_dec (event.get_child ("message").get<std::string> ("pending", "0"));
+
+				// The balance should be 0 as nothing is received yet
+				nano::amount balance;
+				balance.decode_dec (event.get_child ("message").get<std::string> ("balance", "0"));
+
+				is_error = total_balance.number () != send_amount || pending.number () != send_amount || !balance.is_zero ();
+			}
+			return !is_error;
+		}));
+
+		// Confirm a send state block. This will cause the websocket payment notification to happen.
+		{
+			system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
+			nano::block_hash previous (node1->latest (nano::dev_genesis_key.pub));
+			balance -= send_amount;
+			auto send (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, previous, nano::dev_genesis_key.pub, balance, key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (previous)));
+			node1->process_active (send);
+			node1->block_processor.flush ();
+		}
+
+		ASSERT_TIMELY (10s, valid.wait_for (0s) == std::future_status::ready);
+		ASSERT_TRUE (valid.get ());
+	};
+
+	// Full payment test
+	confirmation_test (false);
+
+	// Partial payment test
+	confirmation_test (true);
+}
+
+// Subscribes to payment tracking with valid options, awaits payment notification
+// This test uses the block confirmation tracking policy
+TEST (websocket, payment_block_confirmation)
+{
+	nano::system system;
+	nano::node_config config (nano::get_available_port (), system.logging);
+	config.websocket_config.enabled = true;
+	config.websocket_config.port = nano::get_available_port ();
+	auto node1 (system.add_node (config));
+	ASSERT_EQ (0, node1->websocket_server->subscriber_count (nano::websocket::topic::payment));
+
+	nano::keypair key;
+	auto balance = nano::genesis_amount;
+	auto send_amount = node1->config.online_weight_minimum.number () + 1;
+
+	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
+	nano::block_hash previous (node1->latest (nano::dev_genesis_key.pub));
+	balance -= send_amount;
+	auto send (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, previous, nano::dev_genesis_key.pub, balance, key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (previous)));
+
+	// Publish a send block and start tracking its confirmation
+	std::future<bool> valid = std::async (std::launch::async, ([&config, &send_amount, &send]() {
+		fake_websocket_client client (config.websocket_config.port);
+
+		// clang-format off
+		client.send_message (R"json(
+							 {
+								 "action": "subscribe",
+								 "topic": "payment",
+								 "options": {
+									 "track": "block",
+									 "timeout_seconds": "3600",
+									 "block": )json" + send->to_json() + R"json(
+								 }
+							 })json");
+		// clang-format on
+
+		auto response = client.get_response ();
+		auto event = client.string_to_json (response);
+		bool is_error = !event.get<std::string> ("error", "").empty ();
+		is_error |= event.get<std::string> ("topic", "") != "payment";
+
+		if (!is_error)
+		{
+			// We expect message.total_balance in the notification to match the send amount
+			nano::amount total_balance;
+			total_balance.decode_dec (event.get_child ("message").get<std::string> ("total_balance", "0"));
+
+			// The send is not received, so the same amount should show up in pending
+			nano::amount pending;
+			pending.decode_dec (event.get_child ("message").get<std::string> ("pending", "0"));
+
+			// The balance should be 0 as nothing is received yet
+			nano::amount balance;
+			balance.decode_dec (event.get_child ("message").get<std::string> ("balance", "0"));
+
+			nano::block_hash tracking_hash;
+			tracking_hash.decode_hex (event.get_child ("message").get<std::string> ("tracked_block_hash", ""));
+
+			is_error = tracking_hash.number () != send->hash ().number () || total_balance.number () != send_amount || pending.number () != send_amount || !balance.is_zero ();
+		}
+		return !is_error;
+	}));
+
+	ASSERT_TIMELY (10s, valid.wait_for (0s) == std::future_status::ready);
+	ASSERT_TRUE (valid.get ());
+}
+
+// Confirm a send block before the Websocket client subscribes
+// The ongoing payment check will pick it up and notify once the client subscribes
+TEST (websocket, payment_ongoing_check)
+{
+	nano::system system;
+	nano::node_config config (nano::get_available_port (), system.logging);
+	config.websocket_config.enabled = true;
+	config.websocket_config.port = nano::get_available_port ();
+	auto node1 (system.add_node (config));
+	ASSERT_EQ (0, node1->websocket_server->subscriber_count (nano::websocket::topic::payment));
+
+	nano::keypair key;
+	auto balance = nano::genesis_amount;
+	auto send_amount = node1->config.online_weight_minimum.number () + 1;
+
+	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
+	nano::block_hash previous (node1->latest (nano::dev_genesis_key.pub));
+	balance -= send_amount;
+	auto send (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, previous, nano::dev_genesis_key.pub, balance, key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (previous)));
+	node1->process_active (send);
+	node1->block_processor.flush ();
+
+	ASSERT_TIMELY (10s, node1->block_confirmed (send->hash ()));
+
+	// Returns future of true if the result is as expected
+	std::future<bool> valid = std::async (std::launch::async, ([&config, &key, &send_amount]() {
+		fake_websocket_client client (config.websocket_config.port);
+
+		// clang-format off
+		client.send_message (R"json(
+							 {
+								 "action": "subscribe",
+								 "topic": "payment",
+								 "options": {
+									 "track": "account",
+									 "account": ")json" + key.pub.to_account () + R"json(",
+									 "minimum_amount": "1",
+									 "timeout_seconds": "3600"
+								 }
+							 })json");
+		// clang-format on
+
+		auto response = client.get_response ();
+		auto event = client.string_to_json (response);
+		bool is_error = !event.get<std::string> ("error", "").empty ();
+		is_error |= event.get<std::string> ("topic", "") != "payment";
+
+		if (!is_error)
+		{
+			// We expect message.total_balance in the notification to match the send amount
+			nano::amount total_balance;
+			total_balance.decode_dec (event.get_child ("message").get<std::string> ("total_balance", "0"));
+
+			// The send is not received, so the same amount should show up in pending
+			nano::amount pending;
+			pending.decode_dec (event.get_child ("message").get<std::string> ("pending", "0"));
+
+			// The balance should be 0 as nothing is received yet
+			nano::amount balance;
+			balance.decode_dec (event.get_child ("message").get<std::string> ("balance", "0"));
+
+			is_error = total_balance.number () != send_amount || pending.number () != send_amount || !balance.is_zero ();
+		}
+		return !is_error;
+	}));
+
+	ASSERT_TIMELY (10s, valid.wait_for (0s) == std::future_status::ready);
+	ASSERT_TRUE (valid.get ());
+}

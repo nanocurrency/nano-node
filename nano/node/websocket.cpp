@@ -6,12 +6,90 @@
 #include <nano/node/transport/transport.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/node/websocket.hpp>
+#include <nano/secure/ledger.hpp>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
 #include <algorithm>
 #include <chrono>
+
+nano::websocket::payment_tracking_options::payment_tracking_options (boost::property_tree::ptree const & options_a)
+{
+	tracked_account = (options_a.get<std::string> ("account", ""));
+	max_tracking_duration = std::chrono::seconds (options_a.get<uint64_t> ("timeout_seconds", 0));
+
+	auto policy_l (options_a.get<std::string> ("track", ""));
+	if (policy_l == "account")
+	{
+		tracking_policy = nano::websocket::payment_tracker::policy::account;
+
+		// Minimum of 0 raw is invalid, which will cause an error ack
+		std::string amount_string_l (options_a.get<std::string> ("minimum_amount", "0"));
+		if (minimum_amount.decode_dec (amount_string_l, true))
+		{
+			minimum_amount.clear ();
+		}
+	}
+	else if (policy_l == "block")
+	{
+		tracking_policy = nano::websocket::payment_tracker::policy::block;
+		minimum_amount.clear ();
+		auto block_node_l (options_a.get_child_optional ("block"));
+		if (block_node_l)
+		{
+			// Decode block. If invalid or missing, validate() will fail and cause an error ack
+			auto block = std::make_unique<nano::state_block> ();
+			if (!block->deserialize_json (*block_node_l))
+			{
+				tracked_block = std::move (block);
+				tracked_account = tracked_block->link ().to_account ();
+			}
+		}
+
+		watch_work = options_a.get<bool> ("watch_work", false);
+	}
+	else
+	{
+		tracking_policy = nano::websocket::payment_tracker::policy::invalid;
+	}
+}
+
+nano::error nano::websocket::payment_tracking_options::validate () const
+{
+	nano::error res;
+	nano::account account_l;
+	bool valid_account = !account_l.decode_account (tracked_account);
+
+	if (max_tracking_duration.count () == 0)
+	{
+		res = nano::error_payment_tracking::invalid_timeout;
+	}
+	else if (tracking_policy == nano::websocket::payment_tracker::policy::account)
+	{
+		if (minimum_amount.is_zero ())
+		{
+			res = nano::error_payment_tracking::invalid_minimum_amount;
+		}
+		else if (!valid_account)
+		{
+			res = nano::error_payment_tracking::invalid_tracking_account;
+		}
+	}
+	else if (tracking_policy == nano::websocket::payment_tracker::policy::block)
+	{
+		if (!tracked_block)
+		{
+			res = nano::error_payment_tracking::invalid_tracking_block;
+		}
+	}
+	else
+	{
+		res = nano::error_payment_tracking::invalid_tracking_policy;
+	}
+
+	return res;
+}
 
 nano::websocket::confirmation_options::confirmation_options (nano::wallets & wallets_a) :
 wallets (wallets_a)
@@ -365,6 +443,10 @@ nano::websocket::topic to_topic (std::string const & topic_a)
 	{
 		topic = nano::websocket::topic::confirmation;
 	}
+	else if (topic_a == "payment")
+	{
+		topic = nano::websocket::topic::payment;
+	}
 	else if (topic_a == "stopped_election")
 	{
 		topic = nano::websocket::topic::stopped_election;
@@ -408,6 +490,10 @@ std::string from_topic (nano::websocket::topic topic_a)
 	{
 		topic = "confirmation";
 	}
+	else if (topic_a == nano::websocket::topic::payment)
+	{
+		topic = "payment";
+	}
 	else if (topic_a == nano::websocket::topic::stopped_election)
 	{
 		topic = "stopped_election";
@@ -445,12 +531,28 @@ std::string from_topic (nano::websocket::topic topic_a)
 }
 }
 
-void nano::websocket::session::send_ack (std::string action_a, std::string id_a)
+void nano::websocket::session::send_ack (std::string const & action_a, std::string const & id_a)
 {
 	nano::websocket::message msg (nano::websocket::topic::ack);
 	boost::property_tree::ptree & message_l = msg.contents;
 	message_l.add ("ack", action_a);
 	message_l.add ("time", std::to_string (nano::milliseconds_since_epoch ()));
+	if (!id_a.empty ())
+	{
+		message_l.add ("id", id_a);
+	}
+	write (msg);
+}
+
+void nano::websocket::session::send_error (std::string const & action_a, std::string const & id_a, nano::error const & error_a)
+{
+	auto milli_since_epoch = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ();
+	nano::websocket::message msg (nano::websocket::topic::ack);
+	boost::property_tree::ptree & message_l = msg.contents;
+	message_l.add ("ack", action_a);
+	message_l.add ("time", std::to_string (milli_since_epoch));
+	message_l.add ("error", error_a.get_message ());
+	message_l.add ("error_code", error_a.error_code_as_int ());
 	if (!id_a.empty ())
 	{
 		message_l.add ("id", id_a);
@@ -465,6 +567,7 @@ void nano::websocket::session::handle_message (boost::property_tree::ptree const
 	auto ack_l (message_a.get<bool> ("ack", false));
 	auto id_l (message_a.get<std::string> ("id", ""));
 	auto action_succeeded (false);
+	nano::error options_error_l;
 	if (action == "subscribe" && topic_l != nano::websocket::topic::invalid)
 	{
 		auto options_text_l (message_a.get_child_optional ("options"));
@@ -478,10 +581,39 @@ void nano::websocket::session::handle_message (boost::property_tree::ptree const
 		{
 			options_l = std::make_unique<nano::websocket::vote_options> (options_text_l.get (), ws_listener.get_logger ());
 		}
+		else if (options_text_l && topic_l == nano::websocket::topic::payment)
+		{
+			auto options_payment_l = std::make_unique<nano::websocket::payment_tracking_options> (options_text_l.get ());
+			options_payment_l->id = id_l;
+			options_error_l = options_payment_l->validate ();
+			if (!options_error_l)
+			{
+				// Start tracking
+				payment_tracker.track (*options_payment_l);
+
+				if (options_payment_l->tracked_block)
+				{
+					// Publish block to the network; subscribers will be notified once the block is confirmed
+					ws_listener.get_payment_validator ()->publish_block (options_payment_l->tracked_block, options_payment_l->watch_work);
+
+					ws_listener.get_logger ().always_log ("Websocket: tracking payments from block with hash : ", options_payment_l->tracked_block->hash ().to_string ());
+				}
+				else
+				{
+					ws_listener.get_logger ().always_log ("Websocket: tracking payments to account: ", options_payment_l->tracked_account, ", minimum amount ", options_payment_l->minimum_amount.to_string_dec ());
+				}
+			}
+			else
+			{
+				ws_listener.get_logger ().always_log ("Websocket: could not track payment to account: ", options_payment_l->tracked_account, ", due to invalid subscription: ", options_error_l.get_message ());
+			}
+			options_l = std::move (options_payment_l);
+		}
 		else
 		{
 			options_l = std::make_unique<nano::websocket::options> ();
 		}
+
 		auto existing (subscriptions.find (topic_l));
 		if (existing != subscriptions.end ())
 		{
@@ -525,7 +657,12 @@ void nano::websocket::session::handle_message (boost::property_tree::ptree const
 		ack_l = "true";
 		action = "pong";
 	}
-	if (ack_l && action_succeeded)
+
+	if (options_error_l)
+	{
+		send_error (action, id_l, options_error_l);
+	}
+	else if (ack_l && action_succeeded)
 	{
 		send_ack (action, id_l);
 	}
@@ -548,11 +685,13 @@ void nano::websocket::listener::stop ()
 	sessions.clear ();
 }
 
-nano::websocket::listener::listener (nano::logger_mt & logger_a, nano::wallets & wallets_a, boost::asio::io_context & io_ctx_a, boost::asio::ip::tcp::endpoint endpoint_a) :
+nano::websocket::listener::listener (std::shared_ptr<nano::websocket::payment_validator> const & payment_validator_a, nano::logger_mt & logger_a, nano::wallets & wallets_a, boost::asio::io_context & io_ctx_a, boost::asio::ip::tcp::endpoint endpoint_a) :
+payment_validator (payment_validator_a),
 logger (logger_a),
 wallets (wallets_a),
 acceptor (io_ctx_a),
-socket (io_ctx_a)
+socket (io_ctx_a),
+payment_tracker_timer (io_ctx_a)
 {
 	try
 	{
@@ -609,6 +748,36 @@ void nano::websocket::listener::on_accept (boost::system::error_code ec)
 	if (!stopped)
 	{
 		accept ();
+	}
+}
+
+std::vector<std::shared_ptr<nano::websocket::session>> nano::websocket::listener::find_sessions (nano::websocket::topic const & topic_a) const
+{
+	std::vector<std::shared_ptr<nano::websocket::session>> sessions_l;
+	nano::lock_guard<std::mutex> lk (sessions_mutex);
+	for (auto & weak_session : sessions)
+	{
+		auto session_ptr (weak_session.lock ());
+		if (session_ptr)
+		{
+			auto subscription_l (session_ptr->subscriptions.find (topic_a));
+			if (subscription_l != session_ptr->subscriptions.end ())
+			{
+				sessions_l.push_back (session_ptr);
+			}
+		}
+	}
+	return sessions_l;
+}
+
+void nano::websocket::listener::broadcast_payment_notification (nano::account const & destination_account_a, nano::block_hash const & block_hash_a)
+{
+	// We're called when a send state block has been confirmed.
+	// Check if any sessions track the destination account or the block hash and notify accordingly.
+	auto sessions_l (find_sessions (nano::websocket::topic::payment));
+	for (auto & session_ptr : sessions_l)
+	{
+		payment_validator->check_payment (destination_account_a, block_hash_a, session_ptr);
 	}
 }
 
@@ -741,6 +910,44 @@ nano::websocket::message nano::websocket::message_builder::block_confirmed (std:
 		}
 		message_node_l.add_child ("block", block_node_l);
 	}
+
+	message_l.contents.add_child ("message", message_node_l);
+
+	return message_l;
+}
+
+nano::websocket::message nano::websocket::message_builder::payment_notification (nano::websocket::payment_tracker::payment_tracking_info const & tracking_info_a, nano::account const & account_a, nano::amount const & account_balance_a, nano::amount const & pending_a, std::optional<std::reference_wrapper<nano::confirmation_height_info>> const & confirmation_info_a, bool is_partial_payment_a)
+{
+	nano::websocket::message message_l (nano::websocket::topic::payment);
+	set_common_fields (message_l);
+
+	if (is_partial_payment_a)
+	{
+		message_l.contents.erase ("topic");
+		message_l.contents.add ("topic", "partial_payment");
+	}
+
+	if (!tracking_info_a.id.empty ())
+	{
+		message_l.contents.add ("id", tracking_info_a.id);
+	}
+
+	boost::property_tree::ptree message_node_l;
+
+	message_node_l.add ("account", account_a.to_account ());
+	if (tracking_info_a.tracking_policy == nano::websocket::payment_tracker::policy::block && tracking_info_a.tracked_block)
+	{
+		message_node_l.add ("tracked_block_hash", tracking_info_a.tracked_block->hash ().to_string ());
+	}
+	if (confirmation_info_a)
+	{
+		message_node_l.add ("confirmed_frontier_hash", confirmation_info_a->get ().frontier.to_string ());
+		message_node_l.add ("confirmed_height", confirmation_info_a->get ().height);
+	}
+	message_node_l.add ("balance", account_balance_a.to_string_dec ());
+	message_node_l.add ("pending", pending_a.to_string_dec ());
+	nano::amount total_balance_l (account_balance_a.number () + pending_a.number ());
+	message_node_l.add ("total_balance", total_balance_l.to_string_dec ());
 
 	message_l.contents.add_child ("message", message_node_l);
 

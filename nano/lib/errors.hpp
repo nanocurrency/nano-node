@@ -151,6 +151,21 @@ enum class error_config
 	invalid_value,
 	missing_value
 };
+
+/**
+ * Payment tracking option errors.
+ * The error code value is part of the documentation and must thus not be changed.
+ */
+enum class error_payment_tracking
+{
+	generic = 1,
+	invalid_tracking_policy = 2,
+	invalid_timeout = 3,
+	invalid_minimum_amount = 4,
+	invalid_tracking_account = 5,
+	invalid_tracking_block = 6
+};
+
 } // nano namespace
 
 // Convenience macro to implement the standard boilerplate for using std::error_code with enums
@@ -194,6 +209,7 @@ REGISTER_ERROR_CODES (nano, error_blocks);
 REGISTER_ERROR_CODES (nano, error_rpc);
 REGISTER_ERROR_CODES (nano, error_process);
 REGISTER_ERROR_CODES (nano, error_config);
+REGISTER_ERROR_CODES (nano, error_payment_tracking);
 
 /* boost->std error_code bridge */
 namespace nano
