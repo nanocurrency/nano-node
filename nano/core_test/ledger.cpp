@@ -3794,8 +3794,6 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 	            .work (*pool.generate (nano::genesis_hash))
 	            .build_shared ();
 
-	auto vote (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 0, std::vector<nano::block_hash> (1, send->hash ())));
-
 	nano::endpoint_key endpoint_key (address.to_bytes (), port);
 	auto version = 99;
 
@@ -3817,7 +3815,6 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 		store.version_put (transaction, version);
 		send->sideband_set ({});
 		store.block_put (transaction, send->hash (), *send);
-		store.vote_put (transaction, nano::account (5), vote);
 	}
 
 	auto error = ledger.migrate_lmdb_to_rocksdb (path);
@@ -3840,7 +3837,6 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 	auto block1 = rocksdb_store.block_get (rocksdb_transaction, send->hash ());
 
 	ASSERT_EQ (*send, *block1);
-	ASSERT_EQ (*vote, *rocksdb_store.vote_get (rocksdb_transaction, nano::account (5)));
 	ASSERT_TRUE (rocksdb_store.peer_exists (rocksdb_transaction, endpoint_key));
 	ASSERT_EQ (rocksdb_store.version_get (rocksdb_transaction), version);
 	ASSERT_EQ (rocksdb_store.frontier_get (rocksdb_transaction, 2), 5);
