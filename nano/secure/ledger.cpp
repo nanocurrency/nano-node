@@ -826,26 +826,47 @@ nano::uint128_t nano::ledger::balance_safe (nano::transaction const & transactio
 }
 
 // Balance for an account by account number
-nano::uint128_t nano::ledger::account_balance (nano::transaction const & transaction_a, nano::account const & account_a)
+nano::uint128_t nano::ledger::account_balance (nano::transaction const & transaction_a, nano::account const & account_a, bool only_confirmed_a)
 {
 	nano::uint128_t result (0);
-	nano::account_info info;
-	auto none (store.account_get (transaction_a, account_a, info));
-	if (!none)
+	if (only_confirmed_a)
 	{
-		result = info.balance.number ();
+		nano::confirmation_height_info info;
+		if (!store.confirmation_height_get (transaction_a, account_a, info))
+		{
+			result = balance (transaction_a, info.frontier);
+		}
+	}
+	else
+	{
+		nano::account_info info;
+		auto none (store.account_get (transaction_a, account_a, info));
+		if (!none)
+		{
+			result = info.balance.number ();
+		}
 	}
 	return result;
 }
 
-nano::uint128_t nano::ledger::account_pending (nano::transaction const & transaction_a, nano::account const & account_a)
+nano::uint128_t nano::ledger::account_pending (nano::transaction const & transaction_a, nano::account const & account_a, bool only_confirmed_a)
 {
 	nano::uint128_t result (0);
 	nano::account end (account_a.number () + 1);
 	for (auto i (store.pending_begin (transaction_a, nano::pending_key (account_a, 0))), n (store.pending_begin (transaction_a, nano::pending_key (end, 0))); i != n; ++i)
 	{
 		nano::pending_info const & info (i->second);
-		result += info.amount.number ();
+		if (only_confirmed_a)
+		{
+			if (block_confirmed (transaction_a, i->first.hash))
+			{
+				result += info.amount.number ();
+			}
+		}
+		else
+		{
+			result += info.amount.number ();
+		}
 	}
 	return result;
 }

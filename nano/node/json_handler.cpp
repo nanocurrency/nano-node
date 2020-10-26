@@ -515,7 +515,8 @@ void nano::json_handler::account_balance ()
 	auto account (account_impl ());
 	if (!ec)
 	{
-		auto balance (node.balance_pending (account));
+		const bool include_only_confirmed = request.get<bool> ("include_only_confirmed", false);
+		auto balance (node.balance_pending (account, include_only_confirmed));
 		response_l.put ("balance", balance.first.convert_to<std::string> ());
 		response_l.put ("pending", balance.second.convert_to<std::string> ());
 	}
@@ -602,6 +603,7 @@ void nano::json_handler::account_info ()
 		const bool representative = request.get<bool> ("representative", false);
 		const bool weight = request.get<bool> ("weight", false);
 		const bool pending = request.get<bool> ("pending", false);
+		const bool include_only_confirmed = request.get<bool> ("include_only_confirmed", false);
 		auto transaction (node.store.tx_begin_read ());
 		auto info (account_info_impl (transaction, account));
 		nano::confirmation_height_info confirmation_height_info;
@@ -614,8 +616,18 @@ void nano::json_handler::account_info ()
 			response_l.put ("frontier", info.head.to_string ());
 			response_l.put ("open_block", info.open_block.to_string ());
 			response_l.put ("representative_block", node.ledger.representative (transaction, info.head).to_string ());
+			nano::amount balance_l (info.balance);
+			if (include_only_confirmed)
+			{
+				balance_l = node.ledger.balance (transaction, confirmation_height_info.frontier);
+			}
+			else
+			{
+				balance_l = info.balance;
+			}
 			std::string balance;
-			nano::uint128_union (info.balance).encode_dec (balance);
+			balance_l.encode_dec (balance);
+
 			response_l.put ("balance", balance);
 			response_l.put ("modified_timestamp", std::to_string (info.modified));
 			response_l.put ("block_count", std::to_string (info.block_count));
@@ -633,7 +645,7 @@ void nano::json_handler::account_info ()
 			}
 			if (pending)
 			{
-				auto account_pending (node.ledger.account_pending (transaction, account));
+				auto account_pending (node.ledger.account_pending (transaction, account, include_only_confirmed));
 				response_l.put ("pending", account_pending.convert_to<std::string> ());
 			}
 		}
@@ -829,7 +841,7 @@ void nano::json_handler::accounts_balances ()
 		if (!ec)
 		{
 			boost::property_tree::ptree entry;
-			auto balance (node.balance_pending (account));
+			auto balance (node.balance_pending (account, false));
 			entry.put ("balance", balance.first.convert_to<std::string> ());
 			entry.put ("pending", balance.second.convert_to<std::string> ());
 			balances.push_back (std::make_pair (account.to_account (), entry));
@@ -986,7 +998,7 @@ void nano::json_handler::available_supply ()
 	auto genesis_balance (node.balance (node.network_params.ledger.genesis_account)); // Cold storage genesis
 	auto landing_balance (node.balance (nano::account ("059F68AAB29DE0D3A27443625C7EA9CDDB6517A8B76FE37727EF6A4D76832AD5"))); // Active unavailable account
 	auto faucet_balance (node.balance (nano::account ("8E319CE6F3025E5B2DF66DA7AB1467FE48F1679C13DD43BFDB29FA2E9FC40D3B"))); // Faucet account
-	auto burned_balance ((node.balance_pending (nano::account (0))).second); // Burning 0 account
+	auto burned_balance ((node.balance_pending (nano::account (0), false)).second); // Burning 0 account
 	auto available (node.network_params.ledger.genesis_amount - genesis_balance - landing_balance - faucet_balance - burned_balance);
 	response_l.put ("available", available.convert_to<std::string> ());
 	response_errors ();

@@ -168,6 +168,22 @@ TEST (rpc, account_balance)
 {
 	nano::system system;
 	auto node = add_ipc_enabled_node (system);
+
+	// Add a send block (which will add a pending entry too) for the genesis account
+	nano::state_block_builder builder;
+
+	auto send1 = builder.make_block ()
+	             .account (nano::dev_genesis_key.pub)
+	             .previous (nano::genesis_hash)
+	             .representative (nano::dev_genesis_key.pub)
+	             .balance (nano::genesis_amount - 1)
+	             .link (nano::dev_genesis_key.pub)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (*system.work.generate (nano::genesis_hash))
+	             .build ();
+
+	ASSERT_EQ (nano::process_result::progress, node->process (*send1).code);
+
 	scoped_io_thread_name_change scoped_thread_name_io;
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
@@ -176,16 +192,31 @@ TEST (rpc, account_balance)
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
 	rpc.start ();
+
 	boost::property_tree::ptree request;
 	request.put ("action", "account_balance");
 	request.put ("account", nano::dev_genesis_key.pub.to_account ());
-	test_response response (request, rpc.config.port, system.io_ctx);
-	ASSERT_TIMELY (5s, response.status != 0);
-	ASSERT_EQ (200, response.status);
-	std::string balance_text (response.json.get<std::string> ("balance"));
-	ASSERT_EQ ("340282366920938463463374607431768211455", balance_text);
-	std::string pending_text (response.json.get<std::string> ("pending"));
-	ASSERT_EQ ("0", pending_text);
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		ASSERT_TIMELY (5s, response.status != 0);
+		ASSERT_EQ (200, response.status);
+		std::string balance_text (response.json.get<std::string> ("balance"));
+		ASSERT_EQ ("340282366920938463463374607431768211454", balance_text);
+		std::string pending_text (response.json.get<std::string> ("pending"));
+		ASSERT_EQ ("1", pending_text);
+	}
+
+	// The send and pending should be unconfirmed
+	request.put ("include_only_confirmed", true);
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		ASSERT_TIMELY (5s, response.status != 0);
+		ASSERT_EQ (200, response.status);
+		std::string balance_text (response.json.get<std::string> ("balance"));
+		ASSERT_EQ ("340282366920938463463374607431768211455", balance_text);
+		std::string pending_text (response.json.get<std::string> ("pending"));
+		ASSERT_EQ ("0", pending_text);
+	}
 }
 
 TEST (rpc, account_block_count)
@@ -5051,6 +5082,53 @@ TEST (rpc, account_info)
 		ASSERT_EQ ("0", pending2);
 		std::string representative2 (response.json.get<std::string> ("representative"));
 		ASSERT_EQ (nano::dev_genesis_key.pub.to_account (), representative2);
+	}
+
+	// Test for confirmed only blocks
+	scoped_thread_name_io.reset ();
+	nano::keypair key1;
+	{
+		latest = node1.latest (nano::dev_genesis_key.pub);
+		nano::send_block send1 (latest, key1.pub, 50, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node1.work_generate_blocking (latest));
+		node1.process (send1);
+		nano::send_block send2 (send1.hash (), key1.pub, 25, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node1.work_generate_blocking (send1.hash ()));
+		node1.process (send2);
+
+		nano::open_block open (send1.hash (), nano::dev_genesis_key.pub, key1.pub, key1.prv, key1.pub, *node1.work_generate_blocking (key1.pub));
+		node1.process (open);
+	}
+
+	scoped_thread_name_io.renew ();
+
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		ASSERT_TIMELY (5s, response.status != 0);
+		std::string balance (response.json.get<std::string> ("balance"));
+		ASSERT_EQ ("25", balance);
+	}
+
+	request.put ("include_only_confirmed", true);
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		ASSERT_TIMELY (5s, response.status != 0);
+		std::string balance (response.json.get<std::string> ("balance"));
+		ASSERT_EQ ("340282366920938463463374607431768211455", balance);
+	}
+
+	request.put ("account", key1.pub.to_account ());
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		ASSERT_TIMELY (5s, response.status != 0);
+		std::string pending (response.json.get<std::string> ("pending"));
+		ASSERT_EQ ("0", pending);
+	}
+
+	request.put ("include_only_confirmed", false);
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		ASSERT_TIMELY (5s, response.status != 0);
+		std::string pending (response.json.get<std::string> ("pending"));
+		ASSERT_EQ ("25", pending);
 	}
 }
 
