@@ -557,6 +557,10 @@ socket (io_ctx_a)
 {
 	try
 	{
+		for (std::atomic<std::size_t> & item : topic_subscriber_count)
+		{
+			item = std::size_t (0);
+		}
 		acceptor.open (endpoint_a.protocol ());
 		acceptor.set_option (boost::asio::socket_base::reuse_address (true));
 		acceptor.bind (endpoint_a);

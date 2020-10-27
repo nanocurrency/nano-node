@@ -689,22 +689,13 @@ TEST (confirmation_height, conflict_rollback_cemented)
 		}
 
 		auto rollback_log_entry = boost::str (boost::format ("Failed to roll back %1%") % send2->hash ().to_string ());
-		system.deadline_set (20s);
-		auto done (false);
-		while (!done)
-		{
-			ASSERT_NO_ERROR (system.poll ());
-			done = (sb.component ()->str ().find (rollback_log_entry) != std::string::npos);
-		}
-		auto transaction1 (node1->store.tx_begin_read ());
-		auto transaction2 (node2->store.tx_begin_read ());
-		nano::unique_lock<std::mutex> lock (node2->active.mutex);
+		ASSERT_TIMELY (20s, sb.component ()->str ().find (rollback_log_entry) != std::string::npos);
 		auto winner (*election->tally ().begin ());
 		ASSERT_EQ (*publish1.block, *winner.second);
 		ASSERT_EQ (nano::genesis_amount - 100, winner.first);
-		ASSERT_TRUE (node1->store.block_exists (transaction1, publish1.block->hash ()));
-		ASSERT_TRUE (node2->store.block_exists (transaction2, publish2.block->hash ()));
-		ASSERT_FALSE (node2->store.block_exists (transaction2, publish1.block->hash ()));
+		ASSERT_TRUE (node1->ledger.block_exists (publish1.block->hash ()));
+		ASSERT_TRUE (node2->ledger.block_exists (publish2.block->hash ()));
+		ASSERT_FALSE (node2->ledger.block_exists (publish1.block->hash ()));
 	};
 
 	test_mode (nano::confirmation_height_mode::bounded);
