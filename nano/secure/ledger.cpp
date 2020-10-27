@@ -858,7 +858,7 @@ nano::uint128_t nano::ledger::account_pending (nano::transaction const & transac
 		nano::pending_info const & info (i->second);
 		if (only_confirmed_a)
 		{
-			if (block_confirmed (transaction_a, i->first.hash))
+			if (block_confirmed (transaction_a, i->first.hash) || (pruning && store.pruned_exists (transaction_a, i->first.hash)))
 			{
 				result += info.amount.number ();
 			}
