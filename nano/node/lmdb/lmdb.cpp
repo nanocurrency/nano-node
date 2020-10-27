@@ -724,9 +724,9 @@ void nano::mdb_store::upgrade_v18_to_v19 (nano::write_transaction const & transa
 	auto count_post (count (transaction_a, blocks));
 	release_assert (count_pre == count_post);
 
-	/*MDB_dbi vote{ 0 };
+	MDB_dbi vote{ 0 };
 	release_assert (!mdb_dbi_open (env.tx (transaction_a), "vote", MDB_CREATE, &vote));
-	release_assert (!mdb_drop (env.tx (transaction_a), vote, 1));*/
+	release_assert (!mdb_drop (env.tx (transaction_a), vote, 1));
 
 	version_put (transaction_a, 19);
 	logger.always_log ("Finished upgrading all blocks to new blocks database");
