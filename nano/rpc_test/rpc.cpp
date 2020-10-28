@@ -5094,6 +5094,9 @@ TEST (rpc, account_info)
 		nano::send_block send2 (send1.hash (), key1.pub, 25, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node1.work_generate_blocking (send1.hash ()));
 		node1.process (send2);
 
+		nano::state_block state_change (nano::dev_genesis_key.pub, send2.hash (), key1.pub, 25, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node1.work_generate_blocking (send2.hash ()));
+		node1.process (state_change);
+
 		nano::open_block open (send1.hash (), nano::dev_genesis_key.pub, key1.pub, key1.prv, key1.pub, *node1.work_generate_blocking (key1.pub));
 		node1.process (open);
 	}
@@ -5107,12 +5110,20 @@ TEST (rpc, account_info)
 		ASSERT_EQ ("25", balance);
 	}
 
-	request.put ("include_only_confirmed", true);
+	request.put ("include_confirmed", true);
 	{
 		test_response response (request, rpc.config.port, system.io_ctx);
 		ASSERT_TIMELY (5s, response.status != 0);
 		std::string balance (response.json.get<std::string> ("balance"));
-		ASSERT_EQ ("340282366920938463463374607431768211455", balance);
+		ASSERT_EQ ("25", balance);
+		std::string confirmed_balance (response.json.get<std::string> ("confirmed_balance"));
+		ASSERT_EQ ("340282366920938463463374607431768211455", confirmed_balance);
+
+		auto representative (response.json.get<std::string> ("representative"));
+		ASSERT_EQ (representative, key1.pub.to_account ());
+
+		auto confirmed_representative (response.json.get<std::string> ("confirmed_representative"));
+		ASSERT_EQ (confirmed_representative, nano::dev_genesis_key.pub.to_account ());
 	}
 
 	request.put ("account", key1.pub.to_account ());
@@ -5120,15 +5131,27 @@ TEST (rpc, account_info)
 		test_response response (request, rpc.config.port, system.io_ctx);
 		ASSERT_TIMELY (5s, response.status != 0);
 		std::string pending (response.json.get<std::string> ("pending"));
-		ASSERT_EQ ("0", pending);
+		ASSERT_EQ ("25", pending);
+		std::string confirmed_pending (response.json.get<std::string> ("confirmed_pending"));
+		ASSERT_EQ ("0", confirmed_pending);
 	}
 
-	request.put ("include_only_confirmed", false);
+	request.put ("include_confirmed", false);
 	{
 		test_response response (request, rpc.config.port, system.io_ctx);
 		ASSERT_TIMELY (5s, response.status != 0);
 		std::string pending (response.json.get<std::string> ("pending"));
 		ASSERT_EQ ("25", pending);
+
+		// These fields shouldn't exist
+		auto confirmed_balance (response.json.get_optional<std::string> ("confirmed_balance"));
+		ASSERT_FALSE (confirmed_balance.is_initialized ());
+
+		auto confirmed_pending (response.json.get_optional<std::string> ("confirmed_pending"));
+		ASSERT_FALSE (confirmed_pending.is_initialized ());
+
+		auto confirmed_representative (response.json.get_optional<std::string> ("confirmed_representative"));
+		ASSERT_FALSE (confirmed_representative.is_initialized ());
 	}
 }
 

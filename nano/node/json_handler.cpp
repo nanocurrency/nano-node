@@ -603,11 +603,11 @@ void nano::json_handler::account_info ()
 		const bool representative = request.get<bool> ("representative", false);
 		const bool weight = request.get<bool> ("weight", false);
 		const bool pending = request.get<bool> ("pending", false);
-		const bool include_only_confirmed = request.get<bool> ("include_only_confirmed", false);
+		const bool include_confirmed = request.get<bool> ("include_confirmed", false);
 		auto transaction (node.store.tx_begin_read ());
 		auto info (account_info_impl (transaction, account));
 		nano::confirmation_height_info confirmation_height_info;
-		if (node.store.confirmation_height_get (transaction, account, confirmation_height_info) && include_only_confirmed)
+		if (node.store.confirmation_height_get (transaction, account, confirmation_height_info) && include_confirmed)
 		{
 			ec = nano::error_common::account_not_found;
 		}
@@ -617,26 +617,66 @@ void nano::json_handler::account_info ()
 			response_l.put ("open_block", info.open_block.to_string ());
 			response_l.put ("representative_block", node.ledger.representative (transaction, info.head).to_string ());
 			nano::amount balance_l (info.balance);
-			if (include_only_confirmed)
-			{
-				balance_l = node.ledger.balance (transaction, confirmation_height_info.frontier);
-			}
-			else
-			{
-				balance_l = info.balance;
-			}
 			std::string balance;
 			balance_l.encode_dec (balance);
 
 			response_l.put ("balance", balance);
+
+			nano::amount confirmed_balance_l;
+			if (include_confirmed)
+			{
+				if (info.block_count != confirmation_height_info.height)
+				{
+					confirmed_balance_l = node.ledger.balance (transaction, confirmation_height_info.frontier);
+				}
+				else
+				{
+					// block_height and confirmed height are the same, so can just reuse balance
+					confirmed_balance_l = balance_l;
+				}
+				std::string confirmed_balance;
+				confirmed_balance_l.encode_dec (confirmed_balance);
+				response_l.put ("confirmed_balance", confirmed_balance);
+			}
+
 			response_l.put ("modified_timestamp", std::to_string (info.modified));
 			response_l.put ("block_count", std::to_string (info.block_count));
 			response_l.put ("account_version", epoch_as_string (info.epoch ()));
 			response_l.put ("confirmation_height", std::to_string (confirmation_height_info.height));
-			response_l.put ("confirmation_height_frontier", confirmation_height_info.frontier.to_string ());
+			auto confirmed_frontier = confirmation_height_info.frontier.to_string ();
+			if (include_confirmed)
+			{
+				response_l.put ("confirmed_frontier", confirmed_frontier);
+			}
+			else
+			{
+				// For backwards compatibility purposes
+				response_l.put ("confirmation_height_frontier", confirmed_frontier);
+			}
+
+			std::shared_ptr<nano::block> confirmed_frontier_block;
+			if (include_confirmed && confirmation_height_info.height > 0)
+			{
+				confirmed_frontier_block = node.store.block_get (transaction, confirmed_frontier);
+			}
+
 			if (representative)
 			{
 				response_l.put ("representative", info.representative.to_account ());
+				if (include_confirmed)
+				{
+					nano::account confirmed_representative{ 0 };
+					if (confirmed_frontier_block)
+					{
+						confirmed_representative = confirmed_frontier_block->representative ();
+						if (confirmed_representative.is_zero ())
+						{
+							confirmed_representative = node.store.block_get (transaction, node.ledger.representative (transaction, confirmed_frontier))->representative ();
+						}
+					}
+
+					response_l.put ("confirmed_representative", confirmed_representative.to_account ());
+				}
 			}
 			if (weight)
 			{
@@ -645,8 +685,14 @@ void nano::json_handler::account_info ()
 			}
 			if (pending)
 			{
-				auto account_pending (node.ledger.account_pending (transaction, account, include_only_confirmed));
+				auto account_pending (node.ledger.account_pending (transaction, account));
 				response_l.put ("pending", account_pending.convert_to<std::string> ());
+
+				if (include_confirmed)
+				{
+					auto account_pending (node.ledger.account_pending (transaction, account, true));
+					response_l.put ("confirmed_pending", account_pending.convert_to<std::string> ());
+				}
 			}
 		}
 	}
