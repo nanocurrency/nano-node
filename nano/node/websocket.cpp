@@ -593,10 +593,11 @@ void nano::websocket::session::handle_message (boost::property_tree::ptree const
 
 				if (options_payment_l->tracked_block)
 				{
-					// Publish block to the network; subscribers will be notified once the block is confirmed
-					ws_listener.get_payment_validator ()->publish_block (options_payment_l->tracked_block, options_payment_l->watch_work);
-
+					// Log before moving the block into publish_block
 					ws_listener.get_logger ().always_log ("Websocket: tracking payments from block with hash : ", options_payment_l->tracked_block->hash ().to_string ());
+
+					// Publish block to the network; subscribers will be notified once the block is confirmed
+					ws_listener.get_payment_validator ().publish_block (std::move (options_payment_l->tracked_block), options_payment_l->watch_work);
 				}
 				else
 				{
@@ -685,8 +686,8 @@ void nano::websocket::listener::stop ()
 	sessions.clear ();
 }
 
-nano::websocket::listener::listener (std::shared_ptr<nano::websocket::payment_validator> const & payment_validator_a, nano::logger_mt & logger_a, nano::wallets & wallets_a, boost::asio::io_context & io_ctx_a, boost::asio::ip::tcp::endpoint endpoint_a) :
-payment_validator (payment_validator_a),
+nano::websocket::listener::listener (std::unique_ptr<nano::websocket::payment_validator> payment_validator_a, nano::logger_mt & logger_a, nano::wallets & wallets_a, boost::asio::io_context & io_ctx_a, boost::asio::ip::tcp::endpoint endpoint_a) :
+payment_validator (std::move (payment_validator_a)),
 logger (logger_a),
 wallets (wallets_a),
 acceptor (io_ctx_a),
@@ -712,6 +713,7 @@ payment_tracker_timer (io_ctx_a)
 
 void nano::websocket::listener::run ()
 {
+	payment_validator->start (shared_from_this ());
 	if (acceptor.is_open ())
 	{
 		accept ();
@@ -760,8 +762,7 @@ std::vector<std::shared_ptr<nano::websocket::session>> nano::websocket::listener
 		auto session_ptr (weak_session.lock ());
 		if (session_ptr)
 		{
-			auto subscription_l (session_ptr->subscriptions.find (topic_a));
-			if (subscription_l != session_ptr->subscriptions.end ())
+			if (session_ptr->subscriptions.count (topic_a) > 0)
 			{
 				sessions_l.push_back (session_ptr);
 			}
@@ -935,9 +936,9 @@ nano::websocket::message nano::websocket::message_builder::payment_notification 
 	boost::property_tree::ptree message_node_l;
 
 	message_node_l.add ("account", account_a.to_account ());
-	if (tracking_info_a.tracking_policy == nano::websocket::payment_tracker::policy::block && tracking_info_a.tracked_block)
+	if (tracking_info_a.tracking_policy == nano::websocket::payment_tracker::policy::block && tracking_info_a.tracked_block_hash)
 	{
-		message_node_l.add ("tracked_block_hash", tracking_info_a.tracked_block->hash ().to_string ());
+		message_node_l.add ("tracked_block_hash", tracking_info_a.tracked_block_hash->to_string ());
 	}
 	if (confirmation_info_a)
 	{

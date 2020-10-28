@@ -160,7 +160,7 @@ namespace websocket
 		std::string tracked_account;
 
 		/** Set only if tracking a block */
-		std::shared_ptr<nano::state_block> tracked_block;
+		std::unique_ptr<nano::state_block> tracked_block;
 
 		/** Tracking a block also means publishing it. With this flag enabled, work is watched. */
 		bool watch_work{ false };
@@ -329,7 +329,7 @@ namespace websocket
 	class listener final : public std::enable_shared_from_this<listener>
 	{
 	public:
-		listener (std::shared_ptr<nano::websocket::payment_validator> const & payment_validator_a, nano::logger_mt & logger_a, nano::wallets & wallets_a, boost::asio::io_context & io_ctx_a, boost::asio::ip::tcp::endpoint endpoint_a);
+		listener (std::unique_ptr<nano::websocket::payment_validator> payment_validator_a, nano::logger_mt & logger_a, nano::wallets & wallets_a, boost::asio::io_context & io_ctx_a, boost::asio::ip::tcp::endpoint endpoint_a);
 
 		/** Start accepting connections */
 		void run ();
@@ -338,6 +338,12 @@ namespace websocket
 
 		/** Close all websocket sessions and stop listening for new connections */
 		void stop ();
+
+		/** Returns true if the websocket server has stopped */
+		bool is_stopped () const
+		{
+			return stopped;
+		}
 
 		/** Broadcast block confirmation. The content of the message depends on subscription options (such as "include_block") */
 		void broadcast_confirmation (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, nano::amount const & amount_a, std::string const & subtype, nano::election_status const & election_status_a);
@@ -361,9 +367,9 @@ namespace websocket
 			return wallets;
 		}
 
-		std::shared_ptr<nano::websocket::payment_validator> get_payment_validator ()
+		nano::websocket::payment_validator & get_payment_validator ()
 		{
-			return payment_validator;
+			return *payment_validator;
 		}
 
 		/**
@@ -392,7 +398,7 @@ namespace websocket
 		/** Removes from subscription count of a specific topic*/
 		void decrease_subscriber_count (nano::websocket::topic const & topic_a);
 
-		std::shared_ptr<nano::websocket::payment_validator> payment_validator;
+		std::unique_ptr<nano::websocket::payment_validator> payment_validator;
 		nano::logger_mt & logger;
 		nano::wallets & wallets;
 		boost::asio::ip::tcp::acceptor acceptor;

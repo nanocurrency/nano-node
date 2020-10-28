@@ -8,24 +8,29 @@
 #include <boost/asio/steady_timer.hpp>
 
 #include <memory>
+#include <optional>
 #include <string>
 
 namespace nano
 {
+class ledger;
+class logger_mt;
 class node;
+class worker;
 }
 
 namespace nano::websocket
 {
+class listener;
 class session;
 class payment_tracking_options;
 
 /** Per-session tracking of payment destination accounts. This class is thread-safe. */
-class payment_tracker
+class payment_tracker final
 {
 public:
 	/** Payment tracking policies */
-	enum policy
+	enum class policy
 	{
 		invalid,
 		/** Track total balance of an account (account per payment use-case) */
@@ -35,19 +40,19 @@ public:
 	};
 
 	/** Tracking info based on payment subscription options */
-	class payment_tracking_info
+	class payment_tracking_info final
 	{
 	public:
-		payment_tracking_info (std::string id_a, std::shared_ptr<nano::state_block> const & tracked_block_a, nano::amount const & minimum_amount_a, nano::websocket::payment_tracker::policy tracking_policy_a, std::chrono::seconds track_until_a) :
-		id (id_a), tracked_block (tracked_block_a), minimum_amount (minimum_amount_a), last_sent_partial_amount (0), tracking_policy (tracking_policy_a), track_until (track_until_a)
+		payment_tracking_info (std::string const & id_a, std::optional<nano::block_hash> const & tracked_block_hash_a, nano::amount const & minimum_amount_a, nano::websocket::payment_tracker::policy tracking_policy_a, std::chrono::seconds track_until_a) :
+		id (id_a), tracked_block_hash (tracked_block_hash_a), minimum_amount (minimum_amount_a), last_sent_partial_amount (0), tracking_policy (tracking_policy_a), track_until (track_until_a)
 		{
 		}
 
 		/** The id provided through the Websocket subscription. This can be used by external systems to match up payment notifications. */
 		std::string id;
 
-		/** Tracked block, if any */
-		std::shared_ptr<nano::state_block> tracked_block;
+		/** Tracked block hash, if any */
+		std::optional<nano::block_hash> tracked_block_hash;
 
 		/** The minimum amount required for a payment notification to be sent */
 		nano::amount minimum_amount;
@@ -87,20 +92,26 @@ private:
 };
 
 /** Interacts with the node to hand off send blocks, and queries the ledger for confirmation status and balances */
-class payment_validator
+class payment_validator final
 {
 public:
+	payment_validator (boost::asio::io_context & io_ctx_a, nano::worker & worker_a, nano::ledger & ledger_a, nano::logger_mt & logger_a, std::function<void(std::shared_ptr<nano::block> const &, bool const)> publish_handler_a);
+
 	/** Starts ongoing payment tracking */
-	payment_validator (nano::node & node_a);
+	void start (std::shared_ptr<nano::websocket::listener> const & websocket_server_a);
 
 	/** Check if the payment conditions are met, and if so, send notification to websocket client */
 	void check_payment (nano::account const & destination_account_a, nano::block_hash const & block_hash_a, std::shared_ptr<nano::websocket::session> const & session_a);
 
 	/** Publish a send state block to the network */
-	void publish_block (std::shared_ptr<nano::block> const & block_a, bool const work_watcher_a);
+	void publish_block (std::shared_ptr<nano::block> block_a, bool const work_watcher_a);
 
 private:
-	nano::node & node;
+	nano::worker & worker;
+	std::shared_ptr<nano::websocket::listener> websocket_server;
+	nano::ledger & ledger;
+	nano::logger_mt & logger;
+	std::function<void(std::shared_ptr<nano::block> const &, bool const)> publish_handler;
 	boost::asio::steady_timer payment_tracker_timer;
 
 	/** Periodically check tracked payments to handle cases where clients miss notifications or resubscribes. */

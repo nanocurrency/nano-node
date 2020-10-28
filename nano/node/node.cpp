@@ -135,8 +135,10 @@ node_seq (seq)
 		if (config.websocket_config.enabled)
 		{
 			auto endpoint_l (nano::tcp_endpoint (boost::asio::ip::make_address_v6 (config.websocket_config.address), config.websocket_config.port));
-			websocket_payment_validator = std::make_shared<nano::websocket::payment_validator> (*this);
-			websocket_server = std::make_shared<nano::websocket::listener> (websocket_payment_validator, logger, wallets, io_ctx, endpoint_l);
+			auto validator_l (std::make_unique<nano::websocket::payment_validator> (io_ctx, worker, ledger, logger, [this](std::shared_ptr<nano::block> const & block_a, bool const work_watcher_a) {
+				this->process_local (block_a, work_watcher_a);
+			}));
+			websocket_server = std::make_shared<nano::websocket::listener> (std::move (validator_l), logger, wallets, io_ctx, endpoint_l);
 			this->websocket_server->run ();
 		}
 
