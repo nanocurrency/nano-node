@@ -95,7 +95,7 @@ alarm (alarm_a),
 work (work_a),
 distributed_work (*this),
 logger (config_a.logging.min_time_between_log_output),
-store_impl (nano::make_store (logger, application_path_a, flags.read_only, true, config_a.rocksdb_config, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_config, config_a.backup_before_upgrade, config_a.rocksdb_config.enable)),
+store_impl (nano::make_store (logger, application_path_a, flags.read_only, true, config_a.rocksdb_config, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_config, config_a.backup_before_upgrade)),
 store (*store_impl),
 wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (application_path_a / "wallets.ldb", config_a.lmdb_config)),
 wallets_store (*wallets_store_impl),
@@ -123,7 +123,6 @@ vote_uniquer (block_uniquer),
 confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, config.logging, logger, node_initialized_latch, flags.confirmation_height_processor_mode),
 active (*this, confirmation_height_processor),
 aggregator (network_params.network, config, stats, active.generator, history, ledger, wallets, active),
-payment_observer_processor (observers.blocks),
 wallets (wallets_store.init_error (), *this),
 startup_time (std::chrono::steady_clock::now ()),
 node_seq (seq)
@@ -534,7 +533,7 @@ bool nano::node::copy_with_compaction (boost::filesystem::path const & destinati
 	return store.copy_db (destination);
 }
 
-void nano::node::process_fork (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, uint64_t modified_a)
+void nano::node::process_fork (nano::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a, uint64_t const modified_a)
 {
 	auto root (block_a->root ());
 	if (!store.block_exists (transaction_a, block_a->hash ()) && store.root_exists (transaction_a, block_a->root ()))
@@ -608,7 +607,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	return composite;
 }
 
-void nano::node::process_active (std::shared_ptr<nano::block> incoming)
+void nano::node::process_active (std::shared_ptr<nano::block> const & incoming)
 {
 	block_arrival.add (incoming->hash ());
 	block_processor.add (incoming, nano::seconds_since_epoch ());
@@ -621,7 +620,7 @@ nano::process_return nano::node::process (nano::block & block_a)
 	return result;
 }
 
-nano::process_return nano::node::process_local (std::shared_ptr<nano::block> block_a, bool const work_watcher_a)
+nano::process_return nano::node::process_local (std::shared_ptr<nano::block> const & block_a, bool const work_watcher_a)
 {
 	// Add block hash as recently arrived to trigger automatic rebroadcast and election
 	block_arrival.add (block_a->hash ());
@@ -630,9 +629,9 @@ nano::process_return nano::node::process_local (std::shared_ptr<nano::block> blo
 	// Notify block processor to release write lock
 	block_processor.wait_write ();
 	// Process block
-	block_post_events events;
+	block_post_events post_events ([& store = store] { return store.tx_begin_read (); });
 	auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending }, { tables::confirmation_height }));
-	return block_processor.process_one (transaction, events, info, work_watcher_a, nano::block_origin::local);
+	return block_processor.process_one (transaction, post_events, info, work_watcher_a, nano::block_origin::local);
 }
 
 void nano::node::start ()
@@ -651,7 +650,6 @@ void nano::node::start ()
 			this_l->ongoing_unchecked_cleanup ();
 		});
 	}
-	ongoing_store_flush ();
 	if (flags.enable_pruning)
 	{
 		auto this_l (shared ());
@@ -852,23 +850,6 @@ void nano::node::ongoing_bootstrap ()
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->ongoing_bootstrap ();
-		}
-	});
-}
-
-void nano::node::ongoing_store_flush ()
-{
-	{
-		auto transaction (store.tx_begin_write ({ tables::vote }));
-		store.flush (transaction);
-	}
-	std::weak_ptr<nano::node> node_w (shared_from_this ());
-	alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [node_w]() {
-		if (auto node_l = node_w.lock ())
-		{
-			node_l->worker.push_task ([node_l]() {
-				node_l->ongoing_store_flush ();
-			});
 		}
 	});
 }
@@ -1254,7 +1235,7 @@ void nano::node::add_initial_peers ()
 	}
 }
 
-void nano::node::block_confirm (std::shared_ptr<nano::block> block_a)
+void nano::node::block_confirm (std::shared_ptr<nano::block> const & block_a)
 {
 	auto election = active.insert (block_a);
 	if (election.inserted)
@@ -1336,7 +1317,7 @@ void nano::node::receive_confirmed (nano::transaction const & wallet_transaction
 	}
 }
 
-void nano::node::process_confirmed_data (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, nano::block_hash const & hash_a, nano::account & account_a, nano::uint128_t & amount_a, bool & is_state_send_a, nano::account & pending_account_a)
+void nano::node::process_confirmed_data (nano::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a, nano::block_hash const & hash_a, nano::account & account_a, nano::uint128_t & amount_a, bool & is_state_send_a, nano::account & pending_account_a)
 {
 	// Faster account calculation
 	account_a = block_a->account ();
@@ -1813,9 +1794,9 @@ nano::node_flags const & nano::inactive_node_flag_defaults ()
 	return node_flags;
 }
 
-std::unique_ptr<nano::block_store> nano::make_store (nano::logger_mt & logger, boost::filesystem::path const & path, bool read_only, bool add_db_postfix, nano::rocksdb_config const & rocksdb_config, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade, bool use_rocksdb_backend)
+std::unique_ptr<nano::block_store> nano::make_store (nano::logger_mt & logger, boost::filesystem::path const & path, bool read_only, bool add_db_postfix, nano::rocksdb_config const & rocksdb_config, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade)
 {
-	if (use_rocksdb_backend || using_rocksdb_in_tests ())
+	if (rocksdb_config.enable || using_rocksdb_in_tests ())
 	{
 		return std::make_unique<nano::rocksdb_store> (logger, add_db_postfix ? path / "rocksdb" : path, rocksdb_config, read_only);
 	}
