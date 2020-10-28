@@ -1,5 +1,6 @@
 #include <nano/lib/rep_weights.hpp>
 #include <nano/lib/stats.hpp>
+#include <nano/lib/timestamp.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/secure/blockstore.hpp>
@@ -1478,15 +1479,6 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 			{
 				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::pruned }));
 				rocksdb_store->pruned_put (rocksdb_transaction, i->first);
-			}
-		});
-
-		store.votes_for_each_par (
-		[&rocksdb_store](nano::read_transaction const & /*unused*/, auto i, auto n) {
-			for (; i != n; ++i)
-			{
-				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::vote }));
-				rocksdb_store->vote_put (rocksdb_transaction, i->first, i->second);
 			}
 		});
 

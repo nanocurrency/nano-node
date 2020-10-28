@@ -24,7 +24,7 @@ confirmation_height_processor (confirmation_height_processor_a),
 node (node_a),
 multipliers_cb (20, 1.),
 trended_active_multiplier (1.0),
-generator (node_a.config, node_a.ledger, node_a.wallets, node_a.vote_processor, node_a.history, node_a.network, node_a.stats),
+generator (node_a.timestamps, node_a.config, node_a.ledger, node_a.wallets, node_a.vote_processor, node_a.history, node_a.network, node_a.stats),
 check_all_elections_period (node_a.network_params.network.is_dev_network () ? 10ms : 5s),
 election_time_to_live (node_a.network_params.network.is_dev_network () ? 0s : 2s),
 prioritized_cutoff (std::max<size_t> (1, node_a.config.active_elections_size / 10)),
@@ -914,7 +914,7 @@ nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> vot
 		bool processed (false);
 		for (auto const & [election, block_hash] : process)
 		{
-			auto const result_l = election->vote (vote_a->account, vote_a->sequence, block_hash);
+			auto const result_l = election->vote (vote_a->account, vote_a->timestamp, block_hash);
 			processed = processed || result_l.processed;
 			replay = replay || result_l.replay;
 		}

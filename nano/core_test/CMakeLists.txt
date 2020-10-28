@@ -34,6 +34,7 @@ add_executable (core_test
 	telemetry.cpp
 	toml.cpp
 	timer.cpp
+	timestamp.cpp
 	uint256_union.cpp
 	utility.cpp
 	vote_processor.cpp
