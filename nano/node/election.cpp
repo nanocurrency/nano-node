@@ -394,13 +394,14 @@ bool nano::election::publish (std::shared_ptr<nano::block> const & block_a)
 
 	// Do not insert new blocks if already confirmed
 	auto result (confirmed ());
-	if (!result && last_blocks.size () >= 10)
+	if (!result && last_blocks.size () >= max_blocks && last_blocks.find (block_a->hash ()) == last_blocks.end ())
 	{
-		if (last_tally[block_a->hash ()] < node.online_reps.online_stake () / 10)
+		if (!replace_by_weight (lock, block_a->hash ()))
 		{
 			result = true;
 			node.network.publish_filter.clear (block_a);
 		}
+		debug_assert (lock.owns_lock ());
 	}
 	if (!result)
 	{
@@ -419,6 +420,12 @@ bool nano::election::publish (std::shared_ptr<nano::block> const & block_a)
 			}
 		}
 	}
+	/*
+	Result is true if:
+	1) election is confirmed or expired
+	2) given election contains 10 blocks & new block didn't receive enough votes to replace existing blocks
+	3) given block in already in election & election contains less than 10 blocks (replacing block content with new)
+	*/
 	return result;
 }
 
@@ -526,6 +533,82 @@ void nano::election::remove_votes (nano::block_hash const & hash_a)
 		// Clear votes cache
 		node.history.erase (root);
 	}
+}
+
+void nano::election::remove_block (nano::block_hash const & hash_a)
+{
+	nano::unique_lock<std::mutex> lock (mutex);
+	debug_assert (status.winner->hash () != hash_a);
+	last_blocks.erase (hash_a);
+	// Move votes for removed block to inactive votes cache
+	std::deque<std::pair<nano::account, nano::block_hash>> removed_votes;
+	for (auto i (last_votes.begin ()); i != last_votes.end ();)
+	{
+		if (i->second.hash == hash_a)
+		{
+			removed_votes.emplace_back (i->first, i->second.hash);
+			i = last_votes.erase (i);
+		}
+		else
+		{
+			++i;
+		}
+	}
+	if (!removed_votes.empty ())
+	{
+		lock.unlock ();
+		nano::unique_lock<std::mutex> active_lock (node.active.mutex);
+		for (auto const & [representative, hash] : removed_votes)
+		{
+			node.active.add_inactive_votes_cache (active_lock, hash, representative);
+		}
+	}
+}
+
+bool nano::election::replace_by_weight (nano::unique_lock<std::mutex> & lock_a, nano::block_hash const & hash_a)
+{
+	debug_assert (lock_a.owns_lock ());
+	bool replaced (false);
+	auto winner_hash (status.winner->hash ());
+	// Sort existing blocks tally
+	std::vector<std::pair<nano::block_hash, nano::uint128_t>> sorted;
+	sorted.reserve (last_tally.size ());
+	std::copy (last_tally.begin (), last_tally.end (), std::back_inserter (sorted));
+	// Sort in ascending order
+	std::sort (sorted.begin (), sorted.end (), [](auto const & left, auto const & right) { return left.second < right.second; });
+	lock_a.unlock ();
+	// Replace if lowest tally is below inactive cache new block weight
+	auto inactive_existing (node.active.find_inactive_votes_cache (hash_a));
+	auto inactive_tally (inactive_existing.status.tally);
+	if (inactive_tally > 0 && sorted.size () < max_blocks)
+	{
+		// If count of tally items is less than 10, remove any block without tally
+		for (auto const & [hash, block] : blocks ())
+		{
+			if (std::find_if (sorted.begin (), sorted.end (), [&hash](auto const & item_a) { return item_a.first == hash; }) == sorted.end () && hash != winner_hash)
+			{
+				remove_block (hash);
+				replaced = true;
+				break;
+			}
+		}
+	}
+	else if (inactive_tally > 0 && inactive_tally > sorted.begin ()->second)
+	{
+		if (sorted.begin ()->first != winner_hash)
+		{
+			remove_block (sorted.begin ()->first);
+			replaced = true;
+		}
+		else if (inactive_tally > (sorted.begin () + 1)->second)
+		{
+			// Avoid removing winner
+			remove_block ((sorted.begin () + 1)->first);
+			replaced = true;
+		}
+	}
+	lock_a.lock ();
+	return replaced;
 }
 
 void nano::election::force_confirm (nano::election_status_type type_a)

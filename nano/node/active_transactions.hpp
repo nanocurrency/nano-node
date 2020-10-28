@@ -55,10 +55,11 @@ public:
 	bool bootstrap_started{ false };
 	bool election_started{ false }; // Did item reach config threshold to start an impromptu election?
 	bool confirmed{ false }; // Did item reach votes quorum? (minimum config value)
+	nano::uint128_t tally{ 0 }; // Last votes tally for block
 
 	bool operator!= (inactive_cache_status const other) const
 	{
-		return bootstrap_started != other.bootstrap_started || election_started != other.election_started || confirmed != other.confirmed;
+		return bootstrap_started != other.bootstrap_started || election_started != other.election_started || confirmed != other.confirmed || tally != other.tally;
 	}
 };
 

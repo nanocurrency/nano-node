@@ -1460,6 +1460,7 @@ nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_
 	{
 		tally += node.ledger.weight (voter);
 	}
+	status.tally = tally;
 
 	if (!previously_a.confirmed && tally >= node.config.online_weight_minimum.number ())
 	{
