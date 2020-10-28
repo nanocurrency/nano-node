@@ -15,7 +15,6 @@ namespace nano
 {
 class ledger;
 class logger_mt;
-class node;
 class worker;
 }
 
@@ -104,7 +103,7 @@ public:
 	void check_payment (nano::account const & destination_account_a, nano::block_hash const & block_hash_a, std::shared_ptr<nano::websocket::session> const & session_a);
 
 	/** Publish a send state block to the network */
-	void publish_block (std::shared_ptr<nano::block> block_a, bool const work_watcher_a);
+	void publish_block (std::shared_ptr<nano::block> const & block_a, bool const work_watcher_a);
 
 private:
 	nano::worker & worker;

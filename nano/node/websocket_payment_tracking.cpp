@@ -145,7 +145,7 @@ void nano::websocket::payment_validator::check_payment (nano::account const & de
 	}
 }
 
-void nano::websocket::payment_validator::publish_block (std::shared_ptr<nano::block> block_a, bool const work_watcher_a)
+void nano::websocket::payment_validator::publish_block (std::shared_ptr<nano::block> const & block_a, bool const work_watcher_a)
 {
 	// Delegate to worker thread, as publishing the block involves a write transaction
 	worker.push_task ([publish_handler = publish_handler, block_a, work_watcher_a]() {
