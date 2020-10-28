@@ -17,7 +17,7 @@ if [ -n "$DOCKER_PASSWORD" ]; then
         tags=()
         if [ -n "$TRAVIS_TAG" ]; then
             tags+=("$TRAVIS_TAG" latest)
-            if [[ "$GITHUB_WORKFLOW" = "Beta" ]]; then
+            if [[ "$GITHUB_WORKFLOW" = "Beta" || "$GITHUB_WORKFLOW" = "TestNetwork" ]]; then
                 tags+=(latest-including-rc)
             fi
         elif [ -n "$TRAVIS_BRANCH" ]; then
@@ -32,6 +32,10 @@ if [ -n "$DOCKER_PASSWORD" ]; then
             echo "Beta"
             network_tag_suffix="-beta"
             network="beta"
+        elif [[ "$GITHUB_WORKFLOW" = "TestNetwork" ]]; then
+            echo "Test"
+            network_tag_suffix="-test"
+            network="test"
         else
             echo "Nothing to deploy"
             exit 1

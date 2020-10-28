@@ -261,6 +261,7 @@ TEST (node, node_receive_quorum)
 	ASSERT_NE (nullptr, election);
 	ASSERT_FALSE (election->confirmed ());
 	ASSERT_EQ (1, election->votes ().size ());
+
 	nano::system system2;
 	system2.add_node (node_flags);
 
@@ -1077,7 +1078,6 @@ TEST (node, fork_publish)
 		auto existing1 (votes1.find (nano::dev_genesis_key.pub));
 		ASSERT_NE (votes1.end (), existing1);
 		ASSERT_EQ (send1->hash (), existing1->second.hash);
-		nano::lock_guard<std::mutex> guard (node1.active.mutex);
 		auto winner (*election->tally ().begin ());
 		ASSERT_EQ (*send1, *winner.second);
 		ASSERT_EQ (nano::genesis_amount - 100, winner.first);
@@ -1165,7 +1165,6 @@ TEST (node, fork_keep)
 	auto transaction0 (node1.store.tx_begin_read ());
 	auto transaction1 (node2.store.tx_begin_read ());
 	// The vote should be in agreement with what we already have.
-	nano::lock_guard<std::mutex> guard (node2.active.mutex);
 	auto winner (*election1->tally ().begin ());
 	ASSERT_EQ (*send1, *winner.second);
 	ASSERT_EQ (nano::genesis_amount - 100, winner.first);
@@ -1218,7 +1217,6 @@ TEST (node, fork_flip)
 	ASSERT_NE (nullptr, node1.block (publish1.block->hash ()));
 	ASSERT_NE (nullptr, node2.block (publish2.block->hash ()));
 	ASSERT_TIMELY (10s, node2.ledger.block_exists (publish1.block->hash ()));
-	nano::unique_lock<std::mutex> lock (node2.active.mutex);
 	auto winner (*election1->tally ().begin ());
 	ASSERT_EQ (*publish1.block, *winner.second);
 	ASSERT_EQ (nano::genesis_amount - 100, winner.first);
@@ -1294,7 +1292,6 @@ TEST (node, fork_multi_flip)
 		ASSERT_TRUE (node2.ledger.block_exists (publish2.block->hash ()));
 		ASSERT_TRUE (node2.ledger.block_exists (publish3.block->hash ()));
 		ASSERT_TIMELY (10s, node2.ledger.block_exists (publish1.block->hash ()));
-		nano::unique_lock<std::mutex> lock (node2.active.mutex);
 		auto winner (*election1->tally ().begin ());
 		ASSERT_EQ (*publish1.block, *winner.second);
 		ASSERT_EQ (nano::genesis_amount - 100, winner.first);
@@ -1387,6 +1384,7 @@ TEST (node, fork_open)
 	node1.network.process_message (publish1, channel1);
 	node1.block_processor.flush ();
 	auto election = node1.active.election (publish1.block->qualified_root ());
+	ASSERT_NE (nullptr, election);
 	election->force_confirm ();
 	ASSERT_TIMELY (3s, node1.active.empty () && node1.block_confirmed (publish1.block->hash ()));
 	nano::open_block_builder builder;
@@ -1485,7 +1483,6 @@ TEST (node, fork_open_flip)
 	node2.block_processor.flush ();
 	auto transaction1 (node1.store.tx_begin_read ());
 	auto transaction2 (node2.store.tx_begin_read ());
-	nano::lock_guard<std::mutex> guard (node1.active.mutex);
 	auto winner (*election1->tally ().begin ());
 	ASSERT_EQ (*open1, *winner.second);
 	ASSERT_EQ (nano::genesis_amount - 1, winner.first);
@@ -2911,7 +2908,7 @@ TEST (node, vote_by_hash_republish)
 		             .work (*system.work.generate (genesis.hash ()))
 		             .build_shared ();
 		node1.process_active (send1);
-		ASSERT_TIMELY (5s, node2.block (send1->hash ()));
+		ASSERT_TIMELY (5s, node2.active.active (*send1));
 		node1.active.publish (send2);
 		std::vector<nano::block_hash> vote_blocks;
 		vote_blocks.push_back (send2->hash ());
@@ -2953,7 +2950,7 @@ TEST (node, vote_by_hash_epoch_block_republish)
 	              .work (*system.work.generate (genesis.hash ()))
 	              .build_shared ();
 	node1.process_active (send1);
-	ASSERT_TIMELY (5s, node2.block (send1->hash ()));
+	ASSERT_TIMELY (5s, node2.active.active (*send1));
 	node1.active.publish (epoch1);
 	std::vector<nano::block_hash> vote_blocks;
 	vote_blocks.push_back (epoch1->hash ());
@@ -3936,10 +3933,8 @@ TEST (node, rollback_vote_self)
 		auto write_guard = node.write_database_queue.wait (nano::writer::testing);
 		{
 			ASSERT_EQ (1, election->votes ().size ());
-			nano::unique_lock<std::mutex> lock (node.active.mutex);
 			// Vote with key to switch the winner
 			election->vote (key.pub, 0, fork->hash ());
-			lock.unlock ();
 			ASSERT_EQ (2, election->votes ().size ());
 			// The winner changed
 			ASSERT_EQ (election->winner (), fork);
@@ -4490,10 +4485,7 @@ TEST (rep_crawler, recently_confirmed)
 	auto & node1 (*system.nodes[0]);
 	ASSERT_EQ (1, node1.ledger.cache.block_count);
 	auto const block = nano::genesis ().open;
-	{
-		nano::lock_guard<std::mutex> guard (node1.active.mutex);
-		node1.active.add_recently_confirmed (block->qualified_root (), block->hash ());
-	}
+	node1.active.add_recently_confirmed (block->qualified_root (), block->hash ());
 	auto & node2 (*system.add_node ());
 	system.wallet (1)->insert_adhoc (nano::dev_genesis_key.prv);
 	auto channel = node1.network.find_channel (node2.network.endpoint ());

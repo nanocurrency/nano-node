@@ -1393,6 +1393,147 @@ std::multimap<uint64_t, nano::uncemented_info, std::greater<>> nano::ledger::unc
 	return result;
 }
 
+// A precondition is that the store is an LMDB store
+bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data_path_a) const
+{
+	boost::system::error_code error_chmod;
+	nano::set_secure_perm_directory (data_path_a, error_chmod);
+	auto rockdb_data_path = data_path_a / "rocksdb";
+	boost::filesystem::remove_all (rockdb_data_path);
+
+	nano::logger_mt logger;
+	auto error (false);
+
+	// Open rocksdb database
+	nano::rocksdb_config rocksdb_config;
+	rocksdb_config.enable = true;
+	auto rocksdb_store = nano::make_store (logger, data_path_a, false, true, rocksdb_config);
+
+	if (!rocksdb_store->init_error ())
+	{
+		store.blocks_for_each_par (
+		[&rocksdb_store](nano::read_transaction const & /*unused*/, auto i, auto n) {
+			for (; i != n; ++i)
+			{
+				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::blocks }));
+
+				std::vector<uint8_t> vector;
+				{
+					nano::vectorstream stream (vector);
+					nano::serialize_block (stream, *i->second.block);
+					i->second.sideband.serialize (stream, i->second.block->type ());
+				}
+				rocksdb_store->block_raw_put (rocksdb_transaction, vector, i->first);
+			}
+		});
+
+		store.unchecked_for_each_par (
+		[&rocksdb_store](nano::read_transaction const & /*unused*/, auto i, auto n) {
+			for (; i != n; ++i)
+			{
+				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::unchecked }));
+				rocksdb_store->unchecked_put (rocksdb_transaction, i->first, i->second);
+			}
+		});
+
+		store.pending_for_each_par (
+		[&rocksdb_store](nano::read_transaction const & /*unused*/, auto i, auto n) {
+			for (; i != n; ++i)
+			{
+				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::pending }));
+				rocksdb_store->pending_put (rocksdb_transaction, i->first, i->second);
+			}
+		});
+
+		store.confirmation_height_for_each_par (
+		[&rocksdb_store](nano::read_transaction const & /*unused*/, auto i, auto n) {
+			for (; i != n; ++i)
+			{
+				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::confirmation_height }));
+				rocksdb_store->confirmation_height_put (rocksdb_transaction, i->first, i->second);
+			}
+		});
+
+		store.accounts_for_each_par (
+		[&rocksdb_store](nano::read_transaction const & /*unused*/, auto i, auto n) {
+			for (; i != n; ++i)
+			{
+				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::accounts }));
+				rocksdb_store->account_put (rocksdb_transaction, i->first, i->second);
+			}
+		});
+
+		store.frontiers_for_each_par (
+		[&rocksdb_store](nano::read_transaction const & /*unused*/, auto i, auto n) {
+			for (; i != n; ++i)
+			{
+				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::frontiers }));
+				rocksdb_store->frontier_put (rocksdb_transaction, i->first, i->second);
+			}
+		});
+
+		store.pruned_for_each_par (
+		[&rocksdb_store](nano::read_transaction const & /*unused*/, auto i, auto n) {
+			for (; i != n; ++i)
+			{
+				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::pruned }));
+				rocksdb_store->pruned_put (rocksdb_transaction, i->first);
+			}
+		});
+
+		store.votes_for_each_par (
+		[&rocksdb_store](nano::read_transaction const & /*unused*/, auto i, auto n) {
+			for (; i != n; ++i)
+			{
+				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::vote }));
+				rocksdb_store->vote_put (rocksdb_transaction, i->first, i->second);
+			}
+		});
+
+		auto lmdb_transaction (store.tx_begin_read ());
+		auto version = store.version_get (lmdb_transaction);
+		auto rocksdb_transaction (rocksdb_store->tx_begin_write ());
+		rocksdb_store->version_put (rocksdb_transaction, version);
+
+		for (auto i (store.online_weight_begin (lmdb_transaction)), n (store.online_weight_end ()); i != n; ++i)
+		{
+			rocksdb_store->online_weight_put (rocksdb_transaction, i->first, i->second);
+		}
+
+		for (auto i (store.peers_begin (lmdb_transaction)), n (store.peers_end ()); i != n; ++i)
+		{
+			rocksdb_store->peer_put (rocksdb_transaction, i->first);
+		}
+
+		// Compare counts
+		error |= store.unchecked_count (lmdb_transaction) != rocksdb_store->unchecked_count (rocksdb_transaction);
+		error |= store.peer_count (lmdb_transaction) != rocksdb_store->peer_count (rocksdb_transaction);
+		error |= store.pruned_count (lmdb_transaction) != rocksdb_store->pruned_count (rocksdb_transaction);
+		error |= store.online_weight_count (lmdb_transaction) != rocksdb_store->online_weight_count (rocksdb_transaction);
+		error |= store.version_get (lmdb_transaction) != rocksdb_store->version_get (rocksdb_transaction);
+
+		// For large tables a random key is used instead and makes sure it exists
+		auto random_block (store.block_random (lmdb_transaction));
+		error |= rocksdb_store->block_get (rocksdb_transaction, random_block->hash ()) == nullptr;
+
+		auto account = random_block->account ().is_zero () ? random_block->sideband ().account : random_block->account ();
+		nano::account_info account_info;
+		error |= rocksdb_store->account_get (rocksdb_transaction, account, account_info);
+
+		// If confirmation height exists in the lmdb ledger for this account it should exist in the rocksdb ledger
+		nano::confirmation_height_info confirmation_height_info;
+		if (!store.confirmation_height_get (lmdb_transaction, account, confirmation_height_info))
+		{
+			error |= rocksdb_store->confirmation_height_get (rocksdb_transaction, account, confirmation_height_info);
+		}
+	}
+	else
+	{
+		error = true;
+	}
+	return error;
+}
+
 nano::uncemented_info::uncemented_info (nano::block_hash const & cemented_frontier, nano::block_hash const & frontier, nano::account const & account) :
 cemented_frontier (cemented_frontier), frontier (frontier), account (account)
 {

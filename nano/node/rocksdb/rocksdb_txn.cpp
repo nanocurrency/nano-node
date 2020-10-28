@@ -51,7 +51,7 @@ nano::write_rocksdb_txn::~write_rocksdb_txn ()
 	unlock ();
 }
 
-void nano::write_rocksdb_txn::commit () const
+void nano::write_rocksdb_txn::commit ()
 {
 	auto status = txn->Commit ();
 

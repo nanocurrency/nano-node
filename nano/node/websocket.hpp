@@ -336,7 +336,7 @@ namespace websocket
 		socket_type socket;
 		std::mutex sessions_mutex;
 		std::vector<std::weak_ptr<session>> sessions;
-		std::array<std::atomic<std::size_t>, number_topics> topic_subscriber_count{};
+		std::array<std::atomic<std::size_t>, number_topics> topic_subscriber_count;
 		std::atomic<bool> stopped{ false };
 	};
 }
