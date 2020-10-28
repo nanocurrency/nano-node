@@ -727,6 +727,64 @@ TEST (active_transactions, dropped_cleanup)
 	ASSERT_EQ (0, node.active.blocks.count (block->hash ()));
 }
 
+TEST (active_transactions, fork_filter_cleanup)
+{
+	nano::system system;
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto & node1 (*system.add_node (node_config));
+
+	nano::genesis genesis;
+	nano::keypair key;
+	nano::state_block_builder builder;
+	auto send1 = builder.make_block ()
+	             .account (nano::dev_genesis_key.pub)
+	             .previous (genesis.hash ())
+	             .representative (nano::dev_genesis_key.pub)
+	             .balance (nano::genesis_amount - nano::Gxrb_ratio)
+	             .link (key.pub)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (*system.work.generate (genesis.hash ()))
+	             .build_shared ();
+	std::vector<uint8_t> block_bytes;
+	{
+		nano::vectorstream stream (block_bytes);
+		send1->serialize (stream);
+	}
+
+	// Generate 10 forks to prevent new block insertion to election
+	for (auto i (0); i < 10; i++)
+	{
+		auto fork = builder.make_block ()
+		            .account (nano::dev_genesis_key.pub)
+		            .previous (genesis.hash ())
+		            .representative (nano::dev_genesis_key.pub)
+		            .balance (nano::genesis_amount - 1 - i)
+		            .link (key.pub)
+		            .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+		            .work (*system.work.generate (genesis.hash ()))
+		            .build_shared ();
+		node1.process_active (fork);
+	}
+	node1.block_processor.flush ();
+	ASSERT_TIMELY (3s, !node1.active.empty ());
+
+	// Process correct block
+	node_config.peering_port = nano::get_available_port ();
+	auto & node2 (*system.add_node (node_config));
+	node2.network.flood_block (send1);
+	ASSERT_TIMELY (3s, node1.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in) > 0);
+	node1.block_processor.flush ();
+	std::this_thread::sleep_for (50ms);
+
+	// Block is erased from the duplicate filter
+	ASSERT_FALSE (node1.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
+
+	auto election (node1.active.election (send1->qualified_root ()));
+	ASSERT_NE (nullptr, election);
+	ASSERT_EQ (10, election->blocks ().size ());
+}
+
 namespace nano
 {
 // Blocks that won an election must always be seen as confirming or cemented
