@@ -4,6 +4,7 @@
 #include <nano/lib/alarm.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/stats.hpp>
+#include <nano/lib/timestamp.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/lib/worker.hpp>
 #include <nano/node/active_transactions.hpp>
@@ -125,7 +126,6 @@ public:
 	nano::uint128_t minimum_principal_weight (nano::uint128_t const &);
 	void ongoing_rep_calculation ();
 	void ongoing_bootstrap ();
-	void ongoing_store_flush ();
 	void ongoing_peer_store ();
 	void ongoing_unchecked_cleanup ();
 	void backup_wallet ();
@@ -156,6 +156,7 @@ public:
 	bool init_error () const;
 	bool epoch_upgrader (nano::private_key const &, nano::epoch, uint64_t, uint64_t);
 	std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> get_bootstrap_weights () const;
+	nano::timestamp_generator timestamps;
 	nano::worker worker;
 	nano::write_database_queue write_database_queue;
 	boost::asio::io_context & io_ctx;
