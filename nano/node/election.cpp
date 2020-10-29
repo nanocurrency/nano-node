@@ -558,7 +558,7 @@ std::vector<nano::vote_with_weight_info> nano::election::votes_with_weight () co
 		if (vote_l.first != node.network_params.random.not_an_account)
 		{
 			auto amount (node.ledger.cache.rep_weights.representation_get (vote_l.first));
-			nano::vote_with_weight_info vote_info{ vote_l.first, vote_l.second.time, vote_l.second.sequence, vote_l.second.hash, amount };
+			nano::vote_with_weight_info vote_info{ vote_l.first, vote_l.second.time, vote_l.second.timestamp, vote_l.second.hash, amount };
 			sorted_votes.emplace (std::move (amount), vote_info);
 		}
 	}
