@@ -600,10 +600,10 @@ bool nano::election::replace_by_weight (nano::unique_lock<std::mutex> & lock_a, 
 			remove_block (sorted.front ().first);
 			replaced = true;
 		}
-		else if (inactive_tally > (sorted.begin () + 1)->second)
+		else if (inactive_tally > sorted[1].second)
 		{
 			// Avoid removing winner
-			remove_block ((sorted.begin () + 1)->first);
+			remove_block (sorted[1].first);
 			replaced = true;
 		}
 	}
