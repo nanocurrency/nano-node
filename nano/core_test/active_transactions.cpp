@@ -830,6 +830,8 @@ TEST (active_transactions, fork_replacement_tally)
 		auto vote (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 0, std::vector<nano::block_hash>{ send->hash (), open->hash () }));
 		node1.vote_processor.vote (vote, std::make_shared<nano::transport::channel_loopback> (node1));
 	}
+	node1.block_processor.flush ();
+	ASSERT_TIMELY (5s, node1.ledger.cache.cemented_count == 1 + 2 * reps_count);
 
 	nano::keypair key;
 	auto send_last = builder.make_block ()
