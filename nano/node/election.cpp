@@ -585,7 +585,7 @@ bool nano::election::replace_by_weight (nano::unique_lock<std::mutex> & lock_a, 
 		// If count of tally items is less than 10, remove any block without tally
 		for (auto const & [hash, block] : blocks ())
 		{
-			if (std::find_if (sorted.begin (), sorted.end (), [hash = hash](auto const & item_a) { return item_a.first == hash; }) == sorted.end () && hash != winner_hash)
+			if (std::find_if (sorted.begin (), sorted.end (), [&hash = hash](auto const & item_a) { return item_a.first == hash; }) == sorted.end () && hash != winner_hash)
 			{
 				remove_block (hash);
 				replaced = true;
