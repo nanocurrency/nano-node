@@ -923,7 +923,7 @@ TEST (network, bandwidth_limiter)
 	auto channel1 (node.network.udp_channels.create (node.network.endpoint ()));
 	auto channel2 (node.network.udp_channels.create (node.network.endpoint ()));
 	// Send droppable messages
-	for (unsigned i = 0; i < message_limit; i += 2) // number of channels
+	for (auto i = 0; i < message_limit; i += 2) // number of channels
 	{
 		channel1->send (message);
 		channel2->send (message);
@@ -963,7 +963,7 @@ TEST (peer_exclusion, validate)
 	ASSERT_EQ (peers_by_endpoint.end (), peers_by_endpoint.find (oldest.address ()));
 
 	auto to_seconds = [](std::chrono::steady_clock::time_point const & timepoint) {
-		return std::chrono::duration_cast<std::chrono::seconds> (timepoint.time_since_epoch ()).count ();
+		return static_cast<double> (std::chrono::duration_cast<std::chrono::seconds> (timepoint.time_since_epoch ()).count ());
 	};
 	nano::tcp_endpoint first (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0x1)), 0);
 	ASSERT_NE (peers_by_endpoint.end (), peers_by_endpoint.find (first.address ()));

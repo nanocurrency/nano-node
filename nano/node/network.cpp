@@ -238,10 +238,10 @@ void nano::network::flood_block_many (std::deque<std::shared_ptr<nano::block>> b
 	}
 }
 
-void nano::network::send_confirm_req (std::shared_ptr<nano::transport::channel> channel_a, std::shared_ptr<nano::block> block_a)
+void nano::network::send_confirm_req (std::shared_ptr<nano::transport::channel> channel_a, std::pair<nano::block_hash, nano::block_hash> const & hash_root_a)
 {
 	// Confirmation request with hash + root
-	nano::confirm_req req (block_a->hash (), block_a->root ());
+	nano::confirm_req req (hash_root_a.first, hash_root_a.second);
 	channel_a->send (req);
 }
 
@@ -284,7 +284,7 @@ void nano::network::broadcast_confirm_req_base (std::shared_ptr<nano::block> blo
 	while (!endpoints_a->empty () && count < max_reps)
 	{
 		auto channel (endpoints_a->back ());
-		send_confirm_req (channel, block_a);
+		send_confirm_req (channel, std::make_pair (block_a->hash (), block_a->root ().as_block_hash ()));
 		endpoints_a->pop_back ();
 		count++;
 	}
@@ -449,7 +449,7 @@ public:
 	{
 		if (node.config.logging.network_message_logging ())
 		{
-			node.logger.try_log (boost::str (boost::format ("Received confirm_ack message from %1% for %2%sequence %3%") % channel->to_string () % message_a.vote->hashes_string () % std::to_string (message_a.vote->sequence)));
+			node.logger.try_log (boost::str (boost::format ("Received confirm_ack message from %1% for %2% timestamp %3%") % channel->to_string () % message_a.vote->hashes_string () % std::to_string (message_a.vote->timestamp)));
 		}
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::in);
 		if (!message_a.vote->account.is_zero ())
@@ -508,7 +508,7 @@ public:
 		nano::telemetry_ack telemetry_ack;
 		if (!node.flags.disable_providing_telemetry_metrics)
 		{
-			auto telemetry_data = nano::local_telemetry_data (node.store, node.ledger.cache, node.network, node.config.bandwidth_limit, node.network_params, node.startup_time, node.active.active_difficulty (), node.node_id);
+			auto telemetry_data = nano::local_telemetry_data (node.ledger, node.network, node.config.bandwidth_limit, node.network_params, node.startup_time, node.active.active_difficulty (), node.node_id);
 			telemetry_ack = nano::telemetry_ack (telemetry_data);
 		}
 		channel->send (telemetry_ack, nullptr, nano::buffer_drop_policy::no_socket_drop);

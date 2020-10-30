@@ -1,6 +1,7 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/rocksdb/rocksdb.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -584,10 +585,10 @@ TEST (system, DISABLED_generate_send_new)
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	{
 		auto transaction (node1.store.tx_begin_read ());
-		auto iterator1 (node1.store.latest_begin (transaction));
-		ASSERT_NE (node1.store.latest_end (), iterator1);
+		auto iterator1 (node1.store.accounts_begin (transaction));
+		ASSERT_NE (node1.store.accounts_end (), iterator1);
 		++iterator1;
-		ASSERT_EQ (node1.store.latest_end (), iterator1);
+		ASSERT_EQ (node1.store.accounts_end (), iterator1);
 	}
 	nano::keypair stake_preserver;
 	auto send_block (system.wallet (0)->send_action (nano::genesis_account, stake_preserver.pub, nano::genesis_amount / 3 * 2, true));
@@ -831,7 +832,7 @@ TEST (votes, add_two)
 
 namespace nano
 {
-// Higher sequence numbers change the vote
+// Higher timestamps change the vote
 TEST (votes, add_existing)
 {
 	nano::system system;
@@ -852,33 +853,32 @@ TEST (votes, add_existing)
 	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote1));
 	// Block is already processed from vote
 	ASSERT_TRUE (node1.active.publish (send1));
-	ASSERT_EQ (1, election1.election->votes ()[nano::dev_genesis_key.pub].sequence);
+	ASSERT_EQ (1, election1.election->last_votes[nano::dev_genesis_key.pub].timestamp);
 	nano::keypair key2;
 	auto send2 (std::make_shared<nano::send_block> (genesis.hash (), key2.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send2);
 	auto vote2 (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 2, send2));
 	// Pretend we've waited the timeout
-	nano::unique_lock<std::mutex> lock (node1.active.mutex);
+	nano::unique_lock<std::mutex> lock (election1.election->mutex);
 	election1.election->last_votes[nano::dev_genesis_key.pub].time = std::chrono::steady_clock::now () - std::chrono::seconds (20);
 	lock.unlock ();
 	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote2));
 	ASSERT_FALSE (node1.active.publish (send2));
-	ASSERT_EQ (2, election1.election->votes ()[nano::dev_genesis_key.pub].sequence);
-	// Also resend the old vote, and see if we respect the sequence number
+	ASSERT_EQ (2, election1.election->last_votes[nano::dev_genesis_key.pub].timestamp);
+	// Also resend the old vote, and see if we respect the timestamp
 	lock.lock ();
 	election1.election->last_votes[nano::dev_genesis_key.pub].time = std::chrono::steady_clock::now () - std::chrono::seconds (20);
 	lock.unlock ();
 	ASSERT_EQ (nano::vote_code::replay, node1.active.vote (vote1));
-	ASSERT_EQ (2, election1.election->votes ()[nano::dev_genesis_key.pub].sequence);
+	ASSERT_EQ (2, election1.election->votes ()[nano::dev_genesis_key.pub].timestamp);
 	auto votes (election1.election->votes ());
 	ASSERT_EQ (2, votes.size ());
 	ASSERT_NE (votes.end (), votes.find (nano::dev_genesis_key.pub));
 	ASSERT_EQ (send2->hash (), votes[nano::dev_genesis_key.pub].hash);
-	lock.lock ();
 	ASSERT_EQ (*send2, *election1.election->tally ().begin ()->second);
 }
 
-// Lower sequence numbers are ignored
+// Lower timestamps are ignored
 TEST (votes, add_old)
 {
 	nano::system system (1);
@@ -898,7 +898,7 @@ TEST (votes, add_old)
 	node1.work_generate_blocking (*send2);
 	auto vote2 (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 1, send2));
 	{
-		nano::lock_guard<std::mutex> lock (node1.active.mutex);
+		nano::lock_guard<std::mutex> lock (election1.election->mutex);
 		election1.election->last_votes[nano::dev_genesis_key.pub].time = std::chrono::steady_clock::now () - std::chrono::seconds (20);
 	}
 	node1.vote_processor.vote_blocking (vote2, channel);
@@ -910,7 +910,7 @@ TEST (votes, add_old)
 }
 }
 
-// Lower sequence numbers are accepted for different accounts
+// Lower timestamps are accepted for different accounts
 TEST (votes, add_old_different_account)
 {
 	nano::system system (1);
@@ -3383,4 +3383,470 @@ TEST (ledger, cache)
 		cache_check (ledger.cache);
 		cache_check (nano::ledger (*store, stats).cache);
 	}
+}
+
+TEST (ledger, pruning_action)
+{
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_TRUE (!store->init_error ());
+	nano::stat stats;
+	nano::ledger ledger (*store, stats);
+	ledger.pruning = true;
+	nano::genesis genesis;
+	auto transaction (store->tx_begin_write ());
+	store->initialize (transaction, genesis, ledger.cache);
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+	nano::state_block send1 (nano::genesis_account, genesis.hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, nano::genesis_account, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (genesis.hash ()));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send1).code);
+	ASSERT_TRUE (store->block_exists (transaction, send1.hash ()));
+	auto send1_stored (store->block_get (transaction, send1.hash ()));
+	ASSERT_NE (nullptr, send1_stored);
+	ASSERT_EQ (send1, *send1_stored);
+	ASSERT_TRUE (store->pending_exists (transaction, nano::pending_key (nano::genesis_account, send1.hash ())));
+	nano::state_block send2 (nano::genesis_account, send1.hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio * 2, nano::genesis_account, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (send1.hash ()));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send2).code);
+	ASSERT_TRUE (store->block_exists (transaction, send2.hash ()));
+	// Pruning action
+	ASSERT_EQ (1, ledger.pruning_action (transaction, send1.hash (), 1));
+	ASSERT_EQ (0, ledger.pruning_action (transaction, genesis.hash (), 1));
+	ASSERT_TRUE (store->pending_exists (transaction, nano::pending_key (nano::genesis_account, send1.hash ())));
+	ASSERT_FALSE (store->block_exists (transaction, send1.hash ()));
+	ASSERT_TRUE (ledger.block_or_pruned_exists (transaction, send1.hash ()));
+	// Pruned ledger start without proper flags emulation
+	ledger.pruning = false;
+	ASSERT_FALSE (ledger.block_or_pruned_exists (transaction, send1.hash ()));
+	ledger.pruning = true;
+	ASSERT_TRUE (store->pruned_exists (transaction, send1.hash ()));
+	ASSERT_TRUE (store->block_exists (transaction, genesis.hash ()));
+	ASSERT_TRUE (store->block_exists (transaction, send2.hash ()));
+	// Receiving pruned block
+	nano::state_block receive1 (nano::genesis_account, send2.hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, send1.hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (send2.hash ()));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive1).code);
+	ASSERT_TRUE (store->block_exists (transaction, receive1.hash ()));
+	auto receive1_stored (store->block_get (transaction, receive1.hash ()));
+	ASSERT_NE (nullptr, receive1_stored);
+	ASSERT_EQ (receive1, *receive1_stored);
+	ASSERT_FALSE (store->pending_exists (transaction, nano::pending_key (nano::genesis_account, send1.hash ())));
+	ASSERT_EQ (4, receive1_stored->sideband ().height);
+	ASSERT_FALSE (receive1_stored->sideband ().details.is_send);
+	ASSERT_TRUE (receive1_stored->sideband ().details.is_receive);
+	ASSERT_FALSE (receive1_stored->sideband ().details.is_epoch);
+	// Middle block pruning
+	ASSERT_TRUE (store->block_exists (transaction, send2.hash ()));
+	ASSERT_EQ (1, ledger.pruning_action (transaction, send2.hash (), 1));
+	ASSERT_TRUE (store->pruned_exists (transaction, send2.hash ()));
+	ASSERT_FALSE (store->block_exists (transaction, send2.hash ()));
+	ASSERT_EQ (store->account_count (transaction), ledger.cache.account_count);
+	ASSERT_EQ (store->pruned_count (transaction), ledger.cache.pruned_count);
+	ASSERT_EQ (store->block_count (transaction), ledger.cache.block_count - ledger.cache.pruned_count);
+}
+
+TEST (ledger, pruning_large_chain)
+{
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_TRUE (!store->init_error ());
+	nano::stat stats;
+	nano::ledger ledger (*store, stats);
+	ledger.pruning = true;
+	nano::genesis genesis;
+	auto transaction (store->tx_begin_write ());
+	store->initialize (transaction, genesis, ledger.cache);
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+	size_t send_receive_pairs (20);
+	auto last_hash (genesis.hash ());
+	for (auto i (0); i < send_receive_pairs; i++)
+	{
+		nano::state_block send (nano::genesis_account, last_hash, nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, nano::genesis_account, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (last_hash));
+		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send).code);
+		ASSERT_TRUE (store->block_exists (transaction, send.hash ()));
+		nano::state_block receive (nano::genesis_account, send.hash (), nano::genesis_account, nano::genesis_amount, send.hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (send.hash ()));
+		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive).code);
+		ASSERT_TRUE (store->block_exists (transaction, receive.hash ()));
+		last_hash = receive.hash ();
+	}
+	ASSERT_EQ (0, store->pruned_count (transaction));
+	ASSERT_EQ (send_receive_pairs * 2 + 1, store->block_count (transaction));
+	// Pruning action
+	ASSERT_EQ (send_receive_pairs * 2, ledger.pruning_action (transaction, last_hash, 5));
+	ASSERT_TRUE (store->pruned_exists (transaction, last_hash));
+	ASSERT_TRUE (store->block_exists (transaction, genesis.hash ()));
+	ASSERT_FALSE (store->block_exists (transaction, last_hash));
+	ASSERT_EQ (store->pruned_count (transaction), ledger.cache.pruned_count);
+	ASSERT_EQ (store->block_count (transaction), ledger.cache.block_count - ledger.cache.pruned_count);
+	ASSERT_EQ (send_receive_pairs * 2, store->pruned_count (transaction));
+	ASSERT_EQ (1, store->block_count (transaction)); // Genesis
+}
+
+TEST (ledger, pruning_source_rollback)
+{
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_TRUE (!store->init_error ());
+	nano::stat stats;
+	nano::ledger ledger (*store, stats);
+	ledger.pruning = true;
+	nano::genesis genesis;
+	auto transaction (store->tx_begin_write ());
+	store->initialize (transaction, genesis, ledger.cache);
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+	nano::state_block epoch1 (nano::genesis_account, genesis.hash (), nano::genesis_account, nano::genesis_amount, ledger.epoch_link (nano::epoch::epoch_1), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (genesis.hash ()));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, epoch1).code);
+	nano::state_block send1 (nano::genesis_account, epoch1.hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, nano::genesis_account, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (epoch1.hash ()));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send1).code);
+	ASSERT_TRUE (store->pending_exists (transaction, nano::pending_key (nano::genesis_account, send1.hash ())));
+	nano::state_block send2 (nano::genesis_account, send1.hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio * 2, nano::genesis_account, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (send1.hash ()));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send2).code);
+	ASSERT_TRUE (store->block_exists (transaction, send2.hash ()));
+	// Pruning action
+	ASSERT_EQ (2, ledger.pruning_action (transaction, send1.hash (), 1));
+	ASSERT_FALSE (store->block_exists (transaction, send1.hash ()));
+	ASSERT_TRUE (store->pruned_exists (transaction, send1.hash ()));
+	ASSERT_FALSE (store->block_exists (transaction, epoch1.hash ()));
+	ASSERT_TRUE (store->pruned_exists (transaction, epoch1.hash ()));
+	ASSERT_TRUE (store->block_exists (transaction, genesis.hash ()));
+	nano::pending_info info;
+	ASSERT_FALSE (store->pending_get (transaction, nano::pending_key (nano::genesis_account, send1.hash ()), info));
+	ASSERT_EQ (nano::genesis_account, info.source);
+	ASSERT_EQ (nano::Gxrb_ratio, info.amount.number ());
+	ASSERT_EQ (nano::epoch::epoch_1, info.epoch);
+	// Receiving pruned block
+	nano::state_block receive1 (nano::genesis_account, send2.hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, send1.hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (send2.hash ()));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive1).code);
+	ASSERT_FALSE (store->pending_exists (transaction, nano::pending_key (nano::genesis_account, send1.hash ())));
+	ASSERT_EQ (2, ledger.cache.pruned_count);
+	ASSERT_EQ (5, ledger.cache.block_count);
+	// Rollback receive block
+	ASSERT_FALSE (ledger.rollback (transaction, receive1.hash ()));
+	nano::pending_info info2;
+	ASSERT_FALSE (store->pending_get (transaction, nano::pending_key (nano::genesis_account, send1.hash ()), info2));
+	ASSERT_NE (nano::genesis_account, info2.source); // Tradeoff to not store pruned blocks accounts
+	ASSERT_EQ (nano::Gxrb_ratio, info2.amount.number ());
+	ASSERT_EQ (nano::epoch::epoch_1, info2.epoch);
+	// Process receive block again
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive1).code);
+	ASSERT_FALSE (store->pending_exists (transaction, nano::pending_key (nano::genesis_account, send1.hash ())));
+	ASSERT_EQ (2, ledger.cache.pruned_count);
+	ASSERT_EQ (5, ledger.cache.block_count);
+}
+
+TEST (ledger, pruning_source_rollback_legacy)
+{
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_TRUE (!store->init_error ());
+	nano::stat stats;
+	nano::ledger ledger (*store, stats);
+	ledger.pruning = true;
+	nano::genesis genesis;
+	auto transaction (store->tx_begin_write ());
+	store->initialize (transaction, genesis, ledger.cache);
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+	nano::send_block send1 (genesis.hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (genesis.hash ()));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send1).code);
+	ASSERT_TRUE (store->pending_exists (transaction, nano::pending_key (nano::genesis_account, send1.hash ())));
+	nano::keypair key1;
+	nano::send_block send2 (send1.hash (), key1.pub, nano::genesis_amount - 2 * nano::Gxrb_ratio, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (send1.hash ()));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send2).code);
+	ASSERT_TRUE (store->block_exists (transaction, send2.hash ()));
+	ASSERT_TRUE (store->pending_exists (transaction, nano::pending_key (key1.pub, send2.hash ())));
+	nano::send_block send3 (send2.hash (), nano::genesis_account, nano::genesis_amount - 3 * nano::Gxrb_ratio, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (send2.hash ()));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send3).code);
+	ASSERT_TRUE (store->block_exists (transaction, send3.hash ()));
+	ASSERT_TRUE (store->pending_exists (transaction, nano::pending_key (nano::genesis_account, send3.hash ())));
+	// Pruning action
+	ASSERT_EQ (2, ledger.pruning_action (transaction, send2.hash (), 1));
+	ASSERT_FALSE (store->block_exists (transaction, send2.hash ()));
+	ASSERT_TRUE (store->pruned_exists (transaction, send2.hash ()));
+	ASSERT_FALSE (store->block_exists (transaction, send1.hash ()));
+	ASSERT_TRUE (store->pruned_exists (transaction, send1.hash ()));
+	ASSERT_TRUE (store->block_exists (transaction, genesis.hash ()));
+	nano::pending_info info1;
+	ASSERT_FALSE (store->pending_get (transaction, nano::pending_key (nano::genesis_account, send1.hash ()), info1));
+	ASSERT_EQ (nano::genesis_account, info1.source);
+	ASSERT_EQ (nano::Gxrb_ratio, info1.amount.number ());
+	ASSERT_EQ (nano::epoch::epoch_0, info1.epoch);
+	nano::pending_info info2;
+	ASSERT_FALSE (store->pending_get (transaction, nano::pending_key (key1.pub, send2.hash ()), info2));
+	ASSERT_EQ (nano::genesis_account, info2.source);
+	ASSERT_EQ (nano::Gxrb_ratio, info2.amount.number ());
+	ASSERT_EQ (nano::epoch::epoch_0, info2.epoch);
+	// Receiving pruned block
+	nano::receive_block receive1 (send3.hash (), send1.hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (send3.hash ()));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive1).code);
+	ASSERT_FALSE (store->pending_exists (transaction, nano::pending_key (nano::genesis_account, send1.hash ())));
+	ASSERT_EQ (2, ledger.cache.pruned_count);
+	ASSERT_EQ (5, ledger.cache.block_count);
+	// Rollback receive block
+	ASSERT_FALSE (ledger.rollback (transaction, receive1.hash ()));
+	nano::pending_info info3;
+	ASSERT_FALSE (store->pending_get (transaction, nano::pending_key (nano::genesis_account, send1.hash ()), info3));
+	ASSERT_NE (nano::genesis_account, info3.source); // Tradeoff to not store pruned blocks accounts
+	ASSERT_EQ (nano::Gxrb_ratio, info3.amount.number ());
+	ASSERT_EQ (nano::epoch::epoch_0, info3.epoch);
+	// Process receive block again
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive1).code);
+	ASSERT_FALSE (store->pending_exists (transaction, nano::pending_key (nano::genesis_account, send1.hash ())));
+	ASSERT_EQ (2, ledger.cache.pruned_count);
+	ASSERT_EQ (5, ledger.cache.block_count);
+	// Receiving pruned block (open)
+	nano::open_block open1 (send2.hash (), nano::genesis_account, key1.pub, key1.prv, key1.pub, *pool.generate (key1.pub));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, open1).code);
+	ASSERT_FALSE (store->pending_exists (transaction, nano::pending_key (key1.pub, send2.hash ())));
+	ASSERT_EQ (2, ledger.cache.pruned_count);
+	ASSERT_EQ (6, ledger.cache.block_count);
+	// Rollback open block
+	ASSERT_FALSE (ledger.rollback (transaction, open1.hash ()));
+	nano::pending_info info4;
+	ASSERT_FALSE (store->pending_get (transaction, nano::pending_key (key1.pub, send2.hash ()), info4));
+	ASSERT_NE (nano::genesis_account, info4.source); // Tradeoff to not store pruned blocks accounts
+	ASSERT_EQ (nano::Gxrb_ratio, info4.amount.number ());
+	ASSERT_EQ (nano::epoch::epoch_0, info4.epoch);
+	// Process open block again
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, open1).code);
+	ASSERT_FALSE (store->pending_exists (transaction, nano::pending_key (key1.pub, send2.hash ())));
+	ASSERT_EQ (2, ledger.cache.pruned_count);
+	ASSERT_EQ (6, ledger.cache.block_count);
+}
+
+TEST (ledger, pruning_process_error)
+{
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_TRUE (!store->init_error ());
+	nano::stat stats;
+	nano::ledger ledger (*store, stats);
+	ledger.pruning = true;
+	nano::genesis genesis;
+	auto transaction (store->tx_begin_write ());
+	store->initialize (transaction, genesis, ledger.cache);
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+	nano::state_block send1 (nano::genesis_account, genesis.hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, nano::genesis_account, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (genesis.hash ()));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send1).code);
+	ASSERT_EQ (0, ledger.cache.pruned_count);
+	ASSERT_EQ (2, ledger.cache.block_count);
+	// Pruning action for latest block (not valid action)
+	ASSERT_EQ (1, ledger.pruning_action (transaction, send1.hash (), 1));
+	ASSERT_FALSE (store->block_exists (transaction, send1.hash ()));
+	ASSERT_TRUE (store->pruned_exists (transaction, send1.hash ()));
+	// Attempt to process pruned block again
+	ASSERT_EQ (nano::process_result::old, ledger.process (transaction, send1).code);
+	// Attept to process new block after pruned
+	nano::state_block send2 (nano::genesis_account, send1.hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio * 2, nano::genesis_account, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (send1.hash ()));
+	ASSERT_EQ (nano::process_result::gap_previous, ledger.process (transaction, send2).code);
+	ASSERT_EQ (1, ledger.cache.pruned_count);
+	ASSERT_EQ (2, ledger.cache.block_count);
+}
+
+TEST (ledger, pruning_legacy_blocks)
+{
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_TRUE (!store->init_error ());
+	nano::stat stats;
+	nano::ledger ledger (*store, stats);
+	ledger.pruning = true;
+	nano::genesis genesis;
+	nano::keypair key1;
+	auto transaction (store->tx_begin_write ());
+	store->initialize (transaction, genesis, ledger.cache);
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+	nano::send_block send1 (genesis.hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (genesis.hash ()));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send1).code);
+	ASSERT_TRUE (store->pending_exists (transaction, nano::pending_key (nano::genesis_account, send1.hash ())));
+	nano::receive_block receive1 (send1.hash (), send1.hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (send1.hash ()));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive1).code);
+	nano::change_block change1 (receive1.hash (), key1.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (receive1.hash ()));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, change1).code);
+	nano::send_block send2 (change1.hash (), key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (change1.hash ()));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send2).code);
+	nano::open_block open1 (send2.hash (), nano::genesis_account, key1.pub, key1.prv, key1.pub, *pool.generate (key1.pub));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, open1).code);
+	nano::send_block send3 (open1.hash (), nano::genesis_account, 0, key1.prv, key1.pub, *pool.generate (open1.hash ()));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send3).code);
+	// Pruning action
+	ASSERT_EQ (3, ledger.pruning_action (transaction, change1.hash (), 2));
+	ASSERT_EQ (1, ledger.pruning_action (transaction, open1.hash (), 1));
+	ASSERT_TRUE (store->block_exists (transaction, genesis.hash ()));
+	ASSERT_FALSE (store->block_exists (transaction, send1.hash ()));
+	ASSERT_TRUE (store->pruned_exists (transaction, send1.hash ()));
+	ASSERT_FALSE (store->block_exists (transaction, receive1.hash ()));
+	ASSERT_TRUE (store->pruned_exists (transaction, receive1.hash ()));
+	ASSERT_FALSE (store->block_exists (transaction, change1.hash ()));
+	ASSERT_TRUE (store->pruned_exists (transaction, change1.hash ()));
+	ASSERT_TRUE (store->block_exists (transaction, send2.hash ()));
+	ASSERT_FALSE (store->block_exists (transaction, open1.hash ()));
+	ASSERT_TRUE (store->pruned_exists (transaction, open1.hash ()));
+	ASSERT_TRUE (store->block_exists (transaction, send3.hash ()));
+	ASSERT_EQ (4, ledger.cache.pruned_count);
+	ASSERT_EQ (7, ledger.cache.block_count);
+	ASSERT_EQ (store->pruned_count (transaction), ledger.cache.pruned_count);
+	ASSERT_EQ (store->block_count (transaction), ledger.cache.block_count - ledger.cache.pruned_count);
+}
+
+TEST (ledger, pruning_safe_functions)
+{
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_TRUE (!store->init_error ());
+	nano::stat stats;
+	nano::ledger ledger (*store, stats);
+	ledger.pruning = true;
+	nano::genesis genesis;
+	auto transaction (store->tx_begin_write ());
+	store->initialize (transaction, genesis, ledger.cache);
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+	nano::state_block send1 (nano::genesis_account, genesis.hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, nano::genesis_account, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (genesis.hash ()));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send1).code);
+	ASSERT_TRUE (store->block_exists (transaction, send1.hash ()));
+	nano::state_block send2 (nano::genesis_account, send1.hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio * 2, nano::genesis_account, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (send1.hash ()));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send2).code);
+	ASSERT_TRUE (store->block_exists (transaction, send2.hash ()));
+	// Pruning action
+	ASSERT_EQ (1, ledger.pruning_action (transaction, send1.hash (), 1));
+	ASSERT_FALSE (store->block_exists (transaction, send1.hash ()));
+	ASSERT_TRUE (ledger.block_or_pruned_exists (transaction, send1.hash ()));
+	ASSERT_TRUE (store->pruned_exists (transaction, send1.hash ()));
+	ASSERT_TRUE (store->block_exists (transaction, genesis.hash ()));
+	ASSERT_TRUE (store->block_exists (transaction, send2.hash ()));
+	// Safe ledger actions
+	bool error (false);
+	ASSERT_EQ (0, ledger.balance_safe (transaction, send1.hash (), error));
+	ASSERT_TRUE (error);
+	error = false;
+	ASSERT_EQ (nano::genesis_amount - nano::Gxrb_ratio * 2, ledger.balance_safe (transaction, send2.hash (), error));
+	ASSERT_FALSE (error);
+	error = false;
+	ASSERT_EQ (0, ledger.amount_safe (transaction, send2.hash (), error));
+	ASSERT_TRUE (error);
+	error = false;
+	ASSERT_TRUE (ledger.account_safe (transaction, send1.hash (), error).is_zero ());
+	ASSERT_TRUE (error);
+	error = false;
+	ASSERT_EQ (nano::genesis_account, ledger.account_safe (transaction, send2.hash (), error));
+	ASSERT_FALSE (error);
+}
+
+TEST (ledger, hash_root_random)
+{
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_TRUE (!store->init_error ());
+	nano::stat stats;
+	nano::ledger ledger (*store, stats);
+	ledger.pruning = true;
+	nano::genesis genesis;
+	auto transaction (store->tx_begin_write ());
+	store->initialize (transaction, genesis, ledger.cache);
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+	nano::state_block send1 (nano::genesis_account, genesis.hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, nano::genesis_account, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (genesis.hash ()));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send1).code);
+	ASSERT_TRUE (store->block_exists (transaction, send1.hash ()));
+	nano::state_block send2 (nano::genesis_account, send1.hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio * 2, nano::genesis_account, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (send1.hash ()));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send2).code);
+	ASSERT_TRUE (store->block_exists (transaction, send2.hash ()));
+	// Pruning action
+	ASSERT_EQ (1, ledger.pruning_action (transaction, send1.hash (), 1));
+	ASSERT_FALSE (store->block_exists (transaction, send1.hash ()));
+	ASSERT_TRUE (store->pruned_exists (transaction, send1.hash ()));
+	ASSERT_TRUE (store->block_exists (transaction, genesis.hash ()));
+	ASSERT_TRUE (store->block_exists (transaction, send2.hash ()));
+	// Test random block including pruned
+	bool done (false);
+	auto iteration (0);
+	while (!done)
+	{
+		++iteration;
+		auto root_hash (ledger.hash_root_random (transaction));
+		done = (root_hash.first == send1.hash ()) && (root_hash.second.is_zero ());
+		ASSERT_LE (iteration, 1000);
+	}
+	done = false;
+	while (!done)
+	{
+		++iteration;
+		auto root_hash (ledger.hash_root_random (transaction));
+		done = (root_hash.first == send2.hash ()) && (root_hash.second == send2.root ().as_block_hash ());
+		ASSERT_LE (iteration, 1000);
+	}
+}
+
+TEST (ledger, migrate_lmdb_to_rocksdb)
+{
+	auto path (nano::unique_path ());
+	nano::genesis genesis;
+	nano::logger_mt logger;
+	boost::asio::ip::address_v6 address (boost::asio::ip::make_address_v6 ("::ffff:127.0.0.1"));
+	uint16_t port = 100;
+	nano::mdb_store store (logger, path / "data.ldb");
+	nano::stat stats;
+	nano::ledger ledger (store, stats);
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+
+	auto send = nano::state_block_builder ()
+	            .account (nano::dev_genesis_key.pub)
+	            .previous (nano::genesis_hash)
+	            .representative (0)
+	            .link (nano::account (10))
+	            .balance (nano::genesis_amount - 100)
+	            .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	            .work (*pool.generate (nano::genesis_hash))
+	            .build_shared ();
+
+	nano::endpoint_key endpoint_key (address.to_bytes (), port);
+	auto version = 99;
+
+	{
+		auto transaction (store.tx_begin_write ());
+		store.initialize (transaction, genesis, ledger.cache);
+		ASSERT_FALSE (store.init_error ());
+
+		// Lower the database to the max version unsupported for upgrades
+		store.confirmation_height_put (transaction, nano::genesis_account, { 2, send->hash () });
+
+		store.online_weight_put (transaction, 100, nano::amount (2));
+		store.frontier_put (transaction, nano::block_hash (2), nano::account (5));
+		store.peer_put (transaction, endpoint_key);
+
+		store.pending_put (transaction, nano::pending_key (nano::genesis_account, send->hash ()), nano::pending_info (nano::genesis_account, 100, nano::epoch::epoch_0));
+		store.pruned_put (transaction, send->hash ());
+		store.unchecked_put (transaction, nano::genesis_hash, send);
+		store.version_put (transaction, version);
+		send->sideband_set ({});
+		store.block_put (transaction, send->hash (), *send);
+	}
+
+	auto error = ledger.migrate_lmdb_to_rocksdb (path);
+	ASSERT_FALSE (error);
+
+	nano::rocksdb_store rocksdb_store (logger, path / "rocksdb");
+	auto rocksdb_transaction (rocksdb_store.tx_begin_read ());
+
+	nano::pending_info pending_info;
+	ASSERT_FALSE (rocksdb_store.pending_get (rocksdb_transaction, nano::pending_key (nano::genesis_account, send->hash ()), pending_info));
+
+	for (auto i = rocksdb_store.online_weight_begin (rocksdb_transaction); i != rocksdb_store.online_weight_end (); ++i)
+	{
+		ASSERT_EQ (i->first, 100);
+		ASSERT_EQ (i->second, 2);
+	}
+
+	ASSERT_EQ (rocksdb_store.online_weight_count (rocksdb_transaction), 1);
+
+	auto block1 = rocksdb_store.block_get (rocksdb_transaction, send->hash ());
+
+	ASSERT_EQ (*send, *block1);
+	ASSERT_TRUE (rocksdb_store.peer_exists (rocksdb_transaction, endpoint_key));
+	ASSERT_EQ (rocksdb_store.version_get (rocksdb_transaction), version);
+	ASSERT_EQ (rocksdb_store.frontier_get (rocksdb_transaction, 2), 5);
+	nano::confirmation_height_info confirmation_height_info;
+	ASSERT_FALSE (rocksdb_store.confirmation_height_get (rocksdb_transaction, nano::genesis_account, confirmation_height_info));
+	ASSERT_EQ (confirmation_height_info.height, 2);
+	ASSERT_EQ (confirmation_height_info.frontier, send->hash ());
+
+	auto unchecked_infos = rocksdb_store.unchecked_get (rocksdb_transaction, nano::genesis_hash);
+	ASSERT_EQ (unchecked_infos.size (), 1);
+	ASSERT_EQ (unchecked_infos.front ().account, nano::genesis_account);
+	ASSERT_EQ (*unchecked_infos.front ().block, *send);
 }
