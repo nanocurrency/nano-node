@@ -51,36 +51,26 @@ namespace transport
 		If remote part has open listening port, temporary channel will be replaced with direct connection to listening port soon. But if other side is behing NAT or firewall this connection can be pemanent. */
 		std::atomic<bool> temporary{ false };
 
+		void set_endpoint ();
+
 		nano::endpoint get_endpoint () const override
 		{
-			nano::lock_guard<std::mutex> lk (channel_mutex);
-			if (auto socket_l = socket.lock ())
-			{
-				return nano::transport::map_tcp_to_endpoint (socket_l->remote_endpoint ());
-			}
-			else
-			{
-				return nano::endpoint (boost::asio::ip::address_v6::any (), 0);
-			}
+			return nano::transport::map_tcp_to_endpoint (get_tcp_endpoint ());
 		}
 
 		nano::tcp_endpoint get_tcp_endpoint () const override
 		{
 			nano::lock_guard<std::mutex> lk (channel_mutex);
-			if (auto socket_l = socket.lock ())
-			{
-				return socket_l->remote_endpoint ();
-			}
-			else
-			{
-				return nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0);
-			}
+			return endpoint;
 		}
 
 		nano::transport::transport_type get_type () const override
 		{
 			return nano::transport::transport_type::tcp;
 		}
+
+	private:
+		nano::tcp_endpoint endpoint{ boost::asio::ip::address_v6::any (), 0 };
 	};
 	class tcp_channels final
 	{
