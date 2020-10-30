@@ -100,7 +100,7 @@ void nano::websocket::payment_validator::check_payment (nano::account const & de
 		}
 
 		// Sum up pending entries where the source send block is confirmed
-		pending_l = ledger.account_pending_confirmed (tx_read_l, destination_account_a);
+		pending_l = ledger.account_pending (tx_read_l, destination_account_a, true);
 
 		if (tracking_info_l->tracking_policy == nano::websocket::payment_tracker::policy::account)
 		{
