@@ -325,7 +325,6 @@ TEST (node, auto_bootstrap_reverse)
 	system.nodes.push_back (node1);
 	ASSERT_NE (nullptr, nano::establish_tcp (system, *node0, node1->network.endpoint ()));
 	ASSERT_TIMELY (10s, node1->balance (key2.pub) == node0->config.receive_minimum.number ());
-	node1->stop ();
 }
 
 TEST (node, receive_gap)
@@ -1612,15 +1611,10 @@ TEST (node, DISABLED_fork_stale)
 	nano::system system2 (1);
 	auto & node1 (*system1.nodes[0]);
 	auto & node2 (*system2.nodes[0]);
-	node2.network.tcp_channels.start_tcp (node1.network.endpoint ());
-	system2.deadline_set (5s);
-	while (node2.network.find_node_id (node1.node_id.pub) == nullptr)
-	{
-		system1.poll ();
-		ASSERT_NO_ERROR (system2.poll ());
-	}
-	auto channel = node2.network.find_node_id (node1.node_id.pub);
-	ASSERT_NE (nullptr, channel);
+	node2.bootstrap_initiator.bootstrap (node1.network.endpoint ());
+	std::shared_ptr<nano::transport::channel> channel (std::make_shared<nano::transport::channel_udp> (node2.network.udp_channels, node1.network.endpoint (), node2.network_params.protocol.protocol_version));
+	auto vote = std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 0, std::vector<nano::block_hash> ());
+	node2.rep_crawler.response (channel, vote);
 	nano::genesis genesis;
 	nano::keypair key1;
 	nano::keypair key2;
