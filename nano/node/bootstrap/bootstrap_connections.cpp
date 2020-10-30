@@ -13,7 +13,7 @@ constexpr double nano::bootstrap_limits::bootstrap_minimum_termination_time_sec;
 constexpr unsigned nano::bootstrap_limits::bootstrap_max_new_connections;
 constexpr unsigned nano::bootstrap_limits::requeued_pulls_processed_blocks_factor;
 
-nano::bootstrap_client::bootstrap_client (std::shared_ptr<nano::node> node_a, std::shared_ptr<nano::bootstrap_connections> connections_a, std::shared_ptr<nano::transport::channel_tcp> channel_a, std::shared_ptr<nano::socket> socket_a) :
+nano::bootstrap_client::bootstrap_client (std::shared_ptr<nano::node> const & node_a, std::shared_ptr<nano::bootstrap_connections> const & connections_a, std::shared_ptr<nano::transport::channel_tcp> const & channel_a, std::shared_ptr<nano::socket> const & socket_a) :
 node (node_a),
 connections (connections_a),
 channel (channel_a),
@@ -63,7 +63,7 @@ node (node_a)
 {
 }
 
-std::shared_ptr<nano::bootstrap_client> nano::bootstrap_connections::connection (std::shared_ptr<nano::bootstrap_attempt> attempt_a, bool use_front_connection)
+std::shared_ptr<nano::bootstrap_client> nano::bootstrap_connections::connection (std::shared_ptr<nano::bootstrap_attempt> const & attempt_a, bool use_front_connection)
 {
 	nano::unique_lock<std::mutex> lock (mutex);
 	condition.wait (lock, [& stopped = stopped, &idle = idle, &new_connections_empty = new_connections_empty] { return stopped || !idle.empty () || new_connections_empty; });
@@ -90,7 +90,7 @@ std::shared_ptr<nano::bootstrap_client> nano::bootstrap_connections::connection 
 	return result;
 }
 
-void nano::bootstrap_connections::pool_connection (std::shared_ptr<nano::bootstrap_client> client_a, bool new_client, bool push_front)
+void nano::bootstrap_connections::pool_connection (std::shared_ptr<nano::bootstrap_client> const & client_a, bool new_client, bool push_front)
 {
 	nano::unique_lock<std::mutex> lock (mutex);
 	auto const & socket_l = client_a->socket;

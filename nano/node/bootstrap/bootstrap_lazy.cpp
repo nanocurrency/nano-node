@@ -14,7 +14,7 @@ constexpr uint64_t nano::bootstrap_limits::lazy_batch_pull_count_resize_blocks_l
 constexpr double nano::bootstrap_limits::lazy_batch_pull_count_resize_ratio;
 constexpr size_t nano::bootstrap_limits::lazy_blocks_restart_limit;
 
-nano::bootstrap_attempt_lazy::bootstrap_attempt_lazy (std::shared_ptr<nano::node> node_a, uint64_t incremental_id_a, std::string id_a) :
+nano::bootstrap_attempt_lazy::bootstrap_attempt_lazy (std::shared_ptr<nano::node> const & node_a, uint64_t incremental_id_a, std::string const & id_a) :
 nano::bootstrap_attempt (node_a, nano::bootstrap_mode::lazy, incremental_id_a, id_a)
 {
 	node->bootstrap_initiator.notify_listeners (true);
@@ -229,7 +229,7 @@ void nano::bootstrap_attempt_lazy::run ()
 	condition.notify_all ();
 }
 
-bool nano::bootstrap_attempt_lazy::process_block (std::shared_ptr<nano::block> block_a, nano::account const & known_account_a, uint64_t pull_blocks, nano::bulk_pull::count_t max_blocks, bool block_expected, unsigned retry_limit)
+bool nano::bootstrap_attempt_lazy::process_block (std::shared_ptr<nano::block> const & block_a, nano::account const & known_account_a, uint64_t pull_blocks, nano::bulk_pull::count_t max_blocks, bool block_expected, unsigned retry_limit)
 {
 	bool stop_pull (false);
 	if (block_expected)
@@ -244,7 +244,7 @@ bool nano::bootstrap_attempt_lazy::process_block (std::shared_ptr<nano::block> b
 	return stop_pull;
 }
 
-bool nano::bootstrap_attempt_lazy::process_block_lazy (std::shared_ptr<nano::block> block_a, nano::account const & known_account_a, uint64_t pull_blocks, nano::bulk_pull::count_t max_blocks, unsigned retry_limit)
+bool nano::bootstrap_attempt_lazy::process_block_lazy (std::shared_ptr<nano::block> const & block_a, nano::account const & known_account_a, uint64_t pull_blocks, nano::bulk_pull::count_t max_blocks, unsigned retry_limit)
 {
 	bool stop_pull (false);
 	auto hash (block_a->hash ());
@@ -293,7 +293,7 @@ bool nano::bootstrap_attempt_lazy::process_block_lazy (std::shared_ptr<nano::blo
 	return stop_pull;
 }
 
-void nano::bootstrap_attempt_lazy::lazy_block_state (std::shared_ptr<nano::block> block_a, unsigned retry_limit)
+void nano::bootstrap_attempt_lazy::lazy_block_state (std::shared_ptr<nano::block> const & block_a, unsigned retry_limit)
 {
 	std::shared_ptr<nano::state_block> block_l (std::static_pointer_cast<nano::state_block> (block_a));
 	if (block_l != nullptr)
@@ -354,7 +354,7 @@ void nano::bootstrap_attempt_lazy::lazy_block_state (std::shared_ptr<nano::block
 	}
 }
 
-void nano::bootstrap_attempt_lazy::lazy_block_state_backlog_check (std::shared_ptr<nano::block> block_a, nano::block_hash const & hash_a)
+void nano::bootstrap_attempt_lazy::lazy_block_state_backlog_check (std::shared_ptr<nano::block> const & block_a, nano::block_hash const & hash_a)
 {
 	// Search unknown state blocks balances
 	auto find_state (lazy_state_backlog.find (hash_a));
@@ -520,7 +520,7 @@ void nano::bootstrap_attempt_lazy::get_information (boost::property_tree::ptree 
 	}
 }
 
-nano::bootstrap_attempt_wallet::bootstrap_attempt_wallet (std::shared_ptr<nano::node> node_a, uint64_t incremental_id_a, std::string id_a) :
+nano::bootstrap_attempt_wallet::bootstrap_attempt_wallet (std::shared_ptr<nano::node> const & node_a, uint64_t incremental_id_a, std::string id_a) :
 nano::bootstrap_attempt (node_a, nano::bootstrap_mode::wallet_lazy, incremental_id_a, id_a)
 {
 	node->bootstrap_initiator.notify_listeners (true);

@@ -331,7 +331,7 @@ nano::account const & nano::pending_key::key () const
 	return account;
 }
 
-nano::unchecked_info::unchecked_info (std::shared_ptr<nano::block> block_a, nano::account const & account_a, uint64_t modified_a, nano::signature_verification verified_a, bool confirmed_a) :
+nano::unchecked_info::unchecked_info (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, uint64_t modified_a, nano::signature_verification verified_a, bool confirmed_a) :
 block (block_a),
 account (account_a),
 modified (modified_a),
@@ -521,7 +521,7 @@ nano::vote::vote (bool & error_a, nano::stream & stream_a, nano::block_type type
 			}
 			else
 			{
-				std::shared_ptr<nano::block> block (nano::deserialize_block (stream_a, type_a, uniquer_a));
+				auto block (nano::deserialize_block (stream_a, type_a, uniquer_a));
 				if (block == nullptr)
 				{
 					throw std::runtime_error ("Block is null");
@@ -541,7 +541,7 @@ nano::vote::vote (bool & error_a, nano::stream & stream_a, nano::block_type type
 	}
 }
 
-nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, uint64_t timestamp_a, std::shared_ptr<nano::block> block_a) :
+nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, uint64_t timestamp_a, std::shared_ptr<nano::block> const & block_a) :
 timestamp{ timestamp_a },
 blocks (1, block_a),
 account (account_a),
@@ -681,7 +681,7 @@ bool nano::vote::deserialize (nano::stream & stream_a, nano::block_uniquer * uni
 			}
 			else
 			{
-				std::shared_ptr<nano::block> block (nano::deserialize_block (stream_a, type, uniquer_a));
+				auto block (nano::deserialize_block (stream_a, type, uniquer_a));
 				if (block == nullptr)
 				{
 					throw std::runtime_error ("Block is empty");
@@ -738,7 +738,7 @@ uniquer (uniquer_a)
 {
 }
 
-std::shared_ptr<nano::vote> nano::vote_uniquer::unique (std::shared_ptr<nano::vote> vote_a)
+std::shared_ptr<nano::vote> nano::vote_uniquer::unique (std::shared_ptr<nano::vote> const & vote_a)
 {
 	auto result (vote_a);
 	if (result != nullptr && !result->blocks.empty ())

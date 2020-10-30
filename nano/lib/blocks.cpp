@@ -1845,7 +1845,7 @@ bool nano::block_sideband::deserialize (nano::stream & stream_a, nano::block_typ
 	return result;
 }
 
-std::shared_ptr<nano::block> nano::block_uniquer::unique (std::shared_ptr<nano::block> block_a)
+std::shared_ptr<nano::block> nano::block_uniquer::unique (std::shared_ptr<nano::block> const & block_a)
 {
 	auto result (block_a);
 	if (result != nullptr)

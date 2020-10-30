@@ -192,7 +192,7 @@ size_t nano::vote_generator::generate (std::vector<std::shared_ptr<nano::block>>
 	return result;
 }
 
-void nano::vote_generator::set_reply_action (std::function<void(std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> &)> action_a)
+void nano::vote_generator::set_reply_action (std::function<void(std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &)> action_a)
 {
 	release_assert (!reply_action);
 	reply_action = action_a;
