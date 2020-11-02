@@ -18,7 +18,9 @@ jobs:
       - uses: actions/checkout@722adc6
       - uses: chrislennon/action-aws-cli@f0f8671
       - name: tag
-        run: echo "::set-env name=TAG::`git describe --tags $GITHUB_SHA`"
+        run: |
+          TAG=`git describe --tags $GITHUB_SHA`
+          echo "TAG=$TAG" >> $GITHUB_ENV
       - name: Checkout Submodules
         run: git submodule update --init --recursive
       - name: Fetch Deps
@@ -38,7 +40,9 @@ jobs:
       - uses: actions/checkout@722adc6
       - uses: chrislennon/action-aws-cli@f0f8671
       - name: tag
-        run: echo "::set-env name=TAG::`git describe --tags $GITHUB_SHA`"
+        run: |
+          TAG=`git describe --tags $GITHUB_SHA`
+          echo "TAG=$TAG" >> $GITHUB_ENV
       - name: Checkout Submodules
         run: git submodule update --init --recursive
       - name: Fetch Deps
@@ -58,7 +62,9 @@ jobs:
       - uses: actions/checkout@722adc6
       - uses: chrislennon/action-aws-cli@f0f8671
       - name: tag
-        run: echo "::set-env name=TAG::`git describe --tags $GITHUB_SHA`"
+        run: |
+          TAG=`git describe --tags $GITHUB_SHA`
+          echo "TAG=$TAG" >> $GITHUB_ENV
       - name: Checkout Submodules
         run: git submodule update --init --recursive
       - name: Fetch Deps
@@ -75,8 +81,8 @@ jobs:
       - uses: chrislennon/action-aws-cli@f0f8671
       - name: tag
         run: |
-          $TRAVIS_TAG=git describe --tags $GITHUB_SHA
-          echo "::set-env name=TAG::$TRAVIS_TAG"
+          $TAG=git describe --tags $GITHUB_SHA
+          echo "TAG=$TAG" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - name: Checkout Submodules
         run: git submodule update --init --recursive
       - name: Fetch Deps
