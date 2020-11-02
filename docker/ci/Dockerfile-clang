@@ -19,3 +19,5 @@ RUN ./fetch_boost.sh
 # see https://www.boost.org/doc/libs/1_70_0/doc/html/stacktrace/configuration_and_build.html#stacktrace.configuration_and_build.f3
 
 RUN ln -s /usr/lib/gcc/x86_64-linux-gnu/5/include/backtrace.h /tmp/backtrace.h
+ARG REPOSITORY=nanocurrency/nano-node
+LABEL org.opencontainers.image.source https://github.com/$REPOSITORY
