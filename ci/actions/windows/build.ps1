@@ -1,13 +1,16 @@
 $ErrorActionPreference = "Continue"
 
 if (${env:artifact} -eq 1) {
+    $env:BUILD_TYPE = "Release"
     if ( ${env:BETA} -eq 1 ) {
         $env:NETWORK_CFG = "beta"
         $env:BUILD_TYPE = "RelWithDebInfo"
     }
+    elseif(${env:TEST} -eq 1) {
+        $env:NETWORK_CFG= "test"
+    }
     else {
         $env:NETWORK_CFG = "live"
-        $env:BUILD_TYPE = "Release"
     }
     $env:NANO_SHARED_BOOST = "ON"
     $env:ROCKS_LIB = '-DROCKSDB_LIBRARIES="c:\vcpkg\installed\x64-windows-static\lib\rocksdb.lib"'

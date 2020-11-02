@@ -310,7 +310,7 @@ nano::write_transaction nano::rocksdb_store::tx_begin_write (std::vector<nano::t
 	return nano::write_transaction{ std::move (txn) };
 }
 
-nano::read_transaction nano::rocksdb_store::tx_begin_read ()
+nano::read_transaction nano::rocksdb_store::tx_begin_read () const
 {
 	return nano::read_transaction{ std::make_unique<nano::read_rocksdb_txn> (db.get ()) };
 }
@@ -472,7 +472,7 @@ int nano::rocksdb_store::status_code_not_found () const
 uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, tables table_a) const
 {
 	uint64_t sum = 0;
-	// Some column families are small enough (except unchecked) that they can just be iterated, rather than doing extra io caching counts
+	// Peers/online weight are small enough that they can just be iterated to get accurate counts.
 	if (table_a == tables::peers)
 	{
 		for (auto i (peers_begin (transaction_a)), n (peers_end ()); i != n; ++i)
