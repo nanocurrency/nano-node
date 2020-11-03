@@ -538,29 +538,31 @@ void nano::election::remove_votes (nano::block_hash const & hash_a)
 void nano::election::remove_block (nano::block_hash const & hash_a)
 {
 	nano::unique_lock<std::mutex> lock (mutex);
-	debug_assert (status.winner->hash () != hash_a);
-	last_blocks.erase (hash_a);
-	// Move votes for removed block to inactive votes cache
-	std::deque<std::pair<nano::account, nano::block_hash>> removed_votes;
-	for (auto i (last_votes.begin ()); i != last_votes.end ();)
+	if (status.winner->hash () != hash_a)
 	{
-		if (i->second.hash == hash_a)
+		last_blocks.erase (hash_a);
+		// Move votes for removed block to inactive votes cache
+		std::deque<std::pair<nano::account, nano::block_hash>> removed_votes;
+		for (auto i (last_votes.begin ()); i != last_votes.end ();)
 		{
-			removed_votes.emplace_back (i->first, i->second.hash);
-			i = last_votes.erase (i);
+			if (i->second.hash == hash_a)
+			{
+				removed_votes.emplace_back (i->first, i->second.hash);
+				i = last_votes.erase (i);
+			}
+			else
+			{
+				++i;
+			}
 		}
-		else
+		if (!removed_votes.empty ())
 		{
-			++i;
-		}
-	}
-	if (!removed_votes.empty ())
-	{
-		lock.unlock ();
-		nano::unique_lock<std::mutex> active_lock (node.active.mutex);
-		for (auto const & [representative, hash] : removed_votes)
-		{
-			node.active.add_inactive_votes_cache (active_lock, hash, representative);
+			lock.unlock ();
+			nano::unique_lock<std::mutex> active_lock (node.active.mutex);
+			for (auto const & [representative, hash] : removed_votes)
+			{
+				node.active.add_inactive_votes_cache (active_lock, hash, representative);
+			}
 		}
 	}
 }
