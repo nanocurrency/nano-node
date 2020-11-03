@@ -104,7 +104,7 @@ void reset_confirmation_height (nano::block_store & store, nano::account const &
 	nano::confirmation_height_info confirmation_height_info;
 	if (!store.confirmation_height_get (transaction, account, confirmation_height_info))
 	{
-		store.confirmation_height_clear (transaction, account, confirmation_height_info.height);
+		store.confirmation_height_clear (transaction, account);
 	}
 }
 

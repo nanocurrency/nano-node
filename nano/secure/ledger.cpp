@@ -1057,12 +1057,10 @@ bool nano::ledger::rollback (nano::write_transaction const & transaction_a, nano
 	while (!error && store.block_exists (transaction_a, block_a))
 	{
 		nano::confirmation_height_info confirmation_height_info;
-		auto latest_error = store.confirmation_height_get (transaction_a, account_l, confirmation_height_info);
-		debug_assert (!latest_error);
-		(void)latest_error;
+		store.confirmation_height_get (transaction_a, account_l, confirmation_height_info);
 		if (block_account_height > confirmation_height_info.height)
 		{
-			latest_error = store.account_get (transaction_a, account_l, account_info);
+			auto latest_error = store.account_get (transaction_a, account_l, account_info);
 			debug_assert (!latest_error);
 			auto block (store.block_get (transaction_a, account_info.head));
 			list_a.push_back (block);
@@ -1266,8 +1264,6 @@ void nano::ledger::update_account (nano::write_transaction const & transaction_a
 	{
 		if (old_a.head.is_zero () && new_a.open_block == new_a.head)
 		{
-			debug_assert (!store.confirmation_height_exists (transaction_a, account_a));
-			store.confirmation_height_put (transaction_a, account_a, { 0, nano::block_hash (0) });
 			++cache.account_count;
 		}
 		if (!old_a.head.is_zero () && old_a.epoch () != new_a.epoch ())
@@ -1279,7 +1275,7 @@ void nano::ledger::update_account (nano::write_transaction const & transaction_a
 	}
 	else
 	{
-		store.confirmation_height_del (transaction_a, account_a);
+		debug_assert (!store.confirmation_height_exists (transaction_a, account_a));
 		store.account_del (transaction_a, account_a);
 		debug_assert (cache.account_count > 0);
 		--cache.account_count;
@@ -1345,7 +1341,7 @@ bool nano::ledger::block_confirmed (nano::transaction const & transaction_a, nan
 	if (block)
 	{
 		nano::confirmation_height_info confirmation_height_info;
-		release_assert (!store.confirmation_height_get (transaction_a, block->account ().is_zero () ? block->sideband ().account : block->account (), confirmation_height_info));
+		store.confirmation_height_get (transaction_a, block->account ().is_zero () ? block->sideband ().account : block->account (), confirmation_height_info);
 		confirmed = (confirmation_height_info.height >= block->sideband ().height);
 	}
 	return confirmed;

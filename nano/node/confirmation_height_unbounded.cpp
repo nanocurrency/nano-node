@@ -84,7 +84,7 @@ void nano::confirmation_height_unbounded::process ()
 		else
 		{
 			nano::confirmation_height_info confirmation_height_info;
-			release_assert (!ledger.store.confirmation_height_get (read_transaction, account, confirmation_height_info));
+			ledger.store.confirmation_height_get (read_transaction, account, confirmation_height_info);
 			confirmation_height = confirmation_height_info.height;
 
 			// This block was added to the confirmation height processor but is already confirmed
@@ -349,15 +349,9 @@ void nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 		{
 			auto & pending = pending_writes.front ();
 			nano::confirmation_height_info confirmation_height_info;
-			error = ledger.store.confirmation_height_get (transaction, pending.account, confirmation_height_info);
-			if (error)
-			{
-				auto error_str = (boost::format ("Failed to read confirmation height for account %1% when writing block %2% (unbounded processor)") % pending.account.to_account () % pending.hash.to_string ()).str ();
-				logger.always_log (error_str);
-				std::cerr << error_str << std::endl;
-			}
+			ledger.store.confirmation_height_get (transaction, pending.account, confirmation_height_info);
 			auto confirmation_height = confirmation_height_info.height;
-			if (!error && pending.height > confirmation_height)
+			if (pending.height > confirmation_height)
 			{
 				auto block = ledger.store.block_get (transaction, pending.hash);
 				debug_assert (network_params.network.is_dev_network () || ledger.pruning || block != nullptr);
