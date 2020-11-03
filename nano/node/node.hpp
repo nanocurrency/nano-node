@@ -119,7 +119,7 @@ public:
 	nano::block_hash latest (nano::account const &);
 	nano::uint128_t balance (nano::account const &);
 	std::shared_ptr<nano::block> block (nano::block_hash const &);
-	std::pair<nano::uint128_t, nano::uint128_t> balance_pending (nano::account const &);
+	std::pair<nano::uint128_t, nano::uint128_t> balance_pending (nano::account const &, bool only_confirmed);
 	nano::uint128_t weight (nano::account const &);
 	nano::block_hash rep_block (nano::account const &);
 	nano::uint128_t minimum_principal_weight ();

@@ -497,7 +497,8 @@ uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, ta
 	{
 		db->GetIntProperty (table_to_column_family (table_a), "rocksdb.estimate-num-keys", &sum);
 	}
-	// These should only be used in tests to check database consistency
+	// Accounts and blocks should only be used in tests and CLI commands to check database consistency
+	// otherwise there can be performance issues.
 	else if (table_a == tables::accounts)
 	{
 		debug_assert (network_constants ().is_dev_network ());
@@ -508,6 +509,7 @@ uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, ta
 	}
 	else if (table_a == tables::blocks)
 	{
+		// This is also used in some CLI commands
 		for (auto i (blocks_begin (transaction_a)), n (blocks_end ()); i != n; ++i)
 		{
 			++sum;
