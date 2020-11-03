@@ -520,6 +520,29 @@ TEST (telemetry, disable_metrics)
 	ASSERT_TIMELY (10s, done);
 }
 
+TEST (telemetry, max_possible_size)
+{
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_initial_telemetry_requests = true;
+	node_flags.disable_ongoing_telemetry_requests = true;
+	auto node_client = system.add_node (node_flags);
+	auto node_server = system.add_node (node_flags);
+
+	nano::telemetry_data data;
+	data.unknown_data.resize (nano::message_header::telemetry_size_mask.to_ulong () - nano::telemetry_data::latest_size);
+
+	nano::telemetry_ack message (data);
+	wait_peer_connections (system);
+
+	auto channel = node_client->network.tcp_channels.find_channel (nano::transport::map_endpoint_to_tcp (node_server->network.endpoint ()));
+	channel->send (message, [](boost::system::error_code const & ec, size_t size_a) {
+		ASSERT_FALSE (ec);
+	});
+
+	ASSERT_TIMELY (10s, 1 == node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_ack, nano::stat::dir::in));
+}
+
 namespace nano
 {
 TEST (telemetry, remove_peer_different_genesis)

@@ -220,7 +220,7 @@ public:
 
 	static std::bitset<16> constexpr block_type_mask{ 0x0f00 };
 	static std::bitset<16> constexpr count_mask{ 0xf000 };
-	static std::bitset<16> constexpr telemetry_size_mask{ 0x07ff };
+	static std::bitset<16> constexpr telemetry_size_mask{ 0x3ff };
 };
 class message
 {
@@ -373,6 +373,7 @@ public:
 	bool operator== (nano::telemetry_data const &) const;
 	bool operator!= (nano::telemetry_data const &) const;
 
+	// Size does not include unknown_data
 	static auto constexpr size = sizeof (signature) + sizeof (node_id) + sizeof (block_count) + sizeof (cemented_count) + sizeof (unchecked_count) + sizeof (account_count) + sizeof (bandwidth_cap) + sizeof (peer_count) + sizeof (protocol_version) + sizeof (uptime) + sizeof (genesis_block) + sizeof (major_version) + sizeof (minor_version) + sizeof (patch_version) + sizeof (pre_release_version) + sizeof (maker) + sizeof (uint64_t) + sizeof (active_difficulty);
 	static auto constexpr latest_size = size; // This needs to be updated for each new telemetry version
 private:
