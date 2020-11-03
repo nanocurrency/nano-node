@@ -1239,6 +1239,13 @@ void nano::active_transactions::erase (nano::qualified_root const & root_a)
 	}
 }
 
+void nano::active_transactions::erase_hash (nano::block_hash const & hash_a)
+{
+	debug_assert (!mutex.try_lock ());
+	[[maybe_unused]] auto erased (blocks.erase (hash_a));
+	debug_assert (erased == 1);
+}
+
 bool nano::active_transactions::empty ()
 {
 	nano::lock_guard<std::mutex> lock (mutex);

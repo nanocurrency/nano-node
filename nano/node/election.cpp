@@ -555,14 +555,12 @@ void nano::election::remove_block (nano::block_hash const & hash_a)
 				++i;
 			}
 		}
-		if (!removed_votes.empty ())
+		lock.unlock ();
+		nano::unique_lock<std::mutex> active_lock (node.active.mutex);
+		node.active.erase_hash (hash_a);
+		for (auto const & [representative, hash] : removed_votes)
 		{
-			lock.unlock ();
-			nano::unique_lock<std::mutex> active_lock (node.active.mutex);
-			for (auto const & [representative, hash] : removed_votes)
-			{
-				node.active.add_inactive_votes_cache (active_lock, hash, representative);
-			}
+			node.active.add_inactive_votes_cache (active_lock, hash, representative);
 		}
 	}
 }

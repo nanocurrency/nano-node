@@ -199,6 +199,7 @@ public:
 	uint64_t limited_active_difficulty (nano::work_version const, uint64_t const);
 	double active_multiplier ();
 	void erase (nano::block const &);
+	void erase_hash (nano::block_hash const &);
 	bool empty ();
 	size_t size ();
 	void stop ();
