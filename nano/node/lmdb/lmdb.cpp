@@ -161,7 +161,7 @@ nano::write_transaction nano::mdb_store::tx_begin_write (std::vector<nano::table
 	return env.tx_begin_write (create_txn_callbacks ());
 }
 
-nano::read_transaction nano::mdb_store::tx_begin_read ()
+nano::read_transaction nano::mdb_store::tx_begin_read () const
 {
 	return env.tx_begin_read (create_txn_callbacks ());
 }
@@ -171,7 +171,7 @@ std::string nano::mdb_store::vendor_get () const
 	return boost::str (boost::format ("LMDB %1%.%2%.%3%") % MDB_VERSION_MAJOR % MDB_VERSION_MINOR % MDB_VERSION_PATCH);
 }
 
-nano::mdb_txn_callbacks nano::mdb_store::create_txn_callbacks ()
+nano::mdb_txn_callbacks nano::mdb_store::create_txn_callbacks () const
 {
 	nano::mdb_txn_callbacks mdb_txn_callbacks;
 	if (txn_tracking_enabled)
@@ -190,7 +190,6 @@ void nano::mdb_store::open_databases (bool & error_a, nano::transaction const & 
 {
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "frontiers", flags, &frontiers) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "unchecked", flags, &unchecked) != 0;
-	error_a |= mdb_dbi_open (env.tx (transaction_a), "vote", flags, &vote) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "online_weight", flags, &online_weight) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "meta", flags, &meta) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "peers", flags, &peers) != 0;
@@ -725,6 +724,10 @@ void nano::mdb_store::upgrade_v18_to_v19 (nano::write_transaction const & transa
 	auto count_post (count (transaction_a, blocks));
 	release_assert (count_pre == count_post);
 
+	MDB_dbi vote{ 0 };
+	release_assert (!mdb_dbi_open (env.tx (transaction_a), "vote", MDB_CREATE, &vote));
+	release_assert (!mdb_drop (env.tx (transaction_a), vote, 1));
+
 	version_put (transaction_a, 19);
 	logger.always_log ("Finished upgrading all blocks to new blocks database");
 }
@@ -847,8 +850,6 @@ MDB_dbi nano::mdb_store::table_to_dbi (tables table_a) const
 			return pending;
 		case tables::unchecked:
 			return unchecked;
-		case tables::vote:
-			return vote;
 		case tables::online_weight:
 			return online_weight;
 		case tables::meta:
@@ -888,7 +889,7 @@ bool nano::mdb_store::copy_db (boost::filesystem::path const & destination_file)
 void nano::mdb_store::rebuild_db (nano::write_transaction const & transaction_a)
 {
 	// Tables with uint256_union key
-	std::vector<MDB_dbi> tables = { accounts, blocks, vote, pruned, confirmation_height };
+	std::vector<MDB_dbi> tables = { accounts, blocks, pruned, confirmation_height };
 	for (auto const & table : tables)
 	{
 		MDB_dbi temp;

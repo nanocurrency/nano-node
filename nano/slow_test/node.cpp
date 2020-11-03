@@ -3,6 +3,7 @@
 #include <nano/node/election.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/node/transport/udp.hpp>
+#include <nano/test_common/network.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
@@ -64,13 +65,12 @@ TEST (system, receive_while_synchronizing)
 		nano::keypair key;
 		auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work));
 		ASSERT_FALSE (node1->init_error ());
-		auto channel (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, system.nodes[0]->network.endpoint (), node1->network_params.protocol.protocol_version));
-		node1->network.send_keepalive (channel);
 		auto wallet (node1->wallets.create (1));
 		wallet->insert_adhoc (nano::dev_genesis_key.prv); // For voting
 		ASSERT_EQ (key.pub, wallet->insert_adhoc (key.prv));
 		node1->start ();
 		system.nodes.push_back (node1);
+		ASSERT_NE (nullptr, nano::establish_tcp (system, *node1, node->network.endpoint ()));
 		system.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (200), ([&system, &key]() {
 			auto hash (system.wallet (0)->send_sync (nano::dev_genesis_key.pub, key.pub, system.nodes[0]->config.receive_minimum.number ()));
 			auto transaction (system.nodes[0]->store.tx_begin_read ());

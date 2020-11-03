@@ -4,6 +4,7 @@
 #include <nano/lib/alarm.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/stats.hpp>
+#include <nano/lib/timestamp.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/lib/worker.hpp>
 #include <nano/node/active_transactions.hpp>
@@ -19,7 +20,6 @@
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/online_reps.hpp>
-#include <nano/node/payment_observer_processor.hpp>
 #include <nano/node/portmapping.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/request_aggregator.hpp>
@@ -119,14 +119,13 @@ public:
 	nano::block_hash latest (nano::account const &);
 	nano::uint128_t balance (nano::account const &);
 	std::shared_ptr<nano::block> block (nano::block_hash const &);
-	std::pair<nano::uint128_t, nano::uint128_t> balance_pending (nano::account const &);
+	std::pair<nano::uint128_t, nano::uint128_t> balance_pending (nano::account const &, bool only_confirmed);
 	nano::uint128_t weight (nano::account const &);
 	nano::block_hash rep_block (nano::account const &);
 	nano::uint128_t minimum_principal_weight ();
 	nano::uint128_t minimum_principal_weight (nano::uint128_t const &);
 	void ongoing_rep_calculation ();
 	void ongoing_bootstrap ();
-	void ongoing_store_flush ();
 	void ongoing_peer_store ();
 	void ongoing_unchecked_cleanup ();
 	void backup_wallet ();
@@ -157,6 +156,7 @@ public:
 	bool init_error () const;
 	bool epoch_upgrader (nano::private_key const &, nano::epoch, uint64_t, uint64_t);
 	std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> get_bootstrap_weights () const;
+	nano::timestamp_generator timestamps;
 	nano::worker worker;
 	nano::write_database_queue write_database_queue;
 	boost::asio::io_context & io_ctx;
@@ -198,7 +198,6 @@ public:
 	nano::confirmation_height_processor confirmation_height_processor;
 	nano::active_transactions active;
 	nano::request_aggregator aggregator;
-	nano::payment_observer_processor payment_observer_processor;
 	nano::wallets wallets;
 	const std::chrono::steady_clock::time_point startup_time;
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week

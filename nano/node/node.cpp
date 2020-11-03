@@ -95,7 +95,7 @@ alarm (alarm_a),
 work (work_a),
 distributed_work (*this),
 logger (config_a.logging.min_time_between_log_output),
-store_impl (nano::make_store (logger, application_path_a, flags.read_only, true, config_a.rocksdb_config, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_config, config_a.backup_before_upgrade, config_a.rocksdb_config.enable)),
+store_impl (nano::make_store (logger, application_path_a, flags.read_only, true, config_a.rocksdb_config, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_config, config_a.backup_before_upgrade)),
 store (*store_impl),
 wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (application_path_a / "wallets.ldb", config_a.lmdb_config)),
 wallets_store (*wallets_store_impl),
@@ -123,7 +123,6 @@ vote_uniquer (block_uniquer),
 confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, config.logging, logger, node_initialized_latch, flags.confirmation_height_processor_mode),
 active (*this, confirmation_height_processor),
 aggregator (network_params.network, config, stats, active.generator, history, ledger, wallets, active),
-payment_observer_processor (observers.blocks),
 wallets (wallets_store.init_error (), *this),
 startup_time (std::chrono::steady_clock::now ()),
 node_seq (seq)
@@ -662,7 +661,6 @@ void nano::node::start ()
 			this_l->ongoing_unchecked_cleanup ();
 		});
 	}
-	ongoing_store_flush ();
 	if (!flags.disable_rep_crawler)
 	{
 		rep_crawler.start ();
@@ -764,12 +762,12 @@ std::shared_ptr<nano::block> nano::node::block (nano::block_hash const & hash_a)
 	return store.block_get (transaction, hash_a);
 }
 
-std::pair<nano::uint128_t, nano::uint128_t> nano::node::balance_pending (nano::account const & account_a)
+std::pair<nano::uint128_t, nano::uint128_t> nano::node::balance_pending (nano::account const & account_a, bool only_confirmed_a)
 {
 	std::pair<nano::uint128_t, nano::uint128_t> result;
 	auto transaction (store.tx_begin_read ());
-	result.first = ledger.account_balance (transaction, account_a);
-	result.second = ledger.account_pending (transaction, account_a);
+	result.first = ledger.account_balance (transaction, account_a, only_confirmed_a);
+	result.second = ledger.account_pending (transaction, account_a, only_confirmed_a);
 	return result;
 }
 
@@ -856,23 +854,6 @@ void nano::node::ongoing_bootstrap ()
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->ongoing_bootstrap ();
-		}
-	});
-}
-
-void nano::node::ongoing_store_flush ()
-{
-	{
-		auto transaction (store.tx_begin_write ({ tables::vote }));
-		store.flush (transaction);
-	}
-	std::weak_ptr<nano::node> node_w (shared_from_this ());
-	alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [node_w]() {
-		if (auto node_l = node_w.lock ())
-		{
-			node_l->worker.push_task ([node_l]() {
-				node_l->ongoing_store_flush ();
-			});
 		}
 	});
 }
@@ -1697,9 +1678,9 @@ nano::node_flags const & nano::inactive_node_flag_defaults ()
 	return node_flags;
 }
 
-std::unique_ptr<nano::block_store> nano::make_store (nano::logger_mt & logger, boost::filesystem::path const & path, bool read_only, bool add_db_postfix, nano::rocksdb_config const & rocksdb_config, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade, bool use_rocksdb_backend)
+std::unique_ptr<nano::block_store> nano::make_store (nano::logger_mt & logger, boost::filesystem::path const & path, bool read_only, bool add_db_postfix, nano::rocksdb_config const & rocksdb_config, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade)
 {
-	if (use_rocksdb_backend || using_rocksdb_in_tests ())
+	if (rocksdb_config.enable || using_rocksdb_in_tests ())
 	{
 		return std::make_unique<nano::rocksdb_store> (logger, add_db_postfix ? path / "rocksdb" : path, rocksdb_config, read_only);
 	}

@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+set +e
+
+useradd -r nanocurrency
+groupadd -r nanocurrency
+
+mkdir -p /var/nanocurrency/Nano
+mkdir -p /var/nanocurrency/NanoBeta
+mkdir -p /var/nanocurrency/NanoTest
+chown -R nanocurrency: /var/nanocurrency
+
+systemctl stop ${NANO_SERVICE} 2>/dev/null
+systemctl disable ${NANO_SERVICE} 2>/dev/null
+cp ${CMAKE_INSTALL_PREFIX}/extras/systemd/${NANO_SERVICE} /etc/systemd/system/${NANO_SERVICE}
+systemctl daemon-reload
+systemctl enable ${NANO_SERVICE}
+systemctl start ${NANO_SERVICE}
+sleep 1
+systemctl --no-pager status ${NANO_SERVICE}
+
+set -e

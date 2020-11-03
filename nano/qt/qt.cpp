@@ -774,7 +774,7 @@ wallet (wallet_a)
 		{
 			show_line_ok (*account_line);
 			this->history.refresh ();
-			auto balance (this->wallet.node.balance_pending (account));
+			auto balance (this->wallet.node.balance_pending (account, false));
 			auto final_text (std::string ("Balance (NANO): ") + wallet.format_balance (balance.first));
 			if (!balance.second.is_zero ())
 			{
@@ -1105,7 +1105,7 @@ void nano_qt::wallet::ongoing_refresh ()
 	if (needs_balance_refresh)
 	{
 		needs_balance_refresh = false;
-		auto balance_l (node.balance_pending (account));
+		auto balance_l (node.balance_pending (account, false));
 		application.postEvent (&processor, new eventloop_event ([wallet_w, balance_l]() {
 			if (auto this_l = wallet_w.lock ())
 			{
@@ -1451,7 +1451,7 @@ void nano_qt::wallet::change_rendering_ratio (nano::uint128_t const & rendering_
 {
 	application.postEvent (&processor, new eventloop_event ([this, rendering_ratio_a]() {
 		this->rendering_ratio = rendering_ratio_a;
-		auto balance_l (this->node.balance_pending (account));
+		auto balance_l (this->node.balance_pending (account, false));
 		this->self.set_balance_text (balance_l);
 		this->refresh ();
 	}));
