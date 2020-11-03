@@ -1241,7 +1241,7 @@ void nano::active_transactions::erase (nano::qualified_root const & root_a)
 
 void nano::active_transactions::erase_hash (nano::block_hash const & hash_a)
 {
-	debug_assert (!mutex.try_lock ());
+	nano::unique_lock<std::mutex> lock (mutex);
 	[[maybe_unused]] auto erased (blocks.erase (hash_a));
 	debug_assert (erased == 1);
 }

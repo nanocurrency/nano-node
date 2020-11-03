@@ -535,32 +535,22 @@ void nano::election::remove_votes (nano::block_hash const & hash_a)
 	}
 }
 
-void nano::election::remove_block (nano::block_hash const & hash_a)
+void nano::election::remove_block (std::shared_ptr<nano::block> const & block_a)
 {
-	nano::unique_lock<std::mutex> lock (mutex);
-	if (status.winner->hash () != hash_a)
+	debug_assert (!mutex.try_lock ());
+	auto hash (block_a->hash ());
+	debug_assert (status.winner->hash () != hash);
+	last_blocks.erase (hash);
+	node.network.publish_filter.clear (block_a);
+	for (auto i (last_votes.begin ()); i != last_votes.end ();)
 	{
-		last_blocks.erase (hash_a);
-		// Move votes for removed block to inactive votes cache
-		std::deque<std::pair<nano::account, nano::block_hash>> removed_votes;
-		for (auto i (last_votes.begin ()); i != last_votes.end ();)
+		if (i->second.hash == hash)
 		{
-			if (i->second.hash == hash_a)
-			{
-				removed_votes.emplace_back (i->first, i->second.hash);
-				i = last_votes.erase (i);
-			}
-			else
-			{
-				++i;
-			}
+			i = last_votes.erase (i);
 		}
-		lock.unlock ();
-		nano::unique_lock<std::mutex> active_lock (node.active.mutex);
-		node.active.erase_hash (hash_a);
-		for (auto const & [representative, hash] : removed_votes)
+		else
 		{
-			node.active.add_inactive_votes_cache (active_lock, hash, representative);
+			++i;
 		}
 	}
 }
@@ -568,7 +558,7 @@ void nano::election::remove_block (nano::block_hash const & hash_a)
 bool nano::election::replace_by_weight (nano::unique_lock<std::mutex> & lock_a, nano::block_hash const & hash_a)
 {
 	debug_assert (lock_a.owns_lock ());
-	bool replaced (false);
+	nano::block_hash replaced_block (0);
 	auto winner_hash (status.winner->hash ());
 	// Sort existing blocks tally
 	std::vector<std::pair<nano::block_hash, nano::uint128_t>> sorted;
@@ -587,8 +577,7 @@ bool nano::election::replace_by_weight (nano::unique_lock<std::mutex> & lock_a, 
 		{
 			if (std::find_if (sorted.begin (), sorted.end (), [& hash = hash](auto const & item_a) { return item_a.first == hash; }) == sorted.end () && hash != winner_hash)
 			{
-				remove_block (hash);
-				replaced = true;
+				replaced_block = hash;
 				break;
 			}
 		}
@@ -597,17 +586,27 @@ bool nano::election::replace_by_weight (nano::unique_lock<std::mutex> & lock_a, 
 	{
 		if (sorted.front ().first != winner_hash)
 		{
-			remove_block (sorted.front ().first);
-			replaced = true;
+			replaced_block = sorted.front ().first;
 		}
 		else if (inactive_tally > sorted[1].second)
 		{
 			// Avoid removing winner
-			remove_block (sorted[1].first);
-			replaced = true;
+			replaced_block = sorted[1].first;
 		}
 	}
-	lock_a.lock ();
+
+	bool replaced (false);
+	if (!replaced_block.is_zero ())
+	{
+		node.active.erase_hash (replaced_block);
+		lock_a.lock ();
+		remove_block (replaced_block);
+		replaced = true;
+	}
+	else
+	{
+		lock_a.lock ();
+	}
 	return replaced;
 }
 
