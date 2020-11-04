@@ -1108,7 +1108,7 @@ nano::telemetry_ack::telemetry_ack (nano::telemetry_data const & telemetry_data_
 message (nano::message_type::telemetry_ack),
 data (telemetry_data_a)
 {
-	debug_assert (telemetry_data::size + telemetry_data_a.unknown_data.size () < message_header::telemetry_size_mask.to_ulong ()); // Maximum size the mask allows
+	debug_assert (telemetry_data::size + telemetry_data_a.unknown_data.size () <= message_header::telemetry_size_mask.to_ulong ()); // Maximum size the mask allows
 	header.extensions &= ~message_header::telemetry_size_mask;
 	header.extensions |= std::bitset<16> (static_cast<unsigned long long> (telemetry_data::size) + telemetry_data_a.unknown_data.size ());
 }
