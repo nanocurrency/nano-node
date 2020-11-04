@@ -3368,6 +3368,81 @@ TEST (node, block_processor_half_full)
 	ASSERT_FALSE (node.block_processor.full ());
 }
 
+namespace nano
+{
+TEST (node, block_processor_priority)
+{
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.force_use_write_database_queue = true;
+	auto & node = *system.add_node (nano::node_config (nano::get_available_port (), system.logging), node_flags);
+	nano::genesis genesis;
+	nano::state_block_builder builder;
+	auto threshold1 (node.network_params.network.publish_thresholds.epoch_2);
+	auto threshold2 (nano::difficulty::from_multiplier (2.0, threshold1));
+	auto threshold3 (nano::difficulty::from_multiplier (2.0, threshold2));
+	auto threshold4 (nano::difficulty::from_multiplier (2.0, threshold3));
+	auto work1 (system.work_generate_limited (genesis.hash (), threshold2, threshold3 - 1));
+	auto send1 = builder.make_block ()
+	             .account (nano::dev_genesis_key.pub)
+	             .previous (genesis.hash ())
+	             .representative (nano::dev_genesis_key.pub)
+	             .balance (nano::genesis_amount - nano::Gxrb_ratio)
+	             .link (nano::dev_genesis_key.pub)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (work1)
+	             .build_shared ();
+	auto work2 (system.work_generate_limited (send1->hash (), threshold1, threshold2 - 1));
+	auto send2 = builder.make_block ()
+	             .account (nano::dev_genesis_key.pub)
+	             .previous (send1->hash ())
+	             .representative (nano::dev_genesis_key.pub)
+	             .balance (nano::genesis_amount - 2 * nano::Gxrb_ratio)
+	             .link (nano::dev_genesis_key.pub)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (work2)
+	             .build_shared ();
+	auto work3 (*node.work_generate_blocking (send2->hash (), threshold4));
+	auto send3 = builder.make_block ()
+	             .account (nano::dev_genesis_key.pub)
+	             .previous (send2->hash ())
+	             .representative (nano::dev_genesis_key.pub)
+	             .balance (nano::genesis_amount - 3 * nano::Gxrb_ratio)
+	             .link (nano::dev_genesis_key.pub)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (work3)
+	             .build_shared ();
+	auto work4 (system.work_generate_limited (send3->hash (), threshold3, threshold4 - 1));
+	auto send4 = builder.make_block ()
+	             .account (nano::dev_genesis_key.pub)
+	             .previous (send3->hash ())
+	             .representative (nano::dev_genesis_key.pub)
+	             .balance (nano::genesis_amount - 4 * nano::Gxrb_ratio)
+	             .link (nano::dev_genesis_key.pub)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (work4)
+	             .build_shared ();
+	// The write guard prevents block processor doing any writes
+	auto write_guard = node.write_database_queue.wait (nano::writer::testing);
+	node.block_processor.add (send1);
+	node.block_processor.add (send2);
+	node.block_processor.add (send3);
+	node.block_processor.add (send4);
+	ASSERT_TIMELY (2s, node.block_processor.size () == 4);
+	ASSERT_TIMELY (2s, node.block_processor.state_block_signature_verification.size () == 0);
+	// Inspect priority queue
+	nano::unique_lock<std::mutex> lk (node.block_processor.mutex);
+	ASSERT_EQ (4, node.block_processor.blocks.size ());
+	ASSERT_EQ (send3->hash (), node.block_processor.blocks.top ().block->hash ());
+	node.block_processor.blocks.pop ();
+	ASSERT_EQ (send4->hash (), node.block_processor.blocks.top ().block->hash ());
+	node.block_processor.blocks.pop ();
+	ASSERT_EQ (send1->hash (), node.block_processor.blocks.top ().block->hash ());
+	node.block_processor.blocks.pop ();
+	ASSERT_EQ (send2->hash (), node.block_processor.blocks.top ().block->hash ());
+}
+}
+
 TEST (node, confirm_back)
 {
 	nano::system system (1);

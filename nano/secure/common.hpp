@@ -206,6 +206,7 @@ public:
 	uint64_t modified{ 0 };
 	nano::signature_verification verified{ nano::signature_verification::unknown };
 	bool confirmed{ false };
+	bool operator< (nano::unchecked_info const &) const;
 };
 
 class block_info final

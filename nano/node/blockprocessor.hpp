@@ -12,6 +12,7 @@
 
 #include <chrono>
 #include <memory>
+#include <queue>
 #include <unordered_set>
 
 namespace nano
@@ -53,7 +54,7 @@ public:
 	size_t size ();
 	bool full ();
 	bool half_full ();
-	void add (nano::unchecked_info const &, const bool = false);
+	void add (nano::unchecked_info const &);
 	void add (std::shared_ptr<nano::block> const &, uint64_t = 0);
 	void force (std::shared_ptr<nano::block> const &);
 	void update (std::shared_ptr<nano::block> const &);
@@ -79,7 +80,7 @@ private:
 	bool active{ false };
 	bool awaiting_write{ false };
 	std::chrono::steady_clock::time_point next_log;
-	std::deque<nano::unchecked_info> blocks;
+	std::priority_queue<nano::unchecked_info> blocks;
 	std::deque<std::shared_ptr<nano::block>> forced;
 	std::deque<std::shared_ptr<nano::block>> updates;
 	nano::condition_variable condition;
@@ -89,6 +90,8 @@ private:
 	nano::state_block_signature_verification state_block_signature_verification;
 
 	friend std::unique_ptr<container_info_component> collect_container_info (block_processor & block_processor, const std::string & name);
+
+	friend class node_block_processor_priority_Test;
 };
 std::unique_ptr<nano::container_info_component> collect_container_info (block_processor & block_processor, const std::string & name);
 }

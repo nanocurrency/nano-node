@@ -369,6 +369,11 @@ bool nano::unchecked_info::deserialize (nano::stream & stream_a)
 	return error;
 }
 
+bool nano::unchecked_info::operator< (nano::unchecked_info const & info_a) const
+{
+	return block->difficulty () < info_a.block->difficulty ();
+}
+
 nano::endpoint_key::endpoint_key (const std::array<uint8_t, 16> & address_a, uint16_t port_a) :
 address (address_a), network_port (boost::endian::native_to_big (port_a))
 {
