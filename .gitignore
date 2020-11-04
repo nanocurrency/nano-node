@@ -42,6 +42,7 @@ nano_rpc
 # IDEs
 .idea
 .vscode
+*.plist
 
 # Visual Studio
 *.vcxproj

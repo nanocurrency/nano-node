@@ -18,7 +18,7 @@ void nano::compare_default_telemetry_response_data_excluding_signature (nano::te
 	ASSERT_EQ (telemetry_data_a.minor_version, nano::get_minor_node_version ());
 	ASSERT_EQ (telemetry_data_a.patch_version, nano::get_patch_node_version ());
 	ASSERT_EQ (telemetry_data_a.pre_release_version, nano::get_pre_release_node_version ());
-	ASSERT_EQ (telemetry_data_a.maker, 0);
+	ASSERT_EQ (telemetry_data_a.maker, static_cast<std::underlying_type_t<nano::telemetry_maker>> (nano::telemetry_maker::nf_node));
 	ASSERT_GT (telemetry_data_a.timestamp, std::chrono::system_clock::now () - std::chrono::seconds (100));
 	ASSERT_EQ (telemetry_data_a.active_difficulty, active_difficulty_a);
 	ASSERT_EQ (telemetry_data_a.unknown_data, std::vector<uint8_t>{});

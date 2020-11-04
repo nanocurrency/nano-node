@@ -2,6 +2,7 @@
 
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/timestamp_fwd.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/secure/common.hpp>
@@ -86,7 +87,7 @@ private:
 	using request_t = std::pair<std::vector<candidate_t>, std::shared_ptr<nano::transport::channel>>;
 
 public:
-	vote_generator (nano::node_config const & config_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::local_vote_history & history_a, nano::network & network_a, nano::stat & stats_a);
+	vote_generator (nano::timestamp_generator & timestamps_a, nano::node_config const & config_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::local_vote_history & history_a, nano::network & network_a, nano::stat & stats_a);
 	/** Queue items for vote generation, or broadcast votes already in cache */
 	void add (nano::root const &, nano::block_hash const &);
 	/** Queue blocks for vote generation, returning the number of successful candidates.*/
@@ -102,6 +103,7 @@ private:
 	void broadcast_action (std::shared_ptr<nano::vote> const &) const;
 	std::function<void(std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> &)> reply_action; // must be set only during initialization by using set_reply_action
 	nano::node_config const & config;
+	nano::timestamp_generator & timestamps;
 	nano::ledger & ledger;
 	nano::wallets & wallets;
 	nano::vote_processor & vote_processor;

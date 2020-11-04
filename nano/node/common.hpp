@@ -341,6 +341,12 @@ public:
 	static size_t constexpr size = sizeof (start) + sizeof (age) + sizeof (count);
 };
 
+enum class telemetry_maker : uint8_t
+{
+	nf_node = 0,
+	nf_pruned_node = 1
+};
+
 class telemetry_data
 {
 public:
@@ -359,7 +365,7 @@ public:
 	uint8_t minor_version{ 0 };
 	uint8_t patch_version{ 0 };
 	uint8_t pre_release_version{ 0 };
-	uint8_t maker{ 0 }; // 0 for NF node
+	uint8_t maker{ static_cast<std::underlying_type_t<telemetry_maker>> (telemetry_maker::nf_node) }; // Where this telemetry information originated
 	std::chrono::system_clock::time_point timestamp;
 	uint64_t active_difficulty{ 0 };
 	std::vector<uint8_t> unknown_data;

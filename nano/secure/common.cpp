@@ -450,7 +450,7 @@ bool nano::vote::operator== (nano::vote const & other_a) const
 			}
 		}
 	}
-	return sequence == other_a.sequence && blocks_equal && account == other_a.account && signature == other_a.signature;
+	return timestamp == other_a.timestamp && blocks_equal && account == other_a.account && signature == other_a.signature;
 }
 
 bool nano::vote::operator!= (nano::vote const & other_a) const
@@ -462,7 +462,8 @@ void nano::vote::serialize_json (boost::property_tree::ptree & tree) const
 {
 	tree.put ("account", account.to_account ());
 	tree.put ("signature", signature.number ());
-	tree.put ("sequence", std::to_string (sequence));
+	tree.put ("sequence", std::to_string (timestamp));
+	tree.put ("timestamp", std::to_string (timestamp));
 	boost::property_tree::ptree blocks_tree;
 	for (auto block : blocks)
 	{
@@ -490,7 +491,7 @@ std::string nano::vote::to_json () const
 }
 
 nano::vote::vote (nano::vote const & other_a) :
-sequence (other_a.sequence),
+timestamp{ other_a.timestamp },
 blocks (other_a.blocks),
 account (other_a.account),
 signature (other_a.signature)
@@ -508,7 +509,7 @@ nano::vote::vote (bool & error_a, nano::stream & stream_a, nano::block_type type
 	{
 		nano::read (stream_a, account.bytes);
 		nano::read (stream_a, signature.bytes);
-		nano::read (stream_a, sequence);
+		nano::read (stream_a, timestamp);
 
 		while (stream_a.in_avail () > 0)
 		{
@@ -540,16 +541,16 @@ nano::vote::vote (bool & error_a, nano::stream & stream_a, nano::block_type type
 	}
 }
 
-nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, uint64_t sequence_a, std::shared_ptr<nano::block> block_a) :
-sequence (sequence_a),
+nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, uint64_t timestamp_a, std::shared_ptr<nano::block> block_a) :
+timestamp{ timestamp_a },
 blocks (1, block_a),
 account (account_a),
 signature (nano::sign_message (prv_a, account_a, hash ()))
 {
 }
 
-nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, uint64_t sequence_a, std::vector<nano::block_hash> const & blocks_a) :
-sequence (sequence_a),
+nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, uint64_t timestamp_a, std::vector<nano::block_hash> const & blocks_a) :
+timestamp{ timestamp_a },
 account (account_a)
 {
 	debug_assert (!blocks_a.empty ());
@@ -590,7 +591,7 @@ nano::block_hash nano::vote::hash () const
 		uint64_t qword;
 		std::array<uint8_t, 8> bytes;
 	};
-	qword = sequence;
+	qword = timestamp;
 	blake2b_update (&hash, bytes.data (), sizeof (bytes));
 	blake2b_final (&hash, result.bytes.data (), sizeof (result.bytes));
 	return result;
@@ -612,7 +613,7 @@ void nano::vote::serialize (nano::stream & stream_a, nano::block_type type) cons
 {
 	write (stream_a, account);
 	write (stream_a, signature);
-	write (stream_a, sequence);
+	write (stream_a, timestamp);
 	for (auto const & block : blocks)
 	{
 		if (block.which ())
@@ -638,7 +639,7 @@ void nano::vote::serialize (nano::stream & stream_a) const
 {
 	write (stream_a, account);
 	write (stream_a, signature);
-	write (stream_a, sequence);
+	write (stream_a, timestamp);
 	for (auto const & block : blocks)
 	{
 		if (block.which ())
@@ -660,7 +661,7 @@ bool nano::vote::deserialize (nano::stream & stream_a, nano::block_uniquer * uni
 	{
 		nano::read (stream_a, account);
 		nano::read (stream_a, signature);
-		nano::read (stream_a, sequence);
+		nano::read (stream_a, timestamp);
 
 		nano::block_type type;
 

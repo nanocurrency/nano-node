@@ -72,8 +72,6 @@ add_library (node
 	ipc/ipc_server.cpp
 	json_handler.hpp
 	json_handler.cpp
-	json_payment_observer.hpp	
-	json_payment_observer.cpp
 	lmdb/lmdb.hpp
 	lmdb/lmdb.cpp
 	lmdb/lmdb_env.hpp
@@ -101,8 +99,6 @@ add_library (node
 	openclconfig.cpp
 	openclwork.hpp
 	openclwork.cpp
-	payment_observer_processor.hpp
-	payment_observer_processor.cpp
 	peer_exclusion.hpp
 	peer_exclusion.cpp
 	portmapping.hpp
