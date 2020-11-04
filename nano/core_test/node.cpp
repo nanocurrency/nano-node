@@ -3426,18 +3426,21 @@ TEST (node, block_processor_priority)
 	auto write_guard = node.write_database_queue.wait (nano::writer::testing);
 	node.block_processor.add (send1);
 	node.block_processor.add (send2);
+	node.block_processor.add (send2); // Duplicate
 	node.block_processor.add (send3);
 	node.block_processor.add (send4);
-	ASSERT_TIMELY (2s, node.block_processor.size () == 4);
+	ASSERT_TIMELY (2s, node.block_processor.size () == 5);
 	ASSERT_TIMELY (2s, node.block_processor.state_block_signature_verification.size () == 0);
 	// Inspect priority queue
 	nano::unique_lock<std::mutex> lk (node.block_processor.mutex);
-	ASSERT_EQ (4, node.block_processor.blocks.size ());
+	ASSERT_EQ (5, node.block_processor.blocks.size ());
 	ASSERT_EQ (send3->hash (), node.block_processor.blocks.top ().block->hash ());
 	node.block_processor.blocks.pop ();
 	ASSERT_EQ (send4->hash (), node.block_processor.blocks.top ().block->hash ());
 	node.block_processor.blocks.pop ();
 	ASSERT_EQ (send1->hash (), node.block_processor.blocks.top ().block->hash ());
+	node.block_processor.blocks.pop ();
+	ASSERT_EQ (send2->hash (), node.block_processor.blocks.top ().block->hash ());
 	node.block_processor.blocks.pop ();
 	ASSERT_EQ (send2->hash (), node.block_processor.blocks.top ().block->hash ());
 }
