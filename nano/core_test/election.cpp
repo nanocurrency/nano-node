@@ -23,26 +23,26 @@ TEST (election, quorum_minimum_flip_success)
 	auto & node1 = *system.add_node (node_config);
 	nano::keypair key1;
 	nano::block_builder builder;
-	std::shared_ptr<nano::block> send1 = builder.state ()
-	                                     .account (nano::dev_genesis_key.pub)
-	                                     .previous (nano::genesis_hash)
-	                                     .representative (nano::dev_genesis_key.pub)
-	                                     .balance (node1.online_reps.delta ())
-	                                     .link (key1.pub)
-	                                     .work (0)
-	                                     .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-	                                     .build ();
+	auto send1 = builder.state ()
+	             .account (nano::dev_genesis_key.pub)
+	             .previous (nano::genesis_hash)
+	             .representative (nano::dev_genesis_key.pub)
+	             .balance (node1.online_reps.delta ())
+	             .link (key1.pub)
+	             .work (0)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .build_shared ();
 	node1.work_generate_blocking (*send1);
 	nano::keypair key2;
-	std::shared_ptr<nano::block> send2 = builder.state ()
-	                                     .account (nano::dev_genesis_key.pub)
-	                                     .previous (nano::genesis_hash)
-	                                     .representative (nano::dev_genesis_key.pub)
-	                                     .balance (node1.online_reps.delta ())
-	                                     .link (key2.pub)
-	                                     .work (0)
-	                                     .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-	                                     .build ();
+	auto send2 = builder.state ()
+	             .account (nano::dev_genesis_key.pub)
+	             .previous (nano::genesis_hash)
+	             .representative (nano::dev_genesis_key.pub)
+	             .balance (node1.online_reps.delta ())
+	             .link (key2.pub)
+	             .work (0)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .build_shared ();
 	node1.work_generate_blocking (*send2);
 	node1.process_active (send1);
 	node1.process_active (send2);
@@ -67,26 +67,26 @@ TEST (election, quorum_minimum_flip_fail)
 	auto & node1 = *system.add_node (node_config);
 	nano::keypair key1;
 	nano::block_builder builder;
-	std::shared_ptr<nano::block> send1 = builder.state ()
-	                                     .account (nano::dev_genesis_key.pub)
-	                                     .previous (nano::genesis_hash)
-	                                     .representative (nano::dev_genesis_key.pub)
-	                                     .balance (node1.online_reps.delta () - 1)
-	                                     .link (key1.pub)
-	                                     .work (0)
-	                                     .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-	                                     .build ();
+	auto send1 = builder.state ()
+	             .account (nano::dev_genesis_key.pub)
+	             .previous (nano::genesis_hash)
+	             .representative (nano::dev_genesis_key.pub)
+	             .balance (node1.online_reps.delta () - 1)
+	             .link (key1.pub)
+	             .work (0)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .build_shared ();
 	node1.work_generate_blocking (*send1);
 	nano::keypair key2;
-	std::shared_ptr<nano::block> send2 = builder.state ()
-	                                     .account (nano::dev_genesis_key.pub)
-	                                     .previous (nano::genesis_hash)
-	                                     .representative (nano::dev_genesis_key.pub)
-	                                     .balance (node1.online_reps.delta () - 1)
-	                                     .link (key2.pub)
-	                                     .work (0)
-	                                     .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-	                                     .build ();
+	auto send2 = builder.state ()
+	             .account (nano::dev_genesis_key.pub)
+	             .previous (nano::genesis_hash)
+	             .representative (nano::dev_genesis_key.pub)
+	             .balance (node1.online_reps.delta () - 1)
+	             .link (key2.pub)
+	             .work (0)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .build_shared ();
 	node1.work_generate_blocking (*send2);
 	node1.process_active (send1);
 	node1.process_active (send2);
@@ -111,15 +111,15 @@ TEST (election, quorum_minimum_confirm_success)
 	auto & node1 = *system.add_node (node_config);
 	nano::keypair key1;
 	nano::block_builder builder;
-	std::shared_ptr<nano::block> send1 = builder.state ()
-	                                     .account (nano::dev_genesis_key.pub)
-	                                     .previous (nano::genesis_hash)
-	                                     .representative (nano::dev_genesis_key.pub)
-	                                     .balance (node1.online_reps.delta ())
-	                                     .link (key1.pub)
-	                                     .work (0)
-	                                     .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-	                                     .build ();
+	auto send1 = builder.state ()
+	             .account (nano::dev_genesis_key.pub)
+	             .previous (nano::genesis_hash)
+	             .representative (nano::dev_genesis_key.pub)
+	             .balance (node1.online_reps.delta ())
+	             .link (key1.pub)
+	             .work (0)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .build_shared ();
 	node1.work_generate_blocking (*send1);
 	node1.process_active (send1);
 	node1.block_processor.flush ();
@@ -143,15 +143,15 @@ TEST (election, quorum_minimum_confirm_fail)
 	auto & node1 = *system.add_node (node_config);
 	nano::keypair key1;
 	nano::block_builder builder;
-	std::shared_ptr<nano::block> send1 = builder.state ()
-	                                     .account (nano::dev_genesis_key.pub)
-	                                     .previous (nano::genesis_hash)
-	                                     .representative (nano::dev_genesis_key.pub)
-	                                     .balance (node1.online_reps.delta () - 1)
-	                                     .link (key1.pub)
-	                                     .work (0)
-	                                     .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-	                                     .build ();
+	auto send1 = builder.state ()
+	             .account (nano::dev_genesis_key.pub)
+	             .previous (nano::genesis_hash)
+	             .representative (nano::dev_genesis_key.pub)
+	             .balance (node1.online_reps.delta () - 1)
+	             .link (key1.pub)
+	             .work (0)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .build_shared ();
 	node1.work_generate_blocking (*send1);
 	node1.process_active (send1);
 	node1.block_processor.flush ();
