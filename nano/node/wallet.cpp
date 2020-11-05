@@ -855,7 +855,7 @@ std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block_hash cons
 					{
 						if (wallets.node.ledger.cache.confirmed_state_block_v2_generate_canary)
 						{
-							details.epoch = std::max (info.epoch (), std::max (pending_info.epoch, nano::epoch::epoch_3));
+							details.epoch = std::max ({ info.epoch (), pending_info.epoch, nano::epoch::epoch_3 });
 							auto is_upgrade = details.epoch > info.epoch ();
 							block = std::make_shared<nano::state_block> (account_a, info.head, info.representative, info.balance.number () + pending_info.amount.number (), send_hash_a, prv, account_a, details.epoch, nano::block_flags{ nano::link_flag::receive, nano::sig_flag::self, is_upgrade }, info.block_count + 1, work_a);
 						}

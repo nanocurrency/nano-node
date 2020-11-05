@@ -4014,7 +4014,7 @@ TEST (ledger, cache_state_v2_canary)
 		store->initialize (store->tx_begin_write (), genesis, ledger_cache);
 	}
 
-	nano::work_pool pool (std::numeric_limits<uint64_t>::max ());
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::state_block_builder builder;
 	std::error_code ec;
 
