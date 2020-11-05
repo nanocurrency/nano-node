@@ -568,9 +568,9 @@ bool nano::election::replace_by_weight (nano::unique_lock<std::mutex> & lock_a, 
 	std::vector<std::pair<nano::block_hash, nano::uint128_t>> sorted;
 	sorted.reserve (last_tally.size ());
 	std::copy (last_tally.begin (), last_tally.end (), std::back_inserter (sorted));
+	lock_a.unlock ();
 	// Sort in ascending order
 	std::sort (sorted.begin (), sorted.end (), [](auto const & left, auto const & right) { return left.second < right.second; });
-	lock_a.unlock ();
 	// Replace if lowest tally is below inactive cache new block weight
 	auto inactive_existing (node.active.find_inactive_votes_cache (hash_a));
 	auto inactive_tally (inactive_existing.status.tally);
