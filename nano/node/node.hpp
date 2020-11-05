@@ -4,6 +4,7 @@
 #include <nano/lib/alarm.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/stats.hpp>
+#include <nano/lib/timestamp.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/lib/worker.hpp>
 #include <nano/node/active_transactions.hpp>
@@ -19,7 +20,6 @@
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/online_reps.hpp>
-#include <nano/node/payment_observer_processor.hpp>
 #include <nano/node/portmapping.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/request_aggregator.hpp>
@@ -109,24 +109,23 @@ public:
 	void stop ();
 	std::shared_ptr<nano::node> shared ();
 	int store_version ();
-	void receive_confirmed (nano::transaction const & wallet_transaction_a, nano::transaction const & block_transaction_a, std::shared_ptr<nano::block> const &, nano::block_hash const &);
-	void process_confirmed_data (nano::transaction const &, std::shared_ptr<nano::block>, nano::block_hash const &, nano::account &, nano::uint128_t &, bool &, nano::account &);
+	void receive_confirmed (nano::transaction const & wallet_transaction_a, nano::transaction const & block_transaction_a, nano::block_hash const & hash_a, nano::account const & destination_a);
+	void process_confirmed_data (nano::transaction const &, std::shared_ptr<nano::block> const &, nano::block_hash const &, nano::account &, nano::uint128_t &, bool &, nano::account &);
 	void process_confirmed (nano::election_status const &, uint64_t = 0);
-	void process_active (std::shared_ptr<nano::block>);
+	void process_active (std::shared_ptr<nano::block> const &);
 	nano::process_return process (nano::block &);
-	nano::process_return process_local (std::shared_ptr<nano::block>, bool const = false);
+	nano::process_return process_local (std::shared_ptr<nano::block> const &, bool const = false);
 	void keepalive_preconfigured (std::vector<std::string> const &);
 	nano::block_hash latest (nano::account const &);
 	nano::uint128_t balance (nano::account const &);
 	std::shared_ptr<nano::block> block (nano::block_hash const &);
-	std::pair<nano::uint128_t, nano::uint128_t> balance_pending (nano::account const &);
+	std::pair<nano::uint128_t, nano::uint128_t> balance_pending (nano::account const &, bool only_confirmed);
 	nano::uint128_t weight (nano::account const &);
 	nano::block_hash rep_block (nano::account const &);
 	nano::uint128_t minimum_principal_weight ();
 	nano::uint128_t minimum_principal_weight (nano::uint128_t const &);
 	void ongoing_rep_calculation ();
 	void ongoing_bootstrap ();
-	void ongoing_store_flush ();
 	void ongoing_peer_store ();
 	void ongoing_unchecked_cleanup ();
 	void backup_wallet ();
@@ -145,10 +144,10 @@ public:
 	boost::optional<uint64_t> work_generate_blocking (nano::work_version const, nano::root const &, uint64_t, boost::optional<nano::account> const & = boost::none);
 	void work_generate (nano::work_version const, nano::root const &, uint64_t, std::function<void(boost::optional<uint64_t>)>, boost::optional<nano::account> const & = boost::none, bool const = false);
 	void add_initial_peers ();
-	void block_confirm (std::shared_ptr<nano::block>);
+	void block_confirm (std::shared_ptr<nano::block> const &);
 	bool block_confirmed (nano::block_hash const &);
 	bool block_confirmed_or_being_confirmed (nano::transaction const &, nano::block_hash const &);
-	void process_fork (nano::transaction const &, std::shared_ptr<nano::block>, uint64_t);
+	void process_fork (nano::transaction const &, std::shared_ptr<nano::block> const &, uint64_t);
 	void do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, std::string const &, uint16_t, std::shared_ptr<std::string>, std::shared_ptr<std::string>, std::shared_ptr<boost::asio::ip::tcp::resolver>);
 	void ongoing_online_weight_calculation ();
 	void ongoing_online_weight_calculation_queue ();
@@ -156,6 +155,7 @@ public:
 	bool init_error () const;
 	bool epoch_upgrader (nano::private_key const &, nano::epoch, uint64_t, uint64_t);
 	std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> get_bootstrap_weights () const;
+	nano::timestamp_generator timestamps;
 	nano::worker worker;
 	nano::write_database_queue write_database_queue;
 	boost::asio::io_context & io_ctx;
@@ -197,7 +197,6 @@ public:
 	nano::confirmation_height_processor confirmation_height_processor;
 	nano::active_transactions active;
 	nano::request_aggregator aggregator;
-	nano::payment_observer_processor payment_observer_processor;
 	nano::wallets wallets;
 	const std::chrono::steady_clock::time_point startup_time;
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week

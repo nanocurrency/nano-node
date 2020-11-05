@@ -27,4 +27,4 @@
 [submodule "rocksdb"]
 	path = rocksdb
 	url = https://github.com/nanocurrency/rocksdb.git
-	branch = 6.11.4
+	branch = 6.13.3

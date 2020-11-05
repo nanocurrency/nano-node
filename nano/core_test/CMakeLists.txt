@@ -34,6 +34,7 @@ add_executable (core_test
 	telemetry.cpp
 	toml.cpp
 	timer.cpp
+	timestamp.cpp
 	uint256_union.cpp
 	utility.cpp
 	vote_processor.cpp
@@ -41,6 +42,7 @@ add_executable (core_test
 	wallet.cpp
 	wallets.cpp
 	websocket.cpp
+	work_watcher.cpp
 	work_pool.cpp)
 
 target_compile_definitions(core_test

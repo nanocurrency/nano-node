@@ -1,5 +1,6 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/threading.hpp>
+#include <nano/lib/timestamp.hpp>
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/network.hpp>
@@ -161,10 +162,10 @@ std::vector<std::shared_ptr<nano::block>> nano::request_aggregator::aggregate (s
 	size_t cached_hashes = 0;
 	std::vector<std::shared_ptr<nano::block>> to_generate;
 	std::vector<std::shared_ptr<nano::vote>> cached_votes;
-	for (auto const & hash_root : requests_a)
+	for (auto const & [hash, root] : requests_a)
 	{
 		// 1. Votes in cache
-		auto find_votes (local_votes.votes (hash_root.second, hash_root.first));
+		auto find_votes (local_votes.votes (root, hash));
 		if (!find_votes.empty ())
 		{
 			++cached_hashes;
@@ -172,26 +173,27 @@ std::vector<std::shared_ptr<nano::block>> nano::request_aggregator::aggregate (s
 		}
 		else
 		{
+			bool generate_vote (true);
 			// 2. Election winner by hash
-			auto block = active.winner (hash_root.first);
+			auto block = active.winner (hash);
 
 			// 3. Ledger by hash
 			if (block == nullptr)
 			{
-				block = ledger.store.block_get (transaction, hash_root.first);
+				block = ledger.store.block_get (transaction, hash);
 			}
 
 			// 4. Ledger by root
-			if (block == nullptr && !hash_root.second.is_zero ())
+			if (block == nullptr && !root.is_zero ())
 			{
 				// Search for block root
-				auto successor (ledger.store.block_successor (transaction, hash_root.second.as_block_hash ()));
+				auto successor (ledger.store.block_successor (transaction, root.as_block_hash ()));
 
 				// Search for account root
 				if (successor.is_zero ())
 				{
 					nano::account_info info;
-					auto error (ledger.store.account_get (transaction, hash_root.second.as_account (), info));
+					auto error (ledger.store.account_get (transaction, root.as_account (), info));
 					if (!error)
 					{
 						successor = info.open_block;
@@ -201,25 +203,27 @@ std::vector<std::shared_ptr<nano::block>> nano::request_aggregator::aggregate (s
 				{
 					auto successor_block = ledger.store.block_get (transaction, successor);
 					debug_assert (successor_block != nullptr);
+					block = std::move (successor_block);
 					// 5. Votes in cache for successor
-					auto find_successor_votes (local_votes.votes (hash_root.second, successor));
+					auto find_successor_votes (local_votes.votes (root, successor));
 					if (!find_successor_votes.empty ())
 					{
 						cached_votes.insert (cached_votes.end (), find_successor_votes.begin (), find_successor_votes.end ());
-					}
-					else
-					{
-						block = std::move (successor_block);
+						generate_vote = false;
 					}
 				}
 			}
 
 			if (block)
 			{
-				to_generate.push_back (block);
+				// Generate new vote
+				if (generate_vote)
+				{
+					to_generate.push_back (block);
+				}
 
 				// Let the node know about the alternative block
-				if (block->hash () != hash_root.first)
+				if (block->hash () != hash)
 				{
 					nano::publish publish (block);
 					channel_a->send (publish);

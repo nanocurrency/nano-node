@@ -73,7 +73,7 @@ public:
 	std::string callback_address;
 	uint16_t callback_port{ 0 };
 	std::string callback_target;
-	int deprecated_lmdb_max_dbs{ 128 };
+	[[deprecated]] int deprecated_lmdb_max_dbs{ 128 };
 	bool allow_local_peers{ !(network_params.network.is_live_network () || network_params.network.is_test_network ()) }; // disable by default for live network
 	nano::stat_config stat_config;
 	nano::ipc::ipc_config ipc_config;
@@ -127,6 +127,7 @@ public:
 	bool disable_bootstrap_listener{ false };
 	bool disable_bootstrap_bulk_pull_server{ false };
 	bool disable_bootstrap_bulk_push_client{ false };
+	bool disable_ongoing_bootstrap{ false }; // For testing only
 	bool disable_rep_crawler{ false };
 	bool disable_request_loop{ false }; // For testing only
 	bool disable_tcp_realtime{ false };
