@@ -153,6 +153,7 @@ enum class error_process
 	balance_mismatch, // Balance and amount delta don't match
 	block_position, // This block cannot follow the previous block
 	insufficient_work, // Insufficient work for this block, even though it passed the minimal validation
+	state_block_v2_disabled, // Awaiting state block 2 canary block
 	version_mismatch, // Version is not correct
 	height_not_successor, // Height did not match expected height of root + 1
 	upgrade_flag_incorrect, // This is an epoch block, or state block with changed version but did not set the upgrade flag

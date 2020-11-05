@@ -280,16 +280,18 @@ std::string nano::error_process_messages::message (int ev) const
 			return "This block cannot follow the previous block";
 		case nano::error_process::insufficient_work:
 			return "Block work is insufficient";
+		case nano::error_process::state_block_v2_disabled:
+			return "State block v2 are disabled";
+		case nano::error_process::version_mismatch:
+			return "Version mismatch";
 		case nano::error_process::height_not_successor:
 			return "Height does not follow root";
+		case nano::error_process::upgrade_flag_incorrect:
+			return "Upgrade flag incorrect";
 		case nano::error_process::incorrect_link_flag:
 			return "Link interpretation is not correct";
 		case nano::error_process::incorrect_signer:
 			return "Signer is invalid";
-		case nano::error_process::upgrade_flag_incorrect:
-			return "Upgrade flag incorrect";
-		case nano::error_process::version_mismatch:
-			return "Version mismatch";
 		case nano::error_process::other:
 			return "Error processing block";
 	}

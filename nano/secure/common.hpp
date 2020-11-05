@@ -318,6 +318,7 @@ enum class process_result
 	representative_mismatch, // Representative is changed when it is not allowed
 	block_position, // This block cannot follow the previous block
 	insufficient_work, // Insufficient work for this block, even though it passed the minimal validation
+	state_block_v2_disabled, // Awaiting state block 2 canary block
 	version_mismatch, // Version is not correct
 	height_not_successor, // Height did not match expected height of root + 1
 	upgrade_flag_incorrect, // This is an epoch block, or state block with changed version but did not set the upgrade flag
@@ -514,6 +515,8 @@ public:
 	std::atomic<uint64_t> pruned_count{ 0 };
 	std::atomic<uint64_t> account_count{ 0 };
 	std::atomic<bool> epoch_2_started{ false };
+	std::atomic<bool> confirmed_state_block_v2_generate_canary{ false };
+	std::atomic<bool> confirmed_state_block_v2_parse_canary{ false };
 };
 
 /* Defines the possible states for an election to stop in */

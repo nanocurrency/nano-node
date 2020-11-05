@@ -2347,7 +2347,7 @@ TEST (ledger, state_receive_change_rollback)
 	ASSERT_EQ (store->account_count (transaction), ledger.cache.account_count);
 }
 
-TEST (ledger, state2_rollback)
+TEST (ledger, state_rollback_v2)
 {
 	nano::logger_mt logger;
 	auto store = nano::make_store (logger, nano::unique_path ());
@@ -2362,6 +2362,7 @@ TEST (ledger, state2_rollback)
 	ASSERT_TRUE (epoch1);
 	auto epoch2 = nano::upgrade_epoch (transaction, pool, ledger, nano::epoch::epoch_2);
 	ASSERT_TRUE (epoch2);
+	ledger.cache.confirmed_state_block_v2_parse_canary = true;
 
 	// Self upgrade send
 	nano::keypair key;
@@ -2428,6 +2429,42 @@ TEST (ledger, state2_rollback)
 	ASSERT_FALSE (ledger.rollback (transaction, epoch3->hash ()));
 	ledger.store.account_get (transaction, nano::genesis_account, account_info);
 	ASSERT_EQ (account_info.epoch (), nano::epoch::epoch_2);
+}
+
+TEST (ledger, state_canary_blocks_v2)
+{
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_TRUE (!store->init_error ());
+	nano::stat stats;
+	nano::genesis genesis;
+	nano::ledger ledger (*store, stats);
+	auto transaction (store->tx_begin_write ());
+	store->initialize (transaction, genesis, ledger.cache);
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+	auto epoch2 = nano::upgrade_epoch (transaction, pool, ledger, nano::epoch::epoch_2);
+
+	// Self upgrade send
+	nano::keypair key;
+	nano::state_block_builder builder;
+	auto send1 = builder.make_block ()
+	             .account (nano::genesis_account)
+	             .previous (epoch2->hash ())
+	             .representative (nano::genesis_account)
+	             .balance (nano::genesis_amount - 2 * nano::Gxrb_ratio)
+	             .link (key.pub)
+	             .version (nano::epoch::epoch_3)
+	             .upgrade (true)
+	             .signer (nano::sig_flag::self)
+	             .link_interpretation (nano::link_flag::send)
+	             .height (3)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (*pool.generate (epoch2->hash ()))
+	             .build ();
+
+	ASSERT_EQ (nano::process_result::state_block_v2_disabled, ledger.process (transaction, *send1).code);
+	ledger.cache.confirmed_state_block_v2_parse_canary = true;
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send1).code);
 }
 
 TEST (ledger, epoch_blocks_v1_general)
@@ -2575,6 +2612,7 @@ TEST (ledger, epoch_blocks_v3_general)
 	store->initialize (transaction, genesis, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::keypair destination;
+	ledger.cache.confirmed_state_block_v2_parse_canary = true;
 	auto epoch1 = std::make_unique<nano::state_block> (nano::genesis_account, genesis.hash (), nano::genesis_account, nano::genesis_amount, ledger.epoch_link (nano::epoch::epoch_3), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, nano::epoch::epoch_3, nano::block_flags (nano::link_flag::noop, nano::sig_flag::epoch, true), 2, *pool.generate (genesis.hash ()));
 	// Trying to upgrade from epoch 0 to epoch 3 should work. It is not a requirement that epoch upgrades be sequential
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *epoch1).code);
@@ -2708,6 +2746,7 @@ TEST (ledger, epoch_blocks_receive_upgrade)
 	nano::keypair destination5;
 	nano::state_block send7 (nano::genesis_account, send6.hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio * 6, destination5.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (send6.hash ()));
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send7).code);
+	ledger.cache.confirmed_state_block_v2_parse_canary = true;
 	nano::state_block open4 (destination5.pub, 0, destination5.pub, nano::Gxrb_ratio, send7.hash (), destination5.prv, destination5.pub, nano::epoch::epoch_3, nano::block_flags (nano::link_flag::receive, nano::sig_flag::self, true), 1, *pool.generate (destination5.pub));
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, open4).code);
 	ASSERT_EQ (store->account_count (transaction), ledger.cache.account_count);
@@ -2730,6 +2769,7 @@ TEST (ledger, epoch_blocks_fork)
 	ASSERT_EQ (nano::process_result::fork, ledger.process (transaction, epoch1).code);
 	nano::state_block epoch2 (nano::genesis_account, genesis.hash (), nano::genesis_account, nano::genesis_amount, ledger.epoch_link (nano::epoch::epoch_2), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (genesis.hash ()));
 	ASSERT_EQ (nano::process_result::fork, ledger.process (transaction, epoch2).code);
+	ledger.cache.confirmed_state_block_v2_parse_canary = true;
 	nano::state_block epoch3 (nano::genesis_account, send1.hash (), nano::genesis_account, nano::genesis_amount, ledger.epoch_link (nano::epoch::epoch_1), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (send1.hash ()));
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, epoch3).code);
 	nano::state_block epoch4 (nano::genesis_account, send1.hash (), nano::genesis_account, nano::genesis_amount, ledger.epoch_link (nano::epoch::epoch_2), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (send1.hash ()));
@@ -2816,6 +2856,7 @@ TEST (ledger, state_blocks_v2)
 		ASSERT_EQ (nano::process_result::progress, node.process (*latest_genesis).code);
 	}
 
+	node.ledger.cache.confirmed_state_block_v2_parse_canary = true;
 	latest_genesis = (system.upgrade_genesis_epoch (node, nano::epoch::epoch_3));
 
 	// Add rest of the sends
@@ -3842,10 +3883,10 @@ TEST (ledger, block_confirmed)
 	ASSERT_FALSE (ledger.block_confirmed (transaction, send1->hash ()));
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send1).code);
 	ASSERT_FALSE (ledger.block_confirmed (transaction, send1->hash ()));
-	nano::confirmation_height_info height;
-	ASSERT_FALSE (ledger.store.confirmation_height_get (transaction, nano::genesis_account, height));
-	++height.height;
-	ledger.store.confirmation_height_put (transaction, nano::genesis_account, height);
+	nano::confirmation_height_info confirmation_height_info;
+	ASSERT_FALSE (ledger.store.confirmation_height_get (transaction, nano::genesis_account, confirmation_height_info));
+	++confirmation_height_info.height;
+	ledger.store.confirmation_height_put (transaction, nano::genesis_account, confirmation_height_info);
 	ASSERT_TRUE (ledger.block_confirmed (transaction, send1->hash ()));
 }
 
@@ -3922,11 +3963,11 @@ TEST (ledger, cache)
 
 		{
 			auto transaction (store->tx_begin_write ());
-			nano::confirmation_height_info height;
-			ASSERT_FALSE (ledger.store.confirmation_height_get (transaction, nano::genesis_account, height));
-			++height.height;
-			height.frontier = send->hash ();
-			ledger.store.confirmation_height_put (transaction, nano::genesis_account, height);
+			nano::confirmation_height_info confirmation_height_info;
+			ASSERT_FALSE (ledger.store.confirmation_height_get (transaction, nano::genesis_account, confirmation_height_info));
+			++confirmation_height_info.height;
+			confirmation_height_info.frontier = send->hash ();
+			ledger.store.confirmation_height_put (transaction, nano::genesis_account, confirmation_height_info);
 			ASSERT_TRUE (ledger.block_confirmed (transaction, send->hash ()));
 			++ledger.cache.cemented_count;
 		}
@@ -3959,6 +4000,77 @@ TEST (ledger, cache)
 		cache_check (ledger.cache);
 		cache_check (nano::ledger (*store, stats).cache);
 	}
+}
+
+TEST (ledger, cache_state_v2_canary)
+{
+	nano::logger_mt logger;
+	auto path = nano::unique_path ();
+	nano::genesis genesis;
+	{
+		auto store = nano::make_store (logger, path, false, true);
+		ASSERT_TRUE (!store->init_error ());
+		nano::ledger_cache ledger_cache;
+		store->initialize (store->tx_begin_write (), genesis, ledger_cache);
+	}
+
+	nano::work_pool pool (std::numeric_limits<uint64_t>::max ());
+	nano::state_block_builder builder;
+	std::error_code ec;
+
+	auto change_upgrade = builder
+	                      .make_block ()
+	                      .account (nano::genesis_account)
+	                      .previous (nano::genesis_hash)
+	                      .balance (nano::genesis_amount)
+	                      .representative (0)
+	                      .link (0)
+	                      .version (nano::epoch::epoch_3)
+	                      .upgrade (true)
+	                      .signer (nano::sig_flag::self)
+	                      .link_interpretation (nano::link_flag::noop)
+	                      .height (2)
+	                      .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	                      .work (*pool.generate (nano::genesis_hash))
+	                      .build (ec);
+	ASSERT_FALSE (ec);
+
+	{
+		auto store = nano::make_store (logger, path, false, true);
+		ASSERT_TRUE (!store->init_error ());
+		nano::stat stats;
+		nano::canary_state_v2_details canary_state_v2_details{ nano::genesis_account, 2, nano::genesis_account, 3 };
+		nano::ledger ledger (*store, stats, nano::generate_cache{}, nullptr, canary_state_v2_details);
+		ASSERT_FALSE (ledger.cache.confirmed_state_block_v2_parse_canary);
+		ASSERT_FALSE (ledger.cache.confirmed_state_block_v2_generate_canary);
+		ASSERT_EQ (nano::process_result::state_block_v2_disabled, ledger.process (store->tx_begin_write (), *change_upgrade).code);
+	}
+
+	// Test it where the parse canary is confirmed but not generate
+	nano::canary_state_v2_details canary_state_v2_details{ nano::genesis_account, 1, nano::genesis_account, 2 };
+	{
+		auto store = nano::make_store (logger, path, false, true);
+		ASSERT_TRUE (!store->init_error ());
+		nano::stat stats;
+		nano::ledger ledger (*store, stats, nano::generate_cache{}, nullptr, canary_state_v2_details);
+		ASSERT_TRUE (ledger.cache.confirmed_state_block_v2_parse_canary);
+		ASSERT_FALSE (ledger.cache.confirmed_state_block_v2_generate_canary);
+
+		// Self-signed epoch should now work
+		ASSERT_EQ (nano::process_result::progress, ledger.process (store->tx_begin_write (), *change_upgrade).code);
+
+		// Just manually altering confirmation height so that the generate canary confirmed height is hit.
+		nano::confirmation_height_info confirmation_height_info{ 2, nano::genesis_hash };
+		store->confirmation_height_put (store->tx_begin_write (), nano::genesis_account, confirmation_height_info);
+	}
+
+	// Generate canary should now be set
+	auto store = nano::make_store (logger, path, false, true);
+	ASSERT_TRUE (!store->init_error ());
+	nano::stat stats;
+	nano::ledger ledger (*store, stats, nano::generate_cache{}, nullptr, canary_state_v2_details);
+	ASSERT_TRUE (ledger.cache.confirmed_state_block_v2_parse_canary);
+	ASSERT_TRUE (ledger.cache.confirmed_state_block_v2_generate_canary);
 }
 
 TEST (ledger, pruning_action)

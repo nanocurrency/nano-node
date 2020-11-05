@@ -4493,6 +4493,30 @@ TEST (rep_crawler, recently_confirmed)
 	ASSERT_TIMELY (3s, node1.rep_crawler.representative_count () == 1);
 }
 
+TEST (node, state_v2_canary_blocks)
+{
+	// Test that confirming the block through the confirmation height processor callbacks are working
+	nano::system system;
+	auto node = system.add_node ();
+	node->ledger.canary_state_v2 = nano::canary_state_v2_details{ nano::genesis_account, 2, nano::genesis_account, 3 };
+	nano::keypair key1;
+	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
+	nano::block_hash latest1 (node->latest (nano::dev_genesis_key.pub));
+	auto send1 (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, latest1, nano::dev_genesis_key.pub, nano::genesis_amount - 1, key1.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (latest1)));
+	node->process_active (send1);
+	node->block_processor.flush ();
+
+	ASSERT_TIMELY (10s, node->ledger.cache.confirmed_state_block_v2_parse_canary);
+	ASSERT_FALSE (node->ledger.cache.confirmed_state_block_v2_generate_canary);
+
+	auto send2 (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, send1->hash (), nano::dev_genesis_key.pub, nano::genesis_amount - 2, key1.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send1->hash ())));
+	node->process_active (send2);
+	node->block_processor.flush ();
+
+	ASSERT_TIMELY (10s, node->ledger.cache.confirmed_state_block_v2_generate_canary);
+	ASSERT_TRUE (node->ledger.cache.confirmed_state_block_v2_parse_canary);
+}
+
 namespace nano
 {
 TEST (rep_crawler, local)

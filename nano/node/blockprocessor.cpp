@@ -484,12 +484,30 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 				node.logger.try_log (boost::str (boost::format ("Insufficient work for %1% : %2% (difficulty %3%)") % hash.to_string () % nano::to_string_hex (block->block_work ()) % nano::to_string_hex (block->difficulty ())));
 			}
 			break;
+		case nano::process_result::state_block_v2_disabled:
+			if (node.config.logging.ledger_logging ())
+			{
+				node.logger.try_log (boost::str (boost::format ("State block v2 is disabled for %1%") % hash.to_string ()));
+			}
+			break;
+		case nano::process_result::version_mismatch:
+			if (node.config.logging.ledger_logging ())
+			{
+				node.logger.try_log (boost::str (boost::format ("Version mismatch for %1%") % hash.to_string ()));
+			}
+			break;
 		case nano::process_result::height_not_successor:
 			if (node.config.logging.ledger_logging ())
 			{
 				node.logger.try_log (boost::str (boost::format ("Insufficient work for %1% : %2% (difficulty %3%)") % hash.to_string () % nano::to_string_hex (info_a.block->block_work ()) % nano::to_string_hex (info_a.block->difficulty ())));
 			}
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::height_not_successor);
+			break;
+		case nano::process_result::upgrade_flag_incorrect:
+			if (node.config.logging.ledger_logging ())
+			{
+				node.logger.try_log (boost::str (boost::format ("Incorrect upgrade flag for %1%") % hash.to_string ()));
+			}
 			break;
 		case nano::process_result::incorrect_link_flag:
 			if (node.config.logging.ledger_logging ())
@@ -501,18 +519,6 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			if (node.config.logging.ledger_logging ())
 			{
 				node.logger.try_log (boost::str (boost::format ("Incorrect signer for %1%") % hash.to_string ()));
-			}
-			break;
-		case nano::process_result::upgrade_flag_incorrect:
-			if (node.config.logging.ledger_logging ())
-			{
-				node.logger.try_log (boost::str (boost::format ("Incorrect upgrade flag for %1%") % hash.to_string ()));
-			}
-			break;
-		case nano::process_result::version_mismatch:
-			if (node.config.logging.ledger_logging ())
-			{
-				node.logger.try_log (boost::str (boost::format ("Version mismatch for %1%") % hash.to_string ()));
 			}
 			break;
 	}

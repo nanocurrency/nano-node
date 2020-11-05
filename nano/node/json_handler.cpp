@@ -3216,8 +3216,17 @@ void nano::json_handler::process ()
 					case nano::process_result::insufficient_work:
 						rpc_l->ec = nano::error_process::insufficient_work;
 						break;
+					case nano::process_result::state_block_v2_disabled:
+						rpc_l->ec = nano::error_process::state_block_v2_disabled;
+						break;
+					case nano::process_result::version_mismatch:
+						rpc_l->ec = nano::error_process::version_mismatch;
+						break;
 					case nano::process_result::height_not_successor:
 						rpc_l->ec = nano::error_process::height_not_successor;
+						break;
+					case nano::process_result::upgrade_flag_incorrect:
+						rpc_l->ec = nano::error_process::upgrade_flag_incorrect;
 						break;
 					case nano::process_result::incorrect_link_flag:
 						rpc_l->ec = nano::error_process::incorrect_link_flag;
@@ -3225,17 +3234,9 @@ void nano::json_handler::process ()
 					case nano::process_result::incorrect_signer:
 						rpc_l->ec = nano::error_process::incorrect_signer;
 						break;
-					case nano::process_result::upgrade_flag_incorrect:
-						rpc_l->ec = nano::error_process::upgrade_flag_incorrect;
-						break;
-					case nano::process_result::version_mismatch:
-						rpc_l->ec = nano::error_process::version_mismatch;
-						break;
 					default:
-					{
 						rpc_l->ec = nano::error_process::other;
 						break;
-					}
 				}
 			}
 			else

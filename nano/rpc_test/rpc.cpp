@@ -2223,6 +2223,7 @@ TEST (rpc, process_state_v2)
 	block->hashables.height = 3;
 	block->rebuild (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub);
 	block->serialize_json (json);
+	node1.ledger.cache.confirmed_state_block_v2_parse_canary = true;
 	request.put ("block", json);
 	{
 		test_response response (request, rpc.config.port, system.io_ctx);
@@ -5011,6 +5012,7 @@ TEST (rpc, json_block_output)
 	node1.process (send);
 
 	nano::state_block_builder builder;
+	node1.ledger.cache.confirmed_state_block_v2_parse_canary = true;
 	auto state_v2 = builder.make_block ()
 	                .account (nano::dev_genesis_key.pub)
 	                .previous (send.hash ())
@@ -5896,6 +5898,7 @@ TEST (rpc, block_create_state_v2)
 	ASSERT_NE (nullptr, state_block);
 	ASSERT_EQ (nano::block_type::state2, state_block->type ());
 	ASSERT_EQ (state_hash, state_block->hash ().to_string ());
+	system.nodes.front ()->ledger.cache.confirmed_state_block_v2_parse_canary = true;
 	scoped_thread_name_io.reset ();
 	auto process_result (node->process (*state_block));
 	ASSERT_EQ (nano::process_result::progress, process_result.code);

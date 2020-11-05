@@ -22,10 +22,19 @@ public:
 	nano::account account;
 };
 
+class canary_state_v2_details
+{
+public:
+	nano::account parse_account{ 0 };
+	uint64_t parse_confirmed_height{ 0 };
+	nano::account generate_account{ 0 };
+	uint64_t generate_confirmed_height{ 0 };
+};
+
 class ledger final
 {
 public:
-	ledger (nano::block_store &, nano::stat &, nano::generate_cache const & = nano::generate_cache (), std::function<void()> = nullptr);
+	ledger (nano::block_store &, nano::stat &, nano::generate_cache const & = nano::generate_cache (), std::function<void()> = nullptr, canary_state_v2_details const & = canary_state_v2_details{});
 	nano::account account (nano::transaction const &, nano::block_hash const &) const;
 	nano::account account_safe (nano::transaction const &, nano::block_hash const &, bool &) const;
 	nano::uint128_t amount (nano::transaction const &, nano::account const &);
@@ -77,6 +86,7 @@ public:
 	std::atomic<bool> check_bootstrap_weights;
 	bool pruning{ false };
 	std::function<void()> epoch_2_started_cb;
+	canary_state_v2_details canary_state_v2;
 
 private:
 	void initialize (nano::generate_cache const &);
