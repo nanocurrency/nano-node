@@ -538,22 +538,24 @@ void nano::election::remove_votes (nano::block_hash const & hash_a)
 void nano::election::remove_block (nano::block_hash const & hash_a)
 {
 	debug_assert (!mutex.try_lock ());
-	debug_assert (status.winner->hash () != hash_a);
-	if (auto existing = last_blocks.find (hash_a); existing != last_blocks.end ())
+	if (status.winner->hash () != hash_a)
 	{
-		for (auto i (last_votes.begin ()); i != last_votes.end ();)
+		if (auto existing = last_blocks.find (hash_a); existing != last_blocks.end ())
 		{
-			if (i->second.hash == hash_a)
+			for (auto i (last_votes.begin ()); i != last_votes.end ();)
 			{
-				i = last_votes.erase (i);
+				if (i->second.hash == hash_a)
+				{
+					i = last_votes.erase (i);
+				}
+				else
+				{
+					++i;
+				}
 			}
-			else
-			{
-				++i;
-			}
+			node.network.publish_filter.clear (existing->second);
+			last_blocks.erase (hash_a);
 		}
-		node.network.publish_filter.clear (existing->second);
-		last_blocks.erase (hash_a);
 	}
 }
 
