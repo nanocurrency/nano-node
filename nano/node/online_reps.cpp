@@ -18,8 +18,8 @@ void nano::online_reps::observe (nano::account const & rep_a)
 {
 	if (ledger.weight (rep_a) > 0)
 	{
-		auto now = std::chrono::steady_clock::now ();
 		nano::lock_guard<std::mutex> lock (mutex);
+		auto now = std::chrono::steady_clock::now ();
 		auto new_insert = reps.get<tag_account> ().erase (rep_a) == 0;
 		reps.insert ({ now, rep_a });
 		auto cutoff = reps.get<tag_time> ().lower_bound (now - std::chrono::seconds (config.network_params.node.weight_period));
@@ -35,8 +35,7 @@ void nano::online_reps::observe (nano::account const & rep_a)
 void nano::online_reps::sample ()
 {
 	nano::unique_lock<std::mutex> lock (mutex);
-	nano::uint128_t online_l;
-	online_l = online_m;
+	nano::uint128_t online_l = online_m;
 	lock.unlock ();
 	nano::uint128_t trend_l;
 	{
@@ -68,8 +67,8 @@ nano::uint128_t nano::online_reps::calculate_online () const
 nano::uint128_t nano::online_reps::calculate_trend (nano::transaction & transaction_a) const
 {
 	std::vector<nano::uint128_t> items;
-	items.push_back (config.online_weight_minimum.number ());
 	items.reserve (config.network_params.node.max_weight_samples + 1);
+	items.push_back (config.online_weight_minimum.number ());
 	for (auto i (ledger.store.online_weight_begin (transaction_a)), n (ledger.store.online_weight_end ()); i != n; ++i)
 	{
 		items.push_back (i->second.number ());
