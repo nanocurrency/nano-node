@@ -1919,7 +1919,7 @@ TEST (node, bootstrap_bulk_push)
 	bool done (false);
 	while (!done)
 	{
-		done = node0->block_confirmed (send0->hash ());
+		done = node0->block_confirmed (send0->hash ()) && node0->active.empty ();
 		ASSERT_NO_ERROR (system0.poll ());
 	}
 
@@ -2016,7 +2016,7 @@ TEST (node, bootstrap_confirm_frontiers)
 	bool done (false);
 	while (!done)
 	{
-		done = node0->block_confirmed (send0->hash ());
+		done = node0->block_confirmed (send0->hash ()) && node0->active.empty ();
 		ASSERT_NO_ERROR (system0.poll ());
 	}
 
