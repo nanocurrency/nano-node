@@ -211,6 +211,8 @@ std::string nano::error_rpc_messages::message (int ev) const
 			return "Invalid threads count";
 		case nano::error_rpc::peer_not_found:
 			return "Peer not found";
+		case nano::error_rpc::pruning_disabled:
+			return "Pruning is disabled";
 		case nano::error_rpc::requires_port_and_address:
 			return "Both port and address required";
 		case nano::error_rpc::rpc_control_disabled:
