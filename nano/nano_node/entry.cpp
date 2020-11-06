@@ -77,7 +77,7 @@ int main (int argc, char * const * argv)
 		("debug_block_count", "Display the number of blocks")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
 		("debug_dump_frontier_unchecked_dependents", "Dump frontiers which have matching unchecked keys")
-		("debug_dump_online_weight", "Dump online_weights table")
+		("debug_dump_trended_weight", "Dump trended weights table")
 		("debug_dump_representatives", "List representatives and weights")
 		("debug_account_count", "Display the number of accounts")
 		("debug_profile_generate", "Profile work generation")
@@ -383,12 +383,12 @@ int main (int argc, char * const * argv)
 				result = -1;
 			}
 		}
-		else if (vm.count ("debug_dump_online_weight"))
+		else if (vm.count ("debug_dump_trended_weight"))
 		{
 			auto inactive_node = nano::default_inactive_node (data_path, vm);
 			auto node = inactive_node->node;
-			auto current (node->online_reps.online_stake ());
-			std::cout << boost::str (boost::format ("Online Weight %1%\n") % current);
+			auto current (node->online_reps.trended ());
+			std::cout << boost::str (boost::format ("Trended Weight %1%\n") % current);
 			auto transaction (node->store.tx_begin_read ());
 			for (auto i (node->store.online_weight_begin (transaction)), n (node->store.online_weight_end ()); i != n; ++i)
 			{

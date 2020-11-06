@@ -339,7 +339,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 			auto lmdb_config_l (toml.get_required_child ("lmdb"));
 			lmdb_config.deserialize_toml (lmdb_config_l, is_deprecated_lmdb_dbs_used);
 
-			// Note that the lmdb config fails is both the deprecated and new setting are changed.
+			// Note that the lmdb config fails if both the deprecated and new setting are changed.
 			if (is_deprecated_lmdb_dbs_used)
 			{
 				lmdb_config.max_databases = deprecated_lmdb_max_dbs;

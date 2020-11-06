@@ -17,7 +17,9 @@ jobs:
       - uses: actions/checkout@722adc6
       - uses: chrislennon/action-aws-cli@f0f8671
       - name: tag
-        run: echo "::set-env name=TAG::`git describe --tags $GITHUB_SHA`"
+        run: |
+          TAG=`git describe --tags $GITHUB_SHA`
+          echo "TAG=$TAG" >> $GITHUB_ENV
       - name: Checkout Submodules
         run: git submodule update --init --recursive
       - name: Fetch Deps
@@ -37,7 +39,9 @@ jobs:
       - uses: actions/checkout@722adc6
       - uses: chrislennon/action-aws-cli@f0f8671
       - name: tag
-        run: echo "::set-env name=TAG::`git describe --tags $GITHUB_SHA`"
+        run: |
+          TAG=`git describe --tags $GITHUB_SHA`
+          echo "TAG=$TAG" >> $GITHUB_ENV
       - name: Checkout Submodules
         run: git submodule update --init --recursive
       - name: Fetch Deps
@@ -57,7 +61,9 @@ jobs:
       - uses: actions/checkout@722adc6
       - uses: chrislennon/action-aws-cli@f0f8671
       - name: tag
-        run: echo "::set-env name=TAG::`git describe --tags $GITHUB_SHA`"
+        run: |
+          TAG=`git describe --tags $GITHUB_SHA`
+          echo "TAG=$TAG" >> $GITHUB_ENV
       - name: Checkout Submodules
         run: git submodule update --init --recursive
       - name: Fetch Deps
@@ -66,6 +72,14 @@ jobs:
         run: TRAVIS_TAG=${TAG} ci/actions/linux/deploy-docker.sh
         env:
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Login to ghcr.io
+        uses: docker/login-action@adb7347
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GHCR_PAT }}
+      - name: Deploy Docker (ghcr.io
+        run: ci/actions/linux/ghcr_push.sh
   
   windows_job:
     runs-on: windows-latest
@@ -74,8 +88,8 @@ jobs:
       - uses: chrislennon/action-aws-cli@f0f8671
       - name: tag
         run: |
-          $TRAVIS_TAG=git describe --tags $GITHUB_SHA
-          echo "::set-env name=TAG::$TRAVIS_TAG"
+          $TAG=git describe --tags $GITHUB_SHA
+          echo "TAG=$TAG" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - name: Checkout Submodules
         run: git submodule update --init --recursive
       - name: Fetch Deps

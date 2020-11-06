@@ -141,8 +141,7 @@ void nano::active_transactions::confirm_prioritized_frontiers (nano::transaction
 					if (!this->confirmation_height_processor.is_processing_block (info.head))
 					{
 						nano::confirmation_height_info confirmation_height_info;
-						error = this->node.store.confirmation_height_get (transaction_a, cementable_account.account, confirmation_height_info);
-						release_assert (!error);
+						this->node.store.confirmation_height_get (transaction_a, cementable_account.account, confirmation_height_info);
 
 						if (info.block_count > confirmation_height_info.height)
 						{
@@ -491,8 +490,9 @@ void nano::active_transactions::confirm_expired_frontiers_pessimistically (nano:
 		auto const & account{ i->account };
 		nano::account_info account_info;
 		bool should_delete{ true };
-		if (!node.store.account_get (transaction_a, account, account_info) && !node.store.confirmation_height_get (transaction_a, account, confirmation_height_info))
+		if (!node.store.account_get (transaction_a, account, account_info))
 		{
+			node.store.confirmation_height_get (transaction_a, account, confirmation_height_info);
 			if (account_info.block_count > confirmation_height_info.height)
 			{
 				should_delete = false;
@@ -696,12 +696,13 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 
 					auto i (wallet->store.begin (wallet_transaction, next_wallet_frontier_account));
 					auto n (wallet->store.end ());
-					nano::confirmation_height_info confirmation_height_info;
 					for (; i != n && should_iterate (); ++i)
 					{
 						auto const & account (i->first);
-						if (expired_optimistic_election_infos.get<tag_account> ().count (account) == 0 && !node.store.account_get (transaction_a, account, info) && !node.store.confirmation_height_get (transaction_a, account, confirmation_height_info))
+						if (expired_optimistic_election_infos.get<tag_account> ().count (account) == 0 && !node.store.account_get (transaction_a, account, info))
 						{
+							nano::confirmation_height_info confirmation_height_info;
+							node.store.confirmation_height_get (transaction_a, account, confirmation_height_info);
 							// If it exists in normal priority collection delete from there.
 							auto it = priority_cementable_frontiers.find (account);
 							if (it != priority_cementable_frontiers.end ())
@@ -744,15 +745,16 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 		nano::timer<std::chrono::milliseconds> timer (nano::timer_state::started);
 		auto i (node.store.accounts_begin (transaction_a, next_frontier_account));
 		auto n (node.store.accounts_end ());
-		nano::confirmation_height_info confirmation_height_info;
 		for (; i != n && should_iterate (); ++i)
 		{
 			auto const & account (i->first);
 			auto const & info (i->second);
 			if (priority_wallet_cementable_frontiers.find (account) == priority_wallet_cementable_frontiers.end ())
 			{
-				if (expired_optimistic_election_infos.get<tag_account> ().count (account) == 0 && !node.store.confirmation_height_get (transaction_a, account, confirmation_height_info))
+				if (expired_optimistic_election_infos.get<tag_account> ().count (account) == 0)
 				{
+					nano::confirmation_height_info confirmation_height_info;
+					node.store.confirmation_height_get (transaction_a, account, confirmation_height_info);
 					auto insert_newed = prioritize_account_for_confirmation (priority_cementable_frontiers, priority_cementable_frontiers_size, account, info, confirmation_height_info.height);
 					if (insert_newed)
 					{
@@ -982,9 +984,8 @@ nano::election_insertion_result nano::active_transactions::activate (nano::accou
 	if (!node.store.account_get (transaction, account_a, account_info))
 	{
 		nano::confirmation_height_info conf_info;
-		auto error = node.store.confirmation_height_get (transaction, account_a, conf_info);
-		debug_assert (!error);
-		if (!error && conf_info.height < account_info.block_count)
+		node.store.confirmation_height_get (transaction, account_a, conf_info);
+		if (conf_info.height < account_info.block_count)
 		{
 			debug_assert (conf_info.frontier != account_info.head);
 			auto hash = conf_info.height == 0 ? account_info.open_block : node.store.block_successor (transaction, conf_info.frontier);
@@ -1461,7 +1462,7 @@ nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_
 		tally += node.ledger.weight (voter);
 	}
 
-	if (!previously_a.confirmed && tally >= node.config.online_weight_minimum.number ())
+	if (!previously_a.confirmed && tally >= node.online_reps.delta ())
 	{
 		status.bootstrap_started = true;
 		status.confirmed = true;
@@ -1470,7 +1471,7 @@ nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_
 	{
 		status.bootstrap_started = true;
 	}
-	if (!previously_a.election_started && voters_a.size () >= election_start_voters_min && tally >= (node.online_reps.online_stake () / 100) * node.config.election_hint_weight_percent)
+	if (!previously_a.election_started && voters_a.size () >= election_start_voters_min && tally >= (node.online_reps.trended () / 100) * node.config.election_hint_weight_percent)
 	{
 		status.election_started = true;
 	}

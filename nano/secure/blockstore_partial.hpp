@@ -65,20 +65,14 @@ public:
 		return iterator != accounts_end () && nano::account (iterator->first) == account_a;
 	}
 
-	void confirmation_height_clear (nano::write_transaction const & transaction_a, nano::account const & account_a, uint64_t existing_confirmation_height_a) override
+	void confirmation_height_clear (nano::write_transaction const & transaction_a, nano::account const & account_a) override
 	{
-		if (existing_confirmation_height_a > 0)
-		{
-			confirmation_height_put (transaction_a, account_a, { 0, nano::block_hash{ 0 } });
-		}
+		confirmation_height_del (transaction_a, account_a);
 	}
 
 	void confirmation_height_clear (nano::write_transaction const & transaction_a) override
 	{
-		for (auto i (confirmation_height_begin (transaction_a)), n (confirmation_height_end ()); i != n; ++i)
-		{
-			confirmation_height_clear (transaction_a, i->first, i->second.height);
-		}
+		drop (transaction_a, nano::tables::confirmation_height);
 	}
 
 	bool pending_exists (nano::transaction const & transaction_a, nano::pending_key const & key_a) override
@@ -414,7 +408,6 @@ public:
 	void account_put (nano::write_transaction const & transaction_a, nano::account const & account_a, nano::account_info const & info_a) override
 	{
 		// Check we are still in sync with other tables
-		debug_assert (confirmation_height_exists (transaction_a, account_a));
 		nano::db_val<Val> info (info_a);
 		auto status = put (transaction_a, tables::accounts, account_a, info);
 		release_assert (success (status));
@@ -584,6 +577,12 @@ public:
 			nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
 			result = confirmation_height_info_a.deserialize (stream);
 		}
+		if (result)
+		{
+			confirmation_height_info_a.height = 0;
+			confirmation_height_info_a.frontier = 0;
+		}
+
 		return result;
 	}
 

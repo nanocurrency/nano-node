@@ -144,7 +144,7 @@ if (WIN32)
 
 else ()
 	if (NANO_WARN_TO_ERR)
-		add_compile_options(-Werror)
+		add_compile_options(-Werror -Wno-deprecated-declarations)
 	endif ()
 
 	if ((${USING_TSAN} AND ${USING_ASAN}) OR
