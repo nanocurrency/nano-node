@@ -84,6 +84,7 @@ public:
 	void pending ();
 	void pending_exists ();
 	void process ();
+	void pruned_exists ();
 	void receive ();
 	void receive_minimum ();
 	void receive_minimum_set ();
