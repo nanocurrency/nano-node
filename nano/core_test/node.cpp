@@ -4494,33 +4494,6 @@ TEST (rep_crawler, local)
 }
 }
 
-TEST (online_reps, backup)
-{
-	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
-	ASSERT_TRUE (!store->init_error ());
-	nano::stat stats;
-	nano::ledger ledger (*store, stats);
-	{
-		nano::genesis genesis;
-		auto transaction (store->tx_begin_write ());
-		store->initialize (transaction, genesis, ledger.cache);
-	}
-	nano::network_params params;
-	nano::online_reps online_reps (ledger, params, 0);
-	ASSERT_EQ (0, online_reps.list ().size ());
-	online_reps.observe (nano::dev_genesis_key.pub);
-	// The reported list of online reps is the union of the current list and the backup list, which changes when sampling
-	ASSERT_EQ (1, online_reps.list ().size ());
-	ASSERT_TRUE (online_reps.online_stake ().is_zero ());
-	online_reps.sample ();
-	ASSERT_EQ (1, online_reps.list ().size ());
-	// The trend is also correctly updated
-	ASSERT_EQ (nano::genesis_amount, online_reps.online_stake ());
-	online_reps.sample ();
-	ASSERT_EQ (0, online_reps.list ().size ());
-}
-
 TEST (node, pruning_automatic)
 {
 	nano::system system;
