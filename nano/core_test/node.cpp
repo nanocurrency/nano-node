@@ -1898,26 +1898,37 @@ TEST (node, bootstrap_bulk_push)
 	nano::system system1;
 	nano::node_config config0 (nano::get_available_port (), system0.logging);
 	config0.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	auto node0 (system0.add_node (config0));
+	nano::node_flags node_flags0;
+	node_flags0.disable_request_loop = true;
+	auto node0 (system0.add_node (config0, node_flags0));
 	nano::node_config config1 (nano::get_available_port (), system1.logging);
 	config1.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto node1 (system1.add_node (config1));
 	nano::keypair key0;
 	// node0 knows about send0 but node1 doesn't.
-	auto send0 = *nano::send_block_builder ()
+	auto send0 = nano::send_block_builder ()
 	              .previous (nano::genesis_hash)
 	              .destination (key0.pub)
 	              .balance (500)
 	              .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
 	              .work (*node0->work_generate_blocking (nano::genesis_hash))
-	              .build ();
-	ASSERT_EQ (nano::process_result::progress, node0->process (send0).code);
+	              .build_shared ();
+	ASSERT_EQ (nano::process_result::progress, node0->process (*send0).code);
+	nano::blocks_confirm (*node0, { send0 }, true); // Confirm block
+	system0.deadline_set (10s);
+	bool done (false);
+	while (!done)
+	{
+		done = node0->ledger.cache.cemented_count == 2 && node0->confirmation_height_processor.current ().is_zero ()
+		ASSERT_NO_ERROR (system0.poll ());
+	}
+
 	ASSERT_FALSE (node0->bootstrap_initiator.in_progress ());
 	ASSERT_FALSE (node1->bootstrap_initiator.in_progress ());
 	ASSERT_TRUE (node1->active.empty ());
 	node0->bootstrap_initiator.bootstrap (node1->network.endpoint (), false);
 	system1.deadline_set (10s);
-	while (node1->block (send0.hash ()) == nullptr)
+	while (node1->block (send0->hash ()) == nullptr)
 	{
 		ASSERT_NO_ERROR (system0.poll ());
 		ASSERT_NO_ERROR (system1.poll ());
@@ -1985,27 +1996,38 @@ TEST (node, bootstrap_fork_open)
 // Unconfirmed blocks from bootstrap should be confirmed
 TEST (node, bootstrap_confirm_frontiers)
 {
-	nano::system system0 (1);
+	nano::node_flags node_flags0;
+	node_flags0.disable_request_loop = true;
+	nano::system system0 (1, nano::transport::transport_type::tcp, node_flags0);
 	nano::system system1 (1);
 	auto node0 (system0.nodes[0]);
 	auto node1 (system0.nodes[0]);
 	system0.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	nano::keypair key0;
 	// node0 knows about send0 but node1 doesn't.
-	auto send0 = *nano::send_block_builder ()
+	auto send0 = nano::send_block_builder ()
 	              .previous (nano::genesis_hash)
 	              .destination (key0.pub)
 	              .balance (nano::genesis_amount - 500)
 	              .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
 	              .work (*node0->work_generate_blocking (nano::genesis_hash))
-	              .build ();
-	ASSERT_EQ (nano::process_result::progress, node0->process (send0).code);
+	              .build_shared ();
+	ASSERT_EQ (nano::process_result::progress, node0->process (*send0).code);
+	nano::blocks_confirm (*node0, { send0 }, true); // Confirm block
+	system0.deadline_set (10s);
+	bool done (false);
+	while (!done)
+	{
+		done = node0->ledger.cache.cemented_count == 2 && node0->confirmation_height_processor.current ().is_zero ()
+		ASSERT_NO_ERROR (system0.poll ());
+	}
+
 	ASSERT_FALSE (node0->bootstrap_initiator.in_progress ());
 	ASSERT_FALSE (node1->bootstrap_initiator.in_progress ());
 	ASSERT_TRUE (node1->active.empty ());
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
 	system1.deadline_set (10s);
-	while (node1->block (send0.hash ()) == nullptr)
+	while (node1->block (send0->hash ()) == nullptr)
 	{
 		ASSERT_NO_ERROR (system0.poll ());
 		ASSERT_NO_ERROR (system1.poll ());
@@ -2019,17 +2041,17 @@ TEST (node, bootstrap_confirm_frontiers)
 	}
 	{
 		nano::lock_guard<std::mutex> guard (node1->active.mutex);
-		auto existing1 (node1->active.blocks.find (send0.hash ()));
+		auto existing1 (node1->active.blocks.find (send0->hash ()));
 		ASSERT_NE (node1->active.blocks.end (), existing1);
 	}
 	// Wait for confirmation height update
 	system1.deadline_set (10s);
-	bool done (false);
+	done = false;
 	while (!done)
 	{
 		{
 			auto transaction (node1->store.tx_begin_read ());
-			done = node1->ledger.block_confirmed (transaction, send0.hash ());
+			done = node1->ledger.block_confirmed (transaction, send0->hash ());
 		}
 		ASSERT_NO_ERROR (system0.poll ());
 		ASSERT_NO_ERROR (system1.poll ());

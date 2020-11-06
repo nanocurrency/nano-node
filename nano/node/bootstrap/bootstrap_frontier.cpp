@@ -138,12 +138,13 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 					}
 					else
 					{
-						if (connection->node->ledger.block_or_pruned_exists (latest))
+						auto transaction (connection->node->store.tx_begin_read ());
+						if (connection->node->ledger.block_confirmed_or_pruned_exists (transaction, latest))
 						{
 							// We know about a block they don't.
 							unsynced (frontier, latest);
 						}
-						else
+						else if (!connection->node->store.block_exists (transaction, latest))
 						{
 							attempt->add_frontier (nano::pull_info (account, latest, frontier, attempt->incremental_id, 0, connection->node->network_params.bootstrap.frontier_retry_limit));
 							// Either we're behind or there's a fork we differ on
@@ -205,13 +206,13 @@ void nano::frontier_req_client::next ()
 	{
 		size_t max_size (128);
 		auto transaction (connection->node->store.tx_begin_read ());
-		for (auto i (connection->node->store.accounts_begin (transaction, current.number () + 1)), n (connection->node->store.accounts_end ()); i != n && accounts.size () != max_size; ++i)
+		for (auto i (connection->node->store.confirmation_height_begin (transaction, current.number () + 1)), n (connection->node->store.confirmation_height_end ()); i != n && accounts.size () != max_size; ++i)
 		{
-			nano::account_info const & info (i->second);
+			nano::confirmation_height_info const & info (i->second);
 			nano::account const & account (i->first);
-			accounts.emplace_back (account, info.head);
+			accounts.emplace_back (account, info.frontier);
 		}
-		/* If loop breaks before max_size, then accounts_end () is reached
+		/* If loop breaks before max_size, then confirmation_height_end () is reached
 		Add empty record to finish frontier_req_server */
 		if (accounts.size () != max_size)
 		{
@@ -317,19 +318,27 @@ void nano::frontier_req_server::next ()
 	if (accounts.empty ())
 	{
 		auto now (nano::seconds_since_epoch ());
-		bool skip_old (request->age != std::numeric_limits<decltype (request->age)>::max ());
 		size_t max_size (128);
 		auto transaction (connection->node->store.tx_begin_read ());
-		for (auto i (connection->node->store.accounts_begin (transaction, current.number () + 1)), n (connection->node->store.accounts_end ()); i != n && accounts.size () != max_size; ++i)
+		for (auto i (connection->node->store.confirmation_height_begin (transaction, current.number () + 1)), n (connection->node->store.confirmation_height_end ()); i != n && accounts.size () != max_size; ++i)
 		{
-			nano::account_info const & info (i->second);
-			if (!skip_old || (now - info.modified) <= request->age)
+			nano::confirmation_height_info const & info (i->second);
+			nano::block_hash const & confirmed_frontier (info.frontier);
+			bool add_frontier (request->age == std::numeric_limits<decltype (request->age)>::max ());
+			if (!add_frontier)
+			{
+				// Check block modification time if request contsains age field
+				auto block (connection->node->store.block_get (transaction, confirmed_frontier));
+				debug_assert (block != nullptr && block->has_sideband ());
+				add_frontier = (now - block->sideband ().timestamp) <= request->age;
+			}
+			if (add_frontier)
 			{
 				nano::account const & account (i->first);
-				accounts.emplace_back (account, info.head);
+				accounts.emplace_back (account, confirmed_frontier);
 			}
 		}
-		/* If loop breaks before max_size, then accounts_end () is reached
+		/* If loop breaks before max_size, then confirmation_height_end () is reached
 		Add empty record to finish frontier_req_server */
 		if (accounts.size () != max_size)
 		{
