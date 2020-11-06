@@ -229,14 +229,14 @@ TEST (node, quick_confirm)
 	auto send = nano::send_block_builder ()
 	            .previous (previous)
 	            .destination (key.pub)
-	            .balance (node1.config.online_weight_minimum.number () + 1)
+	            .balance (node1.online_reps.delta () + 1)
 	            .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
 	            .work (*system.work.generate (previous))
 	            .build_shared ();
 	node1.process_active (send);
 	ASSERT_TIMELY (10s, !node1.balance (key.pub).is_zero ());
-	ASSERT_EQ (node1.balance (nano::dev_genesis_key.pub), node1.config.online_weight_minimum.number () + 1);
-	ASSERT_EQ (node1.balance (key.pub), genesis_start_balance - (node1.config.online_weight_minimum.number () + 1));
+	ASSERT_EQ (node1.balance (nano::dev_genesis_key.pub), node1.online_reps.delta () + 1);
+	ASSERT_EQ (node1.balance (key.pub), genesis_start_balance - (node1.online_reps.delta () + 1));
 }
 
 TEST (node, node_receive_quorum)
@@ -2415,15 +2415,19 @@ TEST (node, online_reps)
 	nano::system system (1);
 	auto & node1 (*system.nodes[0]);
 	// 1 sample of minimum weight
-	ASSERT_EQ (node1.config.online_weight_minimum, node1.online_reps.online_stake ());
+	ASSERT_EQ (node1.config.online_weight_minimum, node1.online_reps.trended ());
 	auto vote (std::make_shared<nano::vote> ());
+	ASSERT_EQ (0, node1.online_reps.online ());
 	node1.online_reps.observe (nano::dev_genesis_key.pub);
+	ASSERT_EQ (nano::genesis_amount, node1.online_reps.online ());
 	// 1 minimum, 1 maximum
+	ASSERT_EQ (node1.config.online_weight_minimum, node1.online_reps.trended ());
 	node1.online_reps.sample ();
-	ASSERT_EQ (nano::genesis_amount, node1.online_reps.online_stake ());
+	ASSERT_EQ (nano::genesis_amount, node1.online_reps.trended ());
+	node1.online_reps.clear ();
 	// 2 minimum, 1 maximum
 	node1.online_reps.sample ();
-	ASSERT_EQ (node1.config.online_weight_minimum, node1.online_reps.online_stake ());
+	ASSERT_EQ (node1.config.online_weight_minimum, node1.online_reps.trended ());
 }
 
 TEST (node, block_confirm)
@@ -2537,8 +2541,8 @@ TEST (node, confirm_quorum)
 	auto & node1 (*system.nodes[0]);
 	nano::genesis genesis;
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
-	// Put greater than online_weight_minimum in pending so quorum can't be reached
-	nano::amount new_balance (node1.config.online_weight_minimum.number () - nano::Gxrb_ratio);
+	// Put greater than node.delta () in pending so quorum can't be reached
+	nano::amount new_balance (node1.online_reps.delta () - nano::Gxrb_ratio);
 	auto send1 = nano::state_block_builder ()
 	             .account (nano::dev_genesis_key.pub)
 	             .previous (genesis.hash ())
@@ -3855,7 +3859,7 @@ TEST (node, rollback_vote_self)
 	auto & node = *system.add_node (flags);
 	nano::state_block_builder builder;
 	nano::keypair key;
-	auto weight = node.config.online_weight_minimum.number ();
+	auto weight = node.online_reps.delta ();
 	auto send1 = builder.make_block ()
 	             .account (nano::dev_genesis_key.pub)
 	             .previous (nano::genesis_hash)
@@ -4488,33 +4492,6 @@ TEST (rep_crawler, local)
 	node.rep_crawler.validate ();
 	ASSERT_EQ (0, node.rep_crawler.representative_count ());
 }
-}
-
-TEST (online_reps, backup)
-{
-	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
-	ASSERT_TRUE (!store->init_error ());
-	nano::stat stats;
-	nano::ledger ledger (*store, stats);
-	{
-		nano::genesis genesis;
-		auto transaction (store->tx_begin_write ());
-		store->initialize (transaction, genesis, ledger.cache);
-	}
-	nano::network_params params;
-	nano::online_reps online_reps (ledger, params, 0);
-	ASSERT_EQ (0, online_reps.list ().size ());
-	online_reps.observe (nano::dev_genesis_key.pub);
-	// The reported list of online reps is the union of the current list and the backup list, which changes when sampling
-	ASSERT_EQ (1, online_reps.list ().size ());
-	ASSERT_TRUE (online_reps.online_stake ().is_zero ());
-	online_reps.sample ();
-	ASSERT_EQ (1, online_reps.list ().size ());
-	// The trend is also correctly updated
-	ASSERT_EQ (nano::genesis_amount, online_reps.online_stake ());
-	online_reps.sample ();
-	ASSERT_EQ (0, online_reps.list ().size ());
 }
 
 namespace
