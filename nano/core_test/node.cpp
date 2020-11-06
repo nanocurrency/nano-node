@@ -1999,7 +1999,7 @@ TEST (node, bootstrap_confirm_frontiers)
 	nano::system system0 (1);
 	nano::system system1 (1);
 	auto node0 (system0.nodes[0]);
-	auto node1 (system0.nodes[0]);
+	auto node1 (system1.nodes[0]);
 	system0.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	nano::keypair key0;
 	// node0 knows about send0 but node1 doesn't.
