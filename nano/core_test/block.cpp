@@ -277,7 +277,7 @@ TEST (frontier_req, serialization)
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream (bytes);
-		request1.serialize (stream, false);
+		request1.serialize (stream);
 	}
 	auto error (false);
 	nano::bufferstream stream (bytes.data (), bytes.size ());
@@ -297,7 +297,7 @@ TEST (block, publish_req_serialization)
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream (bytes);
-		req.serialize (stream, false);
+		req.serialize (stream);
 	}
 	auto error (false);
 	nano::bufferstream stream2 (bytes.data (), bytes.size ());

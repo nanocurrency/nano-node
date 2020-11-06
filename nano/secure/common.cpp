@@ -89,9 +89,9 @@ network (network_a), ledger (network), voting (network), node (network), portmap
 	header_magic_number = network.is_dev_network () ? std::array<uint8_t, 2>{ { 'R', 'A' } } : network.is_beta_network () ? std::array<uint8_t, 2>{ { 'N', 'B' } } : network.is_live_network () ? std::array<uint8_t, 2>{ { 'R', 'C' } } : std::array<uint8_t, 2>{ { 'R', 'X' } };
 }
 
-uint8_t nano::protocol_constants::protocol_version_min (bool use_epoch_2_min_version_a) const
+uint8_t nano::protocol_constants::protocol_version_min () const
 {
-	return use_epoch_2_min_version_a ? protocol_version_min_epoch_2 : protocol_version_min_pre_epoch_2;
+	return protocol_version_min_m;
 }
 
 nano::ledger_constants::ledger_constants (nano::network_constants & network_constants) :
@@ -859,5 +859,4 @@ void nano::generate_cache::enable_all ()
 	cemented_count = true;
 	unchecked_count = true;
 	account_count = true;
-	epoch_2 = true;
 }

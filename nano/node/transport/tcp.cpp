@@ -288,7 +288,7 @@ void nano::transport::tcp_channels::process_messages ()
 
 void nano::transport::tcp_channels::process_message (nano::message const & message_a, nano::tcp_endpoint const & endpoint_a, nano::account const & node_id_a, std::shared_ptr<nano::socket> socket_a, nano::bootstrap_server_type type_a)
 {
-	if (!stopped && message_a.header.version_using >= protocol_constants ().protocol_version_min (node.ledger.cache.epoch_2_started))
+	if (!stopped && message_a.header.version_using >= protocol_constants ().protocol_version_min ())
 	{
 		auto channel (node.network.find_channel (nano::transport::map_tcp_to_endpoint (endpoint_a)));
 		if (channel)
@@ -423,7 +423,7 @@ void nano::transport::tcp_channels::purge (std::chrono::steady_clock::time_point
 	attempts.get<last_attempt_tag> ().erase (attempts.get<last_attempt_tag> ().begin (), attempts_cutoff);
 
 	// Check if any tcp channels belonging to old protocol versions which may still be alive due to async operations
-	auto lower_bound = channels.get<version_tag> ().lower_bound (node.network_params.protocol.protocol_version_min (node.ledger.cache.epoch_2_started));
+	auto lower_bound = channels.get<version_tag> ().lower_bound (node.network_params.protocol.protocol_version_min ());
 	channels.get<version_tag> ().erase (channels.get<version_tag> ().begin (), lower_bound);
 
 	// Cleanup any sockets which may still be existing from failed node id handshakes
@@ -457,7 +457,7 @@ void nano::transport::tcp_channels::ongoing_keepalive ()
 		size_t random_count (std::min (static_cast<size_t> (6), static_cast<size_t> (std::ceil (std::sqrt (node.network.udp_channels.size ())))));
 		for (auto i (0); i <= random_count; ++i)
 		{
-			auto tcp_endpoint (node.network.udp_channels.bootstrap_peer (node.network_params.protocol.protocol_version_min (node.ledger.cache.epoch_2_started)));
+			auto tcp_endpoint (node.network.udp_channels.bootstrap_peer (node.network_params.protocol.protocol_version_min ()));
 			if (tcp_endpoint != invalid_endpoint && find_channel (tcp_endpoint) == nullptr && !node.network.excluded_peers.check (tcp_endpoint))
 			{
 				start_tcp (nano::transport::map_tcp_to_endpoint (tcp_endpoint));
@@ -562,7 +562,7 @@ void nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint_a
 				// TCP node ID handshake
 				auto cookie (node_l->network.syn_cookies.assign (endpoint_a));
 				nano::node_id_handshake message (cookie, boost::none);
-				auto bytes = message.to_shared_const_buffer (node_l->ledger.cache.epoch_2_started);
+				auto bytes = message.to_shared_const_buffer ();
 				if (node_l->config.logging.network_node_id_handshake_logging ())
 				{
 					node_l->logger.try_log (boost::str (boost::format ("Node ID handshake request sent with node ID %1% to %2%: query %3%") % node_l->node_id.pub.to_node_id () % endpoint_a % (*cookie).to_string ()));
@@ -636,7 +636,7 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 					nano::message_header header (error, stream);
 					if (!error && header.type == nano::message_type::node_id_handshake)
 					{
-						if (header.version_using >= node_l->network_params.protocol.protocol_version_min (node_l->ledger.cache.epoch_2_started))
+						if (header.version_using >= node_l->network_params.protocol.protocol_version_min ())
 						{
 							nano::node_id_handshake message (error, stream, header);
 							if (!error && message.response && message.query)
@@ -660,7 +660,7 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 									channel_a->set_last_packet_received (std::chrono::steady_clock::now ());
 									boost::optional<std::pair<nano::account, nano::signature>> response (std::make_pair (node_l->node_id.pub, nano::sign_message (node_l->node_id.prv, node_l->node_id.pub, *message.query)));
 									nano::node_id_handshake response_message (boost::none, response);
-									auto bytes = response_message.to_shared_const_buffer (node_l->ledger.cache.epoch_2_started);
+									auto bytes = response_message.to_shared_const_buffer ();
 									if (node_l->config.logging.network_node_id_handshake_logging ())
 									{
 										node_l->logger.try_log (boost::str (boost::format ("Node ID handshake response sent with node ID %1% to %2%: query %3%") % node_l->node_id.pub.to_node_id () % endpoint_a % (*message.query).to_string ()));
