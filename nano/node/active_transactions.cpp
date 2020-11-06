@@ -1470,7 +1470,7 @@ nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_
 	}
 	status.tally = tally;
 
-	if (!previously_a.confirmed && tally >= node.config.online_weight_minimum.number ())
+	if (!previously_a.confirmed && tally >= node.online_reps.delta ())
 	{
 		status.bootstrap_started = true;
 		status.confirmed = true;
@@ -1479,7 +1479,7 @@ nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_
 	{
 		status.bootstrap_started = true;
 	}
-	if (!previously_a.election_started && voters_a.size () >= election_start_voters_min && tally >= (node.online_reps.online_stake () / 100) * node.config.election_hint_weight_percent)
+	if (!previously_a.election_started && voters_a.size () >= election_start_voters_min && tally >= (node.online_reps.trended () / 100) * node.config.election_hint_weight_percent)
 	{
 		status.election_started = true;
 	}

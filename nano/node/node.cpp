@@ -118,7 +118,7 @@ block_processor_thread ([this]() {
 	this->block_processor.process_blocks ();
 }),
 // clang-format on
-online_reps (ledger, network_params, config.online_weight_minimum.number ()),
+online_reps (ledger, config),
 vote_uniquer (block_uniquer),
 confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, config.logging, logger, node_initialized_latch, flags.confirmation_height_processor_mode),
 active (*this, confirmation_height_processor),
@@ -779,7 +779,7 @@ nano::block_hash nano::node::rep_block (nano::account const & account_a)
 
 nano::uint128_t nano::node::minimum_principal_weight ()
 {
-	return minimum_principal_weight (online_reps.online_stake ());
+	return minimum_principal_weight (online_reps.trended ());
 }
 
 nano::uint128_t nano::node::minimum_principal_weight (nano::uint128_t const & online_stake)
@@ -1130,12 +1130,6 @@ bool nano::node::block_confirmed_or_being_confirmed (nano::transaction const & t
 	return confirmation_height_processor.is_processing_block (hash_a) || ledger.block_confirmed (transaction_a, hash_a);
 }
 
-nano::uint128_t nano::node::delta () const
-{
-	auto result ((online_reps.online_stake () / 100) * config.online_weight_quorum);
-	return result;
-}
-
 void nano::node::ongoing_online_weight_calculation_queue ()
 {
 	std::weak_ptr<nano::node> node_w (shared_from_this ());
@@ -1151,7 +1145,7 @@ void nano::node::ongoing_online_weight_calculation_queue ()
 
 bool nano::node::online () const
 {
-	return rep_crawler.total_weight () > (std::max (config.online_weight_minimum.number (), delta ()));
+	return rep_crawler.total_weight () > online_reps.delta ();
 }
 
 void nano::node::ongoing_online_weight_calculation ()

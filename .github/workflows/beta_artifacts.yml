@@ -73,7 +73,15 @@ jobs:
         run: TRAVIS_TAG=${TAG} ci/actions/linux/deploy-docker.sh
         env:
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-  
+      - name: Login to ghcr.io
+        uses: docker/login-action@adb7347
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GHCR_PAT }}
+      - name: Deploy Docker (ghcr.io)
+        run: ci/actions/linux/ghcr_push.sh
+        
   windows_job:
     runs-on: windows-latest
     steps:
