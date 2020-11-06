@@ -198,7 +198,7 @@ TEST (bootstrap_processor, process_one)
 	auto send (system.wallet (0)->send_action (nano::dev_genesis_key.pub, nano::dev_genesis_key.pub, 100));
 	ASSERT_NE (nullptr, send);
 	nano::blocks_confirm (*node0, { send }, true); // Confirm frontier
-	ASSERT_TIMELY (10s, node0->ledger.cache.cemented_count == 2 && node0->confirmation_height_processor.current ().is_zero ());
+	ASSERT_TIMELY (2s, node0->block_confirmed (send->hash ()));
 
 	node_config.peering_port = nano::get_available_port ();
 	node_flags.disable_rep_crawler = true;
@@ -256,7 +256,7 @@ TEST (bootstrap_processor, process_state)
 	node0->process (*block1);
 	node0->process (*block2);
 	nano::blocks_confirm (*node0, { block1, block2 }, true); // Confirm blocks
-	ASSERT_TIMELY (10s, node0->ledger.cache.cemented_count == 3 && node0->confirmation_height_processor.current ().is_zero ());
+	ASSERT_TIMELY (5s, node0->block_confirmed (block1->hash ()) && node0->block_confirmed (block2->hash ()));
 
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work));
 	ASSERT_EQ (node0->latest (nano::dev_genesis_key.pub), block2->hash ());
@@ -311,7 +311,7 @@ TEST (bootstrap_processor, pull_diamond)
 	auto receive (std::make_shared<nano::receive_block> (send1->hash (), send2->hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send1->hash ())));
 	ASSERT_EQ (nano::process_result::progress, node0->process (*receive).code);
 	nano::blocks_confirm (*node0, { send1, open, send2, receive }, true); // Confirm blocks
-	ASSERT_TIMELY (10s, node0->ledger.cache.cemented_count == 5 && node0->confirmation_height_processor.current ().is_zero ());
+	ASSERT_TIMELY (10s, node0->block_confirmed (send1->hash ()) && node0->block_confirmed (open->hash ()) && node0->block_confirmed (send2->hash ()) && node0->block_confirmed (receive->hash ()));
 
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work));
 	ASSERT_FALSE (node1->init_error ());
@@ -379,7 +379,7 @@ TEST (bootstrap_processor, frontiers_unconfirmed)
 	auto open2 (std::make_shared<nano::state_block> (key2.pub, 0, key2.pub, nano::Gxrb_ratio, send2->hash (), key2.prv, key2.pub, *system.work.generate (key2.pub)));
 	ASSERT_EQ (nano::process_result::progress, node1->process (*open2).code);
 	nano::blocks_confirm (*node1, { send1, send2, open1, open2 }, true); // Confirm incorrect blocks
-	ASSERT_TIMELY (10s, node1->ledger.cache.cemented_count == 5 && node1->confirmation_height_processor.current ().is_zero ());
+	ASSERT_TIMELY (10s, node1->block_confirmed (send1->hash ()) && node1->block_confirmed (send2->hash ()) && node1->block_confirmed (open1->hash ()) && node1->block_confirmed (open2->hash ()));
 
 	node_config.peering_port = nano::get_available_port ();
 	node_flags.disable_bootstrap_bulk_pull_server = false;
@@ -485,7 +485,7 @@ TEST (bootstrap_processor, frontiers_unconfirmed_threshold)
 	ASSERT_EQ (nano::process_result::progress, node1->process (*open2).code);
 	system.wallet (0)->insert_adhoc (key1.prv); // Small representative
 	nano::blocks_confirm (*node1, { send1, send2, open1, open2 }, true); // Confirm blocks
-	ASSERT_TIMELY (10s, node1->ledger.cache.cemented_count == 5 && node1->confirmation_height_processor.current ().is_zero ());
+	ASSERT_TIMELY (10s, node1->block_confirmed (send1->hash ()) && node1->block_confirmed (send2->hash ()) && node1->block_confirmed (open1->hash ()) && node1->block_confirmed (open2->hash ()));
 
 	// Test node with large representative
 	node_config.peering_port = nano::get_available_port ();
@@ -529,7 +529,7 @@ TEST (bootstrap_processor, push_diamond)
 	auto receive (std::make_shared<nano::receive_block> (send1->hash (), send2->hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send1->hash ())));
 	ASSERT_EQ (nano::process_result::progress, node1->process (*receive).code);
 	nano::blocks_confirm (*node1, { send1, open, send2, receive }, true); // Confirm blocks
-	ASSERT_TIMELY (10s, node1->ledger.cache.cemented_count == 5 && node1->confirmation_height_processor.current ().is_zero ());
+	ASSERT_TIMELY (10s, node1->block_confirmed (send1->hash ()) && node1->block_confirmed (open->hash ()) && node1->block_confirmed (send2->hash ()) && node1->block_confirmed (receive->hash ()));
 
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
 	ASSERT_TIMELY (10s, node0->balance (nano::dev_genesis_key.pub) == 100);
@@ -556,7 +556,7 @@ TEST (bootstrap_processor, push_diamond_pruning)
 	auto open (std::make_shared<nano::open_block> (send1->hash (), 1, key.pub, key.prv, key.pub, *system.work.generate (key.pub)));
 	ASSERT_EQ (nano::process_result::progress, node1->process (*open).code);
 	nano::blocks_confirm (*node1, { send1, open }, true); // Confirm blocks
-	ASSERT_TIMELY (10s, node1->ledger.cache.cemented_count == 3 && node1->confirmation_height_processor.current ().is_zero ());
+	ASSERT_TIMELY (5s, node1->block_confirmed (send1->hash ()) && node1->block_confirmed (open->hash ()));
 
 	// 1st bootstrap
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
@@ -567,7 +567,7 @@ TEST (bootstrap_processor, push_diamond_pruning)
 	auto receive (std::make_shared<nano::receive_block> (send1->hash (), send2->hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send1->hash ())));
 	ASSERT_EQ (nano::process_result::progress, node1->process (*receive).code);
 	nano::blocks_confirm (*node1, { send2, receive }, true); // Confirm blocks
-	ASSERT_TIMELY (10s, node1->ledger.cache.cemented_count == 5 && node1->confirmation_height_processor.current ().is_zero ());
+	ASSERT_TIMELY (5s, node1->block_confirmed (send2->hash ()) && node1->block_confirmed (receive->hash ()));
 	{
 		auto transaction (node1->store.tx_begin_write ());
 		ASSERT_EQ (1, node1->ledger.pruning_action (transaction, send1->hash (), 2));
@@ -605,7 +605,7 @@ TEST (bootstrap_processor, push_one)
 	ASSERT_NE (nullptr, send);
 	ASSERT_NE (balance1, node1->balance (nano::dev_genesis_key.pub));
 	nano::blocks_confirm (*node1, { send }, true); // Confirm blocks
-	ASSERT_TIMELY (10s, node1->ledger.cache.cemented_count == 2 && node1->confirmation_height_processor.current ().is_zero ());
+	ASSERT_TIMELY (2s, node1->block_confirmed (send->hash ()));
 
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
 	ASSERT_TIMELY (10s, node0->balance (nano::dev_genesis_key.pub) != balance1);
@@ -1123,19 +1123,14 @@ TEST (bootstrap_processor, bootstrap_fork)
 	nano::keypair key;
 	auto send (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, node0->latest (nano::dev_genesis_key.pub), nano::dev_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (node0->latest (nano::dev_genesis_key.pub))));
 	ASSERT_EQ (nano::process_result::progress, node0->process (*send).code);
-	// Confirm send block to vote later
-	node0->block_confirm (send);
-	auto election = node0->active.election (send->qualified_root ());
-	ASSERT_NE (nullptr, election);
-	election->force_confirm ();
-	ASSERT_TIMELY (2s, node0->block_confirmed (send->hash ()));
-	node0->active.erase (*send);
 	auto open_work (*system.work.generate (key.pub));
 	auto open (std::make_shared<nano::state_block> (key.pub, 0, key.pub, nano::Gxrb_ratio, send->hash (), key.prv, key.pub, open_work));
 	ASSERT_EQ (nano::process_result::progress, node0->process (*open).code);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
+	// Confirm blocks to vote later
 	nano::blocks_confirm (*node0, { send, open }, true); // Confirm blocks
-	ASSERT_TIMELY (10s, node0->ledger.cache.cemented_count == 3 && node0->confirmation_height_processor.current ().is_zero ());
+	ASSERT_TIMELY (5s, node0->block_confirmed (send->hash ()) && node0->block_confirmed (open->hash ()));
+	node0->active.erase (*send);
 
 	// Create forked node
 	config.peering_port = nano::get_available_port ();

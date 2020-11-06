@@ -1915,11 +1915,11 @@ TEST (node, bootstrap_bulk_push)
 	              .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node0->process (*send0).code);
 	nano::blocks_confirm (*node0, { send0 }, true); // Confirm block
-	system0.deadline_set (10s);
+	system0.deadline_set (5s);
 	bool done (false);
 	while (!done)
 	{
-		done = node0->ledger.cache.cemented_count == 2 && node0->confirmation_height_processor.current ().is_zero ()
+		done = node0->block_confirmed (send0->hash ());
 		ASSERT_NO_ERROR (system0.poll ());
 	}
 
@@ -1996,9 +1996,7 @@ TEST (node, bootstrap_fork_open)
 // Unconfirmed blocks from bootstrap should be confirmed
 TEST (node, bootstrap_confirm_frontiers)
 {
-	nano::node_flags node_flags0;
-	node_flags0.disable_request_loop = true;
-	nano::system system0 (1, nano::transport::transport_type::tcp, node_flags0);
+	nano::system system0 (1);
 	nano::system system1 (1);
 	auto node0 (system0.nodes[0]);
 	auto node1 (system0.nodes[0]);
@@ -2014,11 +2012,11 @@ TEST (node, bootstrap_confirm_frontiers)
 	              .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node0->process (*send0).code);
 	nano::blocks_confirm (*node0, { send0 }, true); // Confirm block
-	system0.deadline_set (10s);
+	system0.deadline_set (5s);
 	bool done (false);
 	while (!done)
 	{
-		done = node0->ledger.cache.cemented_count == 2 && node0->confirmation_height_processor.current ().is_zero ()
+		done = node0->block_confirmed (send0->hash ());
 		ASSERT_NO_ERROR (system0.poll ());
 	}
 
