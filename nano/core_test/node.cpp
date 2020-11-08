@@ -1898,9 +1898,7 @@ TEST (node, bootstrap_bulk_push)
 	nano::system system1;
 	nano::node_config config0 (nano::get_available_port (), system0.logging);
 	config0.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	nano::node_flags node_flags0;
-	node_flags0.disable_request_loop = true;
-	auto node0 (system0.add_node (config0, node_flags0));
+	auto node0 (system0.add_node (config0));
 	nano::node_config config1 (nano::get_available_port (), system1.logging);
 	config1.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto node1 (system1.add_node (config1));
@@ -1934,7 +1932,11 @@ TEST (node, bootstrap_bulk_push)
 		ASSERT_NO_ERROR (system1.poll ());
 	}
 	// since this uses bulk_push, the new block should be republished
-	ASSERT_FALSE (node1->active.empty ());
+	system1.deadline_set (5s);
+	while (node1->active.empty ())
+	{
+		ASSERT_NO_ERROR (system1.poll ());
+	}
 }
 
 // Bootstrapping a forked open block should succeed.
