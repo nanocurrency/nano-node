@@ -26,9 +26,9 @@ work_thresholds const network_constants::publish_dev (
 );
 
 work_thresholds const network_constants::publish_test ( //defaults to live network levels
-GetEnvThresholdOrDefault ("NANO_TEST_EPOCH_1", 0xffffffc000000000),
-GetEnvThresholdOrDefault ("NANO_TEST_EPOCH_2", 0xfffffff800000000), // 8x higher than epoch_1
-GetEnvThresholdOrDefault ("NANO_TEST_EPOCH_2_RECV", 0xfffffe0000000000) // 8x lower than epoch_1
+get_env_threshold_or_default ("NANO_TEST_EPOCH_1", 0xffffffc000000000),
+get_env_threshold_or_default ("NANO_TEST_EPOCH_2", 0xfffffff800000000), // 8x higher than epoch_1
+get_env_threshold_or_default ("NANO_TEST_EPOCH_2_RECV", 0xfffffe0000000000) // 8x lower than epoch_1
 );
 
 const char * network_constants::active_network_err_msg = "Invalid network. Valid values are live, test, beta and dev.";
@@ -50,13 +50,13 @@ uint8_t get_pre_release_node_version ()
 	return boost::numeric_cast<uint8_t> (boost::lexical_cast<int> (NANO_PRE_RELEASE_VERSION_STRING));
 }
 
-std::string GetEnvOrDefault (const std::string & variable_name, const std::string & default_value)
+std::string get_env_or_default (const std::string & variable_name, const std::string & default_value)
 {
 	const char * value = getenv (variable_name.c_str ());
 	return value ? value : default_value;
 }
 
-uint64_t GetEnvThresholdOrDefault (const std::string & variable_name, const uint64_t & default_value)
+uint64_t get_env_threshold_or_default (const std::string & variable_name, const uint64_t & default_value)
 {
 	const char * value = getenv (variable_name.c_str ());
 	return value ? std::strtoull (value, NULL, 16) : default_value;
@@ -64,7 +64,7 @@ uint64_t GetEnvThresholdOrDefault (const std::string & variable_name, const uint
 
 int test_node_port ()
 {
-	auto test_node_env = nano::GetEnvOrDefault ("NANO_TEST_NODE_PORT", "17075");
+	auto test_node_env = nano::get_env_or_default ("NANO_TEST_NODE_PORT", "17075");
 	int ret;
 	std::istringstream iss (test_node_env);
 	iss >> ret;
@@ -72,7 +72,7 @@ int test_node_port ()
 }
 int test_rpc_port ()
 {
-	auto test_env = nano::GetEnvOrDefault ("NANO_TEST_RPC_PORT", "17076");
+	auto test_env = nano::get_env_or_default ("NANO_TEST_RPC_PORT", "17076");
 	int ret;
 	std::istringstream iss (test_env);
 	iss >> ret;
@@ -80,7 +80,7 @@ int test_rpc_port ()
 }
 int test_ipc_port ()
 {
-	auto test_env = nano::GetEnvOrDefault ("NANO_TEST_IPC_PORT", "17077");
+	auto test_env = nano::get_env_or_default ("NANO_TEST_IPC_PORT", "17077");
 	int ret;
 	std::istringstream iss (test_env);
 	iss >> ret;
@@ -88,7 +88,7 @@ int test_ipc_port ()
 }
 int test_websocket_port ()
 {
-	auto test_env = nano::GetEnvOrDefault ("NANO_TEST_WEBSOCKET_PORT", "17078");
+	auto test_env = nano::get_env_or_default ("NANO_TEST_WEBSOCKET_PORT", "17078");
 	int ret;
 	std::istringstream iss (test_env);
 	iss >> ret;
@@ -97,7 +97,7 @@ int test_websocket_port ()
 
 std::array<uint8_t, 2> test_magic_number ()
 {
-	auto test_env = GetEnvOrDefault ("NANO_TEST_MAGIC_NUMBER", "RX");
+	auto test_env = get_env_or_default ("NANO_TEST_MAGIC_NUMBER", "RX");
 	std::array<uint8_t, 2> ret;
 	std::copy (test_env.begin (), test_env.end (), ret.data ());
 	return ret;

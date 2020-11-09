@@ -50,8 +50,8 @@ uint8_t get_minor_node_version ();
 uint8_t get_patch_node_version ();
 uint8_t get_pre_release_node_version ();
 
-std::string GetEnvOrDefault (const std::string & variable_name, const std::string & default_value);
-uint64_t GetEnvThresholdOrDefault (const std::string & variable_name, const uint64_t & default_value);
+std::string get_env_or_default (const std::string & variable_name, const std::string & default_value);
+uint64_t get_env_threshold_or_default (const std::string & variable_name, const uint64_t & default_value);
 
 int test_node_port ();
 int test_rpc_port ();
