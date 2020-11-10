@@ -142,12 +142,15 @@ TEST (bulk_pull, by_block_single)
 TEST (bulk_pull, count_limit)
 {
 	nano::system system (1);
+	auto node0 (system.nodes[0]);
 	nano::genesis genesis;
 
-	auto send1 (std::make_shared<nano::send_block> (system.nodes[0]->latest (nano::dev_genesis_key.pub), nano::dev_genesis_key.pub, 1, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (system.nodes[0]->latest (nano::dev_genesis_key.pub))));
-	ASSERT_EQ (nano::process_result::progress, system.nodes[0]->process (*send1).code);
+	auto send1 (std::make_shared<nano::send_block> (node0->latest (nano::dev_genesis_key.pub), nano::dev_genesis_key.pub, 1, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (node0->latest (nano::dev_genesis_key.pub))));
+	ASSERT_EQ (nano::process_result::progress, node0->process (*send1).code);
 	auto receive1 (std::make_shared<nano::receive_block> (send1->hash (), send1->hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send1->hash ())));
-	ASSERT_EQ (nano::process_result::progress, system.nodes[0]->process (*receive1).code);
+	ASSERT_EQ (nano::process_result::progress, node0->process (*receive1).code);
+	nano::blocks_confirm (*node0, { send1, receive1 }, true); // Confirm blocks
+	ASSERT_TIMELY (5s, node0->block_confirmed (send1->hash ()) && node0->block_confirmed (receive1->hash ()) && node0->active.empty ());
 
 	auto connection (std::make_shared<nano::bootstrap_server> (nullptr, system.nodes[0]));
 	auto req = std::make_unique<nano::bulk_pull> ();
@@ -161,6 +164,7 @@ TEST (bulk_pull, count_limit)
 	ASSERT_EQ (request->sent_count, 0);
 
 	auto block (request->get_next ());
+	ASSERT_NE (nullptr, block);
 	ASSERT_EQ (receive1->hash (), block->hash ());
 
 	block = request->get_next ();
@@ -633,7 +637,8 @@ TEST (bootstrap_processor, lazy_hash)
 	node0->block_processor.add (receive1);
 	node0->block_processor.add (send2);
 	node0->block_processor.add (receive2);
-	node0->block_processor.flush ();
+	nano::blocks_confirm (*node0, { send1, receive1, send2, receive2 }, true); // Confirm blocks
+	ASSERT_TIMELY (10s, node0->block_confirmed (send1->hash ()) && node0->block_confirmed (receive1->hash ()) && node0->block_confirmed (send2->hash ()) && node0->block_confirmed (receive2->hash ()) && node0->active.empty ());
 	// Start lazy bootstrap with last block in chain known
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work));
 	node1->network.udp_channels.insert (node0->network.endpoint (), node1->network_params.protocol.protocol_version);
@@ -669,7 +674,8 @@ TEST (bootstrap_processor, lazy_hash_bootstrap_id)
 	node0->block_processor.add (receive1);
 	node0->block_processor.add (send2);
 	node0->block_processor.add (receive2);
-	node0->block_processor.flush ();
+	nano::blocks_confirm (*node0, { send1, receive1, send2, receive2 }, true); // Confirm blocks
+	ASSERT_TIMELY (10s, node0->block_confirmed (send1->hash ()) && node0->block_confirmed (receive1->hash ()) && node0->block_confirmed (send2->hash ()) && node0->block_confirmed (receive2->hash ()) && node0->active.empty ());
 	// Start lazy bootstrap with last block in chain known
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work));
 	node1->network.udp_channels.insert (node0->network.endpoint (), node1->network_params.protocol.protocol_version);
@@ -715,8 +721,10 @@ TEST (bootstrap_processor, lazy_hash_pruning)
 	node0->block_processor.add (receive2);
 	node0->block_processor.add (send3);
 	node0->block_processor.add (receive3);
-	node0->block_processor.flush ();
+	nano::blocks_confirm (*node0, { send1, receive1, change1, change2, send2, receive2, send3, receive3 }, true); // Confirm blocks
+	ASSERT_TIMELY (10s, node0->block_confirmed (send1->hash ()) && node0->block_confirmed (receive1->hash ()) && node0->block_confirmed (change1->hash ()) && node0->block_confirmed (change2->hash ()) && node0->block_confirmed (send2->hash ()) && node0->block_confirmed (receive2->hash ()) && node0->block_confirmed (send3->hash ()) && node0->block_confirmed (receive3->hash ()) && node0->active.empty ());
 	ASSERT_EQ (9, node0->ledger.cache.block_count);
+	ASSERT_EQ (9, node0->ledger.cache.cemented_count);
 	// Processing chain to prune for node1
 	config.peering_port = nano::get_available_port ();
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags, 1));
@@ -724,33 +732,11 @@ TEST (bootstrap_processor, lazy_hash_pruning)
 	node1->process_active (receive1);
 	node1->process_active (change1);
 	node1->process_active (change2);
-	node1->block_processor.flush ();
-	ASSERT_EQ (5, node1->ledger.cache.block_count);
 	// Confirm last block to prune previous
-	{
-		auto election = node1->active.election (send1->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-	}
-	ASSERT_TIMELY (2s, node1->block_confirmed (send1->hash ()) && node1->active.active (receive1->qualified_root ()));
-	{
-		auto election = node1->active.election (receive1->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-	}
-	ASSERT_TIMELY (2s, node1->block_confirmed (receive1->hash ()) && node1->active.active (change1->qualified_root ()));
-	{
-		auto election = node1->active.election (change1->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-	}
-	ASSERT_TIMELY (2s, node1->block_confirmed (change1->hash ()) && node1->active.active (change2->qualified_root ()));
-	{
-		auto election = node1->active.election (change2->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-	}
-	ASSERT_TIMELY (2s, node1->active.empty () && node1->block_confirmed (change2->hash ()));
+	nano::blocks_confirm (*node1, { send1, receive1, change1, change2 }, true);
+	ASSERT_TIMELY (10s, node1->block_confirmed (send1->hash ()) && node1->block_confirmed (receive1->hash ()) && node1->block_confirmed (change1->hash ()) && node1->block_confirmed (change2->hash ()) && node1->active.empty ());
+	ASSERT_EQ (5, node1->ledger.cache.block_count);
+	ASSERT_EQ (5, node1->ledger.cache.cemented_count);
 	// Pruning action
 	node1->ledger_pruning (2, false, false);
 	ASSERT_EQ (9, node0->ledger.cache.block_count);
@@ -794,7 +780,8 @@ TEST (bootstrap_processor, lazy_max_pull_count)
 	node0->block_processor.add (change1);
 	node0->block_processor.add (change2);
 	node0->block_processor.add (change3);
-	node0->block_processor.flush ();
+	nano::blocks_confirm (*node0, { send1, receive1, send2, receive2, change1, change2, change3 }, true); // Confirm blocks
+	ASSERT_TIMELY (10s, node0->block_confirmed (send1->hash ()) && node0->block_confirmed (receive1->hash ()) && node0->block_confirmed (send2->hash ()) && node0->block_confirmed (receive2->hash ()) && node0->block_confirmed (change1->hash ()) && node0->block_confirmed (change2->hash ()) && node0->block_confirmed (change3->hash ()) && node0->active.empty ());
 	// Start lazy bootstrap with last block in chain known
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work));
 	node1->network.udp_channels.insert (node0->network.endpoint (), node1->network_params.protocol.protocol_version);
@@ -825,6 +812,8 @@ TEST (bootstrap_processor, lazy_unclear_state_link)
 	ASSERT_EQ (nano::process_result::progress, node1->process (*open).code);
 	auto receive (std::make_shared<nano::state_block> (key.pub, open->hash (), key.pub, 2 * nano::Gxrb_ratio, send2->hash (), key.prv, key.pub, *system.work.generate (open->hash ()))); // It is not possible to define this block send/receive status based on previous block (legacy open)
 	ASSERT_EQ (nano::process_result::progress, node1->process (*receive).code);
+	nano::blocks_confirm (*node1, { send1, send2, open, receive }, true); // Confirm blocks
+	ASSERT_TIMELY (10s, node1->block_confirmed (send1->hash ()) && node1->block_confirmed (send2->hash ()) && node1->block_confirmed (open->hash ()) && node1->block_confirmed (receive->hash ()) && node1->active.empty ());
 	// Start lazy bootstrap with last block in chain known
 	auto node2 = system.add_node (nano::node_config (nano::get_available_port (), system.logging), node_flags);
 	node2->network.udp_channels.insert (node1->network.endpoint (), node1->network_params.protocol.protocol_version);
@@ -857,6 +846,8 @@ TEST (bootstrap_processor, lazy_unclear_state_link_not_existing)
 	ASSERT_EQ (nano::process_result::progress, node1->process (*open).code);
 	auto send2 (std::make_shared<nano::state_block> (key.pub, open->hash (), key.pub, 0, key2.pub, key.prv, key.pub, *system.work.generate (open->hash ()))); // It is not possible to define this block send/receive status based on previous block (legacy open)
 	ASSERT_EQ (nano::process_result::progress, node1->process (*send2).code);
+	nano::blocks_confirm (*node1, { send1, open, send2 }, true); // Confirm blocks
+	ASSERT_TIMELY (10s, node1->block_confirmed (send1->hash ()) && node1->block_confirmed (open->hash ()) && node1->block_confirmed (send2->hash ()) && node1->active.empty ());
 	// Start lazy bootstrap with last block in chain known
 	auto node2 = system.add_node (nano::node_config (nano::get_available_port (), system.logging), node_flags);
 	node2->network.udp_channels.insert (node1->network.endpoint (), node1->network_params.protocol.protocol_version);
@@ -890,6 +881,8 @@ TEST (bootstrap_processor, lazy_destinations)
 	ASSERT_EQ (nano::process_result::progress, node1->process (*open).code);
 	auto state_open (std::make_shared<nano::state_block> (key2.pub, 0, key2.pub, nano::Gxrb_ratio, send2->hash (), key2.prv, key2.pub, *system.work.generate (key2.pub)));
 	ASSERT_EQ (nano::process_result::progress, node1->process (*state_open).code);
+	nano::blocks_confirm (*node1, { send1, send2, open, state_open }, true); // Confirm blocks
+	ASSERT_TIMELY (10s, node1->block_confirmed (send1->hash ()) && node1->block_confirmed (send2->hash ()) && node1->block_confirmed (open->hash ()) &&  node1->block_confirmed (state_open->hash ()) && node1->active.empty ());
 	// Start lazy bootstrap with last block in sender chain
 	auto node2 = system.add_node (nano::node_config (nano::get_available_port (), system.logging), node_flags);
 	node2->network.udp_channels.insert (node1->network.endpoint (), node1->network_params.protocol.protocol_version);
@@ -925,33 +918,11 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 	node1->process_active (open);
 	auto state_open (std::make_shared<nano::state_block> (key2.pub, 0, key2.pub, nano::Gxrb_ratio, send2->hash (), key2.prv, key2.pub, *system.work.generate (key2.pub)));
 	node1->process_active (state_open);
-	node1->block_processor.flush ();
-	ASSERT_EQ (5, node1->ledger.cache.block_count);
 	// Confirm last block to prune previous
-	{
-		auto election = node1->active.election (send1->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-	}
-	ASSERT_TIMELY (2s, node1->block_confirmed (send1->hash ()) && node1->active.active (send2->qualified_root ()));
-	{
-		auto election = node1->active.election (send2->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-	}
-	ASSERT_TIMELY (2s, node1->block_confirmed (send2->hash ()) && node1->active.active (open->qualified_root ()));
-	{
-		auto election = node1->active.election (open->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-	}
-	ASSERT_TIMELY (2s, node1->block_confirmed (open->hash ()) && node1->active.active (state_open->qualified_root ()));
-	{
-		auto election = node1->active.election (state_open->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-	}
-	ASSERT_TIMELY (2s, node1->active.empty () && node1->block_confirmed (state_open->hash ()));
+	nano::blocks_confirm (*node1, { send1, send2, open, state_open }, true);
+	ASSERT_TIMELY (10s, node1->block_confirmed (send1->hash ()) && node1->block_confirmed (send2->hash ()) && node1->block_confirmed (open->hash ()) &&  node1->block_confirmed (state_open->hash ()) && node1->active.empty ());
+	ASSERT_EQ (5, node1->ledger.cache.block_count);
+	ASSERT_EQ (5, node1->ledger.cache.cemented_count);
 	// Pruning action
 	node1->ledger_pruning (2, false, false);
 	ASSERT_EQ (5, node1->ledger.cache.block_count);
@@ -1016,7 +987,8 @@ TEST (bootstrap_processor, wallet_lazy_frontier)
 	node0->block_processor.add (receive1);
 	node0->block_processor.add (send2);
 	node0->block_processor.add (receive2);
-	node0->block_processor.flush ();
+	nano::blocks_confirm (*node0, { send1, receive1, send2, receive2 }, true); // Confirm blocks
+	ASSERT_TIMELY (10s, node0->block_confirmed (send1->hash ()) && node0->block_confirmed (receive1->hash ()) && node0->block_confirmed (send2->hash ()) && node0->block_confirmed (receive2->hash ()) && node0->active.empty ());
 	// Start wallet lazy bootstrap
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work));
 	node1->network.udp_channels.insert (node0->network.endpoint (), node1->network_params.protocol.protocol_version);
@@ -1054,7 +1026,8 @@ TEST (bootstrap_processor, wallet_lazy_pending)
 	node0->block_processor.add (send1);
 	node0->block_processor.add (receive1);
 	node0->block_processor.add (send2);
-	node0->block_processor.flush ();
+	nano::blocks_confirm (*node0, { send1, receive1, send2 }, true); // Confirm blocks
+	ASSERT_TIMELY (10s, node0->block_confirmed (send1->hash ()) && node0->block_confirmed (receive1->hash ()) && node0->block_confirmed (send2->hash ()) && node0->active.empty ());
 	// Start wallet lazy bootstrap
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work));
 	node1->network.udp_channels.insert (node0->network.endpoint (), node1->network_params.protocol.protocol_version);
@@ -1088,7 +1061,8 @@ TEST (bootstrap_processor, multiple_attempts)
 	node1->block_processor.add (receive1);
 	node1->block_processor.add (send2);
 	node1->block_processor.add (receive2);
-	node1->block_processor.flush ();
+	nano::blocks_confirm (*node1, { send1, receive1, send2, receive2 }, true); // Confirm blocks
+	ASSERT_TIMELY (10s, node1->block_confirmed (send1->hash ()) && node1->block_confirmed (receive1->hash ()) && node1->block_confirmed (send2->hash ()) && node1->block_confirmed (receive2->hash ()) && node1->active.empty ());
 	// Start 2 concurrent bootstrap attempts
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.bootstrap_initiator_threads = 3;
