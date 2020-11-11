@@ -50,13 +50,13 @@ uint8_t get_minor_node_version ();
 uint8_t get_patch_node_version ();
 uint8_t get_pre_release_node_version ();
 
-std::string get_env_or_default (const std::string & variable_name, const std::string & default_value);
-uint64_t get_env_threshold_or_default (const std::string & variable_name, const uint64_t & default_value);
+std::string get_env_or_default (char const * variable_name, std::string const default_value);
+uint64_t get_env_threshold_or_default (char const * variable_name, uint64_t const default_value);
 
-int test_node_port ();
-int test_rpc_port ();
-int test_ipc_port ();
-int test_websocket_port ();
+uint16_t test_node_port ();
+uint16_t test_rpc_port ();
+uint16_t test_ipc_port ();
+uint16_t test_websocket_port ();
 std::array<uint8_t, 2> test_magic_number ();
 
 /**
