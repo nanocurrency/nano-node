@@ -439,6 +439,18 @@ void nano::bulk_pull_server::set_current_end ()
 			current = request->start.as_block_hash ();
 			include_start = true;
 		}
+		else if (!request->end.is_zero ())
+		{
+			// Else start from confirmed frontier for given account
+			auto account (connection->node->ledger.account (transaction, request->start.as_block_hash ()));
+			nano::confirmation_height_info info;
+			auto no_confirmed_address (connection->node->store.confirmation_height_get (transaction, account, info));
+			if (!no_confirmed_address && info.frontier != request->end)
+			{
+				current = info.frontier;
+				include_start = true;
+			}
+		}
 	}
 	else
 	{
