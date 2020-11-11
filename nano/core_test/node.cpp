@@ -1905,12 +1905,12 @@ TEST (node, bootstrap_bulk_push)
 	nano::keypair key0;
 	// node0 knows about send0 but node1 doesn't.
 	auto send0 = nano::send_block_builder ()
-	              .previous (nano::genesis_hash)
-	              .destination (key0.pub)
-	              .balance (500)
-	              .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-	              .work (*node0->work_generate_blocking (nano::genesis_hash))
-	              .build_shared ();
+	             .previous (nano::genesis_hash)
+	             .destination (key0.pub)
+	             .balance (500)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (*node0->work_generate_blocking (nano::genesis_hash))
+	             .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node0->process (*send0).code);
 	nano::blocks_confirm (*node0, { send0 }, true); // Confirm block
 	system0.deadline_set (5s);
@@ -2006,12 +2006,12 @@ TEST (node, bootstrap_confirm_frontiers)
 	nano::keypair key0;
 	// node0 knows about send0 but node1 doesn't.
 	auto send0 = nano::send_block_builder ()
-	              .previous (nano::genesis_hash)
-	              .destination (key0.pub)
-	              .balance (nano::genesis_amount - 500)
-	              .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-	              .work (*node0->work_generate_blocking (nano::genesis_hash))
-	              .build_shared ();
+	             .previous (nano::genesis_hash)
+	             .destination (key0.pub)
+	             .balance (nano::genesis_amount - 500)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (*node0->work_generate_blocking (nano::genesis_hash))
+	             .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node0->process (*send0).code);
 	nano::blocks_confirm (*node0, { send0 }, true); // Confirm block
 	system0.deadline_set (5s);
