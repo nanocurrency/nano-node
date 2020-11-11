@@ -1994,12 +1994,12 @@ void nano::json_handler::confirmation_info ()
 
 void nano::json_handler::confirmation_quorum ()
 {
-	response_l.put ("quorum_delta", node.delta ().convert_to<std::string> ());
+	response_l.put ("quorum_delta", node.online_reps.delta ().convert_to<std::string> ());
 	response_l.put ("online_weight_quorum_percent", std::to_string (node.config.online_weight_quorum));
 	response_l.put ("online_weight_minimum", node.config.online_weight_minimum.to_string_dec ());
-	response_l.put ("online_stake_total", node.online_reps.online_stake ().convert_to<std::string> ());
+	response_l.put ("online_stake_total", node.online_reps.online ().convert_to<std::string> ());
+	response_l.put ("trended_stake_total", node.online_reps.trended ().convert_to<std::string> ());
 	response_l.put ("peers_stake_total", node.rep_crawler.total_weight ().convert_to<std::string> ());
-	response_l.put ("peers_stake_required", std::max (node.config.online_weight_minimum.number (), node.delta ()).convert_to<std::string> ());
 	if (request.get<bool> ("peer_details", false))
 	{
 		boost::property_tree::ptree peers;
@@ -3108,6 +3108,25 @@ void nano::json_handler::process ()
 		}
 		rpc_l->response_errors ();
 	}));
+}
+
+void nano::json_handler::pruned_exists ()
+{
+	auto hash (hash_impl ());
+	if (!ec)
+	{
+		auto transaction (node.store.tx_begin_read ());
+		if (node.ledger.pruning)
+		{
+			auto exists (node.store.pruned_exists (transaction, hash));
+			response_l.put ("exists", exists ? "1" : "0");
+		}
+		else
+		{
+			ec = nano::error_rpc::pruning_disabled;
+		}
+	}
+	response_errors ();
 }
 
 void nano::json_handler::receive ()
@@ -5041,6 +5060,7 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("pending", &nano::json_handler::pending);
 	no_arg_funcs.emplace ("pending_exists", &nano::json_handler::pending_exists);
 	no_arg_funcs.emplace ("process", &nano::json_handler::process);
+	no_arg_funcs.emplace ("pruned_exists", &nano::json_handler::pruned_exists);
 	no_arg_funcs.emplace ("receive", &nano::json_handler::receive);
 	no_arg_funcs.emplace ("receive_minimum", &nano::json_handler::receive_minimum);
 	no_arg_funcs.emplace ("receive_minimum_set", &nano::json_handler::receive_minimum_set);
