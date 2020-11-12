@@ -35,7 +35,6 @@ else {
 
 mkdir build
 Push-Location build
-$env:BOOST_ROOT = ${env:BOOST_ROOT_1_72_0}
 
 #accessibility of Boost dlls for generating config samples
 $ENV:PATH = "$ENV:PATH;$ENV:BOOST_ROOT\lib"
