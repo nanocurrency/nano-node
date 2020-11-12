@@ -4,6 +4,8 @@
 
 #include <gtest/gtest.h>
 
+using namespace std::chrono_literals;
+
 TEST (election, construction)
 {
 	nano::system system (1);
@@ -52,7 +54,7 @@ TEST (election, quorum_minimum_flip_success)
 	ASSERT_NE (nullptr, election.election);
 	ASSERT_EQ (2, election.election->blocks ().size ());
 	auto vote1 (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 1, send2));
-	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote1));
+	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote1, true));
 	node1.block_processor.flush ();
 	ASSERT_NE (nullptr, node1.block (send2->hash ()));
 	ASSERT_TRUE (election.election->confirmed ());
@@ -96,7 +98,7 @@ TEST (election, quorum_minimum_flip_fail)
 	ASSERT_NE (nullptr, election.election);
 	ASSERT_EQ (2, election.election->blocks ().size ());
 	auto vote1 (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 1, send2));
-	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote1));
+	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote1, true));
 	node1.block_processor.flush ();
 	ASSERT_NE (nullptr, node1.block (send1->hash ()));
 	ASSERT_FALSE (election.election->confirmed ());
@@ -128,7 +130,7 @@ TEST (election, quorum_minimum_confirm_success)
 	ASSERT_NE (nullptr, election.election);
 	ASSERT_EQ (1, election.election->blocks ().size ());
 	auto vote1 (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 1, send1));
-	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote1));
+	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote1, true));
 	node1.block_processor.flush ();
 	ASSERT_NE (nullptr, node1.block (send1->hash ()));
 	ASSERT_TRUE (election.election->confirmed ());
@@ -160,8 +162,89 @@ TEST (election, quorum_minimum_confirm_fail)
 	ASSERT_NE (nullptr, election.election);
 	ASSERT_EQ (1, election.election->blocks ().size ());
 	auto vote1 (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 1, send1));
-	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote1));
+	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote1, true));
 	node1.block_processor.flush ();
 	ASSERT_NE (nullptr, node1.block (send1->hash ()));
 	ASSERT_FALSE (election.election->confirmed ());
+}
+
+namespace nano
+{
+TEST (election, quorum_minimum_update_weight_before_quorum_checks)
+{
+	nano::system system;
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	node_config.online_weight_quorum = 100;
+	auto & node1 = *system.add_node (node_config);
+	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
+	auto amount = node_config.online_weight_minimum.number () - 1;
+	nano::keypair key1;
+	nano::block_builder builder;
+	auto send1 = builder.state ()
+	             .account (nano::dev_genesis_key.pub)
+	             .previous (nano::genesis_hash)
+	             .representative (nano::dev_genesis_key.pub)
+	             .balance (amount)
+	             .link (key1.pub)
+	             .work (0)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .build_shared ();
+	node1.work_generate_blocking (*send1);
+	auto open1 = builder.state ()
+	             .account (key1.pub)
+	             .previous (0)
+	             .representative (key1.pub)
+	             .balance (nano::genesis_amount - amount)
+	             .link (send1->hash ())
+	             .work (0)
+	             .sign (key1.prv, key1.pub)
+	             .build_shared ();
+	nano::keypair key2;
+	auto send2 = builder.state ()
+	             .account (key1.pub)
+	             .previous (open1->hash ())
+	             .representative (key1.pub)
+	             .balance (3)
+	             .link (key2.pub)
+	             .work (0)
+	             .sign (key1.prv, key1.pub)
+	             .build_shared ();
+	node1.work_generate_blocking (*open1);
+	node1.work_generate_blocking (*send2);
+	node1.process_active (send1);
+	node1.block_processor.flush ();
+	node1.process (*open1);
+	node1.process (*send2);
+	node1.block_processor.flush ();
+	ASSERT_EQ (node1.ledger.cache.block_count, 4);
+
+	node_config.peering_port = nano::get_available_port ();
+	auto & node2 = *system.add_node (node_config);
+	node2.process (*send1);
+	node2.process (*open1);
+	node2.process (*send2);
+	system.wallet (1)->insert_adhoc (key1.prv);
+	node2.block_processor.flush ();
+	ASSERT_EQ (node2.ledger.cache.block_count, 4);
+
+	auto election{ node1.active.insert (send1) };
+	ASSERT_FALSE (election.inserted);
+	ASSERT_NE (nullptr, election.election);
+	ASSERT_EQ (1, election.election->blocks ().size ());
+	auto vote1 (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, node1.timestamps.now (), send1));
+	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote1, true));
+	auto vote2 (std::make_shared<nano::vote> (key1.pub, key1.prv, node2.timestamps.now (), send1));
+	auto channel = node1.network.find_channel (node2.network.endpoint ());
+	ASSERT_NE (channel, nullptr);
+	ASSERT_TIMELY (10s, !node1.rep_crawler.response (channel, vote2));
+	{
+		nano::lock_guard<std::mutex> guard (node1.online_reps.mutex);
+		node1.online_reps.online_m = amount + 20;
+	}
+	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote2, true));
+	node1.block_processor.flush ();
+	ASSERT_NE (nullptr, node1.block (send1->hash ()));
+	ASSERT_TRUE (election.election->confirmed ());
+}
 }
