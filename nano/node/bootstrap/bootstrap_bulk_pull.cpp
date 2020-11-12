@@ -418,7 +418,7 @@ void nano::bulk_pull_server::set_current_end ()
 	include_start = false;
 	debug_assert (request != nullptr);
 	auto transaction (connection->node->store.tx_begin_read ());
-	if (!connection->node->ledger.block_confirmed (transaction, request->end))
+	if (!connection->node->block_confirmed_or_being_confirmed (transaction, request->end))
 	{
 		if (connection->node->config.logging.bulk_pull_logging ())
 		{
@@ -434,7 +434,7 @@ void nano::bulk_pull_server::set_current_end ()
 			connection->node->logger.try_log (boost::str (boost::format ("Bulk pull request for block hash: %1%") % request->start.to_string ()));
 		}
 
-		if (connection->node->ledger.block_confirmed (transaction, request->start.as_block_hash ()))
+		if (connection->node->block_confirmed_or_being_confirmed (transaction, request->start.as_block_hash ()))
 		{
 			current = request->start.as_block_hash ();
 			include_start = true;

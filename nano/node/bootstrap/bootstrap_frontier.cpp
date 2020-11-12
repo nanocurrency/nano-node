@@ -139,7 +139,7 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 					else
 					{
 						auto transaction (connection->node->store.tx_begin_read ());
-						if (connection->node->ledger.block_confirmed_or_pruned_exists (transaction, latest))
+						if (connection->node->ledger.block_confirmed_or_pruned_exists (transaction, latest) || connection->node->confirmation_height_processor.is_processing_block (latest))
 						{
 							// We know about a block they don't.
 							unsynced (frontier, latest);
