@@ -327,7 +327,7 @@ void nano::frontier_req_server::next ()
 			bool add_frontier (request->age == std::numeric_limits<decltype (request->age)>::max ());
 			if (!add_frontier)
 			{
-				// Check block modification time if request contsains age field
+				// Check block modification time if request contains age field
 				auto block (connection->node->store.block_get (transaction, confirmed_frontier));
 				debug_assert (block != nullptr && block->has_sideband ());
 				add_frontier = (now - block->sideband ().timestamp) <= request->age;
