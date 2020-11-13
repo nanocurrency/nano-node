@@ -6031,11 +6031,12 @@ TEST (rpc, online_reps)
 	auto node2 = add_ipc_enabled_node (system);
 	nano::keypair key;
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
-	ASSERT_TRUE (node2->online_reps.online () == node2->config.online_weight_minimum.number ());
+	ASSERT_EQ (node2->online_reps.online (), 0);
 	auto send_block (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key.pub, nano::Gxrb_ratio));
 	ASSERT_NE (nullptr, send_block);
 	scoped_io_thread_name_change scoped_thread_name_io;
 	ASSERT_TIMELY (10s, !node2->online_reps.list ().empty ());
+	ASSERT_EQ (node2->online_reps.online (), nano::genesis_amount - nano::Gxrb_ratio);
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (*system.nodes[1], node_rpc_config);
 	nano::rpc_config rpc_config (nano::get_available_port (), true);
