@@ -120,6 +120,7 @@ public:
 	virtual uint64_t height () const;
 	virtual bool has_epoch_link (nano::epochs const &) const;
 	virtual bool is_self_signed_epoch () const;
+	static uint64_t max_height ();
 	uint64_t difficulty () const;
 	// If there are any changes to the hashables, call this to update the cached hash and signature
 	void rebuild (nano::raw_key const &, nano::public_key const &);
@@ -381,6 +382,31 @@ private:
 	// = 7 is reserved
 };
 
+class state_hashables_extra_v2
+{
+public:
+	state_hashables_extra_v2 () = default;
+	state_hashables_extra_v2 (nano::epoch version_a, nano::block_flags flags_a, uint64_t height_a);
+	uint64_t packed () const;
+	void unpack (uint64_t packed_a);
+	void set_height (uint64_t height_a);
+	void set_version (nano::epoch version_a);
+	void set_flags (nano::block_flags flags_a);
+	uint64_t height () const;
+	nano::epoch version () const;
+	nano::block_flags flags () const;
+
+	static uint64_t max_height ();
+	static size_t constexpr packed_size = sizeof (uint64_t);
+
+private:
+	std::bitset<64> v2;
+
+	static std::bitset<64> constexpr height_mask = 0x0000ffffffffffff;
+	static std::bitset<64> constexpr version_mask = 0x00ff000000000000;
+	static std::bitset<64> constexpr flags_mask = 0xff00000000000000;
+};
+
 class state_hashables
 {
 public:
@@ -410,23 +436,34 @@ public:
 	// Link field contains source block_hash if receiving, destination account if sending
 	nano::link link;
 
-	// version, subtype and block_height are only applicable to state v2 blocks and higher.
-	uint64_t height{ 0 };
-	nano::epoch version{ nano::epoch::epoch_0 };
-	nano::block_flags flags;
-
+	// These are applicable to state v2 blocks and higher
+	// The version of the block
+	void set_version (nano::epoch epoch);
+	nano::epoch version () const;
+	// The height of the block
+	void set_height (uint64_t height);
+	uint64_t height () const;
+	// Various block flags, can also be set individually
+	void set_flags (nano::block_flags flags);
+	nano::block_flags flags () const;
 	// Whether this block is upgrading or an open (or epoch open)
+	void set_upgrade (bool is_upgrade);
 	bool is_upgrade () const;
 	// The signer of this block
+	void set_signer (nano::sig_flag sig_flag);
 	nano::sig_flag signer () const;
 	// How the link field should be interpreted
+	void set_link_interpretation (nano::link_flag link_flag);
 	nano::link_flag link_interpretation () const;
 
 	// Serialized size
 	static size_t constexpr size = sizeof (account) + sizeof (previous) + sizeof (representative) + sizeof (balance) + sizeof (link);
-	static size_t constexpr size2 = size + sizeof (height) + sizeof (nano::epoch) + block_flags::packed_size;
+	static size_t constexpr size2 = size + nano::state_hashables_extra_v2::packed_size;
 
 	bool operator== (nano::state_hashables const & other_a) const;
+
+private:
+	state_hashables_extra_v2 v2;
 };
 class state_block : public nano::block
 {

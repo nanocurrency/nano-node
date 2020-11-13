@@ -2886,50 +2886,50 @@ TEST (ledger, state_blocks_v2)
 		auto const & epochs = node.network_params.ledger.epochs;
 
 		// Incorrect upgrade
-		block->hashables.flags.set_upgrade (!orig_block->hashables.flags.is_upgrade ());
+		block->hashables.set_upgrade (!orig_block->hashables.is_upgrade ());
 		block->rebuild (key.prv, key.pub);
-		if (orig_block->hashables.flags.is_self_signer () && orig_block->hashables.height > 1)
+		if (orig_block->hashables.flags ().is_self_signer () && orig_block->hashables.height () > 1)
 		{
 			ASSERT_EQ (nano::process_result::upgrade_flag_incorrect, node.process (*block).code);
 		}
 
-		block->hashables.flags.set_upgrade (orig_block->hashables.flags.is_upgrade ());
+		block->hashables.set_upgrade (orig_block->hashables.is_upgrade ());
 
 		// Incorrect height
-		block->hashables.height = orig_block->hashables.height + 1;
+		block->hashables.set_height (orig_block->hashables.height () + 1);
 		block->rebuild (key.prv, key.pub);
 
 		ASSERT_EQ (nano::process_result::height_not_successor, node.process (*block).code);
 
-		block->hashables.height = orig_block->hashables.height;
+		block->hashables.set_height (orig_block->hashables.height ());
 
 		// Incorrect link interpretation flag
-		if (!orig_block->hashables.flags.is_epoch_signer ())
+		if (!orig_block->hashables.flags ().is_epoch_signer ())
 		{
 			std::vector<nano::link_flag> link_flags{ nano::link_flag::noop, nano::link_flag::send, nano::link_flag::receive };
-			link_flags.erase (std::remove (link_flags.begin (), link_flags.end (), orig_block->hashables.flags.link_interpretation ()));
+			link_flags.erase (std::remove (link_flags.begin (), link_flags.end (), orig_block->hashables.link_interpretation ()));
 
 			for (auto incorrect_link_flag : link_flags)
 			{
-				if (incorrect_link_flag != nano::link_flag::noop || orig_block->hashables.height > 1)
+				if (incorrect_link_flag != nano::link_flag::noop || orig_block->hashables.height () > 1)
 				{
-					block->hashables.flags.set_link_interpretation (incorrect_link_flag);
+					block->hashables.set_link_interpretation (incorrect_link_flag);
 					block->rebuild (key.prv, key.pub);
 					auto result = node.process (*block).code;
 					ASSERT_TRUE (result == nano::process_result::incorrect_link_flag || result == nano::process_result::balance_mismatch);
 				}
 			}
-			block->hashables.flags.set_link_interpretation (orig_block->hashables.flags.link_interpretation ());
+			block->hashables.set_link_interpretation (orig_block->hashables.link_interpretation ());
 		}
 
-		block->hashables.version = orig_block->hashables.version;
+		block->hashables.set_version (orig_block->hashables.version ());
 
 		// Check balance
 		nano::account_info account_info;
 		auto account_error = node.store.account_get (node.store.tx_begin_read (), orig_block->account (), account_info);
-		if (!block->hashables.flags.is_epoch_signer () || block->hashables.height > 1)
+		if (!block->hashables.flags ().is_epoch_signer () || block->hashables.height () > 1)
 		{
-			if (block->hashables.flags.is_send () || block->hashables.flags.is_receive ())
+			if (block->hashables.flags ().is_send () || block->hashables.flags ().is_receive ())
 			{
 				// Incorrect balance
 				block->hashables.balance = account_info.balance;
@@ -2947,9 +2947,9 @@ TEST (ledger, state_blocks_v2)
 		block->hashables.balance = orig_block->hashables.balance;
 
 		// Check representative
-		if (block->hashables.flags.is_noop () && !account_error)
+		if (block->hashables.flags ().is_noop () && !account_error)
 		{
-			if (block->hashables.flags.is_epoch_signer () && orig_block->hashables.height != 0)
+			if (block->hashables.flags ().is_epoch_signer () && orig_block->hashables.height () != 0)
 			{
 				// Epoch shouldn't change representative
 				block->hashables.representative = account_info.representative == 0 ? 1 : 0;
@@ -2968,13 +2968,13 @@ TEST (ledger, state_blocks_v2)
 
 		if (key.pub != nano::genesis_account)
 		{
-			auto incorrect_sig_flag = orig_block->hashables.flags.is_epoch_signer () ? nano::sig_flag::self : nano::sig_flag::epoch;
-			if (orig_block->hashables.height > 1 && orig_block->hashables.flags.is_epoch_signer ())
+			auto incorrect_sig_flag = orig_block->hashables.flags ().is_epoch_signer () ? nano::sig_flag::self : nano::sig_flag::epoch;
+			if (orig_block->hashables.height () > 1 && orig_block->hashables.flags ().is_epoch_signer ())
 			{
-				block->hashables.flags.set_signer (incorrect_sig_flag);
+				block->hashables.set_signer (incorrect_sig_flag);
 				block->rebuild (key.prv, key.pub);
 				ASSERT_EQ (nano::process_result::incorrect_signer, node.process (*block).code);
-				block->hashables.flags.set_signer (orig_block->hashables.flags.signer ());
+				block->hashables.set_signer (orig_block->hashables.signer ());
 			}
 		}
 

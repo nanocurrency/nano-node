@@ -2220,7 +2220,7 @@ TEST (rpc, process_state_v2)
 	}
 
 	// Make the block fail during ledger processing
-	block->hashables.height = 3;
+	block->hashables.set_height (3);
 	block->rebuild (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub);
 	block->serialize_json (json);
 	node1.ledger.cache.confirmed_state_block_v2_parse_canary = true;
@@ -2233,7 +2233,7 @@ TEST (rpc, process_state_v2)
 	}
 
 	// Make the block valid
-	block->hashables.height = 2;
+	block->hashables.set_height (2);
 	block->rebuild (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub);
 	block->serialize_json (json);
 	request.put ("block", json);
@@ -5948,6 +5948,14 @@ TEST (rpc, block_create_state_v2_invalid)
 		ASSERT_TIMELY (5s, response.status != 0);
 		ASSERT_EQ (200, response.status);
 		ASSERT_EQ (std::error_code (nano::error_blocks::epoch_link_flag_incorrect).message (), response.json.get<std::string> ("error"));
+	}
+	request.put ("signer", "self");
+	request.put ("height", std::numeric_limits<uint64_t>::max ());
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		ASSERT_TIMELY (5s, response.status != 0);
+		ASSERT_EQ (200, response.status);
+		ASSERT_EQ (std::error_code (nano::error_blocks::height_exceed_max).message (), response.json.get<std::string> ("error"));
 	}
 }
 

@@ -1632,6 +1632,11 @@ void nano::json_handler::block_create ()
 									height = previous_block->height () + 1;
 								}
 
+								if (height > nano::block::max_height ())
+								{
+									ec = nano::error_blocks::height_exceed_max;
+								}
+
 								auto signer_text = request.get_optional<std::string> ("signer");
 								nano::sig_flag sig_flag;
 								if (signer_text.is_initialized ())
@@ -3161,12 +3166,17 @@ void nano::json_handler::process ()
 		{
 			auto valid_work = !nano::work_validate_entry (*block);
 			auto valid_version = block->version () < nano::epoch::epoch_3;
+			auto valid_height{ true };
 			if (block->type () >= nano::block_type::state2)
 			{
 				valid_version = block->version () >= nano::epoch::epoch_3;
+				if (valid_version)
+				{
+					valid_height = block->height () <= block->max_height ();
+				}
 			}
 
-			if (valid_work && valid_version)
+			if (valid_work && valid_version && valid_height)
 			{
 				auto result (rpc_l->node.process_local (block, watch_work_l));
 				switch (result.code)
@@ -3248,6 +3258,10 @@ void nano::json_handler::process ()
 				else if (!valid_version)
 				{
 					rpc_l->ec = nano::error_blocks::incorrect_version;
+				}
+				else if (!valid_height)
+				{
+					rpc_l->ec = nano::error_blocks::height_exceed_max;
 				}
 				else
 				{

@@ -206,7 +206,7 @@ private:
 bool ledger_processor::validate_epoch_block (nano::state_block const & block_a)
 {
 	debug_assert (block_a.has_epoch_link (ledger.network_params.ledger.epochs));
-	bool epoch_block_balance{ (block_a.version () >= nano::epoch::epoch_3 && block_a.hashables.flags.is_epoch_signer ()) || block_a.version () < nano::epoch::epoch_3 };
+	bool epoch_block_balance{ (block_a.version () >= nano::epoch::epoch_3 && block_a.hashables.flags ().is_epoch_signer ()) || block_a.version () < nano::epoch::epoch_3 };
 	if (!block_a.hashables.previous.is_zero ())
 	{
 		result.code = ledger.store.block_exists (transaction, block_a.hashables.previous) ? nano::process_result::progress : nano::process_result::gap_previous;
@@ -225,7 +225,7 @@ bool ledger_processor::validate_epoch_block (nano::state_block const & block_a)
 			// - Is self signed epoch block (only possible with epoch 3 && is_self_signed)
 			// - Is epoch signed epoch block ((epoch3 && is_epoch_signed) || < epoch3 (we can't know for certain. Need to sign with account first, then check balance later))
 			// - Is send to an epoch link address, not an epoch block.
-			bool is_self_signed_epoch = (block_a.version () >= nano::epoch::epoch_3 && block_a.hashables.flags.is_self_signer () && epoch_block_balance);
+			bool is_self_signed_epoch = (block_a.version () >= nano::epoch::epoch_3 && block_a.hashables.flags ().is_self_signer () && epoch_block_balance);
 			if (is_self_signed_epoch || (block_a.version () < nano::epoch::epoch_3))
 			{
 				if (!validate_message (block_a.hashables.account, block_a.hash (), block_a.signature))
@@ -250,7 +250,7 @@ bool ledger_processor::validate_epoch_block (nano::state_block const & block_a)
 			if (result.code == nano::process_result::progress && result.verified != nano::signature_verification::valid)
 			{
 				// Is epoch block signed correctly
-				if ((block_a.version () >= nano::epoch::epoch_3 && block_a.hashables.flags.is_epoch_signer () && epoch_block_balance) || (block_a.version () < nano::epoch::epoch_3))
+				if ((block_a.version () >= nano::epoch::epoch_3 && block_a.hashables.flags ().is_epoch_signer () && epoch_block_balance) || (block_a.version () < nano::epoch::epoch_3))
 				{
 					if (validate_message (ledger.epoch_signer (block_a), block_a.hash (), block_a.signature))
 					{
@@ -268,7 +268,7 @@ bool ledger_processor::validate_epoch_block (nano::state_block const & block_a)
 	else
 	{
 		// Self-signed epochs are not allowed for epoch open blocks
-		if (block_a.version () >= nano::epoch::epoch_3 && block_a.hashables.flags.is_self_signer () && block_a.hashables.flags.is_noop ())
+		if (block_a.version () >= nano::epoch::epoch_3 && block_a.hashables.flags ().is_self_signer () && block_a.hashables.flags ().is_noop ())
 		{
 			result.code = nano::process_result::block_position;
 		}
@@ -321,7 +321,7 @@ void ledger_processor::state_block_impl (nano::state_block & block_a)
 				{
 					if (block_a.version () >= nano::epoch::epoch_3)
 					{
-						result.code = block_a.hashables.flags.is_self_signer () ? nano::process_result::progress : nano::process_result::incorrect_signer;
+						result.code = block_a.hashables.flags ().is_self_signer () ? nano::process_result::progress : nano::process_result::incorrect_signer;
 					}
 					if (result.code == nano::process_result::progress)
 					{
@@ -353,11 +353,11 @@ void ledger_processor::state_block_impl (nano::state_block & block_a)
 						{
 							if (block_a.version () >= nano::epoch::epoch_3)
 							{
-								if (block_a.hashables.flags.is_send ())
+								if (block_a.hashables.flags ().is_send ())
 								{
 									result.code = block_a.hashables.balance < info.balance ? nano::process_result::progress : nano::process_result::balance_mismatch;
 								}
-								else if (block_a.hashables.flags.is_receive ())
+								else if (block_a.hashables.flags ().is_receive ())
 								{
 									result.code = block_a.hashables.balance > info.balance ? nano::process_result::progress : nano::process_result::balance_mismatch;
 								}
@@ -404,15 +404,15 @@ void ledger_processor::state_block_impl (nano::state_block & block_a)
 					{
 						if (is_send)
 						{
-							result.code = block_a.hashables.flags.is_send () ? nano::process_result::progress : nano::process_result::incorrect_link_flag;
+							result.code = block_a.hashables.flags ().is_send () ? nano::process_result::progress : nano::process_result::incorrect_link_flag;
 						}
 						else if (is_receive)
 						{
-							result.code = block_a.hashables.flags.is_receive () ? nano::process_result::progress : nano::process_result::incorrect_link_flag;
+							result.code = block_a.hashables.flags ().is_receive () ? nano::process_result::progress : nano::process_result::incorrect_link_flag;
 						}
 						else
 						{
-							result.code = block_a.hashables.flags.is_noop () ? nano::process_result::progress : nano::process_result::incorrect_link_flag;
+							result.code = block_a.hashables.flags ().is_noop () ? nano::process_result::progress : nano::process_result::incorrect_link_flag;
 						}
 					}
 
@@ -451,7 +451,7 @@ void ledger_processor::state_block_impl (nano::state_block & block_a)
 					{
 						if (block_a.type () >= nano::block_type::state2)
 						{
-							epoch = std::max (epoch, block_a.hashables.version);
+							epoch = std::max (epoch, block_a.hashables.version ());
 						}
 
 						nano::block_details block_details (epoch, is_send, is_receive, false);
@@ -460,16 +460,16 @@ void ledger_processor::state_block_impl (nano::state_block & block_a)
 						{
 							if (epoch >= nano::epoch::epoch_3)
 							{
-								auto version_upgrade = block_a.hashables.version > info.epoch ();
-								result.code = block_a.hashables.version == epoch || version_upgrade ? nano::process_result::progress : nano::process_result::version_mismatch;
+								auto version_upgrade = block_a.hashables.version () > info.epoch ();
+								result.code = block_a.hashables.version () == epoch || version_upgrade ? nano::process_result::progress : nano::process_result::version_mismatch;
 								if (result.code == nano::process_result::progress)
 								{
-									result.code = !(version_upgrade ^ block_a.hashables.flags.is_upgrade ()) ? nano::process_result::progress : nano::process_result::upgrade_flag_incorrect; // Is upgrade flag should only be set when performing an upgrade (Malformed)
+									result.code = !(version_upgrade ^ block_a.hashables.flags ().is_upgrade ()) ? nano::process_result::progress : nano::process_result::upgrade_flag_incorrect; // Is upgrade flag should only be set when performing an upgrade (Malformed)
 								}
 
 								if (result.code == nano::process_result::progress)
 								{
-									result.code = block_a.hashables.height == info.block_count + 1 ? nano::process_result::progress : nano::process_result::height_not_successor; // Height should be previous block height + 1  (Malformed)
+									result.code = block_a.hashables.height () == info.block_count + 1 ? nano::process_result::progress : nano::process_result::height_not_successor; // Height should be previous block height + 1  (Malformed)
 								}
 							}
 
@@ -522,7 +522,7 @@ void ledger_processor::epoch_block_impl (nano::state_block & block_a)
 	debug_assert (result.code == nano::process_result::progress);
 	if (block_a.version () >= nano::epoch::epoch_3)
 	{
-		debug_assert (block_a.hashables.flags.is_noop ());
+		debug_assert (block_a.hashables.flags ().is_noop ());
 		result.code = !ledger.cache.confirmed_state_block_v2_parse_canary ? nano::process_result::state_block_v2_disabled : nano::process_result::progress;
 	}
 
@@ -537,7 +537,7 @@ void ledger_processor::epoch_block_impl (nano::state_block & block_a)
 		{
 			if (result.code == nano::process_result::progress)
 			{
-				if (block_a.version () >= nano::epoch::epoch_3 && block_a.hashables.flags.is_self_signer () && block_a.hashables.height > 1)
+				if (block_a.version () >= nano::epoch::epoch_3 && block_a.hashables.flags ().is_self_signer () && block_a.hashables.height () > 1)
 				{
 					// Self-signed
 					result.code = validate_message (block_a.hashables.account, hash, block_a.signature) ? nano::process_result::bad_signature : nano::process_result::progress; // Is this block signed correctly (Unambiguous)
@@ -545,7 +545,7 @@ void ledger_processor::epoch_block_impl (nano::state_block & block_a)
 				else
 				{
 					// Epoch-signed
-					debug_assert (block_a.version () < nano::epoch::epoch_3 || ((block_a.version () >= nano::epoch::epoch_3) && block_a.hashables.flags.is_epoch_signer ()));
+					debug_assert (block_a.version () < nano::epoch::epoch_3 || ((block_a.version () >= nano::epoch::epoch_3) && block_a.hashables.flags ().is_epoch_signer ()));
 					result.code = validate_message (ledger.epoch_signer (block_a), hash, block_a.signature) ? nano::process_result::bad_signature : nano::process_result::progress; // Is this block signed correctly (Unambiguous)
 				}
 			}
@@ -601,7 +601,7 @@ void ledger_processor::epoch_block_impl (nano::state_block & block_a)
 					{
 						if (epoch >= nano::epoch::epoch_3)
 						{
-							result.code = block_a.hashables.flags.is_self_signer () || block_a.version () == ledger.network_params.ledger.epochs.epoch (block_a.hashables.link) ? nano::process_result::progress : nano::process_result::version_mismatch;
+							result.code = block_a.hashables.flags ().is_self_signer () || block_a.version () == ledger.network_params.ledger.epochs.epoch (block_a.hashables.link) ? nano::process_result::progress : nano::process_result::version_mismatch;
 						}
 
 						if (result.code == nano::process_result::progress)
@@ -615,7 +615,7 @@ void ledger_processor::epoch_block_impl (nano::state_block & block_a)
 								{
 									if (epoch >= nano::epoch::epoch_3)
 									{
-										result.code = block_a.hashables.height == info.block_count + 1 ? nano::process_result::progress : nano::process_result::height_not_successor;
+										result.code = block_a.hashables.height () == info.block_count + 1 ? nano::process_result::progress : nano::process_result::height_not_successor;
 									}
 
 									if (result.code == nano::process_result::progress)

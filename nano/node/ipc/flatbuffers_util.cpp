@@ -18,9 +18,9 @@ std::unique_ptr<BlockState> nano::ipc::flatbuffers_builder::from (nano::state_bl
 	if constexpr (!std::is_same_v<BlockState, nanoapi::BlockStateT>)
 	{
 		debug_assert (block_a.type () >= nano::block_type::state2);
-		block->link_interpretation = block_a.hashables.flags.link_interpretation_to_str ();
-		block->is_upgrade = block_a.hashables.flags.is_upgrade ();
-		block->signer = block_a.hashables.flags.sig_to_str ();
+		block->link_interpretation = block_a.hashables.flags ().link_interpretation_to_str ();
+		block->is_upgrade = block_a.hashables.is_upgrade ();
+		block->signer = block_a.hashables.flags ().sig_to_str ();
 		block->version = nano::normalized_epoch (block_a.version ());
 		block->height = block_a.height ();
 	}

@@ -136,6 +136,8 @@ std::string nano::error_blocks_messages::message (int ev) const
 			return "Epoch open representative should be 0";
 		case nano::error_blocks::epoch_link_flag_incorrect:
 			return "Link flag should be noop for epoch blocks";
+		case nano::error_blocks::height_exceed_max:
+			return "Height exceeds the maximum allowed (48 bits)";
 	}
 
 	return "Invalid error code";

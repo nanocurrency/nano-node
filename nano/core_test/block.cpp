@@ -393,19 +393,19 @@ TEST (state_block_v2, serialization)
 	ASSERT_EQ (key2.pub, block1->hashables.representative);
 	ASSERT_EQ (nano::amount (2), block1->hashables.balance);
 	ASSERT_EQ (nano::uint256_union (4), block1->hashables.link);
-	ASSERT_EQ (nano::epoch::epoch_3, block1->hashables.version);
-	ASSERT_EQ (true, block1->hashables.flags.is_upgrade ());
-	ASSERT_EQ (nano::sig_flag::self, block1->hashables.flags.signer ());
-	ASSERT_EQ (nano::link_flag::send, block1->hashables.flags.link_interpretation ());
-	ASSERT_EQ (99, block1->hashables.height);
+	ASSERT_EQ (nano::epoch::epoch_3, block1->hashables.version ());
+	ASSERT_EQ (true, block1->hashables.is_upgrade ());
+	ASSERT_EQ (nano::sig_flag::self, block1->hashables.flags ().signer ());
+	ASSERT_EQ (nano::link_flag::send, block1->hashables.flags ().link_interpretation ());
+	ASSERT_EQ (99, block1->hashables.height ());
 
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream (bytes);
 		block1->serialize (stream);
 	}
-	ASSERT_EQ (99, bytes[153]); // Ensure height is serialized big-endian
-	ASSERT_EQ (0x5, bytes[225]); // Ensure work is serialized big-endian
+	ASSERT_EQ (99, bytes[149]); // Ensure height is serialized big-endian
+	ASSERT_EQ (0x5, bytes[223]); // Ensure work is serialized big-endian
 
 	bool error1 (false);
 	nano::bufferstream stream (bytes.data (), bytes.size ());
@@ -417,9 +417,9 @@ TEST (state_block_v2, serialization)
 	block2.hashables.representative.clear ();
 	block2.hashables.balance.clear ();
 	block2.hashables.link.clear ();
-	block2.hashables.height = 0;
-	block2.hashables.version = nano::epoch::epoch_0;
-	block2.hashables.flags = nano::block_flags ();
+	block2.hashables.set_height (0);
+	block2.hashables.set_version (nano::epoch::epoch_0);
+	block2.hashables.set_flags (nano::block_flags ());
 	block2.signature.clear ();
 	block2.work = 0;
 	nano::bufferstream stream2 (bytes.data (), bytes.size ());
@@ -439,9 +439,9 @@ TEST (state_block_v2, serialization)
 	block3.hashables.representative.clear ();
 	block3.hashables.balance.clear ();
 	block3.hashables.link.clear ();
-	block2.hashables.height = 0;
-	block2.hashables.version = nano::epoch::epoch_0;
-	block2.hashables.flags = nano::block_flags ();
+	block2.hashables.set_height (0);
+	block2.hashables.set_version (nano::epoch::epoch_0);
+	block2.hashables.set_flags (nano::block_flags ());
 	block3.signature.clear ();
 	block3.work = 0;
 	ASSERT_FALSE (block3.deserialize_json (tree));
@@ -506,38 +506,38 @@ TEST (state_block_v2, hashing)
 	             .build ();
 
 	auto hash (block->hash ());
-	block->hashables.flags.set_upgrade (false);
+	block->hashables.set_upgrade (false);
 	block->rebuild (key.prv, key.pub);
 	ASSERT_NE (hash, block->hash ());
-	block->hashables.flags.set_upgrade (true);
+	block->hashables.set_upgrade (true);
 	block->rebuild (key.prv, key.pub);
 	ASSERT_EQ (hash, block->hash ());
 
-	block->hashables.flags.set_link_interpretation (nano::link_flag::receive);
+	block->hashables.set_link_interpretation (nano::link_flag::receive);
 	block->rebuild (key.prv, key.pub);
 	ASSERT_NE (hash, block->hash ());
-	block->hashables.flags.set_link_interpretation (nano::link_flag::send);
+	block->hashables.set_link_interpretation (nano::link_flag::send);
 	block->rebuild (key.prv, key.pub);
 	ASSERT_EQ (hash, block->hash ());
 
-	block->hashables.flags.set_signer (nano::sig_flag::epoch);
+	block->hashables.set_signer (nano::sig_flag::epoch);
 	block->rebuild (key.prv, key.pub);
 	ASSERT_NE (hash, block->hash ());
-	block->hashables.flags.set_signer (nano::sig_flag::self);
+	block->hashables.set_signer (nano::sig_flag::self);
 	block->rebuild (key.prv, key.pub);
 	ASSERT_EQ (hash, block->hash ());
 
-	block->hashables.height ^= 0x1;
+	block->hashables.set_height (block->hashables.height () ^ 0x1);
 	block->rebuild (key.prv, key.pub);
 	ASSERT_NE (hash, block->hash ());
-	block->hashables.height ^= 0x1;
+	block->hashables.set_height (block->hashables.height () ^ 0x1);
 	block->rebuild (key.prv, key.pub);
 	ASSERT_EQ (hash, block->hash ());
 
-	block->hashables.version = nano::epoch::epoch_1;
+	block->hashables.set_version (nano::epoch::epoch_1);
 	block->rebuild (key.prv, key.pub);
 	ASSERT_NE (hash, block->hash ());
-	block->hashables.version = nano::epoch::epoch_3;
+	block->hashables.set_version (nano::epoch::epoch_3);
 	block->rebuild (key.prv, key.pub);
 	ASSERT_EQ (hash, block->hash ());
 }
@@ -570,47 +570,47 @@ TEST (state_block_v2, simple_validation)
 	ASSERT_EQ (nano::error_blocks::none, nano::simple_block_validation (block.get (), epochs));
 
 	// Height 0 is not allowed
-	block->hashables.height = 0;
+	block->hashables.set_height (0);
 	block->rebuild (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub);
 
 	ASSERT_EQ (nano::error_blocks::zero_height, nano::simple_block_validation (block.get (), epochs));
 
 	// All opens should have is_upgrade set to true
-	block->hashables.flags.set_link_interpretation (nano::link_flag::receive);
-	block->hashables.height = 1;
-	block->hashables.flags.set_upgrade (false);
+	block->hashables.set_link_interpretation (nano::link_flag::receive);
+	block->hashables.set_height (1);
+	block->hashables.set_upgrade (false);
 	block->rebuild (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub);
 	ASSERT_EQ (nano::error_blocks::open_upgrade_flag_not_set, nano::simple_block_validation (block.get (), epochs));
 
 	// Self-signed epoch opens are not allowed
-	block->hashables.flags.set_upgrade (true);
+	block->hashables.set_upgrade (true);
 	block->hashables.balance = 0;
-	block->hashables.flags.set_link_interpretation (nano::link_flag::noop);
+	block->hashables.set_link_interpretation (nano::link_flag::noop);
 	block->rebuild (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub);
 	ASSERT_EQ (nano::error_blocks::self_signed_epoch_opens_not_allowed, nano::simple_block_validation (block.get (), epochs));
 
 	// Epoch open should have balance & representative as 0, and be noop with is_upgrade
 
 	// Incorrect representative
-	block->hashables.flags.set_signer (nano::sig_flag::epoch);
+	block->hashables.set_signer (nano::sig_flag::epoch);
 	block->hashables.link = epochs.link (nano::epoch ::epoch_3);
 	block->rebuild (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub);
 	ASSERT_EQ (nano::error_blocks::epoch_open_representative_not_zero, nano::simple_block_validation (block.get (), epochs));
 
 	// Incorrect upgrade
 	block->hashables.representative = 0;
-	block->hashables.flags.set_upgrade (false);
+	block->hashables.set_upgrade (false);
 	block->rebuild (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub);
 	ASSERT_EQ (nano::error_blocks::epoch_upgrade_flag_not_set, nano::simple_block_validation (block.get (), epochs));
 
 	// Wrong link interpretation
-	block->hashables.flags.set_upgrade (true);
-	block->hashables.flags.set_link_interpretation (nano::link_flag::send);
+	block->hashables.set_upgrade (true);
+	block->hashables.set_link_interpretation (nano::link_flag::send);
 	block->rebuild (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub);
 	ASSERT_EQ (nano::error_blocks::epoch_link_flag_incorrect, nano::simple_block_validation (block.get (), epochs));
 
 	// Wrong link
-	block->hashables.flags.set_link_interpretation (nano::link_flag::noop);
+	block->hashables.set_link_interpretation (nano::link_flag::noop);
 	block->hashables.link = epochs.link (nano::epoch ::epoch_2);
 	block->rebuild (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub);
 	ASSERT_EQ (nano::error_blocks::epoch_link_no_match, nano::simple_block_validation (block.get (), epochs));
@@ -621,7 +621,7 @@ TEST (state_block_v2, simple_validation)
 	ASSERT_EQ (nano::error_blocks::none, nano::simple_block_validation (block.get (), epochs));
 
 	// Height > 1 epoch signed epochs shouldn't care about balance/rep for self/epoch signed
-	block->hashables.height = 2;
+	block->hashables.set_height (2);
 	block->hashables.representative = 2;
 	block->rebuild (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub);
 	ASSERT_EQ (nano::error_blocks::none, nano::simple_block_validation (block.get (), epochs));
@@ -631,7 +631,7 @@ TEST (state_block_v2, simple_validation)
 	ASSERT_EQ (nano::error_blocks::none, nano::simple_block_validation (block.get (), epochs));
 
 	// Should still have is_upgrade set to true
-	block->hashables.flags.set_upgrade (false);
+	block->hashables.set_upgrade (false);
 	block->rebuild (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub);
 	ASSERT_EQ (nano::error_blocks::epoch_upgrade_flag_not_set, nano::simple_block_validation (block.get (), epochs));
 }

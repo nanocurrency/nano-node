@@ -188,11 +188,11 @@ node_seq (seq)
 						if (block_a->type () >= nano::block_type::state2)
 						{
 							auto state_block = boost::polymorphic_downcast<nano::state_block *> (block_a.get ());
-							event.add ("sig_flag", state_block->hashables.flags.sig_to_str ());
-							event.add ("link_interpretation", state_block->hashables.flags.link_interpretation_to_str ());
-							event.add ("is_upgrade", state_block->hashables.flags.is_upgrade ());
-							event.add ("version", nano::normalized_epoch (state_block->hashables.version));
-							event.add ("height", state_block->hashables.height);
+							event.add ("sig_flag", state_block->hashables.flags ().sig_to_str ());
+							event.add ("link_interpretation", state_block->hashables.flags ().link_interpretation_to_str ());
+							event.add ("is_upgrade", state_block->hashables.is_upgrade ());
+							event.add ("version", nano::normalized_epoch (state_block->hashables.version ()));
+							event.add ("height", state_block->hashables.height ());
 						}
 
 						std::stringstream ostream;

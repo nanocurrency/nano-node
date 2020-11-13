@@ -79,7 +79,8 @@ enum class error_blocks
 	self_signed_epoch_opens_not_allowed,
 	epoch_open_balance_not_zero,
 	epoch_open_representative_not_zero,
-	epoch_link_flag_incorrect
+	epoch_link_flag_incorrect,
+	height_exceed_max
 };
 
 /** RPC related errors */
