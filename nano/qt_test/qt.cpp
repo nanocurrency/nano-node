@@ -878,7 +878,7 @@ TEST (wallet, DISABLED_synchronizing)
 		system1.nodes[0]->ledger.process (transaction, send);
 	}
 	ASSERT_EQ (0, wallet->active_status.active.count (nano_qt::status_types::synchronizing));
-	system0.nodes[0]->bootstrap_initiator.bootstrap (system1.nodes[0]->network.endpoint ());
+	system0.nodes[0]->bootstrap_initiator.bootstrap (system1.nodes[0]->network.endpoint (), false);
 	system1.deadline_set (10s);
 	while (wallet->active_status.active.count (nano_qt::status_types::synchronizing) == 0)
 	{

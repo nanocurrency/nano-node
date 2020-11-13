@@ -1338,8 +1338,17 @@ TEST (node, fork_bootstrap_flip)
 		auto transaction (node2.store.tx_begin_read ());
 		ASSERT_TRUE (node2.store.block_exists (transaction, send2->hash ()));
 	}
-	node2.bootstrap_initiator.bootstrap (node1.network.endpoint ());
+	nano::blocks_confirm (node1, { send1 }, true); // Confirm block for representative node
+	system0.deadline_set (5s);
 	auto again (true);
+	while (again)
+	{
+		ASSERT_NO_ERROR (system0.poll ());
+		again = !node1.block_confirmed (send1->hash ()) || !node1.active.empty ();
+	}
+
+	node2.bootstrap_initiator.bootstrap (node1.network.endpoint ()); // Additionally add  new peer to confirm & replace bootstrap block
+	again = true;
 	system1.deadline_set (50s);
 	while (again)
 	{
@@ -1611,7 +1620,7 @@ TEST (node, DISABLED_fork_stale)
 	nano::system system2 (1);
 	auto & node1 (*system1.nodes[0]);
 	auto & node2 (*system2.nodes[0]);
-	node2.bootstrap_initiator.bootstrap (node1.network.endpoint ());
+	node2.bootstrap_initiator.bootstrap (node1.network.endpoint (), false);
 	std::shared_ptr<nano::transport::channel> channel (std::make_shared<nano::transport::channel_udp> (node2.network.udp_channels, node1.network.endpoint (), node2.network_params.protocol.protocol_version));
 	auto vote = std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 0, std::vector<nano::block_hash> ());
 	node2.rep_crawler.response (channel, vote);
@@ -1666,7 +1675,7 @@ TEST (node, DISABLED_fork_stale)
 	node1.process_active (send2);
 	node2.process_active (send1);
 	node2.process_active (send2);
-	node2.bootstrap_initiator.bootstrap (node1.network.endpoint ());
+	node2.bootstrap_initiator.bootstrap (node1.network.endpoint (), false);
 	while (node2.block (send1->hash ()) == nullptr)
 	{
 		system1.poll ();
@@ -1877,7 +1886,7 @@ TEST (node, DISABLED_bootstrap_no_publish)
 		ASSERT_EQ (nano::process_result::progress, node0->ledger.process (transaction, send0).code);
 	}
 	ASSERT_FALSE (node1->bootstrap_initiator.in_progress ());
-	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
+	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
 	ASSERT_TRUE (node1->active.empty ());
 	system1.deadline_set (10s);
 	while (node1->block (send0.hash ()) == nullptr)
@@ -1990,7 +1999,7 @@ TEST (node, bootstrap_fork_open)
 	ASSERT_EQ (nano::process_result::progress, node1->process (open1).code);
 	ASSERT_FALSE (node1->ledger.block_exists (open0.hash ()));
 	ASSERT_FALSE (node1->bootstrap_initiator.in_progress ());
-	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
+	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
 	ASSERT_TRUE (node1->active.empty ());
 	ASSERT_TIMELY (10s, !node1->ledger.block_exists (open1.hash ()) && node1->ledger.block_exists (open0.hash ()));
 }
@@ -2025,7 +2034,7 @@ TEST (node, bootstrap_confirm_frontiers)
 	ASSERT_FALSE (node0->bootstrap_initiator.in_progress ());
 	ASSERT_FALSE (node1->bootstrap_initiator.in_progress ());
 	ASSERT_TRUE (node1->active.empty ());
-	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
+	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ()); // Additionally add new peer to confirm bootstrap frontier
 	system1.deadline_set (10s);
 	while (node1->block (send0->hash ()) == nullptr)
 	{
