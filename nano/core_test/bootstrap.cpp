@@ -372,10 +372,15 @@ TEST (bootstrap_processor, process_new)
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	nano::keypair key2;
 	system.wallet (1)->insert_adhoc (key2.prv);
-	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev_genesis_key.pub, key2.pub, node1->config.receive_minimum.number ()));
+	auto send (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key2.pub, node1->config.receive_minimum.number ()));
+	ASSERT_NE (nullptr, send);
 	ASSERT_TIMELY (10s, !node1->balance (key2.pub).is_zero ());
+	auto receive (node2->block (node2->latest (key2.pub)));
+	ASSERT_NE (nullptr, receive);
 	nano::uint128_t balance1 (node1->balance (nano::dev_genesis_key.pub));
 	nano::uint128_t balance2 (node1->balance (key2.pub));
+	ASSERT_TIMELY (10s, node1->block_confirmed (send->hash ()) && node1->block_confirmed (receive->hash ()) && node1->active.empty () && node2->active.empty ()); // All blocks should be propagated & confirmed
+
 	auto node3 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work));
 	ASSERT_FALSE (node3->init_error ());
 	node3->bootstrap_initiator.bootstrap (node1->network.endpoint (), false);
