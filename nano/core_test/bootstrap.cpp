@@ -614,7 +614,6 @@ TEST (bootstrap_processor, mixed_confirmation)
 	auto node0 (system.add_node (config, node_flags));
 	nano::genesis genesis;
 	nano::keypair key1, key2;
-	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	auto send1 (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, node0->latest (nano::dev_genesis_key.pub), nano::dev_genesis_key.pub, nano::genesis_amount - 100, nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 	auto send2 (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, send1->hash (), nano::dev_genesis_key.pub, nano::genesis_amount - 200, key1.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 	auto send3 (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, send2->hash (), nano::dev_genesis_key.pub, nano::genesis_amount - 300, key2.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
