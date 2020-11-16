@@ -1347,7 +1347,7 @@ TEST (node, fork_bootstrap_flip)
 		again = !node1.block_confirmed (send1->hash ()) || !node1.active.empty ();
 	}
 
-	node2.bootstrap_initiator.bootstrap (node1.network.endpoint ()); // Additionally add  new peer to confirm & replace bootstrap block
+	node2.bootstrap_initiator.bootstrap (node1.network.endpoint ()); // Additionally add new peer to confirm & replace bootstrap block
 	again = true;
 	system1.deadline_set (50s);
 	while (again)
