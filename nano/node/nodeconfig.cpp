@@ -77,7 +77,6 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("bootstrap_fraction_numerator", bootstrap_fraction_numerator, "Change bootstrap threshold (online stake / 256 * bootstrap_fraction_numerator).\ntype:uint32");
 	toml.put ("receive_minimum", receive_minimum.to_string_dec (), "Minimum receive amount. Only affects node wallets. A large amount is recommended to avoid automatic work generation for tiny transactions.\ntype:string,amount,raw");
 	toml.put ("online_weight_minimum", online_weight_minimum.to_string_dec (), "Online weight minimum required to confirm a block.\ntype:string,amount,raw");
-	toml.put ("online_weight_quorum", online_weight_quorum, "Percentage of votes required to confirm blocks. A value below 50 is not recommended.\ntype:uint64");
 	toml.put ("election_hint_weight_percent", election_hint_weight_percent, "Percentage of online weight to hint at starting an election. Defaults to 10.\ntype:uint32,[5,50]");
 	toml.put ("password_fanout", password_fanout, "Password fanout factor.\ntype:uint64");
 	toml.put ("io_threads", io_threads, "Number of threads dedicated to I/O operations. Defaults to the number of CPU threads, and at least 4.\ntype:uint64");
@@ -310,7 +309,6 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 
 		toml.get<uint16_t> ("peering_port", peering_port);
 		toml.get<unsigned> ("bootstrap_fraction_numerator", bootstrap_fraction_numerator);
-		toml.get<unsigned> ("online_weight_quorum", online_weight_quorum);
 		toml.get<unsigned> ("election_hint_weight_percent", election_hint_weight_percent);
 		toml.get<unsigned> ("password_fanout", password_fanout);
 		toml.get<unsigned> ("io_threads", io_threads);
@@ -399,10 +397,6 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 
 		// Validate ranges
 		nano::network_params network_params;
-		if (online_weight_quorum > 100)
-		{
-			toml.get_error ().set ("online_weight_quorum must be less than 100");
-		}
 		if (election_hint_weight_percent < 5 || election_hint_weight_percent > 50)
 		{
 			toml.get_error ().set ("election_hint_weight_percent must be a number between 5 and 50");
@@ -488,7 +482,6 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put_child ("preconfigured_representatives", preconfigured_representatives_l);
 
 	json.put ("online_weight_minimum", online_weight_minimum.to_string_dec ());
-	json.put ("online_weight_quorum", online_weight_quorum);
 	json.put ("password_fanout", password_fanout);
 	json.put ("io_threads", io_threads);
 	json.put ("network_threads", network_threads);
@@ -674,7 +667,6 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		}
 		json.get<uint16_t> ("peering_port", peering_port);
 		json.get<unsigned> ("bootstrap_fraction_numerator", bootstrap_fraction_numerator);
-		json.get<unsigned> ("online_weight_quorum", online_weight_quorum);
 		json.get<unsigned> ("password_fanout", password_fanout);
 		json.get<unsigned> ("io_threads", io_threads);
 		json.get<unsigned> ("work_threads", work_threads);
@@ -713,10 +705,6 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 
 		nano::network_constants network;
 		// Validate ranges
-		if (online_weight_quorum > 100)
-		{
-			json.get_error ().set ("online_weight_quorum must be less than 100");
-		}
 		if (password_fanout < 16 || password_fanout > 1024 * 1024)
 		{
 			json.get_error ().set ("password_fanout must be a number between 16 and 1048576");

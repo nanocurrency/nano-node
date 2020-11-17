@@ -3,6 +3,8 @@
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/ledger.hpp>
 
+unsigned constexpr nano::online_reps::online_weight_quorum;
+
 nano::online_reps::online_reps (nano::ledger & ledger_a, nano::node_config const & config_a) :
 ledger{ ledger_a },
 config{ config_a }
@@ -97,7 +99,7 @@ nano::uint128_t nano::online_reps::delta () const
 {
 	nano::lock_guard<std::mutex> lock (mutex);
 	auto weight = std::max ({ online_m, trended_m, config.online_weight_minimum.number () });
-	auto result ((weight / 100) * config.online_weight_quorum);
+	auto result ((weight / 100) * online_weight_quorum);
 	return result;
 }
 
