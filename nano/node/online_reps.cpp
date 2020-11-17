@@ -3,8 +3,6 @@
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/ledger.hpp>
 
-unsigned constexpr nano::online_reps::online_weight_quorum;
-
 nano::online_reps::online_reps (nano::ledger & ledger_a, nano::node_config const & config_a) :
 ledger{ ledger_a },
 config{ config_a }
