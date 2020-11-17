@@ -1818,3 +1818,49 @@ TEST (node, mass_block_new)
 	process_all (receive_blocks);
 	std::cout << "Receive blocks time: " << timer.stop ().count () << " " << timer.unit () << "\n\n";
 }
+
+TEST (node, wallet_create_block_confirm_conflicts)
+{
+	for (int i = 0; i < 5; ++i)
+	{
+		nano::system system;
+		nano::node_config node_config (nano::get_available_port (), system.logging);
+		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+		auto node = system.add_node (node_config);
+		auto const num_blocks = 10000;
+
+		// First open the other account
+		auto latest = nano::genesis_hash;
+		nano::keypair key1;
+		{
+			auto transaction = node->store.tx_begin_write ();
+			for (auto i = num_blocks - 1; i > 0; --i)
+			{
+				nano::send_block send (latest, key1.pub, nano::genesis_amount - nano::Gxrb_ratio + i + 1, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (latest));
+				ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send).code);
+				latest = send.hash ();
+			}
+		}
+
+		// Keep creating wallets. This is to check that there is no issues present when confirming blocks at the same time.
+		std::atomic<bool> done{ false };
+		std::thread t ([node, &done]() {
+			while (!done)
+			{
+				node->wallets.create (nano::random_wallet_id ());
+			}
+		});
+
+		// Call block confirm on the top level send block which will confirm everything underneath on both accounts.
+		{
+			auto election_insertion_result (node->active.insert (node->store.block_get (node->store.tx_begin_read (), latest)));
+			ASSERT_TRUE (election_insertion_result.inserted);
+			ASSERT_NE (nullptr, election_insertion_result.election);
+			election_insertion_result.election->force_confirm ();
+		}
+
+		ASSERT_TIMELY (120s, node->ledger.block_confirmed (node->store.tx_begin_read (), latest) && node->confirmation_height_processor.current () == 0);
+		done = true;
+		t.join ();
+	}
+}

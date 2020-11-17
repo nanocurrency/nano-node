@@ -1281,9 +1281,8 @@ void nano::node::ongoing_online_weight_calculation ()
 
 void nano::node::receive_confirmed (nano::transaction const & wallet_transaction_a, nano::transaction const & block_transaction_a, nano::block_hash const & hash_a, nano::account const & destination_a)
 {
-	for (auto const & [id /*unused*/, wallet] : wallets.get_wallets ())
+	for ([[maybe_unused]] auto const & [id, wallet] : wallets.get_wallets ())
 	{
-		(void)id;
 		if (wallet->store.exists (wallet_transaction_a, destination_a))
 		{
 			nano::account representative;
