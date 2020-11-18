@@ -101,6 +101,17 @@ size_t nano::local_vote_history::size () const
 	return history.size ();
 }
 
+bool nano::local_vote_history::votable (nano::root const & root_a, nano::block_hash const & hash_a) const
+{
+	bool result = true;
+	for (auto range = history.get<tag_root> ().equal_range (root_a); result && range.first != range.second; ++range.first)
+	{
+		auto & item = *range.first;
+		result = item.time < std::chrono::steady_clock::now () - delay || item.hash == hash_a;
+	}
+	return result;
+}
+
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::local_vote_history & history, const std::string & name)
 {
 	size_t history_count = history.size ();
@@ -219,18 +230,27 @@ void nano::vote_generator::broadcast (nano::unique_lock<std::mutex> & lock_a)
 		}
 		if (cached_votes.empty ())
 		{
-			roots.push_back (root);
-			hashes.push_back (hash);
+			if (history.votable (root, hash))
+			{
+				roots.push_back (root);
+				hashes.push_back (hash);
+			}
+			else
+			{
+				stats.inc (nano::stat::type::vote_generator, nano::stat::detail::generator_spacing);
+			}
 		}
 		candidates.pop_front ();
 	}
 	if (!hashes.empty ())
 	{
 		lock_a.unlock ();
-		vote (hashes, roots, [this](auto const & vote_a) { this->broadcast_action (vote_a); });
+		vote (hashes, roots, [this](auto const & vote_a) {
+			this->broadcast_action (vote_a);
+			this->stats.inc (nano::stat::type::vote_generator, nano::stat::detail::generator_broadcasts);
+		});
 		lock_a.lock ();
 	}
-	stats.inc (nano::stat::type::vote_generator, nano::stat::detail::generator_broadcasts);
 }
 
 void nano::vote_generator::reply (nano::unique_lock<std::mutex> & lock_a, request_t && request_a)

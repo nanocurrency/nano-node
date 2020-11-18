@@ -45,6 +45,7 @@ class local_vote_history final
 		}
 		nano::root root;
 		nano::block_hash hash;
+		std::chrono::steady_clock::time_point time{ std::chrono::steady_clock::now () };
 		std::shared_ptr<nano::vote> vote;
 	};
 
@@ -55,6 +56,7 @@ public:
 	std::vector<std::shared_ptr<nano::vote>> votes (nano::root const & root_a, nano::block_hash const & hash_a) const;
 	bool exists (nano::root const &) const;
 	size_t size () const;
+	bool votable (nano::root const & root_a, nano::block_hash const & hash_a) const;
 
 private:
 	// clang-format off
@@ -72,10 +74,11 @@ private:
 	// Only used in Debug
 	bool consistency_check (nano::root const &) const;
 	mutable std::mutex mutex;
+	std::chrono::seconds const delay{ nano::network_params ().network.is_dev_network () ? 1 : 15 };
 
 	friend std::unique_ptr<container_info_component> collect_container_info (local_vote_history & history, const std::string & name);
-
 	friend class local_vote_history_basic_Test;
+	friend class vote_generator_vote_spacing_Test;
 };
 
 std::unique_ptr<container_info_component> collect_container_info (local_vote_history & history, const std::string & name);
@@ -120,6 +123,7 @@ private:
 	bool started{ false };
 	std::thread thread;
 
+	friend class vote_generator_vote_spacing_Test;
 	friend std::unique_ptr<container_info_component> collect_container_info (vote_generator & vote_generator, const std::string & name);
 };
 
