@@ -1279,15 +1279,18 @@ void nano::node::ongoing_online_weight_calculation ()
 	ongoing_online_weight_calculation_queue ();
 }
 
-void nano::node::receive_confirmed (nano::transaction const & wallet_transaction_a, nano::transaction const & block_transaction_a, nano::block_hash const & hash_a, nano::account const & destination_a)
+void nano::node::receive_confirmed (nano::transaction const & block_transaction_a, nano::block_hash const & hash_a, nano::account const & destination_a)
 {
-	for ([[maybe_unused]] auto const & [id, wallet] : wallets.get_wallets ())
+	auto wallets_l = wallets.get_wallets ();
+	// The wallet transaction should be created after calling get_wallets to make sure the
+	auto wallet_transaction = wallets.tx_begin_read ();
+	for ([[maybe_unused]] auto const & [id, wallet] : wallets_l)
 	{
-		if (wallet->store.exists (wallet_transaction_a, destination_a))
+		if (wallet->store.exists (wallet_transaction, destination_a))
 		{
 			nano::account representative;
 			nano::pending_info pending;
-			representative = wallet->store.representative (wallet_transaction_a);
+			representative = wallet->store.representative (wallet_transaction);
 			auto error (store.pending_get (block_transaction_a, nano::pending_key (destination_a, hash_a), pending));
 			if (!error)
 			{

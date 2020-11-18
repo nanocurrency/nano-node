@@ -114,7 +114,6 @@ public:
 
 private:
 	MDB_txn * tx (nano::transaction const &) const;
-	bool db_exists (nano::transaction const &) const;
 };
 // A wallet is a set of account keys encrypted by a common encryption key
 class wallet final : public std::enable_shared_from_this<nano::wallet>

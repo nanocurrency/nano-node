@@ -1894,21 +1894,14 @@ nano::uint128_t const nano::wallets::high_priority = std::numeric_limits<nano::u
 
 nano::store_iterator<nano::account, nano::wallet_value> nano::wallet_store::begin (nano::transaction const & transaction_a)
 {
-	if (!db_exists (transaction_a))
-	{
-		return nano::store_iterator<nano::account, nano::wallet_value> (nullptr);
-	}
-	return nano::store_iterator<nano::account, nano::wallet_value> (std::make_unique<nano::mdb_iterator<nano::account, nano::wallet_value>> (transaction_a, handle, nano::mdb_val (nano::account (special_count))));
+	nano::store_iterator<nano::account, nano::wallet_value> result (std::make_unique<nano::mdb_iterator<nano::account, nano::wallet_value>> (transaction_a, handle, nano::mdb_val (nano::account (special_count))));
+	return result;
 }
 
 nano::store_iterator<nano::account, nano::wallet_value> nano::wallet_store::begin (nano::transaction const & transaction_a, nano::account const & key)
 {
-	if (!db_exists (transaction_a))
-	{
-		return nano::store_iterator<nano::account, nano::wallet_value> (nullptr);
-	}
-
-	return nano::store_iterator<nano::account, nano::wallet_value> (std::make_unique<nano::mdb_iterator<nano::account, nano::wallet_value>> (transaction_a, handle, nano::mdb_val (key)));
+	nano::store_iterator<nano::account, nano::wallet_value> result (std::make_unique<nano::mdb_iterator<nano::account, nano::wallet_value>> (transaction_a, handle, nano::mdb_val (key)));
+	return result;
 }
 
 nano::store_iterator<nano::account, nano::wallet_value> nano::wallet_store::find (nano::transaction const & transaction_a, nano::account const & key)
@@ -1937,14 +1930,6 @@ nano::store_iterator<nano::account, nano::wallet_value> nano::wallet_store::end 
 {
 	return nano::store_iterator<nano::account, nano::wallet_value> (nullptr);
 }
-
-bool nano::wallet_store::db_exists (nano::transaction const & transaction_a) const
-{
-	unsigned int dummy_flags;
-	auto err = mdb_dbi_flags (static_cast<MDB_txn *> (transaction_a.get_handle ()), handle, &dummy_flags);
-	return (err == MDB_SUCCESS);
-}
-
 nano::mdb_wallets_store::mdb_wallets_store (boost::filesystem::path const & path_a, nano::lmdb_config const & lmdb_config_a) :
 environment (error, path_a, nano::mdb_env::options::make ().set_config (lmdb_config_a).override_config_sync (nano::lmdb_config::sync_strategy::always).override_config_map_size (1ULL * 1024 * 1024 * 1024))
 {
