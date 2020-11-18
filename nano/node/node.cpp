@@ -1281,9 +1281,10 @@ void nano::node::ongoing_online_weight_calculation ()
 
 void nano::node::receive_confirmed (nano::transaction const & block_transaction_a, nano::block_hash const & hash_a, nano::account const & destination_a)
 {
+	nano::unique_lock<std::mutex> lk (wallets.mutex);
 	auto wallets_l = wallets.get_wallets ();
-	// The wallet transaction should be created after calling get_wallets to make sure the
 	auto wallet_transaction = wallets.tx_begin_read ();
+	lk.unlock ();
 	for ([[maybe_unused]] auto const & [id, wallet] : wallets_l)
 	{
 		if (wallet->store.exists (wallet_transaction, destination_a))
