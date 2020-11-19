@@ -1,4 +1,4 @@
-name: TestNetwork
+name: Test
 
 on:
   push:
@@ -10,18 +10,18 @@ env:
 
 jobs:
   osx_job:
-    runs-on: macOS-latest
+    runs-on: macos-latest
     env:
       BOOST_ROOT: /tmp/boost
     steps:
-      - uses: actions/checkout@722adc6
+      - uses: actions/checkout@5a4ac90
+        with:
+          submodules: "recursive"
       - uses: chrislennon/action-aws-cli@f0f8671
       - name: tag
         run: |
           TAG=`git describe --tags $GITHUB_SHA`
           echo "TAG=$TAG" >> $GITHUB_ENV
-      - name: Checkout Submodules
-        run: git submodule update --init --recursive
       - name: Fetch Deps
         run: ci/actions/osx/install_deps.sh
       - name: Build Artifact
@@ -36,14 +36,14 @@ jobs:
   linux_job:
     runs-on: ubuntu-18.04
     steps:
-      - uses: actions/checkout@722adc6
+      - uses: actions/checkout@5a4ac90
+        with:
+          submodules: "recursive"
       - uses: chrislennon/action-aws-cli@f0f8671
       - name: tag
         run: |
           TAG=`git describe --tags $GITHUB_SHA`
           echo "TAG=$TAG" >> $GITHUB_ENV
-      - name: Checkout Submodules
-        run: git submodule update --init --recursive
       - name: Fetch Deps
         run: ci/actions/linux/install_deps.sh
       - name: Build Artifact
@@ -58,14 +58,14 @@ jobs:
   linux_docker_job:
     runs-on: ubuntu-18.04
     steps:
-      - uses: actions/checkout@722adc6
+      - uses: actions/checkout@5a4ac90
+        with:
+          submodules: "recursive"
       - uses: chrislennon/action-aws-cli@f0f8671
       - name: tag
         run: |
           TAG=`git describe --tags $GITHUB_SHA`
           echo "TAG=$TAG" >> $GITHUB_ENV
-      - name: Checkout Submodules
-        run: git submodule update --init --recursive
       - name: Fetch Deps
         run: ci/actions/linux/install_deps.sh
       - name: Deploy Docker (nanocurrency/nano)
@@ -84,14 +84,15 @@ jobs:
   windows_job:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@722adc6
+      - uses: actions/checkout@5a4ac90
+        with:
+          submodules: "recursive"
       - uses: chrislennon/action-aws-cli@f0f8671
       - name: tag
         run: |
           $TAG=git describe --tags $GITHUB_SHA
           echo "TAG=$TAG" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-      - name: Checkout Submodules
-        run: git submodule update --init --recursive
+
       - name: Fetch Deps
         run: ci/actions/windows/install_deps.ps1
       - name: Build Artifact

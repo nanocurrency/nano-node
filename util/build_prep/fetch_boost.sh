@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-OS=`uname`
+OS=$(uname)
 
 COMPILER="${COMPILER:-clang}"
 

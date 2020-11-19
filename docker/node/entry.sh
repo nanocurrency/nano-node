@@ -36,39 +36,39 @@ fi
 
 if [ "$1" = 'nano_node' ]; then
 	command="${command}nano_node"
-	shift;
+	shift
 	for i in $@; do
 		case $i in
-			"daemon" )
-				command="${command} --daemon"
-				;;
-			* )
-				if [ ${#passthrough} -ge 0 ]; then
-					passthrough="${passthrough} $i"
-				else
-					passthrough="$i"
-				fi
-				;;
+		"daemon")
+			command="${command} --daemon"
+			;;
+		*)
+			if [ ${#passthrough} -ge 0 ]; then
+				passthrough="${passthrough} $i"
+			else
+				passthrough="$i"
+			fi
+			;;
 		esac
 	done
 	for i in $passthrough; do
 		case $i in
-			*"-v"*)
-				db_size=$(echo $i | tr -d -c 0-9)
-				echo "Vacuum DB if over $db_size GB on startup"
-				;;
-			"-l")
-				echo "log_to_cerr = true"
-				command="${command} --config"
-				command="${command} node.logging.log_to_cerr=true"
-				;;
-			*)
-			 	command="${command} $i"
-				;;
+		*"-v"*)
+			db_size=$(echo $i | tr -d -c 0-9)
+			echo "Vacuum DB if over $db_size GB on startup"
+			;;
+		"-l")
+			echo "log_to_cerr = true"
+			command="${command} --config"
+			command="${command} node.logging.log_to_cerr=true"
+			;;
+		*)
+			command="${command} $i"
+			;;
 		esac
 	done
 elif [ "$1" = 'sh' ]; then
-	shift;
+	shift
 	command=""
 	for i in $@; do
 		if [ "$command" = "" ]; then
@@ -78,25 +78,25 @@ elif [ "$1" = 'sh' ]; then
 		fi
 	done
 	printf "EXECUTING: ${command}\n"
-	exec $command	
+	exec $command
 else
 	usage
-	exit 1;
+	exit 1
 fi
 
 network="$(cat /etc/nano-network)"
 case "${network}" in
-	live|'')
+live | '')
 	network='live'
 	dirSuffix=''
 	;;
-	beta)
+beta)
 	dirSuffix='Beta'
 	;;
-	dev)
+dev)
 	dirSuffix='Dev'
 	;;
-	test)
+test)
 	dirSuffix='Test'
 	;;
 esac
@@ -119,17 +119,17 @@ if [ ! -f "${nanodir}/config-node.toml" ] && [ ! -f "${nanodir}/config.json" ]; 
 fi
 
 case $command in
-	*"--daemon"*)
-		if [ $db_size -ne 0 ]; then
-			if [ -f "${dbFile}" ]; then
-				dbFileSize="$(stat -c %s "${dbFile}" 2>/dev/null)"
-				if [ "${dbFileSize}" -gt $((1024 * 1024 * 1024 * db_size)) ]; then
-					echo "ERROR: Database size grew above ${db_size}GB (size = ${dbFileSize})" >&2
-					nano_node --vacuum
-				fi
+*"--daemon"*)
+	if [ $db_size -ne 0 ]; then
+		if [ -f "${dbFile}" ]; then
+			dbFileSize="$(stat -c %s "${dbFile}" 2>/dev/null)"
+			if [ "${dbFileSize}" -gt $((1024 * 1024 * 1024 * db_size)) ]; then
+				echo "ERROR: Database size grew above ${db_size}GB (size = ${dbFileSize})" >&2
+				nano_node --vacuum
 			fi
 		fi
-		;;
+	fi
+	;;
 esac
 
 printf "EXECUTING: ${command}\n"

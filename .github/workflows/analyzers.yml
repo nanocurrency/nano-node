@@ -13,4 +13,20 @@ jobs:
           DEBIAN_FRONTEND: noninteractive
         run: sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-8 1000
       - name: Clang Format
-        run: ci/check-commit-format.sh 
+        run: ci/check-commit-format.sh
+  
+  cmake_format:
+    runs-on: ubuntu-18.04
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+    steps:
+      - uses: actions/checkout@50fbc62
+      - uses: actions/setup-python@41b7212
+        with: 
+          python-version: '3.x'
+          architecture: 'x64'
+      - uses: BSFishy/pip-action@8f2d471
+        with: 
+          packages: |
+            cmake-format
+      - name: Check cmake-format
+        run: bash ci/check-cmake-format.sh

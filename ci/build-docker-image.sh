@@ -9,7 +9,8 @@ fi
 dockerFile="$1"
 dockerTag="$2"
 githubTag="ghcr.io/${GITHUB_REPOSITORY}/${dockerTag#*/}"
-shift; shift
+shift
+shift
 
 scripts="$(dirname "$0")"
 

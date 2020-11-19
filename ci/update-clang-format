@@ -32,7 +32,7 @@ for try in {1..10}; do
 	fi
 
 	rm -f .clang-format.new
-	sed "${errors_line} d" .clang-format > .clang-format.new
+	sed "${errors_line} d" .clang-format >.clang-format.new
 	mv .clang-format.new .clang-format
 done
 

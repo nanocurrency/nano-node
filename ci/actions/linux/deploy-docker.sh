@@ -2,13 +2,12 @@
 
 set -e
 
-
 scripts="$PWD/ci"
-TRAVIS_BRANCH=`git branch| cut -f2 -d' '`
+TRAVIS_BRANCH=$(git branch | cut -f2 -d' ')
 tags=()
 if [ -n "$TRAVIS_TAG" ]; then
     tags+=("$TRAVIS_TAG" latest)
-    if [[ "$GITHUB_WORKFLOW" = "Beta" || "$GITHUB_WORKFLOW" = "TestNetwork" ]]; then
+    if [[ "$GITHUB_WORKFLOW" = "Beta" || "$GITHUB_WORKFLOW" = "Test" ]]; then
         tags+=(latest-including-rc)
     fi
 elif [ -n "$TRAVIS_BRANCH" ]; then
@@ -23,7 +22,7 @@ elif [[ "$GITHUB_WORKFLOW" = "Beta" ]]; then
     echo "Beta"
     network_tag_suffix="-beta"
     network="beta"
-elif [[ "$GITHUB_WORKFLOW" = "TestNetwork" ]]; then
+elif [[ "$GITHUB_WORKFLOW" = "Test" ]]; then
     echo "Test"
     network_tag_suffix="-test"
     network="test"
@@ -52,7 +51,7 @@ if [ -n "$DOCKER_PASSWORD" ]; then
         echo "Deployed nano-env"
         exit 0
     else
-        tags=`docker images --format '{{.Repository}}:{{.Tag }}'| grep nanocurrency |grep -vE "env|ghcr.io|none"`
+        tags=$(docker images --format '{{.Repository}}:{{.Tag }}' | grep nanocurrency | grep -vE "env|ghcr.io|none")
         for a in $tags; do
             "$scripts"/custom-timeout.sh 30 docker push "$a"
         done
