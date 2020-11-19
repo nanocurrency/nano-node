@@ -101,13 +101,13 @@ size_t nano::local_vote_history::size () const
 	return history.size ();
 }
 
-bool nano::local_vote_history::votable (nano::root const & root_a, nano::block_hash const & hash_a) const
+bool nano::local_vote_history::votable (nano::root const & root_a) const
 {
 	bool result = true;
 	for (auto range = history.get<tag_root> ().equal_range (root_a); result && range.first != range.second; ++range.first)
 	{
 		auto & item = *range.first;
-		result = item.time < std::chrono::steady_clock::now () - delay || item.hash == hash_a;
+		result = item.time < std::chrono::steady_clock::now () - delay;
 	}
 	return result;
 }
@@ -230,7 +230,7 @@ void nano::vote_generator::broadcast (nano::unique_lock<std::mutex> & lock_a)
 		}
 		if (cached_votes.empty ())
 		{
-			if (history.votable (root, hash))
+			if (history.votable (root))
 			{
 				roots.push_back (root);
 				hashes.push_back (hash);
@@ -268,7 +268,8 @@ void nano::vote_generator::reply (nano::unique_lock<std::mutex> & lock_a, reques
 		roots.reserve (nano::network::confirm_ack_hashes_max);
 		for (; i != n && hashes.size () < nano::network::confirm_ack_hashes_max; ++i)
 		{
-			auto cached_votes = history.votes (i->first, i->second);
+			auto const & [root, hash] = *i;
+			auto cached_votes = history.votes (root, hash);
 			for (auto const & cached_vote : cached_votes)
 			{
 				if (cached_sent.insert (cached_vote).second)
@@ -280,8 +281,15 @@ void nano::vote_generator::reply (nano::unique_lock<std::mutex> & lock_a, reques
 			}
 			if (cached_votes.empty ())
 			{
-				roots.push_back (i->first);
-				hashes.push_back (i->second);
+				if (history.votable (root))
+				{
+					roots.push_back (root);
+					hashes.push_back (hash);
+				}
+				else
+				{
+					stats.inc (nano::stat::type::vote_generator, nano::stat::detail::generator_spacing);
+				}
 			}
 		}
 		if (!hashes.empty ())

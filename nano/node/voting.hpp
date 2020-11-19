@@ -56,7 +56,7 @@ public:
 	std::vector<std::shared_ptr<nano::vote>> votes (nano::root const & root_a, nano::block_hash const & hash_a) const;
 	bool exists (nano::root const &) const;
 	size_t size () const;
-	bool votable (nano::root const & root_a, nano::block_hash const & hash_a) const;
+	bool votable (nano::root const & root_a) const;
 
 private:
 	// clang-format off
