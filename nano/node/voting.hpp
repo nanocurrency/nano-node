@@ -50,6 +50,10 @@ class local_vote_history final
 	};
 
 public:
+	local_vote_history (nano::voting_constants const & constants) :
+	constants{ constants }
+	{
+	}
 	void add (nano::root const & root_a, nano::block_hash const & hash_a, std::shared_ptr<nano::vote> const & vote_a);
 	void erase (nano::root const & root_a);
 
@@ -68,17 +72,15 @@ private:
 	history;
 	// clang-format on
 
-	size_t const max_size{ nano::network_params{}.voting.max_cache };
+	nano::voting_constants const & constants;
 	void clean ();
 	std::vector<std::shared_ptr<nano::vote>> votes (nano::root const & root_a) const;
 	// Only used in Debug
 	bool consistency_check (nano::root const &) const;
 	mutable std::mutex mutex;
-	std::chrono::seconds const delay{ nano::network_params ().network.is_dev_network () ? 1 : 15 };
 
 	friend std::unique_ptr<container_info_component> collect_container_info (local_vote_history & history, const std::string & name);
 	friend class local_vote_history_basic_Test;
-	friend class vote_generator_vote_spacing_Test;
 };
 
 std::unique_ptr<container_info_component> collect_container_info (local_vote_history & history, const std::string & name);

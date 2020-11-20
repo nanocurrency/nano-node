@@ -11,7 +11,8 @@ namespace nano
 {
 TEST (local_vote_history, basic)
 {
-	nano::local_vote_history history;
+	nano::network_params params;
+	nano::local_vote_history history{ params.voting };
 	ASSERT_FALSE (history.exists (1));
 	ASSERT_FALSE (history.exists (2));
 	ASSERT_TRUE (history.votes (1).empty ());
@@ -157,7 +158,7 @@ TEST (vote_generator, vote_spacing)
 	node.active.generator.add (nano::genesis_hash, send2->hash ());
 	ASSERT_TIMELY (3s, node.stats.count (nano::stat::type::vote_generator, nano::stat::detail::generator_spacing) == 1);
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::vote_generator, nano::stat::detail::generator_broadcasts));
-	std::this_thread::sleep_for (node.active.generator.history.delay);
+	std::this_thread::sleep_for (config.network_params.voting.delay);
 	node.active.generator.add (nano::genesis_hash, send2->hash ());
 	ASSERT_TIMELY (3s, node.stats.count (nano::stat::type::vote_generator, nano::stat::detail::generator_broadcasts) == 2);
 }

@@ -87,9 +87,9 @@ bool nano::local_vote_history::exists (nano::root const & root_a) const
 
 void nano::local_vote_history::clean ()
 {
-	debug_assert (max_size > 0);
+	debug_assert (constants.max_cache > 0);
 	auto & history_by_sequence (history.get<tag_sequence> ());
-	while (history_by_sequence.size () > max_size)
+	while (history_by_sequence.size () > constants.max_cache)
 	{
 		history_by_sequence.erase (history_by_sequence.begin ());
 	}
@@ -107,7 +107,7 @@ bool nano::local_vote_history::votable (nano::root const & root_a) const
 	for (auto range = history.get<tag_root> ().equal_range (root_a); result && range.first != range.second; ++range.first)
 	{
 		auto & item = *range.first;
-		result = item.time < std::chrono::steady_clock::now () - delay;
+		result = item.time < std::chrono::steady_clock::now () - constants.delay;
 	}
 	return result;
 }

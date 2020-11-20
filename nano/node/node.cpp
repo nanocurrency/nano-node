@@ -119,6 +119,7 @@ block_processor_thread ([this]() {
 }),
 // clang-format on
 online_reps (ledger, config),
+history{ config.network_params.voting },
 vote_uniquer (block_uniquer),
 confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, config.logging, logger, node_initialized_latch, flags.confirmation_height_processor_mode),
 active (*this, confirmation_height_processor),
