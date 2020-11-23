@@ -88,17 +88,17 @@ uint16_t test_node_port ()
 }
 uint16_t test_rpc_port ()
 {
-	auto test_env = nano::get_env_or_default ("NANO_TEST_NODE_PORT", "17075");
+	auto test_env = nano::get_env_or_default ("NANO_TEST_RPC_PORT", "17076");
 	return boost::lexical_cast<uint16_t> (test_env);
 }
 uint16_t test_ipc_port ()
 {
-	auto test_env = nano::get_env_or_default ("NANO_TEST_NODE_PORT", "17075");
+	auto test_env = nano::get_env_or_default ("NANO_TEST_IPC_PORT", "17077");
 	return boost::lexical_cast<uint16_t> (test_env);
 }
 uint16_t test_websocket_port ()
 {
-	auto test_env = nano::get_env_or_default ("NANO_TEST_NODE_PORT", "17075");
+	auto test_env = nano::get_env_or_default ("NANO_TEST_WEBSOCKET_PORT", "17078");
 	return boost::lexical_cast<uint16_t> (test_env);
 }
 
