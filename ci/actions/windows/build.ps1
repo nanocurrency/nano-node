@@ -37,7 +37,7 @@ mkdir build
 Push-Location build
 
 #accessibility of Boost dlls for generating config samples
-$ENV:PATH = "$ENV:PATH;$ENV:BOOST_ROOT\lib"
+$ENV:PATH = "$ENV:PATH;$ENV:BOOST_ROOT\lib64-msvc-14.2"
 
 & ..\ci\actions\windows\configure.bat
 if (${LastExitCode} -ne 0) {
