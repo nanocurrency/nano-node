@@ -43,5 +43,5 @@ public:
 	std::thread thread;
 };
 class container_info_component;
-std::unique_ptr<container_info_component> collect_container_info (alarm & alarm, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (alarm & alarm, std::string const & name);
 }

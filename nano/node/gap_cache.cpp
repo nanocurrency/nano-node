@@ -127,7 +127,7 @@ size_t nano::gap_cache::size ()
 	return blocks.size ();
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (gap_cache & gap_cache, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (gap_cache & gap_cache, std::string const & name)
 {
 	auto count = gap_cache.size ();
 	auto sizeof_element = sizeof (decltype (gap_cache.blocks)::value_type);

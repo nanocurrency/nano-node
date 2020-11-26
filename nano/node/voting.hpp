@@ -73,12 +73,12 @@ private:
 	bool consistency_check (nano::root const &) const;
 	mutable std::mutex mutex;
 
-	friend std::unique_ptr<container_info_component> collect_container_info (local_vote_history & history, const std::string & name);
+	friend std::unique_ptr<container_info_component> collect_container_info (local_vote_history & history, std::string const & name);
 
 	friend class local_vote_history_basic_Test;
 };
 
-std::unique_ptr<container_info_component> collect_container_info (local_vote_history & history, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (local_vote_history & history, std::string const & name);
 
 class vote_generator final
 {
@@ -120,10 +120,10 @@ private:
 	bool started{ false };
 	std::thread thread;
 
-	friend std::unique_ptr<container_info_component> collect_container_info (vote_generator & vote_generator, const std::string & name);
+	friend std::unique_ptr<container_info_component> collect_container_info (vote_generator & vote_generator, std::string const & name);
 };
 
-std::unique_ptr<container_info_component> collect_container_info (vote_generator & generator, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (vote_generator & generator, std::string const & name);
 
 class vote_generator_session final
 {

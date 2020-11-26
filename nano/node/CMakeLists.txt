@@ -30,6 +30,8 @@ add_library(
   bootstrap/bootstrap_frontier.cpp
   bootstrap/bootstrap_lazy.hpp
   bootstrap/bootstrap_lazy.cpp
+	bootstrap/bootstrap_legacy.hpp
+	bootstrap/bootstrap_legacy.cpp
   bootstrap/bootstrap_server.hpp
   bootstrap/bootstrap_server.cpp
   bootstrap/bootstrap.hpp

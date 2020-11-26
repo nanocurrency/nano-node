@@ -263,7 +263,7 @@ private:
 	nano::wallet_representatives representatives;
 };
 
-std::unique_ptr<container_info_component> collect_container_info (wallets & wallets, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (wallets & wallets, std::string const & name);
 
 class wallets_store
 {

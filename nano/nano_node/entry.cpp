@@ -65,6 +65,7 @@ public:
 int main (int argc, char * const * argv)
 {
 	nano::set_umask ();
+	//
 	nano::node_singleton_memory_pool_purge_guard memory_pool_cleanup_guard;
 	boost::program_options::options_description description ("Command line options");
 	// clang-format off
@@ -140,17 +141,6 @@ int main (int argc, char * const * argv)
 	}
 
 	auto data_path_it = vm.find ("data_path");
-	if (data_path_it == vm.end ())
-	{
-		std::string error_string;
-		if (!nano::migrate_working_path (error_string))
-		{
-			std::cerr << error_string << std::endl;
-
-			return 1;
-		}
-	}
-
 	boost::filesystem::path data_path ((data_path_it != vm.end ()) ? data_path_it->second.as<std::string> () : nano::working_path ());
 	auto ec = nano::handle_node_options (vm);
 	if (ec == nano::error_cli::unknown_command)

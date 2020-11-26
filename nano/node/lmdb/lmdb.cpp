@@ -269,6 +269,7 @@ bool nano::mdb_store::do_upgrades (nano::write_transaction & transaction_a, bool
 		case 17:
 			upgrade_v17_to_v18 (transaction_a);
 			needs_vacuuming = true;
+			// Upgrades to v19 & v20 are both part of the v22 node release
 		case 18:
 			upgrade_v18_to_v19 (transaction_a);
 			needs_vacuuming = true;

@@ -478,7 +478,7 @@ iterated_height (iterated_height_a)
 {
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (confirmation_height_unbounded & confirmation_height_unbounded, const std::string & name_a)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (confirmation_height_unbounded & confirmation_height_unbounded, std::string const & name_a)
 {
 	auto composite = std::make_unique<container_info_composite> (name_a);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "confirmed_iterated_pairs", confirmation_height_unbounded.confirmed_iterated_pairs_size, sizeof (decltype (confirmation_height_unbounded.confirmed_iterated_pairs)::value_type) }));

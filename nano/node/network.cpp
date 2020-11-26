@@ -1042,7 +1042,7 @@ size_t nano::syn_cookies::cookies_size ()
 	return cookies.size ();
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (network & network, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (network & network, std::string const & name)
 {
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (network.tcp_channels.collect_container_info ("tcp_channels"));

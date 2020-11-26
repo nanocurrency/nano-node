@@ -1892,7 +1892,7 @@ size_t nano::block_uniquer::size ()
 	return blocks.size ();
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (block_uniquer & block_uniquer, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (block_uniquer & block_uniquer, std::string const & name)
 {
 	auto count = block_uniquer.size ();
 	auto sizeof_element = sizeof (block_uniquer::value_type);

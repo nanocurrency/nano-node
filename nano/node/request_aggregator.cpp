@@ -247,7 +247,7 @@ std::vector<std::shared_ptr<nano::block>> nano::request_aggregator::aggregate (s
 	return to_generate;
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::request_aggregator & aggregator, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::request_aggregator & aggregator, std::string const & name)
 {
 	auto pools_count = aggregator.size ();
 	auto sizeof_element = sizeof (decltype (aggregator.requests)::value_type);

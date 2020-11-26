@@ -347,5 +347,5 @@ private:
 	friend class frontiers_confirmation_expired_optimistic_elections_removal_Test;
 };
 
-std::unique_ptr<container_info_component> collect_container_info (active_transactions & active_transactions, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (active_transactions & active_transactions, std::string const & name);
 }

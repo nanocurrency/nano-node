@@ -64,7 +64,7 @@ void nano::alarm::add (std::chrono::steady_clock::time_point const & wakeup_a, s
 	condition.notify_all ();
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (alarm & alarm, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (alarm & alarm, std::string const & name)
 {
 	size_t count;
 	{

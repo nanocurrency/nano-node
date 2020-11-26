@@ -201,7 +201,7 @@ void nano::confirmation_height_processor::notify_observers (nano::block_hash con
 	}
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (confirmation_height_processor & confirmation_height_processor_a, const std::string & name_a)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (confirmation_height_processor & confirmation_height_processor_a, std::string const & name_a)
 {
 	auto composite = std::make_unique<container_info_composite> (name_a);
 

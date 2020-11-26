@@ -29,5 +29,5 @@ private:
 	friend std::unique_ptr<container_info_component> collect_container_info (worker &, const std::string &);
 };
 
-std::unique_ptr<container_info_component> collect_container_info (worker & worker, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (worker & worker, std::string const & name);
 }

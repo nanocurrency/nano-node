@@ -283,15 +283,6 @@ int main (int argc, char * const * argv)
 			}
 		}
 
-		if (!vm.count ("data_path"))
-		{
-			std::string error_string;
-			if (!nano::migrate_working_path (error_string))
-			{
-				throw std::runtime_error (error_string);
-			}
-		}
-
 		std::vector<std::string> config_overrides;
 		if (vm.count ("config"))
 		{

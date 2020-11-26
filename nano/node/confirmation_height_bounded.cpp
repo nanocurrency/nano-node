@@ -583,7 +583,7 @@ iterated_frontier (iterated_frontier_a)
 {
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (confirmation_height_bounded & confirmation_height_bounded, const std::string & name_a)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (confirmation_height_bounded & confirmation_height_bounded, std::string const & name_a)
 {
 	auto composite = std::make_unique<container_info_composite> (name_a);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "pending_writes", confirmation_height_bounded.pending_writes_size, sizeof (decltype (confirmation_height_bounded.pending_writes)::value_type) }));

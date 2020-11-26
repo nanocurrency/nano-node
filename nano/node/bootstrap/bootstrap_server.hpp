@@ -31,7 +31,7 @@ private:
 	uint16_t port;
 };
 
-std::unique_ptr<container_info_component> collect_container_info (bootstrap_listener & bootstrap_listener, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (bootstrap_listener & bootstrap_listener, std::string const & name);
 
 class message;
 enum class bootstrap_server_type

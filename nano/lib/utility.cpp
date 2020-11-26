@@ -28,7 +28,7 @@
 #endif
 #endif
 
-nano::container_info_composite::container_info_composite (const std::string & name) :
+nano::container_info_composite::container_info_composite (std::string const & name) :
 name (name)
 {
 }

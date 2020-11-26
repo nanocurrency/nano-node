@@ -131,8 +131,8 @@ private:
 	std::function<uint64_t ()> awaiting_processing_size_callback;
 	nano::network_params network_params;
 
-	friend std::unique_ptr<nano::container_info_component> collect_container_info (confirmation_height_bounded &, const std::string & name_a);
+	friend std::unique_ptr<nano::container_info_component> collect_container_info (confirmation_height_bounded &, std::string const & name_a);
 };
 
-std::unique_ptr<nano::container_info_component> collect_container_info (confirmation_height_bounded &, const std::string & name_a);
+std::unique_ptr<nano::container_info_component> collect_container_info (confirmation_height_bounded &, std::string const & name_a);
 }

@@ -160,7 +160,7 @@ void nano::state_block_signature_verification::verify_state_blocks (std::deque<n
 	}
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (state_block_signature_verification & state_block_signature_verification, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (state_block_signature_verification & state_block_signature_verification, std::string const & name)
 {
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "state_blocks", state_block_signature_verification.size (), sizeof (nano::unchecked_info) }));

@@ -1548,7 +1548,7 @@ cemented_frontier (cemented_frontier), frontier (frontier), account (account)
 {
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (ledger & ledger, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (ledger & ledger, std::string const & name)
 {
 	auto count = ledger.bootstrap_weights_size.load ();
 	auto sizeof_element = sizeof (decltype (ledger.bootstrap_weights)::value_type);

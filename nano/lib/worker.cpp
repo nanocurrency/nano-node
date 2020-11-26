@@ -64,7 +64,7 @@ void nano::worker::stop ()
 	}
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::worker & worker, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::worker & worker, std::string const & name)
 {
 	size_t count;
 	{

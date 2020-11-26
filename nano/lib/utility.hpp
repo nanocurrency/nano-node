@@ -54,7 +54,7 @@ public:
 class container_info_composite : public container_info_component
 {
 public:
-	container_info_composite (const std::string & name);
+	container_info_composite (std::string const & name);
 	bool is_composite () const override;
 	void add_component (std::unique_ptr<container_info_component> child);
 	const std::vector<std::unique_ptr<container_info_component>> & get_children () const;
@@ -135,7 +135,7 @@ public:
 };
 
 template <typename... T>
-std::unique_ptr<container_info_component> collect_container_info (observer_set<T...> & observer_set, const std::string & name)
+std::unique_ptr<container_info_component> collect_container_info (observer_set<T...> & observer_set, std::string const & name)
 {
 	size_t count = 0;
 	{

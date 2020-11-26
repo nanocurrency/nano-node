@@ -471,7 +471,7 @@ bool nano::telemetry_info::awaiting_first_response () const
 	return data == nano::telemetry_data ();
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (telemetry & telemetry, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (telemetry & telemetry, std::string const & name)
 {
 	auto composite = std::make_unique<container_info_composite> (name);
 	size_t callbacks_count;

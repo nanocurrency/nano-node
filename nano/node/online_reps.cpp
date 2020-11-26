@@ -116,7 +116,7 @@ void nano::online_reps::clear ()
 	online_m = 0;
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (online_reps & online_reps, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (online_reps & online_reps, std::string const & name)
 {
 	size_t count;
 	{
