@@ -65,10 +65,20 @@ public:
 class inactive_cache_information final
 {
 public:
+	inactive_cache_information () = default;
+	inactive_cache_information (std::chrono::steady_clock::time_point arrival, nano::block_hash hash, nano::account initial_rep_a, nano::inactive_cache_status status) :
+	arrival (arrival),
+	hash (hash),
+	status (status)
+	{
+		voters.reserve (8);
+		voters.push_back (initial_rep_a);
+	}
+
 	std::chrono::steady_clock::time_point arrival;
 	nano::block_hash hash;
-	std::vector<nano::account> voters;
 	nano::inactive_cache_status status;
+	std::vector<nano::account> voters;
 	bool needs_eval () const
 	{
 		return !status.bootstrap_started || !status.election_started || !status.confirmed;
@@ -327,14 +337,17 @@ private:
 		mi::ordered_non_unique<mi::tag<tag_arrival>,
 			mi::member<nano::inactive_cache_information, std::chrono::steady_clock::time_point, &nano::inactive_cache_information::arrival>>,
 		mi::hashed_unique<mi::tag<tag_hash>,
-			mi::member<nano::inactive_cache_information, nano::block_hash, &nano::inactive_cache_information::hash>>>>;
+			mi::member<nano::inactive_cache_information, nano::block_hash, &nano::inactive_cache_information::hash>>>, boost::fast_pool_allocator<nano::inactive_cache_information>>;
 	ordered_cache inactive_votes_cache;
 	// clang-format on
 	nano::inactive_cache_status inactive_votes_bootstrap_check (nano::unique_lock<std::mutex> &, std::vector<nano::account> const &, nano::block_hash const &, nano::inactive_cache_status const &);
+	nano::inactive_cache_status inactive_votes_bootstrap_check (nano::unique_lock<std::mutex> &, nano::account const &, nano::block_hash const &, nano::inactive_cache_status const &);
+	nano::inactive_cache_status inactive_votes_bootstrap_check_impl (nano::unique_lock<std::mutex> &, nano::uint128_t const &, size_t, nano::block_hash const &, nano::inactive_cache_status const &);
 	nano::inactive_cache_information find_inactive_votes_cache_impl (nano::block_hash const &);
 	boost::thread thread;
 
 	friend class election;
+	friend bool purge_singleton_inactive_votes_cache_pool_memory ();
 	friend std::unique_ptr<container_info_component> collect_container_info (active_transactions &, const std::string &);
 
 	friend class active_transactions_vote_replays_Test;
@@ -345,7 +358,9 @@ private:
 	friend class node_deferred_dependent_elections_Test;
 	friend class active_transactions_pessimistic_elections_Test;
 	friend class frontiers_confirmation_expired_optimistic_elections_removal_Test;
+	friend class memory_pool_validate_cleanup_Test;
 };
 
+bool purge_singleton_inactive_votes_cache_pool_memory ();
 std::unique_ptr<container_info_component> collect_container_info (active_transactions & active_transactions, const std::string & name);
 }
