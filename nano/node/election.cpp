@@ -229,17 +229,13 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 	return result;
 }
 
-bool nano::election::have_quorum (nano::tally_t const & tally_a, nano::uint128_t tally_sum) const
+bool nano::election::have_quorum (nano::tally_t const & tally_a) const
 {
-	bool result = false;
-	if (tally_sum >= node.config.online_weight_minimum.number ())
-	{
-		auto i (tally_a.begin ());
-		++i;
-		auto second (i != tally_a.end () ? i->first : 0);
-		auto delta_l (node.delta ());
-		result = tally_a.begin ()->first > (second + delta_l);
-	}
+	auto i (tally_a.begin ());
+	++i;
+	auto second (i != tally_a.end () ? i->first : 0);
+	auto delta_l (node.online_reps.delta ());
+	bool result{ tally_a.begin ()->first >= (second + delta_l) };
 	return result;
 }
 
@@ -284,13 +280,13 @@ void nano::election::confirm_if_quorum (nano::unique_lock<std::mutex> & lock_a)
 	{
 		sum += i.first;
 	}
-	if (sum >= node.config.online_weight_minimum.number () && winner_hash_l != status_winner_hash_l)
+	if (sum >= node.online_reps.delta () && winner_hash_l != status_winner_hash_l)
 	{
 		status.winner = block_l;
 		remove_votes (status_winner_hash_l);
 		node.block_processor.force (block_l);
 	}
-	if (have_quorum (tally_l, sum))
+	if (have_quorum (tally_l))
 	{
 		if (node.config.logging.vote_logging () || (node.config.logging.election_fork_tally_logging () && last_blocks.size () > 1))
 		{
@@ -334,7 +330,7 @@ nano::election_vote_result nano::election::vote (nano::account const & rep, uint
 {
 	// see republish_vote documentation for an explanation of these rules
 	auto replay (false);
-	auto online_stake (node.online_reps.online_stake ());
+	auto online_stake (node.online_reps.trended ());
 	auto weight (node.ledger.weight (rep));
 	auto should_process (false);
 	if (node.network_params.network.is_dev_network () || weight > node.minimum_principal_weight (online_stake))
@@ -396,7 +392,7 @@ bool nano::election::publish (std::shared_ptr<nano::block> const & block_a)
 	auto result (confirmed ());
 	if (!result && last_blocks.size () >= 10)
 	{
-		if (last_tally[block_a->hash ()] < node.online_reps.online_stake () / 10)
+		if (last_tally[block_a->hash ()] < node.online_reps.trended () / 10)
 		{
 			result = true;
 			node.network.publish_filter.clear (block_a);

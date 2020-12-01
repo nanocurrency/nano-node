@@ -5255,6 +5255,54 @@ TEST (rpc, block_info_pruning)
 	ASSERT_TRUE (response2.json.get<bool> ("confirmed"));
 }
 
+TEST (rpc, pruned_exists)
+{
+	nano::system system;
+	auto & node0 = *system.add_node ();
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.enable_voting = false; // Remove after allowing pruned voting
+	nano::node_flags node_flags;
+	node_flags.enable_pruning = true;
+	auto & node1 = *add_ipc_enabled_node (system, node_config, node_flags);
+	auto latest (node1.latest (nano::dev_genesis_key.pub));
+	auto send1 (std::make_shared<nano::send_block> (latest, nano::dev_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node1.work_generate_blocking (latest)));
+	node1.process_active (send1);
+	auto receive1 (std::make_shared<nano::receive_block> (send1->hash (), send1->hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node1.work_generate_blocking (send1->hash ())));
+	node1.process_active (receive1);
+	node1.block_processor.flush ();
+	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
+	ASSERT_TIMELY (5s, node1.ledger.cache.cemented_count == 3 && node1.confirmation_height_processor.current ().is_zero () && node1.confirmation_height_processor.awaiting_processing_size () == 0);
+	// Pruning action
+	{
+		auto transaction (node1.store.tx_begin_write ());
+		ASSERT_EQ (1, node1.ledger.pruning_action (transaction, send1->hash (), 1));
+	}
+	scoped_io_thread_name_change scoped_thread_name_io;
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
+	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	rpc_config.rpc_process.ipc_port = node1.config.ipc_config.transport_tcp.port;
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+	// Pruned block
+	boost::property_tree::ptree request;
+	request.put ("action", "pruned_exists");
+	request.put ("hash", send1->hash ().to_string ());
+	test_response response (request, rpc.config.port, system.io_ctx);
+	ASSERT_TIMELY (5s, response.status != 0);
+	ASSERT_EQ (200, response.status);
+	ASSERT_TRUE (response.json.get<bool> ("exists"));
+	// Existing block with previous pruned
+	boost::property_tree::ptree request2;
+	request2.put ("action", "pruned_exists");
+	request2.put ("hash", receive1->hash ().to_string ());
+	test_response response2 (request2, rpc.config.port, system.io_ctx);
+	ASSERT_TIMELY (5s, response2.status != 0);
+	ASSERT_EQ (200, response2.status);
+	ASSERT_FALSE (response2.json.get<bool> ("exists"));
+}
+
 TEST (rpc, work_peers_all)
 {
 	nano::system system;
@@ -6184,11 +6232,12 @@ TEST (rpc, online_reps)
 	auto node2 = add_ipc_enabled_node (system);
 	nano::keypair key;
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
-	ASSERT_TRUE (node2->online_reps.online_stake () == node2->config.online_weight_minimum.number ());
+	ASSERT_EQ (node2->online_reps.online (), 0);
 	auto send_block (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key.pub, nano::Gxrb_ratio));
 	ASSERT_NE (nullptr, send_block);
 	scoped_io_thread_name_change scoped_thread_name_io;
 	ASSERT_TIMELY (10s, !node2->online_reps.list ().empty ());
+	ASSERT_EQ (node2->online_reps.online (), nano::genesis_amount - nano::Gxrb_ratio);
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (*system.nodes[1], node_rpc_config);
 	nano::rpc_config rpc_config (nano::get_available_port (), true);

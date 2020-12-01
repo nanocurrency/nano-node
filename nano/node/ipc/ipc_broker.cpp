@@ -21,14 +21,14 @@ std::shared_ptr<flatbuffers::Parser> nano::ipc::subscriber::get_parser (nano::ip
 
 void nano::ipc::broker::start ()
 {
-	node.observers.blocks.add ([this](nano::election_status const & status_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
+	node.observers.blocks.add ([this_l = shared_from_this ()](nano::election_status const & status_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
 		debug_assert (status_a.type != nano::election_status_type::ongoing);
 
 		try
 		{
 			// The subscriber(s) may be gone after the count check, but the only consequence
 			// is that broadcast is called only to not find any live sessions.
-			if (confirmation_subscriber_count () > 0)
+			if (this_l->confirmation_subscriber_count () > 0)
 			{
 				auto confirmation (std::make_shared<nanoapi::EventConfirmationT> ());
 
@@ -59,12 +59,12 @@ void nano::ipc::broker::start ()
 				confirmation->election_info->voter_count = status_a.voter_count;
 				confirmation->election_info->request_count = status_a.confirmation_request_count;
 
-				broadcast (confirmation);
+				this_l->broadcast (confirmation);
 			}
 		}
 		catch (nano::error const & err)
 		{
-			this->node.logger.always_log ("IPC: could not broadcast message: ", err.get_message ());
+			this_l->node.logger.always_log ("IPC: could not broadcast message: ", err.get_message ());
 		}
 	});
 }

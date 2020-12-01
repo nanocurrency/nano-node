@@ -133,6 +133,7 @@ enum class error_rpc
 	invalid_threads_count,
 	pending_not_found,
 	peer_not_found,
+	pruning_disabled,
 	requires_port_and_address,
 	rpc_control_disabled,
 	sign_hash_disabled,

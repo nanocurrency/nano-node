@@ -118,7 +118,7 @@ block_processor_thread ([this]() {
 	this->block_processor.process_blocks ();
 }),
 // clang-format on
-online_reps (ledger, network_params, config.online_weight_minimum.number ()),
+online_reps (ledger, config),
 vote_uniquer (block_uniquer),
 confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, config.logging, logger, node_initialized_latch, flags.confirmation_height_processor_mode),
 active (*this, confirmation_height_processor),
@@ -661,6 +661,13 @@ void nano::node::start ()
 			this_l->ongoing_unchecked_cleanup ();
 		});
 	}
+	if (flags.enable_pruning)
+	{
+		auto this_l (shared ());
+		worker.push_task ([this_l]() {
+			this_l->ongoing_ledger_pruning ();
+		});
+	}
 	if (!flags.disable_rep_crawler)
 	{
 		rep_crawler.start ();
@@ -790,7 +797,7 @@ nano::block_hash nano::node::rep_block (nano::account const & account_a)
 
 nano::uint128_t nano::node::minimum_principal_weight ()
 {
-	return minimum_principal_weight (online_reps.online_stake ());
+	return minimum_principal_weight (online_reps.trended ());
 }
 
 nano::uint128_t nano::node::minimum_principal_weight (nano::uint128_t const & online_stake)
@@ -985,6 +992,124 @@ void nano::node::ongoing_unchecked_cleanup ()
 	});
 }
 
+bool nano::node::collect_ledger_pruning_targets (std::deque<nano::block_hash> & pruning_targets_a, nano::account & last_account_a, uint64_t const batch_read_size_a, uint64_t const max_depth_a, uint64_t const cutoff_time_a)
+{
+	uint64_t read_operations (0);
+	bool finish_transaction (false);
+	auto transaction (store.tx_begin_read ());
+	for (auto i (store.confirmation_height_begin (transaction, last_account_a)), n (store.confirmation_height_end ()); i != n && !finish_transaction;)
+	{
+		++read_operations;
+		auto const & account (i->first);
+		nano::block_hash hash (i->second.frontier);
+		uint64_t depth (0);
+		while (!hash.is_zero () && depth < max_depth_a)
+		{
+			auto block (store.block_get (transaction, hash));
+			if (block != nullptr)
+			{
+				if (block->sideband ().timestamp > cutoff_time_a || depth == 0)
+				{
+					hash = block->previous ();
+				}
+				else
+				{
+					break;
+				}
+			}
+			else
+			{
+				release_assert (depth != 0);
+				hash = 0;
+			}
+			if (++depth % batch_read_size_a == 0)
+			{
+				transaction.refresh ();
+			}
+		}
+		if (!hash.is_zero ())
+		{
+			pruning_targets_a.push_back (hash);
+		}
+		read_operations += depth;
+		if (read_operations >= batch_read_size_a)
+		{
+			last_account_a = account.number () + 1;
+			finish_transaction = true;
+		}
+		else
+		{
+			++i;
+		}
+	}
+	return !finish_transaction || last_account_a.is_zero ();
+}
+
+void nano::node::ledger_pruning (uint64_t const batch_size_a, bool bootstrap_weight_reached_a, bool log_to_cout_a)
+{
+	uint64_t const max_depth (config.max_pruning_depth != 0 ? config.max_pruning_depth : std::numeric_limits<uint64_t>::max ());
+	uint64_t const cutoff_time (bootstrap_weight_reached_a ? nano::seconds_since_epoch () - config.max_pruning_age.count () : std::numeric_limits<uint64_t>::max ());
+	uint64_t pruned_count (0);
+	uint64_t transaction_write_count (0);
+	nano::account last_account (1); // 0 Burn account is never opened. So it can be used to break loop
+	std::deque<nano::block_hash> pruning_targets;
+	bool target_finished (false);
+	while ((transaction_write_count != 0 || !target_finished) && !stopped)
+	{
+		// Search pruning targets
+		while (pruning_targets.size () < batch_size_a && !target_finished && !stopped)
+		{
+			target_finished = collect_ledger_pruning_targets (pruning_targets, last_account, batch_size_a * 2, max_depth, cutoff_time);
+		}
+		// Pruning write operation
+		transaction_write_count = 0;
+		if (!pruning_targets.empty () && !stopped)
+		{
+			auto scoped_write_guard = write_database_queue.wait (nano::writer::pruning);
+			auto write_transaction (store.tx_begin_write ({ tables::blocks, tables::pruned }));
+			while (!pruning_targets.empty () && transaction_write_count < batch_size_a && !stopped)
+			{
+				auto const & pruning_hash (pruning_targets.front ());
+				auto account_pruned_count (ledger.pruning_action (write_transaction, pruning_hash, batch_size_a));
+				transaction_write_count += account_pruned_count;
+				pruning_targets.pop_front ();
+			}
+			pruned_count += transaction_write_count;
+			auto log_message (boost::str (boost::format ("%1% blocks pruned") % pruned_count));
+			if (!log_to_cout_a)
+			{
+				logger.try_log (log_message);
+			}
+			else
+			{
+				std::cout << log_message << std::endl;
+			}
+		}
+	}
+	auto log_message (boost::str (boost::format ("Total recently pruned block count: %1%") % pruned_count));
+	if (!log_to_cout_a)
+	{
+		logger.always_log (log_message);
+	}
+	else
+	{
+		std::cout << log_message << std::endl;
+	}
+}
+
+void nano::node::ongoing_ledger_pruning ()
+{
+	auto bootstrap_weight_reached (ledger.cache.block_count >= ledger.bootstrap_weight_max_blocks);
+	ledger_pruning (flags.block_processor_batch_size != 0 ? flags.block_processor_batch_size : 2 * 1024, bootstrap_weight_reached, false);
+	auto ledger_pruning_interval (bootstrap_weight_reached ? config.max_pruning_age : std::min (config.max_pruning_age, std::chrono::seconds (15 * 60)));
+	auto this_l (shared ());
+	alarm.add (std::chrono::steady_clock::now () + ledger_pruning_interval, [this_l]() {
+		this_l->worker.push_task ([this_l]() {
+			this_l->ongoing_ledger_pruning ();
+		});
+	});
+}
+
 int nano::node::price (nano::uint128_t const & balance_a, int amount_a)
 {
 	debug_assert (balance_a >= amount_a * nano::Gxrb_ratio);
@@ -1141,12 +1266,6 @@ bool nano::node::block_confirmed_or_being_confirmed (nano::transaction const & t
 	return confirmation_height_processor.is_processing_block (hash_a) || ledger.block_confirmed (transaction_a, hash_a);
 }
 
-nano::uint128_t nano::node::delta () const
-{
-	auto result ((online_reps.online_stake () / 100) * config.online_weight_quorum);
-	return result;
-}
-
 void nano::node::ongoing_online_weight_calculation_queue ()
 {
 	std::weak_ptr<nano::node> node_w (shared_from_this ());
@@ -1162,7 +1281,7 @@ void nano::node::ongoing_online_weight_calculation_queue ()
 
 bool nano::node::online () const
 {
-	return rep_crawler.total_weight () > (std::max (config.online_weight_minimum.number (), delta ()));
+	return rep_crawler.total_weight () > online_reps.delta ();
 }
 
 void nano::node::ongoing_online_weight_calculation ()

@@ -8,11 +8,19 @@ jobs:
   linux_job:
     runs-on: ubuntu-18.04
     steps:
-      - uses: actions/checkout@722adc6
-      - name: Checkout Submodules
-        run: git submodule update --init --recursive
+      - uses: actions/checkout@5a4ac90
+        with:
+          submodules: "recursive"
       - name: Fetch Deps
         run: ci/actions/linux/install_deps.sh
+      - name: Login to ghcr.io
+        uses: docker/login-action@adb7347
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GHCR_PAT }}
+      - name: Deploy Docker (ghcr.io)
+        run: ci/actions/linux/ghcr_push.sh
       - name: Deploy Docker (nanocurrency/nano-env)
         run: ci/actions/linux/deploy-docker.sh
         env:
