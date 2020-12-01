@@ -9,7 +9,7 @@ if [ -n "$DOCKER_PASSWORD" ]; then
     # We push this just so it can be a cache next time
     if [[ "$TRAVIS_BRANCH" == "master" || "$TRAVIS_BRANCH" == "docker_cache" ]] && [[ "${TRAVIS_BUILD_STAGE_NAME}" =~ 'Build' ]]; then
         ci_image_name="nanocurrency/nano-env:$TRAVIS_JOB_NAME"
-        ci/build-docker-image.sh docker/ci/Dockerfile-$TRAVIS_JOB_NAME "$ci_image_name";
+        ci/build-docker-image.sh docker/ci/Dockerfile-$TRAVIS_JOB_NAME "$ci_image_name"
         "$scripts"/custom-timeout.sh 30 docker push "$ci_image_name"
     fi
 

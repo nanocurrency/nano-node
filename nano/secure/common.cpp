@@ -29,7 +29,7 @@ char const * dev_private_key_data = "34F0A37AAD20F4A260F0A5B3CB3D7FB50673212263E
 char const * dev_public_key_data = "B0311EA55708D6A53C75CDBF88300259C6D018522FE3D4D0A242E431F9E8B6D0"; // xrb_3e3j5tkog48pnny9dmfzj1r16pg8t1e76dz5tmac6iq689wyjfpiij4txtdo
 char const * beta_public_key_data = "A59A439B34662385D48F7FF9CA50030F889BAA9AC320EA5A85AAD777CF82B088"; // nano_3betagfmasj5iqcayzzssba185wamgobois1xbfadcpqgz9r7e6a1zwztn5o
 char const * live_public_key_data = "E89208DD038FBB269987689621D52292AE9C35941A7484756ECCED92A65093BA"; // xrb_3t6k35gi95xu6tergt6p69ck76ogmitsa8mnijtpxm9fkcm736xtoncuohr3
-char const * test_public_key_data = "45C6FF9D1706D61F0821327752671BDA9F9ED2DA40326B01935AB566FB9E08ED"; // nano_1jg8zygjg3pp5w644emqcbmjqpnzmubfni3kfe1s8pooeuxsw49fdq1mco9j
+std::string const test_public_key_data = nano::get_env_or_default ("NANO_TEST_GENESIS_PUB", "45C6FF9D1706D61F0821327752671BDA9F9ED2DA40326B01935AB566FB9E08ED"); // nano_1jg8zygjg3pp5w644emqcbmjqpnzmubfni3kfe1s8pooeuxsw49fdq1mco9j
 char const * dev_genesis_data = R"%%%({
 	"type": "open",
 	"source": "B0311EA55708D6A53C75CDBF88300259C6D018522FE3D4D0A242E431F9E8B6D0",
@@ -57,14 +57,14 @@ char const * live_genesis_data = R"%%%({
 	"signature": "9F0C933C8ADE004D808EA1985FA746A7E95BA2A38F867640F53EC8F180BDFE9E2C1268DEAD7C2664F356E37ABA362BC58E46DBA03E523A7B5A19E4B6EB12BB02"
 	})%%%";
 
-char const * test_genesis_data = R"%%%({
+std::string const test_genesis_data = nano::get_env_or_default ("NANO_TEST_GENESIS_BLOCK", R"%%%({
 	"type": "open",
 	"source": "45C6FF9D1706D61F0821327752671BDA9F9ED2DA40326B01935AB566FB9E08ED",
 	"representative": "nano_1jg8zygjg3pp5w644emqcbmjqpnzmubfni3kfe1s8pooeuxsw49fdq1mco9j",
 	"account": "nano_1jg8zygjg3pp5w644emqcbmjqpnzmubfni3kfe1s8pooeuxsw49fdq1mco9j",
 	"work": "bc1ef279c1a34eb1",
 	"signature": "15049467CAEE3EC768639E8E35792399B6078DA763DA4EBA8ECAD33B0EDC4AF2E7403893A5A602EB89B978DABEF1D6606BB00F3C0EE11449232B143B6E07170E"
-	})%%%";
+	})%%%");
 
 std::shared_ptr<nano::block> parse_block_from_genesis_data (std::string const & genesis_data_a)
 {
@@ -86,7 +86,7 @@ network (network_a), ledger (network), voting (network), node (network), portmap
 	unsigned constexpr kdf_full_work = 64 * 1024;
 	unsigned constexpr kdf_dev_work = 8;
 	kdf_work = network.is_dev_network () ? kdf_dev_work : kdf_full_work;
-	header_magic_number = network.is_dev_network () ? std::array<uint8_t, 2>{ { 'R', 'A' } } : network.is_beta_network () ? std::array<uint8_t, 2>{ { 'N', 'B' } } : network.is_live_network () ? std::array<uint8_t, 2>{ { 'R', 'C' } } : std::array<uint8_t, 2>{ { 'R', 'X' } };
+	header_magic_number = network.is_dev_network () ? std::array<uint8_t, 2>{ { 'R', 'A' } } : network.is_beta_network () ? std::array<uint8_t, 2>{ { 'N', 'B' } } : network.is_live_network () ? std::array<uint8_t, 2>{ { 'R', 'C' } } : nano::test_magic_number ();
 }
 
 uint8_t nano::protocol_constants::protocol_version_min (bool use_epoch_2_min_version_a) const
@@ -450,7 +450,7 @@ bool nano::vote::operator== (nano::vote const & other_a) const
 			}
 		}
 	}
-	return sequence == other_a.sequence && blocks_equal && account == other_a.account && signature == other_a.signature;
+	return timestamp == other_a.timestamp && blocks_equal && account == other_a.account && signature == other_a.signature;
 }
 
 bool nano::vote::operator!= (nano::vote const & other_a) const
@@ -462,7 +462,8 @@ void nano::vote::serialize_json (boost::property_tree::ptree & tree) const
 {
 	tree.put ("account", account.to_account ());
 	tree.put ("signature", signature.number ());
-	tree.put ("sequence", std::to_string (sequence));
+	tree.put ("sequence", std::to_string (timestamp));
+	tree.put ("timestamp", std::to_string (timestamp));
 	boost::property_tree::ptree blocks_tree;
 	for (auto block : blocks)
 	{
@@ -490,7 +491,7 @@ std::string nano::vote::to_json () const
 }
 
 nano::vote::vote (nano::vote const & other_a) :
-sequence (other_a.sequence),
+timestamp{ other_a.timestamp },
 blocks (other_a.blocks),
 account (other_a.account),
 signature (other_a.signature)
@@ -508,7 +509,7 @@ nano::vote::vote (bool & error_a, nano::stream & stream_a, nano::block_type type
 	{
 		nano::read (stream_a, account.bytes);
 		nano::read (stream_a, signature.bytes);
-		nano::read (stream_a, sequence);
+		nano::read (stream_a, timestamp);
 
 		while (stream_a.in_avail () > 0)
 		{
@@ -540,16 +541,16 @@ nano::vote::vote (bool & error_a, nano::stream & stream_a, nano::block_type type
 	}
 }
 
-nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, uint64_t sequence_a, std::shared_ptr<nano::block> block_a) :
-sequence (sequence_a),
+nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, uint64_t timestamp_a, std::shared_ptr<nano::block> block_a) :
+timestamp{ timestamp_a },
 blocks (1, block_a),
 account (account_a),
 signature (nano::sign_message (prv_a, account_a, hash ()))
 {
 }
 
-nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, uint64_t sequence_a, std::vector<nano::block_hash> const & blocks_a) :
-sequence (sequence_a),
+nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, uint64_t timestamp_a, std::vector<nano::block_hash> const & blocks_a) :
+timestamp{ timestamp_a },
 account (account_a)
 {
 	debug_assert (!blocks_a.empty ());
@@ -590,7 +591,7 @@ nano::block_hash nano::vote::hash () const
 		uint64_t qword;
 		std::array<uint8_t, 8> bytes;
 	};
-	qword = sequence;
+	qword = timestamp;
 	blake2b_update (&hash, bytes.data (), sizeof (bytes));
 	blake2b_final (&hash, result.bytes.data (), sizeof (result.bytes));
 	return result;
@@ -612,7 +613,7 @@ void nano::vote::serialize (nano::stream & stream_a, nano::block_type type) cons
 {
 	write (stream_a, account);
 	write (stream_a, signature);
-	write (stream_a, sequence);
+	write (stream_a, timestamp);
 	for (auto const & block : blocks)
 	{
 		if (block.which ())
@@ -638,7 +639,7 @@ void nano::vote::serialize (nano::stream & stream_a) const
 {
 	write (stream_a, account);
 	write (stream_a, signature);
-	write (stream_a, sequence);
+	write (stream_a, timestamp);
 	for (auto const & block : blocks)
 	{
 		if (block.which ())
@@ -660,7 +661,7 @@ bool nano::vote::deserialize (nano::stream & stream_a, nano::block_uniquer * uni
 	{
 		nano::read (stream_a, account);
 		nano::read (stream_a, signature);
-		nano::read (stream_a, sequence);
+		nano::read (stream_a, timestamp);
 
 		nano::block_type type;
 

@@ -1,19 +1,19 @@
 import argparse
 import copy
+import sys
 
 """
 Changelog generation script, requires PAT see https://github.com/settings/tokens
 Caveats V20 and prior release tags are tips on their respective release branches
 If you try to use a start tag with one of these a full changelog will be generated
 since the commit wont appear in your iterations
-
 """
 
 try:
     from github import Github
     from mdutils import MdUtils
 except BaseException:
-    exit("Error: run 'pip install PyGithub mdutils'")
+    sys.exit("Error: run 'pip install PyGithub mdutils'")
 
 SECTIONS = {
     "Major Changes": [
@@ -135,14 +135,15 @@ class generateTree:
             exit("Error finding commit for " + args.end)
         commits = self.repo.get_commits(sha=self.endCommit.sha)
         self.commits = {}
-        self.other_commits = [] # for commits that do not have an associated pull
+        self.other_commits = []  # for commits that do not have an associated pull
         for commit in commits:
             if commit.sha == self.startCommit.sha:
                 break
             else:
                 message = commit.commit.message.partition('\n')[0]
                 try:
-                    pr_number = int(message[message.rfind('#')+1:message.rfind(')')])
+                    pr_number = int(
+                        message[message.rfind('#')+1:message.rfind(')')])
                     pull = self.repo.get_pull(pr_number)
                     labels = []
                     for label in pull.labels:
@@ -151,9 +152,10 @@ class generateTree:
                         "Title": pull.title,
                         "Url": pull.html_url,
                         "labels": labels
-                        }
+                    }
                 except ValueError:
-                    print("Commit has no associated PR {}: \"{}\"".format(commit.sha, message))
+                    print("Commit has no associated PR {}: \"{}\"".format(
+                        commit.sha, message))
                     self.other_commits.append((commit.sha, message))
                     continue
 
@@ -176,11 +178,11 @@ class generateMarkdown():
             file_name='CHANGELOG', title='CHANGELOG'
         )
         self.mdFile.new_line(
-            "## **Release** " + \
-            "[{0}](https://github.com/nanocurrency/nano-node/tree/{0})"\
-                .format(repo.end))
-        self.mdFile.new_line("[Full Changelog](https://github.com/nanocurrency"\
-            "/nano-node/compare/{0}...{1})".format(repo.start, repo.end))
+            "## **Release** " +
+            "[{0}](https://github.com/nanocurrency/nano-node/tree/{0})"
+            .format(repo.end))
+        self.mdFile.new_line("[Full Changelog](https://github.com/nanocurrency"
+                             "/nano-node/compare/{0}...{1})".format(repo.start, repo.end))
         sort = self.pull_to_section(repo.commits)
 
         for section, prs in sort.items():
@@ -218,8 +220,8 @@ class generateMarkdown():
                 pr[0], info['Url'], imp, info['Title']))
 
     def write_no_PR(self, repo, sha, message):
-         url = "https://github.com/{0}/commit/{1}".format(repo.name, sha)
-         self.mdFile.new_line(
+        url = "https://github.com/{0}/commit/{1}".format(repo.name, sha)
+        self.mdFile.new_line(
             "|[{0}]({1})|{2}".format(
                 sha[:8], url, message))
 
@@ -228,8 +230,8 @@ class generateMarkdown():
             for label in labels:
                 if label in values:
                     if any(
-                        string in labels for string in [
-                            'breaking',
+                            string in labels for string in [
+                                'breaking',
                             ]):
                         return section, True
                     else:
@@ -244,7 +246,7 @@ class generateMarkdown():
         for pull, info in commits.items():
             section, important = self.handle_labels(info['labels'])
             if important:
-                sect[section].insert(0,[pull, important])
+                sect[section].insert(0, [pull, important])
             else:
                 sect[section].append([pull, important])
         for a in sect:

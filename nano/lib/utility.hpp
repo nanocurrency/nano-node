@@ -113,14 +113,6 @@ void dump_crash_stacktrace ();
  */
 std::string generate_stacktrace ();
 
-/**
- * Returns seconds passed since unix epoch (posix time)
- */
-inline uint64_t seconds_since_epoch ()
-{
-	return std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ();
-}
-
 template <typename... T>
 class observer_set final
 {

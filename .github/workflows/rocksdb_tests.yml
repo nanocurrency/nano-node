@@ -9,15 +9,15 @@ env:
   
 jobs:
   osx_test:
-    runs-on: macOS-latest
+    runs-on: macos-latest
     env:
       BOOST_ROOT: /tmp/boost
       DEADLINE_SCALE_FACTOR: 2
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
-      - uses: actions/checkout@722adc6
-      - name: Checkout Submodules
-        run: git submodule update --init --recursive
+      - uses: actions/checkout@5a4ac90
+        with:
+          submodules: "recursive"
       - name: Fetch Deps
         run: TEST=1 ci/actions/osx/install_deps.sh
       - name: Run Tests
@@ -28,9 +28,9 @@ jobs:
     timeout-minutes: 60
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
-      - uses: actions/checkout@722adc6
-      - name: Checkout Submodules
-        run: git submodule update --init --recursive
+      - uses: actions/checkout@5a4ac90
+        with:
+          submodules: "recursive"
       - name: Fetch Deps
         run: ci/actions/linux/install_deps.sh
       - name: Run Tests
@@ -41,9 +41,9 @@ jobs:
     timeout-minutes: 60
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
-      - uses: actions/checkout@722adc6
-      - name: Checkout Submodules
-        run: git submodule update --init --recursive
+      - uses: actions/checkout@5a4ac90
+        with:
+          submodules: "recursive"
       - name: Fetch Deps
         run: ci/actions/linux/install_deps.sh
       - name: Run Tests
@@ -57,11 +57,11 @@ jobs:
       DEADLINE_SCALE_FACTOR: 2
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
-      - uses: actions/checkout@722adc6
+      - uses: actions/checkout@5a4ac90
+        with:
+          submodules: "recursive"
       - name: Windows Defender
         run: ci/actions/windows/disable_windows_defender.ps1
-      - name: Checkout Submodules
-        run: git submodule update --init --recursive
       - name: Fetch Deps
         run: ci/actions/windows/install_deps.ps1
       - name: Run Tests

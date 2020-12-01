@@ -93,9 +93,9 @@ TEST (confirmation_height, multiple_accounts)
 		nano::block_hash latest1 (system.nodes[0]->latest (nano::dev_genesis_key.pub));
 
 		// Send to all accounts
-		nano::send_block send1 (latest1, key1.pub, system.nodes.front ()->config.online_weight_minimum.number () + 300, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (latest1));
-		nano::send_block send2 (send1.hash (), key2.pub, system.nodes.front ()->config.online_weight_minimum.number () + 200, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send1.hash ()));
-		nano::send_block send3 (send2.hash (), key3.pub, system.nodes.front ()->config.online_weight_minimum.number () + 100, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send2.hash ()));
+		nano::send_block send1 (latest1, key1.pub, node->online_reps.delta () + 300, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (latest1));
+		nano::send_block send2 (send1.hash (), key2.pub, node->online_reps.delta () + 200, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send1.hash ()));
+		nano::send_block send3 (send2.hash (), key3.pub, node->online_reps.delta () + 100, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send2.hash ()));
 
 		// Open all accounts
 		nano::open_block open1 (send1.hash (), nano::genesis_account, key1.pub, key1.prv, key1.pub, *system.work.generate (key1.pub));
@@ -129,19 +129,19 @@ TEST (confirmation_height, multiple_accounts)
 			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send6).code);
 			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, receive2).code);
 
-			// Check confirmation heights of all the accounts are uninitialized (0),
+			// Check confirmation heights of all the accounts (except genesis) are uninitialized (0),
 			// as we have any just added them to the ledger and not processed any live transactions yet.
 			nano::confirmation_height_info confirmation_height_info;
 			ASSERT_FALSE (node->store.confirmation_height_get (transaction, nano::dev_genesis_key.pub, confirmation_height_info));
 			ASSERT_EQ (1, confirmation_height_info.height);
 			ASSERT_EQ (nano::genesis_hash, confirmation_height_info.frontier);
-			ASSERT_FALSE (node->store.confirmation_height_get (transaction, key1.pub, confirmation_height_info));
+			ASSERT_TRUE (node->store.confirmation_height_get (transaction, key1.pub, confirmation_height_info));
 			ASSERT_EQ (0, confirmation_height_info.height);
 			ASSERT_EQ (nano::block_hash (0), confirmation_height_info.frontier);
-			ASSERT_FALSE (node->store.confirmation_height_get (transaction, key2.pub, confirmation_height_info));
+			ASSERT_TRUE (node->store.confirmation_height_get (transaction, key2.pub, confirmation_height_info));
 			ASSERT_EQ (0, confirmation_height_info.height);
 			ASSERT_EQ (nano::block_hash (0), confirmation_height_info.frontier);
-			ASSERT_FALSE (node->store.confirmation_height_get (transaction, key3.pub, confirmation_height_info));
+			ASSERT_TRUE (node->store.confirmation_height_get (transaction, key3.pub, confirmation_height_info));
 			ASSERT_EQ (0, confirmation_height_info.height);
 			ASSERT_EQ (nano::block_hash (0), confirmation_height_info.frontier);
 		}
@@ -278,7 +278,7 @@ TEST (confirmation_height, gap_bootstrap)
 			ASSERT_FALSE (node1.store.confirmation_height_get (transaction, nano::dev_genesis_key.pub, confirmation_height_info));
 			ASSERT_EQ (1, confirmation_height_info.height);
 			ASSERT_EQ (genesis.hash (), confirmation_height_info.frontier);
-			ASSERT_FALSE (node1.store.confirmation_height_get (transaction, destination.pub, confirmation_height_info));
+			ASSERT_TRUE (node1.store.confirmation_height_get (transaction, destination.pub, confirmation_height_info));
 			ASSERT_EQ (0, confirmation_height_info.height);
 			ASSERT_EQ (nano::block_hash (0), confirmation_height_info.frontier);
 		}
@@ -393,7 +393,7 @@ TEST (confirmation_height, send_receive_between_2_accounts)
 		nano::keypair key1;
 		nano::block_hash latest (node->latest (nano::dev_genesis_key.pub));
 
-		nano::send_block send1 (latest, key1.pub, node->config.online_weight_minimum.number () + 2, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (latest));
+		nano::send_block send1 (latest, key1.pub, node->online_reps.delta () + 2, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (latest));
 
 		nano::open_block open1 (send1.hash (), nano::genesis_account, key1.pub, key1.prv, key1.pub, *system.work.generate (key1.pub));
 		nano::send_block send2 (open1.hash (), nano::genesis_account, 1000, key1.prv, key1.pub, *system.work.generate (open1.hash ()));
@@ -404,11 +404,11 @@ TEST (confirmation_height, send_receive_between_2_accounts)
 		nano::receive_block receive2 (receive1.hash (), send3.hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (receive1.hash ()));
 		nano::receive_block receive3 (receive2.hash (), send4.hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (receive2.hash ()));
 
-		nano::send_block send5 (receive3.hash (), key1.pub, node->config.online_weight_minimum.number () + 1, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (receive3.hash ()));
+		nano::send_block send5 (receive3.hash (), key1.pub, node->online_reps.delta () + 1, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (receive3.hash ()));
 		auto receive4 = std::make_shared<nano::receive_block> (send4.hash (), send5.hash (), key1.prv, key1.pub, *system.work.generate (send4.hash ()));
 		// Unpocketed send
 		nano::keypair key2;
-		nano::send_block send6 (send5.hash (), key2.pub, node->config.online_weight_minimum.number (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send5.hash ()));
+		nano::send_block send6 (send5.hash (), key2.pub, node->online_reps.delta (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send5.hash ()));
 		{
 			auto transaction = node->store.tx_begin_write ();
 			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send1).code);
@@ -487,7 +487,7 @@ TEST (confirmation_height, send_receive_self)
 
 		// Send to another account to prevent automatic receiving on the genesis account
 		nano::keypair key1;
-		nano::send_block send4 (receive3->hash (), key1.pub, node->config.online_weight_minimum.number (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (receive3->hash ()));
+		nano::send_block send4 (receive3->hash (), key1.pub, node->online_reps.delta (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (receive3->hash ()));
 		{
 			auto transaction = node->store.tx_begin_write ();
 			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send1).code);
@@ -689,22 +689,13 @@ TEST (confirmation_height, conflict_rollback_cemented)
 		}
 
 		auto rollback_log_entry = boost::str (boost::format ("Failed to roll back %1%") % send2->hash ().to_string ());
-		system.deadline_set (20s);
-		auto done (false);
-		while (!done)
-		{
-			ASSERT_NO_ERROR (system.poll ());
-			done = (sb.component ()->str ().find (rollback_log_entry) != std::string::npos);
-		}
-		auto transaction1 (node1->store.tx_begin_read ());
-		auto transaction2 (node2->store.tx_begin_read ());
-		nano::unique_lock<std::mutex> lock (node2->active.mutex);
+		ASSERT_TIMELY (20s, sb.component ()->str ().find (rollback_log_entry) != std::string::npos);
 		auto winner (*election->tally ().begin ());
 		ASSERT_EQ (*publish1.block, *winner.second);
 		ASSERT_EQ (nano::genesis_amount - 100, winner.first);
-		ASSERT_TRUE (node1->store.block_exists (transaction1, publish1.block->hash ()));
-		ASSERT_TRUE (node2->store.block_exists (transaction2, publish2.block->hash ()));
-		ASSERT_FALSE (node2->store.block_exists (transaction2, publish1.block->hash ()));
+		ASSERT_TRUE (node1->ledger.block_exists (publish1.block->hash ()));
+		ASSERT_TRUE (node2->ledger.block_exists (publish2.block->hash ()));
+		ASSERT_FALSE (node2->ledger.block_exists (publish1.block->hash ()));
 	};
 
 	test_mode (nano::confirmation_height_mode::bounded);

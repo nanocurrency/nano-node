@@ -95,7 +95,7 @@ nano::write_mdb_txn::~write_mdb_txn ()
 	commit ();
 }
 
-void nano::write_mdb_txn::commit () const
+void nano::write_mdb_txn::commit ()
 {
 	auto status (mdb_txn_commit (handle));
 	release_assert (status == MDB_SUCCESS);
