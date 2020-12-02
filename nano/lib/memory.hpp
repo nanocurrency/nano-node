@@ -8,6 +8,10 @@
 
 namespace nano
 {
+#ifdef __APPLE__
+#define MEMORY_POOL_DISABLED
+#endif
+
 bool get_use_memory_pools ();
 void set_use_memory_pools (bool use_memory_pools);
 

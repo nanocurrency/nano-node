@@ -244,6 +244,21 @@ public:
 
 	nano::vote_generator generator;
 
+#ifdef MEMORY_POOL_DISABLED
+	using allocator = std::allocator<nano::inactive_cache_information>;
+#else
+	using allocator = boost::fast_pool_allocator<nano::inactive_cache_information>;
+#endif
+
+	// clang-format off
+	using ordered_cache = boost::multi_index_container<nano::inactive_cache_information,
+	mi::indexed_by<
+		mi::ordered_non_unique<mi::tag<tag_arrival>,
+			mi::member<nano::inactive_cache_information, std::chrono::steady_clock::time_point, &nano::inactive_cache_information::arrival>>,
+		mi::hashed_unique<mi::tag<tag_hash>,
+			mi::member<nano::inactive_cache_information, nano::block_hash, &nano::inactive_cache_information::hash>>>, allocator>;
+	// clang-format on
+
 private:
 	std::mutex election_winner_details_mutex;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> election_winner_details;
@@ -331,15 +346,7 @@ private:
 	static size_t constexpr max_priority_cementable_frontiers{ 100000 };
 	static size_t constexpr confirmed_frontiers_max_pending_size{ 10000 };
 	static std::chrono::minutes constexpr expired_optimistic_election_info_cutoff{ 30 };
-	// clang-format off
-	using ordered_cache = boost::multi_index_container<nano::inactive_cache_information,
-	mi::indexed_by<
-		mi::ordered_non_unique<mi::tag<tag_arrival>,
-			mi::member<nano::inactive_cache_information, std::chrono::steady_clock::time_point, &nano::inactive_cache_information::arrival>>,
-		mi::hashed_unique<mi::tag<tag_hash>,
-			mi::member<nano::inactive_cache_information, nano::block_hash, &nano::inactive_cache_information::hash>>>, boost::fast_pool_allocator<nano::inactive_cache_information>>;
 	ordered_cache inactive_votes_cache;
-	// clang-format on
 	nano::inactive_cache_status inactive_votes_bootstrap_check (nano::unique_lock<std::mutex> &, std::vector<nano::account> const &, nano::block_hash const &, nano::inactive_cache_status const &);
 	nano::inactive_cache_status inactive_votes_bootstrap_check (nano::unique_lock<std::mutex> &, nano::account const &, nano::block_hash const &, nano::inactive_cache_status const &);
 	nano::inactive_cache_status inactive_votes_bootstrap_check_impl (nano::unique_lock<std::mutex> &, nano::uint128_t const &, size_t, nano::block_hash const &, nano::inactive_cache_status const &);
@@ -347,7 +354,6 @@ private:
 	boost::thread thread;
 
 	friend class election;
-	friend bool purge_singleton_inactive_votes_cache_pool_memory ();
 	friend std::unique_ptr<container_info_component> collect_container_info (active_transactions &, const std::string &);
 
 	friend class active_transactions_vote_replays_Test;
@@ -358,7 +364,6 @@ private:
 	friend class node_deferred_dependent_elections_Test;
 	friend class active_transactions_pessimistic_elections_Test;
 	friend class frontiers_confirmation_expired_optimistic_elections_removal_Test;
-	friend class memory_pool_validate_cleanup_Test;
 };
 
 bool purge_singleton_inactive_votes_cache_pool_memory ();

@@ -56,8 +56,6 @@ size_t get_allocated_size ()
 }
 }
 
-namespace nano
-{
 TEST (memory_pool, validate_cleanup)
 {
 	// This might be turned off, e.g on Mac for instance, so don't do this test
@@ -94,9 +92,8 @@ TEST (memory_pool, validate_cleanup)
 		nano::account representative{ 1 };
 		nano::block_hash hash{ 1 };
 		nano::inactive_cache_status default_status{};
-		inactive_votes_cache.get<nano::active_transactions::tag_arrival> ().emplace (std::chrono::steady_clock::now (), hash, representative, default_status);
+		inactive_votes_cache.emplace (std::chrono::steady_clock::now (), hash, representative, default_status);
 	}
 
 	ASSERT_TRUE (nano::purge_singleton_inactive_votes_cache_pool_memory ());
-}
 }
