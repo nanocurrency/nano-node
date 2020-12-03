@@ -230,7 +230,7 @@ void nano::vote_generator::broadcast (nano::unique_lock<std::mutex> & lock_a)
 		}
 		if (cached_votes.empty ())
 		{
-			if (history.votable (root))
+			if (history.votable (root) && std::find (roots.begin (), roots.end (), root) == roots.end ())
 			{
 				roots.push_back (root);
 				hashes.push_back (hash);

@@ -126,6 +126,7 @@ private:
 	std::thread thread;
 
 	friend class vote_generator_vote_spacing_Test;
+	friend class vote_generator_vote_rapid_Test;
 	friend std::unique_ptr<container_info_component> collect_container_info (vote_generator & vote_generator, const std::string & name);
 };
 
