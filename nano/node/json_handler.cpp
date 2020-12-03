@@ -2858,11 +2858,15 @@ void nano::json_handler::pending ()
 	const bool include_only_confirmed = request.get<bool> ("include_only_confirmed", false);
 	const bool sorting = request.get<bool> ("sorting", false);
 	auto simple (threshold.is_zero () && !source && !min_version && !sorting); // if simple, response is a list of hashes
+	const bool should_sort = sorting && !simple;
 	if (!ec)
 	{
 		boost::property_tree::ptree peers_l;
 		auto transaction (node.store.tx_begin_read ());
-		for (auto i (node.store.pending_begin (transaction, nano::pending_key (account, 0))), n (node.store.pending_end ()); i != n && nano::pending_key (i->first).account == account && peers_l.size () < count; ++i)
+		// The ptree container is used if there are any children nodes (e.g source/min_version) otherwise the amount container is used.
+		std::vector<std::pair<std::string, boost::property_tree::ptree>> hash_ptree_pairs;
+		std::vector<std::pair<std::string, nano::uint128_t>> hash_amount_pairs;
+		for (auto i (node.store.pending_begin (transaction, nano::pending_key (account, 0))), n (node.store.pending_end ()); i != n && nano::pending_key (i->first).account == account && (should_sort || peers_l.size () < count); ++i)
 		{
 			nano::pending_key const & key (i->first);
 			if (block_confirmed (node, transaction, key.hash, include_active, include_only_confirmed))
@@ -2890,29 +2894,55 @@ void nano::json_handler::pending ()
 							{
 								pending_tree.put ("min_version", epoch_as_string (info.epoch));
 							}
-							peers_l.add_child (key.hash.to_string (), pending_tree);
+
+							if (should_sort)
+							{
+								hash_ptree_pairs.emplace_back (key.hash.to_string (), pending_tree);
+							}
+							else
+							{
+								peers_l.add_child (key.hash.to_string (), pending_tree);
+							}
 						}
 						else
 						{
-							peers_l.put (key.hash.to_string (), info.amount.number ().convert_to<std::string> ());
+							if (should_sort)
+							{
+								hash_amount_pairs.emplace_back (key.hash.to_string (), info.amount.number ());
+							}
+							else
+							{
+								peers_l.put (key.hash.to_string (), info.amount.number ().convert_to<std::string> ());
+							}
 						}
 					}
 				}
 			}
 		}
-		if (sorting && !simple)
+		if (should_sort)
 		{
 			if (source || min_version)
 			{
-				peers_l.sort ([](const auto & child1, const auto & child2) -> bool {
-					return child1.second.template get<nano::uint128_t> ("amount") > child2.second.template get<nano::uint128_t> ("amount");
+				auto mid = hash_ptree_pairs.size () <= count ? hash_ptree_pairs.end () : hash_ptree_pairs.begin () + count;
+				std::partial_sort (hash_ptree_pairs.begin (), mid, hash_ptree_pairs.end (), [](const auto & lhs, const auto & rhs) {
+					return lhs.second.template get<nano::uint128_t> ("amount") > rhs.second.template get<nano::uint128_t> ("amount");
 				});
+				for (auto i = 0; i < hash_ptree_pairs.size () && i < count; ++i)
+				{
+					peers_l.add_child (hash_ptree_pairs[i].first, hash_ptree_pairs[i].second);
+				}
 			}
 			else
 			{
-				peers_l.sort ([](const auto & child1, const auto & child2) -> bool {
-					return child1.second.template get<nano::uint128_t> ("") > child2.second.template get<nano::uint128_t> ("");
+				auto mid = hash_amount_pairs.size () <= count ? hash_amount_pairs.end () : hash_amount_pairs.begin () + count;
+				std::partial_sort (hash_amount_pairs.begin (), mid, hash_amount_pairs.end (), [](const auto & lhs, const auto & rhs) {
+					return lhs.second > rhs.second;
 				});
+
+				for (auto i = 0; i < hash_amount_pairs.size () && i < count; ++i)
+				{
+					peers_l.put (hash_amount_pairs[i].first, hash_amount_pairs[i].second.convert_to<std::string> ());
+				}
 			}
 		}
 		response_l.add_child ("blocks", peers_l);
