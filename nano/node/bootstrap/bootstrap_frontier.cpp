@@ -245,8 +245,8 @@ void nano::frontier_req_server::send_next ()
 			nano::vectorstream stream (send_buffer);
 			write (stream, current.bytes);
 			write (stream, frontier.bytes);
-			debug_assert (!current.zero ());
-			debug_assert (!frontier.zero ());
+			debug_assert (!current.is_zero ());
+			debug_assert (!frontier.is_zero ());
 		}
 		auto this_l (shared_from_this ());
 		if (connection->node->config.logging.bulk_pull_logging ())
