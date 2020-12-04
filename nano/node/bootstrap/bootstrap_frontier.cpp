@@ -213,7 +213,7 @@ void nano::frontier_req_client::next ()
 			accounts.emplace_back (account, info.frontier);
 		}
 		/* If loop breaks before max_size, then confirmation_height_end () is reached
-		Add empty record to finish frontier_req_server */
+		Add empty record */
 		if (accounts.size () != max_size)
 		{
 			accounts.emplace_back (nano::account (0), nano::block_hash (0));
@@ -245,6 +245,8 @@ void nano::frontier_req_server::send_next ()
 			nano::vectorstream stream (send_buffer);
 			write (stream, current.bytes);
 			write (stream, frontier.bytes);
+			debug_assert (!current.zero ());
+			debug_assert (!frontier.zero ());
 		}
 		auto this_l (shared_from_this ());
 		if (connection->node->config.logging.bulk_pull_logging ())
@@ -324,18 +326,21 @@ void nano::frontier_req_server::next ()
 		{
 			nano::confirmation_height_info const & info (i->second);
 			nano::block_hash const & confirmed_frontier (info.frontier);
-			bool add_frontier (request->age == std::numeric_limits<decltype (request->age)>::max ());
-			if (!add_frontier)
+			if (!confirmed_frontier.is_zero ())
 			{
-				// Check block modification time if request contains age field
-				auto block (connection->node->store.block_get (transaction, confirmed_frontier));
-				debug_assert (block != nullptr && block->has_sideband ());
-				add_frontier = (now - block->sideband ().timestamp) <= request->age;
-			}
-			if (add_frontier)
-			{
-				nano::account const & account (i->first);
-				accounts.emplace_back (account, confirmed_frontier);
+				bool add_frontier (request->age == std::numeric_limits<decltype (request->age)>::max ());
+				if (!add_frontier)
+				{
+					// Check block modification time if request contains age field
+					auto block (connection->node->store.block_get (transaction, confirmed_frontier));
+					debug_assert (block != nullptr && block->has_sideband ());
+					add_frontier = (now - block->sideband ().timestamp) <= request->age;
+				}
+				if (add_frontier)
+				{
+					nano::account const & account (i->first);
+					accounts.emplace_back (account, confirmed_frontier);
+				}
 			}
 		}
 		/* If loop breaks before max_size, then confirmation_height_end () is reached
