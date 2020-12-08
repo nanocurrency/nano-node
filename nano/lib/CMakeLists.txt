@@ -72,9 +72,6 @@ add_library(
   threading.cpp
   timer.hpp
   timer.cpp
-  timestamp_fwd.hpp
-  timestamp.hpp
-  timestamp.cpp
   tomlconfig.hpp
   tomlconfig.cpp
   utility.hpp
