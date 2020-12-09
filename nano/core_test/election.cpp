@@ -175,10 +175,9 @@ TEST (election, quorum_minimum_update_weight_before_quorum_checks)
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	node_config.online_weight_quorum = 100;
 	auto & node1 = *system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
-	auto amount = node_config.online_weight_minimum.number () - 1;
+	auto amount = ((nano::uint256_t (node_config.online_weight_minimum.number ()) * node_config.online_weight_quorum) / 100).convert_to<nano::uint128_t> () - 1;
 	nano::keypair key1;
 	nano::block_builder builder;
 	auto send1 = builder.state ()
@@ -238,9 +237,11 @@ TEST (election, quorum_minimum_update_weight_before_quorum_checks)
 	auto channel = node1.network.find_channel (node2.network.endpoint ());
 	ASSERT_NE (channel, nullptr);
 	ASSERT_TIMELY (10s, !node1.rep_crawler.response (channel, vote2));
+	ASSERT_FALSE (election.election->confirmed ());
 	{
 		nano::lock_guard<std::mutex> guard (node1.online_reps.mutex);
-		node1.online_reps.online_m = amount + 20;
+		// Modify online_m for online_reps to more than is available, this checks that voting below updates it to current online reps.
+		node1.online_reps.online_m = node_config.online_weight_minimum.number () + 20;
 	}
 	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote2, true));
 	node1.block_processor.flush ();
