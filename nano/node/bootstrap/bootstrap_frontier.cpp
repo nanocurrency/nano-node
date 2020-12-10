@@ -122,6 +122,7 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 		}
 		if (!account.is_zero ())
 		{
+			debug_assert (!latest.is_zero ());
 			while (!current.is_zero () && current < account)
 			{
 				// We know about an account they don't.
@@ -209,8 +210,12 @@ void nano::frontier_req_client::next ()
 		for (auto i (connection->node->store.confirmation_height_begin (transaction, current.number () + 1)), n (connection->node->store.confirmation_height_end ()); i != n && accounts.size () != max_size; ++i)
 		{
 			nano::confirmation_height_info const & info (i->second);
-			nano::account const & account (i->first);
-			accounts.emplace_back (account, info.frontier);
+			nano::block_hash const & confirmed_frontier (info.frontier);
+			if (!confirmed_frontier.is_zero ())
+			{
+				nano::account const & account (i->first);
+				accounts.emplace_back (account, confirmed_frontier);
+			}
 		}
 		/* If loop breaks before max_size, then confirmation_height_end () is reached
 		Add empty record */
