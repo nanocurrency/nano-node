@@ -34,7 +34,7 @@ void nano::bootstrap_attempt_lazy::lazy_start (nano::hash_or_account const & has
 	if (lazy_keys.size () < max_keys && lazy_keys.find (hash_or_account_a.as_block_hash ()) == lazy_keys.end () && !lazy_blocks_processed (hash_or_account_a.as_block_hash ()))
 	{
 		lazy_keys.insert (hash_or_account_a.as_block_hash ());
-		lazy_pulls.emplace_back (hash_or_account_a, confirmed ? std::numeric_limits<unsigned>::max () : node->network_params.bootstrap.lazy_retry_limit);
+		lazy_pulls.emplace_back (hash_or_account_a, confirmed ? lazy_retry_limit_confirmed () : node->network_params.bootstrap.lazy_retry_limit);
 		lock.unlock ();
 		condition.notify_all ();
 	}
@@ -65,7 +65,7 @@ void nano::bootstrap_attempt_lazy::lazy_requeue (nano::block_hash const & hash_a
 	{
 		lazy_blocks_erase (hash_a);
 		lock.unlock ();
-		node->bootstrap_initiator.connections->requeue_pull (nano::pull_info (hash_a, hash_a, previous_a, incremental_id, static_cast<nano::pull_info::count_t> (1), confirmed_a ? std::numeric_limits<unsigned>::max () : node->network_params.bootstrap.lazy_destinations_retry_limit));
+		node->bootstrap_initiator.connections->requeue_pull (nano::pull_info (hash_a, hash_a, previous_a, incremental_id, static_cast<nano::pull_info::count_t> (1), confirmed_a ? lazy_retry_limit_confirmed () : node->network_params.bootstrap.lazy_destinations_retry_limit));
 	}
 }
 
@@ -282,7 +282,7 @@ bool nano::bootstrap_attempt_lazy::process_block_lazy (std::shared_ptr<nano::blo
 		}
 		lazy_block_state_backlog_check (block_a, hash);
 		lock.unlock ();
-		nano::unchecked_info info (block_a, known_account_a, 0, nano::signature_verification::unknown, retry_limit == std::numeric_limits<unsigned>::max ());
+		nano::unchecked_info info (block_a, known_account_a, 0, nano::signature_verification::unknown, retry_limit > node->network_params.bootstrap.lazy_retry_limit);
 		node->block_processor.add (info);
 	}
 	// Force drop lazy bootstrap connection for long bulk_pull
@@ -502,6 +502,17 @@ bool nano::bootstrap_attempt_lazy::lazy_processed_or_exists (nano::block_hash co
 		}
 	}
 	return result;
+}
+
+unsigned nano::bootstrap_attempt_lazy::lazy_retry_limit_confirmed ()
+{
+	debug_assert (!mutex.try_lock ());
+	if (total_blocks % 1024 == 0)
+	{
+		// Prevent too frequent network locks
+		peer_count = node->network.size ();
+	}
+	return std::max (2 * node->network_params.bootstrap.lazy_retry_limit, 2 * nano::narrow_cast<unsigned> (peer_count));
 }
 
 void nano::bootstrap_attempt_lazy::get_information (boost::property_tree::ptree & tree_a)

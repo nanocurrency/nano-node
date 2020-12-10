@@ -969,6 +969,32 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 	node2->stop ();
 }
 
+TEST (bootstrap_processor, lazy_cancel)
+{
+	nano::system system;
+	nano::node_config config (nano::get_available_port (), system.logging);
+	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	nano::node_flags node_flags;
+	node_flags.disable_bootstrap_bulk_push_client = true;
+	auto node0 (system.add_node (config, node_flags));
+	nano::genesis genesis;
+	nano::keypair key1;
+	// Generating test chain
+	auto send1 (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, genesis.hash (), nano::dev_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key1.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node0->work_generate_blocking (genesis.hash ())));
+	// Start lazy bootstrap with last block in chain known
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work));
+	node1->network.udp_channels.insert (node0->network.endpoint (), node1->network_params.protocol.protocol_version);
+	node1->bootstrap_initiator.bootstrap_lazy (send1->hash (), true); // Start "confirmed" block bootstrap
+	{
+		auto lazy_attempt (node1->bootstrap_initiator.current_lazy_attempt ());
+		ASSERT_NE (nullptr, lazy_attempt);
+		ASSERT_EQ (send1->hash ().to_string (), lazy_attempt->id);
+	}
+	// Cancel failing lazy bootstrap
+	ASSERT_TIMELY (10s, !node1->bootstrap_initiator.in_progress ());
+	node1->stop ();
+}
+
 TEST (bootstrap_processor, wallet_lazy_frontier)
 {
 	nano::system system;
