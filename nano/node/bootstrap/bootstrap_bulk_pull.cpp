@@ -50,7 +50,7 @@ nano::bulk_pull_client::~bulk_pull_client ()
 		}
 		else
 		{
-			connection->node->logger.try_log (boost::str (boost::format ("Bulk pull ended with open block, but not expected %1% for account %2% start block %3%") % pull.end.to_string () % pull.account_or_head.to_account () % pull.head.to_string ()));
+			connection->node->logger.try_log (boost::str (boost::format ("Bulk pull ended with open block, but not expected %1% for account %2% start block %3%, peer %5%") % pull.end.to_string () % pull.account_or_head.to_account () % pull.head.to_string () % connection->channel->to_string ()));
 		}
 	}
 	else
