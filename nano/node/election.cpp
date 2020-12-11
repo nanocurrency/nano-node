@@ -236,7 +236,8 @@ bool nano::election::have_quorum (nano::tally_t const & tally_a) const
 	++i;
 	auto second (i != tally_a.end () ? i->first : 0);
 	auto delta_l (node.online_reps.delta ());
-	bool result{ tally_a.begin ()->first >= (second + delta_l) };
+	release_assert (tally_a.begin ()->first >= second);
+	bool result{ (tally_a.begin ()->first - second) >= delta_l };
 	return result;
 }
 
