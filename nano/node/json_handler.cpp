@@ -638,15 +638,16 @@ void nano::json_handler::account_info ()
 			response_l.put ("modified_timestamp", std::to_string (info.modified));
 			response_l.put ("block_count", std::to_string (info.block_count));
 			response_l.put ("account_version", epoch_as_string (info.epoch ()));
-			response_l.put ("confirmation_height", std::to_string (confirmation_height_info.height));
 			auto confirmed_frontier = confirmation_height_info.frontier.to_string ();
 			if (include_confirmed)
 			{
+				response_l.put ("confirmed_height", std::to_string (confirmation_height_info.height));
 				response_l.put ("confirmed_frontier", confirmed_frontier);
 			}
 			else
 			{
 				// For backwards compatibility purposes
+				response_l.put ("confirmation_height", std::to_string (confirmation_height_info.height));
 				response_l.put ("confirmation_height_frontier", confirmed_frontier);
 			}
 
