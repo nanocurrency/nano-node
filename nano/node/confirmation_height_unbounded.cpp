@@ -84,7 +84,7 @@ void nano::confirmation_height_unbounded::process ()
 		else
 		{
 			nano::confirmation_height_info confirmation_height_info;
-			release_assert (!ledger.store.confirmation_height_get (read_transaction, account, confirmation_height_info));
+			ledger.store.confirmation_height_get (read_transaction, account, confirmation_height_info);
 			confirmation_height = confirmation_height_info.height;
 
 			// This block was added to the confirmation height processor but is already confirmed
@@ -349,15 +349,9 @@ void nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 		{
 			auto & pending = pending_writes.front ();
 			nano::confirmation_height_info confirmation_height_info;
-			error = ledger.store.confirmation_height_get (transaction, pending.account, confirmation_height_info);
-			if (error)
-			{
-				auto error_str = (boost::format ("Failed to read confirmation height for account %1% when writing block %2% (unbounded processor)") % pending.account.to_account () % pending.hash.to_string ()).str ();
-				logger.always_log (error_str);
-				std::cerr << error_str << std::endl;
-			}
+			ledger.store.confirmation_height_get (transaction, pending.account, confirmation_height_info);
 			auto confirmation_height = confirmation_height_info.height;
-			if (!error && pending.height > confirmation_height)
+			if (pending.height > confirmation_height)
 			{
 				auto block = ledger.store.block_get (transaction, pending.hash);
 				debug_assert (network_params.network.is_dev_network () || ledger.pruning || block != nullptr);
@@ -411,13 +405,6 @@ void nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 	notify_observers_callback (cemented_blocks);
 	release_assert (!error);
 
-	// Tests should check this already at the end, but not all blocks may have elections (e.g from manual calls to confirmation_height_processor::add), this should catch any inconsistencies on live/beta though
-	if (!network_params.network.is_dev_network ())
-	{
-		auto blocks_confirmed_stats = ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed);
-		auto observer_stats = ledger.stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out);
-		debug_assert (blocks_confirmed_stats == observer_stats);
-	}
 	debug_assert (pending_writes.empty ());
 	debug_assert (pending_writes_size == 0);
 	timer.restart ();

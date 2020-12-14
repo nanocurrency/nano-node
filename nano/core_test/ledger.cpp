@@ -837,17 +837,22 @@ TEST (votes, add_existing)
 {
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
-	node_config.online_weight_minimum = std::numeric_limits<nano::uint128_t>::max ();
+	node_config.online_weight_minimum = nano::genesis_amount;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node1 = *system.add_node (node_config);
-	nano::genesis genesis;
 	nano::keypair key1;
-	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
+	nano::block_builder builder;
+	std::shared_ptr<nano::block> send1 = builder.state ()
+	                                     .account (nano::dev_genesis_key.pub)
+	                                     .previous (nano::genesis_hash)
+	                                     .representative (nano::dev_genesis_key.pub) // No representative, blocks can't confirm
+	                                     .balance (nano::genesis_amount / 2 - nano::Gxrb_ratio)
+	                                     .link (key1.pub)
+	                                     .work (0)
+	                                     .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	                                     .build ();
 	node1.work_generate_blocking (*send1);
-	{
-		auto transaction (node1.store.tx_begin_write ());
-		ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
-	}
+	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (node1.store.tx_begin_write (), *send1).code);
 	auto election1 = node1.active.insert (send1);
 	auto vote1 (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 1, send1));
 	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote1));
@@ -855,7 +860,15 @@ TEST (votes, add_existing)
 	ASSERT_TRUE (node1.active.publish (send1));
 	ASSERT_EQ (1, election1.election->last_votes[nano::dev_genesis_key.pub].timestamp);
 	nano::keypair key2;
-	auto send2 (std::make_shared<nano::send_block> (genesis.hash (), key2.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
+	std::shared_ptr<nano::block> send2 = builder.state ()
+	                                     .account (nano::dev_genesis_key.pub)
+	                                     .previous (nano::genesis_hash)
+	                                     .representative (nano::dev_genesis_key.pub) // No representative, blocks can't confirm
+	                                     .balance (nano::genesis_amount / 2 - nano::Gxrb_ratio)
+	                                     .link (key2.pub)
+	                                     .work (0)
+	                                     .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	                                     .build ();
 	node1.work_generate_blocking (*send2);
 	auto vote2 (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 2, send2));
 	// Pretend we've waited the timeout
@@ -2984,7 +2997,7 @@ TEST (ledger, confirmation_height_not_updated)
 	ASSERT_EQ (genesis.hash (), confirmation_height_info.frontier);
 	nano::open_block open1 (send1.hash (), nano::genesis_account, key.pub, key.prv, key.pub, *pool.generate (key.pub));
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, open1).code);
-	ASSERT_FALSE (store->confirmation_height_get (transaction, key.pub, confirmation_height_info));
+	ASSERT_TRUE (store->confirmation_height_get (transaction, key.pub, confirmation_height_info));
 	ASSERT_EQ (0, confirmation_height_info.height);
 	ASSERT_EQ (nano::block_hash (0), confirmation_height_info.frontier);
 }
@@ -3229,7 +3242,7 @@ TEST (ledger, dependents_confirmed)
 	                .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *receive2).code);
 	ASSERT_FALSE (ledger.dependents_confirmed (transaction, *receive2));
-	ASSERT_FALSE (ledger.store.confirmation_height_get (transaction, key1.pub, height));
+	ASSERT_TRUE (ledger.store.confirmation_height_get (transaction, key1.pub, height));
 	height.height += 1;
 	ledger.store.confirmation_height_put (transaction, key1.pub, height);
 	ASSERT_FALSE (ledger.dependents_confirmed (transaction, *receive2));
@@ -3849,4 +3862,43 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 	ASSERT_EQ (unchecked_infos.size (), 1);
 	ASSERT_EQ (unchecked_infos.front ().account, nano::genesis_account);
 	ASSERT_EQ (*unchecked_infos.front ().block, *send);
+}
+
+TEST (ledger, unconfirmed_frontiers)
+{
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_TRUE (!store->init_error ());
+	nano::stat stats;
+	nano::ledger ledger (*store, stats);
+	nano::genesis genesis;
+	store->initialize (store->tx_begin_write (), genesis, ledger.cache);
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+
+	auto unconfirmed_frontiers = ledger.unconfirmed_frontiers ();
+	ASSERT_TRUE (unconfirmed_frontiers.empty ());
+
+	nano::state_block_builder builder;
+	nano::keypair key;
+	auto const latest = ledger.latest (store->tx_begin_read (), nano::genesis_account);
+	auto send = builder.make_block ()
+	            .account (nano::genesis_account)
+	            .previous (latest)
+	            .representative (nano::genesis_account)
+	            .balance (nano::genesis_amount - 100)
+	            .link (key.pub)
+	            .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	            .work (*pool.generate (latest))
+	            .build ();
+
+	ASSERT_EQ (nano::process_result::progress, ledger.process (store->tx_begin_write (), *send).code);
+
+	unconfirmed_frontiers = ledger.unconfirmed_frontiers ();
+	ASSERT_EQ (unconfirmed_frontiers.size (), 1);
+	ASSERT_EQ (unconfirmed_frontiers.begin ()->first, 1);
+	nano::uncemented_info uncemented_info1{ latest, send->hash (), nano::genesis_account };
+	auto uncemented_info2 = unconfirmed_frontiers.begin ()->second;
+	ASSERT_EQ (uncemented_info1.account, uncemented_info2.account);
+	ASSERT_EQ (uncemented_info1.cemented_frontier, uncemented_info2.cemented_frontier);
+	ASSERT_EQ (uncemented_info1.frontier, uncemented_info2.frontier);
 }

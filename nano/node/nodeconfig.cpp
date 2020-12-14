@@ -17,7 +17,7 @@ const char * signature_checker_threads_key = "signature_checker_threads";
 const char * pow_sleep_interval_key = "pow_sleep_interval";
 const char * default_beta_peer_network = "peering-beta.nano.org";
 const char * default_live_peer_network = "peering.nano.org";
-const char * default_test_peer_network = "peering-test.nano.org";
+const std::string default_test_peer_network = nano::get_env_or_default ("NANO_TEST_PEER_NETWORK", "peering-test.nano.org");
 }
 
 nano::node_config::node_config () :
@@ -339,7 +339,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 			auto lmdb_config_l (toml.get_required_child ("lmdb"));
 			lmdb_config.deserialize_toml (lmdb_config_l, is_deprecated_lmdb_dbs_used);
 
-			// Note that the lmdb config fails is both the deprecated and new setting are changed.
+			// Note that the lmdb config fails if both the deprecated and new setting are changed.
 			if (is_deprecated_lmdb_dbs_used)
 			{
 				lmdb_config.max_databases = deprecated_lmdb_max_dbs;

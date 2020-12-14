@@ -574,7 +574,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 						}
 						else
 						{
-							node.node->store.confirmation_height_clear (transaction, account, confirmation_height_info.height);
+							node.node->store.confirmation_height_clear (transaction, account);
 						}
 
 						std::cout << "Confirmation height of account " << account_str << " is set to " << conf_height_reset_num << std::endl;

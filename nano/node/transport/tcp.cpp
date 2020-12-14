@@ -329,6 +329,10 @@ void nano::transport::tcp_channels::process_message (nano::message const & messa
 				}
 			}
 		}
+		if (channel)
+		{
+			channel->set_last_packet_received (std::chrono::steady_clock::now ());
+		}
 	}
 }
 

@@ -96,7 +96,7 @@ public: // Status
 
 	void log_votes (nano::tally_t const &, std::string const & = "") const;
 	nano::tally_t tally () const;
-	bool have_quorum (nano::tally_t const &, nano::uint128_t) const;
+	bool have_quorum (nano::tally_t const &) const;
 
 	// Guarded by mutex
 	nano::election_status status;

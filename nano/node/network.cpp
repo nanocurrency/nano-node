@@ -248,7 +248,7 @@ void nano::network::send_confirm_req (std::shared_ptr<nano::transport::channel> 
 void nano::network::broadcast_confirm_req (std::shared_ptr<nano::block> const & block_a)
 {
 	auto list (std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> (node.rep_crawler.representative_endpoints (std::numeric_limits<size_t>::max ())));
-	if (list->empty () || node.rep_crawler.total_weight () < node.config.online_weight_minimum.number ())
+	if (list->empty () || node.rep_crawler.total_weight () < node.online_reps.delta ())
 	{
 		// broadcast request to all peers (with max limit 2 * sqrt (peers count))
 		auto peers (node.network.list (std::min<size_t> (100, node.network.fanout (2.0))));

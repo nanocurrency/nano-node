@@ -3,7 +3,6 @@
 #include <nano/lib/threading.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/node/active_transactions.hpp>
-#include <nano/node/node.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/online_reps.hpp>
@@ -257,7 +256,7 @@ void nano::vote_processor::calculate_weights ()
 		representatives_1.clear ();
 		representatives_2.clear ();
 		representatives_3.clear ();
-		auto supply (online_reps.online_stake ());
+		auto supply (online_reps.trended ());
 		auto rep_amounts = ledger.cache.rep_weights.get_rep_amounts ();
 		for (auto const & rep_amount : rep_amounts)
 		{
