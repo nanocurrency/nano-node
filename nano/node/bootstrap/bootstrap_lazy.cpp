@@ -507,7 +507,7 @@ bool nano::bootstrap_attempt_lazy::lazy_processed_or_exists (nano::block_hash co
 unsigned nano::bootstrap_attempt_lazy::lazy_retry_limit_confirmed ()
 {
 	debug_assert (!mutex.try_lock ());
-	if (total_blocks % 1024 == 0)
+	if (total_blocks % 1024 == 512 || peer_count == 0)
 	{
 		// Prevent too frequent network locks
 		peer_count = node->network.size ();
