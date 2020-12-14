@@ -31,26 +31,20 @@ unexpected_count (0)
 
 nano::bulk_pull_client::~bulk_pull_client ()
 {
-	// If received end block is not expected end block
-	if (expected != pull.end)
+	/* If received end block is not expected end block
+	Or if given start and end blocks are from different chains (i.e. forked node or malicious node) */
+	if (expected != pull.end && !expected.is_zero ())
 	{
-		if (!expected.is_zero ())
+		pull.head = expected;
+		if (attempt->mode != nano::bootstrap_mode::legacy)
 		{
-			pull.head = expected;
-			if (attempt->mode != nano::bootstrap_mode::legacy)
-			{
-				pull.account_or_head = expected;
-			}
-			pull.processed += pull_blocks - unexpected_count;
-			connection->node->bootstrap_initiator.connections->requeue_pull (pull, network_error);
-			if (connection->node->config.logging.bulk_pull_logging ())
-			{
-				connection->node->logger.try_log (boost::str (boost::format ("Bulk pull end block is not expected %1% for account %2%") % pull.end.to_string () % pull.account_or_head.to_account ()));
-			}
+			pull.account_or_head = expected;
 		}
-		else
+		pull.processed += pull_blocks - unexpected_count;
+		connection->node->bootstrap_initiator.connections->requeue_pull (pull, network_error);
+		if (connection->node->config.logging.bulk_pull_logging ())
 		{
-			connection->node->logger.try_log (boost::str (boost::format ("Bulk pull ended with open block, but not expected %1% for account %2% start block %3%, peer %4%") % pull.end.to_string () % pull.account_or_head.to_account () % pull.head.to_string () % connection->channel->to_string ()));
+			connection->node->logger.try_log (boost::str (boost::format ("Bulk pull end block is not expected %1% for account %2%") % pull.end.to_string () % pull.account_or_head.to_account ()));
 		}
 	}
 	else

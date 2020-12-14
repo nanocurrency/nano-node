@@ -122,7 +122,6 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 		}
 		if (!account.is_zero ())
 		{
-			debug_assert (!latest.is_zero ());
 			while (!current.is_zero () && current < account)
 			{
 				// We know about an account they don't.
