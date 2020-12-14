@@ -111,9 +111,8 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (na
 	return composite;
 }
 
-nano::vote_generator::vote_generator (nano::timestamp_generator & timestamps_a, nano::node_config const & config_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::local_vote_history & history_a, nano::network & network_a, nano::stat & stats_a) :
+nano::vote_generator::vote_generator (nano::node_config const & config_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::local_vote_history & history_a, nano::network & network_a, nano::stat & stats_a) :
 config (config_a),
-timestamps{ timestamps_a },
 ledger (ledger_a),
 wallets (wallets_a),
 vote_processor (vote_processor_a),
@@ -282,7 +281,7 @@ void nano::vote_generator::vote (std::vector<nano::block_hash> const & hashes_a,
 	debug_assert (hashes_a.size () == roots_a.size ());
 	std::vector<std::shared_ptr<nano::vote>> votes_l;
 	wallets.foreach_representative ([this, &hashes_a, &votes_l](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
-		votes_l.emplace_back (std::make_shared<nano::vote> (pub_a, prv_a, timestamps.now (), hashes_a));
+		votes_l.emplace_back (std::make_shared<nano::vote> (pub_a, prv_a, nano::milliseconds_since_epoch (), hashes_a));
 	});
 	for (auto const & vote_l : votes_l)
 	{
