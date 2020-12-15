@@ -103,6 +103,7 @@ public: // Status
 
 public: // Interface
 	election (nano::node &, std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const &, bool, nano::election_behavior);
+	~election ();
 	std::shared_ptr<nano::block> find (nano::block_hash const &) const;
 	nano::election_vote_result vote (nano::account const &, uint64_t, nano::block_hash const &);
 	bool publish (std::shared_ptr<nano::block> const & block_a);
