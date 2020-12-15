@@ -11,6 +11,33 @@
 
 #include <chrono>
 
+bool nano::vote_spacing::votable (nano::root const & root_a) const
+{
+	bool result = true;
+	for (auto range = history.get<tag_root> ().equal_range (root_a); result && range.first != range.second; ++range.first)
+	{
+		auto & item = *range.first;
+		result = item.time < std::chrono::steady_clock::now () - delay;
+	}
+	return result;
+}
+
+void nano::vote_spacing::flag (nano::root const & root_a)
+{
+	auto now = std::chrono::steady_clock::now ();
+	auto existing = history.get<tag_root> ().find (root_a);
+	if (existing != history.end ())
+	{
+		history.get<tag_root> ().modify (existing, [now] (entry & entry) {
+			entry.time = now;
+		});
+	}
+	else
+	{
+		history.insert ({ root_a, now });
+	}
+}
+
 bool nano::local_vote_history::consistency_check (nano::root const & root_a) const
 {
 	auto & history_by_root (history.get<tag_root> ());
@@ -101,17 +128,6 @@ size_t nano::local_vote_history::size () const
 	return history.size ();
 }
 
-bool nano::local_vote_history::votable (nano::root const & root_a) const
-{
-	bool result = true;
-	for (auto range = history.get<tag_root> ().equal_range (root_a); result && range.first != range.second; ++range.first)
-	{
-		auto & item = *range.first;
-		result = item.time < std::chrono::steady_clock::now () - constants.delay;
-	}
-	return result;
-}
-
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::local_vote_history & history, const std::string & name)
 {
 	size_t history_count = history.size ();
@@ -129,6 +145,7 @@ ledger (ledger_a),
 wallets (wallets_a),
 vote_processor (vote_processor_a),
 history (history_a),
+spacing{ config_a.network_params.voting.delay },
 network (network_a),
 stats (stats_a),
 thread ([this]() { run (); })
@@ -230,7 +247,7 @@ void nano::vote_generator::broadcast (nano::unique_lock<std::mutex> & lock_a)
 		}
 		if (cached_votes.empty ())
 		{
-			if (history.votable (root) && std::find (roots.begin (), roots.end (), root) == roots.end ())
+			if (spacing.votable (root) && std::find (roots.begin (), roots.end (), root) == roots.end ())
 			{
 				roots.push_back (root);
 				hashes.push_back (hash);
@@ -281,7 +298,7 @@ void nano::vote_generator::reply (nano::unique_lock<std::mutex> & lock_a, reques
 			}
 			if (cached_votes.empty ())
 			{
-				if (history.votable (root) && std::find (roots.begin (), roots.end (), root) == roots.end ())
+				if (spacing.votable (root) && std::find (roots.begin (), roots.end (), root) == roots.end ())
 				{
 					roots.push_back (root);
 					hashes.push_back (hash);
@@ -317,6 +334,7 @@ void nano::vote_generator::vote (std::vector<nano::block_hash> const & hashes_a,
 		for (size_t i (0), n (hashes_a.size ()); i != n; ++i)
 		{
 			history.add (roots_a[i], hashes_a[i], vote_l);
+			spacing.flag (roots_a[i]);
 		}
 		action_a (vote_l);
 	}

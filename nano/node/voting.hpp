@@ -32,6 +32,29 @@ namespace transport
 	class channel;
 }
 
+class vote_spacing final
+{
+	class entry
+	{
+	public:
+		nano::root root;
+		std::chrono::steady_clock::time_point time;
+	};
+	
+	boost::multi_index_container<entry,
+	mi::indexed_by<
+		mi::hashed_non_unique<mi::tag<class tag_root>,
+			mi::member<entry, nano::root, &entry::root>>,
+		mi::sequenced<mi::tag<class tag_sequence>>>>
+	history;
+	std::chrono::seconds const delay;
+public:
+	vote_spacing (std::chrono::seconds const & delay) :
+	delay{ delay } {}
+	bool votable (nano::root const & root_a) const;
+	void flag (nano::root const & root_a);
+};
+
 class local_vote_history final
 {
 	class local_vote final
@@ -45,7 +68,6 @@ class local_vote_history final
 		}
 		nano::root root;
 		nano::block_hash hash;
-		std::chrono::steady_clock::time_point time{ std::chrono::steady_clock::now () };
 		std::shared_ptr<nano::vote> vote;
 	};
 
@@ -60,7 +82,6 @@ public:
 	std::vector<std::shared_ptr<nano::vote>> votes (nano::root const & root_a, nano::block_hash const & hash_a) const;
 	bool exists (nano::root const &) const;
 	size_t size () const;
-	bool votable (nano::root const & root_a) const;
 
 private:
 	// clang-format off
@@ -113,6 +134,7 @@ private:
 	nano::wallets & wallets;
 	nano::vote_processor & vote_processor;
 	nano::local_vote_history & history;
+	nano::vote_spacing spacing;
 	nano::network & network;
 	nano::stat & stats;
 	mutable std::mutex mutex;
