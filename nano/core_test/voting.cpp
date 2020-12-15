@@ -120,9 +120,36 @@ TEST (vote_generator, session)
 	ASSERT_TIMELY (2s, 1 == node->stats.count (nano::stat::type::vote, nano::stat::detail::vote_indeterminate));
 }
 
+TEST (vote_spacing, basic)
+{
+	nano::vote_spacing spacing{ std::chrono::milliseconds{ 100 } };
+	nano::root root1{ 1 };
+	nano::root root2{ 2 };
+	ASSERT_EQ (0, spacing.size ());
+	ASSERT_TRUE (spacing.votable (root1));
+	spacing.flag (root1);
+	ASSERT_EQ (1, spacing.size ());
+	ASSERT_FALSE (spacing.votable (root1));
+	spacing.flag (root2);
+	ASSERT_EQ (2, spacing.size ());
+}
+
+TEST (vote_spacing, prune)
+{
+	auto length = std::chrono::milliseconds{ 100 };
+	nano::vote_spacing spacing{ length };
+	nano::root root1{ 1 };
+	nano::root root2{ 2 };
+	spacing.flag (root1);
+	ASSERT_EQ (1, spacing.size ());
+	std::this_thread::sleep_for (length);
+	spacing.flag (root2);
+	ASSERT_EQ (1, spacing.size ());
+}
+
 namespace nano
 {
-TEST (vote_generator, vote_spacing)
+TEST (vote_spacing, vote_generator)
 {
 	nano::node_config config;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
@@ -163,7 +190,7 @@ TEST (vote_generator, vote_spacing)
 	ASSERT_TIMELY (3s, node.stats.count (nano::stat::type::vote_generator, nano::stat::detail::generator_broadcasts) == 2);
 }
 
-TEST (vote_generator, vote_rapid)
+TEST (vote_spacing, rapid)
 {
 	nano::node_config config;
 	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;

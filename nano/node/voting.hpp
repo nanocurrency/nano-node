@@ -8,6 +8,7 @@
 #include <nano/secure/common.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index_container.hpp>
@@ -45,14 +46,18 @@ class vote_spacing final
 	mi::indexed_by<
 		mi::hashed_non_unique<mi::tag<class tag_root>,
 			mi::member<entry, nano::root, &entry::root>>,
-		mi::sequenced<mi::tag<class tag_sequence>>>>
-	history;
-	std::chrono::seconds const delay;
+		mi::ordered_non_unique<mi::tag<class tag_time>,
+			mi::member<entry, std::chrono::steady_clock::time_point, &entry::time>>
+	>>
+	recent;
+	std::chrono::milliseconds const delay;
+	void trim ();
 public:
-	vote_spacing (std::chrono::seconds const & delay) :
+	vote_spacing (std::chrono::milliseconds const & delay) :
 	delay{ delay } {}
 	bool votable (nano::root const & root_a) const;
 	void flag (nano::root const & root_a);
+	size_t size () const;
 };
 
 class local_vote_history final
