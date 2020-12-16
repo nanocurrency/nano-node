@@ -8,6 +8,7 @@
 #include <nano/node/node_rpc_config.hpp>
 
 #include <atomic>
+#include <memory>
 #include <mutex>
 
 namespace flatbuffers
@@ -34,13 +35,13 @@ namespace ipc
 
 		/** Unique counter/id shared across sessions */
 		std::atomic<uint64_t> id_dispenser{ 1 };
-		nano::ipc::broker & get_broker ();
+		std::shared_ptr<nano::ipc::broker> get_broker ();
 		nano::ipc::access & get_access ();
 		nano::error reload_access_config ();
 
 	private:
 		void setup_callbacks ();
-		nano::ipc::broker broker;
+		std::shared_ptr<nano::ipc::broker> broker;
 		nano::ipc::access access;
 		std::unique_ptr<dsock_file_remover> file_remover;
 		std::vector<std::shared_ptr<nano::ipc::transport>> transports;

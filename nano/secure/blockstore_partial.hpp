@@ -3,7 +3,7 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/rep_weights.hpp>
 #include <nano/lib/threading.hpp>
-#include <nano/lib/timestamp.hpp>
+#include <nano/lib/timer.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/buffer.hpp>
 
