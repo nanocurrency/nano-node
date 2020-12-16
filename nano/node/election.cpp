@@ -32,11 +32,6 @@ qualified_root (block_a->qualified_root ())
 	last_blocks.emplace (block_a->hash (), block_a);
 }
 
-nano::election::~election()
-{
-	node.history.erase (root);
-}
-
 void nano::election::confirm_once (nano::unique_lock<std::mutex> & lock_a, nano::election_status_type type_a)
 {
 	debug_assert (lock_a.owns_lock ());
@@ -524,6 +519,8 @@ void nano::election::remove_votes (nano::block_hash const & hash_a)
 		{
 			last_votes.erase (vote->account);
 		}
+		// Clear votes cache
+		node.history.erase (root);
 	}
 }
 
