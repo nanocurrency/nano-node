@@ -48,6 +48,10 @@ class local_vote_history final
 	};
 
 public:
+	local_vote_history (nano::voting_constants const & constants) :
+	constants{ constants }
+	{
+	}
 	void add (nano::root const & root_a, nano::block_hash const & hash_a, std::shared_ptr<nano::vote> const & vote_a);
 	void erase (nano::root const & root_a);
 
@@ -65,7 +69,7 @@ private:
 	history;
 	// clang-format on
 
-	size_t const max_size{ nano::network_params{}.voting.max_cache };
+	nano::voting_constants const & constants;
 	void clean ();
 	std::vector<std::shared_ptr<nano::vote>> votes (nano::root const & root_a) const;
 	// Only used in Debug

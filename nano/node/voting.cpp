@@ -87,9 +87,9 @@ bool nano::local_vote_history::exists (nano::root const & root_a) const
 
 void nano::local_vote_history::clean ()
 {
-	debug_assert (max_size > 0);
+	debug_assert (constants.max_cache > 0);
 	auto & history_by_sequence (history.get<tag_sequence> ());
-	while (history_by_sequence.size () > max_size)
+	while (history_by_sequence.size () > constants.max_cache)
 	{
 		history_by_sequence.erase (history_by_sequence.begin ());
 	}
@@ -247,7 +247,8 @@ void nano::vote_generator::reply (nano::unique_lock<std::mutex> & lock_a, reques
 		roots.reserve (nano::network::confirm_ack_hashes_max);
 		for (; i != n && hashes.size () < nano::network::confirm_ack_hashes_max; ++i)
 		{
-			auto cached_votes = history.votes (i->first, i->second);
+			auto const & [root, hash] = *i;
+			auto cached_votes = history.votes (root, hash);
 			for (auto const & cached_vote : cached_votes)
 			{
 				if (cached_sent.insert (cached_vote).second)
