@@ -2833,6 +2833,36 @@ TEST (node, vote_by_hash_bundle)
 	// Keep max_hashes above system to ensure it is kept in scope as votes can be added during system destruction
 	std::atomic<size_t> max_hashes{ 0 };
 	nano::system system (1);
+	auto & node = *system.nodes[0];
+	nano::state_block_builder builder;
+	std::vector<std::shared_ptr<nano::state_block>> blocks;
+	auto block = builder.make_block ()
+	             .account (nano::dev_genesis_key.pub)
+	             .previous (nano::genesis_hash)
+	             .representative (nano::dev_genesis_key.pub)
+	             .balance (nano::genesis_amount - 1)
+	             .link (nano::dev_genesis_key.pub)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (*system.work.generate (nano::genesis_hash))
+	             .build_shared ();
+	blocks.push_back (block);
+	ASSERT_EQ (nano::process_result::progress, node.ledger.process (node.store.tx_begin_write (), *blocks.back ()).code);
+	for (auto i = 2; i < 200; ++i)
+	{
+		auto block = builder.make_block ()
+		             .from (*blocks.back ())
+		             .previous (blocks.back ()->hash ())
+		             .balance (nano::genesis_amount - i)
+		             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+		             .work (*system.work.generate (blocks.back ()->hash ()))
+		             .build_shared ();
+		blocks.push_back (block);
+		ASSERT_EQ (nano::process_result::progress, node.ledger.process (node.store.tx_begin_write (), *blocks.back ()).code);
+	}
+	auto election_insertion_result = node.active.insert (blocks.back ());
+	ASSERT_TRUE (election_insertion_result.inserted);
+	ASSERT_NE (nullptr, election_insertion_result.election);
+	election_insertion_result.election->force_confirm ();
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (key1.prv);
@@ -2844,9 +2874,9 @@ TEST (node, vote_by_hash_bundle)
 		}
 	});
 
-	for (int i = 1; i <= 200; i++)
+	for (auto const & block : blocks)
 	{
-		system.nodes[0]->active.generator.add (nano::genesis_account, nano::genesis_hash);
+		system.nodes[0]->active.generator.add (block->root (), block->hash ());
 	}
 
 	// Verify that bundling occurs. While reaching 12 should be common on most hardware in release mode,

@@ -216,7 +216,7 @@ void nano::vote_generator::broadcast (nano::unique_lock<std::mutex> & lock_a)
 				broadcast_action (cached_vote);
 			}
 		}
-		if (cached_votes.empty ())
+		if (cached_votes.empty () && std::find (roots.begin (), roots.end (), root) == roots.end ())
 		{
 			roots.push_back (root);
 			hashes.push_back (hash);
@@ -258,7 +258,7 @@ void nano::vote_generator::reply (nano::unique_lock<std::mutex> & lock_a, reques
 					reply_action (cached_vote, request_a.second);
 				}
 			}
-			if (cached_votes.empty ())
+			if (cached_votes.empty () && std::find (roots.begin (), roots.end (), root) == roots.end ())
 			{
 				roots.push_back (i->first);
 				hashes.push_back (i->second);
