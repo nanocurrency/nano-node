@@ -39,6 +39,7 @@ class vote_spacing final
 	public:
 		nano::root root;
 		std::chrono::steady_clock::time_point time;
+		nano::block_hash hash;
 	};
 	
 	boost::multi_index_container<entry,
@@ -54,8 +55,8 @@ class vote_spacing final
 public:
 	vote_spacing (std::chrono::milliseconds const & delay) :
 	delay{ delay } {}
-	bool votable (nano::root const & root_a) const;
-	void flag (nano::root const & root_a);
+	bool votable (nano::root const & root_a, nano::block_hash const & hash_a) const;
+	void flag (nano::root const & root_a, nano::block_hash const & hash_a);
 	size_t size () const;
 };
 
