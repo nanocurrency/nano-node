@@ -512,7 +512,8 @@ unsigned nano::bootstrap_attempt_lazy::lazy_retry_limit_confirmed ()
 		// Prevent too frequent network locks
 		peer_count = node->network.size ();
 	}
-	return std::max (2 * node->network_params.bootstrap.lazy_retry_limit, 2 * nano::narrow_cast<unsigned> (peer_count));
+	auto multiplier (node->flags.disable_legacy_bootstrap ? 3 : 2);
+	return multiplier * std::max (node->network_params.bootstrap.lazy_retry_limit, nano::narrow_cast<unsigned> (peer_count));
 }
 
 void nano::bootstrap_attempt_lazy::get_information (boost::property_tree::ptree & tree_a)

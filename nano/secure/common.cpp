@@ -171,7 +171,7 @@ nano::bootstrap_constants::bootstrap_constants (nano::network_constants & networ
 	lazy_max_pull_blocks = network_constants.is_dev_network () ? 2 : 512;
 	lazy_min_pull_blocks = network_constants.is_dev_network () ? 1 : 32;
 	frontier_retry_limit = network_constants.is_dev_network () ? 2 : 16;
-	lazy_retry_limit = network_constants.is_dev_network () ? 2 : frontier_retry_limit * 10;
+	lazy_retry_limit = network_constants.is_dev_network () ? 2 : frontier_retry_limit * 4;
 	lazy_destinations_retry_limit = network_constants.is_dev_network () ? 1 : frontier_retry_limit / 4;
 	gap_cache_bootstrap_start_interval = network_constants.is_dev_network () ? std::chrono::milliseconds (5) : std::chrono::milliseconds (30 * 1000);
 }
