@@ -108,11 +108,16 @@ void nano::move_all_files_to_dir (boost::filesystem::path const & from, boost::f
 /*
  * Backing code for "release_assert" & "debug_assert", which are macros
  */
-void assert_internal (const char * check_expr, const char * func, const char * file, unsigned int line, bool is_release_assert)
+void assert_internal (const char * check_expr, const char * func, const char * file, unsigned int line, bool is_release_assert, std::string_view error_msg)
 {
 	std::cerr << "Assertion (" << check_expr << ") failed\n"
 	          << func << "\n"
-	          << file << ":" << line << "\n\n";
+	          << file << ":" << line << "\n";
+	if (!error_msg.empty ())
+	{
+		std::cerr << "Error: " << error_msg << "\n";
+	}
+	std::cerr << "\n";
 
 	// Output stack trace to cerr
 	auto backtrace_str = nano::generate_stacktrace ();
