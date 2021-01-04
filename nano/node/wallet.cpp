@@ -1386,7 +1386,7 @@ void nano::work_watcher::watching (nano::qualified_root const & root_a, std::sha
 							if (!ec)
 							{
 								watcher_l->node.network.flood_block_initial (block);
-								watcher_l->node.active.update_difficulty (*block);
+								watcher_l->node.active.update_difficulty (block, false);
 								watcher_l->update (root_a, block);
 							}
 						}
