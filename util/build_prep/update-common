@@ -61,11 +61,11 @@ for file in */prep.sh.in; do
 
 			print;
 		}
-	' < "${file}" > "${file}.new"
+	' <"${file}" >"${file}.new"
 
 	rm -f "${outfile}"
 
-	cat "${file}.new" > "${outfile}"
+	cat "${file}.new" >"${outfile}"
 	rm -f "${file}.new"
 
 	chmod 755 "${outfile}"

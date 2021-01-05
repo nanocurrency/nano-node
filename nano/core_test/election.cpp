@@ -177,7 +177,7 @@ TEST (election, quorum_minimum_update_weight_before_quorum_checks)
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node1 = *system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
-	auto amount = ((nano::uint256_t (node_config.online_weight_minimum.number ()) * node_config.online_weight_quorum) / 100).convert_to<nano::uint128_t> () - 1;
+	auto amount = ((nano::uint256_t (node_config.online_weight_minimum.number ()) * nano::online_reps::online_weight_quorum) / 100).convert_to<nano::uint128_t> () - 1;
 	nano::keypair key1;
 	nano::block_builder builder;
 	auto send1 = builder.state ()
@@ -231,9 +231,9 @@ TEST (election, quorum_minimum_update_weight_before_quorum_checks)
 	ASSERT_FALSE (election.inserted);
 	ASSERT_NE (nullptr, election.election);
 	ASSERT_EQ (1, election.election->blocks ().size ());
-	auto vote1 (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, node1.timestamps.now (), send1));
+	auto vote1 (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, nano::milliseconds_since_epoch (), send1));
 	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote1, true));
-	auto vote2 (std::make_shared<nano::vote> (key1.pub, key1.prv, node2.timestamps.now (), send1));
+	auto vote2 (std::make_shared<nano::vote> (key1.pub, key1.prv, nano::milliseconds_since_epoch (), send1));
 	auto channel = node1.network.find_channel (node2.network.endpoint ());
 	ASSERT_NE (channel, nullptr);
 	ASSERT_TIMELY (10s, !node1.rep_crawler.response (channel, vote2));

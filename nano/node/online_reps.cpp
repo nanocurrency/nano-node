@@ -98,7 +98,7 @@ nano::uint128_t nano::online_reps::delta () const
 	nano::lock_guard<std::mutex> lock (mutex);
 	// Using a larger container to ensure maximum precision
 	auto weight = static_cast<nano::uint256_t> (std::max ({ online_m, trended_m, config.online_weight_minimum.number () }));
-	return ((weight * config.online_weight_quorum) / 100).convert_to<nano::uint128_t> ();
+	return ((weight * online_weight_quorum) / 100).convert_to<nano::uint128_t> ();
 }
 
 std::vector<nano::account> nano::online_reps::list ()

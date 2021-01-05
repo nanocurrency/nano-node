@@ -578,7 +578,7 @@ void await_hup_signal (std::shared_ptr<boost::asio::signal_set> const & signals,
 nano::ipc::ipc_server::ipc_server (nano::node & node_a, nano::node_rpc_config const & node_rpc_config_a) :
 node (node_a),
 node_rpc_config (node_rpc_config_a),
-broker (node_a)
+broker (std::make_shared<nano::ipc::broker> (node_a))
 {
 	try
 	{
@@ -614,7 +614,7 @@ broker (node_a)
 
 		if (!transports.empty ())
 		{
-			broker.start ();
+			broker->start ();
 		}
 	}
 	catch (std::runtime_error const & ex)
@@ -636,7 +636,7 @@ void nano::ipc::ipc_server::stop ()
 	}
 }
 
-nano::ipc::broker & nano::ipc::ipc_server::get_broker ()
+std::shared_ptr<nano::ipc::broker> nano::ipc::ipc_server::get_broker ()
 {
 	return broker;
 }

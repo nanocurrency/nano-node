@@ -24,7 +24,7 @@ confirmation_height_processor (confirmation_height_processor_a),
 node (node_a),
 multipliers_cb (20, 1.),
 trended_active_multiplier (1.0),
-generator (node_a.timestamps, node_a.config, node_a.ledger, node_a.wallets, node_a.vote_processor, node_a.history, node_a.network, node_a.stats),
+generator (node_a.config, node_a.ledger, node_a.wallets, node_a.vote_processor, node_a.history, node_a.network, node_a.stats),
 check_all_elections_period (node_a.network_params.network.is_dev_network () ? 10ms : 5s),
 election_time_to_live (node_a.network_params.network.is_dev_network () ? 0s : 2s),
 prioritized_cutoff (std::max<size_t> (1, node_a.config.active_elections_size / 10)),
@@ -1247,6 +1247,13 @@ void nano::active_transactions::erase (nano::qualified_root const & root_a)
 	}
 }
 
+void nano::active_transactions::erase_hash (nano::block_hash const & hash_a)
+{
+	nano::unique_lock<std::mutex> lock (mutex);
+	[[maybe_unused]] auto erased (blocks.erase (hash_a));
+	debug_assert (erased == 1);
+}
+
 bool nano::active_transactions::empty ()
 {
 	nano::lock_guard<std::mutex> lock (mutex);
@@ -1277,7 +1284,6 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> block_a)
 			auto const cache = find_inactive_votes_cache_impl (block_a->hash ());
 			lock.unlock ();
 			election->insert_inactive_votes_cache (cache);
-			node.network.flood_block (block_a, nano::buffer_drop_policy::no_limiter_drop);
 			node.stats.inc (nano::stat::type::election, nano::stat::detail::election_block_conflict);
 		}
 	}
@@ -1469,6 +1475,7 @@ nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_
 	{
 		tally += node.ledger.weight (voter);
 	}
+	status.tally = tally;
 
 	if (!previously_a.confirmed && tally >= node.online_reps.delta ())
 	{

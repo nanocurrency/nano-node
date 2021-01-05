@@ -37,6 +37,7 @@ public:
 	/** List of online representatives, both the currently sampling ones and the ones observed in the previous sampling period */
 	std::vector<nano::account> list ();
 	void clear ();
+	static unsigned constexpr online_weight_quorum = 67;
 
 private:
 	class rep_info
