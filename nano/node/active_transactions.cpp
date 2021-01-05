@@ -1239,6 +1239,13 @@ void nano::active_transactions::erase (nano::qualified_root const & root_a)
 	}
 }
 
+void nano::active_transactions::erase_hash (nano::block_hash const & hash_a)
+{
+	nano::unique_lock<std::mutex> lock (mutex);
+	[[maybe_unused]] auto erased (blocks.erase (hash_a));
+	debug_assert (erased == 1);
+}
+
 bool nano::active_transactions::empty ()
 {
 	nano::lock_guard<std::mutex> lock (mutex);
@@ -1460,6 +1467,7 @@ nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_
 	{
 		tally += node.ledger.weight (voter);
 	}
+	status.tally = tally;
 
 	if (!previously_a.confirmed && tally >= node.online_reps.delta ())
 	{

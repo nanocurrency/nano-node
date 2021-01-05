@@ -390,13 +390,14 @@ bool nano::election::publish (std::shared_ptr<nano::block> const & block_a)
 
 	// Do not insert new blocks if already confirmed
 	auto result (confirmed ());
-	if (!result && last_blocks.size () >= 10)
+	if (!result && last_blocks.size () >= max_blocks && last_blocks.find (block_a->hash ()) == last_blocks.end ())
 	{
-		if (last_tally[block_a->hash ()] < node.online_reps.trended () / 10)
+		if (!replace_by_weight (lock, block_a->hash ()))
 		{
 			result = true;
 			node.network.publish_filter.clear (block_a);
 		}
+		debug_assert (lock.owns_lock ());
 	}
 	if (!result)
 	{
@@ -415,6 +416,12 @@ bool nano::election::publish (std::shared_ptr<nano::block> const & block_a)
 			}
 		}
 	}
+	/*
+	Result is true if:
+	1) election is confirmed or expired
+	2) given election contains 10 blocks & new block didn't receive enough votes to replace existing blocks
+	3) given block in already in election & election contains less than 10 blocks (replacing block content with new)
+	*/
 	return result;
 }
 
@@ -522,6 +529,85 @@ void nano::election::remove_votes (nano::block_hash const & hash_a)
 		// Clear votes cache
 		node.history.erase (root);
 	}
+}
+
+void nano::election::remove_block (nano::block_hash const & hash_a)
+{
+	debug_assert (!mutex.try_lock ());
+	if (status.winner->hash () != hash_a)
+	{
+		if (auto existing = last_blocks.find (hash_a); existing != last_blocks.end ())
+		{
+			for (auto i (last_votes.begin ()); i != last_votes.end ();)
+			{
+				if (i->second.hash == hash_a)
+				{
+					i = last_votes.erase (i);
+				}
+				else
+				{
+					++i;
+				}
+			}
+			node.network.publish_filter.clear (existing->second);
+			last_blocks.erase (hash_a);
+		}
+	}
+}
+
+bool nano::election::replace_by_weight (nano::unique_lock<std::mutex> & lock_a, nano::block_hash const & hash_a)
+{
+	debug_assert (lock_a.owns_lock ());
+	nano::block_hash replaced_block (0);
+	auto winner_hash (status.winner->hash ());
+	// Sort existing blocks tally
+	std::vector<std::pair<nano::block_hash, nano::uint128_t>> sorted;
+	sorted.reserve (last_tally.size ());
+	std::copy (last_tally.begin (), last_tally.end (), std::back_inserter (sorted));
+	lock_a.unlock ();
+	// Sort in ascending order
+	std::sort (sorted.begin (), sorted.end (), [](auto const & left, auto const & right) { return left.second < right.second; });
+	// Replace if lowest tally is below inactive cache new block weight
+	auto inactive_existing (node.active.find_inactive_votes_cache (hash_a));
+	auto inactive_tally (inactive_existing.status.tally);
+	if (inactive_tally > 0 && sorted.size () < max_blocks)
+	{
+		// If count of tally items is less than 10, remove any block without tally
+		for (auto const & [hash, block] : blocks ())
+		{
+			if (std::find_if (sorted.begin (), sorted.end (), [& hash = hash](auto const & item_a) { return item_a.first == hash; }) == sorted.end () && hash != winner_hash)
+			{
+				replaced_block = hash;
+				break;
+			}
+		}
+	}
+	else if (inactive_tally > 0 && inactive_tally > sorted.front ().second)
+	{
+		if (sorted.front ().first != winner_hash)
+		{
+			replaced_block = sorted.front ().first;
+		}
+		else if (inactive_tally > sorted[1].second)
+		{
+			// Avoid removing winner
+			replaced_block = sorted[1].first;
+		}
+	}
+
+	bool replaced (false);
+	if (!replaced_block.is_zero ())
+	{
+		node.active.erase_hash (replaced_block);
+		lock_a.lock ();
+		remove_block (replaced_block);
+		replaced = true;
+	}
+	else
+	{
+		lock_a.lock ();
+	}
+	return replaced;
 }
 
 void nano::election::force_confirm (nano::election_status_type type_a)
