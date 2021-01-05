@@ -5,5 +5,5 @@ while true; do
     printf ".\b"
     sleep 120
 done &
-timeout -k 5 "$(( $delay * 60 ))" "$@"
+timeout -k 5 "$((delay * 60))" "$@"
 exit "$?"

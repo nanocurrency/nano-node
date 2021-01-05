@@ -263,13 +263,13 @@ public:
 	boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> begin () const;
 	boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> end () const;
 	std::string to_json () const;
-	// Vote round sequence number
-	uint64_t sequence;
+	// Vote timestamp
+	uint64_t timestamp;
 	// The blocks, or block hashes, that this vote is for
 	std::vector<boost::variant<std::shared_ptr<nano::block>, nano::block_hash>> blocks;
 	// Account that's voting
 	nano::account account;
-	// Signature of sequence + block hashes
+	// Signature of timestamp + block hashes
 	nano::signature signature;
 	static const std::string hash_prefix;
 };
@@ -297,8 +297,8 @@ std::unique_ptr<container_info_component> collect_container_info (vote_uniquer &
 enum class vote_code
 {
 	invalid, // Vote is not signed correctly
-	replay, // Vote does not have the highest sequence number, it's a replay
-	vote, // Vote has the highest sequence number
+	replay, // Vote does not have the highest timestamp, it's a replay
+	vote, // Vote has the highest timestamp
 	indeterminate // Unknown if replay or vote
 };
 
@@ -428,7 +428,8 @@ class voting_constants
 {
 public:
 	voting_constants (nano::network_constants & network_constants);
-	size_t max_cache;
+	size_t const max_cache;
+	std::chrono::seconds const delay;
 };
 
 /** Port-mapping related constants whose value depends on the active network */
@@ -505,6 +506,7 @@ public:
 	nano::rep_weights rep_weights;
 	std::atomic<uint64_t> cemented_count{ 0 };
 	std::atomic<uint64_t> block_count{ 0 };
+	std::atomic<uint64_t> pruned_count{ 0 };
 	std::atomic<uint64_t> account_count{ 0 };
 	std::atomic<bool> epoch_2_started{ false };
 };

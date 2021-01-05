@@ -84,13 +84,19 @@ void * nano::write_transaction::get_handle () const
 	return impl->get_handle ();
 }
 
-void nano::write_transaction::commit () const
+void nano::write_transaction::commit ()
 {
 	impl->commit ();
 }
 
 void nano::write_transaction::renew ()
 {
+	impl->renew ();
+}
+
+void nano::write_transaction::refresh ()
+{
+	impl->commit ();
 	impl->renew ();
 }
 

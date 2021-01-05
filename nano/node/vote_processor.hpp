@@ -60,9 +60,7 @@ private:
 	nano::online_reps & online_reps;
 	nano::ledger & ledger;
 	nano::network_params & network_params;
-
 	size_t max_votes;
-
 	std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>>> votes;
 	/** Representatives levels for random early detection */
 	std::unordered_set<nano::account> representatives_1;

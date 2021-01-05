@@ -74,7 +74,7 @@ void nano::peer_exclusion::remove (nano::tcp_endpoint const & endpoint_a)
 
 size_t nano::peer_exclusion::limited_size (size_t const network_peers_count_a) const
 {
-	return std::min<size_t> (size_max, network_peers_count_a * peers_percentage_limit);
+	return std::min (size_max, static_cast<size_t> (network_peers_count_a * peers_percentage_limit));
 }
 
 size_t nano::peer_exclusion::size () const

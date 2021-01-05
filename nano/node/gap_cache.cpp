@@ -77,7 +77,7 @@ bool nano::gap_cache::bootstrap_check (std::vector<nano::account> const & voters
 	bool start_bootstrap (false);
 	if (!node.flags.disable_lazy_bootstrap)
 	{
-		if (tally >= node.config.online_weight_minimum.number ())
+		if (tally >= node.online_reps.delta ())
 		{
 			start_bootstrap = true;
 		}
@@ -86,7 +86,7 @@ bool nano::gap_cache::bootstrap_check (std::vector<nano::account> const & voters
 	{
 		start_bootstrap = true;
 	}
-	if (start_bootstrap && !node.ledger.block_exists (hash_a))
+	if (start_bootstrap && !node.ledger.block_or_pruned_exists (hash_a))
 	{
 		bootstrap_start (hash_a);
 	}
@@ -97,8 +97,7 @@ void nano::gap_cache::bootstrap_start (nano::block_hash const & hash_a)
 {
 	auto node_l (node.shared ());
 	node.alarm.add (std::chrono::steady_clock::now () + node.network_params.bootstrap.gap_cache_bootstrap_start_interval, [node_l, hash_a]() {
-		auto transaction (node_l->store.tx_begin_read ());
-		if (!node_l->store.block_exists (transaction, hash_a))
+		if (!node_l->ledger.block_or_pruned_exists (hash_a))
 		{
 			if (!node_l->bootstrap_initiator.in_progress ())
 			{
@@ -118,7 +117,7 @@ void nano::gap_cache::bootstrap_start (nano::block_hash const & hash_a)
 
 nano::uint128_t nano::gap_cache::bootstrap_threshold ()
 {
-	auto result ((node.online_reps.online_stake () / 256) * node.config.bootstrap_fraction_numerator);
+	auto result ((node.online_reps.trended () / 256) * node.config.bootstrap_fraction_numerator);
 	return result;
 }
 

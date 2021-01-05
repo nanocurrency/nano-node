@@ -31,7 +31,7 @@ class write_database_queue;
 class confirmation_height_processor final
 {
 public:
-	confirmation_height_processor (nano::ledger &, nano::write_database_queue &, std::chrono::milliseconds, nano::logger_mt &, boost::latch & initialized_latch, confirmation_height_mode = confirmation_height_mode::automatic);
+	confirmation_height_processor (nano::ledger &, nano::write_database_queue &, std::chrono::milliseconds, nano::logging const &, nano::logger_mt &, boost::latch & initialized_latch, confirmation_height_mode = confirmation_height_mode::automatic);
 	~confirmation_height_processor ();
 	void pause ();
 	void unpause ();
@@ -76,6 +76,7 @@ private:
 	nano::write_database_queue & write_database_queue;
 	/** The maximum amount of blocks to write at once. This is dynamically modified by the bounded processor based on previous write performance **/
 	uint64_t batch_write_size{ 16384 };
+	nano::network_params network_params;
 
 	confirmation_height_unbounded unbounded_processor;
 	confirmation_height_bounded bounded_processor;

@@ -192,11 +192,17 @@ void nano::bootstrap_initiator::remove_attempt (std::shared_ptr<nano::bootstrap_
 	auto attempt (std::find (attempts_list.begin (), attempts_list.end (), attempt_a));
 	if (attempt != attempts_list.end ())
 	{
-		attempts.remove ((*attempt)->incremental_id);
+		auto attempt_ptr (*attempt);
+		attempts.remove (attempt_ptr->incremental_id);
 		attempts_list.erase (attempt);
 		debug_assert (attempts.size () == attempts_list.size ());
+		lock.unlock ();
+		attempt_ptr->stop ();
 	}
-	lock.unlock ();
+	else
+	{
+		lock.unlock ();
+	}
 	condition.notify_all ();
 }
 

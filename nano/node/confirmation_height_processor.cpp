@@ -11,12 +11,12 @@
 
 #include <numeric>
 
-nano::confirmation_height_processor::confirmation_height_processor (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logger_mt & logger_a, boost::latch & latch, confirmation_height_mode mode_a) :
+nano::confirmation_height_processor::confirmation_height_processor (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logging const & logging_a, nano::logger_mt & logger_a, boost::latch & latch, confirmation_height_mode mode_a) :
 ledger (ledger_a),
 write_database_queue (write_database_queue_a),
 // clang-format off
-unbounded_processor (ledger_a, write_database_queue_a, batch_separate_pending_min_time_a, logger_a, stopped, original_hash, batch_write_size, [this](auto & cemented_blocks) { this->notify_observers (cemented_blocks); }, [this](auto const & block_hash_a) { this->notify_observers (block_hash_a); }, [this]() { return this->awaiting_processing_size (); }),
-bounded_processor (ledger_a, write_database_queue_a, batch_separate_pending_min_time_a, logger_a, stopped, original_hash, batch_write_size, [this](auto & cemented_blocks) { this->notify_observers (cemented_blocks); }, [this](auto const & block_hash_a) { this->notify_observers (block_hash_a); }, [this]() { return this->awaiting_processing_size (); }),
+unbounded_processor (ledger_a, write_database_queue_a, batch_separate_pending_min_time_a, logging_a, logger_a, stopped, original_hash, batch_write_size, [this](auto & cemented_blocks) { this->notify_observers (cemented_blocks); }, [this](auto const & block_hash_a) { this->notify_observers (block_hash_a); }, [this]() { return this->awaiting_processing_size (); }),
+bounded_processor (ledger_a, write_database_queue_a, batch_separate_pending_min_time_a, logging_a, logger_a, stopped, original_hash, batch_write_size, [this](auto & cemented_blocks) { this->notify_observers (cemented_blocks); }, [this](auto const & block_hash_a) { this->notify_observers (block_hash_a); }, [this]() { return this->awaiting_processing_size (); }),
 // clang-format on
 thread ([this, &latch, mode_a]() {
 	nano::thread_role::set (nano::thread_role::name::confirmation_height_processing);
@@ -118,11 +118,17 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 				else
 				{
 					lock_and_cleanup ();
-					condition.wait (lk);
+					// A block could have been confirmed during the re-locking
+					if (awaiting_processing.empty ())
+					{
+						condition.wait (lk);
+					}
 				}
 			}
 			else
 			{
+				// Pausing is only utilised in some tests to help prevent it processing added blocks until required.
+				debug_assert (network_params.network.is_dev_network ());
 				original_hash.clear ();
 				condition.wait (lk);
 			}

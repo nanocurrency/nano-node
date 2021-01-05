@@ -147,7 +147,7 @@ public:
 	void send_keepalive (std::shared_ptr<nano::transport::channel>);
 	void send_keepalive_self (std::shared_ptr<nano::transport::channel>);
 	void send_node_id_handshake (std::shared_ptr<nano::transport::channel>, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to);
-	void send_confirm_req (std::shared_ptr<nano::transport::channel>, std::shared_ptr<nano::block>);
+	void send_confirm_req (std::shared_ptr<nano::transport::channel> channel_a, std::pair<nano::block_hash, nano::block_hash> const & hash_root_a);
 	void broadcast_confirm_req (std::shared_ptr<nano::block>);
 	void broadcast_confirm_req_base (std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>, unsigned, bool = false);
 	void broadcast_confirm_req_batched_many (std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pair<nano::block_hash, nano::root>>>, std::function<void()> = nullptr, unsigned = broadcast_interval_ms, bool = false);
@@ -195,6 +195,9 @@ public:
 	// Called when a new channel is observed
 	std::function<void(std::shared_ptr<nano::transport::channel>)> channel_observer;
 	std::atomic<bool> stopped{ false };
+	boost::asio::steady_timer cleanup_timer;
+	boost::asio::steady_timer cookie_timer;
+	boost::asio::steady_timer keepalive_timer;
 	static unsigned const broadcast_interval_ms = 10;
 	static size_t const buffer_size = 512;
 	static size_t const confirm_req_hashes_max = 7;

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <nano/node/bootstrap/bootstrap.hpp>
-#include <nano/node/bootstrap/bootstrap_bulk_pull.hpp>
 
 #include <atomic>
 #include <future>

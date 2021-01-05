@@ -120,7 +120,7 @@ class wallet final : public std::enable_shared_from_this<nano::wallet>
 {
 public:
 	std::shared_ptr<nano::block> change_action (nano::account const &, nano::account const &, uint64_t = 0, bool = true);
-	std::shared_ptr<nano::block> receive_action (nano::block const &, nano::account const &, nano::uint128_union const &, uint64_t = 0, bool = true);
+	std::shared_ptr<nano::block> receive_action (nano::block_hash const &, nano::account const &, nano::uint128_union const &, nano::account const &, uint64_t = 0, bool = true);
 	std::shared_ptr<nano::block> send_action (nano::account const &, nano::account const &, nano::uint128_t const &, uint64_t = 0, bool = true, boost::optional<std::string> = {});
 	bool action_complete (std::shared_ptr<nano::block> const &, nano::account const &, bool const, nano::block_details const &);
 	wallet (bool &, nano::transaction &, nano::wallets &, std::string const &);
@@ -139,7 +139,7 @@ public:
 	bool change_sync (nano::account const &, nano::account const &);
 	void change_async (nano::account const &, nano::account const &, std::function<void(std::shared_ptr<nano::block>)> const &, uint64_t = 0, bool = true);
 	bool receive_sync (std::shared_ptr<nano::block>, nano::account const &, nano::uint128_t const &);
-	void receive_async (std::shared_ptr<nano::block>, nano::account const &, nano::uint128_t const &, std::function<void(std::shared_ptr<nano::block>)> const &, uint64_t = 0, bool = true);
+	void receive_async (nano::block_hash const &, nano::account const &, nano::uint128_t const &, nano::account const &, std::function<void(std::shared_ptr<nano::block>)> const &, uint64_t = 0, bool = true);
 	nano::block_hash send_sync (nano::account const &, nano::account const &, nano::uint128_t const &);
 	void send_async (nano::account const &, nano::account const &, nano::uint128_t const &, std::function<void(std::shared_ptr<nano::block>)> const &, uint64_t = 0, bool = true, boost::optional<std::string> = {});
 	void work_cache_blocking (nano::account const &, nano::root const &);
@@ -164,6 +164,8 @@ public:
 
 class work_watcher final : public std::enable_shared_from_this<nano::work_watcher>
 {
+	std::unordered_map<nano::qualified_root, std::shared_ptr<nano::state_block>> watched;
+
 public:
 	work_watcher (nano::node &);
 	~work_watcher ();
@@ -173,10 +175,12 @@ public:
 	void watching (nano::qualified_root const &, std::shared_ptr<nano::state_block>);
 	void remove (nano::block const &);
 	bool is_watched (nano::qualified_root const &);
+	decltype (watched) list_watched ();
 	size_t size ();
+
+private:
 	nano::mutex mutex;
 	nano::node & node;
-	std::unordered_map<nano::qualified_root, std::shared_ptr<nano::state_block>> watched;
 	std::atomic<bool> stopped;
 };
 
@@ -229,6 +233,7 @@ public:
 	void ongoing_compute_reps ();
 	void split_if_needed (nano::transaction &, nano::block_store &);
 	void move_table (std::string const &, MDB_txn *, MDB_txn *);
+	std::unordered_map<nano::wallet_id, std::shared_ptr<nano::wallet>> get_wallets ();
 	nano::network_params network_params;
 	std::function<void(bool)> observer;
 	std::unordered_map<nano::wallet_id, std::shared_ptr<nano::wallet>> items;

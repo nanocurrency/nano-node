@@ -41,7 +41,7 @@ class write_mdb_txn final : public write_transaction_impl
 public:
 	write_mdb_txn (nano::mdb_env const &, mdb_txn_callbacks mdb_txn_callbacks);
 	~write_mdb_txn ();
-	void commit () const override;
+	void commit () override;
 	void renew () override;
 	void * get_handle () const override;
 	bool contains (nano::tables table_a) const override;

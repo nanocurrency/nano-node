@@ -11,7 +11,11 @@
 #include <string>
 #include <vector>
 
+#if defined(__APPLE__)
+bool nano::opencl_loaded{ true };
+#else
 bool nano::opencl_loaded{ false };
+#endif
 
 namespace
 {

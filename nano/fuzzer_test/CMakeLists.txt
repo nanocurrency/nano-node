@@ -8,4 +8,5 @@ target_link_libraries(fuzz_bignum PRIVATE -fsanitize=fuzzer node gtest)
 
 add_executable(fuzz_endpoint_parsing fuzz_endpoint_parsing.cpp)
 target_compile_options(fuzz_endpoint_parsing PUBLIC -fsanitize=fuzzer)
-target_link_libraries(fuzz_endpoint_parsing PRIVATE -fsanitize=fuzzer node gtest)
+target_link_libraries(fuzz_endpoint_parsing PRIVATE -fsanitize=fuzzer node
+                                                    gtest)

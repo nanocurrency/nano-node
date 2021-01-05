@@ -156,7 +156,7 @@ TEST (websocket, confirmation)
 	nano::keypair key;
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	auto balance = nano::genesis_amount;
-	auto send_amount = node1->config.online_weight_minimum.number () + 1;
+	auto send_amount = node1->online_reps.delta () + 1;
 	// Quick-confirm a block, legacy blocks should work without filtering
 	{
 		nano::block_hash previous (node1->latest (nano::dev_genesis_key.pub));
@@ -248,7 +248,7 @@ TEST (websocket, confirmation_options)
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	nano::keypair key;
 	auto balance = nano::genesis_amount;
-	auto send_amount = node1->config.online_weight_minimum.number () + 1;
+	auto send_amount = node1->online_reps.delta () + 1;
 	nano::block_hash previous (node1->latest (nano::dev_genesis_key.pub));
 	{
 		balance -= send_amount;
@@ -298,7 +298,7 @@ TEST (websocket, confirmation_options)
 		ASSERT_EQ (1, election_info.count ("duration"));
 		ASSERT_EQ (1, election_info.count ("request_count"));
 		ASSERT_EQ (1, election_info.count ("voters"));
-		ASSERT_GE (1, election_info.get<unsigned> ("blocks"));
+		ASSERT_GE (1U, election_info.get<unsigned> ("blocks"));
 		// Make sure tally and time are non-zero.
 		ASSERT_NE ("0", tally);
 		ASSERT_NE ("0", time);
@@ -416,7 +416,7 @@ TEST (websocket, vote)
 	nano::keypair key;
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	nano::block_hash previous (node1->latest (nano::dev_genesis_key.pub));
-	auto send (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, previous, nano::dev_genesis_key.pub, nano::genesis_amount - (node1->config.online_weight_minimum.number () + 1), key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (previous)));
+	auto send (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, previous, nano::dev_genesis_key.pub, nano::genesis_amount - (node1->online_reps.delta () + 1), key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (previous)));
 	node1->process_active (send);
 
 	ASSERT_TIMELY (5s, future.wait_for (0s) == std::future_status::ready);
@@ -505,7 +505,7 @@ TEST (websocket, vote_options_representatives)
 	nano::keypair key;
 	auto balance = nano::genesis_amount;
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
-	auto send_amount = node1->config.online_weight_minimum.number () + 1;
+	auto send_amount = node1->online_reps.delta () + 1;
 	auto confirm_block = [&]() {
 		nano::block_hash previous (node1->latest (nano::dev_genesis_key.pub));
 		balance -= send_amount;
@@ -584,7 +584,7 @@ TEST (websocket, work)
 
 	auto & contents = event.get_child ("message");
 	ASSERT_EQ (contents.get<std::string> ("success"), "true");
-	ASSERT_LT (contents.get<unsigned> ("duration"), 10000);
+	ASSERT_LT (contents.get<unsigned> ("duration"), 10000U);
 
 	ASSERT_EQ (1, contents.count ("request"));
 	auto & request = contents.get_child ("request");
@@ -719,8 +719,8 @@ TEST (websocket, bootstrap_exited)
 	ASSERT_EQ (contents.get<std::string> ("reason"), "exited");
 	ASSERT_EQ (contents.get<std::string> ("id"), "123abc");
 	ASSERT_EQ (contents.get<std::string> ("mode"), "legacy");
-	ASSERT_EQ (contents.get<unsigned> ("total_blocks"), 0);
-	ASSERT_LT (contents.get<unsigned> ("duration"), 15000);
+	ASSERT_EQ (contents.get<unsigned> ("total_blocks"), 0U);
+	ASSERT_LT (contents.get<unsigned> ("duration"), 15000U);
 }
 
 // Tests sending keepalive

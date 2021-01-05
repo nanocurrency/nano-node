@@ -33,6 +33,8 @@ std::string nano::error_cli_messages::message (int ev) const
 			return "Flags --disable_tcp_realtime and --disable_udp cannot be used together";
 		case nano::error_cli::ambiguous_udp_options:
 			return "Flags --disable_udp and --enable_udp cannot be used together";
+		case nano::error_cli::ambiguous_pruning_voting_options:
+			return "Flag --enable_pruning and enable_voting in node config cannot be used together";
 	}
 
 	return "Invalid error code";
@@ -55,6 +57,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("unchecked_clear", "Clear unchecked blocks")
 	("confirmation_height_clear", "Clear confirmation height")
 	("rebuild_database", "Rebuild LMDB database with vacuum for best compaction")
+	("migrate_database_lmdb_to_rocksdb", "Migrates LMDB database to RocksDB")
 	("diagnostics", "Run internal diagnostics")
 	("generate_config", boost::program_options::value<std::string> (), "Write configuration to stdout, populated with defaults suitable for this system. Pass the configuration type node or rpc. See also use_defaults.")
 	("key_create", "Generates a adhoc random keypair and prints it to stdout")
@@ -69,7 +72,6 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("wallet_remove", "Remove <account> from <wallet>")
 	("wallet_representative_get", "Prints default representative for <wallet>")
 	("wallet_representative_set", "Set <account> as default representative for <wallet>")
-	("vote_dump", "Dump most recent votes from representatives")
 	("account", boost::program_options::value<std::string> (), "Defines <account> for other commands")
 	("file", boost::program_options::value<std::string> (), "Defines <file> for other commands")
 	("key", boost::program_options::value<std::string> (), "Defines the <key> for other commands, hex")
@@ -97,6 +99,7 @@ void nano::add_node_flag_options (boost::program_options::options_description & 
 		("disable_unchecked_drop", "Disables drop of unchecked table at startup")
 		("disable_providing_telemetry_metrics", "Disable using any node information in the telemetry_ack messages.")
 		("disable_block_processor_unchecked_deletion", "Disable deletion of unchecked blocks after processing")
+		("enable_pruning", "Enable experimental ledger pruning")
 		("allow_bootstrap_peers_duplicates", "Allow multiple connections to same peer in bootstrap attempts")
 		("fast_bootstrap", "Increase bootstrap speed for high end nodes with higher limits")
 		("block_processor_batch_size", boost::program_options::value<std::size_t>(), "Increase block processor transaction batch write size, default 0 (limited by config block_processor_batch_max_time), 256k for fast_bootstrap")
@@ -133,6 +136,7 @@ std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_o
 	flags_a.disable_unchecked_cleanup = (vm.count ("disable_unchecked_cleanup") > 0);
 	flags_a.disable_unchecked_drop = (vm.count ("disable_unchecked_drop") > 0);
 	flags_a.disable_block_processor_unchecked_deletion = (vm.count ("disable_block_processor_unchecked_deletion") > 0);
+	flags_a.enable_pruning = (vm.count ("enable_pruning") > 0);
 	flags_a.allow_bootstrap_peers_duplicates = (vm.count ("allow_bootstrap_peers_duplicates") > 0);
 	flags_a.fast_bootstrap = (vm.count ("fast_bootstrap") > 0);
 	if (flags_a.fast_bootstrap)
@@ -172,6 +176,16 @@ std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_o
 	if (config != vm.end ())
 	{
 		flags_a.config_overrides = nano::config_overrides (config->second.as<std::vector<nano::config_key_value_pair>> ());
+	}
+	return ec;
+}
+
+std::error_code nano::flags_config_conflicts (nano::node_flags const & flags_a, nano::node_config const & config_a)
+{
+	std::error_code ec;
+	if (flags_a.enable_pruning && config_a.enable_voting)
+	{
+		ec = nano::error_cli::ambiguous_pruning_voting_options;
 	}
 	return ec;
 }
@@ -432,6 +446,33 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			std::cerr << "Snapshot failed (unknown reason)" << std::endl;
 		}
 	}
+	else if (vm.count ("migrate_database_lmdb_to_rocksdb"))
+	{
+		auto data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
+		auto node_flags = nano::inactive_node_flag_defaults ();
+		node_flags.config_overrides.push_back ("node.rocksdb.enable=false");
+		nano::update_flags (node_flags, vm);
+		nano::inactive_node node (data_path, node_flags);
+		auto error (false);
+		if (!node.node->init_error ())
+		{
+			std::cout << "Migrating LMDB database to RocksDB, might take a while..." << std::endl;
+			error = node.node->ledger.migrate_lmdb_to_rocksdb (data_path);
+		}
+		else
+		{
+			error = true;
+		}
+
+		if (!error)
+		{
+			std::cout << "Migration completed, after confirming it is correct the data.ldb file can be deleted if no longer required" << std::endl;
+		}
+		else
+		{
+			std::cerr << "There was an error migrating" << std::endl;
+		}
+	}
 	else if (vm.count ("unchecked_clear"))
 	{
 		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
@@ -533,7 +574,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 						}
 						else
 						{
-							node.node->store.confirmation_height_clear (transaction, account, confirmation_height_info.height);
+							node.node->store.confirmation_height_clear (transaction, account);
 						}
 
 						std::cout << "Confirmation height of account " << account_str << " is set to " << conf_height_reset_num << std::endl;
@@ -1194,17 +1235,6 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			ec = nano::error_cli::invalid_arguments;
 		}
 	}
-	else if (vm.count ("vote_dump") == 1)
-	{
-		auto inactive_node = nano::default_inactive_node (data_path, vm);
-		auto node = inactive_node->node;
-		auto transaction (node->store.tx_begin_read ());
-		for (auto i (node->store.vote_begin (transaction)), n (node->store.vote_end ()); i != n; ++i)
-		{
-			auto const & vote (i->second);
-			std::cerr << boost::str (boost::format ("%1%\n") % vote->to_json ());
-		}
-	}
 	else
 	{
 		ec = nano::error_cli::unknown_command;
@@ -1239,14 +1269,7 @@ bool is_using_rocksdb (boost::filesystem::path const & data_path, std::error_cod
 	auto error = nano::read_node_config_toml (data_path, config);
 	if (!error)
 	{
-		bool use_rocksdb = config.node.rocksdb_config.enable;
-		if (use_rocksdb)
-		{
-#if !NANO_ROCKSDB
-			ec = nano::error_cli::database_write_error;
-#endif
-			return (NANO_ROCKSDB == 1);
-		}
+		return config.node.rocksdb_config.enable;
 	}
 	else
 	{

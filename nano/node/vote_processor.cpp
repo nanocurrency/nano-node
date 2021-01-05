@@ -3,7 +3,6 @@
 #include <nano/lib/threading.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/node/active_transactions.hpp>
-#include <nano/node/node.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/online_reps.hpp>
@@ -91,6 +90,7 @@ void nano::vote_processor::process_loop ()
 
 bool nano::vote_processor::vote (std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a)
 {
+	debug_assert (channel_a != nullptr);
 	bool process (false);
 	nano::unique_lock<nano::mutex> lock (mutex);
 	if (!stopped)
@@ -195,7 +195,7 @@ nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote>
 	}
 	if (config.logging.vote_logging ())
 	{
-		logger.try_log (boost::str (boost::format ("Vote from: %1% sequence: %2% block(s): %3%status: %4%") % vote_a->account.to_account () % std::to_string (vote_a->sequence) % vote_a->hashes_string () % status));
+		logger.try_log (boost::str (boost::format ("Vote from: %1% timestamp: %2% block(s): %3%status: %4%") % vote_a->account.to_account () % std::to_string (vote_a->timestamp) % vote_a->hashes_string () % status));
 	}
 	return result;
 }
@@ -256,7 +256,7 @@ void nano::vote_processor::calculate_weights ()
 		representatives_1.clear ();
 		representatives_2.clear ();
 		representatives_3.clear ();
-		auto supply (online_reps.online_stake ());
+		auto supply (online_reps.trended ());
 		auto rep_amounts = ledger.cache.rep_weights.get_rep_amounts ();
 		for (auto const & rep_amount : rep_amounts)
 		{

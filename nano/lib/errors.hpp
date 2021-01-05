@@ -76,6 +76,7 @@ enum class error_blocks
 enum class error_rpc
 {
 	generic = 1,
+	empty_response,
 	bad_destination,
 	bad_difficulty_format,
 	bad_key,
@@ -116,9 +117,8 @@ enum class error_rpc
 	invalid_subtype_previous,
 	invalid_timestamp,
 	invalid_threads_count,
-	payment_account_balance,
-	payment_unable_create_account,
 	peer_not_found,
+	pruning_disabled,
 	requires_port_and_address,
 	rpc_control_disabled,
 	sign_hash_disabled,
@@ -148,8 +148,7 @@ enum class error_config
 {
 	generic = 1,
 	invalid_value,
-	missing_value,
-	rocksdb_enabled_but_not_supported
+	missing_value
 };
 } // nano namespace
 

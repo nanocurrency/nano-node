@@ -168,7 +168,6 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.secondary_work_peers, defaults.node.secondary_work_peers);
 	ASSERT_EQ (conf.node.work_watcher_period, defaults.node.work_watcher_period);
 	ASSERT_EQ (conf.node.online_weight_minimum, defaults.node.online_weight_minimum);
-	ASSERT_EQ (conf.node.online_weight_quorum, defaults.node.online_weight_quorum);
 	ASSERT_EQ (conf.node.election_hint_weight_percent, defaults.node.election_hint_weight_percent);
 	ASSERT_EQ (conf.node.password_fanout, defaults.node.password_fanout);
 	ASSERT_EQ (conf.node.peering_port, defaults.node.peering_port);
@@ -404,7 +403,6 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	lmdb_max_dbs = 999
 	network_threads = 999
 	online_weight_minimum = "999"
-	online_weight_quorum = 99
 	election_hint_weight_percent = 19
 	password_fanout = 999
 	peering_port = 999
@@ -513,6 +511,8 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 
 	[node.experimental]
 	secondary_work_peers = ["dev.org:998"]
+	max_pruning_age = 999
+	max_pruning_depth = 999
 
 	[opencl]
 	device = 999
@@ -567,9 +567,10 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.frontiers_confirmation, defaults.node.frontiers_confirmation);
 	ASSERT_NE (conf.node.network_threads, defaults.node.network_threads);
 	ASSERT_NE (conf.node.secondary_work_peers, defaults.node.secondary_work_peers);
+	ASSERT_NE (conf.node.max_pruning_age, defaults.node.max_pruning_age);
+	ASSERT_NE (conf.node.max_pruning_depth, defaults.node.max_pruning_depth);
 	ASSERT_NE (conf.node.work_watcher_period, defaults.node.work_watcher_period);
 	ASSERT_NE (conf.node.online_weight_minimum, defaults.node.online_weight_minimum);
-	ASSERT_NE (conf.node.online_weight_quorum, defaults.node.online_weight_quorum);
 	ASSERT_NE (conf.node.election_hint_weight_percent, defaults.node.election_hint_weight_percent);
 	ASSERT_NE (conf.node.password_fanout, defaults.node.password_fanout);
 	ASSERT_NE (conf.node.peering_port, defaults.node.peering_port);

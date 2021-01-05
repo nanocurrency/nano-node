@@ -11,34 +11,43 @@ namespace nano
 {
 TEST (local_vote_history, basic)
 {
-	nano::local_vote_history history;
+	nano::network_params params;
+	nano::local_vote_history history{ params.voting };
 	ASSERT_FALSE (history.exists (1));
 	ASSERT_FALSE (history.exists (2));
 	ASSERT_TRUE (history.votes (1).empty ());
 	ASSERT_TRUE (history.votes (2).empty ());
-	auto vote1 (std::make_shared<nano::vote> ());
+	auto vote1a (std::make_shared<nano::vote> ());
 	ASSERT_EQ (0, history.size ());
-	history.add (1, 2, vote1);
+	history.add (1, 2, vote1a);
 	ASSERT_EQ (1, history.size ());
 	ASSERT_TRUE (history.exists (1));
 	ASSERT_FALSE (history.exists (2));
-	auto votes1 (history.votes (1));
-	ASSERT_FALSE (votes1.empty ());
+	auto votes1a (history.votes (1));
+	ASSERT_FALSE (votes1a.empty ());
 	ASSERT_EQ (1, history.votes (1, 2).size ());
 	ASSERT_TRUE (history.votes (1, 1).empty ());
 	ASSERT_TRUE (history.votes (1, 3).empty ());
 	ASSERT_TRUE (history.votes (2).empty ());
-	ASSERT_EQ (1, votes1.size ());
-	ASSERT_EQ (vote1, votes1[0]);
+	ASSERT_EQ (1, votes1a.size ());
+	ASSERT_EQ (vote1a, votes1a[0]);
+	auto vote1b (std::make_shared<nano::vote> ());
+	history.add (1, 2, vote1b);
+	auto votes1b (history.votes (1));
+	ASSERT_EQ (1, votes1b.size ());
+	ASSERT_EQ (vote1b, votes1b[0]);
+	ASSERT_NE (vote1a, votes1b[0]);
 	auto vote2 (std::make_shared<nano::vote> ());
+	vote2->account.dwords[0]++;
 	ASSERT_EQ (1, history.size ());
 	history.add (1, 2, vote2);
 	ASSERT_EQ (2, history.size ());
 	auto votes2 (history.votes (1));
 	ASSERT_EQ (2, votes2.size ());
-	ASSERT_TRUE (vote1 == votes2[0] || vote1 == votes2[1]);
+	ASSERT_TRUE (vote1b == votes2[0] || vote1b == votes2[1]);
 	ASSERT_TRUE (vote2 == votes2[0] || vote2 == votes2[1]);
 	auto vote3 (std::make_shared<nano::vote> ());
+	vote3->account.dwords[1]++;
 	history.add (1, 3, vote3);
 	ASSERT_EQ (1, history.size ());
 	auto votes3 (history.votes (1));
@@ -103,13 +112,10 @@ TEST (vote_generator, session)
 	nano::vote_generator_session generator_session (node->active.generator);
 	boost::thread thread ([node, &generator_session]() {
 		nano::thread_role::set (nano::thread_role::name::request_loop);
-		for (unsigned i = 0; i < 100; ++i)
-		{
-			generator_session.add (nano::genesis_account, nano::genesis_hash);
-		}
+		generator_session.add (nano::genesis_account, nano::genesis_hash);
 		ASSERT_EQ (0, node->stats.count (nano::stat::type::vote, nano::stat::detail::vote_indeterminate));
 		generator_session.flush ();
 	});
 	thread.join ();
-	ASSERT_TIMELY (5s, node->stats.count (nano::stat::type::vote, nano::stat::detail::vote_indeterminate) == (100 / nano::network::confirm_ack_hashes_max));
+	ASSERT_TIMELY (2s, 1 == node->stats.count (nano::stat::type::vote, nano::stat::detail::vote_indeterminate));
 }
