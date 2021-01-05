@@ -1269,7 +1269,6 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> block_a)
 			auto const cache = find_inactive_votes_cache_impl (block_a->hash ());
 			lock.unlock ();
 			election->insert_inactive_votes_cache (cache);
-			node.network.flood_block (block_a, nano::buffer_drop_policy::no_limiter_drop);
 			node.stats.inc (nano::stat::type::election, nano::stat::detail::election_block_conflict);
 		}
 	}
