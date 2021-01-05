@@ -774,7 +774,7 @@ wallet (wallet_a)
 		{
 			show_line_ok (*account_line);
 			this->history.refresh ();
-			auto balance (this->wallet.node.balance_pending (account));
+			auto balance (this->wallet.node.balance_pending (account, false));
 			auto final_text (std::string ("Balance (NANO): ") + wallet.format_balance (balance.first));
 			if (!balance.second.is_zero ())
 			{
@@ -1105,7 +1105,7 @@ void nano_qt::wallet::ongoing_refresh ()
 	if (needs_balance_refresh)
 	{
 		needs_balance_refresh = false;
-		auto balance_l (node.balance_pending (account));
+		auto balance_l (node.balance_pending (account, false));
 		application.postEvent (&processor, new eventloop_event ([wallet_w, balance_l]() {
 			if (auto this_l = wallet_w.lock ())
 			{
@@ -1451,7 +1451,7 @@ void nano_qt::wallet::change_rendering_ratio (nano::uint128_t const & rendering_
 {
 	application.postEvent (&processor, new eventloop_event ([this, rendering_ratio_a]() {
 		this->rendering_ratio = rendering_ratio_a;
-		auto balance_l (this->node.balance_pending (account));
+		auto balance_l (this->node.balance_pending (account, false));
 		this->self.set_balance_text (balance_l);
 		this->refresh ();
 	}));
@@ -2265,7 +2265,11 @@ void nano_qt::block_creation::create_send ()
 						(void)error;
 						debug_assert (!error);
 						nano::state_block send (account_l, info.head, info.representative, balance - amount_l.number (), destination_l, key, account_l, 0);
-						if (wallet.node.work_generate_blocking (send).is_initialized ())
+						nano::block_details details;
+						details.is_send = true;
+						details.epoch = info.epoch ();
+						auto const required_difficulty{ nano::work_threshold (send.work_version (), details) };
+						if (wallet.node.work_generate_blocking (send, required_difficulty).is_initialized ())
 						{
 							std::string block_l;
 							send.serialize_json (block_l);
@@ -2275,6 +2279,7 @@ void nano_qt::block_creation::create_send ()
 						}
 						else
 						{
+							debug_assert (required_difficulty <= wallet.node.max_work_generate_difficulty (send.work_version ()));
 							show_label_error (*status);
 							if (wallet.node.work_generation_enabled ())
 							{
@@ -2328,7 +2333,7 @@ void nano_qt::block_creation::create_receive ()
 		auto block_l (wallet.node.store.block_get (block_transaction, source_l));
 		if (block_l != nullptr)
 		{
-			auto destination (wallet.node.ledger.block_destination (block_transaction, *block_l));
+			auto const & destination (wallet.node.ledger.block_destination (block_transaction, *block_l));
 			if (!destination.is_zero ())
 			{
 				nano::pending_key pending_key (destination, source_l);
@@ -2344,7 +2349,11 @@ void nano_qt::block_creation::create_receive ()
 						if (!error)
 						{
 							nano::state_block receive (pending_key.account, info.head, info.representative, info.balance.number () + pending.amount.number (), source_l, key, pending_key.account, 0);
-							if (wallet.node.work_generate_blocking (receive).is_initialized ())
+							nano::block_details details;
+							details.is_receive = true;
+							details.epoch = std::max (info.epoch (), pending.epoch);
+							auto required_difficulty{ nano::work_threshold (receive.work_version (), details) };
+							if (wallet.node.work_generate_blocking (receive, required_difficulty).is_initialized ())
 							{
 								std::string block_l;
 								receive.serialize_json (block_l);
@@ -2354,6 +2363,7 @@ void nano_qt::block_creation::create_receive ()
 							}
 							else
 							{
+								debug_assert (required_difficulty <= wallet.node.max_work_generate_difficulty (receive.work_version ()));
 								show_label_error (*status);
 								if (wallet.node.work_generation_enabled ())
 								{
@@ -2423,7 +2433,10 @@ void nano_qt::block_creation::create_change ()
 				if (!error)
 				{
 					nano::state_block change (account_l, info.head, representative_l, info.balance, 0, key, account_l, 0);
-					if (wallet.node.work_generate_blocking (change).is_initialized ())
+					nano::block_details details;
+					details.epoch = info.epoch ();
+					auto const required_difficulty{ nano::work_threshold (change.work_version (), details) };
+					if (wallet.node.work_generate_blocking (change, required_difficulty).is_initialized ())
 					{
 						std::string block_l;
 						change.serialize_json (block_l);
@@ -2433,6 +2446,7 @@ void nano_qt::block_creation::create_change ()
 					}
 					else
 					{
+						debug_assert (required_difficulty <= wallet.node.max_work_generate_difficulty (change.work_version ()));
 						show_label_error (*status);
 						if (wallet.node.work_generation_enabled ())
 						{
@@ -2484,7 +2498,7 @@ void nano_qt::block_creation::create_open ()
 			auto block_l (wallet.node.store.block_get (block_transaction, source_l));
 			if (block_l != nullptr)
 			{
-				auto destination (wallet.node.ledger.block_destination (block_transaction, *block_l));
+				auto const & destination (wallet.node.ledger.block_destination (block_transaction, *block_l));
 				if (!destination.is_zero ())
 				{
 					nano::pending_key pending_key (destination, source_l);
@@ -2500,7 +2514,11 @@ void nano_qt::block_creation::create_open ()
 							if (!error)
 							{
 								nano::state_block open (pending_key.account, 0, representative_l, pending.amount, source_l, key, pending_key.account, 0);
-								if (wallet.node.work_generate_blocking (open).is_initialized ())
+								nano::block_details details;
+								details.is_receive = true;
+								details.epoch = pending.epoch;
+								auto const required_difficulty{ nano::work_threshold (open.work_version (), details) };
+								if (wallet.node.work_generate_blocking (open, required_difficulty).is_initialized ())
 								{
 									std::string block_l;
 									open.serialize_json (block_l);
@@ -2510,6 +2528,7 @@ void nano_qt::block_creation::create_open ()
 								}
 								else
 								{
+									debug_assert (required_difficulty <= wallet.node.max_work_generate_difficulty (open.work_version ()));
 									show_label_error (*status);
 									if (wallet.node.work_generation_enabled ())
 									{

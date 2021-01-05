@@ -22,7 +22,6 @@ fi
 set -o nounset
 set -o xtrace
 
-
 # Alpine doesn't offer an xvfb
 xvfb_run_() {
     INIT_DELAY_SEC=3
@@ -59,7 +58,7 @@ run_tests() {
             echo "core_test failed: ${core_test_res}, retrying (try=${try})"
 
             # Wait a while for sockets to be all cleaned up by the kernel
-            sleep $[30 + (${RANDOM} % 30)]
+            sleep $((30 + (RANDOM % 30)))
         fi
 
         ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-${TIMEOUT_DEFAULT}} ./core_test
@@ -71,7 +70,7 @@ run_tests() {
 
     xvfb_run_ ./rpc_test
     rpc_test_res=${?}
-    
+
     xvfb_run_ ./qt_test
     qt_test_res=${?}
 

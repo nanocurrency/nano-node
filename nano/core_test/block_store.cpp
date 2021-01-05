@@ -1871,17 +1871,11 @@ TEST (block_store, confirmation_height)
 		store->confirmation_height_clear (transaction);
 	}
 	auto transaction (store->tx_begin_read ());
-	ASSERT_EQ (store->confirmation_height_count (transaction), 3);
+	ASSERT_EQ (store->confirmation_height_count (transaction), 0);
 	nano::confirmation_height_info confirmation_height_info;
-	ASSERT_FALSE (store->confirmation_height_get (transaction, account1, confirmation_height_info));
-	ASSERT_EQ (confirmation_height_info.height, 0);
-	ASSERT_EQ (confirmation_height_info.frontier, nano::block_hash (0));
-	ASSERT_FALSE (store->confirmation_height_get (transaction, account2, confirmation_height_info));
-	ASSERT_EQ (confirmation_height_info.height, 0);
-	ASSERT_EQ (confirmation_height_info.frontier, nano::block_hash (0));
-	ASSERT_FALSE (store->confirmation_height_get (transaction, account3, confirmation_height_info));
-	ASSERT_EQ (confirmation_height_info.height, 0);
-	ASSERT_EQ (confirmation_height_info.frontier, nano::block_hash (0));
+	ASSERT_TRUE (store->confirmation_height_get (transaction, account1, confirmation_height_info));
+	ASSERT_TRUE (store->confirmation_height_get (transaction, account2, confirmation_height_info));
+	ASSERT_TRUE (store->confirmation_height_get (transaction, account3, confirmation_height_info));
 }
 
 // Ledger versions are not forward compatible

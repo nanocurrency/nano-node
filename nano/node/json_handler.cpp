@@ -514,7 +514,8 @@ void nano::json_handler::account_balance ()
 	auto account (account_impl ());
 	if (!ec)
 	{
-		auto balance (node.balance_pending (account));
+		const bool include_only_confirmed = request.get<bool> ("include_only_confirmed", false);
+		auto balance (node.balance_pending (account, include_only_confirmed));
 		response_l.put ("balance", balance.first.convert_to<std::string> ());
 		response_l.put ("pending", balance.second.convert_to<std::string> ());
 	}
@@ -601,29 +602,78 @@ void nano::json_handler::account_info ()
 		const bool representative = request.get<bool> ("representative", false);
 		const bool weight = request.get<bool> ("weight", false);
 		const bool pending = request.get<bool> ("pending", false);
+		const bool include_confirmed = request.get<bool> ("include_confirmed", false);
 		auto transaction (node.store.tx_begin_read ());
 		auto info (account_info_impl (transaction, account));
 		nano::confirmation_height_info confirmation_height_info;
-		if (node.store.confirmation_height_get (transaction, account, confirmation_height_info))
-		{
-			ec = nano::error_common::account_not_found;
-		}
+		node.store.confirmation_height_get (transaction, account, confirmation_height_info);
 		if (!ec)
 		{
 			response_l.put ("frontier", info.head.to_string ());
 			response_l.put ("open_block", info.open_block.to_string ());
 			response_l.put ("representative_block", node.ledger.representative (transaction, info.head).to_string ());
+			nano::amount balance_l (info.balance);
 			std::string balance;
-			nano::uint128_union (info.balance).encode_dec (balance);
+			balance_l.encode_dec (balance);
+
 			response_l.put ("balance", balance);
+
+			nano::amount confirmed_balance_l;
+			if (include_confirmed)
+			{
+				if (info.block_count != confirmation_height_info.height)
+				{
+					confirmed_balance_l = node.ledger.balance (transaction, confirmation_height_info.frontier);
+				}
+				else
+				{
+					// block_height and confirmed height are the same, so can just reuse balance
+					confirmed_balance_l = balance_l;
+				}
+				std::string confirmed_balance;
+				confirmed_balance_l.encode_dec (confirmed_balance);
+				response_l.put ("confirmed_balance", confirmed_balance);
+			}
+
 			response_l.put ("modified_timestamp", std::to_string (info.modified));
 			response_l.put ("block_count", std::to_string (info.block_count));
 			response_l.put ("account_version", epoch_as_string (info.epoch ()));
-			response_l.put ("confirmation_height", std::to_string (confirmation_height_info.height));
-			response_l.put ("confirmation_height_frontier", confirmation_height_info.frontier.to_string ());
+			auto confirmed_frontier = confirmation_height_info.frontier.to_string ();
+			if (include_confirmed)
+			{
+				response_l.put ("confirmed_height", std::to_string (confirmation_height_info.height));
+				response_l.put ("confirmed_frontier", confirmed_frontier);
+			}
+			else
+			{
+				// For backwards compatibility purposes
+				response_l.put ("confirmation_height", std::to_string (confirmation_height_info.height));
+				response_l.put ("confirmation_height_frontier", confirmed_frontier);
+			}
+
+			std::shared_ptr<nano::block> confirmed_frontier_block;
+			if (include_confirmed && confirmation_height_info.height > 0)
+			{
+				confirmed_frontier_block = node.store.block_get (transaction, confirmed_frontier);
+			}
+
 			if (representative)
 			{
 				response_l.put ("representative", info.representative.to_account ());
+				if (include_confirmed)
+				{
+					nano::account confirmed_representative{ 0 };
+					if (confirmed_frontier_block)
+					{
+						confirmed_representative = confirmed_frontier_block->representative ();
+						if (confirmed_representative.is_zero ())
+						{
+							confirmed_representative = node.store.block_get (transaction, node.ledger.representative (transaction, confirmed_frontier))->representative ();
+						}
+					}
+
+					response_l.put ("confirmed_representative", confirmed_representative.to_account ());
+				}
 			}
 			if (weight)
 			{
@@ -634,6 +684,12 @@ void nano::json_handler::account_info ()
 			{
 				auto account_pending (node.ledger.account_pending (transaction, account));
 				response_l.put ("pending", account_pending.convert_to<std::string> ());
+
+				if (include_confirmed)
+				{
+					auto account_pending (node.ledger.account_pending (transaction, account, true));
+					response_l.put ("confirmed_pending", account_pending.convert_to<std::string> ());
+				}
 			}
 		}
 	}
@@ -828,7 +884,7 @@ void nano::json_handler::accounts_balances ()
 		if (!ec)
 		{
 			boost::property_tree::ptree entry;
-			auto balance (node.balance_pending (account));
+			auto balance (node.balance_pending (account, false));
 			entry.put ("balance", balance.first.convert_to<std::string> ());
 			entry.put ("pending", balance.second.convert_to<std::string> ());
 			balances.push_back (std::make_pair (account.to_account (), entry));
@@ -985,7 +1041,7 @@ void nano::json_handler::available_supply ()
 	auto genesis_balance (node.balance (node.network_params.ledger.genesis_account)); // Cold storage genesis
 	auto landing_balance (node.balance (nano::account ("059F68AAB29DE0D3A27443625C7EA9CDDB6517A8B76FE37727EF6A4D76832AD5"))); // Active unavailable account
 	auto faucet_balance (node.balance (nano::account ("8E319CE6F3025E5B2DF66DA7AB1467FE48F1679C13DD43BFDB29FA2E9FC40D3B"))); // Faucet account
-	auto burned_balance ((node.balance_pending (nano::account (0))).second); // Burning 0 account
+	auto burned_balance ((node.balance_pending (nano::account (0), false)).second); // Burning 0 account
 	auto available (node.network_params.ledger.genesis_amount - genesis_balance - landing_balance - faucet_balance - burned_balance);
 	response_l.put ("available", available.convert_to<std::string> ());
 	response_errors ();
@@ -1939,12 +1995,12 @@ void nano::json_handler::confirmation_info ()
 
 void nano::json_handler::confirmation_quorum ()
 {
-	response_l.put ("quorum_delta", node.delta ().convert_to<std::string> ());
-	response_l.put ("online_weight_quorum_percent", std::to_string (node.config.online_weight_quorum));
+	response_l.put ("quorum_delta", node.online_reps.delta ().convert_to<std::string> ());
+	response_l.put ("online_weight_quorum_percent", std::to_string (node.online_reps.online_weight_quorum));
 	response_l.put ("online_weight_minimum", node.config.online_weight_minimum.to_string_dec ());
-	response_l.put ("online_stake_total", node.online_reps.online_stake ().convert_to<std::string> ());
+	response_l.put ("online_stake_total", node.online_reps.online ().convert_to<std::string> ());
+	response_l.put ("trended_stake_total", node.online_reps.trended ().convert_to<std::string> ());
 	response_l.put ("peers_stake_total", node.rep_crawler.total_weight ().convert_to<std::string> ());
-	response_l.put ("peers_stake_required", std::max (node.config.online_weight_minimum.number (), node.delta ()).convert_to<std::string> ());
 	if (request.get<bool> ("peer_details", false))
 	{
 		boost::property_tree::ptree peers;
@@ -3053,6 +3109,25 @@ void nano::json_handler::process ()
 		}
 		rpc_l->response_errors ();
 	}));
+}
+
+void nano::json_handler::pruned_exists ()
+{
+	auto hash (hash_impl ());
+	if (!ec)
+	{
+		auto transaction (node.store.tx_begin_read ());
+		if (node.ledger.pruning)
+		{
+			auto exists (node.store.pruned_exists (transaction, hash));
+			response_l.put ("exists", exists ? "1" : "0");
+		}
+		else
+		{
+			ec = nano::error_rpc::pruning_disabled;
+		}
+	}
+	response_errors ();
 }
 
 void nano::json_handler::receive ()
@@ -4986,6 +5061,7 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("pending", &nano::json_handler::pending);
 	no_arg_funcs.emplace ("pending_exists", &nano::json_handler::pending_exists);
 	no_arg_funcs.emplace ("process", &nano::json_handler::process);
+	no_arg_funcs.emplace ("pruned_exists", &nano::json_handler::pruned_exists);
 	no_arg_funcs.emplace ("receive", &nano::json_handler::receive);
 	no_arg_funcs.emplace ("receive_minimum", &nano::json_handler::receive_minimum);
 	no_arg_funcs.emplace ("receive_minimum_set", &nano::json_handler::receive_minimum_set);

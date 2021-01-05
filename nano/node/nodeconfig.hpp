@@ -55,7 +55,6 @@ public:
 	std::chrono::milliseconds vote_generator_delay{ std::chrono::milliseconds (100) };
 	unsigned vote_generator_threshold{ 3 };
 	nano::amount online_weight_minimum{ 60000 * nano::Gxrb_ratio };
-	unsigned online_weight_quorum{ 50 };
 	unsigned election_hint_weight_percent{ 10 };
 	unsigned password_fanout{ 1024 };
 	unsigned io_threads{ std::max<unsigned> (4, std::thread::hardware_concurrency ()) };
@@ -73,7 +72,7 @@ public:
 	std::string callback_address;
 	uint16_t callback_port{ 0 };
 	std::string callback_target;
-	int deprecated_lmdb_max_dbs{ 128 };
+	[[deprecated]] int deprecated_lmdb_max_dbs{ 128 };
 	bool allow_local_peers{ !(network_params.network.is_live_network () || network_params.network.is_test_network ()) }; // disable by default for live network
 	nano::stat_config stat_config;
 	nano::ipc::ipc_config ipc_config;

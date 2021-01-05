@@ -4,7 +4,6 @@
 #include <nano/lib/alarm.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/stats.hpp>
-#include <nano/lib/timestamp.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/lib/worker.hpp>
 #include <nano/node/active_transactions.hpp>
@@ -119,7 +118,7 @@ public:
 	nano::block_hash latest (nano::account const &);
 	nano::uint128_t balance (nano::account const &);
 	std::shared_ptr<nano::block> block (nano::block_hash const &);
-	std::pair<nano::uint128_t, nano::uint128_t> balance_pending (nano::account const &);
+	std::pair<nano::uint128_t, nano::uint128_t> balance_pending (nano::account const &, bool only_confirmed);
 	nano::uint128_t weight (nano::account const &);
 	nano::block_hash rep_block (nano::account const &);
 	nano::uint128_t minimum_principal_weight ();
@@ -132,6 +131,9 @@ public:
 	void search_pending ();
 	void bootstrap_wallet ();
 	void unchecked_cleanup ();
+	bool collect_ledger_pruning_targets (std::deque<nano::block_hash> &, nano::account &, uint64_t const, uint64_t const, uint64_t const);
+	void ledger_pruning (uint64_t const, bool, bool);
+	void ongoing_ledger_pruning ();
 	int price (nano::uint128_t const &, int);
 	// The default difficulty updates to base only when the first epoch_2 block is processed
 	uint64_t default_difficulty (nano::work_version const) const;
@@ -149,14 +151,12 @@ public:
 	bool block_confirmed_or_being_confirmed (nano::transaction const &, nano::block_hash const &);
 	void process_fork (nano::transaction const &, std::shared_ptr<nano::block> const &, uint64_t);
 	void do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, std::string const &, uint16_t, std::shared_ptr<std::string>, std::shared_ptr<std::string>, std::shared_ptr<boost::asio::ip::tcp::resolver>);
-	nano::uint128_t delta () const;
 	void ongoing_online_weight_calculation ();
 	void ongoing_online_weight_calculation_queue ();
 	bool online () const;
 	bool init_error () const;
 	bool epoch_upgrader (nano::private_key const &, nano::epoch, uint64_t, uint64_t);
 	std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> get_bootstrap_weights () const;
-	nano::timestamp_generator timestamps;
 	nano::worker worker;
 	nano::write_database_queue write_database_queue;
 	boost::asio::io_context & io_ctx;

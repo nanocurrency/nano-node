@@ -105,7 +105,7 @@ public: // Status
 
 	void log_votes (nano::tally_t const &, std::string const & = "") const;
 	nano::tally_t tally () const;
-	bool have_quorum (nano::tally_t const &, nano::uint128_t) const;
+	bool have_quorum (nano::tally_t const &) const;
 
 	// Guarded by mutex
 	nano::election_status status;
@@ -135,6 +135,8 @@ private:
 	// Calculate votes for local representatives
 	void generate_votes () const;
 	void remove_votes (nano::block_hash const &);
+	void remove_block (nano::block_hash const &);
+	bool replace_by_weight (nano::unique_lock<std::mutex> & lock_a, nano::block_hash const &);
 	nano::election_cleanup_info cleanup_info_impl () const;
 
 private:
@@ -149,6 +151,7 @@ private:
 	mutable std::mutex mutex;
 
 	static std::chrono::seconds constexpr late_blocks_delay{ 5 };
+	static size_t constexpr max_blocks{ 10 };
 
 	friend class active_transactions;
 	friend class confirmation_solicitor;
