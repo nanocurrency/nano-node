@@ -1996,7 +1996,7 @@ void nano::json_handler::confirmation_info ()
 void nano::json_handler::confirmation_quorum ()
 {
 	response_l.put ("quorum_delta", node.online_reps.delta ().convert_to<std::string> ());
-	response_l.put ("online_weight_quorum_percent", std::to_string (node.config.online_weight_quorum));
+	response_l.put ("online_weight_quorum_percent", std::to_string (node.online_reps.online_weight_quorum));
 	response_l.put ("online_weight_minimum", node.config.online_weight_minimum.to_string_dec ());
 	response_l.put ("online_stake_total", node.online_reps.online ().convert_to<std::string> ());
 	response_l.put ("trended_stake_total", node.online_reps.trended ().convert_to<std::string> ());
