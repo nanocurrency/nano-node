@@ -22,10 +22,7 @@ publish_filter (256 * 1024),
 udp_channels (node_a, port_a),
 tcp_channels (node_a),
 port (port_a),
-disconnect_observer ([]() {}),
-cleanup_timer{ node_a.io_ctx },
-cookie_timer{ node_a.io_ctx },
-keepalive_timer{ node_a.io_ctx }
+disconnect_observer ([]() {})
 {
 	boost::thread::attributes attrs;
 	nano::thread_attributes::set (attrs);
@@ -136,9 +133,6 @@ void nano::network::stop ()
 		{
 			thread.join ();
 		}
-		cleanup_timer.cancel ();
-		cookie_timer.cancel ();
-		keepalive_timer.cancel ();
 	}
 }
 
@@ -734,47 +728,38 @@ void nano::network::cleanup (std::chrono::steady_clock::time_point const & cutof
 
 void nano::network::ongoing_cleanup ()
 {
-	node.spawn (
-	[this](boost::asio::yield_context yield) {
-		boost::system::error_code ec;
-		while (!stopped && !ec)
+	cleanup (std::chrono::steady_clock::now () - node.network_params.node.cutoff);
+	std::weak_ptr<nano::node> node_w (node.shared ());
+	node.alarm.add (std::chrono::steady_clock::now () + node.network_params.node.period, [node_w]() {
+		if (auto node_l = node_w.lock ())
 		{
-			cleanup (std::chrono::steady_clock::now () - node.network_params.node.cutoff);
-			cleanup_timer.expires_from_now (node.network_params.node.period);
-			cleanup_timer.async_wait (yield[ec]);
+			node_l->network.ongoing_cleanup ();
 		}
-		debug_assert (stopped || ec == boost::asio::error::operation_aborted);
 	});
 }
 
 void nano::network::ongoing_syn_cookie_cleanup ()
 {
-	node.spawn (
-	[this](boost::asio::yield_context yield) {
-		boost::system::error_code ec;
-		while (!stopped && !ec)
+	syn_cookies.purge (std::chrono::steady_clock::now () - nano::transport::syn_cookie_cutoff);
+	std::weak_ptr<nano::node> node_w (node.shared ());
+	node.alarm.add (std::chrono::steady_clock::now () + (nano::transport::syn_cookie_cutoff * 2), [node_w]() {
+		if (auto node_l = node_w.lock ())
 		{
-			this->syn_cookies.purge (std::chrono::steady_clock::now () - nano::transport::syn_cookie_cutoff);
-			cookie_timer.expires_from_now (nano::transport::syn_cookie_cutoff * 2);
-			cookie_timer.async_wait (yield[ec]);
+			node_l->network.ongoing_syn_cookie_cleanup ();
 		}
-		debug_assert (stopped || ec == boost::asio::error::operation_aborted);
 	});
 }
 
 void nano::network::ongoing_keepalive ()
 {
-	node.spawn (
-	[this](boost::asio::yield_context yield) {
-		boost::system::error_code ec;
-		while (!stopped && !ec)
+	flood_keepalive (0.75f);
+	flood_keepalive_self (0.25f);
+	std::weak_ptr<nano::node> node_w (node.shared ());
+	node.alarm.add (std::chrono::steady_clock::now () + node.network_params.node.half_period, [node_w]() {
+		if (auto node_l = node_w.lock ())
 		{
-			flood_keepalive (0.75f);
-			flood_keepalive_self (0.25f);
-			keepalive_timer.expires_from_now (node.network_params.node.half_period);
-			keepalive_timer.async_wait (yield[ec]);
+			node_l->network.ongoing_keepalive ();
 		}
-		debug_assert (stopped || ec == boost::asio::error::operation_aborted);
 	});
 }
 
