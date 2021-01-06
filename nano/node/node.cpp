@@ -616,7 +616,7 @@ void nano::node::process_active (std::shared_ptr<nano::block> const & incoming)
 
 nano::process_return nano::node::process (nano::block & block_a)
 {
-	auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending }, { tables::confirmation_height }));
+	auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending }));
 	auto result (ledger.process (transaction, block_a));
 	return result;
 }
@@ -631,8 +631,17 @@ nano::process_return nano::node::process_local (std::shared_ptr<nano::block> con
 	block_processor.wait_write ();
 	// Process block
 	block_post_events post_events ([& store = store] { return store.tx_begin_read (); });
-	auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending }, { tables::confirmation_height }));
+	auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending }));
 	return block_processor.process_one (transaction, post_events, info, work_watcher_a, false, nano::block_origin::local);
+}
+
+void nano::node::process_local_async (std::shared_ptr<nano::block> const & block_a, bool const work_watcher_a)
+{
+	// Add block hash as recently arrived to trigger automatic rebroadcast and election
+	block_arrival.add (block_a->hash ());
+	// Set current time to trigger automatic rebroadcast and election
+	nano::unchecked_info info (block_a, block_a->account (), nano::seconds_since_epoch (), nano::signature_verification::unknown);
+	block_processor.add_local (info, work_watcher_a);
 }
 
 void nano::node::start ()
