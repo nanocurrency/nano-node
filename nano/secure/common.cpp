@@ -155,9 +155,10 @@ nano::node_constants::node_constants (nano::network_constants & network_constant
 	weight_period = 5 * 60; // 5 minutes
 }
 
-nano::voting_constants::voting_constants (nano::network_constants & network_constants)
+nano::voting_constants::voting_constants (nano::network_constants & network_constants) :
+max_cache{ network_constants.is_dev_network () ? 256U : 128U * 1024 },
+delay{ network_constants.is_dev_network () ? 1 : 15 }
 {
-	max_cache = network_constants.is_dev_network () ? 256 : 128 * 1024;
 }
 
 nano::portmapping_constants::portmapping_constants (nano::network_constants & network_constants)
@@ -171,7 +172,7 @@ nano::bootstrap_constants::bootstrap_constants (nano::network_constants & networ
 	lazy_max_pull_blocks = network_constants.is_dev_network () ? 2 : 512;
 	lazy_min_pull_blocks = network_constants.is_dev_network () ? 1 : 32;
 	frontier_retry_limit = network_constants.is_dev_network () ? 2 : 16;
-	lazy_retry_limit = network_constants.is_dev_network () ? 2 : frontier_retry_limit * 10;
+	lazy_retry_limit = network_constants.is_dev_network () ? 2 : frontier_retry_limit * 4;
 	lazy_destinations_retry_limit = network_constants.is_dev_network () ? 1 : frontier_retry_limit / 4;
 	gap_cache_bootstrap_start_interval = network_constants.is_dev_network () ? std::chrono::milliseconds (5) : std::chrono::milliseconds (30 * 1000);
 }
