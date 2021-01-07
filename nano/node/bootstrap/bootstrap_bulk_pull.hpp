@@ -70,6 +70,7 @@ public:
 	void send_finished ();
 	void no_block_sent (boost::system::error_code const &, size_t);
 	std::shared_ptr<nano::bootstrap_server> connection;
+	bool send_unconfirmed_blocks;
 	std::unique_ptr<nano::bulk_pull> request;
 	nano::block_hash current;
 	bool include_start;

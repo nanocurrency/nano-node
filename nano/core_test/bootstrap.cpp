@@ -205,6 +205,25 @@ TEST (bulk_pull, unconfirmed_blocks)
 	auto block2 (request->get_next ());
 	ASSERT_EQ (nullptr, block2);
 
+	// Account + frontier; send all unconfirmed
+	auto connection7 (std::make_shared<nano::bootstrap_server> (nullptr, node0));
+	auto req7 = std::make_unique<nano::bulk_pull> ();
+	req7->start = nano::dev_genesis_key.pub;
+	req7->end = send1->hash ();
+	ASSERT_FALSE (req7->header.bootstrap_are_unconfirmed_blocks_present ());
+	req7->header.flag_set (nano::message_header::bootstrap_unconfirmed_blocks);
+	ASSERT_TRUE (req7->header.bootstrap_are_unconfirmed_blocks_present ());
+	connection7->requests.push (std::unique_ptr<nano::message>{});
+	auto request7 (std::make_shared<nano::bulk_pull_server> (connection7, std::move (req7)));
+	auto block7 (request7->get_next ());
+	ASSERT_NE (nullptr, block7);
+	ASSERT_EQ (send2->hash (), block7->hash ());
+	block7 = request7->get_next ();
+	ASSERT_NE (nullptr, block7);
+	ASSERT_EQ (receive1->hash (), block7->hash ());
+	block7 = request7->get_next ();
+	ASSERT_EQ (nullptr, block7);
+
 	// Account + frontier; send only confirmed frontier
 	nano::blocks_confirm (*node0, { send1 }, true); // Confirm block
 	ASSERT_TIMELY (5s, node0->block_confirmed (send1->hash ()));
@@ -256,6 +275,28 @@ TEST (bulk_pull, unconfirmed_blocks)
 	ASSERT_EQ (send1->hash (), block5->hash ());
 	block5 = request5->get_next ();
 	ASSERT_EQ (nullptr, block5);
+
+	// Unconfirmed start + confirmed end; send unconfirmed
+	auto connection6 (std::make_shared<nano::bootstrap_server> (nullptr, node0));
+	auto req6 = std::make_unique<nano::bulk_pull> ();
+	req6->start = send2->hash ();
+	req6->end = genesis.hash ();
+	ASSERT_FALSE (req6->header.bootstrap_are_unconfirmed_blocks_present ());
+	req6->header.flag_set (nano::message_header::bootstrap_unconfirmed_blocks);
+	ASSERT_TRUE (req6->header.bootstrap_are_unconfirmed_blocks_present ());
+	connection6->requests.push (std::unique_ptr<nano::message>{});
+	auto request6 (std::make_shared<nano::bulk_pull_server> (connection6, std::move (req6)));
+	auto block6 (request6->get_next ());
+	ASSERT_NE (nullptr, block6);
+	ASSERT_EQ (send2->hash (), block6->hash ());
+	block6 = request6->get_next ();
+	ASSERT_NE (nullptr, block6);
+	ASSERT_EQ (receive1->hash (), block6->hash ());
+	block6 = request6->get_next ();
+	ASSERT_NE (nullptr, block6);
+	ASSERT_EQ (send1->hash (), block6->hash ());
+	block6 = request6->get_next ();
+	ASSERT_EQ (nullptr, block6);
 }
 
 TEST (bootstrap_processor, DISABLED_process_none)
@@ -1466,6 +1507,34 @@ TEST (frontier_req, unconfirmed_frontier)
 	auto request3 (std::make_shared<nano::frontier_req_server> (connection3, std::move (req3)));
 	ASSERT_TRUE (request3->current.is_zero ());
 	ASSERT_TRUE (request3->frontier.is_zero ());
+
+	// Request for all accounts (unconfirmed blocks)
+	auto connection6 (std::make_shared<nano::bootstrap_server> (nullptr, node1));
+	auto req6 = std::make_unique<nano::frontier_req> ();
+	req6->start.clear ();
+	req6->age = std::numeric_limits<decltype (req6->age)>::max ();
+	req6->count = std::numeric_limits<decltype (req6->count)>::max ();
+	ASSERT_FALSE (req6->header.bootstrap_are_unconfirmed_blocks_present ());
+	req6->header.flag_set (nano::message_header::bootstrap_unconfirmed_blocks);
+	ASSERT_TRUE (req6->header.bootstrap_are_unconfirmed_blocks_present ());
+	connection6->requests.push (std::unique_ptr<nano::message>{});
+	auto request6 (std::make_shared<nano::frontier_req_server> (connection6, std::move (req6)));
+	ASSERT_EQ (key_before_genesis.pub, request6->current);
+	ASSERT_EQ (receive1->hash (), request6->frontier);
+
+	// Request starting with account after genesis (unconfirmed blocks)
+	auto connection7 (std::make_shared<nano::bootstrap_server> (nullptr, node1));
+	auto req7 = std::make_unique<nano::frontier_req> ();
+	req7->start = key_after_genesis.pub;
+	req7->age = std::numeric_limits<decltype (req7->age)>::max ();
+	req7->count = std::numeric_limits<decltype (req7->count)>::max ();
+	ASSERT_FALSE (req7->header.bootstrap_are_unconfirmed_blocks_present ());
+	req7->header.flag_set (nano::message_header::bootstrap_unconfirmed_blocks);
+	ASSERT_TRUE (req7->header.bootstrap_are_unconfirmed_blocks_present ());
+	connection7->requests.push (std::unique_ptr<nano::message>{});
+	auto request7 (std::make_shared<nano::frontier_req_server> (connection7, std::move (req7)));
+	ASSERT_EQ (key_after_genesis.pub, request7->current);
+	ASSERT_EQ (receive2->hash (), request7->frontier);
 
 	// Confirm account before genesis
 	nano::blocks_confirm (*node1, { send1, receive1 }, true);

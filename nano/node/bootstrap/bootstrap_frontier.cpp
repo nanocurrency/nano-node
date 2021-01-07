@@ -237,6 +237,7 @@ frontier (0),
 request (std::move (request_a)),
 count (0)
 {
+	send_unconfirmed_blocks = request->header.bootstrap_are_unconfirmed_blocks_present ();
 	next ();
 }
 
@@ -324,30 +325,48 @@ void nano::frontier_req_server::next ()
 	if (accounts.empty ())
 	{
 		auto now (nano::seconds_since_epoch ());
+		bool disable_age_filter (request->age == std::numeric_limits<decltype (request->age)>::max ());
 		size_t max_size (128);
 		auto transaction (connection->node->store.tx_begin_read ());
-		for (auto i (connection->node->store.confirmation_height_begin (transaction, current.number () + 1)), n (connection->node->store.confirmation_height_end ()); i != n && accounts.size () != max_size; ++i)
+		// Send only confirmed blocks
+		if (!send_unconfirmed_blocks)
 		{
-			nano::confirmation_height_info const & info (i->second);
-			nano::block_hash const & confirmed_frontier (info.frontier);
-			if (!confirmed_frontier.is_zero ())
+			for (auto i (connection->node->store.confirmation_height_begin (transaction, current.number () + 1)), n (connection->node->store.confirmation_height_end ()); i != n && accounts.size () != max_size; ++i)
 			{
-				bool add_frontier (request->age == std::numeric_limits<decltype (request->age)>::max ());
-				if (!add_frontier)
+				nano::confirmation_height_info const & info (i->second);
+				nano::block_hash const & confirmed_frontier (info.frontier);
+				if (!confirmed_frontier.is_zero ())
 				{
-					// Check block modification time if request contains age field
-					auto block (connection->node->store.block_get (transaction, confirmed_frontier));
-					debug_assert (block != nullptr && block->has_sideband ());
-					add_frontier = (now - block->sideband ().timestamp) <= request->age;
-				}
-				if (add_frontier)
-				{
-					nano::account const & account (i->first);
-					accounts.emplace_back (account, confirmed_frontier);
+					bool add_frontier (disable_age_filter);
+					if (!add_frontier)
+					{
+						// Check block modification time if request contains age field
+						auto block (connection->node->store.block_get (transaction, confirmed_frontier));
+						debug_assert (block != nullptr && block->has_sideband ());
+						add_frontier = (now - block->sideband ().timestamp) <= request->age;
+					}
+					if (add_frontier)
+					{
+						nano::account const & account (i->first);
+						accounts.emplace_back (account, confirmed_frontier);
+					}
 				}
 			}
 		}
-		/* If loop breaks before max_size, then confirmation_height_end () is reached
+		// Send unconfirmed blocks
+		else
+		{
+			for (auto i (connection->node->store.accounts_begin (transaction, current.number () + 1)), n (connection->node->store.accounts_end ()); i != n && accounts.size () != max_size; ++i)
+			{
+				nano::account_info const & info (i->second);
+				if (disable_age_filter || (now - info.modified) <= request->age)
+				{
+					nano::account const & account (i->first);
+					accounts.emplace_back (account, info.head);
+				}
+			}
+		}
+		/* If loop breaks before max_size, then confirmation_height_end () or accounts_end () is reached
 		Add empty record to finish frontier_req_server */
 		if (accounts.size () != max_size)
 		{

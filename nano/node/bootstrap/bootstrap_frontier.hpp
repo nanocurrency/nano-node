@@ -48,6 +48,7 @@ public:
 	nano::account current;
 	nano::block_hash frontier;
 	std::unique_ptr<nano::frontier_req> request;
+	bool send_unconfirmed_blocks;
 	size_t count;
 	std::deque<std::pair<nano::account, nano::block_hash>> accounts;
 };
