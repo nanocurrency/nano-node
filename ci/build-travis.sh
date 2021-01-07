@@ -1,12 +1,11 @@
 #!/bin/bash
 
 qt_dir=${1}
-src_dir=${2}
 
 set -o errexit
 set -o nounset
 set -o xtrace
-OS=`uname`
+OS=$(uname)
 
 # This is to prevent out of scope access in async_write from asio which is not picked up by static analysers
 if [[ $(grep -rl --exclude="*asio.hpp" "asio::async_write" ./nano) ]]; then
@@ -59,21 +58,21 @@ else
 fi
 
 cmake \
-    -G'Unix Makefiles' \
-    -DACTIVE_NETWORK=nano_dev_network \
-    -DNANO_TEST=ON \
-    -DNANO_GUI=ON \
-    -DPORTABLE=1 \
-    -DNANO_WARN_TO_ERR=ON \
-    -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
-    -DCMAKE_VERBOSE_MAKEFILE=ON \
-    -DBOOST_ROOT=/tmp/boost/ \
-    -DNANO_SHARED_BOOST=ON \
-    -DQt5_DIR=${qt_dir} \
-    -DCI_TEST="1" \
-    ${BACKTRACE} \
-    ${SANITIZERS} \
-    ..
+-G'Unix Makefiles' \
+-DACTIVE_NETWORK=nano_dev_network \
+-DNANO_TEST=ON \
+-DNANO_GUI=ON \
+-DPORTABLE=1 \
+-DNANO_WARN_TO_ERR=ON \
+-DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+-DCMAKE_VERBOSE_MAKEFILE=ON \
+-DBOOST_ROOT=/tmp/boost/ \
+-DNANO_SHARED_BOOST=ON \
+-DQt5_DIR=${qt_dir} \
+-DCI_TEST="1" \
+${BACKTRACE} \
+${SANITIZERS} \
+..
 
 if [[ "$OS" == 'Linux' ]]; then
     cmake --build ${PWD} -- -j2

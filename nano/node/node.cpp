@@ -119,6 +119,7 @@ block_processor_thread ([this]() {
 }),
 // clang-format on
 online_reps (ledger, config),
+history{ config.network_params.voting },
 vote_uniquer (block_uniquer),
 confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, config.logging, logger, node_initialized_latch, flags.confirmation_height_processor_mode),
 active (*this, confirmation_height_processor),
@@ -631,7 +632,7 @@ nano::process_return nano::node::process_local (std::shared_ptr<nano::block> con
 	// Process block
 	block_post_events post_events ([& store = store] { return store.tx_begin_read (); });
 	auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending }, { tables::confirmation_height }));
-	return block_processor.process_one (transaction, post_events, info, work_watcher_a, nano::block_origin::local);
+	return block_processor.process_one (transaction, post_events, info, work_watcher_a, false, nano::block_origin::local);
 }
 
 void nano::node::start ()

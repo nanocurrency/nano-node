@@ -6,8 +6,8 @@ if (${env:artifact} -eq 1) {
         $env:NETWORK_CFG = "beta"
         $env:BUILD_TYPE = "RelWithDebInfo"
     }
-    elseif(${env:TEST} -eq 1) {
-        $env:NETWORK_CFG= "test"
+    elseif (${env:TEST} -eq 1) {
+        $env:NETWORK_CFG = "test"
     }
     else {
         $env:NETWORK_CFG = "live"
@@ -37,7 +37,7 @@ mkdir build
 Push-Location build
 
 #accessibility of Boost dlls for generating config samples
-$ENV:PATH = "$ENV:PATH;$ENV:BOOST_ROOT\lib"
+$ENV:PATH = "$ENV:PATH;$ENV:BOOST_ROOT\lib64-msvc-14.2"
 
 & ..\ci\actions\windows\configure.bat
 if (${LastExitCode} -ne 0) {

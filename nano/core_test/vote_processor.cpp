@@ -208,7 +208,7 @@ TEST (vote_processor, no_broadcast_local)
 	ASSERT_TRUE (node.wallets.reps ().exists (nano::dev_genesis_key.pub));
 	ASSERT_FALSE (node.wallets.reps ().have_half_rep ());
 	// Process a vote
-	auto vote = std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, node.timestamps.now (), std::vector<nano::block_hash>{ send->hash () });
+	auto vote = std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, nano::milliseconds_since_epoch (), std::vector<nano::block_hash>{ send->hash () });
 	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote));
 	// Make sure the vote was processed
 	auto election (node.active.election (send->qualified_root ()));
@@ -241,7 +241,7 @@ TEST (vote_processor, no_broadcast_local)
 	ASSERT_EQ (node.config.vote_minimum, node.weight (nano::dev_genesis_key.pub));
 	node.block_confirm (send2);
 	// Process a vote
-	auto vote2 = std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, node.timestamps.now (), std::vector<nano::block_hash>{ send2->hash () });
+	auto vote2 = std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, nano::milliseconds_since_epoch (), std::vector<nano::block_hash>{ send2->hash () });
 	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote2));
 	// Make sure the vote was processed
 	auto election2 (node.active.election (send2->qualified_root ()));
@@ -275,7 +275,7 @@ TEST (vote_processor, no_broadcast_local)
 	ASSERT_TRUE (node.wallets.reps ().exists (nano::dev_genesis_key.pub));
 	ASSERT_TRUE (node.wallets.reps ().have_half_rep ());
 	// Process a vote
-	auto vote3 = std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, node.timestamps.now (), std::vector<nano::block_hash>{ open->hash () });
+	auto vote3 = std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, nano::milliseconds_since_epoch (), std::vector<nano::block_hash>{ open->hash () });
 	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote3));
 	// Make sure the vote was processed
 	auto election3 (node.active.election (open->qualified_root ()));

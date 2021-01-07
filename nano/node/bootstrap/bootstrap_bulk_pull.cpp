@@ -44,7 +44,7 @@ nano::bulk_pull_client::~bulk_pull_client ()
 		connection->node->bootstrap_initiator.connections->requeue_pull (pull, network_error);
 		if (connection->node->config.logging.bulk_pull_logging ())
 		{
-			connection->node->logger.try_log (boost::str (boost::format ("Bulk pull end block is not expected %1% for account %2%") % pull.end.to_string () % pull.account_or_head.to_account ()));
+			connection->node->logger.try_log (boost::str (boost::format ("Bulk pull end block is not expected %1% for account %2% or head block %3%") % pull.end.to_string () % pull.account_or_head.to_account () % pull.account_or_head.to_string ()));
 		}
 	}
 	else
@@ -56,7 +56,7 @@ nano::bulk_pull_client::~bulk_pull_client ()
 
 void nano::bulk_pull_client::request ()
 {
-	debug_assert (!pull.head.is_zero () || pull.retry_limit != std::numeric_limits<unsigned>::max ());
+	debug_assert (!pull.head.is_zero () || pull.retry_limit <= connection->node->network_params.bootstrap.lazy_retry_limit);
 	expected = pull.head;
 	nano::bulk_pull req;
 	if (pull.head == pull.head_original && pull.attempts % 4 < 3)
@@ -75,7 +75,7 @@ void nano::bulk_pull_client::request ()
 
 	if (connection->node->config.logging.bulk_pull_logging ())
 	{
-		connection->node->logger.try_log (boost::str (boost::format ("Requesting account %1% from %2%. %3% accounts in queue") % pull.account_or_head.to_account () % connection->channel->to_string () % attempt->pulling));
+		connection->node->logger.try_log (boost::str (boost::format ("Requesting account %1% or head block %2% from %3%. %4% accounts in queue") % pull.account_or_head.to_account () % pull.account_or_head.to_string () % connection->channel->to_string () % attempt->pulling));
 	}
 	else if (connection->node->config.logging.network_logging () && attempt->should_log ())
 	{
@@ -220,7 +220,7 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 			// Is block expected?
 			bool block_expected (false);
 			// Unconfirmed head is used only for lazy destinations if legacy bootstrap is not available, see nano::bootstrap_attempt::lazy_destinations_increment (...)
-			bool unconfirmed_account_head (connection->node->flags.disable_legacy_bootstrap && pull_blocks == 0 && pull.retry_limit != std::numeric_limits<unsigned>::max () && expected == pull.account_or_head && block->account () == pull.account_or_head);
+			bool unconfirmed_account_head (connection->node->flags.disable_legacy_bootstrap && pull_blocks == 0 && pull.retry_limit <= connection->node->network_params.bootstrap.lazy_retry_limit && expected == pull.account_or_head && block->account () == pull.account_or_head);
 			if (hash == expected || unconfirmed_account_head)
 			{
 				expected = block->previous ();

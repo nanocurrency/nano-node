@@ -4864,9 +4864,9 @@ TEST (rpc, account_info)
 	{
 		test_response response (request, rpc.config.port, system.io_ctx);
 		ASSERT_TIMELY (5s, response.status != 0);
-		std::string balance (response.json.get<std::string> ("balance"));
+		auto balance (response.json.get<std::string> ("balance"));
 		ASSERT_EQ ("25", balance);
-		std::string confirmed_balance (response.json.get<std::string> ("confirmed_balance"));
+		auto confirmed_balance (response.json.get<std::string> ("confirmed_balance"));
 		ASSERT_EQ ("340282366920938463463374607431768211455", confirmed_balance);
 
 		auto representative (response.json.get<std::string> ("representative"));
@@ -4874,6 +4874,12 @@ TEST (rpc, account_info)
 
 		auto confirmed_representative (response.json.get<std::string> ("confirmed_representative"));
 		ASSERT_EQ (confirmed_representative, nano::dev_genesis_key.pub.to_account ());
+
+		auto confirmed_frontier (response.json.get<std::string> ("confirmed_frontier"));
+		ASSERT_EQ (nano::genesis_hash.to_string (), confirmed_frontier);
+
+		auto confirmed_height (response.json.get<uint64_t> ("confirmed_height"));
+		ASSERT_EQ (1, confirmed_height);
 	}
 
 	request.put ("account", key1.pub.to_account ());
@@ -4902,6 +4908,12 @@ TEST (rpc, account_info)
 
 		auto confirmed_representative (response.json.get_optional<std::string> ("confirmed_representative"));
 		ASSERT_FALSE (confirmed_representative.is_initialized ());
+
+		auto confirmed_frontier (response.json.get_optional<std::string> ("confirmed_frontier"));
+		ASSERT_FALSE (confirmed_frontier.is_initialized ());
+
+		auto confirmed_height (response.json.get_optional<uint64_t> ("confirmed_height"));
+		ASSERT_FALSE (confirmed_height.is_initialized ());
 	}
 }
 
