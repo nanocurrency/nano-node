@@ -40,7 +40,7 @@ TEST (conflicts, add_existing)
 	auto election1 = node1.active.insert (send2);
 	ASSERT_EQ (1, node1.active.size ());
 	auto vote1 (std::make_shared<nano::vote> (key2.pub, key2.prv, 0, send2));
-	node1.active.vote (vote1);
+	node1.active.vote (vote1, true);
 	ASSERT_NE (nullptr, election1.election);
 	ASSERT_EQ (2, election1.election->votes ().size ());
 	auto votes (election1.election->votes ());

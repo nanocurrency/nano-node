@@ -97,4 +97,14 @@ private:
 	unsigned measurements{ 0 };
 	void update_ticks ();
 };
+
+inline uint64_t milliseconds_since_epoch ()
+{
+	return std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ();
+}
+
+inline uint64_t seconds_since_epoch ()
+{
+	return std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ();
+}
 }
