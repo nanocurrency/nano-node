@@ -2398,6 +2398,32 @@ TEST (rpc, pending)
 	reset_confirmation_height (system.nodes.front ()->store, block1->account ());
 	scoped_thread_name_io.renew ();
 	check_block_response_count (0);
+
+	// Sorting with a smaller count than total should give absolute sorted amounts
+	scoped_thread_name_io.reset ();
+	node->store.confirmation_height_put (node->store.tx_begin_write (), nano::dev_genesis_key.pub, { 2, block1->hash () });
+	auto block2 (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key1.pub, 200));
+	auto block3 (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key1.pub, 300));
+	auto block4 (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key1.pub, 400));
+	scoped_thread_name_io.renew ();
+
+	ASSERT_TIMELY (10s, node->ledger.account_pending (node->store.tx_begin_read (), key1.pub) == 1000);
+	ASSERT_TIMELY (5s, !node->active.active (*block4));
+	ASSERT_TIMELY (5s, node->block_confirmed (block4->hash ()));
+
+	request.put ("count", "2");
+
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		ASSERT_TIMELY (5s, response.status != 0);
+		ASSERT_EQ (200, response.status);
+		auto & blocks_node (response.json.get_child ("blocks"));
+		ASSERT_EQ (2, blocks_node.size ());
+		nano::block_hash hash (blocks_node.begin ()->first);
+		nano::block_hash hash1 ((++blocks_node.begin ())->first);
+		ASSERT_EQ (block4->hash (), hash);
+		ASSERT_EQ (block3->hash (), hash1);
+	}
 }
 
 TEST (rpc, pending_burn)

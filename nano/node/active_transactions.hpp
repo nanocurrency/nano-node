@@ -178,7 +178,7 @@ public:
 	nano::election_insertion_result insert (std::shared_ptr<nano::block> const &, boost::optional<nano::uint128_t> const & = boost::none, nano::election_behavior = nano::election_behavior::normal, std::function<void(std::shared_ptr<nano::block>)> const & = nullptr);
 	// clang-format on
 	// Distinguishes replay votes, cannot be determined if the block is not in any election
-	nano::vote_code vote (std::shared_ptr<nano::vote>);
+	nano::vote_code vote (std::shared_ptr<nano::vote>, bool);
 	// Is the root of this block in the roots container
 	bool active (nano::block const &);
 	bool active (nano::qualified_root const &);
