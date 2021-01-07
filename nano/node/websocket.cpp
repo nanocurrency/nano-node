@@ -447,11 +447,10 @@ std::string from_topic (nano::websocket::topic topic_a)
 
 void nano::websocket::session::send_ack (std::string action_a, std::string id_a)
 {
-	auto milli_since_epoch = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ();
 	nano::websocket::message msg (nano::websocket::topic::ack);
 	boost::property_tree::ptree & message_l = msg.contents;
 	message_l.add ("ack", action_a);
-	message_l.add ("time", std::to_string (milli_since_epoch));
+	message_l.add ("time", std::to_string (nano::milliseconds_since_epoch ()));
 	if (!id_a.empty ())
 	{
 		message_l.add ("id", id_a);
@@ -915,12 +914,9 @@ nano::websocket::message nano::websocket::message_builder::new_block_arrived (na
 
 void nano::websocket::message_builder::set_common_fields (nano::websocket::message & message_a)
 {
-	using namespace std::chrono;
-	auto milli_since_epoch = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ();
-
 	// Common message information
 	message_a.contents.add ("topic", from_topic (message_a.topic));
-	message_a.contents.add ("time", std::to_string (milli_since_epoch));
+	message_a.contents.add ("time", std::to_string (nano::milliseconds_since_epoch ()));
 }
 
 std::string nano::websocket::message::to_string () const

@@ -428,7 +428,8 @@ class voting_constants
 {
 public:
 	voting_constants (nano::network_constants & network_constants);
-	size_t max_cache;
+	size_t const max_cache;
+	std::chrono::seconds const delay;
 };
 
 /** Port-mapping related constants whose value depends on the active network */

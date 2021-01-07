@@ -2,7 +2,6 @@
 
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
-#include <nano/lib/timestamp_fwd.hpp>
 #include <nano/node/transport/transport.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>

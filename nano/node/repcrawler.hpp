@@ -93,7 +93,7 @@ public:
 	bool is_pr (nano::transport::channel const &) const;
 
 	/**
-	 * Called when a non-replay vote on a block previously sent by query() is received. This indiciates
+	 * Called when a non-replay vote on a block previously sent by query() is received. This indicates
 	 * with high probability that the endpoint is a representative node.
 	 * @return false if the vote corresponded to any active hash.
 	 */
