@@ -18,8 +18,9 @@ nano::election_vote_result::election_vote_result (bool replay_a, bool processed_
 	processed = processed_a;
 }
 
-nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> block_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a, bool prioritized_a, nano::election_behavior election_behavior_a) :
+nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> block_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a, std::function<void(nano::account const &, bool)> const & pre_confirm_action_a, bool prioritized_a, nano::election_behavior election_behavior_a) :
 confirmation_action (confirmation_action_a),
+pre_confirm_action (pre_confirm_action_a),
 prioritized_m (prioritized_a),
 behavior (election_behavior_a),
 node (node_a),
@@ -235,7 +236,8 @@ bool nano::election::have_quorum (nano::tally_t const & tally_a) const
 	++i;
 	auto second (i != tally_a.end () ? i->first : 0);
 	auto delta_l (node.online_reps.delta ());
-	bool result{ tally_a.begin ()->first >= (second + delta_l) };
+	release_assert (tally_a.begin ()->first >= second);
+	bool result{ (tally_a.begin ()->first - second) >= delta_l };
 	return result;
 }
 
@@ -254,12 +256,12 @@ nano::tally_t nano::election::tally_impl () const
 	}
 	last_tally = block_weights;
 	nano::tally_t result;
-	for (auto item : block_weights)
+	for (auto const & [hash, amount] : block_weights)
 	{
-		auto block (last_blocks.find (item.first));
+		auto block (last_blocks.find (hash));
 		if (block != last_blocks.end ())
 		{
-			result.emplace (item.second, block->second);
+			result.emplace (amount, block->second);
 		}
 	}
 	return result;
@@ -326,9 +328,8 @@ std::shared_ptr<nano::block> nano::election::find (nano::block_hash const & hash
 	return result;
 }
 
-nano::election_vote_result nano::election::vote (nano::account const & rep, uint64_t timestamp_a, nano::block_hash const & block_hash)
+nano::election_vote_result nano::election::vote (nano::account const & rep, uint64_t timestamp_a, nano::block_hash const & block_hash_a, bool rep_is_active_a)
 {
-	// see republish_vote documentation for an explanation of these rules
 	auto replay (false);
 	auto online_stake (node.online_reps.trended ());
 	auto weight (node.ledger.weight (rep));
@@ -359,12 +360,9 @@ nano::election_vote_result nano::election::vote (nano::account const & rep, uint
 		else
 		{
 			auto last_vote_l (last_vote_it->second);
-			if (last_vote_l.timestamp < timestamp_a || (last_vote_l.timestamp == timestamp_a && last_vote_l.hash < block_hash))
+			if (last_vote_l.timestamp < timestamp_a || (last_vote_l.timestamp == timestamp_a && last_vote_l.hash < block_hash_a))
 			{
-				if (last_vote_l.time <= std::chrono::steady_clock::now () - std::chrono::seconds (cooldown))
-				{
-					should_process = true;
-				}
+				should_process = last_vote_l.time <= std::chrono::steady_clock::now () - std::chrono::seconds (cooldown);
 			}
 			else
 			{
@@ -374,7 +372,8 @@ nano::election_vote_result nano::election::vote (nano::account const & rep, uint
 		if (should_process)
 		{
 			node.stats.inc (nano::stat::type::election, nano::stat::detail::vote_new);
-			last_votes[rep] = { std::chrono::steady_clock::now (), timestamp_a, block_hash };
+			last_votes[rep] = { std::chrono::steady_clock::now (), timestamp_a, block_hash_a };
+			pre_confirm_action (rep, rep_is_active_a);
 			if (!confirmed ())
 			{
 				confirm_if_quorum (lock);

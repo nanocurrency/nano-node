@@ -209,7 +209,7 @@ TEST (vote_processor, no_broadcast_local)
 	ASSERT_FALSE (node.wallets.reps ().have_half_rep ());
 	// Process a vote
 	auto vote = std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, nano::milliseconds_since_epoch (), std::vector<nano::block_hash>{ send->hash () });
-	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote));
+	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote, true));
 	// Make sure the vote was processed
 	auto election (node.active.election (send->qualified_root ()));
 	ASSERT_NE (nullptr, election);
@@ -242,7 +242,7 @@ TEST (vote_processor, no_broadcast_local)
 	node.block_confirm (send2);
 	// Process a vote
 	auto vote2 = std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, nano::milliseconds_since_epoch (), std::vector<nano::block_hash>{ send2->hash () });
-	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote2));
+	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote2, true));
 	// Make sure the vote was processed
 	auto election2 (node.active.election (send2->qualified_root ()));
 	ASSERT_NE (nullptr, election2);
@@ -276,7 +276,7 @@ TEST (vote_processor, no_broadcast_local)
 	ASSERT_TRUE (node.wallets.reps ().have_half_rep ());
 	// Process a vote
 	auto vote3 = std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, nano::milliseconds_since_epoch (), std::vector<nano::block_hash>{ open->hash () });
-	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote3));
+	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote3, true));
 	// Make sure the vote was processed
 	auto election3 (node.active.election (open->qualified_root ()));
 	ASSERT_NE (nullptr, election3);

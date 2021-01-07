@@ -184,13 +184,13 @@ public:
 	boost::filesystem::path application_path;
 	nano::node_observers observers;
 	nano::port_mapping port_mapping;
-	nano::vote_processor vote_processor;
+	nano::online_reps online_reps;
 	nano::rep_crawler rep_crawler;
+	nano::vote_processor vote_processor;
 	unsigned warmed_up;
 	nano::block_processor block_processor;
 	std::thread block_processor_thread;
 	nano::block_arrival block_arrival;
-	nano::online_reps online_reps;
 	nano::local_vote_history history;
 	nano::keypair node_id;
 	nano::block_uniquer block_uniquer;

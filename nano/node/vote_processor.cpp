@@ -6,6 +6,7 @@
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/online_reps.hpp>
+#include <nano/node/repcrawler.hpp>
 #include <nano/node/signatures.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/secure/blockstore.hpp>
@@ -14,7 +15,7 @@
 
 #include <boost/format.hpp>
 
-nano::vote_processor::vote_processor (nano::signature_checker & checker_a, nano::active_transactions & active_a, nano::node_observers & observers_a, nano::stat & stats_a, nano::node_config & config_a, nano::node_flags & flags_a, nano::logger_mt & logger_a, nano::online_reps & online_reps_a, nano::ledger & ledger_a, nano::network_params & network_params_a) :
+nano::vote_processor::vote_processor (nano::signature_checker & checker_a, nano::active_transactions & active_a, nano::node_observers & observers_a, nano::stat & stats_a, nano::node_config & config_a, nano::node_flags & flags_a, nano::logger_mt & logger_a, nano::online_reps & online_reps_a, nano::rep_crawler & rep_crawler_a, nano::ledger & ledger_a, nano::network_params & network_params_a) :
 checker (checker_a),
 active (active_a),
 observers (observers_a),
@@ -22,6 +23,7 @@ stats (stats_a),
 config (config_a),
 logger (logger_a),
 online_reps (online_reps_a),
+rep_crawler (rep_crawler_a),
 ledger (ledger_a),
 network_params (network_params_a),
 max_votes (flags_a.vote_processor_capacity),
@@ -170,7 +172,7 @@ nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote>
 	auto result (nano::vote_code::invalid);
 	if (validated || !vote_a->validate ())
 	{
-		result = active.vote (vote_a);
+		result = active.vote (vote_a, !rep_crawler.response (channel_a, vote_a));
 		observers.vote.notify (vote_a, channel_a, result);
 	}
 	std::string status;

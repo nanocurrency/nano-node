@@ -108,8 +108,8 @@ bootstrap_initiator (*this),
 bootstrap (config.peering_port, *this),
 application_path (application_path_a),
 port_mapping (*this),
-vote_processor (checker, active, observers, stats, config, flags, logger, online_reps, ledger, network_params),
 rep_crawler (*this),
+vote_processor (checker, active, observers, stats, config, flags, logger, online_reps, rep_crawler, ledger, network_params),
 warmed_up (0),
 block_processor (*this, write_database_queue),
 // clang-format off
@@ -299,17 +299,15 @@ node_seq (seq)
 		});
 		observers.vote.add ([this](std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a, nano::vote_code code_a) {
 			debug_assert (code_a != nano::vote_code::invalid);
-			if (code_a != nano::vote_code::replay)
+			// The vote_code::vote is handled inside the election
+			if (code_a == nano::vote_code::indeterminate)
 			{
 				auto active_in_rep_crawler (!this->rep_crawler.response (channel_a, vote_a));
-				if (active_in_rep_crawler || code_a == nano::vote_code::vote)
+				if (active_in_rep_crawler)
 				{
 					// Representative is defined as online if replying to live votes or rep_crawler queries
 					this->online_reps.observe (vote_a->account);
 				}
-			}
-			if (code_a == nano::vote_code::indeterminate)
-			{
 				this->gap_cache.vote (vote_a);
 			}
 		});
