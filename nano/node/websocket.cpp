@@ -736,7 +736,6 @@ nano::websocket::message nano::websocket::message_builder::block_confirmed (std:
 				boost::property_tree::ptree entry;
 				entry.put ("representative", vote_l.representative.to_account ());
 				entry.put ("timestamp", vote_l.timestamp);
-				entry.put ("sequence", vote_l.timestamp);
 				entry.put ("hash", vote_l.hash.to_string ());
 				entry.put ("weight", vote_l.weight.convert_to<std::string> ());
 				election_votes_l.push_back (std::make_pair ("", entry));

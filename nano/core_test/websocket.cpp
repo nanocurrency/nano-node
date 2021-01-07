@@ -401,8 +401,6 @@ TEST (websocket, confirmation_options_votes)
 			ASSERT_EQ (nano::dev_genesis_key.pub.to_account (), representative);
 			std::string timestamp (vote.second.get<std::string> ("timestamp"));
 			ASSERT_NE ("0", timestamp);
-			std::string sequence (vote.second.get<std::string> ("sequence"));
-			ASSERT_NE ("0", sequence);
 			std::string hash (vote.second.get<std::string> ("hash"));
 			ASSERT_EQ (node1->latest (nano::dev_genesis_key.pub).to_string (), hash);
 			std::string weight (vote.second.get<std::string> ("weight"));
