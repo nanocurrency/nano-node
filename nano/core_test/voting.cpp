@@ -223,6 +223,7 @@ TEST (vote_spacing, rapid)
 				 .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node.ledger.process (node.store.tx_begin_write (), *send1).code);
 	node.active.generator.add (nano::genesis_hash, send1->hash ());
+	ASSERT_TIMELY (3s, node.stats.count (nano::stat::type::vote_generator, nano::stat::detail::generator_broadcasts) == 1);
 	ASSERT_FALSE (node.ledger.rollback (node.store.tx_begin_write (), send1->hash ()));
 	ASSERT_EQ (nano::process_result::progress, node.ledger.process (node.store.tx_begin_write (), *send2).code);
 	node.active.generator.add (nano::genesis_hash, send2->hash ());
