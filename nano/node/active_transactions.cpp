@@ -825,7 +825,15 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 				}
 				double multiplier (normalized_multiplier (*block_a));
 				bool prioritized = roots.size () < prioritized_cutoff || multiplier > last_prioritized_multiplier.value_or (0);
-				result.election = nano::make_shared<nano::election> (node, block_a, confirmation_action_a, prioritized, election_behavior_a);
+				result.election = nano::make_shared<nano::election> (
+				node, block_a, confirmation_action_a, [& node = node](auto const & rep_a, bool rep_is_active_a) {
+					if (rep_is_active_a)
+					{
+						// Representative is defined as online if replying to live votes or rep_crawler queries
+						node.online_reps.observe (rep_a);
+					}
+				},
+				prioritized, election_behavior_a);
 				roots.get<tag_root> ().emplace (nano::active_transactions::conflict_info{ root, multiplier, result.election, epoch, previous_balance });
 				blocks.emplace (hash, result.election);
 				auto const cache = find_inactive_votes_cache_impl (hash);
@@ -861,7 +869,7 @@ nano::election_insertion_result nano::active_transactions::insert (std::shared_p
 }
 
 // Validate a vote and apply it to the current election if one exists
-nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> vote_a)
+nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> vote_a, bool active_in_rep_crawler_a)
 {
 	nano::vote_code result{ nano::vote_code::indeterminate };
 	// If all hashes were recently confirmed then it is a replay
@@ -915,7 +923,7 @@ nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> vot
 		bool processed (false);
 		for (auto const & [election, block_hash] : process)
 		{
-			auto const result_l = election->vote (vote_a->account, vote_a->timestamp, block_hash);
+			auto const result_l = election->vote (vote_a->account, vote_a->timestamp, block_hash, active_in_rep_crawler_a);
 			processed = processed || result_l.processed;
 			replay = replay || result_l.replay;
 		}
@@ -1239,6 +1247,13 @@ void nano::active_transactions::erase (nano::qualified_root const & root_a)
 	}
 }
 
+void nano::active_transactions::erase_hash (nano::block_hash const & hash_a)
+{
+	nano::unique_lock<std::mutex> lock (mutex);
+	[[maybe_unused]] auto erased (blocks.erase (hash_a));
+	debug_assert (erased == 1);
+}
+
 bool nano::active_transactions::empty ()
 {
 	nano::lock_guard<std::mutex> lock (mutex);
@@ -1269,7 +1284,6 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> block_a)
 			auto const cache = find_inactive_votes_cache_impl (block_a->hash ());
 			lock.unlock ();
 			election->insert_inactive_votes_cache (cache);
-			node.network.flood_block (block_a, nano::buffer_drop_policy::no_limiter_drop);
 			node.stats.inc (nano::stat::type::election, nano::stat::detail::election_block_conflict);
 		}
 	}
@@ -1461,6 +1475,7 @@ nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_
 	{
 		tally += node.ledger.weight (voter);
 	}
+	status.tally = tally;
 
 	if (!previously_a.confirmed && tally >= node.online_reps.delta ())
 	{
