@@ -153,8 +153,6 @@ TEST (vote_spacing, prune)
 	ASSERT_EQ (1, spacing.size ());
 }
 
-namespace nano
-{
 TEST (vote_spacing, vote_generator)
 {
 	nano::node_config config;
@@ -233,5 +231,4 @@ TEST (vote_spacing, rapid)
 	std::this_thread::sleep_for (config.network_params.voting.delay);
 	node.active.generator.add (nano::genesis_hash, send2->hash ());
 	ASSERT_TIMELY (3s, node.stats.count (nano::stat::type::vote_generator, nano::stat::detail::generator_broadcasts) == 2);
-}
 }
