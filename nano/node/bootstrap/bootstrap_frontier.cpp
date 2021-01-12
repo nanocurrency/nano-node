@@ -237,7 +237,6 @@ frontier (0),
 request (std::move (request_a)),
 count (0)
 {
-	send_unconfirmed_blocks = request->header.bootstrap_are_unconfirmed_blocks_present ();
 	next ();
 }
 
@@ -329,7 +328,7 @@ void nano::frontier_req_server::next ()
 		size_t max_size (128);
 		auto transaction (connection->node->store.tx_begin_read ());
 		// Send only confirmed blocks
-		if (!send_unconfirmed_blocks)
+		if (!send_unconfirmed_blocks ())
 		{
 			for (auto i (connection->node->store.confirmation_height_begin (transaction, current.number () + 1)), n (connection->node->store.confirmation_height_end ()); i != n && accounts.size () != max_size; ++i)
 			{
@@ -378,4 +377,9 @@ void nano::frontier_req_server::next ()
 	current = account_pair.first;
 	frontier = account_pair.second;
 	accounts.pop_front ();
+}
+
+bool nano::frontier_req_server::send_unconfirmed_blocks ()
+{
+	return request->header.bootstrap_are_unconfirmed_blocks_present ();
 }

@@ -44,11 +44,11 @@ public:
 	void send_finished ();
 	void no_block_sent (boost::system::error_code const &, size_t);
 	void next ();
+	bool send_unconfirmed_blocks ();
 	std::shared_ptr<nano::bootstrap_server> connection;
 	nano::account current;
 	nano::block_hash frontier;
 	std::unique_ptr<nano::frontier_req> request;
-	bool send_unconfirmed_blocks;
 	size_t count;
 	std::deque<std::pair<nano::account, nano::block_hash>> accounts;
 };

@@ -419,7 +419,7 @@ void nano::bulk_pull_server::set_current_end ()
 	include_start = false;
 	debug_assert (request != nullptr);
 	auto transaction (connection->node->store.tx_begin_read ());
-	bool bulk_pull_end_exists = send_unconfirmed_blocks ? connection->node->store.block_exists (transaction, request->end) : connection->node->block_confirmed_or_being_confirmed (transaction, request->end);
+	bool bulk_pull_end_exists = send_unconfirmed_blocks () ? connection->node->store.block_exists (transaction, request->end) : connection->node->block_confirmed_or_being_confirmed (transaction, request->end);
 	if (!bulk_pull_end_exists)
 	{
 		if (connection->node->config.logging.bulk_pull_logging ())
@@ -436,13 +436,13 @@ void nano::bulk_pull_server::set_current_end ()
 			connection->node->logger.try_log (boost::str (boost::format ("Bulk pull request for block hash: %1%") % request->start.to_string ()));
 		}
 
-		bool bulk_pull_start_exists = send_unconfirmed_blocks ? connection->node->store.block_exists (transaction, request->start.as_block_hash ()) : connection->node->block_confirmed_or_being_confirmed (transaction, request->start.as_block_hash ());
+		bool bulk_pull_start_exists = send_unconfirmed_blocks () ? connection->node->store.block_exists (transaction, request->start.as_block_hash ()) : connection->node->block_confirmed_or_being_confirmed (transaction, request->start.as_block_hash ());
 		if (bulk_pull_start_exists)
 		{
 			current = request->start.as_block_hash ();
 			include_start = true;
 		}
-		else if (!request->end.is_zero () && !send_unconfirmed_blocks)
+		else if (!request->end.is_zero () && !send_unconfirmed_blocks ())
 		{
 			// Else start from confirmed frontier for given account
 			auto account (connection->node->ledger.account (transaction, request->start.as_block_hash ()));
@@ -459,7 +459,7 @@ void nano::bulk_pull_server::set_current_end ()
 	{
 		bool no_confirmed_or_no_address;
 		nano::block_hash frontier;
-		if (!send_unconfirmed_blocks)
+		if (!send_unconfirmed_blocks ())
 		{
 			nano::confirmation_height_info info;
 			no_confirmed_or_no_address = connection->node->store.confirmation_height_get (transaction, request->start.as_account (), info);
@@ -648,11 +648,15 @@ void nano::bulk_pull_server::no_block_sent (boost::system::error_code const & ec
 	}
 }
 
+bool nano::bulk_pull_server::send_unconfirmed_blocks ()
+{
+	return request->header.bootstrap_are_unconfirmed_blocks_present ();
+}
+
 nano::bulk_pull_server::bulk_pull_server (std::shared_ptr<nano::bootstrap_server> const & connection_a, std::unique_ptr<nano::bulk_pull> request_a) :
 connection (connection_a),
 request (std::move (request_a))
 {
-	send_unconfirmed_blocks = request->header.bootstrap_are_unconfirmed_blocks_present ();
 	set_current_end ();
 }
 

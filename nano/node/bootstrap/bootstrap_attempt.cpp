@@ -281,12 +281,11 @@ void nano::bootstrap_attempt_legacy::request_push (nano::unique_lock<std::mutex>
 
 void nano::bootstrap_attempt_legacy::add_frontier (nano::pull_info const & pull_a)
 {
-	nano::pull_info pull (pull_a);
 	// Prevent incorrent or malicious pulls with frontier 0 insertion
-	if (!pull.head.is_zero ())
+	if (!pull_a.head.is_zero ())
 	{
 		nano::lock_guard<std::mutex> lock (mutex);
-		frontier_pulls.push_back (pull);
+		frontier_pulls.push_back (pull_a);
 	}
 }
 
