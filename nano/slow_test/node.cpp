@@ -70,7 +70,7 @@ TEST (system, receive_while_synchronizing)
 		ASSERT_EQ (key.pub, wallet->insert_adhoc (key.prv));
 		node1->start ();
 		system.nodes.push_back (node1);
-		node1->workers.add_delayed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (200), ([&system, &key]() {
+		node1->workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (200), ([&system, &key]() {
 			auto hash (system.wallet (0)->send_sync (nano::test_genesis_key.pub, key.pub, system.nodes[0]->config.receive_minimum.number ()));
 			auto transaction (system.nodes[0]->store.tx_begin_read ());
 			auto block (system.nodes[0]->store.block_get (transaction, hash));

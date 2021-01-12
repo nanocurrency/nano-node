@@ -138,7 +138,7 @@ bool nano::telemetry::within_cache_cutoff (telemetry_info const & telemetry_info
 
 void nano::telemetry::ongoing_req_all_peers (std::chrono::milliseconds next_request_interval)
 {
-	workers.add_delayed_task (std::chrono::steady_clock::now () + next_request_interval, [this_w = std::weak_ptr<telemetry> (shared_from_this ())]() {
+	workers.add_timed_task (std::chrono::steady_clock::now () + next_request_interval, [this_w = std::weak_ptr<telemetry> (shared_from_this ())]() {
 		if (auto this_l = this_w.lock ())
 		{
 			// Check if there are any peers which are in the peers list which haven't been request, or any which are below or equal to the cache cutoff time
@@ -368,7 +368,7 @@ void nano::telemetry::fire_request_message (std::shared_ptr<nano::transport::cha
 			else
 			{
 				// If no response is seen after a certain period of time remove it
-				this_l->workers.add_delayed_task (std::chrono::steady_clock::now () + this_l->response_time_cutoff, [round_l, this_w, endpoint]() {
+				this_l->workers.add_timed_task (std::chrono::steady_clock::now () + this_l->response_time_cutoff, [round_l, this_w, endpoint]() {
 					if (auto this_l = this_w.lock ())
 					{
 						nano::lock_guard<std::mutex> guard (this_l->mutex);

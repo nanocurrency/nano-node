@@ -97,7 +97,7 @@ void nano::port_mapping::refresh_mapping ()
 				node.logger.always_log (boost::str (boost::format ("UPnP %1%:%2% mapped to %3%") % protocol.external_address % config_port_l % node_port_l));
 
 				// Refresh mapping before the leasing ends
-				node.workers.add_delayed_task (std::chrono::steady_clock::now () + lease_duration - std::chrono::seconds (10), [node_l = node.shared ()]() {
+				node.workers.add_timed_task (std::chrono::steady_clock::now () + lease_duration - std::chrono::seconds (10), [node_l = node.shared ()]() {
 					node_l->port_mapping.refresh_mapping ();
 				});
 			}
@@ -167,7 +167,7 @@ void nano::port_mapping::check_mapping_loop ()
 			refresh_mapping ();
 		}
 		// Check for mapping health frequently
-		node.workers.add_delayed_task (std::chrono::steady_clock::now () + network_params.portmapping.health_check_period, [node_l = node.shared ()]() {
+		node.workers.add_timed_task (std::chrono::steady_clock::now () + network_params.portmapping.health_check_period, [node_l = node.shared ()]() {
 			node_l->port_mapping.check_mapping_loop ();
 		});
 	}
@@ -178,7 +178,7 @@ void nano::port_mapping::check_mapping_loop ()
 			node.logger.always_log (boost::str (boost::format ("UPnP No IGD devices found")));
 		}
 		// Check for new devices later
-		node.workers.add_delayed_task (std::chrono::steady_clock::now () + std::chrono::minutes (5), [node_l = node.shared ()]() {
+		node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::minutes (5), [node_l = node.shared ()]() {
 			node_l->port_mapping.check_mapping_loop ();
 		});
 	}

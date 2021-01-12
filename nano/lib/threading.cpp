@@ -230,7 +230,7 @@ void nano::thread_pool::push_task (std::function<void()> task)
 	}
 }
 
-void nano::thread_pool::add_delayed_task (std::chrono::steady_clock::time_point const & expiry_time, std::function<void()> task)
+void nano::thread_pool::add_timed_task (std::chrono::steady_clock::time_point const & expiry_time, std::function<void()> task)
 {
 	nano::lock_guard<std::mutex> guard (mutex);
 	if (!stopped && thread_pool_m)

@@ -111,7 +111,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 						}
 						rpc_handler = std::make_unique<nano::inprocess_rpc_handler> (*node, ipc_server, config.rpc, [&ipc_server, &workers = node->workers, &io_ctx]() {
 							ipc_server.stop ();
-							workers.add_delayed_task (std::chrono::steady_clock::now () + std::chrono::seconds (3), [&io_ctx]() {
+							workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (3), [&io_ctx]() {
 								io_ctx.stop ();
 							});
 						});

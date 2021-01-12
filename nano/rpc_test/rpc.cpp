@@ -2272,7 +2272,7 @@ TEST (rpc, payment_wait)
 	request1.put ("timeout", "100000");
 	scoped_thread_name_io.reset ();
 	system.wallet (0)->send_action (nano::test_genesis_key.pub, key.pub, nano::Mxrb_ratio);
-	system.nodes.front ()->workers.add_delayed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (500), [&]() {
+	system.nodes.front ()->workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (500), [&]() {
 		system.wallet (0)->send_action (nano::test_genesis_key.pub, key.pub, nano::Mxrb_ratio);
 	});
 	scoped_thread_name_io.renew ();

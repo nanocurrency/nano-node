@@ -540,7 +540,7 @@ void nano::bootstrap_server::finish_request ()
 	else
 	{
 		std::weak_ptr<nano::bootstrap_server> this_w (shared_from_this ());
-		node->workers.add_delayed_task (std::chrono::steady_clock::now () + (node->config.tcp_io_timeout * 2) + std::chrono::seconds (1), [this_w]() {
+		node->workers.add_timed_task (std::chrono::steady_clock::now () + (node->config.tcp_io_timeout * 2) + std::chrono::seconds (1), [this_w]() {
 			if (auto this_l = this_w.lock ())
 			{
 				this_l->timeout ();
@@ -721,7 +721,7 @@ void nano::bootstrap_server::run_next (nano::unique_lock<std::mutex> & lock_a)
 		if (timeout_check)
 		{
 			std::weak_ptr<nano::bootstrap_server> this_w (shared_from_this ());
-			node->workers.add_delayed_task (std::chrono::steady_clock::now () + (node->config.tcp_io_timeout * 2) + std::chrono::seconds (1), [this_w]() {
+			node->workers.add_timed_task (std::chrono::steady_clock::now () + (node->config.tcp_io_timeout * 2) + std::chrono::seconds (1), [this_w]() {
 				if (auto this_l = this_w.lock ())
 				{
 					this_l->timeout ();

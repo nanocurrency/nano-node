@@ -89,7 +89,7 @@ bool nano::gap_cache::bootstrap_check (std::vector<nano::account> const & voters
 	if (start_bootstrap && !node.ledger.block_exists (hash_a))
 	{
 		auto node_l (node.shared ());
-		node.workers.add_delayed_task (std::chrono::steady_clock::now () + node.network_params.bootstrap.gap_cache_bootstrap_start_interval, [node_l, hash_a]() {
+		node.workers.add_timed_task (std::chrono::steady_clock::now () + node.network_params.bootstrap.gap_cache_bootstrap_start_interval, [node_l, hash_a]() {
 			auto transaction (node_l->store.tx_begin_read ());
 			if (!node_l->store.block_exists (transaction, hash_a))
 			{

@@ -122,7 +122,7 @@ TEST (thread_pool_alarm, one)
 	std::atomic<bool> done (false);
 	std::mutex mutex;
 	nano::condition_variable condition;
-	workers.add_delayed_task (std::chrono::steady_clock::now (), [&]() {
+	workers.add_timed_task (std::chrono::steady_clock::now (), [&]() {
 		{
 			nano::lock_guard<std::mutex> lock (mutex);
 			done = true;
@@ -141,7 +141,7 @@ TEST (thread_pool_alarm, many)
 	nano::condition_variable condition;
 	for (auto i (0); i < 50; ++i)
 	{
-		workers.add_delayed_task (std::chrono::steady_clock::now (), [&]() {
+		workers.add_timed_task (std::chrono::steady_clock::now (), [&]() {
 			{
 				nano::lock_guard<std::mutex> lock (mutex);
 				count += 1;
@@ -160,12 +160,12 @@ TEST (thread_pool_alarm, top_execution)
 	int value2 (0);
 	std::mutex mutex;
 	std::promise<bool> promise;
-	workers.add_delayed_task (std::chrono::steady_clock::now (), [&]() {
+	workers.add_timed_task (std::chrono::steady_clock::now (), [&]() {
 		nano::lock_guard<std::mutex> lock (mutex);
 		value1 = 1;
 		value2 = 1;
 	});
-	workers.add_delayed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (1), [&]() {
+	workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (1), [&]() {
 		nano::lock_guard<std::mutex> lock (mutex);
 		value2 = 2;
 		promise.set_value (false);
