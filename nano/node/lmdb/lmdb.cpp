@@ -69,7 +69,7 @@ txn_tracking_enabled (txn_tracking_config_a.enable)
 			nano::network_constants network_constants;
 			if (!is_fresh_db)
 			{
-				if (!network_constants.is_test_network ())
+				if (!network_constants.is_dev_network ())
 				{
 					std::cout << "Upgrade in progress..." << std::endl;
 				}
@@ -88,7 +88,7 @@ txn_tracking_enabled (txn_tracking_config_a.enable)
 				}
 			}
 
-			if (needs_vacuuming && !network_constants.is_test_network ())
+			if (needs_vacuuming && !network_constants.is_dev_network ())
 			{
 				logger.always_log ("Preparing vacuum...");
 				auto vacuum_success = vacuum_after_upgrade (path_a, lmdb_config_a);
@@ -143,12 +143,25 @@ void nano::mdb_store::serialize_mdb_tracker (boost::property_tree::ptree & json,
 	mdb_txn_tracker.serialize_json (json, min_read_time, min_write_time);
 }
 
+void nano::mdb_store::serialize_memory_stats (boost::property_tree::ptree & json)
+{
+	MDB_stat stats;
+	auto status (mdb_env_stat (env.environment, &stats));
+	release_assert (status == 0);
+	json.put ("branch_pages", stats.ms_branch_pages);
+	json.put ("depth", stats.ms_depth);
+	json.put ("entries", stats.ms_entries);
+	json.put ("leaf_pages", stats.ms_leaf_pages);
+	json.put ("overflow_pages", stats.ms_overflow_pages);
+	json.put ("page_size", stats.ms_psize);
+}
+
 nano::write_transaction nano::mdb_store::tx_begin_write (std::vector<nano::tables> const &, std::vector<nano::tables> const &)
 {
 	return env.tx_begin_write (create_txn_callbacks ());
 }
 
-nano::read_transaction nano::mdb_store::tx_begin_read ()
+nano::read_transaction nano::mdb_store::tx_begin_read () const
 {
 	return env.tx_begin_read (create_txn_callbacks ());
 }
@@ -158,7 +171,7 @@ std::string nano::mdb_store::vendor_get () const
 	return boost::str (boost::format ("LMDB %1%.%2%.%3%") % MDB_VERSION_MAJOR % MDB_VERSION_MINOR % MDB_VERSION_PATCH);
 }
 
-nano::mdb_txn_callbacks nano::mdb_store::create_txn_callbacks ()
+nano::mdb_txn_callbacks nano::mdb_store::create_txn_callbacks () const
 {
 	nano::mdb_txn_callbacks mdb_txn_callbacks;
 	if (txn_tracking_enabled)
@@ -177,10 +190,10 @@ void nano::mdb_store::open_databases (bool & error_a, nano::transaction const & 
 {
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "frontiers", flags, &frontiers) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "unchecked", flags, &unchecked) != 0;
-	error_a |= mdb_dbi_open (env.tx (transaction_a), "vote", flags, &vote) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "online_weight", flags, &online_weight) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "meta", flags, &meta) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "peers", flags, &peers) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "pruned", flags, &pruned) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "confirmation_height", flags, &confirmation_height) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "accounts", flags, &accounts_v0) != 0;
 	accounts = accounts_v0;
@@ -260,6 +273,8 @@ bool nano::mdb_store::do_upgrades (nano::write_transaction & transaction_a, bool
 			upgrade_v18_to_v19 (transaction_a);
 			needs_vacuuming = true;
 		case 19:
+			upgrade_v19_to_v20 (transaction_a);
+		case 20:
 			break;
 		default:
 			logger.always_log (boost::str (boost::format ("The version of the ledger (%1%) is too high for this node") % version_l));
@@ -325,7 +340,7 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction & transaction_
 		nano::state_block_w_sideband_v14 state_block_w_sideband_v14 (i_state->second);
 		auto & sideband_v14 = state_block_w_sideband_v14.sideband;
 
-		nano::block_sideband sideband (sideband_v14.account, sideband_v14.successor, sideband_v14.balance, sideband_v14.height, sideband_v14.timestamp, i_state.from_first_database ? nano::epoch::epoch_0 : nano::epoch::epoch_1, false, false, false);
+		nano::block_sideband_v18 sideband (sideband_v14.account, sideband_v14.successor, sideband_v14.balance, sideband_v14.height, sideband_v14.timestamp, i_state.from_first_database ? nano::epoch::epoch_0 : nano::epoch::epoch_1, false, false, false);
 
 		// Write these out
 		std::vector<uint8_t> data;
@@ -404,8 +419,8 @@ void nano::mdb_store::upgrade_v16_to_v17 (nano::write_transaction const & transa
 {
 	logger.always_log ("Preparing v16 to v17 database upgrade...");
 
-	auto account_info_i = latest_begin (transaction_a);
-	auto account_info_n = latest_end ();
+	auto account_info_i = accounts_begin (transaction_a);
+	auto account_info_n = accounts_end ();
 
 	// Set the confirmed frontier for each account in the confirmation height table
 	std::vector<std::pair<nano::account, nano::confirmation_height_info>> confirmation_height_infos;
@@ -514,7 +529,7 @@ void nano::mdb_store::upgrade_v17_to_v18 (nano::write_transaction const & transa
 			is_receive = true;
 		}
 
-		nano::block_sideband new_sideband (sideband.account, sideband.successor, sideband.balance, sideband.height, sideband.timestamp, sideband.details.epoch, is_send, is_receive, is_epoch);
+		nano::block_sideband_v18 new_sideband (sideband.account, sideband.successor, sideband.balance, sideband.height, sideband.timestamp, sideband.details.epoch, is_send, is_receive, is_epoch);
 		// Write these out
 		std::vector<uint8_t> data;
 		{
@@ -551,17 +566,23 @@ void nano::mdb_store::upgrade_v18_to_v19 (nano::write_transaction const & transa
 
 	for (auto i (nano::store_iterator<nano::block_hash, nano::block_w_sideband_v18<nano::change_block>> (std::make_unique<nano::mdb_iterator<nano::block_hash, nano::block_w_sideband_v18<nano::change_block>>> (transaction_a, change_blocks))), n (nano::store_iterator<nano::block_hash, nano::block_w_sideband_v18<nano::change_block>> (nullptr)); i != n; ++i)
 	{
-		legacy_open_receive_change_blocks[i->first] = { nano::block_w_sideband{ i->second.block, i->second.sideband } };
+		nano::block_sideband_v18 const & old_sideband (i->second.sideband);
+		nano::block_sideband new_sideband (old_sideband.account, old_sideband.successor, old_sideband.balance, old_sideband.height, old_sideband.timestamp, nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0);
+		legacy_open_receive_change_blocks[i->first] = { nano::block_w_sideband{ i->second.block, new_sideband } };
 	}
 
 	for (auto i (nano::store_iterator<nano::block_hash, nano::block_w_sideband_v18<nano::open_block>> (std::make_unique<nano::mdb_iterator<nano::block_hash, nano::block_w_sideband_v18<nano::open_block>>> (transaction_a, open_blocks))), n (nano::store_iterator<nano::block_hash, nano::block_w_sideband_v18<nano::open_block>> (nullptr)); i != n; ++i)
 	{
-		legacy_open_receive_change_blocks[i->first] = { nano::block_w_sideband{ i->second.block, i->second.sideband } };
+		nano::block_sideband_v18 const & old_sideband (i->second.sideband);
+		nano::block_sideband new_sideband (old_sideband.account, old_sideband.successor, old_sideband.balance, old_sideband.height, old_sideband.timestamp, nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0);
+		legacy_open_receive_change_blocks[i->first] = { nano::block_w_sideband{ i->second.block, new_sideband } };
 	}
 
 	for (auto i (nano::store_iterator<nano::block_hash, nano::block_w_sideband_v18<nano::receive_block>> (std::make_unique<nano::mdb_iterator<nano::block_hash, nano::block_w_sideband_v18<nano::receive_block>>> (transaction_a, receive_blocks))), n (nano::store_iterator<nano::block_hash, nano::block_w_sideband_v18<nano::receive_block>> (nullptr)); i != n; ++i)
 	{
-		legacy_open_receive_change_blocks[i->first] = { nano::block_w_sideband{ i->second.block, i->second.sideband } };
+		nano::block_sideband_v18 const & old_sideband (i->second.sideband);
+		nano::block_sideband new_sideband (old_sideband.account, old_sideband.successor, old_sideband.balance, old_sideband.height, old_sideband.timestamp, nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0);
+		legacy_open_receive_change_blocks[i->first] = { nano::block_w_sideband{ i->second.block, new_sideband } };
 	}
 
 	release_assert (!mdb_drop (env.tx (transaction_a), receive_blocks, 1));
@@ -607,7 +628,7 @@ void nano::mdb_store::upgrade_v18_to_v19 (nano::write_transaction const & transa
 			{
 				nano::vectorstream stream (data);
 				nano::serialize_block (stream, *block_w_sideband_v18.block);
-				block_w_sideband_v18.sideband.serialize (stream, nano::block_type::send);
+				block_w_sideband_v18.sideband.serialize (stream, nano::block_type::send); // Equal to new version for legacy blocks
 			}
 
 			nano::mdb_val value{ data.size (), (void *)data.data () };
@@ -643,17 +664,36 @@ void nano::mdb_store::upgrade_v18_to_v19 (nano::write_transaction const & transa
 	// Write state blocks to a new table (this was not done in memory as it would push us above memory requirements)
 	MDB_dbi temp_state_blocks;
 	{
+		auto type_state (nano::block_type::state);
 		mdb_dbi_open (env.tx (transaction_a), "temp_state_blocks", MDB_CREATE, &temp_state_blocks);
 
 		for (auto i (nano::store_iterator<nano::block_hash, nano::block_w_sideband_v18<nano::state_block>> (std::make_unique<nano::mdb_iterator<nano::block_hash, nano::block_w_sideband_v18<nano::state_block>>> (transaction_a, state_blocks))), n (nano::store_iterator<nano::block_hash, nano::block_w_sideband_v18<nano::state_block>> (nullptr)); i != n; ++i)
 		{
 			auto const & block_w_sideband_v18 (i->second);
+			nano::block_sideband_v18 const & old_sideband (block_w_sideband_v18.sideband);
+			nano::epoch source_epoch (nano::epoch::epoch_0);
+			// Source block v18 epoch
+			if (old_sideband.details.is_receive)
+			{
+				auto db_val (block_raw_get_by_type_v18 (transaction_a, block_w_sideband_v18.block->link ().as_block_hash (), type_state));
+				if (db_val.is_initialized ())
+				{
+					nano::bufferstream stream (reinterpret_cast<uint8_t const *> (db_val.get ().data ()), db_val.get ().size ());
+					auto source_block (nano::deserialize_block (stream, type_state));
+					release_assert (source_block != nullptr);
+					nano::block_sideband_v18 source_sideband;
+					auto error (source_sideband.deserialize (stream, type_state));
+					release_assert (!error);
+					source_epoch = source_sideband.details.epoch;
+				}
+			}
+			nano::block_sideband new_sideband (old_sideband.account, old_sideband.successor, old_sideband.balance, old_sideband.height, old_sideband.timestamp, old_sideband.details.epoch, old_sideband.details.is_send, old_sideband.details.is_receive, old_sideband.details.is_epoch, source_epoch);
 
 			std::vector<uint8_t> data;
 			{
 				nano::vectorstream stream (data);
 				nano::serialize_block (stream, *block_w_sideband_v18.block);
-				block_w_sideband_v18.sideband.serialize (stream, nano::block_type::state);
+				new_sideband.serialize (stream, nano::block_type::state);
 			}
 
 			nano::mdb_val value{ data.size (), (void *)data.data () };
@@ -684,8 +724,20 @@ void nano::mdb_store::upgrade_v18_to_v19 (nano::write_transaction const & transa
 	auto count_post (count (transaction_a, blocks));
 	release_assert (count_pre == count_post);
 
+	MDB_dbi vote{ 0 };
+	release_assert (!mdb_dbi_open (env.tx (transaction_a), "vote", MDB_CREATE, &vote));
+	release_assert (!mdb_drop (env.tx (transaction_a), vote, 1));
+
 	version_put (transaction_a, 19);
 	logger.always_log ("Finished upgrading all blocks to new blocks database");
+}
+
+void nano::mdb_store::upgrade_v19_to_v20 (nano::write_transaction const & transaction_a)
+{
+	logger.always_log ("Preparing v19 to v20 database upgrade...");
+	mdb_dbi_open (env.tx (transaction_a), "pruned", MDB_CREATE, &pruned);
+	version_put (transaction_a, 20);
+	logger.always_log ("Finished creating new pruned table");
 }
 
 /** Takes a filepath, appends '_backup_<timestamp>' to the end (but before any extension) and saves that file in the same directory */
@@ -717,6 +769,17 @@ void nano::mdb_store::create_backup_file (nano::mdb_env & env_a, boost::filesyst
 		logger_a.always_log (success_message);
 		std::cout << success_message << std::endl;
 	}
+}
+
+std::vector<nano::unchecked_info> nano::mdb_store::unchecked_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
+{
+	std::vector<nano::unchecked_info> result;
+	for (auto i (unchecked_begin (transaction_a, nano::unchecked_key (hash_a, 0))), n (unchecked_end ()); i != n && i->first.key () == hash_a; ++i)
+	{
+		nano::unchecked_info const & unchecked_info (i->second);
+		result.push_back (unchecked_info);
+	}
+	return result;
 }
 
 void nano::mdb_store::version_put (nano::write_transaction const & transaction_a, int version_a)
@@ -760,12 +823,12 @@ int nano::mdb_store::clear (nano::write_transaction const & transaction_a, MDB_d
 	return mdb_drop (env.tx (transaction_a), handle_a, 0);
 }
 
-size_t nano::mdb_store::count (nano::transaction const & transaction_a, tables table_a) const
+uint64_t nano::mdb_store::count (nano::transaction const & transaction_a, tables table_a) const
 {
 	return count (transaction_a, table_to_dbi (table_a));
 }
 
-size_t nano::mdb_store::count (nano::transaction const & transaction_a, MDB_dbi db_a) const
+uint64_t nano::mdb_store::count (nano::transaction const & transaction_a, MDB_dbi db_a) const
 {
 	MDB_stat stats;
 	auto status (mdb_stat (env.tx (transaction_a), db_a, &stats));
@@ -787,14 +850,14 @@ MDB_dbi nano::mdb_store::table_to_dbi (tables table_a) const
 			return pending;
 		case tables::unchecked:
 			return unchecked;
-		case tables::vote:
-			return vote;
 		case tables::online_weight:
 			return online_weight;
 		case tables::meta:
 			return meta;
 		case tables::peers:
 			return peers;
+		case tables::pruned:
+			return pruned;
 		case tables::confirmation_height:
 			return confirmation_height;
 		default:
@@ -826,7 +889,7 @@ bool nano::mdb_store::copy_db (boost::filesystem::path const & destination_file)
 void nano::mdb_store::rebuild_db (nano::write_transaction const & transaction_a)
 {
 	// Tables with uint256_union key
-	std::vector<MDB_dbi> tables = { accounts, blocks, vote, confirmation_height };
+	std::vector<MDB_dbi> tables = { accounts, blocks, pruned, confirmation_height };
 	for (auto const & table : tables)
 	{
 		MDB_dbi temp;
@@ -888,10 +951,10 @@ std::shared_ptr<nano::block> nano::mdb_store::block_get_v18 (nano::transaction c
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
 		result = nano::deserialize_block (stream, type);
 		release_assert (result != nullptr);
-		nano::block_sideband sideband;
+		nano::block_sideband_v18 sideband;
 		auto error = (sideband.deserialize (stream, type));
 		release_assert (!error);
-		result->sideband_set (sideband);
+		result->sideband_set (nano::block_sideband (sideband.account, sideband.successor, sideband.balance, sideband.height, sideband.timestamp, sideband.details.epoch, sideband.details.is_send, sideband.details.is_receive, sideband.details.is_epoch, nano::epoch::epoch_0));
 	}
 	return result;
 }
@@ -1102,6 +1165,11 @@ before_v1 (count_before_v1)
 bool nano::mdb_store::upgrade_counters::are_equal () const
 {
 	return (before_v0 == after_v0) && (before_v1 == after_v1);
+}
+
+unsigned nano::mdb_store::max_block_write_batch_num () const
+{
+	return std::numeric_limits<unsigned>::max ();
 }
 
 // Explicitly instantiate

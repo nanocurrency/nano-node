@@ -1,16 +1,18 @@
 $ErrorActionPreference = "Continue"
 
 if (${env:artifact} -eq 1) {
+    $env:BUILD_TYPE = "Release"
     if ( ${env:BETA} -eq 1 ) {
         $env:NETWORK_CFG = "beta"
         $env:BUILD_TYPE = "RelWithDebInfo"
     }
+    elseif (${env:TEST} -eq 1) {
+        $env:NETWORK_CFG = "test"
+    }
     else {
         $env:NETWORK_CFG = "live"
-        $env:BUILD_TYPE = "Release"
     }
     $env:NANO_SHARED_BOOST = "ON"
-    $env:ROCKS_LIB = '-DROCKSDB_LIBRARIES="c:\vcpkg\installed\x64-windows-static\lib\rocksdb.lib"'
     $env:NANO_TEST = "-DNANO_TEST=OFF"
     $env:TRAVIS_TAG = ${env:TAG}
     
@@ -20,14 +22,12 @@ if (${env:artifact} -eq 1) {
 else {
     if ( ${env:RELEASE} -eq 1 ) {
         $env:BUILD_TYPE = "RelWithDebInfo"
-        $env:ROCKS_LIB = '-DROCKSDB_LIBRARIES="c:\vcpkg\installed\x64-windows-static\lib\rocksdb.lib"'
     }
     else { 
         $env:BUILD_TYPE = "Debug"
-        $env:ROCKS_LIB = '-DROCKSDB_LIBRARIES="c:\vcpkg\installed\x64-windows-static\debug\lib\rocksdbd.lib"'
     }
     $env:NANO_SHARED_BOOST = "OFF"
-    $env:NETWORK_CFG = "test"
+    $env:NETWORK_CFG = "dev"
     $env:NANO_TEST = "-DNANO_TEST=ON"
     $env:CI = '-DCI_TEST="1"'
     $env:RUN = "test"
@@ -35,10 +35,9 @@ else {
 
 mkdir build
 Push-Location build
-$env:BOOST_ROOT = ${env:BOOST_ROOT_1_69_0}
 
 #accessibility of Boost dlls for generating config samples
-$ENV:PATH = "$ENV:PATH;$ENV:BOOST_ROOT\lib"
+$ENV:PATH = "$ENV:PATH;$ENV:BOOST_ROOT\lib64-msvc-14.2"
 
 & ..\ci\actions\windows\configure.bat
 if (${LastExitCode} -ne 0) {

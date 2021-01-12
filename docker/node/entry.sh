@@ -1,87 +1,102 @@
-#!/bin/bash
+#!/usr/bin/env sh
 
-set -Eeuo pipefail
+set -euf
 
 usage() {
-	echo -e \
-	"Usage:\n" \
-	"  $0 nano_node [daemon] [cli_options] [-l] [-v size]\n" \
-	"    daemon\n" \
-	"      start as daemon\n\n" \
-	"    cli_options\n" \
-	"      nano_node cli options <see nano_node --help>\n\n" \
-	"    -l\n" \
-	"      log to console <use docker logs {container}>\n\n" \
-	"    -v<size>\n" \
-	"      vacuum database if over size GB on startup\n\n" \
-	"  $0 bash [other]\n" \
-	"    other\n" \
-	"      bash pass through\n" \
-	"  $0 [*]\n" \
-	"    *\n" \
-	"      usage\n\n" \
-	"default:\n" \
-	"  $0 nano_node daemon -l"
+	printf "Usage:\n"
+	printf "  $0 nano_node [daemon] [cli_options] [-l] [-v size]\n"
+	printf "    daemon\n"
+	printf "      start as daemon\n\n"
+	printf "    cli_options\n"
+	printf "      nano_node cli options <see nano_node --help>\n\n"
+	printf "    -l\n"
+	printf "      log to console <use docker logs {container}>\n\n"
+	printf "    -v<size>\n"
+	printf "      vacuum database if over size GB on startup\n\n"
+	printf "  $0 sh [other]\n"
+	printf "    other\n"
+	printf "      sh pass through\n"
+	printf "  $0 [*]\n"
+	printf "    *\n"
+	printf "      usage\n\n"
+	printf "default:\n"
+	printf "  $0 nano_node daemon -l\n"
 }
 
 OPTIND=1
-command=()
-IFS=' ' read -r -a TEMP_OPTS <<<"$@"
-passthrough=()
+command=""
+passthrough=""
 db_size=0
 log_to_cerr=0
 
-if [ ${#TEMP_OPTS[@]} -lt 2 ]; then
+if [ $# -lt 2 ]; then
 	usage
 	exit 1
 fi
 
-if [[ "${TEMP_OPTS[0]}" = 'nano_node' ]]; then
-	unset 'TEMP_OPTS[0]'
-	command+=("nano_node")
-	shift;
-	for i in "${TEMP_OPTS[@]}"; do
+if [ "$1" = 'nano_node' ]; then
+	command="${command}nano_node"
+	shift
+	for i in $@; do
 		case $i in
-			"daemon" )
-				command+=("--daemon")
-				;;
-			* )
-				passthrough+=("$i")
-				;;
+		"daemon")
+			command="${command} --daemon"
+			;;
+		*)
+			if [ ${#passthrough} -ge 0 ]; then
+				passthrough="${passthrough} $i"
+			else
+				passthrough="$i"
+			fi
+			;;
 		esac
 	done
-	for i in "${passthrough[@]}"; do
-		if [[ "$i" =~ ^"-v" ]]; then
-		        db_size=${i//-v/}
+	for i in $passthrough; do
+		case $i in
+		*"-v"*)
+			db_size=$(echo $i | tr -d -c 0-9)
 			echo "Vacuum DB if over $db_size GB on startup"
-		elif [[ "$i" = '-l' ]]; then
+			;;
+		"-l")
 			echo "log_to_cerr = true"
-			command+=("--config")
-			command+=("node.logging.log_to_cerr=true")
+			command="${command} --config"
+			command="${command} node.logging.log_to_cerr=true"
+			;;
+		*)
+			command="${command} $i"
+			;;
+		esac
+	done
+elif [ "$1" = 'sh' ]; then
+	shift
+	command=""
+	for i in $@; do
+		if [ "$command" = "" ]; then
+			command="$i"
 		else
-		 	command+=("$i")
+			command="${command} $i"
 		fi
 	done
-elif [[ "${TEMP_OPTS[0]}" = 'bash' ]]; then
-	unset 'TEMP_OPTS[0]'
-	echo -e "EXECUTING ${TEMP_OPTS[*]}\n"
-	exec "${TEMP_OPTS[@]}"
-	exit 0;
+	printf "EXECUTING: ${command}\n"
+	exec $command
 else
 	usage
-	exit 1;
+	exit 1
 fi
 
 network="$(cat /etc/nano-network)"
 case "${network}" in
-	live|'')
+live | '')
 	network='live'
 	dirSuffix=''
 	;;
-	beta)
+beta)
 	dirSuffix='Beta'
 	;;
-	test)
+dev)
+	dirSuffix='Dev'
+	;;
+test)
 	dirSuffix='Test'
 	;;
 esac
@@ -103,8 +118,9 @@ if [ ! -f "${nanodir}/config-node.toml" ] && [ ! -f "${nanodir}/config.json" ]; 
 	cp "/usr/share/nano/config/config-rpc.toml" "${nanodir}/config-rpc.toml"
 fi
 
-if [[ "${command[1]}" = "--daemon" ]]; then
-	if [[ $db_size -ne 0 ]]; then
+case $command in
+*"--daemon"*)
+	if [ $db_size -ne 0 ]; then
 		if [ -f "${dbFile}" ]; then
 			dbFileSize="$(stat -c %s "${dbFile}" 2>/dev/null)"
 			if [ "${dbFileSize}" -gt $((1024 * 1024 * 1024 * db_size)) ]; then
@@ -113,6 +129,8 @@ if [[ "${command[1]}" = "--daemon" ]]; then
 			fi
 		fi
 	fi
-fi
-echo -e "EXECUTING: ${command[*]}\n"
-exec "${command[@]}"
+	;;
+esac
+
+printf "EXECUTING: ${command}\n"
+exec $command

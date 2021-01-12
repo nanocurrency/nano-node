@@ -18,6 +18,7 @@ namespace nano
 {
 class network;
 class stat;
+class ledger;
 class thread_pool;
 namespace transport
 {
@@ -127,7 +128,7 @@ private:
 	std::chrono::seconds const cache_cutoff{ nano::telemetry_cache_cutoffs::network_to_time (network_params.network) };
 
 	// The maximum time spent waiting for a response to a telemetry request
-	std::chrono::seconds const response_time_cutoff{ network_params.network.is_test_network () ? (is_sanitizer_build || nano::running_within_valgrind () ? 6 : 3) : 10 };
+	std::chrono::seconds const response_time_cutoff{ network_params.network.is_dev_network () ? (is_sanitizer_build || nano::running_within_valgrind () ? 6 : 3) : 10 };
 
 	std::unordered_map<nano::endpoint, std::vector<std::function<void(telemetry_data_response const &)>>> callbacks;
 
@@ -148,5 +149,5 @@ private:
 std::unique_ptr<nano::container_info_component> collect_container_info (telemetry & telemetry, const std::string & name);
 
 nano::telemetry_data consolidate_telemetry_data (std::vector<telemetry_data> const & telemetry_data);
-nano::telemetry_data local_telemetry_data (nano::ledger_cache const &, nano::network &, uint64_t, nano::network_params const &, std::chrono::steady_clock::time_point, uint64_t, nano::keypair const &);
+nano::telemetry_data local_telemetry_data (nano::ledger const & ledger_a, nano::network &, uint64_t, nano::network_params const &, std::chrono::steady_clock::time_point, uint64_t, nano::keypair const &);
 }

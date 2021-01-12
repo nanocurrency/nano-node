@@ -146,7 +146,7 @@ TEST (peer_container, list_fanout)
 	}
 	ASSERT_EQ (1002, node.network.size ());
 	ASSERT_EQ (std::sqrt (1002.f), node.network.size_sqrt ());
-	size_t expected_size (std::ceil (std::sqrt (1002.f)));
+	auto expected_size (static_cast<size_t> (std::ceil (std::sqrt (1002.f))));
 	ASSERT_EQ (expected_size, node.network.fanout ());
 	auto list4 (node.network.list (node.network.fanout ()));
 	ASSERT_EQ (expected_size, list4.size ());

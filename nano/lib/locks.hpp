@@ -56,6 +56,7 @@ class unique_lock final
 public:
 	unique_lock () = default;
 	explicit unique_lock (Mutex & mutex_a);
+	unique_lock (Mutex & mutex_a, std::defer_lock_t) noexcept;
 	unique_lock (unique_lock && other) = delete;
 	unique_lock & operator= (unique_lock && other) noexcept;
 	~unique_lock () noexcept;
@@ -165,6 +166,8 @@ template <class T>
 class locked
 {
 public:
+	using value_type = T;
+
 	template <typename... Args>
 	locked (Args &&... args) :
 	obj (std::forward<Args> (args)...)

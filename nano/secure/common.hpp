@@ -263,13 +263,13 @@ public:
 	boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> begin () const;
 	boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> end () const;
 	std::string to_json () const;
-	// Vote round sequence number
-	uint64_t sequence;
+	// Vote timestamp
+	uint64_t timestamp;
 	// The blocks, or block hashes, that this vote is for
 	std::vector<boost::variant<std::shared_ptr<nano::block>, nano::block_hash>> blocks;
 	// Account that's voting
 	nano::account account;
-	// Signature of sequence + block hashes
+	// Signature of timestamp + block hashes
 	nano::signature signature;
 	static const std::string hash_prefix;
 };
@@ -297,8 +297,8 @@ std::unique_ptr<container_info_component> collect_container_info (vote_uniquer &
 enum class vote_code
 {
 	invalid, // Vote is not signed correctly
-	replay, // Vote does not have the highest sequence number, it's a replay
-	vote, // Vote has the highest sequence number
+	replay, // Vote does not have the highest timestamp, it's a replay
+	vote, // Vote has the highest timestamp
 	indeterminate // Unknown if replay or vote
 };
 
@@ -322,10 +322,6 @@ class process_return final
 {
 public:
 	nano::process_result code;
-	nano::account account;
-	nano::amount amount;
-	nano::account pending_account;
-	boost::optional<bool> state_is_send;
 	nano::signature_verification verified;
 	nano::amount previous_balance;
 };
@@ -376,13 +372,15 @@ public:
 	ledger_constants (nano::network_constants & network_constants);
 	ledger_constants (nano::nano_networks network_a);
 	nano::keypair zero_key;
-	nano::keypair test_genesis_key;
-	nano::account nano_test_account;
+	nano::keypair dev_genesis_key;
+	nano::account nano_dev_account;
 	nano::account nano_beta_account;
 	nano::account nano_live_account;
-	std::string nano_test_genesis;
+	nano::account nano_test_account;
+	std::string nano_dev_genesis;
 	std::string nano_beta_genesis;
 	std::string nano_live_genesis;
+	std::string nano_test_genesis;
 	nano::account genesis_account;
 	std::string genesis_block;
 	nano::block_hash genesis_hash;
@@ -412,6 +410,7 @@ public:
 	std::chrono::seconds cutoff;
 	std::chrono::seconds syn_cookie_cutoff;
 	std::chrono::minutes backup_interval;
+	std::chrono::seconds bootstrap_interval;
 	std::chrono::seconds search_pending_interval;
 	std::chrono::seconds peer_interval;
 	std::chrono::minutes unchecked_cleaning_interval;
@@ -419,7 +418,7 @@ public:
 	/** Maximum number of peers per IP */
 	size_t max_peers_per_ip;
 
-	/** The maximum amount of samples for a 2 week period on live or 3 days on beta */
+	/** The maximum amount of samples for a 2 week period on live or 1 day on beta */
 	uint64_t max_weight_samples;
 	uint64_t weight_period;
 };
@@ -429,7 +428,8 @@ class voting_constants
 {
 public:
 	voting_constants (nano::network_constants & network_constants);
-	size_t max_cache;
+	size_t const max_cache;
+	std::chrono::seconds const delay;
 };
 
 /** Port-mapping related constants whose value depends on the active network */
@@ -494,6 +494,7 @@ public:
 	bool unchecked_count = true;
 	bool account_count = true;
 	bool epoch_2 = true;
+	bool block_count = true;
 
 	void enable_all ();
 };
@@ -505,7 +506,7 @@ public:
 	nano::rep_weights rep_weights;
 	std::atomic<uint64_t> cemented_count{ 0 };
 	std::atomic<uint64_t> block_count{ 0 };
-	std::atomic<uint64_t> unchecked_count{ 0 };
+	std::atomic<uint64_t> pruned_count{ 0 };
 	std::atomic<uint64_t> account_count{ 0 };
 	std::atomic<bool> epoch_2_started{ false };
 };

@@ -450,6 +450,9 @@ std::string nano::stat::type_to_string (uint32_t key)
 		case nano::stat::type::telemetry:
 			res = "telemetry";
 			break;
+		case nano::stat::type::vote_generator:
+			res = "vote_generator";
+			break;
 	}
 	return res;
 }
@@ -655,12 +658,6 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::unreachable_host:
 			res = "unreachable_host";
 			break;
-		case nano::stat::detail::invalid_magic:
-			res = "invalid_magic";
-			break;
-		case nano::stat::detail::invalid_network:
-			res = "invalid_network";
-			break;
 		case nano::stat::detail::invalid_header:
 			res = "invalid_header";
 			break;
@@ -718,6 +715,12 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::requests_generated_votes:
 			res = "requests_generated_votes";
 			break;
+		case nano::stat::detail::requests_cached_late_hashes:
+			res = "requests_cached_late_hashes";
+			break;
+		case nano::stat::detail::requests_cached_late_votes:
+			res = "requests_cached_late_votes";
+			break;
 		case nano::stat::detail::requests_cannot_vote:
 			res = "requests_cannot_vote";
 			break;
@@ -747,6 +750,15 @@ std::string nano::stat::detail_to_string (uint32_t key)
 			break;
 		case nano::stat::detail::failed_send_telemetry_req:
 			res = "failed_send_telemetry_req";
+			break;
+		case nano::stat::detail::generator_broadcasts:
+			res = "generator_broadcasts";
+			break;
+		case nano::stat::detail::generator_replies:
+			res = "generator_replies";
+			break;
+		case nano::stat::detail::generator_replies_discarded:
+			res = "generator_replies_discarded";
 			break;
 	}
 	return res;

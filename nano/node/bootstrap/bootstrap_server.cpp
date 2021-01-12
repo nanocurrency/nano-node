@@ -5,6 +5,7 @@
 #include <nano/node/transport/tcp.hpp>
 
 #include <boost/format.hpp>
+#include <boost/variant/get.hpp>
 
 nano::bootstrap_listener::bootstrap_listener (uint16_t port_a, nano::node & node_a) :
 node (node_a),
@@ -16,7 +17,7 @@ void nano::bootstrap_listener::start ()
 {
 	nano::lock_guard<std::mutex> lock (mutex);
 	on = true;
-	listening_socket = std::make_shared<nano::server_socket> (node.shared (), boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::any (), port), node.config.tcp_incoming_connections_max);
+	listening_socket = std::make_shared<nano::server_socket> (node, boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::any (), port), node.config.tcp_incoming_connections_max);
 	boost::system::error_code ec;
 	listening_socket->start (ec);
 	if (ec)
@@ -431,7 +432,14 @@ void nano::bootstrap_server::receive_publish_action (boost::system::error_code c
 			{
 				if (is_realtime_connection ())
 				{
-					add_request (std::unique_ptr<nano::message> (request.release ()));
+					if (!nano::work_validate_entry (*request->block))
+					{
+						add_request (std::unique_ptr<nano::message> (request.release ()));
+					}
+					else
+					{
+						node->stats.inc_detail_only (nano::stat::type::error, nano::stat::detail::insufficient_work);
+					}
 				}
 				receive ();
 			}
@@ -484,7 +492,26 @@ void nano::bootstrap_server::receive_confirm_ack_action (boost::system::error_co
 		{
 			if (is_realtime_connection ())
 			{
-				add_request (std::unique_ptr<nano::message> (request.release ()));
+				bool process_vote (true);
+				if (header_a.block_type () != nano::block_type::not_a_block)
+				{
+					for (auto & vote_block : request->vote->blocks)
+					{
+						if (!vote_block.which ())
+						{
+							auto block (boost::get<std::shared_ptr<nano::block>> (vote_block));
+							if (nano::work_validate_entry (*block))
+							{
+								process_vote = false;
+								node->stats.inc_detail_only (nano::stat::type::error, nano::stat::detail::insufficient_work);
+							}
+						}
+					}
+				}
+				if (process_vote)
+				{
+					add_request (std::unique_ptr<nano::message> (request.release ()));
+				}
 			}
 			receive ();
 		}

@@ -48,12 +48,11 @@ function Get-RedirectedUri {
         $redirectUri
     }
 }
-
+$boost_url = Get-RedirectedUri "https://repo.nano.org/artifacts/boost-msvc14.2-1.70-full.zip"
+$BOOST_ROOT = "c:\local\boost_1_70_0"
 $qt5_root = "c:\qt"
-$rocksdb_url = Get-RedirectedUri "https://repo.nano.org/artifacts/rocksdb-msvc14.1-latest.7z"
 $qt5base_url = Get-RedirectedUri "https://repo.nano.org/artifacts/5.13.1-0-201909031231qtbase-Windows-Windows_10-MSVC2017-Windows-Windows_10-X86_64.7z"
 $qt5winextra_url = Get-RedirectedUri "https://repo.nano.org/artifacts/5.13.1-0-201909031231qtwinextras-Windows-Windows_10-MSVC2017-Windows-Windows_10-X86_64.7z"
-$rocksdb_artifact = "${env:TMP}\rocksdb.7z"
 $qt5base_artifact = "${env:TMP}\qt5base.7z"
 $qt5winextra_artifact = "${env:TMP}\qt5winextra.7z"
 
@@ -61,10 +60,12 @@ $qt5winextra_artifact = "${env:TMP}\qt5winextra.7z"
 (New-Object System.Net.WebClient).DownloadFile($qt5winextra_url, $qt5winextra_artifact)
 mkdir $qt5_root
 Push-Location $qt5_root
-7z x "${env:TMP}\qt5*.7z"
+7z x "${env:TMP}\qt5*.7z" -aoa
 Pop-Location
 
-Push-Location ${env:VCPKG_INSTALLATION_ROOT} 
-(New-Object System.Net.WebClient).DownloadFile($rocksdb_url, $rocksdb_artifact)
-7z x $rocksdb_artifact
-Pop-Location 
+
+mkdir $BOOST_ROOT
+Write-Output "BOOST_ROOT=$BOOST_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+(New-Object System.Net.WebClient).DownloadFile($boost_url, "${env:TMP}\boost-msvc.zip")
+Push-Location $BOOST_ROOT
+7z x "${env:TMP}\boost-msvc.zip" -aoa

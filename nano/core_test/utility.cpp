@@ -56,12 +56,12 @@ TEST (rate, unlimited)
 	nano::rate::token_bucket bucket (0, 0);
 	ASSERT_TRUE (bucket.try_consume (5));
 	ASSERT_EQ (bucket.largest_burst (), 5);
-	ASSERT_TRUE (bucket.try_consume (1e9));
-	ASSERT_EQ (bucket.largest_burst (), 1e9);
+	ASSERT_TRUE (bucket.try_consume (static_cast<size_t> (1e9)));
+	ASSERT_EQ (bucket.largest_burst (), static_cast<size_t> (1e9));
 
 	// With unlimited tokens, consuming always succeed
-	ASSERT_TRUE (bucket.try_consume (1e9));
-	ASSERT_EQ (bucket.largest_burst (), 1e9);
+	ASSERT_TRUE (bucket.try_consume (static_cast<size_t> (1e9)));
+	ASSERT_EQ (bucket.largest_burst (), static_cast<size_t> (1e9));
 }
 
 TEST (optional_ptr, basic)

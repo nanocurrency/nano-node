@@ -33,15 +33,10 @@ bool nano::transport::channel_udp::operator== (nano::transport::channel const & 
 	return result;
 }
 
-void nano::transport::channel_udp::send_buffer (nano::shared_const_buffer const & buffer_a, nano::stat::detail detail_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a, nano::buffer_drop_policy drop_policy_a)
+void nano::transport::channel_udp::send_buffer (nano::shared_const_buffer const & buffer_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a, nano::buffer_drop_policy drop_policy_a)
 {
 	set_last_packet_sent (std::chrono::steady_clock::now ());
-	channels.send (buffer_a, endpoint, callback (detail_a, callback_a));
-}
-
-std::function<void(boost::system::error_code const &, size_t)> nano::transport::channel_udp::callback (nano::stat::detail detail_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a) const
-{
-	return [node = std::weak_ptr<nano::node> (channels.node.shared ()), callback_a](boost::system::error_code const & ec, size_t size_a) {
+	channels.send (buffer_a, endpoint, [node = std::weak_ptr<nano::node> (channels.node.shared ()), callback_a](boost::system::error_code const & ec, size_t size_a) {
 		if (auto node_l = node.lock ())
 		{
 			if (ec == boost::system::errc::host_unreachable)
@@ -58,7 +53,7 @@ std::function<void(boost::system::error_code const &, size_t)> nano::transport::
 				callback_a (ec, size_a);
 			}
 		}
-	};
+	});
 }
 
 std::string nano::transport::channel_udp::to_string () const
@@ -104,7 +99,7 @@ std::shared_ptr<nano::transport::channel_udp> nano::transport::udp_channels::ins
 {
 	debug_assert (endpoint_a.address ().is_v6 ());
 	std::shared_ptr<nano::transport::channel_udp> result;
-	if (!node.network.not_a_peer (endpoint_a, node.config.allow_local_peers) && (node.network_params.network.is_test_network () || !max_ip_connections (endpoint_a)))
+	if (!node.network.not_a_peer (endpoint_a, node.config.allow_local_peers) && (node.network_params.network.is_dev_network () || !max_ip_connections (endpoint_a)))
 	{
 		nano::unique_lock<std::mutex> lock (mutex);
 		auto existing (channels.get<endpoint_tag> ().find (endpoint_a));
@@ -334,9 +329,9 @@ void nano::transport::udp_channels::stop ()
 		nano::lock_guard<std::mutex> lock (mutex);
 		local_endpoint = nano::endpoint (boost::asio::ip::address_v6::loopback (), 0);
 
-		// On test-net, close directly to avoid address-reuse issues. On livenet, close
+		// On devnet, close directly to avoid address-reuse issues. On livenet, close
 		// through the strand as multiple IO threads may access the socket.
-		if (node.network_params.network.is_test_network ())
+		if (node.network_params.network.is_dev_network ())
 		{
 			this->close_socket ();
 		}
@@ -485,7 +480,6 @@ public:
 					{
 						node.network.udp_channels.modify (new_channel, [&message_a](std::shared_ptr<nano::transport::channel_udp> channel_a) {
 							channel_a->set_node_id (message_a.response->first);
-							channel_a->set_last_packet_received (std::chrono::steady_clock::now ());
 						});
 					}
 				}
@@ -563,12 +557,6 @@ void nano::transport::udp_channels::receive_action (nano::message_buffer * data_
 				case nano::message_parser::parse_status::insufficient_work:
 					// We've already increment error count, update detail only
 					node.stats.inc_detail_only (nano::stat::type::error, nano::stat::detail::insufficient_work);
-					break;
-				case nano::message_parser::parse_status::invalid_magic:
-					node.stats.inc (nano::stat::type::udp, nano::stat::detail::invalid_magic);
-					break;
-				case nano::message_parser::parse_status::invalid_network:
-					node.stats.inc (nano::stat::type::udp, nano::stat::detail::invalid_network);
 					break;
 				case nano::message_parser::parse_status::invalid_header:
 					node.stats.inc (nano::stat::type::udp, nano::stat::detail::invalid_header);

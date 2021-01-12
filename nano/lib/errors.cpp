@@ -127,6 +127,8 @@ std::string nano::error_rpc_messages::message (int ev) const
 	{
 		case nano::error_rpc::generic:
 			return "Unknown error";
+		case nano::error_rpc::empty_response:
+			return "Empty response";
 		case nano::error_rpc::bad_destination:
 			return "Bad destination account";
 		case nano::error_rpc::bad_difficulty_format:
@@ -207,12 +209,10 @@ std::string nano::error_rpc_messages::message (int ev) const
 			return "Invalid timestamp";
 		case nano::error_rpc::invalid_threads_count:
 			return "Invalid threads count";
-		case nano::error_rpc::payment_account_balance:
-			return "Account has non-zero balance";
-		case nano::error_rpc::payment_unable_create_account:
-			return "Unable to create transaction account";
 		case nano::error_rpc::peer_not_found:
 			return "Peer not found";
+		case nano::error_rpc::pruning_disabled:
+			return "Pruning is disabled";
 		case nano::error_rpc::requires_port_and_address:
 			return "Both port and address required";
 		case nano::error_rpc::rpc_control_disabled:
@@ -271,8 +271,6 @@ std::string nano::error_config_messages::message (int ev) const
 			return "Invalid configuration value";
 		case nano::error_config::missing_value:
 			return "Missing value in configuration";
-		case nano::error_config::rocksdb_enabled_but_not_supported:
-			return "RocksDB has been enabled, but the node has not been built with RocksDB support. Set the CMake flag -DNANO_ROCKSDB=ON";
 	}
 
 	return "Invalid error code";
