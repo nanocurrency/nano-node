@@ -81,8 +81,8 @@ public:
 };
 
 /* Default memory order of normal std::atomic operations is std::memory_order_seq_cst which provides
-   a total global ordering of atomic operations are well as synchronization between threads. Weaker memory
-   ordering can provide benefits in some circumstances, such like in dumb counters where no other data is
+   a total global ordering of atomic operations as well as synchronization between threads. Weaker memory
+   ordering can provide benefits in some circumstances, like dumb counters where no other data is
    dependent on the ordering of these operations. This assumes T is a type of integer, not bool or char. */
 template <typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
 class relaxed_atomic_integral
@@ -168,13 +168,16 @@ public:
 	explicit thread_pool (unsigned, nano::thread_role::name);
 	~thread_pool ();
 
+	/** This will run when there is an available thread for execution */
 	void push_task (std::function<void()>);
 
-	// Run a task at a certain point in time
+	/** Run a task at a certain point in time */
 	void add_timed_task (std::chrono::steady_clock::time_point const & expiry_time, std::function<void()> task);
 
+	/** Stops any further pushed tasks from executing */
 	void stop ();
 
+	/** Number of threads in the thread pool */
 	unsigned get_num_threads () const;
 
 private:
