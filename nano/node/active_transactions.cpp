@@ -827,7 +827,7 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 				bool prioritized = roots.size () < prioritized_cutoff || multiplier > last_prioritized_multiplier.value_or (0);
 				result.election = nano::make_shared<nano::election> (
 				node, block_a, confirmation_action_a, [& node = node](auto const & rep_a, bool rep_is_active_a) {
-					if (rep_is_active_a)
+					if (!rep_is_active_a)
 					{
 						// Representative is defined as online if replying to live votes or rep_crawler queries
 						node.online_reps.observe (rep_a);
