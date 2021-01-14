@@ -128,7 +128,6 @@ public:
 	void enter_initial_password ();
 	bool enter_password (nano::transaction const &, std::string const &);
 	nano::public_key insert_adhoc (nano::raw_key const &, bool = true);
-	nano::public_key insert_adhoc (nano::transaction const &, nano::raw_key const &, bool = true);
 	bool insert_watch (nano::transaction const &, nano::public_key const &);
 	nano::public_key deterministic_insert (nano::transaction const &, bool = true);
 	nano::public_key deterministic_insert (uint32_t, bool = true);

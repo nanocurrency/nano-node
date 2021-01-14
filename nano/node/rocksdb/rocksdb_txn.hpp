@@ -41,6 +41,7 @@ private:
 	std::vector<nano::tables> tables_requiring_locks;
 	std::vector<nano::tables> tables_no_locks;
 	std::unordered_map<nano::tables, std::mutex> & mutexes;
+	bool active{ true };
 
 	void lock ();
 	void unlock ();
