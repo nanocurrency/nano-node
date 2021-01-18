@@ -146,10 +146,8 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 			node->start ();
 			nano::ipc::ipc_server ipc (*node, config.rpc);
 
-#if BOOST_PROCESS_SUPPORTED
 			std::unique_ptr<boost::process::child> rpc_process;
 			std::unique_ptr<boost::process::child> nano_pow_server_process;
-#endif
 
 			if (config.pow_server.enable)
 			{
@@ -160,13 +158,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 					std::exit (1);
 				}
 
-#if BOOST_PROCESS_SUPPORTED
 				nano_pow_server_process = std::make_unique<boost::process::child> (config.pow_server.pow_server_path, "--config_path", data_path / "config-nano-pow-server.toml");
-#else
-				splash->hide ();
-				show_error ("nano_pow_server is configured to start as a child process, but this is not supported on this system. Disable startup and start the server manually.");
-				std::exit (1);
-#endif
 			}
 			std::unique_ptr<nano::rpc> rpc;
 			std::unique_ptr<nano::rpc_handler_interface> rpc_handler;
@@ -193,12 +185,8 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 						throw std::runtime_error (std::string ("RPC is configured to spawn a new process however the file cannot be found at: ") + config.rpc.child_process.rpc_path);
 					}
 
-#if BOOST_PROCESS_SUPPORTED
 					auto network = node->network_params.network.get_current_network_as_string ();
 					rpc_process = std::make_unique<boost::process::child> (config.rpc.child_process.rpc_path, "--daemon", "--data_path", data_path, "--network", network);
-#else
-					show_error ("rpc_enable is set to true in the config. Set it to false and start the RPC server manually.");
-#endif
 				}
 			}
 			QObject::connect (&application, &QApplication::aboutToQuit, [&]() {

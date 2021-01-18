@@ -8,6 +8,3 @@ target_link_libraries(
   gtest
   Boost::boost
   Boost::coroutine)
-
-target_compile_definitions(
-  load_test PRIVATE -DBOOST_PROCESS_SUPPORTED=${BOOST_PROCESS_SUPPORTED})
