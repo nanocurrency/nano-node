@@ -66,7 +66,7 @@ subscriber (subscriber_a)
 void nano::ipc::action_handler::on_topic_confirmation (nanoapi::Envelope const & envelope_a)
 {
 	auto confirmationTopic (get_message<nanoapi::TopicConfirmation> (envelope_a));
-	ipc_server.get_broker ().subscribe (subscriber, std::move (confirmationTopic));
+	ipc_server.get_broker ()->subscribe (subscriber, std::move (confirmationTopic));
 	nanoapi::EventAckT ack;
 	create_response (ack);
 }
@@ -75,7 +75,7 @@ void nano::ipc::action_handler::on_service_register (nanoapi::Envelope const & e
 {
 	require_oneof (envelope_a, { nano::ipc::access_permission::api_service_register, nano::ipc::access_permission::service });
 	auto query (get_message<nanoapi::ServiceRegister> (envelope_a));
-	ipc_server.get_broker ().service_register (query->service_name, this->subscriber);
+	ipc_server.get_broker ()->service_register (query->service_name, this->subscriber);
 	nanoapi::SuccessT success;
 	create_response (success);
 }
@@ -90,7 +90,7 @@ void nano::ipc::action_handler::on_service_stop (nanoapi::Envelope const & envel
 	}
 	else
 	{
-		ipc_server.get_broker ().service_stop (query->service_name);
+		ipc_server.get_broker ()->service_stop (query->service_name);
 	}
 	nanoapi::SuccessT success;
 	create_response (success);
@@ -99,7 +99,7 @@ void nano::ipc::action_handler::on_service_stop (nanoapi::Envelope const & envel
 void nano::ipc::action_handler::on_topic_service_stop (nanoapi::Envelope const & envelope_a)
 {
 	auto topic (get_message<nanoapi::TopicServiceStop> (envelope_a));
-	ipc_server.get_broker ().subscribe (subscriber, std::move (topic));
+	ipc_server.get_broker ()->subscribe (subscriber, std::move (topic));
 	nanoapi::EventAckT ack;
 	create_response (ack);
 }

@@ -219,22 +219,25 @@ void nano::network::flood_vote_pr (std::shared_ptr<nano::vote> const & vote_a)
 
 void nano::network::flood_block_many (std::deque<std::shared_ptr<nano::block>> blocks_a, std::function<void()> callback_a, unsigned delay_a)
 {
-	auto block_l (blocks_a.front ());
-	blocks_a.pop_front ();
-	flood_block (block_l);
 	if (!blocks_a.empty ())
 	{
-		std::weak_ptr<nano::node> node_w (node.shared ());
-		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a + std::rand () % delay_a), [node_w, blocks (std::move (blocks_a)), callback_a, delay_a]() {
-			if (auto node_l = node_w.lock ())
-			{
-				node_l->network.flood_block_many (std::move (blocks), callback_a, delay_a);
-			}
-		});
-	}
-	else if (callback_a)
-	{
-		callback_a ();
+		auto block_l (blocks_a.front ());
+		blocks_a.pop_front ();
+		flood_block (block_l);
+		if (!blocks_a.empty ())
+		{
+			std::weak_ptr<nano::node> node_w (node.shared ());
+			node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a + std::rand () % delay_a), [node_w, blocks (std::move (blocks_a)), callback_a, delay_a]() {
+				if (auto node_l = node_w.lock ())
+				{
+					node_l->network.flood_block_many (std::move (blocks), callback_a, delay_a);
+				}
+			});
+		}
+		else if (callback_a)
+		{
+			callback_a ();
+		}
 	}
 }
 
@@ -248,7 +251,7 @@ void nano::network::send_confirm_req (std::shared_ptr<nano::transport::channel> 
 void nano::network::broadcast_confirm_req (std::shared_ptr<nano::block> block_a)
 {
 	auto list (std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> (node.rep_crawler.representative_endpoints (std::numeric_limits<size_t>::max ())));
-	if (list->empty () || node.rep_crawler.total_weight () < node.config.online_weight_minimum.number ())
+	if (list->empty () || node.rep_crawler.total_weight () < node.online_reps.delta ())
 	{
 		// broadcast request to all peers (with max limit 2 * sqrt (peers count))
 		auto peers (node.network.list (std::min<size_t> (100, node.network.fanout (2.0))));

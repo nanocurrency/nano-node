@@ -463,7 +463,7 @@ TEST (bootstrap_processor, frontiers_unconfirmed_threshold)
 	nano::keypair key1, key2;
 	// Generating invalid chain
 	auto threshold (node1->gap_cache.bootstrap_threshold () + 1);
-	ASSERT_LT (threshold, node1->config.online_weight_minimum.number ());
+	ASSERT_LT (threshold, node1->online_reps.delta ());
 	auto send1 (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, genesis.hash (), nano::dev_genesis_key.pub, nano::genesis_amount - threshold, key1.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (genesis.hash ())));
 	ASSERT_EQ (nano::process_result::progress, node1->process (*send1).code);
 	auto send2 (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, send1->hash (), nano::dev_genesis_key.pub, nano::genesis_amount - threshold - nano::Gxrb_ratio, key2.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send1->hash ())));
@@ -727,10 +727,7 @@ TEST (bootstrap_processor, lazy_hash_pruning)
 	}
 	ASSERT_TIMELY (2s, node1->active.empty () && node1->block_confirmed (change2->hash ()));
 	// Pruning action
-	{
-		auto transaction (node1->store.tx_begin_write ());
-		ASSERT_EQ (3, node1->ledger.pruning_action (transaction, change1->hash (), 1));
-	}
+	node1->ledger_pruning (2, false, false);
 	ASSERT_EQ (9, node0->ledger.cache.block_count);
 	ASSERT_EQ (0, node0->ledger.cache.pruned_count);
 	ASSERT_EQ (5, node1->ledger.cache.block_count);
@@ -931,10 +928,7 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 	}
 	ASSERT_TIMELY (2s, node1->active.empty () && node1->block_confirmed (state_open->hash ()));
 	// Pruning action
-	{
-		auto transaction (node1->store.tx_begin_write ());
-		ASSERT_EQ (1, node1->ledger.pruning_action (transaction, send1->hash (), 1));
-	}
+	node1->ledger_pruning (2, false, false);
 	ASSERT_EQ (5, node1->ledger.cache.block_count);
 	ASSERT_EQ (1, node1->ledger.cache.pruned_count);
 	ASSERT_FALSE (node1->ledger.block_exists (send1->hash ()));
@@ -973,6 +967,32 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 	ASSERT_FALSE (node2->ledger.block_exists (open->hash ()));
 	ASSERT_TRUE (node2->ledger.block_exists (state_open->hash ()));
 	node2->stop ();
+}
+
+TEST (bootstrap_processor, lazy_cancel)
+{
+	nano::system system;
+	nano::node_config config (nano::get_available_port (), system.logging);
+	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	nano::node_flags node_flags;
+	node_flags.disable_bootstrap_bulk_push_client = true;
+	auto node0 (system.add_node (config, node_flags));
+	nano::genesis genesis;
+	nano::keypair key1;
+	// Generating test chain
+	auto send1 (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, genesis.hash (), nano::dev_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key1.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node0->work_generate_blocking (genesis.hash ())));
+	// Start lazy bootstrap with last block in chain known
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work));
+	node1->network.udp_channels.insert (node0->network.endpoint (), node1->network_params.protocol.protocol_version);
+	node1->bootstrap_initiator.bootstrap_lazy (send1->hash (), true); // Start "confirmed" block bootstrap
+	{
+		auto lazy_attempt (node1->bootstrap_initiator.current_lazy_attempt ());
+		ASSERT_NE (nullptr, lazy_attempt);
+		ASSERT_EQ (send1->hash ().to_string (), lazy_attempt->id);
+	}
+	// Cancel failing lazy bootstrap
+	ASSERT_TIMELY (10s, !node1->bootstrap_initiator.in_progress ());
+	node1->stop ();
 }
 
 TEST (bootstrap_processor, wallet_lazy_frontier)
@@ -1362,10 +1382,7 @@ TEST (bulk, genesis_pruning)
 		election->force_confirm ();
 	}
 	ASSERT_TIMELY (2s, node1->active.empty () && node1->block_confirmed (send3->hash ()));
-	{
-		auto transaction (node1->store.tx_begin_write ());
-		ASSERT_EQ (2, node1->ledger.pruning_action (transaction, send2->hash (), 2));
-	}
+	node1->ledger_pruning (2, false, false);
 	ASSERT_EQ (2, node1->ledger.cache.pruned_count);
 	ASSERT_EQ (4, node1->ledger.cache.block_count);
 	ASSERT_FALSE (node1->ledger.block_exists (send1->hash ()));

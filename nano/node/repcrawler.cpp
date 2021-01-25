@@ -84,7 +84,7 @@ void nano::rep_crawler::ongoing_crawl ()
 	update_weights ();
 	validate ();
 	query (get_crawl_targets (total_weight_l));
-	auto sufficient_weight (total_weight_l > node.config.online_weight_minimum.number ());
+	auto sufficient_weight (total_weight_l > node.online_reps.delta ());
 	// If online weight drops below minimum, reach out to preconfigured peers
 	if (!sufficient_weight)
 	{
@@ -107,7 +107,7 @@ std::vector<std::shared_ptr<nano::transport::channel>> nano::rep_crawler::get_cr
 	constexpr size_t aggressive_count = 40;
 
 	// Crawl more aggressively if we lack sufficient total peer weight.
-	bool sufficient_weight (total_weight_a > node.config.online_weight_minimum.number ());
+	bool sufficient_weight (total_weight_a > node.online_reps.delta ());
 	uint16_t required_peer_count = sufficient_weight ? conservative_count : aggressive_count;
 
 	// Add random peers. We do this even if we have enough weight, in order to pick up reps
@@ -179,7 +179,7 @@ bool nano::rep_crawler::is_pr (nano::transport::channel const & channel_a) const
 	return result;
 }
 
-bool nano::rep_crawler::response (std::shared_ptr<nano::transport::channel> & channel_a, std::shared_ptr<nano::vote> & vote_a)
+bool nano::rep_crawler::response (std::shared_ptr<nano::transport::channel> const & channel_a, std::shared_ptr<nano::vote> const & vote_a)
 {
 	bool error = true;
 	nano::lock_guard<std::mutex> lock (active_mutex);

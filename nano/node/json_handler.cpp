@@ -638,15 +638,16 @@ void nano::json_handler::account_info ()
 			response_l.put ("modified_timestamp", std::to_string (info.modified));
 			response_l.put ("block_count", std::to_string (info.block_count));
 			response_l.put ("account_version", epoch_as_string (info.epoch ()));
-			response_l.put ("confirmation_height", std::to_string (confirmation_height_info.height));
 			auto confirmed_frontier = confirmation_height_info.frontier.to_string ();
 			if (include_confirmed)
 			{
+				response_l.put ("confirmed_height", std::to_string (confirmation_height_info.height));
 				response_l.put ("confirmed_frontier", confirmed_frontier);
 			}
 			else
 			{
 				// For backwards compatibility purposes
+				response_l.put ("confirmation_height", std::to_string (confirmation_height_info.height));
 				response_l.put ("confirmation_height_frontier", confirmed_frontier);
 			}
 
@@ -1994,12 +1995,12 @@ void nano::json_handler::confirmation_info ()
 
 void nano::json_handler::confirmation_quorum ()
 {
-	response_l.put ("quorum_delta", node.delta ().convert_to<std::string> ());
-	response_l.put ("online_weight_quorum_percent", std::to_string (node.config.online_weight_quorum));
+	response_l.put ("quorum_delta", node.online_reps.delta ().convert_to<std::string> ());
+	response_l.put ("online_weight_quorum_percent", std::to_string (node.online_reps.online_weight_quorum));
 	response_l.put ("online_weight_minimum", node.config.online_weight_minimum.to_string_dec ());
-	response_l.put ("online_stake_total", node.online_reps.online_stake ().convert_to<std::string> ());
+	response_l.put ("online_stake_total", node.online_reps.online ().convert_to<std::string> ());
+	response_l.put ("trended_stake_total", node.online_reps.trended ().convert_to<std::string> ());
 	response_l.put ("peers_stake_total", node.rep_crawler.total_weight ().convert_to<std::string> ());
-	response_l.put ("peers_stake_required", std::max (node.config.online_weight_minimum.number (), node.delta ()).convert_to<std::string> ());
 	if (request.get<bool> ("peer_details", false))
 	{
 		boost::property_tree::ptree peers;
@@ -2858,11 +2859,15 @@ void nano::json_handler::pending ()
 	const bool include_only_confirmed = request.get<bool> ("include_only_confirmed", false);
 	const bool sorting = request.get<bool> ("sorting", false);
 	auto simple (threshold.is_zero () && !source && !min_version && !sorting); // if simple, response is a list of hashes
+	const bool should_sort = sorting && !simple;
 	if (!ec)
 	{
 		boost::property_tree::ptree peers_l;
 		auto transaction (node.store.tx_begin_read ());
-		for (auto i (node.store.pending_begin (transaction, nano::pending_key (account, 0))), n (node.store.pending_end ()); i != n && nano::pending_key (i->first).account == account && peers_l.size () < count; ++i)
+		// The ptree container is used if there are any children nodes (e.g source/min_version) otherwise the amount container is used.
+		std::vector<std::pair<std::string, boost::property_tree::ptree>> hash_ptree_pairs;
+		std::vector<std::pair<std::string, nano::uint128_t>> hash_amount_pairs;
+		for (auto i (node.store.pending_begin (transaction, nano::pending_key (account, 0))), n (node.store.pending_end ()); i != n && nano::pending_key (i->first).account == account && (should_sort || peers_l.size () < count); ++i)
 		{
 			nano::pending_key const & key (i->first);
 			if (block_confirmed (node, transaction, key.hash, include_active, include_only_confirmed))
@@ -2890,29 +2895,55 @@ void nano::json_handler::pending ()
 							{
 								pending_tree.put ("min_version", epoch_as_string (info.epoch));
 							}
-							peers_l.add_child (key.hash.to_string (), pending_tree);
+
+							if (should_sort)
+							{
+								hash_ptree_pairs.emplace_back (key.hash.to_string (), pending_tree);
+							}
+							else
+							{
+								peers_l.add_child (key.hash.to_string (), pending_tree);
+							}
 						}
 						else
 						{
-							peers_l.put (key.hash.to_string (), info.amount.number ().convert_to<std::string> ());
+							if (should_sort)
+							{
+								hash_amount_pairs.emplace_back (key.hash.to_string (), info.amount.number ());
+							}
+							else
+							{
+								peers_l.put (key.hash.to_string (), info.amount.number ().convert_to<std::string> ());
+							}
 						}
 					}
 				}
 			}
 		}
-		if (sorting && !simple)
+		if (should_sort)
 		{
 			if (source || min_version)
 			{
-				peers_l.sort ([](const auto & child1, const auto & child2) -> bool {
-					return child1.second.template get<nano::uint128_t> ("amount") > child2.second.template get<nano::uint128_t> ("amount");
+				auto mid = hash_ptree_pairs.size () <= count ? hash_ptree_pairs.end () : hash_ptree_pairs.begin () + count;
+				std::partial_sort (hash_ptree_pairs.begin (), mid, hash_ptree_pairs.end (), [](const auto & lhs, const auto & rhs) {
+					return lhs.second.template get<nano::uint128_t> ("amount") > rhs.second.template get<nano::uint128_t> ("amount");
 				});
+				for (auto i = 0; i < hash_ptree_pairs.size () && i < count; ++i)
+				{
+					peers_l.add_child (hash_ptree_pairs[i].first, hash_ptree_pairs[i].second);
+				}
 			}
 			else
 			{
-				peers_l.sort ([](const auto & child1, const auto & child2) -> bool {
-					return child1.second.template get<nano::uint128_t> ("") > child2.second.template get<nano::uint128_t> ("");
+				auto mid = hash_amount_pairs.size () <= count ? hash_amount_pairs.end () : hash_amount_pairs.begin () + count;
+				std::partial_sort (hash_amount_pairs.begin (), mid, hash_amount_pairs.end (), [](const auto & lhs, const auto & rhs) {
+					return lhs.second > rhs.second;
 				});
+
+				for (auto i = 0; i < hash_amount_pairs.size () && i < count; ++i)
+				{
+					peers_l.put (hash_amount_pairs[i].first, hash_amount_pairs[i].second.convert_to<std::string> ());
+				}
 			}
 		}
 		response_l.add_child ("blocks", peers_l);
@@ -3108,6 +3139,25 @@ void nano::json_handler::process ()
 		}
 		rpc_l->response_errors ();
 	}));
+}
+
+void nano::json_handler::pruned_exists ()
+{
+	auto hash (hash_impl ());
+	if (!ec)
+	{
+		auto transaction (node.store.tx_begin_read ());
+		if (node.ledger.pruning)
+		{
+			auto exists (node.store.pruned_exists (transaction, hash));
+			response_l.put ("exists", exists ? "1" : "0");
+		}
+		else
+		{
+			ec = nano::error_rpc::pruning_disabled;
+		}
+	}
+	response_errors ();
 }
 
 void nano::json_handler::receive ()
@@ -5041,6 +5091,7 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("pending", &nano::json_handler::pending);
 	no_arg_funcs.emplace ("pending_exists", &nano::json_handler::pending_exists);
 	no_arg_funcs.emplace ("process", &nano::json_handler::process);
+	no_arg_funcs.emplace ("pruned_exists", &nano::json_handler::pruned_exists);
 	no_arg_funcs.emplace ("receive", &nano::json_handler::receive);
 	no_arg_funcs.emplace ("receive_minimum", &nano::json_handler::receive_minimum);
 	no_arg_funcs.emplace ("receive_minimum_set", &nano::json_handler::receive_minimum_set);
