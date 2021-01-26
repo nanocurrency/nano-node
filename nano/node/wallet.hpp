@@ -137,11 +137,11 @@ public:
 	bool import (std::string const &, std::string const &);
 	void serialize (std::string &);
 	bool change_sync (nano::account const &, nano::account const &);
-	void change_async (nano::account const &, nano::account const &, std::function<void(std::shared_ptr<nano::block>)> const &, uint64_t = 0, bool = true);
-	bool receive_sync (std::shared_ptr<nano::block>, nano::account const &, nano::uint128_t const &);
-	void receive_async (nano::block_hash const &, nano::account const &, nano::uint128_t const &, nano::account const &, std::function<void(std::shared_ptr<nano::block>)> const &, uint64_t = 0, bool = true);
+	void change_async (nano::account const &, nano::account const &, std::function<void(std::shared_ptr<nano::block> const &)> const &, uint64_t = 0, bool = true);
+	bool receive_sync (std::shared_ptr<nano::block> const &, nano::account const &, nano::uint128_t const &);
+	void receive_async (nano::block_hash const &, nano::account const &, nano::uint128_t const &, nano::account const &, std::function<void(std::shared_ptr<nano::block> const &)> const &, uint64_t = 0, bool = true);
 	nano::block_hash send_sync (nano::account const &, nano::account const &, nano::uint128_t const &);
-	void send_async (nano::account const &, nano::account const &, nano::uint128_t const &, std::function<void(std::shared_ptr<nano::block>)> const &, uint64_t = 0, bool = true, boost::optional<std::string> = {});
+	void send_async (nano::account const &, nano::account const &, nano::uint128_t const &, std::function<void(std::shared_ptr<nano::block> const &)> const &, uint64_t = 0, bool = true, boost::optional<std::string> = {});
 	void work_cache_blocking (nano::account const &, nano::root const &);
 	void work_update (nano::transaction const &, nano::account const &, nano::root const &, uint64_t);
 	// Schedule work generation after a few seconds
@@ -170,9 +170,9 @@ public:
 	work_watcher (nano::node &);
 	~work_watcher ();
 	void stop ();
-	void add (std::shared_ptr<nano::block>);
-	void update (nano::qualified_root const &, std::shared_ptr<nano::state_block>);
-	void watching (nano::qualified_root const &, std::shared_ptr<nano::state_block>);
+	void add (std::shared_ptr<nano::block> const &);
+	void update (nano::qualified_root const &, std::shared_ptr<nano::state_block> const &);
+	void watching (nano::qualified_root const &, std::shared_ptr<nano::state_block> const &);
 	void remove (nano::block const &);
 	bool is_watched (nano::qualified_root const &);
 	decltype (watched) list_watched ();
@@ -222,7 +222,7 @@ public:
 	void destroy (nano::wallet_id const &);
 	void reload ();
 	void do_wallet_actions ();
-	void queue_wallet_action (nano::uint128_t const &, std::shared_ptr<nano::wallet>, std::function<void(nano::wallet &)> const &);
+	void queue_wallet_action (nano::uint128_t const &, std::shared_ptr<nano::wallet> const &, std::function<void(nano::wallet &)>);
 	void foreach_representative (std::function<void(nano::public_key const &, nano::raw_key const &)> const &);
 	bool exists (nano::transaction const &, nano::account const &);
 	void stop ();

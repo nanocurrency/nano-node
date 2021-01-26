@@ -1069,14 +1069,14 @@ bool nano::wallet::change_sync (nano::account const & source_a, nano::account co
 	std::promise<bool> result;
 	std::future<bool> future = result.get_future ();
 	change_async (
-	source_a, representative_a, [&result](std::shared_ptr<nano::block> block_a) {
+	source_a, representative_a, [&result](std::shared_ptr<nano::block> const & block_a) {
 		result.set_value (block_a == nullptr);
 	},
 	true);
 	return future.get ();
 }
 
-void nano::wallet::change_async (nano::account const & source_a, nano::account const & representative_a, std::function<void(std::shared_ptr<nano::block>)> const & action_a, uint64_t work_a, bool generate_work_a)
+void nano::wallet::change_async (nano::account const & source_a, nano::account const & representative_a, std::function<void(std::shared_ptr<nano::block> const &)> const & action_a, uint64_t work_a, bool generate_work_a)
 {
 	auto this_l (shared_from_this ());
 	wallets.node.wallets.queue_wallet_action (nano::wallets::high_priority, this_l, [this_l, source_a, representative_a, action_a, work_a, generate_work_a](nano::wallet & wallet_a) {
@@ -1085,20 +1085,20 @@ void nano::wallet::change_async (nano::account const & source_a, nano::account c
 	});
 }
 
-bool nano::wallet::receive_sync (std::shared_ptr<nano::block> block_a, nano::account const & representative_a, nano::uint128_t const & amount_a)
+bool nano::wallet::receive_sync (std::shared_ptr<nano::block> const & block_a, nano::account const & representative_a, nano::uint128_t const & amount_a)
 {
 	std::promise<bool> result;
 	std::future<bool> future = result.get_future ();
 	auto destination (block_a->link ().is_zero () ? block_a->destination () : block_a->link ().as_account ());
 	receive_async (
-	block_a->hash (), representative_a, amount_a, destination, [&result](std::shared_ptr<nano::block> block_a) {
+	block_a->hash (), representative_a, amount_a, destination, [&result](std::shared_ptr<nano::block> const & block_a) {
 		result.set_value (block_a == nullptr);
 	},
 	true);
 	return future.get ();
 }
 
-void nano::wallet::receive_async (nano::block_hash const & hash_a, nano::account const & representative_a, nano::uint128_t const & amount_a, nano::account const & account_a, std::function<void(std::shared_ptr<nano::block>)> const & action_a, uint64_t work_a, bool generate_work_a)
+void nano::wallet::receive_async (nano::block_hash const & hash_a, nano::account const & representative_a, nano::uint128_t const & amount_a, nano::account const & account_a, std::function<void(std::shared_ptr<nano::block> const &)> const & action_a, uint64_t work_a, bool generate_work_a)
 {
 	auto this_l (shared_from_this ());
 	wallets.node.wallets.queue_wallet_action (amount_a, this_l, [this_l, hash_a, representative_a, amount_a, account_a, action_a, work_a, generate_work_a](nano::wallet & wallet_a) {
@@ -1112,14 +1112,14 @@ nano::block_hash nano::wallet::send_sync (nano::account const & source_a, nano::
 	std::promise<nano::block_hash> result;
 	std::future<nano::block_hash> future = result.get_future ();
 	send_async (
-	source_a, account_a, amount_a, [&result](std::shared_ptr<nano::block> block_a) {
+	source_a, account_a, amount_a, [&result](std::shared_ptr<nano::block> const & block_a) {
 		result.set_value (block_a->hash ());
 	},
 	true);
 	return future.get ();
 }
 
-void nano::wallet::send_async (nano::account const & source_a, nano::account const & account_a, nano::uint128_t const & amount_a, std::function<void(std::shared_ptr<nano::block>)> const & action_a, uint64_t work_a, bool generate_work_a, boost::optional<std::string> id_a)
+void nano::wallet::send_async (nano::account const & source_a, nano::account const & account_a, nano::uint128_t const & amount_a, std::function<void(std::shared_ptr<nano::block> const &)> const & action_a, uint64_t work_a, bool generate_work_a, boost::optional<std::string> id_a)
 {
 	auto this_l (shared_from_this ());
 	wallets.node.wallets.queue_wallet_action (nano::wallets::high_priority, this_l, [this_l, source_a, account_a, amount_a, action_a, work_a, generate_work_a, id_a](nano::wallet & wallet_a) {
@@ -1203,7 +1203,7 @@ bool nano::wallet::search_pending ()
 						{
 							auto representative = store.representative (wallet_transaction);
 							// Receive confirmed block
-							receive_async (hash, representative, amount, account, [](std::shared_ptr<nano::block>) {});
+							receive_async (hash, representative, amount, account, [](std::shared_ptr<nano::block> const &) {});
 						}
 						else if (!wallets.node.confirmation_height_processor.is_processing_block (hash))
 						{
@@ -1340,7 +1340,7 @@ void nano::work_watcher::stop ()
 	stopped = true;
 }
 
-void nano::work_watcher::add (std::shared_ptr<nano::block> block_a)
+void nano::work_watcher::add (std::shared_ptr<nano::block> const & block_a)
 {
 	auto block_l (std::dynamic_pointer_cast<nano::state_block> (block_a));
 	if (!stopped && block_l != nullptr)
@@ -1353,13 +1353,13 @@ void nano::work_watcher::add (std::shared_ptr<nano::block> block_a)
 	}
 }
 
-void nano::work_watcher::update (nano::qualified_root const & root_a, std::shared_ptr<nano::state_block> block_a)
+void nano::work_watcher::update (nano::qualified_root const & root_a, std::shared_ptr<nano::state_block> const & block_a)
 {
 	nano::lock_guard<std::mutex> guard (mutex);
 	watched[root_a] = block_a;
 }
 
-void nano::work_watcher::watching (nano::qualified_root const & root_a, std::shared_ptr<nano::state_block> block_a)
+void nano::work_watcher::watching (nano::qualified_root const & root_a, std::shared_ptr<nano::state_block> const & block_a)
 {
 	std::weak_ptr<nano::work_watcher> watcher_w (shared_from_this ());
 	node.alarm.add (std::chrono::steady_clock::now () + node.config.work_watcher_period, [block_a, root_a, watcher_w]() {
@@ -1643,7 +1643,7 @@ void nano::wallets::reload ()
 	}
 }
 
-void nano::wallets::queue_wallet_action (nano::uint128_t const & amount_a, std::shared_ptr<nano::wallet> wallet_a, std::function<void(nano::wallet &)> const & action_a)
+void nano::wallets::queue_wallet_action (nano::uint128_t const & amount_a, std::shared_ptr<nano::wallet> const & wallet_a, std::function<void(nano::wallet &)> action_a)
 {
 	{
 		nano::lock_guard<std::mutex> action_lock (action_mutex);

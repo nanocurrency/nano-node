@@ -109,7 +109,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 					{
 						// Launch rpc in-process
 						nano::rpc_config rpc_config;
-						auto error = nano::read_rpc_config_toml (data_path, rpc_config);
+						auto error = nano::read_rpc_config_toml (data_path, rpc_config, flags.rpc_config_overrides);
 						if (error)
 						{
 							std::cout << error.get_message () << std::endl;

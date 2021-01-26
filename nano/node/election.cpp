@@ -18,7 +18,7 @@ nano::election_vote_result::election_vote_result (bool replay_a, bool processed_
 	processed = processed_a;
 }
 
-nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> block_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a, std::function<void(nano::account const &)> const & live_vote_action_a, bool prioritized_a, nano::election_behavior election_behavior_a) :
+nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> const & block_a, std::function<void(std::shared_ptr<nano::block> const &)> const & confirmation_action_a, std::function<void(nano::account const &)> const & live_vote_action_a, bool prioritized_a, nano::election_behavior election_behavior_a) :
 confirmation_action (confirmation_action_a),
 live_vote_action (live_vote_action_a),
 prioritized_m (prioritized_a),

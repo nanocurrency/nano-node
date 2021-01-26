@@ -144,8 +144,8 @@ public:
 	std::string action;
 	boost::property_tree::ptree response_l;
 	std::shared_ptr<nano::wallet> wallet_impl ();
-	bool wallet_locked_impl (nano::transaction const &, std::shared_ptr<nano::wallet>);
-	bool wallet_account_impl (nano::transaction const &, std::shared_ptr<nano::wallet>, nano::account const &);
+	bool wallet_locked_impl (nano::transaction const &, std::shared_ptr<nano::wallet> const &);
+	bool wallet_account_impl (nano::transaction const &, std::shared_ptr<nano::wallet> const &, nano::account const &);
 	nano::account account_impl (std::string = "", std::error_code = nano::error_common::bad_account_number);
 	nano::account_info account_info_impl (nano::transaction const &, nano::account const &);
 	nano::amount amount_impl ();
@@ -179,7 +179,7 @@ public:
 	}
 
 	void process_request (std::string const &, std::string const & body_a, std::function<void(std::string const &)> response_a) override;
-	void process_request_v2 (rpc_handler_request_params const & params_a, std::string const & body_a, std::function<void(std::shared_ptr<std::string>)> response_a) override;
+	void process_request_v2 (rpc_handler_request_params const & params_a, std::string const & body_a, std::function<void(std::shared_ptr<std::string> const &)> response_a) override;
 
 	void stop () override
 	{

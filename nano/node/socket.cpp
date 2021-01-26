@@ -41,7 +41,7 @@ void nano::socket::async_connect (nano::tcp_endpoint const & endpoint_a, std::fu
 	}));
 }
 
-void nano::socket::async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a, size_t size_a, std::function<void(boost::system::error_code const &, size_t)> callback_a)
+void nano::socket::async_read (std::shared_ptr<std::vector<uint8_t>> const & buffer_a, size_t size_a, std::function<void(boost::system::error_code const &, size_t)> callback_a)
 {
 	if (size_a <= buffer_a->size ())
 	{
@@ -233,7 +233,7 @@ void nano::server_socket::close ()
 	}));
 }
 
-void nano::server_socket::on_connection (std::function<bool(std::shared_ptr<nano::socket>, boost::system::error_code const &)> callback_a)
+void nano::server_socket::on_connection (std::function<bool(std::shared_ptr<nano::socket> const &, boost::system::error_code const &)> callback_a)
 {
 	auto this_l (std::static_pointer_cast<nano::server_socket> (shared_from_this ()));
 
