@@ -2983,6 +2983,7 @@ void nano::json_handler::process ()
 {
 	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		const bool watch_work_l = rpc_l->request.get<bool> ("watch_work", true);
+		const bool is_async = rpc_l->request.get<bool> ("async", false);
 		auto block (rpc_l->block_impl (true));
 
 		// State blocks subtype check
@@ -3056,80 +3057,88 @@ void nano::json_handler::process ()
 		{
 			if (!nano::work_validate_entry (*block))
 			{
-				auto result (rpc_l->node.process_local (block, watch_work_l));
-				switch (result.code)
+				if (!is_async)
 				{
-					case nano::process_result::progress:
+					auto result (rpc_l->node.process_local (block, watch_work_l));
+					switch (result.code)
 					{
-						rpc_l->response_l.put ("hash", block->hash ().to_string ());
-						break;
-					}
-					case nano::process_result::gap_previous:
-					{
-						rpc_l->ec = nano::error_process::gap_previous;
-						break;
-					}
-					case nano::process_result::gap_source:
-					{
-						rpc_l->ec = nano::error_process::gap_source;
-						break;
-					}
-					case nano::process_result::old:
-					{
-						rpc_l->ec = nano::error_process::old;
-						break;
-					}
-					case nano::process_result::bad_signature:
-					{
-						rpc_l->ec = nano::error_process::bad_signature;
-						break;
-					}
-					case nano::process_result::negative_spend:
-					{
-						// TODO once we get RPC versioning, this should be changed to "negative spend"
-						rpc_l->ec = nano::error_process::negative_spend;
-						break;
-					}
-					case nano::process_result::balance_mismatch:
-					{
-						rpc_l->ec = nano::error_process::balance_mismatch;
-						break;
-					}
-					case nano::process_result::unreceivable:
-					{
-						rpc_l->ec = nano::error_process::unreceivable;
-						break;
-					}
-					case nano::process_result::block_position:
-					{
-						rpc_l->ec = nano::error_process::block_position;
-						break;
-					}
-					case nano::process_result::fork:
-					{
-						const bool force = rpc_l->request.get<bool> ("force", false);
-						if (force)
+						case nano::process_result::progress:
 						{
-							rpc_l->node.active.erase (*block);
-							rpc_l->node.block_processor.force (block);
 							rpc_l->response_l.put ("hash", block->hash ().to_string ());
+							break;
 						}
-						else
+						case nano::process_result::gap_previous:
 						{
-							rpc_l->ec = nano::error_process::fork;
+							rpc_l->ec = nano::error_process::gap_previous;
+							break;
 						}
-						break;
+						case nano::process_result::gap_source:
+						{
+							rpc_l->ec = nano::error_process::gap_source;
+							break;
+						}
+						case nano::process_result::old:
+						{
+							rpc_l->ec = nano::error_process::old;
+							break;
+						}
+						case nano::process_result::bad_signature:
+						{
+							rpc_l->ec = nano::error_process::bad_signature;
+							break;
+						}
+						case nano::process_result::negative_spend:
+						{
+							// TODO once we get RPC versioning, this should be changed to "negative spend"
+							rpc_l->ec = nano::error_process::negative_spend;
+							break;
+						}
+						case nano::process_result::balance_mismatch:
+						{
+							rpc_l->ec = nano::error_process::balance_mismatch;
+							break;
+						}
+						case nano::process_result::unreceivable:
+						{
+							rpc_l->ec = nano::error_process::unreceivable;
+							break;
+						}
+						case nano::process_result::block_position:
+						{
+							rpc_l->ec = nano::error_process::block_position;
+							break;
+						}
+						case nano::process_result::fork:
+						{
+							const bool force = rpc_l->request.get<bool> ("force", false);
+							if (force)
+							{
+								rpc_l->node.active.erase (*block);
+								rpc_l->node.block_processor.force (block);
+								rpc_l->response_l.put ("hash", block->hash ().to_string ());
+							}
+							else
+							{
+								rpc_l->ec = nano::error_process::fork;
+							}
+							break;
+						}
+						case nano::process_result::insufficient_work:
+						{
+							rpc_l->ec = nano::error_process::insufficient_work;
+							break;
+						}
+						default:
+						{
+							rpc_l->ec = nano::error_process::other;
+							break;
+						}
 					}
-					case nano::process_result::insufficient_work:
-					{
-						rpc_l->ec = nano::error_process::insufficient_work;
-						break;
-					}
-					default:
-					{
-						rpc_l->ec = nano::error_process::other;
-						break;
-					}
+				}
+				else
+				{
+					rpc_l->node.process_local_async (block, watch_work_l);
+					rpc_l->response_l.put ("started", "1");
 				}
 			}
 			else

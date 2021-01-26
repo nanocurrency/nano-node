@@ -114,6 +114,7 @@ public:
 	void process_active (std::shared_ptr<nano::block> const &);
 	nano::process_return process (nano::block &);
 	nano::process_return process_local (std::shared_ptr<nano::block> const &, bool const = false);
+	void process_local_async (std::shared_ptr<nano::block> const &, bool const = false);
 	void keepalive_preconfigured (std::vector<std::string> const &);
 	nano::block_hash latest (nano::account const &);
 	nano::uint128_t balance (nano::account const &);
