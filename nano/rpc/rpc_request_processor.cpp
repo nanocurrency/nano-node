@@ -45,7 +45,7 @@ void nano::rpc_request_processor::stop ()
 	}
 }
 
-void nano::rpc_request_processor::add (std::shared_ptr<rpc_request> request)
+void nano::rpc_request_processor::add (std::shared_ptr<rpc_request> const & request)
 {
 	{
 		nano::lock_guard<std::mutex> lk (request_mutex);
@@ -54,7 +54,7 @@ void nano::rpc_request_processor::add (std::shared_ptr<rpc_request> request)
 	condition.notify_one ();
 }
 
-void nano::rpc_request_processor::read_payload (std::shared_ptr<nano::ipc_connection> connection, std::shared_ptr<std::vector<uint8_t>> res, std::shared_ptr<nano::rpc_request> rpc_request)
+void nano::rpc_request_processor::read_payload (std::shared_ptr<nano::ipc_connection> const & connection, std::shared_ptr<std::vector<uint8_t>> const & res, std::shared_ptr<nano::rpc_request> const & rpc_request)
 {
 	uint32_t payload_size_l = boost::endian::big_to_native (*reinterpret_cast<uint32_t *> (res->data ()));
 	res->resize (payload_size_l);
@@ -85,7 +85,7 @@ void nano::rpc_request_processor::make_available (nano::ipc_connection & connect
 }
 
 // Connection does not exist or has been closed, try to connect to it again and then resend IPC request
-void nano::rpc_request_processor::try_reconnect_and_execute_request (std::shared_ptr<nano::ipc_connection> connection, nano::shared_const_buffer const & req, std::shared_ptr<std::vector<uint8_t>> res, std::shared_ptr<nano::rpc_request> rpc_request)
+void nano::rpc_request_processor::try_reconnect_and_execute_request (std::shared_ptr<nano::ipc_connection> const & connection, nano::shared_const_buffer const & req, std::shared_ptr<std::vector<uint8_t>> const & res, std::shared_ptr<nano::rpc_request> const & rpc_request)
 {
 	connection->client.async_connect (ipc_address, ipc_port, [this, connection, req, res, rpc_request](nano::error err) {
 		if (!err)

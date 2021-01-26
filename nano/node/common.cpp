@@ -476,7 +476,7 @@ void nano::message_parser::deserialize_confirm_ack (nano::stream & stream_a, nan
 		{
 			if (!vote_block.which ())
 			{
-				auto block (boost::get<std::shared_ptr<nano::block>> (vote_block));
+				auto const & block (boost::get<std::shared_ptr<nano::block>> (vote_block));
 				if (nano::work_validate_entry (*block))
 				{
 					status = parse_status::insufficient_work;
@@ -615,7 +615,7 @@ digest (digest_a)
 	}
 }
 
-nano::publish::publish (std::shared_ptr<nano::block> block_a) :
+nano::publish::publish (std::shared_ptr<nano::block> const & block_a) :
 message (nano::message_type::publish),
 block (block_a)
 {
@@ -656,7 +656,7 @@ message (header_a)
 	}
 }
 
-nano::confirm_req::confirm_req (std::shared_ptr<nano::block> block_a) :
+nano::confirm_req::confirm_req (std::shared_ptr<nano::block> const & block_a) :
 message (nano::message_type::confirm_req),
 block (block_a)
 {
@@ -797,7 +797,7 @@ vote (nano::make_shared<nano::vote> (error_a, stream_a, header.block_type ()))
 	}
 }
 
-nano::confirm_ack::confirm_ack (std::shared_ptr<nano::vote> vote_a) :
+nano::confirm_ack::confirm_ack (std::shared_ptr<nano::vote> const & vote_a) :
 message (nano::message_type::confirm_ack),
 vote (vote_a)
 {
