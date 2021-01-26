@@ -23,6 +23,7 @@ start_time_m (std::chrono::steady_clock::now ())
 {
 	++connections->connections_count;
 	receive_buffer->resize (256);
+	channel->set_endpoint ();
 }
 
 nano::bootstrap_client::~bootstrap_client ()
