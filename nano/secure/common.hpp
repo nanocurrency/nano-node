@@ -197,7 +197,7 @@ class unchecked_info final
 {
 public:
 	unchecked_info () = default;
-	unchecked_info (std::shared_ptr<nano::block>, nano::account const &, uint64_t, nano::signature_verification = nano::signature_verification::unknown, bool = false);
+	unchecked_info (std::shared_ptr<nano::block> const &, nano::account const &, uint64_t, nano::signature_verification = nano::signature_verification::unknown, bool = false);
 	void serialize (nano::stream &) const;
 	bool deserialize (nano::stream &);
 	std::shared_ptr<nano::block> block;
@@ -249,7 +249,7 @@ public:
 	vote (nano::vote const &);
 	vote (bool &, nano::stream &, nano::block_uniquer * = nullptr);
 	vote (bool &, nano::stream &, nano::block_type, nano::block_uniquer * = nullptr);
-	vote (nano::account const &, nano::raw_key const &, uint64_t, std::shared_ptr<nano::block>);
+	vote (nano::account const &, nano::raw_key const &, uint64_t, std::shared_ptr<nano::block> const &);
 	vote (nano::account const &, nano::raw_key const &, uint64_t, std::vector<nano::block_hash> const &);
 	std::string hashes_string () const;
 	nano::block_hash hash () const;
@@ -283,7 +283,7 @@ public:
 	using value_type = std::pair<const nano::block_hash, std::weak_ptr<nano::vote>>;
 
 	vote_uniquer (nano::block_uniquer &);
-	std::shared_ptr<nano::vote> unique (std::shared_ptr<nano::vote>);
+	std::shared_ptr<nano::vote> unique (std::shared_ptr<nano::vote> const &);
 	size_t size ();
 
 private:

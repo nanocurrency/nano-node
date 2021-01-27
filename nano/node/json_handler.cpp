@@ -193,7 +193,7 @@ std::shared_ptr<nano::wallet> nano::json_handler::wallet_impl ()
 	return nullptr;
 }
 
-bool nano::json_handler::wallet_locked_impl (nano::transaction const & transaction_a, std::shared_ptr<nano::wallet> wallet_a)
+bool nano::json_handler::wallet_locked_impl (nano::transaction const & transaction_a, std::shared_ptr<nano::wallet> const & wallet_a)
 {
 	bool result (false);
 	if (!ec)
@@ -207,7 +207,7 @@ bool nano::json_handler::wallet_locked_impl (nano::transaction const & transacti
 	return result;
 }
 
-bool nano::json_handler::wallet_account_impl (nano::transaction const & transaction_a, std::shared_ptr<nano::wallet> wallet_a, nano::account const & account_a)
+bool nano::json_handler::wallet_account_impl (nano::transaction const & transaction_a, std::shared_ptr<nano::wallet> const & wallet_a, nano::account const & account_a)
 {
 	bool result (false);
 	if (!ec)
@@ -840,7 +840,7 @@ void nano::json_handler::account_representative_set ()
 				auto response_a (rpc_l->response);
 				auto response_data (std::make_shared<boost::property_tree::ptree> (rpc_l->response_l));
 				wallet->change_async (
-				account, representative, [response_a, response_data](std::shared_ptr<nano::block> block) {
+				account, representative, [response_a, response_data](std::shared_ptr<nano::block> const & block) {
 					if (block != nullptr)
 					{
 						response_data->put ("block", block->hash ().to_string ());
@@ -1484,7 +1484,7 @@ void nano::json_handler::block_create ()
 			rpc_l->response (ostream.str ());
 		};
 		// Wrapper from argument to lambda capture, to extend the block's scope
-		auto get_callback_l = [rpc_l, block_response_put_l](std::shared_ptr<nano::block> block_a) {
+		auto get_callback_l = [rpc_l, block_response_put_l](std::shared_ptr<nano::block> const & block_a) {
 			// Callback upon work generation success or failure
 			return [block_a, rpc_l, block_response_put_l](boost::optional<uint64_t> const & work_a) {
 				if (block_a != nullptr)
@@ -2983,6 +2983,7 @@ void nano::json_handler::process ()
 {
 	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		const bool watch_work_l = rpc_l->request.get<bool> ("watch_work", true);
+		const bool is_async = rpc_l->request.get<bool> ("async", false);
 		auto block (rpc_l->block_impl (true));
 
 		// State blocks subtype check
@@ -3056,80 +3057,88 @@ void nano::json_handler::process ()
 		{
 			if (!nano::work_validate_entry (*block))
 			{
-				auto result (rpc_l->node.process_local (block, watch_work_l));
-				switch (result.code)
+				if (!is_async)
 				{
-					case nano::process_result::progress:
+					auto result (rpc_l->node.process_local (block, watch_work_l));
+					switch (result.code)
 					{
-						rpc_l->response_l.put ("hash", block->hash ().to_string ());
-						break;
-					}
-					case nano::process_result::gap_previous:
-					{
-						rpc_l->ec = nano::error_process::gap_previous;
-						break;
-					}
-					case nano::process_result::gap_source:
-					{
-						rpc_l->ec = nano::error_process::gap_source;
-						break;
-					}
-					case nano::process_result::old:
-					{
-						rpc_l->ec = nano::error_process::old;
-						break;
-					}
-					case nano::process_result::bad_signature:
-					{
-						rpc_l->ec = nano::error_process::bad_signature;
-						break;
-					}
-					case nano::process_result::negative_spend:
-					{
-						// TODO once we get RPC versioning, this should be changed to "negative spend"
-						rpc_l->ec = nano::error_process::negative_spend;
-						break;
-					}
-					case nano::process_result::balance_mismatch:
-					{
-						rpc_l->ec = nano::error_process::balance_mismatch;
-						break;
-					}
-					case nano::process_result::unreceivable:
-					{
-						rpc_l->ec = nano::error_process::unreceivable;
-						break;
-					}
-					case nano::process_result::block_position:
-					{
-						rpc_l->ec = nano::error_process::block_position;
-						break;
-					}
-					case nano::process_result::fork:
-					{
-						const bool force = rpc_l->request.get<bool> ("force", false);
-						if (force)
+						case nano::process_result::progress:
 						{
-							rpc_l->node.active.erase (*block);
-							rpc_l->node.block_processor.force (block);
 							rpc_l->response_l.put ("hash", block->hash ().to_string ());
+							break;
 						}
-						else
+						case nano::process_result::gap_previous:
 						{
-							rpc_l->ec = nano::error_process::fork;
+							rpc_l->ec = nano::error_process::gap_previous;
+							break;
 						}
-						break;
+						case nano::process_result::gap_source:
+						{
+							rpc_l->ec = nano::error_process::gap_source;
+							break;
+						}
+						case nano::process_result::old:
+						{
+							rpc_l->ec = nano::error_process::old;
+							break;
+						}
+						case nano::process_result::bad_signature:
+						{
+							rpc_l->ec = nano::error_process::bad_signature;
+							break;
+						}
+						case nano::process_result::negative_spend:
+						{
+							// TODO once we get RPC versioning, this should be changed to "negative spend"
+							rpc_l->ec = nano::error_process::negative_spend;
+							break;
+						}
+						case nano::process_result::balance_mismatch:
+						{
+							rpc_l->ec = nano::error_process::balance_mismatch;
+							break;
+						}
+						case nano::process_result::unreceivable:
+						{
+							rpc_l->ec = nano::error_process::unreceivable;
+							break;
+						}
+						case nano::process_result::block_position:
+						{
+							rpc_l->ec = nano::error_process::block_position;
+							break;
+						}
+						case nano::process_result::fork:
+						{
+							const bool force = rpc_l->request.get<bool> ("force", false);
+							if (force)
+							{
+								rpc_l->node.active.erase (*block);
+								rpc_l->node.block_processor.force (block);
+								rpc_l->response_l.put ("hash", block->hash ().to_string ());
+							}
+							else
+							{
+								rpc_l->ec = nano::error_process::fork;
+							}
+							break;
+						}
+						case nano::process_result::insufficient_work:
+						{
+							rpc_l->ec = nano::error_process::insufficient_work;
+							break;
+						}
+						default:
+						{
+							rpc_l->ec = nano::error_process::other;
+							break;
+						}
 					}
-					case nano::process_result::insufficient_work:
-					{
-						rpc_l->ec = nano::error_process::insufficient_work;
-						break;
-					}
-					default:
-					{
-						rpc_l->ec = nano::error_process::other;
-						break;
-					}
+				}
+				else
+				{
+					rpc_l->node.process_local_async (block, watch_work_l);
+					rpc_l->response_l.put ("started", "1");
 				}
 			}
 			else
@@ -3215,7 +3224,7 @@ void nano::json_handler::receive ()
 						bool generate_work (work == 0); // Disable work generation if "work" option is provided
 						auto response_a (response);
 						wallet->receive_async (
-						hash, representative, node.network_params.ledger.genesis_amount, account, [response_a](std::shared_ptr<nano::block> block_a) {
+						hash, representative, node.network_params.ledger.genesis_amount, account, [response_a](std::shared_ptr<nano::block> const & block_a) {
 							if (block_a != nullptr)
 							{
 								boost::property_tree::ptree response_l;
@@ -3552,7 +3561,7 @@ void nano::json_handler::send ()
 			auto response_a (response);
 			auto response_data (std::make_shared<boost::property_tree::ptree> (response_l));
 			wallet->send_async (
-			source, destination, amount.number (), [balance, amount, response_a, response_data](std::shared_ptr<nano::block> block_a) {
+			source, destination, amount.number (), [balance, amount, response_a, response_data](std::shared_ptr<nano::block> const & block_a) {
 				if (block_a != nullptr)
 				{
 					response_data->put ("block", block_a->hash ().to_string ());
@@ -4653,7 +4662,7 @@ void nano::json_handler::wallet_representative_set ()
 				for (auto & account : accounts)
 				{
 					wallet->change_async (
-					account, representative, [](std::shared_ptr<nano::block>) {}, 0, false);
+					account, representative, [](std::shared_ptr<nano::block> const &) {}, 0, false);
 				}
 			}
 		}
@@ -4995,7 +5004,7 @@ void nano::inprocess_rpc_handler::process_request (std::string const &, std::str
 	handler->process_request ();
 }
 
-void nano::inprocess_rpc_handler::process_request_v2 (rpc_handler_request_params const & params_a, std::string const & body_a, std::function<void(std::shared_ptr<std::string>)> response_a)
+void nano::inprocess_rpc_handler::process_request_v2 (rpc_handler_request_params const & params_a, std::string const & body_a, std::function<void(std::shared_ptr<std::string> const &)> response_a)
 {
 	std::string body_l = params_a.json_envelope (body_a);
 	auto handler (std::make_shared<nano::ipc::flatbuffers_handler> (node, ipc_server, nullptr, node.config.ipc_config));
