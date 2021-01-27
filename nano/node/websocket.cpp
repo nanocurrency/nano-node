@@ -612,7 +612,7 @@ void nano::websocket::listener::on_accept (boost::system::error_code ec)
 	}
 }
 
-void nano::websocket::listener::broadcast_confirmation (std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype, nano::election_status const & election_status_a, std::vector<nano::vote_with_weight_info> const & election_votes_a)
+void nano::websocket::listener::broadcast_confirmation (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, nano::amount const & amount_a, std::string const & subtype, nano::election_status const & election_status_a, std::vector<nano::vote_with_weight_info> const & election_votes_a)
 {
 	nano::websocket::message_builder builder;
 
@@ -691,7 +691,7 @@ nano::websocket::message nano::websocket::message_builder::stopped_election (nan
 	return message_l;
 }
 
-nano::websocket::message nano::websocket::message_builder::block_confirmed (std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype, bool include_block_a, nano::election_status const & election_status_a, std::vector<nano::vote_with_weight_info> const & election_votes_a, nano::websocket::confirmation_options const & options_a)
+nano::websocket::message nano::websocket::message_builder::block_confirmed (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype, bool include_block_a, nano::election_status const & election_status_a, std::vector<nano::vote_with_weight_info> const & election_votes_a, nano::websocket::confirmation_options const & options_a)
 {
 	nano::websocket::message message_l (nano::websocket::topic::confirmation);
 	set_common_fields (message_l);
@@ -761,7 +761,7 @@ nano::websocket::message nano::websocket::message_builder::block_confirmed (std:
 	return message_l;
 }
 
-nano::websocket::message nano::websocket::message_builder::vote_received (std::shared_ptr<nano::vote> vote_a, nano::vote_code code_a)
+nano::websocket::message nano::websocket::message_builder::vote_received (std::shared_ptr<nano::vote> const & vote_a, nano::vote_code code_a)
 {
 	nano::websocket::message message_l (nano::websocket::topic::vote);
 	set_common_fields (message_l);

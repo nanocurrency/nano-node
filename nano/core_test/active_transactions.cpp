@@ -613,19 +613,19 @@ TEST (active_transactions, vote_replays)
 	ASSERT_EQ (2, node.active.size ());
 	// First vote is not a replay and confirms the election, second vote should be a replay since the election has confirmed but not yet removed
 	auto vote_send1 (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 0, send1));
-	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote_send1));
+	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote_send1, true));
 	ASSERT_EQ (2, node.active.size ());
-	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote_send1));
+	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote_send1, true));
 	// Wait until the election is removed, at which point the vote is still a replay since it's been recently confirmed
 	ASSERT_TIMELY (3s, node.active.size () == 1);
-	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote_send1));
+	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote_send1, true));
 	// Open new account
 	auto vote_open1 (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 0, open1));
-	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote_open1));
+	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote_open1, true));
 	ASSERT_EQ (1, node.active.size ());
-	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote_open1));
+	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote_open1, true));
 	ASSERT_TIMELY (3s, node.active.empty ());
-	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote_open1));
+	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote_open1, true));
 	ASSERT_EQ (nano::Gxrb_ratio, node.ledger.weight (key.pub));
 
 	auto send2 = builder.make_block ()
@@ -643,27 +643,27 @@ TEST (active_transactions, vote_replays)
 	ASSERT_EQ (1, node.active.size ());
 	auto vote1_send2 (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 0, send2));
 	auto vote2_send2 (std::make_shared<nano::vote> (key.pub, key.prv, 0, send2));
-	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote2_send2));
+	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote2_send2, true));
 	ASSERT_EQ (1, node.active.size ());
-	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote2_send2));
+	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote2_send2, true));
 	ASSERT_EQ (1, node.active.size ());
-	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote1_send2));
+	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote1_send2, true));
 	ASSERT_EQ (1, node.active.size ());
-	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote1_send2));
+	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote1_send2, true));
 	ASSERT_TIMELY (3s, node.active.empty ());
 	ASSERT_EQ (0, node.active.size ());
-	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote1_send2));
-	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote2_send2));
+	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote1_send2, true));
+	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote2_send2, true));
 
 	// Removing blocks as recently confirmed makes every vote indeterminate
 	{
 		nano::lock_guard<std::mutex> guard (node.active.mutex);
 		node.active.recently_confirmed.clear ();
 	}
-	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote_send1));
-	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote_open1));
-	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote1_send2));
-	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote2_send2));
+	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote_send1, true));
+	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote_open1, true));
+	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote1_send2, true));
+	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote2_send2, true));
 }
 }
 
@@ -1498,7 +1498,7 @@ TEST (active_transactions, conflicting_block_vote_existing_election)
 	ASSERT_EQ (1, node.active.size ());
 
 	// Vote for conflicting block, but the block does not yet exist in the ledger
-	node.active.vote (vote_fork);
+	node.active.vote (vote_fork, true);
 
 	// Block now gets processed
 	ASSERT_EQ (nano::process_result::fork, node.process_local (fork).code);
@@ -1735,9 +1735,9 @@ TEST (active_transactions, pessimistic_elections)
 	// Make dummy election with winner.
 	{
 		nano::election election1 (
-		node, send, [](auto const & block) {}, false, nano::election_behavior::normal);
+		node, send, [](auto const &) {}, [](auto const &, bool) {}, false, nano::election_behavior::normal);
 		nano::election election2 (
-		node, open, [](auto const & block) {}, false, nano::election_behavior::normal);
+		node, open, [](auto const &) {}, [](auto const &, bool) {}, false, nano::election_behavior::normal);
 		node.active.add_expired_optimistic_election (election1);
 		node.active.add_expired_optimistic_election (election2);
 	}

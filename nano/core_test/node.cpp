@@ -2252,7 +2252,7 @@ TEST (node, rep_remove)
 	ASSERT_EQ (*channel0, reps[0].channel_ref ());
 	// Modify last_packet_received so the channel is removed faster
 	std::chrono::steady_clock::time_point fake_timepoint{};
-	node.network.udp_channels.modify (channel_udp, [fake_timepoint](std::shared_ptr<nano::transport::channel_udp> channel_a) {
+	node.network.udp_channels.modify (channel_udp, [fake_timepoint](std::shared_ptr<nano::transport::channel_udp> const & channel_a) {
 		channel_a->set_last_packet_received (fake_timepoint);
 	});
 	// This UDP channel is not reachable and should timeout
@@ -2270,7 +2270,7 @@ TEST (node, rep_remove)
 	auto node2 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config (nano::get_available_port (), system.logging), system.work));
 	std::weak_ptr<nano::node> node_w (node.shared ());
 	auto vote3 = std::make_shared<nano::vote> (keypair2.pub, keypair2.prv, 0, genesis.open);
-	node.network.tcp_channels.start_tcp (node2->network.endpoint (), [node_w, &vote3](std::shared_ptr<nano::transport::channel> channel2) {
+	node.network.tcp_channels.start_tcp (node2->network.endpoint (), [node_w, &vote3](std::shared_ptr<nano::transport::channel> const & channel2) {
 		if (auto node_l = node_w.lock ())
 		{
 			ASSERT_FALSE (node_l->rep_crawler.response (channel2, vote3));
@@ -2869,7 +2869,7 @@ TEST (node, vote_by_hash_bundle)
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (key1.prv);
 
-	system.nodes[0]->observers.vote.add ([&max_hashes](std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel>, nano::vote_code) {
+	system.nodes[0]->observers.vote.add ([&max_hashes](std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const &, nano::vote_code) {
 		if (vote_a->blocks.size () > max_hashes)
 		{
 			max_hashes = vote_a->blocks.size ();
@@ -3946,7 +3946,7 @@ TEST (node, rollback_vote_self)
 		{
 			ASSERT_EQ (1, election->votes ().size ());
 			// Vote with key to switch the winner
-			election->vote (key.pub, 0, fork->hash ());
+			election->vote (key.pub, 0, fork->hash (), true);
 			ASSERT_EQ (2, election->votes ().size ());
 			// The winner changed
 			ASSERT_EQ (election->winner (), fork);

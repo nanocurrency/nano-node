@@ -140,7 +140,7 @@ TEST (wallet, multithreaded_send_async)
 			threads.push_back (boost::thread ([wallet_l, &key]() {
 				for (auto i (0); i < 1000; ++i)
 				{
-					wallet_l->send_async (nano::dev_genesis_key.pub, key.pub, 1000, [](std::shared_ptr<nano::block> block_a) {
+					wallet_l->send_async (nano::dev_genesis_key.pub, key.pub, 1000, [](std::shared_ptr<nano::block> const & block_a) {
 						ASSERT_FALSE (block_a == nullptr);
 						ASSERT_FALSE (block_a->hash ().is_zero ());
 					});

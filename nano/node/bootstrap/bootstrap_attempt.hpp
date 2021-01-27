@@ -14,7 +14,7 @@ class bulk_push_client;
 class bootstrap_attempt : public std::enable_shared_from_this<bootstrap_attempt>
 {
 public:
-	explicit bootstrap_attempt (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a, uint64_t incremental_id_a, std::string id_a);
+	explicit bootstrap_attempt (std::shared_ptr<nano::node> const & node_a, nano::bootstrap_mode mode_a, uint64_t incremental_id_a, std::string id_a);
 	virtual ~bootstrap_attempt ();
 	virtual void run () = 0;
 	virtual void stop ();
@@ -34,7 +34,7 @@ public:
 	virtual uint32_t lazy_batch_size ();
 	virtual bool lazy_has_expired () const;
 	virtual bool lazy_processed_or_exists (nano::block_hash const &);
-	virtual bool process_block (std::shared_ptr<nano::block>, nano::account const &, uint64_t, nano::bulk_pull::count_t, bool, unsigned);
+	virtual bool process_block (std::shared_ptr<nano::block> const &, nano::account const &, uint64_t, nano::bulk_pull::count_t, bool, unsigned);
 	virtual void requeue_pending (nano::account const &);
 	virtual void wallet_start (std::deque<nano::account> &);
 	virtual size_t wallet_size ();
@@ -59,12 +59,11 @@ public:
 class bootstrap_attempt_legacy : public bootstrap_attempt
 {
 public:
-	explicit bootstrap_attempt_legacy (std::shared_ptr<nano::node> node_a, uint64_t incremental_id_a, std::string id_a = "");
+	explicit bootstrap_attempt_legacy (std::shared_ptr<nano::node> const & node_a, uint64_t incremental_id_a, std::string const & id_a = "");
 	void run () override;
 	bool consume_future (std::future<bool> &);
 	void stop () override;
 	bool request_frontier (nano::unique_lock<std::mutex> &, bool = false);
-	void request_pull (nano::unique_lock<std::mutex> &);
 	void request_push (nano::unique_lock<std::mutex> &);
 	void add_frontier (nano::pull_info const &) override;
 	void add_bulk_push_target (nano::block_hash const &, nano::block_hash const &) override;
