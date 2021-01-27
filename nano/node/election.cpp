@@ -188,7 +188,7 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 			}
 			break;
 		case nano::election::state_t::active:
-			if(prioritized_m)
+			if (prioritized_m)
 			{
 				send_confirm_req (solicitor_a);
 			}
