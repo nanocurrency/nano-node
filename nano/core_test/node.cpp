@@ -3470,15 +3470,15 @@ TEST (node, block_processor_priority)
 	// Inspect priority queue
 	nano::unique_lock<std::mutex> lk (node.block_processor.mutex);
 	ASSERT_EQ (5, node.block_processor.blocks.size ());
-	ASSERT_EQ (send3->hash (), node.block_processor.blocks.top ().block->hash ());
+	ASSERT_EQ (send3->hash (), node.block_processor.blocks.top ().first.block->hash ());
 	node.block_processor.blocks.pop ();
-	ASSERT_EQ (send4->hash (), node.block_processor.blocks.top ().block->hash ());
+	ASSERT_EQ (send4->hash (), node.block_processor.blocks.top ().first.block->hash ());
 	node.block_processor.blocks.pop ();
-	ASSERT_EQ (send1->hash (), node.block_processor.blocks.top ().block->hash ());
+	ASSERT_EQ (send1->hash (), node.block_processor.blocks.top ().first.block->hash ());
 	node.block_processor.blocks.pop ();
-	ASSERT_EQ (send2->hash (), node.block_processor.blocks.top ().block->hash ());
+	ASSERT_EQ (send2->hash (), node.block_processor.blocks.top ().first.block->hash ());
 	node.block_processor.blocks.pop ();
-	ASSERT_EQ (send2->hash (), node.block_processor.blocks.top ().block->hash ());
+	ASSERT_EQ (send2->hash (), node.block_processor.blocks.top ().first.block->hash ());
 }
 }
 

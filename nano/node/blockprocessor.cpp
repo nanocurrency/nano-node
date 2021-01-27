@@ -106,7 +106,7 @@ void nano::block_processor::add (nano::unchecked_info const & info_a)
 	{
 		{
 			nano::lock_guard<std::mutex> guard (mutex);
-			blocks.push (info_a, false);
+			blocks.emplace (info_a, false);
 		}
 		condition.notify_all ();
 	}
@@ -202,20 +202,20 @@ void nano::block_processor::process_verified_state_blocks (std::deque<std::pair<
 				if (verifications[i] == 1)
 				{
 					item.verified = nano::signature_verification::valid_epoch;
-					blocks.push (std::move (item), watch_work);
+					blocks.emplace (std::move (item), watch_work);
 				}
 				else
 				{
 					// Possible regular state blocks with epoch link (send subtype)
 					item.verified = nano::signature_verification::unknown;
-					blocks.push (std::move (item), watch_work);
+					blocks.emplace (std::move (item), watch_work);
 				}
 			}
 			else if (verifications[i] == 1)
 			{
 				// Non epoch blocks
 				item.verified = nano::signature_verification::valid;
-				blocks.push (std::move (item), watch_work);
+				blocks.emplace (std::move (item), watch_work);
 			}
 			else
 			{
