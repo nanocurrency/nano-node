@@ -18,9 +18,9 @@ nano::election_vote_result::election_vote_result (bool replay_a, bool processed_
 	processed = processed_a;
 }
 
-nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> const & block_a, std::function<void(std::shared_ptr<nano::block> const &)> const & confirmation_action_a, std::function<void(nano::account const &, bool)> const & pre_confirm_action_a, bool prioritized_a, nano::election_behavior election_behavior_a) :
+nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> const & block_a, std::function<void(std::shared_ptr<nano::block> const &)> const & confirmation_action_a, std::function<void(nano::account const &)> const & live_vote_action_a, bool prioritized_a, nano::election_behavior election_behavior_a) :
 confirmation_action (confirmation_action_a),
-pre_confirm_action (pre_confirm_action_a),
+live_vote_action (live_vote_action_a),
 prioritized_m (prioritized_a),
 behavior (election_behavior_a),
 node (node_a),
@@ -328,7 +328,7 @@ std::shared_ptr<nano::block> nano::election::find (nano::block_hash const & hash
 	return result;
 }
 
-nano::election_vote_result nano::election::vote (nano::account const & rep, uint64_t timestamp_a, nano::block_hash const & block_hash_a, bool rep_is_active_a)
+nano::election_vote_result nano::election::vote (nano::account const & rep, uint64_t timestamp_a, nano::block_hash const & block_hash_a)
 {
 	auto replay (false);
 	auto online_stake (node.online_reps.trended ());
@@ -373,7 +373,7 @@ nano::election_vote_result nano::election::vote (nano::account const & rep, uint
 		{
 			node.stats.inc (nano::stat::type::election, nano::stat::detail::vote_new);
 			last_votes[rep] = { std::chrono::steady_clock::now (), timestamp_a, block_hash_a };
-			pre_confirm_action (rep, rep_is_active_a);
+			live_vote_action (rep);
 			if (!confirmed ())
 			{
 				confirm_if_quorum (lock);

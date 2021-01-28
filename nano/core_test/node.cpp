@@ -2432,6 +2432,58 @@ TEST (node, online_reps)
 	ASSERT_EQ (node1.config.online_weight_minimum, node1.online_reps.trended ());
 }
 
+namespace nano
+{
+TEST (node, online_reps_rep_crawler)
+{
+	nano::system system;
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true;
+	auto & node1 = *system.add_node (flags);
+	auto vote = std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, nano::milliseconds_since_epoch (), std::vector<nano::block_hash>{ nano::genesis_hash });
+	ASSERT_EQ (0, node1.online_reps.online ());
+	// Without rep crawler
+	node1.vote_processor.vote_blocking (vote, std::make_shared<nano::transport::channel_loopback> (node1));
+	ASSERT_EQ (0, node1.online_reps.online ());
+	// After inserting to rep crawler
+	{
+		nano::lock_guard<std::mutex> guard (node1.rep_crawler.probable_reps_mutex);
+		node1.rep_crawler.active.insert (nano::genesis_hash);
+	}
+	node1.vote_processor.vote_blocking (vote, std::make_shared<nano::transport::channel_loopback> (node1));
+	ASSERT_EQ (nano::genesis_amount, node1.online_reps.online ());
+}
+}
+
+TEST (node, online_reps_election)
+{
+	nano::system system;
+	nano::node_flags flags;
+	flags.disable_rep_crawler = true;
+	auto & node1 = *system.add_node (flags);
+	// Start election
+	nano::genesis genesis;
+	nano::keypair key;
+	nano::state_block_builder builder;
+	auto send1 = builder.make_block ()
+	             .account (nano::dev_genesis_key.pub)
+	             .previous (genesis.hash ())
+	             .representative (nano::dev_genesis_key.pub)
+	             .balance (nano::genesis_amount - nano::Gxrb_ratio)
+	             .link (key.pub)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (*node1.work_generate_blocking (genesis.hash ()))
+	             .build_shared ();
+	node1.process_active (send1);
+	node1.block_processor.flush ();
+	ASSERT_EQ (1, node1.active.size ());
+	// Process vote for ongoing election
+	auto vote = std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, nano::milliseconds_since_epoch (), std::vector<nano::block_hash>{ send1->hash () });
+	ASSERT_EQ (0, node1.online_reps.online ());
+	node1.vote_processor.vote_blocking (vote, std::make_shared<nano::transport::channel_loopback> (node1));
+	ASSERT_EQ (nano::genesis_amount - nano::Gxrb_ratio, node1.online_reps.online ());
+}
+
 TEST (node, block_confirm)
 {
 	std::vector<nano::transport::transport_type> types{ nano::transport::transport_type::tcp, nano::transport::transport_type::udp };
@@ -3946,7 +3998,7 @@ TEST (node, rollback_vote_self)
 		{
 			ASSERT_EQ (1, election->votes ().size ());
 			// Vote with key to switch the winner
-			election->vote (key.pub, 0, fork->hash (), true);
+			election->vote (key.pub, 0, fork->hash ());
 			ASSERT_EQ (2, election->votes ().size ());
 			// The winner changed
 			ASSERT_EQ (election->winner (), fork);
