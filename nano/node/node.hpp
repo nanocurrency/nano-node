@@ -4,7 +4,6 @@
 #include <nano/lib/alarm.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/stats.hpp>
-#include <nano/lib/timestamp.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/lib/worker.hpp>
 #include <nano/node/active_transactions.hpp>
@@ -115,6 +114,7 @@ public:
 	void process_active (std::shared_ptr<nano::block> const &);
 	nano::process_return process (nano::block &);
 	nano::process_return process_local (std::shared_ptr<nano::block> const &, bool const = false);
+	void process_local_async (std::shared_ptr<nano::block> const &, bool const = false);
 	void keepalive_preconfigured (std::vector<std::string> const &);
 	nano::block_hash latest (nano::account const &);
 	nano::uint128_t balance (nano::account const &);
@@ -151,14 +151,13 @@ public:
 	bool block_confirmed (nano::block_hash const &);
 	bool block_confirmed_or_being_confirmed (nano::transaction const &, nano::block_hash const &);
 	void process_fork (nano::transaction const &, std::shared_ptr<nano::block> const &, uint64_t);
-	void do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, std::string const &, uint16_t, std::shared_ptr<std::string>, std::shared_ptr<std::string>, std::shared_ptr<boost::asio::ip::tcp::resolver>);
+	void do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, std::string const &, uint16_t, std::shared_ptr<std::string> const &, std::shared_ptr<std::string> const &, std::shared_ptr<boost::asio::ip::tcp::resolver> const &);
 	void ongoing_online_weight_calculation ();
 	void ongoing_online_weight_calculation_queue ();
 	bool online () const;
 	bool init_error () const;
 	bool epoch_upgrader (nano::private_key const &, nano::epoch, uint64_t, uint64_t);
 	std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> get_bootstrap_weights () const;
-	nano::timestamp_generator timestamps;
 	nano::worker worker;
 	nano::write_database_queue write_database_queue;
 	boost::asio::io_context & io_ctx;
@@ -186,13 +185,13 @@ public:
 	boost::filesystem::path application_path;
 	nano::node_observers observers;
 	nano::port_mapping port_mapping;
-	nano::vote_processor vote_processor;
+	nano::online_reps online_reps;
 	nano::rep_crawler rep_crawler;
+	nano::vote_processor vote_processor;
 	unsigned warmed_up;
 	nano::block_processor block_processor;
 	std::thread block_processor_thread;
 	nano::block_arrival block_arrival;
-	nano::online_reps online_reps;
 	nano::local_vote_history history;
 	nano::keypair node_id;
 	nano::block_uniquer block_uniquer;

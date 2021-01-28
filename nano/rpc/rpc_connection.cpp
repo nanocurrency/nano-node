@@ -56,7 +56,7 @@ void nano::rpc_connection::write_result (std::string body, unsigned version, boo
 	}
 }
 
-void nano::rpc_connection::write_completion_handler (std::shared_ptr<nano::rpc_connection> rpc_connection)
+void nano::rpc_connection::write_completion_handler (std::shared_ptr<nano::rpc_connection> const & rpc_connection)
 {
 	// Intentional no-op
 }
@@ -99,7 +99,7 @@ void nano::rpc_connection::read (STREAM_TYPE & stream)
 }
 
 template <typename STREAM_TYPE>
-void nano::rpc_connection::parse_request (STREAM_TYPE & stream, std::shared_ptr<boost::beast::http::request_parser<boost::beast::http::empty_body>> header_parser)
+void nano::rpc_connection::parse_request (STREAM_TYPE & stream, std::shared_ptr<boost::beast::http::request_parser<boost::beast::http::empty_body>> const & header_parser)
 {
 	auto this_l (shared_from_this ());
 	auto header_field_credentials_l (header_parser->get ()["nano-api-key"]);
@@ -174,8 +174,8 @@ void nano::rpc_connection::parse_request (STREAM_TYPE & stream, std::shared_ptr<
 }
 
 template void nano::rpc_connection::read (socket_type &);
-template void nano::rpc_connection::parse_request (socket_type &, std::shared_ptr<boost::beast::http::request_parser<boost::beast::http::empty_body>>);
+template void nano::rpc_connection::parse_request (socket_type &, std::shared_ptr<boost::beast::http::request_parser<boost::beast::http::empty_body>> const &);
 #ifdef NANO_SECURE_RPC
 template void nano::rpc_connection::read (boost::asio::ssl::stream<socket_type &> &);
-template void nano::rpc_connection::parse_request (boost::asio::ssl::stream<socket_type &> &, std::shared_ptr<boost::beast::http::request_parser<boost::beast::http::empty_body>>);
+template void nano::rpc_connection::parse_request (boost::asio::ssl::stream<socket_type &> &, std::shared_ptr<boost::beast::http::request_parser<boost::beast::http::empty_body>> const &);
 #endif

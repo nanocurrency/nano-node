@@ -894,3 +894,81 @@ TEST (wallet, DISABLED_synchronizing)
 		test_application->processEvents ();
 	}
 }
+
+TEST (wallet, epoch_2_validation)
+{
+	nano_qt::eventloop_processor processor;
+	nano::system system (1);
+	auto & node = system.nodes[0];
+
+	// Upgrade the genesis account to epoch 2
+	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (*node, nano::epoch::epoch_1));
+	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (*node, nano::epoch::epoch_2));
+
+	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
+
+	auto account (nano::dev_genesis_key.pub);
+	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *node, system.wallet (0), account));
+	wallet->start ();
+	wallet->client_window->show ();
+
+	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
+	QTest::mouseClick (wallet->advanced.create_block, Qt::LeftButton);
+
+	auto create_and_process = [&]() -> nano::block_hash {
+		wallet->block_creation.create->click ();
+		std::string json (wallet->block_creation.block->toPlainText ().toStdString ());
+		EXPECT_FALSE (json.empty ());
+		boost::property_tree::ptree tree1;
+		std::stringstream istream (json);
+		boost::property_tree::read_json (istream, tree1);
+		bool error (false);
+		nano::state_block block (error, tree1);
+		EXPECT_FALSE (error);
+		EXPECT_EQ (nano::process_result::progress, node->process (block).code);
+		return block.hash ();
+	};
+
+	auto do_send = [&](nano::public_key const & destination) -> nano::block_hash {
+		wallet->block_creation.send->click ();
+		wallet->block_creation.account->setText (nano::dev_genesis_key.pub.to_account ().c_str ());
+		wallet->block_creation.amount->setText ("1");
+		wallet->block_creation.destination->setText (destination.to_account ().c_str ());
+		return create_and_process ();
+	};
+
+	auto do_open = [&](nano::block_hash const & source, nano::public_key const & account) -> nano::block_hash {
+		wallet->block_creation.open->click ();
+		wallet->block_creation.source->setText (source.to_string ().c_str ());
+		wallet->block_creation.representative->setText (account.to_account ().c_str ());
+		return create_and_process ();
+	};
+
+	auto do_receive = [&](nano::block_hash const & source) -> nano::block_hash {
+		wallet->block_creation.receive->click ();
+		wallet->block_creation.source->setText (source.to_string ().c_str ());
+		return create_and_process ();
+	};
+
+	auto do_change = [&](nano::public_key const & account, nano::public_key const & representative) -> nano::block_hash {
+		wallet->block_creation.change->click ();
+		wallet->block_creation.account->setText (account.to_account ().c_str ());
+		wallet->block_creation.representative->setText (representative.to_account ().c_str ());
+		return create_and_process ();
+	};
+
+	// An epoch 2 receive (open) block should be generated with lower difficulty with high probability
+	auto tries = 0;
+	auto max_tries = 20;
+
+	while (++tries < max_tries)
+	{
+		nano::keypair key;
+		system.wallet (0)->insert_adhoc (key.prv);
+		auto send1 = do_send (key.pub);
+		do_open (send1, key.pub);
+		auto send2 = do_send (key.pub);
+		do_receive (send2);
+		do_change (key.pub, nano::dev_genesis_key.pub);
+	}
+}

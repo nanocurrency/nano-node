@@ -55,7 +55,6 @@ public:
 	std::chrono::milliseconds vote_generator_delay{ std::chrono::milliseconds (100) };
 	unsigned vote_generator_threshold{ 3 };
 	nano::amount online_weight_minimum{ 60000 * nano::Gxrb_ratio };
-	unsigned online_weight_quorum{ 50 };
 	unsigned election_hint_weight_percent{ 10 };
 	unsigned password_fanout{ 1024 };
 	unsigned io_threads{ std::max<unsigned> (4, std::thread::hardware_concurrency ()) };
@@ -120,6 +119,7 @@ class node_flags final
 {
 public:
 	std::vector<std::string> config_overrides;
+	std::vector<std::string> rpc_config_overrides;
 	bool disable_backup{ false };
 	bool disable_lazy_bootstrap{ false };
 	bool disable_legacy_bootstrap{ false };
