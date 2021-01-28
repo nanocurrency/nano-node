@@ -31,8 +31,9 @@ unexpected_count (0)
 
 nano::bulk_pull_client::~bulk_pull_client ()
 {
-	// If received end block is not expected end block
-	if (expected != pull.end)
+	/* If received end block is not expected end block
+	Or if given start and end blocks are from different chains (i.e. forked node or malicious node) */
+	if (expected != pull.end && !expected.is_zero ())
 	{
 		pull.head = expected;
 		if (attempt->mode != nano::bootstrap_mode::legacy)
@@ -418,11 +419,12 @@ void nano::bulk_pull_server::set_current_end ()
 	include_start = false;
 	debug_assert (request != nullptr);
 	auto transaction (connection->node->store.tx_begin_read ());
-	if (!connection->node->store.block_exists (transaction, request->end))
+	bool bulk_pull_end_exists = send_unconfirmed_blocks () ? connection->node->store.block_exists (transaction, request->end) : connection->node->block_confirmed_or_being_confirmed (transaction, request->end);
+	if (!bulk_pull_end_exists)
 	{
 		if (connection->node->config.logging.bulk_pull_logging ())
 		{
-			connection->node->logger.try_log (boost::str (boost::format ("Bulk pull end block doesn't exist: %1%, sending everything") % request->end.to_string ()));
+			connection->node->logger.try_log (boost::str (boost::format ("Bulk pull end block doesn't exist or not confirmed: %1%, sending everything") % request->end.to_string ()));
 		}
 		request->end.clear ();
 	}
@@ -434,24 +436,52 @@ void nano::bulk_pull_server::set_current_end ()
 			connection->node->logger.try_log (boost::str (boost::format ("Bulk pull request for block hash: %1%") % request->start.to_string ()));
 		}
 
-		current = request->start.as_block_hash ();
-		include_start = true;
+		bool bulk_pull_start_exists = send_unconfirmed_blocks () ? connection->node->store.block_exists (transaction, request->start.as_block_hash ()) : connection->node->block_confirmed_or_being_confirmed (transaction, request->start.as_block_hash ());
+		if (bulk_pull_start_exists)
+		{
+			current = request->start.as_block_hash ();
+			include_start = true;
+		}
+		else if (!request->end.is_zero () && !send_unconfirmed_blocks ())
+		{
+			// Else start from confirmed frontier for given account
+			auto account (connection->node->ledger.account (transaction, request->start.as_block_hash ()));
+			nano::confirmation_height_info info;
+			auto no_confirmed_address (connection->node->store.confirmation_height_get (transaction, account, info));
+			if (!no_confirmed_address && info.frontier != request->end)
+			{
+				current = info.frontier;
+				include_start = true;
+			}
+		}
 	}
 	else
 	{
-		nano::account_info info;
-		auto no_address (connection->node->store.account_get (transaction, request->start.as_account (), info));
-		if (no_address)
+		bool no_confirmed_or_no_address;
+		nano::block_hash frontier;
+		if (!send_unconfirmed_blocks ())
+		{
+			nano::confirmation_height_info info;
+			no_confirmed_or_no_address = connection->node->store.confirmation_height_get (transaction, request->start.as_account (), info);
+			frontier = info.frontier;
+		}
+		else
+		{
+			nano::account_info info;
+			no_confirmed_or_no_address = connection->node->store.account_get (transaction, request->start.as_account (), info);
+			frontier = info.head;
+		}
+		if (no_confirmed_or_no_address)
 		{
 			if (connection->node->config.logging.bulk_pull_logging ())
 			{
-				connection->node->logger.try_log (boost::str (boost::format ("Request for unknown account: %1%") % request->start.to_account ()));
+				connection->node->logger.try_log (boost::str (boost::format ("Request for unknown or not confirmed account: %1%") % request->start.to_account ()));
 			}
 			current = request->end;
 		}
 		else
 		{
-			current = info.head;
+			current = frontier;
 			if (!request->end.is_zero ())
 			{
 				auto account (connection->node->ledger.account (transaction, request->end));
@@ -616,6 +646,11 @@ void nano::bulk_pull_server::no_block_sent (boost::system::error_code const & ec
 			connection->node->logger.try_log ("Unable to send not-a-block");
 		}
 	}
+}
+
+bool nano::bulk_pull_server::send_unconfirmed_blocks ()
+{
+	return request->header.bootstrap_are_unconfirmed_blocks_present ();
 }
 
 nano::bulk_pull_server::bulk_pull_server (std::shared_ptr<nano::bootstrap_server> const & connection_a, std::unique_ptr<nano::bulk_pull> request_a) :

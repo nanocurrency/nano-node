@@ -48,6 +48,7 @@ public:
 	bool block_exists (nano::block_hash const &) const;
 	bool block_or_pruned_exists (nano::transaction const &, nano::block_hash const &) const;
 	bool block_or_pruned_exists (nano::block_hash const &) const;
+	bool block_confirmed_or_pruned_exists (nano::transaction const &, nano::block_hash const &) const;
 	std::string block_text (char const *);
 	std::string block_text (nano::block_hash const &);
 	bool is_send (nano::transaction const &, nano::state_block const &) const;
