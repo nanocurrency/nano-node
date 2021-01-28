@@ -751,18 +751,22 @@ nano::public_key nano::wallet::deterministic_insert (bool generate_work_a)
 	return result;
 }
 
-nano::public_key nano::wallet::insert_adhoc (nano::transaction const & transaction_a, nano::raw_key const & key_a, bool generate_work_a)
+nano::public_key nano::wallet::insert_adhoc (nano::raw_key const & key_a, bool generate_work_a)
 {
 	nano::public_key key (0);
-	if (store.valid_password (transaction_a))
+	auto transaction (wallets.tx_begin_write ());
+	if (store.valid_password (transaction))
 	{
-		key = store.insert_adhoc (transaction_a, key_a);
+		key = store.insert_adhoc (transaction, key_a);
 		auto block_transaction (wallets.node.store.tx_begin_read ());
 		if (generate_work_a)
 		{
 			work_ensure (key, wallets.node.ledger.latest_root (block_transaction, key));
 		}
 		auto half_principal_weight (wallets.node.minimum_principal_weight () / 2);
+		// Makes sure that the representatives container will
+		// be in sync with any added keys.
+		transaction.commit ();
 		if (wallets.check_rep (key, half_principal_weight))
 		{
 			nano::lock_guard<std::mutex> lock (representatives_mutex);
@@ -770,13 +774,6 @@ nano::public_key nano::wallet::insert_adhoc (nano::transaction const & transacti
 		}
 	}
 	return key;
-}
-
-nano::public_key nano::wallet::insert_adhoc (nano::raw_key const & account_a, bool generate_work_a)
-{
-	auto transaction (wallets.tx_begin_write ());
-	auto result (insert_adhoc (transaction, account_a, generate_work_a));
-	return result;
 }
 
 bool nano::wallet::insert_watch (nano::transaction const & transaction_a, nano::public_key const & pub_a)
