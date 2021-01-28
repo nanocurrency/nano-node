@@ -37,10 +37,10 @@ std::shared_ptr<block> deserialize_block (nano::stream & stream_a)
 
 void nano::block_memory_pool_purge ()
 {
-	nano::purge_singleton_pool_memory<nano::open_block> ();
-	nano::purge_singleton_pool_memory<nano::state_block> ();
-	nano::purge_singleton_pool_memory<nano::send_block> ();
-	nano::purge_singleton_pool_memory<nano::change_block> ();
+	nano::purge_shared_ptr_singleton_pool_memory<nano::open_block> ();
+	nano::purge_shared_ptr_singleton_pool_memory<nano::state_block> ();
+	nano::purge_shared_ptr_singleton_pool_memory<nano::send_block> ();
+	nano::purge_shared_ptr_singleton_pool_memory<nano::change_block> ();
 }
 
 std::string nano::block::to_json () const
