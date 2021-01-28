@@ -38,7 +38,7 @@ void nano::rpc_connection_secure::handle_handshake (const boost::system::error_c
 	}
 }
 
-void nano::rpc_connection_secure::write_completion_handler (std::shared_ptr<nano::rpc_connection> rpc)
+void nano::rpc_connection_secure::write_completion_handler (std::shared_ptr<nano::rpc_connection> const & rpc)
 {
 	auto rpc_connection_secure = boost::polymorphic_pointer_downcast<nano::rpc_connection_secure> (rpc);
 	rpc_connection_secure->stream.async_shutdown (boost::asio::bind_executor (rpc->strand, [rpc_connection_secure](auto const & ec_shutdown) {
