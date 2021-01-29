@@ -35,7 +35,7 @@ void nano::gap_cache::erase (nano::block_hash const & hash_a)
 	blocks.get<tag_hash> ().erase (hash_a);
 }
 
-void nano::gap_cache::vote (std::shared_ptr<nano::vote> vote_a)
+void nano::gap_cache::vote (std::shared_ptr<nano::vote> const & vote_a)
 {
 	nano::lock_guard<std::mutex> lock (mutex);
 	for (auto hash : *vote_a)
@@ -77,7 +77,7 @@ bool nano::gap_cache::bootstrap_check (std::vector<nano::account> const & voters
 	bool start_bootstrap (false);
 	if (!node.flags.disable_lazy_bootstrap)
 	{
-		if (tally >= node.config.online_weight_minimum.number ())
+		if (tally >= node.online_reps.delta ())
 		{
 			start_bootstrap = true;
 		}
@@ -117,7 +117,7 @@ void nano::gap_cache::bootstrap_start (nano::block_hash const & hash_a)
 
 nano::uint128_t nano::gap_cache::bootstrap_threshold ()
 {
-	auto result ((node.online_reps.online_stake () / 256) * node.config.bootstrap_fraction_numerator);
+	auto result ((node.online_reps.trended () / 256) * node.config.bootstrap_fraction_numerator);
 	return result;
 }
 

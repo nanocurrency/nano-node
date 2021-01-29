@@ -154,7 +154,7 @@ TEST (websocket, confirmation)
 	nano::keypair key;
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	auto balance = nano::genesis_amount;
-	auto send_amount = node1->config.online_weight_minimum.number () + 1;
+	auto send_amount = node1->online_reps.delta () + 1;
 	// Quick-confirm a block, legacy blocks should work without filtering
 	{
 		nano::block_hash previous (node1->latest (nano::dev_genesis_key.pub));
@@ -246,7 +246,7 @@ TEST (websocket, confirmation_options)
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	nano::keypair key;
 	auto balance = nano::genesis_amount;
-	auto send_amount = node1->config.online_weight_minimum.number () + 1;
+	auto send_amount = node1->online_reps.delta () + 1;
 	nano::block_hash previous (node1->latest (nano::dev_genesis_key.pub));
 	{
 		balance -= send_amount;
@@ -414,7 +414,7 @@ TEST (websocket, vote)
 	nano::keypair key;
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	nano::block_hash previous (node1->latest (nano::dev_genesis_key.pub));
-	auto send (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, previous, nano::dev_genesis_key.pub, nano::genesis_amount - (node1->config.online_weight_minimum.number () + 1), key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (previous)));
+	auto send (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, previous, nano::dev_genesis_key.pub, nano::genesis_amount - (node1->online_reps.delta () + 1), key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (previous)));
 	node1->process_active (send);
 
 	ASSERT_TIMELY (5s, future.wait_for (0s) == std::future_status::ready);
@@ -503,7 +503,7 @@ TEST (websocket, vote_options_representatives)
 	nano::keypair key;
 	auto balance = nano::genesis_amount;
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
-	auto send_amount = node1->config.online_weight_minimum.number () + 1;
+	auto send_amount = node1->online_reps.delta () + 1;
 	auto confirm_block = [&]() {
 		nano::block_hash previous (node1->latest (nano::dev_genesis_key.pub));
 		balance -= send_amount;

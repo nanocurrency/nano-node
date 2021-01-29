@@ -20,7 +20,7 @@ TEST (peer_container, no_recontact)
 	auto observed_disconnect (false);
 	nano::endpoint endpoint1 (boost::asio::ip::address_v6::loopback (), 10000);
 	ASSERT_EQ (0, network.size ());
-	network.channel_observer = [&observed_peer](std::shared_ptr<nano::transport::channel>) { ++observed_peer; };
+	network.channel_observer = [&observed_peer](std::shared_ptr<nano::transport::channel> const &) { ++observed_peer; };
 	node1.network.disconnect_observer = [&observed_disconnect]() { observed_disconnect = true; };
 	auto channel (network.udp_channels.insert (endpoint1, node1.network_params.protocol.protocol_version));
 	ASSERT_EQ (1, network.size ());

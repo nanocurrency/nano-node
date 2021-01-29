@@ -74,7 +74,7 @@ namespace ipc
 	 * The broker manages subscribers and performs message broadcasting
 	 * @note Add subscribe overloads for new topics
 	 */
-	class broker final
+	class broker final : public std::enable_shared_from_this<broker>
 	{
 	public:
 		broker (nano::node & node_a);

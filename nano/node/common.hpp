@@ -220,7 +220,7 @@ public:
 
 	static std::bitset<16> constexpr block_type_mask{ 0x0f00 };
 	static std::bitset<16> constexpr count_mask{ 0xf000 };
-	static std::bitset<16> constexpr telemetry_size_mask{ 0x07ff };
+	static std::bitset<16> constexpr telemetry_size_mask{ 0x3ff };
 };
 class message
 {
@@ -290,7 +290,7 @@ class publish final : public message
 {
 public:
 	publish (bool &, nano::stream &, nano::message_header const &, nano::uint128_t const & = 0, nano::block_uniquer * = nullptr);
-	explicit publish (std::shared_ptr<nano::block>);
+	explicit publish (std::shared_ptr<nano::block> const &);
 	void visit (nano::message_visitor &) const override;
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &, nano::block_uniquer * = nullptr);
@@ -302,7 +302,7 @@ class confirm_req final : public message
 {
 public:
 	confirm_req (bool &, nano::stream &, nano::message_header const &, nano::block_uniquer * = nullptr);
-	explicit confirm_req (std::shared_ptr<nano::block>);
+	explicit confirm_req (std::shared_ptr<nano::block> const &);
 	confirm_req (std::vector<std::pair<nano::block_hash, nano::root>> const &);
 	confirm_req (nano::block_hash const &, nano::root const &);
 	void serialize (nano::stream &) const override;
@@ -318,7 +318,7 @@ class confirm_ack final : public message
 {
 public:
 	confirm_ack (bool &, nano::stream &, nano::message_header const &, nano::vote_uniquer * = nullptr);
-	explicit confirm_ack (std::shared_ptr<nano::vote>);
+	explicit confirm_ack (std::shared_ptr<nano::vote> const &);
 	void serialize (nano::stream &) const override;
 	void visit (nano::message_visitor &) const override;
 	bool operator== (nano::confirm_ack const &) const;
@@ -367,20 +367,22 @@ public:
 	uint8_t maker{ static_cast<std::underlying_type_t<telemetry_maker>> (telemetry_maker::nf_node) }; // Where this telemetry information originated
 	std::chrono::system_clock::time_point timestamp;
 	uint64_t active_difficulty{ 0 };
+	std::vector<uint8_t> unknown_data;
 
 	void serialize (nano::stream &) const;
 	void deserialize (nano::stream &, uint16_t);
 	nano::error serialize_json (nano::jsonconfig &, bool) const;
 	nano::error deserialize_json (nano::jsonconfig &, bool);
 	void sign (nano::keypair const &);
-	bool validate_signature (uint16_t) const;
+	bool validate_signature () const;
 	bool operator== (nano::telemetry_data const &) const;
 	bool operator!= (nano::telemetry_data const &) const;
 
+	// Size does not include unknown_data
 	static auto constexpr size = sizeof (signature) + sizeof (node_id) + sizeof (block_count) + sizeof (cemented_count) + sizeof (unchecked_count) + sizeof (account_count) + sizeof (bandwidth_cap) + sizeof (peer_count) + sizeof (protocol_version) + sizeof (uptime) + sizeof (genesis_block) + sizeof (major_version) + sizeof (minor_version) + sizeof (patch_version) + sizeof (pre_release_version) + sizeof (maker) + sizeof (uint64_t) + sizeof (active_difficulty);
-
+	static auto constexpr latest_size = size; // This needs to be updated for each new telemetry version
 private:
-	void serialize_without_signature (nano::stream &, uint16_t) const;
+	void serialize_without_signature (nano::stream &) const;
 };
 class telemetry_req final : public message
 {

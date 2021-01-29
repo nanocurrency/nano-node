@@ -142,21 +142,21 @@ void nano::network::stop ()
 	}
 }
 
-void nano::network::send_keepalive (std::shared_ptr<nano::transport::channel> channel_a)
+void nano::network::send_keepalive (std::shared_ptr<nano::transport::channel> const & channel_a)
 {
 	nano::keepalive message;
 	random_fill (message.peers);
 	channel_a->send (message);
 }
 
-void nano::network::send_keepalive_self (std::shared_ptr<nano::transport::channel> channel_a)
+void nano::network::send_keepalive_self (std::shared_ptr<nano::transport::channel> const & channel_a)
 {
 	nano::keepalive message;
 	fill_keepalive_self (message.peers);
 	channel_a->send (message);
 }
 
-void nano::network::send_node_id_handshake (std::shared_ptr<nano::transport::channel> channel_a, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to)
+void nano::network::send_node_id_handshake (std::shared_ptr<nano::transport::channel> const & channel_a, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to)
 {
 	boost::optional<std::pair<nano::account, nano::signature>> response (boost::none);
 	if (respond_to)
@@ -219,36 +219,39 @@ void nano::network::flood_vote_pr (std::shared_ptr<nano::vote> const & vote_a)
 
 void nano::network::flood_block_many (std::deque<std::shared_ptr<nano::block>> blocks_a, std::function<void()> callback_a, unsigned delay_a)
 {
-	auto block_l (blocks_a.front ());
-	blocks_a.pop_front ();
-	flood_block (block_l);
 	if (!blocks_a.empty ())
 	{
-		std::weak_ptr<nano::node> node_w (node.shared ());
-		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a + std::rand () % delay_a), [node_w, blocks (std::move (blocks_a)), callback_a, delay_a]() {
-			if (auto node_l = node_w.lock ())
-			{
-				node_l->network.flood_block_many (std::move (blocks), callback_a, delay_a);
-			}
-		});
-	}
-	else if (callback_a)
-	{
-		callback_a ();
+		auto block_l (blocks_a.front ());
+		blocks_a.pop_front ();
+		flood_block (block_l);
+		if (!blocks_a.empty ())
+		{
+			std::weak_ptr<nano::node> node_w (node.shared ());
+			node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a + std::rand () % delay_a), [node_w, blocks (std::move (blocks_a)), callback_a, delay_a]() {
+				if (auto node_l = node_w.lock ())
+				{
+					node_l->network.flood_block_many (std::move (blocks), callback_a, delay_a);
+				}
+			});
+		}
+		else if (callback_a)
+		{
+			callback_a ();
+		}
 	}
 }
 
-void nano::network::send_confirm_req (std::shared_ptr<nano::transport::channel> channel_a, std::pair<nano::block_hash, nano::block_hash> const & hash_root_a)
+void nano::network::send_confirm_req (std::shared_ptr<nano::transport::channel> const & channel_a, std::pair<nano::block_hash, nano::block_hash> const & hash_root_a)
 {
 	// Confirmation request with hash + root
 	nano::confirm_req req (hash_root_a.first, hash_root_a.second);
 	channel_a->send (req);
 }
 
-void nano::network::broadcast_confirm_req (std::shared_ptr<nano::block> block_a)
+void nano::network::broadcast_confirm_req (std::shared_ptr<nano::block> const & block_a)
 {
 	auto list (std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> (node.rep_crawler.representative_endpoints (std::numeric_limits<size_t>::max ())));
-	if (list->empty () || node.rep_crawler.total_weight () < node.config.online_weight_minimum.number ())
+	if (list->empty () || node.rep_crawler.total_weight () < node.online_reps.delta ())
 	{
 		// broadcast request to all peers (with max limit 2 * sqrt (peers count))
 		auto peers (node.network.list (std::min<size_t> (100, node.network.fanout (2.0))));
@@ -273,7 +276,7 @@ void nano::network::broadcast_confirm_req (std::shared_ptr<nano::block> block_a)
 	broadcast_confirm_req_base (block_a, list, 0);
 }
 
-void nano::network::broadcast_confirm_req_base (std::shared_ptr<nano::block> block_a, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>> endpoints_a, unsigned delay_a, bool resumption)
+void nano::network::broadcast_confirm_req_base (std::shared_ptr<nano::block> const & block_a, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>> const & endpoints_a, unsigned delay_a, bool resumption)
 {
 	const size_t max_reps = 10;
 	if (!resumption && node.config.logging.network_logging ())
@@ -460,7 +463,7 @@ public:
 				{
 					if (!vote_block.which ())
 					{
-						auto block (boost::get<std::shared_ptr<nano::block>> (vote_block));
+						auto const & block (boost::get<std::shared_ptr<nano::block>> (vote_block));
 						if (!node.block_processor.full ())
 						{
 							node.process_active (block);
@@ -530,7 +533,7 @@ public:
 };
 }
 
-void nano::network::process_message (nano::message const & message_a, std::shared_ptr<nano::transport::channel> channel_a)
+void nano::network::process_message (nano::message const & message_a, std::shared_ptr<nano::transport::channel> const & channel_a)
 {
 	network_message_visitor visitor (node, channel_a);
 	message_a.visit (visitor);
@@ -550,7 +553,7 @@ void nano::network::merge_peer (nano::endpoint const & peer_a)
 	if (!reachout (peer_a, node.config.allow_local_peers))
 	{
 		std::weak_ptr<nano::node> node_w (node.shared ());
-		node.network.tcp_channels.start_tcp (peer_a, [node_w](std::shared_ptr<nano::transport::channel> channel_a) {
+		node.network.tcp_channels.start_tcp (peer_a, [node_w](std::shared_ptr<nano::transport::channel> const & channel_a) {
 			if (auto node_l = node_w.lock ())
 			{
 				node_l->network.send_keepalive (channel_a);

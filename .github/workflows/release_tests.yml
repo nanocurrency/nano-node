@@ -10,13 +10,14 @@ env:
   
 jobs:
   osx_test:
-    runs-on: macOS-latest
+    runs-on: macos-latest
     env:
       BOOST_ROOT: /tmp/boost
     steps:
-      - uses: actions/checkout@722adc6
-      - name: Checkout Submodules
-        run: git submodule update --init --recursive
+      - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        with:
+          submodules: "recursive"
+
       - name: Fetch Deps
         run: TEST=1 ci/actions/osx/install_deps.sh
       - name: Run Tests
@@ -26,9 +27,10 @@ jobs:
     runs-on: ubuntu-18.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@722adc6
-      - name: Checkout Submodules
-        run: git submodule update --init --recursive
+      - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        with:
+          submodules: "recursive"
+
       - name: Fetch Deps
         run: ci/actions/linux/install_deps.sh
       - name: Run Tests
@@ -38,9 +40,10 @@ jobs:
     runs-on: ubuntu-18.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@722adc6
-      - name: Checkout Submodules
-        run: git submodule update --init --recursive
+      - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        with:
+          submodules: "recursive"
+
       - name: Fetch Deps
         run: ci/actions/linux/install_deps.sh
       - name: Run Tests
@@ -50,9 +53,9 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@722adc6
-      - name: Checkout Submodules
-        run: git submodule update --init --recursive
+      - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        with:
+          submodules: "recursive"
       - name: Fetch Deps
         run: ci/actions/windows/install_deps.ps1
       - name: Run Tests

@@ -1,6 +1,5 @@
 #include <nano/lib/rep_weights.hpp>
 #include <nano/lib/stats.hpp>
-#include <nano/lib/timestamp.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/secure/blockstore.hpp>

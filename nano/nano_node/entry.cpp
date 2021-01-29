@@ -72,12 +72,13 @@ int main (int argc, char * const * argv)
 		("help", "Print out options")
 		("version", "Prints out version")
 		("config", boost::program_options::value<std::vector<nano::config_key_value_pair>>()->multitoken(), "Pass node configuration values. This takes precedence over any values in the configuration file. This option can be repeated multiple times.")
+		("rpcconfig", boost::program_options::value<std::vector<nano::config_key_value_pair>>()->multitoken(), "Pass RPC configuration values. This takes precedence over any values in the RPC configuration file. This option can be repeated multiple times.")
 		("daemon", "Start node daemon")
 		("compare_rep_weights", "Display a summarized comparison between the hardcoded bootstrap weights and representative weights from the ledger. Full comparison is output to logs")
 		("debug_block_count", "Display the number of blocks")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
 		("debug_dump_frontier_unchecked_dependents", "Dump frontiers which have matching unchecked keys")
-		("debug_dump_online_weight", "Dump online_weights table")
+		("debug_dump_trended_weight", "Dump trended weights table")
 		("debug_dump_representatives", "List representatives and weights")
 		("debug_account_count", "Display the number of accounts")
 		("debug_profile_generate", "Profile work generation")
@@ -102,6 +103,7 @@ int main (int argc, char * const * argv)
 		("debug_account_versions", "Display the total counts of each version for all accounts (including unpocketed)")
 		("debug_unconfirmed_frontiers", "Displays the account, height (sorted), frontier and cemented frontier for all accounts which are not fully confirmed")
 		("validate_blocks,debug_validate_blocks", "Check all blocks for correct hash, signature, work value")
+		("debug_prune", "Prune accounts up to last confirmed blocks (EXPERIMENTAL)")
 		("platform", boost::program_options::value<std::string> (), "Defines the <platform> for OpenCL commands")
 		("device", boost::program_options::value<std::string> (), "Defines <device> for OpenCL command")
 		("threads", boost::program_options::value<std::string> (), "Defines <threads> count for various commands")
@@ -382,12 +384,12 @@ int main (int argc, char * const * argv)
 				result = -1;
 			}
 		}
-		else if (vm.count ("debug_dump_online_weight"))
+		else if (vm.count ("debug_dump_trended_weight"))
 		{
 			auto inactive_node = nano::default_inactive_node (data_path, vm);
 			auto node = inactive_node->node;
-			auto current (node->online_reps.online_stake ());
-			std::cout << boost::str (boost::format ("Online Weight %1%\n") % current);
+			auto current (node->online_reps.trended ());
+			std::cout << boost::str (boost::format ("Trended Weight %1%\n") % current);
 			auto transaction (node->store.tx_begin_read ());
 			for (auto i (node->store.online_weight_begin (transaction)), n (node->store.online_weight_end ()); i != n; ++i)
 			{
@@ -1894,6 +1896,15 @@ int main (int argc, char * const * argv)
 			nano::update_flags (node_flags, vm);
 			nano::inactive_node node (data_path, node_flags);
 			std::cout << "Total cemented block count: " << node.node->ledger.cache.cemented_count << std::endl;
+		}
+		else if (vm.count ("debug_prune"))
+		{
+			auto node_flags = nano::inactive_node_flag_defaults ();
+			node_flags.read_only = false;
+			nano::update_flags (node_flags, vm);
+			nano::inactive_node inactive_node (data_path, node_flags);
+			auto node = inactive_node.node;
+			node->ledger_pruning (node_flags.block_processor_batch_size != 0 ? node_flags.block_processor_batch_size : 16 * 1024, true, true);
 		}
 		else if (vm.count ("debug_stacktrace"))
 		{

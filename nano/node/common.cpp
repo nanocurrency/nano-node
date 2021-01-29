@@ -1,6 +1,7 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/memory.hpp>
 #include <nano/lib/work.hpp>
+#include <nano/node/active_transactions.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/wallet.hpp>
@@ -475,7 +476,7 @@ void nano::message_parser::deserialize_confirm_ack (nano::stream & stream_a, nan
 		{
 			if (!vote_block.which ())
 			{
-				auto block (boost::get<std::shared_ptr<nano::block>> (vote_block));
+				auto const & block (boost::get<std::shared_ptr<nano::block>> (vote_block));
 				if (nano::work_validate_entry (*block))
 				{
 					status = parse_status::insufficient_work;
@@ -614,7 +615,7 @@ digest (digest_a)
 	}
 }
 
-nano::publish::publish (std::shared_ptr<nano::block> block_a) :
+nano::publish::publish (std::shared_ptr<nano::block> const & block_a) :
 message (nano::message_type::publish),
 block (block_a)
 {
@@ -655,7 +656,7 @@ message (header_a)
 	}
 }
 
-nano::confirm_req::confirm_req (std::shared_ptr<nano::block> block_a) :
+nano::confirm_req::confirm_req (std::shared_ptr<nano::block> const & block_a) :
 message (nano::message_type::confirm_req),
 block (block_a)
 {
@@ -796,7 +797,7 @@ vote (nano::make_shared<nano::vote> (error_a, stream_a, header.block_type ()))
 	}
 }
 
-nano::confirm_ack::confirm_ack (std::shared_ptr<nano::vote> vote_a) :
+nano::confirm_ack::confirm_ack (std::shared_ptr<nano::vote> const & vote_a) :
 message (nano::message_type::confirm_ack),
 vote (vote_a)
 {
@@ -1107,9 +1108,9 @@ nano::telemetry_ack::telemetry_ack (nano::telemetry_data const & telemetry_data_
 message (nano::message_type::telemetry_ack),
 data (telemetry_data_a)
 {
-	debug_assert (telemetry_data::size < 2048); // Maximum size the mask allows
+	debug_assert (telemetry_data::size + telemetry_data_a.unknown_data.size () <= message_header::telemetry_size_mask.to_ulong ()); // Maximum size the mask allows
 	header.extensions &= ~message_header::telemetry_size_mask;
-	header.extensions |= std::bitset<16> (static_cast<unsigned long long> (telemetry_data::size));
+	header.extensions |= std::bitset<16> (static_cast<unsigned long long> (telemetry_data::size) + telemetry_data_a.unknown_data.size ());
 }
 
 void nano::telemetry_ack::serialize (nano::stream & stream_a) const
@@ -1192,9 +1193,13 @@ void nano::telemetry_data::deserialize (nano::stream & stream_a, uint16_t payloa
 	timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (timestamp_l));
 	read (stream_a, active_difficulty);
 	boost::endian::big_to_native_inplace (active_difficulty);
+	if (payload_length_a > latest_size)
+	{
+		read (stream_a, unknown_data, payload_length_a - latest_size);
+	}
 }
 
-void nano::telemetry_data::serialize_without_signature (nano::stream & stream_a, uint16_t /* size_a */) const
+void nano::telemetry_data::serialize_without_signature (nano::stream & stream_a) const
 {
 	// All values should be serialized in big endian
 	write (stream_a, node_id);
@@ -1214,12 +1219,13 @@ void nano::telemetry_data::serialize_without_signature (nano::stream & stream_a,
 	write (stream_a, maker);
 	write (stream_a, boost::endian::native_to_big (std::chrono::duration_cast<std::chrono::milliseconds> (timestamp.time_since_epoch ()).count ()));
 	write (stream_a, boost::endian::native_to_big (active_difficulty));
+	write (stream_a, unknown_data);
 }
 
 void nano::telemetry_data::serialize (nano::stream & stream_a) const
 {
 	write (stream_a, signature);
-	serialize_without_signature (stream_a, size);
+	serialize_without_signature (stream_a);
 }
 
 nano::error nano::telemetry_data::serialize_json (nano::jsonconfig & json, bool ignore_identification_metrics_a) const
@@ -1306,7 +1312,7 @@ nano::error nano::telemetry_data::deserialize_json (nano::jsonconfig & json, boo
 
 bool nano::telemetry_data::operator== (nano::telemetry_data const & data_a) const
 {
-	return (signature == data_a.signature && node_id == data_a.node_id && block_count == data_a.block_count && cemented_count == data_a.cemented_count && unchecked_count == data_a.unchecked_count && account_count == data_a.account_count && bandwidth_cap == data_a.bandwidth_cap && uptime == data_a.uptime && peer_count == data_a.peer_count && protocol_version == data_a.protocol_version && genesis_block == data_a.genesis_block && major_version == data_a.major_version && minor_version == data_a.minor_version && patch_version == data_a.patch_version && pre_release_version == data_a.pre_release_version && maker == data_a.maker && timestamp == data_a.timestamp && active_difficulty == data_a.active_difficulty);
+	return (signature == data_a.signature && node_id == data_a.node_id && block_count == data_a.block_count && cemented_count == data_a.cemented_count && unchecked_count == data_a.unchecked_count && account_count == data_a.account_count && bandwidth_cap == data_a.bandwidth_cap && uptime == data_a.uptime && peer_count == data_a.peer_count && protocol_version == data_a.protocol_version && genesis_block == data_a.genesis_block && major_version == data_a.major_version && minor_version == data_a.minor_version && patch_version == data_a.patch_version && pre_release_version == data_a.pre_release_version && maker == data_a.maker && timestamp == data_a.timestamp && active_difficulty == data_a.active_difficulty && unknown_data == data_a.unknown_data);
 }
 
 bool nano::telemetry_data::operator!= (nano::telemetry_data const & data_a) const
@@ -1320,18 +1326,18 @@ void nano::telemetry_data::sign (nano::keypair const & node_id_a)
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream (bytes);
-		serialize_without_signature (stream, size);
+		serialize_without_signature (stream);
 	}
 
 	signature = nano::sign_message (node_id_a.prv, node_id_a.pub, bytes.data (), bytes.size ());
 }
 
-bool nano::telemetry_data::validate_signature (uint16_t size_a) const
+bool nano::telemetry_data::validate_signature () const
 {
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream (bytes);
-		serialize_without_signature (stream, size_a);
+		serialize_without_signature (stream);
 	}
 
 	return nano::validate_message (node_id, bytes.data (), bytes.size (), signature);
@@ -1539,6 +1545,6 @@ std::chrono::seconds nano::telemetry_cache_cutoffs::network_to_time (network_con
 }
 
 nano::node_singleton_memory_pool_purge_guard::node_singleton_memory_pool_purge_guard () :
-cleanup_guard ({ nano::block_memory_pool_purge, nano::purge_singleton_pool_memory<nano::vote>, nano::purge_singleton_pool_memory<nano::election> })
+cleanup_guard ({ nano::block_memory_pool_purge, nano::purge_shared_ptr_singleton_pool_memory<nano::vote>, nano::purge_shared_ptr_singleton_pool_memory<nano::election>, nano::purge_singleton_inactive_votes_cache_pool_memory })
 {
 }
