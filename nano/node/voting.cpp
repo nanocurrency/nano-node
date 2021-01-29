@@ -34,7 +34,7 @@ void nano::vote_spacing::flag (nano::root const & root_a, nano::block_hash const
 	auto existing = recent.get<tag_root> ().find (root_a);
 	if (existing != recent.end ())
 	{
-		recent.get<tag_root> ().modify (existing, [now] (entry & entry) {
+		recent.get<tag_root> ().modify (existing, [now](entry & entry) {
 			entry.time = now;
 		});
 	}
