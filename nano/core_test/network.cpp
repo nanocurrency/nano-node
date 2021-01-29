@@ -818,7 +818,7 @@ TEST (network, replace_port)
 	auto wrong_endpoint = nano::endpoint (node1->network.endpoint ().address (), nano::get_available_port ());
 	auto channel0 (node0->network.udp_channels.insert (wrong_endpoint, node1->network_params.protocol.protocol_version));
 	ASSERT_NE (nullptr, channel0);
-	node0->network.udp_channels.modify (channel0, [&node1](std::shared_ptr<nano::transport::channel> channel_a) {
+	node0->network.udp_channels.modify (channel0, [&node1](std::shared_ptr<nano::transport::channel> const & channel_a) {
 		channel_a->set_node_id (node1->node_id.pub);
 	});
 	auto peers_list (node0->network.list (std::numeric_limits<size_t>::max ()));
@@ -1117,7 +1117,7 @@ TEST (network, cleanup_purge)
 	ASSERT_EQ (0, node1.network.size ());
 
 	std::weak_ptr<nano::node> node_w = node1.shared ();
-	node1.network.tcp_channels.start_tcp (node2->network.endpoint (), [node_w](std::shared_ptr<nano::transport::channel> channel_a) {
+	node1.network.tcp_channels.start_tcp (node2->network.endpoint (), [node_w](std::shared_ptr<nano::transport::channel> const & channel_a) {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->network.send_keepalive (channel_a);

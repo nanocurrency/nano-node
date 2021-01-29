@@ -51,36 +51,26 @@ namespace transport
 		If remote part has open listening port, temporary channel will be replaced with direct connection to listening port soon. But if other side is behing NAT or firewall this connection can be pemanent. */
 		std::atomic<bool> temporary{ false };
 
+		void set_endpoint ();
+
 		nano::endpoint get_endpoint () const override
 		{
-			nano::lock_guard<std::mutex> lk (channel_mutex);
-			if (auto socket_l = socket.lock ())
-			{
-				return nano::transport::map_tcp_to_endpoint (socket_l->remote_endpoint ());
-			}
-			else
-			{
-				return nano::endpoint (boost::asio::ip::address_v6::any (), 0);
-			}
+			return nano::transport::map_tcp_to_endpoint (get_tcp_endpoint ());
 		}
 
 		nano::tcp_endpoint get_tcp_endpoint () const override
 		{
 			nano::lock_guard<std::mutex> lk (channel_mutex);
-			if (auto socket_l = socket.lock ())
-			{
-				return socket_l->remote_endpoint ();
-			}
-			else
-			{
-				return nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0);
-			}
+			return endpoint;
 		}
 
 		nano::transport::transport_type get_type () const override
 		{
 			return nano::transport::transport_type::tcp;
 		}
+
+	private:
+		nano::tcp_endpoint endpoint{ boost::asio::ip::address_v6::any (), 0 };
 	};
 	class tcp_channels final
 	{
@@ -89,7 +79,7 @@ namespace transport
 
 	public:
 		tcp_channels (nano::node &);
-		bool insert (std::shared_ptr<nano::transport::channel_tcp>, std::shared_ptr<nano::socket>, std::shared_ptr<nano::bootstrap_server>);
+		bool insert (std::shared_ptr<nano::transport::channel_tcp> const &, std::shared_ptr<nano::socket> const &, std::shared_ptr<nano::bootstrap_server> const &);
 		void erase (nano::tcp_endpoint const &);
 		size_t size () const;
 		std::shared_ptr<nano::transport::channel_tcp> find_channel (nano::tcp_endpoint const &) const;
@@ -103,7 +93,7 @@ namespace transport
 		void start ();
 		void stop ();
 		void process_messages ();
-		void process_message (nano::message const &, nano::tcp_endpoint const &, nano::account const &, std::shared_ptr<nano::socket>, nano::bootstrap_server_type);
+		void process_message (nano::message const &, nano::tcp_endpoint const &, nano::account const &, std::shared_ptr<nano::socket> const &, nano::bootstrap_server_type);
 		bool max_ip_connections (nano::tcp_endpoint const &);
 		// Should we reach out to this endpoint with a keepalive message
 		bool reachout (nano::endpoint const &);
@@ -112,12 +102,12 @@ namespace transport
 		void ongoing_keepalive ();
 		void list_below_version (std::vector<std::shared_ptr<nano::transport::channel>> &, uint8_t);
 		void list (std::deque<std::shared_ptr<nano::transport::channel>> &, uint8_t = 0, bool = true);
-		void modify (std::shared_ptr<nano::transport::channel_tcp>, std::function<void(std::shared_ptr<nano::transport::channel_tcp>)>);
+		void modify (std::shared_ptr<nano::transport::channel_tcp> const &, std::function<void(std::shared_ptr<nano::transport::channel_tcp> const &)>);
 		void update (nano::tcp_endpoint const &);
 		// Connection start
-		void start_tcp (nano::endpoint const &, std::function<void(std::shared_ptr<nano::transport::channel>)> const & = nullptr);
-		void start_tcp_receive_node_id (std::shared_ptr<nano::transport::channel_tcp>, nano::endpoint const &, std::shared_ptr<std::vector<uint8_t>>, std::function<void(std::shared_ptr<nano::transport::channel>)> const &);
-		void udp_fallback (nano::endpoint const &, std::function<void(std::shared_ptr<nano::transport::channel>)> const &);
+		void start_tcp (nano::endpoint const &, std::function<void(std::shared_ptr<nano::transport::channel> const &)> const & = nullptr);
+		void start_tcp_receive_node_id (std::shared_ptr<nano::transport::channel_tcp> const &, nano::endpoint const &, std::shared_ptr<std::vector<uint8_t>> const &, std::function<void(std::shared_ptr<nano::transport::channel> const &)> const &);
+		void udp_fallback (nano::endpoint const &, std::function<void(std::shared_ptr<nano::transport::channel> const &)> const &);
 		void push_node_id_handshake_socket (std::shared_ptr<nano::socket> const & socket_a);
 		void remove_node_id_handshake_socket (std::shared_ptr<nano::socket> const & socket_a);
 		bool node_id_handhake_sockets_empty () const;
