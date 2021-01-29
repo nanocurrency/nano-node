@@ -999,7 +999,7 @@ std::string nano_qt::status::color ()
 	return result;
 }
 
-nano_qt::wallet::wallet (QApplication & application_a, nano_qt::eventloop_processor & processor_a, nano::node & node_a, std::shared_ptr<nano::wallet> wallet_a, nano::account & account_a) :
+nano_qt::wallet::wallet (QApplication & application_a, nano_qt::eventloop_processor & processor_a, nano::node & node_a, std::shared_ptr<nano::wallet> const & wallet_a, nano::account & account_a) :
 rendering_ratio (nano::Mxrb_ratio),
 node (node_a),
 wallet_m (wallet_a),
@@ -1177,7 +1177,7 @@ void nano_qt::wallet::start ()
 							this_l->node.background ([this_w, account_l, actual]() {
 								if (auto this_l = this_w.lock ())
 								{
-									this_l->wallet_m->send_async (this_l->account, account_l, actual, [this_w](std::shared_ptr<nano::block> block_a) {
+									this_l->wallet_m->send_async (this_l->account, account_l, actual, [this_w](std::shared_ptr<nano::block> const & block_a) {
 										if (auto this_l = this_w.lock ())
 										{
 											auto succeeded (block_a != nullptr);
@@ -1332,7 +1332,7 @@ void nano_qt::wallet::start ()
 			}));
 		}
 	});
-	node.observers.endpoint.add ([this_w](std::shared_ptr<nano::transport::channel>) {
+	node.observers.endpoint.add ([this_w](std::shared_ptr<nano::transport::channel> const &) {
 		if (auto this_l = this_w.lock ())
 		{
 			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w]() {
@@ -1922,7 +1922,7 @@ wallet (wallet_a)
 		this->wallet.pop_main_stack ();
 	});
 	QObject::connect (search_for_receivables, &QPushButton::released, [this]() {
-		std::thread ([this] { this->wallet.wallet_m->search_pending (); }).detach ();
+		std::thread ([this] { this->wallet.wallet_m->search_pending (this->wallet.wallet_m->wallets.tx_begin_read ()); }).detach ();
 	});
 	QObject::connect (bootstrap, &QPushButton::released, [this]() {
 		std::thread ([this] { this->wallet.node.bootstrap_initiator.bootstrap (); }).detach ();

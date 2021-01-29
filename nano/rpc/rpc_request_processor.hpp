@@ -49,13 +49,13 @@ public:
 	rpc_request_processor (boost::asio::io_context & io_ctx, nano::rpc_config & rpc_config);
 	~rpc_request_processor ();
 	void stop ();
-	void add (std::shared_ptr<rpc_request> request);
+	void add (std::shared_ptr<rpc_request> const & request);
 	std::function<void()> stop_callback;
 
 private:
 	void run ();
-	void read_payload (std::shared_ptr<nano::ipc_connection> connection, std::shared_ptr<std::vector<uint8_t>> res, std::shared_ptr<nano::rpc_request> rpc_request);
-	void try_reconnect_and_execute_request (std::shared_ptr<nano::ipc_connection> connection, nano::shared_const_buffer const & req, std::shared_ptr<std::vector<uint8_t>> res, std::shared_ptr<nano::rpc_request> rpc_request);
+	void read_payload (std::shared_ptr<nano::ipc_connection> const & connection, std::shared_ptr<std::vector<uint8_t>> const & res, std::shared_ptr<nano::rpc_request> const & rpc_request);
+	void try_reconnect_and_execute_request (std::shared_ptr<nano::ipc_connection> const & connection, nano::shared_const_buffer const & req, std::shared_ptr<std::vector<uint8_t>> const & res, std::shared_ptr<nano::rpc_request> const & rpc_request);
 	void make_available (nano::ipc_connection & connection);
 
 	std::vector<std::shared_ptr<nano::ipc_connection>> connections;
@@ -82,7 +82,7 @@ public:
 		rpc_request_processor.add (std::make_shared<nano::rpc_request> (action_a, body_a, response_a));
 	}
 
-	void process_request_v2 (rpc_handler_request_params const & params_a, std::string const & body_a, std::function<void(std::shared_ptr<std::string>)> response_a) override
+	void process_request_v2 (rpc_handler_request_params const & params_a, std::string const & body_a, std::function<void(std::shared_ptr<std::string> const &)> response_a) override
 	{
 		std::string body_l = params_a.json_envelope (body_a);
 		rpc_request_processor.add (std::make_shared<nano::rpc_request> (2 /* rpc version */, body_l, [response_a](std::string const & resp) {

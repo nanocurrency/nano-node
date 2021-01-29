@@ -193,12 +193,28 @@ TEST (telemetry, signatures)
 	data.maker = 1;
 	data.timestamp = std::chrono::system_clock::time_point (100ms);
 	data.sign (node_id);
-	ASSERT_FALSE (data.validate_signature (nano::telemetry_data::size));
+	ASSERT_FALSE (data.validate_signature ());
 	auto signature = data.signature;
 	// Check that the signature is different if changing a piece of data
 	data.maker = 2;
 	data.sign (node_id);
 	ASSERT_NE (data.signature, signature);
+}
+
+TEST (telemetry, unknown_data)
+{
+	nano::keypair node_id;
+	nano::telemetry_data data;
+	data.node_id = node_id.pub;
+	data.major_version = 20;
+	data.minor_version = 1;
+	data.patch_version = 5;
+	data.pre_release_version = 2;
+	data.maker = 1;
+	data.timestamp = std::chrono::system_clock::time_point (100ms);
+	data.unknown_data.push_back (1);
+	data.sign (node_id);
+	ASSERT_FALSE (data.validate_signature ());
 }
 
 TEST (telemetry, no_peers)
@@ -502,6 +518,29 @@ TEST (telemetry, disable_metrics)
 	});
 
 	ASSERT_TIMELY (10s, done);
+}
+
+TEST (telemetry, max_possible_size)
+{
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_initial_telemetry_requests = true;
+	node_flags.disable_ongoing_telemetry_requests = true;
+	auto node_client = system.add_node (node_flags);
+	auto node_server = system.add_node (node_flags);
+
+	nano::telemetry_data data;
+	data.unknown_data.resize (nano::message_header::telemetry_size_mask.to_ulong () - nano::telemetry_data::latest_size);
+
+	nano::telemetry_ack message (data);
+	wait_peer_connections (system);
+
+	auto channel = node_client->network.tcp_channels.find_channel (nano::transport::map_endpoint_to_tcp (node_server->network.endpoint ()));
+	channel->send (message, [](boost::system::error_code const & ec, size_t size_a) {
+		ASSERT_FALSE (ec);
+	});
+
+	ASSERT_TIMELY (10s, 1 == node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_ack, nano::stat::dir::in));
 }
 
 namespace nano

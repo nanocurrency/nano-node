@@ -48,6 +48,7 @@ public:
 	MDB_txn * handle;
 	nano::mdb_env const & env;
 	mdb_txn_callbacks txn_callbacks;
+	bool active{ true };
 };
 
 class mdb_txn_stats

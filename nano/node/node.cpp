@@ -45,7 +45,7 @@ void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
 				auto channel (node_l->network.find_channel (endpoint));
 				if (!channel)
 				{
-					node_l->network.tcp_channels.start_tcp (endpoint, [node_w](std::shared_ptr<nano::transport::channel> channel_a) {
+					node_l->network.tcp_channels.start_tcp (endpoint, [node_w](std::shared_ptr<nano::transport::channel> const & channel_a) {
 						if (auto node_l = node_w.lock ())
 						{
 							node_l->network.send_keepalive (channel_a);
@@ -108,8 +108,8 @@ bootstrap_initiator (*this),
 bootstrap (config.peering_port, *this),
 application_path (application_path_a),
 port_mapping (*this),
-vote_processor (checker, active, observers, stats, config, flags, logger, online_reps, ledger, network_params),
 rep_crawler (*this),
+vote_processor (checker, active, observers, stats, config, flags, logger, online_reps, rep_crawler, ledger, network_params),
 warmed_up (0),
 block_processor (*this, write_database_queue),
 // clang-format off
@@ -142,7 +142,7 @@ node_seq (seq)
 		wallets.observer = [this](bool active) {
 			observers.wallet.notify (active);
 		};
-		network.channel_observer = [this](std::shared_ptr<nano::transport::channel> channel_a) {
+		network.channel_observer = [this](std::shared_ptr<nano::transport::channel> const & channel_a) {
 			debug_assert (channel_a != nullptr);
 			observers.endpoint.notify (channel_a);
 		};
@@ -287,7 +287,7 @@ node_seq (seq)
 					break;
 			}
 		});
-		observers.endpoint.add ([this](std::shared_ptr<nano::transport::channel> channel_a) {
+		observers.endpoint.add ([this](std::shared_ptr<nano::transport::channel> const & channel_a) {
 			if (channel_a->get_type () == nano::transport::transport_type::udp)
 			{
 				this->network.send_keepalive (channel_a);
@@ -297,25 +297,23 @@ node_seq (seq)
 				this->network.send_keepalive_self (channel_a);
 			}
 		});
-		observers.vote.add ([this](std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a, nano::vote_code code_a) {
+		observers.vote.add ([this](std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> const & channel_a, nano::vote_code code_a) {
 			debug_assert (code_a != nano::vote_code::invalid);
-			if (code_a != nano::vote_code::replay)
+			// The vote_code::vote is handled inside the election
+			if (code_a == nano::vote_code::indeterminate)
 			{
 				auto active_in_rep_crawler (!this->rep_crawler.response (channel_a, vote_a));
-				if (active_in_rep_crawler || code_a == nano::vote_code::vote)
+				if (active_in_rep_crawler)
 				{
 					// Representative is defined as online if replying to live votes or rep_crawler queries
 					this->online_reps.observe (vote_a->account);
 				}
-			}
-			if (code_a == nano::vote_code::indeterminate)
-			{
 				this->gap_cache.vote (vote_a);
 			}
 		});
 		if (websocket_server)
 		{
-			observers.vote.add ([this](std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a, nano::vote_code code_a) {
+			observers.vote.add ([this](std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> const & channel_a, nano::vote_code code_a) {
 				if (this->websocket_server->any_subscriber (nano::websocket::topic::vote))
 				{
 					nano::websocket::message_builder builder;
@@ -457,7 +455,7 @@ nano::node::~node ()
 	stop ();
 }
 
-void nano::node::do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, std::string const & address, uint16_t port, std::shared_ptr<std::string> target, std::shared_ptr<std::string> body, std::shared_ptr<boost::asio::ip::tcp::resolver> resolver)
+void nano::node::do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, std::string const & address, uint16_t port, std::shared_ptr<std::string> const & target, std::shared_ptr<std::string> const & body, std::shared_ptr<boost::asio::ip::tcp::resolver> const & resolver)
 {
 	if (i_a != boost::asio::ip::tcp::resolver::iterator{})
 	{
@@ -543,7 +541,7 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 		if (ledger_block && !block_confirmed_or_being_confirmed (transaction_a, ledger_block->hash ()) && (ledger.dependents_confirmed (transaction_a, *ledger_block) || modified_a < nano::seconds_since_epoch () - 300 || !block_arrival.recent (block_a->hash ())))
 		{
 			std::weak_ptr<nano::node> this_w (shared_from_this ());
-			auto election = active.insert (ledger_block, boost::none, nano::election_behavior::normal, [this_w, root, root_block_type = block_a->type ()](std::shared_ptr<nano::block>) {
+			auto election = active.insert (ledger_block, boost::none, nano::election_behavior::normal, [this_w, root, root_block_type = block_a->type ()](std::shared_ptr<nano::block> const &) {
 				if (auto this_l = this_w.lock ())
 				{
 					auto attempt (this_l->bootstrap_initiator.current_attempt ());
@@ -616,7 +614,7 @@ void nano::node::process_active (std::shared_ptr<nano::block> const & incoming)
 
 nano::process_return nano::node::process (nano::block & block_a)
 {
-	auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending }, { tables::confirmation_height }));
+	auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending }));
 	auto result (ledger.process (transaction, block_a));
 	return result;
 }
@@ -631,8 +629,17 @@ nano::process_return nano::node::process_local (std::shared_ptr<nano::block> con
 	block_processor.wait_write ();
 	// Process block
 	block_post_events post_events ([& store = store] { return store.tx_begin_read (); });
-	auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending }, { tables::confirmation_height }));
+	auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending }));
 	return block_processor.process_one (transaction, post_events, info, work_watcher_a, false, nano::block_origin::local);
+}
+
+void nano::node::process_local_async (std::shared_ptr<nano::block> const & block_a, bool const work_watcher_a)
+{
+	// Add block hash as recently arrived to trigger automatic rebroadcast and election
+	block_arrival.add (block_a->hash ());
+	// Set current time to trigger automatic rebroadcast and election
+	nano::unchecked_info info (block_a, block_a->account (), nano::seconds_since_epoch (), nano::signature_verification::unknown);
+	block_processor.add_local (info, work_watcher_a);
 }
 
 void nano::node::start ()
@@ -1222,7 +1229,7 @@ void nano::node::add_initial_peers ()
 		if (!network.reachout (endpoint, config.allow_local_peers))
 		{
 			std::weak_ptr<nano::node> node_w (shared_from_this ());
-			network.tcp_channels.start_tcp (endpoint, [node_w](std::shared_ptr<nano::transport::channel> channel_a) {
+			network.tcp_channels.start_tcp (endpoint, [node_w](std::shared_ptr<nano::transport::channel> const & channel_a) {
 				if (auto node_l = node_w.lock ())
 				{
 					node_l->network.send_keepalive (channel_a);
@@ -1280,21 +1287,24 @@ void nano::node::ongoing_online_weight_calculation ()
 	ongoing_online_weight_calculation_queue ();
 }
 
-void nano::node::receive_confirmed (nano::transaction const & wallet_transaction_a, nano::transaction const & block_transaction_a, nano::block_hash const & hash_a, nano::account const & destination_a)
+void nano::node::receive_confirmed (nano::transaction const & block_transaction_a, nano::block_hash const & hash_a, nano::account const & destination_a)
 {
-	for (auto const & [id /*unused*/, wallet] : wallets.get_wallets ())
+	nano::unique_lock<nano::mutex> lk (wallets.mutex);
+	auto wallets_l = wallets.get_wallets ();
+	auto wallet_transaction = wallets.tx_begin_read ();
+	lk.unlock ();
+	for ([[maybe_unused]] auto const & [id, wallet] : wallets_l)
 	{
-		(void)id;
-		if (wallet->store.exists (wallet_transaction_a, destination_a))
+		if (wallet->store.exists (wallet_transaction, destination_a))
 		{
 			nano::account representative;
 			nano::pending_info pending;
-			representative = wallet->store.representative (wallet_transaction_a);
+			representative = wallet->store.representative (wallet_transaction);
 			auto error (store.pending_get (block_transaction_a, nano::pending_key (destination_a, hash_a), pending));
 			if (!error)
 			{
 				auto amount (pending.amount.number ());
-				wallet->receive_async (hash_a, representative, amount, destination_a, [](std::shared_ptr<nano::block>) {});
+				wallet->receive_async (hash_a, representative, amount, destination_a, [](std::shared_ptr<nano::block> const &) {});
 			}
 			else
 			{
@@ -1449,7 +1459,7 @@ bool nano::node::epoch_upgrader (nano::private_key const & prv_a, nano::epoch ep
 void nano::node::epoch_upgrader_impl (nano::private_key const & prv_a, nano::epoch epoch_a, uint64_t count_limit, uint64_t threads)
 {
 	nano::thread_role::set (nano::thread_role::name::epoch_upgrader);
-	auto upgrader_process = [](nano::node & node_a, std::atomic<uint64_t> & counter, std::shared_ptr<nano::block> epoch, uint64_t difficulty, nano::public_key const & signer_a, nano::root const & root_a, nano::account const & account_a) {
+	auto upgrader_process = [](nano::node & node_a, std::atomic<uint64_t> & counter, std::shared_ptr<nano::block> const & epoch, uint64_t difficulty, nano::public_key const & signer_a, nano::root const & root_a, nano::account const & account_a) {
 		epoch->block_work_set (node_a.work_generate_blocking (nano::work_version::work_1, root_a, difficulty).value_or (0));
 		bool valid_signature (!nano::validate_message (signer_a, epoch->hash (), epoch->block_signature ()));
 		bool valid_work (epoch->difficulty () >= difficulty);

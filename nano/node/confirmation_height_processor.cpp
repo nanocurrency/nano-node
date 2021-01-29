@@ -171,7 +171,7 @@ void nano::confirmation_height_processor::set_next_hash ()
 }
 
 // Not thread-safe, only call before this processor has begun cementing
-void nano::confirmation_height_processor::add_cemented_observer (std::function<void(std::shared_ptr<nano::block>)> const & callback_a)
+void nano::confirmation_height_processor::add_cemented_observer (std::function<void(std::shared_ptr<nano::block> const &)> const & callback_a)
 {
 	cemented_observers.push_back (callback_a);
 }

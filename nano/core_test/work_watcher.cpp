@@ -263,10 +263,10 @@ TEST (work_watcher, confirm_while_generating)
 	auto election (node.active.election (block1->qualified_root ()));
 	ASSERT_NE (nullptr, election);
 	election->force_confirm ();
-	ASSERT_TIMELY (5s, node.block_confirmed (block1->hash ()));
-	ASSERT_EQ (0, node.work.size ());
-	ASSERT_TRUE (notified);
-	ASSERT_FALSE (node.wallets.watcher->is_watched (block1->qualified_root ()));
+	// Verify post conditions
+	ASSERT_NO_ERROR (system.poll_until_true (10s, [&node, &notified, &block1] {
+		return node.block_confirmed (block1->hash ()) && node.work.size () == 0 && notified && !node.wallets.watcher->is_watched (block1->qualified_root ());
+	}));
 }
 
 TEST (work_watcher, list_watched)

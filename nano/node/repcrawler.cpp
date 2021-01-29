@@ -8,7 +8,7 @@ node (node_a)
 {
 	if (!node.flags.disable_rep_crawler)
 	{
-		node.observers.endpoint.add ([this](std::shared_ptr<nano::transport::channel> channel_a) {
+		node.observers.endpoint.add ([this](std::shared_ptr<nano::transport::channel> const & channel_a) {
 			this->query (channel_a);
 		});
 	}
@@ -179,7 +179,7 @@ bool nano::rep_crawler::is_pr (nano::transport::channel const & channel_a) const
 	return result;
 }
 
-bool nano::rep_crawler::response (std::shared_ptr<nano::transport::channel> & channel_a, std::shared_ptr<nano::vote> & vote_a)
+bool nano::rep_crawler::response (std::shared_ptr<nano::transport::channel> const & channel_a, std::shared_ptr<nano::vote> const & vote_a)
 {
 	bool error = true;
 	nano::lock_guard<nano::mutex> lock (active_mutex);
@@ -214,7 +214,7 @@ nano::uint128_t nano::rep_crawler::total_weight () const
 	return result;
 }
 
-void nano::rep_crawler::on_rep_request (std::shared_ptr<nano::transport::channel> channel_a)
+void nano::rep_crawler::on_rep_request (std::shared_ptr<nano::transport::channel> const & channel_a)
 {
 	nano::lock_guard<nano::mutex> lock (probable_reps_mutex);
 	if (channel_a->get_tcp_endpoint ().address () != boost::asio::ip::address_v6::any ())

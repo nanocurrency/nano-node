@@ -104,7 +104,7 @@ namespace transport
 		void ongoing_keepalive ();
 		void list_below_version (std::vector<std::shared_ptr<nano::transport::channel>> &, uint8_t);
 		void list (std::deque<std::shared_ptr<nano::transport::channel>> &, uint8_t = 0);
-		void modify (std::shared_ptr<nano::transport::channel_udp>, std::function<void(std::shared_ptr<nano::transport::channel_udp>)>);
+		void modify (std::shared_ptr<nano::transport::channel_udp> const &, std::function<void(std::shared_ptr<nano::transport::channel_udp> const &)>);
 		nano::node & node;
 
 	private:

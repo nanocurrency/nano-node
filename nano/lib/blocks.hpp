@@ -404,7 +404,7 @@ class block_uniquer
 public:
 	using value_type = std::pair<const nano::uint256_union, std::weak_ptr<nano::block>>;
 
-	std::shared_ptr<nano::block> unique (std::shared_ptr<nano::block>);
+	std::shared_ptr<nano::block> unique (std::shared_ptr<nano::block> const &);
 	size_t size ();
 
 private:

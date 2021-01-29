@@ -342,7 +342,8 @@ public:
 		// vote generator
 		generator_broadcasts,
 		generator_replies,
-		generator_replies_discarded
+		generator_replies_discarded,
+		generator_spacing
 	};
 
 	/** Direction of the stat. If the direction is irrelevant, use in */

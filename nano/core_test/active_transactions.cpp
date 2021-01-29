@@ -1735,9 +1735,9 @@ TEST (active_transactions, pessimistic_elections)
 	// Make dummy election with winner.
 	{
 		nano::election election1 (
-		node, send, [](auto const & block) {}, false, nano::election_behavior::normal);
+		node, send, [](auto const &) {}, [](auto const &) {}, false, nano::election_behavior::normal);
 		nano::election election2 (
-		node, open, [](auto const & block) {}, false, nano::election_behavior::normal);
+		node, open, [](auto const &) {}, [](auto const &) {}, false, nano::election_behavior::normal);
 		node.active.add_expired_optimistic_election (election1);
 		node.active.add_expired_optimistic_election (election2);
 	}

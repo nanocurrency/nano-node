@@ -156,7 +156,7 @@ TEST (rpc, wrapped_task)
 		response = true;
 	});
 	auto handler_l (std::make_shared<nano::json_handler> (node, node_rpc_config, "", response_handler_l));
-	auto task (handler_l->create_worker_task ([](std::shared_ptr<nano::json_handler>) {
+	auto task (handler_l->create_worker_task ([](std::shared_ptr<nano::json_handler> const &) {
 		// Exception should get caught
 		throw std::runtime_error ("");
 	}));
@@ -1903,6 +1903,100 @@ TEST (rpc, process_block_with_work_watcher)
 	}
 }
 
+TEST (rpc, process_block_async)
+{
+	nano::system system;
+	auto & node1 = *add_ipc_enabled_node (system);
+	scoped_io_thread_name_change scoped_thread_name_io;
+	nano::keypair key;
+	auto latest (node1.latest (nano::dev_genesis_key.pub));
+	nano::send_block send (latest, key.pub, 100, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node1.work_generate_blocking (latest));
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
+	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	rpc_config.rpc_process.ipc_port = node1.config.ipc_config.transport_tcp.port;
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "process");
+	request.put ("async", "true");
+	std::string json;
+	send.serialize_json (json);
+	request.put ("block", json);
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		ASSERT_TIMELY (5s, response.status != 0);
+		ASSERT_EQ (200, response.status);
+		ASSERT_EQ ("1", response.json.get<std::string> ("started"));
+		ASSERT_TIMELY (10s, node1.latest (nano::dev_genesis_key.pub) == send.hash ());
+	}
+	request.put ("json_block", true);
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		ASSERT_TIMELY (5s, response.status != 0);
+		ASSERT_EQ (200, response.status);
+		std::error_code ec (nano::error_blocks::invalid_block);
+		ASSERT_EQ (ec.message (), response.json.get<std::string> ("error"));
+	}
+}
+
+TEST (rpc, process_block_async_work_watcher)
+{
+	nano::system system;
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.enable_voting = false;
+	node_config.work_watcher_period = 1s;
+	node_config.max_work_generate_multiplier = 1e6;
+	auto & node1 = *add_ipc_enabled_node (system, node_config);
+	nano::keypair key;
+	auto latest (node1.latest (nano::dev_genesis_key.pub));
+	auto send (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, latest, nano::dev_genesis_key.pub, nano::genesis_amount - 100, nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (latest)));
+	auto difficulty1 (send->difficulty ());
+	auto multiplier1 = nano::normalized_multiplier (nano::difficulty::to_multiplier (difficulty1, node1.network_params.network.publish_thresholds.epoch_1), node1.network_params.network.publish_thresholds.epoch_1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
+	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	rpc_config.rpc_process.ipc_port = node1.config.ipc_config.transport_tcp.port;
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "process");
+	request.put ("async", "true");
+	request.put ("watch_work", true);
+	std::string json;
+	send->serialize_json (json);
+	request.put ("block", json);
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		ASSERT_TIMELY (5s, response.status != 0);
+		ASSERT_EQ (200, response.status);
+		ASSERT_EQ ("1", response.json.get<std::string> ("started"));
+		ASSERT_TIMELY (10s, node1.latest (nano::dev_genesis_key.pub) == send->hash ());
+	}
+
+	auto updated (false);
+	double updated_multiplier;
+	while (!updated)
+	{
+		nano::unique_lock<nano::mutex> lock (node1.active.mutex);
+		// Fill multipliers_cb and update active difficulty
+		for (auto i (0); i < node1.active.multipliers_cb.size (); i++)
+		{
+			node1.active.multipliers_cb.push_back (multiplier1 * (1 + i / 100.));
+		}
+		node1.active.update_active_multiplier (lock);
+		auto const existing (node1.active.roots.find (send->qualified_root ()));
+		// If existing is junk the block has been confirmed already
+		ASSERT_NE (existing, node1.active.roots.end ());
+		updated = existing->multiplier != multiplier1;
+		updated_multiplier = existing->multiplier;
+		lock.unlock ();
+		ASSERT_NO_ERROR (system.poll ());
+	}
+}
+
 TEST (rpc, process_block_no_work)
 {
 	nano::system system;
@@ -2398,6 +2492,32 @@ TEST (rpc, pending)
 	reset_confirmation_height (system.nodes.front ()->store, block1->account ());
 	scoped_thread_name_io.renew ();
 	check_block_response_count (0);
+
+	// Sorting with a smaller count than total should give absolute sorted amounts
+	scoped_thread_name_io.reset ();
+	node->store.confirmation_height_put (node->store.tx_begin_write (), nano::dev_genesis_key.pub, { 2, block1->hash () });
+	auto block2 (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key1.pub, 200));
+	auto block3 (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key1.pub, 300));
+	auto block4 (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key1.pub, 400));
+	scoped_thread_name_io.renew ();
+
+	ASSERT_TIMELY (10s, node->ledger.account_pending (node->store.tx_begin_read (), key1.pub) == 1000);
+	ASSERT_TIMELY (5s, !node->active.active (*block4));
+	ASSERT_TIMELY (5s, node->block_confirmed (block4->hash ()));
+
+	request.put ("count", "2");
+
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		ASSERT_TIMELY (5s, response.status != 0);
+		ASSERT_EQ (200, response.status);
+		auto & blocks_node (response.json.get_child ("blocks"));
+		ASSERT_EQ (2, blocks_node.size ());
+		nano::block_hash hash (blocks_node.begin ()->first);
+		nano::block_hash hash1 ((++blocks_node.begin ())->first);
+		ASSERT_EQ (block4->hash (), hash);
+		ASSERT_EQ (block3->hash (), hash1);
+	}
 }
 
 TEST (rpc, pending_burn)
