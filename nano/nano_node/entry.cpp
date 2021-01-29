@@ -1242,20 +1242,18 @@ int main (int argc, char * const * argv)
 			// Start new node
 			nano::node_config config2 = daemon_config.node;
 			config1.peering_port = 24001;
-			if (!config_overrides.empty ())
+			if (error)
 			{
-				if (error)
-				{
-					std::cerr << "\n"
-					          << error.get_message () << std::endl;
-					std::exit (1);
-				}
-				else
-				{
-					config2.frontiers_confirmation = daemon_config.node.frontiers_confirmation;
-					config2.active_elections_size = daemon_config.node.active_elections_size;
-				}
+				std::cerr << "\n"
+				          << error.get_message () << std::endl;
+				std::exit (1);
 			}
+			else
+			{
+				config2.frontiers_confirmation = daemon_config.node.frontiers_confirmation;
+				config2.active_elections_size = daemon_config.node.active_elections_size;
+			}
+
 			auto node2 (std::make_shared<nano::node> (io_ctx2, path2, alarm2, config2, work, flags, 1));
 			node2->start ();
 			nano::thread_runner runner2 (io_ctx2, node2->config.io_threads);
