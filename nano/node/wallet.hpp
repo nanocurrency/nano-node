@@ -145,7 +145,7 @@ public:
 	void work_update (nano::transaction const &, nano::account const &, nano::root const &, uint64_t);
 	// Schedule work generation after a few seconds
 	void work_ensure (nano::account const &, nano::root const &);
-	bool search_pending ();
+	bool search_pending (nano::transaction const &);
 	void init_free_accounts (nano::transaction const &);
 	uint32_t deterministic_check (nano::transaction const & transaction_a, uint32_t index);
 	/** Changes the wallet seed and returns the first account */

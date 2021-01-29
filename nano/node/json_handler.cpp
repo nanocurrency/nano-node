@@ -3497,7 +3497,7 @@ void nano::json_handler::search_pending ()
 	auto wallet (wallet_impl ());
 	if (!ec)
 	{
-		auto error (wallet->search_pending ());
+		auto error (wallet->search_pending (wallet->wallets.tx_begin_read ()));
 		response_l.put ("started", !error);
 	}
 	response_errors ();
