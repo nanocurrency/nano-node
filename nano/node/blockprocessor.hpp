@@ -81,7 +81,7 @@ private:
 	bool active{ false };
 	bool awaiting_write{ false };
 	std::chrono::steady_clock::time_point next_log;
-	std::priority_queue<std::pair<nano::unchecked_info, bool>> blocks;
+	std::priority_queue<std::pair<nano::unchecked_info, bool>, std::deque<std::pair<nano::unchecked_info, bool>>> blocks;
 	std::deque<std::shared_ptr<nano::block>> forced;
 	std::deque<std::shared_ptr<nano::block>> updates;
 	nano::condition_variable condition;
