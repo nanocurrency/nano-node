@@ -34,7 +34,7 @@ thread ([this]() {
 })
 {
 	// Register a callback which will get called after a block is cemented
-	confirmation_height_processor.add_cemented_observer ([this](std::shared_ptr<nano::block> callback_block_a) {
+	confirmation_height_processor.add_cemented_observer ([this](std::shared_ptr<nano::block> const & callback_block_a) {
 		this->block_cemented_callback (callback_block_a);
 	});
 
@@ -797,7 +797,7 @@ void nano::active_transactions::stop ()
 	roots.clear ();
 }
 
-nano::election_insertion_result nano::active_transactions::insert_impl (nano::unique_lock<std::mutex> & lock_a, std::shared_ptr<nano::block> const & block_a, boost::optional<nano::uint128_t> const & previous_balance_a, nano::election_behavior election_behavior_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
+nano::election_insertion_result nano::active_transactions::insert_impl (nano::unique_lock<std::mutex> & lock_a, std::shared_ptr<nano::block> const & block_a, boost::optional<nano::uint128_t> const & previous_balance_a, nano::election_behavior election_behavior_a, std::function<void(std::shared_ptr<nano::block> const &)> const & confirmation_action_a)
 {
 	debug_assert (lock_a.owns_lock ());
 	debug_assert (block_a->has_sideband ());
@@ -862,14 +862,14 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 	return result;
 }
 
-nano::election_insertion_result nano::active_transactions::insert (std::shared_ptr<nano::block> const & block_a, boost::optional<nano::uint128_t> const & previous_balance_a, nano::election_behavior election_behavior_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
+nano::election_insertion_result nano::active_transactions::insert (std::shared_ptr<nano::block> const & block_a, boost::optional<nano::uint128_t> const & previous_balance_a, nano::election_behavior election_behavior_a, std::function<void(std::shared_ptr<nano::block> const &)> const & confirmation_action_a)
 {
 	nano::unique_lock<std::mutex> lock (mutex);
 	return insert_impl (lock, block_a, previous_balance_a, election_behavior_a, confirmation_action_a);
 }
 
 // Validate a vote and apply it to the current election if one exists
-nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> vote_a, bool active_in_rep_crawler_a)
+nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> const & vote_a, bool active_in_rep_crawler_a)
 {
 	nano::vote_code result{ nano::vote_code::indeterminate };
 	// If all hashes were recently confirmed then it is a replay
@@ -1266,7 +1266,7 @@ size_t nano::active_transactions::size ()
 	return roots.size ();
 }
 
-bool nano::active_transactions::publish (std::shared_ptr<nano::block> block_a)
+bool nano::active_transactions::publish (std::shared_ptr<nano::block> const & block_a)
 {
 	nano::unique_lock<std::mutex> lock (mutex);
 	auto existing (roots.get<tag_root> ().find (block_a->qualified_root ()));
@@ -1291,7 +1291,7 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> block_a)
 }
 
 // Returns the type of election status requiring callbacks calling later
-boost::optional<nano::election_status_type> nano::active_transactions::confirm_block (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a)
+boost::optional<nano::election_status_type> nano::active_transactions::confirm_block (nano::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a)
 {
 	auto hash (block_a->hash ());
 	nano::unique_lock<std::mutex> lock (mutex);
@@ -1399,11 +1399,10 @@ void nano::active_transactions::add_inactive_votes_cache (nano::unique_lock<std:
 		}
 		else
 		{
-			std::vector<nano::account> representative_vector{ representative_a };
 			auto & inactive_by_arrival (inactive_votes_cache.get<tag_arrival> ());
 			nano::inactive_cache_status default_status{};
-			inactive_by_arrival.emplace (nano::inactive_cache_information{ std::chrono::steady_clock::now (), hash_a, representative_vector, default_status });
-			auto const status (inactive_votes_bootstrap_check (lock_a, representative_vector, hash_a, default_status));
+			inactive_by_arrival.emplace (nano::inactive_cache_information{ std::chrono::steady_clock::now (), hash_a, representative_a, default_status });
+			auto const status (inactive_votes_bootstrap_check (lock_a, representative_a, hash_a, default_status));
 			if (status != default_status)
 			{
 				// The lock has since been released
@@ -1458,35 +1457,47 @@ void nano::active_transactions::erase_inactive_votes_cache (nano::block_hash con
 	inactive_votes_cache.get<tag_hash> ().erase (hash_a);
 }
 
+nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_check (nano::unique_lock<std::mutex> & lock_a, nano::account const & voter_a, nano::block_hash const & hash_a, nano::inactive_cache_status const & previously_a)
+{
+	debug_assert (lock_a.owns_lock ());
+	lock_a.unlock ();
+	return inactive_votes_bootstrap_check_impl (lock_a, node.ledger.weight (voter_a), 1, hash_a, previously_a);
+}
+
 nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_check (nano::unique_lock<std::mutex> & lock_a, std::vector<nano::account> const & voters_a, nano::block_hash const & hash_a, nano::inactive_cache_status const & previously_a)
 {
 	/** Perform checks on accumulated tally from inactive votes
 	 * These votes are generally either for unconfirmed blocks or old confirmed blocks
 	 * That check is made after hitting a tally threshold, and always as late and as few times as possible
 	 */
-	nano::inactive_cache_status status (previously_a);
-	constexpr unsigned election_start_voters_min{ 5 };
-	nano::uint128_t tally;
-
 	debug_assert (lock_a.owns_lock ());
 	lock_a.unlock ();
 
+	nano::uint128_t tally;
 	for (auto const & voter : voters_a)
 	{
 		tally += node.ledger.weight (voter);
 	}
-	status.tally = tally;
 
-	if (!previously_a.confirmed && tally >= node.online_reps.delta ())
+	return inactive_votes_bootstrap_check_impl (lock_a, tally, voters_a.size (), hash_a, previously_a);
+}
+
+nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_check_impl (nano::unique_lock<std::mutex> & lock_a, nano::uint128_t const & tally_a, size_t voters_size_a, nano::block_hash const & hash_a, nano::inactive_cache_status const & previously_a)
+{
+	debug_assert (!lock_a.owns_lock ());
+	nano::inactive_cache_status status (previously_a);
+	constexpr unsigned election_start_voters_min{ 5 };
+	status.tally = tally_a;
+	if (!previously_a.confirmed && tally_a >= node.online_reps.delta ())
 	{
 		status.bootstrap_started = true;
 		status.confirmed = true;
 	}
-	else if (!previously_a.bootstrap_started && !node.flags.disable_legacy_bootstrap && node.flags.disable_lazy_bootstrap && tally > node.gap_cache.bootstrap_threshold ())
+	else if (!previously_a.bootstrap_started && !node.flags.disable_legacy_bootstrap && node.flags.disable_lazy_bootstrap && tally_a > node.gap_cache.bootstrap_threshold ())
 	{
 		status.bootstrap_started = true;
 	}
-	if (!previously_a.election_started && voters_a.size () >= election_start_voters_min && tally >= (node.online_reps.trended () / 100) * node.config.election_hint_weight_percent)
+	if (!previously_a.election_started && voters_size_a >= election_start_voters_min && tally_a >= (node.online_reps.trended () / 100) * node.config.election_hint_weight_percent)
 	{
 		status.election_started = true;
 	}
@@ -1515,6 +1526,11 @@ nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_
 	}
 
 	return status;
+}
+
+bool nano::purge_singleton_inactive_votes_cache_pool_memory ()
+{
+	return boost::singleton_pool<boost::fast_pool_allocator_tag, sizeof (nano::active_transactions::ordered_cache::node_type)>::purge_memory ();
 }
 
 size_t nano::active_transactions::election_winner_details_size ()

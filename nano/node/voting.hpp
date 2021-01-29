@@ -7,6 +7,7 @@
 #include <nano/secure/common.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index_container.hpp>
@@ -30,6 +31,34 @@ namespace transport
 {
 	class channel;
 }
+
+class vote_spacing final
+{
+	class entry
+	{
+	public:
+		nano::root root;
+		std::chrono::steady_clock::time_point time;
+		nano::block_hash hash;
+	};
+	
+	boost::multi_index_container<entry,
+	mi::indexed_by<
+		mi::hashed_non_unique<mi::tag<class tag_root>,
+			mi::member<entry, nano::root, &entry::root>>,
+		mi::ordered_non_unique<mi::tag<class tag_time>,
+			mi::member<entry, std::chrono::steady_clock::time_point, &entry::time>>
+	>>
+	recent;
+	std::chrono::milliseconds const delay;
+	void trim ();
+public:
+	vote_spacing (std::chrono::milliseconds const & delay) :
+	delay{ delay } {}
+	bool votable (nano::root const & root_a, nano::block_hash const & hash_a) const;
+	void flag (nano::root const & root_a, nano::block_hash const & hash_a);
+	size_t size () const;
+};
 
 class local_vote_history final
 {
@@ -77,7 +106,6 @@ private:
 	mutable std::mutex mutex;
 
 	friend std::unique_ptr<container_info_component> collect_container_info (local_vote_history & history, std::string const & name);
-
 	friend class local_vote_history_basic_Test;
 };
 
@@ -95,7 +123,7 @@ public:
 	void add (nano::root const &, nano::block_hash const &);
 	/** Queue blocks for vote generation, returning the number of successful candidates.*/
 	size_t generate (std::vector<std::shared_ptr<nano::block>> const & blocks_a, std::shared_ptr<nano::transport::channel> const & channel_a);
-	void set_reply_action (std::function<void(std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> &)>);
+	void set_reply_action (std::function<void(std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &)>);
 	void stop ();
 
 private:
@@ -110,6 +138,7 @@ private:
 	nano::wallets & wallets;
 	nano::vote_processor & vote_processor;
 	nano::local_vote_history & history;
+	nano::vote_spacing spacing;
 	nano::network & network;
 	nano::stat & stats;
 	mutable std::mutex mutex;

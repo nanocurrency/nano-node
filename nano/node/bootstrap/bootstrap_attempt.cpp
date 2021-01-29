@@ -18,7 +18,7 @@ constexpr unsigned nano::bootstrap_limits::frontier_confirmation_blocks_limit;
 constexpr unsigned nano::bootstrap_limits::requeued_pulls_limit;
 constexpr unsigned nano::bootstrap_limits::requeued_pulls_limit_dev;
 
-nano::bootstrap_attempt::bootstrap_attempt (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a, uint64_t incremental_id_a, std::string id_a) :
+nano::bootstrap_attempt::bootstrap_attempt (std::shared_ptr<nano::node> const & node_a, nano::bootstrap_mode mode_a, uint64_t incremental_id_a, std::string id_a) :
 node (node_a),
 incremental_id (incremental_id_a),
 id (id_a),
@@ -142,7 +142,7 @@ void nano::bootstrap_attempt::add_recent_pull (nano::block_hash const &)
 	debug_assert (mode == nano::bootstrap_mode::legacy);
 }
 
-bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_a, nano::account const & known_account_a, uint64_t pull_blocks, nano::bulk_pull::count_t max_blocks, bool block_expected, unsigned retry_limit)
+bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> const & block_a, nano::account const & known_account_a, uint64_t pull_blocks, nano::bulk_pull::count_t max_blocks, bool block_expected, unsigned retry_limit)
 {
 	nano::unchecked_info info (block_a, known_account_a, 0, nano::signature_verification::unknown);
 	node->block_processor.add (info);

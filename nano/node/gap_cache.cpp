@@ -35,7 +35,7 @@ void nano::gap_cache::erase (nano::block_hash const & hash_a)
 	blocks.get<tag_hash> ().erase (hash_a);
 }
 
-void nano::gap_cache::vote (std::shared_ptr<nano::vote> vote_a)
+void nano::gap_cache::vote (std::shared_ptr<nano::vote> const & vote_a)
 {
 	nano::lock_guard<std::mutex> lock (mutex);
 	for (auto hash : *vote_a)

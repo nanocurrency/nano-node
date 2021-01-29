@@ -28,7 +28,7 @@ class jsonconfig : public nano::configbase
 {
 public:
 	jsonconfig ();
-	jsonconfig (boost::property_tree::ptree & tree_a, std::shared_ptr<nano::error> error_a = nullptr);
+	jsonconfig (boost::property_tree::ptree & tree_a, std::shared_ptr<nano::error> const & error_a = nullptr);
 	nano::error & read (boost::filesystem::path const & path_a);
 
 	/**

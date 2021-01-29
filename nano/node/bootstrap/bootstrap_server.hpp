@@ -15,7 +15,7 @@ public:
 	bootstrap_listener (uint16_t, nano::node &);
 	void start ();
 	void stop ();
-	void accept_action (boost::system::error_code const &, std::shared_ptr<nano::socket>);
+	void accept_action (boost::system::error_code const &, std::shared_ptr<nano::socket> const &);
 	size_t connection_count ();
 
 	std::mutex mutex;
@@ -44,7 +44,7 @@ enum class bootstrap_server_type
 class bootstrap_server final : public std::enable_shared_from_this<nano::bootstrap_server>
 {
 public:
-	bootstrap_server (std::shared_ptr<nano::socket>, std::shared_ptr<nano::node>);
+	bootstrap_server (std::shared_ptr<nano::socket> const &, std::shared_ptr<nano::node> const &);
 	~bootstrap_server ();
 	void stop ();
 	void receive ();

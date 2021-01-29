@@ -1,5 +1,6 @@
 #include <nano/boost/process/child.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/cli.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/rpcconfig.hpp>
 #include <nano/lib/threading.hpp>
@@ -176,7 +177,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 				{
 					// Launch rpc in-process
 					nano::rpc_config rpc_config;
-					auto error = nano::read_rpc_config_toml (data_path, rpc_config);
+					auto error = nano::read_rpc_config_toml (data_path, rpc_config, flags.rpc_config_overrides);
 					if (error)
 					{
 						show_error (error.get_message ());
@@ -256,7 +257,8 @@ int main (int argc, char * const * argv)
 		// clang-format off
 		description.add_options()
 			("help", "Print out options")
-			("config", boost::program_options::value<std::vector<std::string>>()->multitoken(), "Pass configuration values. This takes precedence over any values in the node configuration file. This option can be repeated multiple times.");
+			("config", boost::program_options::value<std::vector<nano::config_key_value_pair>>()->multitoken(), "Pass configuration values. This takes precedence over any values in the node configuration file. This option can be repeated multiple times.")
+			("rpcconfig", boost::program_options::value<std::vector<nano::config_key_value_pair>>()->multitoken(), "Pass RPC configuration values. This takes precedence over any values in the RPC configuration file. This option can be repeated multiple times.");
 		nano::add_node_flag_options (description);
 		nano::add_node_options (description);
 		// clang-format on

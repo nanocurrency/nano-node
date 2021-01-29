@@ -16,7 +16,7 @@ class node;
 class bootstrap_attempt_legacy : public bootstrap_attempt
 {
 public:
-	explicit bootstrap_attempt_legacy (std::shared_ptr<nano::node> node_a, uint64_t incremental_id_a, std::string id_a = "");
+	explicit bootstrap_attempt_legacy (std::shared_ptr<nano::node> const & node_a, uint64_t incremental_id_a, std::string const & id_a = "");
 	void run () override;
 	bool consume_future (std::future<bool> &);
 	void stop () override;
