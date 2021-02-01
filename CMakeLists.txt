@@ -91,7 +91,6 @@ set_property(
   CACHE NANO_TIMED_LOCKS_FILTER
   PROPERTY STRINGS
            active
-           alarm
            block_arrival
            block_processor
            block_uniquer
@@ -108,8 +107,7 @@ set_property(
            vote_processor
            vote_uniquer
            votes_cache
-           work_pool
-           worker)
+           work_pool)
 set(NANO_FUZZER_TEST
     OFF
     CACHE BOOL "")

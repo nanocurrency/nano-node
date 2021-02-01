@@ -539,7 +539,7 @@ void nano::json_handler::account_block_count ()
 
 void nano::json_handler::account_create ()
 {
-	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
+	node.workers.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		auto wallet (rpc_l->wallet_impl ());
 		if (!rpc_l->ec)
 		{
@@ -726,7 +726,7 @@ void nano::json_handler::account_list ()
 
 void nano::json_handler::account_move ()
 {
-	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
+	node.workers.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		auto wallet (rpc_l->wallet_impl ());
 		if (!rpc_l->ec)
 		{
@@ -765,7 +765,7 @@ void nano::json_handler::account_move ()
 
 void nano::json_handler::account_remove ()
 {
-	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
+	node.workers.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		auto wallet (rpc_l->wallet_impl ());
 		auto account (rpc_l->account_impl ());
 		if (!rpc_l->ec)
@@ -800,7 +800,7 @@ void nano::json_handler::account_representative ()
 
 void nano::json_handler::account_representative_set ()
 {
-	node.worker.push_task (create_worker_task ([work_generation_enabled = node.work_generation_enabled ()](std::shared_ptr<nano::json_handler> const & rpc_l) {
+	node.workers.push_task (create_worker_task ([work_generation_enabled = node.work_generation_enabled ()](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		auto wallet (rpc_l->wallet_impl ());
 		auto account (rpc_l->account_impl ());
 		std::string representative_text (rpc_l->request.get<std::string> ("representative"));
@@ -896,7 +896,7 @@ void nano::json_handler::accounts_balances ()
 
 void nano::json_handler::accounts_create ()
 {
-	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
+	node.workers.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		auto wallet (rpc_l->wallet_impl ());
 		auto count (rpc_l->count_impl ());
 		if (!rpc_l->ec)
@@ -2755,7 +2755,7 @@ void nano::json_handler::node_id_delete ()
 
 void nano::json_handler::password_change ()
 {
-	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
+	node.workers.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		auto wallet (rpc_l->wallet_impl ());
 		if (!rpc_l->ec)
 		{
@@ -2778,7 +2778,7 @@ void nano::json_handler::password_change ()
 
 void nano::json_handler::password_enter ()
 {
-	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
+	node.workers.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		auto wallet (rpc_l->wallet_impl ());
 		if (!rpc_l->ec)
 		{
@@ -2981,7 +2981,7 @@ void nano::json_handler::pending_exists ()
 
 void nano::json_handler::process ()
 {
-	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
+	node.workers.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		const bool watch_work_l = rpc_l->request.get<bool> ("watch_work", true);
 		const bool is_async = rpc_l->request.get<bool> ("async", false);
 		auto block (rpc_l->block_impl (true));
@@ -3137,8 +3137,15 @@ void nano::json_handler::process ()
 				}
 				else
 				{
-					rpc_l->node.process_local_async (block, watch_work_l);
-					rpc_l->response_l.put ("started", "1");
+					if (block->type () == nano::block_type::state)
+					{
+						rpc_l->node.process_local_async (block, watch_work_l);
+						rpc_l->response_l.put ("started", "1");
+					}
+					else
+					{
+						rpc_l->ec = nano::error_common::is_not_state_block;
+					}
 				}
 			}
 			else
@@ -3944,7 +3951,7 @@ void nano::json_handler::unchecked ()
 
 void nano::json_handler::unchecked_clear ()
 {
-	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
+	node.workers.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		auto transaction (rpc_l->node.store.tx_begin_write ({ tables::unchecked }));
 		rpc_l->node.store.unchecked_clear (transaction);
 		rpc_l->response_l.put ("success", "");
@@ -4123,7 +4130,7 @@ void nano::json_handler::validate_account_number ()
 
 void nano::json_handler::wallet_add ()
 {
-	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
+	node.workers.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		auto wallet (rpc_l->wallet_impl ());
 		if (!rpc_l->ec)
 		{
@@ -4153,7 +4160,7 @@ void nano::json_handler::wallet_add ()
 
 void nano::json_handler::wallet_add_watch ()
 {
-	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
+	node.workers.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		auto wallet (rpc_l->wallet_impl ());
 		if (!rpc_l->ec)
 		{
@@ -4253,7 +4260,7 @@ void nano::json_handler::wallet_balances ()
 
 void nano::json_handler::wallet_change_seed ()
 {
-	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
+	node.workers.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		auto wallet (rpc_l->wallet_impl ());
 		if (!rpc_l->ec)
 		{
@@ -4301,7 +4308,7 @@ void nano::json_handler::wallet_contains ()
 
 void nano::json_handler::wallet_create ()
 {
-	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
+	node.workers.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		nano::raw_key seed;
 		auto seed_text (rpc_l->request.get_optional<std::string> ("seed"));
 		if (seed_text.is_initialized () && seed.data.decode_hex (seed_text.get ()))
@@ -4337,7 +4344,7 @@ void nano::json_handler::wallet_create ()
 
 void nano::json_handler::wallet_destroy ()
 {
-	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
+	node.workers.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		std::string wallet_text (rpc_l->request.get<std::string> ("wallet"));
 		nano::wallet_id wallet;
 		if (!wallet.decode_hex (wallet_text))
@@ -4620,7 +4627,7 @@ void nano::json_handler::wallet_representative ()
 
 void nano::json_handler::wallet_representative_set ()
 {
-	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
+	node.workers.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		auto wallet (rpc_l->wallet_impl ());
 		std::string representative_text (rpc_l->request.get<std::string> ("representative"));
 		auto representative (rpc_l->account_impl (representative_text, nano::error_rpc::bad_representative_number));
@@ -4907,7 +4914,7 @@ void nano::json_handler::work_get ()
 
 void nano::json_handler::work_set ()
 {
-	node.worker.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
+	node.workers.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		auto wallet (rpc_l->wallet_impl ());
 		auto account (rpc_l->account_impl ());
 		auto work (rpc_l->work_optional_impl ());

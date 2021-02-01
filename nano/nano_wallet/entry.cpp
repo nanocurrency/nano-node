@@ -111,8 +111,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 			return opencl->generate_work (version_a, root_a, difficulty_a);
 		}
 		                                                                                       : std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> (nullptr));
-		nano::alarm alarm (io_ctx);
-		node = std::make_shared<nano::node> (io_ctx, data_path, alarm, config.node, work, flags);
+		node = std::make_shared<nano::node> (io_ctx, data_path, config.node, work, flags);
 		if (!node->init_error ())
 		{
 			auto wallet (node->wallets.open (wallet_config.wallet));

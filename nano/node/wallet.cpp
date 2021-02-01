@@ -1149,7 +1149,7 @@ void nano::wallet::work_ensure (nano::account const & account_a, nano::root cons
 
 	wallets.delayed_work->operator[] (account_a) = root_a;
 
-	wallets.node.alarm.add (std::chrono::steady_clock::now () + precache_delay, [this_l = shared_from_this (), account_a, root_a] {
+	wallets.node.workers.add_timed_task (std::chrono::steady_clock::now () + precache_delay, [this_l = shared_from_this (), account_a, root_a] {
 		auto delayed_work = this_l->wallets.delayed_work.lock ();
 		auto existing (delayed_work->find (account_a));
 		if (existing != delayed_work->end () && existing->second == root_a)
@@ -1358,7 +1358,7 @@ void nano::work_watcher::update (nano::qualified_root const & root_a, std::share
 void nano::work_watcher::watching (nano::qualified_root const & root_a, std::shared_ptr<nano::state_block> const & block_a)
 {
 	std::weak_ptr<nano::work_watcher> watcher_w (shared_from_this ());
-	node.alarm.add (std::chrono::steady_clock::now () + node.config.work_watcher_period, [block_a, root_a, watcher_w]() {
+	node.workers.add_timed_task (std::chrono::steady_clock::now () + node.config.work_watcher_period, [block_a, root_a, watcher_w]() {
 		auto watcher_l = watcher_w.lock ();
 		if (watcher_l && !watcher_l->stopped && watcher_l->is_watched (root_a))
 		{
@@ -1804,7 +1804,7 @@ void nano::wallets::ongoing_compute_reps ()
 	compute_reps ();
 	auto & node_l (node);
 	auto compute_delay (network_params.network.is_dev_network () ? std::chrono::milliseconds (10) : std::chrono::milliseconds (15 * 60 * 1000)); // Representation drifts quickly on the test network but very slowly on the live network
-	node.alarm.add (std::chrono::steady_clock::now () + compute_delay, [&node_l]() {
+	node.workers.add_timed_task (std::chrono::steady_clock::now () + compute_delay, [&node_l]() {
 		node_l.wallets.ongoing_compute_reps ();
 	});
 }

@@ -160,7 +160,7 @@ TEST (rpc, wrapped_task)
 		// Exception should get caught
 		throw std::runtime_error ("");
 	}));
-	system.nodes[0]->worker.push_task (task);
+	system.nodes[0]->workers.push_task (task);
 	ASSERT_TIMELY (5s, response == true);
 }
 
@@ -1924,13 +1924,6 @@ TEST (rpc, process_block_async)
 	std::string json;
 	send.serialize_json (json);
 	request.put ("block", json);
-	{
-		test_response response (request, rpc.config.port, system.io_ctx);
-		ASSERT_TIMELY (5s, response.status != 0);
-		ASSERT_EQ (200, response.status);
-		ASSERT_EQ ("1", response.json.get<std::string> ("started"));
-		ASSERT_TIMELY (10s, node1.latest (nano::dev_genesis_key.pub) == send.hash ());
-	}
 	request.put ("json_block", true);
 	{
 		test_response response (request, rpc.config.port, system.io_ctx);
@@ -1938,6 +1931,26 @@ TEST (rpc, process_block_async)
 		ASSERT_EQ (200, response.status);
 		std::error_code ec (nano::error_blocks::invalid_block);
 		ASSERT_EQ (ec.message (), response.json.get<std::string> ("error"));
+	}
+	request.put ("json_block", false);
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		ASSERT_TIMELY (5s, response.status != 0);
+		ASSERT_EQ (200, response.status);
+		std::error_code ec (nano::error_common::is_not_state_block);
+		ASSERT_EQ (ec.message (), response.json.get<std::string> ("error"));
+	}
+
+	auto state_send (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, latest, nano::dev_genesis_key.pub, nano::genesis_amount - 100, nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (latest)));
+	std::string json1;
+	state_send->serialize_json (json1);
+	request.put ("block", json1);
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		ASSERT_TIMELY (5s, response.status != 0);
+		ASSERT_EQ (200, response.status);
+		ASSERT_EQ ("1", response.json.get<std::string> ("started"));
+		ASSERT_TIMELY (10s, node1.latest (nano::dev_genesis_key.pub) == state_send->hash ());
 	}
 }
 
@@ -2285,7 +2298,7 @@ TEST (rpc, keepalive)
 {
 	nano::system system;
 	auto node0 = add_ipc_enabled_node (system);
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work));
 	node1->start ();
 	system.nodes.push_back (node1);
 	scoped_io_thread_name_change scoped_thread_name_io;

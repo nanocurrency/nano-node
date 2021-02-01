@@ -20,7 +20,6 @@ bool any_filters_registered ();
 enum class mutexes
 {
 	active,
-	alarm,
 	block_arrival,
 	block_processor,
 	block_uniquer,
@@ -38,8 +37,7 @@ enum class mutexes
 	vote_processor,
 	vote_uniquer,
 	votes_cache,
-	work_pool,
-	worker
+	work_pool
 };
 
 char const * mutex_identifier (mutexes mutex);
