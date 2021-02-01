@@ -3,12 +3,13 @@
 #include <nano/lib/threading.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/lib/utility.hpp>
-#include <nano/lib/worker.hpp>
 #include <nano/secure/utility.hpp>
 
 #include <gtest/gtest.h>
 
 #include <boost/filesystem.hpp>
+
+#include <future>
 
 using namespace std::chrono_literals;
 
@@ -90,7 +91,7 @@ TEST (optional_ptr, basic)
 	ASSERT_EQ (opt->z, 3);
 }
 
-TEST (thread, worker)
+TEST (thread, thread_pool)
 {
 	std::atomic<bool> passed_sleep{ false };
 
@@ -99,8 +100,8 @@ TEST (thread, worker)
 		passed_sleep = true;
 	};
 
-	nano::worker worker;
-	worker.push_task (func);
+	nano::thread_pool workers (1u, nano::thread_role::name::unknown);
+	workers.push_task (func);
 	ASSERT_FALSE (passed_sleep);
 
 	nano::timer<std::chrono::milliseconds> timer_l;
@@ -113,6 +114,66 @@ TEST (thread, worker)
 		}
 	}
 	ASSERT_TRUE (passed_sleep);
+}
+
+TEST (thread_pool_alarm, one)
+{
+	nano::thread_pool workers (1u, nano::thread_role::name::unknown);
+	std::atomic<bool> done (false);
+	std::mutex mutex;
+	nano::condition_variable condition;
+	workers.add_timed_task (std::chrono::steady_clock::now (), [&]() {
+		{
+			nano::lock_guard<std::mutex> lock (mutex);
+			done = true;
+		}
+		condition.notify_one ();
+	});
+	nano::unique_lock<std::mutex> unique (mutex);
+	condition.wait (unique, [&]() { return !!done; });
+}
+
+TEST (thread_pool_alarm, many)
+{
+	nano::thread_pool workers (50u, nano::thread_role::name::unknown);
+	std::atomic<int> count (0);
+	std::mutex mutex;
+	nano::condition_variable condition;
+	for (auto i (0); i < 50; ++i)
+	{
+		workers.add_timed_task (std::chrono::steady_clock::now (), [&]() {
+			{
+				nano::lock_guard<std::mutex> lock (mutex);
+				count += 1;
+			}
+			condition.notify_one ();
+		});
+	}
+	nano::unique_lock<std::mutex> unique (mutex);
+	condition.wait (unique, [&]() { return count == 50; });
+}
+
+TEST (thread_pool_alarm, top_execution)
+{
+	nano::thread_pool workers (1u, nano::thread_role::name::unknown);
+	int value1 (0);
+	int value2 (0);
+	std::mutex mutex;
+	std::promise<bool> promise;
+	workers.add_timed_task (std::chrono::steady_clock::now (), [&]() {
+		nano::lock_guard<std::mutex> lock (mutex);
+		value1 = 1;
+		value2 = 1;
+	});
+	workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (1), [&]() {
+		nano::lock_guard<std::mutex> lock (mutex);
+		value2 = 2;
+		promise.set_value (false);
+	});
+	promise.get_future ().get ();
+	nano::lock_guard<std::mutex> lock (mutex);
+	ASSERT_EQ (1, value1);
+	ASSERT_EQ (2, value2);
 }
 
 TEST (filesystem, remove_all_files)

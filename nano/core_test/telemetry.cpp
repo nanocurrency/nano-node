@@ -193,12 +193,28 @@ TEST (telemetry, signatures)
 	data.maker = 1;
 	data.timestamp = std::chrono::system_clock::time_point (100ms);
 	data.sign (node_id);
-	ASSERT_FALSE (data.validate_signature (nano::telemetry_data::size));
+	ASSERT_FALSE (data.validate_signature ());
 	auto signature = data.signature;
 	// Check that the signature is different if changing a piece of data
 	data.maker = 2;
 	data.sign (node_id);
 	ASSERT_NE (data.signature, signature);
+}
+
+TEST (telemetry, unknown_data)
+{
+	nano::keypair node_id;
+	nano::telemetry_data data;
+	data.node_id = node_id.pub;
+	data.major_version = 20;
+	data.minor_version = 1;
+	data.patch_version = 5;
+	data.pre_release_version = 2;
+	data.maker = 1;
+	data.timestamp = std::chrono::system_clock::time_point (100ms);
+	data.unknown_data.push_back (1);
+	data.sign (node_id);
+	ASSERT_FALSE (data.validate_signature ());
 }
 
 TEST (telemetry, no_peers)
@@ -335,11 +351,11 @@ TEST (telemetry, blocking_request)
 	std::atomic<bool> done{ false };
 	std::function<void()> call_system_poll;
 	std::promise<void> promise;
-	call_system_poll = [&call_system_poll, &worker = node_client->worker, &done, &system, &promise]() {
+	call_system_poll = [&call_system_poll, &workers = node_client->workers, &done, &system, &promise]() {
 		if (!done)
 		{
 			ASSERT_NO_ERROR (system.poll ());
-			worker.push_task (call_system_poll);
+			workers.push_task (call_system_poll);
 		}
 		else
 		{
@@ -347,9 +363,9 @@ TEST (telemetry, blocking_request)
 		}
 	};
 
-	// Keep pushing system.polls in another thread (worker), because we will be blocking this thread and unable to do so.
+	// Keep pushing system.polls in another thread (thread_pool), because we will be blocking this thread and unable to do so.
 	system.deadline_set (10s);
-	node_client->worker.push_task (call_system_poll);
+	node_client->workers.push_task (call_system_poll);
 
 	// Now try single request metric
 	auto telemetry_data_response = node_client->telemetry->get_metrics_single_peer (node_client->network.find_channel (node_server->network.endpoint ()));
@@ -504,6 +520,29 @@ TEST (telemetry, disable_metrics)
 	ASSERT_TIMELY (10s, done);
 }
 
+TEST (telemetry, max_possible_size)
+{
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_initial_telemetry_requests = true;
+	node_flags.disable_ongoing_telemetry_requests = true;
+	auto node_client = system.add_node (node_flags);
+	auto node_server = system.add_node (node_flags);
+
+	nano::telemetry_data data;
+	data.unknown_data.resize (nano::message_header::telemetry_size_mask.to_ulong () - nano::telemetry_data::latest_size);
+
+	nano::telemetry_ack message (data);
+	wait_peer_connections (system);
+
+	auto channel = node_client->network.tcp_channels.find_channel (nano::transport::map_endpoint_to_tcp (node_server->network.endpoint ()));
+	channel->send (message, [](boost::system::error_code const & ec, size_t size_a) {
+		ASSERT_FALSE (ec);
+	});
+
+	ASSERT_TIMELY (10s, 1 == node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_ack, nano::stat::dir::in));
+}
+
 namespace nano
 {
 TEST (telemetry, remove_peer_different_genesis)
@@ -511,7 +550,7 @@ TEST (telemetry, remove_peer_different_genesis)
 	nano::system system (1);
 	auto node0 (system.nodes[0]);
 	ASSERT_EQ (0, node0->network.size ());
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work));
 	// Change genesis block to something else in this test (this is the reference telemetry processing uses).
 	// Possible TSAN issue in the future if something else uses this, but will only appear in tests.
 	node1->network_params.ledger.genesis_hash = nano::block_hash ("0");
@@ -541,7 +580,7 @@ TEST (telemetry, remove_peer_different_genesis_udp)
 	nano::system system (1, nano::transport::transport_type::udp, node_flags);
 	auto node0 (system.nodes[0]);
 	ASSERT_EQ (0, node0->network.size ());
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work, node_flags));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work, node_flags));
 	node1->network_params.ledger.genesis_hash = nano::block_hash ("0");
 	node1->start ();
 	system.nodes.push_back (node1);

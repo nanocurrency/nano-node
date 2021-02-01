@@ -53,6 +53,7 @@ enum class error_common
 	invalid_type_conversion,
 	invalid_work,
 	insufficient_balance,
+	is_not_state_block,
 	numeric_conversion,
 	tracking_not_enabled,
 	wallet_lmdb_max_dbs,

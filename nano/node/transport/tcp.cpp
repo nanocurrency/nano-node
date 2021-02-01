@@ -31,12 +31,7 @@ nano::transport::channel_tcp::~channel_tcp ()
 size_t nano::transport::channel_tcp::hash_code () const
 {
 	std::hash<::nano::tcp_endpoint> hash;
-	if (auto socket_l = socket.lock ())
-	{
-		return hash (socket_l->remote_endpoint ());
-	}
-
-	return 0;
+	return hash (get_tcp_endpoint ());
 }
 
 bool nano::transport::channel_tcp::operator== (nano::transport::channel const & other_a) const
@@ -101,11 +96,18 @@ void nano::transport::channel_tcp::send_buffer (nano::shared_const_buffer const 
 
 std::string nano::transport::channel_tcp::to_string () const
 {
+	return boost::str (boost::format ("%1%") % get_tcp_endpoint ());
+}
+
+void nano::transport::channel_tcp::set_endpoint ()
+{
+	nano::lock_guard<std::mutex> lk (channel_mutex);
+	debug_assert (endpoint == nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0)); // Not initialized endpoint value
+	// Calculate TCP socket endpoint
 	if (auto socket_l = socket.lock ())
 	{
-		return boost::str (boost::format ("%1%") % socket_l->remote_endpoint ());
+		endpoint = socket_l->remote_endpoint ();
 	}
-	return "";
 }
 
 nano::transport::tcp_channels::tcp_channels (nano::node & node_a) :
@@ -113,7 +115,7 @@ node (node_a)
 {
 }
 
-bool nano::transport::tcp_channels::insert (std::shared_ptr<nano::transport::channel_tcp> channel_a, std::shared_ptr<nano::socket> socket_a, std::shared_ptr<nano::bootstrap_server> bootstrap_server_a)
+bool nano::transport::tcp_channels::insert (std::shared_ptr<nano::transport::channel_tcp> const & channel_a, std::shared_ptr<nano::socket> const & socket_a, std::shared_ptr<nano::bootstrap_server> const & bootstrap_server_a)
 {
 	auto endpoint (channel_a->get_tcp_endpoint ());
 	debug_assert (endpoint.address ().is_v6 ());
@@ -286,7 +288,7 @@ void nano::transport::tcp_channels::process_messages ()
 	}
 }
 
-void nano::transport::tcp_channels::process_message (nano::message const & message_a, nano::tcp_endpoint const & endpoint_a, nano::account const & node_id_a, std::shared_ptr<nano::socket> socket_a, nano::bootstrap_server_type type_a)
+void nano::transport::tcp_channels::process_message (nano::message const & message_a, nano::tcp_endpoint const & endpoint_a, nano::account const & node_id_a, std::shared_ptr<nano::socket> const & socket_a, nano::bootstrap_server_type type_a)
 {
 	if (!stopped && message_a.header.version_using >= protocol_constants ().protocol_version_min (node.ledger.cache.epoch_2_started))
 	{
@@ -308,6 +310,7 @@ void nano::transport::tcp_channels::process_message (nano::message const & messa
 				{
 					// Add temporary channel
 					auto temporary_channel (std::make_shared<nano::transport::channel_tcp> (node, socket_a));
+					temporary_channel->set_endpoint ();
 					debug_assert (endpoint_a == temporary_channel->get_tcp_endpoint ());
 					temporary_channel->set_node_id (node_id_a);
 					temporary_channel->set_network_version (message_a.header.version_using);
@@ -465,7 +468,7 @@ void nano::transport::tcp_channels::ongoing_keepalive ()
 		}
 	}
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.alarm.add (std::chrono::steady_clock::now () + node.network_params.node.half_period, [node_w]() {
+	node.workers.add_timed_task (std::chrono::steady_clock::now () + node.network_params.node.half_period, [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
 			if (!node_l->network.tcp_channels.stopped)
@@ -496,7 +499,7 @@ void nano::transport::tcp_channels::list (std::deque<std::shared_ptr<nano::trans
 	// clang-format on
 }
 
-void nano::transport::tcp_channels::modify (std::shared_ptr<nano::transport::channel_tcp> channel_a, std::function<void(std::shared_ptr<nano::transport::channel_tcp>)> modify_callback_a)
+void nano::transport::tcp_channels::modify (std::shared_ptr<nano::transport::channel_tcp> const & channel_a, std::function<void(std::shared_ptr<nano::transport::channel_tcp> const &)> modify_callback_a)
 {
 	nano::lock_guard<std::mutex> lock (mutex);
 	auto existing (channels.get<endpoint_tag> ().find (channel_a->get_tcp_endpoint ()));
@@ -542,7 +545,7 @@ void nano::transport::tcp_channels::remove_node_id_handshake_socket (std::shared
 	}
 }
 
-void nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint_a, std::function<void(std::shared_ptr<nano::transport::channel>)> const & callback_a)
+void nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint_a, std::function<void(std::shared_ptr<nano::transport::channel> const &)> const & callback_a)
 {
 	if (node.flags.disable_tcp_realtime)
 	{
@@ -567,6 +570,7 @@ void nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint_a
 				{
 					node_l->logger.try_log (boost::str (boost::format ("Node ID handshake request sent with node ID %1% to %2%: query %3%") % node_l->node_id.pub.to_node_id () % endpoint_a % (*cookie).to_string ()));
 				}
+				channel->set_endpoint ();
 				std::shared_ptr<std::vector<uint8_t>> receive_buffer (std::make_shared<std::vector<uint8_t>> ());
 				receive_buffer->resize (256);
 				node_l->network.tcp_channels.push_node_id_handshake_socket (socket);
@@ -601,7 +605,7 @@ void nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint_a
 	});
 }
 
-void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<nano::transport::channel_tcp> channel_a, nano::endpoint const & endpoint_a, std::shared_ptr<std::vector<uint8_t>> receive_buffer_a, std::function<void(std::shared_ptr<nano::transport::channel>)> const & callback_a)
+void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<nano::transport::channel_tcp> const & channel_a, nano::endpoint const & endpoint_a, std::shared_ptr<std::vector<uint8_t>> const & receive_buffer_a, std::function<void(std::shared_ptr<nano::transport::channel> const &)> const & callback_a)
 {
 	std::weak_ptr<nano::node> node_w (node.shared ());
 	if (auto socket_l = channel_a->socket.lock ())
@@ -739,7 +743,7 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 	}
 }
 
-void nano::transport::tcp_channels::udp_fallback (nano::endpoint const & endpoint_a, std::function<void(std::shared_ptr<nano::transport::channel>)> const & callback_a)
+void nano::transport::tcp_channels::udp_fallback (nano::endpoint const & endpoint_a, std::function<void(std::shared_ptr<nano::transport::channel> const &)> const & callback_a)
 {
 	{
 		nano::lock_guard<std::mutex> lock (mutex);

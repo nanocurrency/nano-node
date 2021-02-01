@@ -69,8 +69,12 @@ TEST (locks, lock_guard)
 		t.join ();
 	}
 
-	// 2 mutexes held and 1 blocked
+	// 2 mutexes held and 1 blocked (if defined)
+#if NANO_TIMED_LOCKS_IGNORE_BLOCKED
+	ASSERT_EQ (num_matches (ss.str ()), 2);
+#else
 	ASSERT_EQ (num_matches (ss.str ()), 3);
+#endif
 }
 
 TEST (locks, unique_lock)
@@ -103,8 +107,12 @@ TEST (locks, unique_lock)
 		t.join ();
 	}
 
-	// 3 mutexes held and 1 blocked
+	// 3 mutexes held and 1 blocked (if defined)
+#if NANO_TIMED_LOCKS_IGNORE_BLOCKED
+	ASSERT_EQ (num_matches (ss.str ()), 3);
+#else
 	ASSERT_EQ (num_matches (ss.str ()), 4);
+#endif
 }
 
 TEST (locks, condition_variable_wait)

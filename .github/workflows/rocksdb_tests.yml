@@ -15,7 +15,7 @@ jobs:
       DEADLINE_SCALE_FACTOR: 2
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
-      - uses: actions/checkout@5a4ac90
+      - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
         with:
           submodules: "recursive"
       - name: Fetch Deps
@@ -28,7 +28,7 @@ jobs:
     timeout-minutes: 60
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
-      - uses: actions/checkout@5a4ac90
+      - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
         with:
           submodules: "recursive"
       - name: Fetch Deps
@@ -41,7 +41,7 @@ jobs:
     timeout-minutes: 60
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
-      - uses: actions/checkout@5a4ac90
+      - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
         with:
           submodules: "recursive"
       - name: Fetch Deps
@@ -57,7 +57,7 @@ jobs:
       DEADLINE_SCALE_FACTOR: 2
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
-      - uses: actions/checkout@5a4ac90
+      - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
         with:
           submodules: "recursive"
       - name: Windows Defender

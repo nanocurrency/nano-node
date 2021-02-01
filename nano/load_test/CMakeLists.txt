@@ -9,6 +9,3 @@ target_link_libraries(
   Boost::boost
   Boost::coroutine
   Boost::context)
-
-target_compile_definitions(
-  load_test PRIVATE -DBOOST_PROCESS_SUPPORTED=${BOOST_PROCESS_SUPPORTED})
