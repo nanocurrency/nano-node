@@ -351,11 +351,11 @@ TEST (telemetry, blocking_request)
 	std::atomic<bool> done{ false };
 	std::function<void()> call_system_poll;
 	std::promise<void> promise;
-	call_system_poll = [&call_system_poll, &worker = node_client->worker, &done, &system, &promise]() {
+	call_system_poll = [&call_system_poll, &workers = node_client->workers, &done, &system, &promise]() {
 		if (!done)
 		{
 			ASSERT_NO_ERROR (system.poll ());
-			worker.push_task (call_system_poll);
+			workers.push_task (call_system_poll);
 		}
 		else
 		{
@@ -363,9 +363,9 @@ TEST (telemetry, blocking_request)
 		}
 	};
 
-	// Keep pushing system.polls in another thread (worker), because we will be blocking this thread and unable to do so.
+	// Keep pushing system.polls in another thread (thread_pool), because we will be blocking this thread and unable to do so.
 	system.deadline_set (10s);
-	node_client->worker.push_task (call_system_poll);
+	node_client->workers.push_task (call_system_poll);
 
 	// Now try single request metric
 	auto telemetry_data_response = node_client->telemetry->get_metrics_single_peer (node_client->network.find_channel (node_server->network.endpoint ()));
@@ -550,7 +550,7 @@ TEST (telemetry, remove_peer_different_genesis)
 	nano::system system (1);
 	auto node0 (system.nodes[0]);
 	ASSERT_EQ (0, node0->network.size ());
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work));
 	// Change genesis block to something else in this test (this is the reference telemetry processing uses).
 	// Possible TSAN issue in the future if something else uses this, but will only appear in tests.
 	node1->network_params.ledger.genesis_hash = nano::block_hash ("0");
@@ -580,7 +580,7 @@ TEST (telemetry, remove_peer_different_genesis_udp)
 	nano::system system (1, nano::transport::transport_type::udp, node_flags);
 	auto node0 (system.nodes[0]);
 	ASSERT_EQ (0, node0->network.size ());
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work, node_flags));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work, node_flags));
 	node1->network_params.ledger.genesis_hash = nano::block_hash ("0");
 	node1->start ();
 	system.nodes.push_back (node1);

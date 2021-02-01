@@ -354,7 +354,7 @@ void nano::bootstrap_attempt_legacy::attempt_restart_check (nano::unique_lock<st
 			node->background ([node_l, this_l]() {
 				node_l->bootstrap_initiator.remove_attempt (this_l);
 				// Delay after removing current attempt
-				node_l->alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (50), [node_l]() {
+				node_l->workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (50), [node_l]() {
 					node_l->bootstrap_initiator.bootstrap (true);
 				});
 			});
