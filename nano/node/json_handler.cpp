@@ -3137,8 +3137,15 @@ void nano::json_handler::process ()
 				}
 				else
 				{
-					rpc_l->node.process_local_async (block, watch_work_l);
-					rpc_l->response_l.put ("started", "1");
+					if (block->type () == nano::block_type::state)
+					{
+						rpc_l->node.process_local_async (block, watch_work_l);
+						rpc_l->response_l.put ("started", "1");
+					}
+					else
+					{
+						rpc_l->ec = nano::error_common::is_not_state_block;
+					}
 				}
 			}
 			else
