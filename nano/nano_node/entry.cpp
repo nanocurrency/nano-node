@@ -72,6 +72,7 @@ int main (int argc, char * const * argv)
 		("help", "Print out options")
 		("version", "Prints out version")
 		("config", boost::program_options::value<std::vector<nano::config_key_value_pair>>()->multitoken(), "Pass node configuration values. This takes precedence over any values in the configuration file. This option can be repeated multiple times.")
+		("rpcconfig", boost::program_options::value<std::vector<nano::config_key_value_pair>>()->multitoken(), "Pass RPC configuration values. This takes precedence over any values in the RPC configuration file. This option can be repeated multiple times.")
 		("daemon", "Start node daemon")
 		("compare_rep_weights", "Display a summarized comparison between the hardcoded bootstrap weights and representative weights from the ledger. Full comparison is output to logs")
 		("debug_block_count", "Display the number of blocks")
@@ -1143,8 +1144,6 @@ int main (int argc, char * const * argv)
 			std::cout << boost::str (boost::format ("Starting generating %1% blocks...\n") % (count * 2));
 			boost::asio::io_context io_ctx1;
 			boost::asio::io_context io_ctx2;
-			nano::alarm alarm1 (io_ctx1);
-			nano::alarm alarm2 (io_ctx2);
 			nano::work_pool work (std::numeric_limits<unsigned>::max ());
 			nano::logging logging;
 			auto path1 (nano::unique_path ());
@@ -1168,7 +1167,7 @@ int main (int argc, char * const * argv)
 			flags.disable_legacy_bootstrap = true;
 			flags.disable_wallet_bootstrap = true;
 			flags.disable_bootstrap_listener = true;
-			auto node1 (std::make_shared<nano::node> (io_ctx1, path1, alarm1, config1, work, flags, 0));
+			auto node1 (std::make_shared<nano::node> (io_ctx1, path1, config1, work, flags, 0));
 			nano::block_hash genesis_latest (node1->latest (dev_params.ledger.dev_genesis_key.pub));
 			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
 			// Generating blocks
@@ -1254,7 +1253,7 @@ int main (int argc, char * const * argv)
 				config2.active_elections_size = daemon_config.node.active_elections_size;
 			}
 
-			auto node2 (std::make_shared<nano::node> (io_ctx2, path2, alarm2, config2, work, flags, 1));
+			auto node2 (std::make_shared<nano::node> (io_ctx2, path2, config2, work, flags, 1));
 			node2->start ();
 			nano::thread_runner runner2 (io_ctx2, node2->config.io_threads);
 			std::cout << boost::str (boost::format ("Processing %1% blocks (test node)\n") % (count * 2));

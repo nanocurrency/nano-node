@@ -8,7 +8,7 @@ node (node_a)
 {
 	if (!node.flags.disable_rep_crawler)
 	{
-		node.observers.endpoint.add ([this](std::shared_ptr<nano::transport::channel> channel_a) {
+		node.observers.endpoint.add ([this](std::shared_ptr<nano::transport::channel> const & channel_a) {
 			this->query (channel_a);
 		});
 	}
@@ -93,7 +93,7 @@ void nano::rep_crawler::ongoing_crawl ()
 	// Reduce crawl frequency when there's enough total peer weight
 	unsigned next_run_ms = node.network_params.network.is_dev_network () ? 100 : sufficient_weight ? 7000 : 3000;
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.alarm.add (now + std::chrono::milliseconds (next_run_ms), [node_w, this]() {
+	node.workers.add_timed_task (now + std::chrono::milliseconds (next_run_ms), [node_w, this]() {
 		if (auto node_l = node_w.lock ())
 		{
 			this->ongoing_crawl ();
@@ -152,7 +152,7 @@ void nano::rep_crawler::query (std::vector<std::shared_ptr<nano::transport::chan
 
 	// A representative must respond with a vote within the deadline
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [node_w, hash = hash_root.first]() {
+	node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (5), [node_w, hash = hash_root.first]() {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->rep_crawler.remove (hash);
@@ -179,7 +179,7 @@ bool nano::rep_crawler::is_pr (nano::transport::channel const & channel_a) const
 	return result;
 }
 
-bool nano::rep_crawler::response (std::shared_ptr<nano::transport::channel> & channel_a, std::shared_ptr<nano::vote> & vote_a)
+bool nano::rep_crawler::response (std::shared_ptr<nano::transport::channel> const & channel_a, std::shared_ptr<nano::vote> const & vote_a)
 {
 	bool error = true;
 	nano::lock_guard<std::mutex> lock (active_mutex);
@@ -214,7 +214,7 @@ nano::uint128_t nano::rep_crawler::total_weight () const
 	return result;
 }
 
-void nano::rep_crawler::on_rep_request (std::shared_ptr<nano::transport::channel> channel_a)
+void nano::rep_crawler::on_rep_request (std::shared_ptr<nano::transport::channel> const & channel_a)
 {
 	nano::lock_guard<std::mutex> lock (probable_reps_mutex);
 	if (channel_a->get_tcp_endpoint ().address () != boost::asio::ip::address_v6::any ())

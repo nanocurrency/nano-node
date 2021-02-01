@@ -177,6 +177,11 @@ std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_o
 	{
 		flags_a.config_overrides = nano::config_overrides (config->second.as<std::vector<nano::config_key_value_pair>> ());
 	}
+	auto rpcconfig (vm.find ("rpcconfig"));
+	if (rpcconfig != vm.end ())
+	{
+		flags_a.rpc_config_overrides = nano::config_overrides (rpcconfig->second.as<std::vector<nano::config_key_value_pair>> ());
+	}
 	return ec;
 }
 

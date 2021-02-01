@@ -202,7 +202,7 @@ TEST (wallet, send_async)
 		ASSERT_TIMELY (10s, system.nodes[0]->balance (nano::dev_genesis_key.pub).is_zero ());
 	});
 	std::atomic<bool> success (false);
-	system.wallet (0)->send_async (nano::dev_genesis_key.pub, key2.pub, std::numeric_limits<nano::uint128_t>::max (), [&success](std::shared_ptr<nano::block> block_a) { ASSERT_NE (nullptr, block_a); success = true; });
+	system.wallet (0)->send_async (nano::dev_genesis_key.pub, key2.pub, std::numeric_limits<nano::uint128_t>::max (), [&success](std::shared_ptr<nano::block> const & block_a) { ASSERT_NE (nullptr, block_a); success = true; });
 	thread.join ();
 	ASSERT_TIMELY (2s, success);
 }
@@ -1213,7 +1213,7 @@ TEST (wallet, search_pending)
 
 	// Pending search should start an election
 	ASSERT_TRUE (node.active.empty ());
-	ASSERT_FALSE (wallet.search_pending ());
+	ASSERT_FALSE (wallet.search_pending (wallet.wallets.tx_begin_read ()));
 	auto election = node.active.election (send->qualified_root ());
 	ASSERT_NE (nullptr, election);
 
@@ -1230,7 +1230,7 @@ TEST (wallet, search_pending)
 
 	// Pending search should create the receive block
 	ASSERT_EQ (2, node.ledger.cache.block_count);
-	ASSERT_FALSE (wallet.search_pending ());
+	ASSERT_FALSE (wallet.search_pending (wallet.wallets.tx_begin_read ()));
 	ASSERT_TIMELY (3s, node.balance (nano::genesis_account) == nano::genesis_amount);
 	auto receive_hash = node.ledger.latest (node.store.tx_begin_read (), nano::genesis_account);
 	auto receive = node.block (receive_hash);

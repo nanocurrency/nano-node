@@ -13,7 +13,7 @@ constexpr double nano::bootstrap_limits::bootstrap_minimum_termination_time_sec;
 constexpr unsigned nano::bootstrap_limits::bootstrap_max_new_connections;
 constexpr unsigned nano::bootstrap_limits::requeued_pulls_processed_blocks_factor;
 
-nano::bootstrap_client::bootstrap_client (std::shared_ptr<nano::node> node_a, std::shared_ptr<nano::bootstrap_connections> connections_a, std::shared_ptr<nano::transport::channel_tcp> channel_a, std::shared_ptr<nano::socket> socket_a) :
+nano::bootstrap_client::bootstrap_client (std::shared_ptr<nano::node> const & node_a, std::shared_ptr<nano::bootstrap_connections> const & connections_a, std::shared_ptr<nano::transport::channel_tcp> const & channel_a, std::shared_ptr<nano::socket> const & socket_a) :
 node (node_a),
 connections (connections_a),
 channel (channel_a),
@@ -23,6 +23,7 @@ start_time_m (std::chrono::steady_clock::now ())
 {
 	++connections->connections_count;
 	receive_buffer->resize (256);
+	channel->set_endpoint ();
 }
 
 nano::bootstrap_client::~bootstrap_client ()
@@ -63,7 +64,7 @@ node (node_a)
 {
 }
 
-std::shared_ptr<nano::bootstrap_client> nano::bootstrap_connections::connection (std::shared_ptr<nano::bootstrap_attempt> attempt_a, bool use_front_connection)
+std::shared_ptr<nano::bootstrap_client> nano::bootstrap_connections::connection (std::shared_ptr<nano::bootstrap_attempt> const & attempt_a, bool use_front_connection)
 {
 	nano::unique_lock<std::mutex> lock (mutex);
 	condition.wait (lock, [& stopped = stopped, &idle = idle, &new_connections_empty = new_connections_empty] { return stopped || !idle.empty () || new_connections_empty; });
@@ -90,7 +91,7 @@ std::shared_ptr<nano::bootstrap_client> nano::bootstrap_connections::connection 
 	return result;
 }
 
-void nano::bootstrap_connections::pool_connection (std::shared_ptr<nano::bootstrap_client> client_a, bool new_client, bool push_front)
+void nano::bootstrap_connections::pool_connection (std::shared_ptr<nano::bootstrap_client> const & client_a, bool new_client, bool push_front)
 {
 	nano::unique_lock<std::mutex> lock (mutex);
 	auto const & socket_l = client_a->socket;
@@ -303,7 +304,7 @@ void nano::bootstrap_connections::populate_connections (bool repeat)
 	if (!stopped && repeat)
 	{
 		std::weak_ptr<nano::bootstrap_connections> this_w (shared_from_this ());
-		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (1), [this_w]() {
+		node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (1), [this_w]() {
 			if (auto this_l = this_w.lock ())
 			{
 				this_l->populate_connections ();
@@ -404,7 +405,7 @@ void nano::bootstrap_connections::requeue_pull (nano::pull_info const & pull_a, 
 			attempt_l->pull_started ();
 			condition.notify_all ();
 		}
-		else if (attempt_l->mode == nano::bootstrap_mode::lazy && (pull.retry_limit == std::numeric_limits<unsigned>::max () || pull.attempts <= pull.retry_limit + (pull.processed / node.network_params.bootstrap.lazy_max_pull_blocks)))
+		else if (attempt_l->mode == nano::bootstrap_mode::lazy && (pull.attempts <= pull.retry_limit + (pull.processed / node.network_params.bootstrap.lazy_max_pull_blocks)))
 		{
 			debug_assert (pull.account_or_head == pull.head);
 			if (!attempt_l->lazy_processed_or_exists (pull.account_or_head.as_block_hash ()))
@@ -421,7 +422,7 @@ void nano::bootstrap_connections::requeue_pull (nano::pull_info const & pull_a, 
 		{
 			if (node.config.logging.bulk_pull_logging ())
 			{
-				node.logger.try_log (boost::str (boost::format ("Failed to pull account %1% down to %2% after %3% attempts and %4% blocks processed") % pull.account_or_head.to_account () % pull.end.to_string () % pull.attempts % pull.processed));
+				node.logger.try_log (boost::str (boost::format ("Failed to pull account %1% or head block %2% down to %3% after %4% attempts and %5% blocks processed") % pull.account_or_head.to_account () % pull.account_or_head.to_string () % pull.end.to_string () % pull.attempts % pull.processed));
 			}
 			node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_failed_account, nano::stat::dir::in);
 
