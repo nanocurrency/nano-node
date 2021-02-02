@@ -1523,7 +1523,7 @@ TEST (node, fork_no_vote_quorum)
 	std::vector<uint8_t> buffer;
 	{
 		nano::vectorstream stream (buffer);
-		confirm.serialize (stream, false);
+		confirm.serialize (stream);
 	}
 	auto channel = node2.network.find_node_id (node3.node_id.pub);
 	ASSERT_NE (nullptr, channel);
@@ -3872,22 +3872,6 @@ TEST (node, aggressive_flooding)
 	ASSERT_EQ (1 + 2 * nodes_wallets.size () + 2, node1.ledger.cache.block_count);
 }
 
-// Tests that upon changing the default difficulty, max generation difficulty changes proportionally
-TEST (node, max_work_generate_difficulty)
-{
-	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
-	node_config.max_work_generate_multiplier = 2.0;
-	auto & node = *system.add_node (node_config);
-	auto initial_difficulty = node.default_difficulty (nano::work_version::work_1);
-	ASSERT_EQ (node.max_work_generate_difficulty (nano::work_version::work_1), nano::difficulty::from_multiplier (node.config.max_work_generate_multiplier, initial_difficulty));
-	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (node, nano::epoch::epoch_1));
-	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (node, nano::epoch::epoch_2));
-	auto final_difficulty = node.default_difficulty (nano::work_version::work_1);
-	ASSERT_NE (final_difficulty, initial_difficulty);
-	ASSERT_EQ (node.max_work_generate_difficulty (nano::work_version::work_1), nano::difficulty::from_multiplier (node.config.max_work_generate_multiplier, final_difficulty));
-}
-
 TEST (active_difficulty, recalculate_work)
 {
 	nano::system system;
@@ -3896,7 +3880,7 @@ TEST (active_difficulty, recalculate_work)
 	auto & node1 = *system.add_node (node_config);
 	nano::genesis genesis;
 	nano::keypair key1;
-	ASSERT_EQ (node1.network_params.network.publish_thresholds.epoch_1, node1.active.active_difficulty ());
+	ASSERT_EQ (node1.network_params.network.publish_thresholds.epoch_2, node1.active.active_difficulty ());
 	auto send1 = nano::send_block_builder ()
 	             .previous (genesis.hash ())
 	             .destination (key1.pub)
@@ -3904,12 +3888,12 @@ TEST (active_difficulty, recalculate_work)
 	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
 	             .work (*system.work.generate (genesis.hash ()))
 	             .build_shared ();
-	auto multiplier1 = nano::difficulty::to_multiplier (send1->difficulty (), node1.network_params.network.publish_thresholds.epoch_1);
+	auto multiplier1 = nano::difficulty::to_multiplier (send1->difficulty (), node1.network_params.network.publish_thresholds.epoch_2);
 	// Process as local block
 	node1.process_active (send1);
 	ASSERT_TIMELY (2s, !node1.active.empty ());
 	auto sum (std::accumulate (node1.active.multipliers_cb.begin (), node1.active.multipliers_cb.end (), double(0)));
-	ASSERT_EQ (node1.active.active_difficulty (), nano::difficulty::from_multiplier (sum / node1.active.multipliers_cb.size (), node1.network_params.network.publish_thresholds.epoch_1));
+	ASSERT_EQ (node1.active.active_difficulty (), nano::difficulty::from_multiplier (sum / node1.active.multipliers_cb.size (), node1.network_params.network.publish_thresholds.epoch_2));
 	nano::unique_lock<std::mutex> lock (node1.active.mutex);
 	// Fake history records to force work recalculation
 	for (auto i (0); i < node1.active.multipliers_cb.size (); i++)
@@ -4524,21 +4508,6 @@ TEST (node, deferred_dependent_elections)
 	node.block_processor.flush ();
 	ASSERT_TRUE (node.active.active (receive->qualified_root ()));
 }
-}
-
-TEST (node, default_difficulty)
-{
-	nano::system system (1);
-	auto & node (*system.nodes[0]);
-	auto const & thresholds = nano::network_params{}.network.publish_thresholds;
-	ASSERT_EQ (thresholds.epoch_1, node.default_difficulty (nano::work_version::work_1));
-	ASSERT_EQ (thresholds.epoch_1, node.default_receive_difficulty (nano::work_version::work_1));
-	nano::upgrade_epoch (system.work, node.ledger, nano::epoch::epoch_1);
-	ASSERT_EQ (thresholds.epoch_1, node.default_difficulty (nano::work_version::work_1));
-	ASSERT_EQ (thresholds.epoch_1, node.default_receive_difficulty (nano::work_version::work_1));
-	nano::upgrade_epoch (system.work, node.ledger, nano::epoch::epoch_2);
-	ASSERT_EQ (thresholds.epoch_2, node.default_difficulty (nano::work_version::work_1));
-	ASSERT_EQ (thresholds.epoch_2_receive, node.default_receive_difficulty (nano::work_version::work_1));
 }
 
 TEST (rep_crawler, recently_confirmed)

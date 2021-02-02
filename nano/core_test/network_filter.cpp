@@ -12,7 +12,7 @@ TEST (network_filter, unit)
 	nano::network_filter filter (1);
 	auto one_block = [&filter](std::shared_ptr<nano::block> const & block_a, bool expect_duplicate_a) {
 		nano::publish message (block_a);
-		auto bytes (message.to_bytes (false));
+		auto bytes (message.to_bytes ());
 		nano::bufferstream stream (bytes->data (), bytes->size ());
 
 		// First read the header
@@ -60,7 +60,7 @@ TEST (network_filter, many)
 		auto block (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, genesis.open->hash (), nano::dev_genesis_key.pub, nano::genesis_amount - i * 10 * nano::xrb_ratio, key1.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 
 		nano::publish message (block);
-		auto bytes (message.to_bytes (false));
+		auto bytes (message.to_bytes ());
 		nano::bufferstream stream (bytes->data (), bytes->size ());
 
 		// First read the header
