@@ -100,7 +100,7 @@ void nano::write_mdb_txn::commit ()
 	if (active)
 	{
 		auto status (mdb_txn_commit (handle));
-		release_assert (status == MDB_SUCCESS);
+		release_assert (status == MDB_SUCCESS, mdb_strerror (status));
 		txn_callbacks.txn_end (this);
 		active = false;
 	}
@@ -109,7 +109,7 @@ void nano::write_mdb_txn::commit ()
 void nano::write_mdb_txn::renew ()
 {
 	auto status (mdb_txn_begin (env, nullptr, 0, &handle));
-	release_assert (status == MDB_SUCCESS);
+	release_assert (status == MDB_SUCCESS, mdb_strerror (status));
 	txn_callbacks.txn_start (this);
 	active = true;
 }
