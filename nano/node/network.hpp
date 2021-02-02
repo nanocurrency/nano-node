@@ -179,7 +179,6 @@ public:
 	float size_sqrt () const;
 	bool empty () const;
 	void erase (nano::transport::channel const &);
-	void erase_below_version (uint8_t);
 	nano::message_buffer_manager buffer_container;
 	boost::asio::ip::udp::resolver resolver;
 	std::vector<boost::thread> packet_processing_threads;
@@ -195,9 +194,6 @@ public:
 	// Called when a new channel is observed
 	std::function<void(std::shared_ptr<nano::transport::channel>)> channel_observer;
 	std::atomic<bool> stopped{ false };
-	boost::asio::steady_timer cleanup_timer;
-	boost::asio::steady_timer cookie_timer;
-	boost::asio::steady_timer keepalive_timer;
 	static unsigned const broadcast_interval_ms = 10;
 	static size_t const buffer_size = 512;
 	static size_t const confirm_req_hashes_max = 7;

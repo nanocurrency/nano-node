@@ -172,7 +172,7 @@ nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote>
 	auto result (nano::vote_code::invalid);
 	if (validated || !vote_a->validate ())
 	{
-		result = active.vote (vote_a, !rep_crawler.response (channel_a, vote_a));
+		result = active.vote (vote_a);
 		observers.vote.notify (vote_a, channel_a, result);
 	}
 	std::string status;

@@ -96,7 +96,7 @@ bool nano::gap_cache::bootstrap_check (std::vector<nano::account> const & voters
 void nano::gap_cache::bootstrap_start (nano::block_hash const & hash_a)
 {
 	auto node_l (node.shared ());
-	node.alarm.add (std::chrono::steady_clock::now () + node.network_params.bootstrap.gap_cache_bootstrap_start_interval, [node_l, hash_a]() {
+	node.workers.add_timed_task (std::chrono::steady_clock::now () + node.network_params.bootstrap.gap_cache_bootstrap_start_interval, [node_l, hash_a]() {
 		if (!node_l->ledger.block_or_pruned_exists (hash_a))
 		{
 			if (!node_l->bootstrap_initiator.in_progress ())

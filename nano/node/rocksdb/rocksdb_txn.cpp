@@ -66,7 +66,7 @@ void nano::write_rocksdb_txn::commit ()
 			++attempt_num;
 		}
 
-		release_assert (status.ok ());
+		release_assert (status.ok (), status.ToString ());
 		active = false;
 	}
 }

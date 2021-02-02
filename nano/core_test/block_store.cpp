@@ -1942,7 +1942,6 @@ TEST (block_store, rocksdb_force_test_env_variable)
 	// Set environment variable
 	constexpr auto env_var = "TEST_USE_ROCKSDB";
 	auto value = std::getenv (env_var);
-	(void)value;
 
 	auto store = nano::make_store (logger, nano::unique_path ());
 
