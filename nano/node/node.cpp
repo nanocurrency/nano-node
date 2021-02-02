@@ -100,7 +100,7 @@ store (*store_impl),
 wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (application_path_a / "wallets.ldb", config_a.lmdb_config)),
 wallets_store (*wallets_store_impl),
 gap_cache (*this),
-ledger (store, stats, flags_a.generate_cache, [this]() { this->network.erase_below_version (network_params.protocol.protocol_version_min (true)); }),
+ledger (store, stats, flags_a.generate_cache),
 checker (config.signature_checker_threads),
 network (*this, config.peering_port),
 telemetry (std::make_shared<nano::telemetry> (network, workers, observers.telemetry, stats, network_params, flags.disable_ongoing_telemetry_requests)),
@@ -1121,7 +1121,7 @@ uint64_t nano::node::default_difficulty (nano::work_version const version_a) con
 	switch (version_a)
 	{
 		case nano::work_version::work_1:
-			result = ledger.cache.epoch_2_started ? nano::work_threshold_base (version_a) : network_params.network.publish_thresholds.epoch_1;
+			result = nano::work_threshold_base (version_a);
 			break;
 		default:
 			debug_assert (false && "Invalid version specified to default_difficulty");
@@ -1135,7 +1135,7 @@ uint64_t nano::node::default_receive_difficulty (nano::work_version const versio
 	switch (version_a)
 	{
 		case nano::work_version::work_1:
-			result = ledger.cache.epoch_2_started ? network_params.network.publish_thresholds.epoch_2_receive : network_params.network.publish_thresholds.epoch_1;
+			result = network_params.network.publish_thresholds.epoch_2_receive;
 			break;
 		default:
 			debug_assert (false && "Invalid version specified to default_receive_difficulty");
@@ -1782,7 +1782,6 @@ nano::node_flags const & nano::inactive_node_flag_defaults ()
 	node_flags.generate_cache.cemented_count = false;
 	node_flags.generate_cache.unchecked_count = false;
 	node_flags.generate_cache.account_count = false;
-	node_flags.generate_cache.epoch_2 = false;
 	node_flags.disable_bootstrap_listener = true;
 	node_flags.disable_tcp_realtime = true;
 	return node_flags;

@@ -217,6 +217,7 @@ public:
 	bool init_error () const override;
 
 	uint64_t count (nano::transaction const &, MDB_dbi) const;
+	std::string error_string (int status) const override;
 
 	// These are only use in the upgrade process.
 	std::shared_ptr<nano::block> block_get_v14 (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_sideband_v14 * sideband_a = nullptr, bool * is_state_v1 = nullptr) const;

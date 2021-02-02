@@ -175,7 +175,7 @@ void nano::telemetry::ongoing_req_all_peers (std::chrono::milliseconds next_requ
 
 				{
 					// Copy peers to the multi index container so can get better asymptotic complexity in future operations
-					auto temp_peers = this_l->network.list (std::numeric_limits<size_t>::max (), this_l->network_params.protocol.telemetry_protocol_version_min);
+					auto temp_peers = this_l->network.list (std::numeric_limits<size_t>::max ());
 					peers.insert (temp_peers.begin (), temp_peers.end ());
 				}
 
@@ -276,7 +276,7 @@ void nano::telemetry::get_metrics_single_peer_async (std::shared_ptr<nano::trans
 
 	if (!stopped)
 	{
-		if (channel_a && (channel_a->get_network_version () >= network_params.protocol.telemetry_protocol_version_min))
+		if (channel_a)
 		{
 			auto add_callback_async = [& workers = this->workers, &callback_a](telemetry_data const & telemetry_data_a, nano::endpoint const & endpoint_a) {
 				telemetry_data_response telemetry_data_response_l{ telemetry_data_a, endpoint_a, false };
@@ -342,9 +342,6 @@ nano::telemetry_data_response nano::telemetry::get_metrics_single_peer (std::sha
 
 void nano::telemetry::fire_request_message (std::shared_ptr<nano::transport::channel> const & channel_a)
 {
-	// Fire off a telemetry request to all passed in channels
-	debug_assert (channel_a->get_network_version () >= network_params.protocol.telemetry_protocol_version_min);
-
 	uint64_t round_l;
 	{
 		auto it = recent_or_initial_request_telemetry_data.find (channel_a->get_endpoint ());

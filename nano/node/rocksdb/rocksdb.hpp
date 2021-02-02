@@ -62,6 +62,8 @@ public:
 
 	bool init_error () const override;
 
+	std::string error_string (int status) const override;
+
 private:
 	bool error{ false };
 	nano::logger_mt & logger;
