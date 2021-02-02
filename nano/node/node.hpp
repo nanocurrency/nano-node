@@ -1,6 +1,5 @@
 #pragma once
 
-#include <nano/boost/asio/spawn.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/work.hpp>
@@ -93,12 +92,6 @@ public:
 	void background (T action_a)
 	{
 		io_ctx.post (action_a);
-	}
-	template <typename... Params>
-	void spawn (Params... args)
-	{
-		boost::coroutines::attributes attributes{ boost::coroutines::stack_allocator::traits_type::default_size () * (is_sanitizer_build ? 2 : 1) };
-		boost::asio::spawn (io_ctx, std::forward<Params> (args)..., attributes);
 	}
 	bool copy_with_compaction (boost::filesystem::path const &);
 	void keepalive (std::string const &, uint16_t);

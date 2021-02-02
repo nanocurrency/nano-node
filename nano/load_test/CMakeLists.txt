@@ -7,4 +7,5 @@ target_link_libraries(
   test_common
   gtest
   Boost::boost
-  Boost::coroutine)
+  Boost::coroutine
+  Boost::context)
