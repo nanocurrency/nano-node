@@ -53,18 +53,22 @@ nano::write_rocksdb_txn::~write_rocksdb_txn ()
 
 void nano::write_rocksdb_txn::commit ()
 {
-	auto status = txn->Commit ();
-
-	// If there are no available memtables try again a few more times
-	constexpr auto num_attempts = 10;
-	auto attempt_num = 0;
-	while (status.IsTryAgain () && attempt_num < num_attempts)
+	if (active)
 	{
-		status = txn->Commit ();
-		++attempt_num;
-	}
+		auto status = txn->Commit ();
 
-	release_assert (status.ok ());
+		// If there are no available memtables try again a few more times
+		constexpr auto num_attempts = 10;
+		auto attempt_num = 0;
+		while (status.IsTryAgain () && attempt_num < num_attempts)
+		{
+			status = txn->Commit ();
+			++attempt_num;
+		}
+
+		release_assert (status.ok (), status.ToString ());
+		active = false;
+	}
 }
 
 void nano::write_rocksdb_txn::renew ()
@@ -72,6 +76,7 @@ void nano::write_rocksdb_txn::renew ()
 	rocksdb::OptimisticTransactionOptions txn_options;
 	txn_options.set_snapshot = true;
 	db->BeginTransaction (rocksdb::WriteOptions (), txn_options, txn);
+	active = true;
 }
 
 void * nano::write_rocksdb_txn::get_handle () const

@@ -12,7 +12,7 @@ TEST (message, keepalive_serialization)
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream (bytes);
-		request1.serialize (stream, false);
+		request1.serialize (stream);
 	}
 	auto error (false);
 	nano::bufferstream stream (bytes.data (), bytes.size ());
@@ -30,7 +30,7 @@ TEST (message, keepalive_deserialize)
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream (bytes);
-		message1.serialize (stream, false);
+		message1.serialize (stream);
 	}
 	nano::bufferstream stream (bytes.data (), bytes.size ());
 	auto error (false);
@@ -50,14 +50,14 @@ TEST (message, publish_serialization)
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream (bytes);
-		publish.header.serialize (stream, false);
+		publish.header.serialize (stream);
 	}
 	ASSERT_EQ (8, bytes.size ());
 	ASSERT_EQ (0x52, bytes[0]);
 	ASSERT_EQ (0x41, bytes[1]);
 	ASSERT_EQ (params.protocol.protocol_version, bytes[2]);
 	ASSERT_EQ (params.protocol.protocol_version, bytes[3]);
-	ASSERT_EQ (params.protocol.protocol_version_min (false), bytes[4]);
+	ASSERT_EQ (params.protocol.protocol_version_min (), bytes[4]);
 	ASSERT_EQ (static_cast<uint8_t> (nano::message_type::publish), bytes[5]);
 	ASSERT_EQ (0x00, bytes[6]); // extensions
 	ASSERT_EQ (static_cast<uint8_t> (nano::block_type::send), bytes[7]);
@@ -65,7 +65,7 @@ TEST (message, publish_serialization)
 	auto error (false);
 	nano::message_header header (error, stream);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (params.protocol.protocol_version_min (false), header.version_min ());
+	ASSERT_EQ (params.protocol.protocol_version_min (), header.version_min ());
 	ASSERT_EQ (params.protocol.protocol_version, header.version_using);
 	ASSERT_EQ (params.protocol.protocol_version, header.version_max);
 	ASSERT_EQ (nano::message_type::publish, header.type);
@@ -79,7 +79,7 @@ TEST (message, confirm_ack_serialization)
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream1 (bytes);
-		con1.serialize (stream1, false);
+		con1.serialize (stream1);
 	}
 	nano::bufferstream stream2 (bytes.data (), bytes.size ());
 	bool error (false);
@@ -107,7 +107,7 @@ TEST (message, confirm_ack_hash_serialization)
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream1 (bytes);
-		con1.serialize (stream1, false);
+		con1.serialize (stream1);
 	}
 	nano::bufferstream stream2 (bytes.data (), bytes.size ());
 	bool error (false);
@@ -135,7 +135,7 @@ TEST (message, confirm_req_serialization)
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream (bytes);
-		req.serialize (stream, false);
+		req.serialize (stream);
 	}
 	auto error (false);
 	nano::bufferstream stream2 (bytes.data (), bytes.size ());
@@ -155,7 +155,7 @@ TEST (message, confirm_req_hash_serialization)
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream (bytes);
-		req.serialize (stream, false);
+		req.serialize (stream);
 	}
 	auto error (false);
 	nano::bufferstream stream2 (bytes.data (), bytes.size ());
@@ -188,7 +188,7 @@ TEST (message, confirm_req_hash_batch_serialization)
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream (bytes);
-		req.serialize (stream, false);
+		req.serialize (stream);
 	}
 	auto error (false);
 	nano::bufferstream stream2 (bytes.data (), bytes.size ());

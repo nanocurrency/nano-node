@@ -18,7 +18,7 @@ bootstrap_id (bootstrap_id_a)
 {
 }
 
-nano::bulk_pull_client::bulk_pull_client (std::shared_ptr<nano::bootstrap_client> connection_a, std::shared_ptr<nano::bootstrap_attempt> attempt_a, nano::pull_info const & pull_a) :
+nano::bulk_pull_client::bulk_pull_client (std::shared_ptr<nano::bootstrap_client> const & connection_a, std::shared_ptr<nano::bootstrap_attempt> const & attempt_a, nano::pull_info const & pull_a) :
 connection (connection_a),
 attempt (attempt_a),
 known_account (0),
@@ -110,7 +110,7 @@ void nano::bulk_pull_client::throttled_receive_block ()
 	else
 	{
 		auto this_l (shared_from_this ());
-		connection->node->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (1), [this_l]() {
+		connection->node->workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (1), [this_l]() {
 			if (!this_l->connection->pending_stop && !this_l->attempt->stopped)
 			{
 				this_l->throttled_receive_block ();
@@ -207,7 +207,7 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 	if (!ec)
 	{
 		nano::bufferstream stream (connection->receive_buffer->data (), size_a);
-		std::shared_ptr<nano::block> block (nano::deserialize_block (stream, type_a));
+		auto block (nano::deserialize_block (stream, type_a));
 		if (block != nullptr && !nano::work_validate_entry (*block))
 		{
 			auto hash (block->hash ());
@@ -284,7 +284,7 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 	}
 }
 
-nano::bulk_pull_account_client::bulk_pull_account_client (std::shared_ptr<nano::bootstrap_client> connection_a, std::shared_ptr<nano::bootstrap_attempt> attempt_a, nano::account const & account_a) :
+nano::bulk_pull_account_client::bulk_pull_account_client (std::shared_ptr<nano::bootstrap_client> const & connection_a, std::shared_ptr<nano::bootstrap_attempt> const & attempt_a, nano::account const & account_a) :
 connection (connection_a),
 attempt (attempt_a),
 account (account_a),

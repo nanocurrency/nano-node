@@ -90,7 +90,7 @@ void nano::vote_processor::process_loop ()
 	}
 }
 
-bool nano::vote_processor::vote (std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a)
+bool nano::vote_processor::vote (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a)
 {
 	debug_assert (channel_a != nullptr);
 	bool process (false);
@@ -167,12 +167,12 @@ void nano::vote_processor::verify_votes (decltype (votes) const & votes_a)
 	}
 }
 
-nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a, bool validated)
+nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a, bool validated)
 {
 	auto result (nano::vote_code::invalid);
 	if (validated || !vote_a->validate ())
 	{
-		result = active.vote (vote_a, !rep_crawler.response (channel_a, vote_a));
+		result = active.vote (vote_a);
 		observers.vote.notify (vote_a, channel_a, result);
 	}
 	std::string status;

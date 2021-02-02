@@ -302,7 +302,7 @@ void nano::transport::udp_channels::receive ()
 				}
 				if (!this->stopped)
 				{
-					this->node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() { this->receive (); });
+					this->node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() { this->receive (); });
 				}
 			}
 		}));
@@ -437,14 +437,14 @@ public:
 			auto cache_exceeded = std::chrono::steady_clock::now () >= find_channel->get_last_telemetry_req () + nano::telemetry_cache_cutoffs::network_to_time (node.network_params.network);
 			if (is_very_first_message || cache_exceeded)
 			{
-				node.network.udp_channels.modify (find_channel, [](std::shared_ptr<nano::transport::channel_udp> channel_a) {
+				node.network.udp_channels.modify (find_channel, [](std::shared_ptr<nano::transport::channel_udp> const & channel_a) {
 					channel_a->set_last_telemetry_req (std::chrono::steady_clock::now ());
 				});
 				message (message_a);
 			}
 			else
 			{
-				node.network.udp_channels.modify (find_channel, [](std::shared_ptr<nano::transport::channel_udp> channel_a) {
+				node.network.udp_channels.modify (find_channel, [](std::shared_ptr<nano::transport::channel_udp> const & channel_a) {
 					channel_a->set_last_packet_received (std::chrono::steady_clock::now ());
 				});
 			}
@@ -478,7 +478,7 @@ public:
 					auto new_channel (node.network.udp_channels.insert (endpoint, message_a.header.version_using));
 					if (new_channel)
 					{
-						node.network.udp_channels.modify (new_channel, [&message_a](std::shared_ptr<nano::transport::channel_udp> channel_a) {
+						node.network.udp_channels.modify (new_channel, [&message_a](std::shared_ptr<nano::transport::channel_udp> const & channel_a) {
 							channel_a->set_node_id (message_a.response->first);
 						});
 					}
@@ -509,7 +509,7 @@ public:
 		auto find_channel (node.network.udp_channels.channel (endpoint));
 		if (find_channel)
 		{
-			node.network.udp_channels.modify (find_channel, [](std::shared_ptr<nano::transport::channel_udp> channel_a) {
+			node.network.udp_channels.modify (find_channel, [](std::shared_ptr<nano::transport::channel_udp> const & channel_a) {
 				channel_a->set_last_packet_received (std::chrono::steady_clock::now ());
 			});
 			node.network.process_message (message_a, find_channel);
@@ -538,7 +538,7 @@ void nano::transport::udp_channels::receive_action (nano::message_buffer * data_
 	if (allowed_sender)
 	{
 		udp_message_visitor visitor (node, data_a->endpoint);
-		nano::message_parser parser (node.network.publish_filter, node.block_uniquer, node.vote_uniquer, visitor, node.work, node.ledger.cache.epoch_2_started);
+		nano::message_parser parser (node.network.publish_filter, node.block_uniquer, node.vote_uniquer, visitor, node.work);
 		parser.deserialize_buffer (data_a->buffer, data_a->size);
 		if (parser.status == nano::message_parser::parse_status::success)
 		{
@@ -696,7 +696,7 @@ void nano::transport::udp_channels::ongoing_keepalive ()
 		channel->send (message);
 	}
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.alarm.add (std::chrono::steady_clock::now () + node.network_params.node.period, [node_w]() {
+	node.workers.add_timed_task (std::chrono::steady_clock::now () + node.network_params.node.period, [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->network.udp_channels.ongoing_keepalive ();
@@ -724,7 +724,7 @@ void nano::transport::udp_channels::list (std::deque<std::shared_ptr<nano::trans
 	// clang-format on
 }
 
-void nano::transport::udp_channels::modify (std::shared_ptr<nano::transport::channel_udp> channel_a, std::function<void(std::shared_ptr<nano::transport::channel_udp>)> modify_callback_a)
+void nano::transport::udp_channels::modify (std::shared_ptr<nano::transport::channel_udp> const & channel_a, std::function<void(std::shared_ptr<nano::transport::channel_udp> const &)> modify_callback_a)
 {
 	nano::lock_guard<std::mutex> lock (mutex);
 	auto existing (channels.get<endpoint_tag> ().find (channel_a->endpoint));

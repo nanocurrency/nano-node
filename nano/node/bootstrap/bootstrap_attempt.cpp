@@ -18,7 +18,7 @@ constexpr unsigned nano::bootstrap_limits::frontier_confirmation_blocks_limit;
 constexpr unsigned nano::bootstrap_limits::requeued_pulls_limit;
 constexpr unsigned nano::bootstrap_limits::requeued_pulls_limit_dev;
 
-nano::bootstrap_attempt::bootstrap_attempt (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a, uint64_t incremental_id_a, std::string id_a) :
+nano::bootstrap_attempt::bootstrap_attempt (std::shared_ptr<nano::node> const & node_a, nano::bootstrap_mode mode_a, uint64_t incremental_id_a, std::string id_a) :
 node (node_a),
 incremental_id (incremental_id_a),
 id (id_a),
@@ -142,7 +142,7 @@ void nano::bootstrap_attempt::add_recent_pull (nano::block_hash const &)
 	debug_assert (mode == nano::bootstrap_mode::legacy);
 }
 
-bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_a, nano::account const & known_account_a, uint64_t pull_blocks, nano::bulk_pull::count_t max_blocks, bool block_expected, unsigned retry_limit)
+bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> const & block_a, nano::account const & known_account_a, uint64_t pull_blocks, nano::bulk_pull::count_t max_blocks, bool block_expected, unsigned retry_limit)
 {
 	nano::unchecked_info info (block_a, known_account_a, 0, nano::signature_verification::unknown);
 	node->block_processor.add (info);
@@ -198,7 +198,7 @@ size_t nano::bootstrap_attempt::wallet_size ()
 	return 0;
 }
 
-nano::bootstrap_attempt_legacy::bootstrap_attempt_legacy (std::shared_ptr<nano::node> node_a, uint64_t incremental_id_a, std::string id_a) :
+nano::bootstrap_attempt_legacy::bootstrap_attempt_legacy (std::shared_ptr<nano::node> const & node_a, uint64_t incremental_id_a, std::string const & id_a) :
 nano::bootstrap_attempt (node_a, nano::bootstrap_mode::legacy, incremental_id_a, id_a)
 {
 	node->bootstrap_initiator.notify_listeners (true);
@@ -357,7 +357,7 @@ void nano::bootstrap_attempt_legacy::attempt_restart_check (nano::unique_lock<st
 			node->background ([node_l, this_l]() {
 				node_l->bootstrap_initiator.remove_attempt (this_l);
 				// Delay after removing current attempt
-				node_l->alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (50), [node_l]() {
+				node_l->workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (50), [node_l]() {
 					node_l->bootstrap_initiator.bootstrap (true);
 				});
 			});

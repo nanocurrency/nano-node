@@ -28,7 +28,7 @@ class representative
 {
 public:
 	representative () = default;
-	representative (nano::account account_a, nano::amount weight_a, std::shared_ptr<nano::transport::channel> channel_a) :
+	representative (nano::account account_a, nano::amount weight_a, std::shared_ptr<nano::transport::channel> const & channel_a) :
 	account (account_a), weight (weight_a), channel (channel_a)
 	{
 		debug_assert (channel != nullptr);
@@ -133,7 +133,7 @@ private:
 	std::vector<std::shared_ptr<nano::transport::channel>> get_crawl_targets (nano::uint128_t total_weight_a);
 
 	/** When a rep request is made, this is called to update the last-request timestamp. */
-	void on_rep_request (std::shared_ptr<nano::transport::channel> channel_a);
+	void on_rep_request (std::shared_ptr<nano::transport::channel> const & channel_a);
 
 	/** Clean representatives with inactive channels */
 	void cleanup_reps ();
@@ -150,6 +150,7 @@ private:
 	friend class active_transactions_confirm_active_Test;
 	friend class active_transactions_confirm_frontier_Test;
 	friend class rep_crawler_local_Test;
+	friend class node_online_reps_rep_crawler_Test;
 
 	std::deque<std::pair<std::shared_ptr<nano::transport::channel>, std::shared_ptr<nano::vote>>> responses;
 };

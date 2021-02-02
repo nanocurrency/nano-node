@@ -132,11 +132,14 @@ TEST (wallets, vote_minimum)
 	nano::state_block open2 (key2.pub, 0, key2.pub, node1.config.vote_minimum.number () - 1, send2.hash (), key2.prv, key2.pub, *system.work.generate (key2.pub));
 	ASSERT_EQ (nano::process_result::progress, node1.process (open2).code);
 	auto wallet (node1.wallets.items.begin ()->second);
+	nano::unique_lock<std::mutex> representatives_lk (wallet->representatives_mutex);
 	ASSERT_EQ (0, wallet->representatives.size ());
+	representatives_lk.unlock ();
 	wallet->insert_adhoc (nano::dev_genesis_key.prv);
 	wallet->insert_adhoc (key1.prv);
 	wallet->insert_adhoc (key2.prv);
 	node1.wallets.compute_reps ();
+	representatives_lk.lock ();
 	ASSERT_EQ (2, wallet->representatives.size ());
 }
 
@@ -177,7 +180,9 @@ TEST (wallets, search_pending)
 		flags.disable_search_pending = true;
 		auto & node (*system.add_node (config, flags));
 
+		nano::unique_lock<std::mutex> lk (node.wallets.mutex);
 		auto wallets = node.wallets.get_wallets ();
+		lk.unlock ();
 		ASSERT_EQ (1, wallets.size ());
 		auto wallet_id = wallets.begin ()->first;
 		auto wallet = wallets.begin ()->second;

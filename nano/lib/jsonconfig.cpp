@@ -12,7 +12,7 @@ tree (tree_default)
 	error = std::make_shared<nano::error> ();
 }
 
-nano::jsonconfig::jsonconfig (boost::property_tree::ptree & tree_a, std::shared_ptr<nano::error> error_a) :
+nano::jsonconfig::jsonconfig (boost::property_tree::ptree & tree_a, std::shared_ptr<nano::error> const & error_a) :
 nano::configbase (error_a), tree (tree_a)
 {
 	if (!error)
