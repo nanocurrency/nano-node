@@ -65,7 +65,6 @@ public:
 int main (int argc, char * const * argv)
 {
 	nano::set_umask ();
-	//
 	nano::node_singleton_memory_pool_purge_guard memory_pool_cleanup_guard;
 	boost::program_options::options_description description ("Command line options");
 	// clang-format off

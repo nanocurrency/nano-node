@@ -260,21 +260,25 @@ bool nano::mdb_store::do_upgrades (nano::write_transaction & transaction_a, bool
 			break;
 		case 14:
 			upgrade_v14_to_v15 (transaction_a);
-			needs_vacuuming = true;
+			[[fallthrough]];
+			// Upgrades to version 16, 17 & 18 are all part of the v21 node release
 		case 15:
-			// Upgrades to v16, v17 & v18 are all part of the v21 node release
 			upgrade_v15_to_v16 (transaction_a);
+			[[fallthrough]];
 		case 16:
 			upgrade_v16_to_v17 (transaction_a);
+			[[fallthrough]];
 		case 17:
 			upgrade_v17_to_v18 (transaction_a);
-			needs_vacuuming = true;
-			// Upgrades to v19 & v20 are both part of the v22 node release
+			[[fallthrough]];
+			// Upgrades to version 19 & 20 are both part of the v22 node release
 		case 18:
 			upgrade_v18_to_v19 (transaction_a);
 			needs_vacuuming = true;
+			[[fallthrough]];
 		case 19:
 			upgrade_v19_to_v20 (transaction_a);
+			[[fallthrough]];
 		case 20:
 			break;
 		default:
