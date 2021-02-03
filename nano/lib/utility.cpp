@@ -5,6 +5,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <string_view>
 #include <thread>
 
 // Some builds (mac) fail due to "Boost.Stacktrace requires `_Unwind_Backtrace` function".
