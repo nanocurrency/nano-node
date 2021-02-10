@@ -188,7 +188,7 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 			bool is_state_send (false);
 			nano::account pending_account (0);
 			node.process_confirmed_data (transaction, block_a, block_a->hash (), account, amount, is_state_send, pending_account);
-			node.observers.blocks.notify (nano::election_status{ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::inactive_confirmation_height }, account, amount, is_state_send);
+			node.observers.blocks.notify (nano::election_status{ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::inactive_confirmation_height }, {}, account, amount, is_state_send);
 		}
 		else
 		{
@@ -218,7 +218,8 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 					election->status.confirmation_request_count = election->confirmation_request_count;
 					status_l = election->status;
 					election_lk.unlock ();
-					node.observers.blocks.notify (status_l, account, amount, is_state_send);
+					auto votes (election->votes_with_weight ());
+					node.observers.blocks.notify (status_l, votes, account, amount, is_state_send);
 					if (amount > 0)
 					{
 						node.observers.account_balance.notify (account, false);

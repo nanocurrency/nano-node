@@ -23,6 +23,15 @@ public:
 	uint64_t timestamp;
 	nano::block_hash hash;
 };
+class vote_with_weight_info final
+{
+public:
+	nano::account representative;
+	std::chrono::steady_clock::time_point time;
+	uint64_t timestamp;
+	nano::block_hash hash;
+	nano::uint128_t weight;
+};
 class election_vote_result final
 {
 public:
@@ -151,6 +160,7 @@ private:
 public: // Only used in tests
 	void force_confirm (nano::election_status_type = nano::election_status_type::active_confirmed_quorum);
 	std::unordered_map<nano::account, nano::vote_info> votes () const;
+	std::vector<nano::vote_with_weight_info> votes_with_weight () const;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks () const;
 
 	friend class confirmation_solicitor_different_hash_Test;

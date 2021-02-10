@@ -7,6 +7,7 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/election.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
@@ -91,7 +92,7 @@ namespace websocket
 	class message_builder final
 	{
 	public:
-		message block_confirmed (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype, bool include_block, nano::election_status const & election_status_a, nano::websocket::confirmation_options const & options_a);
+		message block_confirmed (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype, bool include_block, nano::election_status const & election_status_a, std::vector<nano::vote_with_weight_info> const & election_votes_a, nano::websocket::confirmation_options const & options_a);
 		message stopped_election (nano::block_hash const & hash_a);
 		message vote_received (std::shared_ptr<nano::vote> const & vote_a, nano::vote_code code_a);
 		message difficulty_changed (uint64_t publish_threshold_a, uint64_t receive_threshold_a, uint64_t difficulty_active_a);
@@ -180,6 +181,12 @@ namespace websocket
 			return include_election_info;
 		}
 
+		/** Returns whether or not to include election info with votes */
+		bool get_include_election_info_with_votes () const
+		{
+			return include_election_info_with_votes;
+		}
+
 		static constexpr const uint8_t type_active_quorum = 1;
 		static constexpr const uint8_t type_active_confirmation_height = 2;
 		static constexpr const uint8_t type_inactive = 4;
@@ -192,6 +199,7 @@ namespace websocket
 		nano::wallets & wallets;
 		boost::optional<nano::logger_mt &> logger;
 		bool include_election_info{ false };
+		bool include_election_info_with_votes{ false };
 		bool include_block{ true };
 		bool has_account_filtering_options{ false };
 		bool all_local_accounts{ false };
@@ -292,7 +300,7 @@ namespace websocket
 		void stop ();
 
 		/** Broadcast block confirmation. The content of the message depends on subscription options (such as "include_block") */
-		void broadcast_confirmation (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, nano::amount const & amount_a, std::string const & subtype, nano::election_status const & election_status_a);
+		void broadcast_confirmation (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, nano::amount const & amount_a, std::string const & subtype, nano::election_status const & election_status_a, std::vector<nano::vote_with_weight_info> const & election_votes_a);
 
 		/** Broadcast \p message to all session subscribing to the message topic. */
 		void broadcast (nano::websocket::message message_a);

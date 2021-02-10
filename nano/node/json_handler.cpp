@@ -1133,7 +1133,7 @@ void nano::json_handler::block_confirm ()
 						is_state_send = node.ledger.is_send (transaction, *state);
 					}
 				}
-				node.observers.blocks.notify (status, account, amount, is_state_send);
+				node.observers.blocks.notify (status, {}, account, amount, is_state_send);
 			}
 			response_l.put ("started", "1");
 		}
