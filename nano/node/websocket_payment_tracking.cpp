@@ -1,6 +1,6 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/logger_mt.hpp>
-#include <nano/lib/worker.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/websocket.hpp>
@@ -74,7 +74,7 @@ bool nano::websocket::payment_tracker::update_partial_payment_amount (std::strin
 	return different_amount_l;
 }
 
-nano::websocket::payment_validator::payment_validator (boost::asio::io_context & io_ctx_a, nano::worker & worker_a, nano::ledger & ledger_a, nano::logger_mt & logger_a, std::function<void(std::shared_ptr<nano::block> const &, bool const)> publish_handler_a) :
+nano::websocket::payment_validator::payment_validator (boost::asio::io_context & io_ctx_a, nano::thread_pool & worker_a, nano::ledger & ledger_a, nano::logger_mt & logger_a, std::function<void(std::shared_ptr<nano::block> const &, bool const)> publish_handler_a) :
 worker (worker_a), ledger (ledger_a), logger (logger_a), publish_handler (publish_handler_a), payment_tracker_timer (io_ctx_a)
 {
 }

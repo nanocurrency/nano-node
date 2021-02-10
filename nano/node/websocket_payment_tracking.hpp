@@ -15,7 +15,7 @@ namespace nano
 {
 class ledger;
 class logger_mt;
-class worker;
+class thread_pool;
 }
 
 namespace nano::websocket
@@ -94,7 +94,7 @@ private:
 class payment_validator final
 {
 public:
-	payment_validator (boost::asio::io_context & io_ctx_a, nano::worker & worker_a, nano::ledger & ledger_a, nano::logger_mt & logger_a, std::function<void(std::shared_ptr<nano::block> const &, bool const)> publish_handler_a);
+	payment_validator (boost::asio::io_context & io_ctx_a, nano::thread_pool & worker_a, nano::ledger & ledger_a, nano::logger_mt & logger_a, std::function<void(std::shared_ptr<nano::block> const &, bool const)> publish_handler_a);
 
 	/** Starts ongoing payment tracking */
 	void start (std::shared_ptr<nano::websocket::listener> const & websocket_server_a);
@@ -106,7 +106,7 @@ public:
 	void publish_block (std::shared_ptr<nano::block> const & block_a, bool const work_watcher_a);
 
 private:
-	nano::worker & worker;
+	nano::thread_pool & worker;
 	std::shared_ptr<nano::websocket::listener> websocket_server;
 	nano::ledger & ledger;
 	nano::logger_mt & logger;
