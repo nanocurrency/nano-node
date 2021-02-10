@@ -871,7 +871,7 @@ void nano::node::ongoing_bootstrap ()
 				last_sample_time = i->first;
 			}
 			uint64_t time_since_last_sample = std::chrono::steady_clock::now ().time_since_epoch ().count () - last_sample_time;
-			if (time_since_last_sample < std::numeric_limits<uint32_t>::max ())
+			if (time_since_last_sample + 60 * 60 < std::numeric_limits<uint32_t>::max ())
 			{
 				frontiers_age = std::max<uint32_t> (time_since_last_sample + 60 * 60, network_params.bootstrap.default_frontiers_age_seconds);
 			}
