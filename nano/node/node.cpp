@@ -882,7 +882,7 @@ void nano::node::ongoing_bootstrap ()
 		}
 	}
 	// Bootstrap and schedule for next attempt
-	bootstrap_initiator.bootstrap (false, "auto_bootstrap_" + previous_bootstrap_count, frontiers_age);
+	bootstrap_initiator.bootstrap (false, boost::str (boost::format ("auto_bootstrap_%1%") % previous_bootstrap_count), frontiers_age);
 	std::weak_ptr<nano::node> node_w (shared_from_this ());
 	workers.add_timed_task (std::chrono::steady_clock::now () + next_wakeup, [node_w]() {
 		if (auto node_l = node_w.lock ())
