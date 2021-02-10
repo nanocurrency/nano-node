@@ -198,8 +198,9 @@ size_t nano::bootstrap_attempt::wallet_size ()
 	return 0;
 }
 
-nano::bootstrap_attempt_legacy::bootstrap_attempt_legacy (std::shared_ptr<nano::node> const & node_a, uint64_t incremental_id_a, std::string const & id_a) :
-nano::bootstrap_attempt (node_a, nano::bootstrap_mode::legacy, incremental_id_a, id_a)
+nano::bootstrap_attempt_legacy::bootstrap_attempt_legacy (std::shared_ptr<nano::node> const & node_a, uint64_t const incremental_id_a, std::string const & id_a, uint32_t const frontiers_age_a) :
+nano::bootstrap_attempt (node_a, nano::bootstrap_mode::legacy, incremental_id_a, id_a),
+frontiers_age (frontiers_age_a)
 {
 	node->bootstrap_initiator.notify_listeners (true);
 }
@@ -513,7 +514,7 @@ bool nano::bootstrap_attempt_legacy::request_frontier (nano::unique_lock<std::mu
 		{
 			auto this_l (shared_from_this ());
 			auto client (std::make_shared<nano::frontier_req_client> (connection_l, this_l));
-			client->run ();
+			client->run (frontiers_age);
 			frontiers = client;
 			future = client->promise.get_future ();
 		}
