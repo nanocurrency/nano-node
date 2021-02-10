@@ -3574,12 +3574,17 @@ TEST (rpc, bootstrap)
 	nano::system system0;
 	auto node = add_ipc_enabled_node (system0);
 	nano::system system1 (1);
-	auto latest (system1.nodes[0]->latest (nano::dev_genesis_key.pub));
-	nano::send_block send (latest, nano::genesis_account, 100, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system1.nodes[0]->work_generate_blocking (latest));
+	auto node1 (system1.nodes[0]);
+	auto latest (node1->latest (nano::dev_genesis_key.pub));
+	auto send (std::make_shared<nano::send_block> (latest, nano::genesis_account, 100, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node1->work_generate_blocking (latest)));
+	ASSERT_EQ (nano::process_result::progress, node1->process (*send).code);
+	nano::blocks_confirm (*node1, { send }, true); // Confirm block
+	system1.deadline_set (5s);
+	while (!node1->block_confirmed (send->hash ()) || !node1->active.empty ())
 	{
-		auto transaction (system1.nodes[0]->store.tx_begin_write ());
-		ASSERT_EQ (nano::process_result::progress, system1.nodes[0]->ledger.process (transaction, send).code);
+		ASSERT_NO_ERROR (system1.poll ());
 	}
+
 	scoped_io_thread_name_change scoped_thread_name_io;
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
@@ -3591,14 +3596,14 @@ TEST (rpc, bootstrap)
 	boost::property_tree::ptree request;
 	request.put ("action", "bootstrap");
 	request.put ("address", "::ffff:127.0.0.1");
-	request.put ("port", system1.nodes[0]->network.endpoint ().port ());
+	request.put ("port", node1->network.endpoint ().port ());
 	test_response response (request, rpc.config.port, system0.io_ctx);
 	while (response.status == 0)
 	{
 		system0.poll ();
 	}
 	system1.deadline_set (10s);
-	while (system0.nodes[0]->latest (nano::genesis_account) != system1.nodes[0]->latest (nano::genesis_account))
+	while (system0.nodes[0]->latest (nano::genesis_account) != node1->latest (nano::genesis_account))
 	{
 		ASSERT_NO_ERROR (system0.poll ());
 		ASSERT_NO_ERROR (system1.poll ());
@@ -7554,6 +7559,8 @@ TEST (rpc, account_lazy_start)
 	ASSERT_EQ (nano::process_result::progress, node1->process (*send1).code);
 	auto open (std::make_shared<nano::open_block> (send1->hash (), key.pub, key.pub, key.prv, key.pub, *system.work.generate (key.pub)));
 	ASSERT_EQ (nano::process_result::progress, node1->process (*open).code);
+	nano::blocks_confirm (*node1, { send1, open }, true); // Confirm blocks
+	ASSERT_TIMELY (5s, node1->block_confirmed (send1->hash ()) && node1->block_confirmed (open->hash ()) && node1->active.empty ());
 
 	// Start lazy bootstrap with account
 	nano::node_config node_config (nano::get_available_port (), system.logging);

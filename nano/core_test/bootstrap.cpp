@@ -142,14 +142,17 @@ TEST (bulk_pull, by_block_single)
 TEST (bulk_pull, count_limit)
 {
 	nano::system system (1);
+	auto node0 (system.nodes[0]);
 	nano::genesis genesis;
 
-	auto send1 (std::make_shared<nano::send_block> (system.nodes[0]->latest (nano::dev_genesis_key.pub), nano::dev_genesis_key.pub, 1, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (system.nodes[0]->latest (nano::dev_genesis_key.pub))));
-	ASSERT_EQ (nano::process_result::progress, system.nodes[0]->process (*send1).code);
+	auto send1 (std::make_shared<nano::send_block> (node0->latest (nano::dev_genesis_key.pub), nano::dev_genesis_key.pub, 1, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (node0->latest (nano::dev_genesis_key.pub))));
+	ASSERT_EQ (nano::process_result::progress, node0->process (*send1).code);
 	auto receive1 (std::make_shared<nano::receive_block> (send1->hash (), send1->hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send1->hash ())));
-	ASSERT_EQ (nano::process_result::progress, system.nodes[0]->process (*receive1).code);
+	ASSERT_EQ (nano::process_result::progress, node0->process (*receive1).code);
+	nano::blocks_confirm (*node0, { send1, receive1 }, true); // Confirm blocks
+	ASSERT_TIMELY (5s, node0->block_confirmed (send1->hash ()) && node0->block_confirmed (receive1->hash ()) && node0->active.empty ());
 
-	auto connection (std::make_shared<nano::bootstrap_server> (nullptr, system.nodes[0]));
+	auto connection (std::make_shared<nano::bootstrap_server> (nullptr, node0));
 	auto req = std::make_unique<nano::bulk_pull> ();
 	req->start = receive1->hash ();
 	req->set_count_present (true);
@@ -161,6 +164,7 @@ TEST (bulk_pull, count_limit)
 	ASSERT_EQ (request->sent_count, 0);
 
 	auto block (request->get_next ());
+	ASSERT_NE (nullptr, block);
 	ASSERT_EQ (receive1->hash (), block->hash ());
 
 	block = request->get_next ();
@@ -170,13 +174,138 @@ TEST (bulk_pull, count_limit)
 	ASSERT_EQ (nullptr, block);
 }
 
+TEST (bulk_pull, unconfirmed_blocks)
+{
+	nano::system system (1);
+	auto node0 (system.nodes[0]);
+	nano::genesis genesis;
+
+	auto send1 (std::make_shared<nano::send_block> (node0->latest (nano::dev_genesis_key.pub), nano::dev_genesis_key.pub, 1, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (node0->latest (nano::dev_genesis_key.pub))));
+	ASSERT_EQ (nano::process_result::progress, node0->process (*send1).code);
+	auto receive1 (std::make_shared<nano::receive_block> (send1->hash (), send1->hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send1->hash ())));
+	ASSERT_EQ (nano::process_result::progress, node0->process (*receive1).code);
+	auto send2 (std::make_shared<nano::send_block> (receive1->hash (), nano::dev_genesis_key.pub, 1, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (receive1->hash ())));
+	ASSERT_EQ (nano::process_result::progress, node0->process (*send2).code);
+
+	auto connection (std::make_shared<nano::bootstrap_server> (nullptr, node0));
+	auto req = std::make_unique<nano::bulk_pull> ();
+	req->start = receive1->hash ();
+	connection->requests.push (std::unique_ptr<nano::message>{});
+	auto request (std::make_shared<nano::bulk_pull_server> (connection, std::move (req)));
+	auto block (request->get_next ());
+	ASSERT_EQ (nullptr, block);
+
+	// Account + frontier
+	auto connection2 (std::make_shared<nano::bootstrap_server> (nullptr, node0));
+	auto req2 = std::make_unique<nano::bulk_pull> ();
+	req2->start = nano::dev_genesis_key.pub;
+	req2->end = send1->hash ();
+	connection2->requests.push (std::unique_ptr<nano::message>{});
+	auto request2 (std::make_shared<nano::bulk_pull_server> (connection2, std::move (req2)));
+	auto block2 (request->get_next ());
+	ASSERT_EQ (nullptr, block2);
+
+	// Account + frontier; send all unconfirmed
+	auto connection7 (std::make_shared<nano::bootstrap_server> (nullptr, node0));
+	auto req7 = std::make_unique<nano::bulk_pull> ();
+	req7->start = nano::dev_genesis_key.pub;
+	req7->end = send1->hash ();
+	ASSERT_FALSE (req7->header.bootstrap_are_unconfirmed_blocks_present ());
+	req7->header.flag_set (nano::message_header::bootstrap_unconfirmed_blocks);
+	ASSERT_TRUE (req7->header.bootstrap_are_unconfirmed_blocks_present ());
+	connection7->requests.push (std::unique_ptr<nano::message>{});
+	auto request7 (std::make_shared<nano::bulk_pull_server> (connection7, std::move (req7)));
+	auto block7 (request7->get_next ());
+	ASSERT_NE (nullptr, block7);
+	ASSERT_EQ (send2->hash (), block7->hash ());
+	block7 = request7->get_next ();
+	ASSERT_NE (nullptr, block7);
+	ASSERT_EQ (receive1->hash (), block7->hash ());
+	block7 = request7->get_next ();
+	ASSERT_EQ (nullptr, block7);
+
+	// Account + frontier; send only confirmed frontier
+	nano::blocks_confirm (*node0, { send1 }, true); // Confirm block
+	ASSERT_TIMELY (5s, node0->block_confirmed (send1->hash ()));
+	auto connection3 (std::make_shared<nano::bootstrap_server> (nullptr, node0));
+	auto req3 = std::make_unique<nano::bulk_pull> ();
+	req3->start = nano::dev_genesis_key.pub;
+	req3->end = receive1->hash ();
+	connection3->requests.push (std::unique_ptr<nano::message>{});
+	auto request3 (std::make_shared<nano::bulk_pull_server> (connection3, std::move (req3)));
+	auto block3 (request3->get_next ());
+	ASSERT_NE (nullptr, block3);
+	ASSERT_EQ (send1->hash (), block3->hash ());
+	block3 = request3->get_next ();
+	ASSERT_NE (nullptr, block3);
+	ASSERT_EQ (genesis.hash (), block3->hash ());
+	block3 = request3->get_next ();
+	ASSERT_EQ (nullptr, block3);
+
+	// Confirmed start + confirmed end
+	nano::blocks_confirm (*node0, { receive1 }, true); // Confirm block
+	ASSERT_TIMELY (5s, node0->block_confirmed (receive1->hash ()));
+	auto connection4 (std::make_shared<nano::bootstrap_server> (nullptr, node0));
+	auto req4 = std::make_unique<nano::bulk_pull> ();
+	req4->start = receive1->hash ();
+	req4->end = genesis.hash ();
+	connection4->requests.push (std::unique_ptr<nano::message>{});
+	auto request4 (std::make_shared<nano::bulk_pull_server> (connection4, std::move (req4)));
+	auto block4 (request4->get_next ());
+	ASSERT_NE (nullptr, block4);
+	ASSERT_EQ (receive1->hash (), block4->hash ());
+	block4 = request4->get_next ();
+	ASSERT_NE (nullptr, block4);
+	ASSERT_EQ (send1->hash (), block4->hash ());
+	block4 = request4->get_next ();
+	ASSERT_EQ (nullptr, block4);
+
+	// Unconfirmed start + confirmed end; send only confirmed
+	auto connection5 (std::make_shared<nano::bootstrap_server> (nullptr, node0));
+	auto req5 = std::make_unique<nano::bulk_pull> ();
+	req5->start = send2->hash ();
+	req5->end = genesis.hash ();
+	connection5->requests.push (std::unique_ptr<nano::message>{});
+	auto request5 (std::make_shared<nano::bulk_pull_server> (connection5, std::move (req5)));
+	auto block5 (request5->get_next ());
+	ASSERT_NE (nullptr, block5);
+	ASSERT_EQ (receive1->hash (), block5->hash ());
+	block5 = request5->get_next ();
+	ASSERT_NE (nullptr, block5);
+	ASSERT_EQ (send1->hash (), block5->hash ());
+	block5 = request5->get_next ();
+	ASSERT_EQ (nullptr, block5);
+
+	// Unconfirmed start + confirmed end; send unconfirmed
+	auto connection6 (std::make_shared<nano::bootstrap_server> (nullptr, node0));
+	auto req6 = std::make_unique<nano::bulk_pull> ();
+	req6->start = send2->hash ();
+	req6->end = genesis.hash ();
+	ASSERT_FALSE (req6->header.bootstrap_are_unconfirmed_blocks_present ());
+	req6->header.flag_set (nano::message_header::bootstrap_unconfirmed_blocks);
+	ASSERT_TRUE (req6->header.bootstrap_are_unconfirmed_blocks_present ());
+	connection6->requests.push (std::unique_ptr<nano::message>{});
+	auto request6 (std::make_shared<nano::bulk_pull_server> (connection6, std::move (req6)));
+	auto block6 (request6->get_next ());
+	ASSERT_NE (nullptr, block6);
+	ASSERT_EQ (send2->hash (), block6->hash ());
+	block6 = request6->get_next ();
+	ASSERT_NE (nullptr, block6);
+	ASSERT_EQ (receive1->hash (), block6->hash ());
+	block6 = request6->get_next ();
+	ASSERT_NE (nullptr, block6);
+	ASSERT_EQ (send1->hash (), block6->hash ());
+	block6 = request6->get_next ();
+	ASSERT_EQ (nullptr, block6);
+}
+
 TEST (bootstrap_processor, DISABLED_process_none)
 {
 	nano::system system (1);
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work));
 	ASSERT_FALSE (node1->init_error ());
 	auto done (false);
-	node1->bootstrap_initiator.bootstrap (system.nodes[0]->network.endpoint ());
+	node1->bootstrap_initiator.bootstrap (system.nodes[0]->network.endpoint (), false);
 	while (!done)
 	{
 		system.io_ctx.run_one ();
@@ -195,7 +324,10 @@ TEST (bootstrap_processor, process_one)
 	node_flags.disable_bootstrap_bulk_push_client = true;
 	auto node0 = system.add_node (node_config, node_flags);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
-	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev_genesis_key.pub, nano::dev_genesis_key.pub, 100));
+	auto send (system.wallet (0)->send_action (nano::dev_genesis_key.pub, nano::dev_genesis_key.pub, 100));
+	ASSERT_NE (nullptr, send);
+	nano::blocks_confirm (*node0, { send }, true); // Confirm frontier
+	ASSERT_TIMELY (2s, node0->block_confirmed (send->hash ()) && node0->active.empty ());
 
 	node_config.peering_port = nano::get_available_port ();
 	node_flags.disable_rep_crawler = true;
@@ -203,7 +335,7 @@ TEST (bootstrap_processor, process_one)
 	nano::block_hash hash1 (node0->latest (nano::dev_genesis_key.pub));
 	nano::block_hash hash2 (node1->latest (nano::dev_genesis_key.pub));
 	ASSERT_NE (hash1, hash2);
-	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
+	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
 	ASSERT_NE (node1->latest (nano::dev_genesis_key.pub), node0->latest (nano::dev_genesis_key.pub));
 	ASSERT_TIMELY (10s, node1->latest (nano::dev_genesis_key.pub) == node0->latest (nano::dev_genesis_key.pub));
 	ASSERT_EQ (0, node1->active.size ());
@@ -227,9 +359,12 @@ TEST (bootstrap_processor, process_two)
 	ASSERT_NE (hash1, hash2);
 	ASSERT_NE (hash1, hash3);
 	ASSERT_NE (hash2, hash3);
+	nano::blocks_confirm (*node0, { node0->block (hash1), node0->block (hash3), node0->block (hash3) }, true); // Confirm blocks
+	ASSERT_TIMELY (10s, node0->block_confirmed (hash1) && node0->block_confirmed (hash2) && node0->block_confirmed (hash3) && node0->active.empty ());
+
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work));
 	ASSERT_FALSE (node1->init_error ());
-	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
+	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
 	ASSERT_NE (node1->latest (nano::dev_genesis_key.pub), node0->latest (nano::dev_genesis_key.pub));
 	ASSERT_TIMELY (10s, node1->latest (nano::dev_genesis_key.pub) == node0->latest (nano::dev_genesis_key.pub));
 	node1->stop ();
@@ -252,10 +387,13 @@ TEST (bootstrap_processor, process_state)
 	node0->work_generate_blocking (*block2);
 	node0->process (*block1);
 	node0->process (*block2);
+	nano::blocks_confirm (*node0, { block1, block2 }, true); // Confirm blocks
+	ASSERT_TIMELY (5s, node0->block_confirmed (block1->hash ()) && node0->block_confirmed (block2->hash ()) && node0->active.empty ());
+
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work));
 	ASSERT_EQ (node0->latest (nano::dev_genesis_key.pub), block2->hash ());
 	ASSERT_NE (node1->latest (nano::dev_genesis_key.pub), block2->hash ());
-	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
+	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
 	ASSERT_NE (node1->latest (nano::dev_genesis_key.pub), node0->latest (nano::dev_genesis_key.pub));
 	ASSERT_TIMELY (10s, node1->latest (nano::dev_genesis_key.pub) == node0->latest (nano::dev_genesis_key.pub));
 	ASSERT_EQ (0, node1->active.size ());
@@ -275,13 +413,18 @@ TEST (bootstrap_processor, process_new)
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	nano::keypair key2;
 	system.wallet (1)->insert_adhoc (key2.prv);
-	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev_genesis_key.pub, key2.pub, node1->config.receive_minimum.number ()));
+	auto send (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key2.pub, node1->config.receive_minimum.number ()));
+	ASSERT_NE (nullptr, send);
 	ASSERT_TIMELY (10s, !node1->balance (key2.pub).is_zero ());
+	auto receive (node2->block (node2->latest (key2.pub)));
+	ASSERT_NE (nullptr, receive);
 	nano::uint128_t balance1 (node1->balance (nano::dev_genesis_key.pub));
 	nano::uint128_t balance2 (node1->balance (key2.pub));
+	ASSERT_TIMELY (10s, node1->block_confirmed (send->hash ()) && node1->block_confirmed (receive->hash ()) && node1->active.empty () && node2->active.empty ()); // All blocks should be propagated & confirmed
+
 	auto node3 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work));
 	ASSERT_FALSE (node3->init_error ());
-	node3->bootstrap_initiator.bootstrap (node1->network.endpoint ());
+	node3->bootstrap_initiator.bootstrap (node1->network.endpoint (), false);
 	ASSERT_TIMELY (10s, node3->balance (key2.pub) == balance2);
 	ASSERT_EQ (balance1, node3->balance (nano::dev_genesis_key.pub));
 	node3->stop ();
@@ -304,9 +447,12 @@ TEST (bootstrap_processor, pull_diamond)
 	ASSERT_EQ (nano::process_result::progress, node0->process (*send2).code);
 	auto receive (std::make_shared<nano::receive_block> (send1->hash (), send2->hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send1->hash ())));
 	ASSERT_EQ (nano::process_result::progress, node0->process (*receive).code);
+	nano::blocks_confirm (*node0, { send1, open, send2, receive }, true); // Confirm blocks
+	ASSERT_TIMELY (10s, node0->block_confirmed (send1->hash ()) && node0->block_confirmed (open->hash ()) && node0->block_confirmed (send2->hash ()) && node0->block_confirmed (receive->hash ()) && node0->active.empty ());
+
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work));
 	ASSERT_FALSE (node1->init_error ());
-	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
+	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
 	ASSERT_TIMELY (10s, node1->balance (nano::dev_genesis_key.pub) == 100);
 	ASSERT_EQ (100, node1->balance (nano::dev_genesis_key.pub));
 	node1->stop ();
@@ -369,6 +515,8 @@ TEST (bootstrap_processor, frontiers_unconfirmed)
 	ASSERT_EQ (nano::process_result::progress, node1->process (*open1).code);
 	auto open2 (std::make_shared<nano::state_block> (key2.pub, 0, key2.pub, nano::Gxrb_ratio, send2->hash (), key2.prv, key2.pub, *system.work.generate (key2.pub)));
 	ASSERT_EQ (nano::process_result::progress, node1->process (*open2).code);
+	nano::blocks_confirm (*node1, { send1, send2, open1, open2 }, true); // Confirm incorrect blocks
+	ASSERT_TIMELY (10s, node1->block_confirmed (send1->hash ()) && node1->block_confirmed (send2->hash ()) && node1->block_confirmed (open1->hash ()) && node1->block_confirmed (open2->hash ()) && node1->active.empty ());
 
 	node_config.peering_port = nano::get_available_port ();
 	node_flags.disable_bootstrap_bulk_pull_server = false;
@@ -383,7 +531,7 @@ TEST (bootstrap_processor, frontiers_unconfirmed)
 
 	// Ensure node2 can generate votes
 	node2->block_confirm (send3);
-	ASSERT_TIMELY (10s, node2->ledger.cache.cemented_count == 3);
+	ASSERT_TIMELY (10s, node2->ledger.cache.cemented_count == 3 && node2->confirmation_height_processor.current ().is_zero ());
 
 	// Test node to restart bootstrap
 	node_config.peering_port = nano::get_available_port ();
@@ -393,7 +541,7 @@ TEST (bootstrap_processor, frontiers_unconfirmed)
 	//Add single excluded peers record (2 records are required to drop peer)
 	node3->network.excluded_peers.add (nano::transport::map_endpoint_to_tcp (node1->network.endpoint ()), 0);
 	ASSERT_FALSE (node3->network.excluded_peers.check (nano::transport::map_endpoint_to_tcp (node1->network.endpoint ())));
-	node3->bootstrap_initiator.bootstrap (node1->network.endpoint ());
+	node3->bootstrap_initiator.bootstrap (node1->network.endpoint (), false);
 	ASSERT_TIMELY (15s, !node3->bootstrap_initiator.in_progress ());
 	ASSERT_FALSE (node3->ledger.block_exists (send1->hash ()));
 	ASSERT_FALSE (node3->ledger.block_exists (open1->hash ()));
@@ -430,7 +578,7 @@ TEST (bootstrap_processor, frontiers_confirmed)
 
 	// Confirm all blocks so node1 is free to generate votes
 	node1->block_confirm (send1);
-	ASSERT_TIMELY (10s, node1->ledger.cache.cemented_count == 5);
+	ASSERT_TIMELY (10s, node1->ledger.cache.cemented_count == 5 && node1->confirmation_height_processor.current ().is_zero ());
 
 	// Test node to bootstrap
 	node_config.peering_port = nano::get_available_port ();
@@ -438,7 +586,7 @@ TEST (bootstrap_processor, frontiers_confirmed)
 	node_flags.disable_rep_crawler = false;
 	auto node2 = system.add_node (node_config, node_flags);
 	ASSERT_TIMELY (5s, node2->rep_crawler.representative_count () != 0);
-	node2->bootstrap_initiator.bootstrap (node1->network.endpoint ());
+	node2->bootstrap_initiator.bootstrap (node1->network.endpoint (), false);
 	ASSERT_TIMELY (10s, node2->bootstrap_initiator.current_attempt () == nullptr || node2->bootstrap_initiator.current_attempt ()->frontiers_confirmed);
 	ASSERT_EQ (1, node2->stats.count (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_successful, nano::stat::dir::in)); // Successful request from node1
 	ASSERT_EQ (0, node2->stats.count (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_failed, nano::stat::dir::in));
@@ -473,6 +621,8 @@ TEST (bootstrap_processor, frontiers_unconfirmed_threshold)
 	auto open2 (std::make_shared<nano::state_block> (key2.pub, 0, key2.pub, nano::Gxrb_ratio, send2->hash (), key2.prv, key2.pub, *system.work.generate (key2.pub)));
 	ASSERT_EQ (nano::process_result::progress, node1->process (*open2).code);
 	system.wallet (0)->insert_adhoc (key1.prv); // Small representative
+	nano::blocks_confirm (*node1, { send1, send2, open1, open2 }, true); // Confirm blocks
+	ASSERT_TIMELY (10s, node1->block_confirmed (send1->hash ()) && node1->block_confirmed (send2->hash ()) && node1->block_confirmed (open1->hash ()) && node1->block_confirmed (open2->hash ()) && node1->active.empty ());
 
 	// Test node with large representative
 	node_config.peering_port = nano::get_available_port ();
@@ -487,12 +637,55 @@ TEST (bootstrap_processor, frontiers_unconfirmed_threshold)
 	ASSERT_EQ (nano::process_result::progress, node3->process (*send1).code);
 	ASSERT_EQ (nano::process_result::progress, node3->process (*open1).code); // Change known representative weight
 	ASSERT_TIMELY (5s, node3->rep_crawler.representative_count () == 2);
-	node3->bootstrap_initiator.bootstrap (node1->network.endpoint ());
+	node3->bootstrap_initiator.bootstrap (node1->network.endpoint (), false);
 	ASSERT_TIMELY (15s, node3->stats.count (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_failed, nano::stat::dir::in) == 1);
 	ASSERT_FALSE (node3->ledger.block_exists (send2->hash ()));
 	ASSERT_FALSE (node3->ledger.block_exists (open2->hash ()));
 	ASSERT_EQ (1, node3->stats.count (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_failed, nano::stat::dir::in)); // failed confirmation
 	ASSERT_EQ (0, node3->stats.count (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_successful, nano::stat::dir::in));
+}
+
+TEST (bootstrap_processor, mixed_confirmation)
+{
+	nano::system system;
+	nano::node_config config (nano::get_available_port (), system.logging);
+	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	nano::node_flags node_flags;
+	node_flags.disable_bootstrap_bulk_push_client = true;
+	auto node0 (system.add_node (config, node_flags));
+	nano::genesis genesis;
+	nano::keypair key1, key2;
+	auto send1 (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, node0->latest (nano::dev_genesis_key.pub), nano::dev_genesis_key.pub, nano::genesis_amount - 100, nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
+	auto send2 (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, send1->hash (), nano::dev_genesis_key.pub, nano::genesis_amount - 200, key1.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
+	auto send3 (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, send2->hash (), nano::dev_genesis_key.pub, nano::genesis_amount - 300, key2.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
+	auto receive1 (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, send3->hash (), nano::dev_genesis_key.pub, nano::genesis_amount - 200, send1->hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
+	auto receive2 (std::make_shared<nano::state_block> (key1.pub, 0, nano::dev_genesis_key.pub, 100, send2->hash (), key1.prv, key1.pub, 0));
+	auto receive3 (std::make_shared<nano::state_block> (key2.pub, 0, nano::dev_genesis_key.pub, 100, send3->hash (), key2.prv, key2.pub, 0));
+	node0->work_generate_blocking (*send1);
+	node0->work_generate_blocking (*send2);
+	node0->work_generate_blocking (*send3);
+	node0->work_generate_blocking (*receive1);
+	node0->work_generate_blocking (*receive2);
+	node0->work_generate_blocking (*receive3);
+	node0->process (*send1);
+	node0->process (*send2);
+	node0->process (*send3);
+	node0->process (*receive1);
+	node0->process (*receive2);
+	node0->process (*receive3);
+	ASSERT_EQ (7, node0->ledger.cache.block_count);
+	nano::blocks_confirm (*node0, { send1, send2, receive2 }, true); // Confirm some blocks
+	ASSERT_TIMELY (5s, node0->block_confirmed (send1->hash ()) && node0->block_confirmed (send2->hash ()) && node0->block_confirmed (receive2->hash ()));
+	ASSERT_EQ (4, node0->ledger.cache.cemented_count);
+
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work));
+	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
+	ASSERT_TIMELY (10s, node1->ledger.block_exists (send1->hash ()) && node1->ledger.block_exists (send2->hash ()) && node1->ledger.block_exists (receive2->hash ()));
+	ASSERT_EQ (0, node1->active.size ());
+	ASSERT_TIMELY (10s, !node1->bootstrap_initiator.in_progress ());
+	node1->block_processor.flush ();
+	ASSERT_EQ (4, node1->ledger.cache.block_count);
+	node1->stop ();
 }
 
 TEST (bootstrap_processor, push_diamond)
@@ -515,7 +708,10 @@ TEST (bootstrap_processor, push_diamond)
 	ASSERT_EQ (nano::process_result::progress, node1->process (*send2).code);
 	auto receive (std::make_shared<nano::receive_block> (send1->hash (), send2->hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send1->hash ())));
 	ASSERT_EQ (nano::process_result::progress, node1->process (*receive).code);
-	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
+	nano::blocks_confirm (*node1, { send1, open, send2, receive }, true); // Confirm blocks
+	ASSERT_TIMELY (10s, node1->block_confirmed (send1->hash ()) && node1->block_confirmed (open->hash ()) && node1->block_confirmed (send2->hash ()) && node1->block_confirmed (receive->hash ()) && node1->active.empty ());
+
+	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
 	ASSERT_TIMELY (10s, node0->balance (nano::dev_genesis_key.pub) == 100);
 	ASSERT_EQ (100, node0->balance (nano::dev_genesis_key.pub));
 	node1->stop ();
@@ -539,14 +735,19 @@ TEST (bootstrap_processor, push_diamond_pruning)
 	ASSERT_EQ (nano::process_result::progress, node1->process (*send1).code);
 	auto open (std::make_shared<nano::open_block> (send1->hash (), 1, key.pub, key.prv, key.pub, *system.work.generate (key.pub)));
 	ASSERT_EQ (nano::process_result::progress, node1->process (*open).code);
+	nano::blocks_confirm (*node1, { send1, open }, true); // Confirm blocks
+	ASSERT_TIMELY (5s, node1->block_confirmed (send1->hash ()) && node1->block_confirmed (open->hash ()) && node1->active.empty ());
+
 	// 1st bootstrap
-	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
+	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
 	ASSERT_TIMELY (10s, node0->balance (key.pub) == nano::genesis_amount);
 	// Process more blocks & prune old
 	auto send2 (std::make_shared<nano::send_block> (open->hash (), nano::dev_genesis_key.pub, std::numeric_limits<nano::uint128_t>::max () - 100, key.prv, key.pub, *system.work.generate (open->hash ())));
 	ASSERT_EQ (nano::process_result::progress, node1->process (*send2).code);
 	auto receive (std::make_shared<nano::receive_block> (send1->hash (), send2->hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send1->hash ())));
 	ASSERT_EQ (nano::process_result::progress, node1->process (*receive).code);
+	nano::blocks_confirm (*node1, { send2, receive }, true); // Confirm blocks
+	ASSERT_TIMELY (5s, node1->block_confirmed (send2->hash ()) && node1->block_confirmed (receive->hash ()) && node1->active.empty ());
 	{
 		auto transaction (node1->store.tx_begin_write ());
 		ASSERT_EQ (1, node1->ledger.pruning_action (transaction, send1->hash (), 2));
@@ -562,7 +763,7 @@ TEST (bootstrap_processor, push_diamond_pruning)
 		ASSERT_EQ (5, node1->ledger.cache.block_count);
 	}
 	// 2nd bootstrap
-	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
+	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
 	ASSERT_TIMELY (10s, node0->balance (nano::dev_genesis_key.pub) == 100);
 	ASSERT_EQ (100, node0->balance (nano::dev_genesis_key.pub));
 	node1->stop ();
@@ -580,9 +781,13 @@ TEST (bootstrap_processor, push_one)
 	ASSERT_NE (nullptr, wallet);
 	wallet->insert_adhoc (nano::dev_genesis_key.prv);
 	nano::uint128_t balance1 (node1->balance (nano::dev_genesis_key.pub));
-	ASSERT_NE (nullptr, wallet->send_action (nano::dev_genesis_key.pub, key1.pub, 100));
+	auto send (wallet->send_action (nano::dev_genesis_key.pub, key1.pub, 100));
+	ASSERT_NE (nullptr, send);
 	ASSERT_NE (balance1, node1->balance (nano::dev_genesis_key.pub));
-	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
+	nano::blocks_confirm (*node1, { send }, true); // Confirm blocks
+	ASSERT_TIMELY (2s, node1->block_confirmed (send->hash ()) && node1->active.empty ());
+
+	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
 	ASSERT_TIMELY (10s, node0->balance (nano::dev_genesis_key.pub) != balance1);
 	node1->stop ();
 }
@@ -608,7 +813,8 @@ TEST (bootstrap_processor, lazy_hash)
 	node0->block_processor.add (receive1);
 	node0->block_processor.add (send2);
 	node0->block_processor.add (receive2);
-	node0->block_processor.flush ();
+	nano::blocks_confirm (*node0, { send1, receive1, send2, receive2 }, true); // Confirm blocks
+	ASSERT_TIMELY (10s, node0->block_confirmed (send1->hash ()) && node0->block_confirmed (receive1->hash ()) && node0->block_confirmed (send2->hash ()) && node0->block_confirmed (receive2->hash ()) && node0->active.empty ());
 	// Start lazy bootstrap with last block in chain known
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work));
 	node1->network.udp_channels.insert (node0->network.endpoint (), node1->network_params.protocol.protocol_version);
@@ -644,7 +850,8 @@ TEST (bootstrap_processor, lazy_hash_bootstrap_id)
 	node0->block_processor.add (receive1);
 	node0->block_processor.add (send2);
 	node0->block_processor.add (receive2);
-	node0->block_processor.flush ();
+	nano::blocks_confirm (*node0, { send1, receive1, send2, receive2 }, true); // Confirm blocks
+	ASSERT_TIMELY (10s, node0->block_confirmed (send1->hash ()) && node0->block_confirmed (receive1->hash ()) && node0->block_confirmed (send2->hash ()) && node0->block_confirmed (receive2->hash ()) && node0->active.empty ());
 	// Start lazy bootstrap with last block in chain known
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work));
 	node1->network.udp_channels.insert (node0->network.endpoint (), node1->network_params.protocol.protocol_version);
@@ -690,8 +897,10 @@ TEST (bootstrap_processor, lazy_hash_pruning)
 	node0->block_processor.add (receive2);
 	node0->block_processor.add (send3);
 	node0->block_processor.add (receive3);
-	node0->block_processor.flush ();
+	nano::blocks_confirm (*node0, { send1, receive1, change1, change2, send2, receive2, send3, receive3 }, true); // Confirm blocks
+	ASSERT_TIMELY (10s, node0->block_confirmed (send1->hash ()) && node0->block_confirmed (receive1->hash ()) && node0->block_confirmed (change1->hash ()) && node0->block_confirmed (change2->hash ()) && node0->block_confirmed (send2->hash ()) && node0->block_confirmed (receive2->hash ()) && node0->block_confirmed (send3->hash ()) && node0->block_confirmed (receive3->hash ()) && node0->active.empty ());
 	ASSERT_EQ (9, node0->ledger.cache.block_count);
+	ASSERT_EQ (9, node0->ledger.cache.cemented_count);
 	// Processing chain to prune for node1
 	config.peering_port = nano::get_available_port ();
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), config, system.work, node_flags, 1));
@@ -699,33 +908,11 @@ TEST (bootstrap_processor, lazy_hash_pruning)
 	node1->process_active (receive1);
 	node1->process_active (change1);
 	node1->process_active (change2);
-	node1->block_processor.flush ();
-	ASSERT_EQ (5, node1->ledger.cache.block_count);
 	// Confirm last block to prune previous
-	{
-		auto election = node1->active.election (send1->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-	}
-	ASSERT_TIMELY (2s, node1->block_confirmed (send1->hash ()) && node1->active.active (receive1->qualified_root ()));
-	{
-		auto election = node1->active.election (receive1->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-	}
-	ASSERT_TIMELY (2s, node1->block_confirmed (receive1->hash ()) && node1->active.active (change1->qualified_root ()));
-	{
-		auto election = node1->active.election (change1->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-	}
-	ASSERT_TIMELY (2s, node1->block_confirmed (change1->hash ()) && node1->active.active (change2->qualified_root ()));
-	{
-		auto election = node1->active.election (change2->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-	}
-	ASSERT_TIMELY (2s, node1->active.empty () && node1->block_confirmed (change2->hash ()));
+	nano::blocks_confirm (*node1, { send1, receive1, change1, change2 }, true);
+	ASSERT_TIMELY (10s, node1->block_confirmed (send1->hash ()) && node1->block_confirmed (receive1->hash ()) && node1->block_confirmed (change1->hash ()) && node1->block_confirmed (change2->hash ()) && node1->active.empty ());
+	ASSERT_EQ (5, node1->ledger.cache.block_count);
+	ASSERT_EQ (5, node1->ledger.cache.cemented_count);
 	// Pruning action
 	node1->ledger_pruning (2, false, false);
 	ASSERT_EQ (9, node0->ledger.cache.block_count);
@@ -769,7 +956,8 @@ TEST (bootstrap_processor, lazy_max_pull_count)
 	node0->block_processor.add (change1);
 	node0->block_processor.add (change2);
 	node0->block_processor.add (change3);
-	node0->block_processor.flush ();
+	nano::blocks_confirm (*node0, { send1, receive1, send2, receive2, change1, change2, change3 }, true); // Confirm blocks
+	ASSERT_TIMELY (10s, node0->block_confirmed (send1->hash ()) && node0->block_confirmed (receive1->hash ()) && node0->block_confirmed (send2->hash ()) && node0->block_confirmed (receive2->hash ()) && node0->block_confirmed (change1->hash ()) && node0->block_confirmed (change2->hash ()) && node0->block_confirmed (change3->hash ()) && node0->active.empty ());
 	// Start lazy bootstrap with last block in chain known
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work));
 	node1->network.udp_channels.insert (node0->network.endpoint (), node1->network_params.protocol.protocol_version);
@@ -800,6 +988,8 @@ TEST (bootstrap_processor, lazy_unclear_state_link)
 	ASSERT_EQ (nano::process_result::progress, node1->process (*open).code);
 	auto receive (std::make_shared<nano::state_block> (key.pub, open->hash (), key.pub, 2 * nano::Gxrb_ratio, send2->hash (), key.prv, key.pub, *system.work.generate (open->hash ()))); // It is not possible to define this block send/receive status based on previous block (legacy open)
 	ASSERT_EQ (nano::process_result::progress, node1->process (*receive).code);
+	nano::blocks_confirm (*node1, { send1, send2, open, receive }, true); // Confirm blocks
+	ASSERT_TIMELY (10s, node1->block_confirmed (send1->hash ()) && node1->block_confirmed (send2->hash ()) && node1->block_confirmed (open->hash ()) && node1->block_confirmed (receive->hash ()) && node1->active.empty ());
 	// Start lazy bootstrap with last block in chain known
 	auto node2 = system.add_node (nano::node_config (nano::get_available_port (), system.logging), node_flags);
 	node2->network.udp_channels.insert (node1->network.endpoint (), node1->network_params.protocol.protocol_version);
@@ -832,6 +1022,8 @@ TEST (bootstrap_processor, lazy_unclear_state_link_not_existing)
 	ASSERT_EQ (nano::process_result::progress, node1->process (*open).code);
 	auto send2 (std::make_shared<nano::state_block> (key.pub, open->hash (), key.pub, 0, key2.pub, key.prv, key.pub, *system.work.generate (open->hash ()))); // It is not possible to define this block send/receive status based on previous block (legacy open)
 	ASSERT_EQ (nano::process_result::progress, node1->process (*send2).code);
+	nano::blocks_confirm (*node1, { send1, open, send2 }, true); // Confirm blocks
+	ASSERT_TIMELY (10s, node1->block_confirmed (send1->hash ()) && node1->block_confirmed (open->hash ()) && node1->block_confirmed (send2->hash ()) && node1->active.empty ());
 	// Start lazy bootstrap with last block in chain known
 	auto node2 = system.add_node (nano::node_config (nano::get_available_port (), system.logging), node_flags);
 	node2->network.udp_channels.insert (node1->network.endpoint (), node1->network_params.protocol.protocol_version);
@@ -865,6 +1057,8 @@ TEST (bootstrap_processor, lazy_destinations)
 	ASSERT_EQ (nano::process_result::progress, node1->process (*open).code);
 	auto state_open (std::make_shared<nano::state_block> (key2.pub, 0, key2.pub, nano::Gxrb_ratio, send2->hash (), key2.prv, key2.pub, *system.work.generate (key2.pub)));
 	ASSERT_EQ (nano::process_result::progress, node1->process (*state_open).code);
+	nano::blocks_confirm (*node1, { send1, send2, open, state_open }, true); // Confirm blocks
+	ASSERT_TIMELY (10s, node1->block_confirmed (send1->hash ()) && node1->block_confirmed (send2->hash ()) && node1->block_confirmed (open->hash ()) && node1->block_confirmed (state_open->hash ()) && node1->active.empty ());
 	// Start lazy bootstrap with last block in sender chain
 	auto node2 = system.add_node (nano::node_config (nano::get_available_port (), system.logging), node_flags);
 	node2->network.udp_channels.insert (node1->network.endpoint (), node1->network_params.protocol.protocol_version);
@@ -900,33 +1094,11 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 	node1->process_active (open);
 	auto state_open (std::make_shared<nano::state_block> (key2.pub, 0, key2.pub, nano::Gxrb_ratio, send2->hash (), key2.prv, key2.pub, *system.work.generate (key2.pub)));
 	node1->process_active (state_open);
-	node1->block_processor.flush ();
-	ASSERT_EQ (5, node1->ledger.cache.block_count);
 	// Confirm last block to prune previous
-	{
-		auto election = node1->active.election (send1->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-	}
-	ASSERT_TIMELY (2s, node1->block_confirmed (send1->hash ()) && node1->active.active (send2->qualified_root ()));
-	{
-		auto election = node1->active.election (send2->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-	}
-	ASSERT_TIMELY (2s, node1->block_confirmed (send2->hash ()) && node1->active.active (open->qualified_root ()));
-	{
-		auto election = node1->active.election (open->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-	}
-	ASSERT_TIMELY (2s, node1->block_confirmed (open->hash ()) && node1->active.active (state_open->qualified_root ()));
-	{
-		auto election = node1->active.election (state_open->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-	}
-	ASSERT_TIMELY (2s, node1->active.empty () && node1->block_confirmed (state_open->hash ()));
+	nano::blocks_confirm (*node1, { send1, send2, open, state_open }, true);
+	ASSERT_TIMELY (10s, node1->block_confirmed (send1->hash ()) && node1->block_confirmed (send2->hash ()) && node1->block_confirmed (open->hash ()) && node1->block_confirmed (state_open->hash ()) && node1->active.empty ());
+	ASSERT_EQ (5, node1->ledger.cache.block_count);
+	ASSERT_EQ (5, node1->ledger.cache.cemented_count);
 	// Pruning action
 	node1->ledger_pruning (2, false, false);
 	ASSERT_EQ (5, node1->ledger.cache.block_count);
@@ -1017,7 +1189,8 @@ TEST (bootstrap_processor, wallet_lazy_frontier)
 	node0->block_processor.add (receive1);
 	node0->block_processor.add (send2);
 	node0->block_processor.add (receive2);
-	node0->block_processor.flush ();
+	nano::blocks_confirm (*node0, { send1, receive1, send2, receive2 }, true); // Confirm blocks
+	ASSERT_TIMELY (10s, node0->block_confirmed (send1->hash ()) && node0->block_confirmed (receive1->hash ()) && node0->block_confirmed (send2->hash ()) && node0->block_confirmed (receive2->hash ()) && node0->active.empty ());
 	// Start wallet lazy bootstrap
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work));
 	node1->network.udp_channels.insert (node0->network.endpoint (), node1->network_params.protocol.protocol_version);
@@ -1055,7 +1228,8 @@ TEST (bootstrap_processor, wallet_lazy_pending)
 	node0->block_processor.add (send1);
 	node0->block_processor.add (receive1);
 	node0->block_processor.add (send2);
-	node0->block_processor.flush ();
+	nano::blocks_confirm (*node0, { send1, receive1, send2 }, true); // Confirm blocks
+	ASSERT_TIMELY (10s, node0->block_confirmed (send1->hash ()) && node0->block_confirmed (receive1->hash ()) && node0->block_confirmed (send2->hash ()) && node0->active.empty ());
 	// Start wallet lazy bootstrap
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work));
 	node1->network.udp_channels.insert (node0->network.endpoint (), node1->network_params.protocol.protocol_version);
@@ -1089,7 +1263,8 @@ TEST (bootstrap_processor, multiple_attempts)
 	node1->block_processor.add (receive1);
 	node1->block_processor.add (send2);
 	node1->block_processor.add (receive2);
-	node1->block_processor.flush ();
+	nano::blocks_confirm (*node1, { send1, receive1, send2, receive2 }, true); // Confirm blocks
+	ASSERT_TIMELY (10s, node1->block_confirmed (send1->hash ()) && node1->block_confirmed (receive1->hash ()) && node1->block_confirmed (send2->hash ()) && node1->block_confirmed (receive2->hash ()) && node1->active.empty ());
 	// Start 2 concurrent bootstrap attempts
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.bootstrap_initiator_threads = 3;
@@ -1124,17 +1299,15 @@ TEST (bootstrap_processor, bootstrap_fork)
 	nano::keypair key;
 	auto send (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, node0->latest (nano::dev_genesis_key.pub), nano::dev_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (node0->latest (nano::dev_genesis_key.pub))));
 	ASSERT_EQ (nano::process_result::progress, node0->process (*send).code);
-	// Confirm send block to vote later
-	node0->block_confirm (send);
-	auto election = node0->active.election (send->qualified_root ());
-	ASSERT_NE (nullptr, election);
-	election->force_confirm ();
-	ASSERT_TIMELY (2s, node0->block_confirmed (send->hash ()));
-	node0->active.erase (*send);
 	auto open_work (*system.work.generate (key.pub));
 	auto open (std::make_shared<nano::state_block> (key.pub, 0, key.pub, nano::Gxrb_ratio, send->hash (), key.prv, key.pub, open_work));
 	ASSERT_EQ (nano::process_result::progress, node0->process (*open).code);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
+	// Confirm blocks to vote later
+	nano::blocks_confirm (*node0, { send, open }, true); // Confirm blocks
+	ASSERT_TIMELY (5s, node0->block_confirmed (send->hash ()) && node0->block_confirmed (open->hash ()) && node0->active.empty ());
+	node0->active.erase (*send);
+
 	// Create forked node
 	config.peering_port = nano::get_available_port ();
 	node_flags.disable_legacy_bootstrap = false;
@@ -1143,7 +1316,7 @@ TEST (bootstrap_processor, bootstrap_fork)
 	auto open_fork (std::make_shared<nano::state_block> (key.pub, 0, nano::dev_genesis_key.pub, nano::Gxrb_ratio, send->hash (), key.prv, key.pub, open_work));
 	ASSERT_EQ (nano::process_result::progress, node1->process (*open_fork).code);
 	// Resolve fork
-	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
+	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
 	ASSERT_TIMELY (10s, node1->ledger.block_exists (open->hash ()));
 	ASSERT_FALSE (node1->ledger.block_exists (open_fork->hash ()));
 	node1->stop ();
@@ -1202,12 +1375,15 @@ TEST (frontier_req, count)
 	nano::genesis genesis;
 	// Public key FB93... after genesis in accounts table
 	nano::keypair key1 ("ED5AE0A6505B14B67435C29FD9FEEBC26F597D147BC92F6D795FFAD7AFD3D967");
-	nano::state_block send1 (nano::dev_genesis_key.pub, genesis.hash (), nano::dev_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key1.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0);
-	node1->work_generate_blocking (send1);
-	ASSERT_EQ (nano::process_result::progress, node1->process (send1).code);
-	nano::state_block receive1 (key1.pub, 0, nano::dev_genesis_key.pub, nano::Gxrb_ratio, send1.hash (), key1.prv, key1.pub, 0);
-	node1->work_generate_blocking (receive1);
-	ASSERT_EQ (nano::process_result::progress, node1->process (receive1).code);
+	auto send1 (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, genesis.hash (), nano::dev_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key1.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
+	node1->work_generate_blocking (*send1);
+	ASSERT_EQ (nano::process_result::progress, node1->process (*send1).code);
+	auto receive1 (std::make_shared<nano::state_block> (key1.pub, 0, nano::dev_genesis_key.pub, nano::Gxrb_ratio, send1->hash (), key1.prv, key1.pub, 0));
+	node1->work_generate_blocking (*receive1);
+	ASSERT_EQ (nano::process_result::progress, node1->process (*receive1).code);
+	nano::blocks_confirm (*node1, { send1, receive1 }, true); // Confirm blocks
+	ASSERT_TIMELY (5s, node1->block_confirmed (send1->hash ()) && node1->block_confirmed (receive1->hash ()) && node1->active.empty ());
+
 	auto connection (std::make_shared<nano::bootstrap_server> (nullptr, node1));
 	auto req = std::make_unique<nano::frontier_req> ();
 	req->start.clear ();
@@ -1216,7 +1392,7 @@ TEST (frontier_req, count)
 	connection->requests.push (std::unique_ptr<nano::message>{});
 	auto request (std::make_shared<nano::frontier_req_server> (connection, std::move (req)));
 	ASSERT_EQ (nano::dev_genesis_key.pub, request->current);
-	ASSERT_EQ (send1.hash (), request->frontier);
+	ASSERT_EQ (send1->hash (), request->frontier);
 }
 
 TEST (frontier_req, time_bound)
@@ -1267,6 +1443,126 @@ TEST (frontier_req, time_cutoff)
 	ASSERT_TRUE (request2->frontier.is_zero ());
 }
 
+TEST (frontier_req, unconfirmed_frontier)
+{
+	nano::system system (1);
+	auto node1 = system.nodes[0];
+	nano::genesis genesis;
+	nano::private_key priv_key;
+	// Public key before genesis in accounts table
+	while (nano::pub_key (priv_key).number () >= nano::dev_genesis_key.pub.number ())
+	{
+		priv_key = nano::keypair ().prv.as_private_key ();
+	}
+	nano::keypair key_before_genesis (priv_key.to_string ());
+	// Public key after genesis in accounts table
+	while (nano::pub_key (priv_key).number () <= nano::dev_genesis_key.pub.number ())
+	{
+		priv_key = nano::keypair ().prv.as_private_key ();
+	}
+	nano::keypair key_after_genesis (priv_key.to_string ());
+
+	auto send1 (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, genesis.hash (), nano::dev_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key_before_genesis.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
+	node1->work_generate_blocking (*send1);
+	ASSERT_EQ (nano::process_result::progress, node1->process (*send1).code);
+	auto send2 (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, send1->hash (), nano::dev_genesis_key.pub, nano::genesis_amount - 2 * nano::Gxrb_ratio, key_after_genesis.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
+	node1->work_generate_blocking (*send2);
+	ASSERT_EQ (nano::process_result::progress, node1->process (*send2).code);
+	auto receive1 (std::make_shared<nano::state_block> (key_before_genesis.pub, 0, nano::dev_genesis_key.pub, nano::Gxrb_ratio, send1->hash (), key_before_genesis.prv, key_before_genesis.pub, 0));
+	node1->work_generate_blocking (*receive1);
+	ASSERT_EQ (nano::process_result::progress, node1->process (*receive1).code);
+	auto receive2 (std::make_shared<nano::state_block> (key_after_genesis.pub, 0, nano::dev_genesis_key.pub, nano::Gxrb_ratio, send2->hash (), key_after_genesis.prv, key_after_genesis.pub, 0));
+	node1->work_generate_blocking (*receive2);
+	ASSERT_EQ (nano::process_result::progress, node1->process (*receive2).code);
+
+	// Request for all accounts
+	auto connection (std::make_shared<nano::bootstrap_server> (nullptr, node1));
+	auto req = std::make_unique<nano::frontier_req> ();
+	req->start.clear ();
+	req->age = std::numeric_limits<decltype (req->age)>::max ();
+	req->count = std::numeric_limits<decltype (req->count)>::max ();
+	connection->requests.push (std::unique_ptr<nano::message>{});
+	auto request (std::make_shared<nano::frontier_req_server> (connection, std::move (req)));
+	ASSERT_EQ (nano::dev_genesis_key.pub, request->current);
+	ASSERT_EQ (genesis.hash (), request->frontier);
+
+	// Request starting with account before genesis
+	auto connection2 (std::make_shared<nano::bootstrap_server> (nullptr, node1));
+	auto req2 = std::make_unique<nano::frontier_req> ();
+	req2->start = key_before_genesis.pub;
+	req2->age = std::numeric_limits<decltype (req2->age)>::max ();
+	req2->count = std::numeric_limits<decltype (req2->count)>::max ();
+	connection2->requests.push (std::unique_ptr<nano::message>{});
+	auto request2 (std::make_shared<nano::frontier_req_server> (connection2, std::move (req2)));
+	ASSERT_EQ (nano::dev_genesis_key.pub, request2->current);
+	ASSERT_EQ (genesis.hash (), request2->frontier);
+
+	// Request starting with account after genesis
+	auto connection3 (std::make_shared<nano::bootstrap_server> (nullptr, node1));
+	auto req3 = std::make_unique<nano::frontier_req> ();
+	req3->start = key_after_genesis.pub;
+	req3->age = std::numeric_limits<decltype (req3->age)>::max ();
+	req3->count = std::numeric_limits<decltype (req3->count)>::max ();
+	connection3->requests.push (std::unique_ptr<nano::message>{});
+	auto request3 (std::make_shared<nano::frontier_req_server> (connection3, std::move (req3)));
+	ASSERT_TRUE (request3->current.is_zero ());
+	ASSERT_TRUE (request3->frontier.is_zero ());
+
+	// Request for all accounts (unconfirmed blocks)
+	auto connection6 (std::make_shared<nano::bootstrap_server> (nullptr, node1));
+	auto req6 = std::make_unique<nano::frontier_req> ();
+	req6->start.clear ();
+	req6->age = std::numeric_limits<decltype (req6->age)>::max ();
+	req6->count = std::numeric_limits<decltype (req6->count)>::max ();
+	ASSERT_FALSE (req6->header.bootstrap_are_unconfirmed_blocks_present ());
+	req6->header.flag_set (nano::message_header::bootstrap_unconfirmed_blocks);
+	ASSERT_TRUE (req6->header.bootstrap_are_unconfirmed_blocks_present ());
+	connection6->requests.push (std::unique_ptr<nano::message>{});
+	auto request6 (std::make_shared<nano::frontier_req_server> (connection6, std::move (req6)));
+	ASSERT_EQ (key_before_genesis.pub, request6->current);
+	ASSERT_EQ (receive1->hash (), request6->frontier);
+
+	// Request starting with account after genesis (unconfirmed blocks)
+	auto connection7 (std::make_shared<nano::bootstrap_server> (nullptr, node1));
+	auto req7 = std::make_unique<nano::frontier_req> ();
+	req7->start = key_after_genesis.pub;
+	req7->age = std::numeric_limits<decltype (req7->age)>::max ();
+	req7->count = std::numeric_limits<decltype (req7->count)>::max ();
+	ASSERT_FALSE (req7->header.bootstrap_are_unconfirmed_blocks_present ());
+	req7->header.flag_set (nano::message_header::bootstrap_unconfirmed_blocks);
+	ASSERT_TRUE (req7->header.bootstrap_are_unconfirmed_blocks_present ());
+	connection7->requests.push (std::unique_ptr<nano::message>{});
+	auto request7 (std::make_shared<nano::frontier_req_server> (connection7, std::move (req7)));
+	ASSERT_EQ (key_after_genesis.pub, request7->current);
+	ASSERT_EQ (receive2->hash (), request7->frontier);
+
+	// Confirm account before genesis
+	nano::blocks_confirm (*node1, { send1, receive1 }, true);
+	ASSERT_TIMELY (5s, node1->block_confirmed (send1->hash ()) && node1->block_confirmed (receive1->hash ()));
+	auto connection4 (std::make_shared<nano::bootstrap_server> (nullptr, node1));
+	auto req4 = std::make_unique<nano::frontier_req> ();
+	req4->start = key_before_genesis.pub;
+	req4->age = std::numeric_limits<decltype (req4->age)>::max ();
+	req4->count = std::numeric_limits<decltype (req4->count)>::max ();
+	connection4->requests.push (std::unique_ptr<nano::message>{});
+	auto request4 (std::make_shared<nano::frontier_req_server> (connection4, std::move (req4)));
+	ASSERT_EQ (key_before_genesis.pub, request4->current);
+	ASSERT_EQ (receive1->hash (), request4->frontier);
+
+	// Confirm account after genesis
+	nano::blocks_confirm (*node1, { send2, receive2 }, true);
+	ASSERT_TIMELY (5s, node1->block_confirmed (send2->hash ()) && node1->block_confirmed (receive2->hash ()));
+	auto connection5 (std::make_shared<nano::bootstrap_server> (nullptr, node1));
+	auto req5 = std::make_unique<nano::frontier_req> ();
+	req5->start = key_after_genesis.pub;
+	req5->age = std::numeric_limits<decltype (req5->age)>::max ();
+	req5->count = std::numeric_limits<decltype (req5->count)>::max ();
+	connection5->requests.push (std::unique_ptr<nano::message>{});
+	auto request5 (std::make_shared<nano::frontier_req_server> (connection5, std::move (req5)));
+	ASSERT_EQ (key_after_genesis.pub, request5->current);
+	ASSERT_EQ (receive2->hash (), request5->frontier);
+}
+
 TEST (bulk, genesis)
 {
 	nano::system system;
@@ -1283,10 +1579,14 @@ TEST (bulk, genesis)
 	nano::block_hash latest2 (node2->latest (nano::dev_genesis_key.pub));
 	ASSERT_EQ (latest1, latest2);
 	nano::keypair key2;
-	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev_genesis_key.pub, key2.pub, 100));
+	auto send (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key2.pub, 100));
+	ASSERT_NE (nullptr, send);
 	nano::block_hash latest3 (node1->latest (nano::dev_genesis_key.pub));
 	ASSERT_NE (latest1, latest3);
-	node2->bootstrap_initiator.bootstrap (node1->network.endpoint ());
+	nano::blocks_confirm (*node1, { send }, true); // Confirm block
+	ASSERT_TIMELY (2s, node1->block_confirmed (send->hash ()) && node1->active.empty ());
+
+	node2->bootstrap_initiator.bootstrap (node1->network.endpoint (), false);
 	ASSERT_TIMELY (10s, node2->latest (nano::dev_genesis_key.pub) == node1->latest (nano::dev_genesis_key.pub));
 	ASSERT_EQ (node2->latest (nano::dev_genesis_key.pub), node1->latest (nano::dev_genesis_key.pub));
 	node2->stop ();
@@ -1309,10 +1609,12 @@ TEST (bulk, offline_send)
 	nano::keypair key2;
 	auto wallet (node2->wallets.create (nano::random_wallet_id ()));
 	wallet->insert_adhoc (key2.prv);
-	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev_genesis_key.pub, key2.pub, node1->config.receive_minimum.number ()));
+	auto send1 (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key2.pub, node1->config.receive_minimum.number ()));
+	ASSERT_NE (nullptr, send1);
 	ASSERT_NE (std::numeric_limits<nano::uint256_t>::max (), node1->balance (nano::dev_genesis_key.pub));
 	// Wait to finish election background tasks
 	ASSERT_TIMELY (10s, node1->active.empty ());
+	ASSERT_TRUE (node1->block_confirmed (send1->hash ()));
 	// Initiate bootstrap
 	node2->bootstrap_initiator.bootstrap (node1->network.endpoint ());
 	// Nodes should find each other
@@ -1391,7 +1693,7 @@ TEST (bulk, genesis_pruning)
 	ASSERT_TRUE (node1->ledger.block_or_pruned_exists (send2->hash ()));
 	ASSERT_TRUE (node1->ledger.block_exists (send3->hash ()));
 	// Bootstrap with missing blocks for node2
-	node2->bootstrap_initiator.bootstrap (node1->network.endpoint ());
+	node2->bootstrap_initiator.bootstrap (node1->network.endpoint (), false);
 	node2->network.merge_peer (node1->network.endpoint ());
 	// 2 bootstraps including test bootstrap & restart after frontier confirmation failure
 	ASSERT_TIMELY (25s, node2->stats.count (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out) >= 2 && !node2->bootstrap_initiator.in_progress ());
@@ -1409,7 +1711,7 @@ TEST (bulk, genesis_pruning)
 	// New bootstrap
 	ASSERT_TIMELY (5s, node2->bootstrap_initiator.connections->connections_count == 0);
 	node2->network.excluded_peers.remove (nano::transport::map_endpoint_to_tcp (node1->network.endpoint ()));
-	node2->bootstrap_initiator.bootstrap (node1->network.endpoint ());
+	node2->bootstrap_initiator.bootstrap (node1->network.endpoint (), false);
 	ASSERT_TIMELY (10s, node2->latest (nano::dev_genesis_key.pub) == node1->latest (nano::dev_genesis_key.pub));
 	ASSERT_EQ (node2->latest (nano::dev_genesis_key.pub), node1->latest (nano::dev_genesis_key.pub));
 	node2->stop ();

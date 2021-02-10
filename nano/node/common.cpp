@@ -176,6 +176,19 @@ bool nano::message_header::bulk_pull_is_count_present () const
 	return result;
 }
 
+bool nano::message_header::bootstrap_are_unconfirmed_blocks_present () const
+{
+	auto result (false);
+	if (type == nano::message_type::bulk_pull || type == nano::message_type::frontier_req)
+	{
+		if (extensions.test (bootstrap_unconfirmed_blocks))
+		{
+			result = true;
+		}
+	}
+	return result;
+}
+
 bool nano::message_header::node_id_handshake_is_query () const
 {
 	auto result (false);
