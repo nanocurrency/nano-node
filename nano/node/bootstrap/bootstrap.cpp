@@ -40,7 +40,7 @@ void nano::bootstrap_initiator::bootstrap (bool force, std::string id_a, uint32_
 	nano::unique_lock<std::mutex> lock (mutex);
 	if (!stopped && find_attempt (nano::bootstrap_mode::legacy) == nullptr)
 	{
-		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out);
+		node.stats.inc (nano::stat::type::bootstrap, frontiers_age_a == std::numeric_limits<uint32_t>::max () ? nano::stat::detail::initiate : nano::stat::detail::initiate_legacy_age, nano::stat::dir::out);
 		auto legacy_attempt (std::make_shared<nano::bootstrap_attempt_legacy> (node.shared (), attempts.incremental++, id_a, frontiers_age_a));
 		attempts_list.push_back (legacy_attempt);
 		attempts.add (legacy_attempt);

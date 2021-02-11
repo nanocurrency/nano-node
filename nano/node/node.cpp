@@ -850,16 +850,22 @@ void nano::node::ongoing_bootstrap ()
 			++warmed_up;
 		}
 	}
+	if (network_params.network.is_dev_network () && flags.bootstrap_interval != 0)
+	{
+		// For test purposes allow faster automatic bootstraps
+		next_wakeup = std::chrono::seconds (flags.bootstrap_interval);
+		++warmed_up;
+	}
 	// Differential bootstrap with max age (66.7% of all legacy attempts)
 	uint32_t frontiers_age (std::numeric_limits<uint32_t>::max ());
 	auto bootstrap_weight_reached (ledger.cache.block_count >= ledger.bootstrap_weight_max_blocks);
-	auto previous_bootstrap_count (stats.count (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out));
+	auto previous_bootstrap_count (stats.count (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out) + stats.count (nano::stat::type::bootstrap, nano::stat::detail::initiate_legacy_age, nano::stat::dir::out));
 	/* 
 	- Maximum value for 33.3% of attempts or if block count is below preconfigured value (initial bootstrap not finished)
 	- Node shutdown time minus 1 hour for start attempts (warm up)
 	- Default age value otherwise (1 day for live network, 1 hour for beta)
 	*/
-	if (bootstrap_weight_reached && !network_params.network.is_dev_network ())
+	if (bootstrap_weight_reached)
 	{
 		if (warmed_up < 3)
 		{
