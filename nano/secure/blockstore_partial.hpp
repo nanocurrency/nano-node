@@ -682,6 +682,16 @@ public:
 		return make_iterator<nano::block_hash, std::nullptr_t> (transaction_a, tables::pruned);
 	}
 
+	nano::store_iterator<nano::account, nano::account_info> accounts_last (nano::transaction const & transaction_a) const override
+	{
+		return make_iterator<nano::account, nano::account_info> (transaction_a, tables::accounts, false);
+	}
+
+	nano::store_iterator<uint64_t, nano::amount> online_weight_last (nano::transaction const & transaction_a) const override
+	{
+		return make_iterator<uint64_t, nano::amount> (transaction_a, tables::online_weight, false);
+	}
+
 	size_t unchecked_count (nano::transaction const & transaction_a) override
 	{
 		return count (transaction_a, tables::unchecked);
@@ -765,9 +775,9 @@ protected:
 	int const version{ 20 };
 
 	template <typename Key, typename Value>
-	nano::store_iterator<Key, Value> make_iterator (nano::transaction const & transaction_a, tables table_a) const
+	nano::store_iterator<Key, Value> make_iterator (nano::transaction const & transaction_a, tables table_a, bool const use_first_a = true) const
 	{
-		return static_cast<Derived_Store const &> (*this).template make_iterator<Key, Value> (transaction_a, table_a);
+		return static_cast<Derived_Store const &> (*this).template make_iterator<Key, Value> (transaction_a, table_a, use_first_a);
 	}
 
 	template <typename Key, typename Value>

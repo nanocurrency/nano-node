@@ -203,9 +203,9 @@ public:
 	void rebuild_db (nano::write_transaction const & transaction_a) override;
 
 	template <typename Key, typename Value>
-	nano::store_iterator<Key, Value> make_iterator (nano::transaction const & transaction_a, tables table_a) const
+	nano::store_iterator<Key, Value> make_iterator (nano::transaction const & transaction_a, tables table_a, bool const use_first_a) const
 	{
-		return nano::store_iterator<Key, Value> (std::make_unique<nano::mdb_iterator<Key, Value>> (transaction_a, table_to_dbi (table_a)));
+		return nano::store_iterator<Key, Value> (std::make_unique<nano::mdb_iterator<Key, Value>> (transaction_a, table_to_dbi (table_a), nano::mdb_val{}, use_first_a));
 	}
 
 	template <typename Key, typename Value>

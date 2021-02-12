@@ -33,7 +33,7 @@ class rocksdb_iterator : public store_iterator_impl<T, U>
 public:
 	rocksdb_iterator () = default;
 
-	rocksdb_iterator (rocksdb::DB * db, nano::transaction const & transaction_a, rocksdb::ColumnFamilyHandle * handle_a, rocksdb_val const * val_a)
+	rocksdb_iterator (rocksdb::DB * db, nano::transaction const & transaction_a, rocksdb::ColumnFamilyHandle * handle_a, rocksdb_val const * val_a, bool const use_first_a)
 	{
 		// Don't fill the block cache for any blocks read as a result of an iterator
 		if (is_read (transaction_a))
@@ -53,9 +53,13 @@ public:
 		{
 			cursor->Seek (*val_a);
 		}
-		else
+		else if (use_first_a)
 		{
 			cursor->SeekToFirst ();
+		}
+		else
+		{
+			cursor->SeekToLast ();
 		}
 
 		if (cursor->Valid ())
@@ -86,6 +90,27 @@ public:
 	nano::store_iterator_impl<T, U> & operator++ () override
 	{
 		cursor->Next ();
+		if (cursor->Valid ())
+		{
+			current.first = cursor->key ();
+			current.second = cursor->value ();
+
+			if (current.first.size () != sizeof (T))
+			{
+				clear ();
+			}
+		}
+		else
+		{
+			clear ();
+		}
+
+		return *this;
+	}
+
+	nano::store_iterator_impl<T, U> & operator-- () override
+	{
+		cursor->Prev ();
 		if (cursor->Valid ())
 		{
 			current.first = cursor->key ();
