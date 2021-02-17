@@ -139,7 +139,7 @@ size_t nano::local_vote_history::size () const
 	return history.size ();
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::local_vote_history & history, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::local_vote_history & history, std::string const & name)
 {
 	size_t history_count = history.size ();
 	auto sizeof_element = sizeof (decltype (history.history)::value_type);
@@ -412,7 +412,7 @@ void nano::vote_generator_session::flush ()
 	}
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::vote_generator & vote_generator, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::vote_generator & vote_generator, std::string const & name)
 {
 	size_t candidates_count = 0;
 	size_t requests_count = 0;

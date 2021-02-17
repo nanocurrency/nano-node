@@ -65,7 +65,7 @@ void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
 	});
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (rep_crawler & rep_crawler, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (rep_crawler & rep_crawler, std::string const & name)
 {
 	size_t count;
 	{
@@ -574,7 +574,7 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 	}
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (node & node, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (node & node, std::string const & name)
 {
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (collect_container_info (node.work, "work"));
@@ -1401,7 +1401,7 @@ bool nano::block_arrival::recent (nano::block_hash const & hash_a)
 	return arrival.get<tag_hash> ().find (hash_a) != arrival.get<tag_hash> ().end ();
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (block_arrival & block_arrival, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (block_arrival & block_arrival, std::string const & name)
 {
 	size_t count = 0;
 	{

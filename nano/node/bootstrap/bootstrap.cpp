@@ -1,7 +1,7 @@
 #include <nano/lib/threading.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
-#include <nano/node/bootstrap/bootstrap_attempt.hpp>
 #include <nano/node/bootstrap/bootstrap_lazy.hpp>
+#include <nano/node/bootstrap/bootstrap_legacy.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/node.hpp>
 
@@ -288,7 +288,7 @@ void nano::bootstrap_initiator::notify_listeners (bool in_progress_a)
 	}
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (bootstrap_initiator & bootstrap_initiator, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (bootstrap_initiator & bootstrap_initiator, std::string const & name)
 {
 	size_t count;
 	size_t cache_count;

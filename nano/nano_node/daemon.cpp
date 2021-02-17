@@ -22,10 +22,7 @@ void my_abort_signal_handler (int signum)
 	nano::dump_crash_stacktrace ();
 	nano::create_load_memory_address_files ();
 }
-}
 
-namespace
-{
 volatile sig_atomic_t sig_int_or_term = 0;
 }
 
