@@ -5,6 +5,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <string_view>
 #include <thread>
 
 // Some builds (mac) fail due to "Boost.Stacktrace requires `_Unwind_Backtrace` function".
@@ -28,7 +29,7 @@
 #endif
 #endif
 
-nano::container_info_composite::container_info_composite (const std::string & name) :
+nano::container_info_composite::container_info_composite (std::string const & name) :
 name (name)
 {
 }

@@ -199,5 +199,5 @@ public:
 	static size_t const confirm_req_hashes_max = 7;
 	static size_t const confirm_ack_hashes_max = 12;
 };
-std::unique_ptr<container_info_component> collect_container_info (network & network, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (network & network, std::string const & name);
 }

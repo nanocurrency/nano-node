@@ -1945,7 +1945,7 @@ MDB_txn * nano::wallet_store::tx (nano::transaction const & transaction_a) const
 	return static_cast<MDB_txn *> (transaction_a.get_handle ());
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (wallets & wallets, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (wallets & wallets, std::string const & name)
 {
 	size_t items_count;
 	size_t actions_count;

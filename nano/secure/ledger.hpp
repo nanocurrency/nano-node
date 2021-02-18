@@ -84,5 +84,5 @@ private:
 	void initialize (nano::generate_cache const &);
 };
 
-std::unique_ptr<container_info_component> collect_container_info (ledger & ledger, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (ledger & ledger, std::string const & name);
 }
