@@ -1356,12 +1356,11 @@ void nano::node::process_confirmed_data (nano::transaction const & transaction_a
 
 void nano::node::process_confirmed (nano::election_status const & status_a, uint64_t iteration_a)
 {
-	auto block_a (status_a.winner);
-	auto hash (block_a->hash ());
-	const size_t num_iters = (config.block_processor_batch_max_time / network_params.node.process_confirmed_interval) * 4;
-	if (ledger.block_exists (hash))
+	auto hash (status_a.winner->hash ());
+	const auto num_iters = (config.block_processor_batch_max_time / network_params.node.process_confirmed_interval) * 4;
+	if (auto block_l = ledger.store.block_get (ledger.store.tx_begin_read (), hash))
 	{
-		confirmation_height_processor.add (hash);
+		confirmation_height_processor.add (block_l);
 	}
 	else if (iteration_a < num_iters)
 	{
