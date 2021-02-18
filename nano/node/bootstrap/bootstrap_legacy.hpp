@@ -16,7 +16,7 @@ class node;
 class bootstrap_attempt_legacy : public bootstrap_attempt
 {
 public:
-	explicit bootstrap_attempt_legacy (std::shared_ptr<nano::node> const & node_a, uint64_t incremental_id_a, std::string const & id_a = "");
+	explicit bootstrap_attempt_legacy (std::shared_ptr<nano::node> const & node_a, uint64_t const incremental_id_a, std::string const & id_a = "", uint32_t const frontiers_age_a = std::numeric_limits<uint32_t>::max ());
 	void run () override;
 	bool consume_future (std::future<bool> &);
 	void stop () override;
@@ -39,5 +39,6 @@ public:
 	std::vector<std::pair<nano::block_hash, nano::block_hash>> bulk_push_targets;
 	std::atomic<unsigned> account_count{ 0 };
 	std::atomic<bool> frontiers_confirmation_pending{ false };
+	uint32_t frontiers_age;
 };
 }

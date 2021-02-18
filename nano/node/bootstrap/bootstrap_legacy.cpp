@@ -5,8 +5,9 @@
 
 #include <boost/format.hpp>
 
-nano::bootstrap_attempt_legacy::bootstrap_attempt_legacy (std::shared_ptr<nano::node> const & node_a, uint64_t incremental_id_a, std::string const & id_a) :
-nano::bootstrap_attempt (node_a, nano::bootstrap_mode::legacy, incremental_id_a, id_a)
+nano::bootstrap_attempt_legacy::bootstrap_attempt_legacy (std::shared_ptr<nano::node> const & node_a, uint64_t const incremental_id_a, std::string const & id_a, uint32_t const frontiers_age_a) :
+nano::bootstrap_attempt (node_a, nano::bootstrap_mode::legacy, incremental_id_a, id_a),
+frontiers_age (frontiers_age_a)
 {
 	node->bootstrap_initiator.notify_listeners (true);
 }
@@ -158,11 +159,13 @@ void nano::bootstrap_attempt_legacy::attempt_restart_check (nano::unique_lock<st
 			// Start new bootstrap connection
 			auto node_l (node->shared ());
 			auto this_l (shared_from_this ());
-			node->background ([node_l, this_l]() {
+			auto frontiers_age_l (frontiers_age);
+			node->background ([node_l, this_l, frontiers_age_l]() {
 				node_l->bootstrap_initiator.remove_attempt (this_l);
+				auto id_l (this_l->id);
 				// Delay after removing current attempt
-				node_l->workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (50), [node_l]() {
-					node_l->bootstrap_initiator.bootstrap (true);
+				node_l->workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (50), [node_l, id_l, frontiers_age_l]() {
+					node_l->bootstrap_initiator.bootstrap (true, id_l, frontiers_age_l);
 				});
 			});
 		}
@@ -320,7 +323,7 @@ bool nano::bootstrap_attempt_legacy::request_frontier (nano::unique_lock<std::mu
 		{
 			auto this_l (shared_from_this ());
 			auto client (std::make_shared<nano::frontier_req_client> (connection_l, this_l));
-			client->run ();
+			client->run (frontiers_age);
 			frontiers = client;
 			future = client->promise.get_future ();
 		}
