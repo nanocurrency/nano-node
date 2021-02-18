@@ -90,7 +90,7 @@ io_ctx (io_ctx_a),
 node_initialized_latch (1),
 config (config_a),
 stats (config.stat_config),
-workers (std::max (3u, config.io_threads / 2), nano::thread_role::name::worker),
+workers (std::max (3u, config.io_threads / 4), nano::thread_role::name::worker),
 flags (flags_a),
 work (work_a),
 distributed_work (*this),
@@ -588,6 +588,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	{
 		composite->add_component (collect_container_info (*node.telemetry, "telemetry"));
 	}
+	composite->add_component (collect_container_info (node.workers, "workers"));
 	composite->add_component (collect_container_info (node.observers, "observers"));
 	composite->add_component (collect_container_info (node.wallets, "wallets"));
 	composite->add_component (collect_container_info (node.vote_processor, "vote_processor"));
