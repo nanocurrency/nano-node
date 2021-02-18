@@ -82,5 +82,5 @@ public:
 	nano::observer_set<bool> work_observers;
 };
 
-std::unique_ptr<container_info_component> collect_container_info (work_pool & work_pool, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (work_pool & work_pool, std::string const & name);
 }

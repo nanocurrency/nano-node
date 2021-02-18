@@ -47,10 +47,6 @@ bulk_push_cost (0)
 	next ();
 }
 
-nano::frontier_req_client::~frontier_req_client ()
-{
-}
-
 void nano::frontier_req_client::receive_frontier ()
 {
 	auto this_l (shared_from_this ());

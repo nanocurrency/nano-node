@@ -83,7 +83,7 @@ size_t nano::peer_exclusion::size () const
 	return peers.size ();
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::peer_exclusion const & excluded_peers, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::peer_exclusion const & excluded_peers, std::string const & name)
 {
 	auto composite = std::make_unique<container_info_composite> (name);
 

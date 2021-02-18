@@ -113,10 +113,10 @@ private:
 	std::vector<std::function<void(bool)>> observers;
 	std::vector<boost::thread> bootstrap_initiator_threads;
 
-	friend std::unique_ptr<container_info_component> collect_container_info (bootstrap_initiator & bootstrap_initiator, const std::string & name);
+	friend std::unique_ptr<container_info_component> collect_container_info (bootstrap_initiator & bootstrap_initiator, std::string const & name);
 };
 
-std::unique_ptr<container_info_component> collect_container_info (bootstrap_initiator & bootstrap_initiator, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (bootstrap_initiator & bootstrap_initiator, std::string const & name);
 class bootstrap_limits final
 {
 public:

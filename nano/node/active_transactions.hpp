@@ -369,5 +369,5 @@ private:
 };
 
 bool purge_singleton_inactive_votes_cache_pool_memory ();
-std::unique_ptr<container_info_component> collect_container_info (active_transactions & active_transactions, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (active_transactions & active_transactions, std::string const & name);
 }

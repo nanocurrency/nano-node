@@ -280,7 +280,7 @@ void nano::vote_processor::calculate_weights ()
 	}
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (vote_processor & vote_processor, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (vote_processor & vote_processor, std::string const & name)
 {
 	size_t votes_count;
 	size_t representatives_1_count;

@@ -20,7 +20,7 @@ class write_guard;
 class confirmation_height_unbounded final
 {
 public:
-	confirmation_height_unbounded (nano::ledger &, nano::write_database_queue &, std::chrono::milliseconds, nano::logging const &, nano::logger_mt &, std::atomic<bool> &, nano::block_hash const &, uint64_t &, std::function<void(std::vector<std::shared_ptr<nano::block>> const &)> const &, std::function<void(nano::block_hash const &)> const &, std::function<uint64_t ()> const &);
+	confirmation_height_unbounded (nano::ledger &, nano::write_database_queue &, std::chrono::milliseconds, nano::logging const &, nano::logger_mt &, std::atomic<bool> &, std::shared_ptr<nano::block> const & original_block_a, uint64_t &, std::function<void(std::vector<std::shared_ptr<nano::block>> const &)> const &, std::function<void(nano::block_hash const &)> const &, std::function<uint64_t ()> const &);
 	bool pending_empty () const;
 	void clear_process_vars ();
 	void process ();
@@ -92,7 +92,7 @@ private:
 		std::vector<nano::block_hash> const & orig_block_callback_data;
 	};
 
-	void collect_unconfirmed_receive_and_sources_for_account (uint64_t, uint64_t, nano::block_hash const &, nano::account const &, nano::read_transaction const &, std::vector<receive_source_pair> &, std::vector<nano::block_hash> &, std::vector<nano::block_hash> &);
+	void collect_unconfirmed_receive_and_sources_for_account (uint64_t, uint64_t, std::shared_ptr<nano::block> const &, nano::block_hash const &, nano::account const &, nano::read_transaction const &, std::vector<receive_source_pair> &, std::vector<nano::block_hash> &, std::vector<nano::block_hash> &);
 	void prepare_iterated_blocks_for_cementing (preparation_data &);
 
 	nano::network_params network_params;
@@ -101,7 +101,7 @@ private:
 	std::chrono::milliseconds batch_separate_pending_min_time;
 	nano::logger_mt & logger;
 	std::atomic<bool> & stopped;
-	nano::block_hash const & original_hash;
+	std::shared_ptr<nano::block> const & original_block;
 	uint64_t & batch_write_size;
 	nano::logging const & logging;
 
@@ -110,8 +110,8 @@ private:
 	std::function<uint64_t ()> awaiting_processing_size_callback;
 
 	friend class confirmation_height_dynamic_algorithm_no_transition_while_pending_Test;
-	friend std::unique_ptr<nano::container_info_component> collect_container_info (confirmation_height_unbounded &, const std::string & name_a);
+	friend std::unique_ptr<nano::container_info_component> collect_container_info (confirmation_height_unbounded &, std::string const & name_a);
 };
 
-std::unique_ptr<nano::container_info_component> collect_container_info (confirmation_height_unbounded &, const std::string & name_a);
+std::unique_ptr<nano::container_info_component> collect_container_info (confirmation_height_unbounded &, std::string const & name_a);
 }
