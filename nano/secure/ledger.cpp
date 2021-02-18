@@ -840,7 +840,7 @@ nano::uint128_t nano::ledger::account_pending (nano::transaction const & transac
 		nano::pending_info const & info (i->second);
 		if (only_confirmed_a)
 		{
-			if (block_confirmed (transaction_a, i->first.hash) || (pruning && store.pruned_exists (transaction_a, i->first.hash)))
+			if (block_confirmed_or_pruned_exists (transaction_a, i->first.hash))
 			{
 				result += info.amount.number ();
 			}
@@ -892,6 +892,11 @@ bool nano::ledger::block_or_pruned_exists (nano::transaction const & transaction
 bool nano::ledger::block_or_pruned_exists (nano::block_hash const & hash_a) const
 {
 	return block_or_pruned_exists (store.tx_begin_read (), hash_a);
+}
+
+bool nano::ledger::block_confirmed_or_pruned_exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
+{
+	return block_confirmed (transaction_a, hash_a) || (pruning && store.pruned_exists (transaction_a, hash_a));
 }
 
 std::string nano::ledger::block_text (char const * hash_a)
