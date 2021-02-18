@@ -54,7 +54,7 @@ public:
  */
 class rep_crawler final
 {
-	friend std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, const std::string & name);
+	friend std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, std::string const & name);
 
 	// clang-format off
 	class tag_account {};
@@ -150,6 +150,7 @@ private:
 	friend class active_transactions_confirm_active_Test;
 	friend class active_transactions_confirm_frontier_Test;
 	friend class rep_crawler_local_Test;
+	friend class node_online_reps_rep_crawler_Test;
 
 	std::deque<std::pair<std::shared_ptr<nano::transport::channel>, std::shared_ptr<nano::vote>>> responses;
 };

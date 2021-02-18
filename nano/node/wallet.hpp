@@ -128,7 +128,6 @@ public:
 	void enter_initial_password ();
 	bool enter_password (nano::transaction const &, std::string const &);
 	nano::public_key insert_adhoc (nano::raw_key const &, bool = true);
-	nano::public_key insert_adhoc (nano::transaction const &, nano::raw_key const &, bool = true);
 	bool insert_watch (nano::transaction const &, nano::public_key const &);
 	nano::public_key deterministic_insert (nano::transaction const &, bool = true);
 	nano::public_key deterministic_insert (uint32_t, bool = true);
@@ -146,7 +145,7 @@ public:
 	void work_update (nano::transaction const &, nano::account const &, nano::root const &, uint64_t);
 	// Schedule work generation after a few seconds
 	void work_ensure (nano::account const &, nano::root const &);
-	bool search_pending ();
+	bool search_pending (nano::transaction const &);
 	void init_free_accounts (nano::transaction const &);
 	uint32_t deterministic_check (nano::transaction const & transaction_a, uint32_t index);
 	/** Changes the wallet seed and returns the first account */
@@ -263,7 +262,7 @@ private:
 	nano::wallet_representatives representatives;
 };
 
-std::unique_ptr<container_info_component> collect_container_info (wallets & wallets, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (wallets & wallets, std::string const & name);
 
 class wallets_store
 {

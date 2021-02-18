@@ -172,7 +172,7 @@ nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote>
 	auto result (nano::vote_code::invalid);
 	if (validated || !vote_a->validate ())
 	{
-		result = active.vote (vote_a, !rep_crawler.response (channel_a, vote_a));
+		result = active.vote (vote_a);
 		observers.vote.notify (vote_a, channel_a, result);
 	}
 	std::string status;
@@ -280,7 +280,7 @@ void nano::vote_processor::calculate_weights ()
 	}
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (vote_processor & vote_processor, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (vote_processor & vote_processor, std::string const & name)
 {
 	size_t votes_count;
 	size_t representatives_1_count;

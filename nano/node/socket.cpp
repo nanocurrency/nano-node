@@ -124,7 +124,7 @@ void nano::socket::stop_timer ()
 void nano::socket::checkup ()
 {
 	std::weak_ptr<nano::socket> this_w (shared_from_this ());
-	node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (node.network_params.network.is_dev_network () ? 1 : 2), [this_w]() {
+	node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (node.network_params.network.is_dev_network () ? 1 : 2), [this_w]() {
 		if (auto this_l = this_w.lock ())
 		{
 			uint64_t now (nano::seconds_since_epoch ());

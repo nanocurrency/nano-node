@@ -549,7 +549,7 @@ void nano::block_processor::requeue_invalid (nano::block_hash const & hash_a, na
 	node.bootstrap_initiator.lazy_requeue (hash_a, info_a.block->previous (), info_a.confirmed);
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (block_processor & block_processor, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (block_processor & block_processor, std::string const & name)
 {
 	size_t blocks_count;
 	size_t forced_count;
