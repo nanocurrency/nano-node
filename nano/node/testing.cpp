@@ -208,12 +208,14 @@ void nano::blocks_confirm (nano::node & node_a, std::vector<std::shared_ptr<nano
 	node_a.block_processor.flush ();
 	for (auto const & block : blocks_a)
 	{
+		auto disk_block (node_a.block (block->hash ()));
 		// A sideband is required to start an election
-		debug_assert (block->has_sideband ());
-		node_a.block_confirm (block);
+		debug_assert (disk_block != nullptr);
+		debug_assert (disk_block->has_sideband ());
+		node_a.block_confirm (disk_block);
 		if (forced_a)
 		{
-			auto election = node_a.active.election (block->qualified_root ());
+			auto election = node_a.active.election (disk_block->qualified_root ());
 			debug_assert (election != nullptr);
 			election->force_confirm ();
 		}
