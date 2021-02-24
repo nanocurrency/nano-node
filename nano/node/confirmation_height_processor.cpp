@@ -15,8 +15,8 @@ nano::confirmation_height_processor::confirmation_height_processor (nano::ledger
 ledger (ledger_a),
 write_database_queue (write_database_queue_a),
 // clang-format off
-unbounded_processor (ledger_a, write_database_queue_a, batch_separate_pending_min_time_a, logging_a, logger_a, stopped, original_hash, batch_write_size, [this](auto & cemented_blocks) { this->notify_observers (cemented_blocks); }, [this](auto const & block_hash_a) { this->notify_observers (block_hash_a); }, [this]() { return this->awaiting_processing_size (); }),
-bounded_processor (ledger_a, write_database_queue_a, batch_separate_pending_min_time_a, logging_a, logger_a, stopped, original_hash, batch_write_size, [this](auto & cemented_blocks) { this->notify_observers (cemented_blocks); }, [this](auto const & block_hash_a) { this->notify_observers (block_hash_a); }, [this]() { return this->awaiting_processing_size (); }),
+unbounded_processor (ledger_a, write_database_queue_a, batch_separate_pending_min_time_a, logging_a, logger_a, stopped, original_block, batch_write_size, [this](auto & cemented_blocks) { this->notify_observers (cemented_blocks); }, [this](auto const & block_hash_a) { this->notify_observers (block_hash_a); }, [this]() { return this->awaiting_processing_size (); }),
+bounded_processor (ledger_a, write_database_queue_a, batch_separate_pending_min_time_a, logging_a, logger_a, stopped, original_block, batch_write_size, [this](auto & cemented_blocks) { this->notify_observers (cemented_blocks); }, [this](auto const & block_hash_a) { this->notify_observers (block_hash_a); }, [this]() { return this->awaiting_processing_size (); }),
 // clang-format on
 thread ([this, &latch, mode_a]() {
 	nano::thread_role::set (nano::thread_role::name::confirmation_height_processing);
@@ -86,7 +86,7 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 		{
 			auto lock_and_cleanup = [&lk, this]() {
 				lk.lock ();
-				original_hash.clear ();
+				original_block = nullptr;
 				original_hashes_pending.clear ();
 				bounded_processor.clear_process_vars ();
 				unbounded_processor.clear_process_vars ();
@@ -129,7 +129,7 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 			{
 				// Pausing is only utilised in some tests to help prevent it processing added blocks until required.
 				debug_assert (network_params.network.is_dev_network ());
-				original_hash.clear ();
+				original_block = nullptr;
 				condition.wait (lk);
 			}
 		}
@@ -152,11 +152,11 @@ void nano::confirmation_height_processor::unpause ()
 	condition.notify_one ();
 }
 
-void nano::confirmation_height_processor::add (nano::block_hash const & hash_a)
+void nano::confirmation_height_processor::add (std::shared_ptr<nano::block> const & block_a)
 {
 	{
 		nano::lock_guard<std::mutex> lk (mutex);
-		awaiting_processing.get<tag_sequence> ().emplace_back (hash_a);
+		awaiting_processing.get<tag_sequence> ().emplace_back (block_a);
 	}
 	condition.notify_one ();
 }
@@ -165,13 +165,13 @@ void nano::confirmation_height_processor::set_next_hash ()
 {
 	nano::lock_guard<std::mutex> guard (mutex);
 	debug_assert (!awaiting_processing.empty ());
-	original_hash = awaiting_processing.get<tag_sequence> ().front ();
-	original_hashes_pending.insert (original_hash);
+	original_block = awaiting_processing.get<tag_sequence> ().front ().block;
+	original_hashes_pending.insert (original_block->hash ());
 	awaiting_processing.get<tag_sequence> ().pop_front ();
 }
 
 // Not thread-safe, only call before this processor has begun cementing
-void nano::confirmation_height_processor::add_cemented_observer (std::function<void(std::shared_ptr<nano::block>)> const & callback_a)
+void nano::confirmation_height_processor::add_cemented_observer (std::function<void(std::shared_ptr<nano::block> const &)> const & callback_a)
 {
 	cemented_observers.push_back (callback_a);
 }
@@ -201,7 +201,7 @@ void nano::confirmation_height_processor::notify_observers (nano::block_hash con
 	}
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (confirmation_height_processor & confirmation_height_processor_a, const std::string & name_a)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (confirmation_height_processor & confirmation_height_processor_a, std::string const & name_a)
 {
 	auto composite = std::make_unique<container_info_composite> (name_a);
 
@@ -235,5 +235,5 @@ bool nano::confirmation_height_processor::is_processing_block (nano::block_hash 
 nano::block_hash nano::confirmation_height_processor::current () const
 {
 	nano::lock_guard<std::mutex> lk (mutex);
-	return original_hash;
+	return original_block ? original_block->hash () : 0;
 }

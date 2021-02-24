@@ -6,6 +6,7 @@
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/online_reps.hpp>
+#include <nano/node/repcrawler.hpp>
 #include <nano/node/signatures.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/secure/blockstore.hpp>
@@ -14,7 +15,7 @@
 
 #include <boost/format.hpp>
 
-nano::vote_processor::vote_processor (nano::signature_checker & checker_a, nano::active_transactions & active_a, nano::node_observers & observers_a, nano::stat & stats_a, nano::node_config & config_a, nano::node_flags & flags_a, nano::logger_mt & logger_a, nano::online_reps & online_reps_a, nano::ledger & ledger_a, nano::network_params & network_params_a) :
+nano::vote_processor::vote_processor (nano::signature_checker & checker_a, nano::active_transactions & active_a, nano::node_observers & observers_a, nano::stat & stats_a, nano::node_config & config_a, nano::node_flags & flags_a, nano::logger_mt & logger_a, nano::online_reps & online_reps_a, nano::rep_crawler & rep_crawler_a, nano::ledger & ledger_a, nano::network_params & network_params_a) :
 checker (checker_a),
 active (active_a),
 observers (observers_a),
@@ -22,6 +23,7 @@ stats (stats_a),
 config (config_a),
 logger (logger_a),
 online_reps (online_reps_a),
+rep_crawler (rep_crawler_a),
 ledger (ledger_a),
 network_params (network_params_a),
 max_votes (flags_a.vote_processor_capacity),
@@ -88,7 +90,7 @@ void nano::vote_processor::process_loop ()
 	}
 }
 
-bool nano::vote_processor::vote (std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a)
+bool nano::vote_processor::vote (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a)
 {
 	debug_assert (channel_a != nullptr);
 	bool process (false);
@@ -165,7 +167,7 @@ void nano::vote_processor::verify_votes (decltype (votes) const & votes_a)
 	}
 }
 
-nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a, bool validated)
+nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a, bool validated)
 {
 	auto result (nano::vote_code::invalid);
 	if (validated || !vote_a->validate ())
@@ -278,7 +280,7 @@ void nano::vote_processor::calculate_weights ()
 	}
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (vote_processor & vote_processor, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (vote_processor & vote_processor, std::string const & name)
 {
 	size_t votes_count;
 	size_t representatives_1_count;

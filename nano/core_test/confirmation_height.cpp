@@ -732,17 +732,16 @@ TEST (confirmation_heightDeathTest, rollback_added_block)
 			store->initialize (transaction, genesis, ledger.cache);
 		}
 
-		auto block_hash_being_processed (send->hash ());
 		uint64_t batch_write_size = 2048;
 		std::atomic<bool> stopped{ false };
 		nano::confirmation_height_unbounded unbounded_processor (
-		ledger, write_database_queue, 10ms, logging, logger, stopped, block_hash_being_processed, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
+		ledger, write_database_queue, 10ms, logging, logger, stopped, send, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
 
 		// Processing a block which doesn't exist should bail
 		ASSERT_DEATH_IF_SUPPORTED (unbounded_processor.process (), "");
 
 		nano::confirmation_height_bounded bounded_processor (
-		ledger, write_database_queue, 10ms, logging, logger, stopped, block_hash_being_processed, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
+		ledger, write_database_queue, 10ms, logging, logger, stopped, send, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
 		// Processing a block which doesn't exist should bail
 		ASSERT_DEATH_IF_SUPPORTED (bounded_processor.process (), "");
 	}
@@ -811,11 +810,10 @@ TEST (confirmation_heightDeathTest, modified_chain)
 			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send).code);
 		}
 
-		auto block_hash_being_processed (send->hash ());
 		uint64_t batch_write_size = 2048;
 		std::atomic<bool> stopped{ false };
 		nano::confirmation_height_bounded bounded_processor (
-		ledger, write_database_queue, 10ms, logging, logger, stopped, block_hash_being_processed, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
+		ledger, write_database_queue, 10ms, logging, logger, stopped, send, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
 
 		{
 			// This reads the blocks in the account, but prevents any writes from occuring yet
@@ -834,7 +832,7 @@ TEST (confirmation_heightDeathTest, modified_chain)
 		store->confirmation_height_put (store->tx_begin_write (), nano::genesis_account, { 1, nano::genesis_hash });
 
 		nano::confirmation_height_unbounded unbounded_processor (
-		ledger, write_database_queue, 10ms, logging, logger, stopped, block_hash_being_processed, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
+		ledger, write_database_queue, 10ms, logging, logger, stopped, send, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
 
 		{
 			// This reads the blocks in the account, but prevents any writes from occuring yet
@@ -885,11 +883,10 @@ TEST (confirmation_heightDeathTest, modified_chain_account_removed)
 			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *open).code);
 		}
 
-		auto block_hash_being_processed (open->hash ());
 		uint64_t batch_write_size = 2048;
 		std::atomic<bool> stopped{ false };
 		nano::confirmation_height_unbounded unbounded_processor (
-		ledger, write_database_queue, 10ms, logging, logger, stopped, block_hash_being_processed, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
+		ledger, write_database_queue, 10ms, logging, logger, stopped, open, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
 
 		{
 			// This reads the blocks in the account, but prevents any writes from occuring yet
@@ -909,7 +906,7 @@ TEST (confirmation_heightDeathTest, modified_chain_account_removed)
 		store->confirmation_height_put (store->tx_begin_write (), nano::genesis_account, { 1, nano::genesis_hash });
 
 		nano::confirmation_height_bounded bounded_processor (
-		ledger, write_database_queue, 10ms, logging, logger, stopped, block_hash_being_processed, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
+		ledger, write_database_queue, 10ms, logging, logger, stopped, open, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
 
 		{
 			// This reads the blocks in the account, but prevents any writes from occuring yet
@@ -951,7 +948,7 @@ TEST (confirmation_height, pending_observer_callbacks)
 
 		add_callback_stats (*node);
 
-		node->confirmation_height_processor.add (send1->hash ());
+		node->confirmation_height_processor.add (send1);
 
 		// Confirm the callback is not called under this circumstance because there is no election information
 		ASSERT_TIMELY (10s, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) == 1 && node->ledger.stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out) == 1);
@@ -1321,7 +1318,7 @@ TEST (confirmation_height, election_winner_details_clearing)
 
 		// Add an already cemented block with fake election details. It should get removed
 		node->active.add_election_winner_details (send2->hash (), nullptr);
-		node->confirmation_height_processor.add (send2->hash ());
+		node->confirmation_height_processor.add (send2);
 
 		ASSERT_TIMELY (10s, node->active.election_winner_details_size () == 0);
 
@@ -1388,7 +1385,7 @@ TEST (confirmation_height, unbounded_block_cache_iteration)
 		// Prevent conf height processor doing any writes, so that we can query is_processing_block correctly
 		auto write_guard = write_database_queue.wait (nano::writer::testing);
 		// Add the frontier block
-		confirmation_height_processor.add (send1->hash ());
+		confirmation_height_processor.add (send1);
 
 		// The most uncemented block (previous block) should be seen as processing by the unbounded processor
 		while (!confirmation_height_processor.is_processing_block (send->hash ()))
@@ -1436,12 +1433,11 @@ TEST (confirmation_height, pruned_source)
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send3).code);
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *open2).code);
 	}
-	auto block_hash_being_processed (open2->hash ());
 	uint64_t batch_write_size = 2;
 	std::atomic<bool> stopped{ false };
 	bool first_time{ true };
 	nano::confirmation_height_bounded bounded_processor (
-	ledger, write_database_queue, 10ms, logging, logger, stopped, block_hash_being_processed, batch_write_size, [&](auto const & cemented_blocks_a) {
+	ledger, write_database_queue, 10ms, logging, logger, stopped, open2, batch_write_size, [&](auto const & cemented_blocks_a) {
 		if (first_time)
 		{
 			// Prune the send

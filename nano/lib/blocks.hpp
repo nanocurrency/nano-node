@@ -404,7 +404,7 @@ class block_uniquer
 public:
 	using value_type = std::pair<const nano::uint256_union, std::weak_ptr<nano::block>>;
 
-	std::shared_ptr<nano::block> unique (std::shared_ptr<nano::block>);
+	std::shared_ptr<nano::block> unique (std::shared_ptr<nano::block> const &);
 	size_t size ();
 
 private:
@@ -413,7 +413,7 @@ private:
 	static unsigned constexpr cleanup_count = 2;
 };
 
-std::unique_ptr<container_info_component> collect_container_info (block_uniquer & block_uniquer, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (block_uniquer & block_uniquer, std::string const & name);
 
 std::shared_ptr<nano::block> deserialize_block (nano::stream &);
 std::shared_ptr<nano::block> deserialize_block (nano::stream &, nano::block_type, nano::block_uniquer * = nullptr);

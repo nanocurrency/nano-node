@@ -1,8 +1,10 @@
+#include <nano/boost/asio/post.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/threading.hpp>
 
 #include <boost/format.hpp>
 
+#include <future>
 #include <iostream>
 #include <thread>
 
@@ -33,9 +35,6 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 			break;
 		case nano::thread_role::name::packet_processing:
 			thread_role_name_string = "Pkt processing";
-			break;
-		case nano::thread_role::name::alarm:
-			thread_role_name_string = "Alarm";
 			break;
 		case nano::thread_role::name::vote_processing:
 			thread_role_name_string = "Vote processing";
@@ -195,4 +194,104 @@ void nano::thread_runner::join ()
 void nano::thread_runner::stop_event_processing ()
 {
 	io_guard.get_executor ().context ().stop ();
+}
+
+nano::thread_pool::thread_pool (unsigned num_threads, nano::thread_role::name thread_name) :
+num_threads (num_threads),
+thread_pool_m (std::make_unique<boost::asio::thread_pool> (num_threads))
+{
+	set_thread_names (num_threads, thread_name);
+}
+
+nano::thread_pool::~thread_pool ()
+{
+	stop ();
+}
+
+void nano::thread_pool::stop ()
+{
+	nano::unique_lock<std::mutex> lk (mutex);
+	if (!stopped)
+	{
+		stopped = true;
+#if defined(BOOST_ASIO_HAS_IOCP)
+		// A hack needed for Windows to prevent deadlock during destruction, described here: https://github.com/chriskohlhoff/asio/issues/431
+		boost::asio::use_service<boost::asio::detail::win_iocp_io_context> (*thread_pool_m).stop ();
+#endif
+		lk.unlock ();
+		thread_pool_m->stop ();
+		thread_pool_m->join ();
+		lk.lock ();
+		thread_pool_m = nullptr;
+	}
+}
+
+void nano::thread_pool::push_task (std::function<void()> task)
+{
+	++num_tasks;
+	nano::lock_guard<std::mutex> guard (mutex);
+	if (!stopped)
+	{
+		boost::asio::post (*thread_pool_m, [this, task]() {
+			task ();
+			--num_tasks;
+		});
+	}
+}
+
+void nano::thread_pool::add_timed_task (std::chrono::steady_clock::time_point const & expiry_time, std::function<void()> task)
+{
+	nano::lock_guard<std::mutex> guard (mutex);
+	if (!stopped && thread_pool_m)
+	{
+		auto timer = std::make_shared<boost::asio::steady_timer> (thread_pool_m->get_executor (), expiry_time);
+		timer->async_wait ([this, task, timer](const boost::system::error_code & ec) {
+			if (!ec)
+			{
+				push_task (task);
+			}
+		});
+	}
+}
+
+unsigned nano::thread_pool::get_num_threads () const
+{
+	return num_threads;
+}
+
+uint64_t nano::thread_pool::num_queued_tasks () const
+{
+	return num_tasks;
+}
+
+// Set the names of all the threads in the thread pool for easier identification
+void nano::thread_pool::set_thread_names (unsigned num_threads, nano::thread_role::name thread_name)
+{
+	std::vector<std::promise<void>> promises (num_threads);
+	std::vector<std::future<void>> futures;
+	futures.reserve (num_threads);
+	std::transform (promises.begin (), promises.end (), std::back_inserter (futures), [](auto & promise) {
+		return promise.get_future ();
+	});
+
+	for (auto i = 0u; i < num_threads; ++i)
+	{
+		boost::asio::post (*thread_pool_m, [& promise = promises[i], thread_name]() {
+			nano::thread_role::set (thread_name);
+			promise.set_value ();
+		});
+	}
+
+	// Wait until all threads have finished
+	for (auto & future : futures)
+	{
+		future.wait ();
+	}
+}
+
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (thread_pool & thread_pool, std::string const & name)
+{
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "count", thread_pool.num_queued_tasks (), sizeof (std::function<void()>) }));
+	return composite;
 }

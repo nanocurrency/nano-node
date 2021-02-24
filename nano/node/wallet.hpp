@@ -128,7 +128,6 @@ public:
 	void enter_initial_password ();
 	bool enter_password (nano::transaction const &, std::string const &);
 	nano::public_key insert_adhoc (nano::raw_key const &, bool = true);
-	nano::public_key insert_adhoc (nano::transaction const &, nano::raw_key const &, bool = true);
 	bool insert_watch (nano::transaction const &, nano::public_key const &);
 	nano::public_key deterministic_insert (nano::transaction const &, bool = true);
 	nano::public_key deterministic_insert (uint32_t, bool = true);
@@ -137,16 +136,16 @@ public:
 	bool import (std::string const &, std::string const &);
 	void serialize (std::string &);
 	bool change_sync (nano::account const &, nano::account const &);
-	void change_async (nano::account const &, nano::account const &, std::function<void(std::shared_ptr<nano::block>)> const &, uint64_t = 0, bool = true);
-	bool receive_sync (std::shared_ptr<nano::block>, nano::account const &, nano::uint128_t const &);
-	void receive_async (nano::block_hash const &, nano::account const &, nano::uint128_t const &, nano::account const &, std::function<void(std::shared_ptr<nano::block>)> const &, uint64_t = 0, bool = true);
+	void change_async (nano::account const &, nano::account const &, std::function<void(std::shared_ptr<nano::block> const &)> const &, uint64_t = 0, bool = true);
+	bool receive_sync (std::shared_ptr<nano::block> const &, nano::account const &, nano::uint128_t const &);
+	void receive_async (nano::block_hash const &, nano::account const &, nano::uint128_t const &, nano::account const &, std::function<void(std::shared_ptr<nano::block> const &)> const &, uint64_t = 0, bool = true);
 	nano::block_hash send_sync (nano::account const &, nano::account const &, nano::uint128_t const &);
-	void send_async (nano::account const &, nano::account const &, nano::uint128_t const &, std::function<void(std::shared_ptr<nano::block>)> const &, uint64_t = 0, bool = true, boost::optional<std::string> = {});
+	void send_async (nano::account const &, nano::account const &, nano::uint128_t const &, std::function<void(std::shared_ptr<nano::block> const &)> const &, uint64_t = 0, bool = true, boost::optional<std::string> = {});
 	void work_cache_blocking (nano::account const &, nano::root const &);
 	void work_update (nano::transaction const &, nano::account const &, nano::root const &, uint64_t);
 	// Schedule work generation after a few seconds
 	void work_ensure (nano::account const &, nano::root const &);
-	bool search_pending ();
+	bool search_pending (nano::transaction const &);
 	void init_free_accounts (nano::transaction const &);
 	uint32_t deterministic_check (nano::transaction const & transaction_a, uint32_t index);
 	/** Changes the wallet seed and returns the first account */
@@ -170,9 +169,9 @@ public:
 	work_watcher (nano::node &);
 	~work_watcher ();
 	void stop ();
-	void add (std::shared_ptr<nano::block>);
-	void update (nano::qualified_root const &, std::shared_ptr<nano::state_block>);
-	void watching (nano::qualified_root const &, std::shared_ptr<nano::state_block>);
+	void add (std::shared_ptr<nano::block> const &);
+	void update (nano::qualified_root const &, std::shared_ptr<nano::state_block> const &);
+	void watching (nano::qualified_root const &, std::shared_ptr<nano::state_block> const &);
 	void remove (nano::block const &);
 	bool is_watched (nano::qualified_root const &);
 	decltype (watched) list_watched ();
@@ -222,7 +221,7 @@ public:
 	void destroy (nano::wallet_id const &);
 	void reload ();
 	void do_wallet_actions ();
-	void queue_wallet_action (nano::uint128_t const &, std::shared_ptr<nano::wallet>, std::function<void(nano::wallet &)> const &);
+	void queue_wallet_action (nano::uint128_t const &, std::shared_ptr<nano::wallet> const &, std::function<void(nano::wallet &)>);
 	void foreach_representative (std::function<void(nano::public_key const &, nano::raw_key const &)> const &);
 	bool exists (nano::transaction const &, nano::account const &);
 	void stop ();
@@ -263,7 +262,7 @@ private:
 	nano::wallet_representatives representatives;
 };
 
-std::unique_ptr<container_info_component> collect_container_info (wallets & wallets, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (wallets & wallets, std::string const & name);
 
 class wallets_store
 {

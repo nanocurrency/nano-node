@@ -289,7 +289,7 @@ public:
 		// Note that if the rpc action is async, the shared_ptr<json_handler> lifetime will be extended by the action handler
 		auto handler (std::make_shared<nano::json_handler> (node, server.node_rpc_config, body, response_handler_l, [& server = server]() {
 			server.stop ();
-			server.node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (3), [& io_ctx = server.node.alarm.io_ctx]() {
+			server.node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (3), [& io_ctx = server.node.io_ctx]() {
 				io_ctx.stop ();
 			});
 		}));
@@ -345,7 +345,7 @@ public:
 
 						if (encoding == static_cast<uint8_t> (nano::ipc::payload_encoding::flatbuffers_json))
 						{
-							this_l->flatbuffers_handler->process_json (this_l->buffer.data (), this_l->buffer_size, [this_l](std::shared_ptr<std::string> body) {
+							this_l->flatbuffers_handler->process_json (this_l->buffer.data (), this_l->buffer_size, [this_l](std::shared_ptr<std::string> const & body) {
 								if (this_l->node.config.logging.log_ipc ())
 								{
 									this_l->node.logger.always_log (boost::str (boost::format ("IPC/Flatbuffer request completed in: %1% %2%") % this_l->session_timer.stop ().count () % this_l->session_timer.unit ()));
@@ -371,7 +371,7 @@ public:
 						}
 						else
 						{
-							this_l->flatbuffers_handler->process (this_l->buffer.data (), this_l->buffer_size, [this_l](std::shared_ptr<flatbuffers::FlatBufferBuilder> fbb) {
+							this_l->flatbuffers_handler->process (this_l->buffer.data (), this_l->buffer_size, [this_l](std::shared_ptr<flatbuffers::FlatBufferBuilder> const & fbb) {
 								if (this_l->node.config.logging.log_ipc ())
 								{
 									this_l->node.logger.always_log (boost::str (boost::format ("IPC/Flatbuffer request completed in: %1% %2%") % this_l->session_timer.stop ().count () % this_l->session_timer.unit ()));

@@ -37,10 +37,10 @@ std::shared_ptr<block> deserialize_block (nano::stream & stream_a)
 
 void nano::block_memory_pool_purge ()
 {
-	nano::purge_singleton_pool_memory<nano::open_block> ();
-	nano::purge_singleton_pool_memory<nano::state_block> ();
-	nano::purge_singleton_pool_memory<nano::send_block> ();
-	nano::purge_singleton_pool_memory<nano::change_block> ();
+	nano::purge_shared_ptr_singleton_pool_memory<nano::open_block> ();
+	nano::purge_shared_ptr_singleton_pool_memory<nano::state_block> ();
+	nano::purge_shared_ptr_singleton_pool_memory<nano::send_block> ();
+	nano::purge_shared_ptr_singleton_pool_memory<nano::change_block> ();
 }
 
 std::string nano::block::to_json () const
@@ -1845,7 +1845,7 @@ bool nano::block_sideband::deserialize (nano::stream & stream_a, nano::block_typ
 	return result;
 }
 
-std::shared_ptr<nano::block> nano::block_uniquer::unique (std::shared_ptr<nano::block> block_a)
+std::shared_ptr<nano::block> nano::block_uniquer::unique (std::shared_ptr<nano::block> const & block_a)
 {
 	auto result (block_a);
 	if (result != nullptr)
@@ -1892,7 +1892,7 @@ size_t nano::block_uniquer::size ()
 	return blocks.size ();
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (block_uniquer & block_uniquer, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (block_uniquer & block_uniquer, std::string const & name)
 {
 	auto count = block_uniquer.size ();
 	auto sizeof_element = sizeof (block_uniquer::value_type);

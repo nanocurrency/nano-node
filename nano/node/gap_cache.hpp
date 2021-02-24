@@ -37,7 +37,7 @@ public:
 	explicit gap_cache (nano::node &);
 	void add (nano::block_hash const &, std::chrono::steady_clock::time_point = std::chrono::steady_clock::now ());
 	void erase (nano::block_hash const & hash_a);
-	void vote (std::shared_ptr<nano::vote>);
+	void vote (std::shared_ptr<nano::vote> const &);
 	bool bootstrap_check (std::vector<nano::account> const &, nano::block_hash const &);
 	void bootstrap_start (nano::block_hash const & hash_a);
 	nano::uint128_t bootstrap_threshold ();
@@ -58,5 +58,5 @@ public:
 	nano::node & node;
 };
 
-std::unique_ptr<container_info_component> collect_container_info (gap_cache & gap_cache, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (gap_cache & gap_cache, std::string const & name);
 }

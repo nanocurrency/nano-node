@@ -20,6 +20,7 @@ class stats;
 class node_config;
 class logger_mt;
 class online_reps;
+class rep_crawler;
 class ledger;
 class network_params;
 class node_flags;
@@ -33,11 +34,11 @@ namespace transport
 class vote_processor final
 {
 public:
-	explicit vote_processor (nano::signature_checker & checker_a, nano::active_transactions & active_a, nano::node_observers & observers_a, nano::stat & stats_a, nano::node_config & config_a, nano::node_flags & flags_a, nano::logger_mt & logger_a, nano::online_reps & online_reps_a, nano::ledger & ledger_a, nano::network_params & network_params_a);
+	explicit vote_processor (nano::signature_checker & checker_a, nano::active_transactions & active_a, nano::node_observers & observers_a, nano::stat & stats_a, nano::node_config & config_a, nano::node_flags & flags_a, nano::logger_mt & logger_a, nano::online_reps & online_reps_a, nano::rep_crawler & rep_crawler_a, nano::ledger & ledger_a, nano::network_params & network_params_a);
 	/** Returns false if the vote was processed */
-	bool vote (std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>);
+	bool vote (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &);
 	/** Note: node.active.mutex lock is required */
-	nano::vote_code vote_blocking (std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>, bool = false);
+	nano::vote_code vote_blocking (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &, bool = false);
 	void verify_votes (std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>>> const &);
 	void flush ();
 	/** Block until the currently active processing cycle finishes */
@@ -58,6 +59,7 @@ private:
 	nano::node_config & config;
 	nano::logger_mt & logger;
 	nano::online_reps & online_reps;
+	nano::rep_crawler & rep_crawler;
 	nano::ledger & ledger;
 	nano::network_params & network_params;
 	size_t max_votes;
@@ -73,9 +75,9 @@ private:
 	bool is_active;
 	std::thread thread;
 
-	friend std::unique_ptr<container_info_component> collect_container_info (vote_processor & vote_processor, const std::string & name);
+	friend std::unique_ptr<container_info_component> collect_container_info (vote_processor & vote_processor, std::string const & name);
 	friend class vote_processor_weights_Test;
 };
 
-std::unique_ptr<container_info_component> collect_container_info (vote_processor & vote_processor, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (vote_processor & vote_processor, std::string const & name);
 }

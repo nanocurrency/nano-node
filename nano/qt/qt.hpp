@@ -300,7 +300,7 @@ public:
 class wallet : public std::enable_shared_from_this<nano_qt::wallet>
 {
 public:
-	wallet (QApplication &, nano_qt::eventloop_processor &, nano::node &, std::shared_ptr<nano::wallet>, nano::account &);
+	wallet (QApplication &, nano_qt::eventloop_processor &, nano::node &, std::shared_ptr<nano::wallet> const &, nano::account &);
 	void start ();
 	void refresh ();
 	void update_connected ();
