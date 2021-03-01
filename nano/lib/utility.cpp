@@ -3,6 +3,7 @@
 #include <boost/dll/runtime_symbol_info.hpp>
 #include <boost/filesystem.hpp>
 
+#include <cstddef>
 #include <iostream>
 #include <limits>
 #include <sstream>
@@ -34,14 +35,14 @@
 #include <sys/resource.h>
 #endif
 
-size_t nano::get_filedescriptor_limit ()
+std::size_t nano::get_filedescriptor_limit ()
 {
-	size_t fd_limit = std::numeric_limits<size_t>::max ();
+	std::size_t fd_limit = std::numeric_limits<std::size_t>::max ();
 #ifndef _WIN32
 	struct rlimit limit;
 	if (getrlimit (RLIMIT_NOFILE, &limit) == 0)
 	{
-		fd_limit = static_cast<size_t> (limit.rlim_cur);
+		fd_limit = static_cast<std::size_t> (limit.rlim_cur);
 	}
 #endif
 	return fd_limit;
