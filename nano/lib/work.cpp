@@ -408,7 +408,7 @@ size_t nano::work_pool::size ()
 	return pending.size ();
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (work_pool & work_pool, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (work_pool & work_pool, std::string const & name)
 {
 	size_t count;
 	{

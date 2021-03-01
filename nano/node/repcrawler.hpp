@@ -54,7 +54,7 @@ public:
  */
 class rep_crawler final
 {
-	friend std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, const std::string & name);
+	friend std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, std::string const & name);
 
 	// clang-format off
 	class tag_account {};

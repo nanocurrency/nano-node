@@ -792,7 +792,7 @@ size_t nano::vote_uniquer::size ()
 	return votes.size ();
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (vote_uniquer & vote_uniquer, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (vote_uniquer & vote_uniquer, std::string const & name)
 {
 	auto count = vote_uniquer.size ();
 	auto sizeof_element = sizeof (vote_uniquer::value_type);

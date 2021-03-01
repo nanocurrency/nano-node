@@ -65,7 +65,7 @@ void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
 	});
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (rep_crawler & rep_crawler, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (rep_crawler & rep_crawler, std::string const & name)
 {
 	size_t count;
 	{
@@ -90,7 +90,7 @@ io_ctx (io_ctx_a),
 node_initialized_latch (1),
 config (config_a),
 stats (config.stat_config),
-workers (std::max (3u, config.io_threads / 2), nano::thread_role::name::worker),
+workers (std::max (3u, config.io_threads / 4), nano::thread_role::name::worker),
 flags (flags_a),
 work (work_a),
 distributed_work (*this),
@@ -574,7 +574,7 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 	}
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (node & node, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (node & node, std::string const & name)
 {
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (collect_container_info (node.work, "work"));
@@ -588,6 +588,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	{
 		composite->add_component (collect_container_info (*node.telemetry, "telemetry"));
 	}
+	composite->add_component (collect_container_info (node.workers, "workers"));
 	composite->add_component (collect_container_info (node.observers, "observers"));
 	composite->add_component (collect_container_info (node.wallets, "wallets"));
 	composite->add_component (collect_container_info (node.vote_processor, "vote_processor"));
@@ -1356,12 +1357,11 @@ void nano::node::process_confirmed_data (nano::transaction const & transaction_a
 
 void nano::node::process_confirmed (nano::election_status const & status_a, uint64_t iteration_a)
 {
-	auto block_a (status_a.winner);
-	auto hash (block_a->hash ());
-	const size_t num_iters = (config.block_processor_batch_max_time / network_params.node.process_confirmed_interval) * 4;
-	if (ledger.block_exists (hash))
+	auto hash (status_a.winner->hash ());
+	const auto num_iters = (config.block_processor_batch_max_time / network_params.node.process_confirmed_interval) * 4;
+	if (auto block_l = ledger.store.block_get (ledger.store.tx_begin_read (), hash))
 	{
-		confirmation_height_processor.add (hash);
+		confirmation_height_processor.add (block_l);
 	}
 	else if (iteration_a < num_iters)
 	{
@@ -1401,7 +1401,7 @@ bool nano::block_arrival::recent (nano::block_hash const & hash_a)
 	return arrival.get<tag_hash> ().find (hash_a) != arrival.get<tag_hash> ().end ();
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (block_arrival & block_arrival, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (block_arrival & block_arrival, std::string const & name)
 {
 	size_t count = 0;
 	{

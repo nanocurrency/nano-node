@@ -1552,7 +1552,7 @@ bool nano::frontiers_confirmation_info::can_start_elections () const
 	return max_elections > 0;
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (active_transactions & active_transactions, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (active_transactions & active_transactions, std::string const & name)
 {
 	size_t roots_count;
 	size_t blocks_count;

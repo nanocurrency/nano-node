@@ -95,7 +95,7 @@ boost::asio::ip::tcp::endpoint nano::bootstrap_listener::endpoint ()
 	}
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (bootstrap_listener & bootstrap_listener, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (bootstrap_listener & bootstrap_listener, std::string const & name)
 {
 	auto sizeof_element = sizeof (decltype (bootstrap_listener.connections)::value_type);
 	auto composite = std::make_unique<container_info_composite> (name);

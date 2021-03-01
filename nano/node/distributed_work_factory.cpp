@@ -94,7 +94,7 @@ size_t nano::distributed_work_factory::size () const
 	return items.size ();
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (distributed_work_factory & distributed_work, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (distributed_work_factory & distributed_work, std::string const & name)
 {
 	auto item_count = distributed_work.size ();
 	auto sizeof_item_element = sizeof (decltype (nano::distributed_work_factory::items)::value_type);

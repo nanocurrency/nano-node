@@ -38,5 +38,5 @@ private:
 	friend std::unique_ptr<container_info_component> collect_container_info (distributed_work_factory &, const std::string &);
 };
 
-std::unique_ptr<container_info_component> collect_container_info (distributed_work_factory & distributed_work, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (distributed_work_factory & distributed_work, std::string const & name);
 }

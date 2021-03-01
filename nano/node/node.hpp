@@ -78,9 +78,9 @@ public:
 	static std::chrono::seconds constexpr arrival_time_min = std::chrono::seconds (300);
 };
 
-std::unique_ptr<container_info_component> collect_container_info (block_arrival & block_arrival, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (block_arrival & block_arrival, std::string const & name);
 
-std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, std::string const & name);
 
 class node final : public std::enable_shared_from_this<nano::node>
 {
@@ -211,7 +211,7 @@ private:
 	nano::locked<std::future<void>> epoch_upgrading;
 };
 
-std::unique_ptr<container_info_component> collect_container_info (node & node, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (node & node, std::string const & name);
 
 nano::node_flags const & inactive_node_flag_defaults ();
 

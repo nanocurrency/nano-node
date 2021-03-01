@@ -292,7 +292,7 @@ private:
 	static unsigned constexpr cleanup_count = 2;
 };
 
-std::unique_ptr<container_info_component> collect_container_info (vote_uniquer & vote_uniquer, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (vote_uniquer & vote_uniquer, std::string const & name);
 
 enum class vote_code
 {
