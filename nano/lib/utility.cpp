@@ -4,6 +4,7 @@
 #include <boost/filesystem.hpp>
 
 #include <iostream>
+#include <limits>
 #include <sstream>
 #include <string_view>
 #include <thread>
