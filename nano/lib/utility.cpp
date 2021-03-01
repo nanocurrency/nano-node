@@ -29,6 +29,23 @@
 #endif
 #endif
 
+#ifndef _WIN32
+#include <sys/resource.h>
+#endif
+
+size_t nano::get_filedescriptor_limit ()
+{
+	size_t fd_limit = std::numeric_limits<size_t>::max ();
+#ifndef _WIN32
+	struct rlimit limit;
+	if (getrlimit (RLIMIT_NOFILE, &limit) == 0)
+	{
+		fd_limit = static_cast<size_t> (limit.rlim_cur);
+	}
+#endif
+	return fd_limit;
+}
+
 nano::container_info_composite::container_info_composite (std::string const & name) :
 name (name)
 {
