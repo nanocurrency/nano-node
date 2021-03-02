@@ -362,7 +362,6 @@ int main (int argc, char * const * argv)
 
 	nano::network_constants network_constants;
 	auto current_network = network_constants.get_current_network_as_string ();
-#if BOOST_PROCESS_SUPPORTED
 	std::vector<std::unique_ptr<boost::process::child>> nodes;
 	std::vector<std::unique_ptr<boost::process::child>> rpc_servers;
 	for (auto const & data_path : data_paths)
@@ -370,26 +369,6 @@ int main (int argc, char * const * argv)
 		nodes.emplace_back (std::make_unique<boost::process::child> (node_path, "--daemon", "--data_path", data_path.string (), "--network", current_network));
 		rpc_servers.emplace_back (std::make_unique<boost::process::child> (rpc_path, "--daemon", "--data_path", data_path.string (), "--network", current_network));
 	}
-#else
-	std::thread processes_thread ([&data_paths, &node_path, &rpc_path, &current_network]() {
-		auto formatted_command = "%1% --daemon --data_path=%2% --network=%3% %4%";
-		ASSERT_TRUE (!data_paths.empty ());
-		for (int i = 0; i < data_paths.size (); ++i)
-		{
-			auto node_exe_command = boost::str (boost::format (formatted_command) % node_path % data_paths[i].string () % current_network % "&");
-			auto rpc_exe_command = boost::str (boost::format (formatted_command) % rpc_path % data_paths[i].string () % current_network % "");
-
-			std::system (node_exe_command.c_str ());
-
-			// Makes sure the last command one is not executed in the background
-			if (i != data_paths.size () - 1)
-			{
-				rpc_exe_command += "&";
-			}
-			std::system (rpc_exe_command.c_str ());
-		}
-	});
-#endif
 
 	std::cout << "Waiting for nodes to spin up..." << std::endl;
 	std::this_thread::sleep_for (std::chrono::seconds (7));
@@ -520,7 +499,6 @@ int main (int argc, char * const * argv)
 	t.join ();
 	runner.join ();
 
-#if BOOST_PROCESS_SUPPORTED
 	for (auto & node : nodes)
 	{
 		node->wait ();
@@ -529,9 +507,6 @@ int main (int argc, char * const * argv)
 	{
 		rpc_server->wait ();
 	}
-#else
-	processes_thread.join ();
-#endif
 
 	std::cout << "Done!" << std::endl;
 }

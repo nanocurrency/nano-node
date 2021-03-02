@@ -122,7 +122,7 @@ void nano::rpc_handler::process_request (nano::rpc_handler_request_params const 
 			}
 			else if (request_params.rpc_version == 2)
 			{
-				rpc_handler_interface.process_request_v2 (request_params, body, [response = response](std::shared_ptr<std::string> body) {
+				rpc_handler_interface.process_request_v2 (request_params, body, [response = response](std::shared_ptr<std::string> const & body) {
 					std::string body_l = *body;
 					response (body_l);
 				});

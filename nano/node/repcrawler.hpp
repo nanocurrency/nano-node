@@ -28,7 +28,7 @@ class representative
 {
 public:
 	representative () = default;
-	representative (nano::account account_a, nano::amount weight_a, std::shared_ptr<nano::transport::channel> channel_a) :
+	representative (nano::account account_a, nano::amount weight_a, std::shared_ptr<nano::transport::channel> const & channel_a) :
 	account (account_a), weight (weight_a), channel (channel_a)
 	{
 		debug_assert (channel != nullptr);
@@ -54,7 +54,7 @@ public:
  */
 class rep_crawler final
 {
-	friend std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, const std::string & name);
+	friend std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, std::string const & name);
 
 	// clang-format off
 	class tag_account {};
@@ -93,11 +93,11 @@ public:
 	bool is_pr (nano::transport::channel const &) const;
 
 	/**
-	 * Called when a non-replay vote on a block previously sent by query() is received. This indiciates
+	 * Called when a non-replay vote on a block previously sent by query() is received. This indicates
 	 * with high probability that the endpoint is a representative node.
 	 * @return false if the vote corresponded to any active hash.
 	 */
-	bool response (std::shared_ptr<nano::transport::channel> &, std::shared_ptr<nano::vote> &);
+	bool response (std::shared_ptr<nano::transport::channel> const &, std::shared_ptr<nano::vote> const &);
 
 	/** Get total available weight from representatives */
 	nano::uint128_t total_weight () const;
@@ -133,7 +133,7 @@ private:
 	std::vector<std::shared_ptr<nano::transport::channel>> get_crawl_targets (nano::uint128_t total_weight_a);
 
 	/** When a rep request is made, this is called to update the last-request timestamp. */
-	void on_rep_request (std::shared_ptr<nano::transport::channel> channel_a);
+	void on_rep_request (std::shared_ptr<nano::transport::channel> const & channel_a);
 
 	/** Clean representatives with inactive channels */
 	void cleanup_reps ();
@@ -150,6 +150,7 @@ private:
 	friend class active_transactions_confirm_active_Test;
 	friend class active_transactions_confirm_frontier_Test;
 	friend class rep_crawler_local_Test;
+	friend class node_online_reps_rep_crawler_Test;
 
 	std::deque<std::pair<std::shared_ptr<nano::transport::channel>, std::shared_ptr<nano::vote>>> responses;
 };

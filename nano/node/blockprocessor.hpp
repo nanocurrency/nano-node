@@ -53,7 +53,8 @@ public:
 	size_t size ();
 	bool full ();
 	bool half_full ();
-	void add (nano::unchecked_info const &, const bool = false);
+	void add_local (nano::unchecked_info const & info_a, bool const = false);
+	void add (nano::unchecked_info const &, bool const = false);
 	void add (std::shared_ptr<nano::block> const &, uint64_t = 0);
 	void force (std::shared_ptr<nano::block> const &);
 	void update (std::shared_ptr<nano::block> const &);
@@ -62,7 +63,7 @@ public:
 	bool have_blocks_ready ();
 	bool have_blocks ();
 	void process_blocks ();
-	nano::process_return process_one (nano::write_transaction const &, block_post_events &, nano::unchecked_info, const bool = false, nano::block_origin const = nano::block_origin::remote);
+	nano::process_return process_one (nano::write_transaction const &, block_post_events &, nano::unchecked_info, const bool = false, const bool = false, nano::block_origin const = nano::block_origin::remote);
 	nano::process_return process_one (nano::write_transaction const &, block_post_events &, std::shared_ptr<nano::block> const &, const bool = false);
 	std::atomic<bool> flushing{ false };
 	// Delay required for average network propagartion before requesting confirmation
@@ -74,12 +75,12 @@ private:
 	void process_live (nano::transaction const &, nano::block_hash const &, std::shared_ptr<nano::block> const &, nano::process_return const &, const bool = false, nano::block_origin const = nano::block_origin::remote);
 	void process_old (nano::transaction const &, std::shared_ptr<nano::block> const &, nano::block_origin const);
 	void requeue_invalid (nano::block_hash const &, nano::unchecked_info const &);
-	void process_verified_state_blocks (std::deque<nano::unchecked_info> &, std::vector<int> const &, std::vector<nano::block_hash> const &, std::vector<nano::signature> const &);
+	void process_verified_state_blocks (std::deque<std::pair<nano::unchecked_info, bool>> &, std::vector<int> const &, std::vector<nano::block_hash> const &, std::vector<nano::signature> const &);
 	bool stopped{ false };
 	bool active{ false };
 	bool awaiting_write{ false };
 	std::chrono::steady_clock::time_point next_log;
-	std::deque<nano::unchecked_info> blocks;
+	std::deque<std::pair<nano::unchecked_info, bool>> blocks;
 	std::deque<std::shared_ptr<nano::block>> forced;
 	std::deque<std::shared_ptr<nano::block>> updates;
 	nano::condition_variable condition;
@@ -88,7 +89,7 @@ private:
 	std::mutex mutex;
 	nano::state_block_signature_verification state_block_signature_verification;
 
-	friend std::unique_ptr<container_info_component> collect_container_info (block_processor & block_processor, const std::string & name);
+	friend std::unique_ptr<container_info_component> collect_container_info (block_processor & block_processor, std::string const & name);
 };
-std::unique_ptr<nano::container_info_component> collect_container_info (block_processor & block_processor, const std::string & name);
+std::unique_ptr<nano::container_info_component> collect_container_info (block_processor & block_processor, std::string const & name);
 }

@@ -447,11 +447,10 @@ std::string from_topic (nano::websocket::topic topic_a)
 
 void nano::websocket::session::send_ack (std::string action_a, std::string id_a)
 {
-	auto milli_since_epoch = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ();
 	nano::websocket::message msg (nano::websocket::topic::ack);
 	boost::property_tree::ptree & message_l = msg.contents;
 	message_l.add ("ack", action_a);
-	message_l.add ("time", std::to_string (milli_since_epoch));
+	message_l.add ("time", std::to_string (nano::milliseconds_since_epoch ()));
 	if (!id_a.empty ())
 	{
 		message_l.add ("id", id_a);
@@ -613,7 +612,7 @@ void nano::websocket::listener::on_accept (boost::system::error_code ec)
 	}
 }
 
-void nano::websocket::listener::broadcast_confirmation (std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype, nano::election_status const & election_status_a)
+void nano::websocket::listener::broadcast_confirmation (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, nano::amount const & amount_a, std::string const & subtype, nano::election_status const & election_status_a)
 {
 	nano::websocket::message_builder builder;
 
@@ -692,7 +691,7 @@ nano::websocket::message nano::websocket::message_builder::stopped_election (nan
 	return message_l;
 }
 
-nano::websocket::message nano::websocket::message_builder::block_confirmed (std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype, bool include_block_a, nano::election_status const & election_status_a, nano::websocket::confirmation_options const & options_a)
+nano::websocket::message nano::websocket::message_builder::block_confirmed (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype, bool include_block_a, nano::election_status const & election_status_a, nano::websocket::confirmation_options const & options_a)
 {
 	nano::websocket::message message_l (nano::websocket::topic::confirmation);
 	set_common_fields (message_l);
@@ -748,7 +747,7 @@ nano::websocket::message nano::websocket::message_builder::block_confirmed (std:
 	return message_l;
 }
 
-nano::websocket::message nano::websocket::message_builder::vote_received (std::shared_ptr<nano::vote> vote_a, nano::vote_code code_a)
+nano::websocket::message nano::websocket::message_builder::vote_received (std::shared_ptr<nano::vote> const & vote_a, nano::vote_code code_a)
 {
 	nano::websocket::message message_l (nano::websocket::topic::vote);
 	set_common_fields (message_l);
@@ -915,12 +914,9 @@ nano::websocket::message nano::websocket::message_builder::new_block_arrived (na
 
 void nano::websocket::message_builder::set_common_fields (nano::websocket::message & message_a)
 {
-	using namespace std::chrono;
-	auto milli_since_epoch = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ();
-
 	// Common message information
 	message_a.contents.add ("topic", from_topic (message_a.topic));
-	message_a.contents.add ("time", std::to_string (milli_since_epoch));
+	message_a.contents.add ("time", std::to_string (nano::milliseconds_since_epoch ()));
 }
 
 std::string nano::websocket::message::to_string () const

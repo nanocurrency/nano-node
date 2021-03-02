@@ -89,7 +89,7 @@ void nano::transport::channel::send (nano::message const & message_a, std::funct
 {
 	callback_visitor visitor;
 	message_a.visit (visitor);
-	auto buffer (message_a.to_shared_const_buffer (node.ledger.cache.epoch_2_started));
+	auto buffer (message_a.to_shared_const_buffer ());
 	auto detail (visitor.result);
 	auto is_droppable_by_limiter = drop_policy_a == nano::buffer_drop_policy::limiter;
 	auto should_drop (node.network.limiter.should_drop (buffer.size ()));

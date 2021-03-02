@@ -89,9 +89,9 @@ network (network_a), ledger (network), voting (network), node (network), portmap
 	header_magic_number = network.is_dev_network () ? std::array<uint8_t, 2>{ { 'R', 'A' } } : network.is_beta_network () ? std::array<uint8_t, 2>{ { 'N', 'B' } } : network.is_live_network () ? std::array<uint8_t, 2>{ { 'R', 'C' } } : nano::test_magic_number ();
 }
 
-uint8_t nano::protocol_constants::protocol_version_min (bool use_epoch_2_min_version_a) const
+uint8_t nano::protocol_constants::protocol_version_min () const
 {
-	return use_epoch_2_min_version_a ? protocol_version_min_epoch_2 : protocol_version_min_pre_epoch_2;
+	return protocol_version_min_m;
 }
 
 nano::ledger_constants::ledger_constants (nano::network_constants & network_constants) :
@@ -164,9 +164,10 @@ nano::node_constants::node_constants (nano::network_constants & network_constant
 	weight_period = 5 * 60; // 5 minutes
 }
 
-nano::voting_constants::voting_constants (nano::network_constants & network_constants)
+nano::voting_constants::voting_constants (nano::network_constants & network_constants) :
+max_cache{ network_constants.is_dev_network () ? 256U : 128U * 1024 },
+delay{ network_constants.is_dev_network () ? 1 : 15 }
 {
-	max_cache = network_constants.is_dev_network () ? 256 : 128 * 1024;
 }
 
 nano::portmapping_constants::portmapping_constants (nano::network_constants & network_constants)
@@ -180,7 +181,7 @@ nano::bootstrap_constants::bootstrap_constants (nano::network_constants & networ
 	lazy_max_pull_blocks = network_constants.is_dev_network () ? 2 : 512;
 	lazy_min_pull_blocks = network_constants.is_dev_network () ? 1 : 32;
 	frontier_retry_limit = network_constants.is_dev_network () ? 2 : 16;
-	lazy_retry_limit = network_constants.is_dev_network () ? 2 : frontier_retry_limit * 10;
+	lazy_retry_limit = network_constants.is_dev_network () ? 2 : frontier_retry_limit * 4;
 	lazy_destinations_retry_limit = network_constants.is_dev_network () ? 1 : frontier_retry_limit / 4;
 	gap_cache_bootstrap_start_interval = network_constants.is_dev_network () ? std::chrono::milliseconds (5) : std::chrono::milliseconds (30 * 1000);
 }
@@ -340,7 +341,7 @@ nano::account const & nano::pending_key::key () const
 	return account;
 }
 
-nano::unchecked_info::unchecked_info (std::shared_ptr<nano::block> block_a, nano::account const & account_a, uint64_t modified_a, nano::signature_verification verified_a, bool confirmed_a) :
+nano::unchecked_info::unchecked_info (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, uint64_t modified_a, nano::signature_verification verified_a, bool confirmed_a) :
 block (block_a),
 account (account_a),
 modified (modified_a),
@@ -550,7 +551,7 @@ nano::vote::vote (bool & error_a, nano::stream & stream_a, nano::block_type type
 	}
 }
 
-nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, uint64_t timestamp_a, std::shared_ptr<nano::block> block_a) :
+nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, uint64_t timestamp_a, std::shared_ptr<nano::block> const & block_a) :
 timestamp{ timestamp_a },
 blocks (1, block_a),
 account (account_a),
@@ -747,7 +748,7 @@ uniquer (uniquer_a)
 {
 }
 
-std::shared_ptr<nano::vote> nano::vote_uniquer::unique (std::shared_ptr<nano::vote> vote_a)
+std::shared_ptr<nano::vote> nano::vote_uniquer::unique (std::shared_ptr<nano::vote> const & vote_a)
 {
 	auto result (vote_a);
 	if (result != nullptr && !result->blocks.empty ())
@@ -800,7 +801,7 @@ size_t nano::vote_uniquer::size ()
 	return votes.size ();
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (vote_uniquer & vote_uniquer, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (vote_uniquer & vote_uniquer, std::string const & name)
 {
 	auto count = vote_uniquer.size ();
 	auto sizeof_element = sizeof (vote_uniquer::value_type);
@@ -868,7 +869,6 @@ void nano::generate_cache::enable_all ()
 	cemented_count = true;
 	unchecked_count = true;
 	account_count = true;
-	epoch_2 = true;
 }
 
 bool nano::keypair::operator== (nano::keypair const & keypair_a) const

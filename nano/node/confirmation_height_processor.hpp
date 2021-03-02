@@ -8,6 +8,7 @@
 #include <nano/secure/common.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/mem_fun.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index_container.hpp>
@@ -36,27 +37,41 @@ public:
 	void pause ();
 	void unpause ();
 	void stop ();
-	void add (nano::block_hash const & hash_a);
+	void add (std::shared_ptr<nano::block> const &);
 	void run (confirmation_height_mode);
 	size_t awaiting_processing_size () const;
 	bool is_processing_added_block (nano::block_hash const & hash_a) const;
 	bool is_processing_block (nano::block_hash const &) const;
 	nano::block_hash current () const;
 
-	void add_cemented_observer (std::function<void(std::shared_ptr<nano::block>)> const &);
+	void add_cemented_observer (std::function<void(std::shared_ptr<nano::block> const &)> const &);
 	void add_block_already_cemented_observer (std::function<void(nano::block_hash const &)> const &);
 
 private:
 	mutable std::mutex mutex;
 	// Hashes which have been added to the confirmation height processor, but not yet processed
 	// clang-format off
+	struct block_wrapper
+	{
+		block_wrapper (std::shared_ptr<nano::block> const & block_a) :
+		block (block_a)
+		{
+		}
+
+		std::reference_wrapper<nano::block_hash const> hash () const
+		{
+			return block->hash ();
+		}
+
+		std::shared_ptr<nano::block> block;
+	};
 	class tag_sequence {};
 	class tag_hash {};
-	boost::multi_index_container<nano::block_hash,
+	boost::multi_index_container<block_wrapper,
 	mi::indexed_by<
 		mi::sequenced<mi::tag<tag_sequence>>,
 		mi::hashed_unique<mi::tag<tag_hash>,
-			mi::identity<nano::block_hash>>>> awaiting_processing;
+			mi::const_mem_fun<block_wrapper, std::reference_wrapper<nano::block_hash const>, &block_wrapper::hash>>>> awaiting_processing;
 	// clang-format on
 
 	// Hashes which have been added and processed, but have not been cemented
@@ -64,12 +79,12 @@ private:
 	bool paused{ false };
 
 	/** This is the last block popped off the confirmation height pending collection */
-	nano::block_hash original_hash{ 0 };
+	std::shared_ptr<nano::block> original_block;
 
 	nano::condition_variable condition;
 	std::atomic<bool> stopped{ false };
 	// No mutex needed for the observers as these should be set up during initialization of the node
-	std::vector<std::function<void(std::shared_ptr<nano::block>)>> cemented_observers;
+	std::vector<std::function<void(std::shared_ptr<nano::block> const &)>> cemented_observers;
 	std::vector<std::function<void(nano::block_hash const &)>> block_already_cemented_observers;
 
 	nano::ledger & ledger;

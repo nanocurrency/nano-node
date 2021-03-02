@@ -81,7 +81,7 @@ nano::uint128_t nano::rep_weights::get (nano::account const & account_a) const
 	}
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::rep_weights const & rep_weights, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::rep_weights const & rep_weights, std::string const & name)
 {
 	size_t rep_amounts_count;
 

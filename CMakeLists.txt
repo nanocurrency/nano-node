@@ -347,16 +347,8 @@ set(Boost_USE_MULTITHREADED ON)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
-find_package(
-  Boost 1.69.0 REQUIRED
-  COMPONENTS coroutine
-             context
-             filesystem
-             log
-             log_setup
-             thread
-             program_options
-             system)
+find_package(Boost 1.69.0 REQUIRED COMPONENTS filesystem log log_setup thread
+                                              program_options system)
 
 # RocksDB
 include_directories(rocksdb/include)
@@ -391,13 +383,6 @@ else()
       CACHE BOOL "" FORCE)
 endif()
 add_subdirectory(rocksdb EXCLUDE_FROM_ALL)
-
-# There is a compile bug with boost 1.69 interprocess headers on Mac
-if(APPLE AND Boost_VERSION EQUAL 106900)
-  set(BOOST_PROCESS_SUPPORTED 0)
-else()
-  set(BOOST_PROCESS_SUPPORTED 1)
-endif()
 
 include_directories(cpptoml/include)
 add_subdirectory(crypto/ed25519-donna)
@@ -556,6 +541,7 @@ if(NANO_FUZZER_TEST)
 endif()
 
 if(NANO_TEST OR RAIBLOCKS_TEST)
+  find_package(Boost 1.69.0 REQUIRED COMPONENTS coroutine context)
   if(WIN32)
     if(MSVC_VERSION)
       if(MSVC_VERSION GREATER_EQUAL 1910)
@@ -634,9 +620,6 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
                 nano/nano_wallet/entry.cpp nano/nano_wallet/icon.hpp ${RES})
 
   target_link_libraries(nano_wallet rpc node qt)
-
-  target_compile_definitions(
-    nano_wallet PRIVATE -DBOOST_PROCESS_SUPPORTED=${BOOST_PROCESS_SUPPORTED})
 
   if(WIN32)
     target_link_libraries(nano_wallet Qt5::WinExtras)

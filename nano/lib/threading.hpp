@@ -1,7 +1,10 @@
 #pragma once
 
+#include <nano/boost/asio/deadline_timer.hpp>
 #include <nano/boost/asio/executor_work_guard.hpp>
 #include <nano/boost/asio/io_context.hpp>
+#include <nano/boost/asio/steady_timer.hpp>
+#include <nano/boost/asio/thread_pool.hpp>
 #include <nano/lib/utility.hpp>
 
 #include <boost/thread/thread.hpp>
@@ -19,7 +22,6 @@ namespace thread_role
 		io,
 		work,
 		packet_processing,
-		alarm,
 		vote_processing,
 		block_processing,
 		request_loop,
@@ -79,8 +81,8 @@ public:
 };
 
 /* Default memory order of normal std::atomic operations is std::memory_order_seq_cst which provides
-   a total global ordering of atomic operations are well as synchronization between threads. Weaker memory
-   ordering can provide benefits in some circumstances, such like in dumb counters where no other data is
+   a total global ordering of atomic operations as well as synchronization between threads. Weaker memory
+   ordering can provide benefits in some circumstances, like dumb counters where no other data is
    dependent on the ordering of these operations. This assumes T is a type of integer, not bool or char. */
 template <typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
 class relaxed_atomic_integral
@@ -159,4 +161,37 @@ public:
 private:
 	std::atomic<T> atomic;
 };
+
+class thread_pool final
+{
+public:
+	explicit thread_pool (unsigned, nano::thread_role::name);
+	~thread_pool ();
+
+	/** This will run when there is an available thread for execution */
+	void push_task (std::function<void()>);
+
+	/** Run a task at a certain point in time */
+	void add_timed_task (std::chrono::steady_clock::time_point const & expiry_time, std::function<void()> task);
+
+	/** Stops any further pushed tasks from executing */
+	void stop ();
+
+	/** Number of threads in the thread pool */
+	unsigned get_num_threads () const;
+
+	/** Returns the number of tasks which are awaiting execution by the thread pool **/
+	uint64_t num_queued_tasks () const;
+
+private:
+	std::mutex mutex;
+	std::atomic<bool> stopped{ false };
+	unsigned num_threads;
+	std::unique_ptr<boost::asio::thread_pool> thread_pool_m;
+	relaxed_atomic_integral<uint64_t> num_tasks{ 0 };
+
+	void set_thread_names (unsigned num_threads, nano::thread_role::name thread_name);
+};
+
+std::unique_ptr<nano::container_info_component> collect_container_info (thread_pool & thread_pool, std::string const & name);
 }

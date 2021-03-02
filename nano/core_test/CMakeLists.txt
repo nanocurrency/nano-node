@@ -35,7 +35,6 @@ add_executable(
   telemetry.cpp
   toml.cpp
   timer.cpp
-  timestamp.cpp
   uint256_union.cpp
   utility.cpp
   vote_processor.cpp
@@ -47,10 +46,8 @@ add_executable(
   work_pool.cpp)
 
 target_compile_definitions(
-  core_test
-  PRIVATE -DTAG_VERSION_STRING=${TAG_VERSION_STRING}
-          -DGIT_COMMIT_HASH=${GIT_COMMIT_HASH}
-          -DBOOST_PROCESS_SUPPORTED=${BOOST_PROCESS_SUPPORTED} -DCI=${CI_TEST})
+  core_test PRIVATE -DTAG_VERSION_STRING=${TAG_VERSION_STRING}
+                    -DGIT_COMMIT_HASH=${GIT_COMMIT_HASH} -DCI=${CI_TEST})
 
 target_link_libraries(
   core_test

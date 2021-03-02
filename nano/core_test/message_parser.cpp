@@ -67,14 +67,14 @@ TEST (message_parser, exact_confirm_ack_size)
 	nano::network_filter filter (1);
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer (block_uniquer);
-	nano::message_parser parser (filter, block_uniquer, vote_uniquer, visitor, system.work, false);
+	nano::message_parser parser (filter, block_uniquer, vote_uniquer, visitor, system.work);
 	auto block (std::make_shared<nano::send_block> (1, 1, 2, nano::keypair ().prv, 4, *system.work.generate (nano::root (1))));
 	auto vote (std::make_shared<nano::vote> (0, nano::keypair ().prv, 0, std::move (block)));
 	nano::confirm_ack message (vote);
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream (bytes);
-		message.serialize (stream, true);
+		message.serialize (stream);
 	}
 	ASSERT_EQ (0, visitor.confirm_ack_count);
 	ASSERT_EQ (parser.status, nano::message_parser::parse_status::success);
@@ -98,18 +98,18 @@ TEST (message_parser, exact_confirm_req_size)
 {
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 
-	auto check_message = [&pool](std::shared_ptr<nano::block> block) {
+	auto check_message = [&pool] (std::shared_ptr<nano::block> block) {
 		dev_visitor visitor;
 		nano::network_filter filter (1);
 		nano::block_uniquer block_uniquer;
 		nano::vote_uniquer vote_uniquer (block_uniquer);
-		nano::message_parser parser (filter, block_uniquer, vote_uniquer, visitor, pool, false);
+		nano::message_parser parser (filter, block_uniquer, vote_uniquer, visitor, pool);
 
 		nano::confirm_req message (std::move (block));
 		std::vector<uint8_t> bytes;
 		{
 			nano::vectorstream stream (bytes);
-			message.serialize (stream, false);
+			message.serialize (stream);
 		}
 		ASSERT_EQ (0, visitor.confirm_req_count);
 		ASSERT_EQ (parser.status, nano::message_parser::parse_status::success);
@@ -158,13 +158,13 @@ TEST (message_parser, exact_confirm_req_hash_size)
 	nano::network_filter filter (1);
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer (block_uniquer);
-	nano::message_parser parser (filter, block_uniquer, vote_uniquer, visitor, system.work, true);
+	nano::message_parser parser (filter, block_uniquer, vote_uniquer, visitor, system.work);
 	nano::send_block block (1, 1, 2, nano::keypair ().prv, 4, *system.work.generate (nano::root (1)));
 	nano::confirm_req message (block.hash (), block.root ());
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream (bytes);
-		message.serialize (stream, false);
+		message.serialize (stream);
 	}
 	ASSERT_EQ (0, visitor.confirm_req_count);
 	ASSERT_EQ (parser.status, nano::message_parser::parse_status::success);
@@ -188,17 +188,17 @@ TEST (message_parser, exact_publish_size)
 {
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 
-	auto check_message = [&pool](std::shared_ptr<nano::block> block) {
+	auto check_message = [&pool] (std::shared_ptr<nano::block> block) {
 		dev_visitor visitor;
 		nano::network_filter filter (1);
 		nano::block_uniquer block_uniquer;
 		nano::vote_uniquer vote_uniquer (block_uniquer);
-		nano::message_parser parser (filter, block_uniquer, vote_uniquer, visitor, pool, true);
+		nano::message_parser parser (filter, block_uniquer, vote_uniquer, visitor, pool);
 		nano::publish message (std::move (block));
 		std::vector<uint8_t> bytes;
 		{
 			nano::vectorstream stream (bytes);
-			message.serialize (stream, false);
+			message.serialize (stream);
 		}
 		ASSERT_EQ (0, visitor.publish_count);
 		ASSERT_EQ (parser.status, nano::message_parser::parse_status::success);
@@ -247,12 +247,12 @@ TEST (message_parser, exact_keepalive_size)
 	nano::network_filter filter (1);
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer (block_uniquer);
-	nano::message_parser parser (filter, block_uniquer, vote_uniquer, visitor, system.work, true);
+	nano::message_parser parser (filter, block_uniquer, vote_uniquer, visitor, system.work);
 	nano::keepalive message;
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream (bytes);
-		message.serialize (stream, true);
+		message.serialize (stream);
 	}
 	ASSERT_EQ (0, visitor.keepalive_count);
 	ASSERT_EQ (parser.status, nano::message_parser::parse_status::success);

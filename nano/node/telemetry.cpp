@@ -1,6 +1,5 @@
-#include <nano/lib/alarm.hpp>
 #include <nano/lib/stats.hpp>
-#include <nano/lib/worker.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/telemetry.hpp>
@@ -19,10 +18,9 @@
 
 using namespace std::chrono_literals;
 
-nano::telemetry::telemetry (nano::network & network_a, nano::alarm & alarm_a, nano::worker & worker_a, nano::observer_set<nano::telemetry_data const &, nano::endpoint const &> & observers_a, nano::stat & stats_a, nano::network_params & network_params_a, bool disable_ongoing_requests_a) :
+nano::telemetry::telemetry (nano::network & network_a, nano::thread_pool & workers_a, nano::observer_set<nano::telemetry_data const &, nano::endpoint const &> & observers_a, nano::stat & stats_a, nano::network_params & network_params_a, bool disable_ongoing_requests_a) :
 network (network_a),
-alarm (alarm_a),
-worker (worker_a),
+workers (workers_a),
 observers (observers_a),
 stats (stats_a),
 network_params (network_params_a),
@@ -90,7 +88,7 @@ bool nano::telemetry::verify_message (nano::telemetry_ack const & message_a, nan
 	if (!node_id_mismatch)
 	{
 		// The data could be correctly signed but for a different node id
-		remove_channel = message_a.data.validate_signature (message_a.size ());
+		remove_channel = message_a.data.validate_signature ();
 		if (!remove_channel)
 		{
 			// Check for different genesis blocks
@@ -142,7 +140,7 @@ bool nano::telemetry::within_cache_cutoff (telemetry_info const & telemetry_info
 
 void nano::telemetry::ongoing_req_all_peers (std::chrono::milliseconds next_request_interval)
 {
-	alarm.add (std::chrono::steady_clock::now () + next_request_interval, [this_w = std::weak_ptr<telemetry> (shared_from_this ())]() {
+	workers.add_timed_task (std::chrono::steady_clock::now () + next_request_interval, [this_w = std::weak_ptr<telemetry> (shared_from_this ())]() {
 		if (auto this_l = this_w.lock ())
 		{
 			// Check if there are any peers which are in the peers list which haven't been request, or any which are below or equal to the cache cutoff time
@@ -177,7 +175,7 @@ void nano::telemetry::ongoing_req_all_peers (std::chrono::milliseconds next_requ
 
 				{
 					// Copy peers to the multi index container so can get better asymptotic complexity in future operations
-					auto temp_peers = this_l->network.list (std::numeric_limits<size_t>::max (), this_l->network_params.protocol.telemetry_protocol_version_min);
+					auto temp_peers = this_l->network.list (std::numeric_limits<size_t>::max ());
 					peers.insert (temp_peers.begin (), temp_peers.end ());
 				}
 
@@ -264,13 +262,13 @@ std::unordered_map<nano::endpoint, nano::telemetry_data> nano::telemetry::get_me
 
 void nano::telemetry::get_metrics_single_peer_async (std::shared_ptr<nano::transport::channel> const & channel_a, std::function<void(telemetry_data_response const &)> const & callback_a)
 {
-	auto invoke_callback_with_error = [&callback_a, &worker = this->worker, channel_a]() {
+	auto invoke_callback_with_error = [&callback_a, &workers = this->workers, channel_a]() {
 		nano::endpoint endpoint;
 		if (channel_a)
 		{
 			endpoint = channel_a->get_endpoint ();
 		}
-		worker.push_task ([callback_a, endpoint]() {
+		workers.push_task ([callback_a, endpoint]() {
 			auto const error = true;
 			callback_a ({ nano::telemetry_data{}, endpoint, error });
 		});
@@ -278,11 +276,11 @@ void nano::telemetry::get_metrics_single_peer_async (std::shared_ptr<nano::trans
 
 	if (!stopped)
 	{
-		if (channel_a && (channel_a->get_network_version () >= network_params.protocol.telemetry_protocol_version_min))
+		if (channel_a)
 		{
-			auto add_callback_async = [& worker = this->worker, &callback_a](telemetry_data const & telemetry_data_a, nano::endpoint const & endpoint_a) {
+			auto add_callback_async = [& workers = this->workers, &callback_a](telemetry_data const & telemetry_data_a, nano::endpoint const & endpoint_a) {
 				telemetry_data_response telemetry_data_response_l{ telemetry_data_a, endpoint_a, false };
-				worker.push_task ([telemetry_data_response_l, callback_a]() {
+				workers.push_task ([telemetry_data_response_l, callback_a]() {
 					callback_a (telemetry_data_response_l);
 				});
 			};
@@ -344,9 +342,6 @@ nano::telemetry_data_response nano::telemetry::get_metrics_single_peer (std::sha
 
 void nano::telemetry::fire_request_message (std::shared_ptr<nano::transport::channel> const & channel_a)
 {
-	// Fire off a telemetry request to all passed in channels
-	debug_assert (channel_a->get_network_version () >= network_params.protocol.telemetry_protocol_version_min);
-
 	uint64_t round_l;
 	{
 		auto it = recent_or_initial_request_telemetry_data.find (channel_a->get_endpoint ());
@@ -372,7 +367,7 @@ void nano::telemetry::fire_request_message (std::shared_ptr<nano::transport::cha
 			else
 			{
 				// If no response is seen after a certain period of time remove it
-				this_l->alarm.add (std::chrono::steady_clock::now () + this_l->response_time_cutoff, [round_l, this_w, endpoint]() {
+				this_l->workers.add_timed_task (std::chrono::steady_clock::now () + this_l->response_time_cutoff, [round_l, this_w, endpoint]() {
 					if (auto this_l = this_w.lock ())
 					{
 						nano::lock_guard<std::mutex> guard (this_l->mutex);
@@ -413,8 +408,8 @@ void nano::telemetry::channel_processed (nano::endpoint const & endpoint_a, bool
 
 void nano::telemetry::flush_callbacks_async (nano::endpoint const & endpoint_a, bool error_a)
 {
-	// Post to worker so that it's truly async and not on the calling thread (same problem as std::async otherwise)
-	worker.push_task ([endpoint_a, error_a, this_w = std::weak_ptr<nano::telemetry> (shared_from_this ())]() {
+	// Post to thread_pool so that it's truly async and not on the calling thread (same problem as std::async otherwise)
+	workers.push_task ([endpoint_a, error_a, this_w = std::weak_ptr<nano::telemetry> (shared_from_this ())]() {
 		if (auto this_l = this_w.lock ())
 		{
 			nano::unique_lock<std::mutex> lk (this_l->mutex);
@@ -471,7 +466,7 @@ bool nano::telemetry_info::awaiting_first_response () const
 	return data == nano::telemetry_data ();
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (telemetry & telemetry, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (telemetry & telemetry, std::string const & name)
 {
 	auto composite = std::make_unique<container_info_composite> (name);
 	size_t callbacks_count;

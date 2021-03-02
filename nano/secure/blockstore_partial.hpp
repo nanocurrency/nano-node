@@ -3,7 +3,7 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/rep_weights.hpp>
 #include <nano/lib/threading.hpp>
-#include <nano/lib/timestamp.hpp>
+#include <nano/lib/timer.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/buffer.hpp>
 
@@ -11,6 +11,11 @@
 
 #include <thread>
 
+#define release_assert_success(status)                 \
+	if (!success (status))                             \
+	{                                                  \
+		release_assert (false, error_string (status)); \
+	}
 namespace
 {
 template <typename T>
@@ -284,7 +289,7 @@ public:
 	void block_del (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a) override
 	{
 		auto status = del (transaction_a, tables::blocks, hash_a);
-		release_assert (success (status));
+		release_assert_success (status);
 	}
 
 	int version_get (nano::transaction const & transaction_a) const override
@@ -316,20 +321,20 @@ public:
 	{
 		nano::db_val<Val> value{ data.size (), (void *)data.data () };
 		auto status = put (transaction_a, tables::blocks, hash_a, value);
-		release_assert (success (status));
+		release_assert_success (status);
 	}
 
 	void pending_put (nano::write_transaction const & transaction_a, nano::pending_key const & key_a, nano::pending_info const & pending_info_a) override
 	{
 		nano::db_val<Val> pending (pending_info_a);
 		auto status = put (transaction_a, tables::pending, key_a, pending);
-		release_assert (success (status));
+		release_assert_success (status);
 	}
 
 	void pending_del (nano::write_transaction const & transaction_a, nano::pending_key const & key_a) override
 	{
 		auto status = del (transaction_a, tables::pending, key_a);
-		release_assert (success (status));
+		release_assert_success (status);
 	}
 
 	bool pending_get (nano::transaction const & transaction_a, nano::pending_key const & key_a, nano::pending_info & pending_a) override
@@ -351,7 +356,7 @@ public:
 	{
 		nano::db_val<Val> account (account_a);
 		auto status (put (transaction_a, tables::frontiers, block_a, account));
-		release_assert (success (status));
+		release_assert_success (status);
 	}
 
 	nano::account frontier_get (nano::transaction const & transaction_a, nano::block_hash const & block_a) const override
@@ -370,33 +375,33 @@ public:
 	void frontier_del (nano::write_transaction const & transaction_a, nano::block_hash const & block_a) override
 	{
 		auto status (del (transaction_a, tables::frontiers, block_a));
-		release_assert (success (status));
+		release_assert_success (status);
 	}
 
 	void unchecked_put (nano::write_transaction const & transaction_a, nano::unchecked_key const & key_a, nano::unchecked_info const & info_a) override
 	{
 		nano::db_val<Val> info (info_a);
 		auto status (put (transaction_a, tables::unchecked, key_a, info));
-		release_assert (success (status));
+		release_assert_success (status);
 	}
 
 	void unchecked_del (nano::write_transaction const & transaction_a, nano::unchecked_key const & key_a) override
 	{
 		auto status (del (transaction_a, tables::unchecked, key_a));
-		release_assert (success (status));
+		release_assert_success (status);
 	}
 
 	void online_weight_put (nano::write_transaction const & transaction_a, uint64_t time_a, nano::amount const & amount_a) override
 	{
 		nano::db_val<Val> value (amount_a);
 		auto status (put (transaction_a, tables::online_weight, time_a, value));
-		release_assert (success (status));
+		release_assert_success (status);
 	}
 
 	void online_weight_del (nano::write_transaction const & transaction_a, uint64_t time_a) override
 	{
 		auto status (del (transaction_a, tables::online_weight, time_a));
-		release_assert (success (status));
+		release_assert_success (status);
 	}
 
 	void account_put (nano::write_transaction const & transaction_a, nano::account const & account_a, nano::account_info const & info_a) override
@@ -404,13 +409,13 @@ public:
 		// Check we are still in sync with other tables
 		nano::db_val<Val> info (info_a);
 		auto status = put (transaction_a, tables::accounts, account_a, info);
-		release_assert (success (status));
+		release_assert_success (status);
 	}
 
 	void account_del (nano::write_transaction const & transaction_a, nano::account const & account_a) override
 	{
 		auto status = del (transaction_a, tables::accounts, account_a);
-		release_assert (success (status));
+		release_assert_success (status);
 	}
 
 	bool account_get (nano::transaction const & transaction_a, nano::account const & account_a, nano::account_info & info_a) override
@@ -431,7 +436,7 @@ public:
 	void unchecked_clear (nano::write_transaction const & transaction_a) override
 	{
 		auto status = drop (transaction_a, tables::unchecked);
-		release_assert (success (status));
+		release_assert_success (status);
 	}
 
 	size_t online_weight_count (nano::transaction const & transaction_a) const override
@@ -442,19 +447,19 @@ public:
 	void online_weight_clear (nano::write_transaction const & transaction_a) override
 	{
 		auto status (drop (transaction_a, tables::online_weight));
-		release_assert (success (status));
+		release_assert_success (status);
 	}
 
 	void pruned_put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a) override
 	{
 		auto status = put_key (transaction_a, tables::pruned, hash_a);
-		release_assert (success (status));
+		release_assert_success (status);
 	}
 
 	void pruned_del (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a) override
 	{
 		auto status = del (transaction_a, tables::pruned, hash_a);
-		release_assert (success (status));
+		release_assert_success (status);
 	}
 
 	bool pruned_exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override
@@ -475,19 +480,19 @@ public:
 	void pruned_clear (nano::write_transaction const & transaction_a) override
 	{
 		auto status = drop (transaction_a, tables::pruned);
-		release_assert (success (status));
+		release_assert_success (status);
 	}
 
 	void peer_put (nano::write_transaction const & transaction_a, nano::endpoint_key const & endpoint_a) override
 	{
 		auto status = put_key (transaction_a, tables::peers, endpoint_a);
-		release_assert (success (status));
+		release_assert_success (status);
 	}
 
 	void peer_del (nano::write_transaction const & transaction_a, nano::endpoint_key const & endpoint_a) override
 	{
 		auto status (del (transaction_a, tables::peers, endpoint_a));
-		release_assert (success (status));
+		release_assert_success (status);
 	}
 
 	bool peer_exists (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a) const override
@@ -503,7 +508,7 @@ public:
 	void peer_clear (nano::write_transaction const & transaction_a) override
 	{
 		auto status = drop (transaction_a, tables::peers);
-		release_assert (success (status));
+		release_assert_success (status);
 	}
 
 	bool exists (nano::transaction const & transaction_a, tables table_a, nano::db_val<Val> const & key_a) const
@@ -557,7 +562,7 @@ public:
 	{
 		nano::db_val<Val> confirmation_height_info (confirmation_height_info_a);
 		auto status = put (transaction_a, tables::confirmation_height, account_a, confirmation_height_info);
-		release_assert (success (status));
+		release_assert_success (status);
 	}
 
 	bool confirmation_height_get (nano::transaction const & transaction_a, nano::account const & account_a, nano::confirmation_height_info & confirmation_height_info_a) override
@@ -583,7 +588,7 @@ public:
 	void confirmation_height_del (nano::write_transaction const & transaction_a, nano::account const & account_a) override
 	{
 		auto status (del (transaction_a, tables::confirmation_height, nano::db_val<Val> (account_a)));
-		release_assert (success (status));
+		release_assert_success (status);
 	}
 
 	bool confirmation_height_exists (nano::transaction const & transaction_a, nano::account const & account_a) const override
@@ -820,6 +825,7 @@ protected:
 	virtual bool not_found (int status) const = 0;
 	virtual bool success (int status) const = 0;
 	virtual int status_code_not_found () const = 0;
+	virtual std::string error_string (int status) const = 0;
 };
 
 /**

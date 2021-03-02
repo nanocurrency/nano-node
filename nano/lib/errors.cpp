@@ -83,6 +83,8 @@ std::string nano::error_common_messages::message (int ev) const
 			return "Invalid type conversion";
 		case nano::error_common::invalid_work:
 			return "Invalid work";
+		case nano::error_common::is_not_state_block:
+			return "Must be a state block";
 		case nano::error_common::numeric_conversion:
 			return "Numeric conversion error";
 		case nano::error_common::tracking_not_enabled:

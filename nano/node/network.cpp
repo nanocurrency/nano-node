@@ -22,10 +22,7 @@ publish_filter (256 * 1024),
 udp_channels (node_a, port_a),
 tcp_channels (node_a),
 port (port_a),
-disconnect_observer ([]() {}),
-cleanup_timer{ node_a.io_ctx },
-cookie_timer{ node_a.io_ctx },
-keepalive_timer{ node_a.io_ctx }
+disconnect_observer ([]() {})
 {
 	boost::thread::attributes attrs;
 	nano::thread_attributes::set (attrs);
@@ -136,27 +133,24 @@ void nano::network::stop ()
 		{
 			thread.join ();
 		}
-		cleanup_timer.cancel ();
-		cookie_timer.cancel ();
-		keepalive_timer.cancel ();
 	}
 }
 
-void nano::network::send_keepalive (std::shared_ptr<nano::transport::channel> channel_a)
+void nano::network::send_keepalive (std::shared_ptr<nano::transport::channel> const & channel_a)
 {
 	nano::keepalive message;
 	random_fill (message.peers);
 	channel_a->send (message);
 }
 
-void nano::network::send_keepalive_self (std::shared_ptr<nano::transport::channel> channel_a)
+void nano::network::send_keepalive_self (std::shared_ptr<nano::transport::channel> const & channel_a)
 {
 	nano::keepalive message;
 	fill_keepalive_self (message.peers);
 	channel_a->send (message);
 }
 
-void nano::network::send_node_id_handshake (std::shared_ptr<nano::transport::channel> channel_a, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to)
+void nano::network::send_node_id_handshake (std::shared_ptr<nano::transport::channel> const & channel_a, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to)
 {
 	boost::optional<std::pair<nano::account, nano::signature>> response (boost::none);
 	if (respond_to)
@@ -219,33 +213,36 @@ void nano::network::flood_vote_pr (std::shared_ptr<nano::vote> const & vote_a)
 
 void nano::network::flood_block_many (std::deque<std::shared_ptr<nano::block>> blocks_a, std::function<void()> callback_a, unsigned delay_a)
 {
-	auto block_l (blocks_a.front ());
-	blocks_a.pop_front ();
-	flood_block (block_l);
 	if (!blocks_a.empty ())
 	{
-		std::weak_ptr<nano::node> node_w (node.shared ());
-		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a + std::rand () % delay_a), [node_w, blocks (std::move (blocks_a)), callback_a, delay_a]() {
-			if (auto node_l = node_w.lock ())
-			{
-				node_l->network.flood_block_many (std::move (blocks), callback_a, delay_a);
-			}
-		});
-	}
-	else if (callback_a)
-	{
-		callback_a ();
+		auto block_l (blocks_a.front ());
+		blocks_a.pop_front ();
+		flood_block (block_l);
+		if (!blocks_a.empty ())
+		{
+			std::weak_ptr<nano::node> node_w (node.shared ());
+			node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a + std::rand () % delay_a), [node_w, blocks (std::move (blocks_a)), callback_a, delay_a]() {
+				if (auto node_l = node_w.lock ())
+				{
+					node_l->network.flood_block_many (std::move (blocks), callback_a, delay_a);
+				}
+			});
+		}
+		else if (callback_a)
+		{
+			callback_a ();
+		}
 	}
 }
 
-void nano::network::send_confirm_req (std::shared_ptr<nano::transport::channel> channel_a, std::pair<nano::block_hash, nano::block_hash> const & hash_root_a)
+void nano::network::send_confirm_req (std::shared_ptr<nano::transport::channel> const & channel_a, std::pair<nano::block_hash, nano::block_hash> const & hash_root_a)
 {
 	// Confirmation request with hash + root
 	nano::confirm_req req (hash_root_a.first, hash_root_a.second);
 	channel_a->send (req);
 }
 
-void nano::network::broadcast_confirm_req (std::shared_ptr<nano::block> block_a)
+void nano::network::broadcast_confirm_req (std::shared_ptr<nano::block> const & block_a)
 {
 	auto list (std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> (node.rep_crawler.representative_endpoints (std::numeric_limits<size_t>::max ())));
 	if (list->empty () || node.rep_crawler.total_weight () < node.online_reps.delta ())
@@ -273,7 +270,7 @@ void nano::network::broadcast_confirm_req (std::shared_ptr<nano::block> block_a)
 	broadcast_confirm_req_base (block_a, list, 0);
 }
 
-void nano::network::broadcast_confirm_req_base (std::shared_ptr<nano::block> block_a, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>> endpoints_a, unsigned delay_a, bool resumption)
+void nano::network::broadcast_confirm_req_base (std::shared_ptr<nano::block> const & block_a, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>> const & endpoints_a, unsigned delay_a, bool resumption)
 {
 	const size_t max_reps = 10;
 	if (!resumption && node.config.logging.network_logging ())
@@ -293,7 +290,7 @@ void nano::network::broadcast_confirm_req_base (std::shared_ptr<nano::block> blo
 		delay_a += std::rand () % broadcast_interval_ms;
 
 		std::weak_ptr<nano::node> node_w (node.shared ());
-		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a), [node_w, block_a, endpoints_a, delay_a]() {
+		node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a), [node_w, block_a, endpoints_a, delay_a]() {
 			if (auto node_l = node_w.lock ())
 			{
 				node_l->network.broadcast_confirm_req_base (block_a, endpoints_a, delay_a, true);
@@ -333,7 +330,7 @@ void nano::network::broadcast_confirm_req_batched_many (std::unordered_map<std::
 	if (!request_bundle_a.empty ())
 	{
 		std::weak_ptr<nano::node> node_w (node.shared ());
-		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a), [node_w, request_bundle_a, callback_a, delay_a]() {
+		node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a), [node_w, request_bundle_a, callback_a, delay_a]() {
 			if (auto node_l = node_w.lock ())
 			{
 				node_l->network.broadcast_confirm_req_batched_many (request_bundle_a, callback_a, delay_a, true);
@@ -362,7 +359,7 @@ void nano::network::broadcast_confirm_req_many (std::deque<std::pair<std::shared
 	if (!requests_a.empty ())
 	{
 		std::weak_ptr<nano::node> node_w (node.shared ());
-		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a + std::rand () % delay_a), [node_w, requests_a, callback_a, delay_a]() {
+		node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a + std::rand () % delay_a), [node_w, requests_a, callback_a, delay_a]() {
 			if (auto node_l = node_w.lock ())
 			{
 				node_l->network.broadcast_confirm_req_many (requests_a, callback_a, delay_a);
@@ -460,7 +457,7 @@ public:
 				{
 					if (!vote_block.which ())
 					{
-						auto block (boost::get<std::shared_ptr<nano::block>> (vote_block));
+						auto const & block (boost::get<std::shared_ptr<nano::block>> (vote_block));
 						if (!node.block_processor.full ())
 						{
 							node.process_active (block);
@@ -530,7 +527,7 @@ public:
 };
 }
 
-void nano::network::process_message (nano::message const & message_a, std::shared_ptr<nano::transport::channel> channel_a)
+void nano::network::process_message (nano::message const & message_a, std::shared_ptr<nano::transport::channel> const & channel_a)
 {
 	network_message_visitor visitor (node, channel_a);
 	message_a.visit (visitor);
@@ -550,7 +547,7 @@ void nano::network::merge_peer (nano::endpoint const & peer_a)
 	if (!reachout (peer_a, node.config.allow_local_peers))
 	{
 		std::weak_ptr<nano::node> node_w (node.shared ());
-		node.network.tcp_channels.start_tcp (peer_a, [node_w](std::shared_ptr<nano::transport::channel> channel_a) {
+		node.network.tcp_channels.start_tcp (peer_a, [node_w](std::shared_ptr<nano::transport::channel> const & channel_a) {
 			if (auto node_l = node_w.lock ())
 			{
 				node_l->network.send_keepalive (channel_a);
@@ -688,11 +685,11 @@ nano::tcp_endpoint nano::network::bootstrap_peer (bool lazy_bootstrap)
 	bool use_udp_peer (nano::random_pool::generate_word32 (0, 1));
 	if (use_udp_peer || tcp_channels.size () == 0)
 	{
-		result = udp_channels.bootstrap_peer (node.network_params.protocol.protocol_version_min (node.ledger.cache.epoch_2_started));
+		result = udp_channels.bootstrap_peer (node.network_params.protocol.protocol_version_min ());
 	}
 	if (result == nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0))
 	{
-		result = tcp_channels.bootstrap_peer (node.network_params.protocol.protocol_version_min (node.ledger.cache.epoch_2_started));
+		result = tcp_channels.bootstrap_peer (node.network_params.protocol.protocol_version_min ());
 	}
 	return result;
 }
@@ -734,47 +731,38 @@ void nano::network::cleanup (std::chrono::steady_clock::time_point const & cutof
 
 void nano::network::ongoing_cleanup ()
 {
-	node.spawn (
-	[this](boost::asio::yield_context yield) {
-		boost::system::error_code ec;
-		while (!stopped && !ec)
+	cleanup (std::chrono::steady_clock::now () - node.network_params.node.cutoff);
+	std::weak_ptr<nano::node> node_w (node.shared ());
+	node.workers.add_timed_task (std::chrono::steady_clock::now () + node.network_params.node.period, [node_w]() {
+		if (auto node_l = node_w.lock ())
 		{
-			cleanup (std::chrono::steady_clock::now () - node.network_params.node.cutoff);
-			cleanup_timer.expires_from_now (node.network_params.node.period);
-			cleanup_timer.async_wait (yield[ec]);
+			node_l->network.ongoing_cleanup ();
 		}
-		debug_assert (stopped || ec == boost::asio::error::operation_aborted);
 	});
 }
 
 void nano::network::ongoing_syn_cookie_cleanup ()
 {
-	node.spawn (
-	[this](boost::asio::yield_context yield) {
-		boost::system::error_code ec;
-		while (!stopped && !ec)
+	syn_cookies.purge (std::chrono::steady_clock::now () - nano::transport::syn_cookie_cutoff);
+	std::weak_ptr<nano::node> node_w (node.shared ());
+	node.workers.add_timed_task (std::chrono::steady_clock::now () + (nano::transport::syn_cookie_cutoff * 2), [node_w]() {
+		if (auto node_l = node_w.lock ())
 		{
-			this->syn_cookies.purge (std::chrono::steady_clock::now () - nano::transport::syn_cookie_cutoff);
-			cookie_timer.expires_from_now (nano::transport::syn_cookie_cutoff * 2);
-			cookie_timer.async_wait (yield[ec]);
+			node_l->network.ongoing_syn_cookie_cleanup ();
 		}
-		debug_assert (stopped || ec == boost::asio::error::operation_aborted);
 	});
 }
 
 void nano::network::ongoing_keepalive ()
 {
-	node.spawn (
-	[this](boost::asio::yield_context yield) {
-		boost::system::error_code ec;
-		while (!stopped && !ec)
+	flood_keepalive (0.75f);
+	flood_keepalive_self (0.25f);
+	std::weak_ptr<nano::node> node_w (node.shared ());
+	node.workers.add_timed_task (std::chrono::steady_clock::now () + node.network_params.node.half_period, [node_w]() {
+		if (auto node_l = node_w.lock ())
 		{
-			flood_keepalive (0.75f);
-			flood_keepalive_self (0.25f);
-			keepalive_timer.expires_from_now (node.network_params.node.half_period);
-			keepalive_timer.async_wait (yield[ec]);
+			node_l->network.ongoing_keepalive ();
 		}
-		debug_assert (stopped || ec == boost::asio::error::operation_aborted);
 	});
 }
 
@@ -791,18 +779,6 @@ float nano::network::size_sqrt () const
 bool nano::network::empty () const
 {
 	return size () == 0;
-}
-
-void nano::network::erase_below_version (uint8_t cutoff_version_a)
-{
-	std::vector<std::shared_ptr<nano::transport::channel>> channels_to_remove;
-	tcp_channels.list_below_version (channels_to_remove, cutoff_version_a);
-	udp_channels.list_below_version (channels_to_remove, cutoff_version_a);
-	for (auto const & channel_to_remove : channels_to_remove)
-	{
-		debug_assert (channel_to_remove->get_network_version () < cutoff_version_a);
-		erase (*channel_to_remove);
-	}
 }
 
 void nano::network::erase (nano::transport::channel const & channel_a)
@@ -1042,7 +1018,7 @@ size_t nano::syn_cookies::cookies_size ()
 	return cookies.size ();
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (network & network, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (network & network, std::string const & name)
 {
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (network.tcp_channels.collect_container_info ("tcp_channels"));

@@ -1,12 +1,8 @@
 #pragma once
 
-#include <nano/boost/asio/spawn.hpp>
-#include <nano/lib/alarm.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/stats.hpp>
-#include <nano/lib/timestamp.hpp>
 #include <nano/lib/work.hpp>
-#include <nano/lib/worker.hpp>
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
@@ -82,26 +78,20 @@ public:
 	static std::chrono::seconds constexpr arrival_time_min = std::chrono::seconds (300);
 };
 
-std::unique_ptr<container_info_component> collect_container_info (block_arrival & block_arrival, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (block_arrival & block_arrival, std::string const & name);
 
-std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, std::string const & name);
 
 class node final : public std::enable_shared_from_this<nano::node>
 {
 public:
-	node (boost::asio::io_context &, uint16_t, boost::filesystem::path const &, nano::alarm &, nano::logging const &, nano::work_pool &, nano::node_flags = nano::node_flags (), unsigned seq = 0);
-	node (boost::asio::io_context &, boost::filesystem::path const &, nano::alarm &, nano::node_config const &, nano::work_pool &, nano::node_flags = nano::node_flags (), unsigned seq = 0);
+	node (boost::asio::io_context &, uint16_t, boost::filesystem::path const &, nano::logging const &, nano::work_pool &, nano::node_flags = nano::node_flags (), unsigned seq = 0);
+	node (boost::asio::io_context &, boost::filesystem::path const &, nano::node_config const &, nano::work_pool &, nano::node_flags = nano::node_flags (), unsigned seq = 0);
 	~node ();
 	template <typename T>
 	void background (T action_a)
 	{
-		alarm.io_ctx.post (action_a);
-	}
-	template <typename... Params>
-	void spawn (Params... args)
-	{
-		boost::coroutines::attributes attributes{ boost::coroutines::stack_allocator::traits_type::default_size () * (is_sanitizer_build ? 2 : 1) };
-		boost::asio::spawn (io_ctx, std::forward<Params> (args)..., attributes);
+		io_ctx.post (action_a);
 	}
 	bool copy_with_compaction (boost::filesystem::path const &);
 	void keepalive (std::string const &, uint16_t);
@@ -109,12 +99,13 @@ public:
 	void stop ();
 	std::shared_ptr<nano::node> shared ();
 	int store_version ();
-	void receive_confirmed (nano::transaction const & wallet_transaction_a, nano::transaction const & block_transaction_a, nano::block_hash const & hash_a, nano::account const & destination_a);
+	void receive_confirmed (nano::transaction const & block_transaction_a, nano::block_hash const & hash_a, nano::account const & destination_a);
 	void process_confirmed_data (nano::transaction const &, std::shared_ptr<nano::block> const &, nano::block_hash const &, nano::account &, nano::uint128_t &, bool &, nano::account &);
 	void process_confirmed (nano::election_status const &, uint64_t = 0);
 	void process_active (std::shared_ptr<nano::block> const &);
 	nano::process_return process (nano::block &);
 	nano::process_return process_local (std::shared_ptr<nano::block> const &, bool const = false);
+	void process_local_async (std::shared_ptr<nano::block> const &, bool const = false);
 	void keepalive_preconfigured (std::vector<std::string> const &);
 	nano::block_hash latest (nano::account const &);
 	nano::uint128_t balance (nano::account const &);
@@ -151,24 +142,22 @@ public:
 	bool block_confirmed (nano::block_hash const &);
 	bool block_confirmed_or_being_confirmed (nano::transaction const &, nano::block_hash const &);
 	void process_fork (nano::transaction const &, std::shared_ptr<nano::block> const &, uint64_t);
-	void do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, std::string const &, uint16_t, std::shared_ptr<std::string>, std::shared_ptr<std::string>, std::shared_ptr<boost::asio::ip::tcp::resolver>);
+	void do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, std::string const &, uint16_t, std::shared_ptr<std::string> const &, std::shared_ptr<std::string> const &, std::shared_ptr<boost::asio::ip::tcp::resolver> const &);
 	void ongoing_online_weight_calculation ();
 	void ongoing_online_weight_calculation_queue ();
 	bool online () const;
 	bool init_error () const;
 	bool epoch_upgrader (nano::private_key const &, nano::epoch, uint64_t, uint64_t);
 	std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> get_bootstrap_weights () const;
-	nano::timestamp_generator timestamps;
-	nano::worker worker;
 	nano::write_database_queue write_database_queue;
 	boost::asio::io_context & io_ctx;
 	boost::latch node_initialized_latch;
 	nano::network_params network_params;
 	nano::node_config config;
 	nano::stat stats;
+	nano::thread_pool workers;
 	std::shared_ptr<nano::websocket::listener> websocket_server;
 	nano::node_flags flags;
-	nano::alarm & alarm;
 	nano::work_pool & work;
 	nano::distributed_work_factory distributed_work;
 	nano::logger_mt logger;
@@ -186,13 +175,13 @@ public:
 	boost::filesystem::path application_path;
 	nano::node_observers observers;
 	nano::port_mapping port_mapping;
-	nano::vote_processor vote_processor;
+	nano::online_reps online_reps;
 	nano::rep_crawler rep_crawler;
+	nano::vote_processor vote_processor;
 	unsigned warmed_up;
 	nano::block_processor block_processor;
 	std::thread block_processor_thread;
 	nano::block_arrival block_arrival;
-	nano::online_reps online_reps;
 	nano::local_vote_history history;
 	nano::keypair node_id;
 	nano::block_uniquer block_uniquer;
@@ -222,7 +211,7 @@ private:
 	nano::locked<std::future<void>> epoch_upgrading;
 };
 
-std::unique_ptr<container_info_component> collect_container_info (node & node, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (node & node, std::string const & name);
 
 nano::node_flags const & inactive_node_flag_defaults ();
 
@@ -232,7 +221,6 @@ public:
 	inactive_node (boost::filesystem::path const & path_a, nano::node_flags const & node_flags_a);
 	~inactive_node ();
 	std::shared_ptr<boost::asio::io_context> io_context;
-	nano::alarm alarm;
 	nano::work_pool work;
 	std::shared_ptr<nano::node> node;
 };

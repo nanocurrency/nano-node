@@ -17,10 +17,9 @@ namespace mi = boost::multi_index;
 namespace nano
 {
 class network;
-class alarm;
-class worker;
 class stat;
 class ledger;
+class thread_pool;
 namespace transport
 {
 	class channel;
@@ -61,7 +60,7 @@ public:
 class telemetry : public std::enable_shared_from_this<telemetry>
 {
 public:
-	telemetry (nano::network &, nano::alarm &, nano::worker &, nano::observer_set<nano::telemetry_data const &, nano::endpoint const &> &, nano::stat &, nano::network_params &, bool);
+	telemetry (nano::network &, nano::thread_pool &, nano::observer_set<nano::telemetry_data const &, nano::endpoint const &> &, nano::stat &, nano::network_params &, bool);
 	void start ();
 	void stop ();
 
@@ -105,8 +104,7 @@ private:
 	};
 
 	nano::network & network;
-	nano::alarm & alarm;
-	nano::worker & worker;
+	nano::thread_pool & workers;
 	nano::observer_set<nano::telemetry_data const &, nano::endpoint const &> & observers;
 	nano::stat & stats;
 	/* Important that this is a reference to the node network_params for tests which want to modify genesis block */
@@ -148,7 +146,7 @@ private:
 	friend class telemetry_remove_peer_invalid_signature_Test;
 };
 
-std::unique_ptr<nano::container_info_component> collect_container_info (telemetry & telemetry, const std::string & name);
+std::unique_ptr<nano::container_info_component> collect_container_info (telemetry & telemetry, std::string const & name);
 
 nano::telemetry_data consolidate_telemetry_data (std::vector<telemetry_data> const & telemetry_data);
 nano::telemetry_data local_telemetry_data (nano::ledger const & ledger_a, nano::network &, uint64_t, nano::network_params const &, std::chrono::steady_clock::time_point, uint64_t, nano::keypair const &);

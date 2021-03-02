@@ -1,6 +1,5 @@
 #include <nano/lib/rep_weights.hpp>
 #include <nano/lib/stats.hpp>
-#include <nano/lib/timestamp.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/secure/blockstore.hpp>
@@ -629,17 +628,6 @@ void ledger_processor::epoch_block_impl (nano::state_block & block_a)
 										{
 											ledger.store.frontier_del (transaction, info.head);
 										}
-										if (epoch == nano::epoch::epoch_2)
-										{
-											if (!ledger.cache.epoch_2_started.exchange (true))
-											{
-												// The first epoch 2 block has been seen
-												if (ledger.epoch_2_started_cb)
-												{
-													ledger.epoch_2_started_cb ();
-												}
-											}
-										}
 									}
 								}
 							}
@@ -920,11 +908,10 @@ verification (verification_a)
 }
 } // namespace
 
-nano::ledger::ledger (nano::block_store & store_a, nano::stat & stat_a, nano::generate_cache const & generate_cache_a, std::function<void()> epoch_2_started_cb_a, canary_state_v2_details const & canary_state_v2_details) :
+nano::ledger::ledger (nano::block_store & store_a, nano::stat & stat_a, nano::generate_cache const & generate_cache_a, canary_state_v2_details const & canary_state_v2_details) :
 store (store_a),
 stats (stat_a),
 check_bootstrap_weights (true),
-epoch_2_started_cb (epoch_2_started_cb_a),
 canary_state_v2 (canary_state_v2_details)
 {
 	if (!store.init_error ())
@@ -935,25 +922,19 @@ canary_state_v2 (canary_state_v2_details)
 
 void nano::ledger::initialize (nano::generate_cache const & generate_cache_a)
 {
-	if (generate_cache_a.reps || generate_cache_a.account_count || generate_cache_a.epoch_2 || generate_cache_a.block_count)
+	if (generate_cache_a.reps || generate_cache_a.account_count || generate_cache_a.block_count)
 	{
 		store.accounts_for_each_par (
 		[this](nano::read_transaction const & /*unused*/, nano::store_iterator<nano::account, nano::account_info> i, nano::store_iterator<nano::account, nano::account_info> n) {
 			uint64_t block_count_l{ 0 };
 			uint64_t account_count_l{ 0 };
 			decltype (this->cache.rep_weights) rep_weights_l;
-			bool epoch_2_started_l{ false };
 			for (; i != n; ++i)
 			{
 				nano::account_info const & info (i->second);
 				block_count_l += info.block_count;
 				++account_count_l;
 				rep_weights_l.representation_add (info.representative, info.balance.number ());
-				epoch_2_started_l = epoch_2_started_l || info.epoch () == nano::epoch::epoch_2;
-			}
-			if (epoch_2_started_l)
-			{
-				this->cache.epoch_2_started.store (true);
 			}
 			this->cache.block_count += block_count_l;
 			this->cache.account_count += account_count_l;
@@ -1727,7 +1708,7 @@ cemented_frontier (cemented_frontier), frontier (frontier), account (account)
 {
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (ledger & ledger, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (ledger & ledger, std::string const & name)
 {
 	auto count = ledger.bootstrap_weights_size.load ();
 	auto sizeof_element = sizeof (decltype (ledger.bootstrap_weights)::value_type);

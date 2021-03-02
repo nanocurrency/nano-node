@@ -37,6 +37,7 @@ public:
 	/** List of online representatives, both the currently sampling ones and the ones observed in the previous sampling period */
 	std::vector<nano::account> list ();
 	void clear ();
+	static unsigned constexpr online_weight_quorum = 67;
 
 private:
 	class rep_info
@@ -67,8 +68,9 @@ private:
 	nano::uint128_t online_m;
 	nano::uint128_t minimum;
 
-	friend std::unique_ptr<container_info_component> collect_container_info (online_reps & online_reps, const std::string & name);
+	friend class election_quorum_minimum_update_weight_before_quorum_checks_Test;
+	friend std::unique_ptr<container_info_component> collect_container_info (online_reps & online_reps, std::string const & name);
 };
 
-std::unique_ptr<container_info_component> collect_container_info (online_reps & online_reps, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (online_reps & online_reps, std::string const & name);
 }
