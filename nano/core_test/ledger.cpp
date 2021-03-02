@@ -2829,6 +2829,7 @@ TEST (ledger, epoch_open_pending)
 	ASSERT_EQ (nano::process_result::block_position, node1.ledger.process (transaction, epoch_open).code);
 }
 
+// A diagram showing all the accounts and blocks used in this test can be found at: https://user-images.githubusercontent.com/650038/109517681-6e131600-7aa1-11eb-9cdb-06d52000e5cd.png
 TEST (ledger, state_blocks_v2)
 {
 	nano::system system;
