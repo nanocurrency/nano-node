@@ -722,10 +722,8 @@ public:
 	{
 		parallel_traversal<nano::uint512_t> (
 		[&action_a, this](nano::uint512_t const & start, nano::uint512_t const & end, bool const is_last) {
-			nano::uint512_union union_start (start);
-			nano::uint512_union union_end (end);
-			nano::unchecked_key key_start (union_start.uint256s[0].number (), union_start.uint256s[1].number ());
-			nano::unchecked_key key_end (union_end.uint256s[0].number (), union_end.uint256s[1].number ());
+			nano::unchecked_key key_start (start);
+			nano::unchecked_key key_end (end);
 			auto transaction (this->tx_begin_read ());
 			action_a (transaction, this->unchecked_begin (transaction, key_start), !is_last ? this->unchecked_begin (transaction, key_end) : this->unchecked_end ());
 		});

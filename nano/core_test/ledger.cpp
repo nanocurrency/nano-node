@@ -2637,7 +2637,7 @@ TEST (ledger, epoch_open_pending)
 	nano::keypair key1;
 	nano::state_block epoch_open (key1.pub, 0, 0, 0, node1.ledger.epoch_link (nano::epoch::epoch_1), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (key1.pub));
 	auto transaction (node1.store.tx_begin_write ());
-	ASSERT_EQ (nano::process_result::block_position, node1.ledger.process (transaction, epoch_open).code);
+	ASSERT_EQ (nano::process_result::gap_epoch_open_pending, node1.ledger.process (transaction, epoch_open).code);
 }
 
 TEST (ledger, block_hash_account_conflict)

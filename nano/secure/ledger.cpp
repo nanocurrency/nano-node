@@ -431,7 +431,7 @@ void ledger_processor::epoch_block_impl (nano::state_block & block_a)
 					if (result.code == nano::process_result::progress)
 					{
 						bool pending_exists = ledger.store.pending_any (transaction, block_a.hashables.account);
-						result.code = pending_exists ? nano::process_result::progress : nano::process_result::block_position;
+						result.code = pending_exists ? nano::process_result::progress : nano::process_result::gap_epoch_open_pending;
 					}
 				}
 				if (result.code == nano::process_result::progress)
