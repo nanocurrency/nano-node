@@ -36,7 +36,7 @@ TEST (cli, key_create)
 
 	// Get the contents of the private key and check that the public key and account are successfully derived from the private key
 	auto private_key_str = vals.front ();
-	nano::private_key private_key;
+	nano::raw_key private_key;
 	private_key.decode_hex (private_key_str);
 
 	auto public_key = nano::pub_key (private_key);

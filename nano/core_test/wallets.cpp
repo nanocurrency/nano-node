@@ -33,9 +33,9 @@ TEST (wallets, open_existing)
 		ASSERT_NE (nullptr, wallet);
 		ASSERT_EQ (wallet, wallets.open (id));
 		nano::raw_key password;
-		password.data.clear ();
+		password.clear ();
 		system.deadline_set (10s);
-		while (password.data == 0)
+		while (password == 0)
 		{
 			ASSERT_NO_ERROR (system.poll ());
 			wallet->store.password.value (password);
@@ -87,7 +87,7 @@ TEST (wallets, DISABLED_wallet_create_max)
 		auto existing = wallets.items.find (wallet_id);
 		ASSERT_TRUE (existing != wallets.items.end ());
 		nano::raw_key seed;
-		seed.data = 0;
+		seed = 0;
 		auto transaction (system.nodes[0]->store.tx_begin_write ());
 		existing->second->store.seed_set (transaction, seed);
 	}

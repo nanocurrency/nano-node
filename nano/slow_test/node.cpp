@@ -1657,9 +1657,9 @@ TEST (node, mass_epoch_upgrader)
 		{
 			auto const pre_upgrade = node.ledger.cache.block_count.load ();
 			auto upgrade_count = std::min<size_t> (batch_size, block_count_before + total_to_upgrade - pre_upgrade);
-			ASSERT_FALSE (node.epoch_upgrader (epoch_signer.prv.as_private_key (), nano::epoch::epoch_1, upgrade_count, threads));
+			ASSERT_FALSE (node.epoch_upgrader (epoch_signer.prv, nano::epoch::epoch_1, upgrade_count, threads));
 			// Already ongoing - should fail
-			ASSERT_TRUE (node.epoch_upgrader (epoch_signer.prv.as_private_key (), nano::epoch::epoch_1, upgrade_count, threads));
+			ASSERT_TRUE (node.epoch_upgrader (epoch_signer.prv, nano::epoch::epoch_1, upgrade_count, threads));
 			system.deadline_set (60s);
 			while (node.ledger.cache.block_count != pre_upgrade + upgrade_count)
 			{

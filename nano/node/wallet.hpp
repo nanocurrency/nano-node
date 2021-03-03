@@ -22,10 +22,10 @@ class wallets;
 class fan final
 {
 public:
-	fan (nano::uint256_union const &, size_t);
+	fan (nano::raw_key const &, size_t);
 	void value (nano::raw_key &);
 	void value_set (nano::raw_key const &);
-	std::vector<std::unique_ptr<nano::uint256_union>> values;
+	std::vector<std::unique_ptr<nano::raw_key>> values;
 
 private:
 	std::mutex mutex;
@@ -62,7 +62,7 @@ public:
 	nano::key_type key_type (nano::wallet_value const &);
 	nano::public_key deterministic_insert (nano::transaction const &);
 	nano::public_key deterministic_insert (nano::transaction const &, uint32_t const);
-	nano::private_key deterministic_key (nano::transaction const &, uint32_t);
+	nano::raw_key deterministic_key (nano::transaction const &, uint32_t);
 	uint32_t deterministic_index_get (nano::transaction const &);
 	void deterministic_index_set (nano::transaction const &, uint32_t);
 	void deterministic_clear (nano::transaction const &);
