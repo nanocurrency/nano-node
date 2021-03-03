@@ -65,7 +65,7 @@ void nano::confirmation_height_unbounded::process ()
 			debug_assert (current == original_block->hash ());
 			// This is the original block passed so can use it directly
 			block = original_block;
-			nano::lock_guard<std::mutex> guard (block_cache_mutex);
+			nano::lock_guard<nano::mutex> guard (block_cache_mutex);
 			block_cache[original_block->hash ()] = original_block;
 		}
 		else
@@ -207,7 +207,7 @@ void nano::confirmation_height_unbounded::collect_unconfirmed_receive_and_source
 		{
 			debug_assert (hash == hash_a);
 			block = block_a;
-			nano::lock_guard<std::mutex> guard (block_cache_mutex);
+			nano::lock_guard<nano::mutex> guard (block_cache_mutex);
 			block_cache[hash] = block_a;
 		}
 		else
