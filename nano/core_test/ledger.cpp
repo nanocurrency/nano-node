@@ -2667,7 +2667,8 @@ TEST (ledger, epoch_open_pending)
 	             .work (*pool.generate (nano::genesis_hash))
 	             .build_shared ();
 	node1.block_processor.add (send1);
-	ASSERT_TIMELY (3s, node1.ledger.block_exists (epoch_open->hash ()));
+	node1.block_processor.flush ();
+	ASSERT_TRUE (node1.ledger.block_exists (epoch_open->hash ()));
 }
 
 TEST (ledger, block_hash_account_conflict)
