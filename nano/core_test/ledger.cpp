@@ -2631,13 +2631,33 @@ TEST (ledger, successor_epoch)
 
 TEST (ledger, epoch_open_pending)
 {
+	nano::block_builder builder;
 	nano::system system (1);
 	auto & node1 (*system.nodes[0]);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::keypair key1;
-	nano::state_block epoch_open (key1.pub, 0, 0, 0, node1.ledger.epoch_link (nano::epoch::epoch_1), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (key1.pub));
-	auto transaction (node1.store.tx_begin_write ());
-	ASSERT_EQ (nano::process_result::gap_epoch_open_pending, node1.ledger.process (transaction, epoch_open).code);
+	auto epoch_open = builder.state ()
+				.account (key1.pub)
+				.previous (0)
+				.representative (0)
+				.balance (0)
+				.link (node1.ledger.epoch_link (nano::epoch::epoch_1))
+				.sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+				.work (*pool.generate (key1.pub))
+				.build_shared ();
+	ASSERT_EQ (nano::process_result::gap_epoch_open_pending, node1.ledger.process (node1.store.tx_begin_write (), *epoch_open).code);
+	auto send1 = builder.state ()
+				 .account (nano::genesis_account)
+				 .previous (nano::genesis_hash)
+				 .representative (nano::genesis_account)
+				 .balance (nano::genesis_amount - 100)
+				 .link (key1.pub)
+				 .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+				 .work (*pool.generate (nano::genesis_hash))
+				 .build_shared ();
+	node1.block_processor.add (epoch_open);
+	node1.block_processor.add (send1);
+	ASSERT_TIMELY (3s, node1.ledger.block_exists (epoch_open->hash ()));
 }
 
 TEST (ledger, block_hash_account_conflict)
