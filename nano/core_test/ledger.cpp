@@ -2645,7 +2645,18 @@ TEST (ledger, epoch_open_pending)
 	                  .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
 	                  .work (*pool.generate (key1.pub))
 	                  .build_shared ();
-	ASSERT_EQ (nano::process_result::gap_epoch_open_pending, node1.ledger.process (node1.store.tx_begin_write (), *epoch_open).code);
+	auto process_result (node1.ledger.process (node1.store.tx_begin_write (), *epoch_open));
+	ASSERT_EQ (nano::process_result::gap_epoch_open_pending, process_result.code);
+	ASSERT_EQ (nano::signature_verification::valid_epoch, process_result.verified);
+	node1.block_processor.add (epoch_open);
+	node1.block_processor.flush ();
+	ASSERT_FALSE (node1.ledger.block_exists (epoch_open->hash ()));
+	// Open block should be inserted into unchecked
+	auto blocks (node1.store.unchecked_get (node1.store.tx_begin_read (), nano::hash_or_account (epoch_open->account ()).hash));
+	ASSERT_EQ (blocks.size (), 1);
+	ASSERT_EQ (blocks[0].block->full_hash (), epoch_open->full_hash ());
+	ASSERT_EQ (blocks[0].verified, nano::signature_verification::valid_epoch);
+	// New block to process epoch open
 	auto send1 = builder.state ()
 	             .account (nano::genesis_account)
 	             .previous (nano::genesis_hash)
@@ -2655,7 +2666,6 @@ TEST (ledger, epoch_open_pending)
 	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
 	             .work (*pool.generate (nano::genesis_hash))
 	             .build_shared ();
-	node1.block_processor.add (epoch_open);
 	node1.block_processor.add (send1);
 	ASSERT_TIMELY (3s, node1.ledger.block_exists (epoch_open->hash ()));
 }
