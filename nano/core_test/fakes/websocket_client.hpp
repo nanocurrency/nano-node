@@ -6,6 +6,8 @@
 #include <nano/boost/beast/websocket.hpp>
 #include <nano/node/websocket.hpp>
 
+#include <boost/property_tree/json_parser.hpp>
+
 #include <chrono>
 
 using namespace std::chrono_literals;
@@ -65,6 +67,18 @@ public:
 		});
 		ioc.run_one_for (deadline);
 		return result;
+	}
+
+	boost::property_tree::ptree string_to_json (boost::optional<std::string> const & string_a)
+	{
+		boost::property_tree::ptree event;
+		if (string_a)
+		{
+			std::stringstream stream;
+			stream << string_a.get ();
+			boost::property_tree::read_json (stream, event);
+		}
+		return event;
 	}
 
 private:

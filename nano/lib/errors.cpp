@@ -278,6 +278,27 @@ std::string nano::error_config_messages::message (int ev) const
 	return "Invalid error code";
 }
 
+std::string nano::error_payment_tracking_messages::message (int ev) const
+{
+	switch (static_cast<nano::error_payment_tracking> (ev))
+	{
+		case nano::error_payment_tracking::generic:
+			return "Unknown payment tracking error";
+		case nano::error_payment_tracking::invalid_tracking_policy:
+			return "Invalid or missing tracking policy";
+		case nano::error_payment_tracking::invalid_timeout:
+			return "Invalid or missing timeout";
+		case nano::error_payment_tracking::invalid_minimum_amount:
+			return "Invalid or missing minimum amount for account tracking";
+		case nano::error_payment_tracking::invalid_tracking_account:
+			return "Invalid or missing account for account tracking";
+		case nano::error_payment_tracking::invalid_tracking_block:
+			return "Invalid or missing block for block tracking";
+	}
+
+	return "Invalid error code";
+}
+
 const char * nano::error_conversion::detail::generic_category::name () const noexcept
 {
 	return boost::system::generic_category ().name ();

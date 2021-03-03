@@ -142,6 +142,8 @@ add_library(
   websocket.cpp
   websocketconfig.hpp
   websocketconfig.cpp
+  websocket_payment_tracking.hpp
+  websocket_payment_tracking.cpp
   write_database_queue.hpp
   write_database_queue.cpp
   xorshift.hpp)

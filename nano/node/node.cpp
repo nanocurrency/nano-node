@@ -135,7 +135,10 @@ node_seq (seq)
 		if (config.websocket_config.enabled)
 		{
 			auto endpoint_l (nano::tcp_endpoint (boost::asio::ip::make_address_v6 (config.websocket_config.address), config.websocket_config.port));
-			websocket_server = std::make_shared<nano::websocket::listener> (logger, wallets, io_ctx, endpoint_l);
+			auto validator_l (std::make_unique<nano::websocket::payment_validator> (io_ctx, workers, ledger, logger, [this](std::shared_ptr<nano::block> const & block_a, bool const work_watcher_a) {
+				this->process_local (block_a, work_watcher_a);
+			}));
+			websocket_server = std::make_shared<nano::websocket::listener> (std::move (validator_l), logger, wallets, io_ctx, endpoint_l);
 			this->websocket_server->run ();
 		}
 
@@ -241,6 +244,13 @@ node_seq (seq)
 					}
 
 					this->websocket_server->broadcast_confirmation (block_a, account_a, amount_a, subtype, status_a);
+				}
+
+				// Check if any sessions are tracking the destination account of the confirmed send block
+				if (is_state_send_a && this->websocket_server->any_subscriber (nano::websocket::topic::payment))
+				{
+					auto block_a (status_a.winner);
+					this->websocket_server->broadcast_payment_notification (block_a->link ().as_account (), block_a->hash ());
 				}
 			});
 
