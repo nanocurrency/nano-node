@@ -126,6 +126,7 @@ public: // Information
 	uint64_t const height;
 	nano::root const root;
 	nano::qualified_root const qualified_root;
+	std::vector<nano::vote_with_weight_info> votes_with_weight () const;
 
 private:
 	nano::tally_t tally_impl () const;
@@ -160,7 +161,6 @@ private:
 public: // Only used in tests
 	void force_confirm (nano::election_status_type = nano::election_status_type::active_confirmed_quorum);
 	std::unordered_map<nano::account, nano::vote_info> votes () const;
-	std::vector<nano::vote_with_weight_info> votes_with_weight () const;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks () const;
 
 	friend class confirmation_solicitor_different_hash_Test;

@@ -643,6 +643,7 @@ std::vector<nano::vote_with_weight_info> nano::election::votes_with_weight () co
 			sorted_votes.emplace (std::move (amount), vote_info);
 		}
 	}
+	result.reserve (sorted_votes.size ());
 	std::transform (sorted_votes.begin (), sorted_votes.end (), std::back_inserter (result), [](auto const & entry) { return entry.second; });
 	return result;
 }
