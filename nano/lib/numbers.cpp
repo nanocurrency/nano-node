@@ -1,5 +1,6 @@
 #include <nano/crypto/blake2/blake2.h>
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/crypto_lib/secure_memory.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
 
@@ -376,7 +377,7 @@ std::string nano::uint512_union::to_string () const
 
 nano::raw_key::~raw_key ()
 {
-	clear ();
+	secure_wipe_memory (bytes.data (), bytes.size ());
 }
 
 // This this = AES_DEC_CTR (ciphertext, key, iv)
