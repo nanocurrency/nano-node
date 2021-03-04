@@ -390,13 +390,13 @@ TEST (bootstrap_processor, process_state)
 	nano::blocks_confirm (*node0, { block1, block2 }, true); // Confirm blocks
 	ASSERT_TIMELY (5s, node0->block_confirmed (block1->hash ()) && node0->block_confirmed (block2->hash ()) && node0->active.empty ());
 
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work, node_flags));
 	ASSERT_EQ (node0->latest (nano::dev_genesis_key.pub), block2->hash ());
 	ASSERT_NE (node1->latest (nano::dev_genesis_key.pub), block2->hash ());
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
 	ASSERT_NE (node1->latest (nano::dev_genesis_key.pub), node0->latest (nano::dev_genesis_key.pub));
 	ASSERT_TIMELY (10s, node1->latest (nano::dev_genesis_key.pub) == node0->latest (nano::dev_genesis_key.pub));
-	ASSERT_EQ (0, node1->active.size ());
+	ASSERT_TIMELY (10s, node1->active.empty ());
 	node1->stop ();
 }
 
