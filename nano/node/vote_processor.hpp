@@ -69,7 +69,7 @@ private:
 	std::unordered_set<nano::account> representatives_2;
 	std::unordered_set<nano::account> representatives_3;
 	nano::condition_variable condition;
-	std::mutex mutex;
+	nano::mutex mutex{ mutex_identifier (mutexes::vote_processor) };
 	bool started;
 	bool stopped;
 	bool is_active;

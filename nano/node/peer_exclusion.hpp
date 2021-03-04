@@ -37,7 +37,7 @@ public:
 
 private:
 	ordered_endpoints peers;
-	mutable std::mutex mutex;
+	mutable nano::mutex mutex;
 
 public:
 	constexpr static size_t size_max = 5000;
