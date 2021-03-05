@@ -62,6 +62,8 @@ public:
 
 	bool init_error () const override;
 
+	std::string error_string (int status) const override;
+
 private:
 	bool error{ false };
 	nano::logger_mt & logger;
@@ -70,7 +72,7 @@ private:
 	std::unique_ptr<rocksdb::DB> db;
 	std::vector<std::unique_ptr<rocksdb::ColumnFamilyHandle>> handles;
 	std::shared_ptr<rocksdb::TableFactory> small_table_factory;
-	std::unordered_map<nano::tables, std::mutex> write_lock_mutexes;
+	std::unordered_map<nano::tables, nano::mutex> write_lock_mutexes;
 	nano::rocksdb_config rocksdb_config;
 	unsigned const max_block_write_batch_num_m;
 

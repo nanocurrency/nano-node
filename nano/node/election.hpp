@@ -53,7 +53,8 @@ class election final : public std::enable_shared_from_this<nano::election>
 {
 	// Minimum time between broadcasts of the current winner of an election, as a backup to requesting confirmations
 	std::chrono::milliseconds base_latency () const;
-	std::function<void(std::shared_ptr<nano::block>)> confirmation_action;
+	std::function<void(std::shared_ptr<nano::block> const &)> confirmation_action;
+	std::function<void(nano::account const &)> live_vote_action;
 
 private: // State management
 	enum class state_t
@@ -102,13 +103,13 @@ public: // Status
 	nano::election_status status;
 
 public: // Interface
-	election (nano::node &, std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const &, bool, nano::election_behavior);
+	election (nano::node &, std::shared_ptr<nano::block> const &, std::function<void(std::shared_ptr<nano::block> const &)> const &, std::function<void(nano::account const &)> const &, bool, nano::election_behavior);
 	std::shared_ptr<nano::block> find (nano::block_hash const &) const;
 	nano::election_vote_result vote (nano::account const &, uint64_t, nano::block_hash const &);
 	bool publish (std::shared_ptr<nano::block> const & block_a);
 	size_t insert_inactive_votes_cache (nano::inactive_cache_information const &);
 	// Confirm this block if quorum is met
-	void confirm_if_quorum (nano::unique_lock<std::mutex> &);
+	void confirm_if_quorum (nano::unique_lock<nano::mutex> &);
 	void prioritize (nano::vote_generator_session &);
 	nano::election_cleanup_info cleanup_info () const;
 
@@ -120,12 +121,14 @@ public: // Information
 private:
 	nano::tally_t tally_impl () const;
 	// lock_a does not own the mutex on return
-	void confirm_once (nano::unique_lock<std::mutex> & lock_a, nano::election_status_type = nano::election_status_type::active_confirmed_quorum);
+	void confirm_once (nano::unique_lock<nano::mutex> & lock_a, nano::election_status_type = nano::election_status_type::active_confirmed_quorum);
 	void broadcast_block (nano::confirmation_solicitor &);
 	void send_confirm_req (nano::confirmation_solicitor &);
 	// Calculate votes for local representatives
 	void generate_votes () const;
 	void remove_votes (nano::block_hash const &);
+	void remove_block (nano::block_hash const &);
+	bool replace_by_weight (nano::unique_lock<nano::mutex> & lock_a, nano::block_hash const &);
 	nano::election_cleanup_info cleanup_info_impl () const;
 
 private:
@@ -137,9 +140,10 @@ private:
 	std::chrono::steady_clock::time_point const election_start = { std::chrono::steady_clock::now () };
 
 	nano::node & node;
-	mutable std::mutex mutex;
+	mutable nano::mutex mutex;
 
 	static std::chrono::seconds constexpr late_blocks_delay{ 5 };
+	static size_t constexpr max_blocks{ 10 };
 
 	friend class active_transactions;
 	friend class confirmation_solicitor;

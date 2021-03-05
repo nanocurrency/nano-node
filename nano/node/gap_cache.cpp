@@ -11,7 +11,7 @@ node (node_a)
 
 void nano::gap_cache::add (nano::block_hash const & hash_a, std::chrono::steady_clock::time_point time_point_a)
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	auto existing (blocks.get<tag_hash> ().find (hash_a));
 	if (existing != blocks.get<tag_hash> ().end ())
 	{
@@ -31,13 +31,13 @@ void nano::gap_cache::add (nano::block_hash const & hash_a, std::chrono::steady_
 
 void nano::gap_cache::erase (nano::block_hash const & hash_a)
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	blocks.get<tag_hash> ().erase (hash_a);
 }
 
-void nano::gap_cache::vote (std::shared_ptr<nano::vote> vote_a)
+void nano::gap_cache::vote (std::shared_ptr<nano::vote> const & vote_a)
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	for (auto hash : *vote_a)
 	{
 		auto & gap_blocks_by_hash (blocks.get<tag_hash> ());
@@ -96,7 +96,7 @@ bool nano::gap_cache::bootstrap_check (std::vector<nano::account> const & voters
 void nano::gap_cache::bootstrap_start (nano::block_hash const & hash_a)
 {
 	auto node_l (node.shared ());
-	node.alarm.add (std::chrono::steady_clock::now () + node.network_params.bootstrap.gap_cache_bootstrap_start_interval, [node_l, hash_a]() {
+	node.workers.add_timed_task (std::chrono::steady_clock::now () + node.network_params.bootstrap.gap_cache_bootstrap_start_interval, [node_l, hash_a]() {
 		if (!node_l->ledger.block_or_pruned_exists (hash_a))
 		{
 			if (!node_l->bootstrap_initiator.in_progress ())
@@ -123,11 +123,11 @@ nano::uint128_t nano::gap_cache::bootstrap_threshold ()
 
 size_t nano::gap_cache::size ()
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	return blocks.size ();
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (gap_cache & gap_cache, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (gap_cache & gap_cache, std::string const & name)
 {
 	auto count = gap_cache.size ();
 	auto sizeof_element = sizeof (decltype (gap_cache.blocks)::value_type);

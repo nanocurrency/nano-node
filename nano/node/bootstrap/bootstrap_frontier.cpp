@@ -36,7 +36,7 @@ void nano::frontier_req_client::run ()
 	nano::buffer_drop_policy::no_limiter_drop);
 }
 
-nano::frontier_req_client::frontier_req_client (std::shared_ptr<nano::bootstrap_client> connection_a, std::shared_ptr<nano::bootstrap_attempt> attempt_a) :
+nano::frontier_req_client::frontier_req_client (std::shared_ptr<nano::bootstrap_client> const & connection_a, std::shared_ptr<nano::bootstrap_attempt> const & attempt_a) :
 connection (connection_a),
 attempt (attempt_a),
 current (0),
@@ -44,10 +44,6 @@ count (0),
 bulk_push_cost (0)
 {
 	next ();
-}
-
-nano::frontier_req_client::~frontier_req_client ()
-{
 }
 
 void nano::frontier_req_client::receive_frontier ()

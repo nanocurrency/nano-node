@@ -37,7 +37,7 @@ public:
 
 private:
 	ordered_endpoints peers;
-	mutable std::mutex mutex;
+	mutable nano::mutex mutex;
 
 public:
 	constexpr static size_t size_max = 5000;
@@ -57,5 +57,5 @@ public:
 	friend class telemetry_remove_peer_invalid_signature_Test;
 	friend class peer_exclusion_validate_Test;
 };
-std::unique_ptr<container_info_component> collect_container_info (peer_exclusion const & excluded_peers, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (peer_exclusion const & excluded_peers, std::string const & name);
 }

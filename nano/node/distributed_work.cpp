@@ -129,7 +129,7 @@ void nano::distributed_work::do_request (nano::tcp_endpoint const & endpoint_a)
 	auto this_l (shared_from_this ());
 	auto connection (std::make_shared<peer_request> (node.io_ctx, endpoint_a));
 	{
-		nano::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock (mutex);
 		connections.emplace_back (connection);
 	}
 	connection->socket.async_connect (connection->endpoint,
@@ -271,7 +271,7 @@ void nano::distributed_work::stop_once (bool const local_stop_a)
 {
 	if (!stopped.exchange (true))
 	{
-		nano::lock_guard<std::mutex> guard (mutex);
+		nano::lock_guard<nano::mutex> guard (mutex);
 		if (local_stop_a && node.local_work_generation_enabled ())
 		{
 			node.work.cancel (request.root);
@@ -368,7 +368,7 @@ void nano::distributed_work::handle_failure ()
 			auto now (std::chrono::steady_clock::now ());
 			std::weak_ptr<nano::node> node_w (node.shared ());
 			auto next_backoff (std::min (backoff * 2, std::chrono::seconds (5 * 60)));
-			node.alarm.add (now + std::chrono::seconds (backoff), [node_w, request_l = request, next_backoff] {
+			node.workers.add_timed_task (now + std::chrono::seconds (backoff), [node_w, request_l = request, next_backoff] {
 				bool error_l{ true };
 				if (auto node_l = node_w.lock ())
 				{
@@ -389,6 +389,6 @@ void nano::distributed_work::handle_failure ()
 
 void nano::distributed_work::add_bad_peer (nano::tcp_endpoint const & endpoint_a)
 {
-	nano::lock_guard<std::mutex> guard (mutex);
+	nano::lock_guard<nano::mutex> guard (mutex);
 	bad_peers.emplace_back (boost::str (boost::format ("%1%:%2%") % endpoint_a.address () % endpoint_a.port ()));
 }

@@ -12,8 +12,7 @@ class bootstrap_client;
 class frontier_req_client final : public std::enable_shared_from_this<nano::frontier_req_client>
 {
 public:
-	explicit frontier_req_client (std::shared_ptr<nano::bootstrap_client>, std::shared_ptr<nano::bootstrap_attempt>);
-	~frontier_req_client ();
+	explicit frontier_req_client (std::shared_ptr<nano::bootstrap_client> const &, std::shared_ptr<nano::bootstrap_attempt> const &);
 	void run ();
 	void receive_frontier ();
 	void received_frontier (boost::system::error_code const &, size_t);
