@@ -48,7 +48,7 @@ public:
 	void add (nano::pull_info const &);
 	void update_pull (nano::pull_info &);
 	void remove (nano::pull_info const &);
-	std::mutex pulls_cache_mutex;
+	nano::mutex pulls_cache_mutex;
 	class account_head_tag
 	{
 	};
@@ -72,7 +72,7 @@ public:
 	std::shared_ptr<nano::bootstrap_attempt> find (uint64_t);
 	size_t size ();
 	std::atomic<uint64_t> incremental{ 0 };
-	std::mutex bootstrap_attempts_mutex;
+	nano::mutex bootstrap_attempts_mutex;
 	std::map<uint64_t, std::shared_ptr<nano::bootstrap_attempt>> attempts;
 };
 
@@ -107,9 +107,9 @@ private:
 	void stop_attempts ();
 	std::vector<std::shared_ptr<nano::bootstrap_attempt>> attempts_list;
 	std::atomic<bool> stopped{ false };
-	std::mutex mutex;
+	nano::mutex mutex;
 	nano::condition_variable condition;
-	std::mutex observers_mutex;
+	nano::mutex observers_mutex;
 	std::vector<std::function<void(bool)>> observers;
 	std::vector<boost::thread> bootstrap_initiator_threads;
 

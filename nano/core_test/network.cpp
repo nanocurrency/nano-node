@@ -762,7 +762,7 @@ TEST (tcp_listener, tcp_listener_timeout_empty)
 	while (!disconnected)
 	{
 		{
-			nano::lock_guard<std::mutex> guard (node0->bootstrap.mutex);
+			nano::lock_guard<nano::mutex> guard (node0->bootstrap.mutex);
 			disconnected = node0->bootstrap.connections.empty ();
 		}
 		ASSERT_NO_ERROR (system.poll ());
@@ -786,7 +786,7 @@ TEST (tcp_listener, tcp_listener_timeout_node_id_handshake)
 	});
 	ASSERT_TIMELY (5s, node0->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake) != 0);
 	{
-		nano::lock_guard<std::mutex> guard (node0->bootstrap.mutex);
+		nano::lock_guard<nano::mutex> guard (node0->bootstrap.mutex);
 		ASSERT_EQ (node0->bootstrap.connections.size (), 1);
 	}
 	bool disconnected (false);
@@ -794,7 +794,7 @@ TEST (tcp_listener, tcp_listener_timeout_node_id_handshake)
 	while (!disconnected)
 	{
 		{
-			nano::lock_guard<std::mutex> guard (node0->bootstrap.mutex);
+			nano::lock_guard<nano::mutex> guard (node0->bootstrap.mutex);
 			disconnected = node0->bootstrap.connections.empty ();
 		}
 		ASSERT_NO_ERROR (system.poll ());

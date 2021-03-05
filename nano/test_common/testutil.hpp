@@ -69,25 +69,25 @@ public:
 	stringstream_mt_sink () = default;
 	stringstream_mt_sink (stringstream_mt_sink const & sink)
 	{
-		nano::lock_guard<std::mutex> guard (mutex);
+		nano::lock_guard<nano::mutex> guard (mutex);
 		ss << sink.ss.str ();
 	}
 
 	std::streamsize write (const char * string_to_write, std::streamsize size)
 	{
-		nano::lock_guard<std::mutex> guard (mutex);
+		nano::lock_guard<nano::mutex> guard (mutex);
 		ss << std::string (string_to_write, size);
 		return size;
 	}
 
 	std::string str ()
 	{
-		nano::lock_guard<std::mutex> guard (mutex);
+		nano::lock_guard<nano::mutex> guard (mutex);
 		return ss.str ();
 	}
 
 private:
-	mutable std::mutex mutex;
+	mutable nano::mutex mutex;
 	std::stringstream ss;
 };
 
@@ -150,7 +150,7 @@ namespace util
 
 	protected:
 		nano::condition_variable cv;
-		std::mutex mutex;
+		nano::mutex mutex;
 	};
 
 	/**
@@ -183,7 +183,7 @@ namespace util
 				error = count < required_count;
 				if (error)
 				{
-					nano::unique_lock<std::mutex> lock (mutex);
+					nano::unique_lock<nano::mutex> lock (mutex);
 					cv.wait_for (lock, std::chrono::milliseconds (1));
 				}
 			}

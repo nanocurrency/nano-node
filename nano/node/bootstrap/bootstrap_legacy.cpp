@@ -28,7 +28,7 @@ bool nano::bootstrap_attempt_legacy::consume_future (std::future<bool> & future_
 
 void nano::bootstrap_attempt_legacy::stop ()
 {
-	nano::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock (mutex);
 	stopped = true;
 	lock.unlock ();
 	condition.notify_all ();
@@ -57,7 +57,7 @@ void nano::bootstrap_attempt_legacy::stop ()
 	node->bootstrap_initiator.connections->clear_pulls (incremental_id);
 }
 
-void nano::bootstrap_attempt_legacy::request_push (nano::unique_lock<std::mutex> & lock_a)
+void nano::bootstrap_attempt_legacy::request_push (nano::unique_lock<nano::mutex> & lock_a)
 {
 	bool error (false);
 	lock_a.unlock ();
@@ -90,19 +90,19 @@ void nano::bootstrap_attempt_legacy::request_push (nano::unique_lock<std::mutex>
 void nano::bootstrap_attempt_legacy::add_frontier (nano::pull_info const & pull_a)
 {
 	nano::pull_info pull (pull_a);
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	frontier_pulls.push_back (pull);
 }
 
 void nano::bootstrap_attempt_legacy::add_bulk_push_target (nano::block_hash const & head, nano::block_hash const & end)
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	bulk_push_targets.emplace_back (head, end);
 }
 
 bool nano::bootstrap_attempt_legacy::request_bulk_push_target (std::pair<nano::block_hash, nano::block_hash> & current_target_a)
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	auto empty (bulk_push_targets.empty ());
 	if (!empty)
 	{
@@ -114,7 +114,7 @@ bool nano::bootstrap_attempt_legacy::request_bulk_push_target (std::pair<nano::b
 
 void nano::bootstrap_attempt_legacy::add_recent_pull (nano::block_hash const & head_a)
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	recent_pulls_head.push_back (head_a);
 	if (recent_pulls_head.size () > nano::bootstrap_limits::bootstrap_max_confirm_frontiers)
 	{
@@ -134,7 +134,7 @@ void nano::bootstrap_attempt_legacy::restart_condition ()
 	}
 }
 
-void nano::bootstrap_attempt_legacy::attempt_restart_check (nano::unique_lock<std::mutex> & lock_a)
+void nano::bootstrap_attempt_legacy::attempt_restart_check (nano::unique_lock<nano::mutex> & lock_a)
 {
 	if (frontiers_confirmation_pending)
 	{
@@ -178,7 +178,7 @@ void nano::bootstrap_attempt_legacy::attempt_restart_check (nano::unique_lock<st
 	}
 }
 
-bool nano::bootstrap_attempt_legacy::confirm_frontiers (nano::unique_lock<std::mutex> & lock_a)
+bool nano::bootstrap_attempt_legacy::confirm_frontiers (nano::unique_lock<nano::mutex> & lock_a)
 {
 	bool confirmed (false);
 	debug_assert (!frontiers_confirmed);
@@ -186,7 +186,7 @@ bool nano::bootstrap_attempt_legacy::confirm_frontiers (nano::unique_lock<std::m
 	auto this_l (shared_from_this ());
 	std::vector<nano::block_hash> frontiers;
 	lock_a.unlock ();
-	nano::unique_lock<std::mutex> pulls_lock (node->bootstrap_initiator.connections->mutex);
+	nano::unique_lock<nano::mutex> pulls_lock (node->bootstrap_initiator.connections->mutex);
 	for (auto i (node->bootstrap_initiator.connections->pulls.begin ()), end (node->bootstrap_initiator.connections->pulls.end ()); i != end && frontiers.size () != nano::bootstrap_limits::bootstrap_max_confirm_frontiers; ++i)
 	{
 		if (!i->head.is_zero () && i->bootstrap_id == incremental_id && std::find (frontiers.begin (), frontiers.end (), i->head) == frontiers.end ())
@@ -310,7 +310,7 @@ bool nano::bootstrap_attempt_legacy::confirm_frontiers (nano::unique_lock<std::m
 	return confirmed;
 }
 
-bool nano::bootstrap_attempt_legacy::request_frontier (nano::unique_lock<std::mutex> & lock_a, bool first_attempt)
+bool nano::bootstrap_attempt_legacy::request_frontier (nano::unique_lock<nano::mutex> & lock_a, bool first_attempt)
 {
 	auto result (true);
 	lock_a.unlock ();
@@ -373,7 +373,7 @@ bool nano::bootstrap_attempt_legacy::request_frontier (nano::unique_lock<std::mu
 	return result;
 }
 
-void nano::bootstrap_attempt_legacy::run_start (nano::unique_lock<std::mutex> & lock_a)
+void nano::bootstrap_attempt_legacy::run_start (nano::unique_lock<nano::mutex> & lock_a)
 {
 	frontiers_received = false;
 	frontiers_confirmed = false;
@@ -395,7 +395,7 @@ void nano::bootstrap_attempt_legacy::run ()
 	debug_assert (started);
 	debug_assert (!node->flags.disable_legacy_bootstrap);
 	node->bootstrap_initiator.connections->populate_connections (false);
-	nano::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock (mutex);
 	run_start (lock);
 	while (still_pulling ())
 	{
@@ -432,7 +432,7 @@ void nano::bootstrap_attempt_legacy::run ()
 
 void nano::bootstrap_attempt_legacy::get_information (boost::property_tree::ptree & tree_a)
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	tree_a.put ("frontier_pulls", std::to_string (frontier_pulls.size ()));
 	tree_a.put ("frontiers_received", static_cast<bool> (frontiers_received));
 	tree_a.put ("frontiers_confirmed", static_cast<bool> (frontiers_confirmed));

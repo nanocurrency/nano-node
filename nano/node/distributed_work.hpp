@@ -104,7 +104,7 @@ private:
 	std::vector<std::string> bad_peers; // websocket
 	std::string winner; // websocket
 
-	std::mutex mutex;
+	nano::mutex mutex;
 	std::atomic<unsigned> resolved_extra{ 0 };
 	std::atomic<unsigned> failures{ 0 };
 	std::atomic<bool> finished{ false };

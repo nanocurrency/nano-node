@@ -100,7 +100,7 @@ private:
 	bool stopped{ false };
 	bool started{ false };
 	nano::condition_variable condition;
-	std::mutex mutex;
+	nano::mutex mutex{ mutex_identifier (mutexes::request_aggregator) };
 	std::thread thread;
 
 	friend std::unique_ptr<container_info_component> collect_container_info (request_aggregator &, const std::string &);

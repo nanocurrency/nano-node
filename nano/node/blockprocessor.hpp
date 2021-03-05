@@ -71,7 +71,7 @@ public:
 
 private:
 	void queue_unchecked (nano::write_transaction const &, nano::block_hash const &);
-	void process_batch (nano::unique_lock<std::mutex> &);
+	void process_batch (nano::unique_lock<nano::mutex> &);
 	void process_live (nano::transaction const &, nano::block_hash const &, std::shared_ptr<nano::block> const &, nano::process_return const &, const bool = false, nano::block_origin const = nano::block_origin::remote);
 	void process_old (nano::transaction const &, std::shared_ptr<nano::block> const &, nano::block_origin const);
 	void requeue_invalid (nano::block_hash const &, nano::unchecked_info const &);
@@ -86,7 +86,7 @@ private:
 	nano::condition_variable condition;
 	nano::node & node;
 	nano::write_database_queue & write_database_queue;
-	std::mutex mutex;
+	nano::mutex mutex{ mutex_identifier (mutexes::block_processor) };
 	nano::state_block_signature_verification state_block_signature_verification;
 
 	friend std::unique_ptr<container_info_component> collect_container_info (block_processor & block_processor, std::string const & name);
