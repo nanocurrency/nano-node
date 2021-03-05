@@ -184,7 +184,7 @@ public:
 	uint64_t num_queued_tasks () const;
 
 private:
-	std::mutex mutex;
+	nano::mutex mutex;
 	std::atomic<bool> stopped{ false };
 	unsigned num_threads;
 	std::unique_ptr<boost::asio::thread_pool> thread_pool_m;

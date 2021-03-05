@@ -128,8 +128,8 @@ public:
 			std::weak_ptr<session> session_m;
 		};
 
-		static std::mutex subscriber_mutex;
-		nano::unique_lock<std::mutex> lock (subscriber_mutex);
+		static nano::mutex subscriber_mutex;
+		nano::unique_lock<nano::mutex> lock (subscriber_mutex);
 
 		if (!subscriber)
 		{
