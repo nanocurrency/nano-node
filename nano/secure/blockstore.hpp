@@ -629,8 +629,6 @@ public:
 	virtual void account_del (nano::write_transaction const &, nano::account const &) = 0;
 	virtual bool account_exists (nano::transaction const &, nano::account const &) = 0;
 	virtual size_t account_count (nano::transaction const &) = 0;
-	virtual void confirmation_height_clear (nano::write_transaction const &, nano::account const &) = 0;
-	virtual void confirmation_height_clear (nano::write_transaction const &) = 0;
 	virtual nano::store_iterator<nano::account, nano::account_info> accounts_begin (nano::transaction const &, nano::account const &) const = 0;
 	virtual nano::store_iterator<nano::account, nano::account_info> accounts_begin (nano::transaction const &) const = 0;
 	virtual nano::store_iterator<nano::account, nano::account_info> accounts_end () const = 0;
@@ -693,6 +691,8 @@ public:
 	virtual bool confirmation_height_exists (nano::transaction const & transaction_a, nano::account const & account_a) const = 0;
 	virtual void confirmation_height_del (nano::write_transaction const & transaction_a, nano::account const & account_a) = 0;
 	virtual uint64_t confirmation_height_count (nano::transaction const & transaction_a) = 0;
+	virtual void confirmation_height_clear (nano::write_transaction const &, nano::account const &) = 0;
+	virtual void confirmation_height_clear (nano::write_transaction const &) = 0;
 	virtual nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_begin (nano::transaction const & transaction_a, nano::account const & account_a) const = 0;
 	virtual nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_begin (nano::transaction const & transaction_a) const = 0;
 	virtual nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_end () const = 0;

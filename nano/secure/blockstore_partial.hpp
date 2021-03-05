@@ -56,50 +56,6 @@ public:
 		frontier_put (transaction_a, hash_l, network_params.ledger.genesis_account);
 	}
 
-	nano::uint128_t block_balance (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override
-	{
-		auto block (block_get (transaction_a, hash_a));
-		release_assert (block);
-		nano::uint128_t result (block_balance_calculated (block));
-		return result;
-	}
-
-	bool account_exists (nano::transaction const & transaction_a, nano::account const & account_a) override
-	{
-		auto iterator (accounts_begin (transaction_a, account_a));
-		return iterator != accounts_end () && nano::account (iterator->first) == account_a;
-	}
-
-	void confirmation_height_clear (nano::write_transaction const & transaction_a, nano::account const & account_a) override
-	{
-		confirmation_height_del (transaction_a, account_a);
-	}
-
-	void confirmation_height_clear (nano::write_transaction const & transaction_a) override
-	{
-		drop (transaction_a, nano::tables::confirmation_height);
-	}
-
-	bool pending_exists (nano::transaction const & transaction_a, nano::pending_key const & key_a) override
-	{
-		auto iterator (pending_begin (transaction_a, key_a));
-		return iterator != pending_end () && nano::pending_key (iterator->first) == key_a;
-	}
-
-	bool pending_any (nano::transaction const & transaction_a, nano::account const & account_a) override
-	{
-		auto iterator (pending_begin (transaction_a, nano::pending_key (account_a, 0)));
-		return iterator != pending_end () && nano::pending_key (iterator->first).account == account_a;
-	}
-
-	bool unchecked_exists (nano::transaction const & transaction_a, nano::unchecked_key const & unchecked_key_a) override
-	{
-		nano::db_val<Val> value;
-		auto status (get (transaction_a, tables::unchecked, nano::db_val<Val> (unchecked_key_a), value));
-		release_assert (success (status) || not_found (status));
-		return (success (status));
-	}
-
 	void block_put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a, nano::block const & block_a) override
 	{
 		debug_assert (block_a.sideband ().successor.is_zero () || block_exists (transaction_a, block_a.sideband ().successor));
@@ -120,6 +76,14 @@ public:
 	{
 		auto block = block_get (transaction_a, hash_a);
 		return block->sideband ().height;
+	}
+
+	nano::uint128_t block_balance (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override
+	{
+		auto block (block_get (transaction_a, hash_a));
+		release_assert (block);
+		nano::uint128_t result (block_balance_calculated (block));
+		return result;
 	}
 
 	std::shared_ptr<nano::block> block_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override
@@ -239,13 +203,6 @@ public:
 		block_raw_put (transaction_a, data, hash_a);
 	}
 
-	void unchecked_put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a, std::shared_ptr<nano::block> const & block_a) override
-	{
-		nano::unchecked_key key (hash_a, block_a->hash ());
-		nano::unchecked_info info (block_a, block_a->account (), nano::seconds_since_epoch (), nano::signature_verification::unknown);
-		unchecked_put (transaction_a, key, info);
-	}
-
 	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_end () const override
 	{
 		return nano::store_iterator<nano::unchecked_key, nano::unchecked_info> (nullptr);
@@ -291,12 +248,6 @@ public:
 		return nano::store_iterator<nano::block_hash, nano::account> (nullptr);
 	}
 
-	void block_del (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a) override
-	{
-		auto status = del (transaction_a, tables::blocks, hash_a);
-		release_assert_success (status);
-	}
-
 	int version_get (nano::transaction const & transaction_a) const override
 	{
 		nano::uint256_union version_key (1);
@@ -310,6 +261,12 @@ public:
 			result = version_value.number ().convert_to<int> ();
 		}
 		return result;
+	}
+
+	void block_del (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a) override
+	{
+		auto status = del (transaction_a, tables::blocks, hash_a);
+		release_assert_success (status);
 	}
 
 	nano::epoch block_version (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override
@@ -358,6 +315,18 @@ public:
 		return result;
 	}
 
+	bool pending_exists (nano::transaction const & transaction_a, nano::pending_key const & key_a) override
+	{
+		auto iterator (pending_begin (transaction_a, key_a));
+		return iterator != pending_end () && nano::pending_key (iterator->first) == key_a;
+	}
+
+	bool pending_any (nano::transaction const & transaction_a, nano::account const & account_a) override
+	{
+		auto iterator (pending_begin (transaction_a, nano::pending_key (account_a, 0)));
+		return iterator != pending_end () && nano::pending_key (iterator->first).account == account_a;
+	}
+
 	void frontier_put (nano::write_transaction const & transaction_a, nano::block_hash const & block_a, nano::account const & account_a) override
 	{
 		nano::db_val<Val> account (account_a);
@@ -397,16 +366,24 @@ public:
 		release_assert_success (status);
 	}
 
-	void online_weight_put (nano::write_transaction const & transaction_a, uint64_t time_a, nano::amount const & amount_a) override
+	bool unchecked_exists (nano::transaction const & transaction_a, nano::unchecked_key const & unchecked_key_a) override
 	{
-		nano::db_val<Val> value (amount_a);
-		auto status (put (transaction_a, tables::online_weight, time_a, value));
-		release_assert_success (status);
+		nano::db_val<Val> value;
+		auto status (get (transaction_a, tables::unchecked, nano::db_val<Val> (unchecked_key_a), value));
+		release_assert (success (status) || not_found (status));
+		return (success (status));
 	}
 
-	void online_weight_del (nano::write_transaction const & transaction_a, uint64_t time_a) override
+	void unchecked_put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a, std::shared_ptr<nano::block> const & block_a) override
 	{
-		auto status (del (transaction_a, tables::online_weight, time_a));
+		nano::unchecked_key key (hash_a, block_a->hash ());
+		nano::unchecked_info info (block_a, block_a->account (), nano::seconds_since_epoch (), nano::signature_verification::unknown);
+		unchecked_put (transaction_a, key, info);
+	}
+
+	void unchecked_clear (nano::write_transaction const & transaction_a) override
+	{
+		auto status = drop (transaction_a, tables::unchecked);
 		release_assert_success (status);
 	}
 
@@ -439,9 +416,22 @@ public:
 		return result;
 	}
 
-	void unchecked_clear (nano::write_transaction const & transaction_a) override
+	bool account_exists (nano::transaction const & transaction_a, nano::account const & account_a) override
 	{
-		auto status = drop (transaction_a, tables::unchecked);
+		auto iterator (accounts_begin (transaction_a, account_a));
+		return iterator != accounts_end () && nano::account (iterator->first) == account_a;
+	}
+
+	void online_weight_put (nano::write_transaction const & transaction_a, uint64_t time_a, nano::amount const & amount_a) override
+	{
+		nano::db_val<Val> value (amount_a);
+		auto status (put (transaction_a, tables::online_weight, time_a, value));
+		release_assert_success (status);
+	}
+
+	void online_weight_del (nano::write_transaction const & transaction_a, uint64_t time_a) override
+	{
+		auto status (del (transaction_a, tables::online_weight, time_a));
 		release_assert_success (status);
 	}
 
@@ -600,6 +590,16 @@ public:
 	bool confirmation_height_exists (nano::transaction const & transaction_a, nano::account const & account_a) const override
 	{
 		return exists (transaction_a, tables::confirmation_height, nano::db_val<Val> (account_a));
+	}
+
+	void confirmation_height_clear (nano::write_transaction const & transaction_a, nano::account const & account_a) override
+	{
+		confirmation_height_del (transaction_a, account_a);
+	}
+
+	void confirmation_height_clear (nano::write_transaction const & transaction_a) override
+	{
+		drop (transaction_a, nano::tables::confirmation_height);
 	}
 
 	nano::store_iterator<nano::account, nano::account_info> accounts_begin (nano::transaction const & transaction_a, nano::account const & account_a) const override
