@@ -113,7 +113,7 @@ private:
 
 	std::atomic<bool> stopped{ false };
 
-	std::mutex mutex;
+	nano::mutex mutex{ mutex_identifier (mutexes::telemetry) };
 	// clang-format off
 	// This holds the last telemetry data received from peers or can be a placeholder awaiting the first response (check with awaiting_first_response ())
 	boost::multi_index_container<nano::telemetry_info,

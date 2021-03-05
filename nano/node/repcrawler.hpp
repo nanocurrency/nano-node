@@ -118,7 +118,7 @@ private:
 	nano::node & node;
 
 	/** Protects the active-hash container */
-	std::mutex active_mutex;
+	nano::mutex active_mutex;
 
 	/** We have solicted votes for these random blocks */
 	std::unordered_set<nano::block_hash> active;
@@ -142,7 +142,7 @@ private:
 	void update_weights ();
 
 	/** Protects the probable_reps container */
-	mutable std::mutex probable_reps_mutex;
+	mutable nano::mutex probable_reps_mutex;
 
 	/** Probable representatives */
 	probably_rep_t probable_reps;

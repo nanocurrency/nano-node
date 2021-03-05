@@ -54,7 +54,7 @@ private:
 	};
 	nano::uint128_t calculate_trend (nano::transaction &) const;
 	nano::uint128_t calculate_online () const;
-	mutable std::mutex mutex;
+	mutable nano::mutex mutex;
 	nano::ledger & ledger;
 	nano::node_config const & config;
 	boost::multi_index_container<rep_info,

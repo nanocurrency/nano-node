@@ -81,6 +81,33 @@ set(NANO_TIMED_LOCKS
 set(NANO_TIMED_LOCKS_IGNORE_BLOCKED
     OFF
     CACHE BOOL "")
+set(NANO_TIMED_LOCKS_FILTER
+    ""
+    CACHE
+      STRING
+      "Selects which mutex should be the only one to have stacktraces generated, empty string means report on all"
+)
+set_property(
+  CACHE NANO_TIMED_LOCKS_FILTER
+  PROPERTY STRINGS
+           active
+           block_arrival
+           block_processor
+           block_uniquer
+           confirmation_height_processor
+           dropped_elections,
+           election_winner_details
+           gap_cache
+           network_filter
+           observer_set
+           request_aggregator
+           state_block_signature_verification
+           telemetry
+           vote_generator
+           vote_processor
+           vote_uniquer
+           votes_cache
+           work_pool)
 set(NANO_FUZZER_TEST
     OFF
     CACHE BOOL "")
@@ -103,6 +130,7 @@ endif()
 
 if(${NANO_TIMED_LOCKS} GREATER 0)
   add_definitions(-DNANO_TIMED_LOCKS=${NANO_TIMED_LOCKS})
+  add_definitions(-DNANO_TIMED_LOCKS_FILTER=${NANO_TIMED_LOCKS_FILTER})
   if(NANO_TIMED_LOCKS_IGNORE_BLOCKED)
     add_definitions(-DNANO_TIMED_LOCKS_IGNORE_BLOCKED)
   endif()

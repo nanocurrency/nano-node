@@ -69,7 +69,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (re
 {
 	size_t count;
 	{
-		nano::lock_guard<std::mutex> guard (rep_crawler.active_mutex);
+		nano::lock_guard<nano::mutex> guard (rep_crawler.active_mutex);
 		count = rep_crawler.active.size ();
 	}
 
@@ -90,7 +90,7 @@ io_ctx (io_ctx_a),
 node_initialized_latch (1),
 config (config_a),
 stats (config.stat_config),
-workers (std::max (3u, config.io_threads / 2), nano::thread_role::name::worker),
+workers (std::max (3u, config.io_threads / 4), nano::thread_role::name::worker),
 flags (flags_a),
 work (work_a),
 distributed_work (*this),
@@ -588,6 +588,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	{
 		composite->add_component (collect_container_info (*node.telemetry, "telemetry"));
 	}
+	composite->add_component (collect_container_info (node.workers, "workers"));
 	composite->add_component (collect_container_info (node.observers, "observers"));
 	composite->add_component (collect_container_info (node.wallets, "wallets"));
 	composite->add_component (collect_container_info (node.vote_processor, "vote_processor"));
@@ -907,7 +908,7 @@ void nano::node::bootstrap_wallet ()
 {
 	std::deque<nano::account> accounts;
 	{
-		nano::lock_guard<std::mutex> lock (wallets.mutex);
+		nano::lock_guard<nano::mutex> lock (wallets.mutex);
 		auto transaction (wallets.tx_begin_read ());
 		for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n && accounts.size () < 128; ++i)
 		{
@@ -1279,7 +1280,7 @@ void nano::node::ongoing_online_weight_calculation ()
 
 void nano::node::receive_confirmed (nano::transaction const & block_transaction_a, nano::block_hash const & hash_a, nano::account const & destination_a)
 {
-	nano::unique_lock<std::mutex> lk (wallets.mutex);
+	nano::unique_lock<nano::mutex> lk (wallets.mutex);
 	auto wallets_l = wallets.get_wallets ();
 	auto wallet_transaction = wallets.tx_begin_read ();
 	lk.unlock ();
@@ -1382,7 +1383,7 @@ void nano::node::process_confirmed (nano::election_status const & status_a, uint
 
 bool nano::block_arrival::add (nano::block_hash const & hash_a)
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	auto now (std::chrono::steady_clock::now ());
 	auto inserted (arrival.get<tag_sequence> ().emplace_back (nano::block_arrival_info{ now, hash_a }));
 	auto result (!inserted.second);
@@ -1391,7 +1392,7 @@ bool nano::block_arrival::add (nano::block_hash const & hash_a)
 
 bool nano::block_arrival::recent (nano::block_hash const & hash_a)
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	auto now (std::chrono::steady_clock::now ());
 	while (arrival.size () > arrival_size_min && arrival.get<tag_sequence> ().front ().arrival + arrival_time_min < now)
 	{
@@ -1404,7 +1405,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (bl
 {
 	size_t count = 0;
 	{
-		nano::lock_guard<std::mutex> guard (block_arrival.mutex);
+		nano::lock_guard<nano::mutex> guard (block_arrival.mutex);
 		count = block_arrival.arrival.size ();
 	}
 
@@ -1476,7 +1477,7 @@ void nano::node::epoch_upgrader_impl (nano::private_key const & prv_a, nano::epo
 	auto signer (nano::pub_key (prv_a));
 	debug_assert (signer == ledger.epoch_signer (link));
 
-	std::mutex upgrader_mutex;
+	nano::mutex upgrader_mutex;
 	nano::condition_variable upgrader_condition;
 
 	class account_upgrade_item final
@@ -1552,7 +1553,7 @@ void nano::node::epoch_upgrader_impl (nano::private_key const & prv_a, nano::epo
 					if (threads != 0)
 					{
 						{
-							nano::unique_lock<std::mutex> lock (upgrader_mutex);
+							nano::unique_lock<nano::mutex> lock (upgrader_mutex);
 							++workers;
 							while (workers > threads)
 							{
@@ -1562,7 +1563,7 @@ void nano::node::epoch_upgrader_impl (nano::private_key const & prv_a, nano::epo
 						this->workers.push_task ([node_l = shared_from_this (), &upgrader_process, &upgrader_mutex, &upgrader_condition, &upgraded_accounts, &workers, epoch, difficulty, signer, root, account]() {
 							upgrader_process (*node_l, upgraded_accounts, epoch, difficulty, signer, root, account);
 							{
-								nano::lock_guard<std::mutex> lock (upgrader_mutex);
+								nano::lock_guard<nano::mutex> lock (upgrader_mutex);
 								--workers;
 							}
 							upgrader_condition.notify_all ();
@@ -1575,7 +1576,7 @@ void nano::node::epoch_upgrader_impl (nano::private_key const & prv_a, nano::epo
 				}
 			}
 			{
-				nano::unique_lock<std::mutex> lock (upgrader_mutex);
+				nano::unique_lock<nano::mutex> lock (upgrader_mutex);
 				while (workers > 0)
 				{
 					upgrader_condition.wait (lock);
@@ -1631,7 +1632,7 @@ void nano::node::epoch_upgrader_impl (nano::private_key const & prv_a, nano::epo
 						if (threads != 0)
 						{
 							{
-								nano::unique_lock<std::mutex> lock (upgrader_mutex);
+								nano::unique_lock<nano::mutex> lock (upgrader_mutex);
 								++workers;
 								while (workers > threads)
 								{
@@ -1641,7 +1642,7 @@ void nano::node::epoch_upgrader_impl (nano::private_key const & prv_a, nano::epo
 							this->workers.push_task ([node_l = shared_from_this (), &upgrader_process, &upgrader_mutex, &upgrader_condition, &upgraded_pending, &workers, epoch, difficulty, signer, root, account]() {
 								upgrader_process (*node_l, upgraded_pending, epoch, difficulty, signer, root, account);
 								{
-									nano::lock_guard<std::mutex> lock (upgrader_mutex);
+									nano::lock_guard<nano::mutex> lock (upgrader_mutex);
 									--workers;
 								}
 								upgrader_condition.notify_all ();
@@ -1676,7 +1677,7 @@ void nano::node::epoch_upgrader_impl (nano::private_key const & prv_a, nano::epo
 				}
 			}
 			{
-				nano::unique_lock<std::mutex> lock (upgrader_mutex);
+				nano::unique_lock<nano::mutex> lock (upgrader_mutex);
 				while (workers > 0)
 				{
 					upgrader_condition.wait (lock);

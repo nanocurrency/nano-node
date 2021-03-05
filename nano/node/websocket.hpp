@@ -267,7 +267,7 @@ namespace websocket
 		};
 		/** Map of subscriptions -> options registered by this session. */
 		std::unordered_map<topic, std::unique_ptr<options>, topic_hash> subscriptions;
-		std::mutex subscriptions_mutex;
+		nano::mutex subscriptions_mutex;
 
 		/** Handle incoming message */
 		void handle_message (boost::property_tree::ptree const & message_a);
@@ -334,7 +334,7 @@ namespace websocket
 		nano::wallets & wallets;
 		boost::asio::ip::tcp::acceptor acceptor;
 		socket_type socket;
-		std::mutex sessions_mutex;
+		nano::mutex sessions_mutex;
 		std::vector<std::weak_ptr<session>> sessions;
 		std::array<std::atomic<std::size_t>, number_topics> topic_subscriber_count;
 		std::atomic<bool> stopped{ false };

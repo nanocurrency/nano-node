@@ -252,13 +252,13 @@ TEST (bootstrap_processor, process_state)
 	node0->work_generate_blocking (*block2);
 	node0->process (*block1);
 	node0->process (*block2);
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work, node_flags));
 	ASSERT_EQ (node0->latest (nano::dev_genesis_key.pub), block2->hash ());
 	ASSERT_NE (node1->latest (nano::dev_genesis_key.pub), block2->hash ());
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
 	ASSERT_NE (node1->latest (nano::dev_genesis_key.pub), node0->latest (nano::dev_genesis_key.pub));
 	ASSERT_TIMELY (10s, node1->latest (nano::dev_genesis_key.pub) == node0->latest (nano::dev_genesis_key.pub));
-	ASSERT_EQ (0, node1->active.size ());
+	ASSERT_TIMELY (10s, node1->active.empty ());
 	node1->stop ();
 }
 
@@ -333,7 +333,7 @@ TEST (bootstrap_processor, DISABLED_pull_requeue_network_error)
 	ASSERT_TIMELY (2s, attempt->frontiers_received);
 	// Add non-existing pull & stop remote peer
 	{
-		nano::unique_lock<std::mutex> lock (node1->bootstrap_initiator.connections->mutex);
+		nano::unique_lock<nano::mutex> lock (node1->bootstrap_initiator.connections->mutex);
 		ASSERT_FALSE (attempt->stopped);
 		++attempt->pulling;
 		node1->bootstrap_initiator.connections->pulls.push_back (nano::pull_info (nano::dev_genesis_key.pub, send1->hash (), genesis.hash (), attempt->incremental_id));

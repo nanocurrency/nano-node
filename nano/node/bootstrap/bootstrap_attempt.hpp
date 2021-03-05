@@ -39,7 +39,7 @@ public:
 	virtual void wallet_start (std::deque<nano::account> &);
 	virtual size_t wallet_size ();
 	virtual void get_information (boost::property_tree::ptree &) = 0;
-	std::mutex next_log_mutex;
+	nano::mutex next_log_mutex;
 	std::chrono::steady_clock::time_point next_log{ std::chrono::steady_clock::now () };
 	std::atomic<unsigned> pulling{ 0 };
 	std::shared_ptr<nano::node> node;
@@ -53,7 +53,7 @@ public:
 	std::atomic<bool> frontiers_received{ false };
 	std::atomic<bool> frontiers_confirmed{ false };
 	nano::bootstrap_mode mode;
-	std::mutex mutex;
+	nano::mutex mutex;
 	nano::condition_variable condition;
 };
 }
