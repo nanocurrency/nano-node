@@ -60,8 +60,6 @@ TEST (websocket, active_difficulty)
 	node_flags.disable_request_loop = true;
 	auto node1 (system.add_node (config, node_flags));
 
-	// "Start" epoch 2
-	node1->ledger.cache.epoch_2_started = true;
 	ASSERT_EQ (node1->default_difficulty (nano::work_version::work_1), node1->network_params.network.publish_thresholds.epoch_2);
 
 	ASSERT_EQ (0, node1->websocket_server->subscriber_count (nano::websocket::topic::active_difficulty));
@@ -81,7 +79,7 @@ TEST (websocket, active_difficulty)
 
 	// Fake history records and force a trended_active_multiplier change
 	{
-		nano::unique_lock<std::mutex> lock (node1->active.mutex);
+		nano::unique_lock<nano::mutex> lock (node1->active.mutex);
 		node1->active.multipliers_cb.push_front (10.);
 		node1->active.update_active_multiplier (lock);
 	}

@@ -1014,7 +1014,7 @@ TEST (wallet, limited_difficulty)
 	wallet.insert_adhoc (nano::dev_genesis_key.prv, false);
 	{
 		// Force active difficulty to an impossibly high value
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		nano::lock_guard<nano::mutex> guard (node.active.mutex);
 		node.active.trended_active_multiplier = 1024 * 1024 * 1024;
 	}
 	ASSERT_EQ (node.max_work_generate_difficulty (nano::work_version::work_1), node.active.limited_active_difficulty (*genesis.open));
@@ -1102,7 +1102,7 @@ TEST (wallet, epoch_2_receive_propagation)
 
 		// Receiving should use the lower difficulty
 		{
-			nano::lock_guard<std::mutex> guard (node.active.mutex);
+			nano::lock_guard<nano::mutex> guard (node.active.mutex);
 			node.active.trended_active_multiplier = 1.0;
 		}
 		auto receive2 = wallet.receive_action (send2->hash (), key.pub, amount, send2->link ().as_account (), 1);
@@ -1152,7 +1152,7 @@ TEST (wallet, epoch_2_receive_unopened)
 
 		// Receiving should use the lower difficulty
 		{
-			nano::lock_guard<std::mutex> guard (node.active.mutex);
+			nano::lock_guard<nano::mutex> guard (node.active.mutex);
 			node.active.trended_active_multiplier = 1.0;
 		}
 		auto receive1 = wallet.receive_action (send1->hash (), key.pub, amount, send1->link ().as_account (), 1);
@@ -1213,7 +1213,7 @@ TEST (wallet, search_pending)
 
 	// Pending search should start an election
 	ASSERT_TRUE (node.active.empty ());
-	ASSERT_FALSE (wallet.search_pending ());
+	ASSERT_FALSE (wallet.search_pending (wallet.wallets.tx_begin_read ()));
 	auto election = node.active.election (send->qualified_root ());
 	ASSERT_NE (nullptr, election);
 
@@ -1230,7 +1230,7 @@ TEST (wallet, search_pending)
 
 	// Pending search should create the receive block
 	ASSERT_EQ (2, node.ledger.cache.block_count);
-	ASSERT_FALSE (wallet.search_pending ());
+	ASSERT_FALSE (wallet.search_pending (wallet.wallets.tx_begin_read ()));
 	ASSERT_TIMELY (3s, node.balance (nano::genesis_account) == nano::genesis_amount);
 	auto receive_hash = node.ledger.latest (node.store.tx_begin_read (), nano::genesis_account);
 	auto receive = node.block (receive_hash);

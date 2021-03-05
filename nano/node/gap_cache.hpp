@@ -54,9 +54,9 @@ public:
 	ordered_gaps blocks;
 	// clang-format on
 	size_t const max = 256;
-	std::mutex mutex;
+	nano::mutex mutex{ mutex_identifier (mutexes::gap_cache) };
 	nano::node & node;
 };
 
-std::unique_ptr<container_info_component> collect_container_info (gap_cache & gap_cache, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (gap_cache & gap_cache, std::string const & name);
 }

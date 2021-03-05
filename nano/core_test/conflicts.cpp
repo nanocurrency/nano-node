@@ -40,7 +40,7 @@ TEST (conflicts, add_existing)
 	auto election1 = node1.active.insert (send2);
 	ASSERT_EQ (1, node1.active.size ());
 	auto vote1 (std::make_shared<nano::vote> (key2.pub, key2.prv, 0, send2));
-	node1.active.vote (vote1, true);
+	node1.active.vote (vote1);
 	ASSERT_NE (nullptr, election1.election);
 	ASSERT_EQ (2, election1.election->votes ().size ());
 	auto votes (election1.election->votes ());
@@ -166,7 +166,7 @@ TEST (conflicts, reprioritize)
 	node1.process_active (send1);
 	node1.block_processor.flush ();
 	{
-		nano::lock_guard<std::mutex> guard (node1.active.mutex);
+		nano::lock_guard<nano::mutex> guard (node1.active.mutex);
 		auto existing1 (node1.active.roots.find (send1->qualified_root ()));
 		ASSERT_NE (node1.active.roots.end (), existing1);
 		ASSERT_EQ (multiplier1, existing1->multiplier);
@@ -177,7 +177,7 @@ TEST (conflicts, reprioritize)
 	node1.process_active (std::make_shared<nano::send_block> (send1_copy));
 	node1.block_processor.flush ();
 	{
-		nano::lock_guard<std::mutex> guard (node1.active.mutex);
+		nano::lock_guard<nano::mutex> guard (node1.active.mutex);
 		auto existing2 (node1.active.roots.find (send1->qualified_root ()));
 		ASSERT_NE (node1.active.roots.end (), existing2);
 		ASSERT_EQ (multiplier2, existing2->multiplier);

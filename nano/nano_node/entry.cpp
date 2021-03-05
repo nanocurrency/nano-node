@@ -72,7 +72,6 @@ int main (int argc, char * const * argv)
 		("help", "Print out options")
 		("version", "Prints out version")
 		("config", boost::program_options::value<std::vector<nano::config_key_value_pair>>()->multitoken(), "Pass node configuration values. This takes precedence over any values in the configuration file. This option can be repeated multiple times.")
-		("rpcconfig", boost::program_options::value<std::vector<nano::config_key_value_pair>>()->multitoken(), "Pass RPC configuration values. This takes precedence over any values in the RPC configuration file. This option can be repeated multiple times.")
 		("daemon", "Start node daemon")
 		("compare_rep_weights", "Display a summarized comparison between the hardcoded bootstrap weights and representative weights from the ledger. Full comparison is output to logs")
 		("debug_block_count", "Display the number of blocks")
@@ -141,17 +140,6 @@ int main (int argc, char * const * argv)
 	}
 
 	auto data_path_it = vm.find ("data_path");
-	if (data_path_it == vm.end ())
-	{
-		std::string error_string;
-		if (!nano::migrate_working_path (error_string))
-		{
-			std::cerr << error_string << std::endl;
-
-			return 1;
-		}
-	}
-
 	boost::filesystem::path data_path ((data_path_it != vm.end ()) ? data_path_it->second.as<std::string> () : nano::working_path ());
 	auto ec = nano::handle_node_options (vm);
 	if (ec == nano::error_cli::unknown_command)
@@ -907,14 +895,13 @@ int main (int argc, char * const * argv)
 			size_t max_blocks (2 * num_accounts * num_iterations + num_accounts * 2); //  1,000,000 + 2 * 100,000 = 1,200,000 blocks
 			std::cout << boost::str (boost::format ("Starting pregenerating %1% blocks\n") % max_blocks);
 			boost::asio::io_context io_ctx;
-			nano::alarm alarm (io_ctx);
 			nano::work_pool work (std::numeric_limits<unsigned>::max ());
 			nano::logging logging;
 			auto path (nano::unique_path ());
 			logging.init (path);
 			nano::node_flags node_flags;
 			nano::update_flags (node_flags, vm);
-			auto node (std::make_shared<nano::node> (io_ctx, 24001, path, alarm, logging, work, node_flags));
+			auto node (std::make_shared<nano::node> (io_ctx, 24001, path, logging, work, node_flags));
 			nano::block_hash genesis_latest (node->latest (dev_params.ledger.dev_genesis_key.pub));
 			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
 			// Generating keys
@@ -1028,12 +1015,11 @@ int main (int argc, char * const * argv)
 			size_t max_votes (num_elections * num_representatives); // 40,000 * 25 = 1,000,000 votes
 			std::cerr << boost::str (boost::format ("Starting pregenerating %1% votes\n") % max_votes);
 			boost::asio::io_context io_ctx;
-			nano::alarm alarm (io_ctx);
 			nano::work_pool work (std::numeric_limits<unsigned>::max ());
 			nano::logging logging;
 			auto path (nano::unique_path ());
 			logging.init (path);
-			auto node (std::make_shared<nano::node> (io_ctx, 24001, path, alarm, logging, work));
+			auto node (std::make_shared<nano::node> (io_ctx, 24001, path, logging, work));
 			nano::block_hash genesis_latest (node->latest (dev_params.ledger.dev_genesis_key.pub));
 			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
 			// Generating keys
@@ -1150,8 +1136,6 @@ int main (int argc, char * const * argv)
 			std::cout << boost::str (boost::format ("Starting generating %1% blocks...\n") % (count * 2));
 			boost::asio::io_context io_ctx1;
 			boost::asio::io_context io_ctx2;
-			nano::alarm alarm1 (io_ctx1);
-			nano::alarm alarm2 (io_ctx2);
 			nano::work_pool work (std::numeric_limits<unsigned>::max ());
 			nano::logging logging;
 			auto path1 (nano::unique_path ());
@@ -1163,7 +1147,7 @@ int main (int argc, char * const * argv)
 			flags.disable_legacy_bootstrap = true;
 			flags.disable_wallet_bootstrap = true;
 			flags.disable_bootstrap_listener = true;
-			auto node1 (std::make_shared<nano::node> (io_ctx1, path1, alarm1, config1, work, flags, 0));
+			auto node1 (std::make_shared<nano::node> (io_ctx1, path1, config1, work, flags, 0));
 			nano::block_hash genesis_latest (node1->latest (dev_params.ledger.dev_genesis_key.pub));
 			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
 			// Generating blocks
@@ -1223,7 +1207,7 @@ int main (int argc, char * const * argv)
 			// Confirm blocks for node1
 			for (auto & block : blocks)
 			{
-				node1->confirmation_height_processor.add (block->hash ());
+				node1->confirmation_height_processor.add (block);
 			}
 			while (node1->ledger.cache.cemented_count != node1->ledger.cache.block_count)
 			{
@@ -1260,7 +1244,7 @@ int main (int argc, char * const * argv)
 					config2.active_elections_size = daemon_config.node.active_elections_size;
 				}
 			}
-			auto node2 (std::make_shared<nano::node> (io_ctx2, path2, alarm2, config2, work, flags, 1));
+			auto node2 (std::make_shared<nano::node> (io_ctx2, path2, config2, work, flags, 1));
 			node2->start ();
 			nano::thread_runner runner2 (io_ctx2, node2->config.io_threads);
 			std::cout << boost::str (boost::format ("Processing %1% blocks (test node)\n") % (count * 2));
@@ -1378,7 +1362,7 @@ int main (int argc, char * const * argv)
 			}
 			threads_count = std::max (1u, threads_count);
 			std::vector<std::thread> threads;
-			std::mutex mutex;
+			nano::mutex mutex;
 			nano::condition_variable condition;
 			std::atomic<bool> finished (false);
 			std::deque<std::pair<nano::account, nano::account_info>> accounts;
@@ -1389,8 +1373,8 @@ int main (int argc, char * const * argv)
 			auto print_error_message = [&silent, &errors](std::string const & error_message_a) {
 				if (!silent)
 				{
-					static std::mutex cerr_mutex;
-					nano::lock_guard<std::mutex> lock (cerr_mutex);
+					static nano::mutex cerr_mutex;
+					nano::lock_guard<nano::mutex> lock (cerr_mutex);
 					std::cerr << error_message_a;
 				}
 				++errors;
@@ -1401,7 +1385,7 @@ int main (int argc, char * const * argv)
 				{
 					threads.emplace_back ([&function_a, node, &mutex, &condition, &finished, &deque_a]() {
 						auto transaction (node->store.tx_begin_read ());
-						nano::unique_lock<std::mutex> lock (mutex);
+						nano::unique_lock<nano::mutex> lock (mutex);
 						while (!deque_a.empty () || !finished)
 						{
 							while (deque_a.empty () && !finished)
@@ -1653,7 +1637,7 @@ int main (int argc, char * const * argv)
 			for (auto i (node->store.accounts_begin (transaction)), n (node->store.accounts_end ()); i != n; ++i)
 			{
 				{
-					nano::unique_lock<std::mutex> lock (mutex);
+					nano::unique_lock<nano::mutex> lock (mutex);
 					if (accounts.size () > accounts_deque_overflow)
 					{
 						auto wait_ms (250 * accounts.size () / accounts_deque_overflow);
@@ -1665,7 +1649,7 @@ int main (int argc, char * const * argv)
 				condition.notify_all ();
 			}
 			{
-				nano::lock_guard<std::mutex> lock (mutex);
+				nano::lock_guard<nano::mutex> lock (mutex);
 				finished = true;
 			}
 			condition.notify_all ();
@@ -1764,7 +1748,7 @@ int main (int argc, char * const * argv)
 			for (auto i (node->store.pending_begin (transaction)), n (node->store.pending_end ()); i != n; ++i)
 			{
 				{
-					nano::unique_lock<std::mutex> lock (mutex);
+					nano::unique_lock<nano::mutex> lock (mutex);
 					if (pending.size () > pending_deque_overflow)
 					{
 						auto wait_ms (50 * pending.size () / pending_deque_overflow);
@@ -1776,7 +1760,7 @@ int main (int argc, char * const * argv)
 				condition.notify_all ();
 			}
 			{
-				nano::lock_guard<std::mutex> lock (mutex);
+				nano::lock_guard<nano::mutex> lock (mutex);
 				finished = true;
 			}
 			condition.notify_all ();

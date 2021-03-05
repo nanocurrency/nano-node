@@ -24,5 +24,5 @@ public:
 	nano::observer_set<nano::telemetry_data const &, nano::endpoint const &> telemetry;
 };
 
-std::unique_ptr<container_info_component> collect_container_info (node_observers & node_observers, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (node_observers & node_observers, std::string const & name);
 }

@@ -58,7 +58,7 @@ public:
 
 private:
 	nano::stat & stats;
-	std::mutex mutex;
+	nano::mutex mutex;
 	nano::condition_variable condition;
 	boost::circular_buffer<nano::message_buffer *> free;
 	boost::circular_buffer<nano::message_buffer *> full;
@@ -76,7 +76,7 @@ public:
 	void stop ();
 
 private:
-	std::mutex mutex;
+	nano::mutex mutex;
 	nano::condition_variable producer_condition;
 	nano::condition_variable consumer_condition;
 	std::deque<nano::tcp_message_item> entries;
@@ -110,7 +110,7 @@ private:
 		nano::uint256_union cookie;
 		std::chrono::steady_clock::time_point created_at;
 	};
-	mutable std::mutex syn_cookie_mutex;
+	mutable nano::mutex syn_cookie_mutex;
 	std::unordered_map<nano::endpoint, syn_cookie_info> cookies;
 	std::unordered_map<boost::asio::ip::address, unsigned> cookies_per_ip;
 	size_t max_cookies_per_ip;
@@ -179,7 +179,6 @@ public:
 	float size_sqrt () const;
 	bool empty () const;
 	void erase (nano::transport::channel const &);
-	void erase_below_version (uint8_t);
 	nano::message_buffer_manager buffer_container;
 	boost::asio::ip::udp::resolver resolver;
 	std::vector<boost::thread> packet_processing_threads;
@@ -195,13 +194,10 @@ public:
 	// Called when a new channel is observed
 	std::function<void(std::shared_ptr<nano::transport::channel>)> channel_observer;
 	std::atomic<bool> stopped{ false };
-	boost::asio::steady_timer cleanup_timer;
-	boost::asio::steady_timer cookie_timer;
-	boost::asio::steady_timer keepalive_timer;
 	static unsigned const broadcast_interval_ms = 10;
 	static size_t const buffer_size = 512;
 	static size_t const confirm_req_hashes_max = 7;
 	static size_t const confirm_ack_hashes_max = 12;
 };
-std::unique_ptr<container_info_component> collect_container_info (network & network, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (network & network, std::string const & name);
 }

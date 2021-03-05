@@ -33,7 +33,7 @@ private:
 	nano::node_config & node_config;
 	nano::logger_mt & logger;
 
-	std::mutex mutex;
+	nano::mutex mutex{ mutex_identifier (mutexes::state_block_signature_verification) };
 	bool stopped{ false };
 	bool active{ false };
 	std::deque<std::pair<nano::unchecked_info, bool>> state_blocks;
@@ -45,5 +45,5 @@ private:
 	void verify_state_blocks (std::deque<std::pair<nano::unchecked_info, bool>> &);
 };
 
-std::unique_ptr<nano::container_info_component> collect_container_info (state_block_signature_verification & state_block_signature_verification, const std::string & name);
+std::unique_ptr<nano::container_info_component> collect_container_info (state_block_signature_verification & state_block_signature_verification, std::string const & name);
 }

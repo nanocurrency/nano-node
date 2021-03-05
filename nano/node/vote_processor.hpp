@@ -69,15 +69,15 @@ private:
 	std::unordered_set<nano::account> representatives_2;
 	std::unordered_set<nano::account> representatives_3;
 	nano::condition_variable condition;
-	std::mutex mutex;
+	nano::mutex mutex{ mutex_identifier (mutexes::vote_processor) };
 	bool started;
 	bool stopped;
 	bool is_active;
 	std::thread thread;
 
-	friend std::unique_ptr<container_info_component> collect_container_info (vote_processor & vote_processor, const std::string & name);
+	friend std::unique_ptr<container_info_component> collect_container_info (vote_processor & vote_processor, std::string const & name);
 	friend class vote_processor_weights_Test;
 };
 
-std::unique_ptr<container_info_component> collect_container_info (vote_processor & vote_processor, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (vote_processor & vote_processor, std::string const & name);
 }

@@ -54,7 +54,7 @@ public:
  */
 class rep_crawler final
 {
-	friend std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, const std::string & name);
+	friend std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, std::string const & name);
 
 	// clang-format off
 	class tag_account {};
@@ -118,7 +118,7 @@ private:
 	nano::node & node;
 
 	/** Protects the active-hash container */
-	std::mutex active_mutex;
+	nano::mutex active_mutex;
 
 	/** We have solicted votes for these random blocks */
 	std::unordered_set<nano::block_hash> active;
@@ -142,7 +142,7 @@ private:
 	void update_weights ();
 
 	/** Protects the probable_reps container */
-	mutable std::mutex probable_reps_mutex;
+	mutable nano::mutex probable_reps_mutex;
 
 	/** Probable representatives */
 	probably_rep_t probable_reps;
@@ -150,6 +150,7 @@ private:
 	friend class active_transactions_confirm_active_Test;
 	friend class active_transactions_confirm_frontier_Test;
 	friend class rep_crawler_local_Test;
+	friend class node_online_reps_rep_crawler_Test;
 
 	std::deque<std::pair<std::shared_ptr<nano::transport::channel>, std::shared_ptr<nano::vote>>> responses;
 };

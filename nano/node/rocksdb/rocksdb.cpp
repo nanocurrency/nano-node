@@ -888,6 +888,11 @@ unsigned nano::rocksdb_store::max_block_write_batch_num () const
 	return max_block_write_batch_num_m;
 }
 
+std::string nano::rocksdb_store::error_string (int status) const
+{
+	return std::to_string (status);
+}
+
 nano::rocksdb_store::tombstone_info::tombstone_info (uint64_t num_since_last_flush_a, uint64_t const max_a) :
 num_since_last_flush (num_since_last_flush_a),
 max (max_a)
