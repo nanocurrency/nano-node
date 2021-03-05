@@ -3518,7 +3518,7 @@ TEST (node, block_processor_priority)
 	ASSERT_TIMELY (2s, node.block_processor.size () == 5);
 	ASSERT_TIMELY (2s, node.block_processor.state_block_signature_verification.size () == 0);
 	// Inspect priority queue
-	nano::unique_lock<std::mutex> lk (node.block_processor.mutex);
+	nano::unique_lock<nano::mutex> lk (node.block_processor.mutex);
 	ASSERT_EQ (5, node.block_processor.blocks.size ());
 	ASSERT_EQ (send3->hash (), node.block_processor.blocks.top ().first.block->hash ());
 	node.block_processor.blocks.pop ();
