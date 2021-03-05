@@ -1431,7 +1431,7 @@ bool nano::node::init_error () const
 	return store.init_error () || wallets_store.init_error ();
 }
 
-bool nano::node::epoch_upgrader (nano::private_key const & prv_a, nano::epoch epoch_a, uint64_t count_limit, uint64_t threads)
+bool nano::node::epoch_upgrader (nano::raw_key const & prv_a, nano::epoch epoch_a, uint64_t count_limit, uint64_t threads)
 {
 	bool error = stopped.load ();
 	if (!error)
@@ -1446,7 +1446,7 @@ bool nano::node::epoch_upgrader (nano::private_key const & prv_a, nano::epoch ep
 	return error;
 }
 
-void nano::node::epoch_upgrader_impl (nano::private_key const & prv_a, nano::epoch epoch_a, uint64_t count_limit, uint64_t threads)
+void nano::node::epoch_upgrader_impl (nano::raw_key const & prv_a, nano::epoch epoch_a, uint64_t count_limit, uint64_t threads)
 {
 	nano::thread_role::set (nano::thread_role::name::epoch_upgrader);
 	auto upgrader_process = [](nano::node & node_a, std::atomic<uint64_t> & counter, std::shared_ptr<nano::block> const & epoch, uint64_t difficulty, nano::public_key const & signer_a, nano::root const & root_a, nano::account const & account_a) {
@@ -1473,7 +1473,7 @@ void nano::node::epoch_upgrader_impl (nano::private_key const & prv_a, nano::epo
 	nano::block_builder builder;
 	auto link (ledger.epoch_link (epoch_a));
 	nano::raw_key raw_key;
-	raw_key.data = prv_a;
+	raw_key = prv_a;
 	auto signer (nano::pub_key (prv_a));
 	debug_assert (signer == ledger.epoch_signer (link));
 

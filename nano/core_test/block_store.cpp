@@ -345,7 +345,7 @@ TEST (block_store, genesis)
 	ASSERT_EQ (confirmation_height_info.frontier, hash);
 	auto dev_pub_text (nano::dev_genesis_key.pub.to_string ());
 	auto dev_pub_account (nano::dev_genesis_key.pub.to_account ());
-	auto dev_prv_text (nano::dev_genesis_key.prv.data.to_string ());
+	auto dev_prv_text (nano::dev_genesis_key.prv.to_string ());
 	ASSERT_EQ (nano::genesis_account, nano::dev_genesis_key.pub);
 }
 

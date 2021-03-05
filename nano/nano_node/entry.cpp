@@ -325,17 +325,17 @@ int main (int argc, char * const * argv)
 				{
 					nano::keypair genesis (key.to_string ());
 					nano::work_pool work (std::numeric_limits<unsigned>::max ());
-					std::cout << "Genesis: " << genesis.prv.data.to_string () << "\n"
+					std::cout << "Genesis: " << genesis.prv.to_string () << "\n"
 					          << "Public: " << genesis.pub.to_string () << "\n"
 					          << "Account: " << genesis.pub.to_account () << "\n";
 					nano::keypair landing;
-					std::cout << "Landing: " << landing.prv.data.to_string () << "\n"
+					std::cout << "Landing: " << landing.prv.to_string () << "\n"
 					          << "Public: " << landing.pub.to_string () << "\n"
 					          << "Account: " << landing.pub.to_account () << "\n";
 					for (auto i (0); i != 32; ++i)
 					{
 						nano::keypair rep;
-						std::cout << "Rep" << i << ": " << rep.prv.data.to_string () << "\n"
+						std::cout << "Rep" << i << ": " << rep.prv.to_string () << "\n"
 						          << "Public: " << rep.pub.to_string () << "\n"
 						          << "Account: " << rep.pub.to_account () << "\n";
 					}
@@ -1311,8 +1311,8 @@ int main (int argc, char * const * argv)
 			nano::raw_key seed;
 			for (;;)
 			{
-				nano::random_pool::generate_block (seed.data.bytes.data (), seed.data.bytes.size ());
-				std::cout.write (reinterpret_cast<const char *> (seed.data.bytes.data ()), seed.data.bytes.size ());
+				nano::random_pool::generate_block (seed.bytes.data (), seed.bytes.size ());
+				std::cout.write (reinterpret_cast<const char *> (seed.bytes.data ()), seed.bytes.size ());
 			}
 		}
 		else if (vm.count ("debug_rpc"))

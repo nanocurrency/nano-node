@@ -171,7 +171,7 @@ wallet (wallet_a)
 		QString key_text_wide (account_key_line->text ());
 		std::string key_text (key_text_wide.toLocal8Bit ());
 		nano::raw_key key;
-		if (!key.data.decode_hex (key_text))
+		if (!key.decode_hex (key_text))
 		{
 			show_line_ok (*account_key_line);
 			account_key_line->clear ();
@@ -226,7 +226,7 @@ wallet (wallet_a)
 		if (this->wallet.wallet_m->store.valid_password (transaction))
 		{
 			this->wallet.wallet_m->store.seed (seed, transaction);
-			this->wallet.application.clipboard ()->setText (QString (seed.data.to_string ().c_str ()));
+			this->wallet.application.clipboard ()->setText (QString (seed.to_string ().c_str ()));
 			show_button_success (*backup_seed);
 			backup_seed->setText ("Seed was copied to clipboard");
 			this->wallet.node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() {
@@ -385,7 +385,7 @@ wallet (wallet_a)
 		{
 			show_line_ok (*clear_line);
 			nano::raw_key seed_l;
-			if (!seed_l.data.decode_hex (seed->text ().toStdString ()))
+			if (!seed_l.decode_hex (seed->text ().toStdString ()))
 			{
 				bool successful (false);
 				{
@@ -1638,7 +1638,7 @@ wallet (wallet_a)
 		{
 			// lock wallet
 			nano::raw_key empty;
-			empty.data.clear ();
+			empty.clear ();
 			this->wallet.wallet_m->store.password.value_set (empty);
 			update_locked (true, true);
 			lock_toggle->setText ("Unlock");
