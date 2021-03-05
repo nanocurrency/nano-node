@@ -100,7 +100,7 @@ void nano::write_mdb_txn::commit ()
 	if (active)
 	{
 		auto status (mdb_txn_commit (handle));
-		release_assert (status == MDB_SUCCESS);
+		release_assert (status == MDB_SUCCESS, mdb_strerror (status));
 		txn_callbacks.txn_end (this);
 		active = false;
 	}
@@ -109,7 +109,7 @@ void nano::write_mdb_txn::commit ()
 void nano::write_mdb_txn::renew ()
 {
 	auto status (mdb_txn_begin (env, nullptr, 0, &handle));
-	release_assert (status == MDB_SUCCESS);
+	release_assert (status == MDB_SUCCESS, mdb_strerror (status));
 	txn_callbacks.txn_start (this);
 	active = true;
 }
@@ -138,7 +138,7 @@ void nano::mdb_txn_tracker::serialize_json (boost::property_tree::ptree & json, 
 	std::vector<mdb_txn_stats> copy_stats;
 	std::vector<bool> are_writes;
 	{
-		nano::lock_guard<std::mutex> guard (mutex);
+		nano::lock_guard<nano::mutex> guard (mutex);
 		copy_stats = stats;
 		are_writes.reserve (stats.size ());
 		std::transform (stats.cbegin (), stats.cend (), std::back_inserter (are_writes), [](auto & mdb_txn_stat) {
@@ -209,7 +209,7 @@ void nano::mdb_txn_tracker::log_if_held_long_enough (nano::mdb_txn_stats const &
 
 void nano::mdb_txn_tracker::add (const nano::transaction_impl * transaction_impl)
 {
-	nano::lock_guard<std::mutex> guard (mutex);
+	nano::lock_guard<nano::mutex> guard (mutex);
 	debug_assert (std::find_if (stats.cbegin (), stats.cend (), matches_txn (transaction_impl)) == stats.cend ());
 	stats.emplace_back (transaction_impl);
 }
@@ -217,7 +217,7 @@ void nano::mdb_txn_tracker::add (const nano::transaction_impl * transaction_impl
 /** Can be called without error if transaction does not exist */
 void nano::mdb_txn_tracker::erase (const nano::transaction_impl * transaction_impl)
 {
-	nano::unique_lock<std::mutex> lk (mutex);
+	nano::unique_lock<nano::mutex> lk (mutex);
 	auto it = std::find_if (stats.begin (), stats.end (), matches_txn (transaction_impl));
 	if (it != stats.end ())
 	{

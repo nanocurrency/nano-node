@@ -424,7 +424,7 @@ TEST (node, search_pending_confirmed)
 	system.wallet (0)->insert_adhoc (key2.prv);
 	ASSERT_FALSE (system.wallet (0)->search_pending (system.wallet (0)->wallets.tx_begin_read ()));
 	{
-		nano::lock_guard<std::mutex> guard (node->active.mutex);
+		nano::lock_guard<nano::mutex> guard (node->active.mutex);
 		auto existing1 (node->active.blocks.find (send1->hash ()));
 		ASSERT_EQ (node->active.blocks.end (), existing1);
 		auto existing2 (node->active.blocks.find (send2->hash ()));
@@ -470,7 +470,7 @@ TEST (node, search_pending_pruned)
 	system.wallet (1)->insert_adhoc (key2.prv);
 	ASSERT_FALSE (system.wallet (1)->search_pending (system.wallet (1)->wallets.tx_begin_read ()));
 	{
-		nano::lock_guard<std::mutex> guard (node2->active.mutex);
+		nano::lock_guard<nano::mutex> guard (node2->active.mutex);
 		auto existing1 (node2->active.blocks.find (send1->hash ()));
 		ASSERT_EQ (node2->active.blocks.end (), existing1);
 		auto existing2 (node2->active.blocks.find (send2->hash ()));
@@ -1523,7 +1523,7 @@ TEST (node, fork_no_vote_quorum)
 	std::vector<uint8_t> buffer;
 	{
 		nano::vectorstream stream (buffer);
-		confirm.serialize (stream, false);
+		confirm.serialize (stream);
 	}
 	auto channel = node2.network.find_node_id (node3.node_id.pub);
 	ASSERT_NE (nullptr, channel);
@@ -2018,7 +2018,7 @@ TEST (node, bootstrap_confirm_frontiers)
 		ASSERT_NO_ERROR (system1.poll ());
 	}
 	{
-		nano::lock_guard<std::mutex> guard (node1->active.mutex);
+		nano::lock_guard<nano::mutex> guard (node1->active.mutex);
 		auto existing1 (node1->active.blocks.find (send0.hash ()));
 		ASSERT_NE (node1->active.blocks.end (), existing1);
 	}
@@ -2445,7 +2445,7 @@ TEST (node, online_reps_rep_crawler)
 	ASSERT_EQ (0, node1.online_reps.online ());
 	// After inserting to rep crawler
 	{
-		nano::lock_guard<std::mutex> guard (node1.rep_crawler.probable_reps_mutex);
+		nano::lock_guard<nano::mutex> guard (node1.rep_crawler.probable_reps_mutex);
 		node1.rep_crawler.active.insert (nano::genesis_hash);
 	}
 	node1.vote_processor.vote_blocking (vote, std::make_shared<nano::transport::channel_loopback> (node1));
@@ -3101,7 +3101,7 @@ TEST (node, epoch_conflict_confirm)
 	nano::blocks_confirm (*node0, { change, epoch_open });
 	ASSERT_EQ (2, node0->active.size ());
 	{
-		nano::lock_guard<std::mutex> lock (node0->active.mutex);
+		nano::lock_guard<nano::mutex> lock (node0->active.mutex);
 		ASSERT_TRUE (node0->active.blocks.find (change->hash ()) != node0->active.blocks.end ());
 		ASSERT_TRUE (node0->active.blocks.find (epoch_open->hash ()) != node0->active.blocks.end ());
 	}
@@ -3872,22 +3872,6 @@ TEST (node, aggressive_flooding)
 	ASSERT_EQ (1 + 2 * nodes_wallets.size () + 2, node1.ledger.cache.block_count);
 }
 
-// Tests that upon changing the default difficulty, max generation difficulty changes proportionally
-TEST (node, max_work_generate_difficulty)
-{
-	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
-	node_config.max_work_generate_multiplier = 2.0;
-	auto & node = *system.add_node (node_config);
-	auto initial_difficulty = node.default_difficulty (nano::work_version::work_1);
-	ASSERT_EQ (node.max_work_generate_difficulty (nano::work_version::work_1), nano::difficulty::from_multiplier (node.config.max_work_generate_multiplier, initial_difficulty));
-	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (node, nano::epoch::epoch_1));
-	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (node, nano::epoch::epoch_2));
-	auto final_difficulty = node.default_difficulty (nano::work_version::work_1);
-	ASSERT_NE (final_difficulty, initial_difficulty);
-	ASSERT_EQ (node.max_work_generate_difficulty (nano::work_version::work_1), nano::difficulty::from_multiplier (node.config.max_work_generate_multiplier, final_difficulty));
-}
-
 TEST (active_difficulty, recalculate_work)
 {
 	nano::system system;
@@ -3896,7 +3880,7 @@ TEST (active_difficulty, recalculate_work)
 	auto & node1 = *system.add_node (node_config);
 	nano::genesis genesis;
 	nano::keypair key1;
-	ASSERT_EQ (node1.network_params.network.publish_thresholds.epoch_1, node1.active.active_difficulty ());
+	ASSERT_EQ (node1.network_params.network.publish_thresholds.epoch_2, node1.active.active_difficulty ());
 	auto send1 = nano::send_block_builder ()
 	             .previous (genesis.hash ())
 	             .destination (key1.pub)
@@ -3904,13 +3888,13 @@ TEST (active_difficulty, recalculate_work)
 	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
 	             .work (*system.work.generate (genesis.hash ()))
 	             .build_shared ();
-	auto multiplier1 = nano::difficulty::to_multiplier (send1->difficulty (), node1.network_params.network.publish_thresholds.epoch_1);
+	auto multiplier1 = nano::difficulty::to_multiplier (send1->difficulty (), node1.network_params.network.publish_thresholds.epoch_2);
 	// Process as local block
 	node1.process_active (send1);
 	ASSERT_TIMELY (2s, !node1.active.empty ());
 	auto sum (std::accumulate (node1.active.multipliers_cb.begin (), node1.active.multipliers_cb.end (), double(0)));
-	ASSERT_EQ (node1.active.active_difficulty (), nano::difficulty::from_multiplier (sum / node1.active.multipliers_cb.size (), node1.network_params.network.publish_thresholds.epoch_1));
-	nano::unique_lock<std::mutex> lock (node1.active.mutex);
+	ASSERT_EQ (node1.active.active_difficulty (), nano::difficulty::from_multiplier (sum / node1.active.multipliers_cb.size (), node1.network_params.network.publish_thresholds.epoch_2));
+	nano::unique_lock<nano::mutex> lock (node1.active.mutex);
 	// Fake history records to force work recalculation
 	for (auto i (0); i < node1.active.multipliers_cb.size (); i++)
 	{
@@ -4194,7 +4178,7 @@ TEST (node, dependency_graph)
 	ASSERT_NO_ERROR (system.poll_until_true (15s, [&] {
 		// Not many blocks should be active simultaneously
 		EXPECT_LT (node.active.size (), 6);
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		nano::lock_guard<nano::mutex> guard (node.active.mutex);
 
 		// Ensure that active blocks have their ancestors confirmed
 		auto error = std::any_of (dependency_graph.cbegin (), dependency_graph.cend (), [&](auto entry) {
@@ -4472,7 +4456,7 @@ TEST (node, deferred_dependent_elections)
 
 	// Frontier confirmation also starts elections
 	ASSERT_NO_ERROR (system.poll_until_true (5s, [&node, &send2] {
-		nano::unique_lock<std::mutex> lock (node.active.mutex);
+		nano::unique_lock<nano::mutex> lock (node.active.mutex);
 		node.active.frontiers_confirmation (lock);
 		lock.unlock ();
 		return node.active.election (send2->qualified_root ()) != nullptr;
@@ -4526,21 +4510,6 @@ TEST (node, deferred_dependent_elections)
 }
 }
 
-TEST (node, default_difficulty)
-{
-	nano::system system (1);
-	auto & node (*system.nodes[0]);
-	auto const & thresholds = nano::network_params{}.network.publish_thresholds;
-	ASSERT_EQ (thresholds.epoch_1, node.default_difficulty (nano::work_version::work_1));
-	ASSERT_EQ (thresholds.epoch_1, node.default_receive_difficulty (nano::work_version::work_1));
-	nano::upgrade_epoch (system.work, node.ledger, nano::epoch::epoch_1);
-	ASSERT_EQ (thresholds.epoch_1, node.default_difficulty (nano::work_version::work_1));
-	ASSERT_EQ (thresholds.epoch_1, node.default_receive_difficulty (nano::work_version::work_1));
-	nano::upgrade_epoch (system.work, node.ledger, nano::epoch::epoch_2);
-	ASSERT_EQ (thresholds.epoch_2, node.default_difficulty (nano::work_version::work_1));
-	ASSERT_EQ (thresholds.epoch_2_receive, node.default_receive_difficulty (nano::work_version::work_1));
-}
-
 TEST (rep_crawler, recently_confirmed)
 {
 	nano::system system (1);
@@ -4567,7 +4536,7 @@ TEST (rep_crawler, local)
 	auto loopback = std::make_shared<nano::transport::channel_loopback> (node);
 	auto vote = std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 0, std::vector{ nano::genesis_hash });
 	{
-		nano::lock_guard<std::mutex> guard (node.rep_crawler.probable_reps_mutex);
+		nano::lock_guard<nano::mutex> guard (node.rep_crawler.probable_reps_mutex);
 		node.rep_crawler.active.insert (nano::genesis_hash);
 		node.rep_crawler.responses.emplace_back (loopback, vote);
 	}

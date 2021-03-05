@@ -32,7 +32,7 @@ void * nano::read_rocksdb_txn::get_handle () const
 	return (void *)&options;
 }
 
-nano::write_rocksdb_txn::write_rocksdb_txn (rocksdb::OptimisticTransactionDB * db_a, std::vector<nano::tables> const & tables_requiring_locks_a, std::vector<nano::tables> const & tables_no_locks_a, std::unordered_map<nano::tables, std::mutex> & mutexes_a) :
+nano::write_rocksdb_txn::write_rocksdb_txn (rocksdb::OptimisticTransactionDB * db_a, std::vector<nano::tables> const & tables_requiring_locks_a, std::vector<nano::tables> const & tables_no_locks_a, std::unordered_map<nano::tables, nano::mutex> & mutexes_a) :
 db (db_a),
 tables_requiring_locks (tables_requiring_locks_a),
 tables_no_locks (tables_no_locks_a),
@@ -66,7 +66,7 @@ void nano::write_rocksdb_txn::commit ()
 			++attempt_num;
 		}
 
-		release_assert (status.ok ());
+		release_assert (status.ok (), status.ToString ());
 		active = false;
 	}
 }

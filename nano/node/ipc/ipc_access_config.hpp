@@ -2,8 +2,8 @@
 
 #include <nano/lib/config.hpp>
 #include <nano/lib/errors.hpp>
+#include <nano/lib/locks.hpp>
 
-#include <mutex>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -125,7 +125,7 @@ namespace ipc
 		 */
 		access_user default_user;
 		/** The config can be externally reloaded and concurrently accessed */
-		mutable std::mutex mutex;
+		mutable nano::mutex mutex;
 	};
 
 	nano::error read_access_config_toml (boost::filesystem::path const & data_path_a, nano::ipc::access & config_a);

@@ -168,7 +168,7 @@ TEST (frontiers_confirmation, prioritize_frontiers_max_optimistic_elections)
 	}
 
 	{
-		nano::unique_lock<std::mutex> lk (node->active.mutex);
+		nano::unique_lock<nano::mutex> lk (node->active.mutex);
 		node->active.frontiers_confirmation (lk);
 	}
 
@@ -179,7 +179,7 @@ TEST (frontiers_confirmation, prioritize_frontiers_max_optimistic_elections)
 
 	// Call frontiers confirmation again and confirm that next_frontier_account hasn't changed
 	{
-		nano::unique_lock<std::mutex> lk (node->active.mutex);
+		nano::unique_lock<nano::mutex> lk (node->active.mutex);
 		node->active.frontiers_confirmation (lk);
 	}
 

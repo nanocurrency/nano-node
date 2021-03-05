@@ -343,4 +343,26 @@ struct hash<::nano::qualified_root>
 		return hash<::nano::uint512_union> () (data_a);
 	}
 };
+
+template <>
+struct equal_to<std::reference_wrapper<::nano::block_hash const>>
+{
+	bool operator() (std::reference_wrapper<::nano::block_hash const> const & lhs, std::reference_wrapper<::nano::block_hash const> const & rhs) const
+	{
+		return lhs.get () == rhs.get ();
+	}
+};
+}
+
+namespace boost
+{
+template <>
+struct hash<std::reference_wrapper<::nano::block_hash const>>
+{
+	size_t operator() (std::reference_wrapper<::nano::block_hash const> const & hash_a) const
+	{
+		std::hash<::nano::block_hash> hash;
+		return hash (hash_a);
+	}
+};
 }

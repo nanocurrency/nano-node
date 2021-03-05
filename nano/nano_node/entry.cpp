@@ -72,7 +72,6 @@ int main (int argc, char * const * argv)
 		("help", "Print out options")
 		("version", "Prints out version")
 		("config", boost::program_options::value<std::vector<nano::config_key_value_pair>>()->multitoken(), "Pass node configuration values. This takes precedence over any values in the configuration file. This option can be repeated multiple times.")
-		("rpcconfig", boost::program_options::value<std::vector<nano::config_key_value_pair>>()->multitoken(), "Pass RPC configuration values. This takes precedence over any values in the RPC configuration file. This option can be repeated multiple times.")
 		("daemon", "Start node daemon")
 		("compare_rep_weights", "Display a summarized comparison between the hardcoded bootstrap weights and representative weights from the ledger. Full comparison is output to logs")
 		("debug_block_count", "Display the number of blocks")
@@ -141,17 +140,6 @@ int main (int argc, char * const * argv)
 	}
 
 	auto data_path_it = vm.find ("data_path");
-	if (data_path_it == vm.end ())
-	{
-		std::string error_string;
-		if (!nano::migrate_working_path (error_string))
-		{
-			std::cerr << error_string << std::endl;
-
-			return 1;
-		}
-	}
-
 	boost::filesystem::path data_path ((data_path_it != vm.end ()) ? data_path_it->second.as<std::string> () : nano::working_path ());
 	auto ec = nano::handle_node_options (vm);
 	if (ec == nano::error_cli::unknown_command)
@@ -1227,7 +1215,7 @@ int main (int argc, char * const * argv)
 			// Confirm blocks for node1
 			for (auto & block : blocks)
 			{
-				node1->confirmation_height_processor.add (block->hash ());
+				node1->confirmation_height_processor.add (block);
 			}
 			while (node1->ledger.cache.cemented_count != node1->ledger.cache.block_count)
 			{
@@ -1371,7 +1359,7 @@ int main (int argc, char * const * argv)
 			}
 			threads_count = std::max (1u, threads_count);
 			std::vector<std::thread> threads;
-			std::mutex mutex;
+			nano::mutex mutex;
 			nano::condition_variable condition;
 			std::atomic<bool> finished (false);
 			std::deque<std::pair<nano::account, nano::account_info>> accounts;
@@ -1382,8 +1370,8 @@ int main (int argc, char * const * argv)
 			auto print_error_message = [&silent, &errors](std::string const & error_message_a) {
 				if (!silent)
 				{
-					static std::mutex cerr_mutex;
-					nano::lock_guard<std::mutex> lock (cerr_mutex);
+					static nano::mutex cerr_mutex;
+					nano::lock_guard<nano::mutex> lock (cerr_mutex);
 					std::cerr << error_message_a;
 				}
 				++errors;
@@ -1394,7 +1382,7 @@ int main (int argc, char * const * argv)
 				{
 					threads.emplace_back ([&function_a, node, &mutex, &condition, &finished, &deque_a]() {
 						auto transaction (node->store.tx_begin_read ());
-						nano::unique_lock<std::mutex> lock (mutex);
+						nano::unique_lock<nano::mutex> lock (mutex);
 						while (!deque_a.empty () || !finished)
 						{
 							while (deque_a.empty () && !finished)
@@ -1646,7 +1634,7 @@ int main (int argc, char * const * argv)
 			for (auto i (node->store.accounts_begin (transaction)), n (node->store.accounts_end ()); i != n; ++i)
 			{
 				{
-					nano::unique_lock<std::mutex> lock (mutex);
+					nano::unique_lock<nano::mutex> lock (mutex);
 					if (accounts.size () > accounts_deque_overflow)
 					{
 						auto wait_ms (250 * accounts.size () / accounts_deque_overflow);
@@ -1658,7 +1646,7 @@ int main (int argc, char * const * argv)
 				condition.notify_all ();
 			}
 			{
-				nano::lock_guard<std::mutex> lock (mutex);
+				nano::lock_guard<nano::mutex> lock (mutex);
 				finished = true;
 			}
 			condition.notify_all ();
@@ -1757,7 +1745,7 @@ int main (int argc, char * const * argv)
 			for (auto i (node->store.pending_begin (transaction)), n (node->store.pending_end ()); i != n; ++i)
 			{
 				{
-					nano::unique_lock<std::mutex> lock (mutex);
+					nano::unique_lock<nano::mutex> lock (mutex);
 					if (pending.size () > pending_deque_overflow)
 					{
 						auto wait_ms (50 * pending.size () / pending_deque_overflow);
@@ -1769,7 +1757,7 @@ int main (int argc, char * const * argv)
 				condition.notify_all ();
 			}
 			{
-				nano::lock_guard<std::mutex> lock (mutex);
+				nano::lock_guard<nano::mutex> lock (mutex);
 				finished = true;
 			}
 			condition.notify_all ();

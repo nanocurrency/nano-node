@@ -26,7 +26,7 @@ thread ([this]() { run (); })
 	generator.set_reply_action ([this](std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a) {
 		this->reply_action (vote_a, channel_a);
 	});
-	nano::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock (mutex);
 	condition.wait (lock, [& started = started] { return started; });
 }
 
@@ -35,7 +35,7 @@ void nano::request_aggregator::add (std::shared_ptr<nano::transport::channel> co
 	debug_assert (wallets.reps ().voting > 0);
 	bool error = true;
 	auto const endpoint (nano::transport::map_endpoint_to_v6 (channel_a->get_endpoint ()));
-	nano::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock (mutex);
 	// Protecting from ever-increasing memory usage when request are consumed slower than generated
 	// Reject request if the oldest request has not yet been processed after its deadline + a modest margin
 	if (requests.empty () || (requests.get<tag_deadline> ().begin ()->deadline + 2 * this->max_delay > std::chrono::steady_clock::now ()))
@@ -69,7 +69,7 @@ void nano::request_aggregator::add (std::shared_ptr<nano::transport::channel> co
 void nano::request_aggregator::run ()
 {
 	nano::thread_role::set (nano::thread_role::name::request_aggregator);
-	nano::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock (mutex);
 	started = true;
 	lock.unlock ();
 	condition.notify_all ();
@@ -117,7 +117,7 @@ void nano::request_aggregator::run ()
 void nano::request_aggregator::stop ()
 {
 	{
-		nano::lock_guard<std::mutex> guard (mutex);
+		nano::lock_guard<nano::mutex> guard (mutex);
 		stopped = true;
 	}
 	condition.notify_all ();
@@ -129,7 +129,7 @@ void nano::request_aggregator::stop ()
 
 std::size_t nano::request_aggregator::size ()
 {
-	nano::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock (mutex);
 	return requests.size ();
 }
 
@@ -246,7 +246,7 @@ std::vector<std::shared_ptr<nano::block>> nano::request_aggregator::aggregate (s
 	return to_generate;
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::request_aggregator & aggregator, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::request_aggregator & aggregator, std::string const & name)
 {
 	auto pools_count = aggregator.size ();
 	auto sizeof_element = sizeof (decltype (aggregator.requests)::value_type);

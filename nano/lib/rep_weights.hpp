@@ -23,7 +23,7 @@ public:
 	void copy_from (rep_weights & other_a);
 
 private:
-	mutable std::mutex mutex;
+	mutable nano::mutex mutex;
 	std::unordered_map<nano::account, nano::uint128_t> rep_amounts;
 	void put (nano::account const & account_a, nano::uint128_union const & representation_a);
 	nano::uint128_t get (nano::account const & account_a) const;

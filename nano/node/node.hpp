@@ -1,6 +1,5 @@
 #pragma once
 
-#include <nano/boost/asio/spawn.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/work.hpp>
@@ -74,14 +73,14 @@ public:
 				boost::multi_index::member<nano::block_arrival_info, nano::block_hash, &nano::block_arrival_info::hash>>>>
 	arrival;
 	// clang-format on
-	std::mutex mutex;
+	nano::mutex mutex{ mutex_identifier (mutexes::block_arrival) };
 	static size_t constexpr arrival_size_min = 8 * 1024;
 	static std::chrono::seconds constexpr arrival_time_min = std::chrono::seconds (300);
 };
 
-std::unique_ptr<container_info_component> collect_container_info (block_arrival & block_arrival, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (block_arrival & block_arrival, std::string const & name);
 
-std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, std::string const & name);
 
 class node final : public std::enable_shared_from_this<nano::node>
 {
@@ -93,12 +92,6 @@ public:
 	void background (T action_a)
 	{
 		io_ctx.post (action_a);
-	}
-	template <typename... Params>
-	void spawn (Params... args)
-	{
-		boost::coroutines::attributes attributes{ boost::coroutines::stack_allocator::traits_type::default_size () * (is_sanitizer_build ? 2 : 1) };
-		boost::asio::spawn (io_ctx, std::forward<Params> (args)..., attributes);
 	}
 	bool copy_with_compaction (boost::filesystem::path const &);
 	void keepalive (std::string const &, uint16_t);
@@ -218,7 +211,7 @@ private:
 	nano::locked<std::future<void>> epoch_upgrading;
 };
 
-std::unique_ptr<container_info_component> collect_container_info (node & node, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (node & node, std::string const & name);
 
 nano::node_flags const & inactive_node_flag_defaults ();
 
