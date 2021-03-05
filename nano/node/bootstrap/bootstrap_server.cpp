@@ -15,7 +15,7 @@ port (port_a)
 
 void nano::bootstrap_listener::start ()
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	on = true;
 	listening_socket = std::make_shared<nano::server_socket> (node, boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::any (), port), node.config.tcp_incoming_connections_max);
 	boost::system::error_code ec;
@@ -45,13 +45,13 @@ void nano::bootstrap_listener::stop ()
 {
 	decltype (connections) connections_l;
 	{
-		nano::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock (mutex);
 		on = false;
 		connections_l.swap (connections);
 	}
 	if (listening_socket)
 	{
-		nano::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock (mutex);
 		listening_socket->close ();
 		listening_socket = nullptr;
 	}
@@ -59,7 +59,7 @@ void nano::bootstrap_listener::stop ()
 
 size_t nano::bootstrap_listener::connection_count ()
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	return connections.size ();
 }
 
@@ -68,7 +68,7 @@ void nano::bootstrap_listener::accept_action (boost::system::error_code const & 
 	if (!node.network.excluded_peers.check (socket_a->remote_endpoint ()))
 	{
 		auto connection (std::make_shared<nano::bootstrap_server> (socket_a, node.shared ()));
-		nano::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock (mutex);
 		connections[connection.get ()] = connection;
 		connection->receive ();
 	}
@@ -84,7 +84,7 @@ void nano::bootstrap_listener::accept_action (boost::system::error_code const & 
 
 boost::asio::ip::tcp::endpoint nano::bootstrap_listener::endpoint ()
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	if (on && listening_socket)
 	{
 		return boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), listening_socket->listening_port ());
@@ -133,7 +133,7 @@ nano::bootstrap_server::~bootstrap_server ()
 		}
 	}
 	stop ();
-	nano::lock_guard<std::mutex> lock (node->bootstrap.mutex);
+	nano::lock_guard<nano::mutex> lock (node->bootstrap.mutex);
 	node->bootstrap.connections.erase (this);
 }
 
@@ -547,7 +547,7 @@ void nano::bootstrap_server::receive_node_id_handshake_action (boost::system::er
 void nano::bootstrap_server::add_request (std::unique_ptr<nano::message> message_a)
 {
 	debug_assert (message_a != nullptr);
-	nano::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock (mutex);
 	auto start (requests.empty ());
 	requests.push (std::move (message_a));
 	if (start)
@@ -558,7 +558,7 @@ void nano::bootstrap_server::add_request (std::unique_ptr<nano::message> message
 
 void nano::bootstrap_server::finish_request ()
 {
-	nano::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock (mutex);
 	requests.pop ();
 	if (!requests.empty ())
 	{
@@ -598,7 +598,7 @@ void nano::bootstrap_server::timeout ()
 				node->logger.try_log ("Closing incoming tcp / bootstrap server by timeout");
 			}
 			{
-				nano::lock_guard<std::mutex> lock (node->bootstrap.mutex);
+				nano::lock_guard<nano::mutex> lock (node->bootstrap.mutex);
 				node->bootstrap.connections.erase (this);
 			}
 			socket->close ();
@@ -606,7 +606,7 @@ void nano::bootstrap_server::timeout ()
 	}
 	else
 	{
-		nano::lock_guard<std::mutex> lock (node->bootstrap.mutex);
+		nano::lock_guard<nano::mutex> lock (node->bootstrap.mutex);
 		node->bootstrap.connections.erase (this);
 	}
 }
@@ -726,7 +726,7 @@ public:
 };
 }
 
-void nano::bootstrap_server::run_next (nano::unique_lock<std::mutex> & lock_a)
+void nano::bootstrap_server::run_next (nano::unique_lock<nano::mutex> & lock_a)
 {
 	debug_assert (!requests.empty ());
 	request_response_visitor visitor (shared_from_this ());

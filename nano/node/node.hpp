@@ -73,7 +73,7 @@ public:
 				boost::multi_index::member<nano::block_arrival_info, nano::block_hash, &nano::block_arrival_info::hash>>>>
 	arrival;
 	// clang-format on
-	std::mutex mutex;
+	nano::mutex mutex{ mutex_identifier (mutexes::block_arrival) };
 	static size_t constexpr arrival_size_min = 8 * 1024;
 	static std::chrono::seconds constexpr arrival_time_min = std::chrono::seconds (300);
 };

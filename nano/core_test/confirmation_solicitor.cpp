@@ -31,7 +31,7 @@ TEST (confirmation_solicitor, batches)
 	auto send (std::make_shared<nano::send_block> (nano::genesis_hash, nano::keypair ().pub, nano::genesis_amount - 100, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (nano::genesis_hash)));
 	send->sideband_set ({});
 	{
-		nano::lock_guard<std::mutex> guard (node2.active.mutex);
+		nano::lock_guard<nano::mutex> guard (node2.active.mutex);
 		for (size_t i (0); i < nano::network::confirm_req_hashes_max; ++i)
 		{
 			auto election (std::make_shared<nano::election> (node2, send, nullptr, nullptr, false, nano::election_behavior::normal));
@@ -115,7 +115,7 @@ TEST (confirmation_solicitor, bypass_max_requests_cap)
 	// Add a vote for something else, not the winner
 	for (auto const & rep : representatives)
 	{
-		nano::lock_guard<std::mutex> guard (election->mutex);
+		nano::lock_guard<nano::mutex> guard (election->mutex);
 		election->last_votes[rep.account] = { std::chrono::steady_clock::now (), 1, 1 };
 	}
 	ASSERT_FALSE (solicitor.add (*election));
