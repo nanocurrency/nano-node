@@ -71,7 +71,7 @@ private:
 	std::unordered_map<nano::block_hash, std::weak_ptr<conf_height_details>> implicit_receive_cemented_mapping;
 	nano::relaxed_atomic_integral<uint64_t> implicit_receive_cemented_mapping_size{ 0 };
 
-	mutable std::mutex block_cache_mutex;
+	mutable nano::mutex block_cache_mutex;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> block_cache;
 	uint64_t block_cache_size () const;
 

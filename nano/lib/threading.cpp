@@ -210,7 +210,7 @@ nano::thread_pool::~thread_pool ()
 
 void nano::thread_pool::stop ()
 {
-	nano::unique_lock<std::mutex> lk (mutex);
+	nano::unique_lock<nano::mutex> lk (mutex);
 	if (!stopped)
 	{
 		stopped = true;
@@ -229,7 +229,7 @@ void nano::thread_pool::stop ()
 void nano::thread_pool::push_task (std::function<void()> task)
 {
 	++num_tasks;
-	nano::lock_guard<std::mutex> guard (mutex);
+	nano::lock_guard<nano::mutex> guard (mutex);
 	if (!stopped)
 	{
 		boost::asio::post (*thread_pool_m, [this, task]() {
@@ -241,7 +241,7 @@ void nano::thread_pool::push_task (std::function<void()> task)
 
 void nano::thread_pool::add_timed_task (std::chrono::steady_clock::time_point const & expiry_time, std::function<void()> task)
 {
-	nano::lock_guard<std::mutex> guard (mutex);
+	nano::lock_guard<nano::mutex> guard (mutex);
 	if (!stopped && thread_pool_m)
 	{
 		auto timer = std::make_shared<boost::asio::steady_timer> (thread_pool_m->get_executor (), expiry_time);

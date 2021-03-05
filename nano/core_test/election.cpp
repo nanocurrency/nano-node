@@ -239,7 +239,7 @@ TEST (election, quorum_minimum_update_weight_before_quorum_checks)
 	ASSERT_TIMELY (10s, !node1.rep_crawler.response (channel, vote2));
 	ASSERT_FALSE (election.election->confirmed ());
 	{
-		nano::lock_guard<std::mutex> guard (node1.online_reps.mutex);
+		nano::lock_guard<nano::mutex> guard (node1.online_reps.mutex);
 		// Modify online_m for online_reps to more than is available, this checks that voting below updates it to current online reps.
 		node1.online_reps.online_m = node_config.online_weight_minimum.number () + 20;
 	}

@@ -65,6 +65,7 @@ void nano::confirmation_height_unbounded::process ()
 			debug_assert (current == original_block->hash ());
 			// This is the original block passed so can use it directly
 			block = original_block;
+			nano::lock_guard<nano::mutex> guard (block_cache_mutex);
 			block_cache[original_block->hash ()] = original_block;
 		}
 		else
@@ -201,6 +202,7 @@ void nano::confirmation_height_unbounded::collect_unconfirmed_receive_and_source
 		{
 			debug_assert (hash == hash_a);
 			block = block_a;
+			nano::lock_guard<nano::mutex> guard (block_cache_mutex);
 			block_cache[hash] = block_a;
 		}
 		else
@@ -405,7 +407,7 @@ void nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 				// Reverse it so that the callbacks start from the lowest newly cemented block and move upwards
 				std::reverse (pending.block_callback_data.begin (), pending.block_callback_data.end ());
 
-				nano::lock_guard<std::mutex> guard (block_cache_mutex);
+				nano::lock_guard<nano::mutex> guard (block_cache_mutex);
 				std::transform (pending.block_callback_data.begin (), pending.block_callback_data.end (), std::back_inserter (cemented_blocks), [& block_cache = block_cache](auto const & hash_a) {
 					debug_assert (block_cache.count (hash_a) == 1);
 					return block_cache.at (hash_a);
@@ -433,7 +435,7 @@ void nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 
 std::shared_ptr<nano::block> nano::confirmation_height_unbounded::get_block_and_sideband (nano::block_hash const & hash_a, nano::transaction const & transaction_a)
 {
-	nano::lock_guard<std::mutex> guard (block_cache_mutex);
+	nano::lock_guard<nano::mutex> guard (block_cache_mutex);
 	auto block_cache_it = block_cache.find (hash_a);
 	if (block_cache_it != block_cache.cend ())
 	{
@@ -461,20 +463,20 @@ void nano::confirmation_height_unbounded::clear_process_vars ()
 	implicit_receive_cemented_mapping.clear ();
 	implicit_receive_cemented_mapping_size = 0;
 	{
-		nano::lock_guard<std::mutex> guard (block_cache_mutex);
+		nano::lock_guard<nano::mutex> guard (block_cache_mutex);
 		block_cache.clear ();
 	}
 }
 
 bool nano::confirmation_height_unbounded::has_iterated_over_block (nano::block_hash const & hash_a) const
 {
-	nano::lock_guard<std::mutex> guard (block_cache_mutex);
+	nano::lock_guard<nano::mutex> guard (block_cache_mutex);
 	return block_cache.count (hash_a) == 1;
 }
 
 uint64_t nano::confirmation_height_unbounded::block_cache_size () const
 {
-	nano::lock_guard<std::mutex> guard (block_cache_mutex);
+	nano::lock_guard<nano::mutex> guard (block_cache_mutex);
 	return block_cache.size ();
 }
 

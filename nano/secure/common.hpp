@@ -288,7 +288,7 @@ public:
 
 private:
 	nano::block_uniquer & uniquer;
-	std::mutex mutex;
+	nano::mutex mutex{ mutex_identifier (mutexes::vote_uniquer) };
 	std::unordered_map<std::remove_const_t<value_type::first_type>, value_type::second_type> votes;
 	static unsigned constexpr cleanup_count = 2;
 };
