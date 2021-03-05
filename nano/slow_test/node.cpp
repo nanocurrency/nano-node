@@ -225,7 +225,7 @@ TEST (node, fork_storm)
 			}
 			else
 			{
-				nano::unique_lock<std::mutex> lock (node_a->active.mutex);
+				nano::unique_lock<nano::mutex> lock (node_a->active.mutex);
 				auto election = node_a->active.roots.begin ()->election;
 				lock.unlock ();
 				if (election->votes ().size () == 1)
@@ -1458,7 +1458,7 @@ TEST (telemetry, many_nodes)
 	// This is the node which will request metrics from all other nodes
 	auto node_client = system.nodes.front ();
 
-	std::mutex mutex;
+	nano::mutex mutex;
 	std::vector<nano::telemetry_data> telemetry_datas;
 	auto peers = node_client->network.list (num_nodes - 1);
 	ASSERT_EQ (peers.size (), num_nodes - 1);
@@ -1466,13 +1466,13 @@ TEST (telemetry, many_nodes)
 	{
 		node_client->telemetry->get_metrics_single_peer_async (peer, [&telemetry_datas, &mutex](nano::telemetry_data_response const & response_a) {
 			ASSERT_FALSE (response_a.error);
-			nano::lock_guard<std::mutex> guard (mutex);
+			nano::lock_guard<nano::mutex> guard (mutex);
 			telemetry_datas.push_back (response_a.telemetry_data);
 		});
 	}
 
 	system.deadline_set (20s);
-	nano::unique_lock<std::mutex> lk (mutex);
+	nano::unique_lock<nano::mutex> lk (mutex);
 	while (telemetry_datas.size () != num_nodes - 1)
 	{
 		lk.unlock ();
@@ -1719,7 +1719,7 @@ TEST (node, mass_block_new)
 		node.block_processor.flush ();
 		// Clear all active
 		{
-			nano::lock_guard<std::mutex> guard (node.active.mutex);
+			nano::lock_guard<nano::mutex> guard (node.active.mutex);
 			node.active.roots.clear ();
 			node.active.blocks.clear ();
 		}
