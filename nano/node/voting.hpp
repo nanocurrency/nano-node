@@ -103,7 +103,7 @@ private:
 	std::vector<std::shared_ptr<nano::vote>> votes (nano::root const & root_a) const;
 	// Only used in Debug
 	bool consistency_check (nano::root const &) const;
-	mutable std::mutex mutex;
+	mutable nano::mutex mutex;
 
 	friend std::unique_ptr<container_info_component> collect_container_info (local_vote_history & history, std::string const & name);
 	friend class local_vote_history_basic_Test;
@@ -128,8 +128,8 @@ public:
 
 private:
 	void run ();
-	void broadcast (nano::unique_lock<std::mutex> &);
-	void reply (nano::unique_lock<std::mutex> &, request_t &&);
+	void broadcast (nano::unique_lock<nano::mutex> &);
+	void reply (nano::unique_lock<nano::mutex> &, request_t &&);
 	void vote (std::vector<nano::block_hash> const &, std::vector<nano::root> const &, std::function<void(std::shared_ptr<nano::vote> const &)> const &);
 	void broadcast_action (std::shared_ptr<nano::vote> const &) const;
 	std::function<void(std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> &)> reply_action; // must be set only during initialization by using set_reply_action
@@ -141,7 +141,7 @@ private:
 	nano::vote_spacing spacing;
 	nano::network & network;
 	nano::stat & stats;
-	mutable std::mutex mutex;
+	mutable nano::mutex mutex;
 	nano::condition_variable condition;
 	static size_t constexpr max_requests{ 2048 };
 	std::deque<request_t> requests;

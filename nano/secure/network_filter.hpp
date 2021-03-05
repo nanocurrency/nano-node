@@ -80,6 +80,6 @@ private:
 
 	std::vector<nano::uint128_t> items;
 	CryptoPP::SecByteBlock key{ siphash_t::KEYLENGTH };
-	std::mutex mutex;
+	nano::mutex mutex{ mutex_identifier (mutexes::network_filter) };
 };
 }

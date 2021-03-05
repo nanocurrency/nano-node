@@ -120,16 +120,16 @@ TEST (thread_pool_alarm, one)
 {
 	nano::thread_pool workers (1u, nano::thread_role::name::unknown);
 	std::atomic<bool> done (false);
-	std::mutex mutex;
+	nano::mutex mutex;
 	nano::condition_variable condition;
 	workers.add_timed_task (std::chrono::steady_clock::now (), [&]() {
 		{
-			nano::lock_guard<std::mutex> lock (mutex);
+			nano::lock_guard<nano::mutex> lock (mutex);
 			done = true;
 		}
 		condition.notify_one ();
 	});
-	nano::unique_lock<std::mutex> unique (mutex);
+	nano::unique_lock<nano::mutex> unique (mutex);
 	condition.wait (unique, [&]() { return !!done; });
 }
 
@@ -137,19 +137,19 @@ TEST (thread_pool_alarm, many)
 {
 	nano::thread_pool workers (50u, nano::thread_role::name::unknown);
 	std::atomic<int> count (0);
-	std::mutex mutex;
+	nano::mutex mutex;
 	nano::condition_variable condition;
 	for (auto i (0); i < 50; ++i)
 	{
 		workers.add_timed_task (std::chrono::steady_clock::now (), [&]() {
 			{
-				nano::lock_guard<std::mutex> lock (mutex);
+				nano::lock_guard<nano::mutex> lock (mutex);
 				count += 1;
 			}
 			condition.notify_one ();
 		});
 	}
-	nano::unique_lock<std::mutex> unique (mutex);
+	nano::unique_lock<nano::mutex> unique (mutex);
 	condition.wait (unique, [&]() { return count == 50; });
 }
 
@@ -158,20 +158,20 @@ TEST (thread_pool_alarm, top_execution)
 	nano::thread_pool workers (1u, nano::thread_role::name::unknown);
 	int value1 (0);
 	int value2 (0);
-	std::mutex mutex;
+	nano::mutex mutex;
 	std::promise<bool> promise;
 	workers.add_timed_task (std::chrono::steady_clock::now (), [&]() {
-		nano::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock (mutex);
 		value1 = 1;
 		value2 = 1;
 	});
 	workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (1), [&]() {
-		nano::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock (mutex);
 		value2 = 2;
 		promise.set_value (false);
 	});
 	promise.get_future ().get ();
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	ASSERT_EQ (1, value1);
 	ASSERT_EQ (2, value2);
 }

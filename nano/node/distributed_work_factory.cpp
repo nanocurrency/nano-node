@@ -27,7 +27,7 @@ bool nano::distributed_work_factory::make (std::chrono::seconds const & backoff_
 		{
 			auto distributed (std::make_shared<nano::distributed_work> (node, request_a, backoff_a));
 			{
-				nano::lock_guard<std::mutex> guard (mutex);
+				nano::lock_guard<nano::mutex> guard (mutex);
 				items.emplace (request_a.root, distributed);
 			}
 			distributed->start ();
@@ -39,7 +39,7 @@ bool nano::distributed_work_factory::make (std::chrono::seconds const & backoff_
 
 void nano::distributed_work_factory::cancel (nano::root const & root_a)
 {
-	nano::lock_guard<std::mutex> guard_l (mutex);
+	nano::lock_guard<nano::mutex> guard_l (mutex);
 	auto root_items_l = items.equal_range (root_a);
 	std::for_each (root_items_l.first, root_items_l.second, [](auto item_l) {
 		if (auto distributed_l = item_l.second.lock ())
@@ -53,7 +53,7 @@ void nano::distributed_work_factory::cancel (nano::root const & root_a)
 
 void nano::distributed_work_factory::cleanup_finished ()
 {
-	nano::lock_guard<std::mutex> guard (mutex);
+	nano::lock_guard<nano::mutex> guard (mutex);
 	// std::erase_if in c++20
 	auto erase_if = [](decltype (items) & container, auto pred) {
 		for (auto it = container.begin (), end = container.end (); it != end;)
@@ -76,7 +76,7 @@ void nano::distributed_work_factory::stop ()
 	if (!stopped.exchange (true))
 	{
 		// Cancel any ongoing work
-		nano::lock_guard<std::mutex> guard (mutex);
+		nano::lock_guard<nano::mutex> guard (mutex);
 		for (auto & item_l : items)
 		{
 			if (auto distributed_l = item_l.second.lock ())
@@ -90,7 +90,7 @@ void nano::distributed_work_factory::stop ()
 
 size_t nano::distributed_work_factory::size () const
 {
-	nano::lock_guard<std::mutex> guard_l (mutex);
+	nano::lock_guard<nano::mutex> guard_l (mutex);
 	return items.size ();
 }
 

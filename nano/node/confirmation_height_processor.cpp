@@ -35,7 +35,7 @@ nano::confirmation_height_processor::~confirmation_height_processor ()
 void nano::confirmation_height_processor::stop ()
 {
 	{
-		nano::lock_guard<std::mutex> guard (mutex);
+		nano::lock_guard<nano::mutex> guard (mutex);
 		stopped = true;
 	}
 	condition.notify_one ();
@@ -47,7 +47,7 @@ void nano::confirmation_height_processor::stop ()
 
 void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 {
-	nano::unique_lock<std::mutex> lk (mutex);
+	nano::unique_lock<nano::mutex> lk (mutex);
 	while (!stopped)
 	{
 		if (!paused && !awaiting_processing.empty ())
@@ -139,14 +139,14 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 // Pausing only affects processing new blocks, not the current one being processed. Currently only used in tests
 void nano::confirmation_height_processor::pause ()
 {
-	nano::lock_guard<std::mutex> lk (mutex);
+	nano::lock_guard<nano::mutex> lk (mutex);
 	paused = true;
 }
 
 void nano::confirmation_height_processor::unpause ()
 {
 	{
-		nano::lock_guard<std::mutex> lk (mutex);
+		nano::lock_guard<nano::mutex> lk (mutex);
 		paused = false;
 	}
 	condition.notify_one ();
@@ -155,7 +155,7 @@ void nano::confirmation_height_processor::unpause ()
 void nano::confirmation_height_processor::add (std::shared_ptr<nano::block> const & block_a)
 {
 	{
-		nano::lock_guard<std::mutex> lk (mutex);
+		nano::lock_guard<nano::mutex> lk (mutex);
 		awaiting_processing.get<tag_sequence> ().emplace_back (block_a);
 	}
 	condition.notify_one ();
@@ -163,7 +163,7 @@ void nano::confirmation_height_processor::add (std::shared_ptr<nano::block> cons
 
 void nano::confirmation_height_processor::set_next_hash ()
 {
-	nano::lock_guard<std::mutex> guard (mutex);
+	nano::lock_guard<nano::mutex> guard (mutex);
 	debug_assert (!awaiting_processing.empty ());
 	original_block = awaiting_processing.get<tag_sequence> ().front ().block;
 	original_hashes_pending.insert (original_block->hash ());
@@ -217,13 +217,13 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (co
 
 size_t nano::confirmation_height_processor::awaiting_processing_size () const
 {
-	nano::lock_guard<std::mutex> guard (mutex);
+	nano::lock_guard<nano::mutex> guard (mutex);
 	return awaiting_processing.size ();
 }
 
 bool nano::confirmation_height_processor::is_processing_added_block (nano::block_hash const & hash_a) const
 {
-	nano::lock_guard<std::mutex> guard (mutex);
+	nano::lock_guard<nano::mutex> guard (mutex);
 	return original_hashes_pending.count (hash_a) > 0 || awaiting_processing.get<tag_hash> ().count (hash_a) > 0;
 }
 
@@ -234,6 +234,6 @@ bool nano::confirmation_height_processor::is_processing_block (nano::block_hash 
 
 nano::block_hash nano::confirmation_height_processor::current () const
 {
-	nano::lock_guard<std::mutex> lk (mutex);
+	nano::lock_guard<nano::mutex> lk (mutex);
 	return original_block ? original_block->hash () : 0;
 }
