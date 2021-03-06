@@ -3,10 +3,11 @@
 #include <nano/node/ipc/flatbuffers_util.hpp>
 #include <nano/secure/common.hpp>
 
-std::unique_ptr<nanoapi::BlockStateT> nano::ipc::flatbuffers_builder::from (nano::state_block const & block_a, nano::amount const & amount_a, bool is_state_send_a)
+template <typename BlockState>
+std::unique_ptr<BlockState> nano::ipc::flatbuffers_builder::from (nano::state_block const & block_a, nano::amount const & amount_a, bool is_state_send_a)
 {
 	static nano::network_params params;
-	auto block (std::make_unique<nanoapi::BlockStateT> ());
+	auto block (std::make_unique<BlockState> ());
 	block->account = block_a.account ().to_account ();
 	block->hash = block_a.hash ().to_string ();
 	block->previous = block_a.previous ().to_string ();
@@ -14,6 +15,16 @@ std::unique_ptr<nanoapi::BlockStateT> nano::ipc::flatbuffers_builder::from (nano
 	block->balance = block_a.balance ().to_string_dec ();
 	block->link = block_a.link ().to_string ();
 	block->link_as_account = block_a.link ().to_account ();
+	if constexpr (!std::is_same_v<BlockState, nanoapi::BlockStateT>)
+	{
+		debug_assert (block_a.type () >= nano::block_type::state2);
+		block->link_interpretation = block_a.hashables.flags ().link_interpretation_to_str ();
+		block->is_upgrade = block_a.hashables.is_upgrade ();
+		block->signer = block_a.hashables.flags ().sig_to_str ();
+		block->version = nano::normalized_epoch (block_a.version ());
+		block->height = block_a.height ();
+	}
+
 	block_a.signature.encode_hex (block->signature);
 	block->work = nano::to_string_hex (block_a.work);
 
@@ -87,32 +98,24 @@ nanoapi::BlockUnion nano::ipc::flatbuffers_builder::block_to_union (nano::block 
 	nanoapi::BlockUnion u;
 	switch (block_a.type ())
 	{
+		case nano::block_type::state2:
+			u.Set (*from<nanoapi::BlockState2T> (static_cast<nano::state_block const &> (block_a), amount_a, is_state_send_a));
+			break;
 		case nano::block_type::state:
-		{
-			u.Set (*from (dynamic_cast<nano::state_block const &> (block_a), amount_a, is_state_send_a));
+			u.Set (*from<nanoapi::BlockStateT> (static_cast<nano::state_block const &> (block_a), amount_a, is_state_send_a));
 			break;
-		}
 		case nano::block_type::send:
-		{
-			u.Set (*from (dynamic_cast<nano::send_block const &> (block_a)));
+			u.Set (*from (static_cast<nano::send_block const &> (block_a)));
 			break;
-		}
 		case nano::block_type::receive:
-		{
-			u.Set (*from (dynamic_cast<nano::receive_block const &> (block_a)));
+			u.Set (*from (static_cast<nano::receive_block const &> (block_a)));
 			break;
-		}
 		case nano::block_type::open:
-		{
-			u.Set (*from (dynamic_cast<nano::open_block const &> (block_a)));
+			u.Set (*from (static_cast<nano::open_block const &> (block_a)));
 			break;
-		}
 		case nano::block_type::change:
-		{
-			u.Set (*from (dynamic_cast<nano::change_block const &> (block_a)));
+			u.Set (*from (static_cast<nano::change_block const &> (block_a)));
 			break;
-		}
-
 		default:
 			debug_assert (false);
 	}

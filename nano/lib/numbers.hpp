@@ -247,6 +247,13 @@ nano::public_key pub_key (nano::raw_key const &);
 std::string to_string_hex (uint64_t const);
 bool from_string_hex (std::string const &, uint64_t &);
 
+template <typename T>
+uint8_t num_least_sig_bits_till_first_set_bit (T n)
+{
+	auto first_rhs_bit_set = n - (n & n - 1);
+	return std::log2 (first_rhs_bit_set);
+}
+
 /**
  * Convert a double to string in fixed format
  * @param precision_a (optional) use a specific precision (default is the maximum)

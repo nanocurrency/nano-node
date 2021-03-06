@@ -23,10 +23,19 @@ public:
 	nano::account account;
 };
 
+class canary_state_v2_details
+{
+public:
+	nano::account parse_account{ 0 };
+	uint64_t parse_confirmed_height{ 0 };
+	nano::account generate_account{ 0 };
+	uint64_t generate_confirmed_height{ 0 };
+};
+
 class ledger final
 {
 public:
-	ledger (nano::block_store &, nano::stat &, nano::generate_cache const & = nano::generate_cache ());
+	ledger (nano::block_store &, nano::stat &, nano::generate_cache const & = nano::generate_cache (), canary_state_v2_details const & = canary_state_v2_details{});
 	nano::account account (nano::transaction const &, nano::block_hash const &) const;
 	nano::account account_safe (nano::transaction const &, nano::block_hash const &, bool &) const;
 	nano::uint128_t amount (nano::transaction const &, nano::account const &);
@@ -62,9 +71,8 @@ public:
 	void dump_account_chain (nano::account const &, std::ostream & = std::cout);
 	bool could_fit (nano::transaction const &, nano::block const &) const;
 	bool dependents_confirmed (nano::transaction const &, nano::block const &) const;
-	bool is_epoch_link (nano::link const &) const;
 	std::array<nano::block_hash, 2> dependent_blocks (nano::transaction const &, nano::block const &) const;
-	nano::account const & epoch_signer (nano::link const &) const;
+	nano::account const & epoch_signer (nano::block const &) const;
 	nano::link const & epoch_link (nano::epoch) const;
 	std::multimap<uint64_t, uncemented_info, std::greater<>> unconfirmed_frontiers () const;
 	bool migrate_lmdb_to_rocksdb (boost::filesystem::path const &) const;
@@ -78,6 +86,7 @@ public:
 	uint64_t bootstrap_weight_max_blocks{ 1 };
 	std::atomic<bool> check_bootstrap_weights;
 	bool pruning{ false };
+	canary_state_v2_details canary_state_v2;
 
 private:
 	void initialize (nano::generate_cache const &);

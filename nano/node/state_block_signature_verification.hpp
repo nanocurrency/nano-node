@@ -10,6 +10,7 @@
 namespace nano
 {
 class epochs;
+class ledger;
 class logger_mt;
 class node_config;
 class signature_checker;
@@ -17,7 +18,7 @@ class signature_checker;
 class state_block_signature_verification
 {
 public:
-	state_block_signature_verification (nano::signature_checker &, nano::epochs &, nano::node_config &, nano::logger_mt &, uint64_t);
+	state_block_signature_verification (nano::ledger const &, nano::signature_checker &, nano::epochs &, nano::node_config &, nano::logger_mt &, uint64_t);
 	~state_block_signature_verification ();
 	void add (nano::unchecked_info const & info_a, bool watch_work_a);
 	size_t size ();
@@ -28,6 +29,7 @@ public:
 	std::function<void()> transition_inactive_callback;
 
 private:
+	nano::ledger const & ledger;
 	nano::signature_checker & signature_checker;
 	nano::epochs & epochs;
 	nano::node_config & node_config;

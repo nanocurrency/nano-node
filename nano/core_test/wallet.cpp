@@ -1279,3 +1279,37 @@ TEST (wallet, receive_pruned)
 	ASSERT_EQ (amount, node2.ledger.balance (node2.store.tx_begin_read (), open1->hash ()));
 	ASSERT_TIMELY (5s, node2.ledger.cache.cemented_count == 4);
 }
+
+TEST (wallet, state_canary_generate)
+{
+	nano::system system;
+	auto & node1 (*system.add_node ());
+
+	nano::keypair key;
+	nano::canary_state_v2_details canary_state_v2_details{ key.pub, 1, key.pub, 1 };
+	node1.ledger.canary_state_v2 = canary_state_v2_details;
+	auto & wallet1 (*system.wallet (0));
+	wallet1.insert_adhoc (nano::dev_genesis_key.prv, false);
+	auto amount = node1.config.receive_minimum.number ();
+	wallet1.insert_adhoc (key.prv, false);
+
+	auto change1 = wallet1.change_action (nano::dev_genesis_key.pub, 0);
+	ASSERT_LT (change1->version (), nano::epoch::epoch_3);
+	auto send1 = wallet1.send_action (nano::dev_genesis_key.pub, key.pub, amount);
+	ASSERT_LT (send1->version (), nano::epoch::epoch_3);
+	auto receive1 = wallet1.receive_action (send1->hash (), key.pub, amount, key.pub);
+	ASSERT_LT (receive1->version (), nano::epoch::epoch_3);
+
+	auto election = node1.active.election (receive1->qualified_root ());
+	ASSERT_NE (nullptr, election);
+	election->force_confirm ();
+
+	ASSERT_TIMELY (10s, node1.ledger.cache.confirmed_state_block_v2_generate_canary);
+
+	auto change2 = wallet1.change_action (nano::dev_genesis_key.pub, nano::dev_genesis_key.pub);
+	ASSERT_GE (change2->version (), nano::epoch::epoch_3);
+	auto send2 = wallet1.send_action (nano::dev_genesis_key.pub, key.pub, amount);
+	ASSERT_GE (send2->version (), nano::epoch::epoch_3);
+	auto receive2 = wallet1.receive_action (send2->hash (), key.pub, amount, key.pub, 1);
+	ASSERT_GE (send2->version (), nano::epoch::epoch_3);
+}

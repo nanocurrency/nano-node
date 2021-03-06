@@ -181,6 +181,13 @@ void nano::bulk_pull_client::received_type ()
 			});
 			break;
 		}
+		case nano::block_type::state2:
+		{
+			socket_l->async_read (connection->receive_buffer, nano::state_block::size2, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
+				this_l->received_block (ec, size_a, type);
+			});
+			break;
+		}
 		case nano::block_type::not_a_block:
 		{
 			// Avoid re-using slow peers, or peers that sent the wrong blocks.
@@ -207,7 +214,8 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 	{
 		nano::bufferstream stream (connection->receive_buffer->data (), size_a);
 		auto block (nano::deserialize_block (stream, type_a));
-		if (block != nullptr && !nano::work_validate_entry (*block))
+		auto block_passed_simple_validation{ nano::simple_block_validation (block.get (), connection->node->network_params.ledger.epochs) == nano::error_blocks::none };
+		if (block_passed_simple_validation && !nano::work_validate_entry (*block))
 		{
 			auto hash (block->hash ());
 			if (connection->node->config.logging.bulk_pull_logging ())
@@ -255,7 +263,7 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 				connection->connections->pool_connection (connection);
 			}
 		}
-		else if (block == nullptr)
+		else if (!block_passed_simple_validation)
 		{
 			if (connection->node->config.logging.bulk_pull_logging ())
 			{

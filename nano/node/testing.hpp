@@ -54,7 +54,7 @@ public:
 	double deadline_scaling_factor{ 1.0 };
 	unsigned node_sequence{ 0 };
 };
-std::unique_ptr<nano::state_block> upgrade_epoch (nano::work_pool &, nano::ledger &, nano::epoch);
+std::unique_ptr<nano::state_block> upgrade_epoch (nano::write_transaction const & transaction, nano::work_pool &, nano::ledger &, nano::epoch);
 void blocks_confirm (nano::node &, std::vector<std::shared_ptr<nano::block>> const &);
 uint16_t get_available_port ();
 void cleanup_dev_directories_on_exit ();

@@ -854,13 +854,30 @@ std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block_hash cons
 					auto new_account (wallets.node.ledger.store.account_get (block_transaction, account_a, info));
 					if (!new_account)
 					{
-						block = std::make_shared<nano::state_block> (account_a, info.head, info.representative, info.balance.number () + pending_info.amount.number (), send_hash_a, prv, account_a, work_a);
-						details.epoch = std::max (info.epoch (), pending_info.epoch);
+						if (wallets.node.ledger.cache.confirmed_state_block_v2_generate_canary)
+						{
+							details.epoch = std::max ({ info.epoch (), pending_info.epoch, nano::epoch::epoch_3 });
+							auto is_upgrade = details.epoch > info.epoch ();
+							block = std::make_shared<nano::state_block> (account_a, info.head, info.representative, info.balance.number () + pending_info.amount.number (), send_hash_a, prv, account_a, details.epoch, nano::block_flags{ nano::link_flag::receive, nano::sig_flag::self, is_upgrade }, info.block_count + 1, work_a);
+						}
+						else
+						{
+							block = std::make_shared<nano::state_block> (account_a, info.head, info.representative, info.balance.number () + pending_info.amount.number (), send_hash_a, prv, account_a, work_a);
+							details.epoch = std::max (info.epoch (), pending_info.epoch);
+						}
 					}
 					else
 					{
-						block = std::make_shared<nano::state_block> (account_a, 0, representative_a, pending_info.amount, reinterpret_cast<nano::link const &> (send_hash_a), prv, account_a, work_a);
-						details.epoch = pending_info.epoch;
+						if (wallets.node.ledger.cache.confirmed_state_block_v2_generate_canary)
+						{
+							details.epoch = std::max (nano::epoch::epoch_3, pending_info.epoch);
+							block = std::make_shared<nano::state_block> (account_a, info.head, info.representative, info.balance.number () + pending_info.amount.number (), send_hash_a, prv, account_a, details.epoch, nano::block_flags{ nano::link_flag::receive, nano::sig_flag::self, true }, 1, work_a);
+						}
+						else
+						{
+							details.epoch = pending_info.epoch;
+							block = std::make_shared<nano::state_block> (account_a, 0, representative_a, pending_info.amount, reinterpret_cast<nano::link const &> (send_hash_a), prv, account_a, work_a);
+						}
 					}
 				}
 				else
@@ -918,8 +935,18 @@ std::shared_ptr<nano::block> nano::wallet::change_action (nano::account const & 
 				{
 					store.work_get (transaction, source_a, work_a);
 				}
-				block = std::make_shared<nano::state_block> (source_a, info.head, representative_a, info.balance, 0, prv, source_a, work_a);
-				details.epoch = info.epoch ();
+
+				if (wallets.node.ledger.cache.confirmed_state_block_v2_generate_canary)
+				{
+					details.epoch = std::max (nano::epoch::epoch_3, info.epoch ());
+					auto is_upgrade = details.epoch > info.epoch ();
+					block = std::make_shared<nano::state_block> (source_a, info.head, representative_a, info.balance, 0, prv, source_a, details.epoch, nano::block_flags{ nano::link_flag::noop, nano::sig_flag::self, is_upgrade }, info.block_count + 1, work_a);
+				}
+				else
+				{
+					details.epoch = info.epoch ();
+					block = std::make_shared<nano::state_block> (source_a, info.head, representative_a, info.balance, 0, prv, source_a, work_a);
+				}
 			}
 		}
 	}
@@ -990,8 +1017,19 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 						{
 							store.work_get (transaction, source_a, work_a);
 						}
-						block = std::make_shared<nano::state_block> (source_a, info.head, info.representative, balance - amount_a, account_a, prv, source_a, work_a);
-						details.epoch = info.epoch ();
+
+						if (wallets.node.ledger.cache.confirmed_state_block_v2_generate_canary)
+						{
+							details.epoch = std::max (nano::epoch::epoch_3, info.epoch ());
+							auto is_upgrade = details.epoch > info.epoch ();
+							block = std::make_shared<nano::state_block> (source_a, info.head, info.representative, balance - amount_a, account_a, prv, source_a, details.epoch, nano::block_flags{ nano::link_flag::send, nano::sig_flag::self, is_upgrade }, info.block_count + 1, work_a);
+						}
+						else
+						{
+							details.epoch = info.epoch ();
+							block = std::make_shared<nano::state_block> (source_a, info.head, info.representative, balance - amount_a, account_a, prv, source_a, work_a);
+						}
+
 						if (id_mdb_val && block != nullptr)
 						{
 							auto status (mdb_put (wallets.env.tx (transaction), wallets.node.wallets.send_action_ids, *id_mdb_val, nano::mdb_val (block->hash ()), 0));
@@ -1090,7 +1128,7 @@ bool nano::wallet::receive_sync (std::shared_ptr<nano::block> const & block_a, n
 {
 	std::promise<bool> result;
 	std::future<bool> future = result.get_future ();
-	auto destination (block_a->link ().is_zero () ? block_a->destination () : block_a->link ().as_account ());
+	auto const & destination (block_a->link ().is_zero () ? block_a->destination () : block_a->link ().as_account ());
 	receive_async (
 	block_a->hash (), representative_a, amount_a, destination, [&result](std::shared_ptr<nano::block> const & block_a) {
 		result.set_value (block_a == nullptr);
@@ -1495,10 +1533,6 @@ thread ([this]() {
 			if (!error)
 			{
 				items[id] = wallet;
-			}
-			else
-			{
-				// Couldn't open wallet
 			}
 		}
 	}

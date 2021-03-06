@@ -264,57 +264,33 @@ std::string nano::message_parser::status_string ()
 	switch (status)
 	{
 		case nano::message_parser::parse_status::success:
-		{
 			return "success";
-		}
 		case nano::message_parser::parse_status::insufficient_work:
-		{
 			return "insufficient_work";
-		}
 		case nano::message_parser::parse_status::invalid_header:
-		{
 			return "invalid_header";
-		}
 		case nano::message_parser::parse_status::invalid_message_type:
-		{
 			return "invalid_message_type";
-		}
 		case nano::message_parser::parse_status::invalid_keepalive_message:
-		{
 			return "invalid_keepalive_message";
-		}
 		case nano::message_parser::parse_status::invalid_publish_message:
-		{
 			return "invalid_publish_message";
-		}
 		case nano::message_parser::parse_status::invalid_confirm_req_message:
-		{
 			return "invalid_confirm_req_message";
-		}
 		case nano::message_parser::parse_status::invalid_confirm_ack_message:
-		{
 			return "invalid_confirm_ack_message";
-		}
 		case nano::message_parser::parse_status::invalid_node_id_handshake_message:
-		{
 			return "invalid_node_id_handshake_message";
-		}
 		case nano::message_parser::parse_status::invalid_telemetry_req_message:
-		{
 			return "invalid_telemetry_req_message";
-		}
 		case nano::message_parser::parse_status::invalid_telemetry_ack_message:
-		{
 			return "invalid_telemetry_ack_message";
-		}
 		case nano::message_parser::parse_status::outdated_version:
-		{
 			return "outdated_version";
-		}
 		case nano::message_parser::parse_status::duplicate_publish_message:
-		{
 			return "duplicate_publish_message";
-		}
+		case message_parser::parse_status::invalid_block:
+			return "invalid_block";
 	}
 
 	debug_assert (false);
@@ -332,7 +308,7 @@ status (parse_status::success)
 {
 }
 
-void nano::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t size_a)
+void nano::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t size_a, nano::epochs const & epochs_a)
 {
 	static nano::network_constants network_constants;
 	status = parse_status::success;
@@ -362,7 +338,7 @@ void nano::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t 
 						nano::uint128_t digest;
 						if (!publish_filter.apply (buffer_a + header.size, size_a - header.size, &digest))
 						{
-							deserialize_publish (stream, header, digest);
+							deserialize_publish (stream, header, epochs_a, digest);
 						}
 						else
 						{
@@ -372,7 +348,7 @@ void nano::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t 
 					}
 					case nano::message_type::confirm_req:
 					{
-						deserialize_confirm_req (stream, header);
+						deserialize_confirm_req (stream, header, epochs_a);
 						break;
 					}
 					case nano::message_type::confirm_ack:
@@ -424,19 +400,20 @@ void nano::message_parser::deserialize_keepalive (nano::stream & stream_a, nano:
 	}
 }
 
-void nano::message_parser::deserialize_publish (nano::stream & stream_a, nano::message_header const & header_a, nano::uint128_t const & digest_a)
+void nano::message_parser::deserialize_publish (nano::stream & stream_a, nano::message_header const & header_a, nano::epochs const & epochs, nano::uint128_t const & digest_a)
 {
 	auto error (false);
 	nano::publish incoming (error, stream_a, header_a, digest_a, &block_uniquer);
 	if (!error && at_end (stream_a))
 	{
-		if (!nano::work_validate_entry (*incoming.block))
+		auto valid_work = !nano::work_validate_entry (*incoming.block);
+		if (valid_work && nano::simple_block_validation (incoming.block.get (), epochs) == nano::error_blocks::none)
 		{
 			visitor.publish (incoming);
 		}
 		else
 		{
-			status = parse_status::insufficient_work;
+			status = !valid_work ? parse_status::insufficient_work : parse_status::invalid_block;
 		}
 	}
 	else
@@ -445,19 +422,19 @@ void nano::message_parser::deserialize_publish (nano::stream & stream_a, nano::m
 	}
 }
 
-void nano::message_parser::deserialize_confirm_req (nano::stream & stream_a, nano::message_header const & header_a)
+void nano::message_parser::deserialize_confirm_req (nano::stream & stream_a, nano::message_header const & header_a, nano::epochs const & epochs_a)
 {
 	auto error (false);
 	nano::confirm_req incoming (error, stream_a, header_a, &block_uniquer);
 	if (!error && at_end (stream_a))
 	{
-		if (incoming.block == nullptr || !nano::work_validate_entry (*incoming.block))
+		if (incoming.block == nullptr || (!nano::work_validate_entry (*incoming.block) && nano::simple_block_validation (incoming.block.get (), epochs_a) == nano::error_blocks::none))
 		{
 			visitor.confirm_req (incoming);
 		}
 		else
 		{
-			status = parse_status::insufficient_work;
+			status = !nano::work_validate_entry (*incoming.block) ? parse_status::insufficient_work : parse_status::invalid_block;
 		}
 	}
 	else
@@ -633,8 +610,7 @@ bool nano::publish::deserialize (nano::stream & stream_a, nano::block_uniquer * 
 {
 	debug_assert (header.type == nano::message_type::publish);
 	block = nano::deserialize_block (stream_a, header.block_type (), uniquer_a);
-	auto result (block == nullptr);
-	return result;
+	return (block == nullptr);
 }
 
 void nano::publish::visit (nano::message_visitor & visitor_a) const
@@ -817,7 +793,7 @@ vote (vote_a)
 
 void nano::confirm_ack::serialize (nano::stream & stream_a) const
 {
-	debug_assert (header.block_type () == nano::block_type::not_a_block || header.block_type () == nano::block_type::send || header.block_type () == nano::block_type::receive || header.block_type () == nano::block_type::open || header.block_type () == nano::block_type::change || header.block_type () == nano::block_type::state);
+	debug_assert (header.block_type () == nano::block_type::not_a_block || header.block_type () == nano::block_type::send || header.block_type () == nano::block_type::receive || header.block_type () == nano::block_type::open || header.block_type () == nano::block_type::change || header.block_type () == nano::block_type::state || header.block_type () == nano::block_type::state2);
 	header.serialize (stream_a);
 	vote->serialize (stream_a, header.block_type ());
 }

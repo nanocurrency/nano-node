@@ -2360,6 +2360,126 @@ TEST (ledger, state_receive_change_rollback)
 	ASSERT_EQ (store->account_count (transaction), ledger.cache.account_count);
 }
 
+TEST (ledger, state_rollback_v2)
+{
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_TRUE (!store->init_error ());
+	nano::stat stats;
+	nano::genesis genesis;
+	nano::ledger ledger (*store, stats);
+	auto transaction (store->tx_begin_write ());
+	store->initialize (transaction, genesis, ledger.cache);
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+	auto epoch1 = nano::upgrade_epoch (transaction, pool, ledger, nano::epoch::epoch_1);
+	ASSERT_TRUE (epoch1);
+	auto epoch2 = nano::upgrade_epoch (transaction, pool, ledger, nano::epoch::epoch_2);
+	ASSERT_TRUE (epoch2);
+	ledger.cache.confirmed_state_block_v2_parse_canary = true;
+
+	// Self upgrade send
+	nano::keypair key;
+	nano::state_block_builder builder;
+	auto send1 = builder.make_block ()
+	             .account (nano::genesis_account)
+	             .previous (epoch2->hash ())
+	             .representative (nano::genesis_account)
+	             .balance (nano::genesis_amount - 2 * nano::Gxrb_ratio)
+	             .link (key.pub)
+	             .version (nano::epoch::epoch_3)
+	             .upgrade (true)
+	             .signer (nano::sig_flag::self)
+	             .link_interpretation (nano::link_flag::send)
+	             .height (4)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (*pool.generate (epoch2->hash ()))
+	             .build ();
+
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send1).code);
+
+	auto open = builder.make_block ()
+	            .account (key.pub)
+	            .previous (0)
+	            .representative (nano::genesis_account)
+	            .balance (2 * nano::Gxrb_ratio)
+	            .link (send1->hash ())
+	            .version (nano::epoch::epoch_3)
+	            .upgrade (true)
+	            .signer (nano::sig_flag::self)
+	            .link_interpretation (nano::link_flag::receive)
+	            .height (1)
+	            .sign (key.prv, key.pub)
+	            .work (*pool.generate (key.pub))
+	            .build ();
+
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *open).code);
+
+	// Check account details then rollback open state v2
+	nano::account_info account_info;
+	ledger.store.account_get (transaction, key.pub, account_info);
+	ASSERT_EQ (account_info.epoch (), nano::epoch::epoch_3);
+	ASSERT_FALSE (ledger.rollback (transaction, open->hash ()));
+	ASSERT_FALSE (store->block_exists (transaction, open->hash ()));
+	ASSERT_EQ (nano::genesis_amount - nano::Gxrb_ratio * 2, ledger.account_balance (transaction, nano::genesis_account));
+	ASSERT_EQ (nano::genesis_amount - nano::Gxrb_ratio * 2, ledger.weight (nano::genesis_account));
+	ASSERT_EQ (0, ledger.weight (key.pub));
+
+	// Check account details then rollback send state v2 to a state v1 block
+	ledger.store.account_get (transaction, nano::genesis_account, account_info);
+	ASSERT_EQ (account_info.epoch (), nano::epoch::epoch_3);
+	ASSERT_FALSE (ledger.rollback (transaction, send1->hash ()));
+	ASSERT_FALSE (store->block_exists (transaction, send1->hash ()));
+	ledger.store.account_get (transaction, nano::genesis_account, account_info);
+	ASSERT_EQ (account_info.epoch (), nano::epoch::epoch_2);
+	ASSERT_EQ (nano::genesis_amount, ledger.account_balance (transaction, nano::genesis_account));
+	ASSERT_EQ (nano::genesis_amount, ledger.weight (nano::genesis_account));
+
+	// Epoch upgrade rollback
+	auto epoch3 = nano::upgrade_epoch (transaction, pool, ledger, nano::epoch::epoch_3);
+
+	ledger.store.account_get (transaction, nano::genesis_account, account_info);
+	ASSERT_EQ (account_info.epoch (), nano::epoch::epoch_3);
+	ASSERT_FALSE (ledger.rollback (transaction, epoch3->hash ()));
+	ledger.store.account_get (transaction, nano::genesis_account, account_info);
+	ASSERT_EQ (account_info.epoch (), nano::epoch::epoch_2);
+}
+
+TEST (ledger, state_canary_blocks_v2)
+{
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_TRUE (!store->init_error ());
+	nano::stat stats;
+	nano::genesis genesis;
+	nano::ledger ledger (*store, stats);
+	auto transaction (store->tx_begin_write ());
+	store->initialize (transaction, genesis, ledger.cache);
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+	auto epoch2 = nano::upgrade_epoch (transaction, pool, ledger, nano::epoch::epoch_2);
+
+	// Self upgrade send
+	nano::keypair key;
+	nano::state_block_builder builder;
+	auto send1 = builder.make_block ()
+	             .account (nano::genesis_account)
+	             .previous (epoch2->hash ())
+	             .representative (nano::genesis_account)
+	             .balance (nano::genesis_amount - 2 * nano::Gxrb_ratio)
+	             .link (key.pub)
+	             .version (nano::epoch::epoch_3)
+	             .upgrade (true)
+	             .signer (nano::sig_flag::self)
+	             .link_interpretation (nano::link_flag::send)
+	             .height (3)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (*pool.generate (epoch2->hash ()))
+	             .build ();
+
+	ASSERT_EQ (nano::process_result::state_block_v2_disabled, ledger.process (transaction, *send1).code);
+	ledger.cache.confirmed_state_block_v2_parse_canary = true;
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send1).code);
+}
+
 TEST (ledger, epoch_blocks_v1_general)
 {
 	nano::logger_mt logger;
@@ -2443,11 +2563,7 @@ TEST (ledger, epoch_blocks_v2_general)
 	store->initialize (transaction, genesis, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::keypair destination;
-	nano::state_block epoch1 (nano::genesis_account, genesis.hash (), nano::genesis_account, nano::genesis_amount, ledger.epoch_link (nano::epoch::epoch_2), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (genesis.hash ()));
-	// Trying to upgrade from epoch 0 to epoch 2. It is a requirement epoch upgrades are sequential unless the account is unopened
-	ASSERT_EQ (nano::process_result::block_position, ledger.process (transaction, epoch1).code);
-	// Set it to the first epoch and it should now succeed
-	epoch1 = nano::state_block (nano::genesis_account, genesis.hash (), nano::genesis_account, nano::genesis_amount, ledger.epoch_link (nano::epoch::epoch_1), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, epoch1.work);
+	nano::state_block epoch1 (nano::genesis_account, genesis.hash (), nano::genesis_account, nano::genesis_amount, ledger.epoch_link (nano::epoch::epoch_1), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (nano::genesis_hash));
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, epoch1).code);
 	ASSERT_EQ (nano::epoch::epoch_1, epoch1.sideband ().details.epoch);
 	ASSERT_EQ (nano::epoch::epoch_0, epoch1.sideband ().source_epoch); // Not used for epoch blocks
@@ -2491,6 +2607,69 @@ TEST (ledger, epoch_blocks_v2_general)
 	ASSERT_EQ (nano::epoch::epoch_2, receive2.sideband ().details.epoch);
 	ASSERT_EQ (nano::epoch::epoch_1, receive2.sideband ().source_epoch);
 	ASSERT_EQ (0, ledger.balance (transaction, epoch6.hash ()));
+	ASSERT_EQ (nano::Gxrb_ratio, ledger.balance (transaction, receive2.hash ()));
+	ASSERT_EQ (nano::Gxrb_ratio, ledger.amount (transaction, receive2.hash ()));
+	ASSERT_EQ (nano::genesis_amount - nano::Gxrb_ratio, ledger.weight (nano::genesis_account));
+	ASSERT_EQ (nano::Gxrb_ratio, ledger.weight (destination.pub));
+}
+
+TEST (ledger, epoch_blocks_v3_general)
+{
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_TRUE (!store->init_error ());
+	nano::stat stats;
+	nano::ledger ledger (*store, stats);
+	nano::genesis genesis;
+	auto transaction (store->tx_begin_write ());
+	store->initialize (transaction, genesis, ledger.cache);
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+	nano::keypair destination;
+	ledger.cache.confirmed_state_block_v2_parse_canary = true;
+	auto epoch1 = std::make_unique<nano::state_block> (nano::genesis_account, genesis.hash (), nano::genesis_account, nano::genesis_amount, ledger.epoch_link (nano::epoch::epoch_3), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, nano::epoch::epoch_3, nano::block_flags (nano::link_flag::noop, nano::sig_flag::epoch, true), 2, *pool.generate (genesis.hash ()));
+	// Trying to upgrade from epoch 0 to epoch 3 should work. It is not a requirement that epoch upgrades be sequential
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *epoch1).code);
+	ASSERT_FALSE (ledger.rollback (transaction, epoch1->hash ()));
+	// Try sequential upgrades too.
+	epoch1 = nano::upgrade_epoch (transaction, pool, ledger, nano::epoch::epoch_1);
+	auto epoch2 = nano::upgrade_epoch (transaction, pool, ledger, nano::epoch::epoch_2);
+	ASSERT_TRUE (epoch2);
+	auto epoch3 = nano::upgrade_epoch (transaction, pool, ledger, nano::epoch::epoch_3);
+	ASSERT_TRUE (epoch3);
+	auto epoch4 = nano::upgrade_epoch (transaction, pool, ledger, nano::epoch::epoch_3);
+	ASSERT_FALSE (epoch4);
+	nano::account_info genesis_info;
+	ASSERT_FALSE (ledger.store.account_get (transaction, nano::genesis_account, genesis_info));
+	ASSERT_EQ (genesis_info.epoch (), nano::epoch::epoch_3);
+	ASSERT_FALSE (ledger.rollback (transaction, epoch1->hash ()));
+	ASSERT_FALSE (ledger.store.account_get (transaction, nano::genesis_account, genesis_info));
+	ASSERT_EQ (genesis_info.epoch (), nano::epoch::epoch_0);
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *epoch1).code);
+	ASSERT_FALSE (ledger.store.account_get (transaction, nano::genesis_account, genesis_info));
+	ASSERT_EQ (genesis_info.epoch (), nano::epoch::epoch_1);
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *epoch2).code);
+	ASSERT_FALSE (ledger.store.account_get (transaction, nano::genesis_account, genesis_info));
+	ASSERT_EQ (genesis_info.epoch (), nano::epoch::epoch_2);
+
+	nano::change_block change1 (epoch2->hash (), nano::genesis_account, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (epoch2->hash ()));
+	ASSERT_EQ (nano::process_result::block_position, ledger.process (transaction, change1).code);
+	nano::state_block send1 (nano::genesis_account, epoch2->hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, destination.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (epoch2->hash ()));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send1).code);
+
+	nano::state_block epoch5 (destination.pub, 0, 0, 0, ledger.epoch_link (nano::epoch::epoch_1), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (destination.pub));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, epoch5).code);
+	nano::state_block epoch6 (destination.pub, epoch5.hash (), 0, 0, ledger.epoch_link (nano::epoch::epoch_2), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (epoch5.hash ()));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, epoch6).code);
+	nano::state_block epoch7 (destination.pub, epoch6.hash (), nano::genesis_account, 0, ledger.epoch_link (nano::epoch::epoch_3), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (epoch6.hash ()));
+	ASSERT_EQ (nano::process_result::representative_mismatch, ledger.process (transaction, epoch7).code);
+	nano::state_block epoch8 (destination.pub, epoch6.hash (), 0, 0, ledger.epoch_link (nano::epoch::epoch_3), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, nano::epoch::epoch_3, nano::block_flags (nano::link_flag::noop, nano::sig_flag::epoch, true), 3, *pool.generate (epoch6.hash ()));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, epoch8).code);
+
+	nano::receive_block receive1 (epoch8.hash (), send1.hash (), destination.prv, destination.pub, *pool.generate (epoch8.hash ()));
+	ASSERT_EQ (nano::process_result::block_position, ledger.process (transaction, receive1).code);
+	nano::state_block receive2 (destination.pub, epoch8.hash (), destination.pub, nano::Gxrb_ratio, send1.hash (), destination.prv, destination.pub, nano::epoch::epoch_3, nano::block_flags (nano::link_flag::receive, nano::sig_flag::self, false), 4, *pool.generate (epoch8.hash ()));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive2).code);
+	ASSERT_EQ (0, ledger.balance (transaction, epoch8.hash ()));
 	ASSERT_EQ (nano::Gxrb_ratio, ledger.balance (transaction, receive2.hash ()));
 	ASSERT_EQ (nano::Gxrb_ratio, ledger.amount (transaction, receive2.hash ()));
 	ASSERT_EQ (nano::genesis_amount - nano::Gxrb_ratio, ledger.weight (nano::genesis_account));
@@ -2576,6 +2755,14 @@ TEST (ledger, epoch_blocks_receive_upgrade)
 	ASSERT_EQ (nano::epoch::epoch_2, epoch4.sideband ().details.epoch);
 	ASSERT_EQ (nano::epoch::epoch_0, epoch4.sideband ().source_epoch); // Not used for epoch blocks
 	ASSERT_EQ (store->account_count (transaction), ledger.cache.account_count);
+	// Upgrade an unopened account straight to epoch 3 (from a version 2 send block)
+	nano::keypair destination5;
+	nano::state_block send7 (nano::genesis_account, send6.hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio * 6, destination5.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (send6.hash ()));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send7).code);
+	ledger.cache.confirmed_state_block_v2_parse_canary = true;
+	nano::state_block open4 (destination5.pub, 0, destination5.pub, nano::Gxrb_ratio, send7.hash (), destination5.prv, destination5.pub, nano::epoch::epoch_3, nano::block_flags (nano::link_flag::receive, nano::sig_flag::self, true), 1, *pool.generate (destination5.pub));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, open4).code);
+	ASSERT_EQ (store->account_count (transaction), ledger.cache.account_count);
 }
 
 TEST (ledger, epoch_blocks_fork)
@@ -2589,19 +2776,21 @@ TEST (ledger, epoch_blocks_fork)
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, genesis, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
-	nano::keypair destination;
 	nano::send_block send1 (genesis.hash (), nano::account (0), nano::genesis_amount, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (genesis.hash ()));
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send1).code);
 	nano::state_block epoch1 (nano::genesis_account, genesis.hash (), nano::genesis_account, nano::genesis_amount, ledger.epoch_link (nano::epoch::epoch_1), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (genesis.hash ()));
 	ASSERT_EQ (nano::process_result::fork, ledger.process (transaction, epoch1).code);
 	nano::state_block epoch2 (nano::genesis_account, genesis.hash (), nano::genesis_account, nano::genesis_amount, ledger.epoch_link (nano::epoch::epoch_2), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (genesis.hash ()));
 	ASSERT_EQ (nano::process_result::fork, ledger.process (transaction, epoch2).code);
+	ledger.cache.confirmed_state_block_v2_parse_canary = true;
 	nano::state_block epoch3 (nano::genesis_account, send1.hash (), nano::genesis_account, nano::genesis_amount, ledger.epoch_link (nano::epoch::epoch_1), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (send1.hash ()));
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, epoch3).code);
-	ASSERT_EQ (nano::epoch::epoch_1, epoch3.sideband ().details.epoch);
-	ASSERT_EQ (nano::epoch::epoch_0, epoch3.sideband ().source_epoch); // Not used for epoch state blocks
 	nano::state_block epoch4 (nano::genesis_account, send1.hash (), nano::genesis_account, nano::genesis_amount, ledger.epoch_link (nano::epoch::epoch_2), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (send1.hash ()));
-	ASSERT_EQ (nano::process_result::fork, ledger.process (transaction, epoch2).code);
+	ASSERT_EQ (nano::process_result::fork, ledger.process (transaction, epoch4).code);
+	nano::state_block epoch5 (nano::genesis_account, epoch3.hash (), nano::genesis_account, nano::genesis_amount, ledger.epoch_link (nano::epoch::epoch_2), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (epoch3.hash ()));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, epoch5).code);
+	nano::state_block epoch6 (nano::genesis_account, epoch3.hash (), nano::genesis_account, nano::genesis_amount, ledger.epoch_link (nano::epoch::epoch_3), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, nano::epoch::epoch_3, nano::block_flags (nano::link_flag::noop, nano::sig_flag::epoch, true), 4, *pool.generate (epoch3.hash ()));
+	ASSERT_EQ (nano::process_result::fork, ledger.process (transaction, epoch6).code);
 }
 
 TEST (ledger, successor_epoch)
@@ -2638,6 +2827,437 @@ TEST (ledger, epoch_open_pending)
 	nano::state_block epoch_open (key1.pub, 0, 0, 0, node1.ledger.epoch_link (nano::epoch::epoch_1), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (key1.pub));
 	auto transaction (node1.store.tx_begin_write ());
 	ASSERT_EQ (nano::process_result::block_position, node1.ledger.process (transaction, epoch_open).code);
+}
+
+// A diagram showing all the accounts and blocks used in this test can be found at: https://user-images.githubusercontent.com/650038/109517681-6e131600-7aa1-11eb-9cdb-06d52000e5cd.png
+TEST (ledger, state_blocks_v2)
+{
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_request_loop = true;
+	auto & node = *system.add_node (node_flags);
+
+	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (node, nano::epoch::epoch_1));
+	std::shared_ptr<nano::state_block> latest_genesis (system.upgrade_genesis_epoch (node, nano::epoch::epoch_2));
+
+	nano::keypair key1; // Open block (from epoch 2 send)
+	nano::keypair key2; // Epoch signed epoch (from epoch 2 send)
+	nano::keypair key3; // Send upgrade & send
+	nano::keypair key4; // Change upgrade, change & receive
+	nano::keypair key5; // Receive upgrade
+	nano::keypair key6; // Epoch-signed epoch 3 upgrade
+	nano::keypair key7; // Open block (from a epoch 3 send)
+	nano::keypair key8; // Epoch-signed epoch 3 on unopened account from an epoch 3 send
+
+	std::vector<nano::keypair> keypairs{ key1, key2, key3, key4, key5, key6, key7, key8 };
+	std::unordered_map<nano::keypair, std::shared_ptr<nano::state_block>> source_blocks_map;
+
+	nano::state_block_builder builder;
+
+	for (auto i = 0; i < 6; ++i)
+	{
+		latest_genesis = builder.make_block ()
+		                 .account (nano::dev_genesis_key.pub)
+		                 .previous (latest_genesis->hash ())
+		                 .representative (nano::dev_genesis_key.pub)
+		                 .balance (nano::genesis_amount - 100 * (i + 1))
+		                 .link (keypairs[i].pub)
+		                 .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+		                 .work (*system.work.generate (latest_genesis->hash ()))
+		                 .build_shared ();
+
+		source_blocks_map[keypairs[i]] = latest_genesis;
+		ASSERT_EQ (nano::process_result::progress, node.process (*latest_genesis).code);
+	}
+
+	node.ledger.cache.confirmed_state_block_v2_parse_canary = true;
+	latest_genesis = (system.upgrade_genesis_epoch (node, nano::epoch::epoch_3));
+
+	// Add rest of the sends
+	for (auto i = 6; i < keypairs.size (); ++i)
+	{
+		latest_genesis = builder.make_block ()
+		                 .account (nano::dev_genesis_key.pub)
+		                 .previous (latest_genesis->hash ())
+		                 .representative (nano::dev_genesis_key.pub)
+		                 .balance (nano::genesis_amount - 100 * (i + 1))
+		                 .link (keypairs[i].pub)
+		                 .version (nano::epoch::epoch_3)
+		                 .upgrade (false)
+		                 .signer (nano::sig_flag::self)
+		                 .link_interpretation (nano::link_flag::send)
+		                 .height (i + 5u) // height of first block starts at 11
+		                 .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+		                 .work (*system.work.generate (latest_genesis->hash ()))
+		                 .build_shared ();
+
+		source_blocks_map[keypairs[i]] = latest_genesis;
+		ASSERT_EQ (nano::process_result::progress, node.process (*latest_genesis).code);
+	}
+
+	auto process_fuzzer = [&](nano::keypair const & key, auto block) {
+		auto orig_block = builder.make_block ().from (*block).build_shared ();
+		auto const & epochs = node.network_params.ledger.epochs;
+
+		// Incorrect upgrade
+		block->hashables.set_upgrade (!orig_block->hashables.is_upgrade ());
+		block->rebuild (key.prv, key.pub);
+		if (orig_block->hashables.flags ().is_self_signer () && orig_block->hashables.height () > 1)
+		{
+			ASSERT_EQ (nano::process_result::upgrade_flag_incorrect, node.process (*block).code);
+		}
+
+		block->hashables.set_upgrade (orig_block->hashables.is_upgrade ());
+
+		// Incorrect height
+		block->hashables.set_height (orig_block->hashables.height () + 1);
+		block->rebuild (key.prv, key.pub);
+
+		ASSERT_EQ (nano::process_result::height_not_successor, node.process (*block).code);
+
+		block->hashables.set_height (orig_block->hashables.height ());
+
+		// Incorrect link interpretation flag
+		if (!orig_block->hashables.flags ().is_epoch_signer ())
+		{
+			std::vector<nano::link_flag> link_flags{ nano::link_flag::noop, nano::link_flag::send, nano::link_flag::receive };
+			link_flags.erase (std::remove (link_flags.begin (), link_flags.end (), orig_block->hashables.link_interpretation ()));
+
+			for (auto incorrect_link_flag : link_flags)
+			{
+				if (incorrect_link_flag != nano::link_flag::noop || orig_block->hashables.height () > 1)
+				{
+					block->hashables.set_link_interpretation (incorrect_link_flag);
+					block->rebuild (key.prv, key.pub);
+					auto result = node.process (*block).code;
+					ASSERT_TRUE (result == nano::process_result::incorrect_link_flag || result == nano::process_result::balance_mismatch);
+				}
+			}
+			block->hashables.set_link_interpretation (orig_block->hashables.link_interpretation ());
+		}
+
+		block->hashables.set_version (orig_block->hashables.version ());
+
+		// Check balance
+		nano::account_info account_info;
+		auto account_error = node.store.account_get (node.store.tx_begin_read (), orig_block->account (), account_info);
+		if (!block->hashables.flags ().is_epoch_signer () || block->hashables.height () > 1)
+		{
+			if (block->hashables.flags ().is_send () || block->hashables.flags ().is_receive ())
+			{
+				// Incorrect balance
+				block->hashables.balance = account_info.balance;
+			}
+			else
+			{
+				// Incorrect balance
+				block->hashables.balance = orig_block->hashables.balance.number () + 1;
+			}
+
+			block->rebuild (key.prv, key.pub);
+			ASSERT_EQ (nano::process_result::balance_mismatch, node.process (*block).code);
+		}
+
+		block->hashables.balance = orig_block->hashables.balance;
+
+		// Check representative
+		if (block->hashables.flags ().is_noop () && !account_error)
+		{
+			if (block->hashables.flags ().is_epoch_signer () && orig_block->hashables.height () != 0)
+			{
+				// Epoch shouldn't change representative
+				block->hashables.representative = account_info.representative == 0 ? 1 : 0;
+			}
+			else
+			{
+				// This is a change block but the representative hasn't changed
+				block->hashables.representative = account_info.representative;
+			}
+
+			block->rebuild (key.prv, key.pub);
+			ASSERT_EQ (nano::process_result::representative_mismatch, node.process (*block).code);
+		}
+
+		block->hashables.representative = orig_block->hashables.representative;
+
+		if (key.pub != nano::genesis_account)
+		{
+			auto incorrect_sig_flag = orig_block->hashables.flags ().is_epoch_signer () ? nano::sig_flag::self : nano::sig_flag::epoch;
+			if (orig_block->hashables.height () > 1 && orig_block->hashables.flags ().is_epoch_signer ())
+			{
+				block->hashables.set_signer (incorrect_sig_flag);
+				block->rebuild (key.prv, key.pub);
+				ASSERT_EQ (nano::process_result::incorrect_signer, node.process (*block).code);
+				block->hashables.set_signer (orig_block->hashables.signer ());
+			}
+		}
+
+		// Add correct details, try it with a self-signed key1_open too, the genesis account/key1_open signer are the same on the test network.
+		block->rebuild (key.prv, key.pub);
+		ASSERT_EQ (nano::process_result::progress, node.process (*block).code);
+	};
+
+	// Open with epoch 3 from an epoch 2 pending block
+	auto key1_open = builder.make_block ()
+	                 .account (key1.pub)
+	                 .previous (0)
+	                 .representative (nano::dev_genesis_key.pub)
+	                 .balance (100)
+	                 .link (source_blocks_map[key1]->hash ())
+	                 .version (nano::epoch::epoch_3)
+	                 .upgrade (true)
+	                 .signer (nano::sig_flag::self)
+	                 .link_interpretation (nano::link_flag::receive)
+	                 .height (1)
+	                 .sign (key1.prv, key1.pub)
+	                 .work (*system.work.generate (key1.pub))
+	                 .build_shared ();
+
+	process_fuzzer (key1, key1_open);
+
+	// Epoch signed open
+	auto key2_epoch_open = builder.make_block ()
+	                       .account (key2.pub)
+	                       .previous (0)
+	                       .representative (0)
+	                       .balance (0)
+	                       .link (node.ledger.epoch_link (nano::epoch::epoch_3))
+	                       .version (nano::epoch::epoch_3)
+	                       .upgrade (true)
+	                       .signer (nano::sig_flag::epoch)
+	                       .link_interpretation (nano::link_flag::noop)
+	                       .height (1)
+	                       .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	                       .work (*system.work.generate (key2.pub))
+	                       .build_shared ();
+
+	process_fuzzer (nano::dev_genesis_key, key2_epoch_open);
+
+	// Account 3 prep
+	auto key3_epoch_open = builder.make_block ()
+	                       .account (key3.pub)
+	                       .previous (0)
+	                       .representative (0)
+	                       .balance (0)
+	                       .link (node.ledger.epoch_link (nano::epoch::epoch_2))
+	                       .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	                       .work (*system.work.generate (key3.pub))
+	                       .build_shared ();
+
+	ASSERT_EQ (nano::process_result::progress, node.process (*key3_epoch_open).code);
+
+	auto key3_receive = builder.make_block ()
+	                    .account (key3.pub)
+	                    .previous (key3_epoch_open->hash ())
+	                    .representative (key3.pub)
+	                    .balance (100)
+	                    .link (source_blocks_map[key3]->hash ())
+	                    .sign (key3.prv, key3.pub)
+	                    .work (*system.work.generate (key3_epoch_open->hash ()))
+	                    .build_shared ();
+
+	ASSERT_EQ (nano::process_result::progress, node.process (*key3_receive).code);
+
+	// Send upgrade
+	auto key3_send = builder.make_block ()
+	                 .account (key3.pub)
+	                 .previous (key3_receive->hash ())
+	                 .representative (key3.pub)
+	                 .balance (99)
+	                 .link (key3.pub)
+	                 .version (nano::epoch::epoch_3)
+	                 .upgrade (true)
+	                 .signer (nano::sig_flag::self)
+	                 .link_interpretation (nano::link_flag::send)
+	                 .height (3)
+	                 .sign (key3.prv, key3.pub)
+	                 .work (*system.work.generate (key3_receive->hash ()))
+	                 .build_shared ();
+
+	process_fuzzer (key3, key3_send);
+
+	// Send (no upgrade)
+	auto key3_send1 = builder.make_block ()
+	                  .account (key3.pub)
+	                  .previous (key3_send->hash ())
+	                  .representative (key3.pub)
+	                  .balance (98)
+	                  .link (key3.pub)
+	                  .version (nano::epoch::epoch_3)
+	                  .upgrade (false)
+	                  .signer (nano::sig_flag::self)
+	                  .link_interpretation (nano::link_flag::send)
+	                  .height (4)
+	                  .sign (key3.prv, key3.pub)
+	                  .work (*system.work.generate (key3_send->hash ()))
+	                  .build_shared ();
+
+	process_fuzzer (key3, key3_send1);
+
+	// Account 4 prep
+	auto key4_epoch_open = builder.make_block ()
+	                       .account (key4.pub)
+	                       .previous (0)
+	                       .representative (0)
+	                       .balance (0)
+	                       .link (node.ledger.epoch_link (nano::epoch::epoch_2))
+	                       .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	                       .work (*system.work.generate (key4.pub))
+	                       .build_shared ();
+
+	ASSERT_EQ (nano::process_result::progress, node.process (*key4_epoch_open).code);
+
+	// Change upgrade
+	auto key4_change_upgrade = builder.make_block ()
+	                           .account (key4.pub)
+	                           .previous (key4_epoch_open->hash ())
+	                           .representative (key1.pub)
+	                           .balance (0)
+	                           .link (0)
+	                           .version (nano::epoch::epoch_3)
+	                           .upgrade (true)
+	                           .signer (nano::sig_flag::self)
+	                           .link_interpretation (nano::link_flag::noop)
+	                           .height (2)
+	                           .sign (key4.prv, key4.pub)
+	                           .work (*system.work.generate (key4_epoch_open->hash ()))
+	                           .build_shared ();
+
+	process_fuzzer (key4, key4_change_upgrade);
+
+	// Change
+	auto key4_change = builder.make_block ()
+	                   .account (key4.pub)
+	                   .previous (key4_change_upgrade->hash ())
+	                   .representative (key2.pub)
+	                   .balance (0)
+	                   .link (0)
+	                   .version (nano::epoch::epoch_3)
+	                   .upgrade (false)
+	                   .signer (nano::sig_flag::self)
+	                   .link_interpretation (nano::link_flag::noop)
+	                   .height (3)
+	                   .sign (key4.prv, key4.pub)
+	                   .work (*system.work.generate (key4_change_upgrade->hash ()))
+	                   .build_shared ();
+
+	process_fuzzer (key4, key4_change);
+
+	// Receive
+	auto key4_receive = builder.make_block ()
+	                    .account (key4.pub)
+	                    .previous (key4_change->hash ())
+	                    .representative (nano::dev_genesis_key.pub)
+	                    .balance (100)
+	                    .link (source_blocks_map[key4]->hash ())
+	                    .version (nano::epoch::epoch_3)
+	                    .upgrade (false)
+	                    .signer (nano::sig_flag::self)
+	                    .link_interpretation (nano::link_flag::receive)
+	                    .height (4)
+	                    .sign (key4.prv, key4.pub)
+	                    .work (*system.work.generate (key4_change->hash ()))
+	                    .build_shared ();
+
+	process_fuzzer (key4, key4_receive);
+
+	// Account 5 prep
+	auto key5_epoch_open = builder.make_block ()
+	                       .account (key5.pub)
+	                       .previous (0)
+	                       .representative (0)
+	                       .balance (0)
+	                       .link (node.ledger.epoch_link (nano::epoch::epoch_2))
+	                       .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	                       .work (*system.work.generate (key5.pub))
+	                       .build_shared ();
+
+	ASSERT_EQ (nano::process_result::progress, node.process (*key5_epoch_open).code);
+
+	// Receive upgrade
+	auto key5_receive_upgrade = builder.make_block ()
+	                            .account (key5.pub)
+	                            .previous (key5_epoch_open->hash ())
+	                            .representative (key1.pub)
+	                            .balance (100)
+	                            .link (source_blocks_map[key5]->hash ())
+	                            .version (nano::epoch::epoch_3)
+	                            .upgrade (true)
+	                            .signer (nano::sig_flag::self)
+	                            .link_interpretation (nano::link_flag::receive)
+	                            .height (2)
+	                            .sign (key5.prv, key5.pub)
+	                            .work (*system.work.generate (key5_epoch_open->hash ()))
+	                            .build_shared ();
+
+	process_fuzzer (key5, key5_receive_upgrade);
+
+	// Account 6 prep
+	auto key6_epoch_open = builder.make_block ()
+	                       .account (key6.pub)
+	                       .previous (0)
+	                       .representative (0)
+	                       .balance (0)
+	                       .link (node.ledger.epoch_link (nano::epoch::epoch_2))
+	                       .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	                       .work (*system.work.generate (key6.pub))
+	                       .build_shared ();
+
+	ASSERT_EQ (nano::process_result::progress, node.process (*key6_epoch_open).code);
+
+	// Self-signed epoch
+	auto key6_self_signed_epoch = builder.make_block ()
+	                              .account (key6.pub)
+	                              .previous (key6_epoch_open->hash ())
+	                              .representative (0)
+	                              .balance (0)
+	                              .link (key6.pub)
+	                              .version (nano::epoch::epoch_3)
+	                              .upgrade (true)
+	                              .signer (nano::sig_flag::self)
+	                              .link_interpretation (nano::link_flag::noop)
+	                              .height (2)
+	                              .sign (key6.prv, key6.pub)
+	                              .work (*system.work.generate (key6_epoch_open->hash ()))
+	                              .build_shared ();
+
+	ASSERT_EQ (nano::process_result::progress, node.process (*key6_self_signed_epoch).code);
+
+	// Open with epoch 3 from an epoch 3 pending block
+	auto key7_open = builder.make_block ()
+	                 .account (key7.pub)
+	                 .previous (0)
+	                 .representative (nano::dev_genesis_key.pub)
+	                 .balance (100)
+	                 .link (source_blocks_map[key7]->hash ())
+	                 .version (nano::epoch::epoch_3)
+	                 .upgrade (true)
+	                 .signer (nano::sig_flag::self)
+	                 .link_interpretation (nano::link_flag::receive)
+	                 .height (1)
+	                 .sign (key7.prv, key7.pub)
+	                 .work (*system.work.generate (key7.pub))
+	                 .build_shared ();
+
+	process_fuzzer (key7, key7_open);
+
+	// Epoch signed open where pending contains version 3 block
+	auto key8_epoch_open = builder.make_block ()
+	                       .account (key8.pub)
+	                       .previous (0)
+	                       .representative (0)
+	                       .balance (0)
+	                       .link (node.ledger.epoch_link (nano::epoch::epoch_3))
+	                       .version (nano::epoch::epoch_3)
+	                       .upgrade (true)
+	                       .signer (nano::sig_flag::epoch)
+	                       .link_interpretation (nano::link_flag::noop)
+	                       .height (1)
+	                       .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	                       .work (*system.work.generate (key8.pub))
+	                       .build_shared ();
+
+	process_fuzzer (nano::dev_genesis_key, key8_epoch_open);
 }
 
 TEST (ledger, block_hash_account_conflict)
@@ -3228,10 +3848,10 @@ TEST (ledger, block_confirmed)
 	ASSERT_FALSE (ledger.block_confirmed (transaction, send1->hash ()));
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send1).code);
 	ASSERT_FALSE (ledger.block_confirmed (transaction, send1->hash ()));
-	nano::confirmation_height_info height;
-	ASSERT_FALSE (ledger.store.confirmation_height_get (transaction, nano::genesis_account, height));
-	++height.height;
-	ledger.store.confirmation_height_put (transaction, nano::genesis_account, height);
+	nano::confirmation_height_info confirmation_height_info;
+	ASSERT_FALSE (ledger.store.confirmation_height_get (transaction, nano::genesis_account, confirmation_height_info));
+	++confirmation_height_info.height;
+	ledger.store.confirmation_height_put (transaction, nano::genesis_account, confirmation_height_info);
 	ASSERT_TRUE (ledger.block_confirmed (transaction, send1->hash ()));
 }
 
@@ -3308,11 +3928,11 @@ TEST (ledger, cache)
 
 		{
 			auto transaction (store->tx_begin_write ());
-			nano::confirmation_height_info height;
-			ASSERT_FALSE (ledger.store.confirmation_height_get (transaction, nano::genesis_account, height));
-			++height.height;
-			height.frontier = send->hash ();
-			ledger.store.confirmation_height_put (transaction, nano::genesis_account, height);
+			nano::confirmation_height_info confirmation_height_info;
+			ASSERT_FALSE (ledger.store.confirmation_height_get (transaction, nano::genesis_account, confirmation_height_info));
+			++confirmation_height_info.height;
+			confirmation_height_info.frontier = send->hash ();
+			ledger.store.confirmation_height_put (transaction, nano::genesis_account, confirmation_height_info);
 			ASSERT_TRUE (ledger.block_confirmed (transaction, send->hash ()));
 			++ledger.cache.cemented_count;
 		}
@@ -3345,6 +3965,77 @@ TEST (ledger, cache)
 		cache_check (ledger.cache);
 		cache_check (nano::ledger (*store, stats).cache);
 	}
+}
+
+TEST (ledger, cache_state_v2_canary)
+{
+	nano::logger_mt logger;
+	auto path = nano::unique_path ();
+	nano::genesis genesis;
+	{
+		auto store = nano::make_store (logger, path, false, true);
+		ASSERT_TRUE (!store->init_error ());
+		nano::ledger_cache ledger_cache;
+		store->initialize (store->tx_begin_write (), genesis, ledger_cache);
+	}
+
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+	nano::state_block_builder builder;
+	std::error_code ec;
+
+	auto change_upgrade = builder
+	                      .make_block ()
+	                      .account (nano::genesis_account)
+	                      .previous (nano::genesis_hash)
+	                      .balance (nano::genesis_amount)
+	                      .representative (0)
+	                      .link (0)
+	                      .version (nano::epoch::epoch_3)
+	                      .upgrade (true)
+	                      .signer (nano::sig_flag::self)
+	                      .link_interpretation (nano::link_flag::noop)
+	                      .height (2)
+	                      .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	                      .work (*pool.generate (nano::genesis_hash))
+	                      .build (ec);
+	ASSERT_FALSE (ec);
+
+	{
+		auto store = nano::make_store (logger, path, false, true);
+		ASSERT_TRUE (!store->init_error ());
+		nano::stat stats;
+		nano::canary_state_v2_details canary_state_v2_details{ nano::genesis_account, 2, nano::genesis_account, 3 };
+		nano::ledger ledger (*store, stats, nano::generate_cache{}, canary_state_v2_details);
+		ASSERT_FALSE (ledger.cache.confirmed_state_block_v2_parse_canary);
+		ASSERT_FALSE (ledger.cache.confirmed_state_block_v2_generate_canary);
+		ASSERT_EQ (nano::process_result::state_block_v2_disabled, ledger.process (store->tx_begin_write (), *change_upgrade).code);
+	}
+
+	// Test it where the parse canary is confirmed but not generate
+	nano::canary_state_v2_details canary_state_v2_details{ nano::genesis_account, 1, nano::genesis_account, 2 };
+	{
+		auto store = nano::make_store (logger, path, false, true);
+		ASSERT_TRUE (!store->init_error ());
+		nano::stat stats;
+		nano::ledger ledger (*store, stats, nano::generate_cache{}, canary_state_v2_details);
+		ASSERT_TRUE (ledger.cache.confirmed_state_block_v2_parse_canary);
+		ASSERT_FALSE (ledger.cache.confirmed_state_block_v2_generate_canary);
+
+		// Self-signed epoch should now work
+		ASSERT_EQ (nano::process_result::progress, ledger.process (store->tx_begin_write (), *change_upgrade).code);
+
+		// Just manually altering confirmation height so that the generate canary confirmed height is hit.
+		nano::confirmation_height_info confirmation_height_info{ 2, nano::genesis_hash };
+		store->confirmation_height_put (store->tx_begin_write (), nano::genesis_account, confirmation_height_info);
+	}
+
+	// Generate canary should now be set
+	auto store = nano::make_store (logger, path, false, true);
+	ASSERT_TRUE (!store->init_error ());
+	nano::stat stats;
+	nano::ledger ledger (*store, stats, nano::generate_cache{}, canary_state_v2_details);
+	ASSERT_TRUE (ledger.cache.confirmed_state_block_v2_parse_canary);
+	ASSERT_TRUE (ledger.cache.confirmed_state_block_v2_generate_canary);
 }
 
 TEST (ledger, pruning_action)

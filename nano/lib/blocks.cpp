@@ -21,11 +21,11 @@ bool blocks_equal (T const & first, nano::block const & second)
 	return (first.type () == second.type ()) && (static_cast<T const &> (second)) == first;
 }
 
-template <typename block>
-std::shared_ptr<block> deserialize_block (nano::stream & stream_a)
+template <typename Block, typename... Args>
+std::shared_ptr<Block> deserialize_block (nano::stream & stream_a, Args &&... args)
 {
 	auto error (false);
-	auto result = nano::make_shared<block> (error, stream_a);
+	auto result = nano::make_shared<Block> (error, stream_a, args...);
 	if (error)
 	{
 		result = nullptr;
@@ -74,6 +74,9 @@ size_t nano::block::size (nano::block_type type_a)
 		case nano::block_type::state:
 			result = nano::state_block::size;
 			break;
+		case nano::block_type::state2:
+			result = nano::state_block::size2;
+			break;
 	}
 	return result;
 }
@@ -81,6 +84,16 @@ size_t nano::block::size (nano::block_type type_a)
 nano::work_version nano::block::work_version () const
 {
 	return nano::work_version::work_1;
+}
+
+nano::epoch nano::block::version () const
+{
+	return nano::epoch::epoch_0;
+}
+
+uint64_t nano::block::height () const
+{
+	return sideband ().height;
 }
 
 uint64_t nano::block::difficulty () const
@@ -100,11 +113,27 @@ nano::block_hash nano::block::generate_hash () const
 	return result;
 }
 
-void nano::block::refresh ()
+bool nano::block::has_epoch_link (nano::epochs const &) const
+{
+	return false;
+}
+
+bool nano::block::is_self_signed_epoch () const
+{
+	return false;
+}
+
+uint64_t nano::block::max_height ()
+{
+	return nano::state_hashables_extra_v2::max_height ();
+}
+
+void nano::block::rebuild (nano::raw_key const & prv_key, nano::public_key const & pub_key)
 {
 	if (!cached_hash.is_zero ())
 	{
 		cached_hash = generate_hash ();
+		signature_set (nano::sign_message (prv_key, pub_key, cached_hash));
 	}
 }
 
@@ -180,6 +209,11 @@ nano::link const & nano::block::link () const
 
 nano::account const & nano::block::account () const
 {
+	if (sideband_m.is_initialized ())
+	{
+		return sideband ().account;
+	}
+
 	static nano::account account{ 0 };
 	return account;
 }
@@ -1002,8 +1036,37 @@ link (link_a)
 {
 }
 
-nano::state_hashables::state_hashables (bool & error_a, nano::stream & stream_a)
+nano::state_hashables::state_hashables (nano::account const & account_a, nano::block_hash const & previous_a, nano::account const & representative_a, nano::amount const & balance_a, nano::link const & link_a, nano::epoch version_a, nano::block_flags block_flags_a, uint64_t height_a) :
+state_hashables (account_a, previous_a, representative_a, balance_a, link_a)
 {
+	set_version (version_a);
+	set_flags (block_flags_a);
+	set_height (height_a);
+}
+
+nano::state_hashables::state_hashables (bool & error_a, nano::stream & stream_a, nano::block_type block_type_a)
+{
+	error_a = deserialize (stream_a, block_type_a);
+}
+
+void nano::state_hashables::serialize (nano::stream & stream_a) const
+{
+	write (stream_a, account);
+	write (stream_a, previous);
+	write (stream_a, representative);
+	write (stream_a, balance);
+	write (stream_a, link);
+
+	if (version () >= nano::epoch::epoch_3)
+	{
+		write (stream_a, v2.packed ());
+	}
+}
+
+bool nano::state_hashables::deserialize (nano::stream & stream_a, nano::block_type block_type_a)
+{
+	debug_assert (block_type_a >= nano::block_type::state);
+	auto error = false;
 	try
 	{
 		nano::read (stream_a, account);
@@ -1011,15 +1074,48 @@ nano::state_hashables::state_hashables (bool & error_a, nano::stream & stream_a)
 		nano::read (stream_a, representative);
 		nano::read (stream_a, balance);
 		nano::read (stream_a, link);
+
+		if (block_type_a >= nano::block_type::state2)
+		{
+			uint64_t v2_l;
+			nano::read (stream_a, v2_l);
+			v2.unpack (v2_l);
+		}
 	}
 	catch (std::runtime_error const &)
 	{
-		error_a = true;
+		error = true;
+	}
+	return error;
+}
+
+void nano::state_hashables::serialize_json (boost::property_tree::ptree & tree_a) const
+{
+	tree_a.put ("account", account.to_account ());
+	tree_a.put ("previous", previous.to_string ());
+	tree_a.put ("representative", representative.to_account ());
+	tree_a.put ("balance", balance.to_string_dec ());
+	tree_a.put ("link", link.to_string ());
+	tree_a.put ("link_as_account", link.to_account ());
+
+	if (version () >= nano::epoch::epoch_3)
+	{
+		tree_a.put ("version", nano::normalized_epoch (version ()));
+		tree_a.put ("sig_flag", flags ().sig_to_str ());
+		tree_a.put ("link_interpretation", flags ().link_interpretation_to_str ());
+		tree_a.put ("is_upgrade", flags ().is_upgrade ());
+		tree_a.put ("height", height ());
 	}
 }
 
 nano::state_hashables::state_hashables (bool & error_a, boost::property_tree::ptree const & tree_a)
 {
+	error_a = deserialize_json (tree_a);
+}
+
+bool nano::state_hashables::deserialize_json (boost::property_tree::ptree const & tree_a)
+{
+	bool error = false;
 	try
 	{
 		auto account_l (tree_a.get<std::string> ("account"));
@@ -1027,19 +1123,68 @@ nano::state_hashables::state_hashables (bool & error_a, boost::property_tree::pt
 		auto representative_l (tree_a.get<std::string> ("representative"));
 		auto balance_l (tree_a.get<std::string> ("balance"));
 		auto link_l (tree_a.get<std::string> ("link"));
-		error_a = account.decode_account (account_l);
-		if (!error_a)
+		error = account.decode_account (account_l);
+		if (!error)
 		{
-			error_a = previous.decode_hex (previous_l);
-			if (!error_a)
+			error = previous.decode_hex (previous_l);
+			if (!error)
 			{
-				error_a = representative.decode_account (representative_l);
-				if (!error_a)
+				error = representative.decode_account (representative_l);
+				if (!error)
 				{
-					error_a = balance.decode_dec (balance_l);
-					if (!error_a)
+					error = balance.decode_dec (balance_l);
+					if (!error)
 					{
-						error_a = link.decode_account (link_l) && link.decode_hex (link_l);
+						error = link.decode_account (link_l) && link.decode_hex (link_l);
+
+						if (!error)
+						{
+							auto version_l (tree_a.get_optional<uint8_t> ("version"));
+							if (version_l)
+							{
+								// Only accepting epoch_3 so far
+								error = (*version_l != nano::normalized_epoch (nano::epoch::epoch_3));
+								if (!error)
+								{
+									set_version (static_cast<nano::epoch> (std::underlying_type_t<nano::epoch> (nano::epoch::epoch_0) + *version_l));
+									auto sig_flag = tree_a.get<std::string> ("sig_flag");
+									auto flags_l = flags ();
+									if (sig_flag == "self")
+									{
+										flags_l.set_signer (nano::sig_flag::self);
+									}
+									else
+									{
+										error = sig_flag != "epoch";
+										flags_l.set_signer (nano::sig_flag::epoch);
+									}
+
+									if (!error)
+									{
+										auto link_flag = tree_a.get<std::string> ("link_interpretation");
+										if (link_flag == "receive")
+										{
+											flags_l.set_link_interpretation (nano::link_flag::receive);
+										}
+										else if (link_flag == "send")
+										{
+											flags_l.set_link_interpretation (nano::link_flag::send);
+										}
+										else if (link_flag == "noop")
+										{
+											flags_l.set_link_interpretation (nano::link_flag::noop);
+										}
+
+										if (!error)
+										{
+											set_height (tree_a.get<uint64_t> ("height"));
+											flags_l.set_upgrade (tree_a.get<bool> ("is_upgrade"));
+										}
+									}
+									set_flags (flags_l);
+								}
+							}
+						}
 					}
 				}
 			}
@@ -1047,8 +1192,10 @@ nano::state_hashables::state_hashables (bool & error_a, boost::property_tree::pt
 	}
 	catch (std::runtime_error const &)
 	{
-		error_a = true;
+		error = true;
 	}
+
+	return error;
 }
 
 void nano::state_hashables::hash (blake2b_state & hash_a) const
@@ -1058,6 +1205,142 @@ void nano::state_hashables::hash (blake2b_state & hash_a) const
 	blake2b_update (&hash_a, representative.bytes.data (), sizeof (representative.bytes));
 	blake2b_update (&hash_a, balance.bytes.data (), sizeof (balance.bytes));
 	blake2b_update (&hash_a, link.bytes.data (), sizeof (link.bytes));
+	auto version_l = version ();
+	if (version_l >= nano::epoch::epoch_3)
+	{
+		blake2b_update (&hash_a, &version_l, sizeof (version_l));
+		auto flags_l = flags ();
+		blake2b_update (&hash_a, &flags_l, sizeof (flags_l));
+		auto height_l = boost::endian::native_to_big (height ());
+		blake2b_update (&hash_a, reinterpret_cast<const uint8_t *> (&height_l), sizeof (height_l));
+	}
+}
+
+bool nano::state_hashables::operator== (nano::state_hashables const & other_a) const
+{
+	return account == other_a.account && previous == other_a.previous && representative == other_a.representative && balance == other_a.balance && link == other_a.link && version () == other_a.version () && flags () == other_a.flags () && height () == other_a.height ();
+}
+
+bool nano::state_hashables::is_upgrade () const
+{
+	return flags ().is_upgrade ();
+}
+
+nano::sig_flag nano::state_hashables::signer () const
+{
+	return flags ().signer ();
+}
+
+nano::link_flag nano::state_hashables::link_interpretation () const
+{
+	return flags ().link_interpretation ();
+}
+
+void nano::state_hashables::set_version (nano::epoch epoch)
+{
+	v2.set_version (epoch);
+}
+
+void nano::state_hashables::set_height (uint64_t height)
+{
+	v2.set_height (height);
+}
+
+void nano::state_hashables::set_flags (nano::block_flags flags)
+{
+	v2.set_flags (flags);
+}
+
+void nano::state_hashables::set_link_interpretation (nano::link_flag link_flag)
+{
+	auto flags_l = flags ();
+	flags_l.set_link_interpretation (link_flag);
+	set_flags (flags_l);
+}
+void nano::state_hashables::set_signer (nano::sig_flag sig_flag)
+{
+	auto flags_l = flags ();
+	flags_l.set_signer (sig_flag);
+	set_flags (flags_l);
+}
+
+void nano::state_hashables::set_upgrade (bool is_upgrade)
+{
+	auto flags_l = flags ();
+	flags_l.set_upgrade (is_upgrade);
+	set_flags (flags_l);
+}
+
+nano::epoch nano::state_hashables::version () const
+{
+	return v2.version ();
+}
+
+nano::block_flags nano::state_hashables::flags () const
+{
+	return v2.flags ();
+}
+
+uint64_t nano::state_hashables::height () const
+{
+	return v2.height ();
+}
+
+nano::state_hashables_extra_v2::state_hashables_extra_v2 (nano::epoch version_a, nano::block_flags flags_a, uint64_t height_a)
+{
+	set_height (height_a);
+	set_version (version_a);
+	set_flags (flags_a);
+}
+
+uint64_t nano::state_hashables_extra_v2::packed () const
+{
+	return static_cast<uint64_t> (v2.to_ullong ());
+}
+
+void nano::state_hashables_extra_v2::unpack (uint64_t packed_a)
+{
+	v2 = static_cast<std::bitset<64>> (packed_a);
+}
+
+void nano::state_hashables_extra_v2::set_height (uint64_t height_a)
+{
+	v2 &= ~height_mask;
+	v2 |= boost::endian::native_to_big (height_a) >> 16;
+}
+
+void nano::state_hashables_extra_v2::set_version (nano::epoch version_a)
+{
+	v2 &= ~version_mask;
+	v2 |= static_cast<uint64_t> (nano::normalized_epoch (version_a)) << num_least_sig_bits_till_first_set_bit (version_mask.to_ullong ());
+}
+
+void nano::state_hashables_extra_v2::set_flags (nano::block_flags flags_a)
+{
+	v2 &= ~flags_mask;
+	v2 |= static_cast<uint64_t> (flags_a.packed ()) << num_least_sig_bits_till_first_set_bit (flags_mask.to_ullong ());
+}
+
+uint64_t nano::state_hashables_extra_v2::height () const
+{
+	return boost::endian::big_to_native (static_cast<uint64_t> ((v2 & height_mask).to_ullong ()) << 16);
+}
+
+nano::epoch nano::state_hashables_extra_v2::version () const
+{
+	return static_cast<nano::epoch> (std::underlying_type_t<nano::epoch> (nano::epoch::epoch_0) + ((v2 & version_mask).to_ullong () >> num_least_sig_bits_till_first_set_bit (version_mask.to_ullong ())));
+}
+
+nano::block_flags nano::state_hashables_extra_v2::flags () const
+{
+	nano::block_flags block_flags;
+	block_flags.unpack (static_cast<uint8_t> ((v2 & flags_mask).to_ullong () >> num_least_sig_bits_till_first_set_bit (flags_mask.to_ullong ())));
+	return block_flags;
+}
+
+uint64_t nano::state_hashables_extra_v2::max_height ()
+{
+	return height_mask.to_ullong ();
 }
 
 nano::state_block::state_block (nano::account const & account_a, nano::block_hash const & previous_a, nano::account const & representative_a, nano::amount const & balance_a, nano::link const & link_a, nano::raw_key const & prv_a, nano::public_key const & pub_a, uint64_t work_a) :
@@ -1067,8 +1350,15 @@ work (work_a)
 {
 }
 
-nano::state_block::state_block (bool & error_a, nano::stream & stream_a) :
-hashables (error_a, stream_a)
+nano::state_block::state_block (nano::account const & account_a, nano::block_hash const & previous_a, nano::account const & representative_a, nano::amount const & balance_a, nano::link const & link_a, nano::raw_key const & prv_a, nano::public_key const & pub_a, nano::epoch version_a, nano::block_flags block_flags_a, uint64_t block_height_a, uint64_t work_a) :
+hashables (account_a, previous_a, representative_a, balance_a, link_a, version_a, block_flags_a, block_height_a),
+signature (nano::sign_message (prv_a, pub_a, hash ())),
+work (work_a)
+{
+}
+
+nano::state_block::state_block (bool & error_a, nano::stream & stream_a, nano::block_type block_type_a) :
+hashables (error_a, stream_a, block_type_a)
 {
 	if (!error_a)
 	{
@@ -1095,7 +1385,7 @@ hashables (error_a, tree_a)
 			auto type_l (tree_a.get<std::string> ("type"));
 			auto signature_l (tree_a.get<std::string> ("signature"));
 			auto work_l (tree_a.get<std::string> ("work"));
-			error_a = type_l != "state";
+			error_a = type_l != "state" && type_l != "state2";
 			if (!error_a)
 			{
 				error_a = nano::from_string_hex (work_l, work);
@@ -1141,28 +1431,23 @@ nano::account const & nano::state_block::account () const
 
 void nano::state_block::serialize (nano::stream & stream_a) const
 {
-	write (stream_a, hashables.account);
-	write (stream_a, hashables.previous);
-	write (stream_a, hashables.representative);
-	write (stream_a, hashables.balance);
-	write (stream_a, hashables.link);
+	hashables.serialize (stream_a);
 	write (stream_a, signature);
 	write (stream_a, boost::endian::native_to_big (work));
 }
 
-bool nano::state_block::deserialize (nano::stream & stream_a)
+bool nano::state_block::deserialize (nano::stream & stream_a, nano::block_type block_type_a)
 {
 	auto error (false);
 	try
 	{
-		read (stream_a, hashables.account);
-		read (stream_a, hashables.previous);
-		read (stream_a, hashables.representative);
-		read (stream_a, hashables.balance);
-		read (stream_a, hashables.link);
-		read (stream_a, signature);
-		read (stream_a, work);
-		boost::endian::big_to_native_inplace (work);
+		error = hashables.deserialize (stream_a, block_type_a);
+		if (!error)
+		{
+			read (stream_a, signature);
+			read (stream_a, work);
+			boost::endian::big_to_native_inplace (work);
+		}
 	}
 	catch (std::runtime_error const &)
 	{
@@ -1183,13 +1468,9 @@ void nano::state_block::serialize_json (std::string & string_a, bool single_line
 
 void nano::state_block::serialize_json (boost::property_tree::ptree & tree) const
 {
-	tree.put ("type", "state");
-	tree.put ("account", hashables.account.to_account ());
-	tree.put ("previous", hashables.previous.to_string ());
-	tree.put ("representative", representative ().to_account ());
-	tree.put ("balance", hashables.balance.to_string_dec ());
-	tree.put ("link", hashables.link.to_string ());
-	tree.put ("link_as_account", hashables.link.to_account ());
+	debug_assert (type () == nano::block_type::state || type () == nano::block_type::state2);
+	tree.put ("type", type () == nano::block_type::state ? "state" : "state2");
+	hashables.serialize_json (tree);
 	std::string signature_l;
 	signature.encode_hex (signature_l);
 	tree.put ("signature", signature_l);
@@ -1201,37 +1482,16 @@ bool nano::state_block::deserialize_json (boost::property_tree::ptree const & tr
 	auto error (false);
 	try
 	{
-		debug_assert (tree_a.get<std::string> ("type") == "state");
-		auto account_l (tree_a.get<std::string> ("account"));
-		auto previous_l (tree_a.get<std::string> ("previous"));
-		auto representative_l (tree_a.get<std::string> ("representative"));
-		auto balance_l (tree_a.get<std::string> ("balance"));
-		auto link_l (tree_a.get<std::string> ("link"));
-		auto work_l (tree_a.get<std::string> ("work"));
-		auto signature_l (tree_a.get<std::string> ("signature"));
-		error = hashables.account.decode_account (account_l);
+		debug_assert (tree_a.get<std::string> ("type") == "state" || tree_a.get<std::string> ("type") == "state2");
+		error = hashables.deserialize_json (tree_a);
 		if (!error)
 		{
-			error = hashables.previous.decode_hex (previous_l);
+			auto work_l (tree_a.get<std::string> ("work"));
+			auto signature_l (tree_a.get<std::string> ("signature"));
+			error = nano::from_string_hex (work_l, work);
 			if (!error)
 			{
-				error = hashables.representative.decode_account (representative_l);
-				if (!error)
-				{
-					error = hashables.balance.decode_dec (balance_l);
-					if (!error)
-					{
-						error = hashables.link.decode_account (link_l) && hashables.link.decode_hex (link_l);
-						if (!error)
-						{
-							error = nano::from_string_hex (work_l, work);
-							if (!error)
-							{
-								error = signature.decode_hex (signature_l);
-							}
-						}
-					}
-				}
+				error = signature.decode_hex (signature_l);
 			}
 		}
 	}
@@ -1254,7 +1514,7 @@ void nano::state_block::visit (nano::mutable_block_visitor & visitor_a)
 
 nano::block_type nano::state_block::type () const
 {
-	return nano::block_type::state;
+	return (version () >= nano::epoch::epoch_3 ? nano::block_type::state2 : nano::block_type::state);
 }
 
 bool nano::state_block::operator== (nano::block const & other_a) const
@@ -1264,12 +1524,38 @@ bool nano::state_block::operator== (nano::block const & other_a) const
 
 bool nano::state_block::operator== (nano::state_block const & other_a) const
 {
-	return hashables.account == other_a.hashables.account && hashables.previous == other_a.hashables.previous && hashables.representative == other_a.hashables.representative && hashables.balance == other_a.hashables.balance && hashables.link == other_a.hashables.link && signature == other_a.signature && work == other_a.work;
+	return hashables == other_a.hashables && signature == other_a.signature && work == other_a.work;
 }
 
 bool nano::state_block::valid_predecessor (nano::block const & block_a) const
 {
 	return true;
+}
+
+nano::epoch nano::state_block::version () const
+{
+	if (hashables.version () >= nano::epoch::epoch_3)
+	{
+		return hashables.version ();
+	}
+	else if (sideband_m.is_initialized ())
+	{
+		return sideband ().details.epoch;
+	}
+
+	return nano::epoch::epoch_0;
+}
+
+uint64_t nano::state_block::height () const
+{
+	if (hashables.version () >= nano::epoch::epoch_3)
+	{
+		return hashables.height ();
+	}
+	else
+	{
+		return sideband ().height;
+	}
 }
 
 nano::root const & nano::state_block::root () const
@@ -1309,6 +1595,38 @@ void nano::state_block::signature_set (nano::signature const & signature_a)
 	signature = signature_a;
 }
 
+/*
+ * An epoch link will be the account for self-signed epochs, otherwise will be pre-determined epoch links
+ */
+bool nano::state_block::has_epoch_link (nano::epochs const & epochs_a) const
+{
+	if (type () >= nano::block_type::state2)
+	{
+		if (hashables.flags ().is_epoch_signer () && epochs_a.is_epoch_link (link ()))
+		{
+			// Epoch-signed epoch block
+			return true;
+		}
+		else
+		{
+			// Can be a self-signed epoch block
+			return (hashables.link_interpretation () == nano::link_flag::noop && link () == account ());
+		}
+	}
+
+	return epochs_a.is_epoch_link (link ());
+}
+
+bool nano::state_block::is_self_signed_epoch () const
+{
+	if (type () >= nano::block_type::state2)
+	{
+		return (hashables.link_interpretation () == nano::link_flag::noop && link () == account ());
+	}
+
+	return false;
+}
+
 std::shared_ptr<nano::block> nano::deserialize_block_json (boost::property_tree::ptree const & tree_a, nano::block_uniquer * uniquer_a)
 {
 	std::shared_ptr<nano::block> result;
@@ -1333,7 +1651,7 @@ std::shared_ptr<nano::block> nano::deserialize_block_json (boost::property_tree:
 		{
 			obj = std::make_unique<nano::change_block> (error, tree_a);
 		}
-		else if (type == "state")
+		else if (type == "state" || type == "state2")
 		{
 			obj = std::make_unique<nano::state_block> (error, tree_a);
 		}
@@ -1365,36 +1683,93 @@ std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a)
 	return result;
 }
 
+nano::error_blocks nano::simple_block_validation (nano::block const * block_a, nano::epochs const & epochs_a)
+{
+	nano::error_blocks error{ nano::error_blocks::none };
+
+	if (!block_a)
+	{
+		error = nano::error_blocks::invalid_block;
+	}
+
+	if (error == nano::error_blocks::none && block_a->version () >= nano::epoch::epoch_3)
+	{
+		auto state_block = static_cast<nano::state_block const *> (block_a);
+		if (error == nano::error_blocks::none && state_block->version () != nano::epoch::epoch_3)
+		{
+			error = nano::error_blocks::incorrect_version;
+		}
+		if (error == nano::error_blocks::none && state_block->height () == 0)
+		{
+			error = nano::error_blocks::zero_height;
+		}
+		auto flags = state_block->hashables.flags ();
+		if (flags.is_epoch_signer ())
+		{
+			if (error == nano::error_blocks::none && !flags.is_upgrade ())
+			{
+				error = nano::error_blocks::epoch_upgrade_flag_not_set;
+			}
+			if (error == nano::error_blocks::none && !flags.is_noop ())
+			{
+				error = nano::error_blocks::epoch_link_flag_incorrect;
+			}
+			if (error == nano::error_blocks::none && state_block->hashables.version () != epochs_a.epoch (state_block->link ()))
+			{
+				error = nano::error_blocks::epoch_link_no_match;
+			}
+		}
+
+		if (error == nano::error_blocks::none && state_block->height () == 1)
+		{
+			if (!flags.is_upgrade ())
+			{
+				error = nano::error_blocks::open_upgrade_flag_not_set;
+			}
+			if (error == nano::error_blocks::none && flags.is_self_signer () && flags.is_noop ())
+			{
+				error = nano::error_blocks::self_signed_epoch_opens_not_allowed;
+			}
+			if (flags.is_epoch_signer ())
+			{
+				if (error == nano::error_blocks::none && !state_block->hashables.balance.is_zero ())
+				{
+					error = nano::error_blocks::epoch_open_balance_not_zero;
+				}
+				if (error == nano::error_blocks::none && !state_block->hashables.representative.is_zero ())
+				{
+					error = nano::error_blocks::epoch_open_representative_not_zero;
+				}
+			}
+		}
+	}
+
+	return error;
+}
+
 std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, nano::block_type type_a, nano::block_uniquer * uniquer_a)
 {
 	std::shared_ptr<nano::block> result;
 	switch (type_a)
 	{
 		case nano::block_type::receive:
-		{
 			result = ::deserialize_block<nano::receive_block> (stream_a);
 			break;
-		}
 		case nano::block_type::send:
-		{
 			result = ::deserialize_block<nano::send_block> (stream_a);
 			break;
-		}
 		case nano::block_type::open:
-		{
 			result = ::deserialize_block<nano::open_block> (stream_a);
 			break;
-		}
 		case nano::block_type::change:
-		{
 			result = ::deserialize_block<nano::change_block> (stream_a);
 			break;
-		}
 		case nano::block_type::state:
-		{
-			result = ::deserialize_block<nano::state_block> (stream_a);
+			result = ::deserialize_block<nano::state_block> (stream_a, type_a);
 			break;
-		}
+		case nano::block_type::state2:
+			result = ::deserialize_block<nano::state_block> (stream_a, type_a);
+			break;
 		default:
 #ifndef NANO_FUZZER_TEST
 			debug_assert (false);
@@ -1764,7 +2139,7 @@ size_t nano::block_sideband::size (nano::block_type type_a)
 	{
 		result += sizeof (account);
 	}
-	if (type_a != nano::block_type::open)
+	if (type_a != nano::block_type::open && type_a < nano::block_type::state2)
 	{
 		result += sizeof (height);
 	}
@@ -1788,7 +2163,7 @@ void nano::block_sideband::serialize (nano::stream & stream_a, nano::block_type 
 	{
 		nano::write (stream_a, account.bytes);
 	}
-	if (type_a != nano::block_type::open)
+	if (type_a != nano::block_type::open && type_a < nano::block_type::state2)
 	{
 		nano::write (stream_a, boost::endian::native_to_big (height));
 	}
@@ -1810,11 +2185,11 @@ bool nano::block_sideband::deserialize (nano::stream & stream_a, nano::block_typ
 	try
 	{
 		nano::read (stream_a, successor.bytes);
-		if (type_a != nano::block_type::state && type_a != nano::block_type::open)
+		if (type_a < nano::block_type::state && type_a != nano::block_type::open)
 		{
 			nano::read (stream_a, account.bytes);
 		}
-		if (type_a != nano::block_type::open)
+		if (type_a != nano::block_type::open && type_a < nano::block_type::state2)
 		{
 			nano::read (stream_a, height);
 			boost::endian::big_to_native_inplace (height);
@@ -1890,6 +2265,181 @@ size_t nano::block_uniquer::size ()
 {
 	nano::lock_guard<nano::mutex> lock (mutex);
 	return blocks.size ();
+}
+
+bool nano::decode_sig_flag (std::string const & sig_flag_str, nano::sig_flag & sig_flag)
+{
+	auto error{ false };
+	if (sig_flag_str == "self")
+	{
+		sig_flag = nano::sig_flag::self;
+	}
+	else if (sig_flag_str == "epoch")
+	{
+		sig_flag = nano::sig_flag::epoch;
+	}
+
+	return error;
+}
+
+bool nano::decode_link_flag (std::string const & link_flag_str, nano::link_flag & link_flag)
+{
+	auto error{ false };
+	if (link_flag_str == "send")
+	{
+		link_flag = nano::link_flag::send;
+	}
+	else if (link_flag_str == "receive")
+	{
+		link_flag = nano::link_flag::receive;
+	}
+	else if ("noop")
+	{
+		link_flag = nano::link_flag::noop;
+	}
+	else
+	{
+		error = true;
+	}
+
+	return error;
+}
+
+nano::block_flags::block_flags (nano::link_flag link_flag, nano::sig_flag sig_flag, bool is_upgrade)
+{
+	set_link_interpretation (link_flag);
+	set_signer (sig_flag);
+	set_upgrade (is_upgrade);
+}
+
+bool nano::block_flags::is_epoch_signer () const
+{
+	return flags.test (signature_signer_pos);
+}
+
+bool nano::block_flags::is_self_signer () const
+{
+	return !flags.test (signature_signer_pos);
+}
+
+bool nano::block_flags::is_send () const
+{
+	return (flags & link_field_mask) == send_val;
+}
+
+bool nano::block_flags::is_receive () const
+{
+	return (flags & link_field_mask) == receive_val;
+}
+
+bool nano::block_flags::is_noop () const
+{
+	return (flags & link_field_mask) == noop_val;
+}
+
+nano::link_flag nano::block_flags::link_interpretation () const
+{
+	if (is_send ())
+	{
+		return nano::link_flag::send;
+	}
+	else if (is_receive ())
+	{
+		return nano::link_flag::receive;
+	}
+	else
+	{
+		return nano::link_flag::noop;
+	}
+}
+
+void nano::block_flags::set_link_interpretation (nano::link_flag link_flag)
+{
+	flags &= ~link_field_mask; // Clear link
+
+	std::bitset<8> link_bits;
+	switch (link_flag)
+	{
+		case nano::link_flag::send:
+			link_bits = send_val;
+			break;
+		case nano::link_flag::receive:
+			link_bits = receive_val;
+			break;
+		case nano::link_flag::noop:
+			link_bits = noop_val;
+			break;
+	}
+	flags |= link_bits;
+}
+
+nano::sig_flag nano::block_flags::signer () const
+{
+	return is_self_signer () ? nano::sig_flag::self : nano::sig_flag::epoch;
+}
+
+void nano::block_flags::set_signer (nano::sig_flag sig_flag)
+{
+	switch (sig_flag)
+	{
+		case nano::sig_flag::self:
+			flags.reset (signature_signer_pos);
+			break;
+		case nano::sig_flag::epoch:
+			flags.set (signature_signer_pos);
+			break;
+	}
+}
+
+void nano::block_flags::set_upgrade (bool is_upgrade)
+{
+	flags.set (upgrade_pos, is_upgrade);
+}
+
+bool nano::block_flags::is_upgrade () const
+{
+	return flags.test (upgrade_pos);
+}
+
+bool nano::block_flags::operator== (nano::block_flags block_flags_a) const
+{
+	return flags == block_flags_a.flags;
+}
+
+void nano::block_flags::clear ()
+{
+	flags.reset ();
+}
+
+std::string nano::block_flags::link_interpretation_to_str () const
+{
+	if (is_send ())
+	{
+		return "send";
+	}
+	else if (is_receive ())
+	{
+		return "receive";
+	}
+	else
+	{
+		return "noop";
+	}
+}
+
+std::string nano::block_flags::sig_to_str () const
+{
+	return is_self_signer () ? "self" : "epoch";
+}
+
+uint8_t nano::block_flags::packed () const
+{
+	return static_cast<uint8_t> (flags.to_ulong ());
+}
+
+void nano::block_flags::unpack (uint8_t packed_a)
+{
+	flags = static_cast<std::bitset<8>> (packed_a);
 }
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (block_uniquer & block_uniquer, std::string const & name)

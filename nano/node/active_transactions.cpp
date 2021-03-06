@@ -192,7 +192,7 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 		}
 		else
 		{
-			auto hash (block_a->hash ());
+			auto const & hash (block_a->hash ());
 			nano::unique_lock<nano::mutex> election_winners_lk (election_winner_details_mutex);
 			auto existing (election_winner_details.find (hash));
 			if (existing != election_winner_details.end ())
@@ -206,7 +206,7 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 					auto status_l = election->status;
 					election_lk.unlock ();
 					add_recently_cemented (status_l);
-					auto destination (block_a->link ().is_zero () ? block_a->destination () : block_a->link ().as_account ());
+					auto const & destination (block_a->link ().is_zero () ? block_a->destination () : block_a->link ().as_account ());
 					node.receive_confirmed (transaction, hash, destination);
 					nano::account account (0);
 					nano::uint128_t amount (0);
@@ -231,8 +231,16 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 			}
 		}
 
-		auto const & account (!block_a->account ().is_zero () ? block_a->account () : block_a->sideband ().account);
+		auto const & account (block_a->account ());
 		debug_assert (!account.is_zero ());
+		if (!node.ledger.cache.confirmed_state_block_v2_parse_canary && account == node.ledger.canary_state_v2.parse_account && block_a->height () >= node.ledger.canary_state_v2.parse_confirmed_height)
+		{
+			node.ledger.cache.confirmed_state_block_v2_parse_canary = true;
+		}
+		if (node.ledger.cache.confirmed_state_block_v2_parse_canary && !node.ledger.cache.confirmed_state_block_v2_generate_canary && account == node.ledger.canary_state_v2.generate_account && block_a->height () >= node.ledger.canary_state_v2.generate_confirmed_height)
+		{
+			node.ledger.cache.confirmed_state_block_v2_generate_canary = true;
+		}
 
 		// Next-block activations are done after cementing hardcoded bootstrap count to allow confirming very large chains without interference
 		bool const cemented_bootstrap_count_reached{ node.ledger.cache.cemented_count >= node.ledger.bootstrap_weight_max_blocks };

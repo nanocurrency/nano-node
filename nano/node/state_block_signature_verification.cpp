@@ -6,10 +6,12 @@
 #include <nano/node/signatures.hpp>
 #include <nano/node/state_block_signature_verification.hpp>
 #include <nano/secure/common.hpp>
+#include <nano/secure/ledger.hpp>
 
 #include <boost/format.hpp>
 
-nano::state_block_signature_verification::state_block_signature_verification (nano::signature_checker & signature_checker, nano::epochs & epochs, nano::node_config & node_config, nano::logger_mt & logger, uint64_t state_block_signature_verification_size) :
+nano::state_block_signature_verification::state_block_signature_verification (nano::ledger const & ledger, nano::signature_checker & signature_checker, nano::epochs & epochs, nano::node_config & node_config, nano::logger_mt & logger, uint64_t state_block_signature_verification_size) :
+ledger (ledger),
 signature_checker (signature_checker),
 epochs (epochs),
 node_config (node_config),
@@ -137,9 +139,9 @@ void nano::state_block_signature_verification::verify_state_blocks (std::deque<s
 			messages.push_back (hashes.back ().bytes.data ());
 			lengths.push_back (sizeof (decltype (hashes)::value_type));
 			nano::account account (item.block->account ());
-			if (!item.block->link ().is_zero () && epochs.is_epoch_link (item.block->link ()))
+			if (!item.block->link ().is_zero () && item.block->has_epoch_link (ledger.network_params.ledger.epochs))
 			{
-				account = epochs.signer (epochs.epoch (item.block->link ()));
+				account = ledger.epoch_signer (*item.block);
 			}
 			else if (!item.account.is_zero ())
 			{

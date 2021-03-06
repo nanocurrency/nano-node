@@ -80,13 +80,8 @@ void nano::confirmation_height_unbounded::process ()
 		}
 		release_assert (block);
 
-		nano::account account (block->account ());
-		if (account.is_zero ())
-		{
-			account = block->sideband ().account;
-		}
-
-		auto block_height = block->sideband ().height;
+		auto const & account (block->account ());
+		auto block_height = block->height ();
 		uint64_t confirmation_height = 0;
 		auto account_it = confirmed_iterated_pairs.find (account);
 		if (account_it != confirmed_iterated_pairs.cend ())
@@ -223,7 +218,7 @@ void nano::confirmation_height_unbounded::collect_unconfirmed_receive_and_source
 				source = block->link ().as_block_hash ();
 			}
 
-			if (!source.is_zero () && !ledger.is_epoch_link (source) && ledger.store.block_exists (transaction_a, source))
+			if (!source.is_zero () && !block->has_epoch_link (ledger.network_params.ledger.epochs) && ledger.store.block_exists (transaction_a, source))
 			{
 				if (!hit_receive && !block_callback_data_a.empty ())
 				{
@@ -383,7 +378,7 @@ void nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 			{
 				auto block = ledger.store.block_get (transaction, pending.hash);
 				debug_assert (network_params.network.is_dev_network () || ledger.pruning || block != nullptr);
-				debug_assert (network_params.network.is_dev_network () || ledger.pruning || block->sideband ().height == pending.height);
+				debug_assert (network_params.network.is_dev_network () || ledger.pruning || block->height () == pending.height);
 
 				if (!block)
 				{

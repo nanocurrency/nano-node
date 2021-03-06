@@ -18,6 +18,7 @@ enum class epoch : uint8_t
 	epoch_0 = 2,
 	epoch_1 = 3,
 	epoch_2 = 4,
+	epoch_3 = 5,
 	max = epoch_2
 };
 
@@ -52,8 +53,6 @@ public:
 	nano::public_key const & signer (nano::epoch epoch_a) const;
 	nano::epoch epoch (nano::link const & link_a) const;
 	void add (nano::epoch epoch_a, nano::public_key const & signer_a, nano::link const & link_a);
-	/** Checks that new_epoch is 1 version higher than epoch */
-	static bool is_sequential (nano::epoch epoch_a, nano::epoch new_epoch_a);
 
 private:
 	std::unordered_map<nano::epoch, nano::epoch_info> epochs_m;

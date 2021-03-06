@@ -11,11 +11,13 @@
 
 #include <boost/property_tree/ptree_fwd.hpp>
 
+#include <bitset>
 #include <unordered_map>
 
 namespace nano
 {
 class block_visitor;
+class epochs;
 class mutable_block_visitor;
 enum class block_type : uint8_t
 {
@@ -25,7 +27,8 @@ enum class block_type : uint8_t
 	receive = 3,
 	open = 4,
 	change = 5,
-	state = 6
+	state = 6,
+	state2 = 7
 };
 class block_details
 {
@@ -113,9 +116,14 @@ public:
 	virtual bool valid_predecessor (nano::block const &) const = 0;
 	static size_t size (nano::block_type);
 	virtual nano::work_version work_version () const;
+	virtual nano::epoch version () const;
+	virtual uint64_t height () const;
+	virtual bool has_epoch_link (nano::epochs const &) const;
+	virtual bool is_self_signed_epoch () const;
+	static uint64_t max_height ();
 	uint64_t difficulty () const;
-	// If there are any changes to the hashables, call this to update the cached hash
-	void refresh ();
+	// If there are any changes to the hashables, call this to update the cached hash and signature
+	void rebuild (nano::raw_key const &, nano::public_key const &);
 
 protected:
 	mutable nano::block_hash cached_hash{ 0 };
@@ -315,14 +323,104 @@ public:
 	uint64_t work;
 	static size_t constexpr size = nano::change_hashables::size + sizeof (signature) + sizeof (work);
 };
+
+enum class link_flag
+{
+	send,
+	receive,
+	noop // change or epoch upgrade
+};
+
+enum class sig_flag
+{
+	self,
+	epoch
+};
+
+bool decode_sig_flag (std::string const & sig_flag_str, nano::sig_flag & sig_flag);
+bool decode_link_flag (std::string const & link_flag_str, nano::link_flag & link_flag);
+
+class block_flags final
+{
+public:
+	block_flags () = default;
+	block_flags (link_flag link_flag, sig_flag sig_flag, bool is_upgrade);
+	bool is_epoch_signer () const;
+	bool is_self_signer () const;
+	bool is_send () const;
+	bool is_receive () const;
+	bool is_noop () const;
+	nano::link_flag link_interpretation () const;
+	void set_link_interpretation (nano::link_flag link_flag);
+	nano::sig_flag signer () const;
+	void set_signer (nano::sig_flag sig_flag);
+	void set_upgrade (bool is_upgrade);
+	bool is_upgrade () const;
+	bool operator== (nano::block_flags block_flags_a) const;
+	void clear ();
+	std::string link_interpretation_to_str () const;
+	std::string sig_to_str () const;
+	uint8_t packed () const;
+	void unpack (uint8_t);
+
+	static size_t constexpr packed_size = sizeof (uint8_t);
+
+private:
+	std::bitset<8> flags;
+
+	static uint8_t constexpr signature_signer_pos = 0;
+	// = 1 is reserved
+
+	// Link field interpretation
+	static std::bitset<8> constexpr link_field_mask = 0b00011100;
+	static std::bitset<8> constexpr send_val = 0b00000000;
+	static std::bitset<8> constexpr receive_val = 0b00000100;
+	static std::bitset<8> constexpr noop_val = 0b00001100;
+
+	// Is this doing a version upgrade?
+	static uint8_t constexpr upgrade_pos = 6;
+	// = 7 is reserved
+};
+
+class state_hashables_extra_v2
+{
+public:
+	state_hashables_extra_v2 () = default;
+	state_hashables_extra_v2 (nano::epoch version_a, nano::block_flags flags_a, uint64_t height_a);
+	uint64_t packed () const;
+	void unpack (uint64_t packed_a);
+	void set_height (uint64_t height_a);
+	void set_version (nano::epoch version_a);
+	void set_flags (nano::block_flags flags_a);
+	uint64_t height () const;
+	nano::epoch version () const;
+	nano::block_flags flags () const;
+
+	static uint64_t max_height ();
+	static size_t constexpr packed_size = sizeof (uint64_t);
+
+private:
+	std::bitset<64> v2;
+
+	static std::bitset<64> constexpr height_mask = 0x0000ffffffffffff;
+	static std::bitset<64> constexpr version_mask = 0x00ff000000000000;
+	static std::bitset<64> constexpr flags_mask = 0xff00000000000000;
+};
+
 class state_hashables
 {
 public:
 	state_hashables () = default;
 	state_hashables (nano::account const &, nano::block_hash const &, nano::account const &, nano::amount const &, nano::link const &);
-	state_hashables (bool &, nano::stream &);
+	state_hashables (nano::account const &, nano::block_hash const &, nano::account const &, nano::amount const &, nano::link const &, nano::epoch, nano::block_flags, uint64_t);
+	state_hashables (bool &, nano::stream &, nano::block_type);
 	state_hashables (bool &, boost::property_tree::ptree const &);
 	void hash (blake2b_state &) const;
+	void serialize (nano::stream & stream_a) const;
+	bool deserialize (nano::stream & stream_a, nano::block_type block_type_a);
+	void serialize_json (boost::property_tree::ptree & tree_a) const;
+	bool deserialize_json (boost::property_tree::ptree const & tree_a);
+
 	// Account# / public key that operates this account
 	// Uses:
 	// Bulk signature validation in advance of further ledger processing
@@ -337,15 +435,43 @@ public:
 	nano::amount balance;
 	// Link field contains source block_hash if receiving, destination account if sending
 	nano::link link;
+
+	// These are applicable to state v2 blocks and higher
+	// The version of the block
+	void set_version (nano::epoch epoch);
+	nano::epoch version () const;
+	// The height of the block
+	void set_height (uint64_t height);
+	uint64_t height () const;
+	// Various block flags, can also be set individually
+	void set_flags (nano::block_flags flags);
+	nano::block_flags flags () const;
+	// Whether this block is upgrading or an open (or epoch open)
+	void set_upgrade (bool is_upgrade);
+	bool is_upgrade () const;
+	// The signer of this block
+	void set_signer (nano::sig_flag sig_flag);
+	nano::sig_flag signer () const;
+	// How the link field should be interpreted
+	void set_link_interpretation (nano::link_flag link_flag);
+	nano::link_flag link_interpretation () const;
+
 	// Serialized size
 	static size_t constexpr size = sizeof (account) + sizeof (previous) + sizeof (representative) + sizeof (balance) + sizeof (link);
+	static size_t constexpr size2 = size + nano::state_hashables_extra_v2::packed_size;
+
+	bool operator== (nano::state_hashables const & other_a) const;
+
+private:
+	state_hashables_extra_v2 v2;
 };
 class state_block : public nano::block
 {
 public:
 	state_block () = default;
 	state_block (nano::account const &, nano::block_hash const &, nano::account const &, nano::amount const &, nano::link const &, nano::raw_key const &, nano::public_key const &, uint64_t);
-	state_block (bool &, nano::stream &);
+	state_block (nano::account const &, nano::block_hash const &, nano::account const &, nano::amount const &, nano::link const &, nano::raw_key const &, nano::public_key const &, nano::epoch, nano::block_flags, uint64_t, uint64_t);
+	state_block (bool &, nano::stream &, nano::block_type);
 	state_block (bool &, boost::property_tree::ptree const &);
 	virtual ~state_block () = default;
 	using nano::block::hash;
@@ -359,7 +485,7 @@ public:
 	nano::account const & representative () const override;
 	nano::amount const & balance () const override;
 	void serialize (nano::stream &) const override;
-	bool deserialize (nano::stream &);
+	bool deserialize (nano::stream &, nano::block_type);
 	void serialize_json (std::string &, bool = false) const override;
 	void serialize_json (boost::property_tree::ptree &) const override;
 	bool deserialize_json (boost::property_tree::ptree const &);
@@ -371,10 +497,15 @@ public:
 	bool operator== (nano::block const &) const override;
 	bool operator== (nano::state_block const &) const;
 	bool valid_predecessor (nano::block const &) const override;
+	uint64_t height () const override;
+	nano::epoch version () const override;
+	bool has_epoch_link (nano::epochs const &) const override;
+	bool is_self_signed_epoch () const override;
 	nano::state_hashables hashables;
 	nano::signature signature;
 	uint64_t work;
 	static size_t constexpr size = nano::state_hashables::size + sizeof (signature) + sizeof (work);
+	static size_t constexpr size2 = nano::state_hashables::size2 + sizeof (signature) + sizeof (work);
 };
 class block_visitor
 {
@@ -419,5 +550,7 @@ std::shared_ptr<nano::block> deserialize_block (nano::stream &);
 std::shared_ptr<nano::block> deserialize_block (nano::stream &, nano::block_type, nano::block_uniquer * = nullptr);
 std::shared_ptr<nano::block> deserialize_block_json (boost::property_tree::ptree const &, nano::block_uniquer * = nullptr);
 void serialize_block (nano::stream &, nano::block const &);
+/* Returns true if block validation failed, false otherwise. */
+nano::error_blocks simple_block_validation (nano::block const * block_a, nano::epochs const & epochs_a);
 void block_memory_pool_purge ();
 }

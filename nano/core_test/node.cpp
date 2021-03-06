@@ -160,7 +160,7 @@ TEST (node, send_single_observing_peer)
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev_genesis_key.pub, key2.pub, system.nodes[0]->config.receive_minimum.number ()));
 	ASSERT_EQ (std::numeric_limits<nano::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number (), system.nodes[0]->balance (nano::dev_genesis_key.pub));
 	ASSERT_TRUE (system.nodes[0]->balance (key2.pub).is_zero ());
-	ASSERT_TIMELY (10s, std::all_of (system.nodes.begin (), system.nodes.end (), [&](std::shared_ptr<nano::node> const & node_a) { return !node_a->balance (key2.pub).is_zero (); }));
+	ASSERT_TIMELY (10s, std::all_of (system.nodes.begin (), system.nodes.end (), [&] (std::shared_ptr<nano::node> const & node_a) { return !node_a->balance (key2.pub).is_zero (); }));
 }
 
 TEST (node, send_single_many_peers)
@@ -172,7 +172,7 @@ TEST (node, send_single_many_peers)
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev_genesis_key.pub, key2.pub, system.nodes[0]->config.receive_minimum.number ()));
 	ASSERT_EQ (std::numeric_limits<nano::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number (), system.nodes[0]->balance (nano::dev_genesis_key.pub));
 	ASSERT_TRUE (system.nodes[0]->balance (key2.pub).is_zero ());
-	ASSERT_TIMELY (3.5min, std::all_of (system.nodes.begin (), system.nodes.end (), [&](std::shared_ptr<nano::node> const & node_a) { return !node_a->balance (key2.pub).is_zero (); }));
+	ASSERT_TIMELY (3.5min, std::all_of (system.nodes.begin (), system.nodes.end (), [&] (std::shared_ptr<nano::node> const & node_a) { return !node_a->balance (key2.pub).is_zero (); }));
 	system.stop ();
 	for (auto node : system.nodes)
 	{
@@ -212,7 +212,7 @@ TEST (node, send_out_of_order)
 	node1.process_active (send3);
 	node1.process_active (send2);
 	node1.process_active (send1);
-	ASSERT_TIMELY (10s, std::all_of (system.nodes.begin (), system.nodes.end (), [&](std::shared_ptr<nano::node> const & node_a) { return node_a->balance (nano::dev_genesis_key.pub) == nano::genesis_amount - node1.config.receive_minimum.number () * 3; }));
+	ASSERT_TIMELY (10s, std::all_of (system.nodes.begin (), system.nodes.end (), [&] (std::shared_ptr<nano::node> const & node_a) { return node_a->balance (nano::dev_genesis_key.pub) == nano::genesis_amount - node1.config.receive_minimum.number () * 3; }));
 }
 
 TEST (node, quick_confirm)
@@ -515,7 +515,7 @@ TEST (node, connect_after_junk)
 	std::vector<uint8_t> junk_buffer;
 	junk_buffer.push_back (0);
 	auto channel1 (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, node0->network.endpoint (), node1->network_params.protocol.protocol_version));
-	channel1->send_buffer (nano::shared_const_buffer (std::move (junk_buffer)), [](boost::system::error_code const &, size_t) {});
+	channel1->send_buffer (nano::shared_const_buffer (std::move (junk_buffer)), [] (boost::system::error_code const &, size_t) {});
 	ASSERT_TIMELY (10s, node0->stats.count (nano::stat::type::error) != 0);
 	node1->start ();
 	system.nodes.push_back (node1);
@@ -536,11 +536,11 @@ TEST (node, price)
 	nano::system system (1);
 	auto price1 (system.nodes[0]->price (nano::Gxrb_ratio, 1));
 	ASSERT_EQ (nano::node::price_max * 100.0, price1);
-	auto price2 (system.nodes[0]->price (nano::Gxrb_ratio * int(nano::node::free_cutoff + 1), 1));
+	auto price2 (system.nodes[0]->price (nano::Gxrb_ratio * int (nano::node::free_cutoff + 1), 1));
 	ASSERT_EQ (0, price2);
-	auto price3 (system.nodes[0]->price (nano::Gxrb_ratio * int(nano::node::free_cutoff + 2) / 2, 1));
+	auto price3 (system.nodes[0]->price (nano::Gxrb_ratio * int (nano::node::free_cutoff + 2) / 2, 1));
 	ASSERT_EQ (nano::node::price_max * 100.0 / 2, price3);
-	auto price4 (system.nodes[0]->price (nano::Gxrb_ratio * int(nano::node::free_cutoff) * 2, 1));
+	auto price4 (system.nodes[0]->price (nano::Gxrb_ratio * int (nano::node::free_cutoff) * 2, 1));
 	ASSERT_EQ (0, price4);
 }
 
@@ -919,7 +919,7 @@ TEST (json, backup)
 	ASSERT_EQ ("created", object1.text);
 
 	/** Returns 'dir' if backup file cannot be found */
-	auto get_backup_path = [&dir]() {
+	auto get_backup_path = [&dir] () {
 		for (fs::directory_iterator itr (dir); itr != fs::directory_iterator (); ++itr)
 		{
 			if (itr->path ().filename ().string ().find ("_backup_") != std::string::npos)
@@ -930,7 +930,7 @@ TEST (json, backup)
 		return dir;
 	};
 
-	auto get_file_count = [&dir]() {
+	auto get_file_count = [&dir] () {
 		return std::count_if (boost::filesystem::directory_iterator (dir), boost::filesystem::directory_iterator (), static_cast<bool (*) (const boost::filesystem::path &)> (boost::filesystem::is_regular_file));
 	};
 
@@ -1474,7 +1474,7 @@ TEST (node, coherent_observer)
 {
 	nano::system system (1);
 	auto & node1 (*system.nodes[0]);
-	node1.observers.blocks.add ([&node1](nano::election_status const & status_a, nano::account const &, nano::uint128_t const &, bool) {
+	node1.observers.blocks.add ([&node1] (nano::election_status const & status_a, nano::account const &, nano::uint128_t const &, bool) {
 		auto transaction (node1.store.tx_begin_read ());
 		ASSERT_TRUE (node1.store.block_exists (transaction, status_a.winner->hash ()));
 	});
@@ -2250,7 +2250,7 @@ TEST (node, rep_remove)
 	ASSERT_EQ (*channel0, reps[0].channel_ref ());
 	// Modify last_packet_received so the channel is removed faster
 	std::chrono::steady_clock::time_point fake_timepoint{};
-	node.network.udp_channels.modify (channel_udp, [fake_timepoint](std::shared_ptr<nano::transport::channel_udp> const & channel_a) {
+	node.network.udp_channels.modify (channel_udp, [fake_timepoint] (std::shared_ptr<nano::transport::channel_udp> const & channel_a) {
 		channel_a->set_last_packet_received (fake_timepoint);
 	});
 	// This UDP channel is not reachable and should timeout
@@ -2268,7 +2268,7 @@ TEST (node, rep_remove)
 	auto node2 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), nano::node_config (nano::get_available_port (), system.logging), system.work));
 	std::weak_ptr<nano::node> node_w (node.shared ());
 	auto vote3 = std::make_shared<nano::vote> (keypair2.pub, keypair2.prv, 0, genesis.open);
-	node.network.tcp_channels.start_tcp (node2->network.endpoint (), [node_w, &vote3](std::shared_ptr<nano::transport::channel> const & channel2) {
+	node.network.tcp_channels.start_tcp (node2->network.endpoint (), [node_w, &vote3] (std::shared_ptr<nano::transport::channel> const & channel2) {
 		if (auto node_l = node_w.lock ())
 		{
 			ASSERT_FALSE (node_l->rep_crawler.response (channel2, vote3));
@@ -2339,7 +2339,7 @@ TEST (node, balance_observer)
 	auto & node1 (*system.nodes[0]);
 	std::atomic<int> balances (0);
 	nano::keypair key;
-	node1.observers.account_balance.add ([&key, &balances](nano::account const & account_a, bool is_pending) {
+	node1.observers.account_balance.add ([&key, &balances] (nano::account const & account_a, bool is_pending) {
 		if (key.pub == account_a && is_pending)
 		{
 			balances++;
@@ -2919,7 +2919,7 @@ TEST (node, vote_by_hash_bundle)
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (key1.prv);
 
-	system.nodes[0]->observers.vote.add ([&max_hashes](std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const &, nano::vote_code) {
+	system.nodes[0]->observers.vote.add ([&max_hashes] (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const &, nano::vote_code) {
 		if (vote_a->blocks.size () > max_hashes)
 		{
 			max_hashes = vote_a->blocks.size ();
@@ -3454,6 +3454,28 @@ TEST (node, block_processor_half_full)
 	ASSERT_FALSE (node.block_processor.full ());
 }
 
+TEST (node, block_processor_epoch_send)
+{
+	nano::system system;
+	auto & node = *system.add_node (nano::node_config (nano::get_available_port (), system.logging));
+	auto epoch_link = node.ledger.epoch_link (nano::epoch::epoch_1);
+
+	nano::state_block_builder builder;
+	auto send1 = builder.make_block ()
+	             .account (nano::dev_genesis_key.pub)
+	             .previous (nano::genesis_hash)
+	             .representative (nano::dev_genesis_key.pub)
+	             .balance (nano::genesis_amount - nano::Gxrb_ratio)
+	             .link (epoch_link)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (*node.work_generate_blocking (nano::genesis_hash))
+	             .build_shared ();
+
+	node.block_processor.add (send1);
+	node.block_processor.flush ();
+	ASSERT_EQ (node.ledger.cache.block_count, 2);
+}
+
 TEST (node, confirm_back)
 {
 	nano::system system (1);
@@ -3658,7 +3680,7 @@ TEST (node, dont_write_lock_node)
 
 	std::promise<void> write_lock_held_promise;
 	std::promise<void> finished_promise;
-	std::thread ([&path, &write_lock_held_promise, &finished_promise]() {
+	std::thread ([&path, &write_lock_held_promise, &finished_promise] () {
 		nano::logger_mt logger;
 		auto store = nano::make_store (logger, path, false, true);
 		{
@@ -3802,7 +3824,7 @@ TEST (node, aggressive_flooding)
 	bool const sanitizer_or_valgrind (is_sanitizer_build || nano::running_within_valgrind ());
 	nodes_wallets.resize (!sanitizer_or_valgrind ? 5 : 3);
 
-	std::generate (nodes_wallets.begin (), nodes_wallets.end (), [&system, node_flags]() {
+	std::generate (nodes_wallets.begin (), nodes_wallets.end (), [&system, node_flags] () {
 		nano::node_config node_config (nano::get_available_port (), system.logging);
 		auto node (system.add_node (node_config, node_flags));
 		return std::make_pair (node, system.wallet (system.nodes.size () - 1));
@@ -3855,8 +3877,8 @@ TEST (node, aggressive_flooding)
 	// Processing locally goes through the aggressive block flooding path
 	node1.process_local (block, false);
 
-	auto all_have_block = [&nodes_wallets](nano::block_hash const & hash_a) {
-		return std::all_of (nodes_wallets.begin (), nodes_wallets.end (), [hash = hash_a](auto const & node_wallet) {
+	auto all_have_block = [&nodes_wallets] (nano::block_hash const & hash_a) {
+		return std::all_of (nodes_wallets.begin (), nodes_wallets.end (), [hash = hash_a] (auto const & node_wallet) {
 			return node_wallet.first->block (hash) != nullptr;
 		});
 	};
@@ -3892,7 +3914,7 @@ TEST (active_difficulty, recalculate_work)
 	// Process as local block
 	node1.process_active (send1);
 	ASSERT_TIMELY (2s, !node1.active.empty ());
-	auto sum (std::accumulate (node1.active.multipliers_cb.begin (), node1.active.multipliers_cb.end (), double(0)));
+	auto sum (std::accumulate (node1.active.multipliers_cb.begin (), node1.active.multipliers_cb.end (), double (0)));
 	ASSERT_EQ (node1.active.active_difficulty (), nano::difficulty::from_multiplier (sum / node1.active.multipliers_cb.size (), node1.network_params.network.publish_thresholds.epoch_2));
 	nano::unique_lock<nano::mutex> lock (node1.active.mutex);
 	// Fake history records to force work recalculation
@@ -3903,7 +3925,7 @@ TEST (active_difficulty, recalculate_work)
 	node1.work_generate_blocking (*send1);
 	node1.process_active (send1);
 	node1.active.update_active_multiplier (lock);
-	sum = std::accumulate (node1.active.multipliers_cb.begin (), node1.active.multipliers_cb.end (), double(0));
+	sum = std::accumulate (node1.active.multipliers_cb.begin (), node1.active.multipliers_cb.end (), double (0));
 	ASSERT_EQ (node1.active.trended_active_multiplier.load (), sum / node1.active.multipliers_cb.size ());
 	lock.unlock ();
 }
@@ -4181,7 +4203,7 @@ TEST (node, dependency_graph)
 		nano::lock_guard<nano::mutex> guard (node.active.mutex);
 
 		// Ensure that active blocks have their ancestors confirmed
-		auto error = std::any_of (dependency_graph.cbegin (), dependency_graph.cend (), [&](auto entry) {
+		auto error = std::any_of (dependency_graph.cbegin (), dependency_graph.cend (), [&] (auto entry) {
 			if (node.active.blocks.count (entry.first))
 			{
 				for (auto ancestor : entry.second)
@@ -4510,6 +4532,16 @@ TEST (node, deferred_dependent_elections)
 }
 }
 
+TEST (node, default_difficulty)
+{
+	nano::system system (1);
+	auto & node (*system.nodes[0]);
+	auto const & thresholds = nano::network_params{}.network.publish_thresholds;
+	nano::upgrade_epoch (node.store.tx_begin_write (), system.work, node.ledger, nano::epoch::epoch_2);
+	ASSERT_EQ (thresholds.epoch_2, node.default_difficulty (nano::work_version::work_1));
+	ASSERT_EQ (thresholds.epoch_2_receive, node.default_receive_difficulty (nano::work_version::work_1));
+}
+
 TEST (rep_crawler, recently_confirmed)
 {
 	nano::system system (1);
@@ -4523,6 +4555,30 @@ TEST (rep_crawler, recently_confirmed)
 	ASSERT_NE (nullptr, channel);
 	node1.rep_crawler.query (channel);
 	ASSERT_TIMELY (3s, node1.rep_crawler.representative_count () == 1);
+}
+
+TEST (node, state_v2_canary_blocks)
+{
+	// Test that confirming the block through the confirmation height processor callbacks are working
+	nano::system system;
+	auto node = system.add_node ();
+	node->ledger.canary_state_v2 = nano::canary_state_v2_details{ nano::genesis_account, 2, nano::genesis_account, 3 };
+	nano::keypair key1;
+	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
+	nano::block_hash latest1 (node->latest (nano::dev_genesis_key.pub));
+	auto send1 (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, latest1, nano::dev_genesis_key.pub, nano::genesis_amount - 1, key1.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (latest1)));
+	node->process_active (send1);
+	node->block_processor.flush ();
+
+	ASSERT_TIMELY (10s, node->ledger.cache.confirmed_state_block_v2_parse_canary);
+	ASSERT_FALSE (node->ledger.cache.confirmed_state_block_v2_generate_canary);
+
+	auto send2 (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, send1->hash (), nano::dev_genesis_key.pub, nano::genesis_amount - 2, key1.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send1->hash ())));
+	node->process_active (send2);
+	node->block_processor.flush ();
+
+	ASSERT_TIMELY (10s, node->ledger.cache.confirmed_state_block_v2_generate_canary);
+	ASSERT_TRUE (node->ledger.cache.confirmed_state_block_v2_parse_canary);
 }
 
 namespace nano

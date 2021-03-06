@@ -7,7 +7,7 @@
 namespace nano
 {
 /** Flags to track builder state */
-enum class build_flags : uint8_t
+enum class build_flags : uint16_t
 {
 	signature_present = 1,
 	work_present = 2,
@@ -16,24 +16,29 @@ enum class build_flags : uint8_t
 	/* link also covers source and destination for legacy blocks */
 	link_present = 16,
 	previous_present = 32,
-	representative_present = 64
+	representative_present = 64,
+	version_present = 128,
+	signer_present = 256,
+	link_interpretation_present = 512,
+	is_upgrade_present = 1024,
+	height_present = 2048,
 };
 
 inline nano::build_flags operator| (nano::build_flags a, nano::build_flags b)
 {
-	return static_cast<nano::build_flags> (static_cast<uint8_t> (a) | static_cast<uint8_t> (b));
+	return static_cast<nano::build_flags> (static_cast<uint16_t> (a) | static_cast<uint16_t> (b));
 }
-inline uint8_t operator| (uint8_t a, nano::build_flags b)
+inline uint16_t operator| (uint16_t a, nano::build_flags b)
 {
-	return static_cast<uint8_t> (a | static_cast<uint8_t> (b));
+	return static_cast<uint16_t> (a | static_cast<uint16_t> (b));
 }
-inline uint8_t operator& (uint8_t a, nano::build_flags b)
+inline uint16_t operator& (uint16_t a, nano::build_flags b)
 {
-	return static_cast<uint8_t> (a & static_cast<uint8_t> (b));
+	return static_cast<uint16_t> (a & static_cast<uint16_t> (b));
 }
-inline uint8_t operator|= (uint8_t & a, nano::build_flags b)
+inline uint16_t operator|= (uint16_t & a, nano::build_flags b)
 {
-	return a = static_cast<uint8_t> (a | static_cast<uint8_t> (b));
+	return a = static_cast<uint16_t> (a | static_cast<uint16_t> (b));
 }
 
 /**
@@ -75,10 +80,10 @@ protected:
 	std::error_code ec;
 
 	/** Bitset to track build state */
-	uint8_t build_state{ 0 };
+	uint16_t build_state{ 0 };
 
 	/** Required field shared by all block types*/
-	uint8_t base_fields = static_cast<uint8_t> (nano::build_flags::work_present | nano::build_flags::signature_present);
+	uint16_t base_fields = static_cast<uint16_t> (nano::build_flags::work_present | nano::build_flags::signature_present);
 };
 
 /** Builder for state blocks */
@@ -121,11 +126,23 @@ public:
 	state_block_builder & link_hex (std::string const & link_hex);
 	/** Set link from an xrb_ or nano_ address */
 	state_block_builder & link_address (std::string const & link_address);
+	/** Set version */
+	nano::state_block_builder & version (nano::epoch version);
+	/** Set link interpretation */
+	nano::state_block_builder & link_interpretation (nano::link_flag link_flag);
+	/** Set whether this block is an upgrade */
+	nano::state_block_builder & upgrade (bool is_upgrade);
+	/** Set the signer flag */
+	nano::state_block_builder & signer (nano::sig_flag sig_flag);
+	/** Set the height */
+	nano::state_block_builder & height (uint64_t height);
+
 	/** Provides validation for build() */
 	void validate ();
 
 private:
-	uint8_t required_fields = base_fields | static_cast<uint8_t> (nano::build_flags::account_present | nano::build_flags::balance_present | nano::build_flags::link_present | nano::build_flags::previous_present | nano::build_flags::representative_present);
+	uint16_t required_fields = base_fields | static_cast<uint16_t> (nano::build_flags::account_present | nano::build_flags::balance_present | nano::build_flags::link_present | nano::build_flags::previous_present | nano::build_flags::representative_present);
+	uint16_t required_fields2 = required_fields | static_cast<uint16_t> (nano::build_flags::version_present | nano::build_flags::link_interpretation_present | nano::build_flags::signer_present | nano::build_flags::is_upgrade_present | nano::build_flags::height_present);
 };
 
 /** Builder for open blocks */
@@ -158,7 +175,7 @@ public:
 	void validate ();
 
 private:
-	uint8_t required_fields = base_fields | static_cast<uint8_t> (nano::build_flags::account_present | nano::build_flags::representative_present | nano::build_flags::link_present);
+	uint16_t required_fields = base_fields | static_cast<uint16_t> (nano::build_flags::account_present | nano::build_flags::representative_present | nano::build_flags::link_present);
 };
 
 /** Builder for change blocks */
@@ -185,7 +202,7 @@ public:
 	void validate ();
 
 private:
-	uint8_t required_fields = base_fields | static_cast<uint8_t> (nano::build_flags::previous_present | nano::build_flags::representative_present);
+	uint16_t required_fields = base_fields | static_cast<uint16_t> (nano::build_flags::previous_present | nano::build_flags::representative_present);
 };
 
 /** Builder for send blocks */
@@ -218,7 +235,7 @@ public:
 	void validate ();
 
 private:
-	uint8_t required_fields = base_fields | static_cast<uint8_t> (build_flags::previous_present | build_flags::link_present | build_flags::balance_present);
+	uint16_t required_fields = base_fields | static_cast<uint16_t> (build_flags::previous_present | build_flags::link_present | build_flags::balance_present);
 };
 
 /** Builder for receive blocks */
@@ -243,7 +260,7 @@ public:
 	void validate ();
 
 private:
-	uint8_t required_fields = base_fields | static_cast<uint8_t> (build_flags::previous_present | build_flags::link_present);
+	uint16_t required_fields = base_fields | static_cast<uint16_t> (build_flags::previous_present | build_flags::link_present);
 };
 
 /** Block builder to simplify construction of the various block types */

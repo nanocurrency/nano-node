@@ -253,13 +253,14 @@ public:
 		invalid_telemetry_req_message,
 		invalid_telemetry_ack_message,
 		outdated_version,
-		duplicate_publish_message
+		duplicate_publish_message,
+		invalid_block
 	};
 	message_parser (nano::network_filter &, nano::block_uniquer &, nano::vote_uniquer &, nano::message_visitor &, nano::work_pool &);
-	void deserialize_buffer (uint8_t const *, size_t);
+	void deserialize_buffer (uint8_t const *, size_t, nano::epochs const &);
 	void deserialize_keepalive (nano::stream &, nano::message_header const &);
-	void deserialize_publish (nano::stream &, nano::message_header const &, nano::uint128_t const & = 0);
-	void deserialize_confirm_req (nano::stream &, nano::message_header const &);
+	void deserialize_publish (nano::stream &, nano::message_header const &, nano::epochs const &, nano::uint128_t const & = 0);
+	void deserialize_confirm_req (nano::stream &, nano::message_header const &, nano::epochs const &);
 	void deserialize_confirm_ack (nano::stream &, nano::message_header const &);
 	void deserialize_node_id_handshake (nano::stream &, nano::message_header const &);
 	void deserialize_telemetry_req (nano::stream &, nano::message_header const &);

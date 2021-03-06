@@ -96,7 +96,8 @@ union Block {
 	BlockOpen,
 	BlockReceive,
 	BlockSend,
-	BlockChange
+	BlockChange,
+	BlockState2
 }
 
 table BlockOpen {
@@ -170,6 +171,39 @@ table BlockState {
 	link: string;
 	/** Link interpreted as a nano_ address */
 	link_as_account: string;
+	/** Signature as a hex string */
+	signature: string;
+	/** Work is a hex string representing work. This is a string as the work value may not fit in native numeric types. */
+	work: string;
+	/** Subtype of this state block */
+	subtype: BlockSubType;
+}
+
+table BlockState2 {
+	/** Hash of this block */
+	hash: string;
+	/** Account as nano_ string */
+	account: string;
+	/** Hash of previous block */
+	previous: string;
+	/** Representative as nano_ string */
+	representative: string;
+	/** Balance in raw */
+	balance: string;
+	/** Link as a hex string */
+	link: string;
+	/** Link interpreted as a nano_ address */
+	link_as_account: string;
+	/** Version */
+	version: int;
+	/** Block height as a string */
+	height: string;
+	/** Signer of the block: either "self" or "epoch" */
+	signer: string;
+	/** Whether this block is upgrading the account */
+	is_upgrade: bool;
+	/** How the link field should be interpretated, either: "send", "receive" or "noop" */
+	link_interpretation: string;
 	/** Signature as a hex string */
 	signature: string;
 	/** Work is a hex string representing work. This is a string as the work value may not fit in native numeric types. */

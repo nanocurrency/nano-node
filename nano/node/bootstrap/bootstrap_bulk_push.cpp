@@ -171,58 +171,50 @@ void nano::bulk_push_server::received_type ()
 	switch (type)
 	{
 		case nano::block_type::send:
-		{
 			connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::send, nano::stat::dir::in);
 			connection->socket->async_read (receive_buffer, nano::send_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
 			break;
-		}
 		case nano::block_type::receive:
-		{
 			connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::receive, nano::stat::dir::in);
 			connection->socket->async_read (receive_buffer, nano::receive_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
 			break;
-		}
 		case nano::block_type::open:
-		{
 			connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::open, nano::stat::dir::in);
 			connection->socket->async_read (receive_buffer, nano::open_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
 			break;
-		}
 		case nano::block_type::change:
-		{
 			connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::change, nano::stat::dir::in);
 			connection->socket->async_read (receive_buffer, nano::change_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
 			break;
-		}
 		case nano::block_type::state:
-		{
 			connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::state_block, nano::stat::dir::in);
 			connection->socket->async_read (receive_buffer, nano::state_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 				this_l->received_block (ec, size_a, type);
 			});
 			break;
-		}
+		case nano::block_type::state2:
+			connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::state_block2, nano::stat::dir::in);
+			connection->socket->async_read (receive_buffer, nano::state_block::size2, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
+				this_l->received_block (ec, size_a, type);
+			});
+			break;
 		case nano::block_type::not_a_block:
-		{
 			connection->finish_request ();
 			break;
-		}
 		default:
-		{
 			if (connection->node->config.logging.network_packet_logging ())
 			{
 				connection->node->logger.try_log ("Unknown type received as block type");
 			}
 			break;
-		}
 	}
 }
 
@@ -232,7 +224,7 @@ void nano::bulk_push_server::received_block (boost::system::error_code const & e
 	{
 		nano::bufferstream stream (receive_buffer->data (), size_a);
 		auto block (nano::deserialize_block (stream, type_a));
-		if (block != nullptr && !nano::work_validate_entry (*block))
+		if (nano::simple_block_validation (block.get (), connection->node->network_params.ledger.epochs) == nano::error_blocks::none && !nano::work_validate_entry (*block))
 		{
 			connection->node->process_active (std::move (block));
 			throttled_receive ();
