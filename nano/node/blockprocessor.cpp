@@ -394,7 +394,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			}
 			queue_unchecked (transaction_a, hash);
 			// For send blocks check epoch open unchecked (gap pending)
-			if (block->type () == nano::block_type::send || (block->type () == nano::block_type::state && block->sideband ().details.is_send))
+			if (block->type () == nano::block_type::send || (block->type () == nano::block_type::state && block->sideband ().details.is_send && std::underlying_type_t<nano::epoch> (block->sideband ().details.epoch) < std::underlying_type_t<nano::epoch> (nano::epoch::max)))
 			{
 				queue_unchecked (transaction_a, block->destination ().is_zero () ? block->link () : block->destination ());
 			}
