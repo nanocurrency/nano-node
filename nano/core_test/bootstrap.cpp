@@ -344,7 +344,7 @@ TEST (bootstrap_processor, DISABLED_pull_requeue_network_error)
 	ASSERT_EQ (0, node1->stats.count (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_failed_account, nano::stat::dir::in)); // Requeue is not increasing failed attempts
 }
 
-TEST (bootstrap_processor, frontiers_unconfirmed)
+TEST (bootstrap_processor, DISABLED_frontiers_unconfirmed)
 {
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
@@ -401,7 +401,7 @@ TEST (bootstrap_processor, frontiers_unconfirmed)
 	ASSERT_TRUE (node3->network.excluded_peers.check (nano::transport::map_endpoint_to_tcp (node1->network.endpoint ())));
 }
 
-TEST (bootstrap_processor, frontiers_confirmed)
+TEST (bootstrap_processor, DISABLED_frontiers_confirmed)
 {
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
