@@ -393,9 +393,13 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 				events_a.events.emplace_back ([this, hash, block = info_a.block, result, watch_work_a, origin_a](nano::transaction const & post_event_transaction_a) { process_live (post_event_transaction_a, hash, block, result, watch_work_a, origin_a); });
 			}
 			queue_unchecked (transaction_a, hash);
-			// For send blocks check epoch open unchecked (gap pending)
+			/* For send blocks check epoch open unchecked (gap pending).
+			For state blocks check only send subtype and only if block epoch is not last epoch.
+			If epoch is last, then pending entry shouldn't trigger same epoch open block for destination account. */
 			if (block->type () == nano::block_type::send || (block->type () == nano::block_type::state && block->sideband ().details.is_send && std::underlying_type_t<nano::epoch> (block->sideband ().details.epoch) < std::underlying_type_t<nano::epoch> (nano::epoch::max)))
 			{
+				/* block->destination () for legacy send blocks
+				block->link () for state blocks (send subtype) */
 				queue_unchecked (transaction_a, block->destination ().is_zero () ? block->link () : block->destination ());
 			}
 			break;
