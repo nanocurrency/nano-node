@@ -180,22 +180,13 @@ public:
 	nano::block_hash const & previous () const;
 };
 
-class private_key : public uint256_union
+// The seed or private key
+class raw_key final : public uint256_union
 {
 public:
 	using uint256_union::uint256_union;
-};
-
-// The seed or private key
-class raw_key final
-{
-public:
 	~raw_key ();
 	void decrypt (nano::uint256_union const &, nano::raw_key const &, uint128_union const &);
-	bool operator== (nano::raw_key const &) const;
-	bool operator!= (nano::raw_key const &) const;
-	nano::private_key const & as_private_key () const;
-	nano::uint256_union data;
 };
 class uint512_union
 {
@@ -249,8 +240,8 @@ nano::signature sign_message (nano::raw_key const &, nano::public_key const &, u
 bool validate_message (nano::public_key const &, nano::uint256_union const &, nano::signature const &);
 bool validate_message (nano::public_key const &, uint8_t const *, size_t, nano::signature const &);
 bool validate_message_batch (unsigned const char **, size_t *, unsigned const char **, unsigned const char **, size_t, int *);
-nano::private_key deterministic_key (nano::raw_key const &, uint32_t);
-nano::public_key pub_key (nano::private_key const &);
+nano::raw_key deterministic_key (nano::raw_key const &, uint32_t);
+nano::public_key pub_key (nano::raw_key const &);
 
 /* Conversion methods */
 std::string to_string_hex (uint64_t const);
@@ -296,9 +287,9 @@ struct hash<::nano::block_hash>
 	}
 };
 template <>
-struct hash<::nano::private_key>
+struct hash<::nano::raw_key>
 {
-	size_t operator() (::nano::private_key const & data_a) const
+	size_t operator() (::nano::raw_key const & data_a) const
 	{
 		return hash<::nano::uint256_union> () (data_a);
 	}

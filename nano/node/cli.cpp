@@ -10,7 +10,7 @@
 namespace
 {
 void reset_confirmation_heights (nano::block_store & store);
-bool is_using_rocksdb (boost::filesystem::path const & data_path, std::error_code & ec);
+bool is_using_rocksdb (boost::filesystem::path const & data_path, boost::program_options::variables_map const & vm, std::error_code & ec);
 }
 
 std::string nano::error_cli_messages::message (int ev) const
@@ -337,7 +337,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		try
 		{
-			auto using_rocksdb = is_using_rocksdb (data_path, ec);
+			auto using_rocksdb = is_using_rocksdb (data_path, vm, ec);
 			if (!ec)
 			{
 				std::cout << "Vacuuming database copy in ";
@@ -408,7 +408,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		try
 		{
-			auto using_rocksdb = is_using_rocksdb (data_path, ec);
+			auto using_rocksdb = is_using_rocksdb (data_path, vm, ec);
 			if (!ec)
 			{
 				boost::filesystem::path source_path;
@@ -653,11 +653,11 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		auto inactive_node = nano::default_inactive_node (data_path, vm);
 		std::cout << "Testing hash function" << std::endl;
 		nano::raw_key key;
-		key.data.clear ();
+		key.clear ();
 		nano::send_block send (0, 0, 0, key, 0, 0);
 		std::cout << "Testing key derivation function" << std::endl;
 		nano::raw_key junk1;
-		junk1.data.clear ();
+		junk1.clear ();
 		nano::uint256_union junk2 (0);
 		nano::kdf kdf;
 		kdf.phs (junk1, "", junk2);
@@ -688,7 +688,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	else if (vm.count ("key_create"))
 	{
 		nano::keypair pair;
-		std::cout << "Private: " << pair.prv.data.to_string () << std::endl
+		std::cout << "Private: " << pair.prv.to_string () << std::endl
 		          << "Public: " << pair.pub.to_string () << std::endl
 		          << "Account: " << pair.pub.to_account () << std::endl;
 	}
@@ -696,7 +696,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		if (vm.count ("key") == 1)
 		{
-			nano::private_key prv;
+			nano::raw_key prv;
 			prv.decode_hex (vm["key"].as<std::string> ());
 			nano::public_key pub (nano::pub_key (prv));
 			std::cout << "Private: " << prv.to_string () << std::endl
@@ -729,7 +729,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					if (!wallet->enter_password (transaction, password))
 					{
 						nano::raw_key key;
-						if (!key.data.decode_hex (vm["key"].as<std::string> ()))
+						if (!key.decode_hex (vm["key"].as<std::string> ()))
 						{
 							wallet->store.insert_adhoc (transaction, key);
 						}
@@ -785,13 +785,13 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 						nano::raw_key seed;
 						if (vm.count ("seed"))
 						{
-							if (seed.data.decode_hex (vm["seed"].as<std::string> ()))
+							if (seed.decode_hex (vm["seed"].as<std::string> ()))
 							{
 								std::cerr << "Invalid seed\n";
 								ec = nano::error_cli::invalid_arguments;
 							}
 						}
-						else if (seed.data.decode_hex (vm["key"].as<std::string> ()))
+						else if (seed.decode_hex (vm["key"].as<std::string> ()))
 						{
 							std::cerr << "Invalid key seed\n";
 							ec = nano::error_cli::invalid_arguments;
@@ -831,7 +831,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		nano::raw_key seed_key;
 		if (vm.count ("seed") == 1)
 		{
-			if (seed_key.data.decode_hex (vm["seed"].as<std::string> ()))
+			if (seed_key.decode_hex (vm["seed"].as<std::string> ()))
 			{
 				std::cerr << "Invalid seed\n";
 				ec = nano::error_cli::invalid_arguments;
@@ -844,7 +844,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		}
 		else if (vm.count ("key") == 1)
 		{
-			if (seed_key.data.decode_hex (vm["key"].as<std::string> ()))
+			if (seed_key.decode_hex (vm["key"].as<std::string> ()))
 			{
 				std::cerr << "Invalid seed key\n";
 				ec = nano::error_cli::invalid_arguments;
@@ -909,7 +909,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					{
 						nano::raw_key seed;
 						existing->second->store.seed (seed, transaction);
-						std::cout << boost::str (boost::format ("Seed: %1%\n") % seed.data.to_string ());
+						std::cout << boost::str (boost::format ("Seed: %1%\n") % seed.to_string ());
 						for (auto i (existing->second->store.begin (transaction)), m (existing->second->store.end ()); i != m; ++i)
 						{
 							nano::account const & account (i->first);
@@ -917,10 +917,10 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 							auto error (existing->second->store.fetch (transaction, account, key));
 							(void)error;
 							debug_assert (!error);
-							std::cout << boost::str (boost::format ("Pub: %1% Prv: %2%\n") % account.to_account () % key.data.to_string ());
-							if (nano::pub_key (key.as_private_key ()) != account)
+							std::cout << boost::str (boost::format ("Pub: %1% Prv: %2%\n") % account.to_account () % key.to_string ());
+							if (nano::pub_key (key) != account)
 							{
-								std::cerr << boost::str (boost::format ("Invalid private key %1%\n") % key.data.to_string ());
+								std::cerr << boost::str (boost::format ("Invalid private key %1%\n") % key.to_string ());
 							}
 						}
 					}
@@ -1268,10 +1268,20 @@ void reset_confirmation_heights (nano::block_store & store)
 	store.confirmation_height_put (transaction, network_params.ledger.genesis_account, { 1, network_params.ledger.genesis_hash });
 }
 
-bool is_using_rocksdb (boost::filesystem::path const & data_path, std::error_code & ec)
+bool is_using_rocksdb (boost::filesystem::path const & data_path, boost::program_options::variables_map const & vm, std::error_code & ec)
 {
 	nano::daemon_config config (data_path);
-	auto error = nano::read_node_config_toml (data_path, config);
+
+	// Config overriding
+	auto config_arg (vm.find ("config"));
+	std::vector<std::string> config_overrides;
+	if (config_arg != vm.end ())
+	{
+		config_overrides = nano::config_overrides (config_arg->second.as<std::vector<nano::config_key_value_pair>> ());
+	}
+
+	// config override...
+	auto error = nano::read_node_config_toml (data_path, config, config_overrides);
 	if (!error)
 	{
 		return config.node.rocksdb_config.enable;

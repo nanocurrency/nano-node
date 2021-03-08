@@ -187,9 +187,9 @@ TEST (client, password_nochange)
 	wallet->start ();
 	QTest::mouseClick (wallet->settings_button, Qt::LeftButton);
 	nano::raw_key password;
-	password.data.clear ();
+	password.clear ();
 	system.deadline_set (10s);
-	while (password.data == 0)
+	while (password == 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 		system.wallet (0)->store.password.value (password);
@@ -707,12 +707,12 @@ TEST (wallet, ignore_empty_adhoc)
 	ASSERT_EQ (wallet->advanced.window, wallet->main_stack->currentWidget ());
 	QTest::mouseClick (wallet->accounts_button, Qt::LeftButton);
 	ASSERT_EQ (wallet->accounts.window, wallet->main_stack->currentWidget ());
-	QTest::keyClicks (wallet->accounts.account_key_line, nano::dev_genesis_key.prv.data.to_string ().c_str ());
+	QTest::keyClicks (wallet->accounts.account_key_line, nano::dev_genesis_key.prv.to_string ().c_str ());
 	QTest::mouseClick (wallet->accounts.account_key_button, Qt::LeftButton);
 	ASSERT_EQ (1, wallet->accounts.model->rowCount ());
 	ASSERT_EQ (0, wallet->accounts.account_key_line->text ().length ());
 	nano::keypair key;
-	QTest::keyClicks (wallet->accounts.account_key_line, key.prv.data.to_string ().c_str ());
+	QTest::keyClicks (wallet->accounts.account_key_line, key.prv.to_string ().c_str ());
 	QTest::mouseClick (wallet->accounts.account_key_button, Qt::LeftButton);
 	ASSERT_EQ (1, wallet->accounts.model->rowCount ());
 	ASSERT_EQ (0, wallet->accounts.account_key_line->text ().length ());
@@ -743,8 +743,8 @@ TEST (wallet, change_seed)
 	QTest::mouseClick (wallet->accounts.import_wallet, Qt::LeftButton);
 	ASSERT_EQ (wallet->import.window, wallet->main_stack->currentWidget ());
 	nano::raw_key seed;
-	seed.data.clear ();
-	QTest::keyClicks (wallet->import.seed, seed.data.to_string ().c_str ());
+	seed.clear ();
+	QTest::keyClicks (wallet->import.seed, seed.to_string ().c_str ());
 	nano::raw_key seed1;
 	{
 		auto transaction (system.wallet (0)->wallets.tx_begin_read ());
@@ -767,7 +767,7 @@ TEST (wallet, change_seed)
 	ASSERT_NE (key1, wallet->account);
 	auto key2 (wallet->account);
 	ASSERT_TRUE (system.wallet (0)->exists (key2));
-	QTest::keyClicks (wallet->import.seed, seed3.data.to_string ().c_str ());
+	QTest::keyClicks (wallet->import.seed, seed3.to_string ().c_str ());
 	QTest::keyClicks (wallet->import.clear_line, "clear keys");
 	QTest::mouseClick (wallet->import.import_seed, Qt::LeftButton);
 	ASSERT_EQ (key1, wallet->account);
@@ -791,7 +791,7 @@ TEST (wallet, seed_work_generation)
 	nano::raw_key seed;
 	auto prv = nano::deterministic_key (seed, 0);
 	auto pub (nano::pub_key (prv));
-	QTest::keyClicks (wallet->import.seed, seed.data.to_string ().c_str ());
+	QTest::keyClicks (wallet->import.seed, seed.to_string ().c_str ());
 	QTest::keyClicks (wallet->import.clear_line, "clear keys");
 	uint64_t work (0);
 	QTest::mouseClick (wallet->import.import_seed, Qt::LeftButton);
@@ -822,7 +822,7 @@ TEST (wallet, backup_seed)
 	nano::raw_key seed;
 	auto transaction (system.wallet (0)->wallets.tx_begin_read ());
 	system.wallet (0)->store.seed (seed, transaction);
-	ASSERT_EQ (seed.data.to_string (), test_application->clipboard ()->text ().toStdString ());
+	ASSERT_EQ (seed.to_string (), test_application->clipboard ()->text ().toStdString ());
 }
 
 TEST (wallet, import_locked)
@@ -841,8 +841,8 @@ TEST (wallet, import_locked)
 	QTest::mouseClick (wallet->accounts_button, Qt::LeftButton);
 	ASSERT_EQ (wallet->accounts.window, wallet->main_stack->currentWidget ());
 	nano::raw_key seed1;
-	seed1.data.clear ();
-	QTest::keyClicks (wallet->import.seed, seed1.data.to_string ().c_str ());
+	seed1.clear ();
+	QTest::keyClicks (wallet->import.seed, seed1.to_string ().c_str ());
 	QTest::keyClicks (wallet->import.clear_line, "clear keys");
 	{
 		auto transaction (system.wallet (0)->wallets.tx_begin_write ());

@@ -693,7 +693,7 @@ TEST (rpc, wallet_add)
 	rpc.start ();
 	nano::keypair key1;
 	std::string key_text;
-	key1.prv.data.encode_hex (key_text);
+	key1.prv.encode_hex (key_text);
 	boost::property_tree::ptree request;
 	std::string wallet;
 	node->wallets.items.begin ()->first.encode_hex (wallet);
@@ -770,9 +770,9 @@ TEST (rpc, wallet_password_enter)
 	auto node = add_ipc_enabled_node (system);
 	scoped_io_thread_name_change scoped_thread_name_io;
 	nano::raw_key password_l;
-	password_l.data.clear ();
+	password_l.clear ();
 	system.deadline_set (10s);
-	while (password_l.data == 0)
+	while (password_l == 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 		system.wallet (0)->store.password.value (password_l);
@@ -981,7 +981,7 @@ TEST (rpc, wallet_create_seed)
 	auto node = add_ipc_enabled_node (system);
 	scoped_io_thread_name_change scoped_thread_name_io;
 	nano::raw_key seed;
-	nano::random_pool::generate_block (seed.data.bytes.data (), seed.data.bytes.size ());
+	nano::random_pool::generate_block (seed.bytes.data (), seed.bytes.size ());
 	auto prv = nano::deterministic_key (seed, 0);
 	auto pub (nano::pub_key (prv));
 	nano::node_rpc_config node_rpc_config;
@@ -993,7 +993,7 @@ TEST (rpc, wallet_create_seed)
 	rpc.start ();
 	boost::property_tree::ptree request;
 	request.put ("action", "wallet_create");
-	request.put ("seed", seed.data.to_string ());
+	request.put ("seed", seed.to_string ());
 	test_response response (request, rpc.config.port, system.io_ctx);
 	ASSERT_TIMELY (10s, response.status != 0);
 	ASSERT_EQ (200, response.status);
@@ -3694,7 +3694,7 @@ TEST (rpc, wallet_seed)
 	ASSERT_EQ (200, response.status);
 	{
 		std::string seed_text (response.json.get<std::string> ("seed"));
-		ASSERT_EQ (seed.data.to_string (), seed_text);
+		ASSERT_EQ (seed.to_string (), seed_text);
 	}
 }
 
@@ -3703,11 +3703,11 @@ TEST (rpc, wallet_change_seed)
 	nano::system system0;
 	auto node = add_ipc_enabled_node (system0);
 	nano::raw_key seed;
-	nano::random_pool::generate_block (seed.data.bytes.data (), seed.data.bytes.size ());
+	nano::random_pool::generate_block (seed.bytes.data (), seed.bytes.size ());
 	{
 		auto transaction (system0.nodes[0]->wallets.tx_begin_read ());
 		nano::raw_key seed0;
-		nano::random_pool::generate_block (seed0.data.bytes.data (), seed0.data.bytes.size ());
+		nano::random_pool::generate_block (seed0.bytes.data (), seed0.bytes.size ());
 		system0.wallet (0)->store.seed (seed0, transaction);
 		ASSERT_NE (seed, seed0);
 	}
@@ -3724,7 +3724,7 @@ TEST (rpc, wallet_change_seed)
 	boost::property_tree::ptree request;
 	request.put ("action", "wallet_change_seed");
 	request.put ("wallet", system0.nodes[0]->wallets.items.begin ()->first.to_string ());
-	request.put ("seed", seed.data.to_string ());
+	request.put ("seed", seed.to_string ());
 	test_response response (request, rpc.config.port, system0.io_ctx);
 	system0.deadline_set (5s);
 	while (response.status == 0)
@@ -4079,7 +4079,7 @@ TEST (rpc, deterministic_key)
 	rpc.start ();
 	boost::property_tree::ptree request;
 	request.put ("action", "deterministic_key");
-	request.put ("seed", seed.data.to_string ());
+	request.put ("seed", seed.to_string ());
 	request.put ("index", "0");
 	test_response response0 (request, rpc.config.port, system0.io_ctx);
 	while (response0.status == 0)
@@ -4734,7 +4734,7 @@ TEST (rpc, wallet_republish)
 	{
 		nano::keypair key1;
 		key.pub = key1.pub;
-		key.prv.data = key1.prv.data;
+		key.prv = key1.prv;
 	}
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	system.wallet (0)->insert_adhoc (key.prv);
@@ -5557,7 +5557,7 @@ TEST (rpc, block_create)
 	request1.put ("action", "block_create");
 	request1.put ("type", "open");
 	std::string key_text;
-	key.prv.data.encode_hex (key_text);
+	key.prv.encode_hex (key_text);
 	request1.put ("key", key_text);
 	request1.put ("representative", nano::dev_genesis_key.pub.to_account ());
 	request1.put ("source", send.hash ().to_string ());
@@ -5676,7 +5676,7 @@ TEST (rpc, block_create_state_open)
 	boost::property_tree::ptree request;
 	request.put ("action", "block_create");
 	request.put ("type", "state");
-	request.put ("key", key.prv.data.to_string ());
+	request.put ("key", key.prv.to_string ());
 	request.put ("account", key.pub.to_account ());
 	request.put ("previous", 0);
 	request.put ("representative", nano::dev_genesis_key.pub.to_account ());
@@ -5779,7 +5779,7 @@ TEST (rpc, block_create_open_epoch_v2)
 	boost::property_tree::ptree request;
 	request.put ("action", "block_create");
 	request.put ("type", "state");
-	request.put ("key", key.prv.data.to_string ());
+	request.put ("key", key.prv.to_string ());
 	request.put ("account", key.pub.to_account ());
 	request.put ("previous", 0);
 	request.put ("representative", nano::dev_genesis_key.pub.to_account ());
@@ -5833,7 +5833,7 @@ TEST (rpc, block_create_receive_epoch_v2)
 	boost::property_tree::ptree request;
 	request.put ("action", "block_create");
 	request.put ("type", "state");
-	request.put ("key", key.prv.data.to_string ());
+	request.put ("key", key.prv.to_string ());
 	request.put ("account", key.pub.to_account ());
 	request.put ("previous", open.hash ().to_string ());
 	request.put ("representative", nano::dev_genesis_key.pub.to_account ());
@@ -5885,7 +5885,7 @@ TEST (rpc, block_create_send_epoch_v2)
 	boost::property_tree::ptree request;
 	request.put ("action", "block_create");
 	request.put ("type", "state");
-	request.put ("key", key.prv.data.to_string ());
+	request.put ("key", key.prv.to_string ());
 	request.put ("account", key.pub.to_account ());
 	request.put ("previous", open.hash ().to_string ());
 	request.put ("representative", nano::dev_genesis_key.pub.to_account ());
@@ -6473,7 +6473,7 @@ TEST (rpc, node_id)
 	test_response response (request, rpc.config.port, system.io_ctx);
 	ASSERT_TIMELY (5s, response.status != 0);
 	ASSERT_EQ (200, response.status);
-	ASSERT_EQ (node->node_id.prv.data.to_string (), response.json.get<std::string> ("private"));
+	ASSERT_EQ (node->node_id.prv.to_string (), response.json.get<std::string> ("private"));
 	ASSERT_EQ (node->node_id.pub.to_account (), response.json.get<std::string> ("as_account"));
 	ASSERT_EQ (node->node_id.pub.to_node_id (), response.json.get<std::string> ("node_id"));
 }
@@ -6839,7 +6839,7 @@ TEST (rpc, sign_hash)
 	boost::property_tree::ptree request;
 	request.put ("action", "sign");
 	request.put ("hash", send.hash ().to_string ());
-	request.put ("key", key.prv.data.to_string ());
+	request.put ("key", key.prv.to_string ());
 	test_response response (request, rpc.config.port, system.io_ctx);
 	ASSERT_TIMELY (10s, response.status != 0);
 	ASSERT_EQ (200, response.status);
@@ -7381,7 +7381,7 @@ TEST (rpc, epoch_upgrade)
 	boost::property_tree::ptree request;
 	request.put ("action", "epoch_upgrade");
 	request.put ("epoch", 1);
-	request.put ("key", epoch_signer.prv.data.to_string ());
+	request.put ("key", epoch_signer.prv.to_string ());
 	test_response response (request, rpc.config.port, system.io_ctx);
 	ASSERT_TIMELY (5s, response.status != 0);
 	ASSERT_EQ (200, response.status);
@@ -7486,7 +7486,7 @@ TEST (rpc, epoch_upgrade_multithreaded)
 	request.put ("action", "epoch_upgrade");
 	request.put ("threads", 2);
 	request.put ("epoch", 1);
-	request.put ("key", epoch_signer.prv.data.to_string ());
+	request.put ("key", epoch_signer.prv.to_string ());
 	test_response response (request, rpc.config.port, system.io_ctx);
 	ASSERT_TIMELY (5s, response.status != 0);
 	ASSERT_EQ (200, response.status);
