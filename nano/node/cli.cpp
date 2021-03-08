@@ -10,7 +10,7 @@
 namespace
 {
 void reset_confirmation_heights (nano::block_store & store);
-bool is_using_rocksdb (boost::filesystem::path const & data_path, std::error_code & ec);
+bool is_using_rocksdb (boost::filesystem::path const & data_path, boost::program_options::variables_map const & vm, std::error_code & ec);
 }
 
 std::string nano::error_cli_messages::message (int ev) const
@@ -337,7 +337,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		try
 		{
-			auto using_rocksdb = is_using_rocksdb (data_path, ec);
+			auto using_rocksdb = is_using_rocksdb (data_path, vm, ec);
 			if (!ec)
 			{
 				std::cout << "Vacuuming database copy in ";
@@ -408,7 +408,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		try
 		{
-			auto using_rocksdb = is_using_rocksdb (data_path, ec);
+			auto using_rocksdb = is_using_rocksdb (data_path, vm, ec);
 			if (!ec)
 			{
 				boost::filesystem::path source_path;
@@ -1268,10 +1268,20 @@ void reset_confirmation_heights (nano::block_store & store)
 	store.confirmation_height_put (transaction, network_params.ledger.genesis_account, { 1, network_params.ledger.genesis_hash });
 }
 
-bool is_using_rocksdb (boost::filesystem::path const & data_path, std::error_code & ec)
+bool is_using_rocksdb (boost::filesystem::path const & data_path, boost::program_options::variables_map const & vm, std::error_code & ec)
 {
 	nano::daemon_config config (data_path);
-	auto error = nano::read_node_config_toml (data_path, config);
+
+	// Config overriding
+	auto config_arg (vm.find ("config"));
+	std::vector<std::string> config_overrides;
+	if (config_arg != vm.end ())
+	{
+		config_overrides = nano::config_overrides (config_arg->second.as<std::vector<nano::config_key_value_pair>> ());
+	}
+
+	// config override...
+	auto error = nano::read_node_config_toml (data_path, config, config_overrides);
 	if (!error)
 	{
 		return config.node.rocksdb_config.enable;
