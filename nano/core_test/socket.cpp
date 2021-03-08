@@ -28,7 +28,7 @@ TEST (socket, drop_policy)
 		ASSERT_FALSE (ec);
 
 		// Accept connection, but don't read so the writer will drop.
-		server_socket->on_connection ([&connections](std::shared_ptr<nano::socket> new_connection, boost::system::error_code const & ec_a) {
+		server_socket->on_connection ([&connections](std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const & ec_a) {
 			connections.push_back (new_connection);
 			return true;
 		});
@@ -88,7 +88,7 @@ TEST (socket, concurrent_writes)
 
 	// We're expecting client_count*4 messages
 	nano::util::counted_completion read_count_completion (total_message_count);
-	std::function<void(std::shared_ptr<nano::socket>)> reader = [&read_count_completion, &total_message_count, &reader](std::shared_ptr<nano::socket> socket_a) {
+	std::function<void(std::shared_ptr<nano::socket> const &)> reader = [&read_count_completion, &total_message_count, &reader](std::shared_ptr<nano::socket> const & socket_a) {
 		auto buff (std::make_shared<std::vector<uint8_t>> ());
 		buff->resize (1);
 #ifndef _WIN32
@@ -127,7 +127,7 @@ TEST (socket, concurrent_writes)
 	std::vector<std::shared_ptr<nano::socket>> connections;
 
 	// On every new connection, start reading data
-	server_socket->on_connection ([&connections, &reader](std::shared_ptr<nano::socket> new_connection, boost::system::error_code const & ec_a) {
+	server_socket->on_connection ([&connections, &reader](std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const & ec_a) {
 		if (ec_a)
 		{
 			std::cerr << "on_connection: " << ec_a.message () << std::endl;

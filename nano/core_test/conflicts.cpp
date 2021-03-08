@@ -166,7 +166,7 @@ TEST (conflicts, reprioritize)
 	node1.process_active (send1);
 	node1.block_processor.flush ();
 	{
-		nano::lock_guard<std::mutex> guard (node1.active.mutex);
+		nano::lock_guard<nano::mutex> guard (node1.active.mutex);
 		auto existing1 (node1.active.roots.find (send1->qualified_root ()));
 		ASSERT_NE (node1.active.roots.end (), existing1);
 		ASSERT_EQ (multiplier1, existing1->multiplier);
@@ -177,7 +177,7 @@ TEST (conflicts, reprioritize)
 	node1.process_active (std::make_shared<nano::send_block> (send1_copy));
 	node1.block_processor.flush ();
 	{
-		nano::lock_guard<std::mutex> guard (node1.active.mutex);
+		nano::lock_guard<nano::mutex> guard (node1.active.mutex);
 		auto existing2 (node1.active.roots.find (send1->qualified_root ()));
 		ASSERT_NE (node1.active.roots.end (), existing2);
 		ASSERT_EQ (multiplier2, existing2->multiplier);

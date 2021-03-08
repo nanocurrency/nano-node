@@ -41,13 +41,14 @@ class write_mdb_txn final : public write_transaction_impl
 public:
 	write_mdb_txn (nano::mdb_env const &, mdb_txn_callbacks mdb_txn_callbacks);
 	~write_mdb_txn ();
-	void commit () const override;
+	void commit () override;
 	void renew () override;
 	void * get_handle () const override;
 	bool contains (nano::tables table_a) const override;
 	MDB_txn * handle;
 	nano::mdb_env const & env;
 	mdb_txn_callbacks txn_callbacks;
+	bool active{ true };
 };
 
 class mdb_txn_stats
@@ -72,7 +73,7 @@ public:
 	void erase (const nano::transaction_impl * transaction_impl);
 
 private:
-	std::mutex mutex;
+	nano::mutex mutex;
 	std::vector<mdb_txn_stats> stats;
 	nano::logger_mt & logger;
 	nano::txn_tracking_config txn_tracking_config;

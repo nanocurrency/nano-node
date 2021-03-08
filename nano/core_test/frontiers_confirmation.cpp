@@ -138,8 +138,7 @@ TEST (frontiers_confirmation, prioritize_frontiers)
 	std::array<nano::qualified_root, num_accounts> frontiers{ send17.qualified_root (), send6.qualified_root (), send7.qualified_root (), open2.qualified_root (), send11.qualified_root () };
 	for (auto & frontier : frontiers)
 	{
-		nano::lock_guard<std::mutex> guard (node->active.mutex);
-		ASSERT_NE (node->active.roots.find (frontier), node->active.roots.end ());
+		ASSERT_TRUE (node->active.active (frontier));
 	}
 }
 
@@ -169,7 +168,7 @@ TEST (frontiers_confirmation, prioritize_frontiers_max_optimistic_elections)
 	}
 
 	{
-		nano::unique_lock<std::mutex> lk (node->active.mutex);
+		nano::unique_lock<nano::mutex> lk (node->active.mutex);
 		node->active.frontiers_confirmation (lk);
 	}
 
@@ -180,7 +179,7 @@ TEST (frontiers_confirmation, prioritize_frontiers_max_optimistic_elections)
 
 	// Call frontiers confirmation again and confirm that next_frontier_account hasn't changed
 	{
-		nano::unique_lock<std::mutex> lk (node->active.mutex);
+		nano::unique_lock<nano::mutex> lk (node->active.mutex);
 		node->active.frontiers_confirmation (lk);
 	}
 

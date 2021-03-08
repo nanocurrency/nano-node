@@ -8,35 +8,35 @@ print_usage() {
 
 while getopts 'hn:' OPT; do
 	case "${OPT}" in
-		h)
-			print_usage
-			exit 0
-			;;
-		n)
-			network="${OPTARG}"
-			;;
-		*)
-			print_usage >&2
-			exit 1
-			;;
+	h)
+		print_usage
+		exit 0
+		;;
+	n)
+		network="${OPTARG}"
+		;;
+	*)
+		print_usage >&2
+		exit 1
+		;;
 	esac
 done
 
 case "${network}" in
-	live)
-		network_tag=''
-		;;
-	dev|beta)
-		network_tag="-${network}"
-		;;
-	*)
-		echo "Invalid network: ${network}" >&2
-		exit 1
-		;;
+live)
+	network_tag=''
+	;;
+dev | beta)
+	network_tag="-${network}"
+	;;
+*)
+	echo "Invalid network: ${network}" >&2
+	exit 1
+	;;
 esac
 
-REPO_ROOT=`git rev-parse --show-toplevel`
-COMMIT_SHA=`git rev-parse --short HEAD`
+REPO_ROOT=$(git rev-parse --show-toplevel)
+COMMIT_SHA=$(git rev-parse --short HEAD)
 pushd $REPO_ROOT
 docker build --build-arg NETWORK="${network}" -f docker/node/Dockerfile -t nano-node${network_tag}:latest .
 popd

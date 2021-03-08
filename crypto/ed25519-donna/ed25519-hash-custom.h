@@ -9,10 +9,9 @@
 	void ed25519_hash(uint8_t *hash, const uint8_t *in, size_t inlen);
 */
 
-typedef struct ed25519_hash_context_t
-{
-    void * blake2;
-} ed25519_hash_context;
+#include <nano/crypto/blake2/blake2.h>
+
+typedef blake2b_state ed25519_hash_context;
 
 void ed25519_hash_init (ed25519_hash_context * ctx);
 

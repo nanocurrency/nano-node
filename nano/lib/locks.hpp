@@ -1,6 +1,8 @@
 #pragma once
 
-#if NANO_TIMED_LOCKS > 0
+#define USING_NANO_TIMED_LOCKS (NANO_TIMED_LOCKS > 0)
+
+#if USING_NANO_TIMED_LOCKS
 #include <nano/lib/timer.hpp>
 #endif
 
@@ -9,15 +11,110 @@
 
 namespace nano
 {
-#if NANO_TIMED_LOCKS > 0
+class mutex;
+extern nano::mutex * mutex_to_filter;
+extern nano::mutex mutex_to_filter_mutex;
+bool should_be_filtered (const char * name);
+bool any_filters_registered ();
+
+enum class mutexes
+{
+	active,
+	block_arrival,
+	block_processor,
+	block_uniquer,
+	blockstore_cache,
+	confirmation_height_processor,
+	dropped_elections,
+	election_winner_details,
+	gap_cache,
+	network_filter,
+	observer_set,
+	request_aggregator,
+	state_block_signature_verification,
+	telemetry,
+	vote_generator,
+	vote_processor,
+	vote_uniquer,
+	votes_cache,
+	work_pool
+};
+
+char const * mutex_identifier (mutexes mutex);
+
+class mutex
+{
+public:
+	mutex () = default;
+	mutex (const char * name_a)
+#if USING_NANO_TIMED_LOCKS
+	:
+	name (name_a)
+#endif
+	{
+#if USING_NANO_TIMED_LOCKS
+		// This mutex should be filtered
+		if (name && should_be_filtered (name))
+		{
+			std::lock_guard guard (mutex_to_filter_mutex);
+			mutex_to_filter = this;
+		}
+#endif
+	}
+
+#if USING_NANO_TIMED_LOCKS
+	~mutex ()
+	{
+		// Unfilter this destroyed mutex
+		if (name && should_be_filtered (name))
+		{
+			// Unregister the mutex
+			std::lock_guard guard (mutex_to_filter_mutex);
+			mutex_to_filter = nullptr;
+		}
+	}
+#endif
+
+	void lock ()
+	{
+		mutex_m.lock ();
+	}
+
+	void unlock ()
+	{
+		mutex_m.unlock ();
+	}
+
+	bool try_lock ()
+	{
+		return mutex_m.try_lock ();
+	}
+
+#if USING_NANO_TIMED_LOCKS
+	const char * get_name () const
+	{
+		return name ? name : "";
+	}
+#endif
+
+private:
+#if USING_NANO_TIMED_LOCKS
+	const char * name{ nullptr };
+#endif
+	std::mutex mutex_m;
+};
+
+#if USING_NANO_TIMED_LOCKS
 template <typename Mutex>
 void output (const char * str, std::chrono::milliseconds time, Mutex & mutex);
 
 template <typename Mutex>
 void output_if_held_long_enough (nano::timer<std::chrono::milliseconds> & timer, Mutex & mutex);
 
+#ifndef NANO_TIMED_LOCKS_IGNORE_BLOCKED
 template <typename Mutex>
 void output_if_blocked_long_enough (nano::timer<std::chrono::milliseconds> & timer, Mutex & mutex);
+#endif
 
 template <typename Mutex>
 class lock_guard final
@@ -36,21 +133,21 @@ private:
 };
 
 template <>
-class lock_guard<std::mutex> final
+class lock_guard<nano::mutex> final
 {
 public:
-	explicit lock_guard (std::mutex & mutex_a);
+	explicit lock_guard (nano::mutex & mutex_a);
 	~lock_guard () noexcept;
 
 	lock_guard (const lock_guard &) = delete;
 	lock_guard & operator= (const lock_guard &) = delete;
 
 private:
-	std::mutex & mut;
+	nano::mutex & mut;
 	nano::timer<std::chrono::milliseconds> timer;
 };
 
-template <typename Mutex, typename = std::enable_if_t<std::is_same<Mutex, std::mutex>::value>>
+template <typename Mutex, typename = std::enable_if_t<std::is_same<Mutex, nano::mutex>::value>>
 class unique_lock final
 {
 public:
@@ -94,10 +191,10 @@ public:
 
 	void notify_one () noexcept;
 	void notify_all () noexcept;
-	void wait (nano::unique_lock<std::mutex> & lt);
+	void wait (nano::unique_lock<nano::mutex> & lt);
 
 	template <typename Pred>
-	void wait (nano::unique_lock<std::mutex> & lk, Pred pred)
+	void wait (nano::unique_lock<nano::mutex> & lk, Pred pred)
 	{
 		while (!pred ())
 		{
@@ -106,7 +203,7 @@ public:
 	}
 
 	template <typename Clock, typename Duration>
-	std::cv_status wait_until (nano::unique_lock<std::mutex> & lk, std::chrono::time_point<Clock, Duration> const & timeout_time)
+	std::cv_status wait_until (nano::unique_lock<nano::mutex> & lk, std::chrono::time_point<Clock, Duration> const & timeout_time)
 	{
 		if (!lk.mut || !lk.owns)
 		{
@@ -122,7 +219,7 @@ public:
 	}
 
 	template <typename Clock, typename Duration, typename Pred>
-	bool wait_until (nano::unique_lock<std::mutex> & lk, std::chrono::time_point<Clock, Duration> const & timeout_time, Pred pred)
+	bool wait_until (nano::unique_lock<nano::mutex> & lk, std::chrono::time_point<Clock, Duration> const & timeout_time, Pred pred)
 	{
 		while (!pred ())
 		{
@@ -135,13 +232,13 @@ public:
 	}
 
 	template <typename Rep, typename Period>
-	void wait_for (nano::unique_lock<std::mutex> & lk, std::chrono::duration<Rep, Period> const & rel_time)
+	void wait_for (nano::unique_lock<nano::mutex> & lk, std::chrono::duration<Rep, Period> const & rel_time)
 	{
 		wait_until (lk, std::chrono::steady_clock::now () + rel_time);
 	}
 
 	template <typename Rep, typename Period, typename Pred>
-	bool wait_for (nano::unique_lock<std::mutex> & lk, std::chrono::duration<Rep, Period> const & rel_time, Pred pred)
+	bool wait_for (nano::unique_lock<nano::mutex> & lk, std::chrono::duration<Rep, Period> const & rel_time, Pred pred)
 	{
 		return wait_until (lk, std::chrono::steady_clock::now () + rel_time, std::move (pred));
 	}
@@ -212,7 +309,7 @@ public:
 
 	T & operator= (T const & other)
 	{
-		nano::unique_lock<std::mutex> lk (mutex);
+		nano::unique_lock<nano::mutex> lk (mutex);
 		obj = other;
 		return obj;
 	}
@@ -230,6 +327,6 @@ public:
 
 private:
 	T obj;
-	std::mutex mutex;
+	nano::mutex mutex;
 };
 }

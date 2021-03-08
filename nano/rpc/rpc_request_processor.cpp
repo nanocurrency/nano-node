@@ -13,7 +13,7 @@ thread ([this]() {
 	this->run ();
 })
 {
-	nano::lock_guard<std::mutex> lk (this->request_mutex);
+	nano::lock_guard<nano::mutex> lk (this->request_mutex);
 	this->connections.reserve (rpc_config.rpc_process.num_ipc_connections);
 	for (auto i = 0u; i < rpc_config.rpc_process.num_ipc_connections; ++i)
 	{
@@ -21,7 +21,7 @@ thread ([this]() {
 		auto connection = this->connections.back ();
 		connection->client.async_connect (ipc_address, ipc_port, [connection, &connections_mutex = this->connections_mutex](nano::error err) {
 			// Even if there is an error this needs to be set so that another attempt can be made to connect with the ipc connection
-			nano::lock_guard<std::mutex> lk (connections_mutex);
+			nano::lock_guard<nano::mutex> lk (connections_mutex);
 			connection->is_available = true;
 		});
 	}
@@ -35,7 +35,7 @@ nano::rpc_request_processor::~rpc_request_processor ()
 void nano::rpc_request_processor::stop ()
 {
 	{
-		nano::lock_guard<std::mutex> lock (request_mutex);
+		nano::lock_guard<nano::mutex> lock (request_mutex);
 		stopped = true;
 	}
 	condition.notify_one ();
@@ -45,16 +45,16 @@ void nano::rpc_request_processor::stop ()
 	}
 }
 
-void nano::rpc_request_processor::add (std::shared_ptr<rpc_request> request)
+void nano::rpc_request_processor::add (std::shared_ptr<rpc_request> const & request)
 {
 	{
-		nano::lock_guard<std::mutex> lk (request_mutex);
+		nano::lock_guard<nano::mutex> lk (request_mutex);
 		requests.push_back (request);
 	}
 	condition.notify_one ();
 }
 
-void nano::rpc_request_processor::read_payload (std::shared_ptr<nano::ipc_connection> connection, std::shared_ptr<std::vector<uint8_t>> res, std::shared_ptr<nano::rpc_request> rpc_request)
+void nano::rpc_request_processor::read_payload (std::shared_ptr<nano::ipc_connection> const & connection, std::shared_ptr<std::vector<uint8_t>> const & res, std::shared_ptr<nano::rpc_request> const & rpc_request)
 {
 	uint32_t payload_size_l = boost::endian::big_to_native (*reinterpret_cast<uint32_t *> (res->data ()));
 	res->resize (payload_size_l);
@@ -80,12 +80,12 @@ void nano::rpc_request_processor::read_payload (std::shared_ptr<nano::ipc_connec
 
 void nano::rpc_request_processor::make_available (nano::ipc_connection & connection)
 {
-	nano::lock_guard<std::mutex> lk (connections_mutex);
+	nano::lock_guard<nano::mutex> lk (connections_mutex);
 	connection.is_available = true; // Allow people to use it now
 }
 
 // Connection does not exist or has been closed, try to connect to it again and then resend IPC request
-void nano::rpc_request_processor::try_reconnect_and_execute_request (std::shared_ptr<nano::ipc_connection> connection, nano::shared_const_buffer const & req, std::shared_ptr<std::vector<uint8_t>> res, std::shared_ptr<nano::rpc_request> rpc_request)
+void nano::rpc_request_processor::try_reconnect_and_execute_request (std::shared_ptr<nano::ipc_connection> const & connection, nano::shared_const_buffer const & req, std::shared_ptr<std::vector<uint8_t>> const & res, std::shared_ptr<nano::rpc_request> const & rpc_request)
 {
 	connection->client.async_connect (ipc_address, ipc_port, [this, connection, req, res, rpc_request](nano::error err) {
 		if (!err)
@@ -124,13 +124,13 @@ void nano::rpc_request_processor::try_reconnect_and_execute_request (std::shared
 void nano::rpc_request_processor::run ()
 {
 	// This should be a conditioned wait
-	nano::unique_lock<std::mutex> lk (request_mutex);
+	nano::unique_lock<nano::mutex> lk (request_mutex);
 	while (!stopped)
 	{
 		if (!requests.empty ())
 		{
 			lk.unlock ();
-			nano::unique_lock<std::mutex> conditions_lk (connections_mutex);
+			nano::unique_lock<nano::mutex> conditions_lk (connections_mutex);
 			// Find the first free ipc_client
 			auto it = std::find_if (connections.begin (), connections.end (), [](auto connection) -> bool {
 				return connection->is_available;

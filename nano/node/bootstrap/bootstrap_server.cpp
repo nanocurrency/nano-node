@@ -15,7 +15,7 @@ port (port_a)
 
 void nano::bootstrap_listener::start ()
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	on = true;
 	listening_socket = std::make_shared<nano::server_socket> (node, boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::any (), port), node.config.tcp_incoming_connections_max);
 	boost::system::error_code ec;
@@ -26,7 +26,7 @@ void nano::bootstrap_listener::start ()
 		throw std::runtime_error (ec.message ());
 	}
 	debug_assert (node.network.endpoint ().port () == listening_socket->listening_port ());
-	listening_socket->on_connection ([this](std::shared_ptr<nano::socket> new_connection, boost::system::error_code const & ec_a) {
+	listening_socket->on_connection ([this](std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const & ec_a) {
 		bool keep_accepting = true;
 		if (ec_a)
 		{
@@ -45,13 +45,13 @@ void nano::bootstrap_listener::stop ()
 {
 	decltype (connections) connections_l;
 	{
-		nano::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock (mutex);
 		on = false;
 		connections_l.swap (connections);
 	}
 	if (listening_socket)
 	{
-		nano::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock (mutex);
 		listening_socket->close ();
 		listening_socket = nullptr;
 	}
@@ -59,16 +59,16 @@ void nano::bootstrap_listener::stop ()
 
 size_t nano::bootstrap_listener::connection_count ()
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	return connections.size ();
 }
 
-void nano::bootstrap_listener::accept_action (boost::system::error_code const & ec, std::shared_ptr<nano::socket> socket_a)
+void nano::bootstrap_listener::accept_action (boost::system::error_code const & ec, std::shared_ptr<nano::socket> const & socket_a)
 {
 	if (!node.network.excluded_peers.check (socket_a->remote_endpoint ()))
 	{
 		auto connection (std::make_shared<nano::bootstrap_server> (socket_a, node.shared ()));
-		nano::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock (mutex);
 		connections[connection.get ()] = connection;
 		connection->receive ();
 	}
@@ -84,7 +84,7 @@ void nano::bootstrap_listener::accept_action (boost::system::error_code const & 
 
 boost::asio::ip::tcp::endpoint nano::bootstrap_listener::endpoint ()
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	if (on && listening_socket)
 	{
 		return boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), listening_socket->listening_port ());
@@ -95,7 +95,7 @@ boost::asio::ip::tcp::endpoint nano::bootstrap_listener::endpoint ()
 	}
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (bootstrap_listener & bootstrap_listener, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (bootstrap_listener & bootstrap_listener, std::string const & name)
 {
 	auto sizeof_element = sizeof (decltype (bootstrap_listener.connections)::value_type);
 	auto composite = std::make_unique<container_info_composite> (name);
@@ -103,7 +103,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (bo
 	return composite;
 }
 
-nano::bootstrap_server::bootstrap_server (std::shared_ptr<nano::socket> socket_a, std::shared_ptr<nano::node> node_a) :
+nano::bootstrap_server::bootstrap_server (std::shared_ptr<nano::socket> const & socket_a, std::shared_ptr<nano::node> const & node_a) :
 receive_buffer (std::make_shared<std::vector<uint8_t>> ()),
 socket (socket_a),
 node (node_a)
@@ -133,7 +133,7 @@ nano::bootstrap_server::~bootstrap_server ()
 		}
 	}
 	stop ();
-	nano::lock_guard<std::mutex> lock (node->bootstrap.mutex);
+	nano::lock_guard<nano::mutex> lock (node->bootstrap.mutex);
 	node->bootstrap.connections.erase (this);
 }
 
@@ -499,7 +499,7 @@ void nano::bootstrap_server::receive_confirm_ack_action (boost::system::error_co
 					{
 						if (!vote_block.which ())
 						{
-							auto block (boost::get<std::shared_ptr<nano::block>> (vote_block));
+							auto const & block (boost::get<std::shared_ptr<nano::block>> (vote_block));
 							if (nano::work_validate_entry (*block))
 							{
 								process_vote = false;
@@ -547,7 +547,7 @@ void nano::bootstrap_server::receive_node_id_handshake_action (boost::system::er
 void nano::bootstrap_server::add_request (std::unique_ptr<nano::message> message_a)
 {
 	debug_assert (message_a != nullptr);
-	nano::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock (mutex);
 	auto start (requests.empty ());
 	requests.push (std::move (message_a));
 	if (start)
@@ -558,7 +558,7 @@ void nano::bootstrap_server::add_request (std::unique_ptr<nano::message> message
 
 void nano::bootstrap_server::finish_request ()
 {
-	nano::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock (mutex);
 	requests.pop ();
 	if (!requests.empty ())
 	{
@@ -567,7 +567,7 @@ void nano::bootstrap_server::finish_request ()
 	else
 	{
 		std::weak_ptr<nano::bootstrap_server> this_w (shared_from_this ());
-		node->alarm.add (std::chrono::steady_clock::now () + (node->config.tcp_io_timeout * 2) + std::chrono::seconds (1), [this_w]() {
+		node->workers.add_timed_task (std::chrono::steady_clock::now () + (node->config.tcp_io_timeout * 2) + std::chrono::seconds (1), [this_w]() {
 			if (auto this_l = this_w.lock ())
 			{
 				this_l->timeout ();
@@ -598,7 +598,7 @@ void nano::bootstrap_server::timeout ()
 				node->logger.try_log ("Closing incoming tcp / bootstrap server by timeout");
 			}
 			{
-				nano::lock_guard<std::mutex> lock (node->bootstrap.mutex);
+				nano::lock_guard<nano::mutex> lock (node->bootstrap.mutex);
 				node->bootstrap.connections.erase (this);
 			}
 			socket->close ();
@@ -606,7 +606,7 @@ void nano::bootstrap_server::timeout ()
 	}
 	else
 	{
-		nano::lock_guard<std::mutex> lock (node->bootstrap.mutex);
+		nano::lock_guard<nano::mutex> lock (node->bootstrap.mutex);
 		node->bootstrap.connections.erase (this);
 	}
 }
@@ -676,7 +676,7 @@ public:
 			debug_assert (!nano::validate_message (response->first, *message_a.query, response->second));
 			auto cookie (connection->node->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (connection->remote_endpoint)));
 			nano::node_id_handshake response_message (cookie, response);
-			auto shared_const_buffer = response_message.to_shared_const_buffer (connection->node->ledger.cache.epoch_2_started);
+			auto shared_const_buffer = response_message.to_shared_const_buffer ();
 			connection->socket->async_write (shared_const_buffer, [connection = std::weak_ptr<nano::bootstrap_server> (connection)](boost::system::error_code const & ec, size_t size_a) {
 				if (auto connection_l = connection.lock ())
 				{
@@ -726,7 +726,7 @@ public:
 };
 }
 
-void nano::bootstrap_server::run_next (nano::unique_lock<std::mutex> & lock_a)
+void nano::bootstrap_server::run_next (nano::unique_lock<nano::mutex> & lock_a)
 {
 	debug_assert (!requests.empty ());
 	request_response_visitor visitor (shared_from_this ());
@@ -748,7 +748,7 @@ void nano::bootstrap_server::run_next (nano::unique_lock<std::mutex> & lock_a)
 		if (timeout_check)
 		{
 			std::weak_ptr<nano::bootstrap_server> this_w (shared_from_this ());
-			node->alarm.add (std::chrono::steady_clock::now () + (node->config.tcp_io_timeout * 2) + std::chrono::seconds (1), [this_w]() {
+			node->workers.add_timed_task (std::chrono::steady_clock::now () + (node->config.tcp_io_timeout * 2) + std::chrono::seconds (1), [this_w]() {
 				if (auto this_l = this_w.lock ())
 				{
 					this_l->timeout ();

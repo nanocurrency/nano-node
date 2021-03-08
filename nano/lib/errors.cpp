@@ -83,6 +83,8 @@ std::string nano::error_common_messages::message (int ev) const
 			return "Invalid type conversion";
 		case nano::error_common::invalid_work:
 			return "Invalid work";
+		case nano::error_common::is_not_state_block:
+			return "Must be a state block";
 		case nano::error_common::numeric_conversion:
 			return "Numeric conversion error";
 		case nano::error_common::tracking_not_enabled:
@@ -209,12 +211,10 @@ std::string nano::error_rpc_messages::message (int ev) const
 			return "Invalid timestamp";
 		case nano::error_rpc::invalid_threads_count:
 			return "Invalid threads count";
-		case nano::error_rpc::payment_account_balance:
-			return "Account has non-zero balance";
-		case nano::error_rpc::payment_unable_create_account:
-			return "Unable to create transaction account";
 		case nano::error_rpc::peer_not_found:
 			return "Peer not found";
+		case nano::error_rpc::pruning_disabled:
+			return "Pruning is disabled";
 		case nano::error_rpc::requires_port_and_address:
 			return "Both port and address required";
 		case nano::error_rpc::rpc_control_disabled:

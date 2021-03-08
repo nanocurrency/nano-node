@@ -23,19 +23,19 @@ active (active_a),
 generator (generator_a),
 thread ([this]() { run (); })
 {
-	generator.set_reply_action ([this](std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> & channel_a) {
+	generator.set_reply_action ([this](std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a) {
 		this->reply_action (vote_a, channel_a);
 	});
-	nano::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock (mutex);
 	condition.wait (lock, [& started = started] { return started; });
 }
 
-void nano::request_aggregator::add (std::shared_ptr<nano::transport::channel> & channel_a, std::vector<std::pair<nano::block_hash, nano::root>> const & hashes_roots_a)
+void nano::request_aggregator::add (std::shared_ptr<nano::transport::channel> const & channel_a, std::vector<std::pair<nano::block_hash, nano::root>> const & hashes_roots_a)
 {
 	debug_assert (wallets.reps ().voting > 0);
 	bool error = true;
 	auto const endpoint (nano::transport::map_endpoint_to_v6 (channel_a->get_endpoint ()));
-	nano::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock (mutex);
 	// Protecting from ever-increasing memory usage when request are consumed slower than generated
 	// Reject request if the oldest request has not yet been processed after its deadline + a modest margin
 	if (requests.empty () || (requests.get<tag_deadline> ().begin ()->deadline + 2 * this->max_delay > std::chrono::steady_clock::now ()))
@@ -69,7 +69,7 @@ void nano::request_aggregator::add (std::shared_ptr<nano::transport::channel> & 
 void nano::request_aggregator::run ()
 {
 	nano::thread_role::set (nano::thread_role::name::request_aggregator);
-	nano::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock (mutex);
 	started = true;
 	lock.unlock ();
 	condition.notify_all ();
@@ -117,7 +117,7 @@ void nano::request_aggregator::run ()
 void nano::request_aggregator::stop ()
 {
 	{
-		nano::lock_guard<std::mutex> guard (mutex);
+		nano::lock_guard<nano::mutex> guard (mutex);
 		stopped = true;
 	}
 	condition.notify_all ();
@@ -129,7 +129,7 @@ void nano::request_aggregator::stop ()
 
 std::size_t nano::request_aggregator::size ()
 {
-	nano::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock (mutex);
 	return requests.size ();
 }
 
@@ -138,7 +138,7 @@ bool nano::request_aggregator::empty ()
 	return size () == 0;
 }
 
-void nano::request_aggregator::reply_action (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> & channel_a) const
+void nano::request_aggregator::reply_action (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a) const
 {
 	nano::confirm_ack confirm (vote_a);
 	channel_a->send (confirm);
@@ -161,10 +161,10 @@ std::vector<std::shared_ptr<nano::block>> nano::request_aggregator::aggregate (s
 	size_t cached_hashes = 0;
 	std::vector<std::shared_ptr<nano::block>> to_generate;
 	std::vector<std::shared_ptr<nano::vote>> cached_votes;
-	for (auto const & hash_root : requests_a)
+	for (auto const & [hash, root] : requests_a)
 	{
 		// 1. Votes in cache
-		auto find_votes (local_votes.votes (hash_root.second, hash_root.first));
+		auto find_votes (local_votes.votes (root, hash));
 		if (!find_votes.empty ())
 		{
 			++cached_hashes;
@@ -172,26 +172,27 @@ std::vector<std::shared_ptr<nano::block>> nano::request_aggregator::aggregate (s
 		}
 		else
 		{
+			bool generate_vote (true);
 			// 2. Election winner by hash
-			auto block = active.winner (hash_root.first);
+			auto block = active.winner (hash);
 
 			// 3. Ledger by hash
 			if (block == nullptr)
 			{
-				block = ledger.store.block_get (transaction, hash_root.first);
+				block = ledger.store.block_get (transaction, hash);
 			}
 
 			// 4. Ledger by root
-			if (block == nullptr && !hash_root.second.is_zero ())
+			if (block == nullptr && !root.is_zero ())
 			{
 				// Search for block root
-				auto successor (ledger.store.block_successor (transaction, hash_root.second.as_block_hash ()));
+				auto successor (ledger.store.block_successor (transaction, root.as_block_hash ()));
 
 				// Search for account root
 				if (successor.is_zero ())
 				{
 					nano::account_info info;
-					auto error (ledger.store.account_get (transaction, hash_root.second.as_account (), info));
+					auto error (ledger.store.account_get (transaction, root.as_account (), info));
 					if (!error)
 					{
 						successor = info.open_block;
@@ -201,25 +202,27 @@ std::vector<std::shared_ptr<nano::block>> nano::request_aggregator::aggregate (s
 				{
 					auto successor_block = ledger.store.block_get (transaction, successor);
 					debug_assert (successor_block != nullptr);
+					block = std::move (successor_block);
 					// 5. Votes in cache for successor
-					auto find_successor_votes (local_votes.votes (hash_root.second, successor));
+					auto find_successor_votes (local_votes.votes (root, successor));
 					if (!find_successor_votes.empty ())
 					{
 						cached_votes.insert (cached_votes.end (), find_successor_votes.begin (), find_successor_votes.end ());
-					}
-					else
-					{
-						block = std::move (successor_block);
+						generate_vote = false;
 					}
 				}
 			}
 
 			if (block)
 			{
-				to_generate.push_back (block);
+				// Generate new vote
+				if (generate_vote)
+				{
+					to_generate.push_back (block);
+				}
 
 				// Let the node know about the alternative block
-				if (block->hash () != hash_root.first)
+				if (block->hash () != hash)
 				{
 					nano::publish publish (block);
 					channel_a->send (publish);
@@ -243,7 +246,7 @@ std::vector<std::shared_ptr<nano::block>> nano::request_aggregator::aggregate (s
 	return to_generate;
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::request_aggregator & aggregator, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::request_aggregator & aggregator, std::string const & name)
 {
 	auto pools_count = aggregator.size ();
 	auto sizeof_element = sizeof (decltype (aggregator.requests)::value_type);

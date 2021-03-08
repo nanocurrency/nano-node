@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/rep_weights.hpp>
+#include <nano/lib/timer.hpp>
 #include <nano/secure/common.hpp>
 
 #include <map>
@@ -25,7 +26,7 @@ public:
 class ledger final
 {
 public:
-	ledger (nano::block_store &, nano::stat &, nano::generate_cache const & = nano::generate_cache (), std::function<void()> = nullptr);
+	ledger (nano::block_store &, nano::stat &, nano::generate_cache const & = nano::generate_cache ());
 	nano::account account (nano::transaction const &, nano::block_hash const &) const;
 	nano::account account_safe (nano::transaction const &, nano::block_hash const &, bool &) const;
 	nano::uint128_t amount (nano::transaction const &, nano::account const &);
@@ -34,8 +35,8 @@ public:
 	nano::uint128_t amount_safe (nano::transaction const &, nano::block_hash const & hash_a, bool &) const;
 	nano::uint128_t balance (nano::transaction const &, nano::block_hash const &) const;
 	nano::uint128_t balance_safe (nano::transaction const &, nano::block_hash const &, bool &) const;
-	nano::uint128_t account_balance (nano::transaction const &, nano::account const &);
-	nano::uint128_t account_pending (nano::transaction const &, nano::account const &);
+	nano::uint128_t account_balance (nano::transaction const &, nano::account const &, bool = false);
+	nano::uint128_t account_pending (nano::transaction const &, nano::account const &, bool = false);
 	nano::uint128_t weight (nano::account const &);
 	std::shared_ptr<nano::block> successor (nano::transaction const &, nano::qualified_root const &);
 	std::shared_ptr<nano::block> forked_block (nano::transaction const &, nano::block const &);
@@ -66,6 +67,7 @@ public:
 	nano::account const & epoch_signer (nano::link const &) const;
 	nano::link const & epoch_link (nano::epoch) const;
 	std::multimap<uint64_t, uncemented_info, std::greater<>> unconfirmed_frontiers () const;
+	bool migrate_lmdb_to_rocksdb (boost::filesystem::path const &) const;
 	static nano::uint128_t const unit;
 	nano::network_params network_params;
 	nano::block_store & store;
@@ -76,11 +78,10 @@ public:
 	uint64_t bootstrap_weight_max_blocks{ 1 };
 	std::atomic<bool> check_bootstrap_weights;
 	bool pruning{ false };
-	std::function<void()> epoch_2_started_cb;
 
 private:
 	void initialize (nano::generate_cache const &);
 };
 
-std::unique_ptr<container_info_component> collect_container_info (ledger & ledger, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (ledger & ledger, std::string const & name);
 }

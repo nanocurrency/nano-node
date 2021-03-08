@@ -90,6 +90,8 @@ public:
 	virtual nano::block_hash const & previous () const = 0;
 	// Source block for open/receive blocks, zero otherwise.
 	virtual nano::block_hash const & source () const;
+	// Destination account for send blocks, zero otherwise.
+	virtual nano::account const & destination () const;
 	// Previous block or account number for open blocks
 	virtual nano::root const & root () const = 0;
 	// Qualified root value based on previous() and root()
@@ -153,6 +155,7 @@ public:
 	uint64_t block_work () const override;
 	void block_work_set (uint64_t) override;
 	nano::block_hash const & previous () const override;
+	nano::account const & destination () const override;
 	nano::root const & root () const override;
 	nano::amount const & balance () const override;
 	void serialize (nano::stream &) const override;
@@ -401,16 +404,16 @@ class block_uniquer
 public:
 	using value_type = std::pair<const nano::uint256_union, std::weak_ptr<nano::block>>;
 
-	std::shared_ptr<nano::block> unique (std::shared_ptr<nano::block>);
+	std::shared_ptr<nano::block> unique (std::shared_ptr<nano::block> const &);
 	size_t size ();
 
 private:
-	std::mutex mutex;
+	nano::mutex mutex{ mutex_identifier (mutexes::block_uniquer) };
 	std::unordered_map<std::remove_const_t<value_type::first_type>, value_type::second_type> blocks;
 	static unsigned constexpr cleanup_count = 2;
 };
 
-std::unique_ptr<container_info_component> collect_container_info (block_uniquer & block_uniquer, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (block_uniquer & block_uniquer, std::string const & name);
 
 std::shared_ptr<nano::block> deserialize_block (nano::stream &);
 std::shared_ptr<nano::block> deserialize_block (nano::stream &, nano::block_type, nano::block_uniquer * = nullptr);

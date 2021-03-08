@@ -8,14 +8,14 @@
 
 #include <numeric>
 
-nano::confirmation_height_unbounded::confirmation_height_unbounded (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logging const & logging_a, nano::logger_mt & logger_a, std::atomic<bool> & stopped_a, nano::block_hash const & original_hash_a, uint64_t & batch_write_size_a, std::function<void(std::vector<std::shared_ptr<nano::block>> const &)> const & notify_observers_callback_a, std::function<void(nano::block_hash const &)> const & notify_block_already_cemented_observers_callback_a, std::function<uint64_t ()> const & awaiting_processing_size_callback_a) :
+nano::confirmation_height_unbounded::confirmation_height_unbounded (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logging const & logging_a, nano::logger_mt & logger_a, std::atomic<bool> & stopped_a, std::shared_ptr<nano::block> const & original_block_a, uint64_t & batch_write_size_a, std::function<void(std::vector<std::shared_ptr<nano::block>> const &)> const & notify_observers_callback_a, std::function<void(nano::block_hash const &)> const & notify_block_already_cemented_observers_callback_a, std::function<uint64_t ()> const & awaiting_processing_size_callback_a) :
 ledger (ledger_a),
 write_database_queue (write_database_queue_a),
 batch_separate_pending_min_time (batch_separate_pending_min_time_a),
 logging (logging_a),
 logger (logger_a),
 stopped (stopped_a),
-original_hash (original_hash_a),
+original_block (original_block_a),
 batch_write_size (batch_write_size_a),
 notify_observers_callback (notify_observers_callback_a),
 notify_block_already_cemented_observers_callback (notify_block_already_cemented_observers_callback_a),
@@ -31,7 +31,7 @@ void nano::confirmation_height_unbounded::process ()
 		timer.restart ();
 	}
 	std::shared_ptr<conf_height_details> receive_details;
-	auto current = original_hash;
+	auto current = original_block->hash ();
 	std::vector<nano::block_hash> orig_block_callback_data;
 
 	std::vector<receive_source_pair> receive_source_pairs;
@@ -54,12 +54,24 @@ void nano::confirmation_height_unbounded::process ()
 			// (if the original block is not already a receive)
 			if (receive_details)
 			{
-				current = original_hash;
+				current = original_block->hash ();
 				receive_details = nullptr;
 			}
 		}
 
-		auto block (get_block_and_sideband (current, read_transaction));
+		std::shared_ptr<nano::block> block;
+		if (first_iter)
+		{
+			debug_assert (current == original_block->hash ());
+			// This is the original block passed so can use it directly
+			block = original_block;
+			nano::lock_guard<nano::mutex> guard (block_cache_mutex);
+			block_cache[original_block->hash ()] = original_block;
+		}
+		else
+		{
+			block = get_block_and_sideband (current, read_transaction);
+		}
 		if (!block)
 		{
 			auto error_str = (boost::format ("Ledger mismatch trying to set confirmation height for block %1% (unbounded processor)") % current.to_string ()).str ();
@@ -84,13 +96,14 @@ void nano::confirmation_height_unbounded::process ()
 		else
 		{
 			nano::confirmation_height_info confirmation_height_info;
-			release_assert (!ledger.store.confirmation_height_get (read_transaction, account, confirmation_height_info));
+			ledger.store.confirmation_height_get (read_transaction, account, confirmation_height_info);
 			confirmation_height = confirmation_height_info.height;
 
 			// This block was added to the confirmation height processor but is already confirmed
-			if (first_iter && confirmation_height >= block_height && current == original_hash)
+			if (first_iter && confirmation_height >= block_height)
 			{
-				notify_block_already_cemented_observers_callback (original_hash);
+				debug_assert (current == original_block->hash ());
+				notify_block_already_cemented_observers_callback (original_block->hash ());
 			}
 		}
 		auto iterated_height = confirmation_height;
@@ -104,7 +117,7 @@ void nano::confirmation_height_unbounded::process ()
 		auto already_traversed = iterated_height >= block_height;
 		if (!already_traversed)
 		{
-			collect_unconfirmed_receive_and_sources_for_account (block_height, iterated_height, current, account, read_transaction, receive_source_pairs, block_callback_datas_required, orig_block_callback_data);
+			collect_unconfirmed_receive_and_sources_for_account (block_height, iterated_height, block, current, account, read_transaction, receive_source_pairs, block_callback_datas_required, orig_block_callback_data);
 		}
 
 		// Exit early when the processor has been stopped, otherwise this function may take a
@@ -174,20 +187,34 @@ void nano::confirmation_height_unbounded::process ()
 
 		first_iter = false;
 		read_transaction.renew ();
-	} while ((!receive_source_pairs.empty () || current != original_hash) && !stopped);
+	} while ((!receive_source_pairs.empty () || current != original_block->hash ()) && !stopped);
 }
 
-void nano::confirmation_height_unbounded::collect_unconfirmed_receive_and_sources_for_account (uint64_t block_height_a, uint64_t confirmation_height_a, nano::block_hash const & hash_a, nano::account const & account_a, nano::read_transaction const & transaction_a, std::vector<receive_source_pair> & receive_source_pairs_a, std::vector<nano::block_hash> & block_callback_data_a, std::vector<nano::block_hash> & orig_block_callback_data_a)
+void nano::confirmation_height_unbounded::collect_unconfirmed_receive_and_sources_for_account (uint64_t block_height_a, uint64_t confirmation_height_a, std::shared_ptr<nano::block> const & block_a, nano::block_hash const & hash_a, nano::account const & account_a, nano::read_transaction const & transaction_a, std::vector<receive_source_pair> & receive_source_pairs_a, std::vector<nano::block_hash> & block_callback_data_a, std::vector<nano::block_hash> & orig_block_callback_data_a)
 {
+	debug_assert (block_a->hash () == hash_a);
 	auto hash (hash_a);
 	auto num_to_confirm = block_height_a - confirmation_height_a;
 
 	// Handle any sends above a receive
-	auto is_original_block = (hash == original_hash);
-	bool hit_receive = false;
+	auto is_original_block = (hash == original_block->hash ());
+	auto hit_receive = false;
+	auto first_iter = true;
 	while ((num_to_confirm > 0) && !hash.is_zero () && !stopped)
 	{
-		auto block (get_block_and_sideband (hash, transaction_a));
+		std::shared_ptr<nano::block> block;
+		if (first_iter)
+		{
+			debug_assert (hash == hash_a);
+			block = block_a;
+			nano::lock_guard<nano::mutex> guard (block_cache_mutex);
+			block_cache[hash] = block_a;
+		}
+		else
+		{
+			block = get_block_and_sideband (hash, transaction_a);
+		}
+
 		if (block)
 		{
 			auto source (block->source ());
@@ -240,6 +267,7 @@ void nano::confirmation_height_unbounded::collect_unconfirmed_receive_and_source
 		}
 
 		--num_to_confirm;
+		first_iter = false;
 	}
 }
 
@@ -349,27 +377,30 @@ void nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 		{
 			auto & pending = pending_writes.front ();
 			nano::confirmation_height_info confirmation_height_info;
-			error = ledger.store.confirmation_height_get (transaction, pending.account, confirmation_height_info);
-			if (error)
-			{
-				auto error_str = (boost::format ("Failed to read confirmation height for account %1% when writing block %2% (unbounded processor)") % pending.account.to_account () % pending.hash.to_string ()).str ();
-				logger.always_log (error_str);
-				std::cerr << error_str << std::endl;
-			}
+			ledger.store.confirmation_height_get (transaction, pending.account, confirmation_height_info);
 			auto confirmation_height = confirmation_height_info.height;
-			if (!error && pending.height > confirmation_height)
+			if (pending.height > confirmation_height)
 			{
 				auto block = ledger.store.block_get (transaction, pending.hash);
-				debug_assert (network_params.network.is_dev_network () || block != nullptr);
-				debug_assert (network_params.network.is_dev_network () || block->sideband ().height == pending.height);
+				debug_assert (network_params.network.is_dev_network () || ledger.pruning || block != nullptr);
+				debug_assert (network_params.network.is_dev_network () || ledger.pruning || block->sideband ().height == pending.height);
 
 				if (!block)
 				{
-					auto error_str = (boost::format ("Failed to write confirmation height for block %1% (unbounded processor)") % pending.hash.to_string ()).str ();
-					logger.always_log (error_str);
-					std::cerr << error_str << std::endl;
-					error = true;
-					break;
+					if (ledger.pruning && ledger.store.pruned_exists (transaction, pending.hash))
+					{
+						pending_writes.erase (pending_writes.begin ());
+						--pending_writes_size;
+						continue;
+					}
+					else
+					{
+						auto error_str = (boost::format ("Failed to write confirmation height for block %1% (unbounded processor)") % pending.hash.to_string ()).str ();
+						logger.always_log (error_str);
+						std::cerr << error_str << std::endl;
+						error = true;
+						break;
+					}
 				}
 				ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in, pending.height - confirmation_height);
 				ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in, pending.height - confirmation_height);
@@ -381,7 +412,7 @@ void nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 				// Reverse it so that the callbacks start from the lowest newly cemented block and move upwards
 				std::reverse (pending.block_callback_data.begin (), pending.block_callback_data.end ());
 
-				nano::lock_guard<std::mutex> guard (block_cache_mutex);
+				nano::lock_guard<nano::mutex> guard (block_cache_mutex);
 				std::transform (pending.block_callback_data.begin (), pending.block_callback_data.end (), std::back_inserter (cemented_blocks), [& block_cache = block_cache](auto const & hash_a) {
 					debug_assert (block_cache.count (hash_a) == 1);
 					return block_cache.at (hash_a);
@@ -402,13 +433,6 @@ void nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 	notify_observers_callback (cemented_blocks);
 	release_assert (!error);
 
-	// Tests should check this already at the end, but not all blocks may have elections (e.g from manual calls to confirmation_height_processor::add), this should catch any inconsistencies on live/beta though
-	if (!network_params.network.is_dev_network ())
-	{
-		auto blocks_confirmed_stats = ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed);
-		auto observer_stats = ledger.stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::all, nano::stat::dir::out);
-		debug_assert (blocks_confirmed_stats == observer_stats);
-	}
 	debug_assert (pending_writes.empty ());
 	debug_assert (pending_writes_size == 0);
 	timer.restart ();
@@ -416,7 +440,7 @@ void nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 
 std::shared_ptr<nano::block> nano::confirmation_height_unbounded::get_block_and_sideband (nano::block_hash const & hash_a, nano::transaction const & transaction_a)
 {
-	nano::lock_guard<std::mutex> guard (block_cache_mutex);
+	nano::lock_guard<nano::mutex> guard (block_cache_mutex);
 	auto block_cache_it = block_cache.find (hash_a);
 	if (block_cache_it != block_cache.cend ())
 	{
@@ -444,20 +468,20 @@ void nano::confirmation_height_unbounded::clear_process_vars ()
 	implicit_receive_cemented_mapping.clear ();
 	implicit_receive_cemented_mapping_size = 0;
 	{
-		nano::lock_guard<std::mutex> guard (block_cache_mutex);
+		nano::lock_guard<nano::mutex> guard (block_cache_mutex);
 		block_cache.clear ();
 	}
 }
 
 bool nano::confirmation_height_unbounded::has_iterated_over_block (nano::block_hash const & hash_a) const
 {
-	nano::lock_guard<std::mutex> guard (block_cache_mutex);
+	nano::lock_guard<nano::mutex> guard (block_cache_mutex);
 	return block_cache.count (hash_a) == 1;
 }
 
 uint64_t nano::confirmation_height_unbounded::block_cache_size () const
 {
-	nano::lock_guard<std::mutex> guard (block_cache_mutex);
+	nano::lock_guard<nano::mutex> guard (block_cache_mutex);
 	return block_cache.size ();
 }
 
@@ -482,7 +506,7 @@ iterated_height (iterated_height_a)
 {
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (confirmation_height_unbounded & confirmation_height_unbounded, const std::string & name_a)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (confirmation_height_unbounded & confirmation_height_unbounded, std::string const & name_a)
 {
 	auto composite = std::make_unique<container_info_composite> (name_a);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "confirmed_iterated_pairs", confirmation_height_unbounded.confirmed_iterated_pairs_size, sizeof (decltype (confirmation_height_unbounded.confirmed_iterated_pairs)::value_type) }));
