@@ -212,7 +212,7 @@ nano::stat_histogram::stat_histogram (std::initializer_list<uint64_t> intervals_
 {
 	if (bin_count_a == 0)
 	{
-		assert (intervals_a.size () > 1);
+		debug_assert (intervals_a.size () > 1);
 		uint64_t start_inclusive_l = *intervals_a.begin ();
 		for (auto it = std::next (intervals_a.begin ()); it != intervals_a.end (); ++it)
 		{
@@ -223,7 +223,7 @@ nano::stat_histogram::stat_histogram (std::initializer_list<uint64_t> intervals_
 	}
 	else
 	{
-		assert (intervals_a.size () == 2);
+		debug_assert (intervals_a.size () == 2);
 		uint64_t min_inclusive_l = *intervals_a.begin ();
 		uint64_t max_exclusive_l = *std::next (intervals_a.begin ());
 
@@ -245,8 +245,8 @@ nano::stat_histogram::stat_histogram (std::initializer_list<uint64_t> intervals_
 
 void nano::stat_histogram::add (uint64_t index_a, uint64_t addend_a)
 {
-	nano::lock_guard<std::mutex> lk (histogram_mutex);
-	assert (!bins.empty ());
+	nano::lock_guard<nano::mutex> lk (histogram_mutex);
+	debug_assert (!bins.empty ());
 
 	// The search for a bin is linear, but we're searching just a few
 	// contiguous items which are likely to be in cache.
@@ -278,7 +278,7 @@ void nano::stat_histogram::add (uint64_t index_a, uint64_t addend_a)
 
 std::vector<nano::stat_histogram::bin> nano::stat_histogram::get_bins () const
 {
-	nano::lock_guard<std::mutex> lk (histogram_mutex);
+	nano::lock_guard<nano::mutex> lk (histogram_mutex);
 	return bins;
 }
 
@@ -401,14 +401,14 @@ void nano::stat::define_histogram (stat::type type, stat::detail detail, stat::d
 void nano::stat::update_histogram (stat::type type, stat::detail detail, stat::dir dir, uint64_t index_a, uint64_t addend_a)
 {
 	auto entry (get_entry (key_of (type, detail, dir)));
-	assert (entry->histogram != nullptr);
+	debug_assert (entry->histogram != nullptr);
 	entry->histogram->add (index_a, addend_a);
 }
 
 nano::stat_histogram * nano::stat::get_histogram (stat::type type, stat::detail detail, stat::dir dir)
 {
 	auto entry (get_entry (key_of (type, detail, dir)));
-	assert (entry->histogram != nullptr);
+	debug_assert (entry->histogram != nullptr);
 	return entry->histogram.get ();
 }
 
