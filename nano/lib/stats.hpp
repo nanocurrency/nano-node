@@ -109,7 +109,7 @@ public:
 	std::vector<bin> get_bins () const;
 
 private:
-	mutable std::mutex histogram_mutex;
+	mutable nano::mutex histogram_mutex;
 	std::vector<bin> bins;
 };
 

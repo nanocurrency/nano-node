@@ -245,7 +245,7 @@ nano::stat_histogram::stat_histogram (std::initializer_list<uint64_t> intervals_
 
 void nano::stat_histogram::add (uint64_t index_a, uint64_t addend_a)
 {
-	nano::lock_guard<std::mutex> lk (histogram_mutex);
+	nano::lock_guard<nano::mutex> lk (histogram_mutex);
 	assert (!bins.empty ());
 
 	// The search for a bin is linear, but we're searching just a few
@@ -278,7 +278,7 @@ void nano::stat_histogram::add (uint64_t index_a, uint64_t addend_a)
 
 std::vector<nano::stat_histogram::bin> nano::stat_histogram::get_bins () const
 {
-	nano::lock_guard<std::mutex> lk (histogram_mutex);
+	nano::lock_guard<nano::mutex> lk (histogram_mutex);
 	return bins;
 }
 
