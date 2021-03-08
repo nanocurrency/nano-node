@@ -88,9 +88,12 @@ void nano::bootstrap_attempt_legacy::request_push (nano::unique_lock<nano::mutex
 
 void nano::bootstrap_attempt_legacy::add_frontier (nano::pull_info const & pull_a)
 {
-	nano::pull_info pull (pull_a);
-	nano::lock_guard<nano::mutex> lock (mutex);
-	frontier_pulls.push_back (pull);
+	// Prevent incorrect or malicious pulls with frontier 0 insertion
+	if (!pull_a.head.is_zero ())
+	{
+		nano::lock_guard<nano::mutex> lock (mutex);
+		frontier_pulls.push_back (pull_a);
+	}
 }
 
 void nano::bootstrap_attempt_legacy::add_bulk_push_target (nano::block_hash const & head, nano::block_hash const & end)

@@ -31,8 +31,9 @@ unexpected_count (0)
 
 nano::bulk_pull_client::~bulk_pull_client ()
 {
-	// If received end block is not expected end block
-	if (expected != pull.end)
+	/* If received end block is not expected end block
+	Or if given start and end blocks are from different chains (i.e. forked node or malicious node) */
+	if (expected != pull.end && !expected.is_zero ())
 	{
 		pull.head = expected;
 		if (attempt->mode != nano::bootstrap_mode::legacy)
