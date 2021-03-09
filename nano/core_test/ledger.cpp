@@ -1002,7 +1002,7 @@ TEST (ledger, successor)
 	node1.work_generate_blocking (send1);
 	auto transaction (node1.store.tx_begin_write ());
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, send1).code);
-	ASSERT_EQ (send1, *node1.ledger.successor (transaction, nano::qualified_root (genesis.hash (), nano::root (0))));
+	ASSERT_EQ (send1, *node1.ledger.successor (transaction, nano::qualified_root (nano::root (0), genesis.hash ())));
 	ASSERT_EQ (*genesis.open, *node1.ledger.successor (transaction, genesis.open->qualified_root ()));
 	ASSERT_EQ (nullptr, node1.ledger.successor (transaction, nano::qualified_root (0)));
 }
