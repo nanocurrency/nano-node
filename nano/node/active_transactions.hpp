@@ -198,7 +198,7 @@ public:
 	// Activates the first unconfirmed block of \p account_a
 	nano::election_insertion_result activate (nano::account const &);
 	// Returns false if the election difficulty was updated
-	bool update_difficulty (nano::block const &);
+	bool update_difficulty (std::shared_ptr<nano::block> const &, bool);
 	// Returns false if the election was restarted
 	bool restart (nano::transaction const &, std::shared_ptr<nano::block> const &);
 	// Returns a list of elections sorted by difficulty

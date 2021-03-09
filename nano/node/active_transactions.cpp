@@ -1010,11 +1010,17 @@ nano::election_insertion_result nano::active_transactions::activate (nano::accou
 	return result;
 }
 
-bool nano::active_transactions::update_difficulty (nano::block const & block_a)
+bool nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> const & block_a, bool flood_update)
 {
-	nano::lock_guard<nano::mutex> guard (mutex);
-	auto existing_election (roots.get<tag_root> ().find (block_a.qualified_root ()));
-	bool error = existing_election == roots.get<tag_root> ().end () || update_difficulty_impl (existing_election, block_a);
+	nano::unique_lock<nano::mutex> lock (mutex);
+	auto existing_election (roots.get<tag_root> ().find (block_a->qualified_root ()));
+	bool error = existing_election == roots.get<tag_root> ().end () || update_difficulty_impl (existing_election, *block_a);
+	// Update election and flood block
+	if (!error && flood_update)
+	{
+		lock.unlock ();
+		existing_election->election->publish (block_a);
+	}
 	return error;
 }
 
