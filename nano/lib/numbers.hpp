@@ -225,13 +225,13 @@ class qualified_root : public uint512_union
 public:
 	using uint512_union::uint512_union;
 
-	nano::block_hash const & previous () const
-	{
-		return reinterpret_cast<nano::block_hash const &> (uint256s[0]);
-	}
 	nano::root const & root () const
 	{
-		return reinterpret_cast<nano::root const &> (uint256s[1]);
+		return reinterpret_cast<nano::root const &> (uint256s[0]);
+	}
+	nano::block_hash const & previous () const
+	{
+		return reinterpret_cast<nano::block_hash const &> (uint256s[1]);
 	}
 };
 
