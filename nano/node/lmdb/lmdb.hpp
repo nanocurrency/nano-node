@@ -39,7 +39,7 @@ public:
 
 	mdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, bool backup_before_upgrade = false);
 	nano::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_requiring_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) override;
-	nano::read_transaction tx_begin_read () override;
+	nano::read_transaction tx_begin_read () const override;
 
 	std::string vendor_get () const override;
 
@@ -157,12 +157,6 @@ public:
 	MDB_dbi unchecked{ 0 };
 
 	/**
-	 * Highest vote observed for account.
-	 * nano::account -> uint64_t
-	 */
-	MDB_dbi vote{ 0 };
-
-	/**
 	 * Samples of online vote weight
 	 * uint64_t -> nano::amount
 	 */
@@ -173,6 +167,12 @@ public:
 	 * nano::uint256_union (arbitrary key) -> blob
 	 */
 	MDB_dbi meta{ 0 };
+
+	/**
+	 * Pruned blocks hashes
+	 * nano::block_hash -> none
+	 */
+	MDB_dbi pruned{ 0 };
 
 	/*
 	 * Endpoints for peers
@@ -217,6 +217,7 @@ public:
 	bool init_error () const override;
 
 	uint64_t count (nano::transaction const &, MDB_dbi) const;
+	std::string error_string (int status) const override;
 
 	// These are only use in the upgrade process.
 	std::shared_ptr<nano::block> block_get_v14 (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_sideband_v14 * sideband_a = nullptr, bool * is_state_v1 = nullptr) const;
@@ -231,7 +232,8 @@ private:
 	void upgrade_v15_to_v16 (nano::write_transaction const &);
 	void upgrade_v16_to_v17 (nano::write_transaction const &);
 	void upgrade_v17_to_v18 (nano::write_transaction const &);
-	void upgrade_v18_to_v19 (nano::write_transaction const & transaction_a);
+	void upgrade_v18_to_v19 (nano::write_transaction const &);
+	void upgrade_v19_to_v20 (nano::write_transaction const &);
 
 	std::shared_ptr<nano::block> block_get_v18 (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const;
 	nano::mdb_val block_raw_get_v18 (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_type & type_a) const;
@@ -249,8 +251,8 @@ private:
 
 	MDB_dbi table_to_dbi (tables table_a) const;
 
-	nano::mdb_txn_tracker mdb_txn_tracker;
-	nano::mdb_txn_callbacks create_txn_callbacks ();
+	mutable nano::mdb_txn_tracker mdb_txn_tracker;
+	nano::mdb_txn_callbacks create_txn_callbacks () const;
 	bool txn_tracking_enabled;
 
 	uint64_t count (nano::transaction const & transaction_a, tables table_a) const override;

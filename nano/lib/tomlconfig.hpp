@@ -212,6 +212,6 @@ private:
 	std::shared_ptr<cpptoml::table> tree;
 
 	/** Compare two stringified configs, remove keys where values are equal */
-	void erase_defaults (std::shared_ptr<cpptoml::table> base, std::shared_ptr<cpptoml::table> other, std::shared_ptr<cpptoml::table> update_target);
+	void erase_defaults (std::shared_ptr<cpptoml::table> const & base, std::shared_ptr<cpptoml::table> const & other, std::shared_ptr<cpptoml::table> const & update_target);
 };
 }

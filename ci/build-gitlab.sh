@@ -5,7 +5,7 @@ set -o xtrace
 DISTRO_CFG=""
 if [[ "$OSTYPE" == "linux-gnu" ]]; then
     CPACK_TYPE="TBZ2"
-    distro=$(lsb_release -i -c -s|tr '\n' '_')
+    distro=$(lsb_release -i -c -s | tr '\n' '_')
     DISTRO_CFG="-DNANO_DISTRO_NAME=${distro}"
 elif [[ "$OSTYPE" == "darwin"* ]]; then
     CPACK_TYPE="DragNDrop"
@@ -68,22 +68,22 @@ run_build() {
     mkdir ${build_dir}
     cd ${build_dir}
     cmake -GNinja \
-       -DNANO_GUI=ON \
-       -DCMAKE_BUILD_TYPE=${CONFIGURATION} \
-       -DCMAKE_VERBOSE_MAKEFILE=ON \
-       -DCMAKE_INSTALL_PREFIX="../install" \
-       ${NETWORK_CFG} \
-       ${DISTRO_CFG} \
-       ${SIMD_CFG} \
-       -DBOOST_ROOT=/usr/local/boost \
-       ${BOOST_CFG} \
-       ${SANITIZERS} \
-       ..
+    -DNANO_GUI=ON \
+    -DCMAKE_BUILD_TYPE=${CONFIGURATION} \
+    -DCMAKE_VERBOSE_MAKEFILE=ON \
+    -DCMAKE_INSTALL_PREFIX="../install" \
+    ${NETWORK_CFG} \
+    ${DISTRO_CFG} \
+    ${SIMD_CFG} \
+    -DBOOST_ROOT=/usr/local/boost \
+    ${BOOST_CFG} \
+    ${SANITIZERS} \
+    ..
 
     cmake --build ${PWD} -- -v
     cmake --build ${PWD} -- install -v
     cpack -G ${CPACK_TYPE} -C ${CONFIGURATION} ${PWD}
-    sha1sum *.tar* > SHA1SUMS
+    sha1sum *.tar* >SHA1SUMS
 }
 
 run_build

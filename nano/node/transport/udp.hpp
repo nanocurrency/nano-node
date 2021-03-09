@@ -38,13 +38,13 @@ namespace transport
 
 		nano::endpoint get_endpoint () const override
 		{
-			nano::lock_guard<std::mutex> lk (channel_mutex);
+			nano::lock_guard<nano::mutex> lk (channel_mutex);
 			return endpoint;
 		}
 
 		nano::tcp_endpoint get_tcp_endpoint () const override
 		{
-			nano::lock_guard<std::mutex> lk (channel_mutex);
+			nano::lock_guard<nano::mutex> lk (channel_mutex);
 			return nano::transport::map_endpoint_to_tcp (endpoint);
 		}
 
@@ -55,13 +55,13 @@ namespace transport
 
 		std::chrono::steady_clock::time_point get_last_telemetry_req ()
 		{
-			nano::lock_guard<std::mutex> lk (channel_mutex);
+			nano::lock_guard<nano::mutex> lk (channel_mutex);
 			return last_telemetry_req;
 		}
 
 		void set_last_telemetry_req (std::chrono::steady_clock::time_point const time_a)
 		{
-			nano::lock_guard<std::mutex> lk (channel_mutex);
+			nano::lock_guard<nano::mutex> lk (channel_mutex);
 			last_telemetry_req = time_a;
 		}
 
@@ -104,7 +104,7 @@ namespace transport
 		void ongoing_keepalive ();
 		void list_below_version (std::vector<std::shared_ptr<nano::transport::channel>> &, uint8_t);
 		void list (std::deque<std::shared_ptr<nano::transport::channel>> &, uint8_t = 0);
-		void modify (std::shared_ptr<nano::transport::channel_udp>, std::function<void(std::shared_ptr<nano::transport::channel_udp>)>);
+		void modify (std::shared_ptr<nano::transport::channel_udp> const &, std::function<void(std::shared_ptr<nano::transport::channel_udp> const &)>);
 		nano::node & node;
 
 	private:
@@ -174,7 +174,7 @@ namespace transport
 			{
 			}
 		};
-		mutable std::mutex mutex;
+		mutable nano::mutex mutex;
 		// clang-format off
 		boost::multi_index_container<
 		channel_udp_wrapper,

@@ -20,7 +20,7 @@ TEST (peer_container, no_recontact)
 	auto observed_disconnect (false);
 	nano::endpoint endpoint1 (boost::asio::ip::address_v6::loopback (), 10000);
 	ASSERT_EQ (0, network.size ());
-	network.channel_observer = [&observed_peer](std::shared_ptr<nano::transport::channel>) { ++observed_peer; };
+	network.channel_observer = [&observed_peer](std::shared_ptr<nano::transport::channel> const &) { ++observed_peer; };
 	node1.network.disconnect_observer = [&observed_disconnect]() { observed_disconnect = true; };
 	auto channel (network.udp_channels.insert (endpoint1, node1.network_params.protocol.protocol_version));
 	ASSERT_EQ (1, network.size ());
@@ -146,7 +146,7 @@ TEST (peer_container, list_fanout)
 	}
 	ASSERT_EQ (1002, node.network.size ());
 	ASSERT_EQ (std::sqrt (1002.f), node.network.size_sqrt ());
-	size_t expected_size (std::ceil (std::sqrt (1002.f)));
+	auto expected_size (static_cast<size_t> (std::ceil (std::sqrt (1002.f))));
 	ASSERT_EQ (expected_size, node.network.fanout ());
 	auto list4 (node.network.list (node.network.fanout ()));
 	ASSERT_EQ (expected_size, list4.size ());
@@ -181,7 +181,7 @@ TEST (peer_container, depeer)
 	nano::endpoint endpoint0 (boost::asio::ip::address_v6::loopback (), nano::get_available_port ());
 	nano::keepalive message;
 	message.header.version_using = 1;
-	auto bytes (message.to_bytes (false));
+	auto bytes (message.to_bytes ());
 	nano::message_buffer buffer = { bytes->data (), bytes->size (), endpoint0 };
 	system.nodes[0]->network.udp_channels.receive_action (&buffer);
 	ASSERT_EQ (1, system.nodes[0]->stats.count (nano::stat::type::udp, nano::stat::detail::outdated_version));

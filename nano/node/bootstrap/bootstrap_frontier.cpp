@@ -36,7 +36,7 @@ void nano::frontier_req_client::run ()
 	nano::buffer_drop_policy::no_limiter_drop);
 }
 
-nano::frontier_req_client::frontier_req_client (std::shared_ptr<nano::bootstrap_client> connection_a, std::shared_ptr<nano::bootstrap_attempt> attempt_a) :
+nano::frontier_req_client::frontier_req_client (std::shared_ptr<nano::bootstrap_client> const & connection_a, std::shared_ptr<nano::bootstrap_attempt> const & attempt_a) :
 connection (connection_a),
 attempt (attempt_a),
 current (0),
@@ -44,10 +44,6 @@ count (0),
 bulk_push_cost (0)
 {
 	next ();
-}
-
-nano::frontier_req_client::~frontier_req_client ()
-{
 }
 
 void nano::frontier_req_client::receive_frontier ()
@@ -138,7 +134,7 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 					}
 					else
 					{
-						if (connection->node->ledger.block_exists (latest))
+						if (connection->node->ledger.block_or_pruned_exists (latest))
 						{
 							// We know about a block they don't.
 							unsynced (frontier, latest);
@@ -205,14 +201,14 @@ void nano::frontier_req_client::next ()
 	{
 		size_t max_size (128);
 		auto transaction (connection->node->store.tx_begin_read ());
-		for (auto i (connection->node->store.latest_begin (transaction, current.number () + 1)), n (connection->node->store.latest_end ()); i != n && accounts.size () != max_size; ++i)
+		for (auto i (connection->node->store.accounts_begin (transaction, current.number () + 1)), n (connection->node->store.accounts_end ()); i != n && accounts.size () != max_size; ++i)
 		{
 			nano::account_info const & info (i->second);
 			nano::account const & account (i->first);
 			accounts.emplace_back (account, info.head);
 		}
-		/* If loop breaks before max_size, then latest_end () is reached
-		Add empty record to finish frontier_req_server */
+		/* If loop breaks before max_size, then accounts_end () is reached
+		Add empty record */
 		if (accounts.size () != max_size)
 		{
 			accounts.emplace_back (nano::account (0), nano::block_hash (0));
@@ -244,6 +240,8 @@ void nano::frontier_req_server::send_next ()
 			nano::vectorstream stream (send_buffer);
 			write (stream, current.bytes);
 			write (stream, frontier.bytes);
+			debug_assert (!current.is_zero ());
+			debug_assert (!frontier.is_zero ());
 		}
 		auto this_l (shared_from_this ());
 		if (connection->node->config.logging.bulk_pull_logging ())
@@ -317,19 +315,19 @@ void nano::frontier_req_server::next ()
 	if (accounts.empty ())
 	{
 		auto now (nano::seconds_since_epoch ());
-		bool skip_old (request->age != std::numeric_limits<decltype (request->age)>::max ());
+		bool disable_age_filter (request->age == std::numeric_limits<decltype (request->age)>::max ());
 		size_t max_size (128);
 		auto transaction (connection->node->store.tx_begin_read ());
-		for (auto i (connection->node->store.latest_begin (transaction, current.number () + 1)), n (connection->node->store.latest_end ()); i != n && accounts.size () != max_size; ++i)
+		for (auto i (connection->node->store.accounts_begin (transaction, current.number () + 1)), n (connection->node->store.accounts_end ()); i != n && accounts.size () != max_size; ++i)
 		{
 			nano::account_info const & info (i->second);
-			if (!skip_old || (now - info.modified) <= request->age)
+			if (disable_age_filter || (now - info.modified) <= request->age)
 			{
 				nano::account const & account (i->first);
 				accounts.emplace_back (account, info.head);
 			}
 		}
-		/* If loop breaks before max_size, then latest_end () is reached
+		/* If loop breaks before max_size, then accounts_end () is reached
 		Add empty record to finish frontier_req_server */
 		if (accounts.size () != max_size)
 		{

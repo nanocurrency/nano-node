@@ -14,6 +14,7 @@ enum class writer
 {
 	confirmation_height,
 	process_batch,
+	pruning,
 	testing // Used in tests to emulate a write lock
 };
 
@@ -52,7 +53,7 @@ public:
 
 private:
 	std::deque<nano::writer> queue;
-	std::mutex mutex;
+	nano::mutex mutex;
 	nano::condition_variable cv;
 	std::function<void()> guard_finish_callback;
 	bool use_noops;

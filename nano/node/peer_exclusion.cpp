@@ -8,7 +8,7 @@ constexpr double nano::peer_exclusion::peers_percentage_limit;
 uint64_t nano::peer_exclusion::add (nano::tcp_endpoint const & endpoint_a, size_t const network_peers_count_a)
 {
 	uint64_t result (0);
-	nano::lock_guard<std::mutex> guard (mutex);
+	nano::lock_guard<nano::mutex> guard (mutex);
 	// Clean old excluded peers
 	auto limited = limited_size (network_peers_count_a);
 	while (peers.size () > 1 && peers.size () > limited)
@@ -49,7 +49,7 @@ uint64_t nano::peer_exclusion::add (nano::tcp_endpoint const & endpoint_a, size_
 bool nano::peer_exclusion::check (nano::tcp_endpoint const & endpoint_a)
 {
 	bool excluded (false);
-	nano::lock_guard<std::mutex> guard (mutex);
+	nano::lock_guard<nano::mutex> guard (mutex);
 	auto & peers_by_endpoint (peers.get<tag_endpoint> ());
 	auto existing (peers_by_endpoint.find (endpoint_a.address ()));
 	if (existing != peers_by_endpoint.end () && existing->score >= score_limit)
@@ -68,22 +68,22 @@ bool nano::peer_exclusion::check (nano::tcp_endpoint const & endpoint_a)
 
 void nano::peer_exclusion::remove (nano::tcp_endpoint const & endpoint_a)
 {
-	nano::lock_guard<std::mutex> guard (mutex);
+	nano::lock_guard<nano::mutex> guard (mutex);
 	peers.get<tag_endpoint> ().erase (endpoint_a.address ());
 }
 
 size_t nano::peer_exclusion::limited_size (size_t const network_peers_count_a) const
 {
-	return std::min<size_t> (size_max, network_peers_count_a * peers_percentage_limit);
+	return std::min (size_max, static_cast<size_t> (network_peers_count_a * peers_percentage_limit));
 }
 
 size_t nano::peer_exclusion::size () const
 {
-	nano::lock_guard<std::mutex> guard (mutex);
+	nano::lock_guard<nano::mutex> guard (mutex);
 	return peers.size ();
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::peer_exclusion const & excluded_peers, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::peer_exclusion const & excluded_peers, std::string const & name)
 {
 	auto composite = std::make_unique<container_info_composite> (name);
 

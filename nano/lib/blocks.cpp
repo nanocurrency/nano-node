@@ -37,10 +37,10 @@ std::shared_ptr<block> deserialize_block (nano::stream & stream_a)
 
 void nano::block_memory_pool_purge ()
 {
-	nano::purge_singleton_pool_memory<nano::open_block> ();
-	nano::purge_singleton_pool_memory<nano::state_block> ();
-	nano::purge_singleton_pool_memory<nano::send_block> ();
-	nano::purge_singleton_pool_memory<nano::change_block> ();
+	nano::purge_shared_ptr_singleton_pool_memory<nano::open_block> ();
+	nano::purge_shared_ptr_singleton_pool_memory<nano::state_block> ();
+	nano::purge_shared_ptr_singleton_pool_memory<nano::send_block> ();
+	nano::purge_shared_ptr_singleton_pool_memory<nano::change_block> ();
 }
 
 std::string nano::block::to_json () const
@@ -166,6 +166,12 @@ nano::block_hash const & nano::block::source () const
 	return source;
 }
 
+nano::account const & nano::block::destination () const
+{
+	static nano::account destination{ 0 };
+	return destination;
+}
+
 nano::link const & nano::block::link () const
 {
 	static nano::link link{ 0 };
@@ -180,7 +186,7 @@ nano::account const & nano::block::account () const
 
 nano::qualified_root nano::block::qualified_root () const
 {
-	return nano::qualified_root (previous (), root ());
+	return nano::qualified_root (root (), previous ());
 }
 
 nano::amount const & nano::block::balance () const
@@ -440,6 +446,11 @@ bool nano::send_block::operator== (nano::send_block const & other_a) const
 nano::block_hash const & nano::send_block::previous () const
 {
 	return hashables.previous;
+}
+
+nano::account const & nano::send_block::destination () const
+{
+	return hashables.destination;
 }
 
 nano::root const & nano::send_block::root () const
@@ -1834,13 +1845,13 @@ bool nano::block_sideband::deserialize (nano::stream & stream_a, nano::block_typ
 	return result;
 }
 
-std::shared_ptr<nano::block> nano::block_uniquer::unique (std::shared_ptr<nano::block> block_a)
+std::shared_ptr<nano::block> nano::block_uniquer::unique (std::shared_ptr<nano::block> const & block_a)
 {
 	auto result (block_a);
 	if (result != nullptr)
 	{
 		nano::uint256_union key (block_a->full_hash ());
-		nano::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock (mutex);
 		auto & existing (blocks[key]);
 		if (auto block_l = existing.lock ())
 		{
@@ -1877,11 +1888,11 @@ std::shared_ptr<nano::block> nano::block_uniquer::unique (std::shared_ptr<nano::
 
 size_t nano::block_uniquer::size ()
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	return blocks.size ();
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (block_uniquer & block_uniquer, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (block_uniquer & block_uniquer, std::string const & name)
 {
 	auto count = block_uniquer.size ();
 	auto sizeof_element = sizeof (block_uniquer::value_type);

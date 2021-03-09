@@ -345,7 +345,7 @@ TEST (block_store, genesis)
 	ASSERT_EQ (confirmation_height_info.frontier, hash);
 	auto dev_pub_text (nano::dev_genesis_key.pub.to_string ());
 	auto dev_pub_account (nano::dev_genesis_key.pub.to_account ());
-	auto dev_prv_text (nano::dev_genesis_key.prv.data.to_string ());
+	auto dev_prv_text (nano::dev_genesis_key.prv.to_string ());
 	ASSERT_EQ (nano::genesis_account, nano::dev_genesis_key.pub);
 }
 
@@ -461,8 +461,8 @@ TEST (block_store, empty_accounts)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	auto transaction (store->tx_begin_read ());
-	auto begin (store->latest_begin (transaction));
-	auto end (store->latest_end ());
+	auto begin (store->accounts_begin (transaction));
+	auto end (store->accounts_end ());
 	ASSERT_EQ (end, begin);
 }
 
@@ -497,7 +497,6 @@ TEST (block_store, one_bootstrap)
 	auto block1 (std::make_shared<nano::send_block> (0, 1, 2, nano::keypair ().prv, 4, 5));
 	auto transaction (store->tx_begin_write ());
 	store->unchecked_put (transaction, block1->hash (), block1);
-	store->flush (transaction);
 	auto begin (store->unchecked_begin (transaction));
 	auto end (store->unchecked_end ());
 	ASSERT_NE (end, begin);
@@ -546,8 +545,8 @@ TEST (block_store, one_account)
 	auto transaction (store->tx_begin_write ());
 	store->confirmation_height_put (transaction, account, { 20, nano::block_hash (15) });
 	store->account_put (transaction, account, { hash, account, hash, 42, 100, 200, nano::epoch::epoch_0 });
-	auto begin (store->latest_begin (transaction));
-	auto end (store->latest_end ());
+	auto begin (store->accounts_begin (transaction));
+	auto end (store->accounts_end ());
 	ASSERT_NE (end, begin);
 	ASSERT_EQ (account, nano::account (begin->first));
 	nano::account_info info (begin->second);
@@ -600,8 +599,8 @@ TEST (block_store, two_account)
 	store->account_put (transaction, account1, { hash1, account1, hash1, 42, 100, 300, nano::epoch::epoch_0 });
 	store->confirmation_height_put (transaction, account2, { 30, nano::block_hash (20) });
 	store->account_put (transaction, account2, { hash2, account2, hash2, 84, 200, 400, nano::epoch::epoch_0 });
-	auto begin (store->latest_begin (transaction));
-	auto end (store->latest_end ());
+	auto begin (store->accounts_begin (transaction));
+	auto end (store->accounts_end ());
 	ASSERT_NE (end, begin);
 	ASSERT_EQ (account1, nano::account (begin->first));
 	nano::account_info info1 (begin->second);
@@ -642,14 +641,14 @@ TEST (block_store, latest_find)
 	store->account_put (transaction, account1, { hash1, account1, hash1, 100, 0, 300, nano::epoch::epoch_0 });
 	store->confirmation_height_put (transaction, account2, { 0, nano::block_hash (0) });
 	store->account_put (transaction, account2, { hash2, account2, hash2, 200, 0, 400, nano::epoch::epoch_0 });
-	auto first (store->latest_begin (transaction));
-	auto second (store->latest_begin (transaction));
+	auto first (store->accounts_begin (transaction));
+	auto second (store->accounts_begin (transaction));
 	++second;
-	auto find1 (store->latest_begin (transaction, 1));
+	auto find1 (store->accounts_begin (transaction, 1));
 	ASSERT_EQ (first, find1);
-	auto find2 (store->latest_begin (transaction, 3));
+	auto find2 (store->accounts_begin (transaction, 3));
 	ASSERT_EQ (second, find2);
-	auto find3 (store->latest_begin (transaction, 2));
+	auto find3 (store->accounts_begin (transaction, 2));
 	ASSERT_EQ (second, find3);
 }
 
@@ -789,7 +788,7 @@ TEST (block_store, large_iteration)
 	std::unordered_set<nano::account> accounts2;
 	nano::account previous (0);
 	auto transaction (store->tx_begin_read ());
-	for (auto i (store->latest_begin (transaction, 0)), n (store->latest_end ()); i != n; ++i)
+	for (auto i (store->accounts_begin (transaction, 0)), n (store->accounts_end ()); i != n; ++i)
 	{
 		nano::account current (i->first);
 		ASSERT_GT (current.number (), previous.number ());
@@ -876,35 +875,6 @@ TEST (block_store, cemented_count_cache)
 	ASSERT_EQ (1, ledger_cache.cemented_count);
 }
 
-TEST (block_store, sequence_increment)
-{
-	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
-	ASSERT_TRUE (!store->init_error ());
-	nano::keypair key1;
-	nano::keypair key2;
-	auto block1 (std::make_shared<nano::open_block> (0, 1, 0, nano::keypair ().prv, 0, 0));
-	auto transaction (store->tx_begin_write ());
-	auto vote1 (store->vote_generate (transaction, key1.pub, key1.prv, block1));
-	ASSERT_EQ (1, vote1->sequence);
-	auto vote2 (store->vote_generate (transaction, key1.pub, key1.prv, block1));
-	ASSERT_EQ (2, vote2->sequence);
-	auto vote3 (store->vote_generate (transaction, key2.pub, key2.prv, block1));
-	ASSERT_EQ (1, vote3->sequence);
-	auto vote4 (store->vote_generate (transaction, key2.pub, key2.prv, block1));
-	ASSERT_EQ (2, vote4->sequence);
-	vote1->sequence = 20;
-	auto seq5 (store->vote_max (transaction, vote1));
-	ASSERT_EQ (20, seq5->sequence);
-	vote3->sequence = 30;
-	auto seq6 (store->vote_max (transaction, vote3));
-	ASSERT_EQ (30, seq6->sequence);
-	auto vote5 (store->vote_generate (transaction, key1.pub, key1.prv, block1));
-	ASSERT_EQ (21, vote5->sequence);
-	auto vote6 (store->vote_generate (transaction, key2.pub, key2.prv, block1));
-	ASSERT_EQ (31, vote6->sequence);
-}
-
 TEST (block_store, block_random)
 {
 	nano::logger_mt logger;
@@ -922,6 +892,26 @@ TEST (block_store, block_random)
 	ASSERT_EQ (*block, *genesis.open);
 }
 
+TEST (block_store, pruned_random)
+{
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_TRUE (!store->init_error ());
+	nano::genesis genesis;
+	nano::open_block block (0, 1, 0, nano::keypair ().prv, 0, 0);
+	block.sideband_set ({});
+	auto hash1 (block.hash ());
+	{
+		nano::ledger_cache ledger_cache;
+		auto transaction (store->tx_begin_write ());
+		store->initialize (transaction, genesis, ledger_cache);
+		store->pruned_put (transaction, hash1);
+	}
+	auto transaction (store->tx_begin_read ());
+	auto random_hash (store->pruned_random (transaction));
+	ASSERT_EQ (hash1, random_hash);
+}
+
 // Databases need to be dropped in order to convert to dupsort compatible
 TEST (block_store, DISABLED_change_dupsort) // Unchecked is no longer dupsort table
 {
@@ -936,7 +926,6 @@ TEST (block_store, DISABLED_change_dupsort) // Unchecked is no longer dupsort ta
 	ASSERT_NE (send1->hash (), send2->hash ());
 	store.unchecked_put (transaction, send1->hash (), send1);
 	store.unchecked_put (transaction, send1->hash (), send2);
-	store.flush (transaction);
 	{
 		auto iterator1 (store.unchecked_begin (transaction));
 		++iterator1;
@@ -947,7 +936,6 @@ TEST (block_store, DISABLED_change_dupsort) // Unchecked is no longer dupsort ta
 	ASSERT_EQ (0, mdb_dbi_open (store.env.tx (transaction), "unchecked", MDB_CREATE | MDB_DUPSORT, &store.unchecked));
 	store.unchecked_put (transaction, send1->hash (), send1);
 	store.unchecked_put (transaction, send1->hash (), send2);
-	store.flush (transaction);
 	{
 		auto iterator1 (store.unchecked_begin (transaction));
 		++iterator1;
@@ -957,7 +945,6 @@ TEST (block_store, DISABLED_change_dupsort) // Unchecked is no longer dupsort ta
 	ASSERT_EQ (0, mdb_dbi_open (store.env.tx (transaction), "unchecked", MDB_CREATE | MDB_DUPSORT, &store.unchecked));
 	store.unchecked_put (transaction, send1->hash (), send1);
 	store.unchecked_put (transaction, send1->hash (), send2);
-	store.flush (transaction);
 	{
 		auto iterator1 (store.unchecked_begin (transaction));
 		++iterator1;
@@ -965,43 +952,6 @@ TEST (block_store, DISABLED_change_dupsort) // Unchecked is no longer dupsort ta
 		++iterator1;
 		ASSERT_EQ (store.unchecked_end (), iterator1);
 	}
-}
-
-TEST (block_store, sequence_flush)
-{
-	auto path (nano::unique_path ());
-	nano::logger_mt logger;
-	auto store = nano::make_store (logger, path);
-	ASSERT_FALSE (store->init_error ());
-	auto transaction (store->tx_begin_write ());
-	nano::keypair key1;
-	auto send1 (std::make_shared<nano::send_block> (0, 0, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
-	auto vote1 (store->vote_generate (transaction, key1.pub, key1.prv, send1));
-	auto seq2 (store->vote_get (transaction, vote1->account));
-	ASSERT_EQ (nullptr, seq2);
-	store->flush (transaction);
-	auto seq3 (store->vote_get (transaction, vote1->account));
-	ASSERT_EQ (*seq3, *vote1);
-}
-
-TEST (block_store, sequence_flush_by_hash)
-{
-	auto path (nano::unique_path ());
-	nano::logger_mt logger;
-	auto store = nano::make_store (logger, path);
-	ASSERT_FALSE (store->init_error ());
-	auto transaction (store->tx_begin_write ());
-	nano::keypair key1;
-	std::vector<nano::block_hash> blocks1;
-	blocks1.push_back (nano::genesis_hash);
-	blocks1.push_back (1234);
-	blocks1.push_back (5678);
-	auto vote1 (store->vote_generate (transaction, key1.pub, key1.prv, blocks1));
-	auto seq2 (store->vote_get (transaction, vote1->account));
-	ASSERT_EQ (nullptr, seq2);
-	store->flush (transaction);
-	auto seq3 (store->vote_get (transaction, vote1->account));
-	ASSERT_EQ (*seq3, *vote1);
 }
 
 TEST (block_store, state_block)
@@ -1226,6 +1176,69 @@ TEST (block_store, online_weight)
 	auto transaction (store->tx_begin_read ());
 	ASSERT_EQ (0, store->online_weight_count (transaction));
 	ASSERT_EQ (store->online_weight_end (), store->online_weight_begin (transaction));
+}
+
+TEST (block_store, pruned_blocks)
+{
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_TRUE (!store->init_error ());
+
+	nano::keypair key1;
+	nano::open_block block1 (0, 1, key1.pub, key1.prv, key1.pub, 0);
+	auto hash1 (block1.hash ());
+	{
+		auto transaction (store->tx_begin_write ());
+
+		// Confirm that the store is empty
+		ASSERT_FALSE (store->pruned_exists (transaction, hash1));
+		ASSERT_EQ (store->pruned_count (transaction), 0);
+
+		// Add one
+		store->pruned_put (transaction, hash1);
+		ASSERT_TRUE (store->pruned_exists (transaction, hash1));
+	}
+
+	// Confirm that it can be found
+	ASSERT_EQ (store->pruned_count (store->tx_begin_read ()), 1);
+
+	// Add another one and check that it (and the existing one) can be found
+	nano::open_block block2 (1, 2, key1.pub, key1.prv, key1.pub, 0);
+	block2.sideband_set ({});
+	auto hash2 (block2.hash ());
+	{
+		auto transaction (store->tx_begin_write ());
+		store->pruned_put (transaction, hash2);
+		ASSERT_TRUE (store->pruned_exists (transaction, hash2)); // Check new pruned hash is here
+		ASSERT_TRUE (store->block_or_pruned_exists (transaction, hash2));
+		ASSERT_TRUE (store->pruned_exists (transaction, hash1)); // Check first pruned hash is still here
+		ASSERT_TRUE (store->block_or_pruned_exists (transaction, hash1));
+	}
+
+	ASSERT_EQ (store->pruned_count (store->tx_begin_read ()), 2);
+
+	// Delete the first one
+	{
+		auto transaction (store->tx_begin_write ());
+		store->pruned_del (transaction, hash2);
+		ASSERT_FALSE (store->pruned_exists (transaction, hash2)); // Confirm it no longer exists
+		ASSERT_FALSE (store->block_or_pruned_exists (transaction, hash2));
+		store->block_put (transaction, hash2, block2); // Add corresponding block
+		ASSERT_TRUE (store->block_or_pruned_exists (transaction, hash2));
+		ASSERT_TRUE (store->pruned_exists (transaction, hash1)); // Check first pruned hash is still here
+		ASSERT_TRUE (store->block_or_pruned_exists (transaction, hash1));
+	}
+
+	ASSERT_EQ (store->pruned_count (store->tx_begin_read ()), 1);
+
+	// Delete original one
+	{
+		auto transaction (store->tx_begin_write ());
+		store->pruned_del (transaction, hash1);
+		ASSERT_FALSE (store->pruned_exists (transaction, hash1));
+	}
+
+	ASSERT_EQ (store->pruned_count (store->tx_begin_read ()), 0);
 }
 
 TEST (mdb_block_store, upgrade_v14_v15)
@@ -1748,6 +1761,36 @@ TEST (mdb_block_store, upgrade_v18_v19)
 	ASSERT_LT (18, store.version_get (transaction));
 }
 
+TEST (mdb_block_store, upgrade_v19_v20)
+{
+	if (nano::using_rocksdb_in_tests ())
+	{
+		// Don't test this in rocksdb mode
+		return;
+	}
+	auto path (nano::unique_path ());
+	nano::genesis genesis;
+	nano::logger_mt logger;
+	nano::stat stats;
+	{
+		nano::mdb_store store (logger, path);
+		nano::ledger ledger (store, stats);
+		auto transaction (store.tx_begin_write ());
+		store.initialize (transaction, genesis, ledger.cache);
+		// Delete pruned table
+		ASSERT_FALSE (mdb_drop (store.env.tx (transaction), store.pruned, 1));
+		store.version_put (transaction, 19);
+	}
+	// Upgrading should create the table
+	nano::mdb_store store (logger, path);
+	ASSERT_FALSE (store.init_error ());
+	ASSERT_NE (store.pruned, 0);
+
+	// Version should be correct
+	auto transaction (store.tx_begin_read ());
+	ASSERT_LT (19, store.version_get (transaction));
+}
+
 TEST (mdb_block_store, upgrade_backup)
 {
 	if (nano::using_rocksdb_in_tests ())
@@ -1828,17 +1871,11 @@ TEST (block_store, confirmation_height)
 		store->confirmation_height_clear (transaction);
 	}
 	auto transaction (store->tx_begin_read ());
-	ASSERT_EQ (store->confirmation_height_count (transaction), 3);
+	ASSERT_EQ (store->confirmation_height_count (transaction), 0);
 	nano::confirmation_height_info confirmation_height_info;
-	ASSERT_FALSE (store->confirmation_height_get (transaction, account1, confirmation_height_info));
-	ASSERT_EQ (confirmation_height_info.height, 0);
-	ASSERT_EQ (confirmation_height_info.frontier, nano::block_hash (0));
-	ASSERT_FALSE (store->confirmation_height_get (transaction, account2, confirmation_height_info));
-	ASSERT_EQ (confirmation_height_info.height, 0);
-	ASSERT_EQ (confirmation_height_info.frontier, nano::block_hash (0));
-	ASSERT_FALSE (store->confirmation_height_get (transaction, account3, confirmation_height_info));
-	ASSERT_EQ (confirmation_height_info.height, 0);
-	ASSERT_EQ (confirmation_height_info.frontier, nano::block_hash (0));
+	ASSERT_TRUE (store->confirmation_height_get (transaction, account1, confirmation_height_info));
+	ASSERT_TRUE (store->confirmation_height_get (transaction, account2, confirmation_height_info));
+	ASSERT_TRUE (store->confirmation_height_get (transaction, account3, confirmation_height_info));
 }
 
 // Ledger versions are not forward compatible
@@ -1905,7 +1942,6 @@ TEST (block_store, rocksdb_force_test_env_variable)
 	// Set environment variable
 	constexpr auto env_var = "TEST_USE_ROCKSDB";
 	auto value = std::getenv (env_var);
-	(void)value;
 
 	auto store = nano::make_store (logger, nano::unique_path ());
 

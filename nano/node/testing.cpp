@@ -30,7 +30,7 @@ std::shared_ptr<nano::node> nano::system::add_node (nano::node_flags node_flags_
 /** Returns the node added. */
 std::shared_ptr<nano::node> nano::system::add_node (nano::node_config const & node_config_a, nano::node_flags node_flags_a, nano::transport::transport_type type_a)
 {
-	auto node (std::make_shared<nano::node> (io_ctx, nano::unique_path (), alarm, node_config_a, work, node_flags_a, node_sequence++));
+	auto node (std::make_shared<nano::node> (io_ctx, nano::unique_path (), node_config_a, work, node_flags_a, node_sequence++));
 	debug_assert (!node->init_error ());
 	node->start ();
 	node->wallets.create (nano::random_wallet_id ());
@@ -202,15 +202,23 @@ std::unique_ptr<nano::state_block> nano::upgrade_epoch (nano::work_pool & pool_a
 	return !error ? std::move (epoch) : nullptr;
 }
 
-void nano::blocks_confirm (nano::node & node_a, std::vector<std::shared_ptr<nano::block>> const & blocks_a)
+void nano::blocks_confirm (nano::node & node_a, std::vector<std::shared_ptr<nano::block>> const & blocks_a, bool const forced_a)
 {
 	// Finish processing all blocks
 	node_a.block_processor.flush ();
 	for (auto const & block : blocks_a)
 	{
+		auto disk_block (node_a.block (block->hash ()));
 		// A sideband is required to start an election
-		debug_assert (block->has_sideband ());
-		node_a.block_confirm (block);
+		debug_assert (disk_block != nullptr);
+		debug_assert (disk_block->has_sideband ());
+		node_a.block_confirm (disk_block);
+		if (forced_a)
+		{
+			auto election = node_a.active.election (disk_block->qualified_root ());
+			debug_assert (election != nullptr);
+			election->force_confirm ();
+		}
 	}
 }
 
@@ -283,7 +291,7 @@ public:
 		if (count_l > 0)
 		{
 			auto this_l (shared_from_this ());
-			node->alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (wait), [this_l]() { this_l->run (); });
+			node->workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (wait), [this_l]() { this_l->run (); });
 		}
 	}
 	std::vector<nano::account> accounts;
@@ -414,12 +422,12 @@ void nano::system::generate_send_existing (nano::node & node_a, std::vector<nano
 		nano::account account;
 		random_pool::generate_block (account.bytes.data (), sizeof (account.bytes));
 		auto transaction (node_a.store.tx_begin_read ());
-		nano::store_iterator<nano::account, nano::account_info> entry (node_a.store.latest_begin (transaction, account));
-		if (entry == node_a.store.latest_end ())
+		nano::store_iterator<nano::account, nano::account_info> entry (node_a.store.accounts_begin (transaction, account));
+		if (entry == node_a.store.accounts_end ())
 		{
-			entry = node_a.store.latest_begin (transaction);
+			entry = node_a.store.accounts_begin (transaction);
 		}
-		debug_assert (entry != node_a.store.latest_end ());
+		debug_assert (entry != node_a.store.accounts_end ());
 		destination = nano::account (entry->first);
 		source = get_random_account (accounts_a);
 		amount = get_random_amount (transaction, node_a, source);

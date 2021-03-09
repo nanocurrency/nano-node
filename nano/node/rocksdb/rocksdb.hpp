@@ -28,7 +28,7 @@ class rocksdb_store : public block_store_partial<rocksdb::Slice, rocksdb_store>
 public:
 	rocksdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::rocksdb_config const & = nano::rocksdb_config{}, bool open_read_only = false);
 	nano::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_requiring_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) override;
-	nano::read_transaction tx_begin_read () override;
+	nano::read_transaction tx_begin_read () const override;
 
 	std::string vendor_get () const override;
 
@@ -62,6 +62,8 @@ public:
 
 	bool init_error () const override;
 
+	std::string error_string (int status) const override;
+
 private:
 	bool error{ false };
 	nano::logger_mt & logger;
@@ -70,7 +72,7 @@ private:
 	std::unique_ptr<rocksdb::DB> db;
 	std::vector<std::unique_ptr<rocksdb::ColumnFamilyHandle>> handles;
 	std::shared_ptr<rocksdb::TableFactory> small_table_factory;
-	std::unordered_map<nano::tables, std::mutex> write_lock_mutexes;
+	std::unordered_map<nano::tables, nano::mutex> write_lock_mutexes;
 	nano::rocksdb_config rocksdb_config;
 	unsigned const max_block_write_batch_num_m;
 
@@ -103,7 +105,7 @@ private:
 	rocksdb::ColumnFamilyOptions get_common_cf_options (std::shared_ptr<rocksdb::TableFactory> const & table_factory_a, unsigned long long memtable_size_bytes_a) const;
 	rocksdb::ColumnFamilyOptions get_active_cf_options (std::shared_ptr<rocksdb::TableFactory> const & table_factory_a, unsigned long long memtable_size_bytes_a) const;
 	rocksdb::ColumnFamilyOptions get_small_cf_options (std::shared_ptr<rocksdb::TableFactory> const & table_factory_a) const;
-	rocksdb::BlockBasedTableOptions get_active_table_options (int lru_size) const;
+	rocksdb::BlockBasedTableOptions get_active_table_options (size_t lru_size) const;
 	rocksdb::BlockBasedTableOptions get_small_table_options () const;
 	rocksdb::ColumnFamilyOptions get_cf_options (std::string const & cf_name_a) const;
 

@@ -21,7 +21,7 @@ class pull_info;
 class bootstrap_client final : public std::enable_shared_from_this<bootstrap_client>
 {
 public:
-	bootstrap_client (std::shared_ptr<nano::node> node_a, std::shared_ptr<nano::bootstrap_connections> connections_a, std::shared_ptr<nano::transport::channel_tcp> channel_a, std::shared_ptr<nano::socket> socket_a);
+	bootstrap_client (std::shared_ptr<nano::node> const & node_a, std::shared_ptr<nano::bootstrap_connections> const & connections_a, std::shared_ptr<nano::transport::channel_tcp> const & channel_a, std::shared_ptr<nano::socket> const & socket_a);
 	~bootstrap_client ();
 	std::shared_ptr<nano::bootstrap_client> shared ();
 	void stop (bool force);
@@ -39,7 +39,7 @@ public:
 	std::atomic<bool> hard_stop{ false };
 
 private:
-	mutable std::mutex start_time_mutex;
+	mutable nano::mutex start_time_mutex;
 	std::chrono::steady_clock::time_point start_time_m;
 };
 
@@ -48,8 +48,8 @@ class bootstrap_connections final : public std::enable_shared_from_this<bootstra
 public:
 	bootstrap_connections (nano::node & node_a);
 	std::shared_ptr<nano::bootstrap_connections> shared ();
-	std::shared_ptr<nano::bootstrap_client> connection (std::shared_ptr<nano::bootstrap_attempt> attempt_a = nullptr, bool use_front_connection = false);
-	void pool_connection (std::shared_ptr<nano::bootstrap_client> client_a, bool new_client = false, bool push_front = false);
+	std::shared_ptr<nano::bootstrap_client> connection (std::shared_ptr<nano::bootstrap_attempt> const & attempt_a = nullptr, bool use_front_connection = false);
+	void pool_connection (std::shared_ptr<nano::bootstrap_client> const & client_a, bool new_client = false, bool push_front = false);
 	void add_connection (nano::endpoint const & endpoint_a);
 	std::shared_ptr<nano::bootstrap_client> find_connection (nano::tcp_endpoint const & endpoint_a);
 	void connect_client (nano::tcp_endpoint const & endpoint_a, bool push_front = false);
@@ -57,7 +57,7 @@ public:
 	void populate_connections (bool repeat = true);
 	void start_populate_connections ();
 	void add_pull (nano::pull_info const & pull_a);
-	void request_pull (nano::unique_lock<std::mutex> & lock_a);
+	void request_pull (nano::unique_lock<nano::mutex> & lock_a);
 	void requeue_pull (nano::pull_info const & pull_a, bool network_error = false);
 	void clear_pulls (uint64_t);
 	void run ();
@@ -70,7 +70,7 @@ public:
 	std::atomic<bool> populate_connections_started{ false };
 	std::atomic<bool> new_connections_empty{ false };
 	std::atomic<bool> stopped{ false };
-	std::mutex mutex;
+	nano::mutex mutex;
 	nano::condition_variable condition;
 };
 }

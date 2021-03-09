@@ -9,15 +9,15 @@ env:
   
 jobs:
   osx_test:
-    runs-on: macOS-latest
+    runs-on: macos-latest
     env:
       BOOST_ROOT: /tmp/boost
       DEADLINE_SCALE_FACTOR: 2
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
-      - uses: actions/checkout@722adc6
-      - name: Checkout Submodules
-        run: git submodule update --init --recursive
+      - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        with:
+          submodules: "recursive"
       - name: Fetch Deps
         run: TEST=1 ci/actions/osx/install_deps.sh
       - name: Run Tests
@@ -28,26 +28,26 @@ jobs:
     timeout-minutes: 60
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
-      - uses: actions/checkout@722adc6
-      - name: Checkout Submodules
-        run: git submodule update --init --recursive
+      - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        with:
+          submodules: "recursive"
       - name: Fetch Deps
         run: ci/actions/linux/install_deps.sh
       - name: Run Tests
-        run: docker run -e TEST_USE_ROCKSDB -v ${PWD}:/workspace nanocurrency/nano-env:gcc /bin/bash -c "cd /workspace && export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/tmp/boost/lib && ldconfig && ./ci/build-travis.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 ${PWD}"
+        run: docker run -e TEST_USE_ROCKSDB -v ${PWD}:/workspace nanocurrency/nano-env:gcc /bin/bash -c "cd /workspace && ./ci/build-travis.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 ${PWD}"
   
   clang_test:
     runs-on: ubuntu-18.04
     timeout-minutes: 60
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
-      - uses: actions/checkout@722adc6
-      - name: Checkout Submodules
-        run: git submodule update --init --recursive
+      - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        with:
+          submodules: "recursive"
       - name: Fetch Deps
         run: ci/actions/linux/install_deps.sh
       - name: Run Tests
-        run: docker run -e TEST_USE_ROCKSDB -v ${PWD}:/workspace nanocurrency/nano-env:clang-6 /bin/bash -c "cd /workspace && export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/tmp/boost/lib && ldconfig && ./ci/build-travis.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 ${PWD}"
+        run: docker run -e TEST_USE_ROCKSDB -v ${PWD}:/workspace nanocurrency/nano-env:clang-6 /bin/bash -c "cd /workspace && ./ci/build-travis.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 ${PWD}"
 
   windows_test:
     runs-on: windows-latest
@@ -57,11 +57,11 @@ jobs:
       DEADLINE_SCALE_FACTOR: 2
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
-      - uses: actions/checkout@722adc6
+      - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        with:
+          submodules: "recursive"
       - name: Windows Defender
         run: ci/actions/windows/disable_windows_defender.ps1
-      - name: Checkout Submodules
-        run: git submodule update --init --recursive
       - name: Fetch Deps
         run: ci/actions/windows/install_deps.ps1
       - name: Run Tests
