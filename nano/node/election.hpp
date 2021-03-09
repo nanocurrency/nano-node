@@ -23,6 +23,15 @@ public:
 	uint64_t timestamp;
 	nano::block_hash hash;
 };
+class vote_with_weight_info final
+{
+public:
+	nano::account representative;
+	std::chrono::steady_clock::time_point time;
+	uint64_t timestamp;
+	nano::block_hash hash;
+	nano::uint128_t weight;
+};
 class election_vote_result final
 {
 public:
@@ -117,6 +126,7 @@ public: // Information
 	uint64_t const height;
 	nano::root const root;
 	nano::qualified_root const qualified_root;
+	std::vector<nano::vote_with_weight_info> votes_with_weight () const;
 
 private:
 	nano::tally_t tally_impl () const;

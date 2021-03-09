@@ -65,6 +65,16 @@ public:
 	{
 	}
 
+	db_val (nano::uint512_union const & val_a) :
+	db_val (sizeof (val_a), const_cast<nano::uint512_union *> (&val_a))
+	{
+	}
+
+	db_val (nano::qualified_root const & val_a) :
+	db_val (sizeof (val_a), const_cast<nano::qualified_root *> (&val_a))
+	{
+	}
+
 	db_val (nano::account_info const & val_a) :
 	db_val (val_a.db_size (), const_cast<nano::account_info *> (&val_a))
 	{
@@ -251,9 +261,19 @@ public:
 		return convert<nano::public_key> ();
 	}
 
+	explicit operator nano::qualified_root () const
+	{
+		return convert<nano::qualified_root> ();
+	}
+
 	explicit operator nano::uint256_union () const
 	{
 		return convert<nano::uint256_union> ();
+	}
+
+	explicit operator nano::uint512_union () const
+	{
+		return convert<nano::uint512_union> ();
 	}
 
 	explicit operator std::array<char, 64> () const

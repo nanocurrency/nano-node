@@ -531,7 +531,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 void nano::block_processor::process_old (nano::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a, nano::block_origin const origin_a)
 {
 	// First try to update election difficulty, then attempt to restart an election
-	if (!node.active.update_difficulty (*block_a) || !node.active.restart (transaction_a, block_a))
+	if (!node.active.update_difficulty (block_a, true) || !node.active.restart (transaction_a, block_a))
 	{
 		// Let others know about the difficulty update
 		if (origin_a == nano::block_origin::local)

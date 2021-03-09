@@ -894,14 +894,11 @@ int main (int argc, char * const * argv)
 			size_t num_iterations (5); // 100,000 * 5 * 2 = 1,000,000 blocks
 			size_t max_blocks (2 * num_accounts * num_iterations + num_accounts * 2); //  1,000,000 + 2 * 100,000 = 1,200,000 blocks
 			std::cout << boost::str (boost::format ("Starting pregenerating %1% blocks\n") % max_blocks);
-			boost::asio::io_context io_ctx;
-			nano::work_pool work (std::numeric_limits<unsigned>::max ());
-			nano::logging logging;
-			auto path (nano::unique_path ());
-			logging.init (path);
 			nano::node_flags node_flags;
 			nano::update_flags (node_flags, vm);
-			auto node (std::make_shared<nano::node> (io_ctx, 24001, path, logging, work, node_flags));
+			nano::inactive_node inactive_node (nano::unique_path (), data_path, node_flags);
+			auto node = inactive_node.node;
+
 			nano::block_hash genesis_latest (node->latest (dev_params.ledger.dev_genesis_key.pub));
 			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
 			// Generating keys
@@ -921,7 +918,7 @@ int main (int argc, char * const * argv)
 				            .balance (genesis_balance)
 				            .link (keys[i].pub)
 				            .sign (dev_params.ledger.dev_genesis_key.prv, dev_params.ledger.dev_genesis_key.pub)
-				            .work (*work.generate (nano::work_version::work_1, genesis_latest, node->network_params.network.publish_thresholds.epoch_1))
+				            .work (*node->work.generate (nano::work_version::work_1, genesis_latest, node->network_params.network.publish_thresholds.epoch_1))
 				            .build ();
 
 				genesis_latest = send->hash ();
@@ -934,7 +931,7 @@ int main (int argc, char * const * argv)
 				            .balance (balances[i])
 				            .link (genesis_latest)
 				            .sign (keys[i].prv, keys[i].pub)
-				            .work (*work.generate (nano::work_version::work_1, keys[i].pub, node->network_params.network.publish_thresholds.epoch_1))
+				            .work (*node->work.generate (nano::work_version::work_1, keys[i].pub, node->network_params.network.publish_thresholds.epoch_1))
 				            .build ();
 
 				frontiers[i] = open->hash ();
@@ -955,7 +952,7 @@ int main (int argc, char * const * argv)
 					            .balance (balances[j])
 					            .link (keys[other].pub)
 					            .sign (keys[j].prv, keys[j].pub)
-					            .work (*work.generate (nano::work_version::work_1, frontiers[j], node->network_params.network.publish_thresholds.epoch_1))
+					            .work (*node->work.generate (nano::work_version::work_1, frontiers[j], node->network_params.network.publish_thresholds.epoch_1))
 					            .build ();
 
 					frontiers[j] = send->hash ();
@@ -970,7 +967,7 @@ int main (int argc, char * const * argv)
 					               .balance (balances[other])
 					               .link (frontiers[j].as_block_hash ())
 					               .sign (keys[other].prv, keys[other].pub)
-					               .work (*work.generate (nano::work_version::work_1, frontiers[other], node->network_params.network.publish_thresholds.epoch_1))
+					               .work (*node->work.generate (nano::work_version::work_1, frontiers[other], node->network_params.network.publish_thresholds.epoch_1))
 					               .build ();
 
 					frontiers[other] = receive->hash ();
@@ -1014,12 +1011,11 @@ int main (int argc, char * const * argv)
 			size_t num_representatives (25);
 			size_t max_votes (num_elections * num_representatives); // 40,000 * 25 = 1,000,000 votes
 			std::cerr << boost::str (boost::format ("Starting pregenerating %1% votes\n") % max_votes);
-			boost::asio::io_context io_ctx;
-			nano::work_pool work (std::numeric_limits<unsigned>::max ());
-			nano::logging logging;
-			auto path (nano::unique_path ());
-			logging.init (path);
-			auto node (std::make_shared<nano::node> (io_ctx, 24001, path, logging, work));
+			nano::node_flags node_flags;
+			nano::update_flags (node_flags, vm);
+			nano::node_wrapper node_wrapper (nano::unique_path (), data_path, node_flags);
+			auto node = node_wrapper.node;
+
 			nano::block_hash genesis_latest (node->latest (dev_params.ledger.dev_genesis_key.pub));
 			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
 			// Generating keys
@@ -1037,7 +1033,7 @@ int main (int argc, char * const * argv)
 				            .balance (genesis_balance)
 				            .link (keys[i].pub)
 				            .sign (dev_params.ledger.dev_genesis_key.prv, dev_params.ledger.dev_genesis_key.pub)
-				            .work (*work.generate (nano::work_version::work_1, genesis_latest, node->network_params.network.publish_thresholds.epoch_1))
+				            .work (*node->work.generate (nano::work_version::work_1, genesis_latest, node->network_params.network.publish_thresholds.epoch_1))
 				            .build ();
 
 				genesis_latest = send->hash ();
@@ -1050,7 +1046,7 @@ int main (int argc, char * const * argv)
 				            .balance (balance)
 				            .link (genesis_latest)
 				            .sign (keys[i].prv, keys[i].pub)
-				            .work (*work.generate (nano::work_version::work_1, keys[i].pub, node->network_params.network.publish_thresholds.epoch_1))
+				            .work (*node->work.generate (nano::work_version::work_1, keys[i].pub, node->network_params.network.publish_thresholds.epoch_1))
 				            .build ();
 
 				node->ledger.process (transaction, *open);
@@ -1069,7 +1065,7 @@ int main (int argc, char * const * argv)
 				            .balance (genesis_balance)
 				            .link (destination.pub)
 				            .sign (dev_params.ledger.dev_genesis_key.prv, dev_params.ledger.dev_genesis_key.pub)
-				            .work (*work.generate (nano::work_version::work_1, genesis_latest, node->network_params.network.publish_thresholds.epoch_1))
+				            .work (*node->work.generate (nano::work_version::work_1, genesis_latest, node->network_params.network.publish_thresholds.epoch_1))
 				            .build ();
 
 				genesis_latest = send->hash ();
@@ -1141,8 +1137,20 @@ int main (int argc, char * const * argv)
 			auto path1 (nano::unique_path ());
 			auto path2 (nano::unique_path ());
 			logging.init (path1);
-			nano::node_config config1 (24000, logging);
+			std::vector<std::string> config_overrides;
+			auto config (vm.find ("config"));
+			if (config != vm.end ())
+			{
+				config_overrides = nano::config_overrides (config->second.as<std::vector<nano::config_key_value_pair>> ());
+			}
+			nano::daemon_config daemon_config (data_path);
+			auto error = nano::read_node_config_toml (data_path, daemon_config, config_overrides);
+
+			nano::node_config config1 = daemon_config.node;
+			config1.peering_port = 24000;
+
 			nano::node_flags flags;
+			nano::update_flags (flags, vm);
 			flags.disable_lazy_bootstrap = true;
 			flags.disable_legacy_bootstrap = true;
 			flags.disable_wallet_bootstrap = true;
@@ -1219,31 +1227,20 @@ int main (int argc, char * const * argv)
 			}
 
 			// Start new node
-			nano::node_config config2 (24001, logging);
-			// Config override
-			std::vector<std::string> config_overrides;
-			auto config (vm.find ("config"));
-			if (config != vm.end ())
+			nano::node_config config2 = daemon_config.node;
+			config1.peering_port = 24001;
+			if (error)
 			{
-				config_overrides = config->second.as<std::vector<std::string>> ();
+				std::cerr << "\n"
+				          << error.get_message () << std::endl;
+				std::exit (1);
 			}
-			if (!config_overrides.empty ())
+			else
 			{
-				auto path (nano::unique_path ());
-				nano::daemon_config daemon_config (path);
-				auto error = nano::read_node_config_toml (path, daemon_config, config_overrides);
-				if (error)
-				{
-					std::cerr << "\n"
-					          << error.get_message () << std::endl;
-					std::exit (1);
-				}
-				else
-				{
-					config2.frontiers_confirmation = daemon_config.node.frontiers_confirmation;
-					config2.active_elections_size = daemon_config.node.active_elections_size;
-				}
+				config2.frontiers_confirmation = daemon_config.node.frontiers_confirmation;
+				config2.active_elections_size = daemon_config.node.active_elections_size;
 			}
+
 			auto node2 (std::make_shared<nano::node> (io_ctx2, path2, config2, work, flags, 1));
 			node2->start ();
 			nano::thread_runner runner2 (io_ctx2, node2->config.io_threads);

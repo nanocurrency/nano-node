@@ -1333,7 +1333,7 @@ TEST (node, fork_bootstrap_flip)
 		auto transaction (node2.store.tx_begin_read ());
 		ASSERT_TRUE (node2.store.block_exists (transaction, send2->hash ()));
 	}
-	node2.bootstrap_initiator.bootstrap (node1.network.endpoint ());
+	node2.bootstrap_initiator.bootstrap (node1.network.endpoint ()); // Additionally add new peer to confirm & replace bootstrap block
 	auto again (true);
 	system1.deadline_set (50s);
 	while (again)
@@ -1474,7 +1474,7 @@ TEST (node, coherent_observer)
 {
 	nano::system system (1);
 	auto & node1 (*system.nodes[0]);
-	node1.observers.blocks.add ([&node1](nano::election_status const & status_a, nano::account const &, nano::uint128_t const &, bool) {
+	node1.observers.blocks.add ([&node1](nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const &, nano::account const &, nano::uint128_t const &, bool) {
 		auto transaction (node1.store.tx_begin_read ());
 		ASSERT_TRUE (node1.store.block_exists (transaction, status_a.winner->hash ()));
 	});
@@ -1606,7 +1606,7 @@ TEST (node, DISABLED_fork_stale)
 	nano::system system2 (1);
 	auto & node1 (*system1.nodes[0]);
 	auto & node2 (*system2.nodes[0]);
-	node2.bootstrap_initiator.bootstrap (node1.network.endpoint ());
+	node2.bootstrap_initiator.bootstrap (node1.network.endpoint (), false);
 	std::shared_ptr<nano::transport::channel> channel (std::make_shared<nano::transport::channel_udp> (node2.network.udp_channels, node1.network.endpoint (), node2.network_params.protocol.protocol_version));
 	auto vote = std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 0, std::vector<nano::block_hash> ());
 	node2.rep_crawler.response (channel, vote);
@@ -1661,7 +1661,7 @@ TEST (node, DISABLED_fork_stale)
 	node1.process_active (send2);
 	node2.process_active (send1);
 	node2.process_active (send2);
-	node2.bootstrap_initiator.bootstrap (node1.network.endpoint ());
+	node2.bootstrap_initiator.bootstrap (node1.network.endpoint (), false);
 	while (node2.block (send1->hash ()) == nullptr)
 	{
 		system1.poll ();
@@ -1872,7 +1872,7 @@ TEST (node, DISABLED_bootstrap_no_publish)
 		ASSERT_EQ (nano::process_result::progress, node0->ledger.process (transaction, send0).code);
 	}
 	ASSERT_FALSE (node1->bootstrap_initiator.in_progress ());
-	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
+	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
 	ASSERT_TRUE (node1->active.empty ());
 	system1.deadline_set (10s);
 	while (node1->block (send0.hash ()) == nullptr)
@@ -1899,20 +1899,21 @@ TEST (node, bootstrap_bulk_push)
 	auto node1 (system1.add_node (config1));
 	nano::keypair key0;
 	// node0 knows about send0 but node1 doesn't.
-	auto send0 = *nano::send_block_builder ()
-	              .previous (nano::genesis_hash)
-	              .destination (key0.pub)
-	              .balance (500)
-	              .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-	              .work (*node0->work_generate_blocking (nano::genesis_hash))
-	              .build ();
-	ASSERT_EQ (nano::process_result::progress, node0->process (send0).code);
+	auto send0 = nano::send_block_builder ()
+	             .previous (nano::genesis_hash)
+	             .destination (key0.pub)
+	             .balance (500)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (*node0->work_generate_blocking (nano::genesis_hash))
+	             .build_shared ();
+	ASSERT_EQ (nano::process_result::progress, node0->process (*send0).code);
+
 	ASSERT_FALSE (node0->bootstrap_initiator.in_progress ());
 	ASSERT_FALSE (node1->bootstrap_initiator.in_progress ());
 	ASSERT_TRUE (node1->active.empty ());
 	node0->bootstrap_initiator.bootstrap (node1->network.endpoint (), false);
 	system1.deadline_set (10s);
-	while (node1->block (send0.hash ()) == nullptr)
+	while (node1->block (send0->hash ()) == nullptr)
 	{
 		ASSERT_NO_ERROR (system0.poll ());
 		ASSERT_NO_ERROR (system1.poll ());
@@ -1977,7 +1978,7 @@ TEST (node, bootstrap_fork_open)
 	ASSERT_EQ (nano::process_result::progress, node1->process (open1).code);
 	ASSERT_FALSE (node1->ledger.block_exists (open0.hash ()));
 	ASSERT_FALSE (node1->bootstrap_initiator.in_progress ());
-	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
+	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
 	ASSERT_TRUE (node1->active.empty ());
 	ASSERT_TIMELY (10s, !node1->ledger.block_exists (open1.hash ()) && node1->ledger.block_exists (open0.hash ()));
 }
@@ -1988,24 +1989,25 @@ TEST (node, bootstrap_confirm_frontiers)
 	nano::system system0 (1);
 	nano::system system1 (1);
 	auto node0 (system0.nodes[0]);
-	auto node1 (system0.nodes[0]);
+	auto node1 (system1.nodes[0]);
 	system0.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	nano::keypair key0;
 	// node0 knows about send0 but node1 doesn't.
-	auto send0 = *nano::send_block_builder ()
-	              .previous (nano::genesis_hash)
-	              .destination (key0.pub)
-	              .balance (nano::genesis_amount - 500)
-	              .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-	              .work (*node0->work_generate_blocking (nano::genesis_hash))
-	              .build ();
-	ASSERT_EQ (nano::process_result::progress, node0->process (send0).code);
+	auto send0 = nano::send_block_builder ()
+	             .previous (nano::genesis_hash)
+	             .destination (key0.pub)
+	             .balance (nano::genesis_amount - 500)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (*node0->work_generate_blocking (nano::genesis_hash))
+	             .build_shared ();
+	ASSERT_EQ (nano::process_result::progress, node0->process (*send0).code);
+
 	ASSERT_FALSE (node0->bootstrap_initiator.in_progress ());
 	ASSERT_FALSE (node1->bootstrap_initiator.in_progress ());
 	ASSERT_TRUE (node1->active.empty ());
-	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
+	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ()); // Additionally add new peer to confirm bootstrap frontier
 	system1.deadline_set (10s);
-	while (node1->block (send0.hash ()) == nullptr)
+	while (node1->block (send0->hash ()) == nullptr)
 	{
 		ASSERT_NO_ERROR (system0.poll ());
 		ASSERT_NO_ERROR (system1.poll ());
@@ -2019,7 +2021,7 @@ TEST (node, bootstrap_confirm_frontiers)
 	}
 	{
 		nano::lock_guard<nano::mutex> guard (node1->active.mutex);
-		auto existing1 (node1->active.blocks.find (send0.hash ()));
+		auto existing1 (node1->active.blocks.find (send0->hash ()));
 		ASSERT_NE (node1->active.blocks.end (), existing1);
 	}
 	// Wait for confirmation height update
@@ -2029,7 +2031,7 @@ TEST (node, bootstrap_confirm_frontiers)
 	{
 		{
 			auto transaction (node1->store.tx_begin_read ());
-			done = node1->ledger.block_confirmed (transaction, send0.hash ());
+			done = node1->ledger.block_confirmed (transaction, send0->hash ());
 		}
 		ASSERT_NO_ERROR (system0.poll ());
 		ASSERT_NO_ERROR (system1.poll ());
@@ -2408,6 +2410,38 @@ TEST (node, stat_counting)
 	ASSERT_EQ (1, node1.stats.count (nano::stat::type::ledger, nano::stat::detail::receive, nano::stat::dir::in));
 	node1.stats.add (nano::stat::type::ledger, nano::stat::dir::in, 0);
 	ASSERT_EQ (10, node1.stats.count (nano::stat::type::ledger, nano::stat::dir::in));
+}
+
+TEST (node, stat_histogram)
+{
+	nano::system system (1);
+	auto & node1 (*system.nodes[0]);
+
+	// Specific bins
+	node1.stats.define_histogram (nano::stat::type::vote, nano::stat::detail::confirm_req, nano::stat::dir::in, { 1, 6, 10, 16 });
+	node1.stats.update_histogram (nano::stat::type::vote, nano::stat::detail::confirm_req, nano::stat::dir::in, 1, 50);
+	auto histogram_req (node1.stats.get_histogram (nano::stat::type::vote, nano::stat::detail::confirm_req, nano::stat::dir::in));
+	ASSERT_EQ (histogram_req->get_bins ()[0].value, 50);
+
+	// Uniform distribution (12 bins, width 1); also test clamping 100 to the last bin
+	node1.stats.define_histogram (nano::stat::type::vote, nano::stat::detail::confirm_ack, nano::stat::dir::in, { 1, 13 }, 12);
+	node1.stats.update_histogram (nano::stat::type::vote, nano::stat::detail::confirm_ack, nano::stat::dir::in, 1);
+	node1.stats.update_histogram (nano::stat::type::vote, nano::stat::detail::confirm_ack, nano::stat::dir::in, 8, 10);
+	node1.stats.update_histogram (nano::stat::type::vote, nano::stat::detail::confirm_ack, nano::stat::dir::in, 100);
+
+	auto histogram_ack (node1.stats.get_histogram (nano::stat::type::vote, nano::stat::detail::confirm_ack, nano::stat::dir::in));
+	ASSERT_EQ (histogram_ack->get_bins ()[0].value, 1);
+	ASSERT_EQ (histogram_ack->get_bins ()[7].value, 10);
+	ASSERT_EQ (histogram_ack->get_bins ()[11].value, 1);
+
+	// Uniform distribution (2 bins, width 5); add 1 to each bin
+	node1.stats.define_histogram (nano::stat::type::vote, nano::stat::detail::confirm_ack, nano::stat::dir::out, { 1, 11 }, 2);
+	node1.stats.update_histogram (nano::stat::type::vote, nano::stat::detail::confirm_ack, nano::stat::dir::out, 1, 1);
+	node1.stats.update_histogram (nano::stat::type::vote, nano::stat::detail::confirm_ack, nano::stat::dir::out, 6, 1);
+
+	auto histogram_ack_out (node1.stats.get_histogram (nano::stat::type::vote, nano::stat::detail::confirm_ack, nano::stat::dir::out));
+	ASSERT_EQ (histogram_ack_out->get_bins ()[0].value, 1);
+	ASSERT_EQ (histogram_ack_out->get_bins ()[1].value, 1);
 }
 
 TEST (node, online_reps)
