@@ -354,7 +354,7 @@ TEST (bootstrap_processor, DISABLED_pull_requeue_network_error)
 	ASSERT_EQ (0, node1->stats.count (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_failed_account, nano::stat::dir::in)); // Requeue is not increasing failed attempts
 }
 
-TEST (bootstrap_processor, DISABLED_frontiers_unconfirmed)
+TEST (bootstrap_processor, frontiers_unconfirmed)
 {
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
@@ -408,10 +408,10 @@ TEST (bootstrap_processor, DISABLED_frontiers_unconfirmed)
 	ASSERT_FALSE (node3->ledger.block_exists (send1->hash ()));
 	ASSERT_FALSE (node3->ledger.block_exists (open1->hash ()));
 	ASSERT_EQ (1, node3->stats.count (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_failed, nano::stat::dir::in)); // failed request from node1
-	ASSERT_TRUE (node3->network.excluded_peers.check (nano::transport::map_endpoint_to_tcp (node1->network.endpoint ())));
+	ASSERT_FALSE (node3->network.excluded_peers.check (nano::transport::map_endpoint_to_tcp (node1->network.endpoint ()))); // Banning from bootstrap is disabled
 }
 
-TEST (bootstrap_processor, DISABLED_frontiers_confirmed)
+TEST (bootstrap_processor, frontiers_confirmed)
 {
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);

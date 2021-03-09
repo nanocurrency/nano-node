@@ -145,16 +145,7 @@ void nano::bootstrap_attempt_legacy::attempt_restart_check (nano::unique_lock<na
 		if (!confirmed)
 		{
 			node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_failed, nano::stat::dir::in);
-			auto score (node->network.excluded_peers.add (endpoint_frontier_request, node->network.size ()));
-			if (score >= nano::peer_exclusion::score_limit)
-			{
-				node->logger.always_log (boost::str (boost::format ("Adding peer %1% to excluded peers list with score %2% after %3% seconds bootstrap attempt") % endpoint_frontier_request % score % std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt_start).count ()));
-				auto channel = node->network.find_channel (nano::transport::map_tcp_to_endpoint (endpoint_frontier_request));
-				if (channel != nullptr)
-				{
-					node->network.erase (*channel);
-				}
-			}
+			node->logger.try_log (boost::str (boost::format ("Frontier confirmation failed for peer %1% after %2% seconds bootstrap attempt") % endpoint_frontier_request % std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt_start).count ()));
 			lock_a.unlock ();
 			stop ();
 			lock_a.lock ();

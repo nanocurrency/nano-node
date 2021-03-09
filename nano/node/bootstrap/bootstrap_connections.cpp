@@ -388,11 +388,10 @@ void nano::bootstrap_connections::requeue_pull (nano::pull_info const & pull_a, 
 	if (attempt_l != nullptr)
 	{
 		++attempt_l->requeued_pulls;
-		// Disable frontiers confirmation check as ineffective
-		/*if (attempt_l->mode == nano::bootstrap_mode::legacy)
+		if (attempt_l->mode == nano::bootstrap_mode::legacy)
 		{
 			attempt_l->restart_condition ();
-		}*/
+		}
 		if (attempt_l->mode == nano::bootstrap_mode::lazy)
 		{
 			pull.count = attempt_l->lazy_batch_size ();
