@@ -12,7 +12,7 @@ namespace
 {
 void add_callback_stats (nano::node & node, std::vector<nano::block_hash> * observer_order = nullptr, nano::mutex * mutex = nullptr)
 {
-	node.observers.blocks.add ([& stats = node.stats, observer_order, mutex](nano::election_status const & status_a, nano::account const &, nano::amount const &, bool) {
+	node.observers.blocks.add ([& stats = node.stats, observer_order, mutex](nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const &, nano::account const &, nano::amount const &, bool) {
 		stats.inc (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out);
 		if (mutex)
 		{

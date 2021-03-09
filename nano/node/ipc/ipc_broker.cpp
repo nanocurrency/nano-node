@@ -1,3 +1,4 @@
+#include <nano/node/election.hpp>
 #include <nano/node/ipc/action_handler.hpp>
 #include <nano/node/ipc/flatbuffers_handler.hpp>
 #include <nano/node/ipc/flatbuffers_util.hpp>
@@ -21,7 +22,7 @@ std::shared_ptr<flatbuffers::Parser> nano::ipc::subscriber::get_parser (nano::ip
 
 void nano::ipc::broker::start ()
 {
-	node.observers.blocks.add ([this_l = shared_from_this ()](nano::election_status const & status_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
+	node.observers.blocks.add ([this_l = shared_from_this ()](nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
 		debug_assert (status_a.type != nano::election_status_type::ongoing);
 
 		try

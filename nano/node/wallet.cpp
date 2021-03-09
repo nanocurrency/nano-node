@@ -1323,7 +1323,7 @@ nano::work_watcher::work_watcher (nano::node & node_a) :
 node (node_a),
 stopped (false)
 {
-	node.observers.blocks.add ([this](nano::election_status const & status_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
+	node.observers.blocks.add ([this](nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
 		this->remove (*status_a.winner);
 	});
 }

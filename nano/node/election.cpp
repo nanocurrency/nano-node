@@ -625,7 +625,25 @@ std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> nano::electio
 
 std::unordered_map<nano::account, nano::vote_info> nano::election::votes () const
 {
-	debug_assert (node.network_params.network.is_dev_network ());
 	nano::lock_guard<nano::mutex> guard (mutex);
 	return last_votes;
+}
+
+std::vector<nano::vote_with_weight_info> nano::election::votes_with_weight () const
+{
+	std::multimap<nano::uint128_t, nano::vote_with_weight_info, std::greater<nano::uint128_t>> sorted_votes;
+	std::vector<nano::vote_with_weight_info> result;
+	auto votes_l (votes ());
+	for (auto const & vote_l : votes_l)
+	{
+		if (vote_l.first != node.network_params.random.not_an_account)
+		{
+			auto amount (node.ledger.cache.rep_weights.representation_get (vote_l.first));
+			nano::vote_with_weight_info vote_info{ vote_l.first, vote_l.second.time, vote_l.second.timestamp, vote_l.second.hash, amount };
+			sorted_votes.emplace (std::move (amount), vote_info);
+		}
+	}
+	result.reserve (sorted_votes.size ());
+	std::transform (sorted_votes.begin (), sorted_votes.end (), std::back_inserter (result), [](auto const & entry) { return entry.second; });
+	return result;
 }
