@@ -370,11 +370,13 @@ bool nano::transport::tcp_channels::max_ip_connections (nano::tcp_endpoint const
 	bool result (false);
 	if (!node.flags.disable_max_peers_per_ip)
 	{
+		auto const address (nano::transport::ipv4_address_or_ipv6_subnet (endpoint_a.address ()));
+		auto const subnet (nano::transport::map_address_to_subnetwork (endpoint_a.address ()));
 		nano::unique_lock<nano::mutex> lock (mutex);
-		result = channels.get<ip_address_tag> ().count (endpoint_a.address ()) >= node.network_params.node.max_peers_per_ip;
+		result = channels.get<ip_address_tag> ().count (address) >= node.network_params.node.max_peers_per_ip || channels.get<subnetwork_tag> ().count (subnet) >= node.network_params.node.max_peers_per_subnetwork;
 		if (!result)
 		{
-			result = attempts.get<ip_address_tag> ().count (endpoint_a.address ()) >= node.network_params.node.max_peers_per_ip;
+			result = attempts.get<ip_address_tag> ().count (address) >= node.network_params.node.max_peers_per_ip || attempts.get<subnetwork_tag> ().count (subnet) >= node.network_params.node.max_peers_per_subnetwork;
 		}
 	}
 	return result;

@@ -6,6 +6,8 @@
 #include <nano/node/common.hpp>
 #include <nano/node/socket.hpp>
 
+#include <boost/asio/ip/network_v6.hpp>
+
 namespace nano
 {
 class bandwidth_limiter final
@@ -25,6 +27,8 @@ namespace transport
 	nano::endpoint map_endpoint_to_v6 (nano::endpoint const &);
 	nano::endpoint map_tcp_to_endpoint (nano::tcp_endpoint const &);
 	nano::tcp_endpoint map_endpoint_to_tcp (nano::endpoint const &);
+	boost::asio::ip::address map_address_to_subnetwork (boost::asio::ip::address const &);
+	boost::asio::ip::address ipv4_address_or_ipv6_subnet (boost::asio::ip::address const &);
 	// Unassigned, reserved, self
 	bool reserved_address (nano::endpoint const &, bool = false);
 	static std::chrono::seconds constexpr syn_cookie_cutoff = std::chrono::seconds (5);
