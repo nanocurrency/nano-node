@@ -252,7 +252,8 @@ nano::tally_t nano::election::tally_impl () const
 	std::unordered_map<nano::block_hash, nano::uint128_t> block_weights;
 	for (auto const & [account, info] : last_votes)
 	{
-		block_weights[info.hash] += node.ledger.weight (account);
+		auto rep_weight (node.ledger.weight (account));
+		block_weights[info.hash] += rep_weight;
 	}
 	last_tally = block_weights;
 	nano::tally_t result;
@@ -444,9 +445,9 @@ nano::election_cleanup_info nano::election::cleanup_info_impl () const
 size_t nano::election::insert_inactive_votes_cache (nano::inactive_cache_information const & cache_a)
 {
 	nano::unique_lock<nano::mutex> lock (mutex);
-	for (auto const & rep : cache_a.voters)
+	for (auto const & [rep, timestamp] : cache_a.voters)
 	{
-		auto inserted (last_votes.emplace (rep, nano::vote_info{ std::chrono::steady_clock::time_point::min (), 0, cache_a.hash }));
+		auto inserted (last_votes.emplace (rep, nano::vote_info{ std::chrono::steady_clock::time_point::min (), timestamp, cache_a.hash }));
 		if (inserted.second)
 		{
 			node.stats.inc (nano::stat::type::election, nano::stat::detail::vote_cached);
@@ -487,7 +488,10 @@ void nano::election::prioritize (nano::vote_generator_session & generator_sessio
 	debug_assert (!prioritized_m);
 	if (!prioritized_m.exchange (true))
 	{
-		generator_session_a.add (root, status.winner->hash ());
+		if (node.config.enable_voting && node.wallets.reps ().voting > 0)
+		{
+			node.active.generator.add (root, winner ()->hash ());
+		}
 	}
 }
 
