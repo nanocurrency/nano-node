@@ -392,7 +392,7 @@ void nano::bootstrap_connections::requeue_pull (nano::pull_info const & pull_a, 
 		{
 			attempt_l->restart_condition ();
 		}
-		if (attempt_l->mode == nano::bootstrap_mode::lazy)
+		else if (attempt_l->mode == nano::bootstrap_mode::lazy)
 		{
 			pull.count = attempt_l->lazy_batch_size ();
 		}
