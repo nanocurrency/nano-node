@@ -233,6 +233,8 @@ namespace transport
 		// This owns the sockets until the node_id_handshake has been completed. Needed to prevent self referencing callbacks, they are periodically removed if any are dangling.
 		std::vector<std::shared_ptr<nano::socket>> node_id_handshake_sockets;
 		std::atomic<bool> stopped{ false };
+
+		friend class network_peer_max_tcp_attempts_subnetwork_Test;
 	};
 } // namespace transport
 } // namespace nano

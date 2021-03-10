@@ -891,6 +891,35 @@ TEST (network, peer_max_tcp_attempts)
 	ASSERT_TRUE (node->network.tcp_channels.reachout (nano::endpoint (node->network.endpoint ().address (), nano::get_available_port ())));
 }
 
+namespace nano
+{
+namespace transport
+{
+TEST (network, peer_max_tcp_attempts_subnetwork)
+{
+	nano::system system (1);
+	auto node (system.nodes[0]);
+	for (auto i (0); i < node->network_params.node.max_peers_per_subnetwork - 1; ++i)
+	{
+		auto address (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0x7f000001 + i))); // 127.0.0.1 hex
+		nano::tcp_endpoint tcp_endpoint (address, i);
+		nano::lock_guard<nano::mutex> lock (node->network.tcp_channels.mutex);
+		auto inserted (node->network.tcp_channels.attempts.emplace (tcp_endpoint));
+		ASSERT_TRUE (inserted.second);
+	}
+	ASSERT_EQ (0, node->network.size ());
+	ASSERT_FALSE (node->network.tcp_channels.reachout (nano::endpoint (boost::asio::ip::make_address_v6 ("::ffff:127.0.0.1"), nano::get_available_port ())));
+	nano::tcp_endpoint tcp_endpoint (boost::asio::ip::make_address_v6 ("::ffff:127.0.0.255"), nano::get_available_port ());
+	{
+		nano::lock_guard<nano::mutex> lock (node->network.tcp_channels.mutex);
+		auto inserted (node->network.tcp_channels.attempts.emplace (tcp_endpoint));
+		ASSERT_TRUE (inserted.second);
+	}
+	ASSERT_TRUE (node->network.tcp_channels.reachout (nano::endpoint (boost::asio::ip::make_address_v6 ("::ffff:127.0.0.1"), nano::get_available_port ())));
+}
+}
+}
+
 TEST (network, duplicate_detection)
 {
 	nano::system system;
