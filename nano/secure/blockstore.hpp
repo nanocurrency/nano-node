@@ -536,6 +536,7 @@ enum class tables
 	blocks,
 	confirmation_height,
 	default_unused, // RocksDB only
+	final_votes,
 	frontiers,
 	meta,
 	online_weight,
@@ -724,8 +725,19 @@ public:
 	virtual void pruned_for_each_par (std::function<void(nano::read_transaction const &, nano::store_iterator<nano::block_hash, std::nullptr_t>, nano::store_iterator<nano::block_hash, std::nullptr_t>)> const & action_a) const = 0;
 	virtual void blocks_for_each_par (std::function<void(nano::read_transaction const &, nano::store_iterator<nano::block_hash, block_w_sideband>, nano::store_iterator<nano::block_hash, block_w_sideband>)> const & action_a) const = 0;
 	virtual void frontiers_for_each_par (std::function<void(nano::read_transaction const &, nano::store_iterator<nano::block_hash, nano::account>, nano::store_iterator<nano::block_hash, nano::account>)> const & action_a) const = 0;
+	virtual void final_vote_for_each_par (std::function<void(nano::read_transaction const &, nano::store_iterator<nano::qualified_root, nano::block_hash>, nano::store_iterator<nano::qualified_root, nano::block_hash>)> const & action_a) const = 0;
 
 	virtual uint64_t block_account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const = 0;
+
+	virtual bool final_vote_put (nano::write_transaction const & transaction_a, nano::qualified_root const & root_a, nano::block_hash const & hash_a) = 0;
+	virtual std::vector<nano::block_hash> final_vote_get (nano::transaction const & transaction_a, nano::root const & root_a) = 0;
+	virtual void final_vote_del (nano::write_transaction const & transaction_a, nano::root const & root_a) = 0;
+	virtual size_t final_vote_count (nano::transaction const & transaction_a) const = 0;
+	virtual void final_vote_clear (nano::write_transaction const &, nano::root const &) = 0;
+	virtual void final_vote_clear (nano::write_transaction const &) = 0;
+	virtual nano::store_iterator<nano::qualified_root, nano::block_hash> final_vote_begin (nano::transaction const & transaction_a, nano::qualified_root const & root_a) const = 0;
+	virtual nano::store_iterator<nano::qualified_root, nano::block_hash> final_vote_begin (nano::transaction const & transaction_a) const = 0;
+	virtual nano::store_iterator<nano::qualified_root, nano::block_hash> final_vote_end () const = 0;
 
 	virtual unsigned max_block_write_batch_num () const = 0;
 
