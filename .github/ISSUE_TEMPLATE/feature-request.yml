@@ -31,7 +31,7 @@ body:
     description: Please provide your proposed solution taking into account    - Details of the technical implementation - Tradeoffs made in design decisions - Caveats and considerations for the future  If multiple solutions are being presented, please present them separately and provide comparisons at the end.
   validations:
     required: true
-- type: dropwn
+- type: dropdown
   attributes:
     label: If this feature is approved, would you be willing to submit a pull request with the solution?
     options:
