@@ -272,7 +272,7 @@ TEST (active_transactions, inactive_votes_cache_existing_vote)
 	ASSERT_EQ (1, last_vote1.timestamp);
 	// Attempt to change vote with inactive_votes_cache
 	nano::unique_lock<nano::mutex> active_lock (node.active.mutex);
-	node.active.add_inactive_votes_cache (active_lock, send->hash (), key.pub);
+	node.active.add_inactive_votes_cache (active_lock, send->hash (), key.pub, 0);
 	active_lock.unlock ();
 	auto cache (node.active.find_inactive_votes_cache (send->hash ()));
 	active_lock.lock ();

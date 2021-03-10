@@ -259,7 +259,7 @@ bool nano::bootstrap_attempt_legacy::confirm_frontiers (nano::unique_lock<nano::
 				{
 					auto existing (node->active.find_inactive_votes_cache (*ii));
 					nano::uint128_t tally;
-					for (auto & voter : existing.voters)
+					for (auto & [voter, timestamp] : existing.voters)
 					{
 						tally += node->ledger.weight (voter);
 					}
@@ -271,7 +271,7 @@ bool nano::bootstrap_attempt_legacy::confirm_frontiers (nano::unique_lock<nano::
 					{
 						for (auto const & rep : representatives)
 						{
-							if (std::find (existing.voters.begin (), existing.voters.end (), rep.account) == existing.voters.end ())
+							if (std::find_if (existing.voters.begin (), existing.voters.end (), [&rep](auto const & item_a) { return item_a.first == rep.account; }) == existing.voters.end ())
 							{
 								release_assert (!ii->is_zero ());
 								auto rep_request (batched_confirm_req_bundle.find (rep.channel));
