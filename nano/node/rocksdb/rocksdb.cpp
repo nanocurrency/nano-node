@@ -99,7 +99,8 @@ std::unordered_map<const char *, nano::tables> nano::rocksdb_store::create_cf_na
 		{ "meta", tables::meta },
 		{ "peers", tables::peers },
 		{ "confirmation_height", tables::confirmation_height },
-		{ "pruned", tables::pruned } };
+		{ "pruned", tables::pruned },
+		{ "final_votes", tables::final_votes } };
 
 	debug_assert (map.size () == all_tables ().size () + 1);
 	return map;
@@ -267,6 +268,11 @@ rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_cf_options (std::string co
 		std::shared_ptr<rocksdb::TableFactory> table_factory (rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes * 2)));
 		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
 	}
+	else if (cf_name_a == "final_votes")
+	{
+		std::shared_ptr<rocksdb::TableFactory> table_factory (rocksdb::NewBlockBasedTableFactory (get_active_table_options (block_cache_size_bytes * 2)));
+		cf_options = get_active_cf_options (table_factory, memtable_size_bytes);
+	}
 	else if (cf_name_a == rocksdb::kDefaultColumnFamilyName)
 	{
 		// Do nothing.
@@ -355,6 +361,8 @@ rocksdb::ColumnFamilyHandle * nano::rocksdb_store::table_to_column_family (table
 			return get_handle ("pruned");
 		case tables::confirmation_height:
 			return get_handle ("confirmation_height");
+		case tables::final_votes:
+			return get_handle ("final_votes");
 		default:
 			release_assert (false);
 			return get_handle ("");
@@ -494,6 +502,11 @@ uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, ta
 	}
 	// This should be correct at node start, later only cache should be used
 	else if (table_a == tables::pruned)
+	{
+		db->GetIntProperty (table_to_column_family (table_a), "rocksdb.estimate-num-keys", &sum);
+	}
+	// This should be accurate as long as there continues to be no deletes or duplicate entries.
+	else if (table_a == tables::final_votes)
 	{
 		db->GetIntProperty (table_to_column_family (table_a), "rocksdb.estimate-num-keys", &sum);
 	}
@@ -742,7 +755,7 @@ void nano::rocksdb_store::on_flush (rocksdb::FlushJobInfo const & flush_job_info
 
 std::vector<nano::tables> nano::rocksdb_store::all_tables () const
 {
-	return std::vector<nano::tables>{ tables::accounts, tables::blocks, tables::confirmation_height, tables::frontiers, tables::meta, tables::online_weight, tables::peers, tables::pending, tables::pruned, tables::unchecked, tables::vote };
+	return std::vector<nano::tables>{ tables::accounts, tables::blocks, tables::confirmation_height, tables::final_votes, tables::frontiers, tables::meta, tables::online_weight, tables::peers, tables::pending, tables::pruned, tables::unchecked, tables::vote };
 }
 
 bool nano::rocksdb_store::copy_db (boost::filesystem::path const & destination_path)

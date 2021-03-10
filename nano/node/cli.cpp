@@ -9,7 +9,7 @@
 
 namespace
 {
-void reset_confirmation_heights (nano::block_store & store);
+void reset_confirmation_heights (nano::write_transaction & transaction, nano::block_store & store);
 bool is_using_rocksdb (boost::filesystem::path const & data_path, boost::program_options::variables_map const & vm, std::error_code & ec);
 }
 
@@ -56,6 +56,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("peer_clear", "Clear online peers database dump")
 	("unchecked_clear", "Clear unchecked blocks")
 	("confirmation_height_clear", "Clear confirmation height")
+	("final_vote_clear", "Clear final votes")
 	("rebuild_database", "Rebuild LMDB database with vacuum for best compaction")
 	("migrate_database_lmdb_to_rocksdb", "Migrates LMDB database to RocksDB")
 	("diagnostics", "Run internal diagnostics")
@@ -72,7 +73,9 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("wallet_remove", "Remove <account> from <wallet>")
 	("wallet_representative_get", "Prints default representative for <wallet>")
 	("wallet_representative_set", "Set <account> as default representative for <wallet>")
+	("all", "Only valid with --final_vote_clear")
 	("account", boost::program_options::value<std::string> (), "Defines <account> for other commands")
+	("root", boost::program_options::value<std::string> (), "Defines <root> for other commands")
 	("file", boost::program_options::value<std::string> (), "Defines <file> for other commands")
 	("key", boost::program_options::value<std::string> (), "Defines the <key> for other commands, hex")
 	("seed", boost::program_options::value<std::string> (), "Defines the <seed> for other commands, hex")
@@ -206,7 +209,7 @@ void database_write_lock_error (std::error_code & ec)
 bool copy_database (boost::filesystem::path const & data_path, boost::program_options::variables_map const & vm, boost::filesystem::path const & output_path, std::error_code & ec)
 {
 	bool success = false;
-	bool needs_to_write = vm.count ("unchecked_clear") || vm.count ("clear_send_ids") || vm.count ("online_weight_clear") || vm.count ("peer_clear") || vm.count ("confirmation_height_clear") || vm.count ("rebuild_database");
+	bool needs_to_write = vm.count ("unchecked_clear") || vm.count ("clear_send_ids") || vm.count ("online_weight_clear") || vm.count ("peer_clear") || vm.count ("confirmation_height_clear") || vm.count ("final_vote_clear") || vm.count ("rebuild_database");
 
 	auto node_flags = nano::inactive_node_flag_defaults ();
 	node_flags.read_only = !needs_to_write;
@@ -214,33 +217,33 @@ bool copy_database (boost::filesystem::path const & data_path, boost::program_op
 	nano::inactive_node node (data_path, node_flags);
 	if (!node.node->init_error ())
 	{
+		auto transaction (node.node->store.tx_begin_write ());
 		if (vm.count ("unchecked_clear"))
 		{
-			auto transaction (node.node->store.tx_begin_write ());
 			node.node->store.unchecked_clear (transaction);
 		}
 		if (vm.count ("clear_send_ids"))
 		{
-			auto transaction (node.node->wallets.tx_begin_write ());
 			node.node->wallets.clear_send_ids (transaction);
 		}
 		if (vm.count ("online_weight_clear"))
 		{
-			auto transaction (node.node->store.tx_begin_write ());
 			node.node->store.online_weight_clear (transaction);
 		}
 		if (vm.count ("peer_clear"))
 		{
-			auto transaction (node.node->store.tx_begin_write ());
 			node.node->store.peer_clear (transaction);
 		}
 		if (vm.count ("confirmation_height_clear"))
 		{
-			reset_confirmation_heights (node.node->store);
+			reset_confirmation_heights (transaction, node.node->store);
+		}
+		if (vm.count ("final_vote_clear"))
+		{
+			node.node->store.final_vote_clear (transaction);
 		}
 		if (vm.count ("rebuild_database"))
 		{
-			auto transaction (node.node->store.tx_begin_write ());
 			node.node->store.rebuild_db (transaction);
 		}
 
@@ -567,8 +570,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				if (!account.decode_account (account_str))
 				{
 					nano::confirmation_height_info confirmation_height_info;
-					auto transaction (node.node->store.tx_begin_read ());
-					if (!node.node->store.confirmation_height_get (transaction, account, confirmation_height_info))
+					if (!node.node->store.confirmation_height_get (node.node->store.tx_begin_read (), account, confirmation_height_info))
 					{
 						auto transaction (node.node->store.tx_begin_write ());
 						auto conf_height_reset_num = 0;
@@ -598,8 +600,49 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			}
 			else
 			{
-				reset_confirmation_heights (node.node->store);
+				auto transaction (node.node->store.tx_begin_write ());
+				reset_confirmation_heights (transaction, node.node->store);
 				std::cout << "Confirmation heights of all accounts (except genesis which is set to 1) are set to 0" << std::endl;
+			}
+		}
+		else
+		{
+			database_write_lock_error (ec);
+		}
+	}
+	else if (vm.count ("final_vote_clear"))
+	{
+		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
+		auto node_flags = nano::inactive_node_flag_defaults ();
+		node_flags.read_only = false;
+		nano::update_flags (node_flags, vm);
+		nano::inactive_node node (data_path, node_flags);
+		if (!node.node->init_error ())
+		{
+			if (auto root_it = vm.find ("root"); root_it != vm.cend ())
+			{
+				auto root_str = root_it->second.as<std::string> ();
+				auto transaction (node.node->store.tx_begin_write ());
+				nano::root root;
+				if (!root.decode_hex (root_str))
+				{
+					node.node->store.final_vote_clear (transaction, root);
+					std::cout << "Successfully cleared final votes" << std::endl;
+				}
+				else
+				{
+					std::cerr << "Invalid root" << std::endl;
+					ec = nano::error_cli::invalid_arguments;
+				}
+			}
+			else if (vm.count ("all"))
+			{
+				node.node->store.final_vote_clear (node.node->store.tx_begin_write ());
+				std::cout << "All final votes are cleared" << std::endl;
+			}
+			else
+			{
+				std::cerr << "Either specify a single --root to clear or --all to clear all final votes (not recommended)" << std::endl;
 			}
 		}
 		else
@@ -1257,10 +1300,9 @@ std::unique_ptr<nano::inactive_node> nano::default_inactive_node (boost::filesys
 
 namespace
 {
-void reset_confirmation_heights (nano::block_store & store)
+void reset_confirmation_heights (nano::write_transaction & transaction, nano::block_store & store)
 {
 	// First do a clean sweep
-	auto transaction (store.tx_begin_write ());
 	store.confirmation_height_clear (transaction);
 
 	// Then make sure the confirmation height of the genesis account open block is 1
