@@ -166,11 +166,11 @@ namespace transport
 			}
 			boost::asio::ip::address ip_address () const
 			{
-				return endpoint ().address ();
+				return nano::transport::ipv4_address_or_ipv6_subnet (endpoint ().address ());
 			}
 			boost::asio::ip::address subnetwork () const
 			{
-				return nano::transport::map_address_to_subnetwork (ip_address ());
+				return nano::transport::map_address_to_subnetwork (endpoint ().address ());
 			}
 			nano::account node_id () const
 			{
@@ -193,7 +193,7 @@ namespace transport
 
 			explicit tcp_endpoint_attempt (nano::tcp_endpoint const & endpoint_a) :
 			endpoint (endpoint_a),
-			address (endpoint_a.address ()),
+			address (nano::transport::ipv4_address_or_ipv6_subnet (endpoint_a.address ())),
 			subnetwork (nano::transport::map_address_to_subnetwork (endpoint_a.address ()))
 			{
 			}

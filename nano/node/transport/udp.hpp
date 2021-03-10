@@ -159,11 +159,11 @@ namespace transport
 			}
 			boost::asio::ip::address ip_address () const
 			{
-				return endpoint ().address ();
+				return nano::transport::ipv4_address_or_ipv6_subnet (endpoint ().address ());
 			}
 			boost::asio::ip::address subnetwork () const
 			{
-				return nano::transport::map_address_to_subnetwork (ip_address ());
+				return nano::transport::map_address_to_subnetwork (endpoint ().address ());
 			}
 			nano::account node_id () const
 			{
