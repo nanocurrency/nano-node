@@ -1002,7 +1002,7 @@ TEST (ledger, successor)
 	node1.work_generate_blocking (send1);
 	auto transaction (node1.store.tx_begin_write ());
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, send1).code);
-	ASSERT_EQ (send1, *node1.ledger.successor (transaction, nano::qualified_root (genesis.hash (), nano::root (0))));
+	ASSERT_EQ (send1, *node1.ledger.successor (transaction, nano::qualified_root (nano::root (0), genesis.hash ())));
 	ASSERT_EQ (*genesis.open, *node1.ledger.successor (transaction, genesis.open->qualified_root ()));
 	ASSERT_EQ (nullptr, node1.ledger.successor (transaction, nano::qualified_root (0)));
 }
@@ -3777,6 +3777,7 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 		store.version_put (transaction, version);
 		send->sideband_set ({});
 		store.block_put (transaction, send->hash (), *send);
+		store.final_vote_put (transaction, send->qualified_root (), nano::block_hash (2));
 	}
 
 	auto error = ledger.migrate_lmdb_to_rocksdb (path);
@@ -3806,6 +3807,8 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 	ASSERT_FALSE (rocksdb_store.confirmation_height_get (rocksdb_transaction, nano::genesis_account, confirmation_height_info));
 	ASSERT_EQ (confirmation_height_info.height, 2);
 	ASSERT_EQ (confirmation_height_info.frontier, send->hash ());
+	ASSERT_TRUE (rocksdb_store.final_vote_get (rocksdb_transaction, nano::root (send->previous ())).size () == 1);
+	ASSERT_EQ (rocksdb_store.final_vote_get (rocksdb_transaction, nano::root (send->previous ()))[0], nano::block_hash (2));
 
 	auto unchecked_infos = rocksdb_store.unchecked_get (rocksdb_transaction, nano::genesis_hash);
 	ASSERT_EQ (unchecked_infos.size (), 1);

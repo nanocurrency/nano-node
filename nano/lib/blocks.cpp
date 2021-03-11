@@ -186,7 +186,7 @@ nano::account const & nano::block::account () const
 
 nano::qualified_root nano::block::qualified_root () const
 {
-	return nano::qualified_root (previous (), root ());
+	return nano::qualified_root (root (), previous ());
 }
 
 nano::amount const & nano::block::balance () const

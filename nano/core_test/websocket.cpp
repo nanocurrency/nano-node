@@ -300,6 +300,8 @@ TEST (websocket, confirmation_options)
 		// Make sure tally and time are non-zero.
 		ASSERT_NE ("0", tally);
 		ASSERT_NE ("0", time);
+		auto votes_l (election_info.get_child_optional ("votes"));
+		ASSERT_FALSE (votes_l.is_initialized ());
 	}
 	catch (std::runtime_error const & ex)
 	{
@@ -329,7 +331,84 @@ TEST (websocket, confirmation_options)
 		previous = send->hash ();
 	}
 
+	ASSERT_TIMELY (5s, future3.wait_for (0s) == std::future_status::ready);
+}
+
+TEST (websocket, confirmation_options_votes)
+{
+	nano::system system;
+	nano::node_config config (nano::get_available_port (), system.logging);
+	config.websocket_config.enabled = true;
+	config.websocket_config.port = nano::get_available_port ();
+	auto node1 (system.add_node (config));
+
+	std::atomic<bool> ack_ready{ false };
+	auto task1 = ([&ack_ready, config, &node1]() {
+		fake_websocket_client client (config.websocket_config.port);
+		client.send_message (R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {"confirmation_type": "active_quorum", "include_election_info_with_votes": "true", "include_block": "false"}})json");
+		client.await_ack ();
+		ack_ready = true;
+		EXPECT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::confirmation));
+		return client.get_response ();
+	});
+	auto future1 = std::async (std::launch::async, task1);
+
+	ASSERT_TIMELY (10s, ack_ready);
+
+	// Confirm a state block for an in-wallet account
+	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
+	nano::keypair key;
+	auto balance = nano::genesis_amount;
+	auto send_amount = node1->config.online_weight_minimum.number () + 1;
+	nano::block_hash previous (node1->latest (nano::dev_genesis_key.pub));
+	{
+		balance -= send_amount;
+		auto send (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, previous, nano::dev_genesis_key.pub, balance, key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (previous)));
+		node1->process_active (send);
+		previous = send->hash ();
+	}
+
 	ASSERT_TIMELY (5s, future1.wait_for (0s) == std::future_status::ready);
+
+	auto response1 = future1.get ();
+	ASSERT_TRUE (response1);
+	boost::property_tree::ptree event;
+	std::stringstream stream;
+	stream << response1.get ();
+	boost::property_tree::read_json (stream, event);
+	ASSERT_EQ (event.get<std::string> ("topic"), "confirmation");
+	try
+	{
+		boost::property_tree::ptree election_info = event.get_child ("message.election_info");
+		auto tally (election_info.get<std::string> ("tally"));
+		auto time (election_info.get<std::string> ("time"));
+		// Duration and request count may be zero on devnet, so we only check that they're present
+		ASSERT_EQ (1, election_info.count ("duration"));
+		ASSERT_EQ (1, election_info.count ("request_count"));
+		ASSERT_EQ (1, election_info.count ("voters"));
+		ASSERT_GE (1U, election_info.get<unsigned> ("blocks"));
+		// Make sure tally and time are non-zero.
+		ASSERT_NE ("0", tally);
+		ASSERT_NE ("0", time);
+		auto votes_l (election_info.get_child_optional ("votes"));
+		ASSERT_TRUE (votes_l.is_initialized ());
+		ASSERT_EQ (1, votes_l.get ().size ());
+		for (auto & vote : votes_l.get ())
+		{
+			std::string representative (vote.second.get<std::string> ("representative"));
+			ASSERT_EQ (nano::dev_genesis_key.pub.to_account (), representative);
+			std::string timestamp (vote.second.get<std::string> ("timestamp"));
+			ASSERT_NE ("0", timestamp);
+			std::string hash (vote.second.get<std::string> ("hash"));
+			ASSERT_EQ (node1->latest (nano::dev_genesis_key.pub).to_string (), hash);
+			std::string weight (vote.second.get<std::string> ("weight"));
+			ASSERT_EQ (node1->balance (nano::dev_genesis_key.pub).convert_to<std::string> (), weight);
+		}
+	}
+	catch (std::runtime_error const & ex)
+	{
+		FAIL () << ex.what ();
+	}
 }
 
 // Tests updating options of block confirmations

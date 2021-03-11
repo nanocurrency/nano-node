@@ -181,24 +181,23 @@ nano::bootstrap_constants::bootstrap_constants (nano::network_constants & networ
 // Create a new random keypair
 nano::keypair::keypair ()
 {
-	random_pool::generate_block (prv.data.bytes.data (), prv.data.bytes.size ());
-	ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
+	random_pool::generate_block (prv.bytes.data (), prv.bytes.size ());
+	ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
 }
 
 // Create a keypair given a private key
 nano::keypair::keypair (nano::raw_key && prv_a) :
 prv (std::move (prv_a))
 {
-	ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
+	ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
 }
 
 // Create a keypair given a hex string of the private key
 nano::keypair::keypair (std::string const & prv_a)
 {
-	auto error (prv.data.decode_hex (prv_a));
-	(void)error;
+	[[maybe_unused]] auto error (prv.decode_hex (prv_a));
 	debug_assert (!error);
-	ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
+	ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
 }
 
 // Serialize a block prefixed with an 8-bit typecode

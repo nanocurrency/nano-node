@@ -252,7 +252,8 @@ nano::tally_t nano::election::tally_impl () const
 	std::unordered_map<nano::block_hash, nano::uint128_t> block_weights;
 	for (auto const & [account, info] : last_votes)
 	{
-		block_weights[info.hash] += node.ledger.weight (account);
+		auto rep_weight (node.ledger.weight (account));
+		block_weights[info.hash] += rep_weight;
 	}
 	last_tally = block_weights;
 	nano::tally_t result;
@@ -412,6 +413,7 @@ bool nano::election::publish (std::shared_ptr<nano::block> const & block_a)
 			if (status.winner->hash () == block_a->hash ())
 			{
 				status.winner = block_a;
+				node.network.flood_block (block_a, nano::buffer_drop_policy::no_limiter_drop);
 			}
 		}
 	}
@@ -443,9 +445,9 @@ nano::election_cleanup_info nano::election::cleanup_info_impl () const
 size_t nano::election::insert_inactive_votes_cache (nano::inactive_cache_information const & cache_a)
 {
 	nano::unique_lock<nano::mutex> lock (mutex);
-	for (auto const & rep : cache_a.voters)
+	for (auto const & [rep, timestamp] : cache_a.voters)
 	{
-		auto inserted (last_votes.emplace (rep, nano::vote_info{ std::chrono::steady_clock::time_point::min (), 0, cache_a.hash }));
+		auto inserted (last_votes.emplace (rep, nano::vote_info{ std::chrono::steady_clock::time_point::min (), timestamp, cache_a.hash }));
 		if (inserted.second)
 		{
 			node.stats.inc (nano::stat::type::election, nano::stat::detail::vote_cached);
@@ -486,7 +488,10 @@ void nano::election::prioritize (nano::vote_generator_session & generator_sessio
 	debug_assert (!prioritized_m);
 	if (!prioritized_m.exchange (true))
 	{
-		generator_session_a.add (root, status.winner->hash ());
+		if (node.config.enable_voting && node.wallets.reps ().voting > 0)
+		{
+			node.active.generator.add (root, winner ()->hash ());
+		}
 	}
 }
 
@@ -625,7 +630,25 @@ std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> nano::electio
 
 std::unordered_map<nano::account, nano::vote_info> nano::election::votes () const
 {
-	debug_assert (node.network_params.network.is_dev_network ());
 	nano::lock_guard<nano::mutex> guard (mutex);
 	return last_votes;
+}
+
+std::vector<nano::vote_with_weight_info> nano::election::votes_with_weight () const
+{
+	std::multimap<nano::uint128_t, nano::vote_with_weight_info, std::greater<nano::uint128_t>> sorted_votes;
+	std::vector<nano::vote_with_weight_info> result;
+	auto votes_l (votes ());
+	for (auto const & vote_l : votes_l)
+	{
+		if (vote_l.first != node.network_params.random.not_an_account)
+		{
+			auto amount (node.ledger.cache.rep_weights.representation_get (vote_l.first));
+			nano::vote_with_weight_info vote_info{ vote_l.first, vote_l.second.time, vote_l.second.timestamp, vote_l.second.hash, amount };
+			sorted_votes.emplace (std::move (amount), vote_info);
+		}
+	}
+	result.reserve (sorted_votes.size ());
+	std::transform (sorted_votes.begin (), sorted_votes.end (), std::back_inserter (result), [](auto const & entry) { return entry.second; });
+	return result;
 }

@@ -166,10 +166,10 @@ thread ([this]() { run (); })
 
 void nano::vote_generator::add (nano::root const & root_a, nano::block_hash const & hash_a)
 {
-	auto votes (history.votes (root_a, hash_a));
-	if (!votes.empty ())
+	auto cached_votes (history.votes (root_a, hash_a));
+	if (!cached_votes.empty ())
 	{
-		for (auto const & vote : votes)
+		for (auto const & vote : cached_votes)
 		{
 			broadcast_action (vote);
 		}
@@ -207,7 +207,7 @@ void nano::vote_generator::stop ()
 
 size_t nano::vote_generator::generate (std::vector<std::shared_ptr<nano::block>> const & blocks_a, std::shared_ptr<nano::transport::channel> const & channel_a)
 {
-	request_t::first_type candidates;
+	request_t::first_type req_candidates;
 	{
 		auto transaction (ledger.store.tx_begin_read ());
 		auto dependents_confirmed = [&transaction, this](auto const & block_a) {
@@ -216,11 +216,11 @@ size_t nano::vote_generator::generate (std::vector<std::shared_ptr<nano::block>>
 		auto as_candidate = [](auto const & block_a) {
 			return candidate_t{ block_a->root (), block_a->hash () };
 		};
-		nano::transform_if (blocks_a.begin (), blocks_a.end (), std::back_inserter (candidates), dependents_confirmed, as_candidate);
+		nano::transform_if (blocks_a.begin (), blocks_a.end (), std::back_inserter (req_candidates), dependents_confirmed, as_candidate);
 	}
-	auto const result = candidates.size ();
+	auto const result = req_candidates.size ();
 	nano::lock_guard<nano::mutex> guard (mutex);
-	requests.emplace_back (std::move (candidates), channel_a);
+	requests.emplace_back (std::move (req_candidates), channel_a);
 	while (requests.size () > max_requests)
 	{
 		// On a large queue of requests, erase the oldest one
@@ -284,7 +284,6 @@ void nano::vote_generator::reply (nano::unique_lock<nano::mutex> & lock_a, reque
 {
 	lock_a.unlock ();
 	std::unordered_set<std::shared_ptr<nano::vote>> cached_sent;
-	auto transaction (ledger.store.tx_begin_read ());
 	auto i (request_a.first.cbegin ());
 	auto n (request_a.first.cend ());
 	while (i != n && !stopped)

@@ -151,7 +151,7 @@ node_seq (seq)
 		};
 		if (!config.callback_address.empty ())
 		{
-			observers.blocks.add ([this](nano::election_status const & status_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
+			observers.blocks.add ([this](nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
 				auto block_a (status_a.winner);
 				if ((status_a.type == nano::election_status_type::active_confirmed_quorum || status_a.type == nano::election_status_type::active_confirmation_height) && this->block_arrival.recent (block_a->hash ()))
 				{
@@ -213,7 +213,7 @@ node_seq (seq)
 		}
 		if (websocket_server)
 		{
-			observers.blocks.add ([this](nano::election_status const & status_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
+			observers.blocks.add ([this](nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
 				debug_assert (status_a.type != nano::election_status_type::ongoing);
 
 				if (this->websocket_server->any_subscriber (nano::websocket::topic::confirmation))
@@ -240,7 +240,7 @@ node_seq (seq)
 						}
 					}
 
-					this->websocket_server->broadcast_confirmation (block_a, account_a, amount_a, subtype, status_a);
+					this->websocket_server->broadcast_confirmation (block_a, account_a, amount_a, subtype, status_a, votes_a);
 				}
 			});
 
@@ -270,7 +270,7 @@ node_seq (seq)
 			});
 		}
 		// Add block confirmation type stats regardless of http-callback and websocket subscriptions
-		observers.blocks.add ([this](nano::election_status const & status_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
+		observers.blocks.add ([this](nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
 			debug_assert (status_a.type != nano::election_status_type::ongoing);
 			switch (status_a.type)
 			{
@@ -1469,7 +1469,7 @@ bool nano::node::init_error () const
 	return store.init_error () || wallets_store.init_error ();
 }
 
-bool nano::node::epoch_upgrader (nano::private_key const & prv_a, nano::epoch epoch_a, uint64_t count_limit, uint64_t threads)
+bool nano::node::epoch_upgrader (nano::raw_key const & prv_a, nano::epoch epoch_a, uint64_t count_limit, uint64_t threads)
 {
 	bool error = stopped.load ();
 	if (!error)
@@ -1484,7 +1484,7 @@ bool nano::node::epoch_upgrader (nano::private_key const & prv_a, nano::epoch ep
 	return error;
 }
 
-void nano::node::epoch_upgrader_impl (nano::private_key const & prv_a, nano::epoch epoch_a, uint64_t count_limit, uint64_t threads)
+void nano::node::epoch_upgrader_impl (nano::raw_key const & prv_a, nano::epoch epoch_a, uint64_t count_limit, uint64_t threads)
 {
 	nano::thread_role::set (nano::thread_role::name::epoch_upgrader);
 	auto upgrader_process = [](nano::node & node_a, std::atomic<uint64_t> & counter, std::shared_ptr<nano::block> const & epoch, uint64_t difficulty, nano::public_key const & signer_a, nano::root const & root_a, nano::account const & account_a) {
@@ -1511,7 +1511,7 @@ void nano::node::epoch_upgrader_impl (nano::private_key const & prv_a, nano::epo
 	nano::block_builder builder;
 	auto link (ledger.epoch_link (epoch_a));
 	nano::raw_key raw_key;
-	raw_key.data = prv_a;
+	raw_key = prv_a;
 	auto signer (nano::pub_key (prv_a));
 	debug_assert (signer == ledger.epoch_signer (link));
 
@@ -1772,7 +1772,7 @@ std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> nano::node::get_
 	return { max_blocks, weights };
 }
 
-nano::inactive_node::inactive_node (boost::filesystem::path const & path_a, nano::node_flags const & node_flags_a) :
+nano::node_wrapper::node_wrapper (boost::filesystem::path const & path_a, boost::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a) :
 io_context (std::make_shared<boost::asio::io_context> ()),
 work (1)
 {
@@ -1784,7 +1784,7 @@ work (1)
 	boost::filesystem::create_directories (path_a);
 	nano::set_secure_perm_directory (path_a, error_chmod);
 	nano::daemon_config daemon_config (path_a);
-	auto error = nano::read_node_config_toml (path_a, daemon_config, node_flags_a.config_overrides);
+	auto error = nano::read_node_config_toml (config_path_a, daemon_config, node_flags_a.config_overrides);
 	if (error)
 	{
 		std::cerr << "Error deserializing config file";
@@ -1803,12 +1803,23 @@ work (1)
 	node_config.logging.init (path_a);
 
 	node = std::make_shared<nano::node> (*io_context, path_a, node_config, work, node_flags_a);
-	node->active.stop ();
 }
 
-nano::inactive_node::~inactive_node ()
+nano::node_wrapper::~node_wrapper ()
 {
 	node->stop ();
+}
+
+nano::inactive_node::inactive_node (boost::filesystem::path const & path_a, boost::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a) :
+node_wrapper (path_a, config_path_a, node_flags_a),
+node (node_wrapper.node)
+{
+	node_wrapper.node->active.stop ();
+}
+
+nano::inactive_node::inactive_node (boost::filesystem::path const & path_a, nano::node_flags const & node_flags_a) :
+inactive_node (path_a, path_a, node_flags_a)
+{
 }
 
 nano::node_flags const & nano::inactive_node_flag_defaults ()

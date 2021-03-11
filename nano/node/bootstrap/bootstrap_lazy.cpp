@@ -9,7 +9,6 @@
 #include <algorithm>
 
 constexpr std::chrono::seconds nano::bootstrap_limits::lazy_flush_delay_sec;
-constexpr unsigned nano::bootstrap_limits::lazy_destinations_request_limit;
 constexpr uint64_t nano::bootstrap_limits::lazy_batch_pull_count_resize_blocks_limit;
 constexpr double nano::bootstrap_limits::lazy_batch_pull_count_resize_ratio;
 constexpr size_t nano::bootstrap_limits::lazy_blocks_restart_limit;
@@ -157,11 +156,6 @@ bool nano::bootstrap_attempt_lazy::lazy_finished ()
 	{
 		result = true;
 	}
-	// Don't close lazy bootstrap until all destinations are processed
-	if (result && !lazy_destinations.empty ())
-	{
-		result = false;
-	}
 	return result;
 }
 
@@ -203,12 +197,6 @@ void nano::bootstrap_attempt_lazy::run ()
 			{
 				lazy_backlog_cleanup ();
 			}
-			// Destinations check
-			if (pulling == 0 && lazy_destinations_flushed)
-			{
-				lazy_destinations_flush ();
-				lazy_pull_flush (lock);
-			}
 		}
 		// Flushing lazy pulls
 		lazy_pull_flush (lock);
@@ -216,7 +204,6 @@ void nano::bootstrap_attempt_lazy::run ()
 		if (pulling == 0)
 		{
 			lazy_backlog_cleanup ();
-			lazy_destinations_flush ();
 			lazy_pull_flush (lock);
 		}
 	}
@@ -260,14 +247,6 @@ bool nano::bootstrap_attempt_lazy::process_block_lazy (std::shared_ptr<nano::blo
 		else if (block_a->type () == nano::block_type::state)
 		{
 			lazy_block_state (block_a, retry_limit);
-		}
-		else if (block_a->type () == nano::block_type::send)
-		{
-			std::shared_ptr<nano::send_block> block_l (std::static_pointer_cast<nano::send_block> (block_a));
-			if (block_l != nullptr && !block_l->hashables.destination.is_zero ())
-			{
-				lazy_destinations_increment (block_l->hashables.destination);
-			}
 		}
 		lazy_blocks_insert (hash);
 		// Adding lazy balances for first processed block in pull
@@ -321,10 +300,6 @@ void nano::bootstrap_attempt_lazy::lazy_block_state (std::shared_ptr<nano::block
 					{
 						lazy_add (link, retry_limit);
 					}
-					else
-					{
-						lazy_destinations_increment (link.as_account ());
-					}
 				}
 				// Else ignore pruned blocks
 			}
@@ -337,10 +312,6 @@ void nano::bootstrap_attempt_lazy::lazy_block_state (std::shared_ptr<nano::block
 					if (previous_balance->second <= balance)
 					{
 						lazy_add (link, retry_limit);
-					}
-					else
-					{
-						lazy_destinations_increment (link.as_account ());
 					}
 					lazy_balances.erase (previous_balance);
 				}
@@ -367,10 +338,6 @@ void nano::bootstrap_attempt_lazy::lazy_block_state_backlog_check (std::shared_p
 			if (block_a->balance ().number () <= next_block.balance) // balance
 			{
 				lazy_add (next_block.link, next_block.retry_limit); // link
-			}
-			else
-			{
-				lazy_destinations_increment (next_block.link.as_account ());
 			}
 		}
 		// Assumption for other legacy block types
@@ -400,10 +367,6 @@ void nano::bootstrap_attempt_lazy::lazy_backlog_cleanup ()
 				{
 					lazy_add (next_block.link, next_block.retry_limit); // link
 				}
-				else
-				{
-					lazy_destinations_increment (next_block.link.as_account ());
-				}
 			}
 			else
 			{
@@ -422,39 +385,6 @@ void nano::bootstrap_attempt_lazy::lazy_backlog_cleanup ()
 		{
 			transaction.refresh ();
 		}
-	}
-}
-
-void nano::bootstrap_attempt_lazy::lazy_destinations_increment (nano::account const & destination_a)
-{
-	// Enabled only if legacy bootstrap is not available. Legacy bootstrap is a more effective way to receive all existing destinations
-	if (node->flags.disable_legacy_bootstrap)
-	{
-		// Update accounts counter for send blocks
-		auto existing (lazy_destinations.get<account_tag> ().find (destination_a));
-		if (existing != lazy_destinations.get<account_tag> ().end ())
-		{
-			lazy_destinations.get<account_tag> ().modify (existing, [](nano::lazy_destinations_item & item_a) {
-				++item_a.count;
-			});
-		}
-		else
-		{
-			lazy_destinations.emplace (nano::lazy_destinations_item{ destination_a, 1 });
-		}
-	}
-}
-
-void nano::bootstrap_attempt_lazy::lazy_destinations_flush ()
-{
-	debug_assert (!mutex.try_lock ());
-	lazy_destinations_flushed = true;
-	size_t count (0);
-	for (auto it (lazy_destinations.get<count_tag> ().begin ()), end (lazy_destinations.get<count_tag> ().end ()); it != end && count < nano::bootstrap_limits::lazy_destinations_request_limit && !stopped;)
-	{
-		lazy_add (it->account, node->network_params.bootstrap.lazy_destinations_retry_limit);
-		it = lazy_destinations.get<count_tag> ().erase (it);
-		++count;
 	}
 }
 
@@ -522,7 +452,6 @@ void nano::bootstrap_attempt_lazy::get_information (boost::property_tree::ptree 
 	tree_a.put ("lazy_blocks", std::to_string (lazy_blocks.size ()));
 	tree_a.put ("lazy_state_backlog", std::to_string (lazy_state_backlog.size ()));
 	tree_a.put ("lazy_balances", std::to_string (lazy_balances.size ()));
-	tree_a.put ("lazy_destinations", std::to_string (lazy_destinations.size ()));
 	tree_a.put ("lazy_undefined_links", std::to_string (lazy_undefined_links.size ()));
 	tree_a.put ("lazy_pulls", std::to_string (lazy_pulls.size ()));
 	tree_a.put ("lazy_keys", std::to_string (lazy_keys.size ()));

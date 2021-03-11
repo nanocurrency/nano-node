@@ -840,7 +840,7 @@ nano::uint128_t nano::ledger::account_pending (nano::transaction const & transac
 		nano::pending_info const & info (i->second);
 		if (only_confirmed_a)
 		{
-			if (block_confirmed (transaction_a, i->first.hash) || (pruning && store.pruned_exists (transaction_a, i->first.hash)))
+			if (block_confirmed_or_pruned_exists (transaction_a, i->first.hash))
 			{
 				result += info.amount.number ();
 			}
@@ -892,6 +892,11 @@ bool nano::ledger::block_or_pruned_exists (nano::transaction const & transaction
 bool nano::ledger::block_or_pruned_exists (nano::block_hash const & hash_a) const
 {
 	return block_or_pruned_exists (store.tx_begin_read (), hash_a);
+}
+
+bool nano::ledger::block_confirmed_or_pruned_exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
+{
+	return block_confirmed (transaction_a, hash_a) || (pruning && store.pruned_exists (transaction_a, hash_a));
 }
 
 std::string nano::ledger::block_text (char const * hash_a)
@@ -1480,6 +1485,15 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 			}
 		});
 
+		store.final_vote_for_each_par (
+		[&rocksdb_store](nano::read_transaction const & /*unused*/, auto i, auto n) {
+			for (; i != n; ++i)
+			{
+				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::final_votes }));
+				rocksdb_store->final_vote_put (rocksdb_transaction, i->first, i->second);
+			}
+		});
+
 		auto lmdb_transaction (store.tx_begin_read ());
 		auto version = store.version_get (lmdb_transaction);
 		auto rocksdb_transaction (rocksdb_store->tx_begin_write ());
@@ -1499,6 +1513,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 		error |= store.unchecked_count (lmdb_transaction) != rocksdb_store->unchecked_count (rocksdb_transaction);
 		error |= store.peer_count (lmdb_transaction) != rocksdb_store->peer_count (rocksdb_transaction);
 		error |= store.pruned_count (lmdb_transaction) != rocksdb_store->pruned_count (rocksdb_transaction);
+		error |= store.final_vote_count (lmdb_transaction) != rocksdb_store->final_vote_count (rocksdb_transaction);
 		error |= store.online_weight_count (lmdb_transaction) != rocksdb_store->online_weight_count (rocksdb_transaction);
 		error |= store.version_get (lmdb_transaction) != rocksdb_store->version_get (rocksdb_transaction);
 
