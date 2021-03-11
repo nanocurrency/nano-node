@@ -333,7 +333,7 @@ bool nano::bootstrap_attempt_legacy::request_frontier (nano::unique_lock<nano::m
 		{
 			auto this_l (shared_from_this ());
 			auto client (std::make_shared<nano::frontier_req_client> (connection_l, this_l));
-			client->run (start_account, frontiers_age, 1024 * 1024);
+			client->run (start_account, frontiers_age, nano::bootstrap_limits::frontier_count_limit);
 			frontiers = client;
 			future = client->promise.get_future ();
 		}
