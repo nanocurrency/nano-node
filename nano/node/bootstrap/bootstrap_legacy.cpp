@@ -99,7 +99,10 @@ void nano::bootstrap_attempt_legacy::add_frontier (nano::pull_info const & pull_
 void nano::bootstrap_attempt_legacy::add_bulk_push_target (nano::block_hash const & head, nano::block_hash const & end)
 {
 	nano::lock_guard<nano::mutex> lock (mutex);
-	bulk_push_targets.emplace_back (head, end);
+	if (bulk_push_targets.size () <= nano::bootstrap_limits::bootstrap_max_bulk_push_targets)
+	{
+		bulk_push_targets.emplace_back (head, end);
+	}
 }
 
 bool nano::bootstrap_attempt_legacy::request_bulk_push_target (std::pair<nano::block_hash, nano::block_hash> & current_target_a)
