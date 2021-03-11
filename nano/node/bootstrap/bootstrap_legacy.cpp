@@ -5,9 +5,10 @@
 
 #include <boost/format.hpp>
 
-nano::bootstrap_attempt_legacy::bootstrap_attempt_legacy (std::shared_ptr<nano::node> const & node_a, uint64_t const incremental_id_a, std::string const & id_a, uint32_t const frontiers_age_a) :
+nano::bootstrap_attempt_legacy::bootstrap_attempt_legacy (std::shared_ptr<nano::node> const & node_a, uint64_t const incremental_id_a, std::string const & id_a, uint32_t const frontiers_age_a, nano::account const & start_account_a) :
 nano::bootstrap_attempt (node_a, nano::bootstrap_mode::legacy, incremental_id_a, id_a),
-frontiers_age (frontiers_age_a)
+frontiers_age (frontiers_age_a),
+start_account (start_account_a)
 {
 	node->bootstrap_initiator.notify_listeners (true);
 }
@@ -129,6 +130,7 @@ void nano::bootstrap_attempt_legacy::set_start_account (nano::account const & st
 {
 	// Add last account fron frontier request
 	nano::lock_guard<nano::mutex> lock (mutex);
+	start_account_previous = start_account;
 	start_account = start_account_a;
 }
 
@@ -171,12 +173,13 @@ void nano::bootstrap_attempt_legacy::attempt_restart_check (nano::unique_lock<na
 			auto this_l (shared_from_this ());
 			auto duration (std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt_start).count ());
 			auto frontiers_age_l (frontiers_age != std::numeric_limits<uint32_t>::max () ? frontiers_age + duration : frontiers_age);
-			node->background ([node_l, this_l, frontiers_age_l]() {
+			auto start_account_l (start_account_previous);
+			node->background ([node_l, this_l, frontiers_age_l, start_account_l]() {
 				node_l->bootstrap_initiator.remove_attempt (this_l);
 				auto id_l (this_l->id);
 				// Delay after removing current attempt
-				node_l->workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (50), [node_l, id_l, frontiers_age_l]() {
-					node_l->bootstrap_initiator.bootstrap (true, id_l, frontiers_age_l);
+				node_l->workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (50), [node_l, id_l, frontiers_age_l, start_account_l]() {
+					node_l->bootstrap_initiator.bootstrap (true, id_l, frontiers_age_l, start_account_l);
 				});
 			});
 		}
