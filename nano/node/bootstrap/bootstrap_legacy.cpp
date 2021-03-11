@@ -448,5 +448,6 @@ void nano::bootstrap_attempt_legacy::get_information (boost::property_tree::ptre
 	tree_a.put ("frontiers_received", static_cast<bool> (frontiers_received));
 	tree_a.put ("frontiers_confirmed", static_cast<bool> (frontiers_confirmed));
 	tree_a.put ("frontiers_confirmation_pending", static_cast<bool> (frontiers_confirmation_pending));
+	tree_a.put ("frontiers_age", std::to_string (frontiers_age));
 	tree_a.put ("last_account", start_account.to_account ());
 }
