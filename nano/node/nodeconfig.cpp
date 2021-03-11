@@ -87,6 +87,7 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("bootstrap_connections", bootstrap_connections, "Number of outbound bootstrap connections. Must be a power of 2. Defaults to 4.\nWarning: a larger amount of connections may use substantially more system memory.\ntype:uint64");
 	toml.put ("bootstrap_connections_max", bootstrap_connections_max, "Maximum number of inbound bootstrap connections. Defaults to 64.\nWarning: a larger amount of connections may use additional system memory.\ntype:uint64");
 	toml.put ("bootstrap_initiator_threads", bootstrap_initiator_threads, "Number of threads dedicated to concurrent bootstrap attempts. Defaults to 1.\nWarning: a larger amount of attempts may use additional system memory and disk IO.\ntype:uint64");
+	toml.put ("bootstrap_disconnected_accounts_percent", bootstrap_disconnected_accounts_percent, "Percentage of disconnected accounts to send on frontier request server. Defaults to 10.\ntype:uint32,[0,100]");
 	toml.put ("lmdb_max_dbs", deprecated_lmdb_max_dbs, "DEPRECATED: use node.lmdb.max_databases instead.\nMaximum open lmdb databases. Increase default if more than 100 wallets is required.\nNote: external management is recommended when a large number of wallets is required (see https://docs.nano.org/integration-guides/key-management/).\ntype:uint64");
 	toml.put ("block_processor_batch_max_time", block_processor_batch_max_time.count (), "The maximum time the block processor can continuously process blocks for.\ntype:milliseconds");
 	toml.put ("allow_local_peers", allow_local_peers, "Enable or disable local host peering.\ntype:bool");
@@ -317,6 +318,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		toml.get<unsigned> ("bootstrap_connections", bootstrap_connections);
 		toml.get<unsigned> ("bootstrap_connections_max", bootstrap_connections_max);
 		toml.get<unsigned> ("bootstrap_initiator_threads", bootstrap_initiator_threads);
+		toml.get<unsigned> ("bootstrap_disconnected_accounts_percent", bootstrap_disconnected_accounts_percent);
 		toml.get<bool> ("enable_voting", enable_voting);
 		toml.get<bool> ("allow_local_peers", allow_local_peers);
 		toml.get<unsigned> (signature_checker_threads_key, signature_checker_threads);
@@ -440,6 +442,10 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		if (max_pruning_age < std::chrono::seconds (5 * 60) && !network.is_dev_network ())
 		{
 			toml.get_error ().set ("max_pruning_age must be greater than or equal to 5 minutes");
+		}
+		if (bootstrap_disconnected_accounts_percent < 0 || bootstrap_disconnected_accounts_percent > 100)
+		{
+			toml.get_error ().set ("bootstrap_disconnected_accounts_percent must be a number between 0 and 100");
 		}
 	}
 	catch (std::runtime_error const & ex)

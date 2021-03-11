@@ -156,6 +156,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.bootstrap_connections_max, defaults.node.bootstrap_connections_max);
 	ASSERT_EQ (conf.node.bootstrap_initiator_threads, defaults.node.bootstrap_initiator_threads);
 	ASSERT_EQ (conf.node.bootstrap_fraction_numerator, defaults.node.bootstrap_fraction_numerator);
+	ASSERT_EQ (conf.node.bootstrap_disconnected_accounts_percent, defaults.node.bootstrap_disconnected_accounts_percent);
 	ASSERT_EQ (conf.node.conf_height_processor_batch_min_time, defaults.node.conf_height_processor_batch_min_time);
 	ASSERT_EQ (conf.node.confirmation_history_size, defaults.node.confirmation_history_size);
 	ASSERT_EQ (conf.node.enable_voting, defaults.node.enable_voting);
@@ -556,6 +557,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.bootstrap_connections_max, defaults.node.bootstrap_connections_max);
 	ASSERT_NE (conf.node.bootstrap_initiator_threads, defaults.node.bootstrap_initiator_threads);
 	ASSERT_NE (conf.node.bootstrap_fraction_numerator, defaults.node.bootstrap_fraction_numerator);
+	ASSERT_NE (conf.node.bootstrap_disconnected_accounts_percent, defaults.node.bootstrap_disconnected_accounts_percent);
 	ASSERT_NE (conf.node.conf_height_processor_batch_min_time, defaults.node.conf_height_processor_batch_min_time);
 	ASSERT_NE (conf.node.confirmation_history_size, defaults.node.confirmation_history_size);
 	ASSERT_NE (conf.node.enable_voting, defaults.node.enable_voting);
@@ -820,6 +822,21 @@ TEST (toml, daemon_config_deserialize_errors)
 		conf.deserialize_toml (toml);
 
 		ASSERT_EQ (toml.get_error ().get_message (), "election_hint_weight_percent must be a number between 5 and 50");
+	}
+
+	{
+		std::stringstream ss;
+		ss << R"toml(
+		[node]
+		bootstrap_disconnected_accounts_percent = 101
+		)toml";
+
+		nano::tomlconfig toml;
+		toml.read (ss);
+		nano::daemon_config conf;
+		conf.deserialize_toml (toml);
+
+		ASSERT_EQ (toml.get_error ().get_message (), "bootstrap_disconnected_accounts_percent must be a number between 0 and 100");
 	}
 }
 

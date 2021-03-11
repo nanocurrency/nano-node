@@ -228,6 +228,7 @@ frontier (0),
 request (std::move (request_a)),
 count (0)
 {
+	send_disconnected_accounts = connection->node->config.bootstrap_disconnected_accounts_percent <= nano::random_pool::generate_word32 (0, 100);
 	next ();
 }
 
@@ -321,10 +322,13 @@ void nano::frontier_req_server::next ()
 		for (auto i (connection->node->store.accounts_begin (transaction, current.number () + 1)), n (connection->node->store.accounts_end ()); i != n && accounts.size () != max_size; ++i)
 		{
 			nano::account_info const & info (i->second);
-			if (disable_age_filter || (now - info.modified) <= request->age)
+			if (send_disconnected_accounts || info.block_count > 1)
 			{
-				nano::account const & account (i->first);
-				accounts.emplace_back (account, info.head);
+				if (disable_age_filter || (now - info.modified) <= request->age)
+				{
+					nano::account const & account (i->first);
+					accounts.emplace_back (account, info.head);
+				}
 			}
 		}
 		/* If loop breaks before max_size, then accounts_end () is reached
