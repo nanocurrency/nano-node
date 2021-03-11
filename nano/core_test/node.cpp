@@ -3028,7 +3028,7 @@ TEST (node, vote_by_hash_republish)
 		node1.active.publish (send2);
 		std::vector<nano::block_hash> vote_blocks;
 		vote_blocks.push_back (send2->hash ());
-		auto vote (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, std::numeric_limits<uint64_t>::max (), vote_blocks));
+		auto vote (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, std::numeric_limits<uint64_t>::max (), vote_blocks)); // Final vote for confirmation
 		ASSERT_TRUE (node1.active.active (*send1));
 		ASSERT_TRUE (node2.active.active (*send1));
 		node1.vote_processor.vote (vote, std::make_shared<nano::transport::channel_loopback> (node1));
@@ -3153,8 +3153,16 @@ TEST (node, epoch_conflict_confirm)
 	node0->process_active (epoch_open);
 	ASSERT_TIMELY (10s, node0->block (change->hash ()) && node0->block (epoch_open->hash ()) && node1->block (change->hash ()) && node1->block (epoch_open->hash ()));
 	// Confirm blocks in node1 to allow generating votes
-	nano::blocks_confirm (*node1, { change, epoch_open }, true /* forced */);
-	ASSERT_TIMELY (3s, node1->block_confirmed (change->hash ()) && node1->block_confirmed (epoch_open->hash ()));
+	node1->block_confirm (change);
+	auto election2 (node1->active.election (change->qualified_root ()));
+	ASSERT_NE (nullptr, election2);
+	election2->force_confirm ();
+	ASSERT_TIMELY (3s, node1->block_confirmed (change->hash ()));
+	node1->block_confirm (epoch_open);
+	auto election3 (node1->active.election (epoch_open->qualified_root ()));
+	ASSERT_NE (nullptr, election3);
+	election3->force_confirm ();
+	ASSERT_TIMELY (3s, node1->block_confirmed (epoch_open->hash ()));
 	// Start elections for node0
 	nano::blocks_confirm (*node0, { change, epoch_open });
 	ASSERT_EQ (2, node0->active.size ());

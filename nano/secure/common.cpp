@@ -114,7 +114,17 @@ genesis_account (network_a == nano::nano_networks::nano_dev_network ? nano_dev_a
 genesis_block (network_a == nano::nano_networks::nano_dev_network ? nano_dev_genesis : network_a == nano::nano_networks::nano_beta_network ? nano_beta_genesis : network_a == nano::nano_networks::nano_test_network ? nano_test_genesis : nano_live_genesis),
 genesis_hash (parse_block_from_genesis_data (genesis_block)->hash ()),
 genesis_amount (std::numeric_limits<nano::uint128_t>::max ()),
-burn_account (0)
+burn_account (0),
+nano_dev_final_votes_canary_account (dev_public_key_data),
+nano_beta_final_votes_canary_account (beta_public_key_data),
+nano_live_final_votes_canary_account (live_public_key_data),
+nano_test_final_votes_canary_account (test_public_key_data),
+final_votes_canary_account (network_a == nano::nano_networks::nano_dev_network ? nano_dev_final_votes_canary_account : network_a == nano::nano_networks::nano_beta_network ? nano_beta_final_votes_canary_account : network_a == nano::nano_networks::nano_test_network ? nano_test_final_votes_canary_account : nano_live_final_votes_canary_account),
+nano_dev_final_votes_canary_height (1),
+nano_beta_final_votes_canary_height (std::numeric_limits<uint64_t>::max ()),
+nano_live_final_votes_canary_height (std::numeric_limits<uint64_t>::max ()),
+nano_test_final_votes_canary_height (std::numeric_limits<uint64_t>::max ()),
+final_votes_canary_height (network_a == nano::nano_networks::nano_dev_network ? nano_dev_final_votes_canary_height : network_a == nano::nano_networks::nano_beta_network ? nano_beta_final_votes_canary_height : network_a == nano::nano_networks::nano_test_network ? nano_test_final_votes_canary_height : nano_live_final_votes_canary_height)
 {
 	nano::link epoch_link_v1;
 	const char * epoch_message_v1 ("epoch v1 block");

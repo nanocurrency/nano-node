@@ -119,14 +119,13 @@ public: // Interface
 	size_t insert_inactive_votes_cache (nano::inactive_cache_information const &);
 	// Confirm this block if quorum is met
 	void confirm_if_quorum (nano::unique_lock<nano::mutex> &);
-	void prioritize (nano::vote_generator_session &);
+	void prioritize (nano::vote_generator_session &, nano::vote_generator_session &);
 	nano::election_cleanup_info cleanup_info () const;
 
 public: // Information
 	uint64_t const height;
 	nano::root const root;
 	nano::qualified_root const qualified_root;
-	std::vector<nano::vote_with_weight_info> votes_with_weight () const;
 
 private:
 	nano::tally_t tally_impl () const;
@@ -144,6 +143,8 @@ private:
 private:
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> last_blocks;
 	std::unordered_map<nano::account, nano::vote_info> last_votes;
+	std::atomic<bool> is_quorum{ false };
+	mutable nano::uint128_t final_weight{ 0 };
 	mutable std::unordered_map<nano::block_hash, nano::uint128_t> last_tally;
 
 	nano::election_behavior const behavior{ nano::election_behavior::normal };
@@ -161,6 +162,7 @@ private:
 public: // Only used in tests
 	void force_confirm (nano::election_status_type = nano::election_status_type::active_confirmed_quorum);
 	std::unordered_map<nano::account, nano::vote_info> votes () const;
+	std::vector<nano::vote_with_weight_info> votes_with_weight () const;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks () const;
 
 	friend class confirmation_solicitor_different_hash_Test;
