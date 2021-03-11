@@ -169,7 +169,8 @@ void nano::bootstrap_attempt_legacy::attempt_restart_check (nano::unique_lock<na
 			// Start new bootstrap connection
 			auto node_l (node->shared ());
 			auto this_l (shared_from_this ());
-			auto frontiers_age_l (frontiers_age);
+			auto duration (std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt_start).count ());
+			auto frontiers_age_l (frontiers_age != std::numeric_limits<uint32_t>::max () ? frontiers_age + duration : frontiers_age);
 			node->background ([node_l, this_l, frontiers_age_l]() {
 				node_l->bootstrap_initiator.remove_attempt (this_l);
 				auto id_l (this_l->id);
