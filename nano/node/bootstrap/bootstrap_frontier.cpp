@@ -228,7 +228,7 @@ frontier (0),
 request (std::move (request_a)),
 count (0)
 {
-	send_disconnected_accounts = connection->node->config.bootstrap_disconnected_accounts_percent <= nano::random_pool::generate_word32 (0, 100);
+	send_disconnected_accounts = connection->node->config.bootstrap_disconnected_accounts_percent > nano::random_pool::generate_word32 (0, 99);
 	next ();
 }
 
