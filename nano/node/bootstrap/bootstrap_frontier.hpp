@@ -49,6 +49,5 @@ public:
 	std::unique_ptr<nano::frontier_req> request;
 	size_t count;
 	std::deque<std::pair<nano::account, nano::block_hash>> accounts;
-	bool send_disconnected_accounts{ false };
 };
 }

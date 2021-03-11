@@ -228,7 +228,6 @@ frontier (0),
 request (std::move (request_a)),
 count (0)
 {
-	send_disconnected_accounts = connection->node->config.bootstrap_disconnected_accounts_percent > nano::random_pool::generate_word32 (0, 99);
 	next ();
 }
 
@@ -317,6 +316,7 @@ void nano::frontier_req_server::next ()
 	{
 		auto now (nano::seconds_since_epoch ());
 		bool disable_age_filter (request->age == std::numeric_limits<decltype (request->age)>::max ());
+		bool send_disconnected_accounts (connection->node->config.bootstrap_disconnected_accounts_percent > nano::random_pool::generate_word32 (0, 99)); // Randomly send or not 1 block accounts. This accounts cannot affect other accounts in ledger. Configurable
 		size_t max_size (128);
 		auto transaction (connection->node->store.tx_begin_read ());
 		for (auto i (connection->node->store.accounts_begin (transaction, current.number () + 1)), n (connection->node->store.accounts_end ()); i != n && accounts.size () != max_size; ++i)
