@@ -3153,16 +3153,8 @@ TEST (node, epoch_conflict_confirm)
 	node0->process_active (epoch_open);
 	ASSERT_TIMELY (10s, node0->block (change->hash ()) && node0->block (epoch_open->hash ()) && node1->block (change->hash ()) && node1->block (epoch_open->hash ()));
 	// Confirm blocks in node1 to allow generating votes
-	node1->block_confirm (change);
-	auto election2 (node1->active.election (change->qualified_root ()));
-	ASSERT_NE (nullptr, election2);
-	election2->force_confirm ();
-	ASSERT_TIMELY (3s, node1->block_confirmed (change->hash ()));
-	node1->block_confirm (epoch_open);
-	auto election3 (node1->active.election (epoch_open->qualified_root ()));
-	ASSERT_NE (nullptr, election3);
-	election3->force_confirm ();
-	ASSERT_TIMELY (3s, node1->block_confirmed (epoch_open->hash ()));
+	nano::blocks_confirm (*node1, { change, epoch_open }, true /* forced */);
+	ASSERT_TIMELY (3s, node1->block_confirmed (change->hash ()) && node1->block_confirmed (epoch_open->hash ()));
 	// Start elections for node0
 	nano::blocks_confirm (*node0, { change, epoch_open });
 	ASSERT_EQ (2, node0->active.size ());
