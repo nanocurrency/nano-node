@@ -12,13 +12,15 @@ constexpr unsigned nano::bootstrap_limits::bulk_push_cost_limit;
 
 constexpr size_t nano::frontier_req_client::size_frontier;
 
-void nano::frontier_req_client::run (uint32_t const frontiers_age_a)
+void nano::frontier_req_client::run (nano::account const & start_account_a, uint32_t const frontiers_age_a,  uint32_t const count_a)
 {
 	nano::frontier_req request;
-	request.start.clear ();
+	request.start = start_account_a;
 	request.age = frontiers_age_a;
-	request.count = std::numeric_limits<decltype (request.count)>::max ();
+	request.count = count_a;
+	current = start_account_a;
 	frontiers_age = frontiers_age_a;
+	count_limit = count_a;
 	auto this_l (shared_from_this ());
 	connection->channel->send (
 	request, [this_l](boost::system::error_code const & ec, size_t size_a) {
@@ -117,8 +119,9 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 		{
 			connection->node->logger.always_log (boost::str (boost::format ("Received %1% frontiers from %2%") % std::to_string (count) % connection->channel->to_string ()));
 		}
-		if (!account.is_zero ())
+		if (!account.is_zero () && count <= count_limit)
 		{
+			last_account = account;
 			while (!current.is_zero () && current < account)
 			{
 				// We know about an account they don't.
@@ -164,16 +167,7 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 		}
 		else
 		{
-			while (!current.is_zero ())
-			{
-				// We know about an account they don't.
-				unsynced (frontier, 0);
-				next ();
-			}
-			if (connection->node->config.logging.bulk_pull_logging ())
-			{
-				connection->node->logger.try_log ("Bulk push cost: ", bulk_push_cost);
-			}
+			attempt->set_start_account (last_account);
 			{
 				try
 				{

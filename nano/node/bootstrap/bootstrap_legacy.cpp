@@ -125,6 +125,13 @@ void nano::bootstrap_attempt_legacy::add_recent_pull (nano::block_hash const & h
 	}
 }
 
+void nano::bootstrap_attempt_legacy::set_start_account (nano::account const & start_account_a)
+{
+	// Add last account fron frontier request
+	nano::lock_guard<nano::mutex> lock (mutex);
+	start_account = start_account_a;
+}
+
 void nano::bootstrap_attempt_legacy::restart_condition ()
 {
 	/* Conditions to start frontiers confirmation:
@@ -326,7 +333,7 @@ bool nano::bootstrap_attempt_legacy::request_frontier (nano::unique_lock<nano::m
 		{
 			auto this_l (shared_from_this ());
 			auto client (std::make_shared<nano::frontier_req_client> (connection_l, this_l));
-			client->run (frontiers_age);
+			client->run (start_account, frontiers_age, 1024 * 1024);
 			frontiers = client;
 			future = client->promise.get_future ();
 		}
@@ -380,8 +387,7 @@ void nano::bootstrap_attempt_legacy::run_start (nano::unique_lock<nano::mutex> &
 {
 	frontiers_received = false;
 	frontiers_confirmed = false;
-	total_blocks = 0;
-	requeued_pulls = 0;
+	frontiers_confirmation_pending = false;
 	recent_pulls_head.clear ();
 	auto frontier_failure (true);
 	uint64_t frontier_attempts (0);
@@ -414,7 +420,9 @@ void nano::bootstrap_attempt_legacy::run ()
 		lock.unlock ();
 		node->block_processor.flush ();
 		lock.lock ();
-		node->logger.try_log ("Finished flushing unchecked blocks");
+		node->logger.try_log ("Finished flushing unchecked blocks, requesting new frontiers");
+		// Requesting new frontiers
+		run_start (lock);
 	}
 	if (!stopped)
 	{
