@@ -345,6 +345,47 @@ TEST (node, auto_bootstrap_reverse)
 	node1->stop ();
 }
 
+TEST (node, auto_bootstrap_age)
+{
+	nano::system system;
+	nano::node_config config (nano::get_available_port (), system.logging);
+	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	nano::node_flags node_flags;
+	node_flags.disable_bootstrap_bulk_push_client = true;
+	node_flags.disable_lazy_bootstrap = true;
+	node_flags.bootstrap_interval = 1;
+	auto node0 = system.add_node (config, node_flags);
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config (nano::get_available_port (), system.logging), system.work, node_flags));
+	ASSERT_FALSE (node1->init_error ());
+	node1->start ();
+	system.nodes.push_back (node1);
+	//ASSERT_NE (nullptr, nano::establish_tcp (system, *node1, node0->network.endpoint ()));
+	std::shared_ptr<nano::transport::channel_tcp> result;
+	debug_assert (!node1->flags.disable_tcp_realtime);
+	std::promise<std::shared_ptr<nano::transport::channel>> promise;
+	auto callback = [&promise](std::shared_ptr<nano::transport::channel> channel_a) { promise.set_value (channel_a); };
+	auto future = promise.get_future ();
+	node1->network.tcp_channels.start_tcp (node0->network.endpoint (), callback);
+	auto error = system.poll_until_true (2s, [&future] { return future.wait_for (0s) == std::future_status::ready; });
+	if (!error)
+	{
+		auto channel = future.get ();
+		EXPECT_NE (nullptr, channel);
+		if (channel)
+		{
+			result = node1->network.tcp_channels.find_channel (channel->get_tcp_endpoint ());
+		}
+	}
+	// -------------------
+	ASSERT_TIMELY (10s, node1->bootstrap_initiator.in_progress ());
+	// 4 bootstraps with frontiers age
+	ASSERT_TIMELY (10s, node0->stats.count (nano::stat::type::bootstrap, nano::stat::detail::initiate_legacy_age, nano::stat::dir::out) >= 3);
+	// More attempts with frontiers age
+	ASSERT_GE (node0->stats.count (nano::stat::type::bootstrap, nano::stat::detail::initiate_legacy_age, nano::stat::dir::out), node0->stats.count (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out));
+
+	node1->stop ();
+}
+
 TEST (node, receive_gap)
 {
 	nano::system system (1);
