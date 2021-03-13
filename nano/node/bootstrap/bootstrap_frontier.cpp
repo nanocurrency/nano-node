@@ -21,6 +21,7 @@ void nano::frontier_req_client::run (nano::account const & start_account_a, uint
 	current = start_account_a;
 	frontiers_age = frontiers_age_a;
 	count_limit = count_a;
+	next (); // Load accounts from disk
 	auto this_l (shared_from_this ());
 	connection->channel->send (
 	request, [this_l](boost::system::error_code const & ec, size_t size_a) {
@@ -42,11 +43,9 @@ void nano::frontier_req_client::run (nano::account const & start_account_a, uint
 nano::frontier_req_client::frontier_req_client (std::shared_ptr<nano::bootstrap_client> const & connection_a, std::shared_ptr<nano::bootstrap_attempt> const & attempt_a) :
 connection (connection_a),
 attempt (attempt_a),
-current (0),
 count (0),
 bulk_push_cost (0)
 {
-	next ();
 }
 
 void nano::frontier_req_client::receive_frontier ()
