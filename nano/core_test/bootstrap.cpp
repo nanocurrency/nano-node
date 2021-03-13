@@ -389,6 +389,7 @@ TEST (bootstrap_processor, frontiers_unconfirmed)
 	node_flags.disable_lazy_bootstrap = true;
 	node_flags.disable_wallet_bootstrap = true;
 	node_flags.disable_rep_crawler = true;
+	node_flags.disable_block_processor_republishing = true;
 	auto node1 = system.add_node (node_config, node_flags);
 	nano::genesis genesis;
 	nano::keypair key1, key2;

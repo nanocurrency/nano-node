@@ -781,6 +781,10 @@ nano::election_insertion_result nano::active_transactions::insert_impl (std::sha
 		// Non-priority elections generate votes when they gain priority in the future
 		if (result.election && result.election->prioritized ())
 		{
+			if (!node.flags.disable_block_processor_republishing)
+			{
+				node.network.flood_block (block_a, nano::buffer_drop_policy::no_limiter_drop);
+			}
 			result.election->generate_votes ();
 		}
 	}
