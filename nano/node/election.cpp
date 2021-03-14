@@ -434,7 +434,7 @@ void nano::election::cleanup ()
 	}
 	if (unconfirmed)
 	{
-		node.active.recently_dropped.add (winner_root);
+		node.stats.inc (nano::stat::type::election, nano::stat::detail::election_drop);
 
 		// Clear network filter in another thread
 		node.worker.push_task ([node_l = node.shared (), blocks_l = std::move (blocks)]() {
