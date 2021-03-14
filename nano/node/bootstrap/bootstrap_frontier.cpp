@@ -37,11 +37,11 @@ void nano::frontier_req_client::run ()
 }
 
 nano::frontier_req_client::frontier_req_client (std::shared_ptr<nano::bootstrap_client> const & connection_a, std::shared_ptr<nano::bootstrap_attempt> const & attempt_a) :
-connection (connection_a),
-attempt (attempt_a),
-current (0),
-count (0),
-bulk_push_cost (0)
+    connection (connection_a),
+    attempt (attempt_a),
+    current (0),
+    count (0),
+    bulk_push_cost (0)
 {
 	next ();
 }
@@ -222,11 +222,11 @@ void nano::frontier_req_client::next ()
 }
 
 nano::frontier_req_server::frontier_req_server (std::shared_ptr<nano::bootstrap_server> const & connection_a, std::unique_ptr<nano::frontier_req> request_a) :
-connection (connection_a),
-current (request_a->start.number () - 1),
-frontier (0),
-request (std::move (request_a)),
-count (0)
+    connection (connection_a),
+    current (request_a->start.number () - 1),
+    frontier (0),
+    request (std::move (request_a)),
+    count (0)
 {
 	next ();
 }

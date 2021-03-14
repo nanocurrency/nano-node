@@ -55,14 +55,14 @@ nano::error nano::rpc_secure_config::deserialize_toml (nano::tomlconfig & toml)
 }
 
 nano::rpc_config::rpc_config () :
-address (boost::asio::ip::address_v6::loopback ().to_string ())
+    address (boost::asio::ip::address_v6::loopback ().to_string ())
 {
 }
 
 nano::rpc_config::rpc_config (uint16_t port_a, bool enable_control_a) :
-address (boost::asio::ip::address_v6::loopback ().to_string ()),
-port (port_a),
-enable_control (enable_control_a)
+    address (boost::asio::ip::address_v6::loopback ().to_string ()),
+    port (port_a),
+    enable_control (enable_control_a)
 {
 }
 
@@ -184,7 +184,7 @@ nano::error nano::rpc_config::deserialize_toml (nano::tomlconfig & toml)
 }
 
 nano::rpc_process_config::rpc_process_config () :
-ipc_address (boost::asio::ip::address_v6::loopback ().to_string ())
+    ipc_address (boost::asio::ip::address_v6::loopback ().to_string ())
 {
 }
 

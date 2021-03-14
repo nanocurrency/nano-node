@@ -4,8 +4,8 @@
 #include <nano/secure/ledger.hpp>
 
 nano::online_reps::online_reps (nano::ledger & ledger_a, nano::node_config const & config_a) :
-ledger{ ledger_a },
-config{ config_a }
+    ledger{ ledger_a },
+    config{ config_a }
 {
 	if (!ledger.store.init_error ())
 	{

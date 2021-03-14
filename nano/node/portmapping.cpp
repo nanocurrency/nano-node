@@ -8,8 +8,8 @@
 #include <upnperrors.h>
 
 nano::port_mapping::port_mapping (nano::node & node_a) :
-node (node_a),
-protocols ({ { { "TCP", boost::asio::ip::address_v4::any (), 0, true }, { "UDP", boost::asio::ip::address_v4::any (), 0, !node_a.flags.disable_udp } } })
+    node (node_a),
+    protocols ({ { { "TCP", boost::asio::ip::address_v4::any (), 0, true }, { "UDP", boost::asio::ip::address_v4::any (), 0, !node_a.flags.disable_udp } } })
 {
 }
 

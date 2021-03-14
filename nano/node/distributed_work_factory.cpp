@@ -3,7 +3,7 @@
 #include <nano/node/node.hpp>
 
 nano::distributed_work_factory::distributed_work_factory (nano::node & node_a) :
-node (node_a)
+    node (node_a)
 {
 }
 

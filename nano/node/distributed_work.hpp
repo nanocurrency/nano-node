@@ -55,8 +55,8 @@ class distributed_work final : public std::enable_shared_from_this<nano::distrib
 	{
 	public:
 		peer_request (boost::asio::io_context & io_ctx_a, nano::tcp_endpoint const & endpoint_a) :
-		endpoint (endpoint_a),
-		socket (io_ctx_a)
+		    endpoint (endpoint_a),
+		    socket (io_ctx_a)
 		{
 		}
 		std::shared_ptr<request_type> get_prepared_json_request (std::string const &) const;

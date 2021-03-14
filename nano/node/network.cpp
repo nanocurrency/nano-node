@@ -12,17 +12,17 @@
 #include <numeric>
 
 nano::network::network (nano::node & node_a, uint16_t port_a) :
-syn_cookies (node_a.network_params.node.max_peers_per_ip),
-buffer_container (node_a.stats, nano::network::buffer_size, 4096), // 2Mb receive buffer
-resolver (node_a.io_ctx),
-limiter (node_a.config.bandwidth_limit_burst_ratio, node_a.config.bandwidth_limit),
-tcp_message_manager (node_a.config.tcp_incoming_connections_max),
-node (node_a),
-publish_filter (256 * 1024),
-udp_channels (node_a, port_a),
-tcp_channels (node_a),
-port (port_a),
-disconnect_observer ([]() {})
+    syn_cookies (node_a.network_params.node.max_peers_per_ip),
+    buffer_container (node_a.stats, nano::network::buffer_size, 4096), // 2Mb receive buffer
+    resolver (node_a.io_ctx),
+    limiter (node_a.config.bandwidth_limit_burst_ratio, node_a.config.bandwidth_limit),
+    tcp_message_manager (node_a.config.tcp_incoming_connections_max),
+    node (node_a),
+    publish_filter (256 * 1024),
+    udp_channels (node_a, port_a),
+    tcp_channels (node_a),
+    port (port_a),
+    disconnect_observer ([]() {})
 {
 	boost::thread::attributes attrs;
 	nano::thread_attributes::set (attrs);
@@ -378,8 +378,8 @@ class network_message_visitor : public nano::message_visitor
 {
 public:
 	network_message_visitor (nano::node & node_a, std::shared_ptr<nano::transport::channel> const & channel_a) :
-	node (node_a),
-	channel (channel_a)
+	    node (node_a),
+	    channel (channel_a)
 	{
 	}
 	void keepalive (nano::keepalive const & message_a) override
@@ -796,12 +796,12 @@ void nano::network::erase (nano::transport::channel const & channel_a)
 }
 
 nano::message_buffer_manager::message_buffer_manager (nano::stat & stats_a, size_t size, size_t count) :
-stats (stats_a),
-free (count),
-full (count),
-slab (size * count),
-entries (count),
-stopped (false)
+    stats (stats_a),
+    free (count),
+    full (count),
+    slab (size * count),
+    entries (count),
+    stopped (false)
 {
 	debug_assert (count > 0);
 	debug_assert (size > 0);
@@ -884,7 +884,7 @@ void nano::message_buffer_manager::stop ()
 }
 
 nano::tcp_message_manager::tcp_message_manager (unsigned incoming_connections_max_a) :
-max_entries (incoming_connections_max_a * nano::tcp_message_manager::max_entries_per_connection + 1)
+    max_entries (incoming_connections_max_a * nano::tcp_message_manager::max_entries_per_connection + 1)
 {
 	debug_assert (max_entries > 0);
 }
@@ -935,7 +935,7 @@ void nano::tcp_message_manager::stop ()
 }
 
 nano::syn_cookies::syn_cookies (size_t max_cookies_per_ip_a) :
-max_cookies_per_ip (max_cookies_per_ip_a)
+    max_cookies_per_ip (max_cookies_per_ip_a)
 {
 }
 

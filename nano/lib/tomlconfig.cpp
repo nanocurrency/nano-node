@@ -4,13 +4,13 @@
 #include <boost/filesystem/convenience.hpp>
 
 nano::tomlconfig::tomlconfig () :
-tree (cpptoml::make_table ())
+    tree (cpptoml::make_table ())
 {
 	error = std::make_shared<nano::error> ();
 }
 
 nano::tomlconfig::tomlconfig (std::shared_ptr<cpptoml::table> const & tree_a, std::shared_ptr<nano::error> const & error_a) :
-nano::configbase (error_a), tree (tree_a)
+    nano::configbase (error_a), tree (tree_a)
 {
 	if (!error)
 	{

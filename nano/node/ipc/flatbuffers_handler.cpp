@@ -58,10 +58,10 @@ boost::optional<boost::filesystem::path> get_api_path ()
 }
 
 nano::ipc::flatbuffers_handler::flatbuffers_handler (nano::node & node_a, nano::ipc::ipc_server & ipc_server_a, std::shared_ptr<nano::ipc::subscriber> const & subscriber_a, nano::ipc::ipc_config const & ipc_config_a) :
-node (node_a),
-ipc_server (ipc_server_a),
-subscriber (subscriber_a),
-ipc_config (ipc_config_a)
+    node (node_a),
+    ipc_server (ipc_server_a),
+    subscriber (subscriber_a),
+    ipc_config (ipc_config_a)
 {
 }
 

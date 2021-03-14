@@ -35,7 +35,7 @@ class matches_txn final
 {
 public:
 	explicit matches_txn (const nano::transaction_impl * transaction_impl_a) :
-	transaction_impl (transaction_impl_a)
+	    transaction_impl (transaction_impl_a)
 	{
 	}
 
@@ -50,7 +50,7 @@ private:
 }
 
 nano::read_mdb_txn::read_mdb_txn (nano::mdb_env const & environment_a, nano::mdb_txn_callbacks txn_callbacks_a) :
-txn_callbacks (txn_callbacks_a)
+    txn_callbacks (txn_callbacks_a)
 {
 	auto status (mdb_txn_begin (environment_a, nullptr, MDB_RDONLY, &handle));
 	release_assert (status == 0);
@@ -84,8 +84,8 @@ void * nano::read_mdb_txn::get_handle () const
 }
 
 nano::write_mdb_txn::write_mdb_txn (nano::mdb_env const & environment_a, nano::mdb_txn_callbacks txn_callbacks_a) :
-env (environment_a),
-txn_callbacks (txn_callbacks_a)
+    env (environment_a),
+    txn_callbacks (txn_callbacks_a)
 {
 	renew ();
 }
@@ -126,9 +126,9 @@ bool nano::write_mdb_txn::contains (nano::tables table_a) const
 }
 
 nano::mdb_txn_tracker::mdb_txn_tracker (nano::logger_mt & logger_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a) :
-logger (logger_a),
-txn_tracking_config (txn_tracking_config_a),
-block_processor_batch_max_time (block_processor_batch_max_time_a)
+    logger (logger_a),
+    txn_tracking_config (txn_tracking_config_a),
+    block_processor_batch_max_time (block_processor_batch_max_time_a)
 {
 }
 
@@ -229,9 +229,9 @@ void nano::mdb_txn_tracker::erase (const nano::transaction_impl * transaction_im
 }
 
 nano::mdb_txn_stats::mdb_txn_stats (const nano::transaction_impl * transaction_impl) :
-transaction_impl (transaction_impl),
-thread_name (nano::thread_role::get_string ()),
-stacktrace (std::make_shared<boost::stacktrace::stacktrace> ())
+    transaction_impl (transaction_impl),
+    thread_name (nano::thread_role::get_string ()),
+    stacktrace (std::make_shared<boost::stacktrace::stacktrace> ())
 {
 	timer.start ();
 }

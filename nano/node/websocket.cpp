@@ -13,13 +13,13 @@
 #include <chrono>
 
 nano::websocket::confirmation_options::confirmation_options (nano::wallets & wallets_a) :
-wallets (wallets_a)
+    wallets (wallets_a)
 {
 }
 
 nano::websocket::confirmation_options::confirmation_options (boost::property_tree::ptree const & options_a, nano::wallets & wallets_a, nano::logger_mt & logger_a) :
-wallets (wallets_a),
-logger (logger_a)
+    wallets (wallets_a),
+    logger (logger_a)
 {
 	// Non-account filtering options
 	include_block = options_a.get<bool> ("include_block", true);
@@ -232,7 +232,7 @@ bool nano::websocket::vote_options::should_filter (nano::websocket::message cons
 }
 
 nano::websocket::session::session (nano::websocket::listener & listener_a, socket_type socket_a) :
-ws_listener (listener_a), ws (std::move (socket_a)), strand (ws.get_executor ())
+    ws_listener (listener_a), ws (std::move (socket_a)), strand (ws.get_executor ())
 {
 	ws.text (true);
 	ws_listener.get_logger ().try_log ("Websocket: session started");
@@ -549,10 +549,10 @@ void nano::websocket::listener::stop ()
 }
 
 nano::websocket::listener::listener (nano::logger_mt & logger_a, nano::wallets & wallets_a, boost::asio::io_context & io_ctx_a, boost::asio::ip::tcp::endpoint endpoint_a) :
-logger (logger_a),
-wallets (wallets_a),
-acceptor (io_ctx_a),
-socket (io_ctx_a)
+    logger (logger_a),
+    wallets (wallets_a),
+    acceptor (io_ctx_a),
+    socket (io_ctx_a)
 {
 	try
 	{

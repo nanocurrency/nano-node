@@ -80,7 +80,7 @@ nano::tcp_endpoint nano::transport::map_endpoint_to_tcp (nano::endpoint const & 
 }
 
 nano::transport::channel::channel (nano::node & node_a) :
-node (node_a)
+    node (node_a)
 {
 	set_network_version (node_a.network_params.protocol.protocol_version);
 }
@@ -117,7 +117,7 @@ void nano::transport::channel::send (nano::message const & message_a, std::funct
 }
 
 nano::transport::channel_loopback::channel_loopback (nano::node & node_a) :
-channel (node_a), endpoint (node_a.network.endpoint ())
+    channel (node_a), endpoint (node_a.network.endpoint ())
 {
 	set_node_id (node_a.node_id.pub);
 	set_network_version (node_a.network_params.protocol.protocol_version);
@@ -254,7 +254,7 @@ bool nano::transport::reserved_address (nano::endpoint const & endpoint_a, bool 
 using namespace std::chrono_literals;
 
 nano::bandwidth_limiter::bandwidth_limiter (const double limit_burst_ratio_a, const size_t limit_a) :
-bucket (static_cast<size_t> (limit_a * limit_burst_ratio_a), limit_a)
+    bucket (static_cast<size_t> (limit_a * limit_burst_ratio_a), limit_a)
 {
 }
 

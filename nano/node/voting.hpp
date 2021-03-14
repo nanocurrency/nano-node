@@ -54,7 +54,7 @@ class vote_spacing final
 
 public:
 	vote_spacing (std::chrono::milliseconds const & delay) :
-	delay{ delay }
+	    delay{ delay }
 	{
 	}
 	bool votable (nano::root const & root_a, nano::block_hash const & hash_a) const;
@@ -68,9 +68,9 @@ class local_vote_history final
 	{
 	public:
 		local_vote (nano::root const & root_a, nano::block_hash const & hash_a, std::shared_ptr<nano::vote> const & vote_a) :
-		root (root_a),
-		hash (hash_a),
-		vote (vote_a)
+		    root (root_a),
+		    hash (hash_a),
+		    vote (vote_a)
 		{
 		}
 		nano::root root;
@@ -80,7 +80,7 @@ class local_vote_history final
 
 public:
 	local_vote_history (nano::voting_constants const & constants) :
-	constants{ constants }
+	    constants{ constants }
 	{
 	}
 	void add (nano::root const & root_a, nano::block_hash const & hash_a, std::shared_ptr<nano::vote> const & vote_a);

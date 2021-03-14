@@ -19,15 +19,15 @@ nano::election_vote_result::election_vote_result (bool replay_a, bool processed_
 }
 
 nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> const & block_a, std::function<void(std::shared_ptr<nano::block> const &)> const & confirmation_action_a, std::function<void(nano::account const &)> const & live_vote_action_a, bool prioritized_a, nano::election_behavior election_behavior_a) :
-confirmation_action (confirmation_action_a),
-live_vote_action (live_vote_action_a),
-prioritized_m (prioritized_a),
-behavior (election_behavior_a),
-node (node_a),
-status ({ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::ongoing }),
-height (block_a->sideband ().height),
-root (block_a->root ()),
-qualified_root (block_a->qualified_root ())
+    confirmation_action (confirmation_action_a),
+    live_vote_action (live_vote_action_a),
+    prioritized_m (prioritized_a),
+    behavior (election_behavior_a),
+    node (node_a),
+    status ({ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::ongoing }),
+    height (block_a->sideband ().height),
+    root (block_a->root ()),
+    qualified_root (block_a->qualified_root ())
 {
 	last_votes.emplace (node.network_params.random.not_an_account, nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () });
 	last_blocks.emplace (block_a->hash (), block_a);

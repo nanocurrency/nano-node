@@ -37,9 +37,9 @@ class session final : public nano::ipc::socket_base, public std::enable_shared_f
 {
 public:
 	session (nano::ipc::ipc_server & server_a, boost::asio::io_context & io_ctx_a, nano::ipc::ipc_config_transport & config_transport_a) :
-	socket_base (io_ctx_a),
-	server (server_a), node (server_a.node), session_id (server_a.id_dispenser.fetch_add (1)),
-	io_ctx (io_ctx_a), strand (io_ctx_a.get_executor ()), socket (io_ctx_a), config_transport (config_transport_a)
+	    socket_base (io_ctx_a),
+	    server (server_a), node (server_a.node), session_id (server_a.id_dispenser.fetch_add (1)),
+	    io_ctx (io_ctx_a), strand (io_ctx_a.get_executor ()), socket (io_ctx_a), config_transport (config_transport_a)
 	{
 		if (node.config.logging.log_ipc ())
 		{
@@ -63,7 +63,7 @@ public:
 		{
 		public:
 			subscriber_impl (std::shared_ptr<session> const & session_a) :
-			session_m (session_a)
+			    session_m (session_a)
 			{
 			}
 			virtual void async_send_message (uint8_t const * data_a, size_t length_a, std::function<void(nano::error const &)> broadcast_completion_handler_a) override
@@ -478,7 +478,7 @@ class socket_transport : public nano::ipc::transport
 {
 public:
 	socket_transport (nano::ipc::ipc_server & server_a, ENDPOINT_TYPE endpoint_a, nano::ipc::ipc_config_transport & config_transport_a, int concurrency_a) :
-	server (server_a), config_transport (config_transport_a)
+	    server (server_a), config_transport (config_transport_a)
 	{
 		// Using a per-transport event dispatcher?
 		if (concurrency_a > 0)
@@ -576,9 +576,9 @@ void await_hup_signal (std::shared_ptr<boost::asio::signal_set> const & signals,
 }
 
 nano::ipc::ipc_server::ipc_server (nano::node & node_a, nano::node_rpc_config const & node_rpc_config_a) :
-node (node_a),
-node_rpc_config (node_rpc_config_a),
-broker (std::make_shared<nano::ipc::broker> (node_a))
+    node (node_a),
+    node_rpc_config (node_rpc_config_a),
+    broker (std::make_shared<nano::ipc::broker> (node_a))
 {
 	try
 	{

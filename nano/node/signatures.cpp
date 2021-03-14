@@ -4,7 +4,7 @@
 #include <nano/node/signatures.hpp>
 
 nano::signature_checker::signature_checker (unsigned num_threads) :
-thread_pool (num_threads, nano::thread_role::name::signature_checking)
+    thread_pool (num_threads, nano::thread_role::name::signature_checking)
 {
 }
 

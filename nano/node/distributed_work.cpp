@@ -21,13 +21,13 @@ std::shared_ptr<request_type> nano::distributed_work::peer_request::get_prepared
 }
 
 nano::distributed_work::distributed_work (nano::node & node_a, nano::work_request const & request_a, std::chrono::seconds const & backoff_a) :
-node (node_a),
-node_w (node_a.shared ()),
-request (request_a),
-backoff (backoff_a),
-strand (node_a.io_ctx.get_executor ()),
-need_resolve (request_a.peers),
-elapsed (nano::timer_state::started, "distributed work generation timer")
+    node (node_a),
+    node_w (node_a.shared ()),
+    request (request_a),
+    backoff (backoff_a),
+    strand (node_a.io_ctx.get_executor ()),
+    need_resolve (request_a.peers),
+    elapsed (nano::timer_state::started, "distributed work generation timer")
 {
 	debug_assert (!finished);
 	debug_assert (status == work_generation_status::ongoing);

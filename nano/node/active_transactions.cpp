@@ -19,19 +19,19 @@ size_t constexpr nano::active_transactions::max_active_elections_frontier_insert
 constexpr std::chrono::minutes nano::active_transactions::expired_optimistic_election_info_cutoff;
 
 nano::active_transactions::active_transactions (nano::node & node_a, nano::confirmation_height_processor & confirmation_height_processor_a) :
-recently_dropped (node_a.stats),
-confirmation_height_processor (confirmation_height_processor_a),
-node (node_a),
-multipliers_cb (20, 1.),
-trended_active_multiplier (1.0),
-generator (node_a.config, node_a.ledger, node_a.wallets, node_a.vote_processor, node_a.history, node_a.network, node_a.stats),
-check_all_elections_period (node_a.network_params.network.is_dev_network () ? 10ms : 5s),
-election_time_to_live (node_a.network_params.network.is_dev_network () ? 0s : 2s),
-prioritized_cutoff (std::max<size_t> (1, node_a.config.active_elections_size / 10)),
-thread ([this]() {
-	nano::thread_role::set (nano::thread_role::name::request_loop);
-	request_loop ();
-})
+    recently_dropped (node_a.stats),
+    confirmation_height_processor (confirmation_height_processor_a),
+    node (node_a),
+    multipliers_cb (20, 1.),
+    trended_active_multiplier (1.0),
+    generator (node_a.config, node_a.ledger, node_a.wallets, node_a.vote_processor, node_a.history, node_a.network, node_a.stats),
+    check_all_elections_period (node_a.network_params.network.is_dev_network () ? 10ms : 5s),
+    election_time_to_live (node_a.network_params.network.is_dev_network () ? 0s : 2s),
+    prioritized_cutoff (std::max<size_t> (1, node_a.config.active_elections_size / 10)),
+    thread ([this]() {
+	    nano::thread_role::set (nano::thread_role::name::request_loop);
+	    request_loop ();
+    })
 {
 	// Register a callback which will get called after a block is cemented
 	confirmation_height_processor.add_cemented_observer ([this](std::shared_ptr<nano::block> const & callback_block_a) {
@@ -1544,13 +1544,13 @@ size_t nano::active_transactions::election_winner_details_size ()
 }
 
 nano::cementable_account::cementable_account (nano::account const & account_a, size_t blocks_uncemented_a) :
-account (account_a), blocks_uncemented (blocks_uncemented_a)
+    account (account_a), blocks_uncemented (blocks_uncemented_a)
 {
 }
 
 nano::expired_optimistic_election_info::expired_optimistic_election_info (std::chrono::steady_clock::time_point expired_time_a, nano::account account_a) :
-expired_time (expired_time_a),
-account (account_a)
+    expired_time (expired_time_a),
+    account (account_a)
 {
 }
 
@@ -1590,7 +1590,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (ac
 }
 
 nano::dropped_elections::dropped_elections (nano::stat & stats_a) :
-stats (stats_a)
+    stats (stats_a)
 {
 }
 

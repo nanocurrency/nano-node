@@ -832,7 +832,7 @@ class json_initial_value_test final
 {
 public:
 	explicit json_initial_value_test (std::string const & text_a) :
-	text (text_a)
+	    text (text_a)
 	{
 	}
 	nano::error serialize_json (nano::jsonconfig & json)

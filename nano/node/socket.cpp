@@ -9,12 +9,12 @@
 #include <limits>
 
 nano::socket::socket (nano::node & node_a, boost::optional<std::chrono::seconds> io_timeout_a) :
-strand{ node_a.io_ctx.get_executor () },
-tcp_socket{ node_a.io_ctx },
-node{ node_a },
-next_deadline{ std::numeric_limits<uint64_t>::max () },
-last_completion_time{ 0 },
-io_timeout{ io_timeout_a }
+    strand{ node_a.io_ctx.get_executor () },
+    tcp_socket{ node_a.io_ctx },
+    node{ node_a },
+    next_deadline{ std::numeric_limits<uint64_t>::max () },
+    last_completion_time{ 0 },
+    io_timeout{ io_timeout_a }
 {
 	if (!io_timeout)
 	{
@@ -197,10 +197,10 @@ nano::tcp_endpoint nano::socket::remote_endpoint () const
 }
 
 nano::server_socket::server_socket (nano::node & node_a, boost::asio::ip::tcp::endpoint local_a, size_t max_connections_a) :
-socket{ node_a, std::chrono::seconds::max () },
-acceptor{ node_a.io_ctx },
-local{ local_a },
-max_inbound_connections{ max_connections_a }
+    socket{ node_a, std::chrono::seconds::max () },
+    acceptor{ node_a.io_ctx },
+    local{ local_a },
+    max_inbound_connections{ max_connections_a }
 {
 }
 

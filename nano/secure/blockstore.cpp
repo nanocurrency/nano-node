@@ -2,9 +2,9 @@
 #include <nano/secure/blockstore.hpp>
 
 nano::representative_visitor::representative_visitor (nano::transaction const & transaction_a, nano::block_store & store_a) :
-transaction (transaction_a),
-store (store_a),
-result (0)
+    transaction (transaction_a),
+    store (store_a),
+    result (0)
 {
 }
 
@@ -45,7 +45,7 @@ void nano::representative_visitor::state_block (nano::state_block const & block_
 }
 
 nano::read_transaction::read_transaction (std::unique_ptr<nano::read_transaction_impl> read_transaction_impl) :
-impl (std::move (read_transaction_impl))
+    impl (std::move (read_transaction_impl))
 {
 }
 
@@ -71,7 +71,7 @@ void nano::read_transaction::refresh () const
 }
 
 nano::write_transaction::write_transaction (std::unique_ptr<nano::write_transaction_impl> write_transaction_impl) :
-impl (std::move (write_transaction_impl))
+    impl (std::move (write_transaction_impl))
 {
 	/*
 	 * For IO threads, we do not want them to block on creating write transactions.

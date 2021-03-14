@@ -17,9 +17,9 @@ class rollback_visitor : public nano::block_visitor
 {
 public:
 	rollback_visitor (nano::write_transaction const & transaction_a, nano::ledger & ledger_a, std::vector<std::shared_ptr<nano::block>> & list_a) :
-	transaction (transaction_a),
-	ledger (ledger_a),
-	list (list_a)
+	    transaction (transaction_a),
+	    ledger (ledger_a),
+	    list (list_a)
 	{
 	}
 	virtual ~rollback_visitor () = default;
@@ -728,18 +728,18 @@ void ledger_processor::open_block (nano::open_block & block_a)
 }
 
 ledger_processor::ledger_processor (nano::ledger & ledger_a, nano::write_transaction const & transaction_a, nano::signature_verification verification_a) :
-ledger (ledger_a),
-transaction (transaction_a),
-verification (verification_a)
+    ledger (ledger_a),
+    transaction (transaction_a),
+    verification (verification_a)
 {
 	result.verified = verification;
 }
 } // namespace
 
 nano::ledger::ledger (nano::block_store & store_a, nano::stat & stat_a, nano::generate_cache const & generate_cache_a) :
-store (store_a),
-stats (stat_a),
-check_bootstrap_weights (true)
+    store (store_a),
+    stats (stat_a),
+    check_bootstrap_weights (true)
 {
 	if (!store.init_error ())
 	{
@@ -1187,9 +1187,9 @@ class dependent_block_visitor : public nano::block_visitor
 {
 public:
 	dependent_block_visitor (nano::ledger const & ledger_a, nano::transaction const & transaction_a) :
-	ledger (ledger_a),
-	transaction (transaction_a),
-	result ({ 0, 0 })
+	    ledger (ledger_a),
+	    transaction (transaction_a),
+	    result ({ 0, 0 })
 	{
 	}
 	void send_block (nano::send_block const & block_a) override
@@ -1540,7 +1540,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 }
 
 nano::uncemented_info::uncemented_info (nano::block_hash const & cemented_frontier, nano::block_hash const & frontier, nano::account const & account) :
-cemented_frontier (cemented_frontier), frontier (frontier), account (account)
+    cemented_frontier (cemented_frontier), frontier (frontier), account (account)
 {
 }
 

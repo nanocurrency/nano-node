@@ -17,7 +17,6 @@ AllowShortLoopsOnASingleLine: false
 BreakConstructorInitializersBeforeComma: true
 BreakConstructorInitializers: AfterColon
 ConstructorInitializerAllOnOneLineOrOnePerLine: false
-ConstructorInitializerIndentWidth: 0
 ContinuationIndentWidth: 0
 KeepEmptyLinesAtTheStartOfBlocks: false
 IndentCaseLabels: true

@@ -19,12 +19,12 @@ std::string filter_request (boost::property_tree::ptree tree_a);
 }
 
 nano::rpc_handler::rpc_handler (nano::rpc_config const & rpc_config, std::string const & body_a, std::string const & request_id_a, std::function<void(std::string const &)> const & response_a, nano::rpc_handler_interface & rpc_handler_interface_a, nano::logger_mt & logger) :
-body (body_a),
-request_id (request_id_a),
-response (response_a),
-rpc_config (rpc_config),
-rpc_handler_interface (rpc_handler_interface_a),
-logger (logger)
+    body (body_a),
+    request_id (request_id_a),
+    response (response_a),
+    rpc_config (rpc_config),
+    rpc_handler_interface (rpc_handler_interface_a),
+    logger (logger)
 {
 }
 

@@ -48,7 +48,7 @@ class work_item final
 {
 public:
 	work_item (nano::work_version const version_a, nano::root const & item_a, uint64_t difficulty_a, std::function<void(boost::optional<uint64_t> const &)> const & callback_a) :
-	version (version_a), item (item_a), difficulty (difficulty_a), callback (callback_a)
+	    version (version_a), item (item_a), difficulty (difficulty_a), callback (callback_a)
 	{
 	}
 	nano::work_version const version;

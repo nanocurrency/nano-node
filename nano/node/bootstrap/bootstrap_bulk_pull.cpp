@@ -8,23 +8,23 @@
 #include <boost/format.hpp>
 
 nano::pull_info::pull_info (nano::hash_or_account const & account_or_head_a, nano::block_hash const & head_a, nano::block_hash const & end_a, uint64_t bootstrap_id_a, count_t count_a, unsigned retry_limit_a) :
-account_or_head (account_or_head_a),
-head (head_a),
-head_original (head_a),
-end (end_a),
-count (count_a),
-retry_limit (retry_limit_a),
-bootstrap_id (bootstrap_id_a)
+    account_or_head (account_or_head_a),
+    head (head_a),
+    head_original (head_a),
+    end (end_a),
+    count (count_a),
+    retry_limit (retry_limit_a),
+    bootstrap_id (bootstrap_id_a)
 {
 }
 
 nano::bulk_pull_client::bulk_pull_client (std::shared_ptr<nano::bootstrap_client> const & connection_a, std::shared_ptr<nano::bootstrap_attempt> const & attempt_a, nano::pull_info const & pull_a) :
-connection (connection_a),
-attempt (attempt_a),
-known_account (0),
-pull (pull_a),
-pull_blocks (0),
-unexpected_count (0)
+    connection (connection_a),
+    attempt (attempt_a),
+    known_account (0),
+    pull (pull_a),
+    pull_blocks (0),
+    unexpected_count (0)
 {
 	attempt->condition.notify_all ();
 }
@@ -285,10 +285,10 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 }
 
 nano::bulk_pull_account_client::bulk_pull_account_client (std::shared_ptr<nano::bootstrap_client> const & connection_a, std::shared_ptr<nano::bootstrap_attempt> const & attempt_a, nano::account const & account_a) :
-connection (connection_a),
-attempt (attempt_a),
-account (account_a),
-pull_blocks (0)
+    connection (connection_a),
+    attempt (attempt_a),
+    account (account_a),
+    pull_blocks (0)
 {
 	attempt->condition.notify_all ();
 }
@@ -620,8 +620,8 @@ void nano::bulk_pull_server::no_block_sent (boost::system::error_code const & ec
 }
 
 nano::bulk_pull_server::bulk_pull_server (std::shared_ptr<nano::bootstrap_server> const & connection_a, std::unique_ptr<nano::bulk_pull> request_a) :
-connection (connection_a),
-request (std::move (request_a))
+    connection (connection_a),
+    request (std::move (request_a))
 {
 	set_current_end ();
 }
@@ -940,9 +940,9 @@ void nano::bulk_pull_account_server::complete (boost::system::error_code const &
 }
 
 nano::bulk_pull_account_server::bulk_pull_account_server (std::shared_ptr<nano::bootstrap_server> const & connection_a, std::unique_ptr<nano::bulk_pull_account> request_a) :
-connection (connection_a),
-request (std::move (request_a)),
-current_key (0, 0)
+    connection (connection_a),
+    request (std::move (request_a)),
+    current_key (0, 0)
 {
 	/*
 	 * Setup the streaming response for the first call to "send_frontier" and  "send_next_block"

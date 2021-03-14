@@ -26,11 +26,11 @@ const char * epoch_as_string (nano::epoch);
 }
 
 nano::json_handler::json_handler (nano::node & node_a, nano::node_rpc_config const & node_rpc_config_a, std::string const & body_a, std::function<void(std::string const &)> const & response_a, std::function<void()> stop_callback_a) :
-body (body_a),
-node (node_a),
-response (response_a),
-stop_callback (stop_callback_a),
-node_rpc_config (node_rpc_config_a)
+    body (body_a),
+    node (node_a),
+    response (response_a),
+    stop_callback (stop_callback_a),
+    node_rpc_config (node_rpc_config_a)
 {
 }
 
@@ -2225,12 +2225,12 @@ class history_visitor : public nano::block_visitor
 {
 public:
 	history_visitor (nano::json_handler & handler_a, bool raw_a, nano::transaction & transaction_a, boost::property_tree::ptree & tree_a, nano::block_hash const & hash_a, std::vector<nano::public_key> const & accounts_filter_a) :
-	handler (handler_a),
-	raw (raw_a),
-	transaction (transaction_a),
-	tree (tree_a),
-	hash (hash_a),
-	accounts_filter (accounts_filter_a)
+	    handler (handler_a),
+	    raw (raw_a),
+	    transaction (transaction_a),
+	    tree (tree_a),
+	    hash (hash_a),
+	    accounts_filter (accounts_filter_a)
 	{
 	}
 	virtual ~history_visitor () = default;

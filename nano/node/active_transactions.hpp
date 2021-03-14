@@ -68,9 +68,9 @@ class inactive_cache_information final
 public:
 	inactive_cache_information () = default;
 	inactive_cache_information (std::chrono::steady_clock::time_point arrival, nano::block_hash hash, nano::account initial_rep_a, uint64_t initial_timestamp_a, nano::inactive_cache_status status) :
-	arrival (arrival),
-	hash (hash),
-	status (status)
+	    arrival (arrival),
+	    hash (hash),
+	    status (status)
 	{
 		voters.reserve (8);
 		voters.emplace_back (initial_rep_a, initial_timestamp_a);

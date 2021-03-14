@@ -56,10 +56,10 @@ auto nano::ipc::action_handler::handler_map () -> std::unordered_map<nanoapi::Me
 }
 
 nano::ipc::action_handler::action_handler (nano::node & node_a, nano::ipc::ipc_server & server_a, std::weak_ptr<nano::ipc::subscriber> const & subscriber_a, std::shared_ptr<flatbuffers::FlatBufferBuilder> const & builder_a) :
-flatbuffer_producer (builder_a),
-node (node_a),
-ipc_server (server_a),
-subscriber (subscriber_a)
+    flatbuffer_producer (builder_a),
+    node (node_a),
+    ipc_server (server_a),
+    subscriber (subscriber_a)
 {
 }
 

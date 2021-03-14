@@ -8,9 +8,9 @@
 #include <boost/format.hpp>
 
 nano::transport::channel_udp::channel_udp (nano::transport::udp_channels & channels_a, nano::endpoint const & endpoint_a, uint8_t protocol_version_a) :
-channel (channels_a.node),
-endpoint (endpoint_a),
-channels (channels_a)
+    channel (channels_a.node),
+    endpoint (endpoint_a),
+    channels (channels_a)
 {
 	set_network_version (protocol_version_a);
 	debug_assert (endpoint_a.address ().is_v6 ());
@@ -62,8 +62,8 @@ std::string nano::transport::channel_udp::to_string () const
 }
 
 nano::transport::udp_channels::udp_channels (nano::node & node_a, uint16_t port_a) :
-node (node_a),
-strand (node_a.io_ctx.get_executor ())
+    node (node_a),
+    strand (node_a.io_ctx.get_executor ())
 {
 	if (!node.flags.disable_udp)
 	{
@@ -365,8 +365,8 @@ class udp_message_visitor : public nano::message_visitor
 {
 public:
 	udp_message_visitor (nano::node & node_a, nano::endpoint const & endpoint_a) :
-	node (node_a),
-	endpoint (endpoint_a)
+	    node (node_a),
+	    endpoint (endpoint_a)
 	{
 	}
 	void keepalive (nano::keepalive const & message_a) override

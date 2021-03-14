@@ -6,7 +6,7 @@ nano::ipc::flatbuffer_producer::flatbuffer_producer ()
 }
 
 nano::ipc::flatbuffer_producer::flatbuffer_producer (std::shared_ptr<flatbuffers::FlatBufferBuilder> const & builder_a) :
-fbb (builder_a)
+    fbb (builder_a)
 {
 }
 

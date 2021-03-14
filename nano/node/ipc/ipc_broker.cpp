@@ -7,7 +7,7 @@
 #include <nano/node/node.hpp>
 
 nano::ipc::broker::broker (nano::node & node_a) :
-node (node_a)
+    node (node_a)
 {
 }
 

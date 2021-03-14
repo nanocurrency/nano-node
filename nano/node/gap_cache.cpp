@@ -5,7 +5,7 @@
 #include <boost/format.hpp>
 
 nano::gap_cache::gap_cache (nano::node & node_a) :
-node (node_a)
+    node (node_a)
 {
 }
 

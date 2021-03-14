@@ -150,15 +150,15 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (na
 }
 
 nano::vote_generator::vote_generator (nano::node_config const & config_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::local_vote_history & history_a, nano::network & network_a, nano::stat & stats_a) :
-config (config_a),
-ledger (ledger_a),
-wallets (wallets_a),
-vote_processor (vote_processor_a),
-history (history_a),
-spacing{ config_a.network_params.voting.delay },
-network (network_a),
-stats (stats_a),
-thread ([this]() { run (); })
+    config (config_a),
+    ledger (ledger_a),
+    wallets (wallets_a),
+    vote_processor (vote_processor_a),
+    history (history_a),
+    spacing{ config_a.network_params.voting.delay },
+    network (network_a),
+    stats (stats_a),
+    thread ([this]() { run (); })
 {
 	nano::unique_lock<nano::mutex> lock (mutex);
 	condition.wait (lock, [& started = started] { return started; });
@@ -392,7 +392,7 @@ void nano::vote_generator::run ()
 }
 
 nano::vote_generator_session::vote_generator_session (nano::vote_generator & vote_generator_a) :
-generator (vote_generator_a)
+    generator (vote_generator_a)
 {
 }
 

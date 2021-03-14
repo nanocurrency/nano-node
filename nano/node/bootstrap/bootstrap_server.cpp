@@ -8,8 +8,8 @@
 #include <boost/variant/get.hpp>
 
 nano::bootstrap_listener::bootstrap_listener (uint16_t port_a, nano::node & node_a) :
-node (node_a),
-port (port_a)
+    node (node_a),
+    port (port_a)
 {
 }
 
@@ -104,9 +104,9 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (bo
 }
 
 nano::bootstrap_server::bootstrap_server (std::shared_ptr<nano::socket> const & socket_a, std::shared_ptr<nano::node> const & node_a) :
-receive_buffer (std::make_shared<std::vector<uint8_t>> ()),
-socket (socket_a),
-node (node_a)
+    receive_buffer (std::make_shared<std::vector<uint8_t>> ()),
+    socket (socket_a),
+    node (node_a)
 {
 	receive_buffer->resize (1024);
 }
@@ -617,7 +617,7 @@ class request_response_visitor : public nano::message_visitor
 {
 public:
 	explicit request_response_visitor (std::shared_ptr<nano::bootstrap_server> const & connection_a) :
-	connection (connection_a)
+	    connection (connection_a)
 	{
 	}
 	void keepalive (nano::keepalive const & message_a) override

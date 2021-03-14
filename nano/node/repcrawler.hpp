@@ -29,7 +29,7 @@ class representative
 public:
 	representative () = default;
 	representative (nano::account account_a, nano::amount weight_a, std::shared_ptr<nano::transport::channel> const & channel_a) :
-	account (account_a), weight (weight_a), channel (channel_a)
+	    account (account_a), weight (weight_a), channel (channel_a)
 	{
 		debug_assert (channel != nullptr);
 	}

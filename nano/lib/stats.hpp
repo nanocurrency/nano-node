@@ -98,7 +98,7 @@ public:
 	{
 	public:
 		bin (uint64_t start_inclusive_a, uint64_t end_exclusive_a) :
-		start_inclusive (start_inclusive_a), end_exclusive (end_exclusive_a)
+		    start_inclusive (start_inclusive_a), end_exclusive (end_exclusive_a)
 		{
 		}
 		uint64_t start_inclusive;
@@ -120,7 +120,7 @@ class stat_entry final
 {
 public:
 	stat_entry (size_t capacity, size_t interval) :
-	samples (capacity), sample_interval (interval)
+	    samples (capacity), sample_interval (interval)
 	{
 	}
 

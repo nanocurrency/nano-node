@@ -6,8 +6,8 @@
 #include <boost/format.hpp>
 
 nano::bulk_push_client::bulk_push_client (std::shared_ptr<nano::bootstrap_client> const & connection_a, std::shared_ptr<nano::bootstrap_attempt> const & attempt_a) :
-connection (connection_a),
-attempt (attempt_a)
+    connection (connection_a),
+    attempt (attempt_a)
 {
 }
 
@@ -112,8 +112,8 @@ void nano::bulk_push_client::push_block (nano::block const & block_a)
 }
 
 nano::bulk_push_server::bulk_push_server (std::shared_ptr<nano::bootstrap_server> const & connection_a) :
-receive_buffer (std::make_shared<std::vector<uint8_t>> ()),
-connection (connection_a)
+    receive_buffer (std::make_shared<std::vector<uint8_t>> ()),
+    connection (connection_a)
 {
 	receive_buffer->resize (256);
 }

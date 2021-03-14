@@ -4,7 +4,7 @@
 #include <boost/format.hpp>
 
 nano::rep_crawler::rep_crawler (nano::node & node_a) :
-node (node_a)
+    node (node_a)
 {
 	if (!node.flags.disable_rep_crawler)
 	{

@@ -10,7 +10,7 @@
 #include <algorithm>
 
 nano::bootstrap_initiator::bootstrap_initiator (nano::node & node_a) :
-node (node_a)
+    node (node_a)
 {
 	connections = std::make_shared<nano::bootstrap_connections> (node);
 	bootstrap_initiator_threads.push_back (boost::thread ([this]() {

@@ -5,8 +5,8 @@
 #include <boost/format.hpp>
 
 nano::transport::channel_tcp::channel_tcp (nano::node & node_a, std::weak_ptr<nano::socket> socket_a) :
-channel (node_a),
-socket (socket_a)
+    channel (node_a),
+    socket (socket_a)
 {
 }
 
@@ -111,7 +111,7 @@ void nano::transport::channel_tcp::set_endpoint ()
 }
 
 nano::transport::tcp_channels::tcp_channels (nano::node & node_a) :
-node (node_a)
+    node (node_a)
 {
 }
 

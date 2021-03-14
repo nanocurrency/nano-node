@@ -17,7 +17,7 @@ class fake_websocket_client
 {
 public:
 	fake_websocket_client (unsigned port) :
-	socket (std::make_shared<boost::beast::websocket::stream<boost::asio::ip::tcp::socket>> (ioc))
+	    socket (std::make_shared<boost::beast::websocket::stream<boost::asio::ip::tcp::socket>> (ioc))
 	{
 		std::string const host = "::1";
 		boost::asio::ip::tcp::resolver resolver{ ioc };

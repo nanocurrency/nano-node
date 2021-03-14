@@ -41,70 +41,70 @@ class db_val
 {
 public:
 	db_val (Val const & value_a) :
-	value (value_a)
+	    value (value_a)
 	{
 	}
 
 	db_val () :
-	db_val (0, nullptr)
+	    db_val (0, nullptr)
 	{
 	}
 
 	db_val (std::nullptr_t) :
-	db_val (0, this)
+	    db_val (0, this)
 	{
 	}
 
 	db_val (nano::uint128_union const & val_a) :
-	db_val (sizeof (val_a), const_cast<nano::uint128_union *> (&val_a))
+	    db_val (sizeof (val_a), const_cast<nano::uint128_union *> (&val_a))
 	{
 	}
 
 	db_val (nano::uint256_union const & val_a) :
-	db_val (sizeof (val_a), const_cast<nano::uint256_union *> (&val_a))
+	    db_val (sizeof (val_a), const_cast<nano::uint256_union *> (&val_a))
 	{
 	}
 
 	db_val (nano::uint512_union const & val_a) :
-	db_val (sizeof (val_a), const_cast<nano::uint512_union *> (&val_a))
+	    db_val (sizeof (val_a), const_cast<nano::uint512_union *> (&val_a))
 	{
 	}
 
 	db_val (nano::qualified_root const & val_a) :
-	db_val (sizeof (val_a), const_cast<nano::qualified_root *> (&val_a))
+	    db_val (sizeof (val_a), const_cast<nano::qualified_root *> (&val_a))
 	{
 	}
 
 	db_val (nano::account_info const & val_a) :
-	db_val (val_a.db_size (), const_cast<nano::account_info *> (&val_a))
+	    db_val (val_a.db_size (), const_cast<nano::account_info *> (&val_a))
 	{
 	}
 
 	db_val (nano::account_info_v14 const & val_a) :
-	db_val (val_a.db_size (), const_cast<nano::account_info_v14 *> (&val_a))
+	    db_val (val_a.db_size (), const_cast<nano::account_info_v14 *> (&val_a))
 	{
 	}
 
 	db_val (nano::pending_info const & val_a) :
-	db_val (val_a.db_size (), const_cast<nano::pending_info *> (&val_a))
+	    db_val (val_a.db_size (), const_cast<nano::pending_info *> (&val_a))
 	{
 		static_assert (std::is_standard_layout<nano::pending_info>::value, "Standard layout is required");
 	}
 
 	db_val (nano::pending_info_v14 const & val_a) :
-	db_val (val_a.db_size (), const_cast<nano::pending_info_v14 *> (&val_a))
+	    db_val (val_a.db_size (), const_cast<nano::pending_info_v14 *> (&val_a))
 	{
 		static_assert (std::is_standard_layout<nano::pending_info_v14>::value, "Standard layout is required");
 	}
 
 	db_val (nano::pending_key const & val_a) :
-	db_val (sizeof (val_a), const_cast<nano::pending_key *> (&val_a))
+	    db_val (sizeof (val_a), const_cast<nano::pending_key *> (&val_a))
 	{
 		static_assert (std::is_standard_layout<nano::pending_key>::value, "Standard layout is required");
 	}
 
 	db_val (nano::unchecked_info const & val_a) :
-	buffer (std::make_shared<std::vector<uint8_t>> ())
+	    buffer (std::make_shared<std::vector<uint8_t>> ())
 	{
 		{
 			nano::vectorstream stream (*buffer);
@@ -114,13 +114,13 @@ public:
 	}
 
 	db_val (nano::unchecked_key const & val_a) :
-	db_val (sizeof (val_a), const_cast<nano::unchecked_key *> (&val_a))
+	    db_val (sizeof (val_a), const_cast<nano::unchecked_key *> (&val_a))
 	{
 		static_assert (std::is_standard_layout<nano::unchecked_key>::value, "Standard layout is required");
 	}
 
 	db_val (nano::confirmation_height_info const & val_a) :
-	buffer (std::make_shared<std::vector<uint8_t>> ())
+	    buffer (std::make_shared<std::vector<uint8_t>> ())
 	{
 		{
 			nano::vectorstream stream (*buffer);
@@ -130,19 +130,19 @@ public:
 	}
 
 	db_val (nano::block_info const & val_a) :
-	db_val (sizeof (val_a), const_cast<nano::block_info *> (&val_a))
+	    db_val (sizeof (val_a), const_cast<nano::block_info *> (&val_a))
 	{
 		static_assert (std::is_standard_layout<nano::block_info>::value, "Standard layout is required");
 	}
 
 	db_val (nano::endpoint_key const & val_a) :
-	db_val (sizeof (val_a), const_cast<nano::endpoint_key *> (&val_a))
+	    db_val (sizeof (val_a), const_cast<nano::endpoint_key *> (&val_a))
 	{
 		static_assert (std::is_standard_layout<nano::endpoint_key>::value, "Standard layout is required");
 	}
 
 	db_val (std::shared_ptr<nano::block> const & val_a) :
-	buffer (std::make_shared<std::vector<uint8_t>> ())
+	    buffer (std::make_shared<std::vector<uint8_t>> ())
 	{
 		{
 			nano::vectorstream stream (*buffer);
@@ -152,7 +152,7 @@ public:
 	}
 
 	db_val (uint64_t val_a) :
-	buffer (std::make_shared<std::vector<uint8_t>> ())
+	    buffer (std::make_shared<std::vector<uint8_t>> ())
 	{
 		{
 			boost::endian::native_to_big_inplace (val_a);
@@ -489,13 +489,13 @@ public:
 	{
 	}
 	store_iterator (std::unique_ptr<nano::store_iterator_impl<T, U>> impl_a) :
-	impl (std::move (impl_a))
+	    impl (std::move (impl_a))
 	{
 		impl->fill (current);
 	}
 	store_iterator (nano::store_iterator<T, U> && other_a) :
-	current (std::move (other_a.current)),
-	impl (std::move (other_a.impl))
+	    current (std::move (other_a.current)),
+	    impl (std::move (other_a.impl))
 	{
 	}
 	nano::store_iterator<T, U> & operator++ ()

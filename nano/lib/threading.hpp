@@ -90,7 +90,7 @@ class relaxed_atomic_integral
 public:
 	relaxed_atomic_integral () noexcept = default;
 	constexpr relaxed_atomic_integral (T desired) noexcept :
-	atomic (desired)
+	    atomic (desired)
 	{
 	}
 

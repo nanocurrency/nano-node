@@ -62,7 +62,7 @@ namespace ipc
 	{
 	public:
 		subscription (std::weak_ptr<nano::ipc::subscriber> const & subscriber_a, std::shared_ptr<TopicType> const & topic_a) :
-		subscriber (subscriber_a), topic (topic_a)
+		    subscriber (subscriber_a), topic (topic_a)
 		{
 		}
 

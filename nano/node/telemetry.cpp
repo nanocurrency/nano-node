@@ -19,12 +19,12 @@
 using namespace std::chrono_literals;
 
 nano::telemetry::telemetry (nano::network & network_a, nano::thread_pool & workers_a, nano::observer_set<nano::telemetry_data const &, nano::endpoint const &> & observers_a, nano::stat & stats_a, nano::network_params & network_params_a, bool disable_ongoing_requests_a) :
-network (network_a),
-workers (workers_a),
-observers (observers_a),
-stats (stats_a),
-network_params (network_params_a),
-disable_ongoing_requests (disable_ongoing_requests_a)
+    network (network_a),
+    workers (workers_a),
+    observers (observers_a),
+    stats (stats_a),
+    network_params (network_params_a),
+    disable_ongoing_requests (disable_ongoing_requests_a)
 {
 }
 
@@ -154,7 +154,7 @@ void nano::telemetry::ongoing_req_all_peers (std::chrono::milliseconds next_requ
 				{
 					std::shared_ptr<nano::transport::channel> channel;
 					channel_wrapper (std::shared_ptr<nano::transport::channel> const & channel_a) :
-					channel (channel_a)
+					    channel (channel_a)
 					{
 					}
 					nano::endpoint endpoint () const
@@ -454,10 +454,10 @@ size_t nano::telemetry::telemetry_data_size ()
 }
 
 nano::telemetry_info::telemetry_info (nano::endpoint const & endpoint_a, nano::telemetry_data const & data_a, std::chrono::steady_clock::time_point last_response_a, bool undergoing_request_a) :
-endpoint (endpoint_a),
-data (data_a),
-last_response (last_response_a),
-undergoing_request (undergoing_request_a)
+    endpoint (endpoint_a),
+    data (data_a),
+    last_response (last_response_a),
+    undergoing_request (undergoing_request_a)
 {
 }
 

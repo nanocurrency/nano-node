@@ -120,7 +120,7 @@ void nano::thread_attributes::set (boost::thread::attributes & attrs)
 }
 
 nano::thread_runner::thread_runner (boost::asio::io_context & io_ctx_a, unsigned service_threads_a) :
-io_guard (boost::asio::make_work_guard (io_ctx_a))
+    io_guard (boost::asio::make_work_guard (io_ctx_a))
 {
 	boost::thread::attributes attrs;
 	nano::thread_attributes::set (attrs);
@@ -197,8 +197,8 @@ void nano::thread_runner::stop_event_processing ()
 }
 
 nano::thread_pool::thread_pool (unsigned num_threads, nano::thread_role::name thread_name) :
-num_threads (num_threads),
-thread_pool_m (std::make_unique<boost::asio::thread_pool> (num_threads))
+    num_threads (num_threads),
+    thread_pool_m (std::make_unique<boost::asio::thread_pool> (num_threads))
 {
 	set_thread_names (num_threads, thread_name);
 }

@@ -2041,7 +2041,7 @@ std::istream & operator>> (std::istream & in, uint64_from_hex & out_val)
 }
 
 address_library_pair::address_library_pair (uint64_t address, std::string library) :
-address (address), library (library)
+    address (address), library (library)
 {
 }
 

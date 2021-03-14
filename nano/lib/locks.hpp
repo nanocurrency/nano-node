@@ -48,8 +48,8 @@ public:
 	mutex () = default;
 	mutex (const char * name_a)
 #if USING_NANO_TIMED_LOCKS
-	:
-	name (name_a)
+	    :
+	    name (name_a)
 #endif
 	{
 #if USING_NANO_TIMED_LOCKS
@@ -121,7 +121,7 @@ class lock_guard final
 {
 public:
 	explicit lock_guard (Mutex & mutex_a) :
-	guard (mutex_a)
+	    guard (mutex_a)
 	{
 	}
 
@@ -267,14 +267,14 @@ public:
 
 	template <typename... Args>
 	locked (Args &&... args) :
-	obj (std::forward<Args> (args)...)
+	    obj (std::forward<Args> (args)...)
 	{
 	}
 
 	struct scoped_lock final
 	{
 		scoped_lock (locked * owner_a) :
-		owner (owner_a)
+		    owner (owner_a)
 		{
 			owner->mutex.lock ();
 		}

@@ -14,12 +14,12 @@ constexpr unsigned nano::bootstrap_limits::bootstrap_max_new_connections;
 constexpr unsigned nano::bootstrap_limits::requeued_pulls_processed_blocks_factor;
 
 nano::bootstrap_client::bootstrap_client (std::shared_ptr<nano::node> const & node_a, std::shared_ptr<nano::bootstrap_connections> const & connections_a, std::shared_ptr<nano::transport::channel_tcp> const & channel_a, std::shared_ptr<nano::socket> const & socket_a) :
-node (node_a),
-connections (connections_a),
-channel (channel_a),
-socket (socket_a),
-receive_buffer (std::make_shared<std::vector<uint8_t>> ()),
-start_time_m (std::chrono::steady_clock::now ())
+    node (node_a),
+    connections (connections_a),
+    channel (channel_a),
+    socket (socket_a),
+    receive_buffer (std::make_shared<std::vector<uint8_t>> ()),
+    start_time_m (std::chrono::steady_clock::now ())
 {
 	++connections->connections_count;
 	receive_buffer->resize (256);
@@ -60,7 +60,7 @@ void nano::bootstrap_client::stop (bool force)
 }
 
 nano::bootstrap_connections::bootstrap_connections (nano::node & node_a) :
-node (node_a)
+    node (node_a)
 {
 }
 

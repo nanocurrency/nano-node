@@ -221,9 +221,9 @@ void nano::send_block::block_work_set (uint64_t work_a)
 }
 
 nano::send_hashables::send_hashables (nano::block_hash const & previous_a, nano::account const & destination_a, nano::amount const & balance_a) :
-previous (previous_a),
-destination (destination_a),
-balance (balance_a)
+    previous (previous_a),
+    destination (destination_a),
+    balance (balance_a)
 {
 }
 
@@ -364,14 +364,14 @@ bool nano::send_block::deserialize_json (boost::property_tree::ptree const & tre
 }
 
 nano::send_block::send_block (nano::block_hash const & previous_a, nano::account const & destination_a, nano::amount const & balance_a, nano::raw_key const & prv_a, nano::public_key const & pub_a, uint64_t work_a) :
-hashables (previous_a, destination_a, balance_a),
-signature (nano::sign_message (prv_a, pub_a, hash ())),
-work (work_a)
+    hashables (previous_a, destination_a, balance_a),
+    signature (nano::sign_message (prv_a, pub_a, hash ())),
+    work (work_a)
 {
 }
 
 nano::send_block::send_block (bool & error_a, nano::stream & stream_a) :
-hashables (error_a, stream_a)
+    hashables (error_a, stream_a)
 {
 	if (!error_a)
 	{
@@ -388,7 +388,7 @@ hashables (error_a, stream_a)
 }
 
 nano::send_block::send_block (bool & error_a, boost::property_tree::ptree const & tree_a) :
-hashables (error_a, tree_a)
+    hashables (error_a, tree_a)
 {
 	if (!error_a)
 	{
@@ -474,9 +474,9 @@ void nano::send_block::signature_set (nano::signature const & signature_a)
 }
 
 nano::open_hashables::open_hashables (nano::block_hash const & source_a, nano::account const & representative_a, nano::account const & account_a) :
-source (source_a),
-representative (representative_a),
-account (account_a)
+    source (source_a),
+    representative (representative_a),
+    account (account_a)
 {
 }
 
@@ -525,22 +525,22 @@ void nano::open_hashables::hash (blake2b_state & hash_a) const
 }
 
 nano::open_block::open_block (nano::block_hash const & source_a, nano::account const & representative_a, nano::account const & account_a, nano::raw_key const & prv_a, nano::public_key const & pub_a, uint64_t work_a) :
-hashables (source_a, representative_a, account_a),
-signature (nano::sign_message (prv_a, pub_a, hash ())),
-work (work_a)
+    hashables (source_a, representative_a, account_a),
+    signature (nano::sign_message (prv_a, pub_a, hash ())),
+    work (work_a)
 {
 	debug_assert (!representative_a.is_zero ());
 }
 
 nano::open_block::open_block (nano::block_hash const & source_a, nano::account const & representative_a, nano::account const & account_a, std::nullptr_t) :
-hashables (source_a, representative_a, account_a),
-work (0)
+    hashables (source_a, representative_a, account_a),
+    work (0)
 {
 	signature.clear ();
 }
 
 nano::open_block::open_block (bool & error_a, nano::stream & stream_a) :
-hashables (error_a, stream_a)
+    hashables (error_a, stream_a)
 {
 	if (!error_a)
 	{
@@ -557,7 +557,7 @@ hashables (error_a, stream_a)
 }
 
 nano::open_block::open_block (bool & error_a, boost::property_tree::ptree const & tree_a) :
-hashables (error_a, tree_a)
+    hashables (error_a, tree_a)
 {
 	if (!error_a)
 	{
@@ -745,8 +745,8 @@ void nano::open_block::signature_set (nano::signature const & signature_a)
 }
 
 nano::change_hashables::change_hashables (nano::block_hash const & previous_a, nano::account const & representative_a) :
-previous (previous_a),
-representative (representative_a)
+    previous (previous_a),
+    representative (representative_a)
 {
 }
 
@@ -788,14 +788,14 @@ void nano::change_hashables::hash (blake2b_state & hash_a) const
 }
 
 nano::change_block::change_block (nano::block_hash const & previous_a, nano::account const & representative_a, nano::raw_key const & prv_a, nano::public_key const & pub_a, uint64_t work_a) :
-hashables (previous_a, representative_a),
-signature (nano::sign_message (prv_a, pub_a, hash ())),
-work (work_a)
+    hashables (previous_a, representative_a),
+    signature (nano::sign_message (prv_a, pub_a, hash ())),
+    work (work_a)
 {
 }
 
 nano::change_block::change_block (bool & error_a, nano::stream & stream_a) :
-hashables (error_a, stream_a)
+    hashables (error_a, stream_a)
 {
 	if (!error_a)
 	{
@@ -812,7 +812,7 @@ hashables (error_a, stream_a)
 }
 
 nano::change_block::change_block (bool & error_a, boost::property_tree::ptree const & tree_a) :
-hashables (error_a, tree_a)
+    hashables (error_a, tree_a)
 {
 	if (!error_a)
 	{
@@ -994,11 +994,11 @@ void nano::change_block::signature_set (nano::signature const & signature_a)
 }
 
 nano::state_hashables::state_hashables (nano::account const & account_a, nano::block_hash const & previous_a, nano::account const & representative_a, nano::amount const & balance_a, nano::link const & link_a) :
-account (account_a),
-previous (previous_a),
-representative (representative_a),
-balance (balance_a),
-link (link_a)
+    account (account_a),
+    previous (previous_a),
+    representative (representative_a),
+    balance (balance_a),
+    link (link_a)
 {
 }
 
@@ -1061,14 +1061,14 @@ void nano::state_hashables::hash (blake2b_state & hash_a) const
 }
 
 nano::state_block::state_block (nano::account const & account_a, nano::block_hash const & previous_a, nano::account const & representative_a, nano::amount const & balance_a, nano::link const & link_a, nano::raw_key const & prv_a, nano::public_key const & pub_a, uint64_t work_a) :
-hashables (account_a, previous_a, representative_a, balance_a, link_a),
-signature (nano::sign_message (prv_a, pub_a, hash ())),
-work (work_a)
+    hashables (account_a, previous_a, representative_a, balance_a, link_a),
+    signature (nano::sign_message (prv_a, pub_a, hash ())),
+    work (work_a)
 {
 }
 
 nano::state_block::state_block (bool & error_a, nano::stream & stream_a) :
-hashables (error_a, stream_a)
+    hashables (error_a, stream_a)
 {
 	if (!error_a)
 	{
@@ -1086,7 +1086,7 @@ hashables (error_a, stream_a)
 }
 
 nano::state_block::state_block (bool & error_a, boost::property_tree::ptree const & tree_a) :
-hashables (error_a, tree_a)
+    hashables (error_a, tree_a)
 {
 	if (!error_a)
 	{
@@ -1506,14 +1506,14 @@ bool nano::receive_block::deserialize_json (boost::property_tree::ptree const & 
 }
 
 nano::receive_block::receive_block (nano::block_hash const & previous_a, nano::block_hash const & source_a, nano::raw_key const & prv_a, nano::public_key const & pub_a, uint64_t work_a) :
-hashables (previous_a, source_a),
-signature (nano::sign_message (prv_a, pub_a, hash ())),
-work (work_a)
+    hashables (previous_a, source_a),
+    signature (nano::sign_message (prv_a, pub_a, hash ())),
+    work (work_a)
 {
 }
 
 nano::receive_block::receive_block (bool & error_a, nano::stream & stream_a) :
-hashables (error_a, stream_a)
+    hashables (error_a, stream_a)
 {
 	if (!error_a)
 	{
@@ -1530,7 +1530,7 @@ hashables (error_a, stream_a)
 }
 
 nano::receive_block::receive_block (bool & error_a, boost::property_tree::ptree const & tree_a) :
-hashables (error_a, tree_a)
+    hashables (error_a, tree_a)
 {
 	if (!error_a)
 	{
@@ -1620,8 +1620,8 @@ nano::block_type nano::receive_block::type () const
 }
 
 nano::receive_hashables::receive_hashables (nano::block_hash const & previous_a, nano::block_hash const & source_a) :
-previous (previous_a),
-source (source_a)
+    previous (previous_a),
+    source (source_a)
 {
 }
 
@@ -1663,7 +1663,7 @@ void nano::receive_hashables::hash (blake2b_state & hash_a) const
 }
 
 nano::block_details::block_details (nano::epoch const epoch_a, bool const is_send_a, bool const is_receive_a, bool const is_epoch_a) :
-epoch (epoch_a), is_send (is_send_a), is_receive (is_receive_a), is_epoch (is_epoch_a)
+    epoch (epoch_a), is_send (is_send_a), is_receive (is_receive_a), is_epoch (is_epoch_a)
 {
 }
 
@@ -1735,24 +1735,24 @@ std::string nano::state_subtype (nano::block_details const details_a)
 }
 
 nano::block_sideband::block_sideband (nano::account const & account_a, nano::block_hash const & successor_a, nano::amount const & balance_a, uint64_t const height_a, uint64_t const timestamp_a, nano::block_details const & details_a, nano::epoch const source_epoch_a) :
-successor (successor_a),
-account (account_a),
-balance (balance_a),
-height (height_a),
-timestamp (timestamp_a),
-details (details_a),
-source_epoch (source_epoch_a)
+    successor (successor_a),
+    account (account_a),
+    balance (balance_a),
+    height (height_a),
+    timestamp (timestamp_a),
+    details (details_a),
+    source_epoch (source_epoch_a)
 {
 }
 
 nano::block_sideband::block_sideband (nano::account const & account_a, nano::block_hash const & successor_a, nano::amount const & balance_a, uint64_t const height_a, uint64_t const timestamp_a, nano::epoch const epoch_a, bool const is_send, bool const is_receive, bool const is_epoch, nano::epoch const source_epoch_a) :
-successor (successor_a),
-account (account_a),
-balance (balance_a),
-height (height_a),
-timestamp (timestamp_a),
-details (epoch_a, is_send, is_receive, is_epoch),
-source_epoch (source_epoch_a)
+    successor (successor_a),
+    account (account_a),
+    balance (balance_a),
+    height (height_a),
+    timestamp (timestamp_a),
+    details (epoch_a, is_send, is_receive, is_epoch),
+    source_epoch (source_epoch_a)
 {
 }
 

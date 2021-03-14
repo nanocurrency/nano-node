@@ -26,14 +26,14 @@ class test_response
 {
 public:
 	test_response (boost::property_tree::ptree const & request_a, boost::asio::io_context & io_ctx_a) :
-	request (request_a),
-	sock (io_ctx_a)
+	    request (request_a),
+	    sock (io_ctx_a)
 	{
 	}
 
 	test_response (boost::property_tree::ptree const & request_a, uint16_t port_a, boost::asio::io_context & io_ctx_a) :
-	request (request_a),
-	sock (io_ctx_a)
+	    request (request_a),
+	    sock (io_ctx_a)
 	{
 		run (port_a);
 	}

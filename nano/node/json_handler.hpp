@@ -171,10 +171,10 @@ class inprocess_rpc_handler final : public nano::rpc_handler_interface
 public:
 	inprocess_rpc_handler (
 	nano::node & node_a, nano::ipc::ipc_server & ipc_server_a, nano::node_rpc_config const & node_rpc_config_a, std::function<void()> stop_callback_a = []() {}) :
-	node (node_a),
-	ipc_server (ipc_server_a),
-	stop_callback (stop_callback_a),
-	node_rpc_config (node_rpc_config_a)
+	    node (node_a),
+	    ipc_server (ipc_server_a),
+	    stop_callback (stop_callback_a),
+	    node_rpc_config (node_rpc_config_a)
 	{
 	}
 

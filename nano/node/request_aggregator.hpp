@@ -42,8 +42,8 @@ class request_aggregator final
 	{
 		channel_pool () = delete;
 		explicit channel_pool (std::shared_ptr<nano::transport::channel> const & channel_a) :
-		channel (channel_a),
-		endpoint (nano::transport::map_endpoint_to_v6 (channel_a->get_endpoint ()))
+		    channel (channel_a),
+		    endpoint (nano::transport::map_endpoint_to_v6 (channel_a->get_endpoint ()))
 		{
 		}
 		std::vector<std::pair<nano::block_hash, nano::root>> hashes_roots;

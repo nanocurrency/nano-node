@@ -1,7 +1,7 @@
 #include <nano/node/rocksdb/rocksdb_txn.hpp>
 
 nano::read_rocksdb_txn::read_rocksdb_txn (rocksdb::DB * db_a) :
-db (db_a)
+    db (db_a)
 {
 	if (db_a)
 	{
@@ -33,10 +33,10 @@ void * nano::read_rocksdb_txn::get_handle () const
 }
 
 nano::write_rocksdb_txn::write_rocksdb_txn (rocksdb::OptimisticTransactionDB * db_a, std::vector<nano::tables> const & tables_requiring_locks_a, std::vector<nano::tables> const & tables_no_locks_a, std::unordered_map<nano::tables, nano::mutex> & mutexes_a) :
-db (db_a),
-tables_requiring_locks (tables_requiring_locks_a),
-tables_no_locks (tables_no_locks_a),
-mutexes (mutexes_a)
+    db (db_a),
+    tables_requiring_locks (tables_requiring_locks_a),
+    tables_no_locks (tables_no_locks_a),
+    mutexes (mutexes_a)
 {
 	lock ();
 	rocksdb::OptimisticTransactionOptions txn_options;

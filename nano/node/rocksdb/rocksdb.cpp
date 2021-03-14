@@ -22,7 +22,7 @@ class event_listener : public rocksdb::EventListener
 {
 public:
 	event_listener (std::function<void(rocksdb::FlushJobInfo const &)> const & flush_completed_cb_a) :
-	flush_completed_cb (flush_completed_cb_a)
+	    flush_completed_cb (flush_completed_cb_a)
 	{
 	}
 
@@ -52,7 +52,7 @@ size_t rocksdb_val::size () const
 
 template <>
 rocksdb_val::db_val (size_t size_a, void * data_a) :
-value (static_cast<const char *> (data_a), size_a)
+    value (static_cast<const char *> (data_a), size_a)
 {
 }
 
@@ -64,10 +64,10 @@ void rocksdb_val::convert_buffer_to_value ()
 }
 
 nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a) :
-logger{ logger_a },
-rocksdb_config{ rocksdb_config_a },
-max_block_write_batch_num_m{ nano::narrow_cast<unsigned> (blocks_memtable_size_bytes () / (2 * (sizeof (nano::block_type) + nano::state_block::size + nano::block_sideband::size (nano::block_type::state)))) },
-cf_name_table_map{ create_cf_name_table_map () }
+    logger{ logger_a },
+    rocksdb_config{ rocksdb_config_a },
+    max_block_write_batch_num_m{ nano::narrow_cast<unsigned> (blocks_memtable_size_bytes () / (2 * (sizeof (nano::block_type) + nano::state_block::size + nano::block_sideband::size (nano::block_type::state)))) },
+    cf_name_table_map{ create_cf_name_table_map () }
 {
 	boost::system::error_code error_mkdir, error_chmod;
 	boost::filesystem::create_directories (path_a, error_mkdir);
@@ -907,8 +907,8 @@ std::string nano::rocksdb_store::error_string (int status) const
 }
 
 nano::rocksdb_store::tombstone_info::tombstone_info (uint64_t num_since_last_flush_a, uint64_t const max_a) :
-num_since_last_flush (num_since_last_flush_a),
-max (max_a)
+    num_since_last_flush (num_since_last_flush_a),
+    max (max_a)
 {
 }
 

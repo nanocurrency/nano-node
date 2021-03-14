@@ -21,14 +21,14 @@ const std::string default_test_peer_network = nano::get_env_or_default ("NANO_TE
 }
 
 nano::node_config::node_config () :
-node_config (0, nano::logging ())
+    node_config (0, nano::logging ())
 {
 }
 
 nano::node_config::node_config (uint16_t peering_port_a, nano::logging const & logging_a) :
-peering_port (peering_port_a),
-logging (logging_a),
-external_address (boost::asio::ip::address_v6{}.to_string ())
+    peering_port (peering_port_a),
+    logging (logging_a),
+    external_address (boost::asio::ip::address_v6{}.to_string ())
 {
 	// The default constructor passes 0 to indicate we should use the default port,
 	// which is determined at node startup based on active network.

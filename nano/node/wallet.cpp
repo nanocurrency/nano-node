@@ -256,9 +256,9 @@ size_t const nano::wallet_store::check_iv_index (0);
 size_t const nano::wallet_store::seed_iv_index (1);
 
 nano::wallet_store::wallet_store (bool & init_a, nano::kdf & kdf_a, nano::transaction & transaction_a, nano::account representative_a, unsigned fanout_a, std::string const & wallet_a, std::string const & json_a) :
-password (0, fanout_a),
-wallet_key_mem (0, fanout_a),
-kdf (kdf_a)
+    password (0, fanout_a),
+    wallet_key_mem (0, fanout_a),
+    kdf (kdf_a)
 {
 	init_a = false;
 	initialize (transaction_a, init_a, wallet_a);
@@ -312,9 +312,9 @@ kdf (kdf_a)
 }
 
 nano::wallet_store::wallet_store (bool & init_a, nano::kdf & kdf_a, nano::transaction & transaction_a, nano::account representative_a, unsigned fanout_a, std::string const & wallet_a) :
-password (0, fanout_a),
-wallet_key_mem (0, fanout_a),
-kdf (kdf_a)
+    password (0, fanout_a),
+    wallet_key_mem (0, fanout_a),
+    kdf (kdf_a)
 {
 	init_a = false;
 	initialize (transaction_a, init_a, wallet_a);
@@ -659,16 +659,16 @@ void nano::kdf::phs (nano::raw_key & result_a, std::string const & password_a, n
 }
 
 nano::wallet::wallet (bool & init_a, nano::transaction & transaction_a, nano::wallets & wallets_a, std::string const & wallet_a) :
-lock_observer ([](bool, bool) {}),
-store (init_a, wallets_a.kdf, transaction_a, wallets_a.node.config.random_representative (), wallets_a.node.config.password_fanout, wallet_a),
-wallets (wallets_a)
+    lock_observer ([](bool, bool) {}),
+    store (init_a, wallets_a.kdf, transaction_a, wallets_a.node.config.random_representative (), wallets_a.node.config.password_fanout, wallet_a),
+    wallets (wallets_a)
 {
 }
 
 nano::wallet::wallet (bool & init_a, nano::transaction & transaction_a, nano::wallets & wallets_a, std::string const & wallet_a, std::string const & json) :
-lock_observer ([](bool, bool) {}),
-store (init_a, wallets_a.kdf, transaction_a, wallets_a.node.config.random_representative (), wallets_a.node.config.password_fanout, wallet_a, json),
-wallets (wallets_a)
+    lock_observer ([](bool, bool) {}),
+    store (init_a, wallets_a.kdf, transaction_a, wallets_a.node.config.random_representative (), wallets_a.node.config.password_fanout, wallet_a, json),
+    wallets (wallets_a)
 {
 }
 
@@ -1320,8 +1320,8 @@ void nano::wallet::work_cache_blocking (nano::account const & account_a, nano::r
 }
 
 nano::work_watcher::work_watcher (nano::node & node_a) :
-node (node_a),
-stopped (false)
+    node (node_a),
+    stopped (false)
 {
 	node.observers.blocks.add ([this](nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
 		this->remove (*status_a.winner);
@@ -1462,15 +1462,15 @@ void nano::wallets::do_wallet_actions ()
 }
 
 nano::wallets::wallets (bool error_a, nano::node & node_a) :
-observer ([](bool) {}),
-node (node_a),
-env (boost::polymorphic_downcast<nano::mdb_wallets_store *> (node_a.wallets_store_impl.get ())->environment),
-stopped (false),
-watcher (std::make_shared<nano::work_watcher> (node_a)),
-thread ([this]() {
-	nano::thread_role::set (nano::thread_role::name::wallet_actions);
-	do_wallet_actions ();
-})
+    observer ([](bool) {}),
+    node (node_a),
+    env (boost::polymorphic_downcast<nano::mdb_wallets_store *> (node_a.wallets_store_impl.get ())->environment),
+    stopped (false),
+    watcher (std::make_shared<nano::work_watcher> (node_a)),
+    thread ([this]() {
+	    nano::thread_role::set (nano::thread_role::name::wallet_actions);
+	    do_wallet_actions ();
+    })
 {
 	nano::unique_lock<nano::mutex> lock (mutex);
 	if (!error_a)
@@ -1935,7 +1935,7 @@ nano::store_iterator<nano::account, nano::wallet_value> nano::wallet_store::end 
 	return nano::store_iterator<nano::account, nano::wallet_value> (nullptr);
 }
 nano::mdb_wallets_store::mdb_wallets_store (boost::filesystem::path const & path_a, nano::lmdb_config const & lmdb_config_a) :
-environment (error, path_a, nano::mdb_env::options::make ().set_config (lmdb_config_a).override_config_sync (nano::lmdb_config::sync_strategy::always).override_config_map_size (1ULL * 1024 * 1024 * 1024))
+    environment (error, path_a, nano::mdb_env::options::make ().set_config (lmdb_config_a).override_config_sync (nano::lmdb_config::sync_strategy::always).override_config_map_size (1ULL * 1024 * 1024 * 1024))
 {
 }
 

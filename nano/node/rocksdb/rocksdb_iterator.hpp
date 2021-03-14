@@ -70,7 +70,7 @@ public:
 	}
 
 	rocksdb_iterator (rocksdb::DB * db, nano::transaction const & transaction_a, rocksdb::ColumnFamilyHandle * handle_a) :
-	rocksdb_iterator (db, transaction_a, handle_a, nullptr)
+	    rocksdb_iterator (db, transaction_a, handle_a, nullptr)
 	{
 	}
 

@@ -30,7 +30,7 @@
 #endif
 
 nano::container_info_composite::container_info_composite (std::string const & name) :
-name (name)
+    name (name)
 {
 }
 
@@ -55,7 +55,7 @@ const std::string & nano::container_info_composite::get_name () const
 }
 
 nano::container_info_leaf::container_info_leaf (const container_info & info) :
-info (info)
+    info (info)
 {
 }
 

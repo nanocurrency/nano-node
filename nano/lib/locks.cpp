@@ -59,7 +59,7 @@ void output_if_blocked_long_enough (nano::timer<std::chrono::milliseconds> & tim
 #endif
 
 lock_guard<nano::mutex>::lock_guard (nano::mutex & mutex) :
-mut (mutex)
+    mut (mutex)
 {
 	timer.start ();
 
@@ -77,14 +77,14 @@ lock_guard<nano::mutex>::~lock_guard () noexcept
 
 template <typename Mutex, typename U>
 unique_lock<Mutex, U>::unique_lock (Mutex & mutex) :
-mut (std::addressof (mutex))
+    mut (std::addressof (mutex))
 {
 	lock_impl ();
 }
 
 template <typename Mutex, typename U>
 unique_lock<Mutex, U>::unique_lock (Mutex & mutex, std::defer_lock_t) noexcept :
-mut (std::addressof (mutex))
+    mut (std::addressof (mutex))
 {
 }
 

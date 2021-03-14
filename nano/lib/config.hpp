@@ -92,9 +92,9 @@ struct work_thresholds
 	uint64_t const entry;
 
 	constexpr work_thresholds (uint64_t epoch_1_a, uint64_t epoch_2_a, uint64_t epoch_2_receive_a) :
-	epoch_1 (epoch_1_a), epoch_2 (epoch_2_a), epoch_2_receive (epoch_2_receive_a),
-	base (std::max ({ epoch_1, epoch_2, epoch_2_receive })),
-	entry (std::min ({ epoch_1, epoch_2, epoch_2_receive }))
+	    epoch_1 (epoch_1_a), epoch_2 (epoch_2_a), epoch_2_receive (epoch_2_receive_a),
+	    base (std::max ({ epoch_1, epoch_2, epoch_2_receive })),
+	    entry (std::min ({ epoch_1, epoch_2, epoch_2_receive }))
 	{
 	}
 	work_thresholds () = delete;
@@ -108,13 +108,13 @@ class network_constants
 {
 public:
 	network_constants () :
-	network_constants (network_constants::active_network)
+	    network_constants (network_constants::active_network)
 	{
 	}
 
 	network_constants (nano_networks network_a) :
-	current_network (network_a),
-	publish_thresholds (is_live_network () ? publish_full : is_beta_network () ? publish_beta : is_test_network () ? publish_test : publish_dev)
+	    current_network (network_a),
+	    publish_thresholds (is_live_network () ? publish_full : is_beta_network () ? publish_beta : is_test_network () ? publish_test : publish_dev)
 	{
 		// A representative is classified as principal based on its weight and this factor
 		principal_weight_factor = 1000; // 0.1%

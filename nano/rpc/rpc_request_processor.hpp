@@ -12,7 +12,7 @@ namespace nano
 struct ipc_connection
 {
 	ipc_connection (nano::ipc::ipc_client && client_a, bool is_available_a) :
-	client (std::move (client_a)), is_available (is_available_a)
+	    client (std::move (client_a)), is_available (is_available_a)
 	{
 	}
 
@@ -23,17 +23,17 @@ struct ipc_connection
 struct rpc_request
 {
 	rpc_request (const std::string & action_a, const std::string & body_a, std::function<void(std::string const &)> response_a) :
-	action (action_a), body (body_a), response (response_a)
+	    action (action_a), body (body_a), response (response_a)
 	{
 	}
 
 	rpc_request (int rpc_api_version_a, const std::string & body_a, std::function<void(std::string const &)> response_a) :
-	rpc_api_version (rpc_api_version_a), body (body_a), response (response_a)
+	    rpc_api_version (rpc_api_version_a), body (body_a), response (response_a)
 	{
 	}
 
 	rpc_request (int rpc_api_version_a, const std::string & action_a, const std::string & body_a, std::function<void(std::string const &)> response_a) :
-	rpc_api_version (rpc_api_version_a), action (action_a), body (body_a), response (response_a)
+	    rpc_api_version (rpc_api_version_a), action (action_a), body (body_a), response (response_a)
 	{
 	}
 
@@ -73,7 +73,7 @@ class ipc_rpc_processor final : public nano::rpc_handler_interface
 {
 public:
 	ipc_rpc_processor (boost::asio::io_context & io_ctx, nano::rpc_config & rpc_config) :
-	rpc_request_processor (io_ctx, rpc_config)
+	    rpc_request_processor (io_ctx, rpc_config)
 	{
 	}
 

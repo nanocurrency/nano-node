@@ -11,7 +11,7 @@
 std::chrono::milliseconds constexpr nano::block_processor::confirmation_request_delay;
 
 nano::block_post_events::block_post_events (std::function<nano::read_transaction ()> && get_transaction_a) :
-get_transaction (std::move (get_transaction_a))
+    get_transaction (std::move (get_transaction_a))
 {
 }
 
@@ -26,10 +26,10 @@ nano::block_post_events::~block_post_events ()
 }
 
 nano::block_processor::block_processor (nano::node & node_a, nano::write_database_queue & write_database_queue_a) :
-next_log (std::chrono::steady_clock::now ()),
-node (node_a),
-write_database_queue (write_database_queue_a),
-state_block_signature_verification (node.checker, node.ledger.network_params.ledger.epochs, node.config, node.logger, node.flags.block_processor_verification_size)
+    next_log (std::chrono::steady_clock::now ()),
+    node (node_a),
+    write_database_queue (write_database_queue_a),
+    state_block_signature_verification (node.checker, node.ledger.network_params.ledger.epochs, node.config, node.logger, node.flags.block_processor_verification_size)
 {
 	state_block_signature_verification.blocks_verified_callback = [this](std::deque<std::pair<nano::unchecked_info, bool>> & items, std::vector<int> const & verifications, std::vector<nano::block_hash> const & hashes, std::vector<nano::signature> const & blocks_signatures) {
 		this->process_verified_state_blocks (items, verifications, hashes, blocks_signatures);

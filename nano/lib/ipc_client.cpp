@@ -46,7 +46,7 @@ class socket_client : public nano::ipc::socket_base, public channel, public std:
 {
 public:
 	socket_client (boost::asio::io_context & io_ctx_a, ENDPOINT_TYPE endpoint_a) :
-	socket_base (io_ctx_a), endpoint (endpoint_a), socket (io_ctx_a), resolver (io_ctx_a), strand (io_ctx_a.get_executor ())
+	    socket_base (io_ctx_a), endpoint (endpoint_a), socket (io_ctx_a), resolver (io_ctx_a), strand (io_ctx_a.get_executor ())
 	{
 	}
 
@@ -172,7 +172,7 @@ private:
 	{
 	public:
 		queue_item (nano::shared_const_buffer const & buffer_a, std::function<void(boost::system::error_code const &, size_t)> callback_a) :
-		buffer (buffer_a), callback (callback_a)
+		    buffer (buffer_a), callback (callback_a)
 		{
 		}
 		nano::shared_const_buffer buffer;
@@ -197,7 +197,7 @@ class client_impl : public nano::ipc::ipc_client_impl
 {
 public:
 	explicit client_impl (boost::asio::io_context & io_ctx_a) :
-	io_ctx (io_ctx_a)
+	    io_ctx (io_ctx_a)
 	{
 	}
 
@@ -249,7 +249,7 @@ private:
 }
 
 nano::ipc::ipc_client::ipc_client (boost::asio::io_context & io_ctx_a) :
-io_ctx (io_ctx_a)
+    io_ctx (io_ctx_a)
 {
 }
 

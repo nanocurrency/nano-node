@@ -36,13 +36,13 @@ class work_peer_connection : public std::enable_shared_from_this<work_peer_conne
 
 public:
 	work_peer_connection (asio::io_context & ioc_a, work_peer_type const type_a, nano::work_version const version_a, nano::work_pool & pool_a, std::function<void(bool const)> on_generation_a, std::function<void()> on_cancel_a) :
-	socket (ioc_a),
-	type (type_a),
-	version (version_a),
-	work_pool (pool_a),
-	on_generation (on_generation_a),
-	on_cancel (on_cancel_a),
-	timer (ioc_a)
+	    socket (ioc_a),
+	    type (type_a),
+	    version (version_a),
+	    work_pool (pool_a),
+	    on_generation (on_generation_a),
+	    on_cancel (on_cancel_a),
+	    timer (ioc_a)
 	{
 	}
 	void start ()
@@ -200,12 +200,12 @@ class fake_work_peer : public std::enable_shared_from_this<fake_work_peer>
 public:
 	fake_work_peer () = delete;
 	fake_work_peer (nano::work_pool & pool_a, asio::io_context & ioc_a, unsigned short port_a, work_peer_type const type_a, nano::work_version const version_a = nano::work_version::work_1) :
-	pool (pool_a),
-	endpoint (tcp::v4 (), port_a),
-	ioc (ioc_a),
-	acceptor (ioc_a, endpoint),
-	type (type_a),
-	version (version_a)
+	    pool (pool_a),
+	    endpoint (tcp::v4 (), port_a),
+	    ioc (ioc_a),
+	    acceptor (ioc_a, endpoint),
+	    type (type_a),
+	    version (version_a)
 	{
 	}
 	void start ()
