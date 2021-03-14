@@ -1311,8 +1311,7 @@ std::shared_ptr<nano::block> nano::ledger::forked_block (nano::transaction const
 	if (result == nullptr)
 	{
 		nano::account_info info;
-		auto error (store.account_get (transaction_a, root.as_account (), info));
-		(void)error;
+		[[maybe_unused]] auto const error (store.account_get (transaction_a, root.as_account (), info));
 		debug_assert (!error);
 		result = store.block_get (transaction_a, info.open_block);
 		debug_assert (result != nullptr);
@@ -1323,7 +1322,7 @@ std::shared_ptr<nano::block> nano::ledger::forked_block (nano::transaction const
 bool nano::ledger::block_confirmed (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
 {
 	auto confirmed (false);
-	auto block = store.block_get (transaction_a, hash_a);
+	auto const block = store.block_get (transaction_a, hash_a);
 	if (block)
 	{
 		nano::confirmation_height_info confirmation_height_info;
@@ -1339,7 +1338,7 @@ uint64_t nano::ledger::pruning_action (nano::write_transaction & transaction_a, 
 	nano::block_hash hash (hash_a);
 	while (!hash.is_zero () && hash != network_params.ledger.genesis_hash)
 	{
-		auto block (store.block_get (transaction_a, hash));
+		auto const block (store.block_get (transaction_a, hash));
 		if (block != nullptr)
 		{
 			store.block_del (transaction_a, hash);

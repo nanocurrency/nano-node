@@ -12,7 +12,7 @@ class pending_info_v14 final
 public:
 	pending_info_v14 () = default;
 	pending_info_v14 (nano::account const &, nano::amount const &, nano::epoch);
-	size_t db_size () const;
+	[[nodiscard]] size_t db_size () const;
 	bool deserialize (nano::stream &);
 	bool operator== (nano::pending_info_v14 const &) const;
 	nano::account source{ 0 };
@@ -24,7 +24,7 @@ class account_info_v14 final
 public:
 	account_info_v14 () = default;
 	account_info_v14 (nano::block_hash const &, nano::block_hash const &, nano::block_hash const &, nano::amount const &, uint64_t, uint64_t, uint64_t, nano::epoch);
-	size_t db_size () const;
+	[[nodiscard]] size_t db_size () const;
 	nano::block_hash head{ 0 };
 	nano::block_hash rep_block{ 0 };
 	nano::block_hash open_block{ 0 };

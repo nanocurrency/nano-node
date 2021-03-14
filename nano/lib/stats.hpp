@@ -400,7 +400,7 @@ public:
 	 * Initialize stats with a config.
 	 * @param config Configuration object; deserialized from config.json
 	 */
-	stat (nano::stat_config config);
+	explicit stat (nano::stat_config config);
 
 	/**
 	 * Call this to override the default sample interval and capacity, for a specific stat entry.
@@ -566,7 +566,7 @@ public:
 	void log_samples (stat_log_sink & sink);
 
 	/** Returns a new JSON log sink */
-	std::unique_ptr<stat_log_sink> log_sink_json () const;
+	[[nodiscard]] std::unique_ptr<stat_log_sink> log_sink_json () const;
 
 	/** Returns string representation of detail */
 	static std::string detail_to_string (uint32_t key);
@@ -579,7 +579,7 @@ private:
 	static std::string dir_to_string (uint32_t key);
 
 	/** Constructs a key given type, detail and direction. This is used as input to update(...) and get_entry(...) */
-	uint32_t key_of (stat::type type, stat::detail detail, stat::dir dir) const
+	[[nodiscard]] uint32_t key_of (stat::type type, stat::detail detail, stat::dir dir) const
 	{
 		return static_cast<uint8_t> (type) << 16 | static_cast<uint8_t> (detail) << 8 | static_cast<uint8_t> (dir);
 	}

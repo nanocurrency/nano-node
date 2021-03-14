@@ -46,7 +46,7 @@ class mutex
 {
 public:
 	mutex () = default;
-	mutex (const char * name_a)
+	explicit mutex (const char * name_a)
 #if USING_NANO_TIMED_LOCKS
 	:
 	name (name_a)
@@ -266,14 +266,14 @@ public:
 	using value_type = T;
 
 	template <typename... Args>
-	locked (Args &&... args) :
+	explicit locked (Args &&... args) :
 	obj (std::forward<Args> (args)...)
 	{
 	}
 
 	struct scoped_lock final
 	{
-		scoped_lock (locked * owner_a) :
+		explicit scoped_lock (locked * owner_a) :
 		owner (owner_a)
 		{
 			owner->mutex.lock ();

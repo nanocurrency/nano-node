@@ -7,12 +7,9 @@
 #include <array>
 #include <string>
 
-namespace boost
-{
-namespace filesystem
+namespace boost::filesystem
 {
 	class path;
-}
 }
 
 #define xstr(a) ver_str (a)
@@ -50,8 +47,8 @@ uint8_t get_minor_node_version ();
 uint8_t get_patch_node_version ();
 uint8_t get_pre_release_node_version ();
 
-std::string get_env_or_default (char const * variable_name, std::string const default_value);
-uint64_t get_env_threshold_or_default (char const * variable_name, uint64_t const default_value);
+std::string get_env_or_default (char const * variable_name, std::string default_value);
+uint64_t get_env_threshold_or_default (char const * variable_name, uint64_t default_value);
 
 uint16_t test_node_port ();
 uint16_t test_rpc_port ();
@@ -112,7 +109,7 @@ public:
 	{
 	}
 
-	network_constants (nano_networks network_a) :
+	explicit network_constants (nano_networks network_a) :
 	current_network (network_a),
 	publish_thresholds (is_live_network () ? publish_full : is_beta_network () ? publish_beta : is_test_network () ? publish_test : publish_dev)
 	{
@@ -147,7 +144,7 @@ public:
 	unsigned request_interval_ms;
 
 	/** Returns the network this object contains values for */
-	nano_networks network () const
+	[[nodiscard]] nano_networks network () const
 	{
 		return current_network;
 	}
@@ -167,9 +164,8 @@ public:
 	 * If not called, the compile-time option will be used.
 	 * @param network_a The new active network. Valid values are "live", "beta" and "dev"
 	 */
-	static bool set_active_network (std::string network_a)
+	static bool set_active_network (std::string const & network_a)
 	{
-		auto error{ false };
 		if (network_a == "live")
 		{
 			active_network = nano::nano_networks::nano_live_network;
@@ -188,29 +184,30 @@ public:
 		}
 		else
 		{
-			error = true;
+			return true;
 		}
-		return error;
+
+		return false;
 	}
 
-	const char * get_current_network_as_string () const
+	[[nodiscard]] const char * get_current_network_as_string () const
 	{
 		return is_live_network () ? "live" : is_beta_network () ? "beta" : is_test_network () ? "test" : "dev";
 	}
 
-	bool is_live_network () const
+	[[nodiscard]] bool is_live_network () const
 	{
 		return current_network == nano_networks::nano_live_network;
 	}
-	bool is_beta_network () const
+	[[nodiscard]] bool is_beta_network () const
 	{
 		return current_network == nano_networks::nano_beta_network;
 	}
-	bool is_dev_network () const
+	[[nodiscard]] bool is_dev_network () const
 	{
 		return current_network == nano_networks::nano_dev_network;
 	}
-	bool is_test_network () const
+	[[nodiscard]] bool is_test_network () const
 	{
 		return current_network == nano_networks::nano_test_network;
 	}

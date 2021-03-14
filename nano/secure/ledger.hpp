@@ -27,10 +27,10 @@ class ledger final
 {
 public:
 	ledger (nano::block_store &, nano::stat &, nano::generate_cache const & = nano::generate_cache ());
-	[[nodiscard]] nano::account account (nano::transaction const &, nano::block_hash const &) const;
+	nano::account account (nano::transaction const &, nano::block_hash const &) const;
 	nano::account account_safe (nano::transaction const &, nano::block_hash const &, bool &) const;
-	[[nodiscard]] nano::uint128_t amount (nano::transaction const &, nano::account const &);
-	[[nodiscard]] nano::uint128_t amount (nano::transaction const &, nano::block_hash const &);
+	nano::uint128_t amount (nano::transaction const &, nano::account const &);
+	nano::uint128_t amount (nano::transaction const &, nano::block_hash const &);
 	/** Safe for previous block, but block hash_a must exist */
 	nano::uint128_t amount_safe (nano::transaction const &, nano::block_hash const & hash_a, bool &) const;
 	nano::uint128_t balance (nano::transaction const &, nano::block_hash const &) const;
@@ -45,10 +45,10 @@ public:
 	nano::root latest_root (nano::transaction const &, nano::account const &);
 	nano::block_hash representative (nano::transaction const &, nano::block_hash const &);
 	nano::block_hash representative_calculated (nano::transaction const &, nano::block_hash const &);
-	[[nodiscard]] bool block_exists (nano::block_hash const &) const;
-	[[nodiscard]] bool block_or_pruned_exists (nano::transaction const &, nano::block_hash const &) const;
-	[[nodiscard]] bool block_or_pruned_exists (nano::block_hash const &) const;
-	[[nodiscard]] bool block_confirmed_or_pruned_exists (nano::transaction const &, nano::block_hash const &) const;
+	bool block_exists (nano::block_hash const &) const;
+	bool block_or_pruned_exists (nano::transaction const &, nano::block_hash const &) const;
+	bool block_or_pruned_exists (nano::block_hash const &) const;
+	bool block_confirmed_or_pruned_exists (nano::transaction const &, nano::block_hash const &) const;
 	std::string block_text (char const *);
 	std::string block_text (nano::block_hash const &);
 	bool is_send (nano::transaction const &, nano::state_block const &) const;

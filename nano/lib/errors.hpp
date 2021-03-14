@@ -196,12 +196,9 @@ REGISTER_ERROR_CODES (nano, error_process);
 REGISTER_ERROR_CODES (nano, error_config);
 
 /* boost->std error_code bridge */
-namespace nano
-{
-namespace error_conversion
+namespace nano::error_conversion
 {
 	const std::error_category & generic_category ();
-}
 }
 
 namespace std
@@ -214,22 +211,19 @@ struct is_error_code_enum<boost::system::errc::errc_t>
 
 std::error_code make_error_code (boost::system::errc::errc_t const & e);
 }
-namespace nano
-{
-namespace error_conversion
+namespace nano::error_conversion
 {
 	namespace detail
 	{
 		class generic_category : public std::error_category
 		{
 		public:
-			const char * name () const noexcept override;
-			std::string message (int value) const override;
+			[[nodiscard]] const char * name () const noexcept override;
+			[[nodiscard]] std::string message (int value) const override;
 		};
 	}
 	const std::error_category & generic_category ();
 	std::error_code convert (const boost::system::error_code & error);
-}
 }
 
 namespace nano
@@ -242,19 +236,19 @@ public:
 	error (nano::error const & error_a) = default;
 	error (nano::error && error_a) = default;
 
-	error (std::error_code code_a);
-	error (boost::system::error_code const & code_a);
-	error (std::string message_a);
-	error (std::exception const & exception_a);
+	explicit error (std::error_code code_a);
+	explicit error (boost::system::error_code const & code_a);
+	explicit error (std::string message_a);
+	explicit error (std::exception const & exception_a);
 	error & operator= (nano::error const & err_a);
 	error & operator= (nano::error && err_a);
-	error & operator= (const std::error_code code_a);
+	error & operator= (std::error_code code_a);
 	error & operator= (const boost::system::error_code & code_a);
 	error & operator= (const boost::system::errc::errc_t & code_a);
-	error & operator= (const std::string message_a);
+	error & operator= (std::string message_a);
 	error & operator= (std::exception const & exception_a);
-	bool operator== (const std::error_code code_a) const;
-	bool operator== (const boost::system::error_code code_a) const;
+	bool operator== (std::error_code code_a) const;
+	bool operator== (boost::system::error_code code_a) const;
 	error & then (std::function<nano::error &()> next);
 	template <typename... ErrorCode>
 	error & accept (ErrorCode... err)
@@ -272,12 +266,12 @@ public:
 	explicit operator std::error_code () const;
 	explicit operator bool () const;
 	explicit operator std::string () const;
-	std::string get_message () const;
+	[[nodiscard]] std::string get_message () const;
 	/**
 	 * The error code as an integer. Note that some error codes have platform dependent values.
 	 * A return value of 0 signifies there is no error.
 	 */
-	int error_code_as_int () const;
+	[[nodiscard]] int error_code_as_int () const;
 	error & on_error (std::string message_a);
 	error & on_error (std::error_code code_a, std::string message_a);
 	error & set (std::string message_a, std::error_code code_a = nano::error_common::generic);

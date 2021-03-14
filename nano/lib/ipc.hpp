@@ -4,9 +4,7 @@
 
 #include <string>
 
-namespace nano
-{
-namespace ipc
+namespace nano::ipc
 {
 	/**
 	 * The IPC framing format is simple: preamble followed by an encoding specific payload.
@@ -29,7 +27,7 @@ namespace ipc
 	class socket_base
 	{
 	public:
-		socket_base (boost::asio::io_context & io_ctx_a);
+		explicit socket_base (boost::asio::io_context & io_ctx_a);
 		virtual ~socket_base () = default;
 
 		/** Close socket */
@@ -85,11 +83,10 @@ namespace ipc
 	class dsock_file_remover final
 	{
 	public:
-		dsock_file_remover (std::string const & file_a);
+		explicit dsock_file_remover (std::string const & file_a);
 		~dsock_file_remover ();
 
 	private:
 		std::string filename;
 	};
-}
 }

@@ -8,26 +8,26 @@
 std::vector<std::string> nano::config_overrides (std::vector<config_key_value_pair> const & key_value_pairs_a)
 {
 	std::vector<std::string> overrides;
-	auto format (boost::format ("%1%=%2%"));
-	auto format_add_escaped_quotes (boost::format ("%1%=\"%2%\""));
-	for (auto pair : key_value_pairs_a)
+	auto const format (boost::format ("%1%=%2%"));
+	auto const format_add_escaped_quotes (boost::format ("%1%=\"%2%\""));
+	for (auto const & pair : key_value_pairs_a)
 	{
-		auto start = pair.value.find ('[');
+		auto const start = pair.value.find ('[');
 
 		std::string value;
-		auto is_array = (start != std::string::npos);
+		auto const is_array = (start != std::string::npos);
 		if (is_array)
 		{
 			// Trim off the square brackets [] of the array
-			auto end = pair.value.find (']');
-			auto array_values = pair.value.substr (start + 1, end - start - 1);
+			auto const end = pair.value.find (']');
+			auto const array_values = pair.value.substr (start + 1, end - start - 1);
 
 			// Split the string by comma
 			std::vector<std::string> split_elements;
 			boost::split (split_elements, array_values, boost::is_any_of (","));
 
-			auto format (boost::format ("%1%"));
-			auto format_add_escaped_quotes (boost::format ("\"%1%\""));
+			auto const format (boost::format ("%1%"));
+			auto const format_add_escaped_quotes (boost::format ("\"%1%\""));
 
 			// Rebuild the array string adding escaped quotes if necessary
 			std::ostringstream ss;
@@ -35,7 +35,7 @@ std::vector<std::string> nano::config_overrides (std::vector<config_key_value_pa
 			for (auto i = 0; i < split_elements.size (); ++i)
 			{
 				auto & elem = split_elements[i];
-				auto already_escaped = elem.find ('\"') != std::string::npos;
+				auto const already_escaped = elem.find ('\"') != std::string::npos;
 				ss << ((!already_escaped ? format_add_escaped_quotes : format) % elem).str ();
 				if (i != split_elements.size () - 1)
 				{
@@ -49,7 +49,7 @@ std::vector<std::string> nano::config_overrides (std::vector<config_key_value_pa
 		{
 			value = pair.value;
 		}
-		auto already_escaped = value.find ('\"') != std::string::npos;
+		auto const already_escaped = value.find ('\"') != std::string::npos;
 		overrides.push_back (((!already_escaped ? format_add_escaped_quotes : format) % pair.key % value).str ());
 	}
 	return overrides;

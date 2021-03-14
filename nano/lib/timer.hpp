@@ -19,8 +19,8 @@ class timer
 {
 public:
 	timer () = default;
-	timer (nano::timer_state state_a, std::string const & description_a = "timer");
-	timer (std::string const & description_a);
+	explicit timer (nano::timer_state state_a, std::string const & description_a = "timer");
+	explicit timer (std::string const & description_a);
 	timer (std::string const & description_a, timer * parent_a);
 
 	/** Do not output if measured time is below the time units threshold in \p minimum_a */
@@ -83,8 +83,8 @@ public:
 	void print (std::ostream & stream_a);
 
 	/** Returns the SI unit string */
-	std::string unit () const;
-	nano::timer_state current_state () const;
+	[[nodiscard]] std::string unit () const;
+	[[nodiscard]] nano::timer_state current_state () const;
 
 private:
 	timer * parent{ nullptr };
