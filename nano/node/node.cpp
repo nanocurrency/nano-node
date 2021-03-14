@@ -1056,7 +1056,7 @@ void nano::node::ledger_pruning (uint64_t const batch_size_a, bool bootstrap_wei
 		if (!pruning_targets.empty () && !stopped)
 		{
 			auto scoped_write_guard = write_database_queue.wait (nano::writer::pruning);
-			const auto write_transaction (store.tx_begin_write ({ tables::blocks, tables::pruned }));
+			auto write_transaction (store.tx_begin_write ({ tables::blocks, tables::pruned }));
 			while (!pruning_targets.empty () && transaction_write_count < batch_size_a && !stopped)
 			{
 				auto const & pruning_hash (pruning_targets.front ());
