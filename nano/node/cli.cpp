@@ -209,7 +209,7 @@ void database_write_lock_error (std::error_code & ec)
 bool copy_database (boost::filesystem::path const & data_path, boost::program_options::variables_map const & vm, boost::filesystem::path const & output_path, std::error_code & ec)
 {
 	bool success = false;
-	bool needs_to_write = vm.count ("unchecked_clear") || vm.count ("clear_send_ids") || vm.count ("online_weight_clear") || vm.count ("peer_clear") || vm.count ("confirmation_height_clear") || vm.count ("final_vote_clear") || vm.count ("rebuild_database");
+	bool needs_to_write = vm.count ("unchecked_clear") || vm.count ("clear_send_ids") || vm.count ("online_weight_clear") || vm.count ("peer_clear") || vm.count ("confirmation_height_clear") || vm.count ("final_vote_clear") || vm.count ("rebuild_database") || vm.count ("vacuum");
 
 	auto node_flags = nano::inactive_node_flag_defaults ();
 	node_flags.read_only = !needs_to_write;

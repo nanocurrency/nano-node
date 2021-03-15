@@ -13,7 +13,7 @@ class frontier_req_client final : public std::enable_shared_from_this<nano::fron
 {
 public:
 	explicit frontier_req_client (std::shared_ptr<nano::bootstrap_client> const &, std::shared_ptr<nano::bootstrap_attempt> const &);
-	void run ();
+	void run (uint32_t const frontiers_age_a);
 	void receive_frontier ();
 	void received_frontier (boost::system::error_code const &, size_t);
 	void unsynced (nano::block_hash const &, nano::block_hash const &);
@@ -30,6 +30,7 @@ public:
 	/** A very rough estimate of the cost of `bulk_push`ing missing blocks */
 	uint64_t bulk_push_cost;
 	std::deque<std::pair<nano::account, nano::block_hash>> accounts;
+	uint32_t frontiers_age{ std::numeric_limits<uint32_t>::max () };
 	static size_t constexpr size_frontier = sizeof (nano::account) + sizeof (nano::block_hash);
 };
 class bootstrap_server;

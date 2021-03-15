@@ -175,6 +175,7 @@ nano::bootstrap_constants::bootstrap_constants (nano::network_constants & networ
 	lazy_retry_limit = network_constants.is_dev_network () ? 2 : frontier_retry_limit * 4;
 	lazy_destinations_retry_limit = network_constants.is_dev_network () ? 1 : frontier_retry_limit / 4;
 	gap_cache_bootstrap_start_interval = network_constants.is_dev_network () ? std::chrono::milliseconds (5) : std::chrono::milliseconds (30 * 1000);
+	default_frontiers_age_seconds = network_constants.is_dev_network () ? 1 : network_constants.is_beta_network () ? 60 * 60 : 24 * 60 * 60; // 1 second for dev network, 1 hour for beta, 24 hours for live
 }
 
 // Create a new random keypair

@@ -19,7 +19,6 @@ size_t constexpr nano::active_transactions::max_active_elections_frontier_insert
 constexpr std::chrono::minutes nano::active_transactions::expired_optimistic_election_info_cutoff;
 
 nano::active_transactions::active_transactions (nano::node & node_a, nano::confirmation_height_processor & confirmation_height_processor_a) :
-recently_dropped (node_a.stats),
 confirmation_height_processor (confirmation_height_processor_a),
 node (node_a),
 multipliers_cb (20, 1.),
@@ -358,7 +357,7 @@ void nano::active_transactions::cleanup_election (nano::unique_lock<nano::mutex>
 
 	if (!info_a.confirmed)
 	{
-		recently_dropped.add (info_a.root);
+		node.stats.inc (nano::stat::type::election, nano::stat::detail::election_drop);
 	}
 
 	for (auto const & [hash, block] : info_a.blocks)
@@ -1045,32 +1044,28 @@ bool nano::active_transactions::update_difficulty_impl (nano::active_transaction
 
 bool nano::active_transactions::restart (nano::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a)
 {
-	// Only guaranteed to restart the election if the new block is received within 2 minutes of its election being dropped
-	constexpr std::chrono::minutes recently_dropped_cutoff{ 2 };
 	bool error = true;
-	if (recently_dropped.find (block_a->qualified_root ()) > std::chrono::steady_clock::now () - recently_dropped_cutoff)
+	auto hash (block_a->hash ());
+	auto ledger_block (node.store.block_get (transaction_a, hash));
+	if (ledger_block != nullptr && ledger_block->block_work () != block_a->block_work () && !node.block_confirmed_or_being_confirmed (transaction_a, hash))
 	{
-		auto hash (block_a->hash ());
-		auto ledger_block (node.store.block_get (transaction_a, hash));
-		if (ledger_block != nullptr && ledger_block->block_work () != block_a->block_work () && !node.block_confirmed_or_being_confirmed (transaction_a, hash))
+		if (block_a->difficulty () > ledger_block->difficulty ())
 		{
-			if (block_a->difficulty () > ledger_block->difficulty ())
+			// Re-writing the block is necessary to avoid the same work being received later to force restarting the election
+			// The existing block is re-written, not the arriving block, as that one might not have gone through a full signature check
+			ledger_block->block_work_set (block_a->block_work ());
+
+			// Deferred write
+			node.block_processor.update (ledger_block);
+
+			// Restart election for the upgraded block, previously dropped from elections
+			if (node.ledger.dependents_confirmed (transaction_a, *ledger_block))
 			{
-				// Re-writing the block is necessary to avoid the same work being received later to force restarting the election
-				// The existing block is re-written, not the arriving block, as that one might not have gone through a full signature check
-				ledger_block->block_work_set (block_a->block_work ());
-
-				// Queue for writing in the block processor to avoid opening a new write transaction for a single operation
-				node.block_processor.update (ledger_block);
-
-				// Restart election for the upgraded block, previously dropped from elections
 				auto previous_balance = node.ledger.balance (transaction_a, ledger_block->previous ());
 				auto insert_result = insert (ledger_block, previous_balance);
 				if (insert_result.inserted)
 				{
 					error = false;
-					insert_result.election->transition_active ();
-					recently_dropped.erase (ledger_block->qualified_root ());
 					node.stats.inc (nano::stat::type::election, nano::stat::detail::election_restart);
 				}
 			}
@@ -1587,48 +1582,4 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (ac
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "optimistic_elections_count", active_transactions.optimistic_elections_count, 0 })); // This isn't an extra container, is just to expose the count easily
 	composite->add_component (collect_container_info (active_transactions.generator, "generator"));
 	return composite;
-}
-
-nano::dropped_elections::dropped_elections (nano::stat & stats_a) :
-stats (stats_a)
-{
-}
-
-void nano::dropped_elections::add (nano::qualified_root const & root_a)
-{
-	stats.inc (nano::stat::type::election, nano::stat::detail::election_drop);
-	nano::lock_guard<nano::mutex> guard (mutex);
-	auto & items_by_sequence = items.get<tag_sequence> ();
-	items_by_sequence.emplace_back (nano::election_timepoint{ std::chrono::steady_clock::now (), root_a });
-	if (items.size () > capacity)
-	{
-		items_by_sequence.pop_front ();
-	}
-}
-
-void nano::dropped_elections::erase (nano::qualified_root const & root_a)
-{
-	nano::lock_guard<nano::mutex> guard (mutex);
-	items.get<tag_root> ().erase (root_a);
-}
-
-std::chrono::steady_clock::time_point nano::dropped_elections::find (nano::qualified_root const & root_a) const
-{
-	nano::lock_guard<nano::mutex> guard (mutex);
-	auto & items_by_root = items.get<tag_root> ();
-	auto existing (items_by_root.find (root_a));
-	if (existing != items_by_root.end ())
-	{
-		return existing->time;
-	}
-	else
-	{
-		return std::chrono::steady_clock::time_point{};
-	}
-}
-
-size_t nano::dropped_elections::size () const
-{
-	nano::lock_guard<nano::mutex> guard (mutex);
-	return items.size ();
 }
