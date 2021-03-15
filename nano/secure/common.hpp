@@ -448,6 +448,7 @@ public:
 	unsigned lazy_retry_limit;
 	unsigned lazy_destinations_retry_limit;
 	std::chrono::milliseconds gap_cache_bootstrap_start_interval;
+	uint32_t default_frontiers_age_seconds;
 };
 
 /** Constants whose value depends on the active network */

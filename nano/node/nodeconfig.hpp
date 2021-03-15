@@ -154,5 +154,6 @@ public:
 	size_t block_processor_verification_size{ 0 };
 	size_t inactive_votes_cache_size{ 16 * 1024 };
 	size_t vote_processor_capacity{ 144 * 1024 };
+	size_t bootstrap_interval{ 0 }; // For testing only
 };
 }

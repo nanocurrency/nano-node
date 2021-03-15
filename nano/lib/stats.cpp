@@ -658,6 +658,9 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::initiate:
 			res = "initiate";
 			break;
+		case nano::stat::detail::initiate_legacy_age:
+			res = "initiate_legacy_age";
+			break;
 		case nano::stat::detail::initiate_lazy:
 			res = "initiate_lazy";
 			break;
