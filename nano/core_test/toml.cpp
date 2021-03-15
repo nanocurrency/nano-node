@@ -393,6 +393,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	block_processor_batch_max_time = 999
 	bootstrap_connections = 999
 	bootstrap_connections_max = 999
+	bootstrap_disconnected_accounts_percent = 99
 	bootstrap_initiator_threads = 999
 	bootstrap_fraction_numerator = 999
 	conf_height_processor_batch_min_time = 999
@@ -555,9 +556,9 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.block_processor_batch_max_time, defaults.node.block_processor_batch_max_time);
 	ASSERT_NE (conf.node.bootstrap_connections, defaults.node.bootstrap_connections);
 	ASSERT_NE (conf.node.bootstrap_connections_max, defaults.node.bootstrap_connections_max);
+	ASSERT_NE (conf.node.bootstrap_disconnected_accounts_percent, defaults.node.bootstrap_disconnected_accounts_percent);
 	ASSERT_NE (conf.node.bootstrap_initiator_threads, defaults.node.bootstrap_initiator_threads);
 	ASSERT_NE (conf.node.bootstrap_fraction_numerator, defaults.node.bootstrap_fraction_numerator);
-	ASSERT_NE (conf.node.bootstrap_disconnected_accounts_percent, defaults.node.bootstrap_disconnected_accounts_percent);
 	ASSERT_NE (conf.node.conf_height_processor_batch_min_time, defaults.node.conf_height_processor_batch_min_time);
 	ASSERT_NE (conf.node.confirmation_history_size, defaults.node.confirmation_history_size);
 	ASSERT_NE (conf.node.enable_voting, defaults.node.enable_voting);
