@@ -108,8 +108,8 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 
 		double elapsed_sec = std::max (time_span.count (), nano::bootstrap_limits::bootstrap_minimum_elapsed_seconds_blockrate);
 		double blocks_per_sec = static_cast<double> (count) / elapsed_sec;
-		double age_factor = frontiers_age == std::numeric_limits<decltype (frontiers_age)>::max () ? 1.0 : static_cast<double> (connection->node->network_params.bootstrap.default_frontiers_age_seconds) * 1.5 / static_cast<double> (frontiers_age); // Allow slower frontiers receive for requests with age
-		if (elapsed_sec > nano::bootstrap_limits::bootstrap_connection_warmup_time_sec && blocks_per_sec < nano::bootstrap_limits::bootstrap_minimum_frontier_blocks_per_sec / age_factor)
+		double age_factor = (frontiers_age == std::numeric_limits<decltype (frontiers_age)>::max ()) ? 1.0 : 1.5; // Allow slower frontiers receive for requests with age
+		if (elapsed_sec > nano::bootstrap_limits::bootstrap_connection_warmup_time_sec && blocks_per_sec * age_factor < nano::bootstrap_limits::bootstrap_minimum_frontier_blocks_per_sec)
 		{
 			connection->node->logger.try_log (boost::str (boost::format ("Aborting frontier req because it was too slow: %1% frontiers per second, last %2%") % blocks_per_sec % account.to_account ()));
 			promise.set_value (true);
