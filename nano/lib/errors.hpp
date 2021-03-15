@@ -198,7 +198,7 @@ REGISTER_ERROR_CODES (nano, error_config);
 /* boost->std error_code bridge */
 namespace nano::error_conversion
 {
-const std::error_category & generic_category ();
+std::error_category const & generic_category ();
 }
 
 namespace std
@@ -218,11 +218,11 @@ namespace detail
 	class generic_category : public std::error_category
 	{
 	public:
-		const char * name () const noexcept override;
+		char const * name () const noexcept override;
 		std::string message (int value) const override;
 	};
 }
-const std::error_category & generic_category ();
+std::error_category const & generic_category ();
 std::error_code convert (const boost::system::error_code & error);
 }
 

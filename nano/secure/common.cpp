@@ -373,7 +373,7 @@ address (address_a), network_port (boost::endian::native_to_big (port_a))
 {
 }
 
-const std::array<uint8_t, 16> & nano::endpoint_key::address_bytes () const
+std::array<uint8_t, 16> const & nano::endpoint_key::address_bytes () const
 {
 	return address;
 }
@@ -569,7 +569,7 @@ std::string nano::vote::hashes_string () const
 	return result;
 }
 
-const std::string nano::vote::hash_prefix = "vote ";
+std::string const nano::vote::hash_prefix = "vote ";
 
 nano::block_hash nano::vote::hash () const
 {

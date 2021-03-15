@@ -190,7 +190,7 @@ public:
 		return false;
 	}
 
-	const char * get_current_network_as_string () const
+	char const * get_current_network_as_string () const
 	{
 		return is_live_network () ? "live" : is_beta_network () ? "beta" : is_test_network () ? "test" : "dev";
 	}
