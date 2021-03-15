@@ -100,6 +100,7 @@ public:
 	std::chrono::seconds work_watcher_period{ std::chrono::seconds (5) };
 	double max_work_generate_multiplier{ 64. };
 	uint32_t max_queued_requests{ 512 };
+	uint32_t confirm_req_batches_max{ network_params.network.is_test_network () ? 1u : 2u };
 	nano::rocksdb_config rocksdb_config;
 	nano::lmdb_config lmdb_config;
 	nano::frontiers_confirmation_mode frontiers_confirmation{ nano::frontiers_confirmation_mode::automatic };

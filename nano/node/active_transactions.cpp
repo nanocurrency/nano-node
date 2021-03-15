@@ -283,7 +283,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	debug_assert (!mutex.try_lock ());
 
 	// Only representatives ready to receive batched confirm_req
-	nano::confirmation_solicitor solicitor (node.network, node.network_params.network);
+	nano::confirmation_solicitor solicitor (node.network, node.config);
 	solicitor.prepare (node.rep_crawler.principal_representatives (std::numeric_limits<size_t>::max ()));
 
 	nano::vote_generator_session generator_session (generator);
