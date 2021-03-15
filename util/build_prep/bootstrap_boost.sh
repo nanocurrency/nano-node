@@ -11,7 +11,7 @@ buildThreads=1
 buildCArgs=()
 buildCXXArgs=()
 buildLDArgs=()
-boostVersion='1.69'
+boostVersion='1.75'
 while getopts 'hmscCkpvB:j:' OPT; do
 	case "${OPT}" in
 	h)
@@ -103,6 +103,11 @@ case "${boostVersion}" in
 	BOOST_URL=https://sourceforge.net/projects/boost/files/boost/1.73.0/${BOOST_BASENAME}.tar.bz2/download
 	BOOST_ARCHIVE_SHA256='4eb3b8d442b426dc35346235c8733b5ae35ba431690e38c6a8263dce9fcbb402'
 	;;
+1.75)
+	BOOST_BASENAME=boost_1_75_0
+	BOOST_URL=https://sourceforge.net/projects/boost/files/boost/1.75.0/${BOOST_BASENAME}.tar.bz2/download
+	BOOST_ARCHIVE_SHA256='953db31e016db7bb207f11432bef7df100516eeb746843fa0486a222e3fd49cb'
+	;;	
 *)
 	echo "Unsupported Boost version: ${boostVersion}" >&2
 	exit 1
