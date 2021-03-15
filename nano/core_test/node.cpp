@@ -4496,22 +4496,27 @@ TEST (node, deferred_dependent_elections)
 	ASSERT_TIMELY (2s, node2.block (send2->hash ()));
 
 	// Re-processing older blocks with updated work also does not start an election
-	node.work_generate_blocking (*open, open->difficulty ());
+	node.work_generate_blocking (*open, open->difficulty () + 1);
 	node.process_active (open);
 	node.block_processor.flush ();
 	ASSERT_FALSE (node.active.active (open->qualified_root ()));
+	/// However, work is still updated
+	ASSERT_TIMELY (3s, node.store.block_get (node.store.tx_begin_read (), open->hash ())->block_work () == open->block_work ());
 
 	// It is however possible to manually start an election from elsewhere
 	node.block_confirm (open);
 	ASSERT_TRUE (node.active.active (open->qualified_root ()));
-
-	// Dropping an election allows restarting it [with higher work]
 	node.active.erase (*open);
 	ASSERT_FALSE (node.active.active (open->qualified_root ()));
-	ASSERT_NE (std::chrono::steady_clock::time_point{}, node.active.recently_dropped.find (open->qualified_root ()));
+
+	/// The election was dropped but it's still not possible to restart it
+	node.work_generate_blocking (*open, open->difficulty () + 1);
+	ASSERT_FALSE (node.active.active (open->qualified_root ()));
 	node.process_active (open);
 	node.block_processor.flush ();
-	ASSERT_TRUE (node.active.active (open->qualified_root ()));
+	ASSERT_FALSE (node.active.active (open->qualified_root ()));
+	/// However, work is still updated
+	ASSERT_TIMELY (3s, node.store.block_get (node.store.tx_begin_read (), open->hash ())->block_work () == open->block_work ());
 
 	// Frontier confirmation also starts elections
 	ASSERT_NO_ERROR (system.poll_until_true (5s, [&node, &send2] {
@@ -4564,6 +4569,14 @@ TEST (node, deferred_dependent_elections)
 	node.active.erase (*receive);
 	ASSERT_FALSE (node.active.active (receive->qualified_root ()));
 	node.process_active (fork);
+	node.block_processor.flush ();
+	ASSERT_TRUE (node.active.active (receive->qualified_root ()));
+
+	/// If dropped, the election can be restarted once higher work is provided
+	node.active.erase (*fork);
+	ASSERT_FALSE (node.active.active (fork->qualified_root ()));
+	node.work_generate_blocking (*receive, receive->difficulty () + 1);
+	node.process_active (receive);
 	node.block_processor.flush ();
 	ASSERT_TRUE (node.active.active (receive->qualified_root ()));
 }

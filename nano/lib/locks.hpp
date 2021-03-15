@@ -25,7 +25,6 @@ enum class mutexes
 	block_uniquer,
 	blockstore_cache,
 	confirmation_height_processor,
-	dropped_elections,
 	election_winner_details,
 	gap_cache,
 	network_filter,
