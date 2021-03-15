@@ -12,7 +12,7 @@ constexpr unsigned nano::bootstrap_limits::bulk_push_cost_limit;
 
 constexpr size_t nano::frontier_req_client::size_frontier;
 
-void nano::frontier_req_client::run (nano::account const & start_account_a, uint32_t const frontiers_age_a,  uint32_t const count_a)
+void nano::frontier_req_client::run (nano::account const & start_account_a, uint32_t const frontiers_age_a, uint32_t const count_a)
 {
 	nano::frontier_req request;
 	request.start = (start_account_a.is_zero () || start_account_a.number () == std::numeric_limits<nano::uint256_t>::max ()) ? start_account_a : start_account_a.number () + 1;
