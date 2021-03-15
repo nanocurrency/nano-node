@@ -83,8 +83,8 @@ public:
 	void print (std::ostream & stream_a);
 
 	/** Returns the SI unit string */
-	[[nodiscard]] std::string unit () const;
-	[[nodiscard]] nano::timer_state current_state () const;
+	std::string unit () const;
+	nano::timer_state current_state () const;
 
 private:
 	timer * parent{ nullptr };

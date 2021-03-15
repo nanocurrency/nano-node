@@ -96,8 +96,8 @@ public:
 	bool deserialize (nano::stream &);
 	bool operator== (nano::account_info const &) const;
 	bool operator!= (nano::account_info const &) const;
-	[[nodiscard]] size_t db_size () const;
-	[[nodiscard]] nano::epoch epoch () const;
+	size_t db_size () const;
+	nano::epoch epoch () const;
 	nano::block_hash head{ 0 };
 	nano::account representative{ 0 };
 	nano::block_hash open_block{ 0 };
@@ -116,7 +116,7 @@ class pending_info final
 public:
 	pending_info () = default;
 	pending_info (nano::account const &, nano::amount const &, nano::epoch);
-	[[nodiscard]] size_t db_size () const;
+	size_t db_size () const;
 	bool deserialize (nano::stream &);
 	bool operator== (nano::pending_info const &) const;
 	nano::account source{ 0 };
@@ -130,7 +130,7 @@ public:
 	pending_key (nano::account const &, nano::block_hash const &);
 	bool deserialize (nano::stream &);
 	bool operator== (nano::pending_key const &) const;
-	[[nodiscard]] nano::account const & key () const;
+	nano::account const & key () const;
 	nano::account account{ 0 };
 	nano::block_hash hash{ 0 };
 };
@@ -149,12 +149,12 @@ public:
 	/*
 	 * @return The ipv6 address in network byte order
 	 */
-	[[nodiscard]] const std::array<uint8_t, 16> & address_bytes () const;
+	const std::array<uint8_t, 16> & address_bytes () const;
 
 	/*
 	 * @return The port in host byte order
 	 */
-	[[nodiscard]] uint16_t port () const;
+	uint16_t port () const;
 
 private:
 	// Both stored internally in network byte order
@@ -174,7 +174,7 @@ public:
 	unchecked_key (nano::block_hash const &, nano::block_hash const &);
 	bool deserialize (nano::stream &);
 	bool operator== (nano::unchecked_key const &) const;
-	[[nodiscard]] nano::block_hash const & key () const;
+	nano::block_hash const & key () const;
 	nano::block_hash previous{ 0 };
 	nano::block_hash hash{ 0 };
 };
@@ -250,19 +250,19 @@ public:
 	vote (bool &, nano::stream &, nano::block_type, nano::block_uniquer * = nullptr);
 	vote (nano::account const &, nano::raw_key const &, uint64_t, std::shared_ptr<nano::block> const &);
 	vote (nano::account const &, nano::raw_key const &, uint64_t, std::vector<nano::block_hash> const &);
-	[[nodiscard]] std::string hashes_string () const;
-	[[nodiscard]] nano::block_hash hash () const;
-	[[nodiscard]] nano::block_hash full_hash () const;
+	std::string hashes_string () const;
+	nano::block_hash hash () const;
+	nano::block_hash full_hash () const;
 	bool operator== (nano::vote const &) const;
 	bool operator!= (nano::vote const &) const;
 	void serialize (nano::stream &, nano::block_type) const;
 	void serialize (nano::stream &) const;
 	void serialize_json (boost::property_tree::ptree & tree) const;
 	bool deserialize (nano::stream &, nano::block_uniquer * = nullptr);
-	[[nodiscard]] bool validate () const;
-	[[nodiscard]] boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> begin () const;
-	[[nodiscard]] boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> end () const;
-	[[nodiscard]] std::string to_json () const;
+	bool validate () const;
+	boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> begin () const;
+	boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> end () const;
+	std::string to_json () const;
 	// Vote timestamp
 	uint64_t timestamp;
 	// The blocks, or block hashes, that this vote is for
@@ -336,7 +336,7 @@ class genesis final
 {
 public:
 	genesis ();
-	[[nodiscard]] nano::block_hash hash () const;
+	nano::block_hash hash () const;
 	std::shared_ptr<nano::block> open;
 };
 
@@ -350,7 +350,7 @@ public:
 	uint8_t const protocol_version = 0x12;
 
 	/** Minimum accepted protocol version */
-	[[nodiscard]] uint8_t protocol_version_min () const;
+	uint8_t protocol_version_min () const;
 
 private:
 	/* Minimum protocol version we will establish connections to */
@@ -364,8 +364,8 @@ static_assert (std::is_same<std::remove_const_t<decltype (protocol_constants ().
 class ledger_constants
 {
 public:
-	[[nodiscard]] ledger_constants (nano::network_constants & network_constants);
-	[[nodiscard]] ledger_constants (nano::nano_networks network_a);
+	ledger_constants (nano::network_constants & network_constants);
+	ledger_constants (nano::nano_networks network_a);
 	nano::keypair zero_key;
 	nano::keypair dev_genesis_key;
 	nano::account nano_dev_account;
@@ -397,7 +397,7 @@ public:
 class node_constants
 {
 public:
-	[[nodiscard]] node_constants (nano::network_constants & network_constants);
+	node_constants (nano::network_constants & network_constants);
 	std::chrono::seconds period;
 	std::chrono::milliseconds half_period;
 	/** Default maximum idle time for a socket before it's automatically closed */

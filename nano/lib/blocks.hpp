@@ -48,7 +48,7 @@ public:
 	bool is_epoch{ false };
 
 private:
-	[[nodiscard]] uint8_t packed () const;
+	uint8_t packed () const;
 	void unpack (uint8_t);
 };
 

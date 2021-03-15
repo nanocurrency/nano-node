@@ -218,8 +218,8 @@ namespace detail
 	class generic_category : public std::error_category
 	{
 	public:
-		[[nodiscard]] const char * name () const noexcept override;
-		[[nodiscard]] std::string message (int value) const override;
+		const char * name () const noexcept override;
+		std::string message (int value) const override;
 	};
 }
 const std::error_category & generic_category ();
@@ -266,12 +266,12 @@ public:
 	explicit operator std::error_code () const;
 	explicit operator bool () const;
 	explicit operator std::string () const;
-	[[nodiscard]] std::string get_message () const;
+	std::string get_message () const;
 	/**
 	 * The error code as an integer. Note that some error codes have platform dependent values.
 	 * A return value of 0 signifies there is no error.
 	 */
-	[[nodiscard]] int error_code_as_int () const;
+	int error_code_as_int () const;
 	error & on_error (std::string message_a);
 	error & on_error (std::error_code code_a, std::string message_a);
 	error & set (std::string message_a, std::error_code code_a = nano::error_common::generic);

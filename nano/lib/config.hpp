@@ -144,7 +144,7 @@ public:
 	unsigned request_interval_ms;
 
 	/** Returns the network this object contains values for */
-	[[nodiscard]] nano_networks network () const
+	nano_networks network () const
 	{
 		return current_network;
 	}
@@ -190,24 +190,24 @@ public:
 		return false;
 	}
 
-	[[nodiscard]] const char * get_current_network_as_string () const
+	const char * get_current_network_as_string () const
 	{
 		return is_live_network () ? "live" : is_beta_network () ? "beta" : is_test_network () ? "test" : "dev";
 	}
 
-	[[nodiscard]] bool is_live_network () const
+	bool is_live_network () const
 	{
 		return current_network == nano_networks::nano_live_network;
 	}
-	[[nodiscard]] bool is_beta_network () const
+	bool is_beta_network () const
 	{
 		return current_network == nano_networks::nano_beta_network;
 	}
-	[[nodiscard]] bool is_dev_network () const
+	bool is_dev_network () const
 	{
 		return current_network == nano_networks::nano_dev_network;
 	}
-	[[nodiscard]] bool is_test_network () const
+	bool is_test_network () const
 	{
 		return current_network == nano_networks::nano_test_network;
 	}

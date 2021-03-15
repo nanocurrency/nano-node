@@ -77,7 +77,7 @@ namespace ipc
 		/** Set the credentials. This will be added to the envelope. */
 		void set_credentials (std::string const & credentials_a);
 		/** Returns the flatbuffer */
-		[[nodiscard]] std::shared_ptr<flatbuffers::FlatBufferBuilder> get_shared_flatbuffer () const;
+		std::shared_ptr<flatbuffers::FlatBufferBuilder> get_shared_flatbuffer () const;
 
 	private:
 		/** The builder managed by this instance */
