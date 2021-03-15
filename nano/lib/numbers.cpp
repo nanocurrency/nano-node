@@ -79,9 +79,9 @@ bool nano::public_key::decode_account (std::string const & source_a)
 		return true;
 	}
 
-	auto xrb_prefix (source_a[0] == 'x' && source_a[1] == 'r' && source_a[2] == 'b' && (source_a[3] == '_' || source_a[3] == '-'));
-	auto nano_prefix (source_a[0] == 'n' && source_a[1] == 'a' && source_a[2] == 'n' && source_a[3] == 'o' && (source_a[4] == '_' || source_a[4] == '-'));
-	auto node_id_prefix = (source_a[0] == 'n' && source_a[1] == 'o' && source_a[2] == 'd' && source_a[3] == 'e' && source_a[4] == '_');
+	auto const xrb_prefix (source_a[0] == 'x' && source_a[1] == 'r' && source_a[2] == 'b' && (source_a[3] == '_' || source_a[3] == '-'));
+	auto const nano_prefix (source_a[0] == 'n' && source_a[1] == 'a' && source_a[2] == 'n' && source_a[3] == 'o' && (source_a[4] == '_' || source_a[4] == '-'));
+	auto const node_id_prefix = (source_a[0] == 'n' && source_a[1] == 'o' && source_a[2] == 'd' && source_a[3] == 'e' && source_a[4] == '_');
 	error = (xrb_prefix && source_a.size () != 64) || (nano_prefix && source_a.size () != 65);
 	if (error)
 	{
@@ -120,7 +120,7 @@ bool nano::public_key::decode_account (std::string const & source_a)
 	}
 
 	*this = (number_l >> 40).convert_to<nano::uint256_t> ();
-	uint64_t check (number_l & static_cast<uint64_t> (0xffffffffff));
+	uint64_t const check (number_l & static_cast<uint64_t> (0xffffffffff));
 	uint64_t validation (0);
 	blake2b_state hash;
 	blake2b_init (&hash, 5);
@@ -217,31 +217,29 @@ void nano::uint256_union::encode_hex (std::string & text) const
 
 bool nano::uint256_union::decode_hex (std::string const & text)
 {
-	auto error (false);
-	if (!text.empty () && text.size () <= 64)
+	if (text.empty () || text.size () > 64)
 	{
-		std::stringstream stream (text);
-		stream << std::hex << std::noshowbase;
-		nano::uint256_t number_l;
-		try
+		return true;
+	}
+
+	std::stringstream stream (text);
+	stream << std::hex << std::noshowbase;
+	nano::uint256_t number_l;
+	try
+	{
+		stream >> number_l;
+		*this = number_l;
+		if (!stream.eof ())
 		{
-			stream >> number_l;
-			*this = number_l;
-			if (!stream.eof ())
-			{
-				error = true;
-			}
-		}
-		catch (std::runtime_error &)
-		{
-			error = true;
+			return true;
 		}
 	}
-	else
+	catch (std::runtime_error &)
 	{
-		error = true;
+		return true;
 	}
-	return error;
+
+	return false;
 }
 
 void nano::uint256_union::encode_dec (std::string & text) const
