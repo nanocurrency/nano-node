@@ -357,6 +357,7 @@ bool nano::send_block::deserialize_json (boost::property_tree::ptree const & tre
         }
 
         error = signature.decode_hex (signature_l);
+        if
 	}
 	catch (std::runtime_error const &)
 	{
