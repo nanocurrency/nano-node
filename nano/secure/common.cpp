@@ -230,7 +230,7 @@ bool nano::account_info::deserialize (nano::stream & stream_a)
 	}
 	catch (std::runtime_error const &)
 	{
-	    return true;
+		return true;
 	}
 
 	return false;
@@ -349,20 +349,21 @@ bool nano::unchecked_info::deserialize (nano::stream & stream_a)
 {
 	block = nano::deserialize_block (stream_a);
 	auto error (block == nullptr);
-	if (error) {
-	    return true;
+	if (error)
+	{
+		return true;
 	}
 
-    try
-    {
-        nano::read (stream_a, account.bytes);
-        nano::read (stream_a, modified);
-        nano::read (stream_a, verified);
-    }
-    catch (std::runtime_error const &)
-    {
-        return true;
-    }
+	try
+	{
+		nano::read (stream_a, account.bytes);
+		nano::read (stream_a, modified);
+		nano::read (stream_a, verified);
+	}
+	catch (std::runtime_error const &)
+	{
+		return true;
+	}
 
 	return false;
 }
@@ -689,7 +690,7 @@ bool nano::vote::deserialize (nano::stream & stream_a, nano::block_uniquer * uni
 	}
 	catch (std::runtime_error const &)
 	{
-	    return true;
+		return true;
 	}
 
 	if (blocks.empty ())
@@ -832,7 +833,7 @@ bool nano::unchecked_key::deserialize (nano::stream & stream_a)
 	}
 	catch (std::runtime_error const &)
 	{
-	    return true;
+		return true;
 	}
 
 	return false;

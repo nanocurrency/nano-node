@@ -115,9 +115,9 @@ void nano::wallet_store::deterministic_clear (nano::transaction const & transact
 		{
 			case nano::key_type::deterministic:
 			{
-                auto const & key (i->first);
-                erase (transaction_a, key);
-                i = begin (transaction_a, key);
+				auto const & key (i->first);
+				erase (transaction_a, key);
+				i = begin (transaction_a, key);
 				break;
 			}
 			default:
@@ -1633,14 +1633,14 @@ void nano::wallets::reload ()
 	}
 	// Delete non existing wallets from memory
 	std::vector<nano::wallet_id> deleted_items;
-	for (const auto &wallet_id : items)
+	for (const auto & wallet_id : items)
 	{
 		if (stored_items.find (wallet_id.first) == stored_items.end ())
 		{
 			deleted_items.push_back (wallet_id.first);
 		}
 	}
-	for (const auto &wallet_id : deleted_items)
+	for (const auto & wallet_id : deleted_items)
 	{
 		debug_assert (items.find (wallet_id) == items.end ());
 		items.erase (wallet_id);

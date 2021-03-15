@@ -881,7 +881,7 @@ protected:
 	uint64_t count (nano::transaction const & transaction_a, std::initializer_list<tables> dbs_a) const
 	{
 		uint64_t total_count = 0;
-		for (const auto &db : dbs_a)
+		for (const auto & db : dbs_a)
 		{
 			total_count += count (transaction_a, db);
 		}

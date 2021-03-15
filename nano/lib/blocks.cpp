@@ -295,7 +295,7 @@ bool nano::send_block::deserialize (nano::stream & stream_a)
 	}
 	catch (std::exception const &)
 	{
-	    return true;
+		return true;
 	}
 
 	return false;
@@ -337,31 +337,35 @@ bool nano::send_block::deserialize_json (boost::property_tree::ptree const & tre
 		auto const work_l (tree_a.get<std::string> ("work"));
 		auto const signature_l (tree_a.get<std::string> ("signature"));
 		auto error = hashables.previous.decode_hex (previous_l);
-		if (error) {
-		    return true;
+		if (error)
+		{
+			return true;
 		}
 
-        error = hashables.destination.decode_account (destination_l);
-		if (error) {
-		    return true;
-        }
+		error = hashables.destination.decode_account (destination_l);
+		if (error)
+		{
+			return true;
+		}
 
-        error = hashables.balance.decode_hex (balance_l);
-        if (error) {
-            return true;
-        }
+		error = hashables.balance.decode_hex (balance_l);
+		if (error)
+		{
+			return true;
+		}
 
-        error = nano::from_string_hex (work_l, work);
-        if (error) {
-            return true;
-        }
+		error = nano::from_string_hex (work_l, work);
+		if (error)
+		{
+			return true;
+		}
 
-        error = signature.decode_hex (signature_l);
-        if
+		error = signature.decode_hex (signature_l);
+		if
 	}
 	catch (std::runtime_error const &)
 	{
-	    return true;
+		return true;
 	}
 
 	return false;
@@ -426,9 +430,9 @@ bool nano::send_block::valid_predecessor (nano::block const & block_a) const
 		case nano::block_type::receive:
 		case nano::block_type::open:
 		case nano::block_type::change:
-		    return true;
+			return true;
 		default:
-		    return false;
+			return false;
 	}
 }
 
@@ -625,7 +629,7 @@ bool nano::open_block::deserialize (nano::stream & stream_a)
 	}
 	catch (std::runtime_error const &)
 	{
-	    return true;
+		return true;
 	}
 
 	return false;
@@ -665,32 +669,32 @@ bool nano::open_block::deserialize_json (boost::property_tree::ptree const & tre
 		auto error = hashables.source.decode_hex (source_l);
 		if (error)
 		{
-		    return true;
-        }
+			return true;
+		}
 
-        error = hashables.representative.decode_hex (representative_l);
-        if (error)
-        {
-            return true;
-        }
+		error = hashables.representative.decode_hex (representative_l);
+		if (error)
+		{
+			return true;
+		}
 
-        error = hashables.account.decode_hex (account_l);
-        if (error)
-        {
-            return true;
-        }
+		error = hashables.account.decode_hex (account_l);
+		if (error)
+		{
+			return true;
+		}
 
-        error = nano::from_string_hex (work_l, work);
-        if (error)
-        {
-            return true;
-        }
+		error = nano::from_string_hex (work_l, work);
+		if (error)
+		{
+			return true;
+		}
 
-        error = signature.decode_hex (signature_l);
+		error = signature.decode_hex (signature_l);
 	}
 	catch (std::runtime_error const &)
 	{
-	    return true;
+		return true;
 	}
 
 	return false;
@@ -879,7 +883,7 @@ bool nano::change_block::deserialize (nano::stream & stream_a)
 	}
 	catch (std::runtime_error const &)
 	{
-	    return true;
+		return true;
 	}
 
 	return false;
@@ -915,26 +919,28 @@ bool nano::change_block::deserialize_json (boost::property_tree::ptree const & t
 		auto const work_l (tree_a.get<std::string> ("work"));
 		auto const signature_l (tree_a.get<std::string> ("signature"));
 		auto error = hashables.previous.decode_hex (previous_l);
-		if (error) {
-		    return true;
-        }
+		if (error)
+		{
+			return true;
+		}
 
-        error = hashables.representative.decode_hex (representative_l);
-        if (error) {
-            return true;
-        }
+		error = hashables.representative.decode_hex (representative_l);
+		if (error)
+		{
+			return true;
+		}
 
-        error = nano::from_string_hex (work_l, work);
-        if (error)
-        {
-            return true;
-        }
+		error = nano::from_string_hex (work_l, work);
+		if (error)
+		{
+			return true;
+		}
 
-        error = signature.decode_hex (signature_l);
-    }
-    catch (std::runtime_error const &)
+		error = signature.decode_hex (signature_l);
+	}
+	catch (std::runtime_error const &)
 	{
-	    return true;
+		return true;
 	}
 
 	return false;
@@ -973,9 +979,9 @@ bool nano::change_block::valid_predecessor (nano::block const & block_a) const
 		case nano::block_type::receive:
 		case nano::block_type::open:
 		case nano::block_type::change:
-		    return true;
+			return true;
 		default:
-		    return false;
+			return false;
 	}
 }
 

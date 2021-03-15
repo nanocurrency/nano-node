@@ -9,7 +9,7 @@
 
 namespace boost::filesystem
 {
-	class path;
+class path;
 }
 
 #define xstr(a) ver_str (a)
