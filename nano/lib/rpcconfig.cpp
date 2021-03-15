@@ -246,7 +246,7 @@ nano::error read_rpc_config_toml (boost::filesystem::path const & data_path_a, n
 	// Make sure we don't create an empty toml file if it doesn't exist. Running without a toml file is the default.
 	if (error)
 	{
-		return true;
+		return error;
 	}
 	if (boost::filesystem::exists (toml_config_path))
 	{
@@ -258,7 +258,7 @@ nano::error read_rpc_config_toml (boost::filesystem::path const & data_path_a, n
 	}
 	if (error)
 	{
-		return true;
+		return error;
 	}
 
 	error = config_a.deserialize_toml (toml);

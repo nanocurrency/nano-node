@@ -126,8 +126,6 @@ int main (int argc, char * const * argv)
 		return 1;
 	}
 	boost::program_options::notify (vm);
-	int result (0);
-
 	auto network (vm.find ("network"));
 	if (network != vm.end ())
 	{
@@ -144,7 +142,7 @@ int main (int argc, char * const * argv)
 	auto ec = nano::handle_node_options (vm);
 	if (ec != nano::error_cli::unknown_command)
 	{
-		return result;
+		return 0;
 	}
 
 	if (vm.count ("daemon") > 0)
@@ -490,17 +488,15 @@ int main (int argc, char * const * argv)
 
 		nano::work_pool work (std::numeric_limits<unsigned>::max (), pow_rate_limiter);
 		nano::change_block block (0, 0, nano::keypair ().prv, 0, 0);
-		if (!result)
+
+		std::cerr << boost::str (boost::format ("Starting generation profiling. Difficulty: %1$#x (%2%x from base difficulty %3$#x)\n") % difficulty % nano::to_string (nano::difficulty::to_multiplier (difficulty, network_constants.publish_full.base), 4) % network_constants.publish_full.base);
+		while (true)
 		{
-			std::cerr << boost::str (boost::format ("Starting generation profiling. Difficulty: %1$#x (%2%x from base difficulty %3$#x)\n") % difficulty % nano::to_string (nano::difficulty::to_multiplier (difficulty, network_constants.publish_full.base), 4) % network_constants.publish_full.base);
-			while (!result)
-			{
-				block.hashables.previous.qwords[0] += 1;
-				auto begin1 (std::chrono::high_resolution_clock::now ());
-				block.block_work_set (*work.generate (nano::work_version::work_1, block.root (), difficulty));
-				auto end1 (std::chrono::high_resolution_clock::now ());
-				std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());
-			}
+			block.hashables.previous.qwords[0] += 1;
+			auto begin1 (std::chrono::high_resolution_clock::now ());
+			block.block_work_set (*work.generate (nano::work_version::work_1, block.root (), difficulty));
+			auto end1 (std::chrono::high_resolution_clock::now ());
+			std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());
 		}
 	}
 	else if (vm.count ("debug_profile_validate"))
@@ -600,41 +596,39 @@ int main (int argc, char * const * argv)
 				}
 			}
 		}
-		if (!result)
+
+		error |= platform >= environment.platforms.size ();
+		if (error)
 		{
-			error |= platform >= environment.platforms.size ();
-			if (error)
-			{
-				std::cout << "Not available platform id\n"
-				          << std::endl;
-				return -1;
-			}
+			std::cout << "Not available platform id\n"
+			          << std::endl;
+			return -1;
+		}
 
-			error |= device >= environment.platforms[platform].devices.size ();
-			if (error)
-			{
-				std::cout << "Not available device id\n"
-				          << std::endl;
-				return -1;
-			}
+		error |= device >= environment.platforms[platform].devices.size ();
+		if (error)
+		{
+			std::cout << "Not available device id\n"
+			          << std::endl;
+			return -1;
+		}
 
-			nano::logger_mt logger;
-			nano::opencl_config config (platform, device, threads);
-			auto opencl (nano::opencl_work::create (true, config, logger));
-			nano::work_pool work_pool (0, std::chrono::nanoseconds (0), opencl ? [&opencl](nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> &) {
-				return opencl->generate_work (version_a, root_a, difficulty_a);
-			}
-			                                                                   : std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> (nullptr));
-			nano::change_block block (0, 0, nano::keypair ().prv, 0, 0);
-			std::cerr << boost::str (boost::format ("Starting OpenCL generation profiling. Platform: %1%. Device: %2%. Threads: %3%. Difficulty: %4$#x (%5%x from base difficulty %6$#x)\n") % platform % device % threads % difficulty % nano::to_string (nano::difficulty::to_multiplier (difficulty, network_constants.publish_full.base), 4) % network_constants.publish_full.base);
-			for (uint64_t i (0); true; ++i)
-			{
-				block.hashables.previous.qwords[0] += 1;
-				auto begin1 (std::chrono::high_resolution_clock::now ());
-				block.block_work_set (*work_pool.generate (nano::work_version::work_1, block.root (), difficulty));
-				auto end1 (std::chrono::high_resolution_clock::now ());
-				std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());
-			}
+		nano::logger_mt logger;
+		nano::opencl_config config (platform, device, threads);
+		auto opencl (nano::opencl_work::create (true, config, logger));
+		nano::work_pool work_pool (0, std::chrono::nanoseconds (0), opencl ? [&opencl](nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> &) {
+			return opencl->generate_work (version_a, root_a, difficulty_a);
+		}
+		                                                                   : std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> (nullptr));
+		nano::change_block block (0, 0, nano::keypair ().prv, 0, 0);
+		std::cerr << boost::str (boost::format ("Starting OpenCL generation profiling. Platform: %1%. Device: %2%. Threads: %3%. Difficulty: %4$#x (%5%x from base difficulty %6$#x)\n") % platform % device % threads % difficulty % nano::to_string (nano::difficulty::to_multiplier (difficulty, network_constants.publish_full.base), 4) % network_constants.publish_full.base);
+		for (uint64_t i (0); true; ++i)
+		{
+			block.hashables.previous.qwords[0] += 1;
+			auto begin1 (std::chrono::high_resolution_clock::now ());
+			block.block_work_set (*work_pool.generate (nano::work_version::work_1, block.root (), difficulty));
+			auto end1 (std::chrono::high_resolution_clock::now ());
+			std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());
 		}
 	}
 	else if (vm.count ("debug_output_last_backtrace_dump"))
@@ -651,177 +645,172 @@ int main (int argc, char * const * argv)
 	}
 	else if (vm.count ("debug_generate_crash_report"))
 	{
-		if (boost::filesystem::exists ("nano_node_backtrace.dump"))
-		{
-			// There is a backtrace, so output the contents
-			std::ifstream ifs ("nano_node_backtrace.dump");
-			boost::stacktrace::stacktrace st = boost::stacktrace::stacktrace::from_dump (ifs);
-
-			std::string crash_report_filename = "nano_node_crash_report.txt";
-
-#if defined(_WIN32) || defined(__APPLE__)
-			// Only linux has load addresses, so just write the dump to a readable file.
-			// It's the best we can do to keep consistency.
-			std::ofstream ofs (crash_report_filename);
-			ofs << st;
-#else
-			// Read all the nano node files
-			boost::system::error_code err;
-			auto running_executable_filepath = boost::dll::program_location (err);
-			if (err)
-			{
-				std::cerr << "Error: Could not determine running executable path" << std::endl;
-				return -1;
-			}
-
-			auto num = 0;
-			auto format = boost::format ("nano_node_crash_load_address_dump_%1%.txt");
-			std::vector<address_library_pair> base_addresses;
-
-			// The first one only has the load address
-			uint64_from_hex base_address;
-			std::string line;
-			if (boost::filesystem::exists (boost::str (format % num)))
-			{
-				std::getline (std::ifstream (boost::str (format % num)), line);
-				if (boost::conversion::try_lexical_convert (line, base_address))
-				{
-					base_addresses.emplace_back (base_address.value, running_executable_filepath.string ());
-				}
-			}
-			++num;
-
-			// Now do the rest of the files
-			while (boost::filesystem::exists (boost::str (format % num)))
-			{
-				std::ifstream ifs_dump_filename (boost::str (format % num));
-
-				// 2 lines, the path to the dynamic library followed by the load address
-				std::string dynamic_lib_path;
-				std::getline (ifs_dump_filename, dynamic_lib_path);
-				std::getline (ifs_dump_filename, line);
-
-				if (boost::conversion::try_lexical_convert (line, base_address))
-				{
-					base_addresses.emplace_back (base_address.value, dynamic_lib_path);
-				}
-
-				++num;
-			}
-
-			std::sort (base_addresses.begin (), base_addresses.end ());
-
-			auto address_column_it = vm.find ("address_column");
-			auto column = -1;
-			if (address_column_it != vm.end ())
-			{
-				if (!boost::conversion::try_lexical_convert (address_column_it->second.as<std::string> (), column))
-				{
-					std::cerr << "Error: Invalid address column\n";
-					return -1;
-				}
-			}
-
-			// Extract the addresses from the dump file.
-			std::stringstream stacktrace_ss;
-			stacktrace_ss << st;
-			std::vector<uint64_t> backtrace_addresses;
-			while (std::getline (stacktrace_ss, line))
-			{
-				std::istringstream iss (line);
-				std::vector<std::string> results (std::istream_iterator<std::string>{ iss }, std::istream_iterator<std::string> ());
-
-				if (column != -1)
-				{
-					if (column >= results.size ())
-					{
-						std::cerr << "Error: Address column too high\n";
-						return -1;
-					}
-
-					uint64_from_hex address_hex;
-					if (!boost::conversion::try_lexical_convert (results[column], address_hex))
-					{
-						std::cerr << "Error: Address column does not point to valid addresses\n";
-						return -1;
-					}
-
-					backtrace_addresses.push_back (address_hex.value);
-				}
-				else
-				{
-					for (const auto & text : results)
-					{
-						uint64_from_hex address_hex;
-						if (boost::conversion::try_lexical_convert (text, address_hex))
-						{
-							backtrace_addresses.push_back (address_hex.value);
-							break;
-						}
-					}
-				}
-			}
-
-			// Recreate the crash report with an empty file
-			boost::filesystem::remove (crash_report_filename);
-			{
-				std::ofstream ofs (crash_report_filename);
-				nano::set_secure_perm_file (crash_report_filename);
-			}
-
-			// Hold the results from all addr2line calls, if all fail we can assume that addr2line is not installed,
-			// and inform the user that it needs installing
-			std::vector<int> system_codes;
-
-			auto run_addr2line = [&backtrace_addresses, &base_addresses, &system_codes, &crash_report_filename](bool use_relative_addresses) {
-				for (auto backtrace_address : backtrace_addresses)
-				{
-					// Find the closest address to it
-					for (auto base_address : boost::adaptors::reverse (base_addresses))
-					{
-						if (backtrace_address > base_address.address)
-						{
-							// Addresses need to be in hex for addr2line to work
-							auto address = use_relative_addresses ? backtrace_address - base_address.address : backtrace_address;
-							std::stringstream ss;
-							ss << std::uppercase << std::hex << address;
-
-							// Call addr2line to convert the address into something readable.
-							auto res = std::system (boost::str (boost::format ("addr2line -fCi %1% -e %2% >> %3%") % ss.str () % base_address.library % crash_report_filename).c_str ());
-							system_codes.push_back (res);
-							break;
-						}
-					}
-				}
-			};
-
-			// First run addr2line using absolute addresses
-			run_addr2line (false);
-			{
-				std::ofstream ofs (crash_report_filename, std::ios_base::out | std::ios_base::app);
-				ofs << std::endl
-				    << "Using relative addresses:" << std::endl; // Add an empty line to separate the absolute & relative output
-			}
-
-			// Now run using relative addresses. This will give actual results for other dlls, the results from the nano_node executable.
-			run_addr2line (true);
-
-			if (std::find (system_codes.begin (), system_codes.end (), 0) == system_codes.end ())
-			{
-				std::cerr << "Error: Check that addr2line is installed and that nano_node_crash_load_address_dump_*.txt files exist." << std::endl;
-				return -1;
-			}
-#endif
-			if (result == 0)
-			{
-				std::cout << (boost::format ("%1% created") % crash_report_filename).str () << std::endl;
-			}
-		}
-		else
+		if (!boost::filesystem::exists ("nano_node_backtrace.dump"))
 		{
 			std::cerr << "Error: nano_node_backtrace.dump could not be found";
 			return -1;
 		}
+
+		// There is a backtrace, so output the contents
+		std::ifstream ifs ("nano_node_backtrace.dump");
+		boost::stacktrace::stacktrace st = boost::stacktrace::stacktrace::from_dump (ifs);
+
+		std::string crash_report_filename = "nano_node_crash_report.txt";
+
+#if defined(_WIN32) || defined(__APPLE__)
+		// Only linux has load addresses, so just write the dump to a readable file.
+		// It's the best we can do to keep consistency.
+		std::ofstream ofs (crash_report_filename);
+		ofs << st;
+#else
+		// Read all the nano node files
+		boost::system::error_code err;
+		auto running_executable_filepath = boost::dll::program_location (err);
+		if (err)
+		{
+			std::cerr << "Error: Could not determine running executable path" << std::endl;
+			return -1;
+		}
+
+		auto num = 0;
+		auto format = boost::format ("nano_node_crash_load_address_dump_%1%.txt");
+		std::vector<address_library_pair> base_addresses;
+
+		// The first one only has the load address
+		uint64_from_hex base_address;
+		std::string line;
+		if (boost::filesystem::exists (boost::str (format % num)))
+		{
+			std::getline (std::ifstream (boost::str (format % num)), line);
+			if (boost::conversion::try_lexical_convert (line, base_address))
+			{
+				base_addresses.emplace_back (base_address.value, running_executable_filepath.string ());
+			}
+		}
+		++num;
+
+		// Now do the rest of the files
+		while (boost::filesystem::exists (boost::str (format % num)))
+		{
+			std::ifstream ifs_dump_filename (boost::str (format % num));
+
+			// 2 lines, the path to the dynamic library followed by the load address
+			std::string dynamic_lib_path;
+			std::getline (ifs_dump_filename, dynamic_lib_path);
+			std::getline (ifs_dump_filename, line);
+
+			if (boost::conversion::try_lexical_convert (line, base_address))
+			{
+				base_addresses.emplace_back (base_address.value, dynamic_lib_path);
+			}
+
+			++num;
+		}
+
+		std::sort (base_addresses.begin (), base_addresses.end ());
+
+		auto address_column_it = vm.find ("address_column");
+		auto column = -1;
+		if (address_column_it != vm.end ())
+		{
+			if (!boost::conversion::try_lexical_convert (address_column_it->second.as<std::string> (), column))
+			{
+				std::cerr << "Error: Invalid address column\n";
+				return -1;
+			}
+		}
+
+		// Extract the addresses from the dump file.
+		std::stringstream stacktrace_ss;
+		stacktrace_ss << st;
+		std::vector<uint64_t> backtrace_addresses;
+		while (std::getline (stacktrace_ss, line))
+		{
+			std::istringstream iss (line);
+			std::vector<std::string> results (std::istream_iterator<std::string>{ iss }, std::istream_iterator<std::string> ());
+
+			if (column != -1)
+			{
+				if (column >= results.size ())
+				{
+					std::cerr << "Error: Address column too high\n";
+					return -1;
+				}
+
+				uint64_from_hex address_hex;
+				if (!boost::conversion::try_lexical_convert (results[column], address_hex))
+				{
+					std::cerr << "Error: Address column does not point to valid addresses\n";
+					return -1;
+				}
+
+				backtrace_addresses.push_back (address_hex.value);
+			}
+			else
+			{
+				for (const auto & text : results)
+				{
+					uint64_from_hex address_hex;
+					if (boost::conversion::try_lexical_convert (text, address_hex))
+					{
+						backtrace_addresses.push_back (address_hex.value);
+						break;
+					}
+				}
+			}
+		}
+
+		// Recreate the crash report with an empty file
+		boost::filesystem::remove (crash_report_filename);
+		{
+			std::ofstream ofs (crash_report_filename);
+			nano::set_secure_perm_file (crash_report_filename);
+		}
+
+		// Hold the results from all addr2line calls, if all fail we can assume that addr2line is not installed,
+		// and inform the user that it needs installing
+		std::vector<int> system_codes;
+
+		auto run_addr2line = [&backtrace_addresses, &base_addresses, &system_codes, &crash_report_filename](bool use_relative_addresses) {
+			for (auto backtrace_address : backtrace_addresses)
+			{
+				// Find the closest address to it
+				for (auto base_address : boost::adaptors::reverse (base_addresses))
+				{
+					if (backtrace_address > base_address.address)
+					{
+						// Addresses need to be in hex for addr2line to work
+						auto address = use_relative_addresses ? backtrace_address - base_address.address : backtrace_address;
+						std::stringstream ss;
+						ss << std::uppercase << std::hex << address;
+
+						// Call addr2line to convert the address into something readable.
+						auto res = std::system (boost::str (boost::format ("addr2line -fCi %1% -e %2% >> %3%") % ss.str () % base_address.library % crash_report_filename).c_str ());
+						system_codes.push_back (res);
+						break;
+					}
+				}
+			}
+		};
+
+		// First run addr2line using absolute addresses
+		run_addr2line (false);
+		{
+			std::ofstream ofs (crash_report_filename, std::ios_base::out | std::ios_base::app);
+			ofs << std::endl
+			    << "Using relative addresses:" << std::endl; // Add an empty line to separate the absolute & relative output
+		}
+
+		// Now run using relative addresses. This will give actual results for other dlls, the results from the nano_node executable.
+		run_addr2line (true);
+
+		if (std::find (system_codes.begin (), system_codes.end (), 0) == system_codes.end ())
+		{
+			std::cerr << "Error: Check that addr2line is installed and that nano_node_crash_load_address_dump_*.txt files exist." << std::endl;
+			return -1;
+		}
+#endif
+		std::cout << (boost::format ("%1% created") % crash_report_filename).str () << std::endl;
 	}
 	else if (vm.count ("debug_verify_profile"))
 	{
@@ -2013,8 +2002,8 @@ int main (int argc, char * const * argv)
 		std::cout << description << std::endl;
 		return -1;
 	}
-}
-return result;
+
+	return 0;
 }
 
 namespace

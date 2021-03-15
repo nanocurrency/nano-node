@@ -47,7 +47,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 	if (error)
 	{
 		std::cerr << "Error deserializing config: " << error.get_message () << std::endl;
-		return true;
+		return;
 	}
 
 	config.node.logging.init (data_path);
