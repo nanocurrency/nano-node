@@ -68,97 +68,96 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 		auto node (std::make_shared<nano::node> (io_ctx, data_path, config.node, opencl_work, flags));
 		if (!node->init_error ())
 		{
-			auto network_label = node->network_params.network.get_current_network_as_string ();
-			std::cout << "Network: " << network_label << ", version: " << NANO_VERSION_STRING << "\n"
-			          << "Path: " << node->application_path.string () << "\n"
-			          << "Build Info: " << BUILD_INFO << "\n"
-			          << "Database backend: " << node->store.vendor_get () << std::endl;
-			auto voting (node->wallets.reps ().voting);
-			if (voting > 1)
-			{
-				std::cout << "Voting with more than one representative can limit performance: " << voting << " representatives are configured" << std::endl;
-			}
-			node->start ();
-			nano::ipc::ipc_server ipc_server (*node, config.rpc);
-			std::unique_ptr<boost::process::child> rpc_process;
-			std::unique_ptr<boost::process::child> nano_pow_server_process;
+			std::cerr << "Error initializing node\n";
+			return;
+		}
 
-			/*if (config.pow_server.enable)
+		auto network_label = node->network_params.network.get_current_network_as_string ();
+		std::cout << "Network: " << network_label << ", version: " << NANO_VERSION_STRING << "\n"
+		          << "Path: " << node->application_path.string () << "\n"
+		          << "Build Info: " << BUILD_INFO << "\n"
+		          << "Database backend: " << node->store.vendor_get () << std::endl;
+		auto voting (node->wallets.reps ().voting);
+		if (voting > 1)
+		{
+			std::cout << "Voting with more than one representative can limit performance: " << voting << " representatives are configured" << std::endl;
+		}
+		node->start ();
+		nano::ipc::ipc_server ipc_server (*node, config.rpc);
+		std::unique_ptr<boost::process::child> rpc_process;
+		std::unique_ptr<boost::process::child> nano_pow_server_process;
+
+		/*if (config.pow_server.enable)
+        {
+            if (!boost::filesystem::exists (config.pow_server.pow_server_path))
             {
-                if (!boost::filesystem::exists (config.pow_server.pow_server_path))
-                {
-                    std::cerr << std::string ("nano_pow_server is configured to start as a child process, however the file cannot be found at: ") + config.pow_server.pow_server_path << std::endl;
-                    std::exit (1);
-                }
+                std::cerr << std::string ("nano_pow_server is configured to start as a child process, however the file cannot be found at: ") + config.pow_server.pow_server_path << std::endl;
+                std::exit (1);
+            }
 
-                nano_pow_server_process = std::make_unique<boost::process::child> (config.pow_server.pow_server_path, "--config_path", data_path / "config-nano-pow-server.toml");
-            }*/
+            nano_pow_server_process = std::make_unique<boost::process::child> (config.pow_server.pow_server_path, "--config_path", data_path / "config-nano-pow-server.toml");
+        }*/
 
-			std::unique_ptr<nano::rpc> rpc;
-			std::unique_ptr<nano::rpc_handler_interface> rpc_handler;
-			if (config.rpc_enable)
+		std::unique_ptr<nano::rpc> rpc;
+		std::unique_ptr<nano::rpc_handler_interface> rpc_handler;
+		if (config.rpc_enable)
+		{
+			if (!config.rpc.child_process.enable)
 			{
-				if (!config.rpc.child_process.enable)
+				// Launch rpc in-process
+				nano::rpc_config rpc_config;
+				auto error = nano::read_rpc_config_toml (data_path, rpc_config, flags.rpc_config_overrides);
+				if (error)
 				{
-					// Launch rpc in-process
-					nano::rpc_config rpc_config;
-					auto error = nano::read_rpc_config_toml (data_path, rpc_config, flags.rpc_config_overrides);
-					if (error)
-					{
-						std::cout << error.get_message () << std::endl;
-						std::exit (1);
-					}
-					rpc_handler = std::make_unique<nano::inprocess_rpc_handler> (*node, ipc_server, config.rpc, [&ipc_server, &workers = node->workers, &io_ctx]() {
-						ipc_server.stop ();
-						workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (3), [&io_ctx]() {
-							io_ctx.stop ();
-						});
+					std::cout << error.get_message () << std::endl;
+					std::exit (1);
+				}
+				rpc_handler = std::make_unique<nano::inprocess_rpc_handler> (*node, ipc_server, config.rpc, [&ipc_server, &workers = node->workers, &io_ctx]() {
+					ipc_server.stop ();
+					workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (3), [&io_ctx]() {
+						io_ctx.stop ();
 					});
-					rpc = nano::get_rpc (io_ctx, rpc_config, *rpc_handler);
-					rpc->start ();
-				}
-				else
-				{
-					// Spawn a child rpc process
-					if (!boost::filesystem::exists (config.rpc.child_process.rpc_path))
-					{
-						throw std::runtime_error (std::string ("RPC is configured to spawn a new process however the file cannot be found at: ") + config.rpc.child_process.rpc_path);
-					}
-
-					auto network = node->network_params.network.get_current_network_as_string ();
-					rpc_process = std::make_unique<boost::process::child> (config.rpc.child_process.rpc_path, "--daemon", "--data_path", data_path, "--network", network);
-				}
+				});
+				rpc = nano::get_rpc (io_ctx, rpc_config, *rpc_handler);
+				rpc->start ();
 			}
-
-			debug_assert (!nano::signal_handler_impl);
-			nano::signal_handler_impl = [&io_ctx]() {
-				io_ctx.stop ();
-				sig_int_or_term = 1;
-			};
-
-			std::signal (SIGINT, &nano::signal_handler);
-			std::signal (SIGTERM, &nano::signal_handler);
-
-			runner = std::make_unique<nano::thread_runner> (io_ctx, node->config.io_threads);
-			runner->join ();
-
-			if (sig_int_or_term == 1)
+			else
 			{
-				ipc_server.stop ();
-				node->stop ();
-				if (rpc)
+				// Spawn a child rpc process
+				if (!boost::filesystem::exists (config.rpc.child_process.rpc_path))
 				{
-					rpc->stop ();
+					throw std::runtime_error (std::string ("RPC is configured to spawn a new process however the file cannot be found at: ") + config.rpc.child_process.rpc_path);
 				}
-			}
-			if (rpc_process)
-			{
-				rpc_process->wait ();
+
+				auto network = node->network_params.network.get_current_network_as_string ();
+				rpc_process = std::make_unique<boost::process::child> (config.rpc.child_process.rpc_path, "--daemon", "--data_path", data_path, "--network", network);
 			}
 		}
-		else
+
+		debug_assert (!nano::signal_handler_impl);
+		nano::signal_handler_impl = [&io_ctx]() {
+			io_ctx.stop ();
+			sig_int_or_term = 1;
+		};
+
+		std::signal (SIGINT, &nano::signal_handler);
+		std::signal (SIGTERM, &nano::signal_handler);
+
+		runner = std::make_unique<nano::thread_runner> (io_ctx, node->config.io_threads);
+		runner->join ();
+
+		if (sig_int_or_term == 1)
 		{
-			std::cerr << "Error initializing node\n";
+			ipc_server.stop ();
+			node->stop ();
+			if (rpc)
+			{
+				rpc->stop ();
+			}
+		}
+		if (rpc_process)
+		{
+			rpc_process->wait ();
 		}
 	}
 	catch (const std::runtime_error & e)
