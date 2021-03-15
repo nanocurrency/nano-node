@@ -105,34 +105,6 @@ public:
 	bool aggressive_mode{ false };
 };
 
-class dropped_elections final
-{
-public:
-	dropped_elections (nano::stat &);
-	void add (nano::qualified_root const &);
-	void erase (nano::qualified_root const &);
-	std::chrono::steady_clock::time_point find (nano::qualified_root const &) const;
-	size_t size () const;
-
-	static size_t constexpr capacity{ 16 * 1024 };
-
-	// clang-format off
-	class tag_sequence {};
-	class tag_root {};
-	using ordered_dropped = boost::multi_index_container<nano::election_timepoint,
-	mi::indexed_by<
-		mi::sequenced<mi::tag<tag_sequence>>,
-		mi::hashed_unique<mi::tag<tag_root>,
-			mi::member<nano::election_timepoint, decltype(nano::election_timepoint::root), &nano::election_timepoint::root>>>>;
-	// clang-format on
-
-private:
-	ordered_dropped items;
-	mutable nano::mutex mutex{ mutex_identifier (mutexes::dropped_elections) };
-
-	nano::stat & stats;
-};
-
 class election_insertion_result final
 {
 public:
@@ -222,7 +194,6 @@ public:
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> blocks;
 	std::deque<nano::election_status> list_recently_cemented ();
 	std::deque<nano::election_status> recently_cemented;
-	dropped_elections recently_dropped;
 
 	void add_recently_cemented (nano::election_status const &);
 	void add_recently_confirmed (nano::qualified_root const &, nano::block_hash const &);
