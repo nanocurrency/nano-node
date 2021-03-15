@@ -254,7 +254,7 @@ size_t nano::message_header::payload_length_bytes () const
 }
 
 // MTU - IP header - UDP header
-const size_t nano::message_parser::max_safe_udp_message_size = 508;
+size_t const nano::message_parser::max_safe_udp_message_size = 508;
 
 std::string nano::message_parser::status_string ()
 {

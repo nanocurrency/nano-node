@@ -278,7 +278,7 @@ std::string nano::error_config_messages::message (int ev) const
 	return "Invalid error code";
 }
 
-const char * nano::error_conversion::detail::generic_category::name () const noexcept
+char const * nano::error_conversion::detail::generic_category::name () const noexcept
 {
 	return boost::system::generic_category ().name ();
 }

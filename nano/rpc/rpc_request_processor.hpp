@@ -65,7 +65,7 @@ private:
 	std::deque<std::shared_ptr<nano::rpc_request>> requests;
 	nano::condition_variable condition;
 	const std::string ipc_address;
-	const uint16_t ipc_port;
+	uint16_t const ipc_port;
 	std::thread thread;
 };
 

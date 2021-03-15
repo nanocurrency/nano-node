@@ -116,7 +116,7 @@ genesis_amount (std::numeric_limits<nano::uint128_t>::max ()),
 burn_account (0)
 {
 	nano::link epoch_link_v1;
-	const char * epoch_message_v1 ("epoch v1 block");
+	char const * epoch_message_v1 ("epoch v1 block");
 	strncpy ((char *)epoch_link_v1.bytes.data (), epoch_message_v1, epoch_link_v1.bytes.size ());
 	epochs.add (nano::epoch::epoch_1, genesis_account, epoch_link_v1);
 
@@ -125,7 +125,7 @@ burn_account (0)
 	auto const error (nano_live_epoch_v2_signer.decode_account ("nano_3qb6o6i1tkzr6jwr5s7eehfxwg9x6eemitdinbpi7u8bjjwsgqfj4wzser3x"));
 	debug_assert (!error);
 	auto epoch_v2_signer (network_a == nano::nano_networks::nano_dev_network ? nano_dev_account : network_a == nano::nano_networks::nano_beta_network ? nano_beta_account : network_a == nano::nano_networks::nano_test_network ? nano_test_account : nano_live_epoch_v2_signer);
-	const char * epoch_message_v2 ("epoch v2 block");
+	char const * epoch_message_v2 ("epoch v2 block");
 	strncpy ((char *)epoch_link_v2.bytes.data (), epoch_message_v2, epoch_link_v2.bytes.size ());
 	epochs.add (nano::epoch::epoch_2, epoch_v2_signer, epoch_link_v2);
 }

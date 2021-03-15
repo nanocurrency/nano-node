@@ -70,7 +70,7 @@ public:
 
 	const std::chrono::milliseconds max_delay;
 	const std::chrono::milliseconds small_delay;
-	const size_t max_channel_requests;
+	size_t const max_channel_requests;
 
 private:
 	void run ();

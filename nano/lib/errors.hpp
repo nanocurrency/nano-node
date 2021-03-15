@@ -162,7 +162,7 @@ enum class error_config
 		class enum_type##_messages : public std::error_category                                                \
 		{                                                                                                      \
 		public:                                                                                                \
-			const char * name () const noexcept override                                                       \
+			char const * name () const noexcept override                                                       \
 			{                                                                                                  \
 				return #enum_type;                                                                             \
 			}                                                                                                  \

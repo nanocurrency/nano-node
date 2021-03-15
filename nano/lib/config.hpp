@@ -18,26 +18,26 @@ class path;
 /**
 * Returns build version information
 */
-const char * const NANO_VERSION_STRING = xstr (TAG_VERSION_STRING);
-const char * const NANO_MAJOR_VERSION_STRING = xstr (MAJOR_VERSION_STRING);
-const char * const NANO_MINOR_VERSION_STRING = xstr (MINOR_VERSION_STRING);
-const char * const NANO_PATCH_VERSION_STRING = xstr (PATCH_VERSION_STRING);
-const char * const NANO_PRE_RELEASE_VERSION_STRING = xstr (PRE_RELEASE_VERSION_STRING);
+char const * const NANO_VERSION_STRING = xstr (TAG_VERSION_STRING);
+char const * const NANO_MAJOR_VERSION_STRING = xstr (MAJOR_VERSION_STRING);
+char const * const NANO_MINOR_VERSION_STRING = xstr (MINOR_VERSION_STRING);
+char const * const NANO_PATCH_VERSION_STRING = xstr (PATCH_VERSION_STRING);
+char const * const NANO_PRE_RELEASE_VERSION_STRING = xstr (PRE_RELEASE_VERSION_STRING);
 
-const char * const BUILD_INFO = xstr (GIT_COMMIT_HASH BOOST_COMPILER) " \"BOOST " xstr (BOOST_VERSION) "\" BUILT " xstr (__DATE__);
+char const * const BUILD_INFO = xstr (GIT_COMMIT_HASH BOOST_COMPILER) " \"BOOST " xstr (BOOST_VERSION) "\" BUILT " xstr (__DATE__);
 
 /** Is TSAN/ASAN dev build */
 #if defined(__has_feature)
 #if __has_feature(thread_sanitizer) || __has_feature(address_sanitizer)
-const bool is_sanitizer_build = true;
+bool const is_sanitizer_build = true;
 #else
-const bool is_sanitizer_build = false;
+bool const is_sanitizer_build = false;
 #endif
 // GCC builds
 #elif defined(__SANITIZE_THREAD__) || defined(__SANITIZE_ADDRESS__)
-const bool is_sanitizer_build = true;
+bool const is_sanitizer_build = true;
 #else
-const bool is_sanitizer_build = false;
+bool const is_sanitizer_build = false;
 #endif
 
 namespace nano

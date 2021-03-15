@@ -91,7 +91,7 @@ public:
 	}
 
 #if USING_NANO_TIMED_LOCKS
-	const char * get_name () const
+	char const * get_name () const
 	{
 		return name ? name : "";
 	}
@@ -99,7 +99,7 @@ public:
 
 private:
 #if USING_NANO_TIMED_LOCKS
-	const char * name{ nullptr };
+	char const * name{ nullptr };
 #endif
 	std::mutex mutex_m;
 };

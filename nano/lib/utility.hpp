@@ -89,7 +89,7 @@ class container_info_leaf : public container_info_component
 public:
 	container_info_leaf (container_info const & info);
 	bool is_composite () const override;
-	const container_info & get_info () const;
+	container_info const & get_info () const;
 
 private:
 	container_info info;

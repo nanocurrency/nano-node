@@ -941,7 +941,7 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 		id_mdb_val = nano::mdb_val (id_a->size (), const_cast<char *> (id_a->data ()));
 	}
 
-	auto prepare_send = [&id_mdb_val, &wallets = this->wallets, &store = this->store, &source_a, &amount_a, &work_a, &account_a](const auto & transaction) {
+	auto prepare_send = [&id_mdb_val, &wallets = this->wallets, &store = this->store, &source_a, &amount_a, &work_a, &account_a](auto const & transaction) {
 		auto block_transaction (wallets.node.store.tx_begin_read ());
 		auto error (false);
 		auto cached_block (false);
@@ -1517,7 +1517,7 @@ thread ([this]() {
 	}
 	if (backup_required)
 	{
-		const char * store_path;
+		char const * store_path;
 		mdb_env_get_path (env, &store_path);
 		const boost::filesystem::path path (store_path);
 		nano::mdb_store::create_backup_file (env, path, node_a.logger);
@@ -1633,14 +1633,14 @@ void nano::wallets::reload ()
 	}
 	// Delete non existing wallets from memory
 	std::vector<nano::wallet_id> deleted_items;
-	for (const auto & wallet_id : items)
+	for (auto const & wallet_id : items)
 	{
 		if (stored_items.find (wallet_id.first) == stored_items.end ())
 		{
 			deleted_items.push_back (wallet_id.first);
 		}
 	}
-	for (const auto & wallet_id : deleted_items)
+	for (auto const & wallet_id : deleted_items)
 	{
 		debug_assert (items.find (wallet_id) == items.end ());
 		items.erase (wallet_id);

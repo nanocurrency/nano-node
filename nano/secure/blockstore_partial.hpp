@@ -639,7 +639,7 @@ public:
 			final_vote_qualified_roots.push_back (i->first);
 		}
 
-		for (const auto & final_vote_qualified_root : final_vote_qualified_roots)
+		for (auto const & final_vote_qualified_root : final_vote_qualified_roots)
 		{
 			auto const status (del (transaction_a, tables::final_votes, nano::db_val<Val> (final_vote_qualified_root)));
 			release_assert_success (status);
@@ -881,7 +881,7 @@ protected:
 	uint64_t count (nano::transaction const & transaction_a, std::initializer_list<tables> dbs_a) const
 	{
 		uint64_t total_count = 0;
-		for (const auto & db : dbs_a)
+		for (auto const & db : dbs_a)
 		{
 			total_count += count (transaction_a, db);
 		}
