@@ -318,7 +318,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		toml.get<unsigned> ("bootstrap_connections", bootstrap_connections);
 		toml.get<unsigned> ("bootstrap_connections_max", bootstrap_connections_max);
 		toml.get<unsigned> ("bootstrap_initiator_threads", bootstrap_initiator_threads);
-		toml.get<unsigned> ("bootstrap_disconnected_accounts_percent", bootstrap_disconnected_accounts_percent);
+		toml.get<uint32_t> ("bootstrap_disconnected_accounts_percent", bootstrap_disconnected_accounts_percent);
 		toml.get<bool> ("enable_voting", enable_voting);
 		toml.get<bool> ("allow_local_peers", allow_local_peers);
 		toml.get<unsigned> (signature_checker_threads_key, signature_checker_threads);
