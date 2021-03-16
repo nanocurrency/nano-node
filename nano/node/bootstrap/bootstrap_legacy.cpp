@@ -126,6 +126,7 @@ void nano::bootstrap_attempt_legacy::add_recent_pull (nano::block_hash const & h
 	}
 }
 
+<<<<<<< HEAD
 void nano::bootstrap_attempt_legacy::set_start_account (nano::account const & start_account_a)
 {
 	// Add last account fron frontier request
@@ -183,6 +184,8 @@ void nano::bootstrap_attempt_legacy::attempt_restart_check (nano::unique_lock<na
 	}
 }
 
+=======
+>>>>>>> remove_bootstrap_restart
 bool nano::bootstrap_attempt_legacy::confirm_frontiers (nano::unique_lock<nano::mutex> & lock_a)
 {
 	bool confirmed (false);
@@ -406,9 +409,7 @@ void nano::bootstrap_attempt_legacy::run ()
 		while (still_pulling ())
 		{
 			// clang-format off
-			condition.wait (lock, [&stopped = stopped, &pulling = pulling, &frontiers_confirmation_pending = frontiers_confirmation_pending] { return stopped || pulling == 0 || frontiers_confirmation_pending; });
-			// clang-format on
-			attempt_restart_check (lock);
+			condition.wait (lock, [&stopped = stopped, &pulling = pulling] { return stopped || pulling == 0; });
 		}
 		// Flushing may resolve forks which can add more pulls
 		node->logger.try_log ("Flushing unchecked blocks");
