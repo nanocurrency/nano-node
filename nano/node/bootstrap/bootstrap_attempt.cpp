@@ -116,11 +116,6 @@ std::string nano::bootstrap_attempt::mode_text ()
 	return mode_text;
 }
 
-void nano::bootstrap_attempt::restart_condition ()
-{
-	debug_assert (mode == nano::bootstrap_mode::legacy);
-}
-
 void nano::bootstrap_attempt::add_frontier (nano::pull_info const &)
 {
 	debug_assert (mode == nano::bootstrap_mode::legacy);
@@ -312,47 +307,6 @@ void nano::bootstrap_attempt_legacy::add_recent_pull (nano::block_hash const & h
 	if (recent_pulls_head.size () > nano::bootstrap_limits::bootstrap_max_confirm_frontiers)
 	{
 		recent_pulls_head.pop_front ();
-	}
-}
-
-void nano::bootstrap_attempt_legacy::restart_condition ()
-{
-	/* Conditions to start frontiers confirmation:
-	- not completed frontiers confirmation
-	- more than 256 pull retries usually indicating issues with requested pulls
-	- or 128k processed blocks indicating large bootstrap */
-	if (!frontiers_confirmation_pending && !frontiers_confirmed && (requeued_pulls > (!node->network_params.network.is_test_network () ? nano::bootstrap_limits::requeued_pulls_limit : nano::bootstrap_limits::requeued_pulls_limit_test) || total_blocks > nano::bootstrap_limits::frontier_confirmation_blocks_limit))
-	{
-		frontiers_confirmation_pending = true;
-	}
-}
-
-void nano::bootstrap_attempt_legacy::attempt_restart_check (nano::unique_lock<std::mutex> & lock_a)
-{
-	if (frontiers_confirmation_pending)
-	{
-		auto confirmed (confirm_frontiers (lock_a));
-		debug_assert (lock_a.owns_lock ());
-		if (!confirmed)
-		{
-			node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_failed, nano::stat::dir::in);
-			node->logger.try_log (boost::str (boost::format ("Frontier confirmation failed for peer %1% after %2% seconds bootstrap attempt") % endpoint_frontier_request % std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt_start).count ()));
-			lock_a.unlock ();
-			stop ();
-			lock_a.lock ();
-			// Start new bootstrap connection
-			auto node_l (node->shared ());
-			auto frontiers_age_l (frontiers_age);
-			node->background ([node_l, frontiers_age_l]() {
-				node_l->bootstrap_initiator.bootstrap (true, "", frontiers_age_l);
-			});
-		}
-		else
-		{
-			node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_successful, nano::stat::dir::in);
-		}
-		frontiers_confirmed = confirmed;
-		frontiers_confirmation_pending = false;
 	}
 }
 
@@ -582,9 +536,8 @@ void nano::bootstrap_attempt_legacy::run ()
 		while (still_pulling ())
 		{
 			// clang-format off
-			condition.wait (lock, [&stopped = stopped, &pulling = pulling, &frontiers_confirmation_pending = frontiers_confirmation_pending] { return stopped || pulling == 0 || frontiers_confirmation_pending; });
+			condition.wait (lock, [&stopped = stopped, &pulling = pulling] { return stopped || pulling == 0; });
 			// clang-format on
-			attempt_restart_check (lock);
 		}
 		// Flushing may resolve forks which can add more pulls
 		node->logger.try_log ("Flushing unchecked blocks");
@@ -616,6 +569,5 @@ void nano::bootstrap_attempt_legacy::get_information (boost::property_tree::ptre
 	tree_a.put ("frontier_pulls", std::to_string (frontier_pulls.size ()));
 	tree_a.put ("frontiers_received", static_cast<bool> (frontiers_received));
 	tree_a.put ("frontiers_confirmed", static_cast<bool> (frontiers_confirmed));
-	tree_a.put ("frontiers_confirmation_pending", static_cast<bool> (frontiers_confirmation_pending));
 	tree_a.put ("frontiers_age", std::to_string (frontiers_age));
 }
