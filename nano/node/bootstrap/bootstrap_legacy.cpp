@@ -5,9 +5,10 @@
 
 #include <boost/format.hpp>
 
-nano::bootstrap_attempt_legacy::bootstrap_attempt_legacy (std::shared_ptr<nano::node> const & node_a, uint64_t const incremental_id_a, std::string const & id_a, uint32_t const frontiers_age_a) :
+nano::bootstrap_attempt_legacy::bootstrap_attempt_legacy (std::shared_ptr<nano::node> const & node_a, uint64_t const incremental_id_a, std::string const & id_a, uint32_t const frontiers_age_a, nano::account const & start_account_a) :
 nano::bootstrap_attempt (node_a, nano::bootstrap_mode::legacy, incremental_id_a, id_a),
-frontiers_age (frontiers_age_a)
+frontiers_age (frontiers_age_a),
+start_account (start_account_a)
 {
 	node->bootstrap_initiator.notify_listeners (true);
 }
@@ -125,6 +126,14 @@ void nano::bootstrap_attempt_legacy::add_recent_pull (nano::block_hash const & h
 	}
 }
 
+void nano::bootstrap_attempt_legacy::set_start_account (nano::account const & start_account_a)
+{
+	// Add last account fron frontier request
+	nano::lock_guard<nano::mutex> lock (mutex);
+	start_account_previous = start_account;
+	start_account = start_account_a;
+}
+
 void nano::bootstrap_attempt_legacy::restart_condition ()
 {
 	/* Conditions to start frontiers confirmation:
@@ -155,12 +164,13 @@ void nano::bootstrap_attempt_legacy::attempt_restart_check (nano::unique_lock<na
 			auto this_l (shared_from_this ());
 			auto duration (std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt_start).count ());
 			auto frontiers_age_l (frontiers_age != std::numeric_limits<uint32_t>::max () ? frontiers_age + duration : frontiers_age);
-			node->background ([node_l, this_l, frontiers_age_l]() {
+			auto start_account_l (start_account_previous);
+			node->background ([node_l, this_l, frontiers_age_l, start_account_l]() {
 				node_l->bootstrap_initiator.remove_attempt (this_l);
 				auto id_l (this_l->id);
 				// Delay after removing current attempt
-				node_l->workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (50), [node_l, id_l, frontiers_age_l]() {
-					node_l->bootstrap_initiator.bootstrap (true, id_l, frontiers_age_l);
+				node_l->workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (50), [node_l, id_l, frontiers_age_l, start_account_l]() {
+					node_l->bootstrap_initiator.bootstrap (true, id_l, frontiers_age_l, start_account_l);
 				});
 			});
 		}
@@ -318,7 +328,7 @@ bool nano::bootstrap_attempt_legacy::request_frontier (nano::unique_lock<nano::m
 		{
 			auto this_l (shared_from_this ());
 			auto client (std::make_shared<nano::frontier_req_client> (connection_l, this_l));
-			client->run (frontiers_age);
+			client->run (start_account, frontiers_age, nano::bootstrap_limits::frontier_count_limit);
 			frontiers = client;
 			future = client->promise.get_future ();
 		}
@@ -372,8 +382,7 @@ void nano::bootstrap_attempt_legacy::run_start (nano::unique_lock<nano::mutex> &
 {
 	frontiers_received = false;
 	frontiers_confirmed = false;
-	total_blocks = 0;
-	requeued_pulls = 0;
+	frontiers_confirmation_pending = false;
 	recent_pulls_head.clear ();
 	auto frontier_failure (true);
 	uint64_t frontier_attempts (0);
@@ -406,7 +415,9 @@ void nano::bootstrap_attempt_legacy::run ()
 		lock.unlock ();
 		node->block_processor.flush ();
 		lock.lock ();
-		node->logger.try_log ("Finished flushing unchecked blocks");
+		node->logger.try_log ("Finished flushing unchecked blocks, requesting new frontiers");
+		// Requesting new frontiers
+		run_start (lock);
 	}
 	if (!stopped)
 	{
@@ -432,4 +443,6 @@ void nano::bootstrap_attempt_legacy::get_information (boost::property_tree::ptre
 	tree_a.put ("frontiers_received", static_cast<bool> (frontiers_received));
 	tree_a.put ("frontiers_confirmed", static_cast<bool> (frontiers_confirmed));
 	tree_a.put ("frontiers_confirmation_pending", static_cast<bool> (frontiers_confirmation_pending));
+	tree_a.put ("frontiers_age", std::to_string (frontiers_age));
+	tree_a.put ("last_account", start_account.to_account ());
 }

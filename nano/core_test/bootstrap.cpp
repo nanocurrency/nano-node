@@ -505,7 +505,7 @@ TEST (bootstrap_processor, frontiers_unconfirmed_threshold)
 	ASSERT_EQ (0, node3->stats.count (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_successful, nano::stat::dir::in));
 }
 
-TEST (bootstrap_processor, push_diamond)
+TEST (bootstrap_processor, DISABLED_push_diamond)
 {
 	nano::system system;
 	nano::node_config config (nano::get_available_port (), system.logging);
@@ -531,7 +531,7 @@ TEST (bootstrap_processor, push_diamond)
 	node1->stop ();
 }
 
-TEST (bootstrap_processor, push_diamond_pruning)
+TEST (bootstrap_processor, DISABLED_push_diamond_pruning)
 {
 	nano::system system;
 	nano::node_config config (nano::get_available_port (), system.logging);
