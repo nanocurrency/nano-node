@@ -14,8 +14,6 @@ jobs:
     env:
       BOOST_ROOT: /tmp/boost
     steps:
-      - uses: actions/checkout@722adc6
-      - uses: chrislennon/action-aws-cli@f0f8671
       - name: tag
         run: |
           echo "TAG=${{ github.event.inputs.ref }}" >> $GITHUB_ENV
@@ -38,8 +36,6 @@ jobs:
   linux_job:
     runs-on: ubuntu-18.04
     steps:
-      - uses: actions/checkout@722adc6
-      - uses: chrislennon/action-aws-cli@f0f8671
       - name: tag
         run: |
           echo "TAG=${{ github.event.inputs.ref }}" >> $GITHUB_ENV
@@ -62,8 +58,6 @@ jobs:
   linux_docker_job:
     runs-on: ubuntu-18.04
     steps:
-      - uses: actions/checkout@722adc6
-      - uses: chrislennon/action-aws-cli@f0f8671
       - name: tag
         run: |
           echo "TAG=${{ github.event.inputs.ref }}" >> $GITHUB_ENV
@@ -91,8 +85,6 @@ jobs:
   windows_job:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@722adc6
-      - uses: chrislennon/action-aws-cli@f0f8671
       - name: tag
         run: |
           Write-Output "TAG=${{ github.event.inputs.ref }}" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
