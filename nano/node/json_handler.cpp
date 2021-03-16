@@ -1118,7 +1118,7 @@ void nano::json_handler::block_confirm ()
 			else
 			{
 				// Add record in confirmation history for confirmed block
-				nano::election_status status{ block_l, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::active_confirmation_height };
+				nano::election_status status{ block_l, 0, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::active_confirmation_height };
 				node.active.add_recently_cemented (status);
 				// Trigger callback for confirmed block
 				node.block_arrival.add (hash);
@@ -1908,6 +1908,7 @@ void nano::json_handler::confirmation_history ()
 				election.put ("duration", status.election_duration.count ());
 				election.put ("time", status.election_end.count ());
 				election.put ("tally", status.tally.to_string_dec ());
+				election.add ("final", status.final_tally.to_string_dec ());
 				election.put ("blocks", std::to_string (status.block_count));
 				election.put ("voters", std::to_string (status.voter_count));
 				election.put ("request_count", std::to_string (status.confirmation_request_count));
@@ -1985,6 +1986,7 @@ void nano::json_handler::confirmation_info ()
 				blocks.add_child ((block->hash ()).to_string (), entry);
 			}
 			response_l.put ("total_tally", total.convert_to<std::string> ());
+			response_l.put ("final_tally", info.status.final_tally.to_string_dec ());
 			response_l.add_child ("blocks", blocks);
 		}
 		else
