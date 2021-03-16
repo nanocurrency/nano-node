@@ -454,7 +454,7 @@ TEST (bootstrap_processor, DISABLED_frontiers_confirmed)
 	ASSERT_EQ (0, node2->stats.count (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_failed, nano::stat::dir::in));
 }
 
-TEST (bootstrap_processor, frontiers_unconfirmed_threshold)
+TEST (bootstrap_processor, DISABLED_frontiers_unconfirmed_threshold)
 {
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
