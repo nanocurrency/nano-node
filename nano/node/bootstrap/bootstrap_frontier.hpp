@@ -44,6 +44,7 @@ public:
 	void send_finished ();
 	void no_block_sent (boost::system::error_code const &, size_t);
 	void next ();
+	bool send_confirmed ();
 	std::shared_ptr<nano::bootstrap_server> connection;
 	nano::account current;
 	nano::block_hash frontier;

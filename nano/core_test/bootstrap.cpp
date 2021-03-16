@@ -1083,6 +1083,137 @@ TEST (frontier_req, time_cutoff)
 	ASSERT_TRUE (request2->frontier.is_zero ());
 }
 
+TEST (frontier_req, confirmed_frontier)
+{
+	nano::system system (1);
+	auto node1 = system.nodes[0];
+	nano::genesis genesis;
+	nano::raw_key priv_key;
+	// Public key before genesis in accounts table
+	while (nano::pub_key (priv_key).number () >= nano::dev_genesis_key.pub.number ())
+	{
+		priv_key = nano::keypair ().prv;
+	}
+	nano::keypair key_before_genesis (priv_key.to_string ());
+	// Public key after genesis in accounts table
+	while (nano::pub_key (priv_key).number () <= nano::dev_genesis_key.pub.number ())
+	{
+		priv_key = nano::keypair ().prv;
+	}
+	nano::keypair key_after_genesis (priv_key.to_string ());
+
+	auto send1 (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, genesis.hash (), nano::dev_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key_before_genesis.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
+	node1->work_generate_blocking (*send1);
+	ASSERT_EQ (nano::process_result::progress, node1->process (*send1).code);
+	auto send2 (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, send1->hash (), nano::dev_genesis_key.pub, nano::genesis_amount - 2 * nano::Gxrb_ratio, key_after_genesis.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
+	node1->work_generate_blocking (*send2);
+	ASSERT_EQ (nano::process_result::progress, node1->process (*send2).code);
+	auto receive1 (std::make_shared<nano::state_block> (key_before_genesis.pub, 0, nano::dev_genesis_key.pub, nano::Gxrb_ratio, send1->hash (), key_before_genesis.prv, key_before_genesis.pub, 0));
+	node1->work_generate_blocking (*receive1);
+	ASSERT_EQ (nano::process_result::progress, node1->process (*receive1).code);
+	auto receive2 (std::make_shared<nano::state_block> (key_after_genesis.pub, 0, nano::dev_genesis_key.pub, nano::Gxrb_ratio, send2->hash (), key_after_genesis.prv, key_after_genesis.pub, 0));
+	node1->work_generate_blocking (*receive2);
+	ASSERT_EQ (nano::process_result::progress, node1->process (*receive2).code);
+
+	// Request for all accounts (confirmed only)
+	auto connection (std::make_shared<nano::bootstrap_server> (nullptr, node1));
+	auto req = std::make_unique<nano::frontier_req> ();
+	req->start.clear ();
+	req->age = std::numeric_limits<decltype (req->age)>::max ();
+	req->count = std::numeric_limits<decltype (req->count)>::max ();
+	ASSERT_FALSE (req->header.frontier_req_is_only_confirmed_present ());
+	req->header.flag_set (nano::message_header::frontier_req_only_confirmed);
+	ASSERT_TRUE (req->header.frontier_req_is_only_confirmed_present ());
+	connection->requests.push (std::unique_ptr<nano::message>{});
+	auto request (std::make_shared<nano::frontier_req_server> (connection, std::move (req)));
+	ASSERT_EQ (nano::dev_genesis_key.pub, request->current);
+	ASSERT_EQ (genesis.hash (), request->frontier);
+
+	// Request starting with account before genesis (confirmed only)
+	auto connection2 (std::make_shared<nano::bootstrap_server> (nullptr, node1));
+	auto req2 = std::make_unique<nano::frontier_req> ();
+	req2->start = key_before_genesis.pub;
+	req2->age = std::numeric_limits<decltype (req2->age)>::max ();
+	req2->count = std::numeric_limits<decltype (req2->count)>::max ();
+	ASSERT_FALSE (req2->header.frontier_req_is_only_confirmed_present ());
+	req2->header.flag_set (nano::message_header::frontier_req_only_confirmed);
+	ASSERT_TRUE (req2->header.frontier_req_is_only_confirmed_present ());
+	connection2->requests.push (std::unique_ptr<nano::message>{});
+	auto request2 (std::make_shared<nano::frontier_req_server> (connection2, std::move (req2)));
+	ASSERT_EQ (nano::dev_genesis_key.pub, request2->current);
+	ASSERT_EQ (genesis.hash (), request2->frontier);
+
+	// Request starting with account after genesis (confirmed only)
+	auto connection3 (std::make_shared<nano::bootstrap_server> (nullptr, node1));
+	auto req3 = std::make_unique<nano::frontier_req> ();
+	req3->start = key_after_genesis.pub;
+	req3->age = std::numeric_limits<decltype (req3->age)>::max ();
+	req3->count = std::numeric_limits<decltype (req3->count)>::max ();
+	ASSERT_FALSE (req3->header.frontier_req_is_only_confirmed_present ());
+	req3->header.flag_set (nano::message_header::frontier_req_only_confirmed);
+	ASSERT_TRUE (req3->header.frontier_req_is_only_confirmed_present ());
+	connection3->requests.push (std::unique_ptr<nano::message>{});
+	auto request3 (std::make_shared<nano::frontier_req_server> (connection3, std::move (req3)));
+	ASSERT_TRUE (request3->current.is_zero ());
+	ASSERT_TRUE (request3->frontier.is_zero ());
+
+	// Request for all accounts (unconfirmed blocks)
+	auto connection4 (std::make_shared<nano::bootstrap_server> (nullptr, node1));
+	auto req4 = std::make_unique<nano::frontier_req> ();
+	req4->start.clear ();
+	req4->age = std::numeric_limits<decltype (req4->age)>::max ();
+	req4->count = std::numeric_limits<decltype (req4->count)>::max ();
+	ASSERT_FALSE (req4->header.frontier_req_is_only_confirmed_present ());
+	connection4->requests.push (std::unique_ptr<nano::message>{});
+	auto request4 (std::make_shared<nano::frontier_req_server> (connection4, std::move (req4)));
+	ASSERT_EQ (key_before_genesis.pub, request4->current);
+	ASSERT_EQ (receive1->hash (), request4->frontier);
+
+	// Request starting with account after genesis (unconfirmed blocks)
+	auto connection5 (std::make_shared<nano::bootstrap_server> (nullptr, node1));
+	auto req5 = std::make_unique<nano::frontier_req> ();
+	req5->start = key_after_genesis.pub;
+	req5->age = std::numeric_limits<decltype (req5->age)>::max ();
+	req5->count = std::numeric_limits<decltype (req5->count)>::max ();
+	ASSERT_FALSE (req5->header.frontier_req_is_only_confirmed_present ());
+	connection5->requests.push (std::unique_ptr<nano::message>{});
+	auto request5 (std::make_shared<nano::frontier_req_server> (connection5, std::move (req5)));
+	ASSERT_EQ (key_after_genesis.pub, request5->current);
+	ASSERT_EQ (receive2->hash (), request5->frontier);
+
+	// Confirm account before genesis (confirmed only)
+	nano::blocks_confirm (*node1, { send1, receive1 }, true);
+	ASSERT_TIMELY (5s, node1->block_confirmed (send1->hash ()) && node1->block_confirmed (receive1->hash ()));
+	auto connection6 (std::make_shared<nano::bootstrap_server> (nullptr, node1));
+	auto req6 = std::make_unique<nano::frontier_req> ();
+	req6->start = key_before_genesis.pub;
+	req6->age = std::numeric_limits<decltype (req6->age)>::max ();
+	req6->count = std::numeric_limits<decltype (req6->count)>::max ();
+	ASSERT_FALSE (req6->header.frontier_req_is_only_confirmed_present ());
+	req6->header.flag_set (nano::message_header::frontier_req_only_confirmed);
+	ASSERT_TRUE (req6->header.frontier_req_is_only_confirmed_present ());
+	connection6->requests.push (std::unique_ptr<nano::message>{});
+	auto request6 (std::make_shared<nano::frontier_req_server> (connection6, std::move (req6)));
+	ASSERT_EQ (key_before_genesis.pub, request6->current);
+	ASSERT_EQ (receive1->hash (), request6->frontier);
+
+	// Confirm account after genesis (confirmed only)
+	nano::blocks_confirm (*node1, { send2, receive2 }, true);
+	ASSERT_TIMELY (5s, node1->block_confirmed (send2->hash ()) && node1->block_confirmed (receive2->hash ()));
+	auto connection7 (std::make_shared<nano::bootstrap_server> (nullptr, node1));
+	auto req7 = std::make_unique<nano::frontier_req> ();
+	req7->start = key_after_genesis.pub;
+	req7->age = std::numeric_limits<decltype (req7->age)>::max ();
+	req7->count = std::numeric_limits<decltype (req7->count)>::max ();
+	ASSERT_FALSE (req7->header.frontier_req_is_only_confirmed_present ());
+	req7->header.flag_set (nano::message_header::frontier_req_only_confirmed);
+	ASSERT_TRUE (req7->header.frontier_req_is_only_confirmed_present ());
+	connection7->requests.push (std::unique_ptr<nano::message>{});
+	auto request7 (std::make_shared<nano::frontier_req_server> (connection7, std::move (req7)));
+	ASSERT_EQ (key_after_genesis.pub, request7->current);
+	ASSERT_EQ (receive2->hash (), request7->frontier);
+}
+
 TEST (bulk, genesis)
 {
 	nano::system system;
