@@ -12,12 +12,13 @@ constexpr unsigned nano::bootstrap_limits::bulk_push_cost_limit;
 
 constexpr size_t nano::frontier_req_client::size_frontier;
 
-void nano::frontier_req_client::run ()
+void nano::frontier_req_client::run (uint32_t const frontiers_age_a)
 {
 	nano::frontier_req request;
 	request.start.clear ();
-	request.age = std::numeric_limits<decltype (request.age)>::max ();
+	request.age = frontiers_age_a;
 	request.count = std::numeric_limits<decltype (request.count)>::max ();
+	frontiers_age = frontiers_age_a;
 	auto this_l (shared_from_this ());
 	connection->channel->send (
 	request, [this_l](boost::system::error_code const & ec, size_t size_a) {
@@ -68,7 +69,7 @@ void nano::frontier_req_client::receive_frontier ()
 
 void nano::frontier_req_client::unsynced (nano::block_hash const & head, nano::block_hash const & end)
 {
-	if (bulk_push_cost < nano::bootstrap_limits::bulk_push_cost_limit)
+	if (bulk_push_cost < nano::bootstrap_limits::bulk_push_cost_limit && frontiers_age == std::numeric_limits<decltype (frontiers_age)>::max ())
 	{
 		attempt->add_bulk_push_target (head, end);
 		if (end.is_zero ())

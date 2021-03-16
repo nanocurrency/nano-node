@@ -9,7 +9,7 @@
 
 namespace
 {
-void reset_confirmation_heights (nano::write_transaction & transaction, nano::block_store & store);
+void reset_confirmation_heights (nano::write_transaction const & transaction, nano::block_store & store);
 bool is_using_rocksdb (boost::filesystem::path const & data_path, boost::program_options::variables_map const & vm, std::error_code & ec);
 }
 
@@ -217,34 +217,34 @@ bool copy_database (boost::filesystem::path const & data_path, boost::program_op
 	nano::inactive_node node (data_path, node_flags);
 	if (!node.node->init_error ())
 	{
-		auto transaction (node.node->store.tx_begin_write ());
+		auto & store (node.node->store);
 		if (vm.count ("unchecked_clear"))
 		{
-			node.node->store.unchecked_clear (transaction);
+			node.node->store.unchecked_clear (store.tx_begin_write ());
 		}
 		if (vm.count ("clear_send_ids"))
 		{
-			node.node->wallets.clear_send_ids (transaction);
+			node.node->wallets.clear_send_ids (node.node->wallets.tx_begin_write ());
 		}
 		if (vm.count ("online_weight_clear"))
 		{
-			node.node->store.online_weight_clear (transaction);
+			node.node->store.online_weight_clear (store.tx_begin_write ());
 		}
 		if (vm.count ("peer_clear"))
 		{
-			node.node->store.peer_clear (transaction);
+			node.node->store.peer_clear (store.tx_begin_write ());
 		}
 		if (vm.count ("confirmation_height_clear"))
 		{
-			reset_confirmation_heights (transaction, node.node->store);
+			reset_confirmation_heights (store.tx_begin_write (), store);
 		}
 		if (vm.count ("final_vote_clear"))
 		{
-			node.node->store.final_vote_clear (transaction);
+			node.node->store.final_vote_clear (store.tx_begin_write ());
 		}
 		if (vm.count ("rebuild_database"))
 		{
-			node.node->store.rebuild_db (transaction);
+			node.node->store.rebuild_db (store.tx_begin_write ());
 		}
 
 		success = node.node->copy_with_compaction (output_path);
@@ -1300,7 +1300,7 @@ std::unique_ptr<nano::inactive_node> nano::default_inactive_node (boost::filesys
 
 namespace
 {
-void reset_confirmation_heights (nano::write_transaction & transaction, nano::block_store & store)
+void reset_confirmation_heights (nano::write_transaction const & transaction, nano::block_store & store)
 {
 	// First do a clean sweep
 	store.confirmation_height_clear (transaction);

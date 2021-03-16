@@ -11,6 +11,8 @@
 #include <nano/rpc/rpc.hpp>
 #include <nano/secure/working.hpp>
 
+#include <boost/format.hpp>
+
 #include <csignal>
 #include <iostream>
 
@@ -64,6 +66,15 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 		auto initialization_text = "Starting up Nano node...";
 		std::cout << initialization_text << std::endl;
 		logger.always_log (initialization_text);
+
+    size_t fd_limit = nano::get_filedescriptor_limit ();
+		constexpr size_t fd_limit_recommended_minimum = 16384;
+		if (fd_limit < fd_limit_recommended_minimum)
+		{
+			auto low_fd_text = boost::str (boost::format ("WARNING: The file descriptor limit on this system may be too low (%1%) and should be increased to at least %2%.") % fd_limit % fd_limit_recommended_minimum);
+			std::cerr << low_fd_text << std::endl;
+			logger.always_log (low_fd_text);
+		}
 
 		auto node (std::make_shared<nano::node> (io_ctx, data_path, config.node, opencl_work, flags));
 		if (!node->init_error ())
