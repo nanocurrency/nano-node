@@ -321,24 +321,40 @@ void nano::frontier_req_server::next ()
 		uint64_t read_count (0);
 		size_t max_size (128);
 		auto transaction (connection->node->store.tx_begin_read ());
-		for (auto i (connection->node->store.accounts_begin (transaction, current.number () + 1)), n (connection->node->store.accounts_end ()); i != n && accounts.size () != max_size; ++i)
+		if (!send_confirmed ())
 		{
-			++read_count;
-			nano::account const & account (i->first);
-			nano::account_info const & info (i->second);
-			if (send_disconnected_accounts || info.block_count > 1)
+			for (auto i (connection->node->store.accounts_begin (transaction, current.number () + 1)), n (connection->node->store.accounts_end ()); i != n && accounts.size () != max_size; ++i)
 			{
-				if (disable_age_filter || (now - info.modified) <= request->age)
+				++read_count;
+				nano::account const & account (i->first);
+				nano::account_info const & info (i->second);
+				if (send_disconnected_accounts || info.block_count > 1)
 				{
-					accounts.emplace_back (account, info.head);
+					if (disable_age_filter || (now - info.modified) <= request->age)
+					{
+						accounts.emplace_back (account, info.head);
+					}
+				}
+				if (read_count % batch_read_size == 0)
+				{
+					nano::account next_account (account.number () != std::numeric_limits<nano::uint256_t>::max () ? account.number () + 1 : account.number ());
+					transaction.refresh ();
+					i = connection->node->store.accounts_begin (transaction, next_account);
+					n = connection->node->store.accounts_end ();
 				}
 			}
-			if (read_count % batch_read_size == 0)
+		}
+		else
+		{
+			for (auto i (connection->node->store.confirmation_height_begin (transaction, current.number () + 1)), n (connection->node->store.confirmation_height_end ()); i != n && accounts.size () != max_size; ++i)
 			{
-				nano::account next_account (account.number () != std::numeric_limits<nano::uint256_t>::max () ? account.number () + 1 : account.number ());
-				transaction.refresh ();
-				i = connection->node->store.accounts_begin (transaction, next_account);
-				n = connection->node->store.accounts_end ();
+				nano::confirmation_height_info const & info (i->second);
+				nano::block_hash const & confirmed_frontier (info.frontier);
+				if (!confirmed_frontier.is_zero ())
+				{
+					nano::account const & account (i->first);
+					accounts.emplace_back (account, confirmed_frontier);
+				}
 			}
 		}
 		/* If loop breaks before max_size, then accounts_end () is reached
@@ -353,4 +369,9 @@ void nano::frontier_req_server::next ()
 	current = account_pair.first;
 	frontier = account_pair.second;
 	accounts.pop_front ();
+}
+
+bool nano::frontier_req_server::send_confirmed ()
+{
+	return request->header.frontier_req_is_only_confirmed_present ();
 }
