@@ -82,7 +82,7 @@ public:
 	explicit bootstrap_initiator (nano::node &);
 	~bootstrap_initiator ();
 	void bootstrap (nano::endpoint const &, bool add_to_peers = true, bool frontiers_confirmed = false, std::string id_a = "");
-	void bootstrap (bool force = false, std::string id_a = "", uint32_t const frontiers_age_a = std::numeric_limits<uint32_t>::max ());
+	void bootstrap (bool force = false, std::string id_a = "", uint32_t const frontiers_age_a = std::numeric_limits<uint32_t>::max (), nano::account const & start_account_a = nano::account (0));
 	void bootstrap_lazy (nano::hash_or_account const &, bool force = false, bool confirmed = true, std::string id_a = "");
 	void bootstrap_wallet (std::deque<nano::account> &);
 	void run_bootstrap ();
@@ -130,6 +130,7 @@ public:
 	static constexpr size_t bootstrap_max_confirm_frontiers = 70;
 	static constexpr double required_frontier_confirmation_ratio = 0.8;
 	static constexpr unsigned frontier_confirmation_blocks_limit = 128 * 1024;
+	static constexpr uint32_t frontier_count_limit = 1024 * 1024;
 	static constexpr unsigned requeued_pulls_limit = 256;
 	static constexpr unsigned requeued_pulls_limit_dev = 1;
 	static constexpr unsigned requeued_pulls_processed_blocks_factor = 4096;

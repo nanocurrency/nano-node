@@ -12,13 +12,16 @@ constexpr unsigned nano::bootstrap_limits::bulk_push_cost_limit;
 
 constexpr size_t nano::frontier_req_client::size_frontier;
 
-void nano::frontier_req_client::run (uint32_t const frontiers_age_a)
+void nano::frontier_req_client::run (nano::account const & start_account_a, uint32_t const frontiers_age_a, uint32_t const count_a)
 {
 	nano::frontier_req request;
-	request.start.clear ();
+	request.start = (start_account_a.is_zero () || start_account_a.number () == std::numeric_limits<nano::uint256_t>::max ()) ? start_account_a : start_account_a.number () + 1;
 	request.age = frontiers_age_a;
-	request.count = std::numeric_limits<decltype (request.count)>::max ();
+	request.count = count_a;
+	current = start_account_a;
 	frontiers_age = frontiers_age_a;
+	count_limit = count_a;
+	next (); // Load accounts from disk
 	auto this_l (shared_from_this ());
 	connection->channel->send (
 	request, [this_l](boost::system::error_code const & ec, size_t size_a) {
@@ -40,11 +43,9 @@ void nano::frontier_req_client::run (uint32_t const frontiers_age_a)
 nano::frontier_req_client::frontier_req_client (std::shared_ptr<nano::bootstrap_client> const & connection_a, std::shared_ptr<nano::bootstrap_attempt> const & attempt_a) :
 connection (connection_a),
 attempt (attempt_a),
-current (0),
 count (0),
 bulk_push_cost (0)
 {
-	next ();
 }
 
 void nano::frontier_req_client::receive_frontier ()
@@ -107,9 +108,10 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 
 		double elapsed_sec = std::max (time_span.count (), nano::bootstrap_limits::bootstrap_minimum_elapsed_seconds_blockrate);
 		double blocks_per_sec = static_cast<double> (count) / elapsed_sec;
-		if (elapsed_sec > nano::bootstrap_limits::bootstrap_connection_warmup_time_sec && blocks_per_sec < nano::bootstrap_limits::bootstrap_minimum_frontier_blocks_per_sec)
+		double age_factor = (frontiers_age == std::numeric_limits<decltype (frontiers_age)>::max ()) ? 1.0 : 1.5; // Allow slower frontiers receive for requests with age
+		if (elapsed_sec > nano::bootstrap_limits::bootstrap_connection_warmup_time_sec && blocks_per_sec * age_factor < nano::bootstrap_limits::bootstrap_minimum_frontier_blocks_per_sec)
 		{
-			connection->node->logger.try_log (boost::str (boost::format ("Aborting frontier req because it was too slow")));
+			connection->node->logger.try_log (boost::str (boost::format ("Aborting frontier req because it was too slow: %1% frontiers per second, last %2%") % blocks_per_sec % account.to_account ()));
 			promise.set_value (true);
 			return;
 		}
@@ -117,8 +119,9 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 		{
 			connection->node->logger.always_log (boost::str (boost::format ("Received %1% frontiers from %2%") % std::to_string (count) % connection->channel->to_string ()));
 		}
-		if (!account.is_zero ())
+		if (!account.is_zero () && count <= count_limit)
 		{
+			last_account = account;
 			while (!current.is_zero () && current < account)
 			{
 				// We know about an account they don't.
@@ -164,16 +167,7 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 		}
 		else
 		{
-			while (!current.is_zero ())
-			{
-				// We know about an account they don't.
-				unsynced (frontier, 0);
-				next ();
-			}
-			if (connection->node->config.logging.bulk_pull_logging ())
-			{
-				connection->node->logger.try_log ("Bulk push cost: ", bulk_push_cost);
-			}
+			attempt->set_start_account (last_account);
 			{
 				try
 				{

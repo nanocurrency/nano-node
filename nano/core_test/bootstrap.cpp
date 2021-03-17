@@ -354,7 +354,7 @@ TEST (bootstrap_processor, DISABLED_pull_requeue_network_error)
 	ASSERT_EQ (0, node1->stats.count (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_failed_account, nano::stat::dir::in)); // Requeue is not increasing failed attempts
 }
 
-TEST (bootstrap_processor, push_diamond)
+TEST (bootstrap_processor, DISABLED_push_diamond)
 {
 	nano::system system;
 	nano::node_config config (nano::get_available_port (), system.logging);
@@ -380,7 +380,7 @@ TEST (bootstrap_processor, push_diamond)
 	node1->stop ();
 }
 
-TEST (bootstrap_processor, push_diamond_pruning)
+TEST (bootstrap_processor, DISABLED_push_diamond_pruning)
 {
 	nano::system system;
 	nano::node_config config (nano::get_available_port (), system.logging);
