@@ -217,6 +217,7 @@ public:
 	void remove_election_winner_details (nano::block_hash const &);
 
 	nano::vote_generator generator;
+	nano::vote_generator final_generator;
 
 #ifdef MEMORY_POOL_DISABLED
 	using allocator = std::allocator<nano::inactive_cache_information>;
