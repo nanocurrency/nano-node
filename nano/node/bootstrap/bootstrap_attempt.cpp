@@ -116,11 +116,6 @@ std::string nano::bootstrap_attempt::mode_text ()
 	return mode_text;
 }
 
-void nano::bootstrap_attempt::restart_condition ()
-{
-	debug_assert (mode == nano::bootstrap_mode::legacy);
-}
-
 void nano::bootstrap_attempt::add_frontier (nano::pull_info const &)
 {
 	debug_assert (mode == nano::bootstrap_mode::legacy);
