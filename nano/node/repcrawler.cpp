@@ -172,7 +172,7 @@ void nano::rep_crawler::throttled_remove (nano::block_hash const & hash_a, uint6
 {
 	if (node.vote_processor.total_processed >= target_finished_processed)
 	{
-		node.rep_crawler.remove (hash_a);
+		remove (hash_a);
 	}
 	else
 	{
