@@ -175,6 +175,19 @@ bool nano::message_header::bulk_pull_is_count_present () const
 	return result;
 }
 
+bool nano::message_header::frontier_req_is_only_confirmed_present () const
+{
+	auto result (false);
+	if (type == nano::message_type::frontier_req)
+	{
+		if (extensions.test (frontier_req_only_confirmed))
+		{
+			result = true;
+		}
+	}
+	return result;
+}
+
 bool nano::message_header::node_id_handshake_is_query () const
 {
 	auto result (false);
