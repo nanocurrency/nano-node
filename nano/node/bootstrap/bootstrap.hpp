@@ -133,6 +133,7 @@ public:
 	static constexpr unsigned requeued_pulls_limit = 256;
 	static constexpr unsigned requeued_pulls_limit_dev = 1;
 	static constexpr unsigned requeued_pulls_processed_blocks_factor = 4096;
+	static constexpr uint64_t pull_count_per_check = 8 * 1024;
 	static constexpr unsigned bulk_push_cost_limit = 200;
 	static constexpr std::chrono::seconds lazy_flush_delay_sec = std::chrono::seconds (5);
 	static constexpr uint64_t lazy_batch_pull_count_resize_blocks_limit = 4 * 1024 * 1024;

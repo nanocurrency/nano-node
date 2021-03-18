@@ -241,6 +241,11 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 			attempt->total_blocks++;
 			bool stop_pull (attempt->process_block (block, known_account, pull_blocks, pull.count, block_expected, pull.retry_limit));
 			pull_blocks++;
+			if (!stop_pull && pull_blocks % nano::bootstrap_limits::pull_count_per_check == 0)
+			{
+				// If block already exists in the ledger, then we can avoid next part of long account chain
+				stop_pull = connection->node->ledger.block_or_pruned_exists (hash);
+			}
 			if (!stop_pull && !connection->hard_stop.load ())
 			{
 				/* Process block in lazy pull if not stopped
