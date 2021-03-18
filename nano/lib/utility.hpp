@@ -73,7 +73,7 @@ public:
 class container_info_composite : public container_info_component
 {
 public:
-	container_info_composite (const std::string & name);
+	container_info_composite (std::string const & name);
 	bool is_composite () const override;
 	void add_component (std::unique_ptr<container_info_component> child);
 	const std::vector<std::unique_ptr<container_info_component>> & get_children () const;
@@ -132,33 +132,43 @@ void dump_crash_stacktrace ();
  */
 std::string generate_stacktrace ();
 
+/**
+ * Some systems, especially in virtualized environments, may have very low file descriptor limits,
+ * causing the node to fail. This function attempts to query the limit and returns the value. If the
+ * limit cannot be queried, or running on a Windows system, this returns max-value of size_t.
+ * Increasing the limit programatically is highly system-dependent, and the process may lack the
+ * required permissions; the node thus merely logs low limits as a potential problem and leaves
+ * the system configuration to the user.
+ */
+size_t get_filedescriptor_limit ();
+
 template <typename... T>
 class observer_set final
 {
 public:
 	void add (std::function<void(T...)> const & observer_a)
 	{
-		nano::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock (mutex);
 		observers.push_back (observer_a);
 	}
 	void notify (T... args)
 	{
-		nano::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock (mutex);
 		for (auto & i : observers)
 		{
 			i (args...);
 		}
 	}
-	std::mutex mutex;
+	nano::mutex mutex{ mutex_identifier (mutexes::observer_set) };
 	std::vector<std::function<void(T...)>> observers;
 };
 
 template <typename... T>
-std::unique_ptr<container_info_component> collect_container_info (observer_set<T...> & observer_set, const std::string & name)
+std::unique_ptr<container_info_component> collect_container_info (observer_set<T...> & observer_set, std::string const & name)
 {
 	size_t count = 0;
 	{
-		nano::lock_guard<std::mutex> lock (observer_set.mutex);
+		nano::lock_guard<nano::mutex> lock (observer_set.mutex);
 		count = observer_set.observers.size ();
 	}
 

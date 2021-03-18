@@ -272,13 +272,10 @@ int main (int argc, char * const * argv)
 			}
 		}
 
-		if (!vm.count ("data_path"))
+		std::vector<std::string> config_overrides;
+		if (vm.count ("config"))
 		{
-			std::string error_string;
-			if (!nano::migrate_working_path (error_string))
-			{
-				throw std::runtime_error (error_string);
-			}
+			config_overrides = vm["config"].as<std::vector<std::string>> ();
 		}
 
 		auto ec = nano::handle_node_options (vm);

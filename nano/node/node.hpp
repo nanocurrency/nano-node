@@ -73,14 +73,14 @@ public:
 				boost::multi_index::member<nano::block_arrival_info, nano::block_hash, &nano::block_arrival_info::hash>>>>
 	arrival;
 	// clang-format on
-	std::mutex mutex;
+	nano::mutex mutex{ mutex_identifier (mutexes::block_arrival) };
 	static size_t constexpr arrival_size_min = 8 * 1024;
 	static std::chrono::seconds constexpr arrival_time_min = std::chrono::seconds (300);
 };
 
-std::unique_ptr<container_info_component> collect_container_info (block_arrival & block_arrival, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (block_arrival & block_arrival, std::string const & name);
 
-std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, std::string const & name);
 
 class node final : public std::enable_shared_from_this<nano::node>
 {
@@ -147,7 +147,7 @@ public:
 	void ongoing_online_weight_calculation_queue ();
 	bool online () const;
 	bool init_error () const;
-	bool epoch_upgrader (nano::private_key const &, nano::epoch, uint64_t, uint64_t);
+	bool epoch_upgrader (nano::raw_key const &, nano::epoch, uint64_t, uint64_t);
 	std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> get_bootstrap_weights () const;
 	nano::write_database_queue write_database_queue;
 	boost::asio::io_context & io_ctx;
@@ -207,21 +207,32 @@ public:
 
 private:
 	void long_inactivity_cleanup ();
-	void epoch_upgrader_impl (nano::private_key const &, nano::epoch, uint64_t, uint64_t);
+	void epoch_upgrader_impl (nano::raw_key const &, nano::epoch, uint64_t, uint64_t);
 	nano::locked<std::future<void>> epoch_upgrading;
 };
 
-std::unique_ptr<container_info_component> collect_container_info (node & node, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (node & node, std::string const & name);
 
 nano::node_flags const & inactive_node_flag_defaults ();
+
+class node_wrapper final
+{
+public:
+	node_wrapper (boost::filesystem::path const & path_a, boost::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a);
+	~node_wrapper ();
+
+	std::shared_ptr<boost::asio::io_context> io_context;
+	nano::work_pool work;
+	std::shared_ptr<nano::node> node;
+};
 
 class inactive_node final
 {
 public:
 	inactive_node (boost::filesystem::path const & path_a, nano::node_flags const & node_flags_a);
-	~inactive_node ();
-	std::shared_ptr<boost::asio::io_context> io_context;
-	nano::work_pool work;
+	inactive_node (boost::filesystem::path const & path_a, boost::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a);
+
+	nano::node_wrapper node_wrapper;
 	std::shared_ptr<nano::node> node;
 };
 std::unique_ptr<nano::inactive_node> default_inactive_node (boost::filesystem::path const &, boost::program_options::variables_map const &);

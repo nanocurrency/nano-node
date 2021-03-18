@@ -33,9 +33,9 @@ TEST (wallets, open_existing)
 		ASSERT_NE (nullptr, wallet);
 		ASSERT_EQ (wallet, wallets.open (id));
 		nano::raw_key password;
-		password.data.clear ();
+		password.clear ();
 		system.deadline_set (10s);
-		while (password.data == 0)
+		while (password == 0)
 		{
 			ASSERT_NO_ERROR (system.poll ());
 			wallet->store.password.value (password);
@@ -87,7 +87,7 @@ TEST (wallets, DISABLED_wallet_create_max)
 		auto existing = wallets.items.find (wallet_id);
 		ASSERT_TRUE (existing != wallets.items.end ());
 		nano::raw_key seed;
-		seed.data = 0;
+		seed = 0;
 		auto transaction (system.nodes[0]->store.tx_begin_write ());
 		existing->second->store.seed_set (transaction, seed);
 	}
@@ -106,7 +106,7 @@ TEST (wallets, reload)
 	ASSERT_FALSE (error);
 	ASSERT_EQ (1, node1.wallets.items.size ());
 	{
-		nano::lock_guard<std::mutex> lock_wallet (node1.wallets.mutex);
+		nano::lock_guard<nano::mutex> lock_wallet (node1.wallets.mutex);
 		nano::inactive_node node (node1.application_path, nano::inactive_node_flag_defaults ());
 		auto wallet (node.node->wallets.create (one));
 		ASSERT_NE (wallet, nullptr);
@@ -132,7 +132,7 @@ TEST (wallets, vote_minimum)
 	nano::state_block open2 (key2.pub, 0, key2.pub, node1.config.vote_minimum.number () - 1, send2.hash (), key2.prv, key2.pub, *system.work.generate (key2.pub));
 	ASSERT_EQ (nano::process_result::progress, node1.process (open2).code);
 	auto wallet (node1.wallets.items.begin ()->second);
-	nano::unique_lock<std::mutex> representatives_lk (wallet->representatives_mutex);
+	nano::unique_lock<nano::mutex> representatives_lk (wallet->representatives_mutex);
 	ASSERT_EQ (0, wallet->representatives.size ());
 	representatives_lk.unlock ();
 	wallet->insert_adhoc (nano::dev_genesis_key.prv);
@@ -180,7 +180,7 @@ TEST (wallets, search_pending)
 		flags.disable_search_pending = true;
 		auto & node (*system.add_node (config, flags));
 
-		nano::unique_lock<std::mutex> lk (node.wallets.mutex);
+		nano::unique_lock<nano::mutex> lk (node.wallets.mutex);
 		auto wallets = node.wallets.get_wallets ();
 		lk.unlock ();
 		ASSERT_EQ (1, wallets.size ());

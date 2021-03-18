@@ -54,7 +54,7 @@ public:
  */
 class rep_crawler final
 {
-	friend std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, const std::string & name);
+	friend std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, std::string const & name);
 
 	// clang-format off
 	class tag_account {};
@@ -82,6 +82,9 @@ public:
 
 	/** Remove block hash from list of active rep queries */
 	void remove (nano::block_hash const &);
+
+	/** Remove block hash from with delay depending on vote processor size */
+	void throttled_remove (nano::block_hash const &, uint64_t const);
 
 	/** Attempt to determine if the peer manages one or more representative accounts */
 	void query (std::vector<std::shared_ptr<nano::transport::channel>> const & channels_a);
@@ -118,7 +121,7 @@ private:
 	nano::node & node;
 
 	/** Protects the active-hash container */
-	std::mutex active_mutex;
+	nano::mutex active_mutex;
 
 	/** We have solicted votes for these random blocks */
 	std::unordered_set<nano::block_hash> active;
@@ -142,7 +145,7 @@ private:
 	void update_weights ();
 
 	/** Protects the probable_reps container */
-	mutable std::mutex probable_reps_mutex;
+	mutable nano::mutex probable_reps_mutex;
 
 	/** Probable representatives */
 	probably_rep_t probable_reps;

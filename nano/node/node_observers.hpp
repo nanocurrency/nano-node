@@ -11,7 +11,7 @@ class telemetry;
 class node_observers final
 {
 public:
-	using blocks_t = nano::observer_set<nano::election_status const &, nano::account const &, nano::uint128_t const &, bool>;
+	using blocks_t = nano::observer_set<nano::election_status const &, std::vector<nano::vote_with_weight_info> const &, nano::account const &, nano::uint128_t const &, bool>;
 	blocks_t blocks;
 	nano::observer_set<bool> wallet;
 	nano::observer_set<std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>, nano::vote_code> vote;
@@ -24,5 +24,5 @@ public:
 	nano::observer_set<nano::telemetry_data const &, nano::endpoint const &> telemetry;
 };
 
-std::unique_ptr<container_info_component> collect_container_info (node_observers & node_observers, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (node_observers & node_observers, std::string const & name);
 }

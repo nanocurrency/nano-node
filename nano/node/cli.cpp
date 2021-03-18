@@ -9,8 +9,8 @@
 
 namespace
 {
-void reset_confirmation_heights (nano::block_store & store);
-bool is_using_rocksdb (boost::filesystem::path const & data_path, std::error_code & ec);
+void reset_confirmation_heights (nano::write_transaction const & transaction, nano::block_store & store);
+bool is_using_rocksdb (boost::filesystem::path const & data_path, boost::program_options::variables_map const & vm, std::error_code & ec);
 }
 
 std::string nano::error_cli_messages::message (int ev) const
@@ -56,6 +56,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("peer_clear", "Clear online peers database dump")
 	("unchecked_clear", "Clear unchecked blocks")
 	("confirmation_height_clear", "Clear confirmation height")
+	("final_vote_clear", "Clear final votes")
 	("rebuild_database", "Rebuild LMDB database with vacuum for best compaction")
 	("migrate_database_lmdb_to_rocksdb", "Migrates LMDB database to RocksDB")
 	("diagnostics", "Run internal diagnostics")
@@ -72,7 +73,9 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("wallet_remove", "Remove <account> from <wallet>")
 	("wallet_representative_get", "Prints default representative for <wallet>")
 	("wallet_representative_set", "Set <account> as default representative for <wallet>")
+	("all", "Only valid with --final_vote_clear")
 	("account", boost::program_options::value<std::string> (), "Defines <account> for other commands")
+	("root", boost::program_options::value<std::string> (), "Defines <root> for other commands")
 	("file", boost::program_options::value<std::string> (), "Defines <file> for other commands")
 	("key", boost::program_options::value<std::string> (), "Defines the <key> for other commands, hex")
 	("seed", boost::program_options::value<std::string> (), "Defines the <seed> for other commands, hex")
@@ -206,7 +209,7 @@ void database_write_lock_error (std::error_code & ec)
 bool copy_database (boost::filesystem::path const & data_path, boost::program_options::variables_map const & vm, boost::filesystem::path const & output_path, std::error_code & ec)
 {
 	bool success = false;
-	bool needs_to_write = vm.count ("unchecked_clear") || vm.count ("clear_send_ids") || vm.count ("online_weight_clear") || vm.count ("peer_clear") || vm.count ("confirmation_height_clear") || vm.count ("rebuild_database");
+	bool needs_to_write = vm.count ("unchecked_clear") || vm.count ("clear_send_ids") || vm.count ("online_weight_clear") || vm.count ("peer_clear") || vm.count ("confirmation_height_clear") || vm.count ("final_vote_clear") || vm.count ("rebuild_database");
 
 	auto node_flags = nano::inactive_node_flag_defaults ();
 	node_flags.read_only = !needs_to_write;
@@ -214,34 +217,34 @@ bool copy_database (boost::filesystem::path const & data_path, boost::program_op
 	nano::inactive_node node (data_path, node_flags);
 	if (!node.node->init_error ())
 	{
+		auto & store (node.node->store);
 		if (vm.count ("unchecked_clear"))
 		{
-			auto transaction (node.node->store.tx_begin_write ());
-			node.node->store.unchecked_clear (transaction);
+			node.node->store.unchecked_clear (store.tx_begin_write ());
 		}
 		if (vm.count ("clear_send_ids"))
 		{
-			auto transaction (node.node->wallets.tx_begin_write ());
-			node.node->wallets.clear_send_ids (transaction);
+			node.node->wallets.clear_send_ids (node.node->wallets.tx_begin_write ());
 		}
 		if (vm.count ("online_weight_clear"))
 		{
-			auto transaction (node.node->store.tx_begin_write ());
-			node.node->store.online_weight_clear (transaction);
+			node.node->store.online_weight_clear (store.tx_begin_write ());
 		}
 		if (vm.count ("peer_clear"))
 		{
-			auto transaction (node.node->store.tx_begin_write ());
-			node.node->store.peer_clear (transaction);
+			node.node->store.peer_clear (store.tx_begin_write ());
 		}
 		if (vm.count ("confirmation_height_clear"))
 		{
-			reset_confirmation_heights (node.node->store);
+			reset_confirmation_heights (store.tx_begin_write (), store);
+		}
+		if (vm.count ("final_vote_clear"))
+		{
+			node.node->store.final_vote_clear (store.tx_begin_write ());
 		}
 		if (vm.count ("rebuild_database"))
 		{
-			auto transaction (node.node->store.tx_begin_write ());
-			node.node->store.rebuild_db (transaction);
+			node.node->store.rebuild_db (store.tx_begin_write ());
 		}
 
 		success = node.node->copy_with_compaction (output_path);
@@ -337,7 +340,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		try
 		{
-			auto using_rocksdb = is_using_rocksdb (data_path, ec);
+			auto using_rocksdb = is_using_rocksdb (data_path, vm, ec);
 			if (!ec)
 			{
 				std::cout << "Vacuuming database copy in ";
@@ -408,7 +411,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		try
 		{
-			auto using_rocksdb = is_using_rocksdb (data_path, ec);
+			auto using_rocksdb = is_using_rocksdb (data_path, vm, ec);
 			if (!ec)
 			{
 				boost::filesystem::path source_path;
@@ -567,8 +570,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				if (!account.decode_account (account_str))
 				{
 					nano::confirmation_height_info confirmation_height_info;
-					auto transaction (node.node->store.tx_begin_read ());
-					if (!node.node->store.confirmation_height_get (transaction, account, confirmation_height_info))
+					if (!node.node->store.confirmation_height_get (node.node->store.tx_begin_read (), account, confirmation_height_info))
 					{
 						auto transaction (node.node->store.tx_begin_write ());
 						auto conf_height_reset_num = 0;
@@ -598,8 +600,49 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			}
 			else
 			{
-				reset_confirmation_heights (node.node->store);
+				auto transaction (node.node->store.tx_begin_write ());
+				reset_confirmation_heights (transaction, node.node->store);
 				std::cout << "Confirmation heights of all accounts (except genesis which is set to 1) are set to 0" << std::endl;
+			}
+		}
+		else
+		{
+			database_write_lock_error (ec);
+		}
+	}
+	else if (vm.count ("final_vote_clear"))
+	{
+		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
+		auto node_flags = nano::inactive_node_flag_defaults ();
+		node_flags.read_only = false;
+		nano::update_flags (node_flags, vm);
+		nano::inactive_node node (data_path, node_flags);
+		if (!node.node->init_error ())
+		{
+			if (auto root_it = vm.find ("root"); root_it != vm.cend ())
+			{
+				auto root_str = root_it->second.as<std::string> ();
+				auto transaction (node.node->store.tx_begin_write ());
+				nano::root root;
+				if (!root.decode_hex (root_str))
+				{
+					node.node->store.final_vote_clear (transaction, root);
+					std::cout << "Successfully cleared final votes" << std::endl;
+				}
+				else
+				{
+					std::cerr << "Invalid root" << std::endl;
+					ec = nano::error_cli::invalid_arguments;
+				}
+			}
+			else if (vm.count ("all"))
+			{
+				node.node->store.final_vote_clear (node.node->store.tx_begin_write ());
+				std::cout << "All final votes are cleared" << std::endl;
+			}
+			else
+			{
+				std::cerr << "Either specify a single --root to clear or --all to clear all final votes (not recommended)" << std::endl;
 			}
 		}
 		else
@@ -653,11 +696,11 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		auto inactive_node = nano::default_inactive_node (data_path, vm);
 		std::cout << "Testing hash function" << std::endl;
 		nano::raw_key key;
-		key.data.clear ();
+		key.clear ();
 		nano::send_block send (0, 0, 0, key, 0, 0);
 		std::cout << "Testing key derivation function" << std::endl;
 		nano::raw_key junk1;
-		junk1.data.clear ();
+		junk1.clear ();
 		nano::uint256_union junk2 (0);
 		nano::kdf kdf;
 		kdf.phs (junk1, "", junk2);
@@ -688,7 +731,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	else if (vm.count ("key_create"))
 	{
 		nano::keypair pair;
-		std::cout << "Private: " << pair.prv.data.to_string () << std::endl
+		std::cout << "Private: " << pair.prv.to_string () << std::endl
 		          << "Public: " << pair.pub.to_string () << std::endl
 		          << "Account: " << pair.pub.to_account () << std::endl;
 	}
@@ -696,7 +739,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		if (vm.count ("key") == 1)
 		{
-			nano::private_key prv;
+			nano::raw_key prv;
 			prv.decode_hex (vm["key"].as<std::string> ());
 			nano::public_key pub (nano::pub_key (prv));
 			std::cout << "Private: " << prv.to_string () << std::endl
@@ -729,7 +772,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					if (!wallet->enter_password (transaction, password))
 					{
 						nano::raw_key key;
-						if (!key.data.decode_hex (vm["key"].as<std::string> ()))
+						if (!key.decode_hex (vm["key"].as<std::string> ()))
 						{
 							wallet->store.insert_adhoc (transaction, key);
 						}
@@ -785,13 +828,13 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 						nano::raw_key seed;
 						if (vm.count ("seed"))
 						{
-							if (seed.data.decode_hex (vm["seed"].as<std::string> ()))
+							if (seed.decode_hex (vm["seed"].as<std::string> ()))
 							{
 								std::cerr << "Invalid seed\n";
 								ec = nano::error_cli::invalid_arguments;
 							}
 						}
-						else if (seed.data.decode_hex (vm["key"].as<std::string> ()))
+						else if (seed.decode_hex (vm["key"].as<std::string> ()))
 						{
 							std::cerr << "Invalid key seed\n";
 							ec = nano::error_cli::invalid_arguments;
@@ -831,7 +874,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		nano::raw_key seed_key;
 		if (vm.count ("seed") == 1)
 		{
-			if (seed_key.data.decode_hex (vm["seed"].as<std::string> ()))
+			if (seed_key.decode_hex (vm["seed"].as<std::string> ()))
 			{
 				std::cerr << "Invalid seed\n";
 				ec = nano::error_cli::invalid_arguments;
@@ -844,7 +887,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		}
 		else if (vm.count ("key") == 1)
 		{
-			if (seed_key.data.decode_hex (vm["key"].as<std::string> ()))
+			if (seed_key.decode_hex (vm["key"].as<std::string> ()))
 			{
 				std::cerr << "Invalid seed key\n";
 				ec = nano::error_cli::invalid_arguments;
@@ -909,7 +952,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					{
 						nano::raw_key seed;
 						existing->second->store.seed (seed, transaction);
-						std::cout << boost::str (boost::format ("Seed: %1%\n") % seed.data.to_string ());
+						std::cout << boost::str (boost::format ("Seed: %1%\n") % seed.to_string ());
 						for (auto i (existing->second->store.begin (transaction)), m (existing->second->store.end ()); i != m; ++i)
 						{
 							nano::account const & account (i->first);
@@ -917,10 +960,10 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 							auto error (existing->second->store.fetch (transaction, account, key));
 							(void)error;
 							debug_assert (!error);
-							std::cout << boost::str (boost::format ("Pub: %1% Prv: %2%\n") % account.to_account () % key.data.to_string ());
-							if (nano::pub_key (key.as_private_key ()) != account)
+							std::cout << boost::str (boost::format ("Pub: %1% Prv: %2%\n") % account.to_account () % key.to_string ());
+							if (nano::pub_key (key) != account)
 							{
-								std::cerr << boost::str (boost::format ("Invalid private key %1%\n") % key.data.to_string ());
+								std::cerr << boost::str (boost::format ("Invalid private key %1%\n") % key.to_string ());
 							}
 						}
 					}
@@ -1048,7 +1091,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 							{
 								bool error (true);
 								{
-									nano::lock_guard<std::mutex> lock (node->wallets.mutex);
+									nano::lock_guard<nano::mutex> lock (node->wallets.mutex);
 									auto transaction (node->wallets.tx_begin_write ());
 									nano::wallet wallet (error, transaction, node->wallets, wallet_id.to_string (), contents.str ());
 								}
@@ -1060,7 +1103,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 								else
 								{
 									node->wallets.reload ();
-									nano::lock_guard<std::mutex> lock (node->wallets.mutex);
+									nano::lock_guard<nano::mutex> lock (node->wallets.mutex);
 									release_assert (node->wallets.items.find (wallet_id) != node->wallets.items.end ());
 									std::cout << "Import completed\n";
 								}
@@ -1257,10 +1300,9 @@ std::unique_ptr<nano::inactive_node> nano::default_inactive_node (boost::filesys
 
 namespace
 {
-void reset_confirmation_heights (nano::block_store & store)
+void reset_confirmation_heights (nano::write_transaction const & transaction, nano::block_store & store)
 {
 	// First do a clean sweep
-	auto transaction (store.tx_begin_write ());
 	store.confirmation_height_clear (transaction);
 
 	// Then make sure the confirmation height of the genesis account open block is 1
@@ -1268,10 +1310,20 @@ void reset_confirmation_heights (nano::block_store & store)
 	store.confirmation_height_put (transaction, network_params.ledger.genesis_account, { 1, network_params.ledger.genesis_hash });
 }
 
-bool is_using_rocksdb (boost::filesystem::path const & data_path, std::error_code & ec)
+bool is_using_rocksdb (boost::filesystem::path const & data_path, boost::program_options::variables_map const & vm, std::error_code & ec)
 {
 	nano::daemon_config config (data_path);
-	auto error = nano::read_node_config_toml (data_path, config);
+
+	// Config overriding
+	auto config_arg (vm.find ("config"));
+	std::vector<std::string> config_overrides;
+	if (config_arg != vm.end ())
+	{
+		config_overrides = nano::config_overrides (config_arg->second.as<std::vector<nano::config_key_value_pair>> ());
+	}
+
+	// config override...
+	auto error = nano::read_node_config_toml (data_path, config, config_overrides);
 	if (!error)
 	{
 		return config.node.rocksdb_config.enable;

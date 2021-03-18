@@ -287,12 +287,12 @@ public:
 
 private:
 	nano::block_uniquer & uniquer;
-	std::mutex mutex;
+	nano::mutex mutex{ mutex_identifier (mutexes::vote_uniquer) };
 	std::unordered_map<std::remove_const_t<value_type::first_type>, value_type::second_type> votes;
 	static unsigned constexpr cleanup_count = 2;
 };
 
-std::unique_ptr<container_info_component> collect_container_info (vote_uniquer & vote_uniquer, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (vote_uniquer & vote_uniquer, std::string const & name);
 
 enum class vote_code
 {
@@ -448,6 +448,7 @@ public:
 	unsigned lazy_retry_limit;
 	unsigned lazy_destinations_retry_limit;
 	std::chrono::milliseconds gap_cache_bootstrap_start_interval;
+	uint32_t default_frontiers_age_seconds;
 };
 
 /** Constants whose value depends on the active network */

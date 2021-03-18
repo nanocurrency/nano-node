@@ -21,7 +21,7 @@ TEST (confirmation_solicitor, batches)
 	// Solicitor will only solicit from this representative
 	nano::representative representative (nano::dev_genesis_key.pub, nano::genesis_amount, channel1);
 	std::vector<nano::representative> representatives{ representative };
-	nano::confirmation_solicitor solicitor (node2.network, node2.network_params.network);
+	nano::confirmation_solicitor solicitor (node2.network, node2.config);
 	solicitor.prepare (representatives);
 	// Ensure the representatives are correct
 	ASSERT_EQ (1, representatives.size ());
@@ -31,13 +31,12 @@ TEST (confirmation_solicitor, batches)
 	auto send (std::make_shared<nano::send_block> (nano::genesis_hash, nano::keypair ().pub, nano::genesis_amount - 100, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (nano::genesis_hash)));
 	send->sideband_set ({});
 	{
-		nano::lock_guard<std::mutex> guard (node2.active.mutex);
+		nano::lock_guard<nano::mutex> guard (node2.active.mutex);
 		for (size_t i (0); i < nano::network::confirm_req_hashes_max; ++i)
 		{
 			auto election (std::make_shared<nano::election> (node2, send, nullptr, nullptr, false, nano::election_behavior::normal));
 			ASSERT_FALSE (solicitor.add (*election));
 		}
-		ASSERT_EQ (1, solicitor.max_confirm_req_batches);
 		// Reached the maximum amount of requests for the channel
 		auto election (std::make_shared<nano::election> (node2, send, nullptr, nullptr, false, nano::election_behavior::normal));
 		ASSERT_TRUE (solicitor.add (*election));
@@ -66,7 +65,7 @@ TEST (confirmation_solicitor, different_hash)
 	// Solicitor will only solicit from this representative
 	nano::representative representative (nano::dev_genesis_key.pub, nano::genesis_amount, channel1);
 	std::vector<nano::representative> representatives{ representative };
-	nano::confirmation_solicitor solicitor (node2.network, node2.network_params.network);
+	nano::confirmation_solicitor solicitor (node2.network, node2.config);
 	solicitor.prepare (representatives);
 	// Ensure the representatives are correct
 	ASSERT_EQ (1, representatives.size ());
@@ -96,7 +95,7 @@ TEST (confirmation_solicitor, bypass_max_requests_cap)
 	node_flags.disable_udp = false;
 	auto & node1 = *system.add_node (node_flags);
 	auto & node2 = *system.add_node (node_flags);
-	nano::confirmation_solicitor solicitor (node2.network, node2.network_params.network);
+	nano::confirmation_solicitor solicitor (node2.network, node2.config);
 	std::vector<nano::representative> representatives;
 	auto max_representatives = std::max<size_t> (solicitor.max_election_requests, solicitor.max_election_broadcasts);
 	representatives.reserve (max_representatives + 1);
@@ -115,7 +114,7 @@ TEST (confirmation_solicitor, bypass_max_requests_cap)
 	// Add a vote for something else, not the winner
 	for (auto const & rep : representatives)
 	{
-		nano::lock_guard<std::mutex> guard (election->mutex);
+		nano::lock_guard<nano::mutex> guard (election->mutex);
 		election->last_votes[rep.account] = { std::chrono::steady_clock::now (), 1, 1 };
 	}
 	ASSERT_FALSE (solicitor.add (*election));

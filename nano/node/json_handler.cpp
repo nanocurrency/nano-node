@@ -1133,7 +1133,7 @@ void nano::json_handler::block_confirm ()
 						is_state_send = node.ledger.is_send (transaction, *state);
 					}
 				}
-				node.observers.blocks.notify (status, account, amount, is_state_send);
+				node.observers.blocks.notify (status, {}, account, amount, is_state_send);
 			}
 			response_l.put ("started", "1");
 		}
@@ -1382,7 +1382,7 @@ void nano::json_handler::block_create ()
 	}
 	auto work (work_optional_impl ());
 	nano::raw_key prv;
-	prv.data.clear ();
+	prv.clear ();
 	nano::block_hash previous (0);
 	nano::amount balance (0);
 	if (work == 0 && !node.work_generation_enabled ())
@@ -1413,7 +1413,7 @@ void nano::json_handler::block_create ()
 	boost::optional<std::string> key_text (request.get_optional<std::string> ("key"));
 	if (!ec && key_text.is_initialized ())
 	{
-		if (prv.data.decode_hex (key_text.get ()))
+		if (prv.decode_hex (key_text.get ()))
 		{
 			ec = nano::error_common::bad_private_key;
 		}
@@ -1509,9 +1509,9 @@ void nano::json_handler::block_create ()
 				}
 			};
 		};
-		if (prv.data != 0)
+		if (prv != 0)
 		{
-			nano::account pub (nano::pub_key (prv.as_private_key ()));
+			nano::account pub (nano::pub_key (prv));
 			// Fetching account balance & previous for send blocks (if aren't given directly)
 			if (!previous_text.is_initialized () && !balance_text.is_initialized ())
 			{
@@ -1766,7 +1766,7 @@ void nano::json_handler::bootstrap_status ()
 	response_l.put ("total_attempts_count", std::to_string (node.bootstrap_initiator.attempts.incremental));
 	boost::property_tree::ptree connections;
 	{
-		nano::lock_guard<std::mutex> connections_lock (node.bootstrap_initiator.connections->mutex);
+		nano::lock_guard<nano::mutex> connections_lock (node.bootstrap_initiator.connections->mutex);
 		connections.put ("clients", std::to_string (node.bootstrap_initiator.connections->clients.size ()));
 		connections.put ("connections", std::to_string (node.bootstrap_initiator.connections->connections_count));
 		connections.put ("idle", std::to_string (node.bootstrap_initiator.connections->idle.size ()));
@@ -1776,7 +1776,7 @@ void nano::json_handler::bootstrap_status ()
 	response_l.add_child ("connections", connections);
 	boost::property_tree::ptree attempts;
 	{
-		nano::lock_guard<std::mutex> attempts_lock (node.bootstrap_initiator.attempts.bootstrap_attempts_mutex);
+		nano::lock_guard<nano::mutex> attempts_lock (node.bootstrap_initiator.attempts.bootstrap_attempts_mutex);
 		for (auto i : node.bootstrap_initiator.attempts.attempts)
 		{
 			boost::property_tree::ptree entry;
@@ -2110,12 +2110,12 @@ void nano::json_handler::deterministic_key ()
 	std::string seed_text (request.get<std::string> ("seed"));
 	std::string index_text (request.get<std::string> ("index"));
 	nano::raw_key seed;
-	if (!seed.data.decode_hex (seed_text))
+	if (!seed.decode_hex (seed_text))
 	{
 		try
 		{
 			uint32_t index (std::stoul (index_text));
-			nano::private_key prv = nano::deterministic_key (seed, index);
+			nano::raw_key prv = nano::deterministic_key (seed, index);
 			nano::public_key pub (nano::pub_key (prv));
 			response_l.put ("private", prv.to_string ());
 			response_l.put ("public", pub.to_string ());
@@ -2164,7 +2164,7 @@ void nano::json_handler::epoch_upgrade ()
 			}
 		}
 		std::string key_text (request.get<std::string> ("key"));
-		nano::private_key prv;
+		nano::raw_key prv;
 		if (!prv.decode_hex (key_text))
 		{
 			if (nano::pub_key (prv) == node.ledger.epoch_signer (node.ledger.epoch_link (epoch)))
@@ -2553,7 +2553,7 @@ void nano::json_handler::keepalive ()
 void nano::json_handler::key_create ()
 {
 	nano::keypair pair;
-	response_l.put ("private", pair.prv.data.to_string ());
+	response_l.put ("private", pair.prv.to_string ());
 	response_l.put ("public", pair.pub.to_string ());
 	response_l.put ("account", pair.pub.to_account ());
 	response_errors ();
@@ -2562,7 +2562,7 @@ void nano::json_handler::key_create ()
 void nano::json_handler::key_expand ()
 {
 	std::string key_text (request.get<std::string> ("key"));
-	nano::private_key prv;
+	nano::raw_key prv;
 	if (!prv.decode_hex (key_text))
 	{
 		nano::public_key pub (nano::pub_key (prv));
@@ -2736,7 +2736,7 @@ void nano::json_handler::node_id ()
 {
 	if (!ec)
 	{
-		response_l.put ("private", node.node_id.prv.data.to_string ());
+		response_l.put ("private", node.node_id.prv.to_string ());
 		response_l.put ("public", node.node_id.pub.to_string ());
 		response_l.put ("as_account", node.node_id.pub.to_account ());
 		response_l.put ("node_id", node.node_id.pub.to_node_id ());
@@ -3633,12 +3633,12 @@ void nano::json_handler::sign ()
 	if (!ec)
 	{
 		nano::raw_key prv;
-		prv.data.clear ();
+		prv.clear ();
 		// Retrieving private key from request
 		boost::optional<std::string> key_text (request.get_optional<std::string> ("key"));
 		if (key_text.is_initialized ())
 		{
-			if (prv.data.decode_hex (key_text.get ()))
+			if (prv.decode_hex (key_text.get ()))
 			{
 				ec = nano::error_common::bad_private_key;
 			}
@@ -3665,9 +3665,9 @@ void nano::json_handler::sign ()
 			}
 		}
 		// Signing
-		if (prv.data != 0)
+		if (prv != 0)
 		{
-			nano::public_key pub (nano::pub_key (prv.as_private_key ()));
+			nano::public_key pub (nano::pub_key (prv));
 			nano::signature signature (nano::sign_message (prv, pub, hash));
 			response_l.put ("signature", signature.to_string ());
 			if (block != nullptr)
@@ -4136,7 +4136,7 @@ void nano::json_handler::wallet_add ()
 		{
 			std::string key_text (rpc_l->request.get<std::string> ("key"));
 			nano::raw_key key;
-			if (!key.data.decode_hex (key_text))
+			if (!key.decode_hex (key_text))
 			{
 				const bool generate_work = rpc_l->request.get<bool> ("work", true);
 				auto pub (wallet->insert_adhoc (key, generate_work));
@@ -4266,7 +4266,7 @@ void nano::json_handler::wallet_change_seed ()
 		{
 			std::string seed_text (rpc_l->request.get<std::string> ("seed"));
 			nano::raw_key seed;
-			if (!seed.data.decode_hex (seed_text))
+			if (!seed.decode_hex (seed_text))
 			{
 				auto count (static_cast<uint32_t> (rpc_l->count_optional_impl (0)));
 				auto transaction (rpc_l->node.wallets.tx_begin_write ());
@@ -4311,7 +4311,7 @@ void nano::json_handler::wallet_create ()
 	node.workers.push_task (create_worker_task ([](std::shared_ptr<nano::json_handler> const & rpc_l) {
 		nano::raw_key seed;
 		auto seed_text (rpc_l->request.get_optional<std::string> ("seed"));
-		if (seed_text.is_initialized () && seed.data.decode_hex (seed_text.get ()))
+		if (seed_text.is_initialized () && seed.decode_hex (seed_text.get ()))
 		{
 			rpc_l->ec = nano::error_common::bad_seed;
 		}
@@ -4540,7 +4540,7 @@ void nano::json_handler::wallet_lock ()
 	if (!ec)
 	{
 		nano::raw_key empty;
-		empty.data.clear ();
+		empty.clear ();
 		wallet->store.password.value_set (empty);
 		response_l.put ("locked", "1");
 		node.logger.try_log ("Wallet locked");
@@ -4732,7 +4732,7 @@ void nano::json_handler::wallet_seed ()
 		{
 			nano::raw_key seed;
 			wallet->store.seed (seed, transaction);
-			response_l.put ("seed", seed.data.to_string ());
+			response_l.put ("seed", seed.to_string ());
 		}
 		else
 		{

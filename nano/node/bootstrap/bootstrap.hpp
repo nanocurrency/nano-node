@@ -48,7 +48,7 @@ public:
 	void add (nano::pull_info const &);
 	void update_pull (nano::pull_info &);
 	void remove (nano::pull_info const &);
-	std::mutex pulls_cache_mutex;
+	nano::mutex pulls_cache_mutex;
 	class account_head_tag
 	{
 	};
@@ -72,7 +72,7 @@ public:
 	std::shared_ptr<nano::bootstrap_attempt> find (uint64_t);
 	size_t size ();
 	std::atomic<uint64_t> incremental{ 0 };
-	std::mutex bootstrap_attempts_mutex;
+	nano::mutex bootstrap_attempts_mutex;
 	std::map<uint64_t, std::shared_ptr<nano::bootstrap_attempt>> attempts;
 };
 
@@ -82,7 +82,7 @@ public:
 	explicit bootstrap_initiator (nano::node &);
 	~bootstrap_initiator ();
 	void bootstrap (nano::endpoint const &, bool add_to_peers = true, bool frontiers_confirmed = false, std::string id_a = "");
-	void bootstrap (bool force = false, std::string id_a = "");
+	void bootstrap (bool force = false, std::string id_a = "", uint32_t const frontiers_age_a = std::numeric_limits<uint32_t>::max ());
 	void bootstrap_lazy (nano::hash_or_account const &, bool force = false, bool confirmed = true, std::string id_a = "");
 	void bootstrap_wallet (std::deque<nano::account> &);
 	void run_bootstrap ();
@@ -107,16 +107,16 @@ private:
 	void stop_attempts ();
 	std::vector<std::shared_ptr<nano::bootstrap_attempt>> attempts_list;
 	std::atomic<bool> stopped{ false };
-	std::mutex mutex;
+	nano::mutex mutex;
 	nano::condition_variable condition;
-	std::mutex observers_mutex;
+	nano::mutex observers_mutex;
 	std::vector<std::function<void(bool)>> observers;
 	std::vector<boost::thread> bootstrap_initiator_threads;
 
-	friend std::unique_ptr<container_info_component> collect_container_info (bootstrap_initiator & bootstrap_initiator, const std::string & name);
+	friend std::unique_ptr<container_info_component> collect_container_info (bootstrap_initiator & bootstrap_initiator, std::string const & name);
 };
 
-std::unique_ptr<container_info_component> collect_container_info (bootstrap_initiator & bootstrap_initiator, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (bootstrap_initiator & bootstrap_initiator, std::string const & name);
 class bootstrap_limits final
 {
 public:
@@ -135,7 +135,6 @@ public:
 	static constexpr unsigned requeued_pulls_processed_blocks_factor = 4096;
 	static constexpr unsigned bulk_push_cost_limit = 200;
 	static constexpr std::chrono::seconds lazy_flush_delay_sec = std::chrono::seconds (5);
-	static constexpr unsigned lazy_destinations_request_limit = 256 * 1024;
 	static constexpr uint64_t lazy_batch_pull_count_resize_blocks_limit = 4 * 1024 * 1024;
 	static constexpr double lazy_batch_pull_count_resize_ratio = 2.0;
 	static constexpr size_t lazy_blocks_restart_limit = 1024 * 1024;

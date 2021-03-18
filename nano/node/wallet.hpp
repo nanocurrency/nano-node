@@ -22,20 +22,20 @@ class wallets;
 class fan final
 {
 public:
-	fan (nano::uint256_union const &, size_t);
+	fan (nano::raw_key const &, size_t);
 	void value (nano::raw_key &);
 	void value_set (nano::raw_key const &);
-	std::vector<std::unique_ptr<nano::uint256_union>> values;
+	std::vector<std::unique_ptr<nano::raw_key>> values;
 
 private:
-	std::mutex mutex;
+	nano::mutex mutex;
 	void value_get (nano::raw_key &);
 };
 class kdf final
 {
 public:
 	void phs (nano::raw_key &, std::string const &, nano::uint256_union const &);
-	std::mutex mutex;
+	nano::mutex mutex;
 };
 enum class key_type
 {
@@ -62,7 +62,7 @@ public:
 	nano::key_type key_type (nano::wallet_value const &);
 	nano::public_key deterministic_insert (nano::transaction const &);
 	nano::public_key deterministic_insert (nano::transaction const &, uint32_t const);
-	nano::private_key deterministic_key (nano::transaction const &, uint32_t);
+	nano::raw_key deterministic_key (nano::transaction const &, uint32_t);
 	uint32_t deterministic_index_get (nano::transaction const &);
 	void deterministic_index_set (nano::transaction const &, uint32_t);
 	void deterministic_clear (nano::transaction const &);
@@ -157,7 +157,7 @@ public:
 	std::function<void(bool, bool)> lock_observer;
 	nano::wallet_store store;
 	nano::wallets & wallets;
-	std::mutex representatives_mutex;
+	nano::mutex representatives_mutex;
 	std::unordered_set<nano::account> representatives;
 };
 
@@ -178,7 +178,7 @@ public:
 	size_t size ();
 
 private:
-	std::mutex mutex;
+	nano::mutex mutex;
 	nano::node & node;
 	std::atomic<bool> stopped;
 };
@@ -238,8 +238,8 @@ public:
 	std::unordered_map<nano::wallet_id, std::shared_ptr<nano::wallet>> items;
 	std::multimap<nano::uint128_t, std::pair<std::shared_ptr<nano::wallet>, std::function<void(nano::wallet &)>>, std::greater<nano::uint128_t>> actions;
 	nano::locked<std::unordered_map<nano::account, nano::root>> delayed_work;
-	std::mutex mutex;
-	std::mutex action_mutex;
+	nano::mutex mutex;
+	nano::mutex action_mutex;
 	nano::condition_variable condition;
 	nano::kdf kdf;
 	MDB_dbi handle;
@@ -258,11 +258,11 @@ public:
 	nano::read_transaction tx_begin_read ();
 
 private:
-	mutable std::mutex reps_cache_mutex;
+	mutable nano::mutex reps_cache_mutex;
 	nano::wallet_representatives representatives;
 };
 
-std::unique_ptr<container_info_component> collect_container_info (wallets & wallets, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (wallets & wallets, std::string const & name);
 
 class wallets_store
 {

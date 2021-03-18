@@ -210,7 +210,7 @@ nano::thread_pool::~thread_pool ()
 
 void nano::thread_pool::stop ()
 {
-	nano::unique_lock<std::mutex> lk (mutex);
+	nano::unique_lock<nano::mutex> lk (mutex);
 	if (!stopped)
 	{
 		stopped = true;
@@ -228,16 +228,20 @@ void nano::thread_pool::stop ()
 
 void nano::thread_pool::push_task (std::function<void()> task)
 {
-	nano::lock_guard<std::mutex> guard (mutex);
+	++num_tasks;
+	nano::lock_guard<nano::mutex> guard (mutex);
 	if (!stopped)
 	{
-		boost::asio::post (*thread_pool_m, task);
+		boost::asio::post (*thread_pool_m, [this, task]() {
+			task ();
+			--num_tasks;
+		});
 	}
 }
 
 void nano::thread_pool::add_timed_task (std::chrono::steady_clock::time_point const & expiry_time, std::function<void()> task)
 {
-	nano::lock_guard<std::mutex> guard (mutex);
+	nano::lock_guard<nano::mutex> guard (mutex);
 	if (!stopped && thread_pool_m)
 	{
 		auto timer = std::make_shared<boost::asio::steady_timer> (thread_pool_m->get_executor (), expiry_time);
@@ -253,6 +257,11 @@ void nano::thread_pool::add_timed_task (std::chrono::steady_clock::time_point co
 unsigned nano::thread_pool::get_num_threads () const
 {
 	return num_threads;
+}
+
+uint64_t nano::thread_pool::num_queued_tasks () const
+{
+	return num_tasks;
 }
 
 // Set the names of all the threads in the thread pool for easier identification
@@ -278,4 +287,11 @@ void nano::thread_pool::set_thread_names (unsigned num_threads, nano::thread_rol
 	{
 		future.wait ();
 	}
+}
+
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (thread_pool & thread_pool, std::string const & name)
+{
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "count", thread_pool.num_queued_tasks (), sizeof (std::function<void()>) }));
+	return composite;
 }

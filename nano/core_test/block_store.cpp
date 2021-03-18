@@ -345,7 +345,7 @@ TEST (block_store, genesis)
 	ASSERT_EQ (confirmation_height_info.frontier, hash);
 	auto dev_pub_text (nano::dev_genesis_key.pub.to_string ());
 	auto dev_pub_account (nano::dev_genesis_key.pub.to_account ());
-	auto dev_prv_text (nano::dev_genesis_key.prv.data.to_string ());
+	auto dev_prv_text (nano::dev_genesis_key.prv.to_string ());
 	ASSERT_EQ (nano::genesis_account, nano::dev_genesis_key.pub);
 }
 
@@ -1812,6 +1812,36 @@ TEST (mdb_block_store, upgrade_v19_v20)
 	ASSERT_LT (19, store.version_get (transaction));
 }
 
+TEST (mdb_block_store, upgrade_v20_v21)
+{
+	if (nano::using_rocksdb_in_tests ())
+	{
+		// Don't test this in rocksdb mode
+		return;
+	}
+	auto path (nano::unique_path ());
+	nano::genesis genesis;
+	nano::logger_mt logger;
+	nano::stat stats;
+	{
+		nano::mdb_store store (logger, path);
+		nano::ledger ledger (store, stats);
+		auto transaction (store.tx_begin_write ());
+		store.initialize (transaction, genesis, ledger.cache);
+		// Delete pruned table
+		ASSERT_FALSE (mdb_drop (store.env.tx (transaction), store.final_votes, 1));
+		store.version_put (transaction, 20);
+	}
+	// Upgrading should create the table
+	nano::mdb_store store (logger, path);
+	ASSERT_FALSE (store.init_error ());
+	ASSERT_NE (store.final_votes, 0);
+
+	// Version should be correct
+	auto transaction (store.tx_begin_read ());
+	ASSERT_LT (19, store.version_get (transaction));
+}
+
 TEST (mdb_block_store, upgrade_backup)
 {
 	if (nano::using_rocksdb_in_tests ())
@@ -1888,7 +1918,7 @@ TEST (block_store, confirmation_height)
 		ASSERT_EQ (confirmation_height_info.height, 10);
 		ASSERT_EQ (confirmation_height_info.frontier, cemented_frontier3);
 
-		// Check cleaning of confirmation heights
+		// Check clearing of confirmation heights
 		store->confirmation_height_clear (transaction);
 	}
 	auto transaction (store->tx_begin_read ());
@@ -1897,6 +1927,36 @@ TEST (block_store, confirmation_height)
 	ASSERT_TRUE (store->confirmation_height_get (transaction, account1, confirmation_height_info));
 	ASSERT_TRUE (store->confirmation_height_get (transaction, account2, confirmation_height_info));
 	ASSERT_TRUE (store->confirmation_height_get (transaction, account3, confirmation_height_info));
+}
+
+// Test various confirmation height values as well as clearing them
+TEST (block_store, final_vote)
+{
+	if (nano::using_rocksdb_in_tests ())
+	{
+		// Don't test this in rocksdb mode as deletions cause inaccurate counts
+		return;
+	}
+	auto path (nano::unique_path ());
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, path);
+
+	{
+		auto qualified_root = nano::genesis ().open->qualified_root ();
+		auto transaction (store->tx_begin_write ());
+		store->final_vote_put (transaction, qualified_root, nano::block_hash (2));
+		ASSERT_EQ (store->final_vote_count (transaction), 1);
+		store->final_vote_clear (transaction);
+		ASSERT_EQ (store->final_vote_count (transaction), 0);
+		store->final_vote_put (transaction, qualified_root, nano::block_hash (2));
+		ASSERT_EQ (store->final_vote_count (transaction), 1);
+		// Clearing with incorrect root shouldn't remove
+		store->final_vote_clear (transaction, qualified_root.previous ());
+		ASSERT_EQ (store->final_vote_count (transaction), 1);
+		// Clearing with correct root should remove
+		store->final_vote_clear (transaction, qualified_root.root ());
+		ASSERT_EQ (store->final_vote_count (transaction), 0);
+	}
 }
 
 // Ledger versions are not forward compatible

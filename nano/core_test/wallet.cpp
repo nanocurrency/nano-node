@@ -61,7 +61,7 @@ TEST (wallet, fetch_locked)
 	auto key2 (wallet.deterministic_insert (transaction));
 	ASSERT_FALSE (key2.is_zero ());
 	nano::raw_key key3;
-	key3.data = 1;
+	key3 = 1;
 	wallet.password.value_set (key3);
 	ASSERT_FALSE (wallet.valid_password (transaction));
 	nano::raw_key key4;
@@ -136,7 +136,7 @@ TEST (wallet, two_item_iteration)
 	nano::keypair key2;
 	ASSERT_NE (key1.pub, key2.pub);
 	std::unordered_set<nano::public_key> pubs;
-	std::unordered_set<nano::private_key> prvs;
+	std::unordered_set<nano::raw_key> prvs;
 	nano::kdf kdf;
 	{
 		auto transaction (env.tx_begin_write ());
@@ -151,15 +151,15 @@ TEST (wallet, two_item_iteration)
 			wallet.wallet_key (password, transaction);
 			nano::raw_key key;
 			key.decrypt (nano::wallet_value (i->second).key, password, (i->first).owords[0].number ());
-			prvs.insert (key.as_private_key ());
+			prvs.insert (key);
 		}
 	}
 	ASSERT_EQ (2, pubs.size ());
 	ASSERT_EQ (2, prvs.size ());
 	ASSERT_NE (pubs.end (), pubs.find (key1.pub));
-	ASSERT_NE (prvs.end (), prvs.find (key1.prv.as_private_key ()));
+	ASSERT_NE (prvs.end (), prvs.find (key1.prv));
 	ASSERT_NE (pubs.end (), pubs.find (key2.pub));
-	ASSERT_NE (prvs.end (), prvs.find (key2.prv.as_private_key ()));
+	ASSERT_NE (prvs.end (), prvs.find (key2.prv));
 }
 
 TEST (wallet, insufficient_spend_one)
@@ -314,7 +314,7 @@ TEST (wallet, rekey)
 	ASSERT_FALSE (init);
 	nano::raw_key password;
 	wallet.password.value (password);
-	ASSERT_TRUE (password.data.is_zero ());
+	ASSERT_TRUE (password.is_zero ());
 	ASSERT_FALSE (init);
 	nano::keypair key1;
 	wallet.insert_adhoc (transaction, key1.prv);
@@ -396,7 +396,7 @@ TEST (wallet, hash_password)
 
 TEST (fan, reconstitute)
 {
-	nano::uint256_union value0 (0);
+	nano::raw_key value0 (0);
 	nano::fan fan (value0, 1024);
 	for (auto & i : fan.values)
 	{
@@ -404,17 +404,17 @@ TEST (fan, reconstitute)
 	}
 	nano::raw_key value1;
 	fan.value (value1);
-	ASSERT_EQ (value0, value1.data);
+	ASSERT_EQ (value0, value1);
 }
 
 TEST (fan, change)
 {
 	nano::raw_key value0;
-	value0.data = 0;
+	value0 = 0;
 	nano::raw_key value1;
-	value1.data = 1;
+	value1 = 1;
 	ASSERT_NE (value0, value1);
-	nano::fan fan (value0.data, 1024);
+	nano::fan fan (value0, 1024);
 	ASSERT_EQ (1024, fan.values.size ());
 	nano::raw_key value2;
 	fan.value (value2);
@@ -745,7 +745,7 @@ TEST (wallet, deterministic_keys)
 	auto key4 (wallet.deterministic_insert (transaction));
 	nano::raw_key key5;
 	ASSERT_FALSE (wallet.fetch (transaction, key4, key5));
-	ASSERT_EQ (key3, key5.as_private_key ());
+	ASSERT_EQ (key3, key5);
 	ASSERT_EQ (2, wallet.deterministic_index_get (transaction));
 	wallet.deterministic_index_set (transaction, 1);
 	ASSERT_EQ (1, wallet.deterministic_index_get (transaction));
@@ -778,9 +778,9 @@ TEST (wallet, reseed)
 	nano::kdf kdf;
 	nano::wallet_store wallet (init, kdf, transaction, nano::genesis_account, 1, "0");
 	nano::raw_key seed1;
-	seed1.data = 1;
+	seed1 = 1;
 	nano::raw_key seed2;
-	seed2.data = 2;
+	seed2 = 2;
 	wallet.seed_set (transaction, seed1);
 	nano::raw_key seed3;
 	wallet.seed (seed3, transaction);
@@ -945,7 +945,7 @@ TEST (wallet, change_seed)
 	auto wallet (system.wallet (0));
 	wallet->enter_initial_password ();
 	nano::raw_key seed1;
-	seed1.data = 1;
+	seed1 = 1;
 	nano::public_key pub;
 	uint32_t index (4);
 	auto prv = nano::deterministic_key (seed1, index);
@@ -971,7 +971,7 @@ TEST (wallet, deterministic_restore)
 	auto wallet (system.wallet (0));
 	wallet->enter_initial_password ();
 	nano::raw_key seed1;
-	seed1.data = 1;
+	seed1 = 1;
 	nano::public_key pub;
 	uint32_t index (4);
 	{
@@ -1014,7 +1014,7 @@ TEST (wallet, limited_difficulty)
 	wallet.insert_adhoc (nano::dev_genesis_key.prv, false);
 	{
 		// Force active difficulty to an impossibly high value
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		nano::lock_guard<nano::mutex> guard (node.active.mutex);
 		node.active.trended_active_multiplier = 1024 * 1024 * 1024;
 	}
 	ASSERT_EQ (node.max_work_generate_difficulty (nano::work_version::work_1), node.active.limited_active_difficulty (*genesis.open));
@@ -1102,7 +1102,7 @@ TEST (wallet, epoch_2_receive_propagation)
 
 		// Receiving should use the lower difficulty
 		{
-			nano::lock_guard<std::mutex> guard (node.active.mutex);
+			nano::lock_guard<nano::mutex> guard (node.active.mutex);
 			node.active.trended_active_multiplier = 1.0;
 		}
 		auto receive2 = wallet.receive_action (send2->hash (), key.pub, amount, send2->link ().as_account (), 1);
@@ -1152,7 +1152,7 @@ TEST (wallet, epoch_2_receive_unopened)
 
 		// Receiving should use the lower difficulty
 		{
-			nano::lock_guard<std::mutex> guard (node.active.mutex);
+			nano::lock_guard<nano::mutex> guard (node.active.mutex);
 			node.active.trended_active_multiplier = 1.0;
 		}
 		auto receive1 = wallet.receive_action (send1->hash (), key.pub, amount, send1->link ().as_account (), 1);

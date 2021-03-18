@@ -26,14 +26,14 @@ TEST (work_watcher, update)
 	auto multiplier2 (nano::normalized_multiplier (nano::difficulty::to_multiplier (difficulty2, nano::work_threshold (block2->work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false))), node.network_params.network.publish_thresholds.epoch_1));
 	double updated_multiplier1{ multiplier1 }, updated_multiplier2{ multiplier2 }, target_multiplier{ std::max (multiplier1, multiplier2) + 1e-6 };
 	{
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		nano::lock_guard<nano::mutex> guard (node.active.mutex);
 		node.active.trended_active_multiplier = target_multiplier;
 	}
 	system.deadline_set (20s);
 	while (updated_multiplier1 == multiplier1 || updated_multiplier2 == multiplier2)
 	{
 		{
-			nano::lock_guard<std::mutex> guard (node.active.mutex);
+			nano::lock_guard<nano::mutex> guard (node.active.mutex);
 			{
 				auto const existing (node.active.roots.find (block1->qualified_root ()));
 				//if existing is junk the block has been confirmed already
@@ -74,7 +74,7 @@ TEST (work_watcher, propagate)
 	auto updated_multiplier{ multiplier };
 	auto propagated_multiplier{ multiplier };
 	{
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		nano::lock_guard<nano::mutex> guard (node.active.mutex);
 		node.active.trended_active_multiplier = multiplier * 1.001;
 	}
 	bool updated{ false };
@@ -83,7 +83,7 @@ TEST (work_watcher, propagate)
 	while (!(updated && propagated))
 	{
 		{
-			nano::lock_guard<std::mutex> guard (node.active.mutex);
+			nano::lock_guard<nano::mutex> guard (node.active.mutex);
 			{
 				auto const existing (node.active.roots.find (block->qualified_root ()));
 				ASSERT_NE (existing, node.active.roots.end ());
@@ -91,7 +91,7 @@ TEST (work_watcher, propagate)
 			}
 		}
 		{
-			nano::lock_guard<std::mutex> guard (node_passive.active.mutex);
+			nano::lock_guard<nano::mutex> guard (node_passive.active.mutex);
 			{
 				auto const existing (node_passive.active.roots.find (block->qualified_root ()));
 				ASSERT_NE (existing, node_passive.active.roots.end ());
@@ -165,13 +165,13 @@ TEST (work_watcher, generation_disabled)
 	auto multiplier = nano::normalized_multiplier (nano::difficulty::to_multiplier (difficulty, nano::work_threshold (block->work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false))), node.network_params.network.publish_thresholds.epoch_1);
 	double updated_multiplier{ multiplier };
 	{
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		nano::lock_guard<nano::mutex> guard (node.active.mutex);
 		node.active.trended_active_multiplier = multiplier * 10;
 	}
 	std::this_thread::sleep_for (2s);
 	ASSERT_TRUE (node.wallets.watcher->is_watched (block->qualified_root ()));
 	{
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		nano::lock_guard<nano::mutex> guard (node.active.mutex);
 		auto const existing (node.active.roots.find (block->qualified_root ()));
 		ASSERT_NE (existing, node.active.roots.end ());
 		updated_multiplier = existing->multiplier;
@@ -194,7 +194,7 @@ TEST (work_watcher, cancel)
 	auto work1 (node.work_generate_blocking (nano::dev_genesis_key.pub));
 	auto const block1 (wallet.send_action (nano::dev_genesis_key.pub, key.pub, 100, *work1, false));
 	{
-		nano::unique_lock<std::mutex> lock (node.active.mutex);
+		nano::unique_lock<nano::mutex> lock (node.active.mutex);
 		// Prevent active difficulty repopulating multipliers
 		node.network_params.network.request_interval_ms = 10000;
 		// Fill multipliers_cb and update active difficulty;
@@ -240,7 +240,7 @@ TEST (work_watcher, confirm_while_generating)
 	auto work1 (node.work_generate_blocking (nano::dev_genesis_key.pub));
 	auto const block1 (wallet.send_action (nano::dev_genesis_key.pub, key.pub, 100, *work1, false));
 	{
-		nano::unique_lock<std::mutex> lock (node.active.mutex);
+		nano::unique_lock<nano::mutex> lock (node.active.mutex);
 		// Prevent active difficulty repopulating multipliers
 		node.network_params.network.request_interval_ms = 10000;
 		// Fill multipliers_cb and update active difficulty;

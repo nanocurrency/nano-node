@@ -798,7 +798,7 @@ TEST (votes, add_one)
 	auto existing1 (votes1.find (nano::dev_genesis_key.pub));
 	ASSERT_NE (votes1.end (), existing1);
 	ASSERT_EQ (send1->hash (), existing1->second.hash);
-	nano::lock_guard<std::mutex> guard (node1.active.mutex);
+	nano::lock_guard<nano::mutex> guard (node1.active.mutex);
 	auto winner (*election1.election->tally ().begin ());
 	ASSERT_EQ (*send1, *winner.second);
 	ASSERT_EQ (nano::genesis_amount - 100, winner.first);
@@ -872,7 +872,7 @@ TEST (votes, add_existing)
 	node1.work_generate_blocking (*send2);
 	auto vote2 (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 2, send2));
 	// Pretend we've waited the timeout
-	nano::unique_lock<std::mutex> lock (election1.election->mutex);
+	nano::unique_lock<nano::mutex> lock (election1.election->mutex);
 	election1.election->last_votes[nano::dev_genesis_key.pub].time = std::chrono::steady_clock::now () - std::chrono::seconds (20);
 	lock.unlock ();
 	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote2));
@@ -911,7 +911,7 @@ TEST (votes, add_old)
 	node1.work_generate_blocking (*send2);
 	auto vote2 (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 1, send2));
 	{
-		nano::lock_guard<std::mutex> lock (election1.election->mutex);
+		nano::lock_guard<nano::mutex> lock (election1.election->mutex);
 		election1.election->last_votes[nano::dev_genesis_key.pub].time = std::chrono::steady_clock::now () - std::chrono::seconds (20);
 	}
 	node1.vote_processor.vote_blocking (vote2, channel);
@@ -1002,7 +1002,7 @@ TEST (ledger, successor)
 	node1.work_generate_blocking (send1);
 	auto transaction (node1.store.tx_begin_write ());
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, send1).code);
-	ASSERT_EQ (send1, *node1.ledger.successor (transaction, nano::qualified_root (genesis.hash (), nano::root (0))));
+	ASSERT_EQ (send1, *node1.ledger.successor (transaction, nano::qualified_root (nano::root (0), genesis.hash ())));
 	ASSERT_EQ (*genesis.open, *node1.ledger.successor (transaction, genesis.open->qualified_root ()));
 	ASSERT_EQ (nullptr, node1.ledger.successor (transaction, nano::qualified_root (0)));
 }
@@ -3777,6 +3777,7 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 		store.version_put (transaction, version);
 		send->sideband_set ({});
 		store.block_put (transaction, send->hash (), *send);
+		store.final_vote_put (transaction, send->qualified_root (), nano::block_hash (2));
 	}
 
 	auto error = ledger.migrate_lmdb_to_rocksdb (path);
@@ -3806,6 +3807,8 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 	ASSERT_FALSE (rocksdb_store.confirmation_height_get (rocksdb_transaction, nano::genesis_account, confirmation_height_info));
 	ASSERT_EQ (confirmation_height_info.height, 2);
 	ASSERT_EQ (confirmation_height_info.frontier, send->hash ());
+	ASSERT_TRUE (rocksdb_store.final_vote_get (rocksdb_transaction, nano::root (send->previous ())).size () == 1);
+	ASSERT_EQ (rocksdb_store.final_vote_get (rocksdb_transaction, nano::root (send->previous ()))[0], nano::block_hash (2));
 
 	auto unchecked_infos = rocksdb_store.unchecked_get (rocksdb_transaction, nano::genesis_hash);
 	ASSERT_EQ (unchecked_infos.size (), 1);

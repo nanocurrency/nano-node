@@ -9,11 +9,12 @@ namespace nano
 {
 class election;
 class node;
+class node_config;
 /** This class accepts elections that need further votes before they can be confirmed and bundles them in to single confirm_req packets */
 class confirmation_solicitor final
 {
 public:
-	confirmation_solicitor (nano::network &, nano::network_constants const &);
+	confirmation_solicitor (nano::network &, nano::node_config const &);
 	/** Prepare object for batching election confirmation requests*/
 	void prepare (std::vector<nano::representative> const &);
 	/** Broadcast the winner of an election if the broadcast limit has not been reached. Returns false if the broadcast was performed */
@@ -22,8 +23,6 @@ public:
 	bool add (nano::election const &);
 	/** Dispatch bundled requests to each channel*/
 	void flush ();
-	/** Maximum amount of confirmation requests (batches) to be sent to each channel */
-	size_t const max_confirm_req_batches;
 	/** Global maximum amount of block broadcasts */
 	size_t const max_block_broadcasts;
 	/** Maximum amount of requests to be sent per election, bypassed if an existing vote is for a different hash*/
@@ -33,6 +32,7 @@ public:
 
 private:
 	nano::network & network;
+	nano::node_config const & config;
 
 	unsigned rebroadcasted{ 0 };
 	std::vector<nano::representative> representatives_requests;

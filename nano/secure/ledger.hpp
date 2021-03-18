@@ -48,6 +48,7 @@ public:
 	bool block_exists (nano::block_hash const &) const;
 	bool block_or_pruned_exists (nano::transaction const &, nano::block_hash const &) const;
 	bool block_or_pruned_exists (nano::block_hash const &) const;
+	bool block_confirmed_or_pruned_exists (nano::transaction const &, nano::block_hash const &) const;
 	std::string block_text (char const *);
 	std::string block_text (nano::block_hash const &);
 	bool is_send (nano::transaction const &, nano::state_block const &) const;
@@ -83,5 +84,5 @@ private:
 	void initialize (nano::generate_cache const &);
 };
 
-std::unique_ptr<container_info_component> collect_container_info (ledger & ledger, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (ledger & ledger, std::string const & name);
 }

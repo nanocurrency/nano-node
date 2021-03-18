@@ -10,7 +10,7 @@
 
 TEST (ed25519, signing)
 {
-	nano::private_key prv (0);
+	nano::raw_key prv (0);
 	auto pub (nano::pub_key (prv));
 	nano::uint256_union message (0);
 	nano::signature signature;

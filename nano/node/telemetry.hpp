@@ -113,7 +113,7 @@ private:
 
 	std::atomic<bool> stopped{ false };
 
-	std::mutex mutex;
+	nano::mutex mutex{ mutex_identifier (mutexes::telemetry) };
 	// clang-format off
 	// This holds the last telemetry data received from peers or can be a placeholder awaiting the first response (check with awaiting_first_response ())
 	boost::multi_index_container<nano::telemetry_info,
@@ -146,7 +146,7 @@ private:
 	friend class telemetry_remove_peer_invalid_signature_Test;
 };
 
-std::unique_ptr<nano::container_info_component> collect_container_info (telemetry & telemetry, const std::string & name);
+std::unique_ptr<nano::container_info_component> collect_container_info (telemetry & telemetry, std::string const & name);
 
 nano::telemetry_data consolidate_telemetry_data (std::vector<telemetry_data> const & telemetry_data);
 nano::telemetry_data local_telemetry_data (nano::ledger const & ledger_a, nano::network &, uint64_t, nano::network_params const &, std::chrono::steady_clock::time_point, uint64_t, nano::keypair const &);

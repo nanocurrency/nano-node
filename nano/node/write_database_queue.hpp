@@ -53,7 +53,7 @@ public:
 
 private:
 	std::deque<nano::writer> queue;
-	std::mutex mutex;
+	nano::mutex mutex;
 	nano::condition_variable cv;
 	std::function<void()> guard_finish_callback;
 	bool use_noops;

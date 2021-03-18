@@ -199,6 +199,7 @@ void nano::mdb_store::open_databases (bool & error_a, nano::transaction const & 
 	accounts = accounts_v0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "pending", flags, &pending_v0) != 0;
 	pending = pending_v0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "final_votes", flags, &final_votes) != 0;
 
 	auto version_l = version_get (transaction_a);
 	if (version_l < 19)
@@ -260,21 +261,29 @@ bool nano::mdb_store::do_upgrades (nano::write_transaction & transaction_a, bool
 			break;
 		case 14:
 			upgrade_v14_to_v15 (transaction_a);
-			needs_vacuuming = true;
+			[[fallthrough]];
+			// Upgrades to version 16, 17 & 18 are all part of the v21 node release
 		case 15:
-			// Upgrades to v16, v17 & v18 are all part of the v21 node release
 			upgrade_v15_to_v16 (transaction_a);
+			[[fallthrough]];
 		case 16:
 			upgrade_v16_to_v17 (transaction_a);
+			[[fallthrough]];
 		case 17:
 			upgrade_v17_to_v18 (transaction_a);
-			needs_vacuuming = true;
+			[[fallthrough]];
+			// Upgrades to version 19 & 20 are both part of the v22 node release
 		case 18:
 			upgrade_v18_to_v19 (transaction_a);
 			needs_vacuuming = true;
+			[[fallthrough]];
 		case 19:
 			upgrade_v19_to_v20 (transaction_a);
+			[[fallthrough]];
 		case 20:
+			upgrade_v20_to_v21 (transaction_a);
+			[[fallthrough]];
+		case 21:
 			break;
 		default:
 			logger.always_log (boost::str (boost::format ("The version of the ledger (%1%) is too high for this node") % version_l));
@@ -740,6 +749,14 @@ void nano::mdb_store::upgrade_v19_to_v20 (nano::write_transaction const & transa
 	logger.always_log ("Finished creating new pruned table");
 }
 
+void nano::mdb_store::upgrade_v20_to_v21 (nano::write_transaction const & transaction_a)
+{
+	logger.always_log ("Preparing v20 to v21 database upgrade...");
+	mdb_dbi_open (env.tx (transaction_a), "final_votes", MDB_CREATE, &final_votes);
+	version_put (transaction_a, 21);
+	logger.always_log ("Finished creating new final_vote table");
+}
+
 /** Takes a filepath, appends '_backup_<timestamp>' to the end (but before any extension) and saves that file in the same directory */
 void nano::mdb_store::create_backup_file (nano::mdb_env & env_a, boost::filesystem::path const & filepath_a, nano::logger_mt & logger_a)
 {
@@ -860,6 +877,8 @@ MDB_dbi nano::mdb_store::table_to_dbi (tables table_a) const
 			return pruned;
 		case tables::confirmation_height:
 			return confirmation_height;
+		case tables::final_votes:
+			return final_votes;
 		default:
 			release_assert (false);
 			return peers;
