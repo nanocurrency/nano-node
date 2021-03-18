@@ -345,6 +345,47 @@ TEST (node, auto_bootstrap_reverse)
 	node1->stop ();
 }
 
+TEST (node, auto_bootstrap_age)
+{
+	nano::system system;
+	nano::node_config config (nano::get_available_port (), system.logging);
+	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	nano::node_flags node_flags;
+	node_flags.disable_bootstrap_bulk_push_client = true;
+	node_flags.disable_lazy_bootstrap = true;
+	node_flags.bootstrap_interval = 1;
+	auto node0 = system.add_node (config, node_flags);
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, nano::node_config (nano::get_available_port (), system.logging), system.work, node_flags));
+	ASSERT_FALSE (node1->init_error ());
+	node1->start ();
+	system.nodes.push_back (node1);
+	//ASSERT_NE (nullptr, nano::establish_tcp (system, *node1, node0->network.endpoint ()));
+	std::shared_ptr<nano::transport::channel_tcp> result;
+	debug_assert (!node1->flags.disable_tcp_realtime);
+	std::promise<std::shared_ptr<nano::transport::channel>> promise;
+	auto callback = [&promise](std::shared_ptr<nano::transport::channel> channel_a) { promise.set_value (channel_a); };
+	auto future = promise.get_future ();
+	node1->network.tcp_channels.start_tcp (node0->network.endpoint (), callback);
+	auto error = system.poll_until_true (2s, [&future] { return future.wait_for (0s) == std::future_status::ready; });
+	if (!error)
+	{
+		auto channel = future.get ();
+		EXPECT_NE (nullptr, channel);
+		if (channel)
+		{
+			result = node1->network.tcp_channels.find_channel (channel->get_tcp_endpoint ());
+		}
+	}
+	// -------------------
+	ASSERT_TIMELY (10s, node1->bootstrap_initiator.in_progress ());
+	// 4 bootstraps with frontiers age
+	ASSERT_TIMELY (10s, node0->stats.count (nano::stat::type::bootstrap, nano::stat::detail::initiate_legacy_age, nano::stat::dir::out) >= 3);
+	// More attempts with frontiers age
+	ASSERT_GE (node0->stats.count (nano::stat::type::bootstrap, nano::stat::detail::initiate_legacy_age, nano::stat::dir::out), node0->stats.count (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out));
+
+	node1->stop ();
+}
+
 TEST (node, receive_gap)
 {
 	nano::system system (1);
@@ -3108,8 +3149,8 @@ TEST (node, epoch_conflict_confirm)
 		ASSERT_EQ (nano::process_result::progress, node0->block_processor.process_one (transaction, events, send2).code);
 		ASSERT_EQ (nano::process_result::progress, node0->block_processor.process_one (transaction, events, open).code);
 	}
-	node0->process_active (change);
-	node0->process_active (epoch_open);
+	node0->process_local (change, false);
+	node0->process_local (epoch_open, false);
 	system.deadline_set (5s);
 	while (!node0->block (change->hash ()) || !node0->block (epoch_open->hash ()) || !node1->block (change->hash ()) || !node1->block (epoch_open->hash ()))
 	{
@@ -4347,14 +4388,14 @@ TEST (node, deferred_dependent_elections)
 	                                          .representative (nano::test_genesis_key.pub)
 	                                          .sign (key.prv, key.pub)
 	                                          .build ();
-	node.process_active (send1);
+	node.process_local (send1, false);
 	node.block_processor.flush ();
 	auto election_send1 = node.active.election (send1->qualified_root ());
 	ASSERT_NE (nullptr, election_send1);
 
 	// Should process and republish but not start an election for any dependent blocks
-	node.process_active (open);
-	node.process_active (send2);
+	node.process_local (open, false);
+	node.process_local (send2, false);
 	node.block_processor.flush ();
 	ASSERT_TRUE (node.block (open->hash ()));
 	ASSERT_TRUE (node.block (send2->hash ()));
@@ -4364,10 +4405,12 @@ TEST (node, deferred_dependent_elections)
 	ASSERT_TIMELY (2s, node2.block (send2->hash ()));
 
 	// Re-processing older blocks with updated work also does not start an election
-	node.work_generate_blocking (*open, open->difficulty ());
-	node.process_active (open);
+	node.work_generate_blocking (*open, open->difficulty () + 1);
+	node.process_local (open, false);
 	node.block_processor.flush ();
 	ASSERT_FALSE (node.active.active (open->qualified_root ()));
+	/// However, work is still updated
+	ASSERT_TIMELY (3s, node.store.block_get (node.store.tx_begin_read (), open->hash ())->block_work () == open->block_work ());
 
 	// It is however possible to manually start an election from elsewhere
 	node.block_confirm (open);
@@ -4376,10 +4419,14 @@ TEST (node, deferred_dependent_elections)
 	// Dropping an election allows restarting it [with higher work]
 	node.active.erase (*open);
 	ASSERT_FALSE (node.active.active (open->qualified_root ()));
-	ASSERT_NE (std::chrono::steady_clock::time_point{}, node.active.recently_dropped.find (open->qualified_root ()));
-	node.process_active (open);
+	/// The election was dropped but it's still not possible to restart it
+	node.work_generate_blocking (*open, open->difficulty () + 1);
+	ASSERT_FALSE (node.active.active (open->qualified_root ()));
+	node.process_local (open, false);
 	node.block_processor.flush ();
-	ASSERT_TRUE (node.active.active (open->qualified_root ()));
+	ASSERT_FALSE (node.active.active (open->qualified_root ()));
+	/// However, work is still updated
+	ASSERT_TIMELY (3s, node.store.block_get (node.store.tx_begin_read (), open->hash ())->block_work () == open->block_work ());
 
 	// Frontier confirmation also starts elections
 	ASSERT_NO_ERROR (system.poll_until_true (5s, [&node, &send2] {
@@ -4420,14 +4467,14 @@ TEST (node, deferred_dependent_elections)
 	ASSERT_FALSE (node.active.active (receive->qualified_root ()));
 	ASSERT_FALSE (node.ledger.rollback (node.store.tx_begin_write (), receive->hash ()));
 	ASSERT_FALSE (node.block (receive->hash ()));
-	node.process_active (receive);
+	node.process_local (receive, false);
 	node.block_processor.flush ();
 	ASSERT_TRUE (node.block (receive->hash ()));
 	ASSERT_FALSE (node.active.active (receive->qualified_root ()));
 
 	// Processing a fork will also not start an election
 	ASSERT_EQ (nano::process_result::fork, node.process (*fork).code);
-	node.process_active (fork);
+	node.process_local (fork, false);
 	node.block_processor.flush ();
 	ASSERT_FALSE (node.active.active (receive->qualified_root ()));
 
@@ -4440,7 +4487,15 @@ TEST (node, deferred_dependent_elections)
 	ASSERT_TIMELY (2s, node.active.active (receive->qualified_root ()));
 	node.active.erase (*receive);
 	ASSERT_FALSE (node.active.active (receive->qualified_root ()));
-	node.process_active (fork);
+	node.process_local (fork, false);
+	node.block_processor.flush ();
+	ASSERT_TRUE (node.active.active (receive->qualified_root ()));
+
+	/// If dropped, the election can be restarted once higher work is provided
+	node.active.erase (*fork);
+	ASSERT_FALSE (node.active.active (fork->qualified_root ()));
+	node.work_generate_blocking (*receive, receive->difficulty () + 1);
+	node.process_active (receive);
 	node.block_processor.flush ();
 	ASSERT_TRUE (node.active.active (receive->qualified_root ()));
 }

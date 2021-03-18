@@ -434,7 +434,7 @@ void nano::election::cleanup ()
 	}
 	if (unconfirmed)
 	{
-		node.active.recently_dropped.add (winner_root);
+		node.stats.inc (nano::stat::type::election, nano::stat::detail::election_drop);
 
 		// Clear network filter in another thread
 		node.worker.push_task ([node_l = node.shared (), blocks_l = std::move (blocks)]() {
@@ -493,6 +493,10 @@ void nano::election::generate_votes ()
 	debug_assert (!node.active.mutex.try_lock ());
 	if (node.config.enable_voting && node.wallets.reps ().voting > 0)
 	{
+		if (!node.flags.disable_block_processor_republishing)
+		{
+			node.network.flood_block (status.winner, nano::buffer_drop_policy::no_limiter_drop);
+		}
 		node.active.generator.add (status.winner->hash ());
 	}
 }

@@ -46,6 +46,7 @@ public:
 	bool half_full ();
 	void calculate_weights ();
 	void stop ();
+	std::atomic<uint64_t> total_processed{ 0 };
 
 private:
 	void process_loop ();

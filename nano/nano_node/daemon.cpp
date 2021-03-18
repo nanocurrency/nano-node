@@ -10,6 +10,8 @@
 #include <nano/rpc/rpc.hpp>
 #include <nano/secure/working.hpp>
 
+#include <boost/format.hpp>
+
 #include <csignal>
 #include <iostream>
 

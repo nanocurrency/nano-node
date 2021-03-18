@@ -124,7 +124,6 @@ TEST (active_transactions, keep_local)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (0, node.active.recently_dropped.size ());
 	while (!node.active.empty ())
 	{
 		nano::lock_guard<std::mutex> active_guard (node.active.mutex);
@@ -146,7 +145,6 @@ TEST (active_transactions, keep_local)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (1, node.active.recently_dropped.size ());
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::election_drop));
 }
 
@@ -990,7 +988,6 @@ TEST (active_transactions, restart_dropped)
 	auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::xrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
 	// Process only in ledger and simulate dropping the election
 	ASSERT_EQ (nano::process_result::progress, node.process (*send).code);
-	node.active.recently_dropped.add (send->qualified_root ());
 	// Generate higher difficulty work
 	ASSERT_TRUE (node.work_generate_blocking (*send, send->difficulty () + 1).is_initialized ());
 	// Process the same block with updated work
@@ -1003,8 +1000,6 @@ TEST (active_transactions, restart_dropped)
 	ASSERT_NE (nullptr, ledger_block);
 	// Exact same block, including work value must have been re-written
 	ASSERT_EQ (*send, *ledger_block);
-	// Removed from the dropped elections cache
-	ASSERT_EQ (std::chrono::steady_clock::time_point{}, node.active.recently_dropped.find (send->qualified_root ()));
 	// Drop election
 	node.active.erase (*send);
 	ASSERT_EQ (0, node.active.size ());

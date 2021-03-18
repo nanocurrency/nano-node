@@ -100,6 +100,7 @@ public:
 	std::chrono::seconds work_watcher_period{ std::chrono::seconds (5) };
 	double max_work_generate_multiplier{ 64. };
 	uint32_t max_queued_requests{ 512 };
+	uint32_t confirm_req_batches_max{ network_params.network.is_test_network () ? 1u : 2u };
 	nano::rocksdb_config rocksdb_config;
 	nano::lmdb_config lmdb_config;
 	nano::frontiers_confirmation_mode frontiers_confirmation{ nano::frontiers_confirmation_mode::automatic };
@@ -149,5 +150,6 @@ public:
 	size_t block_processor_verification_size{ 0 };
 	size_t inactive_votes_cache_size{ 16 * 1024 };
 	size_t vote_processor_capacity{ 144 * 1024 };
+	size_t bootstrap_interval{ 0 }; // For testing only
 };
 }

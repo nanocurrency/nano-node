@@ -24,7 +24,6 @@ public:
 	void pull_finished ();
 	bool should_log ();
 	std::string mode_text ();
-	virtual void restart_condition ();
 	virtual void add_frontier (nano::pull_info const &);
 	virtual void add_bulk_push_target (nano::block_hash const &, nano::block_hash const &);
 	virtual bool request_bulk_push_target (std::pair<nano::block_hash, nano::block_hash> &);
@@ -60,7 +59,7 @@ public:
 class bootstrap_attempt_legacy : public bootstrap_attempt
 {
 public:
-	explicit bootstrap_attempt_legacy (std::shared_ptr<nano::node> node_a, uint64_t incremental_id_a, std::string id_a = "");
+	explicit bootstrap_attempt_legacy (std::shared_ptr<nano::node> node_a, uint64_t incremental_id_a, std::string id_a = "", uint32_t const frontiers_age_a = std::numeric_limits<uint32_t>::max ());
 	void run () override;
 	bool consume_future (std::future<bool> &);
 	void stop () override;
@@ -72,8 +71,6 @@ public:
 	bool request_bulk_push_target (std::pair<nano::block_hash, nano::block_hash> &) override;
 	void add_recent_pull (nano::block_hash const &) override;
 	void run_start (nano::unique_lock<std::mutex> &);
-	void restart_condition () override;
-	void attempt_restart_check (nano::unique_lock<std::mutex> &);
 	bool confirm_frontiers (nano::unique_lock<std::mutex> &);
 	void get_information (boost::property_tree::ptree &) override;
 	nano::tcp_endpoint endpoint_frontier_request;
@@ -83,6 +80,6 @@ public:
 	std::deque<nano::block_hash> recent_pulls_head;
 	std::vector<std::pair<nano::block_hash, nano::block_hash>> bulk_push_targets;
 	std::atomic<unsigned> account_count{ 0 };
-	std::atomic<bool> frontiers_confirmation_pending{ false };
+	uint32_t frontiers_age;
 };
 }

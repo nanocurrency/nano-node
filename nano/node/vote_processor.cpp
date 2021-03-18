@@ -75,6 +75,7 @@ void nano::vote_processor::process_loop ()
 
 			lock.unlock ();
 			condition.notify_all ();
+			total_processed += votes_l.size ();
 			lock.lock ();
 
 			if (log_this_iteration && elapsed.stop () > std::chrono::milliseconds (100))
