@@ -807,13 +807,8 @@ void nano::node::long_inactivity_cleanup ()
 	auto transaction (store.tx_begin_write ({ tables::online_weight, tables::peers }));
 	if (store.online_weight_count (transaction) > 0)
 	{
-		auto i (store.online_weight_begin (transaction));
-		auto sample (store.online_weight_begin (transaction));
+		auto sample (store.online_weight_last (transaction));
 		auto n (store.online_weight_end ());
-		while (++i != n)
-		{
-			++sample;
-		}
 		debug_assert (sample != n);
 		auto const one_week_ago = static_cast<size_t> ((std::chrono::system_clock::now () - std::chrono::hours (7 * 24)).time_since_epoch ().count ());
 		perform_cleanup = sample->first < one_week_ago;
