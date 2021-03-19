@@ -49,7 +49,7 @@ void nano::bootstrap_initiator::bootstrap (bool force, std::string id_a, uint32_
 	}
 }
 
-void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bool add_to_peers, bool frontiers_confirmed, std::string id_a)
+void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bool add_to_peers, std::string id_a)
 {
 	if (add_to_peers)
 	{
@@ -70,15 +70,10 @@ void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bo
 		auto legacy_attempt (std::make_shared<nano::bootstrap_attempt_legacy> (node.shared (), attempts.incremental++, id_a, std::numeric_limits<uint32_t>::max (), 0));
 		attempts_list.push_back (legacy_attempt);
 		attempts.add (legacy_attempt);
-		if (frontiers_confirmed)
-		{
-			node.network.excluded_peers.remove (nano::transport::map_endpoint_to_tcp (endpoint_a));
-		}
 		if (!node.network.excluded_peers.check (nano::transport::map_endpoint_to_tcp (endpoint_a)))
 		{
 			connections->add_connection (endpoint_a);
 		}
-		legacy_attempt->frontiers_confirmed = frontiers_confirmed;
 	}
 	condition.notify_all ();
 }

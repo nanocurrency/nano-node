@@ -12,9 +12,6 @@
 
 #include <algorithm>
 
-constexpr size_t nano::bootstrap_limits::bootstrap_max_confirm_frontiers;
-constexpr double nano::bootstrap_limits::required_frontier_confirmation_ratio;
-constexpr unsigned nano::bootstrap_limits::frontier_confirmation_blocks_limit;
 constexpr unsigned nano::bootstrap_limits::requeued_pulls_limit;
 constexpr unsigned nano::bootstrap_limits::requeued_pulls_limit_dev;
 
@@ -116,11 +113,6 @@ std::string nano::bootstrap_attempt::mode_text ()
 	return mode_text;
 }
 
-void nano::bootstrap_attempt::restart_condition ()
-{
-	debug_assert (mode == nano::bootstrap_mode::legacy);
-}
-
 void nano::bootstrap_attempt::add_frontier (nano::pull_info const &)
 {
 	debug_assert (mode == nano::bootstrap_mode::legacy);
@@ -135,11 +127,6 @@ bool nano::bootstrap_attempt::request_bulk_push_target (std::pair<nano::block_ha
 {
 	debug_assert (mode == nano::bootstrap_mode::legacy);
 	return true;
-}
-
-void nano::bootstrap_attempt::add_recent_pull (nano::block_hash const &)
-{
-	debug_assert (mode == nano::bootstrap_mode::legacy);
 }
 
 void nano::bootstrap_attempt::set_start_account (nano::account const &)
