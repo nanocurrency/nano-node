@@ -1734,14 +1734,14 @@ TEST (active_transactions, pessimistic_elections)
 	ASSERT_EQ (nano::process_result::progress, node.process (*open).code);
 
 	auto change = builder.make_block ()
-	            .account (key.pub)
-	            .previous (open->hash ())
-	            .representative (key.pub.number () + 1)
-	            .link (0)
-	            .balance (1)
-	            .sign (key.prv, key.pub)
-	            .work (*system.work.generate (open->hash ()))
-	            .build_shared ();
+	              .account (key.pub)
+	              .previous (open->hash ())
+	              .representative (key.pub.number () + 1)
+	              .link (0)
+	              .balance (1)
+	              .sign (key.prv, key.pub)
+	              .work (*system.work.generate (open->hash ()))
+	              .build_shared ();
 
 	ASSERT_EQ (nano::process_result::progress, node.process (*change).code);
 
