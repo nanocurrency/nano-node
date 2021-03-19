@@ -1688,7 +1688,6 @@ void nano::json_handler::bootstrap ()
 {
 	std::string address_text = request.get<std::string> ("address");
 	std::string port_text = request.get<std::string> ("port");
-	const bool bypass_frontier_confirmation = request.get<bool> ("bypass_frontier_confirmation", false);
 	boost::system::error_code address_ec;
 	auto address (boost::asio::ip::make_address_v6 (address_text, address_ec));
 	if (!address_ec)
@@ -1699,7 +1698,7 @@ void nano::json_handler::bootstrap ()
 			if (!node.flags.disable_legacy_bootstrap)
 			{
 				std::string bootstrap_id (request.get<std::string> ("id", ""));
-				node.bootstrap_initiator.bootstrap (nano::endpoint (address, port), true, bypass_frontier_confirmation, bootstrap_id);
+				node.bootstrap_initiator.bootstrap (nano::endpoint (address, port), true, bootstrap_id);
 				response_l.put ("success", "");
 			}
 			else

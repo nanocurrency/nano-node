@@ -25,18 +25,14 @@ public:
 	void add_frontier (nano::pull_info const &) override;
 	void add_bulk_push_target (nano::block_hash const &, nano::block_hash const &) override;
 	bool request_bulk_push_target (std::pair<nano::block_hash, nano::block_hash> &) override;
-	void add_recent_pull (nano::block_hash const &) override;
 	void run_start (nano::unique_lock<nano::mutex> &);
-	bool confirm_frontiers (nano::unique_lock<nano::mutex> &);
 	void get_information (boost::property_tree::ptree &) override;
 	nano::tcp_endpoint endpoint_frontier_request;
 	std::weak_ptr<nano::frontier_req_client> frontiers;
 	std::weak_ptr<nano::bulk_push_client> push;
 	std::deque<nano::pull_info> frontier_pulls;
-	std::deque<nano::block_hash> recent_pulls_head;
 	std::vector<std::pair<nano::block_hash, nano::block_hash>> bulk_push_targets;
 	std::atomic<unsigned> account_count{ 0 };
-	std::atomic<bool> frontiers_confirmation_pending{ false };
 	uint32_t frontiers_age;
 };
 }

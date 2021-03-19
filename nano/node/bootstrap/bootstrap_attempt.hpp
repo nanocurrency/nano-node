@@ -26,7 +26,6 @@ public:
 	virtual void add_frontier (nano::pull_info const &);
 	virtual void add_bulk_push_target (nano::block_hash const &, nano::block_hash const &);
 	virtual bool request_bulk_push_target (std::pair<nano::block_hash, nano::block_hash> &);
-	virtual void add_recent_pull (nano::block_hash const &);
 	virtual void lazy_start (nano::hash_or_account const &, bool confirmed = true);
 	virtual void lazy_add (nano::pull_info const &);
 	virtual void lazy_requeue (nano::block_hash const &, nano::block_hash const &, bool);
@@ -50,7 +49,6 @@ public:
 	std::string id;
 	std::chrono::steady_clock::time_point attempt_start{ std::chrono::steady_clock::now () };
 	std::atomic<bool> frontiers_received{ false };
-	std::atomic<bool> frontiers_confirmed{ false };
 	nano::bootstrap_mode mode;
 	nano::mutex mutex;
 	nano::condition_variable condition;

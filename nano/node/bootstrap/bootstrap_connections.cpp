@@ -356,10 +356,6 @@ void nano::bootstrap_connections::request_pull (nano::unique_lock<nano::mutex> &
 		}
 		if (attempt_l != nullptr)
 		{
-			if (attempt_l->mode == nano::bootstrap_mode::legacy)
-			{
-				attempt_l->add_recent_pull (pull.head);
-			}
 			// The bulk_pull_client destructor attempt to requeue_pull which can cause a deadlock if this is the last reference
 			// Dispatch request in an external thread in case it needs to be destroyed
 			node.background ([connection_l, attempt_l, pull]() {
