@@ -195,13 +195,13 @@ TEST (frontiers_confirmation, expired_optimistic_elections_removal)
 	auto node = system.add_node (node_config);
 
 	// This should be removed on the next prioritization call
-	node->active.expired_optimistic_election_infos.emplace (std::chrono::steady_clock::now () - (node->active.expired_optimistic_election_info_cutoff + 1min), nano::account (1));
+	node->active.expired_optimistic_election_infos.emplace (std::chrono::steady_clock::now () - (node->active.expired_optimistic_election_info_cutoff + 1min), nano::account (1), nano::block_hash (2));
 	ASSERT_EQ (1, node->active.expired_optimistic_election_infos.size ());
 	node->active.prioritize_frontiers_for_confirmation (node->store.tx_begin_read (), 0s, 0s);
 	ASSERT_EQ (0, node->active.expired_optimistic_election_infos.size ());
 
 	// This should not be removed on the next prioritization call
-	node->active.expired_optimistic_election_infos.emplace (std::chrono::steady_clock::now () - (node->active.expired_optimistic_election_info_cutoff - 1min), nano::account (1));
+	node->active.expired_optimistic_election_infos.emplace (std::chrono::steady_clock::now () - (node->active.expired_optimistic_election_info_cutoff - 1min), nano::account (1), nano::block_hash (2));
 	ASSERT_EQ (1, node->active.expired_optimistic_election_infos.size ());
 	node->active.prioritize_frontiers_for_confirmation (node->store.tx_begin_read (), 0s, 0s);
 	ASSERT_EQ (1, node->active.expired_optimistic_election_infos.size ());

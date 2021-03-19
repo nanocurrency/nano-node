@@ -323,7 +323,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> 
 		{
 			if (election_l->optimistic () && election_l->failed ())
 			{
-				if (election_l->confirmation_request_count != 0)
+				if (election_l->confirmation_request_count != 0 && !election_l->qualified_root.previous ().is_zero ())
 				{
 					// Locks active mutex
 					add_expired_optimistic_election (*election_l);
@@ -410,6 +410,7 @@ std::vector<std::shared_ptr<nano::election>> nano::active_transactions::list_act
 void nano::active_transactions::add_expired_optimistic_election (nano::election const & election_a)
 {
 	nano::lock_guard<nano::mutex> guard (mutex);
+	debug_assert (!election_a.status.winner->previous ().is_zero ());
 	auto account = election_a.status.winner->account ();
 	if (account.is_zero ())
 	{
@@ -419,14 +420,15 @@ void nano::active_transactions::add_expired_optimistic_election (nano::election 
 	auto it = expired_optimistic_election_infos.get<tag_account> ().find (account);
 	if (it != expired_optimistic_election_infos.get<tag_account> ().end ())
 	{
-		expired_optimistic_election_infos.get<tag_account> ().modify (it, [](auto & expired_optimistic_election) {
+		expired_optimistic_election_infos.get<tag_account> ().modify (it, [hash = election_a.status.winner->hash ()](auto & expired_optimistic_election) {
 			expired_optimistic_election.expired_time = std::chrono::steady_clock::now ();
+			expired_optimistic_election.winner_hash = hash;
 			expired_optimistic_election.election_started = false;
 		});
 	}
 	else
 	{
-		expired_optimistic_election_infos.emplace (std::chrono::steady_clock::now (), account);
+		expired_optimistic_election_infos.emplace (std::chrono::steady_clock::now (), account, election_a.status.winner->hash ());
 	}
 
 	// Expire the oldest one if a maximum is reached
@@ -488,6 +490,7 @@ void nano::active_transactions::confirm_expired_frontiers_pessimistically (nano:
 		}
 
 		auto const & account{ i->account };
+		auto const & expired_winner{ i->winner_hash };
 		nano::account_info account_info;
 		bool should_delete{ true };
 		if (!node.store.account_get (transaction_a, account, account_info))
@@ -508,7 +511,7 @@ void nano::active_transactions::confirm_expired_frontiers_pessimistically (nano:
 					block = node.store.block_get (transaction_a, previous_block->sideband ().successor);
 				}
 
-				if (block && !node.confirmation_height_processor.is_processing_block (block->hash ()) && node.ledger.dependents_confirmed (transaction_a, *block))
+				if (block && block->hash () != expired_winner && !node.confirmation_height_processor.is_processing_block (block->hash ()) && node.ledger.dependents_confirmed (transaction_a, *block))
 				{
 					nano::uint128_t previous_balance{ 0 };
 					if (previous_block && previous_block->balance ().is_zero ())
@@ -521,7 +524,7 @@ void nano::active_transactions::confirm_expired_frontiers_pessimistically (nano:
 					{
 						++elections_count_a;
 					}
-					elections_started_for_account.push_back (i->account);
+					elections_started_for_account.push_back (account);
 				}
 			}
 		}
@@ -1543,9 +1546,10 @@ account (account_a), blocks_uncemented (blocks_uncemented_a)
 {
 }
 
-nano::expired_optimistic_election_info::expired_optimistic_election_info (std::chrono::steady_clock::time_point expired_time_a, nano::account account_a) :
+nano::expired_optimistic_election_info::expired_optimistic_election_info (std::chrono::steady_clock::time_point expired_time_a, nano::account account_a, nano::block_hash winner_hash_a) :
 expired_time (expired_time_a),
-account (account_a)
+account (account_a),
+winner_hash (winner_hash_a)
 {
 }
 

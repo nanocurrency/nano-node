@@ -89,10 +89,11 @@ public:
 class expired_optimistic_election_info final
 {
 public:
-	expired_optimistic_election_info (std::chrono::steady_clock::time_point, nano::account);
+	expired_optimistic_election_info (std::chrono::steady_clock::time_point, nano::account, nano::block_hash);
 
 	std::chrono::steady_clock::time_point expired_time;
 	nano::account account;
+	nano::block_hash winner_hash;
 	bool election_started{ false };
 };
 

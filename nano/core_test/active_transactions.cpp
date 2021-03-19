@@ -1717,7 +1717,7 @@ TEST (active_transactions, pessimistic_elections)
 	             .balance (nano::genesis_amount - 2)
 	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
 	             .work (*system.work.generate (send->hash ()))
-	             .build ();
+	             .build_shared ();
 
 	ASSERT_EQ (nano::process_result::progress, node.process (*send2).code);
 
@@ -1733,14 +1733,26 @@ TEST (active_transactions, pessimistic_elections)
 
 	ASSERT_EQ (nano::process_result::progress, node.process (*open).code);
 
+	auto change = builder.make_block ()
+	            .account (key.pub)
+	            .previous (open->hash ())
+	            .representative (key.pub.number () + 1)
+	            .link (0)
+	            .balance (1)
+	            .sign (key.prv, key.pub)
+	            .work (*system.work.generate (open->hash ()))
+	            .build_shared ();
+
+	ASSERT_EQ (nano::process_result::progress, node.process (*change).code);
+
 	// This should only cement the first block in genesis account
 	uint64_t election_count = 0;
 	// Make dummy election with winner.
 	{
 		nano::election election1 (
-		node, send, [](auto const &) {}, [](auto const &) {}, false, nano::election_behavior::normal);
+		node, send2, [](auto const &) {}, [](auto const &) {}, false, nano::election_behavior::normal);
 		nano::election election2 (
-		node, open, [](auto const &) {}, [](auto const &) {}, false, nano::election_behavior::normal);
+		node, change, [](auto const &) {}, [](auto const &) {}, false, nano::election_behavior::normal);
 		node.active.add_expired_optimistic_election (election1);
 		node.active.add_expired_optimistic_election (election2);
 	}
@@ -1750,6 +1762,7 @@ TEST (active_transactions, pessimistic_elections)
 	ASSERT_EQ (2, node.active.expired_optimistic_election_infos.size ());
 	auto election_started_it = node.active.expired_optimistic_election_infos.get<nano::active_transactions::tag_election_started> ().begin ();
 	ASSERT_EQ (election_started_it->account, nano::genesis_account);
+	ASSERT_EQ (election_started_it->winner_hash, send2->hash ());
 	ASSERT_EQ (election_started_it->election_started, true);
 	ASSERT_EQ ((++election_started_it)->election_started, false);
 
