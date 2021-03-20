@@ -167,7 +167,16 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 		}
 		else
 		{
-			attempt->set_start_account (last_account);
+			if (account.is_zero () && count <= count_limit)
+			{
+				// Prevent new frontier_req requests
+				attempt->set_start_account (std::numeric_limits<nano::uint256_t>::max ());
+			}
+			else
+			{
+				// Set last processed account as new start target
+				attempt->set_start_account (last_account);
+			}
 			{
 				try
 				{

@@ -219,9 +219,16 @@ void nano::bootstrap_attempt_legacy::run ()
 		lock.unlock ();
 		node->block_processor.flush ();
 		lock.lock ();
-		node->logger.try_log ("Finished flushing unchecked blocks, requesting new frontiers");
-		// Requesting new frontiers
-		run_start (lock);
+		if (start_account.number () != std::numeric_limits<nano::uint256_t>::max ())
+		{
+			node->logger.try_log (boost::str (boost::format ("Finished flushing unchecked blocks, requesting new frontiers after %1%") % start_account.to_account ()));
+			// Requesting new frontiers
+			run_start (lock);
+		}
+		else
+		{
+			node->logger.try_log ("Finished flushing unchecked blocks");
+		}
 	}
 	if (!stopped)
 	{
