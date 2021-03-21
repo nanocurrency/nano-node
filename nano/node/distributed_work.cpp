@@ -71,18 +71,18 @@ void nano::distributed_work::start ()
 		status = work_generation_status::failure_local;
 		request.callback (boost::none);
 	}
-	for (auto const & peer : need_resolve)
+	for (auto const & [peer_key, peer_val] : need_resolve)
 	{
 		boost::system::error_code ec;
-		auto parsed_address (boost::asio::ip::make_address_v6 (peer.first, ec));
+		auto parsed_address (boost::asio::ip::make_address_v6 (peer_key, ec));
 		if (!ec)
 		{
-			do_request (nano::tcp_endpoint (parsed_address, peer.second));
+			do_request (nano::tcp_endpoint (parsed_address, peer_val));
 		}
 		else
 		{
 			auto this_l (shared_from_this ());
-			node.network.resolver.async_resolve (boost::asio::ip::udp::resolver::query (peer.first, std::to_string (peer.second)), [peer, this_l, &extra = resolved_extra](boost::system::error_code const & ec, boost::asio::ip::udp::resolver::iterator i_a) {
+			node.network.resolver.async_resolve (boost::asio::ip::udp::resolver::query (peer_key, std::to_string (peer_val)), [peer_key = peer_key, peer_val = peer_val, this_l, &extra = resolved_extra](boost::system::error_code const & ec, boost::asio::ip::udp::resolver::iterator i_a) {
 				if (!ec)
 				{
 					this_l->do_request (nano::tcp_endpoint (i_a->endpoint ().address (), i_a->endpoint ().port ()));
@@ -95,7 +95,7 @@ void nano::distributed_work::start ()
 				}
 				else
 				{
-					this_l->node.logger.try_log (boost::str (boost::format ("Error resolving work peer: %1%:%2%: %3%") % peer.first % peer.second % ec.message ()));
+					this_l->node.logger.try_log (boost::str (boost::format ("Error resolving work peer: %1%:%2%: %3%") % peer_key % peer_val % ec.message ()));
 					this_l->failure ();
 				}
 			});

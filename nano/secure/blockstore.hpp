@@ -566,7 +566,7 @@ class write_transaction_impl : public transaction_impl
 public:
 	virtual void commit () = 0;
 	virtual void renew () = 0;
-	virtual bool contains (nano::tables table_a) const = 0;
+	[[nodiscard]] virtual bool contains (nano::tables table_a) const = 0;
 };
 
 class transaction

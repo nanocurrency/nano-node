@@ -59,6 +59,6 @@ void blocks_confirm (nano::node &, std::vector<std::shared_ptr<nano::block>> con
 uint16_t get_available_port ();
 void cleanup_dev_directories_on_exit ();
 /** To use RocksDB in tests make sure the environment variable TEST_USE_ROCKSDB=1 is set */
-bool using_rocksdb_in_tests ();
+[[nodiscard]] bool using_rocksdb_in_tests ();
 }
 REGISTER_ERROR_CODES (nano, error_system);

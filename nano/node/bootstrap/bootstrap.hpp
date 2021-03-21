@@ -89,10 +89,10 @@ public:
 	void lazy_requeue (nano::block_hash const &, nano::block_hash const &, bool);
 	void notify_listeners (bool);
 	void add_observer (std::function<void(bool)> const &);
-	bool in_progress ();
+	[[nodiscard]] bool in_progress ();
 	std::shared_ptr<nano::bootstrap_connections> connections;
 	std::shared_ptr<nano::bootstrap_attempt> new_attempt ();
-	bool has_new_attempts ();
+	[[nodiscard]] bool has_new_attempts ();
 	void remove_attempt (std::shared_ptr<nano::bootstrap_attempt>);
 	std::shared_ptr<nano::bootstrap_attempt> current_attempt ();
 	std::shared_ptr<nano::bootstrap_attempt> current_lazy_attempt ();

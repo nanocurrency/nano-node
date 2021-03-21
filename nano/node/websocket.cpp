@@ -242,9 +242,9 @@ nano::websocket::session::~session ()
 {
 	{
 		nano::unique_lock<nano::mutex> lk (subscriptions_mutex);
-		for (auto & subscription : subscriptions)
+		for (auto & [topic, options_ptr] : subscriptions)
 		{
-			ws_listener.decrease_subscriber_count (subscription.first);
+			ws_listener.decrease_subscriber_count (topic);
 		}
 	}
 }

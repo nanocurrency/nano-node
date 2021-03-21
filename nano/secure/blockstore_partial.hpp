@@ -106,7 +106,7 @@ public:
 		return result;
 	}
 
-	bool block_exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override
+	[[nodiscard]]  bool block_exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override
 	{
 		auto junk = block_raw_get (transaction_a, hash_a);
 		return junk.size () != 0;
@@ -125,7 +125,7 @@ public:
 		return result;
 	}
 
-	bool root_exists (nano::transaction const & transaction_a, nano::root const & root_a) override
+	[[nodiscard]]  bool root_exists (nano::transaction const & transaction_a, nano::root const & root_a) override
 	{
 		return block_exists (transaction_a, root_a.as_block_hash ()) || account_exists (transaction_a, root_a.as_account ());
 	}
@@ -320,7 +320,7 @@ public:
 		return result;
 	}
 
-	bool pending_exists (nano::transaction const & transaction_a, nano::pending_key const & key_a) override
+	[[nodiscard]]  bool pending_exists (nano::transaction const & transaction_a, nano::pending_key const & key_a) override
 	{
 		auto iterator (pending_begin (transaction_a, key_a));
 		return iterator != pending_end () && nano::pending_key (iterator->first) == key_a;
@@ -371,7 +371,7 @@ public:
 		release_assert_success (status);
 	}
 
-	bool unchecked_exists (nano::transaction const & transaction_a, nano::unchecked_key const & unchecked_key_a) override
+	[[nodiscard]]  bool unchecked_exists (nano::transaction const & transaction_a, nano::unchecked_key const & unchecked_key_a) override
 	{
 		nano::db_val<Val> value;
 		auto status (get (transaction_a, tables::unchecked, nano::db_val<Val> (unchecked_key_a), value));
@@ -421,7 +421,7 @@ public:
 		return result;
 	}
 
-	bool account_exists (nano::transaction const & transaction_a, nano::account const & account_a) override
+	[[nodiscard]] bool account_exists (nano::transaction const & transaction_a, nano::account const & account_a) override
 	{
 		auto iterator (accounts_begin (transaction_a, account_a));
 		return iterator != accounts_end () && nano::account (iterator->first) == account_a;
@@ -463,12 +463,12 @@ public:
 		release_assert_success (status);
 	}
 
-	bool pruned_exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override
+	[[nodiscard]] bool pruned_exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override
 	{
 		return exists (transaction_a, tables::pruned, nano::db_val<Val> (hash_a));
 	}
 
-	bool block_or_pruned_exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override
+	[[nodiscard]] bool block_or_pruned_exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override
 	{
 		return block_exists (transaction_a, hash_a) || pruned_exists (transaction_a, hash_a);
 	}
@@ -496,7 +496,7 @@ public:
 		release_assert_success (status);
 	}
 
-	bool peer_exists (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a) const override
+	[[nodiscard]] bool peer_exists (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a) const override
 	{
 		return exists (transaction_a, tables::peers, nano::db_val<Val> (endpoint_a));
 	}
@@ -512,7 +512,7 @@ public:
 		release_assert_success (status);
 	}
 
-	bool exists (nano::transaction const & transaction_a, tables table_a, nano::db_val<Val> const & key_a) const
+	[[nodiscard]] bool exists (nano::transaction const & transaction_a, tables table_a, nano::db_val<Val> const & key_a) const
 	{
 		return static_cast<const Derived_Store &> (*this).exists (transaction_a, table_a, key_a);
 	}
@@ -592,7 +592,7 @@ public:
 		release_assert_success (status);
 	}
 
-	bool confirmation_height_exists (nano::transaction const & transaction_a, nano::account const & account_a) const override
+	[[nodiscard]] bool confirmation_height_exists (nano::transaction const & transaction_a, nano::account const & account_a) const override
 	{
 		return exists (transaction_a, tables::confirmation_height, nano::db_val<Val> (account_a));
 	}
@@ -911,8 +911,8 @@ protected:
 
 	virtual uint64_t count (nano::transaction const & transaction_a, tables table_a) const = 0;
 	virtual int drop (nano::write_transaction const & transaction_a, tables table_a) = 0;
-	virtual bool not_found (int status) const = 0;
-	virtual bool success (int status) const = 0;
+	[[nodiscard]] virtual bool not_found (int status) const = 0;
+	[[nodiscard]] virtual bool success (int status) const = 0;
 	virtual int status_code_not_found () const = 0;
 	virtual std::string error_string (int status) const = 0;
 };

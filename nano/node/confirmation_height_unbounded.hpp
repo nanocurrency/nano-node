@@ -21,11 +21,11 @@ class confirmation_height_unbounded final
 {
 public:
 	confirmation_height_unbounded (nano::ledger &, nano::write_database_queue &, std::chrono::milliseconds, nano::logging const &, nano::logger_mt &, std::atomic<bool> &, std::shared_ptr<nano::block> const & original_block_a, uint64_t &, std::function<void(std::vector<std::shared_ptr<nano::block>> const &)> const &, std::function<void(nano::block_hash const &)> const &, std::function<uint64_t ()> const &);
-	bool pending_empty () const;
+	[[nodiscard]] bool pending_empty () const;
 	void clear_process_vars ();
 	void process ();
 	void cement_blocks (nano::write_guard &);
-	bool has_iterated_over_block (nano::block_hash const &) const;
+	[[nodiscard]] bool has_iterated_over_block (nano::block_hash const &) const;
 
 private:
 	class confirmed_iterated_pair

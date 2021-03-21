@@ -44,7 +44,7 @@ public:
 	void commit () override;
 	void renew () override;
 	void * get_handle () const override;
-	bool contains (nano::tables table_a) const override;
+	[[nodiscard]] bool contains (nano::tables table_a) const override;
 	MDB_txn * handle;
 	nano::mdb_env const & env;
 	mdb_txn_callbacks txn_callbacks;
@@ -55,7 +55,7 @@ class mdb_txn_stats
 {
 public:
 	mdb_txn_stats (const nano::transaction_impl * transaction_impl_a);
-	bool is_write () const;
+	[[nodiscard]] bool is_write () const;
 	nano::timer<std::chrono::milliseconds> timer;
 	const nano::transaction_impl * transaction_impl;
 	std::string thread_name;

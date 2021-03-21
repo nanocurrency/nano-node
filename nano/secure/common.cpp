@@ -572,7 +572,7 @@ std::string nano::vote::hashes_string () const
 	return result;
 }
 
-const std::string nano::vote::hash_prefix = "vote ";
+// const std::string nano::vote::hash_prefix = "vote ";
 
 nano::block_hash nano::vote::hash () const
 {

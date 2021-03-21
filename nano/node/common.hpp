@@ -208,13 +208,13 @@ public:
 
 	void flag_set (uint8_t);
 	static uint8_t constexpr bulk_pull_count_present_flag = 0;
-	bool bulk_pull_is_count_present () const;
+	[[nodiscard]] bool bulk_pull_is_count_present () const;
 	static uint8_t constexpr frontier_req_only_confirmed = 1;
-	bool frontier_req_is_only_confirmed_present () const;
+	[[nodiscard]] bool frontier_req_is_only_confirmed_present () const;
 	static uint8_t constexpr node_id_handshake_query_flag = 0;
 	static uint8_t constexpr node_id_handshake_response_flag = 1;
-	bool node_id_handshake_is_query () const;
-	bool node_id_handshake_is_response () const;
+	[[nodiscard]] bool node_id_handshake_is_query () const;
+	[[nodiscard]] bool node_id_handshake_is_response () const;
 	uint8_t version_min () const;
 
 	/** Size of the payload in bytes. For some messages, the payload size is based on header flags. */
@@ -266,7 +266,7 @@ public:
 	void deserialize_node_id_handshake (nano::stream &, nano::message_header const &);
 	void deserialize_telemetry_req (nano::stream &, nano::message_header const &);
 	void deserialize_telemetry_ack (nano::stream &, nano::message_header const &);
-	bool at_end (nano::stream &);
+	[[nodiscard]] bool at_end (nano::stream &);
 	nano::network_filter & publish_filter;
 	nano::block_uniquer & block_uniquer;
 	nano::vote_uniquer & vote_uniquer;
@@ -376,7 +376,7 @@ public:
 	nano::error serialize_json (nano::jsonconfig &, bool) const;
 	nano::error deserialize_json (nano::jsonconfig &, bool);
 	void sign (nano::keypair const &);
-	bool validate_signature () const;
+	[[nodiscard]] bool validate_signature () const;
 	bool operator== (nano::telemetry_data const &) const;
 	bool operator!= (nano::telemetry_data const &) const;
 
@@ -405,7 +405,7 @@ public:
 	void visit (nano::message_visitor &) const override;
 	bool deserialize (nano::stream &);
 	uint16_t size () const;
-	bool is_empty_payload () const;
+	[[nodiscard]] bool is_empty_payload () const;
 	static uint16_t size (nano::message_header const &);
 	nano::telemetry_data data;
 };
@@ -422,7 +422,7 @@ public:
 	nano::hash_or_account start{ 0 };
 	nano::block_hash end{ 0 };
 	count_t count{ 0 };
-	bool is_count_present () const;
+	[[nodiscard]] bool is_count_present () const;
 	void set_count_present (bool);
 	static size_t constexpr count_present_flag = nano::message_header::bulk_pull_count_present_flag;
 	static size_t constexpr extended_parameters_size = 8;

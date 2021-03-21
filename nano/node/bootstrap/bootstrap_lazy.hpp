@@ -34,8 +34,8 @@ public:
 	void lazy_add (nano::hash_or_account const &, unsigned);
 	void lazy_add (nano::pull_info const &) override;
 	void lazy_requeue (nano::block_hash const &, nano::block_hash const &, bool) override;
-	bool lazy_finished ();
-	bool lazy_has_expired () const override;
+	[[nodiscard]] bool lazy_finished ();
+	[[nodiscard]] bool lazy_has_expired () const override;
 	uint32_t lazy_batch_size () override;
 	void lazy_pull_flush (nano::unique_lock<nano::mutex> & lock_a);
 	bool process_block_lazy (std::shared_ptr<nano::block> const &, nano::account const &, uint64_t, nano::bulk_pull::count_t, unsigned);
@@ -44,8 +44,8 @@ public:
 	void lazy_backlog_cleanup ();
 	void lazy_blocks_insert (nano::block_hash const &);
 	void lazy_blocks_erase (nano::block_hash const &);
-	bool lazy_blocks_processed (nano::block_hash const &);
-	bool lazy_processed_or_exists (nano::block_hash const &) override;
+	[[nodiscard]] bool lazy_blocks_processed (nano::block_hash const &);
+	[[nodiscard]] bool lazy_processed_or_exists (nano::block_hash const &) override;
 	unsigned lazy_retry_limit_confirmed ();
 	void get_information (boost::property_tree::ptree &) override;
 	std::unordered_set<size_t> lazy_blocks;
@@ -69,7 +69,7 @@ public:
 	void requeue_pending (nano::account const &) override;
 	void run () override;
 	void wallet_start (std::deque<nano::account> &) override;
-	bool wallet_finished ();
+	[[nodiscard]] bool wallet_finished ();
 	size_t wallet_size () override;
 	void get_information (boost::property_tree::ptree &) override;
 	std::deque<nano::account> wallet_accounts;

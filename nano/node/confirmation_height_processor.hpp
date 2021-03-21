@@ -40,8 +40,8 @@ public:
 	void add (std::shared_ptr<nano::block> const &);
 	void run (confirmation_height_mode);
 	size_t awaiting_processing_size () const;
-	bool is_processing_added_block (nano::block_hash const & hash_a) const;
-	bool is_processing_block (nano::block_hash const &) const;
+	[[nodiscard]] bool is_processing_added_block (nano::block_hash const & hash_a) const;
+	[[nodiscard]] bool is_processing_block (nano::block_hash const &) const;
 	nano::block_hash current () const;
 
 	void add_cemented_observer (std::function<void(std::shared_ptr<nano::block> const &)> const &);

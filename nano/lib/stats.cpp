@@ -339,16 +339,15 @@ void nano::stat::log_counters_impl (stat_log_sink & sink)
 		sink.write_header ("counters", walltime);
 	}
 
-	for (auto & it : entries)
+	for (auto & [key, pv] : entries)
 	{
-		std::time_t time = std::chrono::system_clock::to_time_t (it.second->counter.get_timestamp ());
+		std::time_t time = std::chrono::system_clock::to_time_t (pv->counter.get_timestamp ());
 		tm local_tm = *localtime (&time);
 
-		auto key = it.first;
 		std::string type = type_to_string (key);
 		std::string detail = detail_to_string (key);
 		std::string dir = dir_to_string (key);
-		sink.write_entry (local_tm, type, detail, dir, it.second->counter.get_value (), it.second->histogram.get ());
+		sink.write_entry (local_tm, type, detail, dir, pv->counter.get_value (), pv->histogram.get ());
 	}
 	sink.entries ()++;
 	sink.finalize ();
@@ -374,14 +373,13 @@ void nano::stat::log_samples_impl (stat_log_sink & sink)
 		sink.write_header ("samples", walltime);
 	}
 
-	for (auto & it : entries)
+	for (auto & [key, pv] : entries)
 	{
-		auto key = it.first;
 		std::string type = type_to_string (key);
 		std::string detail = detail_to_string (key);
 		std::string dir = dir_to_string (key);
 
-		for (auto & datapoint : it.second->samples)
+		for (auto & datapoint : pv->samples)
 		{
 			std::time_t time = std::chrono::system_clock::to_time_t (datapoint.get_timestamp ());
 			tm local_tm = *localtime (&time);

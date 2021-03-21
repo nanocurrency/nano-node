@@ -44,8 +44,8 @@ public:
 	/** Block until the currently active processing cycle finishes */
 	void flush_active ();
 	size_t size ();
-	bool empty ();
-	bool half_full ();
+	[[nodiscard]] bool empty ();
+	[[nodiscard]] bool half_full ();
 	void calculate_weights ();
 	void stop ();
 	std::atomic<uint64_t> total_processed{ 0 };

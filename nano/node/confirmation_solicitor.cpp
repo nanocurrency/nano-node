@@ -88,11 +88,10 @@ bool nano::confirmation_solicitor::add (nano::election const & election_a)
 void nano::confirmation_solicitor::flush ()
 {
 	debug_assert (prepared);
-	for (auto const & request_queue : requests)
+	for (auto const & [channel, root_hashes] : requests)
 	{
-		auto const & channel (request_queue.first);
 		std::vector<std::pair<nano::block_hash, nano::root>> roots_hashes_l;
-		for (auto const & root_hash : request_queue.second)
+		for (auto const & root_hash : root_hashes)
 		{
 			roots_hashes_l.push_back (root_hash);
 			if (roots_hashes_l.size () == nano::network::confirm_req_hashes_max)

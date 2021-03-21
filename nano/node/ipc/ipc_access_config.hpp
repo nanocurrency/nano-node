@@ -104,9 +104,9 @@ namespace ipc
 	class access final
 	{
 	public:
-		bool has_access (std::string const & credentials_a, nano::ipc::access_permission permission_a) const;
-		bool has_access_to_all (std::string const & credentials_a, std::initializer_list<nano::ipc::access_permission> permissions_a) const;
-		bool has_access_to_oneof (std::string const & credentials_a, std::initializer_list<nano::ipc::access_permission> permissions_a) const;
+		[[nodiscard]] bool has_access (std::string const & credentials_a, nano::ipc::access_permission permission_a) const;
+		[[nodiscard]] bool has_access_to_all (std::string const & credentials_a, std::initializer_list<nano::ipc::access_permission> permissions_a) const;
+		[[nodiscard]] bool has_access_to_oneof (std::string const & credentials_a, std::initializer_list<nano::ipc::access_permission> permissions_a) const;
 		nano::error deserialize_toml (nano::tomlconfig &);
 
 	private:

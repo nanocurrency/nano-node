@@ -712,9 +712,9 @@ void nano::bulk_pull_account_server::send_next_block ()
 	 * Get the next item from the queue, it is a tuple with the key (which
 	 * contains the account and hash) and data (which contains the amount)
 	 */
-	auto block_data (get_next ());
-	auto block_info_key (block_data.first.get ());
-	auto block_info (block_data.second.get ());
+	auto [pending_key, pending_info] (get_next ());
+	auto block_info_key (pending_key.get ());
+	auto block_info (pending_info.get ());
 
 	if (block_info_key != nullptr)
 	{

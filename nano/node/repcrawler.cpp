@@ -33,10 +33,8 @@ void nano::rep_crawler::validate ()
 		responses_l.swap (responses);
 	}
 	auto minimum = node.minimum_principal_weight ();
-	for (auto const & i : responses_l)
+	for (auto const & [channel, vote] : responses_l)
 	{
-		auto & vote = i.second;
-		auto & channel = i.first;
 		debug_assert (channel != nullptr);
 		if (channel->get_type () != nano::transport::transport_type::loopback)
 		{
@@ -48,7 +46,7 @@ void nano::rep_crawler::validate ()
 				auto existing (probable_reps.find (vote->account));
 				if (existing != probable_reps.end ())
 				{
-					probable_reps.modify (existing, [rep_weight, &updated_or_inserted, &vote, &channel](nano::representative & info) {
+					probable_reps.modify (existing, [rep_weight, &updated_or_inserted, &vote = vote, &channel = channel](nano::representative & info) {
 						info.last_response = std::chrono::steady_clock::now ();
 
 						// Update if representative channel was changed

@@ -80,7 +80,7 @@ public:
 	nano::block_hash full_hash () const;
 	nano::block_sideband const & sideband () const;
 	void sideband_set (nano::block_sideband const &);
-	bool has_sideband () const;
+	[[nodiscard]] bool has_sideband () const;
 	std::string to_json () const;
 	virtual void hash (blake2b_state &) const = 0;
 	virtual uint64_t block_work () const = 0;
@@ -110,7 +110,7 @@ public:
 	virtual nano::signature const & block_signature () const = 0;
 	virtual void signature_set (nano::signature const &) = 0;
 	virtual ~block () = default;
-	virtual bool valid_predecessor (nano::block const &) const = 0;
+	[[nodiscard]] virtual bool valid_predecessor (nano::block const &) const = 0;
 	static size_t size (nano::block_type);
 	virtual nano::work_version work_version () const;
 	uint64_t difficulty () const;
@@ -170,7 +170,7 @@ public:
 	void signature_set (nano::signature const &) override;
 	bool operator== (nano::block const &) const override;
 	bool operator== (nano::send_block const &) const;
-	bool valid_predecessor (nano::block const &) const override;
+	[[nodiscard]] bool valid_predecessor (nano::block const &) const override;
 	send_hashables hashables;
 	nano::signature signature;
 	uint64_t work;
@@ -215,7 +215,7 @@ public:
 	void signature_set (nano::signature const &) override;
 	bool operator== (nano::block const &) const override;
 	bool operator== (nano::receive_block const &) const;
-	bool valid_predecessor (nano::block const &) const override;
+	[[nodiscard]] bool valid_predecessor (nano::block const &) const override;
 	receive_hashables hashables;
 	nano::signature signature;
 	uint64_t work;
@@ -264,7 +264,7 @@ public:
 	void signature_set (nano::signature const &) override;
 	bool operator== (nano::block const &) const override;
 	bool operator== (nano::open_block const &) const;
-	bool valid_predecessor (nano::block const &) const override;
+	[[nodiscard]] bool valid_predecessor (nano::block const &) const override;
 	nano::open_hashables hashables;
 	nano::signature signature;
 	uint64_t work;
@@ -309,7 +309,7 @@ public:
 	void signature_set (nano::signature const &) override;
 	bool operator== (nano::block const &) const override;
 	bool operator== (nano::change_block const &) const;
-	bool valid_predecessor (nano::block const &) const override;
+	[[nodiscard]] bool valid_predecessor (nano::block const &) const override;
 	nano::change_hashables hashables;
 	nano::signature signature;
 	uint64_t work;
@@ -370,7 +370,7 @@ public:
 	void signature_set (nano::signature const &) override;
 	bool operator== (nano::block const &) const override;
 	bool operator== (nano::state_block const &) const;
-	bool valid_predecessor (nano::block const &) const override;
+	[[nodiscard]] bool valid_predecessor (nano::block const &) const override;
 	nano::state_hashables hashables;
 	nano::signature signature;
 	uint64_t work;

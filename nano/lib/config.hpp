@@ -133,7 +133,7 @@ public:
 	static const nano::work_thresholds publish_test;
 
 	/** Error message when an invalid network is specified */
-	static const char * active_network_err_msg;
+	inline static const char * active_network_err_msg = "Invalid network. Valid values are live, test, beta and dev.";
 
 	/** The network this param object represents. This may differ from the global active network; this is needed for certain --debug... commands */
 	nano_networks current_network{ nano::network_constants::active_network };
@@ -167,7 +167,7 @@ public:
 	 * If not called, the compile-time option will be used.
 	 * @param network_a The new active network. Valid values are "live", "beta" and "dev"
 	 */
-	static bool set_active_network (std::string network_a)
+	[[nodiscard]] static bool set_active_network (std::string network_a)
 	{
 		auto error{ false };
 		if (network_a == "live")
@@ -198,19 +198,19 @@ public:
 		return is_live_network () ? "live" : is_beta_network () ? "beta" : is_test_network () ? "test" : "dev";
 	}
 
-	bool is_live_network () const
+	[[nodiscard]] bool is_live_network () const
 	{
 		return current_network == nano_networks::nano_live_network;
 	}
-	bool is_beta_network () const
+	[[nodiscard]] bool is_beta_network () const
 	{
 		return current_network == nano_networks::nano_beta_network;
 	}
-	bool is_dev_network () const
+	[[nodiscard]] bool is_dev_network () const
 	{
 		return current_network == nano_networks::nano_dev_network;
 	}
-	bool is_test_network () const
+	[[nodiscard]] bool is_test_network () const
 	{
 		return current_network == nano_networks::nano_test_network;
 	}

@@ -99,7 +99,7 @@ public:
 class frontiers_confirmation_info
 {
 public:
-	bool can_start_elections () const;
+	[[nodiscard]] bool can_start_elections () const;
 
 	size_t max_elections{ 0 };
 	bool aggressive_mode{ false };
@@ -163,8 +163,8 @@ public:
 	// Distinguishes replay votes, cannot be determined if the block is not in any election
 	nano::vote_code vote (std::shared_ptr<nano::vote> const &);
 	// Is the root of this block in the roots container
-	bool active (nano::block const &);
-	bool active (nano::qualified_root const &);
+	[[nodiscard]] bool active (nano::block const &);
+	[[nodiscard]] bool active (nano::qualified_root const &);
 	std::shared_ptr<nano::election> election (nano::qualified_root const &) const;
 	std::shared_ptr<nano::block> winner (nano::block_hash const &) const;
 	// Activates the first unconfirmed block of \p account_a
@@ -183,10 +183,10 @@ public:
 	double active_multiplier ();
 	void erase (nano::block const &);
 	void erase_hash (nano::block_hash const &);
-	bool empty ();
+	[[nodiscard]] bool empty ();
 	size_t size ();
 	void stop ();
-	bool publish (std::shared_ptr<nano::block> const &);
+	[[nodiscard]] bool publish (std::shared_ptr<nano::block> const &);
 	boost::optional<nano::election_status_type> confirm_block (nano::transaction const &, std::shared_ptr<nano::block> const &);
 	void block_cemented_callback (std::shared_ptr<nano::block> const &);
 	void block_already_cemented_callback (nano::block_hash const &);
@@ -302,7 +302,7 @@ private:
 	void confirm_prioritized_frontiers (nano::transaction const &, uint64_t, uint64_t &);
 	void confirm_expired_frontiers_pessimistically (nano::transaction const &, uint64_t, uint64_t &);
 	void frontiers_confirmation (nano::unique_lock<nano::mutex> &);
-	bool insert_election_from_frontiers_confirmation (std::shared_ptr<nano::block> const &, nano::account const &, nano::uint128_t, nano::election_behavior);
+	[[nodiscard]] bool insert_election_from_frontiers_confirmation (std::shared_ptr<nano::block> const &, nano::account const &, nano::uint128_t, nano::election_behavior);
 	nano::account next_frontier_account{ 0 };
 	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };
 	constexpr static size_t max_active_elections_frontier_insertion{ 1000 };
@@ -313,11 +313,11 @@ private:
 	bool skip_wallets{ false };
 	std::atomic<unsigned> optimistic_elections_count{ 0 };
 	void prioritize_frontiers_for_confirmation (nano::transaction const &, std::chrono::milliseconds, std::chrono::milliseconds);
-	bool prioritize_account_for_confirmation (prioritize_num_uncemented &, size_t &, nano::account const &, nano::account_info const &, uint64_t);
+	[[nodiscard]] bool prioritize_account_for_confirmation (prioritize_num_uncemented &, size_t &, nano::account const &, nano::account_info const &, uint64_t);
 	unsigned max_optimistic ();
 	void set_next_frontier_check (bool);
 	void add_expired_optimistic_election (nano::election const &);
-	bool should_do_frontiers_confirmation () const;
+	[[nodiscard]] bool should_do_frontiers_confirmation () const;
 	static size_t constexpr max_priority_cementable_frontiers{ 100000 };
 	static size_t constexpr confirmed_frontiers_max_pending_size{ 10000 };
 	static std::chrono::minutes constexpr expired_optimistic_election_info_cutoff{ 30 };
@@ -341,6 +341,6 @@ private:
 	friend class frontiers_confirmation_expired_optimistic_elections_removal_Test;
 };
 
-bool purge_singleton_inactive_votes_cache_pool_memory ();
+[[nodiscard]] bool purge_singleton_inactive_votes_cache_pool_memory ();
 std::unique_ptr<container_info_component> collect_container_info (active_transactions & active_transactions, std::string const & name);
 }

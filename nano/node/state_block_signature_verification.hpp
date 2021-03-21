@@ -22,7 +22,7 @@ public:
 	void add (nano::unchecked_info const & info_a, bool watch_work_a);
 	size_t size ();
 	void stop ();
-	bool is_active ();
+	[[nodiscard]] bool is_active ();
 
 	std::function<void(std::deque<std::pair<nano::unchecked_info, bool>> &, std::vector<int> const &, std::vector<nano::block_hash> const &, std::vector<nano::signature> const &)> blocks_verified_callback;
 	std::function<void()> transition_inactive_callback;
