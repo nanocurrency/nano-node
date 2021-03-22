@@ -1,0 +1,39 @@
+#include <nano/node/prioritization.hpp>
+
+#include <nano/lib/utility.hpp>
+
+void nano::prioritization::trim ()
+{
+}
+
+nano::prioritization::prioritization (std::function<void (nano::block_hash const &)> const & drop_a) :
+	drop{ drop_a }
+{
+	(void)minimums[0];
+	nano::uint128_t current{ 1 };
+	for (auto i = minimums.begin (), n = minimums.end (); i != n; ++i)
+	{
+		*i = current;
+		current <<= 1;
+	}
+}
+
+void nano::prioritization::insert (uint32_t time, nano::amount const & balance_a, nano::block_hash const & hash_a)
+{
+	assert (!balance_a.is_zero ());
+	auto count = 0;
+	auto bucket = std::upper_bound (minimums.begin (), minimums.end (), balance_a.number ());
+	debug_assert (bucket != minimums.begin ());
+	buckets[bucket - 1 - minimums.begin ()].emplace (value_type{ time, hash_a });
+	trim ();
+}
+
+size_t nano::prioritization::size () const
+{
+	size_t result{ 0 };
+	for (auto const & queue: buckets)
+	{
+		result += queue.size ();
+	}
+	return result;
+}
