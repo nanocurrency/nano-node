@@ -6,8 +6,18 @@ void nano::prioritization::trim ()
 {
 }
 
+void nano::prioritization::next ()
+{
+	++current;
+	if (current == buckets.end ())
+	{
+		current = buckets.begin ();
+	}
+}
+
 nano::prioritization::prioritization (std::function<void (nano::block_hash const &)> const & drop_a) :
-	drop{ drop_a }
+	drop{ drop_a },
+	current{ buckets.begin () }
 {
 	(void)minimums[0];
 	nano::uint128_t current{ 1 };

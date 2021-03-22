@@ -2,6 +2,8 @@
 
 #include <gtest/gtest.h>
 
+#include <unordered_set>
+
 TEST (prioritization, construction)
 {
 	nano::prioritization prioritization;
@@ -41,4 +43,39 @@ TEST (prioritization, insert_max)
 	prioritization.insert (1000, std::numeric_limits<nano::uint128_t>::max (), 0);
 	ASSERT_EQ (1, prioritization.size ());
 	ASSERT_EQ (1, prioritization.bucket_size (127));
+}
+
+TEST (prioritization, fetch_empty)
+{
+	std::unordered_set<nano::block_hash> filter;
+	nano::prioritization prioritization;
+	ASSERT_TRUE (prioritization.fetch (filter).is_zero ());
+}
+
+TEST (prioritization, fetch_one)
+{
+	std::unordered_set<nano::block_hash> filter;
+	nano::prioritization prioritization;
+	prioritization.insert (1000, 256, 42);
+	ASSERT_EQ (nano::block_hash{ 42 }, prioritization.fetch (filter));
+}
+
+TEST (prioritization, fetch_filter_priority)
+{
+	std::unordered_set<nano::block_hash> filter;
+	filter.emplace (42);
+	nano::prioritization prioritization;
+	prioritization.insert (1000, 256, 42);
+	prioritization.insert (1001, 512, 43);
+	ASSERT_EQ (nano::block_hash{ 43 }, prioritization.fetch (filter));
+}
+
+TEST (prioritization, fetch_filter_bucket)
+{
+	std::unordered_set<nano::block_hash> filter;
+	filter.emplace (42);
+	nano::prioritization prioritization;
+	prioritization.insert (1000, 256, 42);
+	prioritization.insert (999, 256, 43);
+	ASSERT_EQ (nano::block_hash{ 43 }, prioritization.fetch (filter));
 }
