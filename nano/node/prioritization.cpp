@@ -28,13 +28,13 @@ nano::prioritization::prioritization (std::function<void (nano::block_hash const
 	}
 }
 
-void nano::prioritization::insert (uint32_t time, nano::amount const & balance_a, nano::block_hash const & hash_a)
+void nano::prioritization::insert (uint32_t time, nano::amount const & balance_a, nano::account const & account_a)
 {
 	assert (!balance_a.is_zero ());
 	auto count = 0;
 	auto bucket = std::upper_bound (minimums.begin (), minimums.end (), balance_a.number ());
 	debug_assert (bucket != minimums.begin ());
-	buckets[bucket - 1 - minimums.begin ()].emplace (value_type{ time, hash_a });
+	buckets[bucket - 1 - minimums.begin ()].emplace (value_type{ time, account_a });
 	trim ();
 }
 

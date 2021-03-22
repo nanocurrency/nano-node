@@ -13,10 +13,10 @@ class prioritization final
 	{
 	public:
 		uint32_t time;
-		nano::block_hash hash;
+		nano::account account;
 		bool operator< (value_type const & other_a) const
 		{
-			return time < other_a.time || hash < other_a.hash;
+			return time < other_a.time || account < other_a.account;
 		}
 	};
 	static void drop_void (nano::block_hash const &) {};
@@ -29,20 +29,20 @@ class prioritization final
 	decltype(buckets)::const_iterator current;
 public:
 	prioritization (std::function<void (nano::block_hash const &)> const & drop_a = drop_void);
-	void insert (uint32_t time, nano::amount const & balance_a, nano::block_hash const & hash_a);
+	void insert (uint32_t time, nano::amount const & balance_a, nano::account const & account_a);
 	template <typename filter>
-	nano::block_hash fetch (filter const & filter_a)
+	nano::account fetch (filter const & filter_a)
 	{
-		nano::block_hash result{ 0 };
+		nano::account result{ 0 };
 		for (auto count = 0; count < buckets.size () && result.is_zero (); ++count, next ())
 		{
 			for (auto i = current->begin (), n = current->end (); i != n && result.is_zero (); ++i)
 			{
 				auto time = i->time;
-				auto hash = i->hash;
-				if (filter_a.find (hash) == filter_a.end ())
+				auto account = i->account;
+				if (filter_a.find (account) == filter_a.end ())
 				{
-					result = hash;
+					result = account;
 				}
 			}
 		}

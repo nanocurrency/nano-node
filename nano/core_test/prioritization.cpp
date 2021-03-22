@@ -47,35 +47,35 @@ TEST (prioritization, insert_max)
 
 TEST (prioritization, fetch_empty)
 {
-	std::unordered_set<nano::block_hash> filter;
+	std::unordered_set<nano::account> filter;
 	nano::prioritization prioritization;
 	ASSERT_TRUE (prioritization.fetch (filter).is_zero ());
 }
 
 TEST (prioritization, fetch_one)
 {
-	std::unordered_set<nano::block_hash> filter;
+	std::unordered_set<nano::account> filter;
 	nano::prioritization prioritization;
 	prioritization.insert (1000, 256, 42);
-	ASSERT_EQ (nano::block_hash{ 42 }, prioritization.fetch (filter));
+	ASSERT_EQ (nano::account{ 42 }, prioritization.fetch (filter));
 }
 
 TEST (prioritization, fetch_filter_priority)
 {
-	std::unordered_set<nano::block_hash> filter;
+	std::unordered_set<nano::account> filter;
 	filter.emplace (42);
 	nano::prioritization prioritization;
 	prioritization.insert (1000, 256, 42);
 	prioritization.insert (1001, 512, 43);
-	ASSERT_EQ (nano::block_hash{ 43 }, prioritization.fetch (filter));
+	ASSERT_EQ (nano::account{ 43 }, prioritization.fetch (filter));
 }
 
 TEST (prioritization, fetch_filter_bucket)
 {
-	std::unordered_set<nano::block_hash> filter;
+	std::unordered_set<nano::account> filter;
 	filter.emplace (42);
 	nano::prioritization prioritization;
 	prioritization.insert (1000, 256, 42);
 	prioritization.insert (999, 256, 43);
-	ASSERT_EQ (nano::block_hash{ 43 }, prioritization.fetch (filter));
+	ASSERT_EQ (nano::account{ 43 }, prioritization.fetch (filter));
 }
