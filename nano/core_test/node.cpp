@@ -3173,8 +3173,8 @@ TEST (node, epoch_conflict_confirm)
 	ASSERT_EQ (nano::process_result::progress, node0->process (*send).code);
 	ASSERT_EQ (nano::process_result::progress, node0->process (*send2).code);
 	ASSERT_EQ (nano::process_result::progress, node0->process (*open).code);
-	node0->process_active (change);
-	node0->process_active (epoch_open);
+	node0->process_local (change, false);
+	node0->process_local (epoch_open, false);
 	ASSERT_TIMELY (10s, node0->block (change->hash ()) && node0->block (epoch_open->hash ()) && node1->block (change->hash ()) && node1->block (epoch_open->hash ()));
 	// Confirm blocks in node1 to allow generating votes
 	nano::blocks_confirm (*node1, { change, epoch_open }, true /* forced */);
@@ -4503,14 +4503,14 @@ TEST (node, deferred_dependent_elections)
 	            .representative (nano::dev_genesis_key.pub)
 	            .sign (key.prv, key.pub)
 	            .build_shared ();
-	node.process_active (send1);
+	node.process_local (send1);
 	node.block_processor.flush ();
 	auto election_send1 = node.active.election (send1->qualified_root ());
 	ASSERT_NE (nullptr, election_send1);
 
 	// Should process and republish but not start an election for any dependent blocks
-	node.process_active (open);
-	node.process_active (send2);
+	node.process_local (open, false);
+	node.process_local (send2, false);
 	node.block_processor.flush ();
 	ASSERT_TRUE (node.block (open->hash ()));
 	ASSERT_TRUE (node.block (send2->hash ()));
@@ -4521,7 +4521,7 @@ TEST (node, deferred_dependent_elections)
 
 	// Re-processing older blocks with updated work also does not start an election
 	node.work_generate_blocking (*open, open->difficulty () + 1);
-	node.process_active (open);
+	node.process_local (open, false);
 	node.block_processor.flush ();
 	ASSERT_FALSE (node.active.active (open->qualified_root ()));
 	/// However, work is still updated
@@ -4536,7 +4536,7 @@ TEST (node, deferred_dependent_elections)
 	/// The election was dropped but it's still not possible to restart it
 	node.work_generate_blocking (*open, open->difficulty () + 1);
 	ASSERT_FALSE (node.active.active (open->qualified_root ()));
-	node.process_active (open);
+	node.process_local (open, false);
 	node.block_processor.flush ();
 	ASSERT_FALSE (node.active.active (open->qualified_root ()));
 	/// However, work is still updated
@@ -4575,14 +4575,14 @@ TEST (node, deferred_dependent_elections)
 	ASSERT_FALSE (node.active.active (receive->qualified_root ()));
 	ASSERT_FALSE (node.ledger.rollback (node.store.tx_begin_write (), receive->hash ()));
 	ASSERT_FALSE (node.block (receive->hash ()));
-	node.process_active (receive);
+	node.process_local (receive, false);
 	node.block_processor.flush ();
 	ASSERT_TRUE (node.block (receive->hash ()));
 	ASSERT_FALSE (node.active.active (receive->qualified_root ()));
 
 	// Processing a fork will also not start an election
 	ASSERT_EQ (nano::process_result::fork, node.process (*fork).code);
-	node.process_active (fork);
+	node.process_local (fork, false);
 	node.block_processor.flush ();
 	ASSERT_FALSE (node.active.active (receive->qualified_root ()));
 
@@ -4592,7 +4592,7 @@ TEST (node, deferred_dependent_elections)
 	ASSERT_TIMELY (2s, node.active.active (receive->qualified_root ()));
 	node.active.erase (*receive);
 	ASSERT_FALSE (node.active.active (receive->qualified_root ()));
-	node.process_active (fork);
+	node.process_local (fork, false);
 	node.block_processor.flush ();
 	ASSERT_TRUE (node.active.active (receive->qualified_root ()));
 
@@ -4600,7 +4600,7 @@ TEST (node, deferred_dependent_elections)
 	node.active.erase (*fork);
 	ASSERT_FALSE (node.active.active (fork->qualified_root ()));
 	node.work_generate_blocking (*receive, receive->difficulty () + 1);
-	node.process_active (receive);
+	node.process_local (receive, false);
 	node.block_processor.flush ();
 	ASSERT_TRUE (node.active.active (receive->qualified_root ()));
 }

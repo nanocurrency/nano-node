@@ -219,7 +219,7 @@ TEST (vote_processor, no_broadcast_local)
 	ASSERT_EQ (vote->timestamp, existing->second.timestamp);
 	// Ensure the vote, from a local representative, was not broadcast on processing - it should be flooded on generation instead
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
-	ASSERT_EQ (1, node.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));
+	ASSERT_EQ (2, node.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));
 
 	// Repeat test with no representative
 	// Erase account from the wallet
@@ -252,7 +252,7 @@ TEST (vote_processor, no_broadcast_local)
 	ASSERT_EQ (vote2->timestamp, existing2->second.timestamp);
 	// Ensure the vote was broadcast
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
-	ASSERT_EQ (2, node.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));
+	ASSERT_EQ (4, node.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));
 
 	// Repeat test with a PR in the wallet
 	// Increase the genesis weight again
@@ -286,5 +286,5 @@ TEST (vote_processor, no_broadcast_local)
 	ASSERT_EQ (vote3->timestamp, existing3->second.timestamp);
 	// Ensure the vote wass not broadcasst
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
-	ASSERT_EQ (3, node.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));
+	ASSERT_EQ (6, node.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));
 }

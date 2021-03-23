@@ -307,7 +307,6 @@ TEST (confirmation_height, gap_live)
 		system.add_node (node_config, node_flags);
 		nano::keypair destination;
 		system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
-		system.wallet (1)->insert_adhoc (destination.prv);
 
 		nano::genesis genesis;
 		auto send1 (std::make_shared<nano::state_block> (nano::genesis_account, genesis.hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, destination.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));

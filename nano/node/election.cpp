@@ -515,6 +515,10 @@ void nano::election::generate_votes () const
 {
 	if (node.config.enable_voting && node.wallets.reps ().voting > 0)
 	{
+		if (!node.flags.disable_block_processor_republishing)
+		{
+			node.network.flood_block (status.winner, nano::buffer_drop_policy::no_limiter_drop);
+		}
 		node.active.generator.add (root, winner ()->hash ());
 	}
 }
