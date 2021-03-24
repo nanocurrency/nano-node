@@ -736,11 +736,11 @@ TEST (active_transactions, dropped_cleanup)
 TEST (active_transactions, republish_winner)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port (), system.logging };
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	auto & node1 (*system.add_node (node_config));
+	auto & node1 = *system.add_node (node_config);
 	node_config.peering_port = nano::get_available_port ();
-	auto & node2 (*system.add_node (node_config));
+	auto & node2 = *system.add_node (node_config);
 
 	nano::genesis genesis;
 	nano::keypair key;
@@ -790,12 +790,15 @@ TEST (active_transactions, republish_winner)
 
 	node1.process_active (fork);
 	node1.block_processor.flush ();
-	auto vote (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 0, std::vector<nano::block_hash>{ fork->hash () }));
+	auto election = node1.active.election (fork->qualified_root ());
+	ASSERT_NE (nullptr, election);
+	auto vote = std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 0, std::vector<nano::block_hash>{ fork->hash () });
 	node1.vote_processor.vote (vote, std::make_shared<nano::transport::channel_loopback> (node1));
 	node1.vote_processor.flush ();
 	node1.block_processor.flush ();
-
-	ASSERT_TIMELY (3s, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in) == 2);
+	ASSERT_TIMELY (3s, election->confirmed ());
+	ASSERT_EQ (fork->hash (), election->status.winner->hash ());
+	ASSERT_TIMELY (3s, node2.block_confirmed (fork->hash ()));
 }
 
 TEST (active_transactions, fork_filter_cleanup)
