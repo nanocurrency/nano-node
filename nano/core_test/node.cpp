@@ -1127,8 +1127,8 @@ TEST (node, fork_publish_inactive)
 	auto blocks (election->blocks ());
 	ASSERT_NE (blocks.end (), blocks.find (send1->hash ()));
 	ASSERT_NE (blocks.end (), blocks.find (send2->hash ()));
-	ASSERT_NE (election->winner (), send1);
-	ASSERT_NE (election->winner (), send2);
+	ASSERT_EQ (election->winner ()->hash (), send1->hash ());
+	ASSERT_NE (election->winner ()->hash (), send2->hash ());
 }
 
 TEST (node, fork_keep)
