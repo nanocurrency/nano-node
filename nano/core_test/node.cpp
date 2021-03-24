@@ -1119,12 +1119,13 @@ TEST (node, fork_publish_inactive)
 	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
 	             .work (send1->block_work ())
 	             .build_shared ();
-	auto & node (*system.nodes[0]);
-	ASSERT_EQ (nano::process_result::progress, node.process (*send1).code);
+	auto & node = *system.nodes[0];
+	node.process_active (send1);
+	ASSERT_TIMELY (3s, nullptr != node.block (send1->hash ()));
 	ASSERT_EQ (nano::process_result::fork, node.process_local (send2).code);
-	auto election (node.active.election (send1->qualified_root ()));
+	auto election = node.active.election (send1->qualified_root ());
 	ASSERT_NE (election, nullptr);
-	auto blocks (election->blocks ());
+	auto blocks = election->blocks ();
 	ASSERT_NE (blocks.end (), blocks.find (send1->hash ()));
 	ASSERT_NE (blocks.end (), blocks.find (send2->hash ()));
 	ASSERT_EQ (election->winner ()->hash (), send1->hash ());
@@ -1320,17 +1321,16 @@ TEST (node, fork_bootstrap_flip)
 {
 	nano::system system0;
 	nano::system system1;
-	nano::node_config config0 (nano::get_available_port (), system0.logging);
+	nano::node_config config0{ nano::get_available_port (), system0.logging };
 	config0.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_push_client = true;
 	node_flags.disable_lazy_bootstrap = true;
-	auto & node1 (*system0.add_node (config0, node_flags));
+	auto & node1 = *system0.add_node (config0, node_flags);
 	nano::node_config config1 (nano::get_available_port (), system1.logging);
-	config1.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	auto & node2 (*system1.add_node (config1, node_flags));
+	auto & node2 = *system1.add_node (config1, node_flags);
 	system0.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
-	nano::block_hash latest (node1.latest (nano::dev_genesis_key.pub));
+	nano::block_hash latest = node1.latest (nano::dev_genesis_key.pub);
 	nano::keypair key1;
 	nano::send_block_builder builder;
 	auto send1 = builder.make_block ()
@@ -1349,14 +1349,11 @@ TEST (node, fork_bootstrap_flip)
 	             .work (*system0.work.generate (latest))
 	             .build_shared ();
 	// Insert but don't rebroadcast, simulating settled blocks
-	node1.block_processor.add (send1, nano::seconds_since_epoch ());
+	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (node1.store.tx_begin_write (), *send1).code);
 	node1.block_processor.flush ();
-	node2.block_processor.add (send2, nano::seconds_since_epoch ());
+	ASSERT_EQ (nano::process_result::progress, node2.ledger.process (node2.store.tx_begin_write (), *send2).code);
 	node2.block_processor.flush ();
-	{
-		auto transaction (node2.store.tx_begin_read ());
-		ASSERT_TRUE (node2.store.block_exists (transaction, send2->hash ()));
-	}
+	ASSERT_TRUE (node2.store.block_exists (node2.store.tx_begin_read (), send2->hash ()));
 	node2.bootstrap_initiator.bootstrap (node1.network.endpoint ()); // Additionally add new peer to confirm & replace bootstrap block
 	auto again (true);
 	system1.deadline_set (50s);
@@ -1364,8 +1361,7 @@ TEST (node, fork_bootstrap_flip)
 	{
 		ASSERT_NO_ERROR (system0.poll ());
 		ASSERT_NO_ERROR (system1.poll ());
-		auto transaction (node2.store.tx_begin_read ());
-		again = !node2.store.block_exists (transaction, send1->hash ());
+		again = !node2.store.block_exists (node2.store.tx_begin_read (), send1->hash ());
 	}
 }
 
@@ -1956,7 +1952,6 @@ TEST (node, bootstrap_fork_open)
 {
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
-	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto node0 = system.add_node (node_config);
 	node_config.peering_port = nano::get_available_port ();
 	auto node1 = system.add_node (node_config);
@@ -4489,7 +4484,7 @@ TEST (node, deferred_dependent_elections)
 	               .build_shared ();
 	auto fork = builder.make_block ()
 	            .from (*receive)
-	            .representative (nano::dev_genesis_key.pub)
+	            .representative (nano::dev_genesis_key.pub) // was key.pub
 	            .sign (key.prv, key.pub)
 	            .build_shared ();
 	node.process_local (send1);
@@ -4581,13 +4576,6 @@ TEST (node, deferred_dependent_elections)
 	ASSERT_TIMELY (2s, node.active.active (receive->qualified_root ()));
 	node.active.erase (*receive);
 	ASSERT_FALSE (node.active.active (receive->qualified_root ()));
-	node.process_local (fork, false);
-	node.block_processor.flush ();
-	ASSERT_TRUE (node.active.active (receive->qualified_root ()));
-
-	/// If dropped, the election can be restarted once higher work is provided
-	node.active.erase (*fork);
-	ASSERT_FALSE (node.active.active (fork->qualified_root ()));
 	node.work_generate_blocking (*receive, receive->difficulty () + 1);
 	node.process_local (receive, false);
 	node.block_processor.flush ();
