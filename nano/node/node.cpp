@@ -1235,10 +1235,7 @@ void nano::node::add_initial_peers ()
 void nano::node::block_confirm (std::shared_ptr<nano::block> const & block_a)
 {
 	auto election = active.insert (block_a);
-	if (election.inserted)
-	{
-		election.election->transition_active ();
-	}
+	election.election->transition_active ();
 }
 
 bool nano::node::block_confirmed (nano::block_hash const & hash_a)
