@@ -123,6 +123,7 @@ history{ config.network_params.voting },
 vote_uniquer (block_uniquer),
 confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, config.logging, logger, node_initialized_latch, flags.confirmation_height_processor_mode),
 active (*this, confirmation_height_processor),
+scheduler{ *this },
 aggregator (network_params.network, config, stats, active.generator, history, ledger, wallets, active),
 wallets (wallets_store.init_error (), *this),
 startup_time (std::chrono::steady_clock::now ()),
@@ -1234,8 +1235,12 @@ void nano::node::add_initial_peers ()
 
 void nano::node::block_confirm (std::shared_ptr<nano::block> const & block_a)
 {
-	auto election = active.insert (block_a);
-	election.election->transition_active ();
+	scheduler.insert (block_a);
+	auto election = active.election (block_a->qualified_root ());
+	if (election != nullptr)
+	{
+		election->transition_active ();
+	}
 }
 
 bool nano::node::block_confirmed (nano::block_hash const & hash_a)

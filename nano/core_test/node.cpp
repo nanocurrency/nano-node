@@ -1868,11 +1868,14 @@ TEST (node, rep_self_vote)
 	              .work (*system.work.generate (fund_big.hash ()))
 	              .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node0->process (*block0).code);
-	auto & active (node0->active);
-	auto election1 = active.insert (block0);
+	auto & active = node0->active;
+	auto & scheduler = node0->scheduler;
+	scheduler.insert (block0);
+	auto election1 = active.election (block0->qualified_root ());
+	ASSERT_NE (nullptr, election1);
 	// Wait until representatives are activated & make vote
-	ASSERT_TIMELY (1s, election1.election->votes ().size () == 3);
-	auto rep_votes (election1.election->votes ());
+	ASSERT_TIMELY (1s, election1->votes ().size () == 3);
+	auto rep_votes (election1->votes ());
 	ASSERT_NE (rep_votes.end (), rep_votes.find (nano::dev_genesis_key.pub));
 	ASSERT_NE (rep_votes.end (), rep_votes.find (rep_big.pub));
 }
@@ -2984,10 +2987,10 @@ TEST (node, vote_by_hash_bundle)
 		blocks.push_back (block);
 		ASSERT_EQ (nano::process_result::progress, node.ledger.process (node.store.tx_begin_write (), *blocks.back ()).code);
 	}
-	auto election_insertion_result = node.active.insert (blocks.back ());
-	ASSERT_TRUE (election_insertion_result.inserted);
-	ASSERT_NE (nullptr, election_insertion_result.election);
-	election_insertion_result.election->force_confirm ();
+	node.scheduler.insert (blocks.back ());
+	auto election = node.active.election (blocks.back ()->qualified_root ());
+	ASSERT_NE (nullptr, election);
+	election->force_confirm ();
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (key1.prv);

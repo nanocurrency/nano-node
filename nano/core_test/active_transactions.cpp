@@ -338,7 +338,9 @@ TEST (active_transactions, inactive_votes_cache_multiple_votes)
 	ASSERT_TIMELY (5s, node.active.find_inactive_votes_cache (send1->hash ()).voters.size () == 2);
 	ASSERT_EQ (1, node.active.inactive_votes_cache_size ());
 	// Start election
-	auto election = node.active.insert (send1).election;
+	node.scheduler.insert (send1);
+	auto election = node.active.election (send1->qualified_root ());
+	ASSERT_NE (nullptr, election);
 	ASSERT_EQ (3, election->votes ().size ()); // 2 votes and 1 default not_an_acount
 	ASSERT_EQ (2, node.stats.count (nano::stat::type::election, nano::stat::detail::vote_cached));
 }
@@ -695,7 +697,8 @@ TEST (active_transactions, dropped_cleanup)
 	ASSERT_FALSE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
 	ASSERT_TRUE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
 
-	auto election (node.active.insert (block).election);
+	node.scheduler.insert (block);
+	auto election = node.active.election (block->qualified_root ());
 	ASSERT_NE (nullptr, election);
 
 	// Not yet removed
@@ -717,7 +720,8 @@ TEST (active_transactions, dropped_cleanup)
 
 	// Repeat test for a confirmed election
 	ASSERT_TRUE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
-	election = node.active.insert (block).election;
+	node.scheduler.insert (block);
+	election = node.active.election (block->qualified_root ());
 	ASSERT_NE (nullptr, election);
 	election->force_confirm ();
 	ASSERT_TRUE (election->confirmed ());
@@ -1020,7 +1024,7 @@ TEST (active_transactions, confirmation_consistency)
 		system.deadline_set (5s);
 		while (!node.ledger.block_confirmed (node.store.tx_begin_read (), block->hash ()))
 		{
-			ASSERT_FALSE (node.active.insert (block).inserted);
+			node.scheduler.insert (block);
 			ASSERT_NO_ERROR (system.poll (5ms));
 		}
 		ASSERT_NO_ERROR (system.poll_until_true (1s, [&node, &block, i] {
@@ -1119,19 +1123,26 @@ TEST (active_transactions, insertion_prioritization)
 		node.active.update_active_multiplier (lock);
 	};
 
-	ASSERT_TRUE (node.active.insert (blocks[2]).election->prioritized ());
+	node.scheduler.insert (blocks[2]);
+	ASSERT_TRUE (node.active.election (blocks[2]->qualified_root ())->prioritized ());
 	update_active_multiplier ();
-	ASSERT_FALSE (node.active.insert (blocks[3]).election->prioritized ());
+	node.scheduler.insert (blocks[3]);
+	ASSERT_FALSE (node.active.election (blocks[3]->qualified_root ())->prioritized ());
 	update_active_multiplier ();
-	ASSERT_TRUE (node.active.insert (blocks[1]).election->prioritized ());
+	node.scheduler.insert(blocks[1]);
+	ASSERT_TRUE (node.active.election (blocks[1]->qualified_root ())->prioritized ());
 	update_active_multiplier ();
-	ASSERT_FALSE (node.active.insert (blocks[4]).election->prioritized ());
+	node.scheduler.insert (blocks[4]);
+	ASSERT_FALSE (node.active.election (blocks[4]->qualified_root ())->prioritized ());
 	update_active_multiplier ();
-	ASSERT_TRUE (node.active.insert (blocks[0]).election->prioritized ());
+	node.scheduler.insert (blocks[0]);
+	ASSERT_TRUE (node.active.election (blocks[0]->qualified_root ())->prioritized ());
 	update_active_multiplier ();
-	ASSERT_FALSE (node.active.insert (blocks[5]).election->prioritized ());
+	node.scheduler.insert (blocks[5]);
+	ASSERT_FALSE (node.active.election (blocks[5]->qualified_root ())->prioritized ());
 	update_active_multiplier ();
-	ASSERT_FALSE (node.active.insert (blocks[6]).election->prioritized ());
+	node.scheduler.insert (blocks[6]);
+	ASSERT_FALSE (node.active.election (blocks[6]->qualified_root ())->prioritized ());
 
 	ASSERT_EQ (4, node.stats.count (nano::stat::type::election, nano::stat::detail::election_non_priority));
 	ASSERT_EQ (3, node.stats.count (nano::stat::type::election, nano::stat::detail::election_priority));

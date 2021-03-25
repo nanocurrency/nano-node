@@ -19,14 +19,15 @@ size_t constexpr nano::active_transactions::max_active_elections_frontier_insert
 constexpr std::chrono::minutes nano::active_transactions::expired_optimistic_election_info_cutoff;
 
 nano::active_transactions::active_transactions (nano::node & node_a, nano::confirmation_height_processor & confirmation_height_processor_a) :
-confirmation_height_processor (confirmation_height_processor_a),
-node (node_a),
-multipliers_cb (20, 1.),
-trended_active_multiplier (1.0),
-generator (node_a.config, node_a.ledger, node_a.wallets, node_a.vote_processor, node_a.history, node_a.network, node_a.stats),
-check_all_elections_period (node_a.network_params.network.is_dev_network () ? 10ms : 5s),
-election_time_to_live (node_a.network_params.network.is_dev_network () ? 0s : 2s),
-prioritized_cutoff (std::max<size_t> (1, node_a.config.active_elections_size / 10)),
+scheduler{ node_a.scheduler }, // Move dependencies requiring this circular reference
+confirmation_height_processor{ confirmation_height_processor_a },
+node{ node_a },
+multipliers_cb{ 20, 1. },
+trended_active_multiplier{ 1.0 },
+generator{ node_a.config, node_a.ledger, node_a.wallets, node_a.vote_processor, node_a.history, node_a.network, node_a.stats },
+check_all_elections_period{ node_a.network_params.network.is_dev_network () ? 10ms : 5s },
+election_time_to_live{ node_a.network_params.network.is_dev_network () ? 0s : 2s },
+prioritized_cutoff{ std::max<size_t> (1, node_a.config.active_elections_size / 10) },
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::request_loop);
 	request_loop ();
@@ -859,12 +860,6 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 	return result;
 }
 
-nano::election_insertion_result nano::active_transactions::insert (std::shared_ptr<nano::block> const & block_a, boost::optional<nano::uint128_t> const & previous_balance_a, nano::election_behavior election_behavior_a, std::function<void(std::shared_ptr<nano::block> const &)> const & confirmation_action_a)
-{
-	nano::unique_lock<nano::mutex> lock (mutex);
-	return insert_impl (lock, block_a, previous_balance_a, election_behavior_a, confirmation_action_a);
-}
-
 // Validate a vote and apply it to the current election if one exists
 nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> const & vote_a)
 {
@@ -998,9 +993,12 @@ nano::election_insertion_result nano::active_transactions::activate (nano::accou
 			release_assert (block != nullptr);
 			if (node.ledger.dependents_confirmed (transaction, *block))
 			{
-				result = insert (block);
-				if (result.inserted)
+				auto existed = election (block->qualified_root ());
+				scheduler.insert (block);
+				result.election = election (block->qualified_root ());
+				if (result.election != nullptr)
 				{
+					result.inserted = !existed;
 					result.election->transition_active ();
 				}
 			}
@@ -1063,7 +1061,7 @@ void nano::active_transactions::restart (nano::transaction const & transaction_a
 			{
 				node.stats.inc (nano::stat::type::election, nano::stat::detail::election_restart);
 				auto previous_balance = node.ledger.balance (transaction_a, ledger_block->previous ());
-				auto insert_result = insert (ledger_block, previous_balance);
+				scheduler.insert (ledger_block, previous_balance);
 			}
 		}
 	}
