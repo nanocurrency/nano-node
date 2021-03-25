@@ -1042,7 +1042,7 @@ bool nano::active_transactions::update_difficulty_impl (nano::active_transaction
 	return error;
 }
 
-bool nano::active_transactions::restart (nano::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a)
+void nano::active_transactions::restart (nano::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a)
 {
 	bool error = true;
 	auto hash (block_a->hash ());
@@ -1061,13 +1061,9 @@ bool nano::active_transactions::restart (nano::transaction const & transaction_a
 			// Restart election for the upgraded block, previously dropped from elections
 			if (node.ledger.dependents_confirmed (transaction_a, *ledger_block))
 			{
+				node.stats.inc (nano::stat::type::election, nano::stat::detail::election_restart);
 				auto previous_balance = node.ledger.balance (transaction_a, ledger_block->previous ());
 				auto insert_result = insert (ledger_block, previous_balance);
-				if (insert_result.inserted)
-				{
-					error = false;
-					node.stats.inc (nano::stat::type::election, nano::stat::detail::election_restart);
-				}
 			}
 		}
 	}
