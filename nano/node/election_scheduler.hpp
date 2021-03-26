@@ -25,7 +25,6 @@ public:
 	// Activates the first unconfirmed block of \p account_a
 	void activate (nano::account const &);
 	void stop ();
-	void flush ();
 private:
 	void run ();
 	std::deque<std::shared_ptr<nano::block>> activate_queue;
