@@ -247,13 +247,13 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 		if (cemented_bootstrap_count_reached && was_active && low_active_elections ())
 		{
 			// Start or vote for the next unconfirmed block
-			activate (account);
+			scheduler.activate (account);
 
 			// Start or vote for the next unconfirmed block in the destination account
 			auto const & destination (node.ledger.block_destination (transaction, *block_a));
 			if (!destination.is_zero () && destination != account)
 			{
-				activate (destination);
+				scheduler.activate (destination);
 			}
 		}
 	}
@@ -972,37 +972,6 @@ std::shared_ptr<nano::block> nano::active_transactions::winner (nano::block_hash
 		auto election = existing->second;
 		lock.unlock ();
 		result = election->winner ();
-	}
-	return result;
-}
-
-nano::election_insertion_result nano::active_transactions::activate (nano::account const & account_a)
-{
-	nano::election_insertion_result result;
-	auto transaction (node.store.tx_begin_read ());
-	nano::account_info account_info;
-	if (!node.store.account_get (transaction, account_a, account_info))
-	{
-		nano::confirmation_height_info conf_info;
-		node.store.confirmation_height_get (transaction, account_a, conf_info);
-		if (conf_info.height < account_info.block_count)
-		{
-			debug_assert (conf_info.frontier != account_info.head);
-			auto hash = conf_info.height == 0 ? account_info.open_block : node.store.block_successor (transaction, conf_info.frontier);
-			auto block = node.store.block_get (transaction, hash);
-			release_assert (block != nullptr);
-			if (node.ledger.dependents_confirmed (transaction, *block))
-			{
-				auto existed = election (block->qualified_root ());
-				scheduler.insert (block);
-				result.election = election (block->qualified_root ());
-				if (result.election != nullptr)
-				{
-					result.inserted = !existed;
-					result.election->transition_active ();
-				}
-			}
-		}
 	}
 	return result;
 }
