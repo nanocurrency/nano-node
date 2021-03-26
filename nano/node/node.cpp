@@ -674,6 +674,7 @@ void nano::node::stop ()
 		}
 		aggregator.stop ();
 		vote_processor.stop ();
+		scheduler.stop ();
 		active.stop ();
 		confirmation_height_processor.stop ();
 		network.stop ();

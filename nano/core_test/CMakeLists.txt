@@ -14,6 +14,7 @@ add_executable(
   difficulty.cpp
   distributed_work.cpp
   election.cpp
+  election_scheduler.cpp
   epochs.cpp
   frontiers_confirmation.cpp
   gap_cache.cpp

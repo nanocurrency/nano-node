@@ -2,6 +2,19 @@
 
 #include <nano/node/node.hpp>
 
+nano::election_scheduler::election_scheduler (nano::node & node) :
+	node{ node },
+	stopped{ false },
+	thread{ [this] () { run (); }}
+{
+}
+
+nano::election_scheduler::~election_scheduler ()
+{
+	stop ();
+	thread.join ();
+}
+
 void nano::election_scheduler::insert (std::shared_ptr<nano::block> const & block_a, boost::optional<nano::uint128_t> const & previous_balance_a, nano::election_behavior election_behavior_a, std::function<void(std::shared_ptr<nano::block> const &)> const & confirmation_action_a)
 {
 	nano::unique_lock<nano::mutex> lock (node.active.mutex);
@@ -24,6 +37,35 @@ void nano::election_scheduler::activate (nano::account const & account_a)
 			release_assert (block != nullptr);
 			if (node.ledger.dependents_confirmed (transaction, *block))
 			{
+				std::lock_guard<std::mutex> lock{ mutex };
+				activate_queue.push_back (block);
+				condition.notify_all ();
+			}
+		}
+	}
+}
+
+void nano::election_scheduler::stop ()
+{
+	std::unique_lock<std::mutex> lock{ mutex };
+	stopped = true;
+	condition.notify_all ();
+}
+
+void nano::election_scheduler::run ()
+{
+	std::unique_lock<std::mutex> lock{ mutex };
+	while (!stopped)
+	{
+		condition.wait (lock, [this] () {
+			return stopped || !activate_queue.empty ();
+		});
+		if (!stopped)
+		{
+			if (!activate_queue.empty())
+			{
+				auto block = activate_queue.front ();
+				activate_queue.pop_front ();
 				insert (block);
 				auto election = node.active.election (block->qualified_root ());
 				if (election != nullptr)

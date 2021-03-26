@@ -1588,8 +1588,8 @@ TEST (active_transactions, activate_account_chain)
 	ASSERT_EQ (nano::process_result::progress, node.process (*receive).code);
 
 	node.scheduler.activate (nano::dev_genesis_key.pub);
+	ASSERT_TIMELY (1s, 1 == node.active.size ());
 	auto election1 = node.active.election (send->qualified_root ());
-	ASSERT_EQ (1, node.active.size ());
 	ASSERT_EQ (1, election1->blocks ().count (send->hash ()));
 	node.scheduler.activate (nano::dev_genesis_key.pub);
 	auto election2 = node.active.election (send->qualified_root ());

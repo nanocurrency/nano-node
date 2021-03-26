@@ -1011,7 +1011,6 @@ bool nano::active_transactions::update_difficulty_impl (nano::active_transaction
 
 void nano::active_transactions::restart (nano::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a)
 {
-	bool error = true;
 	auto hash (block_a->hash ());
 	auto ledger_block (node.store.block_get (transaction_a, hash));
 	if (ledger_block != nullptr && ledger_block->block_work () != block_a->block_work () && !node.block_confirmed_or_being_confirmed (transaction_a, hash))
@@ -1034,7 +1033,6 @@ void nano::active_transactions::restart (nano::transaction const & transaction_a
 			}
 		}
 	}
-	return error;
 }
 
 double nano::active_transactions::normalized_multiplier (nano::block const & block_a, boost::optional<nano::active_transactions::roots_iterator> const & root_it_a) const
