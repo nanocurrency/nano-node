@@ -569,7 +569,7 @@ if(NANO_FUZZER_TEST)
 endif()
 
 if(NANO_TEST OR RAIBLOCKS_TEST)
-  find_package(Boost 1.69.0 REQUIRED COMPONENTS coroutine context)
+  find_package(Boost 1.69.0 REQUIRED)
   if(WIN32)
     if(MSVC_VERSION)
       if(MSVC_VERSION GREATER_EQUAL 1910)
