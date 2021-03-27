@@ -52,6 +52,13 @@ void nano::election_scheduler::stop ()
 	condition.notify_all ();
 }
 
+void nano::election_scheduler::flush ()
+{
+	std::unique_lock<std::mutex> lock{ mutex };
+	auto activate_target = activate_queued + activate_queue.size ();
+	condition.wait (lock, [this, &activate_target] () { return activate_queued >= activate_target; });
+}
+
 void nano::election_scheduler::run ()
 {
 	std::unique_lock<std::mutex> lock{ mutex };
@@ -66,6 +73,7 @@ void nano::election_scheduler::run ()
 			{
 				auto block = activate_queue.front ();
 				activate_queue.pop_front ();
+				++activate_queued;
 				insert (block);
 				auto election = node.active.election (block->qualified_root ());
 				if (election != nullptr)
@@ -73,6 +81,7 @@ void nano::election_scheduler::run ()
 					election->transition_active ();
 				}
 			}
+			condition.notify_all ();
 		}
 	}
 }
