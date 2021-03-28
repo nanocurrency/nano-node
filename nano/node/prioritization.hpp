@@ -22,8 +22,8 @@ class prioritization final
 	};
 	static void drop_void (nano::block_hash const &) {};
 	using priority = std::set<value_type>;
-	std::array<priority, 128> buckets;
-	std::array<nano::uint128_t, 128> minimums;
+	std::vector<priority> buckets;
+	std::vector<nano::uint128_t> minimums;
 	void trim ();
 	void next ();
 	void populate_schedule ();
@@ -53,8 +53,8 @@ public:
 		return result;
 	}
 	size_t size () const;
-	size_t bucket_count () const { return buckets.size (); }
-	size_t bucket_size (size_t index) const { return buckets[index].size (); }
+	size_t bucket_count () const;
+	size_t bucket_size (size_t index) const;
 	static size_t constexpr unconfirmed_max = 250000;
 };
 }

@@ -31,11 +31,14 @@ void nano::prioritization::populate_schedule ()
 nano::prioritization::prioritization (std::function<void (nano::block_hash const &)> const & drop_a) :
 	drop{ drop_a }
 {
+	static size_t constexpr bucket_count = 129;
+	buckets.resize (bucket_count);
 	(void)minimums[0];
 	nano::uint128_t minimum{ 1 };
-	for (auto i = minimums.begin (), n = minimums.end (); i != n; ++i)
+	minimums.push_back (0);
+	for (auto i = 1; i < bucket_count; ++i)
 	{
-		*i = minimum;
+		minimums.push_back (minimum);
 		minimum <<= 1;
 	}
 	populate_schedule ();
@@ -44,7 +47,6 @@ nano::prioritization::prioritization (std::function<void (nano::block_hash const
 
 void nano::prioritization::insert (uint32_t time, nano::amount const & balance_a, nano::account const & account_a)
 {
-	assert (!balance_a.is_zero ());
 	auto count = 0;
 	auto bucket = std::upper_bound (minimums.begin (), minimums.end (), balance_a.number ());
 	debug_assert (bucket != minimums.begin ());
@@ -60,4 +62,14 @@ size_t nano::prioritization::size () const
 		result += queue.size ();
 	}
 	return result;
+}
+
+size_t nano::prioritization::bucket_count () const
+{
+	return buckets.size ();
+}
+
+size_t nano::prioritization::bucket_size (size_t index) const
+{
+	return buckets[index].size ();
 }
