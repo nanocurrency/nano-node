@@ -17,8 +17,9 @@ nano::election_scheduler::~election_scheduler ()
 
 void nano::election_scheduler::insert (std::shared_ptr<nano::block> const & block_a, boost::optional<nano::uint128_t> const & previous_balance_a, nano::election_behavior election_behavior_a, std::function<void(std::shared_ptr<nano::block> const &)> const & confirmation_action_a)
 {
-	nano::unique_lock<nano::mutex> lock (node.active.mutex);
-	node.active.insert_impl (lock, block_a, previous_balance_a, election_behavior_a, confirmation_action_a);
+	std::lock_guard<std::mutex> lock{ mutex };
+	insert_queue.push_back (std::make_tuple (block_a, previous_balance_a, election_behavior_a, confirmation_action_a));
+	condition.notify_all ();
 }
 
 void nano::election_scheduler::activate (nano::account const & account_a)
@@ -56,7 +57,11 @@ void nano::election_scheduler::flush ()
 {
 	std::unique_lock<std::mutex> lock{ mutex };
 	auto activate_target = activate_queued + activate_queue.size ();
-	condition.wait (lock, [this, &activate_target] () { return activate_queued >= activate_target; });
+	auto insert_target = insert_queued + insert_queue.size ();
+	condition.wait (lock, [this, &activate_target, &insert_target] () {
+		return activate_queued >= activate_target &&
+		       insert_queued >= insert_target;
+	});
 }
 
 void nano::election_scheduler::run ()
@@ -65,21 +70,33 @@ void nano::election_scheduler::run ()
 	while (!stopped)
 	{
 		condition.wait (lock, [this] () {
-			return stopped || !activate_queue.empty ();
+			return stopped || !activate_queue.empty () || !insert_queue.empty ();
 		});
 		if (!stopped)
 		{
 			if (!activate_queue.empty())
 			{
 				auto block = activate_queue.front ();
-				activate_queue.pop_front ();
-				++activate_queued;
+				lock.unlock ();
 				insert (block);
+				lock.lock ();
 				auto election = node.active.election (block->qualified_root ());
 				if (election != nullptr)
 				{
 					election->transition_active ();
 				}
+				activate_queue.pop_front ();
+				++activate_queued;
+			}
+			if (!insert_queue.empty ())
+			{
+				auto const[block, previous_balance, election_behavior, confirmation_action] = insert_queue.front ();
+				lock.unlock ();
+				nano::unique_lock<nano::mutex> lock2 (node.active.mutex);
+				node.active.insert_impl (lock2, block, previous_balance, election_behavior, confirmation_action);
+				lock.lock ();
+				insert_queue.pop_front ();
+				++insert_queued;
 			}
 			condition.notify_all ();
 		}

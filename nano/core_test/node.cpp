@@ -1079,6 +1079,7 @@ TEST (node, fork_publish)
 		node1.work_generate_blocking (*send2);
 		node1.process_active (send1);
 		node1.block_processor.flush ();
+		node1.scheduler.flush ();
 		ASSERT_EQ (1, node1.active.size ());
 		auto election (node1.active.election (send1->qualified_root ()));
 		ASSERT_NE (nullptr, election);
@@ -1382,6 +1383,7 @@ TEST (node, fork_open)
 	auto channel1 (node1.network.udp_channels.create (node1.network.endpoint ()));
 	node1.network.process_message (publish1, channel1);
 	node1.block_processor.flush ();
+	node1.scheduler.flush ();
 	auto election = node1.active.election (publish1.block->qualified_root ());
 	ASSERT_NE (nullptr, election);
 	election->force_confirm ();
@@ -1397,6 +1399,7 @@ TEST (node, fork_open)
 	nano::publish publish2 (open1);
 	node1.network.process_message (publish2, channel1);
 	node1.block_processor.flush ();
+	node1.scheduler.flush ();
 	ASSERT_EQ (1, node1.active.size ());
 	auto open2 = builder.make_block ()
 	             .source (publish1.block->hash ())
@@ -1409,6 +1412,7 @@ TEST (node, fork_open)
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	node1.network.process_message (publish3, channel1);
 	node1.block_processor.flush ();
+	node1.scheduler.flush ();
 	election = node1.active.election (publish3.block->qualified_root ());
 	ASSERT_EQ (2, election->blocks ().size ());
 	ASSERT_EQ (publish2.block->hash (), election->winner ()->hash ());
@@ -1871,6 +1875,7 @@ TEST (node, rep_self_vote)
 	auto & active = node0->active;
 	auto & scheduler = node0->scheduler;
 	scheduler.insert (block0);
+	scheduler.flush ();
 	auto election1 = active.election (block0->qualified_root ());
 	ASSERT_NE (nullptr, election1);
 	// Wait until representatives are activated & make vote
@@ -2988,6 +2993,7 @@ TEST (node, vote_by_hash_bundle)
 		ASSERT_EQ (nano::process_result::progress, node.ledger.process (node.store.tx_begin_write (), *blocks.back ()).code);
 	}
 	node.scheduler.insert (blocks.back ());
+	node.scheduler.flush ();
 	auto election = node.active.election (blocks.back ()->qualified_root ());
 	ASSERT_NE (nullptr, election);
 	election->force_confirm ();
@@ -4037,8 +4043,11 @@ TEST (node, rollback_vote_self)
 	ASSERT_TIMELY (5s, node.ledger.cache.cemented_count == 3);
 	ASSERT_EQ (weight, node.weight (key.pub));
 	node.process_active (send2);
+	node.block_processor.flush ();
+	node.scheduler.flush ();
 	node.process_active (fork);
 	node.block_processor.flush ();
+	node.scheduler.flush ();
 	election = node.active.election (send2->qualified_root ());
 	ASSERT_NE (nullptr, election);
 	ASSERT_EQ (2, election->blocks ().size ());
@@ -4650,6 +4659,7 @@ TEST (node, pruning_automatic)
 	node1.process_active (send1);
 	node1.process_active (send2);
 	node1.block_processor.flush ();
+	node1.scheduler.flush ();
 	// Confirm last block to prune previous
 	{
 		auto election = node1.active.election (send1->qualified_root ());
@@ -4703,6 +4713,7 @@ TEST (node, pruning_age)
 	node1.process_active (send1);
 	node1.process_active (send2);
 	node1.block_processor.flush ();
+	node1.scheduler.flush ();
 	// Confirm last block to prune previous
 	{
 		auto election = node1.active.election (send1->qualified_root ());

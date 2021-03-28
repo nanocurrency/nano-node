@@ -170,8 +170,8 @@ TEST (active_transactions, keep_local)
 	node.process_active (open3);
 	node.block_processor.flush ();
 	// bound elections, should drop after one loop
-	ASSERT_TIMELY (5s, node.active.size () == node_config.active_elections_size);
-	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::election_drop));
+	ASSERT_TIMELY (1s, node.stats.count (nano::stat::type::election, nano::stat::detail::election_drop));
+	ASSERT_EQ (node.active.size (), node_config.active_elections_size);
 }
 
 TEST (active_transactions, inactive_votes_cache)
@@ -339,6 +339,7 @@ TEST (active_transactions, inactive_votes_cache_multiple_votes)
 	ASSERT_EQ (1, node.active.inactive_votes_cache_size ());
 	// Start election
 	node.scheduler.insert (send1);
+	node.scheduler.flush ();
 	auto election = node.active.election (send1->qualified_root ());
 	ASSERT_NE (nullptr, election);
 	ASSERT_EQ (3, election->votes ().size ()); // 2 votes and 1 default not_an_acount
@@ -698,6 +699,7 @@ TEST (active_transactions, dropped_cleanup)
 	ASSERT_TRUE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
 
 	node.scheduler.insert (block);
+	node.scheduler.flush ();
 	auto election = node.active.election (block->qualified_root ());
 	ASSERT_NE (nullptr, election);
 
@@ -721,6 +723,7 @@ TEST (active_transactions, dropped_cleanup)
 	// Repeat test for a confirmed election
 	ASSERT_TRUE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
 	node.scheduler.insert (block);
+	node.scheduler.flush ();
 	election = node.active.election (block->qualified_root ());
 	ASSERT_NE (nullptr, election);
 	election->force_confirm ();
@@ -843,9 +846,10 @@ TEST (active_transactions, fork_filter_cleanup)
 		            .work (*system.work.generate (genesis.hash ()))
 		            .build_shared ();
 		node1.process_active (fork);
+		node1.block_processor.flush ();
+		node1.scheduler.flush ();
 	}
-	node1.block_processor.flush ();
-	ASSERT_TIMELY (3s, !node1.active.empty ());
+	ASSERT_EQ (1, node1.active.size ());
 
 	// Process correct block
 	node_config.peering_port = nano::get_available_port ();
@@ -1124,24 +1128,31 @@ TEST (active_transactions, insertion_prioritization)
 	};
 
 	node.scheduler.insert (blocks[2]);
+	node.scheduler.flush ();
 	ASSERT_TRUE (node.active.election (blocks[2]->qualified_root ())->prioritized ());
 	update_active_multiplier ();
 	node.scheduler.insert (blocks[3]);
+	node.scheduler.flush ();
 	ASSERT_FALSE (node.active.election (blocks[3]->qualified_root ())->prioritized ());
 	update_active_multiplier ();
 	node.scheduler.insert(blocks[1]);
+	node.scheduler.flush ();
 	ASSERT_TRUE (node.active.election (blocks[1]->qualified_root ())->prioritized ());
 	update_active_multiplier ();
 	node.scheduler.insert (blocks[4]);
+	node.scheduler.flush ();
 	ASSERT_FALSE (node.active.election (blocks[4]->qualified_root ())->prioritized ());
 	update_active_multiplier ();
 	node.scheduler.insert (blocks[0]);
+	node.scheduler.flush ();
 	ASSERT_TRUE (node.active.election (blocks[0]->qualified_root ())->prioritized ());
 	update_active_multiplier ();
 	node.scheduler.insert (blocks[5]);
+	node.scheduler.flush ();
 	ASSERT_FALSE (node.active.election (blocks[5]->qualified_root ())->prioritized ());
 	update_active_multiplier ();
 	node.scheduler.insert (blocks[6]);
+	node.scheduler.flush ();
 	ASSERT_FALSE (node.active.election (blocks[6]->qualified_root ())->prioritized ());
 
 	ASSERT_EQ (4, node.stats.count (nano::stat::type::election, nano::stat::detail::election_non_priority));
@@ -1258,6 +1269,7 @@ TEST (active_transactions, election_difficulty_update_old)
 	auto send1_copy = builder.make_block ().from (*send1).build_shared ();
 	node.process_active (send1);
 	node.block_processor.flush ();
+	node.scheduler.flush ();
 	ASSERT_EQ (1, node.active.size ());
 	auto multiplier = node.active.roots.begin ()->multiplier;
 	{
@@ -1369,6 +1381,7 @@ TEST (active_transactions, election_difficulty_update_fork)
 
 	node.process_active (fork_change);
 	node.block_processor.flush ();
+	node.scheduler.flush ();
 	ASSERT_EQ (1, node.active.size ());
 	auto multiplier_change = node.active.roots.begin ()->multiplier;
 	node.process_active (fork_send);
@@ -1417,6 +1430,7 @@ TEST (active_transactions, confirm_new)
 	            .build_shared ();
 	node1.process_active (send);
 	node1.block_processor.flush ();
+	node1.scheduler.flush ();
 	ASSERT_EQ (1, node1.active.size ());
 	auto & node2 = *system.add_node ();
 	// Add key to node2
@@ -1512,6 +1526,7 @@ TEST (active_transactions, conflicting_block_vote_existing_election)
 	auto vote_fork (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, std::numeric_limits<uint64_t>::max (), fork));
 
 	ASSERT_EQ (nano::process_result::progress, node.process_local (send).code);
+	node.scheduler.flush ();
 	ASSERT_EQ (1, node.active.size ());
 
 	// Vote for conflicting block, but the block does not yet exist in the ledger

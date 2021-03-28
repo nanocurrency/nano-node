@@ -30,6 +30,7 @@ TEST (vote_processor, codes)
 	// First vote from an account for an ongoing election
 	genesis.open->sideband_set (nano::block_sideband (nano::genesis_account, 0, nano::genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
 	node.scheduler.insert (genesis.open);
+	node.scheduler.flush ();
 	ASSERT_NE (nullptr, node.active.election (genesis.open->qualified_root ()));
 	ASSERT_EQ (nano::vote_code::vote, node.vote_processor.vote_blocking (vote, channel));
 
@@ -80,6 +81,7 @@ TEST (vote_processor, invalid_signature)
 
 	genesis.open->sideband_set (nano::block_sideband (nano::genesis_account, 0, nano::genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
 	node.scheduler.insert (genesis.open);
+	node.scheduler.flush ();
 	auto election = node.active.election (genesis.open->qualified_root ());
 	ASSERT_TRUE (election);
 	ASSERT_EQ (1, election->votes ().size ());

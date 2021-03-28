@@ -13,6 +13,7 @@ TEST (election, construction)
 	auto & node = *system.nodes[0];
 	genesis.open->sideband_set (nano::block_sideband (nano::genesis_account, 0, nano::genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
 	node.scheduler.insert (genesis.open);
+	node.scheduler.flush ();
 	auto election = node.active.election (genesis.open->qualified_root ());
 	election->transition_active ();
 }
@@ -48,9 +49,11 @@ TEST (election, quorum_minimum_flip_success)
 	             .build_shared ();
 	node1.work_generate_blocking (*send2);
 	node1.process_active (send1);
+	node1.block_processor.flush ();
+	node1.scheduler.flush ();
 	node1.process_active (send2);
 	node1.block_processor.flush ();
-	node1.scheduler.insert (send1);
+	node1.scheduler.flush ();
 	auto election = node1.active.election (send1->qualified_root ());
 	ASSERT_NE (nullptr, election);
 	ASSERT_EQ (2, election->blocks ().size ());
@@ -92,9 +95,11 @@ TEST (election, quorum_minimum_flip_fail)
 	             .build_shared ();
 	node1.work_generate_blocking (*send2);
 	node1.process_active (send1);
+	node1.block_processor.flush ();
+	node1.scheduler.flush ();
 	node1.process_active (send2);
 	node1.block_processor.flush ();
-	node1.scheduler.insert (send1);
+	node1.scheduler.flush ();
 	auto election = node1.active.election (send1->qualified_root ());
 	ASSERT_NE (nullptr, election);
 	ASSERT_EQ (2, election->blocks ().size ());

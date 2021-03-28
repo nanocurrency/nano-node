@@ -19,6 +19,7 @@ TEST (conflicts, start_stop)
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
 	ASSERT_EQ (0, node1.active.size ());
 	node1.scheduler.insert (send1);
+	node1.scheduler.flush ();
 	auto election1 = node1.active.election (send1->qualified_root ());
 	ASSERT_EQ (1, node1.active.size ());
 	ASSERT_NE (nullptr, election1);
@@ -59,11 +60,13 @@ TEST (conflicts, add_two)
 	node1.work_generate_blocking (*send1);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
 	node1.scheduler.insert (send1);
+	node1.scheduler.flush ();
 	nano::keypair key2;
 	auto send2 (std::make_shared<nano::send_block> (send1->hash (), key2.pub, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send2);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send2).code);
 	node1.scheduler.insert (send2);
+	node1.scheduler.flush ();
 	ASSERT_EQ (2, node1.active.size ());
 }
 
@@ -167,6 +170,7 @@ TEST (conflicts, reprioritize)
 	nano::send_block send1_copy (*send1);
 	node1.process_active (send1);
 	node1.block_processor.flush ();
+	node1.scheduler.flush ();
 	{
 		nano::lock_guard<nano::mutex> guard (node1.active.mutex);
 		auto existing1 (node1.active.roots.find (send1->qualified_root ()));

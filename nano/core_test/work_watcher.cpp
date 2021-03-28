@@ -24,6 +24,8 @@ TEST (work_watcher, update)
 	auto const block2 (wallet.send_action (nano::dev_genesis_key.pub, key.pub, 200));
 	auto difficulty2 (block2->difficulty ());
 	auto multiplier2 (nano::normalized_multiplier (nano::difficulty::to_multiplier (difficulty2, nano::work_threshold (block2->work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false))), node.network_params.network.publish_thresholds.epoch_1));
+	node.block_processor.flush ();
+	node.scheduler.flush ();
 	double updated_multiplier1{ multiplier1 }, updated_multiplier2{ multiplier2 }, target_multiplier{ std::max (multiplier1, multiplier2) + 1e-6 };
 	{
 		nano::lock_guard<nano::mutex> guard (node.active.mutex);

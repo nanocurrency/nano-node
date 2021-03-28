@@ -30,6 +30,8 @@ private:
 	void run ();
 	std::deque<std::shared_ptr<nano::block>> activate_queue;
 	uint64_t activate_queued{ 0 };
+	std::deque<std::tuple<std::shared_ptr<nano::block>, boost::optional<nano::uint128_t>, nano::election_behavior, std::function<void(std::shared_ptr<nano::block>)>>> insert_queue;
+	uint64_t insert_queued{ 0 };
 	nano::node & node;
 	bool stopped;
 	std::condition_variable condition;
