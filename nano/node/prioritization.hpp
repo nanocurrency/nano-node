@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <map>
+#include <vector>
 
 namespace nano
 {
@@ -25,8 +26,11 @@ class prioritization final
 	std::array<nano::uint128_t, 128> minimums;
 	void trim ();
 	void next ();
+	void populate_schedule ();
 	std::function<void (nano::block_hash const &)> const & drop;
-	decltype(buckets)::const_iterator current;
+	// Contains bucket indicies to iterate over when making the next scheduling decision
+	std::vector<uint8_t> schedule;
+	decltype(schedule)::const_iterator current;
 public:
 	prioritization (std::function<void (nano::block_hash const &)> const & drop_a = drop_void);
 	void insert (uint32_t time, nano::amount const & balance_a, nano::account const & account_a);
@@ -36,7 +40,7 @@ public:
 		nano::account result{ 0 };
 		for (auto count = 0; count < buckets.size () && result.is_zero (); ++count, next ())
 		{
-			for (auto i = current->begin (), n = current->end (); i != n && result.is_zero (); ++i)
+			for (auto i = buckets[*current].begin (), n = buckets[*current].end (); i != n && result.is_zero (); ++i)
 			{
 				auto time = i->time;
 				auto account = i->account;

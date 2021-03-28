@@ -2,6 +2,8 @@
 
 #include <nano/lib/utility.hpp>
 
+#include <random>
+
 void nano::prioritization::trim ()
 {
 }
@@ -9,23 +11,35 @@ void nano::prioritization::trim ()
 void nano::prioritization::next ()
 {
 	++current;
-	if (current == buckets.end ())
+	if (current == schedule.end ())
 	{
-		current = buckets.begin ();
+		current = schedule.begin ();
 	}
 }
 
+void nano::prioritization::populate_schedule ()
+{
+	for (auto i = 0; i < buckets.size (); ++i)
+	{
+		schedule.push_back (i);
+	}
+	std::random_device rd;
+	std::mt19937 g{ rd() };
+	std::shuffle (schedule.begin (), schedule.end (), g);
+}
+
 nano::prioritization::prioritization (std::function<void (nano::block_hash const &)> const & drop_a) :
-	drop{ drop_a },
-	current{ buckets.begin () }
+	drop{ drop_a }
 {
 	(void)minimums[0];
-	nano::uint128_t current{ 1 };
+	nano::uint128_t minimum{ 1 };
 	for (auto i = minimums.begin (), n = minimums.end (); i != n; ++i)
 	{
-		*i = current;
-		current <<= 1;
+		*i = minimum;
+		minimum <<= 1;
 	}
+	populate_schedule ();
+	current = schedule.begin ();
 }
 
 void nano::prioritization::insert (uint32_t time, nano::amount const & balance_a, nano::account const & account_a)
