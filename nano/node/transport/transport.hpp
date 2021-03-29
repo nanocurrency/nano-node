@@ -13,7 +13,7 @@ class bandwidth_limiter final
 public:
 	// initialize with limit 0 = unbounded
 	bandwidth_limiter (const double, const size_t);
-	bool should_drop (const size_t &);
+	[[nodiscard]] bool should_drop (const size_t &);
 
 private:
 	nano::rate::token_bucket bucket;
@@ -26,7 +26,7 @@ namespace transport
 	nano::endpoint map_tcp_to_endpoint (nano::tcp_endpoint const &);
 	nano::tcp_endpoint map_endpoint_to_tcp (nano::endpoint const &);
 	// Unassigned, reserved, self
-	bool reserved_address (nano::endpoint const &, bool = false);
+	[[nodiscard]] bool reserved_address (nano::endpoint const &, bool = false);
 	static std::chrono::seconds constexpr syn_cookie_cutoff = std::chrono::seconds (5);
 	enum class transport_type : uint8_t
 	{
@@ -180,7 +180,7 @@ struct hash<::nano::transport::channel>
 template <>
 struct equal_to<std::reference_wrapper<::nano::transport::channel const>>
 {
-	bool operator() (std::reference_wrapper<::nano::transport::channel const> const & lhs, std::reference_wrapper<::nano::transport::channel const> const & rhs) const
+	[[nodiscard]] bool operator() (std::reference_wrapper<::nano::transport::channel const> const & lhs, std::reference_wrapper<::nano::transport::channel const> const & rhs) const
 	{
 		return lhs.get () == rhs.get ();
 	}

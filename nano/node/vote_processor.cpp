@@ -147,22 +147,22 @@ void nano::vote_processor::verify_votes (decltype (votes) const & votes_a)
 	signatures.reserve (size);
 	std::vector<int> verifications;
 	verifications.resize (size);
-	for (auto const & vote : votes_a)
+	for (auto const & [vote, channel] : votes_a)
 	{
-		hashes.push_back (vote.first->hash ());
+		hashes.push_back (vote->hash ());
 		messages.push_back (hashes.back ().bytes.data ());
-		pub_keys.push_back (vote.first->account.bytes.data ());
-		signatures.push_back (vote.first->signature.bytes.data ());
+		pub_keys.push_back (vote->account.bytes.data ());
+		signatures.push_back (vote->signature.bytes.data ());
 	}
 	nano::signature_check_set check = { size, messages.data (), lengths.data (), pub_keys.data (), signatures.data (), verifications.data () };
 	checker.verify (check);
 	auto i (0);
-	for (auto const & vote : votes_a)
+	for (auto const & [vote, channel] : votes_a)
 	{
 		debug_assert (verifications[i] == 1 || verifications[i] == 0);
 		if (verifications[i] == 1)
 		{
-			vote_blocking (vote.first, vote.second, true);
+			vote_blocking (vote, channel, true);
 		}
 		++i;
 	}
@@ -261,9 +261,8 @@ void nano::vote_processor::calculate_weights ()
 		representatives_3.clear ();
 		auto supply (online_reps.trended ());
 		auto rep_amounts = ledger.cache.rep_weights.get_rep_amounts ();
-		for (auto const & rep_amount : rep_amounts)
+		for (auto const & [representative, amount] : rep_amounts)
 		{
-			nano::account const & representative (rep_amount.first);
 			auto weight (ledger.weight (representative));
 			if (weight > supply / 1000) // 0.1% or above (level 1)
 			{

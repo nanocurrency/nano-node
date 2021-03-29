@@ -48,7 +48,7 @@ public:
 	void close ();
 	boost::asio::ip::tcp::endpoint remote_endpoint () const;
 	/** Returns true if the socket has timed out */
-	bool has_timed_out () const;
+	[[nodiscard]] bool has_timed_out () const;
 	/** This can be called to change the maximum idle time, e.g. based on the type of traffic detected. */
 	void set_timeout (std::chrono::seconds io_timeout_a);
 	void start_timer (std::chrono::seconds deadline_a);

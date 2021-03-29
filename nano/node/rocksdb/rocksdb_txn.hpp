@@ -33,7 +33,7 @@ public:
 	void commit () override;
 	void renew () override;
 	void * get_handle () const override;
-	bool contains (nano::tables table_a) const override;
+	[[nodiscard]] bool contains (nano::tables table_a) const override;
 
 private:
 	rocksdb::Transaction * txn;

@@ -18,10 +18,10 @@ public:
 	virtual ~bootstrap_attempt ();
 	virtual void run () = 0;
 	virtual void stop ();
-	bool still_pulling ();
+	[[nodiscard]] bool still_pulling ();
 	void pull_started ();
 	void pull_finished ();
-	bool should_log ();
+	[[nodiscard]] bool should_log ();
 	std::string mode_text ();
 	virtual void add_frontier (nano::pull_info const &);
 	virtual void add_bulk_push_target (nano::block_hash const &, nano::block_hash const &);

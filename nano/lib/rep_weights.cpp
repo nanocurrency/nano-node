@@ -47,10 +47,10 @@ void nano::rep_weights::copy_from (nano::rep_weights & other_a)
 {
 	nano::lock_guard<nano::mutex> guard_this (mutex);
 	nano::lock_guard<nano::mutex> guard_other (other_a.mutex);
-	for (auto const & entry : other_a.rep_amounts)
+	for (auto const & [account_a, weight] : other_a.rep_amounts)
 	{
-		auto prev_amount (get (entry.first));
-		put (entry.first, prev_amount + entry.second);
+		auto prev_amount (get (account_a));
+		put (account_a, prev_amount + weight);
 	}
 }
 

@@ -292,12 +292,11 @@ void nano::tomlconfig::erase_defaults (std::shared_ptr<cpptoml::table> const & b
 {
 	std::vector<std::string> erased;
 	debug_assert (other != nullptr);
-	for (auto & item : *other)
+	for (auto & [k, value] : *other)
 	{
-		std::string const & key = item.first;
+		std::string const & key = k;
 		if (other->contains (key) && base->contains (key))
 		{
-			auto value = item.second;
 			if (value->is_table ())
 			{
 				auto child_base = base->get_table (key);

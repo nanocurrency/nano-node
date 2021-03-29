@@ -28,7 +28,7 @@ public:
 	write_guard & operator= (write_guard const &) = delete;
 	write_guard (write_guard &&) noexcept;
 	write_guard & operator= (write_guard &&) noexcept;
-	bool is_owned () const;
+	[[nodiscard]] bool is_owned () const;
 
 private:
 	std::function<void()> guard_finish_callback;
@@ -43,10 +43,10 @@ public:
 	write_guard wait (nano::writer writer);
 
 	/** Returns true if this writer is now at the front of the queue */
-	bool process (nano::writer writer);
+	[[nodiscard]] bool process (nano::writer writer);
 
 	/** Returns true if this writer is anywhere in the queue. Currently only used in tests */
-	bool contains (nano::writer writer);
+	[[nodiscard]] bool contains (nano::writer writer);
 
 	/** Doesn't actually pop anything until the returned write_guard is out of scope */
 	write_guard pop ();

@@ -33,7 +33,7 @@ constexpr size_t determine_shared_ptr_pool_size ()
 
 /** Deallocates all memory from a singleton_pool (invalidates all existing pointers). Returns true if any memory was deallocated */
 template <typename object>
-bool purge_shared_ptr_singleton_pool_memory ()
+[[nodiscard]] bool purge_shared_ptr_singleton_pool_memory ()
 {
 	return boost::singleton_pool<boost::fast_pool_allocator_tag, nano::determine_shared_ptr_pool_size<object> ()>::purge_memory ();
 }

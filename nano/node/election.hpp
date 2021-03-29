@@ -87,8 +87,8 @@ private: // State management
 	std::chrono::steady_clock::time_point last_block = { std::chrono::steady_clock::now () };
 	std::chrono::steady_clock::time_point last_req = { std::chrono::steady_clock::time_point () };
 
-	bool valid_change (nano::election::state_t, nano::election::state_t) const;
-	bool state_change (nano::election::state_t, nano::election::state_t);
+	[[nodiscard]] bool valid_change (nano::election::state_t, nano::election::state_t) const;
+	[[nodiscard]] bool state_change (nano::election::state_t, nano::election::state_t);
 	std::atomic<bool> prioritized_m = { false };
 
 public: // State transitions
@@ -96,10 +96,10 @@ public: // State transitions
 	void transition_active ();
 
 public: // Status
-	bool confirmed () const;
-	bool failed () const;
-	bool prioritized () const;
-	bool optimistic () const;
+	[[nodiscard]] bool confirmed () const;
+	[[nodiscard]] bool failed () const;
+	[[nodiscard]] bool prioritized () const;
+	[[nodiscard]] bool optimistic () const;
 	nano::election_extended_status current_status () const;
 	std::shared_ptr<nano::block> winner () const;
 	std::atomic<unsigned> confirmation_request_count{ 0 };

@@ -198,7 +198,7 @@ public:
 	 */
 	MDB_dbi final_votes{ 0 };
 
-	bool exists (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a) const;
+	[[nodiscard]] bool exists (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a) const;
 	std::vector<nano::unchecked_info> unchecked_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override;
 
 	int get (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a, nano::mdb_val & value_a) const;
@@ -220,7 +220,7 @@ public:
 		return nano::store_iterator<Key, Value> (std::make_unique<nano::mdb_iterator<Key, Value>> (transaction_a, table_to_dbi (table_a), key));
 	}
 
-	bool init_error () const override;
+	[[nodiscard]] bool init_error () const override;
 
 	uint64_t count (nano::transaction const &, MDB_dbi) const;
 	std::string error_string (int status) const override;
@@ -252,8 +252,8 @@ private:
 	int drop (nano::write_transaction const & transaction_a, tables table_a) override;
 	int clear (nano::write_transaction const & transaction_a, MDB_dbi handle_a);
 
-	bool not_found (int status) const override;
-	bool success (int status) const override;
+	[[nodiscard]] bool not_found (int status) const override;
+	[[nodiscard]] bool success (int status) const override;
 	int status_code_not_found () const override;
 
 	MDB_dbi table_to_dbi (tables table_a) const;
@@ -264,13 +264,13 @@ private:
 
 	uint64_t count (nano::transaction const & transaction_a, tables table_a) const override;
 
-	bool vacuum_after_upgrade (boost::filesystem::path const & path_a, nano::lmdb_config const & lmdb_config_a);
+	[[nodiscard]] bool vacuum_after_upgrade (boost::filesystem::path const & path_a, nano::lmdb_config const & lmdb_config_a);
 
 	class upgrade_counters
 	{
 	public:
 		upgrade_counters (uint64_t count_before_v0, uint64_t count_before_v1);
-		bool are_equal () const;
+		[[nodiscard]] bool are_equal () const;
 
 		uint64_t before_v0;
 		uint64_t before_v1;

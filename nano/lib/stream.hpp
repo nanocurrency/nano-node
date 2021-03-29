@@ -10,7 +10,7 @@ namespace nano
 using stream = std::basic_streambuf<uint8_t>;
 // Read a raw byte stream the size of `T' and fill value. Returns true if there was an error, false otherwise
 template <typename T>
-bool try_read (nano::stream & stream_a, T & value_a)
+[[nodiscard]] bool try_read (nano::stream & stream_a, T & value_a)
 {
 	static_assert (std::is_standard_layout<T>::value, "Can't stream read non-standard layout types");
 	auto amount_read (stream_a.sgetn (reinterpret_cast<uint8_t *> (&value_a), sizeof (value_a)));

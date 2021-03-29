@@ -63,8 +63,8 @@ public:
 	void finish_request_async ();
 	void timeout ();
 	void run_next (nano::unique_lock<nano::mutex> & lock_a);
-	bool is_bootstrap_connection ();
-	bool is_realtime_connection ();
+	[[nodiscard]] bool is_bootstrap_connection ();
+	[[nodiscard]] bool is_realtime_connection ();
 	std::shared_ptr<std::vector<uint8_t>> receive_buffer;
 	std::shared_ptr<nano::socket> socket;
 	std::shared_ptr<nano::node> node;

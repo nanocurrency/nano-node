@@ -259,7 +259,7 @@ public:
 	void serialize (nano::stream &) const;
 	void serialize_json (boost::property_tree::ptree & tree) const;
 	bool deserialize (nano::stream &, nano::block_uniquer * = nullptr);
-	bool validate () const;
+	[[nodiscard]] bool validate () const;
 	boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> begin () const;
 	boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> end () const;
 	std::string to_json () const;
@@ -271,7 +271,7 @@ public:
 	nano::account account;
 	// Signature of timestamp + block hashes
 	nano::signature signature;
-	static const std::string hash_prefix;
+	inline static const std::string hash_prefix = "vote ";
 };
 /**
  * This class serves to find and return unique variants of a vote in order to minimize memory usage

@@ -56,8 +56,8 @@ private:
 		std::atomic<size_t> pending;
 	};
 
-	bool verify_batch (const nano::signature_check_set & check_a, size_t index, size_t size);
+	[[nodiscard]] bool verify_batch (const nano::signature_check_set & check_a, size_t index, size_t size);
 	void verify_async (nano::signature_check_set & check_a, size_t num_batches, std::promise<void> & promise);
-	bool single_threaded () const;
+	[[nodiscard]] bool single_threaded () const;
 };
 }

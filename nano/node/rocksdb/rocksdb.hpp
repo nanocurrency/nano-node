@@ -36,7 +36,7 @@ public:
 	void version_put (nano::write_transaction const &, int) override;
 	std::vector<nano::unchecked_info> unchecked_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override;
 
-	bool exists (nano::transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a) const;
+	[[nodiscard]] bool exists (nano::transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a) const;
 	int get (nano::transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a, nano::rocksdb_val & value_a) const;
 	int put (nano::write_transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a, nano::rocksdb_val const & value_a);
 	int del (nano::write_transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a);
@@ -60,7 +60,7 @@ public:
 		return nano::store_iterator<Key, Value> (std::make_unique<nano::rocksdb_iterator<Key, Value>> (db.get (), transaction_a, table_to_column_family (table_a), &key));
 	}
 
-	bool init_error () const override;
+	[[nodiscard]] bool init_error () const override;
 
 	std::string error_string (int status) const override;
 
@@ -90,8 +90,8 @@ private:
 	rocksdb::Transaction * tx (nano::transaction const & transaction_a) const;
 	std::vector<nano::tables> all_tables () const;
 
-	bool not_found (int status) const override;
-	bool success (int status) const override;
+	[[nodiscard]] bool not_found (int status) const override;
+	[[nodiscard]] bool success (int status) const override;
 	int status_code_not_found () const override;
 	int drop (nano::write_transaction const &, tables) override;
 

@@ -104,7 +104,7 @@ public:
 	 * @return true if nothing was logged
 	 */
 	template <typename... LogItems>
-	bool try_log (nano::severity_level severity_level, LogItems &&... log_items)
+	[[nodiscard]] bool try_log (nano::severity_level severity_level, LogItems &&... log_items)
 	{
 		auto error (true);
 		auto time_now = std::chrono::steady_clock::now ();
@@ -124,7 +124,7 @@ public:
 	 * @return true if nothing was logged
 	 */
 	template <typename... LogItems>
-	bool try_log (LogItems &&... log_items)
+	[[nodiscard]] bool try_log (LogItems &&... log_items)
 	{
 		return try_log (nano::severity_level::normal, std::forward<LogItems> (log_items)...);
 	}

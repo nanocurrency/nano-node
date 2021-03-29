@@ -103,7 +103,7 @@ public:
 		return result;
 	}
 
-	bool is_end_sentinal () const override
+	[[nodiscard]] bool is_end_sentinal () const override
 	{
 		return current.first.size () == 0;
 	}
@@ -208,7 +208,7 @@ public:
 		return *impl1 == *other.impl1 && *impl2 == *other.impl2;
 	}
 
-	bool is_end_sentinal () const override
+	[[nodiscard]] bool is_end_sentinal () const override
 	{
 		return least_iterator ().is_end_sentinal ();
 	}

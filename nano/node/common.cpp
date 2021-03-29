@@ -709,10 +709,10 @@ void nano::confirm_req::serialize (nano::stream & stream_a) const
 	{
 		debug_assert (!roots_hashes.empty ());
 		// Write hashes & roots
-		for (auto & root_hash : roots_hashes)
+		for (auto & [block_hash, root] : roots_hashes)
 		{
-			write (stream_a, root_hash.first);
-			write (stream_a, root_hash.second);
+			write (stream_a, block_hash);
+			write (stream_a, root);
 		}
 	}
 	else
@@ -776,11 +776,11 @@ bool nano::confirm_req::operator== (nano::confirm_req const & other_a) const
 std::string nano::confirm_req::roots_string () const
 {
 	std::string result;
-	for (auto & root_hash : roots_hashes)
+	for (auto & [block_hash, root] : roots_hashes)
 	{
-		result += root_hash.first.to_string ();
+		result += block_hash.to_string ();
 		result += ":";
-		result += root_hash.second.to_string ();
+		result += root.to_string ();
 		result += ", ";
 	}
 	return result;

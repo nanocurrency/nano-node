@@ -93,14 +93,14 @@ public:
 	void query (std::shared_ptr<nano::transport::channel> const & channel_a);
 
 	/** Query if a peer manages a principle representative */
-	bool is_pr (nano::transport::channel const &) const;
+	[[nodiscard]] bool is_pr (nano::transport::channel const &) const;
 
 	/**
 	 * Called when a non-replay vote on a block previously sent by query() is received. This indicates
 	 * with high probability that the endpoint is a representative node.
 	 * @return false if the vote corresponded to any active hash.
 	 */
-	bool response (std::shared_ptr<nano::transport::channel> const &, std::shared_ptr<nano::vote> const &);
+	[[nodiscard]] bool response (std::shared_ptr<nano::transport::channel> const &, std::shared_ptr<nano::vote> const &);
 
 	/** Get total available weight from representatives */
 	nano::uint128_t total_weight () const;

@@ -94,9 +94,9 @@ namespace transport
 		void stop ();
 		void process_messages ();
 		void process_message (nano::message const &, nano::tcp_endpoint const &, nano::account const &, std::shared_ptr<nano::socket> const &, nano::bootstrap_server_type);
-		bool max_ip_connections (nano::tcp_endpoint const &);
+		[[nodiscard]] bool max_ip_connections (nano::tcp_endpoint const &);
 		// Should we reach out to this endpoint with a keepalive message
-		bool reachout (nano::endpoint const &);
+		[[nodiscard]] bool reachout (nano::endpoint const &);
 		std::unique_ptr<container_info_component> collect_container_info (std::string const &);
 		void purge (std::chrono::steady_clock::time_point const &);
 		void ongoing_keepalive ();
@@ -110,7 +110,7 @@ namespace transport
 		void udp_fallback (nano::endpoint const &, std::function<void(std::shared_ptr<nano::transport::channel> const &)> const &);
 		void push_node_id_handshake_socket (std::shared_ptr<nano::socket> const & socket_a);
 		void remove_node_id_handshake_socket (std::shared_ptr<nano::socket> const & socket_a);
-		bool node_id_handhake_sockets_empty () const;
+		[[nodiscard]] bool node_id_handhake_sockets_empty () const;
 		nano::node & node;
 
 	private:

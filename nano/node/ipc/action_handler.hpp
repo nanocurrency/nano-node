@@ -56,9 +56,9 @@ namespace ipc
 		static auto handler_map () -> std::unordered_map<nanoapi::Message, std::function<void(action_handler *, nanoapi::Envelope const &)>, nano::ipc::enum_hash>;
 
 	private:
-		bool has_access (nanoapi::Envelope const & envelope_a, nano::ipc::access_permission permission_a) const noexcept;
-		bool has_access_to_all (nanoapi::Envelope const & envelope_a, std::initializer_list<nano::ipc::access_permission> permissions_a) const noexcept;
-		bool has_access_to_oneof (nanoapi::Envelope const & envelope_a, std::initializer_list<nano::ipc::access_permission> permissions_a) const noexcept;
+		[[nodiscard]] bool has_access (nanoapi::Envelope const & envelope_a, nano::ipc::access_permission permission_a) const noexcept;
+		[[nodiscard]] bool has_access_to_all (nanoapi::Envelope const & envelope_a, std::initializer_list<nano::ipc::access_permission> permissions_a) const noexcept;
+		[[nodiscard]] bool has_access_to_oneof (nanoapi::Envelope const & envelope_a, std::initializer_list<nano::ipc::access_permission> permissions_a) const noexcept;
 		void require (nanoapi::Envelope const & envelope_a, nano::ipc::access_permission permission_a) const;
 		void require_all (nanoapi::Envelope const & envelope_a, std::initializer_list<nano::ipc::access_permission> permissions_a) const;
 		void require_oneof (nanoapi::Envelope const & envelope_a, std::initializer_list<nano::ipc::access_permission> alternative_permissions_a) const;

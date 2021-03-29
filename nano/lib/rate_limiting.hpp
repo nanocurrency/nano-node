@@ -36,7 +36,7 @@ namespace rate
 		 * The default cost is 1 token, but resource intensive operations may request
 		 * more tokens to be available.
 		 */
-		bool try_consume (unsigned tokens_required_a = 1);
+		[[nodiscard]] bool try_consume (unsigned tokens_required_a = 1);
 
 		/** Returns the largest burst observed */
 		size_t largest_burst () const;

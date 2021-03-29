@@ -55,7 +55,7 @@ class vote_spacing final
 public:
 	vote_spacing (std::chrono::milliseconds const & delay) :
 	delay{ delay } {}
-	bool votable (nano::root const & root_a, nano::block_hash const & hash_a) const;
+	[[nodiscard]] bool votable (nano::root const & root_a, nano::block_hash const & hash_a) const;
 	void flag (nano::root const & root_a, nano::block_hash const & hash_a);
 	size_t size () const;
 };
@@ -85,7 +85,7 @@ public:
 	void erase (nano::root const & root_a);
 
 	std::vector<std::shared_ptr<nano::vote>> votes (nano::root const & root_a, nano::block_hash const & hash_a) const;
-	bool exists (nano::root const &) const;
+	[[nodiscard]] bool exists (nano::root const &) const;
 	size_t size () const;
 
 private:
@@ -102,7 +102,7 @@ private:
 	void clean ();
 	std::vector<std::shared_ptr<nano::vote>> votes (nano::root const & root_a) const;
 	// Only used in Debug
-	bool consistency_check (nano::root const &) const;
+	[[nodiscard]] bool consistency_check (nano::root const &) const;
 	mutable nano::mutex mutex;
 
 	friend std::unique_ptr<container_info_component> collect_container_info (local_vote_history & history, std::string const & name);

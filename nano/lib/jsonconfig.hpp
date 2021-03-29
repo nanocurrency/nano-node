@@ -73,12 +73,12 @@ public:
 	void open_or_create (std::fstream & stream_a, std::string const & path_a);
 	void create_backup_file (boost::filesystem::path const & filepath_a);
 	boost::property_tree::ptree const & get_tree ();
-	bool empty () const;
+	[[nodiscard]] bool empty () const;
 	boost::optional<jsonconfig> get_optional_child (std::string const & key_a);
 	jsonconfig get_required_child (std::string const & key_a);
 	jsonconfig & put_child (std::string const & key_a, nano::jsonconfig & conf_a);
 	jsonconfig & replace_child (std::string const & key_a, nano::jsonconfig & conf_a);
-	bool has_key (std::string const & key_a);
+	[[nodiscard]] bool has_key (std::string const & key_a);
 	jsonconfig & erase (std::string const & key_a);
 
 	/** Set value for the given key. Any existing value will be overwritten. */
@@ -103,9 +103,9 @@ public:
 	template <typename T>
 	jsonconfig & array_entries (std::function<void(T)> callback)
 	{
-		for (auto & entry : tree)
+		for (auto & [key, ptree] : tree)
 		{
-			callback (entry.second.get<T> (""));
+			callback (ptree.template get<T> (""));
 		}
 		return *this;
 	}

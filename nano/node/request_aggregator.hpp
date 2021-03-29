@@ -66,7 +66,7 @@ public:
 	void stop ();
 	/** Returns the number of currently queued request pools */
 	size_t size ();
-	bool empty ();
+	[[nodiscard]] bool empty ();
 
 	const std::chrono::milliseconds max_delay;
 	const std::chrono::milliseconds small_delay;

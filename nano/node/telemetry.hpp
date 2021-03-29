@@ -41,7 +41,7 @@ class telemetry_info final
 public:
 	telemetry_info () = default;
 	telemetry_info (nano::endpoint const & endpoint, nano::telemetry_data const & data, std::chrono::steady_clock::time_point last_response, bool undergoing_request);
-	bool awaiting_first_response () const;
+	[[nodiscard]] bool awaiting_first_response () const;
 
 	nano::endpoint endpoint;
 	nano::telemetry_data data;
@@ -139,9 +139,9 @@ private:
 	void flush_callbacks_async (nano::endpoint const &, bool);
 	void invoke_callbacks (nano::endpoint const &, bool);
 
-	bool within_cache_cutoff (nano::telemetry_info const &) const;
-	bool within_cache_plus_buffer_cutoff (telemetry_info const &) const;
-	bool verify_message (nano::telemetry_ack const &, nano::transport::channel const &);
+	[[nodiscard]] bool within_cache_cutoff (nano::telemetry_info const &) const;
+	[[nodiscard]] bool within_cache_plus_buffer_cutoff (telemetry_info const &) const;
+	[[nodiscard]] bool verify_message (nano::telemetry_ack const &, nano::transport::channel const &);
 	friend std::unique_ptr<nano::container_info_component> collect_container_info (telemetry &, const std::string &);
 	friend class telemetry_remove_peer_invalid_signature_Test;
 };

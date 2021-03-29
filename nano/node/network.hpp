@@ -99,7 +99,7 @@ public:
 	boost::optional<nano::uint256_union> assign (nano::endpoint const &);
 	// Returns false if valid, true if invalid (true on error convention)
 	// Also removes the syn cookie from the store if valid
-	bool validate (nano::endpoint const &, nano::account const &, nano::signature const &);
+	[[nodiscard]] bool validate (nano::endpoint const &, nano::account const &, nano::signature const &);
 	std::unique_ptr<container_info_component> collect_container_info (std::string const &);
 	size_t cookies_size ();
 
@@ -155,7 +155,7 @@ public:
 	std::shared_ptr<nano::transport::channel> find_node_id (nano::account const &);
 	std::shared_ptr<nano::transport::channel> find_channel (nano::endpoint const &);
 	void process_message (nano::message const &, std::shared_ptr<nano::transport::channel> const &);
-	bool not_a_peer (nano::endpoint const &, bool);
+	[[nodiscard]] bool not_a_peer (nano::endpoint const &, bool);
 	// Should we reach out to this endpoint with a keepalive message
 	bool reachout (nano::endpoint const &, bool = false);
 	std::deque<std::shared_ptr<nano::transport::channel>> list (size_t, uint8_t = 0, bool = true);
@@ -177,7 +177,7 @@ public:
 	void ongoing_keepalive ();
 	size_t size () const;
 	float size_sqrt () const;
-	bool empty () const;
+	[[nodiscard]] bool empty () const;
 	void erase (nano::transport::channel const &);
 	nano::message_buffer_manager buffer_container;
 	boost::asio::ip::udp::resolver resolver;

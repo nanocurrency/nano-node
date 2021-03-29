@@ -31,7 +31,7 @@ public:
 	 * If client certificates are used, this is called to verify them.
 	 * @param preverified The TLS preverification status. The callback may revalidate, such as accepting self-signed certs.
 	 */
-	bool on_verify_certificate (bool preverified, boost::asio::ssl::verify_context & ctx);
+	[[nodiscard]] bool on_verify_certificate (bool preverified, boost::asio::ssl::verify_context & ctx);
 
 	/** The context needs to be shared between sessions to make resumption work */
 	boost::asio::ssl::context ssl_context;

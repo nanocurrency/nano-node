@@ -158,7 +158,7 @@ namespace websocket
 		 * @param message_a the message to be checked
 		 * @return false if the message should be broadcasted, true if it should be filtered
 		 */
-		bool should_filter (message const & message_a) const override;
+		[[nodiscard]] bool should_filter (message const & message_a) const override;
 
 		/**
 		 * Update some existing options
@@ -170,19 +170,19 @@ namespace websocket
 		bool update (boost::property_tree::ptree const & options_a) override;
 
 		/** Returns whether or not block contents should be included */
-		bool get_include_block () const
+		[[nodiscard]] bool get_include_block () const
 		{
 			return include_block;
 		}
 
 		/** Returns whether or not to include election info, such as tally and duration */
-		bool get_include_election_info () const
+		[[nodiscard]] bool get_include_election_info () const
 		{
 			return include_election_info;
 		}
 
 		/** Returns whether or not to include election info with votes */
-		bool get_include_election_info_with_votes () const
+		[[nodiscard]] bool get_include_election_info_with_votes () const
 		{
 			return include_election_info_with_votes;
 		}
@@ -222,7 +222,7 @@ namespace websocket
 		 * @param message_a the message to be checked
 		 * @return false if the message should be broadcasted, true if it should be filtered
 		 */
-		bool should_filter (message const & message_a) const override;
+		[[nodiscard]] bool should_filter (message const & message_a) const override;
 
 	private:
 		std::unordered_set<std::string> representatives;
@@ -319,7 +319,7 @@ namespace websocket
 		 * Per-topic subscribers check. Relies on all sessions correctly increasing and
 		 * decreasing the subscriber counts themselves.
 		 */
-		bool any_subscriber (nano::websocket::topic const & topic_a) const
+		[[nodiscard]] bool any_subscriber (nano::websocket::topic const & topic_a) const
 		{
 			return subscriber_count (topic_a) > 0;
 		}

@@ -51,7 +51,7 @@ private:
 	/** Check occasionally to refresh in case router loses mapping */
 	void check_mapping_loop ();
 	/** Returns false if mapping still exists */
-	bool check_mapping ();
+	[[nodiscard]] bool check_mapping ();
 	std::string get_config_port (std::string const &);
 	upnp_state upnp;
 	nano::node & node;

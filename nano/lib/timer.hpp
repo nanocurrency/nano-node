@@ -68,10 +68,10 @@ public:
 	UNIT since_start () const;
 
 	/** Returns true if the timer was last started longer than \p duration_a units ago*/
-	bool after_deadline (UNIT duration_a);
+	[[nodiscard]] bool after_deadline (UNIT duration_a);
 
 	/** Returns true if the timer was last started shorter than \p duration_a units ago*/
-	bool before_deadline (UNIT duration_a);
+	[[nodiscard]] bool before_deadline (UNIT duration_a);
 
 	/** Stop timer and write measurements to \p stream_a */
 	void stop (std::ostream & stream_a);

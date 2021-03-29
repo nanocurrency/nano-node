@@ -11,7 +11,7 @@
 
 namespace
 {
-inline bool is_read (nano::transaction const & transaction_a)
+[[nodiscard]] inline bool is_read (nano::transaction const & transaction_a)
 {
 	return (dynamic_cast<const nano::read_transaction *> (&transaction_a) != nullptr);
 }
@@ -129,7 +129,7 @@ public:
 		return result;
 	}
 
-	bool is_end_sentinal () const override
+	[[nodiscard]] bool is_end_sentinal () const override
 	{
 		return current.first.size () == 0;
 	}

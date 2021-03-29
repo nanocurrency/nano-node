@@ -407,9 +407,9 @@ node_seq (seq)
 			if (use_bootstrap_weight)
 			{
 				ledger.bootstrap_weights = bootstrap_weights.second;
-				for (auto const & rep : ledger.bootstrap_weights)
+				for (auto const & [account, weight] : ledger.bootstrap_weights)
 				{
-					logger.always_log ("Using bootstrap rep weight: ", rep.first.to_account (), " -> ", nano::uint128_union (rep.second).format_balance (Mxrb_ratio, 0, true), " XRB");
+					logger.always_log ("Using bootstrap rep weight: ", account.to_account (), " -> ", nano::uint128_union (weight).format_balance (Mxrb_ratio, 0, true), " XRB");
 				}
 			}
 			ledger.bootstrap_weight_max_blocks = bootstrap_weights.first;
