@@ -33,7 +33,7 @@ class rocksdb_iterator : public store_iterator_impl<T, U>
 public:
 	rocksdb_iterator () = default;
 
-	rocksdb_iterator (rocksdb::DB * db, nano::transaction const & transaction_a, rocksdb::ColumnFamilyHandle * handle_a, rocksdb_val const * val_a, bool const use_first_a)
+	rocksdb_iterator (rocksdb::DB * db, nano::transaction const & transaction_a, rocksdb::ColumnFamilyHandle * handle_a, rocksdb_val const * val_a, bool const direction_asc)
 	{
 		// Don't fill the block cache for any blocks read as a result of an iterator
 		if (is_read (transaction_a))
@@ -53,7 +53,7 @@ public:
 		{
 			cursor->Seek (*val_a);
 		}
-		else if (use_first_a)
+		else if (direction_asc)
 		{
 			cursor->SeekToFirst ();
 		}

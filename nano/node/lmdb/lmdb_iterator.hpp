@@ -10,7 +10,7 @@ template <typename T, typename U>
 class mdb_iterator : public store_iterator_impl<T, U>
 {
 public:
-	mdb_iterator (nano::transaction const & transaction_a, MDB_dbi db_a, MDB_val const & val_a = MDB_val{}, bool const use_first_a = true)
+	mdb_iterator (nano::transaction const & transaction_a, MDB_dbi db_a, MDB_val const & val_a = MDB_val{}, bool const direction_asc = true)
 	{
 		auto status (mdb_cursor_open (tx (transaction_a), db_a, &cursor));
 		release_assert (status == 0);
@@ -21,7 +21,7 @@ public:
 		}
 		else
 		{
-			operation = use_first_a ? MDB_FIRST : MDB_LAST;
+			operation = direction_asc ? MDB_FIRST : MDB_LAST;
 		}
 		auto status2 (mdb_cursor_get (cursor, &current.first.value, &current.second.value, operation));
 		release_assert (status2 == 0 || status2 == MDB_NOTFOUND);
