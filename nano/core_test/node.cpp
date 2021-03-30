@@ -1127,8 +1127,8 @@ TEST (node, fork_publish_inactive)
 	auto blocks (election->blocks ());
 	ASSERT_NE (blocks.end (), blocks.find (send1->hash ()));
 	ASSERT_NE (blocks.end (), blocks.find (send2->hash ()));
-	ASSERT_NE (election->winner (), send1);
-	ASSERT_NE (election->winner (), send2);
+	ASSERT_EQ (election->winner ()->hash (), send1->hash ());
+	ASSERT_NE (election->winner ()->hash (), send2->hash ());
 }
 
 TEST (node, fork_keep)
@@ -3016,53 +3016,42 @@ TEST (node, vote_by_hash_bundle)
 
 TEST (node, vote_by_hash_republish)
 {
-	std::vector<nano::transport::transport_type> types{ nano::transport::transport_type::tcp, nano::transport::transport_type::udp };
-	for (auto & type : types)
-	{
-		nano::node_flags node_flags;
-		if (type == nano::transport::transport_type::udp)
-		{
-			node_flags.disable_tcp_realtime = true;
-			node_flags.disable_bootstrap_listener = true;
-			node_flags.disable_udp = false;
-		}
-		nano::system system (2, type, node_flags);
-		auto & node1 (*system.nodes[0]);
-		auto & node2 (*system.nodes[1]);
-		nano::keypair key2;
-		system.wallet (1)->insert_adhoc (key2.prv);
-		nano::genesis genesis;
-		nano::send_block_builder builder;
-		auto send1 = builder.make_block ()
-		             .previous (genesis.hash ())
-		             .destination (key2.pub)
-		             .balance (std::numeric_limits<nano::uint128_t>::max () - node1.config.receive_minimum.number ())
-		             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-		             .work (*system.work.generate (genesis.hash ()))
-		             .build_shared ();
-		auto send2 = builder.make_block ()
-		             .previous (genesis.hash ())
-		             .destination (key2.pub)
-		             .balance (std::numeric_limits<nano::uint128_t>::max () - node1.config.receive_minimum.number () * 2)
-		             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-		             .work (*system.work.generate (genesis.hash ()))
-		             .build_shared ();
-		node1.process_active (send1);
-		ASSERT_TIMELY (5s, node2.active.active (*send1));
-		node1.active.publish (send2);
-		std::vector<nano::block_hash> vote_blocks;
-		vote_blocks.push_back (send2->hash ());
-		auto vote (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, std::numeric_limits<uint64_t>::max (), vote_blocks));
-		ASSERT_TRUE (node1.active.active (*send1));
-		ASSERT_TRUE (node2.active.active (*send1));
-		node1.vote_processor.vote (vote, std::make_shared<nano::transport::channel_loopback> (node1));
-		ASSERT_TIMELY (10s, node1.block (send2->hash ()));
-		ASSERT_TIMELY (10s, node2.block (send2->hash ()));
-		ASSERT_FALSE (node1.block (send1->hash ()));
-		ASSERT_FALSE (node2.block (send1->hash ()));
-		ASSERT_TIMELY (5s, node2.balance (key2.pub) == node1.config.receive_minimum.number () * 2);
-		ASSERT_TIMELY (10s, node1.balance (key2.pub) == node1.config.receive_minimum.number () * 2);
-	}
+	nano::system system{ 2 };
+	auto & node1 = *system.nodes[0];
+	auto & node2 = *system.nodes[1];
+	nano::keypair key2;
+	system.wallet (1)->insert_adhoc (key2.prv);
+	nano::genesis genesis;
+	nano::send_block_builder builder;
+	auto send1 = builder.make_block ()
+	             .previous (genesis.hash ())
+	             .destination (key2.pub)
+	             .balance (std::numeric_limits<nano::uint128_t>::max () - node1.config.receive_minimum.number ())
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (*system.work.generate (genesis.hash ()))
+	             .build_shared ();
+	auto send2 = builder.make_block ()
+	             .previous (genesis.hash ())
+	             .destination (key2.pub)
+	             .balance (std::numeric_limits<nano::uint128_t>::max () - node1.config.receive_minimum.number () * 2)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (*system.work.generate (genesis.hash ()))
+	             .build_shared ();
+	node1.process_active (send1);
+	ASSERT_TIMELY (5s, node2.active.active (*send1));
+	node1.process_active (send2);
+	std::vector<nano::block_hash> vote_blocks;
+	vote_blocks.push_back (send2->hash ());
+	auto vote = std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, std::numeric_limits<uint64_t>::max (), vote_blocks);
+	ASSERT_TRUE (node1.active.active (*send1));
+	ASSERT_TRUE (node2.active.active (*send1));
+	node1.vote_processor.vote (vote, std::make_shared<nano::transport::channel_loopback> (node1));
+	ASSERT_TIMELY (10s, node1.block (send2->hash ()));
+	ASSERT_TIMELY (10s, node2.block (send2->hash ()));
+	ASSERT_FALSE (node1.block (send1->hash ()));
+	ASSERT_FALSE (node2.block (send1->hash ()));
+	ASSERT_TIMELY (5s, node2.balance (key2.pub) == node1.config.receive_minimum.number () * 2);
+	ASSERT_TIMELY (10s, node1.balance (key2.pub) == node1.config.receive_minimum.number () * 2);
 }
 
 TEST (node, vote_by_hash_epoch_block_republish)
@@ -4503,14 +4492,14 @@ TEST (node, deferred_dependent_elections)
 	            .representative (nano::dev_genesis_key.pub)
 	            .sign (key.prv, key.pub)
 	            .build_shared ();
-	node.process_active (send1);
+	node.process_local (send1);
 	node.block_processor.flush ();
 	auto election_send1 = node.active.election (send1->qualified_root ());
 	ASSERT_NE (nullptr, election_send1);
 
 	// Should process and republish but not start an election for any dependent blocks
-	node.process_active (open);
-	node.process_active (send2);
+	node.process_local (open, false);
+	node.process_local (send2, false);
 	node.block_processor.flush ();
 	ASSERT_TRUE (node.block (open->hash ()));
 	ASSERT_TRUE (node.block (send2->hash ()));
@@ -4521,7 +4510,7 @@ TEST (node, deferred_dependent_elections)
 
 	// Re-processing older blocks with updated work also does not start an election
 	node.work_generate_blocking (*open, open->difficulty () + 1);
-	node.process_active (open);
+	node.process_local (open, false);
 	node.block_processor.flush ();
 	ASSERT_FALSE (node.active.active (open->qualified_root ()));
 	/// However, work is still updated
@@ -4536,7 +4525,7 @@ TEST (node, deferred_dependent_elections)
 	/// The election was dropped but it's still not possible to restart it
 	node.work_generate_blocking (*open, open->difficulty () + 1);
 	ASSERT_FALSE (node.active.active (open->qualified_root ()));
-	node.process_active (open);
+	node.process_local (open, false);
 	node.block_processor.flush ();
 	ASSERT_FALSE (node.active.active (open->qualified_root ()));
 	/// However, work is still updated
@@ -4544,7 +4533,7 @@ TEST (node, deferred_dependent_elections)
 
 	// Frontier confirmation also starts elections
 	ASSERT_NO_ERROR (system.poll_until_true (5s, [&node, &send2] {
-		nano::unique_lock<nano::mutex> lock (node.active.mutex);
+		nano::unique_lock<nano::mutex> lock{ node.active.mutex };
 		node.active.frontiers_confirmation (lock);
 		lock.unlock ();
 		return node.active.election (send2->qualified_root ()) != nullptr;
@@ -4575,14 +4564,14 @@ TEST (node, deferred_dependent_elections)
 	ASSERT_FALSE (node.active.active (receive->qualified_root ()));
 	ASSERT_FALSE (node.ledger.rollback (node.store.tx_begin_write (), receive->hash ()));
 	ASSERT_FALSE (node.block (receive->hash ()));
-	node.process_active (receive);
+	node.process_local (receive, false);
 	node.block_processor.flush ();
 	ASSERT_TRUE (node.block (receive->hash ()));
 	ASSERT_FALSE (node.active.active (receive->qualified_root ()));
 
 	// Processing a fork will also not start an election
 	ASSERT_EQ (nano::process_result::fork, node.process (*fork).code);
-	node.process_active (fork);
+	node.process_local (fork, false);
 	node.block_processor.flush ();
 	ASSERT_FALSE (node.active.active (receive->qualified_root ()));
 
@@ -4592,7 +4581,7 @@ TEST (node, deferred_dependent_elections)
 	ASSERT_TIMELY (2s, node.active.active (receive->qualified_root ()));
 	node.active.erase (*receive);
 	ASSERT_FALSE (node.active.active (receive->qualified_root ()));
-	node.process_active (fork);
+	node.process_local (fork, false);
 	node.block_processor.flush ();
 	ASSERT_TRUE (node.active.active (receive->qualified_root ()));
 
@@ -4600,7 +4589,7 @@ TEST (node, deferred_dependent_elections)
 	node.active.erase (*fork);
 	ASSERT_FALSE (node.active.active (fork->qualified_root ()));
 	node.work_generate_blocking (*receive, receive->difficulty () + 1);
-	node.process_active (receive);
+	node.process_local (receive, false);
 	node.block_processor.flush ();
 	ASSERT_TRUE (node.active.active (receive->qualified_root ()));
 }
