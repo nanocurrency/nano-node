@@ -756,12 +756,12 @@ public:
 		return make_iterator<nano::qualified_root, nano::block_hash> (transaction_a, tables::final_votes);
 	}
 
-	nano::store_iterator<nano::account, nano::account_info> accounts_last (nano::transaction const & transaction_a) const override
+	nano::store_iterator<nano::account, nano::account_info> accounts_rbegin (nano::transaction const & transaction_a) const override
 	{
 		return make_iterator<nano::account, nano::account_info> (transaction_a, tables::accounts, false);
 	}
 
-	nano::store_iterator<uint64_t, nano::amount> online_weight_last (nano::transaction const & transaction_a) const override
+	nano::store_iterator<uint64_t, nano::amount> online_weight_rbegin (nano::transaction const & transaction_a) const override
 	{
 		return make_iterator<uint64_t, nano::amount> (transaction_a, tables::online_weight, false);
 	}

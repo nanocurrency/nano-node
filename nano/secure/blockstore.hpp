@@ -659,7 +659,7 @@ public:
 	virtual size_t account_count (nano::transaction const &) = 0;
 	virtual nano::store_iterator<nano::account, nano::account_info> accounts_begin (nano::transaction const &, nano::account const &) const = 0;
 	virtual nano::store_iterator<nano::account, nano::account_info> accounts_begin (nano::transaction const &) const = 0;
-	virtual nano::store_iterator<nano::account, nano::account_info> accounts_last (nano::transaction const &) const = 0;
+	virtual nano::store_iterator<nano::account, nano::account_info> accounts_rbegin (nano::transaction const &) const = 0;
 	virtual nano::store_iterator<nano::account, nano::account_info> accounts_end () const = 0;
 
 	virtual void pending_put (nano::write_transaction const &, nano::pending_key const &, nano::pending_info const &) = 0;
@@ -689,7 +689,7 @@ public:
 	virtual void online_weight_put (nano::write_transaction const &, uint64_t, nano::amount const &) = 0;
 	virtual void online_weight_del (nano::write_transaction const &, uint64_t) = 0;
 	virtual nano::store_iterator<uint64_t, nano::amount> online_weight_begin (nano::transaction const &) const = 0;
-	virtual nano::store_iterator<uint64_t, nano::amount> online_weight_last (nano::transaction const &) const = 0;
+	virtual nano::store_iterator<uint64_t, nano::amount> online_weight_rbegin (nano::transaction const &) const = 0;
 	virtual nano::store_iterator<uint64_t, nano::amount> online_weight_end () const = 0;
 	virtual size_t online_weight_count (nano::transaction const &) const = 0;
 	virtual void online_weight_clear (nano::write_transaction const &) = 0;

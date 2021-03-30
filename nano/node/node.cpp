@@ -807,7 +807,7 @@ void nano::node::long_inactivity_cleanup ()
 	auto transaction (store.tx_begin_write ({ tables::online_weight, tables::peers }));
 	if (store.online_weight_count (transaction) > 0)
 	{
-		auto sample (store.online_weight_last (transaction));
+		auto sample (store.online_weight_rbegin (transaction));
 		auto n (store.online_weight_end ());
 		debug_assert (sample != n);
 		auto const one_week_ago = static_cast<size_t> ((std::chrono::system_clock::now () - std::chrono::hours (7 * 24)).time_since_epoch ().count ());
@@ -867,7 +867,7 @@ void nano::node::ongoing_bootstrap ()
 		{
 			// Find last online weight sample (last active time for node)
 			uint64_t last_sample_time (0);
-			auto last_record = store.online_weight_last (store.tx_begin_read ());
+			auto last_record = store.online_weight_rbegin (store.tx_begin_read ());
 			if (last_record != store.online_weight_end ())
 			{
 				last_sample_time = last_record->first;
