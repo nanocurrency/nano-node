@@ -85,18 +85,6 @@ bool nano::election::valid_change (nano::election::state_t expected_a, nano::ele
 		case nano::election::state_t::active:
 			switch (desired_a)
 			{
-				case nano::election::state_t::broadcasting:
-				case nano::election::state_t::confirmed:
-				case nano::election::state_t::expired_unconfirmed:
-					result = true;
-					break;
-				default:
-					break;
-			}
-			break;
-		case nano::election::state_t::broadcasting:
-			switch (desired_a)
-			{
 				case nano::election::state_t::confirmed:
 				case nano::election::state_t::expired_unconfirmed:
 					result = true;
@@ -188,13 +176,6 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 			}
 			break;
 		case nano::election::state_t::active:
-			send_confirm_req (solicitor_a);
-			if (confirmation_request_count > active_request_count_min)
-			{
-				state_change (nano::election::state_t::active, nano::election::state_t::broadcasting);
-			}
-			break;
-		case nano::election::state_t::broadcasting:
 			broadcast_block (solicitor_a);
 			send_confirm_req (solicitor_a);
 			break;
