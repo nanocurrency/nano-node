@@ -1963,7 +1963,6 @@ TEST (node, bootstrap_fork_open)
 	auto node0 = system.add_node (node_config);
 	node_config.peering_port = nano::get_available_port ();
 	auto node1 = system.add_node (node_config);
-	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	nano::keypair key0;
 	nano::block_builder builder;
 	auto send0 = *builder.send ()
@@ -2003,10 +2002,11 @@ TEST (node, bootstrap_fork_open)
 	// They disagree about open0/open1
 	ASSERT_EQ (nano::process_result::progress, node0->process (open0).code);
 	ASSERT_EQ (nano::process_result::progress, node1->process (open1).code);
+	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	ASSERT_FALSE (node1->ledger.block_exists (open0.hash ()));
 	ASSERT_FALSE (node1->bootstrap_initiator.in_progress ());
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
-	ASSERT_TRUE (node1->active.empty ());
+	ASSERT_TIMELY (1s, node1->active.empty ());
 	ASSERT_TIMELY (10s, !node1->ledger.block_exists (open1.hash ()) && node1->ledger.block_exists (open0.hash ()));
 }
 
