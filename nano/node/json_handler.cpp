@@ -3107,6 +3107,11 @@ void nano::json_handler::process ()
 							rpc_l->ec = nano::error_process::block_position;
 							break;
 						}
+						case nano::process_result::gap_epoch_open_pending:
+						{
+							rpc_l->ec = nano::error_process::gap_epoch_open_pending;
+							break;
+						}
 						case nano::process_result::fork:
 						{
 							const bool force = rpc_l->request.get<bool> ("force", false);
