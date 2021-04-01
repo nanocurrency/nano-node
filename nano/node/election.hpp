@@ -70,7 +70,6 @@ private: // State management
 	{
 		passive, // only listening for incoming votes
 		active, // actively request confirmations
-		broadcasting, // request confirmations and broadcast the winner
 		confirmed, // confirmed but still listening for votes
 		expired_confirmed,
 		expired_unconfirmed

@@ -12,9 +12,6 @@
 
 #include <algorithm>
 
-constexpr size_t nano::bootstrap_limits::bootstrap_max_confirm_frontiers;
-constexpr double nano::bootstrap_limits::required_frontier_confirmation_ratio;
-constexpr unsigned nano::bootstrap_limits::frontier_confirmation_blocks_limit;
 constexpr unsigned nano::bootstrap_limits::requeued_pulls_limit;
 constexpr unsigned nano::bootstrap_limits::requeued_pulls_limit_dev;
 
@@ -116,11 +113,6 @@ std::string nano::bootstrap_attempt::mode_text ()
 	return mode_text;
 }
 
-void nano::bootstrap_attempt::restart_condition ()
-{
-	debug_assert (mode == nano::bootstrap_mode::legacy);
-}
-
 void nano::bootstrap_attempt::add_frontier (nano::pull_info const &)
 {
 	debug_assert (mode == nano::bootstrap_mode::legacy);
@@ -137,16 +129,20 @@ bool nano::bootstrap_attempt::request_bulk_push_target (std::pair<nano::block_ha
 	return true;
 }
 
-void nano::bootstrap_attempt::add_recent_pull (nano::block_hash const &)
+bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> const & block_a, nano::account const & known_account_a, uint64_t pull_blocks_processed, nano::bulk_pull::count_t max_blocks, bool block_expected, unsigned retry_limit)
 {
-	debug_assert (mode == nano::bootstrap_mode::legacy);
-}
-
-bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> const & block_a, nano::account const & known_account_a, uint64_t pull_blocks, nano::bulk_pull::count_t max_blocks, bool block_expected, unsigned retry_limit)
-{
-	nano::unchecked_info info (block_a, known_account_a, 0, nano::signature_verification::unknown);
-	node->block_processor.add (info);
-	return false;
+	bool stop_pull (false);
+	// If block already exists in the ledger, then we can avoid next part of long account chain
+	if (pull_blocks_processed % nano::bootstrap_limits::pull_count_per_check == 0 && node->ledger.block_or_pruned_exists (block_a->hash ()))
+	{
+		stop_pull = true;
+	}
+	else
+	{
+		nano::unchecked_info info (block_a, known_account_a, 0, nano::signature_verification::unknown);
+		node->block_processor.add (info);
+	}
+	return stop_pull;
 }
 
 void nano::bootstrap_attempt::lazy_start (nano::hash_or_account const &, bool)

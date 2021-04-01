@@ -807,13 +807,8 @@ void nano::node::long_inactivity_cleanup ()
 	auto transaction (store.tx_begin_write ({ tables::online_weight, tables::peers }));
 	if (store.online_weight_count (transaction) > 0)
 	{
-		auto i (store.online_weight_begin (transaction));
-		auto sample (store.online_weight_begin (transaction));
+		auto sample (store.online_weight_rbegin (transaction));
 		auto n (store.online_weight_end ());
-		while (++i != n)
-		{
-			++sample;
-		}
 		debug_assert (sample != n);
 		auto const one_week_ago = static_cast<size_t> ((std::chrono::system_clock::now () - std::chrono::hours (7 * 24)).time_since_epoch ().count ());
 		perform_cleanup = sample->first < one_week_ago;
@@ -851,7 +846,45 @@ void nano::node::ongoing_bootstrap ()
 			++warmed_up;
 		}
 	}
-	bootstrap_initiator.bootstrap ();
+	if (network_params.network.is_dev_network () && flags.bootstrap_interval != 0)
+	{
+		// For test purposes allow faster automatic bootstraps
+		next_wakeup = std::chrono::seconds (flags.bootstrap_interval);
+		++warmed_up;
+	}
+	// Differential bootstrap with max age (75% of all legacy attempts)
+	uint32_t frontiers_age (std::numeric_limits<uint32_t>::max ());
+	auto bootstrap_weight_reached (ledger.cache.block_count >= ledger.bootstrap_weight_max_blocks);
+	auto previous_bootstrap_count (stats.count (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out) + stats.count (nano::stat::type::bootstrap, nano::stat::detail::initiate_legacy_age, nano::stat::dir::out));
+	/* 
+	- Maximum value for 25% of attempts or if block count is below preconfigured value (initial bootstrap not finished)
+	- Node shutdown time minus 1 hour for start attempts (warm up)
+	- Default age value otherwise (1 day for live network, 1 hour for beta)
+	*/
+	if (bootstrap_weight_reached)
+	{
+		if (warmed_up < 3)
+		{
+			// Find last online weight sample (last active time for node)
+			uint64_t last_sample_time (0);
+			auto last_record = store.online_weight_rbegin (store.tx_begin_read ());
+			if (last_record != store.online_weight_end ())
+			{
+				last_sample_time = last_record->first;
+			}
+			uint64_t time_since_last_sample = std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now ().time_since_epoch ()).count () - last_sample_time / std::pow (10, 9); // Nanoseconds to seconds
+			if (time_since_last_sample + 60 * 60 < std::numeric_limits<uint32_t>::max ())
+			{
+				frontiers_age = std::max<uint32_t> (time_since_last_sample + 60 * 60, network_params.bootstrap.default_frontiers_age_seconds);
+			}
+		}
+		else if (previous_bootstrap_count % 4 != 0)
+		{
+			frontiers_age = network_params.bootstrap.default_frontiers_age_seconds;
+		}
+	}
+	// Bootstrap and schedule for next attempt
+	bootstrap_initiator.bootstrap (false, boost::str (boost::format ("auto_bootstrap_%1%") % previous_bootstrap_count), frontiers_age);
 	std::weak_ptr<nano::node> node_w (shared_from_this ());
 	workers.add_timed_task (std::chrono::steady_clock::now () + next_wakeup, [node_w]() {
 		if (auto node_l = node_w.lock ())

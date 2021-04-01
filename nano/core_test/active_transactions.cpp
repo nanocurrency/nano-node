@@ -93,17 +93,21 @@ TEST (active_transactions, confirm_frontier)
 	}
 
 	nano::genesis genesis;
-	auto send = nano::send_block_builder ()
+	nano::state_block_builder builder;
+	auto send = builder
+	            .account (nano::dev_genesis_key.pub)
 	            .previous (genesis.hash ())
-	            .destination (nano::public_key ())
+	            .representative (nano::dev_genesis_key.pub)
 	            .balance (nano::genesis_amount - 100)
+	            .link (nano::public_key ())
 	            .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
 	            .work (*system.work.generate (genesis.hash ()))
 	            .build_shared ();
+	auto send_copy = builder.make_block ().from (*send).build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send).code);
 	node1.confirmation_height_processor.add (send);
 	ASSERT_TIMELY (5s, node1.ledger.block_confirmed (node1.store.tx_begin_read (), send->hash ()));
-	ASSERT_EQ (nano::process_result::progress, node2.process (*send).code);
+	ASSERT_EQ (nano::process_result::progress, node2.process (*send_copy).code);
 	ASSERT_TIMELY (5s, !node2.active.empty ());
 	// Save election to check request count afterwards
 	auto election2 = node2.active.election (send->qualified_root ());
@@ -135,7 +139,6 @@ TEST (active_transactions, keep_local)
 	auto send6 (wallet.send_action (nano::dev_genesis_key.pub, key6.pub, node.config.receive_minimum.number ()));
 	// should not drop wallet created transactions
 	ASSERT_TIMELY (5s, node.active.size () == 6);
-	ASSERT_EQ (0, node.active.recently_dropped.size ());
 	for (auto const & block : { send1, send2, send3, send4, send5, send6 })
 	{
 		auto election = node.active.election (block->qualified_root ());
@@ -177,7 +180,6 @@ TEST (active_transactions, keep_local)
 	node.block_processor.flush ();
 	// bound elections, should drop after one loop
 	ASSERT_TIMELY (5s, node.active.size () == node_config.active_elections_size);
-	ASSERT_EQ (1, node.active.recently_dropped.size ());
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::election_drop));
 }
 
@@ -741,14 +743,13 @@ TEST (active_transactions, dropped_cleanup)
 	// The filter must have been cleared
 	ASSERT_FALSE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
 
-	// Added as recently dropped
-	ASSERT_NE (std::chrono::steady_clock::time_point{}, node.active.recently_dropped.find (block->qualified_root ()));
+	// An election was recently dropped
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::election_drop));
 
 	// Block cleared from active
 	ASSERT_EQ (0, node.active.blocks.count (block->hash ()));
 
 	// Repeat test for a confirmed election
-	node.active.recently_dropped.erase (block->qualified_root ());
 	ASSERT_TRUE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
 	election = node.active.insert (block).election;
 	ASSERT_NE (nullptr, election);
@@ -759,8 +760,8 @@ TEST (active_transactions, dropped_cleanup)
 	// The filter should not have been cleared
 	ASSERT_TRUE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
 
-	// Not added as recently dropped
-	ASSERT_EQ (std::chrono::steady_clock::time_point{}, node.active.recently_dropped.find (block->qualified_root ()));
+	// Not dropped
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::election_drop));
 
 	// Block cleared from active
 	ASSERT_EQ (0, node.active.blocks.count (block->hash ()));
@@ -769,11 +770,11 @@ TEST (active_transactions, dropped_cleanup)
 TEST (active_transactions, republish_winner)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port (), system.logging };
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	auto & node1 (*system.add_node (node_config));
+	auto & node1 = *system.add_node (node_config);
 	node_config.peering_port = nano::get_available_port ();
-	auto & node2 (*system.add_node (node_config));
+	auto & node2 = *system.add_node (node_config);
 
 	nano::genesis genesis;
 	nano::keypair key;
@@ -823,12 +824,15 @@ TEST (active_transactions, republish_winner)
 
 	node1.process_active (fork);
 	node1.block_processor.flush ();
-	auto vote (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 0, std::vector<nano::block_hash>{ fork->hash () }));
+	auto election = node1.active.election (fork->qualified_root ());
+	ASSERT_NE (nullptr, election);
+	auto vote = std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 0, std::vector<nano::block_hash>{ fork->hash () });
 	node1.vote_processor.vote (vote, std::make_shared<nano::transport::channel_loopback> (node1));
 	node1.vote_processor.flush ();
 	node1.block_processor.flush ();
-
-	ASSERT_TIMELY (3s, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in) == 2);
+	ASSERT_TIMELY (3s, election->confirmed ());
+	ASSERT_EQ (fork->hash (), election->status.winner->hash ());
+	ASSERT_TIMELY (3s, node2.block_confirmed (fork->hash ()));
 }
 
 TEST (active_transactions, fork_filter_cleanup)
@@ -1463,7 +1467,6 @@ TEST (active_transactions, restart_dropped)
 	            .work (*system.work.generate (genesis.hash ()))
 	            .build_shared (); // Process only in ledger and simulate dropping the election
 	ASSERT_EQ (nano::process_result::progress, node.process (*send).code);
-	node.active.recently_dropped.add (send->qualified_root ());
 	// Generate higher difficulty work
 	ASSERT_TRUE (node.work_generate_blocking (*send, send->difficulty () + 1).is_initialized ());
 	// Process the same block with updated work
@@ -1476,8 +1479,6 @@ TEST (active_transactions, restart_dropped)
 	ASSERT_NE (nullptr, ledger_block);
 	// Exact same block, including work value must have been re-written
 	ASSERT_EQ (*send, *ledger_block);
-	// Removed from the dropped elections cache
-	ASSERT_EQ (std::chrono::steady_clock::time_point{}, node.active.recently_dropped.find (send->qualified_root ()));
 	// Drop election
 	node.active.erase (*send);
 	ASSERT_EQ (0, node.active.size ());

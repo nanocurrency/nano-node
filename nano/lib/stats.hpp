@@ -285,6 +285,7 @@ public:
 
 		// bootstrap, callback
 		initiate,
+		initiate_legacy_age,
 		initiate_lazy,
 		initiate_wallet_lazy,
 

@@ -796,6 +796,17 @@ TEST (block_store, large_iteration)
 		previous = current;
 	}
 	ASSERT_EQ (accounts1, accounts2);
+	// Reverse iteration
+	std::unordered_set<nano::account> accounts3;
+	previous = std::numeric_limits<nano::uint256_t>::max ();
+	for (auto i (store->accounts_rbegin (transaction)), n (store->accounts_end ()); i != n; --i)
+	{
+		nano::account current (i->first);
+		ASSERT_LT (current.number (), previous.number ());
+		accounts3.insert (current);
+		previous = current;
+	}
+	ASSERT_EQ (accounts1, accounts3);
 }
 
 TEST (block_store, frontier)
@@ -1162,20 +1173,30 @@ TEST (block_store, online_weight)
 		auto transaction (store->tx_begin_write ());
 		ASSERT_EQ (0, store->online_weight_count (transaction));
 		ASSERT_EQ (store->online_weight_end (), store->online_weight_begin (transaction));
+		ASSERT_EQ (store->online_weight_end (), store->online_weight_rbegin (transaction));
 		store->online_weight_put (transaction, 1, 2);
+		store->online_weight_put (transaction, 3, 4);
 	}
 	{
 		auto transaction (store->tx_begin_write ());
-		ASSERT_EQ (1, store->online_weight_count (transaction));
+		ASSERT_EQ (2, store->online_weight_count (transaction));
 		auto item (store->online_weight_begin (transaction));
 		ASSERT_NE (store->online_weight_end (), item);
 		ASSERT_EQ (1, item->first);
 		ASSERT_EQ (2, item->second.number ());
+		auto item_last (store->online_weight_rbegin (transaction));
+		ASSERT_NE (store->online_weight_end (), item_last);
+		ASSERT_EQ (3, item_last->first);
+		ASSERT_EQ (4, item_last->second.number ());
 		store->online_weight_del (transaction, 1);
+		ASSERT_EQ (1, store->online_weight_count (transaction));
+		ASSERT_EQ (store->online_weight_begin (transaction), store->online_weight_rbegin (transaction));
+		store->online_weight_del (transaction, 3);
 	}
 	auto transaction (store->tx_begin_read ());
 	ASSERT_EQ (0, store->online_weight_count (transaction));
 	ASSERT_EQ (store->online_weight_end (), store->online_weight_begin (transaction));
+	ASSERT_EQ (store->online_weight_end (), store->online_weight_rbegin (transaction));
 }
 
 TEST (block_store, pruned_blocks)

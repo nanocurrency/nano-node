@@ -81,8 +81,8 @@ class bootstrap_initiator final
 public:
 	explicit bootstrap_initiator (nano::node &);
 	~bootstrap_initiator ();
-	void bootstrap (nano::endpoint const &, bool add_to_peers = true, bool frontiers_confirmed = false, std::string id_a = "");
-	void bootstrap (bool force = false, std::string id_a = "");
+	void bootstrap (nano::endpoint const &, bool add_to_peers = true, std::string id_a = "");
+	void bootstrap (bool force = false, std::string id_a = "", uint32_t const frontiers_age_a = std::numeric_limits<uint32_t>::max ());
 	void bootstrap_lazy (nano::hash_or_account const &, bool force = false, bool confirmed = true, std::string id_a = "");
 	void bootstrap_wallet (std::deque<nano::account> &);
 	void run_bootstrap ();
@@ -127,12 +127,10 @@ public:
 	static constexpr double bootstrap_minimum_frontier_blocks_per_sec = 1000.0;
 	static constexpr double bootstrap_minimum_termination_time_sec = 30.0;
 	static constexpr unsigned bootstrap_max_new_connections = 32;
-	static constexpr size_t bootstrap_max_confirm_frontiers = 70;
-	static constexpr double required_frontier_confirmation_ratio = 0.8;
-	static constexpr unsigned frontier_confirmation_blocks_limit = 128 * 1024;
 	static constexpr unsigned requeued_pulls_limit = 256;
 	static constexpr unsigned requeued_pulls_limit_dev = 1;
 	static constexpr unsigned requeued_pulls_processed_blocks_factor = 4096;
+	static constexpr uint64_t pull_count_per_check = 8 * 1024;
 	static constexpr unsigned bulk_push_cost_limit = 200;
 	static constexpr std::chrono::seconds lazy_flush_delay_sec = std::chrono::seconds (5);
 	static constexpr uint64_t lazy_batch_pull_count_resize_blocks_limit = 4 * 1024 * 1024;

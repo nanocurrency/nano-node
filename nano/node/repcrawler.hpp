@@ -83,6 +83,9 @@ public:
 	/** Remove block hash from list of active rep queries */
 	void remove (nano::block_hash const &);
 
+	/** Remove block hash from with delay depending on vote processor size */
+	void throttled_remove (nano::block_hash const &, uint64_t const);
+
 	/** Attempt to determine if the peer manages one or more representative accounts */
 	void query (std::vector<std::shared_ptr<nano::transport::channel>> const & channels_a);
 

@@ -10,11 +10,20 @@ template <typename T, typename U>
 class mdb_iterator : public store_iterator_impl<T, U>
 {
 public:
-	mdb_iterator (nano::transaction const & transaction_a, MDB_dbi db_a)
+	mdb_iterator (nano::transaction const & transaction_a, MDB_dbi db_a, MDB_val const & val_a = MDB_val{}, bool const direction_asc = true)
 	{
 		auto status (mdb_cursor_open (tx (transaction_a), db_a, &cursor));
 		release_assert (status == 0);
-		auto status2 (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_FIRST));
+		auto operation (MDB_SET_RANGE);
+		if (val_a.mv_size != 0)
+		{
+			current.first = val_a;
+		}
+		else
+		{
+			operation = direction_asc ? MDB_FIRST : MDB_LAST;
+		}
+		auto status2 (mdb_cursor_get (cursor, &current.first.value, &current.second.value, operation));
 		release_assert (status2 == 0 || status2 == MDB_NOTFOUND);
 		if (status2 != MDB_NOTFOUND)
 		{
@@ -32,28 +41,6 @@ public:
 	}
 
 	mdb_iterator () = default;
-
-	mdb_iterator (nano::transaction const & transaction_a, MDB_dbi db_a, MDB_val const & val_a)
-	{
-		auto status (mdb_cursor_open (tx (transaction_a), db_a, &cursor));
-		release_assert (status == 0);
-		current.first = val_a;
-		auto status2 (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_SET_RANGE));
-		release_assert (status2 == 0 || status2 == MDB_NOTFOUND);
-		if (status2 != MDB_NOTFOUND)
-		{
-			auto status3 (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_GET_CURRENT));
-			release_assert (status3 == 0 || status3 == MDB_NOTFOUND);
-			if (current.first.size () != sizeof (T))
-			{
-				clear ();
-			}
-		}
-		else
-		{
-			clear ();
-		}
-	}
 
 	mdb_iterator (nano::mdb_iterator<T, U> && other_a)
 	{
@@ -76,6 +63,22 @@ public:
 	{
 		debug_assert (cursor != nullptr);
 		auto status (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_NEXT));
+		release_assert (status == 0 || status == MDB_NOTFOUND);
+		if (status == MDB_NOTFOUND)
+		{
+			clear ();
+		}
+		if (current.first.size () != sizeof (T))
+		{
+			clear ();
+		}
+		return *this;
+	}
+
+	nano::store_iterator_impl<T, U> & operator-- () override
+	{
+		debug_assert (cursor != nullptr);
+		auto status (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_PREV));
 		release_assert (status == 0 || status == MDB_NOTFOUND);
 		if (status == MDB_NOTFOUND)
 		{
@@ -193,6 +196,12 @@ public:
 	nano::store_iterator_impl<T, U> & operator++ () override
 	{
 		++least_iterator ();
+		return *this;
+	}
+
+	nano::store_iterator_impl<T, U> & operator-- () override
+	{
+		--least_iterator ();
 		return *this;
 	}
 

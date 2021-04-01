@@ -12,12 +12,13 @@ constexpr unsigned nano::bootstrap_limits::bulk_push_cost_limit;
 
 constexpr size_t nano::frontier_req_client::size_frontier;
 
-void nano::frontier_req_client::run ()
+void nano::frontier_req_client::run (uint32_t const frontiers_age_a)
 {
 	nano::frontier_req request;
 	request.start.clear ();
-	request.age = std::numeric_limits<decltype (request.age)>::max ();
+	request.age = frontiers_age_a;
 	request.count = std::numeric_limits<decltype (request.count)>::max ();
+	frontiers_age = frontiers_age_a;
 	auto this_l (shared_from_this ());
 	connection->channel->send (
 	request, [this_l](boost::system::error_code const & ec, size_t size_a) {
@@ -68,7 +69,7 @@ void nano::frontier_req_client::receive_frontier ()
 
 void nano::frontier_req_client::unsynced (nano::block_hash const & head, nano::block_hash const & end)
 {
-	if (bulk_push_cost < nano::bootstrap_limits::bulk_push_cost_limit)
+	if (bulk_push_cost < nano::bootstrap_limits::bulk_push_cost_limit && frontiers_age == std::numeric_limits<decltype (frontiers_age)>::max ())
 	{
 		attempt->add_bulk_push_target (head, end);
 		if (end.is_zero ())
@@ -318,13 +319,29 @@ void nano::frontier_req_server::next ()
 		bool disable_age_filter (request->age == std::numeric_limits<decltype (request->age)>::max ());
 		size_t max_size (128);
 		auto transaction (connection->node->store.tx_begin_read ());
-		for (auto i (connection->node->store.accounts_begin (transaction, current.number () + 1)), n (connection->node->store.accounts_end ()); i != n && accounts.size () != max_size; ++i)
+		if (!send_confirmed ())
 		{
-			nano::account_info const & info (i->second);
-			if (disable_age_filter || (now - info.modified) <= request->age)
+			for (auto i (connection->node->store.accounts_begin (transaction, current.number () + 1)), n (connection->node->store.accounts_end ()); i != n && accounts.size () != max_size; ++i)
 			{
-				nano::account const & account (i->first);
-				accounts.emplace_back (account, info.head);
+				nano::account_info const & info (i->second);
+				if (disable_age_filter || (now - info.modified) <= request->age)
+				{
+					nano::account const & account (i->first);
+					accounts.emplace_back (account, info.head);
+				}
+			}
+		}
+		else
+		{
+			for (auto i (connection->node->store.confirmation_height_begin (transaction, current.number () + 1)), n (connection->node->store.confirmation_height_end ()); i != n && accounts.size () != max_size; ++i)
+			{
+				nano::confirmation_height_info const & info (i->second);
+				nano::block_hash const & confirmed_frontier (info.frontier);
+				if (!confirmed_frontier.is_zero ())
+				{
+					nano::account const & account (i->first);
+					accounts.emplace_back (account, confirmed_frontier);
+				}
 			}
 		}
 		/* If loop breaks before max_size, then accounts_end () is reached
@@ -339,4 +356,9 @@ void nano::frontier_req_server::next ()
 	current = account_pair.first;
 	frontier = account_pair.second;
 	accounts.pop_front ();
+}
+
+bool nano::frontier_req_server::send_confirmed ()
+{
+	return request->header.frontier_req_is_only_confirmed_present ();
 }
