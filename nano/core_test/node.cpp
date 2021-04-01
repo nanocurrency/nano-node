@@ -1993,6 +1993,7 @@ TEST (node, bootstrap_fork_open)
 	for (auto node : system.nodes)
 	{
 		node->block_confirm (node->block (node->latest (nano::dev_genesis_key.pub)));
+		ASSERT_TIMELY (1s, node->active.election (send0.qualified_root ()));
 		auto election = node->active.election (send0.qualified_root ());
 		ASSERT_NE (nullptr, election);
 		election->force_confirm ();
@@ -2535,6 +2536,7 @@ TEST (node, online_reps_election)
 	             .build_shared ();
 	node1.process_active (send1);
 	node1.block_processor.flush ();
+	node1.scheduler.flush ();
 	ASSERT_EQ (1, node1.active.size ());
 	// Process vote for ongoing election
 	auto vote = std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, nano::milliseconds_since_epoch (), std::vector<nano::block_hash>{ send1->hash () });
@@ -2651,11 +2653,11 @@ TEST (node, block_arrival_time)
 TEST (node, confirm_quorum)
 {
 	nano::system system (1);
-	auto & node1 (*system.nodes[0]);
+	auto & node1 = *system.nodes[0];
 	nano::genesis genesis;
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	// Put greater than node.delta () in pending so quorum can't be reached
-	nano::amount new_balance (node1.online_reps.delta () - nano::Gxrb_ratio);
+	nano::amount new_balance = node1.online_reps.delta () - nano::Gxrb_ratio;
 	auto send1 = nano::state_block_builder ()
 	             .account (nano::dev_genesis_key.pub)
 	             .previous (genesis.hash ())
@@ -2667,8 +2669,8 @@ TEST (node, confirm_quorum)
 	             .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
 	system.wallet (0)->send_action (nano::dev_genesis_key.pub, nano::dev_genesis_key.pub, new_balance.number ());
-	ASSERT_TIMELY (10s, !node1.active.empty ());
-	auto election (node1.active.election (nano::qualified_root (send1->hash (), send1->hash ())));
+	ASSERT_TIMELY (1s, node1.active.election (send1->qualified_root ()));
+	auto election = node1.active.election (send1->qualified_root ());
 	ASSERT_NE (nullptr, election);
 	ASSERT_FALSE (election->confirmed ());
 	ASSERT_EQ (1, election->votes ().size ());
@@ -4746,7 +4748,7 @@ TEST (node, pruning_age)
 TEST (node, pruning_depth)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
+	nano::node_config node_config{ nano::get_available_port (), system.logging };
 	node_config.enable_voting = false; // Remove after allowing pruned voting
 	nano::node_flags node_flags;
 	node_flags.enable_pruning = true;
@@ -4771,19 +4773,16 @@ TEST (node, pruning_depth)
 	node1.process_active (send1);
 	node1.process_active (send2);
 	node1.block_processor.flush ();
+	node1.scheduler.flush ();
 	// Confirm last block to prune previous
-	{
-		auto election = node1.active.election (send1->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-	}
+	auto election1 = node1.active.election (send1->qualified_root ());
+	ASSERT_NE (nullptr, election1);
+	election1->force_confirm ();
 	ASSERT_TIMELY (2s, node1.block_confirmed (send1->hash ()) && node1.active.active (send2->qualified_root ()));
 	ASSERT_EQ (0, node1.ledger.cache.pruned_count);
-	{
-		auto election = node1.active.election (send2->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-	}
+	auto election2 = node1.active.election (send2->qualified_root ());
+	ASSERT_NE (nullptr, election2);
+	election2->force_confirm ();
 	ASSERT_TIMELY (2s, node1.active.empty () && node1.block_confirmed (send2->hash ()));
 	// Pruning with default depth (unlimited)
 	node1.ledger_pruning (1, true, false);

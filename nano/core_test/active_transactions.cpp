@@ -129,9 +129,10 @@ TEST (active_transactions, keep_local)
 	auto send5 (wallet.send_action (nano::dev_genesis_key.pub, key5.pub, node.config.receive_minimum.number ()));
 	auto send6 (wallet.send_action (nano::dev_genesis_key.pub, key6.pub, node.config.receive_minimum.number ()));
 	// should not drop wallet created transactions
-	ASSERT_TIMELY (5s, node.active.size () == 6);
+	ASSERT_TIMELY (5s, node.active.size () == 1);
 	for (auto const & block : { send1, send2, send3, send4, send5, send6 })
 	{
+		ASSERT_TIMELY (1s, node.active.election (block->qualified_root ()));
 		auto election = node.active.election (block->qualified_root ());
 		ASSERT_NE (nullptr, election);
 		election->force_confirm ();

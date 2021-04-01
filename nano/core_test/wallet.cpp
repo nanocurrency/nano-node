@@ -1244,14 +1244,14 @@ TEST (wallet, receive_pruned)
 	nano::system system;
 	nano::node_flags node_flags;
 	node_flags.disable_request_loop = true;
-	auto & node1 (*system.add_node (node_flags));
+	auto & node1 = *system.add_node (node_flags);
 	node_flags.enable_pruning = true;
 	nano::node_config config (nano::get_available_port (), system.logging);
 	config.enable_voting = false; // Remove after allowing pruned voting
-	auto & node2 (*system.add_node (config, node_flags));
+	auto & node2 = *system.add_node (config, node_flags);
 
-	auto & wallet1 (*system.wallet (0));
-	auto & wallet2 (*system.wallet (1));
+	auto & wallet1 = *system.wallet (0);
+	auto & wallet2 = *system.wallet (1);
 
 	nano::keypair key;
 	nano::state_block_builder builder;
@@ -1265,7 +1265,7 @@ TEST (wallet, receive_pruned)
 	// Pruning
 	ASSERT_TIMELY (5s, node2.ledger.cache.cemented_count == 3);
 	{
-		auto transaction (node2.store.tx_begin_write ());
+		auto transaction = node2.store.tx_begin_write ();
 		ASSERT_EQ (1, node2.ledger.pruning_action (transaction, send1->hash (), 2));
 	}
 	ASSERT_EQ (1, node2.ledger.cache.pruned_count);
