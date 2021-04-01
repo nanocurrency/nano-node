@@ -247,13 +247,13 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 		if (cemented_bootstrap_count_reached && was_active && low_active_elections ())
 		{
 			// Start or vote for the next unconfirmed block
-			scheduler.activate (account);
+			scheduler.activate (account, transaction);
 
 			// Start or vote for the next unconfirmed block in the destination account
 			auto const & destination (node.ledger.block_destination (transaction, *block_a));
 			if (!destination.is_zero () && destination != account)
 			{
-				scheduler.activate (destination);
+				scheduler.activate (destination, transaction);
 			}
 		}
 	}

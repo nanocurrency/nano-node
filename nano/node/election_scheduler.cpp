@@ -22,9 +22,9 @@ void nano::election_scheduler::insert (std::shared_ptr<nano::block> const & bloc
 	condition.notify_all ();
 }
 
-void nano::election_scheduler::activate (nano::account const & account_a)
+void nano::election_scheduler::activate (nano::account const & account_a, nano::transaction const & transaction)
 {
-	auto transaction (node.store.tx_begin_read ());
+	debug_assert (!account_a.is_zero ());
 	nano::account_info account_info;
 	if (!node.store.account_get (transaction, account_a, account_info))
 	{

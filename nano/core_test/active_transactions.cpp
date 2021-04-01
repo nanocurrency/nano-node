@@ -1602,19 +1602,19 @@ TEST (active_transactions, activate_account_chain)
 	ASSERT_EQ (nano::process_result::progress, node.process (*open).code);
 	ASSERT_EQ (nano::process_result::progress, node.process (*receive).code);
 
-	node.scheduler.activate (nano::dev_genesis_key.pub);
+	node.scheduler.activate (nano::dev_genesis_key.pub, node.store.tx_begin_read ());
 	node.scheduler.flush ();
 	auto election1 = node.active.election (send->qualified_root ());
 	ASSERT_EQ (1, node.active.size ());
 	ASSERT_EQ (1, election1->blocks ().count (send->hash ()));
-	node.scheduler.activate (nano::dev_genesis_key.pub);
+	node.scheduler.activate (nano::dev_genesis_key.pub, node.store.tx_begin_read ());
 	auto election2 = node.active.election (send->qualified_root ());
 	ASSERT_EQ (election2, election1);
 	election1->force_confirm ();
 	ASSERT_TIMELY (3s, node.block_confirmed (send->hash ()));
 	// On cementing, the next election is started
 	ASSERT_TIMELY (3s, node.active.active (send2->qualified_root ()));
-	node.scheduler.activate (nano::dev_genesis_key.pub);
+	node.scheduler.activate (nano::dev_genesis_key.pub, node.store.tx_begin_read ());
 	auto election3 = node.active.election (send2->qualified_root ());
 	ASSERT_NE (nullptr, election3);
 	ASSERT_EQ (1, election3->blocks ().count (send2->hash ()));
@@ -1623,11 +1623,11 @@ TEST (active_transactions, activate_account_chain)
 	// On cementing, the next election is started
 	ASSERT_TIMELY (3s, node.active.active (open->qualified_root ()));
 	ASSERT_TIMELY (3s, node.active.active (send3->qualified_root ()));
-	node.scheduler.activate (nano::dev_genesis_key.pub);
+	node.scheduler.activate (nano::dev_genesis_key.pub, node.store.tx_begin_read ());
 	auto election4 = node.active.election (send3->qualified_root ());
 	ASSERT_NE (nullptr, election4);
 	ASSERT_EQ (1, election4->blocks ().count (send3->hash ()));
-	node.scheduler.activate (key.pub);
+	node.scheduler.activate (key.pub, node.store.tx_begin_read ());
 	auto election5 = node.active.election (open->qualified_root ());
 	ASSERT_NE (nullptr, election5);
 	ASSERT_EQ (1, election5->blocks ().count (open->hash ()));
@@ -1635,7 +1635,7 @@ TEST (active_transactions, activate_account_chain)
 	ASSERT_TIMELY (3s, node.block_confirmed (open->hash ()));
 	// Until send3 is also confirmed, the receive block should not activate
 	std::this_thread::sleep_for (200ms);
-	node.scheduler.activate (key.pub);
+	node.scheduler.activate (key.pub, node.store.tx_begin_read ());
 	election4->force_confirm ();
 	ASSERT_TIMELY (3s, node.block_confirmed (send3->hash ()));
 	ASSERT_TIMELY (3s, node.active.active (receive->qualified_root ()));
