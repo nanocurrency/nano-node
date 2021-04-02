@@ -1160,8 +1160,10 @@ TEST (node, fork_keep)
 	             .build_shared ();
 	node1.process_active (send1);
 	node1.block_processor.flush ();
+	node1.scheduler.flush ();
 	node2.process_active (send1);
 	node2.block_processor.flush ();
+	node2.scheduler.flush ();
 	ASSERT_EQ (1, node1.active.size ());
 	ASSERT_EQ (1, node2.active.size ());
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
@@ -1215,9 +1217,11 @@ TEST (node, fork_flip)
 	auto channel1 (node1.network.udp_channels.create (node1.network.endpoint ()));
 	node1.network.process_message (publish1, channel1);
 	node1.block_processor.flush ();
+	node1.scheduler.flush ();
 	auto channel2 (node2.network.udp_channels.create (node1.network.endpoint ()));
 	node2.network.process_message (publish2, channel2);
 	node2.block_processor.flush ();
+	node2.scheduler.flush ();
 	ASSERT_EQ (1, node1.active.size ());
 	ASSERT_EQ (1, node2.active.size ());
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);

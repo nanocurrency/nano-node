@@ -39,7 +39,7 @@ void nano::election_scheduler::activate (nano::account const & account_a, nano::
 			if (node.ledger.dependents_confirmed (transaction, *block))
 			{
 				std::lock_guard<std::mutex> lock{ mutex };
-				activate_queue.push_back (block);
+				priority.push (account_info.modified, block);
 				condition.notify_all ();
 			}
 		}
@@ -56,10 +56,10 @@ void nano::election_scheduler::stop ()
 void nano::election_scheduler::flush ()
 {
 	std::unique_lock<std::mutex> lock{ mutex };
-	auto activate_target = activate_queued + activate_queue.size ();
+	auto priority_target = priority_queued + priority.size ();
 	auto insert_target = insert_queued + insert_queue.size ();
-	condition.wait (lock, [this, &activate_target, &insert_target] () {
-		return activate_queued >= activate_target &&
+	condition.wait (lock, [this, &priority_target, &insert_target] () {
+		return priority_queued >= priority_target &&
 		       insert_queued >= insert_target;
 	});
 }
@@ -70,13 +70,13 @@ void nano::election_scheduler::run ()
 	while (!stopped)
 	{
 		condition.wait (lock, [this] () {
-			return stopped || !activate_queue.empty () || !insert_queue.empty ();
+			return stopped || !priority.empty () || !insert_queue.empty ();
 		});
 		if (!stopped)
 		{
-			if (!activate_queue.empty())
+			if (!priority.empty())
 			{
-				auto block = activate_queue.front ();
+				auto block = priority.top ();
 				lock.unlock ();
 				insert (block);
 				lock.lock ();
@@ -85,8 +85,8 @@ void nano::election_scheduler::run ()
 				{
 					election->transition_active ();
 				}
-				activate_queue.pop_front ();
-				++activate_queued;
+				priority.pop ();
+				++priority_queued;
 			}
 			if (!insert_queue.empty ())
 			{

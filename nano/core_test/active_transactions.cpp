@@ -555,6 +555,7 @@ TEST (active_transactions, update_difficulty)
 	node1.process_active (send1);
 	node1.process_active (send2);
 	node1.block_processor.flush ();
+	node1.scheduler.flush ();
 	// Share the updated blocks
 	node1.network.flood_block (send1);
 	node1.network.flood_block (send2);

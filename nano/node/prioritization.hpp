@@ -30,7 +30,7 @@ class prioritization final
 	decltype(schedule)::const_iterator current;
 public:
 	prioritization (std::function<void (std::shared_ptr<nano::block>)> const & drop_a = nullptr);
-	void push (uint32_t time, std::shared_ptr<nano::block> block);
+	void push (uint64_t time, std::shared_ptr<nano::block> block);
 	std::shared_ptr<nano::block> top () const;
 	void pop ();
 	size_t size () const;
