@@ -1,8 +1,19 @@
 #include <nano/node/prioritization.hpp>
 
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/utility.hpp>
 
 #include <random>
+
+bool nano::prioritization::value_type::operator<(value_type const & other_a) const
+{
+	return time < other_a.time || block->hash () < other_a.block->hash ();
+}
+
+bool nano::prioritization::value_type::operator== (value_type const & other_a) const
+{
+	return time == other_a.time && block->hash () == other_a.block->hash ();
+}
 
 void nano::prioritization::next ()
 {
@@ -33,7 +44,7 @@ void nano::prioritization::populate_schedule ()
 	std::shuffle (schedule.begin (), schedule.end (), g);
 }
 
-nano::prioritization::prioritization (std::function<void (nano::block_hash const &)> const & drop_a) :
+nano::prioritization::prioritization (std::function<void (std::shared_ptr<nano::block>)> const & drop_a) :
 	drop{ drop_a }
 {
 	static size_t constexpr bucket_count = 129;
@@ -50,23 +61,23 @@ nano::prioritization::prioritization (std::function<void (nano::block_hash const
 	current = schedule.begin ();
 }
 
-void nano::prioritization::push (uint32_t time, nano::amount const & balance_a, nano::account const & account_a)
+void nano::prioritization::push (uint32_t time, std::shared_ptr<nano::block> block)
 {
-	auto count = 0;
-	auto bucket = std::upper_bound (minimums.begin (), minimums.end (), balance_a.number ());
+	debug_assert (block->type () == nano::block_type::state);
+	auto bucket = std::upper_bound (minimums.begin (), minimums.end (), block->balance ().number ());
 	debug_assert (bucket != minimums.begin ());
-	buckets[bucket - 1 - minimums.begin ()].emplace (value_type{ time, account_a });
+	buckets[bucket - 1 - minimums.begin ()].emplace (value_type{ time, block });
 	if (buckets[*current].empty ())
 	{
 		seek ();
 	}
 }
 
-nano::account nano::prioritization::top () const
+std::shared_ptr<nano::block> nano::prioritization::top () const
 {
 	debug_assert (!empty ());
 	debug_assert (!buckets[*current].empty ());
-	nano::account result = buckets[*current].begin ()->account;
+	auto result = buckets[*current].begin ()->block;
 	return result;
 }
 

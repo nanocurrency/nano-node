@@ -13,28 +13,25 @@ class prioritization final
 	class value_type
 	{
 	public:
-		uint32_t time;
-		nano::account account;
-		bool operator< (value_type const & other_a) const
-		{
-			return time < other_a.time || account < other_a.account;
-		}
+		uint64_t time;
+		std::shared_ptr<block> block;
+		bool operator< (value_type const & other_a) const;
+		bool operator== (value_type const & other_a) const;
 	};
-	static void drop_void (nano::block_hash const &) {};
 	using priority = std::set<value_type>;
 	std::vector<priority> buckets;
 	std::vector<nano::uint128_t> minimums;
 	void next ();
 	void seek ();
 	void populate_schedule ();
-	std::function<void (nano::block_hash const &)> const & drop;
+	std::function<void (std::shared_ptr<nano::block>)> drop;
 	// Contains bucket indicies to iterate over when making the next scheduling decision
 	std::vector<uint8_t> schedule;
 	decltype(schedule)::const_iterator current;
 public:
-	prioritization (std::function<void (nano::block_hash const &)> const & drop_a = drop_void);
-	void push (uint32_t time, nano::amount const & balance_a, nano::account const & account_a);
-	nano::account top () const;
+	prioritization (std::function<void (std::shared_ptr<nano::block>)> const & drop_a = nullptr);
+	void push (uint32_t time, std::shared_ptr<nano::block> block);
+	std::shared_ptr<nano::block> top () const;
 	void pop ();
 	size_t size () const;
 	size_t bucket_count () const;
