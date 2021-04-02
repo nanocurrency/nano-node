@@ -1294,7 +1294,9 @@ TEST (node, fork_multi_flip)
 		node2.network.process_message (publish2, node2.network.udp_channels.create (node2.network.endpoint ()));
 		node2.network.process_message (publish3, node2.network.udp_channels.create (node2.network.endpoint ()));
 		node1.block_processor.flush ();
+		node1.scheduler.flush ();
 		node2.block_processor.flush ();
+		node2.scheduler.flush ();
 		ASSERT_EQ (1, node1.active.size ());
 		ASSERT_EQ (1, node2.active.size ());
 		system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
@@ -4507,6 +4509,7 @@ TEST (node, deferred_dependent_elections)
 	            .build_shared ();
 	node.process_local (send1);
 	node.block_processor.flush ();
+	node.scheduler.flush ();
 	auto election_send1 = node.active.election (send1->qualified_root ());
 	ASSERT_NE (nullptr, election_send1);
 

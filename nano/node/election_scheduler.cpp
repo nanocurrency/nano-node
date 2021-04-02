@@ -35,7 +35,7 @@ void nano::election_scheduler::activate (nano::account const & account_a, nano::
 			debug_assert (conf_info.frontier != account_info.head);
 			auto hash = conf_info.height == 0 ? account_info.open_block : node.store.block_successor (transaction, conf_info.frontier);
 			auto block = node.store.block_get (transaction, hash);
-			release_assert (block != nullptr);
+			debug_assert (block != nullptr);
 			if (node.ledger.dependents_confirmed (transaction, *block))
 			{
 				std::lock_guard<std::mutex> lock{ mutex };
@@ -72,6 +72,7 @@ void nano::election_scheduler::run ()
 		condition.wait (lock, [this] () {
 			return stopped || !priority.empty () || !insert_queue.empty ();
 		});
+		debug_assert ((std::this_thread::yield (), true)); // Introduce some random delay in debug builds
 		if (!stopped)
 		{
 			if (!priority.empty())
