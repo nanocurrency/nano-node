@@ -1029,7 +1029,9 @@ void nano::active_transactions::restart (nano::transaction const & transaction_a
 			{
 				node.stats.inc (nano::stat::type::election, nano::stat::detail::election_restart);
 				auto previous_balance = node.ledger.balance (transaction_a, ledger_block->previous ());
-				scheduler.insert (ledger_block, previous_balance);
+				auto block_has_account = ledger_block->type () == nano::block_type::state || ledger_block->type () == nano::block_type::open;
+				auto account = block_has_account ? ledger_block->account () : ledger_block->sideband ().account;
+				scheduler.activate (account, transaction_a);
 			}
 		}
 	}

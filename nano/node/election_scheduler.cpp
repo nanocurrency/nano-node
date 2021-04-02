@@ -15,10 +15,10 @@ nano::election_scheduler::~election_scheduler ()
 	thread.join ();
 }
 
-void nano::election_scheduler::insert (std::shared_ptr<nano::block> const & block_a, boost::optional<nano::uint128_t> const & previous_balance_a, nano::election_behavior election_behavior_a, std::function<void(std::shared_ptr<nano::block> const &)> const & confirmation_action_a)
+void nano::election_scheduler::manual (std::shared_ptr<nano::block> const & block_a, boost::optional<nano::uint128_t> const & previous_balance_a, nano::election_behavior election_behavior_a, std::function<void(std::shared_ptr<nano::block> const &)> const & confirmation_action_a)
 {
 	std::lock_guard<std::mutex> lock{ mutex };
-	insert_queue.push_back (std::make_tuple (block_a, previous_balance_a, election_behavior_a, confirmation_action_a));
+	manual_queue.push_back (std::make_tuple (block_a, previous_balance_a, election_behavior_a, confirmation_action_a));
 	condition.notify_all ();
 }
 
@@ -57,10 +57,10 @@ void nano::election_scheduler::flush ()
 {
 	std::unique_lock<std::mutex> lock{ mutex };
 	auto priority_target = priority_queued + priority.size ();
-	auto insert_target = insert_queued + insert_queue.size ();
-	condition.wait (lock, [this, &priority_target, &insert_target] () {
+	auto manual_target = manual_queued + manual_queue.size ();
+	condition.wait (lock, [this, &priority_target, &manual_target] () {
 		return priority_queued >= priority_target &&
-		       insert_queued >= insert_target;
+		       manual_queued >= manual_target;
 	});
 }
 
@@ -70,7 +70,7 @@ void nano::election_scheduler::run ()
 	while (!stopped)
 	{
 		condition.wait (lock, [this] () {
-			return stopped || !priority.empty () || !insert_queue.empty ();
+			return stopped || !priority.empty () || !manual_queue.empty ();
 		});
 		debug_assert ((std::this_thread::yield (), true)); // Introduce some random delay in debug builds
 		if (!stopped)
@@ -79,7 +79,7 @@ void nano::election_scheduler::run ()
 			{
 				auto block = priority.top ();
 				lock.unlock ();
-				insert (block);
+				manual (block);
 				lock.lock ();
 				auto election = node.active.election (block->qualified_root ());
 				if (election != nullptr)
@@ -89,15 +89,15 @@ void nano::election_scheduler::run ()
 				priority.pop ();
 				++priority_queued;
 			}
-			if (!insert_queue.empty ())
+			if (!manual_queue.empty ())
 			{
-				auto const[block, previous_balance, election_behavior, confirmation_action] = insert_queue.front ();
+				auto const[block, previous_balance, election_behavior, confirmation_action] = manual_queue.front ();
 				lock.unlock ();
 				nano::unique_lock<nano::mutex> lock2 (node.active.mutex);
 				node.active.insert_impl (lock2, block, previous_balance, election_behavior, confirmation_action);
 				lock.lock ();
-				insert_queue.pop_front ();
-				++insert_queued;
+				manual_queue.pop_front ();
+				++manual_queued;
 			}
 			condition.notify_all ();
 		}

@@ -18,7 +18,7 @@ TEST (conflicts, start_stop)
 	node1.work_generate_blocking (*send1);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
 	ASSERT_EQ (0, node1.active.size ());
-	node1.scheduler.insert (send1);
+	node1.scheduler.activate (nano::dev_genesis_key.pub, node1.store.tx_begin_read ());
 	node1.scheduler.flush ();
 	auto election1 = node1.active.election (send1->qualified_root ());
 	ASSERT_EQ (1, node1.active.size ());
@@ -35,11 +35,11 @@ TEST (conflicts, add_existing)
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send1);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
-	node1.scheduler.insert (send1);
+	node1.scheduler.activate (nano::dev_genesis_key.pub, node1.store.tx_begin_read ());
 	nano::keypair key2;
 	auto send2 (std::make_shared<nano::send_block> (genesis.hash (), key2.pub, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 	send2->sideband_set ({});
-	node1.scheduler.insert (send2);
+	node1.scheduler.activate (nano::dev_genesis_key.pub, node1.store.tx_begin_read ());
 	auto election1 = node1.active.election (send2->qualified_root ());
 	ASSERT_EQ (1, node1.active.size ());
 	auto vote1 (std::make_shared<nano::vote> (key2.pub, key2.prv, 0, send2));
@@ -59,13 +59,13 @@ TEST (conflicts, add_two)
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send1);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
-	node1.scheduler.insert (send1);
-	node1.scheduler.flush ();
+	node1.block_confirm (send1);
+	node1.active.election (send1->qualified_root ())->force_confirm ();
 	nano::keypair key2;
 	auto send2 (std::make_shared<nano::send_block> (send1->hash (), key2.pub, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send2);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send2).code);
-	node1.scheduler.insert (send2);
+	node1.scheduler.activate (nano::dev_genesis_key.pub, node1.store.tx_begin_read ());
 	node1.scheduler.flush ();
 	ASSERT_EQ (2, node1.active.size ());
 }

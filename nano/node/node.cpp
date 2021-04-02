@@ -1236,7 +1236,7 @@ void nano::node::add_initial_peers ()
 
 void nano::node::block_confirm (std::shared_ptr<nano::block> const & block_a)
 {
-	scheduler.insert (block_a);
+	scheduler.manual (block_a);
 	scheduler.flush ();
 	auto election = active.election (block_a->qualified_root ());
 	if (election != nullptr)

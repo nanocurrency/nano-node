@@ -1880,7 +1880,7 @@ TEST (node, rep_self_vote)
 	ASSERT_EQ (nano::process_result::progress, node0->process (*block0).code);
 	auto & active = node0->active;
 	auto & scheduler = node0->scheduler;
-	scheduler.insert (block0);
+	scheduler.activate (nano::dev_genesis_key.pub, node0->store.tx_begin_read ());
 	scheduler.flush ();
 	auto election1 = active.election (block0->qualified_root ());
 	ASSERT_NE (nullptr, election1);
@@ -3000,8 +3000,7 @@ TEST (node, vote_by_hash_bundle)
 		blocks.push_back (block);
 		ASSERT_EQ (nano::process_result::progress, node.ledger.process (node.store.tx_begin_write (), *blocks.back ()).code);
 	}
-	node.scheduler.insert (blocks.back ());
-	node.scheduler.flush ();
+	node.block_confirm (blocks.back ());
 	auto election = node.active.election (blocks.back ()->qualified_root ());
 	ASSERT_NE (nullptr, election);
 	election->force_confirm ();
