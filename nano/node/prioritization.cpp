@@ -4,16 +4,21 @@
 
 #include <random>
 
-void nano::prioritization::trim ()
-{
-}
-
 void nano::prioritization::next ()
 {
 	++current;
 	if (current == schedule.end ())
 	{
 		current = schedule.begin ();
+	}
+}
+
+void nano::prioritization::seek ()
+{
+	next ();
+	for (size_t i = 0, n = schedule.size (); buckets[*current].empty () && i < n; ++i)
+	{
+		next ();
 	}
 }
 
@@ -45,13 +50,33 @@ nano::prioritization::prioritization (std::function<void (nano::block_hash const
 	current = schedule.begin ();
 }
 
-void nano::prioritization::insert (uint32_t time, nano::amount const & balance_a, nano::account const & account_a)
+void nano::prioritization::push (uint32_t time, nano::amount const & balance_a, nano::account const & account_a)
 {
 	auto count = 0;
 	auto bucket = std::upper_bound (minimums.begin (), minimums.end (), balance_a.number ());
 	debug_assert (bucket != minimums.begin ());
 	buckets[bucket - 1 - minimums.begin ()].emplace (value_type{ time, account_a });
-	trim ();
+	if (buckets[*current].empty ())
+	{
+		seek ();
+	}
+}
+
+nano::account nano::prioritization::top () const
+{
+	debug_assert (!empty ());
+	debug_assert (!buckets[*current].empty ());
+	nano::account result = buckets[*current].begin ()->account;
+	return result;
+}
+
+void nano::prioritization::pop ()
+{
+	debug_assert (!empty ());
+	debug_assert (!buckets[*current].empty ());
+	auto & bucket = buckets[*current];
+	bucket.erase (bucket.begin ());
+	seek ();
 }
 
 size_t nano::prioritization::size () const
@@ -72,4 +97,9 @@ size_t nano::prioritization::bucket_count () const
 size_t nano::prioritization::bucket_size (size_t index) const
 {
 	return buckets[index].size ();
+}
+
+bool nano::prioritization::empty () const
+{
+	return std::all_of (buckets.begin (), buckets.end (), [] (priority const & bucket_a) { return bucket_a.empty (); });
 }
