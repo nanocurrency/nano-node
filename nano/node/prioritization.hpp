@@ -37,6 +37,7 @@ public:
 	size_t bucket_count () const;
 	size_t bucket_size (size_t index) const;
 	bool empty () const;
+	void dump ();
 	static size_t constexpr unconfirmed_max = 250000;
 };
 }

@@ -6,12 +6,16 @@
 
 #include <unordered_set>
 
+static nano::keypair keyzero;
 static nano::keypair key0;
 static nano::keypair key1;
 static nano::keypair key2;
+static nano::keypair key3;
+static auto blockzero = std::make_shared<nano::state_block> (keyzero.pub, 0, keyzero.pub, 0, 0, keyzero.prv, keyzero.pub, 0);
 static auto block0 = std::make_shared<nano::state_block> (key0.pub, 0, key0.pub, nano::Gxrb_ratio, 0, key0.prv, key0.pub, 0);
 static auto block1 = std::make_shared<nano::state_block> (key1.pub, 0, key1.pub, nano::Mxrb_ratio, 0, key1.prv, key1.pub, 0);
 static auto block2 = std::make_shared<nano::state_block> (key2.pub, 0, key2.pub, nano::Gxrb_ratio, 0, key2.prv, key2.pub, 0);
+static auto block3 = std::make_shared<nano::state_block> (key3.pub, 0, key3.pub, nano::Mxrb_ratio, 0, key3.prv, key3.pub, 0);
 
 TEST (prioritization, construction)
 {
@@ -55,6 +59,17 @@ TEST (prioritization, insert_duplicate)
 	ASSERT_EQ (1, prioritization.bucket_size (110));
 }
 
+TEST (prioritization, insert_older)
+{
+	nano::prioritization prioritization;
+	prioritization.push (1000, block0);
+	prioritization.push (1100, block2);
+	ASSERT_EQ (block0, prioritization.top ());
+	prioritization.pop ();
+	ASSERT_EQ (block2, prioritization.top ());
+	prioritization.pop ();
+}
+
 TEST (prioritization, pop)
 {
 	nano::prioritization prioritization;
@@ -82,5 +97,23 @@ TEST (prioritization, top_two)
 	ASSERT_EQ (block1, prioritization.top ());
 	prioritization.pop ();
 	ASSERT_TRUE (prioritization.empty ());
+}
+
+TEST (prioritization, top_round_robin)
+{
+	nano::prioritization prioritization;
+	prioritization.push (1000, blockzero);
+	ASSERT_EQ (blockzero, prioritization.top ());
+	prioritization.push (1000, block0);
+	prioritization.push (1000, block1);
+	prioritization.push (1100, block3);
+	prioritization.pop (); // blockzero
+	EXPECT_EQ (block1, prioritization.top ());
+	prioritization.pop ();
+	EXPECT_EQ (block0, prioritization.top ());
+	prioritization.pop ();
+	EXPECT_EQ (block3, prioritization.top ());
+	prioritization.pop ();
+	EXPECT_TRUE (prioritization.empty ());
 }
 

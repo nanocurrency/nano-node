@@ -3,11 +3,11 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/utility.hpp>
 
-#include <random>
+#include <string>
 
 bool nano::prioritization::value_type::operator<(value_type const & other_a) const
 {
-	return time < other_a.time || block->hash () < other_a.block->hash ();
+	return time < other_a.time || (time == other_a.time && block->hash () < other_a.block->hash ());
 }
 
 bool nano::prioritization::value_type::operator== (value_type const & other_a) const
@@ -39,9 +39,6 @@ void nano::prioritization::populate_schedule ()
 	{
 		schedule.push_back (i);
 	}
-	std::random_device rd;
-	std::mt19937 g{ rd() };
-	std::shuffle (schedule.begin (), schedule.end (), g);
 }
 
 nano::prioritization::prioritization (std::function<void (std::shared_ptr<nano::block>)> const & drop_a) :
@@ -63,13 +60,14 @@ nano::prioritization::prioritization (std::function<void (std::shared_ptr<nano::
 
 void nano::prioritization::push (uint64_t time, std::shared_ptr<nano::block> block)
 {
+	auto was_empty = empty ();
 	auto block_has_balance = block->type () == nano::block_type::state || block->type () == nano::block_type::send;
 	debug_assert (block_has_balance || block->has_sideband ());
 	auto balance = block_has_balance ? block->balance () : block->sideband ().balance;
 	auto bucket = std::upper_bound (minimums.begin (), minimums.end (), block->balance ().number ());
 	debug_assert (bucket != minimums.begin ());
 	buckets[bucket - 1 - minimums.begin ()].emplace (value_type{ time, block });
-	if (buckets[*current].empty ())
+	if (was_empty)
 	{
 		seek ();
 	}
@@ -115,4 +113,16 @@ size_t nano::prioritization::bucket_size (size_t index) const
 bool nano::prioritization::empty () const
 {
 	return std::all_of (buckets.begin (), buckets.end (), [] (priority const & bucket_a) { return bucket_a.empty (); });
+}
+
+void nano::prioritization::dump ()
+{
+	for (auto const & i: buckets)
+	{
+		for (auto const & j: i)
+		{
+			std::cerr << j.time << ' ' << j.block->hash ().to_string () << '\n';
+		}
+	}
+	std::cerr << "current: " << std::to_string (*current) << '\n';
 }
