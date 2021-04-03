@@ -19,7 +19,7 @@ void nano::election_scheduler::manual (std::shared_ptr<nano::block> const & bloc
 {
 	std::lock_guard<std::mutex> lock{ mutex };
 	manual_queue.push_back (std::make_tuple (block_a, previous_balance_a, election_behavior_a, confirmation_action_a));
-	condition.notify_all ();
+	observe ();
 }
 
 void nano::election_scheduler::activate (nano::account const & account_a, nano::transaction const & transaction)
@@ -40,7 +40,7 @@ void nano::election_scheduler::activate (nano::account const & account_a, nano::
 			{
 				std::lock_guard<std::mutex> lock{ mutex };
 				priority.push (account_info.modified, block);
-				condition.notify_all ();
+				observe ();
 			}
 		}
 	}
@@ -50,7 +50,7 @@ void nano::election_scheduler::stop ()
 {
 	std::unique_lock<std::mutex> lock{ mutex };
 	stopped = true;
-	condition.notify_all ();
+	observe ();
 }
 
 void nano::election_scheduler::flush ()
@@ -64,18 +64,38 @@ void nano::election_scheduler::flush ()
 	});
 }
 
+void nano::election_scheduler::observe ()
+{
+	condition.notify_all ();
+}
+
+size_t nano::election_scheduler::size () const
+{
+	std::lock_guard<std::mutex> lock{ mutex };
+	return priority.size () + manual_queue.size ();
+}
+
+bool nano::election_scheduler::empty () const
+{
+	std::lock_guard<std::mutex> lock{ mutex };
+	return priority.empty () && manual_queue.empty ();
+}
+
 void nano::election_scheduler::run ()
 {
 	std::unique_lock<std::mutex> lock{ mutex };
 	while (!stopped)
 	{
 		condition.wait (lock, [this] () {
-			return stopped || !priority.empty () || !manual_queue.empty ();
+			auto vacancy = node.active.vacancy ();
+			auto has_vacancy = vacancy > 0;
+			auto available = !priority.empty () || !manual_queue.empty ();
+			return stopped || (has_vacancy && available);
 		});
 		debug_assert ((std::this_thread::yield (), true)); // Introduce some random delay in debug builds
 		if (!stopped)
 		{
-			if (!priority.empty())
+			if (!priority.empty ())
 			{
 				auto block = priority.top ();
 				lock.unlock ();
@@ -99,7 +119,7 @@ void nano::election_scheduler::run ()
 				manual_queue.pop_front ();
 				++manual_queued;
 			}
-			condition.notify_all ();
+			observe ();
 		}
 	}
 }

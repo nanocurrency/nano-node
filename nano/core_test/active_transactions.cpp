@@ -171,8 +171,8 @@ TEST (active_transactions, keep_local)
 	node.process_active (open3);
 	node.block_processor.flush ();
 	// bound elections, should drop after one loop
-	ASSERT_TIMELY (1s, node.stats.count (nano::stat::type::election, nano::stat::detail::election_drop));
-	ASSERT_EQ (node.active.size (), node_config.active_elections_size);
+	ASSERT_TIMELY (1s, node.active.size () == node_config.active_elections_size);
+	ASSERT_EQ (1, node.scheduler.size ());
 }
 
 TEST (active_transactions, inactive_votes_cache)

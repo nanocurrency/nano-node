@@ -27,6 +27,9 @@ public:
 	void activate (nano::account const &, nano::transaction const &);
 	void stop ();
 	void flush ();
+	void observe ();
+	size_t size () const;
+	bool empty () const;
 private:
 	void run ();
 	nano::prioritization priority;
@@ -36,7 +39,7 @@ private:
 	nano::node & node;
 	bool stopped;
 	std::condition_variable condition;
-	std::mutex mutex;
+	mutable std::mutex mutex;
 	std::thread thread;
 };
 }

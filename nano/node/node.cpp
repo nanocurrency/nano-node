@@ -132,6 +132,8 @@ node_seq (seq)
 	if (!init_error ())
 	{
 		telemetry->start ();
+		
+		active.vacancy_update = [this] () { scheduler.observe (); };
 
 		if (config.websocket_config.enabled)
 		{
