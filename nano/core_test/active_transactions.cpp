@@ -1918,3 +1918,37 @@ TEST (active_transactions, list_active)
 	};
 	ASSERT_TRUE (std::is_sorted (active.cbegin (), active.cend (), difficulty_cmp));
 }
+
+TEST (active_transactions, vacancy)
+{
+	nano::system system;
+	nano::node_config config{ nano::get_available_port (), system.logging };
+	config.active_elections_size = 1;
+	auto & node = *system.add_node (config);
+	nano::state_block_builder builder;
+	auto send = builder.make_block ()
+	            .account (nano::dev_genesis_key.pub)
+	            .previous (nano::genesis_hash)
+	            .representative (nano::dev_genesis_key.pub)
+	            .link (nano::dev_genesis_key.pub)
+	            .balance (nano::genesis_amount - nano::Gxrb_ratio)
+	            .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	            .work (*system.work.generate (nano::genesis_hash))
+	            .build_shared ();
+	std::atomic<bool> updated = false;
+	node.active.vacancy_update = [&updated] () { updated = true; };
+	ASSERT_EQ (nano::process_result::progress, node.process (*send).code);
+	ASSERT_EQ (1, node.active.vacancy ());
+	ASSERT_EQ (0, node.active.size ());
+	node.scheduler.activate (nano::dev_genesis_key.pub, node.store.tx_begin_read ());
+	ASSERT_TIMELY (1s, updated);
+	updated = false;
+	ASSERT_EQ (0, node.active.vacancy ());
+	ASSERT_EQ (1, node.active.size ());
+	auto election1 = node.active.election (send->qualified_root ());
+	ASSERT_NE (nullptr, election1);
+	election1->force_confirm ();
+	ASSERT_TIMELY (1s, updated);
+	ASSERT_EQ (1, node.active.vacancy ());
+	ASSERT_EQ (0, node.active.size ());
+}

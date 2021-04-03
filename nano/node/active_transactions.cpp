@@ -280,6 +280,13 @@ void nano::active_transactions::block_already_cemented_callback (nano::block_has
 	remove_election_winner_details (hash_a);
 }
 
+int64_t nano::active_transactions::vacancy () const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	auto result = static_cast<int64_t> (node.config.active_elections_size) - static_cast<int64_t> (roots.size ());
+	return result;
+}
+
 void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> & lock_a)
 {
 	debug_assert (lock_a.owns_lock ());
@@ -838,6 +845,7 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 				lock_a.unlock ();
 				result.election->insert_inactive_votes_cache (cache);
 				node.stats.inc (nano::stat::type::election, prioritized ? nano::stat::detail::election_priority : nano::stat::detail::election_non_priority);
+				vacancy_update ();
 			}
 		}
 		else
@@ -1194,6 +1202,7 @@ void nano::active_transactions::erase (nano::block const & block_a)
 		roots.get<tag_root> ().erase (root_it);
 		lock.unlock ();
 		node.logger.try_log (boost::str (boost::format ("Election erased for block block %1% root %2%") % block_a.hash ().to_string () % block_a.root ().to_string ()));
+		vacancy_update ();
 	}
 }
 
@@ -1206,6 +1215,7 @@ void nano::active_transactions::erase (nano::qualified_root const & root_a)
 		// This is one of few places where both the active mutex and election mutexes are held
 		cleanup_election (lock, root_it->election->cleanup_info ());
 		roots.get<tag_root> ().erase (root_it);
+		vacancy_update ();
 	}
 }
 
