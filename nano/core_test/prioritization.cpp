@@ -117,3 +117,20 @@ TEST (prioritization, top_round_robin)
 	EXPECT_TRUE (prioritization.empty ());
 }
 
+TEST (prioritization, trim_normal)
+{
+	nano::prioritization prioritization{ 1 };
+	prioritization.push (1000, block0);
+	prioritization.push (1100, block2);
+	ASSERT_EQ (1, prioritization.size ());
+	ASSERT_EQ (block0, prioritization.top ());
+}
+
+TEST (prioritization, trim_reverse)
+{
+	nano::prioritization prioritization{ 1 };
+	prioritization.push (1100, block2);
+	prioritization.push (1000, block0);
+	ASSERT_EQ (1, prioritization.size ());
+	ASSERT_EQ (block0, prioritization.top ());
+}

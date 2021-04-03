@@ -41,8 +41,18 @@ void nano::prioritization::populate_schedule ()
 	}
 }
 
-nano::prioritization::prioritization (std::function<void (std::shared_ptr<nano::block>)> const & drop_a) :
-	drop{ drop_a }
+void nano::prioritization::trim ()
+{
+	while (size () > maximum)
+	{
+		auto max = std::max_element (buckets.begin (), buckets.end (), [] (priority const & lhs, priority const & rhs) { return lhs.size () < rhs.size (); });
+		max->erase (--max->end ());
+	}
+}
+
+nano::prioritization::prioritization (uint64_t maximum, std::function<void (std::shared_ptr<nano::block>)> const & drop_a) :
+	drop{ drop_a },
+	maximum{ maximum }
 {
 	static size_t constexpr bucket_count = 129;
 	buckets.resize (bucket_count);
@@ -67,6 +77,7 @@ void nano::prioritization::push (uint64_t time, std::shared_ptr<nano::block> blo
 	auto bucket = std::upper_bound (minimums.begin (), minimums.end (), block->balance ().number ());
 	debug_assert (bucket != minimums.begin ());
 	buckets[bucket - 1 - minimums.begin ()].emplace (value_type{ time, block });
+	trim ();
 	if (was_empty)
 	{
 		seek ();
