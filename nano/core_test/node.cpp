@@ -1357,9 +1357,7 @@ TEST (node, fork_bootstrap_flip)
 	             .build_shared ();
 	// Insert but don't rebroadcast, simulating settled blocks
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (node1.store.tx_begin_write (), *send1).code);
-	node1.block_processor.flush ();
 	ASSERT_EQ (nano::process_result::progress, node2.ledger.process (node2.store.tx_begin_write (), *send2).code);
-	node2.block_processor.flush ();
 	ASSERT_TRUE (node2.store.block_exists (node2.store.tx_begin_read (), send2->hash ()));
 	node2.bootstrap_initiator.bootstrap (node1.network.endpoint ()); // Additionally add new peer to confirm & replace bootstrap block
 	auto again (true);
@@ -3035,19 +3033,19 @@ TEST (node, vote_by_hash_republish)
 	nano::genesis genesis;
 	nano::send_block_builder builder;
 	auto send1 = builder.make_block ()
-				 .previous (genesis.hash ())
-				 .destination (key2.pub)
-				 .balance (std::numeric_limits<nano::uint128_t>::max () - node1.config.receive_minimum.number ())
-				 .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-				 .work (*system.work.generate (genesis.hash ()))
-				 .build_shared ();
+	             .previous (genesis.hash ())
+	             .destination (key2.pub)
+	             .balance (std::numeric_limits<nano::uint128_t>::max () - node1.config.receive_minimum.number ())
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (*system.work.generate (genesis.hash ()))
+	             .build_shared ();
 	auto send2 = builder.make_block ()
-				 .previous (genesis.hash ())
-				 .destination (key2.pub)
-				 .balance (std::numeric_limits<nano::uint128_t>::max () - node1.config.receive_minimum.number () * 2)
-				 .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-				 .work (*system.work.generate (genesis.hash ()))
-				 .build_shared ();
+	             .previous (genesis.hash ())
+	             .destination (key2.pub)
+	             .balance (std::numeric_limits<nano::uint128_t>::max () - node1.config.receive_minimum.number () * 2)
+	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+	             .work (*system.work.generate (genesis.hash ()))
+	             .build_shared ();
 	node1.process_active (send1);
 	ASSERT_TIMELY (5s, node2.active.active (*send1));
 	node1.process_active (send2);

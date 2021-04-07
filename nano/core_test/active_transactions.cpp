@@ -88,17 +88,21 @@ TEST (active_transactions, confirm_frontier)
 	}
 
 	nano::genesis genesis;
-	auto send = nano::send_block_builder ()
+	nano::state_block_builder builder;
+	auto send = builder
+	            .account (nano::dev_genesis_key.pub)
 	            .previous (genesis.hash ())
-	            .destination (nano::public_key ())
+	            .representative (nano::dev_genesis_key.pub)
 	            .balance (nano::genesis_amount - 100)
+	            .link (nano::public_key ())
 	            .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
 	            .work (*system.work.generate (genesis.hash ()))
 	            .build_shared ();
+	auto send_copy = builder.make_block ().from (*send).build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send).code);
 	node1.confirmation_height_processor.add (send);
 	ASSERT_TIMELY (5s, node1.ledger.block_confirmed (node1.store.tx_begin_read (), send->hash ()));
-	ASSERT_EQ (nano::process_result::progress, node2.process (*send).code);
+	ASSERT_EQ (nano::process_result::progress, node2.process (*send_copy).code);
 	ASSERT_TIMELY (5s, !node2.active.empty ());
 	// Save election to check request count afterwards
 	auto election2 = node2.active.election (send->qualified_root ());

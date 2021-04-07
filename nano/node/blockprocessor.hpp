@@ -70,7 +70,7 @@ public:
 	static std::chrono::milliseconds constexpr confirmation_request_delay{ 1500 };
 
 private:
-	void queue_unchecked (nano::write_transaction const &, nano::block_hash const &);
+	void queue_unchecked (nano::write_transaction const &, nano::hash_or_account const &);
 	void process_batch (nano::unique_lock<nano::mutex> &);
 	void process_live (nano::transaction const &, nano::block_hash const &, std::shared_ptr<nano::block> const &, nano::process_return const &, const bool = false, nano::block_origin const = nano::block_origin::remote);
 	void process_old (nano::transaction const &, std::shared_ptr<nano::block> const &, nano::block_origin const);

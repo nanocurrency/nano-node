@@ -822,9 +822,15 @@ nano::wallet_id nano::random_wallet_id ()
 	return wallet_id;
 }
 
-nano::unchecked_key::unchecked_key (nano::block_hash const & previous_a, nano::block_hash const & hash_a) :
-previous (previous_a),
+nano::unchecked_key::unchecked_key (nano::hash_or_account const & previous_a, nano::block_hash const & hash_a) :
+previous (previous_a.hash),
 hash (hash_a)
+{
+}
+
+nano::unchecked_key::unchecked_key (nano::uint512_union const & union_a) :
+previous (union_a.uint256s[0].number ()),
+hash (union_a.uint256s[1].number ())
 {
 }
 
