@@ -127,7 +127,6 @@ public:
 	static constexpr double bootstrap_minimum_frontier_blocks_per_sec = 1000.0;
 	static constexpr double bootstrap_minimum_termination_time_sec = 30.0;
 	static constexpr unsigned bootstrap_max_new_connections = 32;
-	static constexpr uint32_t frontier_count_limit = 1024 * 1024;
 	static constexpr unsigned requeued_pulls_limit = 256;
 	static constexpr unsigned requeued_pulls_limit_dev = 1;
 	static constexpr unsigned requeued_pulls_processed_blocks_factor = 4096;
