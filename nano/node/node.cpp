@@ -659,6 +659,9 @@ void nano::node::start ()
 	{
 		port_mapping.start ();
 	}
+	workers.push_task([this_l = shared ()] () {
+		this_l->ongoing_backlog_population ();
+	});
 }
 
 void nano::node::stop ()
@@ -971,9 +974,16 @@ void nano::node::unchecked_cleanup ()
 void nano::node::ongoing_unchecked_cleanup ()
 {
 	unchecked_cleanup ();
-	auto this_l (shared ());
-	workers.add_timed_task (std::chrono::steady_clock::now () + network_params.node.unchecked_cleaning_interval, [this_l]() {
+	workers.add_timed_task (std::chrono::steady_clock::now () + network_params.node.unchecked_cleaning_interval, [this_l = shared ()]() {
 		this_l->ongoing_unchecked_cleanup ();
+	});
+}
+
+void nano::node::ongoing_backlog_population ()
+{
+	populate_backlog ();
+	workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::minutes (5), [this_l = shared ()] () {
+		this_l->ongoing_backlog_population ();
 	});
 }
 
@@ -1729,6 +1739,27 @@ std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> nano::node::get_
 		}
 	}
 	return { max_blocks, weights };
+}
+
+void nano::node::populate_backlog ()
+{
+	auto done = false;
+	uint64_t const chunk_size = 250000;
+	nano::account next = 0;
+	uint64_t total = 0;
+	while (!done)
+	{
+		auto transaction = store.tx_begin_read ();
+		auto count = 0;
+		for (auto i = store.accounts_begin (transaction, next), n = store.accounts_end (); i != n && count < chunk_size; ++i, ++count, ++total)
+		{
+			auto const & account = i->first;
+			scheduler.activate (account, transaction);
+			next = account.number () + 1;
+		}
+		std::cerr << boost::str (boost::format ("Populated: %1%, queue size: %2%\n") % count % scheduler.priority_queue_size ());
+		done = store.accounts_begin (transaction, next) == store.accounts_end ();
+	}
 }
 
 nano::node_wrapper::node_wrapper (boost::filesystem::path const & path_a, boost::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a) :

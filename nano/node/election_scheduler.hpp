@@ -30,6 +30,7 @@ public:
 	void observe ();
 	size_t size () const;
 	bool empty () const;
+	size_t priority_queue_size () const;
 private:
 	void run ();
 	nano::prioritization priority;

@@ -81,6 +81,11 @@ bool nano::election_scheduler::empty () const
 	return priority.empty () && manual_queue.empty ();
 }
 
+size_t nano::election_scheduler::priority_queue_size () const
+{
+	return priority.size ();
+}
+
 void nano::election_scheduler::run ()
 {
 	std::unique_lock<std::mutex> lock{ mutex };

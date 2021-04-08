@@ -591,11 +591,6 @@ void nano::active_transactions::request_loop ()
 
 		const auto stamp_l = std::chrono::steady_clock::now ();
 
-		// frontiers_confirmation should be above update_active_multiplier to ensure new sorted roots are updated
-		if (should_do_frontiers_confirmation ())
-		{
-			frontiers_confirmation (lock);
-		}
 		update_active_multiplier (lock);
 		request_confirm (lock);
 
