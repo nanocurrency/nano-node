@@ -1757,7 +1757,7 @@ void nano::node::populate_backlog ()
 			scheduler.activate (account, transaction);
 			next = account.number () + 1;
 		}
-		std::cerr << boost::str (boost::format ("Populated: %1%, queue size: %2%\n") % count % scheduler.priority_queue_size ());
+		std::cerr << boost::str (boost::format ("Populated: %1%, queue size: %2%\n") % total % scheduler.priority_queue_size ());
 		done = store.accounts_begin (transaction, next) == store.accounts_end ();
 	}
 }
