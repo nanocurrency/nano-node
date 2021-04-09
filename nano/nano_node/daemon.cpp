@@ -18,33 +18,7 @@
 namespace
 {
 volatile sig_atomic_t sig_int_or_term = 0;
-
-void handle_interruption_signal (boost::asio::io_context& io_ctx)
-{
-    io_ctx.stop ();
-    sig_int_or_term = 1;
-}
-
-void handle_fatal_signal ()
-{
-    nano::dump_crash_stacktrace ();
-    nano::create_load_memory_address_files ();
-}
-
-void handle_hup_signal (std::shared_ptr<nano::node> const & node, boost::filesystem::path const & data_path, nano::node_flags const & flags)
-{
-    nano::daemon_config config (data_path);
-
-    auto error = nano::read_node_config_toml (data_path, config, flags.config_overrides);
-    if (!error)
-    {
-        error = nano::flags_config_conflicts (flags, config.node);
-        if (!error)
-        {
-            node->config_set(config.node);
-        }
-    }
-}
+volatile sig_atomic_t sig_hup = 0;
 
 void install_signal_handler ()
 {
@@ -177,20 +151,70 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 					}
 				}
 
+				nano::mutex sighup_received_mutex{};
+				nano::condition_variable sighup_received_condition{};
+                boost::thread ([&]() {
+                    nano::thread_role::set (nano::thread_role::name::config_reload_watcher);
+                    while (true)
+                    {
+                        {
+                            nano::unique_lock<nano::mutex> lockGuard (sighup_received_mutex);
+                            sighup_received_condition.wait (lockGuard, []()
+                            {
+                                return sig_hup || sig_int_or_term;
+                            });
+                        }
+
+                        // If we were notified because of sig_int_or_term, then we stop.
+                        if (sig_int_or_term)
+                        {
+                            return;
+                        }
+
+                        // Otherwise, we were notified because of sig_hup, so we reset the flag,
+                        // do the config reloading and get back to continue listening for notifications.
+                        sig_hup = 0;
+
+                        nano::daemon_config config (data_path);
+
+                        auto error = nano::read_node_config_toml (data_path, config, flags.config_overrides);
+                        if (!error)
+                        {
+                            error = nano::flags_config_conflicts (flags, config.node);
+                            if (!error)
+                            {
+                                node->config_set(config.node);
+                            }
+                        }
+                    }
+                }).detach();
+
 				debug_assert (!nano::signal_handler_impl);
 				nano::signal_handler_impl = [&](int signal)
 				{
 				    if (signal == SIGINT || signal == SIGTERM)
                     {
-				        handle_interruption_signal(io_ctx);
+                        {
+                            nano::lock_guard<nano::mutex> lockGuard (sighup_received_mutex);
+                            sig_int_or_term = 1;
+                        }
+
+                        sighup_received_condition.notify_one();
+                        io_ctx.stop();
                     }
 				    else if (signal == SIGSEGV || signal == SIGABRT)
                     {
-				        handle_fatal_signal();
+                        nano::dump_crash_stacktrace ();
+                        nano::create_load_memory_address_files ();
                     }
 				    else if (signal == SIGHUP)
                     {
-				        handle_hup_signal(node, data_path, flags);
+                        {
+                            nano::lock_guard<nano::mutex> lockGuard (sighup_received_mutex);
+                            sig_hup = 1;
+                        }
+
+                        sighup_received_condition.notify_one();
                     }
 				};
 
@@ -201,6 +225,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 
 				if (sig_int_or_term == 1)
 				{
+                    sighup_received_condition.notify_one();
 					ipc_server.stop ();
 					node->stop ();
 					if (rpc)

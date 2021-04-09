@@ -38,7 +38,8 @@ namespace thread_role
 		request_aggregator,
 		state_block_signature_verification,
 		epoch_upgrader,
-		db_parallel_traversal
+		db_parallel_traversal,
+		config_reload_watcher
 	};
 	/*
 	 * Get/Set the identifier for the current thread

@@ -87,6 +87,9 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 		case nano::thread_role::name::db_parallel_traversal:
 			thread_role_name_string = "DB par traversl";
 			break;
+		case nano::thread_role::name::config_reload_watcher:
+			thread_role_name_string = "Reload cfg";
+			break;
 	}
 
 	/*
