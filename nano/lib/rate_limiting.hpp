@@ -42,7 +42,7 @@ namespace rate
 		size_t largest_burst () const;
 
 		/** Update the max_token_count and/or refill_rate_a parameters */
-        void set_parameters (size_t max_token_count_a, size_t refill_rate_a);
+		void set_parameters (size_t max_token_count_a, size_t refill_rate_a);
 
 	private:
 		void refill ();

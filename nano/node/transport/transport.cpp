@@ -85,7 +85,7 @@ node (node_a)
 	set_network_version (node_a.network_params.protocol.protocol_version);
 }
 
-void nano::transport::channel::send (nano::message const & message_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a, nano::buffer_drop_policy drop_policy_a)
+void nano::transport::channel::send (nano::message const & message_a, std::function<void (boost::system::error_code const &, size_t)> const & callback_a, nano::buffer_drop_policy drop_policy_a)
 {
 	callback_visitor visitor;
 	message_a.visit (visitor);
@@ -102,7 +102,7 @@ void nano::transport::channel::send (nano::message const & message_a, std::funct
 	{
 		if (callback_a)
 		{
-			node.background ([callback_a]() {
+			node.background ([callback_a] () {
 				callback_a (boost::system::errc::make_error_code (boost::system::errc::not_supported), 0);
 			});
 		}
@@ -134,7 +134,7 @@ bool nano::transport::channel_loopback::operator== (nano::transport::channel con
 	return endpoint == other_a.get_endpoint ();
 }
 
-void nano::transport::channel_loopback::send_buffer (nano::shared_const_buffer const & buffer_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a, nano::buffer_drop_policy drop_policy_a)
+void nano::transport::channel_loopback::send_buffer (nano::shared_const_buffer const & buffer_a, std::function<void (boost::system::error_code const &, size_t)> const & callback_a, nano::buffer_drop_policy drop_policy_a)
 {
 	release_assert (false && "sending to a loopback channel is not supported");
 }
@@ -263,7 +263,7 @@ bool nano::bandwidth_limiter::should_drop (const size_t & message_size_a)
 	return !bucket.try_consume (nano::narrow_cast<unsigned int> (message_size_a));
 }
 
-void nano::bandwidth_limiter::set_parameters(const double limit_burst_ratio_a, const size_t limit_a)
+void nano::bandwidth_limiter::set_parameters (const double limit_burst_ratio_a, const size_t limit_a)
 {
-    bucket.set_parameters(static_cast<size_t> (limit_a * limit_burst_ratio_a), limit_a);
+	bucket.set_parameters (static_cast<size_t> (limit_a * limit_burst_ratio_a), limit_a);
 }

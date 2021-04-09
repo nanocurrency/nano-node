@@ -463,19 +463,19 @@ public:
 	/** Populate values based on \p network_a */
 	network_params (nano::nano_networks network_a);
 
-	network_params& operator=(network_params const & rhs)
-    {
-        header_magic_number = rhs.header_magic_number;
-	    kdf_work = rhs.kdf_work;
-	    network = rhs.network;
-	    ledger = rhs.ledger;
-	    random = rhs.random;
-	    node = rhs.node;
-	    portmapping = rhs.portmapping;
-	    bootstrap = rhs.bootstrap;
+	network_params & operator= (network_params const & rhs)
+	{
+		header_magic_number = rhs.header_magic_number;
+		kdf_work = rhs.kdf_work;
+		network = rhs.network;
+		ledger = rhs.ledger;
+		random = rhs.random;
+		node = rhs.node;
+		portmapping = rhs.portmapping;
+		bootstrap = rhs.bootstrap;
 
-	    return *this;
-    }
+		return *this;
+	}
 
 	std::array<uint8_t, 2> header_magic_number;
 	unsigned kdf_work;

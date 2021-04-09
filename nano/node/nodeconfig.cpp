@@ -68,7 +68,7 @@ pow_sleep_interval (other.pow_sleep_interval),
 active_elections_size (other.active_elections_size),
 tcp_incoming_connections_max (other.tcp_incoming_connections_max),
 use_memory_pools (other.use_memory_pools),
-bandwidth_limit  (other.bandwidth_limit.load(std::memory_order_relaxed)),
+bandwidth_limit (other.bandwidth_limit.load (std::memory_order_relaxed)),
 bandwidth_limit_burst_ratio (other.bandwidth_limit_burst_ratio),
 conf_height_processor_batch_min_time (other.conf_height_processor_batch_min_time),
 backup_before_upgrade (other.backup_before_upgrade),
@@ -84,12 +84,12 @@ frontiers_confirmation (other.frontiers_confirmation)
 {
 }
 
-nano::node_config& nano::node_config::operator= (node_config const & rhs)
+nano::node_config & nano::node_config::operator= (node_config const & rhs)
 {
-    // Only bandwidth_limit for now
-    bandwidth_limit = rhs.bandwidth_limit.load();
+	// Only bandwidth_limit for now
+	bandwidth_limit = rhs.bandwidth_limit.load ();
 
-    return *this;
+	return *this;
 }
 
 nano::node_config::node_config (uint16_t peering_port_a, nano::logging const & logging_a) :
@@ -109,8 +109,7 @@ external_address (boost::asio::ip::address_v6{}.to_string ())
 			enable_voting = true;
 			preconfigured_representatives.push_back (network_params.ledger.genesis_account);
 			break;
-		case nano::nano_networks::nano_beta_network:
-		{
+		case nano::nano_networks::nano_beta_network: {
 			preconfigured_peers.push_back (default_beta_peer_network);
 			nano::account offline_representative;
 			release_assert (!offline_representative.decode_account ("nano_1defau1t9off1ine9rep99999999999999999999999999999999wgmuzxxy"));
@@ -169,7 +168,7 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("use_memory_pools", use_memory_pools, "If true, allocate memory from memory pools. Enabling this may improve performance. Memory is never released to the OS.\ntype:bool");
 	toml.put ("confirmation_history_size", confirmation_history_size, "Maximum confirmation history size. If tracking the rate of block confirmations, the websocket feature is recommended instead.\ntype:uint64");
 	toml.put ("active_elections_size", active_elections_size, "Number of active elections. Elections beyond this limit have limited survival time.\nWarning: modifying this value may result in a lower confirmation rate.\ntype:uint64,[250..]");
-	toml.put ("bandwidth_limit", bandwidth_limit.load(), "Outbound traffic limit in bytes/sec after which messages will be dropped.\nNote: changing to unlimited bandwidth (0) is not recommended for limited connections.\ntype:uint64");
+	toml.put ("bandwidth_limit", bandwidth_limit.load (), "Outbound traffic limit in bytes/sec after which messages will be dropped.\nNote: changing to unlimited bandwidth (0) is not recommended for limited connections.\ntype:uint64");
 	toml.put ("bandwidth_limit_burst_ratio", bandwidth_limit_burst_ratio, "Burst ratio for outbound traffic shaping.\ntype:double");
 	toml.put ("conf_height_processor_batch_min_time", conf_height_processor_batch_min_time.count (), "Minimum write batching time when there are blocks pending confirmation height.\ntype:milliseconds");
 	toml.put ("backup_before_upgrade", backup_before_upgrade, "Backup the ledger database before performing upgrades.\nWarning: uses more disk storage and increases startup time when upgrading.\ntype:bool");
@@ -296,7 +295,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		if (toml.has_key ("work_peers"))
 		{
 			work_peers.clear ();
-			toml.array_entries_required<std::string> ("work_peers", [this](std::string const & entry_a) {
+			toml.array_entries_required<std::string> ("work_peers", [this] (std::string const & entry_a) {
 				this->deserialize_address (entry_a, this->work_peers);
 			});
 		}
@@ -304,7 +303,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		if (toml.has_key (preconfigured_peers_key))
 		{
 			preconfigured_peers.clear ();
-			toml.array_entries_required<std::string> (preconfigured_peers_key, [this](std::string entry) {
+			toml.array_entries_required<std::string> (preconfigured_peers_key, [this] (std::string entry) {
 				preconfigured_peers.push_back (entry);
 			});
 		}
@@ -312,7 +311,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		if (toml.has_key ("preconfigured_representatives"))
 		{
 			preconfigured_representatives.clear ();
-			toml.array_entries_required<std::string> ("preconfigured_representatives", [this, &toml](std::string entry) {
+			toml.array_entries_required<std::string> ("preconfigured_representatives", [this, &toml] (std::string entry) {
 				nano::account representative (0);
 				if (representative.decode_account (entry))
 				{
@@ -425,7 +424,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		toml.get<size_t> ("confirmation_history_size", confirmation_history_size);
 		toml.get<size_t> ("active_elections_size", active_elections_size);
 
-		size_t bandwidth_limit_value {};
+		size_t bandwidth_limit_value{};
 		toml.get<size_t> ("bandwidth_limit", bandwidth_limit_value);
 		bandwidth_limit = bandwidth_limit_value;
 
@@ -458,7 +457,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 			if (experimental_config_l.has_key ("secondary_work_peers"))
 			{
 				secondary_work_peers.clear ();
-				experimental_config_l.array_entries_required<std::string> ("secondary_work_peers", [this](std::string const & entry_a) {
+				experimental_config_l.array_entries_required<std::string> ("secondary_work_peers", [this] (std::string const & entry_a) {
 					this->deserialize_address (entry_a, this->secondary_work_peers);
 				});
 			}
@@ -623,8 +622,7 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 		case 15:
 		case 16:
 			throw std::runtime_error ("node_config version unsupported for upgrade. Upgrade to a v19, v20 or v21 node first, or delete the config and ledger files");
-		case 17:
-		{
+		case 17: {
 			json.put ("active_elections_size", 10000); // Update value
 			json.put ("vote_generator_delay", 100); // Update value
 			json.put ("backup_before_upgrade", backup_before_upgrade);
@@ -650,7 +648,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 
 		work_peers.clear ();
 		auto work_peers_l (json.get_required_child ("work_peers"));
-		work_peers_l.array_entries<std::string> ([this](std::string entry) {
+		work_peers_l.array_entries<std::string> ([this] (std::string entry) {
 			auto port_position (entry.rfind (':'));
 			bool result = port_position == -1;
 			if (!result)
@@ -668,13 +666,13 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 
 		auto preconfigured_peers_l (json.get_required_child (preconfigured_peers_key));
 		preconfigured_peers.clear ();
-		preconfigured_peers_l.array_entries<std::string> ([this](std::string entry) {
+		preconfigured_peers_l.array_entries<std::string> ([this] (std::string entry) {
 			preconfigured_peers.push_back (entry);
 		});
 
 		auto preconfigured_representatives_l (json.get_required_child ("preconfigured_representatives"));
 		preconfigured_representatives.clear ();
-		preconfigured_representatives_l.array_entries<std::string> ([this, &json](std::string entry) {
+		preconfigured_representatives_l.array_entries<std::string> ([this, &json] (std::string entry) {
 			nano::account representative (0);
 			if (representative.decode_account (entry))
 			{
@@ -770,9 +768,9 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		json.get<size_t> ("confirmation_history_size", confirmation_history_size);
 		json.get<size_t> ("active_elections_size", active_elections_size);
 
-        size_t bandwidth_limit_value {};
-        json.get<size_t> ("bandwidth_limit", bandwidth_limit_value);
-        bandwidth_limit = bandwidth_limit_value;
+		size_t bandwidth_limit_value{};
+		json.get<size_t> ("bandwidth_limit", bandwidth_limit_value);
+		bandwidth_limit = bandwidth_limit_value;
 
 		json.get<bool> ("backup_before_upgrade", backup_before_upgrade);
 
