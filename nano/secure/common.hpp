@@ -465,7 +465,7 @@ public:
 
 	network_params& operator=(network_params const & rhs)
     {
-	    std::memcpy(header_magic_number.begin(), rhs.header_magic_number.cbegin(), rhs.header_magic_number.size());
+        header_magic_number = rhs.header_magic_number;
 	    kdf_work = rhs.kdf_work;
 	    network = rhs.network;
 	    ledger = rhs.ledger;

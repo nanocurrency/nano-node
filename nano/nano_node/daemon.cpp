@@ -31,7 +31,7 @@ void handle_fatal_signal ()
     nano::create_load_memory_address_files ();
 }
 
-void handle_io_signal (std::shared_ptr<nano::node> const & node, boost::filesystem::path const & data_path, nano::node_flags const & flags)
+void handle_hup_signal (std::shared_ptr<nano::node> const & node, boost::filesystem::path const & data_path, nano::node_flags const & flags)
 {
     nano::daemon_config config (data_path);
 
@@ -41,7 +41,7 @@ void handle_io_signal (std::shared_ptr<nano::node> const & node, boost::filesyst
         error = nano::flags_config_conflicts (flags, config.node);
         if (!error)
         {
-            node->setConfig(config.node);
+            node->config_set(config.node);
         }
     }
 }
@@ -51,11 +51,11 @@ void install_signal_handler ()
     struct sigaction signal_action {};
     signal_action.sa_handler = &nano::signal_handler;
 
-    for (const auto signal : { SIGINT, SIGTERM, SIGSEGV, SIGABRT, SIGIO })
+    for (const auto signal : { SIGINT, SIGTERM, SIGSEGV, SIGABRT, SIGHUP })
     {
         // Tell the kernel to switch back to SIG_DFL after handling for all signals,
-        // except for SIGIO that we want to keep handling everytime
-        if (signal != SIGIO)
+        // except for SIGHUP that we want to keep handling everytime
+        if (signal != SIGHUP)
         {
             signal_action.sa_flags = SA_RESETHAND;
         }
@@ -188,9 +188,9 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
                     {
 				        handle_fatal_signal();
                     }
-				    else if (signal == SIGIO)
+				    else if (signal == SIGHUP)
                     {
-				        handle_io_signal(node, data_path, flags);
+				        handle_hup_signal(node, data_path, flags);
                     }
 				};
 

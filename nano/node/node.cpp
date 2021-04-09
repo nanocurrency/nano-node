@@ -1437,7 +1437,7 @@ bool nano::node::epoch_upgrader (nano::raw_key const & prv_a, nano::epoch epoch_
 	return error;
 }
 
-void nano::node::setConfig(nano::node_config const & config_a)
+void nano::node::config_set(nano::node_config const & config_a)
 {
     config = config_a;
     network.set_bandwidth_limit(config.bandwidth_limit_burst_ratio, config.bandwidth_limit);
