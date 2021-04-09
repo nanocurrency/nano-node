@@ -225,7 +225,6 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 
 				if (sig_int_or_term == 1)
 				{
-                    sighup_received_condition.notify_one();
 					ipc_server.stop ();
 					node->stop ();
 					if (rpc)
