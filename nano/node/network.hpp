@@ -179,6 +179,7 @@ public:
 	float size_sqrt () const;
 	bool empty () const;
 	void erase (nano::transport::channel const &);
+	void set_bandwidth_limit(double, size_t);
 	nano::message_buffer_manager buffer_container;
 	boost::asio::ip::udp::resolver resolver;
 	std::vector<boost::thread> packet_processing_threads;

@@ -377,7 +377,7 @@ int main (int argc, char * const * argv)
 	boost::asio::io_context ioc;
 
 	debug_assert (!nano::signal_handler_impl);
-	nano::signal_handler_impl = [&ioc]() {
+	nano::signal_handler_impl = [&ioc](int) {
 		ioc.stop ();
 	};
 

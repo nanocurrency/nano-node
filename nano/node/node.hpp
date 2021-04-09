@@ -147,6 +147,7 @@ public:
 	bool online () const;
 	bool init_error () const;
 	bool epoch_upgrader (nano::raw_key const &, nano::epoch, uint64_t, uint64_t);
+	void setConfig(nano::node_config const &);
 	std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> get_bootstrap_weights () const;
 	nano::write_database_queue write_database_queue;
 	boost::asio::io_context & io_ctx;

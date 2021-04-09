@@ -14,6 +14,6 @@ boost::filesystem::path unique_path ();
 // Remove all unique tmp directories created by the process
 void remove_temporary_directories ();
 // Generic signal handler declarations
-extern std::function<void()> signal_handler_impl;
+extern std::function<void(int)> signal_handler_impl;
 void signal_handler (int sig);
 }

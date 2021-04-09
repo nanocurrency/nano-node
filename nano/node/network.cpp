@@ -795,6 +795,11 @@ void nano::network::erase (nano::transport::channel const & channel_a)
 	}
 }
 
+void nano::network::set_bandwidth_limit(double limit_burst_ratio_a, size_t limit_a)
+{
+    limiter.set_parameters(limit_burst_ratio_a, limit_a);
+}
+
 nano::message_buffer_manager::message_buffer_manager (nano::stat & stats_a, size_t size, size_t count) :
 stats (stats_a),
 free (count),

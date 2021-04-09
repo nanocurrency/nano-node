@@ -51,3 +51,14 @@ size_t nano::rate::token_bucket::largest_burst () const
 	nano::lock_guard<nano::mutex> lk (bucket_mutex);
 	return max_token_count - smallest_size;
 }
+
+void nano::rate::token_bucket::set_parameters (size_t max_token_count_a, size_t refill_rate_a)
+{
+    nano::lock_guard<nano::mutex> lk (bucket_mutex);
+
+    max_token_count = max_token_count_a;
+    refill_rate = refill_rate_a;
+
+    current_size = std::min (current_size, max_token_count);
+    smallest_size = std::min (smallest_size, current_size);
+}

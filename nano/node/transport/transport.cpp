@@ -262,3 +262,8 @@ bool nano::bandwidth_limiter::should_drop (const size_t & message_size_a)
 {
 	return !bucket.try_consume (nano::narrow_cast<unsigned int> (message_size_a));
 }
+
+void nano::bandwidth_limiter::set_parameters(const double limit_burst_ratio_a, const size_t limit_a)
+{
+    bucket.set_parameters(static_cast<size_t> (limit_a * limit_burst_ratio_a), limit_a);
+}

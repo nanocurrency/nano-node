@@ -9,7 +9,6 @@
 #include <nano/node/node.hpp>
 #include <nano/node/openclwork.hpp>
 #include <nano/rpc/rpc.hpp>
-#include <nano/secure/working.hpp>
 
 #include <boost/format.hpp>
 
@@ -18,22 +17,64 @@
 
 namespace
 {
-void my_abort_signal_handler (int signum)
+volatile sig_atomic_t sig_int_or_term = 0;
+
+void handle_interruption_signal (boost::asio::io_context& io_ctx)
 {
-	std::signal (signum, SIG_DFL);
-	nano::dump_crash_stacktrace ();
-	nano::create_load_memory_address_files ();
+    io_ctx.stop ();
+    sig_int_or_term = 1;
 }
 
-volatile sig_atomic_t sig_int_or_term = 0;
+void handle_fatal_signal ()
+{
+    nano::dump_crash_stacktrace ();
+    nano::create_load_memory_address_files ();
+}
+
+void handle_io_signal (std::shared_ptr<nano::node> const & node, boost::filesystem::path const & data_path, nano::node_flags const & flags)
+{
+    nano::daemon_config config (data_path);
+
+    auto error = nano::read_node_config_toml (data_path, config, flags.config_overrides);
+    if (!error)
+    {
+        error = nano::flags_config_conflicts (flags, config.node);
+        if (!error)
+        {
+            node->setConfig(config.node);
+        }
+    }
+}
+
+void install_signal_handler ()
+{
+    struct sigaction signal_action {};
+    signal_action.sa_handler = &nano::signal_handler;
+
+    for (const auto signal : { SIGINT, SIGTERM, SIGSEGV, SIGABRT, SIGIO })
+    {
+        // Tell the kernel to switch back to SIG_DFL after handling for all signals,
+        // except for SIGIO that we want to keep handling everytime
+        if (signal != SIGIO)
+        {
+            signal_action.sa_flags = SA_RESETHAND;
+        }
+        else
+        {
+            signal_action.sa_flags = 0;
+        }
+
+        if (sigaction(signal, &signal_action, nullptr) < 0)
+        {
+            throw std::runtime_error ("Unable to register signal handler for signal " + std::to_string(signal));
+        }
+    }
+}
+
 }
 
 void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::node_flags const & flags)
 {
-	// Override segmentation fault and aborting.
-	std::signal (SIGSEGV, &my_abort_signal_handler);
-	std::signal (SIGABRT, &my_abort_signal_handler);
-
 	boost::filesystem::create_directories (data_path);
 	boost::system::error_code error_chmod;
 	nano::set_secure_perm_directory (data_path, error_chmod);
@@ -137,13 +178,23 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 				}
 
 				debug_assert (!nano::signal_handler_impl);
-				nano::signal_handler_impl = [&io_ctx]() {
-					io_ctx.stop ();
-					sig_int_or_term = 1;
+				nano::signal_handler_impl = [&](int signal)
+				{
+				    if (signal == SIGINT || signal == SIGTERM)
+                    {
+				        handle_interruption_signal(io_ctx);
+                    }
+				    else if (signal == SIGSEGV || signal == SIGABRT)
+                    {
+				        handle_fatal_signal();
+                    }
+				    else if (signal == SIGIO)
+                    {
+				        handle_io_signal(node, data_path, flags);
+                    }
 				};
 
-				std::signal (SIGINT, &nano::signal_handler);
-				std::signal (SIGTERM, &nano::signal_handler);
+                install_signal_handler();
 
 				runner = std::make_unique<nano::thread_runner> (io_ctx, node->config.io_threads);
 				runner->join ();

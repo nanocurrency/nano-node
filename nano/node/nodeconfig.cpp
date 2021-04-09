@@ -25,6 +25,73 @@ node_config (0, nano::logging ())
 {
 }
 
+nano::node_config::node_config (node_config const & other) :
+network_params (other.network_params),
+peering_port (other.peering_port),
+logging (other.logging),
+work_peers (other.work_peers),
+secondary_work_peers (other.secondary_work_peers),
+preconfigured_peers (other.preconfigured_peers),
+preconfigured_representatives (other.preconfigured_representatives),
+bootstrap_fraction_numerator (other.bootstrap_fraction_numerator),
+receive_minimum (other.receive_minimum),
+vote_minimum (other.vote_minimum),
+vote_generator_delay (other.vote_generator_delay),
+vote_generator_threshold (other.vote_generator_threshold),
+online_weight_minimum (other.online_weight_minimum),
+election_hint_weight_percent (other.election_hint_weight_percent),
+password_fanout (other.password_fanout),
+io_threads (other.io_threads),
+network_threads (other.network_threads),
+work_threads (other.work_threads),
+signature_checker_threads (other.signature_checker_threads),
+enable_voting (other.enable_voting),
+bootstrap_connections (other.bootstrap_connections),
+bootstrap_connections_max (other.bootstrap_connections_max),
+bootstrap_initiator_threads (other.bootstrap_initiator_threads),
+websocket_config (other.websocket_config),
+diagnostics_config (other.diagnostics_config),
+confirmation_history_size (other.confirmation_history_size),
+callback_address (other.callback_address),
+callback_port (other.callback_port),
+callback_target (other.callback_target),
+deprecated_lmdb_max_dbs (other.deprecated_lmdb_max_dbs),
+allow_local_peers (other.allow_local_peers),
+stat_config (other.stat_config),
+ipc_config (other.ipc_config),
+external_address (other.external_address),
+external_port (other.external_port),
+block_processor_batch_max_time (other.block_processor_batch_max_time),
+unchecked_cutoff_time (other.unchecked_cutoff_time),
+tcp_io_timeout (other.tcp_io_timeout),
+pow_sleep_interval (other.pow_sleep_interval),
+active_elections_size (other.active_elections_size),
+tcp_incoming_connections_max (other.tcp_incoming_connections_max),
+use_memory_pools (other.use_memory_pools),
+bandwidth_limit  (other.bandwidth_limit.load(std::memory_order_relaxed)),
+bandwidth_limit_burst_ratio (other.bandwidth_limit_burst_ratio),
+conf_height_processor_batch_min_time (other.conf_height_processor_batch_min_time),
+backup_before_upgrade (other.backup_before_upgrade),
+work_watcher_period (other.work_watcher_period),
+max_work_generate_multiplier (other.max_work_generate_multiplier),
+max_queued_requests (other.max_queued_requests),
+confirm_req_batches_max (other.confirm_req_batches_max),
+max_pruning_age (other.max_pruning_age),
+max_pruning_depth (other.max_pruning_depth),
+rocksdb_config (other.rocksdb_config),
+lmdb_config (other.lmdb_config),
+frontiers_confirmation (other.frontiers_confirmation)
+{
+}
+
+nano::node_config& nano::node_config::operator= (node_config const & rhs)
+{
+    // Only bandwidth_limit for now
+    bandwidth_limit = rhs.bandwidth_limit.load();
+
+    return *this;
+}
+
 nano::node_config::node_config (uint16_t peering_port_a, nano::logging const & logging_a) :
 peering_port (peering_port_a),
 logging (logging_a),
@@ -102,7 +169,7 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("use_memory_pools", use_memory_pools, "If true, allocate memory from memory pools. Enabling this may improve performance. Memory is never released to the OS.\ntype:bool");
 	toml.put ("confirmation_history_size", confirmation_history_size, "Maximum confirmation history size. If tracking the rate of block confirmations, the websocket feature is recommended instead.\ntype:uint64");
 	toml.put ("active_elections_size", active_elections_size, "Number of active elections. Elections beyond this limit have limited survival time.\nWarning: modifying this value may result in a lower confirmation rate.\ntype:uint64,[250..]");
-	toml.put ("bandwidth_limit", bandwidth_limit, "Outbound traffic limit in bytes/sec after which messages will be dropped.\nNote: changing to unlimited bandwidth (0) is not recommended for limited connections.\ntype:uint64");
+	toml.put ("bandwidth_limit", bandwidth_limit.load(), "Outbound traffic limit in bytes/sec after which messages will be dropped.\nNote: changing to unlimited bandwidth (0) is not recommended for limited connections.\ntype:uint64");
 	toml.put ("bandwidth_limit_burst_ratio", bandwidth_limit_burst_ratio, "Burst ratio for outbound traffic shaping.\ntype:double");
 	toml.put ("conf_height_processor_batch_min_time", conf_height_processor_batch_min_time.count (), "Minimum write batching time when there are blocks pending confirmation height.\ntype:milliseconds");
 	toml.put ("backup_before_upgrade", backup_before_upgrade, "Backup the ledger database before performing upgrades.\nWarning: uses more disk storage and increases startup time when upgrading.\ntype:bool");
@@ -357,7 +424,11 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		toml.get<bool> ("use_memory_pools", use_memory_pools);
 		toml.get<size_t> ("confirmation_history_size", confirmation_history_size);
 		toml.get<size_t> ("active_elections_size", active_elections_size);
-		toml.get<size_t> ("bandwidth_limit", bandwidth_limit);
+
+		size_t bandwidth_limit_value {};
+		toml.get<size_t> ("bandwidth_limit", bandwidth_limit_value);
+		bandwidth_limit = bandwidth_limit_value;
+
 		toml.get<double> ("bandwidth_limit_burst_ratio", bandwidth_limit_burst_ratio);
 		toml.get<bool> ("backup_before_upgrade", backup_before_upgrade);
 
@@ -698,7 +769,11 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		json.get<bool> ("use_memory_pools", use_memory_pools);
 		json.get<size_t> ("confirmation_history_size", confirmation_history_size);
 		json.get<size_t> ("active_elections_size", active_elections_size);
-		json.get<size_t> ("bandwidth_limit", bandwidth_limit);
+
+        size_t bandwidth_limit_value {};
+        json.get<size_t> ("bandwidth_limit", bandwidth_limit_value);
+        bandwidth_limit = bandwidth_limit_value;
+
 		json.get<bool> ("backup_before_upgrade", backup_before_upgrade);
 
 		auto work_watcher_period_l = work_watcher_period.count ();

@@ -54,7 +54,7 @@ void run (boost::filesystem::path const & data_path, std::vector<std::string> co
 			rpc->start ();
 
 			debug_assert (!nano::signal_handler_impl);
-			nano::signal_handler_impl = [&io_ctx]() {
+			nano::signal_handler_impl = [&io_ctx](int) {
 				io_ctx.stop ();
 				sig_int_or_term = 1;
 			};

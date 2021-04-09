@@ -15,6 +15,8 @@ public:
 	bandwidth_limiter (const double, const size_t);
 	bool should_drop (const size_t &);
 
+	void set_parameters(const double, const size_t);
+
 private:
 	nano::rate::token_bucket bucket;
 };
