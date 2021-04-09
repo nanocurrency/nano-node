@@ -24,7 +24,6 @@ class prioritization final
 	void next ();
 	void seek ();
 	void populate_schedule ();
-	void trim ();
 	std::function<void (std::shared_ptr<nano::block>)> drop;
 	// Contains bucket indicies to iterate over when making the next scheduling decision
 	std::vector<uint8_t> schedule;

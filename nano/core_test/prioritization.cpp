@@ -134,3 +134,17 @@ TEST (prioritization, trim_reverse)
 	ASSERT_EQ (1, prioritization.size ());
 	ASSERT_EQ (block0, prioritization.top ());
 }
+
+TEST (prioritization, trim_even)
+{
+	nano::prioritization prioritization{ 2 };
+	prioritization.push (1000, block0);
+	prioritization.push (1100, block2);
+	ASSERT_EQ (1, prioritization.size ());
+	ASSERT_EQ (block0, prioritization.top ());
+	prioritization.push (1000, block1);
+	ASSERT_EQ (2, prioritization.size ());
+	ASSERT_EQ (block0, prioritization.top ());
+	prioritization.pop ();
+	ASSERT_EQ (block1, prioritization.top ());
+}

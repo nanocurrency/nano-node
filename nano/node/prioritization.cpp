@@ -41,15 +41,6 @@ void nano::prioritization::populate_schedule ()
 	}
 }
 
-void nano::prioritization::trim ()
-{
-	while (size () > maximum)
-	{
-		auto max = std::max_element (buckets.begin (), buckets.end (), [] (priority const & lhs, priority const & rhs) { return lhs.size () < rhs.size (); });
-		max->erase (--max->end ());
-	}
-}
-
 nano::prioritization::prioritization (uint64_t maximum, std::function<void (std::shared_ptr<nano::block>)> const & drop_a) :
 	drop{ drop_a },
 	maximum{ maximum }
@@ -74,10 +65,13 @@ void nano::prioritization::push (uint64_t time, std::shared_ptr<nano::block> blo
 	auto block_has_balance = block->type () == nano::block_type::state || block->type () == nano::block_type::send;
 	debug_assert (block_has_balance || block->has_sideband ());
 	auto balance = block_has_balance ? block->balance () : block->sideband ().balance;
-	auto bucket = std::upper_bound (minimums.begin (), minimums.end (), block->balance ().number ());
-	debug_assert (bucket != minimums.begin ());
-	buckets[bucket - 1 - minimums.begin ()].emplace (value_type{ time, block });
-	trim ();
+	auto index = std::upper_bound (minimums.begin (), minimums.end (), block->balance ().number ()) - 1 - minimums.begin ();
+	auto & bucket = buckets[index];
+	bucket.emplace (value_type{ time, block });
+	if (bucket.size () > std::max (1ull, maximum / buckets.size ()))
+	{
+		bucket.erase (--bucket.end ());
+	}
 	if (was_empty)
 	{
 		seek ();
