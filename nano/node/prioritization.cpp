@@ -65,7 +65,7 @@ void nano::prioritization::push (uint64_t time, std::shared_ptr<nano::block> blo
 	auto block_has_balance = block->type () == nano::block_type::state || block->type () == nano::block_type::send;
 	debug_assert (block_has_balance || block->has_sideband ());
 	auto balance = block_has_balance ? block->balance () : block->sideband ().balance;
-	auto index = std::upper_bound (minimums.begin (), minimums.end (), block->balance ().number ()) - 1 - minimums.begin ();
+	auto index = std::upper_bound (minimums.begin (), minimums.end (), balance.number ()) - 1 - minimums.begin ();
 	auto & bucket = buckets[index];
 	bucket.emplace (value_type{ time, block });
 	if (bucket.size () > std::max (1ull, maximum / buckets.size ()))

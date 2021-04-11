@@ -1744,7 +1744,7 @@ std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> nano::node::get_
 void nano::node::populate_backlog ()
 {
 	auto done = false;
-	uint64_t const chunk_size = 250000;
+	uint64_t const chunk_size = 65536;
 	nano::account next = 0;
 	uint64_t total = 0;
 	while (!done)
@@ -1754,6 +1754,7 @@ void nano::node::populate_backlog ()
 		for (auto i = store.accounts_begin (transaction, next), n = store.accounts_end (); i != n && count < chunk_size; ++i, ++count, ++total)
 		{
 			auto const & account = i->first;
+			//std::cerr << account.to_account () << '\n';
 			scheduler.activate (account, transaction);
 			next = account.number () + 1;
 		}
