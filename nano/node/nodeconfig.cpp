@@ -426,7 +426,10 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 
 		size_t bandwidth_limit_value{};
 		toml.get<size_t> ("bandwidth_limit", bandwidth_limit_value);
-		bandwidth_limit = bandwidth_limit_value;
+		if (bandwidth_limit_value)
+		{
+			bandwidth_limit = bandwidth_limit_value;
+		}
 
 		toml.get<double> ("bandwidth_limit_burst_ratio", bandwidth_limit_burst_ratio);
 		toml.get<bool> ("backup_before_upgrade", backup_before_upgrade);
@@ -770,7 +773,10 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 
 		size_t bandwidth_limit_value{};
 		json.get<size_t> ("bandwidth_limit", bandwidth_limit_value);
-		bandwidth_limit = bandwidth_limit_value;
+		if (bandwidth_limit_value)
+		{
+			bandwidth_limit = bandwidth_limit_value;
+		}
 
 		json.get<bool> ("backup_before_upgrade", backup_before_upgrade);
 
