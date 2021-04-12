@@ -1747,18 +1747,16 @@ void nano::node::populate_backlog ()
 	uint64_t const chunk_size = 65536;
 	nano::account next = 0;
 	uint64_t total = 0;
-	while (!done)
+	while (!stopped && !done)
 	{
 		auto transaction = store.tx_begin_read ();
 		auto count = 0;
-		for (auto i = store.accounts_begin (transaction, next), n = store.accounts_end (); i != n && count < chunk_size; ++i, ++count, ++total)
+		for (auto i = store.accounts_begin (transaction, next), n = store.accounts_end (); !stopped && i != n && count < chunk_size; ++i, ++count, ++total)
 		{
 			auto const & account = i->first;
-			//std::cerr << account.to_account () << '\n';
 			scheduler.activate (account, transaction);
 			next = account.number () + 1;
 		}
-		std::cerr << boost::str (boost::format ("Populated: %1%, queue size: %2%\n") % total % scheduler.priority_queue_size ());
 		done = store.accounts_begin (transaction, next) == store.accounts_end ();
 	}
 }
