@@ -659,9 +659,12 @@ void nano::node::start ()
 	{
 		port_mapping.start ();
 	}
-	workers.push_task([this_l = shared ()] () {
-		this_l->ongoing_backlog_population ();
-	});
+	if (config.frontiers_confirmation != nano::frontiers_confirmation_mode::disabled)
+	{
+		workers.push_task([this_l = shared ()] () {
+			this_l->ongoing_backlog_population ();
+		});
+	}
 }
 
 void nano::node::stop ()
