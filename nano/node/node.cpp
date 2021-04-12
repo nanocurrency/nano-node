@@ -982,7 +982,8 @@ void nano::node::ongoing_unchecked_cleanup ()
 void nano::node::ongoing_backlog_population ()
 {
 	populate_backlog ();
-	workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::minutes (5), [this_l = shared ()] () {
+	auto delay = config.network_params.network.is_dev_network () ? std::chrono::seconds{ 1 } : std::chrono::duration_cast<std::chrono::seconds> (std::chrono::minutes{ 5 });
+	workers.add_timed_task (std::chrono::steady_clock::now () + delay, [this_l = shared ()] () {
 		this_l->ongoing_backlog_population ();
 	});
 }
