@@ -395,7 +395,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	bootstrap_connections = 999
 	bootstrap_connections_max = 999
 	bootstrap_initiator_threads = 999
-	bootstrap_frontier_request_count = 999
+	bootstrap_frontier_request_count = 9999
 	bootstrap_fraction_numerator = 999
 	conf_height_processor_batch_min_time = 999
 	confirmation_history_size = 999
