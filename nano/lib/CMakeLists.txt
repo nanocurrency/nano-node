@@ -64,6 +64,8 @@ add_library(
   rpcconfig.cpp
   stats.hpp
   stats.cpp
+  signal_handler.hpp
+  signal_handler.cpp
   stream.hpp
   threading.hpp
   threading.cpp
