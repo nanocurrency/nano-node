@@ -1985,8 +1985,11 @@ TEST (node, bootstrap_fork_open)
 	{
 		node->block_confirm (node->block (node->latest (nano::dev_genesis_key.pub)));
 		auto election = node->active.election (send0.qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
+		if (election != nullptr)
+		{
+			election->force_confirm ();
+		}
+		ASSERT_TRUE (node->block_confirmed_or_being_confirmed (node->store.tx_begin_read (), send0.hash ()));
 		ASSERT_TIMELY (2s, node->active.empty ());
 	}
 	ASSERT_TIMELY (3s, node0->block_confirmed (send0.hash ()));
