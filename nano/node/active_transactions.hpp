@@ -190,6 +190,10 @@ public:
 	boost::optional<nano::election_status_type> confirm_block (nano::transaction const &, std::shared_ptr<nano::block> const &);
 	void block_cemented_callback (std::shared_ptr<nano::block> const &);
 	void block_already_cemented_callback (nano::block_hash const &);
+
+	int64_t vacancy () const;
+	std::function<void ()> vacancy_update{ [] () {} };
+
 	boost::optional<double> last_prioritized_multiplier{ boost::none };
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> blocks;
 	std::deque<nano::election_status> list_recently_cemented ();
