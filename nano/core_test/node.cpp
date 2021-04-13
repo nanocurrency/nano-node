@@ -2567,6 +2567,7 @@ TEST (node, block_confirm)
 		nano::genesis genesis;
 		nano::keypair key;
 		nano::state_block_builder builder;
+		system.wallet (1)->insert_adhoc (nano::dev_genesis_key.prv);
 		auto send1 = builder.make_block ()
 		             .account (nano::dev_genesis_key.pub)
 		             .previous (genesis.hash ())
@@ -2589,21 +2590,7 @@ TEST (node, block_confirm)
 		node2.block_confirm (send1_copy);
 		auto election = node2.active.election (send1_copy->qualified_root ());
 		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-		ASSERT_TIMELY (3s, node2.block_confirmed (send1_copy->hash ()) && node2.active.empty ());
-		system.wallet (1)->insert_adhoc (nano::dev_genesis_key.prv);
-		auto send2 (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, send1->hash (), nano::dev_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio * 2, key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node1.work_generate_blocking (send1->hash ())));
-		{
-			auto transaction (node1.store.tx_begin_write ());
-			ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send2).code);
-		}
-		{
-			auto transaction (node2.store.tx_begin_write ());
-			ASSERT_EQ (nano::process_result::progress, node2.ledger.process (transaction, *send2).code);
-		}
-		ASSERT_TRUE (node1.active.list_recently_cemented ().empty ());
-		node1.block_confirm (send2);
-		ASSERT_TIMELY (10s, node1.active.list_recently_cemented ().size () == 2);
+		ASSERT_TIMELY (10s, node1.active.list_recently_cemented ().size () == 1);
 	}
 }
 
