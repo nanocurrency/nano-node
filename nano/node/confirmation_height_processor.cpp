@@ -18,7 +18,7 @@ write_database_queue (write_database_queue_a),
 unbounded_processor (ledger_a, write_database_queue_a, batch_separate_pending_min_time_a, logging_a, logger_a, stopped, batch_write_size, [this](auto & cemented_blocks) { this->notify_observers (cemented_blocks); }, [this](auto const & block_hash_a) { this->notify_observers (block_hash_a); }, [this]() { return this->awaiting_processing_size (); }),
 bounded_processor (ledger_a, write_database_queue_a, batch_separate_pending_min_time_a, logging_a, logger_a, stopped, batch_write_size, [this](auto & cemented_blocks) { this->notify_observers (cemented_blocks); }, [this](auto const & block_hash_a) { this->notify_observers (block_hash_a); }, [this]() { return this->awaiting_processing_size (); }),
 // clang-format on
-thread ([this, &latch, mode_a]() {
+thread ([this, &latch, mode_a] () {
 	nano::thread_role::set (nano::thread_role::name::confirmation_height_processing);
 	// Do not start running the processing thread until other threads have finished their operations
 	latch.wait ();
@@ -84,7 +84,7 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 		}
 		else
 		{
-			auto lock_and_cleanup = [&lk, this]() {
+			auto lock_and_cleanup = [&lk, this] () {
 				lk.lock ();
 				original_block = nullptr;
 				original_hashes_pending.clear ();
@@ -171,13 +171,13 @@ void nano::confirmation_height_processor::set_next_hash ()
 }
 
 // Not thread-safe, only call before this processor has begun cementing
-void nano::confirmation_height_processor::add_cemented_observer (std::function<void(std::shared_ptr<nano::block> const &)> const & callback_a)
+void nano::confirmation_height_processor::add_cemented_observer (std::function<void (std::shared_ptr<nano::block> const &)> const & callback_a)
 {
 	cemented_observers.push_back (callback_a);
 }
 
 // Not thread-safe, only call before this processor has begun cementing
-void nano::confirmation_height_processor::add_block_already_cemented_observer (std::function<void(nano::block_hash const &)> const & callback_a)
+void nano::confirmation_height_processor::add_block_already_cemented_observer (std::function<void (nano::block_hash const &)> const & callback_a)
 {
 	block_already_cemented_observers.push_back (callback_a);
 }

@@ -8,7 +8,7 @@
 
 #include <numeric>
 
-nano::confirmation_height_unbounded::confirmation_height_unbounded (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logging const & logging_a, nano::logger_mt & logger_a, std::atomic<bool> & stopped_a, uint64_t & batch_write_size_a, std::function<void(std::vector<std::shared_ptr<nano::block>> const &)> const & notify_observers_callback_a, std::function<void(nano::block_hash const &)> const & notify_block_already_cemented_observers_callback_a, std::function<uint64_t ()> const & awaiting_processing_size_callback_a) :
+nano::confirmation_height_unbounded::confirmation_height_unbounded (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logging const & logging_a, nano::logger_mt & logger_a, std::atomic<bool> & stopped_a, uint64_t & batch_write_size_a, std::function<void (std::vector<std::shared_ptr<nano::block>> const &)> const & notify_observers_callback_a, std::function<void (nano::block_hash const &)> const & notify_block_already_cemented_observers_callback_a, std::function<uint64_t ()> const & awaiting_processing_size_callback_a) :
 ledger (ledger_a),
 write_database_queue (write_database_queue_a),
 batch_separate_pending_min_time (batch_separate_pending_min_time_a),
@@ -164,7 +164,7 @@ void nano::confirmation_height_unbounded::process (std::shared_ptr<nano::block> 
 		auto no_pending = awaiting_processing_size_callback () == 0;
 		auto should_output = finished_iterating && (no_pending || min_time_exceeded);
 
-		auto total_pending_write_block_count = std::accumulate (pending_writes.cbegin (), pending_writes.cend (), uint64_t (0), [](uint64_t total, conf_height_details const & receive_details_a) {
+		auto total_pending_write_block_count = std::accumulate (pending_writes.cbegin (), pending_writes.cend (), uint64_t (0), [] (uint64_t total, conf_height_details const & receive_details_a) {
 			return total += receive_details_a.num_blocks_confirmed;
 		});
 		auto force_write = total_pending_write_block_count > batch_write_size;
@@ -412,7 +412,7 @@ void nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 				std::reverse (pending.block_callback_data.begin (), pending.block_callback_data.end ());
 
 				nano::lock_guard<nano::mutex> guard (block_cache_mutex);
-				std::transform (pending.block_callback_data.begin (), pending.block_callback_data.end (), std::back_inserter (cemented_blocks), [& block_cache = block_cache](auto const & hash_a) {
+				std::transform (pending.block_callback_data.begin (), pending.block_callback_data.end (), std::back_inserter (cemented_blocks), [&block_cache = block_cache] (auto const & hash_a) {
 					debug_assert (block_cache.count (hash_a) == 1);
 					return block_cache.at (hash_a);
 				});

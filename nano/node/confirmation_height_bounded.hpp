@@ -19,7 +19,7 @@ class write_guard;
 class confirmation_height_bounded final
 {
 public:
-	confirmation_height_bounded (nano::ledger &, nano::write_database_queue &, std::chrono::milliseconds, nano::logging const &, nano::logger_mt &, std::atomic<bool> &, uint64_t &, std::function<void(std::vector<std::shared_ptr<nano::block>> const &)> const &, std::function<void(nano::block_hash const &)> const &, std::function<uint64_t ()> const &);
+	confirmation_height_bounded (nano::ledger &, nano::write_database_queue &, std::chrono::milliseconds, nano::logging const &, nano::logger_mt &, std::atomic<bool> &, uint64_t &, std::function<void (std::vector<std::shared_ptr<nano::block>> const &)> const &, std::function<void (nano::block_hash const &)> const &, std::function<uint64_t ()> const &);
 	bool pending_empty () const;
 	void clear_process_vars ();
 	void process (std::shared_ptr<nano::block> original_block);
@@ -125,8 +125,8 @@ private:
 	nano::logger_mt & logger;
 	std::atomic<bool> & stopped;
 	uint64_t & batch_write_size;
-	std::function<void(std::vector<std::shared_ptr<nano::block>> const &)> notify_observers_callback;
-	std::function<void(nano::block_hash const &)> notify_block_already_cemented_observers_callback;
+	std::function<void (std::vector<std::shared_ptr<nano::block>> const &)> notify_observers_callback;
+	std::function<void (nano::block_hash const &)> notify_block_already_cemented_observers_callback;
 	std::function<uint64_t ()> awaiting_processing_size_callback;
 	nano::network_params network_params;
 
