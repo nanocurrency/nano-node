@@ -803,7 +803,7 @@ TEST (confirmation_heightDeathTest, modified_chain)
 		nano::write_database_queue write_database_queue (false);
 		nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 		nano::keypair key1;
-		auto send = std::make_shared<nano::send_block> (nano::genesis_hash, key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (nano::genesis_hash));
+		std::shared_ptr<nano::block> send = std::make_shared<nano::send_block> (nano::genesis_hash, key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (nano::genesis_hash));
 		{
 			auto transaction (store->tx_begin_write ());
 			store->initialize (transaction, genesis, ledger.cache);
@@ -875,7 +875,7 @@ TEST (confirmation_heightDeathTest, modified_chain_account_removed)
 		nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 		nano::keypair key1;
 		auto send = std::make_shared<nano::send_block> (nano::genesis_hash, key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (nano::genesis_hash));
-		auto open = std::make_shared<nano::state_block> (key1.pub, 0, 0, nano::Gxrb_ratio, send->hash (), key1.prv, key1.pub, *pool.generate (key1.pub));
+		std::shared_ptr<nano::block> open = std::make_shared<nano::state_block> (key1.pub, 0, 0, nano::Gxrb_ratio, send->hash (), key1.prv, key1.pub, *pool.generate (key1.pub));
 		{
 			auto transaction (store->tx_begin_write ());
 			store->initialize (transaction, genesis, ledger.cache);
@@ -1423,7 +1423,7 @@ TEST (confirmation_height, pruned_source)
 	auto open1 (std::make_shared<nano::state_block> (key1.pub, 0, key1.pub, 100, send1->hash (), key1.prv, key1.pub, *pool.generate (key1.pub)));
 	auto send2 (std::make_shared<nano::state_block> (key1.pub, open1->hash (), key1.pub, 50, key2.pub, key1.prv, key1.pub, *pool.generate (open1->hash ())));
 	auto send3 (std::make_shared<nano::state_block> (key1.pub, send2->hash (), key1.pub, 25, key2.pub, key1.prv, key1.pub, *pool.generate (send2->hash ())));
-	auto open2 (std::make_shared<nano::state_block> (key2.pub, 0, key1.pub, 50, send2->hash (), key2.prv, key2.pub, *pool.generate (key2.pub)));
+	std::shared_ptr<nano::block> open2 = std::make_shared<nano::state_block> (key2.pub, 0, key1.pub, 50, send2->hash (), key2.prv, key2.pub, *pool.generate (key2.pub));
 	{
 		auto transaction (store->tx_begin_write ());
 		store->initialize (transaction, genesis, ledger.cache);
