@@ -67,7 +67,7 @@ void nano::prioritization::push (uint64_t time, std::shared_ptr<nano::block> blo
 	auto index = std::upper_bound (minimums.begin (), minimums.end (), balance.number ()) - 1 - minimums.begin ();
 	auto & bucket = buckets[index];
 	bucket.emplace (value_type{ time, block });
-	if (bucket.size () > std::max (1ull, maximum / buckets.size ()))
+	if (bucket.size () > std::max (decltype (maximum){ 1 }, maximum / buckets.size ()))
 	{
 		bucket.erase (--bucket.end ());
 	}
