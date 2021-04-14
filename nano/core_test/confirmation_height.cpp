@@ -735,15 +735,15 @@ TEST (confirmation_heightDeathTest, rollback_added_block)
 		uint64_t batch_write_size = 2048;
 		std::atomic<bool> stopped{ false };
 		nano::confirmation_height_unbounded unbounded_processor (
-		ledger, write_database_queue, 10ms, logging, logger, stopped, send, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
+		ledger, write_database_queue, 10ms, logging, logger, stopped, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
 
 		// Processing a block which doesn't exist should bail
-		ASSERT_DEATH_IF_SUPPORTED (unbounded_processor.process (), "");
+		ASSERT_DEATH_IF_SUPPORTED (unbounded_processor.process (send), "");
 
 		nano::confirmation_height_bounded bounded_processor (
-		ledger, write_database_queue, 10ms, logging, logger, stopped, send, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
+		ledger, write_database_queue, 10ms, logging, logger, stopped, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
 		// Processing a block which doesn't exist should bail
-		ASSERT_DEATH_IF_SUPPORTED (bounded_processor.process (), "");
+		ASSERT_DEATH_IF_SUPPORTED (bounded_processor.process (send), "");
 	}
 }
 
@@ -803,7 +803,7 @@ TEST (confirmation_heightDeathTest, modified_chain)
 		nano::write_database_queue write_database_queue (false);
 		nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 		nano::keypair key1;
-		std::shared_ptr<nano::block> send = std::make_shared<nano::send_block> (nano::genesis_hash, key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (nano::genesis_hash));
+		auto send = std::make_shared<nano::send_block> (nano::genesis_hash, key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (nano::genesis_hash));
 		{
 			auto transaction (store->tx_begin_write ());
 			store->initialize (transaction, genesis, ledger.cache);
@@ -813,12 +813,12 @@ TEST (confirmation_heightDeathTest, modified_chain)
 		uint64_t batch_write_size = 2048;
 		std::atomic<bool> stopped{ false };
 		nano::confirmation_height_bounded bounded_processor (
-		ledger, write_database_queue, 10ms, logging, logger, stopped, send, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
+		ledger, write_database_queue, 10ms, logging, logger, stopped, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
 
 		{
 			// This reads the blocks in the account, but prevents any writes from occuring yet
 			auto scoped_write_guard = write_database_queue.wait (nano::writer::testing);
-			bounded_processor.process ();
+			bounded_processor.process (send);
 		}
 
 		// Rollback the block and now try to write, the block no longer exists so should bail
@@ -832,12 +832,12 @@ TEST (confirmation_heightDeathTest, modified_chain)
 		store->confirmation_height_put (store->tx_begin_write (), nano::genesis_account, { 1, nano::genesis_hash });
 
 		nano::confirmation_height_unbounded unbounded_processor (
-		ledger, write_database_queue, 10ms, logging, logger, stopped, send, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
+		ledger, write_database_queue, 10ms, logging, logger, stopped, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
 
 		{
 			// This reads the blocks in the account, but prevents any writes from occuring yet
 			auto scoped_write_guard = write_database_queue.wait (nano::writer::testing);
-			unbounded_processor.process ();
+			unbounded_processor.process (send);
 		}
 
 		// Rollback the block and now try to write, the block no longer exists so should bail
@@ -875,7 +875,7 @@ TEST (confirmation_heightDeathTest, modified_chain_account_removed)
 		nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 		nano::keypair key1;
 		auto send = std::make_shared<nano::send_block> (nano::genesis_hash, key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (nano::genesis_hash));
-		std::shared_ptr<nano::block> open = std::make_shared<nano::state_block> (key1.pub, 0, 0, nano::Gxrb_ratio, send->hash (), key1.prv, key1.pub, *pool.generate (key1.pub));
+		auto open = std::make_shared<nano::state_block> (key1.pub, 0, 0, nano::Gxrb_ratio, send->hash (), key1.prv, key1.pub, *pool.generate (key1.pub));
 		{
 			auto transaction (store->tx_begin_write ());
 			store->initialize (transaction, genesis, ledger.cache);
@@ -886,12 +886,12 @@ TEST (confirmation_heightDeathTest, modified_chain_account_removed)
 		uint64_t batch_write_size = 2048;
 		std::atomic<bool> stopped{ false };
 		nano::confirmation_height_unbounded unbounded_processor (
-		ledger, write_database_queue, 10ms, logging, logger, stopped, open, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
+		ledger, write_database_queue, 10ms, logging, logger, stopped, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
 
 		{
 			// This reads the blocks in the account, but prevents any writes from occuring yet
 			auto scoped_write_guard = write_database_queue.wait (nano::writer::testing);
-			unbounded_processor.process ();
+			unbounded_processor.process (open);
 		}
 
 		// Rollback the block and now try to write, the send should be cemented but the account which the open block belongs no longer exists so should bail
@@ -906,12 +906,12 @@ TEST (confirmation_heightDeathTest, modified_chain_account_removed)
 		store->confirmation_height_put (store->tx_begin_write (), nano::genesis_account, { 1, nano::genesis_hash });
 
 		nano::confirmation_height_bounded bounded_processor (
-		ledger, write_database_queue, 10ms, logging, logger, stopped, open, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
+		ledger, write_database_queue, 10ms, logging, logger, stopped, batch_write_size, [](auto const &) {}, [](auto const &) {}, []() { return 0; });
 
 		{
 			// This reads the blocks in the account, but prevents any writes from occuring yet
 			auto scoped_write_guard = write_database_queue.wait (nano::writer::testing);
-			bounded_processor.process ();
+			bounded_processor.process (open);
 		}
 
 		// Rollback the block and now try to write, the send should be cemented but the account which the open block belongs no longer exists so should bail
@@ -1419,11 +1419,11 @@ TEST (confirmation_height, pruned_source)
 	nano::write_database_queue write_database_queue (false);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::keypair key1, key2;
-	auto send1 (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, genesis.hash (), nano::dev_genesis_key.pub, nano::genesis_amount - 100, key1.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (nano::genesis_hash)));
-	auto open1 (std::make_shared<nano::state_block> (key1.pub, 0, key1.pub, 100, send1->hash (), key1.prv, key1.pub, *pool.generate (key1.pub)));
-	auto send2 (std::make_shared<nano::state_block> (key1.pub, open1->hash (), key1.pub, 50, key2.pub, key1.prv, key1.pub, *pool.generate (open1->hash ())));
-	auto send3 (std::make_shared<nano::state_block> (key1.pub, send2->hash (), key1.pub, 25, key2.pub, key1.prv, key1.pub, *pool.generate (send2->hash ())));
-	std::shared_ptr<nano::block> open2 = std::make_shared<nano::state_block> (key2.pub, 0, key1.pub, 50, send2->hash (), key2.prv, key2.pub, *pool.generate (key2.pub));
+	auto send1 = std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, genesis.hash (), nano::dev_genesis_key.pub, nano::genesis_amount - 100, key1.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (nano::genesis_hash));
+	auto open1 = std::make_shared<nano::state_block> (key1.pub, 0, key1.pub, 100, send1->hash (), key1.prv, key1.pub, *pool.generate (key1.pub));
+	auto send2 = std::make_shared<nano::state_block> (key1.pub, open1->hash (), key1.pub, 50, key2.pub, key1.prv, key1.pub, *pool.generate (open1->hash ()));
+	auto send3 = std::make_shared<nano::state_block> (key1.pub, send2->hash (), key1.pub, 25, key2.pub, key1.prv, key1.pub, *pool.generate (send2->hash ()));
+	auto open2 = std::make_shared<nano::state_block> (key2.pub, 0, key1.pub, 50, send2->hash (), key2.prv, key2.pub, *pool.generate (key2.pub));
 	{
 		auto transaction (store->tx_begin_write ());
 		store->initialize (transaction, genesis, ledger.cache);
@@ -1437,7 +1437,7 @@ TEST (confirmation_height, pruned_source)
 	std::atomic<bool> stopped{ false };
 	bool first_time{ true };
 	nano::confirmation_height_bounded bounded_processor (
-	ledger, write_database_queue, 10ms, logging, logger, stopped, open2, batch_write_size, [&](auto const & cemented_blocks_a) {
+	ledger, write_database_queue, 10ms, logging, logger, stopped, batch_write_size, [&](auto const & cemented_blocks_a) {
 		if (first_time)
 		{
 			// Prune the send
@@ -1446,5 +1446,5 @@ TEST (confirmation_height, pruned_source)
 		}
 		first_time = false; },
 	[](auto const &) {}, []() { return 0; });
-	bounded_processor.process ();
+	bounded_processor.process (open2);
 }
