@@ -172,7 +172,7 @@ public:
 	// Returns false if the election difficulty was updated
 	bool update_difficulty (std::shared_ptr<nano::block> const &, bool);
 	// Returns false if the election was restarted
-	bool restart (nano::transaction const &, std::shared_ptr<nano::block> const &);
+	void restart (nano::transaction const &, std::shared_ptr<nano::block> const &);
 	// Returns a list of elections sorted by difficulty
 	std::vector<std::shared_ptr<nano::election>> list_active (size_t = std::numeric_limits<size_t>::max ());
 	double normalized_multiplier (nano::block const &, boost::optional<roots_iterator> const & = boost::none) const;
