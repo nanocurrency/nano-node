@@ -120,7 +120,6 @@ void nano::bootstrap_attempt_legacy::set_start_account (nano::account const & st
 {
 	// Add last account fron frontier request
 	nano::lock_guard<nano::mutex> lock (mutex);
-	start_account_previous = start_account;
 	start_account = start_account_a;
 }
 
