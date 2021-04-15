@@ -44,8 +44,8 @@ public:
 	bool is_processing_block (nano::block_hash const &) const;
 	nano::block_hash current () const;
 
-	void add_cemented_observer (std::function<void(std::shared_ptr<nano::block> const &)> const &);
-	void add_block_already_cemented_observer (std::function<void(nano::block_hash const &)> const &);
+	void add_cemented_observer (std::function<void (std::shared_ptr<nano::block> const &)> const &);
+	void add_block_already_cemented_observer (std::function<void (nano::block_hash const &)> const &);
 
 private:
 	mutable nano::mutex mutex{ mutex_identifier (mutexes::confirmation_height_processor) };
@@ -84,8 +84,8 @@ private:
 	nano::condition_variable condition;
 	std::atomic<bool> stopped{ false };
 	// No mutex needed for the observers as these should be set up during initialization of the node
-	std::vector<std::function<void(std::shared_ptr<nano::block> const &)>> cemented_observers;
-	std::vector<std::function<void(nano::block_hash const &)>> block_already_cemented_observers;
+	std::vector<std::function<void (std::shared_ptr<nano::block> const &)>> cemented_observers;
+	std::vector<std::function<void (nano::block_hash const &)>> block_already_cemented_observers;
 
 	nano::ledger & ledger;
 	nano::write_database_queue & write_database_queue;
