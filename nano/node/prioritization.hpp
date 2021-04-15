@@ -2,7 +2,7 @@
 #include <nano/lib/numbers.hpp>
 
 #include <cstddef>
-#include <map>
+#include <set>
 #include <vector>
 
 namespace nano
@@ -14,7 +14,7 @@ class prioritization final
 	{
 	public:
 		uint64_t time;
-		std::shared_ptr<block> block;
+		std::shared_ptr<nano::block> block;
 		bool operator< (value_type const & other_a) const;
 		bool operator== (value_type const & other_a) const;
 	};
