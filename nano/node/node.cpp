@@ -532,48 +532,6 @@ bool nano::node::copy_with_compaction (boost::filesystem::path const & destinati
 	return store.copy_db (destination);
 }
 
-void nano::node::process_fork (nano::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a, uint64_t const modified_a)
-{
-	auto root (block_a->root ());
-	if (!store.block_exists (transaction_a, block_a->hash ()) && store.root_exists (transaction_a, block_a->root ()))
-	{
-		std::shared_ptr<nano::block> ledger_block (ledger.forked_block (transaction_a, *block_a));
-		if (ledger_block && !block_confirmed_or_being_confirmed (transaction_a, ledger_block->hash ()) && (ledger.dependents_confirmed (transaction_a, *ledger_block) || modified_a < nano::seconds_since_epoch () - 300 || !block_arrival.recent (block_a->hash ())))
-		{
-			std::weak_ptr<nano::node> this_w (shared_from_this ());
-			auto election = active.insert (ledger_block, boost::none, nano::election_behavior::normal, [this_w, root, root_block_type = block_a->type ()](std::shared_ptr<nano::block> const &) {
-				if (auto this_l = this_w.lock ())
-				{
-					auto attempt (this_l->bootstrap_initiator.current_attempt ());
-					if (attempt && attempt->mode == nano::bootstrap_mode::legacy)
-					{
-						auto transaction (this_l->store.tx_begin_read ());
-						nano::account account{ 0 };
-						if (root_block_type == nano::block_type::receive || root_block_type == nano::block_type::send || root_block_type == nano::block_type::change || root_block_type == nano::block_type::open)
-						{
-							account = this_l->ledger.store.frontier_get (transaction, root.as_block_hash ());
-						}
-						if (!account.is_zero ())
-						{
-							this_l->bootstrap_initiator.connections->requeue_pull (nano::pull_info (account, root.as_block_hash (), root.as_block_hash (), attempt->incremental_id));
-						}
-						else if (this_l->ledger.store.account_exists (transaction, root.as_account ()))
-						{
-							this_l->bootstrap_initiator.connections->requeue_pull (nano::pull_info (root, nano::block_hash (0), nano::block_hash (0), attempt->incremental_id));
-						}
-					}
-				}
-			});
-			if (election.inserted)
-			{
-				logger.always_log (boost::str (boost::format ("Resolving fork between our block: %1% and block %2% both with root %3%") % ledger_block->hash ().to_string () % block_a->hash ().to_string () % block_a->root ().to_string ()));
-				election.election->transition_active ();
-			}
-		}
-		active.publish (block_a);
-	}
-}
-
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (node & node, std::string const & name)
 {
 	auto composite = std::make_unique<container_info_composite> (name);
@@ -807,13 +765,8 @@ void nano::node::long_inactivity_cleanup ()
 	auto transaction (store.tx_begin_write ({ tables::online_weight, tables::peers }));
 	if (store.online_weight_count (transaction) > 0)
 	{
-		auto i (store.online_weight_begin (transaction));
-		auto sample (store.online_weight_begin (transaction));
+		auto sample (store.online_weight_rbegin (transaction));
 		auto n (store.online_weight_end ());
-		while (++i != n)
-		{
-			++sample;
-		}
 		debug_assert (sample != n);
 		auto const one_week_ago = static_cast<size_t> ((std::chrono::system_clock::now () - std::chrono::hours (7 * 24)).time_since_epoch ().count ());
 		perform_cleanup = sample->first < one_week_ago;
@@ -872,10 +825,10 @@ void nano::node::ongoing_bootstrap ()
 		{
 			// Find last online weight sample (last active time for node)
 			uint64_t last_sample_time (0);
-			auto transaction (store.tx_begin_read ());
-			for (auto i (store.online_weight_begin (transaction)), n (store.online_weight_end ()); i != n; ++i)
+			auto last_record = store.online_weight_rbegin (store.tx_begin_read ());
+			if (last_record != store.online_weight_end ())
 			{
-				last_sample_time = i->first;
+				last_sample_time = last_record->first;
 			}
 			uint64_t time_since_last_sample = std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now ().time_since_epoch ()).count () - last_sample_time / std::pow (10, 9); // Nanoseconds to seconds
 			if (time_since_last_sample + 60 * 60 < std::numeric_limits<uint32_t>::max ())

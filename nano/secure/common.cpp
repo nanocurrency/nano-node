@@ -175,7 +175,7 @@ nano::bootstrap_constants::bootstrap_constants (nano::network_constants & networ
 	lazy_retry_limit = network_constants.is_dev_network () ? 2 : frontier_retry_limit * 4;
 	lazy_destinations_retry_limit = network_constants.is_dev_network () ? 1 : frontier_retry_limit / 4;
 	gap_cache_bootstrap_start_interval = network_constants.is_dev_network () ? std::chrono::milliseconds (5) : std::chrono::milliseconds (30 * 1000);
-	default_frontiers_age_seconds = network_constants.is_dev_network () ? 1 : network_constants.is_beta_network () ? 60 * 60 : 24 * 60 * 60; // 1 second for dev network, 1 hour for beta, 24 hours for live
+	default_frontiers_age_seconds = network_constants.is_dev_network () ? 1 : 24 * 60 * 60; // 1 second for dev network, 24 hours for live/beta
 }
 
 // Create a new random keypair
@@ -822,9 +822,15 @@ nano::wallet_id nano::random_wallet_id ()
 	return wallet_id;
 }
 
-nano::unchecked_key::unchecked_key (nano::block_hash const & previous_a, nano::block_hash const & hash_a) :
-previous (previous_a),
+nano::unchecked_key::unchecked_key (nano::hash_or_account const & previous_a, nano::block_hash const & hash_a) :
+previous (previous_a.hash),
 hash (hash_a)
+{
+}
+
+nano::unchecked_key::unchecked_key (nano::uint512_union const & union_a) :
+previous (union_a.uint256s[0].number ()),
+hash (union_a.uint256s[1].number ())
 {
 }
 

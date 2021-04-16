@@ -360,10 +360,6 @@ void nano::block_processor::process_live (nano::transaction const & transaction_
 	{
 		node.network.flood_block_initial (block_a);
 	}
-	else if (!node.flags.disable_block_processor_republishing)
-	{
-		node.network.flood_block (block_a, nano::buffer_drop_policy::no_limiter_drop);
-	}
 
 	if (node.websocket_server && node.websocket_server->any_subscriber (nano::websocket::topic::new_unconfirmed_block))
 	{
@@ -393,6 +389,15 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 				events_a.events.emplace_back ([this, hash, block = info_a.block, result, watch_work_a, origin_a](nano::transaction const & post_event_transaction_a) { process_live (post_event_transaction_a, hash, block, result, watch_work_a, origin_a); });
 			}
 			queue_unchecked (transaction_a, hash);
+			/* For send blocks check epoch open unchecked (gap pending).
+			For state blocks check only send subtype and only if block epoch is not last epoch.
+			If epoch is last, then pending entry shouldn't trigger same epoch open block for destination account. */
+			if (block->type () == nano::block_type::send || (block->type () == nano::block_type::state && block->sideband ().details.is_send && std::underlying_type_t<nano::epoch> (block->sideband ().details.epoch) < std::underlying_type_t<nano::epoch> (nano::epoch::max)))
+			{
+				/* block->destination () for legacy send blocks
+				block->link () for state blocks (send subtype) */
+				queue_unchecked (transaction_a, block->destination ().is_zero () ? block->link () : block->destination ());
+			}
 			break;
 		}
 		case nano::process_result::gap_previous:
@@ -435,6 +440,24 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_source);
 			break;
 		}
+		case nano::process_result::gap_epoch_open_pending:
+		{
+			if (node.config.logging.ledger_logging ())
+			{
+				node.logger.try_log (boost::str (boost::format ("Gap pending entries for epoch open: %1%") % hash.to_string ()));
+			}
+			info_a.verified = result.verified;
+			if (info_a.modified == 0)
+			{
+				info_a.modified = nano::seconds_since_epoch ();
+			}
+
+			nano::unchecked_key unchecked_key (block->account (), hash); // Specific unchecked key starting with epoch open block account public key
+			node.store.unchecked_put (transaction_a, unchecked_key, info_a);
+
+			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_source);
+			break;
+		}
 		case nano::process_result::old:
 		{
 			if (node.config.logging.ledger_duplicate_logging ())
@@ -472,8 +495,8 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 		}
 		case nano::process_result::fork:
 		{
-			events_a.events.emplace_back ([this, block = info_a.block, modified = info_a.modified](nano::transaction const & post_event_transaction_a) { this->node.process_fork (post_event_transaction_a, block, modified); });
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::fork);
+			events_a.events.emplace_back ([this, block](nano::transaction const &) { this->node.active.publish (block); });
 			if (node.config.logging.ledger_logging ())
 			{
 				node.logger.try_log (boost::str (boost::format ("Fork for: %1% root: %2%") % hash.to_string () % block->root ().to_string ()));
@@ -541,18 +564,18 @@ void nano::block_processor::process_old (nano::transaction const & transaction_a
 	}
 }
 
-void nano::block_processor::queue_unchecked (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a)
+void nano::block_processor::queue_unchecked (nano::write_transaction const & transaction_a, nano::hash_or_account const & hash_or_account_a)
 {
-	auto unchecked_blocks (node.store.unchecked_get (transaction_a, hash_a));
+	auto unchecked_blocks (node.store.unchecked_get (transaction_a, hash_or_account_a.hash));
 	for (auto & info : unchecked_blocks)
 	{
 		if (!node.flags.disable_block_processor_unchecked_deletion)
 		{
-			node.store.unchecked_del (transaction_a, nano::unchecked_key (hash_a, info.block->hash ()));
+			node.store.unchecked_del (transaction_a, nano::unchecked_key (hash_or_account_a, info.block->hash ()));
 		}
 		add (info, true);
 	}
-	node.gap_cache.erase (hash_a);
+	node.gap_cache.erase (hash_or_account_a.hash);
 }
 
 void nano::block_processor::requeue_invalid (nano::block_hash const & hash_a, nano::unchecked_info const & info_a)

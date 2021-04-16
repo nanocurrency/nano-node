@@ -216,12 +216,12 @@ void nano::bootstrap_attempt_lazy::run ()
 	condition.notify_all ();
 }
 
-bool nano::bootstrap_attempt_lazy::process_block (std::shared_ptr<nano::block> const & block_a, nano::account const & known_account_a, uint64_t pull_blocks, nano::bulk_pull::count_t max_blocks, bool block_expected, unsigned retry_limit)
+bool nano::bootstrap_attempt_lazy::process_block (std::shared_ptr<nano::block> const & block_a, nano::account const & known_account_a, uint64_t pull_blocks_processed, nano::bulk_pull::count_t max_blocks, bool block_expected, unsigned retry_limit)
 {
 	bool stop_pull (false);
 	if (block_expected)
 	{
-		stop_pull = process_block_lazy (block_a, known_account_a, pull_blocks, max_blocks, retry_limit);
+		stop_pull = process_block_lazy (block_a, known_account_a, pull_blocks_processed, max_blocks, retry_limit);
 	}
 	else
 	{
@@ -231,7 +231,7 @@ bool nano::bootstrap_attempt_lazy::process_block (std::shared_ptr<nano::block> c
 	return stop_pull;
 }
 
-bool nano::bootstrap_attempt_lazy::process_block_lazy (std::shared_ptr<nano::block> const & block_a, nano::account const & known_account_a, uint64_t pull_blocks, nano::bulk_pull::count_t max_blocks, unsigned retry_limit)
+bool nano::bootstrap_attempt_lazy::process_block_lazy (std::shared_ptr<nano::block> const & block_a, nano::account const & known_account_a, uint64_t pull_blocks_processed, nano::bulk_pull::count_t max_blocks, unsigned retry_limit)
 {
 	bool stop_pull (false);
 	auto hash (block_a->hash ());
@@ -250,7 +250,7 @@ bool nano::bootstrap_attempt_lazy::process_block_lazy (std::shared_ptr<nano::blo
 		}
 		lazy_blocks_insert (hash);
 		// Adding lazy balances for first processed block in pull
-		if (pull_blocks == 0 && (block_a->type () == nano::block_type::state || block_a->type () == nano::block_type::send))
+		if (pull_blocks_processed == 1 && (block_a->type () == nano::block_type::state || block_a->type () == nano::block_type::send))
 		{
 			lazy_balances.emplace (hash, block_a->balance ().number ());
 		}
@@ -265,7 +265,7 @@ bool nano::bootstrap_attempt_lazy::process_block_lazy (std::shared_ptr<nano::blo
 		node->block_processor.add (info);
 	}
 	// Force drop lazy bootstrap connection for long bulk_pull
-	if (pull_blocks > max_blocks)
+	if (pull_blocks_processed > max_blocks)
 	{
 		stop_pull = true;
 	}
