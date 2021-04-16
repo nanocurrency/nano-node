@@ -82,7 +82,7 @@ public:
 	explicit bootstrap_initiator (nano::node &);
 	~bootstrap_initiator ();
 	void bootstrap (nano::endpoint const &, bool add_to_peers = true, std::string id_a = "");
-	void bootstrap (bool force = false, std::string id_a = "", uint32_t const frontiers_age_a = std::numeric_limits<uint32_t>::max ());
+	void bootstrap (bool force = false, std::string id_a = "", uint32_t const frontiers_age_a = std::numeric_limits<uint32_t>::max (), nano::account const & start_account_a = nano::account (0));
 	void bootstrap_lazy (nano::hash_or_account const &, bool force = false, bool confirmed = true, std::string id_a = "");
 	void bootstrap_wallet (std::deque<nano::account> &);
 	void run_bootstrap ();
@@ -130,6 +130,7 @@ public:
 	static constexpr unsigned requeued_pulls_limit = 256;
 	static constexpr unsigned requeued_pulls_limit_dev = 1;
 	static constexpr unsigned requeued_pulls_processed_blocks_factor = 4096;
+	static constexpr uint64_t pull_count_per_check = 8 * 1024;
 	static constexpr unsigned bulk_push_cost_limit = 200;
 	static constexpr std::chrono::seconds lazy_flush_delay_sec = std::chrono::seconds (5);
 	static constexpr uint64_t lazy_batch_pull_count_resize_blocks_limit = 4 * 1024 * 1024;

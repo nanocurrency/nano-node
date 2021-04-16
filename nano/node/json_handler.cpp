@@ -1723,8 +1723,14 @@ void nano::json_handler::bootstrap_any ()
 	const bool force = request.get<bool> ("force", false);
 	if (!node.flags.disable_legacy_bootstrap)
 	{
+		nano::account start_account (0);
+		boost::optional<std::string> account_text (request.get_optional<std::string> ("account"));
+		if (account_text.is_initialized ())
+		{
+			start_account = account_impl (account_text.get ());
+		}
 		std::string bootstrap_id (request.get<std::string> ("id", ""));
-		node.bootstrap_initiator.bootstrap (force, bootstrap_id);
+		node.bootstrap_initiator.bootstrap (force, bootstrap_id, std::numeric_limits<uint32_t>::max (), start_account);
 		response_l.put ("success", "");
 	}
 	else
@@ -3105,6 +3111,11 @@ void nano::json_handler::process ()
 						case nano::process_result::block_position:
 						{
 							rpc_l->ec = nano::error_process::block_position;
+							break;
+						}
+						case nano::process_result::gap_epoch_open_pending:
+						{
+							rpc_l->ec = nano::error_process::gap_epoch_open_pending;
 							break;
 						}
 						case nano::process_result::fork:

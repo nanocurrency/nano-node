@@ -66,7 +66,8 @@ public:
 	unsigned bootstrap_connections{ 4 };
 	unsigned bootstrap_connections_max{ 64 };
 	unsigned bootstrap_initiator_threads{ 1 };
-	uint32_t bootstrap_disconnected_accounts_percent{ network_params.network.is_dev_network () ? 100u : 10u };
+	uint32_t bootstrap_frontier_request_count{ 1024 * 1024 };
+	uint8_t bootstrap_disconnected_accounts_percent{ network_params.network.is_dev_network () ? 100u : 10u };
 	nano::websocket::config websocket_config;
 	nano::diagnostics_config diagnostics_config;
 	size_t confirmation_history_size{ 2048 };
