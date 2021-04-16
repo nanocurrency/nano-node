@@ -167,26 +167,34 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 		}
 		else
 		{
-			if (account.is_zero () && count <= count_limit)
+			if (count <= count_limit)
 			{
+				while (!current.is_zero ())
+				{
+					// We know about an account they don't.
+					unsynced (frontier, 0);
+					next ();
+				}
 				// Prevent new frontier_req requests
 				attempt->set_start_account (std::numeric_limits<nano::uint256_t>::max ());
+				if (connection->node->config.logging.bulk_pull_logging ())
+				{
+					connection->node->logger.try_log ("Bulk push cost: ", bulk_push_cost);
+				}
 			}
 			else
 			{
 				// Set last processed account as new start target
 				attempt->set_start_account (last_account);
 			}
+			try
 			{
-				try
-				{
-					promise.set_value (false);
-				}
-				catch (std::future_error &)
-				{
-				}
-				connection->connections->pool_connection (connection);
+				promise.set_value (false);
 			}
+			catch (std::future_error &)
+			{
+			}
+			connection->connections->pool_connection (connection);
 		}
 	}
 	else
