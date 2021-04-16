@@ -5,9 +5,10 @@
 
 #include <boost/format.hpp>
 
-nano::bootstrap_attempt_legacy::bootstrap_attempt_legacy (std::shared_ptr<nano::node> const & node_a, uint64_t const incremental_id_a, std::string const & id_a, uint32_t const frontiers_age_a) :
+nano::bootstrap_attempt_legacy::bootstrap_attempt_legacy (std::shared_ptr<nano::node> const & node_a, uint64_t const incremental_id_a, std::string const & id_a, uint32_t const frontiers_age_a, nano::account const & start_account_a) :
 nano::bootstrap_attempt (node_a, nano::bootstrap_mode::legacy, incremental_id_a, id_a),
-frontiers_age (frontiers_age_a)
+frontiers_age (frontiers_age_a),
+start_account (start_account_a)
 {
 	node->bootstrap_initiator.notify_listeners (true);
 }
@@ -115,6 +116,13 @@ bool nano::bootstrap_attempt_legacy::request_bulk_push_target (std::pair<nano::b
 	return empty;
 }
 
+void nano::bootstrap_attempt_legacy::set_start_account (nano::account const & start_account_a)
+{
+	// Add last account fron frontier request
+	nano::lock_guard<nano::mutex> lock (mutex);
+	start_account = start_account_a;
+}
+
 bool nano::bootstrap_attempt_legacy::request_frontier (nano::unique_lock<nano::mutex> & lock_a, bool first_attempt)
 {
 	auto result (true);
@@ -128,7 +136,7 @@ bool nano::bootstrap_attempt_legacy::request_frontier (nano::unique_lock<nano::m
 		{
 			auto this_l (shared_from_this ());
 			auto client (std::make_shared<nano::frontier_req_client> (connection_l, this_l));
-			client->run (frontiers_age);
+			client->run (start_account, frontiers_age, node->config.bootstrap_frontier_request_count);
 			frontiers = client;
 			future = client->promise.get_future ();
 		}
@@ -181,8 +189,6 @@ bool nano::bootstrap_attempt_legacy::request_frontier (nano::unique_lock<nano::m
 void nano::bootstrap_attempt_legacy::run_start (nano::unique_lock<nano::mutex> & lock_a)
 {
 	frontiers_received = false;
-	total_blocks = 0;
-	requeued_pulls = 0;
 	auto frontier_failure (true);
 	uint64_t frontier_attempts (0);
 	while (!stopped && frontier_failure)
@@ -212,7 +218,16 @@ void nano::bootstrap_attempt_legacy::run ()
 		lock.unlock ();
 		node->block_processor.flush ();
 		lock.lock ();
-		node->logger.try_log ("Finished flushing unchecked blocks");
+		if (start_account.number () != std::numeric_limits<nano::uint256_t>::max ())
+		{
+			node->logger.try_log (boost::str (boost::format ("Finished flushing unchecked blocks, requesting new frontiers after %1%") % start_account.to_account ()));
+			// Requesting new frontiers
+			run_start (lock);
+		}
+		else
+		{
+			node->logger.try_log ("Finished flushing unchecked blocks");
+		}
 	}
 	if (!stopped)
 	{
@@ -236,4 +251,6 @@ void nano::bootstrap_attempt_legacy::get_information (boost::property_tree::ptre
 	nano::lock_guard<nano::mutex> lock (mutex);
 	tree_a.put ("frontier_pulls", std::to_string (frontier_pulls.size ()));
 	tree_a.put ("frontiers_received", static_cast<bool> (frontiers_received));
+	tree_a.put ("frontiers_age", std::to_string (frontiers_age));
+	tree_a.put ("last_account", start_account.to_account ());
 }
