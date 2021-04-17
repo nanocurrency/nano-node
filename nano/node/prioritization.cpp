@@ -46,7 +46,6 @@ maximum{ maximum }
 {
 	static size_t constexpr bucket_count = 129;
 	buckets.resize (bucket_count);
-	(void)minimums[0];
 	nano::uint128_t minimum{ 1 };
 	minimums.push_back (0);
 	for (auto i = 1; i < bucket_count; ++i)
