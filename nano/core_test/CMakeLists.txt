@@ -31,6 +31,7 @@ add_executable(
   peer_container.cpp
   prioritization.cpp
   request_aggregator.cpp
+  signal_manager.cpp
   signing.cpp
   socket.cpp
   telemetry.cpp
