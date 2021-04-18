@@ -30,13 +30,13 @@ max_votes (flags_a.vote_processor_capacity),
 started (false),
 stopped (false),
 is_active (false),
-thread ([this]() {
+thread ([this] () {
 	nano::thread_role::set (nano::thread_role::name::vote_processing);
 	process_loop ();
 })
 {
 	nano::unique_lock<nano::mutex> lock (mutex);
-	condition.wait (lock, [& started = started] { return started; });
+	condition.wait (lock, [&started = started] { return started; });
 }
 
 void nano::vote_processor::process_loop ()

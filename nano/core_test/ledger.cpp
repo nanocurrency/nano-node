@@ -3093,7 +3093,7 @@ TEST (ledger, work_validation)
 	nano::keypair key;
 
 	// With random work the block doesn't pass, then modifies the block with sufficient work and ensures a correct result
-	auto process_block = [&store, &ledger, &pool](nano::block & block_a, nano::block_details const details_a) {
+	auto process_block = [&store, &ledger, &pool] (nano::block & block_a, nano::block_details const details_a) {
 		auto threshold = nano::work_threshold (block_a.work_version (), details_a);
 		// Rarely failed with random work, so modify until it doesn't have enough difficulty
 		while (block_a.difficulty () >= threshold)
@@ -3301,7 +3301,7 @@ TEST (ledger, cache)
 		auto genesis_weight = nano::genesis_amount - i;
 		auto pruned_count = i;
 
-		auto cache_check = [&, i](nano::ledger_cache const & cache_a) {
+		auto cache_check = [&, i] (nano::ledger_cache const & cache_a) {
 			ASSERT_EQ (account_count, cache_a.account_count);
 			ASSERT_EQ (block_count, cache_a.block_count);
 			ASSERT_EQ (cemented_count, cache_a.cemented_count);
