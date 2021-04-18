@@ -16,7 +16,7 @@ nano::election_scheduler::~election_scheduler ()
 
 void nano::election_scheduler::manual (std::shared_ptr<nano::block> const & block_a, boost::optional<nano::uint128_t> const & previous_balance_a, nano::election_behavior election_behavior_a, std::function<void (std::shared_ptr<nano::block> const &)> const & confirmation_action_a)
 {
-	std::lock_guard<std::mutex> lock{ mutex };
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	manual_queue.push_back (std::make_tuple (block_a, previous_balance_a, election_behavior_a, confirmation_action_a));
 	observe ();
 }
@@ -37,7 +37,7 @@ void nano::election_scheduler::activate (nano::account const & account_a, nano::
 			debug_assert (block != nullptr);
 			if (node.ledger.dependents_confirmed (transaction, *block))
 			{
-				std::lock_guard<std::mutex> lock{ mutex };
+				nano::lock_guard<nano::mutex> lock{ mutex };
 				priority.push (account_info.modified, block);
 				observe ();
 			}
@@ -47,14 +47,14 @@ void nano::election_scheduler::activate (nano::account const & account_a, nano::
 
 void nano::election_scheduler::stop ()
 {
-	std::unique_lock<std::mutex> lock{ mutex };
+	nano::unique_lock<nano::mutex> lock{ mutex };
 	stopped = true;
 	observe ();
 }
 
 void nano::election_scheduler::flush ()
 {
-	std::unique_lock<std::mutex> lock{ mutex };
+	nano::unique_lock<nano::mutex> lock{ mutex };
 	auto priority_target = priority_queued + priority.size ();
 	auto manual_target = manual_queued + manual_queue.size ();
 	condition.wait (lock, [this, &priority_target, &manual_target] () {
@@ -69,13 +69,13 @@ void nano::election_scheduler::observe ()
 
 size_t nano::election_scheduler::size () const
 {
-	std::lock_guard<std::mutex> lock{ mutex };
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	return priority.size () + manual_queue.size ();
 }
 
 bool nano::election_scheduler::empty () const
 {
-	std::lock_guard<std::mutex> lock{ mutex };
+	nano::lock_guard<nano::mutex> lock{ mutex };
 	return priority.empty () && manual_queue.empty ();
 }
 
@@ -86,7 +86,7 @@ size_t nano::election_scheduler::priority_queue_size () const
 
 void nano::election_scheduler::run ()
 {
-	std::unique_lock<std::mutex> lock{ mutex };
+	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
 		condition.wait (lock, [this] () {

@@ -40,8 +40,8 @@ private:
 	uint64_t manual_queued{ 0 };
 	nano::node & node;
 	bool stopped;
-	std::condition_variable condition;
-	mutable std::mutex mutex;
+	nano::condition_variable condition;
+	mutable nano::mutex mutex;
 	std::thread thread;
 };
 }
