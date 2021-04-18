@@ -29,7 +29,8 @@ TEST (vote_processor, codes)
 
 	// First vote from an account for an ongoing election
 	genesis.open->sideband_set (nano::block_sideband (nano::genesis_account, 0, nano::genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
-	ASSERT_TRUE (node.active.insert (genesis.open).inserted);
+	node.block_confirm (genesis.open);
+	ASSERT_NE (nullptr, node.active.election (genesis.open->qualified_root ()));
 	ASSERT_EQ (nano::vote_code::vote, node.vote_processor.vote_blocking (vote, channel));
 
 	// Processing the same vote is a replay
@@ -68,25 +69,26 @@ TEST (vote_processor, flush)
 
 TEST (vote_processor, invalid_signature)
 {
-	nano::system system (1);
-	auto & node (*system.nodes[0]);
+	nano::system system{ 1 };
+	auto & node = *system.nodes[0];
 	nano::genesis genesis;
 	nano::keypair key;
-	auto vote (std::make_shared<nano::vote> (key.pub, key.prv, 1, std::vector<nano::block_hash>{ genesis.open->hash () }));
+	auto vote = std::make_shared<nano::vote> (key.pub, key.prv, 1, std::vector<nano::block_hash>{ genesis.open->hash () });
 	auto vote_invalid = std::make_shared<nano::vote> (*vote);
 	vote_invalid->signature.bytes[0] ^= 1;
-	auto channel (std::make_shared<nano::transport::channel_loopback> (node));
+	auto channel = std::make_shared<nano::transport::channel_loopback> (node);
 
 	genesis.open->sideband_set (nano::block_sideband (nano::genesis_account, 0, nano::genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
-	auto election (node.active.insert (genesis.open));
-	ASSERT_TRUE (election.election && election.inserted);
-	ASSERT_EQ (1, election.election->votes ().size ());
+	node.block_confirm (genesis.open);
+	auto election = node.active.election (genesis.open->qualified_root ());
+	ASSERT_TRUE (election);
+	ASSERT_EQ (1, election->votes ().size ());
 	node.vote_processor.vote (vote_invalid, channel);
 	node.vote_processor.flush ();
-	ASSERT_EQ (1, election.election->votes ().size ());
+	ASSERT_EQ (1, election->votes ().size ());
 	node.vote_processor.vote (vote, channel);
 	node.vote_processor.flush ();
-	ASSERT_EQ (2, election.election->votes ().size ());
+	ASSERT_EQ (2, election->votes ().size ());
 }
 
 TEST (vote_processor, no_capacity)
