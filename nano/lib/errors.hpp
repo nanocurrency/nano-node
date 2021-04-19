@@ -209,7 +209,7 @@ namespace std
 {
 template <>
 struct is_error_code_enum<boost::system::errc::errc_t>
-: public std::true_type
+	: public std::true_type
 {
 };
 
@@ -262,7 +262,7 @@ public:
 	{
 		// Convert variadic arguments to std::error_code
 		auto codes = { std::error_code (err)... };
-		if (std::any_of (codes.begin (), codes.end (), [this, &codes](auto & code_a) { return code == code_a; }))
+		if (std::any_of (codes.begin (), codes.end (), [this, &codes] (auto & code_a) { return code == code_a; }))
 		{
 			code.clear ();
 		}

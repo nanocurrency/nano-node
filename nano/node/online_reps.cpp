@@ -4,8 +4,8 @@
 #include <nano/secure/ledger.hpp>
 
 nano::online_reps::online_reps (nano::ledger & ledger_a, nano::node_config const & config_a) :
-ledger{ ledger_a },
-config{ config_a }
+	ledger{ ledger_a },
+	config{ config_a }
 {
 	if (!ledger.store.init_error ())
 	{
@@ -105,7 +105,7 @@ std::vector<nano::account> nano::online_reps::list ()
 {
 	std::vector<nano::account> result;
 	nano::lock_guard<nano::mutex> lock (mutex);
-	std::for_each (reps.begin (), reps.end (), [&result](rep_info const & info_a) { result.push_back (info_a.account); });
+	std::for_each (reps.begin (), reps.end (), [&result] (rep_info const & info_a) { result.push_back (info_a.account); });
 	return result;
 }
 

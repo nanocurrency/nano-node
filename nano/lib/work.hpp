@@ -47,14 +47,14 @@ class opencl_work;
 class work_item final
 {
 public:
-	work_item (nano::work_version const version_a, nano::root const & item_a, uint64_t difficulty_a, std::function<void(boost::optional<uint64_t> const &)> const & callback_a) :
-	version (version_a), item (item_a), difficulty (difficulty_a), callback (callback_a)
+	work_item (nano::work_version const version_a, nano::root const & item_a, uint64_t difficulty_a, std::function<void (boost::optional<uint64_t> const &)> const & callback_a) :
+		version (version_a), item (item_a), difficulty (difficulty_a), callback (callback_a)
 	{
 	}
 	nano::work_version const version;
 	nano::root const item;
 	uint64_t const difficulty;
-	std::function<void(boost::optional<uint64_t> const &)> const callback;
+	std::function<void (boost::optional<uint64_t> const &)> const callback;
 };
 class work_pool final
 {
@@ -64,7 +64,7 @@ public:
 	void loop (uint64_t);
 	void stop ();
 	void cancel (nano::root const &);
-	void generate (nano::work_version const, nano::root const &, uint64_t, std::function<void(boost::optional<uint64_t> const &)>);
+	void generate (nano::work_version const, nano::root const &, uint64_t, std::function<void (boost::optional<uint64_t> const &)>);
 	boost::optional<uint64_t> generate (nano::work_version const, nano::root const &, uint64_t);
 	// For tests only
 	boost::optional<uint64_t> generate (nano::root const &);

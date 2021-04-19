@@ -20,7 +20,7 @@ TEST (distributed_work, no_peers)
 	nano::block_hash hash{ 1 };
 	boost::optional<uint64_t> work;
 	std::atomic<bool> done{ false };
-	auto callback = [&work, &done](boost::optional<uint64_t> work_a) {
+	auto callback = [&work, &done] (boost::optional<uint64_t> work_a) {
 		ASSERT_TRUE (work_a.is_initialized ());
 		work = work_a;
 		done = true;
@@ -54,7 +54,7 @@ TEST (distributed_work, no_peers_cancel)
 	auto & node = *system.add_node (node_config);
 	nano::block_hash hash{ 1 };
 	bool done{ false };
-	auto callback_to_cancel = [&done](boost::optional<uint64_t> work_a) {
+	auto callback_to_cancel = [&done] (boost::optional<uint64_t> work_a) {
 		ASSERT_FALSE (work_a.is_initialized ());
 		done = true;
 	};
@@ -83,7 +83,7 @@ TEST (distributed_work, no_peers_multi)
 	nano::block_hash hash{ 1 };
 	unsigned total{ 10 };
 	std::atomic<unsigned> count{ 0 };
-	auto callback = [&count](boost::optional<uint64_t> work_a) {
+	auto callback = [&count] (boost::optional<uint64_t> work_a) {
 		ASSERT_TRUE (work_a.is_initialized ());
 		++count;
 	};
@@ -127,7 +127,7 @@ TEST (distributed_work, peer)
 	nano::block_hash hash{ 1 };
 	boost::optional<uint64_t> work;
 	std::atomic<bool> done{ false };
-	auto callback = [&work, &done](boost::optional<uint64_t> work_a) {
+	auto callback = [&work, &done] (boost::optional<uint64_t> work_a) {
 		ASSERT_TRUE (work_a.is_initialized ());
 		work = work_a;
 		done = true;
@@ -153,7 +153,7 @@ TEST (distributed_work, peer_malicious)
 	nano::block_hash hash{ 1 };
 	boost::optional<uint64_t> work;
 	std::atomic<bool> done{ false };
-	auto callback = [&work, &done](boost::optional<uint64_t> work_a) {
+	auto callback = [&work, &done] (boost::optional<uint64_t> work_a) {
 		ASSERT_TRUE (work_a.is_initialized ());
 		work = work_a;
 		done = true;
@@ -193,7 +193,7 @@ TEST (distributed_work, peer_multi)
 	nano::block_hash hash{ 1 };
 	boost::optional<uint64_t> work;
 	std::atomic<bool> done{ false };
-	auto callback = [&work, &done](boost::optional<uint64_t> work_a) {
+	auto callback = [&work, &done] (boost::optional<uint64_t> work_a) {
 		ASSERT_TRUE (work_a.is_initialized ());
 		work = work_a;
 		done = true;
@@ -232,7 +232,7 @@ TEST (distributed_work, fail_resolve)
 	nano::block_hash hash{ 1 };
 	boost::optional<uint64_t> work;
 	std::atomic<bool> done{ false };
-	auto callback = [&work, &done](boost::optional<uint64_t> work_a) {
+	auto callback = [&work, &done] (boost::optional<uint64_t> work_a) {
 		ASSERT_TRUE (work_a.is_initialized ());
 		work = work_a;
 		done = true;

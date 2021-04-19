@@ -33,7 +33,7 @@ class block_post_events final
 public:
 	explicit block_post_events (std::function<nano::read_transaction ()> &&);
 	~block_post_events ();
-	std::deque<std::function<void(nano::read_transaction const &)>> events;
+	std::deque<std::function<void (nano::read_transaction const &)>> events;
 
 private:
 	std::function<nano::read_transaction ()> get_transaction;

@@ -1434,7 +1434,7 @@ TEST (mdb_block_store, upgrade_v16_v17)
 	nano::state_block block2 (nano::dev_genesis_key.pub, block1.hash (), nano::dev_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio - 1, nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (block1.hash ()));
 	nano::state_block block3 (nano::dev_genesis_key.pub, block2.hash (), nano::dev_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio - 2, nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (block2.hash ()));
 
-	auto code = [&block1, &block2, &block3](auto confirmation_height, nano::block_hash const & expected_cemented_frontier) {
+	auto code = [&block1, &block2, &block3] (auto confirmation_height, nano::block_hash const & expected_cemented_frontier) {
 		auto path (nano::unique_path ());
 		nano::mdb_val value;
 		{
@@ -1854,7 +1854,7 @@ TEST (mdb_block_store, upgrade_backup)
 	fs::create_directory (dir);
 	auto path = dir / "data.ldb";
 	/** Returns 'dir' if backup file cannot be found */
-	auto get_backup_path = [&dir]() {
+	auto get_backup_path = [&dir] () {
 		for (fs::directory_iterator itr (dir); itr != fs::directory_iterator (); ++itr)
 		{
 			if (itr->path ().filename ().string ().find ("data_backup_") != std::string::npos)

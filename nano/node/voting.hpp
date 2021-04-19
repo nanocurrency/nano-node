@@ -7,8 +7,8 @@
 #include <nano/secure/common.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
-#include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/member.hpp>
+#include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index_container.hpp>
 
@@ -41,20 +41,22 @@ class vote_spacing final
 		std::chrono::steady_clock::time_point time;
 		nano::block_hash hash;
 	};
-	
+
 	boost::multi_index_container<entry,
 	mi::indexed_by<
-		mi::hashed_non_unique<mi::tag<class tag_root>,
-			mi::member<entry, nano::root, &entry::root>>,
-		mi::ordered_non_unique<mi::tag<class tag_time>,
-			mi::member<entry, std::chrono::steady_clock::time_point, &entry::time>>
-	>>
+	mi::hashed_non_unique<mi::tag<class tag_root>,
+	mi::member<entry, nano::root, &entry::root>>,
+	mi::ordered_non_unique<mi::tag<class tag_time>,
+	mi::member<entry, std::chrono::steady_clock::time_point, &entry::time>>>>
 	recent;
 	std::chrono::milliseconds const delay;
 	void trim ();
+
 public:
 	vote_spacing (std::chrono::milliseconds const & delay) :
-	delay{ delay } {}
+		delay{ delay }
+	{
+	}
 	bool votable (nano::root const & root_a, nano::block_hash const & hash_a) const;
 	void flag (nano::root const & root_a, nano::block_hash const & hash_a);
 	size_t size () const;
@@ -66,9 +68,9 @@ class local_vote_history final
 	{
 	public:
 		local_vote (nano::root const & root_a, nano::block_hash const & hash_a, std::shared_ptr<nano::vote> const & vote_a) :
-		root (root_a),
-		hash (hash_a),
-		vote (vote_a)
+			root (root_a),
+			hash (hash_a),
+			vote (vote_a)
 		{
 		}
 		nano::root root;
@@ -78,7 +80,7 @@ class local_vote_history final
 
 public:
 	local_vote_history (nano::voting_constants const & constants) :
-	constants{ constants }
+		constants{ constants }
 	{
 	}
 	void add (nano::root const & root_a, nano::block_hash const & hash_a, std::shared_ptr<nano::vote> const & vote_a);
@@ -123,16 +125,16 @@ public:
 	void add (nano::root const &, nano::block_hash const &);
 	/** Queue blocks for vote generation, returning the number of successful candidates.*/
 	size_t generate (std::vector<std::shared_ptr<nano::block>> const & blocks_a, std::shared_ptr<nano::transport::channel> const & channel_a);
-	void set_reply_action (std::function<void(std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &)>);
+	void set_reply_action (std::function<void (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> const &)>);
 	void stop ();
 
 private:
 	void run ();
 	void broadcast (nano::unique_lock<nano::mutex> &);
 	void reply (nano::unique_lock<nano::mutex> &, request_t &&);
-	void vote (std::vector<nano::block_hash> const &, std::vector<nano::root> const &, std::function<void(std::shared_ptr<nano::vote> const &)> const &);
+	void vote (std::vector<nano::block_hash> const &, std::vector<nano::root> const &, std::function<void (std::shared_ptr<nano::vote> const &)> const &);
 	void broadcast_action (std::shared_ptr<nano::vote> const &) const;
-	std::function<void(std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> &)> reply_action; // must be set only during initialization by using set_reply_action
+	std::function<void (std::shared_ptr<nano::vote> const &, std::shared_ptr<nano::transport::channel> &)> reply_action; // must be set only during initialization by using set_reply_action
 	nano::node_config const & config;
 	nano::ledger & ledger;
 	nano::wallets & wallets;

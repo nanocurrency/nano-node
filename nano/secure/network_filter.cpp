@@ -5,7 +5,7 @@
 #include <nano/secure/network_filter.hpp>
 
 nano::network_filter::network_filter (size_t size_a) :
-items (size_a, nano::uint128_t{ 0 })
+	items (size_a, nano::uint128_t{ 0 })
 {
 	nano::random_pool::generate_block (key, key.size ());
 }
