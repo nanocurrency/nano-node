@@ -21,14 +21,14 @@ const std::string default_test_peer_network = nano::get_env_or_default ("NANO_TE
 }
 
 nano::node_config::node_config () :
-node_config (0, nano::logging ())
+	node_config (0, nano::logging ())
 {
 }
 
 nano::node_config::node_config (uint16_t peering_port_a, nano::logging const & logging_a) :
-peering_port (peering_port_a),
-logging (logging_a),
-external_address (boost::asio::ip::address_v6{}.to_string ())
+	peering_port (peering_port_a),
+	logging (logging_a),
+	external_address (boost::asio::ip::address_v6{}.to_string ())
 {
 	// The default constructor passes 0 to indicate we should use the default port,
 	// which is determined at node startup based on active network.
@@ -230,7 +230,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		if (toml.has_key ("work_peers"))
 		{
 			work_peers.clear ();
-			toml.array_entries_required<std::string> ("work_peers", [this](std::string const & entry_a) {
+			toml.array_entries_required<std::string> ("work_peers", [this] (std::string const & entry_a) {
 				this->deserialize_address (entry_a, this->work_peers);
 			});
 		}
@@ -238,7 +238,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		if (toml.has_key (preconfigured_peers_key))
 		{
 			preconfigured_peers.clear ();
-			toml.array_entries_required<std::string> (preconfigured_peers_key, [this](std::string entry) {
+			toml.array_entries_required<std::string> (preconfigured_peers_key, [this] (std::string entry) {
 				preconfigured_peers.push_back (entry);
 			});
 		}
@@ -246,7 +246,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		if (toml.has_key ("preconfigured_representatives"))
 		{
 			preconfigured_representatives.clear ();
-			toml.array_entries_required<std::string> ("preconfigured_representatives", [this, &toml](std::string entry) {
+			toml.array_entries_required<std::string> ("preconfigured_representatives", [this, &toml] (std::string entry) {
 				nano::account representative (0);
 				if (representative.decode_account (entry))
 				{
@@ -389,7 +389,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 			if (experimental_config_l.has_key ("secondary_work_peers"))
 			{
 				secondary_work_peers.clear ();
-				experimental_config_l.array_entries_required<std::string> ("secondary_work_peers", [this](std::string const & entry_a) {
+				experimental_config_l.array_entries_required<std::string> ("secondary_work_peers", [this] (std::string const & entry_a) {
 					this->deserialize_address (entry_a, this->secondary_work_peers);
 				});
 			}
@@ -585,7 +585,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 
 		work_peers.clear ();
 		auto work_peers_l (json.get_required_child ("work_peers"));
-		work_peers_l.array_entries<std::string> ([this](std::string entry) {
+		work_peers_l.array_entries<std::string> ([this] (std::string entry) {
 			auto port_position (entry.rfind (':'));
 			bool result = port_position == -1;
 			if (!result)
@@ -603,13 +603,13 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 
 		auto preconfigured_peers_l (json.get_required_child (preconfigured_peers_key));
 		preconfigured_peers.clear ();
-		preconfigured_peers_l.array_entries<std::string> ([this](std::string entry) {
+		preconfigured_peers_l.array_entries<std::string> ([this] (std::string entry) {
 			preconfigured_peers.push_back (entry);
 		});
 
 		auto preconfigured_representatives_l (json.get_required_child ("preconfigured_representatives"));
 		preconfigured_representatives.clear ();
-		preconfigured_representatives_l.array_entries<std::string> ([this, &json](std::string entry) {
+		preconfigured_representatives_l.array_entries<std::string> ([this, &json] (std::string entry) {
 			nano::account representative (0);
 			if (representative.decode_account (entry))
 			{

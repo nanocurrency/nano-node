@@ -51,10 +51,10 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 		nano::logger_mt logger{ config.node.logging.min_time_between_log_output };
 		boost::asio::io_context io_ctx;
 		auto opencl (nano::opencl_work::create (config.opencl_enable, config.opencl, logger));
-		nano::work_pool opencl_work (config.node.work_threads, config.node.pow_sleep_interval, opencl ? [&opencl](nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> & ticket_a) {
+		nano::work_pool opencl_work (config.node.work_threads, config.node.pow_sleep_interval, opencl ? [&opencl] (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> & ticket_a) {
 			return opencl->generate_work (version_a, root_a, difficulty_a, ticket_a);
 		}
-		                                                                                              : std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> (nullptr));
+																									  : std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> (nullptr));
 		try
 		{
 			// This avoid a blank prompt during any node initialization delays
@@ -76,9 +76,9 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 			{
 				auto network_label = node->network_params.network.get_current_network_as_string ();
 				std::cout << "Network: " << network_label << ", version: " << NANO_VERSION_STRING << "\n"
-				          << "Path: " << node->application_path.string () << "\n"
-				          << "Build Info: " << BUILD_INFO << "\n"
-				          << "Database backend: " << node->store.vendor_get () << std::endl;
+						  << "Path: " << node->application_path.string () << "\n"
+						  << "Build Info: " << BUILD_INFO << "\n"
+						  << "Database backend: " << node->store.vendor_get () << std::endl;
 				auto voting (node->wallets.reps ().voting);
 				if (voting > 1)
 				{
@@ -114,9 +114,9 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 							std::cout << error.get_message () << std::endl;
 							std::exit (1);
 						}
-						rpc_handler = std::make_unique<nano::inprocess_rpc_handler> (*node, ipc_server, config.rpc, [&ipc_server, &workers = node->workers, &io_ctx]() {
+						rpc_handler = std::make_unique<nano::inprocess_rpc_handler> (*node, ipc_server, config.rpc, [&ipc_server, &workers = node->workers, &io_ctx] () {
 							ipc_server.stop ();
-							workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (3), [&io_ctx]() {
+							workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (3), [&io_ctx] () {
 								io_ctx.stop ();
 							});
 						});
@@ -137,7 +137,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 				}
 
 				debug_assert (!nano::signal_handler_impl);
-				nano::signal_handler_impl = [&io_ctx]() {
+				nano::signal_handler_impl = [&io_ctx] () {
 					io_ctx.stop ();
 					sig_int_or_term = 1;
 				};

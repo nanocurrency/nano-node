@@ -80,12 +80,12 @@ nano::tcp_endpoint nano::transport::map_endpoint_to_tcp (nano::endpoint const & 
 }
 
 nano::transport::channel::channel (nano::node & node_a) :
-node (node_a)
+	node (node_a)
 {
 	set_network_version (node_a.network_params.protocol.protocol_version);
 }
 
-void nano::transport::channel::send (nano::message const & message_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a, nano::buffer_drop_policy drop_policy_a)
+void nano::transport::channel::send (nano::message const & message_a, std::function<void (boost::system::error_code const &, size_t)> const & callback_a, nano::buffer_drop_policy drop_policy_a)
 {
 	callback_visitor visitor;
 	message_a.visit (visitor);
@@ -102,7 +102,7 @@ void nano::transport::channel::send (nano::message const & message_a, std::funct
 	{
 		if (callback_a)
 		{
-			node.background ([callback_a]() {
+			node.background ([callback_a] () {
 				callback_a (boost::system::errc::make_error_code (boost::system::errc::not_supported), 0);
 			});
 		}
@@ -117,7 +117,7 @@ void nano::transport::channel::send (nano::message const & message_a, std::funct
 }
 
 nano::transport::channel_loopback::channel_loopback (nano::node & node_a) :
-channel (node_a), endpoint (node_a.network.endpoint ())
+	channel (node_a), endpoint (node_a.network.endpoint ())
 {
 	set_node_id (node_a.node_id.pub);
 	set_network_version (node_a.network_params.protocol.protocol_version);
@@ -134,7 +134,7 @@ bool nano::transport::channel_loopback::operator== (nano::transport::channel con
 	return endpoint == other_a.get_endpoint ();
 }
 
-void nano::transport::channel_loopback::send_buffer (nano::shared_const_buffer const & buffer_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a, nano::buffer_drop_policy drop_policy_a)
+void nano::transport::channel_loopback::send_buffer (nano::shared_const_buffer const & buffer_a, std::function<void (boost::system::error_code const &, size_t)> const & callback_a, nano::buffer_drop_policy drop_policy_a)
 {
 	release_assert (false && "sending to a loopback channel is not supported");
 }
@@ -254,7 +254,7 @@ bool nano::transport::reserved_address (nano::endpoint const & endpoint_a, bool 
 using namespace std::chrono_literals;
 
 nano::bandwidth_limiter::bandwidth_limiter (const double limit_burst_ratio_a, const size_t limit_a) :
-bucket (static_cast<size_t> (limit_a * limit_burst_ratio_a), limit_a)
+	bucket (static_cast<size_t> (limit_a * limit_burst_ratio_a), limit_a)
 {
 }
 

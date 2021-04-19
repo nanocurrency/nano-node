@@ -95,7 +95,7 @@ TEST (thread, thread_pool)
 {
 	std::atomic<bool> passed_sleep{ false };
 
-	auto func = [&passed_sleep]() {
+	auto func = [&passed_sleep] () {
 		std::this_thread::sleep_for (std::chrono::seconds (1));
 		passed_sleep = true;
 	};
@@ -122,7 +122,7 @@ TEST (thread_pool_alarm, one)
 	std::atomic<bool> done (false);
 	nano::mutex mutex;
 	nano::condition_variable condition;
-	workers.add_timed_task (std::chrono::steady_clock::now (), [&]() {
+	workers.add_timed_task (std::chrono::steady_clock::now (), [&] () {
 		{
 			nano::lock_guard<nano::mutex> lock (mutex);
 			done = true;
@@ -130,7 +130,7 @@ TEST (thread_pool_alarm, one)
 		condition.notify_one ();
 	});
 	nano::unique_lock<nano::mutex> unique (mutex);
-	condition.wait (unique, [&]() { return !!done; });
+	condition.wait (unique, [&] () { return !!done; });
 }
 
 TEST (thread_pool_alarm, many)
@@ -141,7 +141,7 @@ TEST (thread_pool_alarm, many)
 	nano::condition_variable condition;
 	for (auto i (0); i < 50; ++i)
 	{
-		workers.add_timed_task (std::chrono::steady_clock::now (), [&]() {
+		workers.add_timed_task (std::chrono::steady_clock::now (), [&] () {
 			{
 				nano::lock_guard<nano::mutex> lock (mutex);
 				count += 1;
@@ -150,7 +150,7 @@ TEST (thread_pool_alarm, many)
 		});
 	}
 	nano::unique_lock<nano::mutex> unique (mutex);
-	condition.wait (unique, [&]() { return count == 50; });
+	condition.wait (unique, [&] () { return count == 50; });
 }
 
 TEST (thread_pool_alarm, top_execution)
@@ -160,12 +160,12 @@ TEST (thread_pool_alarm, top_execution)
 	int value2 (0);
 	nano::mutex mutex;
 	std::promise<bool> promise;
-	workers.add_timed_task (std::chrono::steady_clock::now (), [&]() {
+	workers.add_timed_task (std::chrono::steady_clock::now (), [&] () {
 		nano::lock_guard<nano::mutex> lock (mutex);
 		value1 = 1;
 		value2 = 1;
 	});
-	workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (1), [&]() {
+	workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (1), [&] () {
 		nano::lock_guard<nano::mutex> lock (mutex);
 		value2 = 2;
 		promise.set_value (false);

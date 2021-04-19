@@ -146,7 +146,7 @@ template <typename... T>
 class observer_set final
 {
 public:
-	void add (std::function<void(T...)> const & observer_a)
+	void add (std::function<void (T...)> const & observer_a)
 	{
 		nano::lock_guard<nano::mutex> lock (mutex);
 		observers.push_back (observer_a);
@@ -160,7 +160,7 @@ public:
 		}
 	}
 	nano::mutex mutex{ mutex_identifier (mutexes::observer_set) };
-	std::vector<std::function<void(T...)>> observers;
+	std::vector<std::function<void (T...)>> observers;
 };
 
 template <typename... T>

@@ -8,8 +8,8 @@
 #include <upnperrors.h>
 
 nano::port_mapping::port_mapping (nano::node & node_a) :
-node (node_a),
-protocols ({ { { "TCP", boost::asio::ip::address_v4::any (), 0, true }, { "UDP", boost::asio::ip::address_v4::any (), 0, !node_a.flags.disable_udp } } })
+	node (node_a),
+	protocols ({ { { "TCP", boost::asio::ip::address_v4::any (), 0, true }, { "UDP", boost::asio::ip::address_v4::any (), 0, !node_a.flags.disable_udp } } })
 {
 }
 
@@ -62,7 +62,7 @@ nano::endpoint nano::port_mapping::external_address ()
 {
 	nano::endpoint result_l (boost::asio::ip::address_v6{}, 0);
 	nano::lock_guard<nano::mutex> guard_l (mutex);
-	for (auto & protocol : protocols | boost::adaptors::filtered ([](auto const & p) { return p.enabled; }))
+	for (auto & protocol : protocols | boost::adaptors::filtered ([] (auto const & p) { return p.enabled; }))
 	{
 		if (protocol.external_port != 0)
 		{
@@ -82,7 +82,7 @@ void nano::port_mapping::refresh_mapping ()
 		auto config_port_l (get_config_port (node_port_l));
 
 		// We don't map the RPC port because, unless RPC authentication was added, this would almost always be a security risk
-		for (auto & protocol : protocols | boost::adaptors::filtered ([](auto const & p) { return p.enabled; }))
+		for (auto & protocol : protocols | boost::adaptors::filtered ([] (auto const & p) { return p.enabled; }))
 		{
 			auto upnp_description = std::string ("Nano Node (") + network_params.network.get_current_network_as_string () + ")";
 			auto add_port_mapping_error_l (UPNP_AddPortMapping (upnp.urls.controlURL, upnp.data.first.servicetype, config_port_l.c_str (), node_port_l.c_str (), address.to_string ().c_str (), upnp_description.c_str (), protocol.name, nullptr, std::to_string (network_params.portmapping.lease_duration.count ()).c_str ()));
@@ -96,7 +96,7 @@ void nano::port_mapping::refresh_mapping ()
 				node.logger.always_log (boost::str (boost::format ("UPnP %1%:%2% mapped to %3%") % protocol.external_address % config_port_l % node_port_l));
 
 				// Refresh mapping before the leasing ends
-				node.workers.add_timed_task (std::chrono::steady_clock::now () + network_params.portmapping.lease_duration - std::chrono::seconds (10), [node_l = node.shared ()]() {
+				node.workers.add_timed_task (std::chrono::steady_clock::now () + network_params.portmapping.lease_duration - std::chrono::seconds (10), [node_l = node.shared ()] () {
 					node_l->port_mapping.refresh_mapping ();
 				});
 			}
@@ -117,7 +117,7 @@ bool nano::port_mapping::check_mapping ()
 	nano::lock_guard<nano::mutex> guard_l (mutex);
 	auto node_port_l (std::to_string (node.network.endpoint ().port ()));
 	auto config_port_l (get_config_port (node_port_l));
-	for (auto & protocol : protocols | boost::adaptors::filtered ([](auto const & p) { return p.enabled; }))
+	for (auto & protocol : protocols | boost::adaptors::filtered ([] (auto const & p) { return p.enabled; }))
 	{
 		std::array<char, 64> int_client_l;
 		std::array<char, 6> int_port_l;
@@ -166,7 +166,7 @@ void nano::port_mapping::check_mapping_loop ()
 			refresh_mapping ();
 		}
 		// Check for mapping health frequently
-		node.workers.add_timed_task (std::chrono::steady_clock::now () + network_params.portmapping.health_check_period, [node_l = node.shared ()]() {
+		node.workers.add_timed_task (std::chrono::steady_clock::now () + network_params.portmapping.health_check_period, [node_l = node.shared ()] () {
 			node_l->port_mapping.check_mapping_loop ();
 		});
 	}
@@ -177,7 +177,7 @@ void nano::port_mapping::check_mapping_loop ()
 			node.logger.always_log (boost::str (boost::format ("UPnP No IGD devices found")));
 		}
 		// Check for new devices later
-		node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::minutes (5), [node_l = node.shared ()]() {
+		node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::minutes (5), [node_l = node.shared ()] () {
 			node_l->port_mapping.check_mapping_loop ();
 		});
 	}
@@ -188,7 +188,7 @@ void nano::port_mapping::stop ()
 {
 	on = false;
 	nano::lock_guard<nano::mutex> guard_l (mutex);
-	for (auto & protocol : protocols | boost::adaptors::filtered ([](auto const & p) { return p.enabled; }))
+	for (auto & protocol : protocols | boost::adaptors::filtered ([] (auto const & p) { return p.enabled; }))
 	{
 		if (protocol.external_port != 0)
 		{

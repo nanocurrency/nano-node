@@ -88,7 +88,7 @@ public:
 	void run_bootstrap ();
 	void lazy_requeue (nano::block_hash const &, nano::block_hash const &, bool);
 	void notify_listeners (bool);
-	void add_observer (std::function<void(bool)> const &);
+	void add_observer (std::function<void (bool)> const &);
 	bool in_progress ();
 	std::shared_ptr<nano::bootstrap_connections> connections;
 	std::shared_ptr<nano::bootstrap_attempt> new_attempt ();
@@ -110,7 +110,7 @@ private:
 	nano::mutex mutex;
 	nano::condition_variable condition;
 	nano::mutex observers_mutex;
-	std::vector<std::function<void(bool)>> observers;
+	std::vector<std::function<void (bool)>> observers;
 	std::vector<boost::thread> bootstrap_initiator_threads;
 
 	friend std::unique_ptr<container_info_component> collect_container_info (bootstrap_initiator & bootstrap_initiator, std::string const & name);

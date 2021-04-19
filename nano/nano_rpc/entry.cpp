@@ -54,7 +54,7 @@ void run (boost::filesystem::path const & data_path, std::vector<std::string> co
 			rpc->start ();
 
 			debug_assert (!nano::signal_handler_impl);
-			nano::signal_handler_impl = [&io_ctx]() {
+			nano::signal_handler_impl = [&io_ctx] () {
 				io_ctx.stop ();
 				sig_int_or_term = 1;
 			};
@@ -136,7 +136,7 @@ int main (int argc, char * const * argv)
 	else if (vm.count ("version"))
 	{
 		std::cout << "Version " << NANO_VERSION_STRING << "\n"
-		          << "Build Info " << BUILD_INFO << std::endl;
+				  << "Build Info " << BUILD_INFO << std::endl;
 	}
 	else
 	{

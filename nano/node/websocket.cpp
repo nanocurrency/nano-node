@@ -13,13 +13,13 @@
 #include <chrono>
 
 nano::websocket::confirmation_options::confirmation_options (nano::wallets & wallets_a) :
-wallets (wallets_a)
+	wallets (wallets_a)
 {
 }
 
 nano::websocket::confirmation_options::confirmation_options (boost::property_tree::ptree const & options_a, nano::wallets & wallets_a, nano::logger_mt & logger_a) :
-wallets (wallets_a),
-logger (logger_a)
+	wallets (wallets_a),
+	logger (logger_a)
 {
 	// Non-account filtering options
 	include_block = options_a.get<bool> ("include_block", true);
@@ -136,7 +136,7 @@ bool nano::websocket::confirmation_options::should_filter (nano::websocket::mess
 
 bool nano::websocket::confirmation_options::update (boost::property_tree::ptree const & options_a)
 {
-	auto update_accounts = [this](boost::property_tree::ptree const & accounts_text_a, bool insert_a) {
+	auto update_accounts = [this] (boost::property_tree::ptree const & accounts_text_a, bool insert_a) {
 		this->has_account_filtering_options = true;
 		for (auto const & account_l : accounts_text_a)
 		{
@@ -232,7 +232,7 @@ bool nano::websocket::vote_options::should_filter (nano::websocket::message cons
 }
 
 nano::websocket::session::session (nano::websocket::listener & listener_a, socket_type socket_a) :
-ws_listener (listener_a), ws (std::move (socket_a)), strand (ws.get_executor ())
+	ws_listener (listener_a), ws (std::move (socket_a)), strand (ws.get_executor ())
 {
 	ws.text (true);
 	ws_listener.get_logger ().try_log ("Websocket: session started");
@@ -252,7 +252,7 @@ nano::websocket::session::~session ()
 void nano::websocket::session::handshake ()
 {
 	auto this_l (shared_from_this ());
-	ws.async_accept ([this_l](boost::system::error_code const & ec) {
+	ws.async_accept ([this_l] (boost::system::error_code const & ec) {
 		if (!ec)
 		{
 			// Start reading incoming messages
@@ -271,7 +271,7 @@ void nano::websocket::session::close ()
 
 	auto this_l (shared_from_this ());
 	boost::asio::dispatch (strand,
-	[this_l]() {
+	[this_l] () {
 		boost::beast::websocket::close_reason reason;
 		reason.code = boost::beast::websocket::close_code::normal;
 		reason.reason = "Shutting down";
@@ -289,7 +289,7 @@ void nano::websocket::session::write (nano::websocket::message message_a)
 		lk.unlock ();
 		auto this_l (shared_from_this ());
 		boost::asio::post (strand,
-		[message_a, this_l]() {
+		[message_a, this_l] () {
 			bool write_in_progress = !this_l->send_queue.empty ();
 			this_l->send_queue.emplace_back (message_a);
 			if (!write_in_progress)
@@ -307,7 +307,7 @@ void nano::websocket::session::write_queued_messages ()
 
 	ws.async_write (nano::shared_const_buffer (msg),
 	boost::asio::bind_executor (strand,
-	[this_l](boost::system::error_code ec, std::size_t bytes_transferred) {
+	[this_l] (boost::system::error_code ec, std::size_t bytes_transferred) {
 		this_l->send_queue.pop_front ();
 		if (!ec)
 		{
@@ -323,10 +323,10 @@ void nano::websocket::session::read ()
 {
 	auto this_l (shared_from_this ());
 
-	boost::asio::post (strand, [this_l]() {
+	boost::asio::post (strand, [this_l] () {
 		this_l->ws.async_read (this_l->read_buffer,
 		boost::asio::bind_executor (this_l->strand,
-		[this_l](boost::system::error_code ec, std::size_t bytes_transferred) {
+		[this_l] (boost::system::error_code ec, std::size_t bytes_transferred) {
 			if (!ec)
 			{
 				std::stringstream os;
@@ -549,10 +549,10 @@ void nano::websocket::listener::stop ()
 }
 
 nano::websocket::listener::listener (nano::logger_mt & logger_a, nano::wallets & wallets_a, boost::asio::io_context & io_ctx_a, boost::asio::ip::tcp::endpoint endpoint_a) :
-logger (logger_a),
-wallets (wallets_a),
-acceptor (io_ctx_a),
-socket (io_ctx_a)
+	logger (logger_a),
+	wallets (wallets_a),
+	acceptor (io_ctx_a),
+	socket (io_ctx_a)
 {
 	try
 	{
@@ -583,7 +583,7 @@ void nano::websocket::listener::accept ()
 {
 	auto this_l (shared_from_this ());
 	acceptor.async_accept (socket,
-	[this_l](boost::system::error_code const & ec) {
+	[this_l] (boost::system::error_code const & ec) {
 		this_l->on_accept (ec);
 	});
 }
@@ -601,7 +601,7 @@ void nano::websocket::listener::on_accept (boost::system::error_code ec)
 		sessions_mutex.lock ();
 		sessions.push_back (session);
 		// Clean up expired sessions
-		sessions.erase (std::remove_if (sessions.begin (), sessions.end (), [](auto & elem) { return elem.expired (); }), sessions.end ());
+		sessions.erase (std::remove_if (sessions.begin (), sessions.end (), [] (auto & elem) { return elem.expired (); }), sessions.end ());
 		sessions_mutex.unlock ();
 		session->handshake ();
 	}

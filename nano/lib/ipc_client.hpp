@@ -38,13 +38,13 @@ namespace ipc
 		nano::error connect (std::string const & host, uint16_t port);
 
 		/** Connect to a tcp socket asynchronously */
-		void async_connect (std::string const & host, uint16_t port, std::function<void(nano::error)> callback);
+		void async_connect (std::string const & host, uint16_t port, std::function<void (nano::error)> callback);
 
 		/** Write buffer asynchronously */
-		void async_write (nano::shared_const_buffer const & buffer_a, std::function<void(nano::error, size_t)> callback_a);
+		void async_write (nano::shared_const_buffer const & buffer_a, std::function<void (nano::error, size_t)> callback_a);
 
 		/** Read \p size_a bytes asynchronously */
-		void async_read (std::shared_ptr<std::vector<uint8_t>> const & buffer_a, size_t size_a, std::function<void(nano::error, size_t)> callback_a);
+		void async_read (std::shared_ptr<std::vector<uint8_t>> const & buffer_a, size_t size_a, std::function<void (nano::error, size_t)> callback_a);
 
 		/**
 		 * Read a length-prefixed message asynchronously using the given timeout. This is suitable for full duplex scenarios where it may
@@ -54,7 +54,7 @@ namespace ipc
 		 * @param timeout_a How long to await message data. In some scenarios, such as waiting for data on subscriptions, specifying std::chrono::seconds::max() makes sense.
 		 * @param callback_a If called without errors, the payload buffer is successfully populated
 		 */
-		void async_read_message (std::shared_ptr<std::vector<uint8_t>> const & buffer_a, std::chrono::seconds timeout_a, std::function<void(nano::error, size_t)> callback_a);
+		void async_read_message (std::shared_ptr<std::vector<uint8_t>> const & buffer_a, std::chrono::seconds timeout_a, std::function<void (nano::error, size_t)> callback_a);
 
 	private:
 		boost::asio::io_context & io_ctx;

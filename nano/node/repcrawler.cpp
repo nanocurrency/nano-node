@@ -4,11 +4,11 @@
 #include <boost/format.hpp>
 
 nano::rep_crawler::rep_crawler (nano::node & node_a) :
-node (node_a)
+	node (node_a)
 {
 	if (!node.flags.disable_rep_crawler)
 	{
-		node.observers.endpoint.add ([this](std::shared_ptr<nano::transport::channel> const & channel_a) {
+		node.observers.endpoint.add ([this] (std::shared_ptr<nano::transport::channel> const & channel_a) {
 			this->query (channel_a);
 		});
 	}
@@ -48,7 +48,7 @@ void nano::rep_crawler::validate ()
 				auto existing (probable_reps.find (vote->account));
 				if (existing != probable_reps.end ())
 				{
-					probable_reps.modify (existing, [rep_weight, &updated_or_inserted, &vote, &channel](nano::representative & info) {
+					probable_reps.modify (existing, [rep_weight, &updated_or_inserted, &vote, &channel] (nano::representative & info) {
 						info.last_response = std::chrono::steady_clock::now ();
 
 						// Update if representative channel was changed
@@ -93,7 +93,7 @@ void nano::rep_crawler::ongoing_crawl ()
 	// Reduce crawl frequency when there's enough total peer weight
 	unsigned next_run_ms = node.network_params.network.is_dev_network () ? 100 : sufficient_weight ? 7000 : 3000;
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.workers.add_timed_task (now + std::chrono::milliseconds (next_run_ms), [node_w, this]() {
+	node.workers.add_timed_task (now + std::chrono::milliseconds (next_run_ms), [node_w, this] () {
 		if (auto node_l = node_w.lock ())
 		{
 			this->ongoing_crawl ();
@@ -152,7 +152,7 @@ void nano::rep_crawler::query (std::vector<std::shared_ptr<nano::transport::chan
 
 	// A representative must respond with a vote within the deadline
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (5), [node_w, hash = hash_root.first]() {
+	node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (5), [node_w, hash = hash_root.first] () {
 		if (auto node_l = node_w.lock ())
 		{
 			auto target_finished_processed (node_l->vote_processor.total_processed + node_l->vote_processor.size ());
@@ -177,7 +177,7 @@ void nano::rep_crawler::throttled_remove (nano::block_hash const & hash_a, uint6
 	else
 	{
 		std::weak_ptr<nano::node> node_w (node.shared ());
-		node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (5), [node_w, hash_a, target_finished_processed]() {
+		node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (5), [node_w, hash_a, target_finished_processed] () {
 			if (auto node_l = node_w.lock ())
 			{
 				node_l->rep_crawler.throttled_remove (hash_a, target_finished_processed);
@@ -244,7 +244,7 @@ void nano::rep_crawler::on_rep_request (std::shared_ptr<nano::transport::channel
 		auto itr_pair = channel_ref_index.equal_range (*channel_a);
 		for (; itr_pair.first != itr_pair.second; itr_pair.first++)
 		{
-			channel_ref_index.modify (itr_pair.first, [](nano::representative & value_a) {
+			channel_ref_index.modify (itr_pair.first, [] (nano::representative & value_a) {
 				value_a.last_request = std::chrono::steady_clock::now ();
 			});
 		}
@@ -310,7 +310,7 @@ void nano::rep_crawler::update_weights ()
 		{
 			if (i->weight.number () != weight)
 			{
-				probable_reps.get<tag_last_request> ().modify (i, [weight](nano::representative & info) {
+				probable_reps.get<tag_last_request> ().modify (i, [weight] (nano::representative & info) {
 					info.weight = weight;
 				});
 			}
