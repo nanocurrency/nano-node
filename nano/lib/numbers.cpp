@@ -782,7 +782,7 @@ std::string nano::uint128_union::to_string_dec () const
 }
 
 nano::hash_or_account::hash_or_account (uint64_t value_a) :
-raw (value_a)
+	raw (value_a)
 {
 }
 

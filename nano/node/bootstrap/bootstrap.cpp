@@ -10,16 +10,16 @@
 #include <algorithm>
 
 nano::bootstrap_initiator::bootstrap_initiator (nano::node & node_a) :
-node (node_a)
+	node (node_a)
 {
 	connections = std::make_shared<nano::bootstrap_connections> (node);
-	bootstrap_initiator_threads.push_back (boost::thread ([this]() {
+	bootstrap_initiator_threads.push_back (boost::thread ([this] () {
 		nano::thread_role::set (nano::thread_role::name::bootstrap_connections);
 		connections->run ();
 	}));
 	for (size_t i = 0; i < node.config.bootstrap_initiator_threads; ++i)
 	{
-		bootstrap_initiator_threads.push_back (boost::thread ([this]() {
+		bootstrap_initiator_threads.push_back (boost::thread ([this] () {
 			nano::thread_role::set (nano::thread_role::name::bootstrap_initiator);
 			run_bootstrap ();
 		}));
@@ -157,7 +157,7 @@ void nano::bootstrap_initiator::lazy_requeue (nano::block_hash const & hash_a, n
 	}
 }
 
-void nano::bootstrap_initiator::add_observer (std::function<void(bool)> const & observer_a)
+void nano::bootstrap_initiator::add_observer (std::function<void (bool)> const & observer_a)
 {
 	nano::lock_guard<nano::mutex> lock (observers_mutex);
 	observers.push_back (observer_a);
@@ -327,7 +327,7 @@ void nano::pulls_cache::add (nano::pull_info const & pull_a)
 		else
 		{
 			// Update existing pull
-			cache.get<account_head_tag> ().modify (existing, [pull_a](nano::cached_pulls & cache_a) {
+			cache.get<account_head_tag> ().modify (existing, [pull_a] (nano::cached_pulls & cache_a) {
 				cache_a.time = std::chrono::steady_clock::now ();
 				cache_a.new_head = pull_a.head;
 			});

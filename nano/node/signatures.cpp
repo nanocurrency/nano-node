@@ -4,7 +4,7 @@
 #include <nano/node/signatures.hpp>
 
 nano::signature_checker::signature_checker (unsigned num_threads) :
-thread_pool (num_threads, nano::thread_role::name::signature_checking)
+	thread_pool (num_threads, nano::thread_role::name::signature_checking)
 {
 }
 
@@ -89,7 +89,7 @@ void nano::signature_checker::flush ()
 bool nano::signature_checker::verify_batch (const nano::signature_check_set & check_a, size_t start_index, size_t size)
 {
 	nano::validate_message_batch (check_a.messages + start_index, check_a.message_lengths + start_index, check_a.pub_keys + start_index, check_a.signatures + start_index, size, check_a.verifications + start_index);
-	return std::all_of (check_a.verifications + start_index, check_a.verifications + start_index + size, [](int verification) { return verification == 0 || verification == 1; });
+	return std::all_of (check_a.verifications + start_index, check_a.verifications + start_index + size, [] (int verification) { return verification == 0 || verification == 1; });
 }
 
 /* This operates on a number of signatures of size (num_batches * batch_size) from the beginning of the check_a pointers.

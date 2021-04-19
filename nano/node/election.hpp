@@ -62,8 +62,8 @@ class election final : public std::enable_shared_from_this<nano::election>
 {
 	// Minimum time between broadcasts of the current winner of an election, as a backup to requesting confirmations
 	std::chrono::milliseconds base_latency () const;
-	std::function<void(std::shared_ptr<nano::block> const &)> confirmation_action;
-	std::function<void(nano::account const &)> live_vote_action;
+	std::function<void (std::shared_ptr<nano::block> const &)> confirmation_action;
+	std::function<void (nano::account const &)> live_vote_action;
 
 private: // State management
 	enum class state_t
@@ -111,7 +111,7 @@ public: // Status
 	nano::election_status status;
 
 public: // Interface
-	election (nano::node &, std::shared_ptr<nano::block> const &, std::function<void(std::shared_ptr<nano::block> const &)> const &, std::function<void(nano::account const &)> const &, bool, nano::election_behavior);
+	election (nano::node &, std::shared_ptr<nano::block> const &, std::function<void (std::shared_ptr<nano::block> const &)> const &, std::function<void (nano::account const &)> const &, bool, nano::election_behavior);
 	std::shared_ptr<nano::block> find (nano::block_hash const &) const;
 	nano::election_vote_result vote (nano::account const &, uint64_t, nano::block_hash const &);
 	bool publish (std::shared_ptr<nano::block> const & block_a);

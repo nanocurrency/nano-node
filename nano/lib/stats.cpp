@@ -175,7 +175,7 @@ public:
 	std::string filename;
 
 	explicit file_writer (std::string const & filename) :
-	filename (filename)
+		filename (filename)
 	{
 		log.open (filename.c_str (), std::ofstream::out);
 	}
@@ -283,7 +283,7 @@ std::vector<nano::stat_histogram::bin> nano::stat_histogram::get_bins () const
 }
 
 nano::stat::stat (nano::stat_config config) :
-config (config)
+	config (config)
 {
 }
 

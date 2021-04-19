@@ -14,12 +14,12 @@ constexpr unsigned nano::bootstrap_limits::bootstrap_max_new_connections;
 constexpr unsigned nano::bootstrap_limits::requeued_pulls_processed_blocks_factor;
 
 nano::bootstrap_client::bootstrap_client (std::shared_ptr<nano::node> const & node_a, std::shared_ptr<nano::bootstrap_connections> const & connections_a, std::shared_ptr<nano::transport::channel_tcp> const & channel_a, std::shared_ptr<nano::socket> const & socket_a) :
-node (node_a),
-connections (connections_a),
-channel (channel_a),
-socket (socket_a),
-receive_buffer (std::make_shared<std::vector<uint8_t>> ()),
-start_time_m (std::chrono::steady_clock::now ())
+	node (node_a),
+	connections (connections_a),
+	channel (channel_a),
+	socket (socket_a),
+	receive_buffer (std::make_shared<std::vector<uint8_t>> ()),
+	start_time_m (std::chrono::steady_clock::now ())
 {
 	++connections->connections_count;
 	receive_buffer->resize (256);
@@ -60,14 +60,14 @@ void nano::bootstrap_client::stop (bool force)
 }
 
 nano::bootstrap_connections::bootstrap_connections (nano::node & node_a) :
-node (node_a)
+	node (node_a)
 {
 }
 
 std::shared_ptr<nano::bootstrap_client> nano::bootstrap_connections::connection (std::shared_ptr<nano::bootstrap_attempt> const & attempt_a, bool use_front_connection)
 {
 	nano::unique_lock<nano::mutex> lock (mutex);
-	condition.wait (lock, [& stopped = stopped, &idle = idle, &new_connections_empty = new_connections_empty] { return stopped || !idle.empty () || new_connections_empty; });
+	condition.wait (lock, [&stopped = stopped, &idle = idle, &new_connections_empty = new_connections_empty] { return stopped || !idle.empty () || new_connections_empty; });
 	std::shared_ptr<nano::bootstrap_client> result;
 	if (!stopped && !idle.empty ())
 	{
@@ -147,7 +147,7 @@ void nano::bootstrap_connections::connect_client (nano::tcp_endpoint const & end
 	auto socket (std::make_shared<nano::socket> (node));
 	auto this_l (shared_from_this ());
 	socket->async_connect (endpoint_a,
-	[this_l, socket, endpoint_a, push_front](boost::system::error_code const & ec) {
+	[this_l, socket, endpoint_a, push_front] (boost::system::error_code const & ec) {
 		if (!ec)
 		{
 			if (this_l->node.config.logging.bulk_pull_logging ())
@@ -304,7 +304,7 @@ void nano::bootstrap_connections::populate_connections (bool repeat)
 	if (!stopped && repeat)
 	{
 		std::weak_ptr<nano::bootstrap_connections> this_w (shared_from_this ());
-		node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (1), [this_w]() {
+		node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::seconds (1), [this_w] () {
 			if (auto this_l = this_w.lock ())
 			{
 				this_l->populate_connections ();
@@ -358,7 +358,7 @@ void nano::bootstrap_connections::request_pull (nano::unique_lock<nano::mutex> &
 		{
 			// The bulk_pull_client destructor attempt to requeue_pull which can cause a deadlock if this is the last reference
 			// Dispatch request in an external thread in case it needs to be destroyed
-			node.background ([connection_l, attempt_l, pull]() {
+			node.background ([connection_l, attempt_l, pull] () {
 				auto client (std::make_shared<nano::bulk_pull_client> (connection_l, attempt_l, pull));
 				client->request ();
 			});

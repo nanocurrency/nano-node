@@ -1609,14 +1609,14 @@ TEST (node, mass_epoch_upgrader)
 				nano::state_block_builder builder;
 				std::error_code ec;
 				auto block = builder
-				             .account (nano::dev_genesis_key.pub)
-				             .previous (latest)
-				             .balance (balance)
-				             .link (info.key.pub)
-				             .representative (nano::dev_genesis_key.pub)
-				             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-				             .work (*node.work_generate_blocking (latest, nano::work_threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_0, false, false, false))))
-				             .build (ec);
+							 .account (nano::dev_genesis_key.pub)
+							 .previous (latest)
+							 .balance (balance)
+							 .link (info.key.pub)
+							 .representative (nano::dev_genesis_key.pub)
+							 .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+							 .work (*node.work_generate_blocking (latest, nano::work_threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_0, false, false, false))))
+							 .build (ec);
 				ASSERT_FALSE (ec);
 				ASSERT_NE (nullptr, block);
 				ASSERT_EQ (nano::process_result::progress, node.process (*block).code);
@@ -1633,14 +1633,14 @@ TEST (node, mass_epoch_upgrader)
 			nano::state_block_builder builder;
 			std::error_code ec;
 			auto block = builder
-			             .account (info.key.pub)
-			             .previous (0)
-			             .balance (amount)
-			             .link (info.pending_hash)
-			             .representative (info.key.pub)
-			             .sign (info.key.prv, info.key.pub)
-			             .work (*node.work_generate_blocking (info.key.pub, nano::work_threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_0, false, false, false))))
-			             .build (ec);
+						 .account (info.key.pub)
+						 .previous (0)
+						 .balance (amount)
+						 .link (info.pending_hash)
+						 .representative (info.key.pub)
+						 .sign (info.key.prv, info.key.pub)
+						 .work (*node.work_generate_blocking (info.key.pub, nano::work_threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_0, false, false, false))))
+						 .build (ec);
 			ASSERT_FALSE (ec);
 			ASSERT_NE (nullptr, block);
 			ASSERT_EQ (nano::process_result::progress, node.process (*block).code);
@@ -1735,14 +1735,14 @@ TEST (node, mass_block_new)
 	for (auto i = 0; i < num_blocks; ++i)
 	{
 		auto send = builder.make_block ()
-		            .account (nano::dev_genesis_key.pub)
-		            .previous (latest_genesis)
-		            .balance (nano::genesis_amount - i - 1)
-		            .representative (nano::dev_genesis_key.pub)
-		            .link (keys[i].pub)
-		            .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-		            .work (*system.work.generate (nano::work_version::work_1, latest_genesis, send_threshold))
-		            .build ();
+					.account (nano::dev_genesis_key.pub)
+					.previous (latest_genesis)
+					.balance (nano::genesis_amount - i - 1)
+					.representative (nano::dev_genesis_key.pub)
+					.link (keys[i].pub)
+					.sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+					.work (*system.work.generate (nano::work_version::work_1, latest_genesis, send_threshold))
+					.build ();
 		latest_genesis = send->hash ();
 		send_blocks.push_back (std::move (send));
 	}
@@ -1758,14 +1758,14 @@ TEST (node, mass_block_new)
 	{
 		auto const & key = keys[i];
 		auto open = builder.make_block ()
-		            .account (key.pub)
-		            .previous (0)
-		            .balance (1)
-		            .representative (key.pub)
-		            .link (send_blocks[i]->hash ())
-		            .sign (key.prv, key.pub)
-		            .work (*system.work.generate (nano::work_version::work_1, key.pub, receive_threshold))
-		            .build ();
+					.account (key.pub)
+					.previous (0)
+					.balance (1)
+					.representative (key.pub)
+					.link (send_blocks[i]->hash ())
+					.sign (key.prv, key.pub)
+					.work (*system.work.generate (nano::work_version::work_1, key.pub, receive_threshold))
+					.build ();
 		open_blocks.push_back (std::move (open));
 	}
 	std::cout << "Open blocks built, start processing" << std::endl;
@@ -1780,14 +1780,14 @@ TEST (node, mass_block_new)
 		auto const & key = keys[i];
 		auto const & latest = open_blocks[i];
 		auto send2 = builder.make_block ()
-		             .account (key.pub)
-		             .previous (latest->hash ())
-		             .balance (0)
-		             .representative (key.pub)
-		             .link (key.pub)
-		             .sign (key.prv, key.pub)
-		             .work (*system.work.generate (nano::work_version::work_1, latest->hash (), send_threshold))
-		             .build ();
+					 .account (key.pub)
+					 .previous (latest->hash ())
+					 .balance (0)
+					 .representative (key.pub)
+					 .link (key.pub)
+					 .sign (key.prv, key.pub)
+					 .work (*system.work.generate (nano::work_version::work_1, latest->hash (), send_threshold))
+					 .build ();
 		send_blocks2.push_back (std::move (send2));
 	}
 	std::cout << "Send2 blocks built, start processing" << std::endl;
@@ -1802,14 +1802,14 @@ TEST (node, mass_block_new)
 		auto const & key = keys[i];
 		auto const & latest = send_blocks2[i];
 		auto send2 = builder.make_block ()
-		             .account (key.pub)
-		             .previous (latest->hash ())
-		             .balance (1)
-		             .representative (key.pub)
-		             .link (latest->hash ())
-		             .sign (key.prv, key.pub)
-		             .work (*system.work.generate (nano::work_version::work_1, latest->hash (), receive_threshold))
-		             .build ();
+					 .account (key.pub)
+					 .previous (latest->hash ())
+					 .balance (1)
+					 .representative (key.pub)
+					 .link (latest->hash ())
+					 .sign (key.prv, key.pub)
+					 .work (*system.work.generate (nano::work_version::work_1, latest->hash (), receive_threshold))
+					 .build ();
 		receive_blocks.push_back (std::move (send2));
 	}
 	std::cout << "Receive blocks built, start processing" << std::endl;

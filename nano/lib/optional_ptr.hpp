@@ -24,7 +24,7 @@ public:
 	optional_ptr () = default;
 
 	optional_ptr (T const & value) :
-	ptr (new T{ value })
+		ptr (new T{ value })
 	{
 	}
 

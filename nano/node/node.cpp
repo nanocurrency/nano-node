@@ -80,54 +80,54 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (re
 }
 
 nano::node::node (boost::asio::io_context & io_ctx_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, nano::logging const & logging_a, nano::work_pool & work_a, nano::node_flags flags_a, unsigned seq) :
-node (io_ctx_a, application_path_a, nano::node_config (peering_port_a, logging_a), work_a, flags_a, seq)
+	node (io_ctx_a, application_path_a, nano::node_config (peering_port_a, logging_a), work_a, flags_a, seq)
 {
 }
 
 nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path const & application_path_a, nano::node_config const & config_a, nano::work_pool & work_a, nano::node_flags flags_a, unsigned seq) :
-write_database_queue (!flags_a.force_use_write_database_queue && (config_a.rocksdb_config.enable || nano::using_rocksdb_in_tests ())),
-io_ctx (io_ctx_a),
-node_initialized_latch (1),
-config (config_a),
-stats (config.stat_config),
-workers (std::max (3u, config.io_threads / 4), nano::thread_role::name::worker),
-flags (flags_a),
-work (work_a),
-distributed_work (*this),
-logger (config_a.logging.min_time_between_log_output),
-store_impl (nano::make_store (logger, application_path_a, flags.read_only, true, config_a.rocksdb_config, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_config, config_a.backup_before_upgrade)),
-store (*store_impl),
-wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (application_path_a / "wallets.ldb", config_a.lmdb_config)),
-wallets_store (*wallets_store_impl),
-gap_cache (*this),
-ledger (store, stats, flags_a.generate_cache),
-checker (config.signature_checker_threads),
-network (*this, config.peering_port),
-telemetry (std::make_shared<nano::telemetry> (network, workers, observers.telemetry, stats, network_params, flags.disable_ongoing_telemetry_requests)),
-bootstrap_initiator (*this),
-bootstrap (config.peering_port, *this),
-application_path (application_path_a),
-port_mapping (*this),
-rep_crawler (*this),
-vote_processor (checker, active, observers, stats, config, flags, logger, online_reps, rep_crawler, ledger, network_params),
-warmed_up (0),
-block_processor (*this, write_database_queue),
-// clang-format off
-block_processor_thread ([this]() {
-	nano::thread_role::set (nano::thread_role::name::block_processing);
-	this->block_processor.process_blocks ();
-}),
-// clang-format on
-online_reps (ledger, config),
-history{ config.network_params.voting },
-vote_uniquer (block_uniquer),
-confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, config.logging, logger, node_initialized_latch, flags.confirmation_height_processor_mode),
-active (*this, confirmation_height_processor),
-scheduler{ *this },
-aggregator (network_params.network, config, stats, active.generator, history, ledger, wallets, active),
-wallets (wallets_store.init_error (), *this),
-startup_time (std::chrono::steady_clock::now ()),
-node_seq (seq)
+	write_database_queue (!flags_a.force_use_write_database_queue && (config_a.rocksdb_config.enable || nano::using_rocksdb_in_tests ())),
+	io_ctx (io_ctx_a),
+	node_initialized_latch (1),
+	config (config_a),
+	stats (config.stat_config),
+	workers (std::max (3u, config.io_threads / 4), nano::thread_role::name::worker),
+	flags (flags_a),
+	work (work_a),
+	distributed_work (*this),
+	logger (config_a.logging.min_time_between_log_output),
+	store_impl (nano::make_store (logger, application_path_a, flags.read_only, true, config_a.rocksdb_config, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_config, config_a.backup_before_upgrade)),
+	store (*store_impl),
+	wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (application_path_a / "wallets.ldb", config_a.lmdb_config)),
+	wallets_store (*wallets_store_impl),
+	gap_cache (*this),
+	ledger (store, stats, flags_a.generate_cache),
+	checker (config.signature_checker_threads),
+	network (*this, config.peering_port),
+	telemetry (std::make_shared<nano::telemetry> (network, workers, observers.telemetry, stats, network_params, flags.disable_ongoing_telemetry_requests)),
+	bootstrap_initiator (*this),
+	bootstrap (config.peering_port, *this),
+	application_path (application_path_a),
+	port_mapping (*this),
+	rep_crawler (*this),
+	vote_processor (checker, active, observers, stats, config, flags, logger, online_reps, rep_crawler, ledger, network_params),
+	warmed_up (0),
+	block_processor (*this, write_database_queue),
+	// clang-format off
+	block_processor_thread ([this]() {
+		nano::thread_role::set (nano::thread_role::name::block_processing);
+		this->block_processor.process_blocks ();
+	}),
+	// clang-format on
+	online_reps (ledger, config),
+	history{ config.network_params.voting },
+	vote_uniquer (block_uniquer),
+	confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, config.logging, logger, node_initialized_latch, flags.confirmation_height_processor_mode),
+	active (*this, confirmation_height_processor),
+	scheduler{ *this },
+	aggregator (network_params.network, config, stats, active.generator, history, ledger, wallets, active),
+	wallets (wallets_store.init_error (), *this),
+	startup_time (std::chrono::steady_clock::now ()),
+	node_seq (seq)
 {
 	if (!init_error ())
 	{
@@ -371,7 +371,7 @@ node_seq (seq)
 		{
 			std::stringstream ss;
 			ss << "Genesis block not found. This commonly indicates a configuration issue, check that the --network or --data_path command line arguments are correct, "
-			      "and also the ledger backend node config option. If using a read-only CLI command a ledger must already exist, start the node with --daemon first.";
+				  "and also the ledger backend node config option. If using a read-only CLI command a ledger must already exist, start the node with --daemon first.";
 			if (network_params.network.is_beta_network ())
 			{
 				ss << " Beta network may have reset, try clearing database files";
@@ -1553,14 +1553,14 @@ void nano::node::epoch_upgrader_impl (nano::raw_key const & prv_a, nano::epoch e
 					auto difficulty (nano::work_threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true)));
 					nano::root const & root (info.head);
 					std::shared_ptr<nano::block> epoch = builder.state ()
-					                                     .account (account)
-					                                     .previous (info.head)
-					                                     .representative (info.representative)
-					                                     .balance (info.balance)
-					                                     .link (link)
-					                                     .sign (raw_key, signer)
-					                                     .work (0)
-					                                     .build ();
+														 .account (account)
+														 .previous (info.head)
+														 .representative (info.representative)
+														 .balance (info.balance)
+														 .link (link)
+														 .sign (raw_key, signer)
+														 .work (0)
+														 .build ();
 					if (threads != 0)
 					{
 						{
@@ -1632,14 +1632,14 @@ void nano::node::epoch_upgrader_impl (nano::raw_key const & prv_a, nano::epoch e
 						nano::root const & root (key.account);
 						nano::account const & account (key.account);
 						std::shared_ptr<nano::block> epoch = builder.state ()
-						                                     .account (key.account)
-						                                     .previous (0)
-						                                     .representative (0)
-						                                     .balance (0)
-						                                     .link (link)
-						                                     .sign (raw_key, signer)
-						                                     .work (0)
-						                                     .build ();
+															 .account (key.account)
+															 .previous (0)
+															 .representative (0)
+															 .balance (0)
+															 .link (link)
+															 .sign (raw_key, signer)
+															 .work (0)
+															 .build ();
 						if (threads != 0)
 						{
 							{
@@ -1766,8 +1766,8 @@ void nano::node::populate_backlog ()
 }
 
 nano::node_wrapper::node_wrapper (boost::filesystem::path const & path_a, boost::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a) :
-io_context (std::make_shared<boost::asio::io_context> ()),
-work (1)
+	io_context (std::make_shared<boost::asio::io_context> ()),
+	work (1)
 {
 	boost::system::error_code error_chmod;
 
@@ -1786,7 +1786,7 @@ work (1)
 			std::cerr << " or --config option";
 		}
 		std::cerr << "\n"
-		          << error.get_message () << std::endl;
+				  << error.get_message () << std::endl;
 		std::exit (1);
 	}
 
@@ -1804,14 +1804,14 @@ nano::node_wrapper::~node_wrapper ()
 }
 
 nano::inactive_node::inactive_node (boost::filesystem::path const & path_a, boost::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a) :
-node_wrapper (path_a, config_path_a, node_flags_a),
-node (node_wrapper.node)
+	node_wrapper (path_a, config_path_a, node_flags_a),
+	node (node_wrapper.node)
 {
 	node_wrapper.node->active.stop ();
 }
 
 nano::inactive_node::inactive_node (boost::filesystem::path const & path_a, nano::node_flags const & node_flags_a) :
-inactive_node (path_a, path_a, node_flags_a)
+	inactive_node (path_a, path_a, node_flags_a)
 {
 }
 

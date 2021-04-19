@@ -49,7 +49,7 @@ std::size_t nano::get_filedescriptor_limit ()
 }
 
 nano::container_info_composite::container_info_composite (std::string const & name) :
-name (name)
+	name (name)
 {
 }
 
@@ -74,7 +74,7 @@ const std::string & nano::container_info_composite::get_name () const
 }
 
 nano::container_info_leaf::container_info_leaf (const container_info & info) :
-info (info)
+	info (info)
 {
 }
 
@@ -131,8 +131,8 @@ void nano::move_all_files_to_dir (boost::filesystem::path const & from, boost::f
 void assert_internal (const char * check_expr, const char * func, const char * file, unsigned int line, bool is_release_assert, std::string_view error_msg)
 {
 	std::cerr << "Assertion (" << check_expr << ") failed\n"
-	          << func << "\n"
-	          << file << ":" << line << "\n";
+			  << func << "\n"
+			  << file << ":" << line << "\n";
 	if (!error_msg.empty ())
 	{
 		std::cerr << "Error: " << error_msg << "\n";
