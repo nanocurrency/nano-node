@@ -383,6 +383,16 @@ public:
 	nano::block_hash genesis_hash;
 	nano::uint128_t genesis_amount;
 	nano::account burn_account;
+	nano::account nano_dev_final_votes_canary_account;
+	nano::account nano_beta_final_votes_canary_account;
+	nano::account nano_live_final_votes_canary_account;
+	nano::account nano_test_final_votes_canary_account;
+	nano::account final_votes_canary_account;
+	uint64_t nano_dev_final_votes_canary_height;
+	uint64_t nano_beta_final_votes_canary_height;
+	uint64_t nano_live_final_votes_canary_height;
+	uint64_t nano_test_final_votes_canary_height;
+	uint64_t final_votes_canary_height;
 	nano::epochs epochs;
 };
 
@@ -505,6 +515,7 @@ public:
 	std::atomic<uint64_t> block_count{ 0 };
 	std::atomic<uint64_t> pruned_count{ 0 };
 	std::atomic<uint64_t> account_count{ 0 };
+	std::atomic<bool> final_votes_confirmation_canary{ false };
 };
 
 /* Defines the possible states for an election to stop in */
@@ -523,6 +534,7 @@ class election_status final
 public:
 	std::shared_ptr<nano::block> winner;
 	nano::amount tally;
+	nano::amount final_tally;
 	std::chrono::milliseconds election_end;
 	std::chrono::milliseconds election_duration;
 	unsigned confirmation_request_count;

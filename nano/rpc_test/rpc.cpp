@@ -6306,6 +6306,7 @@ TEST (rpc, confirmation_history)
 	ASSERT_NE (representatives.end (), item);
 	auto hash (item->second.get<std::string> ("hash"));
 	auto tally (item->second.get<std::string> ("tally"));
+	auto final_tally (item->second.get<std::string> ("final"));
 	ASSERT_EQ (1, item->second.count ("duration"));
 	ASSERT_EQ (1, item->second.count ("time"));
 	ASSERT_EQ (1, item->second.count ("request_count"));
