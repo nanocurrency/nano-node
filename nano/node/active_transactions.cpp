@@ -1050,9 +1050,8 @@ bool nano::active_transactions::update_difficulty_impl (nano::active_transaction
 	return error;
 }
 
-bool nano::active_transactions::restart (nano::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a)
+void nano::active_transactions::restart (nano::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a)
 {
-	bool error = true;
 	auto hash (block_a->hash ());
 	auto ledger_block (node.store.block_get (transaction_a, hash));
 	if (ledger_block != nullptr && ledger_block->block_work () != block_a->block_work () && !node.block_confirmed_or_being_confirmed (transaction_a, hash))
@@ -1069,17 +1068,14 @@ bool nano::active_transactions::restart (nano::transaction const & transaction_a
 			// Restart election for the upgraded block, previously dropped from elections
 			if (node.ledger.dependents_confirmed (transaction_a, *ledger_block))
 			{
+				node.stats.inc (nano::stat::type::election, nano::stat::detail::election_restart);
 				auto previous_balance = node.ledger.balance (transaction_a, ledger_block->previous ());
-				auto insert_result = insert (ledger_block, previous_balance);
-				if (insert_result.inserted)
-				{
-					error = false;
-					node.stats.inc (nano::stat::type::election, nano::stat::detail::election_restart);
-				}
+				auto block_has_account = ledger_block->type () == nano::block_type::state || ledger_block->type () == nano::block_type::open;
+				auto account = block_has_account ? ledger_block->account () : ledger_block->sideband ().account;
+				activate (account);
 			}
 		}
 	}
-	return error;
 }
 
 double nano::active_transactions::normalized_multiplier (nano::block const & block_a, boost::optional<nano::active_transactions::roots_iterator> const & root_it_a) const
@@ -1495,7 +1491,7 @@ nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_
 {
 	debug_assert (!lock_a.owns_lock ());
 	nano::inactive_cache_status status (previously_a);
-	constexpr unsigned election_start_voters_min{ 5 };
+	const unsigned election_start_voters_min = node.network_params.network.is_dev_network () ? 2 : node.network_params.network.is_beta_network () ? 5 : 15;
 	status.tally = tally_a;
 	if (!previously_a.confirmed && tally_a >= node.online_reps.delta ())
 	{
@@ -1517,11 +1513,8 @@ nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_
 		auto block = node.store.block_get (transaction, hash_a);
 		if (block && status.election_started && !previously_a.election_started && !node.block_confirmed_or_being_confirmed (transaction, hash_a))
 		{
-			if (node.ledger.cache.cemented_count >= node.ledger.bootstrap_weight_max_blocks)
-			{
-				lock_a.lock ();
-				insert_impl (lock_a, block);
-			}
+			lock_a.lock ();
+			insert_impl (lock_a, block);
 		}
 		else if (!block && status.bootstrap_started && !previously_a.bootstrap_started && (!node.ledger.pruning || !node.store.pruned_exists (transaction, hash_a)))
 		{
