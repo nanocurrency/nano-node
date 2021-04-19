@@ -5,7 +5,7 @@
 
 using namespace std::chrono_literals;
 
-TEST (work_watcher, update)
+TEST (work_watcher, DISABLED_update)
 {
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
@@ -15,15 +15,17 @@ TEST (work_watcher, update)
 	nano::node_flags node_flags;
 	node_flags.disable_request_loop = true;
 	auto & node = *system.add_node (node_config, node_flags);
-	auto & wallet (*system.wallet (0));
+	auto & wallet = *system.wallet (0);
 	wallet.insert_adhoc (nano::dev_genesis_key.prv);
 	nano::keypair key;
-	auto const block1 (wallet.send_action (nano::dev_genesis_key.pub, key.pub, 100));
-	auto difficulty1 (block1->difficulty ());
-	auto multiplier1 (nano::normalized_multiplier (nano::difficulty::to_multiplier (difficulty1, nano::work_threshold (block1->work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false))), node.network_params.network.publish_thresholds.epoch_1));
-	auto const block2 (wallet.send_action (nano::dev_genesis_key.pub, key.pub, 200));
-	auto difficulty2 (block2->difficulty ());
-	auto multiplier2 (nano::normalized_multiplier (nano::difficulty::to_multiplier (difficulty2, nano::work_threshold (block2->work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false))), node.network_params.network.publish_thresholds.epoch_1));
+	auto const block1 = wallet.send_action (nano::dev_genesis_key.pub, key.pub, 100);
+	auto difficulty1 = block1->difficulty ();
+	auto multiplier1 = nano::normalized_multiplier (nano::difficulty::to_multiplier (difficulty1, nano::work_threshold (block1->work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false))), node.network_params.network.publish_thresholds.epoch_1);
+	auto const block2 = wallet.send_action (nano::dev_genesis_key.pub, key.pub, 200);
+	auto difficulty2 = block2->difficulty ();
+	auto multiplier2 = nano::normalized_multiplier (nano::difficulty::to_multiplier (difficulty2, nano::work_threshold (block2->work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false))), node.network_params.network.publish_thresholds.epoch_1);
+	node.block_processor.flush ();
+	node.scheduler.flush ();
 	double updated_multiplier1{ multiplier1 }, updated_multiplier2{ multiplier2 }, target_multiplier{ std::max (multiplier1, multiplier2) + 1e-6 };
 	{
 		nano::lock_guard<nano::mutex> guard (node.active.mutex);
@@ -35,13 +37,13 @@ TEST (work_watcher, update)
 		{
 			nano::lock_guard<nano::mutex> guard (node.active.mutex);
 			{
-				auto const existing (node.active.roots.find (block1->qualified_root ()));
+				auto const existing = node.active.roots.find (block1->qualified_root ());
 				//if existing is junk the block has been confirmed already
 				ASSERT_NE (existing, node.active.roots.end ());
 				updated_multiplier1 = existing->multiplier;
 			}
 			{
-				auto const existing (node.active.roots.find (block2->qualified_root ()));
+				auto const existing = node.active.roots.find (block2->qualified_root ());
 				//if existing is junk the block has been confirmed already
 				ASSERT_NE (existing, node.active.roots.end ());
 				updated_multiplier2 = existing->multiplier;
@@ -254,7 +256,7 @@ TEST (work_watcher, confirm_while_generating)
 	ASSERT_TIMELY (5s, 0 != node.work.size ());
 	// Attach a callback to work cancellations
 	std::atomic<bool> notified{ false };
-	node.observers.work_cancel.add ([&notified, &block1](nano::root const & root_a) {
+	node.observers.work_cancel.add ([&notified, &block1] (nano::root const & root_a) {
 		EXPECT_EQ (root_a, block1->root ());
 		notified = true;
 	});

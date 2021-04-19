@@ -71,7 +71,7 @@ TEST (system, receive_while_synchronizing)
 		node1->start ();
 		system.nodes.push_back (node1);
 		ASSERT_NE (nullptr, nano::establish_tcp (system, *node1, node->network.endpoint ()));
-		node1->workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (200), ([&system, &key]() {
+		node1->workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (200), ([&system, &key] () {
 			auto hash (system.wallet (0)->send_sync (nano::dev_genesis_key.pub, key.pub, system.nodes[0]->config.receive_minimum.number ()));
 			auto transaction (system.nodes[0]->store.tx_begin_read ());
 			auto block (system.nodes[0]->store.block_get (transaction, hash));
@@ -137,10 +137,10 @@ TEST (wallet, multithreaded_send_async)
 		wallet_l->insert_adhoc (key.prv);
 		for (auto i (0); i < 20; ++i)
 		{
-			threads.push_back (boost::thread ([wallet_l, &key]() {
+			threads.push_back (boost::thread ([wallet_l, &key] () {
 				for (auto i (0); i < 1000; ++i)
 				{
-					wallet_l->send_async (nano::dev_genesis_key.pub, key.pub, 1000, [](std::shared_ptr<nano::block> const & block_a) {
+					wallet_l->send_async (nano::dev_genesis_key.pub, key.pub, 1000, [] (std::shared_ptr<nano::block> const & block_a) {
 						ASSERT_FALSE (block_a == nullptr);
 						ASSERT_FALSE (block_a->hash ().is_zero ());
 					});
@@ -161,7 +161,7 @@ TEST (store, load)
 	std::vector<boost::thread> threads;
 	for (auto i (0); i < 100; ++i)
 	{
-		threads.push_back (boost::thread ([&system]() {
+		threads.push_back (boost::thread ([&system] () {
 			for (auto i (0); i != 1000; ++i)
 			{
 				auto transaction (system.nodes[0]->store.tx_begin_write ());
@@ -218,7 +218,7 @@ TEST (node, fork_storm)
 	{
 		auto empty = 0;
 		auto single = 0;
-		std::for_each (system.nodes.begin (), system.nodes.end (), [&](std::shared_ptr<nano::node> const & node_a) {
+		std::for_each (system.nodes.begin (), system.nodes.end (), [&] (std::shared_ptr<nano::node> const & node_a) {
 			if (node_a->active.empty ())
 			{
 				++empty;
@@ -475,7 +475,7 @@ TEST (wallets, rep_scan)
 		}
 	}
 	auto begin (std::chrono::steady_clock::now ());
-	node.wallets.foreach_representative ([](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
+	node.wallets.foreach_representative ([] (nano::public_key const & pub_a, nano::raw_key const & prv_a) {
 	});
 	ASSERT_LT (std::chrono::steady_clock::now () - begin, std::chrono::milliseconds (5));
 }
@@ -535,10 +535,10 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 	{
 		auto block = node->block (last_open_hash);
 		ASSERT_NE (nullptr, block);
-		auto election_insertion_result (node->active.insert (block));
-		ASSERT_TRUE (election_insertion_result.inserted);
-		ASSERT_NE (nullptr, election_insertion_result.election);
-		election_insertion_result.election->force_confirm ();
+		node->scheduler.manual (block);
+		auto election = node->active.election (block->qualified_root ());
+		ASSERT_NE (nullptr, election);
+		election->force_confirm ();
 	}
 
 	ASSERT_TIMELY (120s, node->ledger.block_confirmed (node->store.tx_begin_read (), last_open_hash));
@@ -603,10 +603,10 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 	// Confirm all of the accounts
 	for (auto & open_block : open_blocks)
 	{
-		auto election_insertion_result (node->active.insert (open_block));
-		ASSERT_TRUE (election_insertion_result.inserted);
-		ASSERT_NE (nullptr, election_insertion_result.election);
-		election_insertion_result.election->force_confirm ();
+		node->scheduler.manual (open_block);
+		auto election = node->active.election (open_block->qualified_root ());
+		ASSERT_NE (nullptr, election);
+		election->force_confirm ();
 	}
 
 	auto const num_blocks_to_confirm = (num_accounts - 1) * 2;
@@ -690,10 +690,10 @@ TEST (confirmation_height, long_chains)
 
 	// Call block confirm on the existing receive block on the genesis account which will confirm everything underneath on both accounts
 	{
-		auto election_insertion_result (node->active.insert (receive1));
-		ASSERT_TRUE (election_insertion_result.inserted);
-		ASSERT_NE (nullptr, election_insertion_result.election);
-		election_insertion_result.election->force_confirm ();
+		node->scheduler.manual (receive1);
+		auto election = node->active.election (receive1->qualified_root ());
+		ASSERT_NE (nullptr, election);
+		election->force_confirm ();
 	}
 
 	ASSERT_TIMELY (30s, node->ledger.block_confirmed (node->store.tx_begin_read (), receive1->hash ()));
@@ -793,7 +793,7 @@ TEST (confirmation_height, dynamic_algorithm_no_transition_while_pending)
 		std::vector<std::shared_ptr<nano::state_block>> state_blocks;
 		auto const num_blocks = nano::confirmation_height::unbounded_cutoff - 2;
 
-		auto add_block_to_genesis_chain = [&](nano::write_transaction & transaction) {
+		auto add_block_to_genesis_chain = [&] (nano::write_transaction & transaction) {
 			static int num = 0;
 			auto send (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, latest_genesis, nano::dev_genesis_key.pub, nano::genesis_amount - num - 1, key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (latest_genesis)));
 			latest_genesis = send->hash ();
@@ -1258,8 +1258,8 @@ namespace transport
 		// The test waits until all telemetry_ack messages have been received.
 		for (int i = 0; i < num_threads; ++i)
 		{
-			threads.emplace_back ([&node_data, &shared_data]() {
-				while (std::any_of (node_data.cbegin (), node_data.cend (), [](auto const & data) { return data.keep_requesting_metrics.load (); }))
+			threads.emplace_back ([&node_data, &shared_data] () {
+				while (std::any_of (node_data.cbegin (), node_data.cend (), [] (auto const & data) { return data.keep_requesting_metrics.load (); }))
 				{
 					for (auto & data : node_data)
 					{
@@ -1270,7 +1270,7 @@ namespace transport
 
 							// Pick first peer to be consistent
 							auto peer = data.node->network.tcp_channels.channels[0].channel;
-							data.node->telemetry->get_metrics_single_peer_async (peer, [&shared_data, &data, &node_data](nano::telemetry_data_response const & telemetry_data_response_a) {
+							data.node->telemetry->get_metrics_single_peer_async (peer, [&shared_data, &data, &node_data] (nano::telemetry_data_response const & telemetry_data_response_a) {
 								ASSERT_FALSE (telemetry_data_response_a.error);
 								callback_process (shared_data, data, node_data, telemetry_data_response_a.telemetry_data.timestamp);
 							});
@@ -1286,7 +1286,7 @@ namespace transport
 
 		ASSERT_TIMELY (30s, shared_data.done);
 
-		ASSERT_TRUE (std::all_of (node_data.begin (), node_data.end (), [](auto const & data) { return !data.keep_requesting_metrics; }));
+		ASSERT_TRUE (std::all_of (node_data.begin (), node_data.end (), [] (auto const & data) { return !data.keep_requesting_metrics; }));
 
 		for (auto & thread : threads)
 		{
@@ -1320,7 +1320,7 @@ TEST (telemetry, under_load)
 	node->process_active (open);
 	auto latest_key = open->hash ();
 
-	auto thread_func = [key1, &system, node, num_blocks](nano::keypair const & keypair, nano::block_hash const & latest, nano::uint128_t const initial_amount) {
+	auto thread_func = [key1, &system, node, num_blocks] (nano::keypair const & keypair, nano::block_hash const & latest, nano::uint128_t const initial_amount) {
 		auto latest_l = latest;
 		for (int i = 0; i < num_blocks; ++i)
 		{
@@ -1363,7 +1363,7 @@ TEST (telemetry, all_peers_use_single_request_cache)
 	{
 		std::atomic<bool> done{ false };
 		auto channel = node_client->network.find_channel (node_server->network.endpoint ());
-		node_client->telemetry->get_metrics_single_peer_async (channel, [&done, &telemetry_data](nano::telemetry_data_response const & response_a) {
+		node_client->telemetry->get_metrics_single_peer_async (channel, [&done, &telemetry_data] (nano::telemetry_data_response const & response_a) {
 			telemetry_data = response_a.telemetry_data;
 			done = true;
 		});
@@ -1391,7 +1391,7 @@ TEST (telemetry, all_peers_use_single_request_cache)
 	{
 		std::atomic<bool> done{ false };
 		auto channel = node_client->network.find_channel (node_server->network.endpoint ());
-		node_client->telemetry->get_metrics_single_peer_async (channel, [&done, &telemetry_data](nano::telemetry_data_response const & response_a) {
+		node_client->telemetry->get_metrics_single_peer_async (channel, [&done, &telemetry_data] (nano::telemetry_data_response const & response_a) {
 			telemetry_data = response_a.telemetry_data;
 			done = true;
 		});
@@ -1464,7 +1464,7 @@ TEST (telemetry, many_nodes)
 	ASSERT_EQ (peers.size (), num_nodes - 1);
 	for (auto const & peer : peers)
 	{
-		node_client->telemetry->get_metrics_single_peer_async (peer, [&telemetry_datas, &mutex](nano::telemetry_data_response const & response_a) {
+		node_client->telemetry->get_metrics_single_peer_async (peer, [&telemetry_datas, &mutex] (nano::telemetry_data_response const & response_a) {
 			ASSERT_FALSE (response_a.error);
 			nano::lock_guard<nano::mutex> guard (mutex);
 			telemetry_datas.push_back (response_a.telemetry_data);
@@ -1506,7 +1506,7 @@ TEST (telemetry, many_nodes)
 	// We gave some nodes different bandwidth caps, confirm they are not all the same
 	auto bandwidth_cap = telemetry_datas.front ().bandwidth_cap;
 	telemetry_datas.erase (telemetry_datas.begin ());
-	auto all_bandwidth_limits_same = std::all_of (telemetry_datas.begin (), telemetry_datas.end (), [bandwidth_cap](auto & telemetry_data) {
+	auto all_bandwidth_limits_same = std::all_of (telemetry_datas.begin (), telemetry_datas.end (), [bandwidth_cap] (auto & telemetry_data) {
 		return telemetry_data.bandwidth_cap == bandwidth_cap;
 	});
 	ASSERT_FALSE (all_bandwidth_limits_same);
@@ -1517,7 +1517,7 @@ TEST (signature_checker, mass_boundary_checks)
 {
 	// sizes container must be in incrementing order
 	std::vector<size_t> sizes{ 0, 1 };
-	auto add_boundary = [&sizes](size_t boundary) {
+	auto add_boundary = [&sizes] (size_t boundary) {
 		sizes.insert (sizes.end (), { boundary - 1, boundary, boundary + 1 });
 	};
 
@@ -1561,7 +1561,7 @@ TEST (signature_checker, mass_boundary_checks)
 			}
 			nano::signature_check_set check = { size, messages.data (), lengths.data (), pub_keys.data (), signatures.data (), verifications.data () };
 			checker.verify (check);
-			bool all_valid = std::all_of (verifications.cbegin (), verifications.cend (), [](auto verification) { return verification == 1; });
+			bool all_valid = std::all_of (verifications.cbegin (), verifications.cend (), [] (auto verification) { return verification == 1; });
 			ASSERT_TRUE (all_valid);
 			last_size = size;
 		}
@@ -1572,7 +1572,7 @@ TEST (signature_checker, mass_boundary_checks)
 // Possible to manually add work peers
 TEST (node, mass_epoch_upgrader)
 {
-	auto perform_test = [](size_t const batch_size) {
+	auto perform_test = [] (size_t const batch_size) {
 		unsigned threads = 5;
 		size_t total_accounts = 2500;
 
@@ -1709,7 +1709,7 @@ TEST (node, mass_block_new)
 	system.upgrade_genesis_epoch (node, nano::epoch::epoch_2);
 
 	auto next_block_count = num_blocks + 3;
-	auto process_all = [&](std::vector<std::shared_ptr<nano::state_block>> const & blocks_a) {
+	auto process_all = [&] (std::vector<std::shared_ptr<nano::state_block>> const & blocks_a) {
 		for (auto const & block : blocks_a)
 		{
 			node.process_active (block);
@@ -1843,7 +1843,7 @@ TEST (node, wallet_create_block_confirm_conflicts)
 
 		// Keep creating wallets. This is to check that there is no issues present when confirming blocks at the same time.
 		std::atomic<bool> done{ false };
-		std::thread t ([node, &done]() {
+		std::thread t ([node, &done] () {
 			while (!done)
 			{
 				node->wallets.create (nano::random_wallet_id ());
@@ -1852,10 +1852,11 @@ TEST (node, wallet_create_block_confirm_conflicts)
 
 		// Call block confirm on the top level send block which will confirm everything underneath on both accounts.
 		{
-			auto election_insertion_result (node->active.insert (node->store.block_get (node->store.tx_begin_read (), latest)));
-			ASSERT_TRUE (election_insertion_result.inserted);
-			ASSERT_NE (nullptr, election_insertion_result.election);
-			election_insertion_result.election->force_confirm ();
+			auto block = node->store.block_get (node->store.tx_begin_read (), latest);
+			node->scheduler.manual (block);
+			auto election = node->active.election (block->qualified_root ());
+			ASSERT_NE (nullptr, election);
+			election->force_confirm ();
 		}
 
 		ASSERT_TIMELY (120s, node->ledger.block_confirmed (node->store.tx_begin_read (), latest) && node->confirmation_height_processor.current () == 0);

@@ -198,11 +198,11 @@ TEST (wallet, send_async)
 	nano::system system (1);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	nano::keypair key2;
-	std::thread thread ([&system]() {
+	std::thread thread ([&system] () {
 		ASSERT_TIMELY (10s, system.nodes[0]->balance (nano::dev_genesis_key.pub).is_zero ());
 	});
 	std::atomic<bool> success (false);
-	system.wallet (0)->send_async (nano::dev_genesis_key.pub, key2.pub, std::numeric_limits<nano::uint128_t>::max (), [&success](std::shared_ptr<nano::block> const & block_a) { ASSERT_NE (nullptr, block_a); success = true; });
+	system.wallet (0)->send_async (nano::dev_genesis_key.pub, key2.pub, std::numeric_limits<nano::uint128_t>::max (), [&success] (std::shared_ptr<nano::block> const & block_a) { ASSERT_NE (nullptr, block_a); success = true; });
 	thread.join ();
 	ASSERT_TIMELY (2s, success);
 }
@@ -846,7 +846,7 @@ TEST (wallet, password_race)
 	nano::system system (1);
 	nano::thread_runner runner (system.io_ctx, system.nodes[0]->config.io_threads);
 	auto wallet = system.wallet (0);
-	std::thread thread ([&wallet]() {
+	std::thread thread ([&wallet] () {
 		for (int i = 0; i < 100; i++)
 		{
 			auto transaction (wallet->wallets.tx_begin_write ());
@@ -884,21 +884,21 @@ TEST (wallet, password_race_corrupt_seed)
 	std::vector<std::thread> threads;
 	for (int i = 0; i < 100; i++)
 	{
-		threads.emplace_back ([&wallet]() {
+		threads.emplace_back ([&wallet] () {
 			for (int i = 0; i < 10; i++)
 			{
 				auto transaction (wallet->wallets.tx_begin_write ());
 				wallet->store.rekey (transaction, "0000");
 			}
 		});
-		threads.emplace_back ([&wallet]() {
+		threads.emplace_back ([&wallet] () {
 			for (int i = 0; i < 10; i++)
 			{
 				auto transaction (wallet->wallets.tx_begin_write ());
 				wallet->store.rekey (transaction, "1234");
 			}
 		});
-		threads.emplace_back ([&wallet]() {
+		threads.emplace_back ([&wallet] () {
 			for (int i = 0; i < 10; i++)
 			{
 				auto transaction (wallet->wallets.tx_begin_read ());
@@ -1175,7 +1175,7 @@ TEST (wallet, foreach_representative_deadlock)
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	node.wallets.compute_reps ();
 	ASSERT_EQ (1, node.wallets.reps ().voting);
-	node.wallets.foreach_representative ([&node](nano::public_key const & pub, nano::raw_key const & prv) {
+	node.wallets.foreach_representative ([&node] (nano::public_key const & pub, nano::raw_key const & prv) {
 		if (node.wallets.mutex.try_lock ())
 		{
 			node.wallets.mutex.unlock ();
@@ -1244,14 +1244,14 @@ TEST (wallet, receive_pruned)
 	nano::system system;
 	nano::node_flags node_flags;
 	node_flags.disable_request_loop = true;
-	auto & node1 (*system.add_node (node_flags));
+	auto & node1 = *system.add_node (node_flags);
 	node_flags.enable_pruning = true;
 	nano::node_config config (nano::get_available_port (), system.logging);
 	config.enable_voting = false; // Remove after allowing pruned voting
-	auto & node2 (*system.add_node (config, node_flags));
+	auto & node2 = *system.add_node (config, node_flags);
 
-	auto & wallet1 (*system.wallet (0));
-	auto & wallet2 (*system.wallet (1));
+	auto & wallet1 = *system.wallet (0);
+	auto & wallet2 = *system.wallet (1);
 
 	nano::keypair key;
 	nano::state_block_builder builder;
@@ -1265,7 +1265,7 @@ TEST (wallet, receive_pruned)
 	// Pruning
 	ASSERT_TIMELY (5s, node2.ledger.cache.cemented_count == 3);
 	{
-		auto transaction (node2.store.tx_begin_write ());
+		auto transaction = node2.store.tx_begin_write ();
 		ASSERT_EQ (1, node2.ledger.pruning_action (transaction, send1->hash (), 2));
 	}
 	ASSERT_EQ (1, node2.ledger.cache.pruned_count);

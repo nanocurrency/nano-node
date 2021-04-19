@@ -1224,6 +1224,8 @@ TEST (bulk, offline_send)
 	auto send1 (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key2.pub, node1->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, send1);
 	ASSERT_NE (std::numeric_limits<nano::uint256_t>::max (), node1->balance (nano::dev_genesis_key.pub));
+	node1->block_processor.flush ();
+	node1->scheduler.flush ();
 	// Wait to finish election background tasks
 	ASSERT_TIMELY (10s, node1->active.empty ());
 	ASSERT_TRUE (node1->block_confirmed (send1->hash ()));
