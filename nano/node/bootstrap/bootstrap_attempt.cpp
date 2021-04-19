@@ -129,6 +129,11 @@ bool nano::bootstrap_attempt::request_bulk_push_target (std::pair<nano::block_ha
 	return true;
 }
 
+void nano::bootstrap_attempt::set_start_account (nano::account const &)
+{
+	debug_assert (mode == nano::bootstrap_mode::legacy);
+}
+
 bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> const & block_a, nano::account const & known_account_a, uint64_t pull_blocks_processed, nano::bulk_pull::count_t max_blocks, bool block_expected, unsigned retry_limit)
 {
 	bool stop_pull (false);

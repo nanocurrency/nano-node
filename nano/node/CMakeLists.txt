@@ -105,6 +105,8 @@ add_library(
   peer_exclusion.cpp
   portmapping.hpp
   portmapping.cpp
+  prioritization.cpp
+  prioritization.hpp
   node_pow_server_config.hpp
   node_pow_server_config.cpp
   repcrawler.hpp
