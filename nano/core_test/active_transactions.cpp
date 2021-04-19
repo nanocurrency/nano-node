@@ -174,7 +174,6 @@ TEST (active_transactions, keep_local)
 	node.process_active (open2);
 	node.process_active (open3);
 	node.block_processor.flush ();
-	node.scheduler.flush ();
 	// bound elections, should drop after one loop
 	ASSERT_TIMELY (1s, node.active.size () == node_config.active_elections_size);
 	ASSERT_EQ (1, node.scheduler.size ());
@@ -232,12 +231,12 @@ TEST (active_transactions, inactive_votes_cache_fork)
 	ASSERT_NE (nullptr, node.block (send2->hash ()));
 	node.network.process_message (nano::publish (send1), channel1);
 	node.block_processor.flush ();
-	node.scheduler.flush ();
 	bool confirmed (false);
 	system.deadline_set (5s);
 	while (!confirmed)
 	{
-		confirmed = node.block (send1->hash ()) != nullptr && node.ledger.block_confirmed (node.store.tx_begin_read (), send1->hash ()) && node.active.empty ();
+		auto transaction (node.store.tx_begin_read ());
+		confirmed = node.block (send1->hash ()) != nullptr && node.ledger.block_confirmed (transaction, send1->hash ()) && node.active.empty ();
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::vote_cached));
@@ -1471,7 +1470,6 @@ TEST (active_transactions, restart_dropped)
 	ASSERT_EQ (0, node.active.size ());
 	node.process_active (send);
 	node.block_processor.flush ();
-	node.scheduler.flush ();
 	ASSERT_EQ (1, node.active.size ());
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::election_restart));
 	auto ledger_block (node.store.block_get (node.store.tx_begin_read (), send->hash ()));
