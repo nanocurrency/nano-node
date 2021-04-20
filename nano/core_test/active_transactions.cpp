@@ -136,6 +136,7 @@ TEST (active_transactions, keep_local)
 	ASSERT_TIMELY (5s, node.active.size () == 6);
 	for (auto const & block : { send1, send2, send3, send4, send5, send6 })
 	{
+		ASSERT_TIMELY (1s, node.active.election (block->qualified_root ()));
 		auto election = node.active.election (block->qualified_root ());
 		ASSERT_NE (nullptr, election);
 		election->force_confirm ();
@@ -341,8 +342,9 @@ TEST (active_transactions, inactive_votes_cache_multiple_votes)
 	node.vote_processor.vote (vote2, std::make_shared<nano::transport::channel_loopback> (node));
 	ASSERT_TIMELY (5s, node.active.find_inactive_votes_cache (send1->hash ()).voters.size () == 2);
 	ASSERT_EQ (1, node.active.inactive_votes_cache_size ());
-	// Start election
-	auto election = node.active.insert (send1).election;
+	node.active.insert (send1);
+	auto election = node.active.election (send1->qualified_root ());
+	ASSERT_NE (nullptr, election);
 	ASSERT_EQ (3, election->votes ().size ()); // 2 votes and 1 default not_an_acount
 	ASSERT_EQ (2, node.stats.count (nano::stat::type::election, nano::stat::detail::vote_cached));
 }
@@ -699,7 +701,8 @@ TEST (active_transactions, dropped_cleanup)
 	ASSERT_FALSE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
 	ASSERT_TRUE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
 
-	auto election (node.active.insert (block).election);
+	node.active.insert (block);
+	auto election = node.active.election (block->qualified_root ());
 	ASSERT_NE (nullptr, election);
 
 	// Not yet removed
@@ -721,7 +724,8 @@ TEST (active_transactions, dropped_cleanup)
 
 	// Repeat test for a confirmed election
 	ASSERT_TRUE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
-	election = node.active.insert (block).election;
+	node.block_confirm (block);
+	election = node.active.election (block->qualified_root ());
 	ASSERT_NE (nullptr, election);
 	election->force_confirm ();
 	ASSERT_TRUE (election->confirmed ());
@@ -843,9 +847,9 @@ TEST (active_transactions, fork_filter_cleanup)
 					.work (*system.work.generate (genesis.hash ()))
 					.build_shared ();
 		node1.process_active (fork);
+		node1.block_processor.flush ();
 	}
-	node1.block_processor.flush ();
-	ASSERT_TIMELY (3s, !node1.active.empty ());
+	ASSERT_EQ (1, node1.active.size ());
 
 	// Process correct block
 	node_config.peering_port = nano::get_available_port ();
@@ -1024,7 +1028,7 @@ TEST (active_transactions, confirmation_consistency)
 		system.deadline_set (5s);
 		while (!node.ledger.block_confirmed (node.store.tx_begin_read (), block->hash ()))
 		{
-			ASSERT_FALSE (node.active.insert (block).inserted);
+			node.active.insert (block);
 			ASSERT_NO_ERROR (system.poll (5ms));
 		}
 		ASSERT_NO_ERROR (system.poll_until_true (1s, [&node, &block, i] {
@@ -1123,19 +1127,26 @@ TEST (active_transactions, insertion_prioritization)
 		node.active.update_active_multiplier (lock);
 	};
 
-	ASSERT_TRUE (node.active.insert (blocks[2]).election->prioritized ());
+	node.block_confirm (blocks[2]);
+	ASSERT_TRUE (node.active.election (blocks[2]->qualified_root ())->prioritized ());
 	update_active_multiplier ();
-	ASSERT_FALSE (node.active.insert (blocks[3]).election->prioritized ());
+	node.block_confirm (blocks[3]);
+	ASSERT_FALSE (node.active.election (blocks[3]->qualified_root ())->prioritized ());
 	update_active_multiplier ();
-	ASSERT_TRUE (node.active.insert (blocks[1]).election->prioritized ());
+	node.block_confirm (blocks[1]);
+	ASSERT_TRUE (node.active.election (blocks[1]->qualified_root ())->prioritized ());
 	update_active_multiplier ();
-	ASSERT_FALSE (node.active.insert (blocks[4]).election->prioritized ());
+	node.block_confirm (blocks[4]);
+	ASSERT_FALSE (node.active.election (blocks[4]->qualified_root ())->prioritized ());
 	update_active_multiplier ();
-	ASSERT_TRUE (node.active.insert (blocks[0]).election->prioritized ());
+	node.block_confirm (blocks[0]);
+	ASSERT_TRUE (node.active.election (blocks[0]->qualified_root ())->prioritized ());
 	update_active_multiplier ();
-	ASSERT_FALSE (node.active.insert (blocks[5]).election->prioritized ());
+	node.block_confirm (blocks[5]);
+	ASSERT_FALSE (node.active.election (blocks[5]->qualified_root ())->prioritized ());
 	update_active_multiplier ();
-	ASSERT_FALSE (node.active.insert (blocks[6]).election->prioritized ());
+	node.block_confirm (blocks[6]);
+	ASSERT_FALSE (node.active.election (blocks[6]->qualified_root ())->prioritized ());
 
 	ASSERT_EQ (4, node.stats.count (nano::stat::type::election, nano::stat::detail::election_non_priority));
 	ASSERT_EQ (3, node.stats.count (nano::stat::type::election, nano::stat::detail::election_priority));
@@ -1580,42 +1591,40 @@ TEST (active_transactions, activate_account_chain)
 	ASSERT_EQ (nano::process_result::progress, node.process (*open).code);
 	ASSERT_EQ (nano::process_result::progress, node.process (*receive).code);
 
-	auto result = node.active.activate (nano::dev_genesis_key.pub);
-	ASSERT_TRUE (result.inserted);
+	node.active.activate (nano::dev_genesis_key.pub);
+	auto election1 = node.active.election (send->qualified_root ());
 	ASSERT_EQ (1, node.active.size ());
-	ASSERT_EQ (1, result.election->blocks ().count (send->hash ()));
-	auto result2 = node.active.activate (nano::dev_genesis_key.pub);
-	ASSERT_FALSE (result2.inserted);
-	ASSERT_EQ (result2.election, result.election);
-	result.election->force_confirm ();
+	ASSERT_EQ (1, election1->blocks ().count (send->hash ()));
+	node.active.activate (nano::dev_genesis_key.pub);
+	auto election2 = node.active.election (send->qualified_root ());
+	ASSERT_EQ (election2, election1);
+	election1->force_confirm ();
 	ASSERT_TIMELY (3s, node.block_confirmed (send->hash ()));
 	// On cementing, the next election is started
 	ASSERT_TIMELY (3s, node.active.active (send2->qualified_root ()));
-	auto result3 = node.active.activate (nano::dev_genesis_key.pub);
-	ASSERT_FALSE (result3.inserted);
-	ASSERT_NE (nullptr, result3.election);
-	ASSERT_EQ (1, result3.election->blocks ().count (send2->hash ()));
-	result3.election->force_confirm ();
+	node.active.activate (nano::dev_genesis_key.pub);
+	auto election3 = node.active.election (send2->qualified_root ());
+	ASSERT_NE (nullptr, election3);
+	ASSERT_EQ (1, election3->blocks ().count (send2->hash ()));
+	election3->force_confirm ();
 	ASSERT_TIMELY (3s, node.block_confirmed (send2->hash ()));
 	// On cementing, the next election is started
 	ASSERT_TIMELY (3s, node.active.active (open->qualified_root ()));
 	ASSERT_TIMELY (3s, node.active.active (send3->qualified_root ()));
-	auto result4 = node.active.activate (nano::dev_genesis_key.pub);
-	ASSERT_FALSE (result4.inserted);
-	ASSERT_NE (nullptr, result4.election);
-	ASSERT_EQ (1, result4.election->blocks ().count (send3->hash ()));
-	auto result5 = node.active.activate (key.pub);
-	ASSERT_FALSE (result5.inserted);
-	ASSERT_NE (nullptr, result5.election);
-	ASSERT_EQ (1, result5.election->blocks ().count (open->hash ()));
-	result5.election->force_confirm ();
+	node.active.activate (nano::dev_genesis_key.pub);
+	auto election4 = node.active.election (send3->qualified_root ());
+	ASSERT_NE (nullptr, election4);
+	ASSERT_EQ (1, election4->blocks ().count (send3->hash ()));
+	node.active.activate (key.pub);
+	auto election5 = node.active.election (open->qualified_root ());
+	ASSERT_NE (nullptr, election5);
+	ASSERT_EQ (1, election5->blocks ().count (open->hash ()));
+	election5->force_confirm ();
 	ASSERT_TIMELY (3s, node.block_confirmed (open->hash ()));
 	// Until send3 is also confirmed, the receive block should not activate
 	std::this_thread::sleep_for (200ms);
-	auto result6 = node.active.activate (key.pub);
-	ASSERT_FALSE (result6.inserted);
-	ASSERT_EQ (nullptr, result6.election);
-	result4.election->force_confirm ();
+	node.active.activate (key.pub);
+	election4->force_confirm ();
 	ASSERT_TIMELY (3s, node.block_confirmed (send3->hash ()));
 	ASSERT_TIMELY (3s, node.active.active (receive->qualified_root ()));
 }
