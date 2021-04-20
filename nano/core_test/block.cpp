@@ -319,16 +319,25 @@ TEST (state_block, serialization)
 {
 	nano::keypair key1;
 	nano::keypair key2;
-	nano::state_block block1 (key1.pub, 1, key2.pub, 2, 4, key1.prv, key1.pub, 5);
-	ASSERT_EQ (key1.pub, block1.hashables.account);
-	ASSERT_EQ (nano::block_hash (1), block1.previous ());
-	ASSERT_EQ (key2.pub, block1.hashables.representative);
-	ASSERT_EQ (nano::amount (2), block1.hashables.balance);
-	ASSERT_EQ (nano::uint256_union (4), block1.hashables.link);
+	nano::state_block_builder builder;
+	auto block1 = builder
+	              .account (key1.pub)
+	              .previous (1)
+	              .representative (key2.pub)
+	              .balance (2)
+	              .link (4)
+	              .sign (key1.prv, key1.pub)
+	              .work (5)
+	              .build_shared ();
+	ASSERT_EQ (key1.pub, block1->hashables.account);
+	ASSERT_EQ (nano::block_hash (1), block1->previous ());
+	ASSERT_EQ (key2.pub, block1->hashables.representative);
+	ASSERT_EQ (nano::amount (2), block1->hashables.balance);
+	ASSERT_EQ (nano::uint256_union (4), block1->hashables.link);
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream (bytes);
-		block1.serialize (stream);
+		block1->serialize (stream);
 	}
 	ASSERT_EQ (0x5, bytes[215]); // Ensure work is serialized big-endian
 	ASSERT_EQ (nano::state_block::size, bytes.size ());
@@ -336,7 +345,7 @@ TEST (state_block, serialization)
 	nano::bufferstream stream (bytes.data (), bytes.size ());
 	nano::state_block block2 (error1, stream);
 	ASSERT_FALSE (error1);
-	ASSERT_EQ (block1, block2);
+	ASSERT_EQ (*block1, block2);
 	block2.hashables.account.clear ();
 	block2.hashables.previous.clear ();
 	block2.hashables.representative.clear ();
@@ -346,16 +355,16 @@ TEST (state_block, serialization)
 	block2.work = 0;
 	nano::bufferstream stream2 (bytes.data (), bytes.size ());
 	ASSERT_FALSE (block2.deserialize (stream2));
-	ASSERT_EQ (block1, block2);
+	ASSERT_EQ (*block1, block2);
 	std::string json;
-	block1.serialize_json (json);
+	block1->serialize_json (json);
 	std::stringstream body (json);
 	boost::property_tree::ptree tree;
 	boost::property_tree::read_json (body, tree);
 	bool error2 (false);
 	nano::state_block block3 (error2, tree);
 	ASSERT_FALSE (error2);
-	ASSERT_EQ (block1, block3);
+	ASSERT_EQ (*block1, block3);
 	block3.hashables.account.clear ();
 	block3.hashables.previous.clear ();
 	block3.hashables.representative.clear ();
@@ -364,45 +373,54 @@ TEST (state_block, serialization)
 	block3.signature.clear ();
 	block3.work = 0;
 	ASSERT_FALSE (block3.deserialize_json (tree));
-	ASSERT_EQ (block1, block3);
+	ASSERT_EQ (*block1, block3);
 }
 
 TEST (state_block, hashing)
 {
 	nano::keypair key;
-	nano::state_block block (key.pub, 0, key.pub, 0, 0, key.prv, key.pub, 0);
-	auto hash (block.hash ());
-	ASSERT_EQ (hash, block.hash ()); // check cache works
-	block.hashables.account.bytes[0] ^= 0x1;
-	block.refresh ();
-	ASSERT_NE (hash, block.hash ());
-	block.hashables.account.bytes[0] ^= 0x1;
-	block.refresh ();
-	ASSERT_EQ (hash, block.hash ());
-	block.hashables.previous.bytes[0] ^= 0x1;
-	block.refresh ();
-	ASSERT_NE (hash, block.hash ());
-	block.hashables.previous.bytes[0] ^= 0x1;
-	block.refresh ();
-	ASSERT_EQ (hash, block.hash ());
-	block.hashables.representative.bytes[0] ^= 0x1;
-	block.refresh ();
-	ASSERT_NE (hash, block.hash ());
-	block.hashables.representative.bytes[0] ^= 0x1;
-	block.refresh ();
-	ASSERT_EQ (hash, block.hash ());
-	block.hashables.balance.bytes[0] ^= 0x1;
-	block.refresh ();
-	ASSERT_NE (hash, block.hash ());
-	block.hashables.balance.bytes[0] ^= 0x1;
-	block.refresh ();
-	ASSERT_EQ (hash, block.hash ());
-	block.hashables.link.bytes[0] ^= 0x1;
-	block.refresh ();
-	ASSERT_NE (hash, block.hash ());
-	block.hashables.link.bytes[0] ^= 0x1;
-	block.refresh ();
-	ASSERT_EQ (hash, block.hash ());
+	nano::state_block_builder builder;
+	auto block = builder
+	             .account (key.pub)
+	             .previous (0)
+	             .representative (key.pub)
+	             .balance (0)
+	             .link (0)
+	             .sign (key.prv, key.pub)
+	             .work (0)
+	             .build_shared ();
+	auto hash (block->hash ());
+	ASSERT_EQ (hash, block->hash ()); // check cache works
+	block->hashables.account.bytes[0] ^= 0x1;
+	block->refresh ();
+	ASSERT_NE (hash, block->hash ());
+	block->hashables.account.bytes[0] ^= 0x1;
+	block->refresh ();
+	ASSERT_EQ (hash, block->hash ());
+	block->hashables.previous.bytes[0] ^= 0x1;
+	block->refresh ();
+	ASSERT_NE (hash, block->hash ());
+	block->hashables.previous.bytes[0] ^= 0x1;
+	block->refresh ();
+	ASSERT_EQ (hash, block->hash ());
+	block->hashables.representative.bytes[0] ^= 0x1;
+	block->refresh ();
+	ASSERT_NE (hash, block->hash ());
+	block->hashables.representative.bytes[0] ^= 0x1;
+	block->refresh ();
+	ASSERT_EQ (hash, block->hash ());
+	block->hashables.balance.bytes[0] ^= 0x1;
+	block->refresh ();
+	ASSERT_NE (hash, block->hash ());
+	block->hashables.balance.bytes[0] ^= 0x1;
+	block->refresh ();
+	ASSERT_EQ (hash, block->hash ());
+	block->hashables.link.bytes[0] ^= 0x1;
+	block->refresh ();
+	ASSERT_NE (hash, block->hash ());
+	block->hashables.link.bytes[0] ^= 0x1;
+	block->refresh ();
+	ASSERT_EQ (hash, block->hash ());
 }
 
 TEST (blocks, work_version)
@@ -423,7 +441,16 @@ TEST (block_uniquer, null)
 TEST (block_uniquer, single)
 {
 	nano::keypair key;
-	auto block1 (std::make_shared<nano::state_block> (0, 0, 0, 0, 0, key.prv, key.pub, 0));
+	nano::state_block_builder builder;
+	auto block1 = builder
+	              .account (0)
+	              .previous (0)
+	              .representative (0)
+	              .balance (0)
+	              .link (0)
+	              .sign (key.prv, key.pub)
+	              .work (0)
+	              .build_shared ();
 	auto block2 (std::make_shared<nano::state_block> (*block1));
 	ASSERT_NE (block1, block2);
 	ASSERT_EQ (*block1, *block2);
@@ -441,8 +468,27 @@ TEST (block_uniquer, single)
 TEST (block_uniquer, cleanup)
 {
 	nano::keypair key;
-	auto block1 (std::make_shared<nano::state_block> (0, 0, 0, 0, 0, key.prv, key.pub, 0));
-	auto block2 (std::make_shared<nano::state_block> (0, 0, 0, 0, 0, key.prv, key.pub, 1));
+	nano::state_block_builder builder;
+	auto block1 = builder
+	              .account (0)
+	              .previous (0)
+	              .representative (0)
+	              .balance (0)
+	              .link (0)
+	              .sign (key.prv, key.pub)
+	              .work (0)
+	              .build_shared ();
+	auto block2 = builder
+	              .make_block ()
+	              .account (0)
+	              .previous (0)
+	              .representative (0)
+	              .balance (0)
+	              .link (0)
+	              .sign (key.prv, key.pub)
+	              .work (1)
+	              .build_shared ();
+
 	nano::block_uniquer uniquer;
 	auto block3 (uniquer.unique (block1));
 	auto block4 (uniquer.unique (block2));
@@ -482,8 +528,17 @@ TEST (block_builder, zeroed_state_block)
 {
 	nano::block_builder builder;
 	nano::keypair key;
+	nano::state_block_builder state_builder;
 	// Make sure manually- and builder constructed all-zero blocks have equal hashes, and check signature.
-	auto zero_block_manual (std::make_shared<nano::state_block> (0, 0, 0, 0, 0, key.prv, key.pub, 0));
+	auto zero_block_manual = state_builder
+	                         .account (0)
+	                         .previous (0)
+	                         .representative (0)
+	                         .balance (0)
+	                         .link (0)
+	                         .sign (key.prv, key.pub)
+	                         .work (0)
+	                         .build_shared ();
 	auto zero_block_build = builder.state ().zero ().sign (key.prv, key.pub).build ();
 	ASSERT_TRUE (zero_block_manual->hash () == zero_block_build->hash ());
 	ASSERT_FALSE (nano::validate_message (key.pub, zero_block_build->hash (), zero_block_build->signature));
