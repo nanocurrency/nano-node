@@ -535,10 +535,10 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 	{
 		auto block = node->block (last_open_hash);
 		ASSERT_NE (nullptr, block);
-		auto election_insertion_result (node->active.insert (block));
-		ASSERT_TRUE (election_insertion_result.inserted);
-		ASSERT_NE (nullptr, election_insertion_result.election);
-		election_insertion_result.election->force_confirm ();
+		node->active.insert (block);
+		auto election = node->active.election (block->qualified_root ());
+		ASSERT_NE (nullptr, election);
+		election->force_confirm ();
 	}
 
 	ASSERT_TIMELY (120s, node->ledger.block_confirmed (node->store.tx_begin_read (), last_open_hash));
@@ -603,10 +603,10 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 	// Confirm all of the accounts
 	for (auto & open_block : open_blocks)
 	{
-		auto election_insertion_result (node->active.insert (open_block));
-		ASSERT_TRUE (election_insertion_result.inserted);
-		ASSERT_NE (nullptr, election_insertion_result.election);
-		election_insertion_result.election->force_confirm ();
+		node->active.insert (open_block);
+		auto election = node->active.election (open_block->qualified_root ());
+		ASSERT_NE (nullptr, election);
+		election->force_confirm ();
 	}
 
 	auto const num_blocks_to_confirm = (num_accounts - 1) * 2;
@@ -690,10 +690,10 @@ TEST (confirmation_height, long_chains)
 
 	// Call block confirm on the existing receive block on the genesis account which will confirm everything underneath on both accounts
 	{
-		auto election_insertion_result (node->active.insert (receive1));
-		ASSERT_TRUE (election_insertion_result.inserted);
-		ASSERT_NE (nullptr, election_insertion_result.election);
-		election_insertion_result.election->force_confirm ();
+		node->active.insert (receive1);
+		auto election = node->active.election (receive1->qualified_root ());
+		ASSERT_NE (nullptr, election);
+		election->force_confirm ();
 	}
 
 	ASSERT_TIMELY (30s, node->ledger.block_confirmed (node->store.tx_begin_read (), receive1->hash ()));
@@ -1852,10 +1852,11 @@ TEST (node, wallet_create_block_confirm_conflicts)
 
 		// Call block confirm on the top level send block which will confirm everything underneath on both accounts.
 		{
-			auto election_insertion_result (node->active.insert (node->store.block_get (node->store.tx_begin_read (), latest)));
-			ASSERT_TRUE (election_insertion_result.inserted);
-			ASSERT_NE (nullptr, election_insertion_result.election);
-			election_insertion_result.election->force_confirm ();
+			auto block = node->store.block_get (node->store.tx_begin_read (), latest);
+			node->active.insert (block);
+			auto election = node->active.election (block->qualified_root ());
+			ASSERT_NE (nullptr, election);
+			election->force_confirm ();
 		}
 
 		ASSERT_TIMELY (120s, node->ledger.block_confirmed (node->store.tx_begin_read (), latest) && node->confirmation_height_processor.current () == 0);

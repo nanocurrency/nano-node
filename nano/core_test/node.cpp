@@ -1866,11 +1866,13 @@ TEST (node, rep_self_vote)
 				  .work (*system.work.generate (fund_big.hash ()))
 				  .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node0->process (*block0).code);
-	auto & active (node0->active);
-	auto election1 = active.insert (block0);
+	auto & active = node0->active;
+	active.activate (nano::dev_genesis_key.pub);
+	auto election1 = active.election (block0->qualified_root ());
+	ASSERT_NE (nullptr, election1);
 	// Wait until representatives are activated & make vote
-	ASSERT_TIMELY (1s, election1.election->votes ().size () == 3);
-	auto rep_votes (election1.election->votes ());
+	ASSERT_TIMELY (1s, election1->votes ().size () == 3);
+	auto rep_votes (election1->votes ());
 	ASSERT_NE (rep_votes.end (), rep_votes.find (nano::dev_genesis_key.pub));
 	ASSERT_NE (rep_votes.end (), rep_votes.find (rep_big.pub));
 }
@@ -1953,7 +1955,6 @@ TEST (node, bootstrap_fork_open)
 	auto node0 = system.add_node (node_config);
 	node_config.peering_port = nano::get_available_port ();
 	auto node1 = system.add_node (node_config);
-	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	nano::keypair key0;
 	nano::block_builder builder;
 	auto send0 = *builder.send ()
@@ -1984,6 +1985,7 @@ TEST (node, bootstrap_fork_open)
 	for (auto node : system.nodes)
 	{
 		node->block_confirm (node->block (node->latest (nano::dev_genesis_key.pub)));
+		ASSERT_TIMELY (1s, node->active.election (send0.qualified_root ()));
 		auto election = node->active.election (send0.qualified_root ());
 		ASSERT_NE (nullptr, election);
 		election->force_confirm ();
@@ -1993,10 +1995,11 @@ TEST (node, bootstrap_fork_open)
 	// They disagree about open0/open1
 	ASSERT_EQ (nano::process_result::progress, node0->process (open0).code);
 	ASSERT_EQ (nano::process_result::progress, node1->process (open1).code);
+	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	ASSERT_FALSE (node1->ledger.block_exists (open0.hash ()));
 	ASSERT_FALSE (node1->bootstrap_initiator.in_progress ());
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
-	ASSERT_TRUE (node1->active.empty ());
+	ASSERT_TIMELY (1s, node1->active.empty ());
 	ASSERT_TIMELY (10s, !node1->ledger.block_exists (open1.hash ()) && node1->ledger.block_exists (open0.hash ()));
 }
 
@@ -2551,6 +2554,7 @@ TEST (node, block_confirm)
 		nano::genesis genesis;
 		nano::keypair key;
 		nano::state_block_builder builder;
+		system.wallet (1)->insert_adhoc (nano::dev_genesis_key.prv);
 		auto send1 = builder.make_block ()
 					 .account (nano::dev_genesis_key.pub)
 					 .previous (genesis.hash ())
@@ -2573,21 +2577,7 @@ TEST (node, block_confirm)
 		node2.block_confirm (send1_copy);
 		auto election = node2.active.election (send1_copy->qualified_root ());
 		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-		ASSERT_TIMELY (3s, node2.block_confirmed (send1_copy->hash ()) && node2.active.empty ());
-		system.wallet (1)->insert_adhoc (nano::dev_genesis_key.prv);
-		auto send2 (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, send1->hash (), nano::dev_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio * 2, key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node1.work_generate_blocking (send1->hash ())));
-		{
-			auto transaction (node1.store.tx_begin_write ());
-			ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send2).code);
-		}
-		{
-			auto transaction (node2.store.tx_begin_write ());
-			ASSERT_EQ (nano::process_result::progress, node2.ledger.process (transaction, *send2).code);
-		}
-		ASSERT_TRUE (node1.active.list_recently_cemented ().empty ());
-		node1.block_confirm (send2);
-		ASSERT_TIMELY (10s, node1.active.list_recently_cemented ().size () == 2);
+		ASSERT_TIMELY (10s, node1.active.list_recently_cemented ().size () == 1);
 	}
 }
 
@@ -2982,10 +2972,10 @@ TEST (node, vote_by_hash_bundle)
 		blocks.push_back (block);
 		ASSERT_EQ (nano::process_result::progress, node.ledger.process (node.store.tx_begin_write (), *blocks.back ()).code);
 	}
-	auto election_insertion_result = node.active.insert (blocks.back ());
-	ASSERT_TRUE (election_insertion_result.inserted);
-	ASSERT_NE (nullptr, election_insertion_result.election);
-	election_insertion_result.election->force_confirm ();
+	node.block_confirm (blocks.back ());
+	auto election = node.active.election (blocks.back ()->qualified_root ());
+	ASSERT_NE (nullptr, election);
+	election->force_confirm ();
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (key1.prv);
@@ -4032,6 +4022,7 @@ TEST (node, rollback_vote_self)
 	ASSERT_TIMELY (5s, node.ledger.cache.cemented_count == 3);
 	ASSERT_EQ (weight, node.weight (key.pub));
 	node.process_active (send2);
+	node.block_processor.flush ();
 	node.process_active (fork);
 	node.block_processor.flush ();
 	election = node.active.election (send2->qualified_root ());
@@ -4756,18 +4747,14 @@ TEST (node, pruning_depth)
 	node1.process_active (send2);
 	node1.block_processor.flush ();
 	// Confirm last block to prune previous
-	{
-		auto election = node1.active.election (send1->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-	}
+	auto election1 = node1.active.election (send1->qualified_root ());
+	ASSERT_NE (nullptr, election1);
+	election1->force_confirm ();
 	ASSERT_TIMELY (2s, node1.block_confirmed (send1->hash ()) && node1.active.active (send2->qualified_root ()));
 	ASSERT_EQ (0, node1.ledger.cache.pruned_count);
-	{
-		auto election = node1.active.election (send2->qualified_root ());
-		ASSERT_NE (nullptr, election);
-		election->force_confirm ();
-	}
+	auto election2 = node1.active.election (send2->qualified_root ());
+	ASSERT_NE (nullptr, election2);
+	election2->force_confirm ();
 	ASSERT_TIMELY (2s, node1.active.empty () && node1.block_confirmed (send2->hash ()));
 	// Pruning with default depth (unlimited)
 	node1.ledger_pruning (1, true, false);
