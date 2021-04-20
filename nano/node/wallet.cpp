@@ -114,13 +114,15 @@ void nano::wallet_store::deterministic_clear (nano::transaction const & transact
 	{
 		switch (key_type (nano::wallet_value (i->second)))
 		{
-			case nano::key_type::deterministic: {
+			case nano::key_type::deterministic:
+			{
 				auto const & key (i->first);
 				erase (transaction_a, key);
 				i = begin (transaction_a, key);
 				break;
 			}
-			default: {
+			default:
+			{
 				++i;
 				break;
 			}
@@ -484,21 +486,24 @@ bool nano::wallet_store::fetch (nano::transaction const & transaction_a, nano::a
 		{
 			switch (key_type (value))
 			{
-				case nano::key_type::deterministic: {
+				case nano::key_type::deterministic:
+				{
 					nano::raw_key seed_l;
 					seed (seed_l, transaction_a);
 					uint32_t index (static_cast<uint32_t> (value.key.number () & static_cast<uint32_t> (-1)));
 					prv = deterministic_key (transaction_a, index);
 					break;
 				}
-				case nano::key_type::adhoc: {
+				case nano::key_type::adhoc:
+				{
 					// Ad-hoc keys
 					nano::raw_key password_l;
 					wallet_key (password_l, transaction_a);
 					prv.decrypt (value.key, password_l, pub.owords[0].number ());
 					break;
 				}
-				default: {
+				default:
+				{
 					result = true;
 					break;
 				}

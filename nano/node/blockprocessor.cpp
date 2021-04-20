@@ -376,7 +376,8 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 	result = node.ledger.process (transaction_a, *block, info_a.verified);
 	switch (result.code)
 	{
-		case nano::process_result::progress: {
+		case nano::process_result::progress:
+		{
 			release_assert (info_a.account.is_zero () || info_a.account == node.store.block_account_calculated (*block));
 			if (node.config.logging.ledger_logging ())
 			{
@@ -400,7 +401,8 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			}
 			break;
 		}
-		case nano::process_result::gap_previous: {
+		case nano::process_result::gap_previous:
+		{
 			if (node.config.logging.ledger_logging ())
 			{
 				node.logger.try_log (boost::str (boost::format ("Gap previous for: %1%") % hash.to_string ()));
@@ -419,7 +421,8 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_previous);
 			break;
 		}
-		case nano::process_result::gap_source: {
+		case nano::process_result::gap_source:
+		{
 			if (node.config.logging.ledger_logging ())
 			{
 				node.logger.try_log (boost::str (boost::format ("Gap source for: %1%") % hash.to_string ()));
@@ -438,7 +441,8 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_source);
 			break;
 		}
-		case nano::process_result::gap_epoch_open_pending: {
+		case nano::process_result::gap_epoch_open_pending:
+		{
 			if (node.config.logging.ledger_logging ())
 			{
 				node.logger.try_log (boost::str (boost::format ("Gap pending entries for epoch open: %1%") % hash.to_string ()));
@@ -455,7 +459,8 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_source);
 			break;
 		}
-		case nano::process_result::old: {
+		case nano::process_result::old:
+		{
 			if (node.config.logging.ledger_duplicate_logging ())
 			{
 				node.logger.try_log (boost::str (boost::format ("Old for: %1%") % hash.to_string ()));
@@ -464,7 +469,8 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::old);
 			break;
 		}
-		case nano::process_result::bad_signature: {
+		case nano::process_result::bad_signature:
+		{
 			if (node.config.logging.ledger_logging ())
 			{
 				node.logger.try_log (boost::str (boost::format ("Bad signature for: %1%") % hash.to_string ()));
@@ -472,21 +478,24 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			events_a.events.emplace_back ([this, hash, info_a] (nano::transaction const & /* unused */) { requeue_invalid (hash, info_a); });
 			break;
 		}
-		case nano::process_result::negative_spend: {
+		case nano::process_result::negative_spend:
+		{
 			if (node.config.logging.ledger_logging ())
 			{
 				node.logger.try_log (boost::str (boost::format ("Negative spend for: %1%") % hash.to_string ()));
 			}
 			break;
 		}
-		case nano::process_result::unreceivable: {
+		case nano::process_result::unreceivable:
+		{
 			if (node.config.logging.ledger_logging ())
 			{
 				node.logger.try_log (boost::str (boost::format ("Unreceivable for: %1%") % hash.to_string ()));
 			}
 			break;
 		}
-		case nano::process_result::fork: {
+		case nano::process_result::fork:
+		{
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::fork);
 			events_a.events.emplace_back ([this, block] (nano::transaction const &) { this->node.active.publish (block); });
 			if (node.config.logging.ledger_logging ())
@@ -495,32 +504,37 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			}
 			break;
 		}
-		case nano::process_result::opened_burn_account: {
+		case nano::process_result::opened_burn_account:
+		{
 			node.logger.always_log (boost::str (boost::format ("*** Rejecting open block for burn account ***: %1%") % hash.to_string ()));
 			break;
 		}
-		case nano::process_result::balance_mismatch: {
+		case nano::process_result::balance_mismatch:
+		{
 			if (node.config.logging.ledger_logging ())
 			{
 				node.logger.try_log (boost::str (boost::format ("Balance mismatch for: %1%") % hash.to_string ()));
 			}
 			break;
 		}
-		case nano::process_result::representative_mismatch: {
+		case nano::process_result::representative_mismatch:
+		{
 			if (node.config.logging.ledger_logging ())
 			{
 				node.logger.try_log (boost::str (boost::format ("Representative mismatch for: %1%") % hash.to_string ()));
 			}
 			break;
 		}
-		case nano::process_result::block_position: {
+		case nano::process_result::block_position:
+		{
 			if (node.config.logging.ledger_logging ())
 			{
 				node.logger.try_log (boost::str (boost::format ("Block %1% cannot follow predecessor %2%") % hash.to_string () % block->previous ().to_string ()));
 			}
 			break;
 		}
-		case nano::process_result::insufficient_work: {
+		case nano::process_result::insufficient_work:
+		{
 			if (node.config.logging.ledger_logging ())
 			{
 				node.logger.try_log (boost::str (boost::format ("Insufficient work for %1% : %2% (difficulty %3%)") % hash.to_string () % nano::to_string_hex (block->block_work ()) % nano::to_string_hex (block->difficulty ())));

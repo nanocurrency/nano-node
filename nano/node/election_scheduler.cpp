@@ -2,9 +2,9 @@
 #include <nano/node/node.hpp>
 
 nano::election_scheduler::election_scheduler (nano::node & node) :
-node{ node },
-stopped{ false },
-thread{ [this] () { run (); } }
+	node{ node },
+	stopped{ false },
+	thread{ [this] () { run (); } }
 {
 }
 
