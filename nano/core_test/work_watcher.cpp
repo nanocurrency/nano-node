@@ -254,7 +254,7 @@ TEST (work_watcher, confirm_while_generating)
 	ASSERT_TIMELY (5s, 0 != node.work.size ());
 	// Attach a callback to work cancellations
 	std::atomic<bool> notified{ false };
-	node.observers.work_cancel.add ([&notified, &block1](nano::root const & root_a) {
+	node.observers.work_cancel.add ([&notified, &block1] (nano::root const & root_a) {
 		EXPECT_EQ (root_a, block1->root ());
 		notified = true;
 	});

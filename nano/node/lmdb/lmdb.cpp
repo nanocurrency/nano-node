@@ -29,7 +29,7 @@ size_t mdb_val::size () const
 
 template <>
 mdb_val::db_val (size_t size_a, void * data_a) :
-value ({ size_a, data_a })
+	value ({ size_a, data_a })
 {
 }
 
@@ -41,10 +41,10 @@ void mdb_val::convert_buffer_to_value ()
 }
 
 nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade_a) :
-logger (logger_a),
-env (error, path_a, nano::mdb_env::options::make ().set_config (lmdb_config_a).set_use_no_mem_init (true)),
-mdb_txn_tracker (logger_a, txn_tracking_config_a, block_processor_batch_max_time_a),
-txn_tracking_enabled (txn_tracking_config_a.enable)
+	logger (logger_a),
+	env (error, path_a, nano::mdb_env::options::make ().set_config (lmdb_config_a).set_use_no_mem_init (true)),
+	mdb_txn_tracker (logger_a, txn_tracking_config_a, block_processor_batch_max_time_a),
+	txn_tracking_enabled (txn_tracking_config_a.enable)
 {
 	if (!error)
 	{
@@ -121,8 +121,8 @@ bool nano::mdb_store::vacuum_after_upgrade (boost::filesystem::path const & path
 
 		// Set up the environment again
 		auto options = nano::mdb_env::options::make ()
-		               .set_config (lmdb_config_a)
-		               .set_use_no_mem_init (true);
+					   .set_config (lmdb_config_a)
+					   .set_use_no_mem_init (true);
 		env.init (error, path_a, options);
 		if (!error)
 		{
@@ -176,10 +176,10 @@ nano::mdb_txn_callbacks nano::mdb_store::create_txn_callbacks () const
 	nano::mdb_txn_callbacks mdb_txn_callbacks;
 	if (txn_tracking_enabled)
 	{
-		mdb_txn_callbacks.txn_start = ([& mdb_txn_tracker = mdb_txn_tracker](const nano::transaction_impl * transaction_impl) {
+		mdb_txn_callbacks.txn_start = ([&mdb_txn_tracker = mdb_txn_tracker] (const nano::transaction_impl * transaction_impl) {
 			mdb_txn_tracker.add (transaction_impl);
 		});
-		mdb_txn_callbacks.txn_end = ([& mdb_txn_tracker = mdb_txn_tracker](const nano::transaction_impl * transaction_impl) {
+		mdb_txn_callbacks.txn_end = ([&mdb_txn_tracker = mdb_txn_tracker] (const nano::transaction_impl * transaction_impl) {
 			mdb_txn_tracker.erase (transaction_impl);
 		});
 	}
@@ -199,6 +199,7 @@ void nano::mdb_store::open_databases (bool & error_a, nano::transaction const & 
 	accounts = accounts_v0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "pending", flags, &pending_v0) != 0;
 	pending = pending_v0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "final_votes", flags, &final_votes) != 0;
 
 	auto version_l = version_get (transaction_a);
 	if (version_l < 19)
@@ -280,6 +281,9 @@ bool nano::mdb_store::do_upgrades (nano::write_transaction & transaction_a, bool
 			upgrade_v19_to_v20 (transaction_a);
 			[[fallthrough]];
 		case 20:
+			upgrade_v20_to_v21 (transaction_a);
+			[[fallthrough]];
+		case 21:
 			break;
 		default:
 			logger.always_log (boost::str (boost::format ("The version of the ledger (%1%) is too high for this node") % version_l));
@@ -745,6 +749,14 @@ void nano::mdb_store::upgrade_v19_to_v20 (nano::write_transaction const & transa
 	logger.always_log ("Finished creating new pruned table");
 }
 
+void nano::mdb_store::upgrade_v20_to_v21 (nano::write_transaction const & transaction_a)
+{
+	logger.always_log ("Preparing v20 to v21 database upgrade...");
+	mdb_dbi_open (env.tx (transaction_a), "final_votes", MDB_CREATE, &final_votes);
+	version_put (transaction_a, 21);
+	logger.always_log ("Finished creating new final_vote table");
+}
+
 /** Takes a filepath, appends '_backup_<timestamp>' to the end (but before any extension) and saves that file in the same directory */
 void nano::mdb_store::create_backup_file (nano::mdb_env & env_a, boost::filesystem::path const & filepath_a, nano::logger_mt & logger_a)
 {
@@ -865,6 +877,8 @@ MDB_dbi nano::mdb_store::table_to_dbi (tables table_a) const
 			return pruned;
 		case tables::confirmation_height:
 			return confirmation_height;
+		case tables::final_votes:
+			return final_votes;
 		default:
 			release_assert (false);
 			return peers;
@@ -1167,8 +1181,8 @@ std::shared_ptr<nano::block> nano::mdb_store::block_get_v14 (nano::transaction c
 }
 
 nano::mdb_store::upgrade_counters::upgrade_counters (uint64_t count_before_v0, uint64_t count_before_v1) :
-before_v0 (count_before_v0),
-before_v1 (count_before_v1)
+	before_v0 (count_before_v0),
+	before_v1 (count_before_v1)
 {
 }
 

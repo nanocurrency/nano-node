@@ -137,6 +137,7 @@ enum class error_process
 	unreceivable, // Source block doesn't exist or has already been received
 	gap_previous, // Block marked as previous is unknown
 	gap_source, // Block marked as source is unknown
+	gap_epoch_open_pending, // Block marked as pending blocks required for epoch open block are unknown
 	opened_burn_account, // The impossible happened, someone found the private key associated with the public key '0'.
 	balance_mismatch, // Balance and amount delta don't match
 	block_position, // This block cannot follow the previous block
@@ -208,7 +209,7 @@ namespace std
 {
 template <>
 struct is_error_code_enum<boost::system::errc::errc_t>
-: public std::true_type
+	: public std::true_type
 {
 };
 
@@ -261,7 +262,7 @@ public:
 	{
 		// Convert variadic arguments to std::error_code
 		auto codes = { std::error_code (err)... };
-		if (std::any_of (codes.begin (), codes.end (), [this, &codes](auto & code_a) { return code == code_a; }))
+		if (std::any_of (codes.begin (), codes.end (), [this, &codes] (auto & code_a) { return code == code_a; }))
 		{
 			code.clear ();
 		}

@@ -120,14 +120,14 @@ void nano::thread_attributes::set (boost::thread::attributes & attrs)
 }
 
 nano::thread_runner::thread_runner (boost::asio::io_context & io_ctx_a, unsigned service_threads_a) :
-io_guard (boost::asio::make_work_guard (io_ctx_a))
+	io_guard (boost::asio::make_work_guard (io_ctx_a))
 {
 	boost::thread::attributes attrs;
 	nano::thread_attributes::set (attrs);
 	auto count = (is_sanitizer_build && nano::network_constants{}.is_dev_network ()) ? 1 : service_threads_a; // This is a workaround to a bad interaction between TSAN, multiple coroutines, and multiple threads servicing io_context. Only use 1 thread if sanitizers are attached
 	for (auto i (0u); i < count; ++i)
 	{
-		threads.emplace_back (attrs, [&io_ctx_a]() {
+		threads.emplace_back (attrs, [&io_ctx_a] () {
 			nano::thread_role::set (nano::thread_role::name::io);
 			try
 			{
@@ -197,8 +197,8 @@ void nano::thread_runner::stop_event_processing ()
 }
 
 nano::thread_pool::thread_pool (unsigned num_threads, nano::thread_role::name thread_name) :
-num_threads (num_threads),
-thread_pool_m (std::make_unique<boost::asio::thread_pool> (num_threads))
+	num_threads (num_threads),
+	thread_pool_m (std::make_unique<boost::asio::thread_pool> (num_threads))
 {
 	set_thread_names (num_threads, thread_name);
 }
@@ -226,26 +226,26 @@ void nano::thread_pool::stop ()
 	}
 }
 
-void nano::thread_pool::push_task (std::function<void()> task)
+void nano::thread_pool::push_task (std::function<void ()> task)
 {
 	++num_tasks;
 	nano::lock_guard<nano::mutex> guard (mutex);
 	if (!stopped)
 	{
-		boost::asio::post (*thread_pool_m, [this, task]() {
+		boost::asio::post (*thread_pool_m, [this, task] () {
 			task ();
 			--num_tasks;
 		});
 	}
 }
 
-void nano::thread_pool::add_timed_task (std::chrono::steady_clock::time_point const & expiry_time, std::function<void()> task)
+void nano::thread_pool::add_timed_task (std::chrono::steady_clock::time_point const & expiry_time, std::function<void ()> task)
 {
 	nano::lock_guard<nano::mutex> guard (mutex);
 	if (!stopped && thread_pool_m)
 	{
 		auto timer = std::make_shared<boost::asio::steady_timer> (thread_pool_m->get_executor (), expiry_time);
-		timer->async_wait ([this, task, timer](const boost::system::error_code & ec) {
+		timer->async_wait ([this, task, timer] (const boost::system::error_code & ec) {
 			if (!ec)
 			{
 				push_task (task);
@@ -270,13 +270,13 @@ void nano::thread_pool::set_thread_names (unsigned num_threads, nano::thread_rol
 	std::vector<std::promise<void>> promises (num_threads);
 	std::vector<std::future<void>> futures;
 	futures.reserve (num_threads);
-	std::transform (promises.begin (), promises.end (), std::back_inserter (futures), [](auto & promise) {
+	std::transform (promises.begin (), promises.end (), std::back_inserter (futures), [] (auto & promise) {
 		return promise.get_future ();
 	});
 
 	for (auto i = 0u; i < num_threads; ++i)
 	{
-		boost::asio::post (*thread_pool_m, [& promise = promises[i], thread_name]() {
+		boost::asio::post (*thread_pool_m, [&promise = promises[i], thread_name] () {
 			nano::thread_role::set (thread_name);
 			promise.set_value ();
 		});
@@ -292,6 +292,6 @@ void nano::thread_pool::set_thread_names (unsigned num_threads, nano::thread_rol
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (thread_pool & thread_pool, std::string const & name)
 {
 	auto composite = std::make_unique<container_info_composite> (name);
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "count", thread_pool.num_queued_tasks (), sizeof (std::function<void()>) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "count", thread_pool.num_queued_tasks (), sizeof (std::function<void ()>) }));
 	return composite;
 }

@@ -25,7 +25,7 @@ TEST (network, tcp_connection)
 	std::atomic<bool> done1 (false);
 	std::string message1;
 	acceptor.async_accept (incoming,
-	[&done1, &message1](boost::system::error_code const & ec_a) {
+	[&done1, &message1] (boost::system::error_code const & ec_a) {
 		   if (ec_a)
 		   {
 			   message1 = ec_a.message ();
@@ -36,7 +36,7 @@ TEST (network, tcp_connection)
 	std::atomic<bool> done2 (false);
 	std::string message2;
 	connector.async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::loopback (), port),
-	[&done2, &message2](boost::system::error_code const & ec_a) {
+	[&done2, &message2] (boost::system::error_code const & ec_a) {
 		if (ec_a)
 		{
 			message2 = ec_a.message ();
@@ -283,7 +283,7 @@ TEST (network, send_insufficient_work_udp)
 	auto block (std::make_shared<nano::send_block> (0, 1, 20, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 	nano::publish publish (block);
 	nano::transport::channel_udp channel (node1.network.udp_channels, node2.network.endpoint (), node1.network_params.protocol.protocol_version);
-	channel.send (publish, [](boost::system::error_code const & ec, size_t size) {});
+	channel.send (publish, [] (boost::system::error_code const & ec, size_t size) {});
 	ASSERT_EQ (0, node1.stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work));
 	ASSERT_TIMELY (10s, node2.stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work) != 0);
 	ASSERT_EQ (1, node2.stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work));
@@ -298,27 +298,27 @@ TEST (network, send_insufficient_work)
 	auto block1 (std::make_shared<nano::send_block> (0, 1, 20, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 	nano::publish publish1 (block1);
 	auto tcp_channel (node1.network.tcp_channels.find_channel (nano::transport::map_endpoint_to_tcp (node2.network.endpoint ())));
-	tcp_channel->send (publish1, [](boost::system::error_code const & ec, size_t size) {});
+	tcp_channel->send (publish1, [] (boost::system::error_code const & ec, size_t size) {});
 	ASSERT_EQ (0, node1.stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work));
 	ASSERT_TIMELY (10s, node2.stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work) != 0);
 	ASSERT_EQ (1, node2.stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work));
 	// Legacy block work between epoch_2_recieve & epoch_1
 	auto block2 (std::make_shared<nano::send_block> (block1->hash (), 1, 20, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, system.work_generate_limited (block1->hash (), node1.network_params.network.publish_thresholds.epoch_2_receive, node1.network_params.network.publish_thresholds.epoch_1 - 1)));
 	nano::publish publish2 (block2);
-	tcp_channel->send (publish2, [](boost::system::error_code const & ec, size_t size) {});
+	tcp_channel->send (publish2, [] (boost::system::error_code const & ec, size_t size) {});
 	ASSERT_TIMELY (10s, node2.stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work) != 1);
 	ASSERT_EQ (2, node2.stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work));
 	// Legacy block work epoch_1
 	auto block3 (std::make_shared<nano::send_block> (block2->hash (), 1, 20, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (block2->hash (), node1.network_params.network.publish_thresholds.epoch_2)));
 	nano::publish publish3 (block3);
-	tcp_channel->send (publish3, [](boost::system::error_code const & ec, size_t size) {});
+	tcp_channel->send (publish3, [] (boost::system::error_code const & ec, size_t size) {});
 	ASSERT_EQ (0, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in));
 	ASSERT_TIMELY (10s, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in) != 0);
 	ASSERT_EQ (1, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in));
 	// State block work epoch_2_recieve
 	auto block4 (std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, block1->hash (), nano::dev_genesis_key.pub, 20, 1, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, system.work_generate_limited (block1->hash (), node1.network_params.network.publish_thresholds.epoch_2_receive, node1.network_params.network.publish_thresholds.epoch_1 - 1)));
 	nano::publish publish4 (block4);
-	tcp_channel->send (publish4, [](boost::system::error_code const & ec, size_t size) {});
+	tcp_channel->send (publish4, [] (boost::system::error_code const & ec, size_t size) {});
 	ASSERT_TIMELY (10s, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in) != 0);
 	ASSERT_EQ (1, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::in));
 	ASSERT_EQ (2, node2.stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work));
@@ -332,7 +332,7 @@ TEST (receivable_processor, confirm_insufficient_pos)
 	auto block1 (std::make_shared<nano::send_block> (genesis.hash (), 0, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 	node1.work_generate_blocking (*block1);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*block1).code);
-	node1.active.insert (block1);
+	node1.active.activate (nano::dev_genesis_key.pub);
 	nano::keypair key1;
 	auto vote (std::make_shared<nano::vote> (key1.pub, key1.prv, 0, block1));
 	nano::confirm_ack con1 (vote);
@@ -347,7 +347,7 @@ TEST (receivable_processor, confirm_sufficient_pos)
 	auto block1 (std::make_shared<nano::send_block> (genesis.hash (), 0, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 	node1.work_generate_blocking (*block1);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*block1).code);
-	node1.active.insert (block1);
+	node1.active.activate (nano::dev_genesis_key.pub);
 	auto vote (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 0, block1));
 	nano::confirm_ack con1 (vote);
 	node1.network.process_message (con1, node1.network.udp_channels.create (node1.network.endpoint ()));
@@ -405,7 +405,7 @@ TEST (network, receive_weight_change)
 		system.wallet (1)->store.representative_set (transaction, key2.pub);
 	}
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev_genesis_key.pub, key2.pub, system.nodes[0]->config.receive_minimum.number ()));
-	ASSERT_TIMELY (10s, std::all_of (system.nodes.begin (), system.nodes.end (), [&](std::shared_ptr<nano::node> const & node_a) { return node_a->weight (key2.pub) == system.nodes[0]->config.receive_minimum.number (); }));
+	ASSERT_TIMELY (10s, std::all_of (system.nodes.begin (), system.nodes.end (), [&] (std::shared_ptr<nano::node> const & node_a) { return node_a->weight (key2.pub) == system.nodes[0]->config.receive_minimum.number (); }));
 }
 
 TEST (parse_endpoint, valid)
@@ -496,7 +496,7 @@ TEST (network, ipv6_bind_send_ipv4)
 	auto finish1 (false);
 	nano::endpoint endpoint3;
 	boost::asio::ip::udp::socket socket1 (io_ctx, endpoint1);
-	socket1.async_receive_from (boost::asio::buffer (bytes1.data (), bytes1.size ()), endpoint3, [&finish1](boost::system::error_code const & error, size_t size_a) {
+	socket1.async_receive_from (boost::asio::buffer (bytes1.data (), bytes1.size ()), endpoint3, [&finish1] (boost::system::error_code const & error, size_t size_a) {
 		ASSERT_FALSE (error);
 		ASSERT_EQ (16, size_a);
 		finish1 = true;
@@ -504,7 +504,7 @@ TEST (network, ipv6_bind_send_ipv4)
 	boost::asio::ip::udp::socket socket2 (io_ctx, endpoint2);
 	nano::endpoint endpoint5 (boost::asio::ip::address_v4::loopback (), port1);
 	nano::endpoint endpoint6 (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4::loopback ()), port2);
-	socket2.async_send_to (boost::asio::buffer (std::array<uint8_t, 16>{}, 16), endpoint5, [](boost::system::error_code const & error, size_t size_a) {
+	socket2.async_send_to (boost::asio::buffer (std::array<uint8_t, 16>{}, 16), endpoint5, [] (boost::system::error_code const & error, size_t size_a) {
 		ASSERT_FALSE (error);
 		ASSERT_EQ (16, size_a);
 	});
@@ -518,11 +518,11 @@ TEST (network, ipv6_bind_send_ipv4)
 	ASSERT_EQ (endpoint6, endpoint3);
 	std::array<uint8_t, 16> bytes2;
 	nano::endpoint endpoint4;
-	socket2.async_receive_from (boost::asio::buffer (bytes2.data (), bytes2.size ()), endpoint4, [](boost::system::error_code const & error, size_t size_a) {
+	socket2.async_receive_from (boost::asio::buffer (bytes2.data (), bytes2.size ()), endpoint4, [] (boost::system::error_code const & error, size_t size_a) {
 		ASSERT_FALSE (!error);
 		ASSERT_EQ (16, size_a);
 	});
-	socket1.async_send_to (boost::asio::buffer (std::array<uint8_t, 16>{}, 16), endpoint6, [](boost::system::error_code const & error, size_t size_a) {
+	socket1.async_send_to (boost::asio::buffer (std::array<uint8_t, 16>{}, 16), endpoint6, [] (boost::system::error_code const & error, size_t size_a) {
 		ASSERT_FALSE (error);
 		ASSERT_EQ (16, size_a);
 	});
@@ -677,7 +677,7 @@ TEST (message_buffer_manager, one_buffer_multithreaded)
 {
 	nano::stat stats;
 	nano::message_buffer_manager buffer (stats, 512, 1);
-	boost::thread thread ([&buffer]() {
+	boost::thread thread ([&buffer] () {
 		auto done (false);
 		while (!done)
 		{
@@ -705,7 +705,7 @@ TEST (message_buffer_manager, many_buffers_multithreaded)
 	std::vector<boost::thread> threads;
 	for (auto i (0); i < 4; ++i)
 	{
-		threads.push_back (boost::thread ([&buffer]() {
+		threads.push_back (boost::thread ([&buffer] () {
 			auto done (false);
 			while (!done)
 			{
@@ -721,7 +721,7 @@ TEST (message_buffer_manager, many_buffers_multithreaded)
 	std::atomic_int count (0);
 	for (auto i (0); i < 4; ++i)
 	{
-		threads.push_back (boost::thread ([&buffer, &count]() {
+		threads.push_back (boost::thread ([&buffer, &count] () {
 			auto done (false);
 			for (auto i (0); !done && i < 1000; ++i)
 			{
@@ -765,9 +765,9 @@ TEST (tcp_listener, tcp_node_id_handshake)
 	nano::node_id_handshake node_id_handshake (cookie, boost::none);
 	auto input (node_id_handshake.to_shared_const_buffer ());
 	std::atomic<bool> write_done (false);
-	socket->async_connect (bootstrap_endpoint, [&input, socket, &write_done](boost::system::error_code const & ec) {
+	socket->async_connect (bootstrap_endpoint, [&input, socket, &write_done] (boost::system::error_code const & ec) {
 		ASSERT_FALSE (ec);
-		socket->async_write (input, [&input, &write_done](boost::system::error_code const & ec, size_t size_a) {
+		socket->async_write (input, [&input, &write_done] (boost::system::error_code const & ec, size_t size_a) {
 			ASSERT_FALSE (ec);
 			ASSERT_EQ (input.size (), size_a);
 			write_done = true;
@@ -780,7 +780,7 @@ TEST (tcp_listener, tcp_node_id_handshake)
 	nano::node_id_handshake node_id_handshake_response (boost::none, response_zero);
 	auto output (node_id_handshake_response.to_bytes ());
 	std::atomic<bool> done (false);
-	socket->async_read (output, output->size (), [&output, &done](boost::system::error_code const & ec, size_t size_a) {
+	socket->async_read (output, output->size (), [&output, &done] (boost::system::error_code const & ec, size_t size_a) {
 		ASSERT_FALSE (ec);
 		ASSERT_EQ (output->size (), size_a);
 		done = true;
@@ -794,7 +794,7 @@ TEST (tcp_listener, tcp_listener_timeout_empty)
 	auto node0 (system.nodes[0]);
 	auto socket (std::make_shared<nano::socket> (*node0));
 	std::atomic<bool> connected (false);
-	socket->async_connect (node0->bootstrap.endpoint (), [&connected](boost::system::error_code const & ec) {
+	socket->async_connect (node0->bootstrap.endpoint (), [&connected] (boost::system::error_code const & ec) {
 		ASSERT_FALSE (ec);
 		connected = true;
 	});
@@ -819,9 +819,9 @@ TEST (tcp_listener, tcp_listener_timeout_node_id_handshake)
 	auto cookie (node0->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (node0->bootstrap.endpoint ())));
 	nano::node_id_handshake node_id_handshake (cookie, boost::none);
 	auto input (node_id_handshake.to_shared_const_buffer ());
-	socket->async_connect (node0->bootstrap.endpoint (), [&input, socket](boost::system::error_code const & ec) {
+	socket->async_connect (node0->bootstrap.endpoint (), [&input, socket] (boost::system::error_code const & ec) {
 		ASSERT_FALSE (ec);
-		socket->async_write (input, [&input](boost::system::error_code const & ec, size_t size_a) {
+		socket->async_write (input, [&input] (boost::system::error_code const & ec, size_t size_a) {
 			ASSERT_FALSE (ec);
 			ASSERT_EQ (input.size (), size_a);
 		});
@@ -860,7 +860,7 @@ TEST (network, replace_port)
 	auto wrong_endpoint = nano::endpoint (node1->network.endpoint ().address (), nano::get_available_port ());
 	auto channel0 (node0->network.udp_channels.insert (wrong_endpoint, node1->network_params.protocol.protocol_version));
 	ASSERT_NE (nullptr, channel0);
-	node0->network.udp_channels.modify (channel0, [&node1](std::shared_ptr<nano::transport::channel> const & channel_a) {
+	node0->network.udp_channels.modify (channel0, [&node1] (std::shared_ptr<nano::transport::channel> const & channel_a) {
 		channel_a->set_node_id (node1->node_id.pub);
 	});
 	auto peers_list (node0->network.list (std::numeric_limits<size_t>::max ()));
@@ -1031,7 +1031,7 @@ TEST (peer_exclusion, validate)
 	nano::tcp_endpoint oldest (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0x0)), 0);
 	ASSERT_EQ (peers_by_endpoint.end (), peers_by_endpoint.find (oldest.address ()));
 
-	auto to_seconds = [](std::chrono::steady_clock::time_point const & timepoint) {
+	auto to_seconds = [] (std::chrono::steady_clock::time_point const & timepoint) {
 		return static_cast<double> (std::chrono::duration_cast<std::chrono::seconds> (timepoint.time_since_epoch ()).count ());
 	};
 	nano::tcp_endpoint first (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0x1)), 0);
@@ -1188,7 +1188,7 @@ TEST (network, cleanup_purge)
 	ASSERT_EQ (0, node1.network.size ());
 
 	std::weak_ptr<nano::node> node_w = node1.shared ();
-	node1.network.tcp_channels.start_tcp (node2->network.endpoint (), [node_w](std::shared_ptr<nano::transport::channel> const & channel_a) {
+	node1.network.tcp_channels.start_tcp (node2->network.endpoint (), [node_w] (std::shared_ptr<nano::transport::channel> const & channel_a) {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->network.send_keepalive (channel_a);

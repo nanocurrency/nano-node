@@ -18,16 +18,16 @@ nano::election_vote_result::election_vote_result (bool replay_a, bool processed_
 	processed = processed_a;
 }
 
-nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> const & block_a, std::function<void(std::shared_ptr<nano::block> const &)> const & confirmation_action_a, std::function<void(nano::account const &)> const & live_vote_action_a, bool prioritized_a, nano::election_behavior election_behavior_a) :
-confirmation_action (confirmation_action_a),
-live_vote_action (live_vote_action_a),
-prioritized_m (prioritized_a),
-behavior (election_behavior_a),
-node (node_a),
-status ({ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::ongoing }),
-height (block_a->sideband ().height),
-root (block_a->root ()),
-qualified_root (block_a->qualified_root ())
+nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> const & block_a, std::function<void (std::shared_ptr<nano::block> const &)> const & confirmation_action_a, std::function<void (nano::account const &)> const & live_vote_action_a, bool prioritized_a, nano::election_behavior election_behavior_a) :
+	confirmation_action (confirmation_action_a),
+	live_vote_action (live_vote_action_a),
+	prioritized_m (prioritized_a),
+	behavior (election_behavior_a),
+	node (node_a),
+	status ({ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::ongoing }),
+	height (block_a->sideband ().height),
+	root (block_a->root ()),
+	qualified_root (block_a->qualified_root ())
 {
 	last_votes.emplace (node.network_params.random.not_an_account, nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () });
 	last_blocks.emplace (block_a->hash (), block_a);
@@ -52,7 +52,7 @@ void nano::election::confirm_once (nano::unique_lock<nano::mutex> & lock_a, nano
 		lock_a.unlock ();
 		node.active.add_recently_confirmed (status_l.winner->qualified_root (), status_l.winner->hash ());
 		node.process_confirmed (status_l);
-		node.background ([node_l = node.shared (), status_l, confirmation_action_l = confirmation_action]() {
+		node.background ([node_l = node.shared (), status_l, confirmation_action_l = confirmation_action] () {
 			if (confirmation_action_l)
 			{
 				confirmation_action_l (status_l.winner);
@@ -83,18 +83,6 @@ bool nano::election::valid_change (nano::election::state_t expected_a, nano::ele
 			}
 			break;
 		case nano::election::state_t::active:
-			switch (desired_a)
-			{
-				case nano::election::state_t::broadcasting:
-				case nano::election::state_t::confirmed:
-				case nano::election::state_t::expired_unconfirmed:
-					result = true;
-					break;
-				default:
-					break;
-			}
-			break;
-		case nano::election::state_t::broadcasting:
 			switch (desired_a)
 			{
 				case nano::election::state_t::confirmed:
@@ -188,13 +176,6 @@ bool nano::election::transition_time (nano::confirmation_solicitor & solicitor_a
 			}
 			break;
 		case nano::election::state_t::active:
-			send_confirm_req (solicitor_a);
-			if (confirmation_request_count > active_request_count_min)
-			{
-				state_change (nano::election::state_t::active, nano::election::state_t::broadcasting);
-			}
-			break;
-		case nano::election::state_t::broadcasting:
 			broadcast_block (solicitor_a);
 			send_confirm_req (solicitor_a);
 			break;
@@ -252,7 +233,8 @@ nano::tally_t nano::election::tally_impl () const
 	std::unordered_map<nano::block_hash, nano::uint128_t> block_weights;
 	for (auto const & [account, info] : last_votes)
 	{
-		block_weights[info.hash] += node.ledger.weight (account);
+		auto rep_weight (node.ledger.weight (account));
+		block_weights[info.hash] += rep_weight;
 	}
 	last_tally = block_weights;
 	nano::tally_t result;
@@ -444,9 +426,9 @@ nano::election_cleanup_info nano::election::cleanup_info_impl () const
 size_t nano::election::insert_inactive_votes_cache (nano::inactive_cache_information const & cache_a)
 {
 	nano::unique_lock<nano::mutex> lock (mutex);
-	for (auto const & rep : cache_a.voters)
+	for (auto const & [rep, timestamp] : cache_a.voters)
 	{
-		auto inserted (last_votes.emplace (rep, nano::vote_info{ std::chrono::steady_clock::time_point::min (), 0, cache_a.hash }));
+		auto inserted (last_votes.emplace (rep, nano::vote_info{ std::chrono::steady_clock::time_point::min (), timestamp, cache_a.hash }));
 		if (inserted.second)
 		{
 			node.stats.inc (nano::stat::type::election, nano::stat::detail::vote_cached);
@@ -487,7 +469,10 @@ void nano::election::prioritize (nano::vote_generator_session & generator_sessio
 	debug_assert (!prioritized_m);
 	if (!prioritized_m.exchange (true))
 	{
-		generator_session_a.add (root, status.winner->hash ());
+		if (node.config.enable_voting && node.wallets.reps ().voting > 0)
+		{
+			node.active.generator.add (root, winner ()->hash ());
+		}
 	}
 }
 
@@ -566,7 +551,7 @@ bool nano::election::replace_by_weight (nano::unique_lock<nano::mutex> & lock_a,
 	std::copy (last_tally.begin (), last_tally.end (), std::back_inserter (sorted));
 	lock_a.unlock ();
 	// Sort in ascending order
-	std::sort (sorted.begin (), sorted.end (), [](auto const & left, auto const & right) { return left.second < right.second; });
+	std::sort (sorted.begin (), sorted.end (), [] (auto const & left, auto const & right) { return left.second < right.second; });
 	// Replace if lowest tally is below inactive cache new block weight
 	auto inactive_existing (node.active.find_inactive_votes_cache (hash_a));
 	auto inactive_tally (inactive_existing.status.tally);
@@ -575,7 +560,7 @@ bool nano::election::replace_by_weight (nano::unique_lock<nano::mutex> & lock_a,
 		// If count of tally items is less than 10, remove any block without tally
 		for (auto const & [hash, block] : blocks ())
 		{
-			if (std::find_if (sorted.begin (), sorted.end (), [& hash = hash](auto const & item_a) { return item_a.first == hash; }) == sorted.end () && hash != winner_hash)
+			if (std::find_if (sorted.begin (), sorted.end (), [&hash = hash] (auto const & item_a) { return item_a.first == hash; }) == sorted.end () && hash != winner_hash)
 			{
 				replaced_block = hash;
 				break;
@@ -645,6 +630,6 @@ std::vector<nano::vote_with_weight_info> nano::election::votes_with_weight () co
 		}
 	}
 	result.reserve (sorted_votes.size ());
-	std::transform (sorted_votes.begin (), sorted_votes.end (), std::back_inserter (result), [](auto const & entry) { return entry.second; });
+	std::transform (sorted_votes.begin (), sorted_votes.end (), std::back_inserter (result), [] (auto const & entry) { return entry.second; });
 	return result;
 }

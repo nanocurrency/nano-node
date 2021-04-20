@@ -7,22 +7,23 @@ Standard:        Cpp11
 TabWidth:        4
 IndentWidth: 4
 PointerAlignment: Middle
-UseTab: ForIndentation
+UseTab: ForContinuationAndIndentation
 BreakBeforeBraces: Custom
 AlignEscapedNewlines: Left
 AllowShortBlocksOnASingleLine: false
 AllowShortCaseLabelsOnASingleLine: false
 AllowShortFunctionsOnASingleLine: false
+AllowShortLambdasOnASingleLine: All
 AllowShortLoopsOnASingleLine: false
 BreakConstructorInitializersBeforeComma: true
 BreakConstructorInitializers: AfterColon
 ConstructorInitializerAllOnOneLineOrOnePerLine: false
-ConstructorInitializerIndentWidth: 0
 ContinuationIndentWidth: 0
 KeepEmptyLinesAtTheStartOfBlocks: false
 IndentCaseLabels: true
 SpaceBeforeCpp11BracedList: false
 BraceWrapping:
+  AfterCaseLabel: true
   AfterEnum: true
   AfterStruct: true
   SplitEmptyFunction: true
@@ -33,6 +34,7 @@ BraceWrapping:
   AfterClass: true
   BeforeCatch: true
   BeforeElse: true
+  BeforeLambdaBody: true
   SplitEmptyRecord: true
   SplitEmptyNamespace: true
 SortIncludes: true

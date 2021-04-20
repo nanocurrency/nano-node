@@ -171,7 +171,8 @@ class unchecked_key final
 {
 public:
 	unchecked_key () = default;
-	unchecked_key (nano::block_hash const &, nano::block_hash const &);
+	unchecked_key (nano::hash_or_account const &, nano::block_hash const &);
+	unchecked_key (nano::uint512_union const &);
 	bool deserialize (nano::stream &);
 	bool operator== (nano::unchecked_key const &) const;
 	nano::block_hash const & key () const;
@@ -312,6 +313,7 @@ enum class process_result
 	unreceivable, // Source block doesn't exist, has already been received, or requires an account upgrade (epoch blocks)
 	gap_previous, // Block marked as previous is unknown
 	gap_source, // Block marked as source is unknown
+	gap_epoch_open_pending, // Block marked as pending blocks required for epoch open block are unknown
 	opened_burn_account, // The impossible happened, someone found the private key associated with the public key '0'.
 	balance_mismatch, // Balance and amount delta don't match
 	representative_mismatch, // Representative is changed when it is not allowed
@@ -450,6 +452,7 @@ public:
 	unsigned lazy_retry_limit;
 	unsigned lazy_destinations_retry_limit;
 	std::chrono::milliseconds gap_cache_bootstrap_start_interval;
+	uint32_t default_frontiers_age_seconds;
 };
 
 /** Constants whose value depends on the active network */

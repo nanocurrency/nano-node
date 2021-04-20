@@ -248,6 +248,8 @@ std::string nano::error_process_messages::message (int ev) const
 			return "Gap previous block";
 		case nano::error_process::gap_source:
 			return "Gap source block";
+		case nano::error_process::gap_epoch_open_pending:
+			return "Gap pending for open epoch block";
 		case nano::error_process::opened_burn_account:
 			return "Burning account";
 		case nano::error_process::balance_mismatch:

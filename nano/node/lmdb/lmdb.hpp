@@ -192,6 +192,12 @@ public:
 	 */
 	MDB_dbi blocks{ 0 };
 
+	/**
+	 * Maps root to block hash for generated final votes.
+	 * nano::qualified_root -> nano::block_hash
+	 */
+	MDB_dbi final_votes{ 0 };
+
 	bool exists (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a) const;
 	std::vector<nano::unchecked_info> unchecked_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override;
 
@@ -203,9 +209,9 @@ public:
 	void rebuild_db (nano::write_transaction const & transaction_a) override;
 
 	template <typename Key, typename Value>
-	nano::store_iterator<Key, Value> make_iterator (nano::transaction const & transaction_a, tables table_a) const
+	nano::store_iterator<Key, Value> make_iterator (nano::transaction const & transaction_a, tables table_a, bool const direction_asc) const
 	{
-		return nano::store_iterator<Key, Value> (std::make_unique<nano::mdb_iterator<Key, Value>> (transaction_a, table_to_dbi (table_a)));
+		return nano::store_iterator<Key, Value> (std::make_unique<nano::mdb_iterator<Key, Value>> (transaction_a, table_to_dbi (table_a), nano::mdb_val{}, direction_asc));
 	}
 
 	template <typename Key, typename Value>
@@ -234,6 +240,7 @@ private:
 	void upgrade_v17_to_v18 (nano::write_transaction const &);
 	void upgrade_v18_to_v19 (nano::write_transaction const &);
 	void upgrade_v19_to_v20 (nano::write_transaction const &);
+	void upgrade_v20_to_v21 (nano::write_transaction const &);
 
 	std::shared_ptr<nano::block> block_get_v18 (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const;
 	nano::mdb_val block_raw_get_v18 (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_type & type_a) const;

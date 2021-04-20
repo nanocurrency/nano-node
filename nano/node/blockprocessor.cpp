@@ -11,7 +11,7 @@
 std::chrono::milliseconds constexpr nano::block_processor::confirmation_request_delay;
 
 nano::block_post_events::block_post_events (std::function<nano::read_transaction ()> && get_transaction_a) :
-get_transaction (std::move (get_transaction_a))
+	get_transaction (std::move (get_transaction_a))
 {
 }
 
@@ -26,15 +26,15 @@ nano::block_post_events::~block_post_events ()
 }
 
 nano::block_processor::block_processor (nano::node & node_a, nano::write_database_queue & write_database_queue_a) :
-next_log (std::chrono::steady_clock::now ()),
-node (node_a),
-write_database_queue (write_database_queue_a),
-state_block_signature_verification (node.checker, node.ledger.network_params.ledger.epochs, node.config, node.logger, node.flags.block_processor_verification_size)
+	next_log (std::chrono::steady_clock::now ()),
+	node (node_a),
+	write_database_queue (write_database_queue_a),
+	state_block_signature_verification (node.checker, node.ledger.network_params.ledger.epochs, node.config, node.logger, node.flags.block_processor_verification_size)
 {
-	state_block_signature_verification.blocks_verified_callback = [this](std::deque<std::pair<nano::unchecked_info, bool>> & items, std::vector<int> const & verifications, std::vector<nano::block_hash> const & hashes, std::vector<nano::signature> const & blocks_signatures) {
+	state_block_signature_verification.blocks_verified_callback = [this] (std::deque<std::pair<nano::unchecked_info, bool>> & items, std::vector<int> const & verifications, std::vector<nano::block_hash> const & hashes, std::vector<nano::signature> const & blocks_signatures) {
 		this->process_verified_state_blocks (items, verifications, hashes, blocks_signatures);
 	};
-	state_block_signature_verification.transition_inactive_callback = [this]() {
+	state_block_signature_verification.transition_inactive_callback = [this] () {
 		if (this->flushing)
 		{
 			{
@@ -242,7 +242,7 @@ void nano::block_processor::process_verified_state_blocks (std::deque<std::pair<
 void nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock_a)
 {
 	auto scoped_write_guard = write_database_queue.wait (nano::writer::process_batch);
-	block_post_events post_events ([& store = node.store] { return store.tx_begin_read (); });
+	block_post_events post_events ([&store = node.store] { return store.tx_begin_read (); });
 	auto transaction (node.store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending, tables::unchecked }));
 	nano::timer<std::chrono::milliseconds> timer_l;
 	lock_a.lock ();
@@ -360,10 +360,6 @@ void nano::block_processor::process_live (nano::transaction const & transaction_
 	{
 		node.network.flood_block_initial (block_a);
 	}
-	else if (!node.flags.disable_block_processor_republishing)
-	{
-		node.network.flood_block (block_a, nano::buffer_drop_policy::no_limiter_drop);
-	}
 
 	if (node.websocket_server && node.websocket_server->any_subscriber (nano::websocket::topic::new_unconfirmed_block))
 	{
@@ -390,9 +386,18 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			}
 			if ((info_a.modified > nano::seconds_since_epoch () - 300 && node.block_arrival.recent (hash)) || forced_a)
 			{
-				events_a.events.emplace_back ([this, hash, block = info_a.block, result, watch_work_a, origin_a](nano::transaction const & post_event_transaction_a) { process_live (post_event_transaction_a, hash, block, result, watch_work_a, origin_a); });
+				events_a.events.emplace_back ([this, hash, block = info_a.block, result, watch_work_a, origin_a] (nano::transaction const & post_event_transaction_a) { process_live (post_event_transaction_a, hash, block, result, watch_work_a, origin_a); });
 			}
 			queue_unchecked (transaction_a, hash);
+			/* For send blocks check epoch open unchecked (gap pending).
+			For state blocks check only send subtype and only if block epoch is not last epoch.
+			If epoch is last, then pending entry shouldn't trigger same epoch open block for destination account. */
+			if (block->type () == nano::block_type::send || (block->type () == nano::block_type::state && block->sideband ().details.is_send && std::underlying_type_t<nano::epoch> (block->sideband ().details.epoch) < std::underlying_type_t<nano::epoch> (nano::epoch::max)))
+			{
+				/* block->destination () for legacy send blocks
+				block->link () for state blocks (send subtype) */
+				queue_unchecked (transaction_a, block->destination ().is_zero () ? block->link () : block->destination ());
+			}
 			break;
 		}
 		case nano::process_result::gap_previous:
@@ -410,7 +415,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			nano::unchecked_key unchecked_key (block->previous (), hash);
 			node.store.unchecked_put (transaction_a, unchecked_key, info_a);
 
-			events_a.events.emplace_back ([this, hash](nano::transaction const & /* unused */) { this->node.gap_cache.add (hash); });
+			events_a.events.emplace_back ([this, hash] (nano::transaction const & /* unused */) { this->node.gap_cache.add (hash); });
 
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_previous);
 			break;
@@ -430,7 +435,25 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			nano::unchecked_key unchecked_key (node.ledger.block_source (transaction_a, *(block)), hash);
 			node.store.unchecked_put (transaction_a, unchecked_key, info_a);
 
-			events_a.events.emplace_back ([this, hash](nano::transaction const & /* unused */) { this->node.gap_cache.add (hash); });
+			events_a.events.emplace_back ([this, hash] (nano::transaction const & /* unused */) { this->node.gap_cache.add (hash); });
+
+			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_source);
+			break;
+		}
+		case nano::process_result::gap_epoch_open_pending:
+		{
+			if (node.config.logging.ledger_logging ())
+			{
+				node.logger.try_log (boost::str (boost::format ("Gap pending entries for epoch open: %1%") % hash.to_string ()));
+			}
+			info_a.verified = result.verified;
+			if (info_a.modified == 0)
+			{
+				info_a.modified = nano::seconds_since_epoch ();
+			}
+
+			nano::unchecked_key unchecked_key (block->account (), hash); // Specific unchecked key starting with epoch open block account public key
+			node.store.unchecked_put (transaction_a, unchecked_key, info_a);
 
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_source);
 			break;
@@ -441,7 +464,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			{
 				node.logger.try_log (boost::str (boost::format ("Old for: %1%") % hash.to_string ()));
 			}
-			events_a.events.emplace_back ([this, block = info_a.block, origin_a](nano::transaction const & post_event_transaction_a) { process_old (post_event_transaction_a, block, origin_a); });
+			events_a.events.emplace_back ([this, block = info_a.block, origin_a] (nano::transaction const & post_event_transaction_a) { process_old (post_event_transaction_a, block, origin_a); });
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::old);
 			break;
 		}
@@ -451,7 +474,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			{
 				node.logger.try_log (boost::str (boost::format ("Bad signature for: %1%") % hash.to_string ()));
 			}
-			events_a.events.emplace_back ([this, hash, info_a](nano::transaction const & /* unused */) { requeue_invalid (hash, info_a); });
+			events_a.events.emplace_back ([this, hash, info_a] (nano::transaction const & /* unused */) { requeue_invalid (hash, info_a); });
 			break;
 		}
 		case nano::process_result::negative_spend:
@@ -472,8 +495,8 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 		}
 		case nano::process_result::fork:
 		{
-			events_a.events.emplace_back ([this, block = info_a.block, modified = info_a.modified](nano::transaction const & post_event_transaction_a) { this->node.process_fork (post_event_transaction_a, block, modified); });
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::fork);
+			events_a.events.emplace_back ([this, block] (nano::transaction const &) { this->node.active.publish (block); });
 			if (node.config.logging.ledger_logging ())
 			{
 				node.logger.try_log (boost::str (boost::format ("Fork for: %1% root: %2%") % hash.to_string () % block->root ().to_string ()));
@@ -530,8 +553,9 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 
 void nano::block_processor::process_old (nano::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a, nano::block_origin const origin_a)
 {
+	node.active.restart (transaction_a, block_a);
 	// First try to update election difficulty, then attempt to restart an election
-	if (!node.active.update_difficulty (block_a, true) || !node.active.restart (transaction_a, block_a))
+	if (!node.active.update_difficulty (block_a, true))
 	{
 		// Let others know about the difficulty update
 		if (origin_a == nano::block_origin::local)
@@ -541,18 +565,18 @@ void nano::block_processor::process_old (nano::transaction const & transaction_a
 	}
 }
 
-void nano::block_processor::queue_unchecked (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a)
+void nano::block_processor::queue_unchecked (nano::write_transaction const & transaction_a, nano::hash_or_account const & hash_or_account_a)
 {
-	auto unchecked_blocks (node.store.unchecked_get (transaction_a, hash_a));
+	auto unchecked_blocks (node.store.unchecked_get (transaction_a, hash_or_account_a.hash));
 	for (auto & info : unchecked_blocks)
 	{
 		if (!node.flags.disable_block_processor_unchecked_deletion)
 		{
-			node.store.unchecked_del (transaction_a, nano::unchecked_key (hash_a, info.block->hash ()));
+			node.store.unchecked_del (transaction_a, nano::unchecked_key (hash_or_account_a, info.block->hash ()));
 		}
 		add (info, true);
 	}
-	node.gap_cache.erase (hash_a);
+	node.gap_cache.erase (hash_or_account_a.hash);
 }
 
 void nano::block_processor::requeue_invalid (nano::block_hash const & hash_a, nano::unchecked_info const & info_a)

@@ -22,7 +22,7 @@
 	else                                                                                      \
 		fail (::testing::internal::GetBoolAssertionFailureMessage (                           \
 		gtest_ar_, text, actual, expected)                                                    \
-		      .c_str ())
+			  .c_str ())
 
 /** Extends gtest with a std::error_code assert that prints the error code message when non-zero */
 #define ASSERT_NO_ERROR(condition)                                                      \
@@ -95,7 +95,7 @@ class boost_log_cerr_redirect
 {
 public:
 	boost_log_cerr_redirect (std::streambuf * new_buffer) :
-	old (std::cerr.rdbuf (new_buffer))
+		old (std::cerr.rdbuf (new_buffer))
 	{
 		console_sink = (boost::log::add_console_log (std::cerr, boost::log::keywords::format = "%Message%"));
 	}
@@ -164,7 +164,7 @@ namespace util
 		 * @param required_count_a When increment() reaches this count within the deadline, await_count_for() will return false.
 		 */
 		counted_completion (unsigned required_count_a) :
-		required_count (required_count_a)
+			required_count (required_count_a)
 		{
 		}
 

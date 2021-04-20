@@ -190,14 +190,14 @@ TEST (wallets, search_pending)
 		wallet->insert_adhoc (nano::dev_genesis_key.prv);
 		nano::block_builder builder;
 		auto send = builder.state ()
-		            .account (nano::genesis_account)
-		            .previous (nano::genesis_hash)
-		            .representative (nano::genesis_account)
-		            .balance (nano::genesis_amount - node.config.receive_minimum.number ())
-		            .link (nano::genesis_account)
-		            .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-		            .work (*system.work.generate (nano::genesis_hash))
-		            .build ();
+					.account (nano::genesis_account)
+					.previous (nano::genesis_hash)
+					.representative (nano::genesis_account)
+					.balance (nano::genesis_amount - node.config.receive_minimum.number ())
+					.link (nano::genesis_account)
+					.sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+					.work (*system.work.generate (nano::genesis_hash))
+					.build ();
 		ASSERT_EQ (nano::process_result::progress, node.process (*send).code);
 
 		// Pending search should start an election

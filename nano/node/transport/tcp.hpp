@@ -39,7 +39,7 @@ namespace transport
 		~channel_tcp ();
 		size_t hash_code () const override;
 		bool operator== (nano::transport::channel const &) const override;
-		void send_buffer (nano::shared_const_buffer const &, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr, nano::buffer_drop_policy = nano::buffer_drop_policy::limiter) override;
+		void send_buffer (nano::shared_const_buffer const &, std::function<void (boost::system::error_code const &, size_t)> const & = nullptr, nano::buffer_drop_policy = nano::buffer_drop_policy::limiter) override;
 		std::string to_string () const override;
 		bool operator== (nano::transport::channel_tcp const & other_a) const
 		{
@@ -102,12 +102,12 @@ namespace transport
 		void ongoing_keepalive ();
 		void list_below_version (std::vector<std::shared_ptr<nano::transport::channel>> &, uint8_t);
 		void list (std::deque<std::shared_ptr<nano::transport::channel>> &, uint8_t = 0, bool = true);
-		void modify (std::shared_ptr<nano::transport::channel_tcp> const &, std::function<void(std::shared_ptr<nano::transport::channel_tcp> const &)>);
+		void modify (std::shared_ptr<nano::transport::channel_tcp> const &, std::function<void (std::shared_ptr<nano::transport::channel_tcp> const &)>);
 		void update (nano::tcp_endpoint const &);
 		// Connection start
-		void start_tcp (nano::endpoint const &, std::function<void(std::shared_ptr<nano::transport::channel> const &)> const & = nullptr);
-		void start_tcp_receive_node_id (std::shared_ptr<nano::transport::channel_tcp> const &, nano::endpoint const &, std::shared_ptr<std::vector<uint8_t>> const &, std::function<void(std::shared_ptr<nano::transport::channel> const &)> const &);
-		void udp_fallback (nano::endpoint const &, std::function<void(std::shared_ptr<nano::transport::channel> const &)> const &);
+		void start_tcp (nano::endpoint const &, std::function<void (std::shared_ptr<nano::transport::channel> const &)> const & = nullptr);
+		void start_tcp_receive_node_id (std::shared_ptr<nano::transport::channel_tcp> const &, nano::endpoint const &, std::shared_ptr<std::vector<uint8_t>> const &, std::function<void (std::shared_ptr<nano::transport::channel> const &)> const &);
+		void udp_fallback (nano::endpoint const &, std::function<void (std::shared_ptr<nano::transport::channel> const &)> const &);
 		void push_node_id_handshake_socket (std::shared_ptr<nano::socket> const & socket_a);
 		void remove_node_id_handshake_socket (std::shared_ptr<nano::socket> const & socket_a);
 		bool node_id_handhake_sockets_empty () const;
@@ -149,7 +149,7 @@ namespace transport
 			std::shared_ptr<nano::socket> socket;
 			std::shared_ptr<nano::bootstrap_server> response_server;
 			channel_tcp_wrapper (std::shared_ptr<nano::transport::channel_tcp> const & channel_a, std::shared_ptr<nano::socket> const & socket_a, std::shared_ptr<nano::bootstrap_server> const & server_a) :
-			channel (channel_a), socket (socket_a), response_server (server_a)
+				channel (channel_a), socket (socket_a), response_server (server_a)
 			{
 			}
 			nano::tcp_endpoint endpoint () const
@@ -192,9 +192,9 @@ namespace transport
 			std::chrono::steady_clock::time_point last_attempt{ std::chrono::steady_clock::now () };
 
 			explicit tcp_endpoint_attempt (nano::tcp_endpoint const & endpoint_a) :
-			endpoint (endpoint_a),
-			address (nano::transport::ipv4_address_or_ipv6_subnet (endpoint_a.address ())),
-			subnetwork (nano::transport::map_address_to_subnetwork (endpoint_a.address ()))
+				endpoint (endpoint_a),
+				address (nano::transport::ipv4_address_or_ipv6_subnet (endpoint_a.address ())),
+				subnetwork (nano::transport::map_address_to_subnetwork (endpoint_a.address ()))
 			{
 			}
 		};
