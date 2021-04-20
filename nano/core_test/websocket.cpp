@@ -171,14 +171,14 @@ TEST (websocket, confirmation)
 		nano::block_hash previous (node1->latest (nano::dev_genesis_key.pub));
 		balance -= send_amount;
 		auto send = builder
-		            .account (nano::dev_genesis_key.pub)
-		            .previous (previous)
-		            .representative (nano::dev_genesis_key.pub)
-		            .balance (balance)
-		            .link (key.pub)
-		            .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-		            .work (*system.work.generate (previous))
-		            .build_shared ();
+					.account (nano::dev_genesis_key.pub)
+					.previous (previous)
+					.representative (nano::dev_genesis_key.pub)
+					.balance (balance)
+					.link (key.pub)
+					.sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+					.work (*system.work.generate (previous))
+					.build_shared ();
 
 		node1->process_active (send);
 	}
@@ -263,14 +263,14 @@ TEST (websocket, confirmation_options)
 		balance -= send_amount;
 		nano::state_block_builder builder;
 		auto send = builder
-		            .account (nano::dev_genesis_key.pub)
-		            .previous (previous)
-		            .representative (nano::dev_genesis_key.pub)
-		            .balance (balance)
-		            .link (key.pub)
-		            .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-		            .work (*system.work.generate (previous))
-		            .build_shared ();
+					.account (nano::dev_genesis_key.pub)
+					.previous (previous)
+					.representative (nano::dev_genesis_key.pub)
+					.balance (balance)
+					.link (key.pub)
+					.sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+					.work (*system.work.generate (previous))
+					.build_shared ();
 
 		node1->process_active (send);
 		previous = send->hash ();
@@ -296,14 +296,14 @@ TEST (websocket, confirmation_options)
 		balance -= send_amount;
 		nano::state_block_builder builder;
 		auto send = builder
-		            .account (nano::dev_genesis_key.pub)
-		            .previous (previous)
-		            .representative (nano::dev_genesis_key.pub)
-		            .balance (balance)
-		            .link (key.pub)
-		            .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-		            .work (*system.work.generate (previous))
-		            .build_shared ();
+					.account (nano::dev_genesis_key.pub)
+					.previous (previous)
+					.representative (nano::dev_genesis_key.pub)
+					.balance (balance)
+					.link (key.pub)
+					.sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+					.work (*system.work.generate (previous))
+					.build_shared ();
 
 		node1->process_active (send);
 		previous = send->hash ();
@@ -396,14 +396,14 @@ TEST (websocket, confirmation_options_votes)
 		nano::state_block_builder builder;
 		balance -= send_amount;
 		auto send = builder
-		            .account (nano::dev_genesis_key.pub)
-		            .previous (previous)
-		            .representative (nano::dev_genesis_key.pub)
-		            .balance (balance)
-		            .link (key.pub)
-		            .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-		            .work (*system.work.generate (previous))
-		            .build_shared ();
+					.account (nano::dev_genesis_key.pub)
+					.previous (previous)
+					.representative (nano::dev_genesis_key.pub)
+					.balance (balance)
+					.link (key.pub)
+					.sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+					.work (*system.work.generate (previous))
+					.build_shared ();
 
 		node1->process_active (send);
 		previous = send->hash ();
@@ -496,14 +496,14 @@ TEST (websocket, confirmation_options_update)
 	nano::state_block_builder builder;
 	auto previous (node1->latest (nano::dev_genesis_key.pub));
 	auto send = builder
-	            .account (nano::dev_genesis_key.pub)
-	            .previous (previous)
-	            .representative (nano::dev_genesis_key.pub)
-	            .balance (nano::genesis_amount - nano::Gxrb_ratio)
-	            .link (key.pub)
-	            .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-	            .work (*system.work.generate (previous))
-	            .build_shared ();
+				.account (nano::dev_genesis_key.pub)
+				.previous (previous)
+				.representative (nano::dev_genesis_key.pub)
+				.balance (nano::genesis_amount - nano::Gxrb_ratio)
+				.link (key.pub)
+				.sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+				.work (*system.work.generate (previous))
+				.build_shared ();
 
 	node1->process_active (send);
 
@@ -513,15 +513,15 @@ TEST (websocket, confirmation_options_update)
 	// Confirm another block
 	previous = send->hash ();
 	auto send2 = builder
-	             .make_block ()
-	             .account (nano::dev_genesis_key.pub)
-	             .previous (previous)
-	             .representative (nano::dev_genesis_key.pub)
-	             .balance (nano::genesis_amount - 2 * nano::Gxrb_ratio)
-	             .link (key.pub)
-	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-	             .work (*system.work.generate (previous))
-	             .build_shared ();
+				 .make_block ()
+				 .account (nano::dev_genesis_key.pub)
+				 .previous (previous)
+				 .representative (nano::dev_genesis_key.pub)
+				 .balance (nano::genesis_amount - 2 * nano::Gxrb_ratio)
+				 .link (key.pub)
+				 .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+				 .work (*system.work.generate (previous))
+				 .build_shared ();
 
 	node1->process_active (send2);
 
@@ -556,14 +556,14 @@ TEST (websocket, vote)
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	nano::block_hash previous (node1->latest (nano::dev_genesis_key.pub));
 	auto send = builder
-	            .account (nano::dev_genesis_key.pub)
-	            .previous (previous)
-	            .representative (nano::dev_genesis_key.pub)
-	            .balance (nano::genesis_amount - (node1->online_reps.delta () + 1))
-	            .link (key.pub)
-	            .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-	            .work (*system.work.generate (previous))
-	            .build_shared ();
+				.account (nano::dev_genesis_key.pub)
+				.previous (previous)
+				.representative (nano::dev_genesis_key.pub)
+				.balance (nano::genesis_amount - (node1->online_reps.delta () + 1))
+				.link (key.pub)
+				.sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+				.work (*system.work.generate (previous))
+				.build_shared ();
 
 	node1->process_active (send);
 
@@ -659,14 +659,14 @@ TEST (websocket, vote_options_representatives)
 		nano::block_hash previous (node1->latest (nano::dev_genesis_key.pub));
 		balance -= send_amount;
 		auto send = builder
-		            .account (nano::dev_genesis_key.pub)
-		            .previous (previous)
-		            .representative (nano::dev_genesis_key.pub)
-		            .balance (balance)
-		            .link (key.pub)
-		            .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-		            .work (*system.work.generate (previous))
-		            .build_shared ();
+					.account (nano::dev_genesis_key.pub)
+					.previous (previous)
+					.representative (nano::dev_genesis_key.pub)
+					.balance (balance)
+					.link (key.pub)
+					.sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+					.work (*system.work.generate (previous))
+					.build_shared ();
 		node1->process_active (send);
 	};
 	confirm_block ();
@@ -984,14 +984,14 @@ TEST (websocket, new_unconfirmed_block)
 	// Process a new block
 	nano::genesis genesis;
 	auto send1 = builder
-	             .account (nano::dev_genesis_key.pub)
-	             .previous (genesis.hash ())
-	             .representative (nano::dev_genesis_key.pub)
-	             .balance (nano::genesis_amount - 1)
-	             .link (nano::dev_genesis_key.pub)
-	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-	             .work (*system.work.generate (genesis.hash ()))
-	             .build_shared ();
+				 .account (nano::dev_genesis_key.pub)
+				 .previous (genesis.hash ())
+				 .representative (nano::dev_genesis_key.pub)
+				 .balance (nano::genesis_amount - 1)
+				 .link (nano::dev_genesis_key.pub)
+				 .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+				 .work (*system.work.generate (genesis.hash ()))
+				 .build_shared ();
 
 	ASSERT_EQ (nano::process_result::progress, node1->process_local (send1).code);
 

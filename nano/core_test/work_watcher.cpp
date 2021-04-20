@@ -135,14 +135,14 @@ TEST (work_watcher, removed_after_lose)
 	ASSERT_TRUE (node.wallets.watcher->is_watched (block1->qualified_root ()));
 	nano::genesis genesis;
 	auto fork1 = builder
-	             .account (nano::dev_genesis_key.pub)
-	             .previous (genesis.hash ())
-	             .representative (nano::dev_genesis_key.pub)
-	             .balance (nano::genesis_amount - nano::xrb_ratio)
-	             .link (nano::dev_genesis_key.pub)
-	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-	             .work (*system.work.generate (genesis.hash ()))
-	             .build_shared ();
+				 .account (nano::dev_genesis_key.pub)
+				 .previous (genesis.hash ())
+				 .representative (nano::dev_genesis_key.pub)
+				 .balance (nano::genesis_amount - nano::xrb_ratio)
+				 .link (nano::dev_genesis_key.pub)
+				 .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+				 .work (*system.work.generate (genesis.hash ()))
+				 .build_shared ();
 
 	node.process_active (fork1);
 	node.block_processor.flush ();
@@ -169,14 +169,14 @@ TEST (work_watcher, generation_disabled)
 	nano::genesis genesis;
 	nano::keypair key;
 	auto block = builder
-	             .account (nano::dev_genesis_key.pub)
-	             .previous (genesis.hash ())
-	             .representative (nano::dev_genesis_key.pub)
-	             .balance (nano::genesis_amount - nano::Mxrb_ratio)
-	             .link (key.pub)
-	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-	             .work (*pool.generate (genesis.hash ()))
-	             .build_shared ();
+				 .account (nano::dev_genesis_key.pub)
+				 .previous (genesis.hash ())
+				 .representative (nano::dev_genesis_key.pub)
+				 .balance (nano::genesis_amount - nano::Mxrb_ratio)
+				 .link (key.pub)
+				 .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+				 .work (*pool.generate (genesis.hash ()))
+				 .build_shared ();
 
 	auto difficulty (block->difficulty ());
 	node.wallets.watcher->add (block);

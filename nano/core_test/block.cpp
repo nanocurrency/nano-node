@@ -321,14 +321,14 @@ TEST (state_block, serialization)
 	nano::keypair key2;
 	nano::state_block_builder builder;
 	auto block1 = builder
-	              .account (key1.pub)
-	              .previous (1)
-	              .representative (key2.pub)
-	              .balance (2)
-	              .link (4)
-	              .sign (key1.prv, key1.pub)
-	              .work (5)
-	              .build_shared ();
+				  .account (key1.pub)
+				  .previous (1)
+				  .representative (key2.pub)
+				  .balance (2)
+				  .link (4)
+				  .sign (key1.prv, key1.pub)
+				  .work (5)
+				  .build_shared ();
 	ASSERT_EQ (key1.pub, block1->hashables.account);
 	ASSERT_EQ (nano::block_hash (1), block1->previous ());
 	ASSERT_EQ (key2.pub, block1->hashables.representative);
@@ -381,14 +381,14 @@ TEST (state_block, hashing)
 	nano::keypair key;
 	nano::state_block_builder builder;
 	auto block = builder
-	             .account (key.pub)
-	             .previous (0)
-	             .representative (key.pub)
-	             .balance (0)
-	             .link (0)
-	             .sign (key.prv, key.pub)
-	             .work (0)
-	             .build_shared ();
+				 .account (key.pub)
+				 .previous (0)
+				 .representative (key.pub)
+				 .balance (0)
+				 .link (0)
+				 .sign (key.prv, key.pub)
+				 .work (0)
+				 .build_shared ();
 	auto hash (block->hash ());
 	ASSERT_EQ (hash, block->hash ()); // check cache works
 	block->hashables.account.bytes[0] ^= 0x1;
@@ -443,14 +443,14 @@ TEST (block_uniquer, single)
 	nano::keypair key;
 	nano::state_block_builder builder;
 	auto block1 = builder
-	              .account (0)
-	              .previous (0)
-	              .representative (0)
-	              .balance (0)
-	              .link (0)
-	              .sign (key.prv, key.pub)
-	              .work (0)
-	              .build_shared ();
+				  .account (0)
+				  .previous (0)
+				  .representative (0)
+				  .balance (0)
+				  .link (0)
+				  .sign (key.prv, key.pub)
+				  .work (0)
+				  .build_shared ();
 	auto block2 (std::make_shared<nano::state_block> (*block1));
 	ASSERT_NE (block1, block2);
 	ASSERT_EQ (*block1, *block2);
@@ -470,24 +470,24 @@ TEST (block_uniquer, cleanup)
 	nano::keypair key;
 	nano::state_block_builder builder;
 	auto block1 = builder
-	              .account (0)
-	              .previous (0)
-	              .representative (0)
-	              .balance (0)
-	              .link (0)
-	              .sign (key.prv, key.pub)
-	              .work (0)
-	              .build_shared ();
+				  .account (0)
+				  .previous (0)
+				  .representative (0)
+				  .balance (0)
+				  .link (0)
+				  .sign (key.prv, key.pub)
+				  .work (0)
+				  .build_shared ();
 	auto block2 = builder
-	              .make_block ()
-	              .account (0)
-	              .previous (0)
-	              .representative (0)
-	              .balance (0)
-	              .link (0)
-	              .sign (key.prv, key.pub)
-	              .work (1)
-	              .build_shared ();
+				  .make_block ()
+				  .account (0)
+				  .previous (0)
+				  .representative (0)
+				  .balance (0)
+				  .link (0)
+				  .sign (key.prv, key.pub)
+				  .work (1)
+				  .build_shared ();
 
 	nano::block_uniquer uniquer;
 	auto block3 (uniquer.unique (block1));
@@ -531,14 +531,14 @@ TEST (block_builder, zeroed_state_block)
 	nano::state_block_builder state_builder;
 	// Make sure manually- and builder constructed all-zero blocks have equal hashes, and check signature.
 	auto zero_block_manual = state_builder
-	                         .account (0)
-	                         .previous (0)
-	                         .representative (0)
-	                         .balance (0)
-	                         .link (0)
-	                         .sign (key.prv, key.pub)
-	                         .work (0)
-	                         .build_shared ();
+							 .account (0)
+							 .previous (0)
+							 .representative (0)
+							 .balance (0)
+							 .link (0)
+							 .sign (key.prv, key.pub)
+							 .work (0)
+							 .build_shared ();
 	auto zero_block_build = builder.state ().zero ().sign (key.prv, key.pub).build ();
 	ASSERT_TRUE (zero_block_manual->hash () == zero_block_build->hash ());
 	ASSERT_FALSE (nano::validate_message (key.pub, zero_block_build->hash (), zero_block_build->signature));
