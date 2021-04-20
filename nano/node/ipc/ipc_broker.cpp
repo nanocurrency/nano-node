@@ -7,7 +7,7 @@
 #include <nano/node/node.hpp>
 
 nano::ipc::broker::broker (nano::node & node_a) :
-node (node_a)
+	node (node_a)
 {
 }
 
@@ -22,7 +22,7 @@ std::shared_ptr<flatbuffers::Parser> nano::ipc::subscriber::get_parser (nano::ip
 
 void nano::ipc::broker::start ()
 {
-	node.observers.blocks.add ([this_l = shared_from_this ()](nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
+	node.observers.blocks.add ([this_l = shared_from_this ()] (nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
 		debug_assert (status_a.type != nano::election_status_type::ongoing);
 
 		try
@@ -75,26 +75,26 @@ void subscribe_or_unsubscribe (nano::logger_mt & logger, COLL & subscriber_colle
 {
 	// Evict subscribers from dead sessions. Also remove current subscriber if unsubscribing.
 	subscriber_collection.erase (std::remove_if (subscriber_collection.begin (), subscriber_collection.end (),
-	                             [& logger = logger, topic_a, subscriber_a](auto & sub) {
-		                             bool remove = false;
-		                             auto subscriber_l = sub.subscriber.lock ();
-		                             if (subscriber_l)
-		                             {
-			                             if (auto calling_subscriber_l = subscriber_a.lock ())
-			                             {
-				                             remove = topic_a->unsubscribe && subscriber_l->get_id () == calling_subscriber_l->get_id ();
-				                             if (remove)
-				                             {
-					                             logger.always_log ("IPC: unsubscription from subscriber #", calling_subscriber_l->get_id ());
-				                             }
-			                             }
-		                             }
-		                             else
-		                             {
-			                             remove = true;
-		                             }
-		                             return remove;
-	                             }),
+								 [&logger = logger, topic_a, subscriber_a] (auto & sub) {
+									 bool remove = false;
+									 auto subscriber_l = sub.subscriber.lock ();
+									 if (subscriber_l)
+									 {
+										 if (auto calling_subscriber_l = subscriber_a.lock ())
+										 {
+											 remove = topic_a->unsubscribe && subscriber_l->get_id () == calling_subscriber_l->get_id ();
+											 if (remove)
+											 {
+												 logger.always_log ("IPC: unsubscription from subscriber #", calling_subscriber_l->get_id ());
+											 }
+										 }
+									 }
+									 else
+									 {
+										 remove = true;
+									 }
+									 return remove;
+								 }),
 	subscriber_collection.end ());
 
 	if (!topic_a->unsubscribe)
@@ -119,7 +119,7 @@ void nano::ipc::broker::broadcast (std::shared_ptr<nanoapi::EventConfirmationT> 
 	{
 		if (auto subscriber_l = itr->subscriber.lock ())
 		{
-			auto should_filter = [this, &itr, confirmation_a]() {
+			auto should_filter = [this, &itr, confirmation_a] () {
 				debug_assert (itr->topic->options != nullptr);
 				auto conf_filter (itr->topic->options->confirmation_type_filter);
 
@@ -194,11 +194,11 @@ void nano::ipc::broker::broadcast (std::shared_ptr<nanoapi::EventConfirmationT> 
 						throw nano::error ("Couldn't serialize response to JSON");
 					}
 
-					subscriber_l->async_send_message (reinterpret_cast<uint8_t const *> (json->data ()), json->size (), [json](const nano::error & err) {});
+					subscriber_l->async_send_message (reinterpret_cast<uint8_t const *> (json->data ()), json->size (), [json] (const nano::error & err) {});
 				}
 				else
 				{
-					subscriber_l->async_send_message (fb->GetBufferPointer (), fb->GetSize (), [fb](const nano::error & err) {});
+					subscriber_l->async_send_message (fb->GetBufferPointer (), fb->GetSize (), [fb] (const nano::error & err) {});
 				}
 			}
 
@@ -245,7 +245,7 @@ void nano::ipc::broker::service_stop (std::string const & service_name_a)
 			{
 				nanoapi::EventServiceStopT event_stop;
 				auto fb (nano::ipc::flatbuffer_producer::make_buffer (event_stop));
-				subscriber_l->async_send_message (fb->GetBufferPointer (), fb->GetSize (), [fb](const nano::error & err) {});
+				subscriber_l->async_send_message (fb->GetBufferPointer (), fb->GetSize (), [fb] (const nano::error & err) {});
 
 				break;
 			}

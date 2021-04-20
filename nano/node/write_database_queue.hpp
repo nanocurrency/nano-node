@@ -21,7 +21,7 @@ enum class writer
 class write_guard final
 {
 public:
-	write_guard (std::function<void()> guard_finish_callback_a);
+	write_guard (std::function<void ()> guard_finish_callback_a);
 	void release ();
 	~write_guard ();
 	write_guard (write_guard const &) = delete;
@@ -31,7 +31,7 @@ public:
 	bool is_owned () const;
 
 private:
-	std::function<void()> guard_finish_callback;
+	std::function<void ()> guard_finish_callback;
 	bool owns{ true };
 };
 
@@ -55,7 +55,7 @@ private:
 	std::deque<nano::writer> queue;
 	nano::mutex mutex;
 	nano::condition_variable cv;
-	std::function<void()> guard_finish_callback;
+	std::function<void ()> guard_finish_callback;
 	bool use_noops;
 };
 }

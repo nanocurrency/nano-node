@@ -26,21 +26,21 @@ class test_response
 {
 public:
 	test_response (boost::property_tree::ptree const & request_a, boost::asio::io_context & io_ctx_a) :
-	request (request_a),
-	sock (io_ctx_a)
+		request (request_a),
+		sock (io_ctx_a)
 	{
 	}
 
 	test_response (boost::property_tree::ptree const & request_a, uint16_t port_a, boost::asio::io_context & io_ctx_a) :
-	request (request_a),
-	sock (io_ctx_a)
+		request (request_a),
+		sock (io_ctx_a)
 	{
 		run (port_a);
 	}
 
 	void run (uint16_t port_a)
 	{
-		sock.async_connect (nano::tcp_endpoint (boost::asio::ip::address_v6::loopback (), port_a), [this](boost::system::error_code const & ec) {
+		sock.async_connect (nano::tcp_endpoint (boost::asio::ip::address_v6::loopback (), port_a), [this] (boost::system::error_code const & ec) {
 			if (!ec)
 			{
 				std::stringstream ostream;
@@ -51,10 +51,10 @@ public:
 				ostream.flush ();
 				req.body () = ostream.str ();
 				req.prepare_payload ();
-				boost::beast::http::async_write (sock, req, [this](boost::system::error_code const & ec, size_t bytes_transferred) {
+				boost::beast::http::async_write (sock, req, [this] (boost::system::error_code const & ec, size_t bytes_transferred) {
 					if (!ec)
 					{
-						boost::beast::http::async_read (sock, sb, resp, [this](boost::system::error_code const & ec, size_t bytes_transferred) {
+						boost::beast::http::async_read (sock, sb, resp, [this] (boost::system::error_code const & ec, size_t bytes_transferred) {
 							if (!ec)
 							{
 								std::stringstream body (resp.body ());
@@ -162,7 +162,7 @@ TEST (rpc, wrapped_task)
 	auto & node = *add_ipc_enabled_node (system);
 	nano::node_rpc_config node_rpc_config;
 	std::atomic<bool> response (false);
-	auto response_handler_l ([&response](std::string const & response_a) {
+	auto response_handler_l ([&response] (std::string const & response_a) {
 		std::stringstream istream (response_a);
 		boost::property_tree::ptree json_l;
 		ASSERT_NO_THROW (boost::property_tree::read_json (istream, json_l));
@@ -171,7 +171,7 @@ TEST (rpc, wrapped_task)
 		response = true;
 	});
 	auto handler_l (std::make_shared<nano::json_handler> (node, node_rpc_config, "", response_handler_l));
-	auto task (handler_l->create_worker_task ([](std::shared_ptr<nano::json_handler> const &) {
+	auto task (handler_l->create_worker_task ([] (std::shared_ptr<nano::json_handler> const &) {
 		// Exception should get caught
 		throw std::runtime_error ("");
 	}));
@@ -188,14 +188,14 @@ TEST (rpc, account_balance)
 	nano::state_block_builder builder;
 
 	auto send1 = builder.make_block ()
-	             .account (nano::dev_genesis_key.pub)
-	             .previous (nano::genesis_hash)
-	             .representative (nano::dev_genesis_key.pub)
-	             .balance (nano::genesis_amount - 1)
-	             .link (nano::dev_genesis_key.pub)
-	             .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-	             .work (*system.work.generate (nano::genesis_hash))
-	             .build ();
+				 .account (nano::dev_genesis_key.pub)
+				 .previous (nano::genesis_hash)
+				 .representative (nano::dev_genesis_key.pub)
+				 .balance (nano::genesis_amount - 1)
+				 .link (nano::dev_genesis_key.pub)
+				 .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+				 .work (*system.work.generate (nano::genesis_hash))
+				 .build ();
 
 	ASSERT_EQ (nano::process_result::progress, node->process (*send1).code);
 
@@ -641,7 +641,7 @@ TEST (rpc, send_ipc_random_id)
 	scoped_io_thread_name_change scoped_thread_name_io;
 	nano::node_rpc_config node_rpc_config;
 	std::atomic<bool> got_request{ false };
-	node_rpc_config.set_request_callback ([&got_request](boost::property_tree::ptree const & request_a) {
+	node_rpc_config.set_request_callback ([&got_request] (boost::property_tree::ptree const & request_a) {
 		EXPECT_TRUE (request_a.count ("id"));
 		got_request = true;
 	});
@@ -2506,7 +2506,7 @@ TEST (rpc, pending)
 	request.put ("source", "false");
 	request.put ("min_version", "false");
 
-	auto check_block_response_count = [&system, &request, &rpc](size_t size) {
+	auto check_block_response_count = [&system, &request, &rpc] (size_t size) {
 		test_response response (request, rpc.config.port, system.io_ctx);
 		ASSERT_TIMELY (5s, response.status != 0);
 
@@ -2676,7 +2676,7 @@ TEST (rpc, work_generate)
 	boost::property_tree::ptree request;
 	request.put ("action", "work_generate");
 	request.put ("hash", hash.to_string ());
-	auto verify_response = [node, &rpc, &system](auto & request, auto & hash) {
+	auto verify_response = [node, &rpc, &system] (auto & request, auto & hash) {
 		test_response response (request, rpc.config.port, system.io_ctx);
 		ASSERT_TIMELY (5s, response.status != 0);
 		ASSERT_EQ (200, response.status);
@@ -2998,7 +2998,7 @@ TEST (rpc, work_cancel)
 	system.deadline_set (10s);
 	while (!done)
 	{
-		system.work.generate (nano::work_version::work_1, hash1, node1.network_params.network.publish_thresholds.base, [&done](boost::optional<uint64_t> work_a) {
+		system.work.generate (nano::work_version::work_1, hash1, node1.network_params.network.publish_thresholds.base, [&done] (boost::optional<uint64_t> work_a) {
 			done = !work_a;
 		});
 		test_response response1 (request1, rpc.config.port, system.io_ctx);
@@ -3030,7 +3030,7 @@ TEST (rpc, work_peer_bad)
 	node2.config.work_peers.push_back (std::make_pair (boost::asio::ip::address_v6::any ().to_string (), 0));
 	nano::block_hash hash1 (1);
 	std::atomic<uint64_t> work (0);
-	node2.work_generate (nano::work_version::work_1, hash1, node2.network_params.network.publish_thresholds.base, [&work](boost::optional<uint64_t> work_a) {
+	node2.work_generate (nano::work_version::work_1, hash1, node2.network_params.network.publish_thresholds.base, [&work] (boost::optional<uint64_t> work_a) {
 		ASSERT_TRUE (work_a.is_initialized ());
 		work = *work_a;
 	});
@@ -3056,7 +3056,7 @@ TEST (rpc, work_peer_one)
 	node2.config.work_peers.push_back (std::make_pair (node1.network.endpoint ().address ().to_string (), rpc.config.port));
 	nano::keypair key1;
 	std::atomic<uint64_t> work (0);
-	node2.work_generate (nano::work_version::work_1, key1.pub, node1.network_params.network.publish_thresholds.base, [&work](boost::optional<uint64_t> work_a) {
+	node2.work_generate (nano::work_version::work_1, key1.pub, node1.network_params.network.publish_thresholds.base, [&work] (boost::optional<uint64_t> work_a) {
 		ASSERT_TRUE (work_a.is_initialized ());
 		work = *work_a;
 	});
@@ -3099,7 +3099,7 @@ TEST (rpc, work_peer_many)
 	for (auto i (0); i < works.size (); ++i)
 	{
 		nano::keypair key1;
-		node1.work_generate (nano::work_version::work_1, key1.pub, node1.network_params.network.publish_thresholds.base, [& work = works[i]](boost::optional<uint64_t> work_a) {
+		node1.work_generate (nano::work_version::work_1, key1.pub, node1.network_params.network.publish_thresholds.base, [&work = works[i]] (boost::optional<uint64_t> work_a) {
 			work = *work_a;
 		});
 		while (nano::work_difficulty (nano::work_version::work_1, key1.pub, works[i]) < nano::work_threshold_base (nano::work_version::work_1))
@@ -4412,7 +4412,7 @@ TEST (rpc, pending_exists)
 	rpc.start ();
 	boost::property_tree::ptree request;
 
-	auto pending_exists = [&system, &request, &rpc](const char * exists_a) {
+	auto pending_exists = [&system, &request, &rpc] (const char * exists_a) {
 		test_response response0 (request, rpc.config.port, system.io_ctx);
 		ASSERT_TIMELY (10s, response0.status != 0);
 		ASSERT_EQ (200, response0.status);
@@ -5087,7 +5087,7 @@ TEST (rpc, blocks_info)
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
 	rpc.start ();
-	auto check_blocks = [node](test_response & response) {
+	auto check_blocks = [node] (test_response & response) {
 		for (auto & blocks : response.json.get_child ("blocks"))
 		{
 			std::string hash_text (blocks.first);
@@ -7045,7 +7045,7 @@ TEST (rpc, database_txn_tracker)
 	rpc.start ();
 
 	boost::property_tree::ptree request;
-	auto check_not_correct_amount = [&system, &request, &rpc_port = rpc.config.port]() {
+	auto check_not_correct_amount = [&system, &request, &rpc_port = rpc.config.port] () {
 		test_response response (request, rpc_port, system.io_ctx);
 		ASSERT_TIMELY (5s, response.status != 0);
 		ASSERT_EQ (200, response.status);
@@ -7068,7 +7068,7 @@ TEST (rpc, database_txn_tracker)
 
 	std::promise<void> keep_txn_alive_promise;
 	std::promise<void> txn_created_promise;
-	std::thread thread ([& store = node->store, &keep_txn_alive_promise, &txn_created_promise]() {
+	std::thread thread ([&store = node->store, &keep_txn_alive_promise, &txn_created_promise] () {
 		// Use rpc_process_container as a placeholder as this thread is only instantiated by the daemon so won't be used
 		nano::thread_role::set (nano::thread_role::name::rpc_process_container);
 
@@ -7182,7 +7182,7 @@ TEST (rpc, active_difficulty)
 		{
 			// Look for the sequence 4.2, 1.5; we don't know where as the active transaction request loop may prepend values concurrently
 			double values[2]{ 4.2, 1.5 };
-			auto it = std::search (trend.begin (), trend.end (), values, values + 2, [](auto a, double b) {
+			auto it = std::search (trend.begin (), trend.end (), values, values + 2, [] (auto a, double b) {
 				return a.second.template get<double> ("") == b;
 			});
 			done = it != trend.end ();
@@ -7222,7 +7222,7 @@ TEST (rpc, simultaneous_calls)
 	std::atomic<int> count{ num };
 	for (int i = 0; i < num; ++i)
 	{
-		std::thread ([&test_responses, &promise, &count, i, port = rpc.config.port]() {
+		std::thread ([&test_responses, &promise, &count, i, port = rpc.config.port] () {
 			test_responses[i]->run (port);
 			if (--count == 0)
 			{
@@ -7234,7 +7234,7 @@ TEST (rpc, simultaneous_calls)
 
 	promise.get_future ().wait ();
 
-	ASSERT_TIMELY (60s, std::all_of (test_responses.begin (), test_responses.end (), [](const auto & test_response) { return test_response->status != 0; }));
+	ASSERT_TIMELY (60s, std::all_of (test_responses.begin (), test_responses.end (), [] (const auto & test_response) { return test_response->status != 0; }));
 
 	for (int i = 0; i < num; ++i)
 	{
@@ -7918,7 +7918,7 @@ TEST (rpc, telemetry_all)
 	// First need to set up the cached data
 	std::atomic<bool> done{ false };
 	auto node = system.nodes.front ();
-	node1.telemetry->get_metrics_single_peer_async (node1.network.find_channel (node->network.endpoint ()), [&done](nano::telemetry_data_response const & telemetry_data_response_a) {
+	node1.telemetry->get_metrics_single_peer_async (node1.network.find_channel (node->network.endpoint ()), [&done] (nano::telemetry_data_response const & telemetry_data_response_a) {
 		ASSERT_FALSE (telemetry_data_response_a.error);
 		done = true;
 	});

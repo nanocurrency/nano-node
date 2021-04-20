@@ -796,6 +796,17 @@ TEST (block_store, large_iteration)
 		previous = current;
 	}
 	ASSERT_EQ (accounts1, accounts2);
+	// Reverse iteration
+	std::unordered_set<nano::account> accounts3;
+	previous = std::numeric_limits<nano::uint256_t>::max ();
+	for (auto i (store->accounts_rbegin (transaction)), n (store->accounts_end ()); i != n; --i)
+	{
+		nano::account current (i->first);
+		ASSERT_LT (current.number (), previous.number ());
+		accounts3.insert (current);
+		previous = current;
+	}
+	ASSERT_EQ (accounts1, accounts3);
 }
 
 TEST (block_store, frontier)
@@ -1162,20 +1173,30 @@ TEST (block_store, online_weight)
 		auto transaction (store->tx_begin_write ());
 		ASSERT_EQ (0, store->online_weight_count (transaction));
 		ASSERT_EQ (store->online_weight_end (), store->online_weight_begin (transaction));
+		ASSERT_EQ (store->online_weight_end (), store->online_weight_rbegin (transaction));
 		store->online_weight_put (transaction, 1, 2);
+		store->online_weight_put (transaction, 3, 4);
 	}
 	{
 		auto transaction (store->tx_begin_write ());
-		ASSERT_EQ (1, store->online_weight_count (transaction));
+		ASSERT_EQ (2, store->online_weight_count (transaction));
 		auto item (store->online_weight_begin (transaction));
 		ASSERT_NE (store->online_weight_end (), item);
 		ASSERT_EQ (1, item->first);
 		ASSERT_EQ (2, item->second.number ());
+		auto item_last (store->online_weight_rbegin (transaction));
+		ASSERT_NE (store->online_weight_end (), item_last);
+		ASSERT_EQ (3, item_last->first);
+		ASSERT_EQ (4, item_last->second.number ());
 		store->online_weight_del (transaction, 1);
+		ASSERT_EQ (1, store->online_weight_count (transaction));
+		ASSERT_EQ (store->online_weight_begin (transaction), store->online_weight_rbegin (transaction));
+		store->online_weight_del (transaction, 3);
 	}
 	auto transaction (store->tx_begin_read ());
 	ASSERT_EQ (0, store->online_weight_count (transaction));
 	ASSERT_EQ (store->online_weight_end (), store->online_weight_begin (transaction));
+	ASSERT_EQ (store->online_weight_end (), store->online_weight_rbegin (transaction));
 }
 
 TEST (block_store, pruned_blocks)
@@ -1413,7 +1434,7 @@ TEST (mdb_block_store, upgrade_v16_v17)
 	nano::state_block block2 (nano::dev_genesis_key.pub, block1.hash (), nano::dev_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio - 1, nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (block1.hash ()));
 	nano::state_block block3 (nano::dev_genesis_key.pub, block2.hash (), nano::dev_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio - 2, nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (block2.hash ()));
 
-	auto code = [&block1, &block2, &block3](auto confirmation_height, nano::block_hash const & expected_cemented_frontier) {
+	auto code = [&block1, &block2, &block3] (auto confirmation_height, nano::block_hash const & expected_cemented_frontier) {
 		auto path (nano::unique_path ());
 		nano::mdb_val value;
 		{
@@ -1791,6 +1812,36 @@ TEST (mdb_block_store, upgrade_v19_v20)
 	ASSERT_LT (19, store.version_get (transaction));
 }
 
+TEST (mdb_block_store, upgrade_v20_v21)
+{
+	if (nano::using_rocksdb_in_tests ())
+	{
+		// Don't test this in rocksdb mode
+		return;
+	}
+	auto path (nano::unique_path ());
+	nano::genesis genesis;
+	nano::logger_mt logger;
+	nano::stat stats;
+	{
+		nano::mdb_store store (logger, path);
+		nano::ledger ledger (store, stats);
+		auto transaction (store.tx_begin_write ());
+		store.initialize (transaction, genesis, ledger.cache);
+		// Delete pruned table
+		ASSERT_FALSE (mdb_drop (store.env.tx (transaction), store.final_votes, 1));
+		store.version_put (transaction, 20);
+	}
+	// Upgrading should create the table
+	nano::mdb_store store (logger, path);
+	ASSERT_FALSE (store.init_error ());
+	ASSERT_NE (store.final_votes, 0);
+
+	// Version should be correct
+	auto transaction (store.tx_begin_read ());
+	ASSERT_LT (19, store.version_get (transaction));
+}
+
 TEST (mdb_block_store, upgrade_backup)
 {
 	if (nano::using_rocksdb_in_tests ())
@@ -1803,7 +1854,7 @@ TEST (mdb_block_store, upgrade_backup)
 	fs::create_directory (dir);
 	auto path = dir / "data.ldb";
 	/** Returns 'dir' if backup file cannot be found */
-	auto get_backup_path = [&dir]() {
+	auto get_backup_path = [&dir] () {
 		for (fs::directory_iterator itr (dir); itr != fs::directory_iterator (); ++itr)
 		{
 			if (itr->path ().filename ().string ().find ("data_backup_") != std::string::npos)
@@ -1867,7 +1918,7 @@ TEST (block_store, confirmation_height)
 		ASSERT_EQ (confirmation_height_info.height, 10);
 		ASSERT_EQ (confirmation_height_info.frontier, cemented_frontier3);
 
-		// Check cleaning of confirmation heights
+		// Check clearing of confirmation heights
 		store->confirmation_height_clear (transaction);
 	}
 	auto transaction (store->tx_begin_read ());
@@ -1876,6 +1927,36 @@ TEST (block_store, confirmation_height)
 	ASSERT_TRUE (store->confirmation_height_get (transaction, account1, confirmation_height_info));
 	ASSERT_TRUE (store->confirmation_height_get (transaction, account2, confirmation_height_info));
 	ASSERT_TRUE (store->confirmation_height_get (transaction, account3, confirmation_height_info));
+}
+
+// Test various confirmation height values as well as clearing them
+TEST (block_store, final_vote)
+{
+	if (nano::using_rocksdb_in_tests ())
+	{
+		// Don't test this in rocksdb mode as deletions cause inaccurate counts
+		return;
+	}
+	auto path (nano::unique_path ());
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, path);
+
+	{
+		auto qualified_root = nano::genesis ().open->qualified_root ();
+		auto transaction (store->tx_begin_write ());
+		store->final_vote_put (transaction, qualified_root, nano::block_hash (2));
+		ASSERT_EQ (store->final_vote_count (transaction), 1);
+		store->final_vote_clear (transaction);
+		ASSERT_EQ (store->final_vote_count (transaction), 0);
+		store->final_vote_put (transaction, qualified_root, nano::block_hash (2));
+		ASSERT_EQ (store->final_vote_count (transaction), 1);
+		// Clearing with incorrect root shouldn't remove
+		store->final_vote_clear (transaction, qualified_root.previous ());
+		ASSERT_EQ (store->final_vote_count (transaction), 1);
+		// Clearing with correct root should remove
+		store->final_vote_clear (transaction, qualified_root.root ());
+		ASSERT_EQ (store->final_vote_count (transaction), 0);
+	}
 }
 
 // Ledger versions are not forward compatible

@@ -30,7 +30,7 @@ uint64_t nano::peer_exclusion::add (nano::tcp_endpoint const & endpoint_a, size_
 	else
 	{
 		// Update existing endpoint
-		peers_by_endpoint.modify (existing, [&result](peer_exclusion::item & item_a) {
+		peers_by_endpoint.modify (existing, [&result] (peer_exclusion::item & item_a) {
 			++item_a.score;
 			result = item_a.score;
 			if (item_a.score == peer_exclusion::score_limit)

@@ -85,7 +85,7 @@ public:
 	 * @param key Array element key. Qualified (dotted) keys are not supported for arrays so this must be called on the correct tomlconfig node.
 	 */
 	template <typename T>
-	tomlconfig & array_entries_required (std::string const & key, std::function<void(T)> callback)
+	tomlconfig & array_entries_required (std::string const & key, std::function<void (T)> callback)
 	{
 		if (tree->contains_qualified (key))
 		{

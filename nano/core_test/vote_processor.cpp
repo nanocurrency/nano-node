@@ -191,14 +191,14 @@ TEST (vote_processor, no_broadcast_local)
 	// Reduce the weight of genesis to 2x default min voting weight
 	nano::keypair key;
 	std::shared_ptr<nano::block> send = builder.state ()
-	                                    .account (nano::dev_genesis_key.pub)
-	                                    .representative (nano::dev_genesis_key.pub)
-	                                    .previous (nano::genesis_hash)
-	                                    .balance (2 * node.config.vote_minimum.number ())
-	                                    .link (key.pub)
-	                                    .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-	                                    .work (*system.work.generate (nano::genesis_hash))
-	                                    .build (ec);
+										.account (nano::dev_genesis_key.pub)
+										.representative (nano::dev_genesis_key.pub)
+										.previous (nano::genesis_hash)
+										.balance (2 * node.config.vote_minimum.number ())
+										.link (key.pub)
+										.sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+										.work (*system.work.generate (nano::genesis_hash))
+										.build (ec);
 	ASSERT_FALSE (ec);
 	ASSERT_EQ (nano::process_result::progress, node.process_local (send).code);
 	ASSERT_EQ (2 * node.config.vote_minimum.number (), node.weight (nano::dev_genesis_key.pub));
@@ -228,14 +228,14 @@ TEST (vote_processor, no_broadcast_local)
 	ASSERT_FALSE (node.wallets.reps ().exists (nano::dev_genesis_key.pub));
 
 	std::shared_ptr<nano::block> send2 = builder.state ()
-	                                     .account (nano::dev_genesis_key.pub)
-	                                     .representative (nano::dev_genesis_key.pub)
-	                                     .previous (send->hash ())
-	                                     .balance (node.config.vote_minimum)
-	                                     .link (key.pub)
-	                                     .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-	                                     .work (*system.work.generate (send->hash ()))
-	                                     .build (ec);
+										 .account (nano::dev_genesis_key.pub)
+										 .representative (nano::dev_genesis_key.pub)
+										 .previous (send->hash ())
+										 .balance (node.config.vote_minimum)
+										 .link (key.pub)
+										 .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+										 .work (*system.work.generate (send->hash ()))
+										 .build (ec);
 	ASSERT_FALSE (ec);
 	ASSERT_EQ (nano::process_result::progress, node.process_local (send2).code);
 	ASSERT_EQ (node.config.vote_minimum, node.weight (nano::dev_genesis_key.pub));
@@ -257,14 +257,14 @@ TEST (vote_processor, no_broadcast_local)
 	// Repeat test with a PR in the wallet
 	// Increase the genesis weight again
 	std::shared_ptr<nano::block> open = builder.state ()
-	                                    .account (key.pub)
-	                                    .representative (nano::dev_genesis_key.pub)
-	                                    .previous (0)
-	                                    .balance (nano::genesis_amount - 2 * node.config.vote_minimum.number ())
-	                                    .link (send->hash ())
-	                                    .sign (key.prv, key.pub)
-	                                    .work (*system.work.generate (key.pub))
-	                                    .build (ec);
+										.account (key.pub)
+										.representative (nano::dev_genesis_key.pub)
+										.previous (0)
+										.balance (nano::genesis_amount - 2 * node.config.vote_minimum.number ())
+										.link (send->hash ())
+										.sign (key.prv, key.pub)
+										.work (*system.work.generate (key.pub))
+										.build (ec);
 	ASSERT_FALSE (ec);
 	ASSERT_EQ (nano::process_result::progress, node.process_local (open).code);
 	ASSERT_EQ (nano::genesis_amount - node.config.vote_minimum.number (), node.weight (nano::dev_genesis_key.pub));

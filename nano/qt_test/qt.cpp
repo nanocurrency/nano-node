@@ -38,7 +38,7 @@ TEST (wallet, status)
 	wallet_l->insert_adhoc (key.prv);
 	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key.pub));
 	wallet->start ();
-	auto wallet_has = [wallet](nano_qt::status_types status_ty) {
+	auto wallet_has = [wallet] (nano_qt::status_types status_ty) {
 		return wallet->active_status.active.find (status_ty) != wallet->active_status.active.end ();
 	};
 	ASSERT_EQ ("Status: Disconnected, Blocks: 1", wallet->status->text ().toStdString ());
@@ -915,7 +915,7 @@ TEST (wallet, epoch_2_validation)
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	QTest::mouseClick (wallet->advanced.create_block, Qt::LeftButton);
 
-	auto create_and_process = [&]() -> nano::block_hash {
+	auto create_and_process = [&] () -> nano::block_hash {
 		wallet->block_creation.create->click ();
 		std::string json (wallet->block_creation.block->toPlainText ().toStdString ());
 		EXPECT_FALSE (json.empty ());
@@ -929,7 +929,7 @@ TEST (wallet, epoch_2_validation)
 		return block.hash ();
 	};
 
-	auto do_send = [&](nano::public_key const & destination) -> nano::block_hash {
+	auto do_send = [&] (nano::public_key const & destination) -> nano::block_hash {
 		wallet->block_creation.send->click ();
 		wallet->block_creation.account->setText (nano::dev_genesis_key.pub.to_account ().c_str ());
 		wallet->block_creation.amount->setText ("1");
@@ -937,20 +937,20 @@ TEST (wallet, epoch_2_validation)
 		return create_and_process ();
 	};
 
-	auto do_open = [&](nano::block_hash const & source, nano::public_key const & account) -> nano::block_hash {
+	auto do_open = [&] (nano::block_hash const & source, nano::public_key const & account) -> nano::block_hash {
 		wallet->block_creation.open->click ();
 		wallet->block_creation.source->setText (source.to_string ().c_str ());
 		wallet->block_creation.representative->setText (account.to_account ().c_str ());
 		return create_and_process ();
 	};
 
-	auto do_receive = [&](nano::block_hash const & source) -> nano::block_hash {
+	auto do_receive = [&] (nano::block_hash const & source) -> nano::block_hash {
 		wallet->block_creation.receive->click ();
 		wallet->block_creation.source->setText (source.to_string ().c_str ());
 		return create_and_process ();
 	};
 
-	auto do_change = [&](nano::public_key const & account, nano::public_key const & representative) -> nano::block_hash {
+	auto do_change = [&] (nano::public_key const & account, nano::public_key const & representative) -> nano::block_hash {
 		wallet->block_creation.change->click ();
 		wallet->block_creation.account->setText (account.to_account ().c_str ());
 		wallet->block_creation.representative->setText (representative.to_account ().c_str ());

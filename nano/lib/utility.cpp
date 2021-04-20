@@ -3,7 +3,9 @@
 #include <boost/dll/runtime_symbol_info.hpp>
 #include <boost/filesystem.hpp>
 
+#include <cstddef>
 #include <iostream>
+#include <limits>
 #include <sstream>
 #include <string_view>
 #include <thread>
@@ -29,8 +31,25 @@
 #endif
 #endif
 
+#ifndef _WIN32
+#include <sys/resource.h>
+#endif
+
+std::size_t nano::get_filedescriptor_limit ()
+{
+	std::size_t fd_limit = (std::numeric_limits<std::size_t>::max) ();
+#ifndef _WIN32
+	struct rlimit limit;
+	if (getrlimit (RLIMIT_NOFILE, &limit) == 0)
+	{
+		fd_limit = static_cast<std::size_t> (limit.rlim_cur);
+	}
+#endif
+	return fd_limit;
+}
+
 nano::container_info_composite::container_info_composite (std::string const & name) :
-name (name)
+	name (name)
 {
 }
 
@@ -55,7 +74,7 @@ const std::string & nano::container_info_composite::get_name () const
 }
 
 nano::container_info_leaf::container_info_leaf (const container_info & info) :
-info (info)
+	info (info)
 {
 }
 
@@ -112,8 +131,8 @@ void nano::move_all_files_to_dir (boost::filesystem::path const & from, boost::f
 void assert_internal (const char * check_expr, const char * func, const char * file, unsigned int line, bool is_release_assert, std::string_view error_msg)
 {
 	std::cerr << "Assertion (" << check_expr << ") failed\n"
-	          << func << "\n"
-	          << file << ":" << line << "\n";
+			  << func << "\n"
+			  << file << ":" << line << "\n";
 	if (!error_msg.empty ())
 	{
 		std::cerr << "Error: " << error_msg << "\n";

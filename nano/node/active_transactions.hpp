@@ -68,9 +68,9 @@ class inactive_cache_information final
 public:
 	inactive_cache_information () = default;
 	inactive_cache_information (std::chrono::steady_clock::time_point arrival, nano::block_hash hash, nano::account initial_rep_a, uint64_t initial_timestamp_a, nano::inactive_cache_status status) :
-	arrival (arrival),
-	hash (hash),
-	status (status)
+		arrival (arrival),
+		hash (hash),
+		status (status)
 	{
 		voters.reserve (8);
 		voters.emplace_back (initial_rep_a, initial_timestamp_a);
@@ -103,34 +103,6 @@ public:
 
 	size_t max_elections{ 0 };
 	bool aggressive_mode{ false };
-};
-
-class dropped_elections final
-{
-public:
-	dropped_elections (nano::stat &);
-	void add (nano::qualified_root const &);
-	void erase (nano::qualified_root const &);
-	std::chrono::steady_clock::time_point find (nano::qualified_root const &) const;
-	size_t size () const;
-
-	static size_t constexpr capacity{ 16 * 1024 };
-
-	// clang-format off
-	class tag_sequence {};
-	class tag_root {};
-	using ordered_dropped = boost::multi_index_container<nano::election_timepoint,
-	mi::indexed_by<
-		mi::sequenced<mi::tag<tag_sequence>>,
-		mi::hashed_unique<mi::tag<tag_root>,
-			mi::member<nano::election_timepoint, decltype(nano::election_timepoint::root), &nano::election_timepoint::root>>>>;
-	// clang-format on
-
-private:
-	ordered_dropped items;
-	mutable nano::mutex mutex{ mutex_identifier (mutexes::dropped_elections) };
-
-	nano::stat & stats;
 };
 
 class election_insertion_result final
@@ -200,7 +172,7 @@ public:
 	// Returns false if the election difficulty was updated
 	bool update_difficulty (std::shared_ptr<nano::block> const &, bool);
 	// Returns false if the election was restarted
-	bool restart (nano::transaction const &, std::shared_ptr<nano::block> const &);
+	void restart (nano::transaction const &, std::shared_ptr<nano::block> const &);
 	// Returns a list of elections sorted by difficulty
 	std::vector<std::shared_ptr<nano::election>> list_active (size_t = std::numeric_limits<size_t>::max ());
 	double normalized_multiplier (nano::block const &, boost::optional<roots_iterator> const & = boost::none) const;
@@ -218,11 +190,14 @@ public:
 	boost::optional<nano::election_status_type> confirm_block (nano::transaction const &, std::shared_ptr<nano::block> const &);
 	void block_cemented_callback (std::shared_ptr<nano::block> const &);
 	void block_already_cemented_callback (nano::block_hash const &);
+
+	int64_t vacancy () const;
+	std::function<void ()> vacancy_update{ [] () {} };
+
 	boost::optional<double> last_prioritized_multiplier{ boost::none };
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> blocks;
 	std::deque<nano::election_status> list_recently_cemented ();
 	std::deque<nano::election_status> recently_cemented;
-	dropped_elections recently_dropped;
 
 	void add_recently_cemented (nano::election_status const &);
 	void add_recently_confirmed (nano::qualified_root const &, nano::block_hash const &);

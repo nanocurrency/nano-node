@@ -29,6 +29,7 @@ add_executable(
   node.cpp
   processor_service.cpp
   peer_container.cpp
+  prioritization.cpp
   request_aggregator.cpp
   signing.cpp
   socket.cpp

@@ -16,27 +16,27 @@
 #include <boost/format.hpp>
 
 nano::vote_processor::vote_processor (nano::signature_checker & checker_a, nano::active_transactions & active_a, nano::node_observers & observers_a, nano::stat & stats_a, nano::node_config & config_a, nano::node_flags & flags_a, nano::logger_mt & logger_a, nano::online_reps & online_reps_a, nano::rep_crawler & rep_crawler_a, nano::ledger & ledger_a, nano::network_params & network_params_a) :
-checker (checker_a),
-active (active_a),
-observers (observers_a),
-stats (stats_a),
-config (config_a),
-logger (logger_a),
-online_reps (online_reps_a),
-rep_crawler (rep_crawler_a),
-ledger (ledger_a),
-network_params (network_params_a),
-max_votes (flags_a.vote_processor_capacity),
-started (false),
-stopped (false),
-is_active (false),
-thread ([this]() {
-	nano::thread_role::set (nano::thread_role::name::vote_processing);
-	process_loop ();
-})
+	checker (checker_a),
+	active (active_a),
+	observers (observers_a),
+	stats (stats_a),
+	config (config_a),
+	logger (logger_a),
+	online_reps (online_reps_a),
+	rep_crawler (rep_crawler_a),
+	ledger (ledger_a),
+	network_params (network_params_a),
+	max_votes (flags_a.vote_processor_capacity),
+	started (false),
+	stopped (false),
+	is_active (false),
+	thread ([this] () {
+		nano::thread_role::set (nano::thread_role::name::vote_processing);
+		process_loop ();
+	})
 {
 	nano::unique_lock<nano::mutex> lock (mutex);
-	condition.wait (lock, [& started = started] { return started; });
+	condition.wait (lock, [&started = started] { return started; });
 }
 
 void nano::vote_processor::process_loop ()
@@ -76,6 +76,7 @@ void nano::vote_processor::process_loop ()
 
 			lock.unlock ();
 			condition.notify_all ();
+			total_processed += votes_l.size ();
 			lock.lock ();
 
 			if (log_this_iteration && elapsed.stop () > std::chrono::milliseconds (100))

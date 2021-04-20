@@ -66,6 +66,7 @@ public:
 	unsigned bootstrap_connections{ 4 };
 	unsigned bootstrap_connections_max{ 64 };
 	unsigned bootstrap_initiator_threads{ 1 };
+	uint32_t bootstrap_frontier_request_count{ 1024 * 1024 };
 	nano::websocket::config websocket_config;
 	nano::diagnostics_config diagnostics_config;
 	size_t confirmation_history_size{ 2048 };
@@ -99,6 +100,8 @@ public:
 	std::chrono::seconds work_watcher_period{ std::chrono::seconds (5) };
 	double max_work_generate_multiplier{ 64. };
 	uint32_t max_queued_requests{ 512 };
+	/** Maximum amount of confirmation requests (batches) to be sent to each channel */
+	uint32_t confirm_req_batches_max{ network_params.network.is_dev_network () ? 1u : 2u };
 	std::chrono::seconds max_pruning_age{ !network_params.network.is_beta_network () ? std::chrono::seconds (24 * 60 * 60) : std::chrono::seconds (5 * 60) }; // 1 day; 5 minutes for beta network
 	uint64_t max_pruning_depth{ 0 };
 	nano::rocksdb_config rocksdb_config;
@@ -154,5 +157,6 @@ public:
 	size_t block_processor_verification_size{ 0 };
 	size_t inactive_votes_cache_size{ 16 * 1024 };
 	size_t vote_processor_capacity{ 144 * 1024 };
+	size_t bootstrap_interval{ 0 }; // For testing only
 };
 }

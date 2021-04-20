@@ -31,7 +31,7 @@ int main (int argc, char ** argv)
 		client_tabs->addTab (guis.back ()->client_window, boost::str (boost::format ("Wallet %1%") % i).c_str ());
 	}
 	client_tabs->show ();
-	QObject::connect (&application, &QApplication::aboutToQuit, [&]() {
+	QObject::connect (&application, &QApplication::aboutToQuit, [&] () {
 		system.stop ();
 	});
 	int result;

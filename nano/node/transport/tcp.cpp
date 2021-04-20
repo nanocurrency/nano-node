@@ -5,8 +5,8 @@
 #include <boost/format.hpp>
 
 nano::transport::channel_tcp::channel_tcp (nano::node & node_a, std::weak_ptr<nano::socket> socket_a) :
-channel (node_a),
-socket (socket_a)
+	channel (node_a),
+	socket (socket_a)
 {
 }
 
@@ -45,14 +45,14 @@ bool nano::transport::channel_tcp::operator== (nano::transport::channel const & 
 	return result;
 }
 
-void nano::transport::channel_tcp::send_buffer (nano::shared_const_buffer const & buffer_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a, nano::buffer_drop_policy policy_a)
+void nano::transport::channel_tcp::send_buffer (nano::shared_const_buffer const & buffer_a, std::function<void (boost::system::error_code const &, size_t)> const & callback_a, nano::buffer_drop_policy policy_a)
 {
 	if (auto socket_l = socket.lock ())
 	{
 		if (!socket_l->max () || (policy_a == nano::buffer_drop_policy::no_socket_drop && !socket_l->full ()))
 		{
 			socket_l->async_write (
-			buffer_a, [endpoint_a = socket_l->remote_endpoint (), node = std::weak_ptr<nano::node> (node.shared ()), callback_a](boost::system::error_code const & ec, size_t size_a) {
+			buffer_a, [endpoint_a = socket_l->remote_endpoint (), node = std::weak_ptr<nano::node> (node.shared ()), callback_a] (boost::system::error_code const & ec, size_t size_a) {
 				if (auto node_l = node.lock ())
 				{
 					if (!ec)
@@ -88,7 +88,7 @@ void nano::transport::channel_tcp::send_buffer (nano::shared_const_buffer const 
 	}
 	else if (callback_a)
 	{
-		node.background ([callback_a]() {
+		node.background ([callback_a] () {
 			callback_a (boost::system::errc::make_error_code (boost::system::errc::not_supported), 0);
 		});
 	}
@@ -111,7 +111,7 @@ void nano::transport::channel_tcp::set_endpoint ()
 }
 
 nano::transport::tcp_channels::tcp_channels (nano::node & node_a) :
-node (node_a)
+	node (node_a)
 {
 }
 
@@ -221,7 +221,7 @@ bool nano::transport::tcp_channels::store_all (bool clear_peers)
 		nano::lock_guard<nano::mutex> lock (mutex);
 		endpoints.reserve (channels.size ());
 		std::transform (channels.begin (), channels.end (),
-		std::back_inserter (endpoints), [](const auto & channel) { return nano::transport::map_tcp_to_endpoint (channel.endpoint ()); });
+		std::back_inserter (endpoints), [] (const auto & channel) { return nano::transport::map_tcp_to_endpoint (channel.endpoint ()); });
 	}
 	bool result (false);
 	if (!endpoints.empty ())
@@ -263,7 +263,7 @@ nano::tcp_endpoint nano::transport::tcp_channels::bootstrap_peer (uint8_t connec
 		if (i->channel->get_network_version () >= connection_protocol_version_min)
 		{
 			result = i->endpoint ();
-			channels.get<last_bootstrap_attempt_tag> ().modify (i, [](channel_tcp_wrapper & wrapper_a) {
+			channels.get<last_bootstrap_attempt_tag> ().modify (i, [] (channel_tcp_wrapper & wrapper_a) {
 				wrapper_a.channel->set_last_bootstrap_attempt (std::chrono::steady_clock::now ());
 			});
 			i = n;
@@ -430,7 +430,7 @@ void nano::transport::tcp_channels::purge (std::chrono::steady_clock::time_point
 	channels.get<version_tag> ().erase (channels.get<version_tag> ().begin (), lower_bound);
 
 	// Cleanup any sockets which may still be existing from failed node id handshakes
-	node_id_handshake_sockets.erase (std::remove_if (node_id_handshake_sockets.begin (), node_id_handshake_sockets.end (), [this](auto socket) {
+	node_id_handshake_sockets.erase (std::remove_if (node_id_handshake_sockets.begin (), node_id_handshake_sockets.end (), [this] (auto socket) {
 		return channels.get<endpoint_tag> ().find (socket->remote_endpoint ()) == channels.get<endpoint_tag> ().end ();
 	}),
 	node_id_handshake_sockets.end ());
@@ -468,7 +468,7 @@ void nano::transport::tcp_channels::ongoing_keepalive ()
 		}
 	}
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.workers.add_timed_task (std::chrono::steady_clock::now () + node.network_params.node.half_period, [node_w]() {
+	node.workers.add_timed_task (std::chrono::steady_clock::now () + node.network_params.node.half_period, [node_w] () {
 		if (auto node_l = node_w.lock ())
 		{
 			if (!node_l->network.tcp_channels.stopped)
@@ -499,13 +499,13 @@ void nano::transport::tcp_channels::list (std::deque<std::shared_ptr<nano::trans
 	// clang-format on
 }
 
-void nano::transport::tcp_channels::modify (std::shared_ptr<nano::transport::channel_tcp> const & channel_a, std::function<void(std::shared_ptr<nano::transport::channel_tcp> const &)> modify_callback_a)
+void nano::transport::tcp_channels::modify (std::shared_ptr<nano::transport::channel_tcp> const & channel_a, std::function<void (std::shared_ptr<nano::transport::channel_tcp> const &)> modify_callback_a)
 {
 	nano::lock_guard<nano::mutex> lock (mutex);
 	auto existing (channels.get<endpoint_tag> ().find (channel_a->get_tcp_endpoint ()));
 	if (existing != channels.get<endpoint_tag> ().end ())
 	{
-		channels.get<endpoint_tag> ().modify (existing, [modify_callback_a](channel_tcp_wrapper & wrapper_a) {
+		channels.get<endpoint_tag> ().modify (existing, [modify_callback_a] (channel_tcp_wrapper & wrapper_a) {
 			modify_callback_a (wrapper_a.channel);
 		});
 	}
@@ -517,7 +517,7 @@ void nano::transport::tcp_channels::update (nano::tcp_endpoint const & endpoint_
 	auto existing (channels.get<endpoint_tag> ().find (endpoint_a));
 	if (existing != channels.get<endpoint_tag> ().end ())
 	{
-		channels.get<endpoint_tag> ().modify (existing, [](channel_tcp_wrapper & wrapper_a) {
+		channels.get<endpoint_tag> ().modify (existing, [] (channel_tcp_wrapper & wrapper_a) {
 			wrapper_a.channel->set_last_packet_sent (std::chrono::steady_clock::now ());
 		});
 	}
@@ -545,7 +545,7 @@ void nano::transport::tcp_channels::remove_node_id_handshake_socket (std::shared
 	}
 }
 
-void nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint_a, std::function<void(std::shared_ptr<nano::transport::channel> const &)> const & callback_a)
+void nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint_a, std::function<void (std::shared_ptr<nano::transport::channel> const &)> const & callback_a)
 {
 	if (node.flags.disable_tcp_realtime)
 	{
@@ -557,7 +557,7 @@ void nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint_a
 	auto channel (std::make_shared<nano::transport::channel_tcp> (node, socket_w));
 	std::weak_ptr<nano::node> node_w (node.shared ());
 	socket->async_connect (nano::transport::map_endpoint_to_tcp (endpoint_a),
-	[node_w, channel, socket, endpoint_a, callback_a](boost::system::error_code const & ec) {
+	[node_w, channel, socket, endpoint_a, callback_a] (boost::system::error_code const & ec) {
 		if (auto node_l = node_w.lock ())
 		{
 			if (!ec && channel)
@@ -574,7 +574,7 @@ void nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint_a
 				std::shared_ptr<std::vector<uint8_t>> receive_buffer (std::make_shared<std::vector<uint8_t>> ());
 				receive_buffer->resize (256);
 				node_l->network.tcp_channels.push_node_id_handshake_socket (socket);
-				channel->send_buffer (bytes, [node_w, channel, endpoint_a, receive_buffer, callback_a](boost::system::error_code const & ec, size_t size_a) {
+				channel->send_buffer (bytes, [node_w, channel, endpoint_a, receive_buffer, callback_a] (boost::system::error_code const & ec, size_t size_a) {
 					if (auto node_l = node_w.lock ())
 					{
 						if (!ec && channel)
@@ -605,12 +605,12 @@ void nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint_a
 	});
 }
 
-void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<nano::transport::channel_tcp> const & channel_a, nano::endpoint const & endpoint_a, std::shared_ptr<std::vector<uint8_t>> const & receive_buffer_a, std::function<void(std::shared_ptr<nano::transport::channel> const &)> const & callback_a)
+void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<nano::transport::channel_tcp> const & channel_a, nano::endpoint const & endpoint_a, std::shared_ptr<std::vector<uint8_t>> const & receive_buffer_a, std::function<void (std::shared_ptr<nano::transport::channel> const &)> const & callback_a)
 {
 	std::weak_ptr<nano::node> node_w (node.shared ());
 	if (auto socket_l = channel_a->socket.lock ())
 	{
-		auto cleanup_node_id_handshake_socket = [socket_w = channel_a->socket, node_w](nano::endpoint const & endpoint_a, std::function<void(std::shared_ptr<nano::transport::channel>)> const & callback_a) {
+		auto cleanup_node_id_handshake_socket = [socket_w = channel_a->socket, node_w] (nano::endpoint const & endpoint_a, std::function<void (std::shared_ptr<nano::transport::channel>)> const & callback_a) {
 			if (auto node_l = node_w.lock ())
 			{
 				if (auto socket_l = socket_w.lock ())
@@ -621,7 +621,7 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 			}
 		};
 
-		auto cleanup_and_udp_fallback = [socket_w = channel_a->socket, node_w, cleanup_node_id_handshake_socket](nano::endpoint const & endpoint_a, std::function<void(std::shared_ptr<nano::transport::channel>)> const & callback_a) {
+		auto cleanup_and_udp_fallback = [socket_w = channel_a->socket, node_w, cleanup_node_id_handshake_socket] (nano::endpoint const & endpoint_a, std::function<void (std::shared_ptr<nano::transport::channel>)> const & callback_a) {
 			if (auto node_l = node_w.lock ())
 			{
 				node_l->network.tcp_channels.udp_fallback (endpoint_a, callback_a);
@@ -629,7 +629,7 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 			}
 		};
 
-		socket_l->async_read (receive_buffer_a, 8 + sizeof (nano::account) + sizeof (nano::account) + sizeof (nano::signature), [node_w, channel_a, endpoint_a, receive_buffer_a, callback_a, cleanup_and_udp_fallback, cleanup_node_id_handshake_socket](boost::system::error_code const & ec, size_t size_a) {
+		socket_l->async_read (receive_buffer_a, 8 + sizeof (nano::account) + sizeof (nano::account) + sizeof (nano::signature), [node_w, channel_a, endpoint_a, receive_buffer_a, callback_a, cleanup_and_udp_fallback, cleanup_node_id_handshake_socket] (boost::system::error_code const & ec, size_t size_a) {
 			if (auto node_l = node_w.lock ())
 			{
 				if (!ec && channel_a)
@@ -669,7 +669,7 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 									{
 										node_l->logger.try_log (boost::str (boost::format ("Node ID handshake response sent with node ID %1% to %2%: query %3%") % node_l->node_id.pub.to_node_id () % endpoint_a % (*message.query).to_string ()));
 									}
-									channel_a->send_buffer (bytes, [node_w, channel_a, endpoint_a, callback_a, cleanup_and_udp_fallback](boost::system::error_code const & ec, size_t size_a) {
+									channel_a->send_buffer (bytes, [node_w, channel_a, endpoint_a, callback_a, cleanup_and_udp_fallback] (boost::system::error_code const & ec, size_t size_a) {
 										if (auto node_l = node_w.lock ())
 										{
 											if (!ec && channel_a)
@@ -692,7 +692,7 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 
 													if (!node_l->flags.disable_initial_telemetry_requests)
 													{
-														node_l->telemetry->get_metrics_single_peer_async (channel_a, [](nano::telemetry_data_response /* unused */) {
+														node_l->telemetry->get_metrics_single_peer_async (channel_a, [] (nano::telemetry_data_response /* unused */) {
 															// Intentionally empty, starts the telemetry request cycle to more quickly disconnect from invalid peers
 														});
 													}
@@ -743,7 +743,7 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 	}
 }
 
-void nano::transport::tcp_channels::udp_fallback (nano::endpoint const & endpoint_a, std::function<void(std::shared_ptr<nano::transport::channel> const &)> const & callback_a)
+void nano::transport::tcp_channels::udp_fallback (nano::endpoint const & endpoint_a, std::function<void (std::shared_ptr<nano::transport::channel> const &)> const & callback_a)
 {
 	{
 		nano::lock_guard<nano::mutex> lock (mutex);

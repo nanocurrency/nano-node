@@ -29,7 +29,7 @@ class representative
 public:
 	representative () = default;
 	representative (nano::account account_a, nano::amount weight_a, std::shared_ptr<nano::transport::channel> const & channel_a) :
-	account (account_a), weight (weight_a), channel (channel_a)
+		account (account_a), weight (weight_a), channel (channel_a)
 	{
 		debug_assert (channel != nullptr);
 	}
@@ -82,6 +82,9 @@ public:
 
 	/** Remove block hash from list of active rep queries */
 	void remove (nano::block_hash const &);
+
+	/** Remove block hash from with delay depending on vote processor size */
+	void throttled_remove (nano::block_hash const &, uint64_t const);
 
 	/** Attempt to determine if the peer manages one or more representative accounts */
 	void query (std::vector<std::shared_ptr<nano::transport::channel>> const & channels_a);
