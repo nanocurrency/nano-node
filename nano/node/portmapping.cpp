@@ -4,8 +4,8 @@
 #include <boost/format.hpp>
 #include <boost/range/adaptor/filtered.hpp>
 
-#include <upnpcommands.h>
-#include <upnperrors.h>
+#include <miniupnp/miniupnpc/upnpcommands.h>
+#include <miniupnp/miniupnpc/upnperrors.h>
 
 nano::port_mapping::port_mapping (nano::node & node_a) :
 	node (node_a),
