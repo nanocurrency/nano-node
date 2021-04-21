@@ -1188,7 +1188,18 @@ bool nano::wallet::search_pending (nano::transaction const & wallet_transaction_
 					if (wallets.node.config.receive_minimum.number () <= amount)
 					{
 						wallets.node.logger.try_log (boost::str (boost::format ("Found a pending block %1% for account %2%") % hash.to_string () % pending.source.to_account ()));
-						if (wallets.node.ledger.block_confirmed (block_transaction, hash))
+						bool confirmed (wallets.node.ledger.block_confirmed (block_transaction, hash));
+						if (confirmed)
+						{
+							auto block (wallets.node.store.block_get (block_transaction, hash));
+							release_assert (block->type () == nano::block_type::state || block->type () == nano::block_type::send);
+						}
+						else if (wallets.node.ledger.pruning)
+						{
+							// All pruned blocks should be confirmed
+							confirmed = wallets.node.store.pruned_exists (block_transaction, hash);
+						}
+						if (confirmed)
 						{
 							auto representative = store.representative (wallet_transaction_a);
 							// Receive confirmed block
