@@ -1172,7 +1172,7 @@ bool nano::ledger::dependents_confirmed (nano::transaction const & transaction_a
 		auto result (hash_a.is_zero ());
 		if (!result)
 		{
-			result = block_confirmed (transaction_a, hash_a);
+			result = block_confirmed_or_pruned_exists (transaction_a, hash_a);
 		}
 		return result;
 	});
