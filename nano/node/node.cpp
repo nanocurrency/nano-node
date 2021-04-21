@@ -661,10 +661,6 @@ void nano::node::stop ()
 		// No tasks may wait for work generation in I/O threads, or termination signal capturing will be unable to call node::stop()
 		distributed_work.stop ();
 		block_processor.stop ();
-		if (block_processor_thread.joinable ())
-		{
-			block_processor_thread.join ();
-		}
 		aggregator.stop ();
 		vote_processor.stop ();
 		active.stop ();
