@@ -12,8 +12,8 @@
 
 #include <chrono>
 #include <memory>
-#include <unordered_set>
 #include <thread>
+#include <unordered_set>
 
 namespace nano
 {
