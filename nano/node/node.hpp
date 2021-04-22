@@ -37,7 +37,6 @@
 
 #include <atomic>
 #include <memory>
-#include <thread>
 #include <vector>
 
 namespace nano
@@ -179,7 +178,6 @@ public:
 	nano::vote_processor vote_processor;
 	unsigned warmed_up;
 	nano::block_processor block_processor;
-	std::thread block_processor_thread;
 	nano::block_arrival block_arrival;
 	nano::local_vote_history history;
 	nano::keypair node_id;

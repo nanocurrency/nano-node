@@ -112,12 +112,6 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	vote_processor (checker, active, observers, stats, config, flags, logger, online_reps, rep_crawler, ledger, network_params),
 	warmed_up (0),
 	block_processor (*this, write_database_queue),
-	// clang-format off
-block_processor_thread ([this]() {
-	nano::thread_role::set (nano::thread_role::name::block_processing);
-	this->block_processor.process_blocks ();
-}),
-	// clang-format on
 	online_reps (ledger, config),
 	history{ config.network_params.voting },
 	vote_uniquer (block_uniquer),
@@ -667,10 +661,6 @@ void nano::node::stop ()
 		// No tasks may wait for work generation in I/O threads, or termination signal capturing will be unable to call node::stop()
 		distributed_work.stop ();
 		block_processor.stop ();
-		if (block_processor_thread.joinable ())
-		{
-			block_processor_thread.join ();
-		}
 		aggregator.stop ();
 		vote_processor.stop ();
 		active.stop ();
