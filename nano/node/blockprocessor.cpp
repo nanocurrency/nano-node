@@ -44,7 +44,7 @@ nano::block_processor::block_processor (nano::node & node_a, nano::write_databas
 			this->condition.notify_all ();
 		}
 	};
-	thread = std::thread ([this] () {
+	processing_thread = std::thread ([this] () {
 		nano::thread_role::set (nano::thread_role::name::block_processing);
 		this->process_blocks ();
 	});
@@ -53,9 +53,9 @@ nano::block_processor::block_processor (nano::node & node_a, nano::write_databas
 nano::block_processor::~block_processor ()
 {
 	stop ();
-	if (thread.joinable ())
+	if (processing_thread.joinable ())
 	{
-		thread.join ();
+		processing_thread.join ();
 	}
 }
 
