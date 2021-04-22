@@ -56,7 +56,6 @@ TEST (election_scheduler, no_vacancy)
 	nano::node_config config{ nano::get_available_port (), system.logging };
 	config.active_elections_size = 1;
 	auto & node = *system.add_node (config);
-	;
 	nano::state_block_builder builder;
 	nano::keypair key;
 
@@ -81,12 +80,7 @@ TEST (election_scheduler, no_vacancy)
 				   .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node.process (*send).code);
 	ASSERT_EQ (nano::process_result::progress, node.process (*receive).code);
-	node.block_confirm (send);
-	auto election1 = node.active.election (send->qualified_root ());
-	election1->force_confirm ();
-	node.block_confirm (receive);
-	auto election2 = node.active.election (receive->qualified_root ());
-	election2->force_confirm ();
+	nano::blocks_confirm (node, { send, receive }, true);
 
 	// Second, process two eligble transactions
 	auto block0 = builder.make_block ()

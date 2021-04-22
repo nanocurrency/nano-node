@@ -86,6 +86,7 @@ size_t nano::election_scheduler::priority_queue_size () const
 
 void nano::election_scheduler::run ()
 {
+	nano::thread_role::set (nano::thread_role::name::election_scheduler);
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	while (!stopped)
 	{
