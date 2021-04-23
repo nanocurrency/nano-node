@@ -348,7 +348,8 @@ void nano::block_processor::process_live (nano::transaction const & transaction_
 	// Start collecting quorum on block
 	if (watch_work_a || node.ledger.dependents_confirmed (transaction_a, *block_a))
 	{
-		node.active.insert (block_a, process_return_a.previous_balance.number ());
+		auto account = block_a->account ().is_zero () ? block_a->sideband ().account : block_a->account ();
+		node.scheduler.activate (account, transaction_a);
 	}
 	else
 	{

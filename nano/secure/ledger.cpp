@@ -840,7 +840,7 @@ nano::uint128_t nano::ledger::account_pending (nano::transaction const & transac
 		nano::pending_info const & info (i->second);
 		if (only_confirmed_a)
 		{
-			if (block_confirmed_or_pruned_exists (transaction_a, i->first.hash))
+			if (block_confirmed (transaction_a, i->first.hash))
 			{
 				result += info.amount.number ();
 			}
@@ -1172,7 +1172,7 @@ bool nano::ledger::dependents_confirmed (nano::transaction const & transaction_a
 		auto result (hash_a.is_zero ());
 		if (!result)
 		{
-			result = block_confirmed (transaction_a, hash_a);
+			result = block_confirmed_or_pruned_exists (transaction_a, hash_a);
 		}
 		return result;
 	});
