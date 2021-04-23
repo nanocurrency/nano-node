@@ -68,9 +68,14 @@ void nano::frontier_req_client::receive_frontier ()
 	});
 }
 
+bool nano::frontier_req_client::bulk_push_available ()
+{
+	return bulk_push_cost < nano::bootstrap_limits::bulk_push_cost_limit && frontiers_age == std::numeric_limits<decltype (frontiers_age)>::max ();
+}
+
 void nano::frontier_req_client::unsynced (nano::block_hash const & head, nano::block_hash const & end)
 {
-	if (bulk_push_cost < nano::bootstrap_limits::bulk_push_cost_limit && frontiers_age == std::numeric_limits<decltype (frontiers_age)>::max ())
+	if (bulk_push_available ())
 	{
 		attempt->add_bulk_push_target (head, end);
 		if (end.is_zero ())
@@ -169,7 +174,7 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 		{
 			if (count <= count_limit)
 			{
-				while (!current.is_zero ())
+				while (!current.is_zero () && bulk_push_available ())
 				{
 					// We know about an account they don't.
 					unsynced (frontier, 0);
