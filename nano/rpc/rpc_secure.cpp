@@ -68,7 +68,7 @@ void nano::rpc_secure::load_certs (boost::asio::ssl::context & context_a)
 	{
 		// This is called if the key is password protected
 		context_a.set_password_callback (
-		[this](std::size_t,
+		[this] (std::size_t,
 		boost::asio::ssl::context_base::password_purpose) {
 			return config.secure.server_key_passphrase;
 		});
@@ -90,7 +90,7 @@ void nano::rpc_secure::load_certs (boost::asio::ssl::context & context_a)
 		{
 			context_a.set_verify_mode (boost::asio::ssl::verify_fail_if_no_peer_cert | boost::asio::ssl::verify_peer);
 			context_a.add_verify_path (config.secure.client_certs_path);
-			context_a.set_verify_callback ([this](auto preverified, auto & ctx) {
+			context_a.set_verify_callback ([this] (auto preverified, auto & ctx) {
 				return this->on_verify_certificate (preverified, ctx);
 			});
 		}
@@ -104,8 +104,8 @@ void nano::rpc_secure::load_certs (boost::asio::ssl::context & context_a)
 }
 
 nano::rpc_secure::rpc_secure (boost::asio::io_context & context_a, nano::rpc_config const & config_a, nano::rpc_handler_interface & rpc_handler_interface_a) :
-rpc (context_a, config_a, rpc_handler_interface_a),
-ssl_context (boost::asio::ssl::context::tlsv12_server)
+	rpc (context_a, config_a, rpc_handler_interface_a),
+	ssl_context (boost::asio::ssl::context::tlsv12_server)
 {
 	load_certs (ssl_context);
 }
@@ -113,7 +113,7 @@ ssl_context (boost::asio::ssl::context::tlsv12_server)
 void nano::rpc_secure::accept ()
 {
 	auto connection (std::make_shared<nano::rpc_connection_secure> (config, io_ctx, logger, rpc_handler_interface, this->ssl_context));
-	acceptor.async_accept (connection->socket, boost::asio::bind_executor (connection->strand, [this, connection](boost::system::error_code const & ec) {
+	acceptor.async_accept (connection->socket, boost::asio::bind_executor (connection->strand, [this, connection] (boost::system::error_code const & ec) {
 		if (ec != boost::asio::error::operation_aborted && acceptor.is_open ())
 		{
 			accept ();

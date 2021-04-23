@@ -80,7 +80,7 @@ std::shared_ptr<nano::node> nano::system::add_node (nano::node_config const & no
 			}
 		}
 		auto iterations1 (0);
-		while (std::any_of (begin, nodes.end (), [](std::shared_ptr<nano::node> const & node_a) { return node_a->bootstrap_initiator.in_progress (); }))
+		while (std::any_of (begin, nodes.end (), [] (std::shared_ptr<nano::node> const & node_a) { return node_a->bootstrap_initiator.in_progress (); }))
 		{
 			poll ();
 			++iterations1;
@@ -112,7 +112,7 @@ nano::system::system ()
 }
 
 nano::system::system (uint16_t count_a, nano::transport::transport_type type_a, nano::node_flags flags_a) :
-system ()
+	system ()
 {
 	nodes.reserve (count_a);
 	for (uint16_t i (0); i < count_a; ++i)
@@ -184,14 +184,14 @@ std::unique_ptr<nano::state_block> nano::upgrade_epoch (nano::work_pool & pool_a
 	nano::state_block_builder builder;
 	std::error_code ec;
 	auto epoch = builder
-	             .account (dev_genesis_key.pub)
-	             .previous (latest)
-	             .balance (balance)
-	             .link (ledger_a.epoch_link (epoch_a))
-	             .representative (dev_genesis_key.pub)
-	             .sign (dev_genesis_key.prv, dev_genesis_key.pub)
-	             .work (*pool_a.generate (latest, nano::work_threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true))))
-	             .build (ec);
+				 .account (dev_genesis_key.pub)
+				 .previous (latest)
+				 .balance (balance)
+				 .link (ledger_a.epoch_link (epoch_a))
+				 .representative (dev_genesis_key.pub)
+				 .sign (dev_genesis_key.prv, dev_genesis_key.pub)
+				 .work (*pool_a.generate (latest, nano::work_threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true))))
+				 .build (ec);
 
 	bool error{ true };
 	if (!ec && epoch)
@@ -260,7 +260,7 @@ std::error_code nano::system::poll (std::chrono::nanoseconds const & wait_time)
 	return ec;
 }
 
-std::error_code nano::system::poll_until_true (std::chrono::nanoseconds deadline_a, std::function<bool()> predicate_a)
+std::error_code nano::system::poll_until_true (std::chrono::nanoseconds deadline_a, std::function<bool ()> predicate_a)
 {
 	std::error_code ec;
 	deadline_set (deadline_a);
@@ -277,10 +277,10 @@ class traffic_generator : public std::enable_shared_from_this<traffic_generator>
 {
 public:
 	traffic_generator (uint32_t count_a, uint32_t wait_a, std::shared_ptr<nano::node> const & node_a, nano::system & system_a) :
-	count (count_a),
-	wait (wait_a),
-	node (node_a),
-	system (system_a)
+		count (count_a),
+		wait (wait_a),
+		node (node_a),
+		system (system_a)
 	{
 	}
 	void run ()
@@ -291,7 +291,7 @@ public:
 		if (count_l > 0)
 		{
 			auto this_l (shared_from_this ());
-			node->workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (wait), [this_l]() { this_l->run (); });
+			node->workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (wait), [this_l] () { this_l->run (); });
 		}
 	}
 	std::vector<nano::account> accounts;

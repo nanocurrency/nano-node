@@ -41,8 +41,8 @@ void nano::prioritization::populate_schedule ()
 }
 
 nano::prioritization::prioritization (uint64_t maximum, std::function<void (std::shared_ptr<nano::block>)> const & drop_a) :
-drop{ drop_a },
-maximum{ maximum }
+	drop{ drop_a },
+	maximum{ maximum }
 {
 	static size_t constexpr bucket_count = 129;
 	buckets.resize (bucket_count);

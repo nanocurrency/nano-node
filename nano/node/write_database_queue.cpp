@@ -4,14 +4,14 @@
 
 #include <algorithm>
 
-nano::write_guard::write_guard (std::function<void()> guard_finish_callback_a) :
-guard_finish_callback (guard_finish_callback_a)
+nano::write_guard::write_guard (std::function<void ()> guard_finish_callback_a) :
+	guard_finish_callback (guard_finish_callback_a)
 {
 }
 
 nano::write_guard::write_guard (nano::write_guard && write_guard_a) noexcept :
-guard_finish_callback (std::move (write_guard_a.guard_finish_callback)),
-owns (write_guard_a.owns)
+	guard_finish_callback (std::move (write_guard_a.guard_finish_callback)),
+	owns (write_guard_a.owns)
 {
 	write_guard_a.owns = false;
 	write_guard_a.guard_finish_callback = nullptr;
@@ -51,17 +51,17 @@ void nano::write_guard::release ()
 }
 
 nano::write_database_queue::write_database_queue (bool use_noops_a) :
-guard_finish_callback ([use_noops_a, &queue = queue, &mutex = mutex, &cv = cv]() {
-	if (!use_noops_a)
-	{
+	guard_finish_callback ([use_noops_a, &queue = queue, &mutex = mutex, &cv = cv] () {
+		if (!use_noops_a)
 		{
-			nano::lock_guard<nano::mutex> guard (mutex);
-			queue.pop_front ();
+			{
+				nano::lock_guard<nano::mutex> guard (mutex);
+				queue.pop_front ();
+			}
+			cv.notify_all ();
 		}
-		cv.notify_all ();
-	}
-}),
-use_noops (use_noops_a)
+	}),
+	use_noops (use_noops_a)
 {
 }
 

@@ -98,7 +98,7 @@ public:
 	{
 	public:
 		bin (uint64_t start_inclusive_a, uint64_t end_exclusive_a) :
-		start_inclusive (start_inclusive_a), end_exclusive (end_exclusive_a)
+			start_inclusive (start_inclusive_a), end_exclusive (end_exclusive_a)
 		{
 		}
 		uint64_t start_inclusive;
@@ -120,7 +120,7 @@ class stat_entry final
 {
 public:
 	stat_entry (size_t capacity, size_t interval) :
-	samples (capacity), sample_interval (interval)
+		samples (capacity), sample_interval (interval)
 	{
 	}
 
@@ -516,12 +516,12 @@ public:
 	 * To avoid recursion, the observer callback must only use the received data point snapshop, not query the stat object.
 	 * @param observer The observer receives a snapshot of the current samples.
 	 */
-	void observe_sample (stat::type type, stat::detail detail, stat::dir dir, std::function<void(boost::circular_buffer<stat_datapoint> &)> observer)
+	void observe_sample (stat::type type, stat::detail detail, stat::dir dir, std::function<void (boost::circular_buffer<stat_datapoint> &)> observer)
 	{
 		get_entry (key_of (type, detail, dir))->sample_observers.add (observer);
 	}
 
-	void observe_sample (stat::type type, stat::dir dir, std::function<void(boost::circular_buffer<stat_datapoint> &)> observer)
+	void observe_sample (stat::type type, stat::dir dir, std::function<void (boost::circular_buffer<stat_datapoint> &)> observer)
 	{
 		observe_sample (type, stat::detail::all, dir, observer);
 	}
@@ -531,7 +531,7 @@ public:
 	 * To avoid recursion, the observer callback must only use the received counts, not query the stat object.
 	 * @param observer The observer receives the old and the new count.
 	 */
-	void observe_count (stat::type type, stat::detail detail, stat::dir dir, std::function<void(uint64_t, uint64_t)> observer)
+	void observe_count (stat::type type, stat::detail detail, stat::dir dir, std::function<void (uint64_t, uint64_t)> observer)
 	{
 		get_entry (key_of (type, detail, dir))->count_observers.add (observer);
 	}

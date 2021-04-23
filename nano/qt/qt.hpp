@@ -20,8 +20,8 @@ public:
 class eventloop_event : public QEvent
 {
 public:
-	eventloop_event (std::function<void()> const &);
-	std::function<void()> action;
+	eventloop_event (std::function<void ()> const &);
+	std::function<void ()> action;
 };
 class settings
 {

@@ -90,7 +90,7 @@ class relaxed_atomic_integral
 public:
 	relaxed_atomic_integral () noexcept = default;
 	constexpr relaxed_atomic_integral (T desired) noexcept :
-	atomic (desired)
+		atomic (desired)
 	{
 	}
 
@@ -169,10 +169,10 @@ public:
 	~thread_pool ();
 
 	/** This will run when there is an available thread for execution */
-	void push_task (std::function<void()>);
+	void push_task (std::function<void ()>);
 
 	/** Run a task at a certain point in time */
-	void add_timed_task (std::chrono::steady_clock::time_point const & expiry_time, std::function<void()> task);
+	void add_timed_task (std::chrono::steady_clock::time_point const & expiry_time, std::function<void ()> task);
 
 	/** Stops any further pushed tasks from executing */
 	void stop ();

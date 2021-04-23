@@ -24,8 +24,8 @@ public:
 	void stop ();
 	bool is_active ();
 
-	std::function<void(std::deque<std::pair<nano::unchecked_info, bool>> &, std::vector<int> const &, std::vector<nano::block_hash> const &, std::vector<nano::signature> const &)> blocks_verified_callback;
-	std::function<void()> transition_inactive_callback;
+	std::function<void (std::deque<std::pair<nano::unchecked_info, bool>> &, std::vector<int> const &, std::vector<nano::block_hash> const &, std::vector<nano::signature> const &)> blocks_verified_callback;
+	std::function<void ()> transition_inactive_callback;
 
 private:
 	nano::signature_checker & signature_checker;

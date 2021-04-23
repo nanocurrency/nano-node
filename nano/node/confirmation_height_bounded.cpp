@@ -11,16 +11,16 @@
 #include <numeric>
 
 nano::confirmation_height_bounded::confirmation_height_bounded (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logging const & logging_a, nano::logger_mt & logger_a, std::atomic<bool> & stopped_a, uint64_t & batch_write_size_a, std::function<void (std::vector<std::shared_ptr<nano::block>> const &)> const & notify_observers_callback_a, std::function<void (nano::block_hash const &)> const & notify_block_already_cemented_observers_callback_a, std::function<uint64_t ()> const & awaiting_processing_size_callback_a) :
-ledger (ledger_a),
-write_database_queue (write_database_queue_a),
-batch_separate_pending_min_time (batch_separate_pending_min_time_a),
-logging (logging_a),
-logger (logger_a),
-stopped (stopped_a),
-batch_write_size (batch_write_size_a),
-notify_observers_callback (notify_observers_callback_a),
-notify_block_already_cemented_observers_callback (notify_block_already_cemented_observers_callback_a),
-awaiting_processing_size_callback (awaiting_processing_size_callback_a)
+	ledger (ledger_a),
+	write_database_queue (write_database_queue_a),
+	batch_separate_pending_min_time (batch_separate_pending_min_time_a),
+	logging (logging_a),
+	logger (logger_a),
+	stopped (stopped_a),
+	batch_write_size (batch_write_size_a),
+	notify_observers_callback (notify_observers_callback_a),
+	notify_block_already_cemented_observers_callback (notify_block_already_cemented_observers_callback_a),
+	awaiting_processing_size_callback (awaiting_processing_size_callback_a)
 {
 }
 
@@ -561,34 +561,34 @@ void nano::confirmation_height_bounded::clear_process_vars ()
 }
 
 nano::confirmation_height_bounded::receive_chain_details::receive_chain_details (nano::account const & account_a, uint64_t height_a, nano::block_hash const & hash_a, nano::block_hash const & top_level_a, boost::optional<nano::block_hash> next_a, uint64_t bottom_height_a, nano::block_hash const & bottom_most_a) :
-account (account_a),
-height (height_a),
-hash (hash_a),
-top_level (top_level_a),
-next (next_a),
-bottom_height (bottom_height_a),
-bottom_most (bottom_most_a)
+	account (account_a),
+	height (height_a),
+	hash (hash_a),
+	top_level (top_level_a),
+	next (next_a),
+	bottom_height (bottom_height_a),
+	bottom_most (bottom_most_a)
 {
 }
 
 nano::confirmation_height_bounded::write_details::write_details (nano::account const & account_a, uint64_t bottom_height_a, nano::block_hash const & bottom_hash_a, uint64_t top_height_a, nano::block_hash const & top_hash_a) :
-account (account_a),
-bottom_height (bottom_height_a),
-bottom_hash (bottom_hash_a),
-top_height (top_height_a),
-top_hash (top_hash_a)
+	account (account_a),
+	bottom_height (bottom_height_a),
+	bottom_hash (bottom_hash_a),
+	top_height (top_height_a),
+	top_hash (top_hash_a)
 {
 }
 
 nano::confirmation_height_bounded::receive_source_pair::receive_source_pair (confirmation_height_bounded::receive_chain_details const & receive_details_a, const block_hash & source_a) :
-receive_details (receive_details_a),
-source_hash (source_a)
+	receive_details (receive_details_a),
+	source_hash (source_a)
 {
 }
 
 nano::confirmation_height_bounded::confirmed_info::confirmed_info (uint64_t confirmed_height_a, nano::block_hash const & iterated_frontier_a) :
-confirmed_height (confirmed_height_a),
-iterated_frontier (iterated_frontier_a)
+	confirmed_height (confirmed_height_a),
+	iterated_frontier (iterated_frontier_a)
 {
 }
 

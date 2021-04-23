@@ -199,10 +199,10 @@ double nano::denormalized_multiplier (double const multiplier_a, uint64_t const 
 }
 
 nano::work_pool::work_pool (unsigned max_threads_a, std::chrono::nanoseconds pow_rate_limiter_a, std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> opencl_a) :
-ticket (0),
-done (false),
-pow_rate_limiter (pow_rate_limiter_a),
-opencl (opencl_a)
+	ticket (0),
+	done (false),
+	pow_rate_limiter (pow_rate_limiter_a),
+	opencl (opencl_a)
 {
 	static_assert (ATOMIC_INT_LOCK_FREE == 2, "Atomic int needed");
 	boost::thread::attributes attrs;
@@ -215,7 +215,7 @@ opencl (opencl_a)
 	}
 	for (auto i (0u); i < count; ++i)
 	{
-		threads.emplace_back (attrs, [this, i]() {
+		threads.emplace_back (attrs, [this, i] () {
 			nano::thread_role::set (nano::thread_role::name::work);
 			nano::work_thread_reprioritize ();
 			loop (i);
@@ -331,7 +331,7 @@ void nano::work_pool::cancel (nano::root const & root_a)
 				++ticket;
 			}
 		}
-		pending.remove_if ([&root_a](decltype (pending)::value_type const & item_a) {
+		pending.remove_if ([&root_a] (decltype (pending)::value_type const & item_a) {
 			bool result{ false };
 			if (item_a.item == root_a)
 			{
@@ -356,7 +356,7 @@ void nano::work_pool::stop ()
 	producer_condition.notify_all ();
 }
 
-void nano::work_pool::generate (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::function<void(boost::optional<uint64_t> const &)> callback_a)
+void nano::work_pool::generate (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::function<void (boost::optional<uint64_t> const &)> callback_a)
 {
 	debug_assert (!root_a.is_zero ());
 	if (!threads.empty ())
@@ -394,7 +394,7 @@ boost::optional<uint64_t> nano::work_pool::generate (nano::work_version const ve
 	{
 		std::promise<boost::optional<uint64_t>> work;
 		std::future<boost::optional<uint64_t>> future = work.get_future ();
-		generate (version_a, root_a, difficulty_a, [&work](boost::optional<uint64_t> work_a) {
+		generate (version_a, root_a, difficulty_a, [&work] (boost::optional<uint64_t> work_a) {
 			work.set_value (work_a);
 		});
 		result = future.get ().value ();

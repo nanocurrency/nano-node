@@ -12,11 +12,11 @@
 #endif
 
 nano::rpc::rpc (boost::asio::io_context & io_ctx_a, nano::rpc_config const & config_a, nano::rpc_handler_interface & rpc_handler_interface_a) :
-config (config_a),
-acceptor (io_ctx_a),
-logger (std::chrono::milliseconds (0)),
-io_ctx (io_ctx_a),
-rpc_handler_interface (rpc_handler_interface_a)
+	config (config_a),
+	acceptor (io_ctx_a),
+	logger (std::chrono::milliseconds (0)),
+	io_ctx (io_ctx_a),
+	rpc_handler_interface (rpc_handler_interface_a)
 {
 	rpc_handler_interface.rpc_instance (*this);
 }
@@ -56,7 +56,7 @@ void nano::rpc::start ()
 void nano::rpc::accept ()
 {
 	auto connection (std::make_shared<nano::rpc_connection> (config, io_ctx, logger, rpc_handler_interface));
-	acceptor.async_accept (connection->socket, boost::asio::bind_executor (connection->strand, [this, connection](boost::system::error_code const & ec) {
+	acceptor.async_accept (connection->socket, boost::asio::bind_executor (connection->strand, [this, connection] (boost::system::error_code const & ec) {
 		if (ec != boost::asio::error::operation_aborted && acceptor.is_open ())
 		{
 			accept ();

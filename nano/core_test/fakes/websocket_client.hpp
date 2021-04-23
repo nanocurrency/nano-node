@@ -17,7 +17,7 @@ class fake_websocket_client
 {
 public:
 	fake_websocket_client (unsigned port) :
-	socket (std::make_shared<boost::beast::websocket::stream<boost::asio::ip::tcp::socket>> (ioc))
+		socket (std::make_shared<boost::beast::websocket::stream<boost::asio::ip::tcp::socket>> (ioc))
 	{
 		std::string const host = "::1";
 		boost::asio::ip::tcp::resolver resolver{ ioc };
@@ -31,7 +31,7 @@ public:
 	{
 		if (socket->is_open ())
 		{
-			socket->async_close (boost::beast::websocket::close_code::normal, [socket = this->socket](boost::beast::error_code const & ec) {
+			socket->async_close (boost::beast::websocket::close_code::normal, [socket = this->socket] (boost::beast::error_code const & ec) {
 				// A synchronous close usually hangs in tests when the server's io_context stops looping
 				// An async_close solves this problem
 			});
@@ -55,7 +55,7 @@ public:
 		debug_assert (deadline > 0s);
 		boost::optional<std::string> result;
 		auto buffer (std::make_shared<boost::beast::flat_buffer> ());
-		socket->async_read (*buffer, [&result, &buffer, socket = this->socket](boost::beast::error_code const & ec, std::size_t const /*n*/) {
+		socket->async_read (*buffer, [&result, &buffer, socket = this->socket] (boost::beast::error_code const & ec, std::size_t const /*n*/) {
 			if (!ec)
 			{
 				std::ostringstream res;
