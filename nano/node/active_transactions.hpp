@@ -29,6 +29,7 @@ class node;
 class block;
 class block_sideband;
 class election;
+class election_scheduler;
 class vote;
 class transaction;
 class confirmation_height_processor;
@@ -155,11 +156,6 @@ public:
 
 	explicit active_transactions (nano::node &, nano::confirmation_height_processor &);
 	~active_transactions ();
-	// Start an election for a block
-	// Call action with confirmed block, may be different than what we started with
-	// clang-format off
-	nano::election_insertion_result insert (std::shared_ptr<nano::block> const &, boost::optional<nano::uint128_t> const & = boost::none, nano::election_behavior = nano::election_behavior::normal, std::function<void(std::shared_ptr<nano::block> const&)> const & = nullptr);
-	// clang-format on
 	// Distinguishes replay votes, cannot be determined if the block is not in any election
 	nano::vote_code vote (std::shared_ptr<nano::vote> const &);
 	// Is the root of this block in the roots container
@@ -167,8 +163,6 @@ public:
 	bool active (nano::qualified_root const &);
 	std::shared_ptr<nano::election> election (nano::qualified_root const &) const;
 	std::shared_ptr<nano::block> winner (nano::block_hash const &) const;
-	// Activates the first unconfirmed block of \p account_a
-	nano::election_insertion_result activate (nano::account const &);
 	// Returns false if the election difficulty was updated
 	bool update_difficulty (std::shared_ptr<nano::block> const &, bool);
 	// Returns false if the election was restarted
@@ -207,6 +201,7 @@ public:
 	void trigger_inactive_votes_cache_election (std::shared_ptr<nano::block> const &);
 	nano::inactive_cache_information find_inactive_votes_cache (nano::block_hash const &);
 	void erase_inactive_votes_cache (nano::block_hash const &);
+	nano::election_scheduler & scheduler;
 	nano::confirmation_height_processor & confirmation_height_processor;
 	nano::node & node;
 	mutable nano::mutex mutex{ mutex_identifier (mutexes::active) };
@@ -334,6 +329,7 @@ private:
 	boost::thread thread;
 
 	friend class election;
+	friend class election_scheduler;
 	friend std::unique_ptr<container_info_component> collect_container_info (active_transactions &, const std::string &);
 
 	friend class active_transactions_vote_replays_Test;

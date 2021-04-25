@@ -11,6 +11,7 @@
 #include <nano/node/confirmation_height_processor.hpp>
 #include <nano/node/distributed_work_factory.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/election_scheduler.hpp>
 #include <nano/node/gap_cache.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node_observers.hpp>
@@ -118,6 +119,7 @@ public:
 	void ongoing_bootstrap ();
 	void ongoing_peer_store ();
 	void ongoing_unchecked_cleanup ();
+	void ongoing_backlog_population ();
 	void backup_wallet ();
 	void search_pending ();
 	void bootstrap_wallet ();
@@ -147,6 +149,7 @@ public:
 	bool init_error () const;
 	bool epoch_upgrader (nano::raw_key const &, nano::epoch, uint64_t, uint64_t);
 	std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> get_bootstrap_weights () const;
+	void populate_backlog ();
 	nano::write_database_queue write_database_queue;
 	boost::asio::io_context & io_ctx;
 	boost::latch node_initialized_latch;
@@ -185,6 +188,7 @@ public:
 	nano::vote_uniquer vote_uniquer;
 	nano::confirmation_height_processor confirmation_height_processor;
 	nano::active_transactions active;
+	nano::election_scheduler scheduler;
 	nano::request_aggregator aggregator;
 	nano::wallets wallets;
 	const std::chrono::steady_clock::time_point startup_time;
