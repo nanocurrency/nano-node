@@ -65,9 +65,9 @@ TEST (network_filter, many)
 	nano::genesis genesis;
 	nano::network_filter filter (4);
 	nano::keypair key1;
-	nano::state_block_builder builder;
 	for (int i = 0; i < 100; ++i)
 	{
+		nano::state_block_builder builder;
 		auto block = builder
 					 .account (nano::dev_genesis_key.pub)
 					 .previous (genesis.open->hash ())

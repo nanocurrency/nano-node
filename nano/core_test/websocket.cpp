@@ -651,13 +651,13 @@ TEST (websocket, vote_options_representatives)
 
 	// Quick-confirm a block
 	nano::keypair key;
-	nano::state_block_builder builder;
 	auto balance = nano::genesis_amount;
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	auto send_amount = node1->online_reps.delta () + 1;
 	auto confirm_block = [&] () {
 		nano::block_hash previous (node1->latest (nano::dev_genesis_key.pub));
 		balance -= send_amount;
+		nano::state_block_builder builder;
 		auto send = builder
 					.account (nano::dev_genesis_key.pub)
 					.previous (previous)
