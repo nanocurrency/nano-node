@@ -58,7 +58,7 @@ void nano::election_scheduler::flush ()
 	auto priority_target = priority_queued + priority.size ();
 	auto manual_target = manual_queued + manual_queue.size ();
 	condition.wait (lock, [this, &priority_target, &manual_target] () {
-		return priority_queued >= priority_target && manual_queued >= manual_target;
+		return stopped || (priority_queued >= priority_target && manual_queued >= manual_target);
 	});
 }
 

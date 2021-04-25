@@ -834,7 +834,7 @@ TEST (active_transactions, republish_winner)
 	node1.block_processor.flush ();
 	auto election = node1.active.election (fork->qualified_root ());
 	ASSERT_NE (nullptr, election);
-	auto vote = std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 0, std::vector<nano::block_hash>{ fork->hash () });
+	auto vote = std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, std::numeric_limits<uint64_t>::max (), std::vector<nano::block_hash>{ fork->hash () });
 	node1.vote_processor.vote (vote, std::make_shared<nano::transport::channel_loopback> (node1));
 	node1.vote_processor.flush ();
 	node1.block_processor.flush ();
