@@ -12,26 +12,26 @@
 #include <nano/secure/ledger.hpp>
 
 nano::request_aggregator::request_aggregator (nano::network_constants const & network_constants_a, nano::node_config const & config_a, nano::stat & stats_a, nano::vote_generator & generator_a, nano::vote_generator & final_generator_a, nano::local_vote_history & history_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::active_transactions & active_a) :
-max_delay (network_constants_a.is_dev_network () ? 50 : 300),
-small_delay (network_constants_a.is_dev_network () ? 10 : 50),
-max_channel_requests (config_a.max_queued_requests),
-stats (stats_a),
-local_votes (history_a),
-ledger (ledger_a),
-wallets (wallets_a),
-active (active_a),
-generator (generator_a),
-final_generator (final_generator_a),
-thread ([this]() { run (); })
+	max_delay (network_constants_a.is_dev_network () ? 50 : 300),
+	small_delay (network_constants_a.is_dev_network () ? 10 : 50),
+	max_channel_requests (config_a.max_queued_requests),
+	stats (stats_a),
+	local_votes (history_a),
+	ledger (ledger_a),
+	wallets (wallets_a),
+	active (active_a),
+	generator (generator_a),
+	final_generator (final_generator_a),
+	thread ([this] () { run (); })
 {
-	generator.set_reply_action ([this](std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a) {
+	generator.set_reply_action ([this] (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a) {
 		this->reply_action (vote_a, channel_a);
 	});
 	final_generator.set_reply_action ([this](std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a) {
 		this->reply_action (vote_a, channel_a);
 	});
 	nano::unique_lock<nano::mutex> lock (mutex);
-	condition.wait (lock, [& started = started] { return started; });
+	condition.wait (lock, [&started = started] { return started; });
 }
 
 void nano::request_aggregator::add (std::shared_ptr<nano::transport::channel> const & channel_a, std::vector<std::pair<nano::block_hash, nano::root>> const & hashes_roots_a)
@@ -50,7 +50,7 @@ void nano::request_aggregator::add (std::shared_ptr<nano::transport::channel> co
 		{
 			existing = requests_by_endpoint.emplace (channel_a).first;
 		}
-		requests_by_endpoint.modify (existing, [&hashes_roots_a, &channel_a, &error, this](channel_pool & pool_a) {
+		requests_by_endpoint.modify (existing, [&hashes_roots_a, &channel_a, &error, this] (channel_pool & pool_a) {
 			// This extends the lifetime of the channel, which is acceptable up to max_delay
 			pool_a.channel = channel_a;
 			if (pool_a.hashes_roots.size () + hashes_roots_a.size () <= this->max_channel_requests)
@@ -89,7 +89,7 @@ void nano::request_aggregator::run ()
 				// Store the channel and requests for processing after erasing this pool
 				decltype (front->channel) channel{};
 				decltype (front->hashes_roots) hashes_roots{};
-				requests_by_deadline.modify (front, [&channel, &hashes_roots](channel_pool & pool) {
+				requests_by_deadline.modify (front, [&channel, &hashes_roots] (channel_pool & pool) {
 					channel.swap (pool.channel);
 					hashes_roots.swap (pool.hashes_roots);
 				});
@@ -114,12 +114,12 @@ void nano::request_aggregator::run ()
 			else
 			{
 				auto deadline = front->deadline;
-				condition.wait_until (lock, deadline, [this, &deadline]() { return this->stopped || deadline < std::chrono::steady_clock::now (); });
+				condition.wait_until (lock, deadline, [this, &deadline] () { return this->stopped || deadline < std::chrono::steady_clock::now (); });
 			}
 		}
 		else
 		{
-			condition.wait_for (lock, small_delay, [this]() { return this->stopped || !this->requests.empty (); });
+			condition.wait_for (lock, small_delay, [this] () { return this->stopped || !this->requests.empty (); });
 		}
 	}
 }
@@ -156,10 +156,10 @@ void nano::request_aggregator::reply_action (std::shared_ptr<nano::vote> const &
 
 void nano::request_aggregator::erase_duplicates (std::vector<std::pair<nano::block_hash, nano::root>> & requests_a) const
 {
-	std::sort (requests_a.begin (), requests_a.end (), [](auto const & pair1, auto const & pair2) {
+	std::sort (requests_a.begin (), requests_a.end (), [] (auto const & pair1, auto const & pair2) {
 		return pair1.first < pair2.first;
 	});
-	requests_a.erase (std::unique (requests_a.begin (), requests_a.end (), [](auto const & pair1, auto const & pair2) {
+	requests_a.erase (std::unique (requests_a.begin (), requests_a.end (), [] (auto const & pair1, auto const & pair2) {
 		return pair1.first == pair2.first;
 	}),
 	requests_a.end ());

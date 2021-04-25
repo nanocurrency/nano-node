@@ -18,10 +18,11 @@ TEST (conflicts, start_stop)
 	node1.work_generate_blocking (*send1);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
 	ASSERT_EQ (0, node1.active.size ());
-	auto election1 = node1.active.insert (send1);
+	node1.active.activate (nano::dev_genesis_key.pub);
+	auto election1 = node1.active.election (send1->qualified_root ());
 	ASSERT_EQ (1, node1.active.size ());
-	ASSERT_NE (nullptr, election1.election);
-	ASSERT_EQ (1, election1.election->votes ().size ());
+	ASSERT_NE (nullptr, election1);
+	ASSERT_EQ (1, election1->votes ().size ());
 }
 
 TEST (conflicts, add_existing)
@@ -33,17 +34,18 @@ TEST (conflicts, add_existing)
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send1);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
-	node1.active.insert (send1);
+	node1.active.activate (nano::dev_genesis_key.pub);
 	nano::keypair key2;
 	auto send2 (std::make_shared<nano::send_block> (genesis.hash (), key2.pub, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 	send2->sideband_set ({});
-	auto election1 = node1.active.insert (send2);
+	node1.active.activate (nano::dev_genesis_key.pub);
+	auto election1 = node1.active.election (send2->qualified_root ());
 	ASSERT_EQ (1, node1.active.size ());
 	auto vote1 (std::make_shared<nano::vote> (key2.pub, key2.prv, 0, send2));
 	node1.active.vote (vote1);
-	ASSERT_NE (nullptr, election1.election);
-	ASSERT_EQ (2, election1.election->votes ().size ());
-	auto votes (election1.election->votes ());
+	ASSERT_NE (nullptr, election1);
+	ASSERT_EQ (2, election1->votes ().size ());
+	auto votes (election1->votes ());
 	ASSERT_NE (votes.end (), votes.find (key2.pub));
 }
 
@@ -56,12 +58,13 @@ TEST (conflicts, add_two)
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send1);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
-	node1.active.insert (send1);
+	node1.block_confirm (send1);
+	node1.active.election (send1->qualified_root ())->force_confirm ();
 	nano::keypair key2;
 	auto send2 (std::make_shared<nano::send_block> (send1->hash (), key2.pub, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send2);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send2).code);
-	node1.active.insert (send2);
+	node1.active.activate (nano::dev_genesis_key.pub);
 	ASSERT_EQ (2, node1.active.size ());
 }
 

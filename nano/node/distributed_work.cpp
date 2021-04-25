@@ -21,13 +21,13 @@ std::shared_ptr<request_type> nano::distributed_work::peer_request::get_prepared
 }
 
 nano::distributed_work::distributed_work (nano::node & node_a, nano::work_request const & request_a, std::chrono::seconds const & backoff_a) :
-node (node_a),
-node_w (node_a.shared ()),
-request (request_a),
-backoff (backoff_a),
-strand (node_a.io_ctx.get_executor ()),
-need_resolve (request_a.peers),
-elapsed (nano::timer_state::started, "distributed work generation timer")
+	node (node_a),
+	node_w (node_a.shared ()),
+	request (request_a),
+	backoff (backoff_a),
+	strand (node_a.io_ctx.get_executor ()),
+	need_resolve (request_a.peers),
+	elapsed (nano::timer_state::started, "distributed work generation timer")
 {
 	debug_assert (!finished);
 	debug_assert (status == work_generation_status::ongoing);
@@ -82,7 +82,7 @@ void nano::distributed_work::start ()
 		else
 		{
 			auto this_l (shared_from_this ());
-			node.network.resolver.async_resolve (boost::asio::ip::udp::resolver::query (peer.first, std::to_string (peer.second)), [peer, this_l, &extra = resolved_extra](boost::system::error_code const & ec, boost::asio::ip::udp::resolver::iterator i_a) {
+			node.network.resolver.async_resolve (boost::asio::ip::udp::resolver::query (peer.first, std::to_string (peer.second)), [peer, this_l, &extra = resolved_extra] (boost::system::error_code const & ec, boost::asio::ip::udp::resolver::iterator i_a) {
 				if (!ec)
 				{
 					this_l->do_request (nano::tcp_endpoint (i_a->endpoint ().address (), i_a->endpoint ().port ()));
@@ -107,7 +107,7 @@ void nano::distributed_work::start_local ()
 {
 	auto this_l (shared_from_this ());
 	local_generation_started = true;
-	node.work.generate (request.version, request.root, request.difficulty, [this_l](boost::optional<uint64_t> const & work_a) {
+	node.work.generate (request.version, request.root, request.difficulty, [this_l] (boost::optional<uint64_t> const & work_a) {
 		if (work_a.is_initialized ())
 		{
 			this_l->set_once (*work_a);
@@ -134,7 +134,7 @@ void nano::distributed_work::do_request (nano::tcp_endpoint const & endpoint_a)
 	}
 	connection->socket.async_connect (connection->endpoint,
 	boost::asio::bind_executor (strand,
-	[this_l, connection](boost::system::error_code const & ec) {
+	[this_l, connection] (boost::system::error_code const & ec) {
 		if (!ec && !this_l->stopped)
 		{
 			std::string request_string;
@@ -154,11 +154,11 @@ void nano::distributed_work::do_request (nano::tcp_endpoint const & endpoint_a)
 			auto peer_request (connection->get_prepared_json_request (request_string));
 			boost::beast::http::async_write (connection->socket, *peer_request,
 			boost::asio::bind_executor (this_l->strand,
-			[this_l, connection, peer_request](boost::system::error_code const & ec, size_t size_a) {
+			[this_l, connection, peer_request] (boost::system::error_code const & ec, size_t size_a) {
 				if (!ec && !this_l->stopped)
 				{
 					boost::beast::http::async_read (connection->socket, connection->buffer, connection->response,
-					boost::asio::bind_executor (this_l->strand, [this_l, connection](boost::system::error_code const & ec, size_t size_a) {
+					boost::asio::bind_executor (this_l->strand, [this_l, connection] (boost::system::error_code const & ec, size_t size_a) {
 						if (!ec && !this_l->stopped)
 						{
 							if (connection->response.result () == boost::beast::http::status::ok)
@@ -202,7 +202,7 @@ void nano::distributed_work::do_cancel (nano::tcp_endpoint const & endpoint_a)
 	auto cancelling_l (std::make_shared<peer_request> (node.io_ctx, endpoint_a));
 	cancelling_l->socket.async_connect (cancelling_l->endpoint,
 	boost::asio::bind_executor (strand,
-	[this_l, cancelling_l](boost::system::error_code const & ec) {
+	[this_l, cancelling_l] (boost::system::error_code const & ec) {
 		if (!ec)
 		{
 			std::string request_string;
@@ -217,7 +217,7 @@ void nano::distributed_work::do_cancel (nano::tcp_endpoint const & endpoint_a)
 			auto peer_cancel (cancelling_l->get_prepared_json_request (request_string));
 			boost::beast::http::async_write (cancelling_l->socket, *peer_cancel,
 			boost::asio::bind_executor (this_l->strand,
-			[this_l, peer_cancel, cancelling_l](boost::system::error_code const & ec, size_t bytes_transferred) {
+			[this_l, peer_cancel, cancelling_l] (boost::system::error_code const & ec, size_t bytes_transferred) {
 				if (ec && ec != boost::system::errc::operation_canceled)
 				{
 					this_l->node.logger.try_log (boost::str (boost::format ("Unable to send work_cancel to work_peer %1% %2%: %3% (%4%)") % cancelling_l->endpoint.address () % cancelling_l->endpoint.port () % ec.message () % ec.value ()));

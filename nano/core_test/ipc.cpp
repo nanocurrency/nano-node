@@ -29,17 +29,17 @@ TEST (ipc, asynchronous)
 	auto req (nano::ipc::prepare_request (nano::ipc::payload_encoding::json_v1, std::string (R"({"action": "block_count"})")));
 	auto res (std::make_shared<std::vector<uint8_t>> ());
 	std::atomic<bool> call_completed{ false };
-	client.async_connect ("::1", 24077, [&client, &req, &res, &call_completed](nano::error err) {
-		client.async_write (req, [&client, &req, &res, &call_completed](nano::error err_a, size_t size_a) {
+	client.async_connect ("::1", 24077, [&client, &req, &res, &call_completed] (nano::error err) {
+		client.async_write (req, [&client, &req, &res, &call_completed] (nano::error err_a, size_t size_a) {
 			ASSERT_NO_ERROR (static_cast<std::error_code> (err_a));
 			ASSERT_EQ (size_a, req.size ());
 			// Read length
-			client.async_read (res, sizeof (uint32_t), [&client, &res, &call_completed](nano::error err_read_a, size_t size_read_a) {
+			client.async_read (res, sizeof (uint32_t), [&client, &res, &call_completed] (nano::error err_read_a, size_t size_read_a) {
 				ASSERT_NO_ERROR (static_cast<std::error_code> (err_read_a));
 				ASSERT_EQ (size_read_a, sizeof (uint32_t));
 				uint32_t payload_size_l = boost::endian::big_to_native (*reinterpret_cast<uint32_t *> (res->data ()));
 				// Read json payload
-				client.async_read (res, payload_size_l, [&res, &call_completed](nano::error err_read_a, size_t size_read_a) {
+				client.async_read (res, payload_size_l, [&res, &call_completed] (nano::error err_read_a, size_t size_read_a) {
 					std::string payload (res->begin (), res->end ());
 					std::stringstream ss;
 					ss << payload;
@@ -68,7 +68,7 @@ TEST (ipc, synchronous)
 
 	// Start blocking IPC client in a separate thread
 	std::atomic<bool> call_completed{ false };
-	std::thread client_thread ([&client, &call_completed]() {
+	std::thread client_thread ([&client, &call_completed] () {
 		client.connect ("::1", 24077);
 		std::string response (nano::ipc::request (nano::ipc::payload_encoding::json_v1, client, std::string (R"({"action": "block_count"})")));
 		std::stringstream ss;

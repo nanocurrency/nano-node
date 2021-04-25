@@ -19,19 +19,19 @@ size_t constexpr nano::active_transactions::max_active_elections_frontier_insert
 constexpr std::chrono::minutes nano::active_transactions::expired_optimistic_election_info_cutoff;
 
 nano::active_transactions::active_transactions (nano::node & node_a, nano::confirmation_height_processor & confirmation_height_processor_a) :
-confirmation_height_processor (confirmation_height_processor_a),
-node (node_a),
-multipliers_cb (20, 1.),
-trended_active_multiplier (1.0),
-generator (node_a.config, node_a.ledger, node_a.wallets, node_a.vote_processor, node_a.history, node_a.network, node_a.stats, false),
-final_generator (node_a.config, node_a.ledger, node_a.wallets, node_a.vote_processor, node_a.history, node_a.network, node_a.stats, true),
-check_all_elections_period (node_a.network_params.network.is_dev_network () ? 10ms : 5s),
-election_time_to_live (node_a.network_params.network.is_dev_network () ? 0s : 2s),
-prioritized_cutoff (std::max<size_t> (1, node_a.config.active_elections_size / 10)),
-thread ([this] () {
-	nano::thread_role::set (nano::thread_role::name::request_loop);
-	request_loop ();
-})
+	confirmation_height_processor (confirmation_height_processor_a),
+	node (node_a),
+	multipliers_cb (20, 1.),
+	trended_active_multiplier (1.0),
+	generator (node_a.config, node_a.ledger, node_a.wallets, node_a.vote_processor, node_a.history, node_a.network, node_a.stats, false),
+	final_generator (node_a.config, node_a.ledger, node_a.wallets, node_a.vote_processor, node_a.history, node_a.network, node_a.stats, true),
+	check_all_elections_period (node_a.network_params.network.is_dev_network () ? 10ms : 5s),
+	election_time_to_live (node_a.network_params.network.is_dev_network () ? 0s : 2s),
+	prioritized_cutoff (std::max<size_t> (1, node_a.config.active_elections_size / 10)),
+	thread ([this] () {
+		nano::thread_role::set (nano::thread_role::name::request_loop);
+		request_loop ();
+	})
 {
 	// Register a callback which will get called after a block is cemented
 	confirmation_height_processor.add_cemented_observer ([this] (std::shared_ptr<nano::block> const & callback_block_a) {
@@ -1499,7 +1499,7 @@ nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_
 {
 	debug_assert (!lock_a.owns_lock ());
 	nano::inactive_cache_status status (previously_a);
-	constexpr unsigned election_start_voters_min{ 5 };
+	const unsigned election_start_voters_min = node.network_params.network.is_dev_network () ? 2 : node.network_params.network.is_beta_network () ? 5 : 15;
 	status.tally = tally_a;
 	if (!previously_a.confirmed && tally_a >= node.online_reps.delta ())
 	{
@@ -1521,11 +1521,8 @@ nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_
 		auto block = node.store.block_get (transaction, hash_a);
 		if (block && status.election_started && !previously_a.election_started && !node.block_confirmed_or_being_confirmed (transaction, hash_a))
 		{
-			if (node.ledger.cache.cemented_count >= node.ledger.bootstrap_weight_max_blocks)
-			{
-				lock_a.lock ();
-				insert_impl (lock_a, block);
-			}
+			lock_a.lock ();
+			insert_impl (lock_a, block);
 		}
 		else if (!block && status.bootstrap_started && !previously_a.bootstrap_started && (!node.ledger.pruning || !node.store.pruned_exists (transaction, hash_a)))
 		{
@@ -1553,13 +1550,13 @@ size_t nano::active_transactions::election_winner_details_size ()
 }
 
 nano::cementable_account::cementable_account (nano::account const & account_a, size_t blocks_uncemented_a) :
-account (account_a), blocks_uncemented (blocks_uncemented_a)
+	account (account_a), blocks_uncemented (blocks_uncemented_a)
 {
 }
 
 nano::expired_optimistic_election_info::expired_optimistic_election_info (std::chrono::steady_clock::time_point expired_time_a, nano::account account_a) :
-expired_time (expired_time_a),
-account (account_a)
+	expired_time (expired_time_a),
+	account (account_a)
 {
 }
 

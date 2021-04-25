@@ -16,7 +16,7 @@ namespace
 void read_message_loop (std::shared_ptr<nano::ipc::ipc_client> const & connection)
 {
 	auto buffer (std::make_shared<std::vector<uint8_t>> ());
-	connection->async_read_message (buffer, std::chrono::seconds::max (), [buffer, connection](nano::error error_a, size_t size_a) {
+	connection->async_read_message (buffer, std::chrono::seconds::max (), [buffer, connection] (nano::error error_a, size_t size_a) {
 		if (!error_a)
 		{
 			auto verifier (flatbuffers::Verifier (buffer->data (), buffer->size ()));
@@ -57,11 +57,11 @@ int main (int argc, char * const * argv)
 	// be improved later to handle various options, including port and address.
 	std::string ipc_address = "::1";
 	uint16_t ipc_port = 7077;
-	connection->async_connect (ipc_address, ipc_port, [connection](nano::error err) {
+	connection->async_connect (ipc_address, ipc_port, [connection] (nano::error err) {
 		if (!err)
 		{
 			nanoapi::TopicConfirmationT conf;
-			connection->async_write (nano::ipc::shared_buffer_from (conf), [connection](nano::error err, size_t size) {
+			connection->async_write (nano::ipc::shared_buffer_from (conf), [connection] (nano::error err, size_t size) {
 				if (!err)
 				{
 					std::cout << "Awaiting confirmations..." << std::endl;

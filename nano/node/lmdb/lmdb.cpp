@@ -29,7 +29,7 @@ size_t mdb_val::size () const
 
 template <>
 mdb_val::db_val (size_t size_a, void * data_a) :
-value ({ size_a, data_a })
+	value ({ size_a, data_a })
 {
 }
 
@@ -41,10 +41,10 @@ void mdb_val::convert_buffer_to_value ()
 }
 
 nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade_a) :
-logger (logger_a),
-env (error, path_a, nano::mdb_env::options::make ().set_config (lmdb_config_a).set_use_no_mem_init (true)),
-mdb_txn_tracker (logger_a, txn_tracking_config_a, block_processor_batch_max_time_a),
-txn_tracking_enabled (txn_tracking_config_a.enable)
+	logger (logger_a),
+	env (error, path_a, nano::mdb_env::options::make ().set_config (lmdb_config_a).set_use_no_mem_init (true)),
+	mdb_txn_tracker (logger_a, txn_tracking_config_a, block_processor_batch_max_time_a),
+	txn_tracking_enabled (txn_tracking_config_a.enable)
 {
 	if (!error)
 	{
@@ -121,8 +121,8 @@ bool nano::mdb_store::vacuum_after_upgrade (boost::filesystem::path const & path
 
 		// Set up the environment again
 		auto options = nano::mdb_env::options::make ()
-		               .set_config (lmdb_config_a)
-		               .set_use_no_mem_init (true);
+					   .set_config (lmdb_config_a)
+					   .set_use_no_mem_init (true);
 		env.init (error, path_a, options);
 		if (!error)
 		{
@@ -176,10 +176,10 @@ nano::mdb_txn_callbacks nano::mdb_store::create_txn_callbacks () const
 	nano::mdb_txn_callbacks mdb_txn_callbacks;
 	if (txn_tracking_enabled)
 	{
-		mdb_txn_callbacks.txn_start = ([& mdb_txn_tracker = mdb_txn_tracker](const nano::transaction_impl * transaction_impl) {
+		mdb_txn_callbacks.txn_start = ([&mdb_txn_tracker = mdb_txn_tracker] (const nano::transaction_impl * transaction_impl) {
 			mdb_txn_tracker.add (transaction_impl);
 		});
-		mdb_txn_callbacks.txn_end = ([& mdb_txn_tracker = mdb_txn_tracker](const nano::transaction_impl * transaction_impl) {
+		mdb_txn_callbacks.txn_end = ([&mdb_txn_tracker = mdb_txn_tracker] (const nano::transaction_impl * transaction_impl) {
 			mdb_txn_tracker.erase (transaction_impl);
 		});
 	}
@@ -1181,8 +1181,8 @@ std::shared_ptr<nano::block> nano::mdb_store::block_get_v14 (nano::transaction c
 }
 
 nano::mdb_store::upgrade_counters::upgrade_counters (uint64_t count_before_v0, uint64_t count_before_v1) :
-before_v0 (count_before_v0),
-before_v1 (count_before_v1)
+	before_v0 (count_before_v0),
+	before_v1 (count_before_v1)
 {
 }
 

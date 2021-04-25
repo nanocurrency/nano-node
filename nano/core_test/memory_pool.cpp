@@ -17,7 +17,7 @@ public:
 	using value_type = T;
 
 	explicit record_allocations_new_delete_allocator (std::vector<size_t> * allocated) :
-	allocated (allocated)
+		allocated (allocated)
 	{
 	}
 

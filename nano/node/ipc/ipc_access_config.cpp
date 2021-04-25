@@ -98,7 +98,7 @@ nano::error nano::ipc::access::deserialize_toml (nano::tomlconfig & toml)
 	nano::error error;
 	if (toml.has_key ("role"))
 	{
-		auto get_role = [this](std::shared_ptr<cpptoml::table> const & role_a) {
+		auto get_role = [this] (std::shared_ptr<cpptoml::table> const & role_a) {
 			nano::ipc::access_role role;
 			std::string id_l (role_a->get_as<std::string> ("id").value_or (""));
 			role.id = id_l;
@@ -136,7 +136,7 @@ nano::error nano::ipc::access::deserialize_toml (nano::tomlconfig & toml)
 
 	if (!error && toml.has_key ("user"))
 	{
-		auto get_user = [this, &error](std::shared_ptr<cpptoml::table> const & user_a) {
+		auto get_user = [this, &error] (std::shared_ptr<cpptoml::table> const & user_a) {
 			nano::ipc::access_user user;
 			user.id = user_a->get_as<std::string> ("id").value_or ("");
 			// Check bare flag. The tomlconfig parser stringifies values, so we must retrieve as string.

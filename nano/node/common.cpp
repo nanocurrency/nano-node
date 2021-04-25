@@ -50,9 +50,9 @@ uint64_t nano::ip_address_hash_raw (boost::asio::ip::address const & ip_a, uint1
 }
 
 nano::message_header::message_header (nano::message_type type_a) :
-version_max (get_protocol_constants ().protocol_version),
-version_using (get_protocol_constants ().protocol_version),
-type (type_a)
+	version_max (get_protocol_constants ().protocol_version),
+	version_using (get_protocol_constants ().protocol_version),
+	type (type_a)
 {
 }
 
@@ -111,12 +111,12 @@ uint8_t nano::message_header::version_min () const
 }
 
 nano::message::message (nano::message_type type_a) :
-header (type_a)
+	header (type_a)
 {
 }
 
 nano::message::message (nano::message_header const & header_a) :
-header (header_a)
+	header (header_a)
 {
 }
 
@@ -336,12 +336,12 @@ std::string nano::message_parser::status_string ()
 }
 
 nano::message_parser::message_parser (nano::network_filter & publish_filter_a, nano::block_uniquer & block_uniquer_a, nano::vote_uniquer & vote_uniquer_a, nano::message_visitor & visitor_a, nano::work_pool & pool_a) :
-publish_filter (publish_filter_a),
-block_uniquer (block_uniquer_a),
-vote_uniquer (vote_uniquer_a),
-visitor (visitor_a),
-pool (pool_a),
-status (parse_status::success)
+	publish_filter (publish_filter_a),
+	block_uniquer (block_uniquer_a),
+	vote_uniquer (vote_uniquer_a),
+	visitor (visitor_a),
+	pool (pool_a),
+	status (parse_status::success)
 {
 }
 
@@ -558,7 +558,7 @@ bool nano::message_parser::at_end (nano::stream & stream_a)
 }
 
 nano::keepalive::keepalive () :
-message (nano::message_type::keepalive)
+	message (nano::message_type::keepalive)
 {
 	nano::endpoint endpoint (boost::asio::ip::address_v6{}, 0);
 	for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i)
@@ -568,7 +568,7 @@ message (nano::message_type::keepalive)
 }
 
 nano::keepalive::keepalive (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a) :
-message (header_a)
+	message (header_a)
 {
 	if (!error_a)
 	{
@@ -619,8 +619,8 @@ bool nano::keepalive::operator== (nano::keepalive const & other_a) const
 }
 
 nano::publish::publish (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a, nano::uint128_t const & digest_a, nano::block_uniquer * uniquer_a) :
-message (header_a),
-digest (digest_a)
+	message (header_a),
+	digest (digest_a)
 {
 	if (!error_a)
 	{
@@ -629,8 +629,8 @@ digest (digest_a)
 }
 
 nano::publish::publish (std::shared_ptr<nano::block> const & block_a) :
-message (nano::message_type::publish),
-block (block_a)
+	message (nano::message_type::publish),
+	block (block_a)
 {
 	header.block_type_set (block->type ());
 }
@@ -661,7 +661,7 @@ bool nano::publish::operator== (nano::publish const & other_a) const
 }
 
 nano::confirm_req::confirm_req (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a, nano::block_uniquer * uniquer_a) :
-message (header_a)
+	message (header_a)
 {
 	if (!error_a)
 	{
@@ -670,15 +670,15 @@ message (header_a)
 }
 
 nano::confirm_req::confirm_req (std::shared_ptr<nano::block> const & block_a) :
-message (nano::message_type::confirm_req),
-block (block_a)
+	message (nano::message_type::confirm_req),
+	block (block_a)
 {
 	header.block_type_set (block->type ());
 }
 
 nano::confirm_req::confirm_req (std::vector<std::pair<nano::block_hash, nano::root>> const & roots_hashes_a) :
-message (nano::message_type::confirm_req),
-roots_hashes (roots_hashes_a)
+	message (nano::message_type::confirm_req),
+	roots_hashes (roots_hashes_a)
 {
 	// not_a_block (1) block type for hashes + roots request
 	header.block_type_set (nano::block_type::not_a_block);
@@ -687,8 +687,8 @@ roots_hashes (roots_hashes_a)
 }
 
 nano::confirm_req::confirm_req (nano::block_hash const & hash_a, nano::root const & root_a) :
-message (nano::message_type::confirm_req),
-roots_hashes (std::vector<std::pair<nano::block_hash, nano::root>> (1, std::make_pair (hash_a, root_a)))
+	message (nano::message_type::confirm_req),
+	roots_hashes (std::vector<std::pair<nano::block_hash, nano::root>> (1, std::make_pair (hash_a, root_a)))
 {
 	debug_assert (!roots_hashes.empty ());
 	// not_a_block (1) block type for hashes + roots request
@@ -801,8 +801,8 @@ size_t nano::confirm_req::size (nano::block_type type_a, size_t count)
 }
 
 nano::confirm_ack::confirm_ack (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a, nano::vote_uniquer * uniquer_a) :
-message (header_a),
-vote (nano::make_shared<nano::vote> (error_a, stream_a, header.block_type ()))
+	message (header_a),
+	vote (nano::make_shared<nano::vote> (error_a, stream_a, header.block_type ()))
 {
 	if (!error_a && uniquer_a)
 	{
@@ -811,8 +811,8 @@ vote (nano::make_shared<nano::vote> (error_a, stream_a, header.block_type ()))
 }
 
 nano::confirm_ack::confirm_ack (std::shared_ptr<nano::vote> const & vote_a) :
-message (nano::message_type::confirm_ack),
-vote (vote_a)
+	message (nano::message_type::confirm_ack),
+	vote (vote_a)
 {
 	debug_assert (!vote_a->blocks.empty ());
 	auto & first_vote_block (vote_a->blocks[0]);
@@ -861,12 +861,12 @@ size_t nano::confirm_ack::size (nano::block_type type_a, size_t count)
 }
 
 nano::frontier_req::frontier_req () :
-message (nano::message_type::frontier_req)
+	message (nano::message_type::frontier_req)
 {
 }
 
 nano::frontier_req::frontier_req (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a) :
-message (header_a)
+	message (header_a)
 {
 	if (!error_a)
 	{
@@ -911,12 +911,12 @@ bool nano::frontier_req::operator== (nano::frontier_req const & other_a) const
 }
 
 nano::bulk_pull::bulk_pull () :
-message (nano::message_type::bulk_pull)
+	message (nano::message_type::bulk_pull)
 {
 }
 
 nano::bulk_pull::bulk_pull (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a) :
-message (header_a)
+	message (header_a)
 {
 	if (!error_a)
 	{
@@ -1007,12 +1007,12 @@ void nano::bulk_pull::set_count_present (bool value_a)
 }
 
 nano::bulk_pull_account::bulk_pull_account () :
-message (nano::message_type::bulk_pull_account)
+	message (nano::message_type::bulk_pull_account)
 {
 }
 
 nano::bulk_pull_account::bulk_pull_account (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a) :
-message (header_a)
+	message (header_a)
 {
 	if (!error_a)
 	{
@@ -1052,12 +1052,12 @@ bool nano::bulk_pull_account::deserialize (nano::stream & stream_a)
 }
 
 nano::bulk_push::bulk_push () :
-message (nano::message_type::bulk_push)
+	message (nano::message_type::bulk_push)
 {
 }
 
 nano::bulk_push::bulk_push (nano::message_header const & header_a) :
-message (header_a)
+	message (header_a)
 {
 }
 
@@ -1078,12 +1078,12 @@ void nano::bulk_push::visit (nano::message_visitor & visitor_a) const
 }
 
 nano::telemetry_req::telemetry_req () :
-message (nano::message_type::telemetry_req)
+	message (nano::message_type::telemetry_req)
 {
 }
 
 nano::telemetry_req::telemetry_req (nano::message_header const & header_a) :
-message (header_a)
+	message (header_a)
 {
 }
 
@@ -1104,12 +1104,12 @@ void nano::telemetry_req::visit (nano::message_visitor & visitor_a) const
 }
 
 nano::telemetry_ack::telemetry_ack () :
-message (nano::message_type::telemetry_ack)
+	message (nano::message_type::telemetry_ack)
 {
 }
 
 nano::telemetry_ack::telemetry_ack (bool & error_a, nano::stream & stream_a, nano::message_header const & message_header) :
-message (message_header)
+	message (message_header)
 {
 	if (!error_a)
 	{
@@ -1118,8 +1118,8 @@ message (message_header)
 }
 
 nano::telemetry_ack::telemetry_ack (nano::telemetry_data const & telemetry_data_a) :
-message (nano::message_type::telemetry_ack),
-data (telemetry_data_a)
+	message (nano::message_type::telemetry_ack),
+	data (telemetry_data_a)
 {
 	debug_assert (telemetry_data::size + telemetry_data_a.unknown_data.size () <= message_header::telemetry_size_mask.to_ulong ()); // Maximum size the mask allows
 	header.extensions &= ~message_header::telemetry_size_mask;
@@ -1357,17 +1357,17 @@ bool nano::telemetry_data::validate_signature () const
 }
 
 nano::node_id_handshake::node_id_handshake (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a) :
-message (header_a),
-query (boost::none),
-response (boost::none)
+	message (header_a),
+	query (boost::none),
+	response (boost::none)
 {
 	error_a = deserialize (stream_a);
 }
 
 nano::node_id_handshake::node_id_handshake (boost::optional<nano::uint256_union> query, boost::optional<std::pair<nano::account, nano::signature>> response) :
-message (nano::message_type::node_id_handshake),
-query (query),
-response (response)
+	message (nano::message_type::node_id_handshake),
+	query (query),
+	response (response)
 {
 	if (query)
 	{
@@ -1558,6 +1558,6 @@ std::chrono::seconds nano::telemetry_cache_cutoffs::network_to_time (network_con
 }
 
 nano::node_singleton_memory_pool_purge_guard::node_singleton_memory_pool_purge_guard () :
-cleanup_guard ({ nano::block_memory_pool_purge, nano::purge_shared_ptr_singleton_pool_memory<nano::vote>, nano::purge_shared_ptr_singleton_pool_memory<nano::election>, nano::purge_singleton_inactive_votes_cache_pool_memory })
+	cleanup_guard ({ nano::block_memory_pool_purge, nano::purge_shared_ptr_singleton_pool_memory<nano::vote>, nano::purge_shared_ptr_singleton_pool_memory<nano::election>, nano::purge_singleton_inactive_votes_cache_pool_memory })
 {
 }

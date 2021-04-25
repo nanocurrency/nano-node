@@ -8,8 +8,8 @@ nano::wallet_value::wallet_value (nano::db_val<MDB_val> const & val_a)
 }
 
 nano::wallet_value::wallet_value (nano::raw_key const & key_a, uint64_t work_a) :
-key (key_a),
-work (work_a)
+	key (key_a),
+	work (work_a)
 {
 }
 

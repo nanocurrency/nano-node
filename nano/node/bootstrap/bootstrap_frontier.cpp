@@ -24,7 +24,7 @@ void nano::frontier_req_client::run (nano::account const & start_account_a, uint
 	next (); // Load accounts from disk
 	auto this_l (shared_from_this ());
 	connection->channel->send (
-	request, [this_l](boost::system::error_code const & ec, size_t size_a) {
+	request, [this_l] (boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{
 			this_l->receive_frontier ();
@@ -41,17 +41,17 @@ void nano::frontier_req_client::run (nano::account const & start_account_a, uint
 }
 
 nano::frontier_req_client::frontier_req_client (std::shared_ptr<nano::bootstrap_client> const & connection_a, std::shared_ptr<nano::bootstrap_attempt> const & attempt_a) :
-connection (connection_a),
-attempt (attempt_a),
-count (0),
-bulk_push_cost (0)
+	connection (connection_a),
+	attempt (attempt_a),
+	count (0),
+	bulk_push_cost (0)
 {
 }
 
 void nano::frontier_req_client::receive_frontier ()
 {
 	auto this_l (shared_from_this ());
-	connection->socket->async_read (connection->receive_buffer, nano::frontier_req_client::size_frontier, [this_l](boost::system::error_code const & ec, size_t size_a) {
+	connection->socket->async_read (connection->receive_buffer, nano::frontier_req_client::size_frontier, [this_l] (boost::system::error_code const & ec, size_t size_a) {
 		// An issue with asio is that sometimes, instead of reporting a bad file descriptor during disconnect,
 		// we simply get a size of 0.
 		if (size_a == nano::frontier_req_client::size_frontier)
@@ -68,9 +68,14 @@ void nano::frontier_req_client::receive_frontier ()
 	});
 }
 
+bool nano::frontier_req_client::bulk_push_available ()
+{
+	return bulk_push_cost < nano::bootstrap_limits::bulk_push_cost_limit && frontiers_age == std::numeric_limits<decltype (frontiers_age)>::max ();
+}
+
 void nano::frontier_req_client::unsynced (nano::block_hash const & head, nano::block_hash const & end)
 {
-	if (bulk_push_cost < nano::bootstrap_limits::bulk_push_cost_limit && frontiers_age == std::numeric_limits<decltype (frontiers_age)>::max ())
+	if (bulk_push_available ())
 	{
 		attempt->add_bulk_push_target (head, end);
 		if (end.is_zero ())
@@ -169,7 +174,7 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 		{
 			if (count <= count_limit)
 			{
-				while (!current.is_zero ())
+				while (!current.is_zero () && bulk_push_available ())
 				{
 					// We know about an account they don't.
 					unsynced (frontier, 0);
@@ -234,11 +239,11 @@ void nano::frontier_req_client::next ()
 }
 
 nano::frontier_req_server::frontier_req_server (std::shared_ptr<nano::bootstrap_server> const & connection_a, std::unique_ptr<nano::frontier_req> request_a) :
-connection (connection_a),
-current (request_a->start.number () - 1),
-frontier (0),
-request (std::move (request_a)),
-count (0)
+	connection (connection_a),
+	current (request_a->start.number () - 1),
+	frontier (0),
+	request (std::move (request_a)),
+	count (0)
 {
 	next ();
 }
@@ -261,7 +266,7 @@ void nano::frontier_req_server::send_next ()
 			connection->node->logger.try_log (boost::str (boost::format ("Sending frontier for %1% %2%") % current.to_account () % frontier.to_string ()));
 		}
 		next ();
-		connection->socket->async_write (nano::shared_const_buffer (std::move (send_buffer)), [this_l](boost::system::error_code const & ec, size_t size_a) {
+		connection->socket->async_write (nano::shared_const_buffer (std::move (send_buffer)), [this_l] (boost::system::error_code const & ec, size_t size_a) {
 			this_l->sent_action (ec, size_a);
 		});
 	}
@@ -285,7 +290,7 @@ void nano::frontier_req_server::send_finished ()
 	{
 		connection->node->logger.try_log ("Frontier sending finished");
 	}
-	connection->socket->async_write (nano::shared_const_buffer (std::move (send_buffer)), [this_l](boost::system::error_code const & ec, size_t size_a) {
+	connection->socket->async_write (nano::shared_const_buffer (std::move (send_buffer)), [this_l] (boost::system::error_code const & ec, size_t size_a) {
 		this_l->no_block_sent (ec, size_a);
 	});
 }

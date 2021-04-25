@@ -17,9 +17,9 @@ class rollback_visitor : public nano::block_visitor
 {
 public:
 	rollback_visitor (nano::write_transaction const & transaction_a, nano::ledger & ledger_a, std::vector<std::shared_ptr<nano::block>> & list_a) :
-	transaction (transaction_a),
-	ledger (ledger_a),
-	list (list_a)
+		transaction (transaction_a),
+		ledger (ledger_a),
+		list (list_a)
 	{
 	}
 	virtual ~rollback_visitor () = default;
@@ -728,18 +728,18 @@ void ledger_processor::open_block (nano::open_block & block_a)
 }
 
 ledger_processor::ledger_processor (nano::ledger & ledger_a, nano::write_transaction const & transaction_a, nano::signature_verification verification_a) :
-ledger (ledger_a),
-transaction (transaction_a),
-verification (verification_a)
+	ledger (ledger_a),
+	transaction (transaction_a),
+	verification (verification_a)
 {
 	result.verified = verification;
 }
 } // namespace
 
 nano::ledger::ledger (nano::block_store & store_a, nano::stat & stat_a, nano::generate_cache const & generate_cache_a) :
-store (store_a),
-stats (stat_a),
-check_bootstrap_weights (true)
+	store (store_a),
+	stats (stat_a),
+	check_bootstrap_weights (true)
 {
 	if (!store.init_error ())
 	{
@@ -752,7 +752,7 @@ void nano::ledger::initialize (nano::generate_cache const & generate_cache_a)
 	if (generate_cache_a.reps || generate_cache_a.account_count || generate_cache_a.block_count)
 	{
 		store.accounts_for_each_par (
-		[this](nano::read_transaction const & /*unused*/, nano::store_iterator<nano::account, nano::account_info> i, nano::store_iterator<nano::account, nano::account_info> n) {
+		[this] (nano::read_transaction const & /*unused*/, nano::store_iterator<nano::account, nano::account_info> i, nano::store_iterator<nano::account, nano::account_info> n) {
 			uint64_t block_count_l{ 0 };
 			uint64_t account_count_l{ 0 };
 			decltype (this->cache.rep_weights) rep_weights_l;
@@ -772,7 +772,7 @@ void nano::ledger::initialize (nano::generate_cache const & generate_cache_a)
 	if (generate_cache_a.cemented_count)
 	{
 		store.confirmation_height_for_each_par (
-		[this](nano::read_transaction const & /*unused*/, nano::store_iterator<nano::account, nano::confirmation_height_info> i, nano::store_iterator<nano::account, nano::confirmation_height_info> n) {
+		[this] (nano::read_transaction const & /*unused*/, nano::store_iterator<nano::account, nano::confirmation_height_info> i, nano::store_iterator<nano::account, nano::confirmation_height_info> n) {
 			uint64_t cemented_count_l (0);
 			for (; i != n; ++i)
 			{
@@ -1167,7 +1167,7 @@ void nano::ledger::dump_account_chain (nano::account const & account_a, std::ost
 bool nano::ledger::could_fit (nano::transaction const & transaction_a, nano::block const & block_a) const
 {
 	auto dependencies (dependent_blocks (transaction_a, block_a));
-	return std::all_of (dependencies.begin (), dependencies.end (), [this, &transaction_a](nano::block_hash const & hash_a) {
+	return std::all_of (dependencies.begin (), dependencies.end (), [this, &transaction_a] (nano::block_hash const & hash_a) {
 		return hash_a.is_zero () || store.block_exists (transaction_a, hash_a);
 	});
 }
@@ -1175,11 +1175,11 @@ bool nano::ledger::could_fit (nano::transaction const & transaction_a, nano::blo
 bool nano::ledger::dependents_confirmed (nano::transaction const & transaction_a, nano::block const & block_a) const
 {
 	auto dependencies (dependent_blocks (transaction_a, block_a));
-	return std::all_of (dependencies.begin (), dependencies.end (), [this, &transaction_a](nano::block_hash const & hash_a) {
+	return std::all_of (dependencies.begin (), dependencies.end (), [this, &transaction_a] (nano::block_hash const & hash_a) {
 		auto result (hash_a.is_zero ());
 		if (!result)
 		{
-			result = block_confirmed (transaction_a, hash_a);
+			result = block_confirmed_or_pruned_exists (transaction_a, hash_a);
 		}
 		return result;
 	});
@@ -1194,9 +1194,9 @@ class dependent_block_visitor : public nano::block_visitor
 {
 public:
 	dependent_block_visitor (nano::ledger const & ledger_a, nano::transaction const & transaction_a) :
-	ledger (ledger_a),
-	transaction (transaction_a),
-	result ({ 0, 0 })
+		ledger (ledger_a),
+		transaction (transaction_a),
+		result ({ 0, 0 })
 	{
 	}
 	void send_block (nano::send_block const & block_a) override
@@ -1378,7 +1378,7 @@ std::multimap<uint64_t, nano::uncemented_info, std::greater<>> nano::ledger::unc
 	nano::locked<std::multimap<uint64_t, nano::uncemented_info, std::greater<>>> result;
 	using result_t = decltype (result)::value_type;
 
-	store.accounts_for_each_par ([this, &result](nano::read_transaction const & transaction_a, nano::store_iterator<nano::account, nano::account_info> i, nano::store_iterator<nano::account, nano::account_info> n) {
+	store.accounts_for_each_par ([this, &result] (nano::read_transaction const & transaction_a, nano::store_iterator<nano::account, nano::account_info> i, nano::store_iterator<nano::account, nano::account_info> n) {
 		result_t unconfirmed_frontiers_l;
 		for (; i != n; ++i)
 		{
@@ -1423,7 +1423,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 	if (!rocksdb_store->init_error ())
 	{
 		store.blocks_for_each_par (
-		[&rocksdb_store](nano::read_transaction const & /*unused*/, auto i, auto n) {
+		[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
 			for (; i != n; ++i)
 			{
 				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::blocks }));
@@ -1439,7 +1439,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 		});
 
 		store.unchecked_for_each_par (
-		[&rocksdb_store](nano::read_transaction const & /*unused*/, auto i, auto n) {
+		[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
 			for (; i != n; ++i)
 			{
 				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::unchecked }));
@@ -1448,7 +1448,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 		});
 
 		store.pending_for_each_par (
-		[&rocksdb_store](nano::read_transaction const & /*unused*/, auto i, auto n) {
+		[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
 			for (; i != n; ++i)
 			{
 				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::pending }));
@@ -1457,7 +1457,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 		});
 
 		store.confirmation_height_for_each_par (
-		[&rocksdb_store](nano::read_transaction const & /*unused*/, auto i, auto n) {
+		[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
 			for (; i != n; ++i)
 			{
 				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::confirmation_height }));
@@ -1466,7 +1466,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 		});
 
 		store.accounts_for_each_par (
-		[&rocksdb_store](nano::read_transaction const & /*unused*/, auto i, auto n) {
+		[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
 			for (; i != n; ++i)
 			{
 				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::accounts }));
@@ -1475,7 +1475,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 		});
 
 		store.frontiers_for_each_par (
-		[&rocksdb_store](nano::read_transaction const & /*unused*/, auto i, auto n) {
+		[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
 			for (; i != n; ++i)
 			{
 				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::frontiers }));
@@ -1484,7 +1484,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 		});
 
 		store.pruned_for_each_par (
-		[&rocksdb_store](nano::read_transaction const & /*unused*/, auto i, auto n) {
+		[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
 			for (; i != n; ++i)
 			{
 				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::pruned }));
@@ -1493,7 +1493,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 		});
 
 		store.final_vote_for_each_par (
-		[&rocksdb_store](nano::read_transaction const & /*unused*/, auto i, auto n) {
+		[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
 			for (; i != n; ++i)
 			{
 				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::final_votes }));
@@ -1547,7 +1547,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 }
 
 nano::uncemented_info::uncemented_info (nano::block_hash const & cemented_frontier, nano::block_hash const & frontier, nano::account const & account) :
-cemented_frontier (cemented_frontier), frontier (frontier), account (account)
+	cemented_frontier (cemented_frontier), frontier (frontier), account (account)
 {
 }
 
