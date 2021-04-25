@@ -62,6 +62,8 @@ add_library(
   rpc_handler_interface.hpp
   rpcconfig.hpp
   rpcconfig.cpp
+  signal_manager.hpp
+  signal_manager.cpp
   stats.hpp
   stats.cpp
   stream.hpp
