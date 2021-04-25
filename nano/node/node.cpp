@@ -117,6 +117,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	vote_uniquer (block_uniquer),
 	confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, config.logging, logger, node_initialized_latch, flags.confirmation_height_processor_mode),
 	active (*this, confirmation_height_processor),
+	scheduler{ *this },
 	aggregator (network_params.network, config, stats, active.generator, history, ledger, wallets, active),
 	wallets (wallets_store.init_error (), *this),
 	startup_time (std::chrono::steady_clock::now ()),
@@ -125,6 +126,8 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	if (!init_error ())
 	{
 		telemetry->start ();
+
+		active.vacancy_update = [this] () { scheduler.observe (); };
 
 		if (config.websocket_config.enabled)
 		{
@@ -650,6 +653,12 @@ void nano::node::start ()
 	{
 		port_mapping.start ();
 	}
+	if (config.frontiers_confirmation != nano::frontiers_confirmation_mode::disabled)
+	{
+		workers.push_task ([this_l = shared ()] () {
+			this_l->ongoing_backlog_population ();
+		});
+	}
 }
 
 void nano::node::stop ()
@@ -663,6 +672,7 @@ void nano::node::stop ()
 		block_processor.stop ();
 		aggregator.stop ();
 		vote_processor.stop ();
+		scheduler.stop ();
 		active.stop ();
 		confirmation_height_processor.stop ();
 		network.stop ();
@@ -957,9 +967,17 @@ void nano::node::unchecked_cleanup ()
 void nano::node::ongoing_unchecked_cleanup ()
 {
 	unchecked_cleanup ();
-	auto this_l (shared ());
-	workers.add_timed_task (std::chrono::steady_clock::now () + network_params.node.unchecked_cleaning_interval, [this_l] () {
+	workers.add_timed_task (std::chrono::steady_clock::now () + network_params.node.unchecked_cleaning_interval, [this_l = shared ()] () {
 		this_l->ongoing_unchecked_cleanup ();
+	});
+}
+
+void nano::node::ongoing_backlog_population ()
+{
+	populate_backlog ();
+	auto delay = config.network_params.network.is_dev_network () ? std::chrono::seconds{ 1 } : std::chrono::duration_cast<std::chrono::seconds> (std::chrono::minutes{ 5 });
+	workers.add_timed_task (std::chrono::steady_clock::now () + delay, [this_l = shared ()] () {
+		this_l->ongoing_backlog_population ();
 	});
 }
 
@@ -1219,10 +1237,12 @@ void nano::node::add_initial_peers ()
 
 void nano::node::block_confirm (std::shared_ptr<nano::block> const & block_a)
 {
-	auto election = active.insert (block_a);
-	if (election.inserted)
+	scheduler.manual (block_a);
+	scheduler.flush ();
+	auto election = active.election (block_a->qualified_root ());
+	if (election != nullptr)
 	{
-		election.election->transition_active ();
+		election->transition_active ();
 	}
 }
 
@@ -1713,6 +1733,26 @@ std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> nano::node::get_
 		}
 	}
 	return { max_blocks, weights };
+}
+
+void nano::node::populate_backlog ()
+{
+	auto done = false;
+	uint64_t const chunk_size = 65536;
+	nano::account next = 0;
+	uint64_t total = 0;
+	while (!stopped && !done)
+	{
+		auto transaction = store.tx_begin_read ();
+		auto count = 0;
+		for (auto i = store.accounts_begin (transaction, next), n = store.accounts_end (); !stopped && i != n && count < chunk_size; ++i, ++count, ++total)
+		{
+			auto const & account = i->first;
+			scheduler.activate (account, transaction);
+			next = account.number () + 1;
+		}
+		done = store.accounts_begin (transaction, next) == store.accounts_end ();
+	}
 }
 
 nano::node_wrapper::node_wrapper (boost::filesystem::path const & path_a, boost::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a) :
