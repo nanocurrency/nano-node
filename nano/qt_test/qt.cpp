@@ -29,7 +29,9 @@ TEST (wallet, construction)
 	ASSERT_EQ (key.to_account (), item1->text ().toStdString ());
 }
 
-TEST (wallet, status)
+// Disabled because it does not work and it is not clearly defined what its behaviour should be:
+// https://github.com/nanocurrency/nano-node/issues/3235
+TEST (wallet, DISABLED_status)
 {
 	nano_qt::eventloop_processor processor;
 	nano::system system (1);
