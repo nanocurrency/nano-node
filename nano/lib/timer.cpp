@@ -45,7 +45,7 @@ std::string typed_unit ()
 
 template <typename UNIT, typename CLOCK>
 nano::timer<UNIT, CLOCK>::timer (nano::timer_state state_a, std::string const & description_a) :
-desc (description_a)
+	desc (description_a)
 {
 	if (state_a == nano::timer_state::started)
 	{
@@ -55,14 +55,14 @@ desc (description_a)
 
 template <typename UNIT, typename CLOCK>
 nano::timer<UNIT, CLOCK>::timer (std::string const & description_a) :
-desc (description_a)
+	desc (description_a)
 {
 }
 
 template <typename UNIT, typename CLOCK>
 nano::timer<UNIT, CLOCK>::timer (std::string const & description_a, nano::timer<UNIT, CLOCK> * parent_a) :
-parent (parent_a),
-desc (description_a)
+	parent (parent_a),
+	desc (description_a)
 {
 }
 
@@ -134,7 +134,10 @@ UNIT nano::timer<UNIT, CLOCK>::stop ()
 template <typename UNIT, typename CLOCK>
 UNIT nano::timer<UNIT, CLOCK>::value ()
 {
-	update_ticks ();
+	if (state != nano::timer_state::stopped)
+	{
+		update_ticks ();
+	}
 	return ticks;
 }
 

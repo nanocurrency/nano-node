@@ -6,6 +6,7 @@
 #include <boost/circular_buffer.hpp>
 
 #include <chrono>
+#include <initializer_list>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -71,19 +72,55 @@ public:
 	void add (uint64_t addend, bool update_timestamp = true);
 
 private:
-	mutable std::mutex datapoint_mutex;
+	mutable nano::mutex datapoint_mutex;
 	/** Value of the sample interval */
 	uint64_t value{ 0 };
 	/** When the sample was added. This is wall time (system_clock), suitable for display purposes. */
 	std::chrono::system_clock::time_point timestamp{ std::chrono::system_clock::now () };
 };
 
-/** Bookkeeping of statistics for a specific type/detail/direction combination */
+/** Histogram values */
+class stat_histogram final
+{
+public:
+	/**
+	 * Create histogram given a set of intervals and an optional bin count
+	 * @param intervals_a Inclusive-exclusive intervals, e.g. {1,5,8,15} produces bins [1,4] [5,7] [8, 14]
+	 * @param bin_count_a If zero (default), \p intervals_a defines all the bins. If non-zero, \p intervals_a contains the total range, which is uniformly distributed into \p bin_count_a bins.
+	 */
+	stat_histogram (std::initializer_list<uint64_t> intervals_a, size_t bin_count_a = 0);
+
+	/** Add \p addend_a to the histogram bin into which \p index_a falls */
+	void add (uint64_t index_a, uint64_t addend_a);
+
+	/** Histogram bin with interval, current value and timestamp of last update */
+	class bin final
+	{
+	public:
+		bin (uint64_t start_inclusive_a, uint64_t end_exclusive_a) :
+			start_inclusive (start_inclusive_a), end_exclusive (end_exclusive_a)
+		{
+		}
+		uint64_t start_inclusive;
+		uint64_t end_exclusive;
+		uint64_t value{ 0 };
+		std::chrono::system_clock::time_point timestamp{ std::chrono::system_clock::now () };
+	};
+	std::vector<bin> get_bins () const;
+
+private:
+	mutable nano::mutex histogram_mutex;
+	std::vector<bin> bins;
+};
+
+/**
+ * Bookkeeping of statistics for a specific type/detail/direction combination
+ */
 class stat_entry final
 {
 public:
 	stat_entry (size_t capacity, size_t interval) :
-	samples (capacity), sample_interval (interval)
+		samples (capacity), sample_interval (interval)
 	{
 	}
 
@@ -101,6 +138,9 @@ public:
 
 	/** Counting value for this entry, including the time of last update. This is never reset and only increases. */
 	stat_datapoint counter;
+
+	/** Optional histogram for this entry */
+	std::unique_ptr<stat_histogram> histogram;
 
 	/** Zero or more observers for samples. Called at the end of the sample interval. */
 	nano::observer_set<boost::circular_buffer<stat_datapoint> &> sample_observers;
@@ -133,8 +173,8 @@ public:
 	{
 	}
 
-	/** Write a counter or sampling entry to the log */
-	virtual void write_entry (tm & tm, std::string const & type, std::string const & detail, std::string const & dir, uint64_t value)
+	/** Write a counter or sampling entry to the log. Some log sinks may support writing histograms as well. */
+	virtual void write_entry (tm & tm, std::string const & type, std::string const & detail, std::string const & dir, uint64_t value, nano::stat_histogram * histogram)
 	{
 	}
 
@@ -202,6 +242,7 @@ public:
 		requests,
 		filter,
 		telemetry,
+		vote_generator
 	};
 
 	/** Optional detail type */
@@ -244,6 +285,7 @@ public:
 
 		// bootstrap, callback
 		initiate,
+		initiate_legacy_age,
 		initiate_lazy,
 		initiate_wallet_lazy,
 
@@ -283,8 +325,6 @@ public:
 		// udp
 		blocking,
 		overflow,
-		invalid_magic,
-		invalid_network,
 		invalid_header,
 		invalid_message_type,
 		invalid_keepalive_message,
@@ -323,6 +363,8 @@ public:
 		requests_generated_hashes,
 		requests_cached_votes,
 		requests_generated_votes,
+		requests_cached_late_hashes,
+		requests_cached_late_votes,
 		requests_cannot_vote,
 		requests_unknown,
 
@@ -336,7 +378,13 @@ public:
 		request_within_protection_cache_zone,
 		no_response_received,
 		unsolicited_telemetry_ack,
-		failed_send_telemetry_req
+		failed_send_telemetry_req,
+
+		// vote generator
+		generator_broadcasts,
+		generator_replies,
+		generator_replies_discarded,
+		generator_spacing
 	};
 
 	/** Direction of the stat. If the direction is irrelevant, use in */
@@ -382,7 +430,7 @@ public:
 	/** Increments the counter for \detail, but doesn't update at the type level */
 	void inc_detail_only (stat::type type, stat::detail detail, stat::dir dir = stat::dir::in)
 	{
-		add (type, detail, dir, 1);
+		add (type, detail, dir, 1, true);
 	}
 
 	/** Increments the given counter */
@@ -398,6 +446,42 @@ public:
 	}
 
 	/**
+	 * Define histogram bins. Values are clamped into the first and last bins, but a catch-all bin on one or both
+	 * ends can be defined.
+	 *
+	 * Examples:
+	 *
+	 *  // Uniform histogram, total range 12, and 12 bins (each bin has width 1)
+	 *  define_histogram (type::vote, detail::confirm_ack, dir::in, {1,13}, 12);
+	 *
+	 *  // Specific bins matching closed intervals [1,4] [5,19] [20,99]
+	 *  define_histogram (type::vote, detail::something, dir::out, {1,5,20,100});
+	 *
+	 *  // Logarithmic bins matching half-open intervals [1..10) [10..100) [100 1000)
+	 *  define_histogram(type::vote, detail::log, dir::out, {1,10,100,1000});
+	 */
+	void define_histogram (stat::type type, stat::detail detail, stat::dir dir, std::initializer_list<uint64_t> intervals_a, size_t bin_count_a = 0);
+
+	/**
+	 * Update histogram
+	 *
+	 * Examples:
+	 *
+	 *  // Add 1 to the bin representing a 4-item vbh
+	 *  stats.update_histogram(type::vote, detail::confirm_ack, dir::in, 4, 1)
+	 *
+	 *  // Add 5 to the second bin where 17 falls
+	 *  stats.update_histogram(type::vote, detail::something, dir::in, 17, 5)
+	 *
+	 *  // Add 3 to the last bin as the histogram clamps. You can also add a final bin with maximum end value to effectively prevent this.
+	 *  stats.update_histogram(type::vote, detail::log, dir::out, 1001, 3)
+	 */
+	void update_histogram (stat::type type, stat::detail detail, stat::dir dir, uint64_t index, uint64_t addend = 1);
+
+	/** Returns a non-owning histogram pointer, or nullptr if a histogram is not defined */
+	nano::stat_histogram * get_histogram (stat::type type, stat::detail detail, stat::dir dir);
+
+	/**
 	 * Add \p value to stat. If sampling is configured, this will update the current sample and
 	 * call any sample observers if the interval is over.
 	 *
@@ -409,6 +493,11 @@ public:
 	 */
 	void add (stat::type type, stat::detail detail, stat::dir dir, uint64_t value, bool detail_only = false)
 	{
+		if (value == 0)
+		{
+			return;
+		}
+
 		constexpr uint32_t no_detail_mask = 0xffff00ff;
 		uint32_t key = key_of (type, detail, dir);
 
@@ -427,12 +516,12 @@ public:
 	 * To avoid recursion, the observer callback must only use the received data point snapshop, not query the stat object.
 	 * @param observer The observer receives a snapshot of the current samples.
 	 */
-	void observe_sample (stat::type type, stat::detail detail, stat::dir dir, std::function<void(boost::circular_buffer<stat_datapoint> &)> observer)
+	void observe_sample (stat::type type, stat::detail detail, stat::dir dir, std::function<void (boost::circular_buffer<stat_datapoint> &)> observer)
 	{
 		get_entry (key_of (type, detail, dir))->sample_observers.add (observer);
 	}
 
-	void observe_sample (stat::type type, stat::dir dir, std::function<void(boost::circular_buffer<stat_datapoint> &)> observer)
+	void observe_sample (stat::type type, stat::dir dir, std::function<void (boost::circular_buffer<stat_datapoint> &)> observer)
 	{
 		observe_sample (type, stat::detail::all, dir, observer);
 	}
@@ -442,7 +531,7 @@ public:
 	 * To avoid recursion, the observer callback must only use the received counts, not query the stat object.
 	 * @param observer The observer receives the old and the new count.
 	 */
-	void observe_count (stat::type type, stat::detail detail, stat::dir dir, std::function<void(uint64_t, uint64_t)> observer)
+	void observe_count (stat::type type, stat::detail detail, stat::dir dir, std::function<void (uint64_t, uint64_t)> observer)
 	{
 		get_entry (key_of (type, detail, dir))->count_observers.add (observer);
 	}
@@ -533,6 +622,6 @@ private:
 	bool stopped{ false };
 
 	/** All access to stat is thread safe, including calls from observers on the same thread */
-	std::mutex stat_mutex;
+	nano::mutex stat_mutex;
 };
 }

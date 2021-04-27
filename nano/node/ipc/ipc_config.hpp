@@ -53,7 +53,7 @@ namespace ipc
 	{
 	public:
 		ipc_config_tcp_socket () :
-		port (network_constants.default_ipc_port)
+			port (network_constants.default_ipc_port)
 		{
 		}
 		nano::network_constants network_constants;

@@ -29,8 +29,7 @@ namespace transport
 		channel_udp (nano::transport::udp_channels &, nano::endpoint const &, uint8_t protocol_version);
 		size_t hash_code () const override;
 		bool operator== (nano::transport::channel const &) const override;
-		void send_buffer (nano::shared_const_buffer const &, nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr, nano::buffer_drop_policy = nano::buffer_drop_policy::limiter) override;
-		std::function<void(boost::system::error_code const &, size_t)> callback (nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) const override;
+		void send_buffer (nano::shared_const_buffer const &, std::function<void (boost::system::error_code const &, size_t)> const & = nullptr, nano::buffer_drop_policy = nano::buffer_drop_policy::limiter) override;
 		std::string to_string () const override;
 		bool operator== (nano::transport::channel_udp const & other_a) const
 		{
@@ -39,13 +38,13 @@ namespace transport
 
 		nano::endpoint get_endpoint () const override
 		{
-			nano::lock_guard<std::mutex> lk (channel_mutex);
+			nano::lock_guard<nano::mutex> lk (channel_mutex);
 			return endpoint;
 		}
 
 		nano::tcp_endpoint get_tcp_endpoint () const override
 		{
-			nano::lock_guard<std::mutex> lk (channel_mutex);
+			nano::lock_guard<nano::mutex> lk (channel_mutex);
 			return nano::transport::map_endpoint_to_tcp (endpoint);
 		}
 
@@ -56,13 +55,13 @@ namespace transport
 
 		std::chrono::steady_clock::time_point get_last_telemetry_req ()
 		{
-			nano::lock_guard<std::mutex> lk (channel_mutex);
+			nano::lock_guard<nano::mutex> lk (channel_mutex);
 			return last_telemetry_req;
 		}
 
 		void set_last_telemetry_req (std::chrono::steady_clock::time_point const time_a)
 		{
-			nano::lock_guard<std::mutex> lk (channel_mutex);
+			nano::lock_guard<nano::mutex> lk (channel_mutex);
 			last_telemetry_req = time_a;
 		}
 
@@ -92,7 +91,7 @@ namespace transport
 		void receive ();
 		void start ();
 		void stop ();
-		void send (nano::shared_const_buffer const & buffer_a, nano::endpoint endpoint_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a);
+		void send (nano::shared_const_buffer const & buffer_a, nano::endpoint endpoint_a, std::function<void (boost::system::error_code const &, size_t)> const & callback_a);
 		nano::endpoint get_local_endpoint () const;
 		void receive_action (nano::message_buffer *);
 		void process_packets ();
@@ -105,7 +104,7 @@ namespace transport
 		void ongoing_keepalive ();
 		void list_below_version (std::vector<std::shared_ptr<nano::transport::channel>> &, uint8_t);
 		void list (std::deque<std::shared_ptr<nano::transport::channel>> &, uint8_t = 0);
-		void modify (std::shared_ptr<nano::transport::channel_udp>, std::function<void(std::shared_ptr<nano::transport::channel_udp>)>);
+		void modify (std::shared_ptr<nano::transport::channel_udp> const &, std::function<void (std::shared_ptr<nano::transport::channel_udp> const &)>);
 		nano::node & node;
 
 	private:
@@ -136,7 +135,7 @@ namespace transport
 		public:
 			std::shared_ptr<nano::transport::channel_udp> channel;
 			channel_udp_wrapper (std::shared_ptr<nano::transport::channel_udp> const & channel_a) :
-			channel (channel_a)
+				channel (channel_a)
 			{
 			}
 			nano::endpoint endpoint () const
@@ -171,11 +170,11 @@ namespace transport
 			std::chrono::steady_clock::time_point last_attempt{ std::chrono::steady_clock::now () };
 
 			explicit endpoint_attempt (nano::endpoint const & endpoint_a) :
-			endpoint (endpoint_a)
+				endpoint (endpoint_a)
 			{
 			}
 		};
-		mutable std::mutex mutex;
+		mutable nano::mutex mutex;
 		// clang-format off
 		boost::multi_index_container<
 		channel_udp_wrapper,

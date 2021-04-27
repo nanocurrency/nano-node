@@ -6,6 +6,7 @@
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/log/expressions.hpp>
+#include <boost/log/utility/exception_handler.hpp>
 #include <boost/log/utility/setup/common_attributes.hpp>
 #include <boost/log/utility/setup/console.hpp>
 #include <boost/log/utility/setup/file.hpp>
@@ -36,7 +37,7 @@ void nano::logging::init (boost::filesystem::path const & application_path_a)
 		}
 
 		nano::network_constants network_constants;
-		if (!network_constants.is_test_network ())
+		if (!network_constants.is_dev_network ())
 		{
 #ifdef BOOST_WINDOWS
 			if (nano::event_log_reg_entry_exists () || nano::is_windows_elevated ())
@@ -81,11 +82,12 @@ void nano::logging::init (boost::filesystem::path const & application_path_a)
 		if (stable_log_filename)
 		{
 #if BOOST_VERSION >= 107000
+			auto const file_name = path / "node.log";
 			// Logging to node.log and node_<pattern> instead of log_<pattern>.log is deliberate. This way,
 			// existing log monitoring scripts expecting the old logfile structure will fail immediately instead
 			// of reading only rotated files with old entries.
 			file_sink = boost::log::add_file_log (boost::log::keywords::target = path,
-			boost::log::keywords::file_name = path / "node.log",
+			boost::log::keywords::file_name = file_name,
 			boost::log::keywords::target_file_name = path / "node_%Y-%m-%d_%H-%M-%S.%N.log",
 			boost::log::keywords::open_mode = std::ios_base::out | std::ios_base::app, // append to node.log if it exists
 			boost::log::keywords::enable_final_rotation = false, // for stable log filenames, don't rotate on destruction
@@ -94,6 +96,16 @@ void nano::logging::init (boost::filesystem::path const & application_path_a)
 			boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching,
 			boost::log::keywords::max_size = max_size, // max total size in bytes of all log files
 			boost::log::keywords::format = format_with_timestamp);
+
+			if (!boost::filesystem::exists (file_name))
+			{
+				// Create temp stream to first create the file
+				std::ofstream stream (file_name.string ());
+			}
+
+			// Set permissions before opening otherwise Windows only has read permissions
+			nano::set_secure_perm_file (file_name);
+
 #else
 			debug_assert (false);
 #endif
@@ -108,6 +120,16 @@ void nano::logging::init (boost::filesystem::path const & application_path_a)
 			boost::log::keywords::max_size = max_size,
 			boost::log::keywords::format = format_with_timestamp);
 		}
+
+		struct exception_handler
+		{
+			void operator() (std::exception const & e) const
+			{
+				std::cerr << "Logging exception: " << e.what () << std::endl;
+			}
+		};
+
+		boost::log::core::get ()->set_exception_handler (boost::log::make_exception_handler<std::exception> (exception_handler ()));
 	}
 	//clang-format on
 }
@@ -118,6 +140,7 @@ void nano::logging::release_file_sink ()
 	{
 		boost::log::core::get ()->remove_sink (nano::logging::file_sink);
 		nano::logging::file_sink.reset ();
+		logging_already_added.clear ();
 	}
 }
 
@@ -125,7 +148,10 @@ nano::error nano::logging::serialize_toml (nano::tomlconfig & toml) const
 {
 	toml.put ("ledger", ledger_logging_value, "Log ledger related messages.\ntype:bool");
 	toml.put ("ledger_duplicate", ledger_duplicate_logging_value, "Log when a duplicate block is attempted inserted into the ledger.\ntype:bool");
+	toml.put ("ledger_rollback", election_fork_tally_logging_value, "Log when a block is replaced in the ledger.\ntype:bool");
 	toml.put ("vote", vote_logging_value, "Vote logging. Enabling this option leads to a high volume.\nof log messages which may affect node performance.\ntype:bool");
+	toml.put ("election_expiration", election_expiration_tally_logging_value, "Log election tally on expiration.\ntype:bool");
+	toml.put ("election_fork", election_fork_tally_logging_value, "Log election tally when more than one block is seen.\ntype:bool");
 	toml.put ("network", network_logging_value, "Log network related messages.\ntype:bool");
 	toml.put ("network_timeout", network_timeout_logging_value, "Log TCP timeouts.\ntype:bool");
 	toml.put ("network_message", network_message_logging_value, "Log network errors and message details.\ntype:bool");
@@ -158,7 +184,10 @@ nano::error nano::logging::deserialize_toml (nano::tomlconfig & toml)
 {
 	toml.get<bool> ("ledger", ledger_logging_value);
 	toml.get<bool> ("ledger_duplicate", ledger_duplicate_logging_value);
+	toml.get<bool> ("ledger_rollback", ledger_rollback_logging_value);
 	toml.get<bool> ("vote", vote_logging_value);
+	toml.get<bool> ("election_expiration", election_expiration_tally_logging_value);
+	toml.get<bool> ("election_fork", election_fork_tally_logging_value);
 	toml.get<bool> ("network", network_logging_value);
 	toml.get<bool> ("network_timeout", network_timeout_logging_value);
 	toml.get<bool> ("network_message", network_message_logging_value);
@@ -286,9 +315,24 @@ bool nano::logging::ledger_duplicate_logging () const
 	return ledger_logging () && ledger_duplicate_logging_value;
 }
 
+bool nano::logging::ledger_rollback_logging () const
+{
+	return ledger_rollback_logging_value;
+}
+
 bool nano::logging::vote_logging () const
 {
 	return vote_logging_value;
+}
+
+bool nano::logging::election_expiration_tally_logging () const
+{
+	return election_expiration_tally_logging_value;
+}
+
+bool nano::logging::election_fork_tally_logging () const
+{
+	return election_fork_tally_logging_value;
 }
 
 bool nano::logging::network_logging () const

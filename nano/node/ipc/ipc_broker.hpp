@@ -35,7 +35,7 @@ namespace ipc
 		 * @param length_a Length of payload message in bytes
 		 * @param broadcast_completion_handler_a Called once sending is completed
 		 */
-		virtual void async_send_message (uint8_t const * data_a, size_t length_a, std::function<void(nano::error const &)> broadcast_completion_handler_a) = 0;
+		virtual void async_send_message (uint8_t const * data_a, size_t length_a, std::function<void (nano::error const &)> broadcast_completion_handler_a) = 0;
 		/** Returns the unique id of the associated session */
 		virtual uint64_t get_id () const = 0;
 		/** Returns the service name associated with the session */
@@ -62,7 +62,7 @@ namespace ipc
 	{
 	public:
 		subscription (std::weak_ptr<nano::ipc::subscriber> const & subscriber_a, std::shared_ptr<TopicType> const & topic_a) :
-		subscriber (subscriber_a), topic (topic_a)
+			subscriber (subscriber_a), topic (topic_a)
 		{
 		}
 
@@ -74,7 +74,7 @@ namespace ipc
 	 * The broker manages subscribers and performs message broadcasting
 	 * @note Add subscribe overloads for new topics
 	 */
-	class broker final
+	class broker final : public std::enable_shared_from_this<broker>
 	{
 	public:
 		broker (nano::node & node_a);

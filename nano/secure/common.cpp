@@ -25,11 +25,12 @@ nano::nano_networks nano::network_constants::active_network = nano::nano_network
 
 namespace
 {
-char const * test_private_key_data = "34F0A37AAD20F4A260F0A5B3CB3D7FB50673212263E58A380BC10474BB039CE4";
-char const * test_public_key_data = "B0311EA55708D6A53C75CDBF88300259C6D018522FE3D4D0A242E431F9E8B6D0"; // xrb_3e3j5tkog48pnny9dmfzj1r16pg8t1e76dz5tmac6iq689wyjfpiij4txtdo
-char const * beta_public_key_data = "259A4394DB16B1FFE5568476655E844BA59E8EB5D222F20D42E50684D0C16B54"; // nano_1betagcfp7ojzzkof35peohaakx7mt9ddnj4ya8n7sa8imae4ttnm16dm753
+char const * dev_private_key_data = "34F0A37AAD20F4A260F0A5B3CB3D7FB50673212263E58A380BC10474BB039CE4";
+char const * dev_public_key_data = "B0311EA55708D6A53C75CDBF88300259C6D018522FE3D4D0A242E431F9E8B6D0"; // xrb_3e3j5tkog48pnny9dmfzj1r16pg8t1e76dz5tmac6iq689wyjfpiij4txtdo
+char const * beta_public_key_data = "259A43ABDB779E97452E188BA3EB951B41C961D3318CA6B925380F4D99F0577A"; // nano_1betagoxpxwykx4kw86dnhosc8t3s7ix8eeentwkcg1hbpez1outjrcyg4n1
 char const * live_public_key_data = "E89208DD038FBB269987689621D52292AE9C35941A7484756ECCED92A65093BA"; // xrb_3t6k35gi95xu6tergt6p69ck76ogmitsa8mnijtpxm9fkcm736xtoncuohr3
-char const * test_genesis_data = R"%%%({
+std::string const test_public_key_data = nano::get_env_or_default ("NANO_TEST_GENESIS_PUB", "45C6FF9D1706D61F0821327752671BDA9F9ED2DA40326B01935AB566FB9E08ED"); // nano_1jg8zygjg3pp5w644emqcbmjqpnzmubfni3kfe1s8pooeuxsw49fdq1mco9j
+char const * dev_genesis_data = R"%%%({
 	"type": "open",
 	"source": "B0311EA55708D6A53C75CDBF88300259C6D018522FE3D4D0A242E431F9E8B6D0",
 	"representative": "xrb_3e3j5tkog48pnny9dmfzj1r16pg8t1e76dz5tmac6iq689wyjfpiij4txtdo",
@@ -40,11 +41,11 @@ char const * test_genesis_data = R"%%%({
 
 char const * beta_genesis_data = R"%%%({
 	"type": "open",
-	"source": "259A4394DB16B1FFE5568476655E844BA59E8EB5D222F20D42E50684D0C16B54",
-	"representative": "nano_1betagcfp7ojzzkof35peohaakx7mt9ddnj4ya8n7sa8imae4ttnm16dm753",
-	"account": "nano_1betagcfp7ojzzkof35peohaakx7mt9ddnj4ya8n7sa8imae4ttnm16dm753",
-	"work": "7f5c2eb5e2658e81",
-	"signature": "DB9EFAC98A28EEA048E722F91C2A2720E1D8EF2A81453C80FC53B453180C0A264CE021D38D5B4540B1BBB0C378B80F2DF7389027593C08DDEF9F47934B9CF805"
+	"source": "259A43ABDB779E97452E188BA3EB951B41C961D3318CA6B925380F4D99F0577A",
+	"representative": "nano_1betagoxpxwykx4kw86dnhosc8t3s7ix8eeentwkcg1hbpez1outjrcyg4n1",
+	"account": "nano_1betagoxpxwykx4kw86dnhosc8t3s7ix8eeentwkcg1hbpez1outjrcyg4n1",
+	"work": "79d4e27dc873c6f2",
+	"signature": "4BD7F96F9ED2721BCEE5EAED400EA50AD00524C629AE55E9AFF11220D2C1B00C3D4B3BB770BF67D4F8658023B677F91110193B6C101C2666931F57046A6DB806"
 	})%%%";
 
 char const * live_genesis_data = R"%%%({
@@ -56,6 +57,15 @@ char const * live_genesis_data = R"%%%({
 	"signature": "9F0C933C8ADE004D808EA1985FA746A7E95BA2A38F867640F53EC8F180BDFE9E2C1268DEAD7C2664F356E37ABA362BC58E46DBA03E523A7B5A19E4B6EB12BB02"
 	})%%%";
 
+std::string const test_genesis_data = nano::get_env_or_default ("NANO_TEST_GENESIS_BLOCK", R"%%%({
+	"type": "open",
+	"source": "45C6FF9D1706D61F0821327752671BDA9F9ED2DA40326B01935AB566FB9E08ED",
+	"representative": "nano_1jg8zygjg3pp5w644emqcbmjqpnzmubfni3kfe1s8pooeuxsw49fdq1mco9j",
+	"account": "nano_1jg8zygjg3pp5w644emqcbmjqpnzmubfni3kfe1s8pooeuxsw49fdq1mco9j",
+	"work": "bc1ef279c1a34eb1",
+	"signature": "15049467CAEE3EC768639E8E35792399B6078DA763DA4EBA8ECAD33B0EDC4AF2E7403893A5A602EB89B978DABEF1D6606BB00F3C0EE11449232B143B6E07170E"
+	})%%%");
+
 std::shared_ptr<nano::block> parse_block_from_genesis_data (std::string const & genesis_data_a)
 {
 	boost::property_tree::ptree tree;
@@ -66,43 +76,45 @@ std::shared_ptr<nano::block> parse_block_from_genesis_data (std::string const & 
 }
 
 nano::network_params::network_params () :
-network_params (network_constants::active_network)
+	network_params (network_constants::active_network)
 {
 }
 
 nano::network_params::network_params (nano::nano_networks network_a) :
-network (network_a), ledger (network), voting (network), node (network), portmapping (network), bootstrap (network)
+	network (network_a), ledger (network), voting (network), node (network), portmapping (network), bootstrap (network)
 {
 	unsigned constexpr kdf_full_work = 64 * 1024;
-	unsigned constexpr kdf_test_work = 8;
-	kdf_work = network.is_test_network () ? kdf_test_work : kdf_full_work;
-	header_magic_number = network.is_test_network () ? std::array<uint8_t, 2>{ { 'R', 'A' } } : network.is_beta_network () ? std::array<uint8_t, 2>{ { 'N', 'D' } } : std::array<uint8_t, 2>{ { 'R', 'C' } };
+	unsigned constexpr kdf_dev_work = 8;
+	kdf_work = network.is_dev_network () ? kdf_dev_work : kdf_full_work;
+	header_magic_number = network.is_dev_network () ? std::array<uint8_t, 2>{ { 'R', 'A' } } : network.is_beta_network () ? std::array<uint8_t, 2>{ { 'R', 'B' } } : network.is_live_network () ? std::array<uint8_t, 2>{ { 'R', 'C' } } : nano::test_magic_number ();
 }
 
-uint8_t nano::protocol_constants::protocol_version_min (bool use_epoch_2_min_version_a) const
+uint8_t nano::protocol_constants::protocol_version_min () const
 {
-	return use_epoch_2_min_version_a ? protocol_version_min_epoch_2 : protocol_version_min_pre_epoch_2;
+	return protocol_version_min_m;
 }
 
 nano::ledger_constants::ledger_constants (nano::network_constants & network_constants) :
-ledger_constants (network_constants.network ())
+	ledger_constants (network_constants.network ())
 {
 }
 
 nano::ledger_constants::ledger_constants (nano::nano_networks network_a) :
-zero_key ("0"),
-test_genesis_key (test_private_key_data),
-nano_test_account (test_public_key_data),
-nano_beta_account (beta_public_key_data),
-nano_live_account (live_public_key_data),
-nano_test_genesis (test_genesis_data),
-nano_beta_genesis (beta_genesis_data),
-nano_live_genesis (live_genesis_data),
-genesis_account (network_a == nano::nano_networks::nano_test_network ? nano_test_account : network_a == nano::nano_networks::nano_beta_network ? nano_beta_account : nano_live_account),
-genesis_block (network_a == nano::nano_networks::nano_test_network ? nano_test_genesis : network_a == nano::nano_networks::nano_beta_network ? nano_beta_genesis : nano_live_genesis),
-genesis_hash (parse_block_from_genesis_data (genesis_block)->hash ()),
-genesis_amount (std::numeric_limits<nano::uint128_t>::max ()),
-burn_account (0)
+	zero_key ("0"),
+	dev_genesis_key (dev_private_key_data),
+	nano_dev_account (dev_public_key_data),
+	nano_beta_account (beta_public_key_data),
+	nano_live_account (live_public_key_data),
+	nano_test_account (test_public_key_data),
+	nano_dev_genesis (dev_genesis_data),
+	nano_beta_genesis (beta_genesis_data),
+	nano_live_genesis (live_genesis_data),
+	nano_test_genesis (test_genesis_data),
+	genesis_account (network_a == nano::nano_networks::nano_dev_network ? nano_dev_account : network_a == nano::nano_networks::nano_beta_network ? nano_beta_account : network_a == nano::nano_networks::nano_test_network ? nano_test_account : nano_live_account),
+	genesis_block (network_a == nano::nano_networks::nano_dev_network ? nano_dev_genesis : network_a == nano::nano_networks::nano_beta_network ? nano_beta_genesis : network_a == nano::nano_networks::nano_test_network ? nano_test_genesis : nano_live_genesis),
+	genesis_hash (parse_block_from_genesis_data (genesis_block)->hash ()),
+	genesis_amount (std::numeric_limits<nano::uint128_t>::max ()),
+	burn_account (0)
 {
 	nano::link epoch_link_v1;
 	const char * epoch_message_v1 ("epoch v1 block");
@@ -113,7 +125,7 @@ burn_account (0)
 	nano::account nano_live_epoch_v2_signer;
 	auto error (nano_live_epoch_v2_signer.decode_account ("nano_3qb6o6i1tkzr6jwr5s7eehfxwg9x6eemitdinbpi7u8bjjwsgqfj4wzser3x"));
 	debug_assert (!error);
-	auto epoch_v2_signer (network_a == nano::nano_networks::nano_test_network ? nano_test_account : network_a == nano::nano_networks::nano_beta_network ? nano_beta_account : nano_live_epoch_v2_signer);
+	auto epoch_v2_signer (network_a == nano::nano_networks::nano_dev_network ? nano_dev_account : network_a == nano::nano_networks::nano_beta_network ? nano_beta_account : network_a == nano::nano_networks::nano_test_network ? nano_test_account : nano_live_epoch_v2_signer);
 	const char * epoch_message_v2 ("epoch v2 block");
 	strncpy ((char *)epoch_link_v2.bytes.data (), epoch_message_v2, epoch_link_v2.bytes.size ());
 	epochs.add (nano::epoch::epoch_2, epoch_v2_signer, epoch_link_v2);
@@ -127,24 +139,26 @@ nano::random_constants::random_constants ()
 
 nano::node_constants::node_constants (nano::network_constants & network_constants)
 {
-	period = network_constants.is_test_network () ? std::chrono::seconds (1) : std::chrono::seconds (60);
-	half_period = network_constants.is_test_network () ? std::chrono::milliseconds (500) : std::chrono::milliseconds (30 * 1000);
-	idle_timeout = network_constants.is_test_network () ? period * 15 : period * 2;
+	period = network_constants.is_dev_network () ? std::chrono::seconds (1) : std::chrono::seconds (60);
+	half_period = network_constants.is_dev_network () ? std::chrono::milliseconds (500) : std::chrono::milliseconds (30 * 1000);
+	idle_timeout = network_constants.is_dev_network () ? period * 15 : period * 2;
 	cutoff = period * 5;
 	syn_cookie_cutoff = std::chrono::seconds (5);
 	backup_interval = std::chrono::minutes (5);
-	search_pending_interval = network_constants.is_test_network () ? std::chrono::seconds (1) : std::chrono::seconds (5 * 60);
+	bootstrap_interval = std::chrono::seconds (15 * 60);
+	search_pending_interval = network_constants.is_dev_network () ? std::chrono::seconds (1) : std::chrono::seconds (5 * 60);
 	peer_interval = search_pending_interval;
 	unchecked_cleaning_interval = std::chrono::minutes (30);
-	process_confirmed_interval = network_constants.is_test_network () ? std::chrono::milliseconds (50) : std::chrono::milliseconds (500);
-	max_peers_per_ip = network_constants.is_test_network () ? 10 : 5;
-	max_weight_samples = network_constants.is_live_network () ? 4032 : 864;
+	process_confirmed_interval = network_constants.is_dev_network () ? std::chrono::milliseconds (50) : std::chrono::milliseconds (500);
+	max_peers_per_ip = network_constants.is_dev_network () ? 10 : 5;
+	max_weight_samples = (network_constants.is_live_network () || network_constants.is_test_network ()) ? 4032 : 288;
 	weight_period = 5 * 60; // 5 minutes
 }
 
-nano::voting_constants::voting_constants (nano::network_constants & network_constants)
+nano::voting_constants::voting_constants (nano::network_constants & network_constants) :
+	max_cache{ network_constants.is_dev_network () ? 256U : 128U * 1024 },
+	delay{ network_constants.is_dev_network () ? 1 : 15 }
 {
-	max_cache = network_constants.is_test_network () ? 2 : 64 * 1024;
 }
 
 nano::portmapping_constants::portmapping_constants (nano::network_constants & network_constants)
@@ -155,35 +169,35 @@ nano::portmapping_constants::portmapping_constants (nano::network_constants & ne
 
 nano::bootstrap_constants::bootstrap_constants (nano::network_constants & network_constants)
 {
-	lazy_max_pull_blocks = network_constants.is_test_network () ? 2 : 512;
-	lazy_min_pull_blocks = network_constants.is_test_network () ? 1 : 32;
-	frontier_retry_limit = network_constants.is_test_network () ? 2 : 16;
-	lazy_retry_limit = network_constants.is_test_network () ? 2 : frontier_retry_limit * 10;
-	lazy_destinations_retry_limit = network_constants.is_test_network () ? 1 : frontier_retry_limit / 4;
-	gap_cache_bootstrap_start_interval = network_constants.is_test_network () ? std::chrono::milliseconds (5) : std::chrono::milliseconds (30 * 1000);
+	lazy_max_pull_blocks = network_constants.is_dev_network () ? 2 : 512;
+	lazy_min_pull_blocks = network_constants.is_dev_network () ? 1 : 32;
+	frontier_retry_limit = network_constants.is_dev_network () ? 2 : 16;
+	lazy_retry_limit = network_constants.is_dev_network () ? 2 : frontier_retry_limit * 4;
+	lazy_destinations_retry_limit = network_constants.is_dev_network () ? 1 : frontier_retry_limit / 4;
+	gap_cache_bootstrap_start_interval = network_constants.is_dev_network () ? std::chrono::milliseconds (5) : std::chrono::milliseconds (30 * 1000);
+	default_frontiers_age_seconds = network_constants.is_dev_network () ? 1 : 24 * 60 * 60; // 1 second for dev network, 24 hours for live/beta
 }
 
 // Create a new random keypair
 nano::keypair::keypair ()
 {
-	random_pool::generate_block (prv.data.bytes.data (), prv.data.bytes.size ());
-	ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
+	random_pool::generate_block (prv.bytes.data (), prv.bytes.size ());
+	ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
 }
 
 // Create a keypair given a private key
 nano::keypair::keypair (nano::raw_key && prv_a) :
-prv (std::move (prv_a))
+	prv (std::move (prv_a))
 {
-	ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
+	ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
 }
 
 // Create a keypair given a hex string of the private key
 nano::keypair::keypair (std::string const & prv_a)
 {
-	auto error (prv.data.decode_hex (prv_a));
-	(void)error;
+	[[maybe_unused]] auto error (prv.decode_hex (prv_a));
 	debug_assert (!error);
-	ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
+	ed25519_publickey (prv.bytes.data (), pub.bytes.data ());
 }
 
 // Serialize a block prefixed with an 8-bit typecode
@@ -194,13 +208,13 @@ void nano::serialize_block (nano::stream & stream_a, nano::block const & block_a
 }
 
 nano::account_info::account_info (nano::block_hash const & head_a, nano::account const & representative_a, nano::block_hash const & open_block_a, nano::amount const & balance_a, uint64_t modified_a, uint64_t block_count_a, nano::epoch epoch_a) :
-head (head_a),
-representative (representative_a),
-open_block (open_block_a),
-balance (balance_a),
-modified (modified_a),
-block_count (block_count_a),
-epoch_m (epoch_a)
+	head (head_a),
+	representative (representative_a),
+	open_block (open_block_a),
+	balance (balance_a),
+	modified (modified_a),
+	block_count (block_count_a),
+	epoch_m (epoch_a)
 {
 }
 
@@ -252,15 +266,10 @@ nano::epoch nano::account_info::epoch () const
 	return epoch_m;
 }
 
-size_t nano::block_counts::sum () const
-{
-	return send + receive + open + change + state;
-}
-
 nano::pending_info::pending_info (nano::account const & source_a, nano::amount const & amount_a, nano::epoch epoch_a) :
-source (source_a),
-amount (amount_a),
-epoch (epoch_a)
+	source (source_a),
+	amount (amount_a),
+	epoch (epoch_a)
 {
 }
 
@@ -292,8 +301,8 @@ bool nano::pending_info::operator== (nano::pending_info const & other_a) const
 }
 
 nano::pending_key::pending_key (nano::account const & account_a, nano::block_hash const & hash_a) :
-account (account_a),
-hash (hash_a)
+	account (account_a),
+	hash (hash_a)
 {
 }
 
@@ -323,12 +332,12 @@ nano::account const & nano::pending_key::key () const
 	return account;
 }
 
-nano::unchecked_info::unchecked_info (std::shared_ptr<nano::block> block_a, nano::account const & account_a, uint64_t modified_a, nano::signature_verification verified_a, bool confirmed_a) :
-block (block_a),
-account (account_a),
-modified (modified_a),
-verified (verified_a),
-confirmed (confirmed_a)
+nano::unchecked_info::unchecked_info (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, uint64_t modified_a, nano::signature_verification verified_a, bool confirmed_a) :
+	block (block_a),
+	account (account_a),
+	modified (modified_a),
+	verified (verified_a),
+	confirmed (confirmed_a)
 {
 }
 
@@ -362,7 +371,7 @@ bool nano::unchecked_info::deserialize (nano::stream & stream_a)
 }
 
 nano::endpoint_key::endpoint_key (const std::array<uint8_t, 16> & address_a, uint16_t port_a) :
-address (address_a), network_port (boost::endian::native_to_big (port_a))
+	address (address_a), network_port (boost::endian::native_to_big (port_a))
 {
 }
 
@@ -377,8 +386,8 @@ uint16_t nano::endpoint_key::port () const
 }
 
 nano::confirmation_height_info::confirmation_height_info (uint64_t confirmation_height_a, nano::block_hash const & confirmed_frontier_a) :
-height (confirmation_height_a),
-frontier (confirmed_frontier_a)
+	height (confirmation_height_a),
+	frontier (confirmed_frontier_a)
 {
 }
 
@@ -404,8 +413,8 @@ bool nano::confirmation_height_info::deserialize (nano::stream & stream_a)
 }
 
 nano::block_info::block_info (nano::account const & account_a, nano::amount const & balance_a) :
-account (account_a),
-balance (balance_a)
+	account (account_a),
+	balance (balance_a)
 {
 }
 
@@ -442,7 +451,7 @@ bool nano::vote::operator== (nano::vote const & other_a) const
 			}
 		}
 	}
-	return sequence == other_a.sequence && blocks_equal && account == other_a.account && signature == other_a.signature;
+	return timestamp == other_a.timestamp && blocks_equal && account == other_a.account && signature == other_a.signature;
 }
 
 bool nano::vote::operator!= (nano::vote const & other_a) const
@@ -454,7 +463,8 @@ void nano::vote::serialize_json (boost::property_tree::ptree & tree) const
 {
 	tree.put ("account", account.to_account ());
 	tree.put ("signature", signature.number ());
-	tree.put ("sequence", std::to_string (sequence));
+	tree.put ("sequence", std::to_string (timestamp));
+	tree.put ("timestamp", std::to_string (timestamp));
 	boost::property_tree::ptree blocks_tree;
 	for (auto block : blocks)
 	{
@@ -482,10 +492,10 @@ std::string nano::vote::to_json () const
 }
 
 nano::vote::vote (nano::vote const & other_a) :
-sequence (other_a.sequence),
-blocks (other_a.blocks),
-account (other_a.account),
-signature (other_a.signature)
+	timestamp{ other_a.timestamp },
+	blocks (other_a.blocks),
+	account (other_a.account),
+	signature (other_a.signature)
 {
 }
 
@@ -500,7 +510,7 @@ nano::vote::vote (bool & error_a, nano::stream & stream_a, nano::block_type type
 	{
 		nano::read (stream_a, account.bytes);
 		nano::read (stream_a, signature.bytes);
-		nano::read (stream_a, sequence);
+		nano::read (stream_a, timestamp);
 
 		while (stream_a.in_avail () > 0)
 		{
@@ -512,7 +522,7 @@ nano::vote::vote (bool & error_a, nano::stream & stream_a, nano::block_type type
 			}
 			else
 			{
-				std::shared_ptr<nano::block> block (nano::deserialize_block (stream_a, type_a, uniquer_a));
+				auto block (nano::deserialize_block (stream_a, type_a, uniquer_a));
 				if (block == nullptr)
 				{
 					throw std::runtime_error ("Block is null");
@@ -532,17 +542,17 @@ nano::vote::vote (bool & error_a, nano::stream & stream_a, nano::block_type type
 	}
 }
 
-nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, uint64_t sequence_a, std::shared_ptr<nano::block> block_a) :
-sequence (sequence_a),
-blocks (1, block_a),
-account (account_a),
-signature (nano::sign_message (prv_a, account_a, hash ()))
+nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, uint64_t timestamp_a, std::shared_ptr<nano::block> const & block_a) :
+	timestamp{ timestamp_a },
+	blocks (1, block_a),
+	account (account_a),
+	signature (nano::sign_message (prv_a, account_a, hash ()))
 {
 }
 
-nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, uint64_t sequence_a, std::vector<nano::block_hash> const & blocks_a) :
-sequence (sequence_a),
-account (account_a)
+nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, uint64_t timestamp_a, std::vector<nano::block_hash> const & blocks_a) :
+	timestamp{ timestamp_a },
+	account (account_a)
 {
 	debug_assert (!blocks_a.empty ());
 	debug_assert (blocks_a.size () <= 12);
@@ -582,7 +592,7 @@ nano::block_hash nano::vote::hash () const
 		uint64_t qword;
 		std::array<uint8_t, 8> bytes;
 	};
-	qword = sequence;
+	qword = timestamp;
 	blake2b_update (&hash, bytes.data (), sizeof (bytes));
 	blake2b_final (&hash, result.bytes.data (), sizeof (result.bytes));
 	return result;
@@ -604,7 +614,7 @@ void nano::vote::serialize (nano::stream & stream_a, nano::block_type type) cons
 {
 	write (stream_a, account);
 	write (stream_a, signature);
-	write (stream_a, sequence);
+	write (stream_a, timestamp);
 	for (auto const & block : blocks)
 	{
 		if (block.which ())
@@ -630,7 +640,7 @@ void nano::vote::serialize (nano::stream & stream_a) const
 {
 	write (stream_a, account);
 	write (stream_a, signature);
-	write (stream_a, sequence);
+	write (stream_a, timestamp);
 	for (auto const & block : blocks)
 	{
 		if (block.which ())
@@ -652,7 +662,7 @@ bool nano::vote::deserialize (nano::stream & stream_a, nano::block_uniquer * uni
 	{
 		nano::read (stream_a, account);
 		nano::read (stream_a, signature);
-		nano::read (stream_a, sequence);
+		nano::read (stream_a, timestamp);
 
 		nano::block_type type;
 
@@ -672,7 +682,7 @@ bool nano::vote::deserialize (nano::stream & stream_a, nano::block_uniquer * uni
 			}
 			else
 			{
-				std::shared_ptr<nano::block> block (nano::deserialize_block (stream_a, type, uniquer_a));
+				auto block (nano::deserialize_block (stream_a, type, uniquer_a));
 				if (block == nullptr)
 				{
 					throw std::runtime_error ("Block is empty");
@@ -725,11 +735,11 @@ boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_v
 }
 
 nano::vote_uniquer::vote_uniquer (nano::block_uniquer & uniquer_a) :
-uniquer (uniquer_a)
+	uniquer (uniquer_a)
 {
 }
 
-std::shared_ptr<nano::vote> nano::vote_uniquer::unique (std::shared_ptr<nano::vote> vote_a)
+std::shared_ptr<nano::vote> nano::vote_uniquer::unique (std::shared_ptr<nano::vote> const & vote_a)
 {
 	auto result (vote_a);
 	if (result != nullptr && !result->blocks.empty ())
@@ -739,7 +749,7 @@ std::shared_ptr<nano::vote> nano::vote_uniquer::unique (std::shared_ptr<nano::vo
 			result->blocks.front () = uniquer.unique (boost::get<std::shared_ptr<nano::block>> (result->blocks.front ()));
 		}
 		nano::block_hash key (vote_a->full_hash ());
-		nano::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock (mutex);
 		auto & existing (votes[key]);
 		if (auto block_l = existing.lock ())
 		{
@@ -778,11 +788,11 @@ std::shared_ptr<nano::vote> nano::vote_uniquer::unique (std::shared_ptr<nano::vo
 
 size_t nano::vote_uniquer::size ()
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<nano::mutex> lock (mutex);
 	return votes.size ();
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (vote_uniquer & vote_uniquer, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (vote_uniquer & vote_uniquer, std::string const & name)
 {
 	auto count = vote_uniquer.size ();
 	auto sizeof_element = sizeof (vote_uniquer::value_type);
@@ -812,9 +822,15 @@ nano::wallet_id nano::random_wallet_id ()
 	return wallet_id;
 }
 
-nano::unchecked_key::unchecked_key (nano::block_hash const & previous_a, nano::block_hash const & hash_a) :
-previous (previous_a),
-hash (hash_a)
+nano::unchecked_key::unchecked_key (nano::hash_or_account const & previous_a, nano::block_hash const & hash_a) :
+	previous (previous_a.hash),
+	hash (hash_a)
+{
+}
+
+nano::unchecked_key::unchecked_key (nano::uint512_union const & union_a) :
+	previous (union_a.uint256s[0].number ()),
+	hash (union_a.uint256s[1].number ())
 {
 }
 
@@ -850,5 +866,4 @@ void nano::generate_cache::enable_all ()
 	cemented_count = true;
 	unchecked_count = true;
 	account_count = true;
-	epoch_2 = true;
 }

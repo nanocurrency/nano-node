@@ -1,6 +1,8 @@
+#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/json_error_response.hpp>
 #include <nano/lib/logger_mt.hpp>
+#include <nano/lib/numbers.hpp>
 #include <nano/lib/rpc_handler_interface.hpp>
 #include <nano/lib/rpcconfig.hpp>
 #include <nano/rpc/rpc_handler.hpp>
@@ -16,13 +18,13 @@ std::unordered_set<std::string> rpc_control_impl_set = create_rpc_control_impls 
 std::string filter_request (boost::property_tree::ptree tree_a);
 }
 
-nano::rpc_handler::rpc_handler (nano::rpc_config const & rpc_config, std::string const & body_a, std::string const & request_id_a, std::function<void(std::string const &)> const & response_a, nano::rpc_handler_interface & rpc_handler_interface_a, nano::logger_mt & logger) :
-body (body_a),
-request_id (request_id_a),
-response (response_a),
-rpc_config (rpc_config),
-rpc_handler_interface (rpc_handler_interface_a),
-logger (logger)
+nano::rpc_handler::rpc_handler (nano::rpc_config const & rpc_config, std::string const & body_a, std::string const & request_id_a, std::function<void (std::string const &)> const & response_a, nano::rpc_handler_interface & rpc_handler_interface_a, nano::logger_mt & logger) :
+	body (body_a),
+	request_id (request_id_a),
+	response (response_a),
+	rpc_config (rpc_config),
+	rpc_handler_interface (rpc_handler_interface_a),
+	logger (logger)
 {
 }
 
@@ -99,6 +101,18 @@ void nano::rpc_handler::process_request (nano::rpc_handler_request_params const 
 							error = true;
 						}
 					}
+					// Add random id to RPC send via IPC if not included
+					else if (action == "send" && request.find ("id") == request.not_found ())
+					{
+						nano::uint128_union random_id;
+						nano::random_pool::generate_block (random_id.bytes.data (), random_id.bytes.size ());
+						std::string random_id_text;
+						random_id.encode_hex (random_id_text);
+						request.put ("id", random_id_text);
+						std::stringstream ostream;
+						boost::property_tree::write_json (ostream, request);
+						body = ostream.str ();
+					}
 				}
 
 				if (!error)
@@ -108,7 +122,7 @@ void nano::rpc_handler::process_request (nano::rpc_handler_request_params const 
 			}
 			else if (request_params.rpc_version == 2)
 			{
-				rpc_handler_interface.process_request_v2 (request_params, body, [response = response](std::shared_ptr<std::string> body) {
+				rpc_handler_interface.process_request_v2 (request_params, body, [response = response] (std::shared_ptr<std::string> const & body) {
 					std::string body_l = *body;
 					response (body_l);
 				});

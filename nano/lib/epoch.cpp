@@ -8,7 +8,7 @@ nano::link const & nano::epochs::link (nano::epoch epoch_a) const
 
 bool nano::epochs::is_epoch_link (nano::link const & link_a) const
 {
-	return std::any_of (epochs_m.begin (), epochs_m.end (), [&link_a](auto const & item_a) { return item_a.second.link == link_a; });
+	return std::any_of (epochs_m.begin (), epochs_m.end (), [&link_a] (auto const & item_a) { return item_a.second.link == link_a; });
 }
 
 nano::public_key const & nano::epochs::signer (nano::epoch epoch_a) const
@@ -18,7 +18,7 @@ nano::public_key const & nano::epochs::signer (nano::epoch epoch_a) const
 
 nano::epoch nano::epochs::epoch (nano::link const & link_a) const
 {
-	auto existing (std::find_if (epochs_m.begin (), epochs_m.end (), [&link_a](auto const & item_a) { return item_a.second.link == link_a; }));
+	auto existing (std::find_if (epochs_m.begin (), epochs_m.end (), [&link_a] (auto const & item_a) { return item_a.second.link == link_a; }));
 	debug_assert (existing != epochs_m.end ());
 	return existing->first;
 }

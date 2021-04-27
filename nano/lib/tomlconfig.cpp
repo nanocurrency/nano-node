@@ -4,13 +4,13 @@
 #include <boost/filesystem/convenience.hpp>
 
 nano::tomlconfig::tomlconfig () :
-tree (cpptoml::make_table ())
+	tree (cpptoml::make_table ())
 {
 	error = std::make_shared<nano::error> ();
 }
 
 nano::tomlconfig::tomlconfig (std::shared_ptr<cpptoml::table> const & tree_a, std::shared_ptr<nano::error> const & error_a) :
-nano::configbase (error_a), tree (tree_a)
+	nano::configbase (error_a), tree (tree_a)
 {
 	if (!error)
 	{
@@ -250,7 +250,7 @@ nano::tomlconfig & nano::tomlconfig::get_config (bool optional, std::string cons
 
 nano::tomlconfig & nano::tomlconfig::get_config (bool optional, std::string const & key, bool & target, bool default_value)
 {
-	auto bool_conv = [this, &target, &key, optional](std::string val) {
+	auto bool_conv = [this, &target, &key, optional] (std::string val) {
 		if (val == "true")
 		{
 			target = true;
@@ -288,7 +288,7 @@ nano::tomlconfig & nano::tomlconfig::get_config (bool optional, std::string cons
 }
 
 /** Compare two stringified configs, remove keys where values are equal */
-void nano::tomlconfig::erase_defaults (std::shared_ptr<cpptoml::table> base, std::shared_ptr<cpptoml::table> other, std::shared_ptr<cpptoml::table> update_target)
+void nano::tomlconfig::erase_defaults (std::shared_ptr<cpptoml::table> const & base, std::shared_ptr<cpptoml::table> const & other, std::shared_ptr<cpptoml::table> const & update_target)
 {
 	std::vector<std::string> erased;
 	debug_assert (other != nullptr);
@@ -317,7 +317,7 @@ void nano::tomlconfig::erase_defaults (std::shared_ptr<cpptoml::table> base, std
 				if (arr_other.size () == arr_base.size ())
 				{
 					bool equal = std::equal (arr_other.begin (), arr_other.end (), arr_base.begin (),
-					[](auto const & item1, auto const & item2) -> bool {
+					[] (auto const & item1, auto const & item2) -> bool {
 						return (item1->template as<std::string> ()->get () == item2->template as<std::string> ()->get ());
 					});
 

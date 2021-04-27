@@ -38,7 +38,7 @@ TEST (signature_checker, bulk_single_thread)
 	}
 	nano::signature_check_set check = { size, messages.data (), lengths.data (), pub_keys.data (), signatures.data (), verifications.data () };
 	checker.verify (check);
-	bool all_valid = std::all_of (verifications.cbegin (), verifications.cend (), [](auto verification) { return verification == 1; });
+	bool all_valid = std::all_of (verifications.cbegin (), verifications.cend (), [] (auto verification) { return verification == 1; });
 	ASSERT_TRUE (all_valid);
 }
 
@@ -46,7 +46,7 @@ TEST (signature_checker, many_multi_threaded)
 {
 	nano::signature_checker checker (4);
 
-	auto signature_checker_work_func = [&checker]() {
+	auto signature_checker_work_func = [&checker] () {
 		nano::keypair key;
 		nano::state_block block (key.pub, 0, key.pub, 0, 0, key.prv, key.pub, 0);
 		auto block_hash = block.hash ();
@@ -97,7 +97,7 @@ TEST (signature_checker, many_multi_threaded)
 			checker.verify (signature_checker_sets[i]);
 
 			// Confirm all but last are valid
-			auto all_valid = std::all_of (verifications[i].cbegin (), verifications[i].cend () - 1, [](auto verification) { return verification == 1; });
+			auto all_valid = std::all_of (verifications[i].cbegin (), verifications[i].cend () - 1, [] (auto verification) { return verification == 1; });
 			ASSERT_TRUE (all_valid);
 			ASSERT_EQ (verifications[i][last_signature_index], 0);
 		}
@@ -114,7 +114,7 @@ TEST (signature_checker, one)
 {
 	nano::signature_checker checker (0);
 
-	auto verify_block = [&checker](auto & block, auto result) {
+	auto verify_block = [&checker] (auto & block, auto result) {
 		std::vector<nano::uint256_union> hashes;
 		std::vector<unsigned char const *> messages;
 		std::vector<size_t> lengths;
@@ -152,7 +152,7 @@ TEST (signature_checker, boundary_checks)
 {
 	// sizes container must be in incrementing order
 	std::vector<size_t> sizes{ 0, 1 };
-	auto add_boundary = [&sizes](size_t boundary) {
+	auto add_boundary = [&sizes] (size_t boundary) {
 		sizes.insert (sizes.end (), { boundary - 1, boundary, boundary + 1 });
 	};
 
@@ -176,7 +176,7 @@ TEST (signature_checker, boundary_checks)
 	nano::keypair key;
 	nano::state_block block (key.pub, 0, key.pub, 0, 0, key.prv, key.pub, 0);
 
-	auto last_size = 0;
+	size_t last_size = 0;
 	for (auto size : sizes)
 	{
 		// The size needed to append to existing containers, saves re-initializing from scratch each iteration
@@ -194,7 +194,7 @@ TEST (signature_checker, boundary_checks)
 		}
 		nano::signature_check_set check = { size, messages.data (), lengths.data (), pub_keys.data (), signatures.data (), verifications.data () };
 		checker.verify (check);
-		bool all_valid = std::all_of (verifications.cbegin (), verifications.cend (), [](auto verification) { return verification == 1; });
+		bool all_valid = std::all_of (verifications.cbegin (), verifications.cend (), [] (auto verification) { return verification == 1; });
 		ASSERT_TRUE (all_valid);
 		last_size = size;
 	}

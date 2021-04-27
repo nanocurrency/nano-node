@@ -168,29 +168,29 @@ TEST (uint256_union, key_encryption)
 {
 	nano::keypair key1;
 	nano::raw_key secret_key;
-	secret_key.data.bytes.fill (0);
+	secret_key.clear ();
 	nano::uint256_union encrypted;
 	encrypted.encrypt (key1.prv, secret_key, key1.pub.owords[0]);
 	nano::raw_key key4;
 	key4.decrypt (encrypted, secret_key, key1.pub.owords[0]);
 	ASSERT_EQ (key1.prv, key4);
-	auto pub (nano::pub_key (key4.as_private_key ()));
+	auto pub (nano::pub_key (key4));
 	ASSERT_EQ (key1.pub, pub);
 }
 
 TEST (uint256_union, encryption)
 {
 	nano::raw_key key;
-	key.data.clear ();
+	key.clear ();
 	nano::raw_key number1;
-	number1.data = 1;
+	number1 = 1;
 	nano::uint256_union encrypted1;
-	encrypted1.encrypt (number1, key, key.data.owords[0]);
+	encrypted1.encrypt (number1, key, key.owords[0]);
 	nano::uint256_union encrypted2;
-	encrypted2.encrypt (number1, key, key.data.owords[0]);
+	encrypted2.encrypt (number1, key, key.owords[0]);
 	ASSERT_EQ (encrypted1, encrypted2);
 	nano::raw_key number2;
-	number2.decrypt (encrypted1, key, key.data.owords[0]);
+	number2.decrypt (encrypted1, key, key.owords[0]);
 	ASSERT_EQ (number1, number2);
 }
 
@@ -375,9 +375,9 @@ TEST (uint256_union, decode_nano_variant)
 TEST (uint256_union, account_transcode)
 {
 	nano::account value;
-	auto text (nano::test_genesis_key.pub.to_account ());
+	auto text (nano::dev_genesis_key.pub.to_account ());
 	ASSERT_FALSE (value.decode_account (text));
-	ASSERT_EQ (nano::test_genesis_key.pub, value);
+	ASSERT_EQ (nano::dev_genesis_key.pub, value);
 
 	/*
 	 * Handle different offsets for the underscore separator

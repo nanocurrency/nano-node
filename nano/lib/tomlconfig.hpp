@@ -85,7 +85,7 @@ public:
 	 * @param key Array element key. Qualified (dotted) keys are not supported for arrays so this must be called on the correct tomlconfig node.
 	 */
 	template <typename T>
-	tomlconfig & array_entries_required (std::string const & key, std::function<void(T)> callback)
+	tomlconfig & array_entries_required (std::string const & key, std::function<void (T)> callback)
 	{
 		if (tree->contains_qualified (key))
 		{
@@ -212,6 +212,6 @@ private:
 	std::shared_ptr<cpptoml::table> tree;
 
 	/** Compare two stringified configs, remove keys where values are equal */
-	void erase_defaults (std::shared_ptr<cpptoml::table> base, std::shared_ptr<cpptoml::table> other, std::shared_ptr<cpptoml::table> update_target);
+	void erase_defaults (std::shared_ptr<cpptoml::table> const & base, std::shared_ptr<cpptoml::table> const & other, std::shared_ptr<cpptoml::table> const & update_target);
 };
 }

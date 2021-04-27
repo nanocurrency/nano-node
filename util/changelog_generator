@@ -12,7 +12,7 @@ flags=("$@")
 
 set -eo pipefail
 
-function _curl () {
+function _curl() {
 	local curl_args
 
 	curl_args=(-s)
@@ -23,7 +23,7 @@ function _curl () {
 	curl "${curl_args[@]}" "$@"
 }
 
-function milestones () {
+function milestones() {
 	local repository
 
 	repository="$1"
@@ -35,7 +35,7 @@ function milestones () {
 	) | sort -rV
 }
 
-function tag_to_tag_date () {
+function tag_to_tag_date() {
 	local tag
 	local tag_url
 
@@ -43,10 +43,10 @@ function tag_to_tag_date () {
 
 	tag_url="$(_curl "https://api.github.com/repos/${repository}/git/refs/tags/${tag}" | jq -r 'if (type == "object") then . else .[] end | select(.ref=="refs/tags/'"${tag}"'") | .object.url')" || return 1
 	_curl "${tag_url}" | jq -r '.tagger.date | fromdateiso8601 | strftime("%Y-%m-%d")' 2>/dev/null || \
-		_curl "${tag_url}" | jq -r '.committer.date | fromdateiso8601 | strftime("%Y-%m-%d")' || return 1
+	_curl "${tag_url}" | jq -r '.committer.date | fromdateiso8601 | strftime("%Y-%m-%d")' || return 1
 }
 
-function parts_of_milestone () {
+function parts_of_milestone() {
 	local repository milestone_id
 	local state
 
@@ -56,7 +56,7 @@ function parts_of_milestone () {
 	for state in closed open; do
 		page='0'
 		while true; do
-			page=$[${page} + 1]
+			page=$((${page} + 1))
 			data="$(_curl "https://api.github.com/repos/${repository}/issues?milestone=${milestone_id}&state=${state}&page=${page}")"
 
 			item_count="$(echo "${data}" | jq -r '. | length')"
@@ -65,16 +65,16 @@ function parts_of_milestone () {
 			fi
 
 			echo "${data}" | \
-				jq -r '.[] | [.html_url, .number, .title, (.labels[] | .name)] | @tsv' || return 1
+			jq -r '.[] | [.html_url, .number, .title, (.labels[] | .name)] | @tsv' || return 1
 		done
 	done
 }
 
-function sanitize_markdown () {
+function sanitize_markdown() {
 	sed -r 's@(\[|\]|_|#)@\\&@g'
 }
 
-function print_item () {
+function print_item() {
 	local item_id
 	local item_name item_url
 
@@ -86,7 +86,7 @@ function print_item () {
 	echo " - ${item_name} \[[\#${item_id}](${item_url})\]"
 }
 
-function changelog () {
+function changelog() {
 	local repository start_tag flags_list
 	local milestones_info previous_milestones previous_milestone
 	local milestone_name previous_milestone_name milestone_date tag_name
@@ -104,11 +104,11 @@ function changelog () {
 	flag_only='false'
 	for flag in ${flags_list}; do
 		case "${flag}" in
-			only)
-				if [ -n "${start_tag}" ]; then
-					flag_only='true'
-				fi
-				;;
+		only)
+			if [ -n "${start_tag}" ]; then
+				flag_only='true'
+			fi
+			;;
 		esac
 	done
 
@@ -169,18 +169,18 @@ function changelog () {
 			category=''
 			for item_tag in ${item_tags}; do
 				case "${item_tag}" in
-					wontfix|duplicate|invalid)
-						skip_item='true'
-						;;
-					enhancement|quality)
-						category='Implemented enhancements'
-						;;
-					major|semantics)
-						is_major='true'
-						;;
-					bug)
-						category='Fixed bugs'
-						;;
+				wontfix | duplicate | invalid)
+					skip_item='true'
+					;;
+				enhancement | quality)
+					category='Implemented enhancements'
+					;;
+				major | semantics)
+					is_major='true'
+					;;
+				bug)
+					category='Fixed bugs'
+					;;
 				esac
 			done
 			if [ -z "${category}" ]; then
@@ -233,4 +233,4 @@ function changelog () {
 
 changelog="$(changelog "${repository}" "${tag}" "${flags[*]}")"
 
-echo "${changelog}" > CHANGELOG.md
+echo "${changelog}" >CHANGELOG.md

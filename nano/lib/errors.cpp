@@ -83,6 +83,8 @@ std::string nano::error_common_messages::message (int ev) const
 			return "Invalid type conversion";
 		case nano::error_common::invalid_work:
 			return "Invalid work";
+		case nano::error_common::is_not_state_block:
+			return "Must be a state block";
 		case nano::error_common::numeric_conversion:
 			return "Numeric conversion error";
 		case nano::error_common::tracking_not_enabled:
@@ -127,6 +129,8 @@ std::string nano::error_rpc_messages::message (int ev) const
 	{
 		case nano::error_rpc::generic:
 			return "Unknown error";
+		case nano::error_rpc::empty_response:
+			return "Empty response";
 		case nano::error_rpc::bad_destination:
 			return "Bad destination account";
 		case nano::error_rpc::bad_difficulty_format:
@@ -207,12 +211,10 @@ std::string nano::error_rpc_messages::message (int ev) const
 			return "Invalid timestamp";
 		case nano::error_rpc::invalid_threads_count:
 			return "Invalid threads count";
-		case nano::error_rpc::payment_account_balance:
-			return "Account has non-zero balance";
-		case nano::error_rpc::payment_unable_create_account:
-			return "Unable to create transaction account";
 		case nano::error_rpc::peer_not_found:
 			return "Peer not found";
+		case nano::error_rpc::pruning_disabled:
+			return "Pruning is disabled";
 		case nano::error_rpc::requires_port_and_address:
 			return "Both port and address required";
 		case nano::error_rpc::rpc_control_disabled:
@@ -246,6 +248,8 @@ std::string nano::error_process_messages::message (int ev) const
 			return "Gap previous block";
 		case nano::error_process::gap_source:
 			return "Gap source block";
+		case nano::error_process::gap_epoch_open_pending:
+			return "Gap pending for open epoch block";
 		case nano::error_process::opened_burn_account:
 			return "Burning account";
 		case nano::error_process::balance_mismatch:
@@ -271,8 +275,6 @@ std::string nano::error_config_messages::message (int ev) const
 			return "Invalid configuration value";
 		case nano::error_config::missing_value:
 			return "Missing value in configuration";
-		case nano::error_config::rocksdb_enabled_but_not_supported:
-			return "RocksDB has been enabled, but the node has not been built with RocksDB support. Set the CMake flag -DNANO_ROCKSDB=ON";
 	}
 
 	return "Invalid error code";

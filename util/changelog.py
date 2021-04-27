@@ -1,19 +1,19 @@
 import argparse
 import copy
+import sys
 
 """
 Changelog generation script, requires PAT see https://github.com/settings/tokens
 Caveats V20 and prior release tags are tips on their respective release branches
 If you try to use a start tag with one of these a full changelog will be generated
 since the commit wont appear in your iterations
-
 """
 
 try:
     from github import Github
     from mdutils import MdUtils
 except BaseException:
-    exit("Error: run 'pip install PyGithub mdutils'")
+    sys.exit("Error: run 'pip install PyGithub mdutils'")
 
 SECTIONS = {
     "Major Changes": [
@@ -104,7 +104,7 @@ class cliArgs():
             required=True,
         )
         options = parse.parse_args()
-        self.repo = options.repo
+        self.repo = options.repo.rstrip("/")
         self.start = options.start
         self.end = options.end
         self.pat = options.pat
@@ -121,6 +121,7 @@ class cliArgs():
 class generateTree:
     def __init__(self, args):
         github = Github(args.pat)
+        self.name = args.repo
         self.repo = github.get_repo(args.repo)
         self.start = args.start
         self.end = args.end
@@ -134,11 +135,16 @@ class generateTree:
             exit("Error finding commit for " + args.end)
         commits = self.repo.get_commits(sha=self.endCommit.sha)
         self.commits = {}
+        self.other_commits = []  # for commits that do not have an associated pull
         for commit in commits:
             if commit.sha == self.startCommit.sha:
                 break
             else:
-                for pull in commit.get_pulls():
+                message = commit.commit.message.partition('\n')[0]
+                try:
+                    pr_number = int(
+                        message[message.rfind('#')+1:message.rfind(')')])
+                    pull = self.repo.get_pull(pr_number)
                     labels = []
                     for label in pull.labels:
                         labels.append(label.name)
@@ -147,6 +153,11 @@ class generateTree:
                         "Url": pull.html_url,
                         "labels": labels
                     }
+                except ValueError:
+                    print("Commit has no associated PR {}: \"{}\"".format(
+                        commit.sha, message))
+                    self.other_commits.append((commit.sha, message))
+                    continue
 
     def __repr__(self):
         return "<generateTree(repo='{0}', start='{1}', startCommit='{2}', " \
@@ -167,24 +178,37 @@ class generateMarkdown():
             file_name='CHANGELOG', title='CHANGELOG'
         )
         self.mdFile.new_line(
-            "## **Release** " + \
-            "[{0}](https://github.com/nanocurrency/nano-node/tree/{0})"\
-                .format(repo.end))
-        self.mdFile.new_line("[Full Changelog](https://github.com/nanocurrency"\
-            "/nano-node/compare/{0}...{1})".format(repo.start, repo.end))
+            "## **Release** " +
+            "[{0}](https://github.com/nanocurrency/nano-node/tree/{0})"
+            .format(repo.end))
+        self.mdFile.new_line("[Full Changelog](https://github.com/nanocurrency"
+                             "/nano-node/compare/{0}...{1})".format(repo.start, repo.end))
         sort = self.pull_to_section(repo.commits)
 
         for section, prs in sort.items():
-            self.write_header(section)
+            self.write_header_PR(section)
             for pr in prs:
                 self.write_PR(pr, repo.commits[pr[0]])
+
+        if repo.other_commits:
+            self.write_header_no_PR()
+            for sha, message in repo.other_commits:
+                self.write_no_PR(repo, sha, message)
+
         self.mdFile.create_md_file()
 
-    def write_header(self, section):
+    def write_header_PR(self, section):
         self.mdFile.new_line("---")
         self.mdFile.new_header(level=3, title=section)
         self.mdFile.new_line(
             "|Pull Request|Title")
+        self.mdFile.new_line("|:-:|:--")
+
+    def write_header_no_PR(self):
+        self.mdFile.new_line("---")
+        self.mdFile.new_header(level=3, title="Other Updates")
+        self.mdFile.new_line(
+            "|Commit|Title")
         self.mdFile.new_line("|:-:|:--")
 
     def write_PR(self, pr, info):
@@ -195,13 +219,19 @@ class generateMarkdown():
             "|[#{0}]({1})|{2}{3}".format(
                 pr[0], info['Url'], imp, info['Title']))
 
+    def write_no_PR(self, repo, sha, message):
+        url = "https://github.com/{0}/commit/{1}".format(repo.name, sha)
+        self.mdFile.new_line(
+            "|[{0}]({1})|{2}".format(
+                sha[:8], url, message))
+
     def handle_labels(self, labels):
         for section, values in SECTIONS.items():
             for label in labels:
                 if label in values:
                     if any(
-                        string in labels for string in [
-                            'breaking',
+                            string in labels for string in [
+                                'breaking',
                             ]):
                         return section, True
                     else:
@@ -216,7 +246,7 @@ class generateMarkdown():
         for pull, info in commits.items():
             section, important = self.handle_labels(info['labels'])
             if important:
-                sect[section].insert(0,[pull, important])
+                sect[section].insert(0, [pull, important])
             else:
                 sect[section].append([pull, important])
         for a in sect:

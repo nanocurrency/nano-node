@@ -1,5 +1,6 @@
 #include <nano/boost/process/child.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/cli.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/rpcconfig.hpp>
 #include <nano/lib/threading.hpp>
@@ -87,12 +88,10 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 		error = read_wallet_config (wallet_config, data_path);
 	}
 
-#if !NANO_ROCKSDB
-	if (!error && config.node.rocksdb_config.enable)
+	if (!error)
 	{
-		error = nano::error_config::rocksdb_enabled_but_not_supported;
+		error = nano::flags_config_conflicts (flags, config.node);
 	}
-#endif
 
 	if (!error)
 	{
@@ -108,12 +107,11 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 		std::shared_ptr<nano_qt::wallet> gui;
 		nano::set_application_icon (application);
 		auto opencl (nano::opencl_work::create (config.opencl_enable, config.opencl, logger));
-		nano::work_pool work (config.node.work_threads, config.node.pow_sleep_interval, opencl ? [&opencl](nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> &) {
+		nano::work_pool work (config.node.work_threads, config.node.pow_sleep_interval, opencl ? [&opencl] (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> &) {
 			return opencl->generate_work (version_a, root_a, difficulty_a);
 		}
-		                                                                                       : std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> (nullptr));
-		nano::alarm alarm (io_ctx);
-		node = std::make_shared<nano::node> (io_ctx, data_path, alarm, config.node, work, flags);
+																							   : std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> (nullptr));
+		node = std::make_shared<nano::node> (io_ctx, data_path, config.node, work, flags);
 		if (!node->init_error ())
 		{
 			auto wallet (node->wallets.open (wallet_config.wallet));
@@ -148,10 +146,8 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 			node->start ();
 			nano::ipc::ipc_server ipc (*node, config.rpc);
 
-#if BOOST_PROCESS_SUPPORTED
 			std::unique_ptr<boost::process::child> rpc_process;
 			std::unique_ptr<boost::process::child> nano_pow_server_process;
-#endif
 
 			if (config.pow_server.enable)
 			{
@@ -162,13 +158,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 					std::exit (1);
 				}
 
-#if BOOST_PROCESS_SUPPORTED
 				nano_pow_server_process = std::make_unique<boost::process::child> (config.pow_server.pow_server_path, "--config_path", data_path / "config-nano-pow-server.toml");
-#else
-				splash->hide ();
-				show_error ("nano_pow_server is configured to start as a child process, but this is not supported on this system. Disable startup and start the server manually.");
-				std::exit (1);
-#endif
 			}
 			std::unique_ptr<nano::rpc> rpc;
 			std::unique_ptr<nano::rpc_handler_interface> rpc_handler;
@@ -178,7 +168,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 				{
 					// Launch rpc in-process
 					nano::rpc_config rpc_config;
-					auto error = nano::read_rpc_config_toml (data_path, rpc_config);
+					auto error = nano::read_rpc_config_toml (data_path, rpc_config, flags.rpc_config_overrides);
 					if (error)
 					{
 						show_error (error.get_message ());
@@ -195,15 +185,11 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 						throw std::runtime_error (std::string ("RPC is configured to spawn a new process however the file cannot be found at: ") + config.rpc.child_process.rpc_path);
 					}
 
-#if BOOST_PROCESS_SUPPORTED
 					auto network = node->network_params.network.get_current_network_as_string ();
 					rpc_process = std::make_unique<boost::process::child> (config.rpc.child_process.rpc_path, "--daemon", "--data_path", data_path, "--network", network);
-#else
-					show_error ("rpc_enable is set to true in the config. Set it to false and start the RPC server manually.");
-#endif
 				}
 			}
-			QObject::connect (&application, &QApplication::aboutToQuit, [&]() {
+			QObject::connect (&application, &QApplication::aboutToQuit, [&] () {
 				ipc.stop ();
 				node->stop ();
 				if (rpc)
@@ -223,7 +209,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 #endif
 				runner.stop_event_processing ();
 			});
-			application.postEvent (&processor, new nano_qt::eventloop_event ([&]() {
+			application.postEvent (&processor, new nano_qt::eventloop_event ([&] () {
 				gui = std::make_shared<nano_qt::wallet> (application, processor, *node, wallet, wallet_config.account);
 				splash->close ();
 				gui->start ();
@@ -258,7 +244,8 @@ int main (int argc, char * const * argv)
 		// clang-format off
 		description.add_options()
 			("help", "Print out options")
-			("config", boost::program_options::value<std::vector<std::string>>()->multitoken(), "Pass configuration values. This takes precedence over any values in the node configuration file. This option can be repeated multiple times.");
+			("config", boost::program_options::value<std::vector<nano::config_key_value_pair>>()->multitoken(), "Pass configuration values. This takes precedence over any values in the node configuration file. This option can be repeated multiple times.")
+			("rpcconfig", boost::program_options::value<std::vector<nano::config_key_value_pair>>()->multitoken(), "Pass RPC configuration values. This takes precedence over any values in the RPC configuration file. This option can be repeated multiple times.");
 		nano::add_node_flag_options (description);
 		nano::add_node_options (description);
 		// clang-format on
@@ -282,15 +269,6 @@ int main (int argc, char * const * argv)
 			{
 				show_error (nano::network_constants::active_network_err_msg);
 				std::exit (1);
-			}
-		}
-
-		if (!vm.count ("data_path"))
-		{
-			std::string error_string;
-			if (!nano::migrate_working_path (error_string))
-			{
-				throw std::runtime_error (error_string);
 			}
 		}
 

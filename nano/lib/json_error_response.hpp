@@ -5,7 +5,7 @@
 
 namespace nano
 {
-inline void json_error_response (std::function<void(std::string const &)> response_a, std::string const & message_a)
+inline void json_error_response (std::function<void (std::string const &)> response_a, std::string const & message_a)
 {
 	boost::property_tree::ptree response_l;
 	response_l.put ("error", message_a);

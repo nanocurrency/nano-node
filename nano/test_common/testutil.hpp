@@ -22,7 +22,7 @@
 	else                                                                                      \
 		fail (::testing::internal::GetBoolAssertionFailureMessage (                           \
 		gtest_ar_, text, actual, expected)                                                    \
-		      .c_str ())
+			  .c_str ())
 
 /** Extends gtest with a std::error_code assert that prints the error code message when non-zero */
 #define ASSERT_NO_ERROR(condition)                                                      \
@@ -54,11 +54,11 @@ class network_params;
 class system;
 
 extern nano::keypair const & zero_key;
-extern nano::keypair const & test_genesis_key;
-extern std::string const & nano_test_genesis;
+extern nano::keypair const & dev_genesis_key;
+extern std::string const & nano_dev_genesis;
 extern std::string const & genesis_block;
 extern nano::block_hash const & genesis_hash;
-extern nano::public_key const & nano_test_account;
+extern nano::public_key const & nano_dev_account;
 extern nano::public_key const & genesis_account;
 extern nano::public_key const & burn_account;
 extern nano::uint128_t const & genesis_amount;
@@ -69,25 +69,25 @@ public:
 	stringstream_mt_sink () = default;
 	stringstream_mt_sink (stringstream_mt_sink const & sink)
 	{
-		nano::lock_guard<std::mutex> guard (mutex);
+		nano::lock_guard<nano::mutex> guard (mutex);
 		ss << sink.ss.str ();
 	}
 
 	std::streamsize write (const char * string_to_write, std::streamsize size)
 	{
-		nano::lock_guard<std::mutex> guard (mutex);
+		nano::lock_guard<nano::mutex> guard (mutex);
 		ss << std::string (string_to_write, size);
 		return size;
 	}
 
 	std::string str ()
 	{
-		nano::lock_guard<std::mutex> guard (mutex);
+		nano::lock_guard<nano::mutex> guard (mutex);
 		return ss.str ();
 	}
 
 private:
-	mutable std::mutex mutex;
+	mutable nano::mutex mutex;
 	std::stringstream ss;
 };
 
@@ -95,7 +95,7 @@ class boost_log_cerr_redirect
 {
 public:
 	boost_log_cerr_redirect (std::streambuf * new_buffer) :
-	old (std::cerr.rdbuf (new_buffer))
+		old (std::cerr.rdbuf (new_buffer))
 	{
 		console_sink = (boost::log::add_console_log (std::cerr, boost::log::keywords::format = "%Message%"));
 	}
@@ -150,7 +150,7 @@ namespace util
 
 	protected:
 		nano::condition_variable cv;
-		std::mutex mutex;
+		nano::mutex mutex;
 	};
 
 	/**
@@ -164,7 +164,7 @@ namespace util
 		 * @param required_count_a When increment() reaches this count within the deadline, await_count_for() will return false.
 		 */
 		counted_completion (unsigned required_count_a) :
-		required_count (required_count_a)
+			required_count (required_count_a)
 		{
 		}
 
@@ -183,7 +183,7 @@ namespace util
 				error = count < required_count;
 				if (error)
 				{
-					nano::unique_lock<std::mutex> lock (mutex);
+					nano::unique_lock<nano::mutex> lock (mutex);
 					cv.wait_for (lock, std::chrono::milliseconds (1));
 				}
 			}

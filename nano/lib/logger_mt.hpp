@@ -75,7 +75,7 @@ public:
 	 * @param min_log_delta_a The minimum time between successive output
 	 */
 	explicit logger_mt (std::chrono::milliseconds const & min_log_delta_a) :
-	min_log_delta (min_log_delta_a)
+		min_log_delta (min_log_delta_a)
 	{
 	}
 
@@ -108,7 +108,7 @@ public:
 	{
 		auto error (true);
 		auto time_now = std::chrono::steady_clock::now ();
-		nano::unique_lock<std::mutex> lk (last_log_time_mutex);
+		nano::unique_lock<nano::mutex> lk (last_log_time_mutex);
 		if (((time_now - last_log_time) > min_log_delta) || last_log_time == std::chrono::steady_clock::time_point{})
 		{
 			last_log_time = time_now;
@@ -132,7 +132,7 @@ public:
 	std::chrono::milliseconds min_log_delta{ 0 };
 
 private:
-	std::mutex last_log_time_mutex;
+	nano::mutex last_log_time_mutex;
 	std::chrono::steady_clock::time_point last_log_time;
 	boost::log::sources::severity_logger_mt<severity_level> boost_logger_mt;
 };

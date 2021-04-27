@@ -33,17 +33,16 @@ enum class work_peer_type
 class work_peer_connection : public std::enable_shared_from_this<work_peer_connection>
 {
 	const std::string generic_error = "Unable to parse JSON";
-	const std::string empty_response = "Empty response";
 
 public:
-	work_peer_connection (asio::io_context & ioc_a, work_peer_type const type_a, nano::work_version const version_a, nano::work_pool & pool_a, std::function<void(bool const)> on_generation_a, std::function<void()> on_cancel_a) :
-	socket (ioc_a),
-	type (type_a),
-	version (version_a),
-	work_pool (pool_a),
-	on_generation (on_generation_a),
-	on_cancel (on_cancel_a),
-	timer (ioc_a)
+	work_peer_connection (asio::io_context & ioc_a, work_peer_type const type_a, nano::work_version const version_a, nano::work_pool & pool_a, std::function<void (bool const)> on_generation_a, std::function<void ()> on_cancel_a) :
+		socket (ioc_a),
+		type (type_a),
+		version (version_a),
+		work_pool (pool_a),
+		on_generation (on_generation_a),
+		on_cancel (on_cancel_a),
+		timer (ioc_a)
 	{
 	}
 	void start ()
@@ -59,14 +58,14 @@ private:
 	beast::flat_buffer buffer{ 8192 };
 	http::request<http::string_body> request;
 	http::response<http::dynamic_body> response;
-	std::function<void(bool const)> on_generation;
-	std::function<void()> on_cancel;
+	std::function<void (bool const)> on_generation;
+	std::function<void ()> on_cancel;
 	asio::deadline_timer timer;
 
 	void read_request ()
 	{
 		auto this_l = shared_from_this ();
-		http::async_read (socket, buffer, request, [this_l](beast::error_code ec, std::size_t const /*size_a*/) {
+		http::async_read (socket, buffer, request, [this_l] (beast::error_code ec, std::size_t const /*size_a*/) {
 			if (!ec)
 			{
 				this_l->process_request ();
@@ -110,8 +109,8 @@ private:
 	void write_response ()
 	{
 		auto this_l = shared_from_this ();
-		response.set (http::field::content_length, response.body ().size ());
-		http::async_write (socket, response, [this_l](beast::error_code ec, std::size_t /*size_a*/) {
+		response.content_length (response.body ().size ());
+		http::async_write (socket, response, [this_l] (beast::error_code ec, std::size_t /*size_a*/) {
 			this_l->socket.shutdown (tcp::socket::shutdown_send, ec);
 			this_l->socket.close ();
 		});
@@ -126,6 +125,17 @@ private:
 		beast::ostream (response.body ()) << ostream.str ();
 	}
 
+	void handle_cancel ()
+	{
+		on_cancel ();
+		ptree::ptree message_l;
+		message_l.put ("success", "");
+		std::stringstream ostream;
+		ptree::write_json (ostream, message_l);
+		beast::ostream (response.body ()) << ostream.str ();
+		write_response ();
+	}
+
 	void handle_generate (nano::block_hash const & hash_a)
 	{
 		if (type == work_peer_type::good)
@@ -133,7 +143,7 @@ private:
 			auto hash = hash_a;
 			auto request_difficulty = nano::work_threshold_base (version);
 			auto this_l (shared_from_this ());
-			work_pool.generate (version, hash, request_difficulty, [this_l, hash](boost::optional<uint64_t> work_a) {
+			work_pool.generate (version, hash, request_difficulty, [this_l, hash] (boost::optional<uint64_t> work_a) {
 				auto result = work_a.value_or (0);
 				auto result_difficulty (nano::work_difficulty (this_l->version, hash, result));
 				static nano::network_params params;
@@ -147,7 +157,7 @@ private:
 				beast::ostream (this_l->response.body ()) << ostream.str ();
 				// Delay response by 500ms as a slow peer, immediate async call for a good peer
 				this_l->timer.expires_from_now (boost::posix_time::milliseconds (this_l->type == work_peer_type::slow ? 500 : 0));
-				this_l->timer.async_wait ([this_l, result](const boost::system::error_code & ec) {
+				this_l->timer.async_wait ([this_l, result] (const boost::system::error_code & ec) {
 					if (this_l->on_generation)
 					{
 						this_l->on_generation (result != 0);
@@ -176,9 +186,7 @@ private:
 		}
 		else if (action_text == "work_cancel")
 		{
-			error (empty_response);
-			on_cancel ();
-			write_response ();
+			handle_cancel ();
 		}
 		else
 		{
@@ -192,12 +200,12 @@ class fake_work_peer : public std::enable_shared_from_this<fake_work_peer>
 public:
 	fake_work_peer () = delete;
 	fake_work_peer (nano::work_pool & pool_a, asio::io_context & ioc_a, unsigned short port_a, work_peer_type const type_a, nano::work_version const version_a = nano::work_version::work_1) :
-	pool (pool_a),
-	endpoint (tcp::v4 (), port_a),
-	ioc (ioc_a),
-	acceptor (ioc_a, endpoint),
-	type (type_a),
-	version (version_a)
+		pool (pool_a),
+		endpoint (tcp::v4 (), port_a),
+		ioc (ioc_a),
+		acceptor (ioc_a, endpoint),
+		type (type_a),
+		version (version_a)
 	{
 	}
 	void start ()
@@ -218,7 +226,7 @@ private:
 		std::weak_ptr<fake_work_peer> this_w (shared_from_this ());
 		auto connection (std::make_shared<work_peer_connection> (
 		ioc, type, version, pool,
-		[this_w](bool const good_generation) {
+		[this_w] (bool const good_generation) {
 			if (auto this_l = this_w.lock ())
 			{
 				if (good_generation)
@@ -231,13 +239,13 @@ private:
 				}
 			};
 		},
-		[this_w]() {
+		[this_w] () {
 			if (auto this_l = this_w.lock ())
 			{
 				++this_l->cancels;
 			}
 		}));
-		acceptor.async_accept (connection->socket, [connection, this_w](beast::error_code ec) {
+		acceptor.async_accept (connection->socket, [connection, this_w] (beast::error_code ec) {
 			if (!ec)
 			{
 				if (auto this_l = this_w.lock ())

@@ -10,7 +10,7 @@
 #include <thread>
 int main (int argc, char ** argv)
 {
-	nano::force_nano_test_network ();
+	nano::force_nano_dev_network ();
 	nano::node_singleton_memory_pool_purge_guard memory_pool_cleanup_guard;
 	QApplication application (argc, argv);
 	QCoreApplication::setOrganizationName ("Nano");
@@ -31,7 +31,7 @@ int main (int argc, char ** argv)
 		client_tabs->addTab (guis.back ()->client_window, boost::str (boost::format ("Wallet %1%") % i).c_str ());
 	}
 	client_tabs->show ();
-	QObject::connect (&application, &QApplication::aboutToQuit, [&]() {
+	QObject::connect (&application, &QApplication::aboutToQuit, [&] () {
 		system.stop ();
 	});
 	int result;

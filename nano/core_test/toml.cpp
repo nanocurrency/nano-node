@@ -70,10 +70,10 @@ TEST (toml, daemon_config_update_array)
 	nano::tomlconfig t;
 	boost::filesystem::path data_path (".");
 	nano::daemon_config c (data_path);
-	c.node.preconfigured_peers.push_back ("test-peer.org");
+	c.node.preconfigured_peers.push_back ("dev-peer.org");
 	c.serialize_toml (t);
 	c.deserialize_toml (t);
-	ASSERT_EQ (c.node.preconfigured_peers[0], "test-peer.org");
+	ASSERT_EQ (c.node.preconfigured_peers[0], "dev-peer.org");
 }
 
 /** Empty rpc config file should match a default config object */
@@ -81,7 +81,7 @@ TEST (toml, rpc_config_deserialize_defaults)
 {
 	std::stringstream ss;
 
-	// A config file with values that differs from test-net defaults
+	// A config file with values that differs from devnet defaults
 	ss << R"toml(
 	[process]
 	)toml";
@@ -155,6 +155,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.bootstrap_connections, defaults.node.bootstrap_connections);
 	ASSERT_EQ (conf.node.bootstrap_connections_max, defaults.node.bootstrap_connections_max);
 	ASSERT_EQ (conf.node.bootstrap_initiator_threads, defaults.node.bootstrap_initiator_threads);
+	ASSERT_EQ (conf.node.bootstrap_frontier_request_count, defaults.node.bootstrap_frontier_request_count);
 	ASSERT_EQ (conf.node.bootstrap_fraction_numerator, defaults.node.bootstrap_fraction_numerator);
 	ASSERT_EQ (conf.node.conf_height_processor_batch_min_time, defaults.node.conf_height_processor_batch_min_time);
 	ASSERT_EQ (conf.node.confirmation_history_size, defaults.node.confirmation_history_size);
@@ -168,7 +169,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.secondary_work_peers, defaults.node.secondary_work_peers);
 	ASSERT_EQ (conf.node.work_watcher_period, defaults.node.work_watcher_period);
 	ASSERT_EQ (conf.node.online_weight_minimum, defaults.node.online_weight_minimum);
-	ASSERT_EQ (conf.node.online_weight_quorum, defaults.node.online_weight_quorum);
+	ASSERT_EQ (conf.node.election_hint_weight_percent, defaults.node.election_hint_weight_percent);
 	ASSERT_EQ (conf.node.password_fanout, defaults.node.password_fanout);
 	ASSERT_EQ (conf.node.peering_port, defaults.node.peering_port);
 	ASSERT_EQ (conf.node.pow_sleep_interval, defaults.node.pow_sleep_interval);
@@ -186,6 +187,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.work_peers, defaults.node.work_peers);
 	ASSERT_EQ (conf.node.work_threads, defaults.node.work_threads);
 	ASSERT_EQ (conf.node.max_queued_requests, defaults.node.max_queued_requests);
+	ASSERT_EQ (conf.node.confirm_req_batches_max, defaults.node.confirm_req_batches_max);
 
 	ASSERT_EQ (conf.node.logging.bulk_pull_logging_value, defaults.node.logging.bulk_pull_logging_value);
 	ASSERT_EQ (conf.node.logging.flush, defaults.node.logging.flush);
@@ -255,15 +257,8 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.lmdb_config.map_size, defaults.node.lmdb_config.map_size);
 
 	ASSERT_EQ (conf.node.rocksdb_config.enable, defaults.node.rocksdb_config.enable);
-	ASSERT_EQ (conf.node.rocksdb_config.bloom_filter_bits, defaults.node.rocksdb_config.bloom_filter_bits);
-	ASSERT_EQ (conf.node.rocksdb_config.block_cache, defaults.node.rocksdb_config.block_cache);
+	ASSERT_EQ (conf.node.rocksdb_config.memory_multiplier, defaults.node.rocksdb_config.memory_multiplier);
 	ASSERT_EQ (conf.node.rocksdb_config.io_threads, defaults.node.rocksdb_config.io_threads);
-	ASSERT_EQ (conf.node.rocksdb_config.enable_pipelined_write, defaults.node.rocksdb_config.enable_pipelined_write);
-	ASSERT_EQ (conf.node.rocksdb_config.cache_index_and_filter_blocks, defaults.node.rocksdb_config.cache_index_and_filter_blocks);
-	ASSERT_EQ (conf.node.rocksdb_config.block_size, defaults.node.rocksdb_config.block_size);
-	ASSERT_EQ (conf.node.rocksdb_config.memtable_size, defaults.node.rocksdb_config.memtable_size);
-	ASSERT_EQ (conf.node.rocksdb_config.num_memtables, defaults.node.rocksdb_config.num_memtables);
-	ASSERT_EQ (conf.node.rocksdb_config.total_memtable_size, defaults.node.rocksdb_config.total_memtable_size);
 }
 
 TEST (toml, optional_child)
@@ -378,7 +373,7 @@ TEST (toml, array)
 	config_node.push<std::string> ("items", "item 1");
 	config_node.push<std::string> ("items", "item 2");
 	int i = 1;
-	config_node.array_entries_required<std::string> ("items", [&i](std::string item) {
+	config_node.array_entries_required<std::string> ("items", [&i] (std::string item) {
 		ASSERT_TRUE (item == std::string ("item ") + std::to_string (i));
 		i++;
 	});
@@ -400,6 +395,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	bootstrap_connections = 999
 	bootstrap_connections_max = 999
 	bootstrap_initiator_threads = 999
+	bootstrap_frontier_request_count = 9999
 	bootstrap_fraction_numerator = 999
 	conf_height_processor_batch_min_time = 999
 	confirmation_history_size = 999
@@ -410,11 +406,11 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	lmdb_max_dbs = 999
 	network_threads = 999
 	online_weight_minimum = "999"
-	online_weight_quorum = 99
+	election_hint_weight_percent = 19
 	password_fanout = 999
 	peering_port = 999
 	pow_sleep_interval= 999
-	preconfigured_peers = ["test.org"]
+	preconfigured_peers = ["dev.org"]
 	preconfigured_representatives = ["nano_3arg3asgtigae3xckabaaewkx3bzsh7nwz7jkmjos79ihyaxwphhm6qgjps4"]
 	receive_minimum = "999"
 	signature_checker_threads = 999
@@ -425,7 +421,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	vote_generator_delay = 999
 	vote_generator_threshold = 9
 	vote_minimum = "999"
-	work_peers = ["test.org:999"]
+	work_peers = ["dev.org:999"]
 	work_threads = 999
 	work_watcher_period = 999
 	max_work_generate_multiplier = 1.0
@@ -438,16 +434,16 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	min_write_txn_time = 999
 
 	[node.httpcallback]
-	address = "test.org"
+	address = "dev.org"
 	port = 999
-	target = "/test"
+	target = "/dev"
 
 	[node.ipc.local]
 	allow_unsafe = true
 	enable = true
 	io_timeout = 999
 	io_threads = 999
-	path = "/tmp/test"
+	path = "/tmp/dev"
 
 	[node.ipc.tcp]
 	enable = true
@@ -489,8 +485,8 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	work_generation_time = false
 
 	[node.statistics.log]
-	filename_counters = "testcounters.stat"
-	filename_samples = "testsamples.stat"
+	filename_counters = "devcounters.stat"
+	filename_samples = "devsamples.stat"
 	headers = false
 	interval_counters = 999
 	interval_samples = 999
@@ -513,18 +509,13 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 
 	[node.rocksdb]
 	enable = true
-	bloom_filter_bits = 10
-	block_cache = 512
+	memory_multiplier = 3
 	io_threads = 99
-	enable_pipelined_write = true
-	cache_index_and_filter_blocks = true
-	block_size = 16
-	memtable_size = 128
-	num_memtables = 3
-	total_memtable_size = 0
 
 	[node.experimental]
-	secondary_work_peers = ["test.org:998"]
+	secondary_work_peers = ["dev.org:998"]
+	max_pruning_age = 999
+	max_pruning_depth = 999
 
 	[opencl]
 	device = 999
@@ -538,7 +529,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 
 	[rpc.child_process]
 	enable = true
-	rpc_path = "/test/nano_rpc"
+	rpc_path = "/dev/nano_rpc"
 	)toml";
 
 	nano::tomlconfig toml;
@@ -567,6 +558,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.bootstrap_connections, defaults.node.bootstrap_connections);
 	ASSERT_NE (conf.node.bootstrap_connections_max, defaults.node.bootstrap_connections_max);
 	ASSERT_NE (conf.node.bootstrap_initiator_threads, defaults.node.bootstrap_initiator_threads);
+	ASSERT_NE (conf.node.bootstrap_frontier_request_count, defaults.node.bootstrap_frontier_request_count);
 	ASSERT_NE (conf.node.bootstrap_fraction_numerator, defaults.node.bootstrap_fraction_numerator);
 	ASSERT_NE (conf.node.conf_height_processor_batch_min_time, defaults.node.conf_height_processor_batch_min_time);
 	ASSERT_NE (conf.node.confirmation_history_size, defaults.node.confirmation_history_size);
@@ -579,9 +571,11 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.frontiers_confirmation, defaults.node.frontiers_confirmation);
 	ASSERT_NE (conf.node.network_threads, defaults.node.network_threads);
 	ASSERT_NE (conf.node.secondary_work_peers, defaults.node.secondary_work_peers);
+	ASSERT_NE (conf.node.max_pruning_age, defaults.node.max_pruning_age);
+	ASSERT_NE (conf.node.max_pruning_depth, defaults.node.max_pruning_depth);
 	ASSERT_NE (conf.node.work_watcher_period, defaults.node.work_watcher_period);
 	ASSERT_NE (conf.node.online_weight_minimum, defaults.node.online_weight_minimum);
-	ASSERT_NE (conf.node.online_weight_quorum, defaults.node.online_weight_quorum);
+	ASSERT_NE (conf.node.election_hint_weight_percent, defaults.node.election_hint_weight_percent);
 	ASSERT_NE (conf.node.password_fanout, defaults.node.password_fanout);
 	ASSERT_NE (conf.node.peering_port, defaults.node.peering_port);
 	ASSERT_NE (conf.node.pow_sleep_interval, defaults.node.pow_sleep_interval);
@@ -599,6 +593,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.work_peers, defaults.node.work_peers);
 	ASSERT_NE (conf.node.work_threads, defaults.node.work_threads);
 	ASSERT_NE (conf.node.max_queued_requests, defaults.node.max_queued_requests);
+	ASSERT_EQ (conf.node.confirm_req_batches_max, defaults.node.confirm_req_batches_max);
 
 	ASSERT_NE (conf.node.logging.bulk_pull_logging_value, defaults.node.logging.bulk_pull_logging_value);
 	ASSERT_NE (conf.node.logging.flush, defaults.node.logging.flush);
@@ -668,15 +663,8 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.lmdb_config.map_size, defaults.node.lmdb_config.map_size);
 
 	ASSERT_NE (conf.node.rocksdb_config.enable, defaults.node.rocksdb_config.enable);
-	ASSERT_NE (conf.node.rocksdb_config.bloom_filter_bits, defaults.node.rocksdb_config.bloom_filter_bits);
-	ASSERT_NE (conf.node.rocksdb_config.block_cache, defaults.node.rocksdb_config.block_cache);
+	ASSERT_NE (conf.node.rocksdb_config.memory_multiplier, defaults.node.rocksdb_config.memory_multiplier);
 	ASSERT_NE (conf.node.rocksdb_config.io_threads, defaults.node.rocksdb_config.io_threads);
-	ASSERT_NE (conf.node.rocksdb_config.enable_pipelined_write, defaults.node.rocksdb_config.enable_pipelined_write);
-	ASSERT_NE (conf.node.rocksdb_config.cache_index_and_filter_blocks, defaults.node.rocksdb_config.cache_index_and_filter_blocks);
-	ASSERT_NE (conf.node.rocksdb_config.block_size, defaults.node.rocksdb_config.block_size);
-	ASSERT_NE (conf.node.rocksdb_config.memtable_size, defaults.node.rocksdb_config.memtable_size);
-	ASSERT_NE (conf.node.rocksdb_config.num_memtables, defaults.node.rocksdb_config.num_memtables);
-	ASSERT_NE (conf.node.rocksdb_config.total_memtable_size, defaults.node.rocksdb_config.total_memtable_size);
 }
 
 /** There should be no required values **/
@@ -715,7 +703,7 @@ TEST (toml, rpc_config_deserialize_no_defaults)
 {
 	std::stringstream ss;
 
-	// A config file with values that differs from test-net defaults
+	// A config file with values that differs from devnet defaults
 	ss << R"toml(
 	address = "0:0:0:0:0:ffff:7f01:101"
 	enable_control = true
@@ -778,32 +766,96 @@ TEST (toml, rpc_config_no_required)
 /** Deserialize a node config with incorrect values */
 TEST (toml, daemon_config_deserialize_errors)
 {
-	std::stringstream ss_max_work_generate_multiplier;
-	ss_max_work_generate_multiplier << R"toml(
-	[node]
-	max_work_generate_multiplier = 0.9
-	)toml";
+	{
+		std::stringstream ss;
+		ss << R"toml(
+		[node]
+		max_work_generate_multiplier = 0.9
+		)toml";
 
-	nano::tomlconfig toml;
-	toml.read (ss_max_work_generate_multiplier);
-	nano::daemon_config conf;
-	conf.deserialize_toml (toml);
+		nano::tomlconfig toml;
+		toml.read (ss);
+		nano::daemon_config conf;
+		conf.deserialize_toml (toml);
 
-	ASSERT_EQ (toml.get_error ().get_message (), "max_work_generate_multiplier must be greater than or equal to 1");
+		ASSERT_EQ (toml.get_error ().get_message (), "max_work_generate_multiplier must be greater than or equal to 1");
+	}
 
-	std::stringstream ss_frontiers_confirmation;
-	ss_frontiers_confirmation << R"toml(
-	[node]
-	frontiers_confirmation = "randomstring"
-	)toml";
+	{
+		std::stringstream ss;
+		ss << R"toml(
+		[node]
+		frontiers_confirmation = "randomstring"
+		)toml";
 
-	nano::tomlconfig toml2;
-	toml2.read (ss_frontiers_confirmation);
-	nano::daemon_config conf2;
-	conf2.deserialize_toml (toml2);
+		nano::tomlconfig toml;
+		toml.read (ss);
+		nano::daemon_config conf;
+		conf.deserialize_toml (toml);
 
-	ASSERT_EQ (toml2.get_error ().get_message (), "frontiers_confirmation value is invalid (available: always, auto, disabled)");
-	ASSERT_EQ (conf2.node.frontiers_confirmation, nano::frontiers_confirmation_mode::invalid);
+		ASSERT_EQ (toml.get_error ().get_message (), "frontiers_confirmation value is invalid (available: always, auto, disabled)");
+		ASSERT_EQ (conf.node.frontiers_confirmation, nano::frontiers_confirmation_mode::invalid);
+	}
+
+	{
+		std::stringstream ss;
+		ss << R"toml(
+		[node]
+		election_hint_weight_percent = 4
+		)toml";
+
+		nano::tomlconfig toml;
+		toml.read (ss);
+		nano::daemon_config conf;
+		conf.deserialize_toml (toml);
+
+		ASSERT_EQ (toml.get_error ().get_message (), "election_hint_weight_percent must be a number between 5 and 50");
+	}
+
+	{
+		std::stringstream ss;
+		ss << R"toml(
+		[node]
+		election_hint_weight_percent = 51
+		)toml";
+
+		nano::tomlconfig toml;
+		toml.read (ss);
+		nano::daemon_config conf;
+		conf.deserialize_toml (toml);
+
+		ASSERT_EQ (toml.get_error ().get_message (), "election_hint_weight_percent must be a number between 5 and 50");
+	}
+
+	{
+		std::stringstream ss;
+		ss << R"toml(
+		[node]
+		confirm_req_batches_max = 0
+		)toml";
+
+		nano::tomlconfig toml;
+		toml.read (ss);
+		nano::daemon_config conf;
+		conf.deserialize_toml (toml);
+
+		ASSERT_EQ (toml.get_error ().get_message (), "confirm_req_batches_max must be between 1 and 100");
+	}
+
+	{
+		std::stringstream ss;
+		ss << R"toml(
+		[node]
+		bootstrap_frontier_request_count = 1000
+		)toml";
+
+		nano::tomlconfig toml;
+		toml.read (ss);
+		nano::daemon_config conf;
+		conf.deserialize_toml (toml);
+
+		ASSERT_EQ (toml.get_error ().get_message (), "bootstrap_frontier_request_count must be greater than or equal to 1024");
+	}
 }
 
 TEST (toml, daemon_read_config)

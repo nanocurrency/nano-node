@@ -1,6 +1,6 @@
 #include <nano/node/node_observers.hpp>
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::node_observers & node_observers, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::node_observers & node_observers, std::string const & name)
 {
 	auto composite = std::make_unique<nano::container_info_composite> (name);
 	composite->add_component (collect_container_info (node_observers.blocks, "blocks"));

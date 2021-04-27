@@ -193,12 +193,28 @@ TEST (telemetry, signatures)
 	data.maker = 1;
 	data.timestamp = std::chrono::system_clock::time_point (100ms);
 	data.sign (node_id);
-	ASSERT_FALSE (data.validate_signature (nano::telemetry_data::size));
+	ASSERT_FALSE (data.validate_signature ());
 	auto signature = data.signature;
 	// Check that the signature is different if changing a piece of data
 	data.maker = 2;
 	data.sign (node_id);
 	ASSERT_NE (data.signature, signature);
+}
+
+TEST (telemetry, unknown_data)
+{
+	nano::keypair node_id;
+	nano::telemetry_data data;
+	data.node_id = node_id.pub;
+	data.major_version = 20;
+	data.minor_version = 1;
+	data.patch_version = 5;
+	data.pre_release_version = 2;
+	data.maker = 1;
+	data.timestamp = std::chrono::system_clock::time_point (100ms);
+	data.unknown_data.push_back (1);
+	data.sign (node_id);
+	ASSERT_FALSE (data.validate_signature ());
 }
 
 TEST (telemetry, no_peers)
@@ -226,7 +242,7 @@ TEST (telemetry, basic)
 	auto channel = node_client->network.find_channel (node_server->network.endpoint ());
 	{
 		std::atomic<bool> done{ false };
-		node_client->telemetry->get_metrics_single_peer_async (channel, [&done, &server_endpoint, &telemetry_data](nano::telemetry_data_response const & response_a) {
+		node_client->telemetry->get_metrics_single_peer_async (channel, [&done, &server_endpoint, &telemetry_data] (nano::telemetry_data_response const & response_a) {
 			ASSERT_FALSE (response_a.error);
 			ASSERT_EQ (server_endpoint, response_a.endpoint);
 			telemetry_data = response_a.telemetry_data;
@@ -242,7 +258,7 @@ TEST (telemetry, basic)
 	// Call again straight away. It should use the cache
 	{
 		std::atomic<bool> done{ false };
-		node_client->telemetry->get_metrics_single_peer_async (channel, [&done, &telemetry_data](nano::telemetry_data_response const & response_a) {
+		node_client->telemetry->get_metrics_single_peer_async (channel, [&done, &telemetry_data] (nano::telemetry_data_response const & response_a) {
 			ASSERT_EQ (telemetry_data, response_a.telemetry_data);
 			ASSERT_FALSE (response_a.error);
 			done = true;
@@ -252,10 +268,10 @@ TEST (telemetry, basic)
 	}
 
 	// Wait the cache period and check cache is not used
-	std::this_thread::sleep_for (nano::telemetry_cache_cutoffs::test);
+	std::this_thread::sleep_for (nano::telemetry_cache_cutoffs::dev);
 
 	std::atomic<bool> done{ false };
-	node_client->telemetry->get_metrics_single_peer_async (channel, [&done, &telemetry_data](nano::telemetry_data_response const & response_a) {
+	node_client->telemetry->get_metrics_single_peer_async (channel, [&done, &telemetry_data] (nano::telemetry_data_response const & response_a) {
 		ASSERT_NE (telemetry_data, response_a.telemetry_data);
 		ASSERT_FALSE (response_a.error);
 		done = true;
@@ -287,7 +303,7 @@ TEST (telemetry, over_udp)
 
 	std::atomic<bool> done{ false };
 	auto channel = node_client->network.find_channel (node_server->network.endpoint ());
-	node_client->telemetry->get_metrics_single_peer_async (channel, [&done, &node_server](nano::telemetry_data_response const & response_a) {
+	node_client->telemetry->get_metrics_single_peer_async (channel, [&done, &node_server] (nano::telemetry_data_response const & response_a) {
 		ASSERT_FALSE (response_a.error);
 		nano::compare_default_telemetry_response_data (response_a.telemetry_data, node_server->network_params, node_server->config.bandwidth_limit, node_server->active.active_difficulty (), node_server->node_id);
 		done = true;
@@ -314,7 +330,7 @@ TEST (telemetry, invalid_channel)
 	auto node_server = system.nodes.back ();
 
 	std::atomic<bool> done{ false };
-	node_client->telemetry->get_metrics_single_peer_async (nullptr, [&done](nano::telemetry_data_response const & response_a) {
+	node_client->telemetry->get_metrics_single_peer_async (nullptr, [&done] (nano::telemetry_data_response const & response_a) {
 		ASSERT_TRUE (response_a.error);
 		done = true;
 	});
@@ -333,13 +349,13 @@ TEST (telemetry, blocking_request)
 
 	// Request telemetry metrics
 	std::atomic<bool> done{ false };
-	std::function<void()> call_system_poll;
+	std::function<void ()> call_system_poll;
 	std::promise<void> promise;
-	call_system_poll = [&call_system_poll, &worker = node_client->worker, &done, &system, &promise]() {
+	call_system_poll = [&call_system_poll, &workers = node_client->workers, &done, &system, &promise] () {
 		if (!done)
 		{
 			ASSERT_NO_ERROR (system.poll ());
-			worker.push_task (call_system_poll);
+			workers.push_task (call_system_poll);
 		}
 		else
 		{
@@ -347,9 +363,9 @@ TEST (telemetry, blocking_request)
 		}
 	};
 
-	// Keep pushing system.polls in another thread (worker), because we will be blocking this thread and unable to do so.
+	// Keep pushing system.polls in another thread (thread_pool), because we will be blocking this thread and unable to do so.
 	system.deadline_set (10s);
-	node_client->worker.push_task (call_system_poll);
+	node_client->workers.push_task (call_system_poll);
 
 	// Now try single request metric
 	auto telemetry_data_response = node_client->telemetry->get_metrics_single_peer (node_client->network.find_channel (node_server->network.endpoint ()));
@@ -376,7 +392,7 @@ TEST (telemetry, disconnects)
 	ASSERT_TRUE (channel);
 
 	std::atomic<bool> done{ false };
-	node_client->telemetry->get_metrics_single_peer_async (channel, [&done](nano::telemetry_data_response const & response_a) {
+	node_client->telemetry->get_metrics_single_peer_async (channel, [&done] (nano::telemetry_data_response const & response_a) {
 		ASSERT_TRUE (response_a.error);
 		done = true;
 	});
@@ -398,7 +414,7 @@ TEST (telemetry, dos_tcp)
 
 	nano::telemetry_req message;
 	auto channel = node_client->network.tcp_channels.find_channel (nano::transport::map_endpoint_to_tcp (node_server->network.endpoint ()));
-	channel->send (message, [](boost::system::error_code const & ec, size_t size_a) {
+	channel->send (message, [] (boost::system::error_code const & ec, size_t size_a) {
 		ASSERT_FALSE (ec);
 	});
 
@@ -407,12 +423,12 @@ TEST (telemetry, dos_tcp)
 	auto orig = std::chrono::steady_clock::now ();
 	for (int i = 0; i < 10; ++i)
 	{
-		channel->send (message, [](boost::system::error_code const & ec, size_t size_a) {
+		channel->send (message, [] (boost::system::error_code const & ec, size_t size_a) {
 			ASSERT_FALSE (ec);
 		});
 	}
 
-	ASSERT_TIMELY (10s, (nano::telemetry_cache_cutoffs::test + orig) <= std::chrono::steady_clock::now ());
+	ASSERT_TIMELY (10s, (nano::telemetry_cache_cutoffs::dev + orig) <= std::chrono::steady_clock::now ());
 
 	// Should process no more telemetry_req messages
 	ASSERT_EQ (1, node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in));
@@ -441,7 +457,7 @@ TEST (telemetry, dos_udp)
 
 	nano::telemetry_req message;
 	auto channel (node_client->network.udp_channels.create (node_server->network.endpoint ()));
-	channel->send (message, [](boost::system::error_code const & ec, size_t size_a) {
+	channel->send (message, [] (boost::system::error_code const & ec, size_t size_a) {
 		ASSERT_FALSE (ec);
 	});
 
@@ -450,12 +466,12 @@ TEST (telemetry, dos_udp)
 	auto orig = std::chrono::steady_clock::now ();
 	for (int i = 0; i < 10; ++i)
 	{
-		channel->send (message, [](boost::system::error_code const & ec, size_t size_a) {
+		channel->send (message, [] (boost::system::error_code const & ec, size_t size_a) {
 			ASSERT_FALSE (ec);
 		});
 	}
 
-	ASSERT_TIMELY (20s, (nano::telemetry_cache_cutoffs::test + orig) <= std::chrono::steady_clock::now ());
+	ASSERT_TIMELY (20s, (nano::telemetry_cache_cutoffs::dev + orig) <= std::chrono::steady_clock::now ());
 
 	// Should process no more telemetry_req messages
 	ASSERT_EQ (1, node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in));
@@ -485,7 +501,7 @@ TEST (telemetry, disable_metrics)
 	ASSERT_TRUE (channel);
 
 	std::atomic<bool> done{ false };
-	node_client->telemetry->get_metrics_single_peer_async (channel, [&done](nano::telemetry_data_response const & response_a) {
+	node_client->telemetry->get_metrics_single_peer_async (channel, [&done] (nano::telemetry_data_response const & response_a) {
 		ASSERT_TRUE (response_a.error);
 		done = true;
 	});
@@ -495,13 +511,36 @@ TEST (telemetry, disable_metrics)
 	// It should still be able to receive metrics though
 	done = false;
 	auto channel1 = node_server->network.find_channel (node_client->network.endpoint ());
-	node_server->telemetry->get_metrics_single_peer_async (channel1, [&done, node_client](nano::telemetry_data_response const & response_a) {
+	node_server->telemetry->get_metrics_single_peer_async (channel1, [&done, node_client] (nano::telemetry_data_response const & response_a) {
 		ASSERT_FALSE (response_a.error);
 		nano::compare_default_telemetry_response_data (response_a.telemetry_data, node_client->network_params, node_client->config.bandwidth_limit, node_client->active.active_difficulty (), node_client->node_id);
 		done = true;
 	});
 
 	ASSERT_TIMELY (10s, done);
+}
+
+TEST (telemetry, max_possible_size)
+{
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_initial_telemetry_requests = true;
+	node_flags.disable_ongoing_telemetry_requests = true;
+	auto node_client = system.add_node (node_flags);
+	auto node_server = system.add_node (node_flags);
+
+	nano::telemetry_data data;
+	data.unknown_data.resize (nano::message_header::telemetry_size_mask.to_ulong () - nano::telemetry_data::latest_size);
+
+	nano::telemetry_ack message (data);
+	wait_peer_connections (system);
+
+	auto channel = node_client->network.tcp_channels.find_channel (nano::transport::map_endpoint_to_tcp (node_server->network.endpoint ()));
+	channel->send (message, [] (boost::system::error_code const & ec, size_t size_a) {
+		ASSERT_FALSE (ec);
+	});
+
+	ASSERT_TIMELY (10s, 1 == node_server->stats.count (nano::stat::type::message, nano::stat::detail::telemetry_ack, nano::stat::dir::in));
 }
 
 namespace nano
@@ -511,7 +550,7 @@ TEST (telemetry, remove_peer_different_genesis)
 	nano::system system (1);
 	auto node0 (system.nodes[0]);
 	ASSERT_EQ (0, node0->network.size ());
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work));
 	// Change genesis block to something else in this test (this is the reference telemetry processing uses).
 	// Possible TSAN issue in the future if something else uses this, but will only appear in tests.
 	node1->network_params.ledger.genesis_hash = nano::block_hash ("0");
@@ -526,7 +565,7 @@ TEST (telemetry, remove_peer_different_genesis)
 	ASSERT_EQ (node0->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::out), 1);
 	ASSERT_EQ (node1->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::out), 1);
 
-	nano::lock_guard<std::mutex> guard (node0->network.excluded_peers.mutex);
+	nano::lock_guard<nano::mutex> guard (node0->network.excluded_peers.mutex);
 	ASSERT_EQ (1, node0->network.excluded_peers.peers.get<nano::peer_exclusion::tag_endpoint> ().count (node1->network.endpoint ().address ()));
 	ASSERT_EQ (1, node1->network.excluded_peers.peers.get<nano::peer_exclusion::tag_endpoint> ().count (node0->network.endpoint ().address ()));
 }
@@ -541,7 +580,7 @@ TEST (telemetry, remove_peer_different_genesis_udp)
 	nano::system system (1, nano::transport::transport_type::udp, node_flags);
 	auto node0 (system.nodes[0]);
 	ASSERT_EQ (0, node0->network.size ());
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work, node_flags));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work, node_flags));
 	node1->network_params.ledger.genesis_hash = nano::block_hash ("0");
 	node1->start ();
 	system.nodes.push_back (node1);
@@ -557,11 +596,11 @@ TEST (telemetry, remove_peer_different_genesis_udp)
 	std::atomic<bool> done0{ false };
 	std::atomic<bool> done1{ false };
 
-	node0->telemetry->get_metrics_single_peer_async (channel1, [&done0](nano::telemetry_data_response const & response_a) {
+	node0->telemetry->get_metrics_single_peer_async (channel1, [&done0] (nano::telemetry_data_response const & response_a) {
 		done0 = true;
 	});
 
-	node1->telemetry->get_metrics_single_peer_async (channel0, [&done1](nano::telemetry_data_response const & response_a) {
+	node1->telemetry->get_metrics_single_peer_async (channel0, [&done1] (nano::telemetry_data_response const & response_a) {
 		done1 = true;
 	});
 
@@ -570,7 +609,7 @@ TEST (telemetry, remove_peer_different_genesis_udp)
 	ASSERT_EQ (node0->network.tcp_channels.size (), 0);
 	ASSERT_EQ (node1->network.tcp_channels.size (), 0);
 
-	nano::lock_guard<std::mutex> guard (node0->network.excluded_peers.mutex);
+	nano::lock_guard<nano::mutex> guard (node0->network.excluded_peers.mutex);
 	ASSERT_EQ (1, node0->network.excluded_peers.peers.get<nano::peer_exclusion::tag_endpoint> ().count (node1->network.endpoint ().address ()));
 	ASSERT_EQ (1, node1->network.excluded_peers.peers.get<nano::peer_exclusion::tag_endpoint> ().count (node0->network.endpoint ().address ()));
 }
@@ -589,16 +628,49 @@ TEST (telemetry, remove_peer_invalid_signature)
 	// (Implementation detail) So that messages are not just discarded when requests were not sent.
 	node->telemetry->recent_or_initial_request_telemetry_data.emplace (channel->get_endpoint (), nano::telemetry_data (), std::chrono::steady_clock::now (), true);
 
-	auto telemetry_data = nano::local_telemetry_data (node->ledger.cache, node->network, node->config.bandwidth_limit, node->network_params, node->startup_time, node->active.active_difficulty (), node->node_id);
+	auto telemetry_data = nano::local_telemetry_data (node->ledger, node->network, node->config.bandwidth_limit, node->network_params, node->startup_time, node->active.active_difficulty (), node->node_id);
 	// Change anything so that the signed message is incorrect
 	telemetry_data.block_count = 0;
 	auto telemetry_ack = nano::telemetry_ack (telemetry_data);
 	node->network.process_message (telemetry_ack, channel);
 
 	ASSERT_TIMELY (10s, node->stats.count (nano::stat::type::telemetry, nano::stat::detail::invalid_signature) > 0);
-	ASSERT_NO_ERROR (system.poll_until_true (3s, [&node, address = channel->get_endpoint ().address ()]() -> bool {
-		nano::lock_guard<std::mutex> guard (node->network.excluded_peers.mutex);
+	ASSERT_NO_ERROR (system.poll_until_true (3s, [&node, address = channel->get_endpoint ().address ()] () -> bool {
+		nano::lock_guard<nano::mutex> guard (node->network.excluded_peers.mutex);
 		return node->network.excluded_peers.peers.get<nano::peer_exclusion::tag_endpoint> ().count (address);
 	}));
 }
+}
+
+TEST (telemetry, maker_pruning)
+{
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_ongoing_telemetry_requests = true;
+	node_flags.disable_initial_telemetry_requests = true;
+	auto node_client = system.add_node (node_flags);
+	node_flags.enable_pruning = true;
+	nano::node_config config;
+	config.enable_voting = false;
+	auto node_server = system.add_node (config, node_flags);
+
+	wait_peer_connections (system);
+
+	// Request telemetry metrics
+	nano::telemetry_data telemetry_data;
+	auto server_endpoint = node_server->network.endpoint ();
+	auto channel = node_client->network.find_channel (node_server->network.endpoint ());
+	{
+		std::atomic<bool> done{ false };
+		node_client->telemetry->get_metrics_single_peer_async (channel, [&done, &server_endpoint, &telemetry_data] (nano::telemetry_data_response const & response_a) {
+			ASSERT_FALSE (response_a.error);
+			ASSERT_EQ (server_endpoint, response_a.endpoint);
+			telemetry_data = response_a.telemetry_data;
+			done = true;
+		});
+
+		ASSERT_TIMELY (10s, done);
+	}
+
+	ASSERT_EQ (nano::telemetry_maker::nf_pruned_node, static_cast<nano::telemetry_maker> (telemetry_data.maker));
 }

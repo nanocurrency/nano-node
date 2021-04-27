@@ -1,14 +1,15 @@
 #include <nano/node/confirmation_solicitor.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/nodeconfig.hpp>
 
 using namespace std::chrono_literals;
 
-nano::confirmation_solicitor::confirmation_solicitor (nano::network & network_a, nano::network_constants const & params_a) :
-max_confirm_req_batches (params_a.is_test_network () ? 1 : 20),
-max_block_broadcasts (params_a.is_test_network () ? 4 : 30),
-max_election_requests (30),
-max_election_broadcasts (std::max<size_t> (network_a.fanout () / 2, 1)),
-network (network_a)
+nano::confirmation_solicitor::confirmation_solicitor (nano::network & network_a, nano::node_config const & config_a) :
+	max_block_broadcasts (config_a.network_params.network.is_dev_network () ? 4 : 30),
+	max_election_requests (50),
+	max_election_broadcasts (std::max<size_t> (network_a.fanout () / 2, 1)),
+	network (network_a),
+	config (config_a)
 {
 }
 
@@ -36,10 +37,12 @@ bool nano::confirmation_solicitor::broadcast (nano::election const & election_a)
 		for (auto i (representatives_broadcasts.begin ()), n (representatives_broadcasts.end ()); i != n && count < max_election_broadcasts; ++i)
 		{
 			auto existing (election_a.last_votes.find (i->account));
-			if (existing == election_a.last_votes.end () || existing->second.hash != hash)
+			bool const exists (existing != election_a.last_votes.end ());
+			bool const different (exists && existing->second.hash != hash);
+			if (!exists || different)
 			{
 				i->channel->send (winner);
-				++count;
+				count += different ? 0 : 1;
 			}
 		}
 		// Random flood for block propagation
@@ -52,21 +55,25 @@ bool nano::confirmation_solicitor::broadcast (nano::election const & election_a)
 bool nano::confirmation_solicitor::add (nano::election const & election_a)
 {
 	debug_assert (prepared);
-	auto const max_channel_requests (max_confirm_req_batches * nano::network::confirm_req_hashes_max);
+	bool error (true);
 	unsigned count = 0;
+	auto const max_channel_requests (config.confirm_req_batches_max * nano::network::confirm_req_hashes_max);
 	auto const & hash (election_a.status.winner->hash ());
 	for (auto i (representatives_requests.begin ()); i != representatives_requests.end () && count < max_election_requests;)
 	{
 		bool full_queue (false);
 		auto rep (*i);
 		auto existing (election_a.last_votes.find (rep.account));
-		if (existing == election_a.last_votes.end () || existing->second.hash != hash)
+		bool const exists (existing != election_a.last_votes.end ());
+		bool const different (exists && existing->second.hash != hash);
+		if (!exists || different)
 		{
 			auto & request_queue (requests[rep.channel]);
 			if (request_queue.size () < max_channel_requests)
 			{
 				request_queue.emplace_back (election_a.status.winner->hash (), election_a.status.winner->root ());
-				++count;
+				count += different ? 0 : 1;
+				error = false;
 			}
 			else
 			{
@@ -75,7 +82,7 @@ bool nano::confirmation_solicitor::add (nano::election const & election_a)
 		}
 		i = !full_queue ? i + 1 : representatives_requests.erase (i);
 	}
-	return count == 0;
+	return error;
 }
 
 void nano::confirmation_solicitor::flush ()

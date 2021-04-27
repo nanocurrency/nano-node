@@ -50,7 +50,7 @@ TEST (work, cancel)
 	{
 		nano::root key (1);
 		pool.generate (
-		nano::work_version::work_1, key, nano::network_constants ().publish_thresholds.base, [&done](boost::optional<uint64_t> work_a) {
+		nano::work_version::work_1, key, nano::network_constants ().publish_thresholds.base, [&done] (boost::optional<uint64_t> work_a) {
 			done = !work_a;
 		});
 		pool.cancel (key);
@@ -69,12 +69,12 @@ TEST (work, cancel_many)
 	nano::root key5 (3);
 	nano::root key6 (1);
 	nano::network_constants constants;
-	pool.generate (nano::work_version::work_1, key1, constants.publish_thresholds.base, [](boost::optional<uint64_t>) {});
-	pool.generate (nano::work_version::work_1, key2, constants.publish_thresholds.base, [](boost::optional<uint64_t>) {});
-	pool.generate (nano::work_version::work_1, key3, constants.publish_thresholds.base, [](boost::optional<uint64_t>) {});
-	pool.generate (nano::work_version::work_1, key4, constants.publish_thresholds.base, [](boost::optional<uint64_t>) {});
-	pool.generate (nano::work_version::work_1, key5, constants.publish_thresholds.base, [](boost::optional<uint64_t>) {});
-	pool.generate (nano::work_version::work_1, key6, constants.publish_thresholds.base, [](boost::optional<uint64_t>) {});
+	pool.generate (nano::work_version::work_1, key1, constants.publish_thresholds.base, [] (boost::optional<uint64_t>) {});
+	pool.generate (nano::work_version::work_1, key2, constants.publish_thresholds.base, [] (boost::optional<uint64_t>) {});
+	pool.generate (nano::work_version::work_1, key3, constants.publish_thresholds.base, [] (boost::optional<uint64_t>) {});
+	pool.generate (nano::work_version::work_1, key4, constants.publish_thresholds.base, [] (boost::optional<uint64_t>) {});
+	pool.generate (nano::work_version::work_1, key5, constants.publish_thresholds.base, [] (boost::optional<uint64_t>) {});
+	pool.generate (nano::work_version::work_1, key6, constants.publish_thresholds.base, [] (boost::optional<uint64_t>) {});
 	pool.cancel (key1);
 }
 
@@ -85,7 +85,7 @@ TEST (work, opencl)
 	nano::logger_mt logger;
 	bool error (false);
 	nano::opencl_environment environment (error);
-	ASSERT_FALSE (error);
+	ASSERT_TRUE (!error || !nano::opencl_loaded);
 	if (!environment.platforms.empty () && !environment.platforms.begin ()->devices.empty ())
 	{
 		nano::opencl_config config (0, 0, 16 * 1024);
@@ -93,7 +93,7 @@ TEST (work, opencl)
 		if (opencl != nullptr)
 		{
 			// 0 threads, should add 1 for managing OpenCL
-			nano::work_pool pool (0, std::chrono::nanoseconds (0), [&opencl](nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> & ticket_a) {
+			nano::work_pool pool (0, std::chrono::nanoseconds (0), [&opencl] (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> & ticket_a) {
 				return opencl->generate_work (version_a, root_a, difficulty_a);
 			});
 			ASSERT_NE (nullptr, pool.opencl);
@@ -159,7 +159,7 @@ TEST (work, difficulty)
 
 TEST (work, eco_pow)
 {
-	auto work_func = [](std::promise<std::chrono::nanoseconds> & promise, std::chrono::nanoseconds interval) {
+	auto work_func = [] (std::promise<std::chrono::nanoseconds> & promise, std::chrono::nanoseconds interval) {
 		nano::work_pool pool (1, interval);
 		constexpr auto num_iterations = 5;
 

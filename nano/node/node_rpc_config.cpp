@@ -3,6 +3,8 @@
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/node_rpc_config.hpp>
 
+#include <boost/property_tree/ptree.hpp>
+
 nano::error nano::node_rpc_config::serialize_json (nano::jsonconfig & json) const
 {
 	json.put ("version", json_version ());
@@ -53,4 +55,10 @@ nano::error nano::node_rpc_config::deserialize_json (bool & upgraded_a, nano::js
 	}
 
 	return json.get_error ();
+}
+
+void nano::node_rpc_config::set_request_callback (std::function<void (boost::property_tree::ptree const &)> callback_a)
+{
+	debug_assert (nano::network_constants ().is_dev_network ());
+	request_callback = std::move (callback_a);
 }

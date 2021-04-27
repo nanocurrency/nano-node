@@ -17,9 +17,9 @@ namespace mi = boost::multi_index;
 namespace nano
 {
 class network;
-class alarm;
-class worker;
 class stat;
+class ledger;
+class thread_pool;
 namespace transport
 {
 	class channel;
@@ -60,7 +60,7 @@ public:
 class telemetry : public std::enable_shared_from_this<telemetry>
 {
 public:
-	telemetry (nano::network &, nano::alarm &, nano::worker &, nano::observer_set<nano::telemetry_data const &, nano::endpoint const &> &, nano::stat &, nano::network_params &, bool);
+	telemetry (nano::network &, nano::thread_pool &, nano::observer_set<nano::telemetry_data const &, nano::endpoint const &> &, nano::stat &, nano::network_params &, bool);
 	void start ();
 	void stop ();
 
@@ -78,7 +78,7 @@ public:
 	 * This makes a telemetry request to the specific channel.
 	 * Error is set for: no response received, no payload received, invalid signature or unsound metrics in message (e.g different genesis block) 
 	 */
-	void get_metrics_single_peer_async (std::shared_ptr<nano::transport::channel> const &, std::function<void(telemetry_data_response const &)> const &);
+	void get_metrics_single_peer_async (std::shared_ptr<nano::transport::channel> const &, std::function<void (telemetry_data_response const &)> const &);
 
 	/*
 	 * A blocking version of get_metrics_single_peer_async
@@ -104,8 +104,7 @@ private:
 	};
 
 	nano::network & network;
-	nano::alarm & alarm;
-	nano::worker & worker;
+	nano::thread_pool & workers;
 	nano::observer_set<nano::telemetry_data const &, nano::endpoint const &> & observers;
 	nano::stat & stats;
 	/* Important that this is a reference to the node network_params for tests which want to modify genesis block */
@@ -114,7 +113,7 @@ private:
 
 	std::atomic<bool> stopped{ false };
 
-	std::mutex mutex;
+	nano::mutex mutex{ mutex_identifier (mutexes::telemetry) };
 	// clang-format off
 	// This holds the last telemetry data received from peers or can be a placeholder awaiting the first response (check with awaiting_first_response ())
 	boost::multi_index_container<nano::telemetry_info,
@@ -129,9 +128,9 @@ private:
 	std::chrono::seconds const cache_cutoff{ nano::telemetry_cache_cutoffs::network_to_time (network_params.network) };
 
 	// The maximum time spent waiting for a response to a telemetry request
-	std::chrono::seconds const response_time_cutoff{ network_params.network.is_test_network () ? (is_sanitizer_build || nano::running_within_valgrind () ? 6 : 3) : 10 };
+	std::chrono::seconds const response_time_cutoff{ network_params.network.is_dev_network () ? (is_sanitizer_build || nano::running_within_valgrind () ? 6 : 3) : 10 };
 
-	std::unordered_map<nano::endpoint, std::vector<std::function<void(telemetry_data_response const &)>>> callbacks;
+	std::unordered_map<nano::endpoint, std::vector<std::function<void (telemetry_data_response const &)>>> callbacks;
 
 	void ongoing_req_all_peers (std::chrono::milliseconds);
 
@@ -147,8 +146,8 @@ private:
 	friend class telemetry_remove_peer_invalid_signature_Test;
 };
 
-std::unique_ptr<nano::container_info_component> collect_container_info (telemetry & telemetry, const std::string & name);
+std::unique_ptr<nano::container_info_component> collect_container_info (telemetry & telemetry, std::string const & name);
 
 nano::telemetry_data consolidate_telemetry_data (std::vector<telemetry_data> const & telemetry_data);
-nano::telemetry_data local_telemetry_data (nano::ledger_cache const &, nano::network &, uint64_t, nano::network_params const &, std::chrono::steady_clock::time_point, uint64_t, nano::keypair const &);
+nano::telemetry_data local_telemetry_data (nano::ledger const & ledger_a, nano::network &, uint64_t, nano::network_params const &, std::chrono::steady_clock::time_point, uint64_t, nano::keypair const &);
 }

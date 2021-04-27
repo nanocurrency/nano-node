@@ -60,6 +60,14 @@ struct hash<::nano::qualified_root>
 		return std::hash<::nano::qualified_root> () (value_a);
 	}
 };
+template <>
+struct hash<::nano::root>
+{
+	size_t operator() (::nano::root const & value_a) const
+	{
+		return std::hash<::nano::root> () (value_a);
+	}
+};
 }
 namespace nano
 {
@@ -163,7 +171,8 @@ class unchecked_key final
 {
 public:
 	unchecked_key () = default;
-	unchecked_key (nano::block_hash const &, nano::block_hash const &);
+	unchecked_key (nano::hash_or_account const &, nano::block_hash const &);
+	unchecked_key (nano::uint512_union const &);
 	bool deserialize (nano::stream &);
 	bool operator== (nano::unchecked_key const &) const;
 	nano::block_hash const & key () const;
@@ -189,7 +198,7 @@ class unchecked_info final
 {
 public:
 	unchecked_info () = default;
-	unchecked_info (std::shared_ptr<nano::block>, nano::account const &, uint64_t, nano::signature_verification = nano::signature_verification::unknown, bool = false);
+	unchecked_info (std::shared_ptr<nano::block> const &, nano::account const &, uint64_t, nano::signature_verification = nano::signature_verification::unknown, bool = false);
 	void serialize (nano::stream &) const;
 	bool deserialize (nano::stream &);
 	std::shared_ptr<nano::block> block;
@@ -207,16 +216,6 @@ public:
 	block_info (nano::account const &, nano::amount const &);
 	nano::account account{ 0 };
 	nano::amount balance{ 0 };
-};
-class block_counts final
-{
-public:
-	size_t sum () const;
-	size_t send{ 0 };
-	size_t receive{ 0 };
-	size_t open{ 0 };
-	size_t change{ 0 };
-	size_t state{ 0 };
 };
 
 class confirmation_height_info final
@@ -250,7 +249,7 @@ public:
 	vote (nano::vote const &);
 	vote (bool &, nano::stream &, nano::block_uniquer * = nullptr);
 	vote (bool &, nano::stream &, nano::block_type, nano::block_uniquer * = nullptr);
-	vote (nano::account const &, nano::raw_key const &, uint64_t, std::shared_ptr<nano::block>);
+	vote (nano::account const &, nano::raw_key const &, uint64_t, std::shared_ptr<nano::block> const &);
 	vote (nano::account const &, nano::raw_key const &, uint64_t, std::vector<nano::block_hash> const &);
 	std::string hashes_string () const;
 	nano::block_hash hash () const;
@@ -265,13 +264,13 @@ public:
 	boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> begin () const;
 	boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> end () const;
 	std::string to_json () const;
-	// Vote round sequence number
-	uint64_t sequence;
+	// Vote timestamp
+	uint64_t timestamp;
 	// The blocks, or block hashes, that this vote is for
 	std::vector<boost::variant<std::shared_ptr<nano::block>, nano::block_hash>> blocks;
 	// Account that's voting
 	nano::account account;
-	// Signature of sequence + block hashes
+	// Signature of timestamp + block hashes
 	nano::signature signature;
 	static const std::string hash_prefix;
 };
@@ -284,23 +283,23 @@ public:
 	using value_type = std::pair<const nano::block_hash, std::weak_ptr<nano::vote>>;
 
 	vote_uniquer (nano::block_uniquer &);
-	std::shared_ptr<nano::vote> unique (std::shared_ptr<nano::vote>);
+	std::shared_ptr<nano::vote> unique (std::shared_ptr<nano::vote> const &);
 	size_t size ();
 
 private:
 	nano::block_uniquer & uniquer;
-	std::mutex mutex;
+	nano::mutex mutex{ mutex_identifier (mutexes::vote_uniquer) };
 	std::unordered_map<std::remove_const_t<value_type::first_type>, value_type::second_type> votes;
 	static unsigned constexpr cleanup_count = 2;
 };
 
-std::unique_ptr<container_info_component> collect_container_info (vote_uniquer & vote_uniquer, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (vote_uniquer & vote_uniquer, std::string const & name);
 
 enum class vote_code
 {
 	invalid, // Vote is not signed correctly
-	replay, // Vote does not have the highest sequence number, it's a replay
-	vote, // Vote has the highest sequence number
+	replay, // Vote does not have the highest timestamp, it's a replay
+	vote, // Vote has the highest timestamp
 	indeterminate // Unknown if replay or vote
 };
 
@@ -314,6 +313,7 @@ enum class process_result
 	unreceivable, // Source block doesn't exist, has already been received, or requires an account upgrade (epoch blocks)
 	gap_previous, // Block marked as previous is unknown
 	gap_source, // Block marked as source is unknown
+	gap_epoch_open_pending, // Block marked as pending blocks required for epoch open block are unknown
 	opened_burn_account, // The impossible happened, someone found the private key associated with the public key '0'.
 	balance_mismatch, // Balance and amount delta don't match
 	representative_mismatch, // Representative is changed when it is not allowed
@@ -324,10 +324,6 @@ class process_return final
 {
 public:
 	nano::process_result code;
-	nano::account account;
-	nano::amount amount;
-	nano::account pending_account;
-	boost::optional<bool> state_is_send;
 	nano::signature_verification verified;
 	nano::amount previous_balance;
 };
@@ -356,20 +352,15 @@ public:
 	uint8_t const protocol_version = 0x12;
 
 	/** Minimum accepted protocol version */
-	uint8_t protocol_version_min (bool epoch_2_started) const;
-
-	/** Do not request telemetry metrics to nodes older than this version */
-	uint8_t const telemetry_protocol_version_min = 0x12;
+	uint8_t protocol_version_min () const;
 
 private:
-	/* Minimum protocol version before an epoch 2 block is seen */
-	uint8_t const protocol_version_min_pre_epoch_2 = 0x11;
-	/* Minimum protocol version after an epoch 2 block is seen */
-	uint8_t const protocol_version_min_epoch_2 = 0x12;
+	/* Minimum protocol version we will establish connections to */
+	uint8_t const protocol_version_min_m = 0x12;
 };
 
 // Some places use the decltype of protocol_version instead of protocol_version_min. To keep those checks simpler we check that the decltypes match ignoring differences in const
-static_assert (std::is_same<std::remove_const_t<decltype (protocol_constants ().protocol_version)>, decltype (protocol_constants ().protocol_version_min (false))>::value, "protocol_min should match");
+static_assert (std::is_same<std::remove_const_t<decltype (protocol_constants ().protocol_version)>, decltype (protocol_constants ().protocol_version_min ())>::value, "protocol_min should match");
 
 /** Genesis keys and ledger constants for network variants */
 class ledger_constants
@@ -378,13 +369,15 @@ public:
 	ledger_constants (nano::network_constants & network_constants);
 	ledger_constants (nano::nano_networks network_a);
 	nano::keypair zero_key;
-	nano::keypair test_genesis_key;
-	nano::account nano_test_account;
+	nano::keypair dev_genesis_key;
+	nano::account nano_dev_account;
 	nano::account nano_beta_account;
 	nano::account nano_live_account;
-	std::string nano_test_genesis;
+	nano::account nano_test_account;
+	std::string nano_dev_genesis;
 	std::string nano_beta_genesis;
 	std::string nano_live_genesis;
+	std::string nano_test_genesis;
 	nano::account genesis_account;
 	std::string genesis_block;
 	nano::block_hash genesis_hash;
@@ -414,6 +407,7 @@ public:
 	std::chrono::seconds cutoff;
 	std::chrono::seconds syn_cookie_cutoff;
 	std::chrono::minutes backup_interval;
+	std::chrono::seconds bootstrap_interval;
 	std::chrono::seconds search_pending_interval;
 	std::chrono::seconds peer_interval;
 	std::chrono::minutes unchecked_cleaning_interval;
@@ -421,7 +415,7 @@ public:
 	/** Maximum number of peers per IP */
 	size_t max_peers_per_ip;
 
-	/** The maximum amount of samples for a 2 week period on live or 3 days on beta */
+	/** The maximum amount of samples for a 2 week period on live or 1 day on beta */
 	uint64_t max_weight_samples;
 	uint64_t weight_period;
 };
@@ -431,7 +425,8 @@ class voting_constants
 {
 public:
 	voting_constants (nano::network_constants & network_constants);
-	size_t max_cache;
+	size_t const max_cache;
+	std::chrono::seconds const delay;
 };
 
 /** Port-mapping related constants whose value depends on the active network */
@@ -455,6 +450,7 @@ public:
 	unsigned lazy_retry_limit;
 	unsigned lazy_destinations_retry_limit;
 	std::chrono::milliseconds gap_cache_bootstrap_start_interval;
+	uint32_t default_frontiers_age_seconds;
 };
 
 /** Constants whose value depends on the active network */
@@ -495,7 +491,7 @@ public:
 	bool cemented_count = true;
 	bool unchecked_count = true;
 	bool account_count = true;
-	bool epoch_2 = true;
+	bool block_count = true;
 
 	void enable_all ();
 };
@@ -507,9 +503,8 @@ public:
 	nano::rep_weights rep_weights;
 	std::atomic<uint64_t> cemented_count{ 0 };
 	std::atomic<uint64_t> block_count{ 0 };
-	std::atomic<uint64_t> unchecked_count{ 0 };
+	std::atomic<uint64_t> pruned_count{ 0 };
 	std::atomic<uint64_t> account_count{ 0 };
-	std::atomic<bool> epoch_2_started{ false };
 };
 
 /* Defines the possible states for an election to stop in */

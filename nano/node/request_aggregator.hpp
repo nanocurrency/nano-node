@@ -19,9 +19,10 @@ namespace nano
 {
 class active_transactions;
 class ledger;
+class local_vote_history;
 class node_config;
 class stat;
-class votes_cache;
+class vote_generator;
 class wallets;
 /**
  * Pools together confirmation requests, separately for each endpoint.
@@ -40,9 +41,9 @@ class request_aggregator final
 	struct channel_pool final
 	{
 		channel_pool () = delete;
-		explicit channel_pool (std::shared_ptr<nano::transport::channel> & channel_a) :
-		channel (channel_a),
-		endpoint (nano::transport::map_endpoint_to_v6 (channel_a->get_endpoint ()))
+		explicit channel_pool (std::shared_ptr<nano::transport::channel> const & channel_a) :
+			channel (channel_a),
+			endpoint (nano::transport::map_endpoint_to_v6 (channel_a->get_endpoint ()))
 		{
 		}
 		std::vector<std::pair<nano::block_hash, nano::root>> hashes_roots;
@@ -58,11 +59,10 @@ class request_aggregator final
 	// clang-format on
 
 public:
-	request_aggregator () = delete;
-	request_aggregator (nano::network_constants const &, nano::node_config const & config, nano::stat & stats_a, nano::votes_cache &, nano::ledger &, nano::wallets &, nano::active_transactions &);
+	request_aggregator (nano::network_constants const &, nano::node_config const & config, nano::stat & stats_a, nano::vote_generator &, nano::local_vote_history &, nano::ledger &, nano::wallets &, nano::active_transactions &);
 
 	/** Add a new request by \p channel_a for hashes \p hashes_roots_a */
-	void add (std::shared_ptr<nano::transport::channel> & channel_a, std::vector<std::pair<nano::block_hash, nano::root>> const & hashes_roots_a);
+	void add (std::shared_ptr<nano::transport::channel> const & channel_a, std::vector<std::pair<nano::block_hash, nano::root>> const & hashes_roots_a);
 	void stop ();
 	/** Returns the number of currently queued request pools */
 	size_t size ();
@@ -77,15 +77,15 @@ private:
 	/** Remove duplicate requests **/
 	void erase_duplicates (std::vector<std::pair<nano::block_hash, nano::root>> &) const;
 	/** Aggregate \p requests_a and send cached votes to \p channel_a . Return the remaining hashes that need vote generation **/
-	std::vector<nano::block_hash> aggregate (nano::transaction const &, std::vector<std::pair<nano::block_hash, nano::root>> const & requests_a, std::shared_ptr<nano::transport::channel> & channel_a) const;
-	/** Generate votes from \p hashes_a and send to \p channel_a **/
-	void generate (nano::transaction const &, std::vector<nano::block_hash> const & hashes_a, std::shared_ptr<nano::transport::channel> & channel_a) const;
+	std::vector<std::shared_ptr<nano::block>> aggregate (std::vector<std::pair<nano::block_hash, nano::root>> const & requests_a, std::shared_ptr<nano::transport::channel> & channel_a) const;
+	void reply_action (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a) const;
 
 	nano::stat & stats;
-	nano::votes_cache & votes_cache;
+	nano::local_vote_history & local_votes;
 	nano::ledger & ledger;
 	nano::wallets & wallets;
 	nano::active_transactions & active;
+	nano::vote_generator & generator;
 
 	// clang-format off
 	boost::multi_index_container<channel_pool,
@@ -100,7 +100,7 @@ private:
 	bool stopped{ false };
 	bool started{ false };
 	nano::condition_variable condition;
-	std::mutex mutex;
+	nano::mutex mutex{ mutex_identifier (mutexes::request_aggregator) };
 	std::thread thread;
 
 	friend std::unique_ptr<container_info_component> collect_container_info (request_aggregator &, const std::string &);

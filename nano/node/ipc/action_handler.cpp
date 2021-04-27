@@ -40,9 +40,9 @@ auto get_message (nanoapi::Envelope const & envelope)
  * Mapping from message type to handler function.
  * @note This must be updated whenever a new message type is added to the Flatbuffers IDL.
  */
-auto nano::ipc::action_handler::handler_map () -> std::unordered_map<nanoapi::Message, std::function<void(nano::ipc::action_handler *, nanoapi::Envelope const &)>, nano::ipc::enum_hash>
+auto nano::ipc::action_handler::handler_map () -> std::unordered_map<nanoapi::Message, std::function<void (nano::ipc::action_handler *, nanoapi::Envelope const &)>, nano::ipc::enum_hash>
 {
-	static std::unordered_map<nanoapi::Message, std::function<void(nano::ipc::action_handler *, nanoapi::Envelope const &)>, nano::ipc::enum_hash> handlers;
+	static std::unordered_map<nanoapi::Message, std::function<void (nano::ipc::action_handler *, nanoapi::Envelope const &)>, nano::ipc::enum_hash> handlers;
 	if (handlers.empty ())
 	{
 		handlers.emplace (nanoapi::Message::Message_IsAlive, &nano::ipc::action_handler::on_is_alive);
@@ -56,17 +56,17 @@ auto nano::ipc::action_handler::handler_map () -> std::unordered_map<nanoapi::Me
 }
 
 nano::ipc::action_handler::action_handler (nano::node & node_a, nano::ipc::ipc_server & server_a, std::weak_ptr<nano::ipc::subscriber> const & subscriber_a, std::shared_ptr<flatbuffers::FlatBufferBuilder> const & builder_a) :
-flatbuffer_producer (builder_a),
-node (node_a),
-ipc_server (server_a),
-subscriber (subscriber_a)
+	flatbuffer_producer (builder_a),
+	node (node_a),
+	ipc_server (server_a),
+	subscriber (subscriber_a)
 {
 }
 
 void nano::ipc::action_handler::on_topic_confirmation (nanoapi::Envelope const & envelope_a)
 {
 	auto confirmationTopic (get_message<nanoapi::TopicConfirmation> (envelope_a));
-	ipc_server.get_broker ().subscribe (subscriber, std::move (confirmationTopic));
+	ipc_server.get_broker ()->subscribe (subscriber, std::move (confirmationTopic));
 	nanoapi::EventAckT ack;
 	create_response (ack);
 }
@@ -75,7 +75,7 @@ void nano::ipc::action_handler::on_service_register (nanoapi::Envelope const & e
 {
 	require_oneof (envelope_a, { nano::ipc::access_permission::api_service_register, nano::ipc::access_permission::service });
 	auto query (get_message<nanoapi::ServiceRegister> (envelope_a));
-	ipc_server.get_broker ().service_register (query->service_name, this->subscriber);
+	ipc_server.get_broker ()->service_register (query->service_name, this->subscriber);
 	nanoapi::SuccessT success;
 	create_response (success);
 }
@@ -90,7 +90,7 @@ void nano::ipc::action_handler::on_service_stop (nanoapi::Envelope const & envel
 	}
 	else
 	{
-		ipc_server.get_broker ().service_stop (query->service_name);
+		ipc_server.get_broker ()->service_stop (query->service_name);
 	}
 	nanoapi::SuccessT success;
 	create_response (success);
@@ -99,7 +99,7 @@ void nano::ipc::action_handler::on_service_stop (nanoapi::Envelope const & envel
 void nano::ipc::action_handler::on_topic_service_stop (nanoapi::Envelope const & envelope_a)
 {
 	auto topic (get_message<nanoapi::TopicServiceStop> (envelope_a));
-	ipc_server.get_broker ().subscribe (subscriber, std::move (topic));
+	ipc_server.get_broker ()->subscribe (subscriber, std::move (topic));
 	nanoapi::EventAckT ack;
 	create_response (ack);
 }

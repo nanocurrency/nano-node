@@ -45,7 +45,7 @@ Other documentation details can be found at https://docs.nano.org.
 
 ### Want to Contribute?
 
-Please see the [contributors guide](https://docs.nano.org/protocol-design/overview/#contributing-code-to-the-nano-node).
+Please see the [contributors guide](https://docs.nano.org/node-implementation/contributing/).
 
 ---
 

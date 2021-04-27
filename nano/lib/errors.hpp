@@ -53,6 +53,7 @@ enum class error_common
 	invalid_type_conversion,
 	invalid_work,
 	insufficient_balance,
+	is_not_state_block,
 	numeric_conversion,
 	tracking_not_enabled,
 	wallet_lmdb_max_dbs,
@@ -76,6 +77,7 @@ enum class error_blocks
 enum class error_rpc
 {
 	generic = 1,
+	empty_response,
 	bad_destination,
 	bad_difficulty_format,
 	bad_key,
@@ -116,9 +118,8 @@ enum class error_rpc
 	invalid_subtype_previous,
 	invalid_timestamp,
 	invalid_threads_count,
-	payment_account_balance,
-	payment_unable_create_account,
 	peer_not_found,
+	pruning_disabled,
 	requires_port_and_address,
 	rpc_control_disabled,
 	sign_hash_disabled,
@@ -136,6 +137,7 @@ enum class error_process
 	unreceivable, // Source block doesn't exist or has already been received
 	gap_previous, // Block marked as previous is unknown
 	gap_source, // Block marked as source is unknown
+	gap_epoch_open_pending, // Block marked as pending blocks required for epoch open block are unknown
 	opened_burn_account, // The impossible happened, someone found the private key associated with the public key '0'.
 	balance_mismatch, // Balance and amount delta don't match
 	block_position, // This block cannot follow the previous block
@@ -148,8 +150,7 @@ enum class error_config
 {
 	generic = 1,
 	invalid_value,
-	missing_value,
-	rocksdb_enabled_but_not_supported
+	missing_value
 };
 } // nano namespace
 
@@ -208,7 +209,7 @@ namespace std
 {
 template <>
 struct is_error_code_enum<boost::system::errc::errc_t>
-: public std::true_type
+	: public std::true_type
 {
 };
 
@@ -261,7 +262,7 @@ public:
 	{
 		// Convert variadic arguments to std::error_code
 		auto codes = { std::error_code (err)... };
-		if (std::any_of (codes.begin (), codes.end (), [this, &codes](auto & code_a) { return code == code_a; }))
+		if (std::any_of (codes.begin (), codes.end (), [this, &codes] (auto & code_a) { return code == code_a; }))
 		{
 			code.clear ();
 		}

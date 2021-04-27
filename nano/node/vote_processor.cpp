@@ -3,10 +3,10 @@
 #include <nano/lib/threading.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/node/active_transactions.hpp>
-#include <nano/node/node.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/online_reps.hpp>
+#include <nano/node/repcrawler.hpp>
 #include <nano/node/signatures.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/secure/blockstore.hpp>
@@ -15,27 +15,28 @@
 
 #include <boost/format.hpp>
 
-nano::vote_processor::vote_processor (nano::signature_checker & checker_a, nano::active_transactions & active_a, nano::node_observers & observers_a, nano::stat & stats_a, nano::node_config & config_a, nano::node_flags & flags_a, nano::logger_mt & logger_a, nano::online_reps & online_reps_a, nano::ledger & ledger_a, nano::network_params & network_params_a) :
-checker (checker_a),
-active (active_a),
-observers (observers_a),
-stats (stats_a),
-config (config_a),
-logger (logger_a),
-online_reps (online_reps_a),
-ledger (ledger_a),
-network_params (network_params_a),
-max_votes (flags_a.vote_processor_capacity),
-started (false),
-stopped (false),
-is_active (false),
-thread ([this]() {
-	nano::thread_role::set (nano::thread_role::name::vote_processing);
-	process_loop ();
-})
+nano::vote_processor::vote_processor (nano::signature_checker & checker_a, nano::active_transactions & active_a, nano::node_observers & observers_a, nano::stat & stats_a, nano::node_config & config_a, nano::node_flags & flags_a, nano::logger_mt & logger_a, nano::online_reps & online_reps_a, nano::rep_crawler & rep_crawler_a, nano::ledger & ledger_a, nano::network_params & network_params_a) :
+	checker (checker_a),
+	active (active_a),
+	observers (observers_a),
+	stats (stats_a),
+	config (config_a),
+	logger (logger_a),
+	online_reps (online_reps_a),
+	rep_crawler (rep_crawler_a),
+	ledger (ledger_a),
+	network_params (network_params_a),
+	max_votes (flags_a.vote_processor_capacity),
+	started (false),
+	stopped (false),
+	is_active (false),
+	thread ([this] () {
+		nano::thread_role::set (nano::thread_role::name::vote_processing);
+		process_loop ();
+	})
 {
-	nano::unique_lock<std::mutex> lock (mutex);
-	condition.wait (lock, [& started = started] { return started; });
+	nano::unique_lock<nano::mutex> lock (mutex);
+	condition.wait (lock, [&started = started] { return started; });
 }
 
 void nano::vote_processor::process_loop ()
@@ -43,7 +44,7 @@ void nano::vote_processor::process_loop ()
 	nano::timer<std::chrono::milliseconds> elapsed;
 	bool log_this_iteration;
 
-	nano::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock (mutex);
 	started = true;
 
 	lock.unlock ();
@@ -75,6 +76,7 @@ void nano::vote_processor::process_loop ()
 
 			lock.unlock ();
 			condition.notify_all ();
+			total_processed += votes_l.size ();
 			lock.lock ();
 
 			if (log_this_iteration && elapsed.stop () > std::chrono::milliseconds (100))
@@ -89,10 +91,11 @@ void nano::vote_processor::process_loop ()
 	}
 }
 
-bool nano::vote_processor::vote (std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a)
+bool nano::vote_processor::vote (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a)
 {
+	debug_assert (channel_a != nullptr);
 	bool process (false);
-	nano::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock (mutex);
 	if (!stopped)
 	{
 		// Level 0 (< 0.1%)
@@ -165,7 +168,7 @@ void nano::vote_processor::verify_votes (decltype (votes) const & votes_a)
 	}
 }
 
-nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a, bool validated)
+nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a, bool validated)
 {
 	auto result (nano::vote_code::invalid);
 	if (validated || !vote_a->validate ())
@@ -195,7 +198,7 @@ nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote>
 	}
 	if (config.logging.vote_logging ())
 	{
-		logger.try_log (boost::str (boost::format ("Vote from: %1% sequence: %2% block(s): %3%status: %4%") % vote_a->account.to_account () % std::to_string (vote_a->sequence) % vote_a->hashes_string () % status));
+		logger.try_log (boost::str (boost::format ("Vote from: %1% timestamp: %2% block(s): %3%status: %4%") % vote_a->account.to_account () % std::to_string (vote_a->timestamp) % vote_a->hashes_string () % status));
 	}
 	return result;
 }
@@ -203,7 +206,7 @@ nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote>
 void nano::vote_processor::stop ()
 {
 	{
-		nano::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<nano::mutex> lock (mutex);
 		stopped = true;
 	}
 	condition.notify_all ();
@@ -215,8 +218,17 @@ void nano::vote_processor::stop ()
 
 void nano::vote_processor::flush ()
 {
-	nano::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock (mutex);
 	while (is_active || !votes.empty ())
+	{
+		condition.wait (lock);
+	}
+}
+
+void nano::vote_processor::flush_active ()
+{
+	nano::unique_lock<nano::mutex> lock (mutex);
+	while (is_active)
 	{
 		condition.wait (lock);
 	}
@@ -224,25 +236,30 @@ void nano::vote_processor::flush ()
 
 size_t nano::vote_processor::size ()
 {
-	nano::lock_guard<std::mutex> guard (mutex);
+	nano::lock_guard<nano::mutex> guard (mutex);
 	return votes.size ();
 }
 
 bool nano::vote_processor::empty ()
 {
-	nano::lock_guard<std::mutex> guard (mutex);
+	nano::lock_guard<nano::mutex> guard (mutex);
 	return votes.empty ();
+}
+
+bool nano::vote_processor::half_full ()
+{
+	return size () >= max_votes / 2;
 }
 
 void nano::vote_processor::calculate_weights ()
 {
-	nano::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock (mutex);
 	if (!stopped)
 	{
 		representatives_1.clear ();
 		representatives_2.clear ();
 		representatives_3.clear ();
-		auto supply (online_reps.online_stake ());
+		auto supply (online_reps.trended ());
 		auto rep_amounts = ledger.cache.rep_weights.get_rep_amounts ();
 		for (auto const & rep_amount : rep_amounts)
 		{
@@ -264,7 +281,7 @@ void nano::vote_processor::calculate_weights ()
 	}
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (vote_processor & vote_processor, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (vote_processor & vote_processor, std::string const & name)
 {
 	size_t votes_count;
 	size_t representatives_1_count;
@@ -272,7 +289,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (vo
 	size_t representatives_3_count;
 
 	{
-		nano::lock_guard<std::mutex> guard (vote_processor.mutex);
+		nano::lock_guard<nano::mutex> guard (vote_processor.mutex);
 		votes_count = vote_processor.votes.size ();
 		representatives_1_count = vote_processor.representatives_1.size ();
 		representatives_2_count = vote_processor.representatives_2.size ();

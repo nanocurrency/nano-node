@@ -80,29 +80,29 @@ nano::tcp_endpoint nano::transport::map_endpoint_to_tcp (nano::endpoint const & 
 }
 
 nano::transport::channel::channel (nano::node & node_a) :
-node (node_a)
+	node (node_a)
 {
 	set_network_version (node_a.network_params.protocol.protocol_version);
 }
 
-void nano::transport::channel::send (nano::message const & message_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a, nano::buffer_drop_policy drop_policy_a)
+void nano::transport::channel::send (nano::message const & message_a, std::function<void (boost::system::error_code const &, size_t)> const & callback_a, nano::buffer_drop_policy drop_policy_a)
 {
 	callback_visitor visitor;
 	message_a.visit (visitor);
-	auto buffer (message_a.to_shared_const_buffer (node.ledger.cache.epoch_2_started));
+	auto buffer (message_a.to_shared_const_buffer ());
 	auto detail (visitor.result);
 	auto is_droppable_by_limiter = drop_policy_a == nano::buffer_drop_policy::limiter;
 	auto should_drop (node.network.limiter.should_drop (buffer.size ()));
 	if (!is_droppable_by_limiter || !should_drop)
 	{
-		send_buffer (buffer, detail, callback_a, drop_policy_a);
+		send_buffer (buffer, callback_a, drop_policy_a);
 		node.stats.inc (nano::stat::type::message, detail, nano::stat::dir::out);
 	}
 	else
 	{
 		if (callback_a)
 		{
-			node.background ([callback_a]() {
+			node.background ([callback_a] () {
 				callback_a (boost::system::errc::make_error_code (boost::system::errc::not_supported), 0);
 			});
 		}
@@ -114,6 +114,34 @@ void nano::transport::channel::send (nano::message const & message_a, std::funct
 			node.logger.always_log (boost::str (boost::format ("%1% of size %2% dropped") % node.stats.detail_to_string (key) % buffer.size ()));
 		}
 	}
+}
+
+nano::transport::channel_loopback::channel_loopback (nano::node & node_a) :
+	channel (node_a), endpoint (node_a.network.endpoint ())
+{
+	set_node_id (node_a.node_id.pub);
+	set_network_version (node_a.network_params.protocol.protocol_version);
+}
+
+size_t nano::transport::channel_loopback::hash_code () const
+{
+	std::hash<::nano::endpoint> hash;
+	return hash (endpoint);
+}
+
+bool nano::transport::channel_loopback::operator== (nano::transport::channel const & other_a) const
+{
+	return endpoint == other_a.get_endpoint ();
+}
+
+void nano::transport::channel_loopback::send_buffer (nano::shared_const_buffer const & buffer_a, std::function<void (boost::system::error_code const &, size_t)> const & callback_a, nano::buffer_drop_policy drop_policy_a)
+{
+	release_assert (false && "sending to a loopback channel is not supported");
+}
+
+std::string nano::transport::channel_loopback::to_string () const
+{
+	return boost::str (boost::format ("%1%") % endpoint);
 }
 
 namespace
@@ -226,11 +254,11 @@ bool nano::transport::reserved_address (nano::endpoint const & endpoint_a, bool 
 using namespace std::chrono_literals;
 
 nano::bandwidth_limiter::bandwidth_limiter (const double limit_burst_ratio_a, const size_t limit_a) :
-bucket (limit_a * limit_burst_ratio_a, limit_a)
+	bucket (static_cast<size_t> (limit_a * limit_burst_ratio_a), limit_a)
 {
 }
 
 bool nano::bandwidth_limiter::should_drop (const size_t & message_size_a)
 {
-	return !bucket.try_consume (message_size_a);
+	return !bucket.try_consume (nano::narrow_cast<unsigned int> (message_size_a));
 }

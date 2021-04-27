@@ -35,7 +35,7 @@ class matches_txn final
 {
 public:
 	explicit matches_txn (const nano::transaction_impl * transaction_impl_a) :
-	transaction_impl (transaction_impl_a)
+		transaction_impl (transaction_impl_a)
 	{
 	}
 
@@ -50,7 +50,7 @@ private:
 }
 
 nano::read_mdb_txn::read_mdb_txn (nano::mdb_env const & environment_a, nano::mdb_txn_callbacks txn_callbacks_a) :
-txn_callbacks (txn_callbacks_a)
+	txn_callbacks (txn_callbacks_a)
 {
 	auto status (mdb_txn_begin (environment_a, nullptr, MDB_RDONLY, &handle));
 	release_assert (status == 0);
@@ -84,8 +84,8 @@ void * nano::read_mdb_txn::get_handle () const
 }
 
 nano::write_mdb_txn::write_mdb_txn (nano::mdb_env const & environment_a, nano::mdb_txn_callbacks txn_callbacks_a) :
-env (environment_a),
-txn_callbacks (txn_callbacks_a)
+	env (environment_a),
+	txn_callbacks (txn_callbacks_a)
 {
 	renew ();
 }
@@ -95,18 +95,23 @@ nano::write_mdb_txn::~write_mdb_txn ()
 	commit ();
 }
 
-void nano::write_mdb_txn::commit () const
+void nano::write_mdb_txn::commit ()
 {
-	auto status (mdb_txn_commit (handle));
-	release_assert (status == MDB_SUCCESS);
-	txn_callbacks.txn_end (this);
+	if (active)
+	{
+		auto status (mdb_txn_commit (handle));
+		release_assert (status == MDB_SUCCESS, mdb_strerror (status));
+		txn_callbacks.txn_end (this);
+		active = false;
+	}
 }
 
 void nano::write_mdb_txn::renew ()
 {
 	auto status (mdb_txn_begin (env, nullptr, 0, &handle));
-	release_assert (status == MDB_SUCCESS);
+	release_assert (status == MDB_SUCCESS, mdb_strerror (status));
 	txn_callbacks.txn_start (this);
+	active = true;
 }
 
 void * nano::write_mdb_txn::get_handle () const
@@ -121,9 +126,9 @@ bool nano::write_mdb_txn::contains (nano::tables table_a) const
 }
 
 nano::mdb_txn_tracker::mdb_txn_tracker (nano::logger_mt & logger_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a) :
-logger (logger_a),
-txn_tracking_config (txn_tracking_config_a),
-block_processor_batch_max_time (block_processor_batch_max_time_a)
+	logger (logger_a),
+	txn_tracking_config (txn_tracking_config_a),
+	block_processor_batch_max_time (block_processor_batch_max_time_a)
 {
 }
 
@@ -133,10 +138,10 @@ void nano::mdb_txn_tracker::serialize_json (boost::property_tree::ptree & json, 
 	std::vector<mdb_txn_stats> copy_stats;
 	std::vector<bool> are_writes;
 	{
-		nano::lock_guard<std::mutex> guard (mutex);
+		nano::lock_guard<nano::mutex> guard (mutex);
 		copy_stats = stats;
 		are_writes.reserve (stats.size ());
-		std::transform (stats.cbegin (), stats.cend (), std::back_inserter (are_writes), [](auto & mdb_txn_stat) {
+		std::transform (stats.cbegin (), stats.cend (), std::back_inserter (are_writes), [] (auto & mdb_txn_stat) {
 			return mdb_txn_stat.is_write ();
 		});
 	}
@@ -144,7 +149,7 @@ void nano::mdb_txn_tracker::serialize_json (boost::property_tree::ptree & json, 
 	// Get the time difference now as creating stacktraces (Debug/Windows for instance) can take a while so results won't be as accurate
 	std::vector<std::chrono::milliseconds> times_since_start;
 	times_since_start.reserve (copy_stats.size ());
-	std::transform (copy_stats.cbegin (), copy_stats.cend (), std::back_inserter (times_since_start), [](const auto & stat) {
+	std::transform (copy_stats.cbegin (), copy_stats.cend (), std::back_inserter (times_since_start), [] (const auto & stat) {
 		return stat.timer.since_start ();
 	});
 	debug_assert (times_since_start.size () == copy_stats.size ());
@@ -180,9 +185,9 @@ void nano::mdb_txn_tracker::serialize_json (boost::property_tree::ptree & json, 
 	}
 }
 
-void nano::mdb_txn_tracker::output_finished (nano::mdb_txn_stats const & mdb_txn_stats) const
+void nano::mdb_txn_tracker::log_if_held_long_enough (nano::mdb_txn_stats const & mdb_txn_stats) const
 {
-	// Only output them if transactions were held for longer than a certain period of time
+	// Only log these transactions if they were held for longer than the min_read_txn_time/min_write_txn_time config values
 	auto is_write = mdb_txn_stats.is_write ();
 	auto time_open = mdb_txn_stats.timer.since_start ();
 
@@ -204,7 +209,7 @@ void nano::mdb_txn_tracker::output_finished (nano::mdb_txn_stats const & mdb_txn
 
 void nano::mdb_txn_tracker::add (const nano::transaction_impl * transaction_impl)
 {
-	nano::lock_guard<std::mutex> guard (mutex);
+	nano::lock_guard<nano::mutex> guard (mutex);
 	debug_assert (std::find_if (stats.cbegin (), stats.cend (), matches_txn (transaction_impl)) == stats.cend ());
 	stats.emplace_back (transaction_impl);
 }
@@ -212,20 +217,21 @@ void nano::mdb_txn_tracker::add (const nano::transaction_impl * transaction_impl
 /** Can be called without error if transaction does not exist */
 void nano::mdb_txn_tracker::erase (const nano::transaction_impl * transaction_impl)
 {
-	nano::lock_guard<std::mutex> guard (mutex);
+	nano::unique_lock<nano::mutex> lk (mutex);
 	auto it = std::find_if (stats.begin (), stats.end (), matches_txn (transaction_impl));
 	if (it != stats.end ())
 	{
-		output_finished (*it);
-		it->timer.stop ();
+		auto tracker_stats_copy = *it;
 		stats.erase (it);
+		lk.unlock ();
+		log_if_held_long_enough (tracker_stats_copy);
 	}
 }
 
 nano::mdb_txn_stats::mdb_txn_stats (const nano::transaction_impl * transaction_impl) :
-transaction_impl (transaction_impl),
-thread_name (nano::thread_role::get_string ()),
-stacktrace (std::make_shared<boost::stacktrace::stacktrace> ())
+	transaction_impl (transaction_impl),
+	thread_name (nano::thread_role::get_string ()),
+	stacktrace (std::make_shared<boost::stacktrace::stacktrace> ())
 {
 	timer.start ();
 }

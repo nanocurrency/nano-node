@@ -92,13 +92,13 @@ void nano::ipc::access::clear ()
 
 nano::error nano::ipc::access::deserialize_toml (nano::tomlconfig & toml)
 {
-	nano::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock (mutex);
 	clear ();
 
 	nano::error error;
 	if (toml.has_key ("role"))
 	{
-		auto get_role = [this](std::shared_ptr<cpptoml::table> const & role_a) {
+		auto get_role = [this] (std::shared_ptr<cpptoml::table> const & role_a) {
 			nano::ipc::access_role role;
 			std::string id_l (role_a->get_as<std::string> ("id").value_or (""));
 			role.id = id_l;
@@ -136,7 +136,7 @@ nano::error nano::ipc::access::deserialize_toml (nano::tomlconfig & toml)
 
 	if (!error && toml.has_key ("user"))
 	{
-		auto get_user = [this, &error](std::shared_ptr<cpptoml::table> const & user_a) {
+		auto get_user = [this, &error] (std::shared_ptr<cpptoml::table> const & user_a) {
 			nano::ipc::access_user user;
 			user.id = user_a->get_as<std::string> ("id").value_or ("");
 			// Check bare flag. The tomlconfig parser stringifies values, so we must retrieve as string.
@@ -208,7 +208,7 @@ nano::error nano::ipc::access::deserialize_toml (nano::tomlconfig & toml)
 
 bool nano::ipc::access::has_access (std::string const & credentials_a, nano::ipc::access_permission permssion_a) const
 {
-	nano::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock (mutex);
 	bool permitted = false;
 	auto user = users.find (credentials_a);
 	if (user != users.end ())
@@ -224,7 +224,7 @@ bool nano::ipc::access::has_access (std::string const & credentials_a, nano::ipc
 
 bool nano::ipc::access::has_access_to_all (std::string const & credentials_a, std::initializer_list<nano::ipc::access_permission> permissions_a) const
 {
-	nano::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock (mutex);
 	bool permitted = false;
 	auto user = users.find (credentials_a);
 	if (user != users.end ())
@@ -243,7 +243,7 @@ bool nano::ipc::access::has_access_to_all (std::string const & credentials_a, st
 
 bool nano::ipc::access::has_access_to_oneof (std::string const & credentials_a, std::initializer_list<nano::ipc::access_permission> permissions_a) const
 {
-	nano::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock<nano::mutex> lock (mutex);
 	bool permitted = false;
 	auto user = users.find (credentials_a);
 	if (user != users.end ())

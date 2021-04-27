@@ -1,18 +1,11 @@
 #include <nano/boost/asio/post.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
-#include <nano/lib/threading.hpp>
 #include <nano/node/signatures.hpp>
 
 nano::signature_checker::signature_checker (unsigned num_threads) :
-thread_pool (num_threads),
-single_threaded (num_threads == 0),
-num_threads (num_threads)
+	thread_pool (num_threads, nano::thread_role::name::signature_checking)
 {
-	if (!single_threaded)
-	{
-		set_thread_names (num_threads);
-	}
 }
 
 nano::signature_checker::~signature_checker ()
@@ -28,7 +21,7 @@ void nano::signature_checker::verify (nano::signature_check_set & check_a)
 		return;
 	}
 
-	if (check_a.size <= batch_size || single_threaded)
+	if (check_a.size <= batch_size || single_threaded ())
 	{
 		// Not dealing with many so just use the calling thread for checking signatures
 		auto result = verify_batch (check_a, 0, check_a.size);
@@ -42,6 +35,7 @@ void nano::signature_checker::verify (nano::signature_check_set & check_a)
 	size_t overflow_size = check_a.size % batch_size;
 	size_t num_full_batches = check_a.size / batch_size;
 
+	auto const num_threads = thread_pool.get_num_threads ();
 	auto total_threads_to_split_over = num_threads + 1;
 	auto num_base_batches_each = num_full_batches / total_threads_to_split_over;
 	auto num_full_overflow_batches = num_full_batches % total_threads_to_split_over;
@@ -82,7 +76,7 @@ void nano::signature_checker::stop ()
 {
 	if (!stopped.exchange (true))
 	{
-		thread_pool.join ();
+		thread_pool.stop ();
 	}
 }
 
@@ -95,7 +89,7 @@ void nano::signature_checker::flush ()
 bool nano::signature_checker::verify_batch (const nano::signature_check_set & check_a, size_t start_index, size_t size)
 {
 	nano::validate_message_batch (check_a.messages + start_index, check_a.message_lengths + start_index, check_a.pub_keys + start_index, check_a.signatures + start_index, size, check_a.verifications + start_index);
-	return std::all_of (check_a.verifications + start_index, check_a.verifications + start_index + size, [](int verification) { return verification == 0 || verification == 1; });
+	return std::all_of (check_a.verifications + start_index, check_a.verifications + start_index + size, [] (int verification) { return verification == 0 || verification == 1; });
 }
 
 /* This operates on a number of signatures of size (num_batches * batch_size) from the beginning of the check_a pointers.
@@ -111,7 +105,7 @@ void nano::signature_checker::verify_async (nano::signature_check_set & check_a,
 		auto size = batch_size;
 		auto start_index = batch * batch_size;
 
-		boost::asio::post (thread_pool, [this, task, size, start_index, &promise] {
+		thread_pool.push_task ([this, task, size, start_index, &promise] {
 			auto result = this->verify_batch (task->check, start_index, size);
 			release_assert (result);
 
@@ -124,27 +118,7 @@ void nano::signature_checker::verify_async (nano::signature_check_set & check_a,
 	}
 }
 
-// Set the names of all the threads in the thread pool for easier identification
-void nano::signature_checker::set_thread_names (unsigned num_threads)
+bool nano::signature_checker::single_threaded () const
 {
-	std::vector<std::promise<void>> promises (num_threads);
-	std::vector<std::future<void>> futures;
-	futures.reserve (num_threads);
-	std::transform (promises.begin (), promises.end (), std::back_inserter (futures), [](auto & promise) {
-		return promise.get_future ();
-	});
-
-	for (auto i = 0u; i < num_threads; ++i)
-	{
-		boost::asio::post (thread_pool, [& promise = promises[i]]() {
-			nano::thread_role::set (nano::thread_role::name::signature_checking);
-			promise.set_value ();
-		});
-	}
-
-	// Wait until all threads have finished
-	for (auto & future : futures)
-	{
-		future.wait ();
-	}
+	return thread_pool.get_num_threads () == 0;
 }

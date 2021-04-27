@@ -12,14 +12,14 @@ boost::filesystem::path nano::working_path (bool legacy)
 	auto result (nano::app_path ());
 	switch (network_constants.network ())
 	{
-		case nano::nano_networks::nano_test_network:
+		case nano::nano_networks::nano_dev_network:
 			if (!legacy)
 			{
-				result /= "NanoTest";
+				result /= "NanoDev";
 			}
 			else
 			{
-				result /= "RaiBlocksTest";
+				result /= "RaiBlocksDev";
 			}
 			break;
 		case nano::nano_networks::nano_beta_network:
@@ -42,43 +42,17 @@ boost::filesystem::path nano::working_path (bool legacy)
 				result /= "RaiBlocks";
 			}
 			break;
-	}
-	return result;
-}
-
-bool nano::migrate_working_path (std::string & error_string)
-{
-	bool result (true);
-	auto old_path (nano::working_path (true));
-	auto new_path (nano::working_path ());
-
-	if (old_path != new_path)
-	{
-		boost::system::error_code status_error;
-
-		auto old_path_status (boost::filesystem::status (old_path, status_error));
-		if (status_error == boost::system::errc::success && boost::filesystem::exists (old_path_status) && boost::filesystem::is_directory (old_path_status))
-		{
-			auto new_path_status (boost::filesystem::status (new_path, status_error));
-			if (!boost::filesystem::exists (new_path_status))
+		case nano::nano_networks::nano_test_network:
+			if (!legacy)
 			{
-				boost::system::error_code rename_error;
-
-				boost::filesystem::rename (old_path, new_path, rename_error);
-				if (rename_error != boost::system::errc::success)
-				{
-					std::stringstream error_string_stream;
-
-					error_string_stream << "Unable to migrate data from " << old_path << " to " << new_path;
-
-					error_string = error_string_stream.str ();
-
-					result = false;
-				}
+				result /= "NanoTest";
 			}
-		}
+			else
+			{
+				result /= "RaiBlocksTest";
+			}
+			break;
 	}
-
 	return result;
 }
 
@@ -114,7 +88,7 @@ void nano::remove_temporary_directories ()
 namespace nano
 {
 /** A wrapper for handling signals */
-std::function<void()> signal_handler_impl;
+std::function<void ()> signal_handler_impl;
 void signal_handler (int sig)
 {
 	if (signal_handler_impl != nullptr)

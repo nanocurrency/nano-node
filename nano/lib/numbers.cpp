@@ -1,5 +1,6 @@
 #include <nano/crypto/blake2/blake2.h>
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/crypto_lib/secure_memory.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
 
@@ -65,6 +66,11 @@ std::string nano::public_key::to_node_id () const
 	return to_account ().replace (0, 4, "node");
 }
 
+bool nano::public_key::decode_node_id (std::string const & source_a)
+{
+	return decode_account (source_a);
+}
+
 bool nano::public_key::decode_account (std::string const & source_a)
 {
 	auto error (source_a.size () < 5);
@@ -72,10 +78,11 @@ bool nano::public_key::decode_account (std::string const & source_a)
 	{
 		auto xrb_prefix (source_a[0] == 'x' && source_a[1] == 'r' && source_a[2] == 'b' && (source_a[3] == '_' || source_a[3] == '-'));
 		auto nano_prefix (source_a[0] == 'n' && source_a[1] == 'a' && source_a[2] == 'n' && source_a[3] == 'o' && (source_a[4] == '_' || source_a[4] == '-'));
+		auto node_id_prefix = (source_a[0] == 'n' && source_a[1] == 'o' && source_a[2] == 'd' && source_a[3] == 'e' && source_a[4] == '_');
 		error = (xrb_prefix && source_a.size () != 64) || (nano_prefix && source_a.size () != 65);
 		if (!error)
 		{
-			if (xrb_prefix || nano_prefix)
+			if (xrb_prefix || nano_prefix || node_id_prefix)
 			{
 				auto i (source_a.begin () + (xrb_prefix ? 4 : 5));
 				if (*i == '1' || *i == '3')
@@ -136,9 +143,9 @@ bool nano::uint256_union::operator== (nano::uint256_union const & other_a) const
 // Construct a uint256_union = AES_ENC_CTR (cleartext, key, iv)
 void nano::uint256_union::encrypt (nano::raw_key const & cleartext, nano::raw_key const & key, uint128_union const & iv)
 {
-	CryptoPP::AES::Encryption alg (key.data.bytes.data (), sizeof (key.data.bytes));
+	CryptoPP::AES::Encryption alg (key.bytes.data (), sizeof (key.bytes));
 	CryptoPP::CTR_Mode_ExternalCipher::Encryption enc (alg, iv.bytes.data ());
-	enc.ProcessData (bytes.data (), cleartext.data.bytes.data (), sizeof (cleartext.data.bytes));
+	enc.ProcessData (bytes.data (), cleartext.bytes.data (), sizeof (cleartext.bytes));
 }
 
 bool nano::uint256_union::is_zero () const
@@ -370,55 +377,40 @@ std::string nano::uint512_union::to_string () const
 
 nano::raw_key::~raw_key ()
 {
-	data.clear ();
-}
-
-bool nano::raw_key::operator== (nano::raw_key const & other_a) const
-{
-	return data == other_a.data;
-}
-
-bool nano::raw_key::operator!= (nano::raw_key const & other_a) const
-{
-	return !(*this == other_a);
+	secure_wipe_memory (bytes.data (), bytes.size ());
 }
 
 // This this = AES_DEC_CTR (ciphertext, key, iv)
 void nano::raw_key::decrypt (nano::uint256_union const & ciphertext, nano::raw_key const & key_a, uint128_union const & iv)
 {
-	CryptoPP::AES::Encryption alg (key_a.data.bytes.data (), sizeof (key_a.data.bytes));
+	CryptoPP::AES::Encryption alg (key_a.bytes.data (), sizeof (key_a.bytes));
 	CryptoPP::CTR_Mode_ExternalCipher::Decryption dec (alg, iv.bytes.data ());
-	dec.ProcessData (data.bytes.data (), ciphertext.bytes.data (), sizeof (ciphertext.bytes));
+	dec.ProcessData (bytes.data (), ciphertext.bytes.data (), sizeof (ciphertext.bytes));
 }
 
-nano::private_key const & nano::raw_key::as_private_key () const
+nano::raw_key nano::deterministic_key (nano::raw_key const & seed_a, uint32_t index_a)
 {
-	return reinterpret_cast<nano::private_key const &> (data);
-}
-
-nano::private_key nano::deterministic_key (nano::raw_key const & seed_a, uint32_t index_a)
-{
-	nano::private_key prv_key;
+	nano::raw_key prv_key;
 	blake2b_state hash;
 	blake2b_init (&hash, prv_key.bytes.size ());
-	blake2b_update (&hash, seed_a.data.bytes.data (), seed_a.data.bytes.size ());
+	blake2b_update (&hash, seed_a.bytes.data (), seed_a.bytes.size ());
 	nano::uint256_union index (index_a);
 	blake2b_update (&hash, reinterpret_cast<uint8_t *> (&index.dwords[7]), sizeof (uint32_t));
 	blake2b_final (&hash, prv_key.bytes.data (), prv_key.bytes.size ());
 	return prv_key;
 }
 
-nano::public_key nano::pub_key (nano::private_key const & privatekey_a)
+nano::public_key nano::pub_key (nano::raw_key const & raw_key_a)
 {
 	nano::public_key result;
-	ed25519_publickey (privatekey_a.bytes.data (), result.bytes.data ());
+	ed25519_publickey (raw_key_a.bytes.data (), result.bytes.data ());
 	return result;
 }
 
 nano::signature nano::sign_message (nano::raw_key const & private_key, nano::public_key const & public_key, uint8_t const * data, size_t size)
 {
 	nano::signature result;
-	ed25519_sign (data, size, private_key.data.bytes.data (), public_key.bytes.data (), result.bytes.data ());
+	ed25519_sign (data, size, private_key.bytes.data (), public_key.bytes.data (), result.bytes.data ());
 	return result;
 }
 
@@ -790,7 +782,7 @@ std::string nano::uint128_union::to_string_dec () const
 }
 
 nano::hash_or_account::hash_or_account (uint64_t value_a) :
-raw (value_a)
+	raw (value_a)
 {
 }
 
@@ -824,12 +816,12 @@ std::string nano::hash_or_account::to_account () const
 	return account.to_account ();
 }
 
-nano::hash_or_account::operator nano::block_hash const & () const
+nano::block_hash const & nano::hash_or_account::as_block_hash () const
 {
 	return hash;
 }
 
-nano::hash_or_account::operator nano::account const & () const
+nano::account const & nano::hash_or_account::as_account () const
 {
 	return account;
 }

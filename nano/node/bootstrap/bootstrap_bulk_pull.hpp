@@ -28,7 +28,7 @@ class bootstrap_client;
 class bulk_pull_client final : public std::enable_shared_from_this<nano::bulk_pull_client>
 {
 public:
-	bulk_pull_client (std::shared_ptr<nano::bootstrap_client>, std::shared_ptr<nano::bootstrap_attempt>, nano::pull_info const &);
+	bulk_pull_client (std::shared_ptr<nano::bootstrap_client> const &, std::shared_ptr<nano::bootstrap_attempt> const &, nano::pull_info const &);
 	~bulk_pull_client ();
 	void request ();
 	void receive_block ();
@@ -48,7 +48,7 @@ public:
 class bulk_pull_account_client final : public std::enable_shared_from_this<nano::bulk_pull_account_client>
 {
 public:
-	bulk_pull_account_client (std::shared_ptr<nano::bootstrap_client>, std::shared_ptr<nano::bootstrap_attempt>, nano::account const &);
+	bulk_pull_account_client (std::shared_ptr<nano::bootstrap_client> const &, std::shared_ptr<nano::bootstrap_attempt> const &, nano::account const &);
 	~bulk_pull_account_client ();
 	void request ();
 	void receive_pending ();

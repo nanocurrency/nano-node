@@ -8,14 +8,12 @@ namespace nano
 {
 // OS-specific way of finding a path to a home directory.
 boost::filesystem::path working_path (bool = false);
-// Function to migrate working_path() from above from RaiBlocks to Nano
-bool migrate_working_path (std::string &);
 // Get a unique path within the home directory, used for testing.
 // Any directories created at this location will be removed when a test finishes.
 boost::filesystem::path unique_path ();
 // Remove all unique tmp directories created by the process
 void remove_temporary_directories ();
 // Generic signal handler declarations
-extern std::function<void()> signal_handler_impl;
+extern std::function<void ()> signal_handler_impl;
 void signal_handler (int sig);
 }

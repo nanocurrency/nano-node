@@ -1,6 +1,7 @@
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/threading.hpp>
+#include <nano/lib/timer.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/signatures.hpp>
 #include <nano/node/state_block_signature_verification.hpp>
@@ -9,14 +10,14 @@
 #include <boost/format.hpp>
 
 nano::state_block_signature_verification::state_block_signature_verification (nano::signature_checker & signature_checker, nano::epochs & epochs, nano::node_config & node_config, nano::logger_mt & logger, uint64_t state_block_signature_verification_size) :
-signature_checker (signature_checker),
-epochs (epochs),
-node_config (node_config),
-logger (logger),
-thread ([this, state_block_signature_verification_size]() {
-	nano::thread_role::set (nano::thread_role::name::state_block_signature_verification);
-	this->run (state_block_signature_verification_size);
-})
+	signature_checker (signature_checker),
+	epochs (epochs),
+	node_config (node_config),
+	logger (logger),
+	thread ([this, state_block_signature_verification_size] () {
+		nano::thread_role::set (nano::thread_role::name::state_block_signature_verification);
+		this->run (state_block_signature_verification_size);
+	})
 {
 }
 
@@ -28,7 +29,7 @@ nano::state_block_signature_verification::~state_block_signature_verification ()
 void nano::state_block_signature_verification::stop ()
 {
 	{
-		nano::lock_guard<std::mutex> guard (mutex);
+		nano::lock_guard<nano::mutex> guard (mutex);
 		stopped = true;
 	}
 
@@ -41,7 +42,7 @@ void nano::state_block_signature_verification::stop ()
 
 void nano::state_block_signature_verification::run (uint64_t state_block_signature_verification_size)
 {
-	nano::unique_lock<std::mutex> lk (mutex);
+	nano::unique_lock<nano::mutex> lk (mutex);
 	while (!stopped)
 	{
 		if (!state_blocks.empty ())
@@ -69,28 +70,28 @@ void nano::state_block_signature_verification::run (uint64_t state_block_signatu
 
 bool nano::state_block_signature_verification::is_active ()
 {
-	nano::lock_guard<std::mutex> guard (mutex);
+	nano::lock_guard<nano::mutex> guard (mutex);
 	return active;
 }
 
-void nano::state_block_signature_verification::add (nano::unchecked_info const & info_a)
+void nano::state_block_signature_verification::add (nano::unchecked_info const & info_a, bool watch_work_a)
 {
 	{
-		nano::lock_guard<std::mutex> guard (mutex);
-		state_blocks.push_back (info_a);
+		nano::lock_guard<nano::mutex> guard (mutex);
+		state_blocks.emplace_back (info_a, watch_work_a);
 	}
 	condition.notify_one ();
 }
 
 size_t nano::state_block_signature_verification::size ()
 {
-	nano::lock_guard<std::mutex> guard (mutex);
+	nano::lock_guard<nano::mutex> guard (mutex);
 	return state_blocks.size ();
 }
 
-std::deque<nano::unchecked_info> nano::state_block_signature_verification::setup_items (size_t max_count)
+std::deque<std::pair<nano::unchecked_info, bool>> nano::state_block_signature_verification::setup_items (size_t max_count)
 {
-	std::deque<nano::unchecked_info> items;
+	std::deque<std::pair<nano::unchecked_info, bool>> items;
 	if (state_blocks.size () <= max_count)
 	{
 		items.swap (state_blocks);
@@ -107,7 +108,7 @@ std::deque<nano::unchecked_info> nano::state_block_signature_verification::setup
 	return items;
 }
 
-void nano::state_block_signature_verification::verify_state_blocks (std::deque<nano::unchecked_info> & items)
+void nano::state_block_signature_verification::verify_state_blocks (std::deque<std::pair<nano::unchecked_info, bool>> & items)
 {
 	if (!items.empty ())
 	{
@@ -130,7 +131,7 @@ void nano::state_block_signature_verification::verify_state_blocks (std::deque<n
 		signatures.reserve (size);
 		std::vector<int> verifications;
 		verifications.resize (size, 0);
-		for (auto & item : items)
+		for ([[maybe_unused]] auto & [item, watch_work] : items)
 		{
 			hashes.push_back (item.block->hash ());
 			messages.push_back (hashes.back ().bytes.data ());
@@ -159,7 +160,7 @@ void nano::state_block_signature_verification::verify_state_blocks (std::deque<n
 	}
 }
 
-std::unique_ptr<nano::container_info_component> nano::collect_container_info (state_block_signature_verification & state_block_signature_verification, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (state_block_signature_verification & state_block_signature_verification, std::string const & name)
 {
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "state_blocks", state_block_signature_verification.size (), sizeof (nano::unchecked_info) }));
