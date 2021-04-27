@@ -34,8 +34,8 @@ rm -f ./cmake_install.sh
 		exit 1
 	fi
 
-	if ! version_min 'boost --version' 1.68.999; then
-		echo "boost version too low (1.69.0+ required)" >&2
+	if ! version_min 'boost --version' 1.69.999; then
+		echo "boost version too low (1.70.0+ required)" >&2
 		exit 1
 	fi
 
