@@ -422,11 +422,6 @@ set(UPNPC_BUILD_SHARED
     OFF
     CACHE BOOL "")
 add_subdirectory(miniupnp/miniupnpc EXCLUDE_FROM_ALL)
-# FIXME: This fixes miniupnpc include directories without modifying miniupnpc's
-# CMakeLists.txt but should be set there
-set_target_properties(
-  libminiupnpc-static PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                 "${CMAKE_SOURCE_DIR}/miniupnp/miniupnpc")
 
 set(BUILD_SHARED
     OFF
