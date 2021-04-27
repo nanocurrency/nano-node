@@ -61,7 +61,6 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 			if (fd_limit < fd_limit_recommended_minimum)
 			{
 				auto low_fd_text = boost::str (boost::format ("WARNING: The file descriptor limit on this system may be too low (%1%) and should be increased to at least %2%.") % fd_limit % fd_limit_recommended_minimum);
-				std::cerr << low_fd_text << std::endl;
 				logger.always_log (low_fd_text);
 			}
 
