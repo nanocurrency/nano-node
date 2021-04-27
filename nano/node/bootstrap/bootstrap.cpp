@@ -91,7 +91,7 @@ bool nano::bootstrap_initiator::bootstrap_lazy (nano::hash_or_account const & ha
 				stop_attempts ();
 			}
 			node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate_lazy, nano::stat::dir::out);
-			nano::lock_guard<std::mutex> lock (mutex);
+			nano::lock_guard<nano::mutex> lock (mutex);
 			if (!stopped && find_attempt (nano::bootstrap_mode::lazy) == nullptr)
 			{
 				lazy_attempt = std::make_shared<nano::bootstrap_attempt_lazy> (node.shared (), attempts.incremental++, id_a.empty () ? hash_or_account_a.to_string () : id_a);

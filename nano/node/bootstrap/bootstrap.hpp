@@ -72,6 +72,7 @@ public:
 	std::shared_ptr<nano::bootstrap_attempt> find (uint64_t);
 	size_t size ();
 	std::atomic<uint64_t> incremental{ 0 };
+	nano::mutex bootstrap_attempts_mutex;
 	std::map<uint64_t, std::shared_ptr<nano::bootstrap_attempt>> attempts;
 };
 
