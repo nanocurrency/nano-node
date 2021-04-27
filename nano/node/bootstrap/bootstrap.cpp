@@ -80,8 +80,8 @@ void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bo
 
 bool nano::bootstrap_initiator::bootstrap_lazy (nano::hash_or_account const & hash_or_account_a, bool force, bool confirmed, std::string id_a)
 {
-	bool key_add_allowed = force || node.flags.disable_legacy_bootstrap;
-	if (key_add_allowed)
+	bool key_add = force || node.flags.disable_legacy_bootstrap;
+	if (key_add)
 	{
 		auto lazy_attempt (current_lazy_attempt ());
 		if (lazy_attempt == nullptr || force)
@@ -97,16 +97,16 @@ bool nano::bootstrap_initiator::bootstrap_lazy (nano::hash_or_account const & ha
 				lazy_attempt = std::make_shared<nano::bootstrap_attempt_lazy> (node.shared (), attempts.incremental++, id_a.empty () ? hash_or_account_a.to_string () : id_a);
 				attempts_list.push_back (lazy_attempt);
 				attempts.add (lazy_attempt);
-				lazy_attempt->lazy_start (hash_or_account_a, confirmed);
+				key_add = lazy_attempt->lazy_start (hash_or_account_a, confirmed);
 			}
 		}
 		else
 		{
-			lazy_attempt->lazy_start (hash_or_account_a, confirmed);
+			key_add = lazy_attempt->lazy_start (hash_or_account_a, confirmed);
 		}
 		condition.notify_all ();
 	}
-	return key_add_allowed;
+	return key_add;
 }
 
 void nano::bootstrap_initiator::bootstrap_wallet (std::deque<nano::account> & accounts_a)
