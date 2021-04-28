@@ -80,33 +80,30 @@ void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bo
 
 bool nano::bootstrap_initiator::bootstrap_lazy (nano::hash_or_account const & hash_or_account_a, bool force, bool confirmed, std::string id_a)
 {
-	bool key_add = force || node.flags.disable_legacy_bootstrap;
-	if (key_add)
+	bool key_added (false);
+	auto lazy_attempt (current_lazy_attempt ());
+	if (lazy_attempt == nullptr || force)
 	{
-		auto lazy_attempt (current_lazy_attempt ());
-		if (lazy_attempt == nullptr || force)
+		if (force)
 		{
-			if (force)
-			{
-				stop_attempts ();
-			}
-			node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate_lazy, nano::stat::dir::out);
-			nano::lock_guard<nano::mutex> lock (mutex);
-			if (!stopped && find_attempt (nano::bootstrap_mode::lazy) == nullptr)
-			{
-				lazy_attempt = std::make_shared<nano::bootstrap_attempt_lazy> (node.shared (), attempts.incremental++, id_a.empty () ? hash_or_account_a.to_string () : id_a);
-				attempts_list.push_back (lazy_attempt);
-				attempts.add (lazy_attempt);
-				key_add = lazy_attempt->lazy_start (hash_or_account_a, confirmed);
-			}
+			stop_attempts ();
 		}
-		else
+		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate_lazy, nano::stat::dir::out);
+		nano::lock_guard<nano::mutex> lock (mutex);
+		if (!stopped && find_attempt (nano::bootstrap_mode::lazy) == nullptr)
 		{
-			key_add = lazy_attempt->lazy_start (hash_or_account_a, confirmed);
+			lazy_attempt = std::make_shared<nano::bootstrap_attempt_lazy> (node.shared (), attempts.incremental++, id_a.empty () ? hash_or_account_a.to_string () : id_a);
+			attempts_list.push_back (lazy_attempt);
+			attempts.add (lazy_attempt);
+			key_added = lazy_attempt->lazy_start (hash_or_account_a, confirmed);
 		}
-		condition.notify_all ();
 	}
-	return key_add;
+	else
+	{
+		key_added = lazy_attempt->lazy_start (hash_or_account_a, confirmed);
+	}
+	condition.notify_all ();
+	return key_added;
 }
 
 void nano::bootstrap_initiator::bootstrap_wallet (std::deque<nano::account> & accounts_a)
