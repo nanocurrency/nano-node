@@ -839,7 +839,7 @@ std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block_hash cons
 		auto block_transaction (wallets.node.ledger.store.tx_begin_read ());
 		auto transaction (wallets.tx_begin_read ());
 		nano::pending_info pending_info;
-		if (wallets.node.ledger.block_or_pruned_exists (block_transaction, send_hash_a))
+		if (wallets.node.ledger.block_exists (block_transaction, send_hash_a))
 		{
 			if (!wallets.node.ledger.store.pending_get (block_transaction, nano::pending_key (account_a, send_hash_a), pending_info))
 			{
@@ -1188,18 +1188,7 @@ bool nano::wallet::search_pending (nano::transaction const & wallet_transaction_
 					if (wallets.node.config.receive_minimum.number () <= amount)
 					{
 						wallets.node.logger.try_log (boost::str (boost::format ("Found a pending block %1% for account %2%") % hash.to_string () % pending.source.to_account ()));
-						bool confirmed (wallets.node.ledger.block_confirmed (block_transaction, hash));
-						if (confirmed)
-						{
-							auto block (wallets.node.store.block_get (block_transaction, hash));
-							release_assert (block->type () == nano::block_type::state || block->type () == nano::block_type::send);
-						}
-						else if (wallets.node.ledger.pruning)
-						{
-							// All pruned blocks should be confirmed
-							confirmed = wallets.node.store.pruned_exists (block_transaction, hash);
-						}
-						if (confirmed)
+						if (wallets.node.ledger.block_confirmed (block_transaction, hash))
 						{
 							auto representative = store.representative (wallet_transaction_a);
 							// Receive confirmed block

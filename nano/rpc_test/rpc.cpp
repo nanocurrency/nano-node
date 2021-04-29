@@ -7777,10 +7777,8 @@ TEST (rpc, receive_pruned)
 		ASSERT_EQ (2, node2.ledger.pruning_action (transaction, send2->hash (), 1));
 	}
 	ASSERT_EQ (2, node2.ledger.cache.pruned_count);
-	ASSERT_TRUE (node2.ledger.block_or_pruned_exists (send1->hash ()));
-	ASSERT_FALSE (node2.ledger.block_exists (send1->hash ()));
-	ASSERT_TRUE (node2.ledger.block_or_pruned_exists (send2->hash ()));
-	ASSERT_FALSE (node2.ledger.block_exists (send2->hash ()));
+	ASSERT_TRUE (node2.ledger.block_exists (send1->hash ())); // true for pruned
+	ASSERT_TRUE (node2.ledger.block_exists (send2->hash ())); // true for pruned
 	ASSERT_TRUE (node2.ledger.block_exists (send3->hash ()));
 
 	scoped_io_thread_name_change scoped_thread_name_io;

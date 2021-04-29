@@ -3463,10 +3463,10 @@ TEST (ledger, pruning_action)
 	ASSERT_EQ (0, ledger.pruning_action (transaction, genesis.hash (), 1));
 	ASSERT_TRUE (store->pending_exists (transaction, nano::pending_key (nano::genesis_account, send1.hash ())));
 	ASSERT_FALSE (store->block_exists (transaction, send1.hash ()));
-	ASSERT_TRUE (ledger.block_or_pruned_exists (transaction, send1.hash ()));
+	ASSERT_TRUE (ledger.block_exists (transaction, send1.hash ())); // true for pruned
 	// Pruned ledger start without proper flags emulation
 	ledger.pruning = false;
-	ASSERT_FALSE (ledger.block_or_pruned_exists (transaction, send1.hash ()));
+	ASSERT_TRUE (ledger.block_exists (transaction, send1.hash ()));
 	ledger.pruning = true;
 	ASSERT_TRUE (store->pruned_exists (transaction, send1.hash ()));
 	ASSERT_TRUE (store->block_exists (transaction, genesis.hash ()));
@@ -3756,8 +3756,8 @@ TEST (ledger, pruning_safe_functions)
 	ASSERT_TRUE (store->block_exists (transaction, send2.hash ()));
 	// Pruning action
 	ASSERT_EQ (1, ledger.pruning_action (transaction, send1.hash (), 1));
-	ASSERT_FALSE (store->block_exists (transaction, send1.hash ()));
-	ASSERT_TRUE (ledger.block_or_pruned_exists (transaction, send1.hash ()));
+	ASSERT_TRUE (store->block_exists (transaction, send1.hash ())); // true for pruned
+	ASSERT_TRUE (ledger.block_exists (transaction, send1.hash ())); // true for pruned
 	ASSERT_TRUE (store->pruned_exists (transaction, send1.hash ()));
 	ASSERT_TRUE (store->block_exists (transaction, genesis.hash ()));
 	ASSERT_TRUE (store->block_exists (transaction, send2.hash ()));

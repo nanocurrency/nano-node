@@ -747,8 +747,7 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 	node1->ledger_pruning (2, false, false);
 	ASSERT_EQ (5, node1->ledger.cache.block_count);
 	ASSERT_EQ (1, node1->ledger.cache.pruned_count);
-	ASSERT_FALSE (node1->ledger.block_exists (send1->hash ()));
-	ASSERT_TRUE (node1->ledger.block_or_pruned_exists (send1->hash ()));
+	ASSERT_TRUE (node1->ledger.block_exists (send1->hash ()));  // true for pruned
 	ASSERT_TRUE (node1->ledger.block_exists (send2->hash ()));
 	ASSERT_TRUE (node1->ledger.block_exists (open->hash ()));
 	ASSERT_TRUE (node1->ledger.block_exists (state_open->hash ()));
@@ -1300,10 +1299,8 @@ TEST (bulk, genesis_pruning)
 	node1->ledger_pruning (2, false, false);
 	ASSERT_EQ (2, node1->ledger.cache.pruned_count);
 	ASSERT_EQ (4, node1->ledger.cache.block_count);
-	ASSERT_FALSE (node1->ledger.block_exists (send1->hash ()));
-	ASSERT_TRUE (node1->ledger.block_or_pruned_exists (send1->hash ()));
-	ASSERT_FALSE (node1->ledger.block_exists (send2->hash ()));
-	ASSERT_TRUE (node1->ledger.block_or_pruned_exists (send2->hash ()));
+	ASSERT_TRUE (node1->ledger.block_exists (send1->hash ())); // true for pruned
+	ASSERT_TRUE (node1->ledger.block_exists (send2->hash ())); // true for pruned
 	ASSERT_TRUE (node1->ledger.block_exists (send3->hash ()));
 	// Bootstrap with missing blocks for node2
 	node2->bootstrap_initiator.bootstrap (node1->network.endpoint (), false);

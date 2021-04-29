@@ -487,8 +487,7 @@ TEST (node, search_pending_pruned)
 		ASSERT_EQ (1, node2->ledger.pruning_action (transaction, send1->hash (), 1));
 	}
 	ASSERT_EQ (1, node2->ledger.cache.pruned_count);
-	ASSERT_TRUE (node2->ledger.block_or_pruned_exists (send1->hash ()));
-	ASSERT_FALSE (node2->ledger.block_exists (send1->hash ()));
+	ASSERT_TRUE (node2->ledger.block_exists (send1->hash ())); // true for pruned
 
 	// Receive pruned block
 	system.wallet (1)->insert_adhoc (key2.prv);
@@ -4656,8 +4655,7 @@ TEST (node, pruning_automatic)
 	ASSERT_EQ (1, node1.ledger.cache.pruned_count);
 	ASSERT_EQ (3, node1.ledger.cache.block_count);
 	ASSERT_TRUE (node1.ledger.block_exists (genesis.hash ()));
-	ASSERT_FALSE (node1.ledger.block_exists (send1->hash ()));
-	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send1->hash ()));
+	ASSERT_TRUE (node1.ledger.block_exists (send1->hash ()));  // true for pruned
 	ASSERT_TRUE (node1.ledger.block_exists (send2->hash ()));
 }
 
@@ -4713,8 +4711,7 @@ TEST (node, pruning_age)
 	ASSERT_EQ (1, node1.ledger.cache.pruned_count);
 	ASSERT_EQ (3, node1.ledger.cache.block_count);
 	ASSERT_TRUE (node1.ledger.block_exists (genesis.hash ()));
-	ASSERT_FALSE (node1.ledger.block_exists (send1->hash ()));
-	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send1->hash ()));
+	ASSERT_TRUE (node1.ledger.block_exists (send1->hash ())); // true for pruned
 	ASSERT_TRUE (node1.ledger.block_exists (send2->hash ()));
 }
 
@@ -4766,8 +4763,7 @@ TEST (node, pruning_depth)
 	ASSERT_EQ (1, node1.ledger.cache.pruned_count);
 	ASSERT_EQ (3, node1.ledger.cache.block_count);
 	ASSERT_TRUE (node1.ledger.block_exists (genesis.hash ()));
-	ASSERT_FALSE (node1.ledger.block_exists (send1->hash ()));
-	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send1->hash ()));
+	ASSERT_TRUE (node1.ledger.block_exists (send1->hash ())); // true for pruned
 	ASSERT_TRUE (node1.ledger.block_exists (send2->hash ()));
 }
 

@@ -1280,7 +1280,7 @@ void nano::node::receive_confirmed (nano::transaction const & block_transaction_
 			}
 			else
 			{
-				if (!store.block_or_pruned_exists (block_transaction_a, hash_a))
+				if (!store.block_exists (block_transaction_a, hash_a))
 				{
 					logger.try_log (boost::str (boost::format ("Confirmed block is missing:  %1%") % hash_a.to_string ()));
 					debug_assert (false && "Confirmed block is missing");
