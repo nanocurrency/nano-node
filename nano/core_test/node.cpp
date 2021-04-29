@@ -4655,7 +4655,7 @@ TEST (node, pruning_automatic)
 	ASSERT_EQ (1, node1.ledger.cache.pruned_count);
 	ASSERT_EQ (3, node1.ledger.cache.block_count);
 	ASSERT_TRUE (node1.ledger.block_exists (genesis.hash ()));
-	ASSERT_TRUE (node1.ledger.block_exists (send1->hash ()));  // true for pruned
+	ASSERT_TRUE (node1.ledger.block_exists (send1->hash ())); // true for pruned
 	ASSERT_TRUE (node1.ledger.block_exists (send2->hash ()));
 }
 

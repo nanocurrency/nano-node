@@ -747,7 +747,7 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 	node1->ledger_pruning (2, false, false);
 	ASSERT_EQ (5, node1->ledger.cache.block_count);
 	ASSERT_EQ (1, node1->ledger.cache.pruned_count);
-	ASSERT_TRUE (node1->ledger.block_exists (send1->hash ()));  // true for pruned
+	ASSERT_TRUE (node1->ledger.block_exists (send1->hash ())); // true for pruned
 	ASSERT_TRUE (node1->ledger.block_exists (send2->hash ()));
 	ASSERT_TRUE (node1->ledger.block_exists (open->hash ()));
 	ASSERT_TRUE (node1->ledger.block_exists (state_open->hash ()));
