@@ -2960,7 +2960,6 @@ void nano::json_handler::pending_exists ()
 void nano::json_handler::process ()
 {
 	node.workers.push_task (create_worker_task ([] (std::shared_ptr<nano::json_handler> const & rpc_l) {
-		const bool watch_work_l = rpc_l->request.get<bool> ("watch_work", true);
 		const bool is_async = rpc_l->request.get<bool> ("async", false);
 		auto block (rpc_l->block_impl (true));
 
@@ -3037,7 +3036,7 @@ void nano::json_handler::process ()
 			{
 				if (!is_async)
 				{
-					auto result (rpc_l->node.process_local (block, watch_work_l));
+					auto result (rpc_l->node.process_local (block));
 					switch (result.code)
 					{
 						case nano::process_result::progress:
@@ -3122,7 +3121,7 @@ void nano::json_handler::process ()
 				{
 					if (block->type () == nano::block_type::state)
 					{
-						rpc_l->node.process_local_async (block, watch_work_l);
+						rpc_l->node.process_local_async (block);
 						rpc_l->response_l.put ("started", "1");
 					}
 					else

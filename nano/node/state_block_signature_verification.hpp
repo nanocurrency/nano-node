@@ -19,12 +19,12 @@ class state_block_signature_verification
 public:
 	state_block_signature_verification (nano::signature_checker &, nano::epochs &, nano::node_config &, nano::logger_mt &, uint64_t);
 	~state_block_signature_verification ();
-	void add (nano::unchecked_info const & info_a, bool watch_work_a);
+	void add (nano::unchecked_info const & info_a);
 	size_t size ();
 	void stop ();
 	bool is_active ();
 
-	std::function<void (std::deque<std::pair<nano::unchecked_info, bool>> &, std::vector<int> const &, std::vector<nano::block_hash> const &, std::vector<nano::signature> const &)> blocks_verified_callback;
+	std::function<void (std::deque<nano::unchecked_info> &, std::vector<int> const &, std::vector<nano::block_hash> const &, std::vector<nano::signature> const &)> blocks_verified_callback;
 	std::function<void ()> transition_inactive_callback;
 
 private:

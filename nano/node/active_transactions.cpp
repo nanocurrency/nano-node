@@ -300,10 +300,6 @@ void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> 
 	size_t unconfirmed_count_l (0);
 	nano::timer<std::chrono::milliseconds> elapsed (nano::timer_state::started);
 
-	auto const is_watched = [watched = node.wallets.watcher->list_watched ()] (nano::qualified_root const & root_a) -> bool {
-		return watched.find (root_a) != watched.end ();
-	};
-
 	/*
 	 * Loop through active elections in descending order of proof-of-work difficulty, requesting confirmation
 	 *
@@ -316,7 +312,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> 
 		bool const confirmed_l (election_l->confirmed ());
 
 		unconfirmed_count_l += !confirmed_l;
-		bool const overflow_l (unconfirmed_count_l > node.config.active_elections_size && election_l->election_start < election_ttl_cutoff_l && !is_watched (election_l->qualified_root));
+		bool const overflow_l (unconfirmed_count_l > node.config.active_elections_size && election_l->election_start < election_ttl_cutoff_l);
 		if (overflow_l || election_l->transition_time (solicitor))
 		{
 			if (election_l->optimistic () && election_l->failed ())

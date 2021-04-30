@@ -74,11 +74,11 @@ bool nano::state_block_signature_verification::is_active ()
 	return active;
 }
 
-void nano::state_block_signature_verification::add (nano::unchecked_info const & info_a, bool watch_work_a)
+void nano::state_block_signature_verification::add (nano::unchecked_info const & info_a)
 {
 	{
 		nano::lock_guard<nano::mutex> guard (mutex);
-		state_blocks.emplace_back (info_a, watch_work_a);
+		state_blocks.emplace_back (info_a);
 	}
 	condition.notify_one ();
 }
@@ -89,7 +89,7 @@ size_t nano::state_block_signature_verification::size ()
 	return state_blocks.size ();
 }
 
-std::deque<std::pair<nano::unchecked_info, bool>> nano::state_block_signature_verification::setup_items (size_t max_count)
+std::deque<nano::unchecked_info> nano::state_block_signature_verification::setup_items (size_t max_count)
 {
 	std::deque<std::pair<nano::unchecked_info, bool>> items;
 	if (state_blocks.size () <= max_count)
@@ -131,7 +131,7 @@ void nano::state_block_signature_verification::verify_state_blocks (std::deque<s
 		signatures.reserve (size);
 		std::vector<int> verifications;
 		verifications.resize (size, 0);
-		for ([[maybe_unused]] auto & [item, watch_work] : items)
+		for (auto & item : items)
 		{
 			hashes.push_back (item.block->hash ());
 			messages.push_back (hashes.back ().bytes.data ());
