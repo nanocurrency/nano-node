@@ -2656,7 +2656,7 @@ TEST (ledger, epoch_open_pending)
 	ASSERT_EQ (nano::signature_verification::valid_epoch, process_result.verified);
 	node1.block_processor.add (epoch_open);
 	node1.block_processor.flush ();
-	ASSERT_FALSE (node1.ledger.block_exists (epoch_open->hash ()));
+	ASSERT_FALSE (node1.ledger.block_or_pruned_exists (epoch_open->hash ()));
 	// Open block should be inserted into unchecked
 	auto blocks (node1.store.unchecked_get (node1.store.tx_begin_read (), nano::hash_or_account (epoch_open->account ()).hash));
 	ASSERT_EQ (blocks.size (), 1);
@@ -2674,7 +2674,7 @@ TEST (ledger, epoch_open_pending)
 				 .build_shared ();
 	node1.block_processor.add (send1);
 	node1.block_processor.flush ();
-	ASSERT_TRUE (node1.ledger.block_exists (epoch_open->hash ()));
+	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (epoch_open->hash ()));
 }
 
 TEST (ledger, block_hash_account_conflict)
@@ -3463,10 +3463,10 @@ TEST (ledger, pruning_action)
 	ASSERT_EQ (0, ledger.pruning_action (transaction, genesis.hash (), 1));
 	ASSERT_TRUE (store->pending_exists (transaction, nano::pending_key (nano::genesis_account, send1.hash ())));
 	ASSERT_FALSE (store->block_exists (transaction, send1.hash ()));
-	ASSERT_TRUE (ledger.block_exists (transaction, send1.hash ())); // true for pruned
+	ASSERT_TRUE (ledger.block_or_pruned_exists (transaction, send1.hash ()));
 	// Pruned ledger start without proper flags emulation
 	ledger.pruning = false;
-	ASSERT_TRUE (ledger.block_exists (transaction, send1.hash ()));
+	ASSERT_TRUE (ledger.block_or_pruned_exists (transaction, send1.hash ()));
 	ledger.pruning = true;
 	ASSERT_TRUE (store->pruned_exists (transaction, send1.hash ()));
 	ASSERT_TRUE (store->block_exists (transaction, genesis.hash ()));
@@ -3756,8 +3756,8 @@ TEST (ledger, pruning_safe_functions)
 	ASSERT_TRUE (store->block_exists (transaction, send2.hash ()));
 	// Pruning action
 	ASSERT_EQ (1, ledger.pruning_action (transaction, send1.hash (), 1));
-	ASSERT_TRUE (store->block_exists (transaction, send1.hash ())); // true for pruned
-	ASSERT_TRUE (ledger.block_exists (transaction, send1.hash ())); // true for pruned
+	ASSERT_FALSE (store->block_exists (transaction, send1.hash ()));
+	ASSERT_TRUE (ledger.block_or_pruned_exists (transaction, send1.hash ())); // true for pruned
 	ASSERT_TRUE (store->pruned_exists (transaction, send1.hash ()));
 	ASSERT_TRUE (store->block_exists (transaction, genesis.hash ()));
 	ASSERT_TRUE (store->block_exists (transaction, send2.hash ()));

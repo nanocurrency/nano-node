@@ -839,7 +839,7 @@ std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block_hash cons
 		auto block_transaction (wallets.node.ledger.store.tx_begin_read ());
 		auto transaction (wallets.tx_begin_read ());
 		nano::pending_info pending_info;
-		if (wallets.node.ledger.block_exists (block_transaction, send_hash_a))
+		if (wallets.node.ledger.block_or_pruned_exists (block_transaction, send_hash_a))
 		{
 			if (!wallets.node.ledger.store.pending_get (block_transaction, nano::pending_key (account_a, send_hash_a), pending_info))
 			{

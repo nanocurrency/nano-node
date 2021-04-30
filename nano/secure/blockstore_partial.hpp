@@ -108,10 +108,6 @@ public:
 
 	bool block_exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override
 	{
-		if (pruned_exists (transaction_a, hash_a))
-		{
-			return true;
-		}
 		auto junk = block_raw_get (transaction_a, hash_a);
 		return junk.size () != 0;
 	}

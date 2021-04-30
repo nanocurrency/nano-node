@@ -69,7 +69,7 @@ TEST (work_watcher, propagate)
 	auto & node_passive = *system.add_node (node_config);
 	nano::keypair key;
 	auto const block (wallet.send_action (nano::dev_genesis_key.pub, key.pub, 100));
-	ASSERT_TIMELY (5s, node_passive.ledger.block_exists (block->hash ()));
+	ASSERT_TIMELY (5s, node_passive.ledger.block_or_pruned_exists (block->hash ()));
 	auto const multiplier (nano::normalized_multiplier (nano::difficulty::to_multiplier (block->difficulty (), nano::work_threshold (block->work_version (), nano::block_details (nano::epoch::epoch_0, false, false, false))), node.network_params.network.publish_thresholds.epoch_1));
 	auto updated_multiplier{ multiplier };
 	auto propagated_multiplier{ multiplier };
