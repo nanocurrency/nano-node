@@ -525,7 +525,7 @@ TEST (block_store, unchecked_begin_search)
 	auto unchecked (store->unchecked_begin (transaction, nano::unchecked_key (block1.hash (), 0)));
 	ASSERT_EQ (unchecked->first.key (), block1.hash ());
 	ASSERT_EQ (unchecked->first.hash, block2->hash ());
-	ASSERT_EQ (unchecked->second.block->hash(), block2->hash ());
+	ASSERT_EQ (unchecked->second.block->hash (), block2->hash ());
 }
 
 TEST (block_store, frontier_retrieval)
