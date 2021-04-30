@@ -511,85 +511,6 @@ TEST (active_transactions, inactive_votes_cache_election_start)
 	ASSERT_TIMELY (5s, 13 == node.ledger.cache.cemented_count);
 }
 
-TEST (active_transactions, DISABLED_update_difficulty)
-{
-	nano::system system (2);
-	auto & node1 = *system.nodes[0];
-	auto & node2 = *system.nodes[1];
-	nano::genesis genesis;
-	nano::keypair key1;
-	// Generate blocks & start elections
-	nano::state_block_builder builder;
-	auto send1 = builder.make_block ()
-				 .account (nano::dev_genesis_key.pub)
-				 .previous (genesis.hash ())
-				 .representative (nano::dev_genesis_key.pub)
-				 .balance (nano::genesis_amount - 100)
-				 .link (key1.pub)
-				 .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-				 .work (*system.work.generate (genesis.hash ()))
-				 .build_shared ();
-	auto difficulty1 (send1->difficulty ());
-	auto multiplier1 (nano::normalized_multiplier (nano::difficulty::to_multiplier (difficulty1, nano::work_threshold (send1->work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false))), node1.network_params.network.publish_thresholds.epoch_1));
-	auto send2 = builder.make_block ()
-				 .account (nano::dev_genesis_key.pub)
-				 .previous (send1->hash ())
-				 .representative (nano::dev_genesis_key.pub)
-				 .balance (nano::genesis_amount - 200)
-				 .link (key1.pub)
-				 .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-				 .work (*system.work.generate (send1->hash ()))
-				 .build_shared ();
-	auto difficulty2 (send2->difficulty ());
-	auto multiplier2 (nano::normalized_multiplier (nano::difficulty::to_multiplier (difficulty2, nano::work_threshold (send2->work_version (), nano::block_details (nano::epoch::epoch_0, true, false, false))), node1.network_params.network.publish_thresholds.epoch_1));
-	node1.process_active (send1);
-	node1.process_active (send2);
-	node1.block_processor.flush ();
-	ASSERT_NO_ERROR (system.poll_until_true (10s, [&node1, &node2] { return node1.active.size () == 2 && node2.active.size () == 2; }));
-	// Update work with higher difficulty
-	auto work1 = node1.work_generate_blocking (send1->root (), difficulty1 + 1);
-	auto work2 = node1.work_generate_blocking (send2->root (), difficulty2 + 1);
-
-	std::error_code ec;
-	send1 = builder.make_block ().from (*send1).work (*work1).build_shared (ec);
-	send2 = builder.make_block ().from (*send2).work (*work2).build_shared (ec);
-	ASSERT_FALSE (ec);
-
-	node1.process_active (send1);
-	node1.process_active (send2);
-	node1.block_processor.flush ();
-	node1.scheduler.flush ();
-	// Share the updated blocks
-	node1.network.flood_block (send1);
-	node1.network.flood_block (send2);
-
-	system.deadline_set (10s);
-	bool done (false);
-	while (!done)
-	{
-		{
-			// node1
-			nano::lock_guard<nano::mutex> guard1 (node1.active.mutex);
-			auto const existing1 (node1.active.roots.find (send1->qualified_root ()));
-			ASSERT_NE (existing1, node1.active.roots.end ());
-			auto const existing2 (node1.active.roots.find (send2->qualified_root ()));
-			ASSERT_NE (existing2, node1.active.roots.end ());
-			// node2
-			nano::lock_guard<nano::mutex> guard2 (node2.active.mutex);
-			auto const existing3 (node2.active.roots.find (send1->qualified_root ()));
-			ASSERT_NE (existing3, node2.active.roots.end ());
-			auto const existing4 (node2.active.roots.find (send2->qualified_root ()));
-			ASSERT_NE (existing4, node2.active.roots.end ());
-			auto updated1 = existing1->multiplier > multiplier1;
-			auto updated2 = existing2->multiplier > multiplier2;
-			auto propagated1 = existing3->multiplier > multiplier1;
-			auto propagated2 = existing4->multiplier > multiplier2;
-			done = updated1 && updated2 && propagated1 && propagated2;
-		}
-		ASSERT_NO_ERROR (system.poll ());
-	}
-}
-
 namespace nano
 {
 TEST (active_transactions, vote_replays)
@@ -1160,8 +1081,8 @@ TEST (active_transactions, insertion_prioritization)
 	node.scheduler.flush ();
 	ASSERT_FALSE (node.active.election (blocks[6]->qualified_root ())->prioritized ());
 
-	ASSERT_EQ (4, node.stats.count (nano::stat::type::election, nano::stat::detail::election_non_priority));
-	ASSERT_EQ (3, node.stats.count (nano::stat::type::election, nano::stat::detail::election_priority));
+	ASSERT_EQ (4, node.stats.count (nano::stat::type::election, nano::stat::detail::election_start));
+	ASSERT_EQ (3, node.stats.count (nano::stat::type::election, nano::stat::detail::election_start));
 }
 
 TEST (active_multiplier, less_than_one)

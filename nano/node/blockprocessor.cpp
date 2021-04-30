@@ -563,15 +563,6 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 void nano::block_processor::process_old (nano::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a, nano::block_origin const origin_a)
 {
 	node.active.restart (transaction_a, block_a);
-	// First try to update election difficulty, then attempt to restart an election
-	if (!node.active.update_difficulty (block_a, true))
-	{
-		// Let others know about the difficulty update
-		if (origin_a == nano::block_origin::local)
-		{
-			node.network.flood_block_initial (block_a);
-		}
-	}
 }
 
 void nano::block_processor::queue_unchecked (nano::write_transaction const & transaction_a, nano::hash_or_account const & hash_or_account_a)
