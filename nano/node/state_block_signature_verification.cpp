@@ -91,7 +91,7 @@ size_t nano::state_block_signature_verification::size ()
 
 std::deque<nano::unchecked_info> nano::state_block_signature_verification::setup_items (size_t max_count)
 {
-	std::deque<std::pair<nano::unchecked_info, bool>> items;
+	std::deque<nano::unchecked_info> items;
 	if (state_blocks.size () <= max_count)
 	{
 		items.swap (state_blocks);
@@ -108,7 +108,7 @@ std::deque<nano::unchecked_info> nano::state_block_signature_verification::setup
 	return items;
 }
 
-void nano::state_block_signature_verification::verify_state_blocks (std::deque<std::pair<nano::unchecked_info, bool>> & items)
+void nano::state_block_signature_verification::verify_state_blocks (std::deque<nano::unchecked_info> & items)
 {
 	if (!items.empty ())
 	{

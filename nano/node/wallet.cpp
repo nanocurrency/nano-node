@@ -1053,7 +1053,7 @@ bool nano::wallet::action_complete (std::shared_ptr<nano::block> const & block_a
 		}
 		if (!error)
 		{
-			error = wallets.node.process_local (block_a, true).code != nano::process_result::progress;
+			error = wallets.node.process_local (block_a).code != nano::process_result::progress;
 			debug_assert (error || block_a->sideband ().details == details_a);
 		}
 		if (!error && generate_work_a)
