@@ -67,15 +67,14 @@ TEST (wallet, status_with_peer)
 {
 	nano_qt::eventloop_processor processor;
 	nano::system system (2);
-	auto wallet_l (system.nodes[0]->wallets.create (nano::random_wallet_id ()));
+	auto wallet_l = system.nodes[0]->wallets.create (nano::random_wallet_id ());
 	nano::keypair key;
 	wallet_l->insert_adhoc (key.prv);
-	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key.pub));
+	auto wallet = std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key.pub);
 	wallet->start ();
 	auto wallet_has = [wallet] (nano_qt::status_types status_ty) {
 		return wallet->active_status.active.find (status_ty) != wallet->active_status.active.end ();
 	};
-	system.nodes[0]->network.udp_channels.insert (nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000), 0);
 	// Because of the wallet "vulnerable" message, this won't be the message displayed.
 	// However, it will still be part of the status set.
 	ASSERT_FALSE (wallet_has (nano_qt::status_types::synchronizing));
