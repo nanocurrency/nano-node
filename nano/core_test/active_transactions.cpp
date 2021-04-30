@@ -1448,11 +1448,6 @@ TEST (active_transactions, list_active)
 	ASSERT_EQ (3, node.active.list_active ().size ());
 
 	auto active = node.active.list_active ();
-
-	auto difficulty_cmp = [] (std::shared_ptr<nano::election> const & election_l, std::shared_ptr<nano::election> const & election_r) {
-		return election_l->winner ()->difficulty () >= election_r->winner ()->difficulty ();
-	};
-	ASSERT_TRUE (std::is_sorted (active.cbegin (), active.cend (), difficulty_cmp));
 }
 
 TEST (active_transactions, vacancy)
