@@ -249,15 +249,6 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 				}
 			});
 
-			observers.difficulty.add ([this] (uint64_t active_difficulty) {
-				if (this->websocket_server->any_subscriber (nano::websocket::topic::active_difficulty))
-				{
-					nano::websocket::message_builder builder;
-					auto msg (builder.difficulty_changed (this->default_difficulty (nano::work_version::work_1), this->default_receive_difficulty (nano::work_version::work_1), active_difficulty));
-					this->websocket_server->broadcast (msg);
-				}
-			});
-
 			observers.telemetry.add ([this] (nano::telemetry_data const & telemetry_data, nano::endpoint const & endpoint) {
 				if (this->websocket_server->any_subscriber (nano::websocket::topic::telemetry))
 				{
