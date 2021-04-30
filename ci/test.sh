@@ -47,11 +47,7 @@ run_tests() {
         TIMEOUT_TIME_ARG=""
     fi
 
-    if [ "$(date +%s)" -lt 1625057999 ]; then # June 30 2021 23:59:59 UTC
-        tries=(_initial_ 1 2 3 4 5 6 7 8 9)
-    else
-        tries=(_initial_)
-    fi
+    tries=(_initial_)
 
     for try in "${tries[@]}"; do
         if [ "${try}" != '_initial_' ]; then
