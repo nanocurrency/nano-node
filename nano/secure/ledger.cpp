@@ -1316,7 +1316,7 @@ std::shared_ptr<nano::block> nano::ledger::forked_block (nano::transaction const
 
 bool nano::ledger::block_confirmed (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
 {
-	if (pruning && store.pruned_exists (transaction_a, hash_a))
+	if (store.pruned_exists (transaction_a, hash_a))
 	{
 		return true;
 	}
