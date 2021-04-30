@@ -886,10 +886,10 @@ bool nano::ledger::block_or_pruned_exists (nano::block_hash const & hash_a) cons
 
 bool nano::ledger::block_or_pruned_exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
 {
-    if (store.pruned_exists(transaction_a, hash_a))
-    {
-        return true;
-    }
+	if (store.pruned_exists (transaction_a, hash_a))
+	{
+		return true;
+	}
 	return store.block_exists (transaction_a, hash_a);
 }
 
