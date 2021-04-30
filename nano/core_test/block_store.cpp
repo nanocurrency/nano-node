@@ -517,7 +517,15 @@ TEST (block_store, unchecked_begin_search)
 	ASSERT_TRUE (!store->init_error ());
 	nano::keypair key0;
 	nano::send_block block1 (0, 1, 2, key0.prv, key0.pub, 3);
-	nano::send_block block2 (5, 6, 7, key0.prv, key0.pub, 8);
+	auto block2 (std::make_shared<nano::send_block> (5, 6, 7, key0.prv, key0.pub, 8));
+	auto transaction (store->tx_begin_write ());
+	store->unchecked_put (transaction, block1.hash (), block2);
+	ASSERT_NE (store->unchecked_begin (transaction), store->unchecked_end ());
+	ASSERT_NE (store->unchecked_begin (transaction, nano::unchecked_key (block1.hash (), 0)), store->unchecked_end ());
+	auto unchecked (store->unchecked_begin (transaction, nano::unchecked_key (block1.hash (), 0)));
+	ASSERT_EQ (unchecked->first.key (), block1.hash ());
+	ASSERT_EQ (unchecked->first.hash, block2->hash ());
+	ASSERT_EQ (unchecked->second.block->hash(), block2->hash ());
 }
 
 TEST (block_store, frontier_retrieval)
