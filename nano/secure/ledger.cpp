@@ -1320,15 +1320,15 @@ bool nano::ledger::block_confirmed (nano::transaction const & transaction_a, nan
 	{
 		return true;
 	}
-	auto confirmed (false);
 	auto block = store.block_get (transaction_a, hash_a);
 	if (block)
 	{
 		nano::confirmation_height_info confirmation_height_info;
 		store.confirmation_height_get (transaction_a, block->account ().is_zero () ? block->sideband ().account : block->account (), confirmation_height_info);
-		confirmed = (confirmation_height_info.height >= block->sideband ().height);
+		auto confirmed (confirmation_height_info.height >= block->sideband ().height);
+		return confirmed;
 	}
-	return confirmed;
+	return false;
 }
 
 uint64_t nano::ledger::pruning_action (nano::write_transaction & transaction_a, nano::block_hash const & hash_a, uint64_t const batch_size_a)

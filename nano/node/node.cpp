@@ -1229,7 +1229,7 @@ void nano::node::block_confirm (std::shared_ptr<nano::block> const & block_a)
 bool nano::node::block_confirmed (nano::block_hash const & hash_a)
 {
 	auto transaction (store.tx_begin_read ());
-	return store.block_exists (transaction, hash_a) && ledger.block_confirmed (transaction, hash_a);
+	return ledger.block_confirmed (transaction, hash_a);
 }
 
 bool nano::node::block_confirmed_or_being_confirmed (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
