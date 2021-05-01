@@ -103,7 +103,7 @@ void nano::block_processor::add (std::shared_ptr<nano::block> const & block_a, u
 	add (info);
 }
 
-void nano::block_processor::add (nano::unchecked_info const & info_a, const bool push_front_preference_a)
+void nano::block_processor::add (nano::unchecked_info const & info_a)
 {
 	debug_assert (!nano::work_validate_entry (*info_a.block));
 	bool quarter_full (size () > node.flags.block_processor_full_size / 4);
@@ -111,22 +111,11 @@ void nano::block_processor::add (nano::unchecked_info const & info_a, const bool
 	{
 		state_block_signature_verification.add (info_a);
 	}
-	else if (push_front_preference_a && !quarter_full)
-	{
-		/* Push blocks from unchecked to front of processing deque to keep more operations with unchecked inside of single write transaction.
-		It's designed to help with realtime blocks traffic if block processor is not performing large task like bootstrap.
-		If deque is a quarter full then push back to allow other blocks processing. */
-		{
-			nano::lock_guard<nano::mutex> guard (mutex);
-			blocks.emplace_front (info_a);
-		}
-		condition.notify_all ();
-	}
 	else
 	{
 		{
 			nano::lock_guard<nano::mutex> guard (mutex);
-			blocks.emplace_front (info_a);
+			blocks.emplace_back (info_a);
 		}
 		condition.notify_all ();
 	}
@@ -567,7 +556,7 @@ void nano::block_processor::queue_unchecked (nano::write_transaction const & tra
 		{
 			node.store.unchecked_del (transaction_a, nano::unchecked_key (hash_or_account_a, info.block->hash ()));
 		}
-		add (info, true);
+		add (info);
 	}
 	node.gap_cache.erase (hash_or_account_a.hash);
 }

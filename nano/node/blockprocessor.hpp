@@ -55,7 +55,7 @@ public:
 	bool full ();
 	bool half_full ();
 	void add_local (nano::unchecked_info const & info_a);
-	void add (nano::unchecked_info const &, const bool = false);
+	void add (nano::unchecked_info const &);
 	void add (std::shared_ptr<nano::block> const &, uint64_t = 0);
 	void force (std::shared_ptr<nano::block> const &);
 	void update (std::shared_ptr<nano::block> const &);
