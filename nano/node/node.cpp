@@ -1447,6 +1447,14 @@ bool nano::node::epoch_upgrader (nano::raw_key const & prv_a, nano::epoch epoch_
 	return error;
 }
 
+void nano::node::set_bandwidth_params (size_t limit, double ratio)
+{
+	config.bandwidth_limit_burst_ratio = ratio;
+	config.bandwidth_limit = limit;
+	network.set_bandwidth_params (limit, ratio);
+	logger.always_log (boost::str (boost::format ("set_bandwidth_params(%1%, %2%)") % limit % ratio));
+}
+
 void nano::node::epoch_upgrader_impl (nano::raw_key const & prv_a, nano::epoch epoch_a, uint64_t count_limit, uint64_t threads)
 {
 	nano::thread_role::set (nano::thread_role::name::epoch_upgrader);
