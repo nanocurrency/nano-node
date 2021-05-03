@@ -352,7 +352,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 			store.initialize (transaction, genesis, ledger.cache);
 		}
 
-		if (!ledger.block_exists (genesis.hash ()))
+		if (!ledger.block_or_pruned_exists (genesis.hash ()))
 		{
 			std::stringstream ss;
 			ss << "Genesis block not found. This commonly indicates a configuration issue, check that the --network or --data_path command line arguments are correct, "
@@ -1240,7 +1240,7 @@ void nano::node::block_confirm (std::shared_ptr<nano::block> const & block_a)
 bool nano::node::block_confirmed (nano::block_hash const & hash_a)
 {
 	auto transaction (store.tx_begin_read ());
-	return store.block_exists (transaction, hash_a) && ledger.block_confirmed (transaction, hash_a);
+	return ledger.block_confirmed (transaction, hash_a);
 }
 
 bool nano::node::block_confirmed_or_being_confirmed (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
@@ -1291,7 +1291,7 @@ void nano::node::receive_confirmed (nano::transaction const & block_transaction_
 			}
 			else
 			{
-				if (!store.block_or_pruned_exists (block_transaction_a, hash_a))
+				if (!ledger.block_or_pruned_exists (block_transaction_a, hash_a))
 				{
 					logger.try_log (boost::str (boost::format ("Confirmed block is missing:  %1%") % hash_a.to_string ()));
 					debug_assert (false && "Confirmed block is missing");

@@ -1231,9 +1231,9 @@ TEST (block_store, pruned_blocks)
 		auto transaction (store->tx_begin_write ());
 		store->pruned_put (transaction, hash2);
 		ASSERT_TRUE (store->pruned_exists (transaction, hash2)); // Check new pruned hash is here
-		ASSERT_TRUE (store->block_or_pruned_exists (transaction, hash2));
+		ASSERT_FALSE (store->block_exists (transaction, hash2));
 		ASSERT_TRUE (store->pruned_exists (transaction, hash1)); // Check first pruned hash is still here
-		ASSERT_TRUE (store->block_or_pruned_exists (transaction, hash1));
+		ASSERT_FALSE (store->block_exists (transaction, hash1));
 	}
 
 	ASSERT_EQ (store->pruned_count (store->tx_begin_read ()), 2);
@@ -1243,11 +1243,11 @@ TEST (block_store, pruned_blocks)
 		auto transaction (store->tx_begin_write ());
 		store->pruned_del (transaction, hash2);
 		ASSERT_FALSE (store->pruned_exists (transaction, hash2)); // Confirm it no longer exists
-		ASSERT_FALSE (store->block_or_pruned_exists (transaction, hash2));
+		ASSERT_FALSE (store->block_exists (transaction, hash2)); // true for block_exists
 		store->block_put (transaction, hash2, block2); // Add corresponding block
-		ASSERT_TRUE (store->block_or_pruned_exists (transaction, hash2));
+		ASSERT_TRUE (store->block_exists (transaction, hash2));
 		ASSERT_TRUE (store->pruned_exists (transaction, hash1)); // Check first pruned hash is still here
-		ASSERT_TRUE (store->block_or_pruned_exists (transaction, hash1));
+		ASSERT_FALSE (store->block_exists (transaction, hash1));
 	}
 
 	ASSERT_EQ (store->pruned_count (store->tx_begin_read ()), 1);
