@@ -447,7 +447,7 @@ TEST (rpc, send)
 	std::string block_text (response.json.get<std::string> ("block"));
 	nano::block_hash block;
 	ASSERT_FALSE (block.decode_hex (block_text));
-	ASSERT_TRUE (node->ledger.block_exists (block));
+	ASSERT_TRUE (node->ledger.block_or_pruned_exists (block));
 	ASSERT_EQ (node->latest (nano::dev_genesis_key.pub), block);
 	ASSERT_NE (node->balance (nano::dev_genesis_key.pub), nano::genesis_amount);
 }
@@ -510,7 +510,7 @@ TEST (rpc, send_work)
 	std::string block_text (response2.json.get<std::string> ("block"));
 	nano::block_hash block;
 	ASSERT_FALSE (block.decode_hex (block_text));
-	ASSERT_TRUE (node->ledger.block_exists (block));
+	ASSERT_TRUE (node->ledger.block_or_pruned_exists (block));
 	ASSERT_EQ (node->latest (nano::dev_genesis_key.pub), block);
 }
 
@@ -573,7 +573,7 @@ TEST (rpc, send_idempotent)
 	std::string block_text (response.json.get<std::string> ("block"));
 	nano::block_hash block;
 	ASSERT_FALSE (block.decode_hex (block_text));
-	ASSERT_TRUE (node->ledger.block_exists (block));
+	ASSERT_TRUE (node->ledger.block_or_pruned_exists (block));
 	ASSERT_EQ (node->balance (nano::dev_genesis_key.pub), nano::genesis_amount / 4);
 	test_response response2 (request, rpc.config.port, system.io_ctx);
 	ASSERT_TIMELY (5s, response2.status != 0);
@@ -7580,8 +7580,8 @@ TEST (rpc, account_lazy_start)
 	// Check processed blocks
 	ASSERT_TIMELY (10s, !node2->bootstrap_initiator.in_progress ());
 	node2->block_processor.flush ();
-	ASSERT_TRUE (node2->ledger.block_exists (send1->hash ()));
-	ASSERT_TRUE (node2->ledger.block_exists (open->hash ()));
+	ASSERT_TRUE (node2->ledger.block_or_pruned_exists (send1->hash ()));
+	ASSERT_TRUE (node2->ledger.block_or_pruned_exists (open->hash ()));
 }
 
 TEST (rpc, receive)
@@ -7778,10 +7778,10 @@ TEST (rpc, receive_pruned)
 	}
 	ASSERT_EQ (2, node2.ledger.cache.pruned_count);
 	ASSERT_TRUE (node2.ledger.block_or_pruned_exists (send1->hash ()));
-	ASSERT_FALSE (node2.ledger.block_exists (send1->hash ()));
+	ASSERT_FALSE (node2.store.block_exists (node2.store.tx_begin_read (), send1->hash ()));
 	ASSERT_TRUE (node2.ledger.block_or_pruned_exists (send2->hash ()));
-	ASSERT_FALSE (node2.ledger.block_exists (send2->hash ()));
-	ASSERT_TRUE (node2.ledger.block_exists (send3->hash ()));
+	ASSERT_FALSE (node2.store.block_exists (node2.store.tx_begin_read (), send2->hash ()));
+	ASSERT_TRUE (node2.ledger.block_or_pruned_exists (send3->hash ()));
 
 	scoped_io_thread_name_change scoped_thread_name_io;
 	nano::node_rpc_config node_rpc_config;

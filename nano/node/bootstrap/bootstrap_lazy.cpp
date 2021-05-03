@@ -290,7 +290,7 @@ void nano::bootstrap_attempt_lazy::lazy_block_state (std::shared_ptr<nano::block
 				lazy_add (link, retry_limit);
 			}
 			// In other cases previous block balance required to find out subtype of state block
-			else if (node->store.block_or_pruned_exists (transaction, previous))
+			else if (node->ledger.block_or_pruned_exists (transaction, previous))
 			{
 				bool error_or_pruned (false);
 				auto previous_balance (node->ledger.balance_safe (transaction, previous, error_or_pruned));

@@ -252,7 +252,7 @@ TEST (node, node_receive_quorum)
 				.work (*system.work.generate (previous))
 				.build_shared ();
 	node1.process_active (send);
-	ASSERT_TIMELY (10s, node1.ledger.block_exists (send->hash ()));
+	ASSERT_TIMELY (10s, node1.ledger.block_or_pruned_exists (send->hash ()));
 	ASSERT_TIMELY (10s, node1.active.election (nano::qualified_root (previous, previous)) != nullptr);
 	auto election (node1.active.election (nano::qualified_root (previous, previous)));
 	ASSERT_NE (nullptr, election);
@@ -295,7 +295,7 @@ TEST (node, auto_bootstrap)
 	ASSERT_TIMELY (10s, node1->bootstrap_initiator.in_progress ());
 	ASSERT_TIMELY (10s, node1->balance (key2.pub) == node0->config.receive_minimum.number ());
 	ASSERT_TIMELY (10s, !node1->bootstrap_initiator.in_progress ());
-	ASSERT_TRUE (node1->ledger.block_exists (send1->hash ()));
+	ASSERT_TRUE (node1->ledger.block_or_pruned_exists (send1->hash ()));
 	// Wait block receive
 	ASSERT_TIMELY (5s, node1->ledger.cache.block_count == 3);
 	// Confirmation for all blocks
@@ -487,8 +487,7 @@ TEST (node, search_pending_pruned)
 		ASSERT_EQ (1, node2->ledger.pruning_action (transaction, send1->hash (), 1));
 	}
 	ASSERT_EQ (1, node2->ledger.cache.pruned_count);
-	ASSERT_TRUE (node2->ledger.block_or_pruned_exists (send1->hash ()));
-	ASSERT_FALSE (node2->ledger.block_exists (send1->hash ()));
+	ASSERT_TRUE (node2->ledger.block_or_pruned_exists (send1->hash ())); // true for pruned
 
 	// Receive pruned block
 	system.wallet (1)->insert_adhoc (key2.prv);
@@ -1174,8 +1173,8 @@ TEST (node, fork_keep)
 	auto election1 (node2.active.election (nano::qualified_root (genesis.hash (), genesis.hash ())));
 	ASSERT_NE (nullptr, election1);
 	ASSERT_EQ (1, election1->votes ().size ());
-	ASSERT_TRUE (node1.ledger.block_exists (send1->hash ()));
-	ASSERT_TRUE (node2.ledger.block_exists (send1->hash ()));
+	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send1->hash ()));
+	ASSERT_TRUE (node2.ledger.block_or_pruned_exists (send1->hash ()));
 	// Wait until the genesis rep makes a vote
 	ASSERT_TIMELY (1.5min, election1->votes ().size () != 1);
 	auto transaction0 (node1.store.tx_begin_read ());
@@ -1234,13 +1233,13 @@ TEST (node, fork_flip)
 	ASSERT_EQ (1, election1->votes ().size ());
 	ASSERT_NE (nullptr, node1.block (publish1.block->hash ()));
 	ASSERT_NE (nullptr, node2.block (publish2.block->hash ()));
-	ASSERT_TIMELY (10s, node2.ledger.block_exists (publish1.block->hash ()));
+	ASSERT_TIMELY (10s, node2.ledger.block_or_pruned_exists (publish1.block->hash ()));
 	auto winner (*election1->tally ().begin ());
 	ASSERT_EQ (*publish1.block, *winner.second);
 	ASSERT_EQ (nano::genesis_amount - 100, winner.first);
-	ASSERT_TRUE (node1.ledger.block_exists (publish1.block->hash ()));
-	ASSERT_TRUE (node2.ledger.block_exists (publish1.block->hash ()));
-	ASSERT_FALSE (node2.ledger.block_exists (publish2.block->hash ()));
+	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (publish1.block->hash ()));
+	ASSERT_TRUE (node2.ledger.block_or_pruned_exists (publish1.block->hash ()));
+	ASSERT_FALSE (node2.ledger.block_or_pruned_exists (publish2.block->hash ()));
 }
 
 TEST (node, fork_multi_flip)
@@ -1308,17 +1307,17 @@ TEST (node, fork_multi_flip)
 		auto election1 (node2.active.election (nano::qualified_root (genesis.hash (), genesis.hash ())));
 		ASSERT_NE (nullptr, election1);
 		ASSERT_EQ (1, election1->votes ().size ());
-		ASSERT_TRUE (node1.ledger.block_exists (publish1.block->hash ()));
-		ASSERT_TRUE (node2.ledger.block_exists (publish2.block->hash ()));
-		ASSERT_TRUE (node2.ledger.block_exists (publish3.block->hash ()));
-		ASSERT_TIMELY (10s, node2.ledger.block_exists (publish1.block->hash ()));
+		ASSERT_TRUE (node1.ledger.block_or_pruned_exists (publish1.block->hash ()));
+		ASSERT_TRUE (node2.ledger.block_or_pruned_exists (publish2.block->hash ()));
+		ASSERT_TRUE (node2.ledger.block_or_pruned_exists (publish3.block->hash ()));
+		ASSERT_TIMELY (10s, node2.ledger.block_or_pruned_exists (publish1.block->hash ()));
 		auto winner (*election1->tally ().begin ());
 		ASSERT_EQ (*publish1.block, *winner.second);
 		ASSERT_EQ (nano::genesis_amount - 100, winner.first);
-		ASSERT_TRUE (node1.ledger.block_exists (publish1.block->hash ()));
-		ASSERT_TRUE (node2.ledger.block_exists (publish1.block->hash ()));
-		ASSERT_FALSE (node2.ledger.block_exists (publish2.block->hash ()));
-		ASSERT_FALSE (node2.ledger.block_exists (publish3.block->hash ()));
+		ASSERT_TRUE (node1.ledger.block_or_pruned_exists (publish1.block->hash ()));
+		ASSERT_TRUE (node2.ledger.block_or_pruned_exists (publish1.block->hash ()));
+		ASSERT_FALSE (node2.ledger.block_or_pruned_exists (publish2.block->hash ()));
+		ASSERT_FALSE (node2.ledger.block_or_pruned_exists (publish3.block->hash ()));
 	}
 }
 
@@ -1821,13 +1820,13 @@ TEST (node, broadcast_elected)
 					 .build_shared ();
 		system.wallet (2)->insert_adhoc (rep_small.prv);
 		node2->process_active (fork1);
-		ASSERT_TIMELY (10s, node0->ledger.block_exists (fork0->hash ()) && node1->ledger.block_exists (fork0->hash ()));
+		ASSERT_TIMELY (10s, node0->ledger.block_or_pruned_exists (fork0->hash ()) && node1->ledger.block_or_pruned_exists (fork0->hash ()));
 		system.deadline_set (50s);
-		while (!node2->ledger.block_exists (fork0->hash ()))
+		while (!node2->ledger.block_or_pruned_exists (fork0->hash ()))
 		{
 			auto ec = system.poll ();
-			ASSERT_TRUE (node0->ledger.block_exists (fork0->hash ()));
-			ASSERT_TRUE (node1->ledger.block_exists (fork0->hash ()));
+			ASSERT_TRUE (node0->ledger.block_or_pruned_exists (fork0->hash ()));
+			ASSERT_TRUE (node1->ledger.block_or_pruned_exists (fork0->hash ()));
 			ASSERT_NO_ERROR (ec);
 		}
 		ASSERT_TIMELY (5s, node1->stats.count (nano::stat::type::confirmation_observer, nano::stat::detail::inactive_conf_height, nano::stat::dir::out) != 0);
@@ -2008,11 +2007,11 @@ TEST (node, bootstrap_fork_open)
 	ASSERT_EQ (nano::process_result::progress, node0->process (open0).code);
 	ASSERT_EQ (nano::process_result::progress, node1->process (open1).code);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
-	ASSERT_FALSE (node1->ledger.block_exists (open0.hash ()));
+	ASSERT_FALSE (node1->ledger.block_or_pruned_exists (open0.hash ()));
 	ASSERT_FALSE (node1->bootstrap_initiator.in_progress ());
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
 	ASSERT_TIMELY (1s, node1->active.empty ());
-	ASSERT_TIMELY (10s, !node1->ledger.block_exists (open1.hash ()) && node1->ledger.block_exists (open0.hash ()));
+	ASSERT_TIMELY (10s, !node1->ledger.block_or_pruned_exists (open1.hash ()) && node1->ledger.block_or_pruned_exists (open0.hash ()));
 }
 
 // Unconfirmed blocks from bootstrap should be confirmed
@@ -2583,9 +2582,9 @@ TEST (node, block_confirm)
 						  .build_shared ();
 		node1.block_processor.add (send1, nano::seconds_since_epoch ());
 		node2.block_processor.add (send1_copy, nano::seconds_since_epoch ());
-		ASSERT_TIMELY (5s, node1.ledger.block_exists (send1->hash ()) && node2.ledger.block_exists (send1_copy->hash ()));
-		ASSERT_TRUE (node1.ledger.block_exists (send1->hash ()));
-		ASSERT_TRUE (node2.ledger.block_exists (send1_copy->hash ()));
+		ASSERT_TIMELY (5s, node1.ledger.block_or_pruned_exists (send1->hash ()) && node2.ledger.block_or_pruned_exists (send1_copy->hash ()));
+		ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send1->hash ()));
+		ASSERT_TRUE (node2.ledger.block_or_pruned_exists (send1_copy->hash ()));
 		// Confirm send1 on node2 so it can vote for send2
 		node2.block_confirm (send1_copy);
 		auto election = node2.active.election (send1_copy->qualified_root ());
@@ -2913,7 +2912,7 @@ TEST (node, local_votes_cache_fork)
 	auto & node2 (*system.add_node (node_config, node_flags));
 	node2.process_active (send1_fork);
 	node2.block_processor.flush ();
-	ASSERT_TIMELY (5s, node2.ledger.block_exists (send1->hash ()));
+	ASSERT_TIMELY (5s, node2.ledger.block_or_pruned_exists (send1->hash ()));
 }
 
 TEST (node, vote_republish)
@@ -3407,11 +3406,11 @@ TEST (node, block_processor_reject_state)
 				 .work (*node.work_generate_blocking (genesis.hash ()))
 				 .build_shared ();
 	send1->signature.bytes[0] ^= 1;
-	ASSERT_FALSE (node.ledger.block_exists (send1->hash ()));
+	ASSERT_FALSE (node.ledger.block_or_pruned_exists (send1->hash ()));
 	node.process_active (send1);
 	auto flushed = std::async (std::launch::async, [&node] { node.block_processor.flush (); });
 	ASSERT_NE (std::future_status::timeout, flushed.wait_for (5s));
-	ASSERT_FALSE (node.ledger.block_exists (send1->hash ()));
+	ASSERT_FALSE (node.ledger.block_or_pruned_exists (send1->hash ()));
 	auto send2 = builder.make_block ()
 				 .account (nano::dev_genesis_key.pub)
 				 .previous (genesis.hash ())
@@ -3424,7 +3423,7 @@ TEST (node, block_processor_reject_state)
 	node.process_active (send2);
 	auto flushed2 = std::async (std::launch::async, [&node] { node.block_processor.flush (); });
 	ASSERT_NE (std::future_status::timeout, flushed2.wait_for (5s));
-	ASSERT_TRUE (node.ledger.block_exists (send2->hash ()));
+	ASSERT_TRUE (node.ledger.block_or_pruned_exists (send2->hash ()));
 }
 
 TEST (node, block_processor_full)
@@ -3797,7 +3796,7 @@ TEST (node, bidirectional_tcp)
 				 .build_shared ();
 	node1->process_active (send1);
 	node1->block_processor.flush ();
-	ASSERT_TIMELY (10s, node1->ledger.block_exists (send1->hash ()) && node2->ledger.block_exists (send1->hash ()));
+	ASSERT_TIMELY (10s, node1->ledger.block_or_pruned_exists (send1->hash ()) && node2->ledger.block_or_pruned_exists (send1->hash ()));
 	// Test block confirmation from node 1 (add representative to node 1)
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	// Wait to find new reresentative
@@ -3831,7 +3830,7 @@ TEST (node, bidirectional_tcp)
 				 .build_shared ();
 	node2->process_active (send2);
 	node2->block_processor.flush ();
-	ASSERT_TIMELY (10s, node1->ledger.block_exists (send2->hash ()) && node2->ledger.block_exists (send2->hash ()));
+	ASSERT_TIMELY (10s, node1->ledger.block_or_pruned_exists (send2->hash ()) && node2->ledger.block_or_pruned_exists (send2->hash ()));
 	// Test block confirmation from node 2 (add representative to node 2)
 	system.wallet (1)->insert_adhoc (nano::dev_genesis_key.prv);
 	// Wait to find changed reresentative
@@ -4672,10 +4671,9 @@ TEST (node, pruning_automatic)
 	ASSERT_TIMELY (2s, node1.store.pruned_count (node1.store.tx_begin_read ()) == 1); // Transaction commit
 	ASSERT_EQ (1, node1.ledger.cache.pruned_count);
 	ASSERT_EQ (3, node1.ledger.cache.block_count);
-	ASSERT_TRUE (node1.ledger.block_exists (genesis.hash ()));
-	ASSERT_FALSE (node1.ledger.block_exists (send1->hash ()));
-	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send1->hash ()));
-	ASSERT_TRUE (node1.ledger.block_exists (send2->hash ()));
+	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (genesis.hash ()));
+	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send1->hash ())); // true for pruned
+	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send2->hash ()));
 }
 
 TEST (node, pruning_age)
@@ -4730,10 +4728,9 @@ TEST (node, pruning_age)
 	node1.ledger_pruning (1, true, false);
 	ASSERT_EQ (1, node1.ledger.cache.pruned_count);
 	ASSERT_EQ (3, node1.ledger.cache.block_count);
-	ASSERT_TRUE (node1.ledger.block_exists (genesis.hash ()));
-	ASSERT_FALSE (node1.ledger.block_exists (send1->hash ()));
-	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send1->hash ()));
-	ASSERT_TRUE (node1.ledger.block_exists (send2->hash ()));
+	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (genesis.hash ()));
+	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send1->hash ())); // true for pruned
+	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send2->hash ()));
 }
 
 TEST (node, pruning_depth)
@@ -4784,10 +4781,9 @@ TEST (node, pruning_depth)
 	node1.ledger_pruning (1, true, false);
 	ASSERT_EQ (1, node1.ledger.cache.pruned_count);
 	ASSERT_EQ (3, node1.ledger.cache.block_count);
-	ASSERT_TRUE (node1.ledger.block_exists (genesis.hash ()));
-	ASSERT_FALSE (node1.ledger.block_exists (send1->hash ()));
-	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send1->hash ()));
-	ASSERT_TRUE (node1.ledger.block_exists (send2->hash ()));
+	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (genesis.hash ()));
+	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send1->hash ())); // true for pruned
+	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (send2->hash ()));
 }
 
 namespace

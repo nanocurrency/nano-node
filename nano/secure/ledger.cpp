@@ -879,24 +879,18 @@ nano::block_hash nano::ledger::representative_calculated (nano::transaction cons
 	return visitor.result;
 }
 
-bool nano::ledger::block_exists (nano::block_hash const & hash_a) const
-{
-	return store.block_exists (store.tx_begin_read (), hash_a);
-}
-
-bool nano::ledger::block_or_pruned_exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
-{
-	return pruning ? store.block_or_pruned_exists (transaction_a, hash_a) : store.block_exists (transaction_a, hash_a);
-}
-
 bool nano::ledger::block_or_pruned_exists (nano::block_hash const & hash_a) const
 {
 	return block_or_pruned_exists (store.tx_begin_read (), hash_a);
 }
 
-bool nano::ledger::block_confirmed_or_pruned_exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
+bool nano::ledger::block_or_pruned_exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
 {
-	return block_confirmed (transaction_a, hash_a) || (pruning && store.pruned_exists (transaction_a, hash_a));
+	if (store.pruned_exists (transaction_a, hash_a))
+	{
+		return true;
+	}
+	return store.block_exists (transaction_a, hash_a);
 }
 
 std::string nano::ledger::block_text (char const * hash_a)
@@ -1172,7 +1166,7 @@ bool nano::ledger::dependents_confirmed (nano::transaction const & transaction_a
 		auto result (hash_a.is_zero ());
 		if (!result)
 		{
-			result = block_confirmed_or_pruned_exists (transaction_a, hash_a);
+			result = block_confirmed (transaction_a, hash_a);
 		}
 		return result;
 	});
@@ -1322,15 +1316,19 @@ std::shared_ptr<nano::block> nano::ledger::forked_block (nano::transaction const
 
 bool nano::ledger::block_confirmed (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
 {
-	auto confirmed (false);
+	if (store.pruned_exists (transaction_a, hash_a))
+	{
+		return true;
+	}
 	auto block = store.block_get (transaction_a, hash_a);
 	if (block)
 	{
 		nano::confirmation_height_info confirmation_height_info;
 		store.confirmation_height_get (transaction_a, block->account ().is_zero () ? block->sideband ().account : block->account (), confirmation_height_info);
-		confirmed = (confirmation_height_info.height >= block->sideband ().height);
+		auto confirmed (confirmation_height_info.height >= block->sideband ().height);
+		return confirmed;
 	}
-	return confirmed;
+	return false;
 }
 
 uint64_t nano::ledger::pruning_action (nano::write_transaction & transaction_a, nano::block_hash const & hash_a, uint64_t const batch_size_a)
