@@ -2416,7 +2416,7 @@ TEST (rpc, pending)
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	auto block1 (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key1.pub, 100));
 	scoped_io_thread_name_change scoped_thread_name_io;
-	nano::blocks_confirm (*node, { block1 }, true);
+	node->scheduler.flush ();
 	ASSERT_TIMELY (5s, !node->active.active (*block1));
 	ASSERT_TIMELY (5s, node->ledger.cache.cemented_count == 2 && node->confirmation_height_processor.current ().is_zero () && node->confirmation_height_processor.awaiting_processing_size () == 0);
 	nano::node_rpc_config node_rpc_config;
@@ -2558,7 +2558,7 @@ TEST (rpc, pending_burn)
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	auto block1 (system.wallet (0)->send_action (nano::dev_genesis_key.pub, burn, 100));
 	scoped_io_thread_name_change scoped_thread_name_io;
-	nano::blocks_confirm (*node, { block1 }, true);
+	node->scheduler.flush ();
 	ASSERT_TIMELY (5s, !node->active.active (*block1));
 	ASSERT_TIMELY (5s, node->ledger.cache.cemented_count == 2 && node->confirmation_height_processor.current ().is_zero () && node->confirmation_height_processor.awaiting_processing_size () == 0);
 	nano::node_rpc_config node_rpc_config;
@@ -4173,7 +4173,7 @@ TEST (rpc, accounts_pending)
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	auto block1 (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key1.pub, 100));
 	scoped_io_thread_name_change scoped_thread_name_io;
-	nano::blocks_confirm (*node, { block1 }, true);
+	node->scheduler.flush ();
 	ASSERT_TIMELY (5s, !node->active.active (*block1));
 	ASSERT_TIMELY (5s, node->ledger.cache.cemented_count == 2 && node->confirmation_height_processor.current ().is_zero () && node->confirmation_height_processor.awaiting_processing_size () == 0);
 	nano::node_rpc_config node_rpc_config;
@@ -4408,7 +4408,7 @@ TEST (rpc, pending_exists)
 	auto hash0 (node->latest (nano::genesis_account));
 	auto block1 (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key1.pub, 100));
 	scoped_io_thread_name_change scoped_thread_name_io;
-	nano::blocks_confirm (*node, { block1 }, true);
+	node->scheduler.flush ();
 	ASSERT_TIMELY (5s, !node->active.active (*block1));
 	ASSERT_TIMELY (5s, node->ledger.cache.cemented_count == 2 && node->confirmation_height_processor.current ().is_zero () && node->confirmation_height_processor.awaiting_processing_size () == 0);
 	nano::node_rpc_config node_rpc_config;
@@ -4454,8 +4454,8 @@ TEST (rpc, wallet_pending)
 	auto iterations (0);
 	auto block1 (system0.wallet (0)->send_action (nano::dev_genesis_key.pub, key1.pub, 100));
 	scoped_io_thread_name_change scoped_thread_name_io;
-	nano::blocks_confirm (*node, { block1 }, true);
-	while (node->active.active (*block1) && node->ledger.cache.cemented_count < 2)
+	node->scheduler.flush ();
+	while (node->active.active (*block1) || node->ledger.cache.cemented_count < 2)
 	{
 		system0.poll ();
 		++iterations;
@@ -8100,6 +8100,7 @@ TEST (rpc, confirmation_info)
 	auto send (std::make_shared<nano::send_block> (genesis.hash (), nano::public_key (), nano::genesis_amount - 100, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (genesis.hash ())));
 	node1.process_active (send);
 	node1.block_processor.flush ();
+	node1.scheduler.flush ();
 	ASSERT_FALSE (node1.active.empty ());
 
 	boost::property_tree::ptree request;
