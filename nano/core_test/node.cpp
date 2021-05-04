@@ -779,7 +779,6 @@ TEST (node_config, v18_values)
 		tree.put ("active_elections_size", 10000);
 		tree.put ("vote_generator_delay", 100);
 		tree.put ("backup_before_upgrade", true);
-		tree.put ("work_watcher_period", 5);
 	}
 
 	config.deserialize_json (upgraded, tree);
@@ -787,13 +786,11 @@ TEST (node_config, v18_values)
 	ASSERT_EQ (config.active_elections_size, 10000);
 	ASSERT_EQ (config.vote_generator_delay.count (), 100);
 	ASSERT_EQ (config.backup_before_upgrade, true);
-	ASSERT_EQ (config.work_watcher_period.count (), 5);
 
 	// Check config is correct with other values
 	tree.put ("active_elections_size", 5);
 	tree.put ("vote_generator_delay", std::numeric_limits<unsigned long>::max () - 100);
 	tree.put ("backup_before_upgrade", false);
-	tree.put ("work_watcher_period", 999);
 
 	upgraded = false;
 	config.deserialize_json (upgraded, tree);
@@ -801,7 +798,6 @@ TEST (node_config, v18_values)
 	ASSERT_EQ (config.active_elections_size, 5);
 	ASSERT_EQ (config.vote_generator_delay.count (), std::numeric_limits<unsigned long>::max () - 100);
 	ASSERT_EQ (config.backup_before_upgrade, false);
-	ASSERT_EQ (config.work_watcher_period.count (), 999);
 }
 
 // Regression test to ensure that deserializing includes changes node via get_required_child
@@ -2659,7 +2655,7 @@ TEST (node, confirm_quorum)
 				 .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
 	system.wallet (0)->send_action (nano::dev_genesis_key.pub, nano::dev_genesis_key.pub, new_balance.number ());
-	ASSERT_TIMELY (1s, node1.active.election (send1->qualified_root ()));
+	ASSERT_TIMELY (2s, node1.active.election (send1->qualified_root ()));
 	auto election = node1.active.election (send1->qualified_root ());
 	ASSERT_NE (nullptr, election);
 	ASSERT_FALSE (election->confirmed ());
@@ -3920,7 +3916,7 @@ TEST (node, aggressive_flooding)
 				.build ();
 	}
 	// Processing locally goes through the aggressive block flooding path
-	node1.process_local (block, false);
+	node1.process_local (block);
 
 	auto all_have_block = [&nodes_wallets] (nano::block_hash const & hash_a) {
 		return std::all_of (nodes_wallets.begin (), nodes_wallets.end (), [hash = hash_a] (auto const & node_wallet) {
@@ -3937,42 +3933,6 @@ TEST (node, aggressive_flooding)
 	// All blocks: genesis + (send+open) for each representative + 2 local blocks
 	// The main node only sees all blocks if other nodes are flooding their PR's open block to all other PRs
 	ASSERT_EQ (1 + 2 * nodes_wallets.size () + 2, node1.ledger.cache.block_count);
-}
-
-TEST (active_difficulty, recalculate_work)
-{
-	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
-	node_config.enable_voting = false;
-	auto & node1 = *system.add_node (node_config);
-	nano::genesis genesis;
-	nano::keypair key1;
-	ASSERT_EQ (node1.network_params.network.publish_thresholds.epoch_2, node1.active.active_difficulty ());
-	auto send1 = nano::send_block_builder ()
-				 .previous (genesis.hash ())
-				 .destination (key1.pub)
-				 .balance (0)
-				 .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-				 .work (*system.work.generate (genesis.hash ()))
-				 .build_shared ();
-	auto multiplier1 = nano::difficulty::to_multiplier (send1->difficulty (), node1.network_params.network.publish_thresholds.epoch_2);
-	// Process as local block
-	node1.process_active (send1);
-	ASSERT_TIMELY (2s, !node1.active.empty ());
-	auto sum (std::accumulate (node1.active.multipliers_cb.begin (), node1.active.multipliers_cb.end (), double (0)));
-	ASSERT_EQ (node1.active.active_difficulty (), nano::difficulty::from_multiplier (sum / node1.active.multipliers_cb.size (), node1.network_params.network.publish_thresholds.epoch_2));
-	nano::unique_lock<nano::mutex> lock (node1.active.mutex);
-	// Fake history records to force work recalculation
-	for (auto i (0); i < node1.active.multipliers_cb.size (); i++)
-	{
-		node1.active.multipliers_cb.push_back (multiplier1 * (1 + i / 100.));
-	}
-	node1.work_generate_blocking (*send1);
-	node1.process_active (send1);
-	node1.active.update_active_multiplier (lock);
-	sum = std::accumulate (node1.active.multipliers_cb.begin (), node1.active.multipliers_cb.end (), double (0));
-	ASSERT_EQ (node1.active.trended_active_multiplier.load (), sum / node1.active.multipliers_cb.size ());
-	lock.unlock ();
 }
 
 TEST (node, node_sequence)
@@ -4497,8 +4457,8 @@ TEST (node, deferred_dependent_elections)
 	ASSERT_NE (nullptr, election_send1);
 
 	// Should process and republish but not start an election for any dependent blocks
-	node.process_local (open, false);
-	node.process_local (send2, false);
+	node.process_local (open);
+	node.process_local (send2);
 	node.block_processor.flush ();
 	ASSERT_TRUE (node.block (open->hash ()));
 	ASSERT_TRUE (node.block (send2->hash ()));
@@ -4509,7 +4469,7 @@ TEST (node, deferred_dependent_elections)
 
 	// Re-processing older blocks with updated work also does not start an election
 	node.work_generate_blocking (*open, open->difficulty () + 1);
-	node.process_local (open, false);
+	node.process_local (open);
 	node.block_processor.flush ();
 	ASSERT_FALSE (node.active.active (open->qualified_root ()));
 	/// However, work is still updated
@@ -4524,7 +4484,7 @@ TEST (node, deferred_dependent_elections)
 	/// The election was dropped but it's still not possible to restart it
 	node.work_generate_blocking (*open, open->difficulty () + 1);
 	ASSERT_FALSE (node.active.active (open->qualified_root ()));
-	node.process_local (open, false);
+	node.process_local (open);
 	node.block_processor.flush ();
 	ASSERT_FALSE (node.active.active (open->qualified_root ()));
 	/// However, work is still updated
@@ -4563,14 +4523,14 @@ TEST (node, deferred_dependent_elections)
 	ASSERT_FALSE (node.active.active (receive->qualified_root ()));
 	ASSERT_FALSE (node.ledger.rollback (node.store.tx_begin_write (), receive->hash ()));
 	ASSERT_FALSE (node.block (receive->hash ()));
-	node.process_local (receive, false);
+	node.process_local (receive);
 	node.block_processor.flush ();
 	ASSERT_TRUE (node.block (receive->hash ()));
 	ASSERT_FALSE (node.active.active (receive->qualified_root ()));
 
 	// Processing a fork will also not start an election
 	ASSERT_EQ (nano::process_result::fork, node.process (*fork).code);
-	node.process_local (fork, false);
+	node.process_local (fork);
 	node.block_processor.flush ();
 	ASSERT_FALSE (node.active.active (receive->qualified_root ()));
 
@@ -4581,7 +4541,7 @@ TEST (node, deferred_dependent_elections)
 	node.active.erase (*receive);
 	ASSERT_FALSE (node.active.active (receive->qualified_root ()));
 	node.work_generate_blocking (*receive, receive->difficulty () + 1);
-	node.process_local (receive, false);
+	node.process_local (receive);
 	node.block_processor.flush ();
 	ASSERT_TRUE (node.active.active (receive->qualified_root ()));
 }

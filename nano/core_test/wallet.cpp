@@ -996,34 +996,6 @@ TEST (wallet, deterministic_restore)
 	ASSERT_TRUE (wallet->exists (pub));
 }
 
-// Ensure the minimum limited difficulty is enough for the highest threshold
-TEST (wallet, limited_difficulty)
-{
-	nano::system system;
-	nano::genesis genesis;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
-	node_config.max_work_generate_multiplier = 1;
-	nano::node_flags node_flags;
-	node_flags.disable_request_loop = true;
-	auto & node = *system.add_node (node_config, node_flags);
-	auto & wallet (*system.wallet (0));
-	// Upgrade the genesis account to epoch 2
-	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (node, nano::epoch::epoch_1));
-	ASSERT_NE (nullptr, system.upgrade_genesis_epoch (node, nano::epoch::epoch_2));
-	ASSERT_EQ (nano::epoch::epoch_2, node.store.block_version (node.store.tx_begin_read (), node.latest (nano::dev_genesis_key.pub)));
-	wallet.insert_adhoc (nano::dev_genesis_key.prv, false);
-	{
-		// Force active difficulty to an impossibly high value
-		nano::lock_guard<nano::mutex> guard (node.active.mutex);
-		node.active.trended_active_multiplier = 1024 * 1024 * 1024;
-	}
-	ASSERT_EQ (node.max_work_generate_difficulty (nano::work_version::work_1), node.active.limited_active_difficulty (*genesis.open));
-	auto send = wallet.send_action (nano::dev_genesis_key.pub, nano::keypair ().pub, 1, 1);
-	ASSERT_NE (nullptr, send);
-	ASSERT_EQ (nano::epoch::epoch_2, send->sideband ().details.epoch);
-	ASSERT_EQ (nano::epoch::epoch_0, send->sideband ().source_epoch); // Not used for send state blocks
-}
-
 TEST (wallet, epoch_2_validation)
 {
 	nano::system system (1);
@@ -1100,11 +1072,6 @@ TEST (wallet, epoch_2_receive_propagation)
 		auto send2 = wallet.send_action (nano::dev_genesis_key.pub, key.pub, amount, 1);
 		ASSERT_NE (nullptr, send2);
 
-		// Receiving should use the lower difficulty
-		{
-			nano::lock_guard<nano::mutex> guard (node.active.mutex);
-			node.active.trended_active_multiplier = 1.0;
-		}
 		auto receive2 = wallet.receive_action (send2->hash (), key.pub, amount, send2->link ().as_account (), 1);
 		ASSERT_NE (nullptr, receive2);
 		if (receive2->difficulty () < node.network_params.network.publish_thresholds.base)
@@ -1150,11 +1117,6 @@ TEST (wallet, epoch_2_receive_unopened)
 
 		wallet.insert_adhoc (key.prv, false);
 
-		// Receiving should use the lower difficulty
-		{
-			nano::lock_guard<nano::mutex> guard (node.active.mutex);
-			node.active.trended_active_multiplier = 1.0;
-		}
 		auto receive1 = wallet.receive_action (send1->hash (), key.pub, amount, send1->link ().as_account (), 1);
 		ASSERT_NE (nullptr, receive1);
 		if (receive1->difficulty () < node.network_params.network.publish_thresholds.base)

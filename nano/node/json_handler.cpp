@@ -1009,33 +1009,6 @@ void nano::json_handler::accounts_pending ()
 	response_errors ();
 }
 
-void nano::json_handler::active_difficulty ()
-{
-	auto include_trend (request.get<bool> ("include_trend", false));
-	auto const multiplier_active = node.active.active_multiplier ();
-	auto const default_difficulty (node.default_difficulty (nano::work_version::work_1));
-	auto const default_receive_difficulty (node.default_receive_difficulty (nano::work_version::work_1));
-	auto const receive_current_denormalized (nano::denormalized_multiplier (multiplier_active, node.network_params.network.publish_thresholds.epoch_2_receive));
-	response_l.put ("network_minimum", nano::to_string_hex (default_difficulty));
-	response_l.put ("network_receive_minimum", nano::to_string_hex (default_receive_difficulty));
-	response_l.put ("network_current", nano::to_string_hex (nano::difficulty::from_multiplier (multiplier_active, default_difficulty)));
-	response_l.put ("network_receive_current", nano::to_string_hex (nano::difficulty::from_multiplier (receive_current_denormalized, default_receive_difficulty)));
-	response_l.put ("multiplier", multiplier_active);
-	if (include_trend)
-	{
-		boost::property_tree::ptree trend_entry_l;
-		auto trend_l (node.active.difficulty_trend ());
-		for (auto multiplier_l : trend_l)
-		{
-			boost::property_tree::ptree entry;
-			entry.put ("", nano::to_string (multiplier_l));
-			trend_entry_l.push_back (std::make_pair ("", entry));
-		}
-		response_l.add_child ("difficulty_trend", trend_entry_l);
-	}
-	response_errors ();
-}
-
 void nano::json_handler::available_supply ()
 {
 	auto genesis_balance (node.balance (node.network_params.ledger.genesis_account)); // Cold storage genesis
@@ -2987,7 +2960,6 @@ void nano::json_handler::pending_exists ()
 void nano::json_handler::process ()
 {
 	node.workers.push_task (create_worker_task ([] (std::shared_ptr<nano::json_handler> const & rpc_l) {
-		const bool watch_work_l = rpc_l->request.get<bool> ("watch_work", true);
 		const bool is_async = rpc_l->request.get<bool> ("async", false);
 		auto block (rpc_l->block_impl (true));
 
@@ -3064,7 +3036,7 @@ void nano::json_handler::process ()
 			{
 				if (!is_async)
 				{
-					auto result (rpc_l->node.process_local (block, watch_work_l));
+					auto result (rpc_l->node.process_local (block));
 					switch (result.code)
 					{
 						case nano::process_result::progress:
@@ -3149,7 +3121,7 @@ void nano::json_handler::process ()
 				{
 					if (block->type () == nano::block_type::state)
 					{
-						rpc_l->node.process_local_async (block, watch_work_l);
+						rpc_l->node.process_local_async (block);
 						rpc_l->response_l.put ("started", "1");
 					}
 					else
@@ -3790,7 +3762,7 @@ void nano::json_handler::telemetry ()
 					if (address.is_loopback () && port == rpc_l->node.network.endpoint ().port ())
 					{
 						// Requesting telemetry metrics locally
-						auto telemetry_data = nano::local_telemetry_data (rpc_l->node.ledger, rpc_l->node.network, rpc_l->node.config.bandwidth_limit, rpc_l->node.network_params, rpc_l->node.startup_time, rpc_l->node.active.active_difficulty (), rpc_l->node.node_id);
+						auto telemetry_data = nano::local_telemetry_data (rpc_l->node.ledger, rpc_l->node.network, rpc_l->node.config.bandwidth_limit, rpc_l->node.network_params, rpc_l->node.startup_time, rpc_l->node.default_difficulty (nano::work_version::work_1), rpc_l->node.node_id);
 
 						nano::jsonconfig config_l;
 						auto const should_ignore_identification_metrics = false;
@@ -5077,7 +5049,6 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("accounts_create", &nano::json_handler::accounts_create);
 	no_arg_funcs.emplace ("accounts_frontiers", &nano::json_handler::accounts_frontiers);
 	no_arg_funcs.emplace ("accounts_pending", &nano::json_handler::accounts_pending);
-	no_arg_funcs.emplace ("active_difficulty", &nano::json_handler::active_difficulty);
 	no_arg_funcs.emplace ("available_supply", &nano::json_handler::available_supply);
 	no_arg_funcs.emplace ("block_info", &nano::json_handler::block_info);
 	no_arg_funcs.emplace ("block", &nano::json_handler::block_info);

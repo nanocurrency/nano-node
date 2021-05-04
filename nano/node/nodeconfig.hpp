@@ -97,7 +97,6 @@ public:
 	double bandwidth_limit_burst_ratio{ 3. };
 	std::chrono::milliseconds conf_height_processor_batch_min_time{ 50 };
 	bool backup_before_upgrade{ false };
-	std::chrono::seconds work_watcher_period{ std::chrono::seconds (5) };
 	double max_work_generate_multiplier{ 64. };
 	uint32_t max_queued_requests{ 512 };
 	/** Maximum amount of confirmation requests (batches) to be sent to each channel */

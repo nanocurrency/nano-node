@@ -94,8 +94,7 @@ void nano::rpc_handler::process_request (nano::rpc_handler_request_params const 
 					else if (action == "process")
 					{
 						auto force = request.get_optional<bool> ("force").value_or (false);
-						auto watch_work = request.get_optional<bool> ("watch_work").value_or (true);
-						if ((force || watch_work) && !rpc_config.enable_control)
+						if (force && !rpc_config.enable_control)
 						{
 							json_error_response (response, rpc_control_disabled_ec.message ());
 							error = true;
