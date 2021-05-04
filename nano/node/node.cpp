@@ -127,7 +127,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	{
 		telemetry->start ();
 
-		active.vacancy_update = [this] () { scheduler.observe (); };
+		active.vacancy_update = [this] () { scheduler.notify (); };
 
 		if (config.websocket_config.enabled)
 		{

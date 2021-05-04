@@ -79,8 +79,11 @@ TEST (election_scheduler, no_vacancy)
 				   .work (*system.work.generate (key.pub))
 				   .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node.process (*send).code);
+	nano::blocks_confirm (node, { send }, true);
+	ASSERT_TIMELY (1s, node.active.empty ());
 	ASSERT_EQ (nano::process_result::progress, node.process (*receive).code);
-	nano::blocks_confirm (node, { send, receive }, true);
+	nano::blocks_confirm (node, { receive }, true);
+	ASSERT_TIMELY (1s, node.active.empty ());
 
 	// Second, process two eligble transactions
 	auto block0 = builder.make_block ()
@@ -117,4 +120,26 @@ TEST (election_scheduler, no_vacancy)
 	ASSERT_TIMELY (1s, node.active.size () == 1);
 	auto election4 = node.active.election (block1->qualified_root ());
 	ASSERT_NE (nullptr, election4);
+}
+
+TEST (election_scheduler, flush_vacancy)
+{
+	nano::system system;
+	nano::node_config config{ nano::get_available_port (), system.logging };
+	config.active_elections_size = 0;
+	auto & node = *system.add_node (config);
+	nano::state_block_builder builder;
+	nano::keypair key;
+
+	// Activating accounts depends on confirmed dependencies. First, prepare 2 accounts
+	auto send = builder.make_block ()
+				.account (nano::dev_genesis_key.pub)
+				.previous (nano::genesis_hash)
+				.representative (nano::dev_genesis_key.pub)
+				.link (key.pub)
+				.balance (nano::genesis_amount - nano::Gxrb_ratio)
+				.sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+				.work (*system.work.generate (nano::genesis_hash))
+				.build_shared ();
+	node.scheduler.manual (send);
 }

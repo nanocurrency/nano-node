@@ -27,13 +27,14 @@ public:
 	void activate (nano::account const &, nano::transaction const &);
 	void stop ();
 	void flush ();
-	void observe ();
+	void notify ();
 	size_t size () const;
 	bool empty () const;
 	size_t priority_queue_size () const;
 
 private:
 	void run ();
+	bool empty_locked () const;
 	nano::prioritization priority;
 	uint64_t priority_queued{ 0 };
 	std::deque<std::tuple<std::shared_ptr<nano::block>, boost::optional<nano::uint128_t>, nano::election_behavior, std::function<void (std::shared_ptr<nano::block>)>>> manual_queue;
