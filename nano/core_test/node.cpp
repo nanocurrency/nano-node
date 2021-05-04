@@ -2655,7 +2655,7 @@ TEST (node, confirm_quorum)
 				 .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
 	system.wallet (0)->send_action (nano::dev_genesis_key.pub, nano::dev_genesis_key.pub, new_balance.number ());
-	ASSERT_TIMELY (1s, node1.active.election (send1->qualified_root ()));
+	ASSERT_TIMELY (2s, node1.active.election (send1->qualified_root ()));
 	auto election = node1.active.election (send1->qualified_root ());
 	ASSERT_NE (nullptr, election);
 	ASSERT_FALSE (election->confirmed ());
