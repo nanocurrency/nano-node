@@ -2207,7 +2207,9 @@ TEST (rpc, pending)
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	auto block1 (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key1.pub, 100));
 	scoped_io_thread_name_change scoped_thread_name_io;
+	node->scheduler.flush ();
 	ASSERT_TIMELY (5s, !node->active.active (*block1));
+	ASSERT_TIMELY (5s, node->ledger.cache.cemented_count == 2 && node->confirmation_height_processor.current ().is_zero () && node->confirmation_height_processor.awaiting_processing_size () == 0);
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (nano::get_available_port (), true);
@@ -2347,7 +2349,9 @@ TEST (rpc, pending_burn)
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	auto block1 (system.wallet (0)->send_action (nano::dev_genesis_key.pub, burn, 100));
 	scoped_io_thread_name_change scoped_thread_name_io;
+	node->scheduler.flush ();
 	ASSERT_TIMELY (5s, !node->active.active (*block1));
+	ASSERT_TIMELY (5s, node->ledger.cache.cemented_count == 2 && node->confirmation_height_processor.current ().is_zero () && node->confirmation_height_processor.awaiting_processing_size () == 0);
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (nano::get_available_port (), true);
@@ -3960,7 +3964,9 @@ TEST (rpc, accounts_pending)
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	auto block1 (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key1.pub, 100));
 	scoped_io_thread_name_change scoped_thread_name_io;
-	ASSERT_TIMELY (10s, !node->active.active (*block1));
+	node->scheduler.flush ();
+	ASSERT_TIMELY (5s, !node->active.active (*block1));
+	ASSERT_TIMELY (5s, node->ledger.cache.cemented_count == 2 && node->confirmation_height_processor.current ().is_zero () && node->confirmation_height_processor.awaiting_processing_size () == 0);
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (nano::get_available_port (), true);
@@ -4193,7 +4199,9 @@ TEST (rpc, pending_exists)
 	auto hash0 (node->latest (nano::genesis_account));
 	auto block1 (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key1.pub, 100));
 	scoped_io_thread_name_change scoped_thread_name_io;
+	node->scheduler.flush ();
 	ASSERT_TIMELY (5s, !node->active.active (*block1));
+	ASSERT_TIMELY (5s, node->ledger.cache.cemented_count == 2 && node->confirmation_height_processor.current ().is_zero () && node->confirmation_height_processor.awaiting_processing_size () == 0);
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (nano::get_available_port (), true);
@@ -4215,13 +4223,14 @@ TEST (rpc, pending_exists)
 	request.put ("hash", hash0.to_string ());
 	pending_exists ("0");
 
+	node->store.pending_exists (node->store.tx_begin_read (), nano::pending_key (nano::dev_genesis_key.pub, block1->hash ()));
 	request.put ("hash", block1->hash ().to_string ());
 	pending_exists ("1");
 
 	request.put ("include_only_confirmed", "true");
 	pending_exists ("1");
 	scoped_thread_name_io.reset ();
-	reset_confirmation_height (system.nodes.front ()->store, block1->account ());
+	reset_confirmation_height (node->store, block1->account ());
 	scoped_thread_name_io.renew ();
 	pending_exists ("0");
 }
@@ -4233,10 +4242,11 @@ TEST (rpc, wallet_pending)
 	nano::keypair key1;
 	system0.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	system0.wallet (0)->insert_adhoc (key1.prv);
-	auto block1 (system0.wallet (0)->send_action (nano::dev_genesis_key.pub, key1.pub, 100));
 	auto iterations (0);
+	auto block1 (system0.wallet (0)->send_action (nano::dev_genesis_key.pub, key1.pub, 100));
 	scoped_io_thread_name_change scoped_thread_name_io;
-	while (system0.nodes[0]->active.active (*block1))
+	node->scheduler.flush ();
+	while (node->active.active (*block1) || node->ledger.cache.cemented_count < 2)
 	{
 		system0.poll ();
 		++iterations;
@@ -4251,7 +4261,7 @@ TEST (rpc, wallet_pending)
 	rpc.start ();
 	boost::property_tree::ptree request;
 	request.put ("action", "wallet_pending");
-	request.put ("wallet", system0.nodes[0]->wallets.items.begin ()->first.to_string ());
+	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
 	request.put ("count", "100");
 	test_response response (request, rpc.config.port, system0.io_ctx);
 	while (response.status == 0)
@@ -4995,12 +5005,14 @@ TEST (rpc, blocks_info_subtype)
 TEST (rpc, block_info_pruning)
 {
 	nano::system system;
-	auto & node0 = *system.add_node ();
-	nano::node_config node_config (nano::get_available_port (), system.logging);
-	node_config.enable_voting = false; // Remove after allowing pruned voting
+	nano::node_config node_config0 (nano::get_available_port (), system.logging);
+	node_config0.receive_minimum = nano::genesis_amount; // Prevent auto-receive & receive1 block conflicts
+	auto & node0 = *system.add_node (node_config0);
+	nano::node_config node_config1 (nano::get_available_port (), system.logging);
+	node_config1.enable_voting = false; // Remove after allowing pruned voting
 	nano::node_flags node_flags;
 	node_flags.enable_pruning = true;
-	auto & node1 = *add_ipc_enabled_node (system, node_config, node_flags);
+	auto & node1 = *add_ipc_enabled_node (system, node_config1, node_flags);
 	auto latest (node1.latest (nano::dev_genesis_key.pub));
 	auto send1 (std::make_shared<nano::send_block> (latest, nano::dev_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node1.work_generate_blocking (latest)));
 	node1.process_active (send1);
@@ -5013,6 +5025,7 @@ TEST (rpc, block_info_pruning)
 	{
 		auto transaction (node1.store.tx_begin_write ());
 		ASSERT_EQ (1, node1.ledger.pruning_action (transaction, send1->hash (), 1));
+		ASSERT_TRUE (node1.store.block_exists (transaction, receive1->hash ()));
 	}
 	scoped_io_thread_name_change scoped_thread_name_io;
 	nano::node_rpc_config node_rpc_config;
@@ -5054,12 +5067,14 @@ TEST (rpc, block_info_pruning)
 TEST (rpc, pruned_exists)
 {
 	nano::system system;
-	auto & node0 = *system.add_node ();
-	nano::node_config node_config (nano::get_available_port (), system.logging);
-	node_config.enable_voting = false; // Remove after allowing pruned voting
+	nano::node_config node_config0 (nano::get_available_port (), system.logging);
+	node_config0.receive_minimum = nano::genesis_amount; // Prevent auto-receive & receive1 block conflicts
+	auto & node0 = *system.add_node (node_config0);
+	nano::node_config node_config1 (nano::get_available_port (), system.logging);
+	node_config1.enable_voting = false; // Remove after allowing pruned voting
 	nano::node_flags node_flags;
 	node_flags.enable_pruning = true;
-	auto & node1 = *add_ipc_enabled_node (system, node_config, node_flags);
+	auto & node1 = *add_ipc_enabled_node (system, node_config1, node_flags);
 	auto latest (node1.latest (nano::dev_genesis_key.pub));
 	auto send1 (std::make_shared<nano::send_block> (latest, nano::dev_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node1.work_generate_blocking (latest)));
 	node1.process_active (send1);
@@ -5072,6 +5087,7 @@ TEST (rpc, pruned_exists)
 	{
 		auto transaction (node1.store.tx_begin_write ());
 		ASSERT_EQ (1, node1.ledger.pruning_action (transaction, send1->hash (), 1));
+		ASSERT_TRUE (node1.store.block_exists (transaction, receive1->hash ()));
 	}
 	scoped_io_thread_name_change scoped_thread_name_io;
 	nano::node_rpc_config node_rpc_config;
@@ -7800,6 +7816,7 @@ TEST (rpc, confirmation_info)
 	auto send (std::make_shared<nano::send_block> (genesis.hash (), nano::public_key (), nano::genesis_amount - 100, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (genesis.hash ())));
 	node1.process_active (send);
 	node1.block_processor.flush ();
+	node1.scheduler.flush ();
 	ASSERT_FALSE (node1.active.empty ());
 
 	boost::property_tree::ptree request;

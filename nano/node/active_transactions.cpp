@@ -540,11 +540,10 @@ void nano::active_transactions::confirm_expired_frontiers_pessimistically (nano:
 bool nano::active_transactions::should_do_frontiers_confirmation () const
 {
 	auto pending_confirmation_height_size (confirmation_height_processor.awaiting_processing_size ());
-	auto bootstrap_weight_reached (node.ledger.cache.block_count >= node.ledger.bootstrap_weight_max_blocks);
 	auto disabled_confirmation_mode = (node.config.frontiers_confirmation == nano::frontiers_confirmation_mode::disabled);
 	auto conf_height_capacity_reached = pending_confirmation_height_size > confirmed_frontiers_max_pending_size;
 	auto all_cemented = node.ledger.cache.block_count == node.ledger.cache.cemented_count;
-	return (!disabled_confirmation_mode && (bootstrap_weight_reached || node.ledger.pruning) && !conf_height_capacity_reached && !all_cemented);
+	return (!disabled_confirmation_mode && !conf_height_capacity_reached && !all_cemented);
 }
 
 void nano::active_transactions::request_loop ()
