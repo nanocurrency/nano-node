@@ -229,6 +229,7 @@ TEST (active_transactions, inactive_votes_cache_fork)
 	node.network.process_message (nano::publish (send2), channel1);
 	node.block_processor.flush ();
 	ASSERT_NE (nullptr, node.block (send2->hash ()));
+	node.scheduler.flush (); // Start election, otherwise conflicting block won't be inserted into election
 	node.network.process_message (nano::publish (send1), channel1);
 	node.block_processor.flush ();
 	bool confirmed (false);
