@@ -909,7 +909,7 @@ namespace transport
 		}
 		ASSERT_EQ (0, node->network.size ());
 		ASSERT_FALSE (node->network.tcp_channels.reachout (nano::endpoint (boost::asio::ip::make_address_v6 ("::ffff:127.0.0.1"), nano::get_available_port ())));
-		nano::tcp_endpoint tcp_endpoint (boost::asio::ip::make_address_v6 ("::ffff:127.0.0.255"), nano::get_available_port ());
+		nano::tcp_endpoint tcp_endpoint (boost::asio::ip::make_address_v6 ("::ffff:127.0.0.254"), nano::get_available_port ());
 		{
 			nano::lock_guard<nano::mutex> lock (node->network.tcp_channels.mutex);
 			auto inserted (node->network.tcp_channels.attempts.emplace (tcp_endpoint));
