@@ -379,6 +379,10 @@ bool nano::transport::tcp_channels::max_ip_connections (nano::tcp_endpoint const
 			result = attempts.get<ip_address_tag> ().count (address) >= node.network_params.node.max_peers_per_ip || attempts.get<subnetwork_tag> ().count (subnet) >= node.network_params.node.max_peers_per_subnetwork;
 		}
 	}
+	if (result)
+	{
+		node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_max_per_ip, nano::stat::dir::out);
+	}
 	return result;
 }
 

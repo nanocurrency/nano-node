@@ -889,6 +889,7 @@ TEST (network, peer_max_tcp_attempts)
 	}
 	ASSERT_EQ (0, node->network.size ());
 	ASSERT_TRUE (node->network.tcp_channels.reachout (nano::endpoint (node->network.endpoint ().address (), nano::get_available_port ())));
+	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_max_per_ip, nano::stat::dir::out));
 }
 
 namespace nano
@@ -909,6 +910,7 @@ namespace transport
 		}
 		ASSERT_EQ (0, node->network.size ());
 		ASSERT_FALSE (node->network.tcp_channels.reachout (nano::endpoint (boost::asio::ip::make_address_v6 ("::ffff:127.0.0.1"), nano::get_available_port ())));
+		ASSERT_EQ (0, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_max_per_ip, nano::stat::dir::out));
 		nano::tcp_endpoint tcp_endpoint (boost::asio::ip::make_address_v6 ("::ffff:127.0.0.254"), nano::get_available_port ());
 		{
 			nano::lock_guard<nano::mutex> lock (node->network.tcp_channels.mutex);
@@ -916,6 +918,7 @@ namespace transport
 			ASSERT_TRUE (inserted.second);
 		}
 		ASSERT_TRUE (node->network.tcp_channels.reachout (nano::endpoint (boost::asio::ip::make_address_v6 ("::ffff:127.0.0.1"), nano::get_available_port ())));
+		ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_max_per_ip, nano::stat::dir::out));
 	}
 }
 }

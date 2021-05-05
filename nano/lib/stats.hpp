@@ -341,6 +341,7 @@ public:
 		tcp_write_drop,
 		tcp_write_no_socket_drop,
 		tcp_excluded,
+		tcp_max_per_ip,
 
 		// ipc
 		invocations,
