@@ -37,7 +37,6 @@ TEST (system, generate_mass_activity_long)
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.enable_voting = false; // Prevent blocks cementing
 	auto node = system.add_node (node_config);
-	system.wallet (0)->wallets.watcher->stop (); // Stop work watcher
 	nano::thread_runner runner (system.io_ctx, system.nodes[0]->config.io_threads);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	uint32_t count (1000000000);
@@ -535,7 +534,7 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 	{
 		auto block = node->block (last_open_hash);
 		ASSERT_NE (nullptr, block);
-		node->active.insert (block);
+		node->scheduler.manual (block);
 		auto election = node->active.election (block->qualified_root ());
 		ASSERT_NE (nullptr, election);
 		election->force_confirm ();
@@ -603,7 +602,7 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 	// Confirm all of the accounts
 	for (auto & open_block : open_blocks)
 	{
-		node->active.insert (open_block);
+		node->scheduler.manual (open_block);
 		auto election = node->active.election (open_block->qualified_root ());
 		ASSERT_NE (nullptr, election);
 		election->force_confirm ();
@@ -690,7 +689,7 @@ TEST (confirmation_height, long_chains)
 
 	// Call block confirm on the existing receive block on the genesis account which will confirm everything underneath on both accounts
 	{
-		node->active.insert (receive1);
+		node->scheduler.manual (receive1);
 		auto election = node->active.election (receive1->qualified_root ());
 		ASSERT_NE (nullptr, election);
 		election->force_confirm ();
@@ -1500,7 +1499,7 @@ TEST (telemetry, many_nodes)
 		ASSERT_LT (data.uptime, 100);
 		ASSERT_EQ (data.genesis_block, genesis.hash ());
 		ASSERT_LE (data.timestamp, std::chrono::system_clock::now ());
-		ASSERT_EQ (data.active_difficulty, system.nodes.front ()->active.active_difficulty ());
+		ASSERT_EQ (data.active_difficulty, system.nodes.front ()->default_difficulty (nano::work_version::work_1));
 	}
 
 	// We gave some nodes different bandwidth caps, confirm they are not all the same
@@ -1853,7 +1852,7 @@ TEST (node, wallet_create_block_confirm_conflicts)
 		// Call block confirm on the top level send block which will confirm everything underneath on both accounts.
 		{
 			auto block = node->store.block_get (node->store.tx_begin_read (), latest);
-			node->active.insert (block);
+			node->scheduler.manual (block);
 			auto election = node->active.election (block->qualified_root ());
 			ASSERT_NE (nullptr, election);
 			election->force_confirm ();

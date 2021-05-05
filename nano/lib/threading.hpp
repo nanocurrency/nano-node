@@ -32,13 +32,13 @@ namespace thread_role
 		signature_checking,
 		rpc_request_processor,
 		rpc_process_container,
-		work_watcher,
 		confirmation_height_processing,
 		worker,
 		request_aggregator,
 		state_block_signature_verification,
 		epoch_upgrader,
-		db_parallel_traversal
+		db_parallel_traversal,
+		election_scheduler
 	};
 	/*
 	 * Get/Set the identifier for the current thread

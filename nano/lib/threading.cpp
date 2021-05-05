@@ -48,9 +48,6 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 		case nano::thread_role::name::wallet_actions:
 			thread_role_name_string = "Wallet actions";
 			break;
-		case nano::thread_role::name::work_watcher:
-			thread_role_name_string = "Work watcher";
-			break;
 		case nano::thread_role::name::bootstrap_initiator:
 			thread_role_name_string = "Bootstrap init";
 			break;
@@ -87,6 +84,8 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 		case nano::thread_role::name::db_parallel_traversal:
 			thread_role_name_string = "DB par traversl";
 			break;
+		case nano::thread_role::name::election_scheduler:
+			thread_role_name_string = "Election Sched";
 	}
 
 	/*

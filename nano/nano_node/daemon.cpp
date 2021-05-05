@@ -1,4 +1,5 @@
 #include <nano/boost/process/child.hpp>
+#include <nano/lib/signal_manager.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/nano_node/daemon.hpp>
@@ -13,26 +14,34 @@
 
 #include <boost/format.hpp>
 
-#include <csignal>
 #include <iostream>
 
 namespace
 {
-void my_abort_signal_handler (int signum)
-{
-	std::signal (signum, SIG_DFL);
-	nano::dump_crash_stacktrace ();
-	nano::create_load_memory_address_files ();
+volatile sig_atomic_t sig_int_or_term = 0;
 }
 
-volatile sig_atomic_t sig_int_or_term = 0;
+static void load_and_set_bandwidth_params (std::shared_ptr<nano::node> const & node, boost::filesystem::path const & data_path, nano::node_flags const & flags)
+{
+	nano::daemon_config config (data_path);
+
+	auto error = nano::read_node_config_toml (data_path, config, flags.config_overrides);
+	if (!error)
+	{
+		error = nano::flags_config_conflicts (flags, config.node);
+		if (!error)
+		{
+			node->set_bandwidth_params (config.node.bandwidth_limit, config.node.bandwidth_limit_burst_ratio);
+		}
+	}
 }
 
 void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::node_flags const & flags)
 {
 	// Override segmentation fault and aborting.
-	std::signal (SIGSEGV, &my_abort_signal_handler);
-	std::signal (SIGABRT, &my_abort_signal_handler);
+	nano::signal_manager sigman;
+	sigman.register_signal_handler (SIGSEGV, sigman.get_debug_files_handler (), false);
+	sigman.register_signal_handler (SIGABRT, sigman.get_debug_files_handler (), false);
 
 	boost::filesystem::create_directories (data_path);
 	boost::system::error_code error_chmod;
@@ -67,7 +76,6 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 			if (fd_limit < fd_limit_recommended_minimum)
 			{
 				auto low_fd_text = boost::str (boost::format ("WARNING: The file descriptor limit on this system may be too low (%1%) and should be increased to at least %2%.") % fd_limit % fd_limit_recommended_minimum);
-				std::cerr << low_fd_text << std::endl;
 				logger.always_log (low_fd_text);
 			}
 
@@ -142,8 +150,20 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 					sig_int_or_term = 1;
 				};
 
-				std::signal (SIGINT, &nano::signal_handler);
-				std::signal (SIGTERM, &nano::signal_handler);
+				// keep trapping Ctrl-C to avoid a second Ctrl-C interrupting tasks started by the first
+				sigman.register_signal_handler (SIGINT, &nano::signal_handler, true);
+
+				// sigterm is less likely to come in bunches so only trap it once
+				sigman.register_signal_handler (SIGTERM, &nano::signal_handler, false);
+
+#ifndef _WIN32
+				// on sighup we should reload the bandwidth parameters
+				std::function<void (int)> sighup_signal_handler ([&node, &data_path, &flags] (int signum) {
+					debug_assert (signum == SIGHUP);
+					load_and_set_bandwidth_params (node, data_path, flags);
+				});
+				sigman.register_signal_handler (SIGHUP, sighup_signal_handler, true);
+#endif
 
 				runner = std::make_unique<nano::thread_runner> (io_ctx, node->config.io_threads);
 				runner->join ();

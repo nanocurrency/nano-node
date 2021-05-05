@@ -730,11 +730,8 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::late_block_seconds:
 			res = "late_block_seconds";
 			break;
-		case nano::stat::detail::election_non_priority:
-			res = "election_non_priority";
-			break;
-		case nano::stat::detail::election_priority:
-			res = "election_priority";
+		case nano::stat::detail::election_start:
+			res = "election_start";
 			break;
 		case nano::stat::detail::election_block_conflict:
 			res = "election_block_conflict";

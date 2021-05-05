@@ -6,9 +6,9 @@ scripts="$PWD/ci"
 TRAVIS_BRANCH=$(git branch | cut -f2 -d' ')
 tags=()
 if [ -n "$TRAVIS_TAG" ]; then
-    tags+=("$TRAVIS_TAG" latest)
+    tags+=("$TRAVIS_TAG")
     if [[ "$GITHUB_WORKFLOW" = "Beta" || "$GITHUB_WORKFLOW" = "Test" ]]; then
-        tags+=(latest-including-rc)
+        tags+=(latest latest-including-rc)
     fi
 elif [ -n "$TRAVIS_BRANCH" ]; then
     TRAVIS_TAG=$TRAVIS_BRANCH

@@ -16,6 +16,7 @@ public:
 	// initialize with limit 0 = unbounded
 	bandwidth_limiter (const double, const size_t);
 	bool should_drop (const size_t &);
+	void reset (const double, const size_t);
 
 private:
 	nano::rate::token_bucket bucket;

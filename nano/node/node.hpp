@@ -11,6 +11,7 @@
 #include <nano/node/confirmation_height_processor.hpp>
 #include <nano/node/distributed_work_factory.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/election_scheduler.hpp>
 #include <nano/node/gap_cache.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node_observers.hpp>
@@ -37,7 +38,6 @@
 
 #include <atomic>
 #include <memory>
-#include <thread>
 #include <vector>
 
 namespace nano
@@ -104,8 +104,8 @@ public:
 	void process_confirmed (nano::election_status const &, uint64_t = 0);
 	void process_active (std::shared_ptr<nano::block> const &);
 	nano::process_return process (nano::block &);
-	nano::process_return process_local (std::shared_ptr<nano::block> const &, bool const = false);
-	void process_local_async (std::shared_ptr<nano::block> const &, bool const = false);
+	nano::process_return process_local (std::shared_ptr<nano::block> const &);
+	void process_local_async (std::shared_ptr<nano::block> const &);
 	void keepalive_preconfigured (std::vector<std::string> const &);
 	nano::block_hash latest (nano::account const &);
 	nano::uint128_t balance (nano::account const &);
@@ -119,6 +119,7 @@ public:
 	void ongoing_bootstrap ();
 	void ongoing_peer_store ();
 	void ongoing_unchecked_cleanup ();
+	void ongoing_backlog_population ();
 	void backup_wallet ();
 	void search_pending ();
 	void bootstrap_wallet ();
@@ -147,7 +148,9 @@ public:
 	bool online () const;
 	bool init_error () const;
 	bool epoch_upgrader (nano::raw_key const &, nano::epoch, uint64_t, uint64_t);
+	void set_bandwidth_params (size_t limit, double ratio);
 	std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> get_bootstrap_weights () const;
+	void populate_backlog ();
 	nano::write_database_queue write_database_queue;
 	boost::asio::io_context & io_ctx;
 	boost::latch node_initialized_latch;
@@ -179,7 +182,6 @@ public:
 	nano::vote_processor vote_processor;
 	unsigned warmed_up;
 	nano::block_processor block_processor;
-	std::thread block_processor_thread;
 	nano::block_arrival block_arrival;
 	nano::local_vote_history history;
 	nano::keypair node_id;
@@ -187,6 +189,7 @@ public:
 	nano::vote_uniquer vote_uniquer;
 	nano::confirmation_height_processor confirmation_height_processor;
 	nano::active_transactions active;
+	nano::election_scheduler scheduler;
 	nano::request_aggregator aggregator;
 	nano::wallets wallets;
 	const std::chrono::steady_clock::time_point startup_time;

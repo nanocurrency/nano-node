@@ -663,9 +663,11 @@ TEST (confirmation_height, conflict_rollback_cemented)
 		auto channel1 (node1->network.udp_channels.create (node1->network.endpoint ()));
 		node1->network.process_message (publish1, channel1);
 		node1->block_processor.flush ();
+		node1->scheduler.flush ();
 		auto channel2 (node2->network.udp_channels.create (node1->network.endpoint ()));
 		node2->network.process_message (publish2, channel2);
 		node2->block_processor.flush ();
+		node2->scheduler.flush ();
 		ASSERT_EQ (1, node1->active.size ());
 		ASSERT_EQ (1, node2->active.size ());
 		system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
@@ -693,9 +695,9 @@ TEST (confirmation_height, conflict_rollback_cemented)
 		auto winner (*election->tally ().begin ());
 		ASSERT_EQ (*publish1.block, *winner.second);
 		ASSERT_EQ (nano::genesis_amount - 100, winner.first);
-		ASSERT_TRUE (node1->ledger.block_exists (publish1.block->hash ()));
-		ASSERT_TRUE (node2->ledger.block_exists (publish2.block->hash ()));
-		ASSERT_FALSE (node2->ledger.block_exists (publish1.block->hash ()));
+		ASSERT_TRUE (node1->ledger.block_or_pruned_exists (publish1.block->hash ()));
+		ASSERT_TRUE (node2->ledger.block_or_pruned_exists (publish2.block->hash ()));
+		ASSERT_FALSE (node2->ledger.block_or_pruned_exists (publish1.block->hash ()));
 	};
 
 	test_mode (nano::confirmation_height_mode::bounded);

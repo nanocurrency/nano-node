@@ -51,6 +51,40 @@ TEST (rate, network)
 	ASSERT_FALSE (bucket.try_consume (1));
 }
 
+TEST (rate, reset)
+{
+	nano::rate::token_bucket bucket (0, 0);
+
+	// consume lots of tokens, buckets should be unlimited
+	ASSERT_TRUE (bucket.try_consume (1000000));
+	ASSERT_TRUE (bucket.try_consume (1000000));
+
+	// set bucket to be limited
+	bucket.reset (1000, 1000);
+	ASSERT_FALSE (bucket.try_consume (1001));
+	ASSERT_TRUE (bucket.try_consume (1000));
+	ASSERT_FALSE (bucket.try_consume (1000));
+	std::this_thread::sleep_for (2ms);
+	ASSERT_TRUE (bucket.try_consume (2));
+
+	// reduce the limit
+	bucket.reset (100, 100 * 1000);
+	ASSERT_FALSE (bucket.try_consume (101));
+	ASSERT_TRUE (bucket.try_consume (100));
+	std::this_thread::sleep_for (1ms);
+	ASSERT_TRUE (bucket.try_consume (100));
+
+	// increase the limit
+	bucket.reset (2000, 1);
+	ASSERT_FALSE (bucket.try_consume (2001));
+	ASSERT_TRUE (bucket.try_consume (2000));
+
+	// back to unlimited
+	bucket.reset (0, 0);
+	ASSERT_TRUE (bucket.try_consume (1000000));
+	ASSERT_TRUE (bucket.try_consume (1000000));
+}
+
 TEST (rate, unlimited)
 {
 	nano::rate::token_bucket bucket (0, 0);

@@ -1,11 +1,11 @@
 #include <nano/node/node.hpp>
 #include <nano/node/portmapping.hpp>
 
+#include <miniupnp/miniupnpc/upnpcommands.h>
+#include <miniupnp/miniupnpc/upnperrors.h>
+
 #include <boost/format.hpp>
 #include <boost/range/adaptor/filtered.hpp>
-
-#include <upnpcommands.h>
-#include <upnperrors.h>
 
 nano::port_mapping::port_mapping (nano::node & node_a) :
 	node (node_a),

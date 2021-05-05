@@ -14,6 +14,7 @@ add_executable(
   difficulty.cpp
   distributed_work.cpp
   election.cpp
+  election_scheduler.cpp
   epochs.cpp
   frontiers_confirmation.cpp
   gap_cache.cpp
@@ -31,6 +32,7 @@ add_executable(
   peer_container.cpp
   prioritization.cpp
   request_aggregator.cpp
+  signal_manager.cpp
   signing.cpp
   socket.cpp
   telemetry.cpp
@@ -43,7 +45,6 @@ add_executable(
   wallet.cpp
   wallets.cpp
   websocket.cpp
-  work_watcher.cpp
   work_pool.cpp)
 
 target_compile_definitions(
