@@ -249,15 +249,6 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 				}
 			});
 
-			observers.difficulty.add ([this] (uint64_t active_difficulty) {
-				if (this->websocket_server->any_subscriber (nano::websocket::topic::active_difficulty))
-				{
-					nano::websocket::message_builder builder;
-					auto msg (builder.difficulty_changed (this->default_difficulty (nano::work_version::work_1), this->default_receive_difficulty (nano::work_version::work_1), active_difficulty));
-					this->websocket_server->broadcast (msg);
-				}
-			});
-
 			observers.telemetry.add ([this] (nano::telemetry_data const & telemetry_data, nano::endpoint const & endpoint) {
 				if (this->websocket_server->any_subscriber (nano::websocket::topic::telemetry))
 				{
@@ -361,7 +352,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 			store.initialize (transaction, genesis, ledger.cache);
 		}
 
-		if (!ledger.block_exists (genesis.hash ()))
+		if (!ledger.block_or_pruned_exists (genesis.hash ()))
 		{
 			std::stringstream ss;
 			ss << "Genesis block not found. This commonly indicates a configuration issue, check that the --network or --data_path command line arguments are correct, "
@@ -573,7 +564,7 @@ nano::process_return nano::node::process (nano::block & block_a)
 	return result;
 }
 
-nano::process_return nano::node::process_local (std::shared_ptr<nano::block> const & block_a, bool const work_watcher_a)
+nano::process_return nano::node::process_local (std::shared_ptr<nano::block> const & block_a)
 {
 	// Add block hash as recently arrived to trigger automatic rebroadcast and election
 	block_arrival.add (block_a->hash ());
@@ -584,16 +575,16 @@ nano::process_return nano::node::process_local (std::shared_ptr<nano::block> con
 	// Process block
 	block_post_events post_events ([&store = store] { return store.tx_begin_read (); });
 	auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::frontiers, tables::pending }));
-	return block_processor.process_one (transaction, post_events, info, work_watcher_a, false, nano::block_origin::local);
+	return block_processor.process_one (transaction, post_events, info, false, nano::block_origin::local);
 }
 
-void nano::node::process_local_async (std::shared_ptr<nano::block> const & block_a, bool const work_watcher_a)
+void nano::node::process_local_async (std::shared_ptr<nano::block> const & block_a)
 {
 	// Add block hash as recently arrived to trigger automatic rebroadcast and election
 	block_arrival.add (block_a->hash ());
 	// Set current time to trigger automatic rebroadcast and election
 	nano::unchecked_info info (block_a, block_a->account (), nano::seconds_since_epoch (), nano::signature_verification::unknown);
-	block_processor.add_local (info, work_watcher_a);
+	block_processor.add_local (info);
 }
 
 void nano::node::start ()
@@ -1249,7 +1240,7 @@ void nano::node::block_confirm (std::shared_ptr<nano::block> const & block_a)
 bool nano::node::block_confirmed (nano::block_hash const & hash_a)
 {
 	auto transaction (store.tx_begin_read ());
-	return store.block_exists (transaction, hash_a) && ledger.block_confirmed (transaction, hash_a);
+	return ledger.block_confirmed (transaction, hash_a);
 }
 
 bool nano::node::block_confirmed_or_being_confirmed (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
@@ -1300,7 +1291,7 @@ void nano::node::receive_confirmed (nano::transaction const & block_transaction_
 			}
 			else
 			{
-				if (!store.block_or_pruned_exists (block_transaction_a, hash_a))
+				if (!ledger.block_or_pruned_exists (block_transaction_a, hash_a))
 				{
 					logger.try_log (boost::str (boost::format ("Confirmed block is missing:  %1%") % hash_a.to_string ()));
 					debug_assert (false && "Confirmed block is missing");
@@ -1445,6 +1436,14 @@ bool nano::node::epoch_upgrader (nano::raw_key const & prv_a, nano::epoch epoch_
 		}
 	}
 	return error;
+}
+
+void nano::node::set_bandwidth_params (size_t limit, double ratio)
+{
+	config.bandwidth_limit_burst_ratio = ratio;
+	config.bandwidth_limit = limit;
+	network.set_bandwidth_params (limit, ratio);
+	logger.always_log (boost::str (boost::format ("set_bandwidth_params(%1%, %2%)") % limit % ratio));
 }
 
 void nano::node::epoch_upgrader_impl (nano::raw_key const & prv_a, nano::epoch epoch_a, uint64_t count_limit, uint64_t threads)

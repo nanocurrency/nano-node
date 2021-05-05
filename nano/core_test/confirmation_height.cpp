@@ -695,9 +695,9 @@ TEST (confirmation_height, conflict_rollback_cemented)
 		auto winner (*election->tally ().begin ());
 		ASSERT_EQ (*publish1.block, *winner.second);
 		ASSERT_EQ (nano::genesis_amount - 100, winner.first);
-		ASSERT_TRUE (node1->ledger.block_exists (publish1.block->hash ()));
-		ASSERT_TRUE (node2->ledger.block_exists (publish2.block->hash ()));
-		ASSERT_FALSE (node2->ledger.block_exists (publish1.block->hash ()));
+		ASSERT_TRUE (node1->ledger.block_or_pruned_exists (publish1.block->hash ()));
+		ASSERT_TRUE (node2->ledger.block_or_pruned_exists (publish2.block->hash ()));
+		ASSERT_FALSE (node2->ledger.block_or_pruned_exists (publish1.block->hash ()));
 	};
 
 	test_mode (nano::confirmation_height_mode::bounded);
