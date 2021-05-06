@@ -145,4 +145,6 @@ TEST (election_scheduler, flush_vacancy)
 	node.scheduler.manual (send);
 	// Ensure this call does not block, even though no elections can be activated.
 	node.scheduler.flush ();
+	ASSERT_EQ (0, node.active.size ());
+	ASSERT_EQ (1, node.scheduler.size ());
 }
