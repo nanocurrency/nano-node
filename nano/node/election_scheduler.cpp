@@ -18,7 +18,7 @@ void nano::election_scheduler::manual (std::shared_ptr<nano::block> const & bloc
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	manual_queue.push_back (std::make_tuple (block_a, previous_balance_a, election_behavior_a, confirmation_action_a));
-	observe ();
+	notify ();
 }
 
 void nano::election_scheduler::activate (nano::account const & account_a, nano::transaction const & transaction)
@@ -39,7 +39,7 @@ void nano::election_scheduler::activate (nano::account const & account_a, nano::
 			{
 				nano::lock_guard<nano::mutex> lock{ mutex };
 				priority.push (account_info.modified, block);
-				observe ();
+				notify ();
 			}
 		}
 	}
@@ -49,20 +49,18 @@ void nano::election_scheduler::stop ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	stopped = true;
-	observe ();
+	notify ();
 }
 
 void nano::election_scheduler::flush ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
-	auto priority_target = priority_queued + priority.size ();
-	auto manual_target = manual_queued + manual_queue.size ();
-	condition.wait (lock, [this, &priority_target, &manual_target] () {
-		return stopped || (priority_queued >= priority_target && manual_queued >= manual_target);
+	condition.wait (lock, [this] () {
+		return stopped || empty_locked () || node.active.vacancy () <= 0;
 	});
 }
 
-void nano::election_scheduler::observe ()
+void nano::election_scheduler::notify ()
 {
 	condition.notify_all ();
 }
@@ -73,10 +71,15 @@ size_t nano::election_scheduler::size () const
 	return priority.size () + manual_queue.size ();
 }
 
+bool nano::election_scheduler::empty_locked () const
+{
+	return priority.empty () && manual_queue.empty ();
+}
+
 bool nano::election_scheduler::empty () const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
-	return priority.empty () && manual_queue.empty ();
+	return empty_locked ();
 }
 
 size_t nano::election_scheduler::priority_queue_size () const
@@ -120,7 +123,7 @@ void nano::election_scheduler::run ()
 				manual_queue.pop_front ();
 				++manual_queued;
 			}
-			observe ();
+			notify ();
 		}
 	}
 }

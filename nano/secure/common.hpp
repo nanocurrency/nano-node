@@ -424,6 +424,8 @@ public:
 	std::chrono::milliseconds process_confirmed_interval;
 	/** Maximum number of peers per IP */
 	size_t max_peers_per_ip;
+	/** Maximum number of peers per subnetwork */
+	size_t max_peers_per_subnetwork;
 
 	/** The maximum amount of samples for a 2 week period on live or 1 day on beta */
 	uint64_t max_weight_samples;
