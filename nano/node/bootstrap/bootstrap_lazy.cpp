@@ -25,9 +25,10 @@ nano::bootstrap_attempt_lazy::~bootstrap_attempt_lazy ()
 	node->bootstrap_initiator.notify_listeners (false);
 }
 
-void nano::bootstrap_attempt_lazy::lazy_start (nano::hash_or_account const & hash_or_account_a, bool confirmed)
+bool nano::bootstrap_attempt_lazy::lazy_start (nano::hash_or_account const & hash_or_account_a, bool confirmed)
 {
 	nano::unique_lock<nano::mutex> lock (mutex);
+	bool inserted (false);
 	// Add start blocks, limit 1024 (4k with disabled legacy bootstrap)
 	size_t max_keys (node->flags.disable_legacy_bootstrap ? 4 * 1024 : 1024);
 	if (lazy_keys.size () < max_keys && lazy_keys.find (hash_or_account_a.as_block_hash ()) == lazy_keys.end () && !lazy_blocks_processed (hash_or_account_a.as_block_hash ()))
@@ -36,7 +37,9 @@ void nano::bootstrap_attempt_lazy::lazy_start (nano::hash_or_account const & has
 		lazy_pulls.emplace_back (hash_or_account_a, confirmed ? lazy_retry_limit_confirmed () : node->network_params.bootstrap.lazy_retry_limit);
 		lock.unlock ();
 		condition.notify_all ();
+		inserted = true;
 	}
+	return inserted;
 }
 
 void nano::bootstrap_attempt_lazy::lazy_add (nano::hash_or_account const & hash_or_account_a, unsigned retry_limit)
@@ -210,6 +213,10 @@ void nano::bootstrap_attempt_lazy::run ()
 	if (!stopped)
 	{
 		node->logger.try_log ("Completed lazy pulls");
+	}
+	if (lazy_has_expired ())
+	{
+		node->logger.try_log (boost::str (boost::format ("Lazy bootstrap attempt ID %1% expired") % id));
 	}
 	lock.unlock ();
 	stop ();

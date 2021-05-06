@@ -1049,12 +1049,11 @@ bool nano::wallet::action_complete (std::shared_ptr<nano::block> const & block_a
 		{
 			wallets.node.logger.try_log (boost::str (boost::format ("Cached or provided work for block %1% account %2% is invalid, regenerating") % block_a->hash ().to_string () % account_a.to_account ()));
 			debug_assert (required_difficulty <= wallets.node.max_work_generate_difficulty (block_a->work_version ()));
-			auto target_difficulty = std::max (required_difficulty, wallets.node.active.limited_active_difficulty (block_a->work_version (), required_difficulty));
-			error = !wallets.node.work_generate_blocking (*block_a, target_difficulty).is_initialized ();
+			error = !wallets.node.work_generate_blocking (*block_a, required_difficulty).is_initialized ();
 		}
 		if (!error)
 		{
-			error = wallets.node.process_local (block_a, true).code != nano::process_result::progress;
+			error = wallets.node.process_local (block_a).code != nano::process_result::progress;
 			debug_assert (error || block_a->sideband ().details == details_a);
 		}
 		if (!error && generate_work_a)
@@ -1308,121 +1307,6 @@ void nano::wallet::work_cache_blocking (nano::account const & account_a, nano::r
 	}
 }
 
-nano::work_watcher::work_watcher (nano::node & node_a) :
-	node (node_a),
-	stopped (false)
-{
-	node.observers.blocks.add ([this] (nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
-		this->remove (*status_a.winner);
-	});
-}
-
-nano::work_watcher::~work_watcher ()
-{
-	stop ();
-}
-
-void nano::work_watcher::stop ()
-{
-	nano::unique_lock<nano::mutex> lock (mutex);
-	watched.clear ();
-	stopped = true;
-}
-
-void nano::work_watcher::add (std::shared_ptr<nano::block> const & block_a)
-{
-	auto block_l (std::dynamic_pointer_cast<nano::state_block> (block_a));
-	if (!stopped && block_l != nullptr)
-	{
-		auto root_l (block_l->qualified_root ());
-		nano::unique_lock<nano::mutex> lock (mutex);
-		watched[root_l] = block_l;
-		lock.unlock ();
-		watching (root_l, block_l);
-	}
-}
-
-void nano::work_watcher::update (nano::qualified_root const & root_a, std::shared_ptr<nano::state_block> const & block_a)
-{
-	nano::lock_guard<nano::mutex> guard (mutex);
-	watched[root_a] = block_a;
-}
-
-void nano::work_watcher::watching (nano::qualified_root const & root_a, std::shared_ptr<nano::state_block> const & block_a)
-{
-	std::weak_ptr<nano::work_watcher> watcher_w (shared_from_this ());
-	node.workers.add_timed_task (std::chrono::steady_clock::now () + node.config.work_watcher_period, [block_a, root_a, watcher_w] () {
-		auto watcher_l = watcher_w.lock ();
-		if (watcher_l && !watcher_l->stopped && watcher_l->is_watched (root_a))
-		{
-			auto active_difficulty (watcher_l->node.active.limited_active_difficulty (*block_a));
-			/*
-			 * Work watcher should still watch blocks even without work generation, although no rework is done
-			 * Functionality may be added in the future that does not require updating work
-			 */
-			if (active_difficulty > block_a->difficulty () && watcher_l->node.work_generation_enabled ())
-			{
-				watcher_l->node.work_generate (
-				block_a->work_version (), block_a->root (), active_difficulty, [watcher_l, block_a, root_a] (boost::optional<uint64_t> work_a) {
-					if (watcher_l->is_watched (root_a))
-					{
-						if (work_a.is_initialized ())
-						{
-							debug_assert (nano::work_difficulty (block_a->work_version (), block_a->root (), *work_a) > block_a->difficulty ());
-							nano::state_block_builder builder;
-							std::error_code ec;
-							std::shared_ptr<nano::state_block> block (builder.from (*block_a).work (*work_a).build (ec));
-							if (!ec)
-							{
-								watcher_l->node.network.flood_block_initial (block);
-								watcher_l->node.active.update_difficulty (block, false);
-								watcher_l->update (root_a, block);
-							}
-						}
-						watcher_l->watching (root_a, block_a);
-					}
-				},
-				block_a->account ());
-			}
-			else
-			{
-				watcher_l->watching (root_a, block_a);
-			}
-		}
-	});
-}
-
-void nano::work_watcher::remove (nano::block const & block_a)
-{
-	nano::unique_lock<nano::mutex> lock (mutex);
-	auto existing (watched.find (block_a.qualified_root ()));
-	if (existing != watched.end ())
-	{
-		watched.erase (existing);
-		lock.unlock ();
-		node.observers.work_cancel.notify (block_a.root ());
-	}
-}
-
-bool nano::work_watcher::is_watched (nano::qualified_root const & root_a)
-{
-	nano::lock_guard<nano::mutex> guard (mutex);
-	auto exists (watched.find (root_a));
-	return exists != watched.end ();
-}
-
-auto nano::work_watcher::list_watched () -> decltype (watched)
-{
-	nano::lock_guard<nano::mutex> guard (mutex);
-	return watched;
-}
-
-size_t nano::work_watcher::size ()
-{
-	nano::lock_guard<nano::mutex> guard (mutex);
-	return watched.size ();
-}
-
 void nano::wallets::do_wallet_actions ()
 {
 	nano::unique_lock<nano::mutex> action_lock (action_mutex);
@@ -1455,7 +1339,6 @@ nano::wallets::wallets (bool error_a, nano::node & node_a) :
 	node (node_a),
 	env (boost::polymorphic_downcast<nano::mdb_wallets_store *> (node_a.wallets_store_impl.get ())->environment),
 	stopped (false),
-	watcher (std::make_shared<nano::work_watcher> (node_a)),
 	thread ([this] () {
 		nano::thread_role::set (nano::thread_role::name::wallet_actions);
 		do_wallet_actions ();
@@ -1720,7 +1603,6 @@ void nano::wallets::stop ()
 	{
 		thread.join ();
 	}
-	watcher->stop ();
 }
 
 nano::write_transaction nano::wallets::tx_begin_write ()
@@ -1950,10 +1832,8 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (wa
 
 	auto sizeof_item_element = sizeof (decltype (wallets.items)::value_type);
 	auto sizeof_actions_element = sizeof (decltype (wallets.actions)::value_type);
-	auto sizeof_watcher_element = sizeof (decltype (wallets.watcher->list_watched ())::value_type);
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "items", items_count, sizeof_item_element }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "actions", actions_count, sizeof_actions_element }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "work_watcher", wallets.watcher->size (), sizeof_watcher_element }));
 	return composite;
 }

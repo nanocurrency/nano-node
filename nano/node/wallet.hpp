@@ -161,28 +161,6 @@ public:
 	std::unordered_set<nano::account> representatives;
 };
 
-class work_watcher final : public std::enable_shared_from_this<nano::work_watcher>
-{
-	std::unordered_map<nano::qualified_root, std::shared_ptr<nano::state_block>> watched;
-
-public:
-	work_watcher (nano::node &);
-	~work_watcher ();
-	void stop ();
-	void add (std::shared_ptr<nano::block> const &);
-	void update (nano::qualified_root const &, std::shared_ptr<nano::state_block> const &);
-	void watching (nano::qualified_root const &, std::shared_ptr<nano::state_block> const &);
-	void remove (nano::block const &);
-	bool is_watched (nano::qualified_root const &);
-	decltype (watched) list_watched ();
-	size_t size ();
-
-private:
-	nano::mutex mutex;
-	nano::node & node;
-	std::atomic<bool> stopped;
-};
-
 class wallet_representatives
 {
 public:
@@ -247,7 +225,6 @@ public:
 	nano::node & node;
 	nano::mdb_env & env;
 	std::atomic<bool> stopped;
-	std::shared_ptr<nano::work_watcher> watcher;
 	std::thread thread;
 	static nano::uint128_t const generate_priority;
 	static nano::uint128_t const high_priority;
