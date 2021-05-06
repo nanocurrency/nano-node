@@ -22,7 +22,8 @@ nano::active_transactions::active_transactions (nano::node & node_a, nano::confi
 	scheduler{ node_a.scheduler }, // Move dependencies requiring this circular reference
 	confirmation_height_processor{ confirmation_height_processor_a },
 	node{ node_a },
-	generator{ node_a.config, node_a.ledger, node_a.wallets, node_a.vote_processor, node_a.history, node_a.network, node_a.stats },
+	generator{ node_a.config, node_a.ledger, node_a.wallets, node_a.vote_processor, node_a.history, node_a.network, node_a.stats, false },
+	final_generator{ node_a.config, node_a.ledger, node_a.wallets, node_a.vote_processor, node_a.history, node_a.network, node_a.stats, true },
 	election_time_to_live{ node_a.network_params.network.is_dev_network () ? 0s : 2s },
 	thread ([this] () {
 		nano::thread_role::set (nano::thread_role::name::request_loop);
@@ -184,7 +185,7 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 			bool is_state_send (false);
 			nano::account pending_account (0);
 			node.process_confirmed_data (transaction, block_a, block_a->hash (), account, amount, is_state_send, pending_account);
-			node.observers.blocks.notify (nano::election_status{ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::inactive_confirmation_height }, {}, account, amount, is_state_send);
+			node.observers.blocks.notify (nano::election_status{ block_a, 0, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::inactive_confirmation_height }, {}, account, amount, is_state_send);
 		}
 		else
 		{
@@ -230,6 +231,10 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 
 		auto const & account (!block_a->account ().is_zero () ? block_a->account () : block_a->sideband ().account);
 		debug_assert (!account.is_zero ());
+		if (!node.ledger.cache.final_votes_confirmation_canary.load () && account == node.network_params.ledger.final_votes_canary_account && block_a->sideband ().height >= node.network_params.ledger.final_votes_canary_height)
+		{
+			node.ledger.cache.final_votes_confirmation_canary.store (true);
+		}
 
 		// Next-block activations are done after cementing hardcoded bootstrap count to allow confirming very large chains without interference
 		bool const cemented_bootstrap_count_reached{ node.ledger.cache.cemented_count >= node.ledger.bootstrap_weight_max_blocks };
@@ -295,6 +300,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> 
 	nano::confirmation_solicitor solicitor (node.network, node.config);
 	solicitor.prepare (node.rep_crawler.principal_representatives (std::numeric_limits<size_t>::max ()));
 	nano::vote_generator_session generator_session (generator);
+	nano::vote_generator_session final_generator_session (generator);
 
 	auto const election_ttl_cutoff_l (std::chrono::steady_clock::now () - election_time_to_live);
 	size_t unconfirmed_count_l (0);
@@ -332,6 +338,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> 
 
 	solicitor.flush ();
 	generator_session.flush ();
+	final_generator_session.flush ();
 	lock_a.lock ();
 
 	if (node.config.logging.timing_logging ())
@@ -775,6 +782,7 @@ void nano::active_transactions::stop ()
 		thread.join ();
 	}
 	generator.stop ();
+	final_generator.stop ();
 	lock.lock ();
 	roots.clear ();
 }

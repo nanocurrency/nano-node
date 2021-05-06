@@ -252,6 +252,7 @@ TEST (websocket, confirmation_options)
 	{
 		boost::property_tree::ptree election_info = event.get_child ("message.election_info");
 		auto tally (election_info.get<std::string> ("tally"));
+		auto final_tally (election_info.get<std::string> ("final"));
 		auto time (election_info.get<std::string> ("time"));
 		// Duration and request count may be zero on devnet, so we only check that they're present
 		ASSERT_EQ (1, election_info.count ("duration"));
