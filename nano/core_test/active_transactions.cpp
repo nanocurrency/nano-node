@@ -213,12 +213,12 @@ TEST (active_transactions, inactive_votes_cache_non_final)
 	nano::block_hash latest (node.latest (nano::dev_genesis_key.pub));
 	nano::keypair key;
 	auto send = nano::send_block_builder ()
-	            .previous (latest)
-	            .destination (key.pub)
-	            .balance (nano::genesis_amount - 100)
-	            .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-	            .work (*system.work.generate (latest))
-	            .build_shared ();
+				.previous (latest)
+				.destination (key.pub)
+				.balance (nano::genesis_amount - 100)
+				.sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+				.work (*system.work.generate (latest))
+				.build_shared ();
 	auto vote (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 0, std::vector<nano::block_hash> (1, send->hash ()))); // Non-final vote
 	node.vote_processor.vote (vote, std::make_shared<nano::transport::channel_loopback> (node));
 	ASSERT_TIMELY (5s, node.active.inactive_votes_cache_size () == 1);

@@ -334,7 +334,6 @@ void nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 
 void nano::block_processor::process_live (nano::transaction const & transaction_a, nano::block_hash const & hash_a, std::shared_ptr<nano::block> const & block_a, nano::process_return const & process_return_a, nano::block_origin const origin_a)
 {
-
 	// Start collecting quorum on block
 	if (node.ledger.dependents_confirmed (transaction_a, *block_a))
 	{
