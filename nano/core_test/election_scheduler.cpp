@@ -79,8 +79,11 @@ TEST (election_scheduler, no_vacancy)
 				   .work (*system.work.generate (key.pub))
 				   .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node.process (*send).code);
+	nano::blocks_confirm (node, { send }, true);
+	ASSERT_TIMELY (1s, node.active.empty ());
 	ASSERT_EQ (nano::process_result::progress, node.process (*receive).code);
-	nano::blocks_confirm (node, { send, receive }, true);
+	nano::blocks_confirm (node, { receive }, true);
+	ASSERT_TIMELY (1s, node.active.empty ());
 
 	// Second, process two eligble transactions
 	auto block0 = builder.make_block ()
@@ -117,4 +120,31 @@ TEST (election_scheduler, no_vacancy)
 	ASSERT_TIMELY (1s, node.active.size () == 1);
 	auto election4 = node.active.election (block1->qualified_root ());
 	ASSERT_NE (nullptr, election4);
+}
+
+// Ensure that election_scheduler::flush terminates even if no elections can currently be queued e.g. shutdown or no active_transactions vacancy
+TEST (election_scheduler, flush_vacancy)
+{
+	nano::system system;
+	nano::node_config config{ nano::get_available_port (), system.logging };
+	// No elections can be activated
+	config.active_elections_size = 0;
+	auto & node = *system.add_node (config);
+	nano::state_block_builder builder;
+	nano::keypair key;
+
+	auto send = builder.make_block ()
+				.account (nano::dev_genesis_key.pub)
+				.previous (nano::genesis_hash)
+				.representative (nano::dev_genesis_key.pub)
+				.link (key.pub)
+				.balance (nano::genesis_amount - nano::Gxrb_ratio)
+				.sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+				.work (*system.work.generate (nano::genesis_hash))
+				.build_shared ();
+	node.scheduler.manual (send);
+	// Ensure this call does not block, even though no elections can be activated.
+	node.scheduler.flush ();
+	ASSERT_EQ (0, node.active.size ());
+	ASSERT_EQ (1, node.scheduler.size ());
 }
