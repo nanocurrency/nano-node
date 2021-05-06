@@ -122,16 +122,17 @@ TEST (election_scheduler, no_vacancy)
 	ASSERT_NE (nullptr, election4);
 }
 
+// Ensure that election_scheduler::flush terminates even if no elections can currently be queued e.g. shutdown or no active_transactions vacancy
 TEST (election_scheduler, flush_vacancy)
 {
 	nano::system system;
 	nano::node_config config{ nano::get_available_port (), system.logging };
+	// No elections can be activated
 	config.active_elections_size = 0;
 	auto & node = *system.add_node (config);
 	nano::state_block_builder builder;
 	nano::keypair key;
 
-	// Activating accounts depends on confirmed dependencies. First, prepare 2 accounts
 	auto send = builder.make_block ()
 				.account (nano::dev_genesis_key.pub)
 				.previous (nano::genesis_hash)
@@ -142,4 +143,6 @@ TEST (election_scheduler, flush_vacancy)
 				.work (*system.work.generate (nano::genesis_hash))
 				.build_shared ();
 	node.scheduler.manual (send);
+	// Ensure this call does not block, even though no elections can be activated.
+	node.scheduler.flush ();
 }
