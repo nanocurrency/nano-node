@@ -20,15 +20,11 @@ constexpr std::chrono::minutes nano::active_transactions::expired_optimistic_ele
 
 nano::active_transactions::active_transactions (nano::node & node_a, nano::confirmation_height_processor & confirmation_height_processor_a) :
 	scheduler{ node_a.scheduler }, // Move dependencies requiring this circular reference
-	confirmation_height_processor (confirmation_height_processor_a),
-	node (node_a),
-	multipliers_cb (20, 1.),
-	trended_active_multiplier (1.0),
-	generator (node_a.config, node_a.ledger, node_a.wallets, node_a.vote_processor, node_a.history, node_a.network, node_a.stats, false),
-	final_generator (node_a.config, node_a.ledger, node_a.wallets, node_a.vote_processor, node_a.history, node_a.network, node_a.stats, true),
-	check_all_elections_period (node_a.network_params.network.is_dev_network () ? 10ms : 5s),
-	election_time_to_live (node_a.network_params.network.is_dev_network () ? 0s : 2s),
-	prioritized_cutoff (std::max<size_t> (1, node_a.config.active_elections_size / 10)),
+	confirmation_height_processor{ confirmation_height_processor_a },
+	node{ node_a },
+	generator{ node_a.config, node_a.ledger, node_a.wallets, node_a.vote_processor, node_a.history, node_a.network, node_a.stats, false },
+	final_generator{ node_a.config, node_a.ledger, node_a.wallets, node_a.vote_processor, node_a.history, node_a.network, node_a.stats, true },
+	election_time_to_live{ node_a.network_params.network.is_dev_network () ? 0s : 2s },
 	thread ([this] () {
 		nano::thread_role::set (nano::thread_role::name::request_loop);
 		request_loop ();
@@ -296,8 +292,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> 
 {
 	debug_assert (lock_a.owns_lock ());
 
-	bool const check_all_elections_l (std::chrono::steady_clock::now () - last_check_all_elections > check_all_elections_period);
-	size_t const this_loop_target_l (check_all_elections_l ? roots.size () : prioritized_cutoff);
+	size_t const this_loop_target_l (roots.size ());
 	auto const elections_l{ list_active_impl (this_loop_target_l) };
 
 	lock_a.unlock ();
@@ -311,10 +306,6 @@ void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> 
 	size_t unconfirmed_count_l (0);
 	nano::timer<std::chrono::milliseconds> elapsed (nano::timer_state::started);
 
-	auto const is_watched = [watched = node.wallets.watcher->list_watched ()] (nano::qualified_root const & root_a) -> bool {
-		return watched.find (root_a) != watched.end ();
-	};
-
 	/*
 	 * Loop through active elections in descending order of proof-of-work difficulty, requesting confirmation
 	 *
@@ -326,13 +317,8 @@ void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> 
 	{
 		bool const confirmed_l (election_l->confirmed ());
 
-		if (!election_l->prioritized () && unconfirmed_count_l < prioritized_cutoff)
-		{
-			election_l->prioritize (generator_session, final_generator_session);
-		}
-
 		unconfirmed_count_l += !confirmed_l;
-		bool const overflow_l (unconfirmed_count_l > node.config.active_elections_size && election_l->election_start < election_ttl_cutoff_l && !is_watched (election_l->qualified_root));
+		bool const overflow_l (unconfirmed_count_l > node.config.active_elections_size && election_l->election_start < election_ttl_cutoff_l);
 		if (overflow_l || election_l->transition_time (solicitor))
 		{
 			if (election_l->optimistic () && election_l->failed ())
@@ -355,14 +341,9 @@ void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> 
 	final_generator_session.flush ();
 	lock_a.lock ();
 
-	// This is updated after the loop to ensure slow machines don't do the full check often
-	if (check_all_elections_l)
+	if (node.config.logging.timing_logging ())
 	{
-		last_check_all_elections = std::chrono::steady_clock::now ();
-		if (node.config.logging.timing_logging () && this_loop_target_l > prioritized_cutoff)
-		{
-			node.logger.try_log (boost::str (boost::format ("Processed %1% elections (%2% were already confirmed) in %3% %4%") % this_loop_target_l % (this_loop_target_l - unconfirmed_count_l) % elapsed.value ().count () % elapsed.unit ()));
-		}
+		node.logger.try_log (boost::str (boost::format ("Processed %1% elections (%2% were already confirmed) in %3% %4%") % this_loop_target_l % (this_loop_target_l - unconfirmed_count_l) % elapsed.value ().count () % elapsed.unit ()));
 	}
 }
 
@@ -412,7 +393,7 @@ std::vector<std::shared_ptr<nano::election>> nano::active_transactions::list_act
 	std::vector<std::shared_ptr<nano::election>> result_l;
 	result_l.reserve (std::min (max_a, roots.size ()));
 	{
-		auto & sorted_roots_l (roots.get<tag_difficulty> ());
+		auto & sorted_roots_l (roots.get<tag_random_access> ());
 		size_t count_l{ 0 };
 		for (auto i = sorted_roots_l.begin (), n = sorted_roots_l.end (); i != n && count_l < max_a; ++i, ++count_l)
 		{
@@ -566,11 +547,10 @@ void nano::active_transactions::confirm_expired_frontiers_pessimistically (nano:
 bool nano::active_transactions::should_do_frontiers_confirmation () const
 {
 	auto pending_confirmation_height_size (confirmation_height_processor.awaiting_processing_size ());
-	auto bootstrap_weight_reached (node.ledger.cache.block_count >= node.ledger.bootstrap_weight_max_blocks);
 	auto disabled_confirmation_mode = (node.config.frontiers_confirmation == nano::frontiers_confirmation_mode::disabled);
 	auto conf_height_capacity_reached = pending_confirmation_height_size > confirmed_frontiers_max_pending_size;
 	auto all_cemented = node.ledger.cache.block_count == node.ledger.cache.cemented_count;
-	return (!disabled_confirmation_mode && (bootstrap_weight_reached || node.ledger.pruning) && !conf_height_capacity_reached && !all_cemented);
+	return (!disabled_confirmation_mode && !conf_height_capacity_reached && !all_cemented);
 }
 
 void nano::active_transactions::request_loop ()
@@ -598,7 +578,6 @@ void nano::active_transactions::request_loop ()
 
 		const auto stamp_l = std::chrono::steady_clock::now ();
 
-		update_active_multiplier (lock);
 		request_confirm (lock);
 
 		if (!stopped)
@@ -829,25 +808,23 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 				if (!previous_balance_a.is_initialized () && !block_a->previous ().is_zero ())
 				{
 					auto transaction (node.store.tx_begin_read ());
-					if (node.ledger.block_exists (block_a->previous ()))
+					if (node.ledger.block_or_pruned_exists (block_a->previous ()))
 					{
 						previous_balance = node.ledger.balance (transaction, block_a->previous ());
 					}
 				}
-				double multiplier (normalized_multiplier (*block_a));
-				bool prioritized = roots.size () < prioritized_cutoff || multiplier > last_prioritized_multiplier.value_or (0);
 				result.election = nano::make_shared<nano::election> (
 				node, block_a, confirmation_action_a, [&node = node] (auto const & rep_a) {
 					// Representative is defined as online if replying to live votes or rep_crawler queries
 					node.online_reps.observe (rep_a);
 				},
-				prioritized, election_behavior_a);
-				roots.get<tag_root> ().emplace (nano::active_transactions::conflict_info{ root, multiplier, result.election, epoch, previous_balance });
+				election_behavior_a);
+				roots.get<tag_root> ().emplace (nano::active_transactions::conflict_info{ root, result.election, epoch, previous_balance });
 				blocks.emplace (hash, result.election);
 				auto const cache = find_inactive_votes_cache_impl (hash);
 				lock_a.unlock ();
 				result.election->insert_inactive_votes_cache (cache);
-				node.stats.inc (nano::stat::type::election, prioritized ? nano::stat::detail::election_priority : nano::stat::detail::election_non_priority);
+				node.stats.inc (nano::stat::type::election, nano::stat::detail::election_start);
 				vacancy_update ();
 			}
 		}
@@ -861,9 +838,8 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 			lock_a.unlock ();
 		}
 
-		// Votes are generated for inserted or ongoing elections if they're prioritized
-		// Non-priority elections generate votes when they gain priority in the future
-		if (result.election && result.election->prioritized ())
+		// Votes are generated for inserted or ongoing elections
+		if (result.election)
 		{
 			result.election->generate_votes ();
 		}
@@ -987,39 +963,6 @@ std::shared_ptr<nano::block> nano::active_transactions::winner (nano::block_hash
 	return result;
 }
 
-bool nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> const & block_a, bool flood_update)
-{
-	nano::unique_lock<nano::mutex> lock (mutex);
-	auto existing_election (roots.get<tag_root> ().find (block_a->qualified_root ()));
-	bool error = existing_election == roots.get<tag_root> ().end () || update_difficulty_impl (existing_election, *block_a);
-	// Update election and flood block
-	if (!error && flood_update)
-	{
-		lock.unlock ();
-		existing_election->election->publish (block_a);
-	}
-	return error;
-}
-
-bool nano::active_transactions::update_difficulty_impl (nano::active_transactions::roots_iterator const & root_it_a, nano::block const & block_a)
-{
-	debug_assert (!mutex.try_lock ());
-	double multiplier (normalized_multiplier (block_a, root_it_a));
-	bool error = multiplier <= root_it_a->multiplier;
-	if (!error)
-	{
-		if (node.config.logging.active_update_logging ())
-		{
-			node.logger.try_log (boost::str (boost::format ("Election %1% difficulty updated with block %2% from multiplier %3% to %4%") % root_it_a->root.to_string () % block_a.hash ().to_string () % root_it_a->multiplier % multiplier));
-		}
-		roots.get<tag_root> ().modify (root_it_a, [multiplier] (nano::active_transactions::conflict_info & info_a) {
-			info_a.multiplier = multiplier;
-		});
-		node.stats.inc (nano::stat::type::election, nano::stat::detail::election_difficulty_update);
-	}
-	return error;
-}
-
 void nano::active_transactions::restart (nano::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a)
 {
 	auto hash (block_a->hash ());
@@ -1046,120 +989,6 @@ void nano::active_transactions::restart (nano::transaction const & transaction_a
 			}
 		}
 	}
-}
-
-double nano::active_transactions::normalized_multiplier (nano::block const & block_a, boost::optional<nano::active_transactions::roots_iterator> const & root_it_a) const
-{
-	debug_assert (!mutex.try_lock ());
-	auto difficulty (block_a.difficulty ());
-	uint64_t threshold (0);
-	bool sideband_not_found (false);
-	if (block_a.has_sideband ())
-	{
-		threshold = nano::work_threshold (block_a.work_version (), block_a.sideband ().details);
-	}
-	else if (root_it_a.is_initialized ())
-	{
-		auto election (*root_it_a);
-		debug_assert (election != roots.end ());
-		// This is one of few places where both the active mutex and election mutexes are held
-		if (auto election_block = election->election->find (block_a.hash ()); election_block && election_block->has_sideband ())
-		{
-			threshold = nano::work_threshold (block_a.work_version (), election_block->sideband ().details);
-		}
-		else
-		{
-			// This can have incorrect results during an epoch upgrade, but it only affects prioritization
-			bool is_send = election->previous_balance > block_a.balance ().number ();
-			bool is_receive = election->previous_balance < block_a.balance ().number ();
-			nano::block_details details (election->epoch, is_send, is_receive, false);
-
-			threshold = nano::work_threshold (block_a.work_version (), details);
-			sideband_not_found = true;
-		}
-	}
-	double multiplier (nano::difficulty::to_multiplier (difficulty, threshold));
-	debug_assert (multiplier >= 1 || sideband_not_found);
-	if (multiplier >= 1)
-	{
-		multiplier = nano::normalized_multiplier (multiplier, threshold);
-	}
-	else
-	{
-		// Inferred threshold was incorrect
-		multiplier = 1;
-	}
-	return multiplier;
-}
-
-void nano::active_transactions::update_active_multiplier (nano::unique_lock<nano::mutex> & lock_a)
-{
-	debug_assert (!mutex.try_lock ());
-	last_prioritized_multiplier.reset ();
-	double multiplier (1.);
-	// Heurestic to filter out non-saturated network and frontier confirmation
-	if (roots.size () >= prioritized_cutoff || (node.network_params.network.is_dev_network () && !roots.empty ()))
-	{
-		auto & sorted_roots = roots.get<tag_difficulty> ();
-		std::vector<double> prioritized;
-		prioritized.reserve (std::min (sorted_roots.size (), prioritized_cutoff));
-		for (auto it (sorted_roots.begin ()), end (sorted_roots.end ()); it != end && prioritized.size () < prioritized_cutoff; ++it)
-		{
-			if (!it->election->confirmed ())
-			{
-				prioritized.push_back (it->multiplier);
-			}
-		}
-		if (prioritized.size () > 10 || (node.network_params.network.is_dev_network () && !prioritized.empty ()))
-		{
-			multiplier = prioritized[prioritized.size () / 2];
-		}
-		if (!prioritized.empty ())
-		{
-			last_prioritized_multiplier = prioritized.back ();
-		}
-	}
-	debug_assert (multiplier >= nano::difficulty::to_multiplier (node.network_params.network.publish_thresholds.entry, node.network_params.network.publish_thresholds.base));
-	multipliers_cb.push_front (multiplier);
-	auto sum (std::accumulate (multipliers_cb.begin (), multipliers_cb.end (), double (0)));
-	double avg_multiplier (sum / multipliers_cb.size ());
-	auto difficulty = nano::difficulty::from_multiplier (avg_multiplier, node.default_difficulty (nano::work_version::work_1));
-	debug_assert (difficulty >= node.network_params.network.publish_thresholds.entry);
-
-	trended_active_multiplier = avg_multiplier;
-	lock_a.unlock ();
-	node.observers.difficulty.notify (difficulty);
-	lock_a.lock ();
-}
-
-uint64_t nano::active_transactions::active_difficulty ()
-{
-	return nano::difficulty::from_multiplier (active_multiplier (), node.default_difficulty (nano::work_version::work_1));
-}
-
-uint64_t nano::active_transactions::limited_active_difficulty (nano::block const & block_a)
-{
-	uint64_t threshold (0);
-	if (block_a.has_sideband ())
-	{
-		threshold = nano::work_threshold (block_a.work_version (), block_a.sideband ().details);
-	}
-	else
-	{
-		threshold = node.default_difficulty (block_a.work_version ());
-	}
-	return limited_active_difficulty (block_a.work_version (), threshold);
-}
-
-uint64_t nano::active_transactions::limited_active_difficulty (nano::work_version const version_a, uint64_t const threshold_a)
-{
-	auto difficulty (nano::difficulty::from_multiplier (nano::denormalized_multiplier (active_multiplier (), threshold_a), threshold_a));
-	return std::min (difficulty, node.max_work_generate_difficulty (version_a));
-}
-
-double nano::active_transactions::active_multiplier ()
-{
-	return trended_active_multiplier.load ();
 }
 
 std::deque<nano::election_status> nano::active_transactions::list_recently_cemented ()
@@ -1248,7 +1077,6 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> const & bl
 	auto result (true);
 	if (existing != roots.get<tag_root> ().end ())
 	{
-		update_difficulty_impl (existing, *block_a);
 		auto election (existing->election);
 		lock.unlock ();
 		result = election->publish (block_a);
@@ -1315,12 +1143,6 @@ size_t nano::active_transactions::priority_wallet_cementable_frontiers_size ()
 {
 	nano::lock_guard<nano::mutex> guard (mutex);
 	return priority_wallet_cementable_frontiers.size ();
-}
-
-boost::circular_buffer<double> nano::active_transactions::difficulty_trend ()
-{
-	nano::lock_guard<nano::mutex> guard (mutex);
-	return multipliers_cb;
 }
 
 size_t nano::active_transactions::inactive_votes_cache_size ()

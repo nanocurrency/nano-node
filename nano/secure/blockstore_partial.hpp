@@ -469,11 +469,6 @@ public:
 		return exists (transaction_a, tables::pruned, nano::db_val<Val> (hash_a));
 	}
 
-	bool block_or_pruned_exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override
-	{
-		return block_exists (transaction_a, hash_a) || pruned_exists (transaction_a, hash_a);
-	}
-
 	size_t pruned_count (nano::transaction const & transaction_a) const override
 	{
 		return count (transaction_a, tables::pruned);

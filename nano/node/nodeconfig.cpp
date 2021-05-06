@@ -107,7 +107,6 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("bandwidth_limit_burst_ratio", bandwidth_limit_burst_ratio, "Burst ratio for outbound traffic shaping.\ntype:double");
 	toml.put ("conf_height_processor_batch_min_time", conf_height_processor_batch_min_time.count (), "Minimum write batching time when there are blocks pending confirmation height.\ntype:milliseconds");
 	toml.put ("backup_before_upgrade", backup_before_upgrade, "Backup the ledger database before performing upgrades.\nWarning: uses more disk storage and increases startup time when upgrading.\ntype:bool");
-	toml.put ("work_watcher_period", work_watcher_period.count (), "Time between checks for confirmation and re-generating higher difficulty work if unconfirmed, for blocks in the work watcher.\ntype:seconds");
 	toml.put ("max_work_generate_multiplier", max_work_generate_multiplier, "Maximum allowed difficulty multiplier for work generation.\ntype:double,[1..]");
 	toml.put ("frontiers_confirmation", serialize_frontiers_confirmation (frontiers_confirmation), "Mode controlling frontier confirmation rate.\ntype:string,{auto,always,disabled}");
 	toml.put ("max_queued_requests", max_queued_requests, "Limit for number of queued confirmation requests for one channel, after which new requests are dropped until the queue drops below this value.\ntype:uint32");
@@ -363,10 +362,6 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		toml.get<double> ("bandwidth_limit_burst_ratio", bandwidth_limit_burst_ratio);
 		toml.get<bool> ("backup_before_upgrade", backup_before_upgrade);
 
-		auto work_watcher_period_l = work_watcher_period.count ();
-		toml.get ("work_watcher_period", work_watcher_period_l);
-		work_watcher_period = std::chrono::seconds (work_watcher_period_l);
-
 		auto conf_height_processor_batch_min_time_l (conf_height_processor_batch_min_time.count ());
 		toml.get ("conf_height_processor_batch_min_time", conf_height_processor_batch_min_time_l);
 		conf_height_processor_batch_min_time = std::chrono::milliseconds (conf_height_processor_batch_min_time_l);
@@ -424,10 +419,6 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		if (vote_generator_threshold < 1 || vote_generator_threshold > 11)
 		{
 			toml.get_error ().set ("vote_generator_threshold must be a number between 1 and 11");
-		}
-		if (work_watcher_period < std::chrono::seconds (1))
-		{
-			toml.get_error ().set ("work_watcher_period must be equal or larger than 1");
 		}
 		if (max_work_generate_multiplier < 1)
 		{
@@ -531,7 +522,7 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("active_elections_size", active_elections_size);
 	json.put ("bandwidth_limit", bandwidth_limit);
 	json.put ("backup_before_upgrade", backup_before_upgrade);
-	json.put ("work_watcher_period", work_watcher_period.count ());
+	json.put ("work_watcher_period", 5);
 
 	return json.get_error ();
 }
@@ -563,7 +554,7 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			json.put ("active_elections_size", 10000); // Update value
 			json.put ("vote_generator_delay", 100); // Update value
 			json.put ("backup_before_upgrade", backup_before_upgrade);
-			json.put ("work_watcher_period", work_watcher_period.count ());
+			json.put ("work_watcher_period", 5);
 		}
 		case 18:
 			break;
@@ -707,10 +698,6 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		json.get<size_t> ("bandwidth_limit", bandwidth_limit);
 		json.get<bool> ("backup_before_upgrade", backup_before_upgrade);
 
-		auto work_watcher_period_l = work_watcher_period.count ();
-		json.get ("work_watcher_period", work_watcher_period_l);
-		work_watcher_period = std::chrono::seconds (work_watcher_period_l);
-
 		auto conf_height_processor_batch_min_time_l (conf_height_processor_batch_min_time.count ());
 		json.get ("conf_height_processor_batch_min_time", conf_height_processor_batch_min_time_l);
 		conf_height_processor_batch_min_time = std::chrono::milliseconds (conf_height_processor_batch_min_time_l);
@@ -736,10 +723,6 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		if (vote_generator_threshold < 1 || vote_generator_threshold > 11)
 		{
 			json.get_error ().set ("vote_generator_threshold must be a number between 1 and 11");
-		}
-		if (work_watcher_period < std::chrono::seconds (1))
-		{
-			json.get_error ().set ("work_watcher_period must be equal or larger than 1");
 		}
 	}
 	catch (std::runtime_error const & ex)

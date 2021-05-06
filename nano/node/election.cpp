@@ -18,10 +18,9 @@ nano::election_vote_result::election_vote_result (bool replay_a, bool processed_
 	processed = processed_a;
 }
 
-nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> const & block_a, std::function<void (std::shared_ptr<nano::block> const &)> const & confirmation_action_a, std::function<void (nano::account const &)> const & live_vote_action_a, bool prioritized_a, nano::election_behavior election_behavior_a) :
+nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> const & block_a, std::function<void (std::shared_ptr<nano::block> const &)> const & confirmation_action_a, std::function<void (nano::account const &)> const & live_vote_action_a, nano::election_behavior election_behavior_a) :
 	confirmation_action (confirmation_action_a),
 	live_vote_action (live_vote_action_a),
-	prioritized_m (prioritized_a),
 	behavior (election_behavior_a),
 	node (node_a),
 	status ({ block_a, 0, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::ongoing }),
@@ -31,6 +30,10 @@ nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> cons
 {
 	last_votes.emplace (node.network_params.random.not_an_account, nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () });
 	last_blocks.emplace (block_a->hash (), block_a);
+	if (node.config.enable_voting && node.wallets.reps ().voting > 0)
+	{
+		node.active.generator.add (root, block_a->hash ());
+	}
 }
 
 void nano::election::confirm_once (nano::unique_lock<nano::mutex> & lock_a, nano::election_status_type type_a)
@@ -479,34 +482,9 @@ size_t nano::election::insert_inactive_votes_cache (nano::inactive_cache_informa
 	return cache_a.voters.size ();
 }
 
-bool nano::election::prioritized () const
-{
-	return prioritized_m;
-}
-
 bool nano::election::optimistic () const
 {
 	return behavior == nano::election_behavior::optimistic;
-}
-
-void nano::election::prioritize (nano::vote_generator_session & generator_session_a, nano::vote_generator_session & final_generator_session_a)
-{
-	debug_assert (!prioritized_m);
-	if (!prioritized_m.exchange (true))
-	{
-		if (node.config.enable_voting && node.wallets.reps ().voting > 0)
-		{
-			nano::lock_guard<nano::mutex> guard (mutex);
-			if (confirmed () || have_quorum (tally_impl ()))
-			{
-				final_generator_session_a.add (root, status.winner->hash ());
-			}
-			else
-			{
-				generator_session_a.add (root, status.winner->hash ());
-			}
-		}
-	}
 }
 
 nano::election_extended_status nano::election::current_status () const

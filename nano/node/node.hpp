@@ -104,8 +104,8 @@ public:
 	void process_confirmed (nano::election_status const &, uint64_t = 0);
 	void process_active (std::shared_ptr<nano::block> const &);
 	nano::process_return process (nano::block &);
-	nano::process_return process_local (std::shared_ptr<nano::block> const &, bool const = false);
-	void process_local_async (std::shared_ptr<nano::block> const &, bool const = false);
+	nano::process_return process_local (std::shared_ptr<nano::block> const &);
+	void process_local_async (std::shared_ptr<nano::block> const &);
 	void keepalive_preconfigured (std::vector<std::string> const &);
 	nano::block_hash latest (nano::account const &);
 	nano::uint128_t balance (nano::account const &);
@@ -148,6 +148,7 @@ public:
 	bool online () const;
 	bool init_error () const;
 	bool epoch_upgrader (nano::raw_key const &, nano::epoch, uint64_t, uint64_t);
+	void set_bandwidth_params (size_t limit, double ratio);
 	std::pair<uint64_t, decltype (nano::ledger::bootstrap_weights)> get_bootstrap_weights () const;
 	void populate_backlog ();
 	nano::write_database_queue write_database_queue;

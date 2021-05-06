@@ -700,7 +700,6 @@ public:
 	virtual void pruned_put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a) = 0;
 	virtual void pruned_del (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a) = 0;
 	virtual bool pruned_exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const = 0;
-	virtual bool block_or_pruned_exists (nano::transaction const &, nano::block_hash const &) = 0;
 	virtual nano::block_hash pruned_random (nano::transaction const & transaction_a) = 0;
 	virtual size_t pruned_count (nano::transaction const & transaction_a) const = 0;
 	virtual void pruned_clear (nano::write_transaction const &) = 0;

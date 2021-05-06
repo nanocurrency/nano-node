@@ -3,7 +3,6 @@
 
 #include <boost/asio.hpp>
 #include <boost/asio/signal_set.hpp>
-#include <boost/bind.hpp>
 #include <boost/format.hpp>
 
 #include <iostream>
@@ -73,7 +72,6 @@ void nano::signal_manager::base_handler (nano::signal_manager::signal_descriptor
 		// continue asynchronously listening for signals from this signal set
 		if (descriptor.repeat)
 		{
-			descriptor.sigset->async_wait (boost::bind (base_handler, descriptor, _1, _2));
 			descriptor.sigset->async_wait ([descriptor] (const boost::system::error_code & error, int signum) {
 				nano::signal_manager::base_handler (descriptor, error, signum);
 			});
