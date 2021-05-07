@@ -6924,7 +6924,6 @@ TEST (rpc, database_txn_tracker)
 	thread.join ();
 }
 
-
 TEST (rpc, active_difficulty)
 {
 	nano::system system;
