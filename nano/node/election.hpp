@@ -140,6 +140,8 @@ private:
 private:
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> last_blocks;
 	std::unordered_map<nano::account, nano::vote_info> last_votes;
+	std::atomic<bool> is_quorum{ false };
+	mutable nano::uint128_t final_weight{ 0 };
 	mutable std::unordered_map<nano::block_hash, nano::uint128_t> last_tally;
 
 	nano::election_behavior const behavior{ nano::election_behavior::normal };
