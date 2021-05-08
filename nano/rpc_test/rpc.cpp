@@ -6924,6 +6924,60 @@ TEST (rpc, database_txn_tracker)
 	thread.join ();
 }
 
+TEST (rpc, active_difficulty)
+{
+	nano::system system;
+	auto node = add_ipc_enabled_node (system);
+	ASSERT_EQ (node->default_difficulty (nano::work_version::work_1), node->network_params.network.publish_thresholds.epoch_2);
+	scoped_io_thread_name_change scoped_thread_name_io;
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
+	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	rpc_config.rpc_process.ipc_port = node->config.ipc_config.transport_tcp.port;
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "active_difficulty");
+	auto expected_multiplier{ 1.0 };
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		ASSERT_TIMELY (5s, response.status != 0);
+		ASSERT_EQ (200, response.status);
+		auto network_minimum_text (response.json.get<std::string> ("network_minimum"));
+		uint64_t network_minimum;
+		ASSERT_FALSE (nano::from_string_hex (network_minimum_text, network_minimum));
+		ASSERT_EQ (node->default_difficulty (nano::work_version::work_1), network_minimum);
+		auto network_receive_minimum_text (response.json.get<std::string> ("network_receive_minimum"));
+		uint64_t network_receive_minimum;
+		ASSERT_FALSE (nano::from_string_hex (network_receive_minimum_text, network_receive_minimum));
+		ASSERT_EQ (node->default_receive_difficulty (nano::work_version::work_1), network_receive_minimum);
+		auto multiplier (response.json.get<double> ("multiplier"));
+		ASSERT_NEAR (expected_multiplier, multiplier, 1e-6);
+		auto network_current_text (response.json.get<std::string> ("network_current"));
+		uint64_t network_current;
+		ASSERT_FALSE (nano::from_string_hex (network_current_text, network_current));
+		ASSERT_EQ (nano::difficulty::from_multiplier (expected_multiplier, node->default_difficulty (nano::work_version::work_1)), network_current);
+		auto network_receive_current_text (response.json.get<std::string> ("network_receive_current"));
+		uint64_t network_receive_current;
+		ASSERT_FALSE (nano::from_string_hex (network_receive_current_text, network_receive_current));
+		auto network_receive_current_multiplier (nano::difficulty::to_multiplier (network_receive_current, network_receive_minimum));
+		auto network_receive_current_normalized_multiplier (nano::normalized_multiplier (network_receive_current_multiplier, network_receive_minimum));
+		ASSERT_NEAR (network_receive_current_normalized_multiplier, multiplier, 1e-6);
+		ASSERT_EQ (response.json.not_found (), response.json.find ("difficulty_trend"));
+	}
+	// Test include_trend optional
+	request.put ("include_trend", true);
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		ASSERT_TIMELY (5s, response.status != 0);
+		auto trend_opt (response.json.get_child_optional ("difficulty_trend"));
+		ASSERT_TRUE (trend_opt.is_initialized ());
+		auto & trend (trend_opt.get ());
+		ASSERT_EQ (0, trend.size ());
+	}
+}
+
 // This is mainly to check for threading issues with TSAN
 TEST (rpc, simultaneous_calls)
 {
