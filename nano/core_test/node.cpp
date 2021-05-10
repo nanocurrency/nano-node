@@ -3878,6 +3878,9 @@ TEST (node, aggressive_flooding)
 	ASSERT_TIMELY (5s, node1.network.size () == nodes_wallets.size ());
 	ASSERT_LT (node1.network.fanout (), nodes_wallets.size ());
 
+	// Each new node should see genesis representative
+	ASSERT_TIMELY (10s, std::all_of (nodes_wallets.begin (), nodes_wallets.end (), [] (auto const & node_wallet) { return node_wallet.first->rep_crawler.principal_representatives ().size () != 0; }));
+
 	// Send a large amount to create a principal representative in each node
 	auto large_amount = (nano::genesis_amount / 2) / nodes_wallets.size ();
 	std::vector<std::shared_ptr<nano::block>> genesis_blocks;
