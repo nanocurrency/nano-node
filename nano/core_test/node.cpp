@@ -3849,8 +3849,6 @@ TEST (node, bidirectional_tcp)
 TEST (node, aggressive_flooding)
 {
 	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
-	node_config.online_weight_minimum = nano::genesis_amount / 2 + nano::Gxrb_ratio; // Increase from default value
 	nano::node_flags node_flags;
 	node_flags.disable_request_loop = true;
 	node_flags.disable_block_processor_republishing = true;
@@ -3860,7 +3858,7 @@ TEST (node, aggressive_flooding)
 	node_flags.disable_lazy_bootstrap = true;
 	node_flags.disable_legacy_bootstrap = true;
 	node_flags.disable_wallet_bootstrap = true;
-	auto & node1 (*system.add_node (node_config, node_flags));
+	auto & node1 (*system.add_node (node_flags));
 	auto & wallet1 (*system.wallet (0));
 	wallet1.insert_adhoc (nano::dev_genesis_key.prv);
 	std::vector<std::pair<std::shared_ptr<nano::node>, std::shared_ptr<nano::wallet>>> nodes_wallets;
@@ -3869,7 +3867,6 @@ TEST (node, aggressive_flooding)
 
 	std::generate (nodes_wallets.begin (), nodes_wallets.end (), [&system, node_flags] () {
 		nano::node_config node_config (nano::get_available_port (), system.logging);
-		node_config.online_weight_minimum = nano::genesis_amount / 2 + nano::Gxrb_ratio; // Increase from default value
 		auto node (system.add_node (node_config, node_flags));
 		return std::make_pair (node, system.wallet (system.nodes.size () - 1));
 	});
@@ -3919,7 +3916,7 @@ TEST (node, aggressive_flooding)
 
 	ASSERT_TIMELY (!sanitizer_or_valgrind ? 10s : 40s, all_received ());
 
-	ASSERT_TIMELY (!sanitizer_or_valgrind ? 10s : 40s, node1.ledger.cache.block_count ==  1 + 2 * nodes_wallets.size ());
+	ASSERT_TIMELY (!sanitizer_or_valgrind ? 10s : 40s, node1.ledger.cache.block_count == 1 + 2 * nodes_wallets.size ());
 
 	// Wait until the main node sees all representatives
 	ASSERT_TIMELY (!sanitizer_or_valgrind ? 10s : 40s, node1.rep_crawler.principal_representatives ().size () == nodes_wallets.size ());
