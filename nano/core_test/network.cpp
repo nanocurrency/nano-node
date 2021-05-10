@@ -135,7 +135,9 @@ TEST (network, last_contacted)
 	nano::system system (1);
 	auto node0 = system.nodes[0];
 	ASSERT_EQ (0, node0->network.size ());
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work));
+	nano::node_config node1_config (nano::get_available_port (), system.logging);
+	node1_config.tcp_incoming_connections_max = 0; // Prevent ephemeral node1->node0 channel repacement with incoming connection
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), node1_config, system.work));
 	node1->start ();
 	system.nodes.push_back (node1);
 	auto channel1 = nano::establish_tcp (system, *node1, node0->network.endpoint ());
