@@ -1,0 +1,66 @@
+name: Report a node/protocol issue
+description: For reporting issues with the node software and related protocol
+body:
+- type: markdown
+  attributes:
+    value: |
+      NOTE: If this is a security issue that could impact network availability, consensus or other sensitive areas of the node and network operations, please see the [Security vulnerability disclosure documentation](https://docs.nano.org/node-implementation/contributing/#security-vulnerability-disclosure) to learn how to submit the issue directly to the Nano Foundation.
+- type: textarea
+  attributes:
+    label: Summary
+    description: Brief summary of the issue you are facing.
+  validations:
+    required: true
+- type: input
+  attributes:
+    label: Node version
+    description: Select the node version this issue was discovered in. If this was produced in a release other than the latest, please try with the latest release before submitting.
+  validations:
+    required: true
+- type: textarea
+  attributes:
+    label: Build details
+    description: Was this using provided binaries, Docker container or manually built? Any special build options?
+  validations:
+    required: true
+- type: input
+  attributes:
+    label: OS and version
+    description: Which operating system was this running on? Which version?
+  validations:
+    required: true
+- type: textarea
+  attributes:
+    label: Steps to reproduce the behavior
+    description: Please walk us through step-by-step how to reproduce the issue. Provide any build scripts, Docker commands, RPC/CLI commands, etc. required to reproduce the behavior.
+    value: |
+      1.
+      2.
+      3.
+      ...
+  validations:
+    required: true
+- type: textarea
+  attributes:
+    label: Expected behavior
+    description: Describe what you expected to happen.
+  validations:
+    required: true
+- type: textarea
+  attributes:
+    label: Actual behavior
+    description: Describe what actually happened.
+  validations:
+    required: true
+- type: textarea
+  attributes:
+    label: Possible solution
+    description: If available, provide possible solutions to the issue.
+  validations:
+    required: false
+- type: textarea
+  attributes:
+    label: Supporting files
+    description: When applicable, add links out to helpful [log files](https://docs.nano.org/running-a-node/troubleshooting/#log-files) and [dump files](https://docs.nano.org/running-a-node/troubleshooting/#what-to-do-if-the-node-crashes-linux) related to the issue.
+  validations:
+    required: false

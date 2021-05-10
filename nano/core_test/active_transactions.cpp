@@ -1396,7 +1396,7 @@ TEST (active_transactions, pessimistic_elections)
 	}
 
 	// Wait until activation of destination account is done.
-	ASSERT_TIMELY (10s, node.active.active (send2->qualified_root ()));
+	ASSERT_TIMELY (10s, node.active.active (open->qualified_root ()));
 
 	// Election count should not increase, but the elections should be marked as started for that account afterwards
 	ASSERT_EQ (election_started_it->election_started, false);
