@@ -149,8 +149,17 @@ TEST (network, last_contacted)
 	node1->network.send_keepalive (channel1);
 	ASSERT_TIMELY (3s, node0->stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in) > keepalive_count);
 	ASSERT_EQ (node0->network.size (), 1);
-	auto timestamp_after_keepalive = channel2->get_last_packet_received ();
-	ASSERT_GT (timestamp_after_keepalive, timestamp_before_keepalive);
+	// Precision of last_packet_received is 1 second, repeat keepalive if nessesary
+	ASSERT_NO_ERROR (system.poll_until_true (1s, [&node1, &channel1, &channel2, timestamp_before_keepalive] {
+		auto timestamp_after_keepalive = channel2->get_last_packet_received ();
+		EXPECT_GE (timestamp_after_keepalive, timestamp_before_keepalive);
+		bool greater_timestamp (timestamp_after_keepalive > timestamp_before_keepalive);
+		if (!greater_timestamp)
+		{
+			node1->network.send_keepalive (channel1);
+		}
+		return greater_timestamp;
+	}));
 }
 
 TEST (network, multi_keepalive)
