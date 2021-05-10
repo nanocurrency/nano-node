@@ -1,7 +1,5 @@
 name: Request a new node feature
 description: For requesting new node or protocol related features
-title: ""
-issue_body: true
 body:
 - type: markdown
   attributes:

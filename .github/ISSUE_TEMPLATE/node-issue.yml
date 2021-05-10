@@ -1,6 +1,5 @@
 name: Report a node/protocol issue
 description: For reporting issues with the node software and related protocol
-title: ""
 body:
 - type: markdown
   attributes:
