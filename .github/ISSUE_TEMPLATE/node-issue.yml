@@ -1,7 +1,6 @@
 name: Report a node/protocol issue
 description: For reporting issues with the node software and related protocol
 title: ""
-issue_body: true
 body:
 - type: markdown
   attributes:
@@ -13,14 +12,10 @@ body:
     description: Brief summary of the issue you are facing.
   validations:
     required: true
-- type: dropdown
+- type: input
   attributes:
     label: Node version
     description: Select the node version this issue was discovered in. If this was produced in a release other than the latest, please try with the latest release before submitting.
-    options:
-      - V21.2
-      - V21.1
-      - V21.0
   validations:
     required: true
 - type: textarea
