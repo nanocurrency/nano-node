@@ -211,18 +211,8 @@ TEST (rpc, account_balance)
 	boost::property_tree::ptree request;
 	request.put ("action", "account_balance");
 	request.put ("account", nano::dev_genesis_key.pub.to_account ());
-	{
-		test_response response (request, rpc.config.port, system.io_ctx);
-		ASSERT_TIMELY (5s, response.status != 0);
-		ASSERT_EQ (200, response.status);
-		std::string balance_text (response.json.get<std::string> ("balance"));
-		ASSERT_EQ ("340282366920938463463374607431768211454", balance_text);
-		std::string pending_text (response.json.get<std::string> ("pending"));
-		ASSERT_EQ ("1", pending_text);
-	}
 
 	// The send and pending should be unconfirmed
-	request.put ("include_only_confirmed", true);
 	{
 		test_response response (request, rpc.config.port, system.io_ctx);
 		ASSERT_TIMELY (5s, response.status != 0);
@@ -231,6 +221,17 @@ TEST (rpc, account_balance)
 		ASSERT_EQ ("340282366920938463463374607431768211455", balance_text);
 		std::string pending_text (response.json.get<std::string> ("pending"));
 		ASSERT_EQ ("0", pending_text);
+	}
+
+	request.put ("include_only_confirmed", false);
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		ASSERT_TIMELY (5s, response.status != 0);
+		ASSERT_EQ (200, response.status);
+		std::string balance_text (response.json.get<std::string> ("balance"));
+		ASSERT_EQ ("340282366920938463463374607431768211454", balance_text);
+		std::string pending_text (response.json.get<std::string> ("pending"));
+		ASSERT_EQ ("1", pending_text);
 	}
 }
 
@@ -2307,12 +2308,15 @@ TEST (rpc, pending)
 		ASSERT_EQ (size, response.json.get_child ("blocks").size ());
 	};
 
-	request.put ("include_only_confirmed", "true");
 	check_block_response_count (1);
 	scoped_thread_name_io.reset ();
 	reset_confirmation_height (system.nodes.front ()->store, block1->account ());
 	scoped_thread_name_io.renew ();
 	check_block_response_count (0);
+	request.put ("include_only_confirmed", "false");
+	scoped_thread_name_io.renew ();
+	check_block_response_count (1);
+	request.put ("include_only_confirmed", "true");
 
 	// Sorting with a smaller count than total should give absolute sorted amounts
 	scoped_thread_name_io.reset ();
@@ -4055,12 +4059,14 @@ TEST (rpc, accounts_pending)
 		ASSERT_EQ (sources[block1->hash ()], nano::dev_genesis_key.pub);
 	}
 
-	request.put ("include_only_confirmed", "true");
 	check_block_response_count (system, rpc, request, 1);
 	scoped_thread_name_io.reset ();
 	reset_confirmation_height (system.nodes.front ()->store, block1->account ());
 	scoped_thread_name_io.renew ();
 	check_block_response_count (system, rpc, request, 0);
+	request.put ("include_only_confirmed", "false");
+	scoped_thread_name_io.renew ();
+	check_block_response_count (system, rpc, request, 1);
 }
 
 TEST (rpc, blocks)
@@ -4227,12 +4233,14 @@ TEST (rpc, pending_exists)
 	request.put ("hash", block1->hash ().to_string ());
 	pending_exists ("1");
 
-	request.put ("include_only_confirmed", "true");
 	pending_exists ("1");
 	scoped_thread_name_io.reset ();
 	reset_confirmation_height (node->store, block1->account ());
 	scoped_thread_name_io.renew ();
 	pending_exists ("0");
+	request.put ("include_only_confirmed", "false");
+	scoped_thread_name_io.renew ();
+	pending_exists ("1");
 }
 
 TEST (rpc, wallet_pending)
@@ -4246,7 +4254,7 @@ TEST (rpc, wallet_pending)
 	auto block1 (system0.wallet (0)->send_action (nano::dev_genesis_key.pub, key1.pub, 100));
 	scoped_io_thread_name_change scoped_thread_name_io;
 	node->scheduler.flush ();
-	while (node->active.active (*block1) || node->ledger.cache.cemented_count < 2)
+	while (node->active.active (*block1) || node->ledger.cache.cemented_count < 2 || !node->confirmation_height_processor.current ().is_zero () || node->confirmation_height_processor.awaiting_processing_size () != 0)
 	{
 		system0.poll ();
 		++iterations;
@@ -4341,7 +4349,6 @@ TEST (rpc, wallet_pending)
 	ASSERT_EQ (amounts[block1->hash ()], 100);
 	ASSERT_EQ (sources[block1->hash ()], nano::dev_genesis_key.pub);
 
-	request.put ("include_only_confirmed", "true");
 	check_block_response_count (system0, rpc, request, 1);
 	scoped_thread_name_io.reset ();
 	reset_confirmation_height (system0.nodes.front ()->store, block1->account ());
@@ -4356,6 +4363,9 @@ TEST (rpc, wallet_pending)
 		ASSERT_EQ (200, response.status);
 		ASSERT_EQ (0, response.json.get_child ("blocks").size ());
 	}
+	request.put ("include_only_confirmed", "false");
+	scoped_thread_name_io.renew ();
+	check_block_response_count (system0, rpc, request, 1);
 }
 
 TEST (rpc, receive_minimum)

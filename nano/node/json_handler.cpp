@@ -514,7 +514,7 @@ void nano::json_handler::account_balance ()
 	auto account (account_impl ());
 	if (!ec)
 	{
-		const bool include_only_confirmed = request.get<bool> ("include_only_confirmed", false);
+		const bool include_only_confirmed = request.get<bool> ("include_only_confirmed", true);
 		auto balance (node.balance_pending (account, include_only_confirmed));
 		response_l.put ("balance", balance.first.convert_to<std::string> ());
 		response_l.put ("pending", balance.second.convert_to<std::string> ());
@@ -945,7 +945,7 @@ void nano::json_handler::accounts_pending ()
 	auto threshold (threshold_optional_impl ());
 	const bool source = request.get<bool> ("source", false);
 	const bool include_active = request.get<bool> ("include_active", false);
-	const bool include_only_confirmed = request.get<bool> ("include_only_confirmed", false);
+	const bool include_only_confirmed = request.get<bool> ("include_only_confirmed", true);
 	const bool sorting = request.get<bool> ("sorting", false);
 	auto simple (threshold.is_zero () && !source && !sorting); // if simple, response is a list of hashes for each account
 	boost::property_tree::ptree pending;
@@ -2860,7 +2860,7 @@ void nano::json_handler::pending ()
 	const bool source = request.get<bool> ("source", false);
 	const bool min_version = request.get<bool> ("min_version", false);
 	const bool include_active = request.get<bool> ("include_active", false);
-	const bool include_only_confirmed = request.get<bool> ("include_only_confirmed", false);
+	const bool include_only_confirmed = request.get<bool> ("include_only_confirmed", true);
 	const bool sorting = request.get<bool> ("sorting", false);
 	auto simple (threshold.is_zero () && !source && !min_version && !sorting); // if simple, response is a list of hashes
 	const bool should_sort = sorting && !simple;
@@ -2959,7 +2959,7 @@ void nano::json_handler::pending_exists ()
 {
 	auto hash (hash_impl ());
 	const bool include_active = request.get<bool> ("include_active", false);
-	const bool include_only_confirmed = request.get<bool> ("include_only_confirmed", false);
+	const bool include_only_confirmed = request.get<bool> ("include_only_confirmed", true);
 	if (!ec)
 	{
 		auto transaction (node.store.tx_begin_read ());
@@ -4564,7 +4564,7 @@ void nano::json_handler::wallet_pending ()
 	const bool source = request.get<bool> ("source", false);
 	const bool min_version = request.get<bool> ("min_version", false);
 	const bool include_active = request.get<bool> ("include_active", false);
-	const bool include_only_confirmed = request.get<bool> ("include_only_confirmed", false);
+	const bool include_only_confirmed = request.get<bool> ("include_only_confirmed", true);
 	if (!ec)
 	{
 		boost::property_tree::ptree pending;
