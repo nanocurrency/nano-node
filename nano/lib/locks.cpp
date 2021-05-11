@@ -228,7 +228,6 @@ void condition_variable::wait (nano::unique_lock<nano::mutex> & lk)
 	cnd.wait (lk);
 	lk.timer.restart ();
 }
-template class unique_lock<nano::mutex>;
 
 nano::mutex * mutex_to_filter{ nullptr };
 nano::mutex mutex_to_filter_mutex;
