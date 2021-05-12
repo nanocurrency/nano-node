@@ -310,11 +310,11 @@ TEST (confirmation_height, gap_live)
 		system.wallet (1)->insert_adhoc (destination.prv);
 
 		nano::genesis genesis;
-		auto send1 (std::make_shared<nano::state_block> (nano::genesis_account, genesis.hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, destination.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
+		auto send1 (std::make_shared<nano::state_block> (nano::genesis_account, genesis.hash (), nano::genesis_account, nano::genesis_amount - 1, destination.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 		node->work_generate_blocking (*send1);
-		auto send2 (std::make_shared<nano::state_block> (nano::genesis_account, send1->hash (), nano::genesis_account, nano::genesis_amount - 2 * nano::Gxrb_ratio, destination.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
+		auto send2 (std::make_shared<nano::state_block> (nano::genesis_account, send1->hash (), nano::genesis_account, nano::genesis_amount - 2, destination.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 		node->work_generate_blocking (*send2);
-		auto send3 (std::make_shared<nano::state_block> (nano::genesis_account, send2->hash (), nano::genesis_account, nano::genesis_amount - 3 * nano::Gxrb_ratio, destination.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
+		auto send3 (std::make_shared<nano::state_block> (nano::genesis_account, send2->hash (), nano::genesis_account, nano::genesis_amount - 3, destination.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 		node->work_generate_blocking (*send3);
 
 		auto open1 (std::make_shared<nano::open_block> (send1->hash (), destination.pub, destination.pub, destination.prv, destination.pub, 0));
