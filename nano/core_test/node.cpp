@@ -3875,6 +3875,9 @@ TEST (node, aggressive_flooding)
 	ASSERT_TIMELY (5s, node1.network.size () == nodes_wallets.size ());
 	ASSERT_LT (node1.network.fanout (), nodes_wallets.size ());
 
+	// Each new node should see genesis representative
+	ASSERT_TIMELY (10s, std::all_of (nodes_wallets.begin (), nodes_wallets.end (), [] (auto const & node_wallet) { return node_wallet.first->rep_crawler.principal_representatives ().size () != 0; }));
+
 	// Send a large amount to create a principal representative in each node
 	auto large_amount = (nano::genesis_amount / 2) / nodes_wallets.size ();
 	std::vector<std::shared_ptr<nano::block>> genesis_blocks;
@@ -3884,6 +3887,7 @@ TEST (node, aggressive_flooding)
 		node_wallet.second->store.representative_set (node_wallet.first->wallets.tx_begin_write (), keypair.pub);
 		node_wallet.second->insert_adhoc (keypair.prv);
 		auto block (wallet1.send_action (nano::dev_genesis_key.pub, keypair.pub, large_amount));
+		ASSERT_NE (nullptr, block);
 		genesis_blocks.push_back (block);
 	}
 
@@ -3892,10 +3896,27 @@ TEST (node, aggressive_flooding)
 	{
 		for (auto const & block : genesis_blocks)
 		{
-			node_wallet.first->process (*block);
+			auto process_result (node_wallet.first->process (*block));
+			ASSERT_TRUE (nano::process_result::progress == process_result.code || nano::process_result::old == process_result.code);
 		}
 		ASSERT_EQ (node1.latest (nano::dev_genesis_key.pub), node_wallet.first->latest (nano::dev_genesis_key.pub));
+		ASSERT_EQ (genesis_blocks.back ()->hash (), node_wallet.first->latest (nano::dev_genesis_key.pub));
+		// Confirm blocks for rep crawler & receiving
+		nano::blocks_confirm (*node_wallet.first, { genesis_blocks.back () }, true);
 	}
+	nano::blocks_confirm (node1, { genesis_blocks.back () }, true);
+
+	// Wait until all genesis blocks are received
+	auto all_received = [&nodes_wallets] () {
+		return std::all_of (nodes_wallets.begin (), nodes_wallets.end (), [] (auto const & node_wallet) {
+			auto local_representative (node_wallet.second->store.representative (node_wallet.first->wallets.tx_begin_read ()));
+			return node_wallet.first->ledger.account_balance (node_wallet.first->store.tx_begin_read (), local_representative) > 0;
+		});
+	};
+
+	ASSERT_TIMELY (!sanitizer_or_valgrind ? 10s : 40s, all_received ());
+
+	ASSERT_TIMELY (!sanitizer_or_valgrind ? 10s : 40s, node1.ledger.cache.block_count == 1 + 2 * nodes_wallets.size ());
 
 	// Wait until the main node sees all representatives
 	ASSERT_TIMELY (!sanitizer_or_valgrind ? 10s : 40s, node1.rep_crawler.principal_representatives ().size () == nodes_wallets.size ());
@@ -3916,7 +3937,7 @@ TEST (node, aggressive_flooding)
 				.build ();
 	}
 	// Processing locally goes through the aggressive block flooding path
-	node1.process_local (block);
+	ASSERT_EQ (nano::process_result::progress, node1.process_local (block).code);
 
 	auto all_have_block = [&nodes_wallets] (nano::block_hash const & hash_a) {
 		return std::all_of (nodes_wallets.begin (), nodes_wallets.end (), [hash = hash_a] (auto const & node_wallet) {
