@@ -4128,6 +4128,10 @@ TEST (rpc, wallet_info)
 	ASSERT_EQ ("1", pending_text);
 	std::string count_text (response.json.get<std::string> ("accounts_count"));
 	ASSERT_EQ ("3", count_text);
+	std::string block_count_text (response.json.get<std::string> ("accounts_block_count"));
+	ASSERT_EQ ("2", block_count_text);
+	std::string cemented_block_count_text (response.json.get<std::string> ("accounts_cemented_block_count"));
+	ASSERT_EQ ("1", cemented_block_count_text);
 	std::string adhoc_count (response.json.get<std::string> ("adhoc_count"));
 	ASSERT_EQ ("2", adhoc_count);
 	std::string deterministic_count (response.json.get<std::string> ("deterministic_count"));
