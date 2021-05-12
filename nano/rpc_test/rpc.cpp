@@ -4096,48 +4096,65 @@ TEST (rpc, blocks)
 
 TEST (rpc, wallet_info)
 {
-	nano::system system;
-	auto node = add_ipc_enabled_node (system);
+    nano::system system;
+    nano::node_config node_config (nano::get_available_port (), system.logging);
+    node_config.enable_voting = true;
+	auto node = add_ipc_enabled_node (system, node_config);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	nano::keypair key;
 	system.wallet (0)->insert_adhoc (key.prv);
-	auto send (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key.pub, 1));
-	nano::account account (system.wallet (0)->deterministic_insert ());
-	{
-		auto transaction (node->wallets.tx_begin_write ());
-		system.wallet (0)->store.erase (transaction, account);
-	}
-	account = system.wallet (0)->deterministic_insert ();
-	scoped_io_thread_name_change scoped_thread_name_io;
-	nano::node_rpc_config node_rpc_config;
-	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
-	nano::rpc_config rpc_config (nano::get_available_port (), true);
-	rpc_config.rpc_process.ipc_port = node->config.ipc_config.transport_tcp.port;
-	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
-	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
-	rpc.start ();
-	boost::property_tree::ptree request;
-	request.put ("action", "wallet_info");
-	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
-	test_response response (request, rpc.config.port, system.io_ctx);
-	ASSERT_TIMELY (5s, response.status != 0);
-	ASSERT_EQ (200, response.status);
-	std::string balance_text (response.json.get<std::string> ("balance"));
-	ASSERT_EQ ("340282366920938463463374607431768211454", balance_text);
-	std::string pending_text (response.json.get<std::string> ("pending"));
-	ASSERT_EQ ("1", pending_text);
-	std::string count_text (response.json.get<std::string> ("accounts_count"));
-	ASSERT_EQ ("3", count_text);
-	std::string block_count_text (response.json.get<std::string> ("accounts_block_count"));
-	ASSERT_EQ ("2", block_count_text);
-	std::string cemented_block_count_text (response.json.get<std::string> ("accounts_cemented_block_count"));
-	ASSERT_EQ ("1", cemented_block_count_text);
-	std::string adhoc_count (response.json.get<std::string> ("adhoc_count"));
-	ASSERT_EQ ("2", adhoc_count);
-	std::string deterministic_count (response.json.get<std::string> ("deterministic_count"));
-	ASSERT_EQ ("1", deterministic_count);
-	std::string index_text (response.json.get<std::string> ("deterministic_index"));
-	ASSERT_EQ ("2", index_text);
+
+	// at first, 1 block and 1 confirmed -- the genesis
+    ASSERT_EQ (1, node->ledger.cache.block_count);
+    ASSERT_EQ (1, node->ledger.cache.cemented_count);
+
+	auto send (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key.pub, nano::Gxrb_ratio));
+	// after the send, expect 2 blocks immediately, then 2 confirmed in a timely manner,
+	// and finally 3 blocks and 3 confirmed after the wallet generates the receive block for this send
+    ASSERT_EQ (2, node->ledger.cache.block_count);
+    ASSERT_TIMELY (5s, 2 == node->ledger.cache.cemented_count);
+    ASSERT_TIMELY (5s, 3 == node->ledger.cache.block_count && 3 == node->ledger.cache.cemented_count);
+
+    // do another send to be able to expect some "pending" down below
+    auto send2 (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key.pub, 1));
+    ASSERT_EQ (4, node->ledger.cache.block_count);
+
+    nano::account account (system.wallet (0)->deterministic_insert ());
+    {
+        auto transaction (node->wallets.tx_begin_write ());
+        system.wallet (0)->store.erase (transaction, account);
+    }
+    account = system.wallet (0)->deterministic_insert ();
+    scoped_io_thread_name_change scoped_thread_name_io;
+    nano::node_rpc_config node_rpc_config;
+    nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
+    nano::rpc_config rpc_config (nano::get_available_port (), true);
+    rpc_config.rpc_process.ipc_port = node->config.ipc_config.transport_tcp.port;
+    nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+    nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+    rpc.start ();
+    boost::property_tree::ptree request;
+    request.put ("action", "wallet_info");
+    request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
+    test_response response (request, rpc.config.port, system.io_ctx);
+    ASSERT_TIMELY (5s, response.status != 0);
+    ASSERT_EQ (200, response.status);
+    std::string balance_text (response.json.get<std::string> ("balance"));
+    ASSERT_EQ ("340282366920938463463374607431768211454", balance_text);
+    std::string pending_text (response.json.get<std::string> ("pending"));
+    ASSERT_EQ ("1", pending_text);
+    std::string count_text (response.json.get<std::string> ("accounts_count"));
+    ASSERT_EQ ("3", count_text);
+    std::string block_count_text (response.json.get<std::string> ("accounts_block_count"));
+    ASSERT_EQ ("4", block_count_text);
+    std::string cemented_block_count_text (response.json.get<std::string> ("accounts_cemented_block_count"));
+    ASSERT_EQ ("3", cemented_block_count_text);
+    std::string adhoc_count (response.json.get<std::string> ("adhoc_count"));
+    ASSERT_EQ ("2", adhoc_count);
+    std::string deterministic_count (response.json.get<std::string> ("deterministic_count"));
+    ASSERT_EQ ("1", deterministic_count);
+    std::string index_text (response.json.get<std::string> ("deterministic_index"));
+    ASSERT_EQ ("2", index_text);
 }
 
 TEST (rpc, wallet_balances)
