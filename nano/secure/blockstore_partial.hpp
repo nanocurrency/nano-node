@@ -6,6 +6,7 @@
 #include <nano/lib/timer.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/buffer.hpp>
+#include <nano/secure/store/frontier_store_partial.hpp>
 
 #include <crypto/cryptopp/words.h>
 
@@ -27,6 +28,9 @@ namespace nano
 template <typename Val, typename Derived_Store>
 class block_predecessor_set;
 
+template <typename Val, typename Derived_Store>
+class frontier_store_partial;
+
 /** This base class implements the block_store interface functions which have DB agnostic functionality */
 template <typename Val, typename Derived_Store>
 class block_store_partial : public block_store
@@ -36,6 +40,7 @@ public:
 	using block_store::unchecked_put;
 
 	friend class nano::block_predecessor_set<Val, Derived_Store>;
+	friend class nano::frontier_store_partial<Val, Derived_Store>;
 
 	/**
 	 * If using a different store version than the latest then you may need
@@ -54,7 +59,7 @@ public:
 		account_put (transaction_a, network_params.ledger.genesis_account, { hash_l, network_params.ledger.genesis_account, genesis_a.open->hash (), std::numeric_limits<nano::uint128_t>::max (), nano::seconds_since_epoch (), 1, nano::epoch::epoch_0 });
 		++ledger_cache_a.account_count;
 		ledger_cache_a.rep_weights.representation_put (network_params.ledger.genesis_account, std::numeric_limits<nano::uint128_t>::max ());
-		frontier_put (transaction_a, hash_l, network_params.ledger.genesis_account);
+		frontier.put (transaction_a, hash_l, network_params.ledger.genesis_account);
 	}
 
 	void block_put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a, nano::block const & block_a) override
@@ -862,8 +867,6 @@ protected:
 	virtual bool success (int status) const = 0;
 	virtual int status_code_not_found () const = 0;
 	virtual std::string error_string (int status) const = 0;
-
-	friend class frontier_store_partial;
 };
 
 /**
