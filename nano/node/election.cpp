@@ -53,7 +53,6 @@ void nano::election::confirm_once (nano::unique_lock<nano::mutex> & lock_a, nano
 		status.type = type_a;
 		auto const status_l = status;
 		lock_a.unlock ();
-		node.active.add_recently_confirmed (status_l.winner->qualified_root (), status_l.winner->hash ());
 		node.process_confirmed (status_l);
 		node.background ([node_l = node.shared (), status_l, confirmation_action_l = confirmation_action] () {
 			if (confirmation_action_l)
