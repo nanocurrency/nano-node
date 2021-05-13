@@ -249,11 +249,6 @@ public:
 		return nano::store_iterator<nano::qualified_root, nano::block_hash> (nullptr);
 	}
 
-	nano::store_iterator<nano::block_hash, nano::account> frontiers_end () const override
-	{
-		return nano::store_iterator<nano::block_hash, nano::account> (nullptr);
-	}
-
 	int version_get (nano::transaction const & transaction_a) const override
 	{
 		nano::uint256_union version_key (1);
@@ -331,39 +326,6 @@ public:
 	{
 		auto iterator (pending_begin (transaction_a, nano::pending_key (account_a, 0)));
 		return iterator != pending_end () && nano::pending_key (iterator->first).account == account_a;
-	}
-
-	void frontier_put (nano::write_transaction const & transaction_a, nano::block_hash const & block_a, nano::account const & account_a) override
-	{
-		nano::db_val<Val> account (account_a);
-		auto status (put (transaction_a, tables::frontiers, block_a, account));
-		release_assert_success (status);
-	}
-
-	nano::account frontier_get (nano::transaction const & transaction_a, nano::block_hash const & block_a) const override
-	{
-		nano::db_val<Val> value;
-		auto status (get (transaction_a, tables::frontiers, nano::db_val<Val> (block_a), value));
-		release_assert (success (status) || not_found (status));
-		nano::account result (0);
-		if (success (status))
-		{
-			result = static_cast<nano::account> (value);
-		}
-		return result;
-	}
-
-	void frontier_del (nano::write_transaction const & transaction_a, nano::block_hash const & block_a) override
-	{
-		auto status (del (transaction_a, tables::frontiers, block_a));
-		release_assert_success (status);
-	}
-
-	void unchecked_put (nano::write_transaction const & transaction_a, nano::unchecked_key const & key_a, nano::unchecked_info const & info_a) override
-	{
-		nano::db_val<Val> info (info_a);
-		auto status (put (transaction_a, tables::unchecked, key_a, info));
-		release_assert_success (status);
 	}
 
 	void unchecked_del (nano::write_transaction const & transaction_a, nano::unchecked_key const & key_a) override
@@ -682,16 +644,6 @@ public:
 		return make_iterator<nano::block_hash, nano::block_w_sideband> (transaction_a, tables::blocks, nano::db_val<Val> (hash_a));
 	}
 
-	nano::store_iterator<nano::block_hash, nano::account> frontiers_begin (nano::transaction const & transaction_a) const override
-	{
-		return make_iterator<nano::block_hash, nano::account> (transaction_a, tables::frontiers);
-	}
-
-	nano::store_iterator<nano::block_hash, nano::account> frontiers_begin (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override
-	{
-		return make_iterator<nano::block_hash, nano::account> (transaction_a, tables::frontiers, nano::db_val<Val> (hash_a));
-	}
-
 	nano::store_iterator<nano::pending_key, nano::pending_info> pending_begin (nano::transaction const & transaction_a, nano::pending_key const & key_a) const override
 	{
 		return make_iterator<nano::pending_key, nano::pending_info> (transaction_a, tables::pending, nano::db_val<Val> (key_a));
@@ -827,15 +779,6 @@ public:
 		});
 	}
 
-	void frontiers_for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::block_hash, nano::account>, nano::store_iterator<nano::block_hash, nano::account>)> const & action_a) const override
-	{
-		parallel_traversal<nano::uint256_t> (
-		[&action_a, this] (nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
-			auto transaction (this->tx_begin_read ());
-			action_a (transaction, this->frontiers_begin (transaction, start), !is_last ? this->frontiers_begin (transaction, end) : this->frontiers_end ());
-		});
-	}
-
 	void final_vote_for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::qualified_root, nano::block_hash>, nano::store_iterator<nano::qualified_root, nano::block_hash>)> const & action_a) const override
 	{
 		parallel_traversal<nano::uint512_t> (
@@ -919,6 +862,8 @@ protected:
 	virtual bool success (int status) const = 0;
 	virtual int status_code_not_found () const = 0;
 	virtual std::string error_string (int status) const = 0;
+
+	friend class frontier_store_partial;
 };
 
 /**

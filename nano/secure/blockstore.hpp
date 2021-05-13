@@ -620,12 +620,94 @@ private:
 
 class ledger_cache;
 
+class frontier_store
+{
+public:
+	virtual void frontier_put (nano::write_transaction const &, nano::block_hash const &, nano::account const &) = 0;
+	virtual nano::account frontier_get (nano::transaction const &, nano::block_hash const &) const = 0;
+	virtual void frontier_del (nano::write_transaction const &, nano::block_hash const &) = 0;
+	virtual nano::store_iterator<nano::block_hash, nano::account> frontiers_begin (nano::transaction const &) const = 0;
+	virtual nano::store_iterator<nano::block_hash, nano::account> frontiers_begin (nano::transaction const &, nano::block_hash const &) const = 0;
+	virtual nano::store_iterator<nano::block_hash, nano::account> frontiers_end () const = 0;
+	virtual void frontiers_for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::block_hash, nano::account>, nano::store_iterator<nano::block_hash, nano::account>)> const & action_a) const = 0;
+};
+
+template <typename Val, typename Derived_Store>
+class frontier_store_partial : public frontier_store
+{
+private:
+	nano::block_store & block_store;
+
+public:
+	frontier_store_partial (nano::block_store & block_store_a) : block_store(block_store_a) {};
+
+	void frontier_put (nano::write_transaction const & transaction_a, nano::block_hash const & block_a, nano::account const & account_a) override
+	{
+		nano::db_val<Val> account (account_a);
+		auto status (put (transaction_a, tables::frontiers, block_a, account));
+		release_assert_success (status);
+	}
+
+	nano::account frontier_get (nano::transaction const & transaction_a, nano::block_hash const & block_a) const override
+	{
+		nano::db_val<Val> value;
+		auto status (get (transaction_a, tables::frontiers, nano::db_val<Val> (block_a), value));
+		release_assert (success (status) || not_found (status));
+		nano::account result (0);
+		if (success (status))
+		{
+			result = static_cast<nano::account> (value);
+		}
+		return result;
+	}
+
+	void frontier_del (nano::write_transaction const & transaction_a, nano::block_hash const & block_a) override
+	{
+		auto status (block_store.del (transaction_a, tables::frontiers, block_a));
+		release_assert_success (status);
+	}
+
+	void unchecked_put (nano::write_transaction const & transaction_a, nano::unchecked_key const & key_a, nano::unchecked_info const & info_a) override
+	{
+		nano::db_val<Val> info (info_a);
+		auto status (block_store.put (transaction_a, tables::unchecked, key_a, info));
+		release_assert_success (status);
+	}
+
+	nano::store_iterator<nano::block_hash, nano::account> frontiers_begin (nano::transaction const & transaction_a) const override
+	{
+		return block_store.make_iterator<nano::block_hash, nano::account> (transaction_a, tables::frontiers);
+	}
+
+	nano::store_iterator<nano::block_hash, nano::account> frontiers_begin (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override
+	{
+		return block_store.make_iterator<nano::block_hash, nano::account> (transaction_a, tables::frontiers, nano::db_val<Val> (hash_a));
+	}
+
+	nano::store_iterator<nano::block_hash, nano::account> frontiers_end () const override
+	{
+		return nano::store_iterator<nano::block_hash, nano::account> (nullptr);
+	}
+
+	void frontiers_for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::block_hash, nano::account>, nano::store_iterator<nano::block_hash, nano::account>)> const & action_a) const override
+	{
+		parallel_traversal<nano::uint256_t> (
+		[&action_a, this] (nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
+			auto transaction (this->tx_begin_read ());
+			action_a (transaction, this->frontiers_begin (transaction, start), !is_last ? this->frontiers_begin (transaction, end) : this->frontiers_end ());
+		});
+	}
+};
+
+
 /**
  * Manages block storage and iteration
  */
 class block_store
 {
 public:
+	block_store (nano::frontier_store & frontier_store_a) :
+		frontier (frontier_store_a) {};
 	virtual ~block_store () = default;
 	virtual void initialize (nano::write_transaction const &, nano::genesis const &, nano::ledger_cache &) = 0;
 	virtual void block_put (nano::write_transaction const &, nano::block_hash const &, nano::block const &) = 0;
@@ -645,12 +727,7 @@ public:
 	virtual nano::store_iterator<nano::block_hash, block_w_sideband> blocks_begin (nano::transaction const &) const = 0;
 	virtual nano::store_iterator<nano::block_hash, block_w_sideband> blocks_end () const = 0;
 
-	virtual void frontier_put (nano::write_transaction const &, nano::block_hash const &, nano::account const &) = 0;
-	virtual nano::account frontier_get (nano::transaction const &, nano::block_hash const &) const = 0;
-	virtual void frontier_del (nano::write_transaction const &, nano::block_hash const &) = 0;
-	virtual nano::store_iterator<nano::block_hash, nano::account> frontiers_begin (nano::transaction const &) const = 0;
-	virtual nano::store_iterator<nano::block_hash, nano::account> frontiers_begin (nano::transaction const &, nano::block_hash const &) const = 0;
-	virtual nano::store_iterator<nano::block_hash, nano::account> frontiers_end () const = 0;
+	const frontier_store & frontier;
 
 	virtual void account_put (nano::write_transaction const &, nano::account const &, nano::account_info const &) = 0;
 	virtual bool account_get (nano::transaction const &, nano::account const &, nano::account_info &) = 0;
@@ -732,7 +809,6 @@ public:
 	virtual void unchecked_for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::unchecked_key, nano::unchecked_info>, nano::store_iterator<nano::unchecked_key, nano::unchecked_info>)> const & action_a) const = 0;
 	virtual void pruned_for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::block_hash, std::nullptr_t>, nano::store_iterator<nano::block_hash, std::nullptr_t>)> const & action_a) const = 0;
 	virtual void blocks_for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::block_hash, block_w_sideband>, nano::store_iterator<nano::block_hash, block_w_sideband>)> const & action_a) const = 0;
-	virtual void frontiers_for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::block_hash, nano::account>, nano::store_iterator<nano::block_hash, nano::account>)> const & action_a) const = 0;
 	virtual void final_vote_for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::qualified_root, nano::block_hash>, nano::store_iterator<nano::qualified_root, nano::block_hash>)> const & action_a) const = 0;
 
 	virtual uint64_t block_account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const = 0;
