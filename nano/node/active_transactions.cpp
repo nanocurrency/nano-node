@@ -1051,17 +1051,6 @@ void nano::active_transactions::erase (nano::qualified_root const & root_a)
 	}
 }
 
-void nano::active_transactions::erase_confirmed (nano::qualified_root const & root_a)
-{
-	// Erase recently confirmed root
-	nano::unique_lock<nano::mutex> lock (mutex);
-	auto confirmed_it (recently_confirmed.get<tag_root> ().find (root_a));
-	if (confirmed_it != recently_confirmed.get<tag_root> ().end ())
-	{
-		recently_confirmed.get<tag_root> ().erase (confirmed_it);
-	}
-}
-
 void nano::active_transactions::erase_hash (nano::block_hash const & hash_a)
 {
 	nano::unique_lock<nano::mutex> lock (mutex);
