@@ -310,6 +310,7 @@ void nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 					for (auto & i : rollback_list)
 					{
 						node.history.erase (i->root ());
+						node.active.erase_confirmed (i->qualified_root ());
 						// Stop all rolled back active transactions except initial
 						if (i->hash () != successor->hash ())
 						{

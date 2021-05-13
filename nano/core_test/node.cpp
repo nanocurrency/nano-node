@@ -4126,12 +4126,14 @@ TEST (node, rollback_gap_source)
 	node.block_processor.flush ();
 	ASSERT_NE (nullptr, node.block (fork->hash ()));
 	// With send2 block in ledger election can start again to remove fork block
-	node.process_active (send2);
-	node.process_active (open);
-	node.block_processor.flush ();
+	ASSERT_EQ (nano::process_result::progress, node.process (*send2).code);
+	nano::blocks_confirm (node, { fork });
 	{
 		auto election = node.active.election (fork->qualified_root ());
 		ASSERT_NE (nullptr, election);
+		// Process conflicting block for election
+		node.process_active (open);
+		node.block_processor.flush ();
 		ASSERT_EQ (2, election->blocks ().size ());
 		// Confirm open (again)
 		auto vote1 (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, std::numeric_limits<uint64_t>::max (), std::vector<nano::block_hash> (1, open->hash ())));
