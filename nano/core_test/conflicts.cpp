@@ -40,11 +40,12 @@ TEST (conflicts, add_existing)
 	auto send2 (std::make_shared<nano::send_block> (genesis.hash (), key2.pub, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 	send2->sideband_set ({});
 	node1.scheduler.activate (nano::dev_genesis_key.pub, node1.store.tx_begin_read ());
+	node1.scheduler.flush ();
 	auto election1 = node1.active.election (send2->qualified_root ());
+	ASSERT_NE (nullptr, election1);
 	ASSERT_EQ (1, node1.active.size ());
 	auto vote1 (std::make_shared<nano::vote> (key2.pub, key2.prv, 0, send2));
 	node1.active.vote (vote1);
-	ASSERT_NE (nullptr, election1);
 	ASSERT_EQ (2, election1->votes ().size ());
 	auto votes (election1->votes ());
 	ASSERT_NE (votes.end (), votes.find (key2.pub));
