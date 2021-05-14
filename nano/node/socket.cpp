@@ -196,6 +196,11 @@ nano::tcp_endpoint nano::socket::remote_endpoint () const
 	return remote;
 }
 
+nano::tcp_endpoint nano::socket::local_endpoint () const
+{
+	return tcp_socket.local_endpoint ();
+}
+
 nano::server_socket::server_socket (nano::node & node_a, boost::asio::ip::tcp::endpoint local_a, size_t max_connections_a) :
 	socket{ node_a, std::chrono::seconds::max () },
 	acceptor{ node_a.io_ctx },
