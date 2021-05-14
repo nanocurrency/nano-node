@@ -143,15 +143,15 @@ TEST (network, last_contacted)
 	auto channel1 = nano::establish_tcp (system, *node1, node0->network.endpoint ());
 	ASSERT_NE (nullptr, channel1);
 	ASSERT_TIMELY (3s, node0->network.size () == 1);
-	auto channel2 = node0->network.tcp_channels.find_node_id (node1->node_id.pub);
-	ASSERT_NE (nullptr, channel2);
+	auto channel0 = node0->network.tcp_channels.find_node_id (node1->node_id.pub);
+	ASSERT_NE (nullptr, channel0);
 	// Make sure last_contact gets updated on receiving a non-handshake message
-	auto timestamp_before_keepalive = channel2->get_last_packet_received ();
+	auto timestamp_before_keepalive = channel0->get_last_packet_received ();
 	auto keepalive_count = node0->stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in);
 	node1->network.send_keepalive (channel1);
 	ASSERT_TIMELY (3s, node0->stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in) > keepalive_count);
 	ASSERT_EQ (node0->network.size (), 1);
-	auto timestamp_after_keepalive = channel2->get_last_packet_received ();
+	auto timestamp_after_keepalive = channel0->get_last_packet_received ();
 	ASSERT_GT (timestamp_after_keepalive, timestamp_before_keepalive);
 }
 
