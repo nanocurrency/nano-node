@@ -33,16 +33,19 @@ template <typename Val, typename Derived_Store>
 class block_store_partial : public block_store
 {
 	nano::frontier_store_partial<Val, Derived_Store> frontier_store;
+
 public:
 	using block_store::block_exists;
 	using block_store::unchecked_put;
 
 	friend class nano::block_predecessor_set<Val, Derived_Store>;
 	friend class nano::frontier_store_partial<Val, Derived_Store>;
-	
+
 	block_store_partial () :
 		block_store{ frontier_store },
-		frontier_store{ *this } {}
+		frontier_store{ *this }
+	{
+	}
 
 	/**
 	 * If using a different store version than the latest then you may need
@@ -348,7 +351,7 @@ public:
 		release_assert (success (status) || not_found (status));
 		return (success (status));
 	}
-	
+
 	void unchecked_put (nano::write_transaction const & transaction_a, nano::unchecked_key const & key_a, nano::unchecked_info const & info_a) override
 	{
 		nano::db_val<Val> info (info_a);
