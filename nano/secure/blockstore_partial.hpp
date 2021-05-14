@@ -28,19 +28,21 @@ namespace nano
 template <typename Val, typename Derived_Store>
 class block_predecessor_set;
 
-template <typename Val, typename Derived_Store>
-class frontier_store_partial;
-
 /** This base class implements the block_store interface functions which have DB agnostic functionality */
 template <typename Val, typename Derived_Store>
 class block_store_partial : public block_store
 {
+	nano::frontier_store_partial<Val, Derived_Store> frontier_store;
 public:
 	using block_store::block_exists;
 	using block_store::unchecked_put;
 
 	friend class nano::block_predecessor_set<Val, Derived_Store>;
 	friend class nano::frontier_store_partial<Val, Derived_Store>;
+	
+	block_store_partial () :
+		block_store{ frontier_store },
+		frontier_store{ *this } {}
 
 	/**
 	 * If using a different store version than the latest then you may need
@@ -345,6 +347,13 @@ public:
 		auto status (get (transaction_a, tables::unchecked, nano::db_val<Val> (unchecked_key_a), value));
 		release_assert (success (status) || not_found (status));
 		return (success (status));
+	}
+	
+	void unchecked_put (nano::write_transaction const & transaction_a, nano::unchecked_key const & key_a, nano::unchecked_info const & info_a) override
+	{
+		nano::db_val<Val> info (info_a);
+		auto status (put (transaction_a, tables::unchecked, key_a, info));
+		release_assert_success (status);
 	}
 
 	void unchecked_put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a, std::shared_ptr<nano::block> const & block_a) override

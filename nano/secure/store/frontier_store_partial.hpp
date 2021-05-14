@@ -3,6 +3,12 @@
 //#include <nano/secure/blockstore.hpp>
 #include <nano/secure/blockstore_partial.hpp>
 
+#define release_assert_success(status)                             \
+	if (!block_store.success (status))                             \
+	{                                                              \
+		release_assert (false, block_store.error_string (status)); \
+	}
+
 namespace
 {
 template <typename T>
@@ -27,17 +33,17 @@ public:
 	void put (nano::write_transaction const & transaction_a, nano::block_hash const & block_a, nano::account const & account_a) override
 	{
 		nano::db_val<Val> account (account_a);
-		auto status (put (transaction_a, tables::frontiers, block_a, account));
+		auto status (block_store.put (transaction_a, tables::frontiers, block_a, account));
 		release_assert_success (status);
 	}
 
 	nano::account get (nano::transaction const & transaction_a, nano::block_hash const & block_a) const override
 	{
 		nano::db_val<Val> value;
-		auto status (get (transaction_a, tables::frontiers, nano::db_val<Val> (block_a), value));
-		release_assert (success (status) || not_found (status));
+		auto status (block_store.get (transaction_a, tables::frontiers, nano::db_val<Val> (block_a), value));
+		release_assert (block_store.success (status) || block_store.not_found (status));
 		nano::account result (0);
-		if (success (status))
+		if (block_store.success (status))
 		{
 			result = static_cast<nano::account> (value);
 		}
@@ -47,13 +53,6 @@ public:
 	void del (nano::write_transaction const & transaction_a, nano::block_hash const & block_a) override
 	{
 		auto status (block_store.del (transaction_a, tables::frontiers, block_a));
-		release_assert_success (status);
-	}
-
-	void put (nano::write_transaction const & transaction_a, nano::unchecked_key const & key_a, nano::unchecked_info const & info_a) override
-	{
-		nano::db_val<Val> info (info_a);
-		auto status (block_store.put (transaction_a, tables::unchecked, key_a, info));
 		release_assert_success (status);
 	}
 
@@ -76,8 +75,8 @@ public:
 	{
 		parallel_traversal<nano::uint256_t> (
 		[&action_a, this] (nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
-			auto transaction (this->tx_begin_read ());
-			action_a (transaction, this->frontiers_begin (transaction, start), !is_last ? this->frontiers_begin (transaction, end) : this->frontiers_end ());
+			auto transaction (this->block_store.tx_begin_read ());
+			action_a (transaction, this->begin (transaction, start), !is_last ? this->begin (transaction, end) : this->end ());
 		});
 	}
 };
