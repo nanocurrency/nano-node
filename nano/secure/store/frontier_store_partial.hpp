@@ -1,6 +1,5 @@
 #pragma once
 
-//#include <nano/secure/blockstore.hpp>
 #include <nano/secure/blockstore_partial.hpp>
 
 #define release_assert_success(status)                             \
