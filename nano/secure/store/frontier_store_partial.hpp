@@ -2,12 +2,6 @@
 
 #include <nano/secure/blockstore_partial.hpp>
 
-#define release_assert_success(status)                             \
-	if (!block_store.success (status))                             \
-	{                                                              \
-		release_assert (false, block_store.error_string (status)); \
-	}
-
 namespace
 {
 template <typename T>
@@ -20,10 +14,21 @@ template <typename Val, typename Derived_Store>
 class block_store_partial;
 
 template <typename Val, typename Derived_Store>
+void release_assert_success (block_store_partial<Val, Derived_Store> const & block_store, const int status)
+{
+	if (!block_store.success (status))
+	{
+		release_assert (false, block_store.error_string (status));
+	}
+}
+
+template <typename Val, typename Derived_Store>
 class frontier_store_partial : public frontier_store
 {
 private:
 	nano::block_store_partial<Val, Derived_Store> & block_store;
+
+	friend void release_assert_success<Val, Derived_Store> (block_store_partial<Val, Derived_Store> const & block_store, const int status);
 
 public:
 	explicit frontier_store_partial (nano::block_store_partial<Val, Derived_Store> & block_store_a) :
@@ -33,7 +38,7 @@ public:
 	{
 		nano::db_val<Val> account (account_a);
 		auto status (block_store.put (transaction_a, tables::frontiers, block_a, account));
-		release_assert_success (status);
+		release_assert_success<Val, Derived_Store> (block_store, status);
 	}
 
 	nano::account get (nano::transaction const & transaction_a, nano::block_hash const & block_a) const override
@@ -52,7 +57,7 @@ public:
 	void del (nano::write_transaction const & transaction_a, nano::block_hash const & block_a) override
 	{
 		auto status (block_store.del (transaction_a, tables::frontiers, block_a));
-		release_assert_success (status);
+		release_assert_success<Val, Derived_Store> (block_store, status);
 	}
 
 	nano::store_iterator<nano::block_hash, nano::account> begin (nano::transaction const & transaction_a) const override
