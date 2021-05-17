@@ -24,7 +24,7 @@ template <typename Val, typename Derived_Store>
 class block_predecessor_set;
 
 template <typename Val, typename Derived_Store>
-void release_assert_success (block_store_partial<Val, Derived_Store> block_store, const int status)
+void release_assert_success (block_store_partial<Val, Derived_Store> const & block_store, const int status)
 {
 	if (!block_store.success (status))
 	{

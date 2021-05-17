@@ -14,13 +14,7 @@ template <typename Val, typename Derived_Store>
 class block_store_partial;
 
 template <typename Val, typename Derived_Store>
-void release_assert_success (block_store_partial<Val, Derived_Store> const & block_store, const int status)
-{
-	if (!block_store.success (status))
-	{
-		release_assert (false, block_store.error_string (status));
-	}
-}
+void release_assert_success (block_store_partial<Val, Derived_Store> const & block_store, const int status);
 
 template <typename Val, typename Derived_Store>
 class frontier_store_partial : public frontier_store
