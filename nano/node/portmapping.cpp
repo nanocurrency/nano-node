@@ -124,13 +124,21 @@ bool nano::port_mapping::check_mapping ()
 		std::array<char, 16> remaining_mapping_duration_l;
 		remaining_mapping_duration_l.fill (0);
 		auto verify_port_mapping_error_l (UPNP_GetSpecificPortMappingEntry (upnp.urls.controlURL, upnp.data.first.servicetype, config_port_l.c_str (), protocol.name, nullptr, int_client_l.data (), int_port_l.data (), nullptr, nullptr, remaining_mapping_duration_l.data ()));
-		if (verify_port_mapping_error_l == UPNPCOMMAND_SUCCESS || atoi (remaining_mapping_duration_l.data ()) <= (network_params.portmapping.lease_duration.count () / 2))
+		auto remaining_from_port_mapping = std::atoi (remaining_mapping_duration_l.data ());
+		auto lease_duration = network_params.portmapping.lease_duration.count ();
+		auto lease_duration_divided_by_two = (lease_duration / 2);
+		auto recent_lease = (remaining_from_port_mapping >= lease_duration_divided_by_two);
+		if (verify_port_mapping_error_l == UPNPCOMMAND_SUCCESS && recent_lease)
 		{
 			result_l = false;
 		}
-		else
+		if (verify_port_mapping_error_l != UPNPCOMMAND_SUCCESS)
 		{
 			node.logger.always_log (boost::str (boost::format ("UPNP_GetSpecificPortMappingEntry failed %1%: %2%") % verify_port_mapping_error_l % strupnperror (verify_port_mapping_error_l)));
+		}
+		if (!recent_lease)
+		{
+			node.logger.always_log (boost::str (boost::format ("UPnP leasing time getting old, remaining time: %1%, lease time: %2%, below the threshold: %3%") % remaining_from_port_mapping % lease_duration % lease_duration_divided_by_two));
 		}
 		std::array<char, 64> external_address_l;
 		external_address_l.fill (0);
