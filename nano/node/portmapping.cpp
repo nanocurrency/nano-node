@@ -94,19 +94,18 @@ void nano::port_mapping::refresh_mapping ()
 		{
 			auto upnp_description = std::string ("Nano Node (") + network_params.network.get_current_network_as_string () + ")";
 			auto add_port_mapping_error_l (UPNP_AddPortMapping (upnp.urls.controlURL, upnp.data.first.servicetype, config_port_l.c_str (), node_port_l.c_str (), address.to_string ().c_str (), upnp_description.c_str (), protocol.name, nullptr, std::to_string (network_params.portmapping.lease_duration.count ()).c_str ()));
-			if (node.config.logging.upnp_details_logging ())
-			{
-				node.logger.always_log (boost::str (boost::format ("UPnP %1% port mapping response: %2%") % protocol.name % add_port_mapping_error_l));
-			}
+
 			if (add_port_mapping_error_l == UPNPCOMMAND_SUCCESS)
 			{
 				protocol.external_port = static_cast<uint16_t> (std::atoi (config_port_l.data ()));
-				node.logger.always_log (boost::str (boost::format ("UPnP %1%:%2% mapped to %3%") % protocol.external_address % config_port_l % node_port_l));
+				auto fmt = boost::format ("UPnP %1% %2%:%3% mapped to %4%") % protocol.name % protocol.external_address % config_port_l % node_port_l;
+				node.logger.always_log (boost::str (fmt));
 			}
 			else
 			{
 				protocol.external_port = 0;
-				node.logger.always_log (boost::str (boost::format ("UPnP failed %1%: %2%") % add_port_mapping_error_l % strupnperror (add_port_mapping_error_l)));
+				auto fmt = boost::format ("UPnP %1% %2%:%3% FAILED") % protocol.name % add_port_mapping_error_l % strupnperror (add_port_mapping_error_l);
+				node.logger.always_log (boost::str (fmt));
 			}
 		}
 	}
