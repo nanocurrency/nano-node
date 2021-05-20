@@ -58,7 +58,7 @@ void nano::port_mapping::refresh_devices ()
 		std::array<char, 64> local_address_l;
 		local_address_l.fill (0);
 		auto igd_error_l (UPNP_GetValidIGD (upnp_l.devices, &upnp_l.urls, &upnp_l.data, local_address_l.data (), sizeof (local_address_l)));
-		if (check_count % 15 == 0)
+		if (check_count % 15 == 0 || node.config.logging.upnp_details_logging ())
 		{
 			node.logger.always_log (boost::str (boost::format ("UPnP local address: %1%, discovery: %2%, IGD search: %3%") % local_address_l.data () % discover_error_l % igd_error_l));
 			if (node.config.logging.upnp_details_logging ())
@@ -197,7 +197,7 @@ void nano::port_mapping::check_mapping_loop ()
 	}
 	else
 	{
-		if (check_count < 10)
+		if (check_count < 10 || node.config.logging.upnp_details_logging ())
 		{
 			node.logger.always_log (boost::str (boost::format ("UPnP No IGD devices found")));
 		}
