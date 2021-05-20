@@ -1471,51 +1471,51 @@ TEST (active_transactions, fifo)
 	nano::state_block_builder builder;
 	// Construct two pending entries that can be received simultaneously
 	auto send0 = builder.make_block ()
-				.account (nano::dev_genesis_key.pub)
-				.previous (nano::genesis_hash)
-				.representative (nano::dev_genesis_key.pub)
-				.link (key0.pub)
-				.balance (nano::genesis_amount - 1)
-				.sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-				.work (*system.work.generate (nano::genesis_hash))
-				.build_shared ();
+				 .account (nano::dev_genesis_key.pub)
+				 .previous (nano::genesis_hash)
+				 .representative (nano::dev_genesis_key.pub)
+				 .link (key0.pub)
+				 .balance (nano::genesis_amount - 1)
+				 .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+				 .work (*system.work.generate (nano::genesis_hash))
+				 .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node.process (*send0).code);
 	nano::blocks_confirm (node, { send0 }, true);
 	ASSERT_TIMELY (1s, node.block_confirmed (send0->hash ()));
 	ASSERT_TIMELY (1s, node.active.empty ());
 	auto send1 = builder.make_block ()
-				.account (nano::dev_genesis_key.pub)
-				.previous (send0->hash ())
-				.representative (nano::dev_genesis_key.pub)
-				.link (key1.pub)
-				.balance (nano::genesis_amount - 2)
-				.sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-				.work (*system.work.generate (send0->hash ()))
-				.build_shared ();
+				 .account (nano::dev_genesis_key.pub)
+				 .previous (send0->hash ())
+				 .representative (nano::dev_genesis_key.pub)
+				 .link (key1.pub)
+				 .balance (nano::genesis_amount - 2)
+				 .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+				 .work (*system.work.generate (send0->hash ()))
+				 .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node.process (*send1).code);
 	nano::blocks_confirm (node, { send1 }, true);
 	ASSERT_TIMELY (1s, node.block_confirmed (send1->hash ()));
 	ASSERT_TIMELY (1s, node.active.empty ());
 
 	auto receive0 = builder.make_block ()
-				.account (key0.pub)
-				.previous (0)
-				.representative (nano::dev_genesis_key.pub)
-				.link (send0->hash ())
-				.balance (1)
-				.sign (key0.prv, key0.pub)
-				.work (*system.work.generate (key0.pub))
-				.build_shared ();
+					.account (key0.pub)
+					.previous (0)
+					.representative (nano::dev_genesis_key.pub)
+					.link (send0->hash ())
+					.balance (1)
+					.sign (key0.prv, key0.pub)
+					.work (*system.work.generate (key0.pub))
+					.build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node.process (*receive0).code);
 	auto receive1 = builder.make_block ()
-				.account (key1.pub)
-				.previous (0)
-				.representative (nano::dev_genesis_key.pub)
-				.link (send1->hash ())
-				.balance (1)
-				.sign (key1.prv, key1.pub)
-				.work (*system.work.generate (key1.pub))
-				.build_shared ();
+					.account (key1.pub)
+					.previous (0)
+					.representative (nano::dev_genesis_key.pub)
+					.link (send1->hash ())
+					.balance (1)
+					.sign (key1.prv, key1.pub)
+					.work (*system.work.generate (key1.pub))
+					.build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node.process (*receive1).code);
 	node.scheduler.manual (receive0);
 	// Ensure first transaction becomes active
