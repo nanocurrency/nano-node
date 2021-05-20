@@ -102,11 +102,6 @@ void nano::port_mapping::refresh_mapping ()
 			{
 				protocol.external_port = static_cast<uint16_t> (std::atoi (config_port_l.data ()));
 				node.logger.always_log (boost::str (boost::format ("UPnP %1%:%2% mapped to %3%") % protocol.external_address % config_port_l % node_port_l));
-
-				// Call check mapping loop again before the leasing ends
-				node.workers.add_timed_task (std::chrono::steady_clock::now () + network_params.portmapping.lease_duration - std::chrono::seconds (10), [node_l = node.shared ()] () {
-					node_l->port_mapping.check_mapping_loop ();
-				});
 			}
 			else
 			{
