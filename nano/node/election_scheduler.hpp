@@ -38,6 +38,7 @@ private:
 	bool empty_locked () const;
 	bool priority_queue_predicate () const;
 	bool manual_queue_predicate () const;
+	bool overfill_predicate () const;
 	nano::prioritization priority;
 	std::deque<std::tuple<std::shared_ptr<nano::block>, boost::optional<nano::uint128_t>, nano::election_behavior, std::function<void (std::shared_ptr<nano::block>)>>> manual_queue;
 	nano::node & node;
