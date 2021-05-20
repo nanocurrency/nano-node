@@ -95,9 +95,9 @@ void nano::port_mapping::refresh_mapping ()
 				protocol.external_port = static_cast<uint16_t> (std::atoi (config_port_l.data ()));
 				node.logger.always_log (boost::str (boost::format ("UPnP %1%:%2% mapped to %3%") % protocol.external_address % config_port_l % node_port_l));
 
-				// Refresh mapping before the leasing ends
+				// Call check mapping loop again before the leasing ends
 				node.workers.add_timed_task (std::chrono::steady_clock::now () + network_params.portmapping.lease_duration - std::chrono::seconds (10), [node_l = node.shared ()] () {
-					node_l->port_mapping.refresh_mapping ();
+					node_l->port_mapping.check_mapping_loop ();
 				});
 			}
 			else
@@ -109,11 +109,11 @@ void nano::port_mapping::refresh_mapping ()
 	}
 }
 
-bool nano::port_mapping::check_mapping ()
+bool nano::port_mapping::check_lost_or_old_mapping ()
 {
 	// Long discovery time and fast setup/teardown make this impractical for testing
 	debug_assert (!network_params.network.is_dev_network ());
-	bool result_l (true);
+	bool result_l (false);
 	nano::lock_guard<nano::mutex> guard_l (mutex);
 	auto node_port_l (std::to_string (node.network.endpoint ().port ()));
 	auto config_port_l (get_config_port (node_port_l));
@@ -128,16 +128,14 @@ bool nano::port_mapping::check_mapping ()
 		auto lease_duration = network_params.portmapping.lease_duration.count ();
 		auto lease_duration_divided_by_two = (lease_duration / 2);
 		auto recent_lease = (remaining_from_port_mapping >= lease_duration_divided_by_two);
-		if (verify_port_mapping_error_l == UPNPCOMMAND_SUCCESS && recent_lease)
-		{
-			result_l = false;
-		}
 		if (verify_port_mapping_error_l != UPNPCOMMAND_SUCCESS)
 		{
+			result_l = true;
 			node.logger.always_log (boost::str (boost::format ("UPNP_GetSpecificPortMappingEntry failed %1%: %2%") % verify_port_mapping_error_l % strupnperror (verify_port_mapping_error_l)));
 		}
 		if (!recent_lease)
 		{
+			result_l = true;
 			node.logger.always_log (boost::str (boost::format ("UPnP leasing time getting old, remaining time: %1%, lease time: %2%, below the threshold: %3%") % remaining_from_port_mapping % lease_duration % lease_duration_divided_by_two));
 		}
 		std::array<char, 64> external_address_l;
@@ -168,7 +166,7 @@ void nano::port_mapping::check_mapping_loop ()
 	if (upnp.devices != nullptr)
 	{
 		// If the mapping is lost, refresh it
-		if (check_mapping ())
+		if (check_lost_or_old_mapping ())
 		{
 			// Schedules a mapping refresh just before the leasing ends
 			refresh_mapping ();
