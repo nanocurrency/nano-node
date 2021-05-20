@@ -87,6 +87,16 @@ size_t nano::election_scheduler::priority_queue_size () const
 	return priority.size ();
 }
 
+bool nano::election_scheduler::priority_queue_predicate () const
+{
+	return node.active.vacancy () > 0 && !priority.empty ();
+}
+
+bool nano::election_scheduler::manual_queue_predicate () const
+{
+	return node.active.vacancy () > 0 && !manual_queue.empty ();
+}
+
 void nano::election_scheduler::run ()
 {
 	nano::thread_role::set (nano::thread_role::name::election_scheduler);
@@ -94,15 +104,19 @@ void nano::election_scheduler::run ()
 	while (!stopped)
 	{
 		condition.wait (lock, [this] () {
-			auto vacancy = node.active.vacancy ();
-			auto has_vacancy = vacancy > 0;
-			auto available = !priority.empty () || !manual_queue.empty ();
-			return stopped || (has_vacancy && available);
+			return stopped || priority_queue_predicate () || manual_queue_predicate ();
 		});
 		debug_assert ((std::this_thread::yield (), true)); // Introduce some random delay in debug builds
 		if (!stopped)
 		{
-			if (!priority.empty ())
+			if (manual_queue_predicate ())
+			{
+				auto const [block, previous_balance, election_behavior, confirmation_action] = manual_queue.front ();
+				nano::unique_lock<nano::mutex> lock2 (node.active.mutex);
+				node.active.insert_impl (lock2, block, previous_balance, election_behavior, confirmation_action);
+				manual_queue.pop_front ();
+			}
+			else if (priority_queue_predicate ())
 			{
 				auto block = priority.top ();
 				std::shared_ptr<nano::election> election;
@@ -113,15 +127,6 @@ void nano::election_scheduler::run ()
 					election->transition_active ();
 				}
 				priority.pop ();
-				++priority_queued;
-			}
-			if (!manual_queue.empty ())
-			{
-				auto const [block, previous_balance, election_behavior, confirmation_action] = manual_queue.front ();
-				nano::unique_lock<nano::mutex> lock2 (node.active.mutex);
-				node.active.insert_impl (lock2, block, previous_balance, election_behavior, confirmation_action);
-				manual_queue.pop_front ();
-				++manual_queued;
 			}
 			notify ();
 		}
