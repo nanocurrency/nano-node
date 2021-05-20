@@ -94,7 +94,12 @@ bool nano::election_scheduler::priority_queue_predicate () const
 
 bool nano::election_scheduler::manual_queue_predicate () const
 {
-	return node.active.vacancy () > 0 && !manual_queue.empty ();
+	return !manual_queue.empty ();
+}
+
+bool nano::election_scheduler::overfill_predicate () const
+{
+	return node.active.vacancy () < 0;
 }
 
 void nano::election_scheduler::run ()
@@ -104,12 +109,16 @@ void nano::election_scheduler::run ()
 	while (!stopped)
 	{
 		condition.wait (lock, [this] () {
-			return stopped || priority_queue_predicate () || manual_queue_predicate ();
+			return stopped || priority_queue_predicate () || manual_queue_predicate () || overfill_predicate ();
 		});
 		debug_assert ((std::this_thread::yield (), true)); // Introduce some random delay in debug builds
 		if (!stopped)
 		{
-			if (manual_queue_predicate ())
+			if (overfill_predicate ())
+			{
+				node.active.erase_oldest ();
+			}
+			else if (manual_queue_predicate ())
 			{
 				auto const [block, previous_balance, election_behavior, confirmation_action] = manual_queue.front ();
 				nano::unique_lock<nano::mutex> lock2 (node.active.mutex);
