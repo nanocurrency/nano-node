@@ -34,6 +34,20 @@ std::string nano::port_mapping::get_config_port (std::string const & node_port_a
 	return node.config.external_port != 0 ? std::to_string (node.config.external_port) : node_port_a;
 }
 
+std::string nano::port_mapping::to_string ()
+{
+	std::stringstream ss;
+
+	ss << "port_mapping is " << (on ? "on" : "off") << std::endl;
+	for (auto & protocol : protocols)
+	{
+		ss << protocol.to_string () << std::endl;
+	}
+	ss << upnp.to_string ();
+
+	return ss.str ();
+};
+
 void nano::port_mapping::refresh_devices ()
 {
 	if (!network_params.network.is_dev_network ())
@@ -212,6 +226,23 @@ void nano::port_mapping::stop ()
 			}
 		}
 	}
+}
+
+std::string nano::upnp_state::to_string ()
+{
+	std::stringstream ss;
+	ss << "Discovered UPnP devices:" << std::endl;
+	for (UPNPDev * p = devices; p; p = p->pNext)
+	{
+		debug_assert (p->descURL);
+		debug_assert (p->st);
+		debug_assert (p->usn);
+		ss << "  " << p->descURL << std::endl;
+		ss << "  " << p->st << std::endl;
+		ss << "  " << p->usn << std::endl;
+	}
+	ss << "  scope_id: " << std::endl;
+	return ss.str ();
 }
 
 nano::upnp_state::~upnp_state ()

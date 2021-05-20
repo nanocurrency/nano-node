@@ -27,6 +27,7 @@ public:
 	upnp_state () = default;
 	~upnp_state ();
 	upnp_state & operator= (upnp_state &&);
+	std::string to_string ();
 
 	/** List of discovered UPnP devices */
 	UPNPDev * devices{ nullptr };
@@ -45,6 +46,7 @@ public:
 	void stop ();
 	void refresh_devices ();
 	nano::endpoint external_address ();
+	std::string to_string ();
 
 private:
 	/** Add port mappings for the node port (not RPC). Refresh when the lease ends. */
