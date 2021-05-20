@@ -178,7 +178,10 @@ bool nano::port_mapping::check_lost_or_old_mapping ()
 
 void nano::port_mapping::check_mapping_loop ()
 {
+	auto health_check_period = network_params.portmapping.health_check_period;
+
 	refresh_devices ();
+
 	if (upnp.devices != nullptr)
 	{
 		// If the mapping is lost, refresh it
@@ -187,10 +190,10 @@ void nano::port_mapping::check_mapping_loop ()
 			// Schedules a mapping refresh just before the leasing ends
 			refresh_mapping ();
 		}
-		// Check for mapping health frequently
-		node.workers.add_timed_task (std::chrono::steady_clock::now () + network_params.portmapping.health_check_period, [node_l = node.shared ()] () {
-			node_l->port_mapping.check_mapping_loop ();
-		});
+		else
+		{
+			node.logger.always_log (boost::str (boost::format ("UPnP No need to refresh the mapping")));
+		}
 	}
 	else
 	{
@@ -198,11 +201,13 @@ void nano::port_mapping::check_mapping_loop ()
 		{
 			node.logger.always_log (boost::str (boost::format ("UPnP No IGD devices found")));
 		}
-		// Check for new devices later
-		node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::minutes (5), [node_l = node.shared ()] () {
-			node_l->port_mapping.check_mapping_loop ();
-		});
 	}
+
+	// Check for new devices or after health_check_period
+	node.workers.add_timed_task (std::chrono::steady_clock::now () + health_check_period, [node_l = node.shared ()] () {
+		node_l->port_mapping.check_mapping_loop ();
+	});
+
 	++check_count;
 }
 
