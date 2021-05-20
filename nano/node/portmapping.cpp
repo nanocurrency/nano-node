@@ -7,6 +7,14 @@
 #include <boost/format.hpp>
 #include <boost/range/adaptor/filtered.hpp>
 
+std::string nano::mapping_protocol::to_string ()
+{
+	std::stringstream ss;
+	ss << name << " " << external_address << ":" << external_port;
+	ss << (enabled ? " (enabled)" : " (disabled)");
+	return ss.str ();
+};
+
 nano::port_mapping::port_mapping (nano::node & node_a) :
 	node (node_a),
 	protocols ({ { { "TCP", boost::asio::ip::address_v4::any (), 0, true }, { "UDP", boost::asio::ip::address_v4::any (), 0, !node_a.flags.disable_udp } } })

@@ -17,6 +17,7 @@ public:
 	boost::asio::ip::address_v4 external_address;
 	uint16_t external_port;
 	bool enabled;
+	std::string to_string ();
 };
 
 /** Collection of discovered UPnP devices and state*/
