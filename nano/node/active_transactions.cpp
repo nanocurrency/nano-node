@@ -330,6 +330,10 @@ void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> 
 			}
 
 			// Locks active mutex, cleans up the election and erases it from the main container
+			if (!election_l.confirmed)
+			{
+				node.stats.inc (nano::stat::type::election, nano::stat::detail::election_drop_expired);
+			}
 			erase (election_l->qualified_root);
 		}
 	}
@@ -348,11 +352,6 @@ void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> 
 void nano::active_transactions::cleanup_election (nano::unique_lock<nano::mutex> & lock_a, nano::election_cleanup_info const & info_a)
 {
 	debug_assert (lock_a.owns_lock ());
-
-	if (!info_a.confirmed)
-	{
-		node.stats.inc (nano::stat::type::election, nano::stat::detail::election_drop);
-	}
 
 	for (auto const & [hash, block] : info_a.blocks)
 	{
@@ -1061,6 +1060,7 @@ void nano::active_transactions::erase_oldest ()
 	nano::unique_lock<nano::mutex> lock (mutex);
 	if (!roots.empty ())
 	{
+		node.stats.inc (nano::stat::type::election, nano::stat::detail::election_drop_overflow);
 		auto item = roots.get<tag_random_access> ().front ();
 		cleanup_election (lock, item.election->cleanup_info ());
 		roots.get<tag_root> ().erase (item.election->qualified_root);
