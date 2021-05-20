@@ -330,7 +330,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> 
 			}
 
 			// Locks active mutex, cleans up the election and erases it from the main container
-			if (!election_l->confirmed())
+			if (!election_l->confirmed ())
 			{
 				node.stats.inc (nano::stat::type::election, nano::stat::detail::election_drop_expired);
 			}
