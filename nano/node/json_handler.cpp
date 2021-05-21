@@ -4231,7 +4231,7 @@ void nano::json_handler::wallet_info ()
 				cemented_block_count += confirmation_info.height;
 			}
 
-			balance += node.ledger.account_balance (block_transaction, account);
+			balance += account_info.balance;
 			pending += node.ledger.account_pending (block_transaction, account);
 
 			nano::key_type key_type (wallet->store.key_type (i->second));
