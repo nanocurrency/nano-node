@@ -353,6 +353,11 @@ void nano::active_transactions::cleanup_election (nano::unique_lock<nano::mutex>
 {
 	debug_assert (lock_a.owns_lock ());
 
+	if (!info_a.confirmed)
+	{
+		node.stats.inc (nano::stat::type::election, nano::stat::detail::election_drop_all);
+	}
+
 	for (auto const & [hash, block] : info_a.blocks)
 	{
 		auto erased (blocks.erase (hash));

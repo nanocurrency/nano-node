@@ -320,6 +320,7 @@ public:
 		election_difficulty_update,
 		election_drop_expired,
 		election_drop_overflow,
+		election_drop_all,
 		election_restart,
 
 		// udp

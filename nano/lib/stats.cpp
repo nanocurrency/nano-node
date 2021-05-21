@@ -745,6 +745,9 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::election_drop_overflow:
 			res = "election_drop_overflow";
 			break;
+		case nano::stat::detail::election_drop_all:
+			res = "election_drop_all";
+			break;
 		case nano::stat::detail::election_restart:
 			res = "election_restart";
 			break;
