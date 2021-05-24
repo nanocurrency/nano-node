@@ -32,7 +32,7 @@ public:
 	{
 		nano::db_val<Val> account (account_a);
 		auto status (block_store.put (transaction_a, tables::frontiers, block_a, account));
-		release_assert_success<Val, Derived_Store> (block_store, status);
+		release_assert_success (block_store, status);
 	}
 
 	nano::account get (nano::transaction const & transaction_a, nano::block_hash const & block_a) const override
@@ -51,7 +51,7 @@ public:
 	void del (nano::write_transaction const & transaction_a, nano::block_hash const & block_a) override
 	{
 		auto status (block_store.del (transaction_a, tables::frontiers, block_a));
-		release_assert_success<Val, Derived_Store> (block_store, status);
+		release_assert_success (block_store, status);
 	}
 
 	nano::store_iterator<nano::block_hash, nano::account> begin (nano::transaction const & transaction_a) const override
