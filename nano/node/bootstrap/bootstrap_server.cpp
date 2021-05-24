@@ -28,19 +28,7 @@ void nano::bootstrap_listener::start ()
 	debug_assert (node.network.endpoint ().port () == listening_socket->listening_port ());
 	listening_socket->on_connection ([this] (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const & ec_a) {
 		bool keep_accepting = true;
-		if (ec_a)
-		{
-			keep_accepting = false;
-			this->node.logger.always_log (boost::str (boost::format ("Network: Error while accepting incoming TCP/bootstrap connections: %1%") % ec_a.message ()));
-
-			//Restart the listener
-			stop();
-			start();
-		}
-		else
-		{
-			accept_action (ec_a, new_connection);
-		}
+		accept_action (ec_a, new_connection);
 		return keep_accepting;
 	});
 }
