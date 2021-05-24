@@ -243,16 +243,6 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 			this_l->node.logger.always_log ("Network: Acceptor is not open");
 			return;
 		}
-		this_l->evict_dead_connections ();
-		if (this_l->connections.size () >= this_l->max_inbound_connections)
-		{
-			this_l->node.logger.always_log ("Network: max_inbound_connections reached, unable to open new connection (primary)");
-			this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_failure, nano::stat::dir::in);
-			boost::asio::post (this_l->strand, boost::asio::bind_executor (this_l->strand, [this_l, callback_a] () {
-				this_l->on_connection (callback_a);
-			}));
-			return;
-		}
 
 		// Prepare new connection
 		auto new_connection = std::make_shared<nano::socket> (this_l->node, boost::none);
@@ -292,7 +282,7 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 
 			if (this_l->is_system_error (ec_a))
 			{
-				boost::this_thread::sleep( boost::posix_time::milliseconds(500) );
+				boost::this_thread::sleep (boost::posix_time::milliseconds (500));
 				this_l->on_connection (callback_a);
 				return;
 			}
@@ -310,13 +300,13 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 
 bool nano::server_socket::is_temporary_error (boost::system::error_code const ec_a)
 {
-	bool exists = std::find(std::begin(temporary_errors), std::end(temporary_errors), ec_a.value()) != std::end(temporary_errors);
+	bool exists = std::find (std::begin (temporary_errors), std::end (temporary_errors), ec_a.value ()) != std::end (temporary_errors);
 	return exists;
 }
 
 bool nano::server_socket::is_system_error (boost::system::error_code const ec_a)
 {
-	bool exists = std::find(std::begin(system_errors), std::end(system_errors), ec_a.value()) != std::end(system_errors);
+	bool exists = std::find (std::begin (system_errors), std::end (system_errors), ec_a.value ()) != std::end (system_errors);
 	return exists;
 }
 
