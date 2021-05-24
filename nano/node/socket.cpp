@@ -245,12 +245,17 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 	boost::asio::post (strand, boost::asio::bind_executor (strand, [this_l, callback_a] () {
 		if (!this_l->acceptor.is_open ())
 		{
-			this_l->node.logger.try_log ("Network: Acceptor is not open");
+			this_l->node.logger.always_log ("Network: Acceptor is not open");
 			return;
 		}
+		this_l->evict_dead_connections ();
 		if (this_l->connections.size () >= this_l->max_inbound_connections)
 		{
-			this_l->node.logger.try_log ("Network: max_inbound_connections reached, unable to open new connection (primary)");
+			this_l->node.logger.always_log ("Network: max_inbound_connections reached, unable to open new connection (primary)");
+			this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_failure, nano::stat::dir::in);
+			boost::asio::post (this_l->strand, boost::asio::bind_executor (this_l->strand, [this_l, callback_a] () {
+				this_l->on_connection (callback_a);
+			}));
 			return;
 		}
 
@@ -262,7 +267,7 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 			this_l->evict_dead_connections ();
 			if (this_l->connections.size () >= this_l->max_inbound_connections)
 			{
-				this_l->node.logger.try_log ("Network: max_inbound_connections reached, unable to open new connection (secondary)");
+				this_l->node.logger.always_log ("Network: max_inbound_connections reached, unable to open new connection (secondary)");
 				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_failure, nano::stat::dir::in);
 				boost::asio::post (this_l->strand, boost::asio::bind_executor (this_l->strand, [this_l, callback_a] () {
 					this_l->on_connection (callback_a);
@@ -281,7 +286,7 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 			}
 			else
 			{
-				this_l->node.logger.try_log ("Network: Unable to accept connection: ", ec_a.message ());
+				this_l->node.logger.always_log ("Network: Unable to accept connection: ", ec_a.message ());
 			}
 
 			// If the callback returns true, keep accepting new connections
@@ -291,7 +296,7 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 			}
 			else
 			{
-				this_l->node.logger.try_log ("Network: Stopping to accept connections");
+				this_l->node.logger.always_log ("Network: Stopping to accept connections");
 			}
 		}));
 	}));
