@@ -437,22 +437,6 @@ bool nano::election::publish (std::shared_ptr<nano::block> const & block_a)
 	return result;
 }
 
-nano::election_cleanup_info nano::election::cleanup_info () const
-{
-	nano::lock_guard<nano::mutex> guard (mutex);
-	return cleanup_info_impl ();
-}
-
-nano::election_cleanup_info nano::election::cleanup_info_impl () const
-{
-	return nano::election_cleanup_info{
-		confirmed (),
-		status.winner->qualified_root (),
-		status.winner->hash (),
-		last_blocks
-	};
-}
-
 size_t nano::election::insert_inactive_votes_cache (nano::inactive_cache_information const & cache_a)
 {
 	nano::unique_lock<nano::mutex> lock (mutex);
