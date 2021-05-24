@@ -289,17 +289,40 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 				this_l->node.logger.always_log ("Network: Unable to accept connection: ", ec_a.message ());
 			}
 
+			if (this_l->is_temporary_error (ec_a))
+			{
+				this_l->on_connection (callback_a);
+				return;
+			}
+
+			if (this_l->is_system_error (ec_a))
+			{
+				boost::this_thread::sleep( boost::posix_time::milliseconds(500) );
+				this_l->on_connection (callback_a);
+				return;
+			}
+
 			// If the callback returns true, keep accepting new connections
 			if (callback_a (new_connection, ec_a))
 			{
 				this_l->on_connection (callback_a);
+				return;
 			}
-			else
-			{
-				this_l->node.logger.always_log ("Network: Stopping to accept connections");
-			}
+			this_l->node.logger.always_log ("Network: Stopping to accept connections");
 		}));
 	}));
+}
+
+bool nano::server_socket::is_temporary_error (boost::system::error_code const ec_a)
+{
+	bool exists = std::find(std::begin(temporary_errors), std::end(temporary_errors), ec_a.value()) != std::end(temporary_errors);
+	return exists;
+}
+
+bool nano::server_socket::is_system_error (boost::system::error_code const ec_a)
+{
+	bool exists = std::find(std::begin(system_errors), std::end(system_errors), ec_a.value()) != std::end(system_errors);
+	return exists;
 }
 
 // This must be called from a strand
