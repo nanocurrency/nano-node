@@ -35,17 +35,41 @@
 #include <sys/resource.h>
 #endif
 
-std::size_t nano::get_filedescriptor_limit ()
+std::size_t nano::get_file_descriptor_limit ()
 {
 	std::size_t fd_limit = (std::numeric_limits<std::size_t>::max) ();
 #ifndef _WIN32
-	struct rlimit limit;
+	rlimit limit{};
 	if (getrlimit (RLIMIT_NOFILE, &limit) == 0)
 	{
 		fd_limit = static_cast<std::size_t> (limit.rlim_cur);
 	}
 #endif
 	return fd_limit;
+}
+
+void nano::set_file_descriptor_limit (std::size_t limit)
+{
+#ifndef _WIN32
+	rlimit fd_limit{};
+	if (-1 == getrlimit (RLIMIT_NOFILE, &fd_limit))
+	{
+		std::cerr << "Unable to get current limits for the number of open file descriptors: " << std::strerror (errno);
+		return;
+	}
+
+	if (fd_limit.rlim_cur >= limit)
+	{
+		return;
+	}
+
+	fd_limit.rlim_cur = std::min (limit, fd_limit.rlim_max);
+	if (-1 == setrlimit (RLIMIT_NOFILE, &fd_limit))
+	{
+		std::cerr << "Unable to set limits for the number of open file descriptors: " << std::strerror (errno);
+		return;
+	}
+#endif
 }
 
 nano::container_info_composite::container_info_composite (std::string const & name) :
