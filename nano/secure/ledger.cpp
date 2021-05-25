@@ -1255,7 +1255,7 @@ void nano::ledger::update_account (nano::write_transaction const & transaction_a
 		}
 		if (!old_a.head.is_zero () && old_a.epoch () != new_a.epoch ())
 		{
-			// store.put won't erase existing entries if they're in different tables
+			// store.account.put won't erase existing entries if they're in different tables
 			store.account.del (transaction_a, account_a);
 		}
 		store.account.put (transaction_a, account_a, new_a);

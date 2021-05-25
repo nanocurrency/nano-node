@@ -5059,9 +5059,9 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 	ipc_json_handler_no_arg_func_map no_arg_funcs;
 	no_arg_funcs.emplace ("account_balance", &nano::json_handler::account_balance);
 	no_arg_funcs.emplace ("account_block_count", &nano::json_handler::account_block_count);
-	no_arg_funcs.emplace ("count", &nano::json_handler::account_count);
+	no_arg_funcs.emplace ("account_count", &nano::json_handler::account_count);
 	no_arg_funcs.emplace ("account_create", &nano::json_handler::account_create);
-	no_arg_funcs.emplace ("get", &nano::json_handler::account_get);
+	no_arg_funcs.emplace ("account_get", &nano::json_handler::account_get);
 	no_arg_funcs.emplace ("account_history", &nano::json_handler::account_history);
 	no_arg_funcs.emplace ("account_info", &nano::json_handler::account_info);
 	no_arg_funcs.emplace ("account_key", &nano::json_handler::account_key);

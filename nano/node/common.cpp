@@ -1246,7 +1246,7 @@ nano::error nano::telemetry_data::serialize_json (nano::jsonconfig & json, bool 
 	json.put ("block_count", block_count);
 	json.put ("cemented_count", cemented_count);
 	json.put ("unchecked_count", unchecked_count);
-	json.put ("count", account_count);
+	json.put ("account_count", account_count);
 	json.put ("bandwidth_cap", bandwidth_cap);
 	json.put ("peer_count", peer_count);
 	json.put ("protocol_version", protocol_version);
@@ -1296,7 +1296,7 @@ nano::error nano::telemetry_data::deserialize_json (nano::jsonconfig & json, boo
 	json.get ("block_count", block_count);
 	json.get ("cemented_count", cemented_count);
 	json.get ("unchecked_count", unchecked_count);
-	json.get ("count", account_count);
+	json.get ("account_count", account_count);
 	json.get ("bandwidth_cap", bandwidth_cap);
 	json.get ("peer_count", peer_count);
 	json.get ("protocol_version", protocol_version);

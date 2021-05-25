@@ -3072,7 +3072,7 @@ TEST (rpc, account_count)
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
 	rpc.start ();
 	boost::property_tree::ptree request1;
-	request1.put ("action", "count");
+	request1.put ("action", "account_count");
 	test_response response1 (request1, rpc.config.port, system.io_ctx);
 	ASSERT_TIMELY (5s, response1.status != 0);
 	ASSERT_EQ (200, response1.status);
