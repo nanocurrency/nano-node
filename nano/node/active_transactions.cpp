@@ -132,7 +132,7 @@ void nano::active_transactions::confirm_prioritized_frontiers (nano::transaction
 			{
 				lk.unlock ();
 				nano::account_info info;
-				auto error = this->node.store.account_get (transaction_a, cementable_account.account, info);
+				auto error = this->node.store.account.account_get (transaction_a, cementable_account.account, info);
 				if (!error)
 				{
 					if (!this->confirmation_height_processor.is_processing_block (info.head))
@@ -469,8 +469,8 @@ void nano::active_transactions::frontiers_confirmation (nano::unique_lock<nano::
  */
 void nano::active_transactions::confirm_expired_frontiers_pessimistically (nano::transaction const & transaction_a, uint64_t max_elections_a, uint64_t & elections_count_a)
 {
-	auto i{ node.store.accounts_begin (transaction_a, next_frontier_account) };
-	auto n{ node.store.accounts_end () };
+	auto i{ node.store.account.accounts_begin (transaction_a, next_frontier_account) };
+	auto n{ node.store.account.accounts_end () };
 	nano::timer<std::chrono::milliseconds> timer (nano::timer_state::started);
 	nano::confirmation_height_info confirmation_height_info;
 
@@ -486,7 +486,7 @@ void nano::active_transactions::confirm_expired_frontiers_pessimistically (nano:
 		auto const & account{ i->account };
 		nano::account_info account_info;
 		bool should_delete{ true };
-		if (!node.store.account_get (transaction_a, account, account_info))
+		if (!node.store.account.account_get (transaction_a, account, account_info))
 		{
 			node.store.confirmation_height_get (transaction_a, account, confirmation_height_info);
 			if (account_info.block_count > confirmation_height_info.height)
@@ -688,7 +688,7 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 					for (; i != n && should_iterate (); ++i)
 					{
 						auto const & account (i->first);
-						if (expired_optimistic_election_infos.get<tag_account> ().count (account) == 0 && !node.store.account_get (transaction_a, account, info))
+						if (expired_optimistic_election_infos.get<tag_account> ().count (account) == 0 && !node.store.account.account_get (transaction_a, account, info))
 						{
 							nano::confirmation_height_info confirmation_height_info;
 							node.store.confirmation_height_get (transaction_a, account, confirmation_height_info);
@@ -732,8 +732,8 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 		}
 
 		nano::timer<std::chrono::milliseconds> timer (nano::timer_state::started);
-		auto i (node.store.accounts_begin (transaction_a, next_frontier_account));
-		auto n (node.store.accounts_end ());
+		auto i (node.store.account.accounts_begin (transaction_a, next_frontier_account));
+		auto n (node.store.account.accounts_end ());
 		for (; i != n && should_iterate (); ++i)
 		{
 			auto const & account (i->first);

@@ -515,7 +515,7 @@ uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, ta
 	else if (table_a == tables::accounts)
 	{
 		debug_assert (network_constants ().is_dev_network ());
-		for (auto i (accounts_begin (transaction_a)), n (accounts_end ()); i != n; ++i)
+		for (auto i (account.accounts_begin (transaction_a)), n (account.accounts_end ()); i != n; ++i)
 		{
 			++sum;
 		}

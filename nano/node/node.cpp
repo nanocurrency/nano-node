@@ -341,7 +341,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 		auto is_initialized (false);
 		{
 			auto transaction (store.tx_begin_read ());
-			is_initialized = (store.accounts_begin (transaction) != store.accounts_end ());
+			is_initialized = (store.account.accounts_begin (transaction) != store.account.accounts_end ());
 		}
 
 		nano::genesis genesis;
@@ -733,7 +733,7 @@ nano::block_hash nano::node::rep_block (nano::account const & account_a)
 	auto transaction (store.tx_begin_read ());
 	nano::account_info info;
 	nano::block_hash result (0);
-	if (!store.account_get (transaction, account_a, info))
+	if (!store.account.account_get (transaction, account_a, info))
 	{
 		result = ledger.representative (transaction, info.head);
 	}
@@ -1515,7 +1515,7 @@ void nano::node::epoch_upgrader_impl (nano::raw_key const & prv_a, nano::epoch e
 			{
 				auto transaction (store.tx_begin_read ());
 				// Collect accounts to upgrade
-				for (auto i (store.accounts_begin (transaction)), n (store.accounts_end ()); i != n && accounts_list.size () < count_limit; ++i)
+				for (auto i (store.account.accounts_begin (transaction)), n (store.account.accounts_end ()); i != n && accounts_list.size () < count_limit; ++i)
 				{
 					nano::account const & account (i->first);
 					nano::account_info const & info (i->second);
@@ -1537,7 +1537,7 @@ void nano::node::epoch_upgrader_impl (nano::raw_key const & prv_a, nano::epoch e
 				auto transaction (store.tx_begin_read ());
 				nano::account_info info;
 				nano::account const & account (i->account);
-				if (!store.account_get (transaction, account, info) && info.epoch () < epoch_a)
+				if (!store.account.account_get (transaction, account, info) && info.epoch () < epoch_a)
 				{
 					++attempts;
 					auto difficulty (nano::work_threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true)));
@@ -1611,7 +1611,7 @@ void nano::node::epoch_upgrader_impl (nano::raw_key const & prv_a, nano::epoch e
 			{
 				bool to_next_account (false);
 				nano::pending_key const & key (i->first);
-				if (!store.account_exists (transaction, key.account))
+				if (!store.account.exists (transaction, key.account))
 				{
 					nano::pending_info const & info (i->second);
 					if (info.epoch < epoch_a)
@@ -1745,13 +1745,13 @@ void nano::node::populate_backlog ()
 	{
 		auto transaction = store.tx_begin_read ();
 		auto count = 0;
-		for (auto i = store.accounts_begin (transaction, next), n = store.accounts_end (); !stopped && i != n && count < chunk_size; ++i, ++count, ++total)
+		for (auto i = store.account.accounts_begin (transaction, next), n = store.account.accounts_end (); !stopped && i != n && count < chunk_size; ++i, ++count, ++total)
 		{
 			auto const & account = i->first;
 			scheduler.activate (account, transaction);
 			next = account.number () + 1;
 		}
-		done = store.accounts_begin (transaction, next) == store.accounts_end ();
+		done = store.account.accounts_begin (transaction, next) == store.account.accounts_end ();
 	}
 }
 

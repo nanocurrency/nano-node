@@ -428,8 +428,8 @@ void nano::mdb_store::upgrade_v16_to_v17 (nano::write_transaction const & transa
 {
 	logger.always_log ("Preparing v16 to v17 database upgrade...");
 
-	auto account_info_i = accounts_begin (transaction_a);
-	auto account_info_n = accounts_end ();
+	auto account_info_i = account.accounts_begin (transaction_a);
+	auto account_info_n = account.accounts_end ();
 
 	// Set the confirmed frontier for each account in the confirmation height table
 	std::vector<std::pair<nano::account, nano::confirmation_height_info>> confirmation_height_infos;

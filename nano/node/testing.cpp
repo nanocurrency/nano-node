@@ -325,7 +325,7 @@ void nano::system::generate_rollback (nano::node & node_a, std::vector<nano::acc
 	auto index (random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (accounts_a.size () - 1)));
 	auto account (accounts_a[index]);
 	nano::account_info info;
-	auto error (node_a.store.account_get (transaction, account, info));
+	auto error (node_a.store.account.account_get (transaction, account, info));
 	if (!error)
 	{
 		auto hash (info.open_block);
@@ -421,12 +421,12 @@ void nano::system::generate_send_existing (nano::node & node_a, std::vector<nano
 		nano::account account;
 		random_pool::generate_block (account.bytes.data (), sizeof (account.bytes));
 		auto transaction (node_a.store.tx_begin_read ());
-		nano::store_iterator<nano::account, nano::account_info> entry (node_a.store.accounts_begin (transaction, account));
-		if (entry == node_a.store.accounts_end ())
+		nano::store_iterator<nano::account, nano::account_info> entry (node_a.store.account.accounts_begin (transaction, account));
+		if (entry == node_a.store.account.accounts_end ())
 		{
-			entry = node_a.store.accounts_begin (transaction);
+			entry = node_a.store.account.accounts_begin (transaction);
 		}
-		debug_assert (entry != node_a.store.accounts_end ());
+		debug_assert (entry != node_a.store.account.accounts_end ());
 		destination = nano::account (entry->first);
 		source = get_random_account (accounts_a);
 		amount = get_random_amount (transaction, node_a, source);
