@@ -347,39 +347,40 @@ void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> 
 	}
 }
 
-void nano::active_transactions::cleanup_election (nano::unique_lock<nano::mutex> & lock_a, nano::election_cleanup_info const & info_a)
+void nano::active_transactions::cleanup_election (nano::unique_lock<nano::mutex> & lock_a, nano::election const & election)
 {
-	debug_assert (lock_a.owns_lock ());
-
-	if (!info_a.confirmed)
+	if (!election.confirmed ())
 	{
 		node.stats.inc (nano::stat::type::election, nano::stat::detail::election_drop);
 	}
 
-	for (auto const & [hash, block] : info_a.blocks)
+	auto blocks_l = election.blocks ();
+	for (auto const & [hash, block] : blocks_l)
 	{
 		auto erased (blocks.erase (hash));
 		(void)erased;
 		debug_assert (erased == 1);
 		erase_inactive_votes_cache (hash);
 	}
+	roots.get<tag_root> ().erase (roots.get<tag_root> ().find (election.qualified_root));
 
 	lock_a.unlock ();
-	for (auto const & [hash, block] : info_a.blocks)
+	vacancy_update ();
+	for (auto const & [hash, block] : blocks_l)
 	{
 		// Notify observers about dropped elections & blocks lost confirmed elections
-		if (!info_a.confirmed || hash != info_a.winner)
+		if (!election.confirmed () || hash != election.winner ()->hash ())
 		{
 			node.observers.active_stopped.notify (hash);
 		}
 
-		if (!info_a.confirmed)
+		if (!election.confirmed ())
 		{
 			// Clear from publish filter
 			node.network.publish_filter.clear (block);
 		}
 	}
-	lock_a.lock ();
+	node.logger.try_log (boost::str (boost::format ("Election erased for root %1%") % election.qualified_root.to_string ()));
 }
 
 std::vector<std::shared_ptr<nano::election>> nano::active_transactions::list_active (size_t max_a)
@@ -1025,17 +1026,7 @@ void nano::active_transactions::erase_recently_confirmed (nano::block_hash const
 
 void nano::active_transactions::erase (nano::block const & block_a)
 {
-	nano::unique_lock<nano::mutex> lock (mutex);
-	auto root_it (roots.get<tag_root> ().find (block_a.qualified_root ()));
-	if (root_it != roots.get<tag_root> ().end ())
-	{
-		// This is one of few places where both the active mutex and election mutexes are held
-		cleanup_election (lock, root_it->election->cleanup_info ());
-		roots.get<tag_root> ().erase (root_it);
-		lock.unlock ();
-		node.logger.try_log (boost::str (boost::format ("Election erased for block block %1% root %2%") % block_a.hash ().to_string () % block_a.root ().to_string ()));
-		vacancy_update ();
-	}
+	erase (block_a.qualified_root ());
 }
 
 void nano::active_transactions::erase (nano::qualified_root const & root_a)
@@ -1044,10 +1035,7 @@ void nano::active_transactions::erase (nano::qualified_root const & root_a)
 	auto root_it (roots.get<tag_root> ().find (root_a));
 	if (root_it != roots.get<tag_root> ().end ())
 	{
-		// This is one of few places where both the active mutex and election mutexes are held
-		cleanup_election (lock, root_it->election->cleanup_info ());
-		roots.get<tag_root> ().erase (root_it);
-		vacancy_update ();
+		cleanup_election (lock, *root_it->election);
 	}
 }
 
