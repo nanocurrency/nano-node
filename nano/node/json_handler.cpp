@@ -4208,15 +4208,32 @@ void nano::json_handler::wallet_info ()
 		nano::uint128_t balance (0);
 		nano::uint128_t pending (0);
 		uint64_t count (0);
+		uint64_t block_count (0);
+		uint64_t cemented_block_count (0);
 		uint64_t deterministic_count (0);
 		uint64_t adhoc_count (0);
 		auto transaction (node.wallets.tx_begin_read ());
 		auto block_transaction (node.store.tx_begin_read ());
+
 		for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
 		{
 			nano::account const & account (i->first);
-			balance = balance + node.ledger.account_balance (block_transaction, account);
-			pending = pending + node.ledger.account_pending (block_transaction, account);
+
+			nano::account_info account_info{};
+			if (!node.store.account_get (block_transaction, account, account_info))
+			{
+				block_count += account_info.block_count;
+			}
+
+			nano::confirmation_height_info confirmation_info{};
+			if (!node.store.confirmation_height_get (block_transaction, account, confirmation_info))
+			{
+				cemented_block_count += confirmation_info.height;
+			}
+
+			balance += account_info.balance;
+			pending += node.ledger.account_pending (block_transaction, account);
+
 			nano::key_type key_type (wallet->store.key_type (i->second));
 			if (key_type == nano::key_type::deterministic)
 			{
@@ -4226,16 +4243,21 @@ void nano::json_handler::wallet_info ()
 			{
 				adhoc_count++;
 			}
-			count++;
+
+			++count;
 		}
+
 		uint32_t deterministic_index (wallet->store.deterministic_index_get (transaction));
 		response_l.put ("balance", balance.convert_to<std::string> ());
 		response_l.put ("pending", pending.convert_to<std::string> ());
 		response_l.put ("accounts_count", std::to_string (count));
+		response_l.put ("accounts_block_count", std::to_string (block_count));
+		response_l.put ("accounts_cemented_block_count", std::to_string (cemented_block_count));
 		response_l.put ("deterministic_count", std::to_string (deterministic_count));
 		response_l.put ("adhoc_count", std::to_string (adhoc_count));
 		response_l.put ("deterministic_index", std::to_string (deterministic_index));
 	}
+
 	response_errors ();
 }
 
