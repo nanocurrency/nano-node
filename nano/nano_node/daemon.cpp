@@ -47,7 +47,6 @@ void setOpenFileDescriptorsLimits ()
 	}
 #endif
 }
-
 }
 
 static void load_and_set_bandwidth_params (std::shared_ptr<nano::node> const & node, boost::filesystem::path const & data_path, nano::node_flags const & flags)
