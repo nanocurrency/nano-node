@@ -27,9 +27,12 @@ void nano::bootstrap_listener::start ()
 	}
 	debug_assert (node.network.endpoint ().port () == listening_socket->listening_port ());
 	listening_socket->on_connection ([this] (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const & ec_a) {
-		bool keep_accepting = true;
+		if (ec_a)
+		{
+			return false;
+		}
 		accept_action (ec_a, new_connection);
-		return keep_accepting;
+		return true;
 	});
 }
 
