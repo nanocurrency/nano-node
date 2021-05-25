@@ -10,15 +10,44 @@
 #include <nano/node/node.hpp>
 #include <nano/node/openclwork.hpp>
 #include <nano/rpc/rpc.hpp>
-#include <nano/secure/working.hpp>
 
 #include <boost/format.hpp>
+
+#ifndef _WIN32
+#include <sys/resource.h>
+#endif
 
 #include <iostream>
 
 namespace
 {
 volatile sig_atomic_t sig_int_or_term = 0;
+
+constexpr std::size_t OPEN_FILE_DESCRIPTORS_LIMIT = 16384;
+
+void setOpenFileDescriptorsLimits ()
+{
+#ifndef _WIN32
+	rlimit current_limits{};
+
+	if (-1 == getrlimit (RLIMIT_NOFILE, &current_limits))
+	{
+		std::cerr << "Unable to get current limits for the number of open file descriptors: " << std::strerror (errno);
+		return;
+	}
+
+	if (current_limits.rlim_cur < OPEN_FILE_DESCRIPTORS_LIMIT)
+	{
+		current_limits.rlim_cur = std::min (OPEN_FILE_DESCRIPTORS_LIMIT, current_limits.rlim_max);
+		if (-1 == setrlimit (RLIMIT_NOFILE, &current_limits))
+		{
+			std::cerr << "Unable to set limits for the number of open file descriptors: " << std::strerror (errno);
+			return;
+		}
+	}
+#endif
+}
+
 }
 
 static void load_and_set_bandwidth_params (std::shared_ptr<nano::node> const & node, boost::filesystem::path const & data_path, nano::node_flags const & flags)
@@ -42,6 +71,8 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 	nano::signal_manager sigman;
 	sigman.register_signal_handler (SIGSEGV, sigman.get_debug_files_handler (), false);
 	sigman.register_signal_handler (SIGABRT, sigman.get_debug_files_handler (), false);
+
+	setOpenFileDescriptorsLimits ();
 
 	boost::filesystem::create_directories (data_path);
 	boost::system::error_code error_chmod;
