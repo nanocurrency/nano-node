@@ -325,6 +325,7 @@ bool nano::server_socket::is_temporary_error (boost::system::error_code const ec
 #if EAGAIN != EWOULDBLOCK
 		case EAGAIN:
 #endif
+		case EWOULDBLOCK:
 		case ECONNABORTED:
 			return true;
 		default:
