@@ -252,7 +252,7 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 			this_l->evict_dead_connections ();
 			if (this_l->connections.size () >= this_l->max_inbound_connections)
 			{
-				this_l->node.logger.always_log ("Network: max_inbound_connections reached, unable to open new connection (secondary)");
+				this_l->node.logger.always_log ("Network: max_inbound_connections reached, unable to open new connection");
 				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_failure, nano::stat::dir::in);
 				boost::asio::post (this_l->strand, boost::asio::bind_executor (this_l->strand, [this_l, callback_a] () {
 					this_l->on_connection (callback_a);
@@ -268,46 +268,77 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 				new_connection->start_timer (this_l->node.network_params.network.is_dev_network () ? std::chrono::seconds (2) : this_l->node.network_params.node.idle_timeout);
 				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_success, nano::stat::dir::in);
 				this_l->connections.push_back (new_connection);
-			}
-			else
-			{
-				this_l->node.logger.always_log ("Network: Unable to accept connection: ", ec_a.message ());
+				callback_a (new_connection, ec_a);
+				this_l->on_connection (callback_a);
+				return;
 			}
 
+			this_l->node.logger.always_log ("Network: Unable to accept connection: ", ec_a.message ());
 			if (this_l->is_temporary_error (ec_a))
 			{
-				this_l->on_connection (callback_a);
+				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_failure, nano::stat::dir::in);
+				boost::asio::post (this_l->strand, boost::asio::bind_executor (this_l->strand, [this_l, callback_a] () {
+					this_l->on_connection (callback_a);
+				}));
 				return;
 			}
 
 			if (this_l->is_system_error (ec_a))
 			{
 				boost::this_thread::sleep (boost::posix_time::milliseconds (500));
-				this_l->on_connection (callback_a);
+				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_failure, nano::stat::dir::in);
+				boost::asio::post (this_l->strand, boost::asio::bind_executor (this_l->strand, [this_l, callback_a] () {
+					this_l->on_connection (callback_a);
+				}));
 				return;
 			}
 
-			// If the callback returns true, keep accepting new connections
+			// Unhandled errors above
+			//EBADF
+			//EFAULT
+			//EINTR
+			//EINVAL
+			//ENOTSOCK
+			//EOPNOTSUPP
+			//EPROTO
+			//EPERM
+			// Check how the listener wants to handle these error
 			if (callback_a (new_connection, ec_a))
 			{
 				this_l->on_connection (callback_a);
 				return;
 			}
-			this_l->node.logger.always_log ("Network: Stopping to accept connections");
+			this_l->node.logger.always_log ("Network: Stopping to accept connections. Node may need restarting.");
 		}));
 	}));
 }
 
 bool nano::server_socket::is_temporary_error (boost::system::error_code const ec_a)
 {
-	bool exists = std::find (std::begin (temporary_errors), std::end (temporary_errors), ec_a.value ()) != std::end (temporary_errors);
-	return exists;
+	switch (ec_a.value ())
+	{
+#if EAGAIN != EWOULDBLOCK
+		case EAGAIN:
+#endif
+		case ECONNABORTED:
+			return true;
+		default:
+			return false;
+	}
 }
 
 bool nano::server_socket::is_system_error (boost::system::error_code const ec_a)
 {
-	bool exists = std::find (std::begin (system_errors), std::end (system_errors), ec_a.value ()) != std::end (system_errors);
-	return exists;
+	switch (ec_a.value ())
+	{
+		case EMFILE:
+		case ENFILE:
+		case ENOBUFS:
+		case ENOMEM:
+			return true;
+		default:
+			return false;
+	}
 }
 
 // This must be called from a strand
