@@ -45,13 +45,6 @@ enum class election_behavior
 	normal,
 	optimistic
 };
-struct election_cleanup_info final
-{
-	bool confirmed;
-	nano::qualified_root root;
-	nano::block_hash winner;
-	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks;
-};
 struct election_extended_status final
 {
 	nano::election_status status;
@@ -116,7 +109,6 @@ public: // Interface
 	size_t insert_inactive_votes_cache (nano::inactive_cache_information const &);
 	// Confirm this block if quorum is met
 	void confirm_if_quorum (nano::unique_lock<nano::mutex> &);
-	nano::election_cleanup_info cleanup_info () const;
 
 public: // Information
 	uint64_t const height;
@@ -135,7 +127,6 @@ private:
 	void remove_votes (nano::block_hash const &);
 	void remove_block (nano::block_hash const &);
 	bool replace_by_weight (nano::unique_lock<nano::mutex> & lock_a, nano::block_hash const &);
-	nano::election_cleanup_info cleanup_info_impl () const;
 
 private:
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> last_blocks;
