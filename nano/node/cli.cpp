@@ -45,7 +45,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	// clang-format off
 	description_a.add_options ()
 	("account_create", "Insert next deterministic key in to <wallet>")
-	("account_get", "Get account number for the <key>")
+	("get", "Get account number for the <key>")
 	("account_key", "Get the public key for <account>")
 	("vacuum", "Compact database. If data_path is missing, the database in data directory is compacted.")
 	("snapshot", "Compact database and create snapshot, functions similar to vacuum but does not replace the existing database")
@@ -308,7 +308,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			ec = nano::error_cli::invalid_arguments;
 		}
 	}
-	else if (vm.count ("account_get") > 0)
+	else if (vm.count ("get") > 0)
 	{
 		if (vm.count ("key") == 1)
 		{

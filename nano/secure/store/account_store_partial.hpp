@@ -2,6 +2,12 @@
 
 #include <nano/secure/blockstore_partial.hpp>
 
+namespace
+{
+template <typename T>
+void parallel_traversal (std::function<void (T const &, T const &, bool const)> const & action);
+}
+
 namespace nano
 {
 template <typename Val, typename Derived_Store>
@@ -22,7 +28,7 @@ public:
 	explicit account_store_partial (nano::block_store_partial<Val, Derived_Store> & block_store_a) :
 		block_store (block_store_a){};
 
-	void account_put (nano::write_transaction const & transaction_a, nano::account const & account_a, nano::account_info const & info_a) override
+	void put (nano::write_transaction const & transaction_a, nano::account const & account_a, nano::account_info const & info_a) override
 	{
 		// Check we are still in sync with other tables
 		nano::db_val<Val> info (info_a);
@@ -30,7 +36,7 @@ public:
 		release_assert_success (block_store, status);
 	}
 
-	bool account_get (nano::transaction const & transaction_a, nano::account const & account_a, nano::account_info & info_a) override
+	bool get (nano::transaction const & transaction_a, nano::account const & account_a, nano::account_info & info_a) override
 	{
 		nano::db_val<Val> value;
 		nano::db_val<Val> account (account_a);
@@ -45,7 +51,7 @@ public:
 		return result;
 	}
 
-	void account_del (nano::write_transaction const & transaction_a, nano::account const & account_a) override
+	void del (nano::write_transaction const & transaction_a, nano::account const & account_a) override
 	{
 		auto status = block_store.del (transaction_a, tables::accounts, account_a);
 		release_assert_success (block_store, status);
@@ -53,44 +59,43 @@ public:
 
 	bool exists (nano::transaction const & transaction_a, nano::account const & account_a) override
 	{
-		auto iterator (accounts_begin (transaction_a, account_a));
-		return iterator != accounts_end () && nano::account (iterator->first) == account_a;
+		auto iterator (begin (transaction_a, account_a));
+		return iterator != end () && nano::account (iterator->first) == account_a;
 	}
 
-	size_t account_count (nano::transaction const & transaction_a) override
+	size_t count (nano::transaction const & transaction_a) override
 	{
 		return block_store.count (transaction_a, tables::accounts);
 	}
 
-	nano::store_iterator<nano::account, nano::account_info> accounts_begin (nano::transaction const & transaction_a, nano::account const & account_a) const override
+	nano::store_iterator<nano::account, nano::account_info> begin (nano::transaction const & transaction_a, nano::account const & account_a) const override
 	{
 		return block_store.template make_iterator<nano::account, nano::account_info> (transaction_a, tables::accounts, nano::db_val<Val> (account_a));
 	}
 
-	nano::store_iterator<nano::account, nano::account_info> accounts_begin (nano::transaction const & transaction_a) const override
+	nano::store_iterator<nano::account, nano::account_info> begin (nano::transaction const & transaction_a) const override
 	{
 		return block_store.template make_iterator<nano::account, nano::account_info> (transaction_a, tables::accounts);
 	}
 
-	nano::store_iterator<nano::account, nano::account_info> accounts_rbegin (nano::transaction const & transaction_a) const override
+	nano::store_iterator<nano::account, nano::account_info> rbegin (nano::transaction const & transaction_a) const override
 	{
 		return block_store.template make_iterator<nano::account, nano::account_info> (transaction_a, tables::accounts, false);
 	}
 
-	nano::store_iterator<nano::account, nano::account_info> accounts_end () const override
+	nano::store_iterator<nano::account, nano::account_info> end () const override
 	{
 		return nano::store_iterator<nano::account, nano::account_info> (nullptr);
 	}
 
-	void accounts_for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::account, nano::account_info>, nano::store_iterator<nano::account, nano::account_info>)> const & action_a) const override
+	void for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::account, nano::account_info>, nano::store_iterator<nano::account, nano::account_info>)> const & action_a) const override
 	{
 		parallel_traversal<nano::uint256_t> (
 		[&action_a, this] (nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
 			auto transaction (this->block_store.tx_begin_read ());
-			action_a (transaction, this->accounts_begin (transaction, start), !is_last ? this->accounts_begin (transaction, end) : this->accounts_end ());
+			action_a (transaction, this->begin (transaction, start), !is_last ? this->begin (transaction, end) : this->end ());
 		});
 	}
-
 };
 
 }

@@ -441,7 +441,7 @@ void nano::bulk_pull_server::set_current_end ()
 	else
 	{
 		nano::account_info info;
-		auto no_address (connection->node->store.account.account_get (transaction, request->start.as_account (), info));
+		auto no_address (connection->node->store.account.get (transaction, request->start.as_account (), info));
 		if (no_address)
 		{
 			if (connection->node->config.logging.bulk_pull_logging ())

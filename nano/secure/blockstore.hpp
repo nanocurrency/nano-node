@@ -635,16 +635,16 @@ public:
 class account_store
 {
 public:
-	virtual void account_put (nano::write_transaction const &, nano::account const &, nano::account_info const &) = 0;
-	virtual bool account_get (nano::transaction const &, nano::account const &, nano::account_info &) = 0;
-	virtual void account_del (nano::write_transaction const &, nano::account const &) = 0;
+	virtual void put (nano::write_transaction const &, nano::account const &, nano::account_info const &) = 0;
+	virtual bool get (nano::transaction const &, nano::account const &, nano::account_info &) = 0;
+	virtual void del (nano::write_transaction const &, nano::account const &) = 0;
 	virtual bool exists (nano::transaction const &, nano::account const &) = 0;
-	virtual size_t account_count (nano::transaction const &) = 0;
-	virtual nano::store_iterator<nano::account, nano::account_info> accounts_begin (nano::transaction const &, nano::account const &) const = 0;
-	virtual nano::store_iterator<nano::account, nano::account_info> accounts_begin (nano::transaction const &) const = 0;
-	virtual nano::store_iterator<nano::account, nano::account_info> accounts_rbegin (nano::transaction const &) const = 0;
-	virtual nano::store_iterator<nano::account, nano::account_info> accounts_end () const = 0;
-	virtual void accounts_for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::account, nano::account_info>, nano::store_iterator<nano::account, nano::account_info>)> const &) const = 0;
+	virtual size_t count (nano::transaction const &) = 0;
+	virtual nano::store_iterator<nano::account, nano::account_info> begin (nano::transaction const &, nano::account const &) const = 0;
+	virtual nano::store_iterator<nano::account, nano::account_info> begin (nano::transaction const &) const = 0;
+	virtual nano::store_iterator<nano::account, nano::account_info> rbegin (nano::transaction const &) const = 0;
+	virtual nano::store_iterator<nano::account, nano::account_info> end () const = 0;
+	virtual void for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::account, nano::account_info>, nano::store_iterator<nano::account, nano::account_info>)> const &) const = 0;
 };
 
 /**
