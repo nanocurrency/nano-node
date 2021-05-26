@@ -259,7 +259,8 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 			{
 				this_l->node.logger.always_log ("Network: max_inbound_connections reached, unable to open new connection");
 				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_failure, nano::stat::dir::in);
-				return this_l->on_connection_requeue_delayed (callback_a);
+				this_l->on_connection_requeue_delayed (callback_a);
+				return;
 			}
 
 			if (!ec_a)
@@ -271,25 +272,27 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_success, nano::stat::dir::in);
 				this_l->connections.push_back (new_connection);
 				callback_a (new_connection, ec_a);
-				return this_l->on_connection_requeue_instant (callback_a);
+				this_l->on_connection_requeue_instant (callback_a);
+				return;
 			}
 
 			this_l->node.logger.always_log ("Network: Unable to accept connection: ", ec_a.message ());
 			this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_failure, nano::stat::dir::in);
 			if (this_l->is_temporary_error (ec_a))
 			{
-				return this_l->on_connection_requeue_instant (callback_a);
+				this_l->on_connection_requeue_instant (callback_a);
+				return;
 			}
 
 			if (this_l->is_system_error (ec_a))
 			{
-				return this_l->on_connection_requeue_delayed (callback_a);
+				this_l->on_connection_requeue_delayed (callback_a);
+				return;
 			}
 
 			// Unhandled errors above
 			//EBADF
 			//EFAULT
-			//EINTR
 			//EINVAL
 			//ENOTSOCK
 			//EOPNOTSUPP
@@ -298,7 +301,8 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 			// Check how the listener wants to handle these error
 			if (callback_a (new_connection, ec_a))
 			{
-				return this_l->on_connection_requeue_instant (callback_a);
+				this_l->on_connection_requeue_instant (callback_a);
+				return;
 			}
 
 			//No requeue if we reach here, no incoming socket connections will be handled
@@ -309,13 +313,13 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 
 void nano::server_socket::on_connection_requeue_instant (std::function<bool (std::shared_ptr<nano::socket> const &, boost::system::error_code const &)> callback_a)
 {
-	return on_connection (callback_a);
+	on_connection (callback_a);
 }
 
 void nano::server_socket::on_connection_requeue_delayed (std::function<bool (std::shared_ptr<nano::socket> const &, boost::system::error_code const &)> callback_a)
 {
 	auto this_l (std::static_pointer_cast<nano::server_socket> (shared_from_this ()));
-	return node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (500), [this_l, callback_a] () {
+	node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (500), [this_l, callback_a] () {
 		this_l->on_connection (callback_a);
 	});
 }
@@ -329,6 +333,7 @@ bool nano::server_socket::is_temporary_error (boost::system::error_code const ec
 #endif
 		case EWOULDBLOCK:
 		case ECONNABORTED:
+		case EINTR:
 			return true;
 		default:
 			return false;
