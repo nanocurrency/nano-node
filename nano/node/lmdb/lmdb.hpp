@@ -142,7 +142,7 @@ public:
 	 * Maps (destination account, pending block) to (source account, amount, version). (Removed)
 	 * nano::account, nano::block_hash -> nano::account, nano::amount, nano::epoch
 	 */
-	MDB_dbi pending{ 0 };
+	MDB_dbi lmdb_pending{ 0 };
 
 	/**
 	 * Representative weights. (Removed)

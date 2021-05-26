@@ -4250,7 +4250,7 @@ TEST (rpc, pending_exists)
 	request.put ("hash", hash0.to_string ());
 	pending_exists ("0");
 
-	node->store.pending_exists (node->store.tx_begin_read (), nano::pending_key (nano::dev_genesis_key.pub, block1->hash ()));
+	node->store.pending.exists (node->store.tx_begin_read (), nano::pending_key (nano::dev_genesis_key.pub, block1->hash ()));
 	request.put ("hash", block1->hash ().to_string ());
 	pending_exists ("1");
 
@@ -7232,7 +7232,7 @@ TEST (rpc, epoch_upgrade)
 		// Check pending entry
 		auto transaction (node->store.tx_begin_read ());
 		nano::pending_info info;
-		ASSERT_FALSE (node->store.pending_get (transaction, nano::pending_key (key3.pub, send7->hash ()), info));
+		ASSERT_FALSE (node->store.pending.get (transaction, nano::pending_key (key3.pub, send7->hash ()), info));
 		ASSERT_EQ (nano::epoch::epoch_1, info.epoch);
 	}
 
@@ -7333,7 +7333,7 @@ TEST (rpc, epoch_upgrade_multithreaded)
 		// Check pending entry
 		auto transaction (node->store.tx_begin_read ());
 		nano::pending_info info;
-		ASSERT_FALSE (node->store.pending_get (transaction, nano::pending_key (key3.pub, send7->hash ()), info));
+		ASSERT_FALSE (node->store.pending.get (transaction, nano::pending_key (key3.pub, send7->hash ()), info));
 		ASSERT_EQ (nano::epoch::epoch_1, info.epoch);
 	}
 

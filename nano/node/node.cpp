@@ -1283,7 +1283,7 @@ void nano::node::receive_confirmed (nano::transaction const & block_transaction_
 			nano::account representative;
 			nano::pending_info pending;
 			representative = wallet->store.representative (wallet_transaction);
-			auto error (store.pending_get (block_transaction_a, nano::pending_key (destination_a, hash_a), pending));
+			auto error (store.pending.get (block_transaction_a, nano::pending_key (destination_a, hash_a), pending));
 			if (!error)
 			{
 				auto amount (pending.amount.number ());
@@ -1607,7 +1607,7 @@ void nano::node::epoch_upgrader_impl (nano::raw_key const & prv_a, nano::epoch e
 			uint64_t workers (0);
 			uint64_t attempts (0);
 			auto transaction (store.tx_begin_read ());
-			for (auto i (store.pending_begin (transaction, nano::pending_key (1, 0))), n (store.pending_end ()); i != n && attempts < upgrade_batch_size && attempts < count_limit && !stopped;)
+			for (auto i (store.pending.begin (transaction, nano::pending_key (1, 0))), n (store.pending.end ()); i != n && attempts < upgrade_batch_size && attempts < count_limit && !stopped;)
 			{
 				bool to_next_account (false);
 				nano::pending_key const & key (i->first);
@@ -1668,7 +1668,7 @@ void nano::node::epoch_upgrader_impl (nano::raw_key const & prv_a, nano::epoch e
 					}
 					else
 					{
-						i = store.pending_begin (transaction, nano::pending_key (key.account.number () + 1, 0));
+						i = store.pending.begin (transaction, nano::pending_key (key.account.number () + 1, 0));
 					}
 				}
 				else
