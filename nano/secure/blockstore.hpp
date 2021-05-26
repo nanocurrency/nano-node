@@ -620,6 +620,9 @@ private:
 
 class ledger_cache;
 
+/**
+ * Manages frontier storage and iteration
+ */
 class frontier_store
 {
 public:
@@ -632,6 +635,9 @@ public:
 	virtual void for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::block_hash, nano::account>, nano::store_iterator<nano::block_hash, nano::account>)> const & action_a) const = 0;
 };
 
+/**
+ * Manages pending storage and iteration
+ */
 class pending_store
 {
 public:
