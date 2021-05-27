@@ -133,25 +133,48 @@ TEST (network, send_node_id_handshake_tcp)
 TEST (network, last_contacted)
 {
 	nano::system system (1);
+
 	auto node0 = system.nodes[0];
 	ASSERT_EQ (0, node0->network.size ());
+
 	nano::node_config node1_config (nano::get_available_port (), system.logging);
 	node1_config.tcp_incoming_connections_max = 0; // Prevent ephemeral node1->node0 channel repacement with incoming connection
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), node1_config, system.work));
 	node1->start ();
 	system.nodes.push_back (node1);
+
 	auto channel1 = nano::establish_tcp (system, *node1, node0->network.endpoint ());
 	ASSERT_NE (nullptr, channel1);
 	ASSERT_TIMELY (3s, node0->network.size () == 1);
-	auto channel2 = node0->network.tcp_channels.find_node_id (node1->node_id.pub);
-	ASSERT_NE (nullptr, channel2);
-	// Make sure last_contact gets updated on receiving a non-handshake message
-	auto timestamp_before_keepalive = channel2->get_last_packet_received ();
+
+	// channel0 is the other side of channel1, same connection different endpoint
+	auto channel0 = node0->network.tcp_channels.find_node_id (node1->node_id.pub);
+	ASSERT_NE (nullptr, channel0);
+
+	{
+		// check that the endpoints are part of the same connection
+		std::shared_ptr<nano::socket> sock0 = channel0->socket.lock ();
+		std::shared_ptr<nano::socket> sock1 = channel1->socket.lock ();
+		ASSERT_TRUE (sock0->local_endpoint () == sock1->remote_endpoint ());
+		ASSERT_TRUE (sock1->local_endpoint () == sock0->remote_endpoint ());
+	}
+
+	// capture the state before and ensure the clock ticks at least once
+	auto timestamp_before_keepalive = channel0->get_last_packet_received ();
 	auto keepalive_count = node0->stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in);
+	ASSERT_TIMELY (3s, std::chrono::steady_clock::now () > timestamp_before_keepalive);
+
+	// send 3 keepalives
+	// we need an extra keepalive to handle the race condition between the timestamp set and the counter increment
+	// and we need one more keepalive to handle the possibility that there is a keepalive already in flight when we start the crucial part of the test
+	// it is possible that there could be multiple keepalives in flight but we assume here that there will be no more than one in flight for the purposes of this test
 	node1->network.send_keepalive (channel1);
-	ASSERT_TIMELY (3s, node0->stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in) > keepalive_count);
+	node1->network.send_keepalive (channel1);
+	node1->network.send_keepalive (channel1);
+
+	ASSERT_TIMELY (3s, node0->stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in) >= keepalive_count + 3);
 	ASSERT_EQ (node0->network.size (), 1);
-	auto timestamp_after_keepalive = channel2->get_last_packet_received ();
+	auto timestamp_after_keepalive = channel0->get_last_packet_received ();
 	ASSERT_GT (timestamp_after_keepalive, timestamp_before_keepalive);
 }
 

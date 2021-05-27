@@ -167,6 +167,7 @@ public:
 	std::vector<std::shared_ptr<nano::election>> list_active (size_t = std::numeric_limits<size_t>::max ());
 	void erase (nano::block const &);
 	void erase_hash (nano::block_hash const &);
+	void erase_oldest ();
 	bool empty ();
 	size_t size ();
 	void stop ();
@@ -232,7 +233,7 @@ private:
 	void request_confirm (nano::unique_lock<nano::mutex> &);
 	void erase (nano::qualified_root const &);
 	// Erase all blocks from active and, if not confirmed, clear digests from network filters
-	void cleanup_election (nano::unique_lock<nano::mutex> &, nano::election_cleanup_info const &);
+	void cleanup_election (nano::unique_lock<nano::mutex> & lock_a, nano::election const &);
 	// Returns a list of elections sorted by difficulty, mutex must be locked
 	std::vector<std::shared_ptr<nano::election>> list_active_impl (size_t) const;
 

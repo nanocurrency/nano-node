@@ -55,7 +55,8 @@ add_library(
   versioning.cpp
   working.hpp
   store/frontier_store_partial.hpp
-  store/account_store_partial.hpp)
+  store/account_store_partial.hpp
+  store/pending_store_partial.hpp)
 
 target_link_libraries(
   secure

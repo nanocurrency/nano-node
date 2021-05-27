@@ -242,13 +242,13 @@ TEST (block_store, add_pending)
 	nano::pending_key key2 (0, 0);
 	nano::pending_info pending1;
 	auto transaction (store->tx_begin_write ());
-	ASSERT_TRUE (store->pending_get (transaction, key2, pending1));
-	store->pending_put (transaction, key2, pending1);
+	ASSERT_TRUE (store->pending.get (transaction, key2, pending1));
+	store->pending.put (transaction, key2, pending1);
 	nano::pending_info pending2;
-	ASSERT_FALSE (store->pending_get (transaction, key2, pending2));
+	ASSERT_FALSE (store->pending.get (transaction, key2, pending2));
 	ASSERT_EQ (pending1, pending2);
-	store->pending_del (transaction, key2);
-	ASSERT_TRUE (store->pending_get (transaction, key2, pending2));
+	store->pending.del (transaction, key2);
+	ASSERT_TRUE (store->pending.get (transaction, key2, pending2));
 }
 
 TEST (block_store, pending_iterator)
@@ -257,10 +257,10 @@ TEST (block_store, pending_iterator)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	auto transaction (store->tx_begin_write ());
-	ASSERT_EQ (store->pending_end (), store->pending_begin (transaction));
-	store->pending_put (transaction, nano::pending_key (1, 2), { 2, 3, nano::epoch::epoch_1 });
-	auto current (store->pending_begin (transaction));
-	ASSERT_NE (store->pending_end (), current);
+	ASSERT_EQ (store->pending.end (), store->pending.begin (transaction));
+	store->pending.put (transaction, nano::pending_key (1, 2), { 2, 3, nano::epoch::epoch_1 });
+	auto current (store->pending.begin (transaction));
+	ASSERT_NE (store->pending.end (), current);
 	nano::pending_key key1 (current->first);
 	ASSERT_EQ (nano::account (1), key1.account);
 	ASSERT_EQ (nano::block_hash (2), key1.hash);
@@ -284,18 +284,18 @@ TEST (block_store, pending_iterator_comparison)
 	nano::stat stats;
 	auto transaction (store->tx_begin_write ());
 	// Populate pending
-	store->pending_put (transaction, nano::pending_key (nano::account (3), nano::block_hash (1)), nano::pending_info (nano::account (10), nano::amount (1), nano::epoch::epoch_0));
-	store->pending_put (transaction, nano::pending_key (nano::account (3), nano::block_hash (4)), nano::pending_info (nano::account (10), nano::amount (0), nano::epoch::epoch_0));
+	store->pending.put (transaction, nano::pending_key (nano::account (3), nano::block_hash (1)), nano::pending_info (nano::account (10), nano::amount (1), nano::epoch::epoch_0));
+	store->pending.put (transaction, nano::pending_key (nano::account (3), nano::block_hash (4)), nano::pending_info (nano::account (10), nano::amount (0), nano::epoch::epoch_0));
 	// Populate pending_v1
-	store->pending_put (transaction, nano::pending_key (nano::account (2), nano::block_hash (2)), nano::pending_info (nano::account (10), nano::amount (2), nano::epoch::epoch_1));
-	store->pending_put (transaction, nano::pending_key (nano::account (2), nano::block_hash (3)), nano::pending_info (nano::account (10), nano::amount (3), nano::epoch::epoch_1));
+	store->pending.put (transaction, nano::pending_key (nano::account (2), nano::block_hash (2)), nano::pending_info (nano::account (10), nano::amount (2), nano::epoch::epoch_1));
+	store->pending.put (transaction, nano::pending_key (nano::account (2), nano::block_hash (3)), nano::pending_info (nano::account (10), nano::amount (3), nano::epoch::epoch_1));
 
 	// Iterate account 3 (pending)
 	{
 		size_t count = 0;
 		nano::account begin (3);
 		nano::account end (begin.number () + 1);
-		for (auto i (store->pending_begin (transaction, nano::pending_key (begin, 0))), n (store->pending_begin (transaction, nano::pending_key (end, 0))); i != n; ++i, ++count)
+		for (auto i (store->pending.begin (transaction, nano::pending_key (begin, 0))), n (store->pending.begin (transaction, nano::pending_key (end, 0))); i != n; ++i, ++count)
 		{
 			nano::pending_key key (i->first);
 			ASSERT_EQ (key.account, begin);
@@ -309,7 +309,7 @@ TEST (block_store, pending_iterator_comparison)
 		size_t count = 0;
 		nano::account begin (2);
 		nano::account end (begin.number () + 1);
-		for (auto i (store->pending_begin (transaction, nano::pending_key (begin, 0))), n (store->pending_begin (transaction, nano::pending_key (end, 0))); i != n; ++i, ++count)
+		for (auto i (store->pending.begin (transaction, nano::pending_key (begin, 0))), n (store->pending.begin (transaction, nano::pending_key (end, 0))); i != n; ++i, ++count)
 		{
 			nano::pending_key key (i->first);
 			ASSERT_EQ (key.account, begin);
@@ -751,9 +751,9 @@ TEST (block_store, pending_exists)
 	nano::pending_key two (2, 0);
 	nano::pending_info pending;
 	auto transaction (store->tx_begin_write ());
-	store->pending_put (transaction, two, pending);
+	store->pending.put (transaction, two, pending);
 	nano::pending_key one (1, 0);
-	ASSERT_FALSE (store->pending_exists (transaction, one));
+	ASSERT_FALSE (store->pending.exists (transaction, one));
 }
 
 TEST (block_store, latest_exists)
@@ -1305,7 +1305,7 @@ TEST (mdb_block_store, upgrade_v14_v15)
 		store.confirmation_height_del (transaction, nano::genesis_account);
 		modify_account_info_to_v14 (store, transaction, nano::genesis_account, confirmation_height_info.height, state_send.hash ());
 
-		store.pending_del (transaction, nano::pending_key (nano::genesis_account, state_send.hash ()));
+		store.pending.del (transaction, nano::pending_key (nano::genesis_account, state_send.hash ()));
 
 		write_sideband_v14 (store, transaction, state_send, store.state_blocks_v1);
 		write_sideband_v14 (store, transaction, epoch, store.state_blocks_v1);
@@ -1366,9 +1366,9 @@ TEST (mdb_block_store, upgrade_v14_v15)
 	ASSERT_EQ (block->sideband ().details.epoch, nano::epoch::epoch_0);
 	ASSERT_EQ (info.epoch (), nano::epoch::epoch_1);
 	nano::pending_info pending_info;
-	store.pending_get (transaction, nano::pending_key (nano::dev_genesis_key.pub, send.hash ()), pending_info);
+	store.pending.get (transaction, nano::pending_key (nano::dev_genesis_key.pub, send.hash ()), pending_info);
 	ASSERT_EQ (pending_info.epoch, nano::epoch::epoch_0);
-	store.pending_get (transaction, nano::pending_key (nano::dev_genesis_key.pub, state_send.hash ()), pending_info);
+	store.pending.get (transaction, nano::pending_key (nano::dev_genesis_key.pub, state_send.hash ()), pending_info);
 	ASSERT_EQ (pending_info.epoch, nano::epoch::epoch_1);
 
 	// Version should be correct
