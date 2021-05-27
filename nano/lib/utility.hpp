@@ -135,12 +135,12 @@ std::string generate_stacktrace ();
 /**
  * Some systems, especially in virtualized environments, may have very low file descriptor limits,
  * causing the node to fail. This function attempts to query the limit and returns the value. If the
- * limit cannot be queried, or running on a Windows system, this returns max-value of size_t.
- * Increasing the limit programatically is highly system-dependent, and the process may lack the
- * required permissions; the node thus merely logs low limits as a potential problem and leaves
- * the system configuration to the user.
+ * limit cannot be queried, or running on a Windows system, this returns max-value of std::size_t.
+ * Increasing the limit programmatically can be done only for the soft limit, the hard one requiring
+ * super user permissions to modify.
  */
-size_t get_filedescriptor_limit ();
+std::size_t get_file_descriptor_limit ();
+void set_file_descriptor_limit (std::size_t limit);
 
 template <typename... T>
 class observer_set final

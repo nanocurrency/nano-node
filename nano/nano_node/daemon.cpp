@@ -10,7 +10,6 @@
 #include <nano/node/node.hpp>
 #include <nano/node/openclwork.hpp>
 #include <nano/rpc/rpc.hpp>
-#include <nano/secure/working.hpp>
 
 #include <boost/format.hpp>
 
@@ -19,6 +18,8 @@
 namespace
 {
 volatile sig_atomic_t sig_int_or_term = 0;
+
+constexpr std::size_t OPEN_FILE_DESCRIPTORS_LIMIT = 16384;
 }
 
 static void load_and_set_bandwidth_params (std::shared_ptr<nano::node> const & node, boost::filesystem::path const & data_path, nano::node_flags const & flags)
@@ -71,13 +72,8 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 			std::cout << initialization_text << std::endl;
 			logger.always_log (initialization_text);
 
-			size_t fd_limit = nano::get_filedescriptor_limit ();
-			constexpr size_t fd_limit_recommended_minimum = 16384;
-			if (fd_limit < fd_limit_recommended_minimum)
-			{
-				auto low_fd_text = boost::str (boost::format ("WARNING: The file descriptor limit on this system may be too low (%1%) and should be increased to at least %2%.") % fd_limit % fd_limit_recommended_minimum);
-				logger.always_log (low_fd_text);
-			}
+			nano::set_file_descriptor_limit (OPEN_FILE_DESCRIPTORS_LIMIT);
+			logger.always_log (boost::format ("Open file descriptors limit is %1%") % nano::get_file_descriptor_limit ());
 
 			auto node (std::make_shared<nano::node> (io_ctx, data_path, config.node, opencl_work, flags));
 			if (!node->init_error ())
