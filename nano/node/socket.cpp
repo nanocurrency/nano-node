@@ -286,14 +286,14 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 			this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_failure, nano::stat::dir::in);
 			if (this_l->is_temporary_error (ec_a))
 			{
-				this_l->on_connection_requeue_instant (callback_a);
+				this_l->on_connection (callback_a);
 				return;
 			}
 
 			// Check how the listener wants to handle these error
 			if (callback_a (new_connection, ec_a))
 			{
-				this_l->on_connection_requeue_instant (callback_a);
+				this_l->on_connection (callback_a);
 				return;
 			}
 
@@ -301,11 +301,6 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 			this_l->node.logger.always_log ("Network: Stopping to accept connections");
 		}));
 	}));
-}
-
-void nano::server_socket::on_connection_requeue_instant (std::function<bool (std::shared_ptr<nano::socket> const &, boost::system::error_code const &)> callback_a)
-{
-	on_connection (callback_a);
 }
 
 void nano::server_socket::on_connection_requeue_delayed (std::function<bool (std::shared_ptr<nano::socket> const &, boost::system::error_code const &)> callback_a)
