@@ -398,7 +398,7 @@ uint64_t nano::json_handler::difficulty_ledger (nano::block const & block_a)
 	if (!link.is_zero () && !details.is_send)
 	{
 		auto block_link (node.store.block_get (transaction, link.as_block_hash ()));
-		if (block_link != nullptr && node.store.pending_exists (transaction, nano::pending_key (block_a.account (), link.as_block_hash ())))
+		if (block_link != nullptr && node.store.pending.exists (transaction, nano::pending_key (block_a.account (), link.as_block_hash ())))
 		{
 			details.epoch = std::max (details.epoch, block_link->sideband ().details.epoch);
 			details.is_receive = true;
@@ -956,7 +956,7 @@ void nano::json_handler::accounts_pending ()
 		if (!ec)
 		{
 			boost::property_tree::ptree peers_l;
-			for (auto i (node.store.pending_begin (transaction, nano::pending_key (account, 0))), n (node.store.pending_end ()); i != n && nano::pending_key (i->first).account == account && peers_l.size () < count; ++i)
+			for (auto i (node.store.pending.begin (transaction, nano::pending_key (account, 0))), n (node.store.pending.end ()); i != n && nano::pending_key (i->first).account == account && peers_l.size () < count; ++i)
 			{
 				nano::pending_key const & key (i->first);
 				if (block_confirmed (node, transaction, key.hash, include_active, include_only_confirmed))
@@ -1243,7 +1243,7 @@ void nano::json_handler::blocks_info ()
 						auto destination (node.ledger.block_destination (transaction, *block));
 						if (!destination.is_zero ())
 						{
-							exists = node.store.pending_exists (transaction, nano::pending_key (destination, hash));
+							exists = node.store.pending.exists (transaction, nano::pending_key (destination, hash));
 						}
 						entry.put ("pending", exists ? "1" : "0");
 					}
@@ -2871,7 +2871,7 @@ void nano::json_handler::pending ()
 		// The ptree container is used if there are any children nodes (e.g source/min_version) otherwise the amount container is used.
 		std::vector<std::pair<std::string, boost::property_tree::ptree>> hash_ptree_pairs;
 		std::vector<std::pair<std::string, nano::uint128_t>> hash_amount_pairs;
-		for (auto i (node.store.pending_begin (transaction, nano::pending_key (account, 0))), n (node.store.pending_end ()); i != n && nano::pending_key (i->first).account == account && (should_sort || peers_l.size () < count); ++i)
+		for (auto i (node.store.pending.begin (transaction, nano::pending_key (account, 0))), n (node.store.pending.end ()); i != n && nano::pending_key (i->first).account == account && (should_sort || peers_l.size () < count); ++i)
 		{
 			nano::pending_key const & key (i->first);
 			if (block_confirmed (node, transaction, key.hash, include_active, include_only_confirmed))
@@ -2970,7 +2970,7 @@ void nano::json_handler::pending_exists ()
 			auto destination (node.ledger.block_destination (transaction, *block));
 			if (!destination.is_zero ())
 			{
-				exists = node.store.pending_exists (transaction, nano::pending_key (destination, hash));
+				exists = node.store.pending.exists (transaction, nano::pending_key (destination, hash));
 			}
 			exists = exists && (block_confirmed (node, transaction, block->hash (), include_active, include_only_confirmed));
 			response_l.put ("exists", exists ? "1" : "0");
@@ -3200,7 +3200,7 @@ void nano::json_handler::receive ()
 			if (node.ledger.block_or_pruned_exists (block_transaction, hash))
 			{
 				nano::pending_info pending_info;
-				if (!node.store.pending_get (block_transaction, nano::pending_key (account, hash), pending_info))
+				if (!node.store.pending.get (block_transaction, nano::pending_key (account, hash), pending_info))
 				{
 					auto work (work_optional_impl ());
 					if (!ec && work)
@@ -3464,7 +3464,7 @@ void nano::json_handler::republish ()
 					auto destination (node.ledger.block_destination (transaction, *block_b));
 					if (!destination.is_zero ())
 					{
-						if (!node.store.pending_exists (transaction, nano::pending_key (destination, hash)))
+						if (!node.store.pending.exists (transaction, nano::pending_key (destination, hash)))
 						{
 							nano::block_hash previous (node.ledger.latest (transaction, destination));
 							auto block_d (node.store.block_get (transaction, previous));
@@ -4061,8 +4061,8 @@ void nano::json_handler::unopened ()
 	if (!ec)
 	{
 		auto transaction (node.store.tx_begin_read ());
-		auto iterator (node.store.pending_begin (transaction, nano::pending_key (start, 0)));
-		auto end (node.store.pending_end ());
+		auto iterator (node.store.pending.begin (transaction, nano::pending_key (start, 0)));
+		auto end (node.store.pending.end ());
 		nano::account current_account (start);
 		nano::uint128_t current_account_sum{ 0 };
 		boost::property_tree::ptree accounts;
@@ -4078,7 +4078,7 @@ void nano::json_handler::unopened ()
 					break;
 				}
 				// Skip existing accounts
-				iterator = node.store.pending_begin (transaction, nano::pending_key (account.number () + 1, 0));
+				iterator = node.store.pending.begin (transaction, nano::pending_key (account.number () + 1, 0));
 			}
 			else
 			{
@@ -4596,7 +4596,7 @@ void nano::json_handler::wallet_pending ()
 		{
 			nano::account const & account (i->first);
 			boost::property_tree::ptree peers_l;
-			for (auto ii (node.store.pending_begin (block_transaction, nano::pending_key (account, 0))), nn (node.store.pending_end ()); ii != nn && nano::pending_key (ii->first).account == account && peers_l.size () < count; ++ii)
+			for (auto ii (node.store.pending.begin (block_transaction, nano::pending_key (account, 0))), nn (node.store.pending.end ()); ii != nn && nano::pending_key (ii->first).account == account && peers_l.size () < count; ++ii)
 			{
 				nano::pending_key key (ii->first);
 				if (block_confirmed (node, block_transaction, key.hash, include_active, include_only_confirmed))
