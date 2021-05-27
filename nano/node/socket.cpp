@@ -255,6 +255,7 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 		boost::asio::bind_executor (this_l->strand,
 		[this_l, new_connection, callback_a] (boost::system::error_code const & ec_a) {
 			this_l->evict_dead_connections ();
+
 			if (this_l->connections.size () >= this_l->max_inbound_connections)
 			{
 				this_l->node.logger.always_log ("Network: max_inbound_connections reached, unable to open new connection");
@@ -305,8 +306,8 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 				return;
 			}
 
-			//No requeue if we reach here, no incoming socket connections will be handled
-			this_l->node.logger.always_log ("Network: Stopping to accept connections. Node may need restarting.");
+			// No requeue if we reach here, no incoming socket connections will be handled
+			this_l->node.logger.always_log ("Network: Stopping to accept connections");
 		}));
 	}));
 }
