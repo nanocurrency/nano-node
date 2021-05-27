@@ -285,20 +285,6 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 				return;
 			}
 
-			if (this_l->is_system_error (ec_a))
-			{
-				this_l->on_connection_requeue_delayed (callback_a);
-				return;
-			}
-
-			// Unhandled errors above
-			//EBADF
-			//EFAULT
-			//EINVAL
-			//ENOTSOCK
-			//EOPNOTSUPP
-			//EPROTO
-			//EPERM
 			// Check how the listener wants to handle these error
 			if (callback_a (new_connection, ec_a))
 			{
@@ -335,20 +321,6 @@ bool nano::server_socket::is_temporary_error (boost::system::error_code const ec
 		case EWOULDBLOCK:
 		case ECONNABORTED:
 		case EINTR:
-			return true;
-		default:
-			return false;
-	}
-}
-
-bool nano::server_socket::is_system_error (boost::system::error_code const ec_a)
-{
-	switch (ec_a.value ())
-	{
-		case EMFILE:
-		case ENFILE:
-		case ENOBUFS:
-		case ENOMEM:
 			return true;
 		default:
 			return false;
