@@ -277,20 +277,22 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 					this_l->on_connection (callback_a);
 					return;
 				}
-
 				this_l->node.logger.always_log ("Network: Stopping to accept connections");
 				return;
 			}
 
+			// accept error
 			this_l->node.logger.try_log ("Network: Unable to accept connection: ", ec_a.message ());
 			this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_failure, nano::stat::dir::in);
+
 			if (this_l->is_temporary_error (ec_a))
 			{
+				// if it is a temporary error, just retry it
 				this_l->on_connection (callback_a);
 				return;
 			}
 
-			// Check how the listener wants to handle these error
+			// if it is not a temporary error, check how the listener wants to handle this error
 			if (callback_a (new_connection, ec_a))
 			{
 				this_l->on_connection (callback_a);
