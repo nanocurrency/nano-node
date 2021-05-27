@@ -142,7 +142,8 @@ TEST (election_scheduler, flush_vacancy)
 				.sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
 				.work (*system.work.generate (nano::genesis_hash))
 				.build_shared ();
-	node.scheduler.manual (send);
+	ASSERT_EQ (nano::process_result::progress, node.process (*send).code);
+	node.scheduler.activate (nano::dev_genesis_key.pub, node.store.tx_begin_read ());
 	// Ensure this call does not block, even though no elections can be activated.
 	node.scheduler.flush ();
 	ASSERT_EQ (0, node.active.size ());
