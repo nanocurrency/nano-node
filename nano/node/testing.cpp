@@ -353,8 +353,8 @@ void nano::system::generate_receive (nano::node & node_a)
 		auto transaction (node_a.store.tx_begin_read ());
 		nano::account random_account;
 		random_pool::generate_block (random_account.bytes.data (), sizeof (random_account.bytes));
-		auto i (node_a.store.pending_begin (transaction, nano::pending_key (random_account, 0)));
-		if (i != node_a.store.pending_end ())
+		auto i (node_a.store.pending.begin (transaction, nano::pending_key (random_account, 0)));
+		if (i != node_a.store.pending.end ())
 		{
 			nano::pending_key const & send_hash (i->first);
 			send_block = node_a.store.block_get (transaction, send_hash.hash);

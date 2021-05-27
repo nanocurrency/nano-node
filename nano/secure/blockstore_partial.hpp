@@ -8,6 +8,7 @@
 #include <nano/secure/buffer.hpp>
 #include <nano/secure/store/account_store_partial.hpp>
 #include <nano/secure/store/frontier_store_partial.hpp>
+#include <nano/secure/store/pending_store_partial.hpp>
 
 #include <crypto/cryptopp/words.h>
 
@@ -37,8 +38,9 @@ void release_assert_success (block_store_partial<Val, Derived_Store> const & blo
 template <typename Val, typename Derived_Store>
 class block_store_partial : public block_store
 {
-	nano::frontier_store_partial<Val, Derived_Store> frontier_store;
-	nano::account_store_partial<Val, Derived_Store> account_store;
+	nano::frontier_store_partial<Val, Derived_Store> frontier_store_partial;
+	nano::account_store_partial<Val, Derived_Store> account_store_partial;
+	nano::pending_store_partial<Val, Derived_Store> pending_store_partial;
 
 	friend void release_assert_success<Val, Derived_Store> (block_store_partial<Val, Derived_Store> const & block_store, const int status);
 
@@ -49,11 +51,13 @@ public:
 	friend class nano::block_predecessor_set<Val, Derived_Store>;
 	friend class nano::frontier_store_partial<Val, Derived_Store>;
 	friend class nano::account_store_partial<Val, Derived_Store>;
+	friend class nano::pending_store_partial<Val, Derived_Store>;
 
 	block_store_partial () :
-		block_store{ frontier_store, account_store },
-		frontier_store{ *this },
-		account_store{ *this }
+		block_store{ frontier_store_partial, account_store_partial, pending_store_partial },
+		frontier_store_partial{ *this },
+		account_store_partial{ *this },
+		pending_store_partial{ *this }
 	{
 	}
 
@@ -234,11 +238,6 @@ public:
 		return nano::store_iterator<nano::endpoint_key, nano::no_value> (nullptr);
 	}
 
-	nano::store_iterator<nano::pending_key, nano::pending_info> pending_end () const override
-	{
-		return nano::store_iterator<nano::pending_key, nano::pending_info> (nullptr);
-	}
-
 	nano::store_iterator<uint64_t, nano::amount> online_weight_end () const override
 	{
 		return nano::store_iterator<uint64_t, nano::amount> (nullptr);
@@ -301,46 +300,6 @@ public:
 		nano::db_val<Val> value{ data.size (), (void *)data.data () };
 		auto status = put (transaction_a, tables::blocks, hash_a, value);
 		release_assert_success (*this, status);
-	}
-
-	void pending_put (nano::write_transaction const & transaction_a, nano::pending_key const & key_a, nano::pending_info const & pending_info_a) override
-	{
-		nano::db_val<Val> pending (pending_info_a);
-		auto status = put (transaction_a, tables::pending, key_a, pending);
-		release_assert_success (*this, status);
-	}
-
-	void pending_del (nano::write_transaction const & transaction_a, nano::pending_key const & key_a) override
-	{
-		auto status = del (transaction_a, tables::pending, key_a);
-		release_assert_success (*this, status);
-	}
-
-	bool pending_get (nano::transaction const & transaction_a, nano::pending_key const & key_a, nano::pending_info & pending_a) override
-	{
-		nano::db_val<Val> value;
-		nano::db_val<Val> key (key_a);
-		auto status1 = get (transaction_a, tables::pending, key, value);
-		release_assert (success (status1) || not_found (status1));
-		bool result (true);
-		if (success (status1))
-		{
-			nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
-			result = pending_a.deserialize (stream);
-		}
-		return result;
-	}
-
-	bool pending_exists (nano::transaction const & transaction_a, nano::pending_key const & key_a) override
-	{
-		auto iterator (pending_begin (transaction_a, key_a));
-		return iterator != pending_end () && nano::pending_key (iterator->first) == key_a;
-	}
-
-	bool pending_any (nano::transaction const & transaction_a, nano::account const & account_a) override
-	{
-		auto iterator (pending_begin (transaction_a, nano::pending_key (account_a, 0)));
-		return iterator != pending_end () && nano::pending_key (iterator->first).account == account_a;
 	}
 
 	void unchecked_del (nano::write_transaction const & transaction_a, nano::unchecked_key const & key_a) override
@@ -616,16 +575,6 @@ public:
 		return make_iterator<nano::block_hash, nano::block_w_sideband> (transaction_a, tables::blocks, nano::db_val<Val> (hash_a));
 	}
 
-	nano::store_iterator<nano::pending_key, nano::pending_info> pending_begin (nano::transaction const & transaction_a, nano::pending_key const & key_a) const override
-	{
-		return make_iterator<nano::pending_key, nano::pending_info> (transaction_a, tables::pending, nano::db_val<Val> (key_a));
-	}
-
-	nano::store_iterator<nano::pending_key, nano::pending_info> pending_begin (nano::transaction const & transaction_a) const override
-	{
-		return make_iterator<nano::pending_key, nano::pending_info> (transaction_a, tables::pending);
-	}
-
 	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_begin (nano::transaction const & transaction_a) const override
 	{
 		return make_iterator<nano::unchecked_key, nano::unchecked_info> (transaction_a, tables::unchecked);
@@ -692,19 +641,6 @@ public:
 		[&action_a, this] (nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
 			auto transaction (this->tx_begin_read ());
 			action_a (transaction, this->confirmation_height_begin (transaction, start), !is_last ? this->confirmation_height_begin (transaction, end) : this->confirmation_height_end ());
-		});
-	}
-
-	void pending_for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::pending_key, nano::pending_info>, nano::store_iterator<nano::pending_key, nano::pending_info>)> const & action_a) const override
-	{
-		parallel_traversal<nano::uint512_t> (
-		[&action_a, this] (nano::uint512_t const & start, nano::uint512_t const & end, bool const is_last) {
-			nano::uint512_union union_start (start);
-			nano::uint512_union union_end (end);
-			nano::pending_key key_start (union_start.uint256s[0].number (), union_start.uint256s[1].number ());
-			nano::pending_key key_end (union_end.uint256s[0].number (), union_end.uint256s[1].number ());
-			auto transaction (this->tx_begin_read ());
-			action_a (transaction, this->pending_begin (transaction, key_start), !is_last ? this->pending_begin (transaction, key_end) : this->pending_end ());
 		});
 	}
 

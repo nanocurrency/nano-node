@@ -1742,7 +1742,7 @@ int main (int argc, char * const * argv)
 			start_threads (check_pending, pending);
 
 			size_t const pending_deque_overflow (64 * 1024);
-			for (auto i (node->store.pending_begin (transaction)), n (node->store.pending_end ()); i != n; ++i)
+			for (auto i (node->store.pending.begin (transaction)), n (node->store.pending.end ()); i != n; ++i)
 			{
 				{
 					nano::unique_lock<nano::mutex> lock (mutex);
@@ -1948,7 +1948,7 @@ int main (int argc, char * const * argv)
 			// Iterate all pending blocks and collect the lowest version for each unopened account
 			nano::locked<boost::unordered_map<nano::account, std::underlying_type_t<nano::epoch>>> unopened_highest_pending_shared;
 			using unopened_highest_pending_t = decltype (unopened_highest_pending_shared)::value_type;
-			node->store.pending_for_each_par (
+			node->store.pending.for_each_par (
 			[&unopened_highest_pending_shared, &opened_accounts] (nano::read_transaction const & /*unused*/, nano::store_iterator<nano::pending_key, nano::pending_info> i, nano::store_iterator<nano::pending_key, nano::pending_info> n) {
 				// First cache locally
 				unopened_highest_pending_t unopened_highest_pending_l;
