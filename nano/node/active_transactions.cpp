@@ -316,6 +316,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> 
 	for (auto const & election_l : elections_l)
 	{
 		bool const confirmed_l (election_l->confirmed ());
+		unconfirmed_count_l += !confirmed_l;
 
 		if (election_l->transition_time (solicitor))
 		{
@@ -330,7 +331,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> 
 			}
 
 			// Locks active mutex, cleans up the election and erases it from the main container
-			if (!election_l->confirmed ())
+			if (!confirmed_l)
 			{
 				node.stats.inc (nano::stat::type::election, nano::stat::detail::election_drop_expired);
 			}
