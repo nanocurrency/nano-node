@@ -8,6 +8,7 @@
 #include <nano/node/lmdb/lmdb_iterator.hpp>
 #include <nano/node/lmdb/lmdb_txn.hpp>
 #include <nano/secure/blockstore_partial.hpp>
+#include <nano/secure/store/unchecked_store_partial.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/versioning.hpp>
 
@@ -35,7 +36,7 @@ class mdb_store : public block_store_partial<MDB_val, mdb_store>
 {
 public:
 	using block_store_partial::block_exists;
-	using block_store_partial::unchecked_put;
+	using unchecked_store_partial::unchecked_put;
 
 	mdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, bool backup_before_upgrade = false);
 	nano::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_requiring_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) override;

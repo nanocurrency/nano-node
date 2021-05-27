@@ -1436,12 +1436,12 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 			}
 		});
 
-		store.unchecked_for_each_par (
+		store.unchecked.unchecked_for_each_par (
 		[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
 			for (; i != n; ++i)
 			{
 				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::unchecked }));
-				rocksdb_store->unchecked_put (rocksdb_transaction, i->first, i->second);
+				rocksdb_store->unchecked.unchecked_put (rocksdb_transaction, i->first, i->second);
 			}
 		});
 
@@ -1515,7 +1515,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 		}
 
 		// Compare counts
-		error |= store.unchecked_count (lmdb_transaction) != rocksdb_store->unchecked_count (rocksdb_transaction);
+		error |= store.unchecked.unchecked_count (lmdb_transaction) != rocksdb_store->unchecked.unchecked_count (rocksdb_transaction);
 		error |= store.peer_count (lmdb_transaction) != rocksdb_store->peer_count (rocksdb_transaction);
 		error |= store.pruned_count (lmdb_transaction) != rocksdb_store->pruned_count (rocksdb_transaction);
 		error |= store.final_vote_count (lmdb_transaction) != rocksdb_store->final_vote_count (rocksdb_transaction);
