@@ -272,8 +272,13 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 				new_connection->start_timer (this_l->node.network_params.network.is_dev_network () ? std::chrono::seconds (2) : this_l->node.network_params.node.idle_timeout);
 				this_l->node.stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_success, nano::stat::dir::in);
 				this_l->connections.push_back (new_connection);
-				callback_a (new_connection, ec_a);
-				this_l->on_connection_requeue_instant (callback_a);
+				if (callback_a (new_connection, ec_a))
+				{
+					this_l->on_connection (callback_a);
+					return;
+				}
+
+				this_l->node.logger.always_log ("Network: Stopping to accept connections");
 				return;
 			}
 
