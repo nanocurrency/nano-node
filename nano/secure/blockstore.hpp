@@ -632,6 +632,9 @@ public:
 	virtual void for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::block_hash, nano::account>, nano::store_iterator<nano::block_hash, nano::account>)> const & action_a) const = 0;
 };
 
+/**
+ * Manages account storage and iteration
+ */
 class account_store
 {
 public:
