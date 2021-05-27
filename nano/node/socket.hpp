@@ -126,7 +126,6 @@ private:
 	size_t max_inbound_connections;
 	void evict_dead_connections ();
 	bool is_temporary_error (boost::system::error_code const ec_a);
-	bool is_system_error (boost::system::error_code const ec_a);
 	void on_connection_requeue_delayed (std::function<bool (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const &)>);
 	void on_connection_requeue_instant (std::function<bool (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const &)>);
 };
