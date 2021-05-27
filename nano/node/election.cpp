@@ -612,7 +612,6 @@ void nano::election::force_confirm (nano::election_status_type type_a)
 
 std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> nano::election::blocks () const
 {
-	debug_assert (node.network_params.network.is_dev_network ());
 	nano::lock_guard<nano::mutex> guard (mutex);
 	return last_blocks;
 }
