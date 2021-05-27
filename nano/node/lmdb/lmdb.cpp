@@ -198,7 +198,7 @@ void nano::mdb_store::open_databases (bool & error_a, nano::transaction const & 
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "accounts", flags, &accounts_v0) != 0;
 	accounts = accounts_v0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "pending", flags, &pending_v0) != 0;
-	pending = pending_v0;
+	lmdb_pending = pending_v0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "final_votes", flags, &final_votes) != 0;
 
 	auto version_l = version_get (transaction_a);
@@ -404,7 +404,7 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction & transaction_
 
 	for (auto const & pending_key_pending_info_pair : pending_infos)
 	{
-		mdb_put (env.tx (transaction_a), pending, nano::mdb_val (pending_key_pending_info_pair.first), nano::mdb_val (pending_key_pending_info_pair.second), MDB_APPEND);
+		mdb_put (env.tx (transaction_a), lmdb_pending, nano::mdb_val (pending_key_pending_info_pair.first), nano::mdb_val (pending_key_pending_info_pair.second), MDB_APPEND);
 	}
 
 	version_put (transaction_a, 15);
@@ -864,7 +864,7 @@ MDB_dbi nano::mdb_store::table_to_dbi (tables table_a) const
 		case tables::blocks:
 			return blocks;
 		case tables::pending:
-			return pending;
+			return lmdb_pending;
 		case tables::unchecked:
 			return unchecked;
 		case tables::online_weight:
@@ -942,20 +942,20 @@ void nano::mdb_store::rebuild_db (nano::write_transaction const & transaction_a)
 		MDB_dbi temp;
 		mdb_dbi_open (env.tx (transaction_a), "temp_table", MDB_CREATE, &temp);
 		// Copy all values to temporary table
-		for (auto i (nano::store_iterator<nano::pending_key, nano::pending_info> (std::make_unique<nano::mdb_iterator<nano::pending_key, nano::pending_info>> (transaction_a, pending))), n (nano::store_iterator<nano::pending_key, nano::pending_info> (nullptr)); i != n; ++i)
+		for (auto i (nano::store_iterator<nano::pending_key, nano::pending_info> (std::make_unique<nano::mdb_iterator<nano::pending_key, nano::pending_info>> (transaction_a, lmdb_pending))), n (nano::store_iterator<nano::pending_key, nano::pending_info> (nullptr)); i != n; ++i)
 		{
 			auto s = mdb_put (env.tx (transaction_a), temp, nano::mdb_val (i->first), nano::mdb_val (i->second), MDB_APPEND);
 			release_assert_success (*this, s);
 		}
-		release_assert (count (transaction_a, pending) == count (transaction_a, temp));
-		mdb_drop (env.tx (transaction_a), pending, 0);
+		release_assert (count (transaction_a, lmdb_pending) == count (transaction_a, temp));
+		mdb_drop (env.tx (transaction_a), lmdb_pending, 0);
 		// Put values from copy
 		for (auto i (nano::store_iterator<nano::pending_key, nano::pending_info> (std::make_unique<nano::mdb_iterator<nano::pending_key, nano::pending_info>> (transaction_a, temp))), n (nano::store_iterator<nano::pending_key, nano::pending_info> (nullptr)); i != n; ++i)
 		{
-			auto s = mdb_put (env.tx (transaction_a), pending, nano::mdb_val (i->first), nano::mdb_val (i->second), MDB_APPEND);
+			auto s = mdb_put (env.tx (transaction_a), lmdb_pending, nano::mdb_val (i->first), nano::mdb_val (i->second), MDB_APPEND);
 			release_assert_success (*this, s);
 		}
-		release_assert (count (transaction_a, pending) == count (transaction_a, temp));
+		release_assert (count (transaction_a, lmdb_pending) == count (transaction_a, temp));
 		mdb_drop (env.tx (transaction_a), temp, 1);
 	}
 }

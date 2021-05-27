@@ -4103,11 +4103,28 @@ TEST (rpc, blocks)
 TEST (rpc, wallet_info)
 {
 	nano::system system;
-	auto node = add_ipc_enabled_node (system);
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.enable_voting = true;
+	auto node = add_ipc_enabled_node (system, node_config);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	nano::keypair key;
 	system.wallet (0)->insert_adhoc (key.prv);
-	auto send (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key.pub, 1));
+
+	// at first, 1 block and 1 confirmed -- the genesis
+	ASSERT_EQ (1, node->ledger.cache.block_count);
+	ASSERT_EQ (1, node->ledger.cache.cemented_count);
+
+	auto send (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key.pub, nano::Gxrb_ratio));
+	// after the send, expect 2 blocks immediately, then 2 confirmed in a timely manner,
+	// and finally 3 blocks and 3 confirmed after the wallet generates the receive block for this send
+	ASSERT_EQ (2, node->ledger.cache.block_count);
+	ASSERT_TIMELY (5s, 2 == node->ledger.cache.cemented_count);
+	ASSERT_TIMELY (5s, 3 == node->ledger.cache.block_count && 3 == node->ledger.cache.cemented_count);
+
+	// do another send to be able to expect some "pending" down below
+	auto send2 (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key.pub, 1));
+	ASSERT_EQ (4, node->ledger.cache.block_count);
+
 	nano::account account (system.wallet (0)->deterministic_insert ());
 	{
 		auto transaction (node->wallets.tx_begin_write ());
@@ -4134,6 +4151,10 @@ TEST (rpc, wallet_info)
 	ASSERT_EQ ("1", pending_text);
 	std::string count_text (response.json.get<std::string> ("accounts_count"));
 	ASSERT_EQ ("3", count_text);
+	std::string block_count_text (response.json.get<std::string> ("accounts_block_count"));
+	ASSERT_EQ ("4", block_count_text);
+	std::string cemented_block_count_text (response.json.get<std::string> ("accounts_cemented_block_count"));
+	ASSERT_EQ ("3", cemented_block_count_text);
 	std::string adhoc_count (response.json.get<std::string> ("adhoc_count"));
 	ASSERT_EQ ("2", adhoc_count);
 	std::string deterministic_count (response.json.get<std::string> ("deterministic_count"));
@@ -4229,7 +4250,7 @@ TEST (rpc, pending_exists)
 	request.put ("hash", hash0.to_string ());
 	pending_exists ("0");
 
-	node->store.pending_exists (node->store.tx_begin_read (), nano::pending_key (nano::dev_genesis_key.pub, block1->hash ()));
+	node->store.pending.exists (node->store.tx_begin_read (), nano::pending_key (nano::dev_genesis_key.pub, block1->hash ()));
 	request.put ("hash", block1->hash ().to_string ());
 	pending_exists ("1");
 
@@ -7211,7 +7232,7 @@ TEST (rpc, epoch_upgrade)
 		// Check pending entry
 		auto transaction (node->store.tx_begin_read ());
 		nano::pending_info info;
-		ASSERT_FALSE (node->store.pending_get (transaction, nano::pending_key (key3.pub, send7->hash ()), info));
+		ASSERT_FALSE (node->store.pending.get (transaction, nano::pending_key (key3.pub, send7->hash ()), info));
 		ASSERT_EQ (nano::epoch::epoch_1, info.epoch);
 	}
 
@@ -7312,7 +7333,7 @@ TEST (rpc, epoch_upgrade_multithreaded)
 		// Check pending entry
 		auto transaction (node->store.tx_begin_read ());
 		nano::pending_info info;
-		ASSERT_FALSE (node->store.pending_get (transaction, nano::pending_key (key3.pub, send7->hash ()), info));
+		ASSERT_FALSE (node->store.pending.get (transaction, nano::pending_key (key3.pub, send7->hash ()), info));
 		ASSERT_EQ (nano::epoch::epoch_1, info.epoch);
 	}
 

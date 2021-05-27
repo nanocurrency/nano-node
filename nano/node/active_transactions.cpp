@@ -1055,9 +1055,7 @@ void nano::active_transactions::erase_oldest ()
 	{
 		node.stats.inc (nano::stat::type::election, nano::stat::detail::election_drop_overflow);
 		auto item = roots.get<tag_random_access> ().front ();
-		cleanup_election (lock, item.election->cleanup_info ());
-		roots.get<tag_root> ().erase (item.election->qualified_root);
-		vacancy_update ();
+		cleanup_election (lock, *item.election);
 	}
 }
 
