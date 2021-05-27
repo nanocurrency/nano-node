@@ -104,3 +104,8 @@ bool nano::write_transaction::contains (nano::tables table_a) const
 {
 	return impl->contains (table_a);
 }
+
+nano::block_store::block_store (nano::frontier_store & frontier_store_a) :
+	frontier (frontier_store_a)
+{
+}

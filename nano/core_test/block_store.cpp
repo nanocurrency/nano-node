@@ -817,11 +817,11 @@ TEST (block_store, frontier)
 	auto transaction (store->tx_begin_write ());
 	nano::block_hash hash (100);
 	nano::account account (200);
-	ASSERT_TRUE (store->frontier_get (transaction, hash).is_zero ());
-	store->frontier_put (transaction, hash, account);
-	ASSERT_EQ (account, store->frontier_get (transaction, hash));
-	store->frontier_del (transaction, hash);
-	ASSERT_TRUE (store->frontier_get (transaction, hash).is_zero ());
+	ASSERT_TRUE (store->frontier.get (transaction, hash).is_zero ());
+	store->frontier.put (transaction, hash, account);
+	ASSERT_EQ (account, store->frontier.get (transaction, hash));
+	store->frontier.del (transaction, hash);
+	ASSERT_TRUE (store->frontier.get (transaction, hash).is_zero ());
 }
 
 TEST (block_store, block_replace)

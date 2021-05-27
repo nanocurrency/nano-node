@@ -53,7 +53,8 @@ add_library(
   utility.cpp
   versioning.hpp
   versioning.cpp
-  working.hpp)
+  working.hpp
+  store/frontier_store_partial.hpp)
 
 target_link_libraries(
   secure
