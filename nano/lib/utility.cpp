@@ -63,7 +63,7 @@ void nano::set_file_descriptor_limit (std::size_t limit)
 		return;
 	}
 
-	fd_limit.rlim_cur = std::min (limit, fd_limit.rlim_max);
+	fd_limit.rlim_cur = std::min (static_cast<rlim_t> (limit), fd_limit.rlim_max);
 	if (-1 == setrlimit (RLIMIT_NOFILE, &fd_limit))
 	{
 		std::cerr << "Unable to set limits for the number of open file descriptors: " << std::strerror (errno);
