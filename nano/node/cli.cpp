@@ -52,7 +52,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("data_path", boost::program_options::value<std::string> (), "Use the supplied path as the data directory")
 	("network", boost::program_options::value<std::string> (), "Use the supplied network (live, test, beta or dev)")
 	("clear_send_ids", "Remove all send IDs from the database (dangerous: not intended for production use)")
-	("clear", "Clear online weight history records")
+	("online_weight_clear", "Clear online weight history records")
 	("peer_clear", "Clear online peers database dump")
 	("unchecked_clear", "Clear unchecked blocks")
 	("confirmation_height_clear", "Clear confirmation height")
@@ -209,7 +209,7 @@ void database_write_lock_error (std::error_code & ec)
 bool copy_database (boost::filesystem::path const & data_path, boost::program_options::variables_map const & vm, boost::filesystem::path const & output_path, std::error_code & ec)
 {
 	bool success = false;
-	bool needs_to_write = vm.count ("unchecked_clear") || vm.count ("clear_send_ids") || vm.count ("clear") || vm.count ("peer_clear") || vm.count ("confirmation_height_clear") || vm.count ("final_vote_clear") || vm.count ("rebuild_database");
+	bool needs_to_write = vm.count ("unchecked_clear") || vm.count ("clear_send_ids") || vm.count ("online_weight_clear") || vm.count ("peer_clear") || vm.count ("confirmation_height_clear") || vm.count ("final_vote_clear") || vm.count ("rebuild_database");
 
 	auto node_flags = nano::inactive_node_flag_defaults ();
 	node_flags.read_only = !needs_to_write;
@@ -226,7 +226,7 @@ bool copy_database (boost::filesystem::path const & data_path, boost::program_op
 		{
 			node.node->wallets.clear_send_ids (node.node->wallets.tx_begin_write ());
 		}
-		if (vm.count ("clear"))
+		if (vm.count ("online_weight_clear"))
 		{
 			node.node->store.online_weight.clear (store.tx_begin_write ());
 		}
@@ -517,7 +517,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			database_write_lock_error (ec);
 		}
 	}
-	else if (vm.count ("clear"))
+	else if (vm.count ("online_weight_clear"))
 	{
 		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
 		auto node_flags = nano::inactive_node_flag_defaults ();
