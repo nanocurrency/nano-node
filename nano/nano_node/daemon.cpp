@@ -73,7 +73,15 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 			logger.always_log (initialization_text);
 
 			nano::set_file_descriptor_limit (OPEN_FILE_DESCRIPTORS_LIMIT);
-			logger.always_log (boost::format ("Open file descriptors limit is %1%") % nano::get_file_descriptor_limit ());
+			const auto file_descriptor_limit = nano::get_file_descriptor_limit ();
+			if (file_descriptor_limit < OPEN_FILE_DESCRIPTORS_LIMIT)
+			{
+				logger.always_log (boost::format ("WARNING: open file descriptors limit is %1%, lower than the %2% recommended. Node was unable to change it.") % file_descriptor_limit % OPEN_FILE_DESCRIPTORS_LIMIT);
+			}
+			else
+			{
+				logger.always_log (boost::format ("Open file descriptors limit is %1%") % file_descriptor_limit);
+			}
 
 			auto node (std::make_shared<nano::node> (io_ctx, data_path, config.node, opencl_work, flags));
 			if (!node->init_error ())
