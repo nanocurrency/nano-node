@@ -288,14 +288,14 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 			if (this_l->is_temporary_error (ec_a))
 			{
 				// if it is a temporary error, just retry it
-				this_l->on_connection (callback_a);
+				this_l->on_connection_requeue_delayed (callback_a);
 				return;
 			}
 
 			// if it is not a temporary error, check how the listener wants to handle this error
 			if (callback_a (new_connection, ec_a))
 			{
-				this_l->on_connection (callback_a);
+				this_l->on_connection_requeue_delayed (callback_a);
 				return;
 			}
 
