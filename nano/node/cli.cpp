@@ -228,7 +228,7 @@ bool copy_database (boost::filesystem::path const & data_path, boost::program_op
 		}
 		if (vm.count ("online_weight_clear"))
 		{
-			node.node->store.online_weight_clear (store.tx_begin_write ());
+			node.node->store.online_weight.online_weight_clear (store.tx_begin_write ());
 		}
 		if (vm.count ("peer_clear"))
 		{
@@ -527,7 +527,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		if (!node.node->init_error ())
 		{
 			auto transaction (node.node->store.tx_begin_write ());
-			node.node->store.online_weight_clear (transaction);
+			node.node->store.online_weight.online_weight_clear (transaction);
 			std::cout << "Onine weight records are removed" << std::endl;
 		}
 		else

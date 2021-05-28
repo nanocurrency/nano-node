@@ -3862,7 +3862,7 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 		// Lower the database to the max version unsupported for upgrades
 		store.confirmation_height_put (transaction, nano::genesis_account, { 2, send->hash () });
 
-		store.online_weight_put (transaction, 100, nano::amount (2));
+		store.online_weight.online_weight_put (transaction, 100, nano::amount (2));
 		store.frontier.put (transaction, nano::block_hash (2), nano::account (5));
 		store.peer_put (transaction, endpoint_key);
 
@@ -3884,13 +3884,13 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 	nano::pending_info pending_info;
 	ASSERT_FALSE (rocksdb_store.pending.get (rocksdb_transaction, nano::pending_key (nano::genesis_account, send->hash ()), pending_info));
 
-	for (auto i = rocksdb_store.online_weight_begin (rocksdb_transaction); i != rocksdb_store.online_weight_end (); ++i)
+	for (auto i = rocksdb_store.online_weight.online_weight_begin (rocksdb_transaction); i != rocksdb_store.online_weight.online_weight_end (); ++i)
 	{
 		ASSERT_EQ (i->first, 100);
 		ASSERT_EQ (i->second, 2);
 	}
 
-	ASSERT_EQ (rocksdb_store.online_weight_count (rocksdb_transaction), 1);
+	ASSERT_EQ (rocksdb_store.online_weight.online_weight_count (rocksdb_transaction), 1);
 
 	auto block1 = rocksdb_store.block_get (rocksdb_transaction, send->hash ());
 
