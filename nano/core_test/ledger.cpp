@@ -3433,7 +3433,7 @@ TEST (ledger, cache)
 
 		{
 			auto transaction (store->tx_begin_write ());
-			ledger.store.pruned_put (transaction, open->hash ());
+			ledger.store.pruned.put (transaction, open->hash ());
 			++ledger.cache.pruned_count;
 		}
 		++pruned_count;
@@ -3474,7 +3474,7 @@ TEST (ledger, pruning_action)
 	ledger.pruning = false;
 	ASSERT_TRUE (ledger.block_or_pruned_exists (transaction, send1.hash ()));
 	ledger.pruning = true;
-	ASSERT_TRUE (store->pruned_exists (transaction, send1.hash ()));
+	ASSERT_TRUE (store->pruned.exists (transaction, send1.hash ()));
 	ASSERT_TRUE (store->block_exists (transaction, genesis.hash ()));
 	ASSERT_TRUE (store->block_exists (transaction, send2.hash ()));
 	// Receiving pruned block
@@ -3492,10 +3492,10 @@ TEST (ledger, pruning_action)
 	// Middle block pruning
 	ASSERT_TRUE (store->block_exists (transaction, send2.hash ()));
 	ASSERT_EQ (1, ledger.pruning_action (transaction, send2.hash (), 1));
-	ASSERT_TRUE (store->pruned_exists (transaction, send2.hash ()));
+	ASSERT_TRUE (store->pruned.exists (transaction, send2.hash ()));
 	ASSERT_FALSE (store->block_exists (transaction, send2.hash ()));
 	ASSERT_EQ (store->account_count (transaction), ledger.cache.account_count);
-	ASSERT_EQ (store->pruned_count (transaction), ledger.cache.pruned_count);
+	ASSERT_EQ (store->pruned.count (transaction), ledger.cache.pruned_count);
 	ASSERT_EQ (store->block_count (transaction), ledger.cache.block_count - ledger.cache.pruned_count);
 }
 
@@ -3523,16 +3523,16 @@ TEST (ledger, pruning_large_chain)
 		ASSERT_TRUE (store->block_exists (transaction, receive.hash ()));
 		last_hash = receive.hash ();
 	}
-	ASSERT_EQ (0, store->pruned_count (transaction));
+	ASSERT_EQ (0, store->pruned.count (transaction));
 	ASSERT_EQ (send_receive_pairs * 2 + 1, store->block_count (transaction));
 	// Pruning action
 	ASSERT_EQ (send_receive_pairs * 2, ledger.pruning_action (transaction, last_hash, 5));
-	ASSERT_TRUE (store->pruned_exists (transaction, last_hash));
+	ASSERT_TRUE (store->pruned.exists (transaction, last_hash));
 	ASSERT_TRUE (store->block_exists (transaction, genesis.hash ()));
 	ASSERT_FALSE (store->block_exists (transaction, last_hash));
-	ASSERT_EQ (store->pruned_count (transaction), ledger.cache.pruned_count);
+	ASSERT_EQ (store->pruned.count (transaction), ledger.cache.pruned_count);
 	ASSERT_EQ (store->block_count (transaction), ledger.cache.block_count - ledger.cache.pruned_count);
-	ASSERT_EQ (send_receive_pairs * 2, store->pruned_count (transaction));
+	ASSERT_EQ (send_receive_pairs * 2, store->pruned.count (transaction));
 	ASSERT_EQ (1, store->block_count (transaction)); // Genesis
 }
 
@@ -3559,9 +3559,9 @@ TEST (ledger, pruning_source_rollback)
 	// Pruning action
 	ASSERT_EQ (2, ledger.pruning_action (transaction, send1.hash (), 1));
 	ASSERT_FALSE (store->block_exists (transaction, send1.hash ()));
-	ASSERT_TRUE (store->pruned_exists (transaction, send1.hash ()));
+	ASSERT_TRUE (store->pruned.exists (transaction, send1.hash ()));
 	ASSERT_FALSE (store->block_exists (transaction, epoch1.hash ()));
-	ASSERT_TRUE (store->pruned_exists (transaction, epoch1.hash ()));
+	ASSERT_TRUE (store->pruned.exists (transaction, epoch1.hash ()));
 	ASSERT_TRUE (store->block_exists (transaction, genesis.hash ()));
 	nano::pending_info info;
 	ASSERT_FALSE (store->pending.get (transaction, nano::pending_key (nano::genesis_account, send1.hash ()), info));
@@ -3615,9 +3615,9 @@ TEST (ledger, pruning_source_rollback_legacy)
 	// Pruning action
 	ASSERT_EQ (2, ledger.pruning_action (transaction, send2.hash (), 1));
 	ASSERT_FALSE (store->block_exists (transaction, send2.hash ()));
-	ASSERT_TRUE (store->pruned_exists (transaction, send2.hash ()));
+	ASSERT_TRUE (store->pruned.exists (transaction, send2.hash ()));
 	ASSERT_FALSE (store->block_exists (transaction, send1.hash ()));
-	ASSERT_TRUE (store->pruned_exists (transaction, send1.hash ()));
+	ASSERT_TRUE (store->pruned.exists (transaction, send1.hash ()));
 	ASSERT_TRUE (store->block_exists (transaction, genesis.hash ()));
 	nano::pending_info info1;
 	ASSERT_FALSE (store->pending.get (transaction, nano::pending_key (nano::genesis_account, send1.hash ()), info1));
@@ -3686,7 +3686,7 @@ TEST (ledger, pruning_process_error)
 	// Pruning action for latest block (not valid action)
 	ASSERT_EQ (1, ledger.pruning_action (transaction, send1.hash (), 1));
 	ASSERT_FALSE (store->block_exists (transaction, send1.hash ()));
-	ASSERT_TRUE (store->pruned_exists (transaction, send1.hash ()));
+	ASSERT_TRUE (store->pruned.exists (transaction, send1.hash ()));
 	// Attempt to process pruned block again
 	ASSERT_EQ (nano::process_result::old, ledger.process (transaction, send1).code);
 	// Attept to process new block after pruned
@@ -3727,18 +3727,18 @@ TEST (ledger, pruning_legacy_blocks)
 	ASSERT_EQ (1, ledger.pruning_action (transaction, open1.hash (), 1));
 	ASSERT_TRUE (store->block_exists (transaction, genesis.hash ()));
 	ASSERT_FALSE (store->block_exists (transaction, send1.hash ()));
-	ASSERT_TRUE (store->pruned_exists (transaction, send1.hash ()));
+	ASSERT_TRUE (store->pruned.exists (transaction, send1.hash ()));
 	ASSERT_FALSE (store->block_exists (transaction, receive1.hash ()));
-	ASSERT_TRUE (store->pruned_exists (transaction, receive1.hash ()));
+	ASSERT_TRUE (store->pruned.exists (transaction, receive1.hash ()));
 	ASSERT_FALSE (store->block_exists (transaction, change1.hash ()));
-	ASSERT_TRUE (store->pruned_exists (transaction, change1.hash ()));
+	ASSERT_TRUE (store->pruned.exists (transaction, change1.hash ()));
 	ASSERT_TRUE (store->block_exists (transaction, send2.hash ()));
 	ASSERT_FALSE (store->block_exists (transaction, open1.hash ()));
-	ASSERT_TRUE (store->pruned_exists (transaction, open1.hash ()));
+	ASSERT_TRUE (store->pruned.exists (transaction, open1.hash ()));
 	ASSERT_TRUE (store->block_exists (transaction, send3.hash ()));
 	ASSERT_EQ (4, ledger.cache.pruned_count);
 	ASSERT_EQ (7, ledger.cache.block_count);
-	ASSERT_EQ (store->pruned_count (transaction), ledger.cache.pruned_count);
+	ASSERT_EQ (store->pruned.count (transaction), ledger.cache.pruned_count);
 	ASSERT_EQ (store->block_count (transaction), ledger.cache.block_count - ledger.cache.pruned_count);
 }
 
@@ -3764,7 +3764,7 @@ TEST (ledger, pruning_safe_functions)
 	ASSERT_EQ (1, ledger.pruning_action (transaction, send1.hash (), 1));
 	ASSERT_FALSE (store->block_exists (transaction, send1.hash ()));
 	ASSERT_TRUE (ledger.block_or_pruned_exists (transaction, send1.hash ())); // true for pruned
-	ASSERT_TRUE (store->pruned_exists (transaction, send1.hash ()));
+	ASSERT_TRUE (store->pruned.exists (transaction, send1.hash ()));
 	ASSERT_TRUE (store->block_exists (transaction, genesis.hash ()));
 	ASSERT_TRUE (store->block_exists (transaction, send2.hash ()));
 	// Safe ledger actions
@@ -3806,7 +3806,7 @@ TEST (ledger, hash_root_random)
 	// Pruning action
 	ASSERT_EQ (1, ledger.pruning_action (transaction, send1.hash (), 1));
 	ASSERT_FALSE (store->block_exists (transaction, send1.hash ()));
-	ASSERT_TRUE (store->pruned_exists (transaction, send1.hash ()));
+	ASSERT_TRUE (store->pruned.exists (transaction, send1.hash ()));
 	ASSERT_TRUE (store->block_exists (transaction, genesis.hash ()));
 	ASSERT_TRUE (store->block_exists (transaction, send2.hash ()));
 	// Test random block including pruned
@@ -3867,7 +3867,7 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 		store.peer_put (transaction, endpoint_key);
 
 		store.pending.put (transaction, nano::pending_key (nano::genesis_account, send->hash ()), nano::pending_info (nano::genesis_account, 100, nano::epoch::epoch_0));
-		store.pruned_put (transaction, send->hash ());
+		store.pruned.put (transaction, send->hash ());
 		store.unchecked_put (transaction, nano::genesis_hash, send);
 		store.version_put (transaction, version);
 		send->sideband_set ({});

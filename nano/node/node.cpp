@@ -411,7 +411,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 			}
 		}
 
-		ledger.pruning = flags.enable_pruning || store.pruned_count (store.tx_begin_read ()) > 0;
+		ledger.pruning = flags.enable_pruning || store.pruned.count (store.tx_begin_read ()) > 0;
 
 		if (ledger.pruning)
 		{

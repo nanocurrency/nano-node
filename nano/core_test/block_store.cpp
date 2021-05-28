@@ -916,10 +916,10 @@ TEST (block_store, pruned_random)
 		nano::ledger_cache ledger_cache;
 		auto transaction (store->tx_begin_write ());
 		store->initialize (transaction, genesis, ledger_cache);
-		store->pruned_put (transaction, hash1);
+		store->pruned.put (transaction, hash1);
 	}
 	auto transaction (store->tx_begin_read ());
-	auto random_hash (store->pruned_random (transaction));
+	auto random_hash (store->pruned.random (transaction));
 	ASSERT_EQ (hash1, random_hash);
 }
 
@@ -1212,16 +1212,16 @@ TEST (block_store, pruned_blocks)
 		auto transaction (store->tx_begin_write ());
 
 		// Confirm that the store is empty
-		ASSERT_FALSE (store->pruned_exists (transaction, hash1));
-		ASSERT_EQ (store->pruned_count (transaction), 0);
+		ASSERT_FALSE (store->pruned.exists (transaction, hash1));
+		ASSERT_EQ (store->pruned.count (transaction), 0);
 
 		// Add one
-		store->pruned_put (transaction, hash1);
-		ASSERT_TRUE (store->pruned_exists (transaction, hash1));
+		store->pruned.put (transaction, hash1);
+		ASSERT_TRUE (store->pruned.exists (transaction, hash1));
 	}
 
 	// Confirm that it can be found
-	ASSERT_EQ (store->pruned_count (store->tx_begin_read ()), 1);
+	ASSERT_EQ (store->pruned.count (store->tx_begin_read ()), 1);
 
 	// Add another one and check that it (and the existing one) can be found
 	nano::open_block block2 (1, 2, key1.pub, key1.prv, key1.pub, 0);
@@ -1229,37 +1229,37 @@ TEST (block_store, pruned_blocks)
 	auto hash2 (block2.hash ());
 	{
 		auto transaction (store->tx_begin_write ());
-		store->pruned_put (transaction, hash2);
-		ASSERT_TRUE (store->pruned_exists (transaction, hash2)); // Check new pruned hash is here
+		store->pruned.put (transaction, hash2);
+		ASSERT_TRUE (store->pruned.exists (transaction, hash2)); // Check new pruned hash is here
 		ASSERT_FALSE (store->block_exists (transaction, hash2));
-		ASSERT_TRUE (store->pruned_exists (transaction, hash1)); // Check first pruned hash is still here
+		ASSERT_TRUE (store->pruned.exists (transaction, hash1)); // Check first pruned hash is still here
 		ASSERT_FALSE (store->block_exists (transaction, hash1));
 	}
 
-	ASSERT_EQ (store->pruned_count (store->tx_begin_read ()), 2);
+	ASSERT_EQ (store->pruned.count (store->tx_begin_read ()), 2);
 
 	// Delete the first one
 	{
 		auto transaction (store->tx_begin_write ());
-		store->pruned_del (transaction, hash2);
-		ASSERT_FALSE (store->pruned_exists (transaction, hash2)); // Confirm it no longer exists
+		store->pruned.del (transaction, hash2);
+		ASSERT_FALSE (store->pruned.exists (transaction, hash2)); // Confirm it no longer exists
 		ASSERT_FALSE (store->block_exists (transaction, hash2)); // true for block_exists
 		store->block_put (transaction, hash2, block2); // Add corresponding block
 		ASSERT_TRUE (store->block_exists (transaction, hash2));
-		ASSERT_TRUE (store->pruned_exists (transaction, hash1)); // Check first pruned hash is still here
+		ASSERT_TRUE (store->pruned.exists (transaction, hash1)); // Check first pruned hash is still here
 		ASSERT_FALSE (store->block_exists (transaction, hash1));
 	}
 
-	ASSERT_EQ (store->pruned_count (store->tx_begin_read ()), 1);
+	ASSERT_EQ (store->pruned.count (store->tx_begin_read ()), 1);
 
 	// Delete original one
 	{
 		auto transaction (store->tx_begin_write ());
-		store->pruned_del (transaction, hash1);
-		ASSERT_FALSE (store->pruned_exists (transaction, hash1));
+		store->pruned.del (transaction, hash1);
+		ASSERT_FALSE (store->pruned.exists (transaction, hash1));
 	}
 
-	ASSERT_EQ (store->pruned_count (store->tx_begin_read ()), 0);
+	ASSERT_EQ (store->pruned.count (store->tx_begin_read ()), 0);
 }
 
 TEST (mdb_block_store, upgrade_v14_v15)
@@ -1799,13 +1799,13 @@ TEST (mdb_block_store, upgrade_v19_v20)
 		auto transaction (store.tx_begin_write ());
 		store.initialize (transaction, genesis, ledger.cache);
 		// Delete pruned table
-		ASSERT_FALSE (mdb_drop (store.env.tx (transaction), store.pruned, 1));
+		ASSERT_FALSE (mdb_drop (store.env.tx (transaction), store.pruned_handle, 1));
 		store.version_put (transaction, 19);
 	}
 	// Upgrading should create the table
 	nano::mdb_store store (logger, path);
 	ASSERT_FALSE (store.init_error ());
-	ASSERT_NE (store.pruned, 0);
+	ASSERT_NE (store.pruned_handle, 0);
 
 	// Version should be correct
 	auto transaction (store.tx_begin_read ());

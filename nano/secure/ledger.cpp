@@ -783,7 +783,7 @@ void nano::ledger::initialize (nano::generate_cache const & generate_cache_a)
 	}
 
 	auto transaction (store.tx_begin_read ());
-	cache.pruned_count = store.pruned_count (transaction);
+	cache.pruned_count = store.pruned.count (transaction);
 
 	// Final votes requirement for confirmation canary block
 	nano::confirmation_height_info confirmation_height_info;
@@ -893,7 +893,7 @@ bool nano::ledger::block_or_pruned_exists (nano::block_hash const & hash_a) cons
 
 bool nano::ledger::block_or_pruned_exists (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
 {
-	if (store.pruned_exists (transaction_a, hash_a))
+	if (store.pruned.exists (transaction_a, hash_a))
 	{
 		return true;
 	}
@@ -999,7 +999,7 @@ std::pair<nano::block_hash, nano::block_hash> nano::ledger::hash_root_random (na
 		// Pruned cache cannot guarantee that pruned blocks are already commited
 		if (region < cache.pruned_count)
 		{
-			hash = store.pruned_random (transaction_a);
+			hash = store.pruned.random (transaction_a);
 		}
 		if (hash.is_zero ())
 		{
@@ -1323,7 +1323,7 @@ std::shared_ptr<nano::block> nano::ledger::forked_block (nano::transaction const
 
 bool nano::ledger::block_confirmed (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
 {
-	if (store.pruned_exists (transaction_a, hash_a))
+	if (store.pruned.exists (transaction_a, hash_a))
 	{
 		return true;
 	}
@@ -1348,7 +1348,7 @@ uint64_t nano::ledger::pruning_action (nano::write_transaction & transaction_a, 
 		if (block != nullptr)
 		{
 			store.block_del (transaction_a, hash);
-			store.pruned_put (transaction_a, hash);
+			store.pruned.put (transaction_a, hash);
 			hash = block->previous ();
 			++pruned_count;
 			++cache.pruned_count;
@@ -1358,7 +1358,7 @@ uint64_t nano::ledger::pruning_action (nano::write_transaction & transaction_a, 
 				transaction_a.renew ();
 			}
 		}
-		else if (store.pruned_exists (transaction_a, hash))
+		else if (store.pruned.exists (transaction_a, hash))
 		{
 			hash = 0;
 		}
@@ -1481,12 +1481,12 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 			}
 		});
 
-		store.pruned_for_each_par (
+		store.pruned.for_each_par (
 		[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
 			for (; i != n; ++i)
 			{
 				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::pruned }));
-				rocksdb_store->pruned_put (rocksdb_transaction, i->first);
+				rocksdb_store->pruned.put (rocksdb_transaction, i->first);
 			}
 		});
 
@@ -1517,7 +1517,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 		// Compare counts
 		error |= store.unchecked_count (lmdb_transaction) != rocksdb_store->unchecked_count (rocksdb_transaction);
 		error |= store.peer_count (lmdb_transaction) != rocksdb_store->peer_count (rocksdb_transaction);
-		error |= store.pruned_count (lmdb_transaction) != rocksdb_store->pruned_count (rocksdb_transaction);
+		error |= store.pruned.count (lmdb_transaction) != rocksdb_store->pruned.count (rocksdb_transaction);
 		error |= store.final_vote_count (lmdb_transaction) != rocksdb_store->final_vote_count (rocksdb_transaction);
 		error |= store.online_weight_count (lmdb_transaction) != rocksdb_store->online_weight_count (rocksdb_transaction);
 		error |= store.version_get (lmdb_transaction) != rocksdb_store->version_get (rocksdb_transaction);
