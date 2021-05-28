@@ -653,18 +653,18 @@ public:
 };
 
 /**
- * Manages online weight storage
+ * Manages online weight storage and iteration
  */
 class online_weight_store
 {
 public:
-	virtual void online_weight_put (nano::write_transaction const &, uint64_t, nano::amount const &) = 0;
-	virtual void online_weight_del (nano::write_transaction const &, uint64_t) = 0;
-	virtual nano::store_iterator<uint64_t, nano::amount> online_weight_begin (nano::transaction const &) const = 0;
-	virtual nano::store_iterator<uint64_t, nano::amount> online_weight_rbegin (nano::transaction const &) const = 0;
-	virtual nano::store_iterator<uint64_t, nano::amount> online_weight_end () const = 0;
-	virtual size_t online_weight_count (nano::transaction const &) const = 0;
-	virtual void online_weight_clear (nano::write_transaction const &) = 0;
+	virtual void put (nano::write_transaction const &, uint64_t, nano::amount const &) = 0;
+	virtual void del (nano::write_transaction const &, uint64_t) = 0;
+	virtual nano::store_iterator<uint64_t, nano::amount> begin (nano::transaction const &) const = 0;
+	virtual nano::store_iterator<uint64_t, nano::amount> rbegin (nano::transaction const &) const = 0;
+	virtual nano::store_iterator<uint64_t, nano::amount> end () const = 0;
+	virtual size_t count (nano::transaction const &) const = 0;
+	virtual void clear (nano::write_transaction const &) = 0;
 };
 
 /**

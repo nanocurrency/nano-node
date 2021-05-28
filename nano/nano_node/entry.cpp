@@ -379,7 +379,7 @@ int main (int argc, char * const * argv)
 			auto current (node->online_reps.trended ());
 			std::cout << boost::str (boost::format ("Trended Weight %1%\n") % current);
 			auto transaction (node->store.tx_begin_read ());
-			for (auto i (node->store.online_weight.online_weight_begin (transaction)), n (node->store.online_weight.online_weight_end ()); i != n; ++i)
+			for (auto i (node->store.online_weight.begin (transaction)), n (node->store.online_weight.end ()); i != n; ++i)
 			{
 				using time_point = std::chrono::system_clock::time_point;
 				time_point ts (std::chrono::duration_cast<time_point::duration> (std::chrono::nanoseconds (i->first)));

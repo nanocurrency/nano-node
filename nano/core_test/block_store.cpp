@@ -1171,32 +1171,32 @@ TEST (block_store, online_weight)
 	ASSERT_FALSE (store->init_error ());
 	{
 		auto transaction (store->tx_begin_write ());
-		ASSERT_EQ (0, store->online_weight.online_weight_count (transaction));
-		ASSERT_EQ (store->online_weight.online_weight_end (), store->online_weight.online_weight_begin (transaction));
-		ASSERT_EQ (store->online_weight.online_weight_end (), store->online_weight.online_weight_rbegin (transaction));
-		store->online_weight.online_weight_put (transaction, 1, 2);
-		store->online_weight.online_weight_put (transaction, 3, 4);
+		ASSERT_EQ (0, store->online_weight.count (transaction));
+		ASSERT_EQ (store->online_weight.end (), store->online_weight.begin (transaction));
+		ASSERT_EQ (store->online_weight.end (), store->online_weight.rbegin (transaction));
+		store->online_weight.put (transaction, 1, 2);
+		store->online_weight.put (transaction, 3, 4);
 	}
 	{
 		auto transaction (store->tx_begin_write ());
-		ASSERT_EQ (2, store->online_weight.online_weight_count (transaction));
-		auto item (store->online_weight.online_weight_begin (transaction));
-		ASSERT_NE (store->online_weight.online_weight_end (), item);
+		ASSERT_EQ (2, store->online_weight.count (transaction));
+		auto item (store->online_weight.begin (transaction));
+		ASSERT_NE (store->online_weight.end (), item);
 		ASSERT_EQ (1, item->first);
 		ASSERT_EQ (2, item->second.number ());
-		auto item_last (store->online_weight.online_weight_rbegin (transaction));
-		ASSERT_NE (store->online_weight.online_weight_end (), item_last);
+		auto item_last (store->online_weight.rbegin (transaction));
+		ASSERT_NE (store->online_weight.end (), item_last);
 		ASSERT_EQ (3, item_last->first);
 		ASSERT_EQ (4, item_last->second.number ());
-		store->online_weight.online_weight_del (transaction, 1);
-		ASSERT_EQ (1, store->online_weight.online_weight_count (transaction));
-		ASSERT_EQ (store->online_weight.online_weight_begin (transaction), store->online_weight.online_weight_rbegin (transaction));
-		store->online_weight.online_weight_del (transaction, 3);
+		store->online_weight.del (transaction, 1);
+		ASSERT_EQ (1, store->online_weight.count (transaction));
+		ASSERT_EQ (store->online_weight.begin (transaction), store->online_weight.rbegin (transaction));
+		store->online_weight.del (transaction, 3);
 	}
 	auto transaction (store->tx_begin_read ());
-	ASSERT_EQ (0, store->online_weight.online_weight_count (transaction));
-	ASSERT_EQ (store->online_weight.online_weight_end (), store->online_weight.online_weight_begin (transaction));
-	ASSERT_EQ (store->online_weight.online_weight_end (), store->online_weight.online_weight_rbegin (transaction));
+	ASSERT_EQ (0, store->online_weight.count (transaction));
+	ASSERT_EQ (store->online_weight.end (), store->online_weight.begin (transaction));
+	ASSERT_EQ (store->online_weight.end (), store->online_weight.rbegin (transaction));
 }
 
 TEST (block_store, pruned_blocks)
