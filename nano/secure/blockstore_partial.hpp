@@ -7,8 +7,8 @@
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/buffer.hpp>
 #include <nano/secure/store/frontier_store_partial.hpp>
-#include <nano/secure/store/pending_store_partial.hpp>
 #include <nano/secure/store/online_weight_partial.hpp>
+#include <nano/secure/store/pending_store_partial.hpp>
 
 #include <crypto/cryptopp/words.h>
 
