@@ -613,7 +613,7 @@ TEST (active_transactions, dropped_cleanup)
 	ASSERT_FALSE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
 
 	// An election was recently dropped
-	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::election_drop));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::election_drop_all));
 
 	// Block cleared from active
 	ASSERT_EQ (0, node.active.blocks.count (block->hash ()));
@@ -632,7 +632,7 @@ TEST (active_transactions, dropped_cleanup)
 	ASSERT_TRUE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
 
 	// Not dropped
-	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::election_drop));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::election_drop_all));
 
 	// Block cleared from active
 	ASSERT_EQ (0, node.active.blocks.count (block->hash ()));
@@ -1525,6 +1525,8 @@ TEST (active_transactions, fifo)
 	ASSERT_TIMELY (1s, node.active.election (receive1->qualified_root ()) != nullptr);
 	// Ensure excess transactions get trimmed
 	ASSERT_TIMELY (1s, node.active.size () == 1);
+	// Ensure overflow stats have been incremented
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::election_drop_overflow));
 	// Ensure the surviving transaction is the least recently inserted
 	ASSERT_TIMELY (1s, node.active.election (receive1->qualified_root ()) != nullptr);
 }
