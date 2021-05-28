@@ -41,10 +41,12 @@ void mdb_val::convert_buffer_to_value ()
 }
 
 nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade_a) :
+	block_store_partial{ unchecked_mdb_store },
 	logger (logger_a),
 	env (error, path_a, nano::mdb_env::options::make ().set_config (lmdb_config_a).set_use_no_mem_init (true)),
 	mdb_txn_tracker (logger_a, txn_tracking_config_a, block_processor_batch_max_time_a),
-	txn_tracking_enabled (txn_tracking_config_a.enable)
+	txn_tracking_enabled (txn_tracking_config_a.enable),
+	unchecked_mdb_store{ *this }
 {
 	if (!error)
 	{
@@ -189,7 +191,7 @@ nano::mdb_txn_callbacks nano::mdb_store::create_txn_callbacks () const
 void nano::mdb_store::open_databases (bool & error_a, nano::transaction const & transaction_a, unsigned flags)
 {
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "frontiers", flags, &frontiers) != 0;
-	error_a |= mdb_dbi_open (env.tx (transaction_a), "unchecked", flags, &unchecked) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "unchecked", flags, &unchecked_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "online_weight", flags, &online_weight) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "meta", flags, &meta) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "peers", flags, &peers) != 0;
@@ -788,7 +790,7 @@ void nano::mdb_store::create_backup_file (nano::mdb_env & env_a, boost::filesyst
 	}
 }
 
-std::vector<nano::unchecked_info> nano::mdb_store::unchecked_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
+std::vector<nano::unchecked_info> nano::unchecked_mdb_store::unchecked_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
 	std::vector<nano::unchecked_info> result;
 	for (auto i (unchecked_begin (transaction_a, nano::unchecked_key (hash_a, 0))), n (unchecked_end ()); i != n && i->first.key () == hash_a; ++i)
@@ -866,7 +868,7 @@ MDB_dbi nano::mdb_store::table_to_dbi (tables table_a) const
 		case tables::pending:
 			return pending;
 		case tables::unchecked:
-			return unchecked;
+			return unchecked_handle;
 		case tables::online_weight:
 			return online_weight;
 		case tables::meta:
@@ -1198,3 +1200,4 @@ unsigned nano::mdb_store::max_block_write_batch_num () const
 
 // Explicitly instantiate
 template class nano::block_store_partial<MDB_val, nano::mdb_store>;
+template class nano::unchecked_store_partial<MDB_val, nano::mdb_store>;

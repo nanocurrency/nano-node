@@ -29,14 +29,28 @@ namespace nano
 using mdb_val = db_val<MDB_val>;
 
 class logging_mt;
+class mdb_store;
+
+class unchecked_mdb_store : public unchecked_store_partial<MDB_val, mdb_store>
+{
+	nano::mdb_store & mdb_store;
+
+public:
+	explicit unchecked_mdb_store (nano::mdb_store & mdb_store_a) : unchecked_store_partial (mdb_store_a){};
+
+	std::vector<nano::unchecked_info> unchecked_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override;
+};
+
 /**
  * mdb implementation of the block store
  */
 class mdb_store : public block_store_partial<MDB_val, mdb_store>
 {
+	nano::unchecked_mdb_store unchecked_mdb_store;
+
 public:
-	using block_store_partial::block_exists;
-	using unchecked_store_partial::unchecked_put;
+//	using block_store_partial::block_exists;
+//	using unchecked_store_partial::unchecked_put;
 
 	mdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, bool backup_before_upgrade = false);
 	nano::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_requiring_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) override;
@@ -155,7 +169,7 @@ public:
 	 * Unchecked bootstrap blocks info.
 	 * nano::block_hash -> nano::unchecked_info
 	 */
-	MDB_dbi unchecked{ 0 };
+	MDB_dbi unchecked_handle{ 0 };
 
 	/**
 	 * Samples of online vote weight
@@ -200,7 +214,6 @@ public:
 	MDB_dbi final_votes{ 0 };
 
 	bool exists (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a) const;
-	std::vector<nano::unchecked_info> unchecked_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override;
 
 	int get (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a, nano::mdb_val & value_a) const;
 	int put (nano::write_transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a, const nano::mdb_val & value_a) const;

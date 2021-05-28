@@ -1313,7 +1313,7 @@ void nano::json_handler::block_account ()
 void nano::json_handler::block_count ()
 {
 	response_l.put ("count", std::to_string (node.ledger.cache.block_count));
-	response_l.put ("unchecked", std::to_string (node.store.unchecked_count (node.store.tx_begin_read ())));
+	response_l.put ("unchecked", std::to_string (node.store.unchecked.unchecked_count (node.store.tx_begin_read ())));
 	response_l.put ("cemented", std::to_string (node.ledger.cache.cemented_count));
 	if (node.flags.enable_pruning)
 	{
@@ -3936,7 +3936,7 @@ void nano::json_handler::unchecked ()
 	{
 		boost::property_tree::ptree unchecked;
 		auto transaction (node.store.tx_begin_read ());
-		for (auto i (node.store.unchecked_begin (transaction)), n (node.store.unchecked_end ()); i != n && unchecked.size () < count; ++i)
+		for (auto i (node.store.unchecked.unchecked_begin (transaction)), n (node.store.unchecked.unchecked_end ()); i != n && unchecked.size () < count; ++i)
 		{
 			nano::unchecked_info const & info (i->second);
 			if (json_block_l)
@@ -3961,7 +3961,7 @@ void nano::json_handler::unchecked_clear ()
 {
 	node.workers.push_task (create_worker_task ([] (std::shared_ptr<nano::json_handler> const & rpc_l) {
 		auto transaction (rpc_l->node.store.tx_begin_write ({ tables::unchecked }));
-		rpc_l->node.store.unchecked_clear (transaction);
+		rpc_l->node.store.unchecked.unchecked_clear (transaction);
 		rpc_l->response_l.put ("success", "");
 		rpc_l->response_errors ();
 	}));
@@ -3974,7 +3974,7 @@ void nano::json_handler::unchecked_get ()
 	if (!ec)
 	{
 		auto transaction (node.store.tx_begin_read ());
-		for (auto i (node.store.unchecked_begin (transaction)), n (node.store.unchecked_end ()); i != n; ++i)
+		for (auto i (node.store.unchecked.unchecked_begin (transaction)), n (node.store.unchecked.unchecked_end ()); i != n; ++i)
 		{
 			nano::unchecked_key const & key (i->first);
 			if (key.hash == hash)
@@ -4022,7 +4022,7 @@ void nano::json_handler::unchecked_keys ()
 	{
 		boost::property_tree::ptree unchecked;
 		auto transaction (node.store.tx_begin_read ());
-		for (auto i (node.store.unchecked_begin (transaction, nano::unchecked_key (key, 0))), n (node.store.unchecked_end ()); i != n && unchecked.size () < count; ++i)
+		for (auto i (node.store.unchecked.unchecked_begin (transaction, nano::unchecked_key (key, 0))), n (node.store.unchecked.unchecked_end ()); i != n && unchecked.size () < count; ++i)
 		{
 			boost::property_tree::ptree entry;
 			nano::unchecked_info const & info (i->second);

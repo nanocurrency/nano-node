@@ -25,20 +25,20 @@ private:
 	friend void release_assert_success<Val, Derived_Store> (block_store_partial<Val, Derived_Store> const & block_store, const int status);
 
 public:
-	explicit unchecked_store_partial (nano::block_store_partial<Val, Derived_Store> & block_store_a) :
+	unchecked_store_partial (nano::block_store_partial<Val, Derived_Store> & block_store_a) :
 		block_store (block_store_a){};
 
 	void unchecked_clear (nano::write_transaction const & transaction_a) override
 	{
 		auto status = block_store.drop (transaction_a, tables::unchecked);
-		release_assert_success (*this, status);
+		release_assert_success (block_store, status);
 	}
 
 	void unchecked_put (nano::write_transaction const & transaction_a, nano::unchecked_key const & key_a, nano::unchecked_info const & info_a) override
 	{
 		nano::db_val<Val> info (info_a);
-		auto status (put (transaction_a, tables::unchecked, key_a, info));
-		release_assert_success (*this, status);
+		auto status (block_store.put (transaction_a, tables::unchecked, key_a, info));
+		release_assert_success (block_store, status);
 	}
 
 	void unchecked_put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a, std::shared_ptr<nano::block> const & block_a) override
@@ -48,18 +48,23 @@ public:
 		unchecked_put (transaction_a, key, info);
 	}
 
+	virtual std::vector<nano::unchecked_info> unchecked_get (nano::transaction const &, nano::block_hash const &) override
+	{
+		release_assert (false);
+	};
+
 	bool unchecked_exists (nano::transaction const & transaction_a, nano::unchecked_key const & unchecked_key_a) override
 	{
 		nano::db_val<Val> value;
-		auto status (get (transaction_a, tables::unchecked, nano::db_val<Val> (unchecked_key_a), value));
-		release_assert (success (status) || not_found (status));
-		return (success (status));
+		auto status (block_store.get (transaction_a, tables::unchecked, nano::db_val<Val> (unchecked_key_a), value));
+		release_assert (block_store.success (status) || block_store.not_found (status));
+		return (block_store.success (status));
 	}
 
 	void unchecked_del (nano::write_transaction const & transaction_a, nano::unchecked_key const & key_a) override
 	{
 		auto status (block_store.del (transaction_a, tables::unchecked, key_a));
-		release_assert_success (*this, status);
+		release_assert_success (block_store, status);
 	}
 
 	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_end () const override
@@ -74,7 +79,7 @@ public:
 
 	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_begin (nano::transaction const & transaction_a, nano::unchecked_key const & key_a) const override
 	{
-		return make_iterator<nano::unchecked_key, nano::unchecked_info> (transaction_a, tables::unchecked, nano::db_val<Val> (key_a));
+		return block_store.template make_iterator<nano::unchecked_key, nano::unchecked_info> (transaction_a, tables::unchecked, nano::db_val<Val> (key_a));
 	}
 
 	size_t unchecked_count (nano::transaction const & transaction_a) override
@@ -88,7 +93,7 @@ public:
 		[&action_a, this] (nano::uint512_t const & start, nano::uint512_t const & end, bool const is_last) {
 			nano::unchecked_key key_start (start);
 			nano::unchecked_key key_end (end);
-			auto transaction (this->tx_begin_read ());
+			auto transaction (this->block_store.tx_begin_read ());
 			action_a (transaction, this->unchecked_begin (transaction, key_start), !is_last ? this->unchecked_begin (transaction, key_end) : this->unchecked_end ());
 		});
 	}

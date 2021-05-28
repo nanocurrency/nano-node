@@ -930,8 +930,8 @@ TEST (block_store, DISABLED_change_dupsort) // Unchecked is no longer dupsort ta
 	nano::logger_mt logger;
 	nano::mdb_store store (logger, path);
 	auto transaction (store.tx_begin_write ());
-	ASSERT_EQ (0, mdb_drop (store.env.tx (transaction), store.unchecked, 1));
-	ASSERT_EQ (0, mdb_dbi_open (store.env.tx (transaction), "unchecked", MDB_CREATE, &store.unchecked));
+	ASSERT_EQ (0, mdb_drop (store.env.tx (transaction), store.unchecked_handle, 1));
+	ASSERT_EQ (0, mdb_dbi_open (store.env.tx (transaction), "unchecked", MDB_CREATE, &store.unchecked_handle));
 	auto send1 (std::make_shared<nano::send_block> (0, 0, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 	auto send2 (std::make_shared<nano::send_block> (1, 0, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 	ASSERT_NE (send1->hash (), send2->hash ());
@@ -942,9 +942,9 @@ TEST (block_store, DISABLED_change_dupsort) // Unchecked is no longer dupsort ta
 		++iterator1;
 		ASSERT_EQ (store.unchecked_end (), iterator1);
 	}
-	ASSERT_EQ (0, mdb_drop (store.env.tx (transaction), store.unchecked, 0));
-	mdb_dbi_close (store.env, store.unchecked);
-	ASSERT_EQ (0, mdb_dbi_open (store.env.tx (transaction), "unchecked", MDB_CREATE | MDB_DUPSORT, &store.unchecked));
+	ASSERT_EQ (0, mdb_drop (store.env.tx (transaction), store.unchecked_handle, 0));
+	mdb_dbi_close (store.env, store.unchecked_handle);
+	ASSERT_EQ (0, mdb_dbi_open (store.env.tx (transaction), "unchecked", MDB_CREATE | MDB_DUPSORT, &store.unchecked_handle));
 	store.unchecked_put (transaction, send1->hash (), send1);
 	store.unchecked_put (transaction, send1->hash (), send2);
 	{
@@ -952,8 +952,8 @@ TEST (block_store, DISABLED_change_dupsort) // Unchecked is no longer dupsort ta
 		++iterator1;
 		ASSERT_EQ (store.unchecked_end (), iterator1);
 	}
-	ASSERT_EQ (0, mdb_drop (store.env.tx (transaction), store.unchecked, 1));
-	ASSERT_EQ (0, mdb_dbi_open (store.env.tx (transaction), "unchecked", MDB_CREATE | MDB_DUPSORT, &store.unchecked));
+	ASSERT_EQ (0, mdb_drop (store.env.tx (transaction), store.unchecked_handle, 1));
+	ASSERT_EQ (0, mdb_dbi_open (store.env.tx (transaction), "unchecked", MDB_CREATE | MDB_DUPSORT, &store.unchecked_handle));
 	store.unchecked_put (transaction, send1->hash (), send1);
 	store.unchecked_put (transaction, send1->hash (), send2);
 	{

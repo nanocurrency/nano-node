@@ -41,9 +41,7 @@ template <typename Val, typename Derived_Store>
 class block_store_partial : public block_store
 {
 	nano::frontier_store_partial<Val, Derived_Store> frontier_store;
-
-
-	nano::unchecked_store_partial<Val, Derived_Store> unchecked_store_partial;
+	nano::unchecked_store_partial<Val, Derived_Store> & unchecked_store_partial;
 
 	friend void release_assert_success<Val, Derived_Store> (block_store_partial<Val, Derived_Store> const & block_store, const int status);
 
@@ -57,10 +55,10 @@ public:
 
 	friend class nano::unchecked_store_partial<Val, Derived_Store>;
 
-	block_store_partial () :
-		block_store{ frontier_store, unchecked_store_partial },
+	block_store_partial (nano::unchecked_store_partial<Val, Derived_Store> & unchecked_store_partial_a) :
+		block_store{ frontier_store, unchecked_store_partial_a },
 		frontier_store{ *this },
-		unchecked_store_partial{ *this }
+		unchecked_store_partial (unchecked_store_partial_a)
 	{
 	}
 
