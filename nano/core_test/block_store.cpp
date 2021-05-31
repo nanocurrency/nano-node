@@ -1077,57 +1077,57 @@ TEST (block_store, peers)
 		auto transaction (store->tx_begin_write ());
 
 		// Confirm that the store is empty
-		ASSERT_FALSE (store->peer_exists (transaction, endpoint));
-		ASSERT_EQ (store->peer_count (transaction), 0);
+		ASSERT_FALSE (store->peer.exists (transaction, endpoint));
+		ASSERT_EQ (store->peer.count (transaction), 0);
 
 		// Add one
-		store->peer_put (transaction, endpoint);
-		ASSERT_TRUE (store->peer_exists (transaction, endpoint));
+		store->peer.put (transaction, endpoint);
+		ASSERT_TRUE (store->peer.exists (transaction, endpoint));
 	}
 
 	// Confirm that it can be found
 	{
 		auto transaction (store->tx_begin_read ());
-		ASSERT_EQ (store->peer_count (transaction), 1);
+		ASSERT_EQ (store->peer.count (transaction), 1);
 	}
 
 	// Add another one and check that it (and the existing one) can be found
 	nano::endpoint_key endpoint1 (boost::asio::ip::address_v6::any ().to_bytes (), 101);
 	{
 		auto transaction (store->tx_begin_write ());
-		store->peer_put (transaction, endpoint1);
-		ASSERT_TRUE (store->peer_exists (transaction, endpoint1)); // Check new peer is here
-		ASSERT_TRUE (store->peer_exists (transaction, endpoint)); // Check first peer is still here
+		store->peer.put (transaction, endpoint1);
+		ASSERT_TRUE (store->peer.exists (transaction, endpoint1)); // Check new peer is here
+		ASSERT_TRUE (store->peer.exists (transaction, endpoint)); // Check first peer is still here
 	}
 
 	{
 		auto transaction (store->tx_begin_read ());
-		ASSERT_EQ (store->peer_count (transaction), 2);
+		ASSERT_EQ (store->peer.count (transaction), 2);
 	}
 
 	// Delete the first one
 	{
 		auto transaction (store->tx_begin_write ());
-		store->peer_del (transaction, endpoint1);
-		ASSERT_FALSE (store->peer_exists (transaction, endpoint1)); // Confirm it no longer exists
-		ASSERT_TRUE (store->peer_exists (transaction, endpoint)); // Check first peer is still here
+		store->peer.del (transaction, endpoint1);
+		ASSERT_FALSE (store->peer.exists (transaction, endpoint1)); // Confirm it no longer exists
+		ASSERT_TRUE (store->peer.exists (transaction, endpoint)); // Check first peer is still here
 	}
 
 	{
 		auto transaction (store->tx_begin_read ());
-		ASSERT_EQ (store->peer_count (transaction), 1);
+		ASSERT_EQ (store->peer.count (transaction), 1);
 	}
 
 	// Delete original one
 	{
 		auto transaction (store->tx_begin_write ());
-		store->peer_del (transaction, endpoint);
-		ASSERT_FALSE (store->peer_exists (transaction, endpoint));
+		store->peer.del (transaction, endpoint);
+		ASSERT_FALSE (store->peer.exists (transaction, endpoint));
 	}
 
 	{
 		auto transaction (store->tx_begin_read ());
-		ASSERT_EQ (store->peer_count (transaction), 0);
+		ASSERT_EQ (store->peer.count (transaction), 0);
 	}
 }
 

@@ -3864,7 +3864,7 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 
 		store.online_weight_put (transaction, 100, nano::amount (2));
 		store.frontier.put (transaction, nano::block_hash (2), nano::account (5));
-		store.peer_put (transaction, endpoint_key);
+		store.peer.put (transaction, endpoint_key);
 
 		store.pending.put (transaction, nano::pending_key (nano::genesis_account, send->hash ()), nano::pending_info (nano::genesis_account, 100, nano::epoch::epoch_0));
 		store.pruned_put (transaction, send->hash ());
@@ -3895,7 +3895,7 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 	auto block1 = rocksdb_store.block_get (rocksdb_transaction, send->hash ());
 
 	ASSERT_EQ (*send, *block1);
-	ASSERT_TRUE (rocksdb_store.peer_exists (rocksdb_transaction, endpoint_key));
+	ASSERT_TRUE (rocksdb_store.peer.exists (rocksdb_transaction, endpoint_key));
 	ASSERT_EQ (rocksdb_store.version_get (rocksdb_transaction), version);
 	ASSERT_EQ (rocksdb_store.frontier.get (rocksdb_transaction, 2), 5);
 	nano::confirmation_height_info confirmation_height_info;
