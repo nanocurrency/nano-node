@@ -1829,13 +1829,13 @@ TEST (mdb_block_store, upgrade_v20_v21)
 		auto transaction (store.tx_begin_write ());
 		store.initialize (transaction, genesis, ledger.cache);
 		// Delete pruned table
-		ASSERT_FALSE (mdb_drop (store.env.tx (transaction), store.final_votes, 1));
+		ASSERT_FALSE (mdb_drop (store.env.tx (transaction), store.final_vote_handle, 1));
 		store.version_put (transaction, 20);
 	}
 	// Upgrading should create the table
 	nano::mdb_store store (logger, path);
 	ASSERT_FALSE (store.init_error ());
-	ASSERT_NE (store.final_votes, 0);
+	ASSERT_NE (store.final_vote_handle, 0);
 
 	// Version should be correct
 	auto transaction (store.tx_begin_read ());
@@ -1944,18 +1944,18 @@ TEST (block_store, final_vote)
 	{
 		auto qualified_root = nano::genesis ().open->qualified_root ();
 		auto transaction (store->tx_begin_write ());
-		store->final_vote_put (transaction, qualified_root, nano::block_hash (2));
-		ASSERT_EQ (store->final_vote_count (transaction), 1);
-		store->final_vote_clear (transaction);
-		ASSERT_EQ (store->final_vote_count (transaction), 0);
-		store->final_vote_put (transaction, qualified_root, nano::block_hash (2));
-		ASSERT_EQ (store->final_vote_count (transaction), 1);
+		store->final_vote.put (transaction, qualified_root, nano::block_hash (2));
+		ASSERT_EQ (store->final_vote.count (transaction), 1);
+		store->final_vote.clear (transaction);
+		ASSERT_EQ (store->final_vote.count (transaction), 0);
+		store->final_vote.put (transaction, qualified_root, nano::block_hash (2));
+		ASSERT_EQ (store->final_vote.count (transaction), 1);
 		// Clearing with incorrect root shouldn't remove
-		store->final_vote_clear (transaction, qualified_root.previous ());
-		ASSERT_EQ (store->final_vote_count (transaction), 1);
+		store->final_vote.clear (transaction, qualified_root.previous ());
+		ASSERT_EQ (store->final_vote.count (transaction), 1);
 		// Clearing with correct root should remove
-		store->final_vote_clear (transaction, qualified_root.root ());
-		ASSERT_EQ (store->final_vote_count (transaction), 0);
+		store->final_vote.clear (transaction, qualified_root.root ());
+		ASSERT_EQ (store->final_vote.count (transaction), 0);
 	}
 }
 

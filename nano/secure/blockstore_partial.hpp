@@ -6,6 +6,7 @@
 #include <nano/lib/timer.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/buffer.hpp>
+#include <nano/secure/store/final_vote_store_partial.hpp>
 #include <nano/secure/store/frontier_store_partial.hpp>
 #include <nano/secure/store/pending_store_partial.hpp>
 
@@ -40,6 +41,7 @@ class block_store_partial : public block_store
 	nano::frontier_store_partial<Val, Derived_Store> frontier_store_partial;
 
 	nano::pending_store_partial<Val, Derived_Store> pending_store_partial;
+	nano::final_vote_store_partial<Val, Derived_Store> final_vote_store_partial;
 
 	friend void release_assert_success<Val, Derived_Store> (block_store_partial<Val, Derived_Store> const & block_store, const int status);
 
@@ -51,11 +53,13 @@ public:
 	friend class nano::frontier_store_partial<Val, Derived_Store>;
 
 	friend class nano::pending_store_partial<Val, Derived_Store>;
+	friend class nano::final_vote_store_partial<Val, Derived_Store>;
 
 	block_store_partial () :
-		block_store{ frontier_store_partial, pending_store_partial },
+		block_store{ frontier_store_partial, pending_store_partial, final_vote_store_partial },
 		frontier_store_partial{ *this },
-		pending_store_partial{ *this }
+		pending_store_partial{ *this },
+		final_vote_store_partial{ *this }
 	{
 	}
 
@@ -259,11 +263,6 @@ public:
 	nano::store_iterator<nano::block_hash, std::nullptr_t> pruned_end () const override
 	{
 		return nano::store_iterator<nano::block_hash, std::nullptr_t> (nullptr);
-	}
-
-	nano::store_iterator<nano::qualified_root, nano::block_hash> final_vote_end () const override
-	{
-		return nano::store_iterator<nano::qualified_root, nano::block_hash> (nullptr);
 	}
 
 	int version_get (nano::transaction const & transaction_a) const override
@@ -539,65 +538,6 @@ public:
 		return exists (transaction_a, tables::confirmation_height, nano::db_val<Val> (account_a));
 	}
 
-	bool final_vote_put (nano::write_transaction const & transaction_a, nano::qualified_root const & root_a, nano::block_hash const & hash_a) override
-	{
-		nano::db_val<Val> value;
-		auto status = get (transaction_a, tables::final_votes, nano::db_val<Val> (root_a), value);
-		release_assert (success (status) || not_found (status));
-		bool result (true);
-		if (success (status))
-		{
-			result = static_cast<nano::block_hash> (value) == hash_a;
-		}
-		else
-		{
-			status = put (transaction_a, tables::final_votes, root_a, hash_a);
-			release_assert_success (*this, status);
-		}
-		return result;
-	}
-
-	std::vector<nano::block_hash> final_vote_get (nano::transaction const & transaction_a, nano::root const & root_a) override
-	{
-		std::vector<nano::block_hash> result;
-		nano::qualified_root key_start (root_a.raw, 0);
-		for (auto i (final_vote_begin (transaction_a, key_start)), n (final_vote_end ()); i != n && nano::qualified_root (i->first).root () == root_a; ++i)
-		{
-			result.push_back (i->second);
-		}
-		return result;
-	}
-
-	size_t final_vote_count (nano::transaction const & transaction_a) const override
-	{
-		return count (transaction_a, tables::final_votes);
-	}
-
-	void final_vote_del (nano::write_transaction const & transaction_a, nano::root const & root_a) override
-	{
-		std::vector<nano::qualified_root> final_vote_qualified_roots;
-		for (auto i (final_vote_begin (transaction_a, nano::qualified_root (root_a.raw, 0))), n (final_vote_end ()); i != n && nano::qualified_root (i->first).root () == root_a; ++i)
-		{
-			final_vote_qualified_roots.push_back (i->first);
-		}
-
-		for (auto & final_vote_qualified_root : final_vote_qualified_roots)
-		{
-			auto status (del (transaction_a, tables::final_votes, nano::db_val<Val> (final_vote_qualified_root)));
-			release_assert_success (*this, status);
-		}
-	}
-
-	void final_vote_clear (nano::write_transaction const & transaction_a, nano::root const & root_a) override
-	{
-		final_vote_del (transaction_a, root_a);
-	}
-
-	void final_vote_clear (nano::write_transaction const & transaction_a) override
-	{
-		drop (transaction_a, nano::tables::final_votes);
-	}
-
 	void confirmation_height_clear (nano::write_transaction const & transaction_a, nano::account const & account_a) override
 	{
 		confirmation_height_del (transaction_a, account_a);
@@ -668,16 +608,6 @@ public:
 		return make_iterator<nano::block_hash, std::nullptr_t> (transaction_a, tables::pruned);
 	}
 
-	nano::store_iterator<nano::qualified_root, nano::block_hash> final_vote_begin (nano::transaction const & transaction_a, nano::qualified_root const & root_a) const override
-	{
-		return make_iterator<nano::qualified_root, nano::block_hash> (transaction_a, tables::final_votes, nano::db_val<Val> (root_a));
-	}
-
-	nano::store_iterator<nano::qualified_root, nano::block_hash> final_vote_begin (nano::transaction const & transaction_a) const override
-	{
-		return make_iterator<nano::qualified_root, nano::block_hash> (transaction_a, tables::final_votes);
-	}
-
 	nano::store_iterator<nano::account, nano::account_info> accounts_rbegin (nano::transaction const & transaction_a) const override
 	{
 		return make_iterator<nano::account, nano::account_info> (transaction_a, tables::accounts, false);
@@ -737,15 +667,6 @@ public:
 		[&action_a, this] (nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
 			auto transaction (this->tx_begin_read ());
 			action_a (transaction, this->pruned_begin (transaction, start), !is_last ? this->pruned_begin (transaction, end) : this->pruned_end ());
-		});
-	}
-
-	void final_vote_for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::qualified_root, nano::block_hash>, nano::store_iterator<nano::qualified_root, nano::block_hash>)> const & action_a) const override
-	{
-		parallel_traversal<nano::uint512_t> (
-		[&action_a, this] (nano::uint512_t const & start, nano::uint512_t const & end, bool const is_last) {
-			auto transaction (this->tx_begin_read ());
-			action_a (transaction, this->final_vote_begin (transaction, start), !is_last ? this->final_vote_begin (transaction, end) : this->final_vote_end ());
 		});
 	}
 
