@@ -138,7 +138,7 @@ void nano::active_transactions::confirm_prioritized_frontiers (nano::transaction
 					if (!this->confirmation_height_processor.is_processing_block (info.head))
 					{
 						nano::confirmation_height_info confirmation_height_info;
-						this->node.store.confirmation_height_get (transaction_a, cementable_account.account, confirmation_height_info);
+						this->node.store.confirmation_height.get (transaction_a, cementable_account.account, confirmation_height_info);
 
 						if (info.block_count > confirmation_height_info.height)
 						{
@@ -492,7 +492,7 @@ void nano::active_transactions::confirm_expired_frontiers_pessimistically (nano:
 		bool should_delete{ true };
 		if (!node.store.account_get (transaction_a, account, account_info))
 		{
-			node.store.confirmation_height_get (transaction_a, account, confirmation_height_info);
+			node.store.confirmation_height.get (transaction_a, account, confirmation_height_info);
 			if (account_info.block_count > confirmation_height_info.height)
 			{
 				should_delete = false;
@@ -695,7 +695,7 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 						if (expired_optimistic_election_infos.get<tag_account> ().count (account) == 0 && !node.store.account_get (transaction_a, account, info))
 						{
 							nano::confirmation_height_info confirmation_height_info;
-							node.store.confirmation_height_get (transaction_a, account, confirmation_height_info);
+							node.store.confirmation_height.get (transaction_a, account, confirmation_height_info);
 							// If it exists in normal priority collection delete from there.
 							auto it = priority_cementable_frontiers.find (account);
 							if (it != priority_cementable_frontiers.end ())
@@ -747,7 +747,7 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 				if (expired_optimistic_election_infos.get<tag_account> ().count (account) == 0)
 				{
 					nano::confirmation_height_info confirmation_height_info;
-					node.store.confirmation_height_get (transaction_a, account, confirmation_height_info);
+					node.store.confirmation_height.get (transaction_a, account, confirmation_height_info);
 					auto insert_newed = prioritize_account_for_confirmation (priority_cementable_frontiers, priority_cementable_frontiers_size, account, info, confirmation_height_info.height);
 					if (insert_newed)
 					{

@@ -117,9 +117,9 @@ void reset_confirmation_height (nano::block_store & store, nano::account const &
 {
 	auto transaction = store.tx_begin_write ();
 	nano::confirmation_height_info confirmation_height_info;
-	if (!store.confirmation_height_get (transaction, account, confirmation_height_info))
+	if (!store.confirmation_height.get (transaction, account, confirmation_height_info))
 	{
-		store.confirmation_height_clear (transaction, account);
+		store.confirmation_height.clear (transaction, account);
 	}
 }
 
@@ -1274,7 +1274,7 @@ TEST (rpc, frontier)
 			nano::block_hash hash;
 			nano::random_pool::generate_block (hash.bytes.data (), hash.bytes.size ());
 			source[key.pub] = hash;
-			node->store.confirmation_height_put (transaction, key.pub, { 0, nano::block_hash (0) });
+			node->store.confirmation_height.put (transaction, key.pub, { 0, nano::block_hash (0) });
 			node->store.account_put (transaction, key.pub, nano::account_info (hash, 0, 0, 0, 0, 0, nano::epoch::epoch_0));
 		}
 	}
@@ -1321,7 +1321,7 @@ TEST (rpc, frontier_limited)
 			nano::block_hash hash;
 			nano::random_pool::generate_block (hash.bytes.data (), hash.bytes.size ());
 			source[key.pub] = hash;
-			node->store.confirmation_height_put (transaction, key.pub, { 0, nano::block_hash (0) });
+			node->store.confirmation_height.put (transaction, key.pub, { 0, nano::block_hash (0) });
 			node->store.account_put (transaction, key.pub, nano::account_info (hash, 0, 0, 0, 0, 0, nano::epoch::epoch_0));
 		}
 	}
@@ -1359,7 +1359,7 @@ TEST (rpc, frontier_startpoint)
 			nano::block_hash hash;
 			nano::random_pool::generate_block (hash.bytes.data (), hash.bytes.size ());
 			source[key.pub] = hash;
-			node->store.confirmation_height_put (transaction, key.pub, { 0, nano::block_hash (0) });
+			node->store.confirmation_height.put (transaction, key.pub, { 0, nano::block_hash (0) });
 			node->store.account_put (transaction, key.pub, nano::account_info (hash, 0, 0, 0, 0, 0, nano::epoch::epoch_0));
 		}
 	}
@@ -2320,7 +2320,7 @@ TEST (rpc, pending)
 
 	// Sorting with a smaller count than total should give absolute sorted amounts
 	scoped_thread_name_io.reset ();
-	node->store.confirmation_height_put (node->store.tx_begin_write (), nano::dev_genesis_key.pub, { 2, block1->hash () });
+	node->store.confirmation_height.put (node->store.tx_begin_write (), nano::dev_genesis_key.pub, { 2, block1->hash () });
 	auto block2 (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key1.pub, 200));
 	auto block3 (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key1.pub, 300));
 	auto block4 (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key1.pub, 400));
@@ -4702,7 +4702,7 @@ TEST (rpc, account_info)
 	auto time (nano::seconds_since_epoch ());
 	{
 		auto transaction = node1.store.tx_begin_write ();
-		node1.store.confirmation_height_put (transaction, nano::dev_genesis_key.pub, { 1, genesis.hash () });
+		node1.store.confirmation_height.put (transaction, nano::dev_genesis_key.pub, { 1, genesis.hash () });
 	}
 	scoped_thread_name_io.renew ();
 

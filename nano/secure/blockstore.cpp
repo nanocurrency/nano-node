@@ -105,8 +105,9 @@ bool nano::write_transaction::contains (nano::tables table_a) const
 	return impl->contains (table_a);
 }
 
-nano::block_store::block_store (nano::frontier_store & frontier_store_a, nano::pending_store & pending_store_a) :
+nano::block_store::block_store (nano::frontier_store & frontier_store_a, nano::pending_store & pending_store_a, nano::confirmation_height_store & confirmation_height_store_a) :
 	frontier (frontier_store_a),
-	pending (pending_store_a)
+	pending (pending_store_a),
+	confirmation_height (confirmation_height_store_a)
 {
 }

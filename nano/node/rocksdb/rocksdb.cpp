@@ -531,7 +531,7 @@ uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, ta
 	else if (table_a == tables::confirmation_height)
 	{
 		debug_assert (network_constants ().is_dev_network ());
-		for (auto i (confirmation_height_begin (transaction_a)), n (confirmation_height_end ()); i != n; ++i)
+		for (auto i (confirmation_height.begin (transaction_a)), n (confirmation_height.end ()); i != n; ++i)
 		{
 			++sum;
 		}

@@ -349,7 +349,7 @@ void nano::frontier_req_server::next ()
 		}
 		else
 		{
-			for (auto i (connection->node->store.confirmation_height_begin (transaction, current.number () + 1)), n (connection->node->store.confirmation_height_end ()); i != n && accounts.size () != max_size; ++i)
+			for (auto i (connection->node->store.confirmation_height.begin (transaction, current.number () + 1)), n (connection->node->store.confirmation_height.end ()); i != n && accounts.size () != max_size; ++i)
 			{
 				nano::confirmation_height_info const & info (i->second);
 				nano::block_hash const & confirmed_frontier (info.frontier);
