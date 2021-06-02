@@ -231,7 +231,7 @@ std::pair<std::vector<std::shared_ptr<nano::block>>, std::vector<std::shared_ptr
 				if (successor.is_zero ())
 				{
 					nano::account_info info;
-					auto error (ledger.store.account_get (transaction, root.as_account (), info));
+					auto error (ledger.store.account.get (transaction, root.as_account (), info));
 					if (!error)
 					{
 						successor = info.open_block;
