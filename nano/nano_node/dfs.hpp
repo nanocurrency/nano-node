@@ -5,6 +5,58 @@
 
 namespace nano
 {
+    void dfs(const std::shared_ptr<nano::block>& start_block)
+    {
+        nano::system system{};
+        const auto node = std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::working_path (), system.logging, system.work);
+        if (node->init_error ())
+        {
+            std::cerr << "error initializing node\n";
+            return;
+        }
+
+        std::vector<nano::block_hash> block_container{start_block->hash()};
+        std::vector<nano::block_hash> checkpoint_container{};
+        auto transaction = node->ledger.store.tx_begin_read ();
+
+        const auto get_block_container_capacity = []()
+        {
+            // TODO: return a bigger and bigger capacity, but definitely not this huge :)
+            //
+            return std::numeric_limits<std::size_t>::max();
+        };
+
+        const auto insert_block_hash = [&](const auto& block_hash)
+        {
+            if (!block_hash.is_zero())
+            {
+                if (block_container.size() < get_block_container_capacity())
+                {
+                    block_container.emplace_back(block_hash);
+                }
+                else
+                {
+                    checkpoint_container.emplace_back(block_container.back());
+                    block_container.clear();
+                }
+            }
+        };
+
+        while (!block_container.empty())
+        {
+            const auto current_block = node->ledger.store.block_get(transaction, block_container.back());
+            block_container.pop_back();
+
+            std::cout << "visiting block " << current_block->hash().to_string() << "\n";
+
+            insert_block_hash(current_block->previous());
+            if (current_block->sideband().details.is_receive)
+            {
+                insert_block_hash(current_block->source());
+            }
+        }
+    }
+
     void test_dfs()
     {
         nano::system system{};
