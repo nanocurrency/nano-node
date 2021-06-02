@@ -2,6 +2,7 @@
 #include <nano/lib/cli.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/nano_node/daemon.hpp>
+#include <nano/nano_node/dfs.hpp>
 #include <nano/node/cli.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
@@ -73,6 +74,7 @@ int main (int argc, char * const * argv)
 		("version", "Prints out version")
 		("config", boost::program_options::value<std::vector<nano::config_key_value_pair>>()->multitoken(), "Pass node configuration values. This takes precedence over any values in the configuration file. This option can be repeated multiple times.")
 		("daemon", "Start node daemon")
+		("test-dfs", "Test DFS")
 		("compare_rep_weights", "Display a summarized comparison between the hardcoded bootstrap weights and representative weights from the ledger. Full comparison is output to logs")
 		("debug_block_count", "Display the number of blocks")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
@@ -156,6 +158,10 @@ int main (int argc, char * const * argv)
 			}
 			daemon.run (data_path, flags);
 		}
+		else if (vm.count ("test-dfs") > 0)
+        {
+		    nano::test_dfs();
+        }
 		else if (vm.count ("compare_rep_weights"))
 		{
 			if (!nano::network_constants ().is_dev_network ())
