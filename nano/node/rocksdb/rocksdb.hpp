@@ -6,6 +6,7 @@
 #include <nano/node/rocksdb/rocksdb_iterator.hpp>
 #include <nano/secure/blockstore_partial.hpp>
 #include <nano/secure/common.hpp>
+#include <nano/secure/store/unchecked_store_partial.hpp>
 
 #include <rocksdb/db.h>
 #include <rocksdb/filter_policy.h>
@@ -19,6 +20,17 @@ namespace nano
 {
 class logging_mt;
 class rocksdb_config;
+class rocksdb_store;
+
+class unchecked_rocksdb_store : public unchecked_store_partial<rocksdb::Slice, rocksdb_store>
+{
+public:
+	unchecked_rocksdb_store () :
+		unchecked_store_partial (rocksdb_store)
+	{};
+
+	std::vector<nano::unchecked_info> unchecked_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override;
+};
 
 /**
  * rocksdb implementation of the block store
@@ -34,7 +46,6 @@ public:
 
 	uint64_t count (nano::transaction const & transaction_a, tables table_a) const override;
 	void version_put (nano::write_transaction const &, int) override;
-	std::vector<nano::unchecked_info> unchecked_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override;
 
 	bool exists (nano::transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a) const;
 	int get (nano::transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a, nano::rocksdb_val & value_a) const;

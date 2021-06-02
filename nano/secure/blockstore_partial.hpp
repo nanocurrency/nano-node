@@ -47,11 +47,10 @@ class block_store_partial : public block_store
 
 public:
 	using block_store::block_exists;
-//	using unchecked_store::unchecked_put;
+	//	using unchecked_store::unchecked_put;
 
 	friend class nano::block_predecessor_set<Val, Derived_Store>;
 	friend class nano::frontier_store_partial<Val, Derived_Store>;
-
 
 	friend class nano::unchecked_store_partial<Val, Derived_Store>;
 

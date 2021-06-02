@@ -590,7 +590,7 @@ int nano::rocksdb_store::clear (rocksdb::ColumnFamilyHandle * column_family)
 	return status.code ();
 }
 
-std::vector<nano::unchecked_info> nano::rocksdb_store::unchecked_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
+std::vector<nano::unchecked_info> nano::unchecked_rocksdb_store::unchecked_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
 	auto cf = table_to_column_family (tables::unchecked);
 
@@ -914,3 +914,4 @@ nano::rocksdb_store::tombstone_info::tombstone_info (uint64_t num_since_last_flu
 
 // Explicitly instantiate
 template class nano::block_store_partial<rocksdb::Slice, nano::rocksdb_store>;
+template class nano::unchecked_store_partial<rocksdb::Slice, rocksdb_store>;
