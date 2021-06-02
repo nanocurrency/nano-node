@@ -188,7 +188,7 @@ std::pair<std::vector<std::shared_ptr<nano::block>>, std::vector<std::shared_ptr
 			std::shared_ptr<nano::block> block;
 
 			//2. Final votes
-			auto final_vote_hashes (ledger.store.final_vote_get (transaction, root));
+			auto final_vote_hashes (ledger.store.final_vote.get (transaction, root));
 			if (!final_vote_hashes.empty ())
 			{
 				generate_final_vote = true;
@@ -216,7 +216,7 @@ std::pair<std::vector<std::shared_ptr<nano::block>>, std::vector<std::shared_ptr
 				if (block != nullptr)
 				{
 					nano::confirmation_height_info confirmation_height_info;
-					ledger.store.confirmation_height_get (transaction, block->account ().is_zero () ? block->sideband ().account : block->account (), confirmation_height_info);
+					ledger.store.confirmation_height.get (transaction, block->account ().is_zero () ? block->sideband ().account : block->account (), confirmation_height_info);
 					generate_final_vote = (confirmation_height_info.height >= block->sideband ().height);
 				}
 			}
@@ -231,7 +231,7 @@ std::pair<std::vector<std::shared_ptr<nano::block>>, std::vector<std::shared_ptr
 				if (successor.is_zero ())
 				{
 					nano::account_info info;
-					auto error (ledger.store.account_get (transaction, root.as_account (), info));
+					auto error (ledger.store.account.get (transaction, root.as_account (), info));
 					if (!error)
 					{
 						successor = info.open_block;
@@ -253,7 +253,7 @@ std::pair<std::vector<std::shared_ptr<nano::block>>, std::vector<std::shared_ptr
 					if (block != nullptr && generate_vote)
 					{
 						nano::confirmation_height_info confirmation_height_info;
-						ledger.store.confirmation_height_get (transaction, block->account ().is_zero () ? block->sideband ().account : block->account (), confirmation_height_info);
+						ledger.store.confirmation_height.get (transaction, block->account ().is_zero () ? block->sideband ().account : block->account (), confirmation_height_info);
 						generate_final_vote = (confirmation_height_info.height >= block->sideband ().height);
 					}
 				}

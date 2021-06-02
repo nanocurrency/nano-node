@@ -132,13 +132,13 @@ void nano::active_transactions::confirm_prioritized_frontiers (nano::transaction
 			{
 				lk.unlock ();
 				nano::account_info info;
-				auto error = this->node.store.account_get (transaction_a, cementable_account.account, info);
+				auto error = this->node.store.account.get (transaction_a, cementable_account.account, info);
 				if (!error)
 				{
 					if (!this->confirmation_height_processor.is_processing_block (info.head))
 					{
 						nano::confirmation_height_info confirmation_height_info;
-						this->node.store.confirmation_height_get (transaction_a, cementable_account.account, confirmation_height_info);
+						this->node.store.confirmation_height.get (transaction_a, cementable_account.account, confirmation_height_info);
 
 						if (info.block_count > confirmation_height_info.height)
 						{
@@ -473,8 +473,8 @@ void nano::active_transactions::frontiers_confirmation (nano::unique_lock<nano::
  */
 void nano::active_transactions::confirm_expired_frontiers_pessimistically (nano::transaction const & transaction_a, uint64_t max_elections_a, uint64_t & elections_count_a)
 {
-	auto i{ node.store.accounts_begin (transaction_a, next_frontier_account) };
-	auto n{ node.store.accounts_end () };
+	auto i{ node.store.account.begin (transaction_a, next_frontier_account) };
+	auto n{ node.store.account.end () };
 	nano::timer<std::chrono::milliseconds> timer (nano::timer_state::started);
 	nano::confirmation_height_info confirmation_height_info;
 
@@ -490,9 +490,9 @@ void nano::active_transactions::confirm_expired_frontiers_pessimistically (nano:
 		auto const & account{ i->account };
 		nano::account_info account_info;
 		bool should_delete{ true };
-		if (!node.store.account_get (transaction_a, account, account_info))
+		if (!node.store.account.get (transaction_a, account, account_info))
 		{
-			node.store.confirmation_height_get (transaction_a, account, confirmation_height_info);
+			node.store.confirmation_height.get (transaction_a, account, confirmation_height_info);
 			if (account_info.block_count > confirmation_height_info.height)
 			{
 				should_delete = false;
@@ -692,10 +692,10 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 					for (; i != n && should_iterate (); ++i)
 					{
 						auto const & account (i->first);
-						if (expired_optimistic_election_infos.get<tag_account> ().count (account) == 0 && !node.store.account_get (transaction_a, account, info))
+						if (expired_optimistic_election_infos.get<tag_account> ().count (account) == 0 && !node.store.account.get (transaction_a, account, info))
 						{
 							nano::confirmation_height_info confirmation_height_info;
-							node.store.confirmation_height_get (transaction_a, account, confirmation_height_info);
+							node.store.confirmation_height.get (transaction_a, account, confirmation_height_info);
 							// If it exists in normal priority collection delete from there.
 							auto it = priority_cementable_frontiers.find (account);
 							if (it != priority_cementable_frontiers.end ())
@@ -736,8 +736,8 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 		}
 
 		nano::timer<std::chrono::milliseconds> timer (nano::timer_state::started);
-		auto i (node.store.accounts_begin (transaction_a, next_frontier_account));
-		auto n (node.store.accounts_end ());
+		auto i (node.store.account.begin (transaction_a, next_frontier_account));
+		auto n (node.store.account.end ());
 		for (; i != n && should_iterate (); ++i)
 		{
 			auto const & account (i->first);
@@ -747,7 +747,7 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 				if (expired_optimistic_election_infos.get<tag_account> ().count (account) == 0)
 				{
 					nano::confirmation_height_info confirmation_height_info;
-					node.store.confirmation_height_get (transaction_a, account, confirmation_height_info);
+					node.store.confirmation_height.get (transaction_a, account, confirmation_height_info);
 					auto insert_newed = prioritize_account_for_confirmation (priority_cementable_frontiers, priority_cementable_frontiers_size, account, info, confirmation_height_info.height);
 					if (insert_newed)
 					{
@@ -1310,7 +1310,7 @@ nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_
 			lock_a.lock ();
 			insert_impl (lock_a, block);
 		}
-		else if (!block && status.bootstrap_started && !previously_a.bootstrap_started && (!node.ledger.pruning || !node.store.pruned_exists (transaction, hash_a)))
+		else if (!block && status.bootstrap_started && !previously_a.bootstrap_started && (!node.ledger.pruning || !node.store.pruned.exists (transaction, hash_a)))
 		{
 			node.gap_cache.bootstrap_start (hash_a);
 		}

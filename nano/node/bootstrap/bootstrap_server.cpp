@@ -22,22 +22,16 @@ void nano::bootstrap_listener::start ()
 	listening_socket->start (ec);
 	if (ec)
 	{
-		node.logger.try_log (boost::str (boost::format ("Error while binding for incoming TCP/bootstrap on port %1%: %2%") % listening_socket->listening_port () % ec.message ()));
+		node.logger.always_log (boost::str (boost::format ("Network: Error while binding for incoming TCP/bootstrap on port %1%: %2%") % listening_socket->listening_port () % ec.message ()));
 		throw std::runtime_error (ec.message ());
 	}
 	debug_assert (node.network.endpoint ().port () == listening_socket->listening_port ());
 	listening_socket->on_connection ([this] (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const & ec_a) {
-		bool keep_accepting = true;
-		if (ec_a)
-		{
-			keep_accepting = false;
-			this->node.logger.try_log (boost::str (boost::format ("Error while accepting incoming TCP/bootstrap connections: %1%") % ec_a.message ()));
-		}
-		else
+		if (!ec_a)
 		{
 			accept_action (ec_a, new_connection);
 		}
-		return keep_accepting;
+		return true;
 	});
 }
 
