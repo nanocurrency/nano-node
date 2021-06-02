@@ -1310,7 +1310,7 @@ nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_
 			lock_a.lock ();
 			insert_impl (lock_a, block);
 		}
-		else if (!block && status.bootstrap_started && !previously_a.bootstrap_started && (!node.ledger.pruning || !node.store.pruned_exists (transaction, hash_a)))
+		else if (!block && status.bootstrap_started && !previously_a.bootstrap_started && (!node.ledger.pruning || !node.store.pruned.exists (transaction, hash_a)))
 		{
 			node.gap_cache.bootstrap_start (hash_a);
 		}

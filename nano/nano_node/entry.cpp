@@ -1437,7 +1437,7 @@ int main (int argc, char * const * argv)
 						else
 						{
 							pruned_block = true;
-							if (!node->store.pruned_exists (transaction, block->previous ()))
+							if (!node->store.pruned.exists (transaction, block->previous ()))
 							{
 								print_error_message (boost::str (boost::format ("Pruned previous block does not exist %1%\n") % block->previous ().to_string ()));
 							}
@@ -1554,7 +1554,7 @@ int main (int argc, char * const * argv)
 								}
 							}
 						}
-						else if (!node->store.pruned_exists (transaction, block->previous ()))
+						else if (!node->store.pruned.exists (transaction, block->previous ()))
 						{
 							print_error_message (boost::str (boost::format ("Previous pruned block does not exist %1%\n") % block->previous ().to_string ()));
 						}
@@ -1564,7 +1564,7 @@ int main (int argc, char * const * argv)
 						print_error_message (boost::str (boost::format ("Incorrect sideband block details for block %1%\n") % hash.to_string ()));
 					}
 					// Check link epoch version
-					if (sideband.details.is_receive && (!node->ledger.pruning || !node->store.pruned_exists (transaction, block->link ().as_block_hash ())))
+					if (sideband.details.is_receive && (!node->ledger.pruning || !node->store.pruned.exists (transaction, block->link ().as_block_hash ())))
 					{
 						if (sideband.source_epoch != node->store.block_version (transaction, block->link ().as_block_hash ()))
 						{
@@ -1687,7 +1687,7 @@ int main (int argc, char * const * argv)
 				bool pruned (false);
 				if (block == nullptr)
 				{
-					pruned = node->ledger.pruning && node->store.pruned_exists (transaction, key.hash);
+					pruned = node->ledger.pruning && node->store.pruned.exists (transaction, key.hash);
 					if (!pruned)
 					{
 						print_error_message (boost::str (boost::format ("Pending block does not exist %1%\n") % key.hash.to_string ()));
@@ -1697,7 +1697,7 @@ int main (int argc, char * const * argv)
 				{
 					// Check if pending destination is correct
 					nano::account destination (0);
-					bool previous_pruned = node->ledger.pruning && node->store.pruned_exists (transaction, block->previous ());
+					bool previous_pruned = node->ledger.pruning && node->store.pruned.exists (transaction, block->previous ());
 					if (previous_pruned)
 					{
 						block = node->store.block_get (transaction, key.hash);

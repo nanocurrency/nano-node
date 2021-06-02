@@ -435,7 +435,7 @@ TEST (store, pruned_load)
 				{
 					nano::block_hash random_hash;
 					nano::random_pool::generate_block (random_hash.bytes.data (), random_hash.bytes.size ());
-					store->pruned_put (transaction, random_hash);
+					store->pruned.put (transaction, random_hash);
 				}
 			}
 			if (!nano::using_rocksdb_in_tests ())
@@ -444,20 +444,20 @@ TEST (store, pruned_load)
 				for (auto k (0); k < batch_size / 2; ++k)
 				{
 					auto hash (hashes.begin ());
-					store->pruned_del (transaction, *hash);
+					store->pruned.del (transaction, *hash);
 					hashes.erase (hash);
 				}
 			}
 		}
 		auto transaction (store->tx_begin_read ());
-		ASSERT_EQ (expected_result, store->pruned_count (transaction));
+		ASSERT_EQ (expected_result, store->pruned.count (transaction));
 	}
 	// Reinitialize store
 	{
 		auto store = nano::make_store (logger, path);
 		ASSERT_FALSE (store->init_error ());
 		auto transaction (store->tx_begin_read ());
-		ASSERT_EQ (expected_result, store->pruned_count (transaction));
+		ASSERT_EQ (expected_result, store->pruned.count (transaction));
 	}
 }
 

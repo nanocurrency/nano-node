@@ -89,7 +89,7 @@ void nano::confirmation_height_bounded::process (std::shared_ptr<nano::block> or
 
 		if (!block)
 		{
-			if (ledger.pruning && ledger.store.pruned_exists (transaction, current))
+			if (ledger.pruning && ledger.store.pruned.exists (transaction, current))
 			{
 				if (!receive_source_pairs.empty ())
 				{

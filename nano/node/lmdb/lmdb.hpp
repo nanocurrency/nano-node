@@ -172,7 +172,7 @@ public:
 	 * Pruned blocks hashes
 	 * nano::block_hash -> none
 	 */
-	MDB_dbi pruned{ 0 };
+	MDB_dbi pruned_handle{ 0 };
 
 	/*
 	 * Endpoints for peers
