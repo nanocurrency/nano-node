@@ -240,7 +240,7 @@ bool copy_database (boost::filesystem::path const & data_path, boost::program_op
 		}
 		if (vm.count ("final_vote_clear"))
 		{
-			node.node->store.final_vote_clear (store.tx_begin_write ());
+			node.node->store.final_vote.clear (store.tx_begin_write ());
 		}
 		if (vm.count ("rebuild_database"))
 		{
@@ -626,7 +626,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				nano::root root;
 				if (!root.decode_hex (root_str))
 				{
-					node.node->store.final_vote_clear (transaction, root);
+					node.node->store.final_vote.clear (transaction, root);
 					std::cout << "Successfully cleared final votes" << std::endl;
 				}
 				else
@@ -637,7 +637,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			}
 			else if (vm.count ("all"))
 			{
-				node.node->store.final_vote_clear (node.node->store.tx_begin_write ());
+				node.node->store.final_vote.clear (node.node->store.tx_begin_write ());
 				std::cout << "All final votes are cleared" << std::endl;
 			}
 			else

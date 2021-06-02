@@ -686,12 +686,30 @@ public:
 };
 
 /**
+ * Manages final vote storage and iteration
+ */
+class final_vote_store
+{
+public:
+	virtual bool put (nano::write_transaction const & transaction_a, nano::qualified_root const & root_a, nano::block_hash const & hash_a) = 0;
+	virtual std::vector<nano::block_hash> get (nano::transaction const & transaction_a, nano::root const & root_a) = 0;
+	virtual void del (nano::write_transaction const & transaction_a, nano::root const & root_a) = 0;
+	virtual size_t count (nano::transaction const & transaction_a) const = 0;
+	virtual void clear (nano::write_transaction const &, nano::root const &) = 0;
+	virtual void clear (nano::write_transaction const &) = 0;
+	virtual nano::store_iterator<nano::qualified_root, nano::block_hash> begin (nano::transaction const & transaction_a, nano::qualified_root const & root_a) const = 0;
+	virtual nano::store_iterator<nano::qualified_root, nano::block_hash> begin (nano::transaction const & transaction_a) const = 0;
+	virtual nano::store_iterator<nano::qualified_root, nano::block_hash> end () const = 0;
+	virtual void for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::qualified_root, nano::block_hash>, nano::store_iterator<nano::qualified_root, nano::block_hash>)> const & action_a) const = 0;
+};
+
+/**
  * Manages block storage and iteration
  */
 class block_store
 {
 public:
-	explicit block_store (nano::frontier_store &, nano::account_store &, nano::pending_store &, nano::online_weight_store &);
+	explicit block_store (nano::frontier_store &, nano::account_store &, nano::pending_store &, nano::online_weight_store &, nano::final_vote_store &);
 	virtual ~block_store () = default;
 	virtual void initialize (nano::write_transaction const &, nano::genesis const &, nano::ledger_cache &) = 0;
 	virtual void block_put (nano::write_transaction const &, nano::block_hash const &, nano::block const &) = 0;
@@ -768,19 +786,10 @@ public:
 	virtual void unchecked_for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::unchecked_key, nano::unchecked_info>, nano::store_iterator<nano::unchecked_key, nano::unchecked_info>)> const & action_a) const = 0;
 	virtual void pruned_for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::block_hash, std::nullptr_t>, nano::store_iterator<nano::block_hash, std::nullptr_t>)> const & action_a) const = 0;
 	virtual void blocks_for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::block_hash, block_w_sideband>, nano::store_iterator<nano::block_hash, block_w_sideband>)> const & action_a) const = 0;
-	virtual void final_vote_for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::qualified_root, nano::block_hash>, nano::store_iterator<nano::qualified_root, nano::block_hash>)> const & action_a) const = 0;
 
 	virtual uint64_t block_account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const = 0;
 
-	virtual bool final_vote_put (nano::write_transaction const & transaction_a, nano::qualified_root const & root_a, nano::block_hash const & hash_a) = 0;
-	virtual std::vector<nano::block_hash> final_vote_get (nano::transaction const & transaction_a, nano::root const & root_a) = 0;
-	virtual void final_vote_del (nano::write_transaction const & transaction_a, nano::root const & root_a) = 0;
-	virtual size_t final_vote_count (nano::transaction const & transaction_a) const = 0;
-	virtual void final_vote_clear (nano::write_transaction const &, nano::root const &) = 0;
-	virtual void final_vote_clear (nano::write_transaction const &) = 0;
-	virtual nano::store_iterator<nano::qualified_root, nano::block_hash> final_vote_begin (nano::transaction const & transaction_a, nano::qualified_root const & root_a) const = 0;
-	virtual nano::store_iterator<nano::qualified_root, nano::block_hash> final_vote_begin (nano::transaction const & transaction_a) const = 0;
-	virtual nano::store_iterator<nano::qualified_root, nano::block_hash> final_vote_end () const = 0;
+	final_vote_store & final_vote;
 
 	virtual unsigned max_block_write_batch_num () const = 0;
 
