@@ -8,6 +8,7 @@
 #include <nano/secure/buffer.hpp>
 #include <nano/secure/store/account_store_partial.hpp>
 #include <nano/secure/store/frontier_store_partial.hpp>
+#include <nano/secure/store/online_weight_partial.hpp>
 #include <nano/secure/store/pending_store_partial.hpp>
 
 #include <crypto/cryptopp/words.h>
@@ -41,6 +42,7 @@ class block_store_partial : public block_store
 	nano::frontier_store_partial<Val, Derived_Store> frontier_store_partial;
 	nano::account_store_partial<Val, Derived_Store> account_store_partial;
 	nano::pending_store_partial<Val, Derived_Store> pending_store_partial;
+	nano::online_weight_store_partial<Val, Derived_Store> online_weight_store_partial;
 
 	friend void release_assert_success<Val, Derived_Store> (block_store_partial<Val, Derived_Store> const & block_store, const int status);
 
@@ -52,12 +54,14 @@ public:
 	friend class nano::frontier_store_partial<Val, Derived_Store>;
 	friend class nano::account_store_partial<Val, Derived_Store>;
 	friend class nano::pending_store_partial<Val, Derived_Store>;
+	friend class nano::online_weight_store_partial<Val, Derived_Store>;
 
 	block_store_partial () :
-		block_store{ frontier_store_partial, account_store_partial, pending_store_partial },
+		block_store{ frontier_store_partial, account_store_partial, pending_store_partial, online_weight_store_partial },
 		frontier_store_partial{ *this },
 		account_store_partial{ *this },
-		pending_store_partial{ *this }
+		pending_store_partial{ *this },
+		online_weight_store_partial{ *this }
 	{
 	}
 
@@ -238,11 +242,6 @@ public:
 		return nano::store_iterator<nano::endpoint_key, nano::no_value> (nullptr);
 	}
 
-	nano::store_iterator<uint64_t, nano::amount> online_weight_end () const override
-	{
-		return nano::store_iterator<uint64_t, nano::amount> (nullptr);
-	}
-
 	nano::store_iterator<nano::block_hash, nano::block_w_sideband> blocks_end () const override
 	{
 		return nano::store_iterator<nano::block_hash, nano::block_w_sideband> (nullptr);
@@ -333,30 +332,6 @@ public:
 	void unchecked_clear (nano::write_transaction const & transaction_a) override
 	{
 		auto status = drop (transaction_a, tables::unchecked);
-		release_assert_success (*this, status);
-	}
-
-	void online_weight_put (nano::write_transaction const & transaction_a, uint64_t time_a, nano::amount const & amount_a) override
-	{
-		nano::db_val<Val> value (amount_a);
-		auto status (put (transaction_a, tables::online_weight, time_a, value));
-		release_assert_success (*this, status);
-	}
-
-	void online_weight_del (nano::write_transaction const & transaction_a, uint64_t time_a) override
-	{
-		auto status (del (transaction_a, tables::online_weight, time_a));
-		release_assert_success (*this, status);
-	}
-
-	size_t online_weight_count (nano::transaction const & transaction_a) const override
-	{
-		return count (transaction_a, tables::online_weight);
-	}
-
-	void online_weight_clear (nano::write_transaction const & transaction_a) override
-	{
-		auto status (drop (transaction_a, tables::online_weight));
 		release_assert_success (*this, status);
 	}
 
@@ -585,11 +560,6 @@ public:
 		return make_iterator<nano::unchecked_key, nano::unchecked_info> (transaction_a, tables::unchecked, nano::db_val<Val> (key_a));
 	}
 
-	nano::store_iterator<uint64_t, nano::amount> online_weight_begin (nano::transaction const & transaction_a) const override
-	{
-		return make_iterator<uint64_t, nano::amount> (transaction_a, tables::online_weight);
-	}
-
 	nano::store_iterator<nano::endpoint_key, nano::no_value> peers_begin (nano::transaction const & transaction_a) const override
 	{
 		return make_iterator<nano::endpoint_key, nano::no_value> (transaction_a, tables::peers);
@@ -623,11 +593,6 @@ public:
 	nano::store_iterator<nano::qualified_root, nano::block_hash> final_vote_begin (nano::transaction const & transaction_a) const override
 	{
 		return make_iterator<nano::qualified_root, nano::block_hash> (transaction_a, tables::final_votes);
-	}
-
-	nano::store_iterator<uint64_t, nano::amount> online_weight_rbegin (nano::transaction const & transaction_a) const override
-	{
-		return make_iterator<uint64_t, nano::amount> (transaction_a, tables::online_weight, false);
 	}
 
 	size_t unchecked_count (nano::transaction const & transaction_a) override

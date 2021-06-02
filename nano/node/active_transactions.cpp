@@ -316,6 +316,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> 
 	for (auto const & election_l : elections_l)
 	{
 		bool const confirmed_l (election_l->confirmed ());
+		unconfirmed_count_l += !confirmed_l;
 
 		if (election_l->transition_time (solicitor))
 		{
@@ -330,6 +331,10 @@ void nano::active_transactions::request_confirm (nano::unique_lock<nano::mutex> 
 			}
 
 			// Locks active mutex, cleans up the election and erases it from the main container
+			if (!confirmed_l)
+			{
+				node.stats.inc (nano::stat::type::election, nano::stat::detail::election_drop_expired);
+			}
 			erase (election_l->qualified_root);
 		}
 	}
@@ -349,7 +354,7 @@ void nano::active_transactions::cleanup_election (nano::unique_lock<nano::mutex>
 {
 	if (!election.confirmed ())
 	{
-		node.stats.inc (nano::stat::type::election, nano::stat::detail::election_drop);
+		node.stats.inc (nano::stat::type::election, nano::stat::detail::election_drop_all);
 	}
 
 	auto blocks_l = election.blocks ();
@@ -1049,6 +1054,7 @@ void nano::active_transactions::erase_oldest ()
 	nano::unique_lock<nano::mutex> lock (mutex);
 	if (!roots.empty ())
 	{
+		node.stats.inc (nano::stat::type::election, nano::stat::detail::election_drop_overflow);
 		auto item = roots.get<tag_random_access> ().front ();
 		cleanup_election (lock, *item.election);
 	}

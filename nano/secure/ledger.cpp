@@ -1504,9 +1504,9 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 		auto rocksdb_transaction (rocksdb_store->tx_begin_write ());
 		rocksdb_store->version_put (rocksdb_transaction, version);
 
-		for (auto i (store.online_weight_begin (lmdb_transaction)), n (store.online_weight_end ()); i != n; ++i)
+		for (auto i (store.online_weight.begin (lmdb_transaction)), n (store.online_weight.end ()); i != n; ++i)
 		{
-			rocksdb_store->online_weight_put (rocksdb_transaction, i->first, i->second);
+			rocksdb_store->online_weight.put (rocksdb_transaction, i->first, i->second);
 		}
 
 		for (auto i (store.peers_begin (lmdb_transaction)), n (store.peers_end ()); i != n; ++i)
@@ -1519,7 +1519,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 		error |= store.peer_count (lmdb_transaction) != rocksdb_store->peer_count (rocksdb_transaction);
 		error |= store.pruned_count (lmdb_transaction) != rocksdb_store->pruned_count (rocksdb_transaction);
 		error |= store.final_vote_count (lmdb_transaction) != rocksdb_store->final_vote_count (rocksdb_transaction);
-		error |= store.online_weight_count (lmdb_transaction) != rocksdb_store->online_weight_count (rocksdb_transaction);
+		error |= store.online_weight.count (lmdb_transaction) != rocksdb_store->online_weight.count (rocksdb_transaction);
 		error |= store.version_get (lmdb_transaction) != rocksdb_store->version_get (rocksdb_transaction);
 
 		// For large tables a random key is used instead and makes sure it exists

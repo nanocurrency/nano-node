@@ -671,12 +671,27 @@ public:
 };
 
 /**
+ * Manages online weight storage and iteration
+ */
+class online_weight_store
+{
+public:
+	virtual void put (nano::write_transaction const &, uint64_t, nano::amount const &) = 0;
+	virtual void del (nano::write_transaction const &, uint64_t) = 0;
+	virtual nano::store_iterator<uint64_t, nano::amount> begin (nano::transaction const &) const = 0;
+	virtual nano::store_iterator<uint64_t, nano::amount> rbegin (nano::transaction const &) const = 0;
+	virtual nano::store_iterator<uint64_t, nano::amount> end () const = 0;
+	virtual size_t count (nano::transaction const &) const = 0;
+	virtual void clear (nano::write_transaction const &) = 0;
+};
+
+/**
  * Manages block storage and iteration
  */
 class block_store
 {
 public:
-	explicit block_store (nano::frontier_store &, nano::account_store &, nano::pending_store &);
+	explicit block_store (nano::frontier_store &, nano::account_store &, nano::pending_store &, nano::online_weight_store &);
 	virtual ~block_store () = default;
 	virtual void initialize (nano::write_transaction const &, nano::genesis const &, nano::ledger_cache &) = 0;
 	virtual void block_put (nano::write_transaction const &, nano::block_hash const &, nano::block const &) = 0;
@@ -715,13 +730,7 @@ public:
 	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_end () const = 0;
 	virtual size_t unchecked_count (nano::transaction const &) = 0;
 
-	virtual void online_weight_put (nano::write_transaction const &, uint64_t, nano::amount const &) = 0;
-	virtual void online_weight_del (nano::write_transaction const &, uint64_t) = 0;
-	virtual nano::store_iterator<uint64_t, nano::amount> online_weight_begin (nano::transaction const &) const = 0;
-	virtual nano::store_iterator<uint64_t, nano::amount> online_weight_rbegin (nano::transaction const &) const = 0;
-	virtual nano::store_iterator<uint64_t, nano::amount> online_weight_end () const = 0;
-	virtual size_t online_weight_count (nano::transaction const &) const = 0;
-	virtual void online_weight_clear (nano::write_transaction const &) = 0;
+	online_weight_store & online_weight;
 
 	virtual void version_put (nano::write_transaction const &, int) = 0;
 	virtual int version_get (nano::transaction const &) const = 0;
