@@ -6,8 +6,10 @@
 #include <nano/lib/timer.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/buffer.hpp>
+#include <nano/secure/store/account_store_partial.hpp>
 #include <nano/secure/store/final_vote_store_partial.hpp>
 #include <nano/secure/store/frontier_store_partial.hpp>
+#include <nano/secure/store/online_weight_partial.hpp>
 #include <nano/secure/store/pending_store_partial.hpp>
 
 #include <crypto/cryptopp/words.h>
@@ -39,8 +41,9 @@ template <typename Val, typename Derived_Store>
 class block_store_partial : public block_store
 {
 	nano::frontier_store_partial<Val, Derived_Store> frontier_store_partial;
-
+	nano::account_store_partial<Val, Derived_Store> account_store_partial;
 	nano::pending_store_partial<Val, Derived_Store> pending_store_partial;
+	nano::online_weight_store_partial<Val, Derived_Store> online_weight_store_partial;
 	nano::final_vote_store_partial<Val, Derived_Store> final_vote_store_partial;
 
 	friend void release_assert_success<Val, Derived_Store> (block_store_partial<Val, Derived_Store> const & block_store, const int status);
@@ -51,14 +54,17 @@ public:
 
 	friend class nano::block_predecessor_set<Val, Derived_Store>;
 	friend class nano::frontier_store_partial<Val, Derived_Store>;
-
+	friend class nano::account_store_partial<Val, Derived_Store>;
 	friend class nano::pending_store_partial<Val, Derived_Store>;
+	friend class nano::online_weight_store_partial<Val, Derived_Store>;
 	friend class nano::final_vote_store_partial<Val, Derived_Store>;
 
 	block_store_partial () :
-		block_store{ frontier_store_partial, pending_store_partial, final_vote_store_partial },
+		block_store{ frontier_store_partial, account_store_partial, pending_store_partial, online_weight_store_partial, final_vote_store_partial },
 		frontier_store_partial{ *this },
+		account_store_partial{ *this },
 		pending_store_partial{ *this },
+		online_weight_store_partial{ *this },
 		final_vote_store_partial{ *this }
 	{
 	}
@@ -70,14 +76,14 @@ public:
 	void initialize (nano::write_transaction const & transaction_a, nano::genesis const & genesis_a, nano::ledger_cache & ledger_cache_a) override
 	{
 		auto hash_l (genesis_a.hash ());
-		debug_assert (accounts_begin (transaction_a) == accounts_end ());
+		debug_assert (account.begin (transaction_a) == account.end ());
 		genesis_a.open->sideband_set (nano::block_sideband (network_params.ledger.genesis_account, 0, network_params.ledger.genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
 		block_put (transaction_a, hash_l, *genesis_a.open);
 		++ledger_cache_a.block_count;
 		confirmation_height_put (transaction_a, network_params.ledger.genesis_account, nano::confirmation_height_info{ 1, genesis_a.hash () });
 		++ledger_cache_a.cemented_count;
 		ledger_cache_a.final_votes_confirmation_canary = (network_params.ledger.final_votes_canary_account == network_params.ledger.genesis_account && 1 >= network_params.ledger.final_votes_canary_height);
-		account_put (transaction_a, network_params.ledger.genesis_account, { hash_l, network_params.ledger.genesis_account, genesis_a.open->hash (), std::numeric_limits<nano::uint128_t>::max (), nano::seconds_since_epoch (), 1, nano::epoch::epoch_0 });
+		account.put (transaction_a, network_params.ledger.genesis_account, { hash_l, network_params.ledger.genesis_account, genesis_a.open->hash (), std::numeric_limits<nano::uint128_t>::max (), nano::seconds_since_epoch (), 1, nano::epoch::epoch_0 });
 		++ledger_cache_a.account_count;
 		ledger_cache_a.rep_weights.representation_put (network_params.ledger.genesis_account, std::numeric_limits<nano::uint128_t>::max ());
 		frontier.put (transaction_a, hash_l, network_params.ledger.genesis_account);
@@ -154,7 +160,7 @@ public:
 
 	bool root_exists (nano::transaction const & transaction_a, nano::root const & root_a) override
 	{
-		return block_exists (transaction_a, root_a.as_block_hash ()) || account_exists (transaction_a, root_a.as_account ());
+		return block_exists (transaction_a, root_a.as_block_hash ()) || account.exists (transaction_a, root_a.as_account ());
 	}
 
 	nano::account block_account (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override
@@ -238,16 +244,6 @@ public:
 	nano::store_iterator<nano::endpoint_key, nano::no_value> peers_end () const override
 	{
 		return nano::store_iterator<nano::endpoint_key, nano::no_value> (nullptr);
-	}
-
-	nano::store_iterator<uint64_t, nano::amount> online_weight_end () const override
-	{
-		return nano::store_iterator<uint64_t, nano::amount> (nullptr);
-	}
-
-	nano::store_iterator<nano::account, nano::account_info> accounts_end () const override
-	{
-		return nano::store_iterator<nano::account, nano::account_info> (nullptr);
 	}
 
 	nano::store_iterator<nano::block_hash, nano::block_w_sideband> blocks_end () const override
@@ -338,65 +334,6 @@ public:
 		release_assert_success (*this, status);
 	}
 
-	void account_put (nano::write_transaction const & transaction_a, nano::account const & account_a, nano::account_info const & info_a) override
-	{
-		// Check we are still in sync with other tables
-		nano::db_val<Val> info (info_a);
-		auto status = put (transaction_a, tables::accounts, account_a, info);
-		release_assert_success (*this, status);
-	}
-
-	void account_del (nano::write_transaction const & transaction_a, nano::account const & account_a) override
-	{
-		auto status = del (transaction_a, tables::accounts, account_a);
-		release_assert_success (*this, status);
-	}
-
-	bool account_get (nano::transaction const & transaction_a, nano::account const & account_a, nano::account_info & info_a) override
-	{
-		nano::db_val<Val> value;
-		nano::db_val<Val> account (account_a);
-		auto status1 (get (transaction_a, tables::accounts, account, value));
-		release_assert (success (status1) || not_found (status1));
-		bool result (true);
-		if (success (status1))
-		{
-			nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
-			result = info_a.deserialize (stream);
-		}
-		return result;
-	}
-
-	bool account_exists (nano::transaction const & transaction_a, nano::account const & account_a) override
-	{
-		auto iterator (accounts_begin (transaction_a, account_a));
-		return iterator != accounts_end () && nano::account (iterator->first) == account_a;
-	}
-
-	void online_weight_put (nano::write_transaction const & transaction_a, uint64_t time_a, nano::amount const & amount_a) override
-	{
-		nano::db_val<Val> value (amount_a);
-		auto status (put (transaction_a, tables::online_weight, time_a, value));
-		release_assert_success (*this, status);
-	}
-
-	void online_weight_del (nano::write_transaction const & transaction_a, uint64_t time_a) override
-	{
-		auto status (del (transaction_a, tables::online_weight, time_a));
-		release_assert_success (*this, status);
-	}
-
-	size_t online_weight_count (nano::transaction const & transaction_a) const override
-	{
-		return count (transaction_a, tables::online_weight);
-	}
-
-	void online_weight_clear (nano::write_transaction const & transaction_a) override
-	{
-		auto status (drop (transaction_a, tables::online_weight));
-		release_assert_success (*this, status);
-	}
-
 	void pruned_put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a) override
 	{
 		auto status = put_key (transaction_a, tables::pruned, hash_a);
@@ -461,11 +398,6 @@ public:
 	uint64_t block_count (nano::transaction const & transaction_a) override
 	{
 		return count (transaction_a, tables::blocks);
-	}
-
-	size_t account_count (nano::transaction const & transaction_a) override
-	{
-		return count (transaction_a, tables::accounts);
 	}
 
 	std::shared_ptr<nano::block> block_random (nano::transaction const & transaction_a) override
@@ -578,11 +510,6 @@ public:
 		return make_iterator<nano::unchecked_key, nano::unchecked_info> (transaction_a, tables::unchecked, nano::db_val<Val> (key_a));
 	}
 
-	nano::store_iterator<uint64_t, nano::amount> online_weight_begin (nano::transaction const & transaction_a) const override
-	{
-		return make_iterator<uint64_t, nano::amount> (transaction_a, tables::online_weight);
-	}
-
 	nano::store_iterator<nano::endpoint_key, nano::no_value> peers_begin (nano::transaction const & transaction_a) const override
 	{
 		return make_iterator<nano::endpoint_key, nano::no_value> (transaction_a, tables::peers);
@@ -608,28 +535,9 @@ public:
 		return make_iterator<nano::block_hash, std::nullptr_t> (transaction_a, tables::pruned);
 	}
 
-	nano::store_iterator<nano::account, nano::account_info> accounts_rbegin (nano::transaction const & transaction_a) const override
-	{
-		return make_iterator<nano::account, nano::account_info> (transaction_a, tables::accounts, false);
-	}
-
-	nano::store_iterator<uint64_t, nano::amount> online_weight_rbegin (nano::transaction const & transaction_a) const override
-	{
-		return make_iterator<uint64_t, nano::amount> (transaction_a, tables::online_weight, false);
-	}
-
 	size_t unchecked_count (nano::transaction const & transaction_a) override
 	{
 		return count (transaction_a, tables::unchecked);
-	}
-
-	void accounts_for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::account, nano::account_info>, nano::store_iterator<nano::account, nano::account_info>)> const & action_a) const override
-	{
-		parallel_traversal<nano::uint256_t> (
-		[&action_a, this] (nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
-			auto transaction (this->tx_begin_read ());
-			action_a (transaction, this->accounts_begin (transaction, start), !is_last ? this->accounts_begin (transaction, end) : this->accounts_end ());
-		});
 	}
 
 	void confirmation_height_for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::account, nano::confirmation_height_info>, nano::store_iterator<nano::account, nano::confirmation_height_info>)> const & action_a) const override

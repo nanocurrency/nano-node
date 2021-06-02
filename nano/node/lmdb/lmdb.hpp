@@ -160,7 +160,7 @@ public:
 	 * Samples of online vote weight
 	 * uint64_t -> nano::amount
 	 */
-	MDB_dbi online_weight{ 0 };
+	MDB_dbi online_weight_handle{ 0 };
 
 	/**
 	 * Meta information about block store, such as versions.
