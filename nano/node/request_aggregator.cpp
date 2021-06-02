@@ -188,7 +188,7 @@ std::pair<std::vector<std::shared_ptr<nano::block>>, std::vector<std::shared_ptr
 			std::shared_ptr<nano::block> block;
 
 			//2. Final votes
-			auto final_vote_hashes (ledger.store.final_vote_get (transaction, root));
+			auto final_vote_hashes (ledger.store.final_vote.get (transaction, root));
 			if (!final_vote_hashes.empty ())
 			{
 				generate_final_vote = true;
@@ -231,7 +231,7 @@ std::pair<std::vector<std::shared_ptr<nano::block>>, std::vector<std::shared_ptr
 				if (successor.is_zero ())
 				{
 					nano::account_info info;
-					auto error (ledger.store.account_get (transaction, root.as_account (), info));
+					auto error (ledger.store.account.get (transaction, root.as_account (), info));
 					if (!error)
 					{
 						successor = info.open_block;

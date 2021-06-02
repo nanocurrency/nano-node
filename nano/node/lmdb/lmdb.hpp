@@ -160,7 +160,7 @@ public:
 	 * Samples of online vote weight
 	 * uint64_t -> nano::amount
 	 */
-	MDB_dbi online_weight{ 0 };
+	MDB_dbi online_weight_handle{ 0 };
 
 	/**
 	 * Meta information about block store, such as versions.
@@ -196,7 +196,7 @@ public:
 	 * Maps root to block hash for generated final votes.
 	 * nano::qualified_root -> nano::block_hash
 	 */
-	MDB_dbi final_votes{ 0 };
+	MDB_dbi final_vote_handle{ 0 };
 
 	bool exists (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a) const;
 	std::vector<nano::unchecked_info> unchecked_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override;

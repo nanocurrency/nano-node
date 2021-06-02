@@ -190,7 +190,7 @@ void nano::mdb_store::open_databases (bool & error_a, nano::transaction const & 
 {
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "frontiers", flags, &frontiers) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "unchecked", flags, &unchecked) != 0;
-	error_a |= mdb_dbi_open (env.tx (transaction_a), "online_weight", flags, &online_weight) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "online_weight", flags, &online_weight_handle) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "meta", flags, &meta) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "peers", flags, &peers) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "pruned", flags, &pruned) != 0;
@@ -199,7 +199,7 @@ void nano::mdb_store::open_databases (bool & error_a, nano::transaction const & 
 	accounts = accounts_v0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "pending", flags, &pending_v0) != 0;
 	lmdb_pending = pending_v0;
-	error_a |= mdb_dbi_open (env.tx (transaction_a), "final_votes", flags, &final_votes) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "final_votes", flags, &final_vote_handle) != 0;
 
 	auto version_l = version_get (transaction_a);
 	if (version_l < 19)
@@ -428,8 +428,8 @@ void nano::mdb_store::upgrade_v16_to_v17 (nano::write_transaction const & transa
 {
 	logger.always_log ("Preparing v16 to v17 database upgrade...");
 
-	auto account_info_i = accounts_begin (transaction_a);
-	auto account_info_n = accounts_end ();
+	auto account_info_i = account.begin (transaction_a);
+	auto account_info_n = account.end ();
 
 	// Set the confirmed frontier for each account in the confirmation height table
 	std::vector<std::pair<nano::account, nano::confirmation_height_info>> confirmation_height_infos;
@@ -752,7 +752,7 @@ void nano::mdb_store::upgrade_v19_to_v20 (nano::write_transaction const & transa
 void nano::mdb_store::upgrade_v20_to_v21 (nano::write_transaction const & transaction_a)
 {
 	logger.always_log ("Preparing v20 to v21 database upgrade...");
-	mdb_dbi_open (env.tx (transaction_a), "final_votes", MDB_CREATE, &final_votes);
+	mdb_dbi_open (env.tx (transaction_a), "final_votes", MDB_CREATE, &final_vote_handle);
 	version_put (transaction_a, 21);
 	logger.always_log ("Finished creating new final_vote table");
 }
@@ -868,7 +868,7 @@ MDB_dbi nano::mdb_store::table_to_dbi (tables table_a) const
 		case tables::unchecked:
 			return unchecked;
 		case tables::online_weight:
-			return online_weight;
+			return online_weight_handle;
 		case tables::meta:
 			return meta;
 		case tables::peers:
@@ -878,7 +878,7 @@ MDB_dbi nano::mdb_store::table_to_dbi (tables table_a) const
 		case tables::confirmation_height:
 			return confirmation_height_handle;
 		case tables::final_votes:
-			return final_votes;
+			return final_vote_handle;
 		default:
 			release_assert (false);
 			return peers;
