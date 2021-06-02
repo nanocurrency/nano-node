@@ -670,7 +670,6 @@ public:
 	virtual void for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::pending_key, nano::pending_info>, nano::store_iterator<nano::pending_key, nano::pending_info>)> const & action_a) const = 0;
 };
 
-
 /**
  * Manages online weight storage and iteration
  */
