@@ -490,7 +490,7 @@ uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, ta
 	}
 	else if (table_a == tables::online_weight)
 	{
-		for (auto i (online_weight_begin (transaction_a)), n (online_weight_end ()); i != n; ++i)
+		for (auto i (online_weight.begin (transaction_a)), n (online_weight.end ()); i != n; ++i)
 		{
 			++sum;
 		}
