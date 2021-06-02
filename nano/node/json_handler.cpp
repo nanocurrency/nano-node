@@ -251,7 +251,7 @@ nano::account_info nano::json_handler::account_info_impl (nano::transaction cons
 	nano::account_info result;
 	if (!ec)
 	{
-		if (node.store.account_get (transaction_a, account_a, result))
+		if (node.store.account.get (transaction_a, account_a, result))
 		{
 			ec = nano::error_common::account_not_found;
 			node.bootstrap_initiator.bootstrap_lazy (account_a, false, false, account_a.to_account ());
@@ -606,7 +606,7 @@ void nano::json_handler::account_info ()
 		auto transaction (node.store.tx_begin_read ());
 		auto info (account_info_impl (transaction, account));
 		nano::confirmation_height_info confirmation_height_info;
-		node.store.confirmation_height_get (transaction, account, confirmation_height_info);
+		node.store.confirmation_height.get (transaction, account, confirmation_height_info);
 		if (!ec)
 		{
 			response_l.put ("frontier", info.head.to_string ());
@@ -2073,7 +2073,7 @@ void nano::json_handler::delegators ()
 	{
 		boost::property_tree::ptree delegators;
 		auto transaction (node.store.tx_begin_read ());
-		for (auto i (node.store.accounts_begin (transaction)), n (node.store.accounts_end ()); i != n; ++i)
+		for (auto i (node.store.account.begin (transaction)), n (node.store.account.end ()); i != n; ++i)
 		{
 			nano::account_info const & info (i->second);
 			if (info.representative == account)
@@ -2096,7 +2096,7 @@ void nano::json_handler::delegators_count ()
 	{
 		uint64_t count (0);
 		auto transaction (node.store.tx_begin_read ());
-		for (auto i (node.store.accounts_begin (transaction)), n (node.store.accounts_end ()); i != n; ++i)
+		for (auto i (node.store.account.begin (transaction)), n (node.store.account.end ()); i != n; ++i)
 		{
 			nano::account_info const & info (i->second);
 			if (info.representative == account)
@@ -2207,7 +2207,7 @@ void nano::json_handler::frontiers ()
 	{
 		boost::property_tree::ptree frontiers;
 		auto transaction (node.store.tx_begin_read ());
-		for (auto i (node.store.accounts_begin (transaction, start)), n (node.store.accounts_end ()); i != n && frontiers.size () < count; ++i)
+		for (auto i (node.store.account.begin (transaction, start)), n (node.store.account.end ()); i != n && frontiers.size () < count; ++i)
 		{
 			frontiers.put (i->first.to_account (), i->second.head.to_string ());
 		}
@@ -2610,7 +2610,7 @@ void nano::json_handler::ledger ()
 		auto transaction (node.store.tx_begin_read ());
 		if (!ec && !sorting) // Simple
 		{
-			for (auto i (node.store.accounts_begin (transaction, start)), n (node.store.accounts_end ()); i != n && accounts.size () < count; ++i)
+			for (auto i (node.store.account.begin (transaction, start)), n (node.store.account.end ()); i != n && accounts.size () < count; ++i)
 			{
 				nano::account_info const & info (i->second);
 				if (info.modified >= modified_since && (pending || info.balance.number () >= threshold.number ()))
@@ -2650,7 +2650,7 @@ void nano::json_handler::ledger ()
 		else if (!ec) // Sorting
 		{
 			std::vector<std::pair<nano::uint128_union, nano::account>> ledger_l;
-			for (auto i (node.store.accounts_begin (transaction, start)), n (node.store.accounts_end ()); i != n; ++i)
+			for (auto i (node.store.account.begin (transaction, start)), n (node.store.account.end ()); i != n; ++i)
 			{
 				nano::account_info const & info (i->second);
 				nano::uint128_union balance (info.balance);
@@ -2664,7 +2664,7 @@ void nano::json_handler::ledger ()
 			nano::account_info info;
 			for (auto i (ledger_l.begin ()), n (ledger_l.end ()); i != n && accounts.size () < count; ++i)
 			{
-				node.store.account_get (transaction, i->second, info);
+				node.store.account.get (transaction, i->second, info);
 				if (pending || info.balance.number () >= threshold.number ())
 				{
 					nano::account const & account (i->second);
@@ -3208,7 +3208,7 @@ void nano::json_handler::receive ()
 						nano::account_info info;
 						nano::root head;
 						nano::epoch epoch = pending_info.epoch;
-						if (!node.store.account_get (block_transaction, account, info))
+						if (!node.store.account.get (block_transaction, account, info))
 						{
 							head = info.head;
 							// When receiving, epoch version is the higher between the previous and the source blocks
@@ -4071,7 +4071,7 @@ void nano::json_handler::unopened ()
 			nano::pending_key key (iterator->first);
 			nano::account account (key.account);
 			nano::pending_info info (iterator->second);
-			if (node.store.account_exists (transaction, account))
+			if (node.store.account.exists (transaction, account))
 			{
 				if (account.number () == std::numeric_limits<nano::uint256_t>::max ())
 				{
@@ -4220,13 +4220,13 @@ void nano::json_handler::wallet_info ()
 			nano::account const & account (i->first);
 
 			nano::account_info account_info{};
-			if (!node.store.account_get (block_transaction, account, account_info))
+			if (!node.store.account.get (block_transaction, account, account_info))
 			{
 				block_count += account_info.block_count;
 			}
 
 			nano::confirmation_height_info confirmation_info{};
-			if (!node.store.confirmation_height_get (block_transaction, account, confirmation_info))
+			if (!node.store.confirmation_height.get (block_transaction, account, confirmation_info))
 			{
 				cemented_block_count += confirmation_info.height;
 			}
@@ -4455,7 +4455,7 @@ void nano::json_handler::wallet_history ()
 		{
 			nano::account const & account (i->first);
 			nano::account_info info;
-			if (!node.store.account_get (block_transaction, account, info))
+			if (!node.store.account.get (block_transaction, account, info))
 			{
 				auto timestamp (info.modified);
 				auto hash (info.head);
@@ -4528,7 +4528,7 @@ void nano::json_handler::wallet_ledger ()
 		{
 			nano::account const & account (i->first);
 			nano::account_info info;
-			if (!node.store.account_get (block_transaction, account, info))
+			if (!node.store.account.get (block_transaction, account, info))
 			{
 				if (info.modified >= modified_since)
 				{
@@ -4687,7 +4687,7 @@ void nano::json_handler::wallet_representative_set ()
 					{
 						nano::account const & account (i->first);
 						nano::account_info info;
-						if (!rpc_l->node.store.account_get (block_transaction, account, info))
+						if (!rpc_l->node.store.account.get (block_transaction, account, info))
 						{
 							if (info.representative != representative)
 							{

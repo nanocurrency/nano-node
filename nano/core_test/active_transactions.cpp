@@ -1311,9 +1311,9 @@ TEST (active_transactions, pessimistic_elections)
 	nano::confirmation_height_info key1_confirmation_height_info;
 	{
 		auto transaction = node.store.tx_begin_read ();
-		node.store.confirmation_height_get (transaction, nano::genesis_account, genesis_confirmation_height_info);
+		node.store.confirmation_height.get (transaction, nano::genesis_account, genesis_confirmation_height_info);
 		ASSERT_EQ (2, genesis_confirmation_height_info.height);
-		node.store.confirmation_height_get (transaction, key.pub, key1_confirmation_height_info);
+		node.store.confirmation_height.get (transaction, key.pub, key1_confirmation_height_info);
 		ASSERT_EQ (0, key1_confirmation_height_info.height);
 	}
 
@@ -1333,9 +1333,9 @@ TEST (active_transactions, pessimistic_elections)
 
 	{
 		auto transaction = node.store.tx_begin_read ();
-		node.store.confirmation_height_get (transaction, nano::genesis_account, genesis_confirmation_height_info);
+		node.store.confirmation_height.get (transaction, nano::genesis_account, genesis_confirmation_height_info);
 		ASSERT_EQ (3, genesis_confirmation_height_info.height);
-		node.store.confirmation_height_get (transaction, key.pub, key1_confirmation_height_info);
+		node.store.confirmation_height.get (transaction, key.pub, key1_confirmation_height_info);
 		ASSERT_EQ (0, key1_confirmation_height_info.height);
 	}
 
@@ -1357,9 +1357,9 @@ TEST (active_transactions, pessimistic_elections)
 
 	{
 		auto transaction = node.store.tx_begin_read ();
-		node.store.confirmation_height_get (transaction, nano::genesis_account, genesis_confirmation_height_info);
+		node.store.confirmation_height.get (transaction, nano::genesis_account, genesis_confirmation_height_info);
 		ASSERT_EQ (3, genesis_confirmation_height_info.height);
-		node.store.confirmation_height_get (transaction, key.pub, key1_confirmation_height_info);
+		node.store.confirmation_height.get (transaction, key.pub, key1_confirmation_height_info);
 		ASSERT_EQ (1, key1_confirmation_height_info.height);
 	}
 

@@ -379,7 +379,7 @@ int main (int argc, char * const * argv)
 			auto current (node->online_reps.trended ());
 			std::cout << boost::str (boost::format ("Trended Weight %1%\n") % current);
 			auto transaction (node->store.tx_begin_read ());
-			for (auto i (node->store.online_weight_begin (transaction)), n (node->store.online_weight_end ()); i != n; ++i)
+			for (auto i (node->store.online_weight.begin (transaction)), n (node->store.online_weight.end ()); i != n; ++i)
 			{
 				using time_point = std::chrono::system_clock::time_point;
 				time_point ts (std::chrono::duration_cast<time_point::duration> (std::chrono::nanoseconds (i->first)));
@@ -415,7 +415,7 @@ int main (int argc, char * const * argv)
 			// Cache the account heads to make searching quicker against unchecked keys.
 			auto transaction (node->store.tx_begin_read ());
 			std::unordered_set<nano::block_hash> frontier_hashes;
-			for (auto i (node->store.accounts_begin (transaction)), n (node->store.accounts_end ()); i != n; ++i)
+			for (auto i (node->store.account.begin (transaction)), n (node->store.account.end ()); i != n; ++i)
 			{
 				frontier_hashes.insert (i->second.head);
 			}
@@ -1409,7 +1409,7 @@ int main (int argc, char * const * argv)
 					std::cout << boost::str (boost::format ("%1% accounts validated\n") % count);
 				}
 				nano::confirmation_height_info confirmation_height_info;
-				node->store.confirmation_height_get (transaction, account, confirmation_height_info);
+				node->store.confirmation_height.get (transaction, account, confirmation_height_info);
 
 				if (confirmation_height_info.height > info.block_count)
 				{
@@ -1631,7 +1631,7 @@ int main (int argc, char * const * argv)
 			}
 			size_t const accounts_deque_overflow (32 * 1024);
 			auto transaction (node->store.tx_begin_read ());
-			for (auto i (node->store.accounts_begin (transaction)), n (node->store.accounts_end ()); i != n; ++i)
+			for (auto i (node->store.account.begin (transaction)), n (node->store.account.end ()); i != n; ++i)
 			{
 				{
 					nano::unique_lock<nano::mutex> lock (mutex);
@@ -1800,7 +1800,7 @@ int main (int argc, char * const * argv)
 				auto transaction (source_node->store.tx_begin_read ());
 				block_count = source_node->ledger.cache.block_count;
 				std::cout << boost::str (boost::format ("Performing bootstrap emulation, %1% blocks in ledger...") % block_count) << std::endl;
-				for (auto i (source_node->store.accounts_begin (transaction)), n (source_node->store.accounts_end ()); i != n; ++i)
+				for (auto i (source_node->store.account.begin (transaction)), n (source_node->store.account.end ()); i != n; ++i)
 				{
 					nano::account const & account (i->first);
 					nano::account_info const & info (i->second);
@@ -1911,7 +1911,7 @@ int main (int argc, char * const * argv)
 			// Cache the accounts in a collection to make searching quicker against unchecked keys. Group by epoch
 			nano::locked<std::vector<boost::unordered_set<nano::account>>> opened_account_versions_shared (epoch_count);
 			using opened_account_versions_t = decltype (opened_account_versions_shared)::value_type;
-			node->store.accounts_for_each_par (
+			node->store.account.for_each_par (
 			[&opened_account_versions_shared, epoch_count] (nano::read_transaction const & /*unused*/, nano::store_iterator<nano::account, nano::account_info> i, nano::store_iterator<nano::account, nano::account_info> n) {
 				// First cache locally
 				opened_account_versions_t opened_account_versions_l (epoch_count);

@@ -25,10 +25,10 @@ void nano::election_scheduler::activate (nano::account const & account_a, nano::
 {
 	debug_assert (!account_a.is_zero ());
 	nano::account_info account_info;
-	if (!node.store.account_get (transaction, account_a, account_info))
+	if (!node.store.account.get (transaction, account_a, account_info))
 	{
 		nano::confirmation_height_info conf_info;
-		node.store.confirmation_height_get (transaction, account_a, conf_info);
+		node.store.confirmation_height.get (transaction, account_a, conf_info);
 		if (conf_info.height < account_info.block_count)
 		{
 			debug_assert (conf_info.frontier != account_info.head);
