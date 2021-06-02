@@ -480,16 +480,6 @@ public:
 		drop (transaction_a, nano::tables::confirmation_height);
 	}
 
-	nano::store_iterator<nano::account, nano::account_info> accounts_begin (nano::transaction const & transaction_a, nano::account const & account_a) const override
-	{
-		return make_iterator<nano::account, nano::account_info> (transaction_a, tables::accounts, nano::db_val<Val> (account_a));
-	}
-
-	nano::store_iterator<nano::account, nano::account_info> accounts_begin (nano::transaction const & transaction_a) const override
-	{
-		return make_iterator<nano::account, nano::account_info> (transaction_a, tables::accounts);
-	}
-
 	nano::store_iterator<nano::block_hash, nano::block_w_sideband> blocks_begin (nano::transaction const & transaction_a) const override
 	{
 		return make_iterator<nano::block_hash, nano::block_w_sideband> (transaction_a, tables::blocks);
