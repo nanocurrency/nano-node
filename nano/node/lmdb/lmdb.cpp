@@ -801,6 +801,9 @@ std::vector<nano::unchecked_info> nano::unchecked_mdb_store::unchecked_get (nano
 	return result;
 }
 
+nano::unchecked_mdb_store::unchecked_mdb_store (nano::mdb_store & mdb_store_a) :
+	unchecked_store_partial<MDB_val, mdb_store> (mdb_store_a){};
+
 void nano::mdb_store::version_put (nano::write_transaction const & transaction_a, int version_a)
 {
 	nano::uint256_union version_key (1);
