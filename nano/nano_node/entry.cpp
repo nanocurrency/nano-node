@@ -1409,7 +1409,7 @@ int main (int argc, char * const * argv)
 					std::cout << boost::str (boost::format ("%1% accounts validated\n") % count);
 				}
 				nano::confirmation_height_info confirmation_height_info;
-				node->store.confirmation_height_get (transaction, account, confirmation_height_info);
+				node->store.confirmation_height.get (transaction, account, confirmation_height_info);
 
 				if (confirmation_height_info.height > info.block_count)
 				{

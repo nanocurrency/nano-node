@@ -61,7 +61,7 @@ TEST (ledger, genesis_balance)
 	ASSERT_LT (nano::seconds_since_epoch () - info.modified, 10);
 	// Genesis block should be confirmed by default
 	nano::confirmation_height_info confirmation_height_info;
-	ASSERT_FALSE (store->confirmation_height_get (transaction, nano::genesis_account, confirmation_height_info));
+	ASSERT_FALSE (store->confirmation_height.get (transaction, nano::genesis_account, confirmation_height_info));
 	ASSERT_EQ (confirmation_height_info.height, 1);
 	ASSERT_EQ (confirmation_height_info.frontier, genesis.hash ());
 }
@@ -3031,16 +3031,16 @@ TEST (ledger, confirmation_height_not_updated)
 	nano::keypair key;
 	nano::send_block send1 (account_info.head, key.pub, 50, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (account_info.head));
 	nano::confirmation_height_info confirmation_height_info;
-	ASSERT_FALSE (store->confirmation_height_get (transaction, nano::genesis_account, confirmation_height_info));
+	ASSERT_FALSE (store->confirmation_height.get (transaction, nano::genesis_account, confirmation_height_info));
 	ASSERT_EQ (1, confirmation_height_info.height);
 	ASSERT_EQ (genesis.hash (), confirmation_height_info.frontier);
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send1).code);
-	ASSERT_FALSE (store->confirmation_height_get (transaction, nano::genesis_account, confirmation_height_info));
+	ASSERT_FALSE (store->confirmation_height.get (transaction, nano::genesis_account, confirmation_height_info));
 	ASSERT_EQ (1, confirmation_height_info.height);
 	ASSERT_EQ (genesis.hash (), confirmation_height_info.frontier);
 	nano::open_block open1 (send1.hash (), nano::genesis_account, key.pub, key.prv, key.pub, *pool.generate (key.pub));
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, open1).code);
-	ASSERT_TRUE (store->confirmation_height_get (transaction, key.pub, confirmation_height_info));
+	ASSERT_TRUE (store->confirmation_height.get (transaction, key.pub, confirmation_height_info));
 	ASSERT_EQ (0, confirmation_height_info.height);
 	ASSERT_EQ (nano::block_hash (0), confirmation_height_info.frontier);
 }
@@ -3219,9 +3219,9 @@ TEST (ledger, dependents_confirmed)
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *receive1).code);
 	ASSERT_FALSE (ledger.dependents_confirmed (transaction, *receive1));
 	nano::confirmation_height_info height;
-	ASSERT_FALSE (ledger.store.confirmation_height_get (transaction, nano::genesis_account, height));
+	ASSERT_FALSE (ledger.store.confirmation_height.get (transaction, nano::genesis_account, height));
 	height.height += 1;
-	ledger.store.confirmation_height_put (transaction, nano::genesis_account, height);
+	ledger.store.confirmation_height.put (transaction, nano::genesis_account, height);
 	ASSERT_TRUE (ledger.dependents_confirmed (transaction, *receive1));
 	auto receive2 = builder.state ()
 					.account (key1.pub)
@@ -3234,13 +3234,13 @@ TEST (ledger, dependents_confirmed)
 					.build_shared ();
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *receive2).code);
 	ASSERT_FALSE (ledger.dependents_confirmed (transaction, *receive2));
-	ASSERT_TRUE (ledger.store.confirmation_height_get (transaction, key1.pub, height));
+	ASSERT_TRUE (ledger.store.confirmation_height.get (transaction, key1.pub, height));
 	height.height += 1;
-	ledger.store.confirmation_height_put (transaction, key1.pub, height);
+	ledger.store.confirmation_height.put (transaction, key1.pub, height);
 	ASSERT_FALSE (ledger.dependents_confirmed (transaction, *receive2));
-	ASSERT_FALSE (ledger.store.confirmation_height_get (transaction, nano::genesis_account, height));
+	ASSERT_FALSE (ledger.store.confirmation_height.get (transaction, nano::genesis_account, height));
 	height.height += 1;
-	ledger.store.confirmation_height_put (transaction, nano::genesis_account, height);
+	ledger.store.confirmation_height.put (transaction, nano::genesis_account, height);
 	ASSERT_TRUE (ledger.dependents_confirmed (transaction, *receive2));
 }
 
@@ -3279,9 +3279,9 @@ TEST (ledger, dependents_confirmed_pruning)
 				 .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send2).code);
 	nano::confirmation_height_info height;
-	ASSERT_FALSE (ledger.store.confirmation_height_get (transaction, nano::genesis_account, height));
+	ASSERT_FALSE (ledger.store.confirmation_height.get (transaction, nano::genesis_account, height));
 	height.height = 3;
-	ledger.store.confirmation_height_put (transaction, nano::genesis_account, height);
+	ledger.store.confirmation_height.put (transaction, nano::genesis_account, height);
 	ASSERT_TRUE (ledger.block_confirmed (transaction, send1->hash ()));
 	ASSERT_EQ (2, ledger.pruning_action (transaction, send2->hash (), 1));
 	auto receive1 = builder.state ()
@@ -3324,9 +3324,9 @@ TEST (ledger, block_confirmed)
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, *send1).code);
 	ASSERT_FALSE (ledger.block_confirmed (transaction, send1->hash ()));
 	nano::confirmation_height_info height;
-	ASSERT_FALSE (ledger.store.confirmation_height_get (transaction, nano::genesis_account, height));
+	ASSERT_FALSE (ledger.store.confirmation_height.get (transaction, nano::genesis_account, height));
 	++height.height;
-	ledger.store.confirmation_height_put (transaction, nano::genesis_account, height);
+	ledger.store.confirmation_height.put (transaction, nano::genesis_account, height);
 	ASSERT_TRUE (ledger.block_confirmed (transaction, send1->hash ()));
 }
 
@@ -3404,10 +3404,10 @@ TEST (ledger, cache)
 		{
 			auto transaction (store->tx_begin_write ());
 			nano::confirmation_height_info height;
-			ASSERT_FALSE (ledger.store.confirmation_height_get (transaction, nano::genesis_account, height));
+			ASSERT_FALSE (ledger.store.confirmation_height.get (transaction, nano::genesis_account, height));
 			++height.height;
 			height.frontier = send->hash ();
-			ledger.store.confirmation_height_put (transaction, nano::genesis_account, height);
+			ledger.store.confirmation_height.put (transaction, nano::genesis_account, height);
 			ASSERT_TRUE (ledger.block_confirmed (transaction, send->hash ()));
 			++ledger.cache.cemented_count;
 		}
@@ -3419,10 +3419,10 @@ TEST (ledger, cache)
 		{
 			auto transaction (store->tx_begin_write ());
 			nano::confirmation_height_info height;
-			ledger.store.confirmation_height_get (transaction, key.pub, height);
+			ledger.store.confirmation_height.get (transaction, key.pub, height);
 			height.height += 1;
 			height.frontier = open->hash ();
-			ledger.store.confirmation_height_put (transaction, key.pub, height);
+			ledger.store.confirmation_height.put (transaction, key.pub, height);
 			ASSERT_TRUE (ledger.block_confirmed (transaction, open->hash ()));
 			++ledger.cache.cemented_count;
 		}
@@ -3860,7 +3860,7 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 		ASSERT_FALSE (store.init_error ());
 
 		// Lower the database to the max version unsupported for upgrades
-		store.confirmation_height_put (transaction, nano::genesis_account, { 2, send->hash () });
+		store.confirmation_height.put (transaction, nano::genesis_account, { 2, send->hash () });
 
 		store.online_weight.put (transaction, 100, nano::amount (2));
 		store.frontier.put (transaction, nano::block_hash (2), nano::account (5));
@@ -3899,7 +3899,7 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 	ASSERT_EQ (rocksdb_store.version_get (rocksdb_transaction), version);
 	ASSERT_EQ (rocksdb_store.frontier.get (rocksdb_transaction, 2), 5);
 	nano::confirmation_height_info confirmation_height_info;
-	ASSERT_FALSE (rocksdb_store.confirmation_height_get (rocksdb_transaction, nano::genesis_account, confirmation_height_info));
+	ASSERT_FALSE (rocksdb_store.confirmation_height.get (rocksdb_transaction, nano::genesis_account, confirmation_height_info));
 	ASSERT_EQ (confirmation_height_info.height, 2);
 	ASSERT_EQ (confirmation_height_info.frontier, send->hash ());
 	ASSERT_TRUE (rocksdb_store.final_vote.get (rocksdb_transaction, nano::root (send->previous ())).size () == 1);

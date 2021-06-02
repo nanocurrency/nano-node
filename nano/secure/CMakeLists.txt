@@ -58,6 +58,7 @@ add_library(
   store/account_store_partial.hpp
   store/pending_store_partial.hpp
   store/online_weight_partial.hpp
+  store/confirmation_height_store_partial.hpp
   store/final_vote_store_partial.hpp)
 
 target_link_libraries(

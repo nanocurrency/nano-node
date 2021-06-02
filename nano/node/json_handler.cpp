@@ -606,7 +606,7 @@ void nano::json_handler::account_info ()
 		auto transaction (node.store.tx_begin_read ());
 		auto info (account_info_impl (transaction, account));
 		nano::confirmation_height_info confirmation_height_info;
-		node.store.confirmation_height_get (transaction, account, confirmation_height_info);
+		node.store.confirmation_height.get (transaction, account, confirmation_height_info);
 		if (!ec)
 		{
 			response_l.put ("frontier", info.head.to_string ());
@@ -4226,7 +4226,7 @@ void nano::json_handler::wallet_info ()
 			}
 
 			nano::confirmation_height_info confirmation_info{};
-			if (!node.store.confirmation_height_get (block_transaction, account, confirmation_info))
+			if (!node.store.confirmation_height.get (block_transaction, account, confirmation_info))
 			{
 				cemented_block_count += confirmation_info.height;
 			}

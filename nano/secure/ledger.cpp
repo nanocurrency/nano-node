@@ -771,7 +771,7 @@ void nano::ledger::initialize (nano::generate_cache const & generate_cache_a)
 
 	if (generate_cache_a.cemented_count)
 	{
-		store.confirmation_height_for_each_par (
+		store.confirmation_height.for_each_par (
 		[this] (nano::read_transaction const & /*unused*/, nano::store_iterator<nano::account, nano::confirmation_height_info> i, nano::store_iterator<nano::account, nano::confirmation_height_info> n) {
 			uint64_t cemented_count_l (0);
 			for (; i != n; ++i)
@@ -787,7 +787,7 @@ void nano::ledger::initialize (nano::generate_cache const & generate_cache_a)
 
 	// Final votes requirement for confirmation canary block
 	nano::confirmation_height_info confirmation_height_info;
-	if (!store.confirmation_height_get (transaction, network_params.ledger.final_votes_canary_account, confirmation_height_info))
+	if (!store.confirmation_height.get (transaction, network_params.ledger.final_votes_canary_account, confirmation_height_info))
 	{
 		cache.final_votes_confirmation_canary = (confirmation_height_info.height >= network_params.ledger.final_votes_canary_height);
 	}
@@ -821,7 +821,7 @@ nano::uint128_t nano::ledger::account_balance (nano::transaction const & transac
 	if (only_confirmed_a)
 	{
 		nano::confirmation_height_info info;
-		if (!store.confirmation_height_get (transaction_a, account_a, info))
+		if (!store.confirmation_height.get (transaction_a, account_a, info))
 		{
 			result = balance (transaction_a, info.frontier);
 		}
@@ -1044,7 +1044,7 @@ bool nano::ledger::rollback (nano::write_transaction const & transaction_a, nano
 	while (!error && store.block_exists (transaction_a, block_a))
 	{
 		nano::confirmation_height_info confirmation_height_info;
-		store.confirmation_height_get (transaction_a, account_l, confirmation_height_info);
+		store.confirmation_height.get (transaction_a, account_l, confirmation_height_info);
 		if (block_account_height > confirmation_height_info.height)
 		{
 			auto latest_error = store.account.get (transaction_a, account_l, account_info);
@@ -1262,7 +1262,7 @@ void nano::ledger::update_account (nano::write_transaction const & transaction_a
 	}
 	else
 	{
-		debug_assert (!store.confirmation_height_exists (transaction_a, account_a));
+		debug_assert (!store.confirmation_height.exists (transaction_a, account_a));
 		store.account.del (transaction_a, account_a);
 		debug_assert (cache.account_count > 0);
 		--cache.account_count;
@@ -1331,7 +1331,7 @@ bool nano::ledger::block_confirmed (nano::transaction const & transaction_a, nan
 	if (block)
 	{
 		nano::confirmation_height_info confirmation_height_info;
-		store.confirmation_height_get (transaction_a, block->account ().is_zero () ? block->sideband ().account : block->account (), confirmation_height_info);
+		store.confirmation_height.get (transaction_a, block->account ().is_zero () ? block->sideband ().account : block->account (), confirmation_height_info);
 		auto confirmed (confirmation_height_info.height >= block->sideband ().height);
 		return confirmed;
 	}
@@ -1384,7 +1384,7 @@ std::multimap<uint64_t, nano::uncemented_info, std::greater<>> nano::ledger::unc
 			auto const & account_info (i->second);
 
 			nano::confirmation_height_info conf_height_info;
-			this->store.confirmation_height_get (transaction_a, account, conf_height_info);
+			this->store.confirmation_height.get (transaction_a, account, conf_height_info);
 
 			if (account_info.block_count != conf_height_info.height)
 			{
@@ -1454,12 +1454,12 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 			}
 		});
 
-		store.confirmation_height_for_each_par (
+		store.confirmation_height.for_each_par (
 		[&rocksdb_store] (nano::read_transaction const & /*unused*/, auto i, auto n) {
 			for (; i != n; ++i)
 			{
 				auto rocksdb_transaction (rocksdb_store->tx_begin_write ({}, { nano::tables::confirmation_height }));
-				rocksdb_store->confirmation_height_put (rocksdb_transaction, i->first, i->second);
+				rocksdb_store->confirmation_height.put (rocksdb_transaction, i->first, i->second);
 			}
 		});
 
@@ -1532,9 +1532,9 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 
 		// If confirmation height exists in the lmdb ledger for this account it should exist in the rocksdb ledger
 		nano::confirmation_height_info confirmation_height_info;
-		if (!store.confirmation_height_get (lmdb_transaction, account, confirmation_height_info))
+		if (!store.confirmation_height.get (lmdb_transaction, account, confirmation_height_info))
 		{
-			error |= rocksdb_store->confirmation_height_get (rocksdb_transaction, account, confirmation_height_info);
+			error |= rocksdb_store->confirmation_height.get (rocksdb_transaction, account, confirmation_height_info);
 		}
 	}
 	else

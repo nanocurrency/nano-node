@@ -121,7 +121,7 @@ void nano::confirmation_height_bounded::process (std::shared_ptr<nano::block> or
 		}
 		else
 		{
-			ledger.store.confirmation_height_get (transaction, account, confirmation_height_info);
+			ledger.store.confirmation_height.get (transaction, account, confirmation_height_info);
 			// This block was added to the confirmation height processor but is already confirmed
 			if (first_iter && confirmation_height_info.height >= block->sideband ().height && current == original_block->hash ())
 			{
@@ -385,19 +385,19 @@ void nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 #ifndef NDEBUG
 				// Extra debug checks
 				nano::confirmation_height_info confirmation_height_info;
-				ledger.store.confirmation_height_get (transaction, account, confirmation_height_info);
+				ledger.store.confirmation_height.get (transaction, account, confirmation_height_info);
 				auto block (ledger.store.block_get (transaction, confirmed_frontier));
 				debug_assert (block != nullptr);
 				debug_assert (block->sideband ().height == confirmation_height_info.height + num_blocks_cemented);
 #endif
-				ledger.store.confirmation_height_put (transaction, account, nano::confirmation_height_info{ confirmation_height, confirmed_frontier });
+				ledger.store.confirmation_height.put (transaction, account, nano::confirmation_height_info{ confirmation_height, confirmed_frontier });
 				ledger.cache.cemented_count += num_blocks_cemented;
 				ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in, num_blocks_cemented);
 				ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_bounded, nano::stat::dir::in, num_blocks_cemented);
 			};
 
 			nano::confirmation_height_info confirmation_height_info;
-			ledger.store.confirmation_height_get (transaction, pending.account, confirmation_height_info);
+			ledger.store.confirmation_height.get (transaction, pending.account, confirmation_height_info);
 
 			// Some blocks need to be cemented at least
 			if (pending.top_height > confirmation_height_info.height)
