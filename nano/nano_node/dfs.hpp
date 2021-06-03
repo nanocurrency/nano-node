@@ -1,47 +1,11 @@
 #include <nano/node/testing.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/node.hpp>
-#include "nano/secure/ledger.hpp"
+#include <nano/secure/ledger.hpp>
 
 namespace nano
 {
-    struct account_walk_info
-    {
-        explicit account_walk_info(std::uint64_t from_height)
-        : walked{false},
-          from{from_height},
-          to{0}
-        {
-
-        }
-
-        void reset(std::uint64_t height)
-        {
-            debug_assert(walked);
-            debug_assert(from < height);
-
-            to = from;
-            from = height;
-            walked = false;
-        }
-
-        bool has_block_been_visited(std::uint64_t block_height) const
-        {
-            if (walked)
-            {
-                return block_height <= from;
-            }
-
-            debug_assert(to > 0);
-            return block_height < to;
-        }
-
-        bool walked;
-        std::uint64_t from;
-        std::uint64_t to;
-    };
-
-    void dfs(const std::shared_ptr<nano::block>& start_block)
+    void dfs(const nano::block_hash& start_block_hash, const std::function<bool(const std::shared_ptr<nano::block>&)>& client_callback)
     {
         nano::system system{};
         const auto node = std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::working_path (), system.logging, system.work);
@@ -51,80 +15,60 @@ namespace nano
             return;
         }
 
-        std::vector<nano::block_hash> block_hash_container{start_block->hash()};
-        std::unordered_map<nano::account, account_walk_info> account_container{};
+        std::vector<nano::block_hash> blocks_to_visit{start_block_hash};
+        std::unordered_set<nano::block_hash> blocks_visited{start_block_hash};
         const auto insert_block = [&](const auto& block)
         {
-            const auto block_height = block->sideband().height;
-            const auto [account_iterator, insertion_successful] = account_container.emplace(block->account(), account_walk_info{block_height});
-            if (!insertion_successful)
+            if (blocks_visited.emplace(block->hash()).second)
             {
-                auto& walk_info = account_iterator->second;
-                if (!walk_info.has_block_been_visited(block_height))
-                {
-                    block_hash_container.emplace_back(block->hash());
-                    if (walk_info.walked && walk_info.from < block_height)
-                    {
-                        walk_info.reset(block_height);
-                    }
-                }
-            }
-            else
-            {
-                block_hash_container.emplace_back(block->hash());
+                blocks_to_visit.emplace_back(block->hash());
             }
         };
 
         auto transaction = node->ledger.store.tx_begin_read ();
-        const auto pop_block_hash = [&]()
+        const auto pop_block = [&]()
         {
-            auto block = node->ledger.store.block_get(transaction, block_hash_container.back());
-            block_hash_container.pop_back();
+            auto block = node->ledger.store.block_get(transaction, blocks_to_visit.back());
+            blocks_to_visit.pop_back();
 
             return block;
         };
 
-        const auto visit_block = [](const auto& block)
+        while (!blocks_to_visit.empty())
         {
-            std::cout << "visiting block " << block->hash().to_string() << "\n";
-        };
-
-        while (!block_hash_container.empty())
-        {
-            const auto block = pop_block_hash();
-
-            const auto account_iterator = account_container.find(block->account());
-            if (account_iterator == account_container.cend())
+            const auto block = pop_block();
+            if (!client_callback(block))
             {
                 continue;
             }
-
-            const auto& walk_info = account_iterator->second;
-            if (walk_info.has_block_been_visited(block->sideband().height))
-            {
-                continue;
-            }
-
-            visit_block(block);
 
             if (!block->previous().is_zero())
             {
-                const auto previous_block = node->ledger.store.block_get(transaction, block->previous());
-                if (previous_block->sideband().height >= account_iterator->second.to)
-                {
-                    insert_block(previous_block);
-                }
-                else
-                {
-                    account_iterator->second.walked = true;
-                }
+                insert_block(node->ledger.store.block_get(transaction, block->previous()));
             }
 
             if (block->sideband().details.is_receive)
             {
-                insert_block(node->ledger.store.block_get(transaction, block->source()));
+                insert_block(node->ledger.store.block_get(transaction, block->link().as_block_hash()));
             }
         }
+    }
+
+    void test_dfs()
+    {
+        nano::block_hash hash{};
+        if (hash.decode_hex("4EA5CE70091576BED73A637104E17194C45D0130D5812D99BCCB7B24104C613D"))
+        {
+            std::cerr << "parse error block hash\n";
+            return;
+        }
+
+        const auto genesis_block_hash = nano::genesis{}.hash();
+        dfs(hash, [&](const auto& block)
+        {
+            // std::cout << "visiting block " << block->hash().to_string() << "\n";
+            return block->hash() != genesis_block_hash;
+        });
     }
 
     void senders_discovery()

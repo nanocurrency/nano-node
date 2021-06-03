@@ -160,7 +160,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("test-dfs") > 0)
         {
-		    nano::senders_discovery();
+		    nano::test_dfs();
         }
 		else if (vm.count ("compare_rep_weights"))
 		{
