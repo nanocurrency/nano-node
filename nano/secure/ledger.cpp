@@ -1509,14 +1509,14 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 			rocksdb_store->online_weight.put (rocksdb_transaction, i->first, i->second);
 		}
 
-		for (auto i (store.peers_begin (lmdb_transaction)), n (store.peers_end ()); i != n; ++i)
+		for (auto i (store.peer.begin (lmdb_transaction)), n (store.peer.end ()); i != n; ++i)
 		{
-			rocksdb_store->peer_put (rocksdb_transaction, i->first);
+			rocksdb_store->peer.put (rocksdb_transaction, i->first);
 		}
 
 		// Compare counts
 		error |= store.unchecked_count (lmdb_transaction) != rocksdb_store->unchecked_count (rocksdb_transaction);
-		error |= store.peer_count (lmdb_transaction) != rocksdb_store->peer_count (rocksdb_transaction);
+		error |= store.peer.count (lmdb_transaction) != rocksdb_store->peer.count (rocksdb_transaction);
 		error |= store.pruned.count (lmdb_transaction) != rocksdb_store->pruned.count (rocksdb_transaction);
 		error |= store.final_vote.count (lmdb_transaction) != rocksdb_store->final_vote.count (rocksdb_transaction);
 		error |= store.online_weight.count (lmdb_transaction) != rocksdb_store->online_weight.count (rocksdb_transaction);

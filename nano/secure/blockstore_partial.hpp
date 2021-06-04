@@ -11,6 +11,7 @@
 #include <nano/secure/store/final_vote_store_partial.hpp>
 #include <nano/secure/store/frontier_store_partial.hpp>
 #include <nano/secure/store/online_weight_partial.hpp>
+#include <nano/secure/store/peer_store_partial.hpp>
 #include <nano/secure/store/pending_store_partial.hpp>
 #include <nano/secure/store/pruned_store_partial.hpp>
 
@@ -47,6 +48,7 @@ class block_store_partial : public block_store
 	nano::pending_store_partial<Val, Derived_Store> pending_store_partial;
 	nano::online_weight_store_partial<Val, Derived_Store> online_weight_store_partial;
 	nano::pruned_store_partial<Val, Derived_Store> pruned_store_partial;
+	nano::peer_store_partial<Val, Derived_Store> peer_store_partial;
 	nano::confirmation_height_store_partial<Val, Derived_Store> confirmation_height_store_partial;
 	nano::final_vote_store_partial<Val, Derived_Store> final_vote_store_partial;
 
@@ -62,16 +64,18 @@ public:
 	friend class nano::pending_store_partial<Val, Derived_Store>;
 	friend class nano::online_weight_store_partial<Val, Derived_Store>;
 	friend class nano::pruned_store_partial<Val, Derived_Store>;
+	friend class nano::peer_store_partial<Val, Derived_Store>;
 	friend class nano::confirmation_height_store_partial<Val, Derived_Store>;
 	friend class nano::final_vote_store_partial<Val, Derived_Store>;
 
 	block_store_partial () :
-		block_store{ frontier_store_partial, account_store_partial, pending_store_partial, online_weight_store_partial, pruned_store_partial, confirmation_height_store_partial, final_vote_store_partial },
+		block_store{ frontier_store_partial, account_store_partial, pending_store_partial, online_weight_store_partial, pruned_store_partial, peer_store_partial, confirmation_height_store_partial, final_vote_store_partial },
 		frontier_store_partial{ *this },
 		account_store_partial{ *this },
 		pending_store_partial{ *this },
 		online_weight_store_partial{ *this },
 		pruned_store_partial{ *this },
+		peer_store_partial{ *this },
 		confirmation_height_store_partial{ *this },
 		final_vote_store_partial{ *this }
 	{
@@ -249,11 +253,6 @@ public:
 		return nano::store_iterator<nano::unchecked_key, nano::unchecked_info> (nullptr);
 	}
 
-	nano::store_iterator<nano::endpoint_key, nano::no_value> peers_end () const override
-	{
-		return nano::store_iterator<nano::endpoint_key, nano::no_value> (nullptr);
-	}
-
 	nano::store_iterator<nano::block_hash, nano::block_w_sideband> blocks_end () const override
 	{
 		return nano::store_iterator<nano::block_hash, nano::block_w_sideband> (nullptr);
@@ -332,34 +331,6 @@ public:
 		release_assert_success (*this, status);
 	}
 
-	void peer_put (nano::write_transaction const & transaction_a, nano::endpoint_key const & endpoint_a) override
-	{
-		auto status = put_key (transaction_a, tables::peers, endpoint_a);
-		release_assert_success (*this, status);
-	}
-
-	void peer_del (nano::write_transaction const & transaction_a, nano::endpoint_key const & endpoint_a) override
-	{
-		auto status (del (transaction_a, tables::peers, endpoint_a));
-		release_assert_success (*this, status);
-	}
-
-	bool peer_exists (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a) const override
-	{
-		return exists (transaction_a, tables::peers, nano::db_val<Val> (endpoint_a));
-	}
-
-	size_t peer_count (nano::transaction const & transaction_a) const override
-	{
-		return count (transaction_a, tables::peers);
-	}
-
-	void peer_clear (nano::write_transaction const & transaction_a) override
-	{
-		auto status = drop (transaction_a, tables::peers);
-		release_assert_success (*this, status);
-	}
-
 	bool exists (nano::transaction const & transaction_a, tables table_a, nano::db_val<Val> const & key_a) const
 	{
 		return static_cast<const Derived_Store &> (*this).exists (transaction_a, table_a, key_a);
@@ -402,11 +373,6 @@ public:
 	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_begin (nano::transaction const & transaction_a, nano::unchecked_key const & key_a) const override
 	{
 		return make_iterator<nano::unchecked_key, nano::unchecked_info> (transaction_a, tables::unchecked, nano::db_val<Val> (key_a));
-	}
-
-	nano::store_iterator<nano::endpoint_key, nano::no_value> peers_begin (nano::transaction const & transaction_a) const override
-	{
-		return make_iterator<nano::endpoint_key, nano::no_value> (transaction_a, tables::peers);
 	}
 
 	size_t unchecked_count (nano::transaction const & transaction_a) override

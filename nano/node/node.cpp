@@ -765,7 +765,7 @@ void nano::node::long_inactivity_cleanup ()
 	if (perform_cleanup)
 	{
 		store.online_weight.clear (transaction);
-		store.peer_clear (transaction);
+		store.peer.clear (transaction);
 		logger.always_log ("Removed records of peers and online weight after a long period of inactivity");
 	}
 }
@@ -1206,7 +1206,7 @@ boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const &
 void nano::node::add_initial_peers ()
 {
 	auto transaction (store.tx_begin_read ());
-	for (auto i (store.peers_begin (transaction)), n (store.peers_end ()); i != n; ++i)
+	for (auto i (store.peer.begin (transaction)), n (store.peer.end ()); i != n; ++i)
 	{
 		nano::endpoint endpoint (boost::asio::ip::address_v6 (i->first.address_bytes ()), i->first.port ());
 		if (!network.reachout (endpoint, config.allow_local_peers))

@@ -1865,7 +1865,7 @@ int main (int argc, char * const * argv)
 			auto node = inactive_node->node;
 			auto transaction (node->store.tx_begin_read ());
 
-			for (auto i (node->store.peers_begin (transaction)), n (node->store.peers_end ()); i != n; ++i)
+			for (auto i (node->store.peer.begin (transaction)), n (node->store.peer.end ()); i != n; ++i)
 			{
 				std::cout << boost::str (boost::format ("%1%\n") % nano::endpoint (boost::asio::ip::address_v6 (i->first.address_bytes ()), i->first.port ()));
 			}

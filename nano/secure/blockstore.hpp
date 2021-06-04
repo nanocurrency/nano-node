@@ -671,6 +671,21 @@ public:
 };
 
 /**
+ * Manages peer storage and iteration
+ */
+class peer_store
+{
+public:
+	virtual void put (nano::write_transaction const & transaction_a, nano::endpoint_key const & endpoint_a) = 0;
+	virtual void del (nano::write_transaction const & transaction_a, nano::endpoint_key const & endpoint_a) = 0;
+	virtual bool exists (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a) const = 0;
+	virtual size_t count (nano::transaction const & transaction_a) const = 0;
+	virtual void clear (nano::write_transaction const & transaction_a) = 0;
+	virtual nano::store_iterator<nano::endpoint_key, nano::no_value> begin (nano::transaction const & transaction_a) const = 0;
+	virtual nano::store_iterator<nano::endpoint_key, nano::no_value> end () const = 0;
+};
+
+/**
  * Manages online weight storage and iteration
  */
 class online_weight_store
@@ -746,7 +761,7 @@ public:
 class block_store
 {
 public:
-	explicit block_store (nano::frontier_store &, nano::account_store &, nano::pending_store &, nano::online_weight_store &, nano::pruned_store &, nano::confirmation_height_store &, nano::final_vote_store &);
+	explicit block_store (nano::frontier_store &, nano::account_store &, nano::pending_store &, nano::online_weight_store &, nano::pruned_store &, nano::peer_store &, nano::confirmation_height_store &, nano::final_vote_store &);
 	virtual ~block_store () = default;
 	virtual void initialize (nano::write_transaction const &, nano::genesis const &, nano::ledger_cache &) = 0;
 	virtual void block_put (nano::write_transaction const &, nano::block_hash const &, nano::block const &) = 0;
@@ -792,13 +807,7 @@ public:
 
 	pruned_store & pruned;
 
-	virtual void peer_put (nano::write_transaction const & transaction_a, nano::endpoint_key const & endpoint_a) = 0;
-	virtual void peer_del (nano::write_transaction const & transaction_a, nano::endpoint_key const & endpoint_a) = 0;
-	virtual bool peer_exists (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a) const = 0;
-	virtual size_t peer_count (nano::transaction const & transaction_a) const = 0;
-	virtual void peer_clear (nano::write_transaction const & transaction_a) = 0;
-	virtual nano::store_iterator<nano::endpoint_key, nano::no_value> peers_begin (nano::transaction const & transaction_a) const = 0;
-	virtual nano::store_iterator<nano::endpoint_key, nano::no_value> peers_end () const = 0;
+	peer_store & peer;
 
 	confirmation_height_store & confirmation_height;
 

@@ -178,7 +178,7 @@ public:
 	 * Endpoints for peers
 	 * nano::endpoint_key -> no_value
 	*/
-	MDB_dbi peers{ 0 };
+	MDB_dbi peer_handle{ 0 };
 
 	/*
 	 * Confirmation height of an account, and the hash for the block at that height

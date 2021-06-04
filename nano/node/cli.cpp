@@ -232,7 +232,7 @@ bool copy_database (boost::filesystem::path const & data_path, boost::program_op
 		}
 		if (vm.count ("peer_clear"))
 		{
-			node.node->store.peer_clear (store.tx_begin_write ());
+			node.node->store.peer.clear (store.tx_begin_write ());
 		}
 		if (vm.count ("confirmation_height_clear"))
 		{
@@ -545,7 +545,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		if (!node.node->init_error ())
 		{
 			auto transaction (node.node->store.tx_begin_write ());
-			node.node->store.peer_clear (transaction);
+			node.node->store.peer.clear (transaction);
 			std::cout << "Database peers are removed" << std::endl;
 		}
 		else
