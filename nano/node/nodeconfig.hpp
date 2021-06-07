@@ -86,7 +86,7 @@ public:
 	std::chrono::nanoseconds pow_sleep_interval{ 0 };
 	size_t active_elections_size{ 5000 };
 	/** Default maximum incoming TCP connections, including realtime network & bootstrap */
-	unsigned tcp_incoming_connections_max{ 1024 };
+	unsigned tcp_incoming_connections_max{ 2048 };
 	bool use_memory_pools{ true };
 	static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
 	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;

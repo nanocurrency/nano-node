@@ -153,7 +153,7 @@ public:
 	 * Maps (destination account, pending block) to (source account, amount, version). (Removed)
 	 * nano::account, nano::block_hash -> nano::account, nano::amount, nano::epoch
 	 */
-	MDB_dbi pending{ 0 };
+	MDB_dbi lmdb_pending{ 0 };
 
 	/**
 	 * Representative weights. (Removed)
@@ -171,7 +171,7 @@ public:
 	 * Samples of online vote weight
 	 * uint64_t -> nano::amount
 	 */
-	MDB_dbi online_weight{ 0 };
+	MDB_dbi online_weight_handle{ 0 };
 
 	/**
 	 * Meta information about block store, such as versions.
@@ -183,19 +183,19 @@ public:
 	 * Pruned blocks hashes
 	 * nano::block_hash -> none
 	 */
-	MDB_dbi pruned{ 0 };
+	MDB_dbi pruned_handle{ 0 };
 
 	/*
 	 * Endpoints for peers
 	 * nano::endpoint_key -> no_value
 	*/
-	MDB_dbi peers{ 0 };
+	MDB_dbi peer_handle{ 0 };
 
 	/*
 	 * Confirmation height of an account, and the hash for the block at that height
 	 * nano::account -> uint64_t, nano::block_hash
 	 */
-	MDB_dbi confirmation_height{ 0 };
+	MDB_dbi confirmation_height_handle{ 0 };
 
 	/*
 	 * Contains block_sideband and block for all block types (legacy send/change/open/receive & state blocks)
@@ -207,7 +207,7 @@ public:
 	 * Maps root to block hash for generated final votes.
 	 * nano::qualified_root -> nano::block_hash
 	 */
-	MDB_dbi final_votes{ 0 };
+	MDB_dbi final_vote_handle{ 0 };
 
 	bool exists (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a) const;
 

@@ -613,7 +613,7 @@ TEST (active_transactions, dropped_cleanup)
 	ASSERT_FALSE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
 
 	// An election was recently dropped
-	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::election_drop));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::election_drop_all));
 
 	// Block cleared from active
 	ASSERT_EQ (0, node.active.blocks.count (block->hash ()));
@@ -632,7 +632,7 @@ TEST (active_transactions, dropped_cleanup)
 	ASSERT_TRUE (node.network.publish_filter.apply (block_bytes.data (), block_bytes.size ()));
 
 	// Not dropped
-	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::election_drop));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::election_drop_all));
 
 	// Block cleared from active
 	ASSERT_EQ (0, node.active.blocks.count (block->hash ()));
@@ -1311,9 +1311,9 @@ TEST (active_transactions, pessimistic_elections)
 	nano::confirmation_height_info key1_confirmation_height_info;
 	{
 		auto transaction = node.store.tx_begin_read ();
-		node.store.confirmation_height_get (transaction, nano::genesis_account, genesis_confirmation_height_info);
+		node.store.confirmation_height.get (transaction, nano::genesis_account, genesis_confirmation_height_info);
 		ASSERT_EQ (2, genesis_confirmation_height_info.height);
-		node.store.confirmation_height_get (transaction, key.pub, key1_confirmation_height_info);
+		node.store.confirmation_height.get (transaction, key.pub, key1_confirmation_height_info);
 		ASSERT_EQ (0, key1_confirmation_height_info.height);
 	}
 
@@ -1333,9 +1333,9 @@ TEST (active_transactions, pessimistic_elections)
 
 	{
 		auto transaction = node.store.tx_begin_read ();
-		node.store.confirmation_height_get (transaction, nano::genesis_account, genesis_confirmation_height_info);
+		node.store.confirmation_height.get (transaction, nano::genesis_account, genesis_confirmation_height_info);
 		ASSERT_EQ (3, genesis_confirmation_height_info.height);
-		node.store.confirmation_height_get (transaction, key.pub, key1_confirmation_height_info);
+		node.store.confirmation_height.get (transaction, key.pub, key1_confirmation_height_info);
 		ASSERT_EQ (0, key1_confirmation_height_info.height);
 	}
 
@@ -1357,9 +1357,9 @@ TEST (active_transactions, pessimistic_elections)
 
 	{
 		auto transaction = node.store.tx_begin_read ();
-		node.store.confirmation_height_get (transaction, nano::genesis_account, genesis_confirmation_height_info);
+		node.store.confirmation_height.get (transaction, nano::genesis_account, genesis_confirmation_height_info);
 		ASSERT_EQ (3, genesis_confirmation_height_info.height);
-		node.store.confirmation_height_get (transaction, key.pub, key1_confirmation_height_info);
+		node.store.confirmation_height.get (transaction, key.pub, key1_confirmation_height_info);
 		ASSERT_EQ (1, key1_confirmation_height_info.height);
 	}
 
@@ -1457,4 +1457,76 @@ TEST (active_transactions, vacancy)
 	ASSERT_TIMELY (1s, updated);
 	ASSERT_EQ (1, node.active.vacancy ());
 	ASSERT_EQ (0, node.active.size ());
+}
+
+// Ensure transactions in excess of capacity are removed in fifo order
+TEST (active_transactions, fifo)
+{
+	nano::system system;
+	nano::node_config config{ nano::get_available_port (), system.logging };
+	config.active_elections_size = 1;
+	auto & node = *system.add_node (config);
+	nano::keypair key0;
+	nano::keypair key1;
+	nano::state_block_builder builder;
+	// Construct two pending entries that can be received simultaneously
+	auto send0 = builder.make_block ()
+				 .account (nano::dev_genesis_key.pub)
+				 .previous (nano::genesis_hash)
+				 .representative (nano::dev_genesis_key.pub)
+				 .link (key0.pub)
+				 .balance (nano::genesis_amount - 1)
+				 .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+				 .work (*system.work.generate (nano::genesis_hash))
+				 .build_shared ();
+	ASSERT_EQ (nano::process_result::progress, node.process (*send0).code);
+	nano::blocks_confirm (node, { send0 }, true);
+	ASSERT_TIMELY (1s, node.block_confirmed (send0->hash ()));
+	ASSERT_TIMELY (1s, node.active.empty ());
+	auto send1 = builder.make_block ()
+				 .account (nano::dev_genesis_key.pub)
+				 .previous (send0->hash ())
+				 .representative (nano::dev_genesis_key.pub)
+				 .link (key1.pub)
+				 .balance (nano::genesis_amount - 2)
+				 .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+				 .work (*system.work.generate (send0->hash ()))
+				 .build_shared ();
+	ASSERT_EQ (nano::process_result::progress, node.process (*send1).code);
+	nano::blocks_confirm (node, { send1 }, true);
+	ASSERT_TIMELY (1s, node.block_confirmed (send1->hash ()));
+	ASSERT_TIMELY (1s, node.active.empty ());
+
+	auto receive0 = builder.make_block ()
+					.account (key0.pub)
+					.previous (0)
+					.representative (nano::dev_genesis_key.pub)
+					.link (send0->hash ())
+					.balance (1)
+					.sign (key0.prv, key0.pub)
+					.work (*system.work.generate (key0.pub))
+					.build_shared ();
+	ASSERT_EQ (nano::process_result::progress, node.process (*receive0).code);
+	auto receive1 = builder.make_block ()
+					.account (key1.pub)
+					.previous (0)
+					.representative (nano::dev_genesis_key.pub)
+					.link (send1->hash ())
+					.balance (1)
+					.sign (key1.prv, key1.pub)
+					.work (*system.work.generate (key1.pub))
+					.build_shared ();
+	ASSERT_EQ (nano::process_result::progress, node.process (*receive1).code);
+	node.scheduler.manual (receive0);
+	// Ensure first transaction becomes active
+	ASSERT_TIMELY (1s, node.active.election (receive0->qualified_root ()) != nullptr);
+	node.scheduler.manual (receive1);
+	// Ensure second transaction becomes active
+	ASSERT_TIMELY (1s, node.active.election (receive1->qualified_root ()) != nullptr);
+	// Ensure excess transactions get trimmed
+	ASSERT_TIMELY (1s, node.active.size () == 1);
+	// Ensure overflow stats have been incremented
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::election_drop_overflow));
+	// Ensure the surviving transaction is the least recently inserted
+	ASSERT_TIMELY (1s, node.active.election (receive1->qualified_root ()) != nullptr);
 }

@@ -167,6 +167,7 @@ public:
 	std::vector<std::shared_ptr<nano::election>> list_active (size_t = std::numeric_limits<size_t>::max ());
 	void erase (nano::block const &);
 	void erase_hash (nano::block_hash const &);
+	void erase_oldest ();
 	bool empty ();
 	size_t size ();
 	void stop ();

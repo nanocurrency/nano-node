@@ -183,7 +183,7 @@ TEST (wallet, spend_all_one)
 	nano::account_info info2;
 	{
 		auto transaction (node1.store.tx_begin_read ());
-		node1.store.account_get (transaction, nano::dev_genesis_key.pub, info2);
+		node1.store.account.get (transaction, nano::dev_genesis_key.pub, info2);
 		ASSERT_NE (latest1, info2.head);
 		auto block (node1.store.block_get (transaction, info2.head));
 		ASSERT_NE (nullptr, block);
@@ -220,7 +220,7 @@ TEST (wallet, spend)
 	nano::account_info info2;
 	{
 		auto transaction (node1.store.tx_begin_read ());
-		node1.store.account_get (transaction, nano::dev_genesis_key.pub, info2);
+		node1.store.account.get (transaction, nano::dev_genesis_key.pub, info2);
 		ASSERT_NE (latest1, info2.head);
 		auto block (node1.store.block_get (transaction, info2.head));
 		ASSERT_NE (nullptr, block);
@@ -259,7 +259,7 @@ TEST (wallet, spend_no_previous)
 		system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 		auto transaction (system.nodes[0]->store.tx_begin_read ());
 		nano::account_info info1;
-		ASSERT_FALSE (system.nodes[0]->store.account_get (transaction, nano::dev_genesis_key.pub, info1));
+		ASSERT_FALSE (system.nodes[0]->store.account.get (transaction, nano::dev_genesis_key.pub, info1));
 		for (auto i (0); i < 50; ++i)
 		{
 			nano::keypair key;

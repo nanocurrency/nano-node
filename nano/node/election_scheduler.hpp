@@ -36,10 +36,11 @@ public:
 private:
 	void run ();
 	bool empty_locked () const;
+	bool priority_queue_predicate () const;
+	bool manual_queue_predicate () const;
+	bool overfill_predicate () const;
 	nano::prioritization priority;
-	uint64_t priority_queued{ 0 };
 	std::deque<std::tuple<std::shared_ptr<nano::block>, boost::optional<nano::uint128_t>, nano::election_behavior, std::function<void (std::shared_ptr<nano::block>)>>> manual_queue;
-	uint64_t manual_queued{ 0 };
 	nano::node & node;
 	bool stopped;
 	nano::condition_variable condition;

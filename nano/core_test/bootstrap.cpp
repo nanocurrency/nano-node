@@ -443,9 +443,9 @@ TEST (bootstrap_processor, push_diamond_pruning)
 		ASSERT_EQ (1, node1->ledger.pruning_action (transaction, open->hash (), 1));
 		ASSERT_TRUE (node1->store.block_exists (transaction, latest));
 		ASSERT_FALSE (node1->store.block_exists (transaction, send1->hash ()));
-		ASSERT_TRUE (node1->store.pruned_exists (transaction, send1->hash ()));
+		ASSERT_TRUE (node1->store.pruned.exists (transaction, send1->hash ()));
 		ASSERT_FALSE (node1->store.block_exists (transaction, open->hash ()));
-		ASSERT_TRUE (node1->store.pruned_exists (transaction, open->hash ()));
+		ASSERT_TRUE (node1->store.pruned.exists (transaction, open->hash ()));
 		ASSERT_TRUE (node1->store.block_exists (transaction, send2->hash ()));
 		ASSERT_TRUE (node1->store.block_exists (transaction, receive->hash ()));
 		ASSERT_EQ (2, node1->ledger.cache.pruned_count);

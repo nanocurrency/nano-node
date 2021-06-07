@@ -485,14 +485,14 @@ uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, ta
 	// Peers/online weight are small enough that they can just be iterated to get accurate counts.
 	if (table_a == tables::peers)
 	{
-		for (auto i (peers_begin (transaction_a)), n (peers_end ()); i != n; ++i)
+		for (auto i (peer.begin (transaction_a)), n (peer.end ()); i != n; ++i)
 		{
 			++sum;
 		}
 	}
 	else if (table_a == tables::online_weight)
 	{
-		for (auto i (online_weight_begin (transaction_a)), n (online_weight_end ()); i != n; ++i)
+		for (auto i (online_weight.begin (transaction_a)), n (online_weight.end ()); i != n; ++i)
 		{
 			++sum;
 		}
@@ -517,7 +517,7 @@ uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, ta
 	else if (table_a == tables::accounts)
 	{
 		debug_assert (network_constants ().is_dev_network ());
-		for (auto i (accounts_begin (transaction_a)), n (accounts_end ()); i != n; ++i)
+		for (auto i (account.begin (transaction_a)), n (account.end ()); i != n; ++i)
 		{
 			++sum;
 		}
@@ -533,7 +533,7 @@ uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, ta
 	else if (table_a == tables::confirmation_height)
 	{
 		debug_assert (network_constants ().is_dev_network ());
-		for (auto i (confirmation_height_begin (transaction_a)), n (confirmation_height_end ()); i != n; ++i)
+		for (auto i (confirmation_height.begin (transaction_a)), n (confirmation_height.end ()); i != n; ++i)
 		{
 			++sum;
 		}
@@ -559,7 +559,7 @@ int nano::rocksdb_store::drop (nano::write_transaction const & transaction_a, ta
 		if (table_a == tables::peers)
 		{
 			int status = 0;
-			for (auto i = peers_begin (transaction_a), n = peers_end (); i != n; ++i)
+			for (auto i = peer.begin (transaction_a), n = peer.end (); i != n; ++i)
 			{
 				status = del (transaction_a, tables::peers, nano::rocksdb_val (i->first));
 				release_assert (success (status));

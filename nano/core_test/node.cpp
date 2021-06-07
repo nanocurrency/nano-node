@@ -3577,10 +3577,10 @@ TEST (node, peers)
 	{
 		// Add a peer to the database
 		auto transaction (store.tx_begin_write ());
-		store.peer_put (transaction, endpoint_key);
+		store.peer.put (transaction, endpoint_key);
 
 		// Add a peer which is not contactable
-		store.peer_put (transaction, nano::endpoint_key{ boost::asio::ip::address_v6::any ().to_bytes (), 55555 });
+		store.peer.put (transaction, nano::endpoint_key{ boost::asio::ip::address_v6::any ().to_bytes (), 55555 });
 	}
 
 	node2->start ();
@@ -3605,8 +3605,8 @@ TEST (node, peers)
 
 	// Uncontactable peer should not be stored
 	auto transaction (store.tx_begin_read ());
-	ASSERT_EQ (store.peer_count (transaction), 1);
-	ASSERT_TRUE (store.peer_exists (transaction, endpoint_key));
+	ASSERT_EQ (store.peer.count (transaction), 1);
+	ASSERT_TRUE (store.peer.exists (transaction, endpoint_key));
 
 	node2->stop ();
 }
@@ -3626,7 +3626,7 @@ TEST (node, peer_cache_restart)
 		{
 			// Add a peer to the database
 			auto transaction (store.tx_begin_write ());
-			store.peer_put (transaction, endpoint_key);
+			store.peer.put (transaction, endpoint_key);
 		}
 		node2->start ();
 		ASSERT_TIMELY (10s, !node2->network.empty ());
@@ -3649,8 +3649,8 @@ TEST (node, peer_cache_restart)
 		auto & store = node3->store;
 		{
 			auto transaction (store.tx_begin_read ());
-			ASSERT_EQ (store.peer_count (transaction), 1);
-			ASSERT_TRUE (store.peer_exists (transaction, endpoint_key));
+			ASSERT_EQ (store.peer.count (transaction), 1);
+			ASSERT_TRUE (store.peer.exists (transaction, endpoint_key));
 		}
 		ASSERT_TIMELY (10s, !node3->network.empty ());
 		// Confirm that the peers match with the endpoints we are expecting
@@ -4742,7 +4742,7 @@ TEST (node, pruning_automatic)
 	ASSERT_TIMELY (2s, node1.active.empty () && node1.block_confirmed (send2->hash ()));
 	// Check pruning result
 	ASSERT_TIMELY (3s, node1.ledger.cache.pruned_count == 1);
-	ASSERT_TIMELY (2s, node1.store.pruned_count (node1.store.tx_begin_read ()) == 1); // Transaction commit
+	ASSERT_TIMELY (2s, node1.store.pruned.count (node1.store.tx_begin_read ()) == 1); // Transaction commit
 	ASSERT_EQ (1, node1.ledger.cache.pruned_count);
 	ASSERT_EQ (3, node1.ledger.cache.block_count);
 	ASSERT_TRUE (node1.ledger.block_or_pruned_exists (genesis.hash ()));

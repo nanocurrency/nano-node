@@ -95,7 +95,7 @@ void nano::confirmation_height_unbounded::process (std::shared_ptr<nano::block> 
 		else
 		{
 			nano::confirmation_height_info confirmation_height_info;
-			ledger.store.confirmation_height_get (read_transaction, account, confirmation_height_info);
+			ledger.store.confirmation_height.get (read_transaction, account, confirmation_height_info);
 			confirmation_height = confirmation_height_info.height;
 
 			// This block was added to the confirmation height processor but is already confirmed
@@ -376,7 +376,7 @@ void nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 		{
 			auto & pending = pending_writes.front ();
 			nano::confirmation_height_info confirmation_height_info;
-			ledger.store.confirmation_height_get (transaction, pending.account, confirmation_height_info);
+			ledger.store.confirmation_height.get (transaction, pending.account, confirmation_height_info);
 			auto confirmation_height = confirmation_height_info.height;
 			if (pending.height > confirmation_height)
 			{
@@ -386,7 +386,7 @@ void nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 
 				if (!block)
 				{
-					if (ledger.pruning && ledger.store.pruned_exists (transaction, pending.hash))
+					if (ledger.pruning && ledger.store.pruned.exists (transaction, pending.hash))
 					{
 						pending_writes.erase (pending_writes.begin ());
 						--pending_writes_size;
@@ -406,7 +406,7 @@ void nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 				debug_assert (pending.num_blocks_confirmed == pending.height - confirmation_height);
 				confirmation_height = pending.height;
 				ledger.cache.cemented_count += pending.num_blocks_confirmed;
-				ledger.store.confirmation_height_put (transaction, pending.account, { confirmation_height, pending.hash });
+				ledger.store.confirmation_height.put (transaction, pending.account, { confirmation_height, pending.hash });
 
 				// Reverse it so that the callbacks start from the lowest newly cemented block and move upwards
 				std::reverse (pending.block_callback_data.begin (), pending.block_callback_data.end ());
