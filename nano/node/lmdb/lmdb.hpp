@@ -75,91 +75,91 @@ public:
 	 * Maps head block to owning account
 	 * nano::block_hash -> nano::account
 	 */
-	MDB_dbi frontiers{ 0 };
+	MDB_dbi frontiers_handle{ 0 };
 
 	/**
 	 * Maps account v1 to account information, head, rep, open, balance, timestamp and block count. (Removed)
 	 * nano::account -> nano::block_hash, nano::block_hash, nano::block_hash, nano::amount, uint64_t, uint64_t
 	 */
-	MDB_dbi accounts_v0{ 0 };
+	MDB_dbi accounts_v0_handle{ 0 };
 
 	/**
 	 * Maps account v0 to account information, head, rep, open, balance, timestamp and block count. (Removed)
 	 * nano::account -> nano::block_hash, nano::block_hash, nano::block_hash, nano::amount, uint64_t, uint64_t
 	 */
-	MDB_dbi accounts_v1{ 0 };
+	MDB_dbi accounts_v1_handle{ 0 };
 
 	/**
 	 * Maps account v0 to account information, head, rep, open, balance, timestamp, block count and epoch
 	 * nano::account -> nano::block_hash, nano::block_hash, nano::block_hash, nano::amount, uint64_t, uint64_t, nano::epoch
 	 */
-	MDB_dbi accounts{ 0 };
+	MDB_dbi accounts_handle{ 0 };
 
 	/**
 	 * Maps block hash to send block. (Removed)
 	 * nano::block_hash -> nano::send_block
 	 */
-	MDB_dbi send_blocks{ 0 };
+	MDB_dbi send_blocks_handle{ 0 };
 
 	/**
 	 * Maps block hash to receive block. (Removed)
 	 * nano::block_hash -> nano::receive_block
 	 */
-	MDB_dbi receive_blocks{ 0 };
+	MDB_dbi receive_blocks_handle{ 0 };
 
 	/**
 	 * Maps block hash to open block. (Removed)
 	 * nano::block_hash -> nano::open_block
 	 */
-	MDB_dbi open_blocks{ 0 };
+	MDB_dbi open_blocks_handle{ 0 };
 
 	/**
 	 * Maps block hash to change block. (Removed)
 	 * nano::block_hash -> nano::change_block
 	 */
-	MDB_dbi change_blocks{ 0 };
+	MDB_dbi change_blocks_handle{ 0 };
 
 	/**
 	 * Maps block hash to v0 state block. (Removed)
 	 * nano::block_hash -> nano::state_block
 	 */
-	MDB_dbi state_blocks_v0{ 0 };
+	MDB_dbi state_blocks_v0_handle{ 0 };
 
 	/**
 	 * Maps block hash to v1 state block. (Removed)
 	 * nano::block_hash -> nano::state_block
 	 */
-	MDB_dbi state_blocks_v1{ 0 };
+	MDB_dbi state_blocks_v1_handle{ 0 };
 
 	/**
 	 * Maps block hash to state block. (Removed)
 	 * nano::block_hash -> nano::state_block
 	 */
-	MDB_dbi state_blocks{ 0 };
+	MDB_dbi state_blocks_handle{ 0 };
 
 	/**
 	 * Maps min_version 0 (destination account, pending block) to (source account, amount). (Removed)
 	 * nano::account, nano::block_hash -> nano::account, nano::amount
 	 */
-	MDB_dbi pending_v0{ 0 };
+	MDB_dbi pending_v0_handle{ 0 };
 
 	/**
 	 * Maps min_version 1 (destination account, pending block) to (source account, amount). (Removed)
 	 * nano::account, nano::block_hash -> nano::account, nano::amount
 	 */
-	MDB_dbi pending_v1{ 0 };
+	MDB_dbi pending_v1_handle{ 0 };
 
 	/**
 	 * Maps (destination account, pending block) to (source account, amount, version). (Removed)
 	 * nano::account, nano::block_hash -> nano::account, nano::amount, nano::epoch
 	 */
-	MDB_dbi lmdb_pending{ 0 };
+	MDB_dbi pending_handle{ 0 };
 
 	/**
 	 * Representative weights. (Removed)
 	 * nano::account -> nano::uint128_t
 	 */
-	MDB_dbi representation{ 0 };
+	MDB_dbi representation_handle{ 0 };
 
 	/**
 	 * Unchecked bootstrap blocks info.
@@ -177,7 +177,7 @@ public:
 	 * Meta information about block store, such as versions.
 	 * nano::uint256_union (arbitrary key) -> blob
 	 */
-	MDB_dbi meta{ 0 };
+	MDB_dbi meta_handle{ 0 };
 
 	/**
 	 * Pruned blocks hashes
@@ -189,7 +189,7 @@ public:
 	 * Endpoints for peers
 	 * nano::endpoint_key -> no_value
 	*/
-	MDB_dbi peer_handle{ 0 };
+	MDB_dbi peers_handle{ 0 };
 
 	/*
 	 * Confirmation height of an account, and the hash for the block at that height
@@ -201,13 +201,13 @@ public:
 	 * Contains block_sideband and block for all block types (legacy send/change/open/receive & state blocks)
 	 * nano::block_hash -> nano::block_sideband, nano::block
 	 */
-	MDB_dbi blocks{ 0 };
+	MDB_dbi blocks_handle{ 0 };
 
 	/**
 	 * Maps root to block hash for generated final votes.
 	 * nano::qualified_root -> nano::block_hash
 	 */
-	MDB_dbi final_vote_handle{ 0 };
+	MDB_dbi final_votes_handle{ 0 };
 
 	bool exists (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a) const;
 
