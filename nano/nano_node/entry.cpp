@@ -2,7 +2,6 @@
 #include <nano/lib/cli.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/nano_node/daemon.hpp>
-#include <nano/nano_node/dfs.hpp>
 #include <nano/node/cli.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
@@ -158,10 +157,6 @@ int main (int argc, char * const * argv)
 			}
 			daemon.run (data_path, flags);
 		}
-		else if (vm.count ("test-dfs") > 0)
-        {
-		    nano::test_dfs();
-        }
 		else if (vm.count ("compare_rep_weights"))
 		{
 			if (!nano::network_constants ().is_dev_network ())
