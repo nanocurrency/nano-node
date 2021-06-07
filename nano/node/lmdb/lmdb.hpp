@@ -33,12 +33,9 @@ class mdb_store;
 
 class unchecked_mdb_store : public unchecked_store_partial<MDB_val, mdb_store>
 {
-	//	nano::mdb_store & mdb_store;
-
 public:
-	explicit unchecked_mdb_store (nano::mdb_store & mdb_store_a);
-
-	std::vector<nano::unchecked_info> unchecked_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override;
+	explicit unchecked_mdb_store (nano::mdb_store &);
+	std::vector<nano::unchecked_info> get (nano::transaction const &, nano::block_hash const &);
 };
 
 /**
@@ -46,11 +43,8 @@ public:
  */
 class mdb_store : public block_store_partial<MDB_val, mdb_store>
 {
-	nano::unchecked_mdb_store unchecked_mdb_store;
-
 public:
-	//	using block_store_partial::block_exists;
-	//	using unchecked_store_partial::unchecked_put;
+	friend class nano::unchecked_mdb_store;
 
 	mdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, bool backup_before_upgrade = false);
 	nano::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_requiring_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) override;
@@ -69,6 +63,8 @@ public:
 	unsigned max_block_write_batch_num () const override;
 
 private:
+	nano::unchecked_mdb_store unchecked_mdb_store;
+
 	nano::logger_mt & logger;
 	bool error{ false };
 

@@ -54,7 +54,7 @@ public:
 
 	friend class nano::unchecked_store_partial<Val, Derived_Store>;
 
-	block_store_partial (nano::unchecked_store_partial<Val, Derived_Store> & unchecked_store_partial_a) :
+	explicit block_store_partial (nano::unchecked_store_partial<Val, Derived_Store> & unchecked_store_partial_a) :
 		block_store{ frontier_store, unchecked_store_partial_a },
 		frontier_store{ *this },
 		unchecked_store_partial (unchecked_store_partial_a)

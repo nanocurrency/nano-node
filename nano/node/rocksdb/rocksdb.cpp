@@ -64,6 +64,8 @@ void rocksdb_val::convert_buffer_to_value ()
 }
 
 nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a) :
+	block_store_partial{ unchecked_rocksdb_store },
+	unchecked_rocksdb_store{ *this },
 	logger{ logger_a },
 	rocksdb_config{ rocksdb_config_a },
 	max_block_write_batch_num_m{ nano::narrow_cast<unsigned> (blocks_memtable_size_bytes () / (2 * (sizeof (nano::block_type) + nano::state_block::size + nano::block_sideband::size (nano::block_type::state)))) },
@@ -590,9 +592,13 @@ int nano::rocksdb_store::clear (rocksdb::ColumnFamilyHandle * column_family)
 	return status.code ();
 }
 
-std::vector<nano::unchecked_info> nano::unchecked_rocksdb_store::unchecked_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
+nano::unchecked_rocksdb_store::unchecked_rocksdb_store (nano::rocksdb_store & rocksdb_store_a) :
+	nano::unchecked_store_partial<rocksdb::Slice, nano::rocksdb_store> (rocksdb_store_a),
+	rocksdb_store{ rocksdb_store_a } {};
+
+std::vector<nano::unchecked_info> nano::unchecked_rocksdb_store::get (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
-	auto cf = table_to_column_family (tables::unchecked);
+	auto cf = rocksdb_store.table_to_column_family (tables::unchecked);
 
 	std::unique_ptr<rocksdb::Iterator> iter;
 	nano::qualified_root upper (hash_a, nano::block_hash (std::numeric_limits<nano::uint256_t>::max ()));
@@ -604,7 +610,7 @@ std::vector<nano::unchecked_info> nano::unchecked_rocksdb_store::unchecked_get (
 		read_options.auto_prefix_mode = true;
 		read_options.iterate_upper_bound = upper_bound;
 		read_options.fill_cache = false;
-		iter.reset (db->NewIterator (read_options, cf));
+		iter.reset (rocksdb_store.db->NewIterator (read_options, cf));
 	}
 	else
 	{
@@ -613,7 +619,7 @@ std::vector<nano::unchecked_info> nano::unchecked_rocksdb_store::unchecked_get (
 		read_options.auto_prefix_mode = true;
 		read_options.iterate_upper_bound = upper_bound;
 		read_options.fill_cache = false;
-		iter.reset (tx (transaction_a)->GetIterator (read_options, cf));
+		iter.reset (rocksdb_store.tx (transaction_a)->GetIterator (read_options, cf));
 	}
 
 	// Uses prefix extraction
@@ -914,4 +920,4 @@ nano::rocksdb_store::tombstone_info::tombstone_info (uint64_t num_since_last_flu
 
 // Explicitly instantiate
 template class nano::block_store_partial<rocksdb::Slice, nano::rocksdb_store>;
-template class nano::unchecked_store_partial<rocksdb::Slice, rocksdb_store>;
+//template class nano::unchecked_store_partial<rocksdb::Slice, rocksdb_store>;

@@ -1128,7 +1128,7 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 	ASSERT_FALSE (node2->ledger.block_or_pruned_exists (state_open->hash ()));
 	{
 		auto transaction (node2->store.tx_begin_read ());
-		ASSERT_TRUE (node2->store.unchecked_exists (transaction, nano::unchecked_key (send2->root ().as_block_hash (), send2->hash ())));
+		ASSERT_TRUE (node2->store.unchecked.exists (transaction, nano::unchecked_key (send2->root ().as_block_hash (), send2->hash ())));
 	}
 	// Insert missing block
 	node2->process_active (send1);
@@ -1845,7 +1845,7 @@ TEST (bulk, genesis_pruning)
 	ASSERT_EQ (1, node2->ledger.cache.block_count);
 	{
 		auto transaction (node2->store.tx_begin_write ());
-		node2->store.unchecked_clear (transaction);
+		node2->store.unchecked.clear (transaction);
 	}
 	// Insert pruned blocks
 	node2->process_active (send1);

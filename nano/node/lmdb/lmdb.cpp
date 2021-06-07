@@ -42,11 +42,11 @@ void mdb_val::convert_buffer_to_value ()
 
 nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade_a) :
 	block_store_partial{ unchecked_mdb_store },
+	unchecked_mdb_store{ *this },
 	logger (logger_a),
 	env (error, path_a, nano::mdb_env::options::make ().set_config (lmdb_config_a).set_use_no_mem_init (true)),
 	mdb_txn_tracker (logger_a, txn_tracking_config_a, block_processor_batch_max_time_a),
-	txn_tracking_enabled (txn_tracking_config_a.enable),
-	unchecked_mdb_store{ *this }
+	txn_tracking_enabled (txn_tracking_config_a.enable)
 {
 	if (!error)
 	{
@@ -790,10 +790,10 @@ void nano::mdb_store::create_backup_file (nano::mdb_env & env_a, boost::filesyst
 	}
 }
 
-std::vector<nano::unchecked_info> nano::unchecked_mdb_store::unchecked_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
+std::vector<nano::unchecked_info> nano::unchecked_mdb_store::get (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
 	std::vector<nano::unchecked_info> result;
-	for (auto i (unchecked_begin (transaction_a, nano::unchecked_key (hash_a, 0))), n (unchecked_end ()); i != n && i->first.key () == hash_a; ++i)
+	for (auto i (begin (transaction_a, nano::unchecked_key (hash_a, 0))), n (end ()); i != n && i->first.key () == hash_a; ++i)
 	{
 		nano::unchecked_info const & unchecked_info (i->second);
 		result.push_back (unchecked_info);

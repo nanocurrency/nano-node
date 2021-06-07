@@ -356,14 +356,14 @@ TEST (bootstrap, simple)
 	ASSERT_TRUE (!store->init_error ());
 	auto block1 (std::make_shared<nano::send_block> (0, 1, 2, nano::keypair ().prv, 4, 5));
 	auto transaction (store->tx_begin_write ());
-	auto block2 (store->unchecked_get (transaction, block1->previous ()));
+	auto block2 (store->unchecked.get (transaction, block1->previous ()));
 	ASSERT_TRUE (block2.empty ());
-	store->unchecked_put (transaction, block1->previous (), block1);
-	auto block3 (store->unchecked_get (transaction, block1->previous ()));
+	store->unchecked.put (transaction, block1->previous (), block1);
+	auto block3 (store->unchecked.get (transaction, block1->previous ()));
 	ASSERT_FALSE (block3.empty ());
 	ASSERT_EQ (*block1, *(block3[0].block));
-	store->unchecked_del (transaction, nano::unchecked_key (block1->previous (), block1->hash ()));
-	auto block4 (store->unchecked_get (transaction, block1->previous ()));
+	store->unchecked.del (transaction, nano::unchecked_key (block1->previous (), block1->hash ()));
+	auto block4 (store->unchecked.get (transaction, block1->previous ()));
 	ASSERT_TRUE (block4.empty ());
 }
 
@@ -379,13 +379,13 @@ TEST (unchecked, multiple)
 	ASSERT_TRUE (!store->init_error ());
 	auto block1 (std::make_shared<nano::send_block> (4, 1, 2, nano::keypair ().prv, 4, 5));
 	auto transaction (store->tx_begin_write ());
-	auto block2 (store->unchecked_get (transaction, block1->previous ()));
+	auto block2 (store->unchecked.get (transaction, block1->previous ()));
 	ASSERT_TRUE (block2.empty ());
-	store->unchecked_put (transaction, block1->previous (), block1);
-	store->unchecked_put (transaction, block1->source (), block1);
-	auto block3 (store->unchecked_get (transaction, block1->previous ()));
+	store->unchecked.put (transaction, block1->previous (), block1);
+	store->unchecked.put (transaction, block1->source (), block1);
+	auto block3 (store->unchecked.get (transaction, block1->previous ()));
 	ASSERT_FALSE (block3.empty ());
-	auto block4 (store->unchecked_get (transaction, block1->source ()));
+	auto block4 (store->unchecked.get (transaction, block1->source ()));
 	ASSERT_FALSE (block4.empty ());
 }
 
@@ -396,11 +396,11 @@ TEST (unchecked, double_put)
 	ASSERT_TRUE (!store->init_error ());
 	auto block1 (std::make_shared<nano::send_block> (4, 1, 2, nano::keypair ().prv, 4, 5));
 	auto transaction (store->tx_begin_write ());
-	auto block2 (store->unchecked_get (transaction, block1->previous ()));
+	auto block2 (store->unchecked.get (transaction, block1->previous ()));
 	ASSERT_TRUE (block2.empty ());
-	store->unchecked_put (transaction, block1->previous (), block1);
-	store->unchecked_put (transaction, block1->previous (), block1);
-	auto block3 (store->unchecked_get (transaction, block1->previous ()));
+	store->unchecked.put (transaction, block1->previous (), block1);
+	store->unchecked.put (transaction, block1->previous (), block1);
+	auto block3 (store->unchecked.get (transaction, block1->previous ()));
 	ASSERT_EQ (block3.size (), 1);
 }
 
@@ -414,20 +414,20 @@ TEST (unchecked, multiple_get)
 	auto block3 (std::make_shared<nano::send_block> (5, 1, 2, nano::keypair ().prv, 4, 5));
 	{
 		auto transaction (store->tx_begin_write ());
-		store->unchecked_put (transaction, block1->previous (), block1); // unchecked1
-		store->unchecked_put (transaction, block1->hash (), block1); // unchecked2
-		store->unchecked_put (transaction, block2->previous (), block2); // unchecked3
-		store->unchecked_put (transaction, block1->previous (), block2); // unchecked1
-		store->unchecked_put (transaction, block1->hash (), block2); // unchecked2
-		store->unchecked_put (transaction, block3->previous (), block3);
-		store->unchecked_put (transaction, block3->hash (), block3); // unchecked4
-		store->unchecked_put (transaction, block1->previous (), block3); // unchecked1
+		store->unchecked.put (transaction, block1->previous (), block1); // unchecked1
+		store->unchecked.put (transaction, block1->hash (), block1); // unchecked2
+		store->unchecked.put (transaction, block2->previous (), block2); // unchecked3
+		store->unchecked.put (transaction, block1->previous (), block2); // unchecked1
+		store->unchecked.put (transaction, block1->hash (), block2); // unchecked2
+		store->unchecked.put (transaction, block3->previous (), block3);
+		store->unchecked.put (transaction, block3->hash (), block3); // unchecked4
+		store->unchecked.put (transaction, block1->previous (), block3); // unchecked1
 	}
 	auto transaction (store->tx_begin_read ());
-	auto unchecked_count (store->unchecked_count (transaction));
+	auto unchecked_count (store->unchecked.count (transaction));
 	ASSERT_EQ (unchecked_count, 8);
 	std::vector<nano::block_hash> unchecked1;
-	auto unchecked1_blocks (store->unchecked_get (transaction, block1->previous ()));
+	auto unchecked1_blocks (store->unchecked.get (transaction, block1->previous ()));
 	ASSERT_EQ (unchecked1_blocks.size (), 3);
 	for (auto & i : unchecked1_blocks)
 	{
@@ -437,7 +437,7 @@ TEST (unchecked, multiple_get)
 	ASSERT_TRUE (std::find (unchecked1.begin (), unchecked1.end (), block2->hash ()) != unchecked1.end ());
 	ASSERT_TRUE (std::find (unchecked1.begin (), unchecked1.end (), block3->hash ()) != unchecked1.end ());
 	std::vector<nano::block_hash> unchecked2;
-	auto unchecked2_blocks (store->unchecked_get (transaction, block1->hash ()));
+	auto unchecked2_blocks (store->unchecked.get (transaction, block1->hash ()));
 	ASSERT_EQ (unchecked2_blocks.size (), 2);
 	for (auto & i : unchecked2_blocks)
 	{
@@ -445,13 +445,13 @@ TEST (unchecked, multiple_get)
 	}
 	ASSERT_TRUE (std::find (unchecked2.begin (), unchecked2.end (), block1->hash ()) != unchecked2.end ());
 	ASSERT_TRUE (std::find (unchecked2.begin (), unchecked2.end (), block2->hash ()) != unchecked2.end ());
-	auto unchecked3 (store->unchecked_get (transaction, block2->previous ()));
+	auto unchecked3 (store->unchecked.get (transaction, block2->previous ()));
 	ASSERT_EQ (unchecked3.size (), 1);
 	ASSERT_EQ (unchecked3[0].block->hash (), block2->hash ());
-	auto unchecked4 (store->unchecked_get (transaction, block3->hash ()));
+	auto unchecked4 (store->unchecked.get (transaction, block3->hash ()));
 	ASSERT_EQ (unchecked4.size (), 1);
 	ASSERT_EQ (unchecked4[0].block->hash (), block3->hash ());
-	auto unchecked5 (store->unchecked_get (transaction, block2->hash ()));
+	auto unchecked5 (store->unchecked.get (transaction, block2->hash ()));
 	ASSERT_EQ (unchecked5.size (), 0);
 }
 
@@ -484,8 +484,8 @@ TEST (block_store, empty_bootstrap)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	auto transaction (store->tx_begin_read ());
-	auto begin (store->unchecked_begin (transaction));
-	auto end (store->unchecked_end ());
+	auto begin (store->unchecked.begin (transaction));
+	auto end (store->unchecked.end ());
 	ASSERT_EQ (end, begin);
 }
 
@@ -496,13 +496,13 @@ TEST (block_store, one_bootstrap)
 	ASSERT_TRUE (!store->init_error ());
 	auto block1 (std::make_shared<nano::send_block> (0, 1, 2, nano::keypair ().prv, 4, 5));
 	auto transaction (store->tx_begin_write ());
-	store->unchecked_put (transaction, block1->hash (), block1);
-	auto begin (store->unchecked_begin (transaction));
-	auto end (store->unchecked_end ());
+	store->unchecked.put (transaction, block1->hash (), block1);
+	auto begin (store->unchecked.begin (transaction));
+	auto end (store->unchecked.end ());
 	ASSERT_NE (end, begin);
 	auto hash1 (begin->first.key ());
 	ASSERT_EQ (block1->hash (), hash1);
-	auto blocks (store->unchecked_get (transaction, hash1));
+	auto blocks (store->unchecked.get (transaction, hash1));
 	ASSERT_EQ (1, blocks.size ());
 	auto block2 (blocks[0].block);
 	ASSERT_EQ (*block1, *block2);
@@ -935,33 +935,33 @@ TEST (block_store, DISABLED_change_dupsort) // Unchecked is no longer dupsort ta
 	auto send1 (std::make_shared<nano::send_block> (0, 0, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 	auto send2 (std::make_shared<nano::send_block> (1, 0, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 	ASSERT_NE (send1->hash (), send2->hash ());
-	store.unchecked_put (transaction, send1->hash (), send1);
-	store.unchecked_put (transaction, send1->hash (), send2);
+	store.unchecked.put (transaction, send1->hash (), send1);
+	store.unchecked.put (transaction, send1->hash (), send2);
 	{
-		auto iterator1 (store.unchecked_begin (transaction));
+		auto iterator1 (store.unchecked.begin (transaction));
 		++iterator1;
-		ASSERT_EQ (store.unchecked_end (), iterator1);
+		ASSERT_EQ (store.unchecked.end (), iterator1);
 	}
 	ASSERT_EQ (0, mdb_drop (store.env.tx (transaction), store.unchecked_handle, 0));
 	mdb_dbi_close (store.env, store.unchecked_handle);
 	ASSERT_EQ (0, mdb_dbi_open (store.env.tx (transaction), "unchecked", MDB_CREATE | MDB_DUPSORT, &store.unchecked_handle));
-	store.unchecked_put (transaction, send1->hash (), send1);
-	store.unchecked_put (transaction, send1->hash (), send2);
+	store.unchecked.put (transaction, send1->hash (), send1);
+	store.unchecked.put (transaction, send1->hash (), send2);
 	{
-		auto iterator1 (store.unchecked_begin (transaction));
+		auto iterator1 (store.unchecked.begin (transaction));
 		++iterator1;
-		ASSERT_EQ (store.unchecked_end (), iterator1);
+		ASSERT_EQ (store.unchecked.end (), iterator1);
 	}
 	ASSERT_EQ (0, mdb_drop (store.env.tx (transaction), store.unchecked_handle, 1));
 	ASSERT_EQ (0, mdb_dbi_open (store.env.tx (transaction), "unchecked", MDB_CREATE | MDB_DUPSORT, &store.unchecked_handle));
-	store.unchecked_put (transaction, send1->hash (), send1);
-	store.unchecked_put (transaction, send1->hash (), send2);
+	store.unchecked.put (transaction, send1->hash (), send1);
+	store.unchecked.put (transaction, send1->hash (), send2);
 	{
-		auto iterator1 (store.unchecked_begin (transaction));
+		auto iterator1 (store.unchecked.begin (transaction));
 		++iterator1;
-		ASSERT_NE (store.unchecked_end (), iterator1);
+		ASSERT_NE (store.unchecked.end (), iterator1);
 		++iterator1;
-		ASSERT_EQ (store.unchecked_end (), iterator1);
+		ASSERT_EQ (store.unchecked.end (), iterator1);
 	}
 }
 
@@ -2048,9 +2048,9 @@ TEST (rocksdb_block_store, tombstone_count)
 		ASSERT_TRUE (!store->init_error ());
 		auto transaction = store->tx_begin_write ();
 		auto block1 (std::make_shared<nano::send_block> (0, 1, 2, nano::keypair ().prv, 4, 5));
-		store->unchecked_put (transaction, block1->previous (), block1);
+		store->unchecked.put (transaction, block1->previous (), block1);
 		ASSERT_EQ (store->tombstone_map.at (nano::tables::unchecked).num_since_last_flush.load (), 0);
-		store->unchecked_del (transaction, nano::unchecked_key (block1->previous (), block1->hash ()));
+		store->unchecked.del (transaction, nano::unchecked_key (block1->previous (), block1->hash ()));
 		ASSERT_EQ (store->tombstone_map.at (nano::tables::unchecked).num_since_last_flush.load (), 1);
 	}
 }

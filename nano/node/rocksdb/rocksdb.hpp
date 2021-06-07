@@ -22,14 +22,14 @@ class logging_mt;
 class rocksdb_config;
 class rocksdb_store;
 
-class unchecked_rocksdb_store : public unchecked_store_partial<rocksdb::Slice, rocksdb_store>
+class unchecked_rocksdb_store : public unchecked_store_partial<rocksdb::Slice, nano::rocksdb_store>
 {
 public:
-	unchecked_rocksdb_store () :
-		unchecked_store_partial (rocksdb_store)
-	{};
+	explicit unchecked_rocksdb_store (nano::rocksdb_store &);
+	std::vector<nano::unchecked_info> get (nano::transaction const &, nano::block_hash const &);
 
-	std::vector<nano::unchecked_info> unchecked_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override;
+private:
+	nano::rocksdb_store & rocksdb_store;
 };
 
 /**
@@ -38,7 +38,10 @@ public:
 class rocksdb_store : public block_store_partial<rocksdb::Slice, rocksdb_store>
 {
 public:
-	rocksdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::rocksdb_config const & = nano::rocksdb_config{}, bool open_read_only = false);
+	friend class nano::unchecked_rocksdb_store;
+
+	explicit rocksdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::rocksdb_config const & = nano::rocksdb_config{}, bool open_read_only = false);
+
 	nano::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_requiring_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) override;
 	nano::read_transaction tx_begin_read () const override;
 
@@ -76,6 +79,8 @@ public:
 	std::string error_string (int status) const override;
 
 private:
+	nano::unchecked_rocksdb_store unchecked_rocksdb_store;
+
 	bool error{ false };
 	nano::logger_mt & logger;
 	// Optimistic transactions are used in write mode
