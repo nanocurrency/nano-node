@@ -53,7 +53,8 @@ TEST (leger_walker, first_test)
     k1: Gx     SEND     02     SEND     05     SEND     08     SEND
     k2: Gx     00       SEND   03     SEND     06     SEND     09
     k3: Gx     01       SEND   04     SEND     07     SEND
-     */
+    */
+
 	std::vector<nano::uint128_t> amounts_expected{ nano::Mxrb_ratio + 9, nano::Mxrb_ratio + 8, nano::Mxrb_ratio + 7, nano::Mxrb_ratio + 4, nano::Mxrb_ratio + 3,
 		nano::Mxrb_ratio + 2, nano::Gxrb_ratio, nano::Mxrb_ratio, nano::Gxrb_ratio, nano::Mxrb_ratio + 1, nano::Gxrb_ratio,
 		nano::Mxrb_ratio + 5, nano::Mxrb_ratio + 6 };
