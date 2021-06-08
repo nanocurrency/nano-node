@@ -45,7 +45,7 @@ TEST (leger_walker, first_test)
 	ASSERT_TRUE (last_destination);
 	const auto transaction = node->ledger.store.tx_begin_read ();
 	nano::account_info last_destination_info{};
-	const auto last_destination_read_error = node->ledger.store.account_get (transaction, *last_destination, last_destination_info);
+	const auto last_destination_read_error = node->ledger.store.account.get (transaction, *last_destination, last_destination_info);
 	ASSERT_FALSE (last_destination_read_error);
 
 	/*
