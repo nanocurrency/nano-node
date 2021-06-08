@@ -14,6 +14,7 @@
 #include <nano/secure/store/peer_store_partial.hpp>
 #include <nano/secure/store/pending_store_partial.hpp>
 #include <nano/secure/store/pruned_store_partial.hpp>
+#include <nano/secure/store/unchecked_store_partial.hpp>
 
 #include <crypto/cryptopp/words.h>
 
@@ -39,6 +40,9 @@ void release_assert_success (block_store_partial<Val, Derived_Store> const & blo
 	}
 }
 
+template <typename Val, typename Derived_Store>
+class unchecked_store_partial;
+
 /** This base class implements the block_store interface functions which have DB agnostic functionality */
 template <typename Val, typename Derived_Store>
 class block_store_partial : public block_store
@@ -46,6 +50,7 @@ class block_store_partial : public block_store
 	nano::frontier_store_partial<Val, Derived_Store> frontier_store_partial;
 	nano::account_store_partial<Val, Derived_Store> account_store_partial;
 	nano::pending_store_partial<Val, Derived_Store> pending_store_partial;
+	nano::unchecked_store_partial<Val, Derived_Store> & unchecked_store_partial;
 	nano::online_weight_store_partial<Val, Derived_Store> online_weight_store_partial;
 	nano::pruned_store_partial<Val, Derived_Store> pruned_store_partial;
 	nano::peer_store_partial<Val, Derived_Store> peer_store_partial;
@@ -56,23 +61,24 @@ class block_store_partial : public block_store
 
 public:
 	using block_store::block_exists;
-	using block_store::unchecked_put;
 
 	friend class nano::block_predecessor_set<Val, Derived_Store>;
 	friend class nano::frontier_store_partial<Val, Derived_Store>;
 	friend class nano::account_store_partial<Val, Derived_Store>;
 	friend class nano::pending_store_partial<Val, Derived_Store>;
+	friend class nano::unchecked_store_partial<Val, Derived_Store>;
 	friend class nano::online_weight_store_partial<Val, Derived_Store>;
 	friend class nano::pruned_store_partial<Val, Derived_Store>;
 	friend class nano::peer_store_partial<Val, Derived_Store>;
 	friend class nano::confirmation_height_store_partial<Val, Derived_Store>;
 	friend class nano::final_vote_store_partial<Val, Derived_Store>;
 
-	block_store_partial () :
-		block_store{ frontier_store_partial, account_store_partial, pending_store_partial, online_weight_store_partial, pruned_store_partial, peer_store_partial, confirmation_height_store_partial, final_vote_store_partial },
+	block_store_partial (nano::unchecked_store_partial<Val, Derived_Store> & unchecked_store_partial_a) :
+		block_store{ frontier_store_partial, account_store_partial, pending_store_partial, unchecked_store_partial_a, online_weight_store_partial, pruned_store_partial, peer_store_partial, confirmation_height_store_partial, final_vote_store_partial },
 		frontier_store_partial{ *this },
 		account_store_partial{ *this },
 		pending_store_partial{ *this },
+		unchecked_store_partial (unchecked_store_partial_a),
 		online_weight_store_partial{ *this },
 		pruned_store_partial{ *this },
 		peer_store_partial{ *this },
@@ -248,11 +254,6 @@ public:
 		block_raw_put (transaction_a, data, hash_a);
 	}
 
-	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_end () const override
-	{
-		return nano::store_iterator<nano::unchecked_key, nano::unchecked_info> (nullptr);
-	}
-
 	nano::store_iterator<nano::block_hash, nano::block_w_sideband> blocks_end () const override
 	{
 		return nano::store_iterator<nano::block_hash, nano::block_w_sideband> (nullptr);
@@ -297,40 +298,6 @@ public:
 		release_assert_success (*this, status);
 	}
 
-	void unchecked_del (nano::write_transaction const & transaction_a, nano::unchecked_key const & key_a) override
-	{
-		auto status (del (transaction_a, tables::unchecked, key_a));
-		release_assert_success (*this, status);
-	}
-
-	bool unchecked_exists (nano::transaction const & transaction_a, nano::unchecked_key const & unchecked_key_a) override
-	{
-		nano::db_val<Val> value;
-		auto status (get (transaction_a, tables::unchecked, nano::db_val<Val> (unchecked_key_a), value));
-		release_assert (success (status) || not_found (status));
-		return (success (status));
-	}
-
-	void unchecked_put (nano::write_transaction const & transaction_a, nano::unchecked_key const & key_a, nano::unchecked_info const & info_a) override
-	{
-		nano::db_val<Val> info (info_a);
-		auto status (put (transaction_a, tables::unchecked, key_a, info));
-		release_assert_success (*this, status);
-	}
-
-	void unchecked_put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a, std::shared_ptr<nano::block> const & block_a) override
-	{
-		nano::unchecked_key key (hash_a, block_a->hash ());
-		nano::unchecked_info info (block_a, block_a->account (), nano::seconds_since_epoch (), nano::signature_verification::unknown);
-		unchecked_put (transaction_a, key, info);
-	}
-
-	void unchecked_clear (nano::write_transaction const & transaction_a) override
-	{
-		auto status = drop (transaction_a, tables::unchecked);
-		release_assert_success (*this, status);
-	}
-
 	bool exists (nano::transaction const & transaction_a, tables table_a, nano::db_val<Val> const & key_a) const
 	{
 		return static_cast<const Derived_Store &> (*this).exists (transaction_a, table_a, key_a);
@@ -363,32 +330,6 @@ public:
 	nano::store_iterator<nano::block_hash, nano::block_w_sideband> blocks_begin (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override
 	{
 		return make_iterator<nano::block_hash, nano::block_w_sideband> (transaction_a, tables::blocks, nano::db_val<Val> (hash_a));
-	}
-
-	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_begin (nano::transaction const & transaction_a) const override
-	{
-		return make_iterator<nano::unchecked_key, nano::unchecked_info> (transaction_a, tables::unchecked);
-	}
-
-	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_begin (nano::transaction const & transaction_a, nano::unchecked_key const & key_a) const override
-	{
-		return make_iterator<nano::unchecked_key, nano::unchecked_info> (transaction_a, tables::unchecked, nano::db_val<Val> (key_a));
-	}
-
-	size_t unchecked_count (nano::transaction const & transaction_a) override
-	{
-		return count (transaction_a, tables::unchecked);
-	}
-
-	void unchecked_for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::unchecked_key, nano::unchecked_info>, nano::store_iterator<nano::unchecked_key, nano::unchecked_info>)> const & action_a) const override
-	{
-		parallel_traversal<nano::uint512_t> (
-		[&action_a, this] (nano::uint512_t const & start, nano::uint512_t const & end, bool const is_last) {
-			nano::unchecked_key key_start (start);
-			nano::unchecked_key key_end (end);
-			auto transaction (this->tx_begin_read ());
-			action_a (transaction, this->unchecked_begin (transaction, key_start), !is_last ? this->unchecked_begin (transaction, key_end) : this->unchecked_end ());
-		});
 	}
 
 	void blocks_for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::block_hash, block_w_sideband>, nano::store_iterator<nano::block_hash, block_w_sideband>)> const & action_a) const override

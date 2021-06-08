@@ -2664,7 +2664,7 @@ TEST (ledger, epoch_open_pending)
 	node1.block_processor.flush ();
 	ASSERT_FALSE (node1.ledger.block_or_pruned_exists (epoch_open->hash ()));
 	// Open block should be inserted into unchecked
-	auto blocks (node1.store.unchecked_get (node1.store.tx_begin_read (), nano::hash_or_account (epoch_open->account ()).hash));
+	auto blocks (node1.store.unchecked.get (node1.store.tx_begin_read (), nano::hash_or_account (epoch_open->account ()).hash));
 	ASSERT_EQ (blocks.size (), 1);
 	ASSERT_EQ (blocks[0].block->full_hash (), epoch_open->full_hash ());
 	ASSERT_EQ (blocks[0].verified, nano::signature_verification::valid_epoch);
@@ -2852,10 +2852,10 @@ TEST (ledger, unchecked_epoch)
 	node1.block_processor.flush ();
 	{
 		auto transaction (node1.store.tx_begin_read ());
-		auto unchecked_count (node1.store.unchecked_count (transaction));
+		auto unchecked_count (node1.store.unchecked.count (transaction));
 		ASSERT_EQ (unchecked_count, 1);
-		ASSERT_EQ (unchecked_count, node1.store.unchecked_count (transaction));
-		auto blocks (node1.store.unchecked_get (transaction, epoch1->previous ()));
+		ASSERT_EQ (unchecked_count, node1.store.unchecked.count (transaction));
+		auto blocks (node1.store.unchecked.get (transaction, epoch1->previous ()));
 		ASSERT_EQ (blocks.size (), 1);
 		ASSERT_EQ (blocks[0].verified, nano::signature_verification::valid_epoch);
 	}
@@ -2865,9 +2865,9 @@ TEST (ledger, unchecked_epoch)
 	{
 		auto transaction (node1.store.tx_begin_read ());
 		ASSERT_TRUE (node1.store.block_exists (transaction, epoch1->hash ()));
-		auto unchecked_count (node1.store.unchecked_count (transaction));
+		auto unchecked_count (node1.store.unchecked.count (transaction));
 		ASSERT_EQ (unchecked_count, 0);
-		ASSERT_EQ (unchecked_count, node1.store.unchecked_count (transaction));
+		ASSERT_EQ (unchecked_count, node1.store.unchecked.count (transaction));
 		nano::account_info info;
 		ASSERT_FALSE (node1.store.account.get (transaction, destination.pub, info));
 		ASSERT_EQ (info.epoch (), nano::epoch::epoch_1);
@@ -2897,10 +2897,10 @@ TEST (ledger, unchecked_epoch_invalid)
 	node1.block_processor.flush ();
 	{
 		auto transaction (node1.store.tx_begin_read ());
-		auto unchecked_count (node1.store.unchecked_count (transaction));
+		auto unchecked_count (node1.store.unchecked.count (transaction));
 		ASSERT_EQ (unchecked_count, 2);
-		ASSERT_EQ (unchecked_count, node1.store.unchecked_count (transaction));
-		auto blocks (node1.store.unchecked_get (transaction, epoch1->previous ()));
+		ASSERT_EQ (unchecked_count, node1.store.unchecked.count (transaction));
+		auto blocks (node1.store.unchecked.get (transaction, epoch1->previous ()));
 		ASSERT_EQ (blocks.size (), 2);
 		ASSERT_EQ (blocks[0].verified, nano::signature_verification::valid);
 		ASSERT_EQ (blocks[1].verified, nano::signature_verification::valid);
@@ -2913,9 +2913,9 @@ TEST (ledger, unchecked_epoch_invalid)
 		ASSERT_FALSE (node1.store.block_exists (transaction, epoch1->hash ()));
 		ASSERT_TRUE (node1.store.block_exists (transaction, epoch2->hash ()));
 		ASSERT_TRUE (node1.active.empty ());
-		auto unchecked_count (node1.store.unchecked_count (transaction));
+		auto unchecked_count (node1.store.unchecked.count (transaction));
 		ASSERT_EQ (unchecked_count, 0);
-		ASSERT_EQ (unchecked_count, node1.store.unchecked_count (transaction));
+		ASSERT_EQ (unchecked_count, node1.store.unchecked.count (transaction));
 		nano::account_info info;
 		ASSERT_FALSE (node1.store.account.get (transaction, destination.pub, info));
 		ASSERT_NE (info.epoch (), nano::epoch::epoch_1);
@@ -2947,10 +2947,10 @@ TEST (ledger, unchecked_open)
 	node1.block_processor.flush ();
 	{
 		auto transaction (node1.store.tx_begin_read ());
-		auto unchecked_count (node1.store.unchecked_count (transaction));
+		auto unchecked_count (node1.store.unchecked.count (transaction));
 		ASSERT_EQ (unchecked_count, 1);
-		ASSERT_EQ (unchecked_count, node1.store.unchecked_count (transaction));
-		auto blocks (node1.store.unchecked_get (transaction, open1->source ()));
+		ASSERT_EQ (unchecked_count, node1.store.unchecked.count (transaction));
+		auto blocks (node1.store.unchecked.get (transaction, open1->source ()));
 		ASSERT_EQ (blocks.size (), 1);
 		ASSERT_EQ (blocks[0].verified, nano::signature_verification::valid);
 	}
@@ -2959,9 +2959,9 @@ TEST (ledger, unchecked_open)
 	{
 		auto transaction (node1.store.tx_begin_read ());
 		ASSERT_TRUE (node1.store.block_exists (transaction, open1->hash ()));
-		auto unchecked_count (node1.store.unchecked_count (transaction));
+		auto unchecked_count (node1.store.unchecked.count (transaction));
 		ASSERT_EQ (unchecked_count, 0);
-		ASSERT_EQ (unchecked_count, node1.store.unchecked_count (transaction));
+		ASSERT_EQ (unchecked_count, node1.store.unchecked.count (transaction));
 	}
 }
 
@@ -2985,10 +2985,10 @@ TEST (ledger, unchecked_receive)
 	// Previous block for receive1 is unknown, signature cannot be validated
 	{
 		auto transaction (node1.store.tx_begin_read ());
-		auto unchecked_count (node1.store.unchecked_count (transaction));
+		auto unchecked_count (node1.store.unchecked.count (transaction));
 		ASSERT_EQ (unchecked_count, 1);
-		ASSERT_EQ (unchecked_count, node1.store.unchecked_count (transaction));
-		auto blocks (node1.store.unchecked_get (transaction, receive1->previous ()));
+		ASSERT_EQ (unchecked_count, node1.store.unchecked.count (transaction));
+		auto blocks (node1.store.unchecked.get (transaction, receive1->previous ()));
 		ASSERT_EQ (blocks.size (), 1);
 		ASSERT_EQ (blocks[0].verified, nano::signature_verification::unknown);
 	}
@@ -2997,10 +2997,10 @@ TEST (ledger, unchecked_receive)
 	// Previous block for receive1 is known, signature was validated
 	{
 		auto transaction (node1.store.tx_begin_read ());
-		auto unchecked_count (node1.store.unchecked_count (transaction));
+		auto unchecked_count (node1.store.unchecked.count (transaction));
 		ASSERT_EQ (unchecked_count, 1);
-		ASSERT_EQ (unchecked_count, node1.store.unchecked_count (transaction));
-		auto blocks (node1.store.unchecked_get (transaction, receive1->source ()));
+		ASSERT_EQ (unchecked_count, node1.store.unchecked.count (transaction));
+		auto blocks (node1.store.unchecked.get (transaction, receive1->source ()));
 		ASSERT_EQ (blocks.size (), 1);
 		ASSERT_EQ (blocks[0].verified, nano::signature_verification::valid);
 	}
@@ -3009,9 +3009,9 @@ TEST (ledger, unchecked_receive)
 	{
 		auto transaction (node1.store.tx_begin_read ());
 		ASSERT_TRUE (node1.store.block_exists (transaction, receive1->hash ()));
-		auto unchecked_count (node1.store.unchecked_count (transaction));
+		auto unchecked_count (node1.store.unchecked.count (transaction));
 		ASSERT_EQ (unchecked_count, 0);
-		ASSERT_EQ (unchecked_count, node1.store.unchecked_count (transaction));
+		ASSERT_EQ (unchecked_count, node1.store.unchecked.count (transaction));
 	}
 }
 
@@ -3868,7 +3868,7 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 
 		store.pending.put (transaction, nano::pending_key (nano::genesis_account, send->hash ()), nano::pending_info (nano::genesis_account, 100, nano::epoch::epoch_0));
 		store.pruned.put (transaction, send->hash ());
-		store.unchecked_put (transaction, nano::genesis_hash, send);
+		store.unchecked.put (transaction, nano::genesis_hash, send);
 		store.version_put (transaction, version);
 		send->sideband_set ({});
 		store.block_put (transaction, send->hash (), *send);
@@ -3905,7 +3905,7 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 	ASSERT_TRUE (rocksdb_store.final_vote.get (rocksdb_transaction, nano::root (send->previous ())).size () == 1);
 	ASSERT_EQ (rocksdb_store.final_vote.get (rocksdb_transaction, nano::root (send->previous ()))[0], nano::block_hash (2));
 
-	auto unchecked_infos = rocksdb_store.unchecked_get (rocksdb_transaction, nano::genesis_hash);
+	auto unchecked_infos = rocksdb_store.unchecked.get (rocksdb_transaction, nano::genesis_hash);
 	ASSERT_EQ (unchecked_infos.size (), 1);
 	ASSERT_EQ (unchecked_infos.front ().account, nano::genesis_account);
 	ASSERT_EQ (*unchecked_infos.front ().block, *send);

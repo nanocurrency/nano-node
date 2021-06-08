@@ -406,7 +406,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 			if (!flags.disable_unchecked_drop && !use_bootstrap_weight && !flags.read_only)
 			{
 				auto transaction (store.tx_begin_write ({ tables::unchecked }));
-				store.unchecked_clear (transaction);
+				store.unchecked.clear (transaction);
 				logger.always_log ("Dropping unchecked blocks");
 			}
 		}
@@ -921,7 +921,7 @@ void nano::node::unchecked_cleanup ()
 		auto now (nano::seconds_since_epoch ());
 		auto transaction (store.tx_begin_read ());
 		// Max 1M records to clean, max 2 minutes reading to prevent slow i/o systems issues
-		for (auto i (store.unchecked_begin (transaction)), n (store.unchecked_end ()); i != n && cleaning_list.size () < 1024 * 1024 && nano::seconds_since_epoch () - now < 120; ++i)
+		for (auto i (store.unchecked.begin (transaction)), n (store.unchecked.end ()); i != n && cleaning_list.size () < 1024 * 1024 && nano::seconds_since_epoch () - now < 120; ++i)
 		{
 			nano::unchecked_key const & key (i->first);
 			nano::unchecked_info const & info (i->second);
@@ -945,9 +945,9 @@ void nano::node::unchecked_cleanup ()
 		{
 			auto key (cleaning_list.front ());
 			cleaning_list.pop_front ();
-			if (store.unchecked_exists (transaction, key))
+			if (store.unchecked.exists (transaction, key))
 			{
-				store.unchecked_del (transaction, key);
+				store.unchecked.del (transaction, key);
 			}
 		}
 	}

@@ -403,7 +403,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			}
 
 			nano::unchecked_key unchecked_key (block->previous (), hash);
-			node.store.unchecked_put (transaction_a, unchecked_key, info_a);
+			node.store.unchecked.put (transaction_a, unchecked_key, info_a);
 
 			events_a.events.emplace_back ([this, hash] (nano::transaction const & /* unused */) { this->node.gap_cache.add (hash); });
 
@@ -423,7 +423,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			}
 
 			nano::unchecked_key unchecked_key (node.ledger.block_source (transaction_a, *(block)), hash);
-			node.store.unchecked_put (transaction_a, unchecked_key, info_a);
+			node.store.unchecked.put (transaction_a, unchecked_key, info_a);
 
 			events_a.events.emplace_back ([this, hash] (nano::transaction const & /* unused */) { this->node.gap_cache.add (hash); });
 
@@ -443,7 +443,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			}
 
 			nano::unchecked_key unchecked_key (block->account (), hash); // Specific unchecked key starting with epoch open block account public key
-			node.store.unchecked_put (transaction_a, unchecked_key, info_a);
+			node.store.unchecked.put (transaction_a, unchecked_key, info_a);
 
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_source);
 			break;
@@ -548,12 +548,12 @@ void nano::block_processor::process_old (nano::transaction const & transaction_a
 
 void nano::block_processor::queue_unchecked (nano::write_transaction const & transaction_a, nano::hash_or_account const & hash_or_account_a)
 {
-	auto unchecked_blocks (node.store.unchecked_get (transaction_a, hash_or_account_a.hash));
+	auto unchecked_blocks (node.store.unchecked.get (transaction_a, hash_or_account_a.hash));
 	for (auto & info : unchecked_blocks)
 	{
 		if (!node.flags.disable_block_processor_unchecked_deletion)
 		{
-			node.store.unchecked_del (transaction_a, nano::unchecked_key (hash_or_account_a, info.block->hash ()));
+			node.store.unchecked.del (transaction_a, nano::unchecked_key (hash_or_account_a, info.block->hash ()));
 		}
 		add (info);
 	}
