@@ -520,29 +520,29 @@ TEST (block_store, unchecked_begin_search)
 	auto block2 (std::make_shared<nano::send_block> (5, 6, 7, key0.prv, key0.pub, 8));
 	{
 		auto transaction (store->tx_begin_write ());
-		store->unchecked_put (transaction, block1->hash (), block2);
-		ASSERT_NE (store->unchecked_begin (transaction), store->unchecked_end ());
-		ASSERT_NE (store->unchecked_begin (transaction, nano::unchecked_key (block1->hash (), 0)), store->unchecked_end ());
-		ASSERT_EQ (store->unchecked_begin (transaction, nano::unchecked_key (block1->hash (), 0)), store->unchecked_begin (transaction, nano::unchecked_key (block1->hash (), block2->hash ())));
-		auto unchecked (store->unchecked_begin (transaction, nano::unchecked_key (block1->hash (), 0)));
+		store->unchecked.put (transaction, block1->hash (), block2);
+		ASSERT_NE (store->unchecked.begin (transaction), store->unchecked_end ());
+		ASSERT_NE (store->unchecked.begin (transaction, nano::unchecked_key (block1->hash (), 0)), store->unchecked.end ());
+		ASSERT_EQ (store->unchecked.begin (transaction, nano::unchecked_key (block1->hash (), 0)), store->unchecked.begin (transaction, nano::unchecked_key (block1->hash (), block2->hash ())));
+		auto unchecked (store->unchecked.begin (transaction, nano::unchecked_key (block1->hash (), 0)));
 		ASSERT_EQ (unchecked->first.key (), block1->hash ());
 		ASSERT_EQ (unchecked->first.hash, block2->hash ());
 		ASSERT_EQ (unchecked->second.block->hash (), block2->hash ());
 		// Put 2nd block
-		store->unchecked_put (transaction, 0, block1);
+		store->unchecked.put (transaction, 0, block1);
 	}
 	{
 		// New read transaction & correct full key
 		auto transaction (store->tx_begin_read ());
-		ASSERT_NE (store->unchecked_begin (transaction, nano::unchecked_key (block1->hash (), block2->hash ())), store->unchecked_end ());
-		ASSERT_EQ (store->unchecked_begin (transaction, nano::unchecked_key (block1->hash (), 0)), store->unchecked_begin (transaction, nano::unchecked_key (block1->hash (), block2->hash ())));
-		auto unchecked1 (store->unchecked_begin (transaction, nano::unchecked_key (block1->hash (), block2->hash ())));
+		ASSERT_NE (store->unchecked.begin (transaction, nano::unchecked_key (block1->hash (), block2->hash ())), store->unchecked.end ());
+		ASSERT_EQ (store->unchecked.begin (transaction, nano::unchecked_key (block1->hash (), 0)), store->unchecked.begin (transaction, nano::unchecked_key (block1->hash (), block2->hash ())));
+		auto unchecked1 (store->unchecked.begin (transaction, nano::unchecked_key (block1->hash (), block2->hash ())));
 		ASSERT_EQ (unchecked1->first.key (), block1->hash ());
 		ASSERT_EQ (unchecked1->first.hash, block2->hash ());
 		ASSERT_EQ (unchecked1->second.block->hash (), block2->hash ());
 		// 2nd block test
-		auto unchecked2 (store->unchecked_begin (transaction, nano::unchecked_key (0, block1->hash ())));
-		ASSERT_NE (unchecked2, store->unchecked_end ());
+		auto unchecked2 (store->unchecked.begin (transaction, nano::unchecked_key (0, block1->hash ())));
+		ASSERT_NE (unchecked2, store->unchecked.end ());
 		ASSERT_EQ (unchecked2->first.key (), 0);
 		ASSERT_EQ (unchecked2->first.hash, block1->hash ());
 		ASSERT_EQ (unchecked2->second.block->hash (), block1->hash ());
@@ -559,30 +559,30 @@ TEST (block_store, unchecked_begin_iterator)
 	auto block2 (std::make_shared<nano::send_block> (5, 6, 7, key0.prv, key0.pub, 8));
 	{
 		auto transaction (store->tx_begin_write ());
-		store->unchecked_put (transaction, block1->hash (), block2);
+		store->unchecked.put (transaction, block1->hash (), block2);
 		// Put 2nd block
-		store->unchecked_put (transaction, 0, block1);
+		store->unchecked.put (transaction, 0, block1);
 	}
 	{
 		auto transaction (store->tx_begin_read ());
 		// Test unchecked iterator
-		auto unchecked_iter (store->unchecked_begin (transaction, nano::unchecked_key (0, block1->hash ())));
-		ASSERT_NE (unchecked_iter, store->unchecked_end ());
-		ASSERT_EQ (unchecked_iter, store->unchecked_begin (transaction));
+		auto unchecked_iter (store->unchecked.begin (transaction, nano::unchecked_key (0, block1->hash ())));
+		ASSERT_NE (unchecked_iter, store->unchecked.end ());
+		ASSERT_EQ (unchecked_iter, store->unchecked.begin (transaction));
 		ASSERT_EQ (unchecked_iter->first.key (), 0);
 		ASSERT_EQ (unchecked_iter->first.hash, block1->hash ());
 		ASSERT_EQ (unchecked_iter->second.block->hash (), block1->hash ());
 		// Test iterator
 		++unchecked_iter;
-		ASSERT_NE (unchecked_iter, store->unchecked_end ());
-		ASSERT_NE (unchecked_iter, store->unchecked_begin (transaction));
+		ASSERT_NE (unchecked_iter, store->unchecked.end ());
+		ASSERT_NE (unchecked_iter, store->unchecked.begin (transaction));
 		ASSERT_EQ (unchecked_iter->first.key (), block1->hash ());
 		ASSERT_EQ (unchecked_iter->first.hash, block2->hash ());
 		ASSERT_EQ (unchecked_iter->second.block->hash (), block2->hash ());
 		// Test reverse iterator
 		--unchecked_iter;
-		ASSERT_NE (unchecked_iter, store->unchecked_end ());
-		ASSERT_EQ (unchecked_iter, store->unchecked_begin (transaction));
+		ASSERT_NE (unchecked_iter, store->unchecked.end ());
+		ASSERT_EQ (unchecked_iter, store->unchecked.begin (transaction));
 		ASSERT_EQ (unchecked_iter->first.key (), 0);
 		ASSERT_EQ (unchecked_iter->first.hash, block1->hash ());
 		ASSERT_EQ (unchecked_iter->second.block->hash (), block1->hash ());
@@ -591,7 +591,7 @@ TEST (block_store, unchecked_begin_iterator)
 		// For loop check (similar to RPC "unchecked_keys")
 		auto count (0);
 		auto transaction (store->tx_begin_read ());
-		for (auto i (store->unchecked_begin (transaction, nano::unchecked_key (0, 0))), n (store->unchecked_end ()); i != n; ++i)
+		for (auto i (store->unchecked.begin (transaction, nano::unchecked_key (0, 0))), n (store->unchecked.end ()); i != n; ++i)
 		{
 			++count;
 		}
