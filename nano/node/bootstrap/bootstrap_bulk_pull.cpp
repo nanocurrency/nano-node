@@ -441,7 +441,7 @@ void nano::bulk_pull_server::set_current_end ()
 	else
 	{
 		nano::account_info info;
-		auto no_address (connection->node->store.account_get (transaction, request->start.as_account (), info));
+		auto no_address (connection->node->store.account.get (transaction, request->start.as_account (), info));
 		if (no_address)
 		{
 			if (connection->node->config.logging.bulk_pull_logging ())
@@ -786,7 +786,7 @@ std::pair<std::unique_ptr<nano::pending_key>, std::unique_ptr<nano::pending_info
 		 * database for a prolonged period.
 		 */
 		auto stream_transaction (connection->node->store.tx_begin_read ());
-		auto stream (connection->node->store.pending_begin (stream_transaction, current_key));
+		auto stream (connection->node->store.pending.begin (stream_transaction, current_key));
 
 		if (stream == nano::store_iterator<nano::pending_key, nano::pending_info> (nullptr))
 		{

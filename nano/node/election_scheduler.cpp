@@ -18,17 +18,17 @@ void nano::election_scheduler::manual (std::shared_ptr<nano::block> const & bloc
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
 	manual_queue.push_back (std::make_tuple (block_a, previous_balance_a, election_behavior_a, confirmation_action_a));
-	observe ();
+	notify ();
 }
 
 void nano::election_scheduler::activate (nano::account const & account_a, nano::transaction const & transaction)
 {
 	debug_assert (!account_a.is_zero ());
 	nano::account_info account_info;
-	if (!node.store.account_get (transaction, account_a, account_info))
+	if (!node.store.account.get (transaction, account_a, account_info))
 	{
 		nano::confirmation_height_info conf_info;
-		node.store.confirmation_height_get (transaction, account_a, conf_info);
+		node.store.confirmation_height.get (transaction, account_a, conf_info);
 		if (conf_info.height < account_info.block_count)
 		{
 			debug_assert (conf_info.frontier != account_info.head);
@@ -39,7 +39,7 @@ void nano::election_scheduler::activate (nano::account const & account_a, nano::
 			{
 				nano::lock_guard<nano::mutex> lock{ mutex };
 				priority.push (account_info.modified, block);
-				observe ();
+				notify ();
 			}
 		}
 	}
@@ -49,20 +49,18 @@ void nano::election_scheduler::stop ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
 	stopped = true;
-	observe ();
+	notify ();
 }
 
 void nano::election_scheduler::flush ()
 {
 	nano::unique_lock<nano::mutex> lock{ mutex };
-	auto priority_target = priority_queued + priority.size ();
-	auto manual_target = manual_queued + manual_queue.size ();
-	condition.wait (lock, [this, &priority_target, &manual_target] () {
-		return priority_queued >= priority_target && manual_queued >= manual_target;
+	condition.wait (lock, [this] () {
+		return stopped || empty_locked () || node.active.vacancy () <= 0;
 	});
 }
 
-void nano::election_scheduler::observe ()
+void nano::election_scheduler::notify ()
 {
 	condition.notify_all ();
 }
@@ -73,15 +71,35 @@ size_t nano::election_scheduler::size () const
 	return priority.size () + manual_queue.size ();
 }
 
+bool nano::election_scheduler::empty_locked () const
+{
+	return priority.empty () && manual_queue.empty ();
+}
+
 bool nano::election_scheduler::empty () const
 {
 	nano::lock_guard<nano::mutex> lock{ mutex };
-	return priority.empty () && manual_queue.empty ();
+	return empty_locked ();
 }
 
 size_t nano::election_scheduler::priority_queue_size () const
 {
 	return priority.size ();
+}
+
+bool nano::election_scheduler::priority_queue_predicate () const
+{
+	return node.active.vacancy () > 0 && !priority.empty ();
+}
+
+bool nano::election_scheduler::manual_queue_predicate () const
+{
+	return !manual_queue.empty ();
+}
+
+bool nano::election_scheduler::overfill_predicate () const
+{
+	return node.active.vacancy () < 0;
 }
 
 void nano::election_scheduler::run ()
@@ -91,15 +109,23 @@ void nano::election_scheduler::run ()
 	while (!stopped)
 	{
 		condition.wait (lock, [this] () {
-			auto vacancy = node.active.vacancy ();
-			auto has_vacancy = vacancy > 0;
-			auto available = !priority.empty () || !manual_queue.empty ();
-			return stopped || (has_vacancy && available);
+			return stopped || priority_queue_predicate () || manual_queue_predicate () || overfill_predicate ();
 		});
 		debug_assert ((std::this_thread::yield (), true)); // Introduce some random delay in debug builds
 		if (!stopped)
 		{
-			if (!priority.empty ())
+			if (overfill_predicate ())
+			{
+				node.active.erase_oldest ();
+			}
+			else if (manual_queue_predicate ())
+			{
+				auto const [block, previous_balance, election_behavior, confirmation_action] = manual_queue.front ();
+				nano::unique_lock<nano::mutex> lock2 (node.active.mutex);
+				node.active.insert_impl (lock2, block, previous_balance, election_behavior, confirmation_action);
+				manual_queue.pop_front ();
+			}
+			else if (priority_queue_predicate ())
 			{
 				auto block = priority.top ();
 				std::shared_ptr<nano::election> election;
@@ -110,17 +136,8 @@ void nano::election_scheduler::run ()
 					election->transition_active ();
 				}
 				priority.pop ();
-				++priority_queued;
 			}
-			if (!manual_queue.empty ())
-			{
-				auto const [block, previous_balance, election_behavior, confirmation_action] = manual_queue.front ();
-				nano::unique_lock<nano::mutex> lock2 (node.active.mutex);
-				node.active.insert_impl (lock2, block, previous_balance, election_behavior, confirmation_action);
-				manual_queue.pop_front ();
-				++manual_queued;
-			}
-			observe ();
+			notify ();
 		}
 	}
 }

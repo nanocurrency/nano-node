@@ -115,6 +115,9 @@ namespace transport
 		class ip_address_tag
 		{
 		};
+		class subnetwork_tag
+		{
+		};
 		class random_access_tag
 		{
 		};
@@ -156,7 +159,11 @@ namespace transport
 			}
 			boost::asio::ip::address ip_address () const
 			{
-				return endpoint ().address ();
+				return nano::transport::ipv4_address_or_ipv6_subnet (endpoint ().address ());
+			}
+			boost::asio::ip::address subnetwork () const
+			{
+				return nano::transport::map_address_to_subnetwork (endpoint ().address ());
 			}
 			nano::account node_id () const
 			{
@@ -167,10 +174,12 @@ namespace transport
 		{
 		public:
 			nano::endpoint endpoint;
+			boost::asio::ip::address subnetwork;
 			std::chrono::steady_clock::time_point last_attempt{ std::chrono::steady_clock::now () };
 
 			explicit endpoint_attempt (nano::endpoint const & endpoint_a) :
-				endpoint (endpoint_a)
+				endpoint (endpoint_a),
+				subnetwork (nano::transport::map_address_to_subnetwork (endpoint_a.address ()))
 			{
 			}
 		};
@@ -189,13 +198,17 @@ namespace transport
 			mi::ordered_non_unique<mi::tag<last_packet_received_tag>,
 				mi::const_mem_fun<channel_udp_wrapper, std::chrono::steady_clock::time_point, &channel_udp_wrapper::last_packet_received>>,
 			mi::hashed_non_unique<mi::tag<ip_address_tag>,
-				mi::const_mem_fun<channel_udp_wrapper, boost::asio::ip::address, &channel_udp_wrapper::ip_address>>>>
+				mi::const_mem_fun<channel_udp_wrapper, boost::asio::ip::address, &channel_udp_wrapper::ip_address>>,
+			mi::hashed_non_unique<mi::tag<subnetwork_tag>,
+				mi::const_mem_fun<channel_udp_wrapper, boost::asio::ip::address, &channel_udp_wrapper::subnetwork>>>>
 		channels;
 		boost::multi_index_container<
 		endpoint_attempt,
 		mi::indexed_by<
 			mi::hashed_unique<mi::tag<endpoint_tag>,
 				mi::member<endpoint_attempt, nano::endpoint, &endpoint_attempt::endpoint>>,
+			mi::hashed_non_unique<mi::tag<subnetwork_tag>,
+				mi::member<endpoint_attempt, boost::asio::ip::address, &endpoint_attempt::subnetwork>>,
 			mi::ordered_non_unique<mi::tag<last_attempt_tag>,
 				mi::member<endpoint_attempt, std::chrono::steady_clock::time_point, &endpoint_attempt::last_attempt>>>>
 		attempts;
