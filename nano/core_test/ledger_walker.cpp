@@ -8,12 +8,13 @@
 
 using namespace std::chrono_literals;
 
-TEST (leger_walker, first_test)
+TEST (ledger_walker, staircase_geometry)
 {
 	nano::system system{};
 
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.enable_voting = true;
+    node_config.receive_minimum = 1;
 
 	const auto node = system.add_node (node_config);
 	std::array<nano::keypair, 3> keys{};
@@ -22,12 +23,12 @@ TEST (leger_walker, first_test)
 	for (auto itr = 0; itr != keys.size (); ++itr)
 	{
 		system.wallet (0)->insert_adhoc (keys[itr].prv);
-		const auto block = system.wallet (0)->send_action (nano::dev_genesis_key.pub, keys[itr].pub, nano::Gxrb_ratio);
+		const auto block = system.wallet (0)->send_action (nano::dev_genesis_key.pub, keys[itr].pub, 1000);
 		ASSERT_TIMELY (3s, 1 + (itr + 1) * 2 == node->ledger.cache.cemented_count);
 	}
 
 	std::vector<nano::uint128_t> amounts_to_send (10);
-	std::iota (amounts_to_send.begin (), amounts_to_send.end (), nano::Mxrb_ratio);
+	std::iota (amounts_to_send.begin (), amounts_to_send.end (), 1);
 
 	const nano::account * last_destination{};
 	for (auto itr = 0; itr != amounts_to_send.size (); ++itr)
@@ -48,16 +49,12 @@ TEST (leger_walker, first_test)
 	const auto last_destination_read_error = node->ledger.store.account.get (transaction, *last_destination, last_destination_info);
 	ASSERT_FALSE (last_destination_read_error);
 
-	/*
-    This is how we expect chains to look like (for 3 accounts and 10 amounts to be sent).
-    k1: Gx     SEND     02     SEND     05     SEND     08     SEND
-    k2: Gx     00       SEND   03     SEND     06     SEND     09
-    k3: Gx     01       SEND   04     SEND     07     SEND
-    */
+    // This is how we expect chains to look like (for 3 accounts and 10 amounts to be sent)
+    // k1: 1000     SEND     3     SEND     6     SEND     9     SEND
+    // k2: 1000     1       SEND   4     SEND     7     SEND     10
+    // k3: 1000     2       SEND   5     SEND     8     SEND
 
-	std::vector<nano::uint128_t> amounts_expected{ nano::Mxrb_ratio + 9, nano::Mxrb_ratio + 8, nano::Mxrb_ratio + 7, nano::Mxrb_ratio + 4, nano::Mxrb_ratio + 3,
-		nano::Mxrb_ratio + 2, nano::Gxrb_ratio, nano::Mxrb_ratio, nano::Gxrb_ratio, nano::Mxrb_ratio + 1, nano::Gxrb_ratio,
-		nano::Mxrb_ratio + 5, nano::Mxrb_ratio + 6 };
+	std::vector<nano::uint128_t> amounts_expected{ 10, 9, 8, 5, 4, 3, 1000, 1, 1000, 2, 1000, 6, 7 };
 	auto amounts_expected_itr = amounts_expected.cbegin ();
 
 	nano::ledger_walker ledger_walker{ node->ledger };

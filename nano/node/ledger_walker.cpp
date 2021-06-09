@@ -11,10 +11,7 @@ nano::ledger_walker::ledger_walker (nano::ledger const & ledger_a) :
 	walked_blocks{},
 	blocks_to_walk{}
 {
-	if (ledger.store.init_error ())
-	{
-		throw nano::error{ "Ledger store initialization error" };
-	}
+    debug_assert(!ledger.store.init_error ());
 }
 
 void nano::ledger_walker::walk_backward (nano::block_hash const & start_block_a, visitor_callback const & visitor_callback_a)
@@ -30,18 +27,16 @@ void nano::ledger_walker::walk_backward (nano::block_hash const & start_block_a,
 			continue;
 		}
 
-		if (!block->previous ().is_zero ())
-		{
-			enqueue_block (ledger.store.block_get (transaction, block->previous ()));
-		}
-
-		if (block->sideband ().details.is_receive)
-		{
-			enqueue_block (ledger.store.block_get (transaction, block->link ().as_block_hash ()));
-		}
+        for (const auto & hash : ledger.dependent_blocks (transaction, *block))
+        {
+            if (!hash.is_zero())
+            {
+                enqueue_block (ledger.store.block_get (transaction, hash));
+            }
+        }
 	}
 
-	walked_blocks.clear ();
+	decltype (walked_blocks){}.swap (walked_blocks);
 	decltype (blocks_to_walk){}.swap (blocks_to_walk);
 }
 
