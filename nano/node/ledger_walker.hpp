@@ -33,6 +33,8 @@ private:
 	void enqueue_block (nano::block_hash block_a);
 	void enqueue_block (std::shared_ptr<nano::block> const & block_a);
 	std::shared_ptr<nano::block> dequeue_block (nano::transaction const & transaction_a);
+
+    friend class ledger_walker_genesis_account_longer_Test;
 };
 
 }
