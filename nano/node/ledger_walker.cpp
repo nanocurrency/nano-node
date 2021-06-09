@@ -11,7 +11,7 @@ nano::ledger_walker::ledger_walker (nano::ledger const & ledger_a) :
 	walked_blocks{},
 	blocks_to_walk{}
 {
-    debug_assert(!ledger.store.init_error ());
+	debug_assert (!ledger.store.init_error ());
 }
 
 void nano::ledger_walker::walk_backward (nano::block_hash const & start_block_a, visitor_callback const & visitor_callback_a)
@@ -27,13 +27,13 @@ void nano::ledger_walker::walk_backward (nano::block_hash const & start_block_a,
 			continue;
 		}
 
-        for (const auto & hash : ledger.dependent_blocks (transaction, *block))
-        {
-            if (!hash.is_zero())
-            {
-                enqueue_block (ledger.store.block_get (transaction, hash));
-            }
-        }
+		for (const auto & hash : ledger.dependent_blocks (transaction, *block))
+		{
+			if (!hash.is_zero ())
+			{
+				enqueue_block (ledger.store.block_get (transaction, hash));
+			}
+		}
 	}
 
 	decltype (walked_blocks){}.swap (walked_blocks);
