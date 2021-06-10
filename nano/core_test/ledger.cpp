@@ -3869,7 +3869,7 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 		store.pending.put (transaction, nano::pending_key (nano::genesis_account, send->hash ()), nano::pending_info (nano::genesis_account, 100, nano::epoch::epoch_0));
 		store.pruned.put (transaction, send->hash ());
 		store.unchecked.put (transaction, nano::genesis_hash, send);
-		store.version_put (transaction, version);
+		store.version.put (transaction, version);
 		send->sideband_set ({});
 		store.block_put (transaction, send->hash (), *send);
 		store.final_vote.put (transaction, send->qualified_root (), nano::block_hash (2));
@@ -3896,7 +3896,7 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 
 	ASSERT_EQ (*send, *block1);
 	ASSERT_TRUE (rocksdb_store.peer.exists (rocksdb_transaction, endpoint_key));
-	ASSERT_EQ (rocksdb_store.version_get (rocksdb_transaction), version);
+	ASSERT_EQ (rocksdb_store.version.get (rocksdb_transaction), version);
 	ASSERT_EQ (rocksdb_store.frontier.get (rocksdb_transaction, 2), 5);
 	nano::confirmation_height_info confirmation_height_info;
 	ASSERT_FALSE (rocksdb_store.confirmation_height.get (rocksdb_transaction, nano::genesis_account, confirmation_height_info));

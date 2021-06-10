@@ -670,7 +670,7 @@ TEST (mdb_block_store, supported_version_upgrades)
 		auto transaction (store.tx_begin_write ());
 		store.initialize (transaction, genesis, ledger.cache);
 		// Lower the database to the max version unsupported for upgrades
-		store.version_put (transaction, store.minimum_version - 1);
+		store.version.put (transaction, store.minimum_version - 1);
 	}
 
 	// Upgrade should fail
@@ -688,7 +688,7 @@ TEST (mdb_block_store, supported_version_upgrades)
 		auto transaction (store.tx_begin_write ());
 		store.initialize (transaction, genesis, ledger.cache);
 		// Lower the database version to the minimum version supported for upgrade.
-		store.version_put (transaction, store.minimum_version);
+		store.version.put (transaction, store.minimum_version);
 		store.confirmation_height.del (transaction, nano::genesis_account);
 		ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "accounts_v1", MDB_CREATE, &store.accounts_v1_handle));
 		ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "open", MDB_CREATE, &store.open_blocks_handle));
@@ -1301,7 +1301,7 @@ TEST (mdb_block_store, upgrade_v14_v15)
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, epoch).code);
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, state_send).code);
 		// Lower the database to the previous version
-		store.version_put (transaction, 14);
+		store.version.put (transaction, 14);
 		store.confirmation_height.del (transaction, nano::genesis_account);
 		modify_account_info_to_v14 (store, transaction, nano::genesis_account, confirmation_height_info.height, state_send.hash ());
 
@@ -1372,7 +1372,7 @@ TEST (mdb_block_store, upgrade_v14_v15)
 	ASSERT_EQ (pending_info.epoch, nano::epoch::epoch_1);
 
 	// Version should be correct
-	ASSERT_LT (14, store.version_get (transaction));
+	ASSERT_LT (14, store.version.get (transaction));
 }
 
 TEST (mdb_block_store, upgrade_v15_v16)
@@ -1400,7 +1400,7 @@ TEST (mdb_block_store, upgrade_v15_v16)
 		ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "open", MDB_CREATE, &store.open_blocks_handle));
 		write_block_w_sideband_v18 (store, store.open_blocks_handle, transaction, *genesis.open);
 		// Lower the database to the previous version
-		store.version_put (transaction, 15);
+		store.version.put (transaction, 15);
 		// Confirm the rep weight exists in the database
 		ASSERT_EQ (MDB_SUCCESS, mdb_get (store.env.tx (transaction), store.representation_handle, nano::mdb_val (nano::genesis_account), value));
 		store.confirmation_height.del (transaction, nano::genesis_account);
@@ -1418,7 +1418,7 @@ TEST (mdb_block_store, upgrade_v15_v16)
 	ASSERT_EQ (store.representation_handle, 0);
 
 	// Version should be correct
-	ASSERT_LT (15, store.version_get (transaction));
+	ASSERT_LT (15, store.version.get (transaction));
 }
 
 TEST (mdb_block_store, upgrade_v16_v17)
@@ -1458,7 +1458,7 @@ TEST (mdb_block_store, upgrade_v16_v17)
 			write_block_w_sideband_v18 (store, store.state_blocks_handle, transaction, block3);
 
 			// Lower the database to the previous version
-			store.version_put (transaction, 16);
+			store.version.put (transaction, 16);
 		}
 
 		// Now do the upgrade
@@ -1475,7 +1475,7 @@ TEST (mdb_block_store, upgrade_v16_v17)
 		ASSERT_EQ (confirmation_height_info.frontier, expected_cemented_frontier);
 
 		// Version should be correct
-		ASSERT_LT (16, store.version_get (transaction));
+		ASSERT_LT (16, store.version.get (transaction));
 	};
 
 	code (0, nano::block_hash (0));
@@ -1536,7 +1536,7 @@ TEST (mdb_block_store, upgrade_v17_v18)
 		ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "state_blocks", MDB_CREATE, &store.state_blocks_handle));
 
 		// Downgrade the store
-		store.version_put (transaction, 17);
+		store.version.put (transaction, 17);
 
 		write_block_w_sideband_v18 (store, store.state_blocks_handle, transaction, state_receive);
 		write_block_w_sideband_v18 (store, store.state_blocks_handle, transaction, epoch_first);
@@ -1686,7 +1686,7 @@ TEST (mdb_block_store, upgrade_v17_v18)
 		ASSERT_FALSE (block->sideband ().details.is_receive);
 	}
 	// Version should be correct
-	ASSERT_LT (17, store.version_get (transaction));
+	ASSERT_LT (17, store.version.get (transaction));
 }
 
 TEST (mdb_block_store, upgrade_v18_v19)
@@ -1740,7 +1740,7 @@ TEST (mdb_block_store, upgrade_v18_v19)
 		write_block_w_sideband_v18 (store, store.state_blocks_handle, transaction, state_send);
 		write_block_w_sideband_v18 (store, store.state_blocks_handle, transaction, state_open);
 
-		store.version_put (transaction, 18);
+		store.version.put (transaction, 18);
 	}
 
 	// Now do the upgrade
@@ -1779,7 +1779,7 @@ TEST (mdb_block_store, upgrade_v18_v19)
 	ASSERT_EQ (7, store.count (transaction, store.blocks_handle));
 
 	// Version should be correct
-	ASSERT_LT (18, store.version_get (transaction));
+	ASSERT_LT (18, store.version.get (transaction));
 }
 
 TEST (mdb_block_store, upgrade_v19_v20)
@@ -1800,7 +1800,7 @@ TEST (mdb_block_store, upgrade_v19_v20)
 		store.initialize (transaction, genesis, ledger.cache);
 		// Delete pruned table
 		ASSERT_FALSE (mdb_drop (store.env.tx (transaction), store.pruned_handle, 1));
-		store.version_put (transaction, 19);
+		store.version.put (transaction, 19);
 	}
 	// Upgrading should create the table
 	nano::mdb_store store (logger, path);
@@ -1809,7 +1809,7 @@ TEST (mdb_block_store, upgrade_v19_v20)
 
 	// Version should be correct
 	auto transaction (store.tx_begin_read ());
-	ASSERT_LT (19, store.version_get (transaction));
+	ASSERT_LT (19, store.version.get (transaction));
 }
 
 TEST (mdb_block_store, upgrade_v20_v21)
@@ -1830,7 +1830,7 @@ TEST (mdb_block_store, upgrade_v20_v21)
 		store.initialize (transaction, genesis, ledger.cache);
 		// Delete pruned table
 		ASSERT_FALSE (mdb_drop (store.env.tx (transaction), store.final_votes_handle, 1));
-		store.version_put (transaction, 20);
+		store.version.put (transaction, 20);
 	}
 	// Upgrading should create the table
 	nano::mdb_store store (logger, path);
@@ -1839,7 +1839,7 @@ TEST (mdb_block_store, upgrade_v20_v21)
 
 	// Version should be correct
 	auto transaction (store.tx_begin_read ());
-	ASSERT_LT (19, store.version_get (transaction));
+	ASSERT_LT (19, store.version.get (transaction));
 }
 
 TEST (mdb_block_store, upgrade_backup)
@@ -1870,7 +1870,7 @@ TEST (mdb_block_store, upgrade_backup)
 		nano::genesis genesis;
 		nano::mdb_store store (logger, path);
 		auto transaction (store.tx_begin_write ());
-		store.version_put (transaction, 14);
+		store.version.put (transaction, 14);
 	}
 	ASSERT_EQ (get_backup_path ().string (), dir.string ());
 
@@ -1879,7 +1879,7 @@ TEST (mdb_block_store, upgrade_backup)
 	nano::mdb_store store (logger, path, nano::txn_tracking_config{}, std::chrono::seconds (5), nano::lmdb_config{}, true);
 	ASSERT_FALSE (store.init_error ());
 	auto transaction (store.tx_begin_read ());
-	ASSERT_LT (14, store.version_get (transaction));
+	ASSERT_LT (14, store.version.get (transaction));
 	ASSERT_NE (get_backup_path ().string (), dir.string ());
 }
 
@@ -1970,7 +1970,7 @@ TEST (block_store, incompatible_version)
 
 		// Put version to an unreachable number so that it should always be incompatible
 		auto transaction (store->tx_begin_write ());
-		store->version_put (transaction, std::numeric_limits<int>::max ());
+		store->version.put (transaction, std::numeric_limits<int>::max ());
 	}
 
 	// Now try and read it, should give an error
@@ -1979,7 +1979,7 @@ TEST (block_store, incompatible_version)
 		ASSERT_TRUE (store->init_error ());
 
 		auto transaction = store->tx_begin_read ();
-		auto version_l = store->version_get (transaction);
+		auto version_l = store->version.get (transaction);
 		ASSERT_EQ (version_l, std::numeric_limits<int>::max ());
 	}
 }

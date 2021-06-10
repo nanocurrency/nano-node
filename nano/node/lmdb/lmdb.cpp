@@ -41,8 +41,30 @@ void mdb_val::convert_buffer_to_value ()
 }
 
 nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade_a) :
-	block_store_partial{ unchecked_mdb_store },
+	// clang-format off
+	block_store_partial{
+		frontier_store_partial,
+		account_store_partial,
+		pending_store_partial,
+		unchecked_mdb_store,
+		online_weight_store_partial,
+		pruned_store_partial,
+		peer_store_partial,
+		confirmation_height_store_partial,
+		final_vote_store_partial,
+		version_store_partial
+	},
+	// clang-format on
+	frontier_store_partial{ *this },
+	account_store_partial{ *this },
+	pending_store_partial{ *this },
+	online_weight_store_partial{ *this },
+	pruned_store_partial{ *this },
+	peer_store_partial{ *this },
+	confirmation_height_store_partial{ *this },
+	final_vote_store_partial{ *this },
 	unchecked_mdb_store{ *this },
+	version_store_partial{ *this },
 	logger (logger_a),
 	env (error, path_a, nano::mdb_env::options::make ().set_config (lmdb_config_a).set_use_no_mem_init (true)),
 	mdb_txn_tracker (logger_a, txn_tracking_config_a, block_processor_batch_max_time_a),
@@ -58,7 +80,7 @@ nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path 
 			is_fresh_db = err != MDB_SUCCESS;
 			if (err == MDB_SUCCESS)
 			{
-				is_fully_upgraded = (version_get (transaction) == version);
+				is_fully_upgraded = (version.get (transaction) == version_number);
 				mdb_dbi_close (env, meta_handle);
 			}
 		}
@@ -203,7 +225,7 @@ void nano::mdb_store::open_databases (bool & error_a, nano::transaction const & 
 	pending_handle = pending_v0_handle;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "final_votes", flags, &final_votes_handle) != 0;
 
-	auto version_l = version_get (transaction_a);
+	auto version_l = version.get (transaction_a);
 	if (version_l < 19)
 	{
 		// These legacy (and state) block databases are no longer used, but need opening so they can be deleted during an upgrade
@@ -242,7 +264,7 @@ void nano::mdb_store::open_databases (bool & error_a, nano::transaction const & 
 bool nano::mdb_store::do_upgrades (nano::write_transaction & transaction_a, bool & needs_vacuuming)
 {
 	auto error (false);
-	auto version_l = version_get (transaction_a);
+	auto version_l = version.get (transaction_a);
 	switch (version_l)
 	{
 		case 1:
@@ -409,7 +431,7 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction & transaction_
 		mdb_put (env.tx (transaction_a), pending_handle, nano::mdb_val (pending_key_pending_info_pair.first), nano::mdb_val (pending_key_pending_info_pair.second), MDB_APPEND);
 	}
 
-	version_put (transaction_a, 15);
+	version.put (transaction_a, 15);
 	logger.always_log ("Finished epoch merge upgrade");
 }
 
@@ -423,7 +445,7 @@ void nano::mdb_store::upgrade_v15_to_v16 (nano::write_transaction const & transa
 		release_assert (status == MDB_SUCCESS);
 		representation_handle = 0;
 	}
-	version_put (transaction_a, 16);
+	version.put (transaction_a, 16);
 }
 
 void nano::mdb_store::upgrade_v16_to_v17 (nano::write_transaction const & transaction_a)
@@ -501,7 +523,7 @@ void nano::mdb_store::upgrade_v16_to_v17 (nano::write_transaction const & transa
 		mdb_put (env.tx (transaction_a), confirmation_height_handle, nano::mdb_val (confirmation_height_info_pair.first), nano::mdb_val (confirmation_height_info_pair.second), MDB_APPEND);
 	}
 
-	version_put (transaction_a, 17);
+	version.put (transaction_a, 17);
 	logger.always_log ("Finished upgrading confirmation height frontiers");
 }
 
@@ -563,7 +585,7 @@ void nano::mdb_store::upgrade_v17_to_v18 (nano::write_transaction const & transa
 	auto count_post (count (transaction_a, state_blocks_handle));
 	release_assert (count_pre == count_post);
 
-	version_put (transaction_a, 18);
+	version.put (transaction_a, 18);
 	logger.always_log ("Finished upgrading the sideband");
 }
 
@@ -739,7 +761,7 @@ void nano::mdb_store::upgrade_v18_to_v19 (nano::write_transaction const & transa
 	release_assert (!mdb_dbi_open (env.tx (transaction_a), "vote", MDB_CREATE, &vote));
 	release_assert (!mdb_drop (env.tx (transaction_a), vote, 1));
 
-	version_put (transaction_a, 19);
+	version.put (transaction_a, 19);
 	logger.always_log ("Finished upgrading all blocks to new blocks database");
 }
 
@@ -747,7 +769,7 @@ void nano::mdb_store::upgrade_v19_to_v20 (nano::write_transaction const & transa
 {
 	logger.always_log ("Preparing v19 to v20 database upgrade...");
 	mdb_dbi_open (env.tx (transaction_a), "pruned", MDB_CREATE, &pruned_handle);
-	version_put (transaction_a, 20);
+	version.put (transaction_a, 20);
 	logger.always_log ("Finished creating new pruned table");
 }
 
@@ -755,7 +777,7 @@ void nano::mdb_store::upgrade_v20_to_v21 (nano::write_transaction const & transa
 {
 	logger.always_log ("Preparing v20 to v21 database upgrade...");
 	mdb_dbi_open (env.tx (transaction_a), "final_votes", MDB_CREATE, &final_votes_handle);
-	version_put (transaction_a, 21);
+	version.put (transaction_a, 21);
 	logger.always_log ("Finished creating new final_vote table");
 }
 
@@ -803,14 +825,6 @@ std::vector<nano::unchecked_info> nano::unchecked_mdb_store::get (nano::transact
 
 nano::unchecked_mdb_store::unchecked_mdb_store (nano::mdb_store & mdb_store_a) :
 	unchecked_store_partial<MDB_val, mdb_store> (mdb_store_a){};
-
-void nano::mdb_store::version_put (nano::write_transaction const & transaction_a, int version_a)
-{
-	nano::uint256_union version_key (1);
-	nano::uint256_union version_value (version_a);
-	auto status (mdb_put (env.tx (transaction_a), meta_handle, nano::mdb_val (version_key), nano::mdb_val (version_value), 0));
-	release_assert_success (*this, status);
-}
 
 bool nano::mdb_store::exists (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a) const
 {

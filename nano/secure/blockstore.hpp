@@ -775,12 +775,35 @@ public:
 };
 
 /**
+ * Manages version storage
+ */
+class version_store
+{
+public:
+	virtual void put (nano::write_transaction const &, int) = 0;
+	virtual int get (nano::transaction const &) const = 0;
+};
+
+/**
  * Manages block storage and iteration
  */
 class block_store
 {
 public:
-	explicit block_store (nano::frontier_store &, nano::account_store &, nano::pending_store &, nano::unchecked_store &, nano::online_weight_store &, nano::pruned_store &, nano::peer_store &, nano::confirmation_height_store &, nano::final_vote_store &);
+	// clang-format off
+	explicit block_store (
+		nano::frontier_store &,
+		nano::account_store &,
+		nano::pending_store &,
+		nano::unchecked_store &,
+		nano::online_weight_store &,
+		nano::pruned_store &,
+		nano::peer_store &,
+		nano::confirmation_height_store &,
+		nano::final_vote_store &,
+		nano::version_store &
+	);
+	// clang-format on
 	virtual ~block_store () = default;
 	virtual void initialize (nano::write_transaction const &, nano::genesis const &, nano::ledger_cache &) = 0;
 	virtual void block_put (nano::write_transaction const &, nano::block_hash const &, nano::block const &) = 0;
@@ -800,32 +823,23 @@ public:
 	virtual nano::store_iterator<nano::block_hash, block_w_sideband> blocks_begin (nano::transaction const &) const = 0;
 	virtual nano::store_iterator<nano::block_hash, block_w_sideband> blocks_end () const = 0;
 
-	frontier_store & frontier;
-	account_store & account;
-	pending_store & pending;
-
 	virtual nano::uint128_t block_balance (nano::transaction const &, nano::block_hash const &) = 0;
 	virtual nano::uint128_t block_balance_calculated (std::shared_ptr<nano::block> const &) const = 0;
 	virtual nano::epoch block_version (nano::transaction const &, nano::block_hash const &) = 0;
 
-	unchecked_store & unchecked;
-
-	online_weight_store & online_weight;
-
-	virtual void version_put (nano::write_transaction const &, int) = 0;
-	virtual int version_get (nano::transaction const &) const = 0;
-
-	pruned_store & pruned;
-
-	peer_store & peer;
-
-	confirmation_height_store & confirmation_height;
-
 	virtual void blocks_for_each_par (std::function<void (nano::read_transaction const &, nano::store_iterator<nano::block_hash, block_w_sideband>, nano::store_iterator<nano::block_hash, block_w_sideband>)> const & action_a) const = 0;
-
 	virtual uint64_t block_account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const = 0;
 
+	frontier_store & frontier;
+	account_store & account;
+	pending_store & pending;
+	unchecked_store & unchecked;
+	online_weight_store & online_weight;
+	pruned_store & pruned;
+	peer_store & peer;
+	confirmation_height_store & confirmation_height;
 	final_vote_store & final_vote;
+	version_store & version;
 
 	virtual unsigned max_block_write_batch_num () const = 0;
 

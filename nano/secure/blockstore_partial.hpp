@@ -15,6 +15,7 @@
 #include <nano/secure/store/pending_store_partial.hpp>
 #include <nano/secure/store/pruned_store_partial.hpp>
 #include <nano/secure/store/unchecked_store_partial.hpp>
+#include <nano/secure/store/version_store_partial.hpp>
 
 #include <crypto/cryptopp/words.h>
 
@@ -47,16 +48,6 @@ class unchecked_store_partial;
 template <typename Val, typename Derived_Store>
 class block_store_partial : public block_store
 {
-	nano::frontier_store_partial<Val, Derived_Store> frontier_store_partial;
-	nano::account_store_partial<Val, Derived_Store> account_store_partial;
-	nano::pending_store_partial<Val, Derived_Store> pending_store_partial;
-	nano::unchecked_store_partial<Val, Derived_Store> & unchecked_store_partial;
-	nano::online_weight_store_partial<Val, Derived_Store> online_weight_store_partial;
-	nano::pruned_store_partial<Val, Derived_Store> pruned_store_partial;
-	nano::peer_store_partial<Val, Derived_Store> peer_store_partial;
-	nano::confirmation_height_store_partial<Val, Derived_Store> confirmation_height_store_partial;
-	nano::final_vote_store_partial<Val, Derived_Store> final_vote_store_partial;
-
 	friend void release_assert_success<Val, Derived_Store> (block_store_partial<Val, Derived_Store> const & block_store, const int status);
 
 public:
@@ -72,20 +63,34 @@ public:
 	friend class nano::peer_store_partial<Val, Derived_Store>;
 	friend class nano::confirmation_height_store_partial<Val, Derived_Store>;
 	friend class nano::final_vote_store_partial<Val, Derived_Store>;
+	friend class nano::version_store_partial<Val, Derived_Store>;
 
-	block_store_partial (nano::unchecked_store_partial<Val, Derived_Store> & unchecked_store_partial_a) :
-		block_store{ frontier_store_partial, account_store_partial, pending_store_partial, unchecked_store_partial_a, online_weight_store_partial, pruned_store_partial, peer_store_partial, confirmation_height_store_partial, final_vote_store_partial },
-		frontier_store_partial{ *this },
-		account_store_partial{ *this },
-		pending_store_partial{ *this },
-		unchecked_store_partial (unchecked_store_partial_a),
-		online_weight_store_partial{ *this },
-		pruned_store_partial{ *this },
-		peer_store_partial{ *this },
-		confirmation_height_store_partial{ *this },
-		final_vote_store_partial{ *this }
-	{
-	}
+	// clang-format off
+	block_store_partial (
+		nano::frontier_store_partial<Val, Derived_Store> & frontier_store_partial_a,
+		nano::account_store_partial<Val, Derived_Store> & account_store_partial_a,
+		nano::pending_store_partial<Val, Derived_Store> & pending_store_partial_a,
+		nano::unchecked_store_partial<Val, Derived_Store> & unchecked_store_partial_a,
+		nano::online_weight_store_partial<Val, Derived_Store> & online_weight_store_partial_a,
+		nano::pruned_store_partial<Val, Derived_Store> & pruned_store_partial_a,
+		nano::peer_store_partial<Val, Derived_Store> & peer_store_partial_a,
+		nano::confirmation_height_store_partial<Val, Derived_Store> & confirmation_height_store_partial_a,
+		nano::final_vote_store_partial<Val, Derived_Store> & final_vote_store_partial_a,
+		nano::version_store_partial<Val, Derived_Store> & version_store_partial_a) :
+		block_store{
+			frontier_store_partial_a,
+			account_store_partial_a,
+			pending_store_partial_a,
+			unchecked_store_partial_a,
+			online_weight_store_partial_a,
+			pruned_store_partial_a,
+			peer_store_partial_a,
+			confirmation_height_store_partial_a,
+			final_vote_store_partial_a,
+			version_store_partial_a
+		}
+	{}
+	// clang-format on
 
 	/**
 	 * If using a different store version than the latest then you may need
@@ -259,21 +264,6 @@ public:
 		return nano::store_iterator<nano::block_hash, nano::block_w_sideband> (nullptr);
 	}
 
-	int version_get (nano::transaction const & transaction_a) const override
-	{
-		nano::uint256_union version_key (1);
-		nano::db_val<Val> data;
-		auto status = get (transaction_a, tables::meta, nano::db_val<Val> (version_key), data);
-		int result (minimum_version);
-		if (success (status))
-		{
-			nano::uint256_union version_value (data);
-			debug_assert (version_value.qwords[2] == 0 && version_value.qwords[1] == 0 && version_value.qwords[0] == 0);
-			result = version_value.number ().convert_to<int> ();
-		}
-		return result;
-	}
-
 	void block_del (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a) override
 	{
 		auto status = del (transaction_a, tables::blocks, hash_a);
@@ -294,7 +284,7 @@ public:
 	void block_raw_put (nano::write_transaction const & transaction_a, std::vector<uint8_t> const & data, nano::block_hash const & hash_a) override
 	{
 		nano::db_val<Val> value{ data.size (), (void *)data.data () };
-		auto status = put (transaction_a, tables::blocks, hash_a, value);
+		auto status = this->put (transaction_a, tables::blocks, hash_a, value);
 		release_assert_success (*this, status);
 	}
 
@@ -345,7 +335,7 @@ public:
 
 protected:
 	nano::network_params network_params;
-	int const version{ 21 };
+	int const version_number{ 21 };
 
 	template <typename Key, typename Value>
 	nano::store_iterator<Key, Value> make_iterator (nano::transaction const & transaction_a, tables table_a, bool const direction_asc = true) const
@@ -401,7 +391,7 @@ protected:
 	// Put only key without value
 	int put_key (nano::write_transaction const & transaction_a, tables table_a, nano::db_val<Val> const & key_a)
 	{
-		return put (transaction_a, table_a, key_a, nano::db_val<Val>{ nullptr });
+		return this->put (transaction_a, table_a, key_a, nano::db_val<Val>{ nullptr });
 	}
 
 	int del (nano::write_transaction const & transaction_a, tables table_a, nano::db_val<Val> const & key_a)

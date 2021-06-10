@@ -6,7 +6,16 @@
 #include <nano/node/rocksdb/rocksdb_iterator.hpp>
 #include <nano/secure/blockstore_partial.hpp>
 #include <nano/secure/common.hpp>
+#include <nano/secure/store/account_store_partial.hpp>
+#include <nano/secure/store/confirmation_height_store_partial.hpp>
+#include <nano/secure/store/final_vote_store_partial.hpp>
+#include <nano/secure/store/frontier_store_partial.hpp>
+#include <nano/secure/store/online_weight_partial.hpp>
+#include <nano/secure/store/peer_store_partial.hpp>
+#include <nano/secure/store/pending_store_partial.hpp>
+#include <nano/secure/store/pruned_store_partial.hpp>
 #include <nano/secure/store/unchecked_store_partial.hpp>
+#include <nano/secure/store/version_store_partial.hpp>
 
 #include <rocksdb/db.h>
 #include <rocksdb/filter_policy.h>
@@ -32,13 +41,36 @@ private:
 	nano::rocksdb_store & rocksdb_store;
 };
 
+class version_rocksdb_store : public version_store_partial<rocksdb::Slice, nano::rocksdb_store>
+{
+public:
+	explicit version_rocksdb_store (nano::rocksdb_store &);
+	void version_put (nano::write_transaction const &, int);
+
+private:
+	nano::rocksdb_store & rocksdb_store;
+};
+
 /**
  * rocksdb implementation of the block store
  */
 class rocksdb_store : public block_store_partial<rocksdb::Slice, rocksdb_store>
 {
+private:
+	nano::frontier_store_partial<rocksdb::Slice, rocksdb_store> frontier_store_partial;
+	nano::account_store_partial<rocksdb::Slice, rocksdb_store> account_store_partial;
+	nano::pending_store_partial<rocksdb::Slice, rocksdb_store> pending_store_partial;
+	nano::unchecked_rocksdb_store unchecked_rocksdb_store;
+	nano::online_weight_store_partial<rocksdb::Slice, rocksdb_store> online_weight_store_partial;
+	nano::pruned_store_partial<rocksdb::Slice, rocksdb_store> pruned_store_partial;
+	nano::peer_store_partial<rocksdb::Slice, rocksdb_store> peer_store_partial;
+	nano::confirmation_height_store_partial<rocksdb::Slice, rocksdb_store> confirmation_height_store_partial;
+	nano::final_vote_store_partial<rocksdb::Slice, rocksdb_store> final_vote_store_partial;
+	nano::version_rocksdb_store version_rocksdb_store;
+
 public:
 	friend class nano::unchecked_rocksdb_store;
+	friend class nano::version_rocksdb_store;
 
 	explicit rocksdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::rocksdb_config const & = nano::rocksdb_config{}, bool open_read_only = false);
 
@@ -48,7 +80,6 @@ public:
 	std::string vendor_get () const override;
 
 	uint64_t count (nano::transaction const & transaction_a, tables table_a) const override;
-	void version_put (nano::write_transaction const &, int) override;
 
 	bool exists (nano::transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a) const;
 	int get (nano::transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a, nano::rocksdb_val & value_a) const;
@@ -79,8 +110,6 @@ public:
 	std::string error_string (int status) const override;
 
 private:
-	nano::unchecked_rocksdb_store unchecked_rocksdb_store;
-
 	bool error{ false };
 	nano::logger_mt & logger;
 	// Optimistic transactions are used in write mode

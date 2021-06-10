@@ -9,7 +9,16 @@
 #include <nano/node/lmdb/lmdb_txn.hpp>
 #include <nano/secure/blockstore_partial.hpp>
 #include <nano/secure/common.hpp>
+#include <nano/secure/store/account_store_partial.hpp>
+#include <nano/secure/store/confirmation_height_store_partial.hpp>
+#include <nano/secure/store/final_vote_store_partial.hpp>
+#include <nano/secure/store/frontier_store_partial.hpp>
+#include <nano/secure/store/online_weight_partial.hpp>
+#include <nano/secure/store/peer_store_partial.hpp>
+#include <nano/secure/store/pending_store_partial.hpp>
+#include <nano/secure/store/pruned_store_partial.hpp>
 #include <nano/secure/store/unchecked_store_partial.hpp>
+#include <nano/secure/store/version_store_partial.hpp>
 #include <nano/secure/versioning.hpp>
 
 #include <boost/optional.hpp>
@@ -43,16 +52,26 @@ public:
  */
 class mdb_store : public block_store_partial<MDB_val, mdb_store>
 {
-public:
+private:
+	nano::frontier_store_partial<MDB_val, mdb_store> frontier_store_partial;
+	nano::account_store_partial<MDB_val, mdb_store> account_store_partial;
+	nano::pending_store_partial<MDB_val, mdb_store> pending_store_partial;
+	nano::unchecked_mdb_store unchecked_mdb_store;
+	nano::online_weight_store_partial<MDB_val, mdb_store> online_weight_store_partial;
+	nano::pruned_store_partial<MDB_val, mdb_store> pruned_store_partial;
+	nano::peer_store_partial<MDB_val, mdb_store> peer_store_partial;
+	nano::confirmation_height_store_partial<MDB_val, mdb_store> confirmation_height_store_partial;
+	nano::final_vote_store_partial<MDB_val, mdb_store> final_vote_store_partial;
+	nano::version_store_partial<MDB_val, mdb_store> version_store_partial;
+
 	friend class nano::unchecked_mdb_store;
 
+public:
 	mdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, bool backup_before_upgrade = false);
 	nano::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_requiring_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) override;
 	nano::read_transaction tx_begin_read () const override;
 
 	std::string vendor_get () const override;
-
-	void version_put (nano::write_transaction const &, int) override;
 
 	void serialize_mdb_tracker (boost::property_tree::ptree &, std::chrono::milliseconds, std::chrono::milliseconds) override;
 
@@ -63,8 +82,6 @@ public:
 	unsigned max_block_write_batch_num () const override;
 
 private:
-	nano::unchecked_mdb_store unchecked_mdb_store;
-
 	nano::logger_mt & logger;
 	bool error{ false };
 

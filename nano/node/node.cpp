@@ -1416,7 +1416,7 @@ std::shared_ptr<nano::node> nano::node::shared ()
 int nano::node::store_version ()
 {
 	auto transaction (store.tx_begin_read ());
-	return store.version_get (transaction);
+	return store.version.get (transaction);
 }
 
 bool nano::node::init_error () const
