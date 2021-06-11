@@ -42,7 +42,8 @@ void mdb_val::convert_buffer_to_value ()
 
 nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade_a) :
 	// clang-format off
-	block_store_partial{
+	store_partial{
+		block_store_partial,
 		frontier_store_partial,
 		account_store_partial,
 		pending_store_partial,
@@ -55,6 +56,7 @@ nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path 
 		version_store_partial
 	},
 	// clang-format on
+	block_store_partial{ *this },
 	frontier_store_partial{ *this },
 	account_store_partial{ *this },
 	pending_store_partial{ *this },
@@ -1073,7 +1075,7 @@ nano::uint128_t nano::mdb_store::block_balance_v18 (nano::transaction const & tr
 {
 	auto block (block_get_v18 (transaction_a, hash_a));
 	release_assert (block);
-	nano::uint128_t result (block_balance_calculated (block));
+	nano::uint128_t result (this->block.balance_calculated (block));
 	return result;
 }
 
@@ -1216,5 +1218,5 @@ unsigned nano::mdb_store::max_block_write_batch_num () const
 }
 
 // Explicitly instantiate
-template class nano::block_store_partial<MDB_val, nano::mdb_store>;
+template class nano::store_partial<MDB_val, nano::mdb_store>;
 template class nano::unchecked_store_partial<MDB_val, nano::mdb_store>;

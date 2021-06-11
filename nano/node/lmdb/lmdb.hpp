@@ -7,9 +7,9 @@
 #include <nano/node/lmdb/lmdb_env.hpp>
 #include <nano/node/lmdb/lmdb_iterator.hpp>
 #include <nano/node/lmdb/lmdb_txn.hpp>
-#include <nano/secure/blockstore_partial.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/store/account_store_partial.hpp>
+#include <nano/secure/store/block_store_partial.hpp>
 #include <nano/secure/store/confirmation_height_store_partial.hpp>
 #include <nano/secure/store/final_vote_store_partial.hpp>
 #include <nano/secure/store/frontier_store_partial.hpp>
@@ -19,6 +19,7 @@
 #include <nano/secure/store/pruned_store_partial.hpp>
 #include <nano/secure/store/unchecked_store_partial.hpp>
 #include <nano/secure/store/version_store_partial.hpp>
+#include <nano/secure/store_partial.hpp>
 #include <nano/secure/versioning.hpp>
 
 #include <boost/optional.hpp>
@@ -50,9 +51,10 @@ public:
 /**
  * mdb implementation of the block store
  */
-class mdb_store : public block_store_partial<MDB_val, mdb_store>
+class mdb_store : public store_partial<MDB_val, mdb_store>
 {
 private:
+	nano::block_store_partial<MDB_val, mdb_store> block_store_partial;
 	nano::frontier_store_partial<MDB_val, mdb_store> frontier_store_partial;
 	nano::account_store_partial<MDB_val, mdb_store> account_store_partial;
 	nano::pending_store_partial<MDB_val, mdb_store> pending_store_partial;
@@ -315,5 +317,5 @@ mdb_val::db_val (size_t size_a, void * data_a);
 template <>
 void mdb_val::convert_buffer_to_value ();
 
-extern template class block_store_partial<MDB_val, mdb_store>;
+extern template class store_partial<MDB_val, mdb_store>;
 }

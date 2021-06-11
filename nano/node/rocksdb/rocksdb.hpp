@@ -4,7 +4,6 @@
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/node/rocksdb/rocksdb_iterator.hpp>
-#include <nano/secure/blockstore_partial.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/store/account_store_partial.hpp>
 #include <nano/secure/store/confirmation_height_store_partial.hpp>
@@ -16,6 +15,7 @@
 #include <nano/secure/store/pruned_store_partial.hpp>
 #include <nano/secure/store/unchecked_store_partial.hpp>
 #include <nano/secure/store/version_store_partial.hpp>
+#include <nano/secure/store_partial.hpp>
 
 #include <rocksdb/db.h>
 #include <rocksdb/filter_policy.h>
@@ -54,9 +54,10 @@ private:
 /**
  * rocksdb implementation of the block store
  */
-class rocksdb_store : public block_store_partial<rocksdb::Slice, rocksdb_store>
+class rocksdb_store : public store_partial<rocksdb::Slice, rocksdb_store>
 {
 private:
+	nano::block_store_partial<rocksdb::Slice, rocksdb_store> block_store_partial;
 	nano::frontier_store_partial<rocksdb::Slice, rocksdb_store> frontier_store_partial;
 	nano::account_store_partial<rocksdb::Slice, rocksdb_store> account_store_partial;
 	nano::pending_store_partial<rocksdb::Slice, rocksdb_store> pending_store_partial;
@@ -170,5 +171,6 @@ private:
 	friend class rocksdb_block_store_tombstone_count_Test;
 };
 
+extern template class store_partial<rocksdb::Slice, rocksdb_store>;
 extern template class block_store_partial<rocksdb::Slice, rocksdb_store>;
 }

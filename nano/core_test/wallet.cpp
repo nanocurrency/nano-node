@@ -185,7 +185,7 @@ TEST (wallet, spend_all_one)
 		auto transaction (node1.store.tx_begin_read ());
 		node1.store.account.get (transaction, nano::dev_genesis_key.pub, info2);
 		ASSERT_NE (latest1, info2.head);
-		auto block (node1.store.block_get (transaction, info2.head));
+		auto block (node1.store.block.get (transaction, info2.head));
 		ASSERT_NE (nullptr, block);
 		ASSERT_EQ (latest1, block->previous ());
 	}
@@ -222,7 +222,7 @@ TEST (wallet, spend)
 		auto transaction (node1.store.tx_begin_read ());
 		node1.store.account.get (transaction, nano::dev_genesis_key.pub, info2);
 		ASSERT_NE (latest1, info2.head);
-		auto block (node1.store.block_get (transaction, info2.head));
+		auto block (node1.store.block.get (transaction, info2.head));
 		ASSERT_NE (nullptr, block);
 		ASSERT_EQ (latest1, block->previous ());
 	}
@@ -1077,7 +1077,7 @@ TEST (wallet, epoch_2_receive_propagation)
 		if (receive2->difficulty () < node.network_params.network.publish_thresholds.base)
 		{
 			ASSERT_GE (receive2->difficulty (), node.network_params.network.publish_thresholds.epoch_2_receive);
-			ASSERT_EQ (nano::epoch::epoch_2, node.store.block_version (node.store.tx_begin_read (), receive2->hash ()));
+			ASSERT_EQ (nano::epoch::epoch_2, node.store.block.version (node.store.tx_begin_read (), receive2->hash ()));
 			ASSERT_EQ (nano::epoch::epoch_2, receive2->sideband ().source_epoch);
 			break;
 		}
@@ -1122,7 +1122,7 @@ TEST (wallet, epoch_2_receive_unopened)
 		if (receive1->difficulty () < node.network_params.network.publish_thresholds.base)
 		{
 			ASSERT_GE (receive1->difficulty (), node.network_params.network.publish_thresholds.epoch_2_receive);
-			ASSERT_EQ (nano::epoch::epoch_2, node.store.block_version (node.store.tx_begin_read (), receive1->hash ()));
+			ASSERT_EQ (nano::epoch::epoch_2, node.store.block.version (node.store.tx_begin_read (), receive1->hash ()));
 			ASSERT_EQ (nano::epoch::epoch_1, receive1->sideband ().source_epoch);
 			break;
 		}
@@ -1232,7 +1232,7 @@ TEST (wallet, receive_pruned)
 	}
 	ASSERT_EQ (1, node2.ledger.cache.pruned_count);
 	ASSERT_TRUE (node2.ledger.block_or_pruned_exists (send1->hash ()));
-	ASSERT_FALSE (node2.store.block_exists (node2.store.tx_begin_read (), send1->hash ()));
+	ASSERT_FALSE (node2.store.block.exists (node2.store.tx_begin_read (), send1->hash ()));
 
 	wallet2.insert_adhoc (key.prv, false);
 

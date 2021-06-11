@@ -39,9 +39,9 @@ add_library(
   ${PLATFORM_SECURE_SOURCE}
   ${CMAKE_BINARY_DIR}/bootstrap_weights_live.cpp
   ${CMAKE_BINARY_DIR}/bootstrap_weights_beta.cpp
-  blockstore.hpp
-  blockstore.cpp
-  blockstore_partial.hpp
+  store.hpp
+  store.cpp
+  store_partial.hpp
   buffer.hpp
   common.hpp
   common.cpp
@@ -54,6 +54,7 @@ add_library(
   versioning.hpp
   versioning.cpp
   working.hpp
+  store/block_store_partial.hpp
   store/frontier_store_partial.hpp
   store/account_store_partial.hpp
   store/pending_store_partial.hpp

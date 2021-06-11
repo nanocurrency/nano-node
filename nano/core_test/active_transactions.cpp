@@ -990,7 +990,7 @@ TEST (active_transactions, restart_dropped)
 	node.scheduler.flush ();
 	ASSERT_EQ (1, node.active.size ());
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::election_restart));
-	auto ledger_block (node.store.block_get (node.store.tx_begin_read (), send->hash ()));
+	auto ledger_block (node.store.block.get (node.store.tx_begin_read (), send->hash ()));
 	ASSERT_NE (nullptr, ledger_block);
 	// Exact same block, including work value must have been re-written
 	ASSERT_EQ (*send, *ledger_block);
@@ -1018,7 +1018,7 @@ TEST (active_transactions, restart_dropped)
 	// Wait for the election to complete
 	ASSERT_TIMELY (5s, node.ledger.cache.cemented_count == 2);
 	// Verify the block is eventually updated in the ledger
-	ASSERT_TIMELY (3s, node.store.block_get (node.store.tx_begin_read (), send->hash ())->block_work () == send->block_work ());
+	ASSERT_TIMELY (3s, node.store.block.get (node.store.tx_begin_read (), send->hash ())->block_work () == send->block_work ());
 }
 
 // Ensures votes are tallied on election::publish even if no vote is inserted through inactive_votes_cache

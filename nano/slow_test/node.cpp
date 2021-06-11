@@ -73,7 +73,7 @@ TEST (system, receive_while_synchronizing)
 		node1->workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (200), ([&system, &key] () {
 			auto hash (system.wallet (0)->send_sync (nano::dev_genesis_key.pub, key.pub, system.nodes[0]->config.receive_minimum.number ()));
 			auto transaction (system.nodes[0]->store.tx_begin_read ());
-			auto block (system.nodes[0]->store.block_get (transaction, hash));
+			auto block (system.nodes[0]->store.block.get (transaction, hash));
 			std::string block_text;
 			block->serialize_json (block_text);
 		}));
@@ -1851,7 +1851,7 @@ TEST (node, wallet_create_block_confirm_conflicts)
 
 		// Call block confirm on the top level send block which will confirm everything underneath on both accounts.
 		{
-			auto block = node->store.block_get (node->store.tx_begin_read (), latest);
+			auto block = node->store.block.get (node->store.tx_begin_read (), latest);
 			node->scheduler.manual (block);
 			auto election = node->active.election (block->qualified_root ());
 			ASSERT_NE (nullptr, election);

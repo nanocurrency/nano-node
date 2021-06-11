@@ -4,7 +4,7 @@
 #include <nano/node/election.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/websocket.hpp>
-#include <nano/secure/blockstore.hpp>
+#include <nano/secure/store.hpp>
 
 #include <boost/format.hpp>
 
@@ -261,9 +261,9 @@ void nano::block_processor::process_batch (nano::unique_lock<nano::mutex> & lock
 			updates.pop_front ();
 			lock_a.unlock ();
 			auto hash (block->hash ());
-			if (node.store.block_exists (transaction, hash))
+			if (node.store.block.exists (transaction, hash))
 			{
-				node.store.block_put (transaction, hash, *block);
+				node.store.block.put (transaction, hash, *block);
 			}
 			++number_of_updates_processed;
 		}
@@ -367,7 +367,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 	{
 		case nano::process_result::progress:
 		{
-			release_assert (info_a.account.is_zero () || info_a.account == node.store.block_account_calculated (*block));
+			release_assert (info_a.account.is_zero () || info_a.account == node.store.block.account_calculated (*block));
 			if (node.config.logging.ledger_logging ())
 			{
 				std::string block_string;

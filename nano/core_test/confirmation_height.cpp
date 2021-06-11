@@ -682,12 +682,12 @@ TEST (confirmation_height, conflict_rollback_cemented)
 		// Force blocks to be cemented on both nodes
 		{
 			auto transaction (node1->store.tx_begin_write ());
-			ASSERT_TRUE (node1->store.block_exists (transaction, publish1.block->hash ()));
+			ASSERT_TRUE (node1->store.block.exists (transaction, publish1.block->hash ()));
 			node1->store.confirmation_height.put (transaction, nano::genesis_account, nano::confirmation_height_info{ 2, send2->hash () });
 		}
 		{
 			auto transaction (node2->store.tx_begin_write ());
-			ASSERT_TRUE (node2->store.block_exists (transaction, publish2.block->hash ()));
+			ASSERT_TRUE (node2->store.block.exists (transaction, publish2.block->hash ()));
 			node2->store.confirmation_height.put (transaction, nano::genesis_account, nano::confirmation_height_info{ 2, send2->hash () });
 		}
 

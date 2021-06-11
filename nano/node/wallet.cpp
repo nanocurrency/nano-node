@@ -956,7 +956,7 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 			if (status == 0)
 			{
 				nano::block_hash hash (result);
-				block = wallets.node.store.block_get (block_transaction, hash);
+				block = wallets.node.store.block.get (block_transaction, hash);
 				if (block != nullptr)
 				{
 					cached_block = true;
@@ -1195,7 +1195,7 @@ bool nano::wallet::search_pending (nano::transaction const & wallet_transaction_
 						}
 						else if (!wallets.node.confirmation_height_processor.is_processing_block (hash))
 						{
-							auto block (wallets.node.store.block_get (block_transaction, hash));
+							auto block (wallets.node.store.block.get (block_transaction, hash));
 							if (block)
 							{
 								// Request confirmation for block which is not being processed yet
@@ -1684,7 +1684,7 @@ void nano::wallets::ongoing_compute_reps ()
 	});
 }
 
-void nano::wallets::split_if_needed (nano::transaction & transaction_destination, nano::block_store & store_a)
+void nano::wallets::split_if_needed (nano::transaction & transaction_destination, nano::store & store_a)
 {
 	auto store_l (dynamic_cast<nano::mdb_store *> (&store_a));
 	if (store_l != nullptr)

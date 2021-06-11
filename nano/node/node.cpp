@@ -711,7 +711,7 @@ nano::uint128_t nano::node::balance (nano::account const & account_a)
 std::shared_ptr<nano::block> nano::node::block (nano::block_hash const & hash_a)
 {
 	auto transaction (store.tx_begin_read ());
-	return store.block_get (transaction, hash_a);
+	return store.block.get (transaction, hash_a);
 }
 
 std::pair<nano::uint128_t, nano::uint128_t> nano::node::balance_pending (nano::account const & account_a, bool only_confirmed_a)
@@ -985,7 +985,7 @@ bool nano::node::collect_ledger_pruning_targets (std::deque<nano::block_hash> & 
 		uint64_t depth (0);
 		while (!hash.is_zero () && depth < max_depth_a)
 		{
-			auto block (store.block_get (transaction, hash));
+			auto block (store.block.get (transaction, hash));
 			if (block != nullptr)
 			{
 				if (block->sideband ().timestamp > cutoff_time_a || depth == 0)
@@ -1317,7 +1317,7 @@ void nano::node::process_confirmed_data (nano::transaction const & transaction_a
 	auto previous (block_a->previous ());
 	bool error (false);
 	auto previous_balance (ledger.balance_safe (transaction_a, previous, error));
-	auto block_balance (store.block_balance_calculated (block_a));
+	auto block_balance (store.block.balance_calculated (block_a));
 	if (hash_a != ledger.network_params.ledger.genesis_account)
 	{
 		if (!error)
@@ -1351,7 +1351,7 @@ void nano::node::process_confirmed (nano::election_status const & status_a, uint
 {
 	auto hash (status_a.winner->hash ());
 	const auto num_iters = (config.block_processor_batch_max_time / network_params.node.process_confirmed_interval) * 4;
-	if (auto block_l = ledger.store.block_get (ledger.store.tx_begin_read (), hash))
+	if (auto block_l = ledger.store.block.get (ledger.store.tx_begin_read (), hash))
 	{
 		active.add_recently_confirmed (block_l->qualified_root (), hash);
 		confirmation_height_processor.add (block_l);
@@ -1819,7 +1819,7 @@ nano::node_flags const & nano::inactive_node_flag_defaults ()
 	return node_flags;
 }
 
-std::unique_ptr<nano::block_store> nano::make_store (nano::logger_mt & logger, boost::filesystem::path const & path, bool read_only, bool add_db_postfix, nano::rocksdb_config const & rocksdb_config, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade)
+std::unique_ptr<nano::store> nano::make_store (nano::logger_mt & logger, boost::filesystem::path const & path, bool read_only, bool add_db_postfix, nano::rocksdb_config const & rocksdb_config, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade)
 {
 	if (rocksdb_config.enable || using_rocksdb_in_tests ())
 	{

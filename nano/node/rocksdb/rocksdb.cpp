@@ -65,7 +65,8 @@ void rocksdb_val::convert_buffer_to_value ()
 
 nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a) :
 	// clang-format off
-	block_store_partial{
+	store_partial{
+		block_store_partial,
 		frontier_store_partial,
 		account_store_partial,
 		pending_store_partial,
@@ -78,6 +79,7 @@ nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesyste
 		version_rocksdb_store
 	},
 	// clang-format on
+	block_store_partial{ *this },
 	frontier_store_partial{ *this },
 	account_store_partial{ *this },
 	pending_store_partial{ *this },
@@ -547,7 +549,7 @@ uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, ta
 	else if (table_a == tables::blocks)
 	{
 		// This is also used in some CLI commands
-		for (auto i (blocks_begin (transaction_a)), n (blocks_end ()); i != n; ++i)
+		for (auto i (block.begin (transaction_a)), n (block.end ()); i != n; ++i)
 		{
 			++sum;
 		}
@@ -945,5 +947,6 @@ nano::rocksdb_store::tombstone_info::tombstone_info (uint64_t num_since_last_flu
 }
 
 // Explicitly instantiate
+template class nano::store_partial<rocksdb::Slice, nano::rocksdb_store>;
 template class nano::block_store_partial<rocksdb::Slice, nano::rocksdb_store>;
-//template class nano::unchecked_store_partial<rocksdb::Slice, rocksdb_store>;
+template class nano::account_store_partial<rocksdb::Slice, nano::rocksdb_store>;

@@ -4,8 +4,8 @@
 #include <nano/lib/timer.hpp>
 #include <nano/node/confirmation_height_bounded.hpp>
 #include <nano/node/confirmation_height_unbounded.hpp>
-#include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
+#include <nano/secure/store.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/mem_fun.hpp>
