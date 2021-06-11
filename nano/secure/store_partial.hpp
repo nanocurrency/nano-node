@@ -52,7 +52,7 @@ class unchecked_store_partial;
 template <typename Val, typename Derived_Store>
 class block_store_partial;
 
-/** This base class implements the block_store interface functions which have DB agnostic functionality */
+/** This base class implements the store interface functions which have DB agnostic functionality. It also maps all the store classes. */
 template <typename Val, typename Derived_Store>
 class store_partial : public store
 {
