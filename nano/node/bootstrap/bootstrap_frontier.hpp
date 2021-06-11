@@ -16,6 +16,7 @@ public:
 	void run (nano::account const & start_account_a, uint32_t const frontiers_age_a, uint32_t const count_a);
 	void receive_frontier ();
 	void received_frontier (boost::system::error_code const &, size_t);
+	bool bulk_push_available ();
 	void unsynced (nano::block_hash const &, nano::block_hash const &);
 	void next ();
 	std::shared_ptr<nano::bootstrap_client> connection;

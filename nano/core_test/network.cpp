@@ -133,23 +133,48 @@ TEST (network, send_node_id_handshake_tcp)
 TEST (network, last_contacted)
 {
 	nano::system system (1);
+
 	auto node0 = system.nodes[0];
 	ASSERT_EQ (0, node0->network.size ());
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work));
+
+	nano::node_config node1_config (nano::get_available_port (), system.logging);
+	node1_config.tcp_incoming_connections_max = 0; // Prevent ephemeral node1->node0 channel repacement with incoming connection
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), node1_config, system.work));
 	node1->start ();
 	system.nodes.push_back (node1);
+
 	auto channel1 = nano::establish_tcp (system, *node1, node0->network.endpoint ());
 	ASSERT_NE (nullptr, channel1);
 	ASSERT_TIMELY (3s, node0->network.size () == 1);
-	auto channel2 = node0->network.tcp_channels.find_node_id (node1->node_id.pub);
-	ASSERT_NE (nullptr, channel2);
-	// Make sure last_contact gets updated on receiving a non-handshake message
-	auto timestamp_before_keepalive = channel2->get_last_packet_received ();
+
+	// channel0 is the other side of channel1, same connection different endpoint
+	auto channel0 = node0->network.tcp_channels.find_node_id (node1->node_id.pub);
+	ASSERT_NE (nullptr, channel0);
+
+	{
+		// check that the endpoints are part of the same connection
+		std::shared_ptr<nano::socket> sock0 = channel0->socket.lock ();
+		std::shared_ptr<nano::socket> sock1 = channel1->socket.lock ();
+		ASSERT_TRUE (sock0->local_endpoint () == sock1->remote_endpoint ());
+		ASSERT_TRUE (sock1->local_endpoint () == sock0->remote_endpoint ());
+	}
+
+	// capture the state before and ensure the clock ticks at least once
+	auto timestamp_before_keepalive = channel0->get_last_packet_received ();
 	auto keepalive_count = node0->stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in);
+	ASSERT_TIMELY (3s, std::chrono::steady_clock::now () > timestamp_before_keepalive);
+
+	// send 3 keepalives
+	// we need an extra keepalive to handle the race condition between the timestamp set and the counter increment
+	// and we need one more keepalive to handle the possibility that there is a keepalive already in flight when we start the crucial part of the test
+	// it is possible that there could be multiple keepalives in flight but we assume here that there will be no more than one in flight for the purposes of this test
 	node1->network.send_keepalive (channel1);
-	ASSERT_TIMELY (3s, node0->stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in) > keepalive_count);
+	node1->network.send_keepalive (channel1);
+	node1->network.send_keepalive (channel1);
+
+	ASSERT_TIMELY (3s, node0->stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in) >= keepalive_count + 3);
 	ASSERT_EQ (node0->network.size (), 1);
-	auto timestamp_after_keepalive = channel2->get_last_packet_received ();
+	auto timestamp_after_keepalive = channel0->get_last_packet_received ();
 	ASSERT_GT (timestamp_after_keepalive, timestamp_before_keepalive);
 }
 
@@ -332,7 +357,7 @@ TEST (receivable_processor, confirm_insufficient_pos)
 	auto block1 (std::make_shared<nano::send_block> (genesis.hash (), 0, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 	node1.work_generate_blocking (*block1);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*block1).code);
-	node1.active.activate (nano::dev_genesis_key.pub);
+	node1.scheduler.activate (nano::dev_genesis_key.pub, node1.store.tx_begin_read ());
 	nano::keypair key1;
 	auto vote (std::make_shared<nano::vote> (key1.pub, key1.prv, 0, block1));
 	nano::confirm_ack con1 (vote);
@@ -347,7 +372,7 @@ TEST (receivable_processor, confirm_sufficient_pos)
 	auto block1 (std::make_shared<nano::send_block> (genesis.hash (), 0, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 	node1.work_generate_blocking (*block1);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*block1).code);
-	node1.active.activate (nano::dev_genesis_key.pub);
+	node1.scheduler.activate (nano::dev_genesis_key.pub, node1.store.tx_begin_read ());
 	auto vote (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, 0, block1));
 	nano::confirm_ack con1 (vote);
 	node1.network.process_message (con1, node1.network.udp_channels.create (node1.network.endpoint ()));
@@ -550,6 +575,48 @@ TEST (network, reserved_address)
 	nano::endpoint private_network_peer (boost::asio::ip::make_address_v6 ("::ffff:10.0.0.0"), 1);
 	ASSERT_TRUE (nano::transport::reserved_address (private_network_peer, false));
 	ASSERT_FALSE (nano::transport::reserved_address (private_network_peer, true));
+}
+
+TEST (network, ipv6_bind_subnetwork)
+{
+	auto address1 (boost::asio::ip::make_address_v6 ("a41d:b7b2:8298:cf45:672e:bd1a:e7fb:f713"));
+	auto subnet1 (boost::asio::ip::make_network_v6 (address1, 48));
+	ASSERT_EQ (boost::asio::ip::make_address_v6 ("a41d:b7b2:8298::"), subnet1.network ());
+	auto address1_subnet (nano::transport::ipv4_address_or_ipv6_subnet (address1));
+	ASSERT_EQ (subnet1.network (), address1_subnet);
+	// Ipv4 should return initial address
+	auto address2 (boost::asio::ip::make_address_v6 ("::ffff:192.168.1.1"));
+	auto address2_subnet (nano::transport::ipv4_address_or_ipv6_subnet (address2));
+	ASSERT_EQ (address2, address2_subnet);
+}
+
+TEST (network, network_range_ipv6)
+{
+	auto address1 (boost::asio::ip::make_address_v6 ("a41d:b7b2:8298:cf45:672e:bd1a:e7fb:f713"));
+	auto subnet1 (boost::asio::ip::make_network_v6 (address1, 58));
+	ASSERT_EQ (boost::asio::ip::make_address_v6 ("a41d:b7b2:8298:cf40::"), subnet1.network ());
+	auto address2 (boost::asio::ip::make_address_v6 ("520d:2402:3d:5e65:11:f8:7c54:3f"));
+	auto subnet2 (boost::asio::ip::make_network_v6 (address2, 33));
+	ASSERT_EQ (boost::asio::ip::make_address_v6 ("520d:2402:0::"), subnet2.network ());
+	// Default settings test
+	auto address3 (boost::asio::ip::make_address_v6 ("a719:0f12:536e:d88a:1331:ba53:4598:04e5"));
+	auto subnet3 (boost::asio::ip::make_network_v6 (address3, 32));
+	ASSERT_EQ (boost::asio::ip::make_address_v6 ("a719:0f12::"), subnet3.network ());
+	auto address3_subnet (nano::transport::map_address_to_subnetwork (address3));
+	ASSERT_EQ (subnet3.network (), address3_subnet);
+}
+
+TEST (network, network_range_ipv4)
+{
+	auto address1 (boost::asio::ip::make_address_v6 ("::ffff:192.168.1.1"));
+	auto subnet1 (boost::asio::ip::make_network_v6 (address1, 96 + 16));
+	ASSERT_EQ (boost::asio::ip::make_address_v6 ("::ffff:192.168.0.0"), subnet1.network ());
+	// Default settings test
+	auto address2 (boost::asio::ip::make_address_v6 ("::ffff:80.67.148.225"));
+	auto subnet2 (boost::asio::ip::make_network_v6 (address2, 96 + 24));
+	ASSERT_EQ (boost::asio::ip::make_address_v6 ("::ffff:80.67.148.0"), subnet2.network ());
+	auto address2_subnet (nano::transport::map_address_to_subnetwork (address2));
+	ASSERT_EQ (subnet2.network (), address2_subnet);
 }
 
 TEST (node, port_mapping)
@@ -847,6 +914,29 @@ TEST (network, peer_max_tcp_attempts)
 	}
 	ASSERT_EQ (0, node->network.size ());
 	ASSERT_TRUE (node->network.tcp_channels.reachout (nano::endpoint (node->network.endpoint ().address (), nano::get_available_port ())));
+	ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_max_per_ip, nano::stat::dir::out));
+}
+
+namespace nano
+{
+namespace transport
+{
+	TEST (network, peer_max_tcp_attempts_subnetwork)
+	{
+		nano::system system (1);
+		auto node (system.nodes[0]);
+		for (auto i (0); i < node->network_params.node.max_peers_per_subnetwork; ++i)
+		{
+			auto address (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0x7f000001 + i))); // 127.0.0.1 hex
+			nano::endpoint endpoint (address, nano::get_available_port ());
+			ASSERT_FALSE (node->network.tcp_channels.reachout (endpoint));
+		}
+		ASSERT_EQ (0, node->network.size ());
+		ASSERT_EQ (0, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_max_per_ip, nano::stat::dir::out));
+		ASSERT_TRUE (node->network.tcp_channels.reachout (nano::endpoint (boost::asio::ip::make_address_v6 ("::ffff:127.0.0.1"), nano::get_available_port ())));
+		ASSERT_EQ (1, node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_max_per_ip, nano::stat::dir::out));
+	}
+}
 }
 
 TEST (network, duplicate_detection)
@@ -936,6 +1026,22 @@ TEST (network, bandwidth_limiter)
 	// Send non-droppable message, i.e. drop stats should not increase
 	channel2->send (message, nullptr, nano::buffer_drop_policy::no_limiter_drop);
 	ASSERT_TIMELY (1s, 1 == node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
+
+	// change the bandwidth settings, 2 packets will be dropped
+	node.network.set_bandwidth_params (1.1, message_size * 2);
+	channel1->send (message);
+	channel2->send (message);
+	channel1->send (message);
+	channel2->send (message);
+	ASSERT_TIMELY (1s, 3 == node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
+
+	// change the bandwidth settings, no packet will be dropped
+	node.network.set_bandwidth_params (4, message_size);
+	channel1->send (message);
+	channel2->send (message);
+	channel1->send (message);
+	channel2->send (message);
+	ASSERT_TIMELY (1s, 3 == node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
 
 	node.stop ();
 }

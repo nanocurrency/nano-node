@@ -1,0 +1,52 @@
+name: Request a new node feature
+description: For requesting new node or protocol related features
+body:
+- type: markdown
+  attributes:
+    value: |
+      NOTE: Feature requests without sufficient detail, or those with a broad scope and no prior discussion with the community, are best posted in the [Nano Forum](https://forum.nano.org) first for feedback and evaluating relevance.
+- type: textarea
+  attributes:
+    label: Summary
+    description: Provide a summary of the feature you are requesting
+  validations:
+    required: true
+- type: textarea
+  attributes:
+    label: What problem would be solved by this feature?
+    description: Describe in detail the problem you are aiming to solve with the feature and what is considered to be in-scope and out-of-scope.
+  validations:
+    required: true
+- type: textarea
+  attributes:
+    label: Are there any previous requests for this feature?
+    description: If there have been any previous requests for the feature, or related features, include them as links
+  validations:
+    required: true
+- type: textarea
+  attributes:
+    label: Do you have a suggested solution?
+    description: Please provide your proposed solution taking into account    - Details of the technical implementation - Tradeoffs made in design decisions - Caveats and considerations for the future  If multiple solutions are being presented, please present them separately and provide comparisons at the end.
+  validations:
+    required: true
+- type: dropdown
+  attributes:
+    label: If this feature is approved, would you be willing to submit a pull request with the solution?
+    options:
+      - I would
+      - I would not
+      - I am willing to collaborate
+  validations:
+    required: true
+- type: textarea
+  attributes:
+    label: Possible solution
+    description: If available, provide possible solutions to the issue
+  validations:
+    required: false
+- type: textarea
+  attributes:
+    label: Supporting files
+    description: When applicable, add links out to helpful [log files](https://docs.nano.org/running-a-node/troubleshooting/#log-files) and [dump files](https://docs.nano.org/running-a-node/troubleshooting/#what-to-do-if-the-node-crashes-linux) related to the issue.
+  validations:
+    required: false

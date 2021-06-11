@@ -47,6 +47,7 @@ public:
 
 	void close ();
 	boost::asio::ip::tcp::endpoint remote_endpoint () const;
+	boost::asio::ip::tcp::endpoint local_endpoint () const;
 	/** Returns true if the socket has timed out */
 	bool has_timed_out () const;
 	/** This can be called to change the maximum idle time, e.g. based on the type of traffic detected. */
@@ -124,5 +125,7 @@ private:
 	boost::asio::ip::tcp::endpoint local;
 	size_t max_inbound_connections;
 	void evict_dead_connections ();
+	bool is_temporary_error (boost::system::error_code const ec_a);
+	void on_connection_requeue_delayed (std::function<bool (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const &)>);
 };
 }

@@ -68,9 +68,14 @@ void nano::frontier_req_client::receive_frontier ()
 	});
 }
 
+bool nano::frontier_req_client::bulk_push_available ()
+{
+	return bulk_push_cost < nano::bootstrap_limits::bulk_push_cost_limit && frontiers_age == std::numeric_limits<decltype (frontiers_age)>::max ();
+}
+
 void nano::frontier_req_client::unsynced (nano::block_hash const & head, nano::block_hash const & end)
 {
-	if (bulk_push_cost < nano::bootstrap_limits::bulk_push_cost_limit && frontiers_age == std::numeric_limits<decltype (frontiers_age)>::max ())
+	if (bulk_push_available ())
 	{
 		attempt->add_bulk_push_target (head, end);
 		if (end.is_zero ())
@@ -169,7 +174,7 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 		{
 			if (count <= count_limit)
 			{
-				while (!current.is_zero ())
+				while (!current.is_zero () && bulk_push_available ())
 				{
 					// We know about an account they don't.
 					unsynced (frontier, 0);
@@ -213,7 +218,7 @@ void nano::frontier_req_client::next ()
 	{
 		size_t max_size (128);
 		auto transaction (connection->node->store.tx_begin_read ());
-		for (auto i (connection->node->store.accounts_begin (transaction, current.number () + 1)), n (connection->node->store.accounts_end ()); i != n && accounts.size () != max_size; ++i)
+		for (auto i (connection->node->store.account.begin (transaction, current.number () + 1)), n (connection->node->store.account.end ()); i != n && accounts.size () != max_size; ++i)
 		{
 			nano::account_info const & info (i->second);
 			nano::account const & account (i->first);
@@ -334,7 +339,7 @@ void nano::frontier_req_server::next ()
 		auto transaction (connection->node->store.tx_begin_read ());
 		if (!send_confirmed ())
 		{
-			for (auto i (connection->node->store.accounts_begin (transaction, current.number () + 1)), n (connection->node->store.accounts_end ()); i != n && accounts.size () != max_size; ++i)
+			for (auto i (connection->node->store.account.begin (transaction, current.number () + 1)), n (connection->node->store.account.end ()); i != n && accounts.size () != max_size; ++i)
 			{
 				++read_count;
 				nano::account const & account (i->first);
@@ -357,7 +362,7 @@ void nano::frontier_req_server::next ()
 		}
 		else
 		{
-			for (auto i (connection->node->store.confirmation_height_begin (transaction, current.number () + 1)), n (connection->node->store.confirmation_height_end ()); i != n && accounts.size () != max_size; ++i)
+			for (auto i (connection->node->store.confirmation_height.begin (transaction, current.number () + 1)), n (connection->node->store.confirmation_height.end ()); i != n && accounts.size () != max_size; ++i)
 			{
 				nano::confirmation_height_info const & info (i->second);
 				nano::block_hash const & confirmed_frontier (info.frontier);

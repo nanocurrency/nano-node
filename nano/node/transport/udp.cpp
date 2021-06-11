@@ -202,12 +202,12 @@ bool nano::transport::udp_channels::store_all (bool clear_peers)
 		auto transaction (node.store.tx_begin_write ({ tables::peers }));
 		if (clear_peers)
 		{
-			node.store.peer_clear (transaction);
+			node.store.peer.clear (transaction);
 		}
 		for (auto endpoint : endpoints)
 		{
 			nano::endpoint_key endpoint_key (endpoint.address ().to_v6 ().to_bytes (), endpoint.port ());
-			node.store.peer_put (transaction, std::move (endpoint_key));
+			node.store.peer.put (transaction, std::move (endpoint_key));
 		}
 		result = true;
 	}
@@ -630,8 +630,10 @@ bool nano::transport::udp_channels::max_ip_connections (nano::endpoint const & e
 	bool result (false);
 	if (!node.flags.disable_max_peers_per_ip)
 	{
+		auto const address (nano::transport::ipv4_address_or_ipv6_subnet (endpoint_a.address ()));
+		auto const subnet (nano::transport::map_address_to_subnetwork (endpoint_a.address ()));
 		nano::unique_lock<nano::mutex> lock (mutex);
-		result = channels.get<ip_address_tag> ().count (endpoint_a.address ()) >= node.network_params.node.max_peers_per_ip;
+		result = channels.get<ip_address_tag> ().count (address) >= node.network_params.node.max_peers_per_ip || channels.get<subnetwork_tag> ().count (subnet) >= node.network_params.node.max_peers_per_subnetwork;
 	}
 	return result;
 }

@@ -30,7 +30,7 @@ for acc in p["representatives"]:
 
 r = requests.post(args.rpc, data='{"action":"block_count"}')
 p = r.json()
-block_height = max(0, int(p["count"]) - args.cutoff)
+block_height = max(0, int(p["cemented"]) - args.cutoff)
 
 print("cutoff block height is %d" % block_height)
 

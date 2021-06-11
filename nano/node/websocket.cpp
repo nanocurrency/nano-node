@@ -377,10 +377,6 @@ nano::websocket::topic to_topic (std::string const & topic_a)
 	{
 		topic = nano::websocket::topic::ack;
 	}
-	else if (topic_a == "active_difficulty")
-	{
-		topic = nano::websocket::topic::active_difficulty;
-	}
 	else if (topic_a == "work")
 	{
 		topic = nano::websocket::topic::work;
@@ -419,10 +415,6 @@ std::string from_topic (nano::websocket::topic topic_a)
 	else if (topic_a == nano::websocket::topic::ack)
 	{
 		topic = "ack";
-	}
-	else if (topic_a == nano::websocket::topic::active_difficulty)
-	{
-		topic = "active_difficulty";
 	}
 	else if (topic_a == nano::websocket::topic::work)
 	{
@@ -725,6 +717,7 @@ nano::websocket::message nano::websocket::message_builder::block_confirmed (std:
 		election_node_l.add ("duration", election_status_a.election_duration.count ());
 		election_node_l.add ("time", election_status_a.election_end.count ());
 		election_node_l.add ("tally", election_status_a.tally.to_string_dec ());
+		election_node_l.add ("final", election_status_a.final_tally.to_string_dec ());
 		election_node_l.add ("blocks", std::to_string (election_status_a.block_count));
 		election_node_l.add ("voters", std::to_string (election_status_a.voter_count));
 		election_node_l.add ("request_count", std::to_string (election_status_a.confirmation_request_count));
@@ -789,25 +782,6 @@ nano::websocket::message nano::websocket::message_builder::vote_received (std::s
 	}
 	vote_node_l.put ("type", vote_type);
 	message_l.contents.add_child ("message", vote_node_l);
-	return message_l;
-}
-
-nano::websocket::message nano::websocket::message_builder::difficulty_changed (uint64_t publish_threshold_a, uint64_t receive_threshold_a, uint64_t difficulty_active_a)
-{
-	nano::websocket::message message_l (nano::websocket::topic::active_difficulty);
-	set_common_fields (message_l);
-
-	// Active difficulty information
-	boost::property_tree::ptree difficulty_l;
-	difficulty_l.put ("network_minimum", nano::to_string_hex (publish_threshold_a));
-	difficulty_l.put ("network_receive_minimum", nano::to_string_hex (receive_threshold_a));
-	difficulty_l.put ("network_current", nano::to_string_hex (difficulty_active_a));
-	auto multiplier = nano::difficulty::to_multiplier (difficulty_active_a, publish_threshold_a);
-	difficulty_l.put ("multiplier", nano::to_string (multiplier));
-	auto const receive_current_denormalized (nano::denormalized_multiplier (multiplier, nano::network_params{}.network.publish_thresholds.epoch_2_receive));
-	difficulty_l.put ("network_receive_current", nano::to_string_hex (nano::difficulty::from_multiplier (receive_current_denormalized, receive_threshold_a)));
-
-	message_l.contents.add_child ("message", difficulty_l);
 	return message_l;
 }
 
