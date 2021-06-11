@@ -228,7 +228,7 @@ public:
 	{
 		parallel_traversal<nano::uint256_t> (
 		[&action_a, this] (nano::uint256_t const & start, nano::uint256_t const & end, bool const is_last) {
-			auto transaction (store.tx_begin_read ());
+			auto transaction (this->store.tx_begin_read ());
 			action_a (transaction, this->begin (transaction, start), !is_last ? this->begin (transaction, end) : this->end ());
 		});
 	}
