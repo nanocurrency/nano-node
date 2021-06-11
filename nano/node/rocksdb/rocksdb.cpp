@@ -948,5 +948,3 @@ nano::rocksdb_store::tombstone_info::tombstone_info (uint64_t num_since_last_flu
 
 // Explicitly instantiate
 template class nano::store_partial<rocksdb::Slice, nano::rocksdb_store>;
-template class nano::block_store_partial<rocksdb::Slice, nano::rocksdb_store>;
-template class nano::account_store_partial<rocksdb::Slice, nano::rocksdb_store>;

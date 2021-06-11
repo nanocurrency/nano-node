@@ -1219,4 +1219,3 @@ unsigned nano::mdb_store::max_block_write_batch_num () const
 
 // Explicitly instantiate
 template class nano::store_partial<MDB_val, nano::mdb_store>;
-template class nano::unchecked_store_partial<MDB_val, nano::mdb_store>;

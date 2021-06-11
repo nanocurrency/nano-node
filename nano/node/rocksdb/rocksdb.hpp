@@ -172,5 +172,4 @@ private:
 };
 
 extern template class store_partial<rocksdb::Slice, rocksdb_store>;
-extern template class block_store_partial<rocksdb::Slice, rocksdb_store>;
 }
