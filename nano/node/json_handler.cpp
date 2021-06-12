@@ -2071,6 +2071,7 @@ void nano::json_handler::delegators ()
 	auto account (account_impl ());
 	auto count (count_optional_impl ());
 	auto offset (offset_optional_impl (0));
+	auto threshold (threshold_optional_impl ());
 
 	if (!ec)
 	{
@@ -2078,17 +2079,13 @@ void nano::json_handler::delegators ()
 		auto transaction (node.store.tx_begin_read ());
 		uint64_t delegators_count = 0;
 
-		for (auto i (node.store.account.begin (transaction)), n (node.store.account.end ()); i != n; ++i)
+		for (auto i (node.store.account.begin (transaction)), n (node.store.account.end ()); i != n && delegators.size () < count; ++i)
 		{
 			nano::account_info const & info (i->second);
 			if (info.representative == account)
 			{
-				if (delegators.size () >= count)
-				{
-					break;
-				}
 				++delegators_count;
-				if (offset > 0 && delegators_count <= offset)
+				if (info.balance.number () < threshold.number () || (offset > 0 && delegators_count <= offset))
 				{
 					continue;
 				}
