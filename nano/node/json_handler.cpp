@@ -2069,15 +2069,29 @@ void nano::json_handler::database_txn_tracker ()
 void nano::json_handler::delegators ()
 {
 	auto account (account_impl ());
+	auto count (count_optional_impl ());
+	auto offset (offset_optional_impl (0));
+
 	if (!ec)
 	{
 		boost::property_tree::ptree delegators;
 		auto transaction (node.store.tx_begin_read ());
+		uint64_t delegators_count = 0;
+
 		for (auto i (node.store.account.begin (transaction)), n (node.store.account.end ()); i != n; ++i)
 		{
 			nano::account_info const & info (i->second);
 			if (info.representative == account)
 			{
+				if (delegators.size () >= count)
+				{
+					break;
+				}
+				++delegators_count;
+				if (offset > 0 && delegators_count <= offset)
+				{
+					continue;
+				}
 				std::string balance;
 				nano::uint128_union (info.balance).encode_dec (balance);
 				nano::account const & account (i->first);
