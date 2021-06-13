@@ -9,6 +9,7 @@ class system;
 
 namespace transport
 {
+	class channel;
 	class channel_tcp;
 }
 

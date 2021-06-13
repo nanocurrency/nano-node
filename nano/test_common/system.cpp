@@ -2,6 +2,7 @@
 #include <nano/node/common.hpp>
 #include <nano/node/transport/udp.hpp>
 #include <nano/test_common/system.hpp>
+#include <nano/test_common/testutil.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 
@@ -31,6 +32,11 @@ std::shared_ptr<nano::node> nano::system::add_node (nano::node_flags node_flags_
 std::shared_ptr<nano::node> nano::system::add_node (nano::node_config const & node_config_a, nano::node_flags node_flags_a, nano::transport::transport_type type_a)
 {
 	auto node (std::make_shared<nano::node> (io_ctx, nano::unique_path (), node_config_a, work, node_flags_a, node_sequence++));
+	for (auto i: initialization_blocks)
+	{
+		auto result = node->ledger.process (node->store.tx_begin_write(), *i);
+		debug_assert (result.code == nano::process_result::progress);
+	}
 	debug_assert (!node->init_error ());
 	node->start ();
 	node->wallets.create (nano::random_wallet_id ());
@@ -141,6 +147,36 @@ nano::system::~system ()
 		nano::remove_temporary_directories ();
 	}
 #endif
+}
+
+void nano::system::ledger_initialization_set (std::vector<nano::keypair> const & reps, nano::amount const & reserve)
+{
+	nano::block_hash previous = nano::genesis_hash;
+	auto amount = (nano::genesis_amount - reserve.number ()) / reps.size ();
+	auto balance = nano::genesis_amount;
+	for (auto const & i: reps)
+	{
+		balance -= amount;
+		nano::state_block_builder builder;
+		builder.account (nano::dev_genesis_key.pub)
+		       .previous (previous)
+		       .representative(nano::dev_genesis_key.pub)
+		       .link (i.pub)
+		       .balance (balance)
+		       .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+		       .work (*work.generate (previous));
+		initialization_blocks.emplace_back (builder.build_shared ());
+		previous = initialization_blocks.back ()->hash ();
+		builder.make_block ();
+		builder.account (i.pub)
+		       .previous (0)
+		       .representative(i.pub)
+		       .link (previous)
+		       .balance (amount)
+		       .sign (i.prv, i.pub)
+		       .work (*work.generate (i.pub));
+		initialization_blocks.emplace_back (builder.build_shared ());
+	}
 }
 
 std::shared_ptr<nano::wallet> nano::system::wallet (size_t index_a)
