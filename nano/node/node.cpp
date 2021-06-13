@@ -85,7 +85,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, uint16_t peering_port_a, b
 }
 
 nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path const & application_path_a, nano::node_config const & config_a, nano::work_pool & work_a, nano::node_flags flags_a, unsigned seq) :
-	write_database_queue (!flags_a.force_use_write_database_queue && (config_a.rocksdb_config.enable || nano::using_rocksdb_in_tests ())),
+	write_database_queue (!flags_a.force_use_write_database_queue && (config_a.rocksdb_config.enable)),
 	io_ctx (io_ctx_a),
 	node_initialized_latch (1),
 	config (config_a),
@@ -1821,7 +1821,7 @@ nano::node_flags const & nano::inactive_node_flag_defaults ()
 
 std::unique_ptr<nano::block_store> nano::make_store (nano::logger_mt & logger, boost::filesystem::path const & path, bool read_only, bool add_db_postfix, nano::rocksdb_config const & rocksdb_config, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade)
 {
-	if (rocksdb_config.enable || using_rocksdb_in_tests ())
+	if (rocksdb_config.enable)
 	{
 		return std::make_unique<nano::rocksdb_store> (logger, add_db_postfix ? path / "rocksdb" : path, rocksdb_config, read_only);
 	}

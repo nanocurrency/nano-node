@@ -6839,7 +6839,7 @@ TEST (rpc, block_confirmed)
 
 TEST (rpc, database_txn_tracker)
 {
-	if (nano::using_rocksdb_in_tests ())
+	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
