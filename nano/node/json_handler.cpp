@@ -2077,40 +2077,32 @@ void nano::json_handler::delegators ()
 	if (head_str)
 	{
 		auto error = head_account.decode_account (*head_str);
-		if (error) {
+		if (error)
+		{
 			ec = nano::error_common::bad_account_number;
 		}
 	}
-
 	if (!ec)
 	{
 		auto transaction (node.store.tx_begin_read ());
-		if (head_str && !node.store.account.exists (transaction, head_account))
+		boost::property_tree::ptree delegators;
+		uint64_t delegators_count = 0;
+		for (auto i (node.store.account.begin (transaction, head_account.number () + 1)), n (node.store.account.end ()); i != n && delegators.size () < count; ++i)
 		{
-			ec = nano::error_common::account_not_found;
-		}
-		else
-		{
-			boost::property_tree::ptree delegators;
-			uint64_t delegators_count = 0;
-
-			for (auto i (node.store.account.begin (transaction, head_account.number() + 1)), n (node.store.account.end ()); i != n && delegators.size () < count; ++i)
+			nano::account_info const & info (i->second);
+			if (info.representative == account)
 			{
-				nano::account_info const & info (i->second);
-				if (info.representative == account)
+				++delegators_count;
+				if (info.balance.number () >= threshold.number ())
 				{
-					++delegators_count;
-					if (info.balance.number () >= threshold.number ())
-					{
-						std::string balance;
-						nano::uint128_union (info.balance).encode_dec (balance);
-						nano::account const & account (i->first);
-						delegators.put (account.to_account (), balance);
-					}
+					std::string balance;
+					nano::uint128_union (info.balance).encode_dec (balance);
+					nano::account const & account (i->first);
+					delegators.put (account.to_account (), balance);
 				}
 			}
-			response_l.add_child ("delegators", delegators);
 		}
+		response_l.add_child ("delegators", delegators);
 	}
 	response_errors ();
 }
