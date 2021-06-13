@@ -7,10 +7,10 @@
 #include <nano/node/common.hpp>
 #include <nano/node/lmdb/lmdb.hpp>
 #include <nano/node/rocksdb/rocksdb.hpp>
-#include <nano/node/testing.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/utility.hpp>
 #include <nano/secure/versioning.hpp>
+#include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>

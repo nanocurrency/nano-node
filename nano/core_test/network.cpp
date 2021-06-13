@@ -1,6 +1,6 @@
-#include <nano/node/testing.hpp>
 #include <nano/node/transport/udp.hpp>
 #include <nano/test_common/network.hpp>
+#include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>

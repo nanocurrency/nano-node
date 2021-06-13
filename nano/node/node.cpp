@@ -6,10 +6,10 @@
 #include <nano/node/node.hpp>
 #include <nano/node/rocksdb/rocksdb.hpp>
 #include <nano/node/telemetry.hpp>
-#include <nano/node/testing.hpp>
 #include <nano/node/websocket.hpp>
 #include <nano/rpc/rpc.hpp>
 #include <nano/secure/buffer.hpp>
+#include <nano/test_common/system.hpp>
 
 #include <boost/filesystem.hpp>
 #include <boost/property_tree/json_parser.hpp>
@@ -1781,7 +1781,7 @@ nano::node_wrapper::node_wrapper (boost::filesystem::path const & path_a, boost:
 	}
 
 	auto & node_config = daemon_config.node;
-	node_config.peering_port = nano::get_available_port ();
+	//node_config.peering_port = nano::get_available_port ();
 	node_config.logging.max_size = std::numeric_limits<std::uintmax_t>::max ();
 	node_config.logging.init (path_a);
 

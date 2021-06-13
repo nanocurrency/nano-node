@@ -1,6 +1,6 @@
 #include <nano/lib/threading.hpp>
 #include <nano/node/socket.hpp>
-#include <nano/node/testing.hpp>
+#include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>

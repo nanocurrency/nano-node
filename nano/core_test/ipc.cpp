@@ -2,8 +2,8 @@
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/ipc/ipc_access_config.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
-#include <nano/node/testing.hpp>
 #include <nano/rpc/rpc.hpp>
+#include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>

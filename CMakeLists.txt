@@ -610,6 +610,7 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
     node
     secure
     nano_lib
+    test_common
     libminiupnpc-static
     Qt5::Gui
     Qt5::Widgets)

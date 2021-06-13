@@ -1,7 +1,7 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/node/common.hpp>
-#include <nano/node/testing.hpp>
 #include <nano/node/transport/udp.hpp>
+#include <nano/test_common/system.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 
