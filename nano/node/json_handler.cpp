@@ -2068,7 +2068,7 @@ void nano::json_handler::database_txn_tracker ()
 
 void nano::json_handler::delegators ()
 {
-	auto account (account_impl ());
+	auto representative (account_impl ());
 	auto count (count_optional_impl ());
 	auto threshold (threshold_optional_impl ());
 	auto head_str (request.get_optional<std::string> ("head"));
@@ -2089,14 +2089,14 @@ void nano::json_handler::delegators ()
 		for (auto i (node.store.account.begin (transaction, head_account.number () + 1)), n (node.store.account.end ()); i != n && delegators.size () < count; ++i)
 		{
 			nano::account_info const & info (i->second);
-			if (info.representative == account)
+			if (info.representative == representative)
 			{
 				if (info.balance.number () >= threshold.number ())
 				{
 					std::string balance;
 					nano::uint128_union (info.balance).encode_dec (balance);
-					nano::account const & account (i->first);
-					delegators.put (account.to_account (), balance);
+					nano::account const & delegator (i->first);
+					delegators.put (delegator.to_account (), balance);
 				}
 			}
 		}
