@@ -9,6 +9,7 @@
 #include <nano/node/lmdb/lmdb_txn.hpp>
 #include <nano/secure/blockstore_partial.hpp>
 #include <nano/secure/common.hpp>
+#include <nano/secure/store/unchecked_store_partial.hpp>
 #include <nano/secure/versioning.hpp>
 
 #include <boost/optional.hpp>
@@ -28,14 +29,22 @@ namespace nano
 using mdb_val = db_val<MDB_val>;
 
 class logging_mt;
+class mdb_store;
+
+class unchecked_mdb_store : public unchecked_store_partial<MDB_val, mdb_store>
+{
+public:
+	explicit unchecked_mdb_store (nano::mdb_store &);
+	std::vector<nano::unchecked_info> get (nano::transaction const &, nano::block_hash const &);
+};
+
 /**
  * mdb implementation of the block store
  */
 class mdb_store : public block_store_partial<MDB_val, mdb_store>
 {
 public:
-	using block_store_partial::block_exists;
-	using block_store_partial::unchecked_put;
+	friend class nano::unchecked_mdb_store;
 
 	mdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, bool backup_before_upgrade = false);
 	nano::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_requiring_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) override;
@@ -54,6 +63,8 @@ public:
 	unsigned max_block_write_batch_num () const override;
 
 private:
+	nano::unchecked_mdb_store unchecked_mdb_store;
+
 	nano::logger_mt & logger;
 	bool error{ false };
 
@@ -64,97 +75,97 @@ public:
 	 * Maps head block to owning account
 	 * nano::block_hash -> nano::account
 	 */
-	MDB_dbi frontiers{ 0 };
+	MDB_dbi frontiers_handle{ 0 };
 
 	/**
 	 * Maps account v1 to account information, head, rep, open, balance, timestamp and block count. (Removed)
 	 * nano::account -> nano::block_hash, nano::block_hash, nano::block_hash, nano::amount, uint64_t, uint64_t
 	 */
-	MDB_dbi accounts_v0{ 0 };
+	MDB_dbi accounts_v0_handle{ 0 };
 
 	/**
 	 * Maps account v0 to account information, head, rep, open, balance, timestamp and block count. (Removed)
 	 * nano::account -> nano::block_hash, nano::block_hash, nano::block_hash, nano::amount, uint64_t, uint64_t
 	 */
-	MDB_dbi accounts_v1{ 0 };
+	MDB_dbi accounts_v1_handle{ 0 };
 
 	/**
 	 * Maps account v0 to account information, head, rep, open, balance, timestamp, block count and epoch
 	 * nano::account -> nano::block_hash, nano::block_hash, nano::block_hash, nano::amount, uint64_t, uint64_t, nano::epoch
 	 */
-	MDB_dbi accounts{ 0 };
+	MDB_dbi accounts_handle{ 0 };
 
 	/**
 	 * Maps block hash to send block. (Removed)
 	 * nano::block_hash -> nano::send_block
 	 */
-	MDB_dbi send_blocks{ 0 };
+	MDB_dbi send_blocks_handle{ 0 };
 
 	/**
 	 * Maps block hash to receive block. (Removed)
 	 * nano::block_hash -> nano::receive_block
 	 */
-	MDB_dbi receive_blocks{ 0 };
+	MDB_dbi receive_blocks_handle{ 0 };
 
 	/**
 	 * Maps block hash to open block. (Removed)
 	 * nano::block_hash -> nano::open_block
 	 */
-	MDB_dbi open_blocks{ 0 };
+	MDB_dbi open_blocks_handle{ 0 };
 
 	/**
 	 * Maps block hash to change block. (Removed)
 	 * nano::block_hash -> nano::change_block
 	 */
-	MDB_dbi change_blocks{ 0 };
+	MDB_dbi change_blocks_handle{ 0 };
 
 	/**
 	 * Maps block hash to v0 state block. (Removed)
 	 * nano::block_hash -> nano::state_block
 	 */
-	MDB_dbi state_blocks_v0{ 0 };
+	MDB_dbi state_blocks_v0_handle{ 0 };
 
 	/**
 	 * Maps block hash to v1 state block. (Removed)
 	 * nano::block_hash -> nano::state_block
 	 */
-	MDB_dbi state_blocks_v1{ 0 };
+	MDB_dbi state_blocks_v1_handle{ 0 };
 
 	/**
 	 * Maps block hash to state block. (Removed)
 	 * nano::block_hash -> nano::state_block
 	 */
-	MDB_dbi state_blocks{ 0 };
+	MDB_dbi state_blocks_handle{ 0 };
 
 	/**
 	 * Maps min_version 0 (destination account, pending block) to (source account, amount). (Removed)
 	 * nano::account, nano::block_hash -> nano::account, nano::amount
 	 */
-	MDB_dbi pending_v0{ 0 };
+	MDB_dbi pending_v0_handle{ 0 };
 
 	/**
 	 * Maps min_version 1 (destination account, pending block) to (source account, amount). (Removed)
 	 * nano::account, nano::block_hash -> nano::account, nano::amount
 	 */
-	MDB_dbi pending_v1{ 0 };
+	MDB_dbi pending_v1_handle{ 0 };
 
 	/**
 	 * Maps (destination account, pending block) to (source account, amount, version). (Removed)
 	 * nano::account, nano::block_hash -> nano::account, nano::amount, nano::epoch
 	 */
-	MDB_dbi lmdb_pending{ 0 };
+	MDB_dbi pending_handle{ 0 };
 
 	/**
 	 * Representative weights. (Removed)
 	 * nano::account -> nano::uint128_t
 	 */
-	MDB_dbi representation{ 0 };
+	MDB_dbi representation_handle{ 0 };
 
 	/**
 	 * Unchecked bootstrap blocks info.
 	 * nano::block_hash -> nano::unchecked_info
 	 */
-	MDB_dbi unchecked{ 0 };
+	MDB_dbi unchecked_handle{ 0 };
 
 	/**
 	 * Samples of online vote weight
@@ -166,7 +177,7 @@ public:
 	 * Meta information about block store, such as versions.
 	 * nano::uint256_union (arbitrary key) -> blob
 	 */
-	MDB_dbi meta{ 0 };
+	MDB_dbi meta_handle{ 0 };
 
 	/**
 	 * Pruned blocks hashes
@@ -178,7 +189,7 @@ public:
 	 * Endpoints for peers
 	 * nano::endpoint_key -> no_value
 	*/
-	MDB_dbi peer_handle{ 0 };
+	MDB_dbi peers_handle{ 0 };
 
 	/*
 	 * Confirmation height of an account, and the hash for the block at that height
@@ -190,16 +201,15 @@ public:
 	 * Contains block_sideband and block for all block types (legacy send/change/open/receive & state blocks)
 	 * nano::block_hash -> nano::block_sideband, nano::block
 	 */
-	MDB_dbi blocks{ 0 };
+	MDB_dbi blocks_handle{ 0 };
 
 	/**
 	 * Maps root to block hash for generated final votes.
 	 * nano::qualified_root -> nano::block_hash
 	 */
-	MDB_dbi final_vote_handle{ 0 };
+	MDB_dbi final_votes_handle{ 0 };
 
 	bool exists (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a) const;
-	std::vector<nano::unchecked_info> unchecked_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override;
 
 	int get (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a, nano::mdb_val & value_a) const;
 	int put (nano::write_transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a, const nano::mdb_val & value_a) const;

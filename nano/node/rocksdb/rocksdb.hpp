@@ -6,6 +6,7 @@
 #include <nano/node/rocksdb/rocksdb_iterator.hpp>
 #include <nano/secure/blockstore_partial.hpp>
 #include <nano/secure/common.hpp>
+#include <nano/secure/store/unchecked_store_partial.hpp>
 
 #include <rocksdb/db.h>
 #include <rocksdb/filter_policy.h>
@@ -19,6 +20,17 @@ namespace nano
 {
 class logging_mt;
 class rocksdb_config;
+class rocksdb_store;
+
+class unchecked_rocksdb_store : public unchecked_store_partial<rocksdb::Slice, nano::rocksdb_store>
+{
+public:
+	explicit unchecked_rocksdb_store (nano::rocksdb_store &);
+	std::vector<nano::unchecked_info> get (nano::transaction const &, nano::block_hash const &);
+
+private:
+	nano::rocksdb_store & rocksdb_store;
+};
 
 /**
  * rocksdb implementation of the block store
@@ -26,7 +38,10 @@ class rocksdb_config;
 class rocksdb_store : public block_store_partial<rocksdb::Slice, rocksdb_store>
 {
 public:
-	rocksdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::rocksdb_config const & = nano::rocksdb_config{}, bool open_read_only = false);
+	friend class nano::unchecked_rocksdb_store;
+
+	explicit rocksdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::rocksdb_config const & = nano::rocksdb_config{}, bool open_read_only = false);
+
 	nano::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_requiring_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) override;
 	nano::read_transaction tx_begin_read () const override;
 
@@ -34,7 +49,6 @@ public:
 
 	uint64_t count (nano::transaction const & transaction_a, tables table_a) const override;
 	void version_put (nano::write_transaction const &, int) override;
-	std::vector<nano::unchecked_info> unchecked_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override;
 
 	bool exists (nano::transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a) const;
 	int get (nano::transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a, nano::rocksdb_val & value_a) const;
@@ -65,6 +79,8 @@ public:
 	std::string error_string (int status) const override;
 
 private:
+	nano::unchecked_rocksdb_store unchecked_rocksdb_store;
+
 	bool error{ false };
 	nano::logger_mt & logger;
 	// Optimistic transactions are used in write mode

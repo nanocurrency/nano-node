@@ -6433,14 +6433,14 @@ TEST (rpc, unchecked_clear)
 	node.block_processor.flush ();
 	boost::property_tree::ptree request;
 	{
-		ASSERT_EQ (node.store.unchecked_count (node.store.tx_begin_read ()), 1);
+		ASSERT_EQ (node.store.unchecked.count (node.store.tx_begin_read ()), 1);
 	}
 	request.put ("action", "unchecked_clear");
 	test_response response (request, rpc.config.port, system.io_ctx);
 	ASSERT_TIMELY (5s, response.status != 0);
 	ASSERT_EQ (200, response.status);
 
-	ASSERT_TIMELY (10s, node.store.unchecked_count (node.store.tx_begin_read ()) == 0);
+	ASSERT_TIMELY (10s, node.store.unchecked.count (node.store.tx_begin_read ()) == 0);
 }
 
 TEST (rpc, unopened)

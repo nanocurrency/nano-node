@@ -398,10 +398,10 @@ TEST (store, unchecked_load)
 	for (auto i (0); i < 1000000; ++i)
 	{
 		auto transaction (node.store.tx_begin_write ());
-		node.store.unchecked_put (transaction, i, block);
+		node.store.unchecked.put (transaction, i, block);
 	}
 	auto transaction (node.store.tx_begin_read ());
-	ASSERT_EQ (num_unchecked, node.store.unchecked_count (transaction));
+	ASSERT_EQ (num_unchecked, node.store.unchecked.count (transaction));
 }
 
 TEST (store, vote_load)
