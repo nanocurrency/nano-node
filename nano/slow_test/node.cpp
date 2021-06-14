@@ -1,9 +1,9 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/node/election.hpp>
-#include <nano/node/testing.hpp>
 #include <nano/node/transport/udp.hpp>
 #include <nano/test_common/network.hpp>
+#include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
@@ -421,7 +421,7 @@ TEST (store, pruned_load)
 	nano::logger_mt logger;
 	auto path (nano::unique_path ());
 	constexpr auto num_pruned = 2000000;
-	auto const expected_result = nano::using_rocksdb_in_tests () ? num_pruned : num_pruned / 2;
+	auto const expected_result = nano::rocksdb_config::using_rocksdb_in_tests () ? num_pruned : num_pruned / 2;
 	constexpr auto batch_size = 20;
 	boost::unordered_set<nano::block_hash> hashes;
 	{
@@ -438,7 +438,7 @@ TEST (store, pruned_load)
 					store->pruned.put (transaction, random_hash);
 				}
 			}
-			if (!nano::using_rocksdb_in_tests ())
+			if (!nano::rocksdb_config::using_rocksdb_in_tests ())
 			{
 				auto transaction (store->tx_begin_write ());
 				for (auto k (0); k < batch_size / 2; ++k)
@@ -956,7 +956,7 @@ TEST (confirmation_height, many_accounts_send_receive_self)
 // as opposed to active transactions which implicitly calls confirmation height processor.
 TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 {
-	if (nano::using_rocksdb_in_tests ())
+	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;

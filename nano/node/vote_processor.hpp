@@ -24,6 +24,7 @@ class rep_crawler;
 class ledger;
 class network_params;
 class node_flags;
+class stat;
 
 class transaction;
 namespace transport

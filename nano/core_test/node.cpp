@@ -1,8 +1,8 @@
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/node/election.hpp>
-#include <nano/node/testing.hpp>
 #include <nano/node/transport/udp.hpp>
 #include <nano/test_common/network.hpp>
+#include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
@@ -73,7 +73,7 @@ TEST (node_DeathTest, readonly_block_store_not_exist)
 #endif
 {
 	// This is a read-only node with no ledger file
-	if (nano::using_rocksdb_in_tests ())
+	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		nano::inactive_node node (nano::unique_path (), nano::inactive_node_flag_defaults ());
 		ASSERT_TRUE (node.node->init_error ());
@@ -3748,7 +3748,7 @@ TEST (node, dont_write_lock_node)
 TEST (node, bidirectional_tcp)
 {
 #ifdef _WIN32
-	if (nano::using_rocksdb_in_tests ())
+	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
