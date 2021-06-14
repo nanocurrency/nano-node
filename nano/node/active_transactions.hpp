@@ -161,8 +161,6 @@ public:
 	bool active (nano::qualified_root const &);
 	std::shared_ptr<nano::election> election (nano::qualified_root const &) const;
 	std::shared_ptr<nano::block> winner (nano::block_hash const &) const;
-	// Returns false if the election was restarted
-	void restart (nano::transaction const &, std::shared_ptr<nano::block> const &);
 	// Returns a list of elections sorted by difficulty
 	std::vector<std::shared_ptr<nano::election>> list_active (size_t = std::numeric_limits<size_t>::max ());
 	void erase (nano::block const &);

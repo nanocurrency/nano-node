@@ -4586,8 +4586,6 @@ TEST (node, deferred_dependent_elections)
 	node.process_local (open);
 	node.block_processor.flush ();
 	ASSERT_FALSE (node.active.active (open->qualified_root ()));
-	/// However, work is still updated
-	ASSERT_TIMELY (3s, node.store.block_get (node.store.tx_begin_read (), open->hash ())->block_work () == open->block_work ());
 
 	// It is however possible to manually start an election from elsewhere
 	node.block_confirm (open);
@@ -4601,8 +4599,6 @@ TEST (node, deferred_dependent_elections)
 	node.process_local (open);
 	node.block_processor.flush ();
 	ASSERT_FALSE (node.active.active (open->qualified_root ()));
-	/// However, work is still updated
-	ASSERT_TIMELY (3s, node.store.block_get (node.store.tx_begin_read (), open->hash ())->block_work () == open->block_work ());
 
 	// Frontier confirmation also starts elections
 	ASSERT_NO_ERROR (system.poll_until_true (5s, [&node, &send2] {
@@ -4652,12 +4648,6 @@ TEST (node, deferred_dependent_elections)
 	election_send2->force_confirm ();
 	ASSERT_TIMELY (2s, node.block_confirmed (send2->hash ()));
 	ASSERT_TIMELY (2s, node.active.active (receive->qualified_root ()));
-	node.active.erase (*receive);
-	ASSERT_FALSE (node.active.active (receive->qualified_root ()));
-	node.work_generate_blocking (*receive, receive->difficulty () + 1);
-	node.process_local (receive);
-	node.block_processor.flush ();
-	ASSERT_TRUE (node.active.active (receive->qualified_root ()));
 }
 }
 

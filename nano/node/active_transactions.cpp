@@ -967,34 +967,6 @@ std::shared_ptr<nano::block> nano::active_transactions::winner (nano::block_hash
 	return result;
 }
 
-void nano::active_transactions::restart (nano::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a)
-{
-	auto hash (block_a->hash ());
-	auto ledger_block (node.store.block_get (transaction_a, hash));
-	if (ledger_block != nullptr && ledger_block->block_work () != block_a->block_work () && !node.block_confirmed_or_being_confirmed (transaction_a, hash))
-	{
-		if (block_a->difficulty () > ledger_block->difficulty ())
-		{
-			// Re-writing the block is necessary to avoid the same work being received later to force restarting the election
-			// The existing block is re-written, not the arriving block, as that one might not have gone through a full signature check
-			ledger_block->block_work_set (block_a->block_work ());
-
-			// Deferred write
-			node.block_processor.update (ledger_block);
-
-			// Restart election for the upgraded block, previously dropped from elections
-			if (node.ledger.dependents_confirmed (transaction_a, *ledger_block))
-			{
-				node.stats.inc (nano::stat::type::election, nano::stat::detail::election_restart);
-				auto previous_balance = node.ledger.balance (transaction_a, ledger_block->previous ());
-				auto block_has_account = ledger_block->type () == nano::block_type::state || ledger_block->type () == nano::block_type::open;
-				auto account = block_has_account ? ledger_block->account () : ledger_block->sideband ().account;
-				scheduler.activate (account, transaction_a);
-			}
-		}
-	}
-}
-
 std::deque<nano::election_status> nano::active_transactions::list_recently_cemented ()
 {
 	nano::lock_guard<nano::mutex> lock (mutex);
