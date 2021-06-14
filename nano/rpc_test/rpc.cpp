@@ -113,7 +113,7 @@ std::shared_ptr<nano::node> add_ipc_enabled_node (nano::system & system)
 	return add_ipc_enabled_node (system, node_config);
 }
 
-void reset_confirmation_height (nano::block_store & store, nano::account const & account)
+void reset_confirmation_height (nano::store & store, nano::account const & account)
 {
 	auto transaction = store.tx_begin_write ();
 	nano::confirmation_height_info confirmation_height_info;
@@ -2431,7 +2431,7 @@ TEST (rpc, version)
 	ASSERT_EQ (200, response1.status);
 	{
 		auto transaction (node1->store.tx_begin_read ());
-		ASSERT_EQ (std::to_string (node1->store.version_get (transaction)), response1.json.get<std::string> ("store_version"));
+		ASSERT_EQ (std::to_string (node1->store.version.get (transaction)), response1.json.get<std::string> ("store_version"));
 	}
 	ASSERT_EQ (std::to_string (node1->network_params.protocol.protocol_version), response1.json.get<std::string> ("protocol_version"));
 	ASSERT_EQ (boost::str (boost::format ("Nano %1%") % NANO_VERSION_STRING), response1.json.get<std::string> ("node_vendor"));
@@ -3291,8 +3291,8 @@ TEST (rpc, account_representative_set)
 	ASSERT_FALSE (hash.decode_hex (block_text1));
 	ASSERT_FALSE (hash.is_zero ());
 	auto transaction (node->store.tx_begin_read ());
-	ASSERT_TRUE (node->store.block_exists (transaction, hash));
-	ASSERT_EQ (rep.pub, node->store.block_get (transaction, hash)->representative ());
+	ASSERT_TRUE (node->store.block.exists (transaction, hash));
+	ASSERT_EQ (rep.pub, node->store.block.get (transaction, hash)->representative ());
 }
 
 TEST (rpc, account_representative_set_work_disabled)
@@ -5056,7 +5056,7 @@ TEST (rpc, block_info_pruning)
 	{
 		auto transaction (node1.store.tx_begin_write ());
 		ASSERT_EQ (1, node1.ledger.pruning_action (transaction, send1->hash (), 1));
-		ASSERT_TRUE (node1.store.block_exists (transaction, receive1->hash ()));
+		ASSERT_TRUE (node1.store.block.exists (transaction, receive1->hash ()));
 	}
 	scoped_io_thread_name_change scoped_thread_name_io;
 	nano::node_rpc_config node_rpc_config;
@@ -5118,7 +5118,7 @@ TEST (rpc, pruned_exists)
 	{
 		auto transaction (node1.store.tx_begin_write ());
 		ASSERT_EQ (1, node1.ledger.pruning_action (transaction, send1->hash (), 1));
-		ASSERT_TRUE (node1.store.block_exists (transaction, receive1->hash ()));
+		ASSERT_TRUE (node1.store.block.exists (transaction, receive1->hash ()));
 	}
 	scoped_io_thread_name_change scoped_thread_name_io;
 	nano::node_rpc_config node_rpc_config;
@@ -6072,7 +6072,7 @@ TEST (rpc, confirmation_height_currently_processing)
 	std::shared_ptr<nano::block> frontier;
 	{
 		auto transaction = node->store.tx_begin_read ();
-		frontier = node->store.block_get (transaction, previous_genesis_chain_hash);
+		frontier = node->store.block.get (transaction, previous_genesis_chain_hash);
 	}
 
 	boost::property_tree::ptree request;
@@ -7469,7 +7469,7 @@ TEST (rpc, receive_unopened)
 	auto send1 (wallet->send_action (nano::dev_genesis_key.pub, key1.pub, node.config.receive_minimum.number () - 1, *node.work_generate_blocking (nano::genesis_hash)));
 	ASSERT_TIMELY (5s, !node.balance (nano::dev_genesis_key.pub) != nano::genesis_amount);
 	ASSERT_FALSE (node.store.account.exists (node.store.tx_begin_read (), key1.pub));
-	ASSERT_TRUE (node.store.block_exists (node.store.tx_begin_read (), send1->hash ()));
+	ASSERT_TRUE (node.store.block.exists (node.store.tx_begin_read (), send1->hash ()));
 	wallet->insert_adhoc (key1.prv); // should not auto receive, amount sent was lower than minimum
 	scoped_io_thread_name_change scoped_thread_name_io;
 	nano::node_rpc_config node_rpc_config;
@@ -7503,7 +7503,7 @@ TEST (rpc, receive_unopened)
 	auto send2 (wallet->send_action (nano::dev_genesis_key.pub, key2.pub, node.config.receive_minimum.number () - 1, *node.work_generate_blocking (send1->hash ())));
 	ASSERT_TIMELY (5s, !node.balance (nano::dev_genesis_key.pub) != prev_amount);
 	ASSERT_FALSE (node.store.account.exists (node.store.tx_begin_read (), key2.pub));
-	ASSERT_TRUE (node.store.block_exists (node.store.tx_begin_read (), send2->hash ()));
+	ASSERT_TRUE (node.store.block.exists (node.store.tx_begin_read (), send2->hash ()));
 	nano::public_key rep;
 	wallet->store.representative_set (node.wallets.tx_begin_write (), rep);
 	wallet->insert_adhoc (key2.prv); // should not auto receive, amount sent was lower than minimum
@@ -7542,7 +7542,7 @@ TEST (rpc, receive_work_disabled)
 	ASSERT_TRUE (send1 != nullptr);
 	ASSERT_TIMELY (5s, node.balance (nano::dev_genesis_key.pub) != nano::genesis_amount);
 	ASSERT_FALSE (node.store.account.exists (node.store.tx_begin_read (), key1.pub));
-	ASSERT_TRUE (node.store.block_exists (node.store.tx_begin_read (), send1->hash ()));
+	ASSERT_TRUE (node.store.block.exists (node.store.tx_begin_read (), send1->hash ()));
 	wallet->insert_adhoc (key1.prv);
 	scoped_io_thread_name_change scoped_thread_name_io;
 	nano::node_rpc_config node_rpc_config;
@@ -7596,9 +7596,9 @@ TEST (rpc, receive_pruned)
 	}
 	ASSERT_EQ (2, node2.ledger.cache.pruned_count);
 	ASSERT_TRUE (node2.ledger.block_or_pruned_exists (send1->hash ()));
-	ASSERT_FALSE (node2.store.block_exists (node2.store.tx_begin_read (), send1->hash ()));
+	ASSERT_FALSE (node2.store.block.exists (node2.store.tx_begin_read (), send1->hash ()));
 	ASSERT_TRUE (node2.ledger.block_or_pruned_exists (send2->hash ()));
-	ASSERT_FALSE (node2.store.block_exists (node2.store.tx_begin_read (), send2->hash ()));
+	ASSERT_FALSE (node2.store.block.exists (node2.store.tx_begin_read (), send2->hash ()));
 	ASSERT_TRUE (node2.ledger.block_or_pruned_exists (send3->hash ()));
 
 	scoped_io_thread_name_change scoped_thread_name_io;
