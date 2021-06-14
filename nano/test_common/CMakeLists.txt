@@ -1,4 +1,5 @@
-add_library(test_common
+add_library(
+  test_common
   network.hpp
   network.cpp
   system.hpp
