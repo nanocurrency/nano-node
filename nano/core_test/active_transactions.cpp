@@ -1,6 +1,6 @@
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/node/election.hpp>
-#include <nano/node/testing.hpp>
+#include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
@@ -962,63 +962,6 @@ TEST (active_transactions, confirm_new)
 	ASSERT_TIMELY (5s, node2.block (send->hash ()));
 	// Wait confirmation
 	ASSERT_TIMELY (5s, node1.ledger.cache.cemented_count == 2 && node2.ledger.cache.cemented_count == 2);
-}
-
-TEST (active_transactions, restart_dropped)
-{
-	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
-	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	auto & node = *system.add_node (node_config);
-	nano::genesis genesis;
-	auto send = nano::state_block_builder ()
-				.account (nano::dev_genesis_key.pub)
-				.previous (genesis.hash ())
-				.representative (nano::dev_genesis_key.pub)
-				.balance (nano::genesis_amount - nano::xrb_ratio)
-				.link (nano::dev_genesis_key.pub)
-				.sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-				.work (*system.work.generate (genesis.hash ()))
-				.build_shared (); // Process only in ledger and simulate dropping the election
-	ASSERT_EQ (nano::process_result::progress, node.process (*send).code);
-	// Generate higher difficulty work
-	ASSERT_TRUE (node.work_generate_blocking (*send, send->difficulty () + 1).is_initialized ());
-	// Process the same block with updated work
-	ASSERT_EQ (0, node.active.size ());
-	node.process_active (send);
-	node.block_processor.flush ();
-	node.scheduler.flush ();
-	ASSERT_EQ (1, node.active.size ());
-	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::election_restart));
-	auto ledger_block (node.store.block.get (node.store.tx_begin_read (), send->hash ()));
-	ASSERT_NE (nullptr, ledger_block);
-	// Exact same block, including work value must have been re-written
-	ASSERT_EQ (*send, *ledger_block);
-	// Drop election
-	node.active.erase (*send);
-	ASSERT_EQ (0, node.active.size ());
-	// Try to restart election with the same difficulty
-	node.process_active (send);
-	node.block_processor.flush ();
-	node.scheduler.flush ();
-	ASSERT_EQ (0, node.active.size ());
-	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::election_restart));
-	// Generate even higher difficulty work
-	ASSERT_TRUE (node.work_generate_blocking (*send, send->difficulty () + 1).is_initialized ());
-	// Add voting
-	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
-	// Process the same block with updated work
-	ASSERT_EQ (0, node.active.size ());
-	node.process_active (send);
-	node.block_processor.flush ();
-	node.scheduler.flush ();
-	ASSERT_EQ (1, node.active.size ());
-	ASSERT_EQ (1, node.ledger.cache.cemented_count);
-	ASSERT_EQ (2, node.stats.count (nano::stat::type::election, nano::stat::detail::election_restart));
-	// Wait for the election to complete
-	ASSERT_TIMELY (5s, node.ledger.cache.cemented_count == 2);
-	// Verify the block is eventually updated in the ledger
-	ASSERT_TIMELY (3s, node.store.block.get (node.store.tx_begin_read (), send->hash ())->block_work () == send->block_work ());
 }
 
 // Ensures votes are tallied on election::publish even if no vote is inserted through inactive_votes_cache

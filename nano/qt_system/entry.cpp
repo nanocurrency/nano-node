@@ -2,8 +2,8 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/node/common.hpp>
-#include <nano/node/testing.hpp>
 #include <nano/qt/qt.hpp>
+#include <nano/test_common/system.hpp>
 
 #include <boost/format.hpp>
 

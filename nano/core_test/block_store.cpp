@@ -7,10 +7,10 @@
 #include <nano/node/common.hpp>
 #include <nano/node/lmdb/lmdb.hpp>
 #include <nano/node/rocksdb/rocksdb.hpp>
-#include <nano/node/testing.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/utility.hpp>
 #include <nano/secure/versioning.hpp>
+#include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
@@ -369,7 +369,7 @@ TEST (bootstrap, simple)
 
 TEST (unchecked, multiple)
 {
-	if (nano::using_rocksdb_in_tests ())
+	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -654,7 +654,7 @@ TEST (block_store, latest_find)
 
 TEST (mdb_block_store, supported_version_upgrades)
 {
-	if (nano::using_rocksdb_in_tests ())
+	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -705,7 +705,7 @@ TEST (mdb_block_store, supported_version_upgrades)
 
 TEST (mdb_block_store, bad_path)
 {
-	if (nano::using_rocksdb_in_tests ())
+	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -999,7 +999,7 @@ TEST (block_store, state_block)
 
 TEST (mdb_block_store, sideband_height)
 {
-	if (nano::using_rocksdb_in_tests ())
+	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -1264,7 +1264,7 @@ TEST (block_store, pruned_blocks)
 
 TEST (mdb_block_store, upgrade_v14_v15)
 {
-	if (nano::using_rocksdb_in_tests ())
+	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -1377,7 +1377,7 @@ TEST (mdb_block_store, upgrade_v14_v15)
 
 TEST (mdb_block_store, upgrade_v15_v16)
 {
-	if (nano::using_rocksdb_in_tests ())
+	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -1423,7 +1423,7 @@ TEST (mdb_block_store, upgrade_v15_v16)
 
 TEST (mdb_block_store, upgrade_v16_v17)
 {
-	if (nano::using_rocksdb_in_tests ())
+	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -1487,7 +1487,7 @@ TEST (mdb_block_store, upgrade_v16_v17)
 
 TEST (mdb_block_store, upgrade_v17_v18)
 {
-	if (nano::using_rocksdb_in_tests ())
+	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -1691,7 +1691,7 @@ TEST (mdb_block_store, upgrade_v17_v18)
 
 TEST (mdb_block_store, upgrade_v18_v19)
 {
-	if (nano::using_rocksdb_in_tests ())
+	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -1784,7 +1784,7 @@ TEST (mdb_block_store, upgrade_v18_v19)
 
 TEST (mdb_block_store, upgrade_v19_v20)
 {
-	if (nano::using_rocksdb_in_tests ())
+	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -1814,7 +1814,7 @@ TEST (mdb_block_store, upgrade_v19_v20)
 
 TEST (mdb_block_store, upgrade_v20_v21)
 {
-	if (nano::using_rocksdb_in_tests ())
+	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -1844,7 +1844,7 @@ TEST (mdb_block_store, upgrade_v20_v21)
 
 TEST (mdb_block_store, upgrade_backup)
 {
-	if (nano::using_rocksdb_in_tests ())
+	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -1886,7 +1886,7 @@ TEST (mdb_block_store, upgrade_backup)
 // Test various confirmation height values as well as clearing them
 TEST (block_store, confirmation_height)
 {
-	if (nano::using_rocksdb_in_tests ())
+	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -1932,7 +1932,7 @@ TEST (block_store, confirmation_height)
 // Test various confirmation height values as well as clearing them
 TEST (block_store, final_vote)
 {
-	if (nano::using_rocksdb_in_tests ())
+	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode as deletions cause inaccurate counts
 		return;
@@ -2041,7 +2041,7 @@ namespace nano
 {
 TEST (rocksdb_block_store, tombstone_count)
 {
-	if (nano::using_rocksdb_in_tests ())
+	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		nano::logger_mt logger;
 		auto store = std::make_unique<nano::rocksdb_store> (logger, nano::unique_path ());
