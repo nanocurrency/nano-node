@@ -2086,13 +2086,11 @@ void nano::json_handler::delegators ()
 	{
 		auto transaction (node.store.tx_begin_read ());
 		boost::property_tree::ptree delegators;
-		uint64_t delegators_count = 0;
 		for (auto i (node.store.account.begin (transaction, head_account.number () + 1)), n (node.store.account.end ()); i != n && delegators.size () < count; ++i)
 		{
 			nano::account_info const & info (i->second);
 			if (info.representative == account)
 			{
-				++delegators_count;
 				if (info.balance.number () >= threshold.number ())
 				{
 					std::string balance;
