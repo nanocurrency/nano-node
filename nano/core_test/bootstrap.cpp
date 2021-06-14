@@ -404,13 +404,13 @@ TEST (bootstrap_processor, pull_disconnected_acount_config)
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
 	// Node1 cannot receive open block because account has only 1 block
 	ASSERT_TIMELY (15s, !node1->bootstrap_initiator.in_progress ());
-	ASSERT_TRUE (node1->store.block_exists (node1->store.tx_begin_read (), send1->hash ()));
-	ASSERT_FALSE (node1->store.block_exists (node1->store.tx_begin_read (), open->hash ()));
+	ASSERT_TRUE (node1->store.block.exists (node1->store.tx_begin_read (), send1->hash ()));
+	ASSERT_FALSE (node1->store.block.exists (node1->store.tx_begin_read (), open->hash ()));
 	// Crearte second block
 	auto send2 (std::make_shared<nano::send_block> (open->hash (), nano::dev_genesis_key.pub, std::numeric_limits<nano::uint128_t>::max () - 100, key.prv, key.pub, *system.work.generate (open->hash ())));
 	ASSERT_EQ (nano::process_result::progress, node0->process (*send2).code);
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint (), false);
-	ASSERT_TIMELY (10s, node1->store.block_exists (node1->store.tx_begin_read (), send2->hash ()));
+	ASSERT_TIMELY (10s, node1->store.block.exists (node1->store.tx_begin_read (), send2->hash ()));
 	node1->stop ();
 }
 
