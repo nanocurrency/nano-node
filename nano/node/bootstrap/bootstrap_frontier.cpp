@@ -355,8 +355,8 @@ void nano::frontier_req_server::next ()
 				{
 					nano::account next_account (account.number () != std::numeric_limits<nano::uint256_t>::max () ? account.number () + 1 : account.number ());
 					transaction.refresh ();
-					i = connection->node->store.accounts_begin (transaction, next_account);
-					n = connection->node->store.accounts_end ();
+					i = connection->node->store.account.begin (transaction, next_account);
+					n = connection->node->store.account.end ();
 				}
 			}
 		}
