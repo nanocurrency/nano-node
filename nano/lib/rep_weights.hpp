@@ -9,7 +9,7 @@
 
 namespace nano
 {
-class block_store;
+class store;
 class transaction;
 
 class rep_weights

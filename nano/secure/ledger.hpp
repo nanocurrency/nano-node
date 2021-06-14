@@ -8,7 +8,7 @@
 
 namespace nano
 {
-class block_store;
+class store;
 class stat;
 class write_transaction;
 
@@ -26,7 +26,7 @@ public:
 class ledger final
 {
 public:
-	ledger (nano::block_store &, nano::stat &, nano::generate_cache const & = nano::generate_cache ());
+	ledger (nano::store &, nano::stat &, nano::generate_cache const & = nano::generate_cache ());
 	nano::account account (nano::transaction const &, nano::block_hash const &) const;
 	nano::account account_safe (nano::transaction const &, nano::block_hash const &, bool &) const;
 	nano::uint128_t amount (nano::transaction const &, nano::account const &);
@@ -69,7 +69,7 @@ public:
 	bool migrate_lmdb_to_rocksdb (boost::filesystem::path const &) const;
 	static nano::uint128_t const unit;
 	nano::network_params network_params;
-	nano::block_store & store;
+	nano::store & store;
 	nano::ledger_cache cache;
 	nano::stat & stats;
 	std::unordered_map<nano::account, nano::uint128_t> bootstrap_weights;

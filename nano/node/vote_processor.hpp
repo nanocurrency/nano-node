@@ -14,7 +14,7 @@ namespace nano
 {
 class signature_checker;
 class active_transactions;
-class block_store;
+class store;
 class node_observers;
 class stats;
 class node_config;
@@ -24,6 +24,7 @@ class rep_crawler;
 class ledger;
 class network_params;
 class node_flags;
+class stat;
 
 class transaction;
 namespace transport

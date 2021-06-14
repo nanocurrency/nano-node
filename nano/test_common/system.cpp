@@ -1,7 +1,7 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/node/common.hpp>
-#include <nano/node/testing.hpp>
 #include <nano/node/transport/udp.hpp>
+#include <nano/test_common/system.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 
@@ -357,7 +357,7 @@ void nano::system::generate_receive (nano::node & node_a)
 		if (i != node_a.store.pending.end ())
 		{
 			nano::pending_key const & send_hash (i->first);
-			send_block = node_a.store.block_get (transaction, send_hash.hash);
+			send_block = node_a.store.block.get (transaction, send_hash.hash);
 		}
 	}
 	if (send_block != nullptr)
@@ -549,11 +549,4 @@ void nano::cleanup_dev_directories_on_exit ()
 	{
 		nano::remove_temporary_directories ();
 	}
-}
-
-bool nano::using_rocksdb_in_tests ()
-{
-	static nano::network_constants network_constants;
-	auto use_rocksdb_str = std::getenv ("TEST_USE_ROCKSDB");
-	return network_constants.is_dev_network () && use_rocksdb_str && (boost::lexical_cast<int> (use_rocksdb_str) == 1);
 }

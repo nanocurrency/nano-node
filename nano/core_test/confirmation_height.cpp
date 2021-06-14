@@ -1,5 +1,5 @@
 #include <nano/node/election.hpp>
-#include <nano/node/testing.hpp>
+#include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
@@ -682,12 +682,12 @@ TEST (confirmation_height, conflict_rollback_cemented)
 		// Force blocks to be cemented on both nodes
 		{
 			auto transaction (node1->store.tx_begin_write ());
-			ASSERT_TRUE (node1->store.block_exists (transaction, publish1.block->hash ()));
+			ASSERT_TRUE (node1->store.block.exists (transaction, publish1.block->hash ()));
 			node1->store.confirmation_height.put (transaction, nano::genesis_account, nano::confirmation_height_info{ 2, send2->hash () });
 		}
 		{
 			auto transaction (node2->store.tx_begin_write ());
-			ASSERT_TRUE (node2->store.block_exists (transaction, publish2.block->hash ()));
+			ASSERT_TRUE (node2->store.block.exists (transaction, publish2.block->hash ()));
 			node2->store.confirmation_height.put (transaction, nano::genesis_account, nano::confirmation_height_info{ 2, send2->hash () });
 		}
 
@@ -707,7 +707,7 @@ TEST (confirmation_height, conflict_rollback_cemented)
 
 TEST (confirmation_heightDeathTest, rollback_added_block)
 {
-	if (nano::using_rocksdb_in_tests ())
+	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -784,7 +784,7 @@ TEST (confirmation_height, observers)
 // This tests when a read has been done, but the block no longer exists by the time a write is done
 TEST (confirmation_heightDeathTest, modified_chain)
 {
-	if (nano::using_rocksdb_in_tests ())
+	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -855,7 +855,7 @@ TEST (confirmation_heightDeathTest, modified_chain)
 // This tests when a read has been done, but the account no longer exists by the time a write is done
 TEST (confirmation_heightDeathTest, modified_chain_account_removed)
 {
-	if (nano::using_rocksdb_in_tests ())
+	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -1355,7 +1355,7 @@ TEST (confirmation_height, election_winner_details_clearing_node_process_confirm
 
 TEST (confirmation_height, unbounded_block_cache_iteration)
 {
-	if (nano::using_rocksdb_in_tests ())
+	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
