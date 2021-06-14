@@ -1,8 +1,8 @@
 #pragma once
 
-#include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/store.hpp>
 
 #include <atomic>
 #include <chrono>

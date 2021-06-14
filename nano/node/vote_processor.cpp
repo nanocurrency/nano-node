@@ -9,9 +9,9 @@
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/signatures.hpp>
 #include <nano/node/vote_processor.hpp>
-#include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/store.hpp>
 
 #include <boost/format.hpp>
 

@@ -2,7 +2,7 @@
 
 #include <nano/lib/diagnosticsconfig.hpp>
 #include <nano/lib/timer.hpp>
-#include <nano/secure/blockstore.hpp>
+#include <nano/secure/store.hpp>
 
 #include <boost/property_tree/ptree_fwd.hpp>
 #include <boost/stacktrace/stacktrace_fwd.hpp>

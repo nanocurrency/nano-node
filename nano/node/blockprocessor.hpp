@@ -58,7 +58,6 @@ public:
 	void add (nano::unchecked_info const &);
 	void add (std::shared_ptr<nano::block> const &, uint64_t = 0);
 	void force (std::shared_ptr<nano::block> const &);
-	void update (std::shared_ptr<nano::block> const &);
 	void wait_write ();
 	bool should_log ();
 	bool have_blocks_ready ();
@@ -74,7 +73,6 @@ private:
 	void queue_unchecked (nano::write_transaction const &, nano::hash_or_account const &);
 	void process_batch (nano::unique_lock<nano::mutex> &);
 	void process_live (nano::transaction const &, nano::block_hash const &, std::shared_ptr<nano::block> const &, nano::process_return const &, nano::block_origin const = nano::block_origin::remote);
-	void process_old (nano::transaction const &, std::shared_ptr<nano::block> const &, nano::block_origin const);
 	void requeue_invalid (nano::block_hash const &, nano::unchecked_info const &);
 	void process_verified_state_blocks (std::deque<nano::unchecked_info> &, std::vector<int> const &, std::vector<nano::block_hash> const &, std::vector<nano::signature> const &);
 	bool stopped{ false };
@@ -83,7 +81,6 @@ private:
 	std::chrono::steady_clock::time_point next_log;
 	std::deque<nano::unchecked_info> blocks;
 	std::deque<std::shared_ptr<nano::block>> forced;
-	std::deque<std::shared_ptr<nano::block>> updates;
 	nano::condition_variable condition;
 	nano::node & node;
 	nano::write_database_queue & write_database_queue;

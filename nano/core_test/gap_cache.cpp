@@ -1,4 +1,4 @@
-#include <nano/node/testing.hpp>
+#include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
@@ -106,7 +106,7 @@ TEST (gap_cache, two_dependencies)
 	node1.block_processor.flush ();
 	ASSERT_EQ (0, node1.gap_cache.size ());
 	auto transaction (node1.store.tx_begin_read ());
-	ASSERT_TRUE (node1.store.block_exists (transaction, send1->hash ()));
-	ASSERT_TRUE (node1.store.block_exists (transaction, send2->hash ()));
-	ASSERT_TRUE (node1.store.block_exists (transaction, open->hash ()));
+	ASSERT_TRUE (node1.store.block.exists (transaction, send1->hash ()));
+	ASSERT_TRUE (node1.store.block.exists (transaction, send2->hash ()));
+	ASSERT_TRUE (node1.store.block.exists (transaction, open->hash ()));
 }

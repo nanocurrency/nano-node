@@ -419,7 +419,7 @@ void nano::bulk_pull_server::set_current_end ()
 	include_start = false;
 	debug_assert (request != nullptr);
 	auto transaction (connection->node->store.tx_begin_read ());
-	if (!connection->node->store.block_exists (transaction, request->end))
+	if (!connection->node->store.block.exists (transaction, request->end))
 	{
 		if (connection->node->config.logging.bulk_pull_logging ())
 		{
@@ -428,7 +428,7 @@ void nano::bulk_pull_server::set_current_end ()
 		request->end.clear ();
 	}
 
-	if (connection->node->store.block_exists (transaction, request->start.as_block_hash ()))
+	if (connection->node->store.block.exists (transaction, request->start.as_block_hash ()))
 	{
 		if (connection->node->config.logging.bulk_pull_logging ())
 		{

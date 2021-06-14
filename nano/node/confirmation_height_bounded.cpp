@@ -84,7 +84,7 @@ void nano::confirmation_height_bounded::process (std::shared_ptr<nano::block> or
 		}
 		else
 		{
-			block = ledger.store.block_get (transaction, current);
+			block = ledger.store.block.get (transaction, current);
 		}
 
 		if (!block)
@@ -229,7 +229,7 @@ nano::block_hash nano::confirmation_height_bounded::get_least_unconfirmed_hash_f
 	{
 		if (block_height_a > confirmation_height_info_a.height)
 		{
-			auto block (ledger.store.block_get (transaction_a, confirmation_height_info_a.frontier));
+			auto block (ledger.store.block.get (transaction_a, confirmation_height_info_a.frontier));
 			release_assert (block != nullptr);
 			least_unconfirmed_hash = block->sideband ().successor;
 			block_height_a = block->sideband ().height + 1;
@@ -257,14 +257,14 @@ bool nano::confirmation_height_bounded::iterate (nano::read_transaction const & 
 		// Keep iterating upwards until we either reach the desired block or the second receive.
 		// Once a receive is cemented, we can cement all blocks above it until the next receive, so store those details for later.
 		++num_blocks;
-		auto block = ledger.store.block_get (transaction_a, hash);
+		auto block = ledger.store.block.get (transaction_a, hash);
 		auto source (block->source ());
 		if (source.is_zero ())
 		{
 			source = block->link ().as_block_hash ();
 		}
 
-		if (!source.is_zero () && !ledger.is_epoch_link (source) && ledger.store.block_exists (transaction_a, source))
+		if (!source.is_zero () && !ledger.is_epoch_link (source) && ledger.store.block.exists (transaction_a, source))
 		{
 			hit_receive = true;
 			reached_target = true;
@@ -308,7 +308,7 @@ void nano::confirmation_height_bounded::prepare_iterated_blocks_for_cementing (p
 	if (!preparation_data_a.already_cemented)
 	{
 		// Add the non-receive blocks iterated for this account
-		auto block_height = (ledger.store.block_account_height (preparation_data_a.transaction, preparation_data_a.top_most_non_receive_block_hash));
+		auto block_height = (ledger.store.block.account_height (preparation_data_a.transaction, preparation_data_a.top_most_non_receive_block_hash));
 		if (block_height > preparation_data_a.confirmation_height_info.height)
 		{
 			confirmed_info confirmed_info_l{ block_height, preparation_data_a.top_most_non_receive_block_hash };
@@ -386,7 +386,7 @@ void nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 				// Extra debug checks
 				nano::confirmation_height_info confirmation_height_info;
 				ledger.store.confirmation_height.get (transaction, account, confirmation_height_info);
-				auto block (ledger.store.block_get (transaction, confirmed_frontier));
+				auto block (ledger.store.block.get (transaction, confirmed_frontier));
 				debug_assert (block != nullptr);
 				debug_assert (block->sideband ().height == confirmation_height_info.height + num_blocks_cemented);
 #endif
@@ -416,14 +416,14 @@ void nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 				}
 				else
 				{
-					auto block = ledger.store.block_get (transaction, confirmation_height_info.frontier);
+					auto block = ledger.store.block.get (transaction, confirmation_height_info.frontier);
 					new_cemented_frontier = block->sideband ().successor;
 					num_blocks_confirmed = pending.top_height - confirmation_height_info.height;
 					start_height = confirmation_height_info.height + 1;
 				}
 
 				auto total_blocks_cemented = 0;
-				auto block = ledger.store.block_get (transaction, new_cemented_frontier);
+				auto block = ledger.store.block.get (transaction, new_cemented_frontier);
 
 				// Cementing starts from the bottom of the chain and works upwards. This is because chains can have effectively
 				// an infinite number of send/change blocks in a row. We don't want to hold the write transaction open for too long.
@@ -490,7 +490,7 @@ void nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 					if (!last_iteration)
 					{
 						new_cemented_frontier = block->sideband ().successor;
-						block = ledger.store.block_get (transaction, new_cemented_frontier);
+						block = ledger.store.block.get (transaction, new_cemented_frontier);
 					}
 					else
 					{

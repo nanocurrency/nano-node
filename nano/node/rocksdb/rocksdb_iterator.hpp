@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nano/secure/blockstore.hpp>
+#include <nano/secure/store.hpp>
 
 #include <rocksdb/db.h>
 #include <rocksdb/filter_policy.h>
