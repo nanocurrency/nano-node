@@ -2069,7 +2069,7 @@ void nano::json_handler::database_txn_tracker ()
 void nano::json_handler::delegators ()
 {
 	auto representative (account_impl ());
-	auto count (count_optional_impl ());
+	auto count (count_optional_impl (1024));
 	auto threshold (threshold_optional_impl ());
 	auto start_account_text (request.get_optional<std::string> ("start"));
 
