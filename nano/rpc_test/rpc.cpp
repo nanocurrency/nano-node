@@ -4633,6 +4633,117 @@ TEST (rpc, delegators)
 	ASSERT_EQ ("340282366920938463463374607431768211355", delegators.get<std::string> (key.pub.to_account ()));
 }
 
+TEST (rpc, delegators_parameters)
+{
+	nano::system system;
+	auto & node1 = *add_ipc_enabled_node (system);
+	nano::keypair key;
+	auto latest (node1.latest (nano::dev_genesis_key.pub));
+	nano::send_block send (latest, key.pub, 100, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node1.work_generate_blocking (latest));
+	node1.process (send);
+	nano::open_block open (send.hash (), nano::dev_genesis_key.pub, key.pub, key.prv, key.pub, *node1.work_generate_blocking (key.pub));
+	ASSERT_EQ (nano::process_result::progress, node1.process (open).code);
+
+	scoped_io_thread_name_change scoped_thread_name_io;
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
+	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	rpc_config.rpc_process.ipc_port = node1.config.ipc_config.transport_tcp.port;
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+
+	// Test with "count" = 2
+	boost::property_tree::ptree request;
+	request.put ("action", "delegators");
+	request.put ("account", nano::dev_genesis_key.pub.to_account ());
+	request.put ("count", 2);
+	test_response response (request, rpc.config.port, system.io_ctx);
+	ASSERT_TIMELY (5s, response.status != 0);
+	ASSERT_EQ (200, response.status);
+	auto & delegators_node (response.json.get_child ("delegators"));
+	boost::property_tree::ptree delegators;
+	for (auto i (delegators_node.begin ()), n (delegators_node.end ()); i != n; ++i)
+	{
+		delegators.put ((i->first), (i->second.get<std::string> ("")));
+	}
+	ASSERT_EQ (2, delegators.size ());
+	ASSERT_EQ ("100", delegators.get<std::string> (nano::dev_genesis_key.pub.to_account ()));
+	ASSERT_EQ ("340282366920938463463374607431768211355", delegators.get<std::string> (key.pub.to_account ()));
+
+	// Test with "count" = 1
+	request.put ("count", 1);
+	test_response response2 (request, rpc.config.port, system.io_ctx);
+	ASSERT_TIMELY (5s, response2.status != 0);
+	ASSERT_EQ (200, response2.status);
+	auto & delegators_node2 (response2.json.get_child ("delegators"));
+	boost::property_tree::ptree delegators2;
+	for (auto i (delegators_node2.begin ()), n (delegators_node2.end ()); i != n; ++i)
+	{
+		delegators2.put ((i->first), (i->second.get<std::string> ("")));
+	}
+	ASSERT_EQ (1, delegators2.size ());
+	// What is first in ledger by public key?
+	if (nano::dev_genesis_key.pub.number () < key.pub.number ())
+	{
+		ASSERT_EQ ("100", delegators2.get<std::string> (nano::dev_genesis_key.pub.to_account ()));
+	}
+	else
+	{
+		ASSERT_EQ ("340282366920938463463374607431768211355", delegators2.get<std::string> (key.pub.to_account ()));
+	}
+
+	// Test with "threshold"
+	request.put ("count", 1024);
+	request.put ("threshold", 101); // higher than remaining genesis balance
+	test_response response3 (request, rpc.config.port, system.io_ctx);
+	ASSERT_TIMELY (5s, response3.status != 0);
+	ASSERT_EQ (200, response3.status);
+	auto & delegators_node3 (response3.json.get_child ("delegators"));
+	boost::property_tree::ptree delegators3;
+	for (auto i (delegators_node3.begin ()), n (delegators_node3.end ()); i != n; ++i)
+	{
+		delegators3.put ((i->first), (i->second.get<std::string> ("")));
+	}
+	ASSERT_EQ (1, delegators3.size ());
+	ASSERT_EQ ("340282366920938463463374607431768211355", delegators3.get<std::string> (key.pub.to_account ()));
+
+	// Test with "start" before last account
+	request.put ("threshold", 0);
+	auto last_account (key.pub);
+	if (nano::dev_genesis_key.pub.number () > key.pub.number ())
+	{
+		last_account = nano::dev_genesis_key.pub;
+	}
+	request.put ("start", nano::account (last_account.number () - 1).to_account ());
+
+	test_response response4 (request, rpc.config.port, system.io_ctx);
+	ASSERT_TIMELY (5s, response4.status != 0);
+	ASSERT_EQ (200, response4.status);
+	auto & delegators_node4 (response4.json.get_child ("delegators"));
+	boost::property_tree::ptree delegators4;
+	for (auto i (delegators_node4.begin ()), n (delegators_node4.end ()); i != n; ++i)
+	{
+		delegators4.put ((i->first), (i->second.get<std::string> ("")));
+	}
+	ASSERT_EQ (1, delegators4.size ());
+	boost::optional<std::string> balance (delegators4.get_optional<std::string> (last_account.to_account ()));
+	ASSERT_TRUE (balance.is_initialized ());
+
+	// Test with "start" equal to last account
+	request.put ("start", last_account.to_account ());
+	test_response response5 (request, rpc.config.port, system.io_ctx);
+	ASSERT_TIMELY (5s, response5.status != 0);
+	ASSERT_EQ (200, response5.status);
+	auto & delegators_node5 (response5.json.get_child ("delegators"));
+	boost::property_tree::ptree delegators5;
+	for (auto i (delegators_node5.begin ()), n (delegators_node5.end ()); i != n; ++i)
+	{
+		delegators5.put ((i->first), (i->second.get<std::string> ("")));
+	}
+	ASSERT_EQ (0, delegators5.size ());
+}
+
 TEST (rpc, delegators_count)
 {
 	nano::system system;
