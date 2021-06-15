@@ -2071,12 +2071,12 @@ void nano::json_handler::delegators ()
 	auto representative (account_impl ());
 	auto count (count_optional_impl ());
 	auto threshold (threshold_optional_impl ());
-	auto head_str (request.get_optional<std::string> ("head"));
+	auto start_account_text (request.get_optional<std::string> ("start"));
 
-	nano::account head_account (0);
-	if (head_str)
+	nano::account start_account (0);
+	if (start_account_text)
 	{
-		auto error = head_account.decode_account (*head_str);
+		auto error = start_account.decode_account (*start_account_text);
 		if (error)
 		{
 			ec = nano::error_common::bad_account_number;
@@ -2086,7 +2086,7 @@ void nano::json_handler::delegators ()
 	{
 		auto transaction (node.store.tx_begin_read ());
 		boost::property_tree::ptree delegators;
-		for (auto i (node.store.account.begin (transaction, head_account.number () + 1)), n (node.store.account.end ()); i != n && delegators.size () < count; ++i)
+		for (auto i (node.store.account.begin (transaction, start_account.number () + 1)), n (node.store.account.end ()); i != n && delegators.size () < count; ++i)
 		{
 			nano::account_info const & info (i->second);
 			if (info.representative == representative)
