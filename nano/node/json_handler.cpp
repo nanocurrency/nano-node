@@ -2074,7 +2074,7 @@ void nano::json_handler::delegators ()
 	auto start_account_text (request.get_optional<std::string> ("start"));
 
 	nano::account start_account (0);
-	if (!ec && start_account_text.is_initialized())
+	if (!ec && start_account_text.is_initialized ())
 	{
 		start_account = account_impl (start_account_text.get ());
 	}
