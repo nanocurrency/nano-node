@@ -624,7 +624,7 @@ void nano_qt::history::refresh ()
 	for (auto i (0), n (tx_count->value ()); i < n && !hash.is_zero (); ++i)
 	{
 		QList<QStandardItem *> items;
-		auto block (ledger.store.block_get (transaction, hash));
+		auto block (ledger.store.block.get (transaction, hash));
 		if (block != nullptr)
 		{
 			block->visit (visitor);
@@ -673,13 +673,13 @@ nano_qt::block_viewer::block_viewer (nano_qt::wallet & wallet_a) :
 		if (!hash_l.decode_hex (hash->text ().toStdString ()))
 		{
 			auto transaction (this->wallet.node.store.tx_begin_read ());
-			auto block_l (this->wallet.node.store.block_get (transaction, hash_l));
+			auto block_l (this->wallet.node.store.block.get (transaction, hash_l));
 			if (block_l != nullptr)
 			{
 				std::string contents;
 				block_l->serialize_json (contents);
 				block->setPlainText (contents.c_str ());
-				auto successor_l (this->wallet.node.store.block_successor (transaction, hash_l));
+				auto successor_l (this->wallet.node.store.block.successor (transaction, hash_l));
 				successor->setText (successor_l.to_string ().c_str ());
 			}
 			else
@@ -698,7 +698,7 @@ nano_qt::block_viewer::block_viewer (nano_qt::wallet & wallet_a) :
 		if (!error)
 		{
 			auto transaction (this->wallet.node.store.tx_begin_read ());
-			if (this->wallet.node.store.block_exists (transaction, block))
+			if (this->wallet.node.store.block.exists (transaction, block))
 			{
 				rebroadcast->setEnabled (false);
 				this->wallet.node.background ([this, block] () {
@@ -719,11 +719,11 @@ void nano_qt::block_viewer::rebroadcast_action (nano::block_hash const & hash_a)
 {
 	auto done (true);
 	auto transaction (wallet.node.ledger.store.tx_begin_read ());
-	auto block (wallet.node.store.block_get (transaction, hash_a));
+	auto block (wallet.node.store.block.get (transaction, hash_a));
 	if (block != nullptr)
 	{
 		wallet.node.network.flood_block (block);
-		auto successor (wallet.node.store.block_successor (transaction, hash_a));
+		auto successor (wallet.node.store.block.successor (transaction, hash_a));
 		if (!successor.is_zero ())
 		{
 			done = false;
@@ -2328,7 +2328,7 @@ void nano_qt::block_creation::create_receive ()
 	{
 		auto transaction (wallet.node.wallets.tx_begin_read ());
 		auto block_transaction (wallet.node.store.tx_begin_read ());
-		auto block_l (wallet.node.store.block_get (block_transaction, source_l));
+		auto block_l (wallet.node.store.block.get (block_transaction, source_l));
 		if (block_l != nullptr)
 		{
 			auto const & destination (wallet.node.ledger.block_destination (block_transaction, *block_l));
@@ -2493,7 +2493,7 @@ void nano_qt::block_creation::create_open ()
 		{
 			auto transaction (wallet.node.wallets.tx_begin_read ());
 			auto block_transaction (wallet.node.store.tx_begin_read ());
-			auto block_l (wallet.node.store.block_get (block_transaction, source_l));
+			auto block_l (wallet.node.store.block.get (block_transaction, source_l));
 			if (block_l != nullptr)
 			{
 				auto const & destination (wallet.node.ledger.block_destination (block_transaction, *block_l));

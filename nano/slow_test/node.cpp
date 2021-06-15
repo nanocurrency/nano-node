@@ -1,9 +1,9 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/node/election.hpp>
-#include <nano/node/testing.hpp>
 #include <nano/node/transport/udp.hpp>
 #include <nano/test_common/network.hpp>
+#include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
@@ -73,7 +73,7 @@ TEST (system, receive_while_synchronizing)
 		node1->workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (200), ([&system, &key] () {
 			auto hash (system.wallet (0)->send_sync (nano::dev_genesis_key.pub, key.pub, system.nodes[0]->config.receive_minimum.number ()));
 			auto transaction (system.nodes[0]->store.tx_begin_read ());
-			auto block (system.nodes[0]->store.block_get (transaction, hash));
+			auto block (system.nodes[0]->store.block.get (transaction, hash));
 			std::string block_text;
 			block->serialize_json (block_text);
 		}));
@@ -421,7 +421,7 @@ TEST (store, pruned_load)
 	nano::logger_mt logger;
 	auto path (nano::unique_path ());
 	constexpr auto num_pruned = 2000000;
-	auto const expected_result = nano::using_rocksdb_in_tests () ? num_pruned : num_pruned / 2;
+	auto const expected_result = nano::rocksdb_config::using_rocksdb_in_tests () ? num_pruned : num_pruned / 2;
 	constexpr auto batch_size = 20;
 	boost::unordered_set<nano::block_hash> hashes;
 	{
@@ -438,7 +438,7 @@ TEST (store, pruned_load)
 					store->pruned.put (transaction, random_hash);
 				}
 			}
-			if (!nano::using_rocksdb_in_tests ())
+			if (!nano::rocksdb_config::using_rocksdb_in_tests ())
 			{
 				auto transaction (store->tx_begin_write ());
 				for (auto k (0); k < batch_size / 2; ++k)
@@ -956,7 +956,7 @@ TEST (confirmation_height, many_accounts_send_receive_self)
 // as opposed to active transactions which implicitly calls confirmation height processor.
 TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 {
-	if (nano::using_rocksdb_in_tests ())
+	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -1851,7 +1851,7 @@ TEST (node, wallet_create_block_confirm_conflicts)
 
 		// Call block confirm on the top level send block which will confirm everything underneath on both accounts.
 		{
-			auto block = node->store.block_get (node->store.tx_begin_read (), latest);
+			auto block = node->store.block.get (node->store.tx_begin_read (), latest);
 			node->scheduler.manual (block);
 			auto election = node->active.election (block->qualified_root ());
 			ASSERT_NE (nullptr, election);

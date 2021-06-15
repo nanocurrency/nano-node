@@ -1,8 +1,8 @@
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/node/election.hpp>
-#include <nano/node/testing.hpp>
 #include <nano/node/transport/udp.hpp>
 #include <nano/test_common/network.hpp>
+#include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
@@ -73,7 +73,7 @@ TEST (node_DeathTest, readonly_block_store_not_exist)
 #endif
 {
 	// This is a read-only node with no ledger file
-	if (nano::using_rocksdb_in_tests ())
+	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		nano::inactive_node node (nano::unique_path (), nano::inactive_node_flag_defaults ());
 		ASSERT_TRUE (node.node->init_error ());
@@ -113,7 +113,7 @@ TEST (node, representative)
 	auto block1 (system.nodes[0]->rep_block (nano::dev_genesis_key.pub));
 	{
 		auto transaction (system.nodes[0]->store.tx_begin_read ());
-		ASSERT_TRUE (system.nodes[0]->ledger.store.block_exists (transaction, block1));
+		ASSERT_TRUE (system.nodes[0]->ledger.store.block.exists (transaction, block1));
 	}
 	nano::keypair key;
 	ASSERT_TRUE (system.nodes[0]->rep_block (key.pub).is_zero ());
@@ -1179,8 +1179,8 @@ TEST (node, fork_keep)
 	auto winner (*election1->tally ().begin ());
 	ASSERT_EQ (*send1, *winner.second);
 	ASSERT_EQ (nano::genesis_amount - 100, winner.first);
-	ASSERT_TRUE (node1.store.block_exists (transaction0, send1->hash ()));
-	ASSERT_TRUE (node2.store.block_exists (transaction1, send1->hash ()));
+	ASSERT_TRUE (node1.store.block.exists (transaction0, send1->hash ()));
+	ASSERT_TRUE (node2.store.block.exists (transaction1, send1->hash ()));
 }
 
 TEST (node, fork_flip)
@@ -1353,7 +1353,7 @@ TEST (node, fork_bootstrap_flip)
 	// Insert but don't rebroadcast, simulating settled blocks
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (node1.store.tx_begin_write (), *send1).code);
 	ASSERT_EQ (nano::process_result::progress, node2.ledger.process (node2.store.tx_begin_write (), *send2).code);
-	ASSERT_TRUE (node2.store.block_exists (node2.store.tx_begin_read (), send2->hash ()));
+	ASSERT_TRUE (node2.store.block.exists (node2.store.tx_begin_read (), send2->hash ()));
 	node2.bootstrap_initiator.bootstrap (node1.network.endpoint ()); // Additionally add new peer to confirm & replace bootstrap block
 	auto again (true);
 	system1.deadline_set (50s);
@@ -1361,7 +1361,7 @@ TEST (node, fork_bootstrap_flip)
 	{
 		ASSERT_NO_ERROR (system0.poll ());
 		ASSERT_NO_ERROR (system1.poll ());
-		again = !node2.store.block_exists (node2.store.tx_begin_read (), send1->hash ());
+		again = !node2.store.block.exists (node2.store.tx_begin_read (), send1->hash ());
 	}
 }
 
@@ -1488,9 +1488,9 @@ TEST (node, fork_open_flip)
 	auto winner (*election1->tally ().begin ());
 	ASSERT_EQ (*open1, *winner.second);
 	ASSERT_EQ (nano::genesis_amount - 1, winner.first);
-	ASSERT_TRUE (node1.store.block_exists (transaction1, open1->hash ()));
-	ASSERT_TRUE (node2.store.block_exists (transaction2, open1->hash ()));
-	ASSERT_FALSE (node2.store.block_exists (transaction2, open2->hash ()));
+	ASSERT_TRUE (node1.store.block.exists (transaction1, open1->hash ()));
+	ASSERT_TRUE (node2.store.block.exists (transaction2, open1->hash ()));
+	ASSERT_FALSE (node2.store.block.exists (transaction2, open2->hash ()));
 }
 
 TEST (node, coherent_observer)
@@ -1499,7 +1499,7 @@ TEST (node, coherent_observer)
 	auto & node1 (*system.nodes[0]);
 	node1.observers.blocks.add ([&node1] (nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const &, nano::account const &, nano::uint128_t const &, bool) {
 		auto transaction (node1.store.tx_begin_read ());
-		ASSERT_TRUE (node1.store.block_exists (transaction, status_a.winner->hash ()));
+		ASSERT_TRUE (node1.store.block.exists (transaction, status_a.winner->hash ()));
 	});
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	nano::keypair key;
@@ -3172,8 +3172,8 @@ TEST (node, epoch_conflict_confirm)
 	ASSERT_TIMELY (5s, node0->active.empty ());
 	{
 		auto transaction (node0->store.tx_begin_read ());
-		ASSERT_TRUE (node0->ledger.store.block_exists (transaction, change->hash ()));
-		ASSERT_TRUE (node0->ledger.store.block_exists (transaction, epoch_open->hash ()));
+		ASSERT_TRUE (node0->ledger.store.block.exists (transaction, change->hash ()));
+		ASSERT_TRUE (node0->ledger.store.block.exists (transaction, epoch_open->hash ()));
 	}
 }
 
@@ -3372,14 +3372,14 @@ TEST (node, block_processor_signatures)
 	node1.block_processor.force (send5);
 	node1.block_processor.flush ();
 	auto transaction (node1.store.tx_begin_read ());
-	ASSERT_TRUE (node1.store.block_exists (transaction, send1->hash ()));
-	ASSERT_TRUE (node1.store.block_exists (transaction, send2->hash ()));
-	ASSERT_TRUE (node1.store.block_exists (transaction, send3->hash ()));
-	ASSERT_FALSE (node1.store.block_exists (transaction, send4->hash ()));
-	ASSERT_FALSE (node1.store.block_exists (transaction, send5->hash ()));
-	ASSERT_TRUE (node1.store.block_exists (transaction, receive1->hash ()));
-	ASSERT_TRUE (node1.store.block_exists (transaction, receive2->hash ()));
-	ASSERT_FALSE (node1.store.block_exists (transaction, receive3->hash ()));
+	ASSERT_TRUE (node1.store.block.exists (transaction, send1->hash ()));
+	ASSERT_TRUE (node1.store.block.exists (transaction, send2->hash ()));
+	ASSERT_TRUE (node1.store.block.exists (transaction, send3->hash ()));
+	ASSERT_FALSE (node1.store.block.exists (transaction, send4->hash ()));
+	ASSERT_FALSE (node1.store.block.exists (transaction, send5->hash ()));
+	ASSERT_TRUE (node1.store.block.exists (transaction, receive1->hash ()));
+	ASSERT_TRUE (node1.store.block.exists (transaction, receive2->hash ()));
+	ASSERT_FALSE (node1.store.block.exists (transaction, receive3->hash ()));
 }
 
 /*
@@ -3748,7 +3748,7 @@ TEST (node, dont_write_lock_node)
 TEST (node, bidirectional_tcp)
 {
 #ifdef _WIN32
-	if (nano::using_rocksdb_in_tests ())
+	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -4586,8 +4586,6 @@ TEST (node, deferred_dependent_elections)
 	node.process_local (open);
 	node.block_processor.flush ();
 	ASSERT_FALSE (node.active.active (open->qualified_root ()));
-	/// However, work is still updated
-	ASSERT_TIMELY (3s, node.store.block_get (node.store.tx_begin_read (), open->hash ())->block_work () == open->block_work ());
 
 	// It is however possible to manually start an election from elsewhere
 	node.block_confirm (open);
@@ -4601,8 +4599,6 @@ TEST (node, deferred_dependent_elections)
 	node.process_local (open);
 	node.block_processor.flush ();
 	ASSERT_FALSE (node.active.active (open->qualified_root ()));
-	/// However, work is still updated
-	ASSERT_TIMELY (3s, node.store.block_get (node.store.tx_begin_read (), open->hash ())->block_work () == open->block_work ());
 
 	// Frontier confirmation also starts elections
 	ASSERT_NO_ERROR (system.poll_until_true (5s, [&node, &send2] {
@@ -4652,12 +4648,6 @@ TEST (node, deferred_dependent_elections)
 	election_send2->force_confirm ();
 	ASSERT_TIMELY (2s, node.block_confirmed (send2->hash ()));
 	ASSERT_TIMELY (2s, node.active.active (receive->qualified_root ()));
-	node.active.erase (*receive);
-	ASSERT_FALSE (node.active.active (receive->qualified_root ()));
-	node.work_generate_blocking (*receive, receive->difficulty () + 1);
-	node.process_local (receive);
-	node.block_processor.flush ();
-	ASSERT_TRUE (node.active.active (receive->qualified_root ()));
 }
 }
 

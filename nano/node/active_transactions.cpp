@@ -5,7 +5,7 @@
 #include <nano/node/election.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/repcrawler.hpp>
-#include <nano/secure/blockstore.hpp>
+#include <nano/secure/store.hpp>
 
 #include <boost/format.hpp>
 #include <boost/variant/get.hpp>
@@ -142,7 +142,7 @@ void nano::active_transactions::confirm_prioritized_frontiers (nano::transaction
 
 						if (info.block_count > confirmation_height_info.height)
 						{
-							auto block (this->node.store.block_get (transaction_a, info.head));
+							auto block (this->node.store.block.get (transaction_a, info.head));
 							auto previous_balance (this->node.ledger.balance (transaction_a, block->previous ()));
 							auto inserted_election = this->insert_election_from_frontiers_confirmation (block, cementable_account.account, previous_balance, nano::election_behavior::optimistic);
 							if (inserted_election)
@@ -500,12 +500,12 @@ void nano::active_transactions::confirm_expired_frontiers_pessimistically (nano:
 				std::shared_ptr<nano::block> block;
 				if (confirmation_height_info.height == 0)
 				{
-					block = node.store.block_get (transaction_a, account_info.open_block);
+					block = node.store.block.get (transaction_a, account_info.open_block);
 				}
 				else
 				{
-					previous_block = node.store.block_get (transaction_a, confirmation_height_info.frontier);
-					block = node.store.block_get (transaction_a, previous_block->sideband ().successor);
+					previous_block = node.store.block.get (transaction_a, confirmation_height_info.frontier);
+					block = node.store.block.get (transaction_a, previous_block->sideband ().successor);
 				}
 
 				if (block && !node.confirmation_height_processor.is_processing_block (block->hash ()) && node.ledger.dependents_confirmed (transaction_a, *block))
@@ -812,7 +812,7 @@ nano::election_insertion_result nano::active_transactions::insert_impl (nano::un
 				if (!previous_balance_a.is_initialized () && !block_a->previous ().is_zero ())
 				{
 					auto transaction (node.store.tx_begin_read ());
-					if (node.store.block_exists (transaction, block_a->previous ()))
+					if (node.store.block.exists (transaction, block_a->previous ()))
 					{
 						previous_balance = node.ledger.balance (transaction, block_a->previous ());
 					}
@@ -965,34 +965,6 @@ std::shared_ptr<nano::block> nano::active_transactions::winner (nano::block_hash
 		result = election->winner ();
 	}
 	return result;
-}
-
-void nano::active_transactions::restart (nano::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a)
-{
-	auto hash (block_a->hash ());
-	auto ledger_block (node.store.block_get (transaction_a, hash));
-	if (ledger_block != nullptr && ledger_block->block_work () != block_a->block_work () && !node.block_confirmed_or_being_confirmed (transaction_a, hash))
-	{
-		if (block_a->difficulty () > ledger_block->difficulty ())
-		{
-			// Re-writing the block is necessary to avoid the same work being received later to force restarting the election
-			// The existing block is re-written, not the arriving block, as that one might not have gone through a full signature check
-			ledger_block->block_work_set (block_a->block_work ());
-
-			// Deferred write
-			node.block_processor.update (ledger_block);
-
-			// Restart election for the upgraded block, previously dropped from elections
-			if (node.ledger.dependents_confirmed (transaction_a, *ledger_block))
-			{
-				node.stats.inc (nano::stat::type::election, nano::stat::detail::election_restart);
-				auto previous_balance = node.ledger.balance (transaction_a, ledger_block->previous ());
-				auto block_has_account = ledger_block->type () == nano::block_type::state || ledger_block->type () == nano::block_type::open;
-				auto account = block_has_account ? ledger_block->account () : ledger_block->sideband ().account;
-				scheduler.activate (account, transaction_a);
-			}
-		}
-	}
 }
 
 std::deque<nano::election_status> nano::active_transactions::list_recently_cemented ()
@@ -1304,7 +1276,7 @@ nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_
 	if ((status.election_started && !previously_a.election_started) || (status.bootstrap_started && !previously_a.bootstrap_started))
 	{
 		auto transaction (node.store.tx_begin_read ());
-		auto block = node.store.block_get (transaction, hash_a);
+		auto block = node.store.block.get (transaction, hash_a);
 		if (block && status.election_started && !previously_a.election_started && !node.block_confirmed_or_being_confirmed (transaction, hash_a))
 		{
 			lock_a.lock ();

@@ -1,5 +1,5 @@
-#include <nano/node/testing.hpp>
 #include <nano/qt/qt.hpp>
+#include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
@@ -380,7 +380,7 @@ TEST (wallet, process_block)
 	{
 		auto transaction (system.nodes[0]->store.tx_begin_read ());
 		system.deadline_set (10s);
-		while (system.nodes[0]->store.block_exists (transaction, send.hash ()))
+		while (system.nodes[0]->store.block.exists (transaction, send.hash ()))
 		{
 			ASSERT_NO_ERROR (system.poll ());
 		}
@@ -498,7 +498,7 @@ TEST (wallet, create_change)
 
 TEST (history, short_text)
 {
-	if (nano::using_rocksdb_in_tests ())
+	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -536,7 +536,7 @@ TEST (history, short_text)
 
 TEST (history, pruned_source)
 {
-	if (nano::using_rocksdb_in_tests ())
+	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;

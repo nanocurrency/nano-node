@@ -1418,17 +1418,17 @@ int main (int argc, char * const * argv)
 
 				auto hash (info.open_block);
 				nano::block_hash calculated_hash (0);
-				auto block (node->store.block_get (transaction, hash)); // Block data
+				auto block (node->store.block.get (transaction, hash)); // Block data
 				uint64_t height (0);
 				if (node->ledger.pruning && confirmation_height_info.height != 0)
 				{
 					hash = confirmation_height_info.frontier;
-					block = node->store.block_get (transaction, hash);
+					block = node->store.block.get (transaction, hash);
 					// Iteration until pruned block
 					bool pruned_block (false);
 					while (!pruned_block && !block->previous ().is_zero ())
 					{
-						auto previous_block (node->store.block_get (transaction, block->previous ()));
+						auto previous_block (node->store.block.get (transaction, block->previous ()));
 						if (previous_block != nullptr)
 						{
 							hash = previous_block->hash ();
@@ -1566,7 +1566,7 @@ int main (int argc, char * const * argv)
 					// Check link epoch version
 					if (sideband.details.is_receive && (!node->ledger.pruning || !node->store.pruned.exists (transaction, block->link ().as_block_hash ())))
 					{
-						if (sideband.source_epoch != node->store.block_version (transaction, block->link ().as_block_hash ()))
+						if (sideband.source_epoch != node->store.block.version (transaction, block->link ().as_block_hash ()))
 						{
 							print_error_message (boost::str (boost::format ("Incorrect source epoch for block %1%\n") % hash.to_string ()));
 						}
@@ -1594,11 +1594,11 @@ int main (int argc, char * const * argv)
 						calculated_representative = block->representative ();
 					}
 					// Retrieving successor block hash
-					hash = node->store.block_successor (transaction, hash);
+					hash = node->store.block.successor (transaction, hash);
 					// Retrieving block data
 					if (!hash.is_zero ())
 					{
-						block = node->store.block_get (transaction, hash);
+						block = node->store.block.get (transaction, hash);
 					}
 				}
 				// Check if required block exists
@@ -1661,7 +1661,7 @@ int main (int argc, char * const * argv)
 			}
 
 			// Validate total block count
-			auto ledger_block_count (node->store.block_count (transaction));
+			auto ledger_block_count (node->store.block.count (transaction));
 			if (node->flags.enable_pruning)
 			{
 				block_count += 1; // Add disconnected genesis block
@@ -1683,7 +1683,7 @@ int main (int argc, char * const * argv)
 					std::cout << boost::str (boost::format ("%1% pending blocks validated\n") % count);
 				}
 				// Check block existance
-				auto block (node->store.block_get_no_sideband (transaction, key.hash));
+				auto block (node->store.block.get_no_sideband (transaction, key.hash));
 				bool pruned (false);
 				if (block == nullptr)
 				{
@@ -1700,7 +1700,7 @@ int main (int argc, char * const * argv)
 					bool previous_pruned = node->ledger.pruning && node->store.pruned.exists (transaction, block->previous ());
 					if (previous_pruned)
 					{
-						block = node->store.block_get (transaction, key.hash);
+						block = node->store.block.get (transaction, key.hash);
 					}
 					if (auto state = dynamic_cast<nano::state_block *> (block.get ()))
 					{
@@ -1808,7 +1808,7 @@ int main (int argc, char * const * argv)
 					while (!hash.is_zero ())
 					{
 						// Retrieving block data
-						auto block (source_node->store.block_get_no_sideband (transaction, hash));
+						auto block (source_node->store.block.get_no_sideband (transaction, hash));
 						if (block != nullptr)
 						{
 							++count;
