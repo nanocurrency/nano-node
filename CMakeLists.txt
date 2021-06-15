@@ -240,8 +240,12 @@ else()
   if(${USING_ASAN} OR ${USING_ASAN_INT})
     if(${USING_ASAN_INT})
       add_compile_options(-fsanitize=address,undefined,integer)
+      add_compile_options(
+        -fsanitize-blacklist=${PROJECT_SOURCE_DIR}/asan_blacklist)
     else()
       add_compile_options(-fsanitize=address,undefined)
+      add_compile_options(
+        -fsanitize-blacklist=${PROJECT_SOURCE_DIR}/asan_blacklist)
     endif()
     add_definitions(-DED25519_NO_INLINE_ASM)
   elseif(${USING_TSAN})
@@ -317,9 +321,13 @@ else()
   if(${USING_ASAN_INT})
     set(PLATFORM_LINK_FLAGS
         "${PLATFORM_LINK_FLAGS} -fsanitize=address,undefined,integer")
+    set(PLATFORM_LINK_FLAGS
+        "${PLATFORM_LINK_FLAGS} -fsanitize=address,undefined -fsanitize-blacklist=${PROJECT_SOURCE_DIR}/asan_blacklist"
+    )
   elseif(${USING_ASAN})
     set(PLATFORM_LINK_FLAGS
-        "${PLATFORM_LINK_FLAGS} -fsanitize=address,undefined")
+        "${PLATFORM_LINK_FLAGS} -fsanitize=address,undefined -fsanitize-blacklist=${PROJECT_SOURCE_DIR}/asan_blacklist"
+    )
   elseif(${USING_TSAN})
     set(PLATFORM_LINK_FLAGS "${PLATFORM_LINK_FLAGS} -fsanitize=thread")
     if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
