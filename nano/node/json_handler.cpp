@@ -2074,14 +2074,11 @@ void nano::json_handler::delegators ()
 	auto start_account_text (request.get_optional<std::string> ("start"));
 
 	nano::account start_account (0);
-	if (start_account_text)
+	if (!ec && start_account_text.is_initialized())
 	{
-		auto error = start_account.decode_account (*start_account_text);
-		if (error)
-		{
-			ec = nano::error_common::bad_account_number;
-		}
+		start_account = account_impl (start_account_text.get ());
 	}
+
 	if (!ec)
 	{
 		auto transaction (node.store.tx_begin_read ());
