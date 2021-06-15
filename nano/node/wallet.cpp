@@ -1630,24 +1630,33 @@ nano::wallet_representatives nano::wallets::reps () const
 
 bool nano::wallets::check_rep (nano::account const & account_a, nano::uint128_t const & half_principal_weight_a, const bool acquire_lock_a)
 {
-	bool result (false);
-	auto weight (node.ledger.weight (account_a));
-	if (weight >= node.config.vote_minimum.number ())
+	auto weight = node.ledger.weight (account_a);
+
+	if (weight < node.config.vote_minimum.number ())
 	{
-		nano::unique_lock<nano::mutex> lock;
-		if (acquire_lock_a)
-		{
-			lock = nano::unique_lock<nano::mutex> (reps_cache_mutex);
-		}
-		result = true;
-		representatives.accounts.insert (account_a);
-		++representatives.voting;
-		if (weight >= half_principal_weight_a)
-		{
-			++representatives.half_principal;
-		}
+		return false; // account not a representative
 	}
-	return result;
+
+	nano::unique_lock<nano::mutex> lock;
+	if (acquire_lock_a)
+	{
+		lock = nano::unique_lock<nano::mutex> (reps_cache_mutex);
+	}
+
+	auto insert_result = representatives.accounts.insert (account_a);
+	if (!insert_result.second)
+	{
+		return false; // account already exists
+	}
+
+	++representatives.voting;
+
+	if (weight >= half_principal_weight_a)
+	{
+		++representatives.half_principal;
+	}
+
+	return true;
 }
 
 void nano::wallets::compute_reps ()
