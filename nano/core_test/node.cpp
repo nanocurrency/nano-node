@@ -2917,6 +2917,7 @@ TEST (node, vote_republish)
 	auto & node1 (*system.nodes[0]);
 	auto & node2 (*system.nodes[1]);
 	nano::keypair key2;
+	// by not setting a private key on node1's wallet, it is stopped from voting
 	system.wallet (1)->insert_adhoc (key2.prv);
 	nano::genesis genesis;
 	nano::send_block_builder builder;
@@ -2936,7 +2937,7 @@ TEST (node, vote_republish)
 				 .build_shared ();
 	node1.process_active (send1);
 	ASSERT_TIMELY (5s, node2.block (send1->hash ()));
-	node1.active.publish (send2);
+	node1.process_active (send2);
 	auto vote (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, std::numeric_limits<uint64_t>::max (), send2));
 	ASSERT_TRUE (node1.active.active (*send1));
 	ASSERT_TIMELY (10s, node2.active.active (*send1));
