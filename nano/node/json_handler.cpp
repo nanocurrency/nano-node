@@ -1024,8 +1024,14 @@ void nano::json_handler::active_difficulty ()
 	response_l.put ("multiplier", 1.0);
 	if (include_trend)
 	{
-		boost::property_tree::ptree trend_entry_l;
-		response_l.add_child ("difficulty_trend", trend_entry_l);
+		boost::property_tree::ptree difficulty_trend_l;
+
+		// To keep this RPC backwards-compatible
+		boost::property_tree::ptree entry;
+		entry.put ("", "1.000000000000000");
+		difficulty_trend_l.push_back (std::make_pair ("", entry));
+
+		response_l.add_child ("difficulty_trend", difficulty_trend_l);
 	}
 	response_errors ();
 }
