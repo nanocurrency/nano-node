@@ -1261,7 +1261,7 @@ TEST (active_transactions, pessimistic_elections)
 	}
 
 	// Activation of cemented frontier successor should get started after the first pessimistic block is confirmed
-	ASSERT_TIMELY (10s, node.active.active (send->qualified_root ()));
+	ASSERT_TIMELY (10s, node.active.active (send2->qualified_root ()));
 
 	node.active.confirm_expired_frontiers_pessimistically (node.store.tx_begin_read (), 100, election_count);
 	ASSERT_EQ (1, election_count);

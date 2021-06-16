@@ -4574,6 +4574,7 @@ TEST (node, deferred_dependent_elections)
 	node.process_local (open);
 	node.process_local (send2);
 	node.block_processor.flush ();
+	node.scheduler.flush ();
 	ASSERT_TRUE (node.block (open->hash ()));
 	ASSERT_TRUE (node.block (send2->hash ()));
 	ASSERT_FALSE (node.active.active (open->qualified_root ()));
@@ -4585,6 +4586,7 @@ TEST (node, deferred_dependent_elections)
 	node.work_generate_blocking (*open, open->difficulty () + 1);
 	node.process_local (open);
 	node.block_processor.flush ();
+	node.scheduler.flush ();
 	ASSERT_FALSE (node.active.active (open->qualified_root ()));
 
 	// It is however possible to manually start an election from elsewhere
@@ -4598,6 +4600,7 @@ TEST (node, deferred_dependent_elections)
 	ASSERT_FALSE (node.active.active (open->qualified_root ()));
 	node.process_local (open);
 	node.block_processor.flush ();
+	node.scheduler.flush ();
 	ASSERT_FALSE (node.active.active (open->qualified_root ()));
 
 	// Frontier confirmation also starts elections
@@ -4635,6 +4638,7 @@ TEST (node, deferred_dependent_elections)
 	ASSERT_FALSE (node.block (receive->hash ()));
 	node.process_local (receive);
 	node.block_processor.flush ();
+	node.scheduler.flush ();
 	ASSERT_TRUE (node.block (receive->hash ()));
 	ASSERT_FALSE (node.active.active (receive->qualified_root ()));
 
@@ -4642,6 +4646,7 @@ TEST (node, deferred_dependent_elections)
 	ASSERT_EQ (nano::process_result::fork, node.process (*fork).code);
 	node.process_local (fork);
 	node.block_processor.flush ();
+	node.scheduler.flush ();
 	ASSERT_FALSE (node.active.active (receive->qualified_root ()));
 
 	// Confirming the other dependency allows starting an election from a fork
