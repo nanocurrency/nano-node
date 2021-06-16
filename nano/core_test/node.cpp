@@ -2939,7 +2939,7 @@ TEST (node, vote_republish)
 	node1.active.publish (send2);
 	auto vote (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, std::numeric_limits<uint64_t>::max (), send2));
 	ASSERT_TRUE (node1.active.active (*send1));
-	ASSERT_TRUE (node2.active.active (*send1));
+	ASSERT_TIMELY (10s, node2.active.active (*send1));
 	node1.vote_processor.vote (vote, std::make_shared<nano::transport::channel_loopback> (node1));
 	ASSERT_TIMELY (10s, node1.block (send2->hash ()));
 	ASSERT_TIMELY (10s, node2.block (send2->hash ()));
