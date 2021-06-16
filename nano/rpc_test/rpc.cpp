@@ -5048,6 +5048,8 @@ TEST (rpc, blocks_info)
 			std::string balance_text (blocks.second.get<std::string> ("balance"));
 			ASSERT_EQ (nano::genesis_amount.convert_to<std::string> (), balance_text);
 			ASSERT_TRUE (blocks.second.get<bool> ("confirmed")); // Genesis block is confirmed by default
+			std::string successor_text (blocks.second.get<std::string> ("successor"));
+			ASSERT_EQ (nano::block_hash (0).to_string (), successor_text); // Genesis block doesn't have successor yet
 		}
 	};
 	boost::property_tree::ptree request;
@@ -5142,6 +5144,45 @@ TEST (rpc, blocks_info_subtype)
 	ASSERT_EQ (receive_subtype, "receive");
 	auto change_subtype (blocks.get_child (change->hash ().to_string ()).get<std::string> ("subtype"));
 	ASSERT_EQ (change_subtype, "change");
+	// Successor fields
+	auto send_successor (blocks.get_child (send->hash ().to_string ()).get<std::string> ("successor"));
+	ASSERT_EQ (send_successor, receive->hash ().to_string ());
+	auto receive_successor (blocks.get_child (receive->hash ().to_string ()).get<std::string> ("successor"));
+	ASSERT_EQ (receive_successor, change->hash ().to_string ());
+	auto change_successor (blocks.get_child (change->hash ().to_string ()).get<std::string> ("successor"));
+	ASSERT_EQ (change_successor, nano::block_hash (0).to_string ()); // Change block doesn't have successor yet
+}
+
+TEST (rpc, block_info_successor)
+{
+	nano::system system;
+	auto & node1 = *add_ipc_enabled_node (system);
+	nano::keypair key;
+	auto latest (node1.latest (nano::dev_genesis_key.pub));
+	nano::send_block send (latest, key.pub, 100, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node1.work_generate_blocking (latest));
+	node1.process (send);
+	scoped_io_thread_name_change scoped_thread_name_io;
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
+	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	rpc_config.rpc_process.ipc_port = node1.config.ipc_config.transport_tcp.port;
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "block_info");
+	request.put ("hash", latest.to_string ());
+	test_response response (request, rpc.config.port, system.io_ctx);
+	ASSERT_TIMELY (5s, response.status != 0);
+	ASSERT_EQ (200, response.status);
+
+	// Make sure send block is successor of genesis
+	std::string successor_text (response.json.get<std::string> ("successor"));
+	ASSERT_EQ (successor_text, send.hash ().to_string ());
+	std::string account_text (response.json.get<std::string> ("block_account"));
+	ASSERT_EQ (nano::dev_genesis_key.pub.to_account (), account_text);
+	std::string amount_text (response.json.get<std::string> ("amount"));
+	ASSERT_EQ (nano::genesis_amount.convert_to<std::string> (), amount_text);
 }
 
 TEST (rpc, block_info_pruning)
@@ -5204,6 +5245,8 @@ TEST (rpc, block_info_pruning)
 	std::string balance_text (response2.json.get<std::string> ("balance"));
 	ASSERT_EQ (nano::genesis_amount.convert_to<std::string> (), balance_text);
 	ASSERT_TRUE (response2.json.get<bool> ("confirmed"));
+	std::string successor_text (response2.json.get<std::string> ("successor"));
+	ASSERT_EQ (successor_text, nano::block_hash (0).to_string ()); // receive1 block doesn't have successor yet
 }
 
 TEST (rpc, pruned_exists)
