@@ -521,7 +521,7 @@ TEST (block_store, unchecked_begin_search)
 	{
 		auto transaction (store->tx_begin_write ());
 		store->unchecked.put (transaction, block1->hash (), block2);
-		ASSERT_NE (store->unchecked.begin (transaction), store->unchecked_end ());
+		ASSERT_NE (store->unchecked.begin (transaction), store->unchecked.end ());
 		ASSERT_NE (store->unchecked.begin (transaction, nano::unchecked_key (block1->hash (), 0)), store->unchecked.end ());
 		ASSERT_EQ (store->unchecked.begin (transaction, nano::unchecked_key (block1->hash (), 0)), store->unchecked.begin (transaction, nano::unchecked_key (block1->hash (), block2->hash ())));
 		auto unchecked (store->unchecked.begin (transaction, nano::unchecked_key (block1->hash (), 0)));
