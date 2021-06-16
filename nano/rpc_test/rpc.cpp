@@ -7116,7 +7116,7 @@ TEST (rpc, active_difficulty)
 		auto trend_opt (response.json.get_child_optional ("difficulty_trend"));
 		ASSERT_TRUE (trend_opt.is_initialized ());
 		auto & trend (trend_opt.get ());
-		ASSERT_EQ (0, trend.size ());
+		ASSERT_EQ (1, trend.size ());
 	}
 }
 
