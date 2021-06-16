@@ -163,8 +163,8 @@ public:
 	nano::work_pool & work;
 	nano::distributed_work_factory distributed_work;
 	nano::logger_mt logger;
-	std::unique_ptr<nano::block_store> store_impl;
-	nano::block_store & store;
+	std::unique_ptr<nano::store> store_impl;
+	nano::store & store;
 	std::unique_ptr<nano::wallets_store> wallets_store_impl;
 	nano::wallets_store & wallets_store;
 	nano::gap_cache gap_cache;

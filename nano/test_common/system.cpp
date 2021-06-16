@@ -1,7 +1,7 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/node/common.hpp>
-#include <nano/node/testing.hpp>
 #include <nano/node/transport/udp.hpp>
+#include <nano/test_common/system.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 
@@ -325,7 +325,7 @@ void nano::system::generate_rollback (nano::node & node_a, std::vector<nano::acc
 	auto index (random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (accounts_a.size () - 1)));
 	auto account (accounts_a[index]);
 	nano::account_info info;
-	auto error (node_a.store.account_get (transaction, account, info));
+	auto error (node_a.store.account.get (transaction, account, info));
 	if (!error)
 	{
 		auto hash (info.open_block);
@@ -357,7 +357,7 @@ void nano::system::generate_receive (nano::node & node_a)
 		if (i != node_a.store.pending.end ())
 		{
 			nano::pending_key const & send_hash (i->first);
-			send_block = node_a.store.block_get (transaction, send_hash.hash);
+			send_block = node_a.store.block.get (transaction, send_hash.hash);
 		}
 	}
 	if (send_block != nullptr)
@@ -421,12 +421,12 @@ void nano::system::generate_send_existing (nano::node & node_a, std::vector<nano
 		nano::account account;
 		random_pool::generate_block (account.bytes.data (), sizeof (account.bytes));
 		auto transaction (node_a.store.tx_begin_read ());
-		nano::store_iterator<nano::account, nano::account_info> entry (node_a.store.accounts_begin (transaction, account));
-		if (entry == node_a.store.accounts_end ())
+		nano::store_iterator<nano::account, nano::account_info> entry (node_a.store.account.begin (transaction, account));
+		if (entry == node_a.store.account.end ())
 		{
-			entry = node_a.store.accounts_begin (transaction);
+			entry = node_a.store.account.begin (transaction);
 		}
-		debug_assert (entry != node_a.store.accounts_end ());
+		debug_assert (entry != node_a.store.account.end ());
 		destination = nano::account (entry->first);
 		source = get_random_account (accounts_a);
 		amount = get_random_amount (transaction, node_a, source);
@@ -549,11 +549,4 @@ void nano::cleanup_dev_directories_on_exit ()
 	{
 		nano::remove_temporary_directories ();
 	}
-}
-
-bool nano::using_rocksdb_in_tests ()
-{
-	static nano::network_constants network_constants;
-	auto use_rocksdb_str = std::getenv ("TEST_USE_ROCKSDB");
-	return network_constants.is_dev_network () && use_rocksdb_str && (boost::lexical_cast<int> (use_rocksdb_str) == 1);
 }

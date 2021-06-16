@@ -1,9 +1,9 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/node/election.hpp>
-#include <nano/node/testing.hpp>
 #include <nano/node/transport/udp.hpp>
 #include <nano/test_common/network.hpp>
+#include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
@@ -26,7 +26,7 @@ TEST (system, generate_mass_activity)
 	uint32_t count (20);
 	system.generate_mass_activity (count, *system.nodes[0]);
 	auto transaction (system.nodes[0]->store.tx_begin_read ());
-	for (auto i (system.nodes[0]->store.accounts_begin (transaction)), n (system.nodes[0]->store.accounts_end ()); i != n; ++i)
+	for (auto i (system.nodes[0]->store.account.begin (transaction)), n (system.nodes[0]->store.account.end ()); i != n; ++i)
 	{
 	}
 }
@@ -42,7 +42,7 @@ TEST (system, generate_mass_activity_long)
 	uint32_t count (1000000000);
 	system.generate_mass_activity (count, *system.nodes[0]);
 	auto transaction (system.nodes[0]->store.tx_begin_read ());
-	for (auto i (system.nodes[0]->store.accounts_begin (transaction)), n (system.nodes[0]->store.accounts_end ()); i != n; ++i)
+	for (auto i (system.nodes[0]->store.account.begin (transaction)), n (system.nodes[0]->store.account.end ()); i != n; ++i)
 	{
 	}
 	system.stop ();
@@ -73,7 +73,7 @@ TEST (system, receive_while_synchronizing)
 		node1->workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (200), ([&system, &key] () {
 			auto hash (system.wallet (0)->send_sync (nano::dev_genesis_key.pub, key.pub, system.nodes[0]->config.receive_minimum.number ()));
 			auto transaction (system.nodes[0]->store.tx_begin_read ());
-			auto block (system.nodes[0]->store.block_get (transaction, hash));
+			auto block (system.nodes[0]->store.block.get (transaction, hash));
 			std::string block_text;
 			block->serialize_json (block_text);
 		}));
@@ -168,8 +168,8 @@ TEST (store, load)
 				{
 					nano::account account;
 					nano::random_pool::generate_block (account.bytes.data (), account.bytes.size ());
-					system.nodes[0]->store.confirmation_height_put (transaction, account, { 0, nano::block_hash (0) });
-					system.nodes[0]->store.account_put (transaction, account, nano::account_info ());
+					system.nodes[0]->store.confirmation_height.put (transaction, account, { 0, nano::block_hash (0) });
+					system.nodes[0]->store.account.put (transaction, account, nano::account_info ());
 				}
 			}
 		}));
@@ -398,10 +398,10 @@ TEST (store, unchecked_load)
 	for (auto i (0); i < 1000000; ++i)
 	{
 		auto transaction (node.store.tx_begin_write ());
-		node.store.unchecked_put (transaction, i, block);
+		node.store.unchecked.put (transaction, i, block);
 	}
 	auto transaction (node.store.tx_begin_read ());
-	ASSERT_EQ (num_unchecked, node.store.unchecked_count (transaction));
+	ASSERT_EQ (num_unchecked, node.store.unchecked.count (transaction));
 }
 
 TEST (store, vote_load)
@@ -421,7 +421,7 @@ TEST (store, pruned_load)
 	nano::logger_mt logger;
 	auto path (nano::unique_path ());
 	constexpr auto num_pruned = 2000000;
-	auto const expected_result = nano::using_rocksdb_in_tests () ? num_pruned : num_pruned / 2;
+	auto const expected_result = nano::rocksdb_config::using_rocksdb_in_tests () ? num_pruned : num_pruned / 2;
 	constexpr auto batch_size = 20;
 	boost::unordered_set<nano::block_hash> hashes;
 	{
@@ -435,29 +435,29 @@ TEST (store, pruned_load)
 				{
 					nano::block_hash random_hash;
 					nano::random_pool::generate_block (random_hash.bytes.data (), random_hash.bytes.size ());
-					store->pruned_put (transaction, random_hash);
+					store->pruned.put (transaction, random_hash);
 				}
 			}
-			if (!nano::using_rocksdb_in_tests ())
+			if (!nano::rocksdb_config::using_rocksdb_in_tests ())
 			{
 				auto transaction (store->tx_begin_write ());
 				for (auto k (0); k < batch_size / 2; ++k)
 				{
 					auto hash (hashes.begin ());
-					store->pruned_del (transaction, *hash);
+					store->pruned.del (transaction, *hash);
 					hashes.erase (hash);
 				}
 			}
 		}
 		auto transaction (store->tx_begin_read ());
-		ASSERT_EQ (expected_result, store->pruned_count (transaction));
+		ASSERT_EQ (expected_result, store->pruned.count (transaction));
 	}
 	// Reinitialize store
 	{
 		auto store = nano::make_store (logger, path);
 		ASSERT_FALSE (store->init_error ());
 		auto transaction (store->tx_begin_read ());
-		ASSERT_EQ (expected_result, store->pruned_count (transaction));
+		ASSERT_EQ (expected_result, store->pruned.count (transaction));
 	}
 }
 
@@ -544,19 +544,19 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 
 	// All frontiers (except last) should have 2 blocks and both should be confirmed
 	auto transaction = node->store.tx_begin_read ();
-	for (auto i (node->store.accounts_begin (transaction)), n (node->store.accounts_end ()); i != n; ++i)
+	for (auto i (node->store.account.begin (transaction)), n (node->store.account.end ()); i != n; ++i)
 	{
 		auto & account = i->first;
 		auto & account_info = i->second;
 		auto count = (account != last_keypair.pub) ? 2 : 1;
 		nano::confirmation_height_info confirmation_height_info;
-		ASSERT_FALSE (node->store.confirmation_height_get (transaction, account, confirmation_height_info));
+		ASSERT_FALSE (node->store.confirmation_height.get (transaction, account, confirmation_height_info));
 		ASSERT_EQ (count, confirmation_height_info.height);
 		ASSERT_EQ (count, account_info.block_count);
 	}
 
 	size_t cemented_count = 0;
-	for (auto i (node->ledger.store.confirmation_height_begin (transaction)), n (node->ledger.store.confirmation_height_end ()); i != n; ++i)
+	for (auto i (node->ledger.store.confirmation_height.begin (transaction)), n (node->ledger.store.confirmation_height.end ()); i != n; ++i)
 	{
 		cemented_count += i->second.height;
 	}
@@ -619,7 +619,7 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 
 	auto transaction = node->store.tx_begin_read ();
 	size_t cemented_count = 0;
-	for (auto i (node->ledger.store.confirmation_height_begin (transaction)), n (node->ledger.store.confirmation_height_end ()); i != n; ++i)
+	for (auto i (node->ledger.store.confirmation_height.begin (transaction)), n (node->ledger.store.confirmation_height.end ()); i != n; ++i)
 	{
 		cemented_count += i->second.height;
 	}
@@ -699,19 +699,19 @@ TEST (confirmation_height, long_chains)
 
 	auto transaction (node->store.tx_begin_read ());
 	nano::account_info account_info;
-	ASSERT_FALSE (node->store.account_get (transaction, nano::dev_genesis_key.pub, account_info));
+	ASSERT_FALSE (node->store.account.get (transaction, nano::dev_genesis_key.pub, account_info));
 	nano::confirmation_height_info confirmation_height_info;
-	ASSERT_FALSE (node->store.confirmation_height_get (transaction, nano::dev_genesis_key.pub, confirmation_height_info));
+	ASSERT_FALSE (node->store.confirmation_height.get (transaction, nano::dev_genesis_key.pub, confirmation_height_info));
 	ASSERT_EQ (num_blocks + 2, confirmation_height_info.height);
 	ASSERT_EQ (num_blocks + 3, account_info.block_count); // Includes the unpocketed send
 
-	ASSERT_FALSE (node->store.account_get (transaction, key1.pub, account_info));
-	ASSERT_FALSE (node->store.confirmation_height_get (transaction, key1.pub, confirmation_height_info));
+	ASSERT_FALSE (node->store.account.get (transaction, key1.pub, account_info));
+	ASSERT_FALSE (node->store.confirmation_height.get (transaction, key1.pub, confirmation_height_info));
 	ASSERT_EQ (num_blocks + 1, confirmation_height_info.height);
 	ASSERT_EQ (num_blocks + 1, account_info.block_count);
 
 	size_t cemented_count = 0;
-	for (auto i (node->ledger.store.confirmation_height_begin (transaction)), n (node->ledger.store.confirmation_height_end ()); i != n; ++i)
+	for (auto i (node->ledger.store.confirmation_height.begin (transaction)), n (node->ledger.store.confirmation_height.end ()); i != n; ++i)
 	{
 		cemented_count += i->second.height;
 	}
@@ -931,7 +931,7 @@ TEST (confirmation_height, many_accounts_send_receive_self)
 
 	auto transaction = node->store.tx_begin_read ();
 	size_t cemented_count = 0;
-	for (auto i (node->ledger.store.confirmation_height_begin (transaction)), n (node->ledger.store.confirmation_height_end ()); i != n; ++i)
+	for (auto i (node->ledger.store.confirmation_height.begin (transaction)), n (node->ledger.store.confirmation_height.end ()); i != n; ++i)
 	{
 		cemented_count += i->second.height;
 	}
@@ -956,7 +956,7 @@ TEST (confirmation_height, many_accounts_send_receive_self)
 // as opposed to active transactions which implicitly calls confirmation height processor.
 TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 {
-	if (nano::using_rocksdb_in_tests ())
+	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -1061,7 +1061,7 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 
 	auto transaction = store->tx_begin_read ();
 	size_t cemented_count = 0;
-	for (auto i (store->confirmation_height_begin (transaction)), n (store->confirmation_height_end ()); i != n; ++i)
+	for (auto i (store->confirmation_height.begin (transaction)), n (store->confirmation_height.end ()); i != n; ++i)
 	{
 		cemented_count += i->second.height;
 	}
@@ -1085,7 +1085,7 @@ TEST (confirmation_height, prioritize_frontiers_overwrite)
 	// Clear confirmation height so that the genesis account has the same amount of uncemented blocks as the other frontiers
 	{
 		auto transaction = node->store.tx_begin_write ();
-		node->store.confirmation_height_clear (transaction);
+		node->store.confirmation_height.clear (transaction);
 	}
 
 	{
@@ -1674,7 +1674,7 @@ TEST (node, mass_epoch_upgrader)
 		{
 			auto transaction (node.store.tx_begin_read ());
 			size_t block_count_sum = 0;
-			for (auto i (node.store.accounts_begin (transaction)); i != node.store.accounts_end (); ++i)
+			for (auto i (node.store.account.begin (transaction)); i != node.store.account.end (); ++i)
 			{
 				nano::account_info info (i->second);
 				ASSERT_EQ (info.epoch (), nano::epoch::epoch_1);
@@ -1851,7 +1851,7 @@ TEST (node, wallet_create_block_confirm_conflicts)
 
 		// Call block confirm on the top level send block which will confirm everything underneath on both accounts.
 		{
-			auto block = node->store.block_get (node->store.tx_begin_read (), latest);
+			auto block = node->store.block.get (node->store.tx_begin_read (), latest);
 			node->scheduler.manual (block);
 			auto election = node->active.election (block->qualified_root ());
 			ASSERT_NE (nullptr, election);

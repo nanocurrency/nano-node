@@ -1,6 +1,6 @@
 #include <nano/node/gap_cache.hpp>
 #include <nano/node/node.hpp>
-#include <nano/secure/blockstore.hpp>
+#include <nano/secure/store.hpp>
 
 #include <boost/format.hpp>
 

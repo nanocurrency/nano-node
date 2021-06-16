@@ -851,7 +851,7 @@ std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block_hash cons
 						store.work_get (transaction, account_a, work_a);
 					}
 					nano::account_info info;
-					auto new_account (wallets.node.ledger.store.account_get (block_transaction, account_a, info));
+					auto new_account (wallets.node.ledger.store.account.get (block_transaction, account_a, info));
 					if (!new_account)
 					{
 						block = std::make_shared<nano::state_block> (account_a, info.head, info.representative, info.balance.number () + pending_info.amount.number (), send_hash_a, prv, account_a, work_a);
@@ -907,7 +907,7 @@ std::shared_ptr<nano::block> nano::wallet::change_action (nano::account const & 
 			if (existing != store.end () && !wallets.node.ledger.latest (block_transaction, source_a).is_zero ())
 			{
 				nano::account_info info;
-				auto error1 (wallets.node.ledger.store.account_get (block_transaction, source_a, info));
+				auto error1 (wallets.node.ledger.store.account.get (block_transaction, source_a, info));
 				(void)error1;
 				debug_assert (!error1);
 				nano::raw_key prv;
@@ -956,7 +956,7 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 			if (status == 0)
 			{
 				nano::block_hash hash (result);
-				block = wallets.node.store.block_get (block_transaction, hash);
+				block = wallets.node.store.block.get (block_transaction, hash);
 				if (block != nullptr)
 				{
 					cached_block = true;
@@ -979,7 +979,7 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 					if (!balance.is_zero () && balance >= amount_a)
 					{
 						nano::account_info info;
-						auto error1 (wallets.node.ledger.store.account_get (block_transaction, source_a, info));
+						auto error1 (wallets.node.ledger.store.account.get (block_transaction, source_a, info));
 						(void)error1;
 						debug_assert (!error1);
 						nano::raw_key prv;
@@ -1195,7 +1195,7 @@ bool nano::wallet::search_pending (nano::transaction const & wallet_transaction_
 						}
 						else if (!wallets.node.confirmation_height_processor.is_processing_block (hash))
 						{
-							auto block (wallets.node.store.block_get (block_transaction, hash));
+							auto block (wallets.node.store.block.get (block_transaction, hash));
 							if (block)
 							{
 								// Request confirmation for block which is not being processed yet
@@ -1684,7 +1684,7 @@ void nano::wallets::ongoing_compute_reps ()
 	});
 }
 
-void nano::wallets::split_if_needed (nano::transaction & transaction_destination, nano::block_store & store_a)
+void nano::wallets::split_if_needed (nano::transaction & transaction_destination, nano::store & store_a)
 {
 	auto store_l (dynamic_cast<nano::mdb_store *> (&store_a));
 	if (store_l != nullptr)

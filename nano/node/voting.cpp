@@ -6,8 +6,8 @@
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/voting.hpp>
 #include <nano/node/wallet.hpp>
-#include <nano/secure/blockstore.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/store.hpp>
 
 #include <chrono>
 
@@ -193,14 +193,14 @@ void nano::vote_generator::add (nano::root const & root_a, nano::block_hash cons
 		if (is_final)
 		{
 			auto transaction (ledger.store.tx_begin_write ({ tables::final_votes }));
-			auto block (ledger.store.block_get (transaction, hash_a));
-			should_vote = block != nullptr && ledger.dependents_confirmed (transaction, *block) && ledger.store.final_vote_put (transaction, block->qualified_root (), hash_a);
+			auto block (ledger.store.block.get (transaction, hash_a));
+			should_vote = block != nullptr && ledger.dependents_confirmed (transaction, *block) && ledger.store.final_vote.put (transaction, block->qualified_root (), hash_a);
 			debug_assert (block == nullptr || root_a == block->root ());
 		}
 		else
 		{
 			auto transaction (ledger.store.tx_begin_read ());
-			auto block (ledger.store.block_get (transaction, hash_a));
+			auto block (ledger.store.block.get (transaction, hash_a));
 			should_vote = block != nullptr && ledger.dependents_confirmed (transaction, *block);
 		}
 		if (should_vote)

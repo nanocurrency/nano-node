@@ -1,11 +1,110 @@
 #include <nano/lib/threading.hpp>
 #include <nano/node/socket.hpp>
-#include <nano/node/testing.hpp>
+#include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
 using namespace std::chrono_literals;
+
+TEST (socket, max_connections)
+{
+	// this is here just so that ASSERT_TIMELY can be used
+	nano::system system;
+
+	auto node_flags = nano::inactive_node_flag_defaults ();
+	node_flags.read_only = false;
+	nano::inactive_node inactivenode (nano::unique_path (), node_flags);
+	auto node = inactivenode.node;
+
+	nano::thread_runner runner (node->io_ctx, 1);
+
+	auto server_port (nano::get_available_port ());
+	boost::asio::ip::tcp::endpoint listen_endpoint (boost::asio::ip::address_v6::any (), server_port);
+	boost::asio::ip::tcp::endpoint dst_endpoint (boost::asio::ip::address_v6::loopback (), server_port);
+
+	// start a server socket that allows max 2 live connections
+	auto server_socket = std::make_shared<nano::server_socket> (*node, listen_endpoint, 2);
+	boost::system::error_code ec;
+	server_socket->start (ec);
+	ASSERT_FALSE (ec);
+
+	// successful incoming connections are stored in server_sockets to keep them alive (server side)
+	std::vector<std::shared_ptr<nano::socket>> server_sockets;
+	server_socket->on_connection ([&server_sockets] (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const & ec_a) {
+		server_sockets.push_back (new_connection);
+		return true;
+	});
+
+	// client side connection tracking
+	std::atomic<int> connection_attempts = 0;
+	auto connect_handler = [&connection_attempts] (boost::system::error_code const & ec_a) {
+		ASSERT_EQ (ec_a.value (), 0);
+		connection_attempts++;
+	};
+
+	// start 3 clients, 2 will persist but 1 will be dropped
+
+	auto client1 = std::make_shared<nano::socket> (*node, boost::none);
+	client1->async_connect (dst_endpoint, connect_handler);
+
+	auto client2 = std::make_shared<nano::socket> (*node, boost::none);
+	client2->async_connect (dst_endpoint, connect_handler);
+
+	auto client3 = std::make_shared<nano::socket> (*node, boost::none);
+	client3->async_connect (dst_endpoint, connect_handler);
+
+	auto get_tcp_accept_failures = [&node] () {
+		return node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_accept_failure, nano::stat::dir::in);
+	};
+
+	auto get_tcp_accept_successes = [&node] () {
+		return node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_accept_success, nano::stat::dir::in);
+	};
+
+	ASSERT_TIMELY (5s, get_tcp_accept_failures () == 1);
+	ASSERT_EQ (get_tcp_accept_successes (), 2);
+	ASSERT_EQ (connection_attempts, 3);
+
+	// create space for one socket and fill the connections table again
+
+	server_sockets[0].reset ();
+
+	auto client4 = std::make_shared<nano::socket> (*node, boost::none);
+	client4->async_connect (dst_endpoint, connect_handler);
+
+	auto client5 = std::make_shared<nano::socket> (*node, boost::none);
+	client5->async_connect (dst_endpoint, connect_handler);
+
+	ASSERT_TIMELY (5s, get_tcp_accept_failures () == 2);
+	ASSERT_EQ (get_tcp_accept_successes (), 3);
+	ASSERT_EQ (connection_attempts, 5);
+
+	// close all existing sockets and fill the connections table again
+	// start counting form 1 because 0 is the already closed socket
+
+	server_sockets[1].reset ();
+	server_sockets[2].reset ();
+	ASSERT_EQ (server_sockets.size (), 3);
+
+	auto client6 = std::make_shared<nano::socket> (*node, boost::none);
+	client6->async_connect (dst_endpoint, connect_handler);
+
+	auto client7 = std::make_shared<nano::socket> (*node, boost::none);
+	client7->async_connect (dst_endpoint, connect_handler);
+
+	auto client8 = std::make_shared<nano::socket> (*node, boost::none);
+	client8->async_connect (dst_endpoint, connect_handler);
+
+	ASSERT_TIMELY (5s, get_tcp_accept_failures () == 3);
+	ASSERT_EQ (get_tcp_accept_successes (), 5);
+	ASSERT_EQ (connection_attempts, 8); // connections initiated by the client
+	ASSERT_EQ (server_sockets.size (), 5); // connections accepted by the server
+
+	node->stop ();
+	runner.stop_event_processing ();
+	runner.join ();
+}
 
 TEST (socket, drop_policy)
 {

@@ -288,14 +288,14 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 			if (this_l->is_temporary_error (ec_a))
 			{
 				// if it is a temporary error, just retry it
-				this_l->on_connection (callback_a);
+				this_l->on_connection_requeue_delayed (callback_a);
 				return;
 			}
 
 			// if it is not a temporary error, check how the listener wants to handle this error
 			if (callback_a (new_connection, ec_a))
 			{
-				this_l->on_connection (callback_a);
+				this_l->on_connection_requeue_delayed (callback_a);
 				return;
 			}
 
@@ -308,7 +308,7 @@ void nano::server_socket::on_connection (std::function<bool (std::shared_ptr<nan
 void nano::server_socket::on_connection_requeue_delayed (std::function<bool (std::shared_ptr<nano::socket> const &, boost::system::error_code const &)> callback_a)
 {
 	auto this_l (std::static_pointer_cast<nano::server_socket> (shared_from_this ()));
-	node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (500), [this_l, callback_a] () {
+	node.workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (1), [this_l, callback_a] () {
 		this_l->on_connection (callback_a);
 	});
 }

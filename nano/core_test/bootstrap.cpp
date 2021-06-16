@@ -1,6 +1,6 @@
 #include <nano/node/bootstrap/bootstrap_frontier.hpp>
 #include <nano/node/bootstrap/bootstrap_lazy.hpp>
-#include <nano/node/testing.hpp>
+#include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
@@ -441,13 +441,13 @@ TEST (bootstrap_processor, push_diamond_pruning)
 		auto transaction (node1->store.tx_begin_write ());
 		ASSERT_EQ (1, node1->ledger.pruning_action (transaction, send1->hash (), 2));
 		ASSERT_EQ (1, node1->ledger.pruning_action (transaction, open->hash (), 1));
-		ASSERT_TRUE (node1->store.block_exists (transaction, latest));
-		ASSERT_FALSE (node1->store.block_exists (transaction, send1->hash ()));
-		ASSERT_TRUE (node1->store.pruned_exists (transaction, send1->hash ()));
-		ASSERT_FALSE (node1->store.block_exists (transaction, open->hash ()));
-		ASSERT_TRUE (node1->store.pruned_exists (transaction, open->hash ()));
-		ASSERT_TRUE (node1->store.block_exists (transaction, send2->hash ()));
-		ASSERT_TRUE (node1->store.block_exists (transaction, receive->hash ()));
+		ASSERT_TRUE (node1->store.block.exists (transaction, latest));
+		ASSERT_FALSE (node1->store.block.exists (transaction, send1->hash ()));
+		ASSERT_TRUE (node1->store.pruned.exists (transaction, send1->hash ()));
+		ASSERT_FALSE (node1->store.block.exists (transaction, open->hash ()));
+		ASSERT_TRUE (node1->store.pruned.exists (transaction, open->hash ()));
+		ASSERT_TRUE (node1->store.block.exists (transaction, send2->hash ()));
+		ASSERT_TRUE (node1->store.block.exists (transaction, receive->hash ()));
 		ASSERT_EQ (2, node1->ledger.cache.pruned_count);
 		ASSERT_EQ (5, node1->ledger.cache.block_count);
 	}
@@ -1128,7 +1128,7 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 	ASSERT_FALSE (node2->ledger.block_or_pruned_exists (state_open->hash ()));
 	{
 		auto transaction (node2->store.tx_begin_read ());
-		ASSERT_TRUE (node2->store.unchecked_exists (transaction, nano::unchecked_key (send2->root ().as_block_hash (), send2->hash ())));
+		ASSERT_TRUE (node2->store.unchecked.exists (transaction, nano::unchecked_key (send2->root ().as_block_hash (), send2->hash ())));
 	}
 	// Insert missing block
 	node2->process_active (send1);
@@ -1845,7 +1845,7 @@ TEST (bulk, genesis_pruning)
 	ASSERT_EQ (1, node2->ledger.cache.block_count);
 	{
 		auto transaction (node2->store.tx_begin_write ());
-		node2->store.unchecked_clear (transaction);
+		node2->store.unchecked.clear (transaction);
 	}
 	// Insert pruned blocks
 	node2->process_active (send1);

@@ -1,5 +1,5 @@
 #include <nano/crypto_lib/random_pool.hpp>
-#include <nano/node/testing.hpp>
+#include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
@@ -41,7 +41,7 @@ void nano::wait_peer_connections (nano::system & system_a)
 				else
 				{
 					auto transaction = node->store.tx_begin_read ();
-					return total += node->store.peer_count (transaction);
+					return total += node->store.peer.count (transaction);
 				}
 			});
 		}

@@ -4,8 +4,18 @@
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/node/rocksdb/rocksdb_iterator.hpp>
-#include <nano/secure/blockstore_partial.hpp>
 #include <nano/secure/common.hpp>
+#include <nano/secure/store/account_store_partial.hpp>
+#include <nano/secure/store/confirmation_height_store_partial.hpp>
+#include <nano/secure/store/final_vote_store_partial.hpp>
+#include <nano/secure/store/frontier_store_partial.hpp>
+#include <nano/secure/store/online_weight_partial.hpp>
+#include <nano/secure/store/peer_store_partial.hpp>
+#include <nano/secure/store/pending_store_partial.hpp>
+#include <nano/secure/store/pruned_store_partial.hpp>
+#include <nano/secure/store/unchecked_store_partial.hpp>
+#include <nano/secure/store/version_store_partial.hpp>
+#include <nano/secure/store_partial.hpp>
 
 #include <rocksdb/db.h>
 #include <rocksdb/filter_policy.h>
@@ -19,22 +29,58 @@ namespace nano
 {
 class logging_mt;
 class rocksdb_config;
+class rocksdb_store;
+
+class unchecked_rocksdb_store : public unchecked_store_partial<rocksdb::Slice, nano::rocksdb_store>
+{
+public:
+	explicit unchecked_rocksdb_store (nano::rocksdb_store &);
+	std::vector<nano::unchecked_info> get (nano::transaction const &, nano::block_hash const &);
+
+private:
+	nano::rocksdb_store & rocksdb_store;
+};
+
+class version_rocksdb_store : public version_store_partial<rocksdb::Slice, nano::rocksdb_store>
+{
+public:
+	explicit version_rocksdb_store (nano::rocksdb_store &);
+	void version_put (nano::write_transaction const &, int);
+
+private:
+	nano::rocksdb_store & rocksdb_store;
+};
 
 /**
  * rocksdb implementation of the block store
  */
-class rocksdb_store : public block_store_partial<rocksdb::Slice, rocksdb_store>
+class rocksdb_store : public store_partial<rocksdb::Slice, rocksdb_store>
 {
+private:
+	nano::block_store_partial<rocksdb::Slice, rocksdb_store> block_store_partial;
+	nano::frontier_store_partial<rocksdb::Slice, rocksdb_store> frontier_store_partial;
+	nano::account_store_partial<rocksdb::Slice, rocksdb_store> account_store_partial;
+	nano::pending_store_partial<rocksdb::Slice, rocksdb_store> pending_store_partial;
+	nano::unchecked_rocksdb_store unchecked_rocksdb_store;
+	nano::online_weight_store_partial<rocksdb::Slice, rocksdb_store> online_weight_store_partial;
+	nano::pruned_store_partial<rocksdb::Slice, rocksdb_store> pruned_store_partial;
+	nano::peer_store_partial<rocksdb::Slice, rocksdb_store> peer_store_partial;
+	nano::confirmation_height_store_partial<rocksdb::Slice, rocksdb_store> confirmation_height_store_partial;
+	nano::final_vote_store_partial<rocksdb::Slice, rocksdb_store> final_vote_store_partial;
+	nano::version_rocksdb_store version_rocksdb_store;
+
 public:
-	rocksdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::rocksdb_config const & = nano::rocksdb_config{}, bool open_read_only = false);
+	friend class nano::unchecked_rocksdb_store;
+	friend class nano::version_rocksdb_store;
+
+	explicit rocksdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::rocksdb_config const & = nano::rocksdb_config{}, bool open_read_only = false);
+
 	nano::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_requiring_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) override;
 	nano::read_transaction tx_begin_read () const override;
 
 	std::string vendor_get () const override;
 
 	uint64_t count (nano::transaction const & transaction_a, tables table_a) const override;
-	void version_put (nano::write_transaction const &, int) override;
-	std::vector<nano::unchecked_info> unchecked_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override;
 
 	bool exists (nano::transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a) const;
 	int get (nano::transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a, nano::rocksdb_val & value_a) const;
@@ -125,5 +171,5 @@ private:
 	friend class rocksdb_block_store_tombstone_count_Test;
 };
 
-extern template class block_store_partial<rocksdb::Slice, rocksdb_store>;
+extern template class store_partial<rocksdb::Slice, rocksdb_store>;
 }

@@ -9,7 +9,7 @@
 
 namespace
 {
-void reset_confirmation_heights (nano::write_transaction const & transaction, nano::block_store & store);
+void reset_confirmation_heights (nano::write_transaction const & transaction, nano::store & store);
 bool is_using_rocksdb (boost::filesystem::path const & data_path, boost::program_options::variables_map const & vm, std::error_code & ec);
 }
 
@@ -220,7 +220,7 @@ bool copy_database (boost::filesystem::path const & data_path, boost::program_op
 		auto & store (node.node->store);
 		if (vm.count ("unchecked_clear"))
 		{
-			node.node->store.unchecked_clear (store.tx_begin_write ());
+			node.node->store.unchecked.clear (store.tx_begin_write ());
 		}
 		if (vm.count ("clear_send_ids"))
 		{
@@ -228,11 +228,11 @@ bool copy_database (boost::filesystem::path const & data_path, boost::program_op
 		}
 		if (vm.count ("online_weight_clear"))
 		{
-			node.node->store.online_weight_clear (store.tx_begin_write ());
+			node.node->store.online_weight.clear (store.tx_begin_write ());
 		}
 		if (vm.count ("peer_clear"))
 		{
-			node.node->store.peer_clear (store.tx_begin_write ());
+			node.node->store.peer.clear (store.tx_begin_write ());
 		}
 		if (vm.count ("confirmation_height_clear"))
 		{
@@ -240,7 +240,7 @@ bool copy_database (boost::filesystem::path const & data_path, boost::program_op
 		}
 		if (vm.count ("final_vote_clear"))
 		{
-			node.node->store.final_vote_clear (store.tx_begin_write ());
+			node.node->store.final_vote.clear (store.tx_begin_write ());
 		}
 		if (vm.count ("rebuild_database"))
 		{
@@ -491,7 +491,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		if (!node.node->init_error ())
 		{
 			auto transaction (node.node->store.tx_begin_write ());
-			node.node->store.unchecked_clear (transaction);
+			node.node->store.unchecked.clear (transaction);
 			std::cout << "Unchecked blocks deleted" << std::endl;
 		}
 		else
@@ -527,7 +527,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		if (!node.node->init_error ())
 		{
 			auto transaction (node.node->store.tx_begin_write ());
-			node.node->store.online_weight_clear (transaction);
+			node.node->store.online_weight.clear (transaction);
 			std::cout << "Onine weight records are removed" << std::endl;
 		}
 		else
@@ -545,7 +545,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		if (!node.node->init_error ())
 		{
 			auto transaction (node.node->store.tx_begin_write ());
-			node.node->store.peer_clear (transaction);
+			node.node->store.peer.clear (transaction);
 			std::cout << "Database peers are removed" << std::endl;
 		}
 		else
@@ -570,18 +570,18 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				if (!account.decode_account (account_str))
 				{
 					nano::confirmation_height_info confirmation_height_info;
-					if (!node.node->store.confirmation_height_get (node.node->store.tx_begin_read (), account, confirmation_height_info))
+					if (!node.node->store.confirmation_height.get (node.node->store.tx_begin_read (), account, confirmation_height_info))
 					{
 						auto transaction (node.node->store.tx_begin_write ());
 						auto conf_height_reset_num = 0;
 						if (account == node.node->network_params.ledger.genesis_account)
 						{
 							conf_height_reset_num = 1;
-							node.node->store.confirmation_height_put (transaction, account, { confirmation_height_info.height, node.node->network_params.ledger.genesis_block });
+							node.node->store.confirmation_height.put (transaction, account, { confirmation_height_info.height, node.node->network_params.ledger.genesis_block });
 						}
 						else
 						{
-							node.node->store.confirmation_height_clear (transaction, account);
+							node.node->store.confirmation_height.clear (transaction, account);
 						}
 
 						std::cout << "Confirmation height of account " << account_str << " is set to " << conf_height_reset_num << std::endl;
@@ -626,7 +626,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				nano::root root;
 				if (!root.decode_hex (root_str))
 				{
-					node.node->store.final_vote_clear (transaction, root);
+					node.node->store.final_vote.clear (transaction, root);
 					std::cout << "Successfully cleared final votes" << std::endl;
 				}
 				else
@@ -637,7 +637,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			}
 			else if (vm.count ("all"))
 			{
-				node.node->store.final_vote_clear (node.node->store.tx_begin_write ());
+				node.node->store.final_vote.clear (node.node->store.tx_begin_write ());
 				std::cout << "All final votes are cleared" << std::endl;
 			}
 			else
@@ -1300,14 +1300,14 @@ std::unique_ptr<nano::inactive_node> nano::default_inactive_node (boost::filesys
 
 namespace
 {
-void reset_confirmation_heights (nano::write_transaction const & transaction, nano::block_store & store)
+void reset_confirmation_heights (nano::write_transaction const & transaction, nano::store & store)
 {
 	// First do a clean sweep
-	store.confirmation_height_clear (transaction);
+	store.confirmation_height.clear (transaction);
 
 	// Then make sure the confirmation height of the genesis account open block is 1
 	nano::network_params network_params;
-	store.confirmation_height_put (transaction, network_params.ledger.genesis_account, { 1, network_params.ledger.genesis_hash });
+	store.confirmation_height.put (transaction, network_params.ledger.genesis_account, { 1, network_params.ledger.genesis_hash });
 }
 
 bool is_using_rocksdb (boost::filesystem::path const & data_path, boost::program_options::variables_map const & vm, std::error_code & ec)

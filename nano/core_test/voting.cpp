@@ -1,6 +1,6 @@
 #include <nano/node/common.hpp>
-#include <nano/node/testing.hpp>
 #include <nano/node/voting.hpp>
+#include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
