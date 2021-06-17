@@ -63,8 +63,8 @@ TEST (socket, max_connections)
 	};
 
 	ASSERT_TIMELY (5s, get_tcp_accept_failures () == 1);
-	ASSERT_EQ (get_tcp_accept_successes (), 2);
-	ASSERT_EQ (connection_attempts, 3);
+	ASSERT_TIMELY (5s, get_tcp_accept_successes () == 2);
+	ASSERT_TIMELY (5s, connection_attempts == 3);
 
 	// create space for one socket and fill the connections table again
 
@@ -77,8 +77,8 @@ TEST (socket, max_connections)
 	client5->async_connect (dst_endpoint, connect_handler);
 
 	ASSERT_TIMELY (5s, get_tcp_accept_failures () == 2);
-	ASSERT_EQ (get_tcp_accept_successes (), 3);
-	ASSERT_EQ (connection_attempts, 5);
+	ASSERT_TIMELY (5s, get_tcp_accept_successes () == 3);
+	ASSERT_TIMELY (5s, connection_attempts == 5);
 
 	// close all existing sockets and fill the connections table again
 	// start counting form 1 because 0 is the already closed socket
@@ -97,9 +97,9 @@ TEST (socket, max_connections)
 	client8->async_connect (dst_endpoint, connect_handler);
 
 	ASSERT_TIMELY (5s, get_tcp_accept_failures () == 3);
-	ASSERT_EQ (get_tcp_accept_successes (), 5);
-	ASSERT_EQ (connection_attempts, 8); // connections initiated by the client
-	ASSERT_EQ (server_sockets.size (), 5); // connections accepted by the server
+	ASSERT_TIMELY (5s, get_tcp_accept_successes () == 5);
+	ASSERT_TIMELY (5s, connection_attempts == 8); // connections initiated by the client
+	ASSERT_TIMELY (5s, server_sockets.size () == 5); // connections accepted by the server
 
 	node->stop ();
 	runner.stop_event_processing ();
