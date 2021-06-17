@@ -148,6 +148,7 @@ public:
 	bool enable_pruning{ false };
 	bool fast_bootstrap{ false };
 	bool read_only{ false };
+	bool disable_connection_cleanup{ false };
 	nano::confirmation_height_mode confirmation_height_processor_mode{ nano::confirmation_height_mode::automatic };
 	nano::generate_cache generate_cache;
 	bool inactive_node{ false };

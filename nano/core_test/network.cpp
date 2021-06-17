@@ -899,11 +899,11 @@ TEST (network, replace_port)
 
 TEST (network, peer_max_tcp_attempts)
 {
-	nano::system system (1);
-	auto node (system.nodes[0]);
 	// Add nodes that can accept TCP connection, but not node ID handshake
 	nano::node_flags node_flags;
-	node_flags.disable_tcp_realtime = true;
+	node_flags.disable_connection_cleanup = true;
+	nano::system system;
+	auto node = system.add_node (node_flags);
 	for (auto i (0); i < node->network_params.node.max_peers_per_ip; ++i)
 	{
 		auto node2 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work, node_flags));

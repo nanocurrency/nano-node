@@ -105,7 +105,10 @@ nano::network::~network ()
 
 void nano::network::start ()
 {
-	ongoing_cleanup ();
+	if (!node.flags.disable_connection_cleanup)
+	{
+		ongoing_cleanup ();
+	}
 	ongoing_syn_cookie_cleanup ();
 	if (!node.flags.disable_udp)
 	{
