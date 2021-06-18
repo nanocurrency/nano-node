@@ -1948,7 +1948,7 @@ TEST (rpc, pending)
 	request.put ("source", "false");
 	request.put ("min_version", "false");
 
-	auto check_block_response_count_l = [&system, &request, rpc] (size_t size) {
+	auto check_block_response_count_l = [&system, &request, rpc = rpc] (size_t size) {
 		test_response response (request, rpc->config.port, system.io_ctx);
 		ASSERT_TIMELY (5s, response.status != 0);
 
@@ -2089,7 +2089,7 @@ TEST (rpc, work_generate)
 	boost::property_tree::ptree request;
 	request.put ("action", "work_generate");
 	request.put ("hash", hash.to_string ());
-	auto verify_response = [node, rpc, &system] (auto & request, auto & hash) {
+	auto verify_response = [node, rpc = rpc, &system] (auto & request, auto & hash) {
 		test_response response (request, rpc->config.port, system.io_ctx);
 		ASSERT_TIMELY (5s, response.status != 0);
 		ASSERT_EQ (200, response.status);
@@ -3513,7 +3513,7 @@ TEST (rpc, pending_exists)
 	auto [rpc, rpc_ctx] = add_rpc (system, node);
 	boost::property_tree::ptree request;
 
-	auto pending_exists = [&system, &request, rpc] (const char * exists_a) {
+	auto pending_exists = [&system, &request, rpc = rpc] (const char * exists_a) {
 		test_response response0 (request, rpc->config.port, system.io_ctx);
 		ASSERT_TIMELY (10s, response0.status != 0);
 		ASSERT_EQ (200, response0.status);
@@ -5894,7 +5894,7 @@ TEST (rpc, database_txn_tracker)
 	auto [rpc, rpc_ctx] = add_rpc (system, node);
 
 	boost::property_tree::ptree request;
-	auto check_not_correct_amount = [&system, &request, rpc] () {
+	auto check_not_correct_amount = [&system, &request, rpc = rpc] () {
 		test_response response (request, rpc->config.port, system.io_ctx);
 		ASSERT_TIMELY (5s, response.status != 0);
 		ASSERT_EQ (200, response.status);
