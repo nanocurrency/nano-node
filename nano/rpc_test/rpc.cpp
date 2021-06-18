@@ -1854,21 +1854,13 @@ TEST (rpc, pending)
 	node->scheduler.flush ();
 	ASSERT_TIMELY (5s, !node->active.active (*block1));
 	ASSERT_TIMELY (5s, node->ledger.cache.cemented_count == 2 && node->confirmation_height_processor.current ().is_zero () && node->confirmation_height_processor.awaiting_processing_size () == 0);
-	
-	scoped_io_thread_name_change scoped_thread_name_io;
-	nano::node_rpc_config node_rpc_config;
-	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
-	nano::rpc_config rpc_config (nano::get_available_port (), true);
-	rpc_config.rpc_process.ipc_port = node->config.ipc_config.transport_tcp.port;
-	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
-	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
-	rpc.start ();
+	auto [rpc, ipc_s, ipc_p, io_scope] = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "pending");
 	request.put ("account", key1.pub.to_account ());
 	request.put ("count", "100");
 	{
-		test_response response (request, rpc.config.port, system.io_ctx);
+		test_response response (request, rpc->config.port, system.io_ctx);
 		ASSERT_TIMELY (5s, response.status != 0);
 		ASSERT_EQ (200, response.status);
 		auto & blocks_node (response.json.get_child ("blocks"));
@@ -1878,7 +1870,7 @@ TEST (rpc, pending)
 	}
 	request.put ("sorting", "true"); // Sorting test
 	{
-		test_response response (request, rpc.config.port, system.io_ctx);
+		test_response response (request, rpc->config.port, system.io_ctx);
 		ASSERT_TIMELY (5s, response.status != 0);
 		ASSERT_EQ (200, response.status);
 		auto & blocks_node (response.json.get_child ("blocks"));
@@ -1890,7 +1882,7 @@ TEST (rpc, pending)
 	}
 	request.put ("threshold", "100"); // Threshold test
 	{
-		test_response response (request, rpc.config.port, system.io_ctx);
+		test_response response (request, rpc->config.port, system.io_ctx);
 		ASSERT_TIMELY (5s, response.status != 0);
 		ASSERT_EQ (200, response.status);
 		auto & blocks_node (response.json.get_child ("blocks"));
@@ -1912,7 +1904,7 @@ TEST (rpc, pending)
 	}
 	request.put ("threshold", "101");
 	{
-		test_response response (request, rpc.config.port, system.io_ctx);
+		test_response response (request, rpc->config.port, system.io_ctx);
 		ASSERT_TIMELY (10s, response.status != 0);
 		ASSERT_EQ (200, response.status);
 		auto & blocks_node (response.json.get_child ("blocks"));
@@ -1922,7 +1914,7 @@ TEST (rpc, pending)
 	request.put ("source", "true");
 	request.put ("min_version", "true");
 	{
-		test_response response (request, rpc.config.port, system.io_ctx);
+		test_response response (request, rpc->config.port, system.io_ctx);
 		ASSERT_TIMELY (5s, response.status != 0);
 		ASSERT_EQ (200, response.status);
 		auto & blocks_node (response.json.get_child ("blocks"));
@@ -1946,7 +1938,7 @@ TEST (rpc, pending)
 	request.put ("min_version", "false");
 
 	auto check_block_response_count_l = [&system, &request, &rpc] (size_t size) {
-		test_response response (request, rpc.config.port, system.io_ctx);
+		test_response response (request, rpc->config.port, system.io_ctx);
 		ASSERT_TIMELY (5s, response.status != 0);
 
 		ASSERT_EQ (200, response.status);
@@ -1954,22 +1946,22 @@ TEST (rpc, pending)
 	};
 
 	check_block_response_count_l (1);
-	scoped_thread_name_io.reset ();
+	io_scope->reset ();
 	reset_confirmation_height (system.nodes.front ()->store, block1->account ());
-	scoped_thread_name_io.renew ();
+	io_scope->renew ();
 	check_block_response_count_l (0);
 	request.put ("include_only_confirmed", "false");
-	scoped_thread_name_io.renew ();
+	io_scope->renew ();
 	check_block_response_count_l (1);
 	request.put ("include_only_confirmed", "true");
 
 	// Sorting with a smaller count than total should give absolute sorted amounts
-	scoped_thread_name_io.reset ();
+	io_scope->reset ();
 	node->store.confirmation_height.put (node->store.tx_begin_write (), nano::dev_genesis_key.pub, { 2, block1->hash () });
 	auto block2 (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key1.pub, 200));
 	auto block3 (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key1.pub, 300));
 	auto block4 (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key1.pub, 400));
-	scoped_thread_name_io.renew ();
+	io_scope->renew ();
 
 	ASSERT_TIMELY (10s, node->ledger.account_pending (node->store.tx_begin_read (), key1.pub) == 1000);
 	ASSERT_TIMELY (5s, !node->active.active (*block4));
@@ -2172,7 +2164,7 @@ TEST (rpc, work_generate_multiplier)
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.max_work_generate_multiplier = 100;
-	auto node = add_ipc_enabled_node (system);
+	auto node = add_ipc_enabled_node (system, node_config);
 	auto [rpc, ipc_s, ipc_p, io_scope] = add_rpc (system, node);
 	nano::block_hash hash (1);
 	boost::property_tree::ptree request;
@@ -3719,8 +3711,8 @@ TEST (rpc, work_get)
 	nano::system system;
 	auto node = add_ipc_enabled_node (system);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
-	auto [rpc, ipc_s, ipc_p, io_scope] = add_rpc (system, node);
 	system.wallet (0)->work_cache_blocking (nano::dev_genesis_key.pub, node->latest (nano::dev_genesis_key.pub));
+	auto [rpc, ipc_s, ipc_p, io_scope] = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "work_get");
 	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
@@ -3740,8 +3732,8 @@ TEST (rpc, wallet_work_get)
 	nano::system system;
 	auto node = add_ipc_enabled_node (system);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
-	auto [rpc, ipc_s, ipc_p, io_scope] = add_rpc (system, node);
 	system.wallet (0)->work_cache_blocking (nano::dev_genesis_key.pub, node->latest (nano::dev_genesis_key.pub));
+	auto [rpc, ipc_s, ipc_p, io_scope] = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "wallet_work_get");
 	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
