@@ -1937,8 +1937,9 @@ TEST (rpc, pending)
 	request.put ("source", "false");
 	request.put ("min_version", "false");
 
-	auto check_block_response_count_l = [&system, &request, &rpc] (size_t size) {
-		test_response response (request, rpc->config.port, system.io_ctx);
+	auto rpc2 = rpc;
+	auto check_block_response_count_l = [&system, &request, rpc2] (size_t size) {
+		test_response response (request, rpc2->config.port, system.io_ctx);
 		ASSERT_TIMELY (5s, response.status != 0);
 
 		ASSERT_EQ (200, response.status);
@@ -1970,7 +1971,7 @@ TEST (rpc, pending)
 	request.put ("count", "2");
 
 	{
-		test_response response (request, rpc.config.port, system.io_ctx);
+		test_response response (request, rpc->config.port, system.io_ctx);
 		ASSERT_TIMELY (5s, response.status != 0);
 		ASSERT_EQ (200, response.status);
 		auto & blocks_node (response.json.get_child ("blocks"));
