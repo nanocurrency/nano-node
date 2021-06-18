@@ -3278,7 +3278,7 @@ TEST (rpc, accounts_pending)
 	node->scheduler.flush ();
 	ASSERT_TIMELY (5s, !node->active.active (*block1));
 	ASSERT_TIMELY (5s, node->ledger.cache.cemented_count == 2 && node->confirmation_height_processor.current ().is_zero () && node->confirmation_height_processor.awaiting_processing_size () == 0);
-	
+
 	auto [rpc, rpc_ctx] = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "accounts_pending");
@@ -3555,7 +3555,7 @@ TEST (rpc, wallet_pending)
 		++iterations;
 		ASSERT_LT (iterations, 200);
 	}
-	
+
 	auto [rpc, rpc_ctx] = add_rpc (system0, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "wallet_pending");
