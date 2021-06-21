@@ -111,11 +111,11 @@ nano::bootstrap_server::~bootstrap_server ()
 	{
 		node->logger.try_log ("Exiting incoming TCP/bootstrap server");
 	}
-	if (type == nano::bootstrap_server_type::bootstrap)
+	if (type == nano::socket::type_t::bootstrap)
 	{
 		--node->bootstrap.bootstrap_count;
 	}
-	else if (type == nano::bootstrap_server_type::realtime)
+	else if (type == nano::socket::type_t::realtime)
 	{
 		--node->bootstrap.realtime_count;
 		// Clear temporary channel
@@ -524,7 +524,7 @@ void nano::bootstrap_server::receive_node_id_handshake_action (boost::system::er
 		auto request (std::make_unique<nano::node_id_handshake> (error, stream, header_a));
 		if (!error)
 		{
-			if (type == nano::bootstrap_server_type::undefined && !node->flags.disable_tcp_realtime)
+			if (type == nano::socket::type_t::undefined && !node->flags.disable_tcp_realtime)
 			{
 				add_request (std::unique_ptr<nano::message> (request.release ()));
 			}
@@ -696,7 +696,7 @@ public:
 			if (!connection->node->network.syn_cookies.validate (nano::transport::map_tcp_to_endpoint (connection->remote_endpoint), node_id, message_a.response->second) && node_id != connection->node->node_id.pub)
 			{
 				connection->remote_node_id = node_id;
-				connection->type = nano::bootstrap_server_type::realtime;
+				connection->type = nano::socket::type_t::realtime;
 				++connection->node->bootstrap.realtime_count;
 				connection->finish_request_async ();
 			}
@@ -711,8 +711,8 @@ public:
 			connection->finish_request_async ();
 		}
 		nano::account node_id (connection->remote_node_id);
-		nano::bootstrap_server_type type (connection->type);
-		debug_assert (node_id.is_zero () || type == nano::bootstrap_server_type::realtime);
+		nano::socket::type_t type (connection->type);
+		debug_assert (node_id.is_zero () || type == nano::socket::type_t::realtime);
 		connection->node->network.tcp_message_manager.put_message (nano::tcp_message_item{ std::make_shared<nano::node_id_handshake> (message_a), connection->remote_endpoint, connection->remote_node_id, connection->socket, connection->type });
 	}
 	std::shared_ptr<nano::bootstrap_server> connection;
@@ -753,15 +753,15 @@ void nano::bootstrap_server::run_next (nano::unique_lock<nano::mutex> & lock_a)
 
 bool nano::bootstrap_server::is_bootstrap_connection ()
 {
-	if (type == nano::bootstrap_server_type::undefined && !node->flags.disable_bootstrap_listener && node->bootstrap.bootstrap_count < node->config.bootstrap_connections_max)
+	if (type == nano::socket::type_t::undefined && !node->flags.disable_bootstrap_listener && node->bootstrap.bootstrap_count < node->config.bootstrap_connections_max)
 	{
 		++node->bootstrap.bootstrap_count;
-		type = nano::bootstrap_server_type::bootstrap;
+		type = nano::socket::type_t::bootstrap;
 	}
-	return type == nano::bootstrap_server_type::bootstrap;
+	return type == nano::socket::type_t::bootstrap;
 }
 
 bool nano::bootstrap_server::is_realtime_connection ()
 {
-	return type == nano::bootstrap_server_type::realtime || type == nano::bootstrap_server_type::realtime_response_server;
+	return type == nano::socket::type_t::realtime || type == nano::socket::type_t::realtime_response_server;
 }
