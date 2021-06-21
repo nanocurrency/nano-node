@@ -102,6 +102,7 @@ nano::bootstrap_server::bootstrap_server (std::shared_ptr<nano::socket> const & 
 	socket (socket_a),
 	node (node_a)
 {
+	debug_assert (socket_a != nullptr);
 	receive_buffer->resize (1024);
 }
 
