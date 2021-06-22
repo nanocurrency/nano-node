@@ -288,7 +288,7 @@ void nano::transport::tcp_channels::process_messages ()
 	}
 }
 
-void nano::transport::tcp_channels::process_message (nano::message const & message_a, nano::tcp_endpoint const & endpoint_a, nano::account const & node_id_a, std::shared_ptr<nano::socket> const & socket_a, nano::bootstrap_server_type type_a)
+void nano::transport::tcp_channels::process_message (nano::message const & message_a, nano::tcp_endpoint const & endpoint_a, nano::account const & node_id_a, std::shared_ptr<nano::socket> const & socket_a, nano::socket::type_t type_a)
 {
 	if (!stopped && message_a.header.version_using >= protocol_constants ().protocol_version_min ())
 	{
@@ -315,9 +315,9 @@ void nano::transport::tcp_channels::process_message (nano::message const & messa
 					temporary_channel->set_node_id (node_id_a);
 					temporary_channel->set_network_version (message_a.header.version_using);
 					temporary_channel->temporary = true;
-					debug_assert (type_a == nano::bootstrap_server_type::realtime || type_a == nano::bootstrap_server_type::realtime_response_server);
+					debug_assert (type_a == nano::socket::type_t::realtime || type_a == nano::socket::type_t::realtime_response_server);
 					// Don't insert temporary channels for response_server
-					if (type_a == nano::bootstrap_server_type::realtime)
+					if (type_a == nano::socket::type_t::realtime)
 					{
 						insert (temporary_channel, socket_a, nullptr);
 					}
@@ -327,7 +327,7 @@ void nano::transport::tcp_channels::process_message (nano::message const & messa
 				{
 					// Initial node_id_handshake request without node ID
 					debug_assert (message_a.header.type == nano::message_type::node_id_handshake);
-					debug_assert (type_a == nano::bootstrap_server_type::undefined);
+					debug_assert (type_a == nano::socket::type_t::undefined);
 					node.stats.inc (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in);
 				}
 			}
@@ -691,7 +691,7 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 														callback_a (channel_a);
 													}
 													// Listen for possible responses
-													response_server->type = nano::bootstrap_server_type::realtime_response_server;
+													response_server->type = nano::socket::type_t::realtime_response_server;
 													response_server->remote_node_id = channel_a->get_node_id ();
 													response_server->receive ();
 													node_l->network.tcp_channels.remove_node_id_handshake_socket (socket_l);
