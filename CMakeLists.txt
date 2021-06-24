@@ -464,6 +464,7 @@ set(CRYPTOPP_LIBRARY cryptopp)
 add_library(
   cryptopp
   crypto/cryptopp/algparam.cpp
+  crypto/cryptopp/allocate.cpp
   crypto/cryptopp/asn.cpp
   crypto/cryptopp/basecode.cpp
   crypto/cryptopp/cpu.cpp
