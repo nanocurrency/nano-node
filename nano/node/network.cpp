@@ -105,7 +105,10 @@ nano::network::~network ()
 
 void nano::network::start ()
 {
-	ongoing_cleanup ();
+	if (!node.flags.disable_connection_cleanup)
+	{
+		ongoing_cleanup ();
+	}
 	ongoing_syn_cookie_cleanup ();
 	if (!node.flags.disable_udp)
 	{
@@ -922,7 +925,7 @@ nano::tcp_message_item nano::tcp_message_manager::get_message ()
 	}
 	else
 	{
-		result = nano::tcp_message_item{ std::make_shared<nano::keepalive> (), nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0), 0, nullptr, nano::bootstrap_server_type::undefined };
+		result = nano::tcp_message_item{ std::make_shared<nano::keepalive> (), nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0), 0, nullptr, nano::socket::type_t::undefined };
 	}
 	lock.unlock ();
 	producer_condition.notify_one ();

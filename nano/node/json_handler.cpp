@@ -1024,8 +1024,14 @@ void nano::json_handler::active_difficulty ()
 	response_l.put ("multiplier", 1.0);
 	if (include_trend)
 	{
-		boost::property_tree::ptree trend_entry_l;
-		response_l.add_child ("difficulty_trend", trend_entry_l);
+		boost::property_tree::ptree difficulty_trend_l;
+
+		// To keep this RPC backwards-compatible
+		boost::property_tree::ptree entry;
+		entry.put ("", "1.000000000000000");
+		difficulty_trend_l.push_back (std::make_pair ("", entry));
+
+		response_l.add_child ("difficulty_trend", difficulty_trend_l);
 	}
 	response_errors ();
 }
@@ -1062,6 +1068,7 @@ void nano::json_handler::block_info ()
 			response_l.put ("balance", balance.convert_to<std::string> ());
 			response_l.put ("height", std::to_string (block->sideband ().height));
 			response_l.put ("local_timestamp", std::to_string (block->sideband ().timestamp));
+			response_l.put ("successor", block->sideband ().successor.to_string ());
 			auto confirmed (node.ledger.block_confirmed (transaction, hash));
 			response_l.put ("confirmed", confirmed);
 
@@ -1217,6 +1224,7 @@ void nano::json_handler::blocks_info ()
 					entry.put ("balance", balance.convert_to<std::string> ());
 					entry.put ("height", std::to_string (block->sideband ().height));
 					entry.put ("local_timestamp", std::to_string (block->sideband ().timestamp));
+					entry.put ("successor", block->sideband ().successor.to_string ());
 					auto confirmed (node.ledger.block_confirmed (transaction, hash));
 					entry.put ("confirmed", confirmed);
 

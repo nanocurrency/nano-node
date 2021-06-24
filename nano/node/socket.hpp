@@ -33,6 +33,13 @@ class socket : public std::enable_shared_from_this<nano::socket>
 	friend class server_socket;
 
 public:
+	enum class type_t
+	{
+		undefined,
+		bootstrap,
+		realtime,
+		realtime_response_server // special type for tcp channel response server
+	};
 	/**
 	 * Constructor
 	 * @param node Owning node
