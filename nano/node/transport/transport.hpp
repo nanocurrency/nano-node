@@ -6,6 +6,8 @@
 #include <nano/node/common.hpp>
 #include <nano/node/socket.hpp>
 
+#include <boost/asio/ip/network_v6.hpp>
+
 namespace nano
 {
 class bandwidth_limiter final
@@ -14,6 +16,7 @@ public:
 	// initialize with limit 0 = unbounded
 	bandwidth_limiter (const double, const size_t);
 	bool should_drop (const size_t &);
+	void reset (const double, const size_t);
 
 private:
 	nano::rate::token_bucket bucket;
@@ -25,6 +28,8 @@ namespace transport
 	nano::endpoint map_endpoint_to_v6 (nano::endpoint const &);
 	nano::endpoint map_tcp_to_endpoint (nano::tcp_endpoint const &);
 	nano::tcp_endpoint map_endpoint_to_tcp (nano::endpoint const &);
+	boost::asio::ip::address map_address_to_subnetwork (boost::asio::ip::address const &);
+	boost::asio::ip::address ipv4_address_or_ipv6_subnet (boost::asio::ip::address const &);
 	// Unassigned, reserved, self
 	bool reserved_address (nano::endpoint const &, bool = false);
 	static std::chrono::seconds constexpr syn_cookie_cutoff = std::chrono::seconds (5);
@@ -42,8 +47,8 @@ namespace transport
 		virtual ~channel () = default;
 		virtual size_t hash_code () const = 0;
 		virtual bool operator== (nano::transport::channel const &) const = 0;
-		void send (nano::message const & message_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a = nullptr, nano::buffer_drop_policy policy_a = nano::buffer_drop_policy::limiter);
-		virtual void send_buffer (nano::shared_const_buffer const &, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr, nano::buffer_drop_policy = nano::buffer_drop_policy::limiter) = 0;
+		void send (nano::message const & message_a, std::function<void (boost::system::error_code const &, size_t)> const & callback_a = nullptr, nano::buffer_drop_policy policy_a = nano::buffer_drop_policy::limiter);
+		virtual void send_buffer (nano::shared_const_buffer const &, std::function<void (boost::system::error_code const &, size_t)> const & = nullptr, nano::buffer_drop_policy = nano::buffer_drop_policy::limiter) = 0;
 		virtual std::string to_string () const = 0;
 		virtual nano::endpoint get_endpoint () const = 0;
 		virtual nano::tcp_endpoint get_tcp_endpoint () const = 0;
@@ -139,7 +144,7 @@ namespace transport
 		channel_loopback (nano::node &);
 		size_t hash_code () const override;
 		bool operator== (nano::transport::channel const &) const override;
-		void send_buffer (nano::shared_const_buffer const &, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr, nano::buffer_drop_policy = nano::buffer_drop_policy::limiter) override;
+		void send_buffer (nano::shared_const_buffer const &, std::function<void (boost::system::error_code const &, size_t)> const & = nullptr, nano::buffer_drop_policy = nano::buffer_drop_policy::limiter) override;
 		std::string to_string () const override;
 		bool operator== (nano::transport::channel_loopback const & other_a) const
 		{

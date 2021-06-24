@@ -171,7 +171,8 @@ class unchecked_key final
 {
 public:
 	unchecked_key () = default;
-	unchecked_key (nano::block_hash const &, nano::block_hash const &);
+	unchecked_key (nano::hash_or_account const &, nano::block_hash const &);
+	unchecked_key (nano::uint512_union const &);
 	bool deserialize (nano::stream &);
 	bool operator== (nano::unchecked_key const &) const;
 	nano::block_hash const & key () const;
@@ -312,6 +313,7 @@ enum class process_result
 	unreceivable, // Source block doesn't exist, has already been received, or requires an account upgrade (epoch blocks)
 	gap_previous, // Block marked as previous is unknown
 	gap_source, // Block marked as source is unknown
+	gap_epoch_open_pending, // Block marked as pending blocks required for epoch open block are unknown
 	opened_burn_account, // The impossible happened, someone found the private key associated with the public key '0'.
 	balance_mismatch, // Balance and amount delta don't match
 	representative_mismatch, // Representative is changed when it is not allowed
@@ -381,6 +383,16 @@ public:
 	nano::block_hash genesis_hash;
 	nano::uint128_t genesis_amount;
 	nano::account burn_account;
+	nano::account nano_dev_final_votes_canary_account;
+	nano::account nano_beta_final_votes_canary_account;
+	nano::account nano_live_final_votes_canary_account;
+	nano::account nano_test_final_votes_canary_account;
+	nano::account final_votes_canary_account;
+	uint64_t nano_dev_final_votes_canary_height;
+	uint64_t nano_beta_final_votes_canary_height;
+	uint64_t nano_live_final_votes_canary_height;
+	uint64_t nano_test_final_votes_canary_height;
+	uint64_t final_votes_canary_height;
 	nano::epochs epochs;
 };
 
@@ -412,6 +424,8 @@ public:
 	std::chrono::milliseconds process_confirmed_interval;
 	/** Maximum number of peers per IP */
 	size_t max_peers_per_ip;
+	/** Maximum number of peers per subnetwork */
+	size_t max_peers_per_subnetwork;
 
 	/** The maximum amount of samples for a 2 week period on live or 1 day on beta */
 	uint64_t max_weight_samples;
@@ -448,6 +462,7 @@ public:
 	unsigned lazy_retry_limit;
 	unsigned lazy_destinations_retry_limit;
 	std::chrono::milliseconds gap_cache_bootstrap_start_interval;
+	uint32_t default_frontiers_age_seconds;
 };
 
 /** Constants whose value depends on the active network */
@@ -502,6 +517,7 @@ public:
 	std::atomic<uint64_t> block_count{ 0 };
 	std::atomic<uint64_t> pruned_count{ 0 };
 	std::atomic<uint64_t> account_count{ 0 };
+	std::atomic<bool> final_votes_confirmation_canary{ false };
 };
 
 /* Defines the possible states for an election to stop in */
@@ -520,6 +536,7 @@ class election_status final
 public:
 	std::shared_ptr<nano::block> winner;
 	nano::amount tally;
+	nano::amount final_tally;
 	std::chrono::milliseconds election_end;
 	std::chrono::milliseconds election_duration;
 	unsigned confirmation_request_count;

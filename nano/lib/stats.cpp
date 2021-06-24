@@ -175,7 +175,7 @@ public:
 	std::string filename;
 
 	explicit file_writer (std::string const & filename) :
-	filename (filename)
+		filename (filename)
 	{
 		log.open (filename.c_str (), std::ofstream::out);
 	}
@@ -283,7 +283,7 @@ std::vector<nano::stat_histogram::bin> nano::stat_histogram::get_bins () const
 }
 
 nano::stat::stat (nano::stat_config config) :
-config (config)
+	config (config)
 {
 }
 
@@ -658,6 +658,9 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::initiate:
 			res = "initiate";
 			break;
+		case nano::stat::detail::initiate_legacy_age:
+			res = "initiate_legacy_age";
+			break;
 		case nano::stat::detail::initiate_lazy:
 			res = "initiate_lazy";
 			break;
@@ -727,11 +730,8 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::late_block_seconds:
 			res = "late_block_seconds";
 			break;
-		case nano::stat::detail::election_non_priority:
-			res = "election_non_priority";
-			break;
-		case nano::stat::detail::election_priority:
-			res = "election_priority";
+		case nano::stat::detail::election_start:
+			res = "election_start";
 			break;
 		case nano::stat::detail::election_block_conflict:
 			res = "election_block_conflict";
@@ -739,8 +739,14 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::election_difficulty_update:
 			res = "election_difficulty_update";
 			break;
-		case nano::stat::detail::election_drop:
-			res = "election_drop";
+		case nano::stat::detail::election_drop_expired:
+			res = "election_drop_expired";
+			break;
+		case nano::stat::detail::election_drop_overflow:
+			res = "election_drop_overflow";
+			break;
+		case nano::stat::detail::election_drop_all:
+			res = "election_drop_all";
 			break;
 		case nano::stat::detail::election_restart:
 			res = "election_restart";
@@ -765,6 +771,9 @@ std::string nano::stat::detail_to_string (uint32_t key)
 			break;
 		case nano::stat::detail::tcp_excluded:
 			res = "tcp_excluded";
+			break;
+		case nano::stat::detail::tcp_max_per_ip:
+			res = "tcp_max_per_ip";
 			break;
 		case nano::stat::detail::unreachable_host:
 			res = "unreachable_host";

@@ -1,5 +1,5 @@
-#include <nano/node/testing.hpp>
 #include <nano/qt/qt.hpp>
+#include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
@@ -29,7 +29,9 @@ TEST (wallet, construction)
 	ASSERT_EQ (key.to_account (), item1->text ().toStdString ());
 }
 
-TEST (wallet, status)
+// Disabled because it does not work and it is not clearly defined what its behaviour should be:
+// https://github.com/nanocurrency/nano-node/issues/3235
+TEST (wallet, DISABLED_status)
 {
 	nano_qt::eventloop_processor processor;
 	nano::system system (1);
@@ -38,7 +40,7 @@ TEST (wallet, status)
 	wallet_l->insert_adhoc (key.prv);
 	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key.pub));
 	wallet->start ();
-	auto wallet_has = [wallet](nano_qt::status_types status_ty) {
+	auto wallet_has = [wallet] (nano_qt::status_types status_ty) {
 		return wallet->active_status.active.find (status_ty) != wallet->active_status.active.end ();
 	};
 	ASSERT_EQ ("Status: Disconnected, Blocks: 1", wallet->status->text ().toStdString ());
@@ -58,6 +60,37 @@ TEST (wallet, status)
 		test_application->processEvents ();
 	}
 	ASSERT_TRUE (wallet_has (nano_qt::status_types::disconnected));
+}
+
+// this test is modelled on wallet.status but it introduces another node on the network
+TEST (wallet, status_with_peer)
+{
+	nano_qt::eventloop_processor processor;
+	nano::system system (2);
+	auto wallet_l = system.nodes[0]->wallets.create (nano::random_wallet_id ());
+	nano::keypair key;
+	wallet_l->insert_adhoc (key.prv);
+	auto wallet = std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], wallet_l, key.pub);
+	wallet->start ();
+	auto wallet_has = [wallet] (nano_qt::status_types status_ty) {
+		return wallet->active_status.active.find (status_ty) != wallet->active_status.active.end ();
+	};
+	// Because of the wallet "vulnerable" message, this won't be the message displayed.
+	// However, it will still be part of the status set.
+	ASSERT_FALSE (wallet_has (nano_qt::status_types::synchronizing));
+	system.deadline_set (25s);
+	while (!wallet_has (nano_qt::status_types::synchronizing))
+	{
+		test_application->processEvents ();
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	system.nodes[0]->network.cleanup (std::chrono::steady_clock::now () + std::chrono::seconds (5));
+	while (wallet_has (nano_qt::status_types::synchronizing))
+	{
+		test_application->processEvents ();
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_TRUE (wallet_has (nano_qt::status_types::nominal));
 }
 
 TEST (wallet, startup_balance)
@@ -347,7 +380,7 @@ TEST (wallet, process_block)
 	{
 		auto transaction (system.nodes[0]->store.tx_begin_read ());
 		system.deadline_set (10s);
-		while (system.nodes[0]->store.block_exists (transaction, send.hash ()))
+		while (system.nodes[0]->store.block.exists (transaction, send.hash ()))
 		{
 			ASSERT_NO_ERROR (system.poll ());
 		}
@@ -465,7 +498,7 @@ TEST (wallet, create_change)
 
 TEST (history, short_text)
 {
-	if (nano::using_rocksdb_in_tests ())
+	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -503,7 +536,7 @@ TEST (history, short_text)
 
 TEST (history, pruned_source)
 {
-	if (nano::using_rocksdb_in_tests ())
+	if (nano::rocksdb_config::using_rocksdb_in_tests ())
 	{
 		// Don't test this in rocksdb mode
 		return;
@@ -915,7 +948,7 @@ TEST (wallet, epoch_2_validation)
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	QTest::mouseClick (wallet->advanced.create_block, Qt::LeftButton);
 
-	auto create_and_process = [&]() -> nano::block_hash {
+	auto create_and_process = [&] () -> nano::block_hash {
 		wallet->block_creation.create->click ();
 		std::string json (wallet->block_creation.block->toPlainText ().toStdString ());
 		EXPECT_FALSE (json.empty ());
@@ -929,7 +962,7 @@ TEST (wallet, epoch_2_validation)
 		return block.hash ();
 	};
 
-	auto do_send = [&](nano::public_key const & destination) -> nano::block_hash {
+	auto do_send = [&] (nano::public_key const & destination) -> nano::block_hash {
 		wallet->block_creation.send->click ();
 		wallet->block_creation.account->setText (nano::dev_genesis_key.pub.to_account ().c_str ());
 		wallet->block_creation.amount->setText ("1");
@@ -937,20 +970,20 @@ TEST (wallet, epoch_2_validation)
 		return create_and_process ();
 	};
 
-	auto do_open = [&](nano::block_hash const & source, nano::public_key const & account) -> nano::block_hash {
+	auto do_open = [&] (nano::block_hash const & source, nano::public_key const & account) -> nano::block_hash {
 		wallet->block_creation.open->click ();
 		wallet->block_creation.source->setText (source.to_string ().c_str ());
 		wallet->block_creation.representative->setText (account.to_account ().c_str ());
 		return create_and_process ();
 	};
 
-	auto do_receive = [&](nano::block_hash const & source) -> nano::block_hash {
+	auto do_receive = [&] (nano::block_hash const & source) -> nano::block_hash {
 		wallet->block_creation.receive->click ();
 		wallet->block_creation.source->setText (source.to_string ().c_str ());
 		return create_and_process ();
 	};
 
-	auto do_change = [&](nano::public_key const & account, nano::public_key const & representative) -> nano::block_hash {
+	auto do_change = [&] (nano::public_key const & account, nano::public_key const & representative) -> nano::block_hash {
 		wallet->block_creation.change->click ();
 		wallet->block_creation.account->setText (account.to_account ().c_str ());
 		wallet->block_creation.representative->setText (representative.to_account ().c_str ());

@@ -1,0 +1,9 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://docs.nano.org/node-implementation/contributing/#security-vulnerability-disclosure
+    about: DO NOT SUBMIT SECURITY VULNERABILITIES IN PUBLIC REPOSITORIES - find out how to privately submit in our documentation.
+  - name: Nano Community Forum
+    url: https://forum.nano.org
+    about: Ask questions, get wallet or other support, and discuss Nano with the community.
+    

@@ -19,7 +19,6 @@ public:
 	nano::observer_set<nano::account const &, bool> account_balance;
 	nano::observer_set<std::shared_ptr<nano::transport::channel>> endpoint;
 	nano::observer_set<> disconnect;
-	nano::observer_set<uint64_t> difficulty;
 	nano::observer_set<nano::root const &> work_cancel;
 	nano::observer_set<nano::telemetry_data const &, nano::endpoint const &> telemetry;
 };

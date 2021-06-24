@@ -32,13 +32,13 @@ namespace thread_role
 		signature_checking,
 		rpc_request_processor,
 		rpc_process_container,
-		work_watcher,
 		confirmation_height_processing,
 		worker,
 		request_aggregator,
 		state_block_signature_verification,
 		epoch_upgrader,
-		db_parallel_traversal
+		db_parallel_traversal,
+		election_scheduler
 	};
 	/*
 	 * Get/Set the identifier for the current thread
@@ -90,7 +90,7 @@ class relaxed_atomic_integral
 public:
 	relaxed_atomic_integral () noexcept = default;
 	constexpr relaxed_atomic_integral (T desired) noexcept :
-	atomic (desired)
+		atomic (desired)
 	{
 	}
 
@@ -169,10 +169,10 @@ public:
 	~thread_pool ();
 
 	/** This will run when there is an available thread for execution */
-	void push_task (std::function<void()>);
+	void push_task (std::function<void ()>);
 
 	/** Run a task at a certain point in time */
-	void add_timed_task (std::chrono::steady_clock::time_point const & expiry_time, std::function<void()> task);
+	void add_timed_task (std::chrono::steady_clock::time_point const & expiry_time, std::function<void ()> task);
 
 	/** Stops any further pushed tasks from executing */
 	void stop ();

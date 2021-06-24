@@ -132,11 +132,21 @@ void dump_crash_stacktrace ();
  */
 std::string generate_stacktrace ();
 
+/**
+ * Some systems, especially in virtualized environments, may have very low file descriptor limits,
+ * causing the node to fail. This function attempts to query the limit and returns the value. If the
+ * limit cannot be queried, or running on a Windows system, this returns max-value of std::size_t.
+ * Increasing the limit programmatically can be done only for the soft limit, the hard one requiring
+ * super user permissions to modify.
+ */
+std::size_t get_file_descriptor_limit ();
+void set_file_descriptor_limit (std::size_t limit);
+
 template <typename... T>
 class observer_set final
 {
 public:
-	void add (std::function<void(T...)> const & observer_a)
+	void add (std::function<void (T...)> const & observer_a)
 	{
 		nano::lock_guard<nano::mutex> lock (mutex);
 		observers.push_back (observer_a);
@@ -150,7 +160,7 @@ public:
 		}
 	}
 	nano::mutex mutex{ mutex_identifier (mutexes::observer_set) };
-	std::vector<std::function<void(T...)>> observers;
+	std::vector<std::function<void (T...)>> observers;
 };
 
 template <typename... T>

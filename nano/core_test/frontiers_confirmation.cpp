@@ -1,5 +1,5 @@
 #include <nano/node/active_transactions.hpp>
-#include <nano/node/testing.hpp>
+#include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
@@ -69,8 +69,8 @@ TEST (frontiers_confirmation, prioritize_frontiers)
 
 	auto transaction = node->store.tx_begin_read ();
 	constexpr auto num_accounts = 5;
-	auto priority_orders_match = [](auto const & cementable_frontiers, auto const & desired_order) {
-		return std::equal (desired_order.begin (), desired_order.end (), cementable_frontiers.template get<1> ().begin (), cementable_frontiers.template get<1> ().end (), [](nano::account const & account, nano::cementable_account const & cementable_account) {
+	auto priority_orders_match = [] (auto const & cementable_frontiers, auto const & desired_order) {
+		return std::equal (desired_order.begin (), desired_order.end (), cementable_frontiers.template get<1> ().begin (), cementable_frontiers.template get<1> ().end (), [] (nano::account const & account, nano::cementable_account const & cementable_account) {
 			return (account == cementable_account.account);
 		});
 	};

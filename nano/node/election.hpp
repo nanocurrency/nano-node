@@ -1,8 +1,8 @@
 #pragma once
 
-#include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/store.hpp>
 
 #include <atomic>
 #include <chrono>
@@ -45,13 +45,6 @@ enum class election_behavior
 	normal,
 	optimistic
 };
-struct election_cleanup_info final
-{
-	bool confirmed;
-	nano::qualified_root root;
-	nano::block_hash winner;
-	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks;
-};
 struct election_extended_status final
 {
 	nano::election_status status;
@@ -62,15 +55,14 @@ class election final : public std::enable_shared_from_this<nano::election>
 {
 	// Minimum time between broadcasts of the current winner of an election, as a backup to requesting confirmations
 	std::chrono::milliseconds base_latency () const;
-	std::function<void(std::shared_ptr<nano::block> const &)> confirmation_action;
-	std::function<void(nano::account const &)> live_vote_action;
+	std::function<void (std::shared_ptr<nano::block> const &)> confirmation_action;
+	std::function<void (nano::account const &)> live_vote_action;
 
 private: // State management
 	enum class state_t
 	{
 		passive, // only listening for incoming votes
 		active, // actively request confirmations
-		broadcasting, // request confirmations and broadcast the winner
 		confirmed, // confirmed but still listening for votes
 		expired_confirmed,
 		expired_unconfirmed
@@ -89,7 +81,6 @@ private: // State management
 
 	bool valid_change (nano::election::state_t, nano::election::state_t) const;
 	bool state_change (nano::election::state_t, nano::election::state_t);
-	std::atomic<bool> prioritized_m = { false };
 
 public: // State transitions
 	bool transition_time (nano::confirmation_solicitor &);
@@ -98,7 +89,6 @@ public: // State transitions
 public: // Status
 	bool confirmed () const;
 	bool failed () const;
-	bool prioritized () const;
 	bool optimistic () const;
 	nano::election_extended_status current_status () const;
 	std::shared_ptr<nano::block> winner () const;
@@ -112,15 +102,13 @@ public: // Status
 	nano::election_status status;
 
 public: // Interface
-	election (nano::node &, std::shared_ptr<nano::block> const &, std::function<void(std::shared_ptr<nano::block> const &)> const &, std::function<void(nano::account const &)> const &, bool, nano::election_behavior);
+	election (nano::node &, std::shared_ptr<nano::block> const &, std::function<void (std::shared_ptr<nano::block> const &)> const &, std::function<void (nano::account const &)> const &, nano::election_behavior);
 	std::shared_ptr<nano::block> find (nano::block_hash const &) const;
 	nano::election_vote_result vote (nano::account const &, uint64_t, nano::block_hash const &);
 	bool publish (std::shared_ptr<nano::block> const & block_a);
 	size_t insert_inactive_votes_cache (nano::inactive_cache_information const &);
 	// Confirm this block if quorum is met
 	void confirm_if_quorum (nano::unique_lock<nano::mutex> &);
-	void prioritize (nano::vote_generator_session &);
-	nano::election_cleanup_info cleanup_info () const;
 
 public: // Information
 	uint64_t const height;
@@ -139,11 +127,12 @@ private:
 	void remove_votes (nano::block_hash const &);
 	void remove_block (nano::block_hash const &);
 	bool replace_by_weight (nano::unique_lock<nano::mutex> & lock_a, nano::block_hash const &);
-	nano::election_cleanup_info cleanup_info_impl () const;
 
 private:
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> last_blocks;
 	std::unordered_map<nano::account, nano::vote_info> last_votes;
+	std::atomic<bool> is_quorum{ false };
+	mutable nano::uint128_t final_weight{ 0 };
 	mutable std::unordered_map<nano::block_hash, nano::uint128_t> last_tally;
 
 	nano::election_behavior const behavior{ nano::election_behavior::normal };

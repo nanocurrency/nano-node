@@ -56,6 +56,8 @@ add_library(
   distributed_work_factory.cpp
   election.hpp
   election.cpp
+  election_scheduler.hpp
+  election_scheduler.cpp
   gap_cache.hpp
   gap_cache.cpp
   ipc/action_handler.hpp
@@ -105,6 +107,8 @@ add_library(
   peer_exclusion.cpp
   portmapping.hpp
   portmapping.cpp
+  prioritization.cpp
+  prioritization.hpp
   node_pow_server_config.hpp
   node_pow_server_config.cpp
   repcrawler.hpp
@@ -124,8 +128,6 @@ add_library(
   state_block_signature_verification.cpp
   telemetry.hpp
   telemetry.cpp
-  testing.hpp
-  testing.cpp
   transport/tcp.hpp
   transport/tcp.cpp
   transport/transport.hpp

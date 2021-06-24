@@ -2,7 +2,7 @@
 
 #include <nano/lib/diagnosticsconfig.hpp>
 #include <nano/lib/timer.hpp>
-#include <nano/secure/blockstore.hpp>
+#include <nano/secure/store.hpp>
 
 #include <boost/property_tree/ptree_fwd.hpp>
 #include <boost/stacktrace/stacktrace_fwd.hpp>
@@ -20,8 +20,8 @@ class mdb_env;
 class mdb_txn_callbacks
 {
 public:
-	std::function<void(const nano::transaction_impl *)> txn_start{ [](const nano::transaction_impl *) {} };
-	std::function<void(const nano::transaction_impl *)> txn_end{ [](const nano::transaction_impl *) {} };
+	std::function<void (const nano::transaction_impl *)> txn_start{ [] (const nano::transaction_impl *) {} };
+	std::function<void (const nano::transaction_impl *)> txn_end{ [] (const nano::transaction_impl *) {} };
 };
 
 class read_mdb_txn final : public read_transaction_impl

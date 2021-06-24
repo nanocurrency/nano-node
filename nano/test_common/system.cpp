@@ -1,7 +1,7 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/node/common.hpp>
-#include <nano/node/testing.hpp>
 #include <nano/node/transport/udp.hpp>
+#include <nano/test_common/system.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 
@@ -80,7 +80,7 @@ std::shared_ptr<nano::node> nano::system::add_node (nano::node_config const & no
 			}
 		}
 		auto iterations1 (0);
-		while (std::any_of (begin, nodes.end (), [](std::shared_ptr<nano::node> const & node_a) { return node_a->bootstrap_initiator.in_progress (); }))
+		while (std::any_of (begin, nodes.end (), [] (std::shared_ptr<nano::node> const & node_a) { return node_a->bootstrap_initiator.in_progress (); }))
 		{
 			poll ();
 			++iterations1;
@@ -112,7 +112,7 @@ nano::system::system ()
 }
 
 nano::system::system (uint16_t count_a, nano::transport::transport_type type_a, nano::node_flags flags_a) :
-system ()
+	system ()
 {
 	nodes.reserve (count_a);
 	for (uint16_t i (0); i < count_a; ++i)
@@ -184,14 +184,14 @@ std::unique_ptr<nano::state_block> nano::upgrade_epoch (nano::work_pool & pool_a
 	nano::state_block_builder builder;
 	std::error_code ec;
 	auto epoch = builder
-	             .account (dev_genesis_key.pub)
-	             .previous (latest)
-	             .balance (balance)
-	             .link (ledger_a.epoch_link (epoch_a))
-	             .representative (dev_genesis_key.pub)
-	             .sign (dev_genesis_key.prv, dev_genesis_key.pub)
-	             .work (*pool_a.generate (latest, nano::work_threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true))))
-	             .build (ec);
+				 .account (dev_genesis_key.pub)
+				 .previous (latest)
+				 .balance (balance)
+				 .link (ledger_a.epoch_link (epoch_a))
+				 .representative (dev_genesis_key.pub)
+				 .sign (dev_genesis_key.prv, dev_genesis_key.pub)
+				 .work (*pool_a.generate (latest, nano::work_threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true))))
+				 .build (ec);
 
 	bool error{ true };
 	if (!ec && epoch)
@@ -260,7 +260,7 @@ std::error_code nano::system::poll (std::chrono::nanoseconds const & wait_time)
 	return ec;
 }
 
-std::error_code nano::system::poll_until_true (std::chrono::nanoseconds deadline_a, std::function<bool()> predicate_a)
+std::error_code nano::system::poll_until_true (std::chrono::nanoseconds deadline_a, std::function<bool ()> predicate_a)
 {
 	std::error_code ec;
 	deadline_set (deadline_a);
@@ -277,10 +277,10 @@ class traffic_generator : public std::enable_shared_from_this<traffic_generator>
 {
 public:
 	traffic_generator (uint32_t count_a, uint32_t wait_a, std::shared_ptr<nano::node> const & node_a, nano::system & system_a) :
-	count (count_a),
-	wait (wait_a),
-	node (node_a),
-	system (system_a)
+		count (count_a),
+		wait (wait_a),
+		node (node_a),
+		system (system_a)
 	{
 	}
 	void run ()
@@ -291,7 +291,7 @@ public:
 		if (count_l > 0)
 		{
 			auto this_l (shared_from_this ());
-			node->workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (wait), [this_l]() { this_l->run (); });
+			node->workers.add_timed_task (std::chrono::steady_clock::now () + std::chrono::milliseconds (wait), [this_l] () { this_l->run (); });
 		}
 	}
 	std::vector<nano::account> accounts;
@@ -325,7 +325,7 @@ void nano::system::generate_rollback (nano::node & node_a, std::vector<nano::acc
 	auto index (random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (accounts_a.size () - 1)));
 	auto account (accounts_a[index]);
 	nano::account_info info;
-	auto error (node_a.store.account_get (transaction, account, info));
+	auto error (node_a.store.account.get (transaction, account, info));
 	if (!error)
 	{
 		auto hash (info.open_block);
@@ -340,7 +340,6 @@ void nano::system::generate_rollback (nano::node & node_a, std::vector<nano::acc
 			debug_assert (!error);
 			for (auto & i : rollback_list)
 			{
-				node_a.wallets.watcher->remove (*i);
 				node_a.active.erase (*i);
 			}
 		}
@@ -354,11 +353,11 @@ void nano::system::generate_receive (nano::node & node_a)
 		auto transaction (node_a.store.tx_begin_read ());
 		nano::account random_account;
 		random_pool::generate_block (random_account.bytes.data (), sizeof (random_account.bytes));
-		auto i (node_a.store.pending_begin (transaction, nano::pending_key (random_account, 0)));
-		if (i != node_a.store.pending_end ())
+		auto i (node_a.store.pending.begin (transaction, nano::pending_key (random_account, 0)));
+		if (i != node_a.store.pending.end ())
 		{
 			nano::pending_key const & send_hash (i->first);
-			send_block = node_a.store.block_get (transaction, send_hash.hash);
+			send_block = node_a.store.block.get (transaction, send_hash.hash);
 		}
 	}
 	if (send_block != nullptr)
@@ -422,12 +421,12 @@ void nano::system::generate_send_existing (nano::node & node_a, std::vector<nano
 		nano::account account;
 		random_pool::generate_block (account.bytes.data (), sizeof (account.bytes));
 		auto transaction (node_a.store.tx_begin_read ());
-		nano::store_iterator<nano::account, nano::account_info> entry (node_a.store.accounts_begin (transaction, account));
-		if (entry == node_a.store.accounts_end ())
+		nano::store_iterator<nano::account, nano::account_info> entry (node_a.store.account.begin (transaction, account));
+		if (entry == node_a.store.account.end ())
 		{
-			entry = node_a.store.accounts_begin (transaction);
+			entry = node_a.store.account.begin (transaction);
 		}
-		debug_assert (entry != node_a.store.accounts_end ());
+		debug_assert (entry != node_a.store.account.end ());
 		destination = nano::account (entry->first);
 		source = get_random_account (accounts_a);
 		amount = get_random_amount (transaction, node_a, source);
@@ -550,11 +549,4 @@ void nano::cleanup_dev_directories_on_exit ()
 	{
 		nano::remove_temporary_directories ();
 	}
-}
-
-bool nano::using_rocksdb_in_tests ()
-{
-	static nano::network_constants network_constants;
-	auto use_rocksdb_str = std::getenv ("TEST_USE_ROCKSDB");
-	return network_constants.is_dev_network () && use_rocksdb_str && (boost::lexical_cast<int> (use_rocksdb_str) == 1);
 }

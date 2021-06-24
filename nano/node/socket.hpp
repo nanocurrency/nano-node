@@ -33,6 +33,13 @@ class socket : public std::enable_shared_from_this<nano::socket>
 	friend class server_socket;
 
 public:
+	enum class type_t
+	{
+		undefined,
+		bootstrap,
+		realtime,
+		realtime_response_server // special type for tcp channel response server
+	};
 	/**
 	 * Constructor
 	 * @param node Owning node
@@ -41,12 +48,13 @@ public:
 	 */
 	explicit socket (nano::node & node, boost::optional<std::chrono::seconds> io_timeout = boost::none);
 	virtual ~socket ();
-	void async_connect (boost::asio::ip::tcp::endpoint const &, std::function<void(boost::system::error_code const &)>);
-	void async_read (std::shared_ptr<std::vector<uint8_t>> const &, size_t, std::function<void(boost::system::error_code const &, size_t)>);
-	void async_write (nano::shared_const_buffer const &, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr);
+	void async_connect (boost::asio::ip::tcp::endpoint const &, std::function<void (boost::system::error_code const &)>);
+	void async_read (std::shared_ptr<std::vector<uint8_t>> const &, size_t, std::function<void (boost::system::error_code const &, size_t)>);
+	void async_write (nano::shared_const_buffer const &, std::function<void (boost::system::error_code const &, size_t)> const & = nullptr);
 
 	void close ();
 	boost::asio::ip::tcp::endpoint remote_endpoint () const;
+	boost::asio::ip::tcp::endpoint local_endpoint () const;
 	/** Returns true if the socket has timed out */
 	bool has_timed_out () const;
 	/** This can be called to change the maximum idle time, e.g. based on the type of traffic detected. */
@@ -67,7 +75,7 @@ protected:
 	{
 	public:
 		nano::shared_const_buffer buffer;
-		std::function<void(boost::system::error_code const &, size_t)> callback;
+		std::function<void (boost::system::error_code const &, size_t)> callback;
 	};
 
 	boost::asio::strand<boost::asio::io_context::executor_type> strand;
@@ -112,7 +120,7 @@ public:
 	/** Stop accepting new connections */
 	void close ();
 	/** Register callback for new connections. The callback must return true to keep accepting new connections. */
-	void on_connection (std::function<bool(std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const &)>);
+	void on_connection (std::function<bool (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const &)>);
 	uint16_t listening_port ()
 	{
 		return local.port ();
@@ -124,5 +132,7 @@ private:
 	boost::asio::ip::tcp::endpoint local;
 	size_t max_inbound_connections;
 	void evict_dead_connections ();
+	bool is_temporary_error (boost::system::error_code const ec_a);
+	void on_connection_requeue_delayed (std::function<bool (std::shared_ptr<nano::socket> const & new_connection, boost::system::error_code const &)>);
 };
 }

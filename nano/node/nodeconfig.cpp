@@ -21,14 +21,14 @@ const std::string default_test_peer_network = nano::get_env_or_default ("NANO_TE
 }
 
 nano::node_config::node_config () :
-node_config (0, nano::logging ())
+	node_config (0, nano::logging ())
 {
 }
 
 nano::node_config::node_config (uint16_t peering_port_a, nano::logging const & logging_a) :
-peering_port (peering_port_a),
-logging (logging_a),
-external_address (boost::asio::ip::address_v6{}.to_string ())
+	peering_port (peering_port_a),
+	logging (logging_a),
+	external_address (boost::asio::ip::address_v6{}.to_string ())
 {
 	// The default constructor passes 0 to indicate we should use the default port,
 	// which is determined at node startup based on active network.
@@ -87,6 +87,7 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("bootstrap_connections", bootstrap_connections, "Number of outbound bootstrap connections. Must be a power of 2. Defaults to 4.\nWarning: a larger amount of connections may use substantially more system memory.\ntype:uint64");
 	toml.put ("bootstrap_connections_max", bootstrap_connections_max, "Maximum number of inbound bootstrap connections. Defaults to 64.\nWarning: a larger amount of connections may use additional system memory.\ntype:uint64");
 	toml.put ("bootstrap_initiator_threads", bootstrap_initiator_threads, "Number of threads dedicated to concurrent bootstrap attempts. Defaults to 1.\nWarning: a larger amount of attempts may use additional system memory and disk IO.\ntype:uint64");
+	toml.put ("bootstrap_frontier_request_count", bootstrap_frontier_request_count, "Number frontiers per bootstrap frontier request. Defaults to 1048576.\ntype:uint32,[1024..4294967295]");
 	toml.put ("lmdb_max_dbs", deprecated_lmdb_max_dbs, "DEPRECATED: use node.lmdb.max_databases instead.\nMaximum open lmdb databases. Increase default if more than 100 wallets is required.\nNote: external management is recommended when a large number of wallets is required (see https://docs.nano.org/integration-guides/key-management/).\ntype:uint64");
 	toml.put ("block_processor_batch_max_time", block_processor_batch_max_time.count (), "The maximum time the block processor can continuously process blocks for.\ntype:milliseconds");
 	toml.put ("allow_local_peers", allow_local_peers, "Enable or disable local host peering.\ntype:bool");
@@ -106,10 +107,10 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("bandwidth_limit_burst_ratio", bandwidth_limit_burst_ratio, "Burst ratio for outbound traffic shaping.\ntype:double");
 	toml.put ("conf_height_processor_batch_min_time", conf_height_processor_batch_min_time.count (), "Minimum write batching time when there are blocks pending confirmation height.\ntype:milliseconds");
 	toml.put ("backup_before_upgrade", backup_before_upgrade, "Backup the ledger database before performing upgrades.\nWarning: uses more disk storage and increases startup time when upgrading.\ntype:bool");
-	toml.put ("work_watcher_period", work_watcher_period.count (), "Time between checks for confirmation and re-generating higher difficulty work if unconfirmed, for blocks in the work watcher.\ntype:seconds");
 	toml.put ("max_work_generate_multiplier", max_work_generate_multiplier, "Maximum allowed difficulty multiplier for work generation.\ntype:double,[1..]");
 	toml.put ("frontiers_confirmation", serialize_frontiers_confirmation (frontiers_confirmation), "Mode controlling frontier confirmation rate.\ntype:string,{auto,always,disabled}");
 	toml.put ("max_queued_requests", max_queued_requests, "Limit for number of queued confirmation requests for one channel, after which new requests are dropped until the queue drops below this value.\ntype:uint32");
+	toml.put ("confirm_req_batches_max", confirm_req_batches_max, "Limit for the number of confirmation requests for one channel per request attempt\ntype:uint32");
 
 	auto work_peers_l (toml.create_array ("work_peers", "A list of \"address:port\" entries to identify work peers."));
 	for (auto i (work_peers.begin ()), n (work_peers.end ()); i != n; ++i)
@@ -117,7 +118,7 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 		work_peers_l->push_back (boost::str (boost::format ("%1%:%2%") % i->first % i->second));
 	}
 
-	auto preconfigured_peers_l (toml.create_array ("preconfigured_peers", "A list of \"address\" (hostname or ip address) entries to identify preconfigured peers."));
+	auto preconfigured_peers_l (toml.create_array ("preconfigured_peers", "A list of \"address\" (hostname or ipv6 notation ip address) entries to identify preconfigured peers."));
 	for (auto i (preconfigured_peers.begin ()), n (preconfigured_peers.end ()); i != n; ++i)
 	{
 		preconfigured_peers_l->push_back (*i);
@@ -228,7 +229,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		if (toml.has_key ("work_peers"))
 		{
 			work_peers.clear ();
-			toml.array_entries_required<std::string> ("work_peers", [this](std::string const & entry_a) {
+			toml.array_entries_required<std::string> ("work_peers", [this] (std::string const & entry_a) {
 				this->deserialize_address (entry_a, this->work_peers);
 			});
 		}
@@ -236,7 +237,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		if (toml.has_key (preconfigured_peers_key))
 		{
 			preconfigured_peers.clear ();
-			toml.array_entries_required<std::string> (preconfigured_peers_key, [this](std::string entry) {
+			toml.array_entries_required<std::string> (preconfigured_peers_key, [this] (std::string entry) {
 				preconfigured_peers.push_back (entry);
 			});
 		}
@@ -244,7 +245,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		if (toml.has_key ("preconfigured_representatives"))
 		{
 			preconfigured_representatives.clear ();
-			toml.array_entries_required<std::string> ("preconfigured_representatives", [this, &toml](std::string entry) {
+			toml.array_entries_required<std::string> ("preconfigured_representatives", [this, &toml] (std::string entry) {
 				nano::account representative (0);
 				if (representative.decode_account (entry))
 				{
@@ -317,6 +318,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		toml.get<unsigned> ("bootstrap_connections", bootstrap_connections);
 		toml.get<unsigned> ("bootstrap_connections_max", bootstrap_connections_max);
 		toml.get<unsigned> ("bootstrap_initiator_threads", bootstrap_initiator_threads);
+		toml.get<uint32_t> ("bootstrap_frontier_request_count", bootstrap_frontier_request_count);
 		toml.get<bool> ("enable_voting", enable_voting);
 		toml.get<bool> ("allow_local_peers", allow_local_peers);
 		toml.get<unsigned> (signature_checker_threads_key, signature_checker_threads);
@@ -360,10 +362,6 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		toml.get<double> ("bandwidth_limit_burst_ratio", bandwidth_limit_burst_ratio);
 		toml.get<bool> ("backup_before_upgrade", backup_before_upgrade);
 
-		auto work_watcher_period_l = work_watcher_period.count ();
-		toml.get ("work_watcher_period", work_watcher_period_l);
-		work_watcher_period = std::chrono::seconds (work_watcher_period_l);
-
 		auto conf_height_processor_batch_min_time_l (conf_height_processor_batch_min_time.count ());
 		toml.get ("conf_height_processor_batch_min_time", conf_height_processor_batch_min_time_l);
 		conf_height_processor_batch_min_time = std::chrono::milliseconds (conf_height_processor_batch_min_time_l);
@@ -372,6 +370,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		toml.get<double> ("max_work_generate_multiplier", max_work_generate_multiplier);
 
 		toml.get<uint32_t> ("max_queued_requests", max_queued_requests);
+		toml.get<uint32_t> ("confirm_req_batches_max", confirm_req_batches_max);
 
 		if (toml.has_key ("frontiers_confirmation"))
 		{
@@ -385,7 +384,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 			if (experimental_config_l.has_key ("secondary_work_peers"))
 			{
 				secondary_work_peers.clear ();
-				experimental_config_l.array_entries_required<std::string> ("secondary_work_peers", [this](std::string const & entry_a) {
+				experimental_config_l.array_entries_required<std::string> ("secondary_work_peers", [this] (std::string const & entry_a) {
 					this->deserialize_address (entry_a, this->secondary_work_peers);
 				});
 			}
@@ -421,10 +420,6 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			toml.get_error ().set ("vote_generator_threshold must be a number between 1 and 11");
 		}
-		if (work_watcher_period < std::chrono::seconds (1))
-		{
-			toml.get_error ().set ("work_watcher_period must be equal or larger than 1");
-		}
 		if (max_work_generate_multiplier < 1)
 		{
 			toml.get_error ().set ("max_work_generate_multiplier must be greater than or equal to 1");
@@ -440,6 +435,14 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		if (max_pruning_age < std::chrono::seconds (5 * 60) && !network.is_dev_network ())
 		{
 			toml.get_error ().set ("max_pruning_age must be greater than or equal to 5 minutes");
+		}
+		if (confirm_req_batches_max < 1 || confirm_req_batches_max > 100)
+		{
+			toml.get_error ().set ("confirm_req_batches_max must be between 1 and 100");
+		}
+		if (bootstrap_frontier_request_count < 1024)
+		{
+			toml.get_error ().set ("bootstrap_frontier_request_count must be greater than or equal to 1024");
 		}
 	}
 	catch (std::runtime_error const & ex)
@@ -519,7 +522,7 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("active_elections_size", active_elections_size);
 	json.put ("bandwidth_limit", bandwidth_limit);
 	json.put ("backup_before_upgrade", backup_before_upgrade);
-	json.put ("work_watcher_period", work_watcher_period.count ());
+	json.put ("work_watcher_period", 5);
 
 	return json.get_error ();
 }
@@ -551,7 +554,7 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			json.put ("active_elections_size", 10000); // Update value
 			json.put ("vote_generator_delay", 100); // Update value
 			json.put ("backup_before_upgrade", backup_before_upgrade);
-			json.put ("work_watcher_period", work_watcher_period.count ());
+			json.put ("work_watcher_period", 5);
 		}
 		case 18:
 			break;
@@ -573,7 +576,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 
 		work_peers.clear ();
 		auto work_peers_l (json.get_required_child ("work_peers"));
-		work_peers_l.array_entries<std::string> ([this](std::string entry) {
+		work_peers_l.array_entries<std::string> ([this] (std::string entry) {
 			auto port_position (entry.rfind (':'));
 			bool result = port_position == -1;
 			if (!result)
@@ -591,13 +594,13 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 
 		auto preconfigured_peers_l (json.get_required_child (preconfigured_peers_key));
 		preconfigured_peers.clear ();
-		preconfigured_peers_l.array_entries<std::string> ([this](std::string entry) {
+		preconfigured_peers_l.array_entries<std::string> ([this] (std::string entry) {
 			preconfigured_peers.push_back (entry);
 		});
 
 		auto preconfigured_representatives_l (json.get_required_child ("preconfigured_representatives"));
 		preconfigured_representatives.clear ();
-		preconfigured_representatives_l.array_entries<std::string> ([this, &json](std::string entry) {
+		preconfigured_representatives_l.array_entries<std::string> ([this, &json] (std::string entry) {
 			nano::account representative (0);
 			if (representative.decode_account (entry))
 			{
@@ -695,10 +698,6 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		json.get<size_t> ("bandwidth_limit", bandwidth_limit);
 		json.get<bool> ("backup_before_upgrade", backup_before_upgrade);
 
-		auto work_watcher_period_l = work_watcher_period.count ();
-		json.get ("work_watcher_period", work_watcher_period_l);
-		work_watcher_period = std::chrono::seconds (work_watcher_period_l);
-
 		auto conf_height_processor_batch_min_time_l (conf_height_processor_batch_min_time.count ());
 		json.get ("conf_height_processor_batch_min_time", conf_height_processor_batch_min_time_l);
 		conf_height_processor_batch_min_time = std::chrono::milliseconds (conf_height_processor_batch_min_time_l);
@@ -724,10 +723,6 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		if (vote_generator_threshold < 1 || vote_generator_threshold > 11)
 		{
 			json.get_error ().set ("vote_generator_threshold must be a number between 1 and 11");
-		}
-		if (work_watcher_period < std::chrono::seconds (1))
-		{
-			json.get_error ().set ("work_watcher_period must be equal or larger than 1");
 		}
 	}
 	catch (std::runtime_error const & ex)

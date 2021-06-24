@@ -1,5 +1,5 @@
 #include <nano/node/election.hpp>
-#include <nano/node/testing.hpp>
+#include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
@@ -18,10 +18,12 @@ TEST (conflicts, start_stop)
 	node1.work_generate_blocking (*send1);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
 	ASSERT_EQ (0, node1.active.size ());
-	auto election1 = node1.active.insert (send1);
+	node1.scheduler.activate (nano::dev_genesis_key.pub, node1.store.tx_begin_read ());
+	node1.scheduler.flush ();
+	auto election1 = node1.active.election (send1->qualified_root ());
 	ASSERT_EQ (1, node1.active.size ());
-	ASSERT_NE (nullptr, election1.election);
-	ASSERT_EQ (1, election1.election->votes ().size ());
+	ASSERT_NE (nullptr, election1);
+	ASSERT_EQ (1, election1->votes ().size ());
 }
 
 TEST (conflicts, add_existing)
@@ -33,17 +35,19 @@ TEST (conflicts, add_existing)
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send1);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
-	node1.active.insert (send1);
+	node1.scheduler.activate (nano::dev_genesis_key.pub, node1.store.tx_begin_read ());
 	nano::keypair key2;
 	auto send2 (std::make_shared<nano::send_block> (genesis.hash (), key2.pub, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 	send2->sideband_set ({});
-	auto election1 = node1.active.insert (send2);
+	node1.scheduler.activate (nano::dev_genesis_key.pub, node1.store.tx_begin_read ());
+	node1.scheduler.flush ();
+	auto election1 = node1.active.election (send2->qualified_root ());
+	ASSERT_NE (nullptr, election1);
 	ASSERT_EQ (1, node1.active.size ());
 	auto vote1 (std::make_shared<nano::vote> (key2.pub, key2.prv, 0, send2));
 	node1.active.vote (vote1);
-	ASSERT_NE (nullptr, election1.election);
-	ASSERT_EQ (2, election1.election->votes ().size ());
-	auto votes (election1.election->votes ());
+	ASSERT_EQ (2, election1->votes ().size ());
+	auto votes (election1->votes ());
 	ASSERT_NE (votes.end (), votes.find (key2.pub));
 }
 
@@ -56,12 +60,14 @@ TEST (conflicts, add_two)
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send1);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
-	node1.active.insert (send1);
+	node1.block_confirm (send1);
+	node1.active.election (send1->qualified_root ())->force_confirm ();
 	nano::keypair key2;
 	auto send2 (std::make_shared<nano::send_block> (send1->hash (), key2.pub, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send2);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send2).code);
-	node1.active.insert (send2);
+	node1.scheduler.activate (nano::dev_genesis_key.pub, node1.store.tx_begin_read ());
+	node1.scheduler.flush ();
 	ASSERT_EQ (2, node1.active.size ());
 }
 
@@ -149,37 +155,5 @@ TEST (vote_uniquer, cleanup)
 	{
 		auto vote5 (uniquer.unique (vote1));
 		ASSERT_LT (iterations++, 200);
-	}
-}
-
-TEST (conflicts, reprioritize)
-{
-	nano::system system (1);
-	auto & node1 (*system.nodes[0]);
-	nano::genesis genesis;
-	nano::keypair key1;
-	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
-	node1.work_generate_blocking (*send1);
-	auto difficulty1 (send1->difficulty ());
-	auto multiplier1 (nano::normalized_multiplier (nano::difficulty::to_multiplier (difficulty1, nano::work_threshold (send1->work_version (), nano::block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */))), node1.network_params.network.publish_thresholds.epoch_1));
-	nano::send_block send1_copy (*send1);
-	node1.process_active (send1);
-	node1.block_processor.flush ();
-	{
-		nano::lock_guard<nano::mutex> guard (node1.active.mutex);
-		auto existing1 (node1.active.roots.find (send1->qualified_root ()));
-		ASSERT_NE (node1.active.roots.end (), existing1);
-		ASSERT_EQ (multiplier1, existing1->multiplier);
-	}
-	node1.work_generate_blocking (send1_copy, difficulty1);
-	auto difficulty2 (send1_copy.difficulty ());
-	auto multiplier2 (nano::normalized_multiplier (nano::difficulty::to_multiplier (difficulty2, nano::work_threshold (send1_copy.work_version (), nano::block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */))), node1.network_params.network.publish_thresholds.epoch_1));
-	node1.process_active (std::make_shared<nano::send_block> (send1_copy));
-	node1.block_processor.flush ();
-	{
-		nano::lock_guard<nano::mutex> guard (node1.active.mutex);
-		auto existing2 (node1.active.roots.find (send1->qualified_root ()));
-		ASSERT_NE (node1.active.roots.end (), existing2);
-		ASSERT_EQ (multiplier2, existing2->multiplier);
 	}
 }

@@ -55,8 +55,6 @@ namespace websocket
 		stopped_election,
 		/** A vote message **/
 		vote,
-		/** An active difficulty message */
-		active_difficulty,
 		/** Work generation message */
 		work,
 		/** A bootstrap message */
@@ -75,11 +73,11 @@ namespace websocket
 	{
 	public:
 		message (nano::websocket::topic topic_a) :
-		topic (topic_a)
+			topic (topic_a)
 		{
 		}
 		message (nano::websocket::topic topic_a, boost::property_tree::ptree & tree_a) :
-		topic (topic_a), contents (tree_a)
+			topic (topic_a), contents (tree_a)
 		{
 		}
 
@@ -95,7 +93,6 @@ namespace websocket
 		message block_confirmed (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype, bool include_block, nano::election_status const & election_status_a, std::vector<nano::vote_with_weight_info> const & election_votes_a, nano::websocket::confirmation_options const & options_a);
 		message stopped_election (nano::block_hash const & hash_a);
 		message vote_received (std::shared_ptr<nano::vote> const & vote_a, nano::vote_code code_a);
-		message difficulty_changed (uint64_t publish_threshold_a, uint64_t receive_threshold_a, uint64_t difficulty_active_a);
 		message work_generation (nano::work_version const version_a, nano::block_hash const & root_a, uint64_t const work_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::string const & peer_a, std::vector<std::string> const & bad_peers_a, bool const completed_a = true, bool const cancelled_a = false);
 		message work_cancelled (nano::work_version const version_a, nano::block_hash const & root_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::vector<std::string> const & bad_peers_a);
 		message work_failed (nano::work_version const version_a, nano::block_hash const & root_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::vector<std::string> const & bad_peers_a);

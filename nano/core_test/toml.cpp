@@ -155,6 +155,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.bootstrap_connections, defaults.node.bootstrap_connections);
 	ASSERT_EQ (conf.node.bootstrap_connections_max, defaults.node.bootstrap_connections_max);
 	ASSERT_EQ (conf.node.bootstrap_initiator_threads, defaults.node.bootstrap_initiator_threads);
+	ASSERT_EQ (conf.node.bootstrap_frontier_request_count, defaults.node.bootstrap_frontier_request_count);
 	ASSERT_EQ (conf.node.bootstrap_fraction_numerator, defaults.node.bootstrap_fraction_numerator);
 	ASSERT_EQ (conf.node.conf_height_processor_batch_min_time, defaults.node.conf_height_processor_batch_min_time);
 	ASSERT_EQ (conf.node.confirmation_history_size, defaults.node.confirmation_history_size);
@@ -166,7 +167,6 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.max_work_generate_multiplier, defaults.node.max_work_generate_multiplier);
 	ASSERT_EQ (conf.node.network_threads, defaults.node.network_threads);
 	ASSERT_EQ (conf.node.secondary_work_peers, defaults.node.secondary_work_peers);
-	ASSERT_EQ (conf.node.work_watcher_period, defaults.node.work_watcher_period);
 	ASSERT_EQ (conf.node.online_weight_minimum, defaults.node.online_weight_minimum);
 	ASSERT_EQ (conf.node.election_hint_weight_percent, defaults.node.election_hint_weight_percent);
 	ASSERT_EQ (conf.node.password_fanout, defaults.node.password_fanout);
@@ -186,6 +186,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.work_peers, defaults.node.work_peers);
 	ASSERT_EQ (conf.node.work_threads, defaults.node.work_threads);
 	ASSERT_EQ (conf.node.max_queued_requests, defaults.node.max_queued_requests);
+	ASSERT_EQ (conf.node.confirm_req_batches_max, defaults.node.confirm_req_batches_max);
 
 	ASSERT_EQ (conf.node.logging.bulk_pull_logging_value, defaults.node.logging.bulk_pull_logging_value);
 	ASSERT_EQ (conf.node.logging.flush, defaults.node.logging.flush);
@@ -371,7 +372,7 @@ TEST (toml, array)
 	config_node.push<std::string> ("items", "item 1");
 	config_node.push<std::string> ("items", "item 2");
 	int i = 1;
-	config_node.array_entries_required<std::string> ("items", [&i](std::string item) {
+	config_node.array_entries_required<std::string> ("items", [&i] (std::string item) {
 		ASSERT_TRUE (item == std::string ("item ") + std::to_string (i));
 		i++;
 	});
@@ -393,6 +394,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	bootstrap_connections = 999
 	bootstrap_connections_max = 999
 	bootstrap_initiator_threads = 999
+	bootstrap_frontier_request_count = 9999
 	bootstrap_fraction_numerator = 999
 	conf_height_processor_batch_min_time = 999
 	confirmation_history_size = 999
@@ -420,7 +422,6 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	vote_minimum = "999"
 	work_peers = ["dev.org:999"]
 	work_threads = 999
-	work_watcher_period = 999
 	max_work_generate_multiplier = 1.0
 	max_queued_requests = 999
 	frontiers_confirmation = "always"
@@ -555,6 +556,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.bootstrap_connections, defaults.node.bootstrap_connections);
 	ASSERT_NE (conf.node.bootstrap_connections_max, defaults.node.bootstrap_connections_max);
 	ASSERT_NE (conf.node.bootstrap_initiator_threads, defaults.node.bootstrap_initiator_threads);
+	ASSERT_NE (conf.node.bootstrap_frontier_request_count, defaults.node.bootstrap_frontier_request_count);
 	ASSERT_NE (conf.node.bootstrap_fraction_numerator, defaults.node.bootstrap_fraction_numerator);
 	ASSERT_NE (conf.node.conf_height_processor_batch_min_time, defaults.node.conf_height_processor_batch_min_time);
 	ASSERT_NE (conf.node.confirmation_history_size, defaults.node.confirmation_history_size);
@@ -569,7 +571,6 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.secondary_work_peers, defaults.node.secondary_work_peers);
 	ASSERT_NE (conf.node.max_pruning_age, defaults.node.max_pruning_age);
 	ASSERT_NE (conf.node.max_pruning_depth, defaults.node.max_pruning_depth);
-	ASSERT_NE (conf.node.work_watcher_period, defaults.node.work_watcher_period);
 	ASSERT_NE (conf.node.online_weight_minimum, defaults.node.online_weight_minimum);
 	ASSERT_NE (conf.node.election_hint_weight_percent, defaults.node.election_hint_weight_percent);
 	ASSERT_NE (conf.node.password_fanout, defaults.node.password_fanout);
@@ -589,6 +590,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.work_peers, defaults.node.work_peers);
 	ASSERT_NE (conf.node.work_threads, defaults.node.work_threads);
 	ASSERT_NE (conf.node.max_queued_requests, defaults.node.max_queued_requests);
+	ASSERT_EQ (conf.node.confirm_req_batches_max, defaults.node.confirm_req_batches_max);
 
 	ASSERT_NE (conf.node.logging.bulk_pull_logging_value, defaults.node.logging.bulk_pull_logging_value);
 	ASSERT_NE (conf.node.logging.flush, defaults.node.logging.flush);
@@ -657,7 +659,8 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.lmdb_config.max_databases, defaults.node.lmdb_config.max_databases);
 	ASSERT_NE (conf.node.lmdb_config.map_size, defaults.node.lmdb_config.map_size);
 
-	ASSERT_NE (conf.node.rocksdb_config.enable, defaults.node.rocksdb_config.enable);
+	ASSERT_TRUE (conf.node.rocksdb_config.enable);
+	ASSERT_EQ (nano::rocksdb_config::using_rocksdb_in_tests (), defaults.node.rocksdb_config.enable);
 	ASSERT_NE (conf.node.rocksdb_config.memory_multiplier, defaults.node.rocksdb_config.memory_multiplier);
 	ASSERT_NE (conf.node.rocksdb_config.io_threads, defaults.node.rocksdb_config.io_threads);
 }
@@ -820,6 +823,36 @@ TEST (toml, daemon_config_deserialize_errors)
 		conf.deserialize_toml (toml);
 
 		ASSERT_EQ (toml.get_error ().get_message (), "election_hint_weight_percent must be a number between 5 and 50");
+	}
+
+	{
+		std::stringstream ss;
+		ss << R"toml(
+		[node]
+		confirm_req_batches_max = 0
+		)toml";
+
+		nano::tomlconfig toml;
+		toml.read (ss);
+		nano::daemon_config conf;
+		conf.deserialize_toml (toml);
+
+		ASSERT_EQ (toml.get_error ().get_message (), "confirm_req_batches_max must be between 1 and 100");
+	}
+
+	{
+		std::stringstream ss;
+		ss << R"toml(
+		[node]
+		bootstrap_frontier_request_count = 1000
+		)toml";
+
+		nano::tomlconfig toml;
+		toml.read (ss);
+		nano::daemon_config conf;
+		conf.deserialize_toml (toml);
+
+		ASSERT_EQ (toml.get_error ().get_message (), "bootstrap_frontier_request_count must be greater than or equal to 1024");
 	}
 }
 

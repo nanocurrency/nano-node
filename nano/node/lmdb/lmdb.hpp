@@ -7,8 +7,19 @@
 #include <nano/node/lmdb/lmdb_env.hpp>
 #include <nano/node/lmdb/lmdb_iterator.hpp>
 #include <nano/node/lmdb/lmdb_txn.hpp>
-#include <nano/secure/blockstore_partial.hpp>
 #include <nano/secure/common.hpp>
+#include <nano/secure/store/account_store_partial.hpp>
+#include <nano/secure/store/block_store_partial.hpp>
+#include <nano/secure/store/confirmation_height_store_partial.hpp>
+#include <nano/secure/store/final_vote_store_partial.hpp>
+#include <nano/secure/store/frontier_store_partial.hpp>
+#include <nano/secure/store/online_weight_partial.hpp>
+#include <nano/secure/store/peer_store_partial.hpp>
+#include <nano/secure/store/pending_store_partial.hpp>
+#include <nano/secure/store/pruned_store_partial.hpp>
+#include <nano/secure/store/unchecked_store_partial.hpp>
+#include <nano/secure/store/version_store_partial.hpp>
+#include <nano/secure/store_partial.hpp>
 #include <nano/secure/versioning.hpp>
 
 #include <boost/optional.hpp>
@@ -28,22 +39,41 @@ namespace nano
 using mdb_val = db_val<MDB_val>;
 
 class logging_mt;
+class mdb_store;
+
+class unchecked_mdb_store : public unchecked_store_partial<MDB_val, mdb_store>
+{
+public:
+	explicit unchecked_mdb_store (nano::mdb_store &);
+	std::vector<nano::unchecked_info> get (nano::transaction const &, nano::block_hash const &);
+};
+
 /**
  * mdb implementation of the block store
  */
-class mdb_store : public block_store_partial<MDB_val, mdb_store>
+class mdb_store : public store_partial<MDB_val, mdb_store>
 {
-public:
-	using block_store_partial::block_exists;
-	using block_store_partial::unchecked_put;
+private:
+	nano::block_store_partial<MDB_val, mdb_store> block_store_partial;
+	nano::frontier_store_partial<MDB_val, mdb_store> frontier_store_partial;
+	nano::account_store_partial<MDB_val, mdb_store> account_store_partial;
+	nano::pending_store_partial<MDB_val, mdb_store> pending_store_partial;
+	nano::unchecked_mdb_store unchecked_mdb_store;
+	nano::online_weight_store_partial<MDB_val, mdb_store> online_weight_store_partial;
+	nano::pruned_store_partial<MDB_val, mdb_store> pruned_store_partial;
+	nano::peer_store_partial<MDB_val, mdb_store> peer_store_partial;
+	nano::confirmation_height_store_partial<MDB_val, mdb_store> confirmation_height_store_partial;
+	nano::final_vote_store_partial<MDB_val, mdb_store> final_vote_store_partial;
+	nano::version_store_partial<MDB_val, mdb_store> version_store_partial;
 
+	friend class nano::unchecked_mdb_store;
+
+public:
 	mdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{}, bool backup_before_upgrade = false);
 	nano::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_requiring_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) override;
 	nano::read_transaction tx_begin_read () const override;
 
 	std::string vendor_get () const override;
-
-	void version_put (nano::write_transaction const &, int) override;
 
 	void serialize_mdb_tracker (boost::property_tree::ptree &, std::chrono::milliseconds, std::chrono::milliseconds) override;
 
@@ -64,136 +94,141 @@ public:
 	 * Maps head block to owning account
 	 * nano::block_hash -> nano::account
 	 */
-	MDB_dbi frontiers{ 0 };
+	MDB_dbi frontiers_handle{ 0 };
 
 	/**
 	 * Maps account v1 to account information, head, rep, open, balance, timestamp and block count. (Removed)
 	 * nano::account -> nano::block_hash, nano::block_hash, nano::block_hash, nano::amount, uint64_t, uint64_t
 	 */
-	MDB_dbi accounts_v0{ 0 };
+	MDB_dbi accounts_v0_handle{ 0 };
 
 	/**
 	 * Maps account v0 to account information, head, rep, open, balance, timestamp and block count. (Removed)
 	 * nano::account -> nano::block_hash, nano::block_hash, nano::block_hash, nano::amount, uint64_t, uint64_t
 	 */
-	MDB_dbi accounts_v1{ 0 };
+	MDB_dbi accounts_v1_handle{ 0 };
 
 	/**
 	 * Maps account v0 to account information, head, rep, open, balance, timestamp, block count and epoch
 	 * nano::account -> nano::block_hash, nano::block_hash, nano::block_hash, nano::amount, uint64_t, uint64_t, nano::epoch
 	 */
-	MDB_dbi accounts{ 0 };
+	MDB_dbi accounts_handle{ 0 };
 
 	/**
 	 * Maps block hash to send block. (Removed)
 	 * nano::block_hash -> nano::send_block
 	 */
-	MDB_dbi send_blocks{ 0 };
+	MDB_dbi send_blocks_handle{ 0 };
 
 	/**
 	 * Maps block hash to receive block. (Removed)
 	 * nano::block_hash -> nano::receive_block
 	 */
-	MDB_dbi receive_blocks{ 0 };
+	MDB_dbi receive_blocks_handle{ 0 };
 
 	/**
 	 * Maps block hash to open block. (Removed)
 	 * nano::block_hash -> nano::open_block
 	 */
-	MDB_dbi open_blocks{ 0 };
+	MDB_dbi open_blocks_handle{ 0 };
 
 	/**
 	 * Maps block hash to change block. (Removed)
 	 * nano::block_hash -> nano::change_block
 	 */
-	MDB_dbi change_blocks{ 0 };
+	MDB_dbi change_blocks_handle{ 0 };
 
 	/**
 	 * Maps block hash to v0 state block. (Removed)
 	 * nano::block_hash -> nano::state_block
 	 */
-	MDB_dbi state_blocks_v0{ 0 };
+	MDB_dbi state_blocks_v0_handle{ 0 };
 
 	/**
 	 * Maps block hash to v1 state block. (Removed)
 	 * nano::block_hash -> nano::state_block
 	 */
-	MDB_dbi state_blocks_v1{ 0 };
+	MDB_dbi state_blocks_v1_handle{ 0 };
 
 	/**
 	 * Maps block hash to state block. (Removed)
 	 * nano::block_hash -> nano::state_block
 	 */
-	MDB_dbi state_blocks{ 0 };
+	MDB_dbi state_blocks_handle{ 0 };
 
 	/**
 	 * Maps min_version 0 (destination account, pending block) to (source account, amount). (Removed)
 	 * nano::account, nano::block_hash -> nano::account, nano::amount
 	 */
-	MDB_dbi pending_v0{ 0 };
+	MDB_dbi pending_v0_handle{ 0 };
 
 	/**
 	 * Maps min_version 1 (destination account, pending block) to (source account, amount). (Removed)
 	 * nano::account, nano::block_hash -> nano::account, nano::amount
 	 */
-	MDB_dbi pending_v1{ 0 };
+	MDB_dbi pending_v1_handle{ 0 };
 
 	/**
 	 * Maps (destination account, pending block) to (source account, amount, version). (Removed)
 	 * nano::account, nano::block_hash -> nano::account, nano::amount, nano::epoch
 	 */
-	MDB_dbi pending{ 0 };
+	MDB_dbi pending_handle{ 0 };
 
 	/**
 	 * Representative weights. (Removed)
 	 * nano::account -> nano::uint128_t
 	 */
-	MDB_dbi representation{ 0 };
+	MDB_dbi representation_handle{ 0 };
 
 	/**
 	 * Unchecked bootstrap blocks info.
 	 * nano::block_hash -> nano::unchecked_info
 	 */
-	MDB_dbi unchecked{ 0 };
+	MDB_dbi unchecked_handle{ 0 };
 
 	/**
 	 * Samples of online vote weight
 	 * uint64_t -> nano::amount
 	 */
-	MDB_dbi online_weight{ 0 };
+	MDB_dbi online_weight_handle{ 0 };
 
 	/**
 	 * Meta information about block store, such as versions.
 	 * nano::uint256_union (arbitrary key) -> blob
 	 */
-	MDB_dbi meta{ 0 };
+	MDB_dbi meta_handle{ 0 };
 
 	/**
 	 * Pruned blocks hashes
 	 * nano::block_hash -> none
 	 */
-	MDB_dbi pruned{ 0 };
+	MDB_dbi pruned_handle{ 0 };
 
 	/*
 	 * Endpoints for peers
 	 * nano::endpoint_key -> no_value
 	*/
-	MDB_dbi peers{ 0 };
+	MDB_dbi peers_handle{ 0 };
 
 	/*
 	 * Confirmation height of an account, and the hash for the block at that height
 	 * nano::account -> uint64_t, nano::block_hash
 	 */
-	MDB_dbi confirmation_height{ 0 };
+	MDB_dbi confirmation_height_handle{ 0 };
 
 	/*
 	 * Contains block_sideband and block for all block types (legacy send/change/open/receive & state blocks)
 	 * nano::block_hash -> nano::block_sideband, nano::block
 	 */
-	MDB_dbi blocks{ 0 };
+	MDB_dbi blocks_handle{ 0 };
+
+	/**
+	 * Maps root to block hash for generated final votes.
+	 * nano::qualified_root -> nano::block_hash
+	 */
+	MDB_dbi final_votes_handle{ 0 };
 
 	bool exists (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a) const;
-	std::vector<nano::unchecked_info> unchecked_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override;
 
 	int get (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a, nano::mdb_val & value_a) const;
 	int put (nano::write_transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a, const nano::mdb_val & value_a) const;
@@ -203,9 +238,9 @@ public:
 	void rebuild_db (nano::write_transaction const & transaction_a) override;
 
 	template <typename Key, typename Value>
-	nano::store_iterator<Key, Value> make_iterator (nano::transaction const & transaction_a, tables table_a) const
+	nano::store_iterator<Key, Value> make_iterator (nano::transaction const & transaction_a, tables table_a, bool const direction_asc) const
 	{
-		return nano::store_iterator<Key, Value> (std::make_unique<nano::mdb_iterator<Key, Value>> (transaction_a, table_to_dbi (table_a)));
+		return nano::store_iterator<Key, Value> (std::make_unique<nano::mdb_iterator<Key, Value>> (transaction_a, table_to_dbi (table_a), nano::mdb_val{}, direction_asc));
 	}
 
 	template <typename Key, typename Value>
@@ -234,6 +269,7 @@ private:
 	void upgrade_v17_to_v18 (nano::write_transaction const &);
 	void upgrade_v18_to_v19 (nano::write_transaction const &);
 	void upgrade_v19_to_v20 (nano::write_transaction const &);
+	void upgrade_v20_to_v21 (nano::write_transaction const &);
 
 	std::shared_ptr<nano::block> block_get_v18 (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const;
 	nano::mdb_val block_raw_get_v18 (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_type & type_a) const;
@@ -281,5 +317,5 @@ mdb_val::db_val (size_t size_a, void * data_a);
 template <>
 void mdb_val::convert_buffer_to_value ();
 
-extern template class block_store_partial<MDB_val, mdb_store>;
+extern template class store_partial<MDB_val, mdb_store>;
 }

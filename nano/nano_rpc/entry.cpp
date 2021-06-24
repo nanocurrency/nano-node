@@ -1,5 +1,6 @@
 #include <nano/lib/cli.hpp>
 #include <nano/lib/errors.hpp>
+#include <nano/lib/signal_manager.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/cli.hpp>
@@ -12,8 +13,6 @@
 #include <boost/log/utility/setup/common_attributes.hpp>
 #include <boost/log/utility/setup/file.hpp>
 #include <boost/program_options.hpp>
-
-#include <csignal>
 
 namespace
 {
@@ -47,6 +46,7 @@ void run (boost::filesystem::path const & data_path, std::vector<std::string> co
 	{
 		logging_init (data_path);
 		boost::asio::io_context io_ctx;
+		nano::signal_manager sigman;
 		try
 		{
 			nano::ipc_rpc_processor ipc_rpc_processor (io_ctx, rpc_config);
@@ -54,13 +54,13 @@ void run (boost::filesystem::path const & data_path, std::vector<std::string> co
 			rpc->start ();
 
 			debug_assert (!nano::signal_handler_impl);
-			nano::signal_handler_impl = [&io_ctx]() {
+			nano::signal_handler_impl = [&io_ctx] () {
 				io_ctx.stop ();
 				sig_int_or_term = 1;
 			};
 
-			std::signal (SIGINT, &nano::signal_handler);
-			std::signal (SIGTERM, &nano::signal_handler);
+			sigman.register_signal_handler (SIGINT, &nano::signal_handler, true);
+			sigman.register_signal_handler (SIGTERM, &nano::signal_handler, false);
 
 			runner = std::make_unique<nano::thread_runner> (io_ctx, rpc_config.rpc_process.io_threads);
 			runner->join ();
@@ -136,7 +136,7 @@ int main (int argc, char * const * argv)
 	else if (vm.count ("version"))
 	{
 		std::cout << "Version " << NANO_VERSION_STRING << "\n"
-		          << "Build Info " << BUILD_INFO << std::endl;
+				  << "Build Info " << BUILD_INFO << std::endl;
 	}
 	else
 	{
