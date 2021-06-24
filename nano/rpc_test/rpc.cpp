@@ -5533,26 +5533,20 @@ TEST (rpc, unchecked_clear)
 TEST (rpc, unchecked_keys)
 {
 	nano::system system;
-	auto & node = *add_ipc_enabled_node (system);
+	auto & node = add_ipc_enabled_node (system);
+	auto [rpc, rpc_ctx] = add_rpc (system, node);
 	nano::keypair key;
-	nano::node_rpc_config node_rpc_config;
-	nano::ipc::ipc_server ipc_server (node, node_rpc_config);
-	nano::rpc_config rpc_config (nano::get_available_port (), true);
-	rpc_config.rpc_process.ipc_port = node.config.ipc_config.transport_tcp.port;
-	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
-	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
-	rpc.start ();
 	auto open (std::make_shared<nano::state_block> (key.pub, 0, key.pub, 1, 3, key.prv, key.pub, *system.work.generate (key.pub)));
 	auto open2 (std::make_shared<nano::state_block> (key.pub, 0, key.pub, 2, 4, key.prv, key.pub, *system.work.generate (key.pub)));
-	node.process_active (open);
-	node.process_active (open2);
-	node.block_processor.flush ();
+	node->process_active (open);
+	node->process_active (open2);
+	node->block_processor.flush ();
 	boost::property_tree::ptree request;
 	request.put ("action", "unchecked_keys");
 	request.put ("count", 2);
 	request.put ("json_block", true);
 	{
-		test_response response (request, rpc.config.port, system.io_ctx);
+		test_response response (request, rpc->config.port, system.io_ctx);
 		ASSERT_TIMELY (5s, response.status != 0);
 		ASSERT_EQ (200, response.status);
 		auto & unchecked_node (response.json.get_child ("unchecked"));
