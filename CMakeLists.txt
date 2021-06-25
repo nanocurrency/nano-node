@@ -580,6 +580,8 @@ if(NANO_TEST OR RAIBLOCKS_TEST)
 
   add_subdirectory(nano/load_test)
 
+  # FIXME: This fixes googletest GOOGLETEST_VERSION requirement
+  set(GOOGLETEST_VERSION 1.11.0)
   add_subdirectory(gtest/googletest)
   # FIXME: This fixes gtest include directories without modifying gtest's
   # CMakeLists.txt. Ideally we should use GTest::GTest and GTest::Main as
