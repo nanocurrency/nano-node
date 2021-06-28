@@ -17,12 +17,23 @@ TEST (ledger_walker, genesis_block)
 
 	std::size_t walked_blocks_count = 0;
 	ledger_walker.walk_backward (nano::genesis_hash, [&] (const auto & block) {
+	    return true;
+	    }, [&] (const auto & block) {
 		++walked_blocks_count;
 		EXPECT_EQ (block->hash (), nano::genesis_hash);
-		return true;
 	});
 
 	EXPECT_EQ (walked_blocks_count, 1);
+
+    walked_blocks_count = 0;
+    ledger_walker.walk (nano::genesis_hash, [&] (const auto & block) {
+        return true;
+    }, [&] (const auto & block) {
+        ++walked_blocks_count;
+        EXPECT_EQ (block->hash (), nano::genesis_hash);
+    });
+
+    EXPECT_EQ (walked_blocks_count, 1);
 }
 
 namespace nano
@@ -44,8 +55,9 @@ TEST (ledger_walker, genesis_account_longer)
 	const auto get_number_of_walked_blocks = [&ledger_walker] (const auto & start_block_hash) {
 		std::size_t walked_blocks_count = 0;
 		ledger_walker.walk_backward (start_block_hash, [&] (const auto & block) {
+		    return true;
+		    }, [&] (const auto & block) {
 			++walked_blocks_count;
-			return true;
 		});
 
 		return walked_blocks_count;
@@ -169,11 +181,20 @@ TEST (ledger_walker, ladder_geometry)
 	// k2: 1000     1       SEND   4     SEND     7     SEND     10
 	// k3: 1000     2       SEND   5     SEND     8     SEND
 
-	std::vector<nano::uint128_t> amounts_expected{ 10, 9, 8, 5, 4, 3, 1000, 1, 1000, 2, 1000, 6, 7 };
-	auto amounts_expected_itr = amounts_expected.cbegin ();
+	std::vector<nano::uint128_t> amounts_expected_backwards{ 10, 9, 8, 5, 4, 3, 1000, 1, 1000, 2, 1000, 6, 7 };
+	auto amounts_expected_backwards_itr = amounts_expected_backwards.cbegin ();
 
 	nano::ledger_walker ledger_walker{ node->ledger };
 	ledger_walker.walk_backward (last_destination_info.head, [&] (const auto & block) {
+        if (amounts_expected_backwards_itr == amounts_expected_backwards.cend ())
+        {
+            EXPECT_TRUE (false);
+            return false;
+        }
+
+        return true;
+
+	    }, [&] (const auto & block) {
 		if (block->sideband ().details.is_receive)
 		{
 			nano::amount previous_balance{};
@@ -183,17 +204,37 @@ TEST (ledger_walker, ladder_geometry)
 				previous_balance = previous_block->balance ();
 			}
 
-			if (amounts_expected_itr == amounts_expected.cend ())
-			{
-				EXPECT_TRUE (false);
-				return false;
-			}
-
-			EXPECT_EQ (*amounts_expected_itr++, block->balance ().number () - previous_balance.number ());
+			EXPECT_EQ (*amounts_expected_backwards_itr++, block->balance ().number () - previous_balance.number ());
 		}
-
-		return true;
 	});
 
-	EXPECT_EQ (amounts_expected_itr, amounts_expected.cend ());
+	EXPECT_EQ (amounts_expected_backwards_itr, amounts_expected_backwards.cend ());
+
+
+    auto amounts_expected_itr = amounts_expected_backwards.crbegin();
+
+    ledger_walker.walk (last_destination_info.head, [&] (const auto & block) {
+        if (amounts_expected_itr == amounts_expected_backwards.crend())
+        {
+            EXPECT_TRUE (false);
+            return false;
+        }
+
+        return true;
+
+    }, [&] (const auto & block) {
+        if (block->sideband ().details.is_receive)
+        {
+            nano::amount previous_balance{};
+            if (!block->previous ().is_zero ())
+            {
+                const auto previous_block = node->ledger.store.block_get_no_sideband (transaction, block->previous ());
+                previous_balance = previous_block->balance ();
+            }
+
+            EXPECT_EQ (*amounts_expected_itr++, block->balance ().number () - previous_balance.number ());
+        }
+    });
+
+    EXPECT_EQ (amounts_expected_itr, amounts_expected_backwards.crend ());
 }
