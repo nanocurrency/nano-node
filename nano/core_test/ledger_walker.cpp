@@ -186,8 +186,7 @@ TEST (ledger_walker, ladder_geometry)
 			return false;
 		}
 
-		return true;
-	},
+		return true; },
 	[&] (const auto & block) {
 		if (block->sideband ().details.is_receive)
 		{
@@ -214,8 +213,7 @@ TEST (ledger_walker, ladder_geometry)
 			return false;
 		}
 
-		return true;
-	},
+		return true; },
 	[&] (const auto & block) {
 		if (block->sideband ().details.is_receive)
 		{

@@ -91,8 +91,8 @@ void nano::ledger_walker::enqueue_block (std::shared_ptr<nano::block> const & bl
 
 bool nano::ledger_walker::add_to_walked_blocks (nano::block_hash const & block_hash_a)
 {
-    // TODO TSB: when in-memory hash is full (size > 65k), move to diskhash
-    //
+	// TODO TSB: when in-memory hash is full (size > 65k), move to diskhash
+	//
 	if (true)
 	{
 		std::array<decltype (nano::block_hash::chars)::value_type, sizeof (nano::block_hash::chars) + 1> block_hash_key{};
