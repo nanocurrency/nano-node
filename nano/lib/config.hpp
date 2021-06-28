@@ -67,16 +67,12 @@ enum class nano_networks
 {
 	// Low work parameters, publicly known genesis key, dev IP ports
 	nano_dev_network = 0,
-	rai_dev_network = 0,
 	// Normal work parameters, secret beta genesis key, beta IP ports
 	nano_beta_network = 1,
-	rai_beta_network = 1,
 	// Normal work parameters, secret live key, live IP ports
 	nano_live_network = 2,
-	rai_live_network = 2,
 	// Normal work parameters, secret test genesis key, test IP ports
 	nano_test_network = 3,
-	rai_test_network = 3,
 };
 
 struct work_thresholds
