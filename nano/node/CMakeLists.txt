@@ -164,6 +164,7 @@ target_link_libraries(
   Boost::thread
   Boost::boost
   rocksdb
+  ${DISKHASH_LIBRARY}
   ${CMAKE_DL_LIBS}
   ${psapi_lib})
 
