@@ -2,14 +2,14 @@
 
 #include <nano/lib/numbers.hpp>
 
-#include <diskhash.hpp>
-
 #include <cstddef>
 #include <functional>
 #include <memory>
 #include <optional>
 #include <stack>
 #include <unordered_set>
+
+#include <diskhash.hpp>
 
 namespace nano
 {
@@ -21,21 +21,20 @@ class transaction;
 class ledger_walker final
 {
 public:
-    using should_visit_callback = std::function<bool (std::shared_ptr<nano::block> const &)>;
+	using should_visit_callback = std::function<bool (std::shared_ptr<nano::block> const &)>;
 	using visitor_callback = std::function<void (std::shared_ptr<nano::block> const &)>;
-
 
 	explicit ledger_walker (nano::ledger const & ledger_a);
 	/** Start traversing (in a backwards direction -- towards genesis) from \p start_block_hash_a until \p should_visit_callback_a returns false, calling \p visitor_callback_a at each block. Prefer 'walk' instead, if possible. */
 	void walk_backward (nano::block_hash const & start_block_hash_a, should_visit_callback const & should_visit_callback_a, visitor_callback const & visitor_callback_a);
-    /** Start traversing (in a forward direction -- towards end_block_hash_a) from first block (genesis onwards) where \p should_visit_a returns true until \p end_block_hash_a, calling \p visitor_callback at each block. Prefer this one, instead of 'walk_backwards', if possible. */
-    void walk (nano::block_hash const & end_block_hash_a, should_visit_callback const & should_visit_callback_a, visitor_callback const & visitor_callback_a);
+	/** Start traversing (in a forward direction -- towards end_block_hash_a) from first block (genesis onwards) where \p should_visit_a returns true until \p end_block_hash_a, calling \p visitor_callback at each block. Prefer this one, instead of 'walk_backwards', if possible. */
+	void walk (nano::block_hash const & end_block_hash_a, should_visit_callback const & should_visit_callback_a, visitor_callback const & visitor_callback_a);
 	static constexpr std::size_t in_memory_block_count = 65536;
 
 private:
 	nano::ledger const & ledger;
 	std::unordered_set<nano::block_hash> walked_blocks;
-    std::optional<dht::DiskHash<bool>> walked_blocks_disk;
+	std::optional<dht::DiskHash<bool>> walked_blocks_disk;
 	std::stack<nano::block_hash> blocks_to_walk;
 
 	void enqueue_block (nano::block_hash block_hash_a);
