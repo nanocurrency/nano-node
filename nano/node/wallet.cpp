@@ -1643,6 +1643,11 @@ bool nano::wallets::check_rep (nano::account const & account_a, nano::uint128_t 
 		lock = nano::unique_lock<nano::mutex> (reps_cache_mutex);
 	}
 
+	if (weight >= half_principal_weight_a)
+	{
+		++representatives.half_principal;
+	}
+
 	auto insert_result = representatives.accounts.insert (account_a);
 	if (!insert_result.second)
 	{
@@ -1650,11 +1655,6 @@ bool nano::wallets::check_rep (nano::account const & account_a, nano::uint128_t 
 	}
 
 	++representatives.voting;
-
-	if (weight >= half_principal_weight_a)
-	{
-		++representatives.half_principal;
-	}
 
 	return true;
 }
