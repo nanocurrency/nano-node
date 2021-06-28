@@ -60,14 +60,12 @@ void nano::ledger_walker::walk (nano::block_hash const & end_block_hash_a, shoul
 		const auto * block_hash = walked_blocks_order.lookup (std::to_string (walked_block_order_index).c_str ());
 		if (!block_hash)
 		{
-			std::abort ();
 			continue;
 		}
 
 		const auto block = ledger.store.block_get (transaction, *block_hash);
 		if (!block)
 		{
-			std::abort ();
 			continue;
 		}
 
@@ -93,8 +91,9 @@ void nano::ledger_walker::enqueue_block (std::shared_ptr<nano::block> const & bl
 
 bool nano::ledger_walker::add_to_walked_blocks (nano::block_hash const & block_hash_a)
 {
-	static constexpr bool use_diskhash = true;
-	if (use_diskhash)
+    // TODO TSB: when in-memory hash is full (size > 65k), move to diskhash
+    //
+	if (true)
 	{
 		std::array<decltype (nano::block_hash::chars)::value_type, sizeof (nano::block_hash::chars) + 1> block_hash_key{};
 		std::copy (block_hash_a.chars.cbegin (),
