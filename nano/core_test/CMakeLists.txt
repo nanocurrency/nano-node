@@ -35,6 +35,7 @@ add_executable(
   signal_manager.cpp
   signing.cpp
   socket.cpp
+  system.cpp
   telemetry.cpp
   toml.cpp
   timer.cpp
