@@ -1645,7 +1645,7 @@ bool nano::wallets::check_rep (nano::account const & account_a, nano::uint128_t 
 
 	if (weight >= half_principal_weight_a)
 	{
-		++representatives.half_principal;
+		representatives.half_principal = true;
 	}
 
 	auto insert_result = representatives.accounts.insert (account_a);

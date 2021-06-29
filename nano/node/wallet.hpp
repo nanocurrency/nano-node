@@ -165,11 +165,11 @@ class wallet_representatives
 {
 public:
 	uint64_t voting{ 0 }; // Number of representatives with at least the configured minimum voting weight
-	uint64_t half_principal{ 0 }; // Number of representatives with at least 50% of principal representative requirements
+	bool half_principal{ false }; // has representatives with at least 50% of principal representative requirements
 	std::unordered_set<nano::account> accounts; // Representatives with at least the configured minimum voting weight
 	bool have_half_rep () const
 	{
-		return half_principal > 0;
+		return half_principal;
 	}
 	bool exists (nano::account const & rep_a) const
 	{
@@ -178,7 +178,7 @@ public:
 	void clear ()
 	{
 		voting = 0;
-		half_principal = 0;
+		half_principal = false;
 		accounts.clear ();
 	}
 };
