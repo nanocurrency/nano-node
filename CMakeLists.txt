@@ -378,21 +378,8 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
 find_package(Boost 1.70.0 REQUIRED COMPONENTS filesystem log log_setup thread
                                               program_options system)
 
-# Diskhash
-find_program(MAKE make)
-
-set(arg1 "-f")
-set(arg2 "Makefile")
-
-execute_process(COMMAND ${MAKE} ${arg1} ${arg2}
-        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/diskhash"
-        RESULT_VARIABLE RESULT)
-
-if (NOT RESULT STREQUAL "0")
-  message(FATAL_ERROR "Unable to build diskhash: ${RESULT}")
-endif()
-
-set(DISKHASH_LIBRARY "${CMAKE_SOURCE_DIR}/diskhash/src/libdht.so")
+# diskhash
+add_library(diskhash SHARED ${CMAKE_SOURCE_DIR}/diskhash/src/diskhash.c)
 include_directories(diskhash/src)
 
 # RocksDB
