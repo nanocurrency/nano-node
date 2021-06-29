@@ -283,13 +283,14 @@ void nano::transport::tcp_channels::process_messages ()
 		auto item (node.network.tcp_message_manager.get_message ());
 		if (item.message != nullptr)
 		{
-			process_message (*item.message, item.endpoint, item.node_id, item.socket, item.type);
+			process_message (*item.message, item.endpoint, item.node_id, item.socket);
 		}
 	}
 }
 
-void nano::transport::tcp_channels::process_message (nano::message const & message_a, nano::tcp_endpoint const & endpoint_a, nano::account const & node_id_a, std::shared_ptr<nano::socket> const & socket_a, nano::socket::type_t type_a)
+void nano::transport::tcp_channels::process_message (nano::message const & message_a, nano::tcp_endpoint const & endpoint_a, nano::account const & node_id_a, std::shared_ptr<nano::socket> const & socket_a)
 {
+	auto type_a = socket_a->type ();
 	if (!stopped && message_a.header.version_using >= protocol_constants ().protocol_version_min ())
 	{
 		auto channel (node.network.find_channel (nano::transport::map_tcp_to_endpoint (endpoint_a)));
@@ -691,7 +692,7 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 														callback_a (channel_a);
 													}
 													// Listen for possible responses
-													response_server->type = nano::socket::type_t::realtime_response_server;
+													response_server->socket->type_set (nano::socket::type_t::realtime_response_server);
 													response_server->remote_node_id = channel_a->get_node_id ();
 													response_server->receive ();
 													node_l->network.tcp_channels.remove_node_id_handshake_socket (socket_l);
