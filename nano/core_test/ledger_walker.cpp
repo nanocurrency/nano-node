@@ -16,18 +16,20 @@ TEST (ledger_walker, genesis_block)
 	nano::ledger_walker ledger_walker{ node->ledger };
 
 	std::size_t walked_blocks_count = 0;
-	ledger_walker.walk_backward (
-	nano::genesis_hash, [&] (const auto & block) { return true; }, [&] (const auto & block) {
+	ledger_walker.walk_backward (nano::genesis_hash,
+	[&] (const auto & block) {
 		++walked_blocks_count;
-		EXPECT_EQ (block->hash (), nano::genesis_hash); });
+		EXPECT_EQ (block->hash (), nano::genesis_hash);
+	});
 
 	EXPECT_EQ (walked_blocks_count, 1);
 
 	walked_blocks_count = 0;
-	ledger_walker.walk (
-	nano::genesis_hash, [&] (const auto & block) { return true; }, [&] (const auto & block) {
-        ++walked_blocks_count;
-        EXPECT_EQ (block->hash (), nano::genesis_hash); });
+	ledger_walker.walk (nano::genesis_hash,
+	[&] (const auto & block) {
+		++walked_blocks_count;
+		EXPECT_EQ (block->hash (), nano::genesis_hash);
+	});
 
 	EXPECT_EQ (walked_blocks_count, 1);
 }
@@ -50,8 +52,10 @@ TEST (ledger_walker, genesis_account_longer)
 
 	const auto get_number_of_walked_blocks = [&ledger_walker] (const auto & start_block_hash) {
 		std::size_t walked_blocks_count = 0;
-		ledger_walker.walk_backward (
-		start_block_hash, [&] (const auto & block) { return true; }, [&] (const auto & block) { ++walked_blocks_count; });
+		ledger_walker.walk_backward (start_block_hash,
+		[&] (const auto & block) {
+			++walked_blocks_count;
+		});
 
 		return walked_blocks_count;
 	};
@@ -178,15 +182,7 @@ TEST (ledger_walker, ladder_geometry)
 	auto amounts_expected_backwards_itr = amounts_expected_backwards.cbegin ();
 
 	nano::ledger_walker ledger_walker{ node->ledger };
-	ledger_walker.walk_backward (
-	last_destination_info.head, [&] (const auto & block) {
-		if (amounts_expected_backwards_itr == amounts_expected_backwards.cend ())
-		{
-			EXPECT_TRUE (false);
-			return false;
-		}
-
-		return true; },
+	ledger_walker.walk_backward (last_destination_info.head,
 	[&] (const auto & block) {
 		if (block->sideband ().details.is_receive)
 		{
@@ -205,15 +201,7 @@ TEST (ledger_walker, ladder_geometry)
 
 	auto amounts_expected_itr = amounts_expected_backwards.crbegin ();
 
-	ledger_walker.walk (
-	last_destination_info.head, [&] (const auto & block) {
-		if (amounts_expected_itr == amounts_expected_backwards.crend ())
-		{
-			EXPECT_TRUE (false);
-			return false;
-		}
-
-		return true; },
+	ledger_walker.walk (last_destination_info.head,
 	[&] (const auto & block) {
 		if (block->sideband ().details.is_receive)
 		{

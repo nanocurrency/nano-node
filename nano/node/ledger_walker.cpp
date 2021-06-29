@@ -9,6 +9,7 @@
 
 nano::ledger_walker::ledger_walker (nano::ledger const & ledger_a) :
 	ledger{ ledger_a },
+	use_in_memory_walked_blocks{ true },
 	walked_blocks{},
 	walked_blocks_disk{},
 	blocks_to_walk{}
@@ -18,9 +19,6 @@ nano::ledger_walker::ledger_walker (nano::ledger const & ledger_a) :
 
 void nano::ledger_walker::walk_backward (nano::block_hash const & start_block_hash_a, should_visit_callback const & should_visit_callback_a, visitor_callback const & visitor_callback_a)
 {
-	debug_assert (!walked_blocks_disk.has_value ());
-	walked_blocks_disk.emplace (nano::unique_path ().c_str (), sizeof (nano::block_hash::bytes) + 1, dht::DHOpenRW);
-
 	const auto transaction = ledger.store.tx_begin_read ();
 
 	enqueue_block (start_block_hash_a);
@@ -50,7 +48,9 @@ void nano::ledger_walker::walk (nano::block_hash const & end_block_hash_a, shoul
 	std::uint64_t last_walked_block_order_index = 0;
 	dht::DiskHash<nano::block_hash> walked_blocks_order{ nano::unique_path ().c_str (), sizeof (std::uint64_t) + 1, dht::DHOpenRW };
 
-	walk_backward (end_block_hash_a, should_visit_callback_a, [&] (const auto & block) {
+	walk_backward (end_block_hash_a,
+	should_visit_callback_a,
+	[&] (const auto & block) {
 		walked_blocks_order.insert (std::to_string (++last_walked_block_order_index).c_str (), block->hash ());
 	});
 
@@ -60,17 +60,39 @@ void nano::ledger_walker::walk (nano::block_hash const & end_block_hash_a, shoul
 		const auto * block_hash = walked_blocks_order.lookup (std::to_string (walked_block_order_index).c_str ());
 		if (!block_hash)
 		{
+			debug_assert (false);
 			continue;
 		}
 
 		const auto block = ledger.store.block_get (transaction, *block_hash);
 		if (!block)
 		{
+			debug_assert (false);
 			continue;
 		}
 
 		visitor_callback_a (block);
 	}
+}
+
+void nano::ledger_walker::walk_backward (nano::block_hash const & start_block_hash_a, visitor_callback const & visitor_callback_a)
+{
+	walk_backward (
+	start_block_hash_a,
+	[&] (const auto & /* block */) {
+		return true;
+	},
+	visitor_callback_a);
+}
+
+void nano::ledger_walker::walk (nano::block_hash const & end_block_hash_a, visitor_callback const & visitor_callback_a)
+{
+	walk (
+	end_block_hash_a,
+	[&] (const auto & /* block */) {
+		return true;
+	},
+	visitor_callback_a);
 }
 
 void nano::ledger_walker::enqueue_block (nano::block_hash block_hash_a)
@@ -91,25 +113,52 @@ void nano::ledger_walker::enqueue_block (std::shared_ptr<nano::block> const & bl
 
 bool nano::ledger_walker::add_to_walked_blocks (nano::block_hash const & block_hash_a)
 {
-	// TODO TSB: when in-memory hash is full (size > 65k), move to diskhash
-	//
-	if (true)
+	if (use_in_memory_walked_blocks)
 	{
-		std::array<decltype (nano::block_hash::chars)::value_type, sizeof (nano::block_hash::chars) + 1> block_hash_key{};
-		std::copy (block_hash_a.chars.cbegin (),
-		block_hash_a.chars.cend (),
-		block_hash_key.begin ());
+		if (walked_blocks.size () < in_memory_block_count)
+		{
+			return walked_blocks.emplace (block_hash_a).second;
+		}
 
-		return walked_blocks_disk->insert (block_hash_key.data (), true);
+		use_in_memory_walked_blocks = false;
+
+		debug_assert (!walked_blocks_disk.has_value ());
+		walked_blocks_disk.emplace (nano::unique_path ().c_str (), sizeof (nano::block_hash::bytes) + 1, dht::DHOpenRW);
+
+		for (const auto & walked_block_hash : walked_blocks)
+		{
+			if (!add_to_walked_blocks_disk (walked_block_hash))
+			{
+				debug_assert (false);
+			}
+		}
+
+		decltype (walked_blocks){}.swap (walked_blocks);
 	}
 
-	return walked_blocks.emplace (block_hash_a).second;
+	return add_to_walked_blocks_disk (block_hash_a);
+}
+
+bool nano::ledger_walker::add_to_walked_blocks_disk (nano::block_hash const & block_hash_a)
+{
+	debug_assert (!use_in_memory_walked_blocks);
+	debug_assert (walked_blocks_disk.has_value ());
+
+	std::array<decltype (nano::block_hash::chars)::value_type, sizeof (nano::block_hash::bytes) + 1> block_hash_key{};
+	std::copy (block_hash_a.chars.cbegin (),
+	block_hash_a.chars.cend (),
+	block_hash_key.begin ());
+
+	return walked_blocks_disk->insert (block_hash_key.data (), true);
 }
 
 void nano::ledger_walker::clear_queue ()
 {
+	use_in_memory_walked_blocks = true;
+
 	decltype (walked_blocks){}.swap (walked_blocks);
 	walked_blocks_disk.reset ();
+
 	decltype (blocks_to_walk){}.swap (blocks_to_walk);
 }
 
