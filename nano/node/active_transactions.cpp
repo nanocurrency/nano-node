@@ -82,7 +82,7 @@ nano::frontiers_confirmation_info nano::active_transactions::get_frontiers_confi
 	// Limit maximum count of elections to start
 	auto rep_counts (node.wallets.reps ());
 	bool representative (node.config.enable_voting && rep_counts.voting > 0);
-	bool half_princpal_representative (representative && rep_counts.half_principal > 0);
+	bool half_princpal_representative (representative && rep_counts.have_half_rep ());
 	/* Check less frequently for regular nodes in auto mode */
 	bool agressive_mode (half_princpal_representative || node.config.frontiers_confirmation == nano::frontiers_confirmation_mode::always);
 	auto is_dev_network = node.network_params.network.is_dev_network ();
