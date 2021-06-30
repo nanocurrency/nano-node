@@ -530,7 +530,6 @@ TEST (active_transactions, vote_replays)
 	// Open new account
 	auto vote_open1 (std::make_shared<nano::vote> (nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, std::numeric_limits<uint64_t>::max (), open1));
 	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote_open1));
-	ASSERT_EQ (1, node.active.size ());
 	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote_open1));
 	ASSERT_TIMELY (3s, node.active.empty ());
 	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote_open1));
