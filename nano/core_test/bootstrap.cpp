@@ -1761,7 +1761,7 @@ TEST (bulk, offline_send)
 	node1->scheduler.flush ();
 	// Wait to finish election background tasks
 	ASSERT_TIMELY (10s, node1->active.empty ());
-	ASSERT_TRUE (node1->block_confirmed (send1->hash ()));
+	ASSERT_TIMELY (10s, node1->block_confirmed (send1->hash ()));
 	// Initiate bootstrap
 	node2->bootstrap_initiator.bootstrap (node1->network.endpoint ());
 	// Nodes should find each other
