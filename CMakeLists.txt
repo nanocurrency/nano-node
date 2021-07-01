@@ -379,7 +379,7 @@ find_package(Boost 1.70.0 REQUIRED COMPONENTS filesystem log log_setup thread
                                               program_options system)
 
 # diskhash
-add_library(diskhash SHARED ${CMAKE_SOURCE_DIR}/diskhash/src/diskhash.c)
+add_library(diskhash STATIC ${CMAKE_SOURCE_DIR}/diskhash/src/diskhash.c)
 include_directories(diskhash/src)
 
 # RocksDB
