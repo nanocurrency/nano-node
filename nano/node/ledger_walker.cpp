@@ -5,6 +5,8 @@
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/utility.hpp>
 
+#include <algorithm>
+#include <limits>
 #include <utility>
 
 nano::ledger_walker::ledger_walker (nano::ledger const & ledger_a) :
@@ -46,7 +48,7 @@ void nano::ledger_walker::walk_backward (nano::block_hash const & start_block_ha
 void nano::ledger_walker::walk (nano::block_hash const & end_block_hash_a, should_visit_callback const & should_visit_callback_a, visitor_callback const & visitor_callback_a)
 {
 	std::uint64_t last_walked_block_order_index = 0;
-	dht::DiskHash<nano::block_hash> walked_blocks_order{ nano::unique_path ().c_str (), sizeof (std::uint64_t) + 1, dht::DHOpenRW };
+	dht::DiskHash<nano::block_hash> walked_blocks_order{ nano::unique_path ().c_str (), static_cast<int> (std::to_string (std::numeric_limits<std::uint64_t>::max ()).size ()) + 1, dht::DHOpenRW };
 
 	walk_backward (end_block_hash_a,
 	should_visit_callback_a,
