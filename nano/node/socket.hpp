@@ -68,6 +68,14 @@ public:
 	{
 		return queue_size >= queue_size_max * 2;
 	}
+	type_t type () const
+	{
+		return type_m;
+	};
+	void type_set (type_t type_a)
+	{
+		type_m = type_a;
+	}
 
 protected:
 	/** Holds the buffer and callback for queued writes */
@@ -98,6 +106,9 @@ protected:
 	void start_timer ();
 	void stop_timer ();
 	void checkup ();
+
+private:
+	type_t type_m{ type_t::undefined };
 
 public:
 	static size_t constexpr queue_size_max = 128;

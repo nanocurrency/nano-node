@@ -64,7 +64,6 @@ public:
 	nano::mutex mutex;
 	std::queue<std::unique_ptr<nano::message>> requests;
 	std::atomic<bool> stopped{ false };
-	std::atomic<nano::socket::type_t> type{ nano::socket::type_t::undefined };
 	// Remote enpoint used to remove response channel even after socket closing
 	nano::tcp_endpoint remote_endpoint{ boost::asio::ip::address_v6::any (), 0 };
 	nano::account remote_node_id{ 0 };

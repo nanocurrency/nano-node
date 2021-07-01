@@ -24,7 +24,6 @@ public:
 	nano::tcp_endpoint endpoint;
 	nano::account node_id;
 	std::shared_ptr<nano::socket> socket;
-	nano::socket::type_t type;
 };
 namespace transport
 {
@@ -92,7 +91,7 @@ namespace transport
 		void start ();
 		void stop ();
 		void process_messages ();
-		void process_message (nano::message const &, nano::tcp_endpoint const &, nano::account const &, std::shared_ptr<nano::socket> const &, nano::socket::type_t);
+		void process_message (nano::message const &, nano::tcp_endpoint const &, nano::account const &, std::shared_ptr<nano::socket> const &);
 		bool max_ip_connections (nano::tcp_endpoint const &);
 		// Should we reach out to this endpoint with a keepalive message
 		bool reachout (nano::endpoint const &);
