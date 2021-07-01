@@ -512,7 +512,7 @@ public:
 			node.network.udp_channels.modify (find_channel, [] (std::shared_ptr<nano::transport::channel_udp> const & channel_a) {
 				channel_a->set_last_packet_received (std::chrono::steady_clock::now ());
 			});
-			node.network.process_message (message_a, find_channel);
+			node.network.inbound.sink (message_a, find_channel);
 		}
 	}
 	nano::node & node;

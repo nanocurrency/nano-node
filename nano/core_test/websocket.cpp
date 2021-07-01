@@ -144,7 +144,7 @@ TEST (websocket, stopped_election)
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (genesis.hash ())));
 	nano::publish publish1 (send1);
 	auto channel1 (node1->network.udp_channels.create (node1->network.endpoint ()));
-	node1->network.process_message (publish1, channel1);
+	node1->network.inbound.sink (publish1, channel1);
 	node1->block_processor.flush ();
 	ASSERT_TIMELY (1s, node1->active.election (send1->qualified_root ()));
 	node1->active.erase (*send1);

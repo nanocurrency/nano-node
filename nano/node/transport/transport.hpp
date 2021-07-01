@@ -137,6 +137,11 @@ namespace transport
 	protected:
 		nano::node & node;
 	};
+	class message_sink
+	{
+	public:
+		virtual void sink (nano::message const &, std::shared_ptr<nano::transport::channel> const &) {};
+	};
 
 	class channel_loopback final : public nano::transport::channel
 	{
