@@ -11,6 +11,11 @@
 
 #include <numeric>
 
+void nano::network::inbound_t::sink (nano::message const & message, std::shared_ptr<nano::transport::channel> const & channel)
+{
+	network.process_message (message, channel);
+}
+
 nano::network::network (nano::node & node_a, uint16_t port_a) :
 	syn_cookies (node_a.network_params.node.max_peers_per_ip),
 	buffer_container (node_a.stats, nano::network::buffer_size, 4096), // 2Mb receive buffer
@@ -20,7 +25,7 @@ nano::network::network (nano::node & node_a, uint16_t port_a) :
 	node (node_a),
 	publish_filter (256 * 1024),
 	udp_channels (node_a, port_a),
-	tcp_channels (node_a),
+	tcp_channels (node_a, inbound),
 	port (port_a),
 	disconnect_observer ([] () {})
 {

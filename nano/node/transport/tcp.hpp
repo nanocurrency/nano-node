@@ -76,7 +76,7 @@ namespace transport
 		friend class telemetry_simultaneous_requests_Test;
 
 	public:
-		tcp_channels (nano::node &);
+		tcp_channels (nano::node &, nano::transport::message_sink & inbound);
 		bool insert (std::shared_ptr<nano::transport::channel_tcp> const &, std::shared_ptr<nano::socket> const &, std::shared_ptr<nano::bootstrap_server> const &);
 		void erase (nano::tcp_endpoint const &);
 		size_t size () const;
@@ -112,6 +112,7 @@ namespace transport
 		nano::node & node;
 
 	private:
+		nano::transport::message_sink & inbound;
 		class endpoint_tag
 		{
 		};
