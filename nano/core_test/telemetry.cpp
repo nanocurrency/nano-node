@@ -285,7 +285,7 @@ TEST (telemetry, receive_from_non_listening_channel)
 	nano::system system;
 	auto node = system.add_node ();
 	nano::telemetry_ack message (nano::telemetry_data{});
-	node->network.inbound.sink (message, node->network.udp_channels.create (node->network.endpoint ()));
+	node->network.inbound (message, node->network.udp_channels.create (node->network.endpoint ()));
 	// We have not sent a telemetry_req message to this endpoint, so shouldn't count telemetry_ack received from it.
 	ASSERT_EQ (node->telemetry->telemetry_data_size (), 0);
 }
@@ -632,7 +632,7 @@ TEST (telemetry, remove_peer_invalid_signature)
 	// Change anything so that the signed message is incorrect
 	telemetry_data.block_count = 0;
 	auto telemetry_ack = nano::telemetry_ack (telemetry_data);
-	node->network.inbound.sink (telemetry_ack, channel);
+	node->network.inbound (telemetry_ack, channel);
 
 	ASSERT_TIMELY (10s, node->stats.count (nano::stat::type::telemetry, nano::stat::detail::invalid_signature) > 0);
 	ASSERT_NO_ERROR (system.poll_until_true (3s, [&node, address = channel->get_endpoint ().address ()] () -> bool {

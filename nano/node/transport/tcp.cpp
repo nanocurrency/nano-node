@@ -110,9 +110,9 @@ void nano::transport::channel_tcp::set_endpoint ()
 	}
 }
 
-nano::transport::tcp_channels::tcp_channels (nano::node & node, nano::transport::message_sink & inbound) :
+nano::transport::tcp_channels::tcp_channels (nano::node & node, std::function<void (nano::message const &, std::shared_ptr<nano::transport::channel> const &)> sink) :
 	node{ node },
-	inbound{ inbound }
+	sink{ sink }
 {
 }
 
@@ -297,14 +297,14 @@ void nano::transport::tcp_channels::process_message (nano::message const & messa
 		auto channel (node.network.find_channel (nano::transport::map_tcp_to_endpoint (endpoint_a)));
 		if (channel)
 		{
-			inbound.sink (message_a, channel);
+			sink (message_a, channel);
 		}
 		else
 		{
 			channel = node.network.find_node_id (node_id_a);
 			if (channel)
 			{
-				inbound.sink (message_a, channel);
+				sink (message_a, channel);
 			}
 			else if (!node.network.excluded_peers.check (endpoint_a))
 			{
@@ -323,7 +323,7 @@ void nano::transport::tcp_channels::process_message (nano::message const & messa
 					{
 						insert (temporary_channel, socket_a, nullptr);
 					}
-					inbound.sink (message_a, temporary_channel);
+					sink (message_a, temporary_channel);
 				}
 				else
 				{

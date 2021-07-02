@@ -118,19 +118,6 @@ private:
 class network final
 {
 public:
-	class inbound_t : public nano::transport::message_sink
-	{
-	public:
-		inbound_t (nano::network & network) :
-			network{ network }
-		{
-		}
-		void sink (nano::message const &, std::shared_ptr<nano::transport::channel> const &) override;
-		nano::network & network;
-	};
-
-public:
-	inbound_t inbound{ *this };
 	network (nano::node &, uint16_t);
 	~network ();
 	void start ();
@@ -197,6 +184,7 @@ private:
 	void process_message (nano::message const &, std::shared_ptr<nano::transport::channel> const &);
 
 public:
+	std::function<void (nano::message const &, std::shared_ptr<nano::transport::channel> const &)> inbound;
 	nano::message_buffer_manager buffer_container;
 	boost::asio::ip::udp::resolver resolver;
 	std::vector<boost::thread> packet_processing_threads;

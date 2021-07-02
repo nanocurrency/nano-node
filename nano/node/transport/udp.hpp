@@ -75,7 +75,7 @@ namespace transport
 		friend class nano::transport::channel_udp;
 
 	public:
-		udp_channels (nano::node &, uint16_t);
+		udp_channels (nano::node &, uint16_t, std::function<void (nano::message const &, std::shared_ptr<nano::transport::channel> const &)> sink);
 		std::shared_ptr<nano::transport::channel_udp> insert (nano::endpoint const &, unsigned);
 		void erase (nano::endpoint const &);
 		size_t size () const;
@@ -106,6 +106,7 @@ namespace transport
 		void list (std::deque<std::shared_ptr<nano::transport::channel>> &, uint8_t = 0);
 		void modify (std::shared_ptr<nano::transport::channel_udp> const &, std::function<void (std::shared_ptr<nano::transport::channel_udp> const &)>);
 		nano::node & node;
+		std::function<void (nano::message const &, std::shared_ptr<nano::transport::channel> const &)> sink;
 
 	private:
 		void close_socket ();
