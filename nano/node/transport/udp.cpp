@@ -61,9 +61,10 @@ std::string nano::transport::channel_udp::to_string () const
 	return boost::str (boost::format ("%1%") % endpoint);
 }
 
-nano::transport::udp_channels::udp_channels (nano::node & node_a, uint16_t port_a) :
-	node (node_a),
-	strand (node_a.io_ctx.get_executor ())
+nano::transport::udp_channels::udp_channels (nano::node & node_a, uint16_t port_a, std::function<void (nano::message const &, std::shared_ptr<nano::transport::channel> const &)> sink) :
+	node{ node_a },
+	strand{ node_a.io_ctx.get_executor () },
+	sink{ sink }
 {
 	if (!node.flags.disable_udp)
 	{
@@ -364,9 +365,10 @@ namespace
 class udp_message_visitor : public nano::message_visitor
 {
 public:
-	udp_message_visitor (nano::node & node_a, nano::endpoint const & endpoint_a) :
-		node (node_a),
-		endpoint (endpoint_a)
+	udp_message_visitor (nano::node & node_a, nano::endpoint const & endpoint_a, std::function<void (nano::message const &, std::shared_ptr<nano::transport::channel> const &)> sink) :
+		node{ node_a },
+		endpoint{ endpoint_a },
+		sink{ sink }
 	{
 	}
 	void keepalive (nano::keepalive const & message_a) override
@@ -512,11 +514,12 @@ public:
 			node.network.udp_channels.modify (find_channel, [] (std::shared_ptr<nano::transport::channel_udp> const & channel_a) {
 				channel_a->set_last_packet_received (std::chrono::steady_clock::now ());
 			});
-			node.network.process_message (message_a, find_channel);
+			sink (message_a, find_channel);
 		}
 	}
 	nano::node & node;
 	nano::endpoint endpoint;
+	std::function<void (nano::message const &, std::shared_ptr<nano::transport::channel> const &)> sink;
 };
 }
 
@@ -537,7 +540,7 @@ void nano::transport::udp_channels::receive_action (nano::message_buffer * data_
 	}
 	if (allowed_sender)
 	{
-		udp_message_visitor visitor (node, data_a->endpoint);
+		udp_message_visitor visitor (node, data_a->endpoint, sink);
 		nano::message_parser parser (node.network.publish_filter, node.block_uniquer, node.vote_uniquer, visitor, node.work);
 		parser.deserialize_buffer (data_a->buffer, data_a->size);
 		if (parser.status == nano::message_parser::parse_status::success)

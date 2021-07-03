@@ -154,7 +154,6 @@ public:
 	void broadcast_confirm_req_many (std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>>>, std::function<void ()> = nullptr, unsigned = broadcast_interval_ms);
 	std::shared_ptr<nano::transport::channel> find_node_id (nano::account const &);
 	std::shared_ptr<nano::transport::channel> find_channel (nano::endpoint const &);
-	void process_message (nano::message const &, std::shared_ptr<nano::transport::channel> const &);
 	bool not_a_peer (nano::endpoint const &, bool);
 	// Should we reach out to this endpoint with a keepalive message
 	bool reachout (nano::endpoint const &, bool = false);
@@ -180,6 +179,12 @@ public:
 	bool empty () const;
 	void erase (nano::transport::channel const &);
 	void set_bandwidth_params (double, size_t);
+
+private:
+	void process_message (nano::message const &, std::shared_ptr<nano::transport::channel> const &);
+
+public:
+	std::function<void (nano::message const &, std::shared_ptr<nano::transport::channel> const &)> inbound;
 	nano::message_buffer_manager buffer_container;
 	boost::asio::ip::udp::resolver resolver;
 	std::vector<boost::thread> packet_processing_threads;
