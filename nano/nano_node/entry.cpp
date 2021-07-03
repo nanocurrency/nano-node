@@ -887,7 +887,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_process"))
 		{
-			nano::network_constants::set_active_network (nano::nano_networks::nano_dev_network);
+			nano::network_constants::set_active_network (nano::networks::nano_dev_network);
 			nano::network_params dev_params;
 			nano::block_builder builder;
 			size_t num_accounts (100000);
@@ -1004,7 +1004,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_votes"))
 		{
-			nano::network_constants::set_active_network (nano::nano_networks::nano_dev_network);
+			nano::network_constants::set_active_network (nano::networks::nano_dev_network);
 			nano::network_params dev_params;
 			nano::block_builder builder;
 			size_t num_elections (40000);

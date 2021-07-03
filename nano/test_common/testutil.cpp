@@ -12,7 +12,7 @@ using namespace std::chrono_literals;
 /* Convenience constants for tests which are always on the test network */
 namespace
 {
-nano::ledger_constants dev_constants (nano::nano_networks::nano_dev_network);
+nano::ledger_constants dev_constants (nano::networks::nano_dev_network);
 }
 
 nano::keypair const & nano::zero_key (dev_constants.zero_key);

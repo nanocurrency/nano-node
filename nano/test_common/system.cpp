@@ -212,7 +212,7 @@ uint64_t nano::system::work_generate_limited (nano::block_hash const & root_a, u
 std::unique_ptr<nano::state_block> nano::upgrade_epoch (nano::work_pool & pool_a, nano::ledger & ledger_a, nano::epoch epoch_a)
 {
 	auto transaction (ledger_a.store.tx_begin_write ());
-	auto dev_genesis_key = nano::ledger_constants (nano::nano_networks::nano_dev_network).dev_genesis_key;
+	auto dev_genesis_key = nano::ledger_constants (nano::networks::nano_dev_network).dev_genesis_key;
 	auto account = dev_genesis_key.pub;
 	auto latest = ledger_a.latest (transaction, account);
 	auto balance = ledger_a.account_balance (transaction, account);
@@ -398,7 +398,7 @@ void nano::system::generate_receive (nano::node & node_a)
 	}
 	if (send_block != nullptr)
 	{
-		auto receive_error (wallet (0)->receive_sync (send_block, nano::ledger_constants (nano::nano_networks::nano_dev_network).genesis_account, std::numeric_limits<nano::uint128_t>::max ()));
+		auto receive_error (wallet (0)->receive_sync (send_block, nano::ledger_constants (nano::networks::nano_dev_network).genesis_account, std::numeric_limits<nano::uint128_t>::max ()));
 		(void)receive_error;
 	}
 }
@@ -523,7 +523,7 @@ void nano::system::generate_send_new (nano::node & node_a, std::vector<nano::acc
 void nano::system::generate_mass_activity (uint32_t count_a, nano::node & node_a)
 {
 	std::vector<nano::account> accounts;
-	auto dev_genesis_key = nano::ledger_constants (nano::nano_networks::nano_dev_network).dev_genesis_key;
+	auto dev_genesis_key = nano::ledger_constants (nano::networks::nano_dev_network).dev_genesis_key;
 	wallet (0)->insert_adhoc (dev_genesis_key.prv);
 	accounts.push_back (dev_genesis_key.pub);
 	auto previous (std::chrono::steady_clock::now ());

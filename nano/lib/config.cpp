@@ -112,7 +112,7 @@ std::array<uint8_t, 2> test_magic_number ()
 
 void force_nano_dev_network ()
 {
-	nano::network_constants::set_active_network (nano::nano_networks::nano_dev_network);
+	nano::network_constants::set_active_network (nano::networks::nano_dev_network);
 }
 
 bool running_within_valgrind ()

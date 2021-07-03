@@ -38,11 +38,11 @@ nano::node_config::node_config (uint16_t peering_port_a, nano::logging const & l
 	}
 	switch (network_params.network.network ())
 	{
-		case nano::nano_networks::nano_dev_network:
+		case nano::networks::nano_dev_network:
 			enable_voting = true;
 			preconfigured_representatives.push_back (network_params.ledger.genesis_account);
 			break;
-		case nano::nano_networks::nano_beta_network:
+		case nano::networks::nano_beta_network:
 		{
 			preconfigured_peers.push_back (default_beta_peer_network);
 			nano::account offline_representative;
@@ -50,7 +50,7 @@ nano::node_config::node_config (uint16_t peering_port_a, nano::logging const & l
 			preconfigured_representatives.emplace_back (offline_representative);
 			break;
 		}
-		case nano::nano_networks::nano_live_network:
+		case nano::networks::nano_live_network:
 			preconfigured_peers.push_back (default_live_peer_network);
 			preconfigured_representatives.emplace_back ("A30E0A32ED41C8607AA9212843392E853FCBCB4E7CB194E35C94F07F91DE59EF");
 			preconfigured_representatives.emplace_back ("67556D31DDFC2A440BF6147501449B4CB9572278D034EE686A6BEE29851681DF");
@@ -61,7 +61,7 @@ nano::node_config::node_config (uint16_t peering_port_a, nano::logging const & l
 			preconfigured_representatives.emplace_back ("2298FAB7C61058E77EA554CB93EDEEDA0692CBFCC540AB213B2836B29029E23A");
 			preconfigured_representatives.emplace_back ("3FE80B4BC842E82C1C18ABFEEC47EA989E63953BC82AC411F304D13833D52A56");
 			break;
-		case nano::nano_networks::nano_test_network:
+		case nano::networks::nano_test_network:
 			preconfigured_peers.push_back (default_test_peer_network);
 			preconfigured_representatives.push_back (network_params.ledger.genesis_account);
 			break;
