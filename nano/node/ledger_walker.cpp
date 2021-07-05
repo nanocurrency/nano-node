@@ -37,7 +37,11 @@ void nano::ledger_walker::walk_backward (nano::block_hash const & start_block_ha
 		{
 			if (!hash.is_zero ())
 			{
-				enqueue_block (ledger.store.block_get (transaction, hash));
+				const auto block = ledger.store.block_get (transaction, hash);
+				if (block)
+				{
+					enqueue_block (ledger.store.block_get (transaction, hash));
+				}
 			}
 		}
 	}
@@ -107,10 +111,8 @@ void nano::ledger_walker::enqueue_block (nano::block_hash block_hash_a)
 
 void nano::ledger_walker::enqueue_block (std::shared_ptr<nano::block> const & block_a)
 {
-	if (block_a)
-	{
-		enqueue_block (block_a->hash ());
-	}
+	debug_assert (block_a);
+	enqueue_block (block_a->hash ());
 }
 
 bool nano::ledger_walker::add_to_walked_blocks (nano::block_hash const & block_hash_a)
