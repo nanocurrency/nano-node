@@ -68,7 +68,7 @@ nano::message_header::message_header (bool & error_a, nano::stream & stream_a)
 void nano::message_header::serialize (nano::stream & stream_a) const
 {
 	static nano::network_params network_params;
-	nano::write (stream_a, boost::endian::native_to_big (network));
+	nano::write (stream_a, boost::endian::native_to_big (static_cast<uint16_t> (network)));
 	nano::write (stream_a, version_max);
 	nano::write (stream_a, version_using);
 	nano::write (stream_a, get_protocol_constants ().protocol_version_min ());
