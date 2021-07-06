@@ -12,6 +12,9 @@ boost::filesystem::path nano::working_path (bool legacy)
 	auto result (nano::app_path ());
 	switch (network_constants.network ())
 	{
+		case nano::networks::invalid:
+			release_assert (false);
+			break;
 		case nano::networks::nano_dev_network:
 			if (!legacy)
 			{
