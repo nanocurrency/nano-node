@@ -195,6 +195,7 @@ public:
 	void block_type_set (nano::block_type);
 	uint8_t count_get () const;
 	void count_set (uint8_t);
+	nano::networks network;
 	uint8_t version_max;
 	uint8_t version_using;
 

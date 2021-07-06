@@ -255,6 +255,7 @@ public:
 		insufficient_work,
 		http_callback,
 		unreachable_host,
+		invalid_network,
 
 		// confirmation_observer specific
 		active_quorum,

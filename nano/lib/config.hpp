@@ -64,6 +64,7 @@ std::array<uint8_t, 2> test_magic_number ();
  */
 enum class networks : uint16_t
 {
+	invalid = 0x0,
 	// Low work parameters, publicly known genesis key, dev IP ports
 	nano_dev_network = 0x5241, // 'R', 'A'
 	// Normal work parameters, secret beta genesis key, beta IP ports

@@ -46,6 +46,7 @@ TEST (message, publish_serialization)
 {
 	nano::network_params params;
 	nano::publish publish (std::make_shared<nano::send_block> (0, 1, 2, nano::keypair ().prv, 4, 5));
+	publish.header.network = nano::networks::nano_dev_network;
 	ASSERT_EQ (nano::block_type::send, publish.header.block_type ());
 	std::vector<uint8_t> bytes;
 	{

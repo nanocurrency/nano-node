@@ -475,7 +475,6 @@ public:
 	/** Populate values based on \p network_a */
 	network_params (nano::networks network_a);
 
-	std::array<uint8_t, 2> header_magic_number;
 	unsigned kdf_work;
 	network_constants network;
 	protocol_constants protocol;

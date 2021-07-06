@@ -1256,3 +1256,17 @@ TEST (network, loopback_channel)
 	++node1.network.port;
 	ASSERT_NE (channel1.get_endpoint (), node1.network.endpoint ());
 }
+
+// Ensure the network filters messages with the incorrect magic number
+TEST (network, filter)
+{
+	nano::system system{ 1 };
+	auto & node1 = *system.nodes[0];
+	nano::keepalive keepalive;
+	keepalive.header.network = nano::networks::nano_dev_network;
+	node1.network.inbound (keepalive, std::make_shared<nano::transport::channel_loopback> (node1));
+	ASSERT_EQ (0, node1.stats.count (nano::stat::type::message, nano::stat::detail::invalid_network));
+	keepalive.header.network = nano::networks::invalid;
+	node1.network.inbound (keepalive, std::make_shared<nano::transport::channel_loopback> (node1));
+	ASSERT_EQ (1, node1.stats.count (nano::stat::type::message, nano::stat::detail::invalid_network));
+}
