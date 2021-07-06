@@ -1,8 +1,8 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/node/ledger_walker.hpp>
-#include <nano/secure/blockstore.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/store.hpp>
 #include <nano/secure/utility.hpp>
 
 #include <algorithm>
@@ -37,10 +37,10 @@ void nano::ledger_walker::walk_backward (nano::block_hash const & start_block_ha
 		{
 			if (!hash.is_zero ())
 			{
-				const auto block = ledger.store.block_get (transaction, hash);
-				if (block)
+				const auto dependent_block = ledger.store.block.get (transaction, hash);
+				if (dependent_block)
 				{
-					enqueue_block (ledger.store.block_get (transaction, hash));
+					enqueue_block (dependent_block);
 				}
 			}
 		}
@@ -70,7 +70,7 @@ void nano::ledger_walker::walk (nano::block_hash const & end_block_hash_a, shoul
 			continue;
 		}
 
-		const auto block = ledger.store.block_get (transaction, *block_hash);
+		const auto block = ledger.store.block.get (transaction, *block_hash);
 		if (!block)
 		{
 			debug_assert (false);
@@ -168,7 +168,7 @@ void nano::ledger_walker::clear_queue ()
 
 std::shared_ptr<nano::block> nano::ledger_walker::dequeue_block (nano::transaction const & transaction_a)
 {
-	auto block = ledger.store.block_get (transaction_a, blocks_to_walk.top ());
+	auto block = ledger.store.block.get (transaction_a, blocks_to_walk.top ());
 	blocks_to_walk.pop ();
 
 	return block;
