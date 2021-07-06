@@ -378,6 +378,10 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
 find_package(Boost 1.70.0 REQUIRED COMPONENTS filesystem log log_setup thread
                                               program_options system)
 
+# diskhash
+add_library(diskhash STATIC ${CMAKE_SOURCE_DIR}/diskhash/src/diskhash.c)
+include_directories(diskhash/src)
+
 # RocksDB
 include_directories(rocksdb/include)
 set(USE_RTTI
