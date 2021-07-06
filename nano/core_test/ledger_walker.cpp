@@ -1,5 +1,5 @@
 #include <nano/node/ledger_walker.hpp>
-#include <nano/node/testing.hpp>
+#include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
@@ -108,11 +108,11 @@ TEST (ledger_walker, cross_account)
 	ASSERT_FALSE (node->ledger.store.account.get (transaction, key.pub, account_info));
 
 	//    TODO: check issue with account head
-	//    const auto first = node->ledger.store.block_get_no_sideband(transaction, account_info.head);
-	//    const auto second = node->ledger.store.block_get_no_sideband(transaction, first->previous());
-	//    const auto third = node->ledger.store.block_get_no_sideband(transaction, second->previous());
-	//    const auto fourth = node->ledger.store.block_get_no_sideband(transaction, third->previous());
-	//    const auto fifth = node->ledger.store.block_get_no_sideband(transaction, fourth->previous());
+	//    const auto first = node->ledger.store.block.get_no_sideband(transaction, account_info.head);
+	//    const auto second = node->ledger.store.block.get_no_sideband(transaction, first->previous());
+	//    const auto third = node->ledger.store.block.get_no_sideband(transaction, second->previous());
+	//    const auto fourth = node->ledger.store.block.get_no_sideband(transaction, third->previous());
+	//    const auto fifth = node->ledger.store.block.get_no_sideband(transaction, fourth->previous());
 	//
 	//    const auto expected_blocks_to_walk = { first, second, third, fourth, fifth };
 	//    auto expected_blocks_to_walk_itr = expected_blocks_to_walk.begin();
@@ -189,7 +189,7 @@ TEST (ledger_walker, ladder_geometry)
 			nano::amount previous_balance{};
 			if (!block->previous ().is_zero ())
 			{
-				const auto previous_block = node->ledger.store.block_get_no_sideband (transaction, block->previous ());
+				const auto previous_block = node->ledger.store.block.get_no_sideband (transaction, block->previous ());
 				previous_balance = previous_block->balance ();
 			}
 
@@ -208,7 +208,7 @@ TEST (ledger_walker, ladder_geometry)
 			nano::amount previous_balance{};
 			if (!block->previous ().is_zero ())
 			{
-				const auto previous_block = node->ledger.store.block_get_no_sideband (transaction, block->previous ());
+				const auto previous_block = node->ledger.store.block.get_no_sideband (transaction, block->previous ());
 				previous_balance = previous_block->balance ();
 			}
 
