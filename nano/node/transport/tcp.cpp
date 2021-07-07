@@ -585,7 +585,7 @@ void nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint_a
 				channel->send_buffer (bytes, [node_w, channel, endpoint_a, receive_buffer, callback_a] (boost::system::error_code const & ec, size_t size_a) {
 					if (auto node_l = node_w.lock ())
 					{
-						if (!ec && channel)
+						if (!ec)
 						{
 							node_l->network.tcp_channels.start_tcp_receive_node_id (channel, endpoint_a, receive_buffer, callback_a);
 						}
