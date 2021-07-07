@@ -150,6 +150,10 @@ add_library(
   write_database_queue.cpp
   xorshift.hpp)
 
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")
+  set(DISKHASH diskhash)
+endif()
+
 target_link_libraries(
   node
   rpc
@@ -166,7 +170,7 @@ target_link_libraries(
   Boost::thread
   Boost::boost
   rocksdb
-  diskhash
+  ${DISKHASH}
   ${CMAKE_DL_LIBS}
   ${psapi_lib})
 
