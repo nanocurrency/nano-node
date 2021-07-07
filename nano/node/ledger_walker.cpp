@@ -1,3 +1,6 @@
+// TODO: keep this until diskhash builds fine on Windows
+#ifndef _WIN32
+
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/node/ledger_walker.hpp>
@@ -173,3 +176,5 @@ std::shared_ptr<nano::block> nano::ledger_walker::dequeue_block (nano::transacti
 
 	return block;
 }
+
+#endif // _WIN32 -- TODO: keep this until diskhash builds fine on Windows
