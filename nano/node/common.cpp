@@ -82,13 +82,14 @@ bool nano::message_header::deserialize (nano::stream & stream_a)
 	try
 	{
 		static nano::network_params network_params;
-		uint16_t extensions_l;
-		nano::read (stream_a, network);
-		boost::endian::big_to_native_inplace (network);
+		uint16_t network_bytes;
+		nano::read (stream_a, network_bytes);
+		network = static_cast<nano::networks> (boost::endian::big_to_native (network_bytes));
 		nano::read (stream_a, version_max);
 		nano::read (stream_a, version_using);
 		nano::read (stream_a, version_min_m);
 		nano::read (stream_a, type);
+		uint16_t extensions_l;
 		nano::read (stream_a, extensions_l);
 		extensions = extensions_l;
 	}
