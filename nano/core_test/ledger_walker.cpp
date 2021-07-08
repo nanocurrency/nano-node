@@ -50,7 +50,7 @@ TEST (ledger_walker, genesis_account_longer)
 
 	nano::ledger_walker ledger_walker{ node->ledger };
 	EXPECT_TRUE (ledger_walker.walked_blocks.empty ());
-	EXPECT_EQ (1, ledger_walker.walked_blocks.bucket_count ());
+	EXPECT_LE (ledger_walker.walked_blocks.bucket_count (), 1);
 	EXPECT_TRUE (ledger_walker.blocks_to_walk.empty ());
 
 	const auto get_number_of_walked_blocks = [&ledger_walker] (const auto & start_block_hash) {
@@ -82,7 +82,7 @@ TEST (ledger_walker, genesis_account_longer)
 	}
 
 	EXPECT_TRUE (ledger_walker.walked_blocks.empty ());
-	EXPECT_EQ (1, ledger_walker.walked_blocks.bucket_count ());
+	EXPECT_LE (ledger_walker.walked_blocks.bucket_count (), 1);
 	EXPECT_TRUE (ledger_walker.blocks_to_walk.empty ());
 }
 
