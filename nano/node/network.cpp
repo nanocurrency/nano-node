@@ -21,7 +21,7 @@ nano::network::network (nano::node & node_a, uint16_t port_a) :
 		}
 		else
 		{
-			node.stats.inc (nano::stat::type::message, nano::stat::detail::invalid_network);
+			this->node.stats.inc (nano::stat::type::message, nano::stat::detail::invalid_network);
 		}
 	} },
 	buffer_container (node_a.stats, nano::network::buffer_size, 4096), // 2Mb receive buffer
