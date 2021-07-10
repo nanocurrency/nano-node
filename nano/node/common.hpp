@@ -195,6 +195,7 @@ public:
 	void block_type_set (nano::block_type);
 	uint8_t count_get () const;
 	void count_set (uint8_t);
+	nano::networks network;
 	uint8_t version_max;
 	uint8_t version_using;
 
@@ -204,7 +205,7 @@ private:
 public:
 	nano::message_type type;
 	std::bitset<16> extensions;
-	static size_t constexpr size = sizeof (network_params::header_magic_number) + sizeof (version_max) + sizeof (version_using) + sizeof (version_min_m) + sizeof (type) + sizeof (/* extensions */ uint16_t);
+	static size_t constexpr size = sizeof (nano::networks) + sizeof (version_max) + sizeof (version_using) + sizeof (version_min_m) + sizeof (type) + sizeof (/* extensions */ uint16_t);
 
 	void flag_set (uint8_t);
 	static uint8_t constexpr bulk_pull_count_present_flag = 0;

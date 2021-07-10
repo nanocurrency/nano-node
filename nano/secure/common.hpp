@@ -367,7 +367,7 @@ class ledger_constants
 {
 public:
 	ledger_constants (nano::network_constants & network_constants);
-	ledger_constants (nano::nano_networks network_a);
+	ledger_constants (nano::networks network_a);
 	nano::keypair zero_key;
 	nano::keypair dev_genesis_key;
 	nano::account nano_dev_account;
@@ -473,9 +473,8 @@ public:
 	network_params ();
 
 	/** Populate values based on \p network_a */
-	network_params (nano::nano_networks network_a);
+	network_params (nano::networks network_a);
 
-	std::array<uint8_t, 2> header_magic_number;
 	unsigned kdf_work;
 	network_constants network;
 	protocol_constants protocol;

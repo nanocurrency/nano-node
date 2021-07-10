@@ -12,8 +12,18 @@
 #include <numeric>
 
 nano::network::network (nano::node & node_a, uint16_t port_a) :
+	id (nano::network_constants::active_network),
 	syn_cookies (node_a.network_params.node.max_peers_per_ip),
-	inbound{ [this] (nano::message const & message, std::shared_ptr<nano::transport::channel> const & channel) { process_message (message, channel); } },
+	inbound{ [this] (nano::message const & message, std::shared_ptr<nano::transport::channel> const & channel) {
+		if (message.header.network == id)
+		{
+			process_message (message, channel);
+		}
+		else
+		{
+			this->node.stats.inc (nano::stat::type::message, nano::stat::detail::invalid_network);
+		}
+	} },
 	buffer_container (node_a.stats, nano::network::buffer_size, 4096), // 2Mb receive buffer
 	resolver (node_a.io_ctx),
 	limiter (node_a.config.bandwidth_limit_burst_ratio, node_a.config.bandwidth_limit),

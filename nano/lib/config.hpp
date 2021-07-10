@@ -61,18 +61,18 @@ std::array<uint8_t, 2> test_magic_number ();
 
 /**
  * Network variants with different genesis blocks and network parameters
- * @warning Enum values are used in integral comparisons; do not change.
  */
-enum class nano_networks
+enum class networks : uint16_t
 {
+	invalid = 0x0,
 	// Low work parameters, publicly known genesis key, dev IP ports
-	nano_dev_network = 0,
+	nano_dev_network = 0x5241, // 'R', 'A'
 	// Normal work parameters, secret beta genesis key, beta IP ports
-	nano_beta_network = 1,
+	nano_beta_network = 0x5242, // 'R', 'B'
 	// Normal work parameters, secret live key, live IP ports
-	nano_live_network = 2,
+	nano_live_network = 0x5243, // 'R', 'C'
 	// Normal work parameters, secret test genesis key, test IP ports
-	nano_test_network = 3,
+	nano_test_network = 0x5258, // 'R', 'X'
 };
 
 struct work_thresholds
@@ -108,7 +108,7 @@ public:
 	{
 	}
 
-	network_constants (nano_networks network_a) :
+	network_constants (nano::networks network_a) :
 		current_network (network_a),
 		publish_thresholds (is_live_network () ? publish_full : is_beta_network () ? publish_beta : is_test_network () ? publish_test : publish_dev)
 	{
@@ -132,7 +132,7 @@ public:
 	static const char * active_network_err_msg;
 
 	/** The network this param object represents. This may differ from the global active network; this is needed for certain --debug... commands */
-	nano_networks current_network{ nano::network_constants::active_network };
+	nano::networks current_network{ nano::network_constants::active_network };
 	nano::work_thresholds publish_thresholds;
 
 	unsigned principal_weight_factor;
@@ -143,7 +143,7 @@ public:
 	unsigned request_interval_ms;
 
 	/** Returns the network this object contains values for */
-	nano_networks network () const
+	nano::networks network () const
 	{
 		return current_network;
 	}
@@ -153,7 +153,7 @@ public:
 	 * If not called, the compile-time option will be used.
 	 * @param network_a The new active network
 	 */
-	static void set_active_network (nano_networks network_a)
+	static void set_active_network (nano::networks network_a)
 	{
 		active_network = network_a;
 	}
@@ -168,19 +168,19 @@ public:
 		auto error{ false };
 		if (network_a == "live")
 		{
-			active_network = nano::nano_networks::nano_live_network;
+			active_network = nano::networks::nano_live_network;
 		}
 		else if (network_a == "beta")
 		{
-			active_network = nano::nano_networks::nano_beta_network;
+			active_network = nano::networks::nano_beta_network;
 		}
 		else if (network_a == "dev")
 		{
-			active_network = nano::nano_networks::nano_dev_network;
+			active_network = nano::networks::nano_dev_network;
 		}
 		else if (network_a == "test")
 		{
-			active_network = nano::nano_networks::nano_test_network;
+			active_network = nano::networks::nano_test_network;
 		}
 		else
 		{
@@ -196,23 +196,23 @@ public:
 
 	bool is_live_network () const
 	{
-		return current_network == nano_networks::nano_live_network;
+		return current_network == nano::networks::nano_live_network;
 	}
 	bool is_beta_network () const
 	{
-		return current_network == nano_networks::nano_beta_network;
+		return current_network == nano::networks::nano_beta_network;
 	}
 	bool is_dev_network () const
 	{
-		return current_network == nano_networks::nano_dev_network;
+		return current_network == nano::networks::nano_dev_network;
 	}
 	bool is_test_network () const
 	{
-		return current_network == nano_networks::nano_test_network;
+		return current_network == nano::networks::nano_test_network;
 	}
 
 	/** Initial value is ACTIVE_NETWORK compile flag, but can be overridden by a CLI flag */
-	static nano::nano_networks active_network;
+	static nano::networks active_network;
 };
 
 std::string get_config_path (boost::filesystem::path const & data_path);
