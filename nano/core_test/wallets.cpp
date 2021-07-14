@@ -73,30 +73,6 @@ TEST (wallets, remove)
 	}
 }
 
-// Keeps breaking whenever we add new DBs
-TEST (wallets, DISABLED_wallet_create_max)
-{
-	nano::system system (1);
-	bool error (false);
-	nano::wallets wallets (error, *system.nodes[0]);
-	const int nonWalletDbs = 19;
-	for (int i = 0; i < system.nodes[0]->config.deprecated_lmdb_max_dbs - nonWalletDbs; i++)
-	{
-		auto wallet_id = nano::random_wallet_id ();
-		auto wallet = wallets.create (wallet_id);
-		auto existing = wallets.items.find (wallet_id);
-		ASSERT_TRUE (existing != wallets.items.end ());
-		nano::raw_key seed;
-		seed = 0;
-		auto transaction (system.nodes[0]->store.tx_begin_write ());
-		existing->second->store.seed_set (transaction, seed);
-	}
-	auto wallet_id = nano::random_wallet_id ();
-	wallets.create (wallet_id);
-	auto existing = wallets.items.find (wallet_id);
-	ASSERT_TRUE (existing == wallets.items.end ());
-}
-
 TEST (wallets, reload)
 {
 	nano::system system (1);
