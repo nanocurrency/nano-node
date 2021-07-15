@@ -40,7 +40,7 @@ public:
 	};
 
 	nano::error serialize_toml (nano::tomlconfig & toml_a) const;
-	nano::error deserialize_toml (nano::tomlconfig & toml_a, bool is_deprecated_lmdb_dbs_used);
+	nano::error deserialize_toml (nano::tomlconfig & toml_a);
 
 	/** Sync strategy for the ledger database */
 	sync_strategy sync{ always };
