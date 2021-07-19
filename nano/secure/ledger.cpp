@@ -1342,7 +1342,7 @@ uint64_t nano::ledger::pruning_action (nano::write_transaction & transaction_a, 
 {
 	uint64_t pruned_count (0);
 	nano::block_hash hash (hash_a);
-	while (!hash.is_zero () && hash != network_params.ledger.genesis_hash)
+	while (!hash.is_zero () && hash != network_params.ledger.genesis_hash ())
 	{
 		auto block (store.block.get (transaction_a, hash));
 		if (block != nullptr)

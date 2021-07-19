@@ -114,7 +114,6 @@ nano::ledger_constants::ledger_constants (nano::networks network_a) :
 	nano_live_genesis (parse_block_from_genesis_data (live_genesis_data)),
 	nano_test_genesis (parse_block_from_genesis_data (test_genesis_data)),
 	genesis_block (network_a == nano::networks::nano_dev_network ? nano_dev_genesis : network_a == nano::networks::nano_beta_network ? nano_beta_genesis : network_a == nano::networks::nano_test_network ? nano_test_genesis : nano_live_genesis),
-	genesis_hash (genesis_block->hash ()),
 	genesis_amount (std::numeric_limits<nano::uint128_t>::max ()),
 	burn_account (0),
 	nano_dev_final_votes_canary_account (dev_public_key_data),
@@ -146,6 +145,13 @@ nano::ledger_constants::ledger_constants (nano::networks network_a) :
 nano::account nano::ledger_constants::genesis_account () const
 {
 	auto result = genesis_block->account ();
+	debug_assert (!result.is_zero ());
+	return result;
+}
+
+nano::block_hash nano::ledger_constants::genesis_hash () const
+{
+	auto result = genesis_block->hash ();
 	debug_assert (!result.is_zero ());
 	return result;
 }
