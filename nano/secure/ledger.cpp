@@ -1102,7 +1102,7 @@ nano::account nano::ledger::account_safe (nano::transaction const & transaction_
 // Return amount decrease or increase for block
 nano::uint128_t nano::ledger::amount (nano::transaction const & transaction_a, nano::account const & account_a)
 {
-	release_assert (account_a == network_params.ledger.genesis_account);
+	release_assert (account_a == network_params.ledger.genesis_account ());
 	return network_params.ledger.genesis_amount;
 }
 
@@ -1204,7 +1204,7 @@ public:
 	}
 	void open_block (nano::open_block const & block_a) override
 	{
-		if (block_a.source () != ledger.network_params.ledger.genesis_account)
+		if (block_a.source () != ledger.network_params.ledger.genesis_account ())
 		{
 			result[0] = block_a.source ();
 		}

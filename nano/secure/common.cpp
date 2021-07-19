@@ -113,7 +113,6 @@ nano::ledger_constants::ledger_constants (nano::networks network_a) :
 	nano_beta_genesis (parse_block_from_genesis_data (beta_genesis_data)),
 	nano_live_genesis (parse_block_from_genesis_data (live_genesis_data)),
 	nano_test_genesis (parse_block_from_genesis_data (test_genesis_data)),
-	genesis_account (network_a == nano::networks::nano_dev_network ? nano_dev_account : network_a == nano::networks::nano_beta_network ? nano_beta_account : network_a == nano::networks::nano_test_network ? nano_test_account : nano_live_account),
 	genesis_block (network_a == nano::networks::nano_dev_network ? nano_dev_genesis : network_a == nano::networks::nano_beta_network ? nano_beta_genesis : network_a == nano::networks::nano_test_network ? nano_test_genesis : nano_live_genesis),
 	genesis_hash (genesis_block->hash ()),
 	genesis_amount (std::numeric_limits<nano::uint128_t>::max ()),
@@ -132,7 +131,7 @@ nano::ledger_constants::ledger_constants (nano::networks network_a) :
 	nano::link epoch_link_v1;
 	const char * epoch_message_v1 ("epoch v1 block");
 	strncpy ((char *)epoch_link_v1.bytes.data (), epoch_message_v1, epoch_link_v1.bytes.size ());
-	epochs.add (nano::epoch::epoch_1, genesis_account, epoch_link_v1);
+	epochs.add (nano::epoch::epoch_1, genesis_account (), epoch_link_v1);
 
 	nano::link epoch_link_v2;
 	nano::account nano_live_epoch_v2_signer;
@@ -142,6 +141,13 @@ nano::ledger_constants::ledger_constants (nano::networks network_a) :
 	const char * epoch_message_v2 ("epoch v2 block");
 	strncpy ((char *)epoch_link_v2.bytes.data (), epoch_message_v2, epoch_link_v2.bytes.size ());
 	epochs.add (nano::epoch::epoch_2, epoch_v2_signer, epoch_link_v2);
+}
+
+nano::account nano::ledger_constants::genesis_account () const
+{
+	auto result = genesis_block->account ();
+	debug_assert (!result.is_zero ());
+	return result;
 }
 
 nano::random_constants::random_constants ()
