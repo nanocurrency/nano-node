@@ -109,13 +109,13 @@ nano::ledger_constants::ledger_constants (nano::networks network_a) :
 	nano_beta_account (beta_public_key_data),
 	nano_live_account (live_public_key_data),
 	nano_test_account (test_public_key_data),
-	nano_dev_genesis (dev_genesis_data),
-	nano_beta_genesis (beta_genesis_data),
-	nano_live_genesis (live_genesis_data),
-	nano_test_genesis (test_genesis_data),
+	nano_dev_genesis (parse_block_from_genesis_data (dev_genesis_data)),
+	nano_beta_genesis (parse_block_from_genesis_data (beta_genesis_data)),
+	nano_live_genesis (parse_block_from_genesis_data (live_genesis_data)),
+	nano_test_genesis (parse_block_from_genesis_data (test_genesis_data)),
 	genesis_account (network_a == nano::networks::nano_dev_network ? nano_dev_account : network_a == nano::networks::nano_beta_network ? nano_beta_account : network_a == nano::networks::nano_test_network ? nano_test_account : nano_live_account),
 	genesis_block (network_a == nano::networks::nano_dev_network ? nano_dev_genesis : network_a == nano::networks::nano_beta_network ? nano_beta_genesis : network_a == nano::networks::nano_test_network ? nano_test_genesis : nano_live_genesis),
-	genesis_hash (parse_block_from_genesis_data (genesis_block)->hash ()),
+	genesis_hash (genesis_block->hash ()),
 	genesis_amount (std::numeric_limits<nano::uint128_t>::max ()),
 	burn_account (0),
 	nano_dev_final_votes_canary_account (dev_public_key_data),
@@ -818,7 +818,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (vo
 nano::genesis::genesis ()
 {
 	static nano::network_params network_params;
-	open = parse_block_from_genesis_data (network_params.ledger.genesis_block);
+	open = network_params.ledger.genesis_block;
 	debug_assert (open != nullptr);
 }
 

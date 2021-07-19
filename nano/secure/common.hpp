@@ -374,12 +374,12 @@ public:
 	nano::account nano_beta_account;
 	nano::account nano_live_account;
 	nano::account nano_test_account;
-	std::string nano_dev_genesis;
-	std::string nano_beta_genesis;
-	std::string nano_live_genesis;
-	std::string nano_test_genesis;
+	std::shared_ptr<nano::block> nano_dev_genesis;
+	std::shared_ptr<nano::block> nano_beta_genesis;
+	std::shared_ptr<nano::block> nano_live_genesis;
+	std::shared_ptr<nano::block> nano_test_genesis;
 	nano::account genesis_account;
-	std::string genesis_block;
+	std::shared_ptr<nano::block> genesis_block;
 	nano::block_hash genesis_hash;
 	nano::uint128_t genesis_amount;
 	nano::account burn_account;
