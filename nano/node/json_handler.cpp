@@ -654,7 +654,7 @@ void nano::json_handler::account_info ()
 			std::shared_ptr<nano::block> confirmed_frontier_block;
 			if (include_confirmed && confirmation_height_info.height > 0)
 			{
-				confirmed_frontier_block = node.store.block.get (transaction, confirmed_frontier);
+				confirmed_frontier_block = node.store.block.get (transaction, confirmation_height_info.frontier);
 			}
 
 			if (representative)
@@ -668,7 +668,7 @@ void nano::json_handler::account_info ()
 						confirmed_representative = confirmed_frontier_block->representative ();
 						if (confirmed_representative.is_zero ())
 						{
-							confirmed_representative = node.store.block.get (transaction, node.ledger.representative (transaction, confirmed_frontier))->representative ();
+							confirmed_representative = node.store.block.get (transaction, node.ledger.representative (transaction, confirmation_height_info.frontier))->representative ();
 						}
 					}
 
