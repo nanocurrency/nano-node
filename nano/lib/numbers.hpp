@@ -66,7 +66,7 @@ public:
 	 * Decode from hex string
 	 * @warning Aborts at runtime if the input is invalid
 	 */
-	uint256_union (std::string const &);
+	explicit uint256_union (std::string const &);
 	uint256_union (uint64_t);
 	uint256_union (nano::uint256_t const &);
 	void encrypt (nano::raw_key const &, nano::raw_key const &, uint128_union const &);

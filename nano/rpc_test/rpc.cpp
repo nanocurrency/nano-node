@@ -2985,7 +2985,7 @@ TEST (rpc, accounts_frontiers)
 		std::string account_text (frontiers.first);
 		ASSERT_EQ (nano::dev_genesis_key.pub.to_account (), account_text);
 		std::string frontier_text (frontiers.second.get<std::string> (""));
-		ASSERT_EQ (node->latest (nano::genesis_account), frontier_text);
+		ASSERT_EQ (node->latest (nano::genesis_account), nano::block_hash{ frontier_text });
 	}
 }
 
@@ -5873,7 +5873,7 @@ TEST (rpc, receive)
 		auto receive_text (response.get<std::string> ("block"));
 		nano::account_info info;
 		ASSERT_FALSE (node->store.account.get (node->store.tx_begin_read (), key1.pub, info));
-		ASSERT_EQ (info.head, receive_text);
+		ASSERT_EQ (info.head, nano::block_hash{ receive_text });
 	}
 	// Trying to receive the same block should fail with unreceivable
 	{
@@ -6024,7 +6024,7 @@ TEST (rpc, receive_pruned)
 		auto receive_text (response.get<std::string> ("block"));
 		nano::account_info info;
 		ASSERT_FALSE (node2->store.account.get (node2->store.tx_begin_read (), key1.pub, info));
-		ASSERT_EQ (info.head, receive_text);
+		ASSERT_EQ (info.head, nano::block_hash{ receive_text });
 	}
 	// Trying to receive the same block should fail with unreceivable
 	{
