@@ -329,7 +329,6 @@ void nano::transport::tcp_channels::process_message (nano::message const & messa
 				{
 					// Initial node_id_handshake request without node ID
 					debug_assert (message_a.header.type == nano::message_type::node_id_handshake);
-					debug_assert (type_a == nano::socket::type_t::undefined);
 					node.stats.inc (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in);
 				}
 			}
