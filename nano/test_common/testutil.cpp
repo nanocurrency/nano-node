@@ -15,7 +15,6 @@ namespace
 nano::ledger_constants dev_constants (nano::networks::nano_dev_network);
 }
 
-nano::account const & nano::nano_dev_account (dev_constants.nano_dev_account);
 nano::uint128_t const & nano::genesis_amount (dev_constants.genesis_amount);
 
 void nano::wait_peer_connections (nano::system & system_a)

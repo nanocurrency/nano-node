@@ -65,7 +65,7 @@ TEST (ledger_walker, genesis_account_longer)
 
 	const auto transaction = node->ledger.store.tx_begin_read ();
 	nano::account_info genesis_account_info{};
-	ASSERT_FALSE (node->ledger.store.account.get (transaction, nano::nano_dev_account, genesis_account_info));
+	ASSERT_FALSE (node->ledger.store.account.get (transaction, nano::dev::genesis_key.pub, genesis_account_info));
 	EXPECT_EQ (get_number_of_walked_blocks (genesis_account_info.open_block), 1);
 	EXPECT_EQ (get_number_of_walked_blocks (genesis_account_info.head), 1);
 
@@ -76,7 +76,7 @@ TEST (ledger_walker, genesis_account_longer)
 		ASSERT_TRUE (send);
 		EXPECT_EQ (get_number_of_walked_blocks (send->hash ()), 1 + itr * 2 - 1);
 		ASSERT_TIMELY (3s, 1 + itr * 2 == node->ledger.cache.cemented_count);
-		ASSERT_FALSE (node->ledger.store.account.get (transaction, nano::nano_dev_account, genesis_account_info));
+		ASSERT_FALSE (node->ledger.store.account.get (transaction, nano::dev::genesis_key.pub, genesis_account_info));
 		// TODO: check issue with account head
 		// EXPECT_EQ(get_number_of_walked_blocks (genesis_account_info.head), 1 + itr * 2);
 	}

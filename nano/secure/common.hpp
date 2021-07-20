@@ -371,7 +371,6 @@ public:
 	nano::account genesis_account () const;
 	nano::block_hash genesis_hash () const;
 	nano::keypair zero_key;
-	nano::account nano_dev_account;
 	nano::account nano_beta_account;
 	nano::account nano_live_account;
 	nano::account nano_test_account;

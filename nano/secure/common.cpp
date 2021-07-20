@@ -108,7 +108,6 @@ nano::ledger_constants::ledger_constants (nano::network_constants & network_cons
 
 nano::ledger_constants::ledger_constants (nano::networks network_a) :
 	zero_key ("0"),
-	nano_dev_account (dev_public_key_data),
 	nano_beta_account (beta_public_key_data),
 	nano_live_account (live_public_key_data),
 	nano_test_account (test_public_key_data),
@@ -139,7 +138,7 @@ nano::ledger_constants::ledger_constants (nano::networks network_a) :
 	nano::account nano_live_epoch_v2_signer;
 	auto error (nano_live_epoch_v2_signer.decode_account ("nano_3qb6o6i1tkzr6jwr5s7eehfxwg9x6eemitdinbpi7u8bjjwsgqfj4wzser3x"));
 	debug_assert (!error);
-	auto epoch_v2_signer (network_a == nano::networks::nano_dev_network ? nano_dev_account : network_a == nano::networks::nano_beta_network ? nano_beta_account : network_a == nano::networks::nano_test_network ? nano_test_account : nano_live_epoch_v2_signer);
+	auto epoch_v2_signer (network_a == nano::networks::nano_dev_network ? nano::dev::genesis_key.pub : network_a == nano::networks::nano_beta_network ? nano_beta_account : network_a == nano::networks::nano_test_network ? nano_test_account : nano_live_epoch_v2_signer);
 	const char * epoch_message_v2 ("epoch v2 block");
 	strncpy ((char *)epoch_link_v2.bytes.data (), epoch_message_v2, epoch_link_v2.bytes.size ());
 	epochs.add (nano::epoch::epoch_2, epoch_v2_signer, epoch_link_v2);
