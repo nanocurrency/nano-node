@@ -1164,12 +1164,12 @@ TEST (wallet, search_pending)
 	nano::block_builder builder;
 	auto send = builder.state ()
 				.account (nano::genesis_account)
-				.previous (nano::genesis_hash)
+				.previous (nano::dev::genesis->hash ())
 				.representative (nano::genesis_account)
 				.balance (nano::genesis_amount - node.config.receive_minimum.number ())
 				.link (nano::genesis_account)
 				.sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-				.work (*system.work.generate (nano::genesis_hash))
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
 				.build ();
 	ASSERT_EQ (nano::process_result::progress, node.process (*send).code);
 

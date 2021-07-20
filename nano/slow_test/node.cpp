@@ -483,7 +483,7 @@ TEST (node, mass_vote_by_hash)
 {
 	nano::system system (1);
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
-	nano::block_hash previous (nano::genesis_hash);
+	nano::block_hash previous (nano::dev::genesis->hash ());
 	nano::keypair key;
 	std::vector<std::shared_ptr<nano::state_block>> blocks;
 	for (auto i (0); i < 10000; ++i)
@@ -979,7 +979,7 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 
 	auto const num_accounts = 100000;
 
-	auto latest_genesis = nano::genesis_hash;
+	auto latest_genesis = nano::dev::genesis->hash ();
 	std::vector<nano::keypair> keys;
 	std::vector<std::shared_ptr<nano::open_block>> open_blocks;
 
@@ -1828,7 +1828,7 @@ TEST (node, wallet_create_block_confirm_conflicts)
 		auto const num_blocks = 10000;
 
 		// First open the other account
-		auto latest = nano::genesis_hash;
+		auto latest = nano::dev::genesis->hash ();
 		nano::keypair key1;
 		{
 			auto transaction = node->store.tx_begin_write ();

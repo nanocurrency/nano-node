@@ -742,7 +742,7 @@ TEST (votes, add_existing)
 	nano::block_builder builder;
 	std::shared_ptr<nano::block> send1 = builder.state ()
 										 .account (nano::dev_genesis_key.pub)
-										 .previous (nano::genesis_hash)
+										 .previous (nano::dev::genesis->hash ())
 										 .representative (nano::dev_genesis_key.pub) // No representative, blocks can't confirm
 										 .balance (nano::genesis_amount / 2 - nano::Gxrb_ratio)
 										 .link (key1.pub)
@@ -762,7 +762,7 @@ TEST (votes, add_existing)
 	nano::keypair key2;
 	std::shared_ptr<nano::block> send2 = builder.state ()
 										 .account (nano::dev_genesis_key.pub)
-										 .previous (nano::genesis_hash)
+										 .previous (nano::dev::genesis->hash ())
 										 .representative (nano::dev_genesis_key.pub) // No representative, blocks can't confirm
 										 .balance (nano::genesis_amount / 2 - nano::Gxrb_ratio)
 										 .link (key2.pub)
@@ -2563,12 +2563,12 @@ TEST (ledger, epoch_open_pending)
 	// New block to process epoch open
 	auto send1 = builder.state ()
 				 .account (nano::genesis_account)
-				 .previous (nano::genesis_hash)
+				 .previous (nano::dev::genesis->hash ())
 				 .representative (nano::genesis_account)
 				 .balance (nano::genesis_amount - 100)
 				 .link (key1.pub)
 				 .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-				 .work (*pool.generate (nano::genesis_hash))
+				 .work (*pool.generate (nano::dev::genesis->hash ()))
 				 .build_shared ();
 	node1.block_processor.add (send1);
 	node1.block_processor.flush ();
@@ -3000,7 +3000,7 @@ TEST (ledger, work_validation)
 	std::error_code ec;
 
 	auto send = *builder.send ()
-				 .previous (nano::genesis_hash)
+				 .previous (nano::dev::genesis->hash ())
 				 .destination (gen.pub)
 				 .balance (nano::genesis_amount - 1)
 				 .sign (gen.prv, gen.pub)
@@ -3735,12 +3735,12 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 
 	auto send = nano::state_block_builder ()
 				.account (nano::dev_genesis_key.pub)
-				.previous (nano::genesis_hash)
+				.previous (nano::dev::genesis->hash ())
 				.representative (0)
 				.link (nano::account (10))
 				.balance (nano::genesis_amount - 100)
 				.sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-				.work (*pool.generate (nano::genesis_hash))
+				.work (*pool.generate (nano::dev::genesis->hash ()))
 				.build_shared ();
 
 	nano::endpoint_key endpoint_key (address.to_bytes (), port);
@@ -3760,7 +3760,7 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 
 		store.pending.put (transaction, nano::pending_key (nano::genesis_account, send->hash ()), nano::pending_info (nano::genesis_account, 100, nano::epoch::epoch_0));
 		store.pruned.put (transaction, send->hash ());
-		store.unchecked.put (transaction, nano::genesis_hash, send);
+		store.unchecked.put (transaction, nano::dev::genesis->hash (), send);
 		store.version.put (transaction, version);
 		send->sideband_set ({});
 		store.block.put (transaction, send->hash (), *send);
@@ -3797,7 +3797,7 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 	ASSERT_TRUE (rocksdb_store.final_vote.get (rocksdb_transaction, nano::root (send->previous ())).size () == 1);
 	ASSERT_EQ (rocksdb_store.final_vote.get (rocksdb_transaction, nano::root (send->previous ()))[0], nano::block_hash (2));
 
-	auto unchecked_infos = rocksdb_store.unchecked.get (rocksdb_transaction, nano::genesis_hash);
+	auto unchecked_infos = rocksdb_store.unchecked.get (rocksdb_transaction, nano::dev::genesis->hash ());
 	ASSERT_EQ (unchecked_infos.size (), 1);
 	ASSERT_EQ (unchecked_infos.front ().account, nano::genesis_account);
 	ASSERT_EQ (*unchecked_infos.front ().block, *send);

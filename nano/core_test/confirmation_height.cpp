@@ -48,7 +48,7 @@ TEST (confirmation_height, single)
 		auto transaction = node->store.tx_begin_read ();
 		ASSERT_FALSE (node->store.confirmation_height.get (transaction, nano::dev_genesis_key.pub, confirmation_height_info));
 		ASSERT_EQ (1, confirmation_height_info.height);
-		ASSERT_EQ (nano::genesis_hash, confirmation_height_info.frontier);
+		ASSERT_EQ (nano::dev::genesis->hash (), confirmation_height_info.frontier);
 
 		node->process_active (send1);
 		node->block_processor.flush ();
@@ -134,7 +134,7 @@ TEST (confirmation_height, multiple_accounts)
 			nano::confirmation_height_info confirmation_height_info;
 			ASSERT_FALSE (node->store.confirmation_height.get (transaction, nano::dev_genesis_key.pub, confirmation_height_info));
 			ASSERT_EQ (1, confirmation_height_info.height);
-			ASSERT_EQ (nano::genesis_hash, confirmation_height_info.frontier);
+			ASSERT_EQ (nano::dev::genesis->hash (), confirmation_height_info.frontier);
 			ASSERT_TRUE (node->store.confirmation_height.get (transaction, key1.pub, confirmation_height_info));
 			ASSERT_EQ (0, confirmation_height_info.height);
 			ASSERT_EQ (nano::block_hash (0), confirmation_height_info.frontier);
@@ -343,7 +343,7 @@ TEST (confirmation_height, gap_live)
 			nano::confirmation_height_info confirmation_height_info;
 			ASSERT_FALSE (node->store.confirmation_height.get (transaction, nano::dev_genesis_key.pub, confirmation_height_info));
 			ASSERT_EQ (1, confirmation_height_info.height);
-			ASSERT_EQ (nano::genesis_hash, confirmation_height_info.frontier);
+			ASSERT_EQ (nano::dev::genesis->hash (), confirmation_height_info.frontier);
 		}
 
 		// Vote and confirm all existing blocks
@@ -806,7 +806,7 @@ TEST (confirmation_heightDeathTest, modified_chain)
 		nano::write_database_queue write_database_queue (false);
 		nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 		nano::keypair key1;
-		auto send = std::make_shared<nano::send_block> (nano::genesis_hash, key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (nano::genesis_hash));
+		auto send = std::make_shared<nano::send_block> (nano::dev::genesis->hash (), key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (nano::dev::genesis->hash ()));
 		{
 			auto transaction (store->tx_begin_write ());
 			store->initialize (transaction, ledger.cache);
@@ -832,7 +832,7 @@ TEST (confirmation_heightDeathTest, modified_chain)
 		}
 
 		ASSERT_EQ (nano::process_result::progress, ledger.process (store->tx_begin_write (), *send).code);
-		store->confirmation_height.put (store->tx_begin_write (), nano::genesis_account, { 1, nano::genesis_hash });
+		store->confirmation_height.put (store->tx_begin_write (), nano::genesis_account, { 1, nano::dev::genesis->hash () });
 
 		nano::confirmation_height_unbounded unbounded_processor (
 		ledger, write_database_queue, 10ms, logging, logger, stopped, batch_write_size, [] (auto const &) {}, [] (auto const &) {}, [] () { return 0; });
@@ -877,7 +877,7 @@ TEST (confirmation_heightDeathTest, modified_chain_account_removed)
 		nano::write_database_queue write_database_queue (false);
 		nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 		nano::keypair key1;
-		auto send = std::make_shared<nano::send_block> (nano::genesis_hash, key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (nano::genesis_hash));
+		auto send = std::make_shared<nano::send_block> (nano::dev::genesis->hash (), key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (nano::dev::genesis->hash ()));
 		auto open = std::make_shared<nano::state_block> (key1.pub, 0, 0, nano::Gxrb_ratio, send->hash (), key1.prv, key1.pub, *pool.generate (key1.pub));
 		{
 			auto transaction (store->tx_begin_write ());
@@ -906,7 +906,7 @@ TEST (confirmation_heightDeathTest, modified_chain_account_removed)
 
 		// Reset conditions and test with the bounded processor
 		ASSERT_EQ (nano::process_result::progress, ledger.process (store->tx_begin_write (), *open).code);
-		store->confirmation_height.put (store->tx_begin_write (), nano::genesis_account, { 1, nano::genesis_hash });
+		store->confirmation_height.put (store->tx_begin_write (), nano::genesis_account, { 1, nano::dev::genesis->hash () });
 
 		nano::confirmation_height_bounded bounded_processor (
 		ledger, write_database_queue, 10ms, logging, logger, stopped, batch_write_size, [] (auto const &) {}, [] (auto const &) {}, [] () { return 0; });
@@ -1344,7 +1344,7 @@ TEST (confirmation_height, election_winner_details_clearing_node_process_confirm
 	nano::system system (1);
 	auto node = system.nodes.front ();
 
-	auto send = std::make_shared<nano::send_block> (nano::genesis_hash, nano::dev_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (nano::genesis_hash));
+	auto send = std::make_shared<nano::send_block> (nano::dev::genesis->hash (), nano::dev_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (nano::dev::genesis->hash ()));
 	// Add to election_winner_details. Use an unrealistic iteration so that it should fall into the else case and do a cleanup
 	node->active.add_election_winner_details (send->hash (), nullptr);
 	nano::election_status election;
@@ -1422,7 +1422,7 @@ TEST (confirmation_height, pruned_source)
 	nano::write_database_queue write_database_queue (false);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::keypair key1, key2;
-	auto send1 = std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, genesis.hash (), nano::dev_genesis_key.pub, nano::genesis_amount - 100, key1.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (nano::genesis_hash));
+	auto send1 = std::make_shared<nano::state_block> (nano::dev_genesis_key.pub, genesis.hash (), nano::dev_genesis_key.pub, nano::genesis_amount - 100, key1.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (nano::dev::genesis->hash ()));
 	auto open1 = std::make_shared<nano::state_block> (key1.pub, 0, key1.pub, 100, send1->hash (), key1.prv, key1.pub, *pool.generate (key1.pub));
 	auto send2 = std::make_shared<nano::state_block> (key1.pub, open1->hash (), key1.pub, 50, key2.pub, key1.prv, key1.pub, *pool.generate (open1->hash ()));
 	auto send3 = std::make_shared<nano::state_block> (key1.pub, send2->hash (), key1.pub, 25, key2.pub, key1.prv, key1.pub, *pool.generate (send2->hash ()));

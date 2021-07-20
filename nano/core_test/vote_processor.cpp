@@ -195,11 +195,11 @@ TEST (vote_processor, no_broadcast_local)
 	std::shared_ptr<nano::block> send = builder.state ()
 										.account (nano::dev_genesis_key.pub)
 										.representative (nano::dev_genesis_key.pub)
-										.previous (nano::genesis_hash)
+										.previous (nano::dev::genesis->hash ())
 										.balance (2 * node.config.vote_minimum.number ())
 										.link (key.pub)
 										.sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-										.work (*system.work.generate (nano::genesis_hash))
+										.work (*system.work.generate (nano::dev::genesis->hash ()))
 										.build (ec);
 	ASSERT_FALSE (ec);
 	ASSERT_EQ (nano::process_result::progress, node.process_local (send).code);

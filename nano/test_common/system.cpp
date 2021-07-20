@@ -151,7 +151,7 @@ nano::system::~system ()
 
 void nano::system::ledger_initialization_set (std::vector<nano::keypair> const & reps, nano::amount const & reserve)
 {
-	nano::block_hash previous = nano::genesis_hash;
+	nano::block_hash previous = nano::dev::genesis->hash ();
 	auto amount = (nano::genesis_amount - reserve.number ()) / reps.size ();
 	auto balance = nano::genesis_amount;
 	for (auto const & i : reps)

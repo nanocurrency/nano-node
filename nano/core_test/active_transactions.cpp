@@ -1021,12 +1021,12 @@ TEST (active_transactions, activate_account_chain)
 	nano::state_block_builder builder;
 	auto send = builder.make_block ()
 				.account (nano::dev_genesis_key.pub)
-				.previous (nano::genesis_hash)
+				.previous (nano::dev::genesis->hash ())
 				.representative (nano::dev_genesis_key.pub)
 				.link (nano::dev_genesis_key.pub)
 				.balance (nano::genesis_amount - 1)
 				.sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-				.work (*system.work.generate (nano::genesis_hash))
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
 				.build ();
 	auto send2 = builder.make_block ()
 				 .account (nano::dev_genesis_key.pub)
@@ -1121,12 +1121,12 @@ TEST (active_transactions, activate_inactive)
 	nano::state_block_builder builder;
 	auto send = builder.make_block ()
 				.account (nano::dev_genesis_key.pub)
-				.previous (nano::genesis_hash)
+				.previous (nano::dev::genesis->hash ())
 				.representative (nano::dev_genesis_key.pub)
 				.link (key.pub)
 				.balance (nano::genesis_amount - 1)
 				.sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-				.work (*system.work.generate (nano::genesis_hash))
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
 				.build_shared ();
 	auto send2 = builder.make_block ()
 				 .account (nano::dev_genesis_key.pub)
@@ -1182,12 +1182,12 @@ TEST (active_transactions, pessimistic_elections)
 	nano::state_block_builder builder;
 	auto send = builder.make_block ()
 				.account (nano::dev_genesis_key.pub)
-				.previous (nano::genesis_hash)
+				.previous (nano::dev::genesis->hash ())
 				.representative (nano::dev_genesis_key.pub)
 				.link (nano::dev_genesis_key.pub)
 				.balance (nano::genesis_amount - 1)
 				.sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-				.work (*system.work.generate (nano::genesis_hash))
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
 				.build_shared ();
 
 	ASSERT_EQ (nano::process_result::progress, node.process (*send).code);
@@ -1321,12 +1321,12 @@ TEST (active_transactions, list_active)
 	nano::state_block_builder builder;
 	auto send = builder.make_block ()
 				.account (nano::dev_genesis_key.pub)
-				.previous (nano::genesis_hash)
+				.previous (nano::dev::genesis->hash ())
 				.representative (nano::dev_genesis_key.pub)
 				.link (nano::dev_genesis_key.pub)
 				.balance (nano::genesis_amount - 1)
 				.sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-				.work (*system.work.generate (nano::genesis_hash))
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
 				.build_shared ();
 
 	ASSERT_EQ (nano::process_result::progress, node.process (*send).code);
@@ -1376,12 +1376,12 @@ TEST (active_transactions, vacancy)
 	nano::state_block_builder builder;
 	auto send = builder.make_block ()
 				.account (nano::dev_genesis_key.pub)
-				.previous (nano::genesis_hash)
+				.previous (nano::dev::genesis->hash ())
 				.representative (nano::dev_genesis_key.pub)
 				.link (nano::dev_genesis_key.pub)
 				.balance (nano::genesis_amount - nano::Gxrb_ratio)
 				.sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-				.work (*system.work.generate (nano::genesis_hash))
+				.work (*system.work.generate (nano::dev::genesis->hash ()))
 				.build_shared ();
 	std::atomic<bool> updated = false;
 	node.active.vacancy_update = [&updated] () { updated = true; };
@@ -1414,12 +1414,12 @@ TEST (active_transactions, fifo)
 	// Construct two pending entries that can be received simultaneously
 	auto send0 = builder.make_block ()
 				 .account (nano::dev_genesis_key.pub)
-				 .previous (nano::genesis_hash)
+				 .previous (nano::dev::genesis->hash ())
 				 .representative (nano::dev_genesis_key.pub)
 				 .link (key0.pub)
 				 .balance (nano::genesis_amount - 1)
 				 .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
-				 .work (*system.work.generate (nano::genesis_hash))
+				 .work (*system.work.generate (nano::dev::genesis->hash ()))
 				 .build_shared ();
 	ASSERT_EQ (nano::process_result::progress, node.process (*send0).code);
 	nano::blocks_confirm (node, { send0 }, true);

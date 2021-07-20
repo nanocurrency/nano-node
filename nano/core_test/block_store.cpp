@@ -692,7 +692,7 @@ TEST (mdb_block_store, supported_version_upgrades)
 		store.confirmation_height.del (transaction, nano::genesis_account);
 		ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "accounts_v1", MDB_CREATE, &store.accounts_v1_handle));
 		ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "open", MDB_CREATE, &store.open_blocks_handle));
-		modify_account_info_to_v14 (store, transaction, nano::genesis_account, 1, nano::genesis_hash);
+		modify_account_info_to_v14 (store, transaction, nano::genesis_account, 1, nano::dev::genesis->hash ());
 		write_block_w_sideband_v18 (store, store.open_blocks_handle, transaction, *nano::genesis ().open);
 	}
 
@@ -1700,7 +1700,7 @@ TEST (mdb_block_store, upgrade_v18_v19)
 	nano::keypair key1;
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::network_params network_params;
-	nano::send_block send (nano::genesis_hash, nano::dev_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (nano::genesis_hash));
+	nano::send_block send (nano::dev::genesis->hash (), nano::dev_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (nano::dev::genesis->hash ()));
 	nano::receive_block receive (send.hash (), send.hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (send.hash ()));
 	nano::change_block change (receive.hash (), 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (receive.hash ()));
 	nano::state_block state_epoch (nano::dev_genesis_key.pub, change.hash (), 0, nano::genesis_amount, network_params.ledger.epochs.link (nano::epoch::epoch_1), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (change.hash ()));
@@ -1760,7 +1760,7 @@ TEST (mdb_block_store, upgrade_v18_v19)
 	ASSERT_TRUE (store.block.get (transaction, send.hash ()));
 	ASSERT_TRUE (store.block.get (transaction, receive.hash ()));
 	ASSERT_TRUE (store.block.get (transaction, change.hash ()));
-	ASSERT_TRUE (store.block.get (transaction, nano::genesis_hash));
+	ASSERT_TRUE (store.block.get (transaction, nano::dev::genesis->hash ()));
 	auto state_epoch_disk (store.block.get (transaction, state_epoch.hash ()));
 	ASSERT_NE (nullptr, state_epoch_disk);
 	ASSERT_EQ (nano::epoch::epoch_1, state_epoch_disk->sideband ().details.epoch);

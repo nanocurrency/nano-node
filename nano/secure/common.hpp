@@ -396,6 +396,12 @@ public:
 	nano::epochs epochs;
 };
 
+namespace dev
+{
+	extern nano::ledger_constants constants;
+	extern std::shared_ptr<nano::block> & genesis;
+}
+
 /** Constants which depend on random values (this class should never be used globally due to CryptoPP globals potentially not being initialized) */
 class random_constants
 {

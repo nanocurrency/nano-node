@@ -79,6 +79,9 @@ char const * live_canary_public_key_data = "7CBAF192A3763DAEC9F9BAC1B2CDF665D836
 std::string const test_canary_public_key_data = nano::get_env_or_default ("NANO_TEST_CANARY_PUB", "3BAD2C554ACE05F5E528FBBCE79D51E552C55FA765CCFD89B289C4835DE5F04A"); // nano_1gxf7jcnomi7yqkkjyxwwygo5sckrohtgsgezp6u74g6ifgydw4cajwbk8bf
 }
 
+nano::ledger_constants nano::dev::constants{ nano::networks::nano_dev_network };
+std::shared_ptr<nano::block> & nano::dev::genesis = nano::dev::constants.genesis;
+
 nano::network_params::network_params () :
 	network_params (network_constants::active_network)
 {

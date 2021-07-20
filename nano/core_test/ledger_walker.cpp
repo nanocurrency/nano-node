@@ -19,19 +19,19 @@ TEST (ledger_walker, genesis_block)
 	nano::ledger_walker ledger_walker{ node->ledger };
 
 	std::size_t walked_blocks_count = 0;
-	ledger_walker.walk_backward (nano::genesis_hash,
+	ledger_walker.walk_backward (nano::dev::genesis->hash (),
 	[&] (const auto & block) {
 		++walked_blocks_count;
-		EXPECT_EQ (block->hash (), nano::genesis_hash);
+		EXPECT_EQ (block->hash (), nano::dev::genesis->hash ());
 	});
 
 	EXPECT_EQ (walked_blocks_count, 1);
 
 	walked_blocks_count = 0;
-	ledger_walker.walk (nano::genesis_hash,
+	ledger_walker.walk (nano::dev::genesis->hash (),
 	[&] (const auto & block) {
 		++walked_blocks_count;
-		EXPECT_EQ (block->hash (), nano::genesis_hash);
+		EXPECT_EQ (block->hash (), nano::dev::genesis->hash ());
 	});
 
 	EXPECT_EQ (walked_blocks_count, 1);
