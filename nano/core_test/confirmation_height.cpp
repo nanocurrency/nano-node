@@ -98,9 +98,9 @@ TEST (confirmation_height, multiple_accounts)
 		nano::send_block send3 (send2.hash (), key3.pub, node->online_reps.delta () + 100, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send2.hash ()));
 
 		// Open all accounts
-		nano::open_block open1 (send1.hash (), nano::genesis_account, key1.pub, key1.prv, key1.pub, *system.work.generate (key1.pub));
-		nano::open_block open2 (send2.hash (), nano::genesis_account, key2.pub, key2.prv, key2.pub, *system.work.generate (key2.pub));
-		nano::open_block open3 (send3.hash (), nano::genesis_account, key3.pub, key3.prv, key3.pub, *system.work.generate (key3.pub));
+		nano::open_block open1 (send1.hash (), nano::dev::genesis->account (), key1.pub, key1.prv, key1.pub, *system.work.generate (key1.pub));
+		nano::open_block open2 (send2.hash (), nano::dev::genesis->account (), key2.pub, key2.prv, key2.pub, *system.work.generate (key2.pub));
+		nano::open_block open3 (send3.hash (), nano::dev::genesis->account (), key3.pub, key3.prv, key3.pub, *system.work.generate (key3.pub));
 
 		// Send and receive various blocks to these accounts
 		nano::send_block send4 (open1.hash (), key2.pub, 50, key1.prv, key1.pub, *system.work.generate (open1.hash ()));
@@ -225,11 +225,11 @@ TEST (confirmation_height, gap_bootstrap)
 		auto & node1 = *system.add_node (node_flags);
 		nano::genesis genesis;
 		nano::keypair destination;
-		auto send1 (std::make_shared<nano::state_block> (nano::genesis_account, genesis.hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, destination.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
+		auto send1 (std::make_shared<nano::state_block> (nano::dev::genesis->account (), genesis.hash (), nano::dev::genesis->account (), nano::genesis_amount - nano::Gxrb_ratio, destination.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 		node1.work_generate_blocking (*send1);
-		auto send2 (std::make_shared<nano::state_block> (nano::genesis_account, send1->hash (), nano::genesis_account, nano::genesis_amount - 2 * nano::Gxrb_ratio, destination.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
+		auto send2 (std::make_shared<nano::state_block> (nano::dev::genesis->account (), send1->hash (), nano::dev::genesis->account (), nano::genesis_amount - 2 * nano::Gxrb_ratio, destination.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 		node1.work_generate_blocking (*send2);
-		auto send3 (std::make_shared<nano::state_block> (nano::genesis_account, send2->hash (), nano::genesis_account, nano::genesis_amount - 3 * nano::Gxrb_ratio, destination.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
+		auto send3 (std::make_shared<nano::state_block> (nano::dev::genesis->account (), send2->hash (), nano::dev::genesis->account (), nano::genesis_amount - 3 * nano::Gxrb_ratio, destination.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 		node1.work_generate_blocking (*send3);
 		auto open1 (std::make_shared<nano::open_block> (send1->hash (), destination.pub, destination.pub, destination.prv, destination.pub, 0));
 		node1.work_generate_blocking (*open1);
@@ -311,11 +311,11 @@ TEST (confirmation_height, gap_live)
 		system.wallet (1)->insert_adhoc (destination.prv);
 
 		nano::genesis genesis;
-		auto send1 (std::make_shared<nano::state_block> (nano::genesis_account, genesis.hash (), nano::genesis_account, nano::genesis_amount - 1, destination.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
+		auto send1 (std::make_shared<nano::state_block> (nano::dev::genesis->account (), genesis.hash (), nano::dev::genesis->account (), nano::genesis_amount - 1, destination.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 		node->work_generate_blocking (*send1);
-		auto send2 (std::make_shared<nano::state_block> (nano::genesis_account, send1->hash (), nano::genesis_account, nano::genesis_amount - 2, destination.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
+		auto send2 (std::make_shared<nano::state_block> (nano::dev::genesis->account (), send1->hash (), nano::dev::genesis->account (), nano::genesis_amount - 2, destination.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 		node->work_generate_blocking (*send2);
-		auto send3 (std::make_shared<nano::state_block> (nano::genesis_account, send2->hash (), nano::genesis_account, nano::genesis_amount - 3, destination.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
+		auto send3 (std::make_shared<nano::state_block> (nano::dev::genesis->account (), send2->hash (), nano::dev::genesis->account (), nano::genesis_amount - 3, destination.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0));
 		node->work_generate_blocking (*send3);
 
 		auto open1 (std::make_shared<nano::open_block> (send1->hash (), destination.pub, destination.pub, destination.prv, destination.pub, 0));
@@ -396,10 +396,10 @@ TEST (confirmation_height, send_receive_between_2_accounts)
 
 		nano::send_block send1 (latest, key1.pub, node->online_reps.delta () + 2, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (latest));
 
-		nano::open_block open1 (send1.hash (), nano::genesis_account, key1.pub, key1.prv, key1.pub, *system.work.generate (key1.pub));
-		nano::send_block send2 (open1.hash (), nano::genesis_account, 1000, key1.prv, key1.pub, *system.work.generate (open1.hash ()));
-		nano::send_block send3 (send2.hash (), nano::genesis_account, 900, key1.prv, key1.pub, *system.work.generate (send2.hash ()));
-		nano::send_block send4 (send3.hash (), nano::genesis_account, 500, key1.prv, key1.pub, *system.work.generate (send3.hash ()));
+		nano::open_block open1 (send1.hash (), nano::dev::genesis->account (), key1.pub, key1.prv, key1.pub, *system.work.generate (key1.pub));
+		nano::send_block send2 (open1.hash (), nano::dev::genesis->account (), 1000, key1.prv, key1.pub, *system.work.generate (open1.hash ()));
+		nano::send_block send3 (send2.hash (), nano::dev::genesis->account (), 900, key1.prv, key1.pub, *system.work.generate (send2.hash ()));
+		nano::send_block send4 (send3.hash (), nano::dev::genesis->account (), 500, key1.prv, key1.pub, *system.work.generate (send3.hash ()));
 
 		nano::receive_block receive1 (send1.hash (), send2.hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send1.hash ()));
 		nano::receive_block receive2 (receive1.hash (), send3.hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (receive1.hash ()));
@@ -569,7 +569,7 @@ TEST (confirmation_height, all_block_types)
 		nano::state_block state_send3 (key2.pub, state_send2->hash (), 0, nano::Gxrb_ratio - 1, key1.pub, key2.prv, key2.pub, *system.work.generate (state_send2->hash ()));
 
 		nano::state_block state_send4 (key1.pub, state_send1.hash (), 0, nano::Gxrb_ratio - 2, nano::dev_genesis_key.pub, key1.prv, key1.pub, *system.work.generate (state_send1.hash ()));
-		nano::state_block state_receive3 (nano::genesis_account, send1.hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio * 2 + 1, state_send4.hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send1.hash ()));
+		nano::state_block state_receive3 (nano::dev::genesis->account (), send1.hash (), nano::dev::genesis->account (), nano::genesis_amount - nano::Gxrb_ratio * 2 + 1, state_send4.hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send1.hash ()));
 
 		{
 			auto transaction (store.tx_begin_write ());
@@ -683,12 +683,12 @@ TEST (confirmation_height, conflict_rollback_cemented)
 		{
 			auto transaction (node1->store.tx_begin_write ());
 			ASSERT_TRUE (node1->store.block.exists (transaction, publish1.block->hash ()));
-			node1->store.confirmation_height.put (transaction, nano::genesis_account, nano::confirmation_height_info{ 2, send2->hash () });
+			node1->store.confirmation_height.put (transaction, nano::dev::genesis->account (), nano::confirmation_height_info{ 2, send2->hash () });
 		}
 		{
 			auto transaction (node2->store.tx_begin_write ());
 			ASSERT_TRUE (node2->store.block.exists (transaction, publish2.block->hash ()));
-			node2->store.confirmation_height.put (transaction, nano::genesis_account, nano::confirmation_height_info{ 2, send2->hash () });
+			node2->store.confirmation_height.put (transaction, nano::dev::genesis->account (), nano::confirmation_height_info{ 2, send2->hash () });
 		}
 
 		auto rollback_log_entry = boost::str (boost::format ("Failed to roll back %1%") % send2->hash ().to_string ());
@@ -832,7 +832,7 @@ TEST (confirmation_heightDeathTest, modified_chain)
 		}
 
 		ASSERT_EQ (nano::process_result::progress, ledger.process (store->tx_begin_write (), *send).code);
-		store->confirmation_height.put (store->tx_begin_write (), nano::genesis_account, { 1, nano::dev::genesis->hash () });
+		store->confirmation_height.put (store->tx_begin_write (), nano::dev::genesis->account (), { 1, nano::dev::genesis->hash () });
 
 		nano::confirmation_height_unbounded unbounded_processor (
 		ledger, write_database_queue, 10ms, logging, logger, stopped, batch_write_size, [] (auto const &) {}, [] (auto const &) {}, [] () { return 0; });
@@ -906,7 +906,7 @@ TEST (confirmation_heightDeathTest, modified_chain_account_removed)
 
 		// Reset conditions and test with the bounded processor
 		ASSERT_EQ (nano::process_result::progress, ledger.process (store->tx_begin_write (), *open).code);
-		store->confirmation_height.put (store->tx_begin_write (), nano::genesis_account, { 1, nano::dev::genesis->hash () });
+		store->confirmation_height.put (store->tx_begin_write (), nano::dev::genesis->account (), { 1, nano::dev::genesis->hash () });
 
 		nano::confirmation_height_bounded bounded_processor (
 		ledger, write_database_queue, 10ms, logging, logger, stopped, batch_write_size, [] (auto const &) {}, [] (auto const &) {}, [] () { return 0; });
@@ -1120,7 +1120,7 @@ TEST (confirmation_height, cemented_gap_below_receive)
 		nano::keypair dummy_key;
 		nano::send_block dummy_send (send1.hash (), dummy_key.pub, nano::genesis_amount - nano::Gxrb_ratio * 3, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send1.hash ()));
 
-		nano::open_block open (send.hash (), nano::genesis_account, key1.pub, key1.prv, key1.pub, *system.work.generate (key1.pub));
+		nano::open_block open (send.hash (), nano::dev::genesis->account (), key1.pub, key1.prv, key1.pub, *system.work.generate (key1.pub));
 		nano::receive_block receive1 (open.hash (), send1.hash (), key1.prv, key1.pub, *system.work.generate (open.hash ()));
 		nano::send_block send2 (receive1.hash (), nano::dev_genesis_key.pub, nano::Gxrb_ratio, key1.prv, key1.pub, *system.work.generate (receive1.hash ()));
 
@@ -1132,7 +1132,7 @@ TEST (confirmation_height, cemented_gap_below_receive)
 		nano::send_block send3 (dummy_send1.hash (), key2.pub, nano::genesis_amount - nano::Gxrb_ratio * 4, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (dummy_send1.hash ()));
 		nano::send_block dummy_send2 (send3.hash (), dummy_key.pub, nano::genesis_amount - nano::Gxrb_ratio * 5, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send3.hash ()));
 
-		auto open1 = std::make_shared<nano::open_block> (send3.hash (), nano::genesis_account, key2.pub, key2.prv, key2.pub, *system.work.generate (key2.pub));
+		auto open1 = std::make_shared<nano::open_block> (send3.hash (), nano::dev::genesis->account (), key2.pub, key2.prv, key2.pub, *system.work.generate (key2.pub));
 
 		{
 			auto transaction = node->store.tx_begin_write ();
@@ -1205,7 +1205,7 @@ TEST (confirmation_height, cemented_gap_below_no_cache)
 		nano::keypair dummy_key;
 		nano::send_block dummy_send (send1.hash (), dummy_key.pub, nano::genesis_amount - nano::Gxrb_ratio * 3, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send1.hash ()));
 
-		nano::open_block open (send.hash (), nano::genesis_account, key1.pub, key1.prv, key1.pub, *system.work.generate (key1.pub));
+		nano::open_block open (send.hash (), nano::dev::genesis->account (), key1.pub, key1.prv, key1.pub, *system.work.generate (key1.pub));
 		nano::receive_block receive1 (open.hash (), send1.hash (), key1.prv, key1.pub, *system.work.generate (open.hash ()));
 		nano::send_block send2 (receive1.hash (), nano::dev_genesis_key.pub, nano::Gxrb_ratio, key1.prv, key1.pub, *system.work.generate (receive1.hash ()));
 
@@ -1217,7 +1217,7 @@ TEST (confirmation_height, cemented_gap_below_no_cache)
 		nano::send_block send3 (dummy_send1.hash (), key2.pub, nano::genesis_amount - nano::Gxrb_ratio * 4, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (dummy_send1.hash ()));
 		nano::send_block dummy_send2 (send3.hash (), dummy_key.pub, nano::genesis_amount - nano::Gxrb_ratio * 5, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (send3.hash ()));
 
-		auto open1 = std::make_shared<nano::open_block> (send3.hash (), nano::genesis_account, key2.pub, key2.prv, key2.pub, *system.work.generate (key2.pub));
+		auto open1 = std::make_shared<nano::open_block> (send3.hash (), nano::dev::genesis->account (), key2.pub, key2.prv, key2.pub, *system.work.generate (key2.pub));
 
 		{
 			auto transaction = node->store.tx_begin_write ();
@@ -1241,7 +1241,7 @@ TEST (confirmation_height, cemented_gap_below_no_cache)
 		// Force some blocks to be cemented so that the cached confirmed info variable is empty
 		{
 			auto transaction (node->store.tx_begin_write ());
-			node->store.confirmation_height.put (transaction, nano::genesis_account, nano::confirmation_height_info{ 3, send1.hash () });
+			node->store.confirmation_height.put (transaction, nano::dev::genesis->account (), nano::confirmation_height_info{ 3, send1.hash () });
 			node->store.confirmation_height.put (transaction, key1.pub, nano::confirmation_height_info{ 2, receive1.hash () });
 		}
 

@@ -112,7 +112,7 @@ TEST (vote_generator, session)
 	nano::vote_generator_session generator_session (node->active.generator);
 	boost::thread thread ([node, &generator_session] () {
 		nano::thread_role::set (nano::thread_role::name::request_loop);
-		generator_session.add (nano::genesis_account, nano::dev::genesis->hash ());
+		generator_session.add (nano::dev::genesis->account (), nano::dev::genesis->hash ());
 		ASSERT_EQ (0, node->stats.count (nano::stat::type::vote, nano::stat::detail::vote_indeterminate));
 		generator_session.flush ();
 	});

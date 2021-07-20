@@ -11,7 +11,7 @@ TEST (election, construction)
 	nano::system system (1);
 	nano::genesis genesis;
 	auto & node = *system.nodes[0];
-	genesis.open->sideband_set (nano::block_sideband (nano::genesis_account, 0, nano::genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
+	genesis.open->sideband_set (nano::block_sideband (nano::dev::genesis->account (), 0, nano::genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
 	node.block_confirm (genesis.open);
 	node.scheduler.flush ();
 	auto election = node.active.election (genesis.open->qualified_root ());

@@ -18,7 +18,6 @@ nano::ledger_constants dev_constants (nano::networks::nano_dev_network);
 nano::keypair const & nano::zero_key (dev_constants.zero_key);
 nano::keypair const & nano::dev_genesis_key (dev_constants.dev_genesis_key);
 nano::account const & nano::nano_dev_account (dev_constants.nano_dev_account);
-nano::account const & nano::genesis_account (dev_constants.genesis_account ());
 nano::uint128_t const & nano::genesis_amount (dev_constants.genesis_amount);
 nano::account const & nano::burn_account (dev_constants.burn_account);
 

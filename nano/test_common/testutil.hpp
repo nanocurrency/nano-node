@@ -56,7 +56,6 @@ class system;
 extern nano::keypair const & zero_key;
 extern nano::keypair const & dev_genesis_key;
 extern nano::public_key const & nano_dev_account;
-extern nano::public_key const & genesis_account;
 extern nano::public_key const & burn_account;
 extern nano::uint128_t const & genesis_amount;
 

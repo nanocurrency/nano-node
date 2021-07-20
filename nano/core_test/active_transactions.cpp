@@ -584,7 +584,7 @@ TEST (active_transactions, dropped_cleanup)
 
 	nano::genesis genesis;
 	auto block = genesis.open;
-	block->sideband_set (nano::block_sideband (nano::genesis_account, 0, nano::genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
+	block->sideband_set (nano::block_sideband (nano::dev::genesis->account (), 0, nano::genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
 
 	// Add to network filter to ensure proper cleanup after the election is dropped
 	std::vector<uint8_t> block_bytes;
@@ -1232,7 +1232,7 @@ TEST (active_transactions, pessimistic_elections)
 	ASSERT_EQ (2, node.active.expired_optimistic_election_infos.size ());
 	ASSERT_EQ (2, node.active.expired_optimistic_election_infos.size ());
 	auto election_started_it = node.active.expired_optimistic_election_infos.get<nano::active_transactions::tag_election_started> ().begin ();
-	ASSERT_EQ (election_started_it->account, nano::genesis_account);
+	ASSERT_EQ (election_started_it->account, nano::dev::genesis->account ());
 	ASSERT_EQ (election_started_it->election_started, true);
 	ASSERT_EQ ((++election_started_it)->election_started, false);
 
@@ -1253,7 +1253,7 @@ TEST (active_transactions, pessimistic_elections)
 	nano::confirmation_height_info key1_confirmation_height_info;
 	{
 		auto transaction = node.store.tx_begin_read ();
-		node.store.confirmation_height.get (transaction, nano::genesis_account, genesis_confirmation_height_info);
+		node.store.confirmation_height.get (transaction, nano::dev::genesis->account (), genesis_confirmation_height_info);
 		ASSERT_EQ (2, genesis_confirmation_height_info.height);
 		node.store.confirmation_height.get (transaction, key.pub, key1_confirmation_height_info);
 		ASSERT_EQ (0, key1_confirmation_height_info.height);
@@ -1275,7 +1275,7 @@ TEST (active_transactions, pessimistic_elections)
 
 	{
 		auto transaction = node.store.tx_begin_read ();
-		node.store.confirmation_height.get (transaction, nano::genesis_account, genesis_confirmation_height_info);
+		node.store.confirmation_height.get (transaction, nano::dev::genesis->account (), genesis_confirmation_height_info);
 		ASSERT_EQ (3, genesis_confirmation_height_info.height);
 		node.store.confirmation_height.get (transaction, key.pub, key1_confirmation_height_info);
 		ASSERT_EQ (0, key1_confirmation_height_info.height);
@@ -1299,7 +1299,7 @@ TEST (active_transactions, pessimistic_elections)
 
 	{
 		auto transaction = node.store.tx_begin_read ();
-		node.store.confirmation_height.get (transaction, nano::genesis_account, genesis_confirmation_height_info);
+		node.store.confirmation_height.get (transaction, nano::dev::genesis->account (), genesis_confirmation_height_info);
 		ASSERT_EQ (3, genesis_confirmation_height_info.height);
 		node.store.confirmation_height.get (transaction, key.pub, key1_confirmation_height_info);
 		ASSERT_EQ (1, key1_confirmation_height_info.height);

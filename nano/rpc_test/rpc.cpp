@@ -663,7 +663,7 @@ TEST (rpc, wallet_representative)
 	request.put ("action", "wallet_representative");
 	auto response (wait_response (system, rpc, request));
 	std::string account_text1 (response.get<std::string> ("representative"));
-	ASSERT_EQ (account_text1, nano::genesis_account.to_account ());
+	ASSERT_EQ (account_text1, nano::dev::genesis->account ().to_account ());
 }
 
 TEST (rpc, wallet_representative_set)
@@ -822,7 +822,7 @@ TEST (rpc, wallet_export)
 	rpc_ctx->io_scope->reset ();
 	auto transaction (node->wallets.tx_begin_write ());
 	nano::kdf kdf;
-	nano::wallet_store store (error, kdf, transaction, nano::genesis_account, 1, "0", wallet_json);
+	nano::wallet_store store (error, kdf, transaction, nano::dev::genesis->account (), 1, "0", wallet_json);
 	ASSERT_FALSE (error);
 	ASSERT_TRUE (store.exists (transaction, nano::dev_genesis_key.pub));
 }
@@ -877,7 +877,7 @@ TEST (rpc, block)
 	auto [rpc, rpc_ctx] = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "block");
-	request.put ("hash", node->latest (nano::genesis_account).to_string ());
+	request.put ("hash", node->latest (nano::dev::genesis->account ()).to_string ());
 	auto response (wait_response (system, rpc, request));
 	auto contents (response.get<std::string> ("contents"));
 	ASSERT_FALSE (contents.empty ());
@@ -1086,9 +1086,9 @@ TEST (rpc, history)
 	auto receive (system.wallet (0)->receive_action (send->hash (), nano::dev_genesis_key.pub, node0->config.receive_minimum.number (), send->link ().as_account ()));
 	ASSERT_NE (nullptr, receive);
 	nano::genesis genesis;
-	nano::state_block usend (nano::genesis_account, node0->latest (nano::genesis_account), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, nano::genesis_account, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node0->work_generate_blocking (node0->latest (nano::genesis_account)));
-	nano::state_block ureceive (nano::genesis_account, usend.hash (), nano::genesis_account, nano::genesis_amount, usend.hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node0->work_generate_blocking (usend.hash ()));
-	nano::state_block uchange (nano::genesis_account, ureceive.hash (), nano::keypair ().pub, nano::genesis_amount, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node0->work_generate_blocking (ureceive.hash ()));
+	nano::state_block usend (nano::dev::genesis->account (), node0->latest (nano::dev::genesis->account ()), nano::dev::genesis->account (), nano::genesis_amount - nano::Gxrb_ratio, nano::dev::genesis->account (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node0->work_generate_blocking (node0->latest (nano::dev::genesis->account ())));
+	nano::state_block ureceive (nano::dev::genesis->account (), usend.hash (), nano::dev::genesis->account (), nano::genesis_amount, usend.hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node0->work_generate_blocking (usend.hash ()));
+	nano::state_block uchange (nano::dev::genesis->account (), ureceive.hash (), nano::keypair ().pub, nano::genesis_amount, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node0->work_generate_blocking (ureceive.hash ()));
 	{
 		auto transaction (node0->store.tx_begin_write ());
 		ASSERT_EQ (nano::process_result::progress, node0->ledger.process (transaction, usend).code);
@@ -1143,9 +1143,9 @@ TEST (rpc, account_history)
 	auto receive (system.wallet (0)->receive_action (send->hash (), nano::dev_genesis_key.pub, node0->config.receive_minimum.number (), send->link ().as_account ()));
 	ASSERT_NE (nullptr, receive);
 	nano::genesis genesis;
-	nano::state_block usend (nano::genesis_account, node0->latest (nano::genesis_account), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, nano::genesis_account, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node0->work_generate_blocking (node0->latest (nano::genesis_account)));
-	nano::state_block ureceive (nano::genesis_account, usend.hash (), nano::genesis_account, nano::genesis_amount, usend.hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node0->work_generate_blocking (usend.hash ()));
-	nano::state_block uchange (nano::genesis_account, ureceive.hash (), nano::keypair ().pub, nano::genesis_amount, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node0->work_generate_blocking (ureceive.hash ()));
+	nano::state_block usend (nano::dev::genesis->account (), node0->latest (nano::dev::genesis->account ()), nano::dev::genesis->account (), nano::genesis_amount - nano::Gxrb_ratio, nano::dev::genesis->account (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node0->work_generate_blocking (node0->latest (nano::dev::genesis->account ())));
+	nano::state_block ureceive (nano::dev::genesis->account (), usend.hash (), nano::dev::genesis->account (), nano::genesis_amount, usend.hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node0->work_generate_blocking (usend.hash ()));
+	nano::state_block uchange (nano::dev::genesis->account (), ureceive.hash (), nano::keypair ().pub, nano::genesis_amount, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node0->work_generate_blocking (ureceive.hash ()));
 	{
 		auto transaction (node0->store.tx_begin_write ());
 		ASSERT_EQ (nano::process_result::progress, node0->ledger.process (transaction, usend).code);
@@ -1156,7 +1156,7 @@ TEST (rpc, account_history)
 	{
 		boost::property_tree::ptree request;
 		request.put ("action", "account_history");
-		request.put ("account", nano::genesis_account.to_account ());
+		request.put ("account", nano::dev::genesis->account ().to_account ());
 		request.put ("count", 100);
 		auto response (wait_response (system, rpc, request, 10s));
 		std::vector<std::tuple<std::string, std::string, std::string, std::string, std::string>> history_l;
@@ -1197,7 +1197,7 @@ TEST (rpc, account_history)
 	{
 		boost::property_tree::ptree request;
 		request.put ("action", "account_history");
-		request.put ("account", nano::genesis_account.to_account ());
+		request.put ("account", nano::dev::genesis->account ().to_account ());
 		request.put ("reverse", true);
 		request.put ("count", 1);
 		auto response (wait_response (system, rpc, request, 10s));
@@ -1283,9 +1283,9 @@ TEST (rpc, history_pruning)
 	node0->process_active (send);
 	auto receive (std::make_shared<nano::receive_block> (send->hash (), send->hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node0->work.generate (send->hash ())));
 	node0->process_active (receive);
-	auto usend (std::make_shared<nano::state_block> (nano::genesis_account, receive->hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, nano::genesis_account, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node0->work_generate_blocking (receive->hash ())));
-	auto ureceive (std::make_shared<nano::state_block> (nano::genesis_account, usend->hash (), nano::genesis_account, nano::genesis_amount, usend->hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node0->work_generate_blocking (usend->hash ())));
-	auto uchange (std::make_shared<nano::state_block> (nano::genesis_account, ureceive->hash (), nano::keypair ().pub, nano::genesis_amount, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node0->work_generate_blocking (ureceive->hash ())));
+	auto usend (std::make_shared<nano::state_block> (nano::dev::genesis->account (), receive->hash (), nano::dev::genesis->account (), nano::genesis_amount - nano::Gxrb_ratio, nano::dev::genesis->account (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node0->work_generate_blocking (receive->hash ())));
+	auto ureceive (std::make_shared<nano::state_block> (nano::dev::genesis->account (), usend->hash (), nano::dev::genesis->account (), nano::genesis_amount, usend->hash (), nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node0->work_generate_blocking (usend->hash ())));
+	auto uchange (std::make_shared<nano::state_block> (nano::dev::genesis->account (), ureceive->hash (), nano::keypair ().pub, nano::genesis_amount, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node0->work_generate_blocking (ureceive->hash ())));
 	node0->process_active (usend);
 	node0->process_active (ureceive);
 	node0->process_active (uchange);
@@ -1546,7 +1546,7 @@ TEST (rpc, process_subtype_send)
 	auto [rpc, rpc_ctx] = add_rpc (system, node1);
 	nano::keypair key;
 	auto latest (node1->latest (nano::dev_genesis_key.pub));
-	nano::state_block send (nano::genesis_account, latest, nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node1->work_generate_blocking (latest));
+	nano::state_block send (nano::dev::genesis->account (), latest, nano::dev::genesis->account (), nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node1->work_generate_blocking (latest));
 	boost::property_tree::ptree request;
 	request.put ("action", "process");
 	std::string json;
@@ -1572,7 +1572,7 @@ TEST (rpc, process_subtype_open)
 	auto & node2 = *system.add_node ();
 	nano::keypair key;
 	auto latest (node1->latest (nano::dev_genesis_key.pub));
-	auto send = std::make_shared<nano::state_block> (nano::genesis_account, latest, nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node1->work_generate_blocking (latest));
+	auto send = std::make_shared<nano::state_block> (nano::dev::genesis->account (), latest, nano::dev::genesis->account (), nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node1->work_generate_blocking (latest));
 	ASSERT_EQ (nano::process_result::progress, node1->process (*send).code);
 	ASSERT_EQ (nano::process_result::progress, node2.process (*send).code);
 	auto [rpc, rpc_ctx] = add_rpc (system, node1);
@@ -1602,7 +1602,7 @@ TEST (rpc, process_subtype_receive)
 	auto node1 = add_ipc_enabled_node (system);
 	auto & node2 = *system.add_node ();
 	auto latest (node1->latest (nano::dev_genesis_key.pub));
-	auto send = std::make_shared<nano::state_block> (nano::genesis_account, latest, nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node1->work_generate_blocking (latest));
+	auto send = std::make_shared<nano::state_block> (nano::dev::genesis->account (), latest, nano::dev::genesis->account (), nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node1->work_generate_blocking (latest));
 	ASSERT_EQ (nano::process_result::progress, node1->process (*send).code);
 	ASSERT_EQ (nano::process_result::progress, node2.process (*send).code);
 	auto [rpc, rpc_ctx] = add_rpc (system, node1);
@@ -1636,7 +1636,7 @@ TEST (rpc, process_ledger_insufficient_work)
 	auto latest (node->latest (nano::dev_genesis_key.pub));
 	auto min_difficulty = node->network_params.network.publish_thresholds.entry;
 	auto max_difficulty = node->network_params.network.publish_thresholds.epoch_1;
-	nano::state_block send (nano::genesis_account, latest, nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, system.work_generate_limited (latest, min_difficulty, max_difficulty));
+	nano::state_block send (nano::dev::genesis->account (), latest, nano::dev::genesis->account (), nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, system.work_generate_limited (latest, min_difficulty, max_difficulty));
 	ASSERT_LT (send.difficulty (), max_difficulty);
 	ASSERT_GE (send.difficulty (), min_difficulty);
 	boost::property_tree::ptree request;
@@ -2478,11 +2478,11 @@ TEST (rpc, account_representative)
 	auto node = add_ipc_enabled_node (system);
 	auto [rpc, rpc_ctx] = add_rpc (system, node);
 	boost::property_tree::ptree request;
-	request.put ("account", nano::genesis_account.to_account ());
+	request.put ("account", nano::dev::genesis->account ().to_account ());
 	request.put ("action", "account_representative");
 	auto response (wait_response (system, rpc, request));
 	std::string account_text1 (response.get<std::string> ("representative"));
-	ASSERT_EQ (account_text1, nano::genesis_account.to_account ());
+	ASSERT_EQ (account_text1, nano::dev::genesis->account ().to_account ());
 }
 
 TEST (rpc, account_representative_set)
@@ -2493,7 +2493,7 @@ TEST (rpc, account_representative_set)
 	auto [rpc, rpc_ctx] = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	nano::keypair rep;
-	request.put ("account", nano::genesis_account.to_account ());
+	request.put ("account", nano::dev::genesis->account ().to_account ());
 	request.put ("representative", rep.pub.to_account ());
 	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
 	request.put ("action", "account_representative_set");
@@ -2517,7 +2517,7 @@ TEST (rpc, account_representative_set_work_disabled)
 	auto [rpc, rpc_ctx] = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	nano::keypair rep;
-	request.put ("account", nano::genesis_account.to_account ());
+	request.put ("account", nano::dev::genesis->account ().to_account ());
 	request.put ("representative", rep.pub.to_account ());
 	request.put ("wallet", node->wallets.items.begin ()->first.to_string ());
 	request.put ("action", "account_representative_set");
@@ -2569,7 +2569,7 @@ TEST (rpc, bootstrap)
 	nano::system system1 (1);
 	auto node1 = system1.nodes[0];
 	auto latest (node1->latest (nano::dev_genesis_key.pub));
-	nano::send_block send (latest, nano::genesis_account, 100, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node1->work_generate_blocking (latest));
+	nano::send_block send (latest, nano::dev::genesis->account (), 100, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *node1->work_generate_blocking (latest));
 	{
 		auto transaction (node1->store.tx_begin_write ());
 		ASSERT_EQ (nano::process_result::progress, node1->ledger.process (transaction, send).code);
@@ -2585,7 +2585,7 @@ TEST (rpc, bootstrap)
 		system0.poll ();
 	}
 	system1.deadline_set (10s);
-	while (node->latest (nano::genesis_account) != node1->latest (nano::genesis_account))
+	while (node->latest (nano::dev::genesis->account ()) != node1->latest (nano::dev::genesis->account ()))
 	{
 		ASSERT_NO_ERROR (system0.poll ());
 		ASSERT_NO_ERROR (system1.poll ());
@@ -2624,7 +2624,7 @@ TEST (rpc, representatives)
 		representatives.push_back (account);
 	}
 	ASSERT_EQ (1, representatives.size ());
-	ASSERT_EQ (nano::genesis_account, representatives[0]);
+	ASSERT_EQ (nano::dev::genesis->account (), representatives[0]);
 }
 
 // wallet_seed is only available over IPC's unsafe encoding, and when running on test network
@@ -2700,7 +2700,7 @@ TEST (rpc, wallet_frontiers)
 		frontiers.push_back (nano::account (i->second.get<std::string> ("")));
 	}
 	ASSERT_EQ (1, frontiers.size ());
-	ASSERT_EQ (node->latest (nano::genesis_account), frontiers[0]);
+	ASSERT_EQ (node->latest (nano::dev::genesis->account ()), frontiers[0]);
 }
 
 TEST (rpc, work_validate)
@@ -2848,7 +2848,7 @@ TEST (rpc, bootstrap_any)
 	auto node = add_ipc_enabled_node (system0);
 	nano::system system1 (1);
 	auto latest (system1.nodes[0]->latest (nano::dev_genesis_key.pub));
-	nano::send_block send (latest, nano::genesis_account, 100, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system1.nodes[0]->work_generate_blocking (latest));
+	nano::send_block send (latest, nano::dev::genesis->account (), 100, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system1.nodes[0]->work_generate_blocking (latest));
 	{
 		auto transaction (system1.nodes[0]->store.tx_begin_write ());
 		ASSERT_EQ (nano::process_result::progress, system1.nodes[0]->ledger.process (transaction, send).code);
@@ -2985,7 +2985,7 @@ TEST (rpc, accounts_frontiers)
 		std::string account_text (frontiers.first);
 		ASSERT_EQ (nano::dev_genesis_key.pub.to_account (), account_text);
 		std::string frontier_text (frontiers.second.get<std::string> (""));
-		ASSERT_EQ (node->latest (nano::genesis_account), nano::block_hash{ frontier_text });
+		ASSERT_EQ (node->latest (nano::dev::genesis->account ()), nano::block_hash{ frontier_text });
 	}
 }
 
@@ -3093,14 +3093,14 @@ TEST (rpc, blocks)
 	request.put ("action", "blocks");
 	boost::property_tree::ptree entry;
 	boost::property_tree::ptree peers_l;
-	entry.put ("", node->latest (nano::genesis_account).to_string ());
+	entry.put ("", node->latest (nano::dev::genesis->account ()).to_string ());
 	peers_l.push_back (std::make_pair ("", entry));
 	request.add_child ("hashes", peers_l);
 	auto response (wait_response (system, rpc, request));
 	for (auto & blocks : response.get_child ("blocks"))
 	{
 		std::string hash_text (blocks.first);
-		ASSERT_EQ (node->latest (nano::genesis_account).to_string (), hash_text);
+		ASSERT_EQ (node->latest (nano::dev::genesis->account ()).to_string (), hash_text);
 		std::string blocks_text (blocks.second.get<std::string> (""));
 		ASSERT_FALSE (blocks_text.empty ());
 	}
@@ -3203,7 +3203,7 @@ TEST (rpc, pending_exists)
 	auto node = add_ipc_enabled_node (system);
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
-	auto hash0 (node->latest (nano::genesis_account));
+	auto hash0 (node->latest (nano::dev::genesis->account ()));
 	auto block1 (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key1.pub, 100));
 	node->scheduler.flush ();
 	ASSERT_TIMELY (5s, !node->active.active (*block1));
@@ -3368,7 +3368,7 @@ TEST (rpc, work_get)
 	std::string work_text (response.get<std::string> ("work"));
 	uint64_t work (1);
 	auto transaction (node->wallets.tx_begin_read ());
-	node->wallets.items.begin ()->second->store.work_get (transaction, nano::genesis_account, work);
+	node->wallets.items.begin ()->second->store.work_get (transaction, nano::dev::genesis->account (), work);
 	ASSERT_EQ (nano::to_string_hex (work), work_text);
 }
 
@@ -3390,7 +3390,7 @@ TEST (rpc, wallet_work_get)
 		ASSERT_EQ (nano::dev_genesis_key.pub.to_account (), account_text);
 		std::string work_text (works.second.get<std::string> (""));
 		uint64_t work (1);
-		node->wallets.items.begin ()->second->store.work_get (transaction, nano::genesis_account, work);
+		node->wallets.items.begin ()->second->store.work_get (transaction, nano::dev::genesis->account (), work);
 		ASSERT_EQ (nano::to_string_hex (work), work_text);
 	}
 }
@@ -3412,7 +3412,7 @@ TEST (rpc, work_set)
 	ASSERT_TRUE (success.empty ());
 	uint64_t work1 (1);
 	auto transaction (node->wallets.tx_begin_read ());
-	node->wallets.items.begin ()->second->store.work_get (transaction, nano::genesis_account, work1);
+	node->wallets.items.begin ()->second->store.work_get (transaction, nano::dev::genesis->account (), work1);
 	ASSERT_EQ (work1, work0);
 }
 
@@ -3775,7 +3775,7 @@ TEST (rpc, json_block_input)
 	auto node1 = add_ipc_enabled_node (system);
 	nano::keypair key;
 	system.wallet (0)->insert_adhoc (key.prv);
-	nano::state_block send (nano::genesis_account, node1->latest (nano::dev_genesis_key.pub), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0);
+	nano::state_block send (nano::dev::genesis->account (), node1->latest (nano::dev_genesis_key.pub), nano::dev::genesis->account (), nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0);
 	auto [rpc, rpc_ctx] = add_rpc (system, node1);
 	boost::property_tree::ptree request;
 	request.put ("action", "sign");
@@ -3829,7 +3829,7 @@ TEST (rpc, blocks_info)
 		for (auto & blocks : response.get_child ("blocks"))
 		{
 			std::string hash_text (blocks.first);
-			ASSERT_EQ (node->latest (nano::genesis_account).to_string (), hash_text);
+			ASSERT_EQ (node->latest (nano::dev::genesis->account ()).to_string (), hash_text);
 			std::string account_text (blocks.second.get<std::string> ("block_account"));
 			ASSERT_EQ (nano::dev_genesis_key.pub.to_account (), account_text);
 			std::string amount_text (blocks.second.get<std::string> ("amount"));
@@ -3851,7 +3851,7 @@ TEST (rpc, blocks_info)
 	request.put ("action", "blocks_info");
 	boost::property_tree::ptree entry;
 	boost::property_tree::ptree hashes;
-	entry.put ("", node->latest (nano::genesis_account).to_string ());
+	entry.put ("", node->latest (nano::dev::genesis->account ()).to_string ());
 	hashes.push_back (std::make_pair ("", entry));
 	request.add_child ("hashes", hashes);
 	{
@@ -5222,7 +5222,7 @@ TEST (rpc, sign_hash)
 	nano::system system;
 	auto node1 = add_ipc_enabled_node (system);
 	nano::keypair key;
-	nano::state_block send (nano::genesis_account, node1->latest (nano::dev_genesis_key.pub), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0);
+	nano::state_block send (nano::dev::genesis->account (), node1->latest (nano::dev_genesis_key.pub), nano::dev::genesis->account (), nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0);
 	auto [rpc, rpc_ctx] = add_rpc (system, node1);
 	boost::property_tree::ptree request;
 	request.put ("action", "sign");
@@ -5245,7 +5245,7 @@ TEST (rpc, sign_block)
 	auto node1 = add_ipc_enabled_node (system);
 	nano::keypair key;
 	system.wallet (0)->insert_adhoc (key.prv);
-	nano::state_block send (nano::genesis_account, node1->latest (nano::dev_genesis_key.pub), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0);
+	nano::state_block send (nano::dev::genesis->account (), node1->latest (nano::dev_genesis_key.pub), nano::dev::genesis->account (), nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, 0);
 	auto [rpc, rpc_ctx] = add_rpc (system, node1);
 	boost::property_tree::ptree request;
 	request.put ("action", "sign");
@@ -5321,7 +5321,7 @@ TEST (rpc, block_confirmed)
 		nano::send_block send1 (latest, key.pub, 300, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system.work.generate (latest));
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send1).code);
 
-		nano::open_block open1 (send1.hash (), nano::genesis_account, key.pub, key.prv, key.pub, *system.work.generate (key.pub));
+		nano::open_block open1 (send1.hash (), nano::dev::genesis->account (), key.pub, key.prv, key.pub, *system.work.generate (key.pub));
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, open1).code);
 	}
 	rpc_ctx->io_scope->renew ();

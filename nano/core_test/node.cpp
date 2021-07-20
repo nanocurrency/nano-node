@@ -2073,16 +2073,16 @@ TEST (node, DISABLED_unconfirmed_send)
 	nano::keypair key0;
 	wallet1->insert_adhoc (key0.prv);
 	wallet0->insert_adhoc (nano::dev_genesis_key.prv);
-	auto send1 (wallet0->send_action (nano::genesis_account, key0.pub, 2 * nano::Mxrb_ratio));
+	auto send1 (wallet0->send_action (nano::dev::genesis->account (), key0.pub, 2 * nano::Mxrb_ratio));
 	ASSERT_TIMELY (10s, node1.balance (key0.pub) == 2 * nano::Mxrb_ratio && !node1.bootstrap_initiator.in_progress ());
 	auto latest (node1.latest (key0.pub));
-	nano::state_block send2 (key0.pub, latest, nano::genesis_account, nano::Mxrb_ratio, nano::genesis_account, key0.prv, key0.pub, *node0.work_generate_blocking (latest));
+	nano::state_block send2 (key0.pub, latest, nano::dev::genesis->account (), nano::Mxrb_ratio, nano::dev::genesis->account (), key0.prv, key0.pub, *node0.work_generate_blocking (latest));
 	{
 		auto transaction (node1.store.tx_begin_write ());
 		ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, send2).code);
 	}
-	auto send3 (wallet1->send_action (key0.pub, nano::genesis_account, nano::Mxrb_ratio));
-	ASSERT_TIMELY (10s, node0.balance (nano::genesis_account) == nano::genesis_amount);
+	auto send3 (wallet1->send_action (key0.pub, nano::dev::genesis->account (), nano::Mxrb_ratio));
+	ASSERT_TIMELY (10s, node0.balance (nano::dev::genesis->account ()) == nano::genesis_amount);
 }
 
 // Test that nodes can track nodes that have rep weight for priority broadcasting
@@ -3059,9 +3059,9 @@ TEST (node, vote_by_hash_epoch_block_republish)
 				 .work (*system.work.generate (genesis.hash ()))
 				 .build_shared ();
 	auto epoch1 = nano::state_block_builder ()
-				  .account (nano::genesis_account)
+				  .account (nano::dev::genesis->account ())
 				  .previous (genesis.hash ())
-				  .representative (nano::genesis_account)
+				  .representative (nano::dev::genesis->account ())
 				  .balance (nano::genesis_amount)
 				  .link (node1.ledger.epoch_link (nano::epoch::epoch_1))
 				  .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)

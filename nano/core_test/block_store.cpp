@@ -330,7 +330,7 @@ TEST (block_store, genesis)
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger_cache);
 	nano::account_info info;
-	ASSERT_FALSE (store->account.get (transaction, nano::genesis_account, info));
+	ASSERT_FALSE (store->account.get (transaction, nano::dev::genesis->account (), info));
 	ASSERT_EQ (hash, info.head);
 	auto block1 (store->block.get (transaction, info.head));
 	ASSERT_NE (nullptr, block1);
@@ -340,13 +340,13 @@ TEST (block_store, genesis)
 	ASSERT_EQ (info.block_count, 1);
 	// Genesis block should be confirmed by default
 	nano::confirmation_height_info confirmation_height_info;
-	ASSERT_FALSE (store->confirmation_height.get (transaction, nano::genesis_account, confirmation_height_info));
+	ASSERT_FALSE (store->confirmation_height.get (transaction, nano::dev::genesis->account (), confirmation_height_info));
 	ASSERT_EQ (confirmation_height_info.height, 1);
 	ASSERT_EQ (confirmation_height_info.frontier, hash);
 	auto dev_pub_text (nano::dev_genesis_key.pub.to_string ());
 	auto dev_pub_account (nano::dev_genesis_key.pub.to_account ());
 	auto dev_prv_text (nano::dev_genesis_key.prv.to_string ());
-	ASSERT_EQ (nano::genesis_account, nano::dev_genesis_key.pub);
+	ASSERT_EQ (nano::dev::genesis->account (), nano::dev_genesis_key.pub);
 }
 
 TEST (bootstrap, simple)
@@ -689,10 +689,10 @@ TEST (mdb_block_store, supported_version_upgrades)
 		store.initialize (transaction, ledger.cache);
 		// Lower the database version to the minimum version supported for upgrade.
 		store.version.put (transaction, store.minimum_version);
-		store.confirmation_height.del (transaction, nano::genesis_account);
+		store.confirmation_height.del (transaction, nano::dev::genesis->account ());
 		ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "accounts_v1", MDB_CREATE, &store.accounts_v1_handle));
 		ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "open", MDB_CREATE, &store.open_blocks_handle));
-		modify_account_info_to_v14 (store, transaction, nano::genesis_account, 1, nano::dev::genesis->hash ());
+		modify_account_info_to_v14 (store, transaction, nano::dev::genesis->account (), 1, nano::dev::genesis->hash ());
 		write_block_w_sideband_v18 (store, store.open_blocks_handle, transaction, *nano::genesis ().open);
 	}
 
@@ -1285,9 +1285,9 @@ TEST (mdb_block_store, upgrade_v14_v15)
 		auto transaction (store.tx_begin_write ());
 		store.initialize (transaction, ledger.cache);
 		nano::account_info account_info;
-		ASSERT_FALSE (store.account.get (transaction, nano::genesis_account, account_info));
+		ASSERT_FALSE (store.account.get (transaction, nano::dev::genesis->account (), account_info));
 		nano::confirmation_height_info confirmation_height_info;
-		ASSERT_FALSE (store.confirmation_height.get (transaction, nano::genesis_account, confirmation_height_info));
+		ASSERT_FALSE (store.confirmation_height.get (transaction, nano::dev::genesis->account (), confirmation_height_info));
 		ASSERT_EQ (confirmation_height_info.height, 1);
 		ASSERT_EQ (confirmation_height_info.frontier, genesis.hash ());
 		// These databases get removed after an upgrade, so readd them
@@ -1302,10 +1302,10 @@ TEST (mdb_block_store, upgrade_v14_v15)
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, state_send).code);
 		// Lower the database to the previous version
 		store.version.put (transaction, 14);
-		store.confirmation_height.del (transaction, nano::genesis_account);
-		modify_account_info_to_v14 (store, transaction, nano::genesis_account, confirmation_height_info.height, state_send.hash ());
+		store.confirmation_height.del (transaction, nano::dev::genesis->account ());
+		modify_account_info_to_v14 (store, transaction, nano::dev::genesis->account (), confirmation_height_info.height, state_send.hash ());
 
-		store.pending.del (transaction, nano::pending_key (nano::genesis_account, state_send.hash ()));
+		store.pending.del (transaction, nano::pending_key (nano::dev::genesis->account (), state_send.hash ()));
 
 		write_sideband_v14 (store, transaction, state_send, store.state_blocks_v1_handle);
 		write_sideband_v14 (store, transaction, epoch, store.state_blocks_v1_handle);
@@ -1317,18 +1317,18 @@ TEST (mdb_block_store, upgrade_v14_v15)
 		store.block.del (transaction, epoch.hash ());
 
 		// Turn pending into v14
-		ASSERT_FALSE (mdb_put (store.env.tx (transaction), store.pending_v0_handle, nano::mdb_val (nano::pending_key (nano::dev_genesis_key.pub, send.hash ())), nano::mdb_val (nano::pending_info_v14 (nano::genesis_account, nano::Gxrb_ratio, nano::epoch::epoch_0)), 0));
-		ASSERT_FALSE (mdb_put (store.env.tx (transaction), store.pending_v1_handle, nano::mdb_val (nano::pending_key (nano::dev_genesis_key.pub, state_send.hash ())), nano::mdb_val (nano::pending_info_v14 (nano::genesis_account, nano::Gxrb_ratio, nano::epoch::epoch_1)), 0));
+		ASSERT_FALSE (mdb_put (store.env.tx (transaction), store.pending_v0_handle, nano::mdb_val (nano::pending_key (nano::dev_genesis_key.pub, send.hash ())), nano::mdb_val (nano::pending_info_v14 (nano::dev::genesis->account (), nano::Gxrb_ratio, nano::epoch::epoch_0)), 0));
+		ASSERT_FALSE (mdb_put (store.env.tx (transaction), store.pending_v1_handle, nano::mdb_val (nano::pending_key (nano::dev_genesis_key.pub, state_send.hash ())), nano::mdb_val (nano::pending_info_v14 (nano::dev::genesis->account (), nano::Gxrb_ratio, nano::epoch::epoch_1)), 0));
 
 		// This should fail as sizes are no longer correct for account_info
 		nano::mdb_val value;
-		ASSERT_FALSE (mdb_get (store.env.tx (transaction), store.accounts_v1_handle, nano::mdb_val (nano::genesis_account), value));
+		ASSERT_FALSE (mdb_get (store.env.tx (transaction), store.accounts_v1_handle, nano::mdb_val (nano::dev::genesis->account ()), value));
 		nano::account_info info;
 		ASSERT_NE (value.size (), info.db_size ());
-		store.account.del (transaction, nano::genesis_account);
+		store.account.del (transaction, nano::dev::genesis->account ());
 
 		// Confirmation height for the account should be deleted
-		ASSERT_TRUE (mdb_get (store.env.tx (transaction), store.confirmation_height_handle, nano::mdb_val (nano::genesis_account), value));
+		ASSERT_TRUE (mdb_get (store.env.tx (transaction), store.confirmation_height_handle, nano::mdb_val (nano::dev::genesis->account ()), value));
 	}
 
 	// Now do the upgrade
@@ -1339,18 +1339,18 @@ TEST (mdb_block_store, upgrade_v14_v15)
 
 	// Size of account_info should now equal that set in db
 	nano::mdb_val value;
-	ASSERT_FALSE (mdb_get (store.env.tx (transaction), store.accounts_handle, nano::mdb_val (nano::genesis_account), value));
+	ASSERT_FALSE (mdb_get (store.env.tx (transaction), store.accounts_handle, nano::mdb_val (nano::dev::genesis->account ()), value));
 	nano::account_info info (value);
 	ASSERT_EQ (value.size (), info.db_size ());
 
 	// Confirmation height should exist
 	nano::confirmation_height_info confirmation_height_info;
-	ASSERT_FALSE (store.confirmation_height.get (transaction, nano::genesis_account, confirmation_height_info));
+	ASSERT_FALSE (store.confirmation_height.get (transaction, nano::dev::genesis->account (), confirmation_height_info));
 	ASSERT_EQ (confirmation_height_info.height, 1);
 	ASSERT_EQ (confirmation_height_info.frontier, genesis.hash ());
 
 	// accounts_v1, state_blocks_v1 & pending_v1 tables should be deleted
-	auto error_get_accounts_v1 (mdb_get (store.env.tx (transaction), store.accounts_v1_handle, nano::mdb_val (nano::genesis_account), value));
+	auto error_get_accounts_v1 (mdb_get (store.env.tx (transaction), store.accounts_v1_handle, nano::mdb_val (nano::dev::genesis->account ()), value));
 	ASSERT_NE (error_get_accounts_v1, MDB_SUCCESS);
 	auto error_get_pending_v1 (mdb_get (store.env.tx (transaction), store.pending_v1_handle, nano::mdb_val (nano::pending_key (nano::dev_genesis_key.pub, state_send.hash ())), value));
 	ASSERT_NE (error_get_pending_v1, MDB_SUCCESS);
@@ -1395,15 +1395,15 @@ TEST (mdb_block_store, upgrade_v15_v16)
 		// The representation table should get removed after, so readd it so that we can later confirm this actually happens
 		auto txn = store.env.tx (transaction);
 		ASSERT_FALSE (mdb_dbi_open (txn, "representation", MDB_CREATE, &store.representation_handle));
-		auto weight = ledger.cache.rep_weights.representation_get (nano::genesis_account);
-		ASSERT_EQ (MDB_SUCCESS, mdb_put (txn, store.representation_handle, nano::mdb_val (nano::genesis_account), nano::mdb_val (nano::uint128_union (weight)), 0));
+		auto weight = ledger.cache.rep_weights.representation_get (nano::dev::genesis->account ());
+		ASSERT_EQ (MDB_SUCCESS, mdb_put (txn, store.representation_handle, nano::mdb_val (nano::dev::genesis->account ()), nano::mdb_val (nano::uint128_union (weight)), 0));
 		ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "open", MDB_CREATE, &store.open_blocks_handle));
 		write_block_w_sideband_v18 (store, store.open_blocks_handle, transaction, *genesis.open);
 		// Lower the database to the previous version
 		store.version.put (transaction, 15);
 		// Confirm the rep weight exists in the database
-		ASSERT_EQ (MDB_SUCCESS, mdb_get (store.env.tx (transaction), store.representation_handle, nano::mdb_val (nano::genesis_account), value));
-		store.confirmation_height.del (transaction, nano::genesis_account);
+		ASSERT_EQ (MDB_SUCCESS, mdb_get (store.env.tx (transaction), store.representation_handle, nano::mdb_val (nano::dev::genesis->account ()), value));
+		store.confirmation_height.del (transaction, nano::dev::genesis->account ());
 	}
 
 	// Now do the upgrade
@@ -1413,7 +1413,7 @@ TEST (mdb_block_store, upgrade_v15_v16)
 	auto transaction (store.tx_begin_read ());
 
 	// The representation table should now be deleted
-	auto error_get_representation (mdb_get (store.env.tx (transaction), store.representation_handle, nano::mdb_val (nano::genesis_account), value));
+	auto error_get_representation (mdb_get (store.env.tx (transaction), store.representation_handle, nano::mdb_val (nano::dev::genesis->account ()), value));
 	ASSERT_NE (MDB_SUCCESS, error_get_representation);
 	ASSERT_EQ (store.representation_handle, 0);
 
@@ -1448,7 +1448,7 @@ TEST (mdb_block_store, upgrade_v16_v17)
 			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block1).code);
 			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block2).code);
 			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block3).code);
-			modify_confirmation_height_to_v15 (store, transaction, nano::genesis_account, confirmation_height);
+			modify_confirmation_height_to_v15 (store, transaction, nano::dev::genesis->account (), confirmation_height);
 
 			ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "open", MDB_CREATE, &store.open_blocks_handle));
 			write_block_w_sideband_v18 (store, store.open_blocks_handle, transaction, *genesis.open);
@@ -1468,7 +1468,7 @@ TEST (mdb_block_store, upgrade_v16_v17)
 		auto transaction (store.tx_begin_read ());
 
 		nano::confirmation_height_info confirmation_height_info;
-		ASSERT_FALSE (store.confirmation_height.get (transaction, nano::genesis_account, confirmation_height_info));
+		ASSERT_FALSE (store.confirmation_height.get (transaction, nano::dev::genesis->account (), confirmation_height_info));
 		ASSERT_EQ (confirmation_height_info.height, confirmation_height);
 
 		// Check confirmation height frontier is correct

@@ -350,7 +350,7 @@ TEST (wallet, process_block)
 	nano_qt::eventloop_processor processor;
 	nano::system system (1);
 	nano::account account;
-	nano::block_hash latest (system.nodes[0]->latest (nano::genesis_account));
+	nano::block_hash latest (system.nodes[0]->latest (nano::dev::genesis->account ()));
 	system.wallet (0)->insert_adhoc (nano::keypair ().prv);
 	{
 		auto transaction (system.nodes[0]->wallets.tx_begin_read ());
@@ -655,7 +655,7 @@ TEST (wallet, block_viewer)
 	ASSERT_NE (-1, wallet->advanced.layout->indexOf (wallet->advanced.block_viewer));
 	QTest::mouseClick (wallet->advanced.block_viewer, Qt::LeftButton);
 	ASSERT_EQ (wallet->block_viewer.window, wallet->main_stack->currentWidget ());
-	nano::block_hash latest (system.nodes[0]->latest (nano::genesis_account));
+	nano::block_hash latest (system.nodes[0]->latest (nano::dev::genesis->account ()));
 	QTest::keyClicks (wallet->block_viewer.hash, latest.to_string ().c_str ());
 	QTest::mouseClick (wallet->block_viewer.retrieve, Qt::LeftButton);
 	ASSERT_FALSE (wallet->block_viewer.block->toPlainText ().toStdString ().empty ());
@@ -906,7 +906,7 @@ TEST (wallet, DISABLED_synchronizing)
 	wallet->start ();
 	{
 		auto transaction (system1.nodes[0]->store.tx_begin_write ());
-		auto latest (system1.nodes[0]->ledger.latest (transaction, nano::genesis_account));
+		auto latest (system1.nodes[0]->ledger.latest (transaction, nano::dev::genesis->account ()));
 		nano::send_block send (latest, key1, 0, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *system1.work.generate (latest));
 		system1.nodes[0]->ledger.process (transaction, send);
 	}

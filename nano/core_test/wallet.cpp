@@ -18,7 +18,7 @@ TEST (wallet, no_special_keys_accounts)
 	ASSERT_FALSE (init);
 	auto transaction (env.tx_begin_write ());
 	nano::kdf kdf;
-	nano::wallet_store wallet (init, kdf, transaction, nano::genesis_account, 1, "0");
+	nano::wallet_store wallet (init, kdf, transaction, nano::dev::genesis->account (), 1, "0");
 	ASSERT_FALSE (init);
 	nano::keypair key1;
 	ASSERT_FALSE (wallet.exists (transaction, key1.pub));
@@ -39,7 +39,7 @@ TEST (wallet, no_key)
 	ASSERT_FALSE (init);
 	auto transaction (env.tx_begin_write ());
 	nano::kdf kdf;
-	nano::wallet_store wallet (init, kdf, transaction, nano::genesis_account, 1, "0");
+	nano::wallet_store wallet (init, kdf, transaction, nano::dev::genesis->account (), 1, "0");
 	ASSERT_FALSE (init);
 	nano::keypair key1;
 	nano::raw_key prv1;
@@ -54,7 +54,7 @@ TEST (wallet, fetch_locked)
 	ASSERT_FALSE (init);
 	auto transaction (env.tx_begin_write ());
 	nano::kdf kdf;
-	nano::wallet_store wallet (init, kdf, transaction, nano::genesis_account, 1, "0");
+	nano::wallet_store wallet (init, kdf, transaction, nano::dev::genesis->account (), 1, "0");
 	ASSERT_TRUE (wallet.valid_password (transaction));
 	nano::keypair key1;
 	ASSERT_EQ (key1.pub, wallet.insert_adhoc (transaction, key1.prv));
@@ -76,7 +76,7 @@ TEST (wallet, retrieval)
 	ASSERT_FALSE (init);
 	auto transaction (env.tx_begin_write ());
 	nano::kdf kdf;
-	nano::wallet_store wallet (init, kdf, transaction, nano::genesis_account, 1, "0");
+	nano::wallet_store wallet (init, kdf, transaction, nano::dev::genesis->account (), 1, "0");
 	ASSERT_FALSE (init);
 	nano::keypair key1;
 	ASSERT_TRUE (wallet.valid_password (transaction));
@@ -98,7 +98,7 @@ TEST (wallet, empty_iteration)
 	ASSERT_FALSE (init);
 	auto transaction (env.tx_begin_write ());
 	nano::kdf kdf;
-	nano::wallet_store wallet (init, kdf, transaction, nano::genesis_account, 1, "0");
+	nano::wallet_store wallet (init, kdf, transaction, nano::dev::genesis->account (), 1, "0");
 	ASSERT_FALSE (init);
 	auto i (wallet.begin (transaction));
 	auto j (wallet.end ());
@@ -112,7 +112,7 @@ TEST (wallet, one_item_iteration)
 	ASSERT_FALSE (init);
 	auto transaction (env.tx_begin_write ());
 	nano::kdf kdf;
-	nano::wallet_store wallet (init, kdf, transaction, nano::genesis_account, 1, "0");
+	nano::wallet_store wallet (init, kdf, transaction, nano::dev::genesis->account (), 1, "0");
 	ASSERT_FALSE (init);
 	nano::keypair key1;
 	wallet.insert_adhoc (transaction, key1.prv);
@@ -140,7 +140,7 @@ TEST (wallet, two_item_iteration)
 	nano::kdf kdf;
 	{
 		auto transaction (env.tx_begin_write ());
-		nano::wallet_store wallet (init, kdf, transaction, nano::genesis_account, 1, "0");
+		nano::wallet_store wallet (init, kdf, transaction, nano::dev::genesis->account (), 1, "0");
 		ASSERT_FALSE (init);
 		wallet.insert_adhoc (transaction, key1.prv);
 		wallet.insert_adhoc (transaction, key2.prv);
@@ -278,7 +278,7 @@ TEST (wallet, find_none)
 	ASSERT_FALSE (init);
 	auto transaction (env.tx_begin_write ());
 	nano::kdf kdf;
-	nano::wallet_store wallet (init, kdf, transaction, nano::genesis_account, 1, "0");
+	nano::wallet_store wallet (init, kdf, transaction, nano::dev::genesis->account (), 1, "0");
 	ASSERT_FALSE (init);
 	nano::account account (1000);
 	ASSERT_EQ (wallet.end (), wallet.find (transaction, account));
@@ -291,7 +291,7 @@ TEST (wallet, find_existing)
 	ASSERT_FALSE (init);
 	auto transaction (env.tx_begin_write ());
 	nano::kdf kdf;
-	nano::wallet_store wallet (init, kdf, transaction, nano::genesis_account, 1, "0");
+	nano::wallet_store wallet (init, kdf, transaction, nano::dev::genesis->account (), 1, "0");
 	ASSERT_FALSE (init);
 	nano::keypair key1;
 	ASSERT_FALSE (wallet.exists (transaction, key1.pub));
@@ -310,7 +310,7 @@ TEST (wallet, rekey)
 	ASSERT_FALSE (init);
 	auto transaction (env.tx_begin_write ());
 	nano::kdf kdf;
-	nano::wallet_store wallet (init, kdf, transaction, nano::genesis_account, 1, "0");
+	nano::wallet_store wallet (init, kdf, transaction, nano::dev::genesis->account (), 1, "0");
 	ASSERT_FALSE (init);
 	nano::raw_key password;
 	wallet.password.value (password);
@@ -382,7 +382,7 @@ TEST (wallet, hash_password)
 	ASSERT_FALSE (init);
 	auto transaction (env.tx_begin_write ());
 	nano::kdf kdf;
-	nano::wallet_store wallet (init, kdf, transaction, nano::genesis_account, 1, "0");
+	nano::wallet_store wallet (init, kdf, transaction, nano::dev::genesis->account (), 1, "0");
 	ASSERT_FALSE (init);
 	nano::raw_key hash1;
 	wallet.derive_key (hash1, transaction, "");
@@ -432,25 +432,25 @@ TEST (wallet, reopen_default_password)
 	ASSERT_FALSE (init);
 	nano::kdf kdf;
 	{
-		nano::wallet_store wallet (init, kdf, transaction, nano::genesis_account, 1, "0");
+		nano::wallet_store wallet (init, kdf, transaction, nano::dev::genesis->account (), 1, "0");
 		ASSERT_FALSE (init);
 		ASSERT_TRUE (wallet.valid_password (transaction));
 	}
 	{
 		bool init;
-		nano::wallet_store wallet (init, kdf, transaction, nano::genesis_account, 1, "0");
+		nano::wallet_store wallet (init, kdf, transaction, nano::dev::genesis->account (), 1, "0");
 		ASSERT_FALSE (init);
 		ASSERT_TRUE (wallet.valid_password (transaction));
 	}
 	{
-		nano::wallet_store wallet (init, kdf, transaction, nano::genesis_account, 1, "0");
+		nano::wallet_store wallet (init, kdf, transaction, nano::dev::genesis->account (), 1, "0");
 		ASSERT_FALSE (init);
 		wallet.rekey (transaction, "");
 		ASSERT_TRUE (wallet.valid_password (transaction));
 	}
 	{
 		bool init;
-		nano::wallet_store wallet (init, kdf, transaction, nano::genesis_account, 1, "0");
+		nano::wallet_store wallet (init, kdf, transaction, nano::dev::genesis->account (), 1, "0");
 		ASSERT_FALSE (init);
 		ASSERT_FALSE (wallet.valid_password (transaction));
 		wallet.attempt_password (transaction, " ");
@@ -467,10 +467,10 @@ TEST (wallet, representative)
 	ASSERT_FALSE (error);
 	auto transaction (env.tx_begin_write ());
 	nano::kdf kdf;
-	nano::wallet_store wallet (error, kdf, transaction, nano::genesis_account, 1, "0");
+	nano::wallet_store wallet (error, kdf, transaction, nano::dev::genesis->account (), 1, "0");
 	ASSERT_FALSE (error);
 	ASSERT_FALSE (wallet.is_representative (transaction));
-	ASSERT_EQ (nano::genesis_account, wallet.representative (transaction));
+	ASSERT_EQ (nano::dev::genesis->account (), wallet.representative (transaction));
 	ASSERT_FALSE (wallet.is_representative (transaction));
 	nano::keypair key;
 	wallet.representative_set (transaction, key.pub);
@@ -488,11 +488,11 @@ TEST (wallet, serialize_json_empty)
 	ASSERT_FALSE (error);
 	auto transaction (env.tx_begin_write ());
 	nano::kdf kdf;
-	nano::wallet_store wallet1 (error, kdf, transaction, nano::genesis_account, 1, "0");
+	nano::wallet_store wallet1 (error, kdf, transaction, nano::dev::genesis->account (), 1, "0");
 	ASSERT_FALSE (error);
 	std::string serialized;
 	wallet1.serialize_json (transaction, serialized);
-	nano::wallet_store wallet2 (error, kdf, transaction, nano::genesis_account, 1, "1", serialized);
+	nano::wallet_store wallet2 (error, kdf, transaction, nano::dev::genesis->account (), 1, "1", serialized);
 	ASSERT_FALSE (error);
 	nano::raw_key password1;
 	nano::raw_key password2;
@@ -513,13 +513,13 @@ TEST (wallet, serialize_json_one)
 	ASSERT_FALSE (error);
 	auto transaction (env.tx_begin_write ());
 	nano::kdf kdf;
-	nano::wallet_store wallet1 (error, kdf, transaction, nano::genesis_account, 1, "0");
+	nano::wallet_store wallet1 (error, kdf, transaction, nano::dev::genesis->account (), 1, "0");
 	ASSERT_FALSE (error);
 	nano::keypair key;
 	wallet1.insert_adhoc (transaction, key.prv);
 	std::string serialized;
 	wallet1.serialize_json (transaction, serialized);
-	nano::wallet_store wallet2 (error, kdf, transaction, nano::genesis_account, 1, "1", serialized);
+	nano::wallet_store wallet2 (error, kdf, transaction, nano::dev::genesis->account (), 1, "1", serialized);
 	ASSERT_FALSE (error);
 	nano::raw_key password1;
 	nano::raw_key password2;
@@ -542,14 +542,14 @@ TEST (wallet, serialize_json_password)
 	ASSERT_FALSE (error);
 	auto transaction (env.tx_begin_write ());
 	nano::kdf kdf;
-	nano::wallet_store wallet1 (error, kdf, transaction, nano::genesis_account, 1, "0");
+	nano::wallet_store wallet1 (error, kdf, transaction, nano::dev::genesis->account (), 1, "0");
 	ASSERT_FALSE (error);
 	nano::keypair key;
 	wallet1.rekey (transaction, "password");
 	wallet1.insert_adhoc (transaction, key.prv);
 	std::string serialized;
 	wallet1.serialize_json (transaction, serialized);
-	nano::wallet_store wallet2 (error, kdf, transaction, nano::genesis_account, 1, "1", serialized);
+	nano::wallet_store wallet2 (error, kdf, transaction, nano::dev::genesis->account (), 1, "1", serialized);
 	ASSERT_FALSE (error);
 	ASSERT_FALSE (wallet2.valid_password (transaction));
 	ASSERT_FALSE (wallet2.attempt_password (transaction, "password"));
@@ -575,11 +575,11 @@ TEST (wallet_store, move)
 	ASSERT_FALSE (error);
 	auto transaction (env.tx_begin_write ());
 	nano::kdf kdf;
-	nano::wallet_store wallet1 (error, kdf, transaction, nano::genesis_account, 1, "0");
+	nano::wallet_store wallet1 (error, kdf, transaction, nano::dev::genesis->account (), 1, "0");
 	ASSERT_FALSE (error);
 	nano::keypair key1;
 	wallet1.insert_adhoc (transaction, key1.prv);
-	nano::wallet_store wallet2 (error, kdf, transaction, nano::genesis_account, 1, "1");
+	nano::wallet_store wallet2 (error, kdf, transaction, nano::dev::genesis->account (), 1, "1");
 	ASSERT_FALSE (error);
 	nano::keypair key2;
 	wallet2.insert_adhoc (transaction, key2.prv);
@@ -733,7 +733,7 @@ TEST (wallet, deterministic_keys)
 	ASSERT_FALSE (init);
 	auto transaction (env.tx_begin_write ());
 	nano::kdf kdf;
-	nano::wallet_store wallet (init, kdf, transaction, nano::genesis_account, 1, "0");
+	nano::wallet_store wallet (init, kdf, transaction, nano::dev::genesis->account (), 1, "0");
 	auto key1 = wallet.deterministic_key (transaction, 0);
 	auto key2 = wallet.deterministic_key (transaction, 0);
 	ASSERT_EQ (key1, key2);
@@ -776,7 +776,7 @@ TEST (wallet, reseed)
 	ASSERT_FALSE (init);
 	auto transaction (env.tx_begin_write ());
 	nano::kdf kdf;
-	nano::wallet_store wallet (init, kdf, transaction, nano::genesis_account, 1, "0");
+	nano::wallet_store wallet (init, kdf, transaction, nano::dev::genesis->account (), 1, "0");
 	nano::raw_key seed1;
 	seed1 = 1;
 	nano::raw_key seed2;
@@ -1163,11 +1163,11 @@ TEST (wallet, search_pending)
 	wallet.insert_adhoc (nano::dev_genesis_key.prv);
 	nano::block_builder builder;
 	auto send = builder.state ()
-				.account (nano::genesis_account)
+				.account (nano::dev::genesis->account ())
 				.previous (nano::dev::genesis->hash ())
-				.representative (nano::genesis_account)
+				.representative (nano::dev::genesis->account ())
 				.balance (nano::genesis_amount - node.config.receive_minimum.number ())
-				.link (nano::genesis_account)
+				.link (nano::dev::genesis->account ())
 				.sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
 				.work (*system.work.generate (nano::dev::genesis->hash ()))
 				.build ();
@@ -1180,7 +1180,7 @@ TEST (wallet, search_pending)
 	ASSERT_NE (nullptr, election);
 
 	// Erase the key so the confirmation does not trigger an automatic receive
-	wallet.store.erase (node.wallets.tx_begin_write (), nano::genesis_account);
+	wallet.store.erase (node.wallets.tx_begin_write (), nano::dev::genesis->account ());
 
 	// Now confirm the election
 	election->force_confirm ();
@@ -1193,8 +1193,8 @@ TEST (wallet, search_pending)
 	// Pending search should create the receive block
 	ASSERT_EQ (2, node.ledger.cache.block_count);
 	ASSERT_FALSE (wallet.search_pending (wallet.wallets.tx_begin_read ()));
-	ASSERT_TIMELY (3s, node.balance (nano::genesis_account) == nano::genesis_amount);
-	auto receive_hash = node.ledger.latest (node.store.tx_begin_read (), nano::genesis_account);
+	ASSERT_TIMELY (3s, node.balance (nano::dev::genesis->account ()) == nano::genesis_amount);
+	auto receive_hash = node.ledger.latest (node.store.tx_begin_read (), nano::dev::genesis->account ());
 	auto receive = node.block (receive_hash);
 	ASSERT_NE (nullptr, receive);
 	ASSERT_EQ (receive->sideband ().height, 3);

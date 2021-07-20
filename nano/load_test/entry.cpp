@@ -437,7 +437,7 @@ int main (int argc, char * const * argv)
 
 			// Send from genesis account to different accounts and receive the funds
 			boost::asio::spawn (ioc, [&ioc, &primary_node_results, &wallet, destination_account, &send_calls_remaining] (boost::asio::yield_context yield) {
-				send_receive (ioc, wallet, nano::genesis_account.to_account (), destination_account->as_string, send_calls_remaining, primary_node_results, yield);
+				send_receive (ioc, wallet, nano::dev::genesis->account ().to_account (), destination_account->as_string, send_calls_remaining, primary_node_results, yield);
 			});
 		}
 
