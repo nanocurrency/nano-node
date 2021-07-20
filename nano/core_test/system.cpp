@@ -38,16 +38,16 @@ TEST (system, DISABLED_generate_send_existing)
 	nano::system system (1);
 	auto & node1 (*system.nodes[0]);
 	nano::thread_runner runner (system.io_ctx, node1.config.io_threads);
-	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	nano::keypair stake_preserver;
 	auto send_block (system.wallet (0)->send_action (nano::dev::genesis->account (), stake_preserver.pub, nano::genesis_amount / 3 * 2, true));
 	nano::account_info info1;
 	{
 		auto transaction (node1.store.tx_begin_read ());
-		ASSERT_FALSE (node1.store.account.get (transaction, nano::dev_genesis_key.pub, info1));
+		ASSERT_FALSE (node1.store.account.get (transaction, nano::dev::genesis_key.pub, info1));
 	}
 	std::vector<nano::account> accounts;
-	accounts.push_back (nano::dev_genesis_key.pub);
+	accounts.push_back (nano::dev::genesis_key.pub);
 	system.generate_send_existing (node1, accounts);
 	// Have stake_preserver receive funds after generate_send_existing so it isn't chosen as the destination
 	{
@@ -60,7 +60,7 @@ TEST (system, DISABLED_generate_send_existing)
 	nano::account_info info2;
 	{
 		auto transaction (node1.store.tx_begin_read ());
-		ASSERT_FALSE (node1.store.account.get (transaction, nano::dev_genesis_key.pub, info2));
+		ASSERT_FALSE (node1.store.account.get (transaction, nano::dev::genesis_key.pub, info2));
 	}
 	ASSERT_NE (info1.head, info2.head);
 	system.deadline_set (15s);
@@ -68,7 +68,7 @@ TEST (system, DISABLED_generate_send_existing)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 		auto transaction (node1.store.tx_begin_read ());
-		ASSERT_FALSE (node1.store.account.get (transaction, nano::dev_genesis_key.pub, info2));
+		ASSERT_FALSE (node1.store.account.get (transaction, nano::dev::genesis_key.pub, info2));
 	}
 	ASSERT_EQ (info1.block_count + 2, info2.block_count);
 	ASSERT_EQ (info2.balance, nano::genesis_amount / 3);
@@ -85,7 +85,7 @@ TEST (system, DISABLED_generate_send_new)
 	nano::system system (1);
 	auto & node1 (*system.nodes[0]);
 	nano::thread_runner runner (system.io_ctx, node1.config.io_threads);
-	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	{
 		auto transaction (node1.store.tx_begin_read ());
 		auto iterator1 (node1.store.account.begin (transaction));
@@ -103,7 +103,7 @@ TEST (system, DISABLED_generate_send_new)
 	}
 	ASSERT_GT (node1.balance (stake_preserver.pub), node1.balance (nano::dev::genesis->account ()));
 	std::vector<nano::account> accounts;
-	accounts.push_back (nano::dev_genesis_key.pub);
+	accounts.push_back (nano::dev::genesis_key.pub);
 	// This indirectly waits for online weight to stabilize, required to prevent intermittent failures
 	ASSERT_TIMELY (5s, node1.wallets.reps ().voting > 0);
 	system.generate_send_new (node1, accounts);
@@ -111,13 +111,13 @@ TEST (system, DISABLED_generate_send_new)
 	{
 		auto transaction (node1.wallets.tx_begin_read ());
 		auto iterator2 (system.wallet (0)->store.begin (transaction));
-		if (iterator2->first != nano::dev_genesis_key.pub)
+		if (iterator2->first != nano::dev::genesis_key.pub)
 		{
 			new_account = iterator2->first;
 		}
 		++iterator2;
 		ASSERT_NE (system.wallet (0)->store.end (), iterator2);
-		if (iterator2->first != nano::dev_genesis_key.pub)
+		if (iterator2->first != nano::dev::genesis_key.pub)
 		{
 			new_account = iterator2->first;
 		}
@@ -157,7 +157,7 @@ TEST (system, rep_initialize_one_reserve)
 	system.ledger_initialization_set ({ key }, nano::Gxrb_ratio);
 	auto node = system.add_node ();
 	ASSERT_EQ (nano::genesis_amount - nano::Gxrb_ratio, node->balance (key.pub));
-	ASSERT_EQ (nano::Gxrb_ratio, node->balance (nano::dev_genesis_key.pub));
+	ASSERT_EQ (nano::Gxrb_ratio, node->balance (nano::dev::genesis_key.pub));
 }
 
 TEST (system, rep_initialize_two_reserve)

@@ -406,7 +406,7 @@ int main (int argc, char * const * argv)
 		std::string wallet = wallet_create_rpc (ioc, primary_node_results);
 
 		// Add genesis account to it
-		wallet_add_rpc (ioc, primary_node_results, wallet, nano::dev_genesis_key.prv.to_string ());
+		wallet_add_rpc (ioc, primary_node_results, wallet, nano::dev::genesis_key.prv.to_string ());
 
 		// Add destination accounts
 		for (auto & account : destination_accounts)

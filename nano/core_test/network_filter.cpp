@@ -39,12 +39,12 @@ TEST (network_filter, unit)
 	}
 	nano::state_block_builder builder;
 	auto new_block = builder
-					 .account (nano::dev_genesis_key.pub)
+					 .account (nano::dev::genesis_key.pub)
 					 .previous (genesis.open->hash ())
-					 .representative (nano::dev_genesis_key.pub)
+					 .representative (nano::dev::genesis_key.pub)
 					 .balance (nano::genesis_amount - 10 * nano::xrb_ratio)
 					 .link (nano::public_key ())
-					 .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					 .work (0)
 					 .build_shared ();
 
@@ -69,12 +69,12 @@ TEST (network_filter, many)
 	{
 		nano::state_block_builder builder;
 		auto block = builder
-					 .account (nano::dev_genesis_key.pub)
+					 .account (nano::dev::genesis_key.pub)
 					 .previous (genesis.open->hash ())
-					 .representative (nano::dev_genesis_key.pub)
+					 .representative (nano::dev::genesis_key.pub)
 					 .balance (nano::genesis_amount - i * 10 * nano::xrb_ratio)
 					 .link (key1.pub)
-					 .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+					 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					 .work (0)
 					 .build_shared ();
 

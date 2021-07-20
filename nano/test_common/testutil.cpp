@@ -15,7 +15,6 @@ namespace
 nano::ledger_constants dev_constants (nano::networks::nano_dev_network);
 }
 
-nano::keypair const & nano::dev_genesis_key (dev_constants.dev_genesis_key);
 nano::account const & nano::nano_dev_account (dev_constants.nano_dev_account);
 nano::uint128_t const & nano::genesis_amount (dev_constants.genesis_amount);
 

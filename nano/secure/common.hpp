@@ -371,7 +371,6 @@ public:
 	nano::account genesis_account () const;
 	nano::block_hash genesis_hash () const;
 	nano::keypair zero_key;
-	nano::keypair dev_genesis_key;
 	nano::account nano_dev_account;
 	nano::account nano_beta_account;
 	nano::account nano_live_account;
@@ -400,6 +399,7 @@ namespace dev
 {
 	extern nano::ledger_constants constants;
 	extern std::shared_ptr<nano::block> & genesis;
+	extern nano::keypair genesis_key;
 }
 
 /** Constants which depend on random values (this class should never be used globally due to CryptoPP globals potentially not being initialized) */

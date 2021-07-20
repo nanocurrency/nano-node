@@ -555,12 +555,12 @@ TEST (telemetry, remove_peer_different_genesis)
 	// Possible TSAN issue in the future if something else uses this, but will only appear in tests.
 	nano::state_block_builder builder;
 	auto junk = builder
-				 .account (nano::dev_genesis_key.pub)
+				 .account (nano::dev::genesis_key.pub)
 				 .previous (0)
-				 .representative (nano::dev_genesis_key.pub)
+				 .representative (nano::dev::genesis_key.pub)
 				 .balance (0)
 				 .link (0)
-				 .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (0)
 				 .build_shared ();
 	node1->network_params.ledger.genesis = junk;
@@ -593,12 +593,12 @@ TEST (telemetry, remove_peer_different_genesis_udp)
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work, node_flags));
 	nano::state_block_builder builder;
 	auto junk = builder
-				 .account (nano::dev_genesis_key.pub)
+				 .account (nano::dev::genesis_key.pub)
 				 .previous (0)
-				 .representative (nano::dev_genesis_key.pub)
+				 .representative (nano::dev::genesis_key.pub)
 				 .balance (0)
 				 .link (0)
-				 .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (0)
 				 .build_shared ();
 	node1->network_params.ledger.genesis = junk;

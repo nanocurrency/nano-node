@@ -69,10 +69,10 @@ TEST (ledger_walker, genesis_account_longer)
 	EXPECT_EQ (get_number_of_walked_blocks (genesis_account_info.open_block), 1);
 	EXPECT_EQ (get_number_of_walked_blocks (genesis_account_info.head), 1);
 
-	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	for (auto itr = 1; itr <= 5; ++itr)
 	{
-		const auto send = system.wallet (0)->send_action (nano::dev_genesis_key.pub, nano::dev_genesis_key.pub, 1);
+		const auto send = system.wallet (0)->send_action (nano::dev::genesis_key.pub, nano::dev::genesis_key.pub, 1);
 		ASSERT_TRUE (send);
 		EXPECT_EQ (get_number_of_walked_blocks (send->hash ()), 1 + itr * 2 - 1);
 		ASSERT_TIMELY (3s, 1 + itr * 2 == node->ledger.cache.cemented_count);
@@ -97,13 +97,13 @@ TEST (ledger_walker, cross_account)
 
 	const auto node = system.add_node (node_config);
 
-	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
-	ASSERT_TRUE (system.wallet (0)->send_action (nano::dev_genesis_key.pub, nano::dev_genesis_key.pub, 1));
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
+	ASSERT_TRUE (system.wallet (0)->send_action (nano::dev::genesis_key.pub, nano::dev::genesis_key.pub, 1));
 	ASSERT_TIMELY (3s, 3 == node->ledger.cache.cemented_count);
 
 	nano::keypair key{};
 	system.wallet (0)->insert_adhoc (key.prv);
-	ASSERT_TRUE (system.wallet (0)->send_action (nano::dev_genesis_key.pub, key.pub, 1));
+	ASSERT_TRUE (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key.pub, 1));
 	ASSERT_TIMELY (3s, 5 == node->ledger.cache.cemented_count);
 
 	const auto transaction = node->ledger.store.tx_begin_read ();
@@ -146,11 +146,11 @@ TEST (ledger_walker, ladder_geometry)
 	const auto node = system.add_node (node_config);
 	std::array<nano::keypair, 3> keys{};
 
-	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	for (auto itr = 0; itr != keys.size (); ++itr)
 	{
 		system.wallet (0)->insert_adhoc (keys[itr].prv);
-		const auto block = system.wallet (0)->send_action (nano::dev_genesis_key.pub, keys[itr].pub, 1000);
+		const auto block = system.wallet (0)->send_action (nano::dev::genesis_key.pub, keys[itr].pub, 1000);
 		ASSERT_TIMELY (3s, 1 + (itr + 1) * 2 == node->ledger.cache.cemented_count);
 	}
 

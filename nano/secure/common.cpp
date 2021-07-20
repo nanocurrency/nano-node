@@ -81,6 +81,7 @@ std::string const test_canary_public_key_data = nano::get_env_or_default ("NANO_
 
 nano::ledger_constants nano::dev::constants{ nano::networks::nano_dev_network };
 std::shared_ptr<nano::block> & nano::dev::genesis = nano::dev::constants.genesis;
+nano::keypair nano::dev::genesis_key{ dev_private_key_data };
 
 nano::network_params::network_params () :
 	network_params (network_constants::active_network)
@@ -107,7 +108,6 @@ nano::ledger_constants::ledger_constants (nano::network_constants & network_cons
 
 nano::ledger_constants::ledger_constants (nano::networks network_a) :
 	zero_key ("0"),
-	dev_genesis_key (dev_private_key_data),
 	nano_dev_account (dev_public_key_data),
 	nano_beta_account (beta_public_key_data),
 	nano_live_account (live_public_key_data),
