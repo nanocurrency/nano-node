@@ -5127,7 +5127,7 @@ TEST (rpc, unopened_burn)
 	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
 	auto genesis (node->latest (nano::dev_genesis_key.pub));
 	ASSERT_FALSE (genesis.is_zero ());
-	auto send (system.wallet (0)->send_action (nano::dev_genesis_key.pub, nano::burn_account, 1));
+	auto send (system.wallet (0)->send_action (nano::dev_genesis_key.pub, nano::dev::constants.burn_account, 1));
 	ASSERT_NE (nullptr, send);
 	auto [rpc, rpc_ctx] = add_rpc (system, node);
 	boost::property_tree::ptree request;
