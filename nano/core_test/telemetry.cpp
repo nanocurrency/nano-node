@@ -563,7 +563,7 @@ TEST (telemetry, remove_peer_different_genesis)
 				 .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
 				 .work (0)
 				 .build_shared ();
-	node1->network_params.ledger.genesis_block = junk;
+	node1->network_params.ledger.genesis = junk;
 	node1->start ();
 	system.nodes.push_back (node1);
 	node0->network.merge_peer (node1->network.endpoint ());
@@ -601,7 +601,7 @@ TEST (telemetry, remove_peer_different_genesis_udp)
 				 .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
 				 .work (0)
 				 .build_shared ();
-	node1->network_params.ledger.genesis_block = junk;
+	node1->network_params.ledger.genesis = junk;
 	node1->start ();
 	system.nodes.push_back (node1);
 	auto channel0 (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, node0->network.endpoint (), node0->network_params.protocol.protocol_version));

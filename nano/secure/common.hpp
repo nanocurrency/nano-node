@@ -380,7 +380,7 @@ public:
 	std::shared_ptr<nano::block> nano_beta_genesis;
 	std::shared_ptr<nano::block> nano_live_genesis;
 	std::shared_ptr<nano::block> nano_test_genesis;
-	std::shared_ptr<nano::block> genesis_block;
+	std::shared_ptr<nano::block> genesis;
 	nano::uint128_t genesis_amount;
 	nano::account burn_account;
 	nano::account nano_dev_final_votes_canary_account;
