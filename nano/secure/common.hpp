@@ -368,19 +368,19 @@ class ledger_constants
 public:
 	ledger_constants (nano::network_constants & network_constants);
 	ledger_constants (nano::networks network_a);
+	nano::account genesis_account () const;
+	nano::block_hash genesis_hash () const;
 	nano::keypair zero_key;
 	nano::keypair dev_genesis_key;
 	nano::account nano_dev_account;
 	nano::account nano_beta_account;
 	nano::account nano_live_account;
 	nano::account nano_test_account;
-	std::string nano_dev_genesis;
-	std::string nano_beta_genesis;
-	std::string nano_live_genesis;
-	std::string nano_test_genesis;
-	nano::account genesis_account;
-	std::string genesis_block;
-	nano::block_hash genesis_hash;
+	std::shared_ptr<nano::block> nano_dev_genesis;
+	std::shared_ptr<nano::block> nano_beta_genesis;
+	std::shared_ptr<nano::block> nano_live_genesis;
+	std::shared_ptr<nano::block> nano_test_genesis;
+	std::shared_ptr<nano::block> genesis;
 	nano::uint128_t genesis_amount;
 	nano::account burn_account;
 	nano::account nano_dev_final_votes_canary_account;

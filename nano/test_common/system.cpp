@@ -398,7 +398,7 @@ void nano::system::generate_receive (nano::node & node_a)
 	}
 	if (send_block != nullptr)
 	{
-		auto receive_error (wallet (0)->receive_sync (send_block, nano::ledger_constants (nano::networks::nano_dev_network).genesis_account, std::numeric_limits<nano::uint128_t>::max ()));
+		auto receive_error (wallet (0)->receive_sync (send_block, nano::ledger_constants (nano::networks::nano_dev_network).genesis_account (), std::numeric_limits<nano::uint128_t>::max ()));
 		(void)receive_error;
 	}
 }

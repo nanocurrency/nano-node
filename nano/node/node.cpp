@@ -349,7 +349,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 		{
 			auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::confirmation_height, tables::frontiers }));
 			// Store was empty meaning we just created it, add the genesis block
-			store.initialize (transaction, genesis, ledger.cache);
+			store.initialize (transaction, ledger.cache);
 		}
 
 		if (!ledger.block_or_pruned_exists (genesis.hash ()))
@@ -1318,7 +1318,7 @@ void nano::node::process_confirmed_data (nano::transaction const & transaction_a
 	bool error (false);
 	auto previous_balance (ledger.balance_safe (transaction_a, previous, error));
 	auto block_balance (store.block.balance_calculated (block_a));
-	if (hash_a != ledger.network_params.ledger.genesis_account)
+	if (hash_a != ledger.network_params.ledger.genesis_account ())
 	{
 		if (!error)
 		{

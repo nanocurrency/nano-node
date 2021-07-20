@@ -103,20 +103,21 @@ public:
 	 * If using a different store version than the latest then you may need
 	 * to modify some of the objects in the store to be appropriate for the version before an upgrade.
 	 */
-	void initialize (nano::write_transaction const & transaction_a, nano::genesis const & genesis_a, nano::ledger_cache & ledger_cache_a) override
+	void initialize (nano::write_transaction const & transaction_a, nano::ledger_cache & ledger_cache_a) override
 	{
-		auto hash_l (genesis_a.hash ());
+		auto & genesis = *network_params.ledger.genesis;
+		auto hash_l (genesis.hash ());
 		debug_assert (account.begin (transaction_a) == account.end ());
-		genesis_a.open->sideband_set (nano::block_sideband (network_params.ledger.genesis_account, 0, network_params.ledger.genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
-		block.put (transaction_a, hash_l, *genesis_a.open);
+		genesis.sideband_set (nano::block_sideband (network_params.ledger.genesis_account (), 0, network_params.ledger.genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
+		block.put (transaction_a, hash_l, genesis);
 		++ledger_cache_a.block_count;
-		confirmation_height.put (transaction_a, network_params.ledger.genesis_account, nano::confirmation_height_info{ 1, genesis_a.hash () });
+		confirmation_height.put (transaction_a, network_params.ledger.genesis_account (), nano::confirmation_height_info{ 1, genesis.hash () });
 		++ledger_cache_a.cemented_count;
-		ledger_cache_a.final_votes_confirmation_canary = (network_params.ledger.final_votes_canary_account == network_params.ledger.genesis_account && 1 >= network_params.ledger.final_votes_canary_height);
-		account.put (transaction_a, network_params.ledger.genesis_account, { hash_l, network_params.ledger.genesis_account, genesis_a.open->hash (), std::numeric_limits<nano::uint128_t>::max (), nano::seconds_since_epoch (), 1, nano::epoch::epoch_0 });
+		ledger_cache_a.final_votes_confirmation_canary = (network_params.ledger.final_votes_canary_account == network_params.ledger.genesis_account () && 1 >= network_params.ledger.final_votes_canary_height);
+		account.put (transaction_a, network_params.ledger.genesis_account (), { hash_l, network_params.ledger.genesis_account (), genesis.hash (), std::numeric_limits<nano::uint128_t>::max (), nano::seconds_since_epoch (), 1, nano::epoch::epoch_0 });
 		++ledger_cache_a.account_count;
-		ledger_cache_a.rep_weights.representation_put (network_params.ledger.genesis_account, std::numeric_limits<nano::uint128_t>::max ());
-		frontier.put (transaction_a, hash_l, network_params.ledger.genesis_account);
+		ledger_cache_a.rep_weights.representation_put (network_params.ledger.genesis_account (), std::numeric_limits<nano::uint128_t>::max ());
+		frontier.put (transaction_a, hash_l, network_params.ledger.genesis_account ());
 	}
 
 	bool root_exists (nano::transaction const & transaction_a, nano::root const & root_a) override

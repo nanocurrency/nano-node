@@ -328,7 +328,7 @@ TEST (block_store, genesis)
 	auto hash (genesis.hash ());
 	nano::ledger_cache ledger_cache;
 	auto transaction (store->tx_begin_write ());
-	store->initialize (transaction, genesis, ledger_cache);
+	store->initialize (transaction, ledger_cache);
 	nano::account_info info;
 	ASSERT_FALSE (store->account.get (transaction, nano::genesis_account, info));
 	ASSERT_EQ (hash, info.head);
@@ -668,7 +668,7 @@ TEST (mdb_block_store, supported_version_upgrades)
 		nano::stat stats;
 		nano::ledger ledger (store, stats);
 		auto transaction (store.tx_begin_write ());
-		store.initialize (transaction, genesis, ledger.cache);
+		store.initialize (transaction, ledger.cache);
 		// Lower the database to the max version unsupported for upgrades
 		store.version.put (transaction, store.minimum_version - 1);
 	}
@@ -686,7 +686,7 @@ TEST (mdb_block_store, supported_version_upgrades)
 		nano::stat stats;
 		nano::ledger ledger (store, stats);
 		auto transaction (store.tx_begin_write ());
-		store.initialize (transaction, genesis, ledger.cache);
+		store.initialize (transaction, ledger.cache);
 		// Lower the database version to the minimum version supported for upgrade.
 		store.version.put (transaction, store.minimum_version);
 		store.confirmation_height.del (transaction, nano::genesis_account);
@@ -882,7 +882,7 @@ TEST (block_store, cemented_count_cache)
 	auto transaction (store->tx_begin_write ());
 	nano::genesis genesis;
 	nano::ledger_cache ledger_cache;
-	store->initialize (transaction, genesis, ledger_cache);
+	store->initialize (transaction, ledger_cache);
 	ASSERT_EQ (1, ledger_cache.cemented_count);
 }
 
@@ -895,7 +895,7 @@ TEST (block_store, block_random)
 	{
 		nano::ledger_cache ledger_cache;
 		auto transaction (store->tx_begin_write ());
-		store->initialize (transaction, genesis, ledger_cache);
+		store->initialize (transaction, ledger_cache);
 	}
 	auto transaction (store->tx_begin_read ());
 	auto block (store->block.random (transaction));
@@ -915,7 +915,7 @@ TEST (block_store, pruned_random)
 	{
 		nano::ledger_cache ledger_cache;
 		auto transaction (store->tx_begin_write ());
-		store->initialize (transaction, genesis, ledger_cache);
+		store->initialize (transaction, ledger_cache);
 		store->pruned.put (transaction, hash1);
 	}
 	auto transaction (store->tx_begin_read ());
@@ -977,7 +977,7 @@ TEST (block_store, state_block)
 	{
 		nano::ledger_cache ledger_cache;
 		auto transaction (store->tx_begin_write ());
-		store->initialize (transaction, genesis, ledger_cache);
+		store->initialize (transaction, ledger_cache);
 		ASSERT_EQ (nano::block_type::state, block1.type ());
 		store->block.put (transaction, block1.hash (), block1);
 		ASSERT_TRUE (store->block.exists (transaction, block1.hash ()));
@@ -1014,7 +1014,7 @@ TEST (mdb_block_store, sideband_height)
 	nano::stat stat;
 	nano::ledger ledger (store, stat);
 	auto transaction (store.tx_begin_write ());
-	store.initialize (transaction, genesis, ledger.cache);
+	store.initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::send_block send (genesis.hash (), nano::dev_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (genesis.hash ()));
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send).code);
@@ -1283,7 +1283,7 @@ TEST (mdb_block_store, upgrade_v14_v15)
 		nano::stat stats;
 		nano::ledger ledger (store, stats);
 		auto transaction (store.tx_begin_write ());
-		store.initialize (transaction, genesis, ledger.cache);
+		store.initialize (transaction, ledger.cache);
 		nano::account_info account_info;
 		ASSERT_FALSE (store.account.get (transaction, nano::genesis_account, account_info));
 		nano::confirmation_height_info confirmation_height_info;
@@ -1391,7 +1391,7 @@ TEST (mdb_block_store, upgrade_v15_v16)
 		nano::stat stats;
 		nano::ledger ledger (store, stats);
 		auto transaction (store.tx_begin_write ());
-		store.initialize (transaction, genesis, ledger.cache);
+		store.initialize (transaction, ledger.cache);
 		// The representation table should get removed after, so readd it so that we can later confirm this actually happens
 		auto txn = store.env.tx (transaction);
 		ASSERT_FALSE (mdb_dbi_open (txn, "representation", MDB_CREATE, &store.representation_handle));
@@ -1444,7 +1444,7 @@ TEST (mdb_block_store, upgrade_v16_v17)
 			nano::stat stats;
 			nano::ledger ledger (store, stats);
 			auto transaction (store.tx_begin_write ());
-			store.initialize (transaction, genesis, ledger.cache);
+			store.initialize (transaction, ledger.cache);
 			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block1).code);
 			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block2).code);
 			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block3).code);
@@ -1517,7 +1517,7 @@ TEST (mdb_block_store, upgrade_v17_v18)
 		auto transaction (store.tx_begin_write ());
 		nano::stat stats;
 		nano::ledger ledger (store, stats);
-		store.initialize (transaction, genesis, ledger.cache);
+		store.initialize (transaction, ledger.cache);
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send_zero).code);
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, state_receive_zero).code);
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, epoch).code);
@@ -1714,7 +1714,7 @@ TEST (mdb_block_store, upgrade_v18_v19)
 		nano::stat stats;
 		nano::ledger ledger (store, stats);
 		auto transaction (store.tx_begin_write ());
-		store.initialize (transaction, genesis, ledger.cache);
+		store.initialize (transaction, ledger.cache);
 
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send).code);
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive).code);
@@ -1797,7 +1797,7 @@ TEST (mdb_block_store, upgrade_v19_v20)
 		nano::mdb_store store (logger, path);
 		nano::ledger ledger (store, stats);
 		auto transaction (store.tx_begin_write ());
-		store.initialize (transaction, genesis, ledger.cache);
+		store.initialize (transaction, ledger.cache);
 		// Delete pruned table
 		ASSERT_FALSE (mdb_drop (store.env.tx (transaction), store.pruned_handle, 1));
 		store.version.put (transaction, 19);
@@ -1827,7 +1827,7 @@ TEST (mdb_block_store, upgrade_v20_v21)
 		nano::mdb_store store (logger, path);
 		nano::ledger ledger (store, stats);
 		auto transaction (store.tx_begin_write ());
-		store.initialize (transaction, genesis, ledger.cache);
+		store.initialize (transaction, ledger.cache);
 		// Delete pruned table
 		ASSERT_FALSE (mdb_drop (store.env.tx (transaction), store.final_votes_handle, 1));
 		store.version.put (transaction, 20);
