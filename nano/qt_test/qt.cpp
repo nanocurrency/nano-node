@@ -562,9 +562,9 @@ TEST (history, pruned_source)
 		auto transaction (store->tx_begin_write ());
 		store->initialize (transaction, ledger.cache);
 		auto latest (ledger.latest (transaction, nano::dev::genesis_key.pub));
-		nano::send_block send1 (latest, nano::dev::genesis_key.pub, nano::genesis_amount - 100, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest));
+		nano::send_block send1 (latest, nano::dev::genesis_key.pub, nano::dev::genesis_amount - 100, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest));
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send1).code);
-		nano::send_block send2 (send1.hash (), key.pub, nano::genesis_amount - 200, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send1.hash ()));
+		nano::send_block send2 (send1.hash (), key.pub, nano::dev::genesis_amount - 200, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send1.hash ()));
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send2).code);
 		nano::receive_block receive (send2.hash (), send1.hash (), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (send2.hash ()));
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive).code);
@@ -592,7 +592,7 @@ TEST (history, pruned_source)
 	{
 		auto transaction (store->tx_begin_write ());
 		auto latest (ledger.latest (transaction, nano::dev::genesis_key.pub));
-		nano::state_block send (nano::dev::genesis_key.pub, latest, nano::dev::genesis_key.pub, nano::genesis_amount - 200, key.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest));
+		nano::state_block send (nano::dev::genesis_key.pub, latest, nano::dev::genesis_key.pub, nano::dev::genesis_amount - 200, key.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest));
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send).code);
 		auto latest_key (ledger.latest (transaction, key.pub));
 		nano::state_block receive (key.pub, latest_key, key.pub, 200, send.hash (), key.prv, key.pub, *system.work.generate (latest_key));

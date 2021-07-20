@@ -28,7 +28,7 @@ TEST (vote_processor, codes)
 	ASSERT_EQ (nano::vote_code::indeterminate, node.vote_processor.vote_blocking (vote, channel));
 
 	// First vote from an account for an ongoing election
-	genesis.open->sideband_set (nano::block_sideband (nano::dev::genesis->account (), 0, nano::genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
+	genesis.open->sideband_set (nano::block_sideband (nano::dev::genesis->account (), 0, nano::dev::genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
 	node.block_confirm (genesis.open);
 	ASSERT_NE (nullptr, node.active.election (genesis.open->qualified_root ()));
 	ASSERT_EQ (nano::vote_code::vote, node.vote_processor.vote_blocking (vote, channel));
@@ -78,7 +78,7 @@ TEST (vote_processor, invalid_signature)
 	vote_invalid->signature.bytes[0] ^= 1;
 	auto channel = std::make_shared<nano::transport::channel_loopback> (node);
 
-	genesis.open->sideband_set (nano::block_sideband (nano::dev::genesis->account (), 0, nano::genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
+	genesis.open->sideband_set (nano::block_sideband (nano::dev::genesis->account (), 0, nano::dev::genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
 	node.block_confirm (genesis.open);
 	auto election = node.active.election (genesis.open->qualified_root ());
 	ASSERT_TRUE (election);
@@ -262,14 +262,14 @@ TEST (vote_processor, no_broadcast_local)
 										.account (key.pub)
 										.representative (nano::dev::genesis_key.pub)
 										.previous (0)
-										.balance (nano::genesis_amount - 2 * node.config.vote_minimum.number ())
+										.balance (nano::dev::genesis_amount - 2 * node.config.vote_minimum.number ())
 										.link (send->hash ())
 										.sign (key.prv, key.pub)
 										.work (*system.work.generate (key.pub))
 										.build (ec);
 	ASSERT_FALSE (ec);
 	ASSERT_EQ (nano::process_result::progress, node.process_local (open).code);
-	ASSERT_EQ (nano::genesis_amount - node.config.vote_minimum.number (), node.weight (nano::dev::genesis_key.pub));
+	ASSERT_EQ (nano::dev::genesis_amount - node.config.vote_minimum.number (), node.weight (nano::dev::genesis_key.pub));
 	node.block_confirm (open);
 	// Insert account in wallet
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);

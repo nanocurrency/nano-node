@@ -9,14 +9,6 @@
 
 using namespace std::chrono_literals;
 
-/* Convenience constants for tests which are always on the test network */
-namespace
-{
-nano::ledger_constants dev_constants (nano::networks::nano_dev_network);
-}
-
-nano::uint128_t const & nano::genesis_amount (dev_constants.genesis_amount);
-
 void nano::wait_peer_connections (nano::system & system_a)
 {
 	auto wait_peer_count = [&system_a] (bool in_memory) {

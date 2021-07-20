@@ -15,7 +15,7 @@ TEST (request_aggregator, one)
 	auto & node (*system.add_node (node_config));
 	nano::genesis genesis;
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	auto send1 (std::make_shared<nano::state_block> (nano::dev::genesis_key.pub, genesis.hash (), nano::dev::genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *node.work_generate_blocking (genesis.hash ())));
+	auto send1 (std::make_shared<nano::state_block> (nano::dev::genesis_key.pub, genesis.hash (), nano::dev::genesis_key.pub, nano::dev::genesis_amount - nano::Gxrb_ratio, nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *node.work_generate_blocking (genesis.hash ())));
 	std::vector<std::pair<nano::block_hash, nano::root>> request;
 	request.emplace_back (send1->hash (), send1->root ());
 	auto channel (node.network.udp_channels.create (node.network.endpoint ()));
@@ -56,7 +56,7 @@ TEST (request_aggregator, one_update)
 				 .account (nano::dev::genesis_key.pub)
 				 .previous (genesis.hash ())
 				 .representative (nano::dev::genesis_key.pub)
-				 .balance (nano::genesis_amount - nano::Gxrb_ratio)
+				 .balance (nano::dev::genesis_amount - nano::Gxrb_ratio)
 				 .link (nano::dev::genesis_key.pub)
 				 .link (key1.pub)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
@@ -69,7 +69,7 @@ TEST (request_aggregator, one_update)
 				 .account (nano::dev::genesis_key.pub)
 				 .previous (send1->hash ())
 				 .representative (nano::dev::genesis_key.pub)
-				 .balance (nano::genesis_amount - 2 * nano::Gxrb_ratio)
+				 .balance (nano::dev::genesis_amount - 2 * nano::Gxrb_ratio)
 				 .link (nano::dev::genesis_key.pub)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*node.work_generate_blocking (send1->hash ()))
@@ -123,7 +123,7 @@ TEST (request_aggregator, two)
 				 .account (nano::dev::genesis_key.pub)
 				 .previous (genesis.hash ())
 				 .representative (nano::dev::genesis_key.pub)
-				 .balance (nano::genesis_amount - 1)
+				 .balance (nano::dev::genesis_amount - 1)
 				 .link (key1.pub)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*node.work_generate_blocking (genesis.hash ()))
@@ -135,7 +135,7 @@ TEST (request_aggregator, two)
 				 .account (nano::dev::genesis_key.pub)
 				 .previous (send1->hash ())
 				 .representative (nano::dev::genesis_key.pub)
-				 .balance (nano::genesis_amount - 2)
+				 .balance (nano::dev::genesis_amount - 2)
 				 .link (nano::dev::genesis_key.pub)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*node.work_generate_blocking (send1->hash ()))
@@ -194,7 +194,7 @@ TEST (request_aggregator, two_endpoints)
 	auto & node2 (*system.add_node (node_config, node_flags));
 	nano::genesis genesis;
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	auto send1 (std::make_shared<nano::state_block> (nano::dev::genesis_key.pub, genesis.hash (), nano::dev::genesis_key.pub, nano::genesis_amount - 1, nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *node1.work_generate_blocking (genesis.hash ())));
+	auto send1 (std::make_shared<nano::state_block> (nano::dev::genesis_key.pub, genesis.hash (), nano::dev::genesis_key.pub, nano::dev::genesis_amount - 1, nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *node1.work_generate_blocking (genesis.hash ())));
 	std::vector<std::pair<nano::block_hash, nano::root>> request;
 	request.emplace_back (send1->hash (), send1->root ());
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (node1.store.tx_begin_write (), *send1).code);
@@ -238,7 +238,7 @@ TEST (request_aggregator, split)
 						  .account (nano::dev::genesis_key.pub)
 						  .previous (previous)
 						  .representative (nano::dev::genesis_key.pub)
-						  .balance (nano::genesis_amount - (i + 1))
+						  .balance (nano::dev::genesis_amount - (i + 1))
 						  .link (nano::dev::genesis_key.pub)
 						  .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 						  .work (*system.work.generate (previous))
@@ -280,7 +280,7 @@ TEST (request_aggregator, channel_lifetime)
 	auto & node (*system.add_node (node_config));
 	nano::genesis genesis;
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	auto send1 (std::make_shared<nano::state_block> (nano::dev::genesis_key.pub, genesis.hash (), nano::dev::genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *node.work_generate_blocking (genesis.hash ())));
+	auto send1 (std::make_shared<nano::state_block> (nano::dev::genesis_key.pub, genesis.hash (), nano::dev::genesis_key.pub, nano::dev::genesis_amount - nano::Gxrb_ratio, nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *node.work_generate_blocking (genesis.hash ())));
 	ASSERT_EQ (nano::process_result::progress, node.ledger.process (node.store.tx_begin_write (), *send1).code);
 	std::vector<std::pair<nano::block_hash, nano::root>> request;
 	request.emplace_back (send1->hash (), send1->root ());
@@ -301,7 +301,7 @@ TEST (request_aggregator, channel_update)
 	auto & node (*system.add_node (node_config));
 	nano::genesis genesis;
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	auto send1 (std::make_shared<nano::state_block> (nano::dev::genesis_key.pub, genesis.hash (), nano::dev::genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *node.work_generate_blocking (genesis.hash ())));
+	auto send1 (std::make_shared<nano::state_block> (nano::dev::genesis_key.pub, genesis.hash (), nano::dev::genesis_key.pub, nano::dev::genesis_amount - nano::Gxrb_ratio, nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *node.work_generate_blocking (genesis.hash ())));
 	ASSERT_EQ (nano::process_result::progress, node.ledger.process (node.store.tx_begin_write (), *send1).code);
 	std::vector<std::pair<nano::block_hash, nano::root>> request;
 	request.emplace_back (send1->hash (), send1->root ());
@@ -330,7 +330,7 @@ TEST (request_aggregator, channel_max_queue)
 	auto & node (*system.add_node (node_config));
 	nano::genesis genesis;
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	auto send1 (std::make_shared<nano::state_block> (nano::dev::genesis_key.pub, genesis.hash (), nano::dev::genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *node.work_generate_blocking (genesis.hash ())));
+	auto send1 (std::make_shared<nano::state_block> (nano::dev::genesis_key.pub, genesis.hash (), nano::dev::genesis_key.pub, nano::dev::genesis_amount - nano::Gxrb_ratio, nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *node.work_generate_blocking (genesis.hash ())));
 	ASSERT_EQ (nano::process_result::progress, node.ledger.process (node.store.tx_begin_write (), *send1).code);
 	std::vector<std::pair<nano::block_hash, nano::root>> request;
 	request.emplace_back (send1->hash (), send1->root ());
@@ -348,7 +348,7 @@ TEST (request_aggregator, unique)
 	auto & node (*system.add_node (node_config));
 	nano::genesis genesis;
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
-	auto send1 (std::make_shared<nano::state_block> (nano::dev::genesis_key.pub, genesis.hash (), nano::dev::genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *node.work_generate_blocking (genesis.hash ())));
+	auto send1 (std::make_shared<nano::state_block> (nano::dev::genesis_key.pub, genesis.hash (), nano::dev::genesis_key.pub, nano::dev::genesis_amount - nano::Gxrb_ratio, nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *node.work_generate_blocking (genesis.hash ())));
 	ASSERT_EQ (nano::process_result::progress, node.ledger.process (node.store.tx_begin_write (), *send1).code);
 	std::vector<std::pair<nano::block_hash, nano::root>> request;
 	request.emplace_back (send1->hash (), send1->root ());
@@ -377,7 +377,7 @@ TEST (request_aggregator, cannot_vote)
 				 .account (nano::dev::genesis_key.pub)
 				 .previous (nano::dev::genesis->hash ())
 				 .representative (nano::dev::genesis_key.pub)
-				 .balance (nano::genesis_amount - 1)
+				 .balance (nano::dev::genesis_amount - 1)
 				 .link (nano::dev::genesis_key.pub)
 				 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				 .work (*system.work.generate (nano::dev::genesis->hash ()))

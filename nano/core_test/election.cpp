@@ -11,7 +11,7 @@ TEST (election, construction)
 	nano::system system (1);
 	nano::genesis genesis;
 	auto & node = *system.nodes[0];
-	genesis.open->sideband_set (nano::block_sideband (nano::dev::genesis->account (), 0, nano::genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
+	genesis.open->sideband_set (nano::block_sideband (nano::dev::genesis->account (), 0, nano::dev::genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
 	node.block_confirm (genesis.open);
 	node.scheduler.flush ();
 	auto election = node.active.election (genesis.open->qualified_root ());
@@ -22,7 +22,7 @@ TEST (election, quorum_minimum_flip_success)
 {
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
-	node_config.online_weight_minimum = nano::genesis_amount;
+	node_config.online_weight_minimum = nano::dev::genesis_amount;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node1 = *system.add_node (node_config);
 	nano::keypair key1;
@@ -68,7 +68,7 @@ TEST (election, quorum_minimum_flip_fail)
 {
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
-	node_config.online_weight_minimum = nano::genesis_amount;
+	node_config.online_weight_minimum = nano::dev::genesis_amount;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node1 = *system.add_node (node_config);
 	nano::keypair key1;
@@ -114,7 +114,7 @@ TEST (election, quorum_minimum_confirm_success)
 {
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
-	node_config.online_weight_minimum = nano::genesis_amount;
+	node_config.online_weight_minimum = nano::dev::genesis_amount;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node1 = *system.add_node (node_config);
 	nano::keypair key1;
@@ -147,7 +147,7 @@ TEST (election, quorum_minimum_confirm_fail)
 {
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
-	node_config.online_weight_minimum = nano::genesis_amount;
+	node_config.online_weight_minimum = nano::dev::genesis_amount;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node1 = *system.add_node (node_config);
 	nano::keypair key1;
@@ -202,7 +202,7 @@ TEST (election, quorum_minimum_update_weight_before_quorum_checks)
 				 .account (key1.pub)
 				 .previous (0)
 				 .representative (key1.pub)
-				 .balance (nano::genesis_amount - amount)
+				 .balance (nano::dev::genesis_amount - amount)
 				 .link (send1->hash ())
 				 .work (0)
 				 .sign (key1.prv, key1.pub)
