@@ -3726,7 +3726,7 @@ TEST (node, dont_write_lock_node)
 			nano::genesis genesis;
 			nano::ledger_cache ledger_cache;
 			auto transaction (store->tx_begin_write ());
-			store->initialize (transaction, genesis, ledger_cache);
+			store->initialize (transaction, ledger_cache);
 		}
 
 		// Hold write lock open until main thread is done needing it
