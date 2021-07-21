@@ -151,19 +151,19 @@ nano::system::~system ()
 
 void nano::system::ledger_initialization_set (std::vector<nano::keypair> const & reps, nano::amount const & reserve)
 {
-	nano::block_hash previous = nano::genesis_hash;
-	auto amount = (nano::genesis_amount - reserve.number ()) / reps.size ();
-	auto balance = nano::genesis_amount;
+	nano::block_hash previous = nano::dev::genesis->hash ();
+	auto amount = (nano::dev::genesis_amount - reserve.number ()) / reps.size ();
+	auto balance = nano::dev::genesis_amount;
 	for (auto const & i : reps)
 	{
 		balance -= amount;
 		nano::state_block_builder builder;
-		builder.account (nano::dev_genesis_key.pub)
+		builder.account (nano::dev::genesis_key.pub)
 		.previous (previous)
-		.representative (nano::dev_genesis_key.pub)
+		.representative (nano::dev::genesis_key.pub)
 		.link (i.pub)
 		.balance (balance)
-		.sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
+		.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 		.work (*work.generate (previous));
 		initialization_blocks.emplace_back (builder.build_shared ());
 		previous = initialization_blocks.back ()->hash ();
@@ -212,7 +212,7 @@ uint64_t nano::system::work_generate_limited (nano::block_hash const & root_a, u
 std::unique_ptr<nano::state_block> nano::upgrade_epoch (nano::work_pool & pool_a, nano::ledger & ledger_a, nano::epoch epoch_a)
 {
 	auto transaction (ledger_a.store.tx_begin_write ());
-	auto dev_genesis_key = nano::ledger_constants (nano::networks::nano_dev_network).dev_genesis_key;
+	auto dev_genesis_key = nano::dev::genesis_key;
 	auto account = dev_genesis_key.pub;
 	auto latest = ledger_a.latest (transaction, account);
 	auto balance = ledger_a.account_balance (transaction, account);
@@ -523,7 +523,7 @@ void nano::system::generate_send_new (nano::node & node_a, std::vector<nano::acc
 void nano::system::generate_mass_activity (uint32_t count_a, nano::node & node_a)
 {
 	std::vector<nano::account> accounts;
-	auto dev_genesis_key = nano::ledger_constants (nano::networks::nano_dev_network).dev_genesis_key;
+	auto dev_genesis_key = nano::dev::genesis_key;
 	wallet (0)->insert_adhoc (dev_genesis_key.prv);
 	accounts.push_back (dev_genesis_key.pub);
 	auto previous (std::chrono::steady_clock::now ());

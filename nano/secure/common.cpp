@@ -79,6 +79,11 @@ char const * live_canary_public_key_data = "7CBAF192A3763DAEC9F9BAC1B2CDF665D836
 std::string const test_canary_public_key_data = nano::get_env_or_default ("NANO_TEST_CANARY_PUB", "3BAD2C554ACE05F5E528FBBCE79D51E552C55FA765CCFD89B289C4835DE5F04A"); // nano_1gxf7jcnomi7yqkkjyxwwygo5sckrohtgsgezp6u74g6ifgydw4cajwbk8bf
 }
 
+nano::ledger_constants nano::dev::constants{ nano::networks::nano_dev_network };
+std::shared_ptr<nano::block> & nano::dev::genesis = nano::dev::constants.genesis;
+nano::keypair nano::dev::genesis_key{ dev_private_key_data };
+nano::uint128_t nano::dev::genesis_amount{ std::numeric_limits<nano::uint128_t>::max () };
+
 nano::network_params::network_params () :
 	network_params (network_constants::active_network)
 {
@@ -104,8 +109,6 @@ nano::ledger_constants::ledger_constants (nano::network_constants & network_cons
 
 nano::ledger_constants::ledger_constants (nano::networks network_a) :
 	zero_key ("0"),
-	dev_genesis_key (dev_private_key_data),
-	nano_dev_account (dev_public_key_data),
 	nano_beta_account (beta_public_key_data),
 	nano_live_account (live_public_key_data),
 	nano_test_account (test_public_key_data),
@@ -114,7 +117,6 @@ nano::ledger_constants::ledger_constants (nano::networks network_a) :
 	nano_live_genesis (parse_block_from_genesis_data (live_genesis_data)),
 	nano_test_genesis (parse_block_from_genesis_data (test_genesis_data)),
 	genesis (network_a == nano::networks::nano_dev_network ? nano_dev_genesis : network_a == nano::networks::nano_beta_network ? nano_beta_genesis : network_a == nano::networks::nano_test_network ? nano_test_genesis : nano_live_genesis),
-	genesis_amount (std::numeric_limits<nano::uint128_t>::max ()),
 	burn_account (0),
 	nano_dev_final_votes_canary_account (dev_public_key_data),
 	nano_beta_final_votes_canary_account (beta_canary_public_key_data),
@@ -136,7 +138,7 @@ nano::ledger_constants::ledger_constants (nano::networks network_a) :
 	nano::account nano_live_epoch_v2_signer;
 	auto error (nano_live_epoch_v2_signer.decode_account ("nano_3qb6o6i1tkzr6jwr5s7eehfxwg9x6eemitdinbpi7u8bjjwsgqfj4wzser3x"));
 	debug_assert (!error);
-	auto epoch_v2_signer (network_a == nano::networks::nano_dev_network ? nano_dev_account : network_a == nano::networks::nano_beta_network ? nano_beta_account : network_a == nano::networks::nano_test_network ? nano_test_account : nano_live_epoch_v2_signer);
+	auto epoch_v2_signer (network_a == nano::networks::nano_dev_network ? nano::dev::genesis_key.pub : network_a == nano::networks::nano_beta_network ? nano_beta_account : network_a == nano::networks::nano_test_network ? nano_test_account : nano_live_epoch_v2_signer);
 	const char * epoch_message_v2 ("epoch v2 block");
 	strncpy ((char *)epoch_link_v2.bytes.data (), epoch_message_v2, epoch_link_v2.bytes.size ());
 	epochs.add (nano::epoch::epoch_2, epoch_v2_signer, epoch_link_v2);

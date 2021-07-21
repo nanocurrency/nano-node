@@ -29,7 +29,7 @@ TEST (system, system_genesis)
 	for (auto & i : system.nodes)
 	{
 		auto transaction (i->store.tx_begin_read ());
-		ASSERT_EQ (nano::genesis_amount, i->ledger.account_balance (transaction, nano::genesis_account));
+		ASSERT_EQ (nano::dev::genesis_amount, i->ledger.account_balance (transaction, nano::dev::genesis->account ()));
 	}
 }
 
@@ -38,29 +38,29 @@ TEST (system, DISABLED_generate_send_existing)
 	nano::system system (1);
 	auto & node1 (*system.nodes[0]);
 	nano::thread_runner runner (system.io_ctx, node1.config.io_threads);
-	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	nano::keypair stake_preserver;
-	auto send_block (system.wallet (0)->send_action (nano::genesis_account, stake_preserver.pub, nano::genesis_amount / 3 * 2, true));
+	auto send_block (system.wallet (0)->send_action (nano::dev::genesis->account (), stake_preserver.pub, nano::dev::genesis_amount / 3 * 2, true));
 	nano::account_info info1;
 	{
 		auto transaction (node1.store.tx_begin_read ());
-		ASSERT_FALSE (node1.store.account.get (transaction, nano::dev_genesis_key.pub, info1));
+		ASSERT_FALSE (node1.store.account.get (transaction, nano::dev::genesis_key.pub, info1));
 	}
 	std::vector<nano::account> accounts;
-	accounts.push_back (nano::dev_genesis_key.pub);
+	accounts.push_back (nano::dev::genesis_key.pub);
 	system.generate_send_existing (node1, accounts);
 	// Have stake_preserver receive funds after generate_send_existing so it isn't chosen as the destination
 	{
 		auto transaction (node1.store.tx_begin_write ());
-		auto open_block (std::make_shared<nano::open_block> (send_block->hash (), nano::genesis_account, stake_preserver.pub, stake_preserver.prv, stake_preserver.pub, 0));
+		auto open_block (std::make_shared<nano::open_block> (send_block->hash (), nano::dev::genesis->account (), stake_preserver.pub, stake_preserver.prv, stake_preserver.pub, 0));
 		node1.work_generate_blocking (*open_block);
 		ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *open_block).code);
 	}
-	ASSERT_GT (node1.balance (stake_preserver.pub), node1.balance (nano::genesis_account));
+	ASSERT_GT (node1.balance (stake_preserver.pub), node1.balance (nano::dev::genesis->account ()));
 	nano::account_info info2;
 	{
 		auto transaction (node1.store.tx_begin_read ());
-		ASSERT_FALSE (node1.store.account.get (transaction, nano::dev_genesis_key.pub, info2));
+		ASSERT_FALSE (node1.store.account.get (transaction, nano::dev::genesis_key.pub, info2));
 	}
 	ASSERT_NE (info1.head, info2.head);
 	system.deadline_set (15s);
@@ -68,10 +68,10 @@ TEST (system, DISABLED_generate_send_existing)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 		auto transaction (node1.store.tx_begin_read ());
-		ASSERT_FALSE (node1.store.account.get (transaction, nano::dev_genesis_key.pub, info2));
+		ASSERT_FALSE (node1.store.account.get (transaction, nano::dev::genesis_key.pub, info2));
 	}
 	ASSERT_EQ (info1.block_count + 2, info2.block_count);
-	ASSERT_EQ (info2.balance, nano::genesis_amount / 3);
+	ASSERT_EQ (info2.balance, nano::dev::genesis_amount / 3);
 	{
 		auto transaction (node1.store.tx_begin_read ());
 		ASSERT_NE (node1.ledger.amount (transaction, info2.head), 0);
@@ -85,7 +85,7 @@ TEST (system, DISABLED_generate_send_new)
 	nano::system system (1);
 	auto & node1 (*system.nodes[0]);
 	nano::thread_runner runner (system.io_ctx, node1.config.io_threads);
-	system.wallet (0)->insert_adhoc (nano::dev_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	{
 		auto transaction (node1.store.tx_begin_read ());
 		auto iterator1 (node1.store.account.begin (transaction));
@@ -94,16 +94,16 @@ TEST (system, DISABLED_generate_send_new)
 		ASSERT_EQ (node1.store.account.end (), iterator1);
 	}
 	nano::keypair stake_preserver;
-	auto send_block (system.wallet (0)->send_action (nano::genesis_account, stake_preserver.pub, nano::genesis_amount / 3 * 2, true));
+	auto send_block (system.wallet (0)->send_action (nano::dev::genesis->account (), stake_preserver.pub, nano::dev::genesis_amount / 3 * 2, true));
 	{
 		auto transaction (node1.store.tx_begin_write ());
-		auto open_block (std::make_shared<nano::open_block> (send_block->hash (), nano::genesis_account, stake_preserver.pub, stake_preserver.prv, stake_preserver.pub, 0));
+		auto open_block (std::make_shared<nano::open_block> (send_block->hash (), nano::dev::genesis->account (), stake_preserver.pub, stake_preserver.prv, stake_preserver.pub, 0));
 		node1.work_generate_blocking (*open_block);
 		ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *open_block).code);
 	}
-	ASSERT_GT (node1.balance (stake_preserver.pub), node1.balance (nano::genesis_account));
+	ASSERT_GT (node1.balance (stake_preserver.pub), node1.balance (nano::dev::genesis->account ()));
 	std::vector<nano::account> accounts;
-	accounts.push_back (nano::dev_genesis_key.pub);
+	accounts.push_back (nano::dev::genesis_key.pub);
 	// This indirectly waits for online weight to stabilize, required to prevent intermittent failures
 	ASSERT_TIMELY (5s, node1.wallets.reps ().voting > 0);
 	system.generate_send_new (node1, accounts);
@@ -111,13 +111,13 @@ TEST (system, DISABLED_generate_send_new)
 	{
 		auto transaction (node1.wallets.tx_begin_read ());
 		auto iterator2 (system.wallet (0)->store.begin (transaction));
-		if (iterator2->first != nano::dev_genesis_key.pub)
+		if (iterator2->first != nano::dev::genesis_key.pub)
 		{
 			new_account = iterator2->first;
 		}
 		++iterator2;
 		ASSERT_NE (system.wallet (0)->store.end (), iterator2);
-		if (iterator2->first != nano::dev_genesis_key.pub)
+		if (iterator2->first != nano::dev::genesis_key.pub)
 		{
 			new_account = iterator2->first;
 		}
@@ -136,7 +136,7 @@ TEST (system, rep_initialize_one)
 	nano::keypair key;
 	system.ledger_initialization_set ({ key });
 	auto node = system.add_node ();
-	ASSERT_EQ (nano::genesis_amount, node->balance (key.pub));
+	ASSERT_EQ (nano::dev::genesis_amount, node->balance (key.pub));
 }
 
 TEST (system, rep_initialize_two)
@@ -146,8 +146,8 @@ TEST (system, rep_initialize_two)
 	nano::keypair key1;
 	system.ledger_initialization_set ({ key0, key1 });
 	auto node = system.add_node ();
-	ASSERT_EQ (nano::genesis_amount / 2, node->balance (key0.pub));
-	ASSERT_EQ (nano::genesis_amount / 2, node->balance (key1.pub));
+	ASSERT_EQ (nano::dev::genesis_amount / 2, node->balance (key0.pub));
+	ASSERT_EQ (nano::dev::genesis_amount / 2, node->balance (key1.pub));
 }
 
 TEST (system, rep_initialize_one_reserve)
@@ -156,8 +156,8 @@ TEST (system, rep_initialize_one_reserve)
 	nano::keypair key;
 	system.ledger_initialization_set ({ key }, nano::Gxrb_ratio);
 	auto node = system.add_node ();
-	ASSERT_EQ (nano::genesis_amount - nano::Gxrb_ratio, node->balance (key.pub));
-	ASSERT_EQ (nano::Gxrb_ratio, node->balance (nano::dev_genesis_key.pub));
+	ASSERT_EQ (nano::dev::genesis_amount - nano::Gxrb_ratio, node->balance (key.pub));
+	ASSERT_EQ (nano::Gxrb_ratio, node->balance (nano::dev::genesis_key.pub));
 }
 
 TEST (system, rep_initialize_two_reserve)
@@ -167,8 +167,8 @@ TEST (system, rep_initialize_two_reserve)
 	nano::keypair key1;
 	system.ledger_initialization_set ({ key0, key1 }, nano::Gxrb_ratio);
 	auto node = system.add_node ();
-	ASSERT_EQ ((nano::genesis_amount - nano::Gxrb_ratio) / 2, node->balance (key0.pub));
-	ASSERT_EQ ((nano::genesis_amount - nano::Gxrb_ratio) / 2, node->balance (key1.pub));
+	ASSERT_EQ ((nano::dev::genesis_amount - nano::Gxrb_ratio) / 2, node->balance (key0.pub));
+	ASSERT_EQ ((nano::dev::genesis_amount - nano::Gxrb_ratio) / 2, node->balance (key1.pub));
 }
 
 TEST (system, rep_initialize_many)
@@ -178,9 +178,9 @@ TEST (system, rep_initialize_many)
 	nano::keypair key1;
 	system.ledger_initialization_set ({ key0, key1 }, nano::Gxrb_ratio);
 	auto node0 = system.add_node ();
-	ASSERT_EQ ((nano::genesis_amount - nano::Gxrb_ratio) / 2, node0->balance (key0.pub));
-	ASSERT_EQ ((nano::genesis_amount - nano::Gxrb_ratio) / 2, node0->balance (key1.pub));
+	ASSERT_EQ ((nano::dev::genesis_amount - nano::Gxrb_ratio) / 2, node0->balance (key0.pub));
+	ASSERT_EQ ((nano::dev::genesis_amount - nano::Gxrb_ratio) / 2, node0->balance (key1.pub));
 	auto node1 = system.add_node ();
-	ASSERT_EQ ((nano::genesis_amount - nano::Gxrb_ratio) / 2, node1->balance (key0.pub));
-	ASSERT_EQ ((nano::genesis_amount - nano::Gxrb_ratio) / 2, node1->balance (key1.pub));
+	ASSERT_EQ ((nano::dev::genesis_amount - nano::Gxrb_ratio) / 2, node1->balance (key0.pub));
+	ASSERT_EQ ((nano::dev::genesis_amount - nano::Gxrb_ratio) / 2, node1->balance (key1.pub));
 }

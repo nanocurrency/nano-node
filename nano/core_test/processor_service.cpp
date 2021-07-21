@@ -19,9 +19,9 @@ TEST (processor_service, bad_send_signature)
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::account_info info1;
-	ASSERT_FALSE (store->account.get (transaction, nano::dev_genesis_key.pub, info1));
+	ASSERT_FALSE (store->account.get (transaction, nano::dev::genesis_key.pub, info1));
 	nano::keypair key2;
-	nano::send_block send (info1.head, nano::dev_genesis_key.pub, 50, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (info1.head));
+	nano::send_block send (info1.head, nano::dev::genesis_key.pub, 50, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (info1.head));
 	send.signature.bytes[32] ^= 0x1;
 	ASSERT_EQ (nano::process_result::bad_signature, ledger.process (transaction, send).code);
 }
@@ -38,13 +38,13 @@ TEST (processor_service, bad_receive_signature)
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::account_info info1;
-	ASSERT_FALSE (store->account.get (transaction, nano::dev_genesis_key.pub, info1));
-	nano::send_block send (info1.head, nano::dev_genesis_key.pub, 50, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (info1.head));
+	ASSERT_FALSE (store->account.get (transaction, nano::dev::genesis_key.pub, info1));
+	nano::send_block send (info1.head, nano::dev::genesis_key.pub, 50, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (info1.head));
 	nano::block_hash hash1 (send.hash ());
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send).code);
 	nano::account_info info2;
-	ASSERT_FALSE (store->account.get (transaction, nano::dev_genesis_key.pub, info2));
-	nano::receive_block receive (hash1, hash1, nano::dev_genesis_key.prv, nano::dev_genesis_key.pub, *pool.generate (hash1));
+	ASSERT_FALSE (store->account.get (transaction, nano::dev::genesis_key.pub, info2));
+	nano::receive_block receive (hash1, hash1, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (hash1));
 	receive.signature.bytes[32] ^= 0x1;
 	ASSERT_EQ (nano::process_result::bad_signature, ledger.process (transaction, receive).code);
 }

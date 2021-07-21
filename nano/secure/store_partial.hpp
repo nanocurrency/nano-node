@@ -108,7 +108,7 @@ public:
 		auto & genesis = *network_params.ledger.genesis;
 		auto hash_l (genesis.hash ());
 		debug_assert (account.begin (transaction_a) == account.end ());
-		genesis.sideband_set (nano::block_sideband (network_params.ledger.genesis_account (), 0, network_params.ledger.genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
+		genesis.sideband_set (nano::block_sideband (network_params.ledger.genesis_account (), 0, nano::dev::genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
 		block.put (transaction_a, hash_l, genesis);
 		++ledger_cache_a.block_count;
 		confirmation_height.put (transaction_a, network_params.ledger.genesis_account (), nano::confirmation_height_info{ 1, genesis.hash () });
