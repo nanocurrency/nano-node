@@ -142,7 +142,15 @@ boost::property_tree::ptree wait_response (nano::system & system, std::shared_pt
 void check_block_response_count (nano::system & system, std::shared_ptr<nano::rpc> const & rpc, boost::property_tree::ptree & request, uint64_t size_count)
 {
 	auto response (wait_response (system, rpc, request));
-	ASSERT_EQ (size_count, response.get_child ("blocks").front ().second.size ());
+	auto & blocks = response.get_child ("blocks");
+	if (size_count > 0)
+	{
+		ASSERT_EQ (size_count, blocks.front ().second.size ());
+	}
+	else
+	{
+		ASSERT_TRUE (blocks.empty ());
+	}
 }
 
 class scoped_io_thread_name_change

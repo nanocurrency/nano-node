@@ -1002,7 +1002,10 @@ void nano::json_handler::accounts_pending ()
 					});
 				}
 			}
-			pending.add_child (account.to_account (), peers_l);
+			if (!peers_l.empty ())
+			{
+				pending.add_child (account.to_account (), peers_l);
+			}
 		}
 	}
 	response_l.add_child ("blocks", pending);
