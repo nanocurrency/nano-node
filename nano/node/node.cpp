@@ -1330,7 +1330,7 @@ void nano::node::process_confirmed_data (nano::transaction const & transaction_a
 	}
 	else
 	{
-		amount_a = nano::dev::genesis_amount;
+		amount_a = network_params.ledger.genesis_amount;
 	}
 	if (auto state = dynamic_cast<nano::state_block *> (block_a.get ()))
 	{

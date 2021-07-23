@@ -118,6 +118,7 @@ nano::ledger_constants::ledger_constants (nano::networks network_a) :
 	nano_live_genesis (parse_block_from_genesis_data (live_genesis_data)),
 	nano_test_genesis (parse_block_from_genesis_data (test_genesis_data)),
 	genesis (network_a == nano::networks::nano_dev_network ? nano_dev_genesis : network_a == nano::networks::nano_beta_network ? nano_beta_genesis : network_a == nano::networks::nano_test_network ? nano_test_genesis : nano_live_genesis),
+	genesis_amount (std::numeric_limits<nano::uint128_t>::max ()),
 	burn_account (0),
 	nano_dev_final_votes_canary_account (dev_public_key_data),
 	nano_beta_final_votes_canary_account (beta_canary_public_key_data),

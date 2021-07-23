@@ -1103,7 +1103,7 @@ nano::account nano::ledger::account_safe (nano::transaction const & transaction_
 nano::uint128_t nano::ledger::amount (nano::transaction const & transaction_a, nano::account const & account_a)
 {
 	release_assert (account_a == network_params.ledger.genesis_account ());
-	return nano::dev::genesis_amount;
+	return network_params.ledger.genesis_amount;
 }
 
 nano::uint128_t nano::ledger::amount (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
