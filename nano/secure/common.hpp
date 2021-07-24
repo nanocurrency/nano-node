@@ -395,10 +395,10 @@ public:
 
 namespace dev
 {
-	extern nano::ledger_constants constants;
-	extern std::shared_ptr<nano::block> & genesis;
 	extern nano::keypair genesis_key;
 	extern nano::uint128_t genesis_amount;
+	extern nano::ledger_constants constants;
+	extern std::shared_ptr<nano::block> & genesis;
 }
 
 /** Constants which depend on random values (this class should never be used globally due to CryptoPP globals potentially not being initialized) */

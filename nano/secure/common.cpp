@@ -80,19 +80,10 @@ char const * live_canary_public_key_data = "7CBAF192A3763DAEC9F9BAC1B2CDF665D836
 std::string const test_canary_public_key_data = nano::get_env_or_default ("NANO_TEST_CANARY_PUB", "3BAD2C554ACE05F5E528FBBCE79D51E552C55FA765CCFD89B289C4835DE5F04A"); // nano_1gxf7jcnomi7yqkkjyxwwygo5sckrohtgsgezp6u74g6ifgydw4cajwbk8bf
 }
 
-nano::ledger_constants nano::dev::constants{ nano::networks::nano_dev_network };
-std::shared_ptr<nano::block> & nano::dev::genesis = nano::dev::constants.genesis;
 nano::keypair nano::dev::genesis_key{ dev_private_key_data };
 nano::uint128_t nano::dev::genesis_amount{ std::numeric_limits<nano::uint128_t>::max () };
-namespace {
-struct genesis_sideband_initializer {
-genesis_sideband_initializer ()
-{
-	nano::dev::genesis->sideband_set (nano::block_sideband (nano::dev::genesis->account (), 0, nano::dev::genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
-}
-};
-genesis_sideband_initializer initializer;
-}
+nano::ledger_constants nano::dev::constants{ nano::networks::nano_dev_network };
+std::shared_ptr<nano::block> & nano::dev::genesis = nano::dev::constants.genesis;
 
 nano::network_params::network_params () :
 	network_params (network_constants::active_network)
@@ -139,6 +130,11 @@ nano::ledger_constants::ledger_constants (nano::networks network_a) :
 	nano_test_final_votes_canary_height (1),
 	final_votes_canary_height (network_a == nano::networks::nano_dev_network ? nano_dev_final_votes_canary_height : network_a == nano::networks::nano_beta_network ? nano_beta_final_votes_canary_height : network_a == nano::networks::nano_test_network ? nano_test_final_votes_canary_height : nano_live_final_votes_canary_height)
 {
+	nano_beta_genesis->sideband_set (nano::block_sideband (nano_beta_genesis->account (), 0, nano::dev::genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
+	nano_dev_genesis->sideband_set (nano::block_sideband (nano_dev_genesis->account (), 0, nano::dev::genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
+	nano_live_genesis->sideband_set (nano::block_sideband (nano_live_genesis->account (), 0, nano::dev::genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
+	nano_test_genesis->sideband_set (nano::block_sideband (nano_test_genesis->account (), 0, nano::dev::genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
+
 	nano::link epoch_link_v1;
 	const char * epoch_message_v1 ("epoch v1 block");
 	strncpy ((char *)epoch_link_v1.bytes.data (), epoch_message_v1, epoch_link_v1.bytes.size ());
