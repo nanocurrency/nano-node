@@ -1,6 +1,7 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/timer.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/store.hpp>
 
@@ -83,6 +84,15 @@ nano::ledger_constants nano::dev::constants{ nano::networks::nano_dev_network };
 std::shared_ptr<nano::block> & nano::dev::genesis = nano::dev::constants.genesis;
 nano::keypair nano::dev::genesis_key{ dev_private_key_data };
 nano::uint128_t nano::dev::genesis_amount{ std::numeric_limits<nano::uint128_t>::max () };
+namespace {
+struct genesis_sideband_initializer {
+genesis_sideband_initializer ()
+{
+	nano::dev::genesis->sideband_set (nano::block_sideband (nano::dev::genesis->account (), 0, nano::dev::genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false, nano::epoch::epoch_0));
+}
+};
+genesis_sideband_initializer initializer;
+}
 
 nano::network_params::network_params () :
 	network_params (network_constants::active_network)
