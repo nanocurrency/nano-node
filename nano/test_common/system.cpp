@@ -365,7 +365,7 @@ void nano::system::generate_rollback (nano::node & node_a, std::vector<nano::acc
 	if (!error)
 	{
 		auto hash (info.open_block);
-		if (hash != node_a.network_params.ledger.genesis_hash ())
+		if (hash != node_a.network_params.ledger.genesis->hash ())
 		{
 			accounts_a[index] = accounts_a[accounts_a.size () - 1];
 			accounts_a.pop_back ();

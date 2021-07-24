@@ -369,7 +369,6 @@ public:
 	ledger_constants (nano::network_constants & network_constants);
 	ledger_constants (nano::networks network_a);
 	nano::account genesis_account () const;
-	nano::block_hash genesis_hash () const;
 	nano::keypair zero_key;
 	nano::account nano_beta_account;
 	nano::account nano_live_account;

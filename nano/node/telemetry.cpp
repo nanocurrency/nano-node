@@ -92,7 +92,7 @@ bool nano::telemetry::verify_message (nano::telemetry_ack const & message_a, nan
 		if (!remove_channel)
 		{
 			// Check for different genesis blocks
-			remove_channel = (message_a.data.genesis_block != network_params.ledger.genesis_hash ());
+			remove_channel = (message_a.data.genesis_block != network_params.ledger.genesis->hash ());
 			if (remove_channel)
 			{
 				stats.inc (nano::stat::type::telemetry, nano::stat::detail::different_genesis_hash);
@@ -634,7 +634,7 @@ nano::telemetry_data nano::local_telemetry_data (nano::ledger const & ledger_a, 
 	telemetry_data.protocol_version = network_params_a.protocol.protocol_version;
 	telemetry_data.uptime = std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - statup_time_a).count ();
 	telemetry_data.unchecked_count = ledger_a.store.unchecked.count (ledger_a.store.tx_begin_read ());
-	telemetry_data.genesis_block = network_params_a.ledger.genesis_hash ();
+	telemetry_data.genesis_block = network_params_a.ledger.genesis->hash ();
 	telemetry_data.peer_count = nano::narrow_cast<decltype (telemetry_data.peer_count)> (network_a.size ());
 	telemetry_data.account_count = ledger_a.cache.account_count;
 	telemetry_data.major_version = nano::get_major_node_version ();

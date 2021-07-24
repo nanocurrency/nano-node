@@ -40,7 +40,7 @@ TEST (network_filter, unit)
 	nano::state_block_builder builder;
 	auto new_block = builder
 					 .account (nano::dev::genesis_key.pub)
-					 .previous (constants.genesis_hash ())
+					 .previous (constants.genesis->hash ())
 					 .representative (nano::dev::genesis_key.pub)
 					 .balance (nano::dev::genesis_amount - 10 * nano::xrb_ratio)
 					 .link (nano::public_key ())
@@ -70,7 +70,7 @@ TEST (network_filter, many)
 		nano::state_block_builder builder;
 		auto block = builder
 					 .account (nano::dev::genesis_key.pub)
-					 .previous (constants.genesis_hash ())
+					 .previous (constants.genesis->hash ())
 					 .representative (nano::dev::genesis_key.pub)
 					 .balance (nano::dev::genesis_amount - i * 10 * nano::xrb_ratio)
 					 .link (key1.pub)

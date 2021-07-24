@@ -157,13 +157,6 @@ nano::account nano::ledger_constants::genesis_account () const
 	return result;
 }
 
-nano::block_hash nano::ledger_constants::genesis_hash () const
-{
-	auto result = genesis->hash ();
-	debug_assert (!result.is_zero ());
-	return result;
-}
-
 nano::random_constants::random_constants ()
 {
 	nano::random_pool::generate_block (not_an_account.bytes.data (), not_an_account.bytes.size ());
