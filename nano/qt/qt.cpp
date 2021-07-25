@@ -557,7 +557,7 @@ public:
 		else
 		{
 			account = params.ledger.genesis->account ();
-			amount = nano::dev::genesis_amount;
+			amount = nano::dev::constants.genesis_amount;
 		}
 	}
 	void change_block (nano::change_block const & block_a)

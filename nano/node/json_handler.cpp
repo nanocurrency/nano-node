@@ -1045,7 +1045,7 @@ void nano::json_handler::available_supply ()
 	auto landing_balance (node.balance (nano::account ("059F68AAB29DE0D3A27443625C7EA9CDDB6517A8B76FE37727EF6A4D76832AD5"))); // Active unavailable account
 	auto faucet_balance (node.balance (nano::account ("8E319CE6F3025E5B2DF66DA7AB1467FE48F1679C13DD43BFDB29FA2E9FC40D3B"))); // Faucet account
 	auto burned_balance ((node.balance_pending (nano::account (0), false)).second); // Burning 0 account
-	auto available (nano::dev::genesis_amount - genesis_balance - landing_balance - faucet_balance - burned_balance);
+	auto available (nano::dev::constants.genesis_amount - genesis_balance - landing_balance - faucet_balance - burned_balance);
 	response_l.put ("available", available.convert_to<std::string> ());
 	response_errors ();
 }
@@ -2335,7 +2335,7 @@ public:
 		else
 		{
 			tree.put ("account", network_params.ledger.genesis->account ().to_account ());
-			tree.put ("amount", nano::dev::genesis_amount.convert_to<std::string> ());
+			tree.put ("amount", nano::dev::constants.genesis_amount.convert_to<std::string> ());
 		}
 	}
 	void change_block (nano::change_block const & block_a)
@@ -3263,7 +3263,7 @@ void nano::json_handler::receive ()
 						bool generate_work (work == 0); // Disable work generation if "work" option is provided
 						auto response_a (response);
 						wallet->receive_async (
-						hash, representative, nano::dev::genesis_amount, account, [response_a] (std::shared_ptr<nano::block> const & block_a) {
+						hash, representative, nano::dev::constants.genesis_amount, account, [response_a] (std::shared_ptr<nano::block> const & block_a) {
 							if (block_a != nullptr)
 							{
 								boost::property_tree::ptree response_l;

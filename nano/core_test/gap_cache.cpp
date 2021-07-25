@@ -67,10 +67,10 @@ TEST (gap_cache, gap_bootstrap)
 	auto & node2 (*system.nodes[1]);
 	nano::block_hash latest (node1.latest (nano::dev::genesis_key.pub));
 	nano::keypair key;
-	auto send (std::make_shared<nano::send_block> (latest, key.pub, nano::dev::genesis_amount - 100, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest)));
+	auto send (std::make_shared<nano::send_block> (latest, key.pub, nano::dev::constants.genesis_amount - 100, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (latest)));
 	node1.process (*send);
-	ASSERT_EQ (nano::dev::genesis_amount - 100, node1.balance (nano::dev::genesis->account ()));
-	ASSERT_EQ (nano::dev::genesis_amount, node2.balance (nano::dev::genesis->account ()));
+	ASSERT_EQ (nano::dev::constants.genesis_amount - 100, node1.balance (nano::dev::genesis->account ()));
+	ASSERT_EQ (nano::dev::constants.genesis_amount, node2.balance (nano::dev::genesis->account ()));
 	// Confirm send block, allowing voting on the upcoming block
 	node1.block_confirm (send);
 	auto election = node1.active.election (send->qualified_root ());
@@ -81,9 +81,9 @@ TEST (gap_cache, gap_bootstrap)
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	auto latest_block (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key.pub, 100));
 	ASSERT_NE (nullptr, latest_block);
-	ASSERT_EQ (nano::dev::genesis_amount - 200, node1.balance (nano::dev::genesis->account ()));
-	ASSERT_EQ (nano::dev::genesis_amount, node2.balance (nano::dev::genesis->account ()));
-	ASSERT_TIMELY (10s, node2.balance (nano::dev::genesis->account ()) == nano::dev::genesis_amount - 200);
+	ASSERT_EQ (nano::dev::constants.genesis_amount - 200, node1.balance (nano::dev::genesis->account ()));
+	ASSERT_EQ (nano::dev::constants.genesis_amount, node2.balance (nano::dev::genesis->account ()));
+	ASSERT_TIMELY (10s, node2.balance (nano::dev::genesis->account ()) == nano::dev::constants.genesis_amount - 200);
 }
 
 TEST (gap_cache, two_dependencies)

@@ -255,14 +255,14 @@ TEST (vote_processor, no_broadcast_local)
 										.account (key.pub)
 										.representative (nano::dev::genesis_key.pub)
 										.previous (0)
-										.balance (nano::dev::genesis_amount - 2 * node.config.vote_minimum.number ())
+										.balance (nano::dev::constants.genesis_amount - 2 * node.config.vote_minimum.number ())
 										.link (send->hash ())
 										.sign (key.prv, key.pub)
 										.work (*system.work.generate (key.pub))
 										.build (ec);
 	ASSERT_FALSE (ec);
 	ASSERT_EQ (nano::process_result::progress, node.process_local (open).code);
-	ASSERT_EQ (nano::dev::genesis_amount - node.config.vote_minimum.number (), node.weight (nano::dev::genesis_key.pub));
+	ASSERT_EQ (nano::dev::constants.genesis_amount - node.config.vote_minimum.number (), node.weight (nano::dev::genesis_key.pub));
 	node.block_confirm (open);
 	// Insert account in wallet
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);

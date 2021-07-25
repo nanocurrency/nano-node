@@ -168,7 +168,7 @@ TEST (wallets, search_pending)
 					.account (nano::dev::genesis->account ())
 					.previous (nano::dev::genesis->hash ())
 					.representative (nano::dev::genesis->account ())
-					.balance (nano::dev::genesis_amount - node.config.receive_minimum.number ())
+					.balance (nano::dev::constants.genesis_amount - node.config.receive_minimum.number ())
 					.link (nano::dev::genesis->account ())
 					.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 					.work (*system.work.generate (nano::dev::genesis->hash ()))
@@ -209,7 +209,7 @@ TEST (wallets, search_pending)
 		{
 			node.wallets.search_pending (wallet_id);
 		}
-		ASSERT_TIMELY (3s, node.balance (nano::dev::genesis->account ()) == nano::dev::genesis_amount);
+		ASSERT_TIMELY (3s, node.balance (nano::dev::genesis->account ()) == nano::dev::constants.genesis_amount);
 		auto receive_hash = node.ledger.latest (node.store.tx_begin_read (), nano::dev::genesis->account ());
 		auto receive = node.block (receive_hash);
 		ASSERT_NE (nullptr, receive);

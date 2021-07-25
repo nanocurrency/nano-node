@@ -377,6 +377,7 @@ public:
 	std::shared_ptr<nano::block> nano_live_genesis;
 	std::shared_ptr<nano::block> nano_test_genesis;
 	std::shared_ptr<nano::block> genesis;
+	nano::uint128_t genesis_amount;
 	nano::account burn_account;
 	nano::account nano_dev_final_votes_canary_account;
 	nano::account nano_beta_final_votes_canary_account;
@@ -394,7 +395,6 @@ public:
 namespace dev
 {
 	extern nano::keypair genesis_key;
-	extern nano::uint128_t genesis_amount;
 	extern nano::ledger_constants constants;
 	extern std::shared_ptr<nano::block> & genesis;
 }
