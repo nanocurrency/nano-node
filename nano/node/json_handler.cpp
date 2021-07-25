@@ -2731,6 +2731,7 @@ void nano::json_handler::ledger ()
 void nano::json_handler::mnano_from_raw (nano::uint128_t ratio)
 {
 	auto amount (amount_impl ());
+	response_l.put ("deprecated", "1");
 	if (!ec)
 	{
 		auto result (amount.number () / ratio);
@@ -2742,6 +2743,7 @@ void nano::json_handler::mnano_from_raw (nano::uint128_t ratio)
 void nano::json_handler::mnano_to_raw (nano::uint128_t ratio)
 {
 	auto amount (amount_impl ());
+	response_l.put ("deprecated", "1");
 	if (!ec)
 	{
 		auto result (amount.number () * ratio);
