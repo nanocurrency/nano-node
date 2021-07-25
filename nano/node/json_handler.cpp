@@ -105,11 +105,11 @@ void nano::json_handler::process_request (bool unsafe_a)
 			{
 				mnano_to_raw (nano::kxrb_ratio);
 			}
-			else if (action == "nano_from_raw" || action == "rai_from_raw")
+			else if (action == "rai_from_raw")
 			{
 				mnano_from_raw (nano::xrb_ratio);
 			}
-			else if (action == "nano_to_raw" || action == "rai_to_raw")
+			else if (action == "rai_to_raw")
 			{
 				mnano_to_raw (nano::xrb_ratio);
 			}
@@ -120,6 +120,14 @@ void nano::json_handler::process_request (bool unsafe_a)
 			else if (action == "mnano_to_raw" || action == "mrai_to_raw")
 			{
 				mnano_to_raw ();
+			}
+			else if (action == "nano_to_raw")
+			{
+				nano_to_raw ();
+			}
+			else if (action == "raw_to_nano")
+			{
+				raw_to_nano ();
 			}
 			else if (action == "password_valid")
 			{
@@ -2755,6 +2763,35 @@ void nano::json_handler::mnano_to_raw (nano::uint128_t ratio)
 		{
 			ec = nano::error_common::invalid_amount_big;
 		}
+	}
+	response_errors ();
+}
+
+void nano::json_handler::nano_to_raw ()
+{
+	auto amount (amount_impl ());
+	if (!ec)
+	{
+		auto result (amount.number () * nano::Mxrb_ratio);
+		if (result > amount.number ())
+		{
+			response_l.put ("amount", result.convert_to<std::string> ());
+		}
+		else
+		{
+			ec = nano::error_common::invalid_amount_big;
+		}
+	}
+	response_errors ();
+}
+
+void nano::json_handler::raw_to_nano ()
+{
+	auto amount (amount_impl ());
+	if (!ec)
+	{
+		auto result (amount.number () / nano::Mxrb_ratio);
+		response_l.put ("amount", result.convert_to<std::string> ());
 	}
 	response_errors ();
 }
