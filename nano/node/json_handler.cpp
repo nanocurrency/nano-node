@@ -94,6 +94,7 @@ void nano::json_handler::process_request (bool unsafe_a)
 			}
 			else if (action == "history")
 			{
+				response_l.put ("deprecated", "1");
 				request.put ("head", request.get<std::string> ("hash"));
 				account_history ();
 			}
