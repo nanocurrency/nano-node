@@ -180,6 +180,8 @@ void nano::confirmation_height_processor::run_walker ()
 
 		lk.unlock ();
 
+		std::size_t writes_performed = 0;
+
 		walker.walk (
 		block->hash (),
 		[&] (const auto & block) {
@@ -192,13 +194,15 @@ void nano::confirmation_height_processor::run_walker ()
 			auto existing_confirmation_height = read_confirmation_height (write_transaction, block->account ());
 			if (existing_confirmation_height < block_height)
 			{
-				++ledger.cache.cemented_count;
-				ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in, block_height - existing_confirmation_height);
+				++writes_performed;
 				ledger.store.confirmation_height.put (write_transaction, block->account (), nano::confirmation_height_info{ block_height, block->hash () });
 
 				notify_observers ({ block });
 			}
 		});
+
+		ledger.cache.cemented_count += writes_performed;
+		ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in, writes_performed);
 
 		lk.lock ();
 	}
