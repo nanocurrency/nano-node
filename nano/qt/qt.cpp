@@ -1841,6 +1841,12 @@ nano_qt::advanced_actions::advanced_actions (nano_qt::wallet & wallet_a) :
 	auto selected_ratio_button = ratio_group->button (selected_ratio_id);
 	debug_assert (selected_ratio_button != nullptr);
 
+	// Make sure value is not out of bounds
+	if (selected_ratio_id < 0 || selected_ratio_id > 1)
+	{
+		QSettings ().setValue (saved_ratio_key, 0);
+		selected_ratio_id = 0;
+	}
 	if (selected_ratio_button)
 	{
 		selected_ratio_button->click ();
