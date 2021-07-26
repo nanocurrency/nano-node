@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <string>
 
 namespace boost
@@ -120,6 +121,13 @@ public:
 		default_ipc_port = is_live_network () ? 7077 : is_beta_network () ? 56000 : is_test_network () ? test_ipc_port () : 46000;
 		default_websocket_port = is_live_network () ? 7078 : is_beta_network () ? 57000 : is_test_network () ? test_websocket_port () : 47000;
 		request_interval_ms = is_dev_network () ? 20 : 500;
+		cleanup_period = is_dev_network () ? std::chrono::seconds (1) : std::chrono::seconds (60);
+		idle_timeout = is_dev_network () ? cleanup_period * 15 : cleanup_period * 2;
+		syn_cookie_cutoff = std::chrono::seconds (5);
+		bootstrap_interval = std::chrono::seconds (15 * 60);
+		max_peers_per_ip = is_dev_network () ? 10 : 5;
+		max_peers_per_subnetwork = max_peers_per_ip * 4;
+		peer_dump_interval = is_dev_network () ? std::chrono::seconds (1) : std::chrono::seconds (5 * 60);
 	}
 
 	/** Network work thresholds. Define these inline as constexpr when moving to cpp17. */
@@ -141,6 +149,25 @@ public:
 	uint16_t default_ipc_port;
 	uint16_t default_websocket_port;
 	unsigned request_interval_ms;
+
+	std::chrono::seconds cleanup_period;
+	std::chrono::milliseconds cleanup_period_half () const
+	{
+		return std::chrono::duration_cast<std::chrono::milliseconds> (cleanup_period) / 2;
+	}
+	std::chrono::seconds cleanup_cutoff () const
+	{
+		return cleanup_period * 5;
+	}
+	/** Default maximum idle time for a socket before it's automatically closed */
+	std::chrono::seconds idle_timeout;
+	std::chrono::seconds syn_cookie_cutoff;
+	std::chrono::seconds bootstrap_interval;
+	/** Maximum number of peers per IP */
+	size_t max_peers_per_ip;
+	/** Maximum number of peers per subnetwork */
+	size_t max_peers_per_subnetwork;
+	std::chrono::seconds peer_dump_interval;
 
 	/** Returns the network this object contains values for */
 	nano::networks network () const

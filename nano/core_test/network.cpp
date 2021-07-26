@@ -904,7 +904,7 @@ TEST (network, peer_max_tcp_attempts)
 	node_flags.disable_connection_cleanup = true;
 	nano::system system;
 	auto node = system.add_node (node_flags);
-	for (auto i (0); i < node->network_params.node.max_peers_per_ip; ++i)
+	for (auto i (0); i < node->network_params.network.max_peers_per_ip; ++i)
 	{
 		auto node2 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work, node_flags));
 		node2->start ();
@@ -925,7 +925,7 @@ namespace transport
 	{
 		nano::system system (1);
 		auto node (system.nodes[0]);
-		for (auto i (0); i < node->network_params.node.max_peers_per_subnetwork; ++i)
+		for (auto i (0); i < node->network_params.network.max_peers_per_subnetwork; ++i)
 		{
 			auto address (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0x7f000001 + i))); // 127.0.0.1 hex
 			nano::endpoint endpoint (address, nano::get_available_port ());

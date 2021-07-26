@@ -636,7 +636,7 @@ bool nano::transport::udp_channels::max_ip_connections (nano::endpoint const & e
 		auto const address (nano::transport::ipv4_address_or_ipv6_subnet (endpoint_a.address ()));
 		auto const subnet (nano::transport::map_address_to_subnetwork (endpoint_a.address ()));
 		nano::unique_lock<nano::mutex> lock (mutex);
-		result = channels.get<ip_address_tag> ().count (address) >= node.network_params.node.max_peers_per_ip || channels.get<subnetwork_tag> ().count (subnet) >= node.network_params.node.max_peers_per_subnetwork;
+		result = channels.get<ip_address_tag> ().count (address) >= node.network_params.network.max_peers_per_ip || channels.get<subnetwork_tag> ().count (subnet) >= node.network_params.network.max_peers_per_subnetwork;
 	}
 	return result;
 }
@@ -690,7 +690,7 @@ void nano::transport::udp_channels::ongoing_keepalive ()
 	node.network.random_fill (message.peers);
 	std::vector<std::shared_ptr<nano::transport::channel_udp>> send_list;
 	nano::unique_lock<nano::mutex> lock (mutex);
-	auto keepalive_cutoff (channels.get<last_packet_received_tag> ().lower_bound (std::chrono::steady_clock::now () - node.network_params.node.period));
+	auto keepalive_cutoff (channels.get<last_packet_received_tag> ().lower_bound (std::chrono::steady_clock::now () - node.network_params.network.cleanup_period));
 	for (auto i (channels.get<last_packet_received_tag> ().begin ()); i != keepalive_cutoff; ++i)
 	{
 		send_list.push_back (i->channel);
@@ -701,7 +701,7 @@ void nano::transport::udp_channels::ongoing_keepalive ()
 		channel->send (message);
 	}
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.workers.add_timed_task (std::chrono::steady_clock::now () + node.network_params.node.period, [node_w] () {
+	node.workers.add_timed_task (std::chrono::steady_clock::now () + node.network_params.network.cleanup_period, [node_w] () {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->network.udp_channels.ongoing_keepalive ();

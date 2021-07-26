@@ -415,22 +415,10 @@ class node_constants
 {
 public:
 	node_constants (nano::network_constants & network_constants);
-	std::chrono::seconds period;
-	std::chrono::milliseconds half_period;
-	/** Default maximum idle time for a socket before it's automatically closed */
-	std::chrono::seconds idle_timeout;
-	std::chrono::seconds cutoff;
-	std::chrono::seconds syn_cookie_cutoff;
 	std::chrono::minutes backup_interval;
-	std::chrono::seconds bootstrap_interval;
 	std::chrono::seconds search_pending_interval;
-	std::chrono::seconds peer_interval;
 	std::chrono::minutes unchecked_cleaning_interval;
 	std::chrono::milliseconds process_confirmed_interval;
-	/** Maximum number of peers per IP */
-	size_t max_peers_per_ip;
-	/** Maximum number of peers per subnetwork */
-	size_t max_peers_per_subnetwork;
 
 	/** The maximum amount of samples for a 2 week period on live or 1 day on beta */
 	uint64_t max_weight_samples;

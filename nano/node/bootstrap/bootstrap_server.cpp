@@ -146,7 +146,7 @@ void nano::bootstrap_server::stop ()
 void nano::bootstrap_server::receive ()
 {
 	// Increase timeout to receive TCP header (idle server socket)
-	socket->set_timeout (node->network_params.node.idle_timeout);
+	socket->set_timeout (node->network_params.network.idle_timeout);
 	auto this_l (shared_from_this ());
 	socket->async_read (receive_buffer, 8, [this_l] (boost::system::error_code const & ec, size_t size_a) {
 		// Set remote_endpoint
