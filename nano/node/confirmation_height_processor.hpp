@@ -4,6 +4,7 @@
 #include <nano/lib/timer.hpp>
 #include <nano/node/confirmation_height_bounded.hpp>
 #include <nano/node/confirmation_height_unbounded.hpp>
+#include <nano/node/ledger_walker.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/store.hpp>
 
@@ -39,6 +40,7 @@ public:
 	void stop ();
 	void add (std::shared_ptr<nano::block> const &);
 	void run (confirmation_height_mode);
+	void run_walker ();
 	size_t awaiting_processing_size () const;
 	bool is_processing_added_block (nano::block_hash const & hash_a) const;
 	bool is_processing_block (nano::block_hash const &) const;
@@ -94,6 +96,12 @@ private:
 
 	confirmation_height_unbounded unbounded_processor;
 	confirmation_height_bounded bounded_processor;
+
+// TODO: keep this until diskhash builds fine on Windows
+#ifndef _WIN32
+	ledger_walker walker;
+#endif
+
 	std::thread thread;
 
 	void set_next_hash ();
