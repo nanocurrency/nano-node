@@ -544,7 +544,7 @@ public:
 	{
 		static nano::network_params params;
 		type = "Receive";
-		if (block_a.hashables.source != params.ledger.genesis_account ())
+		if (block_a.hashables.source != params.ledger.genesis->account ())
 		{
 			bool error_or_pruned (false);
 			account = ledger.account_safe (transaction, block_a.hashables.source, error_or_pruned);
@@ -556,8 +556,8 @@ public:
 		}
 		else
 		{
-			account = params.ledger.genesis_account ();
-			amount = nano::dev::genesis_amount;
+			account = params.ledger.genesis->account ();
+			amount = nano::dev::constants.genesis_amount;
 		}
 	}
 	void change_block (nano::change_block const & block_a)

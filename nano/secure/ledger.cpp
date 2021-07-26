@@ -1102,8 +1102,8 @@ nano::account nano::ledger::account_safe (nano::transaction const & transaction_
 // Return amount decrease or increase for block
 nano::uint128_t nano::ledger::amount (nano::transaction const & transaction_a, nano::account const & account_a)
 {
-	release_assert (account_a == network_params.ledger.genesis_account ());
-	return nano::dev::genesis_amount;
+	release_assert (account_a == network_params.ledger.genesis->account ());
+	return nano::dev::constants.genesis_amount;
 }
 
 nano::uint128_t nano::ledger::amount (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
@@ -1204,7 +1204,7 @@ public:
 	}
 	void open_block (nano::open_block const & block_a) override
 	{
-		if (block_a.source () != ledger.network_params.ledger.genesis_account ())
+		if (block_a.source () != ledger.network_params.ledger.genesis->account ())
 		{
 			result[0] = block_a.source ();
 		}
@@ -1342,7 +1342,7 @@ uint64_t nano::ledger::pruning_action (nano::write_transaction & transaction_a, 
 {
 	uint64_t pruned_count (0);
 	nano::block_hash hash (hash_a);
-	while (!hash.is_zero () && hash != network_params.ledger.genesis_hash ())
+	while (!hash.is_zero () && hash != network_params.ledger.genesis->hash ())
 	{
 		auto block (store.block.get (transaction_a, hash));
 		if (block != nullptr)

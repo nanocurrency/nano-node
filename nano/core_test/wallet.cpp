@@ -169,7 +169,7 @@ TEST (wallet, insufficient_spend_one)
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	auto block (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, 500));
 	ASSERT_NE (nullptr, block);
-	ASSERT_EQ (nullptr, system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, nano::dev::genesis_amount));
+	ASSERT_EQ (nullptr, system.wallet (0)->send_action (nano::dev::genesis_key.pub, key1.pub, nano::dev::constants.genesis_amount));
 }
 
 TEST (wallet, spend_all_one)
@@ -636,7 +636,7 @@ TEST (wallet, work)
 	nano::system system (1);
 	auto wallet (system.wallet (0));
 	wallet->insert_adhoc (nano::dev::genesis_key.prv);
-	nano::genesis genesis;
+	wallet->insert_adhoc (nano::dev::genesis_key.prv);
 	auto done (false);
 	system.deadline_set (20s);
 	while (!done)
@@ -645,7 +645,7 @@ TEST (wallet, work)
 		uint64_t work (0);
 		if (!wallet->store.work_get (transaction, nano::dev::genesis_key.pub, work))
 		{
-			done = nano::work_difficulty (genesis.open->work_version (), genesis.hash (), work) >= system.nodes[0]->default_difficulty (genesis.open->work_version ());
+			done = nano::work_difficulty (nano::dev::genesis->work_version (), nano::dev::genesis->hash (), work) >= system.nodes[0]->default_difficulty (nano::dev::genesis->work_version ());
 		}
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -837,7 +837,7 @@ TEST (wallet, send_race)
 	for (auto i (1); i < 60; ++i)
 	{
 		ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, nano::Gxrb_ratio));
-		ASSERT_EQ (nano::dev::genesis_amount - nano::Gxrb_ratio * i, system.nodes[0]->balance (nano::dev::genesis_key.pub));
+		ASSERT_EQ (nano::dev::constants.genesis_amount - nano::Gxrb_ratio * i, system.nodes[0]->balance (nano::dev::genesis_key.pub));
 	}
 }
 
@@ -1166,7 +1166,7 @@ TEST (wallet, search_pending)
 				.account (nano::dev::genesis->account ())
 				.previous (nano::dev::genesis->hash ())
 				.representative (nano::dev::genesis->account ())
-				.balance (nano::dev::genesis_amount - node.config.receive_minimum.number ())
+				.balance (nano::dev::constants.genesis_amount - node.config.receive_minimum.number ())
 				.link (nano::dev::genesis->account ())
 				.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 				.work (*system.work.generate (nano::dev::genesis->hash ()))
@@ -1193,7 +1193,7 @@ TEST (wallet, search_pending)
 	// Pending search should create the receive block
 	ASSERT_EQ (2, node.ledger.cache.block_count);
 	ASSERT_FALSE (wallet.search_pending (wallet.wallets.tx_begin_read ()));
-	ASSERT_TIMELY (3s, node.balance (nano::dev::genesis->account ()) == nano::dev::genesis_amount);
+	ASSERT_TIMELY (3s, node.balance (nano::dev::genesis->account ()) == nano::dev::constants.genesis_amount);
 	auto receive_hash = node.ledger.latest (node.store.tx_begin_read (), nano::dev::genesis->account ());
 	auto receive = node.block (receive_hash);
 	ASSERT_NE (nullptr, receive);

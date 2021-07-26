@@ -368,8 +368,6 @@ class ledger_constants
 public:
 	ledger_constants (nano::network_constants & network_constants);
 	ledger_constants (nano::networks network_a);
-	nano::account genesis_account () const;
-	nano::block_hash genesis_hash () const;
 	nano::keypair zero_key;
 	nano::account nano_beta_account;
 	nano::account nano_live_account;
@@ -379,6 +377,7 @@ public:
 	std::shared_ptr<nano::block> nano_live_genesis;
 	std::shared_ptr<nano::block> nano_test_genesis;
 	std::shared_ptr<nano::block> genesis;
+	nano::uint128_t genesis_amount;
 	nano::account burn_account;
 	nano::account nano_dev_final_votes_canary_account;
 	nano::account nano_beta_final_votes_canary_account;
@@ -395,10 +394,9 @@ public:
 
 namespace dev
 {
+	extern nano::keypair genesis_key;
 	extern nano::ledger_constants constants;
 	extern std::shared_ptr<nano::block> & genesis;
-	extern nano::keypair genesis_key;
-	extern nano::uint128_t genesis_amount;
 }
 
 /** Constants which depend on random values (this class should never be used globally due to CryptoPP globals potentially not being initialized) */

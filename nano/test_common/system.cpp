@@ -152,8 +152,8 @@ nano::system::~system ()
 void nano::system::ledger_initialization_set (std::vector<nano::keypair> const & reps, nano::amount const & reserve)
 {
 	nano::block_hash previous = nano::dev::genesis->hash ();
-	auto amount = (nano::dev::genesis_amount - reserve.number ()) / reps.size ();
-	auto balance = nano::dev::genesis_amount;
+	auto amount = (nano::dev::constants.genesis_amount - reserve.number ()) / reps.size ();
+	auto balance = nano::dev::constants.genesis_amount;
 	for (auto const & i : reps)
 	{
 		balance -= amount;
@@ -365,8 +365,7 @@ void nano::system::generate_rollback (nano::node & node_a, std::vector<nano::acc
 	if (!error)
 	{
 		auto hash (info.open_block);
-		nano::genesis genesis;
-		if (hash != genesis.hash ())
+		if (hash != node_a.network_params.ledger.genesis->hash ())
 		{
 			accounts_a[index] = accounts_a[accounts_a.size () - 1];
 			accounts_a.pop_back ();
@@ -398,7 +397,7 @@ void nano::system::generate_receive (nano::node & node_a)
 	}
 	if (send_block != nullptr)
 	{
-		auto receive_error (wallet (0)->receive_sync (send_block, nano::ledger_constants (nano::networks::nano_dev_network).genesis_account (), std::numeric_limits<nano::uint128_t>::max ()));
+		auto receive_error (wallet (0)->receive_sync (send_block, nano::dev::genesis->account (), std::numeric_limits<nano::uint128_t>::max ()));
 		(void)receive_error;
 	}
 }
