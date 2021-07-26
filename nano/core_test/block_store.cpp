@@ -663,7 +663,7 @@ TEST (mdb_block_store, supported_version_upgrades)
 	{
 		nano::mdb_store store (logger, path);
 		nano::stat stats;
-		nano::ledger ledger (store, stats);
+		nano::ledger ledger (store, stats, nano::dev::constants);
 		auto transaction (store.tx_begin_write ());
 		store.initialize (transaction, ledger.cache);
 		// Lower the database to the max version unsupported for upgrades
@@ -681,7 +681,7 @@ TEST (mdb_block_store, supported_version_upgrades)
 	{
 		nano::mdb_store store (logger, path1);
 		nano::stat stats;
-		nano::ledger ledger (store, stats);
+		nano::ledger ledger (store, stats, nano::dev::constants);
 		auto transaction (store.tx_begin_write ());
 		store.initialize (transaction, ledger.cache);
 		// Lower the database version to the minimum version supported for upgrade.
@@ -1003,7 +1003,7 @@ TEST (mdb_block_store, sideband_height)
 	nano::mdb_store store (logger, nano::unique_path ());
 	ASSERT_FALSE (store.init_error ());
 	nano::stat stat;
-	nano::ledger ledger (store, stat);
+	nano::ledger ledger (store, stat, nano::dev::constants);
 	auto transaction (store.tx_begin_write ());
 	store.initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1271,7 +1271,7 @@ TEST (mdb_block_store, upgrade_v14_v15)
 		nano::logger_mt logger;
 		nano::mdb_store store (logger, path);
 		nano::stat stats;
-		nano::ledger ledger (store, stats);
+		nano::ledger ledger (store, stats, nano::dev::constants);
 		auto transaction (store.tx_begin_write ());
 		store.initialize (transaction, ledger.cache);
 		nano::account_info account_info;
@@ -1378,7 +1378,7 @@ TEST (mdb_block_store, upgrade_v15_v16)
 		nano::logger_mt logger;
 		nano::mdb_store store (logger, path);
 		nano::stat stats;
-		nano::ledger ledger (store, stats);
+		nano::ledger ledger (store, stats, nano::dev::constants);
 		auto transaction (store.tx_begin_write ());
 		store.initialize (transaction, ledger.cache);
 		// The representation table should get removed after, so readd it so that we can later confirm this actually happens
@@ -1429,7 +1429,7 @@ TEST (mdb_block_store, upgrade_v16_v17)
 			nano::logger_mt logger;
 			nano::mdb_store store (logger, path);
 			nano::stat stats;
-			nano::ledger ledger (store, stats);
+			nano::ledger ledger (store, stats, nano::dev::constants);
 			auto transaction (store.tx_begin_write ());
 			store.initialize (transaction, ledger.cache);
 			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block1).code);
@@ -1502,7 +1502,7 @@ TEST (mdb_block_store, upgrade_v17_v18)
 		nano::mdb_store store (logger, path);
 		auto transaction (store.tx_begin_write ());
 		nano::stat stats;
-		nano::ledger ledger (store, stats);
+		nano::ledger ledger (store, stats, nano::dev::constants);
 		store.initialize (transaction, ledger.cache);
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send_zero).code);
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, state_receive_zero).code);
@@ -1697,7 +1697,7 @@ TEST (mdb_block_store, upgrade_v18_v19)
 		nano::logger_mt logger;
 		nano::mdb_store store (logger, path);
 		nano::stat stats;
-		nano::ledger ledger (store, stats);
+		nano::ledger ledger (store, stats, nano::dev::constants);
 		auto transaction (store.tx_begin_write ());
 		store.initialize (transaction, ledger.cache);
 
@@ -1779,7 +1779,7 @@ TEST (mdb_block_store, upgrade_v19_v20)
 	nano::stat stats;
 	{
 		nano::mdb_store store (logger, path);
-		nano::ledger ledger (store, stats);
+		nano::ledger ledger (store, stats, nano::dev::constants);
 		auto transaction (store.tx_begin_write ());
 		store.initialize (transaction, ledger.cache);
 		// Delete pruned table
@@ -1808,7 +1808,7 @@ TEST (mdb_block_store, upgrade_v20_v21)
 	nano::stat stats;
 	{
 		nano::mdb_store store (logger, path);
-		nano::ledger ledger (store, stats);
+		nano::ledger ledger (store, stats, nano::dev::constants);
 		auto transaction (store.tx_begin_write ());
 		store.initialize (transaction, ledger.cache);
 		// Delete pruned table

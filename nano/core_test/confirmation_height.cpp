@@ -721,7 +721,7 @@ TEST (confirmation_heightDeathTest, rollback_added_block)
 		auto store = nano::make_store (logger, path);
 		ASSERT_TRUE (!store->init_error ());
 		nano::stat stats;
-		nano::ledger ledger (*store, stats);
+		nano::ledger ledger (*store, stats, nano::dev::constants);
 		nano::write_database_queue write_database_queue (false);
 		nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 		nano::keypair key1;
@@ -797,7 +797,7 @@ TEST (confirmation_heightDeathTest, modified_chain)
 		auto store = nano::make_store (logger, path);
 		ASSERT_TRUE (!store->init_error ());
 		nano::stat stats;
-		nano::ledger ledger (*store, stats);
+		nano::ledger ledger (*store, stats, nano::dev::constants);
 		nano::write_database_queue write_database_queue (false);
 		nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 		nano::keypair key1;
@@ -867,7 +867,7 @@ TEST (confirmation_heightDeathTest, modified_chain_account_removed)
 		auto store = nano::make_store (logger, path);
 		ASSERT_TRUE (!store->init_error ());
 		nano::stat stats;
-		nano::ledger ledger (*store, stats);
+		nano::ledger ledger (*store, stats, nano::dev::constants);
 		nano::write_database_queue write_database_queue (false);
 		nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 		nano::keypair key1;
@@ -1359,7 +1359,7 @@ TEST (confirmation_height, unbounded_block_cache_iteration)
 	auto store = nano::make_store (logger, path);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	nano::write_database_queue write_database_queue (false);
 	boost::latch initialized_latch{ 0 };
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1409,7 +1409,7 @@ TEST (confirmation_height, pruned_source)
 	auto store = nano::make_store (logger, path);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	ledger.pruning = true;
 	nano::write_database_queue write_database_queue (false);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());

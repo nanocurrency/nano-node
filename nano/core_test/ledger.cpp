@@ -21,7 +21,7 @@ TEST (ledger, store_error)
 	nano::mdb_store store (logger, boost::filesystem::path ("///"));
 	ASSERT_TRUE (store.init_error ());
 	nano::stat stats;
-	nano::ledger ledger (store, stats);
+	nano::ledger ledger (store, stats, nano::dev::constants);
 }
 
 // Ledger can be initialized and returns a basic query for an empty account
@@ -31,7 +31,7 @@ TEST (ledger, empty)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	nano::account account;
 	auto transaction (store->tx_begin_read ());
 	auto balance (ledger.account_balance (transaction, account));
@@ -45,7 +45,7 @@ TEST (ledger, genesis_balance)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	auto balance (ledger.account_balance (transaction, nano::dev::genesis->account ()));
@@ -71,7 +71,7 @@ TEST (ledger, process_modifies_sideband)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	store->initialize (store->tx_begin_write (), ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::state_block send1 (nano::dev::genesis->account (), nano::dev::genesis->hash (), nano::dev::genesis->account (), nano::dev::constants.genesis_amount - nano::Gxrb_ratio, nano::dev::genesis->account (), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (nano::dev::genesis->hash ()));
@@ -86,7 +86,7 @@ TEST (ledger, process_send)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -185,7 +185,7 @@ TEST (ledger, process_receive)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -248,7 +248,7 @@ TEST (ledger, rollback_receiver)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -287,7 +287,7 @@ TEST (ledger, rollback_representation)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -340,7 +340,7 @@ TEST (ledger, receive_rollback)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -357,7 +357,7 @@ TEST (ledger, process_duplicate)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -379,7 +379,7 @@ TEST (ledger, representative_genesis)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	auto latest (ledger.latest (transaction, nano::dev::genesis_key.pub));
@@ -393,7 +393,7 @@ TEST (ledger, weight)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	ASSERT_EQ (nano::dev::constants.genesis_amount, ledger.weight (nano::dev::genesis->account ()));
@@ -405,7 +405,7 @@ TEST (ledger, representative_change)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	nano::keypair key2;
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
@@ -443,7 +443,7 @@ TEST (ledger, send_fork)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	nano::keypair key2;
 	nano::keypair key3;
 	auto transaction (store->tx_begin_write ());
@@ -463,7 +463,7 @@ TEST (ledger, receive_fork)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	nano::keypair key2;
 	nano::keypair key3;
 	auto transaction (store->tx_begin_write ());
@@ -489,7 +489,7 @@ TEST (ledger, open_fork)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	nano::keypair key2;
 	nano::keypair key3;
 	auto transaction (store->tx_begin_write ());
@@ -522,7 +522,7 @@ TEST (ledger, representation)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto & rep_weights = ledger.cache.rep_weights;
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
@@ -596,7 +596,7 @@ TEST (ledger, double_open)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -615,7 +615,7 @@ TEST (ledger, double_receive)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -893,7 +893,7 @@ TEST (ledger, fail_change_old)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -911,7 +911,7 @@ TEST (ledger, fail_change_gap_previous)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -927,7 +927,7 @@ TEST (ledger, fail_change_bad_signature)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -943,7 +943,7 @@ TEST (ledger, fail_change_fork)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -963,7 +963,7 @@ TEST (ledger, fail_send_old)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -981,7 +981,7 @@ TEST (ledger, fail_send_gap_previous)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -997,7 +997,7 @@ TEST (ledger, fail_send_bad_signature)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1013,7 +1013,7 @@ TEST (ledger, fail_send_negative_spend)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1031,7 +1031,7 @@ TEST (ledger, fail_send_fork)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1049,7 +1049,7 @@ TEST (ledger, fail_open_old)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1067,7 +1067,7 @@ TEST (ledger, fail_open_gap_source)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1083,7 +1083,7 @@ TEST (ledger, fail_open_bad_signature)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1101,7 +1101,7 @@ TEST (ledger, fail_open_fork_previous)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1123,7 +1123,7 @@ TEST (ledger, fail_open_account_mismatch)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1142,7 +1142,7 @@ TEST (ledger, fail_receive_old)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1164,7 +1164,7 @@ TEST (ledger, fail_receive_gap_source)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1189,7 +1189,7 @@ TEST (ledger, fail_receive_overreceive)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1211,7 +1211,7 @@ TEST (ledger, fail_receive_bad_signature)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1236,7 +1236,7 @@ TEST (ledger, fail_receive_gap_previous_opened)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1261,7 +1261,7 @@ TEST (ledger, fail_receive_gap_previous_unopened)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1283,7 +1283,7 @@ TEST (ledger, fail_receive_fork_previous)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1312,7 +1312,7 @@ TEST (ledger, fail_receive_received_source)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1347,7 +1347,7 @@ TEST (ledger, latest_empty)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	nano::keypair key;
 	auto transaction (store->tx_begin_read ());
 	auto latest (ledger.latest (transaction, key.pub));
@@ -1360,7 +1360,7 @@ TEST (ledger, latest_root)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1378,7 +1378,7 @@ TEST (ledger, change_representative_move_representation)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	nano::keypair key1;
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
@@ -1402,7 +1402,7 @@ TEST (ledger, send_open_receive_rollback)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1460,7 +1460,7 @@ TEST (ledger, bootstrap_rep_weight)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	nano::account_info info1;
 	nano::keypair key2;
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1496,7 +1496,7 @@ TEST (ledger, block_destination_source)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1541,7 +1541,7 @@ TEST (ledger, state_account)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1556,7 +1556,7 @@ TEST (ledger, state_send_receive)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1597,7 +1597,7 @@ TEST (ledger, state_receive)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1631,7 +1631,7 @@ TEST (ledger, state_rep_change)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1658,7 +1658,7 @@ TEST (ledger, state_open)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1697,7 +1697,7 @@ TEST (ledger, send_after_state_fail)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1714,7 +1714,7 @@ TEST (ledger, receive_after_state_fail)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1731,7 +1731,7 @@ TEST (ledger, change_after_state_fail)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1748,7 +1748,7 @@ TEST (ledger, state_unreceivable_fail)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1771,7 +1771,7 @@ TEST (ledger, state_receive_bad_amount_fail)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1794,7 +1794,7 @@ TEST (ledger, state_no_link_amount_fail)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1811,7 +1811,7 @@ TEST (ledger, state_receive_wrong_account_fail)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1835,7 +1835,7 @@ TEST (ledger, state_open_state_fork)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1855,7 +1855,7 @@ TEST (ledger, state_state_open_fork)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1876,7 +1876,7 @@ TEST (ledger, state_open_previous_fail)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1893,7 +1893,7 @@ TEST (ledger, state_open_source_fail)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1910,7 +1910,7 @@ TEST (ledger, state_send_change)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1937,7 +1937,7 @@ TEST (ledger, state_receive_change)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1973,7 +1973,7 @@ TEST (ledger, state_open_old)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1993,7 +1993,7 @@ TEST (ledger, state_receive_old)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -2017,7 +2017,7 @@ TEST (ledger, state_rollback_send)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -2048,7 +2048,7 @@ TEST (ledger, state_rollback_receive)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -2074,7 +2074,7 @@ TEST (ledger, state_rollback_received_send)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -2101,7 +2101,7 @@ TEST (ledger, state_rep_change_rollback)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -2121,7 +2121,7 @@ TEST (ledger, state_open_rollback)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -2147,7 +2147,7 @@ TEST (ledger, state_send_change_rollback)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -2168,7 +2168,7 @@ TEST (ledger, state_receive_change_rollback)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -2191,7 +2191,7 @@ TEST (ledger, epoch_blocks_v1_general)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -2261,7 +2261,7 @@ TEST (ledger, epoch_blocks_v2_general)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -2326,7 +2326,7 @@ TEST (ledger, epoch_blocks_receive_upgrade)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -2406,7 +2406,7 @@ TEST (ledger, epoch_blocks_fork)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -2587,7 +2587,7 @@ TEST (ledger, could_fit)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -2823,7 +2823,7 @@ TEST (ledger, confirmation_height_not_updated)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -2884,7 +2884,7 @@ TEST (ledger, work_validation)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	store->initialize (store->tx_begin_write (), ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::block_builder builder;
@@ -2977,7 +2977,7 @@ TEST (ledger, dependents_confirmed)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	ASSERT_TRUE (ledger.dependents_confirmed (transaction, *nano::dev::genesis));
@@ -3049,7 +3049,7 @@ TEST (ledger, dependents_confirmed_pruning)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	ledger.pruning = true;
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
@@ -3100,7 +3100,7 @@ TEST (ledger, block_confirmed)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	ASSERT_TRUE (ledger.block_confirmed (transaction, nano::dev::genesis->hash ()));
@@ -3132,7 +3132,7 @@ TEST (ledger, cache)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	store->initialize (store->tx_begin_write (), ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::block_builder builder;
@@ -3184,7 +3184,7 @@ TEST (ledger, cache)
 		++block_count;
 		--genesis_weight;
 		cache_check (ledger.cache);
-		cache_check (nano::ledger (*store, stats).cache);
+		cache_check (nano::ledger (*store, stats, nano::dev::constants).cache);
 
 		{
 			auto transaction (store->tx_begin_write ());
@@ -3194,7 +3194,7 @@ TEST (ledger, cache)
 		++block_count;
 		++account_count;
 		cache_check (ledger.cache);
-		cache_check (nano::ledger (*store, stats).cache);
+		cache_check (nano::ledger (*store, stats, nano::dev::constants).cache);
 
 		{
 			auto transaction (store->tx_begin_write ());
@@ -3209,7 +3209,7 @@ TEST (ledger, cache)
 
 		++cemented_count;
 		cache_check (ledger.cache);
-		cache_check (nano::ledger (*store, stats).cache);
+		cache_check (nano::ledger (*store, stats, nano::dev::constants).cache);
 
 		{
 			auto transaction (store->tx_begin_write ());
@@ -3224,7 +3224,7 @@ TEST (ledger, cache)
 
 		++cemented_count;
 		cache_check (ledger.cache);
-		cache_check (nano::ledger (*store, stats).cache);
+		cache_check (nano::ledger (*store, stats, nano::dev::constants).cache);
 
 		{
 			auto transaction (store->tx_begin_write ());
@@ -3233,7 +3233,7 @@ TEST (ledger, cache)
 		}
 		++pruned_count;
 		cache_check (ledger.cache);
-		cache_check (nano::ledger (*store, stats).cache);
+		cache_check (nano::ledger (*store, stats, nano::dev::constants).cache);
 	}
 }
 
@@ -3243,7 +3243,7 @@ TEST (ledger, pruning_action)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	ledger.pruning = true;
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
@@ -3299,7 +3299,7 @@ TEST (ledger, pruning_large_chain)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	ledger.pruning = true;
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
@@ -3335,7 +3335,7 @@ TEST (ledger, pruning_source_rollback)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	ledger.pruning = true;
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
@@ -3386,7 +3386,7 @@ TEST (ledger, pruning_source_rollback_legacy)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	ledger.pruning = true;
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
@@ -3464,7 +3464,7 @@ TEST (ledger, pruning_process_error)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	ledger.pruning = true;
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
@@ -3492,7 +3492,7 @@ TEST (ledger, pruning_legacy_blocks)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	ledger.pruning = true;
 	nano::keypair key1;
 	auto transaction (store->tx_begin_write ());
@@ -3537,7 +3537,7 @@ TEST (ledger, pruning_safe_functions)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	ledger.pruning = true;
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
@@ -3579,7 +3579,7 @@ TEST (ledger, hash_root_random)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	ledger.pruning = true;
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
@@ -3624,7 +3624,7 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 	uint16_t port = 100;
 	nano::mdb_store store (logger, path / "data.ldb");
 	nano::stat stats;
-	nano::ledger ledger (store, stats);
+	nano::ledger ledger (store, stats, nano::dev::constants);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 
 	auto send = nano::state_block_builder ()
@@ -3703,7 +3703,7 @@ TEST (ledger, unconfirmed_frontiers)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	store->initialize (store->tx_begin_write (), ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 
