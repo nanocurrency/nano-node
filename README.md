@@ -1,10 +1,6 @@
-<hr />
-<div align="center">
+<p style="text-align:center;"><img src="/images/logo.svg" width"300px" height="auto" alt="Logo"></p>
 
-    <img src="images/logo.svg" alt="Logo" width='300px' height='auto'/>
 
-</div>
-<hr />
 
 [![Live Artifacts](https://github.com/nanocurrency/nano-node/workflows/Live/badge.svg)](https://github.com/nanocurrency/nano-node/actions?query=workflow%3ALive)
 [![Beta Artifacts](https://github.com/nanocurrency/nano-node/workflows/Beta/badge.svg)](https://github.com/nanocurrency/nano-node/actions?query=workflow%3ABeta)
