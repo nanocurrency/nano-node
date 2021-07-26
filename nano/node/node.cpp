@@ -785,7 +785,7 @@ void nano::node::ongoing_rep_calculation ()
 
 void nano::node::ongoing_bootstrap ()
 {
-	auto next_wakeup (network_params.node.bootstrap_interval);
+	auto next_wakeup = network_params.network.bootstrap_interval;
 	if (warmed_up < 3)
 	{
 		// Re-attempt bootstrapping more aggressively on startup
@@ -848,7 +848,7 @@ void nano::node::ongoing_peer_store ()
 	bool stored (network.tcp_channels.store_all (true));
 	network.udp_channels.store_all (!stored);
 	std::weak_ptr<nano::node> node_w (shared_from_this ());
-	workers.add_timed_task (std::chrono::steady_clock::now () + network_params.node.peer_interval, [node_w] () {
+	workers.add_timed_task (std::chrono::steady_clock::now () + network_params.network.peer_dump_interval, [node_w] () {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->ongoing_peer_store ();
