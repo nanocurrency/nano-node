@@ -100,7 +100,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (application_path_a / "wallets.ldb", config_a.lmdb_config)),
 	wallets_store (*wallets_store_impl),
 	gap_cache (*this),
-	ledger (store, stats, flags_a.generate_cache),
+	ledger (store, stats, network_params.ledger, flags_a.generate_cache),
 	checker (config.signature_checker_threads),
 	network (*this, config.peering_port),
 	telemetry (std::make_shared<nano::telemetry> (network, workers, observers.telemetry, stats, network_params, flags.disable_ongoing_telemetry_requests)),
@@ -1318,7 +1318,7 @@ void nano::node::process_confirmed_data (nano::transaction const & transaction_a
 	bool error (false);
 	auto previous_balance (ledger.balance_safe (transaction_a, previous, error));
 	auto block_balance (store.block.balance_calculated (block_a));
-	if (hash_a != ledger.network_params.ledger.genesis->account ())
+	if (hash_a != ledger.constants.genesis->account ())
 	{
 		if (!error)
 		{

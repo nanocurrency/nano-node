@@ -94,7 +94,7 @@ TEST (ledger, deep_account_compute)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -966,7 +966,7 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 	auto store = nano::make_store (logger, path);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
-	nano::ledger ledger (*store, stats);
+	nano::ledger ledger (*store, stats, nano::dev::constants);
 	nano::write_database_queue write_database_queue (false);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	std::atomic<bool> stopped{ false };

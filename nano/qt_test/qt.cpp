@@ -516,7 +516,7 @@ TEST (history, short_text)
 	auto store = nano::make_store (system.nodes[0]->logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::genesis genesis;
-	nano::ledger ledger (*store, system.nodes[0]->stats);
+	nano::ledger ledger (*store, system.nodes[0]->stats, nano::dev::constants);
 	{
 		auto transaction (store->tx_begin_write ());
 		store->initialize (transaction, ledger.cache);
@@ -554,7 +554,7 @@ TEST (history, pruned_source)
 	auto store = nano::make_store (system.nodes[0]->logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::genesis genesis;
-	nano::ledger ledger (*store, system.nodes[0]->stats);
+	nano::ledger ledger (*store, system.nodes[0]->stats, nano::dev::constants);
 	ledger.pruning = true;
 	nano::block_hash next_pruning;
 	// Basic pruning for legacy blocks. Previous block is pruned, source is pruned
