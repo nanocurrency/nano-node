@@ -12,8 +12,18 @@
 #include <numeric>
 
 nano::network::network (nano::node & node_a, uint16_t port_a) :
-	syn_cookies (node_a.network_params.node.max_peers_per_ip),
-	inbound{ [this] (nano::message const & message, std::shared_ptr<nano::transport::channel> const & channel) { process_message (message, channel); } },
+	id (nano::network_constants::active_network),
+	syn_cookies (node_a.network_params.network.max_peers_per_ip),
+	inbound{ [this] (nano::message const & message, std::shared_ptr<nano::transport::channel> const & channel) {
+		if (message.header.network == id)
+		{
+			process_message (message, channel);
+		}
+		else
+		{
+			this->node.stats.inc (nano::stat::type::message, nano::stat::detail::invalid_network);
+		}
+	} },
 	buffer_container (node_a.stats, nano::network::buffer_size, 4096), // 2Mb receive buffer
 	resolver (node_a.io_ctx),
 	limiter (node_a.config.bandwidth_limit_burst_ratio, node_a.config.bandwidth_limit),
@@ -735,9 +745,9 @@ void nano::network::cleanup (std::chrono::steady_clock::time_point const & cutof
 
 void nano::network::ongoing_cleanup ()
 {
-	cleanup (std::chrono::steady_clock::now () - node.network_params.node.cutoff);
+	cleanup (std::chrono::steady_clock::now () - node.network_params.network.cleanup_cutoff ());
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.workers.add_timed_task (std::chrono::steady_clock::now () + node.network_params.node.period, [node_w] () {
+	node.workers.add_timed_task (std::chrono::steady_clock::now () + node.network_params.network.cleanup_period, [node_w] () {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->network.ongoing_cleanup ();
@@ -762,7 +772,7 @@ void nano::network::ongoing_keepalive ()
 	flood_keepalive (0.75f);
 	flood_keepalive_self (0.25f);
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.workers.add_timed_task (std::chrono::steady_clock::now () + node.network_params.node.half_period, [node_w] () {
+	node.workers.add_timed_task (std::chrono::steady_clock::now () + node.network_params.network.cleanup_period_half (), [node_w] () {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->network.ongoing_keepalive ();

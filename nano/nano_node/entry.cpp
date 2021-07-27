@@ -887,7 +887,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_process"))
 		{
-			nano::network_constants::set_active_network (nano::nano_networks::nano_dev_network);
+			nano::network_constants::set_active_network (nano::networks::nano_dev_network);
 			nano::network_params dev_params;
 			nano::block_builder builder;
 			size_t num_accounts (100000);
@@ -899,7 +899,7 @@ int main (int argc, char * const * argv)
 			nano::inactive_node inactive_node (nano::unique_path (), data_path, node_flags);
 			auto node = inactive_node.node;
 
-			nano::block_hash genesis_latest (node->latest (dev_params.ledger.dev_genesis_key.pub));
+			nano::block_hash genesis_latest (node->latest (nano::dev::genesis_key.pub));
 			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
 			// Generating keys
 			std::vector<nano::keypair> keys (num_accounts);
@@ -912,12 +912,12 @@ int main (int argc, char * const * argv)
 				genesis_balance = genesis_balance - 1000000000;
 
 				auto send = builder.state ()
-							.account (dev_params.ledger.dev_genesis_key.pub)
+							.account (nano::dev::genesis_key.pub)
 							.previous (genesis_latest)
-							.representative (dev_params.ledger.dev_genesis_key.pub)
+							.representative (nano::dev::genesis_key.pub)
 							.balance (genesis_balance)
 							.link (keys[i].pub)
-							.sign (dev_params.ledger.dev_genesis_key.prv, dev_params.ledger.dev_genesis_key.pub)
+							.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 							.work (*node->work.generate (nano::work_version::work_1, genesis_latest, node->network_params.network.publish_thresholds.epoch_1))
 							.build ();
 
@@ -1004,7 +1004,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_votes"))
 		{
-			nano::network_constants::set_active_network (nano::nano_networks::nano_dev_network);
+			nano::network_constants::set_active_network (nano::networks::nano_dev_network);
 			nano::network_params dev_params;
 			nano::block_builder builder;
 			size_t num_elections (40000);
@@ -1016,7 +1016,7 @@ int main (int argc, char * const * argv)
 			nano::node_wrapper node_wrapper (nano::unique_path (), data_path, node_flags);
 			auto node = node_wrapper.node;
 
-			nano::block_hash genesis_latest (node->latest (dev_params.ledger.dev_genesis_key.pub));
+			nano::block_hash genesis_latest (node->latest (nano::dev::genesis_key.pub));
 			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
 			// Generating keys
 			std::vector<nano::keypair> keys (num_representatives);
@@ -1027,12 +1027,12 @@ int main (int argc, char * const * argv)
 				genesis_balance = genesis_balance - balance;
 
 				auto send = builder.state ()
-							.account (dev_params.ledger.dev_genesis_key.pub)
+							.account (nano::dev::genesis_key.pub)
 							.previous (genesis_latest)
-							.representative (dev_params.ledger.dev_genesis_key.pub)
+							.representative (nano::dev::genesis_key.pub)
 							.balance (genesis_balance)
 							.link (keys[i].pub)
-							.sign (dev_params.ledger.dev_genesis_key.prv, dev_params.ledger.dev_genesis_key.pub)
+							.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 							.work (*node->work.generate (nano::work_version::work_1, genesis_latest, node->network_params.network.publish_thresholds.epoch_1))
 							.build ();
 
@@ -1059,12 +1059,12 @@ int main (int argc, char * const * argv)
 				nano::keypair destination;
 
 				auto send = builder.state ()
-							.account (dev_params.ledger.dev_genesis_key.pub)
+							.account (nano::dev::genesis_key.pub)
 							.previous (genesis_latest)
-							.representative (dev_params.ledger.dev_genesis_key.pub)
+							.representative (nano::dev::genesis_key.pub)
 							.balance (genesis_balance)
 							.link (destination.pub)
-							.sign (dev_params.ledger.dev_genesis_key.prv, dev_params.ledger.dev_genesis_key.pub)
+							.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 							.work (*node->work.generate (nano::work_version::work_1, genesis_latest, node->network_params.network.publish_thresholds.epoch_1))
 							.build ();
 
@@ -1156,7 +1156,7 @@ int main (int argc, char * const * argv)
 			flags.disable_wallet_bootstrap = true;
 			flags.disable_bootstrap_listener = true;
 			auto node1 (std::make_shared<nano::node> (io_ctx1, path1, config1, work, flags, 0));
-			nano::block_hash genesis_latest (node1->latest (dev_params.ledger.dev_genesis_key.pub));
+			nano::block_hash genesis_latest (node1->latest (nano::dev::genesis_key.pub));
 			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
 			// Generating blocks
 			std::deque<std::shared_ptr<nano::block>> blocks;
@@ -1166,12 +1166,12 @@ int main (int argc, char * const * argv)
 				genesis_balance = genesis_balance - 1;
 
 				auto send = builder.state ()
-							.account (dev_params.ledger.dev_genesis_key.pub)
+							.account (nano::dev::genesis_key.pub)
 							.previous (genesis_latest)
-							.representative (dev_params.ledger.dev_genesis_key.pub)
+							.representative (nano::dev::genesis_key.pub)
 							.balance (genesis_balance)
 							.link (key.pub)
-							.sign (dev_params.ledger.dev_genesis_key.prv, dev_params.ledger.dev_genesis_key.pub)
+							.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
 							.work (*work.generate (nano::work_version::work_1, genesis_latest, dev_params.network.publish_thresholds.epoch_1))
 							.build ();
 
@@ -1264,7 +1264,7 @@ int main (int argc, char * const * argv)
 			// Insert representative
 			std::cout << "Initializing representative\n";
 			auto wallet (node1->wallets.create (nano::random_wallet_id ()));
-			wallet->insert_adhoc (dev_params.ledger.dev_genesis_key.prv);
+			wallet->insert_adhoc (nano::dev::genesis_key.prv);
 			node2->network.merge_peer (node1->network.endpoint ());
 			while (node2->rep_crawler.representative_count () == 0)
 			{

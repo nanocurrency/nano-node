@@ -105,11 +105,11 @@ void nano::json_handler::process_request (bool unsafe_a)
 			{
 				mnano_to_raw (nano::kxrb_ratio);
 			}
-			else if (action == "nano_from_raw" || action == "rai_from_raw")
+			else if (action == "rai_from_raw")
 			{
 				mnano_from_raw (nano::xrb_ratio);
 			}
-			else if (action == "nano_to_raw" || action == "rai_to_raw")
+			else if (action == "rai_to_raw")
 			{
 				mnano_to_raw (nano::xrb_ratio);
 			}
@@ -120,6 +120,14 @@ void nano::json_handler::process_request (bool unsafe_a)
 			else if (action == "mnano_to_raw" || action == "mrai_to_raw")
 			{
 				mnano_to_raw ();
+			}
+			else if (action == "nano_to_raw")
+			{
+				nano_to_raw ();
+			}
+			else if (action == "raw_to_nano")
+			{
+				raw_to_nano ();
 			}
 			else if (action == "password_valid")
 			{
@@ -654,7 +662,7 @@ void nano::json_handler::account_info ()
 			std::shared_ptr<nano::block> confirmed_frontier_block;
 			if (include_confirmed && confirmation_height_info.height > 0)
 			{
-				confirmed_frontier_block = node.store.block.get (transaction, confirmed_frontier);
+				confirmed_frontier_block = node.store.block.get (transaction, confirmation_height_info.frontier);
 			}
 
 			if (representative)
@@ -668,7 +676,7 @@ void nano::json_handler::account_info ()
 						confirmed_representative = confirmed_frontier_block->representative ();
 						if (confirmed_representative.is_zero ())
 						{
-							confirmed_representative = node.store.block.get (transaction, node.ledger.representative (transaction, confirmed_frontier))->representative ();
+							confirmed_representative = node.store.block.get (transaction, node.ledger.representative (transaction, confirmation_height_info.frontier))->representative ();
 						}
 					}
 
@@ -1002,7 +1010,10 @@ void nano::json_handler::accounts_pending ()
 					});
 				}
 			}
-			pending.add_child (account.to_account (), peers_l);
+			if (!peers_l.empty ())
+			{
+				pending.add_child (account.to_account (), peers_l);
+			}
 		}
 	}
 	response_l.add_child ("blocks", pending);
@@ -1038,11 +1049,11 @@ void nano::json_handler::active_difficulty ()
 
 void nano::json_handler::available_supply ()
 {
-	auto genesis_balance (node.balance (node.network_params.ledger.genesis_account)); // Cold storage genesis
+	auto genesis_balance (node.balance (node.network_params.ledger.genesis->account ())); // Cold storage genesis
 	auto landing_balance (node.balance (nano::account ("059F68AAB29DE0D3A27443625C7EA9CDDB6517A8B76FE37727EF6A4D76832AD5"))); // Active unavailable account
 	auto faucet_balance (node.balance (nano::account ("8E319CE6F3025E5B2DF66DA7AB1467FE48F1679C13DD43BFDB29FA2E9FC40D3B"))); // Faucet account
 	auto burned_balance ((node.balance_pending (nano::account (0), false)).second); // Burning 0 account
-	auto available (node.network_params.ledger.genesis_amount - genesis_balance - landing_balance - faucet_balance - burned_balance);
+	auto available (nano::dev::constants.genesis_amount - genesis_balance - landing_balance - faucet_balance - burned_balance);
 	response_l.put ("available", available.convert_to<std::string> ());
 	response_errors ();
 }
@@ -2315,7 +2326,7 @@ public:
 			// Report opens as a receive
 			tree.put ("type", "receive");
 		}
-		if (block_a.hashables.source != network_params.ledger.genesis_account)
+		if (block_a.hashables.source != network_params.ledger.genesis->account ())
 		{
 			bool error_or_pruned (false);
 			auto amount (handler.node.ledger.amount_safe (transaction, hash, error_or_pruned).convert_to<std::string> ());
@@ -2331,8 +2342,8 @@ public:
 		}
 		else
 		{
-			tree.put ("account", network_params.ledger.genesis_account.to_account ());
-			tree.put ("amount", network_params.ledger.genesis_amount.convert_to<std::string> ());
+			tree.put ("account", network_params.ledger.genesis->account ().to_account ());
+			tree.put ("amount", nano::dev::constants.genesis_amount.convert_to<std::string> ());
 		}
 	}
 	void change_block (nano::change_block const & block_a)
@@ -2728,6 +2739,7 @@ void nano::json_handler::ledger ()
 void nano::json_handler::mnano_from_raw (nano::uint128_t ratio)
 {
 	auto amount (amount_impl ());
+	response_l.put ("deprecated", "1");
 	if (!ec)
 	{
 		auto result (amount.number () / ratio);
@@ -2739,6 +2751,7 @@ void nano::json_handler::mnano_from_raw (nano::uint128_t ratio)
 void nano::json_handler::mnano_to_raw (nano::uint128_t ratio)
 {
 	auto amount (amount_impl ());
+	response_l.put ("deprecated", "1");
 	if (!ec)
 	{
 		auto result (amount.number () * ratio);
@@ -2750,6 +2763,35 @@ void nano::json_handler::mnano_to_raw (nano::uint128_t ratio)
 		{
 			ec = nano::error_common::invalid_amount_big;
 		}
+	}
+	response_errors ();
+}
+
+void nano::json_handler::nano_to_raw ()
+{
+	auto amount (amount_impl ());
+	if (!ec)
+	{
+		auto result (amount.number () * nano::Mxrb_ratio);
+		if (result > amount.number ())
+		{
+			response_l.put ("amount", result.convert_to<std::string> ());
+		}
+		else
+		{
+			ec = nano::error_common::invalid_amount_big;
+		}
+	}
+	response_errors ();
+}
+
+void nano::json_handler::raw_to_nano ()
+{
+	auto amount (amount_impl ());
+	if (!ec)
+	{
+		auto result (amount.number () / nano::Mxrb_ratio);
+		response_l.put ("amount", result.convert_to<std::string> ());
 	}
 	response_errors ();
 }
@@ -3260,7 +3302,7 @@ void nano::json_handler::receive ()
 						bool generate_work (work == 0); // Disable work generation if "work" option is provided
 						auto response_a (response);
 						wallet->receive_async (
-						hash, representative, node.network_params.ledger.genesis_amount, account, [response_a] (std::shared_ptr<nano::block> const & block_a) {
+						hash, representative, nano::dev::constants.genesis_amount, account, [response_a] (std::shared_ptr<nano::block> const & block_a) {
 							if (block_a != nullptr)
 							{
 								boost::property_tree::ptree response_l;
@@ -4143,7 +4185,7 @@ void nano::json_handler::version ()
 	response_l.put ("node_vendor", boost::str (boost::format ("Nano %1%") % NANO_VERSION_STRING));
 	response_l.put ("store_vendor", node.store.vendor_get ());
 	response_l.put ("network", node.network_params.network.get_current_network_as_string ());
-	response_l.put ("network_identifier", node.network_params.ledger.genesis_hash.to_string ());
+	response_l.put ("network_identifier", node.network_params.ledger.genesis->hash ().to_string ());
 	response_l.put ("build_info", BUILD_INFO);
 	response_errors ();
 }

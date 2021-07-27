@@ -29,4 +29,4 @@
 	branch = 6.13.3
 [submodule "diskhash"]
 	path = diskhash
-	url = https://github.com/luispedro/diskhash.git
+	url = https://github.com/nanocurrency/diskhash.git

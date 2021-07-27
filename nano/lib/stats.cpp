@@ -883,6 +883,9 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::generator_spacing:
 			res = "generator_spacing";
 			break;
+		case nano::stat::detail::invalid_network:
+			res = "invalid_network";
+			break;
 	}
 	return res;
 }

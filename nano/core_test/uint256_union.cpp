@@ -375,9 +375,9 @@ TEST (uint256_union, decode_nano_variant)
 TEST (uint256_union, account_transcode)
 {
 	nano::account value;
-	auto text (nano::dev_genesis_key.pub.to_account ());
+	auto text (nano::dev::genesis_key.pub.to_account ());
 	ASSERT_FALSE (value.decode_account (text));
-	ASSERT_EQ (nano::dev_genesis_key.pub, value);
+	ASSERT_EQ (nano::dev::genesis_key.pub, value);
 
 	/*
 	 * Handle different offsets for the underscore separator

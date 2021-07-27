@@ -367,20 +367,16 @@ class ledger_constants
 {
 public:
 	ledger_constants (nano::network_constants & network_constants);
-	ledger_constants (nano::nano_networks network_a);
+	ledger_constants (nano::networks network_a);
 	nano::keypair zero_key;
-	nano::keypair dev_genesis_key;
-	nano::account nano_dev_account;
 	nano::account nano_beta_account;
 	nano::account nano_live_account;
 	nano::account nano_test_account;
-	std::string nano_dev_genesis;
-	std::string nano_beta_genesis;
-	std::string nano_live_genesis;
-	std::string nano_test_genesis;
-	nano::account genesis_account;
-	std::string genesis_block;
-	nano::block_hash genesis_hash;
+	std::shared_ptr<nano::block> nano_dev_genesis;
+	std::shared_ptr<nano::block> nano_beta_genesis;
+	std::shared_ptr<nano::block> nano_live_genesis;
+	std::shared_ptr<nano::block> nano_test_genesis;
+	std::shared_ptr<nano::block> genesis;
 	nano::uint128_t genesis_amount;
 	nano::account burn_account;
 	nano::account nano_dev_final_votes_canary_account;
@@ -396,6 +392,13 @@ public:
 	nano::epochs epochs;
 };
 
+namespace dev
+{
+	extern nano::keypair genesis_key;
+	extern nano::ledger_constants constants;
+	extern std::shared_ptr<nano::block> & genesis;
+}
+
 /** Constants which depend on random values (this class should never be used globally due to CryptoPP globals potentially not being initialized) */
 class random_constants
 {
@@ -410,22 +413,10 @@ class node_constants
 {
 public:
 	node_constants (nano::network_constants & network_constants);
-	std::chrono::seconds period;
-	std::chrono::milliseconds half_period;
-	/** Default maximum idle time for a socket before it's automatically closed */
-	std::chrono::seconds idle_timeout;
-	std::chrono::seconds cutoff;
-	std::chrono::seconds syn_cookie_cutoff;
 	std::chrono::minutes backup_interval;
-	std::chrono::seconds bootstrap_interval;
 	std::chrono::seconds search_pending_interval;
-	std::chrono::seconds peer_interval;
 	std::chrono::minutes unchecked_cleaning_interval;
 	std::chrono::milliseconds process_confirmed_interval;
-	/** Maximum number of peers per IP */
-	size_t max_peers_per_ip;
-	/** Maximum number of peers per subnetwork */
-	size_t max_peers_per_subnetwork;
 
 	/** The maximum amount of samples for a 2 week period on live or 1 day on beta */
 	uint64_t max_weight_samples;
@@ -473,9 +464,8 @@ public:
 	network_params ();
 
 	/** Populate values based on \p network_a */
-	network_params (nano::nano_networks network_a);
+	network_params (nano::networks network_a);
 
-	std::array<uint8_t, 2> header_magic_number;
 	unsigned kdf_work;
 	network_constants network;
 	protocol_constants protocol;

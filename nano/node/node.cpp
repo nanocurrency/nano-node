@@ -100,7 +100,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (application_path_a / "wallets.ldb", config_a.lmdb_config)),
 	wallets_store (*wallets_store_impl),
 	gap_cache (*this),
-	ledger (store, stats, flags_a.generate_cache),
+	ledger (store, stats, network_params.ledger, flags_a.generate_cache),
 	checker (config.signature_checker_threads),
 	network (*this, config.peering_port),
 	telemetry (std::make_shared<nano::telemetry> (network, workers, observers.telemetry, stats, network_params, flags.disable_ongoing_telemetry_requests)),
@@ -349,7 +349,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 		{
 			auto transaction (store.tx_begin_write ({ tables::accounts, tables::blocks, tables::confirmation_height, tables::frontiers }));
 			// Store was empty meaning we just created it, add the genesis block
-			store.initialize (transaction, genesis, ledger.cache);
+			store.initialize (transaction, ledger.cache);
 		}
 
 		if (!ledger.block_or_pruned_exists (genesis.hash ()))
@@ -785,7 +785,7 @@ void nano::node::ongoing_rep_calculation ()
 
 void nano::node::ongoing_bootstrap ()
 {
-	auto next_wakeup (network_params.node.bootstrap_interval);
+	auto next_wakeup = network_params.network.bootstrap_interval;
 	if (warmed_up < 3)
 	{
 		// Re-attempt bootstrapping more aggressively on startup
@@ -848,7 +848,7 @@ void nano::node::ongoing_peer_store ()
 	bool stored (network.tcp_channels.store_all (true));
 	network.udp_channels.store_all (!stored);
 	std::weak_ptr<nano::node> node_w (shared_from_this ());
-	workers.add_timed_task (std::chrono::steady_clock::now () + network_params.node.peer_interval, [node_w] () {
+	workers.add_timed_task (std::chrono::steady_clock::now () + network_params.network.peer_dump_interval, [node_w] () {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->ongoing_peer_store ();
@@ -1318,7 +1318,7 @@ void nano::node::process_confirmed_data (nano::transaction const & transaction_a
 	bool error (false);
 	auto previous_balance (ledger.balance_safe (transaction_a, previous, error));
 	auto block_balance (store.block.balance_calculated (block_a));
-	if (hash_a != ledger.network_params.ledger.genesis_account)
+	if (hash_a != ledger.constants.genesis->account ())
 	{
 		if (!error)
 		{
@@ -1331,7 +1331,7 @@ void nano::node::process_confirmed_data (nano::transaction const & transaction_a
 	}
 	else
 	{
-		amount_a = ledger.network_params.ledger.genesis_amount;
+		amount_a = nano::dev::constants.genesis_amount;
 	}
 	if (auto state = dynamic_cast<nano::state_block *> (block_a.get ()))
 	{

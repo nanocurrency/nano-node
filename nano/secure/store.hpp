@@ -834,7 +834,7 @@ public:
 	);
 	// clang-format on
 	virtual ~store () = default;
-	virtual void initialize (nano::write_transaction const &, nano::genesis const &, nano::ledger_cache &) = 0;
+	virtual void initialize (nano::write_transaction const &, nano::ledger_cache &) = 0;
 	virtual bool root_exists (nano::transaction const &, nano::root const &) = 0;
 
 	block_store & block;

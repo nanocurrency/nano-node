@@ -120,6 +120,7 @@ class network final
 public:
 	network (nano::node &, uint16_t);
 	~network ();
+	nano::networks id;
 	void start ();
 	void stop ();
 	void flood_message (nano::message const &, nano::buffer_drop_policy const = nano::buffer_drop_policy::limiter, float const = 1.0f);

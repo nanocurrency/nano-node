@@ -50,6 +50,7 @@ uint64_t nano::ip_address_hash_raw (boost::asio::ip::address const & ip_a, uint1
 }
 
 nano::message_header::message_header (nano::message_type type_a) :
+	network (nano::network_constants::active_network),
 	version_max (get_protocol_constants ().protocol_version),
 	version_using (get_protocol_constants ().protocol_version),
 	type (type_a)
@@ -67,7 +68,7 @@ nano::message_header::message_header (bool & error_a, nano::stream & stream_a)
 void nano::message_header::serialize (nano::stream & stream_a) const
 {
 	static nano::network_params network_params;
-	nano::write (stream_a, network_params.header_magic_number);
+	nano::write (stream_a, boost::endian::native_to_big (static_cast<uint16_t> (network)));
 	nano::write (stream_a, version_max);
 	nano::write (stream_a, version_using);
 	nano::write (stream_a, get_protocol_constants ().protocol_version_min ());
@@ -81,18 +82,14 @@ bool nano::message_header::deserialize (nano::stream & stream_a)
 	try
 	{
 		static nano::network_params network_params;
-		uint16_t extensions_l;
-		std::array<uint8_t, 2> magic_number_l;
-		read (stream_a, magic_number_l);
-		if (magic_number_l != network_params.header_magic_number)
-		{
-			throw std::runtime_error ("Magic numbers do not match");
-		}
-
+		uint16_t network_bytes;
+		nano::read (stream_a, network_bytes);
+		network = static_cast<nano::networks> (boost::endian::big_to_native (network_bytes));
 		nano::read (stream_a, version_max);
 		nano::read (stream_a, version_using);
 		nano::read (stream_a, version_min_m);
 		nano::read (stream_a, type);
+		uint16_t extensions_l;
 		nano::read (stream_a, extensions_l);
 		extensions = extensions_l;
 	}

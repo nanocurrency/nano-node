@@ -53,14 +53,6 @@ class telemetry_data;
 class network_params;
 class system;
 
-extern nano::keypair const & zero_key;
-extern nano::keypair const & dev_genesis_key;
-extern std::string const & nano_dev_genesis;
-extern std::string const & genesis_block;
-extern nano::block_hash const & genesis_hash;
-extern nano::public_key const & nano_dev_account;
-extern nano::public_key const & genesis_account;
-extern nano::public_key const & burn_account;
 extern nano::uint128_t const & genesis_amount;
 
 class stringstream_mt_sink : public boost::iostreams::sink

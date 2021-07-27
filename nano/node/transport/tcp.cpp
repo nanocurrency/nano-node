@@ -329,7 +329,6 @@ void nano::transport::tcp_channels::process_message (nano::message const & messa
 				{
 					// Initial node_id_handshake request without node ID
 					debug_assert (message_a.header.type == nano::message_type::node_id_handshake);
-					debug_assert (type_a == nano::socket::type_t::undefined);
 					node.stats.inc (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in);
 				}
 			}
@@ -375,10 +374,10 @@ bool nano::transport::tcp_channels::max_ip_connections (nano::tcp_endpoint const
 		auto const address (nano::transport::ipv4_address_or_ipv6_subnet (endpoint_a.address ()));
 		auto const subnet (nano::transport::map_address_to_subnetwork (endpoint_a.address ()));
 		nano::unique_lock<nano::mutex> lock (mutex);
-		result = channels.get<ip_address_tag> ().count (address) >= node.network_params.node.max_peers_per_ip || channels.get<subnetwork_tag> ().count (subnet) >= node.network_params.node.max_peers_per_subnetwork;
+		result = channels.get<ip_address_tag> ().count (address) >= node.network_params.network.max_peers_per_ip || channels.get<subnetwork_tag> ().count (subnet) >= node.network_params.network.max_peers_per_subnetwork;
 		if (!result)
 		{
-			result = attempts.get<ip_address_tag> ().count (address) >= node.network_params.node.max_peers_per_ip || attempts.get<subnetwork_tag> ().count (subnet) >= node.network_params.node.max_peers_per_subnetwork;
+			result = attempts.get<ip_address_tag> ().count (address) >= node.network_params.network.max_peers_per_ip || attempts.get<subnetwork_tag> ().count (subnet) >= node.network_params.network.max_peers_per_subnetwork;
 		}
 	}
 	if (result)
@@ -451,7 +450,7 @@ void nano::transport::tcp_channels::ongoing_keepalive ()
 	nano::unique_lock<nano::mutex> lock (mutex);
 	// Wake up channels
 	std::vector<std::shared_ptr<nano::transport::channel_tcp>> send_list;
-	auto keepalive_sent_cutoff (channels.get<last_packet_sent_tag> ().lower_bound (std::chrono::steady_clock::now () - node.network_params.node.period));
+	auto keepalive_sent_cutoff (channels.get<last_packet_sent_tag> ().lower_bound (std::chrono::steady_clock::now () - node.network_params.network.cleanup_period));
 	for (auto i (channels.get<last_packet_sent_tag> ().begin ()); i != keepalive_sent_cutoff; ++i)
 	{
 		send_list.push_back (i->channel);
@@ -476,7 +475,7 @@ void nano::transport::tcp_channels::ongoing_keepalive ()
 		}
 	}
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.workers.add_timed_task (std::chrono::steady_clock::now () + node.network_params.node.half_period, [node_w] () {
+	node.workers.add_timed_task (std::chrono::steady_clock::now () + node.network_params.network.cleanup_period_half (), [node_w] () {
 		if (auto node_l = node_w.lock ())
 		{
 			if (!node_l->network.tcp_channels.stopped)
@@ -585,7 +584,7 @@ void nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint_a
 				channel->send_buffer (bytes, [node_w, channel, endpoint_a, receive_buffer, callback_a] (boost::system::error_code const & ec, size_t size_a) {
 					if (auto node_l = node_w.lock ())
 					{
-						if (!ec && channel)
+						if (!ec)
 						{
 							node_l->network.tcp_channels.start_tcp_receive_node_id (channel, endpoint_a, receive_buffer, callback_a);
 						}
