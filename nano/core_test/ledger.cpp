@@ -18,7 +18,7 @@ TEST (ledger, store_error)
 		return;
 	}
 	nano::logger_mt logger;
-	nano::mdb_store store (logger, boost::filesystem::path ("///"));
+	nano::mdb_store store (logger, boost::filesystem::path ("///"), nano::dev::constants);
 	ASSERT_TRUE (store.init_error ());
 	nano::stat stats;
 	nano::ledger ledger (store, stats, nano::dev::constants);
@@ -28,7 +28,7 @@ TEST (ledger, store_error)
 TEST (ledger, empty)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -42,7 +42,7 @@ TEST (ledger, empty)
 TEST (ledger, genesis_balance)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -68,7 +68,7 @@ TEST (ledger, genesis_balance)
 TEST (ledger, process_modifies_sideband)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -83,7 +83,7 @@ TEST (ledger, process_modifies_sideband)
 TEST (ledger, process_send)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -182,7 +182,7 @@ TEST (ledger, process_send)
 TEST (ledger, process_receive)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -245,7 +245,7 @@ TEST (ledger, process_receive)
 TEST (ledger, rollback_receiver)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -284,7 +284,7 @@ TEST (ledger, rollback_receiver)
 TEST (ledger, rollback_representation)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -337,7 +337,7 @@ TEST (ledger, rollback_representation)
 TEST (ledger, receive_rollback)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -354,7 +354,7 @@ TEST (ledger, receive_rollback)
 TEST (ledger, process_duplicate)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -376,7 +376,7 @@ TEST (ledger, process_duplicate)
 TEST (ledger, representative_genesis)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -390,7 +390,7 @@ TEST (ledger, representative_genesis)
 TEST (ledger, weight)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -402,7 +402,7 @@ TEST (ledger, weight)
 TEST (ledger, representative_change)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -440,7 +440,7 @@ TEST (ledger, representative_change)
 TEST (ledger, send_fork)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -460,7 +460,7 @@ TEST (ledger, send_fork)
 TEST (ledger, receive_fork)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -486,7 +486,7 @@ TEST (ledger, receive_fork)
 TEST (ledger, open_fork)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -519,7 +519,7 @@ TEST (ledger, representation_changes)
 TEST (ledger, representation)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -593,7 +593,7 @@ TEST (ledger, representation)
 TEST (ledger, double_open)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -612,7 +612,7 @@ TEST (ledger, double_open)
 TEST (ledger, double_receive)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -890,7 +890,7 @@ TEST (ledger, successor)
 TEST (ledger, fail_change_old)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -908,7 +908,7 @@ TEST (ledger, fail_change_old)
 TEST (ledger, fail_change_gap_previous)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -924,7 +924,7 @@ TEST (ledger, fail_change_gap_previous)
 TEST (ledger, fail_change_bad_signature)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -940,7 +940,7 @@ TEST (ledger, fail_change_bad_signature)
 TEST (ledger, fail_change_fork)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -960,7 +960,7 @@ TEST (ledger, fail_change_fork)
 TEST (ledger, fail_send_old)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -978,7 +978,7 @@ TEST (ledger, fail_send_old)
 TEST (ledger, fail_send_gap_previous)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -994,7 +994,7 @@ TEST (ledger, fail_send_gap_previous)
 TEST (ledger, fail_send_bad_signature)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1010,7 +1010,7 @@ TEST (ledger, fail_send_bad_signature)
 TEST (ledger, fail_send_negative_spend)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1028,7 +1028,7 @@ TEST (ledger, fail_send_negative_spend)
 TEST (ledger, fail_send_fork)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1046,7 +1046,7 @@ TEST (ledger, fail_send_fork)
 TEST (ledger, fail_open_old)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1064,7 +1064,7 @@ TEST (ledger, fail_open_old)
 TEST (ledger, fail_open_gap_source)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1080,7 +1080,7 @@ TEST (ledger, fail_open_gap_source)
 TEST (ledger, fail_open_bad_signature)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1098,7 +1098,7 @@ TEST (ledger, fail_open_bad_signature)
 TEST (ledger, fail_open_fork_previous)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1120,7 +1120,7 @@ TEST (ledger, fail_open_fork_previous)
 TEST (ledger, fail_open_account_mismatch)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1139,7 +1139,7 @@ TEST (ledger, fail_open_account_mismatch)
 TEST (ledger, fail_receive_old)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1161,7 +1161,7 @@ TEST (ledger, fail_receive_old)
 TEST (ledger, fail_receive_gap_source)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1186,7 +1186,7 @@ TEST (ledger, fail_receive_gap_source)
 TEST (ledger, fail_receive_overreceive)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1208,7 +1208,7 @@ TEST (ledger, fail_receive_overreceive)
 TEST (ledger, fail_receive_bad_signature)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1233,7 +1233,7 @@ TEST (ledger, fail_receive_bad_signature)
 TEST (ledger, fail_receive_gap_previous_opened)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1258,7 +1258,7 @@ TEST (ledger, fail_receive_gap_previous_opened)
 TEST (ledger, fail_receive_gap_previous_unopened)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1280,7 +1280,7 @@ TEST (ledger, fail_receive_gap_previous_unopened)
 TEST (ledger, fail_receive_fork_previous)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1309,7 +1309,7 @@ TEST (ledger, fail_receive_fork_previous)
 TEST (ledger, fail_receive_received_source)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1344,7 +1344,7 @@ TEST (ledger, fail_receive_received_source)
 TEST (ledger, latest_empty)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1357,7 +1357,7 @@ TEST (ledger, latest_empty)
 TEST (ledger, latest_root)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1375,7 +1375,7 @@ TEST (ledger, latest_root)
 TEST (ledger, change_representative_move_representation)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1399,7 +1399,7 @@ TEST (ledger, change_representative_move_representation)
 TEST (ledger, send_open_receive_rollback)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1457,7 +1457,7 @@ TEST (ledger, send_open_receive_rollback)
 TEST (ledger, bootstrap_rep_weight)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1493,7 +1493,7 @@ TEST (ledger, bootstrap_rep_weight)
 TEST (ledger, block_destination_source)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1538,7 +1538,7 @@ TEST (ledger, block_destination_source)
 TEST (ledger, state_account)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1553,7 +1553,7 @@ TEST (ledger, state_account)
 TEST (ledger, state_send_receive)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1594,7 +1594,7 @@ TEST (ledger, state_send_receive)
 TEST (ledger, state_receive)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1628,7 +1628,7 @@ TEST (ledger, state_receive)
 TEST (ledger, state_rep_change)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1655,7 +1655,7 @@ TEST (ledger, state_rep_change)
 TEST (ledger, state_open)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1694,7 +1694,7 @@ TEST (ledger, state_open)
 TEST (ledger, send_after_state_fail)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1711,7 +1711,7 @@ TEST (ledger, send_after_state_fail)
 TEST (ledger, receive_after_state_fail)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1728,7 +1728,7 @@ TEST (ledger, receive_after_state_fail)
 TEST (ledger, change_after_state_fail)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1745,7 +1745,7 @@ TEST (ledger, change_after_state_fail)
 TEST (ledger, state_unreceivable_fail)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1768,7 +1768,7 @@ TEST (ledger, state_unreceivable_fail)
 TEST (ledger, state_receive_bad_amount_fail)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1791,7 +1791,7 @@ TEST (ledger, state_receive_bad_amount_fail)
 TEST (ledger, state_no_link_amount_fail)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1808,7 +1808,7 @@ TEST (ledger, state_no_link_amount_fail)
 TEST (ledger, state_receive_wrong_account_fail)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1832,7 +1832,7 @@ TEST (ledger, state_receive_wrong_account_fail)
 TEST (ledger, state_open_state_fork)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1852,7 +1852,7 @@ TEST (ledger, state_open_state_fork)
 TEST (ledger, state_state_open_fork)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1873,7 +1873,7 @@ TEST (ledger, state_state_open_fork)
 TEST (ledger, state_open_previous_fail)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1890,7 +1890,7 @@ TEST (ledger, state_open_previous_fail)
 TEST (ledger, state_open_source_fail)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1907,7 +1907,7 @@ TEST (ledger, state_open_source_fail)
 TEST (ledger, state_send_change)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1934,7 +1934,7 @@ TEST (ledger, state_send_change)
 TEST (ledger, state_receive_change)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1970,7 +1970,7 @@ TEST (ledger, state_receive_change)
 TEST (ledger, state_open_old)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1990,7 +1990,7 @@ TEST (ledger, state_open_old)
 TEST (ledger, state_receive_old)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -2014,7 +2014,7 @@ TEST (ledger, state_receive_old)
 TEST (ledger, state_rollback_send)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -2045,7 +2045,7 @@ TEST (ledger, state_rollback_send)
 TEST (ledger, state_rollback_receive)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -2071,7 +2071,7 @@ TEST (ledger, state_rollback_receive)
 TEST (ledger, state_rollback_received_send)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -2098,7 +2098,7 @@ TEST (ledger, state_rollback_received_send)
 TEST (ledger, state_rep_change_rollback)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -2118,7 +2118,7 @@ TEST (ledger, state_rep_change_rollback)
 TEST (ledger, state_open_rollback)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -2144,7 +2144,7 @@ TEST (ledger, state_open_rollback)
 TEST (ledger, state_send_change_rollback)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -2165,7 +2165,7 @@ TEST (ledger, state_send_change_rollback)
 TEST (ledger, state_receive_change_rollback)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -2188,7 +2188,7 @@ TEST (ledger, state_receive_change_rollback)
 TEST (ledger, epoch_blocks_v1_general)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -2258,7 +2258,7 @@ TEST (ledger, epoch_blocks_v1_general)
 TEST (ledger, epoch_blocks_v2_general)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -2323,7 +2323,7 @@ TEST (ledger, epoch_blocks_v2_general)
 TEST (ledger, epoch_blocks_receive_upgrade)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -2403,7 +2403,7 @@ TEST (ledger, epoch_blocks_receive_upgrade)
 TEST (ledger, epoch_blocks_fork)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -2584,7 +2584,7 @@ TEST (ledger, block_hash_account_conflict)
 TEST (ledger, could_fit)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -2820,7 +2820,7 @@ TEST (ledger, unchecked_receive)
 TEST (ledger, confirmation_height_not_updated)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -2881,7 +2881,7 @@ TEST (ledger, zero_rep)
 TEST (ledger, work_validation)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -2974,7 +2974,7 @@ TEST (ledger, dependents_confirmed)
 {
 	nano::block_builder builder;
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -3046,7 +3046,7 @@ TEST (ledger, dependents_confirmed_pruning)
 {
 	nano::block_builder builder;
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -3097,7 +3097,7 @@ TEST (ledger, block_confirmed)
 {
 	nano::block_builder builder;
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -3129,7 +3129,7 @@ TEST (ledger, block_confirmed)
 TEST (ledger, cache)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -3240,7 +3240,7 @@ TEST (ledger, cache)
 TEST (ledger, pruning_action)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -3296,7 +3296,7 @@ TEST (ledger, pruning_action)
 TEST (ledger, pruning_large_chain)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -3332,7 +3332,7 @@ TEST (ledger, pruning_large_chain)
 TEST (ledger, pruning_source_rollback)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -3383,7 +3383,7 @@ TEST (ledger, pruning_source_rollback)
 TEST (ledger, pruning_source_rollback_legacy)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -3461,7 +3461,7 @@ TEST (ledger, pruning_source_rollback_legacy)
 TEST (ledger, pruning_process_error)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -3489,7 +3489,7 @@ TEST (ledger, pruning_process_error)
 TEST (ledger, pruning_legacy_blocks)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -3534,7 +3534,7 @@ TEST (ledger, pruning_legacy_blocks)
 TEST (ledger, pruning_safe_functions)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -3576,7 +3576,7 @@ TEST (ledger, pruning_safe_functions)
 TEST (ledger, hash_root_random)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -3622,7 +3622,7 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 	nano::logger_mt logger;
 	boost::asio::ip::address_v6 address (boost::asio::ip::make_address_v6 ("::ffff:127.0.0.1"));
 	uint16_t port = 100;
-	nano::mdb_store store (logger, path / "data.ldb");
+	nano::mdb_store store (logger, path / "data.ldb", nano::dev::constants);
 	nano::stat stats;
 	nano::ledger ledger (store, stats, nano::dev::constants);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -3664,7 +3664,7 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 	auto error = ledger.migrate_lmdb_to_rocksdb (path);
 	ASSERT_FALSE (error);
 
-	nano::rocksdb_store rocksdb_store (logger, path / "rocksdb");
+	nano::rocksdb_store rocksdb_store (logger, path / "rocksdb", nano::dev::constants);
 	auto rocksdb_transaction (rocksdb_store.tx_begin_read ());
 
 	nano::pending_info pending_info;
@@ -3700,7 +3700,7 @@ TEST (ledger, migrate_lmdb_to_rocksdb)
 TEST (ledger, unconfirmed_frontiers)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);

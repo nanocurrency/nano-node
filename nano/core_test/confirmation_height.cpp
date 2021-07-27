@@ -718,7 +718,7 @@ TEST (confirmation_heightDeathTest, rollback_added_block)
 		nano::logger_mt logger;
 		nano::logging logging;
 		auto path (nano::unique_path ());
-		auto store = nano::make_store (logger, path);
+		auto store = nano::make_store (logger, path, nano::dev::constants);
 		ASSERT_TRUE (!store->init_error ());
 		nano::stat stats;
 		nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -794,7 +794,7 @@ TEST (confirmation_heightDeathTest, modified_chain)
 		nano::logging logging;
 		nano::logger_mt logger;
 		auto path (nano::unique_path ());
-		auto store = nano::make_store (logger, path);
+		auto store = nano::make_store (logger, path, nano::dev::constants);
 		ASSERT_TRUE (!store->init_error ());
 		nano::stat stats;
 		nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -864,7 +864,7 @@ TEST (confirmation_heightDeathTest, modified_chain_account_removed)
 		nano::logging logging;
 		nano::logger_mt logger;
 		auto path (nano::unique_path ());
-		auto store = nano::make_store (logger, path);
+		auto store = nano::make_store (logger, path, nano::dev::constants);
 		ASSERT_TRUE (!store->init_error ());
 		nano::stat stats;
 		nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1356,7 +1356,7 @@ TEST (confirmation_height, unbounded_block_cache_iteration)
 	}
 	nano::logger_mt logger;
 	auto path (nano::unique_path ());
-	auto store = nano::make_store (logger, path);
+	auto store = nano::make_store (logger, path, nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -1406,7 +1406,7 @@ TEST (confirmation_height, pruned_source)
 	nano::logger_mt logger;
 	nano::logging logging;
 	auto path (nano::unique_path ());
-	auto store = nano::make_store (logger, path);
+	auto store = nano::make_store (logger, path, nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);

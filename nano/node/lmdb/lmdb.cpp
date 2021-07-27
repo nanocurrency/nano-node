@@ -40,9 +40,10 @@ void mdb_val::convert_buffer_to_value ()
 }
 }
 
-nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade_a) :
+nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::ledger_constants & constants, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, bool backup_before_upgrade_a) :
 	// clang-format off
 	store_partial{
+		constants,
 		block_store_partial,
 		frontier_store_partial,
 		account_store_partial,
@@ -551,7 +552,7 @@ void nano::mdb_store::upgrade_v17_to_v18 (nano::write_transaction const & transa
 		{
 			prev_balance = block_balance_v18 (transaction_a, block->hashables.previous);
 		}
-		if (block->hashables.balance == prev_balance && network_params.ledger.epochs.is_epoch_link (block->hashables.link))
+		if (block->hashables.balance == prev_balance && constants.epochs.is_epoch_link (block->hashables.link))
 		{
 			is_epoch = true;
 		}

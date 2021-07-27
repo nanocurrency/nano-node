@@ -91,7 +91,7 @@ TEST (system, receive_while_synchronizing)
 TEST (ledger, deep_account_compute)
 {
 	nano::logger_mt logger;
-	auto store = nano::make_store (logger, nano::unique_path ());
+	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
@@ -424,7 +424,7 @@ TEST (store, pruned_load)
 	constexpr auto batch_size = 20;
 	boost::unordered_set<nano::block_hash> hashes;
 	{
-		auto store = nano::make_store (logger, path);
+		auto store = nano::make_store (logger, path, nano::dev::constants);
 		ASSERT_FALSE (store->init_error ());
 		for (auto i (0); i < num_pruned / batch_size; ++i)
 		{
@@ -453,7 +453,7 @@ TEST (store, pruned_load)
 	}
 	// Reinitialize store
 	{
-		auto store = nano::make_store (logger, path);
+		auto store = nano::make_store (logger, path, nano::dev::constants);
 		ASSERT_FALSE (store->init_error ());
 		auto transaction (store->tx_begin_read ());
 		ASSERT_EQ (expected_result, store->pruned.count (transaction));
@@ -963,7 +963,7 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 	nano::logger_mt logger;
 	nano::logging logging;
 	auto path (nano::unique_path ());
-	auto store = nano::make_store (logger, path);
+	auto store = nano::make_store (logger, path, nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
