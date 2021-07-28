@@ -4,7 +4,7 @@
 #include <nano/node/logging.hpp>
 
 #include <boost/filesystem/path.hpp>
-#include <nano/core_test/diskhash_test/helper_functions.hpp>
+#include <diskhash/unittests/helper_functions.hpp>
 
 namespace nano
 {

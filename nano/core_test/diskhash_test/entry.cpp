@@ -6,6 +6,6 @@ int __main (int argc, char ** argv)
 {
 	testing::InitGoogleTest (&argc, argv);
 	auto res = RUN_ALL_TESTS ();
-	delete_temp_db_path (get_temp_path());
+	delete_temp_db_path (get_temp_path ());
 	return res;
 }

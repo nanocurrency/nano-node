@@ -1,4 +1,4 @@
-#include <nano/core_test/diskhash_test/helper_functions.hpp>
+#include <diskhash/unittests/helper_functions.hpp>
 
 #include <gtest/gtest.h>
 
@@ -11,9 +11,8 @@
 #include <diskhash.hpp>
 
 template <
-	typename T,
-	typename = typename std::enable_if<std::is_integral<T>::value, T>::type
->
+typename T,
+typename = typename std::enable_if<std::is_integral<T>::value, T>::type>
 std::shared_ptr<dht::DiskHash<T>> get_shared_ptr_to_dht_db (int key_size = 32, dht::OpenMode open_mode = dht::DHOpenRW)
 {
 	const auto db_path = get_temp_db_path ();
@@ -37,7 +36,7 @@ TEST (cpp_wrapper, slow_test)
 
 	for (auto k = keys.begin (); k != keys.end (); k++)
 	{
-		auto value = ht->lookup (k->c_str());
+		auto value = ht->lookup (k->c_str ());
 		if (!value)
 		{
 			std::cerr << "Value not found for key: " << *k << std::endl;
@@ -72,7 +71,7 @@ TEST (cpp_wrapper, empty_key_lookup_returns_null)
 	auto ht (get_shared_ptr_to_dht_db<uint64_t> (key_maxlen));
 
 	auto key (random_string (key_maxlen));
-	auto value = ht->lookup (key.c_str());
+	auto value = ht->lookup (key.c_str ());
 	ASSERT_TRUE (value == nullptr);
 }
 
@@ -84,7 +83,7 @@ TEST (cpp_wrapper, filled_key_lookup_returns_value)
 	auto key (random_string (key_maxlen));
 	auto insert_value (uint64_t (123));
 	ht->insert (key.c_str (), insert_value);
-	auto lookup_value_ptr = ht->lookup (key.c_str());
+	auto lookup_value_ptr = ht->lookup (key.c_str ());
 	ASSERT_EQ (insert_value, *lookup_value_ptr);
 }
 
@@ -141,7 +140,7 @@ TEST (cpp_wrapper, move_constructor)
 	auto key_maxlen = static_cast<int> (std::to_string (std::numeric_limits<std::uint64_t>::max ()).size ());
 	auto ht (get_shared_ptr_to_dht_db<uint64_t> (key_maxlen));
 
-	ht->insert("abc", 123);
-	auto another_ht (std::move(*ht));
-	ASSERT_TRUE (another_ht.is_member("abc"));
+	ht->insert ("abc", 123);
+	auto another_ht (std::move (*ht));
+	ASSERT_TRUE (another_ht.is_member ("abc"));
 }
