@@ -89,6 +89,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	io_ctx (io_ctx_a),
 	node_initialized_latch (1),
 	config (config_a),
+	network_params{ config.network_params },
 	stats (config.stat_config),
 	workers (std::max (3u, config.io_threads / 4), nano::thread_role::name::worker),
 	flags (flags_a),

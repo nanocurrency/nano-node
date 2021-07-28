@@ -395,7 +395,8 @@ public:
 namespace dev
 {
 	extern nano::keypair genesis_key;
-	extern nano::ledger_constants constants;
+	extern nano::network_params network_params;
+	extern nano::ledger_constants & constants;
 	extern std::shared_ptr<nano::block> & genesis;
 }
 

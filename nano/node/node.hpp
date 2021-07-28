@@ -154,8 +154,8 @@ public:
 	nano::write_database_queue write_database_queue;
 	boost::asio::io_context & io_ctx;
 	boost::latch node_initialized_latch;
-	nano::network_params network_params;
 	nano::node_config config;
+	nano::network_params & network_params;
 	nano::stat stats;
 	nano::thread_pool workers;
 	std::shared_ptr<nano::websocket::listener> websocket_server;
