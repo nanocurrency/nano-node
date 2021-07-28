@@ -651,9 +651,8 @@ void nano::wallet_store::version_put (nano::transaction const & transaction_a, u
 
 void nano::kdf::phs (nano::raw_key & result_a, std::string const & password_a, nano::uint256_union const & salt_a)
 {
-	static nano::network_params network_params;
 	nano::lock_guard<nano::mutex> lock (mutex);
-	auto success (argon2_hash (1, network_params.kdf_work, 1, password_a.data (), password_a.size (), salt_a.bytes.data (), salt_a.bytes.size (), result_a.bytes.data (), result_a.bytes.size (), NULL, 0, Argon2_d, 0x10));
+	auto success (argon2_hash (1, kdf_work, 1, password_a.data (), password_a.size (), salt_a.bytes.data (), salt_a.bytes.size (), result_a.bytes.data (), result_a.bytes.size (), NULL, 0, Argon2_d, 0x10));
 	debug_assert (success == 0);
 	(void)success;
 }
@@ -1336,6 +1335,7 @@ void nano::wallets::do_wallet_actions ()
 
 nano::wallets::wallets (bool error_a, nano::node & node_a) :
 	observer ([] (bool) {}),
+	kdf{ node_a.config.network_params.kdf_work },
 	node (node_a),
 	env (boost::polymorphic_downcast<nano::mdb_wallets_store *> (node_a.wallets_store_impl.get ())->environment),
 	stopped (false),

@@ -702,7 +702,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		nano::raw_key junk1;
 		junk1.clear ();
 		nano::uint256_union junk2 (0);
-		nano::kdf kdf;
+		nano::kdf kdf{ inactive_node->node->config.network_params.kdf_work};
 		kdf.phs (junk1, "", junk2);
 		std::cout << "Testing time retrieval latency... " << std::flush;
 		nano::timer<std::chrono::nanoseconds> timer (nano::timer_state::started);

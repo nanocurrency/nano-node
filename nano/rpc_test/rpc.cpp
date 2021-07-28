@@ -829,7 +829,7 @@ TEST (rpc, wallet_export)
 	bool error (false);
 	rpc_ctx->io_scope->reset ();
 	auto transaction (node->wallets.tx_begin_write ());
-	nano::kdf kdf;
+	nano::kdf kdf{ nano::dev::network_params.kdf_work };
 	nano::wallet_store store (error, kdf, transaction, nano::dev::genesis->account (), 1, "0", wallet_json);
 	ASSERT_FALSE (error);
 	ASSERT_TRUE (store.exists (transaction, nano::dev::genesis_key.pub));

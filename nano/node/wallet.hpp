@@ -34,8 +34,13 @@ private:
 class kdf final
 {
 public:
+	kdf (unsigned & kdf_work) :
+		kdf_work{ kdf_work }
+	{
+	}
 	void phs (nano::raw_key &, std::string const &, nano::uint256_union const &);
 	nano::mutex mutex;
+	unsigned & kdf_work;
 };
 enum class key_type
 {
