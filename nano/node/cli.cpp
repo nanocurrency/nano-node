@@ -528,7 +528,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		{
 			auto transaction (node.node->store.tx_begin_write ());
 			node.node->store.online_weight.clear (transaction);
-			std::cout << "Onine weight records are removed" << std::endl;
+			std::cout << "Online weight records are removed" << std::endl;
 		}
 		else
 		{
