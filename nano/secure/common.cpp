@@ -813,18 +813,6 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (vo
 	return composite;
 }
 
-nano::genesis::genesis ()
-{
-	static nano::network_params network_params;
-	open = network_params.ledger.genesis;
-	debug_assert (open != nullptr);
-}
-
-nano::block_hash nano::genesis::hash () const
-{
-	return open->hash ();
-}
-
 nano::wallet_id nano::random_wallet_id ()
 {
 	nano::wallet_id wallet_id;
