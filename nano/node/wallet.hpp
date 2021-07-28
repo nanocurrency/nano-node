@@ -216,7 +216,7 @@ public:
 	void split_if_needed (nano::transaction &, nano::store &);
 	void move_table (std::string const &, MDB_txn *, MDB_txn *);
 	std::unordered_map<nano::wallet_id, std::shared_ptr<nano::wallet>> get_wallets ();
-	nano::network_params network_params;
+	nano::network_params & network_params;
 	std::function<void (bool)> observer;
 	std::unordered_map<nano::wallet_id, std::shared_ptr<nano::wallet>> items;
 	std::multimap<nano::uint128_t, std::pair<std::shared_ptr<nano::wallet>, std::function<void (nano::wallet &)>>, std::greater<nano::uint128_t>> actions;

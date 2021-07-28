@@ -1334,6 +1334,7 @@ void nano::wallets::do_wallet_actions ()
 }
 
 nano::wallets::wallets (bool error_a, nano::node & node_a) :
+	network_params{ node_a.config.network_params },
 	observer ([] (bool) {}),
 	kdf{ node_a.config.network_params.kdf_work },
 	node (node_a),
