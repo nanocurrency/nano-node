@@ -82,7 +82,7 @@ std::string const test_canary_public_key_data = nano::get_env_or_default ("NANO_
 
 nano::keypair nano::dev::genesis_key{ dev_private_key_data };
 nano::network_params nano::dev::network_params{ nano::networks::nano_dev_network };
-nano::ledger_constants & nano::dev::constants{ network_params.ledger };
+nano::ledger_constants & nano::dev::constants{ nano::dev::network_params.ledger };
 std::shared_ptr<nano::block> & nano::dev::genesis = nano::dev::constants.genesis;
 
 nano::network_params::network_params () :
