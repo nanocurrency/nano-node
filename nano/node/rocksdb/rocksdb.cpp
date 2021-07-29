@@ -63,9 +63,10 @@ void rocksdb_val::convert_buffer_to_value ()
 }
 }
 
-nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a) :
+nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::ledger_constants & constants, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a) :
 	// clang-format off
 	store_partial{
+		constants,
 		block_store_partial,
 		frontier_store_partial,
 		account_store_partial,
@@ -91,6 +92,7 @@ nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesyste
 	final_vote_store_partial{ *this },
 	version_rocksdb_store{ *this },
 	logger{ logger_a },
+	constants{ constants },
 	rocksdb_config{ rocksdb_config_a },
 	max_block_write_batch_num_m{ nano::narrow_cast<unsigned> (blocks_memtable_size_bytes () / (2 * (sizeof (nano::block_type) + nano::state_block::size + nano::block_sideband::size (nano::block_type::state)))) },
 	cf_name_table_map{ create_cf_name_table_map () }
@@ -856,7 +858,7 @@ bool nano::rocksdb_store::copy_db (boost::filesystem::path const & destination_p
 	// Open it so that it flushes all WAL files
 	if (status.ok ())
 	{
-		nano::rocksdb_store rocksdb_store (logger, destination_path.string (), rocksdb_config, false);
+		nano::rocksdb_store rocksdb_store (logger, destination_path.string (), constants, rocksdb_config, false);
 		return !rocksdb_store.init_error ();
 	}
 	return false;

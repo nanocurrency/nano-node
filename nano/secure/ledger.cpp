@@ -1417,7 +1417,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 	// Open rocksdb database
 	nano::rocksdb_config rocksdb_config;
 	rocksdb_config.enable = true;
-	auto rocksdb_store = nano::make_store (logger, data_path_a, false, true, rocksdb_config);
+	auto rocksdb_store = nano::make_store (logger, data_path_a, nano::dev::constants, false, true, rocksdb_config);
 
 	if (!rocksdb_store->init_error ())
 	{

@@ -3692,7 +3692,7 @@ TEST (node, dont_write_lock_node)
 	std::promise<void> finished_promise;
 	std::thread ([&path, &write_lock_held_promise, &finished_promise] () {
 		nano::logger_mt logger;
-		auto store = nano::make_store (logger, path, false, true);
+		auto store = nano::make_store (logger, path, nano::dev::constants, false, true);
 		{
 			nano::ledger_cache ledger_cache;
 			auto transaction (store->tx_begin_write ());
