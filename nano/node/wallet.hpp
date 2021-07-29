@@ -34,8 +34,13 @@ private:
 class kdf final
 {
 public:
+	kdf (unsigned & kdf_work) :
+		kdf_work{ kdf_work }
+	{
+	}
 	void phs (nano::raw_key &, std::string const &, nano::uint256_union const &);
 	nano::mutex mutex;
+	unsigned & kdf_work;
 };
 enum class key_type
 {
@@ -211,7 +216,7 @@ public:
 	void split_if_needed (nano::transaction &, nano::store &);
 	void move_table (std::string const &, MDB_txn *, MDB_txn *);
 	std::unordered_map<nano::wallet_id, std::shared_ptr<nano::wallet>> get_wallets ();
-	nano::network_params network_params;
+	nano::network_params & network_params;
 	std::function<void (bool)> observer;
 	std::unordered_map<nano::wallet_id, std::shared_ptr<nano::wallet>> items;
 	std::multimap<nano::uint128_t, std::pair<std::shared_ptr<nano::wallet>, std::function<void (nano::wallet &)>>, std::greater<nano::uint128_t>> actions;

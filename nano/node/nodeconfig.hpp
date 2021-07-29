@@ -35,7 +35,7 @@ class node_config
 {
 public:
 	node_config ();
-	node_config (uint16_t, nano::logging const &);
+	node_config (uint16_t, nano::logging const &, nano::network_params network_params = nano::dev::network_params);
 	nano::error serialize_json (nano::jsonconfig &) const;
 	nano::error deserialize_json (bool &, nano::jsonconfig &);
 	nano::error serialize_toml (nano::tomlconfig &) const;
