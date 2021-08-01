@@ -459,18 +459,15 @@ void nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 						}
 
 						// Update the maximum amount of blocks to write next time based on the time it took to cement this batch.
-						if (!network_params.network.is_dev_network ())
+						if (time_spent_cementing > maximum_batch_write_time)
 						{
-							if (time_spent_cementing > maximum_batch_write_time)
-							{
-								// Reduce (unless we have hit a floor)
-								batch_write_size = std::max<uint64_t> (minimum_batch_write_size, batch_write_size - amount_to_change);
-							}
-							else if (time_spent_cementing < maximum_batch_write_time_increase_cutoff)
-							{
-								// Increase amount of blocks written for next batch if the time for writing this one is sufficiently lower than the max time to warrant changing
-								batch_write_size += amount_to_change;
-							}
+							// Reduce (unless we have hit a floor)
+							batch_write_size = std::max<uint64_t> (minimum_batch_write_size, batch_write_size - amount_to_change);
+						}
+						else if (time_spent_cementing < maximum_batch_write_time_increase_cutoff)
+						{
+							// Increase amount of blocks written for next batch if the time for writing this one is sufficiently lower than the max time to warrant changing
+							batch_write_size += amount_to_change;
 						}
 
 						scoped_write_guard_a.release ();
@@ -538,7 +535,7 @@ void nano::confirmation_height_bounded::cement_blocks (nano::write_guard & scope
 	// Bail if there was an error. This indicates that there was a fatal issue with the ledger
 	// (the blocks probably got rolled back when they shouldn't have).
 	release_assert (!error);
-	if (!network_params.network.is_dev_network () && time_spent_cementing > maximum_batch_write_time)
+	if (time_spent_cementing > maximum_batch_write_time)
 	{
 		// Reduce (unless we have hit a floor)
 		batch_write_size = std::max<uint64_t> (minimum_batch_write_size, batch_write_size - amount_to_change);
