@@ -2326,7 +2326,7 @@ public:
 			// Report opens as a receive
 			tree.put ("type", "receive");
 		}
-		if (block_a.hashables.source != network_params.ledger.genesis->account ())
+		if (block_a.hashables.source != handler.node.ledger.constants.genesis->account ())
 		{
 			bool error_or_pruned (false);
 			auto amount (handler.node.ledger.amount_safe (transaction, hash, error_or_pruned).convert_to<std::string> ());
@@ -2342,7 +2342,7 @@ public:
 		}
 		else
 		{
-			tree.put ("account", network_params.ledger.genesis->account ().to_account ());
+			tree.put ("account", handler.node.ledger.constants.genesis->account ().to_account ());
 			tree.put ("amount", nano::dev::constants.genesis_amount.convert_to<std::string> ());
 		}
 	}
@@ -2455,7 +2455,6 @@ public:
 	nano::transaction & transaction;
 	boost::property_tree::ptree & tree;
 	nano::block_hash const & hash;
-	nano::network_params network_params;
 	std::vector<nano::public_key> const & accounts_filter;
 };
 }
