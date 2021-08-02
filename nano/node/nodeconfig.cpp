@@ -21,7 +21,7 @@ const std::string default_test_peer_network = nano::get_env_or_default ("NANO_TE
 }
 
 nano::node_config::node_config () :
-	node_config (0, nano::logging (), nano::network_params{ nano::network_constants::active_network})
+	node_config (0, nano::logging (), nano::network_params{ nano::network_constants::active_network })
 {
 }
 
