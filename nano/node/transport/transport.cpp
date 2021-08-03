@@ -100,8 +100,11 @@ nano::transport::channel::channel (nano::node & node_a) :
 	set_network_version (node_a.network_params.protocol.protocol_version);
 }
 
-void nano::transport::channel::send (nano::message const & message_a, std::function<void (boost::system::error_code const &, size_t)> const & callback_a, nano::buffer_drop_policy drop_policy_a)
+void nano::transport::channel::send (nano::message & message_a, std::function<void (boost::system::error_code const &, size_t)> const & callback_a, nano::buffer_drop_policy drop_policy_a)
 {
+	message_a.header.version_max = node.network_params.protocol.protocol_version;
+	message_a.header.version_using = node.network_params.protocol.protocol_version;
+	message_a.header.version_min = node.network_params.protocol.protocol_version_min ();
 	callback_visitor visitor;
 	message_a.visit (visitor);
 	auto buffer (message_a.to_shared_const_buffer ());

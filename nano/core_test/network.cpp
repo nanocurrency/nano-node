@@ -839,12 +839,11 @@ TEST (tcp_listener, tcp_listener_timeout_node_id_handshake)
 	auto socket (std::make_shared<nano::socket> (*node0));
 	auto cookie (node0->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (node0->bootstrap.endpoint ())));
 	nano::node_id_handshake node_id_handshake (cookie, boost::none);
-	auto input (node_id_handshake.to_shared_const_buffer ());
-	socket->async_connect (node0->bootstrap.endpoint (), [&input, socket] (boost::system::error_code const & ec) {
+	auto channel = std::make_shared<nano::transport::channel_tcp> (*node0, socket);
+	socket->async_connect (node0->bootstrap.endpoint (), [&node_id_handshake, channel] (boost::system::error_code const & ec) {
 		ASSERT_FALSE (ec);
-		socket->async_write (input, [&input] (boost::system::error_code const & ec, size_t size_a) {
+		channel->send (node_id_handshake, [] (boost::system::error_code const & ec, size_t size_a) {
 			ASSERT_FALSE (ec);
-			ASSERT_EQ (input.size (), size_a);
 		});
 	});
 	ASSERT_TIMELY (5s, node0->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake) != 0);

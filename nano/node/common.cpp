@@ -21,15 +21,6 @@ std::chrono::seconds constexpr nano::telemetry_cache_cutoffs::dev;
 std::chrono::seconds constexpr nano::telemetry_cache_cutoffs::beta;
 std::chrono::seconds constexpr nano::telemetry_cache_cutoffs::live;
 
-namespace
-{
-nano::protocol_constants const & get_protocol_constants ()
-{
-	static nano::network_params params;
-	return params.protocol;
-}
-}
-
 uint64_t nano::ip_address_hash_raw (boost::asio::ip::address const & ip_a, uint16_t port)
 {
 	static nano::random_constants constants;
@@ -51,9 +42,6 @@ uint64_t nano::ip_address_hash_raw (boost::asio::ip::address const & ip_a, uint1
 
 nano::message_header::message_header (nano::message_type type_a) :
 	network (nano::network_constants::active_network),
-	version_max (get_protocol_constants ().protocol_version),
-	version_using (get_protocol_constants ().protocol_version),
-	version_min (get_protocol_constants ().protocol_version_min ()),
 	type (type_a)
 {
 }
