@@ -887,8 +887,6 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_process"))
 		{
-			nano::network_constants::set_active_network (nano::networks::nano_dev_network);
-			nano::network_params dev_params;
 			nano::block_builder builder;
 			size_t num_accounts (100000);
 			size_t num_iterations (5); // 100,000 * 5 * 2 = 1,000,000 blocks
@@ -1004,8 +1002,6 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_votes"))
 		{
-			nano::network_constants::set_active_network (nano::networks::nano_dev_network);
-			nano::network_params dev_params;
 			nano::block_builder builder;
 			size_t num_elections (40000);
 			size_t num_representatives (25);
@@ -1112,8 +1108,6 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_frontiers_confirmation"))
 		{
-			nano::force_nano_dev_network ();
-			nano::network_params dev_params;
 			nano::block_builder builder;
 			size_t count (32 * 1024);
 			auto count_it = vm.find ("count");
@@ -1172,7 +1166,7 @@ int main (int argc, char * const * argv)
 							.balance (genesis_balance)
 							.link (key.pub)
 							.sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-							.work (*work.generate (nano::work_version::work_1, genesis_latest, dev_params.network.publish_thresholds.epoch_1))
+							.work (*work.generate (nano::work_version::work_1, genesis_latest, nano::dev::network_params.network.publish_thresholds.epoch_1))
 							.build ();
 
 				genesis_latest = send->hash ();
@@ -1184,7 +1178,7 @@ int main (int argc, char * const * argv)
 							.balance (1)
 							.link (genesis_latest)
 							.sign (key.prv, key.pub)
-							.work (*work.generate (nano::work_version::work_1, key.pub, dev_params.network.publish_thresholds.epoch_1))
+							.work (*work.generate (nano::work_version::work_1, key.pub, nano::dev::network_params.network.publish_thresholds.epoch_1))
 							.build ();
 
 				blocks.push_back (std::move (send));
