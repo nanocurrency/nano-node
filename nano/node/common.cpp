@@ -53,6 +53,7 @@ nano::message_header::message_header (nano::message_type type_a) :
 	network (nano::network_constants::active_network),
 	version_max (get_protocol_constants ().protocol_version),
 	version_using (get_protocol_constants ().protocol_version),
+	version_min (get_protocol_constants ().protocol_version_min ()),
 	type (type_a)
 {
 }
@@ -71,7 +72,7 @@ void nano::message_header::serialize (nano::stream & stream_a) const
 	nano::write (stream_a, boost::endian::native_to_big (static_cast<uint16_t> (network)));
 	nano::write (stream_a, version_max);
 	nano::write (stream_a, version_using);
-	nano::write (stream_a, get_protocol_constants ().protocol_version_min ());
+	nano::write (stream_a, version_min);
 	nano::write (stream_a, type);
 	nano::write (stream_a, static_cast<uint16_t> (extensions.to_ullong ()));
 }
@@ -87,7 +88,7 @@ bool nano::message_header::deserialize (nano::stream & stream_a)
 		network = static_cast<nano::networks> (boost::endian::big_to_native (network_bytes));
 		nano::read (stream_a, version_max);
 		nano::read (stream_a, version_using);
-		nano::read (stream_a, version_min_m);
+		nano::read (stream_a, version_min);
 		nano::read (stream_a, type);
 		uint16_t extensions_l;
 		nano::read (stream_a, extensions_l);
@@ -99,12 +100,6 @@ bool nano::message_header::deserialize (nano::stream & stream_a)
 	}
 
 	return error;
-}
-
-uint8_t nano::message_header::version_min () const
-{
-	debug_assert (version_min_m != std::numeric_limits<uint8_t>::max ());
-	return version_min_m;
 }
 
 nano::message::message (nano::message_type type_a) :

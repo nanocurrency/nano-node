@@ -198,14 +198,12 @@ public:
 	nano::networks network;
 	uint8_t version_max;
 	uint8_t version_using;
-
-private:
-	uint8_t version_min_m{ std::numeric_limits<uint8_t>::max () };
+	uint8_t version_min;
 
 public:
 	nano::message_type type;
 	std::bitset<16> extensions;
-	static size_t constexpr size = sizeof (nano::networks) + sizeof (version_max) + sizeof (version_using) + sizeof (version_min_m) + sizeof (type) + sizeof (/* extensions */ uint16_t);
+	static size_t constexpr size = sizeof (nano::networks) + sizeof (version_max) + sizeof (version_using) + sizeof (version_min) + sizeof (type) + sizeof (/* extensions */ uint16_t);
 
 	void flag_set (uint8_t);
 	static uint8_t constexpr bulk_pull_count_present_flag = 0;
@@ -216,7 +214,6 @@ public:
 	static uint8_t constexpr node_id_handshake_response_flag = 1;
 	bool node_id_handshake_is_query () const;
 	bool node_id_handshake_is_response () const;
-	uint8_t version_min () const;
 
 	/** Size of the payload in bytes. For some messages, the payload size is based on header flags. */
 	size_t payload_length_bytes () const;

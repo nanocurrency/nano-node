@@ -65,7 +65,7 @@ TEST (message, publish_serialization)
 	auto error (false);
 	nano::message_header header (error, stream);
 	ASSERT_FALSE (error);
-	ASSERT_EQ (nano::dev::network_params.protocol.protocol_version_min (), header.version_min ());
+	ASSERT_EQ (nano::dev::network_params.protocol.protocol_version_min (), header.version_min);
 	ASSERT_EQ (nano::dev::network_params.protocol.protocol_version, header.version_using);
 	ASSERT_EQ (nano::dev::network_params.protocol.protocol_version, header.version_max);
 	ASSERT_EQ (nano::message_type::publish, header.type);
