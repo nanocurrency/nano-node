@@ -572,7 +572,6 @@ void nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint_a
 				// TCP node ID handshake
 				auto cookie (node_l->network.syn_cookies.assign (endpoint_a));
 				nano::node_id_handshake message (cookie, boost::none);
-				auto bytes = message.to_shared_const_buffer ();
 				if (node_l->config.logging.network_node_id_handshake_logging ())
 				{
 					node_l->logger.try_log (boost::str (boost::format ("Node ID handshake request sent with node ID %1% to %2%: query %3%") % node_l->node_id.pub.to_node_id () % endpoint_a % (*cookie).to_string ()));
@@ -581,7 +580,7 @@ void nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint_a
 				std::shared_ptr<std::vector<uint8_t>> receive_buffer (std::make_shared<std::vector<uint8_t>> ());
 				receive_buffer->resize (256);
 				node_l->network.tcp_channels.push_node_id_handshake_socket (socket);
-				channel->send_buffer (bytes, [node_w, channel, endpoint_a, receive_buffer, callback_a] (boost::system::error_code const & ec, size_t size_a) {
+				channel->send (message, [node_w, channel, endpoint_a, receive_buffer, callback_a] (boost::system::error_code const & ec, size_t size_a) {
 					if (auto node_l = node_w.lock ())
 					{
 						if (!ec)

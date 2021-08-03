@@ -572,8 +572,8 @@ TEST (telemetry, remove_peer_different_genesis)
 
 	ASSERT_TIMELY (1s, 0 == node0->network.size ());
 	ASSERT_TIMELY (1s, 0 == node1->network.size ());
-	ASSERT_EQ (node0->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::out), 1);
-	ASSERT_EQ (node1->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::out), 1);
+	ASSERT_GE (node0->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::out), 1);
+	ASSERT_GE (node1->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::out), 1);
 
 	nano::lock_guard<nano::mutex> guard (node0->network.excluded_peers.mutex);
 	ASSERT_EQ (1, node0->network.excluded_peers.peers.get<nano::peer_exclusion::tag_endpoint> ().count (node1->network.endpoint ().address ()));
