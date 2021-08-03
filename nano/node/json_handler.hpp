@@ -40,6 +40,7 @@ public:
 	void account_representative_set ();
 	void account_weight ();
 	void accounts_balances ();
+	void accounts_representatives ();
 	void accounts_create ();
 	void accounts_frontiers ();
 	void accounts_pending ();

@@ -2969,6 +2969,23 @@ TEST (rpc, accounts_balances)
 	}
 }
 
+TEST (rpc, accounts_representatives)
+{
+	nano::system system;
+	auto node = add_ipc_enabled_node (system);
+	auto [rpc, rpc_ctx] = add_rpc (system, node);
+	boost::property_tree::ptree request;
+	request.put ("action", "accounts_representatives");
+	boost::property_tree::ptree entry;
+	boost::property_tree::ptree accounts;
+	entry.put ("", nano::dev::genesis_key.pub.to_account ());
+	accounts.push_back (std::make_pair ("", entry));
+	request.add_child ("accounts", accounts);
+	auto response (wait_response (system, rpc, request));
+	auto response_representative (response.get_child("representatives").get<std::string>(nano::dev::genesis->account ().to_account ()));
+	ASSERT_EQ (response_representative, nano::dev::genesis->account ().to_account ());
+}
+
 TEST (rpc, accounts_frontiers)
 {
 	nano::system system;
