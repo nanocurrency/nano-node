@@ -19,6 +19,6 @@ public:
 	nano::error serialize_toml (nano::tomlconfig & toml_a) const;
 	nano::error deserialize_toml (nano::tomlconfig & toml_a);
 	nano::wallet_id wallet;
-	nano::account account{ 0 };
+	nano::account account{ static_cast<std::uint64_t> (0) };
 };
 }

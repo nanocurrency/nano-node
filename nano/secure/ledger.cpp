@@ -116,7 +116,7 @@ public:
 		}
 		auto balance (ledger.balance (transaction, block_a.hashables.previous));
 		auto is_send (block_a.hashables.balance < balance);
-		nano::account representative{ 0 };
+		nano::account representative{ static_cast<std::uint64_t> (0) };
 		if (!rep_block_hash.is_zero ())
 		{
 			// Move existing representation & add in amount delta
@@ -958,8 +958,8 @@ nano::account const & nano::ledger::block_destination (nano::transaction const &
 	{
 		return state_block->hashables.link.as_account ();
 	}
-	static nano::account result (0);
-	return result;
+
+	return nano::hardened_constants::get ().not_an_account;
 }
 
 nano::block_hash nano::ledger::block_source (nano::transaction const & transaction_a, nano::block const & block_a)
@@ -1533,7 +1533,7 @@ bool nano::ledger::migrate_lmdb_to_rocksdb (boost::filesystem::path const & data
 		error |= rocksdb_store->account.get (rocksdb_transaction, account, account_info);
 
 		// If confirmation height exists in the lmdb ledger for this account it should exist in the rocksdb ledger
-		nano::confirmation_height_info confirmation_height_info;
+		nano::confirmation_height_info confirmation_height_info{};
 		if (!store.confirmation_height.get (lmdb_transaction, account, confirmation_height_info))
 		{
 			error |= rocksdb_store->confirmation_height.get (rocksdb_transaction, account, confirmation_height_info);

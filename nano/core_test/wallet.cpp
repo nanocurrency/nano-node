@@ -335,7 +335,7 @@ TEST (wallet, rekey)
 
 TEST (account, encode_zero)
 {
-	nano::account number0 (0);
+	nano::account number0{ static_cast<std::uint64_t> (0) };
 	std::string str0;
 	number0.encode_account (str0);
 
@@ -367,7 +367,7 @@ TEST (account, encode_all)
 
 TEST (account, encode_fail)
 {
-	nano::account number0 (0);
+	nano::account number0{ static_cast<std::uint64_t> (0) };
 	std::string str0;
 	number0.encode_account (str0);
 	str0[16] ^= 1;

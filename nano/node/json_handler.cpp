@@ -235,7 +235,7 @@ bool nano::json_handler::wallet_account_impl (nano::transaction const & transact
 
 nano::account nano::json_handler::account_impl (std::string account_text, std::error_code ec_a)
 {
-	nano::account result (0);
+	nano::account result{ static_cast<std::uint64_t> (0) };
 	if (!ec)
 	{
 		if (account_text.empty ())
@@ -671,7 +671,7 @@ void nano::json_handler::account_info ()
 				response_l.put ("representative", info.representative.to_account ());
 				if (include_confirmed)
 				{
-					nano::account confirmed_representative{ 0 };
+					nano::account confirmed_representative{ static_cast<std::uint64_t> (0) };
 					if (confirmed_frontier_block)
 					{
 						confirmed_representative = confirmed_frontier_block->representative ();
@@ -1053,7 +1053,7 @@ void nano::json_handler::available_supply ()
 	auto genesis_balance (node.balance (node.network_params.ledger.genesis->account ())); // Cold storage genesis
 	auto landing_balance (node.balance (nano::account ("059F68AAB29DE0D3A27443625C7EA9CDDB6517A8B76FE37727EF6A4D76832AD5"))); // Active unavailable account
 	auto faucet_balance (node.balance (nano::account ("8E319CE6F3025E5B2DF66DA7AB1467FE48F1679C13DD43BFDB29FA2E9FC40D3B"))); // Faucet account
-	auto burned_balance ((node.balance_pending (nano::account (0), false)).second); // Burning 0 account
+	auto burned_balance ((node.balance_pending (nano::account{ static_cast<std::uint64_t> (0) }, false)).second); // Burning 0 account
 	auto available (nano::dev::constants.genesis_amount - genesis_balance - landing_balance - faucet_balance - burned_balance);
 	response_l.put ("available", available.convert_to<std::string> ());
 	response_errors ();
@@ -1360,19 +1360,19 @@ void nano::json_handler::block_create ()
 			ec = nano::error_common::bad_wallet_number;
 		}
 	}
-	nano::account account (0);
+	nano::account account (static_cast<std::uint64_t> (0));
 	boost::optional<std::string> account_text (request.get_optional<std::string> ("account"));
 	if (!ec && account_text.is_initialized ())
 	{
 		account = account_impl (account_text.get ());
 	}
-	nano::account representative (0);
+	nano::account representative (static_cast<std::uint64_t> (0));
 	boost::optional<std::string> representative_text (request.get_optional<std::string> ("representative"));
 	if (!ec && representative_text.is_initialized ())
 	{
 		representative = account_impl (representative_text.get (), nano::error_rpc::bad_representative_number);
 	}
-	nano::account destination (0);
+	nano::account destination (static_cast<std::uint64_t> (0));
 	boost::optional<std::string> destination_text (request.get_optional<std::string> ("destination"));
 	if (!ec && destination_text.is_initialized ())
 	{
@@ -1739,7 +1739,7 @@ void nano::json_handler::bootstrap_any ()
 	const bool force = request.get<bool> ("force", false);
 	if (!node.flags.disable_legacy_bootstrap)
 	{
-		nano::account start_account (0);
+		nano::account start_account (static_cast<std::uint64_t> (0));
 		boost::optional<std::string> account_text (request.get_optional<std::string> ("account"));
 		if (account_text.is_initialized ())
 		{
@@ -2095,7 +2095,7 @@ void nano::json_handler::delegators ()
 	auto threshold (threshold_optional_impl ());
 	auto start_account_text (request.get_optional<std::string> ("start"));
 
-	nano::account start_account (0);
+	nano::account start_account (static_cast<std::uint64_t> (0));
 	if (!ec && start_account_text.is_initialized ())
 	{
 		start_account = account_impl (start_account_text.get ());
@@ -2622,7 +2622,7 @@ void nano::json_handler::ledger ()
 	auto threshold (threshold_optional_impl ());
 	if (!ec)
 	{
-		nano::account start (0);
+		nano::account start (static_cast<std::uint64_t> (0));
 		boost::optional<std::string> account_text (request.get_optional<std::string> ("account"));
 		if (account_text.is_initialized ())
 		{

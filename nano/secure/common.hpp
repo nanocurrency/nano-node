@@ -72,9 +72,9 @@ struct hash<::nano::root>
 namespace nano
 {
 /**
- * A key pair. The private key is generated from the random pool, or passed in
- * as a hex string. The public key is derived using ed25519.
- */
+     * A key pair. The private key is generated from the random pool, or passed in
+     * as a hex string. The public key is derived using ed25519.
+     */
 class keypair
 {
 public:
@@ -86,8 +86,8 @@ public:
 };
 
 /**
- * Latest information about an account
- */
+     * Latest information about an account
+     */
 class account_info final
 {
 public:
@@ -99,7 +99,7 @@ public:
 	size_t db_size () const;
 	nano::epoch epoch () const;
 	nano::block_hash head{ 0 };
-	nano::account representative{ 0 };
+	nano::account representative{ static_cast<uint64_t> (0) };
 	nano::block_hash open_block{ 0 };
 	nano::amount balance{ 0 };
 	/** Seconds since posix epoch */
@@ -109,8 +109,8 @@ public:
 };
 
 /**
- * Information on an uncollected send
- */
+     * Information on an uncollected send
+     */
 class pending_info final
 {
 public:
@@ -119,7 +119,7 @@ public:
 	size_t db_size () const;
 	bool deserialize (nano::stream &);
 	bool operator== (nano::pending_info const &) const;
-	nano::account source{ 0 };
+	nano::account source{ static_cast<std::uint64_t> (0) };
 	nano::amount amount{ 0 };
 	nano::epoch epoch{ nano::epoch::epoch_0 };
 };
@@ -131,7 +131,7 @@ public:
 	bool deserialize (nano::stream &);
 	bool operator== (nano::pending_key const &) const;
 	nano::account const & key () const;
-	nano::account account{ 0 };
+	nano::account account{ static_cast<std::uint64_t> (0) };
 	nano::block_hash hash{ 0 };
 };
 
@@ -141,19 +141,19 @@ public:
 	endpoint_key () = default;
 
 	/*
-	 * @param address_a This should be in network byte order
-	 * @param port_a This should be in host byte order
-	 */
+                 * @param address_a This should be in network byte order
+                 * @param port_a This should be in host byte order
+                 */
 	endpoint_key (const std::array<uint8_t, 16> & address_a, uint16_t port_a);
 
 	/*
-	 * @return The ipv6 address in network byte order
-	 */
+                 * @return The ipv6 address in network byte order
+                 */
 	const std::array<uint8_t, 16> & address_bytes () const;
 
 	/*
-	 * @return The port in host byte order
-	 */
+                 * @return The port in host byte order
+                 */
 	uint16_t port () const;
 
 private:
@@ -181,8 +181,8 @@ public:
 };
 
 /**
- * Tag for block signature verification result
- */
+     * Tag for block signature verification result
+     */
 enum class signature_verification : uint8_t
 {
 	unknown = 0,
@@ -192,8 +192,8 @@ enum class signature_verification : uint8_t
 };
 
 /**
- * Information on an unchecked block
- */
+     * Information on an unchecked block
+     */
 class unchecked_info final
 {
 public:
@@ -202,7 +202,7 @@ public:
 	void serialize (nano::stream &) const;
 	bool deserialize (nano::stream &);
 	std::shared_ptr<nano::block> block;
-	nano::account account{ 0 };
+	nano::account account{ static_cast<std::uint64_t> (0) };
 	/** Seconds since posix epoch */
 	uint64_t modified{ 0 };
 	nano::signature_verification verified{ nano::signature_verification::unknown };
@@ -214,7 +214,7 @@ class block_info final
 public:
 	block_info () = default;
 	block_info (nano::account const &, nano::amount const &);
-	nano::account account{ 0 };
+	nano::account account{ static_cast<std::uint64_t> (0) };
 	nano::amount balance{ 0 };
 };
 
@@ -275,8 +275,8 @@ public:
 	static const std::string hash_prefix;
 };
 /**
- * This class serves to find and return unique variants of a vote in order to minimize memory usage
- */
+     * This class serves to find and return unique variants of a vote in order to minimize memory usage
+     */
 class vote_uniquer final
 {
 public:
@@ -374,13 +374,17 @@ namespace dev
 	extern std::shared_ptr<nano::block> & genesis;
 }
 
-/** Constants which depend on random values (this class should never be used globally due to CryptoPP globals potentially not being initialized) */
-class random_constants
+/** Constants which depend on random values (always used as singleton) */
+class hardened_constants
 {
 public:
-	random_constants ();
+	static hardened_constants & get ();
+
 	nano::account not_an_account;
 	nano::uint128_union random_128;
+
+private:
+	hardened_constants ();
 };
 
 /** Node related constants whose value depends on the active network */
@@ -439,14 +443,13 @@ public:
 	network_params (nano::networks network_a);
 
 	unsigned kdf_work;
-	nano::work_thresholds work;
-	nano::network_constants network;
-	nano::ledger_constants ledger;
-	nano::random_constants random;
-	nano::voting_constants voting;
-	nano::node_constants node;
-	nano::portmapping_constants portmapping;
-	nano::bootstrap_constants bootstrap;
+    nano::work_thresholds work;
+    nano::network_constants network;
+    nano::ledger_constants ledger;
+    nano::voting_constants voting;
+    nano::node_constants node;
+    nano::portmapping_constants portmapping;
+    nano::bootstrap_constants bootstrap;
 };
 
 enum class confirmation_height_mode
@@ -457,7 +460,7 @@ enum class confirmation_height_mode
 };
 
 /* Holds flags for various cacheable data. For most CLI operations caching is unnecessary
- * (e.g getting the cemented block count) so it can be disabled for performance reasons. */
+     * (e.g getting the cemented block count) so it can be disabled for performance reasons. */
 class generate_cache
 {
 public:

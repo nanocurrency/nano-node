@@ -38,7 +38,7 @@ char const * dev_genesis_data = R"%%%({
 	"account": "xrb_3e3j5tkog48pnny9dmfzj1r16pg8t1e76dz5tmac6iq689wyjfpiij4txtdo",
 	"work": "7b42a00ee91d5810",
 	"signature": "ECDA914373A2F0CA1296475BAEE40500A7F0A7AD72A5A80C81D7FAB7F6C802B2CC7DB50F5DD0FB25B2EF11761FA7344A158DD5A700B21BD47DE5BD0F63153A02"
-	})%%%";
+    })%%%";
 
 char const * beta_genesis_data = R"%%%({
 	"type": "open",
@@ -47,7 +47,7 @@ char const * beta_genesis_data = R"%%%({
 	"account": "nano_1betagoxpxwykx4kw86dnhosc8t3s7ix8eeentwkcg1hbpez1outjrcyg4n1",
 	"work": "79d4e27dc873c6f2",
 	"signature": "4BD7F96F9ED2721BCEE5EAED400EA50AD00524C629AE55E9AFF11220D2C1B00C3D4B3BB770BF67D4F8658023B677F91110193B6C101C2666931F57046A6DB806"
-	})%%%";
+    })%%%";
 
 char const * live_genesis_data = R"%%%({
 	"type": "open",
@@ -56,7 +56,7 @@ char const * live_genesis_data = R"%%%({
 	"account": "xrb_3t6k35gi95xu6tergt6p69ck76ogmitsa8mnijtpxm9fkcm736xtoncuohr3",
 	"work": "62f05417dd3fb691",
 	"signature": "9F0C933C8ADE004D808EA1985FA746A7E95BA2A38F867640F53EC8F180BDFE9E2C1268DEAD7C2664F356E37ABA362BC58E46DBA03E523A7B5A19E4B6EB12BB02"
-	})%%%";
+    })%%%";
 
 std::string const test_genesis_data = nano::get_env_or_default ("NANO_TEST_GENESIS_BLOCK", R"%%%({
 	"type": "open",
@@ -65,7 +65,7 @@ std::string const test_genesis_data = nano::get_env_or_default ("NANO_TEST_GENES
 	"account": "nano_1jg8zygjg3pp5w644emqcbmjqpnzmubfni3kfe1s8pooeuxsw49fdq1mco9j",
 	"work": "bc1ef279c1a34eb1",
 	"signature": "15049467CAEE3EC768639E8E35792399B6078DA763DA4EBA8ECAD33B0EDC4AF2E7403893A5A602EB89B978DABEF1D6606BB00F3C0EE11449232B143B6E07170E"
-	})%%%");
+    })%%%");
 
 std::shared_ptr<nano::block> parse_block_from_genesis_data (std::string const & genesis_data_a)
 {
@@ -115,7 +115,7 @@ nano::ledger_constants::ledger_constants (nano::work_thresholds & work, nano::ne
 	: network_a == nano::networks::nano_test_network                                                                           ? nano_test_genesis
 																															   : nano_live_genesis),
 	genesis_amount{ std::numeric_limits<nano::uint128_t>::max () },
-	burn_account (0),
+	burn_account{ static_cast<uint64_t> (0) },
 	nano_dev_final_votes_canary_account (dev_public_key_data),
 	nano_beta_final_votes_canary_account (beta_canary_public_key_data),
 	nano_live_final_votes_canary_account (live_canary_public_key_data),
@@ -153,7 +153,15 @@ nano::ledger_constants::ledger_constants (nano::work_thresholds & work, nano::ne
 	epochs.add (nano::epoch::epoch_2, epoch_v2_signer, epoch_link_v2);
 }
 
-nano::random_constants::random_constants ()
+nano::hardened_constants & nano::hardened_constants::get ()
+{
+	static hardened_constants instance{};
+	return instance;
+}
+
+nano::hardened_constants::hardened_constants () :
+	not_an_account{},
+	random_128{}
 {
 	nano::random_pool::generate_block (not_an_account.bytes.data (), not_an_account.bytes.size ());
 	nano::random_pool::generate_block (random_128.bytes.data (), random_128.bytes.size ());

@@ -523,7 +523,7 @@ TEST (block_store, frontier_retrieval)
 	nano::logger_mt logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
-	nano::account account1 (0);
+	nano::account account1{ static_cast<std::uint64_t> (0) };
 	nano::account_info info1 (0, 0, 0, 0, 0, 0, nano::epoch::epoch_0);
 	auto transaction (store->tx_begin_write ());
 	store->confirmation_height.put (transaction, account1, { 0, nano::block_hash (0) });
@@ -538,7 +538,7 @@ TEST (block_store, one_account)
 	nano::logger_mt logger;
 	auto store = nano::make_store (logger, nano::unique_path (), nano::dev::constants);
 	ASSERT_TRUE (!store->init_error ());
-	nano::account account (0);
+	nano::account account{ static_cast<std::uint64_t> (0) };
 	nano::block_hash hash (0);
 	auto transaction (store->tx_begin_write ());
 	store->confirmation_height.put (transaction, account, { 20, nano::block_hash (15) });
@@ -783,7 +783,7 @@ TEST (block_store, large_iteration)
 		store->account.put (transaction, account, nano::account_info ());
 	}
 	std::unordered_set<nano::account> accounts2;
-	nano::account previous (0);
+	nano::account previous{ static_cast<std::uint64_t> (0) };
 	auto transaction (store->tx_begin_read ());
 	for (auto i (store->account.begin (transaction, 0)), n (store->account.end ()); i != n; ++i)
 	{
@@ -1874,9 +1874,9 @@ TEST (block_store, confirmation_height)
 	nano::logger_mt logger;
 	auto store = nano::make_store (logger, path, nano::dev::constants);
 
-	nano::account account1 (0);
-	nano::account account2 (1);
-	nano::account account3 (2);
+	nano::account account1{ static_cast<std::uint64_t> (0) };
+	nano::account account2{ 1 };
+	nano::account account3{ 2 };
 	nano::block_hash cemented_frontier1 (3);
 	nano::block_hash cemented_frontier2 (4);
 	nano::block_hash cemented_frontier3 (5);

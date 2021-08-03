@@ -41,7 +41,7 @@ public:
 	{
 		return account == other_a.account;
 	}
-	nano::account account{ 0 };
+	nano::account account{ static_cast<std::uint64_t> (0) };
 	nano::amount weight{ 0 };
 	std::shared_ptr<nano::transport::channel> channel;
 	std::chrono::steady_clock::time_point last_request{ std::chrono::steady_clock::time_point () };

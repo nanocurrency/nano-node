@@ -106,7 +106,7 @@ TEST (system, DISABLED_generate_send_new)
 	// This indirectly waits for online weight to stabilize, required to prevent intermittent failures
 	ASSERT_TIMELY (5s, node1.wallets.reps ().voting > 0);
 	system.generate_send_new (node1, accounts);
-	nano::account new_account (0);
+	nano::account new_account{ static_cast<std::uint64_t> (0) };
 	{
 		auto transaction (node1.wallets.tx_begin_read ());
 		auto iterator2 (system.wallet (0)->store.begin (transaction));

@@ -40,7 +40,7 @@ public:
 		nano::db_val<Val> value;
 		auto status (store.get (transaction_a, tables::frontiers, nano::db_val<Val> (block_a), value));
 		release_assert (store.success (status) || store.not_found (status));
-		nano::account result (0);
+		nano::account result{ static_cast<std::uint64_t> (0) };
 		if (store.success (status))
 		{
 			result = static_cast<nano::account> (value);

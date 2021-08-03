@@ -21,7 +21,7 @@ nano::pull_info::pull_info (nano::hash_or_account const & account_or_head_a, nan
 nano::bulk_pull_client::bulk_pull_client (std::shared_ptr<nano::bootstrap_client> const & connection_a, std::shared_ptr<nano::bootstrap_attempt> const & attempt_a, nano::pull_info const & pull_a) :
 	connection (connection_a),
 	attempt (attempt_a),
-	known_account (0),
+	known_account{ static_cast<std::uint64_t> (0) },
 	pull (pull_a),
 	pull_blocks (0),
 	unexpected_count (0)

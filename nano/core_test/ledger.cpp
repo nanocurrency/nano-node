@@ -1525,13 +1525,13 @@ TEST (ledger, block_destination_source)
 	ASSERT_TRUE (ledger.block_source (transaction, block1).is_zero ());
 	ASSERT_EQ (nano::dev::genesis->account (), ledger.block_destination (transaction, block2));
 	ASSERT_TRUE (ledger.block_source (transaction, block2).is_zero ());
-	ASSERT_TRUE (ledger.block_destination (transaction, block3).is_zero ());
+	ASSERT_TRUE (ledger.block_destination (transaction, block3) == nullptr);
 	ASSERT_EQ (block2.hash (), ledger.block_source (transaction, block3));
 	ASSERT_EQ (dest.pub, ledger.block_destination (transaction, block4));
 	ASSERT_TRUE (ledger.block_source (transaction, block4).is_zero ());
 	ASSERT_EQ (nano::dev::genesis->account (), ledger.block_destination (transaction, block5));
 	ASSERT_TRUE (ledger.block_source (transaction, block5).is_zero ());
-	ASSERT_TRUE (ledger.block_destination (transaction, block6).is_zero ());
+	ASSERT_TRUE (ledger.block_destination (transaction, block6) == nullptr);
 	ASSERT_EQ (block5.hash (), ledger.block_source (transaction, block6));
 }
 
@@ -2411,7 +2411,7 @@ TEST (ledger, epoch_blocks_fork)
 	store->initialize (transaction, ledger.cache);
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	nano::keypair destination;
-	nano::send_block send1 (nano::dev::genesis->hash (), nano::account (0), nano::dev::constants.genesis_amount, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (nano::dev::genesis->hash ()));
+	nano::send_block send1 (nano::dev::genesis->hash (), nano::account{ static_cast<std::uint64_t> (0) }, nano::dev::constants.genesis_amount, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (nano::dev::genesis->hash ()));
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send1).code);
 	nano::state_block epoch1 (nano::dev::genesis->account (), nano::dev::genesis->hash (), nano::dev::genesis->account (), nano::dev::constants.genesis_amount, ledger.epoch_link (nano::epoch::epoch_1), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (nano::dev::genesis->hash ()));
 	ASSERT_EQ (nano::process_result::fork, ledger.process (transaction, epoch1).code);

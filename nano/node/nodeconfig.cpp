@@ -248,7 +248,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			preconfigured_representatives.clear ();
 			toml.array_entries_required<std::string> ("preconfigured_representatives", [this, &toml] (std::string entry) {
-				nano::account representative (0);
+				nano::account representative{ static_cast<std::uint64_t> (0) };
 				if (representative.decode_account (entry))
 				{
 					toml.get_error ().set ("Invalid representative account: " + entry);
@@ -583,7 +583,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		auto preconfigured_representatives_l (json.get_required_child ("preconfigured_representatives"));
 		preconfigured_representatives.clear ();
 		preconfigured_representatives_l.array_entries<std::string> ([this, &json] (std::string entry) {
-			nano::account representative (0);
+			nano::account representative{ static_cast<std::uint64_t> (0) };
 			if (representative.decode_account (entry))
 			{
 				json.get_error ().set ("Invalid representative account: " + entry);

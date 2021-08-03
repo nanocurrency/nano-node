@@ -66,7 +66,7 @@ public:
 	std::atomic<bool> stopped{ false };
 	// Remote enpoint used to remove response channel even after socket closing
 	nano::tcp_endpoint remote_endpoint{ boost::asio::ip::address_v6::any (), 0 };
-	nano::account remote_node_id{ 0 };
+	nano::account remote_node_id{ static_cast<std::uint64_t> (0) };
 	std::chrono::steady_clock::time_point last_telemetry_req{ std::chrono::steady_clock::time_point () };
 };
 }

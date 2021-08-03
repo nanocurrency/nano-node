@@ -23,14 +23,13 @@ std::chrono::seconds constexpr nano::telemetry_cache_cutoffs::live;
 
 uint64_t nano::ip_address_hash_raw (boost::asio::ip::address const & ip_a, uint16_t port)
 {
-	static nano::random_constants constants;
 	debug_assert (ip_a.is_v6 ());
 	uint64_t result;
 	nano::uint128_union address;
 	address.bytes = ip_a.to_v6 ().to_bytes ();
 	blake2b_state state;
 	blake2b_init (&state, sizeof (result));
-	blake2b_update (&state, constants.random_128.bytes.data (), constants.random_128.bytes.size ());
+	blake2b_update (&state, nano::hardened_constants::get ().random_128.bytes.data (), nano::hardened_constants::get ().random_128.bytes.size ());
 	if (port != 0)
 	{
 		blake2b_update (&state, &port, sizeof (port));

@@ -354,7 +354,7 @@ class telemetry_data
 {
 public:
 	nano::signature signature{ 0 };
-	nano::account node_id{ 0 };
+	nano::account node_id{ static_cast<std::uint64_t> (0) };
 	uint64_t block_count{ 0 };
 	uint64_t cemented_count{ 0 };
 	uint64_t unchecked_count{ 0 };

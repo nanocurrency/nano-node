@@ -238,7 +238,7 @@ void nano::fan::value_set (nano::raw_key const & value_a)
 }
 
 // Wallet version number
-nano::account const nano::wallet_store::version_special (0);
+nano::account const nano::wallet_store::version_special (static_cast<std::uint64_t> (0));
 // Random number used to salt private key encryption
 nano::account const nano::wallet_store::salt_special (1);
 // Key used to encrypt wallet keys, encrypted itself by the user password
@@ -714,7 +714,7 @@ bool nano::wallet::enter_password (nano::transaction const & transaction_a, std:
 
 nano::public_key nano::wallet::deterministic_insert (nano::transaction const & transaction_a, bool generate_work_a)
 {
-	nano::public_key key (0);
+	nano::public_key key{ static_cast<std::uint64_t> (0) };
 	if (store.valid_password (transaction_a))
 	{
 		key = store.deterministic_insert (transaction_a);
@@ -735,7 +735,7 @@ nano::public_key nano::wallet::deterministic_insert (nano::transaction const & t
 nano::public_key nano::wallet::deterministic_insert (uint32_t const index, bool generate_work_a)
 {
 	auto transaction (wallets.tx_begin_write ());
-	nano::public_key key (0);
+	nano::public_key key{ static_cast<std::uint64_t> (0) };
 	if (store.valid_password (transaction))
 	{
 		key = store.deterministic_insert (transaction, index);
@@ -756,7 +756,7 @@ nano::public_key nano::wallet::deterministic_insert (bool generate_work_a)
 
 nano::public_key nano::wallet::insert_adhoc (nano::raw_key const & key_a, bool generate_work_a)
 {
-	nano::public_key key (0);
+	nano::public_key key{ static_cast<std::uint64_t> (0) };
 	auto transaction (wallets.tx_begin_write ());
 	if (store.valid_password (transaction))
 	{
