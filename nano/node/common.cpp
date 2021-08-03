@@ -56,7 +56,6 @@ nano::message_header::message_header (bool & error_a, nano::stream & stream_a)
 
 void nano::message_header::serialize (nano::stream & stream_a) const
 {
-	static nano::network_params network_params;
 	nano::write (stream_a, boost::endian::native_to_big (static_cast<uint16_t> (network)));
 	nano::write (stream_a, version_max);
 	nano::write (stream_a, version_using);
@@ -70,7 +69,6 @@ bool nano::message_header::deserialize (nano::stream & stream_a)
 	auto error (false);
 	try
 	{
-		static nano::network_params network_params;
 		uint16_t network_bytes;
 		nano::read (stream_a, network_bytes);
 		network = static_cast<nano::networks> (boost::endian::big_to_native (network_bytes));
