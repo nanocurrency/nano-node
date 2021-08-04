@@ -453,9 +453,6 @@ public:
 class network_params
 {
 public:
-	/** Populate values based on the current active network */
-	network_params ();
-
 	/** Populate values based on \p network_a */
 	network_params (nano::networks network_a);
 

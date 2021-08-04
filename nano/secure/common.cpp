@@ -85,11 +85,6 @@ nano::network_params nano::dev::network_params{ nano::networks::nano_dev_network
 nano::ledger_constants & nano::dev::constants{ nano::dev::network_params.ledger };
 std::shared_ptr<nano::block> & nano::dev::genesis = nano::dev::constants.genesis;
 
-nano::network_params::network_params () :
-	network_params (network_constants::active_network)
-{
-}
-
 nano::network_params::network_params (nano::networks network_a) :
 	network (network_a), ledger (network), voting (network), node (network), portmapping (network), bootstrap (network)
 {
