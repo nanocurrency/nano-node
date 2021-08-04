@@ -6,7 +6,7 @@
 
 static std::vector<boost::filesystem::path> all_unique_paths;
 
-boost::filesystem::path nano::working_path (bool legacy)
+boost::filesystem::path nano::working_path ()
 {
 	static nano::network_constants network_constants;
 	auto result (nano::app_path ());
@@ -16,44 +16,16 @@ boost::filesystem::path nano::working_path (bool legacy)
 			release_assert (false);
 			break;
 		case nano::networks::nano_dev_network:
-			if (!legacy)
-			{
-				result /= "NanoDev";
-			}
-			else
-			{
-				result /= "RaiBlocksDev";
-			}
+			result /= "NanoDev";
 			break;
 		case nano::networks::nano_beta_network:
-			if (!legacy)
-			{
-				result /= "NanoBeta";
-			}
-			else
-			{
-				result /= "RaiBlocksBeta";
-			}
+			result /= "NanoBeta";
 			break;
 		case nano::networks::nano_live_network:
-			if (!legacy)
-			{
-				result /= "Nano";
-			}
-			else
-			{
-				result /= "RaiBlocks";
-			}
+			result /= "Nano";
 			break;
 		case nano::networks::nano_test_network:
-			if (!legacy)
-			{
-				result /= "NanoTest";
-			}
-			else
-			{
-				result /= "RaiBlocksTest";
-			}
+			result /= "NanoTest";
 			break;
 	}
 	return result;
