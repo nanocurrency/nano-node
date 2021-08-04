@@ -149,12 +149,12 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 		};
 		if (!config.callback_address.empty ())
 		{
-			observers.blocks.add ([this] (nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
+			observers.blocks.add ([this] (nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a, bool is_state_epoch_a) {
 				auto block_a (status_a.winner);
 				if ((status_a.type == nano::election_status_type::active_confirmed_quorum || status_a.type == nano::election_status_type::active_confirmation_height) && this->block_arrival.recent (block_a->hash ()))
 				{
 					auto node_l (shared_from_this ());
-					background ([node_l, block_a, account_a, amount_a, is_state_send_a] () {
+					background ([node_l, block_a, account_a, amount_a, is_state_send_a, is_state_epoch_a] () {
 						boost::property_tree::ptree event;
 						event.add ("account", account_a.to_account ());
 						event.add ("hash", block_a->hash ().to_string ());
@@ -174,8 +174,9 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 							{
 								event.add ("subtype", "change");
 							}
-							else if (amount_a == 0 && node_l->ledger.is_epoch_link (block_a->link ()))
+							else if (is_state_epoch_a)
 							{
+								debug_assert (amount_a == 0 && node_l->ledger.is_epoch_link (block_a->link ()));
 								event.add ("subtype", "epoch");
 							}
 							else
@@ -211,7 +212,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 		}
 		if (websocket_server)
 		{
-			observers.blocks.add ([this] (nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
+			observers.blocks.add ([this] (nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a, bool is_state_epoch_a) {
 				debug_assert (status_a.type != nano::election_status_type::ongoing);
 
 				if (this->websocket_server->any_subscriber (nano::websocket::topic::confirmation))
@@ -228,8 +229,9 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 						{
 							subtype = "change";
 						}
-						else if (amount_a == 0 && this->ledger.is_epoch_link (block_a->link ()))
+						else if (is_state_epoch_a)
 						{
+							debug_assert (amount_a == 0 && this->ledger.is_epoch_link (block_a->link ()));
 							subtype = "epoch";
 						}
 						else
@@ -259,7 +261,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 			});
 		}
 		// Add block confirmation type stats regardless of http-callback and websocket subscriptions
-		observers.blocks.add ([this] (nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
+		observers.blocks.add ([this] (nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a, bool is_state_epoch_a) {
 			debug_assert (status_a.type != nano::election_status_type::ongoing);
 			switch (status_a.type)
 			{
@@ -1305,7 +1307,7 @@ void nano::node::receive_confirmed (nano::transaction const & block_transaction_
 	}
 }
 
-void nano::node::process_confirmed_data (nano::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a, nano::block_hash const & hash_a, nano::account & account_a, nano::uint128_t & amount_a, bool & is_state_send_a, nano::account & pending_account_a)
+void nano::node::process_confirmed_data (nano::transaction const & transaction_a, std::shared_ptr<nano::block> const & block_a, nano::block_hash const & hash_a, nano::account & account_a, nano::uint128_t & amount_a, bool & is_state_send_a, bool & is_state_epoch_a, nano::account & pending_account_a)
 {
 	// Faster account calculation
 	account_a = block_a->account ();
@@ -1338,6 +1340,10 @@ void nano::node::process_confirmed_data (nano::transaction const & transaction_a
 		if (state->hashables.balance < previous_balance)
 		{
 			is_state_send_a = true;
+		}
+		if (amount_a == 0 && network_params.ledger.epochs.is_epoch_link (state->link ()))
+		{
+			is_state_epoch_a = true;
 		}
 		pending_account_a = state->hashables.link.as_account ();
 	}

@@ -22,7 +22,7 @@ std::shared_ptr<flatbuffers::Parser> nano::ipc::subscriber::get_parser (nano::ip
 
 void nano::ipc::broker::start ()
 {
-	node.observers.blocks.add ([this_l = shared_from_this ()] (nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
+	node.observers.blocks.add ([this_l = shared_from_this ()] (nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a, bool is_state_epoch_a) {
 		debug_assert (status_a.type != nano::election_status_type::ongoing);
 
 		try
@@ -51,7 +51,7 @@ void nano::ipc::broker::start ()
 						break;
 				};
 				confirmation->confirmation_type = nanoapi::TopicConfirmationType::TopicConfirmationType_active_quorum;
-				confirmation->block = nano::ipc::flatbuffers_builder::block_to_union (*status_a.winner, amount_a, is_state_send_a);
+				confirmation->block = nano::ipc::flatbuffers_builder::block_to_union (*status_a.winner, amount_a, is_state_send_a, is_state_epoch_a);
 				confirmation->election_info = std::make_unique<nanoapi::ElectionInfoT> ();
 				confirmation->election_info->duration = status_a.election_duration.count ();
 				confirmation->election_info->time = status_a.election_end.count ();

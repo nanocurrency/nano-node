@@ -1138,14 +1138,16 @@ void nano::json_handler::block_confirm ()
 				bool error_or_pruned (false);
 				auto amount (node.ledger.amount_safe (transaction, hash, error_or_pruned));
 				bool is_state_send (false);
+				bool is_state_epoch (false);
 				if (!error_or_pruned)
 				{
 					if (auto state = dynamic_cast<nano::state_block *> (block_l.get ()))
 					{
 						is_state_send = node.ledger.is_send (transaction, *state);
+						is_state_epoch = amount == 0 && node.ledger.is_epoch_link (state->link ());
 					}
 				}
-				node.observers.blocks.notify (status, {}, account, amount, is_state_send);
+				node.observers.blocks.notify (status, {}, account, amount, is_state_send, is_state_epoch);
 			}
 			response_l.put ("started", "1");
 		}
