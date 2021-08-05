@@ -12,7 +12,7 @@ TEST (bulk_pull, no_address)
 {
 	nano::system system (1);
 	auto connection (std::make_shared<nano::bootstrap_server> (std::make_shared<nano::socket> (*system.nodes[0]), system.nodes[0]));
-	auto req = std::make_unique<nano::bulk_pull> ();
+	auto req = std::make_unique<nano::bulk_pull> (nano::dev::network_params.network);
 	req->start = 1;
 	req->end = 2;
 	connection->requests.push (std::unique_ptr<nano::message>{});
@@ -25,10 +25,10 @@ TEST (bulk_pull, genesis_to_end)
 {
 	nano::system system (1);
 	auto connection (std::make_shared<nano::bootstrap_server> (std::make_shared<nano::socket> (*system.nodes[0]), system.nodes[0]));
-	auto req = std::make_unique<nano::bulk_pull> ();
+	auto req = std::make_unique<nano::bulk_pull> (nano::dev::network_params.network);
 	req->start = nano::dev::genesis_key.pub;
 	req->end.clear ();
-	connection->requests.push (std::unique_ptr<nano::message>{});
+	connection->requests.push (nullptr);
 	auto request (std::make_shared<nano::bulk_pull_server> (connection, std::move (req)));
 	ASSERT_EQ (system.nodes[0]->latest (nano::dev::genesis_key.pub), request->current);
 	ASSERT_EQ (request->request->end, request->request->end);
@@ -39,7 +39,7 @@ TEST (bulk_pull, no_end)
 {
 	nano::system system (1);
 	auto connection (std::make_shared<nano::bootstrap_server> (std::make_shared<nano::socket> (*system.nodes[0]), system.nodes[0]));
-	auto req = std::make_unique<nano::bulk_pull> ();
+	auto req = std::make_unique<nano::bulk_pull> (nano::dev::network_params.network);
 	req->start = nano::dev::genesis_key.pub;
 	req->end = 1;
 	connection->requests.push (std::unique_ptr<nano::message>{});
@@ -64,7 +64,7 @@ TEST (bulk_pull, end_not_owned)
 	system.nodes[0]->work_generate_blocking (open);
 	ASSERT_EQ (nano::process_result::progress, system.nodes[0]->process (open).code);
 	auto connection (std::make_shared<nano::bootstrap_server> (std::make_shared<nano::socket> (*system.nodes[0]), system.nodes[0]));
-	auto req = std::make_unique<nano::bulk_pull> ();
+	auto req = std::make_unique<nano::bulk_pull> (nano::dev::network_params.network);
 	req->start = key2.pub;
 	req->end = nano::dev::genesis->hash ();
 	connection->requests.push (std::unique_ptr<nano::message>{});
@@ -76,7 +76,7 @@ TEST (bulk_pull, none)
 {
 	nano::system system (1);
 	auto connection (std::make_shared<nano::bootstrap_server> (std::make_shared<nano::socket> (*system.nodes[0]), system.nodes[0]));
-	auto req = std::make_unique<nano::bulk_pull> ();
+	auto req = std::make_unique<nano::bulk_pull> (nano::dev::network_params.network);
 	req->start = nano::dev::genesis_key.pub;
 	req->end = nano::dev::genesis->hash ();
 	connection->requests.push (std::unique_ptr<nano::message>{});
@@ -89,7 +89,7 @@ TEST (bulk_pull, get_next_on_open)
 {
 	nano::system system (1);
 	auto connection (std::make_shared<nano::bootstrap_server> (std::make_shared<nano::socket> (*system.nodes[0]), system.nodes[0]));
-	auto req = std::make_unique<nano::bulk_pull> ();
+	auto req = std::make_unique<nano::bulk_pull> (nano::dev::network_params.network);
 	req->start = nano::dev::genesis_key.pub;
 	req->end.clear ();
 	connection->requests.push (std::unique_ptr<nano::message>{});
@@ -105,7 +105,7 @@ TEST (bulk_pull, by_block)
 {
 	nano::system system (1);
 	auto connection (std::make_shared<nano::bootstrap_server> (std::make_shared<nano::socket> (*system.nodes[0]), system.nodes[0]));
-	auto req = std::make_unique<nano::bulk_pull> ();
+	auto req = std::make_unique<nano::bulk_pull> (nano::dev::network_params.network);
 	req->start = nano::dev::genesis->hash ();
 	req->end.clear ();
 	connection->requests.push (std::unique_ptr<nano::message>{});
@@ -122,7 +122,7 @@ TEST (bulk_pull, by_block_single)
 {
 	nano::system system (1);
 	auto connection (std::make_shared<nano::bootstrap_server> (std::make_shared<nano::socket> (*system.nodes[0]), system.nodes[0]));
-	auto req = std::make_unique<nano::bulk_pull> ();
+	auto req = std::make_unique<nano::bulk_pull> (nano::dev::network_params.network);
 	req->start = nano::dev::genesis->hash ();
 	req->end = nano::dev::genesis->hash ();
 	connection->requests.push (std::unique_ptr<nano::message>{});
@@ -146,7 +146,7 @@ TEST (bulk_pull, count_limit)
 	ASSERT_EQ (nano::process_result::progress, node0->process (*receive1).code);
 
 	auto connection (std::make_shared<nano::bootstrap_server> (std::make_shared<nano::socket> (*node0), node0));
-	auto req = std::make_unique<nano::bulk_pull> ();
+	auto req = std::make_unique<nano::bulk_pull> (nano::dev::network_params.network);
 	req->start = receive1->hash ();
 	req->set_count_present (true);
 	req->count = 2;
@@ -1393,7 +1393,7 @@ TEST (frontier_req_response, DISABLED_destruction)
 		{
 			nano::system system (1);
 			auto connection (std::make_shared<nano::bootstrap_server> (nullptr, system.nodes[0]));
-			auto req = std::make_unique<nano::frontier_req> ();
+			auto req = std::make_unique<nano::frontier_req> (nano::dev::network_params.network);
 			req->start.clear ();
 			req->age = std::numeric_limits<decltype (req->age)>::max ();
 			req->count = std::numeric_limits<decltype (req->count)>::max ();
@@ -1408,7 +1408,7 @@ TEST (frontier_req, begin)
 {
 	nano::system system (1);
 	auto connection (std::make_shared<nano::bootstrap_server> (std::make_shared<nano::socket> (*system.nodes[0]), system.nodes[0]));
-	auto req = std::make_unique<nano::frontier_req> ();
+	auto req = std::make_unique<nano::frontier_req> (nano::dev::network_params.network);
 	req->start.clear ();
 	req->age = std::numeric_limits<decltype (req->age)>::max ();
 	req->count = std::numeric_limits<decltype (req->count)>::max ();
@@ -1422,7 +1422,7 @@ TEST (frontier_req, end)
 {
 	nano::system system (1);
 	auto connection (std::make_shared<nano::bootstrap_server> (std::make_shared<nano::socket> (*system.nodes[0]), system.nodes[0]));
-	auto req = std::make_unique<nano::frontier_req> ();
+	auto req = std::make_unique<nano::frontier_req> (nano::dev::network_params.network);
 	req->start = nano::dev::genesis_key.pub.number () + 1;
 	req->age = std::numeric_limits<decltype (req->age)>::max ();
 	req->count = std::numeric_limits<decltype (req->count)>::max ();
@@ -1464,7 +1464,7 @@ TEST (frontier_req, count)
 	ASSERT_EQ (nano::process_result::progress, node1->process (*receive1).code);
 
 	auto connection (std::make_shared<nano::bootstrap_server> (std::make_shared<nano::socket> (*node1), node1));
-	auto req = std::make_unique<nano::frontier_req> ();
+	auto req = std::make_unique<nano::frontier_req> (nano::dev::network_params.network);
 	req->start.clear ();
 	req->age = std::numeric_limits<decltype (req->age)>::max ();
 	req->count = 1;
@@ -1478,7 +1478,7 @@ TEST (frontier_req, time_bound)
 {
 	nano::system system (1);
 	auto connection (std::make_shared<nano::bootstrap_server> (std::make_shared<nano::socket> (*system.nodes[0]), system.nodes[0]));
-	auto req = std::make_unique<nano::frontier_req> ();
+	auto req = std::make_unique<nano::frontier_req> (nano::dev::network_params.network);
 	req->start.clear ();
 	req->age = 1;
 	req->count = std::numeric_limits<decltype (req->count)>::max ();
@@ -1487,7 +1487,7 @@ TEST (frontier_req, time_bound)
 	ASSERT_EQ (nano::dev::genesis_key.pub, request->current);
 	// Wait 2 seconds until age of account will be > 1 seconds
 	std::this_thread::sleep_for (std::chrono::milliseconds (2100));
-	auto req2 (std::make_unique<nano::frontier_req> ());
+	auto req2 (std::make_unique<nano::frontier_req> (nano::dev::network_params.network));
 	req2->start.clear ();
 	req2->age = 1;
 	req2->count = std::numeric_limits<decltype (req2->count)>::max ();
@@ -1501,7 +1501,7 @@ TEST (frontier_req, time_cutoff)
 {
 	nano::system system (1);
 	auto connection (std::make_shared<nano::bootstrap_server> (std::make_shared<nano::socket> (*system.nodes[0]), system.nodes[0]));
-	auto req = std::make_unique<nano::frontier_req> ();
+	auto req = std::make_unique<nano::frontier_req> (nano::dev::network_params.network);
 	req->start.clear ();
 	req->age = 3;
 	req->count = std::numeric_limits<decltype (req->count)>::max ();
@@ -1511,7 +1511,7 @@ TEST (frontier_req, time_cutoff)
 	ASSERT_EQ (nano::dev::genesis->hash (), request->frontier);
 	// Wait 4 seconds until age of account will be > 3 seconds
 	std::this_thread::sleep_for (std::chrono::milliseconds (4100));
-	auto req2 (std::make_unique<nano::frontier_req> ());
+	auto req2 (std::make_unique<nano::frontier_req> (nano::dev::network_params.network));
 	req2->start.clear ();
 	req2->age = 3;
 	req2->count = std::numeric_limits<decltype (req2->count)>::max ();
@@ -1590,7 +1590,7 @@ TEST (frontier_req, confirmed_frontier)
 
 	// Request for all accounts (confirmed only)
 	auto connection (std::make_shared<nano::bootstrap_server> (std::make_shared<nano::socket> (*node1), node1));
-	auto req = std::make_unique<nano::frontier_req> ();
+	auto req = std::make_unique<nano::frontier_req> (nano::dev::network_params.network);
 	req->start.clear ();
 	req->age = std::numeric_limits<decltype (req->age)>::max ();
 	req->count = std::numeric_limits<decltype (req->count)>::max ();
@@ -1604,7 +1604,7 @@ TEST (frontier_req, confirmed_frontier)
 
 	// Request starting with account before genesis (confirmed only)
 	auto connection2 (std::make_shared<nano::bootstrap_server> (std::make_shared<nano::socket> (*node1), node1));
-	auto req2 = std::make_unique<nano::frontier_req> ();
+	auto req2 = std::make_unique<nano::frontier_req> (nano::dev::network_params.network);
 	req2->start = key_before_genesis.pub;
 	req2->age = std::numeric_limits<decltype (req2->age)>::max ();
 	req2->count = std::numeric_limits<decltype (req2->count)>::max ();
@@ -1618,7 +1618,7 @@ TEST (frontier_req, confirmed_frontier)
 
 	// Request starting with account after genesis (confirmed only)
 	auto connection3 (std::make_shared<nano::bootstrap_server> (std::make_shared<nano::socket> (*node1), node1));
-	auto req3 = std::make_unique<nano::frontier_req> ();
+	auto req3 = std::make_unique<nano::frontier_req> (nano::dev::network_params.network);
 	req3->start = key_after_genesis.pub;
 	req3->age = std::numeric_limits<decltype (req3->age)>::max ();
 	req3->count = std::numeric_limits<decltype (req3->count)>::max ();
@@ -1632,7 +1632,7 @@ TEST (frontier_req, confirmed_frontier)
 
 	// Request for all accounts (unconfirmed blocks)
 	auto connection4 (std::make_shared<nano::bootstrap_server> (std::make_shared<nano::socket> (*node1), node1));
-	auto req4 = std::make_unique<nano::frontier_req> ();
+	auto req4 = std::make_unique<nano::frontier_req> (nano::dev::network_params.network);
 	req4->start.clear ();
 	req4->age = std::numeric_limits<decltype (req4->age)>::max ();
 	req4->count = std::numeric_limits<decltype (req4->count)>::max ();
@@ -1644,7 +1644,7 @@ TEST (frontier_req, confirmed_frontier)
 
 	// Request starting with account after genesis (unconfirmed blocks)
 	auto connection5 (std::make_shared<nano::bootstrap_server> (std::make_shared<nano::socket> (*node1), node1));
-	auto req5 = std::make_unique<nano::frontier_req> ();
+	auto req5 = std::make_unique<nano::frontier_req> (nano::dev::network_params.network);
 	req5->start = key_after_genesis.pub;
 	req5->age = std::numeric_limits<decltype (req5->age)>::max ();
 	req5->count = std::numeric_limits<decltype (req5->count)>::max ();
@@ -1658,7 +1658,7 @@ TEST (frontier_req, confirmed_frontier)
 	nano::blocks_confirm (*node1, { send1, receive1 }, true);
 	ASSERT_TIMELY (5s, node1->block_confirmed (send1->hash ()) && node1->block_confirmed (receive1->hash ()));
 	auto connection6 (std::make_shared<nano::bootstrap_server> (std::make_shared<nano::socket> (*node1), node1));
-	auto req6 = std::make_unique<nano::frontier_req> ();
+	auto req6 = std::make_unique<nano::frontier_req> (nano::dev::network_params.network);
 	req6->start = key_before_genesis.pub;
 	req6->age = std::numeric_limits<decltype (req6->age)>::max ();
 	req6->count = std::numeric_limits<decltype (req6->count)>::max ();
@@ -1674,7 +1674,7 @@ TEST (frontier_req, confirmed_frontier)
 	nano::blocks_confirm (*node1, { send2, receive2 }, true);
 	ASSERT_TIMELY (5s, node1->block_confirmed (send2->hash ()) && node1->block_confirmed (receive2->hash ()));
 	auto connection7 (std::make_shared<nano::bootstrap_server> (std::make_shared<nano::socket> (*node1), node1));
-	auto req7 = std::make_unique<nano::frontier_req> ();
+	auto req7 = std::make_unique<nano::frontier_req> (nano::dev::network_params.network);
 	req7->start = key_after_genesis.pub;
 	req7->age = std::numeric_limits<decltype (req7->age)>::max ();
 	req7->count = std::numeric_limits<decltype (req7->count)>::max ();
@@ -1851,7 +1851,7 @@ TEST (bulk_pull_account, basics)
 	auto connection (std::make_shared<nano::bootstrap_server> (std::make_shared<nano::socket> (*system.nodes[0]), system.nodes[0]));
 
 	{
-		auto req = std::make_unique<nano::bulk_pull_account> ();
+		auto req = std::make_unique<nano::bulk_pull_account> (nano::dev::network_params.network);
 		req->account = key1.pub;
 		req->minimum_amount = 5;
 		req->flags = nano::bulk_pull_account_flags ();
@@ -1870,7 +1870,7 @@ TEST (bulk_pull_account, basics)
 	}
 
 	{
-		auto req = std::make_unique<nano::bulk_pull_account> ();
+		auto req = std::make_unique<nano::bulk_pull_account> (nano::dev::network_params.network);
 		req->account = key1.pub;
 		req->minimum_amount = 0;
 		req->flags = nano::bulk_pull_account_flags::pending_address_only;

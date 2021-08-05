@@ -152,14 +152,14 @@ void nano::network::stop ()
 
 void nano::network::send_keepalive (std::shared_ptr<nano::transport::channel> const & channel_a)
 {
-	nano::keepalive message;
+	nano::keepalive message{ node.network_params.network };
 	random_fill (message.peers);
 	channel_a->send (message);
 }
 
 void nano::network::send_keepalive_self (std::shared_ptr<nano::transport::channel> const & channel_a)
 {
-	nano::keepalive message;
+	nano::keepalive message{ node.network_params.network };
 	fill_keepalive_self (message.peers);
 	channel_a->send (message);
 }
@@ -172,7 +172,7 @@ void nano::network::send_node_id_handshake (std::shared_ptr<nano::transport::cha
 		response = std::make_pair (node.node_id.pub, nano::sign_message (node.node_id.prv, node.node_id.pub, *respond_to));
 		debug_assert (!nano::validate_message (response->first, *respond_to, response->second));
 	}
-	nano::node_id_handshake message (query, response);
+	nano::node_id_handshake message{ node.network_params.network, query, response };
 	if (node.config.logging.network_node_id_handshake_logging ())
 	{
 		node.logger.try_log (boost::str (boost::format ("Node ID handshake sent with node ID %1% to %2%: query %3%, respond_to %4% (signature %5%)") % node.node_id.pub.to_node_id () % channel_a->get_endpoint () % (query ? query->to_string () : std::string ("[none]")) % (respond_to ? respond_to->to_string () : std::string ("[none]")) % (response ? response->second.to_string () : std::string ("[none]"))));
@@ -188,15 +188,29 @@ void nano::network::flood_message (nano::message & message_a, nano::buffer_drop_
 	}
 }
 
+void nano::network::flood_keepalive (float const scale_a)
+{
+	nano::keepalive message{ node.network_params.network };
+	random_fill (message.peers);
+	flood_message (message, nano::buffer_drop_policy::limiter, scale_a);
+}
+
+void nano::network::flood_keepalive_self (float const scale_a)
+{
+	nano::keepalive message{ node.network_params.network };
+	fill_keepalive_self (message.peers);
+	flood_message (message, nano::buffer_drop_policy::limiter, scale_a);
+}
+
 void nano::network::flood_block (std::shared_ptr<nano::block> const & block_a, nano::buffer_drop_policy const drop_policy_a)
 {
-	nano::publish message (block_a);
+	nano::publish message (node.network_params.network, block_a);
 	flood_message (message, drop_policy_a);
 }
 
 void nano::network::flood_block_initial (std::shared_ptr<nano::block> const & block_a)
 {
-	nano::publish message (block_a);
+	nano::publish message (node.network_params.network, block_a);
 	for (auto const & i : node.rep_crawler.principal_representatives ())
 	{
 		i.channel->send (message, nullptr, nano::buffer_drop_policy::no_limiter_drop);
@@ -209,7 +223,7 @@ void nano::network::flood_block_initial (std::shared_ptr<nano::block> const & bl
 
 void nano::network::flood_vote (std::shared_ptr<nano::vote> const & vote_a, float scale)
 {
-	nano::confirm_ack message (vote_a);
+	nano::confirm_ack message{ node.network_params.network, vote_a };
 	for (auto & i : list (fanout (scale)))
 	{
 		i->send (message, nullptr);
@@ -218,7 +232,7 @@ void nano::network::flood_vote (std::shared_ptr<nano::vote> const & vote_a, floa
 
 void nano::network::flood_vote_pr (std::shared_ptr<nano::vote> const & vote_a)
 {
-	nano::confirm_ack message (vote_a);
+	nano::confirm_ack message{ node.network_params.network, vote_a };
 	for (auto const & i : node.rep_crawler.principal_representatives ())
 	{
 		i.channel->send (message, nullptr, nano::buffer_drop_policy::no_limiter_drop);
@@ -252,7 +266,7 @@ void nano::network::flood_block_many (std::deque<std::shared_ptr<nano::block>> b
 void nano::network::send_confirm_req (std::shared_ptr<nano::transport::channel> const & channel_a, std::pair<nano::block_hash, nano::block_hash> const & hash_root_a)
 {
 	// Confirmation request with hash + root
-	nano::confirm_req req (hash_root_a.first, hash_root_a.second);
+	nano::confirm_req req (node.network_params.network, hash_root_a.first, hash_root_a.second);
 	channel_a->send (req);
 }
 
@@ -330,7 +344,7 @@ void nano::network::broadcast_confirm_req_batched_many (std::unordered_map<std::
 			roots_hashes_l.push_back (i->second.front ());
 			i->second.pop_front ();
 		}
-		nano::confirm_req req (roots_hashes_l);
+		nano::confirm_req req{ node.network_params.network, roots_hashes_l };
 		i->first->send (req);
 		if (i->second.empty ())
 		{
@@ -516,11 +530,11 @@ public:
 
 		// Send an empty telemetry_ack if we do not want, just to acknowledge that we have received the message to
 		// remove any timeouts on the server side waiting for a message.
-		nano::telemetry_ack telemetry_ack;
+		nano::telemetry_ack telemetry_ack{ node.network_params.network };
 		if (!node.flags.disable_providing_telemetry_metrics)
 		{
 			auto telemetry_data = nano::local_telemetry_data (node.ledger, node.network, node.config.bandwidth_limit, node.network_params, node.startup_time, node.default_difficulty (nano::work_version::work_1), node.node_id);
-			telemetry_ack = nano::telemetry_ack (telemetry_data);
+			telemetry_ack = nano::telemetry_ack{ node.network_params.network, telemetry_data };
 		}
 		channel->send (telemetry_ack, nullptr, nano::buffer_drop_policy::no_socket_drop);
 	}

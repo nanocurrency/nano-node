@@ -284,7 +284,7 @@ TEST (telemetry, receive_from_non_listening_channel)
 {
 	nano::system system;
 	auto node = system.add_node ();
-	nano::telemetry_ack message (nano::telemetry_data{});
+	nano::telemetry_ack message{ nano::dev::network_params.network, nano::telemetry_data{} };
 	node->network.inbound (message, node->network.udp_channels.create (node->network.endpoint ()));
 	// We have not sent a telemetry_req message to this endpoint, so shouldn't count telemetry_ack received from it.
 	ASSERT_EQ (node->telemetry->telemetry_data_size (), 0);
@@ -412,7 +412,7 @@ TEST (telemetry, dos_tcp)
 
 	wait_peer_connections (system);
 
-	nano::telemetry_req message;
+	nano::telemetry_req message{ nano::dev::network_params.network };
 	auto channel = node_client->network.tcp_channels.find_channel (nano::transport::map_endpoint_to_tcp (node_server->network.endpoint ()));
 	channel->send (message, [] (boost::system::error_code const & ec, size_t size_a) {
 		ASSERT_FALSE (ec);
@@ -455,7 +455,7 @@ TEST (telemetry, dos_udp)
 
 	wait_peer_connections (system);
 
-	nano::telemetry_req message;
+	nano::telemetry_req message{ nano::dev::network_params.network };
 	auto channel (node_client->network.udp_channels.create (node_server->network.endpoint ()));
 	channel->send (message, [] (boost::system::error_code const & ec, size_t size_a) {
 		ASSERT_FALSE (ec);
@@ -532,7 +532,7 @@ TEST (telemetry, max_possible_size)
 	nano::telemetry_data data;
 	data.unknown_data.resize (nano::message_header::telemetry_size_mask.to_ulong () - nano::telemetry_data::latest_size);
 
-	nano::telemetry_ack message (data);
+	nano::telemetry_ack message{ nano::dev::network_params.network, data };
 	wait_peer_connections (system);
 
 	auto channel = node_client->network.tcp_channels.find_channel (nano::transport::map_endpoint_to_tcp (node_server->network.endpoint ()));
@@ -651,7 +651,7 @@ TEST (telemetry, remove_peer_invalid_signature)
 	auto telemetry_data = nano::local_telemetry_data (node->ledger, node->network, node->config.bandwidth_limit, node->network_params, node->startup_time, node->default_difficulty (nano::work_version::work_1), node->node_id);
 	// Change anything so that the signed message is incorrect
 	telemetry_data.block_count = 0;
-	auto telemetry_ack = nano::telemetry_ack (telemetry_data);
+	auto telemetry_ack = nano::telemetry_ack{ nano::dev::network_params.network, telemetry_data };
 	node->network.inbound (telemetry_ack, channel);
 
 	ASSERT_TIMELY (10s, node->stats.count (nano::stat::type::telemetry, nano::stat::detail::invalid_signature) > 0);

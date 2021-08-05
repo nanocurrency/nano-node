@@ -654,10 +654,10 @@ TEST (confirmation_height, conflict_rollback_cemented)
 		ASSERT_EQ (1, node1->network.size ());
 		nano::keypair key1;
 		auto send1 (std::make_shared<nano::send_block> (nano::dev::genesis->hash (), key1.pub, nano::dev::constants.genesis_amount - 100, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (nano::dev::genesis->hash ())));
-		nano::publish publish1 (send1);
+		nano::publish publish1{ nano::dev::network_params.network, send1 };
 		nano::keypair key2;
 		auto send2 (std::make_shared<nano::send_block> (nano::dev::genesis->hash (), key2.pub, nano::dev::constants.genesis_amount - 100, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (nano::dev::genesis->hash ())));
-		nano::publish publish2 (send2);
+		nano::publish publish2{ nano::dev::network_params.network, send2 };
 		auto channel1 (node1->network.udp_channels.create (node1->network.endpoint ()));
 		node1->network.inbound (publish1, channel1);
 		node1->block_processor.flush ();

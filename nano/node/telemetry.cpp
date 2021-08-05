@@ -352,7 +352,7 @@ void nano::telemetry::fire_request_message (std::shared_ptr<nano::transport::cha
 	}
 
 	std::weak_ptr<nano::telemetry> this_w (shared_from_this ());
-	nano::telemetry_req message;
+	nano::telemetry_req message{ network_params.network };
 	// clang-format off
 	channel_a->send (message, [this_w, endpoint = channel_a->get_endpoint (), round_l](boost::system::error_code const & ec, size_t size_a) {
 		if (auto this_l = this_w.lock ())

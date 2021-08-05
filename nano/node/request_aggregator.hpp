@@ -59,7 +59,7 @@ class request_aggregator final
 	// clang-format on
 
 public:
-	request_aggregator (nano::network_constants const &, nano::node_config const & config, nano::stat & stats_a, nano::vote_generator &, nano::vote_generator &, nano::local_vote_history &, nano::ledger &, nano::wallets &, nano::active_transactions &);
+	request_aggregator (nano::node_config const & config, nano::stat & stats_a, nano::vote_generator &, nano::vote_generator &, nano::local_vote_history &, nano::ledger &, nano::wallets &, nano::active_transactions &);
 
 	/** Add a new request by \p channel_a for hashes \p hashes_roots_a */
 	void add (std::shared_ptr<nano::transport::channel> const & channel_a, std::vector<std::pair<nano::block_hash, nano::root>> const & hashes_roots_a);
@@ -68,6 +68,7 @@ public:
 	size_t size ();
 	bool empty ();
 
+	nano::node_config const & config;
 	const std::chrono::milliseconds max_delay;
 	const std::chrono::milliseconds small_delay;
 	const size_t max_channel_requests;

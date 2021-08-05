@@ -686,7 +686,7 @@ void nano::transport::udp_channels::purge (std::chrono::steady_clock::time_point
 
 void nano::transport::udp_channels::ongoing_keepalive ()
 {
-	nano::keepalive message;
+	nano::keepalive message{ node.network_params.network };
 	node.network.random_fill (message.peers);
 	std::vector<std::shared_ptr<nano::transport::channel_udp>> send_list;
 	nano::unique_lock<nano::mutex> lock (mutex);

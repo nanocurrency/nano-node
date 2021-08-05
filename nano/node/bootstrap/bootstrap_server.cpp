@@ -669,10 +669,7 @@ public:
 			boost::optional<std::pair<nano::account, nano::signature>> response (std::make_pair (connection->node->node_id.pub, nano::sign_message (connection->node->node_id.prv, connection->node->node_id.pub, *message_a.query)));
 			debug_assert (!nano::validate_message (response->first, *message_a.query, response->second));
 			auto cookie (connection->node->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (connection->remote_endpoint)));
-			nano::node_id_handshake response_message (cookie, response);
-			response_message.header.version_max = connection->node->network_params.network.protocol_version;
-			response_message.header.version_using = connection->node->network_params.network.protocol_version;
-			response_message.header.version_min = connection->node->network_params.network.protocol_version_min;
+			nano::node_id_handshake response_message (connection->node->network_params.network, cookie, response);
 			auto shared_const_buffer = response_message.to_shared_const_buffer ();
 			connection->socket->async_write (shared_const_buffer, [connection = std::weak_ptr<nano::bootstrap_server> (connection)] (boost::system::error_code const & ec, size_t size_a) {
 				if (auto connection_l = connection.lock ())

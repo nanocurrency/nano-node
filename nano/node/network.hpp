@@ -124,18 +124,8 @@ public:
 	void start ();
 	void stop ();
 	void flood_message (nano::message &, nano::buffer_drop_policy const = nano::buffer_drop_policy::limiter, float const = 1.0f);
-	void flood_keepalive (float const scale_a = 1.0f)
-	{
-		nano::keepalive message;
-		random_fill (message.peers);
-		flood_message (message, nano::buffer_drop_policy::limiter, scale_a);
-	}
-	void flood_keepalive_self (float const scale_a = 0.5f)
-	{
-		nano::keepalive message;
-		fill_keepalive_self (message.peers);
-		flood_message (message, nano::buffer_drop_policy::limiter, scale_a);
-	}
+	void flood_keepalive (float const scale_a = 1.0f);
+	void flood_keepalive_self (float const scale_a = 0.5f);
 	void flood_vote (std::shared_ptr<nano::vote> const &, float scale);
 	void flood_vote_pr (std::shared_ptr<nano::vote> const &);
 	// Flood block to all PRs and a random selection of non-PRs

@@ -270,7 +270,7 @@ TEST (change_block, deserialize)
 
 TEST (frontier_req, serialization)
 {
-	nano::frontier_req request1;
+	nano::frontier_req request1{ nano::dev::network_params.network };
 	request1.start = 1;
 	request1.age = 2;
 	request1.count = 3;
@@ -293,7 +293,7 @@ TEST (block, publish_req_serialization)
 	nano::keypair key1;
 	nano::keypair key2;
 	auto block (std::make_shared<nano::send_block> (0, key2.pub, 200, nano::keypair ().prv, 2, 3));
-	nano::publish req (block);
+	nano::publish req{ nano::dev::network_params.network, block };
 	std::vector<uint8_t> bytes;
 	{
 		nano::vectorstream stream (bytes);

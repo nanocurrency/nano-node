@@ -11,9 +11,10 @@
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/store.hpp>
 
-nano::request_aggregator::request_aggregator (nano::network_constants const & network_constants_a, nano::node_config const & config_a, nano::stat & stats_a, nano::vote_generator & generator_a, nano::vote_generator & final_generator_a, nano::local_vote_history & history_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::active_transactions & active_a) :
-	max_delay (network_constants_a.is_dev_network () ? 50 : 300),
-	small_delay (network_constants_a.is_dev_network () ? 10 : 50),
+nano::request_aggregator::request_aggregator (nano::node_config const & config_a, nano::stat & stats_a, nano::vote_generator & generator_a, nano::vote_generator & final_generator_a, nano::local_vote_history & history_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::active_transactions & active_a) :
+	config{ config_a },
+	max_delay (config_a.network_params.network.is_dev_network () ? 50 : 300),
+	small_delay (config_a.network_params.network.is_dev_network () ? 10 : 50),
 	max_channel_requests (config_a.max_queued_requests),
 	stats (stats_a),
 	local_votes (history_a),
@@ -150,7 +151,7 @@ bool nano::request_aggregator::empty ()
 
 void nano::request_aggregator::reply_action (std::shared_ptr<nano::vote> const & vote_a, std::shared_ptr<nano::transport::channel> const & channel_a) const
 {
-	nano::confirm_ack confirm (vote_a);
+	nano::confirm_ack confirm{ config.network_params.network, vote_a };
 	channel_a->send (confirm);
 }
 
@@ -277,7 +278,7 @@ std::pair<std::vector<std::shared_ptr<nano::block>>, std::vector<std::shared_ptr
 				// Let the node know about the alternative block
 				if (block->hash () != hash)
 				{
-					nano::publish publish (block);
+					nano::publish publish (config.network_params.network, block);
 					channel_a->send (publish);
 				}
 			}

@@ -17,7 +17,7 @@ nano::bulk_push_client::~bulk_push_client ()
 
 void nano::bulk_push_client::start ()
 {
-	nano::bulk_push message;
+	nano::bulk_push message{ connection->node->network_params.network };
 	auto this_l (shared_from_this ());
 	connection->channel->send (
 	message, [this_l] (boost::system::error_code const & ec, size_t size_a) {
