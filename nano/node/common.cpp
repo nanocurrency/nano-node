@@ -313,14 +313,14 @@ std::string nano::message_parser::status_string ()
 	return "[unknown parse_status]";
 }
 
-nano::message_parser::message_parser (nano::network_filter & publish_filter_a, nano::block_uniquer & block_uniquer_a, nano::vote_uniquer & vote_uniquer_a, nano::message_visitor & visitor_a, nano::work_pool & pool_a, nano::protocol_constants const & protocol) :
+nano::message_parser::message_parser (nano::network_filter & publish_filter_a, nano::block_uniquer & block_uniquer_a, nano::vote_uniquer & vote_uniquer_a, nano::message_visitor & visitor_a, nano::work_pool & pool_a, nano::network_constants const & network) :
 	publish_filter (publish_filter_a),
 	block_uniquer (block_uniquer_a),
 	vote_uniquer (vote_uniquer_a),
 	visitor (visitor_a),
 	pool (pool_a),
 	status (parse_status::success),
-	protocol{ protocol }
+	network{ network }
 {
 }
 
@@ -335,7 +335,7 @@ void nano::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t 
 		nano::message_header header (error, stream);
 		if (!error)
 		{
-			if (header.version_using < protocol.protocol_version_min ())
+			if (header.version_using < network.protocol_version_min)
 			{
 				status = parse_status::outdated_version;
 			}

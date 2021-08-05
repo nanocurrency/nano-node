@@ -388,7 +388,7 @@ public:
 				else if (!node.network.tcp_channels.find_channel (nano::transport::map_endpoint_to_tcp (endpoint)))
 				{
 					// Don't start connection if TCP channel to same IP:port exists
-					find_channel = std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, endpoint, node.network_params.protocol.protocol_version);
+					find_channel = std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, endpoint, node.network_params.network.protocol_version);
 					node.network.send_node_id_handshake (find_channel, *cookie, boost::none);
 				}
 			}
@@ -500,7 +500,7 @@ public:
 			auto find_channel (node.network.udp_channels.channel (endpoint));
 			if (!find_channel)
 			{
-				find_channel = std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, endpoint, node.network_params.protocol.protocol_version);
+				find_channel = std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, endpoint, node.network_params.network.protocol_version);
 			}
 			node.network.send_node_id_handshake (find_channel, out_query, out_respond_to);
 		}
@@ -541,7 +541,7 @@ void nano::transport::udp_channels::receive_action (nano::message_buffer * data_
 	if (allowed_sender)
 	{
 		udp_message_visitor visitor (node, data_a->endpoint, sink);
-		nano::message_parser parser (node.network.publish_filter, node.block_uniquer, node.vote_uniquer, visitor, node.work, node.network_params.protocol);
+		nano::message_parser parser (node.network.publish_filter, node.block_uniquer, node.vote_uniquer, visitor, node.work, node.network_params.network);
 		parser.deserialize_buffer (data_a->buffer, data_a->size);
 		if (parser.status == nano::message_parser::parse_status::success)
 		{
@@ -625,7 +625,7 @@ void nano::transport::udp_channels::process_packets ()
 
 std::shared_ptr<nano::transport::channel> nano::transport::udp_channels::create (nano::endpoint const & endpoint_a)
 {
-	return std::make_shared<nano::transport::channel_udp> (*this, endpoint_a, node.network_params.protocol.protocol_version);
+	return std::make_shared<nano::transport::channel_udp> (*this, endpoint_a, node.network_params.network.protocol_version);
 }
 
 bool nano::transport::udp_channels::max_ip_connections (nano::endpoint const & endpoint_a)

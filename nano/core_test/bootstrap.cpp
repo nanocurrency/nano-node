@@ -533,7 +533,7 @@ TEST (bootstrap_processor, lazy_hash)
 	node0->block_processor.flush ();
 	// Start lazy bootstrap with last block in chain known
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work));
-	node1->network.udp_channels.insert (node0->network.endpoint (), node1->network_params.protocol.protocol_version);
+	node1->network.udp_channels.insert (node0->network.endpoint (), node1->network_params.network.protocol_version);
 	node1->bootstrap_initiator.bootstrap_lazy (receive2->hash (), true);
 	{
 		auto lazy_attempt (node1->bootstrap_initiator.current_lazy_attempt ());
@@ -607,7 +607,7 @@ TEST (bootstrap_processor, lazy_hash_bootstrap_id)
 	node0->block_processor.flush ();
 	// Start lazy bootstrap with last block in chain known
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work));
-	node1->network.udp_channels.insert (node0->network.endpoint (), node1->network_params.protocol.protocol_version);
+	node1->network.udp_channels.insert (node0->network.endpoint (), node1->network_params.network.protocol_version);
 	node1->bootstrap_initiator.bootstrap_lazy (receive2->hash (), true, true, "123456");
 	{
 		auto lazy_attempt (node1->bootstrap_initiator.current_lazy_attempt ());
@@ -745,7 +745,7 @@ TEST (bootstrap_processor, lazy_hash_pruning)
 	ASSERT_EQ (5, node1->ledger.cache.block_count);
 	ASSERT_EQ (3, node1->ledger.cache.pruned_count);
 	// Start lazy bootstrap with last block in chain known
-	node1->network.udp_channels.insert (node0->network.endpoint (), node1->network_params.protocol.protocol_version);
+	node1->network.udp_channels.insert (node0->network.endpoint (), node1->network_params.network.protocol_version);
 	node1->bootstrap_initiator.bootstrap_lazy (receive3->hash (), true);
 	// Check processed blocks
 	ASSERT_TIMELY (10s, node1->ledger.cache.block_count == 9);
@@ -848,7 +848,7 @@ TEST (bootstrap_processor, lazy_max_pull_count)
 	node0->block_processor.flush ();
 	// Start lazy bootstrap with last block in chain known
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work));
-	node1->network.udp_channels.insert (node0->network.endpoint (), node1->network_params.protocol.protocol_version);
+	node1->network.udp_channels.insert (node0->network.endpoint (), node1->network_params.network.protocol_version);
 	node1->bootstrap_initiator.bootstrap_lazy (change3->hash ());
 	// Check processed blocks
 	ASSERT_TIMELY (10s, node1->block (change3->hash ()));
@@ -906,7 +906,7 @@ TEST (bootstrap_processor, lazy_unclear_state_link)
 	ASSERT_EQ (nano::process_result::progress, node1->process (*receive).code);
 	// Start lazy bootstrap with last block in chain known
 	auto node2 = system.add_node (nano::node_config (nano::get_available_port (), system.logging), node_flags);
-	node2->network.udp_channels.insert (node1->network.endpoint (), node1->network_params.protocol.protocol_version);
+	node2->network.udp_channels.insert (node1->network.endpoint (), node1->network_params.network.protocol_version);
 	node2->bootstrap_initiator.bootstrap_lazy (receive->hash ());
 	// Check processed blocks
 	ASSERT_TIMELY (10s, !node2->bootstrap_initiator.in_progress ());
@@ -958,7 +958,7 @@ TEST (bootstrap_processor, lazy_unclear_state_link_not_existing)
 
 	// Start lazy bootstrap with last block in chain known
 	auto node2 = system.add_node (nano::node_config (nano::get_available_port (), system.logging), node_flags);
-	node2->network.udp_channels.insert (node1->network.endpoint (), node1->network_params.protocol.protocol_version);
+	node2->network.udp_channels.insert (node1->network.endpoint (), node1->network_params.network.protocol_version);
 	node2->bootstrap_initiator.bootstrap_lazy (send2->hash ());
 	// Check processed blocks
 	ASSERT_TIMELY (15s, !node2->bootstrap_initiator.in_progress ());
@@ -1020,7 +1020,7 @@ TEST (bootstrap_processor, DISABLED_lazy_destinations)
 
 	// Start lazy bootstrap with last block in sender chain
 	auto node2 = system.add_node (nano::node_config (nano::get_available_port (), system.logging), node_flags);
-	node2->network.udp_channels.insert (node1->network.endpoint (), node1->network_params.protocol.protocol_version);
+	node2->network.udp_channels.insert (node1->network.endpoint (), node1->network_params.network.protocol_version);
 	node2->bootstrap_initiator.bootstrap_lazy (send2->hash ());
 	// Check processed blocks
 	ASSERT_TIMELY (10s, !node2->bootstrap_initiator.in_progress ());
@@ -1098,7 +1098,7 @@ TEST (bootstrap_processor, lazy_pruning_missing_block)
 	// Start lazy bootstrap with last block in sender chain
 	config.peering_port = nano::get_available_port ();
 	auto node2 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), config, system.work, node_flags, 1));
-	node2->network.udp_channels.insert (node1->network.endpoint (), node1->network_params.protocol.protocol_version);
+	node2->network.udp_channels.insert (node1->network.endpoint (), node1->network_params.network.protocol_version);
 	node2->bootstrap_initiator.bootstrap_lazy (send2->hash ());
 	// Check processed blocks
 	auto lazy_attempt (node2->bootstrap_initiator.current_lazy_attempt ());
@@ -1153,7 +1153,7 @@ TEST (bootstrap_processor, lazy_cancel)
 
 	// Start lazy bootstrap with last block in chain known
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work));
-	node1->network.udp_channels.insert (node0->network.endpoint (), node1->network_params.protocol.protocol_version);
+	node1->network.udp_channels.insert (node0->network.endpoint (), node1->network_params.network.protocol_version);
 	node1->bootstrap_initiator.bootstrap_lazy (send1->hash (), true); // Start "confirmed" block bootstrap
 	{
 		auto lazy_attempt (node1->bootstrap_initiator.current_lazy_attempt ());
@@ -1228,7 +1228,7 @@ TEST (bootstrap_processor, wallet_lazy_frontier)
 	node0->block_processor.flush ();
 	// Start wallet lazy bootstrap
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work));
-	node1->network.udp_channels.insert (node0->network.endpoint (), node1->network_params.protocol.protocol_version);
+	node1->network.udp_channels.insert (node0->network.endpoint (), node1->network_params.network.protocol_version);
 	auto wallet (node1->wallets.create (nano::random_wallet_id ()));
 	ASSERT_NE (nullptr, wallet);
 	wallet->insert_adhoc (key2.prv);
@@ -1295,7 +1295,7 @@ TEST (bootstrap_processor, wallet_lazy_pending)
 	node0->block_processor.flush ();
 	// Start wallet lazy bootstrap
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.logging, system.work));
-	node1->network.udp_channels.insert (node0->network.endpoint (), node1->network_params.protocol.protocol_version);
+	node1->network.udp_channels.insert (node0->network.endpoint (), node1->network_params.network.protocol_version);
 	auto wallet (node1->wallets.create (nano::random_wallet_id ()));
 	ASSERT_NE (nullptr, wallet);
 	wallet->insert_adhoc (key2.prv);
@@ -1369,7 +1369,7 @@ TEST (bootstrap_processor, multiple_attempts)
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.bootstrap_initiator_threads = 3;
 	auto node2 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), node_config, system.work));
-	node2->network.udp_channels.insert (node1->network.endpoint (), node2->network_params.protocol.protocol_version);
+	node2->network.udp_channels.insert (node1->network.endpoint (), node2->network_params.network.protocol_version);
 	node2->bootstrap_initiator.bootstrap_lazy (receive2->hash (), true);
 	node2->bootstrap_initiator.bootstrap ();
 	auto lazy_attempt (node2->bootstrap_initiator.current_lazy_attempt ());

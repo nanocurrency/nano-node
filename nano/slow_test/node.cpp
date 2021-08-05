@@ -1483,7 +1483,7 @@ TEST (telemetry, many_nodes)
 		ASSERT_LE (data.peer_count, 9U);
 		ASSERT_EQ (data.account_count, 1);
 		ASSERT_TRUE (data.block_count == 2);
-		ASSERT_EQ (data.protocol_version, nano::dev::network_params.protocol.protocol_version);
+		ASSERT_EQ (data.protocol_version, nano::dev::network_params.network.protocol_version);
 		ASSERT_GE (data.bandwidth_cap, 100000);
 		ASSERT_LT (data.bandwidth_cap, 100000 + system.nodes.size ());
 		ASSERT_EQ (data.major_version, nano::get_major_node_version ());

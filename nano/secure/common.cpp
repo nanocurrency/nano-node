@@ -93,11 +93,6 @@ nano::network_params::network_params (nano::networks network_a) :
 	kdf_work = network.is_dev_network () ? kdf_dev_work : kdf_full_work;
 }
 
-uint8_t nano::protocol_constants::protocol_version_min () const
-{
-	return protocol_version_min_m;
-}
-
 nano::ledger_constants::ledger_constants (nano::network_constants & network_constants) :
 	ledger_constants (network_constants.network ())
 {

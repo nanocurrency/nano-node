@@ -604,8 +604,8 @@ TEST (telemetry, remove_peer_different_genesis_udp)
 	node1->network_params.ledger.genesis = junk;
 	node1->start ();
 	system.nodes.push_back (node1);
-	auto channel0 (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, node0->network.endpoint (), node0->network_params.protocol.protocol_version));
-	auto channel1 (std::make_shared<nano::transport::channel_udp> (node0->network.udp_channels, node1->network.endpoint (), node1->network_params.protocol.protocol_version));
+	auto channel0 (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, node0->network.endpoint (), node0->network_params.network.protocol_version));
+	auto channel1 (std::make_shared<nano::transport::channel_udp> (node0->network.udp_channels, node1->network.endpoint (), node1->network_params.network.protocol_version));
 	node0->network.send_keepalive (channel1);
 	node1->network.send_keepalive (channel0);
 

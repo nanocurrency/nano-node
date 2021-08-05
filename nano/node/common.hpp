@@ -236,6 +236,7 @@ public:
 	nano::message_header header;
 };
 class work_pool;
+class network_constants;
 class message_parser final
 {
 public:
@@ -255,7 +256,7 @@ public:
 		outdated_version,
 		duplicate_publish_message
 	};
-	message_parser (nano::network_filter &, nano::block_uniquer &, nano::vote_uniquer &, nano::message_visitor &, nano::work_pool &, nano::protocol_constants const & protocol);
+	message_parser (nano::network_filter &, nano::block_uniquer &, nano::vote_uniquer &, nano::message_visitor &, nano::work_pool &, nano::network_constants const & protocol);
 	void deserialize_buffer (uint8_t const *, size_t);
 	void deserialize_keepalive (nano::stream &, nano::message_header const &);
 	void deserialize_publish (nano::stream &, nano::message_header const &, nano::uint128_t const & = 0);
@@ -271,7 +272,7 @@ public:
 	nano::message_visitor & visitor;
 	nano::work_pool & pool;
 	parse_status status;
-	nano::protocol_constants const & protocol;
+	nano::network_constants const & network;
 	std::string status_string ();
 	static const size_t max_safe_udp_message_size;
 };
