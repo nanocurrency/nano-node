@@ -1262,10 +1262,9 @@ TEST (mdb_block_store, upgrade_v14_v15)
 	}
 	// Extract confirmation height to a separate database
 	auto path (nano::unique_path ());
-	nano::network_params network_params;
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::send_block send (nano::dev::genesis->hash (), nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (nano::dev::genesis->hash ()));
-	nano::state_block epoch (nano::dev::genesis_key.pub, send.hash (), nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio, network_params.ledger.epochs.link (nano::epoch::epoch_1), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (send.hash ()));
+	nano::state_block epoch (nano::dev::genesis_key.pub, send.hash (), nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio, nano::dev::network_params.ledger.epochs.link (nano::epoch::epoch_1), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (send.hash ()));
 	nano::state_block state_send (nano::dev::genesis_key.pub, epoch.hash (), nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2, nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (epoch.hash ()));
 	{
 		nano::logger_mt logger;
@@ -1483,20 +1482,19 @@ TEST (mdb_block_store, upgrade_v17_v18)
 	nano::keypair key1;
 	nano::keypair key2;
 	nano::keypair key3;
-	nano::network_params network_params;
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::send_block send_zero (nano::dev::genesis->hash (), nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (nano::dev::genesis->hash ()));
 	nano::state_block state_receive_zero (nano::dev::genesis_key.pub, send_zero.hash (), nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount, send_zero.hash (), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (send_zero.hash ()));
-	nano::state_block epoch (nano::dev::genesis_key.pub, state_receive_zero.hash (), nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount, network_params.ledger.epochs.link (nano::epoch::epoch_1), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (state_receive_zero.hash ()));
+	nano::state_block epoch (nano::dev::genesis_key.pub, state_receive_zero.hash (), nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount, nano::dev::network_params.ledger.epochs.link (nano::epoch::epoch_1), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (state_receive_zero.hash ()));
 	nano::state_block state_send (nano::dev::genesis_key.pub, epoch.hash (), nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio, nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (epoch.hash ()));
 	nano::state_block state_receive (nano::dev::genesis_key.pub, state_send.hash (), nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount, state_send.hash (), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (state_send.hash ()));
 	nano::state_block state_change (nano::dev::genesis_key.pub, state_receive.hash (), nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount, 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (state_receive.hash ()));
 	nano::state_block state_send_change (nano::dev::genesis_key.pub, state_change.hash (), key1.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio, key1.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (state_change.hash ()));
-	nano::state_block epoch_first (key1.pub, 0, 0, 0, network_params.ledger.epochs.link (nano::epoch::epoch_2), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (key1.pub));
+	nano::state_block epoch_first (key1.pub, 0, 0, 0, nano::dev::network_params.ledger.epochs.link (nano::epoch::epoch_2), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (key1.pub));
 	nano::state_block state_receive2 (key1.pub, epoch_first.hash (), key1.pub, nano::Gxrb_ratio, state_send_change.hash (), key1.prv, key1.pub, *pool.generate (epoch_first.hash ()));
 	nano::state_block state_send2 (nano::dev::genesis_key.pub, state_send_change.hash (), key1.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio * 2, key2.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (state_send_change.hash ()));
 	nano::state_block state_open (key2.pub, 0, key2.pub, nano::Gxrb_ratio, state_send2.hash (), key2.prv, key2.pub, *pool.generate (key2.pub));
-	nano::state_block state_send_epoch_link (key2.pub, state_open.hash (), key2.pub, 0, network_params.ledger.epochs.link (nano::epoch::epoch_2), key2.prv, key2.pub, *pool.generate (state_open.hash ()));
+	nano::state_block state_send_epoch_link (key2.pub, state_open.hash (), key2.pub, 0, nano::dev::network_params.ledger.epochs.link (nano::epoch::epoch_2), key2.prv, key2.pub, *pool.generate (state_open.hash ()));
 	{
 		nano::logger_mt logger;
 		nano::mdb_store store (logger, path, nano::dev::constants);
@@ -1685,11 +1683,10 @@ TEST (mdb_block_store, upgrade_v18_v19)
 	auto path (nano::unique_path ());
 	nano::keypair key1;
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
-	nano::network_params network_params;
 	nano::send_block send (nano::dev::genesis->hash (), nano::dev::genesis_key.pub, nano::dev::constants.genesis_amount - nano::Gxrb_ratio, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (nano::dev::genesis->hash ()));
 	nano::receive_block receive (send.hash (), send.hash (), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (send.hash ()));
 	nano::change_block change (receive.hash (), 0, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (receive.hash ()));
-	nano::state_block state_epoch (nano::dev::genesis_key.pub, change.hash (), 0, nano::dev::constants.genesis_amount, network_params.ledger.epochs.link (nano::epoch::epoch_1), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (change.hash ()));
+	nano::state_block state_epoch (nano::dev::genesis_key.pub, change.hash (), 0, nano::dev::constants.genesis_amount, nano::dev::network_params.ledger.epochs.link (nano::epoch::epoch_1), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (change.hash ()));
 	nano::state_block state_send (nano::dev::genesis_key.pub, state_epoch.hash (), 0, nano::dev::constants.genesis_amount - nano::Gxrb_ratio, key1.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (state_epoch.hash ()));
 	nano::state_block state_open (key1.pub, 0, 0, nano::Gxrb_ratio, state_send.hash (), key1.prv, key1.pub, *pool.generate (key1.pub));
 

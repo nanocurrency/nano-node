@@ -11,7 +11,7 @@ TEST (network_filter, unit)
 	nano::ledger_constants constants{ nano::networks::nano_dev_network };
 	nano::network_filter filter (1);
 	auto one_block = [&filter] (std::shared_ptr<nano::block> const & block_a, bool expect_duplicate_a) {
-		nano::publish message (block_a);
+		nano::publish message{ nano::dev::network_params.network, block_a };
 		auto bytes (message.to_bytes ());
 		nano::bufferstream stream (bytes->data (), bytes->size ());
 
@@ -78,7 +78,7 @@ TEST (network_filter, many)
 					 .work (0)
 					 .build_shared ();
 
-		nano::publish message (block);
+		nano::publish message{ nano::dev::network_params.network, block };
 		auto bytes (message.to_bytes ());
 		nano::bufferstream stream (bytes->data (), bytes->size ());
 

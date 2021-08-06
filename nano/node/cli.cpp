@@ -9,7 +9,7 @@
 
 namespace
 {
-void reset_confirmation_heights (nano::write_transaction const & transaction, nano::store & store);
+void reset_confirmation_heights (nano::write_transaction const & transaction, nano::ledger_constants & constants, nano::store & store);
 bool is_using_rocksdb (boost::filesystem::path const & data_path, boost::program_options::variables_map const & vm, std::error_code & ec);
 }
 
@@ -236,7 +236,7 @@ bool copy_database (boost::filesystem::path const & data_path, boost::program_op
 		}
 		if (vm.count ("confirmation_height_clear"))
 		{
-			reset_confirmation_heights (store.tx_begin_write (), store);
+			reset_confirmation_heights (store.tx_begin_write (), node.node->network_params.ledger, store);
 		}
 		if (vm.count ("final_vote_clear"))
 		{
@@ -601,7 +601,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			else
 			{
 				auto transaction (node.node->store.tx_begin_write ());
-				reset_confirmation_heights (transaction, node.node->store);
+				reset_confirmation_heights (transaction, node.node->network_params.ledger, node.node->store);
 				std::cout << "Confirmation heights of all accounts (except genesis which is set to 1) are set to 0" << std::endl;
 			}
 		}
@@ -1300,14 +1300,13 @@ std::unique_ptr<nano::inactive_node> nano::default_inactive_node (boost::filesys
 
 namespace
 {
-void reset_confirmation_heights (nano::write_transaction const & transaction, nano::store & store)
+void reset_confirmation_heights (nano::write_transaction const & transaction, nano::ledger_constants & constants, nano::store & store)
 {
 	// First do a clean sweep
 	store.confirmation_height.clear (transaction);
 
 	// Then make sure the confirmation height of the genesis account open block is 1
-	nano::network_params network_params;
-	store.confirmation_height.put (transaction, network_params.ledger.genesis->account (), { 1, network_params.ledger.genesis->hash () });
+	store.confirmation_height.put (transaction, constants.genesis->account (), { 1, constants.genesis->hash () });
 }
 
 bool is_using_rocksdb (boost::filesystem::path const & data_path, boost::program_options::variables_map const & vm, std::error_code & ec)

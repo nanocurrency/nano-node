@@ -378,7 +378,6 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		}
 
 		// Validate ranges
-		nano::network_params network_params;
 		if (election_hint_weight_percent < 5 || election_hint_weight_percent > 50)
 		{
 			toml.get_error ().set ("election_hint_weight_percent must be a number between 5 and 50");

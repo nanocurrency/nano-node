@@ -31,7 +31,6 @@ nano::error nano::lmdb_config::serialize_toml (nano::tomlconfig & toml) const
 
 nano::error nano::lmdb_config::deserialize_toml (nano::tomlconfig & toml)
 {
-	static nano::network_params params;
 	auto default_max_databases = max_databases;
 	toml.get_optional<uint32_t> ("max_databases", max_databases);
 	toml.get_optional<size_t> ("map_size", map_size);

@@ -542,9 +542,8 @@ public:
 	}
 	void open_block (nano::open_block const & block_a)
 	{
-		static nano::network_params params;
 		type = "Receive";
-		if (block_a.hashables.source != params.ledger.genesis->account ())
+		if (block_a.hashables.source != ledger.constants.genesis->account ())
 		{
 			bool error_or_pruned (false);
 			account = ledger.account_safe (transaction, block_a.hashables.source, error_or_pruned);
@@ -556,7 +555,7 @@ public:
 		}
 		else
 		{
-			account = params.ledger.genesis->account ();
+			account = ledger.constants.genesis->account ();
 			amount = nano::dev::constants.genesis_amount;
 		}
 	}
@@ -1290,7 +1289,7 @@ void nano_qt::wallet::start ()
 			this_l->push_main_stack (this_l->send_blocks_window);
 		}
 	});
-	node.observers.blocks.add ([this_w] (nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::uint128_t const & amount_a, bool) {
+	node.observers.blocks.add ([this_w] (nano::election_status const & status_a, std::vector<nano::vote_with_weight_info> const & votes_a, nano::account const & account_a, nano::uint128_t const & amount_a, bool, bool) {
 		if (auto this_l = this_w.lock ())
 		{
 			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, status_a, account_a] () {

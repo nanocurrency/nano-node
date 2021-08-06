@@ -63,7 +63,7 @@ std::shared_ptr<nano::node> nano::system::add_node (nano::node_config const & no
 			else
 			{
 				// UDP connection
-				auto channel (std::make_shared<nano::transport::channel_udp> ((*j)->network.udp_channels, (*i)->network.endpoint (), node1->network_params.protocol.protocol_version));
+				auto channel (std::make_shared<nano::transport::channel_udp> ((*j)->network.udp_channels, (*i)->network.endpoint (), node1->network_params.network.protocol_version));
 				(*j)->network.send_keepalive (channel);
 			}
 			do

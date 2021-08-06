@@ -1139,14 +1139,16 @@ void nano::json_handler::block_confirm ()
 				bool error_or_pruned (false);
 				auto amount (node.ledger.amount_safe (transaction, hash, error_or_pruned));
 				bool is_state_send (false);
+				bool is_state_epoch (false);
 				if (!error_or_pruned)
 				{
 					if (auto state = dynamic_cast<nano::state_block *> (block_l.get ()))
 					{
 						is_state_send = node.ledger.is_send (transaction, *state);
+						is_state_epoch = amount == 0 && node.ledger.is_epoch_link (state->link ());
 					}
 				}
-				node.observers.blocks.notify (status, {}, account, amount, is_state_send);
+				node.observers.blocks.notify (status, {}, account, amount, is_state_send, is_state_epoch);
 			}
 			response_l.put ("started", "1");
 		}
@@ -2327,7 +2329,7 @@ public:
 			// Report opens as a receive
 			tree.put ("type", "receive");
 		}
-		if (block_a.hashables.source != network_params.ledger.genesis->account ())
+		if (block_a.hashables.source != handler.node.ledger.constants.genesis->account ())
 		{
 			bool error_or_pruned (false);
 			auto amount (handler.node.ledger.amount_safe (transaction, hash, error_or_pruned).convert_to<std::string> ());
@@ -2343,7 +2345,7 @@ public:
 		}
 		else
 		{
-			tree.put ("account", network_params.ledger.genesis->account ().to_account ());
+			tree.put ("account", handler.node.ledger.constants.genesis->account ().to_account ());
 			tree.put ("amount", nano::dev::constants.genesis_amount.convert_to<std::string> ());
 		}
 	}
@@ -2456,7 +2458,6 @@ public:
 	nano::transaction & transaction;
 	boost::property_tree::ptree & tree;
 	nano::block_hash const & hash;
-	nano::network_params network_params;
 	std::vector<nano::public_key> const & accounts_filter;
 };
 }
@@ -4182,7 +4183,7 @@ void nano::json_handler::version ()
 {
 	response_l.put ("rpc_version", "1");
 	response_l.put ("store_version", std::to_string (node.store_version ()));
-	response_l.put ("protocol_version", std::to_string (node.network_params.protocol.protocol_version));
+	response_l.put ("protocol_version", std::to_string (node.network_params.network.protocol_version));
 	response_l.put ("node_vendor", boost::str (boost::format ("Nano %1%") % NANO_VERSION_STRING));
 	response_l.put ("store_vendor", node.store.vendor_get ());
 	response_l.put ("network", node.network_params.network.get_current_network_as_string ());

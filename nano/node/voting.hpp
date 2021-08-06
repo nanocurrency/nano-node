@@ -148,7 +148,6 @@ private:
 	static size_t constexpr max_requests{ 2048 };
 	std::deque<request_t> requests;
 	std::deque<candidate_t> candidates;
-	nano::network_params network_params;
 	std::atomic<bool> stopped{ false };
 	bool started{ false };
 	std::thread thread;

@@ -97,10 +97,10 @@ boost::asio::ip::address nano::transport::ipv4_address_or_ipv6_subnet (boost::as
 nano::transport::channel::channel (nano::node & node_a) :
 	node (node_a)
 {
-	set_network_version (node_a.network_params.protocol.protocol_version);
+	set_network_version (node_a.network_params.network.protocol_version);
 }
 
-void nano::transport::channel::send (nano::message const & message_a, std::function<void (boost::system::error_code const &, size_t)> const & callback_a, nano::buffer_drop_policy drop_policy_a)
+void nano::transport::channel::send (nano::message & message_a, std::function<void (boost::system::error_code const &, size_t)> const & callback_a, nano::buffer_drop_policy drop_policy_a)
 {
 	callback_visitor visitor;
 	message_a.visit (visitor);
@@ -135,7 +135,7 @@ nano::transport::channel_loopback::channel_loopback (nano::node & node_a) :
 	channel (node_a), endpoint (node_a.network.endpoint ())
 {
 	set_node_id (node_a.node_id.pub);
-	set_network_version (node_a.network_params.protocol.protocol_version);
+	set_network_version (node_a.network_params.network.protocol_version);
 }
 
 size_t nano::transport::channel_loopback::hash_code () const

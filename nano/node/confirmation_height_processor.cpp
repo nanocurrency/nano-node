@@ -128,7 +128,6 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 			else
 			{
 				// Pausing is only utilised in some tests to help prevent it processing added blocks until required.
-				debug_assert (network_params.network.is_dev_network ());
 				original_block = nullptr;
 				condition.wait (lk);
 			}

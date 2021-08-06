@@ -85,22 +85,12 @@ nano::network_params nano::dev::network_params{ nano::networks::nano_dev_network
 nano::ledger_constants & nano::dev::constants{ nano::dev::network_params.ledger };
 std::shared_ptr<nano::block> & nano::dev::genesis = nano::dev::constants.genesis;
 
-nano::network_params::network_params () :
-	network_params (network_constants::active_network)
-{
-}
-
 nano::network_params::network_params (nano::networks network_a) :
 	network (network_a), ledger (network), voting (network), node (network), portmapping (network), bootstrap (network)
 {
 	unsigned constexpr kdf_full_work = 64 * 1024;
 	unsigned constexpr kdf_dev_work = 8;
 	kdf_work = network.is_dev_network () ? kdf_dev_work : kdf_full_work;
-}
-
-uint8_t nano::protocol_constants::protocol_version_min () const
-{
-	return protocol_version_min_m;
 }
 
 nano::ledger_constants::ledger_constants (nano::network_constants & network_constants) :

@@ -352,7 +352,7 @@ void nano::telemetry::fire_request_message (std::shared_ptr<nano::transport::cha
 	}
 
 	std::weak_ptr<nano::telemetry> this_w (shared_from_this ());
-	nano::telemetry_req message;
+	nano::telemetry_req message{ network_params.network };
 	// clang-format off
 	channel_a->send (message, [this_w, endpoint = channel_a->get_endpoint (), round_l](boost::system::error_code const & ec, size_t size_a) {
 		if (auto this_l = this_w.lock ())
@@ -631,7 +631,7 @@ nano::telemetry_data nano::local_telemetry_data (nano::ledger const & ledger_a, 
 	telemetry_data.block_count = ledger_a.cache.block_count;
 	telemetry_data.cemented_count = ledger_a.cache.cemented_count;
 	telemetry_data.bandwidth_cap = bandwidth_limit_a;
-	telemetry_data.protocol_version = network_params_a.protocol.protocol_version;
+	telemetry_data.protocol_version = network_params_a.network.protocol_version;
 	telemetry_data.uptime = std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - statup_time_a).count ();
 	telemetry_data.unchecked_count = ledger_a.store.unchecked.count (ledger_a.store.tx_begin_read ());
 	telemetry_data.genesis_block = network_params_a.ledger.genesis->hash ();

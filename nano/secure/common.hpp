@@ -336,24 +336,6 @@ enum class tally_result
 
 class network_params;
 
-/** Protocol versions whose value may depend on the active network */
-class protocol_constants
-{
-public:
-	/** Current protocol version */
-	uint8_t const protocol_version = 0x12;
-
-	/** Minimum accepted protocol version */
-	uint8_t protocol_version_min () const;
-
-private:
-	/* Minimum protocol version we will establish connections to */
-	uint8_t const protocol_version_min_m = 0x12;
-};
-
-// Some places use the decltype of protocol_version instead of protocol_version_min. To keep those checks simpler we check that the decltypes match ignoring differences in const
-static_assert (std::is_same<std::remove_const_t<decltype (protocol_constants ().protocol_version)>, decltype (protocol_constants ().protocol_version_min ())>::value, "protocol_min should match");
-
 /** Genesis keys and ledger constants for network variants */
 class ledger_constants
 {
@@ -453,15 +435,11 @@ public:
 class network_params
 {
 public:
-	/** Populate values based on the current active network */
-	network_params ();
-
 	/** Populate values based on \p network_a */
 	network_params (nano::networks network_a);
 
 	unsigned kdf_work;
 	network_constants network;
-	protocol_constants protocol;
 	ledger_constants ledger;
 	random_constants random;
 	voting_constants voting;

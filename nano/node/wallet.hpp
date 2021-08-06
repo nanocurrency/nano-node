@@ -157,7 +157,6 @@ public:
 	nano::public_key change_seed (nano::transaction const & transaction_a, nano::raw_key const & prv_a, uint32_t count = 0);
 	void deterministic_restore (nano::transaction const & transaction_a);
 	bool live ();
-	nano::network_params network_params;
 	std::unordered_set<nano::account> free_accounts;
 	std::function<void (bool, bool)> lock_observer;
 	nano::wallet_store store;

@@ -381,8 +381,8 @@ void nano::confirmation_height_unbounded::cement_blocks (nano::write_guard & sco
 			if (pending.height > confirmation_height)
 			{
 				auto block = ledger.store.block.get (transaction, pending.hash);
-				debug_assert (network_params.network.is_dev_network () || ledger.pruning || block != nullptr);
-				debug_assert (network_params.network.is_dev_network () || ledger.pruning || block->sideband ().height == pending.height);
+				debug_assert (ledger.pruning || block != nullptr);
+				debug_assert (ledger.pruning || block->sideband ().height == pending.height);
 
 				if (!block)
 				{
