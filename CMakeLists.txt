@@ -687,7 +687,7 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
 
   add_executable(qt_system nano/qt_system/entry.cpp)
 
-  target_link_libraries(qt_system qt node Qt5::Gui Qt5::Widgets)
+  target_link_libraries(qt_system qt node test_common Qt5::Gui Qt5::Widgets)
 
   set_target_properties(
     qt nano_wallet qt_system
