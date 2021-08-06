@@ -685,12 +685,8 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
                  SUFFIX ".com")
   endif()
 
-  add_executable(qt_system nano/qt_system/entry.cpp)
-
-  target_link_libraries(qt_system qt node Qt5::Gui Qt5::Widgets)
-
   set_target_properties(
-    qt nano_wallet qt_system
+    qt nano_wallet
     PROPERTIES COMPILE_FLAGS "-DQT_NO_KEYWORDS -DBOOST_ASIO_HAS_STD_ARRAY=1")
 
   if(NANO_TEST OR RAIBLOCKS_TEST)
