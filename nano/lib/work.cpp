@@ -376,14 +376,12 @@ void nano::work_pool::generate (nano::work_version const version_a, nano::root c
 
 boost::optional<uint64_t> nano::work_pool::generate (nano::root const & root_a)
 {
-	static nano::network_constants network_constants;
 	debug_assert (network_constants.is_dev_network ());
 	return generate (nano::work_version::work_1, root_a, network_constants.publish_thresholds.base);
 }
 
 boost::optional<uint64_t> nano::work_pool::generate (nano::root const & root_a, uint64_t difficulty_a)
 {
-	static nano::network_constants network_constants;
 	debug_assert (network_constants.is_dev_network ());
 	return generate (nano::work_version::work_1, root_a, difficulty_a);
 }
