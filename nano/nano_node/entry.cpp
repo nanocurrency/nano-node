@@ -324,7 +324,7 @@ int main (int argc, char * const * argv)
 				if (!key.decode_hex (key_it->second.as<std::string> ()))
 				{
 					nano::keypair genesis (key.to_string ());
-					nano::work_pool work (std::numeric_limits<unsigned>::max ());
+					nano::work_pool work{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 					std::cout << "Genesis: " << genesis.prv.to_string () << "\n"
 							  << "Public: " << genesis.pub.to_string () << "\n"
 							  << "Account: " << genesis.pub.to_account () << "\n";
@@ -491,7 +491,7 @@ int main (int argc, char * const * argv)
 				pow_rate_limiter = std::chrono::nanoseconds (boost::lexical_cast<uint64_t> (pow_sleep_interval_it->second.as<std::string> ()));
 			}
 
-			nano::work_pool work (std::numeric_limits<unsigned>::max (), pow_rate_limiter);
+			nano::work_pool work{ network_constants, std::numeric_limits<unsigned>::max (), pow_rate_limiter };
 			nano::change_block block (0, 0, nano::keypair ().prv, 0, 0);
 			if (!result)
 			{
@@ -610,10 +610,10 @@ int main (int argc, char * const * argv)
 							nano::logger_mt logger;
 							nano::opencl_config config (platform, device, threads);
 							auto opencl (nano::opencl_work::create (true, config, logger));
-							nano::work_pool work_pool (0, std::chrono::nanoseconds (0), opencl ? [&opencl] (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> &) {
+							nano::work_pool work_pool{ network_constants, 0, std::chrono::nanoseconds (0), opencl ? [&opencl] (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> &) {
 								return opencl->generate_work (version_a, root_a, difficulty_a);
 							}
-																							   : std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> (nullptr));
+																							   : std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> (nullptr) };
 							nano::change_block block (0, 0, nano::keypair ().prv, 0, 0);
 							std::cerr << boost::str (boost::format ("Starting OpenCL generation profiling. Platform: %1%. Device: %2%. Threads: %3%. Difficulty: %4$#x (%5%x from base difficulty %6$#x)\n") % platform % device % threads % difficulty % nano::to_string (nano::difficulty::to_multiplier (difficulty, network_constants.publish_full.base), 4) % network_constants.publish_full.base);
 							for (uint64_t i (0); true; ++i)
@@ -1126,7 +1126,7 @@ int main (int argc, char * const * argv)
 			std::cout << boost::str (boost::format ("Starting generating %1% blocks...\n") % (count * 2));
 			boost::asio::io_context io_ctx1;
 			boost::asio::io_context io_ctx2;
-			nano::work_pool work (std::numeric_limits<unsigned>::max ());
+			nano::work_pool work{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 			nano::logging logging;
 			auto path1 (nano::unique_path ());
 			auto path2 (nano::unique_path ());

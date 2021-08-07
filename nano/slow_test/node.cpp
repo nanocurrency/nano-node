@@ -97,7 +97,7 @@ TEST (ledger, deep_account_compute)
 	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
-	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	nano::keypair key;
 	auto balance (nano::dev::constants.genesis_amount - 1);
 	nano::send_block send (nano::dev::genesis->hash (), key.pub, balance, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (nano::dev::genesis->hash ()));
@@ -968,7 +968,7 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
 	nano::write_database_queue write_database_queue (false);
-	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	std::atomic<bool> stopped{ false };
 	boost::latch initialized_latch{ 0 };
 

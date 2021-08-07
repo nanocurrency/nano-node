@@ -59,7 +59,7 @@ public:
 class work_pool final
 {
 public:
-	work_pool (unsigned, std::chrono::nanoseconds = std::chrono::nanoseconds (0), std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> = nullptr);
+	work_pool (nano::network_constants & network_constants, unsigned, std::chrono::nanoseconds = std::chrono::nanoseconds (0), std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> = nullptr);
 	~work_pool ();
 	void loop (uint64_t);
 	void stop ();
@@ -70,7 +70,7 @@ public:
 	boost::optional<uint64_t> generate (nano::root const &);
 	boost::optional<uint64_t> generate (nano::root const &, uint64_t);
 	size_t size ();
-	nano::network_constants network_constants;
+	nano::network_constants & network_constants;
 	std::atomic<int> ticket;
 	bool done;
 	std::vector<boost::thread> threads;

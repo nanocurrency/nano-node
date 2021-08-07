@@ -1763,7 +1763,7 @@ void nano::node::populate_backlog ()
 
 nano::node_wrapper::node_wrapper (boost::filesystem::path const & path_a, boost::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a) :
 	io_context (std::make_shared<boost::asio::io_context> ()),
-	work (1)
+	work{ nano::dev::network_params.network, 1 }
 {
 	boost::system::error_code error_chmod;
 

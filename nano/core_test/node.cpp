@@ -60,8 +60,8 @@ TEST (node, block_store_path_failure)
 	auto path (nano::unique_path ());
 	nano::logging logging;
 	logging.init (path);
-	nano::work_pool work (std::numeric_limits<unsigned>::max ());
-	auto node (std::make_shared<nano::node> (*service, nano::get_available_port (), path, logging, work));
+	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
+	auto node (std::make_shared<nano::node> (*service, nano::get_available_port (), path, logging, pool));
 	ASSERT_TRUE (node->wallets.items.empty ());
 	node->stop ();
 }
@@ -91,9 +91,9 @@ TEST (node, password_fanout)
 	nano::node_config config;
 	config.peering_port = nano::get_available_port ();
 	config.logging.init (path);
-	nano::work_pool work (std::numeric_limits<unsigned>::max ());
+	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	config.password_fanout = 10;
-	nano::node node (io_ctx, path, config, work);
+	nano::node node (io_ctx, path, config, pool);
 	auto wallet (node.wallets.create (100));
 	ASSERT_EQ (10, wallet->store.password.values.size ());
 	node.stop ();
