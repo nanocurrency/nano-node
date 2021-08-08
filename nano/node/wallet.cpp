@@ -1130,7 +1130,7 @@ void nano::wallet::send_async (nano::account const & source_a, nano::account con
 // Update work for account if latest root is root_a
 void nano::wallet::work_update (nano::transaction const & transaction_a, nano::account const & account_a, nano::root const & root_a, uint64_t work_a)
 {
-	debug_assert (!nano::work_validate_entry (nano::work_version::work_1, root_a, work_a));
+	debug_assert (!wallets.node.network_params.network.publish_thresholds.validate_entry (nano::work_version::work_1, root_a, work_a));
 	debug_assert (store.exists (transaction_a, account_a));
 	auto block_transaction (wallets.node.store.tx_begin_read ());
 	auto latest (wallets.node.ledger.latest_root (block_transaction, account_a));

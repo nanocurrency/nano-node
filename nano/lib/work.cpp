@@ -28,12 +28,6 @@ bool nano::work_validate_entry (nano::block const & block_a)
 	return block_a.difficulty () < network_constants.publish_thresholds.threshold_entry (block_a.work_version (), block_a.type ());
 }
 
-bool nano::work_validate_entry (nano::work_version const version_a, nano::root const & root_a, uint64_t const work_a)
-{
-	static nano::network_constants network_constants;
-	return network_constants.publish_thresholds.difficulty (version_a, root_a, work_a) < network_constants.publish_thresholds.threshold_entry (version_a, nano::block_type::state);
-}
-
 nano::work_pool::work_pool (nano::network_constants & network_constants, unsigned max_threads_a, std::chrono::nanoseconds pow_rate_limiter_a, std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> opencl_a) :
 	network_constants{ network_constants },
 	ticket (0),

@@ -194,6 +194,11 @@ uint64_t nano::work_thresholds::difficulty (nano::work_version const version_a, 
 	return result;
 }
 
+bool nano::work_thresholds::validate_entry (nano::work_version const version_a, nano::root const & root_a, uint64_t const work_a)
+{
+	return difficulty (version_a, root_a, work_a) < threshold_entry (version_a, nano::block_type::state);
+}
+
 namespace nano
 {
 const char * network_constants::active_network_err_msg = "Invalid network. Valid values are live, test, beta and dev.";

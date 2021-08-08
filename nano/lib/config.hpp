@@ -119,6 +119,7 @@ public:
 	double normalized_multiplier (double const, uint64_t const);
 	double denormalized_multiplier (double const, uint64_t const);
 	uint64_t difficulty (nano::work_version const, nano::root const &, uint64_t const);
+	bool validate_entry (nano::work_version const, nano::root const &, uint64_t const);
 
 	/** Network work thresholds. Define these inline as constexpr when moving to cpp17. */
 	static const nano::work_thresholds publish_full;
