@@ -99,6 +99,12 @@ struct work_thresholds
 	{
 		return other_a;
 	}
+
+	/** Network work thresholds. Define these inline as constexpr when moving to cpp17. */
+	static const nano::work_thresholds publish_full;
+	static const nano::work_thresholds publish_beta;
+	static const nano::work_thresholds publish_dev;
+	static const nano::work_thresholds publish_test;
 };
 
 class network_constants
@@ -111,7 +117,7 @@ public:
 
 	network_constants (nano::networks network_a) :
 		current_network (network_a),
-		publish_thresholds (is_live_network () ? publish_full : is_beta_network () ? publish_beta : is_test_network () ? publish_test : publish_dev)
+		publish_thresholds (is_live_network () ? nano::work_thresholds::publish_full : is_beta_network () ? nano::work_thresholds::publish_beta : is_test_network () ? nano::work_thresholds::publish_test : nano::work_thresholds::publish_dev)
 	{
 		// A representative is classified as principal based on its weight and this factor
 		principal_weight_factor = 1000; // 0.1%
@@ -129,12 +135,6 @@ public:
 		max_peers_per_subnetwork = max_peers_per_ip * 4;
 		peer_dump_interval = is_dev_network () ? std::chrono::seconds (1) : std::chrono::seconds (5 * 60);
 	}
-
-	/** Network work thresholds. Define these inline as constexpr when moving to cpp17. */
-	static const nano::work_thresholds publish_full;
-	static const nano::work_thresholds publish_beta;
-	static const nano::work_thresholds publish_dev;
-	static const nano::work_thresholds publish_test;
 
 	/** Error message when an invalid network is specified */
 	static const char * active_network_err_msg;

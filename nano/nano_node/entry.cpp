@@ -456,7 +456,7 @@ int main (int argc, char * const * argv)
 		else if (vm.count ("debug_profile_generate"))
 		{
 			nano::network_constants network_constants;
-			uint64_t difficulty{ network_constants.publish_full.base };
+			uint64_t difficulty{ nano::work_thresholds::publish_full.base };
 			auto multiplier_it = vm.find ("multiplier");
 			if (multiplier_it != vm.end ())
 			{
@@ -495,7 +495,7 @@ int main (int argc, char * const * argv)
 			nano::change_block block (0, 0, nano::keypair ().prv, 0, 0);
 			if (!result)
 			{
-				std::cerr << boost::str (boost::format ("Starting generation profiling. Difficulty: %1$#x (%2%x from base difficulty %3$#x)\n") % difficulty % nano::to_string (nano::difficulty::to_multiplier (difficulty, network_constants.publish_full.base), 4) % network_constants.publish_full.base);
+				std::cerr << boost::str (boost::format ("Starting generation profiling. Difficulty: %1$#x (%2%x from base difficulty %3$#x)\n") % difficulty % nano::to_string (nano::difficulty::to_multiplier (difficulty, nano::work_thresholds::publish_full.base), 4) % nano::work_thresholds::publish_full.base);
 				while (!result)
 				{
 					block.hashables.previous.qwords[0] += 1;
@@ -508,7 +508,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_validate"))
 		{
-			uint64_t difficulty{ nano::network_constants ().publish_full.base };
+			uint64_t difficulty{ nano::work_thresholds::publish_full.base };
 			std::cerr << "Starting validation profile" << std::endl;
 			auto start (std::chrono::steady_clock::now ());
 			bool valid{ false };
@@ -572,7 +572,7 @@ int main (int argc, char * const * argv)
 						return -1;
 					}
 				}
-				uint64_t difficulty (network_constants.publish_full.base);
+				uint64_t difficulty (nano::work_thresholds::publish_full.base);
 				auto multiplier_it = vm.find ("multiplier");
 				if (multiplier_it != vm.end ())
 				{
@@ -615,7 +615,7 @@ int main (int argc, char * const * argv)
 							}
 																							   : std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> (nullptr) };
 							nano::change_block block (0, 0, nano::keypair ().prv, 0, 0);
-							std::cerr << boost::str (boost::format ("Starting OpenCL generation profiling. Platform: %1%. Device: %2%. Threads: %3%. Difficulty: %4$#x (%5%x from base difficulty %6$#x)\n") % platform % device % threads % difficulty % nano::to_string (nano::difficulty::to_multiplier (difficulty, network_constants.publish_full.base), 4) % network_constants.publish_full.base);
+							std::cerr << boost::str (boost::format ("Starting OpenCL generation profiling. Platform: %1%. Device: %2%. Threads: %3%. Difficulty: %4$#x (%5%x from base difficulty %6$#x)\n") % platform % device % threads % difficulty % nano::to_string (nano::difficulty::to_multiplier (difficulty, nano::work_thresholds::publish_full.base), 4) % nano::work_thresholds::publish_full.base);
 							for (uint64_t i (0); true; ++i)
 							{
 								block.hashables.previous.qwords[0] += 1;
