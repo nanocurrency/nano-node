@@ -113,6 +113,8 @@ public:
 	uint64_t threshold_entry (nano::work_version const, nano::block_type const);
 	uint64_t value (nano::root const & root_a, uint64_t work_a);
 	uint64_t threshold (nano::block_details const &);
+	// Ledger threshold
+	uint64_t threshold (nano::work_version const, nano::block_details const);
 
 	/** Network work thresholds. Define these inline as constexpr when moving to cpp17. */
 	static const nano::work_thresholds publish_full;

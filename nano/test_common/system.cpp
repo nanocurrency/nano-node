@@ -219,6 +219,7 @@ std::unique_ptr<nano::state_block> nano::upgrade_epoch (nano::work_pool & pool_a
 
 	nano::state_block_builder builder;
 	std::error_code ec;
+	nano::network_constants constants;
 	auto epoch = builder
 				 .account (dev_genesis_key.pub)
 				 .previous (latest)
@@ -226,7 +227,7 @@ std::unique_ptr<nano::state_block> nano::upgrade_epoch (nano::work_pool & pool_a
 				 .link (ledger_a.epoch_link (epoch_a))
 				 .representative (dev_genesis_key.pub)
 				 .sign (dev_genesis_key.prv, dev_genesis_key.pub)
-				 .work (*pool_a.generate (latest, nano::work_threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true))))
+				 .work (*pool_a.generate (latest, constants.publish_thresholds.threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true))))
 				 .build (ec);
 
 	bool error{ true };

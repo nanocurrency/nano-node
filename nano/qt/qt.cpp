@@ -2241,7 +2241,7 @@ void nano_qt::block_creation::create_send ()
 						nano::block_details details;
 						details.is_send = true;
 						details.epoch = info.epoch ();
-						auto const required_difficulty{ nano::work_threshold (send.work_version (), details) };
+						auto const required_difficulty{ wallet.node.network_params.network.publish_thresholds.threshold (send.work_version (), details) };
 						if (wallet.node.work_generate_blocking (send, required_difficulty).is_initialized ())
 						{
 							std::string block_l;
@@ -2325,7 +2325,7 @@ void nano_qt::block_creation::create_receive ()
 							nano::block_details details;
 							details.is_receive = true;
 							details.epoch = std::max (info.epoch (), pending.epoch);
-							auto required_difficulty{ nano::work_threshold (receive.work_version (), details) };
+							auto required_difficulty{ wallet.node.network_params.network.publish_thresholds.threshold (receive.work_version (), details) };
 							if (wallet.node.work_generate_blocking (receive, required_difficulty).is_initialized ())
 							{
 								std::string block_l;
@@ -2408,7 +2408,7 @@ void nano_qt::block_creation::create_change ()
 					nano::state_block change (account_l, info.head, representative_l, info.balance, 0, key, account_l, 0);
 					nano::block_details details;
 					details.epoch = info.epoch ();
-					auto const required_difficulty{ nano::work_threshold (change.work_version (), details) };
+					auto const required_difficulty{ wallet.node.network_params.network.publish_thresholds.threshold (change.work_version (), details) };
 					if (wallet.node.work_generate_blocking (change, required_difficulty).is_initialized ())
 					{
 						std::string block_l;
@@ -2490,7 +2490,7 @@ void nano_qt::block_creation::create_open ()
 								nano::block_details details;
 								details.is_receive = true;
 								details.epoch = pending.epoch;
-								auto const required_difficulty{ nano::work_threshold (open.work_version (), details) };
+								auto const required_difficulty{ wallet.node.network_params.network.publish_thresholds.threshold (open.work_version (), details) };
 								if (wallet.node.work_generate_blocking (open, required_difficulty).is_initialized ())
 								{
 									std::string block_l;

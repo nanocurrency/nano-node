@@ -2893,7 +2893,7 @@ TEST (ledger, work_validation)
 
 	// With random work the block doesn't pass, then modifies the block with sufficient work and ensures a correct result
 	auto process_block = [&store, &ledger, &pool] (nano::block & block_a, nano::block_details const details_a) {
-		auto threshold = nano::work_threshold (block_a.work_version (), details_a);
+		auto threshold = nano::dev::network_params.network.publish_thresholds.threshold (block_a.work_version (), details_a);
 		// Rarely failed with random work, so modify until it doesn't have enough difficulty
 		while (block_a.difficulty () >= threshold)
 		{

@@ -822,7 +822,7 @@ TEST (wallet, no_work)
 	auto block (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, std::numeric_limits<nano::uint128_t>::max (), false));
 	ASSERT_NE (nullptr, block);
 	ASSERT_NE (0, block->block_work ());
-	ASSERT_GE (block->difficulty (), nano::work_threshold (block->work_version (), block->sideband ().details));
+	ASSERT_GE (block->difficulty (), nano::dev::network_params.network.publish_thresholds.threshold (block->work_version (), block->sideband ().details));
 	auto transaction (system.wallet (0)->wallets.tx_begin_read ());
 	uint64_t cached_work (0);
 	system.wallet (0)->store.work_get (transaction, nano::dev::genesis_key.pub, cached_work);

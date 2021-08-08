@@ -64,21 +64,6 @@ uint64_t nano::work_threshold_base (nano::work_version const version_a)
 	return result;
 }
 
-uint64_t nano::work_threshold (nano::work_version const version_a, nano::block_details const details_a)
-{
-	static nano::network_constants network_constants;
-	uint64_t result{ std::numeric_limits<uint64_t>::max () };
-	switch (version_a)
-	{
-		case nano::work_version::work_1:
-			result = network_constants.publish_thresholds.threshold (details_a);
-			break;
-		default:
-			debug_assert (false && "Invalid version specified to ledger work_threshold");
-	}
-	return result;
-}
-
 double nano::normalized_multiplier (double const multiplier_a, uint64_t const threshold_a)
 {
 	static nano::network_constants network_constants;
