@@ -16,7 +16,6 @@
 
 TEST (work, one)
 {
-	nano::network_constants network_constants;
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	nano::change_block block (1, 1, nano::keypair ().prv, 3, 4);
 	block.block_work_set (*pool.generate (block.root ()));
@@ -25,7 +24,6 @@ TEST (work, one)
 
 TEST (work, disabled)
 {
-	nano::network_constants network_constants;
 	nano::work_pool pool{ nano::dev::network_params.network, 0 };
 	auto result (pool.generate (nano::block_hash ()));
 	ASSERT_FALSE (result.is_initialized ());
@@ -33,7 +31,6 @@ TEST (work, disabled)
 
 TEST (work, validate)
 {
-	nano::network_constants network_constants;
 	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	nano::send_block send_block (1, 1, 2, nano::keypair ().prv, 4, 6);
 	ASSERT_LT (send_block.difficulty (), nano::work_threshold_base (send_block.work_version ()));
@@ -50,7 +47,7 @@ TEST (work, cancel)
 	{
 		nano::root key (1);
 		pool.generate (
-		nano::work_version::work_1, key, nano::network_constants ().publish_thresholds.base, [&done] (boost::optional<uint64_t> work_a) {
+		nano::work_version::work_1, key, nano::dev::network_params.network.publish_thresholds.base, [&done] (boost::optional<uint64_t> work_a) {
 			done = !work_a;
 		});
 		pool.cancel (key);
@@ -68,13 +65,12 @@ TEST (work, cancel_many)
 	nano::root key4 (1);
 	nano::root key5 (3);
 	nano::root key6 (1);
-	nano::network_constants constants;
-	pool.generate (nano::work_version::work_1, key1, constants.publish_thresholds.base, [] (boost::optional<uint64_t>) {});
-	pool.generate (nano::work_version::work_1, key2, constants.publish_thresholds.base, [] (boost::optional<uint64_t>) {});
-	pool.generate (nano::work_version::work_1, key3, constants.publish_thresholds.base, [] (boost::optional<uint64_t>) {});
-	pool.generate (nano::work_version::work_1, key4, constants.publish_thresholds.base, [] (boost::optional<uint64_t>) {});
-	pool.generate (nano::work_version::work_1, key5, constants.publish_thresholds.base, [] (boost::optional<uint64_t>) {});
-	pool.generate (nano::work_version::work_1, key6, constants.publish_thresholds.base, [] (boost::optional<uint64_t>) {});
+	pool.generate (nano::work_version::work_1, key1, nano::dev::network_params.network.publish_thresholds.base, [] (boost::optional<uint64_t>) {});
+	pool.generate (nano::work_version::work_1, key2, nano::dev::network_params.network.publish_thresholds.base, [] (boost::optional<uint64_t>) {});
+	pool.generate (nano::work_version::work_1, key3, nano::dev::network_params.network.publish_thresholds.base, [] (boost::optional<uint64_t>) {});
+	pool.generate (nano::work_version::work_1, key4, nano::dev::network_params.network.publish_thresholds.base, [] (boost::optional<uint64_t>) {});
+	pool.generate (nano::work_version::work_1, key5, nano::dev::network_params.network.publish_thresholds.base, [] (boost::optional<uint64_t>) {});
+	pool.generate (nano::work_version::work_1, key6, nano::dev::network_params.network.publish_thresholds.base, [] (boost::optional<uint64_t>) {});
 	pool.cancel (key1);
 }
 
