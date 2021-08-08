@@ -123,6 +123,49 @@ uint64_t nano::work_thresholds::threshold (nano::work_version const version_a, n
 	return result;
 }
 
+double nano::work_thresholds::normalized_multiplier (double const multiplier_a, uint64_t const threshold_a)
+{
+	debug_assert (multiplier_a >= 1);
+	auto multiplier (multiplier_a);
+	/* Normalization rules
+	ratio = multiplier of max work threshold (send epoch 2) from given threshold
+	i.e. max = 0xfe00000000000000, given = 0xf000000000000000, ratio = 8.0
+	normalized = (multiplier + (ratio - 1)) / ratio;
+	Epoch 1
+	multiplier	 | normalized
+	1.0 		 | 1.0
+	9.0 		 | 2.0
+	25.0 		 | 4.0
+	Epoch 2 (receive / epoch subtypes)
+	multiplier	 | normalized
+	1.0 		 | 1.0
+	65.0 		 | 2.0
+	241.0 		 | 4.0
+	*/
+	if (threshold_a == epoch_1 || threshold_a == epoch_2_receive)
+	{
+		auto ratio (nano::difficulty::to_multiplier (epoch_2, threshold_a));
+		debug_assert (ratio >= 1);
+		multiplier = (multiplier + (ratio - 1.0)) / ratio;
+		debug_assert (multiplier >= 1);
+	}
+	return multiplier;
+}
+
+double nano::work_thresholds::denormalized_multiplier (double const multiplier_a, uint64_t const threshold_a)
+{
+	debug_assert (multiplier_a >= 1);
+	auto multiplier (multiplier_a);
+	if (threshold_a == epoch_1 || threshold_a == epoch_2_receive)
+	{
+		auto ratio (nano::difficulty::to_multiplier (epoch_2, threshold_a));
+		debug_assert (ratio >= 1);
+		multiplier = multiplier * ratio + 1.0 - ratio;
+		debug_assert (multiplier >= 1);
+	}
+	return multiplier;
+}
+
 namespace nano
 {
 const char * network_constants::active_network_err_msg = "Invalid network. Valid values are live, test, beta and dev.";

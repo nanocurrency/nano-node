@@ -1027,7 +1027,7 @@ void nano::json_handler::active_difficulty ()
 	auto const multiplier_active = 1.0;
 	auto const default_difficulty (node.default_difficulty (nano::work_version::work_1));
 	auto const default_receive_difficulty (node.default_receive_difficulty (nano::work_version::work_1));
-	auto const receive_current_denormalized (nano::denormalized_multiplier (multiplier_active, node.network_params.network.publish_thresholds.epoch_2_receive));
+	auto const receive_current_denormalized (node.network_params.network.publish_thresholds.denormalized_multiplier (multiplier_active, node.network_params.network.publish_thresholds.epoch_2_receive));
 	response_l.put ("deprecated", "1");
 	response_l.put ("network_minimum", nano::to_string_hex (default_difficulty));
 	response_l.put ("network_receive_minimum", nano::to_string_hex (default_receive_difficulty));

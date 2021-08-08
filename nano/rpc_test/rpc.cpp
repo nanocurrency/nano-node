@@ -5474,7 +5474,7 @@ TEST (rpc, active_difficulty)
 		uint64_t network_receive_current;
 		ASSERT_FALSE (nano::from_string_hex (network_receive_current_text, network_receive_current));
 		auto network_receive_current_multiplier (nano::difficulty::to_multiplier (network_receive_current, network_receive_minimum));
-		auto network_receive_current_normalized_multiplier (nano::normalized_multiplier (network_receive_current_multiplier, network_receive_minimum));
+		auto network_receive_current_normalized_multiplier (nano::dev::network_params.network.publish_thresholds.normalized_multiplier (network_receive_current_multiplier, network_receive_minimum));
 		ASSERT_NEAR (network_receive_current_normalized_multiplier, multiplier, 1e-6);
 		ASSERT_EQ (response.not_found (), response.find ("difficulty_trend"));
 	}
