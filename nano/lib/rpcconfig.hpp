@@ -48,8 +48,8 @@ public:
 class rpc_process_config final
 {
 public:
-	rpc_process_config ();
-	nano::network_constants network_constants;
+	rpc_process_config (nano::network_constants & network_constants);
+	nano::network_constants & network_constants;
 	unsigned io_threads{ (4 < std::thread::hardware_concurrency ()) ? std::thread::hardware_concurrency () : 4 };
 	std::string ipc_address;
 	uint16_t ipc_port{ network_constants.default_ipc_port };
@@ -69,8 +69,8 @@ public:
 class rpc_config final
 {
 public:
-	rpc_config ();
-	explicit rpc_config (uint16_t, bool);
+	explicit rpc_config (nano::network_constants & network_constants);
+	explicit rpc_config (nano::network_constants & network_constants, uint16_t, bool);
 	nano::error serialize_json (nano::jsonconfig &) const;
 	nano::error deserialize_json (bool & upgraded_a, nano::jsonconfig &);
 	nano::error serialize_toml (nano::tomlconfig &) const;

@@ -199,7 +199,7 @@ std::tuple<std::shared_ptr<nano::rpc>, std::unique_ptr<rpc_context>> add_rpc (na
 	auto scoped_thread_name_io (std::make_unique<scoped_io_thread_name_change> ());
 	auto node_rpc_config (std::make_unique<nano::node_rpc_config> ());
 	auto ipc_server (std::make_unique<nano::ipc::ipc_server> (*node_a, *node_rpc_config));
-	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	nano::rpc_config rpc_config (node_a->network_params.network, nano::get_available_port (), true);
 	rpc_config.rpc_process.ipc_port = node_a->config.ipc_config.transport_tcp.port;
 	auto ipc_rpc_processor (std::make_unique<nano::ipc_rpc_processor> (system.io_ctx, rpc_config));
 	auto rpc (std::make_shared<nano::rpc> (system.io_ctx, rpc_config, *ipc_rpc_processor));
@@ -5499,7 +5499,7 @@ TEST (rpc, simultaneous_calls)
 	nano::thread_runner runner (system.io_ctx, node->config.io_threads);
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
-	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	nano::rpc_config rpc_config{ nano::dev::network_params.network, nano::get_available_port (), true };
 	rpc_config.rpc_process.ipc_port = node->config.ipc_config.transport_tcp.port;
 	rpc_config.rpc_process.num_ipc_connections = 8;
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
@@ -5553,7 +5553,7 @@ TEST (rpc, in_process)
 	nano::system system;
 	auto node = add_ipc_enabled_node (system);
 	scoped_io_thread_name_change scoped_thread_name_io;
-	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	nano::rpc_config rpc_config (nano::dev::network_params.network, nano::get_available_port (), true);
 	rpc_config.rpc_process.ipc_port = node->config.ipc_config.transport_tcp.port;
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
@@ -5572,7 +5572,7 @@ TEST (rpc, in_process)
 
 TEST (rpc_config, serialization)
 {
-	nano::rpc_config config1;
+	nano::rpc_config config1{ nano::dev::network_params.network };
 	config1.address = boost::asio::ip::address_v6::any ().to_string ();
 	config1.port = 10;
 	config1.enable_control = true;
@@ -5583,7 +5583,7 @@ TEST (rpc_config, serialization)
 	config1.rpc_process.num_ipc_connections = 99;
 	nano::jsonconfig tree;
 	config1.serialize_json (tree);
-	nano::rpc_config config2;
+	nano::rpc_config config2{ nano::dev::network_params.network };
 	ASSERT_NE (config2.address, config1.address);
 	ASSERT_NE (config2.port, config1.port);
 	ASSERT_NE (config2.enable_control, config1.enable_control);

@@ -88,8 +88,8 @@ TEST (toml, rpc_config_deserialize_defaults)
 
 	nano::tomlconfig t;
 	t.read (ss);
-	nano::rpc_config conf;
-	nano::rpc_config defaults;
+	nano::rpc_config conf{ nano::dev::network_params.network };
+	nano::rpc_config defaults{ nano::dev::network_params.network };
 	conf.deserialize_toml (t);
 
 	ASSERT_FALSE (t.get_error ()) << t.get_error ().get_message ();
@@ -717,8 +717,8 @@ TEST (toml, rpc_config_deserialize_no_defaults)
 
 	nano::tomlconfig toml;
 	toml.read (ss);
-	nano::rpc_config conf;
-	nano::rpc_config defaults;
+	nano::rpc_config conf{ nano::dev::network_params.network };
+	nano::rpc_config defaults{ nano::dev::network_params.network };
 	conf.deserialize_toml (toml);
 
 	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
@@ -752,8 +752,8 @@ TEST (toml, rpc_config_no_required)
 
 	nano::tomlconfig toml;
 	toml.read (ss);
-	nano::rpc_config conf;
-	nano::rpc_config defaults;
+	nano::rpc_config conf{ nano::dev::network_params.network };
+	nano::rpc_config defaults{ nano::dev::network_params.network };
 	conf.deserialize_toml (toml);
 
 	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();

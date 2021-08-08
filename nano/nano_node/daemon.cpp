@@ -119,7 +119,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 					if (!config.rpc.child_process.enable)
 					{
 						// Launch rpc in-process
-						nano::rpc_config rpc_config;
+						nano::rpc_config rpc_config{ config.node.network_params.network };
 						auto error = nano::read_rpc_config_toml (data_path, rpc_config, flags.rpc_config_overrides);
 						if (error)
 						{

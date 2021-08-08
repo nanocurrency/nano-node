@@ -56,7 +56,7 @@ void write_config_files (boost::filesystem::path const & data_path, int index)
 	daemon_config.serialize_toml (toml);
 	toml.write (nano::get_node_toml_config_path (data_path));
 
-	nano::rpc_config rpc_config;
+	nano::rpc_config rpc_config{ daemon_config.node.network_params.network };
 	rpc_config.port = rpc_port_start + index;
 	rpc_config.enable_control = true;
 	rpc_config.rpc_process.ipc_port = ipc_port_start + index;
