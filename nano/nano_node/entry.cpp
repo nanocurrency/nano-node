@@ -508,6 +508,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_validate"))
 		{
+			nano::network_constants network_constants;
 			uint64_t difficulty{ nano::work_thresholds::publish_full.base };
 			std::cerr << "Starting validation profile" << std::endl;
 			auto start (std::chrono::steady_clock::now ());
@@ -516,7 +517,7 @@ int main (int argc, char * const * argv)
 			uint64_t count{ 10000000U }; // 10M
 			for (uint64_t i (0); i < count; ++i)
 			{
-				valid = nano::work_v1::value (hash, i) > difficulty;
+				valid = network_constants.publish_thresholds.value (hash, i) > difficulty;
 			}
 			std::ostringstream oss (valid ? "true" : "false"); // IO forces compiler to not dismiss the variable
 			auto total_time (std::chrono::duration_cast<std::chrono::nanoseconds> (std::chrono::steady_clock::now () - start).count ());

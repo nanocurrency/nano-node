@@ -36,11 +36,12 @@ bool nano::work_validate_entry (nano::work_version const version_a, nano::root c
 
 uint64_t nano::work_difficulty (nano::work_version const version_a, nano::root const & root_a, uint64_t const work_a)
 {
+	static nano::network_constants network_constants;
 	uint64_t result{ 0 };
 	switch (version_a)
 	{
 		case nano::work_version::work_1:
-			result = nano::work_v1::value (root_a, work_a);
+			result = network_constants.publish_thresholds.value (root_a, work_a);
 			break;
 		default:
 			debug_assert (false && "Invalid version specified to work_difficulty");
@@ -97,30 +98,6 @@ uint64_t nano::work_v1::threshold (nano::block_details const details_a)
 	}
 	return result;
 }
-
-#ifndef NANO_FUZZER_TEST
-uint64_t nano::work_v1::value (nano::root const & root_a, uint64_t work_a)
-{
-	uint64_t result;
-	blake2b_state hash;
-	blake2b_init (&hash, sizeof (result));
-	blake2b_update (&hash, reinterpret_cast<uint8_t *> (&work_a), sizeof (work_a));
-	blake2b_update (&hash, root_a.bytes.data (), root_a.bytes.size ());
-	blake2b_final (&hash, reinterpret_cast<uint8_t *> (&result), sizeof (result));
-	return result;
-}
-#else
-uint64_t nano::work_v1::value (nano::root const & root_a, uint64_t work_a)
-{
-	static nano::network_constants network_constants;
-	if (!network_constants.is_dev_network ())
-	{
-		debug_assert (false);
-		std::exit (1);
-	}
-	return network_constants.publish_thresholds.base + 1;
-}
-#endif
 
 double nano::normalized_multiplier (double const multiplier_a, uint64_t const threshold_a)
 {
@@ -235,7 +212,7 @@ void nano::work_pool::loop (uint64_t thread)
 			if (opt_work.is_initialized ())
 			{
 				work = *opt_work;
-				output = nano::work_v1::value (current_l.item, work);
+				output = network_constants.publish_thresholds.value (current_l.item, work);
 			}
 			else
 			{
@@ -268,7 +245,7 @@ void nano::work_pool::loop (uint64_t thread)
 			{
 				// If the ticket matches what we started with, we're the ones that found the solution
 				debug_assert (output >= current_l.difficulty);
-				debug_assert (current_l.difficulty == 0 || nano::work_v1::value (current_l.item, work) == output);
+				debug_assert (current_l.difficulty == 0 || network_constants.publish_thresholds.value (current_l.item, work) == output);
 				// Signal other threads to stop their work next time they check ticket
 				++ticket;
 				pending.pop_front ();

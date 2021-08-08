@@ -70,6 +70,24 @@ uint64_t nano::work_thresholds::threshold_entry (nano::work_version const versio
 	return result;
 }
 
+#ifndef NANO_FUZZER_TEST
+uint64_t nano::work_thresholds::value (nano::root const & root_a, uint64_t work_a)
+{
+	uint64_t result;
+	blake2b_state hash;
+	blake2b_init (&hash, sizeof (result));
+	blake2b_update (&hash, reinterpret_cast<uint8_t *> (&work_a), sizeof (work_a));
+	blake2b_update (&hash, root_a.bytes.data (), root_a.bytes.size ());
+	blake2b_final (&hash, reinterpret_cast<uint8_t *> (&result), sizeof (result));
+	return result;
+}
+#else
+uint64_t nano::work_thresholds::value (nano::root const & root_a, uint64_t work_a)
+{
+	return base + 1;
+}
+#endif
+
 namespace nano
 {
 const char * network_constants::active_network_err_msg = "Invalid network. Valid values are live, test, beta and dev.";
