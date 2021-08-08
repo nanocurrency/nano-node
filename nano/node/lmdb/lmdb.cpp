@@ -93,13 +93,9 @@ nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path 
 		// (can be a few minutes with the --fast_bootstrap flag for instance)
 		if (!is_fully_upgraded)
 		{
-			nano::network_constants network_constants;
 			if (!is_fresh_db)
 			{
-				if (!network_constants.is_dev_network ())
-				{
-					std::cout << "Upgrade in progress..." << std::endl;
-				}
+				logger.always_log ("Upgrade in progress...");
 				if (backup_before_upgrade_a)
 				{
 					create_backup_file (env, path_a, logger_a);
@@ -115,7 +111,7 @@ nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path 
 				}
 			}
 
-			if (needs_vacuuming && !network_constants.is_dev_network ())
+			if (needs_vacuuming)
 			{
 				logger.always_log ("Preparing vacuum...");
 				auto vacuum_success = vacuum_after_upgrade (path_a, lmdb_config_a);
