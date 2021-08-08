@@ -29,6 +29,7 @@ nano::node_config::node_config (uint16_t peering_port_a, nano::logging const & l
 	network_params{ network_params },
 	peering_port{ peering_port_a },
 	logging{ logging_a },
+	websocket_config{ network_params.network },
 	external_address{ boost::asio::ip::address_v6{}.to_string () }
 {
 	// The default constructor passes 0 to indicate we should use the default port,
