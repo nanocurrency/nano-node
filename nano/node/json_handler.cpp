@@ -4872,7 +4872,7 @@ void nano::json_handler::work_generate ()
 		auto hash (hash_impl ());
 		auto difficulty (difficulty_optional_impl (work_version));
 		multiplier_optional_impl (work_version, difficulty);
-		if (!ec && (difficulty > node.max_work_generate_difficulty (work_version) || difficulty < nano::work_threshold_entry (work_version, nano::block_type::state)))
+		if (!ec && (difficulty > node.max_work_generate_difficulty (work_version) || difficulty < node.network_params.network.publish_thresholds.threshold_entry (work_version, nano::block_type::state)))
 		{
 			ec = nano::error_rpc::difficulty_limit;
 		}

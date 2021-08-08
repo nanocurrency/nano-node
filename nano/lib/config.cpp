@@ -1,3 +1,4 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
 
 #include <boost/filesystem/path.hpp>
@@ -47,6 +48,27 @@ get_env_threshold_or_default ("NANO_TEST_EPOCH_1", 0xffffffc000000000),
 get_env_threshold_or_default ("NANO_TEST_EPOCH_2", 0xfffffff800000000), // 8x higher than epoch_1
 get_env_threshold_or_default ("NANO_TEST_EPOCH_2_RECV", 0xfffffe0000000000) // 8x lower than epoch_1
 );
+
+uint64_t nano::work_thresholds::threshold_entry (nano::work_version const version_a, nano::block_type const type_a)
+{
+	uint64_t result{ std::numeric_limits<uint64_t>::max () };
+	if (type_a == nano::block_type::state)
+	{
+		switch (version_a)
+		{
+			case nano::work_version::work_1:
+				result = entry;
+				break;
+			default:
+				debug_assert (false && "Invalid version specified to work_threshold_entry");
+		}
+	}
+	else
+	{
+		result = epoch_1;
+	}
+	return result;
+}
 
 namespace nano
 {

@@ -13,11 +13,6 @@
 
 namespace nano
 {
-enum class work_version
-{
-	unspecified,
-	work_1
-};
 std::string to_string (nano::work_version const version_a);
 
 class block;
@@ -29,15 +24,12 @@ bool work_validate_entry (nano::work_version const, nano::root const &, uint64_t
 uint64_t work_difficulty (nano::work_version const, nano::root const &, uint64_t const);
 
 uint64_t work_threshold_base (nano::work_version const);
-uint64_t work_threshold_entry (nano::work_version const, nano::block_type const);
 // Ledger threshold
 uint64_t work_threshold (nano::work_version const, nano::block_details const);
 
 namespace work_v1
 {
 	uint64_t value (nano::root const & root_a, uint64_t work_a);
-	uint64_t threshold_base ();
-	uint64_t threshold_entry ();
 	uint64_t threshold (nano::block_details const);
 }
 

@@ -76,8 +76,16 @@ enum class networks : uint16_t
 	nano_test_network = 0x5258, // 'R', 'X'
 };
 
-struct work_thresholds
+enum class work_version
 {
+	unspecified,
+	work_1
+};
+enum class block_type : uint8_t;
+
+class work_thresholds
+{
+public:
 	uint64_t const epoch_1;
 	uint64_t const epoch_2;
 	uint64_t const epoch_2_receive;
@@ -99,6 +107,8 @@ struct work_thresholds
 	{
 		return other_a;
 	}
+
+	uint64_t threshold_entry (nano::work_version const, nano::block_type const);
 
 	/** Network work thresholds. Define these inline as constexpr when moving to cpp17. */
 	static const nano::work_thresholds publish_full;

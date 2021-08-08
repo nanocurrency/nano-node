@@ -24,12 +24,14 @@ std::string nano::to_string (nano::work_version const version_a)
 
 bool nano::work_validate_entry (nano::block const & block_a)
 {
-	return block_a.difficulty () < nano::work_threshold_entry (block_a.work_version (), block_a.type ());
+	static nano::network_constants network_constants;
+	return block_a.difficulty () < network_constants.publish_thresholds.threshold_entry (block_a.work_version (), block_a.type ());
 }
 
 bool nano::work_validate_entry (nano::work_version const version_a, nano::root const & root_a, uint64_t const work_a)
 {
-	return nano::work_difficulty (version_a, root_a, work_a) < nano::work_threshold_entry (version_a, nano::block_type::state);
+	static nano::network_constants network_constants;
+	return nano::work_difficulty (version_a, root_a, work_a) < network_constants.publish_thresholds.threshold_entry (version_a, nano::block_type::state);
 }
 
 uint64_t nano::work_difficulty (nano::work_version const version_a, nano::root const & root_a, uint64_t const work_a)
@@ -52,32 +54,11 @@ uint64_t nano::work_threshold_base (nano::work_version const version_a)
 	switch (version_a)
 	{
 		case nano::work_version::work_1:
-			result = nano::work_v1::threshold_base ();
+			static nano::network_constants network_constants;
+			result = network_constants.publish_thresholds.base;
 			break;
 		default:
 			debug_assert (false && "Invalid version specified to work_threshold_base");
-	}
-	return result;
-}
-
-uint64_t nano::work_threshold_entry (nano::work_version const version_a, nano::block_type const type_a)
-{
-	uint64_t result{ std::numeric_limits<uint64_t>::max () };
-	if (type_a == nano::block_type::state)
-	{
-		switch (version_a)
-		{
-			case nano::work_version::work_1:
-				result = nano::work_v1::threshold_entry ();
-				break;
-			default:
-				debug_assert (false && "Invalid version specified to work_threshold_entry");
-		}
-	}
-	else
-	{
-		static nano::network_constants network_constants;
-		result = network_constants.publish_thresholds.epoch_1;
 	}
 	return result;
 }
@@ -94,18 +75,6 @@ uint64_t nano::work_threshold (nano::work_version const version_a, nano::block_d
 			debug_assert (false && "Invalid version specified to ledger work_threshold");
 	}
 	return result;
-}
-
-uint64_t nano::work_v1::threshold_base ()
-{
-	static nano::network_constants network_constants;
-	return network_constants.publish_thresholds.base;
-}
-
-uint64_t nano::work_v1::threshold_entry ()
-{
-	static nano::network_constants network_constants;
-	return network_constants.publish_thresholds.entry;
 }
 
 uint64_t nano::work_v1::threshold (nano::block_details const details_a)
