@@ -129,7 +129,7 @@ TEST (difficulty, network_constants)
 
 	nano::work_version version{ nano::work_version::work_1 };
 	ASSERT_EQ (nano::dev::network_params.network.publish_thresholds.base, nano::dev::network_params.network.publish_thresholds.epoch_2);
-	ASSERT_EQ (nano::dev::network_params.network.publish_thresholds.base, nano::work_threshold_base (version));
+	ASSERT_EQ (nano::dev::network_params.network.publish_thresholds.base, nano::dev::network_params.network.publish_thresholds.threshold_base (version));
 	ASSERT_EQ (nano::dev::network_params.network.publish_thresholds.entry, nano::dev::network_params.network.publish_thresholds.threshold_entry (version, nano::block_type::state));
 	ASSERT_EQ (nano::dev::network_params.network.publish_thresholds.epoch_1, nano::dev::network_params.network.publish_thresholds.threshold_entry (version, nano::block_type::send));
 	ASSERT_EQ (nano::dev::network_params.network.publish_thresholds.epoch_1, nano::dev::network_params.network.publish_thresholds.threshold_entry (version, nano::block_type::receive));

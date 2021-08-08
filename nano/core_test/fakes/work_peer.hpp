@@ -138,10 +138,11 @@ private:
 
 	void handle_generate (nano::block_hash const & hash_a)
 	{
+		static nano::network_constants constants;
 		if (type == work_peer_type::good)
 		{
 			auto hash = hash_a;
-			auto request_difficulty = nano::work_threshold_base (version);
+			auto request_difficulty = constants.publish_thresholds.threshold_base (version);
 			auto this_l (shared_from_this ());
 			work_pool.generate (version, hash, request_difficulty, [this_l, hash] (boost::optional<uint64_t> work_a) {
 				auto result = work_a.value_or (0);
@@ -149,7 +150,7 @@ private:
 				ptree::ptree message_l;
 				message_l.put ("work", nano::to_string_hex (result));
 				message_l.put ("difficulty", nano::to_string_hex (result_difficulty));
-				message_l.put ("multiplier", nano::to_string (nano::difficulty::to_multiplier (result_difficulty, nano::work_threshold_base (this_l->version))));
+				message_l.put ("multiplier", nano::to_string (nano::difficulty::to_multiplier (result_difficulty, constants.publish_thresholds.threshold_base (this_l->version))));
 				message_l.put ("hash", hash.to_string ());
 				std::stringstream ostream;
 				ptree::write_json (ostream, message_l);

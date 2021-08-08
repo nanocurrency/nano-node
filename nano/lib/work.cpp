@@ -49,21 +49,6 @@ uint64_t nano::work_difficulty (nano::work_version const version_a, nano::root c
 	return result;
 }
 
-uint64_t nano::work_threshold_base (nano::work_version const version_a)
-{
-	uint64_t result{ std::numeric_limits<uint64_t>::max () };
-	switch (version_a)
-	{
-		case nano::work_version::work_1:
-			static nano::network_constants network_constants;
-			result = network_constants.publish_thresholds.base;
-			break;
-		default:
-			debug_assert (false && "Invalid version specified to work_threshold_base");
-	}
-	return result;
-}
-
 nano::work_pool::work_pool (nano::network_constants & network_constants, unsigned max_threads_a, std::chrono::nanoseconds pow_rate_limiter_a, std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> opencl_a) :
 	network_constants{ network_constants },
 	ticket (0),

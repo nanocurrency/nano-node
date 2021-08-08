@@ -111,10 +111,11 @@ public:
 	}
 
 	uint64_t threshold_entry (nano::work_version const, nano::block_type const);
-	uint64_t value (nano::root const & root_a, uint64_t work_a);
 	uint64_t threshold (nano::block_details const &);
 	// Ledger threshold
 	uint64_t threshold (nano::work_version const, nano::block_details const);
+	uint64_t threshold_base (nano::work_version const);
+	uint64_t value (nano::root const & root_a, uint64_t work_a);
 	double normalized_multiplier (double const, uint64_t const);
 	double denormalized_multiplier (double const, uint64_t const);
 

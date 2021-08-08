@@ -2215,7 +2215,7 @@ TEST (rpc, work_peer_bad)
 		ASSERT_TRUE (work_a.is_initialized ());
 		work = *work_a;
 	});
-	ASSERT_TIMELY (5s, nano::work_difficulty (nano::work_version::work_1, hash1, work) >= nano::work_threshold_base (nano::work_version::work_1));
+	ASSERT_TIMELY (5s, nano::work_difficulty (nano::work_version::work_1, hash1, work) >= nano::dev::network_params.network.publish_thresholds.threshold_base (nano::work_version::work_1));
 }
 
 TEST (rpc, work_peer_one)
@@ -2231,7 +2231,7 @@ TEST (rpc, work_peer_one)
 		ASSERT_TRUE (work_a.is_initialized ());
 		work = *work_a;
 	});
-	ASSERT_TIMELY (5s, nano::work_difficulty (nano::work_version::work_1, key1.pub, work) >= nano::work_threshold_base (nano::work_version::work_1));
+	ASSERT_TIMELY (5s, nano::work_difficulty (nano::work_version::work_1, key1.pub, work) >= nano::dev::network_params.network.publish_thresholds.threshold_base (nano::work_version::work_1));
 }
 
 TEST (rpc, work_peer_many)
@@ -2258,7 +2258,7 @@ TEST (rpc, work_peer_many)
 		node1.work_generate (nano::work_version::work_1, key1.pub, node1.network_params.network.publish_thresholds.base, [&work = works[i]] (boost::optional<uint64_t> work_a) {
 			work = *work_a;
 		});
-		while (nano::work_difficulty (nano::work_version::work_1, key1.pub, works[i]) < nano::work_threshold_base (nano::work_version::work_1))
+		while (nano::work_difficulty (nano::work_version::work_1, key1.pub, works[i]) < nano::dev::network_params.network.publish_thresholds.threshold_base (nano::work_version::work_1))
 		{
 			system1.poll ();
 			system2.poll ();

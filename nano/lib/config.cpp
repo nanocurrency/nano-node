@@ -166,6 +166,20 @@ double nano::work_thresholds::denormalized_multiplier (double const multiplier_a
 	return multiplier;
 }
 
+uint64_t nano::work_thresholds::threshold_base (nano::work_version const version_a)
+{
+	uint64_t result{ std::numeric_limits<uint64_t>::max () };
+	switch (version_a)
+	{
+		case nano::work_version::work_1:
+			result = base;
+			break;
+		default:
+			debug_assert (false && "Invalid version specified to work_threshold_base");
+	}
+	return result;
+}
+
 namespace nano
 {
 const char * network_constants::active_network_err_msg = "Invalid network. Valid values are live, test, beta and dev.";
