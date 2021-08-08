@@ -49,7 +49,7 @@ get_env_threshold_or_default ("NANO_TEST_EPOCH_2", 0xfffffff800000000), // 8x hi
 get_env_threshold_or_default ("NANO_TEST_EPOCH_2_RECV", 0xfffffe0000000000) // 8x lower than epoch_1
 );
 
-uint64_t nano::work_thresholds::threshold_entry (nano::work_version const version_a, nano::block_type const type_a)
+uint64_t nano::work_thresholds::threshold_entry (nano::work_version const version_a, nano::block_type const type_a) const
 {
 	uint64_t result{ std::numeric_limits<uint64_t>::max () };
 	if (type_a == nano::block_type::state)
@@ -110,12 +110,11 @@ uint64_t nano::work_thresholds::threshold (nano::block_details const & details_a
 
 uint64_t nano::work_thresholds::threshold (nano::work_version const version_a, nano::block_details const details_a)
 {
-	static nano::network_constants network_constants;
 	uint64_t result{ std::numeric_limits<uint64_t>::max () };
 	switch (version_a)
 	{
 		case nano::work_version::work_1:
-			result = network_constants.publish_thresholds.threshold (details_a);
+			result = threshold (details_a);
 			break;
 		default:
 			debug_assert (false && "Invalid version specified to ledger work_threshold");
@@ -197,6 +196,11 @@ uint64_t nano::work_thresholds::difficulty (nano::work_version const version_a, 
 bool nano::work_thresholds::validate_entry (nano::work_version const version_a, nano::root const & root_a, uint64_t const work_a)
 {
 	return difficulty (version_a, root_a, work_a) < threshold_entry (version_a, nano::block_type::state);
+}
+
+bool nano::work_thresholds::validate_entry (nano::block const & block_a) const
+{
+	return block_a.difficulty () < threshold_entry (block_a.work_version (), block_a.type ());
 }
 
 namespace nano

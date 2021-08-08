@@ -2003,7 +2003,7 @@ nano_qt::block_entry::block_entry (nano_qt::wallet & wallet_a) :
 			{
 				show_label_ok (*status);
 				this->status->setText ("");
-				if (!nano::work_validate_entry (*block_l))
+				if (!this->wallet.node.network_params.network.publish_thresholds.validate_entry (*block_l))
 				{
 					this->wallet.node.process_active (std::move (block_l));
 				}

@@ -18,7 +18,6 @@ std::string to_string (nano::work_version const version_a);
 class block;
 class block_details;
 enum class block_type : uint8_t;
-bool work_validate_entry (nano::block const &);
 
 class opencl_work;
 class work_item final

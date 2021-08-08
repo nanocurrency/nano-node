@@ -22,12 +22,6 @@ std::string nano::to_string (nano::work_version const version_a)
 	return result;
 }
 
-bool nano::work_validate_entry (nano::block const & block_a)
-{
-	static nano::network_constants network_constants;
-	return block_a.difficulty () < network_constants.publish_thresholds.threshold_entry (block_a.work_version (), block_a.type ());
-}
-
 nano::work_pool::work_pool (nano::network_constants & network_constants, unsigned max_threads_a, std::chrono::nanoseconds pow_rate_limiter_a, std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> opencl_a) :
 	network_constants{ network_constants },
 	ticket (0),

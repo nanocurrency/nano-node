@@ -3123,7 +3123,7 @@ void nano::json_handler::process ()
 		}
 		if (!rpc_l->ec)
 		{
-			if (!nano::work_validate_entry (*block))
+			if (!rpc_l->node.network_params.network.publish_thresholds.validate_entry (*block))
 			{
 				if (!is_async)
 				{

@@ -83,6 +83,7 @@ enum class work_version
 };
 enum class block_type : uint8_t;
 class root;
+class block;
 class block_details;
 
 class work_thresholds
@@ -110,7 +111,7 @@ public:
 		return other_a;
 	}
 
-	uint64_t threshold_entry (nano::work_version const, nano::block_type const);
+	uint64_t threshold_entry (nano::work_version const, nano::block_type const) const;
 	uint64_t threshold (nano::block_details const &);
 	// Ledger threshold
 	uint64_t threshold (nano::work_version const, nano::block_details const);
@@ -120,6 +121,7 @@ public:
 	double denormalized_multiplier (double const, uint64_t const);
 	uint64_t difficulty (nano::work_version const, nano::root const &, uint64_t const);
 	bool validate_entry (nano::work_version const, nano::root const &, uint64_t const);
+	bool validate_entry (nano::block const &) const;
 
 	/** Network work thresholds. Define these inline as constexpr when moving to cpp17. */
 	static const nano::work_thresholds publish_full;
