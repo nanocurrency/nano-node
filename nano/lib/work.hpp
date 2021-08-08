@@ -21,8 +21,6 @@ enum class block_type : uint8_t;
 bool work_validate_entry (nano::block const &);
 bool work_validate_entry (nano::work_version const, nano::root const &, uint64_t const);
 
-uint64_t work_difficulty (nano::work_version const, nano::root const &, uint64_t const);
-
 class opencl_work;
 class work_item final
 {

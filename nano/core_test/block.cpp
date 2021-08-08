@@ -312,7 +312,7 @@ TEST (block, publish_req_serialization)
 TEST (block, difficulty)
 {
 	nano::send_block block (0, 1, 2, nano::keypair ().prv, 4, 5);
-	ASSERT_EQ (block.difficulty (), nano::work_difficulty (block.work_version (), block.root (), block.block_work ()));
+	ASSERT_EQ (block.difficulty (), nano::dev::network_params.network.publish_thresholds.difficulty (block.work_version (), block.root (), block.block_work ()));
 }
 
 TEST (state_block, serialization)

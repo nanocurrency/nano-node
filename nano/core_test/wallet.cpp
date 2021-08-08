@@ -645,7 +645,7 @@ TEST (wallet, work)
 		uint64_t work (0);
 		if (!wallet->store.work_get (transaction, nano::dev::genesis_key.pub, work))
 		{
-			done = nano::work_difficulty (nano::dev::genesis->work_version (), nano::dev::genesis->hash (), work) >= system.nodes[0]->default_difficulty (nano::dev::genesis->work_version ());
+			done = nano::dev::network_params.network.publish_thresholds.difficulty (nano::dev::genesis->work_version (), nano::dev::genesis->hash (), work) >= system.nodes[0]->default_difficulty (nano::dev::genesis->work_version ());
 		}
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -675,7 +675,7 @@ TEST (wallet, work_generate)
 		ASSERT_NO_ERROR (system.poll ());
 		auto block_transaction (node1.store.tx_begin_read ());
 		auto transaction (system.wallet (0)->wallets.tx_begin_read ());
-		again = wallet->store.work_get (transaction, account1, work1) || nano::work_difficulty (block->work_version (), node1.ledger.latest_root (block_transaction, account1), work1) < node1.default_difficulty (block->work_version ());
+		again = wallet->store.work_get (transaction, account1, work1) || nano::dev::network_params.network.publish_thresholds.difficulty (block->work_version (), node1.ledger.latest_root (block_transaction, account1), work1) < node1.default_difficulty (block->work_version ());
 	}
 }
 
@@ -705,10 +705,10 @@ TEST (wallet, work_cache_delayed)
 		ASSERT_NO_ERROR (system.poll ());
 		if (!wallet->store.work_get (node1.wallets.tx_begin_read (), account1, work1))
 		{
-			again = nano::work_difficulty (nano::work_version::work_1, block2->hash (), work1) < threshold;
+			again = nano::dev::network_params.network.publish_thresholds.difficulty (nano::work_version::work_1, block2->hash (), work1) < threshold;
 		}
 	}
-	ASSERT_GE (nano::work_difficulty (nano::work_version::work_1, block2->hash (), work1), threshold);
+	ASSERT_GE (nano::dev::network_params.network.publish_thresholds.difficulty (nano::work_version::work_1, block2->hash (), work1), threshold);
 }
 
 TEST (wallet, insert_locked)

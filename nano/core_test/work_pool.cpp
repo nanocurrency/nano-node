@@ -100,7 +100,7 @@ TEST (work, opencl)
 			{
 				nano::random_pool::generate_block (root.bytes.data (), root.bytes.size ());
 				auto result (*pool.generate (nano::work_version::work_1, root, difficulty));
-				ASSERT_GE (nano::work_difficulty (nano::work_version::work_1, root, result), difficulty);
+				ASSERT_GE (nano::dev::network_params.network.publish_thresholds.difficulty (nano::work_version::work_1, root, result), difficulty);
 				difficulty += difficulty_add;
 			}
 		}
@@ -141,14 +141,14 @@ TEST (work, difficulty)
 	do
 	{
 		auto work1 = *pool.generate (nano::work_version::work_1, root, difficulty1);
-		result_difficulty1 = nano::work_difficulty (nano::work_version::work_1, root, work1);
+		result_difficulty1 = nano::dev::network_params.network.publish_thresholds.difficulty (nano::work_version::work_1, root, work1);
 	} while (result_difficulty1 > difficulty2);
 	ASSERT_GT (result_difficulty1, difficulty1);
 	uint64_t result_difficulty2 (0);
 	do
 	{
 		auto work2 = *pool.generate (nano::work_version::work_1, root, difficulty2);
-		result_difficulty2 = nano::work_difficulty (nano::work_version::work_1, root, work2);
+		result_difficulty2 = nano::dev::network_params.network.publish_thresholds.difficulty (nano::work_version::work_1, root, work2);
 	} while (result_difficulty2 > difficulty3);
 	ASSERT_GT (result_difficulty2, difficulty2);
 }
@@ -170,7 +170,7 @@ TEST (work, eco_pow)
 			do
 			{
 				auto work = *pool.generate (nano::work_version::work_1, root, difficulty1);
-				result_difficulty = nano::work_difficulty (nano::work_version::work_1, root, work);
+				result_difficulty = nano::dev::network_params.network.publish_thresholds.difficulty (nano::work_version::work_1, root, work);
 			} while (result_difficulty > difficulty2);
 			ASSERT_GT (result_difficulty, difficulty1);
 		}

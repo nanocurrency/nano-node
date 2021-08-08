@@ -15,7 +15,7 @@ TEST (system, work_generate_limited)
 	for (int i = 0; i < 5; ++i)
 	{
 		auto work = system.work_generate_limited (key, min, max);
-		auto difficulty = nano::work_difficulty (nano::work_version::work_1, key, work);
+		auto difficulty = nano::dev::network_params.network.publish_thresholds.difficulty (nano::work_version::work_1, key, work);
 		ASSERT_GE (difficulty, min);
 		ASSERT_LT (difficulty, max);
 	}

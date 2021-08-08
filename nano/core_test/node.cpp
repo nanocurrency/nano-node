@@ -39,7 +39,7 @@ TEST (node, work_generate)
 		auto difficulty = nano::difficulty::from_multiplier (1.5, node.network_params.network.publish_thresholds.base);
 		auto work = node.work_generate_blocking (version, root, difficulty);
 		ASSERT_TRUE (work.is_initialized ());
-		ASSERT_TRUE (nano::work_difficulty (version, root, *work) >= difficulty);
+		ASSERT_TRUE (nano::dev::network_params.network.publish_thresholds.difficulty (version, root, *work) >= difficulty);
 	}
 	{
 		auto difficulty = nano::difficulty::from_multiplier (0.5, node.network_params.network.publish_thresholds.base);
@@ -47,10 +47,10 @@ TEST (node, work_generate)
 		do
 		{
 			work = node.work_generate_blocking (version, root, difficulty);
-		} while (nano::work_difficulty (version, root, *work) >= node.network_params.network.publish_thresholds.base);
+		} while (nano::dev::network_params.network.publish_thresholds.difficulty (version, root, *work) >= node.network_params.network.publish_thresholds.base);
 		ASSERT_TRUE (work.is_initialized ());
-		ASSERT_TRUE (nano::work_difficulty (version, root, *work) >= difficulty);
-		ASSERT_FALSE (nano::work_difficulty (version, root, *work) >= node.network_params.network.publish_thresholds.base);
+		ASSERT_TRUE (nano::dev::network_params.network.publish_thresholds.difficulty (version, root, *work) >= difficulty);
+		ASSERT_FALSE (nano::dev::network_params.network.publish_thresholds.difficulty (version, root, *work) >= node.network_params.network.publish_thresholds.base);
 	}
 }
 

@@ -146,7 +146,8 @@ private:
 			auto this_l (shared_from_this ());
 			work_pool.generate (version, hash, request_difficulty, [this_l, hash] (boost::optional<uint64_t> work_a) {
 				auto result = work_a.value_or (0);
-				auto result_difficulty (nano::work_difficulty (this_l->version, hash, result));
+				static nano::network_constants constants;
+				auto result_difficulty (constants.publish_thresholds.difficulty (this_l->version, hash, result));
 				ptree::ptree message_l;
 				message_l.put ("work", nano::to_string_hex (result));
 				message_l.put ("difficulty", nano::to_string_hex (result_difficulty));

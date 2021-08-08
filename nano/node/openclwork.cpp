@@ -455,7 +455,8 @@ boost::optional<uint64_t> nano::opencl_work::generate_work (nano::work_version c
 	uint64_t result (0);
 	unsigned thread_count (config.threads);
 	size_t work_size[] = { thread_count, 0, 0 };
-	while (nano::work_difficulty (version_a, root_a, result) < difficulty_a && !error && ticket_a == ticket_l)
+	static nano::network_constants constants;
+	while (constants.publish_thresholds.difficulty (version_a, root_a, result) < difficulty_a && !error && ticket_a == ticket_l)
 	{
 		result = rand.next ();
 		cl_int write_error1 = clEnqueueWriteBuffer (queue, attempt_buffer, false, 0, sizeof (uint64_t), &result, 0, nullptr, nullptr);

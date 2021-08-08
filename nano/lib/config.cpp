@@ -180,6 +180,20 @@ uint64_t nano::work_thresholds::threshold_base (nano::work_version const version
 	return result;
 }
 
+uint64_t nano::work_thresholds::difficulty (nano::work_version const version_a, nano::root const & root_a, uint64_t const work_a)
+{
+	uint64_t result{ 0 };
+	switch (version_a)
+	{
+		case nano::work_version::work_1:
+			result = value (root_a, work_a);
+			break;
+		default:
+			debug_assert (false && "Invalid version specified to work_difficulty");
+	}
+	return result;
+}
+
 namespace nano
 {
 const char * network_constants::active_network_err_msg = "Invalid network. Valid values are live, test, beta and dev.";

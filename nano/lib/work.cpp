@@ -31,22 +31,7 @@ bool nano::work_validate_entry (nano::block const & block_a)
 bool nano::work_validate_entry (nano::work_version const version_a, nano::root const & root_a, uint64_t const work_a)
 {
 	static nano::network_constants network_constants;
-	return nano::work_difficulty (version_a, root_a, work_a) < network_constants.publish_thresholds.threshold_entry (version_a, nano::block_type::state);
-}
-
-uint64_t nano::work_difficulty (nano::work_version const version_a, nano::root const & root_a, uint64_t const work_a)
-{
-	static nano::network_constants network_constants;
-	uint64_t result{ 0 };
-	switch (version_a)
-	{
-		case nano::work_version::work_1:
-			result = network_constants.publish_thresholds.value (root_a, work_a);
-			break;
-		default:
-			debug_assert (false && "Invalid version specified to work_difficulty");
-	}
-	return result;
+	return network_constants.publish_thresholds.difficulty (version_a, root_a, work_a) < network_constants.publish_thresholds.threshold_entry (version_a, nano::block_type::state);
 }
 
 nano::work_pool::work_pool (nano::network_constants & network_constants, unsigned max_threads_a, std::chrono::nanoseconds pow_rate_limiter_a, std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> opencl_a) :
