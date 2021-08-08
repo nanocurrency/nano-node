@@ -66,35 +66,15 @@ uint64_t nano::work_threshold_base (nano::work_version const version_a)
 
 uint64_t nano::work_threshold (nano::work_version const version_a, nano::block_details const details_a)
 {
+	static nano::network_constants network_constants;
 	uint64_t result{ std::numeric_limits<uint64_t>::max () };
 	switch (version_a)
 	{
 		case nano::work_version::work_1:
-			result = nano::work_v1::threshold (details_a);
+			result = network_constants.publish_thresholds.threshold (details_a);
 			break;
 		default:
 			debug_assert (false && "Invalid version specified to ledger work_threshold");
-	}
-	return result;
-}
-
-uint64_t nano::work_v1::threshold (nano::block_details const details_a)
-{
-	static_assert (nano::epoch::max == nano::epoch::epoch_2, "work_v1::threshold is ill-defined");
-	static nano::network_constants network_constants;
-
-	uint64_t result{ std::numeric_limits<uint64_t>::max () };
-	switch (details_a.epoch)
-	{
-		case nano::epoch::epoch_2:
-			result = (details_a.is_receive || details_a.is_epoch) ? network_constants.publish_thresholds.epoch_2_receive : network_constants.publish_thresholds.epoch_2;
-			break;
-		case nano::epoch::epoch_1:
-		case nano::epoch::epoch_0:
-			result = network_constants.publish_thresholds.epoch_1;
-			break;
-		default:
-			debug_assert (false && "Invalid epoch specified to work_v1 ledger work_threshold");
 	}
 	return result;
 }

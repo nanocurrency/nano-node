@@ -88,6 +88,26 @@ uint64_t nano::work_thresholds::value (nano::root const & root_a, uint64_t work_
 }
 #endif
 
+uint64_t nano::work_thresholds::threshold (nano::block_details const & details_a)
+{
+	static_assert (nano::epoch::max == nano::epoch::epoch_2, "work_v1::threshold is ill-defined");
+
+	uint64_t result{ std::numeric_limits<uint64_t>::max () };
+	switch (details_a.epoch)
+	{
+		case nano::epoch::epoch_2:
+			result = (details_a.is_receive || details_a.is_epoch) ? epoch_2_receive : epoch_2;
+			break;
+		case nano::epoch::epoch_1:
+		case nano::epoch::epoch_0:
+			result = epoch_1;
+			break;
+		default:
+			debug_assert (false && "Invalid epoch specified to work_v1 ledger work_threshold");
+	}
+	return result;
+}
+
 namespace nano
 {
 const char * network_constants::active_network_err_msg = "Invalid network. Valid values are live, test, beta and dev.";

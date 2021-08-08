@@ -27,11 +27,6 @@ uint64_t work_threshold_base (nano::work_version const);
 // Ledger threshold
 uint64_t work_threshold (nano::work_version const, nano::block_details const);
 
-namespace work_v1
-{
-	uint64_t threshold (nano::block_details const);
-}
-
 double normalized_multiplier (double const, uint64_t const);
 double denormalized_multiplier (double const, uint64_t const);
 class opencl_work;
