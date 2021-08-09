@@ -822,7 +822,7 @@ TEST (wallet, no_work)
 	auto block (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, std::numeric_limits<nano::uint128_t>::max (), false));
 	ASSERT_NE (nullptr, block);
 	ASSERT_NE (0, block->block_work ());
-	ASSERT_GE (block->difficulty (), nano::dev::network_params.network.publish_thresholds.threshold (block->work_version (), block->sideband ().details));
+	ASSERT_GE (nano::dev::network_params.network.publish_thresholds.difficulty (*block), nano::dev::network_params.network.publish_thresholds.threshold (block->work_version (), block->sideband ().details));
 	auto transaction (system.wallet (0)->wallets.tx_begin_read ());
 	uint64_t cached_work (0);
 	system.wallet (0)->store.work_get (transaction, nano::dev::genesis_key.pub, cached_work);
@@ -1022,9 +1022,9 @@ TEST (wallet, epoch_2_validation)
 
 		auto receive = wallet.receive_action (send->hash (), nano::dev::genesis_key.pub, amount, send->link ().as_account (), 1);
 		ASSERT_NE (nullptr, receive);
-		if (receive->difficulty () < node.network_params.network.publish_thresholds.base)
+		if (nano::dev::network_params.network.publish_thresholds.difficulty (*receive) < node.network_params.network.publish_thresholds.base)
 		{
-			ASSERT_GE (receive->difficulty (), node.network_params.network.publish_thresholds.epoch_2_receive);
+			ASSERT_GE (nano::dev::network_params.network.publish_thresholds.difficulty (*receive), node.network_params.network.publish_thresholds.epoch_2_receive);
 			ASSERT_EQ (nano::epoch::epoch_2, receive->sideband ().details.epoch);
 			ASSERT_EQ (nano::epoch::epoch_2, receive->sideband ().source_epoch);
 			break;
@@ -1074,9 +1074,9 @@ TEST (wallet, epoch_2_receive_propagation)
 
 		auto receive2 = wallet.receive_action (send2->hash (), key.pub, amount, send2->link ().as_account (), 1);
 		ASSERT_NE (nullptr, receive2);
-		if (receive2->difficulty () < node.network_params.network.publish_thresholds.base)
+		if (nano::dev::network_params.network.publish_thresholds.difficulty (*receive2) < node.network_params.network.publish_thresholds.base)
 		{
-			ASSERT_GE (receive2->difficulty (), node.network_params.network.publish_thresholds.epoch_2_receive);
+			ASSERT_GE (nano::dev::network_params.network.publish_thresholds.difficulty (*receive2), node.network_params.network.publish_thresholds.epoch_2_receive);
 			ASSERT_EQ (nano::epoch::epoch_2, node.store.block.version (node.store.tx_begin_read (), receive2->hash ()));
 			ASSERT_EQ (nano::epoch::epoch_2, receive2->sideband ().source_epoch);
 			break;
@@ -1119,9 +1119,9 @@ TEST (wallet, epoch_2_receive_unopened)
 
 		auto receive1 = wallet.receive_action (send1->hash (), key.pub, amount, send1->link ().as_account (), 1);
 		ASSERT_NE (nullptr, receive1);
-		if (receive1->difficulty () < node.network_params.network.publish_thresholds.base)
+		if (nano::dev::network_params.network.publish_thresholds.difficulty (*receive1) < node.network_params.network.publish_thresholds.base)
 		{
-			ASSERT_GE (receive1->difficulty (), node.network_params.network.publish_thresholds.epoch_2_receive);
+			ASSERT_GE (nano::dev::network_params.network.publish_thresholds.difficulty (*receive1), node.network_params.network.publish_thresholds.epoch_2_receive);
 			ASSERT_EQ (nano::epoch::epoch_2, node.store.block.version (node.store.tx_begin_read (), receive1->hash ()));
 			ASSERT_EQ (nano::epoch::epoch_1, receive1->sideband ().source_epoch);
 			break;

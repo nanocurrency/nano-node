@@ -83,12 +83,6 @@ nano::work_version nano::block::work_version () const
 	return nano::work_version::work_1;
 }
 
-uint64_t nano::block::difficulty () const
-{
-	static nano::network_constants constants;
-	return constants.publish_thresholds.difficulty (this->work_version (), this->root (), this->block_work ());
-}
-
 nano::block_hash nano::block::generate_hash () const
 {
 	nano::block_hash result;

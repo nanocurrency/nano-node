@@ -1460,7 +1460,7 @@ void nano::node::epoch_upgrader_impl (nano::raw_key const & prv_a, nano::epoch e
 	auto upgrader_process = [] (nano::node & node_a, std::atomic<uint64_t> & counter, std::shared_ptr<nano::block> const & epoch, uint64_t difficulty, nano::public_key const & signer_a, nano::root const & root_a, nano::account const & account_a) {
 		epoch->block_work_set (node_a.work_generate_blocking (nano::work_version::work_1, root_a, difficulty).value_or (0));
 		bool valid_signature (!nano::validate_message (signer_a, epoch->hash (), epoch->block_signature ()));
-		bool valid_work (epoch->difficulty () >= difficulty);
+		bool valid_work (node_a.network_params.network.publish_thresholds.difficulty (*epoch) >= difficulty);
 		nano::process_result result (nano::process_result::old);
 		if (valid_signature && valid_work)
 		{

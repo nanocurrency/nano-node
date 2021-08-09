@@ -120,6 +120,7 @@ public:
 	double normalized_multiplier (double const, uint64_t const) const;
 	double denormalized_multiplier (double const, uint64_t const) const;
 	uint64_t difficulty (nano::work_version const, nano::root const &, uint64_t const) const;
+	uint64_t difficulty (nano::block const & block_a) const;
 	bool validate_entry (nano::work_version const, nano::root const &, uint64_t const) const;
 	bool validate_entry (nano::block const &) const;
 

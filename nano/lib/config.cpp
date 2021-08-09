@@ -193,6 +193,11 @@ uint64_t nano::work_thresholds::difficulty (nano::work_version const version_a, 
 	return result;
 }
 
+uint64_t nano::work_thresholds::difficulty (nano::block const & block_a) const
+{
+	return difficulty (block_a.work_version (), block_a.root (), block_a.block_work ());
+}
+
 bool nano::work_thresholds::validate_entry (nano::work_version const version_a, nano::root const & root_a, uint64_t const work_a) const
 {
 	return difficulty (version_a, root_a, work_a) < threshold_entry (version_a, nano::block_type::state);
@@ -200,7 +205,7 @@ bool nano::work_thresholds::validate_entry (nano::work_version const version_a, 
 
 bool nano::work_thresholds::validate_entry (nano::block const & block_a) const
 {
-	return block_a.difficulty () < threshold_entry (block_a.work_version (), block_a.type ());
+	return difficulty (block_a) < threshold_entry (block_a.work_version (), block_a.type ());
 }
 
 namespace nano

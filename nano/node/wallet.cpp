@@ -1044,7 +1044,7 @@ bool nano::wallet::action_complete (std::shared_ptr<nano::block> const & block_a
 	if (block_a != nullptr)
 	{
 		auto required_difficulty{ wallets.node.network_params.network.publish_thresholds.threshold (block_a->work_version (), details_a) };
-		if (block_a->difficulty () < required_difficulty)
+		if (wallets.node.network_params.network.publish_thresholds.difficulty (*block_a) < required_difficulty)
 		{
 			wallets.node.logger.try_log (boost::str (boost::format ("Cached or provided work for block %1% account %2% is invalid, regenerating") % block_a->hash ().to_string () % account_a.to_account ()));
 			debug_assert (required_difficulty <= wallets.node.max_work_generate_difficulty (block_a->work_version ()));

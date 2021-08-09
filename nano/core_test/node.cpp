@@ -4550,7 +4550,7 @@ TEST (node, deferred_dependent_elections)
 	ASSERT_TIMELY (2s, node2.block (send2->hash ()));
 
 	// Re-processing older blocks with updated work also does not start an election
-	node.work_generate_blocking (*open, open->difficulty () + 1);
+	node.work_generate_blocking (*open, nano::dev::network_params.network.publish_thresholds.difficulty (*open) + 1);
 	node.process_local (open);
 	node.block_processor.flush ();
 	node.scheduler.flush ();
@@ -4563,7 +4563,7 @@ TEST (node, deferred_dependent_elections)
 	ASSERT_FALSE (node.active.active (open->qualified_root ()));
 
 	/// The election was dropped but it's still not possible to restart it
-	node.work_generate_blocking (*open, open->difficulty () + 1);
+	node.work_generate_blocking (*open, nano::dev::network_params.network.publish_thresholds.difficulty (*open) + 1);
 	ASSERT_FALSE (node.active.active (open->qualified_root ()));
 	node.process_local (open);
 	node.block_processor.flush ();
