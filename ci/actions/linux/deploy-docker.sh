@@ -28,7 +28,7 @@ elif [[ "$GITHUB_WORKFLOW" = "Test" ]]; then
     network="test"
 fi
 if [[ "$GITHUB_WORKFLOW" != "Develop" ]]; then
-    docker_image_name="nanocurrency/nano${network_tag_suffix}"
+    docker_image_name="bananocoin/nano${network_tag_suffix}"
     ghcr_image_name="ghcr.io/${GITHUB_REPOSITORY}/nano${network_tag_suffix}"
     "$scripts"/build-docker-image.sh docker/node/Dockerfile "$docker_image_name" --build-arg NETWORK="$network" --build-arg CI_BUILD=true --build-arg TRAVIS_TAG="$TRAVIS_TAG"
     for tag in "${tags[@]}"; do
@@ -45,13 +45,13 @@ fi
 if [ -n "$DOCKER_PASSWORD" ]; then
     echo "$DOCKER_PASSWORD" | docker login -u nanoreleaseteam --password-stdin
     if [[ "$GITHUB_WORKFLOW" = "Develop" ]]; then
-        "$scripts"/custom-timeout.sh 30 docker push "nanocurrency/nano-env:base"
-        "$scripts"/custom-timeout.sh 30 docker push "nanocurrency/nano-env:gcc"
-        "$scripts"/custom-timeout.sh 30 docker push "nanocurrency/nano-env:clang-6"
+        "$scripts"/custom-timeout.sh 30 docker push "bananocoin/nano-env:base"
+        "$scripts"/custom-timeout.sh 30 docker push "bananocoin/nano-env:gcc"
+        "$scripts"/custom-timeout.sh 30 docker push "bananocoin/nano-env:clang-6"
         echo "Deployed nano-env"
         exit 0
     else
-        tags=$(docker images --format '{{.Repository}}:{{.Tag }}' | grep nanocurrency | grep -vE "env|ghcr.io|none")
+        tags=$(docker images --format '{{.Repository}}:{{.Tag }}' | grep bananocoin | grep -vE "env|ghcr.io|none")
         for a in $tags; do
             "$scripts"/custom-timeout.sh 30 docker push "$a"
         done

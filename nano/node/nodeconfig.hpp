@@ -46,15 +46,15 @@ public:
 	uint16_t peering_port{ 0 };
 	nano::logging logging;
 	std::vector<std::pair<std::string, uint16_t>> work_peers;
-	std::vector<std::pair<std::string, uint16_t>> secondary_work_peers{ { "127.0.0.1", 8076 } }; /* Default of nano-pow-server */
+	std::vector<std::pair<std::string, uint16_t>> secondary_work_peers{ { "127.0.0.1", 8072 } }; /* Default of nano-pow-server */
 	std::vector<std::string> preconfigured_peers;
 	std::vector<nano::account> preconfigured_representatives;
 	unsigned bootstrap_fraction_numerator{ 1 };
-	nano::amount receive_minimum{ nano::xrb_ratio };
-	nano::amount vote_minimum{ nano::Gxrb_ratio };
+	nano::amount receive_minimum{ nano::banoshi_ratio };
+	nano::amount vote_minimum{ nano::MBAN_ratio };
 	std::chrono::milliseconds vote_generator_delay{ std::chrono::milliseconds (100) };
 	unsigned vote_generator_threshold{ 3 };
-	nano::amount online_weight_minimum{ 60000 * nano::Gxrb_ratio };
+	nano::amount online_weight_minimum{ 900 * nano::MBAN_ratio };
 	unsigned election_hint_weight_percent{ 10 };
 	unsigned password_fanout{ 1024 };
 	unsigned io_threads{ std::max<unsigned> (4, std::thread::hardware_concurrency ()) };
@@ -92,7 +92,7 @@ public:
 	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
 	/** Default outbound traffic shaping is 10MB/s */
-	size_t bandwidth_limit{ 10 * 1024 * 1024 };
+	size_t bandwidth_limit{ 2 * 1024 * 1024 };
 	/** By default, allow bursts of 15MB/s (not sustainable) */
 	double bandwidth_limit_burst_ratio{ 3. };
 	std::chrono::milliseconds conf_height_processor_batch_min_time{ 50 };

@@ -26,7 +26,7 @@ namespace
 {
 void show_error (std::string const & message_a)
 {
-	QMessageBox message (QMessageBox::Critical, "Error starting Nano", message_a.c_str ());
+	QMessageBox message (QMessageBox::Critical, "Error starting Banano", message_a.c_str ());
 	message.setModal (true);
 	message.show ();
 	message.exec ();

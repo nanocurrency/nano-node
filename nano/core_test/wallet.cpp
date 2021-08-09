@@ -340,7 +340,7 @@ TEST (account, encode_zero)
 	number0.encode_account (str0);
 
 	/*
-	 * Handle different lengths for "xrb_" prefixed and "nano_" prefixed accounts
+	 * Handle different lengths for "ban_" prefixed and "nano_" prefixed accounts
 	 */
 	ASSERT_EQ ((str0.front () == 'x') ? 64 : 65, str0.size ());
 	ASSERT_EQ (65, str0.size ());
@@ -357,7 +357,7 @@ TEST (account, encode_all)
 	number0.encode_account (str0);
 
 	/*
-	 * Handle different lengths for "xrb_" prefixed and "nano_" prefixed accounts
+	 * Handle different lengths for "ban_" prefixed and "nano_" prefixed accounts
 	 */
 	ASSERT_EQ ((str0.front () == 'x') ? 64 : 65, str0.size ());
 	nano::account number1;
@@ -836,8 +836,8 @@ TEST (wallet, send_race)
 	nano::keypair key2;
 	for (auto i (1); i < 60; ++i)
 	{
-		ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev_genesis_key.pub, key2.pub, nano::Gxrb_ratio));
-		ASSERT_EQ (nano::genesis_amount - nano::Gxrb_ratio * i, system.nodes[0]->balance (nano::dev_genesis_key.pub));
+		ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::dev_genesis_key.pub, key2.pub, nano::MBAN_ratio));
+		ASSERT_EQ (nano::genesis_amount - nano::MBAN_ratio * i, system.nodes[0]->balance (nano::dev_genesis_key.pub));
 	}
 }
 

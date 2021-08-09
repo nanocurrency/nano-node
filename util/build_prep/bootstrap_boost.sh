@@ -18,7 +18,7 @@ while getopts 'hmscCkpvB:j:' OPT; do
 		echo "Usage: bootstrap_boost.sh [-hmcCkpv] [-B <boostVersion>]"
 		echo "   -h                 This help"
 		echo "   -s                 Build Shared and static libs, default is static only"
-		echo "   -m                 Build a minimal set of libraries needed for Nano"
+		echo "   -m                 Build a minimal set of libraries needed for Banano"
 		echo "   -j <threads> 		Number of threads to build with"
 		echo "   -c                 Use Clang"
 		echo "   -C                 Use libc++ when using Clang"

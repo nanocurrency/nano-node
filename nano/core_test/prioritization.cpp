@@ -37,22 +37,22 @@ std::shared_ptr<nano::state_block> & blockzero ()
 }
 std::shared_ptr<nano::state_block> & block0 ()
 {
-	static std::shared_ptr<nano::state_block> result = std::make_shared<nano::state_block> (key0 ().pub, 0, key0 ().pub, nano::Gxrb_ratio, 0, key0 ().prv, key0 ().pub, 0);
+	static std::shared_ptr<nano::state_block> result = std::make_shared<nano::state_block> (key0 ().pub, 0, key0 ().pub, nano::MBAN_ratio, 0, key0 ().prv, key0 ().pub, 0);
 	return result;
 }
 std::shared_ptr<nano::state_block> & block1 ()
 {
-	static std::shared_ptr<nano::state_block> result = std::make_shared<nano::state_block> (key1 ().pub, 0, key1 ().pub, nano::Mxrb_ratio, 0, key1 ().prv, key1 ().pub, 0);
+	static std::shared_ptr<nano::state_block> result = std::make_shared<nano::state_block> (key1 ().pub, 0, key1 ().pub, nano::BAN_ratio, 0, key1 ().prv, key1 ().pub, 0);
 	return result;
 }
 std::shared_ptr<nano::state_block> & block2 ()
 {
-	static std::shared_ptr<nano::state_block> result = std::make_shared<nano::state_block> (key2 ().pub, 0, key2 ().pub, nano::Gxrb_ratio, 0, key2 ().prv, key2 ().pub, 0);
+	static std::shared_ptr<nano::state_block> result = std::make_shared<nano::state_block> (key2 ().pub, 0, key2 ().pub, nano::MBAN_ratio, 0, key2 ().prv, key2 ().pub, 0);
 	return result;
 }
 std::shared_ptr<nano::state_block> & block3 ()
 {
-	static std::shared_ptr<nano::state_block> result = std::make_shared<nano::state_block> (key3 ().pub, 0, key3 ().pub, nano::Mxrb_ratio, 0, key3 ().prv, key3 ().pub, 0);
+	static std::shared_ptr<nano::state_block> result = std::make_shared<nano::state_block> (key3 ().pub, 0, key3 ().pub, nano::BAN_ratio, 0, key3 ().prv, key3 ().pub, 0);
 	return result;
 }
 

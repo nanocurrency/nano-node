@@ -39,7 +39,7 @@ TEST (difficultyDeathTest, multipliers)
 	}
 
 	{
-		uint64_t base = 0xffffffc000000000;
+		uint64_t base = 0xfffffe0000000000;
 		uint64_t difficulty = 0xfffffe0000000000;
 		double expected_multiplier = 0.125;
 
@@ -70,7 +70,7 @@ TEST (difficultyDeathTest, multipliers)
 	// Causes valgrind to be noisy
 	if (!nano::running_within_valgrind ())
 	{
-		uint64_t base = 0xffffffc000000000;
+		uint64_t base = 0xfffffe0000000000;
 		uint64_t difficulty_nil = 0;
 		double multiplier_nil = 0.;
 

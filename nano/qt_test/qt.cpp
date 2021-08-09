@@ -30,7 +30,7 @@ TEST (wallet, construction)
 }
 
 // Disabled because it does not work and it is not clearly defined what its behaviour should be:
-// https://github.com/nanocurrency/nano-node/issues/3235
+// https://github.com/BananoCoin/banano/issues/3235
 TEST (wallet, DISABLED_status)
 {
 	nano_qt::eventloop_processor processor;

@@ -42,7 +42,7 @@ void nano::logging::init (boost::filesystem::path const & application_path_a)
 #ifdef BOOST_WINDOWS
 			if (nano::event_log_reg_entry_exists () || nano::is_windows_elevated ())
 			{
-				static auto event_sink = boost::make_shared<boost::log::sinks::synchronous_sink<boost::log::sinks::simple_event_log_backend>> (boost::log::keywords::log_name = "Nano", boost::log::keywords::log_source = "Nano");
+				static auto event_sink = boost::make_shared<boost::log::sinks::synchronous_sink<boost::log::sinks::simple_event_log_backend>> (boost::log::keywords::log_name = "Banano", boost::log::keywords::log_source = "Banano");
 				event_sink->set_formatter (format);
 
 				// Currently only mapping sys log errors

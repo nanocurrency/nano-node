@@ -97,27 +97,27 @@ void nano::json_handler::process_request (bool unsafe_a)
 				request.put ("head", request.get<std::string> ("hash"));
 				account_history ();
 			}
-			else if (action == "knano_from_raw" || action == "krai_from_raw")
+			else if (action == "knano_from_raw" || action == "banoshi_from_raw")
 			{
-				mnano_from_raw (nano::kxrb_ratio);
+				mnano_from_raw (nano::banoshi_ratio);
 			}
-			else if (action == "knano_to_raw" || action == "krai_to_raw")
+			else if (action == "knano_to_raw" || action == "banoshi_to_raw")
 			{
-				mnano_to_raw (nano::kxrb_ratio);
+				mnano_to_raw (nano::banoshi_ratio);
 			}
-			else if (action == "nano_from_raw" || action == "rai_from_raw")
+			else if (action == "nano_from_raw" || action == "raw_from_raw")
 			{
-				mnano_from_raw (nano::xrb_ratio);
+				mnano_from_raw (nano::RAW_ratio);
 			}
-			else if (action == "nano_to_raw" || action == "rai_to_raw")
+			else if (action == "nano_to_raw" || action == "raw_to_raw")
 			{
-				mnano_to_raw (nano::xrb_ratio);
+				mnano_to_raw (nano::RAW_ratio);
 			}
-			else if (action == "mnano_from_raw" || action == "mrai_from_raw")
+			else if (action == "mnano_from_raw" || action == "ban_from_raw")
 			{
 				mnano_from_raw ();
 			}
-			else if (action == "mnano_to_raw" || action == "mrai_to_raw")
+			else if (action == "mnano_to_raw" || action == "ban_to_raw")
 			{
 				mnano_to_raw ();
 			}
@@ -4119,7 +4119,7 @@ void nano::json_handler::version ()
 	response_l.put ("rpc_version", "1");
 	response_l.put ("store_version", std::to_string (node.store_version ()));
 	response_l.put ("protocol_version", std::to_string (node.network_params.protocol.protocol_version));
-	response_l.put ("node_vendor", boost::str (boost::format ("Nano %1%") % NANO_VERSION_STRING));
+	response_l.put ("node_vendor", boost::str (boost::format ("Banano %1%") % NANO_VERSION_STRING));
 	response_l.put ("store_vendor", node.store.vendor_get ());
 	response_l.put ("network", node.network_params.network.get_current_network_as_string ());
 	response_l.put ("network_identifier", node.network_params.ledger.genesis_hash.to_string ());

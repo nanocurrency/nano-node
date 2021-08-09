@@ -397,7 +397,7 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 				ledger.bootstrap_weights = bootstrap_weights.second;
 				for (auto const & rep : ledger.bootstrap_weights)
 				{
-					logger.always_log ("Using bootstrap rep weight: ", rep.first.to_account (), " -> ", nano::uint128_union (rep.second).format_balance (Mxrb_ratio, 0, true), " XRB");
+					logger.always_log ("Using bootstrap rep weight: ", rep.first.to_account (), " -> ", nano::uint128_union (rep.second).format_balance (BAN_ratio, 0, true), " BAN");
 				}
 			}
 			ledger.bootstrap_weight_max_blocks = bootstrap_weights.first;
@@ -821,7 +821,7 @@ void nano::node::ongoing_bootstrap ()
 			{
 				last_sample_time = last_record->first;
 			}
-			uint64_t time_since_last_sample = std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now ().time_since_epoch ()).count () - last_sample_time / std::pow (10, 9); // Nanoseconds to seconds
+			uint64_t time_since_last_sample = std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now ().time_since_epoch ()).count () - last_sample_time / std::pow (10, 9); // Bananoseconds to seconds
 			if (time_since_last_sample + 60 * 60 < std::numeric_limits<uint32_t>::max ())
 			{
 				frontiers_age = std::max<uint32_t> (time_since_last_sample + 60 * 60, network_params.bootstrap.default_frontiers_age_seconds);
@@ -1092,13 +1092,13 @@ void nano::node::ongoing_ledger_pruning ()
 
 int nano::node::price (nano::uint128_t const & balance_a, int amount_a)
 {
-	debug_assert (balance_a >= amount_a * nano::Gxrb_ratio);
+	debug_assert (balance_a >= amount_a * nano::MBAN_ratio);
 	auto balance_l (balance_a);
 	double result (0.0);
 	for (auto i (0); i < amount_a; ++i)
 	{
-		balance_l -= nano::Gxrb_ratio;
-		auto balance_scaled ((balance_l / nano::Mxrb_ratio).convert_to<double> ());
+		balance_l -= nano::MBAN_ratio;
+		auto balance_scaled ((balance_l / nano::BAN_ratio).convert_to<double> ());
 		auto units (balance_scaled / 1000.0);
 		auto unit_price (((free_cutoff - units) / free_cutoff) * price_max);
 		result += std::min (std::max (0.0, unit_price), price_max);

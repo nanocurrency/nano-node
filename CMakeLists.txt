@@ -41,7 +41,7 @@ set(CPACK_PACKAGE_VERSION_MAJOR "22")
 set(CPACK_PACKAGE_VERSION_MINOR "1")
 set(CPACK_PACKAGE_VERSION_PATCH "0")
 set(CPACK_PACKAGE_VERSION_PRE_RELEASE "0")
-set(CPACK_PACKAGE_VENDOR "Nano Currency")
+set(CPACK_PACKAGE_VENDOR "Bananocoin")
 
 if(CI_BUILD)
   set(TAG_VERSION_STRING "$ENV{TRAVIS_TAG}")
@@ -162,12 +162,12 @@ set(CPACK_PACKAGE_NAME
     "nano-node"
     CACHE STRING "" FORCE)
 set(CPACK_NSIS_PACKAGE_NAME
-    "Nano"
+    "Banano"
     CACHE STRING "" FORCE)
 set(CPACK_PACKAGE_INSTALL_DIRECTORY
-    "nanocurrency"
+    "bananocoin"
     CACHE STRING "" FORCE)
-set(NANO_SERVICE "nanocurrency.service")
+set(NANO_SERVICE "bananocoin.service")
 set(NANO_PREFIX "")
 if("${ACTIVE_NETWORK}" MATCHES "nano_beta_network")
   project("nano-node-beta")
@@ -175,12 +175,12 @@ if("${ACTIVE_NETWORK}" MATCHES "nano_beta_network")
       "nano-node-beta"
       CACHE STRING "" FORCE)
   set(CPACK_NSIS_PACKAGE_NAME
-      "Nano-Beta"
+      "Banano-Beta"
       CACHE STRING "" FORCE)
   set(CPACK_PACKAGE_INSTALL_DIRECTORY
-      "nanocurrency-beta"
+      "bananocoin-beta"
       CACHE STRING "" FORCE)
-  set(NANO_SERVICE "nanocurrency-beta.service")
+  set(NANO_SERVICE "bananocoin-beta.service")
   set(NANO_PREFIX "Beta")
 elseif("${ACTIVE_NETWORK}" MATCHES "nano_test_network")
   project("nano-node-test")
@@ -188,12 +188,12 @@ elseif("${ACTIVE_NETWORK}" MATCHES "nano_test_network")
       "nano-node-test"
       CACHE STRING "" FORCE)
   set(CPACK_NSIS_PACKAGE_NAME
-      "Nano-Test"
+      "Banano-Test"
       CACHE STRING "" FORCE)
   set(CPACK_PACKAGE_INSTALL_DIRECTORY
-      "nanocurrency-test"
+      "bananocoin-test"
       CACHE STRING "" FORCE)
-  set(NANO_SERVICE "nanocurrency-test.service")
+  set(NANO_SERVICE "bananocoin-test.service")
   set(NANO_PREFIX "Test")
 endif()
 set(NANO_OSX_PACKAGE_NAME
@@ -361,7 +361,7 @@ endif()
 
 set(NANO_SHARED_BOOST
     OFF
-    CACHE BOOL "Build Nano with shared boost")
+    CACHE BOOL "Build Banano with shared boost")
 
 if(NANO_SHARED_BOOST)
   set(Boost_USE_STATIC_LIBS OFF)
@@ -627,7 +627,7 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
   if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     set(PLATFORM_WALLET_SOURCE nano/nano_wallet/plat/default/icon.cpp)
   elseif(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-    set(PLATFORM_WALLET_SOURCE nano/nano_wallet/plat/windows/icon.cpp Nano.rc)
+    set(PLATFORM_WALLET_SOURCE nano/nano_wallet/plat/windows/icon.cpp Banano.rc)
   elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     set(PLATFORM_WALLET_SOURCE nano/nano_wallet/plat/default/icon.cpp)
   elseif(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
@@ -688,7 +688,7 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
                    ${CMAKE_SOURCE_DIR}/Info.plist @ONLY)
     install(TARGETS nano_wallet
             DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/MacOS)
-    install(TARGETS nano_node
+    install(TARGETS bananode
             DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/MacOS)
     install(TARGETS nano_rpc
             DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/MacOS)
@@ -725,7 +725,7 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
       install(DIRECTORY ${PROJECT_SOURCE_DIR}/nano-pow-server/public
               DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/MacOS)
     endif()
-    install(FILES Nano.icns
+    install(FILES Banano.icns
             DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/Resources)
   elseif(WIN32)
     if("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
@@ -735,18 +735,18 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
     endif()
     set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS
         "ExecWait '\\\"$INSTDIR\\\\${WIN_REDIST}\\\" /quiet /norestart'
-												WriteRegDWORD HKLM 'SYSTEM\\\\CurrentControlSet\\\\Services\\\\EventLog\\\\Nano\\\\Nano${NANO_PREFIX}' 'TypesSupported' '0x7'
-												WriteRegStr HKLM 'SYSTEM\\\\CurrentControlSet\\\\Services\\\\EventLog\\\\Nano\\\\Nano${NANO_PREFIX}' 'EventMessageFile' '$INSTDIR\\\\nano_wallet.exe'"
+												WriteRegDWORD HKLM 'SYSTEM\\\\CurrentControlSet\\\\Services\\\\EventLog\\\\Banano\\\\Banano${NANO_PREFIX}' 'TypesSupported' '0x7'
+												WriteRegStr HKLM 'SYSTEM\\\\CurrentControlSet\\\\Services\\\\EventLog\\\\Banano\\\\Banano${NANO_PREFIX}' 'EventMessageFile' '$INSTDIR\\\\nano_wallet.exe'"
     )
     set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS
-        "DeleteRegKey HKLM 'SYSTEM\\\\CurrentControlSet\\\\Services\\\\EventLog\\\\Nano${NANO_PREFIX}'"
+        "DeleteRegKey HKLM 'SYSTEM\\\\CurrentControlSet\\\\Services\\\\EventLog\\\\Banano${NANO_PREFIX}'"
     )
-    set(CPACK_NSIS_MUI_ICON ${CMAKE_SOURCE_DIR}/Nano.ico)
-    set(CPACK_NSIS_DISPLAY_NAME "Nano${NANO_PREFIX}")
+    set(CPACK_NSIS_MUI_ICON ${CMAKE_SOURCE_DIR}/Banano.ico)
+    set(CPACK_NSIS_DISPLAY_NAME "Banano${NANO_PREFIX}")
     set(CPACK_NSIS_URL_INFO_ABOUT "https://nano.org")
     set(CPACK_NSIS_CONTACT "info@nano.org")
-    set(CPACK_NSIS_MENU_LINKS "nano_wallet.exe" "Nano Wallet"
-                              "https://nano.org" "Nano website")
+    set(CPACK_NSIS_MENU_LINKS "nano_wallet.exe" "Banano Wallet"
+                              "https://nano.org" "Banano website")
     set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
     get_target_property(Qt5WindowsPlugin Qt5::QWindowsIntegrationPlugin
                         LOCATION)

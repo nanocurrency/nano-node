@@ -1,6 +1,6 @@
 /*
 
-  Flatbuffers schema for the Nano IPC API.
+  Flatbuffers schema for the Banano IPC API.
 
   This file contains IPC message definitions from which code and other artifacts are
   generated.

@@ -172,7 +172,7 @@ TEST (websocket, confirmation_options)
 	std::atomic<bool> ack_ready{ false };
 	auto task1 = ([&ack_ready, config, &node1] () {
 		fake_websocket_client client (config.websocket_config.port);
-		client.send_message (R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {"confirmation_type": "active_quorum", "accounts": ["xrb_invalid"]}})json");
+		client.send_message (R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {"confirmation_type": "active_quorum", "accounts": ["ban_invalid"]}})json");
 		client.await_ack ();
 		ack_ready = true;
 		EXPECT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::confirmation));
@@ -430,7 +430,7 @@ TEST (websocket, confirmation_options_update)
 				.account (nano::dev_genesis_key.pub)
 				.previous (previous)
 				.representative (nano::dev_genesis_key.pub)
-				.balance (nano::genesis_amount - nano::Gxrb_ratio)
+				.balance (nano::genesis_amount - nano::MBAN_ratio)
 				.link (key.pub)
 				.sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
 				.work (*system.work.generate (previous))
@@ -448,7 +448,7 @@ TEST (websocket, confirmation_options_update)
 				 .account (nano::dev_genesis_key.pub)
 				 .previous (previous)
 				 .representative (nano::dev_genesis_key.pub)
-				 .balance (nano::genesis_amount - 2 * nano::Gxrb_ratio)
+				 .balance (nano::genesis_amount - 2 * nano::MBAN_ratio)
 				 .link (key.pub)
 				 .sign (nano::dev_genesis_key.prv, nano::dev_genesis_key.pub)
 				 .work (*system.work.generate (previous))
@@ -607,7 +607,7 @@ TEST (websocket, vote_options_representatives)
 	ack_ready = false;
 	auto task2 = ([&ack_ready, config, &node1] () {
 		fake_websocket_client client (config.websocket_config.port);
-		client.send_message (R"json({"action": "subscribe", "topic": "vote", "ack": "true", "options": {"representatives": ["xrb_invalid"]}})json");
+		client.send_message (R"json({"action": "subscribe", "topic": "vote", "ack": "true", "options": {"representatives": ["ban_invalid"]}})json");
 		client.await_ack ();
 		ack_ready = true;
 		EXPECT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::vote));

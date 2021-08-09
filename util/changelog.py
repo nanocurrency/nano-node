@@ -83,7 +83,7 @@ class cliArgs():
             '-r', '--repo',
             help="<org/repo> to generate logs for",
             type=str, action="store",
-            default='nanocurrency/nano-node',
+            default='BananoCoin/banano',
         )
         parse.add_argument(
             '-s', '--start',
@@ -179,9 +179,9 @@ class generateMarkdown():
         )
         self.mdFile.new_line(
             "## **Release** " +
-            "[{0}](https://github.com/nanocurrency/nano-node/tree/{0})"
+            "[{0}](https://github.com/BananoCoin/banano/tree/{0})"
             .format(repo.end))
-        self.mdFile.new_line("[Full Changelog](https://github.com/nanocurrency"
+        self.mdFile.new_line("[Full Changelog](https://github.com/bananocoin"
                              "/nano-node/compare/{0}...{1})".format(repo.start, repo.end))
         sort = self.pull_to_section(repo.commits)
 

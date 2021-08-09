@@ -10,7 +10,7 @@ namespace nano
 {
 namespace ipc
 {
-	/** Produces Nano API compliant Flatbuffers from objects and builders */
+	/** Produces Banano API compliant Flatbuffers from objects and builders */
 	class flatbuffer_producer
 	{
 	public:

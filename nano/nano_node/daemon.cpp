@@ -68,7 +68,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 		try
 		{
 			// This avoid a blank prompt during any node initialization delays
-			auto initialization_text = "Starting up Nano node...";
+			auto initialization_text = "Starting up Banano node...";
 			std::cout << initialization_text << std::endl;
 			logger.always_log (initialization_text);
 

@@ -27,9 +27,9 @@ struct HexTo
 namespace nano
 {
 work_thresholds const network_constants::publish_full (
-0xffffffc000000000,
-0xfffffff800000000, // 8x higher than epoch_1
-0xfffffe0000000000 // 8x lower than epoch_1
+0xfffffe0000000000,
+0xfffffff000000000, // 32x higher than originally
+0x0000000000000000 // remove receive work requirements
 );
 
 work_thresholds const network_constants::publish_beta (
@@ -45,7 +45,7 @@ work_thresholds const network_constants::publish_dev (
 );
 
 work_thresholds const network_constants::publish_test ( //defaults to live network levels
-get_env_threshold_or_default ("NANO_TEST_EPOCH_1", 0xffffffc000000000),
+get_env_threshold_or_default ("NANO_TEST_EPOCH_1", 0xfffffe0000000000),
 get_env_threshold_or_default ("NANO_TEST_EPOCH_2", 0xfffffff800000000), // 8x higher than epoch_1
 get_env_threshold_or_default ("NANO_TEST_EPOCH_2_RECV", 0xfffffe0000000000) // 8x lower than epoch_1
 );
@@ -104,7 +104,7 @@ uint16_t test_websocket_port ()
 
 std::array<uint8_t, 2> test_magic_number ()
 {
-	auto test_env = get_env_or_default ("NANO_TEST_MAGIC_NUMBER", "RX");
+	auto test_env = get_env_or_default ("NANO_TEST_MAGIC_NUMBER", "BT");
 	std::array<uint8_t, 2> ret;
 	std::copy (test_env.begin (), test_env.end (), ret.data ());
 	return ret;

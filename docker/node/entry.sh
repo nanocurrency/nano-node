@@ -84,7 +84,7 @@ else
 	exit 1
 fi
 
-network="$(cat /etc/nano-network)"
+network="$(cat /etc/babanano-network)"
 case "${network}" in
 live | '')
 	network='live'
@@ -101,21 +101,21 @@ test)
 	;;
 esac
 
-raidir="${HOME}/RaiBlocks${dirSuffix}"
-nanodir="${HOME}/Nano${dirSuffix}"
-dbFile="${nanodir}/data.ldb"
+raidir="${HOME}/Banano${dirSuffix}"
+${HOME}/BananoData${dirSuffix}
+dbFile="${bananodir}/data.ldb"
 
 if [ -d "${raidir}" ]; then
-	echo "Moving ${raidir} to ${nanodir}"
-	mv "$raidir" "$nanodir"
+	echo "Moving ${raidir} to ${bananodir}"
+	mv "$raidir" "$bananodir"
 else
-	mkdir -p "${nanodir}"
+	mkdir -p "${bananodir}"
 fi
 
-if [ ! -f "${nanodir}/config-node.toml" ] && [ ! -f "${nanodir}/config.json" ]; then
+if [ ! -f "${bananodir}/config-node.toml" ] && [ ! -f "${bananodir}/config.json" ]; then
 	echo "Config file not found, adding default."
-	cp "/usr/share/nano/config/config-node.toml" "${nanodir}/config-node.toml"
-	cp "/usr/share/nano/config/config-rpc.toml" "${nanodir}/config-rpc.toml"
+	cp "/usr/share/nano/config/config-node.toml" "${bananodir}/config-node.toml"
+	cp "/usr/share/nano/config/config-rpc.toml" "${bananodir}/config-rpc.toml"
 fi
 
 case $command in

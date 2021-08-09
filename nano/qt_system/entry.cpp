@@ -13,9 +13,9 @@ int main (int argc, char ** argv)
 	nano::force_nano_dev_network ();
 	nano::node_singleton_memory_pool_purge_guard memory_pool_cleanup_guard;
 	QApplication application (argc, argv);
-	QCoreApplication::setOrganizationName ("Nano");
+	QCoreApplication::setOrganizationName ("Banano");
 	QCoreApplication::setOrganizationDomain ("nano.org");
-	QCoreApplication::setApplicationName ("Nano Wallet");
+	QCoreApplication::setApplicationName ("Banano Wallet");
 	nano_qt::eventloop_processor processor;
 	const uint16_t count (16);
 	nano::system system (count);

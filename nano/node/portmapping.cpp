@@ -106,7 +106,7 @@ void nano::port_mapping::refresh_mapping ()
 		// We don't map the RPC port because, unless RPC authentication was added, this would almost always be a security risk
 		for (auto & protocol : protocols | boost::adaptors::filtered ([] (auto const & p) { return p.enabled; }))
 		{
-			auto upnp_description = std::string ("Nano Node (") + network_params.network.get_current_network_as_string () + ")";
+			auto upnp_description = std::string ("Banano Node (") + network_params.network.get_current_network_as_string () + ")";
 			auto add_port_mapping_error_l (UPNP_AddPortMapping (upnp.urls.controlURL, upnp.data.first.servicetype, config_port_l.c_str (), node_port_l.c_str (), address.to_string ().c_str (), upnp_description.c_str (), protocol.name, nullptr, std::to_string (network_params.portmapping.lease_duration.count ()).c_str ()));
 
 			if (add_port_mapping_error_l == UPNPCOMMAND_SUCCESS)

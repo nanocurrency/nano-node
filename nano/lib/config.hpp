@@ -67,16 +67,16 @@ enum class nano_networks
 {
 	// Low work parameters, publicly known genesis key, dev IP ports
 	nano_dev_network = 0,
-	rai_dev_network = 0,
+	banano_dev_network = 0,
 	// Normal work parameters, secret beta genesis key, beta IP ports
 	nano_beta_network = 1,
-	rai_beta_network = 1,
+	banano_beta_network = 1,
 	// Normal work parameters, secret live key, live IP ports
 	nano_live_network = 2,
-	rai_live_network = 2,
+	banano_live_network = 2,
 	// Normal work parameters, secret test genesis key, test IP ports
 	nano_test_network = 3,
-	rai_test_network = 3,
+	banano_test_network = 3,
 };
 
 struct work_thresholds
@@ -117,12 +117,12 @@ public:
 		publish_thresholds (is_live_network () ? publish_full : is_beta_network () ? publish_beta : is_test_network () ? publish_test : publish_dev)
 	{
 		// A representative is classified as principal based on its weight and this factor
-		principal_weight_factor = 1000; // 0.1%
+		principal_weight_factor = 2000; // 0.2%
 
-		default_node_port = is_live_network () ? 7075 : is_beta_network () ? 54000 : is_test_network () ? test_node_port () : 44000;
-		default_rpc_port = is_live_network () ? 7076 : is_beta_network () ? 55000 : is_test_network () ? test_rpc_port () : 45000;
-		default_ipc_port = is_live_network () ? 7077 : is_beta_network () ? 56000 : is_test_network () ? test_ipc_port () : 46000;
-		default_websocket_port = is_live_network () ? 7078 : is_beta_network () ? 57000 : is_test_network () ? test_websocket_port () : 47000;
+		default_node_port = is_live_network () ? 7071 : is_beta_network () ? 54000 : is_test_network () ? test_node_port () : 44000;
+		default_rpc_port = is_live_network () ? 7072 : is_beta_network () ? 55000 : is_test_network () ? test_rpc_port () : 45000;
+		default_ipc_port = is_live_network () ? 7073 : is_beta_network () ? 56000 : is_test_network () ? test_ipc_port () : 46000;
+		default_websocket_port = is_live_network () ? 7074 : is_beta_network () ? 57000 : is_test_network () ? test_websocket_port () : 47000;
 		request_interval_ms = is_dev_network () ? 20 : 500;
 	}
 

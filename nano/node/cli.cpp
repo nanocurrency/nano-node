@@ -674,7 +674,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 
 		if (valid_type)
 		{
-			std::cout << "# This is an example configuration file for Nano. Visit https://docs.nano.org/running-a-node/configuration/ for more information.\n#\n"
+			std::cout << "# This is an example configuration file for Banano. Visit https://docs.nano.org/running-a-node/configuration/ for more information.\n#\n"
 					  << "# Fields may need to be defined in the context of a [category] above them.\n"
 					  << "# The desired configuration changes should be placed in config-" << type << ".toml in the node data path.\n"
 					  << "# To change a value from its default, uncomment (erasing #) the corresponding field.\n"
