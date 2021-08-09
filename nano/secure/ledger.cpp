@@ -346,8 +346,7 @@ void ledger_processor::state_block_impl (nano::state_block & block_a)
 				if (result.code == nano::process_result::progress)
 				{
 					nano::block_details block_details (epoch, is_send, is_receive, false);
-					nano::network_constants constants;
-					result.code = block_a.difficulty () >= constants.publish_thresholds.threshold (block_a.work_version (), block_details) ? nano::process_result::progress : nano::process_result::insufficient_work; // Does this block have sufficient work? (Malformed)
+					result.code = block_a.difficulty () >= ledger.constants.work.threshold (block_a.work_version (), block_details) ? nano::process_result::progress : nano::process_result::insufficient_work; // Does this block have sufficient work? (Malformed)
 					if (result.code == nano::process_result::progress)
 					{
 						ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::state_block);
@@ -447,8 +446,7 @@ void ledger_processor::epoch_block_impl (nano::state_block & block_a)
 						if (result.code == nano::process_result::progress)
 						{
 							nano::block_details block_details (epoch, false, false, true);
-							nano::network_constants constants;
-							result.code = block_a.difficulty () >= constants.publish_thresholds.threshold (block_a.work_version (), block_details) ? nano::process_result::progress : nano::process_result::insufficient_work; // Does this block have sufficient work? (Malformed)
+							result.code = block_a.difficulty () >= ledger.constants.work.threshold (block_a.work_version (), block_details) ? nano::process_result::progress : nano::process_result::insufficient_work; // Does this block have sufficient work? (Malformed)
 							if (result.code == nano::process_result::progress)
 							{
 								ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::epoch_block);
@@ -500,8 +498,7 @@ void ledger_processor::change_block (nano::change_block & block_a)
 					if (result.code == nano::process_result::progress)
 					{
 						nano::block_details block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
-						nano::network_constants constants;
-						result.code = block_a.difficulty () >= constants.publish_thresholds.threshold (block_a.work_version (), block_details) ? nano::process_result::progress : nano::process_result::insufficient_work; // Does this block have sufficient work? (Malformed)
+						result.code = block_a.difficulty () >= ledger.constants.work.threshold (block_a.work_version (), block_details) ? nano::process_result::progress : nano::process_result::insufficient_work; // Does this block have sufficient work? (Malformed)
 						if (result.code == nano::process_result::progress)
 						{
 							debug_assert (!validate_message (account, hash, block_a.signature));
@@ -550,8 +547,7 @@ void ledger_processor::send_block (nano::send_block & block_a)
 					if (result.code == nano::process_result::progress)
 					{
 						nano::block_details block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
-						nano::network_constants constants;
-						result.code = block_a.difficulty () >= constants.publish_thresholds.threshold (block_a.work_version (), block_details) ? nano::process_result::progress : nano::process_result::insufficient_work; // Does this block have sufficient work? (Malformed)
+						result.code = block_a.difficulty () >= ledger.constants.work.threshold (block_a.work_version (), block_details) ? nano::process_result::progress : nano::process_result::insufficient_work; // Does this block have sufficient work? (Malformed)
 						if (result.code == nano::process_result::progress)
 						{
 							debug_assert (!validate_message (account, hash, block_a.signature));
@@ -628,8 +624,7 @@ void ledger_processor::receive_block (nano::receive_block & block_a)
 									if (result.code == nano::process_result::progress)
 									{
 										nano::block_details block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
-										nano::network_constants constants;
-										result.code = block_a.difficulty () >= constants.publish_thresholds.threshold (block_a.work_version (), block_details) ? nano::process_result::progress : nano::process_result::insufficient_work; // Does this block have sufficient work? (Malformed)
+										result.code = block_a.difficulty () >= ledger.constants.work.threshold (block_a.work_version (), block_details) ? nano::process_result::progress : nano::process_result::insufficient_work; // Does this block have sufficient work? (Malformed)
 										if (result.code == nano::process_result::progress)
 										{
 											auto new_balance (info.balance.number () + pending.amount.number ());
@@ -702,8 +697,7 @@ void ledger_processor::open_block (nano::open_block & block_a)
 							if (result.code == nano::process_result::progress)
 							{
 								nano::block_details block_details (nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
-								nano::network_constants constants;
-								result.code = block_a.difficulty () >= constants.publish_thresholds.threshold (block_a.work_version (), block_details) ? nano::process_result::progress : nano::process_result::insufficient_work; // Does this block have sufficient work? (Malformed)
+								result.code = block_a.difficulty () >= ledger.constants.work.threshold (block_a.work_version (), block_details) ? nano::process_result::progress : nano::process_result::insufficient_work; // Does this block have sufficient work? (Malformed)
 								if (result.code == nano::process_result::progress)
 								{
 #ifdef NDEBUG
@@ -870,7 +864,7 @@ nano::uint128_t nano::ledger::account_pending (nano::transaction const & transac
 nano::process_return nano::ledger::process (nano::write_transaction const & transaction_a, nano::block & block_a, nano::signature_verification verification)
 {
 	static nano::network_constants network_constants;
-	debug_assert (!network_constants.publish_thresholds.validate_entry (block_a) || constants.genesis == nano::dev::genesis);
+	debug_assert (!constants.work.validate_entry (block_a) || constants.genesis == nano::dev::genesis);
 	ledger_processor processor (*this, transaction_a, verification);
 	block_a.visit (processor);
 	if (processor.result.code == nano::process_result::progress)
