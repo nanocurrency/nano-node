@@ -31,8 +31,8 @@ add_custom_command(
 
 if((NANO_GUI OR RAIBLOCKS_GUI) AND NOT APPLE)
   if(WIN32)
-    install(TARGETS bananode RUNTIME DESTINATION .)
+    install(TARGETS nano_node RUNTIME DESTINATION .)
   else()
-    install(TARGETS bananode RUNTIME DESTINATION ./bin)
+    install(TARGETS nano_node RUNTIME DESTINATION ./bin)
   endif()
 endif()

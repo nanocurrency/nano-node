@@ -46,7 +46,7 @@ nano::node_config::node_config (uint16_t peering_port_a, nano::logging const & l
 		{
 			preconfigured_peers.push_back (default_beta_peer_network);
 			nano::account offline_representative;
-			release_assert (!offline_representative.decode_account ("nano_1defau1t9off1ine9rep99999999999999999999999999999999wgmuzxxy"));
+			release_assert (!offline_representative.decode_account ("bano_1defau1t9off1ine9rep99999999999999999999999999999999wgmuzxxy"));
 			preconfigured_representatives.emplace_back (offline_representative);
 			break;
 		}

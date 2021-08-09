@@ -42,8 +42,8 @@ char const * dev_genesis_data = R"%%%({
 char const * beta_genesis_data = R"%%%({
 	"type": "open",
 	"source": "259A43ABDB779E97452E188BA3EB951B41C961D3318CA6B925380F4D99F0577A",
-	"representative": "nano_1betagoxpxwykx4kw86dnhosc8t3s7ix8eeentwkcg1hbpez1outjrcyg4n1",
-	"account": "nano_1betagoxpxwykx4kw86dnhosc8t3s7ix8eeentwkcg1hbpez1outjrcyg4n1",
+	"representative": "bano_1betagoxpxwykx4kw86dnhosc8t3s7ix8eeentwkcg1hbpez1outjrcyg4n1",
+	"account": "bano_1betagoxpxwykx4kw86dnhosc8t3s7ix8eeentwkcg1hbpez1outjrcyg4n1",
 	"work": "79d4e27dc873c6f2",
 	"signature": "4BD7F96F9ED2721BCEE5EAED400EA50AD00524C629AE55E9AFF11220D2C1B00C3D4B3BB770BF67D4F8658023B677F91110193B6C101C2666931F57046A6DB806"
 	})%%%";
@@ -60,8 +60,8 @@ char const * live_genesis_data = R"%%%({
 std::string const test_genesis_data = nano::get_env_or_default ("NANO_TEST_GENESIS_BLOCK", R"%%%({
 	"type": "open",
 	"source": "45C6FF9D1706D61F0821327752671BDA9F9ED2DA40326B01935AB566FB9E08ED",
-	"representative": "nano_1jg8zygjg3pp5w644emqcbmjqpnzmubfni3kfe1s8pooeuxsw49fdq1mco9j",
-	"account": "nano_1jg8zygjg3pp5w644emqcbmjqpnzmubfni3kfe1s8pooeuxsw49fdq1mco9j",
+	"representative": "bano_1jg8zygjg3pp5w644emqcbmjqpnzmubfni3kfe1s8pooeuxsw49fdq1mco9j",
+	"account": "bano_1jg8zygjg3pp5w644emqcbmjqpnzmubfni3kfe1s8pooeuxsw49fdq1mco9j",
 	"work": "bc1ef279c1a34eb1",
 	"signature": "15049467CAEE3EC768639E8E35792399B6078DA763DA4EBA8ECAD33B0EDC4AF2E7403893A5A602EB89B978DABEF1D6606BB00F3C0EE11449232B143B6E07170E"
 	})%%%");
@@ -137,7 +137,7 @@ nano::ledger_constants::ledger_constants (nano::nano_networks network_a) :
 
 	nano::link epoch_link_v2;
 	nano::account nano_live_epoch_v2_signer;
-	auto error (nano_live_epoch_v2_signer.decode_account ("nano_3qb6o6i1tkzr6jwr5s7eehfxwg9x6eemitdinbpi7u8bjjwsgqfj4wzser3x"));
+	auto error (nano_live_epoch_v2_signer.decode_account ("bano_3qb6o6i1tkzr6jwr5s7eehfxwg9x6eemitdinbpi7u8bjjwsgqfj4wzser3x"));
 	debug_assert (!error);
 	auto epoch_v2_signer (network_a == nano::nano_networks::nano_dev_network ? nano_dev_account : network_a == nano::nano_networks::nano_beta_network ? nano_beta_account : network_a == nano::nano_networks::nano_test_network ? nano_test_account : nano_live_epoch_v2_signer);
 	const char * epoch_message_v2 ("epoch v2 block");
