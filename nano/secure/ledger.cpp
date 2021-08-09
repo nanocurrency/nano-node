@@ -863,7 +863,6 @@ nano::uint128_t nano::ledger::account_pending (nano::transaction const & transac
 
 nano::process_return nano::ledger::process (nano::write_transaction const & transaction_a, nano::block & block_a, nano::signature_verification verification)
 {
-	static nano::network_constants network_constants;
 	debug_assert (!constants.work.validate_entry (block_a) || constants.genesis == nano::dev::genesis);
 	ledger_processor processor (*this, transaction_a, verification);
 	block_a.visit (processor);
