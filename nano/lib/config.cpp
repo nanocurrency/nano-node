@@ -71,7 +71,7 @@ uint64_t nano::work_thresholds::threshold_entry (nano::work_version const versio
 }
 
 #ifndef NANO_FUZZER_TEST
-uint64_t nano::work_thresholds::value (nano::root const & root_a, uint64_t work_a)
+uint64_t nano::work_thresholds::value (nano::root const & root_a, uint64_t work_a) const
 {
 	uint64_t result;
 	blake2b_state hash;
@@ -82,13 +82,13 @@ uint64_t nano::work_thresholds::value (nano::root const & root_a, uint64_t work_
 	return result;
 }
 #else
-uint64_t nano::work_thresholds::value (nano::root const & root_a, uint64_t work_a)
+uint64_t nano::work_thresholds::value (nano::root const & root_a, uint64_t work_a) const
 {
 	return base + 1;
 }
 #endif
 
-uint64_t nano::work_thresholds::threshold (nano::block_details const & details_a)
+uint64_t nano::work_thresholds::threshold (nano::block_details const & details_a) const
 {
 	static_assert (nano::epoch::max == nano::epoch::epoch_2, "work_v1::threshold is ill-defined");
 
@@ -108,7 +108,7 @@ uint64_t nano::work_thresholds::threshold (nano::block_details const & details_a
 	return result;
 }
 
-uint64_t nano::work_thresholds::threshold (nano::work_version const version_a, nano::block_details const details_a)
+uint64_t nano::work_thresholds::threshold (nano::work_version const version_a, nano::block_details const details_a) const
 {
 	uint64_t result{ std::numeric_limits<uint64_t>::max () };
 	switch (version_a)
@@ -122,7 +122,7 @@ uint64_t nano::work_thresholds::threshold (nano::work_version const version_a, n
 	return result;
 }
 
-double nano::work_thresholds::normalized_multiplier (double const multiplier_a, uint64_t const threshold_a)
+double nano::work_thresholds::normalized_multiplier (double const multiplier_a, uint64_t const threshold_a) const
 {
 	debug_assert (multiplier_a >= 1);
 	auto multiplier (multiplier_a);
@@ -151,7 +151,7 @@ double nano::work_thresholds::normalized_multiplier (double const multiplier_a, 
 	return multiplier;
 }
 
-double nano::work_thresholds::denormalized_multiplier (double const multiplier_a, uint64_t const threshold_a)
+double nano::work_thresholds::denormalized_multiplier (double const multiplier_a, uint64_t const threshold_a) const
 {
 	debug_assert (multiplier_a >= 1);
 	auto multiplier (multiplier_a);
@@ -165,7 +165,7 @@ double nano::work_thresholds::denormalized_multiplier (double const multiplier_a
 	return multiplier;
 }
 
-uint64_t nano::work_thresholds::threshold_base (nano::work_version const version_a)
+uint64_t nano::work_thresholds::threshold_base (nano::work_version const version_a) const
 {
 	uint64_t result{ std::numeric_limits<uint64_t>::max () };
 	switch (version_a)
@@ -179,7 +179,7 @@ uint64_t nano::work_thresholds::threshold_base (nano::work_version const version
 	return result;
 }
 
-uint64_t nano::work_thresholds::difficulty (nano::work_version const version_a, nano::root const & root_a, uint64_t const work_a)
+uint64_t nano::work_thresholds::difficulty (nano::work_version const version_a, nano::root const & root_a, uint64_t const work_a) const
 {
 	uint64_t result{ 0 };
 	switch (version_a)
@@ -193,7 +193,7 @@ uint64_t nano::work_thresholds::difficulty (nano::work_version const version_a, 
 	return result;
 }
 
-bool nano::work_thresholds::validate_entry (nano::work_version const version_a, nano::root const & root_a, uint64_t const work_a)
+bool nano::work_thresholds::validate_entry (nano::work_version const version_a, nano::root const & root_a, uint64_t const work_a) const
 {
 	return difficulty (version_a, root_a, work_a) < threshold_entry (version_a, nano::block_type::state);
 }
