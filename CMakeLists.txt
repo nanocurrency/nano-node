@@ -688,7 +688,7 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
                    ${CMAKE_SOURCE_DIR}/Info.plist @ONLY)
     install(TARGETS nano_wallet
             DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/MacOS)
-    install(TARGETS nano_node
+    install(TARGETS bananode
             DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/MacOS)
     install(TARGETS nano_rpc
             DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/MacOS)
