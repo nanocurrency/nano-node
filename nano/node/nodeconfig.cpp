@@ -20,12 +20,12 @@ const char * default_live_peer_network = "peering.nano.org";
 const std::string default_test_peer_network = nano::get_env_or_default ("NANO_TEST_PEER_NETWORK", "peering-test.nano.org");
 }
 
-nano::node_config::node_config () :
-	node_config (0, nano::logging (), nano::network_params{ nano::network_constants::active_network })
+nano::node_config::node_config (nano::network_params & network_params) :
+	node_config (0, nano::logging (), network_params)
 {
 }
 
-nano::node_config::node_config (uint16_t peering_port_a, nano::logging const & logging_a, nano::network_params network_params) :
+nano::node_config::node_config (uint16_t peering_port_a, nano::logging const & logging_a, nano::network_params & network_params) :
 	network_params{ network_params },
 	peering_port{ peering_port_a },
 	logging{ logging_a },
