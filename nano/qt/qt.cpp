@@ -1,5 +1,6 @@
 #include <nano/lib/config.hpp>
 #include <nano/qt/qt.hpp>
+#include <nano/node/network.hpp>
 
 #include <boost/foreach.hpp>
 #include <boost/property_tree/json_parser.hpp>

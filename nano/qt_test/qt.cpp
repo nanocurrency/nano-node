@@ -1,6 +1,7 @@
 #include <nano/qt/qt.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
+#include <nano/node/network.hpp>
 
 #include <gtest/gtest.h>
 
