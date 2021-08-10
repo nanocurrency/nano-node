@@ -85,7 +85,7 @@ TEST (work, opencl)
 	if (!environment.platforms.empty () && !environment.platforms.begin ()->devices.empty ())
 	{
 		nano::opencl_config config (0, 0, 16 * 1024);
-		auto opencl (nano::opencl_work::create (true, config, logger));
+		auto opencl (nano::opencl_work::create (true, config, logger, nano::dev::network_params.network.publish_thresholds));
 		if (opencl != nullptr)
 		{
 			// 0 threads, should add 1 for managing OpenCL

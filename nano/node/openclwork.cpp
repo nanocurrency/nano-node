@@ -250,7 +250,7 @@ void nano::opencl_environment::dump (std::ostream & stream)
 	}
 }
 
-nano::opencl_work::opencl_work (bool & error_a, nano::opencl_config const & config_a, nano::opencl_environment & environment_a, nano::logger_mt & logger_a) :
+nano::opencl_work::opencl_work (bool & error_a, nano::opencl_config const & config_a, nano::opencl_environment & environment_a, nano::logger_mt & logger_a, nano::work_thresholds & work) :
 	config (config_a),
 	context (0),
 	attempt_buffer (0),
@@ -260,7 +260,8 @@ nano::opencl_work::opencl_work (bool & error_a, nano::opencl_config const & conf
 	program (0),
 	kernel (0),
 	queue (0),
-	logger (logger_a)
+	logger (logger_a),
+	work{ work }
 {
 	error_a |= config.platform >= environment_a.platforms.size ();
 	if (!error_a)
@@ -455,8 +456,7 @@ boost::optional<uint64_t> nano::opencl_work::generate_work (nano::work_version c
 	uint64_t result (0);
 	unsigned thread_count (config.threads);
 	size_t work_size[] = { thread_count, 0, 0 };
-	static nano::network_constants constants;
-	while (constants.publish_thresholds.difficulty (version_a, root_a, result) < difficulty_a && !error && ticket_a == ticket_l)
+	while (work.difficulty (version_a, root_a, result) < difficulty_a && !error && ticket_a == ticket_l)
 	{
 		result = rand.next ();
 		cl_int write_error1 = clEnqueueWriteBuffer (queue, attempt_buffer, false, 0, sizeof (uint64_t), &result, 0, nullptr, nullptr);
@@ -522,7 +522,7 @@ boost::optional<uint64_t> nano::opencl_work::generate_work (nano::work_version c
 	return value;
 }
 
-std::unique_ptr<nano::opencl_work> nano::opencl_work::create (bool create_a, nano::opencl_config const & config_a, nano::logger_mt & logger_a)
+std::unique_ptr<nano::opencl_work> nano::opencl_work::create (bool create_a, nano::opencl_config const & config_a, nano::logger_mt & logger_a, nano::work_thresholds & work)
 {
 	std::unique_ptr<nano::opencl_work> result;
 	if (create_a)
@@ -534,7 +534,7 @@ std::unique_ptr<nano::opencl_work> nano::opencl_work::create (bool create_a, nan
 		logger_a.always_log (stream.str ());
 		if (!error)
 		{
-			result.reset (new nano::opencl_work (error, config_a, environment, logger_a));
+			result.reset (new nano::opencl_work (error, config_a, environment, logger_a, work));
 			if (error)
 			{
 				result.reset ();
