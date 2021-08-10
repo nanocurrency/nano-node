@@ -239,7 +239,7 @@ void nano::distributed_work::success (std::string const & body_a, nano::tcp_endp
 		uint64_t work;
 		if (!nano::from_string_hex (work_text, work))
 		{
-			if (nano::dev::network_params.network.publish_thresholds.difficulty (request.version, request.root, work) >= request.difficulty)
+			if (nano::dev::network_params.work.difficulty (request.version, request.root, work) >= request.difficulty)
 			{
 				error = false;
 				node.unresponsive_work_peers = false;

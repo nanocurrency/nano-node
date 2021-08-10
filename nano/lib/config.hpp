@@ -134,9 +134,9 @@ public:
 class network_constants
 {
 public:
-	network_constants (nano::networks network_a) :
+	network_constants (nano::work_thresholds & work, nano::networks network_a) :
 		current_network (network_a),
-		publish_thresholds (is_live_network () ? nano::work_thresholds::publish_full : is_beta_network () ? nano::work_thresholds::publish_beta : is_test_network () ? nano::work_thresholds::publish_test : nano::work_thresholds::publish_dev)
+		work{ work }
 	{
 		// A representative is classified as principal based on its weight and this factor
 		principal_weight_factor = 1000; // 0.1%
@@ -160,7 +160,7 @@ public:
 
 	/** The network this param object represents. This may differ from the global active network; this is needed for certain --debug... commands */
 	nano::networks current_network{ nano::network_constants::active_network };
-	nano::work_thresholds publish_thresholds;
+	nano::work_thresholds & work;
 
 	unsigned principal_weight_factor;
 	uint16_t default_node_port;
@@ -235,7 +235,7 @@ public:
 		return error;
 	}
 
-	const char * get_current_network_as_string () const
+	const char * get_current_network_as_string ()
 	{
 		return is_live_network () ? "live" : is_beta_network () ? "beta" : is_test_network () ? "test" : "dev";
 	}

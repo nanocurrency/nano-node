@@ -414,7 +414,7 @@ uint64_t nano::json_handler::difficulty_ledger (nano::block const & block_a)
 			details_found = true;
 		}
 	}
-	return details_found ? node.network_params.network.publish_thresholds.threshold (block_a.work_version (), details) : node.default_difficulty (block_a.work_version ());
+	return details_found ? node.network_params.work.threshold (block_a.work_version (), details) : node.default_difficulty (block_a.work_version ());
 }
 
 double nano::json_handler::multiplier_optional_impl (nano::work_version const version_a, uint64_t & difficulty)
@@ -829,7 +829,7 @@ void nano::json_handler::account_representative_set ()
 					if (!rpc_l->ec)
 					{
 						nano::block_details details (info.epoch (), false, false, false);
-						if (rpc_l->node.network_params.network.publish_thresholds.difficulty (nano::work_version::work_1, info.head, work) < rpc_l->node.network_params.network.publish_thresholds.threshold (nano::work_version::work_1, details))
+						if (rpc_l->node.network_params.work.difficulty (nano::work_version::work_1, info.head, work) < rpc_l->node.network_params.work.threshold (nano::work_version::work_1, details))
 						{
 							rpc_l->ec = nano::error_common::invalid_work;
 						}
@@ -1027,7 +1027,7 @@ void nano::json_handler::active_difficulty ()
 	auto const multiplier_active = 1.0;
 	auto const default_difficulty (node.default_difficulty (nano::work_version::work_1));
 	auto const default_receive_difficulty (node.default_receive_difficulty (nano::work_version::work_1));
-	auto const receive_current_denormalized (node.network_params.network.publish_thresholds.denormalized_multiplier (multiplier_active, node.network_params.network.publish_thresholds.epoch_2_receive));
+	auto const receive_current_denormalized (node.network_params.work.denormalized_multiplier (multiplier_active, node.network_params.work.epoch_2_receive));
 	response_l.put ("deprecated", "1");
 	response_l.put ("network_minimum", nano::to_string_hex (default_difficulty));
 	response_l.put ("network_receive_minimum", nano::to_string_hex (default_receive_difficulty));
@@ -1481,7 +1481,7 @@ void nano::json_handler::block_create ()
 		auto block_response_put_l = [rpc_l, this] (nano::block const & block_a) {
 			boost::property_tree::ptree response_l;
 			response_l.put ("hash", block_a.hash ().to_string ());
-			response_l.put ("difficulty", nano::to_string_hex (rpc_l->node.network_params.network.publish_thresholds.difficulty (block_a)));
+			response_l.put ("difficulty", nano::to_string_hex (rpc_l->node.network_params.work.difficulty (block_a)));
 			bool json_block_l = request.get<bool> ("json_block", false);
 			if (json_block_l)
 			{
@@ -3123,7 +3123,7 @@ void nano::json_handler::process ()
 		}
 		if (!rpc_l->ec)
 		{
-			if (!rpc_l->node.network_params.network.publish_thresholds.validate_entry (*block))
+			if (!rpc_l->node.network_params.work.validate_entry (*block))
 			{
 				if (!is_async)
 				{
@@ -3284,7 +3284,7 @@ void nano::json_handler::receive ()
 							head = account;
 						}
 						nano::block_details details (epoch, false, true, false);
-						if (node.network_params.network.publish_thresholds.difficulty (nano::work_version::work_1, head, work) < node.network_params.network.publish_thresholds.threshold (nano::work_version::work_1, details))
+						if (node.network_params.work.difficulty (nano::work_version::work_1, head, work) < node.network_params.work.threshold (nano::work_version::work_1, details))
 						{
 							ec = nano::error_common::invalid_work;
 						}
@@ -3628,7 +3628,7 @@ void nano::json_handler::send ()
 			if (!ec && work)
 			{
 				nano::block_details details (info.epoch (), true, false, false);
-				if (node.network_params.network.publish_thresholds.difficulty (nano::work_version::work_1, info.head, work) < node.network_params.network.publish_thresholds.threshold (nano::work_version::work_1, details))
+				if (node.network_params.work.difficulty (nano::work_version::work_1, info.head, work) < node.network_params.work.threshold (nano::work_version::work_1, details))
 				{
 					ec = nano::error_common::invalid_work;
 				}
@@ -4872,7 +4872,7 @@ void nano::json_handler::work_generate ()
 		auto hash (hash_impl ());
 		auto difficulty (difficulty_optional_impl (work_version));
 		multiplier_optional_impl (work_version, difficulty);
-		if (!ec && (difficulty > node.max_work_generate_difficulty (work_version) || difficulty < node.network_params.network.publish_thresholds.threshold_entry (work_version, nano::block_type::state)))
+		if (!ec && (difficulty > node.max_work_generate_difficulty (work_version) || difficulty < node.network_params.work.threshold_entry (work_version, nano::block_type::state)))
 		{
 			ec = nano::error_rpc::difficulty_limit;
 		}
@@ -4901,7 +4901,7 @@ void nano::json_handler::work_generate ()
 					difficulty = difficulty_ledger (*block);
 				}
 				// If optional block difficulty is higher than requested difficulty, send error
-				if (!ec && node.network_params.network.publish_thresholds.difficulty (*block) >= difficulty)
+				if (!ec && node.network_params.work.difficulty (*block) >= difficulty)
 				{
 					ec = nano::error_rpc::block_work_enough;
 				}
@@ -4919,7 +4919,7 @@ void nano::json_handler::work_generate ()
 					uint64_t work (work_a.value ());
 					response_l.put ("work", nano::to_string_hex (work));
 					std::stringstream ostream;
-					auto result_difficulty (rpc_l->node.network_params.network.publish_thresholds.difficulty (work_version, hash, work));
+					auto result_difficulty (rpc_l->node.network_params.work.difficulty (work_version, hash, work));
 					response_l.put ("difficulty", nano::to_string_hex (result_difficulty));
 					auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, node.default_difficulty (work_version));
 					response_l.put ("multiplier", nano::to_string (result_multiplier));
@@ -5045,13 +5045,13 @@ void nano::json_handler::work_validate ()
 		 * * valid_receive: the work is valid for a receive block in an epoch_2 upgraded account
 		 */
 
-		auto result_difficulty (node.network_params.network.publish_thresholds.difficulty (work_version, hash, work));
+		auto result_difficulty (node.network_params.work.difficulty (work_version, hash, work));
 		if (request.count ("difficulty"))
 		{
 			response_l.put ("valid", (result_difficulty >= difficulty) ? "1" : "0");
 		}
 		response_l.put ("valid_all", (result_difficulty >= node.default_difficulty (work_version)) ? "1" : "0");
-		response_l.put ("valid_receive", (result_difficulty >= node.network_params.network.publish_thresholds.threshold (work_version, nano::block_details (nano::epoch::epoch_2, false, true, false))) ? "1" : "0");
+		response_l.put ("valid_receive", (result_difficulty >= node.network_params.work.threshold (work_version, nano::block_details (nano::epoch::epoch_2, false, true, false))) ? "1" : "0");
 		response_l.put ("difficulty", nano::to_string_hex (result_difficulty));
 		auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, node.default_difficulty (work_version));
 		response_l.put ("multiplier", nano::to_string (result_multiplier));

@@ -645,7 +645,7 @@ TEST (wallet, work)
 		uint64_t work (0);
 		if (!wallet->store.work_get (transaction, nano::dev::genesis_key.pub, work))
 		{
-			done = nano::dev::network_params.network.publish_thresholds.difficulty (nano::dev::genesis->work_version (), nano::dev::genesis->hash (), work) >= system.nodes[0]->default_difficulty (nano::dev::genesis->work_version ());
+			done = nano::dev::network_params.work.difficulty (nano::dev::genesis->work_version (), nano::dev::genesis->hash (), work) >= system.nodes[0]->default_difficulty (nano::dev::genesis->work_version ());
 		}
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -675,7 +675,7 @@ TEST (wallet, work_generate)
 		ASSERT_NO_ERROR (system.poll ());
 		auto block_transaction (node1.store.tx_begin_read ());
 		auto transaction (system.wallet (0)->wallets.tx_begin_read ());
-		again = wallet->store.work_get (transaction, account1, work1) || nano::dev::network_params.network.publish_thresholds.difficulty (block->work_version (), node1.ledger.latest_root (block_transaction, account1), work1) < node1.default_difficulty (block->work_version ());
+		again = wallet->store.work_get (transaction, account1, work1) || nano::dev::network_params.work.difficulty (block->work_version (), node1.ledger.latest_root (block_transaction, account1), work1) < node1.default_difficulty (block->work_version ());
 	}
 }
 
@@ -705,10 +705,10 @@ TEST (wallet, work_cache_delayed)
 		ASSERT_NO_ERROR (system.poll ());
 		if (!wallet->store.work_get (node1.wallets.tx_begin_read (), account1, work1))
 		{
-			again = nano::dev::network_params.network.publish_thresholds.difficulty (nano::work_version::work_1, block2->hash (), work1) < threshold;
+			again = nano::dev::network_params.work.difficulty (nano::work_version::work_1, block2->hash (), work1) < threshold;
 		}
 	}
-	ASSERT_GE (nano::dev::network_params.network.publish_thresholds.difficulty (nano::work_version::work_1, block2->hash (), work1), threshold);
+	ASSERT_GE (nano::dev::network_params.work.difficulty (nano::work_version::work_1, block2->hash (), work1), threshold);
 }
 
 TEST (wallet, insert_locked)
@@ -822,7 +822,7 @@ TEST (wallet, no_work)
 	auto block (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key2.pub, std::numeric_limits<nano::uint128_t>::max (), false));
 	ASSERT_NE (nullptr, block);
 	ASSERT_NE (0, block->block_work ());
-	ASSERT_GE (nano::dev::network_params.network.publish_thresholds.difficulty (*block), nano::dev::network_params.network.publish_thresholds.threshold (block->work_version (), block->sideband ().details));
+	ASSERT_GE (nano::dev::network_params.work.difficulty (*block), nano::dev::network_params.work.threshold (block->work_version (), block->sideband ().details));
 	auto transaction (system.wallet (0)->wallets.tx_begin_read ());
 	uint64_t cached_work (0);
 	system.wallet (0)->store.work_get (transaction, nano::dev::genesis_key.pub, cached_work);
@@ -1022,9 +1022,9 @@ TEST (wallet, epoch_2_validation)
 
 		auto receive = wallet.receive_action (send->hash (), nano::dev::genesis_key.pub, amount, send->link ().as_account (), 1);
 		ASSERT_NE (nullptr, receive);
-		if (nano::dev::network_params.network.publish_thresholds.difficulty (*receive) < node.network_params.network.publish_thresholds.base)
+		if (nano::dev::network_params.work.difficulty (*receive) < node.network_params.work.base)
 		{
-			ASSERT_GE (nano::dev::network_params.network.publish_thresholds.difficulty (*receive), node.network_params.network.publish_thresholds.epoch_2_receive);
+			ASSERT_GE (nano::dev::network_params.work.difficulty (*receive), node.network_params.work.epoch_2_receive);
 			ASSERT_EQ (nano::epoch::epoch_2, receive->sideband ().details.epoch);
 			ASSERT_EQ (nano::epoch::epoch_2, receive->sideband ().source_epoch);
 			break;
@@ -1074,9 +1074,9 @@ TEST (wallet, epoch_2_receive_propagation)
 
 		auto receive2 = wallet.receive_action (send2->hash (), key.pub, amount, send2->link ().as_account (), 1);
 		ASSERT_NE (nullptr, receive2);
-		if (nano::dev::network_params.network.publish_thresholds.difficulty (*receive2) < node.network_params.network.publish_thresholds.base)
+		if (nano::dev::network_params.work.difficulty (*receive2) < node.network_params.work.base)
 		{
-			ASSERT_GE (nano::dev::network_params.network.publish_thresholds.difficulty (*receive2), node.network_params.network.publish_thresholds.epoch_2_receive);
+			ASSERT_GE (nano::dev::network_params.work.difficulty (*receive2), node.network_params.work.epoch_2_receive);
 			ASSERT_EQ (nano::epoch::epoch_2, node.store.block.version (node.store.tx_begin_read (), receive2->hash ()));
 			ASSERT_EQ (nano::epoch::epoch_2, receive2->sideband ().source_epoch);
 			break;
@@ -1112,16 +1112,16 @@ TEST (wallet, epoch_2_receive_unopened)
 		auto send1 = wallet.send_action (nano::dev::genesis_key.pub, key.pub, amount, 1);
 
 		// Upgrade unopened account to epoch_2
-		auto epoch2_unopened = nano::state_block (key.pub, 0, 0, 0, node.network_params.ledger.epochs.link (nano::epoch::epoch_2), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (key.pub, node.network_params.network.publish_thresholds.epoch_2));
+		auto epoch2_unopened = nano::state_block (key.pub, 0, 0, 0, node.network_params.ledger.epochs.link (nano::epoch::epoch_2), nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *system.work.generate (key.pub, node.network_params.work.epoch_2));
 		ASSERT_EQ (nano::process_result::progress, node.process (epoch2_unopened).code);
 
 		wallet.insert_adhoc (key.prv, false);
 
 		auto receive1 = wallet.receive_action (send1->hash (), key.pub, amount, send1->link ().as_account (), 1);
 		ASSERT_NE (nullptr, receive1);
-		if (nano::dev::network_params.network.publish_thresholds.difficulty (*receive1) < node.network_params.network.publish_thresholds.base)
+		if (nano::dev::network_params.work.difficulty (*receive1) < node.network_params.work.base)
 		{
-			ASSERT_GE (nano::dev::network_params.network.publish_thresholds.difficulty (*receive1), node.network_params.network.publish_thresholds.epoch_2_receive);
+			ASSERT_GE (nano::dev::network_params.work.difficulty (*receive1), node.network_params.work.epoch_2_receive);
 			ASSERT_EQ (nano::epoch::epoch_2, node.store.block.version (node.store.tx_begin_read (), receive1->hash ()));
 			ASSERT_EQ (nano::epoch::epoch_1, receive1->sideband ().source_epoch);
 			break;

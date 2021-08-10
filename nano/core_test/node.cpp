@@ -36,21 +36,21 @@ TEST (node, work_generate)
 	nano::block_hash root{ 1 };
 	nano::work_version version{ nano::work_version::work_1 };
 	{
-		auto difficulty = nano::difficulty::from_multiplier (1.5, node.network_params.network.publish_thresholds.base);
+		auto difficulty = nano::difficulty::from_multiplier (1.5, node.network_params.work.base);
 		auto work = node.work_generate_blocking (version, root, difficulty);
 		ASSERT_TRUE (work.is_initialized ());
-		ASSERT_TRUE (nano::dev::network_params.network.publish_thresholds.difficulty (version, root, *work) >= difficulty);
+		ASSERT_TRUE (nano::dev::network_params.work.difficulty (version, root, *work) >= difficulty);
 	}
 	{
-		auto difficulty = nano::difficulty::from_multiplier (0.5, node.network_params.network.publish_thresholds.base);
+		auto difficulty = nano::difficulty::from_multiplier (0.5, node.network_params.work.base);
 		boost::optional<uint64_t> work;
 		do
 		{
 			work = node.work_generate_blocking (version, root, difficulty);
-		} while (nano::dev::network_params.network.publish_thresholds.difficulty (version, root, *work) >= node.network_params.network.publish_thresholds.base);
+		} while (nano::dev::network_params.work.difficulty (version, root, *work) >= node.network_params.work.base);
 		ASSERT_TRUE (work.is_initialized ());
-		ASSERT_TRUE (nano::dev::network_params.network.publish_thresholds.difficulty (version, root, *work) >= difficulty);
-		ASSERT_FALSE (nano::dev::network_params.network.publish_thresholds.difficulty (version, root, *work) >= node.network_params.network.publish_thresholds.base);
+		ASSERT_TRUE (nano::dev::network_params.work.difficulty (version, root, *work) >= difficulty);
+		ASSERT_FALSE (nano::dev::network_params.work.difficulty (version, root, *work) >= node.network_params.work.base);
 	}
 }
 
@@ -4550,7 +4550,7 @@ TEST (node, deferred_dependent_elections)
 	ASSERT_TIMELY (2s, node2.block (send2->hash ()));
 
 	// Re-processing older blocks with updated work also does not start an election
-	node.work_generate_blocking (*open, nano::dev::network_params.network.publish_thresholds.difficulty (*open) + 1);
+	node.work_generate_blocking (*open, nano::dev::network_params.work.difficulty (*open) + 1);
 	node.process_local (open);
 	node.block_processor.flush ();
 	node.scheduler.flush ();
@@ -4563,7 +4563,7 @@ TEST (node, deferred_dependent_elections)
 	ASSERT_FALSE (node.active.active (open->qualified_root ()));
 
 	/// The election was dropped but it's still not possible to restart it
-	node.work_generate_blocking (*open, nano::dev::network_params.network.publish_thresholds.difficulty (*open) + 1);
+	node.work_generate_blocking (*open, nano::dev::network_params.work.difficulty (*open) + 1);
 	ASSERT_FALSE (node.active.active (open->qualified_root ()));
 	node.process_local (open);
 	node.block_processor.flush ();

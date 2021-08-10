@@ -809,7 +809,7 @@ nano::websocket::message nano::websocket::message_builder::work_generation (nano
 		boost::property_tree::ptree result_l;
 		result_l.put ("source", peer_a);
 		result_l.put ("work", nano::to_string_hex (work_a));
-		auto result_difficulty_l (nano::dev::network_params.network.publish_thresholds.difficulty (version_a, root_a, work_a));
+		auto result_difficulty_l (nano::dev::network_params.work.difficulty (version_a, root_a, work_a));
 		result_l.put ("difficulty", nano::to_string_hex (result_difficulty_l));
 		auto result_multiplier_l (nano::difficulty::to_multiplier (result_difficulty_l, publish_threshold_a));
 		result_l.put ("multiplier", nano::to_string (result_multiplier_l));

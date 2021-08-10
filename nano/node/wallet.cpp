@@ -1043,8 +1043,8 @@ bool nano::wallet::action_complete (std::shared_ptr<nano::block> const & block_a
 	wallets.delayed_work->erase (account_a);
 	if (block_a != nullptr)
 	{
-		auto required_difficulty{ wallets.node.network_params.network.publish_thresholds.threshold (block_a->work_version (), details_a) };
-		if (wallets.node.network_params.network.publish_thresholds.difficulty (*block_a) < required_difficulty)
+		auto required_difficulty{ wallets.node.network_params.work.threshold (block_a->work_version (), details_a) };
+		if (wallets.node.network_params.work.difficulty (*block_a) < required_difficulty)
 		{
 			wallets.node.logger.try_log (boost::str (boost::format ("Cached or provided work for block %1% account %2% is invalid, regenerating") % block_a->hash ().to_string () % account_a.to_account ()));
 			debug_assert (required_difficulty <= wallets.node.max_work_generate_difficulty (block_a->work_version ()));
@@ -1130,7 +1130,7 @@ void nano::wallet::send_async (nano::account const & source_a, nano::account con
 // Update work for account if latest root is root_a
 void nano::wallet::work_update (nano::transaction const & transaction_a, nano::account const & account_a, nano::root const & root_a, uint64_t work_a)
 {
-	debug_assert (!wallets.node.network_params.network.publish_thresholds.validate_entry (nano::work_version::work_1, root_a, work_a));
+	debug_assert (!wallets.node.network_params.work.validate_entry (nano::work_version::work_1, root_a, work_a));
 	debug_assert (store.exists (transaction_a, account_a));
 	auto block_transaction (wallets.node.store.tx_begin_read ());
 	auto latest (wallets.node.ledger.latest_root (block_transaction, account_a));

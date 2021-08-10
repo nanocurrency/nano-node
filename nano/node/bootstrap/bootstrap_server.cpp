@@ -426,7 +426,7 @@ void nano::bootstrap_server::receive_publish_action (boost::system::error_code c
 			{
 				if (is_realtime_connection ())
 				{
-					if (!node->network_params.network.publish_thresholds.validate_entry (*request->block))
+					if (!node->network_params.work.validate_entry (*request->block))
 					{
 						add_request (std::unique_ptr<nano::message> (request.release ()));
 					}
@@ -494,7 +494,7 @@ void nano::bootstrap_server::receive_confirm_ack_action (boost::system::error_co
 						if (!vote_block.which ())
 						{
 							auto const & block (boost::get<std::shared_ptr<nano::block>> (vote_block));
-							if (node->network_params.network.publish_thresholds.validate_entry (*block))
+							if (node->network_params.work.validate_entry (*block))
 							{
 								process_vote = false;
 								node->stats.inc_detail_only (nano::stat::type::error, nano::stat::detail::insufficient_work);

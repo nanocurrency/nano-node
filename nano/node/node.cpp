@@ -1114,7 +1114,7 @@ uint64_t nano::node::default_difficulty (nano::work_version const version_a) con
 	switch (version_a)
 	{
 		case nano::work_version::work_1:
-			result = network_params.network.publish_thresholds.threshold_base (version_a);
+			result = network_params.work.threshold_base (version_a);
 			break;
 		default:
 			debug_assert (false && "Invalid version specified to default_difficulty");
@@ -1128,7 +1128,7 @@ uint64_t nano::node::default_receive_difficulty (nano::work_version const versio
 	switch (version_a)
 	{
 		case nano::work_version::work_1:
-			result = network_params.network.publish_thresholds.epoch_2_receive;
+			result = network_params.work.epoch_2_receive;
 			break;
 		default:
 			debug_assert (false && "Invalid version specified to default_receive_difficulty");
@@ -1459,7 +1459,7 @@ void nano::node::epoch_upgrader_impl (nano::raw_key const & prv_a, nano::epoch e
 	auto upgrader_process = [] (nano::node & node_a, std::atomic<uint64_t> & counter, std::shared_ptr<nano::block> const & epoch, uint64_t difficulty, nano::public_key const & signer_a, nano::root const & root_a, nano::account const & account_a) {
 		epoch->block_work_set (node_a.work_generate_blocking (nano::work_version::work_1, root_a, difficulty).value_or (0));
 		bool valid_signature (!nano::validate_message (signer_a, epoch->hash (), epoch->block_signature ()));
-		bool valid_work (node_a.network_params.network.publish_thresholds.difficulty (*epoch) >= difficulty);
+		bool valid_work (node_a.network_params.work.difficulty (*epoch) >= difficulty);
 		nano::process_result result (nano::process_result::old);
 		if (valid_signature && valid_work)
 		{
@@ -1546,7 +1546,7 @@ void nano::node::epoch_upgrader_impl (nano::raw_key const & prv_a, nano::epoch e
 				if (!store.account.get (transaction, account, info) && info.epoch () < epoch_a)
 				{
 					++attempts;
-					auto difficulty (network_params.network.publish_thresholds.threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true)));
+					auto difficulty (network_params.work.threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true)));
 					nano::root const & root (info.head);
 					std::shared_ptr<nano::block> epoch = builder.state ()
 														 .account (account)
@@ -1624,7 +1624,7 @@ void nano::node::epoch_upgrader_impl (nano::raw_key const & prv_a, nano::epoch e
 					{
 						++attempts;
 						release_assert (nano::epochs::is_sequential (info.epoch, epoch_a));
-						auto difficulty (network_params.network.publish_thresholds.threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true)));
+						auto difficulty (network_params.work.threshold (nano::work_version::work_1, nano::block_details (epoch_a, false, false, true)));
 						nano::root const & root (key.account);
 						nano::account const & account (key.account);
 						std::shared_ptr<nano::block> epoch = builder.state ()

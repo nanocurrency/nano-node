@@ -90,7 +90,7 @@ void nano::work_pool::loop (uint64_t thread)
 			if (opt_work.is_initialized ())
 			{
 				work = *opt_work;
-				output = network_constants.publish_thresholds.value (current_l.item, work);
+				output = network_constants.work.value (current_l.item, work);
 			}
 			else
 			{
@@ -123,7 +123,7 @@ void nano::work_pool::loop (uint64_t thread)
 			{
 				// If the ticket matches what we started with, we're the ones that found the solution
 				debug_assert (output >= current_l.difficulty);
-				debug_assert (current_l.difficulty == 0 || network_constants.publish_thresholds.value (current_l.item, work) == output);
+				debug_assert (current_l.difficulty == 0 || network_constants.work.value (current_l.item, work) == output);
 				// Signal other threads to stop their work next time they check ticket
 				++ticket;
 				pending.pop_front ();
@@ -201,7 +201,7 @@ void nano::work_pool::generate (nano::work_version const version_a, nano::root c
 boost::optional<uint64_t> nano::work_pool::generate (nano::root const & root_a)
 {
 	debug_assert (network_constants.is_dev_network ());
-	return generate (nano::work_version::work_1, root_a, network_constants.publish_thresholds.base);
+	return generate (nano::work_version::work_1, root_a, network_constants.work.base);
 }
 
 boost::optional<uint64_t> nano::work_pool::generate (nano::root const & root_a, uint64_t difficulty_a)

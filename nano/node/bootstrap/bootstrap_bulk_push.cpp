@@ -232,7 +232,7 @@ void nano::bulk_push_server::received_block (boost::system::error_code const & e
 	{
 		nano::bufferstream stream (receive_buffer->data (), size_a);
 		auto block (nano::deserialize_block (stream, type_a));
-		if (block != nullptr && !connection->node->network_params.network.publish_thresholds.validate_entry (*block))
+		if (block != nullptr && !connection->node->network_params.work.validate_entry (*block))
 		{
 			connection->node->process_active (std::move (block));
 			throttled_receive ();
