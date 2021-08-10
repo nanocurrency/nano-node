@@ -60,7 +60,7 @@ void nano::json_handler::process_request (bool unsafe_a)
 		boost::property_tree::read_json (istream, request);
 		if (node_rpc_config.request_callback)
 		{
-			debug_assert (nano::network_constants ().is_dev_network ());
+			debug_assert (node.network_params.network.is_dev_network ());
 			node_rpc_config.request_callback (request);
 		}
 		action = request.get<std::string> ("action");

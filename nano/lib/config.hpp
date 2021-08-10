@@ -134,11 +134,6 @@ public:
 class network_constants
 {
 public:
-	network_constants () :
-		network_constants (network_constants::active_network)
-	{
-	}
-
 	network_constants (nano::networks network_a) :
 		current_network (network_a),
 		publish_thresholds (is_live_network () ? nano::work_thresholds::publish_full : is_beta_network () ? nano::work_thresholds::publish_beta : is_test_network () ? nano::work_thresholds::publish_test : nano::work_thresholds::publish_dev)

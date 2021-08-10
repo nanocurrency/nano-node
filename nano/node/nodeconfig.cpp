@@ -351,7 +351,6 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		toml.get ("conf_height_processor_batch_min_time", conf_height_processor_batch_min_time_l);
 		conf_height_processor_batch_min_time = std::chrono::milliseconds (conf_height_processor_batch_min_time_l);
 
-		nano::network_constants network;
 		toml.get<double> ("max_work_generate_multiplier", max_work_generate_multiplier);
 
 		toml.get<uint32_t> ("max_queued_requests", max_queued_requests);
@@ -392,7 +391,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			toml.get_error ().set ("io_threads must be non-zero");
 		}
-		if (active_elections_size <= 250 && !network.is_dev_network ())
+		if (active_elections_size <= 250 && !network_params.network.is_dev_network ())
 		{
 			toml.get_error ().set ("active_elections_size must be greater than 250");
 		}
@@ -416,7 +415,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			toml.get_error ().set ((boost::format ("block_processor_batch_max_time value must be equal or larger than %1%ms") % network_params.node.process_confirmed_interval.count ()).str ());
 		}
-		if (max_pruning_age < std::chrono::seconds (5 * 60) && !network.is_dev_network ())
+		if (max_pruning_age < std::chrono::seconds (5 * 60) && !network_params.network.is_dev_network ())
 		{
 			toml.get_error ().set ("max_pruning_age must be greater than or equal to 5 minutes");
 		}
@@ -684,7 +683,6 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		json.get ("conf_height_processor_batch_min_time", conf_height_processor_batch_min_time_l);
 		conf_height_processor_batch_min_time = std::chrono::milliseconds (conf_height_processor_batch_min_time_l);
 
-		nano::network_constants network;
 		// Validate ranges
 		if (password_fanout < 16 || password_fanout > 1024 * 1024)
 		{
@@ -694,7 +692,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		{
 			json.get_error ().set ("io_threads must be non-zero");
 		}
-		if (active_elections_size <= 250 && !network.is_dev_network ())
+		if (active_elections_size <= 250 && !network_params.network.is_dev_network ())
 		{
 			json.get_error ().set ("active_elections_size must be greater than 250");
 		}

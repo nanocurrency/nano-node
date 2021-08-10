@@ -139,6 +139,7 @@ int main (int argc, char * const * argv)
 		}
 	}
 
+	nano::network_params network_params{ nano::network_constants::active_network };
 	auto data_path_it = vm.find ("data_path");
 	boost::filesystem::path data_path ((data_path_it != vm.end ()) ? data_path_it->second.as<std::string> () : nano::working_path ());
 	auto ec = nano::handle_node_options (vm);
@@ -158,7 +159,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("compare_rep_weights"))
 		{
-			if (!nano::network_constants ().is_dev_network ())
+			if (nano::network_constants::active_network != nano::networks::nano_dev_network)
 			{
 				auto node_flags = nano::inactive_node_flag_defaults ();
 				nano::update_flags (node_flags, vm);
@@ -339,9 +340,8 @@ int main (int argc, char * const * argv)
 								  << "Public: " << rep.pub.to_string () << "\n"
 								  << "Account: " << rep.pub.to_account () << "\n";
 					}
-					nano::network_constants network_constants;
 					nano::uint128_t balance (std::numeric_limits<nano::uint128_t>::max ());
-					nano::open_block genesis_block (reinterpret_cast<const nano::block_hash &> (genesis.pub), genesis.pub, genesis.pub, genesis.prv, genesis.pub, *work.generate (nano::work_version::work_1, genesis.pub, network_constants.publish_thresholds.epoch_1));
+					nano::open_block genesis_block (reinterpret_cast<const nano::block_hash &> (genesis.pub), genesis.pub, genesis.pub, genesis.prv, genesis.pub, *work.generate (nano::work_version::work_1, genesis.pub, network_params.network.publish_thresholds.epoch_1));
 					std::cout << genesis_block.to_json ();
 					std::cout.flush ();
 					nano::block_hash previous (genesis_block.hash ());
@@ -353,7 +353,7 @@ int main (int argc, char * const * argv)
 						{
 							debug_assert (balance > weekly_distribution);
 							balance = balance < (weekly_distribution * 2) ? 0 : balance - weekly_distribution;
-							nano::send_block send (previous, landing.pub, balance, genesis.prv, genesis.pub, *work.generate (nano::work_version::work_1, previous, network_constants.publish_thresholds.epoch_1));
+							nano::send_block send (previous, landing.pub, balance, genesis.prv, genesis.pub, *work.generate (nano::work_version::work_1, previous, network_params.network.publish_thresholds.epoch_1));
 							previous = send.hash ();
 							std::cout << send.to_json ();
 							std::cout.flush ();
@@ -455,7 +455,6 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_generate"))
 		{
-			nano::network_constants network_constants;
 			uint64_t difficulty{ nano::work_thresholds::publish_full.base };
 			auto multiplier_it = vm.find ("multiplier");
 			if (multiplier_it != vm.end ())
@@ -491,7 +490,7 @@ int main (int argc, char * const * argv)
 				pow_rate_limiter = std::chrono::nanoseconds (boost::lexical_cast<uint64_t> (pow_sleep_interval_it->second.as<std::string> ()));
 			}
 
-			nano::work_pool work{ network_constants, std::numeric_limits<unsigned>::max (), pow_rate_limiter };
+			nano::work_pool work{ network_params.network, std::numeric_limits<unsigned>::max (), pow_rate_limiter };
 			nano::change_block block (0, 0, nano::keypair ().prv, 0, 0);
 			if (!result)
 			{
@@ -508,7 +507,6 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_validate"))
 		{
-			nano::network_constants network_constants;
 			uint64_t difficulty{ nano::work_thresholds::publish_full.base };
 			std::cerr << "Starting validation profile" << std::endl;
 			auto start (std::chrono::steady_clock::now ());
@@ -517,7 +515,7 @@ int main (int argc, char * const * argv)
 			uint64_t count{ 10000000U }; // 10M
 			for (uint64_t i (0); i < count; ++i)
 			{
-				valid = network_constants.publish_thresholds.value (hash, i) > difficulty;
+				valid = network_params.network.publish_thresholds.value (hash, i) > difficulty;
 			}
 			std::ostringstream oss (valid ? "true" : "false"); // IO forces compiler to not dismiss the variable
 			auto total_time (std::chrono::duration_cast<std::chrono::nanoseconds> (std::chrono::steady_clock::now () - start).count ());
@@ -526,7 +524,6 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_opencl"))
 		{
-			nano::network_constants network_constants;
 			bool error (false);
 			nano::opencl_environment environment (error);
 			if (!error)
@@ -610,8 +607,8 @@ int main (int argc, char * const * argv)
 						{
 							nano::logger_mt logger;
 							nano::opencl_config config (platform, device, threads);
-							auto opencl (nano::opencl_work::create (true, config, logger, network_constants.publish_thresholds));
-							nano::work_pool work_pool{ network_constants, 0, std::chrono::nanoseconds (0), opencl ? [&opencl] (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> &) {
+							auto opencl (nano::opencl_work::create (true, config, logger, network_params.network.publish_thresholds));
+							nano::work_pool work_pool{ network_params.network, 0, std::chrono::nanoseconds (0), opencl ? [&opencl] (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> &) {
 								return opencl->generate_work (version_a, root_a, difficulty_a);
 							}
 																							   : std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> (nullptr) };

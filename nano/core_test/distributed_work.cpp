@@ -10,7 +10,7 @@ TEST (distributed_work, stopped)
 {
 	nano::system system (1);
 	system.nodes[0]->distributed_work.stop ();
-	ASSERT_TRUE (system.nodes[0]->distributed_work.make (nano::work_version::work_1, nano::block_hash (), {}, nano::network_constants ().publish_thresholds.base, {}));
+	ASSERT_TRUE (system.nodes[0]->distributed_work.make (nano::work_version::work_1, nano::block_hash (), {}, nano::dev::network_params.network.publish_thresholds.base, {}));
 }
 
 TEST (distributed_work, no_peers)
@@ -43,7 +43,7 @@ TEST (distributed_work, no_peers_disabled)
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.work_threads = 0;
 	auto & node = *system.add_node (node_config);
-	ASSERT_TRUE (node.distributed_work.make (nano::work_version::work_1, nano::block_hash (), node.config.work_peers, nano::network_constants ().publish_thresholds.base, {}));
+	ASSERT_TRUE (node.distributed_work.make (nano::work_version::work_1, nano::block_hash (), node.config.work_peers, nano::dev::network_params.network.publish_thresholds.base, {}));
 }
 
 TEST (distributed_work, no_peers_cancel)

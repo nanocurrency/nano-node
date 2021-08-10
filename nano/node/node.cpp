@@ -1110,12 +1110,11 @@ int nano::node::price (nano::uint128_t const & balance_a, int amount_a)
 
 uint64_t nano::node::default_difficulty (nano::work_version const version_a) const
 {
-	nano::network_constants constants;
 	uint64_t result{ std::numeric_limits<uint64_t>::max () };
 	switch (version_a)
 	{
 		case nano::work_version::work_1:
-			result = constants.publish_thresholds.threshold_base (version_a);
+			result = network_params.network.publish_thresholds.threshold_base (version_a);
 			break;
 		default:
 			debug_assert (false && "Invalid version specified to default_difficulty");

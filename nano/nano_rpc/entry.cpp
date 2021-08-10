@@ -39,9 +39,9 @@ void run (boost::filesystem::path const & data_path, std::vector<std::string> co
 	boost::system::error_code error_chmod;
 	nano::set_secure_perm_directory (data_path, error_chmod);
 	std::unique_ptr<nano::thread_runner> runner;
-	nano::network_constants network;
 
-	nano::rpc_config rpc_config{ network };
+	nano::network_params network_params{ nano::network_constants::active_network };
+	nano::rpc_config rpc_config{ network_params.network };
 	auto error = nano::read_rpc_config_toml (data_path, rpc_config, config_overrides);
 	if (!error)
 	{
