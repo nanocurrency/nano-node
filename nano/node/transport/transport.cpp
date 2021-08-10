@@ -1,6 +1,7 @@
 #include <nano/node/common.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/transport.hpp>
+#include <nano/node/network.hpp>
 
 #include <boost/format.hpp>
 

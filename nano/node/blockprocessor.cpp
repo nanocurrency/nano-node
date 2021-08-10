@@ -4,6 +4,7 @@
 #include <nano/node/election.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/websocket.hpp>
+#include <nano/node/network.hpp>
 #include <nano/secure/store.hpp>
 
 #include <boost/format.hpp>

@@ -9,7 +9,8 @@
 #include <nano/node/websocket.hpp>
 #include <nano/rpc/rpc.hpp>
 #include <nano/secure/buffer.hpp>
-#include <nano/test_common/system.hpp>
+#include <nano/node/network.hpp>
+#include <nano/node/vote_processor.hpp>
 
 #include <boost/filesystem.hpp>
 #include <boost/property_tree/json_parser.hpp>
@@ -103,21 +104,24 @@ nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path co
 	gap_cache (*this),
 	ledger (store, stats, network_params.ledger, flags_a.generate_cache),
 	checker (config.signature_checker_threads),
-	network (*this, config.peering_port),
+	network_impl (std::make_unique<nano::network> (*this, config.peering_port)),
+	network (*network_impl),
 	telemetry (std::make_shared<nano::telemetry> (network, workers, observers.telemetry, stats, network_params, flags.disable_ongoing_telemetry_requests)),
 	bootstrap_initiator (*this),
 	bootstrap (config.peering_port, *this),
 	application_path (application_path_a),
 	port_mapping (*this),
 	rep_crawler (*this),
-	vote_processor (checker, active, observers, stats, config, flags, logger, online_reps, rep_crawler, ledger, network_params),
 	warmed_up (0),
 	block_processor (*this, write_database_queue),
 	online_reps (ledger, config),
 	history{ config.network_params.voting },
 	vote_uniquer (block_uniquer),
 	confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, config.logging, logger, node_initialized_latch, flags.confirmation_height_processor_mode),
-	active (*this, confirmation_height_processor),
+	active_impl (std::make_unique<nano::active_transactions> (*this, confirmation_height_processor)),
+	active (*active_impl),
+	vote_processor_impl (std::make_unique<nano::vote_processor> (checker, active, observers, stats, config, flags, logger, online_reps, rep_crawler, ledger, network_params)),
+	vote_processor (*vote_processor_impl),
 	scheduler{ *this },
 	aggregator (config, stats, active.generator, active.final_generator, history, ledger, wallets, active),
 	wallets (wallets_store.init_error (), *this),

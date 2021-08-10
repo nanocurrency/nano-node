@@ -1,9 +1,5 @@
 #pragma once
 
-#include <nano/lib/config.hpp>
-#include <nano/lib/stats.hpp>
-#include <nano/lib/work.hpp>
-#include <nano/node/active_transactions.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
 #include <nano/node/bootstrap/bootstrap_attempt.hpp>
@@ -13,7 +9,6 @@
 #include <nano/node/election.hpp>
 #include <nano/node/election_scheduler.hpp>
 #include <nano/node/gap_cache.hpp>
-#include <nano/node/network.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/online_reps.hpp>
@@ -22,7 +17,6 @@
 #include <nano/node/request_aggregator.hpp>
 #include <nano/node/signatures.hpp>
 #include <nano/node/telemetry.hpp>
-#include <nano/node/vote_processor.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/node/write_database_queue.hpp>
 #include <nano/secure/ledger.hpp>
@@ -49,6 +43,10 @@ namespace websocket
 class node;
 class telemetry;
 class work_pool;
+class active_transactions;
+class network;
+class stat;
+class vote_processor;
 class block_arrival_info final
 {
 public:
@@ -170,7 +168,8 @@ public:
 	nano::gap_cache gap_cache;
 	nano::ledger ledger;
 	nano::signature_checker checker;
-	nano::network network;
+	std::unique_ptr<nano::network> network_impl;
+	nano::network & network;
 	std::shared_ptr<nano::telemetry> telemetry;
 	nano::bootstrap_initiator bootstrap_initiator;
 	nano::bootstrap_listener bootstrap;
@@ -179,7 +178,6 @@ public:
 	nano::port_mapping port_mapping;
 	nano::online_reps online_reps;
 	nano::rep_crawler rep_crawler;
-	nano::vote_processor vote_processor;
 	unsigned warmed_up;
 	nano::block_processor block_processor;
 	nano::block_arrival block_arrival;
@@ -188,7 +186,10 @@ public:
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer;
 	nano::confirmation_height_processor confirmation_height_processor;
-	nano::active_transactions active;
+	std::unique_ptr<nano::active_transactions> active_impl;
+	nano::active_transactions & active;
+	std::unique_ptr<nano::vote_processor> vote_processor_impl;
+	nano::vote_processor & vote_processor;
 	nano::election_scheduler scheduler;
 	nano::request_aggregator aggregator;
 	nano::wallets wallets;

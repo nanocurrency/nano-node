@@ -4,6 +4,7 @@
 #include <nano/node/node.hpp>
 #include <nano/node/telemetry.hpp>
 #include <nano/secure/buffer.hpp>
+#include <nano/node/vote_processor.hpp>
 
 #include <boost/asio/steady_timer.hpp>
 #include <boost/format.hpp>

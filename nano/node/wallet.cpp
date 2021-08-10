@@ -5,6 +5,7 @@
 #include <nano/node/lmdb/lmdb_iterator.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/wallet.hpp>
+#include <nano/node/network.hpp>
 
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>

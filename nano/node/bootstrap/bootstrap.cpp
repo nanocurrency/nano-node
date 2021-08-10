@@ -4,6 +4,7 @@
 #include <nano/node/bootstrap/bootstrap_legacy.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/network.hpp>
 
 #include <boost/format.hpp>
 

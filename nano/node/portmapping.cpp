@@ -1,5 +1,6 @@
 #include <nano/node/node.hpp>
 #include <nano/node/portmapping.hpp>
+#include <nano/node/network.hpp>
 
 #include <miniupnp/miniupnpc/upnpcommands.h>
 #include <miniupnp/miniupnpc/upnperrors.h>

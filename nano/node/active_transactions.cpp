@@ -6,6 +6,7 @@
 #include <nano/node/node.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/secure/store.hpp>
+#include <nano/node/vote_processor.hpp>
 
 #include <boost/format.hpp>
 #include <boost/variant/get.hpp>

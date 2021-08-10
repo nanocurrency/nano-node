@@ -1,5 +1,7 @@
 #include <nano/node/node.hpp>
 #include <nano/node/repcrawler.hpp>
+#include <nano/node/network.hpp>
+#include <nano/node/vote_processor.hpp>
 
 #include <boost/format.hpp>
 
