@@ -389,7 +389,10 @@ find_package(Boost 1.70.0 REQUIRED COMPONENTS filesystem log log_setup thread
 
 # diskhash
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")
-  add_library(diskhash STATIC ${CMAKE_SOURCE_DIR}/diskhash/src/diskhash.c)
+  add_library(diskhash STATIC
+          ${CMAKE_SOURCE_DIR}/diskhash/src/diskhash.c
+          ${CMAKE_SOURCE_DIR}/diskhash/src/os_wrappers.c
+  )
   include_directories(diskhash/src)
 endif()
 
@@ -613,7 +616,7 @@ if(NANO_TEST OR RAIBLOCKS_TEST)
     build_tests
     COMMAND echo "BATCH BUILDING TESTS"
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    DEPENDS core_test load_test rpc_test nano_node nano_rpc)
+    DEPENDS core_test load_test rpc_test nano_node nano_rpc diskhash)
 
   add_custom_target(
     run_tests

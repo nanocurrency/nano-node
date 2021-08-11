@@ -59,6 +59,7 @@ target_link_libraries(
   secure
   test_common
   gtest
+  diskhash
   libminiupnpc-static
   Boost::log_setup
   Boost::log
