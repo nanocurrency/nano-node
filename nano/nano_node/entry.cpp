@@ -1135,7 +1135,7 @@ int main (int argc, char * const * argv)
 			{
 				config_overrides = nano::config_overrides (config->second.as<std::vector<nano::config_key_value_pair>> ());
 			}
-			nano::daemon_config daemon_config (data_path);
+			nano::daemon_config daemon_config{ data_path, network_params };
 			auto error = nano::read_node_config_toml (data_path, daemon_config, config_overrides);
 
 			nano::node_config config1 = daemon_config.node;

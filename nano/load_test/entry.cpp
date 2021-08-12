@@ -43,7 +43,8 @@ constexpr auto ipc_port_start = 62000;
 
 void write_config_files (boost::filesystem::path const & data_path, int index)
 {
-	nano::daemon_config daemon_config (data_path);
+	nano::network_params network_params{ nano::network_constants::active_network };
+	nano::daemon_config daemon_config{ data_path, network_params };
 	daemon_config.node.peering_port = peering_port_start + index;
 	daemon_config.node.ipc_config.transport_tcp.enabled = true;
 	daemon_config.node.ipc_config.transport_tcp.port = ipc_port_start + index;

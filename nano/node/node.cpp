@@ -1772,7 +1772,7 @@ nano::node_wrapper::node_wrapper (boost::filesystem::path const & path_a, boost:
 	 */
 	boost::filesystem::create_directories (path_a);
 	nano::set_secure_perm_directory (path_a, error_chmod);
-	nano::daemon_config daemon_config (path_a);
+	nano::daemon_config daemon_config{ path_a, nano::dev::network_params };
 	auto error = nano::read_node_config_toml (config_path_a, daemon_config, node_flags_a.config_overrides);
 	if (error)
 	{

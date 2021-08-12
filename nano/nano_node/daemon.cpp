@@ -24,7 +24,7 @@ constexpr std::size_t OPEN_FILE_DESCRIPTORS_LIMIT = 16384;
 
 static void load_and_set_bandwidth_params (std::shared_ptr<nano::node> const & node, boost::filesystem::path const & data_path, nano::node_flags const & flags)
 {
-	nano::daemon_config config (data_path);
+	nano::daemon_config config{ data_path, node->network_params };
 
 	auto error = nano::read_node_config_toml (data_path, config, flags.config_overrides);
 	if (!error)
@@ -48,7 +48,8 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 	boost::system::error_code error_chmod;
 	nano::set_secure_perm_directory (data_path, error_chmod);
 	std::unique_ptr<nano::thread_runner> runner;
-	nano::daemon_config config (data_path);
+	nano::network_params network_params{ nano::network_constants::active_network };
+	nano::daemon_config config{ data_path, network_params };
 	auto error = nano::read_node_config_toml (data_path, config, flags.config_overrides);
 	nano::set_use_memory_pools (config.node.use_memory_pools);
 	if (!error)
