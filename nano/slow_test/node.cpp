@@ -97,7 +97,7 @@ TEST (ledger, deep_account_compute)
 	nano::ledger ledger (*store, stats, nano::dev::constants);
 	auto transaction (store->tx_begin_write ());
 	store->initialize (transaction, ledger.cache);
-	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	nano::keypair key;
 	auto balance (nano::dev::constants.genesis_amount - 1);
 	nano::send_block send (nano::dev::genesis->hash (), key.pub, balance, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, *pool.generate (nano::dev::genesis->hash ()));
@@ -968,7 +968,7 @@ TEST (confirmation_height, many_accounts_send_receive_self_no_elections)
 	nano::stat stats;
 	nano::ledger ledger (*store, stats, nano::dev::constants);
 	nano::write_database_queue write_database_queue (false);
-	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+	nano::work_pool pool{ nano::dev::network_params.network, std::numeric_limits<unsigned>::max () };
 	std::atomic<bool> stopped{ false };
 	boost::latch initialized_latch{ 0 };
 
@@ -1609,7 +1609,7 @@ TEST (node, mass_epoch_upgrader)
 							 .link (info.key.pub)
 							 .representative (nano::dev::genesis_key.pub)
 							 .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
-							 .work (*node.work_generate_blocking (latest, nano::work_threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_0, false, false, false))))
+							 .work (*node.work_generate_blocking (latest, node_config.network_params.work.threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_0, false, false, false))))
 							 .build (ec);
 				ASSERT_FALSE (ec);
 				ASSERT_NE (nullptr, block);
@@ -1633,7 +1633,7 @@ TEST (node, mass_epoch_upgrader)
 						 .link (info.pending_hash)
 						 .representative (info.key.pub)
 						 .sign (info.key.prv, info.key.pub)
-						 .work (*node.work_generate_blocking (info.key.pub, nano::work_threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_0, false, false, false))))
+						 .work (*node.work_generate_blocking (info.key.pub, node_config.network_params.work.threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_0, false, false, false))))
 						 .build (ec);
 			ASSERT_FALSE (ec);
 			ASSERT_NE (nullptr, block);
@@ -1723,7 +1723,7 @@ TEST (node, mass_block_new)
 	std::vector<nano::keypair> keys (num_blocks);
 	nano::state_block_builder builder;
 	std::vector<std::shared_ptr<nano::state_block>> send_blocks;
-	auto send_threshold (nano::work_threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_2, true, false, false)));
+	auto send_threshold (nano::dev::network_params.work.threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_2, true, false, false)));
 	auto latest_genesis = node.latest (nano::dev::genesis_key.pub);
 	for (auto i = 0; i < num_blocks; ++i)
 	{
@@ -1746,7 +1746,7 @@ TEST (node, mass_block_new)
 	std::cout << "Send blocks time: " << timer.stop ().count () << " " << timer.unit () << "\n\n";
 
 	std::vector<std::shared_ptr<nano::state_block>> open_blocks;
-	auto receive_threshold (nano::work_threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_2, false, true, false)));
+	auto receive_threshold (nano::dev::network_params.work.threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_2, false, true, false)));
 	for (auto i = 0; i < num_blocks; ++i)
 	{
 		auto const & key = keys[i];

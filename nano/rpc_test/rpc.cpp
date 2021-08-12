@@ -199,7 +199,7 @@ std::tuple<std::shared_ptr<nano::rpc>, std::unique_ptr<rpc_context>> add_rpc (na
 	auto scoped_thread_name_io (std::make_unique<scoped_io_thread_name_change> ());
 	auto node_rpc_config (std::make_unique<nano::node_rpc_config> ());
 	auto ipc_server (std::make_unique<nano::ipc::ipc_server> (*node_a, *node_rpc_config));
-	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	nano::rpc_config rpc_config (node_a->network_params.network, nano::get_available_port (), true);
 	rpc_config.rpc_process.ipc_port = node_a->config.ipc_config.transport_tcp.port;
 	auto ipc_rpc_processor (std::make_unique<nano::ipc_rpc_processor> (system.io_ctx, rpc_config));
 	auto rpc (std::make_shared<nano::rpc> (system.io_ctx, rpc_config, *ipc_rpc_processor));
@@ -524,9 +524,9 @@ TEST (rpc, send_epoch_2)
 
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv, false);
 
-	auto target_difficulty = nano::work_threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_2, true, false, false));
-	ASSERT_LT (node->network_params.network.publish_thresholds.entry, target_difficulty);
-	auto min_difficulty = node->network_params.network.publish_thresholds.entry;
+	auto target_difficulty = nano::dev::network_params.work.threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_2, true, false, false));
+	ASSERT_LT (node->network_params.work.entry, target_difficulty);
+	auto min_difficulty = node->network_params.work.entry;
 
 	auto [rpc, rpc_ctx] = add_rpc (system, node);
 	boost::property_tree::ptree request;
@@ -1636,13 +1636,13 @@ TEST (rpc, process_ledger_insufficient_work)
 	nano::system system;
 	auto node = add_ipc_enabled_node (system);
 	auto [rpc, rpc_ctx] = add_rpc (system, node);
-	ASSERT_LT (node->network_params.network.publish_thresholds.entry, node->network_params.network.publish_thresholds.epoch_1);
+	ASSERT_LT (node->network_params.work.entry, node->network_params.work.epoch_1);
 	auto latest (node->latest (nano::dev::genesis_key.pub));
-	auto min_difficulty = node->network_params.network.publish_thresholds.entry;
-	auto max_difficulty = node->network_params.network.publish_thresholds.epoch_1;
+	auto min_difficulty = node->network_params.work.entry;
+	auto max_difficulty = node->network_params.work.epoch_1;
 	nano::state_block send (nano::dev::genesis->account (), latest, nano::dev::genesis->account (), nano::dev::constants.genesis_amount - nano::Gxrb_ratio, nano::dev::genesis_key.pub, nano::dev::genesis_key.prv, nano::dev::genesis_key.pub, system.work_generate_limited (latest, min_difficulty, max_difficulty));
-	ASSERT_LT (send.difficulty (), max_difficulty);
-	ASSERT_GE (send.difficulty (), min_difficulty);
+	ASSERT_LT (nano::dev::network_params.work.difficulty (send), max_difficulty);
+	ASSERT_GE (nano::dev::network_params.work.difficulty (send), min_difficulty);
 	boost::property_tree::ptree request;
 	request.put ("action", "process");
 	std::string json;
@@ -1949,7 +1949,7 @@ TEST (rpc, work_generate)
 		auto work_text (response.json.get<std::string> ("work"));
 		uint64_t work;
 		ASSERT_FALSE (nano::from_string_hex (work_text, work));
-		auto result_difficulty (nano::work_difficulty (nano::work_version::work_1, hash, work));
+		auto result_difficulty (nano::dev::network_params.work.difficulty (nano::work_version::work_1, hash, work));
 		auto response_difficulty_text (response.json.get<std::string> ("difficulty"));
 		uint64_t response_difficulty;
 		ASSERT_FALSE (nano::from_string_hex (response_difficulty_text, response_difficulty));
@@ -1980,7 +1980,7 @@ TEST (rpc, work_generate_difficulty)
 		auto work_text (response.get<std::string> ("work"));
 		uint64_t work;
 		ASSERT_FALSE (nano::from_string_hex (work_text, work));
-		auto result_difficulty (nano::work_difficulty (nano::work_version::work_1, hash, work));
+		auto result_difficulty (nano::dev::network_params.work.difficulty (nano::work_version::work_1, hash, work));
 		auto response_difficulty_text (response.get<std::string> ("difficulty"));
 		uint64_t response_difficulty;
 		ASSERT_FALSE (nano::from_string_hex (response_difficulty_text, response_difficulty));
@@ -1997,7 +1997,7 @@ TEST (rpc, work_generate_difficulty)
 		auto work_text (response.get<std::string> ("work"));
 		uint64_t work;
 		ASSERT_FALSE (nano::from_string_hex (work_text, work));
-		auto result_difficulty (nano::work_difficulty (nano::work_version::work_1, hash, work));
+		auto result_difficulty (nano::dev::network_params.work.difficulty (nano::work_version::work_1, hash, work));
 		ASSERT_GE (result_difficulty, difficulty);
 	}
 	{
@@ -2031,7 +2031,7 @@ TEST (rpc, work_generate_multiplier)
 		ASSERT_TRUE (work_text.is_initialized ());
 		uint64_t work;
 		ASSERT_FALSE (nano::from_string_hex (*work_text, work));
-		auto result_difficulty (nano::work_difficulty (nano::work_version::work_1, hash, work));
+		auto result_difficulty (nano::dev::network_params.work.difficulty (nano::work_version::work_1, hash, work));
 		auto response_difficulty_text (response.get<std::string> ("difficulty"));
 		uint64_t response_difficulty;
 		ASSERT_FALSE (nano::from_string_hex (response_difficulty_text, response_difficulty));
@@ -2062,7 +2062,7 @@ TEST (rpc, work_generate_block_high)
 	nano::keypair key;
 	nano::state_block block (key.pub, 0, nano::dev::genesis_key.pub, nano::Gxrb_ratio, 123, key.prv, key.pub, *node->work_generate_blocking (key.pub));
 	nano::block_hash hash (block.root ().as_block_hash ());
-	auto block_difficulty (nano::work_difficulty (nano::work_version::work_1, hash, block.block_work ()));
+	auto block_difficulty (nano::dev::network_params.work.difficulty (nano::work_version::work_1, hash, block.block_work ()));
 	boost::property_tree::ptree request;
 	request.put ("action", "work_generate");
 	request.put ("hash", hash.to_string ());
@@ -2087,7 +2087,7 @@ TEST (rpc, work_generate_block_low)
 	auto threshold (node->default_difficulty (block.work_version ()));
 	block.block_work_set (system.work_generate_limited (block.root ().as_block_hash (), threshold, nano::difficulty::from_multiplier (node->config.max_work_generate_multiplier / 10, threshold)));
 	nano::block_hash hash (block.root ().as_block_hash ());
-	auto block_difficulty (block.difficulty ());
+	auto block_difficulty (nano::dev::network_params.work.difficulty (block));
 	boost::property_tree::ptree request;
 	request.put ("action", "work_generate");
 	request.put ("hash", hash.to_string ());
@@ -2103,7 +2103,7 @@ TEST (rpc, work_generate_block_low)
 		uint64_t work;
 		ASSERT_FALSE (nano::from_string_hex (*work_text, work));
 		ASSERT_NE (block.block_work (), work);
-		auto result_difficulty (nano::work_difficulty (nano::work_version::work_1, hash, work));
+		auto result_difficulty (nano::dev::network_params.work.difficulty (nano::work_version::work_1, hash, work));
 		auto response_difficulty_text (response.get<std::string> ("difficulty"));
 		uint64_t response_difficulty;
 		ASSERT_FALSE (nano::from_string_hex (response_difficulty_text, response_difficulty));
@@ -2147,7 +2147,7 @@ TEST (rpc, work_generate_block_ledger_epoch_2)
 	auto send_block (system.wallet (0)->send_action (nano::dev::genesis_key.pub, key.pub, nano::Gxrb_ratio));
 	ASSERT_NE (nullptr, send_block);
 	nano::state_block block (key.pub, 0, nano::dev::genesis_key.pub, nano::Gxrb_ratio, send_block->hash (), key.prv, key.pub, 0);
-	auto threshold (nano::work_threshold (block.work_version (), nano::block_details (nano::epoch::epoch_2, false, true, false)));
+	auto threshold (nano::dev::network_params.work.threshold (block.work_version (), nano::block_details (nano::epoch::epoch_2, false, true, false)));
 	block.block_work_set (system.work_generate_limited (block.root ().as_block_hash (), 1, threshold - 1));
 	nano::block_hash hash (block.root ().as_block_hash ());
 	auto [rpc, rpc_ctx] = add_rpc (system, node);
@@ -2167,13 +2167,13 @@ TEST (rpc, work_generate_block_ledger_epoch_2)
 		ASSERT_TRUE (work_text.is_initialized ());
 		uint64_t work;
 		ASSERT_FALSE (nano::from_string_hex (*work_text, work));
-		auto result_difficulty (nano::work_difficulty (nano::work_version::work_1, hash, work));
+		auto result_difficulty (nano::dev::network_params.work.difficulty (nano::work_version::work_1, hash, work));
 		auto response_difficulty_text (response.get<std::string> ("difficulty"));
 		uint64_t response_difficulty;
 		ASSERT_FALSE (nano::from_string_hex (response_difficulty_text, response_difficulty));
 		ASSERT_EQ (result_difficulty, response_difficulty);
-		ASSERT_GE (result_difficulty, node->network_params.network.publish_thresholds.epoch_2_receive);
-		finished = result_difficulty < node->network_params.network.publish_thresholds.epoch_1;
+		ASSERT_GE (result_difficulty, node->network_params.work.epoch_2_receive);
+		finished = result_difficulty < node->network_params.work.epoch_1;
 		ASSERT_LT (++iteration, 200);
 	}
 }
@@ -2191,7 +2191,7 @@ TEST (rpc, work_cancel)
 	system.deadline_set (10s);
 	while (!done)
 	{
-		system.work.generate (nano::work_version::work_1, hash1, node1->network_params.network.publish_thresholds.base, [&done] (boost::optional<uint64_t> work_a) {
+		system.work.generate (nano::work_version::work_1, hash1, node1->network_params.work.base, [&done] (boost::optional<uint64_t> work_a) {
 			done = !work_a;
 		});
 		auto response1 (wait_response (system, rpc, request1));
@@ -2211,11 +2211,11 @@ TEST (rpc, work_peer_bad)
 	auto [rpc, rpc_ctx] = add_rpc (system, node1);
 	nano::block_hash hash1 (1);
 	std::atomic<uint64_t> work (0);
-	node2.work_generate (nano::work_version::work_1, hash1, node2.network_params.network.publish_thresholds.base, [&work] (boost::optional<uint64_t> work_a) {
+	node2.work_generate (nano::work_version::work_1, hash1, node2.network_params.work.base, [&work] (boost::optional<uint64_t> work_a) {
 		ASSERT_TRUE (work_a.is_initialized ());
 		work = *work_a;
 	});
-	ASSERT_TIMELY (5s, nano::work_difficulty (nano::work_version::work_1, hash1, work) >= nano::work_threshold_base (nano::work_version::work_1));
+	ASSERT_TIMELY (5s, nano::dev::network_params.work.difficulty (nano::work_version::work_1, hash1, work) >= nano::dev::network_params.work.threshold_base (nano::work_version::work_1));
 }
 
 TEST (rpc, work_peer_one)
@@ -2227,11 +2227,11 @@ TEST (rpc, work_peer_one)
 	node2.config.work_peers.push_back (std::make_pair (node1->network.endpoint ().address ().to_string (), rpc->config.port));
 	nano::keypair key1;
 	std::atomic<uint64_t> work (0);
-	node2.work_generate (nano::work_version::work_1, key1.pub, node1->network_params.network.publish_thresholds.base, [&work] (boost::optional<uint64_t> work_a) {
+	node2.work_generate (nano::work_version::work_1, key1.pub, node1->network_params.work.base, [&work] (boost::optional<uint64_t> work_a) {
 		ASSERT_TRUE (work_a.is_initialized ());
 		work = *work_a;
 	});
-	ASSERT_TIMELY (5s, nano::work_difficulty (nano::work_version::work_1, key1.pub, work) >= nano::work_threshold_base (nano::work_version::work_1));
+	ASSERT_TIMELY (5s, nano::dev::network_params.work.difficulty (nano::work_version::work_1, key1.pub, work) >= nano::dev::network_params.work.threshold_base (nano::work_version::work_1));
 }
 
 TEST (rpc, work_peer_many)
@@ -2255,10 +2255,10 @@ TEST (rpc, work_peer_many)
 	for (auto i (0); i < works.size (); ++i)
 	{
 		nano::keypair key1;
-		node1.work_generate (nano::work_version::work_1, key1.pub, node1.network_params.network.publish_thresholds.base, [&work = works[i]] (boost::optional<uint64_t> work_a) {
+		node1.work_generate (nano::work_version::work_1, key1.pub, node1.network_params.work.base, [&work = works[i]] (boost::optional<uint64_t> work_a) {
 			work = *work_a;
 		});
-		while (nano::work_difficulty (nano::work_version::work_1, key1.pub, works[i]) < nano::work_threshold_base (nano::work_version::work_1))
+		while (nano::dev::network_params.work.difficulty (nano::work_version::work_1, key1.pub, works[i]) < nano::dev::network_params.work.threshold_base (nano::work_version::work_1))
 		{
 			system1.poll ();
 			system2.poll ();
@@ -2542,9 +2542,9 @@ TEST (rpc, account_representative_set_epoch_2)
 
 	system.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv, false);
 
-	auto target_difficulty = nano::work_threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_2, false, false, false));
-	ASSERT_LT (node->network_params.network.publish_thresholds.entry, target_difficulty);
-	auto min_difficulty = node->network_params.network.publish_thresholds.entry;
+	auto target_difficulty = nano::dev::network_params.work.threshold (nano::work_version::work_1, nano::block_details (nano::epoch::epoch_2, false, false, false));
+	ASSERT_LT (node->network_params.work.entry, target_difficulty);
+	auto min_difficulty = node->network_params.work.entry;
 
 	auto [rpc, rpc_ctx] = add_rpc (system, node);
 	boost::property_tree::ptree request;
@@ -2744,7 +2744,7 @@ TEST (rpc, work_validate)
 		double multiplier (response.get<double> ("multiplier"));
 		ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (difficulty, node1->default_difficulty (nano::work_version::work_1)), 1e-6);
 	}
-	auto result_difficulty (nano::work_difficulty (nano::work_version::work_1, hash, work1));
+	auto result_difficulty (nano::dev::network_params.work.difficulty (nano::work_version::work_1, hash, work1));
 	ASSERT_GE (result_difficulty, node1->default_difficulty (nano::work_version::work_1));
 	request.put ("work", nano::to_string_hex (work1));
 	request.put ("difficulty", nano::to_string_hex (result_difficulty));
@@ -2761,7 +2761,7 @@ TEST (rpc, work_validate)
 		auto response (wait_response (system, rpc, request));
 		ASSERT_EQ (result_difficulty >= difficulty4, response.get<bool> ("valid"));
 		ASSERT_EQ (result_difficulty >= node1->default_difficulty (nano::work_version::work_1), response.get<bool> ("valid_all"));
-		ASSERT_EQ (result_difficulty >= node1->network_params.network.publish_thresholds.epoch_2_receive, response.get<bool> ("valid_all"));
+		ASSERT_EQ (result_difficulty >= node1->network_params.work.epoch_2_receive, response.get<bool> ("valid_all"));
 	}
 	uint64_t work3 (*node1->work_generate_blocking (hash, difficulty4));
 	request.put ("work", nano::to_string_hex (work3));
@@ -2779,8 +2779,8 @@ TEST (rpc, work_validate_epoch_2)
 	auto node = add_ipc_enabled_node (system);
 	auto epoch1 = system.upgrade_genesis_epoch (*node, nano::epoch::epoch_1);
 	ASSERT_NE (nullptr, epoch1);
-	ASSERT_EQ (node->network_params.network.publish_thresholds.epoch_2, node->network_params.network.publish_thresholds.base);
-	auto work = system.work_generate_limited (epoch1->hash (), node->network_params.network.publish_thresholds.epoch_1, node->network_params.network.publish_thresholds.base);
+	ASSERT_EQ (node->network_params.work.epoch_2, node->network_params.work.base);
+	auto work = system.work_generate_limited (epoch1->hash (), node->network_params.work.epoch_1, node->network_params.work.base);
 	auto [rpc, rpc_ctx] = add_rpc (system, node);
 	boost::property_tree::ptree request;
 	request.put ("action", "work_validate");
@@ -2795,7 +2795,7 @@ TEST (rpc, work_validate_epoch_2)
 		uint64_t difficulty{ 0 };
 		ASSERT_FALSE (nano::from_string_hex (difficulty_text, difficulty));
 		double multiplier (response.get<double> ("multiplier"));
-		ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (difficulty, node->network_params.network.publish_thresholds.epoch_2), 1e-6);
+		ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (difficulty, node->network_params.work.epoch_2), 1e-6);
 	};
 	// After upgrading, the higher difficulty is used to validate and calculate the multiplier
 	rpc_ctx->io_scope->reset ();
@@ -4228,7 +4228,7 @@ TEST (rpc, block_create)
 	std::string send_hash (response.get<std::string> ("hash"));
 	ASSERT_EQ (send.hash ().to_string (), send_hash);
 	std::string send_difficulty (response.get<std::string> ("difficulty"));
-	ASSERT_EQ (nano::to_string_hex (send.difficulty ()), send_difficulty);
+	ASSERT_EQ (nano::to_string_hex (nano::dev::network_params.work.difficulty (send)), send_difficulty);
 	auto send_text (response.get<std::string> ("block"));
 	boost::property_tree::ptree block_l;
 	std::stringstream block_stream (send_text);
@@ -4360,8 +4360,8 @@ TEST (rpc, block_create_state_open)
 	ASSERT_NE (nullptr, state_block);
 	ASSERT_EQ (nano::block_type::state, state_block->type ());
 	ASSERT_EQ (state_hash, state_block->hash ().to_string ());
-	auto difficulty (state_block->difficulty ());
-	ASSERT_GT (difficulty, nano::work_threshold (state_block->work_version (), nano::block_details (nano::epoch::epoch_0, false, true, false)));
+	auto difficulty (nano::dev::network_params.work.difficulty (*state_block));
+	ASSERT_GT (difficulty, nano::dev::network_params.work.threshold (state_block->work_version (), nano::block_details (nano::epoch::epoch_0, false, true, false)));
 	ASSERT_TRUE (node->latest (key.pub).is_zero ());
 	rpc_ctx->io_scope->reset ();
 	auto process_result (node->process (*state_block));
@@ -4406,7 +4406,7 @@ TEST (rpc, block_create_state_request_work)
 		boost::property_tree::read_json (block_stream, block_l);
 		auto block (nano::deserialize_block_json (block_l));
 		ASSERT_NE (nullptr, block);
-		ASSERT_GE (block->difficulty (), node->default_difficulty (nano::work_version::work_1));
+		ASSERT_GE (nano::dev::network_params.work.difficulty (*block), node->default_difficulty (nano::work_version::work_1));
 	}
 }
 
@@ -4440,8 +4440,8 @@ TEST (rpc, block_create_open_epoch_v2)
 	ASSERT_NE (nullptr, state_block);
 	ASSERT_EQ (nano::block_type::state, state_block->type ());
 	ASSERT_EQ (state_hash, state_block->hash ().to_string ());
-	auto difficulty (state_block->difficulty ());
-	ASSERT_GT (difficulty, nano::work_threshold (state_block->work_version (), nano::block_details (nano::epoch::epoch_2, false, true, false)));
+	auto difficulty (nano::dev::network_params.work.difficulty (*state_block));
+	ASSERT_GT (difficulty, nano::dev::network_params.work.threshold (state_block->work_version (), nano::block_details (nano::epoch::epoch_2, false, true, false)));
 	ASSERT_TRUE (node->latest (key.pub).is_zero ());
 	rpc_ctx->io_scope->reset ();
 	auto process_result (node->process (*state_block));
@@ -4484,8 +4484,8 @@ TEST (rpc, block_create_receive_epoch_v2)
 	ASSERT_NE (nullptr, state_block);
 	ASSERT_EQ (nano::block_type::state, state_block->type ());
 	ASSERT_EQ (state_hash, state_block->hash ().to_string ());
-	auto difficulty (state_block->difficulty ());
-	ASSERT_GT (difficulty, nano::work_threshold (state_block->work_version (), nano::block_details (nano::epoch::epoch_2, false, true, false)));
+	auto difficulty (nano::dev::network_params.work.difficulty (*state_block));
+	ASSERT_GT (difficulty, nano::dev::network_params.work.threshold (state_block->work_version (), nano::block_details (nano::epoch::epoch_2, false, true, false)));
 	rpc_ctx->io_scope->reset ();
 	auto process_result (node->process (*state_block));
 	ASSERT_EQ (nano::process_result::progress, process_result.code);
@@ -4526,8 +4526,8 @@ TEST (rpc, block_create_send_epoch_v2)
 	ASSERT_NE (nullptr, state_block);
 	ASSERT_EQ (nano::block_type::state, state_block->type ());
 	ASSERT_EQ (state_hash, state_block->hash ().to_string ());
-	auto difficulty (state_block->difficulty ());
-	ASSERT_GT (difficulty, nano::work_threshold (state_block->work_version (), nano::block_details (nano::epoch::epoch_2, true, false, false)));
+	auto difficulty (nano::dev::network_params.work.difficulty (*state_block));
+	ASSERT_GT (difficulty, nano::dev::network_params.work.threshold (state_block->work_version (), nano::block_details (nano::epoch::epoch_2, true, false, false)));
 	rpc_ctx->io_scope->reset ();
 	auto process_result (node->process (*state_block));
 	ASSERT_EQ (nano::process_result::progress, process_result.code);
@@ -5450,7 +5450,7 @@ TEST (rpc, active_difficulty)
 	nano::system system;
 	auto node = add_ipc_enabled_node (system);
 	auto [rpc, rpc_ctx] = add_rpc (system, node);
-	ASSERT_EQ (node->default_difficulty (nano::work_version::work_1), node->network_params.network.publish_thresholds.epoch_2);
+	ASSERT_EQ (node->default_difficulty (nano::work_version::work_1), node->network_params.work.epoch_2);
 	boost::property_tree::ptree request;
 	request.put ("action", "active_difficulty");
 	auto expected_multiplier{ 1.0 };
@@ -5474,7 +5474,7 @@ TEST (rpc, active_difficulty)
 		uint64_t network_receive_current;
 		ASSERT_FALSE (nano::from_string_hex (network_receive_current_text, network_receive_current));
 		auto network_receive_current_multiplier (nano::difficulty::to_multiplier (network_receive_current, network_receive_minimum));
-		auto network_receive_current_normalized_multiplier (nano::normalized_multiplier (network_receive_current_multiplier, network_receive_minimum));
+		auto network_receive_current_normalized_multiplier (nano::dev::network_params.work.normalized_multiplier (network_receive_current_multiplier, network_receive_minimum));
 		ASSERT_NEAR (network_receive_current_normalized_multiplier, multiplier, 1e-6);
 		ASSERT_EQ (response.not_found (), response.find ("difficulty_trend"));
 	}
@@ -5499,7 +5499,7 @@ TEST (rpc, simultaneous_calls)
 	nano::thread_runner runner (system.io_ctx, node->config.io_threads);
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
-	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	nano::rpc_config rpc_config{ nano::dev::network_params.network, nano::get_available_port (), true };
 	rpc_config.rpc_process.ipc_port = node->config.ipc_config.transport_tcp.port;
 	rpc_config.rpc_process.num_ipc_connections = 8;
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
@@ -5553,7 +5553,7 @@ TEST (rpc, in_process)
 	nano::system system;
 	auto node = add_ipc_enabled_node (system);
 	scoped_io_thread_name_change scoped_thread_name_io;
-	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	nano::rpc_config rpc_config (nano::dev::network_params.network, nano::get_available_port (), true);
 	rpc_config.rpc_process.ipc_port = node->config.ipc_config.transport_tcp.port;
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
@@ -5572,7 +5572,7 @@ TEST (rpc, in_process)
 
 TEST (rpc_config, serialization)
 {
-	nano::rpc_config config1;
+	nano::rpc_config config1{ nano::dev::network_params.network };
 	config1.address = boost::asio::ip::address_v6::any ().to_string ();
 	config1.port = 10;
 	config1.enable_control = true;
@@ -5583,7 +5583,7 @@ TEST (rpc_config, serialization)
 	config1.rpc_process.num_ipc_connections = 99;
 	nano::jsonconfig tree;
 	config1.serialize_json (tree);
-	nano::rpc_config config2;
+	nano::rpc_config config2{ nano::dev::network_params.network };
 	ASSERT_NE (config2.address, config1.address);
 	ASSERT_NE (config2.port, config1.port);
 	ASSERT_NE (config2.enable_control, config1.enable_control);

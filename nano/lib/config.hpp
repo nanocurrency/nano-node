@@ -76,8 +76,19 @@ enum class networks : uint16_t
 	nano_test_network = 0x5258, // 'R', 'X'
 };
 
-struct work_thresholds
+enum class work_version
 {
+	unspecified,
+	work_1
+};
+enum class block_type : uint8_t;
+class root;
+class block;
+class block_details;
+
+class work_thresholds
+{
+public:
 	uint64_t const epoch_1;
 	uint64_t const epoch_2;
 	uint64_t const epoch_2_receive;
@@ -99,19 +110,33 @@ struct work_thresholds
 	{
 		return other_a;
 	}
+
+	uint64_t threshold_entry (nano::work_version const, nano::block_type const) const;
+	uint64_t threshold (nano::block_details const &) const;
+	// Ledger threshold
+	uint64_t threshold (nano::work_version const, nano::block_details const) const;
+	uint64_t threshold_base (nano::work_version const) const;
+	uint64_t value (nano::root const & root_a, uint64_t work_a) const;
+	double normalized_multiplier (double const, uint64_t const) const;
+	double denormalized_multiplier (double const, uint64_t const) const;
+	uint64_t difficulty (nano::work_version const, nano::root const &, uint64_t const) const;
+	uint64_t difficulty (nano::block const & block_a) const;
+	bool validate_entry (nano::work_version const, nano::root const &, uint64_t const) const;
+	bool validate_entry (nano::block const &) const;
+
+	/** Network work thresholds. Define these inline as constexpr when moving to cpp17. */
+	static const nano::work_thresholds publish_full;
+	static const nano::work_thresholds publish_beta;
+	static const nano::work_thresholds publish_dev;
+	static const nano::work_thresholds publish_test;
 };
 
 class network_constants
 {
 public:
-	network_constants () :
-		network_constants (network_constants::active_network)
-	{
-	}
-
-	network_constants (nano::networks network_a) :
+	network_constants (nano::work_thresholds & work, nano::networks network_a) :
 		current_network (network_a),
-		publish_thresholds (is_live_network () ? publish_full : is_beta_network () ? publish_beta : is_test_network () ? publish_test : publish_dev)
+		work{ work }
 	{
 		// A representative is classified as principal based on its weight and this factor
 		principal_weight_factor = 1000; // 0.1%
@@ -130,18 +155,12 @@ public:
 		peer_dump_interval = is_dev_network () ? std::chrono::seconds (1) : std::chrono::seconds (5 * 60);
 	}
 
-	/** Network work thresholds. Define these inline as constexpr when moving to cpp17. */
-	static const nano::work_thresholds publish_full;
-	static const nano::work_thresholds publish_beta;
-	static const nano::work_thresholds publish_dev;
-	static const nano::work_thresholds publish_test;
-
 	/** Error message when an invalid network is specified */
 	static const char * active_network_err_msg;
 
 	/** The network this param object represents. This may differ from the global active network; this is needed for certain --debug... commands */
 	nano::networks current_network{ nano::network_constants::active_network };
-	nano::work_thresholds publish_thresholds;
+	nano::work_thresholds & work;
 
 	unsigned principal_weight_factor;
 	uint16_t default_node_port;
@@ -216,7 +235,7 @@ public:
 		return error;
 	}
 
-	const char * get_current_network_as_string () const
+	const char * get_current_network_as_string ()
 	{
 		return is_live_network () ? "live" : is_beta_network () ? "beta" : is_test_network () ? "test" : "dev";
 	}

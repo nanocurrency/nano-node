@@ -542,7 +542,6 @@ uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, ta
 	// otherwise there can be performance issues.
 	else if (table_a == tables::accounts)
 	{
-		debug_assert (network_constants ().is_dev_network ());
 		for (auto i (account.begin (transaction_a)), n (account.end ()); i != n; ++i)
 		{
 			++sum;
@@ -558,7 +557,6 @@ uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, ta
 	}
 	else if (table_a == tables::confirmation_height)
 	{
-		debug_assert (network_constants ().is_dev_network ());
 		for (auto i (confirmation_height.begin (transaction_a)), n (confirmation_height.end ()); i != n; ++i)
 		{
 			++sum;

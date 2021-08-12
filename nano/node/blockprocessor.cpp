@@ -105,7 +105,7 @@ void nano::block_processor::add (std::shared_ptr<nano::block> const & block_a, u
 
 void nano::block_processor::add (nano::unchecked_info const & info_a)
 {
-	debug_assert (!nano::work_validate_entry (*info_a.block));
+	debug_assert (!node.network_params.work.validate_entry (*info_a.block));
 	bool quarter_full (size () > node.flags.block_processor_full_size / 4);
 	if (info_a.verified == nano::signature_verification::unknown && (info_a.block->type () == nano::block_type::state || info_a.block->type () == nano::block_type::open || !info_a.account.is_zero ()))
 	{
@@ -124,7 +124,7 @@ void nano::block_processor::add (nano::unchecked_info const & info_a)
 void nano::block_processor::add_local (nano::unchecked_info const & info_a)
 {
 	release_assert (info_a.verified == nano::signature_verification::unknown && (info_a.block->type () == nano::block_type::state || !info_a.account.is_zero ()));
-	debug_assert (!nano::work_validate_entry (*info_a.block));
+	debug_assert (!node.network_params.work.validate_entry (*info_a.block));
 	state_block_signature_verification.add (info_a);
 }
 
@@ -501,7 +501,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 		{
 			if (node.config.logging.ledger_logging ())
 			{
-				node.logger.try_log (boost::str (boost::format ("Insufficient work for %1% : %2% (difficulty %3%)") % hash.to_string () % nano::to_string_hex (block->block_work ()) % nano::to_string_hex (block->difficulty ())));
+				node.logger.try_log (boost::str (boost::format ("Insufficient work for %1% : %2% (difficulty %3%)") % hash.to_string () % nano::to_string_hex (block->block_work ()) % nano::to_string_hex (node.network_params.work.difficulty (*block))));
 			}
 			break;
 		}

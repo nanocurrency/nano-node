@@ -90,7 +90,7 @@ nano::write_guard nano::write_database_queue::wait (nano::writer writer)
 
 bool nano::write_database_queue::contains (nano::writer writer)
 {
-	debug_assert (!use_noops && nano::network_constants ().is_dev_network ());
+	debug_assert (!use_noops);
 	nano::lock_guard<nano::mutex> guard (mutex);
 	return std::find (queue.cbegin (), queue.cend (), writer) != queue.cend ();
 }

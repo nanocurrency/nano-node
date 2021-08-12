@@ -86,19 +86,21 @@ nano::ledger_constants & nano::dev::constants{ nano::dev::network_params.ledger 
 std::shared_ptr<nano::block> & nano::dev::genesis = nano::dev::constants.genesis;
 
 nano::network_params::network_params (nano::networks network_a) :
-	network (network_a), ledger (network), voting (network), node (network), portmapping (network), bootstrap (network)
+	work{ network_a == nano::networks::nano_live_network ? nano::work_thresholds::publish_full : network_a == nano::networks::nano_beta_network ? nano::work_thresholds::publish_beta : network_a == nano::networks::nano_test_network ? nano::work_thresholds::publish_test : nano::work_thresholds::publish_dev },
+	network{ work, network_a },
+	ledger{ work, network_a },
+	voting{ network },
+	node{ network },
+	portmapping{ network },
+	bootstrap{ network }
 {
 	unsigned constexpr kdf_full_work = 64 * 1024;
 	unsigned constexpr kdf_dev_work = 8;
 	kdf_work = network.is_dev_network () ? kdf_dev_work : kdf_full_work;
 }
 
-nano::ledger_constants::ledger_constants (nano::network_constants & network_constants) :
-	ledger_constants (network_constants.network ())
-{
-}
-
-nano::ledger_constants::ledger_constants (nano::networks network_a) :
+nano::ledger_constants::ledger_constants (nano::work_thresholds & work, nano::networks network_a) :
+	work{ work },
 	zero_key ("0"),
 	nano_beta_account (beta_public_key_data),
 	nano_live_account (live_public_key_data),

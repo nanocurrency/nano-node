@@ -20,15 +20,17 @@ const char * default_live_peer_network = "peering.nano.org";
 const std::string default_test_peer_network = nano::get_env_or_default ("NANO_TEST_PEER_NETWORK", "peering-test.nano.org");
 }
 
-nano::node_config::node_config () :
-	node_config (0, nano::logging (), nano::network_params{ nano::network_constants::active_network })
+nano::node_config::node_config (nano::network_params & network_params) :
+	node_config (0, nano::logging (), network_params)
 {
 }
 
-nano::node_config::node_config (uint16_t peering_port_a, nano::logging const & logging_a, nano::network_params network_params) :
+nano::node_config::node_config (uint16_t peering_port_a, nano::logging const & logging_a, nano::network_params & network_params) :
 	network_params{ network_params },
 	peering_port{ peering_port_a },
 	logging{ logging_a },
+	websocket_config{ network_params.network },
+	ipc_config{ network_params.network },
 	external_address{ boost::asio::ip::address_v6{}.to_string () }
 {
 	// The default constructor passes 0 to indicate we should use the default port,
@@ -349,7 +351,6 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		toml.get ("conf_height_processor_batch_min_time", conf_height_processor_batch_min_time_l);
 		conf_height_processor_batch_min_time = std::chrono::milliseconds (conf_height_processor_batch_min_time_l);
 
-		nano::network_constants network;
 		toml.get<double> ("max_work_generate_multiplier", max_work_generate_multiplier);
 
 		toml.get<uint32_t> ("max_queued_requests", max_queued_requests);
@@ -390,7 +391,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			toml.get_error ().set ("io_threads must be non-zero");
 		}
-		if (active_elections_size <= 250 && !network.is_dev_network ())
+		if (active_elections_size <= 250 && !network_params.network.is_dev_network ())
 		{
 			toml.get_error ().set ("active_elections_size must be greater than 250");
 		}
@@ -414,7 +415,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			toml.get_error ().set ((boost::format ("block_processor_batch_max_time value must be equal or larger than %1%ms") % network_params.node.process_confirmed_interval.count ()).str ());
 		}
-		if (max_pruning_age < std::chrono::seconds (5 * 60) && !network.is_dev_network ())
+		if (max_pruning_age < std::chrono::seconds (5 * 60) && !network_params.network.is_dev_network ())
 		{
 			toml.get_error ().set ("max_pruning_age must be greater than or equal to 5 minutes");
 		}
@@ -682,7 +683,6 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		json.get ("conf_height_processor_batch_min_time", conf_height_processor_batch_min_time_l);
 		conf_height_processor_batch_min_time = std::chrono::milliseconds (conf_height_processor_batch_min_time_l);
 
-		nano::network_constants network;
 		// Validate ranges
 		if (password_fanout < 16 || password_fanout > 1024 * 1024)
 		{
@@ -692,7 +692,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		{
 			json.get_error ().set ("io_threads must be non-zero");
 		}
-		if (active_elections_size <= 250 && !network.is_dev_network ())
+		if (active_elections_size <= 250 && !network_params.network.is_dev_network ())
 		{
 			json.get_error ().set ("active_elections_size must be greater than 250");
 		}

@@ -56,7 +56,7 @@ void write_config_files (boost::filesystem::path const & data_path, int index)
 	daemon_config.serialize_toml (toml);
 	toml.write (nano::get_node_toml_config_path (data_path));
 
-	nano::rpc_config rpc_config;
+	nano::rpc_config rpc_config{ daemon_config.node.network_params.network };
 	rpc_config.port = rpc_port_start + index;
 	rpc_config.enable_control = true;
 	rpc_config.rpc_process.ipc_port = ipc_port_start + index;
@@ -360,8 +360,7 @@ int main (int argc, char * const * argv)
 		data_paths.push_back (std::move (data_path));
 	}
 
-	nano::network_constants network_constants;
-	auto current_network = network_constants.get_current_network_as_string ();
+	auto current_network = nano::dev::network_params.network.get_current_network_as_string ();
 	std::vector<std::unique_ptr<boost::process::child>> nodes;
 	std::vector<std::unique_ptr<boost::process::child>> rpc_servers;
 	for (auto const & data_path : data_paths)

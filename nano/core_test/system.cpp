@@ -10,13 +10,12 @@ TEST (system, work_generate_limited)
 {
 	nano::system system;
 	nano::block_hash key (1);
-	nano::network_constants constants;
-	auto min = constants.publish_thresholds.entry;
-	auto max = constants.publish_thresholds.base;
+	auto min = nano::dev::network_params.work.entry;
+	auto max = nano::dev::network_params.work.base;
 	for (int i = 0; i < 5; ++i)
 	{
 		auto work = system.work_generate_limited (key, min, max);
-		auto difficulty = nano::work_difficulty (nano::work_version::work_1, key, work);
+		auto difficulty = nano::dev::network_params.work.difficulty (nano::work_version::work_1, key, work);
 		ASSERT_GE (difficulty, min);
 		ASSERT_LT (difficulty, max);
 	}

@@ -34,15 +34,15 @@ enum class frontiers_confirmation_mode : uint8_t
 class node_config
 {
 public:
-	node_config ();
-	node_config (uint16_t, nano::logging const &, nano::network_params network_params = nano::dev::network_params);
+	node_config (nano::network_params & network_params = nano::dev::network_params);
+	node_config (uint16_t, nano::logging const &, nano::network_params & network_params = nano::dev::network_params);
 	nano::error serialize_json (nano::jsonconfig &) const;
 	nano::error deserialize_json (bool &, nano::jsonconfig &);
 	nano::error serialize_toml (nano::tomlconfig &) const;
 	nano::error deserialize_toml (nano::tomlconfig &);
 	bool upgrade_json (unsigned, nano::jsonconfig &);
 	nano::account random_representative () const;
-	nano::network_params network_params;
+	nano::network_params & network_params;
 	uint16_t peering_port{ 0 };
 	nano::logging logging;
 	std::vector<std::pair<std::string, uint16_t>> work_peers;

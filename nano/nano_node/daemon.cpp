@@ -60,8 +60,8 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 		config.node.logging.init (data_path);
 		nano::logger_mt logger{ config.node.logging.min_time_between_log_output };
 		boost::asio::io_context io_ctx;
-		auto opencl (nano::opencl_work::create (config.opencl_enable, config.opencl, logger));
-		nano::work_pool opencl_work (config.node.work_threads, config.node.pow_sleep_interval, opencl ? [&opencl] (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> & ticket_a) {
+		auto opencl (nano::opencl_work::create (config.opencl_enable, config.opencl, logger, config.node.network_params.work));
+		nano::work_pool opencl_work (config.node.network_params.network, config.node.work_threads, config.node.pow_sleep_interval, opencl ? [&opencl] (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> & ticket_a) {
 			return opencl->generate_work (version_a, root_a, difficulty_a, ticket_a);
 		}
 																									  : std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> (nullptr));
@@ -119,7 +119,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 					if (!config.rpc.child_process.enable)
 					{
 						// Launch rpc in-process
-						nano::rpc_config rpc_config;
+						nano::rpc_config rpc_config{ config.node.network_params.network };
 						auto error = nano::read_rpc_config_toml (data_path, rpc_config, flags.rpc_config_overrides);
 						if (error)
 						{
