@@ -1,9 +1,9 @@
 #pragma once
 
-#include <nano/boost/asio/ip/tcp.hpp>
-#include <nano/boost/asio/strand.hpp>
-#include <nano/boost/beast/core/flat_buffer.hpp>
-#include <nano/boost/beast/http/string_body.hpp>
+#include <nano/boost_wrappers/asio/ip/tcp.hpp>
+#include <nano/boost_wrappers/asio/strand.hpp>
+#include <nano/boost_wrappers/beast/core/flat_buffer.hpp>
+#include <nano/boost_wrappers/beast/http/string_body.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/lib/work.hpp>

@@ -1,6 +1,6 @@
-#include <nano/boost/asio/bind_executor.hpp>
-#include <nano/boost/asio/dispatch.hpp>
-#include <nano/boost/asio/strand.hpp>
+#include <nano/boost_wrappers/asio/bind_executor.hpp>
+#include <nano/boost_wrappers/asio/dispatch.hpp>
+#include <nano/boost_wrappers/asio/strand.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/transport/transport.hpp>
 #include <nano/node/wallet.hpp>

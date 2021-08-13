@@ -1,7 +1,7 @@
 #pragma once
 
-#include <nano/boost/asio/ip/tcp.hpp>
-#include <nano/boost/asio/strand.hpp>
+#include <nano/boost_wrappers/asio/ip/tcp.hpp>
+#include <nano/boost_wrappers/asio/strand.hpp>
 #include <nano/lib/asio.hpp>
 
 #include <boost/optional.hpp>

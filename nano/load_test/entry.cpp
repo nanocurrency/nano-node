@@ -1,10 +1,10 @@
-#include <nano/boost/asio/bind_executor.hpp>
-#include <nano/boost/asio/connect.hpp>
-#include <nano/boost/asio/ip/tcp.hpp>
-#include <nano/boost/asio/spawn.hpp>
-#include <nano/boost/beast/core/flat_buffer.hpp>
-#include <nano/boost/beast/http.hpp>
-#include <nano/boost/process/child.hpp>
+#include <nano/boost_wrappers/asio/bind_executor.hpp>
+#include <nano/boost_wrappers/asio/connect.hpp>
+#include <nano/boost_wrappers/asio/ip/tcp.hpp>
+#include <nano/boost_wrappers/asio/spawn.hpp>
+#include <nano/boost_wrappers/beast/core/flat_buffer.hpp>
+#include <nano/boost_wrappers/beast/http.hpp>
+#include <nano/boost_wrappers/process/child.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/daemonconfig.hpp>

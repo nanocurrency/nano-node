@@ -1,8 +1,8 @@
 #pragma once
 
-#include <nano/boost/asio/strand.hpp>
-#include <nano/boost/beast/core.hpp>
-#include <nano/boost/beast/websocket.hpp>
+#include <nano/boost_wrappers/asio/strand.hpp>
+#include <nano/boost_wrappers/beast/core.hpp>
+#include <nano/boost_wrappers/beast/websocket.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/work.hpp>

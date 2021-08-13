@@ -1,10 +1,10 @@
 #pragma once
 
-#include <nano/boost/asio/deadline_timer.hpp>
-#include <nano/boost/asio/executor_work_guard.hpp>
-#include <nano/boost/asio/io_context.hpp>
-#include <nano/boost/asio/steady_timer.hpp>
-#include <nano/boost/asio/thread_pool.hpp>
+#include <nano/boost_wrappers/asio/deadline_timer.hpp>
+#include <nano/boost_wrappers/asio/executor_work_guard.hpp>
+#include <nano/boost_wrappers/asio/io_context.hpp>
+#include <nano/boost_wrappers/asio/steady_timer.hpp>
+#include <nano/boost_wrappers/asio/thread_pool.hpp>
 #include <nano/lib/utility.hpp>
 
 #include <boost/thread/thread.hpp>

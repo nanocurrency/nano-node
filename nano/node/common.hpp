@@ -1,7 +1,7 @@
 #pragma once
 
-#include <nano/boost/asio/ip/tcp.hpp>
-#include <nano/boost/asio/ip/udp.hpp>
+#include <nano/boost_wrappers/asio/ip/tcp.hpp>
+#include <nano/boost_wrappers/asio/ip/udp.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/asio.hpp>
 #include <nano/lib/jsonconfig.hpp>

@@ -1,5 +1,5 @@
-#include <nano/boost/beast/core/flat_buffer.hpp>
-#include <nano/boost/beast/http.hpp>
+#include <nano/boost_wrappers/beast/core/flat_buffer.hpp>
+#include <nano/boost_wrappers/beast/http.hpp>
 #include <nano/lib/rpcconfig.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
