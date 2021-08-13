@@ -11,6 +11,7 @@
 #include <memory>
 #include <queue>
 #include <unordered_set>
+
 namespace nano
 {
 class channel;

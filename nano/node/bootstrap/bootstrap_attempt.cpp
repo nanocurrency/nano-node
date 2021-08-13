@@ -9,6 +9,7 @@
 #include <nano/node/websocket.hpp>
 
 #include <boost/format.hpp>
+#include <boost/algorithm/string.hpp>
 
 #include <algorithm>
 
