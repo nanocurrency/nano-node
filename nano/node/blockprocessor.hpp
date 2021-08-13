@@ -1,27 +1,22 @@
 #pragma once
 
+#include <nano/lib/blocks.hpp>
 #include <nano/node/state_block_signature_verification.hpp>
 #include <nano/secure/common.hpp>
-#include <nano/lib/locks.hpp>
-#include <nano/lib/numbers.hpp>
 
-#include <bits/shared_ptr.h>
-#include <bits/std_function.h>
-#include <bits/stdint-uintn.h>
-#include <stddef.h>
-#include <atomic>
+#include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/member.hpp>
+#include <boost/multi_index/ordered_index.hpp>
+#include <boost/multi_index/sequenced_index.hpp>
+#include <boost/multi_index_container.hpp>
+
 #include <chrono>
-#include <deque>
 #include <memory>
-#include <mutex>
-#include <string>
 #include <thread>
-#include <vector>
+#include <unordered_set>
 
 namespace nano
 {
-class block;
-class container_info_component;
 class node;
 class read_transaction;
 class transaction;

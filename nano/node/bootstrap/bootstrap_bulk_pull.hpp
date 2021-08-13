@@ -1,18 +1,9 @@
 #pragma once
 
 #include <nano/node/common.hpp>
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/numbers.hpp>
-#include <nano/secure/common.hpp>
+#include <nano/node/socket.hpp>
 
-#include <bits/shared_ptr.h>
-#include <bits/stdint-uintn.h>
-#include <stddef.h>
-#include <memory>
 #include <unordered_set>
-#include <utility>
-
-namespace boost { namespace system { class error_code; } }
 
 namespace nano
 {

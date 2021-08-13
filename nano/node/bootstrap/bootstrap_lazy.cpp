@@ -6,7 +6,6 @@
 #include <nano/node/network.hpp>
 
 #include <boost/format.hpp>
-#include <boost/format/free_funcs.hpp>
 
 #include <algorithm>
 

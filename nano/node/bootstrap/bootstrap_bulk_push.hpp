@@ -1,16 +1,8 @@
 #pragma once
 
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/numbers.hpp>
+#include <nano/node/common.hpp>
 
-#include <bits/shared_ptr.h>
-#include <bits/stdint-uintn.h>
-#include <stddef.h>
 #include <future>
-#include <utility>
-#include <vector>
-
-namespace boost { namespace system { class error_code; } }
 
 namespace nano
 {

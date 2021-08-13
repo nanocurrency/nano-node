@@ -1,25 +1,11 @@
-#include <nano/lib/locks.hpp>
-#include <nano/lib/utility.hpp>
-#include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
-#include <nano/node/bootstrap/bootstrap_attempt.hpp>
-#include <nano/node/bootstrap/bootstrap_connections.hpp>
-#include <nano/node/common.hpp>
-#include <nano/node/logging.hpp>
-#include <nano/node/node.hpp>
-#include <nano/node/nodeconfig.hpp>
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/numbers.hpp>
 #include <nano/node/bootstrap/bootstrap_bulk_pull.hpp>
-#include <nano/secure/common.hpp>
+#include <nano/node/bootstrap/bootstrap_connections.hpp>
+#include <nano/node/bootstrap/bootstrap_lazy.hpp>
+#include <nano/node/node.hpp>
+#include <nano/node/transport/tcp.hpp>
 
 #include <boost/format.hpp>
-
-#include <vector>
-#include <bits/shared_ptr.h>
-#include <bits/stdint-uintn.h>
-#include <atomic>
-#include <memory>
 
 nano::pull_info::pull_info (nano::hash_or_account const & account_or_head_a, nano::block_hash const & head_a, nano::block_hash const & end_a, uint64_t bootstrap_id_a, count_t count_a, unsigned retry_limit_a) :
 	account_or_head (account_or_head_a),

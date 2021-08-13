@@ -2,9 +2,11 @@
 
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
+#include <nano/node/bootstrap/bootstrap_attempt.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/confirmation_height_processor.hpp>
 #include <nano/node/distributed_work_factory.hpp>
+#include <nano/node/election.hpp>
 #include <nano/node/election_scheduler.hpp>
 #include <nano/node/gap_cache.hpp>
 #include <nano/node/node_observers.hpp>
@@ -14,14 +16,18 @@
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/request_aggregator.hpp>
 #include <nano/node/signatures.hpp>
+#include <nano/node/telemetry.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/node/write_database_queue.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/utility.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
+#include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index_container.hpp>
+#include <boost/program_options.hpp>
 #include <boost/thread/latch.hpp>
 
 #include <atomic>
@@ -223,17 +229,6 @@ public:
 	std::shared_ptr<nano::node> node;
 };
 
-namespace boost
-{
-	namespace program_options
-	{
-		class variables_map;
-	}
-	namespace filesystem
-	{
-		class path;
-	}
-}
 class inactive_node final
 {
 public:

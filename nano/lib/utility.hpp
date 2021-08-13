@@ -5,7 +5,6 @@
 #include <boost/current_function.hpp>
 #include <boost/preprocessor/facilities/empty.hpp>
 #include <boost/preprocessor/facilities/overload.hpp>
-#include <boost/system/error_code.hpp>
 
 #include <cassert>
 #include <functional>
@@ -19,10 +18,10 @@ namespace filesystem
 	class path;
 }
 
-//namespace system
-//{
-//	class error_code;
-//}
+namespace system
+{
+	class error_code;
+}
 }
 
 void assert_internal (const char * check_expr, const char * func, const char * file, unsigned int line, bool is_release_assert, std::string_view error = "");

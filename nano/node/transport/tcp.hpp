@@ -14,8 +14,6 @@
 
 namespace mi = boost::multi_index;
 
-namespace boost { namespace system { class error_code; } }
-
 namespace nano
 {
 class bootstrap_server;

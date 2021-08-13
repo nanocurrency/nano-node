@@ -1,20 +1,9 @@
 #pragma once
 
-#include <nano/lib/numbers.hpp>
+#include <nano/node/common.hpp>
 
-#include <boost/multiprecision/cpp_int/limits.hpp>
-
-#include <bits/shared_ptr.h>
-#include <bits/stdint-uintn.h>
-#include <cstddef>
-#include <chrono>
 #include <deque>
 #include <future>
-#include <limits>
-#include <memory>
-#include <utility>
-
-namespace boost { namespace system { class error_code; } }
 
 namespace nano
 {
