@@ -1,15 +1,19 @@
 #pragma once
 
-#include <nano/lib/numbers.hpp>
-#include <nano/node/active_transactions.hpp>
-#include <nano/node/prioritization.hpp>
+#include <bits/shared_ptr.h>             // for shared_ptr
+#include <bits/std_function.h>           // for function
+#include <stddef.h>                      // for size_t
+#include <boost/none.hpp>                // for none
+#include <boost/optional/optional.hpp>   // for optional
+#include <deque>                         // for deque
+#include <nano/lib/numbers.hpp>          // for uint128_t, account
+#include <nano/node/prioritization.hpp>  // for prioritization
+#include <thread>                        // for thread
+#include <tuple>                         // for tuple
+#include "nano/lib/locks.hpp"            // for condition_variable, mutex
+#include "nano/node/election.hpp"        // for election_behavior, election_...
 
-#include <boost/optional.hpp>
-
-#include <condition_variable>
-#include <deque>
-#include <memory>
-#include <thread>
+namespace nano { class transaction; }
 
 namespace nano
 {

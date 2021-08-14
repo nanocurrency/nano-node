@@ -1,17 +1,44 @@
-#include <nano/crypto_lib/random_pool.hpp>
-#include <nano/lib/utility.hpp>
-#include <nano/node/common.hpp>
 #include <nano/node/lmdb/lmdb.hpp>
+#include <bits/std_function.h>
+#include <array>
+#include <boost/core/swap.hpp>                                      // for swap
+#include <boost/filesystem/operations.hpp>
+#include <boost/filesystem/path.hpp>                                // for path
+#include <boost/format/alt_sstream.hpp>
+#include <boost/format/alt_sstream_impl.hpp>
+#include <boost/format/format_class.hpp>
+#include <boost/format/format_fwd.hpp>
+#include <boost/format/format_implementation.hpp>
+#include <boost/format/free_funcs.hpp>                              // for str
+#include <boost/iterator/iterator_facade.hpp>
+#include <boost/log/detail/attachable_sstream_buf.hpp>
+#include <boost/log/sources/record_ostream.hpp>
+#include <boost/multi_index/detail/bidir_node_iterator.hpp>
+#include <boost/operators.hpp>
+#include <boost/property_tree/detail/exception_implementation.hpp>
+#include <boost/property_tree/detail/ptree_implementation.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <cstdlib>
+#include <iostream>
+#include <limits>
+#include <map>                                                      // for map
+#include <nano/lib/utility.hpp>
 #include <nano/node/lmdb/lmdb_iterator.hpp>
-#include <nano/node/lmdb/wallet_value.hpp>
 #include <nano/secure/buffer.hpp>
 #include <nano/secure/versioning.hpp>
-
-#include <boost/filesystem.hpp>
-#include <boost/format.hpp>
-#include <boost/polymorphic_cast.hpp>
-
-#include <queue>
+#include <sstream>
+#include "lmdb/libraries/liblmdb/lmdb.h"
+#include "nano/lib/config.hpp"
+#include "nano/lib/diagnosticsconfig.hpp"
+#include "nano/lib/logger_mt.hpp"
+#include "nano/lib/numbers.hpp"
+#include "nano/lib/stream.hpp"
+#include "nano/node/lmdb/lmdb_env.hpp"
+#include "nano/node/lmdb/lmdb_txn.hpp"
+#include "nano/secure/common.hpp"
+#include "nano/secure/store/unchecked_store_partial.hpp"
+#include "nano/secure/store_partial.hpp"
+namespace nano { class lmdb_config; }
 
 namespace nano
 {

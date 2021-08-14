@@ -1,6 +1,21 @@
 #include <nano/node/confirmation_solicitor.hpp>
-#include <nano/node/election.hpp>
-#include <nano/node/nodeconfig.hpp>
+#include <bits/stdint-uintn.h>                // for uint64_t
+#include <algorithm>                          // for max
+#include <atomic>                             // for atomic
+#include <limits>                             // for numeric_limits
+#include <memory>                             // for __shared_ptr_access
+#include <nano/node/election.hpp>             // for election, vote_info
+#include <nano/node/nodeconfig.hpp>           // for node_config
+#include "nano/lib/blocks.hpp"                // for block
+#include "nano/lib/config.hpp"                // for network_constants
+#include "nano/lib/numbers.hpp"               // for account, block_hash, root
+#include "nano/lib/utility.hpp"               // for debug_assert
+#include "nano/node/common.hpp"               // for confirm_req, publish
+#include "nano/node/network.hpp"              // for network, network::confi...
+#include "nano/node/repcrawler.hpp"           // for representative
+#include "nano/node/socket.hpp"               // for buffer_drop_policy, buf...
+#include "nano/node/transport/transport.hpp"  // for channel
+#include "nano/secure/common.hpp"             // for election_status, networ...
 
 using namespace std::chrono_literals;
 

@@ -1,17 +1,20 @@
 #pragma once
 
-#include <nano/lib/numbers.hpp>
-#include <nano/lib/utility.hpp>
-#include <nano/secure/common.hpp>
-
-#include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/hashed_index.hpp>   // for hashed_unique
 #include <boost/multi_index/member.hpp>
-#include <boost/multi_index/ordered_index.hpp>
-#include <boost/multi_index_container.hpp>
+#include <boost/multi_index/ordered_index.hpp>  // for ordered_non_unique
+#include <boost/multi_index/indexed_by.hpp>     // for indexed_by
+#include <boost/multi_index/tag.hpp>            // for tag
+#include <boost/multi_index_container.hpp>      // for multi_index_container
+#include <chrono>                               // for steady_clock, steady_...
+#include <memory>                               // for unique_ptr
+#include <nano/lib/numbers.hpp>                 // for uint128_t, account
+#include <string>                               // for string
+#include <vector>                               // for vector
+#include "nano/lib/locks.hpp"                   // for mutex
 
-#include <memory>
-#include <unordered_set>
-#include <vector>
+namespace boost { namespace multi_index { template <class Class, typename Type, Type Class::*PtrToMember> struct member; } }
+namespace nano { class container_info_component; }
 
 namespace nano
 {

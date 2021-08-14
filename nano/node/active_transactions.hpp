@@ -1,26 +1,46 @@
 #pragma once
 
-#include <nano/lib/numbers.hpp>
-#include <nano/node/election.hpp>
-#include <nano/node/voting.hpp>
-#include <nano/secure/common.hpp>
-
-#include <boost/circular_buffer.hpp>
-#include <boost/multi_index/hashed_index.hpp>
-#include <boost/multi_index/member.hpp>
-#include <boost/multi_index/ordered_index.hpp>
-#include <boost/multi_index/random_access_index.hpp>
-#include <boost/multi_index/sequenced_index.hpp>
-#include <boost/multi_index_container.hpp>
-#include <boost/optional.hpp>
-#include <boost/thread/thread.hpp>
-
-#include <atomic>
-#include <condition_variable>
-#include <deque>
-#include <memory>
-#include <unordered_map>
-#include <unordered_set>
+#include <bits/shared_ptr.h>                               // for shared_ptr
+#include <bits/std_function.h>                             // for function
+#include <bits/stdint-intn.h>                              // for int64_t
+#include <bits/stdint-uintn.h>                             // for uint64_t
+#include <stddef.h>                                        // for size_t
+#include <atomic>                                          // for atomic
+#include <boost/multi_index/detail/allocator_traits.hpp>   // for multi_index
+#include <boost/multi_index/hashed_index.hpp>              // for hashed_unique
+#include <boost/multi_index/indexed_by.hpp>                // for indexed_by
+#include <boost/multi_index/ordered_index.hpp>             // for ordered_no...
+#include <boost/multi_index/random_access_index.hpp>       // for random_access
+#include <boost/multi_index/sequenced_index.hpp>           // for sequenced
+#include <boost/multi_index/tag.hpp>                       // for tag
+#include <boost/multi_index_container.hpp>                 // for multi_inde...
+#include <boost/multiprecision/cpp_int.hpp>                // for cpp_int_ba...
+#include <boost/multiprecision/detail/number_base.hpp>     // for canonical<...
+#include <boost/multiprecision/detail/number_compare.hpp>  // for operator!=
+#include <boost/multiprecision/number.hpp>                 // for number
+#include <boost/none.hpp>                                  // for none
+#include <boost/optional/optional.hpp>                     // for optional
+#include <boost/pool/pool_alloc.hpp>                       // for fast_pool_...
+#include <boost/thread/detail/thread.hpp>                  // for thread
+#include <chrono>                                          // for steady_clock
+#include <deque>                                           // for deque
+#include <functional>                                      // for greater
+#include <limits>                                          // for numeric_li...
+#include <memory>                                          // for unique_ptr
+#include <mutex>                                           // for unique_lock
+#include <nano/lib/numbers.hpp>                            // for account
+#include <nano/node/election.hpp>                          // for election_b...
+#include <nano/node/voting.hpp>                            // for vote_gener...
+#include <nano/secure/common.hpp>                          // for election_s...
+#include <string>                                          // for string
+#include <unordered_map>                                   // for unordered_map
+#include <unordered_set>                                   // for unordered_set
+#include <utility>                                         // for pair, move
+#include <vector>                                          // for vector
+#include "nano/lib/epoch.hpp"                              // for epoch
+#include "nano/lib/locks.hpp"                              // for mutex_iden...
+namespace boost { namespace multi_index { template <class Class, typename Type, Type Class::*PtrToMember> struct member; } }
+namespace nano { class container_info_component; }
 
 namespace mi = boost::multi_index;
 

@@ -1,6 +1,20 @@
 #pragma once
 
 #include <boost/multiprecision/cpp_int.hpp>
+#include <boost/container/detail/std_fwd.hpp>  // for equal_to
+
+#include <bits/refwrap.h>                      // for reference_wrapper
+#include <bits/stdint-uintn.h>                 // for uint64_t, uint8_t, uin...
+#include <array>                               // for array
+#include <cstddef>                             // for size_t
+#include <cstdint>                             // for uint64_t
+#include <limits>                              // for numeric_limits, numeri...
+#include <locale>                              // for locale
+#include <string>                              // for string
+#include <type_traits>                         // for integral_constant<>::v...
+#include <variant>                             // for hash
+
+namespace boost { template <class T> struct hash; }
 
 namespace nano
 {

@@ -1,74 +1,31 @@
 #pragma once
 
-#include <nano/crypto/blake2/blake2.h>
-#include <nano/lib/blockbuilders.hpp>
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/config.hpp>
-#include <nano/lib/epoch.hpp>
-#include <nano/lib/numbers.hpp>
-#include <nano/lib/rep_weights.hpp>
-#include <nano/lib/utility.hpp>
+#include <stddef.h>                               // for size_t
+#include <array>                                  // for array
+#include <atomic>                                 // for atomic
+#include <boost/iterator/transform_iterator.hpp>  // for transform_iterator
+#include <boost/property_tree/ptree_fwd.hpp>      // for ptree
+#include <boost/variant/variant.hpp>              // for variant
+#include <chrono>                                 // for milliseconds, seconds
+#include <cstdint>                                // for uint8_t
+#include <memory>                                 // for unique_ptr
+#include <bits/shared_ptr.h>                      // for shared_ptr, weak_ptr
+#include <bits/stdint-uintn.h>                    // for uint64_t, uint8_t
+#include <nano/lib/blocks.hpp>                    // for block_type
+#include <nano/lib/config.hpp>                    // for networks, network_c...
+#include <nano/lib/epoch.hpp>                     // for epoch, epoch::epoch_0
+#include <nano/lib/numbers.hpp>                   // for account, block_hash
+#include <nano/lib/rep_weights.hpp>               // for rep_weights
+#include <string>                                 // for string
+#include <unordered_map>                          // for unordered_map
+#include <utility>                                // for pair
+#include <vector>                                 // for vector, vector<>::c...
+#include "nano/lib/locks.hpp"                     // for mutex_identifier
+#include "nano/lib/stream.hpp"                    // for stream
 
-#include <boost/iterator/transform_iterator.hpp>
-#include <boost/optional/optional.hpp>
-#include <boost/property_tree/ptree_fwd.hpp>
-#include <boost/variant/variant.hpp>
+namespace boost { template <class T> struct hash; }
+namespace nano { class container_info_component; }
 
-#include <unordered_map>
-
-namespace boost
-{
-template <>
-struct hash<::nano::uint256_union>
-{
-	size_t operator() (::nano::uint256_union const & value_a) const
-	{
-		return std::hash<::nano::uint256_union> () (value_a);
-	}
-};
-
-template <>
-struct hash<::nano::block_hash>
-{
-	size_t operator() (::nano::block_hash const & value_a) const
-	{
-		return std::hash<::nano::block_hash> () (value_a);
-	}
-};
-
-template <>
-struct hash<::nano::public_key>
-{
-	size_t operator() (::nano::public_key const & value_a) const
-	{
-		return std::hash<::nano::public_key> () (value_a);
-	}
-};
-template <>
-struct hash<::nano::uint512_union>
-{
-	size_t operator() (::nano::uint512_union const & value_a) const
-	{
-		return std::hash<::nano::uint512_union> () (value_a);
-	}
-};
-template <>
-struct hash<::nano::qualified_root>
-{
-	size_t operator() (::nano::qualified_root const & value_a) const
-	{
-		return std::hash<::nano::qualified_root> () (value_a);
-	}
-};
-template <>
-struct hash<::nano::root>
-{
-	size_t operator() (::nano::root const & value_a) const
-	{
-		return std::hash<::nano::root> () (value_a);
-	}
-};
-}
 namespace nano
 {
 /**

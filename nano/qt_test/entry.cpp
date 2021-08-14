@@ -1,8 +1,7 @@
-#include <nano/node/common.hpp>
+#include <qapplication.h>           // for QApplication
+#include <nano/node/common.hpp>     // for node_singleton_memory_pool_purge_...
+#include "gtest/gtest_pred_impl.h"  // for InitGoogleTest, RUN_ALL_TESTS
 
-#include <gtest/gtest.h>
-
-#include <QApplication>
 QApplication * test_application = nullptr;
 namespace nano
 {

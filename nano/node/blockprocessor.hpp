@@ -1,19 +1,24 @@
 #pragma once
 
-#include <nano/lib/blocks.hpp>
-#include <nano/node/state_block_signature_verification.hpp>
-#include <nano/secure/common.hpp>
+#include <bits/shared_ptr.h>                                 // for shared_ptr
+#include <bits/std_function.h>                               // for function
+#include <bits/stdint-uintn.h>                               // for uint64_t
+#include <stddef.h>                                          // for size_t
+#include <atomic>                                            // for atomic
+#include <chrono>                                            // for millisec...
+#include <deque>                                             // for deque
+#include <memory>                                            // for unique_ptr
+#include <mutex>                                             // for unique_lock
+#include <nano/node/state_block_signature_verification.hpp>  // for state_bl...
+//#include <nano/secure/common.hpp>                            // for process_...
+#include <string>                                            // for string
+#include <thread>                                            // for thread
+#include <vector>                                            // for vector
+#include "nano/lib/locks.hpp"                                // for mutex_id...
+#include "nano/lib/numbers.hpp"                              // for block_hash
 
-#include <boost/multi_index/hashed_index.hpp>
-#include <boost/multi_index/member.hpp>
-#include <boost/multi_index/ordered_index.hpp>
-#include <boost/multi_index/sequenced_index.hpp>
-#include <boost/multi_index_container.hpp>
-
-#include <chrono>
-#include <memory>
-#include <thread>
-#include <unordered_set>
+namespace nano { class block; }
+namespace nano { class container_info_component; }
 
 namespace nano
 {
@@ -22,6 +27,7 @@ class read_transaction;
 class transaction;
 class write_transaction;
 class write_database_queue;
+class process_return;
 
 enum class block_origin
 {

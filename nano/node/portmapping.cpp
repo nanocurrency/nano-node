@@ -1,12 +1,43 @@
-#include <nano/node/node.hpp>
 #include <nano/node/portmapping.hpp>
-#include <nano/node/network.hpp>
-
-#include <miniupnp/miniupnpc/upnpcommands.h>
-#include <miniupnp/miniupnpc/upnperrors.h>
-
-#include <boost/format.hpp>
-#include <boost/range/adaptor/filtered.hpp>
+#include <bits/shared_ptr.h>                            // for shared_ptr
+#include <miniupnp/miniupnpc/upnpcommands.h>            // for UPNPCOMMAND_S...
+#include <miniupnp/miniupnpc/upnperrors.h>              // for strupnperror
+#include <boost/asio/impl/io_context.hpp>               // for io_context::post
+#include <boost/asio/ip/address.hpp>                    // for address
+#include <boost/asio/ip/address_v6.hpp>                 // for address_v6
+#include <boost/asio/ip/impl/address.ipp>               // for address::address
+#include <boost/asio/ip/impl/address_v4.hpp>            // for operator<<
+#include <boost/asio/ip/impl/address_v4.ipp>            // for address_v4::t...
+#include <boost/asio/ip/impl/address_v6.ipp>            // for address_v6::a...
+#include <boost/format/alt_sstream.hpp>                 // for basic_altstri...
+#include <boost/format/alt_sstream_impl.hpp>            // for basic_altstri...
+#include <boost/format/format_class.hpp>                // for basic_format
+#include <boost/format/format_fwd.hpp>                  // for format
+#include <boost/format/format_implementation.hpp>       // for basic_format:...
+#include <boost/format/free_funcs.hpp>                  // for str
+#include <boost/log/detail/attachable_sstream_buf.hpp>  // for basic_ostring...
+#include <boost/log/sources/record_ostream.hpp>         // for operator<<
+#include <boost/optional/optional.hpp>                  // for get_pointer
+#include <boost/range/adaptor/argument_fwd.hpp>         // for forwarder
+#include <boost/range/adaptor/filtered.hpp>             // for operator|
+#include <boost/system/error_code.hpp>                  // for error_code
+#include <chrono>                                       // for operator+
+#include <cstdlib>                                      // for atoi
+#include <memory>                                       // for allocator
+#include <mutex>                                        // for lock_guard
+#include <nano/node/network.hpp>                        // for network
+#include <nano/node/node.hpp>                           // for node
+#include <ostream>                                      // for operator<<
+#include <utility>                                      // for move
+#include "miniupnp/miniupnpc/miniupnpc.h"               // for FreeUPNPUrls
+#include "miniupnp/miniupnpc/upnpdev.h"                 // for UPNPDev, free...
+#include "nano/lib/config.hpp"                          // for network_const...
+#include "nano/lib/logger_mt.hpp"                       // for logger_mt
+#include "nano/lib/threading.hpp"                       // for thread_pool
+#include "nano/lib/utility.hpp"                         // for debug_assert
+#include "nano/node/logging.hpp"                        // for logging
+#include "nano/node/nodeconfig.hpp"                     // for node_flags
+#include "nano/secure/common.hpp"                       // for network_params
 
 std::string nano::mapping_protocol::to_string ()
 {

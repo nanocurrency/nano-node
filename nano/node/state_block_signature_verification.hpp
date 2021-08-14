@@ -1,11 +1,20 @@
 #pragma once
 
-#include <nano/lib/locks.hpp>
-#include <nano/secure/common.hpp>
+#include <bits/std_function.h>     // for function
+#include <bits/stdint-uintn.h>     // for uint64_t
+#include <stddef.h>                // for size_t
+#include <deque>                   // for deque
+#include <memory>                  // for unique_ptr
+#include <nano/lib/locks.hpp>      // for mutex_identifier, condition_variable
+//#include <nano/secure/common.hpp>  // for unchecked_info
+#include <string>                  // for string
+#include <thread>                  // for thread
+#include <vector>                  // for vector
 
-#include <deque>
-#include <functional>
-#include <thread>
+namespace nano { class block_hash; }
+namespace nano { class container_info_component; }
+namespace nano { class signature; }
+namespace nano { class unchecked_info; }
 
 namespace nano
 {

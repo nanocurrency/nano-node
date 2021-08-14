@@ -1,5 +1,17 @@
+#include <memory>                             // for __shared_ptr_access
 #include <nano/node/election_scheduler.hpp>
-#include <nano/node/node.hpp>
+#include <cxxabi.h>                           // for __forced_unwind
+#include <mutex>                              // for unique_lock, lock_guard
+#include <nano/node/node.hpp>                 // for node
+#include <utility>                            // for move, swap
+#include "nano/lib/numbers.hpp"               // for uint128_t, account
+#include "nano/lib/threading.hpp"             // for set, name, name::electi...
+#include "nano/lib/utility.hpp"               // for debug_assert
+#include "nano/node/active_transactions.hpp"  // for active_transactions
+#include "nano/node/prioritization.hpp"       // for prioritization
+#include "nano/secure/common.hpp"             // for account_info, confirmat...
+#include "nano/secure/ledger.hpp"             // for ledger
+#include "nano/secure/store.hpp"              // for store, block_store, acc...
 
 nano::election_scheduler::election_scheduler (nano::node & node) :
 	node{ node },

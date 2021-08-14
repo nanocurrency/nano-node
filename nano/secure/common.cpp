@@ -1,20 +1,93 @@
+#include <nano/secure/common.hpp>
+#include <crypto/ed25519-donna/ed25519.h>
+#include <ext/alloc_traits.h>
+#include <string.h>
+#include <algorithm>                                                // for copy
+#include <boost/core/swap.hpp>                                      // for swap
+#include <boost/cstdint.hpp>
+#include <boost/endian/conversion.hpp>
+#include <boost/iterator/iterator_facade.hpp>
+#include <boost/multi_index/detail/bidir_node_iterator.hpp>
+#include <boost/multiprecision/cpp_int/bitwise.hpp>
+#include <boost/multiprecision/cpp_int/limits.hpp>
+#include <boost/multiprecision/detail/no_et_ops.hpp>
+#include <boost/multiprecision/number.hpp>
+#include <boost/operators.hpp>
+//#include <boost/property_tree/detail/exception_implementation.hpp>
+//#include <boost/property_tree/detail/ptree_implementation.hpp>
+#include <boost/property_tree/json_parser.hpp>
+//#include <boost/property_tree/ptree.hpp>
+#include <boost/variant/get.hpp>                                    // for get
+#include <iterator>
+#include <limits>
+#include <mutex>
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/timer.hpp>
-#include <nano/secure/common.hpp>
-#include <nano/secure/store.hpp>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include "crypto/blake2/blake2.h"
+#include "crypto/cryptopp/config_int.h"
+#include "nano/lib/blocks.hpp"
+#include "nano/lib/epoch.hpp"
+#include "nano/lib/utility.hpp"
+#include <functional>
 
-#include <crypto/cryptopp/words.h>
+namespace boost
+{
+template <>
+struct hash<::nano::uint256_union>
+{
+	size_t operator() (::nano::uint256_union const & value_a) const
+	{
+		return std::hash<::nano::uint256_union> () (value_a);
+	}
+};
 
-#include <boost/endian/conversion.hpp>
-#include <boost/property_tree/json_parser.hpp>
-#include <boost/variant/get.hpp>
+template <>
+struct hash<::nano::block_hash>
+{
+	size_t operator() (::nano::block_hash const & value_a) const
+	{
+		return std::hash<::nano::block_hash> () (value_a);
+	}
+};
 
-#include <limits>
-#include <queue>
-
-#include <crypto/ed25519-donna/ed25519.h>
+template <>
+struct hash<::nano::public_key>
+{
+	size_t operator() (::nano::public_key const & value_a) const
+	{
+		return std::hash<::nano::public_key> () (value_a);
+	}
+};
+template <>
+struct hash<::nano::uint512_union>
+{
+	size_t operator() (::nano::uint512_union const & value_a) const
+	{
+		return std::hash<::nano::uint512_union> () (value_a);
+	}
+};
+template <>
+struct hash<::nano::qualified_root>
+{
+	size_t operator() (::nano::qualified_root const & value_a) const
+	{
+		return std::hash<::nano::qualified_root> () (value_a);
+	}
+};
+template <>
+struct hash<::nano::root>
+{
+	size_t operator() (::nano::root const & value_a) const
+	{
+		return std::hash<::nano::root> () (value_a);
+	}
+};
+}
 
 size_t constexpr nano::send_block::size;
 size_t constexpr nano::receive_block::size;

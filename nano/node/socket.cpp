@@ -1,12 +1,49 @@
-#include <nano/boost_wrappers/asio/bind_executor.hpp>
-#include <nano/boost_wrappers/asio/dispatch.hpp>
-#include <nano/boost_wrappers/asio/read.hpp>
-#include <nano/node/node.hpp>
 #include <nano/node/socket.hpp>
-
-#include <boost/format.hpp>
-
+#include <errno.h>
+#include <algorithm>
+#include <boost/asio/bind_executor.hpp>
+#include <boost/asio/buffer.hpp>
+#include <boost/asio/detail/impl/reactive_socket_service_base.ipp>
+#include <boost/asio/detail/impl/service_registry.hpp>
+#include <boost/asio/detail/impl/strand_executor_service.ipp>
+#include <boost/asio/executor.hpp>
+#include <boost/asio/impl/dispatch.hpp>
+#include <boost/asio/impl/executor.hpp>
+#include <boost/asio/impl/io_context.hpp>
+#include <boost/asio/impl/post.hpp>                                 // for post
+#include <boost/asio/impl/read.hpp>
+#include <boost/asio/ip/detail/impl/endpoint.ipp>
+#include <boost/asio/ip/impl/basic_endpoint.hpp>
+#include <boost/asio/socket_base.hpp>
+#include <boost/format/alt_sstream.hpp>
+#include <boost/format/alt_sstream_impl.hpp>
+#include <boost/format/format_class.hpp>
+#include <boost/format/format_fwd.hpp>
+#include <boost/format/format_implementation.hpp>
+#include <boost/format/free_funcs.hpp>                              // for str
+#include <boost/log/detail/attachable_sstream_buf.hpp>
+#include <boost/log/sources/record_ostream.hpp>
+#include <boost/system/error_code.hpp>
+#include <cstddef>
+#include <cstdint>
+#include <iterator>
 #include <limits>
+#include <memory>
+#include <nano/node/node.hpp>                                       // for node
+#include <new>
+#include <ostream>
+#include <utility>                                                  // for move
+#include "nano/lib/asio.hpp"
+#include "nano/lib/config.hpp"
+#include "nano/lib/logger_mt.hpp"
+#include "nano/lib/stats.hpp"                                       // for stat
+#include "nano/lib/threading.hpp"
+#include "nano/lib/timer.hpp"
+#include "nano/lib/utility.hpp"
+#include "nano/node/common.hpp"
+#include "nano/node/logging.hpp"
+#include "nano/node/nodeconfig.hpp"
+#include "nano/secure/common.hpp"
 
 nano::socket::socket (nano::node & node_a, boost::optional<std::chrono::seconds> io_timeout_a) :
 	strand{ node_a.io_ctx.get_executor () },
