@@ -1,12 +1,54 @@
-#include <nano/node/bootstrap/bootstrap.hpp>
-#include <nano/node/bootstrap/bootstrap_attempt.hpp>
-#include <nano/node/bootstrap/bootstrap_connections.hpp>
-#include <nano/node/common.hpp>
-#include <nano/node/node.hpp>
-#include <nano/node/transport/tcp.hpp>
-#include <nano/node/network.hpp>
+#include "nano/lib/config.hpp" // for network_const...
+#include "nano/lib/logger_mt.hpp" // for logger_mt
+#include "nano/lib/numbers.hpp" // for block_hash
+#include "nano/lib/stats.hpp" // for stat, stat::d...
+#include "nano/lib/threading.hpp" // for thread_pool
+#include "nano/lib/utility.hpp" // for narrow_cast
+#include "nano/node/bootstrap/bootstrap_bulk_pull.hpp" // for pull_info
+#include "nano/node/logging.hpp" // for logging
+#include "nano/node/nodeconfig.hpp" // for node_config
+#include "nano/node/peer_exclusion.hpp" // for peer_exclusion
+#include "nano/node/socket.hpp" // for socket
+#include "nano/secure/common.hpp" // for network_params
 
-#include <boost/format.hpp>
+#include <nano/node/bootstrap/bootstrap.hpp> // for bootstrap_limits
+#include <nano/node/bootstrap/bootstrap_attempt.hpp> // for bootstrap_att...
+#include <nano/node/bootstrap/bootstrap_connections.hpp>
+#include <nano/node/common.hpp> // for tcp_endpoint
+#include <nano/node/network.hpp> // for network
+#include <nano/node/node.hpp> // for node
+#include <nano/node/transport/tcp.hpp> // for channel_tcp
+
+#include <boost/asio/impl/io_context.hpp> // for io_context::post
+#include <boost/asio/io_context.hpp> //  error: ‘io_context_impl’ in namespace ‘boost::asio::detail’ does not name a type
+#include <boost/asio/ip/address_v6.hpp> // for address_v6
+#include <boost/asio/ip/basic_endpoint.hpp> // for operator==
+#include <boost/asio/ip/detail/impl/endpoint.ipp> // for endpoint::add...
+#include <boost/asio/ip/impl/address.ipp> // for address::address
+#include <boost/asio/ip/impl/basic_endpoint.hpp> // for operator<<
+#include <boost/format/alt_sstream.hpp> // for basic_altstri...
+#include <boost/format/alt_sstream_impl.hpp> // for basic_altstri...
+#include <boost/format/exceptions.hpp>
+#include <boost/format/format_class.hpp> // for basic_format
+#include <boost/format/format_fwd.hpp> // for format
+#include <boost/format/format_implementation.hpp> // for basic_format:...
+#include <boost/format/free_funcs.hpp> // for str
+#include <boost/log/detail/attachable_sstream_buf.hpp> // for basic_ostring...
+#include <boost/log/sources/record_ostream.hpp> // for operator<<
+#include <boost/optional/optional.hpp> // for get_pointer
+#include <boost/system/error_code.hpp> // for error_code
+
+#include <algorithm> // for max, min
+#include <cstdint> // for uint64_t, uin...
+#include <memory> // for __shared_ptr_...
+#include <ostream> // for operator<<
+#include <queue> // for priority_queue
+#include <string> // for string, basic...
+#include <unordered_set> // for unordered_set
+#include <utility> // for move
+
+#include <cxxabi.h> // for __forced_unwind
+#include <math.h> // for roundf, sqrtf
 
 constexpr double nano::bootstrap_limits::bootstrap_connection_scale_target_blocks;
 constexpr double nano::bootstrap_limits::bootstrap_minimum_blocks_per_sec;

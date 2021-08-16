@@ -2,9 +2,9 @@
 #include <nano/boost_wrappers/asio/dispatch.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/stats.hpp>
+#include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/udp.hpp>
-#include <nano/node/network.hpp>
 
 #include <boost/format.hpp>
 

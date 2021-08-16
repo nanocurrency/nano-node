@@ -1,9 +1,31 @@
 #pragma once
 
-#include <nano/node/common.hpp>
+#include "nano/lib/numbers.hpp" // for account, block_...
 
-#include <deque>
-#include <future>
+#include <nano/node/common.hpp> // for frontier_req
+
+#include <boost/multiprecision/cpp_int/bitwise.hpp> // for eval_complement
+#include <boost/multiprecision/cpp_int/limits.hpp> // for numeric_limits
+#include <boost/multiprecision/detail/no_et_ops.hpp> // for operator~
+
+#include <chrono> // for steady_clock
+#include <deque> // for deque
+#include <future> // for promise
+#include <limits> // for numeric_limits
+#include <memory> // for unique_ptr
+#include <utility> // for pair
+
+#include <bits/shared_ptr.h> // for shared_ptr, ena...
+#include <bits/stdint-uintn.h> // for uint32_t, uint64_t
+#include <stddef.h> // for size_t
+
+namespace boost
+{
+namespace system
+{
+	class error_code;
+}
+}
 
 namespace nano
 {

@@ -1,3 +1,5 @@
+#pragma once
+
 namespace boost
 {
 namespace filesystem

@@ -1,15 +1,34 @@
-#include <nano/lib/stats.hpp>
-#include <nano/lib/threading.hpp>
-#include <nano/lib/utility.hpp>
-#include <nano/node/network.hpp>
-#include <nano/node/nodeconfig.hpp>
-#include <nano/node/vote_processor.hpp>
-#include <nano/node/voting.hpp>
-#include <nano/node/wallet.hpp>
-#include <nano/secure/ledger.hpp>
-#include <nano/secure/store.hpp>
+#include "nano/lib/blocks.hpp" // for block
+#include "nano/lib/locks.hpp" // for mutex (p...
+#include "nano/lib/numbers.hpp" // for block_hash
+#include "nano/lib/timer.hpp" // for millisec...
+#include "nano/node/transport/transport.hpp" // for channel_...
+#include "nano/secure/common.hpp" // for vote
 
-#include <chrono>
+#include <nano/lib/stats.hpp> // for stat
+#include <nano/lib/threading.hpp> // for set, name
+#include <nano/lib/utility.hpp> // for containe...
+#include <nano/node/network.hpp> // for network
+#include <nano/node/nodeconfig.hpp> // for node_config
+#include <nano/node/vote_processor.hpp> // for vote_pro...
+#include <nano/node/voting.hpp>
+#include <nano/node/wallet.hpp> // for wallets
+#include <nano/secure/ledger.hpp> // for ledger
+#include <nano/secure/store.hpp> // for tables
+
+#include <boost/multi_index/detail/hash_index_iterator.hpp> // for hashed_i...
+#include <boost/operators.hpp> // for operator!=
+
+#include <algorithm> // for find
+#include <chrono> // for operator<
+#include <iterator> // for back_ins...
+#include <limits> // for numeric_...
+#include <memory>
+#include <type_traits> // for __succes...
+#include <unordered_set> // for unordere...
+
+#include <bits/stdint-uintn.h> // for uint64_t
+#include <cxxabi.h> // for __forced...
 
 void nano::vote_spacing::trim ()
 {

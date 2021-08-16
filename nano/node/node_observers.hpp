@@ -1,16 +1,28 @@
 #pragma once
 
-#include <memory>                  // for unique_ptr
-#include <bits/shared_ptr.h>       // for shared_ptr
-#include <nano/lib/numbers.hpp>    // for account, uint128_t
-#include <nano/lib/utility.hpp>    // for observer_set
-#include <string>                  // for string
-#include <vector>                  // for vector
-#include "nano/node/common.hpp"    // for endpoint, telemetry_data (ptr only)
-#include "nano/secure/common.hpp"  // for election_status (ptr only), vote (...
+#include "nano/node/common.hpp" // for endpoint, telemetry_data (ptr only)
+#include "nano/secure/common.hpp" // for election_status (ptr only), vote (...
 
-namespace nano { class vote_with_weight_info; }
-namespace nano { namespace transport { class channel; } }
+#include <nano/lib/numbers.hpp> // for account, uint128_t
+#include <nano/lib/utility.hpp> // for observer_set
+
+#include <memory> // for unique_ptr
+#include <string> // for string
+#include <vector> // for vector
+
+#include <bits/shared_ptr.h> // for shared_ptr
+
+namespace nano
+{
+class vote_with_weight_info;
+}
+namespace nano
+{
+namespace transport
+{
+	class channel;
+}
+}
 
 namespace nano
 {

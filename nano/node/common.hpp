@@ -1,35 +1,49 @@
 #pragma once
 
-#include <memory>
-#include <bits/shared_ptr.h>                 // for shared_ptr
-#include <bits/stdint-uintn.h>               // for uint8_t, uint64_t, uint32_t
-#include <array>                             // for array
-#include <bitset>                            // for bitset
-#include <boost/asio/ip/address.hpp>         // for address
-#include <boost/asio/ip/tcp.hpp>             // for tcp, tcp::endpoint
-#include <boost/asio/ip/udp.hpp>             // for udp, udp::endpoint
-#include <boost/multiprecision/cpp_int.hpp>  // for cpp_int_backend
-#include <boost/optional/optional.hpp>       // for optional
-#include <chrono>                            // for seconds, system_clock
-#include <cstddef>                           // for size_t
-#include <cstdint>                           // for uint8_t
-#include <nano/lib/asio.hpp>                 // for shared_const_buffer
-#include <nano/lib/memory.hpp>               // for cleanup_guard
-#include <nano/secure/common.hpp>            // for keypair
-#include <string>                            // for string
-#include <type_traits>                       // for underlying_type_t
-#include <utility>                           // for pair
-#include <variant>                           // for hash
-#include <vector>                            // for vector
-#include "nano/lib/blocks.hpp"               // for block_uniquer (ptr only)
-#include "nano/lib/config.hpp"               // for network_constants, networks
-#include "nano/lib/errors.hpp"               // for error
-#include "nano/lib/numbers.hpp"              // for account, block_hash, roo...
-#include "nano/lib/stream.hpp"               // for stream
+#include "nano/lib/blocks.hpp" // for block_uniquer (ptr only)
+#include "nano/lib/config.hpp" // for network_constants, networks
+#include "nano/lib/errors.hpp" // for error
+#include "nano/lib/numbers.hpp" // for account, block_hash, roo...
+#include "nano/lib/stream.hpp" // for stream
 
-namespace boost { template <class T> struct hash; }
-namespace nano { class jsonconfig; }
-namespace nano { class network_filter; }
+#include <nano/lib/asio.hpp> // for shared_const_buffer
+#include <nano/lib/memory.hpp> // for cleanup_guard
+#include <nano/secure/common.hpp> // for keypair
+
+#include <boost/asio/ip/address.hpp> // for address
+#include <boost/asio/ip/tcp.hpp> // for tcp, tcp::endpoint
+#include <boost/asio/ip/udp.hpp> // for udp, udp::endpoint
+#include <boost/multiprecision/cpp_int.hpp> // for cpp_int_backend
+#include <boost/optional/optional.hpp> // for optional
+
+#include <array> // for array
+#include <bitset> // for bitset
+#include <chrono> // for seconds, system_clock
+#include <cstddef> // for size_t
+#include <cstdint> // for uint8_t
+#include <memory>
+#include <string> // for string
+#include <type_traits> // for underlying_type_t
+#include <utility> // for pair
+#include <variant> // for hash
+#include <vector> // for vector
+
+#include <bits/shared_ptr.h> // for shared_ptr
+#include <bits/stdint-uintn.h> // for uint8_t, uint64_t, uint32_t
+
+namespace boost
+{
+template <class T>
+struct hash;
+}
+namespace nano
+{
+class jsonconfig;
+}
+namespace nano
+{
+class network_filter;
+}
 
 namespace nano
 {

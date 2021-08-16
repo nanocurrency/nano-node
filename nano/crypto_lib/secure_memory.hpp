@@ -1,3 +1,5 @@
+#pragma once
+
 #include <cstddef>
 
 #if defined(__clang__)

@@ -1,30 +1,41 @@
 #pragma once
 
-#include <stddef.h>                               // for size_t
-#include <array>                                  // for array
-#include <atomic>                                 // for atomic
-#include <boost/iterator/transform_iterator.hpp>  // for transform_iterator
-#include <boost/property_tree/ptree_fwd.hpp>      // for ptree
-#include <boost/variant/variant.hpp>              // for variant
-#include <chrono>                                 // for milliseconds, seconds
-#include <cstdint>                                // for uint8_t
-#include <memory>                                 // for unique_ptr
-#include <bits/shared_ptr.h>                      // for shared_ptr, weak_ptr
-#include <bits/stdint-uintn.h>                    // for uint64_t, uint8_t
-#include <nano/lib/blocks.hpp>                    // for block_type
-#include <nano/lib/config.hpp>                    // for networks, network_c...
-#include <nano/lib/epoch.hpp>                     // for epoch, epoch::epoch_0
-#include <nano/lib/numbers.hpp>                   // for account, block_hash
-#include <nano/lib/rep_weights.hpp>               // for rep_weights
-#include <string>                                 // for string
-#include <unordered_map>                          // for unordered_map
-#include <utility>                                // for pair
-#include <vector>                                 // for vector, vector<>::c...
-#include "nano/lib/locks.hpp"                     // for mutex_identifier
-#include "nano/lib/stream.hpp"                    // for stream
+#include "nano/lib/locks.hpp" // for mutex_identifier
+#include "nano/lib/stream.hpp" // for stream
 
-namespace boost { template <class T> struct hash; }
-namespace nano { class container_info_component; }
+#include <nano/lib/blocks.hpp> // for block_type
+#include <nano/lib/config.hpp> // for networks, network_c...
+#include <nano/lib/epoch.hpp> // for epoch, epoch::epoch_0
+#include <nano/lib/numbers.hpp> // for account, block_hash
+#include <nano/lib/rep_weights.hpp> // for rep_weights
+
+#include <boost/iterator/transform_iterator.hpp> // for transform_iterator
+#include <boost/property_tree/ptree_fwd.hpp> // for ptree
+#include <boost/variant/variant.hpp> // for variant
+
+#include <array> // for array
+#include <atomic> // for atomic
+#include <chrono> // for milliseconds, seconds
+#include <cstdint> // for uint8_t
+#include <memory> // for unique_ptr
+#include <string> // for string
+#include <unordered_map> // for unordered_map
+#include <utility> // for pair
+#include <vector> // for vector, vector<>::c...
+
+#include <bits/shared_ptr.h> // for shared_ptr, weak_ptr
+#include <bits/stdint-uintn.h> // for uint64_t, uint8_t
+#include <stddef.h> // for size_t
+
+namespace boost
+{
+template <class T>
+struct hash;
+}
+namespace nano
+{
+class container_info_component;
+}
 
 namespace nano
 {

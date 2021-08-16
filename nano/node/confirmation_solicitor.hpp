@@ -1,17 +1,34 @@
 #pragma once
 
-#include <memory>
-#include <bits/shared_ptr.h>         // for hash, shared_ptr
-#include <cstddef>                  // for size_t
-#include <nano/node/repcrawler.hpp>  // for representative
-#include <unordered_map>             // for unordered_map
-#include <utility>                   // for pair
-#include <vector>                    // for vector
+#include <nano/node/repcrawler.hpp> // for representative
 
-namespace nano { class block_hash; }
-namespace nano { class network; }
-namespace nano { class root; }
-namespace nano { namespace transport { class channel; } }
+#include <cstddef> // for size_t
+#include <memory>
+#include <unordered_map> // for unordered_map
+#include <utility> // for pair
+#include <vector> // for vector
+
+#include <bits/shared_ptr.h> // for hash, shared_ptr
+
+namespace nano
+{
+class block_hash;
+}
+namespace nano
+{
+class network;
+}
+namespace nano
+{
+class root;
+}
+namespace nano
+{
+namespace transport
+{
+	class channel;
+}
+}
 
 namespace nano
 {

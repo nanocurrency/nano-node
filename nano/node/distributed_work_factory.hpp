@@ -1,12 +1,25 @@
 #pragma once
 
-#include <nano/lib/numbers.hpp>
+#include "nano/lib/locks.hpp" // for mutex
+#include "nano/lib/work.hpp" // for work_version
 
-#include <atomic>
-#include <functional>
-#include <mutex>
-#include <unordered_map>
-#include <vector>
+#include <nano/lib/numbers.hpp> // for account, hash
+
+#include <boost/none.hpp> // for none
+#include <boost/optional/optional.hpp> // for optional
+
+#include <atomic> // for atomic
+#include <chrono> // for seconds
+#include <memory> // for unique_ptr
+#include <string> // for string
+#include <unordered_map> // for unordered_multimap
+#include <utility> // for pair
+#include <vector> // for vector
+
+#include <bits/shared_ptr.h> // for weak_ptr
+#include <bits/std_function.h> // for function
+#include <bits/stdint-uintn.h> // for uint64_t, uint16_t
+#include <stddef.h> // for size_t
 
 namespace nano
 {

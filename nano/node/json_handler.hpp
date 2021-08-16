@@ -1,14 +1,37 @@
 #pragma once
 
-#include <nano/lib/numbers.hpp>
-#include <nano/node/ipc/flatbuffers_handler.hpp>
-#include <nano/node/wallet.hpp>
-#include <nano/rpc/rpc.hpp>
+#include "nano/lib/errors.hpp" // for error_c...
+#include "nano/lib/rpc_handler_interface.hpp" // for rpc_han...
+#include "nano/lib/work.hpp" // for work_ve...
+#include "nano/secure/common.hpp" // for account...
 
-#include <boost/property_tree/ptree.hpp>
+#include <nano/lib/numbers.hpp> // for Mxrb_ratio
+#include <nano/rpc/rpc.hpp> // for rpc
 
-#include <functional>
-#include <string>
+#include <boost/optional/detail/optional_reference_spec.hpp> // for optional
+#include <boost/property_tree/ptree.hpp> // for basic_p...
+#include <boost/property_tree/ptree_fwd.hpp> // for ptree
+
+#include <limits> // for numeric...
+#include <string> // for string
+#include <system_error> // for error_code
+
+#include <bits/shared_ptr.h> // for shared_ptr
+#include <bits/std_function.h> // for function
+#include <bits/stdint-uintn.h> // for uint64_t
+
+namespace nano
+{
+class block;
+}
+namespace nano
+{
+class transaction;
+}
+namespace nano
+{
+class wallet;
+}
 
 namespace nano
 {

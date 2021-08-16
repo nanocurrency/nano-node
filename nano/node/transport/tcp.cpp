@@ -1,9 +1,63 @@
-#include <nano/lib/stats.hpp>
-#include <nano/node/node.hpp>
-#include <nano/node/transport/tcp.hpp>
-#include <nano/node/network.hpp>
+#include "crypto/cryptopp/config_int.h" // for word32
+#include "nano/crypto_lib/random_pool.hpp" // for random_pool
+#include "nano/lib/config.hpp" // for network_...
+#include "nano/lib/logger_mt.hpp" // for logger_mt
+#include "nano/lib/threading.hpp" // for thread_pool
+#include "nano/node/bootstrap/bootstrap_server.hpp" // for bootstra...
+#include "nano/node/common.hpp" // for endpoint
+#include "nano/node/logging.hpp" // for logging
+#include "nano/node/nodeconfig.hpp" // for node_config
+#include "nano/node/peer_exclusion.hpp" // for peer_exc...
+#include "nano/node/telemetry.hpp" // for telemetry
+#include "nano/node/transport/transport.hpp" // for map_endp...
+#include "nano/node/transport/udp.hpp" // for udp_chan...
+#include "nano/secure/buffer.hpp" // for bufferst...
+#include "nano/secure/common.hpp" // for network_...
+#include "nano/secure/store.hpp" // for tables
 
-#include <boost/format.hpp>
+#include <nano/lib/stats.hpp> // for stat
+#include <nano/node/network.hpp> // for network
+#include <nano/node/node.hpp> // for node
+#include <nano/node/transport/tcp.hpp>
+
+#include <boost/asio/impl/io_context.hpp> // for io_conte...
+#include <boost/asio/ip/basic_endpoint.hpp> // for operator==
+#include <boost/asio/ip/detail/impl/endpoint.ipp> // for endpoint...
+#include <boost/asio/ip/impl/address_v6.ipp> // for address_...
+#include <boost/asio/ip/impl/basic_endpoint.hpp> // for operator<<
+#include <boost/cstdint.hpp> // for uint8_t
+#include <boost/format/alt_sstream.hpp> // for basic_al...
+#include <boost/format/alt_sstream_impl.hpp> // for basic_al...
+#include <boost/format/format_class.hpp> // for basic_fo...
+#include <boost/format/format_fwd.hpp> // for format
+#include <boost/format/format_implementation.hpp> // for basic_fo...
+#include <boost/format/free_funcs.hpp> // for str
+#include <boost/log/detail/attachable_sstream_buf.hpp> // for basic_os...
+#include <boost/log/sources/record_ostream.hpp> // for operator<<
+#include <boost/move/utility_core.hpp> // for move
+#include <boost/multi_index/detail/bidir_node_iterator.hpp> // for bidir_no...
+#include <boost/multi_index/detail/hash_index_iterator.hpp> // for operator==
+#include <boost/multi_index/detail/index_node_base.hpp> // for index_no...
+#include <boost/multi_index/detail/rnd_node_iterator.hpp> // for operator==
+#include <boost/multi_index/mem_fun.hpp> // for const_me...
+#include <boost/multi_index/member.hpp> // for member
+#include <boost/none.hpp> // for none
+#include <boost/operators.hpp> // for operator!=
+#include <boost/optional/optional.hpp> // for get_pointer
+#include <boost/system/error_code.hpp> // for error_code
+
+#include <algorithm> // for fill, min
+#include <cmath> // for ceil, sqrt
+#include <cstdint> // for uint8_t
+#include <iterator> // for back_ins...
+#include <memory>
+#include <ostream> // for operator<<
+#include <utility> // for move, swap
+
+namespace nano
+{
+class shared_const_buffer;
+}
 
 nano::transport::channel_tcp::channel_tcp (nano::node & node_a, std::weak_ptr<nano::socket> socket_a) :
 	channel (node_a),

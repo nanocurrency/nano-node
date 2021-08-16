@@ -1,38 +1,41 @@
+#include "nano/lib/logger_mt.hpp" // for logger_mt
+#include "nano/lib/numbers.hpp" // for account
+#include "nano/lib/threading.hpp" // for thread_pool
+#include "nano/lib/utility.hpp" // for containe...
+#include "nano/node/bootstrap/bootstrap.hpp" // for bootstra...
+#include "nano/node/nodeconfig.hpp" // for node_flags
+#include "nano/node/online_reps.hpp" // for online_reps
+#include "nano/secure/common.hpp" // for vote
+#include "nano/secure/ledger.hpp" // for ledger
+
 #include <nano/node/gap_cache.hpp>
-#include <boost/smart_ptr/intrusive_ptr.hpp>
-#include <algorithm>                                         // for find
-#include <boost/core/enable_if.hpp>                          // for enable_i...
-#include <boost/format/alt_sstream.hpp>                      // for basic_al...
-#include <boost/format/alt_sstream_impl.hpp>                 // for basic_al...
-#include <boost/format/format_class.hpp>                     // for basic_fo...
-#include <boost/format/exceptions.hpp>
-#include <boost/format/format_fwd.hpp>                       // for format
-#include <boost/format/format_implementation.hpp>            // for basic_fo...
-#include <boost/format/free_funcs.hpp>                       // for str
-#include <boost/log/detail/attachable_sstream_buf.hpp>       // for basic_os...
-#include <boost/log/sources/record_ostream.hpp>              // for operator<<
-#include <boost/multi_index/detail/hash_index_iterator.hpp>  // for hashed_i...
-#include <boost/multi_index/hashed_index.hpp>
-#include <boost/multiprecision/cpp_int.hpp>                  // for cpp_int_...
-#include <boost/multiprecision/detail/no_et_ops.hpp>         // for operator*
-#include <boost/multiprecision/detail/number_compare.hpp>    // for operator>
-#include <boost/operators.hpp>                               // for operator!=
-#include <boost/optional/optional.hpp>                       // for get_pointer
-#include <mutex>                                             // for lock_guard
+#include <nano/node/node.hpp> // for node
+
 #include <boost/asio/io_context.hpp>
-#include <nano/node/node.hpp>                                // for node
-#include <ostream>                                           // for operator<<
-#include <utility>                                           // for move
-#include "nano/lib/logger_mt.hpp"                            // for logger_mt
-#include "nano/lib/numbers.hpp"                              // for account
-#include "nano/lib/threading.hpp"                            // for thread_pool
-#include "nano/lib/utility.hpp"                              // for containe...
-#include "nano/node/bootstrap/bootstrap.hpp"                 // for bootstra...
-#include "nano/node/nodeconfig.hpp"                          // for node_flags
-#include "nano/node/online_reps.hpp"                         // for online_reps
-#include "nano/secure/common.hpp"                            // for vote
-#include "nano/secure/ledger.hpp"                            // for ledger
 #include <boost/container_hash/extensions.hpp>
+#include <boost/core/enable_if.hpp> // for enable_i...
+#include <boost/format/alt_sstream.hpp> // for basic_al...
+#include <boost/format/alt_sstream_impl.hpp> // for basic_al...
+#include <boost/format/exceptions.hpp>
+#include <boost/format/format_class.hpp> // for basic_fo...
+#include <boost/format/format_fwd.hpp> // for format
+#include <boost/format/format_implementation.hpp> // for basic_fo...
+#include <boost/format/free_funcs.hpp> // for str
+#include <boost/log/detail/attachable_sstream_buf.hpp> // for basic_os...
+#include <boost/log/sources/record_ostream.hpp> // for operator<<
+#include <boost/multi_index/detail/hash_index_iterator.hpp> // for hashed_i...
+#include <boost/multi_index/hashed_index.hpp>
+#include <boost/multiprecision/cpp_int.hpp> // for cpp_int_...
+#include <boost/multiprecision/detail/no_et_ops.hpp> // for operator*
+#include <boost/multiprecision/detail/number_compare.hpp> // for operator>
+#include <boost/operators.hpp> // for operator!=
+#include <boost/optional/optional.hpp> // for get_pointer
+#include <boost/smart_ptr/intrusive_ptr.hpp>
+
+#include <algorithm> // for find
+#include <mutex> // for lock_guard
+#include <ostream> // for operator<<
+#include <utility> // for move
 
 nano::gap_cache::gap_cache (nano::node & node_a) :
 	node (node_a)

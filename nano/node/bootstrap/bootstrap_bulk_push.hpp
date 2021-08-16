@@ -1,8 +1,23 @@
 #pragma once
 
-#include <nano/node/common.hpp>
+#include "nano/lib/blocks.hpp" // for block (ptr only), block_type
+#include "nano/lib/numbers.hpp" // for block_hash
 
-#include <future>
+#include <future> // for promise
+#include <utility> // for pair
+#include <vector> // for vector
+
+#include <bits/shared_ptr.h> // for shared_ptr, enable_shared_from_this
+#include <bits/stdint-uintn.h> // for uint8_t
+#include <stddef.h> // for size_t
+
+namespace boost
+{
+namespace system
+{
+	class error_code;
+}
+}
 
 namespace nano
 {

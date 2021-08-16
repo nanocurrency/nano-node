@@ -1,9 +1,6 @@
 #include <nano/secure/common.hpp>
-#include <crypto/ed25519-donna/ed25519.h>
-#include <ext/alloc_traits.h>
-#include <string.h>
-#include <algorithm>                                                // for copy
-#include <boost/core/swap.hpp>                                      // for swap
+
+#include <boost/core/swap.hpp> // for swap
 #include <boost/cstdint.hpp>
 #include <boost/endian/conversion.hpp>
 #include <boost/iterator/iterator_facade.hpp>
@@ -13,27 +10,36 @@
 #include <boost/multiprecision/detail/no_et_ops.hpp>
 #include <boost/multiprecision/number.hpp>
 #include <boost/operators.hpp>
+
+#include <algorithm> // for copy
+
+#include <crypto/ed25519-donna/ed25519.h>
+#include <ext/alloc_traits.h>
+#include <string.h>
 //#include <boost/property_tree/detail/exception_implementation.hpp>
 //#include <boost/property_tree/detail/ptree_implementation.hpp>
 #include <boost/property_tree/json_parser.hpp>
 //#include <boost/property_tree/ptree.hpp>
-#include <boost/variant/get.hpp>                                    // for get
-#include <iterator>
-#include <limits>
-#include <mutex>
-#include <nano/crypto_lib/random_pool.hpp>
-#include <nano/lib/config.hpp>
-#include <nano/lib/numbers.hpp>
-#include <nano/lib/timer.hpp>
-#include <sstream>
-#include <stdexcept>
-#include <type_traits>
 #include "crypto/blake2/blake2.h"
 #include "crypto/cryptopp/config_int.h"
 #include "nano/lib/blocks.hpp"
 #include "nano/lib/epoch.hpp"
 #include "nano/lib/utility.hpp"
+
+#include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/config.hpp>
+#include <nano/lib/numbers.hpp>
+#include <nano/lib/timer.hpp>
+
+#include <boost/variant/get.hpp> // for get
+
 #include <functional>
+#include <iterator>
+#include <limits>
+#include <mutex>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
 
 namespace boost
 {

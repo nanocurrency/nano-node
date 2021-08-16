@@ -1,10 +1,24 @@
 #pragma once
 
-#include <nano/node/bootstrap/bootstrap_bulk_pull.hpp>
-#include <nano/node/common.hpp>
-#include <nano/node/socket.hpp>
+#include "nano/lib/locks.hpp" // for mutex, condit...
 
-#include <atomic>
+#include <nano/node/bootstrap/bootstrap_bulk_pull.hpp> // for pull_info
+#include <nano/node/common.hpp> // for tcp_endpoint
+
+#include <atomic> // for atomic
+#include <chrono> // for steady_clock
+#include <deque> // for deque
+#include <mutex> // for unique_lock
+#include <vector> // for vector
+
+#include <bits/shared_ptr.h> // for shared_ptr
+#include <bits/stdint-uintn.h> // for uint64_t, uin...
+#include <stddef.h> // for size_t
+
+namespace nano
+{
+class socket;
+}
 
 namespace nano
 {

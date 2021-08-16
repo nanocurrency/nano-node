@@ -3,9 +3,9 @@
 #include <nano/lib/utility.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/lmdb/lmdb_iterator.hpp>
+#include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/wallet.hpp>
-#include <nano/node/network.hpp>
 
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>

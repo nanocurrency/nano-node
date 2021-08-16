@@ -1,9 +1,10 @@
+#include <nano/node/bootstrap/bootstrap_bulk_pull.hpp>
 #include <nano/node/bootstrap/bootstrap_bulk_push.hpp>
 #include <nano/node/bootstrap/bootstrap_frontier.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
+#include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
-#include <nano/node/network.hpp>
 
 #include <boost/format.hpp>
 #include <boost/variant/get.hpp>

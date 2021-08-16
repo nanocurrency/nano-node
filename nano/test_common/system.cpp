@@ -1,9 +1,9 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/network.hpp>
 #include <nano/node/transport/udp.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
-#include <nano/node/network.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 

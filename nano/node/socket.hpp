@@ -1,21 +1,30 @@
 #pragma once
 
-#include <memory>
-#include <bits/shared_ptr.h>            // for weak_ptr, shared_ptr, enable_...
-#include <bits/std_function.h>          // for function
-#include <bits/stdint-uintn.h>          // for uint64_t, uint16_t, uint8_t
-#include <stddef.h>                     // for size_t
-#include <atomic>                       // for atomic
-#include <boost/asio/io_context.hpp>    // for io_context, io_context::execu...
-#include <boost/asio/ip/tcp.hpp>        // for tcp, tcp::endpoint, tcp::acce...
-#include <boost/asio/strand.hpp>        // for strand
-#include <boost/none.hpp>               // for none
-#include <boost/optional/optional.hpp>  // for optional
-#include <chrono>                       // for seconds
-#include <nano/lib/asio.hpp>            // for shared_const_buffer
-#include <vector>                       // for vector
+#include <nano/lib/asio.hpp> // for shared_const_buffer
 
-namespace boost { namespace system { class error_code; } }
+#include <boost/asio/io_context.hpp> // for io_context, io_context::execu...
+#include <boost/asio/ip/tcp.hpp> // for tcp, tcp::endpoint, tcp::acce...
+#include <boost/asio/strand.hpp> // for strand
+#include <boost/none.hpp> // for none
+#include <boost/optional/optional.hpp> // for optional
+
+#include <atomic> // for atomic
+#include <chrono> // for seconds
+#include <memory>
+#include <vector> // for vector
+
+#include <bits/shared_ptr.h> // for weak_ptr, shared_ptr, enable_...
+#include <bits/std_function.h> // for function
+#include <bits/stdint-uintn.h> // for uint64_t, uint16_t, uint8_t
+#include <stddef.h> // for size_t
+
+namespace boost
+{
+namespace system
+{
+	class error_code;
+}
+}
 
 namespace nano
 {

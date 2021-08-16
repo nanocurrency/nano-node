@@ -1,31 +1,34 @@
-#include <cstddef>                                          // for size_t
-#include <algorithm>                                         // for copy
-#include <boost/core/enable_if.hpp>                          // for enable_i...
-#include <boost/multi_index/detail/bidir_node_iterator.hpp>  // for operator==
-#include <boost/multi_index/detail/ord_index_impl.hpp>       // for ordered_...
-#include <boost/multi_index/member.hpp>                      // for member
-//#include <boost/multi_index/hashed_index.hpp>   // for hashed_unique
-//#include <boost/multi_index/indexed_by.hpp>     // for indexed_by
-//#include <boost/multi_index/ordered_index.hpp>  // for ordered_non_unique
-//#include <boost/multi_index/tag.hpp>            // for tag
-//#include <boost/multi_index_container.hpp>      // for multi_index_container
-#include <boost/multiprecision/cpp_int.hpp>                  // for cpp_int_...
-#include <boost/multiprecision/cpp_int/add.hpp>              // for eval_add
-#include <boost/multiprecision/detail/no_et_ops.hpp>         // for operator*
-#include <boost/multiprecision/detail/number_compare.hpp>    // for operator<
-#include <boost/multiprecision/number.hpp>                   // for number
-#include <boost/operators.hpp>                               // for operator!=
-#include <mutex>                                             // for lock_guard
-#include <utility>                                           // for pair
-#include "nano/lib/numbers.hpp"                              // for uint128_t
-#include "nano/lib/utility.hpp"                              // for containe...
-#include "nano/secure/common.hpp"                            // for network_...
-#include <nano/secure/ledger.hpp>
-#include <nano/secure/store.hpp>
+#include "nano/lib/numbers.hpp" // for uint128_t
+#include "nano/lib/utility.hpp" // for containe...
+#include "nano/secure/common.hpp" // for network_...
+
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/online_reps.hpp>
+#include <nano/secure/ledger.hpp>
+#include <nano/secure/store.hpp>
 
+#include <boost/container_hash/extensions.hpp>
+#include <boost/core/enable_if.hpp> // for enable_i...
+#include <boost/multi_index/detail/bidir_node_iterator.hpp> // for operator==
+#include <boost/multi_index/detail/ord_index_impl.hpp> // for ordered_...
+#include <boost/multi_index/hashed_index.hpp> // for hashed_unique
+#include <boost/multi_index/indexed_by.hpp> // for indexed_by
+#include <boost/multi_index/member.hpp> // for member
+#include <boost/multi_index/ordered_index.hpp> // for ordered_non_unique
+#include <boost/multi_index/tag.hpp> // for tag
+#include <boost/multi_index_container.hpp> // for multi_index_container
+#include <boost/multiprecision/cpp_int.hpp> // for cpp_int_...
+#include <boost/multiprecision/cpp_int/add.hpp> // for eval_add
+#include <boost/multiprecision/detail/no_et_ops.hpp> // for operator*
+#include <boost/multiprecision/detail/number_compare.hpp> // for operator<
+#include <boost/multiprecision/number.hpp> // for number
+#include <boost/operators.hpp> // for operator!=
+
+#include <algorithm> // for copy
+#include <cstddef> // for size_t
 #include <memory>
+#include <mutex> // for lock_guard
+#include <utility> // for pair
 #include <vector>
 
 nano::online_reps::online_reps (nano::ledger & ledger_a, nano::node_config const & config_a) :

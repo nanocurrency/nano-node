@@ -4,13 +4,13 @@
 #include <nano/lib/threading.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/json_handler.hpp>
+#include <nano/node/network.hpp>
 #include <nano/node/node_rpc_config.hpp>
 #include <nano/rpc/rpc.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/telemetry.hpp>
 #include <nano/test_common/testutil.hpp>
-#include <nano/node/network.hpp>
 
 #include <gtest/gtest.h>
 

@@ -1,14 +1,31 @@
-#include <nano/lib/threading.hpp>
+#include "nano/lib/config.hpp" // for network_...
+#include "nano/lib/stats.hpp" // for stat
+#include "nano/lib/utility.hpp" // for containe...
+#include "nano/node/bootstrap/bootstrap_attempt.hpp" // for bootstra...
+#include "nano/node/bootstrap/bootstrap_bulk_pull.hpp" // for pull_info
+#include "nano/node/bootstrap/bootstrap_connections.hpp" // for bootstra...
+#include "nano/node/nodeconfig.hpp" // for node_flags
+#include "nano/node/peer_exclusion.hpp" // for peer_exc...
+#include "nano/node/transport/transport.hpp" // for map_endp...
+#include "nano/node/transport/udp.hpp" // for udp_chan...
+#include "nano/secure/common.hpp" // for network_...
+
+#include <nano/lib/threading.hpp> // for set, name
 #include <nano/node/bootstrap/bootstrap.hpp>
-#include <nano/node/bootstrap/bootstrap_lazy.hpp>
-#include <nano/node/bootstrap/bootstrap_legacy.hpp>
-#include <nano/node/common.hpp>
-#include <nano/node/node.hpp>
-#include <nano/node/network.hpp>
+#include <nano/node/bootstrap/bootstrap_lazy.hpp> // for bootstra...
+#include <nano/node/bootstrap/bootstrap_legacy.hpp> // for bootstra...
+#include <nano/node/common.hpp> // for endpoint
+#include <nano/node/network.hpp> // for network
+#include <nano/node/node.hpp> // for node
 
-#include <boost/format.hpp>
+#include <boost/multi_index/detail/hash_index_iterator.hpp> // for operator==
+#include <boost/operators.hpp> // for operator!=
 
-#include <algorithm>
+#include <algorithm> // for find
+#include <mutex> // for unique_lock
+#include <utility> // for move, pair
+
+#include <cxxabi.h> // for __forced...
 
 nano::bootstrap_initiator::bootstrap_initiator (nano::node & node_a) :
 	node (node_a)

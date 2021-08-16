@@ -1,17 +1,9 @@
 #pragma once
 
-#include <bits/shared_ptr.h>
-#include <bits/stdint-uintn.h>
-#include <lmdb/libraries/liblmdb/lmdb.h>
-#include <stddef.h>
-#include <algorithm>                                                // for copy
-#include <boost/multiprecision/cpp_int/add.hpp>
-#include <boost/multiprecision/cpp_int/bitwise.hpp>
-#include <boost/multiprecision/detail/no_et_ops.hpp>
-#include <boost/optional/optional.hpp>
-#include <boost/property_tree/ptree_fwd.hpp>
-#include <chrono>
-#include <memory>
+#include "nano/lib/blocks.hpp"
+#include "nano/lib/epoch.hpp"
+#include "nano/secure/store.hpp"
+
 #include <nano/lib/diagnosticsconfig.hpp>
 #include <nano/lib/lmdbconfig.hpp>
 #include <nano/lib/numbers.hpp>
@@ -29,18 +21,46 @@
 #include <nano/secure/store/unchecked_store_partial.hpp>
 #include <nano/secure/store/version_store_partial.hpp>
 #include <nano/secure/store_partial.hpp>
-#include <string>
-#include <utility>                                                  // for move
-#include <vector>
-#include "nano/lib/blocks.hpp"
-#include "nano/lib/epoch.hpp"
-#include "nano/secure/store.hpp"
 
-namespace nano { class block_sideband_v14; }
-namespace nano { class ledger_constants; }
-namespace nano { class logger_mt; }
-namespace nano { class unchecked_info; }
-namespace nano { template <typename T, typename U> class mdb_iterator; }
+#include <boost/multiprecision/cpp_int/add.hpp>
+#include <boost/multiprecision/cpp_int/bitwise.hpp>
+#include <boost/multiprecision/detail/no_et_ops.hpp>
+#include <boost/optional/optional.hpp>
+#include <boost/property_tree/ptree_fwd.hpp>
+
+#include <algorithm> // for copy
+#include <chrono>
+#include <memory>
+#include <string>
+#include <utility> // for move
+#include <vector>
+
+#include <bits/shared_ptr.h>
+#include <bits/stdint-uintn.h>
+#include <lmdb/libraries/liblmdb/lmdb.h>
+#include <stddef.h>
+
+namespace nano
+{
+class block_sideband_v14;
+}
+namespace nano
+{
+class ledger_constants;
+}
+namespace nano
+{
+class logger_mt;
+}
+namespace nano
+{
+class unchecked_info;
+}
+namespace nano
+{
+template <typename T, typename U>
+class mdb_iterator;
+}
 
 namespace boost
 {

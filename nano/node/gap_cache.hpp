@@ -1,8 +1,9 @@
 #pragma once
 
 //#include <bits/shared_ptr.h>                    // for shared_ptr
-#include <cstddef>                             // for size_t
 #include <boost/mpl/eval_if.hpp>
+
+#include <cstddef> // for size_t
 //#include <boost/multi_index/hashed_index_fwd.hpp>
 //#include <boost/multi_index/detail/hash_index_args.hpp>
 //#include <boost/multi_index/hashed_index.hpp>   // for hashed_unique
@@ -11,22 +12,37 @@
 //#include <boost/multi_index/tag.hpp>            // for tag
 //#include <boost/multi_index_container.hpp>      // for multi_index_container
 
+#include "nano/lib/locks.hpp" // for mutex_identifier, mutex
+
+#include <nano/lib/numbers.hpp> // for account, block_hash
+
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index_container.hpp>
 
-#include <chrono>                               // for steady_clock, steady_...
-#include <memory>                               // for unique_ptr
-#include <nano/lib/numbers.hpp>                 // for account, block_hash
-#include <string>                               // for string
-#include <vector>                               // for vector
-#include "nano/lib/locks.hpp"                   // for mutex_identifier, mutex
+#include <chrono> // for steady_clock, steady_...
+#include <memory> // for unique_ptr
+#include <string> // for string
+#include <vector> // for vector
 
-namespace boost { namespace multi_index { template <class Class, typename Type, Type Class::*PtrToMember> struct member; } }
-namespace nano { class container_info_component; }
-namespace nano { class vote; }
+namespace boost
+{
+namespace multi_index
+{
+	template <class Class, typename Type, Type Class::*PtrToMember>
+	struct member;
+}
+}
+namespace nano
+{
+class container_info_component;
+}
+namespace nano
+{
+class vote;
+}
 
 namespace nano
 {

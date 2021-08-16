@@ -1,16 +1,17 @@
 #pragma once
 
-#include "nano/lib/numbers.hpp"  // for account, uint128_t, block_hash
+#include "nano/lib/numbers.hpp" // for account, uint128_t, block_hash
 
-#include <bits/shared_ptr.h>     // for shared_ptr, enable_shared_from_this
-#include <bits/std_function.h>   // for function
-#include <qcoreevent.h>          // for QEvent
-#include <qobject.h>             // for QObject
-#include <qstring.h>             // for QString
-#include <atomic>                // for atomic
-#include <set>                   // for set
-#include <string>                // for string
-#include <utility>               // for pair
+#include <atomic> // for atomic
+#include <set> // for set
+#include <string> // for string
+#include <utility> // for pair
+
+#include <bits/shared_ptr.h> // for shared_ptr, enable_shared_from_this
+#include <bits/std_function.h> // for function
+#include <qcoreevent.h> // for QEvent
+#include <qobject.h> // for QObject
+#include <qstring.h> // for QString
 
 class QApplication;
 class QButtonGroup;
@@ -27,9 +28,18 @@ class QStandardItemModel;
 class QTableView;
 class QVBoxLayout;
 class QWidget;
-namespace nano { class ledger; }
-namespace nano { class node; }
-namespace nano { class wallet; }
+namespace nano
+{
+class ledger;
+}
+namespace nano
+{
+class node;
+}
+namespace nano
+{
+class wallet;
+}
 
 namespace nano_qt
 {

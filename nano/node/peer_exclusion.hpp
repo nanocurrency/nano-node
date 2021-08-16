@@ -1,28 +1,44 @@
-#include <bits/stdint-uintn.h>                  // for uint64_t
-#include <cstddef>                             // for size_t
+#pragma once
+
+#include "nano/lib/locks.hpp" // for mutex
+
+#include <nano/node/common.hpp> // for tcp_endpoint
+
+#include <boost/asio/ip/basic_endpoint.hpp> // for basic_endpoint
+#include <boost/asio/ip/impl/address.ipp> // for address::address
 #include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/hashed_index.hpp> // for hashed_unique
+#include <boost/multi_index/hashed_index_fwd.hpp>
+#include <boost/multi_index/identity_fwd.hpp> // for multi_index
+#include <boost/multi_index/indexed_by.hpp> // for indexed_by
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
-#include <boost/multi_index_container.hpp>
-#include <boost/asio/ip/basic_endpoint.hpp>     // for basic_endpoint
-#include <boost/asio/ip/impl/address.ipp>       // for address::address
+#include <boost/multi_index/ordered_index.hpp> // for ordered_non_unique
 #include <boost/multi_index/ordered_index_fwd.hpp>
-#include <boost/multi_index/hashed_index_fwd.hpp>
-#include <boost/multi_index/hashed_index.hpp>   // for hashed_unique
-#include <boost/multi_index/identity_fwd.hpp>   // for multi_index
-#include <boost/multi_index/indexed_by.hpp>     // for indexed_by
-#include <boost/multi_index/ordered_index.hpp>  // for ordered_non_unique
-#include <boost/multi_index/tag.hpp>            // for tag
-#include <boost/multi_index_container.hpp>      // for multi_index_container
-#include <chrono>                               // for hours, steady_clock
-#include <memory>                               // for unique_ptr
-#include <nano/node/common.hpp>                 // for tcp_endpoint
-#include <string>                               // for string
-#include <type_traits>                          // for declval
-#include "nano/lib/locks.hpp"                   // for mutex
+#include <boost/multi_index/tag.hpp> // for tag
+#include <boost/multi_index_container.hpp>
+#include <boost/multi_index_container.hpp> // for multi_index_container
 
-namespace boost { namespace multi_index { template <class Class, typename Type, Type Class::*PtrToMember> struct member; } }
-namespace nano { class container_info_component; }
+#include <chrono> // for hours, steady_clock
+#include <cstddef> // for size_t
+#include <memory> // for unique_ptr
+#include <string> // for string
+#include <type_traits> // for declval
+
+#include <bits/stdint-uintn.h> // for uint64_t
+
+namespace boost
+{
+namespace multi_index
+{
+	template <class Class, typename Type, Type Class::*PtrToMember>
+	struct member;
+}
+}
+namespace nano
+{
+class container_info_component;
+}
 
 namespace mi = boost::multi_index;
 

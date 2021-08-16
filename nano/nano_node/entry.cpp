@@ -6,8 +6,8 @@
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/json_handler.hpp>
-#include <nano/node/node.hpp>
 #include <nano/node/network.hpp>
+#include <nano/node/node.hpp>
 #include <nano/node/vote_processor.hpp>
 
 #include <boost/dll/runtime_symbol_info.hpp>

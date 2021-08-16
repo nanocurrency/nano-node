@@ -1,21 +1,40 @@
 #pragma once
 
-#include <nano/lib/locks.hpp>
-#include <nano/lib/numbers.hpp>
-#include <nano/lib/utility.hpp>
-#include <nano/node/wallet.hpp>
-#include <nano/secure/common.hpp>
+#include <nano/lib/locks.hpp> // for mutex, condition_va...
+#include <nano/lib/numbers.hpp> // for block_hash, root
+#include <nano/secure/common.hpp> // for voting_constants
 
-#include <boost/multi_index/hashed_index.hpp>
-#include <boost/multi_index/member.hpp>
-#include <boost/multi_index/ordered_index.hpp>
-#include <boost/multi_index/sequenced_index.hpp>
-#include <boost/multi_index_container.hpp>
+#include <boost/multi_index/hashed_index.hpp> // for hashed_non_unique
+#include <boost/multi_index/identity_fwd.hpp> // for multi_index
+#include <boost/multi_index/indexed_by.hpp> // for indexed_by
+#include <boost/multi_index/member.hpp> // for member
+#include <boost/multi_index/ordered_index.hpp> // for ordered_non_unique
+#include <boost/multi_index/sequenced_index.hpp> // for sequenced
+#include <boost/multi_index/tag.hpp> // for tag
+#include <boost/multi_index_container.hpp> // for multi_index_container
 
-#include <condition_variable>
-#include <deque>
-#include <mutex>
-#include <thread>
+#include <atomic> // for atomic
+#include <chrono> // for milliseconds, stead...
+#include <deque> // for deque
+#include <memory> // for unique_ptr
+#include <mutex> // for unique_lock
+#include <string> // for string
+#include <thread> // for thread
+#include <utility> // for pair
+#include <vector> // for vector
+
+#include <bits/shared_ptr.h> // for shared_ptr
+#include <bits/std_function.h> // for function
+#include <stddef.h> // for size_t
+
+namespace nano
+{
+class block;
+}
+namespace nano
+{
+class container_info_component;
+}
 
 namespace mi = boost::multi_index;
 

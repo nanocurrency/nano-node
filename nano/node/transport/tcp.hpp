@@ -1,16 +1,70 @@
 #pragma once
 
-#include <nano/node/common.hpp>
-#include <nano/node/transport/transport.hpp>
+#include "nano/lib/locks.hpp" // for mutex
+#include "nano/lib/numbers.hpp" // for account
+#include "nano/lib/utility.hpp" // for container_i...
+#include "nano/node/socket.hpp" // for socket (ptr...
 
-#include <boost/multi_index/hashed_index.hpp>
-#include <boost/multi_index/mem_fun.hpp>
-#include <boost/multi_index/member.hpp>
-#include <boost/multi_index/ordered_index.hpp>
-#include <boost/multi_index/random_access_index.hpp>
-#include <boost/multi_index_container.hpp>
+#include <nano/node/common.hpp> // for tcp_endpoint
+#include <nano/node/transport/transport.hpp> // for ipv4_addres...
 
-#include <unordered_set>
+#include <boost/asio/ip/address.hpp> // for address
+#include <boost/asio/ip/address_v6.hpp> // for address_v6
+#include <boost/asio/ip/impl/address.ipp> // for address::ad...
+#include <boost/multi_index/detail/allocator_traits.hpp> // for multi_index
+#include <boost/multi_index/hashed_index.hpp> // for hashed_non_...
+#include <boost/multi_index/indexed_by.hpp> // for indexed_by
+#include <boost/multi_index/ordered_index.hpp> // for ordered_non...
+#include <boost/multi_index/random_access_index.hpp> // for random_access
+#include <boost/multi_index/tag.hpp> // for tag
+#include <boost/multi_index_container.hpp> // for multi_index...
+
+#include <array> // for array
+#include <atomic> // for atomic
+#include <chrono> // for steady_clock
+#include <deque> // for deque
+#include <memory> // for __shared_pt...
+#include <mutex> // for lock_guard
+#include <string> // for string
+#include <unordered_set> // for unordered_set
+#include <vector> // for vector
+
+#include <bits/shared_ptr.h> // for shared_ptr
+#include <bits/std_function.h> // for function
+#include <bits/stdint-uintn.h> // for uint8_t
+#include <stddef.h> // for size_t
+
+namespace boost
+{
+namespace multi_index
+{
+	template <class Class, typename Type, Type (Class::*PtrToMemberFunction) () const>
+	struct const_mem_fun;
+}
+}
+namespace boost
+{
+namespace multi_index
+{
+	template <class Class, typename Type, Type Class::*PtrToMember>
+	struct member;
+}
+}
+namespace boost
+{
+namespace system
+{
+	class error_code;
+}
+}
+namespace nano
+{
+class node;
+}
+namespace nano
+{
+class shared_const_buffer;
+}
 
 namespace mi = boost::multi_index;
 

@@ -1,13 +1,36 @@
 #pragma once
 
-#include <nano/node/bootstrap/bootstrap_attempt.hpp>
+#include "nano/lib/numbers.hpp" // for account, bloc...
+#include "nano/node/bootstrap/bootstrap_bulk_pull.hpp" // for pull_info
+#include "nano/node/common.hpp" // for tcp_endpoint
 
-#include <boost/property_tree/ptree_fwd.hpp>
+#include <nano/node/bootstrap/bootstrap_attempt.hpp> // for bootstrap_att...
 
-#include <atomic>
-#include <deque>
-#include <memory>
-#include <vector>
+#include <boost/property_tree/ptree_fwd.hpp> // for ptree
+
+#include <atomic> // for atomic
+#include <deque> // for deque
+#include <future> // for future
+#include <mutex> // for unique_lock
+#include <string> // for string
+#include <utility> // for pair
+#include <vector> // for vector
+
+#include <bits/shared_ptr.h> // for shared_ptr
+#include <bits/stdint-uintn.h> // for uint32_t, uin...
+
+namespace nano
+{
+class bulk_push_client;
+}
+namespace nano
+{
+class frontier_req_client;
+}
+namespace nano
+{
+class mutex;
+}
 
 namespace nano
 {

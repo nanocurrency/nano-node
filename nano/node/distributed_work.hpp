@@ -1,17 +1,36 @@
 #pragma once
 
-#include <nano/boost_wrappers/asio/ip/tcp.hpp>
-#include <nano/boost_wrappers/asio/strand.hpp>
-#include <nano/boost_wrappers/beast/core/flat_buffer.hpp>
-#include <nano/boost_wrappers/beast/http/string_body.hpp>
+#include "nano/lib/locks.hpp"
+
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/common.hpp>
 
-#include <boost/optional.hpp>
+#include <boost/asio/detail/impl/reactive_socket_service_base.ipp>
+#include <boost/asio/detail/impl/service_registry.hpp>
+#include <boost/asio/impl/executor.hpp>
+#include <boost/asio/impl/io_context.hpp>
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/ip/tcp.hpp> // for tcp
+#include <boost/asio/strand.hpp>
+#include <boost/beast/core/flat_buffer.hpp>
+#include <boost/beast/core/impl/flat_buffer.hpp>
+#include <boost/beast/http/impl/fields.hpp>
+#include <boost/beast/http/message.hpp>
+#include <boost/beast/http/string_body.hpp>
+#include <boost/intrusive/detail/list_iterator.hpp>
+#include <boost/optional/optional.hpp>
 
-#include <mutex>
+#include <atomic>
+#include <chrono>
+#include <string>
+#include <utility> // for pair
+#include <vector>
+
+#include <bits/shared_ptr.h>
+#include <bits/std_function.h>
+#include <bits/stdint-uintn.h>
 
 using request_type = boost::beast::http::request<boost::beast::http::string_body>;
 

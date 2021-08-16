@@ -1,16 +1,44 @@
 #pragma once
 
-#include <nano/node/bootstrap/bootstrap_connections.hpp>
-#include <nano/node/common.hpp>
+#include "nano/lib/locks.hpp" // for mutex, condition_vari...
+#include "nano/lib/numbers.hpp" // for account, block_hash
 
-#include <boost/multi_index/hashed_index.hpp>
-#include <boost/multi_index/member.hpp>
-#include <boost/multi_index/ordered_index.hpp>
-#include <boost/multi_index_container.hpp>
-#include <boost/thread/thread.hpp>
+#include <nano/node/common.hpp> // for endpoint
 
-#include <atomic>
-#include <queue>
+#include <boost/multi_index/hashed_index.hpp> // for hashed_unique
+#include <boost/multi_index/identity_fwd.hpp> // for multi_index
+#include <boost/multi_index/indexed_by.hpp> // for indexed_by
+#include <boost/multi_index/member.hpp> // for member
+#include <boost/multi_index/ordered_index.hpp> // for ordered_non_unique
+#include <boost/multi_index/tag.hpp> // for tag
+#include <boost/multi_index_container.hpp> // for multi_index_container
+#include <boost/thread/detail/thread.hpp> // for thread
+
+#include <atomic> // for atomic
+#include <chrono> // for seconds, steady_clock
+#include <deque> // for deque
+#include <limits> // for numeric_limits
+#include <map> // for map
+#include <memory> // for allocator, unique_ptr
+#include <string> // for string
+#include <vector> // for vector
+
+#include <bits/shared_ptr.h> // for shared_ptr
+#include <bits/std_function.h> // for function
+#include <bits/stdint-uintn.h> // for uint64_t, uint32_t
+#include <stddef.h> // for size_t
+namespace nano
+{
+class bootstrap_attempt;
+}
+namespace nano
+{
+class container_info_component;
+}
+namespace nano
+{
+class pull_info;
+}
 
 namespace mi = boost::multi_index;
 

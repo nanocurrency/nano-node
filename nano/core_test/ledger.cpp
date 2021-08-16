@@ -2,9 +2,9 @@
 #include <nano/lib/threading.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/rocksdb/rocksdb.hpp>
+#include <nano/node/vote_processor.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
-#include <nano/node/vote_processor.hpp>
 
 #include <gtest/gtest.h>
 

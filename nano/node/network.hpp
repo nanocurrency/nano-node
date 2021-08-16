@@ -1,16 +1,66 @@
 #pragma once
 
-#include <nano/node/common.hpp>
-#include <nano/node/peer_exclusion.hpp>
-#include <nano/node/transport/tcp.hpp>
-#include <nano/node/transport/udp.hpp>
-#include <nano/secure/network_filter.hpp>
+#include "nano/lib/config.hpp" // for networks
+#include "nano/lib/locks.hpp" // for condition_variable, mutex
+#include "nano/lib/numbers.hpp" // for block_hash (ptr only)
+#include "nano/node/socket.hpp" // for buffer_drop_policy, buf...
+#include "nano/node/transport/transport.hpp" // for bandwidth_limiter, channel
 
-#include <boost/thread/thread.hpp>
+#include <nano/node/common.hpp> // for endpoint, hash, tcp_end...
+#include <nano/node/peer_exclusion.hpp> // for peer_exclusion
+#include <nano/node/transport/tcp.hpp> // for tcp_message_item, tcp_c...
+#include <nano/node/transport/udp.hpp> // for udp_channels
+#include <nano/secure/network_filter.hpp> // for network_filter
 
-#include <memory>
-#include <queue>
-#include <unordered_set>
+#include <boost/asio/ip/basic_endpoint.hpp> // for basic_endpoint
+#include <boost/asio/ip/udp.hpp> // for udp, udp::resolver
+#include <boost/circular_buffer.hpp> // for circular_buffer
+#include <boost/optional/optional.hpp> // for optional
+#include <boost/thread/detail/thread.hpp> // for thread
+
+#include <array> // for array
+#include <atomic> // for atomic
+#include <chrono> // for steady_clock::time_point
+#include <deque> // for deque
+#include <memory> // for unique_ptr
+#include <string> // for string
+#include <unordered_map> // for unordered_map
+#include <unordered_set> // for unordered_set
+#include <utility> // for pair
+#include <vector> // for vector
+
+#include <bits/shared_ptr.h> // for shared_ptr
+#include <bits/std_function.h> // for function
+#include <bits/stdint-uintn.h> // for uint8_t, uint16_t
+#include <stddef.h> // for size_t
+
+namespace boost
+{
+namespace asio
+{
+	namespace ip
+	{
+		class address;
+	}
+}
+}
+namespace nano
+{
+class block;
+}
+namespace nano
+{
+class container_info_component;
+}
+namespace nano
+{
+class stat;
+}
+namespace nano
+{
+class vote;
+}
+
 namespace nano
 {
 class channel;

@@ -1,11 +1,60 @@
-#include <nano/lib/cli.hpp>
-#include <nano/lib/tomlconfig.hpp>
-#include <nano/node/cli.hpp>
-#include <nano/node/common.hpp>
-#include <nano/node/daemonconfig.hpp>
-#include <nano/node/node.hpp>
+#include "nano/lib/blocks.hpp" // for block
+#include "nano/lib/errors.hpp" // for error
+#include "nano/lib/logger_mt.hpp" // for logger_mt
+#include "nano/lib/numbers.hpp" // for wallet_id
+#include "nano/lib/rocksdbconfig.hpp" // for rocksdb_c...
+#include "nano/lib/rpcconfig.hpp" // for rpc_config
+#include "nano/lib/timer.hpp" // for timer
+#include "nano/lib/utility.hpp" // for move_all_...
+#include "nano/node/nodeconfig.hpp" // for node_flags
+#include "nano/node/openclwork.hpp" // for opencl_en...
+#include "nano/node/wallet.hpp" // for wallets
+#include "nano/secure/common.hpp" // for network_p...
+#include "nano/secure/ledger.hpp" // for ledger
+#include "nano/secure/store.hpp" // for store
+#include "nano/secure/utility.hpp" // for working_path
 
-#include <boost/format.hpp>
+#include <nano/lib/cli.hpp>
+#include <nano/lib/tomlconfig.hpp> // for tomlconfig
+#include <nano/node/cli.hpp>
+#include <nano/node/daemonconfig.hpp> // for daemon_co...
+#include <nano/node/node.hpp> // for node, ina...
+
+#include <boost/filesystem/operations.hpp> // for rename
+#include <boost/filesystem/path.hpp> // for path, ope...
+#include <boost/format/alt_sstream.hpp> // for basic_alt...
+#include <boost/format/alt_sstream_impl.hpp> // for basic_alt...
+#include <boost/format/exceptions.hpp>
+#include <boost/format/format_class.hpp> // for basic_format
+#include <boost/format/format_fwd.hpp> // for format
+#include <boost/format/format_implementation.hpp> // for basic_for...
+#include <boost/format/free_funcs.hpp> // for str
+#include <boost/lexical_cast/bad_lexical_cast.hpp> // for bad_lexic...
+#include <boost/log/detail/attachable_sstream_buf.hpp> // for basic_ost...
+#include <boost/log/sources/record_ostream.hpp> // for operator<<
+#include <boost/optional/optional.hpp> // for get_pointer
+#include <boost/program_options.hpp>
+//#include <boost/program_options/detail/value_semantic.hpp> // for value
+//#include <boost/program_options/options_description.hpp> // for options_d...
+//#include <boost/program_options/value_semantic.hpp> // for typed_value
+#include <boost/type_index/type_index_facade.hpp> // for operator==
+
+#include <chrono> // for nanoseconds
+#include <cstddef> // for size_t
+#include <fstream> // for basic_ifs...
+#include <limits> // for numeric_l...
+#include <map> // for operator!=
+#include <memory> // for __shared_...
+#include <mutex> // for lock_guard
+#include <unordered_map> // for _Node_ite...
+#include <utility> // for pair
+
+#include <bits/shared_ptr.h> // for shared_ptr
+
+namespace nano
+{
+class mutex;
+}
 
 namespace
 {

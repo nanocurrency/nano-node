@@ -1,19 +1,98 @@
+#include "nano/lib/blockbuilders.hpp"
+#include "nano/lib/blocks.hpp"
+#include "nano/lib/diagnosticsconfig.hpp"
+#include "nano/lib/epoch.hpp"
+#include "nano/lib/jsonconfig.hpp"
+#include "nano/lib/logger_mt.hpp"
+#include "nano/lib/numbers.hpp"
+#include "nano/lib/rep_weights.hpp"
+#include "nano/lib/stats.hpp" // for stat
+#include "nano/lib/threading.hpp"
+#include "nano/lib/utility.hpp"
+#include "nano/node/active_transactions.hpp"
+#include "nano/node/blockprocessor.hpp"
+#include "nano/node/bootstrap/bootstrap.hpp"
+#include "nano/node/bootstrap/bootstrap_attempt.hpp"
+#include "nano/node/bootstrap/bootstrap_connections.hpp"
+#include "nano/node/confirmation_height_processor.hpp"
+#include "nano/node/distributed_work_factory.hpp"
+#include "nano/node/ipc/flatbuffers_handler.hpp"
+#include "nano/node/node_observers.hpp"
+#include "nano/node/nodeconfig.hpp"
+#include "nano/node/online_reps.hpp"
+#include "nano/node/repcrawler.hpp"
+#include "nano/node/transport/transport.hpp"
+#include "nano/node/wallet.hpp"
+#include "nano/secure/ledger.hpp"
+#include "nano/secure/store.hpp"
+
 #include <nano/lib/config.hpp>
 #include <nano/lib/json_error_response.hpp>
-#include <nano/lib/timer.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/json_handler.hpp>
-#include <nano/node/node.hpp>
+#include <nano/node/network.hpp>
+#include <nano/node/node.hpp> // for node
 #include <nano/node/node_rpc_config.hpp>
 #include <nano/node/telemetry.hpp>
-#include <nano/node/network.hpp>
 
+#include <boost/asio/ip/address.hpp>
+#include <boost/asio/ip/basic_endpoint.hpp>
+#include <boost/asio/ip/detail/impl/endpoint.ipp>
+#include <boost/asio/ip/impl/address.hpp>
+#include <boost/asio/ip/impl/address.ipp>
+#include <boost/asio/ip/impl/address_v6.ipp>
+#include <boost/core/swap.hpp> // for swap
+#include <boost/cstdint.hpp>
+#include <boost/detail/basic_pointerbuf.hpp>
+#include <boost/format/alt_sstream.hpp>
+#include <boost/format/alt_sstream_impl.hpp>
+#include <boost/format/format_class.hpp>
+#include <boost/format/format_fwd.hpp>
+#include <boost/format/format_implementation.hpp>
+#include <boost/format/free_funcs.hpp> // for str
+#include <boost/iterator/iterator_facade.hpp>
+#include <boost/lexical_cast/try_lexical_convert.hpp>
+#include <boost/multi_index/detail/bidir_node_iterator.hpp>
+#include <boost/multiprecision/cpp_int.hpp>
+#include <boost/multiprecision/cpp_int/bitwise.hpp>
+#include <boost/multiprecision/cpp_int/limits.hpp>
+#include <boost/multiprecision/detail/no_et_ops.hpp>
+#include <boost/multiprecision/detail/number_base.hpp>
+#include <boost/multiprecision/detail/number_compare.hpp>
+#include <boost/multiprecision/number.hpp>
+#include <boost/operators.hpp>
+#include <boost/optional/detail/optional_relops.hpp>
+#include <boost/optional/optional.hpp>
+#include <boost/property_tree/detail/exception_implementation.hpp>
+#include <boost/property_tree/detail/ptree_implementation.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
+#include <boost/system/error_code.hpp>
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
+#include <cstdint>
+#include <deque>
+#include <functional>
+#include <iterator>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <unordered_map>
+#include <utility> // for move
+#include <vector>
+
+#include <stdlib.h>
+
+namespace nano
+{
+class mutex;
+}
 
 namespace
 {

@@ -1,6 +1,16 @@
-#include <nano/node/distributed_work.hpp>
+#include "nano/lib/numbers.hpp" // for hash, root, account
+#include "nano/lib/utility.hpp" // for container_info_composite
+
+#include <nano/node/distributed_work.hpp> // for distributed_work, work_req...
 #include <nano/node/distributed_work_factory.hpp>
-#include <nano/node/node.hpp>
+#include <nano/node/node.hpp> // for node
+
+#include <boost/asio.hpp> // error: ‘handler_work’ was not declared in this scope;
+#include <boost/beast.hpp> // error: ‘basic_fields’ is not a class template
+
+#include <algorithm> // for for_each
+#include <memory> //  error: ‘__gnu_cxx::_Lock_policy’ has not been declared
+#include <mutex> // for lock_guard
 
 nano::distributed_work_factory::distributed_work_factory (nano::node & node_a) :
 	node (node_a)

@@ -1,6 +1,8 @@
-#include <memory>
+#include "nano/lib/utility.hpp" // for collect_container_info, container_in...
+
 #include <nano/node/node_observers.hpp>
-#include "nano/lib/utility.hpp"  // for collect_container_info, container_in...
+
+#include <memory>
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::node_observers & node_observers, std::string const & name)
 {

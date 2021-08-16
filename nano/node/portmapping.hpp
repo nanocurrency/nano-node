@@ -1,14 +1,18 @@
 #pragma once
 
-#include <bits/stdint-uintn.h>                  // for uint16_t, uint64_t
-#include <miniupnp/miniupnpc/miniupnpc.h>       // for UPNPUrls
-#include <array>                                // for array
-#include <atomic>                               // for atomic
-#include <boost/asio/ip/address_v4.hpp>         // for address_v4
-#include <string>                               // for string
-#include "miniupnp/miniupnpc/igd_desc_parse.h"  // for IGDdatas
-#include "nano/lib/locks.hpp"                   // for mutex
-#include "nano/node/common.hpp"                 // for endpoint
+#include "miniupnp/miniupnpc/igd_desc_parse.h" // for IGDdatas
+#include "nano/lib/locks.hpp" // for mutex
+#include "nano/node/common.hpp" // for endpoint
+
+#include <miniupnp/miniupnpc/miniupnpc.h> // for UPNPUrls
+
+#include <boost/asio/ip/address_v4.hpp> // for address_v4
+
+#include <array> // for array
+#include <atomic> // for atomic
+#include <string> // for string
+
+#include <bits/stdint-uintn.h> // for uint16_t, uint64_t
 struct UPNPDev;
 
 namespace nano

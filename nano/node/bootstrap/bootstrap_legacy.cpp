@@ -1,10 +1,51 @@
+#include "crypto/cryptopp/config_int.h"
+#include "nano/crypto_lib/random_pool.hpp"
+#include "nano/lib/locks.hpp"
+#include "nano/lib/logger_mt.hpp"
+#include "nano/lib/stats.hpp" // for stat
+#include "nano/lib/utility.hpp"
+#include "nano/node/blockprocessor.hpp"
+#include "nano/node/bootstrap/bootstrap.hpp"
+#include "nano/node/bootstrap/bootstrap_attempt.hpp"
+#include "nano/node/bootstrap/bootstrap_connections.hpp"
+#include "nano/node/logging.hpp"
+#include "nano/node/nodeconfig.hpp"
+#include "nano/node/transport/tcp.hpp"
+
 #include <nano/node/bootstrap/bootstrap_bulk_push.hpp>
 #include <nano/node/bootstrap/bootstrap_frontier.hpp>
 #include <nano/node/bootstrap/bootstrap_legacy.hpp>
-#include <nano/node/node.hpp>
-#include <nano/node/network.hpp>
+#include <nano/node/node.hpp> // for node
 
-#include <boost/format.hpp>
+#include <boost/core/swap.hpp> // for swap
+#include <boost/format/alt_sstream.hpp>
+#include <boost/format/alt_sstream_impl.hpp>
+#include <boost/format/exceptions.hpp>
+#include <boost/format/format_class.hpp>
+#include <boost/format/format_fwd.hpp>
+#include <boost/format/format_implementation.hpp>
+#include <boost/format/free_funcs.hpp> // for str
+#include <boost/iterator/iterator_facade.hpp>
+#include <boost/log/detail/attachable_sstream_buf.hpp>
+#include <boost/log/sources/record_ostream.hpp>
+#include <boost/multi_index/detail/bidir_node_iterator.hpp>
+#include <boost/multi_index/hashed_index.hpp> // error: invalid use of incomplete type ‘struct boost::multi_index::const_mem_fun<nano::transport::tcp
+#include <boost/multiprecision/cpp_int/bitwise.hpp>
+#include <boost/multiprecision/cpp_int/limits.hpp>
+#include <boost/multiprecision/detail/no_et_ops.hpp>
+#include <boost/multiprecision/detail/number_compare.hpp>
+#include <boost/operators.hpp>
+#include <boost/optional/optional.hpp>
+#include <boost/property_tree/detail/exception_implementation.hpp>
+#include <boost/property_tree/detail/ptree_implementation.hpp>
+#include <boost/property_tree/ptree.hpp>
+
+#include <algorithm>
+#include <limits>
+#include <memory>
+#include <sstream>
+
+#include <cxxabi.h>
 
 nano::bootstrap_attempt_legacy::bootstrap_attempt_legacy (std::shared_ptr<nano::node> const & node_a, uint64_t const incremental_id_a, std::string const & id_a, uint32_t const frontiers_age_a, nano::account const & start_account_a) :
 	nano::bootstrap_attempt (node_a, nano::bootstrap_mode::legacy, incremental_id_a, id_a),

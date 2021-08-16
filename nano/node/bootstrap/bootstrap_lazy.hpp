@@ -1,15 +1,40 @@
 #pragma once
 
-#include <nano/node/bootstrap/bootstrap_attempt.hpp>
+#include "nano/lib/numbers.hpp" // for block_hash
+#include "nano/node/common.hpp" // for bulk_pull
 
-#include <boost/multi_index/hashed_index.hpp>
-#include <boost/multi_index/member.hpp>
-#include <boost/multi_index/ordered_index.hpp>
-#include <boost/multi_index_container.hpp>
+#include <nano/node/bootstrap/bootstrap_attempt.hpp> // for bootstrap_att...
 
-#include <atomic>
-#include <queue>
-#include <unordered_set>
+#include <boost/multi_index/identity_fwd.hpp> // for multi_index
+#include <boost/multiprecision/cpp_int.hpp> // for cpp_int_backend
+#include <boost/multiprecision/detail/number_base.hpp> // for canonical<>::...
+#include <boost/property_tree/ptree_fwd.hpp> // for ptree
+
+#include <atomic> // for atomic
+#include <chrono> // for steady_clock
+#include <deque> // for deque
+#include <mutex> // for unique_lock
+#include <string> // for allocator
+#include <unordered_map> // for unordered_map
+#include <unordered_set> // for unordered_set
+#include <utility> // for pair
+
+#include <bits/shared_ptr.h> // for shared_ptr
+#include <bits/stdint-uintn.h> // for uint64_t, uin...
+#include <stddef.h> // for size_t
+
+namespace nano
+{
+class block;
+}
+namespace nano
+{
+class mutex;
+}
+namespace nano
+{
+class pull_info;
+}
 
 namespace mi = boost::multi_index;
 

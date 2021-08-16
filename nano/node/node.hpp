@@ -1,60 +1,70 @@
 #pragma once
 
-#include <bits/shared_ptr.h>                            // for shared_ptr
-#include <bits/std_function.h>                          // for function
-#include <bits/stdint-uintn.h>                          // for uint64_t, uin...
-#include <stddef.h>                                     // for size_t
-#include <atomic>                                       // for atomic
-#include <boost/asio/impl/io_context.hpp>               // for io_context::post
-#include <boost/asio/ip/tcp.hpp>                        // for tcp, tcp::res...
-#include <boost/filesystem/path.hpp>                    // for path
-#include <boost/multi_index/hashed_index.hpp>           // for hashed_unique
-#include <boost/multi_index/indexed_by.hpp>             // for indexed_by
-#include <boost/multi_index/member.hpp>                 // for member
-#include <boost/multi_index/sequenced_index.hpp>        // for sequenced
-#include <boost/multi_index/tag.hpp>                    // for tag
-#include <boost/multi_index_container.hpp>              // for multi_index_c...
-#include <boost/none.hpp>                               // for none
-#include <boost/optional/optional.hpp>                  // for optional
-#include <boost/program_options/variables_map.hpp>      // for variables_map
-#include <boost/thread/latch.hpp>                       // for latch
-#include <chrono>                                       // for seconds, stea...
-#include <deque>                                        // for deque
-#include <future>                                       // for future
-#include <memory>                                       // for unique_ptr
-#include <nano/node/blockprocessor.hpp>                 // for block_processor
-#include <nano/node/bootstrap/bootstrap.hpp>            // for bootstrap_ini...
-#include <nano/node/bootstrap/bootstrap_server.hpp>     // for bootstrap_lis...
-#include <nano/node/confirmation_height_processor.hpp>  // for confirmation_...
-#include <nano/node/distributed_work_factory.hpp>       // for distributed_w...
-#include <nano/node/election_scheduler.hpp>             // for election_sche...
-#include <nano/node/gap_cache.hpp>                      // for gap_cache
-#include <nano/node/node_observers.hpp>                 // for node_observers
-#include <nano/node/nodeconfig.hpp>                     // for node_flags
-#include <nano/node/online_reps.hpp>                    // for online_reps
-#include <nano/node/portmapping.hpp>                    // for port_mapping
-#include <nano/node/repcrawler.hpp>                     // for rep_crawler
-#include <nano/node/request_aggregator.hpp>             // for request_aggre...
-#include <nano/node/signatures.hpp>                     // for signature_che...
-#include <nano/node/wallet.hpp>                         // for wallets
-#include <nano/node/write_database_queue.hpp>           // for write_databas...
-#include <nano/secure/ledger.hpp>                       // for ledger, ledge...
-#include <new>                                          // for operator new
-#include <string>                                       // for string
-#include <utility>                                      // for pair
-#include <vector>                                       // for vector
-#include "nano/lib/blocks.hpp"                          // for block (ptr only)
-#include "nano/lib/epoch.hpp"                           // for epoch
-#include "nano/lib/locks.hpp"                           // for mutex_identifier
-#include "nano/lib/logger_mt.hpp"                       // for logger_mt
-#include "nano/lib/numbers.hpp"                         // for account, bloc...
-#include "nano/lib/stats.hpp"                           // for stat
-#include "nano/lib/threading.hpp"                       // for thread_pool
-#include "nano/lib/work.hpp"                            // for work_version
-#include "nano/node/voting.hpp"                         // for local_vote_hi...
-#include "nano/secure/common.hpp"                       // for process_return
+#include "nano/lib/blocks.hpp" // for block (ptr only)
+#include "nano/lib/epoch.hpp" // for epoch
+#include "nano/lib/locks.hpp" // for mutex_identifier
+#include "nano/lib/logger_mt.hpp" // for logger_mt
+#include "nano/lib/numbers.hpp" // for account, bloc...
+#include "nano/lib/stats.hpp" // for stat
+#include "nano/lib/threading.hpp" // for thread_pool
+#include "nano/lib/work.hpp" // for work_version
+#include "nano/node/voting.hpp" // for local_vote_hi...
+#include "nano/secure/common.hpp" // for process_return
 
-namespace boost { namespace asio { class io_context; } }
+#include <nano/node/blockprocessor.hpp> // for block_processor
+#include <nano/node/bootstrap/bootstrap.hpp> // for bootstrap_ini...
+#include <nano/node/bootstrap/bootstrap_server.hpp> // for bootstrap_lis...
+#include <nano/node/confirmation_height_processor.hpp> // for confirmation_...
+#include <nano/node/distributed_work_factory.hpp> // for distributed_w...
+#include <nano/node/election_scheduler.hpp> // for election_sche...
+#include <nano/node/gap_cache.hpp> // for gap_cache
+#include <nano/node/node_observers.hpp> // for node_observers
+#include <nano/node/nodeconfig.hpp> // for node_flags
+#include <nano/node/online_reps.hpp> // for online_reps
+#include <nano/node/portmapping.hpp> // for port_mapping
+#include <nano/node/repcrawler.hpp> // for rep_crawler
+#include <nano/node/request_aggregator.hpp> // for request_aggre...
+#include <nano/node/signatures.hpp> // for signature_che...
+#include <nano/node/wallet.hpp> // for wallets
+#include <nano/node/write_database_queue.hpp> // for write_databas...
+#include <nano/secure/ledger.hpp> // for ledger, ledge...
+
+#include <boost/asio/impl/io_context.hpp> // for io_context::post
+#include <boost/asio/ip/tcp.hpp> // for tcp, tcp::res...
+#include <boost/filesystem/path.hpp> // for path
+#include <boost/multi_index/hashed_index.hpp> // for hashed_unique
+#include <boost/multi_index/indexed_by.hpp> // for indexed_by
+#include <boost/multi_index/member.hpp> // for member
+#include <boost/multi_index/sequenced_index.hpp> // for sequenced
+#include <boost/multi_index/tag.hpp> // for tag
+#include <boost/multi_index_container.hpp> // for multi_index_c...
+#include <boost/none.hpp> // for none
+#include <boost/optional/optional.hpp> // for optional
+#include <boost/program_options/variables_map.hpp> // for variables_map
+#include <boost/thread/latch.hpp> // for latch
+
+#include <atomic> // for atomic
+#include <chrono> // for seconds, stea...
+#include <deque> // for deque
+#include <future> // for future
+#include <memory> // for unique_ptr
+#include <new> // for operator new
+#include <string> // for string
+#include <utility> // for pair
+#include <vector> // for vector
+
+#include <bits/shared_ptr.h> // for shared_ptr
+#include <bits/std_function.h> // for function
+#include <bits/stdint-uintn.h> // for uint64_t, uin...
+#include <stddef.h> // for size_t
+
+namespace boost
+{
+namespace asio
+{
+	class io_context;
+}
+}
 
 namespace nano
 {

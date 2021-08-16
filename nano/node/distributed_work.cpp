@@ -1,11 +1,88 @@
-#include <nano/boost_wrappers/asio/bind_executor.hpp>
-#include <nano/boost_wrappers/asio/post.hpp>
+#include "nano/lib/logger_mt.hpp"
+#include "nano/lib/numbers.hpp" // for root
+#include "nano/lib/threading.hpp"
+#include "nano/lib/timer.hpp"
+#include "nano/lib/utility.hpp"
+#include "nano/lib/work.hpp"
+#include "nano/node/common.hpp"
+#include "nano/node/distributed_work_factory.hpp"
+#include "nano/node/logging.hpp"
+#include "nano/node/nodeconfig.hpp"
+
 #include <nano/node/distributed_work.hpp>
-#include <nano/node/node.hpp>
-#include <nano/node/websocket.hpp>
 #include <nano/node/network.hpp>
+#include <nano/node/node.hpp> // for node
+#include <nano/node/websocket.hpp>
 
 #include <boost/algorithm/string/erase.hpp>
+#include <boost/asio.hpp>
+#include <boost/asio/bind_executor.hpp>
+#include <boost/asio/buffer.hpp>
+#include <boost/asio/detail/impl/scheduler.ipp>
+#include <boost/asio/detail/impl/strand_executor_service.ipp>
+#include <boost/asio/impl/post.hpp> // for post
+#include <boost/asio/impl/system_executor.hpp>
+#include <boost/asio/ip/address.hpp>
+#include <boost/asio/ip/basic_resolver.hpp>
+#include <boost/asio/ip/basic_resolver_entry.hpp>
+#include <boost/asio/ip/basic_resolver_iterator.hpp>
+#include <boost/asio/ip/impl/address.hpp>
+#include <boost/asio/ip/impl/address.ipp>
+#include <boost/asio/ip/impl/address_v6.ipp>
+#include <boost/asio/ip/udp.hpp>
+#include <boost/beast.hpp>
+#include <boost/beast/core/detail/buffers_range_adaptor.hpp>
+#include <boost/beast/core/impl/buffers_cat.hpp>
+#include <boost/beast/core/impl/buffers_prefix.hpp>
+#include <boost/beast/core/impl/buffers_suffix.hpp>
+#include <boost/beast/core/impl/string.ipp>
+#include <boost/beast/core/impl/string_param.hpp>
+#include <boost/beast/http/detail/basic_parsed_list.hpp>
+#include <boost/beast/http/field.hpp>
+#include <boost/beast/http/impl/basic_parser.hpp>
+#include <boost/beast/http/impl/basic_parser.ipp>
+#include <boost/beast/http/impl/message.hpp>
+#include <boost/beast/http/impl/parser.hpp>
+#include <boost/beast/http/impl/read.hpp>
+#include <boost/beast/http/impl/serializer.hpp>
+#include <boost/beast/http/impl/status.ipp>
+#include <boost/beast/http/impl/verb.ipp>
+#include <boost/beast/http/impl/write.hpp>
+#include <boost/beast/http/status.hpp>
+#include <boost/beast/http/verb.hpp> // for verb
+#include <boost/core/swap.hpp> // for swap
+#include <boost/format/alt_sstream.hpp>
+#include <boost/format/alt_sstream_impl.hpp>
+#include <boost/format/exceptions.hpp>
+#include <boost/format/format_class.hpp>
+#include <boost/format/format_fwd.hpp>
+#include <boost/format/format_implementation.hpp>
+#include <boost/format/free_funcs.hpp> // for str
+#include <boost/intrusive/detail/tree_iterator.hpp>
+#include <boost/iterator/iterator_facade.hpp>
+#include <boost/log/detail/attachable_sstream_buf.hpp>
+#include <boost/log/sources/record_ostream.hpp>
+#include <boost/multi_index/detail/bidir_node_iterator.hpp>
+#include <boost/none.hpp> // for none
+#include <boost/operators.hpp>
+#include <boost/property_tree/detail/exception_implementation.hpp>
+#include <boost/property_tree/detail/ptree_implementation.hpp>
+#include <boost/property_tree/exceptions.hpp>
+#include <boost/property_tree/json_parser.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/ptree_fwd.hpp>
+#include <boost/range/iterator_range_core.hpp>
+#include <boost/system/error_code.hpp>
+#include <boost/utility/string_view.hpp>
+
+#include <algorithm> // for min
+#include <memory>
+#include <mutex>
+#include <new>
+#include <ratio>
+#include <sstream>
+
+#include <stddef.h>
 
 std::shared_ptr<request_type> nano::distributed_work::peer_request::get_prepared_json_request (std::string const & request_string_a) const
 {

@@ -1,9 +1,26 @@
 #pragma once
 
-#include <nano/lib/errors.hpp>
-#include <nano/node/nodeconfig.hpp>
+#include <nano/lib/errors.hpp> // for REGISTER_ERROR_CODES
 
-#include <boost/program_options.hpp>
+#include <boost/program_options/variables_map.hpp> // for variables_map
+
+#include <system_error> // for error_code
+
+namespace boost
+{
+namespace program_options
+{
+	class options_description;
+}
+}
+namespace nano
+{
+class node_config;
+}
+namespace nano
+{
+class node_flags;
+}
 
 namespace nano
 {

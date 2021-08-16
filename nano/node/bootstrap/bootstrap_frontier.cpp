@@ -1,9 +1,44 @@
-#include <nano/node/bootstrap/bootstrap_attempt.hpp>
-#include <nano/node/bootstrap/bootstrap_frontier.hpp>
-#include <nano/node/node.hpp>
-#include <nano/node/transport/tcp.hpp>
+#include "nano/lib/asio.hpp" // for shared_con...
+#include "nano/lib/logger_mt.hpp" // for logger_mt
+#include "nano/lib/stream.hpp" // for write, try...
+#include "nano/lib/timer.hpp" // for seconds_si...
+#include "nano/lib/utility.hpp" // for debug_assert
+#include "nano/node/bootstrap/bootstrap.hpp" // for bootstrap_...
+#include "nano/node/bootstrap/bootstrap_bulk_pull.hpp" // for pull_info
+#include "nano/node/bootstrap/bootstrap_connections.hpp" // for bootstrap_...
+#include "nano/node/bootstrap/bootstrap_server.hpp" // for bootstrap_...
+#include "nano/node/common.hpp" // for frontier_req
+#include "nano/node/logging.hpp" // for logging
+#include "nano/node/nodeconfig.hpp" // for node_config
+#include "nano/node/socket.hpp" // for socket
+#include "nano/secure/buffer.hpp" // for vectorstream
+#include "nano/secure/common.hpp" // for network_pa...
+#include "nano/secure/ledger.hpp" // for ledger
+#include "nano/secure/store.hpp" // for store_iter...
 
-#include <boost/format.hpp>
+#include <nano/node/bootstrap/bootstrap_attempt.hpp> // for bootstrap_...
+#include <nano/node/bootstrap/bootstrap_frontier.hpp>
+#include <nano/node/node.hpp> // for node
+#include <nano/node/transport/tcp.hpp> // for channel_tcp
+
+#include <boost/format/alt_sstream.hpp> // for basic_alts...
+#include <boost/format/alt_sstream_impl.hpp> // for basic_alts...
+#include <boost/format/exceptions.hpp>
+#include <boost/format/format_class.hpp> // for basic_format
+#include <boost/format/format_fwd.hpp> // for format
+#include <boost/format/format_implementation.hpp> // for basic_form...
+#include <boost/format/free_funcs.hpp> // for str
+#include <boost/log/detail/attachable_sstream_buf.hpp> // for basic_ostr...
+#include <boost/log/sources/record_ostream.hpp> // for operator<<
+#include <boost/multiprecision/detail/number_compare.hpp> // for operator==
+#include <boost/optional/optional.hpp> // for get_pointer
+#include <boost/system/error_code.hpp> // for error_code
+
+#include <algorithm> // for equal, max
+#include <array> // for array
+#include <ostream> // for operator<<
+#include <string> // for string
+#include <vector> // for vector
 
 constexpr double nano::bootstrap_limits::bootstrap_connection_warmup_time_sec;
 constexpr double nano::bootstrap_limits::bootstrap_minimum_elapsed_seconds_blockrate;
