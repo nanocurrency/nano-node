@@ -64,13 +64,13 @@ nano::message_header::message_header (bool & error_a, nano::stream & stream_a)
 	}
 }
 
-void nano::message_header::serialize (nano::stream & stream_a) const
+void nano::message_header::serialize (nano::stream & stream_a, bool use_epoch_2_min_version_a) const
 {
 	static nano::network_params network_params;
 	nano::write (stream_a, network_params.header_magic_number);
 	nano::write (stream_a, version_max);
 	nano::write (stream_a, version_using);
-	nano::write (stream_a, get_protocol_constants ().protocol_version_min ());
+	nano::write (stream_a, get_protocol_constants ().protocol_version_min (use_epoch_2_min_version_a));
 	nano::write (stream_a, type);
 	nano::write (stream_a, static_cast<uint16_t> (extensions.to_ullong ()));
 }
@@ -120,17 +120,17 @@ nano::message::message (nano::message_header const & header_a) :
 {
 }
 
-std::shared_ptr<std::vector<uint8_t>> nano::message::to_bytes () const
+std::shared_ptr<std::vector<uint8_t>> nano::message::to_bytes (bool use_epoch_2_min_version_a) const
 {
 	auto bytes = std::make_shared<std::vector<uint8_t>> ();
 	nano::vectorstream stream (*bytes);
-	serialize (stream);
+	serialize (stream, use_epoch_2_min_version_a);
 	return bytes;
 }
 
-nano::shared_const_buffer nano::message::to_shared_const_buffer () const
+nano::shared_const_buffer nano::message::to_shared_const_buffer (bool use_epoch_2_min_version_a) const
 {
-	return shared_const_buffer (to_bytes ());
+	return shared_const_buffer (to_bytes (use_epoch_2_min_version_a));
 }
 
 nano::block_type nano::message_header::block_type () const
@@ -335,13 +335,14 @@ std::string nano::message_parser::status_string ()
 	return "[unknown parse_status]";
 }
 
-nano::message_parser::message_parser (nano::network_filter & publish_filter_a, nano::block_uniquer & block_uniquer_a, nano::vote_uniquer & vote_uniquer_a, nano::message_visitor & visitor_a, nano::work_pool & pool_a) :
-	publish_filter (publish_filter_a),
-	block_uniquer (block_uniquer_a),
-	vote_uniquer (vote_uniquer_a),
-	visitor (visitor_a),
-	pool (pool_a),
-	status (parse_status::success)
+nano::message_parser::message_parser (nano::network_filter & publish_filter_a, nano::block_uniquer & block_uniquer_a, nano::vote_uniquer & vote_uniquer_a, nano::message_visitor & visitor_a, nano::work_pool & pool_a, bool use_epoch_2_min_version_a) :
+publish_filter (publish_filter_a),
+block_uniquer (block_uniquer_a),
+vote_uniquer (vote_uniquer_a),
+visitor (visitor_a),
+pool (pool_a),
+status (parse_status::success),
+use_epoch_2_min_version (use_epoch_2_min_version_a)
 {
 }
 
@@ -357,7 +358,7 @@ void nano::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t 
 		nano::message_header header (error, stream);
 		if (!error)
 		{
-			if (header.version_using < get_protocol_constants ().protocol_version_min ())
+			if (header.version_using < get_protocol_constants ().protocol_version_min (use_epoch_2_min_version))
 			{
 				status = parse_status::outdated_version;
 			}
@@ -581,9 +582,9 @@ void nano::keepalive::visit (nano::message_visitor & visitor_a) const
 	visitor_a.keepalive (*this);
 }
 
-void nano::keepalive::serialize (nano::stream & stream_a) const
+void nano::keepalive::serialize (nano::stream & stream_a, bool use_epoch_2_min_version_a) const
 {
-	header.serialize (stream_a);
+	header.serialize (stream_a, use_epoch_2_min_version_a);
 	for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
 	{
 		debug_assert (i->address ().is_v6 ());
@@ -635,10 +636,10 @@ nano::publish::publish (std::shared_ptr<nano::block> const & block_a) :
 	header.block_type_set (block->type ());
 }
 
-void nano::publish::serialize (nano::stream & stream_a) const
+void nano::publish::serialize (nano::stream & stream_a, bool use_epoch_2_min_version_a) const
 {
 	debug_assert (block != nullptr);
-	header.serialize (stream_a);
+	header.serialize (stream_a, use_epoch_2_min_version_a);
 	block->serialize (stream_a);
 }
 
@@ -702,9 +703,9 @@ void nano::confirm_req::visit (nano::message_visitor & visitor_a) const
 	visitor_a.confirm_req (*this);
 }
 
-void nano::confirm_req::serialize (nano::stream & stream_a) const
+void nano::confirm_req::serialize (nano::stream & stream_a, bool use_epoch_2_min_version_a) const
 {
-	header.serialize (stream_a);
+	header.serialize (stream_a, use_epoch_2_min_version_a);
 	if (header.block_type () == nano::block_type::not_a_block)
 	{
 		debug_assert (!roots_hashes.empty ());
@@ -828,10 +829,10 @@ nano::confirm_ack::confirm_ack (std::shared_ptr<nano::vote> const & vote_a) :
 	}
 }
 
-void nano::confirm_ack::serialize (nano::stream & stream_a) const
+void nano::confirm_ack::serialize (nano::stream & stream_a, bool use_epoch_2_min_version_a) const
 {
 	debug_assert (header.block_type () == nano::block_type::not_a_block || header.block_type () == nano::block_type::send || header.block_type () == nano::block_type::receive || header.block_type () == nano::block_type::open || header.block_type () == nano::block_type::change || header.block_type () == nano::block_type::state);
-	header.serialize (stream_a);
+	header.serialize (stream_a, use_epoch_2_min_version_a);
 	vote->serialize (stream_a, header.block_type ());
 }
 
@@ -874,9 +875,9 @@ nano::frontier_req::frontier_req (bool & error_a, nano::stream & stream_a, nano:
 	}
 }
 
-void nano::frontier_req::serialize (nano::stream & stream_a) const
+void nano::frontier_req::serialize (nano::stream & stream_a, bool use_epoch_2_min_version_a) const
 {
-	header.serialize (stream_a);
+	header.serialize (stream_a, use_epoch_2_min_version_a);
 	write (stream_a, start.bytes);
 	write (stream_a, age);
 	write (stream_a, count);
@@ -929,7 +930,7 @@ void nano::bulk_pull::visit (nano::message_visitor & visitor_a) const
 	visitor_a.bulk_pull (*this);
 }
 
-void nano::bulk_pull::serialize (nano::stream & stream_a) const
+void nano::bulk_pull::serialize (nano::stream & stream_a, bool use_epoch_2_min_version_a) const
 {
 	/*
 	 * Ensure the "count_present" flag is set if there
@@ -941,7 +942,7 @@ void nano::bulk_pull::serialize (nano::stream & stream_a) const
 	 */
 	debug_assert ((count == 0 && !is_count_present ()) || (count != 0 && is_count_present ()));
 
-	header.serialize (stream_a);
+	header.serialize (stream_a, use_epoch_2_min_version_a);
 	write (stream_a, start);
 	write (stream_a, end);
 
@@ -1025,9 +1026,9 @@ void nano::bulk_pull_account::visit (nano::message_visitor & visitor_a) const
 	visitor_a.bulk_pull_account (*this);
 }
 
-void nano::bulk_pull_account::serialize (nano::stream & stream_a) const
+void nano::bulk_pull_account::serialize (nano::stream & stream_a, bool use_epoch_2_min_version_a) const
 {
-	header.serialize (stream_a);
+	header.serialize (stream_a, use_epoch_2_min_version_a);
 	write (stream_a, account);
 	write (stream_a, minimum_amount);
 	write (stream_a, flags);
@@ -1067,9 +1068,9 @@ bool nano::bulk_push::deserialize (nano::stream & stream_a)
 	return false;
 }
 
-void nano::bulk_push::serialize (nano::stream & stream_a) const
+void nano::bulk_push::serialize (nano::stream & stream_a, bool use_epoch_2_min_version_a) const
 {
-	header.serialize (stream_a);
+	header.serialize (stream_a, use_epoch_2_min_version_a);
 }
 
 void nano::bulk_push::visit (nano::message_visitor & visitor_a) const
@@ -1093,9 +1094,9 @@ bool nano::telemetry_req::deserialize (nano::stream & stream_a)
 	return false;
 }
 
-void nano::telemetry_req::serialize (nano::stream & stream_a) const
+void nano::telemetry_req::serialize (nano::stream & stream_a, bool use_epoch_2_min_version_a) const
 {
-	header.serialize (stream_a);
+	header.serialize (stream_a, use_epoch_2_min_version_a);
 }
 
 void nano::telemetry_req::visit (nano::message_visitor & visitor_a) const
@@ -1126,9 +1127,9 @@ nano::telemetry_ack::telemetry_ack (nano::telemetry_data const & telemetry_data_
 	header.extensions |= std::bitset<16> (static_cast<unsigned long long> (telemetry_data::size) + telemetry_data_a.unknown_data.size ());
 }
 
-void nano::telemetry_ack::serialize (nano::stream & stream_a) const
+void nano::telemetry_ack::serialize (nano::stream & stream_a, bool use_epoch_2_min_version_a) const
 {
-	header.serialize (stream_a);
+	header.serialize (stream_a, use_epoch_2_min_version_a);
 	if (!is_empty_payload ())
 	{
 		data.serialize (stream_a);
@@ -1379,9 +1380,9 @@ nano::node_id_handshake::node_id_handshake (boost::optional<nano::uint256_union>
 	}
 }
 
-void nano::node_id_handshake::serialize (nano::stream & stream_a) const
+void nano::node_id_handshake::serialize (nano::stream & stream_a, bool use_epoch_2_min_version_a) const
 {
-	header.serialize (stream_a);
+	header.serialize (stream_a, use_epoch_2_min_version_a);
 	if (query)
 	{
 		write (stream_a, *query);

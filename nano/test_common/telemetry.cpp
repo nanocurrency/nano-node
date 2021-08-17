@@ -9,7 +9,7 @@ void nano::compare_default_telemetry_response_data_excluding_signature (nano::te
 	ASSERT_EQ (telemetry_data_a.cemented_count, 1);
 	ASSERT_EQ (telemetry_data_a.bandwidth_cap, bandwidth_limit_a);
 	ASSERT_EQ (telemetry_data_a.peer_count, 1);
-	ASSERT_EQ (telemetry_data_a.protocol_version, network_params_a.protocol.protocol_version);
+	ASSERT_EQ (telemetry_data_a.protocol_version, network_params_a.protocol.telemetry_protocol_version_min);
 	ASSERT_EQ (telemetry_data_a.unchecked_count, 0);
 	ASSERT_EQ (telemetry_data_a.account_count, 1);
 	ASSERT_LT (telemetry_data_a.uptime, 100);

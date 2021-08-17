@@ -765,7 +765,7 @@ TEST (tcp_listener, tcp_node_id_handshake)
 	auto bootstrap_endpoint (system.nodes[0]->bootstrap.endpoint ());
 	auto cookie (system.nodes[0]->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (bootstrap_endpoint)));
 	nano::node_id_handshake node_id_handshake (cookie, boost::none);
-	auto input (node_id_handshake.to_shared_const_buffer ());
+	auto input (node_id_handshake.to_shared_const_buffer (false));
 	std::atomic<bool> write_done (false);
 	socket->async_connect (bootstrap_endpoint, [&input, socket, &write_done] (boost::system::error_code const & ec) {
 		ASSERT_FALSE (ec);
@@ -780,7 +780,7 @@ TEST (tcp_listener, tcp_node_id_handshake)
 
 	boost::optional<std::pair<nano::account, nano::signature>> response_zero (std::make_pair (nano::account (0), nano::signature (0)));
 	nano::node_id_handshake node_id_handshake_response (boost::none, response_zero);
-	auto output (node_id_handshake_response.to_bytes ());
+	auto output (node_id_handshake_response.to_bytes (false));
 	std::atomic<bool> done (false);
 	socket->async_read (output, output->size (), [&output, &done] (boost::system::error_code const & ec, size_t size_a) {
 		ASSERT_FALSE (ec);
@@ -820,8 +820,8 @@ TEST (tcp_listener, tcp_listener_timeout_node_id_handshake)
 	auto socket (std::make_shared<nano::socket> (*node0));
 	auto cookie (node0->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (node0->bootstrap.endpoint ())));
 	nano::node_id_handshake node_id_handshake (cookie, boost::none);
-	auto input (node_id_handshake.to_shared_const_buffer ());
-	socket->async_connect (node0->bootstrap.endpoint (), [&input, socket] (boost::system::error_code const & ec) {
+	auto input (node_id_handshake.to_shared_const_buffer (false));
+	socket->async_connect (node0->bootstrap.endpoint (), [&input, socket](boost::system::error_code const & ec) {
 		ASSERT_FALSE (ec);
 		socket->async_write (input, [&input] (boost::system::error_code const & ec, size_t size_a) {
 			ASSERT_FALSE (ec);
@@ -979,7 +979,7 @@ TEST (network, bandwidth_limiter)
 	nano::system system;
 	nano::genesis genesis;
 	nano::publish message (genesis.open);
-	auto message_size = message.to_bytes ()->size ();
+	auto message_size = message.to_bytes (false)->size ();
 	auto message_limit = 4; // must be multiple of the number of channels
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.bandwidth_limit = message_limit * message_size;

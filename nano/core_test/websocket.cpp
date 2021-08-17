@@ -48,6 +48,78 @@ TEST (websocket, subscription_edge)
 	ASSERT_TIMELY (5s, future.wait_for (0s) == std::future_status::ready);
 }
 
+// Test client subscribing to changes in active_multiplier
+TEST (websocket, active_difficulty)
+{
+	nano::system system;
+	nano::node_config config (nano::get_available_port (), system.logging);
+	config.websocket_config.enabled = true;
+	config.websocket_config.port = nano::get_available_port ();
+	nano::node_flags node_flags;
+	// Disable auto-updating active difficulty (multiplier) to prevent intermittent failures
+	node_flags.disable_request_loop = true;
+	auto node1 (system.add_node (config, node_flags));
+
+	// "Start" epoch 2
+	node1->ledger.cache.epoch_2_started = true;
+	ASSERT_EQ (node1->default_difficulty (nano::work_version::work_1), node1->network_params.network.publish_thresholds.epoch_2);
+
+	ASSERT_EQ (0, node1->websocket_server->subscriber_count (nano::websocket::topic::active_difficulty));
+
+	std::atomic<bool> ack_ready{ false };
+	auto task = ([&ack_ready, config, &node1]() {
+		fake_websocket_client client (config.websocket_config.port);
+		client.send_message (R"json({"action": "subscribe", "topic": "active_difficulty", "ack": true})json");
+		client.await_ack ();
+		ack_ready = true;
+		EXPECT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::active_difficulty));
+		return client.get_response ();
+	});
+	auto future = std::async (std::launch::async, task);
+
+	ASSERT_TIMELY (5s, ack_ready);
+
+	// Fake history records and force a trended_active_multiplier change
+	{
+		nano::unique_lock<std::mutex> lock (node1->active.mutex);
+		node1->active.multipliers_cb.push_front (10.);
+		node1->active.update_active_multiplier (lock);
+	}
+
+	ASSERT_TIMELY (5s, future.wait_for (0s) == std::future_status::ready);
+
+	// Check active_difficulty response
+	boost::optional<std::string> response = future.get ();
+	ASSERT_TRUE (response);
+	std::stringstream stream;
+	stream << response;
+	boost::property_tree::ptree event;
+	boost::property_tree::read_json (stream, event);
+	ASSERT_EQ (event.get<std::string> ("topic"), "active_difficulty");
+
+	auto message_contents = event.get_child ("message");
+	uint64_t network_minimum;
+	nano::from_string_hex (message_contents.get<std::string> ("network_minimum"), network_minimum);
+	ASSERT_EQ (network_minimum, node1->default_difficulty (nano::work_version::work_1));
+
+	uint64_t network_receive_minimum;
+	nano::from_string_hex (message_contents.get<std::string> ("network_receive_minimum"), network_receive_minimum);
+	ASSERT_EQ (network_receive_minimum, node1->default_receive_difficulty (nano::work_version::work_1));
+
+	uint64_t network_current;
+	nano::from_string_hex (message_contents.get<std::string> ("network_current"), network_current);
+	ASSERT_EQ (network_current, node1->active.active_difficulty ());
+
+	double multiplier = message_contents.get<double> ("multiplier");
+	ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (node1->active.active_difficulty (), node1->default_difficulty (nano::work_version::work_1)), 1e-6);
+
+	uint64_t network_receive_current;
+	nano::from_string_hex (message_contents.get<std::string> ("network_receive_current"), network_receive_current);
+	auto network_receive_current_multiplier (nano::difficulty::to_multiplier (network_receive_current, network_receive_minimum));
+	auto network_receive_current_normalized_multiplier (nano::normalized_multiplier (network_receive_current_multiplier, network_receive_minimum));
+	ASSERT_NEAR (network_receive_current_normalized_multiplier, multiplier, 1e-6);
+}
+
 // Subscribes to block confirmations, confirms a block and then awaits websocket notification
 TEST (websocket, confirmation)
 {

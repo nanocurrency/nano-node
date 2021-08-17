@@ -1112,7 +1112,7 @@ uint64_t nano::node::default_difficulty (nano::work_version const version_a) con
 	switch (version_a)
 	{
 		case nano::work_version::work_1:
-			result = nano::work_threshold_base (version_a);
+			result = ledger.cache.epoch_2_started ? nano::work_threshold_base (version_a) : network_params.network.publish_thresholds.epoch_1;
 			break;
 		default:
 			debug_assert (false && "Invalid version specified to default_difficulty");
@@ -1126,7 +1126,7 @@ uint64_t nano::node::default_receive_difficulty (nano::work_version const versio
 	switch (version_a)
 	{
 		case nano::work_version::work_1:
-			result = network_params.network.publish_thresholds.epoch_2_receive;
+			result = ledger.cache.epoch_2_started ? network_params.network.publish_thresholds.epoch_2_receive : network_params.network.publish_thresholds.epoch_1;
 			break;
 		default:
 			debug_assert (false && "Invalid version specified to default_receive_difficulty");
@@ -1814,6 +1814,7 @@ nano::node_flags const & nano::inactive_node_flag_defaults ()
 	node_flags.generate_cache.cemented_count = false;
 	node_flags.generate_cache.unchecked_count = false;
 	node_flags.generate_cache.account_count = false;
+	node_flags.generate_cache.epoch_2 = false;
 	node_flags.disable_bootstrap_listener = true;
 	node_flags.disable_tcp_realtime = true;
 	return node_flags;
