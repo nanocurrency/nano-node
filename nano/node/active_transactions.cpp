@@ -10,6 +10,7 @@
 #include "nano/node/gap_cache.hpp" // for gap_cache
 #include "nano/node/logging.hpp" // for logging
 #include "nano/node/network.hpp" // for network
+#include <nano/node/transport/tcp.hpp>
 #include "nano/node/node_observers.hpp" // for node_obs...
 #include "nano/node/nodeconfig.hpp" // for node_config
 #include "nano/node/online_reps.hpp" // for online_reps

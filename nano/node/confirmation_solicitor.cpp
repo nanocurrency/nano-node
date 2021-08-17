@@ -8,6 +8,7 @@
 #include "nano/node/socket.hpp" // for buffer_drop_policy, buf...
 #include "nano/node/transport/transport.hpp" // for channel
 #include "nano/secure/common.hpp" // for election_status, networ...
+#include <nano/node/transport/tcp.hpp>
 
 #include <nano/node/confirmation_solicitor.hpp>
 #include <nano/node/election.hpp> // for election, vote_info

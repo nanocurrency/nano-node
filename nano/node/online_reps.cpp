@@ -1,13 +1,6 @@
-#include "nano/lib/numbers.hpp" // for uint128_t
 #include "nano/lib/utility.hpp" // for containe...
-#include "nano/secure/common.hpp" // for network_...
 
-#include <nano/node/nodeconfig.hpp>
-#include <nano/node/online_reps.hpp>
-#include <nano/secure/ledger.hpp>
-#include <nano/secure/store.hpp>
-
-#include <boost/container_hash/extensions.hpp>
+//#include <boost/container_hash/extensions.hpp>
 #include <boost/core/enable_if.hpp> // for enable_i...
 #include <boost/multi_index/detail/bidir_node_iterator.hpp> // for operator==
 #include <boost/multi_index/detail/ord_index_impl.hpp> // for ordered_...
@@ -23,6 +16,13 @@
 #include <boost/multiprecision/detail/number_compare.hpp> // for operator<
 #include <boost/multiprecision/number.hpp> // for number
 #include <boost/operators.hpp> // for operator!=
+#include <boost/array.hpp>
+#include "nano/lib/numbers.hpp" // for uint128_t
+#include "nano/secure/common.hpp" // for network_...
+#include <nano/node/nodeconfig.hpp>
+#include <nano/node/online_reps.hpp>
+#include <nano/secure/ledger.hpp>
+#include <nano/secure/store.hpp>
 
 #include <algorithm> // for copy
 #include <cstddef> // for size_t
