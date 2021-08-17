@@ -1,12 +1,39 @@
-#include <nano/crypto_lib/random_pool.hpp>
-#include <nano/node/common.hpp>
-#include <nano/node/transport/udp.hpp>
 #include <nano/test_common/system.hpp>
-#include <nano/test_common/testutil.hpp>
+#include <nano/test_common/testutil.hpp> // for uint128_t
+#include <nano/crypto_lib/random_pool.hpp> // for random_pool
+#include <nano/lib/blockbuilders.hpp> // for state_block_bui...
+#include <nano/lib/blocks.hpp> // for block, block_de...
+#include <nano/lib/config.hpp> // for network_constants
+#include <nano/lib/threading.hpp> // for thread_pool
+#include <nano/lib/utility.hpp> // for debug_assert
+#include <nano/node/active_transactions.hpp> // for active_transact...
+#include <nano/node/blockprocessor.hpp> // for block_processor
+#include <nano/node/bootstrap/bootstrap.hpp> // for bootstrap_initi...
+#include <nano/node/bootstrap/bootstrap_server.hpp> // for bootstrap_listener
+#include <nano/node/election.hpp> // for election
+#include <nano/node/network.hpp> // for network
+#include <nano/node/node.hpp> // for node
+#include <nano/node/transport/udp.hpp> // for channel_udp
+#include <nano/node/wallet.hpp> // for wallet, wallets
+#include <nano/secure/common.hpp> // for account_info
+#include <nano/secure/ledger.hpp> // for ledger
+#include <nano/secure/store.hpp> // for store, store_it...
+#include <nano/secure/utility.hpp> // for remove_temporar...
 
+#include <boost/format.hpp> // for format
+#include <boost/lexical_cast.hpp> // for lexical_cast
+#include <boost/multiprecision/number.hpp> // for number
 #include <boost/property_tree/json_parser.hpp>
 
-#include <cstdlib>
+#include <crypto/cryptopp/config_int.h> // for word32
+
+#include <cstdint>
+#include <cstdlib> // for getenv, size_t
+#include <iostream> // for operator<<, bas...
+#include <limits>
+#include <memory> // for __alloc_traits<...
+#include <string> // for string, operator<<
+#include <utility> // for move, pair
 
 using namespace std::chrono_literals;
 

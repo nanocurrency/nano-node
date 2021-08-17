@@ -2,6 +2,9 @@
 
 #include <nano/node/common.hpp>
 
+#include <functional>
+#include <memory>
+
 namespace nano
 {
 class node;
