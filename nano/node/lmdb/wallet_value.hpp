@@ -1,7 +1,11 @@
 #pragma once
 
+//#include <nano/lib/numbers.hpp>
+//#include <nano/lib/utility.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/secure/store.hpp>
+
+#include <cstdint>
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
 

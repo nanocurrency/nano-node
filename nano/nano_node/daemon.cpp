@@ -1,19 +1,55 @@
 #include <nano/boost/process/child.hpp>
+#include <nano/lib/config.hpp>
+#include <nano/lib/errors.hpp>
+#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/memory.hpp>
+#include <nano/lib/rpc_handler_interface.hpp>
+#include <nano/lib/rpcconfig.hpp>
 #include <nano/lib/signal_manager.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
+#include <nano/lib/work.hpp>
 #include <nano/nano_node/daemon.hpp>
 #include <nano/node/cli.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/json_handler.hpp>
+#include <nano/node/logging.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/node_rpc_config.hpp>
+#include <nano/node/nodeconfig.hpp>
 #include <nano/node/openclwork.hpp>
+#include <nano/node/wallet.hpp>
 #include <nano/rpc/rpc.hpp>
+#include <nano/secure/common.hpp>
+#include <nano/secure/store.hpp>
+#include <nano/secure/utility.hpp>
 
+#include <boost/asio.hpp>
+#include <boost/filesystem.hpp>
 #include <boost/format.hpp>
+#include <boost/optional/optional.hpp>
+#include <boost/process.hpp>
+#include <boost/system/error_code.hpp>
 
+#include <atomic>
+#include <chrono>
+#include <csignal>
+#include <cstddef>
+#include <cstdint>
+#include <cstdlib>
+#include <functional>
 #include <iostream>
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <utility>
+#include <vector>
+
+namespace nano
+{
+class root;
+}
 
 namespace
 {

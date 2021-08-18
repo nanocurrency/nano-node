@@ -1,11 +1,41 @@
+#include <nano/lib/blocks.hpp>
+#include <nano/lib/config.hpp>
+#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/stats.hpp>
+#include <nano/lib/threading.hpp>
+#include <nano/lib/utility.hpp>
+#include <nano/lib/work.hpp>
+#include <nano/node/bootstrap/bootstrap_bulk_pull.hpp>
 #include <nano/node/bootstrap/bootstrap_bulk_push.hpp>
 #include <nano/node/bootstrap/bootstrap_frontier.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
+#include <nano/node/common.hpp>
+#include <nano/node/logging.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/nodeconfig.hpp>
+#include <nano/node/socket.hpp>
 #include <nano/node/transport/tcp.hpp>
+#include <nano/node/transport/transport.hpp>
+#include <nano/secure/buffer.hpp>
+#include <nano/secure/common.hpp>
+#include <nano/secure/network_filter.hpp>
 
+#include <boost/asio.hpp>
 #include <boost/format.hpp>
+#include <boost/log/detail/attachable_sstream_buf.hpp>
+#include <boost/log/sources/record_ostream.hpp>
+#include <boost/optional/optional.hpp>
+#include <boost/system/error_code.hpp>
 #include <boost/variant/get.hpp>
+#include <boost/variant/variant.hpp>
+
+#include <cstdint>
+#include <limits>
+#include <ostream>
+#include <ratio>
+#include <stdexcept>
+#include <type_traits>
+#include <utility>
 
 nano::bootstrap_listener::bootstrap_listener (uint16_t port_a, nano::node & node_a) :
 	node (node_a),

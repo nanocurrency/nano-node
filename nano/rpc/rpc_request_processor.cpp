@@ -1,9 +1,24 @@
 #include <nano/lib/asio.hpp>
+#include <nano/lib/errors.hpp>
+#include <nano/lib/ipc.hpp>
+#include <nano/lib/ipc_client.hpp>
 #include <nano/lib/json_error_response.hpp>
+#include <nano/lib/rpcconfig.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
 
 #include <boost/endian/conversion.hpp>
+
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <mutex>
+
+namespace nano
+{
+class shared_const_buffer;
+}
 
 nano::rpc_request_processor::rpc_request_processor (boost::asio::io_context & io_ctx, nano::rpc_config & rpc_config) :
 	ipc_address (rpc_config.rpc_process.ipc_address),

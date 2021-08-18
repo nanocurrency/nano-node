@@ -1,7 +1,10 @@
+#include <nano/ipc_flatbuffers_lib/generated/flatbuffers/nanoapi_generated.h>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/node/ipc/flatbuffers_util.hpp>
-#include <nano/secure/common.hpp>
+
+#include <string>
 
 std::unique_ptr<nanoapi::BlockStateT> nano::ipc::flatbuffers_builder::from (nano::state_block const & block_a, nano::amount const & amount_a, bool is_state_send_a, bool is_state_epoch_a)
 {

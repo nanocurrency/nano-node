@@ -1,9 +1,33 @@
+#include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/locks.hpp>
+#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/stats.hpp>
+#include <nano/lib/utility.hpp>
+#include <nano/node/blockprocessor.hpp>
+#include <nano/node/bootstrap/bootstrap.hpp>
+#include <nano/node/bootstrap/bootstrap_attempt.hpp>
 #include <nano/node/bootstrap/bootstrap_bulk_push.hpp>
+#include <nano/node/bootstrap/bootstrap_connections.hpp>
 #include <nano/node/bootstrap/bootstrap_frontier.hpp>
 #include <nano/node/bootstrap/bootstrap_legacy.hpp>
+#include <nano/node/logging.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/nodeconfig.hpp>
+#include <nano/node/transport/tcp.hpp>
+
+#include <crypto/cryptopp/config_int.h>
 
 #include <boost/format.hpp>
+#include <boost/iterator/iterator_facade.hpp>
+#include <boost/operators.hpp>
+#include <boost/optional/optional.hpp>
+#include <boost/property_tree/ptree.hpp>
+
+#include <algorithm>
+#include <limits>
+#include <memory>
+#include <sstream>
+#include <utility>
 
 nano::bootstrap_attempt_legacy::bootstrap_attempt_legacy (std::shared_ptr<nano::node> const & node_a, uint64_t const incremental_id_a, std::string const & id_a, uint32_t const frontiers_age_a, nano::account const & start_account_a) :
 	nano::bootstrap_attempt (node_a, nano::bootstrap_mode::legacy, incremental_id_a, id_a),

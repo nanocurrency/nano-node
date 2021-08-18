@@ -1,4 +1,12 @@
+#include <nano/lib/numbers.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/node/lmdb/wallet_value.hpp>
+#include <nano/secure/store.hpp>
+
+#include <algorithm>
+#include <array>
+
+#include <lmdb/libraries/liblmdb/lmdb.h>
 
 nano::wallet_value::wallet_value (nano::db_val<MDB_val> const & val_a)
 {

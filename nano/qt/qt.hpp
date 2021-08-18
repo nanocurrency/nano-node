@@ -1,12 +1,25 @@
 #pragma once
 
-#include <nano/node/node.hpp>
+//#include <nano/node/node.hpp>
+#include <nano/lib/numbers.hpp>
 
 #include <boost/thread.hpp>
 
 #include <QtGui>
 #include <QtWidgets>
+#include <atomic>
+#include <functional>
+#include <memory>
 #include <set>
+#include <string>
+#include <utility>
+
+namespace nano
+{
+class ledger;
+class node;
+class wallet;
+}
 
 namespace nano_qt
 {

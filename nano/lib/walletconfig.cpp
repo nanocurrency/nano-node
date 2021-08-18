@@ -1,6 +1,13 @@
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/errors.hpp>
+#include <nano/lib/numbers.hpp>
 #include <nano/lib/tomlconfig.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/lib/walletconfig.hpp>
+
+#include <array>
+#include <memory>
+#include <stdexcept>
 
 nano::wallet_config::wallet_config ()
 {

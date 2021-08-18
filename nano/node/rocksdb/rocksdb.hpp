@@ -1,11 +1,12 @@
 #pragma once
 
-#include <nano/lib/config.hpp>
-#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/epoch.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/rocksdbconfig.hpp>
 #include <nano/node/rocksdb/rocksdb_iterator.hpp>
-#include <nano/secure/common.hpp>
+#include <nano/secure/store.hpp>
 #include <nano/secure/store/account_store_partial.hpp>
+#include <nano/secure/store/block_store_partial.hpp>
 #include <nano/secure/store/confirmation_height_store_partial.hpp>
 #include <nano/secure/store/final_vote_store_partial.hpp>
 #include <nano/secure/store/frontier_store_partial.hpp>
@@ -17,18 +18,41 @@
 #include <nano/secure/store/version_store_partial.hpp>
 #include <nano/secure/store_partial.hpp>
 
+#include <boost/filesystem.hpp>
+#include <boost/multiprecision/cpp_int/add.hpp>
+#include <boost/multiprecision/cpp_int/bitwise.hpp>
+#include <boost/multiprecision/detail/no_et_ops.hpp>
+#include <boost/property_tree/ptree_fwd.hpp>
+
+#include <algorithm>
+#include <atomic>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
 #include <rocksdb/db.h>
-#include <rocksdb/filter_policy.h>
 #include <rocksdb/options.h>
 #include <rocksdb/slice.h>
 #include <rocksdb/table.h>
-#include <rocksdb/utilities/optimistic_transaction_db.h>
-#include <rocksdb/utilities/transaction.h>
+
+namespace rocksdb
+{
+class OptimisticTransactionDB;
+class Transaction;
+struct FlushJobInfo;
+}
 
 namespace nano
 {
-class logging_mt;
-class rocksdb_config;
+class ledger_constants;
+class logger_mt;
+class mutex;
+class unchecked_info;
+//class rocksdb_config;
 class rocksdb_store;
 
 class unchecked_rocksdb_store : public unchecked_store_partial<rocksdb::Slice, nano::rocksdb_store>

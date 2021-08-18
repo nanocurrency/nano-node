@@ -3,6 +3,7 @@
 #include <boost/property_tree/ptree.hpp>
 
 #include <functional>
+#include <memory>
 #include <string>
 
 namespace nano

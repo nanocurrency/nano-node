@@ -1,11 +1,21 @@
+#include <nano/ipc_flatbuffers_lib/flatbuffer_producer.hpp>
 #include <nano/ipc_flatbuffers_lib/generated/flatbuffers/nanoapi_generated.h>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/node/ipc/action_handler.hpp>
+#include <nano/node/ipc/ipc_access_config.hpp>
+#include <nano/node/ipc/ipc_broker.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/node.hpp>
 
-#include <iostream>
+#include <boost/multiprecision/number.hpp>
+
+#include <memory>
+#include <string>
+#include <system_error>
+#include <utility>
+
+#include <flatbuffers/flatbuffers.h>
 
 namespace
 {

@@ -1,26 +1,76 @@
 #include <nano/boost/process/child.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/cli.hpp>
+#include <nano/lib/config.hpp>
 #include <nano/lib/errors.hpp>
+#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/memory.hpp>
+#include <nano/lib/numbers.hpp>
+#include <nano/lib/rpc_handler_interface.hpp>
 #include <nano/lib/rpcconfig.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/lib/walletconfig.hpp>
+#include <nano/lib/work.hpp>
 #include <nano/nano_wallet/icon.hpp>
 #include <nano/node/cli.hpp>
+#include <nano/node/common.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/json_handler.hpp>
+#include <nano/node/logging.hpp>
+#include <nano/node/node.hpp>
+#include <nano/node/node_pow_server_config.hpp>
 #include <nano/node/node_rpc_config.hpp>
+#include <nano/node/nodeconfig.hpp>
+#include <nano/node/openclwork.hpp>
+#include <nano/node/wallet.hpp>
 #include <nano/qt/qt.hpp>
 #include <nano/rpc/rpc.hpp>
+#include <nano/secure/common.hpp>
+#include <nano/secure/store.hpp>
+#include <nano/secure/utility.hpp>
 #include <nano/secure/working.hpp>
 
+#include <boost/asio.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/format.hpp>
+#include <boost/lexical_cast/bad_lexical_cast.hpp>
 #include <boost/make_shared.hpp>
+#include <boost/optional/optional.hpp>
+#include <boost/process/child.hpp>
+#include <boost/process/detail/child_decl.hpp>
 #include <boost/program_options.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
+#include <boost/system/error_code.hpp>
+#include <boost/type_index/type_index_facade.hpp>
+
+#include <atomic>
+#include <cstdint>
+#include <cstdlib>
+#include <exception>
+#include <functional>
+#include <map>
+#include <memory>
+#include <ostream>
+#include <string>
+#include <system_error>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
+#include <qapplication.h>
+#include <qcoreapplication.h>
+#include <qglobal.h>
+#include <qmessagebox.h>
+#include <qnamespace.h>
+#include <qobject.h>
+#include <qpixmap.h>
+#include <qsplashscreen.h>
+#include <qstring.h>
+#include <qwidget.h>
 
 namespace
 {

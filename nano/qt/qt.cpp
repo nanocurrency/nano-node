@@ -1,13 +1,83 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
+#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/stats.hpp>
+#include <nano/lib/threading.hpp>
+#include <nano/lib/utility.hpp>
+#include <nano/lib/work.hpp>
+#include <nano/node/bootstrap/bootstrap.hpp>
+#include <nano/node/common.hpp>
+#include <nano/node/node.hpp>
+#include <nano/node/node_observers.hpp>
+#include <nano/node/transport/transport.hpp>
+#include <nano/node/wallet.hpp>
 #include <nano/qt/qt.hpp>
+#include <nano/secure/common.hpp>
+#include <nano/secure/ledger.hpp>
+#include <nano/secure/store.hpp>
 
+#include <boost/asio.hpp>
+#include <boost/core/swap.hpp> // for swap
 #include <boost/foreach.hpp>
+#include <boost/format.hpp>
+#include <boost/iterator.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
+//#include <boost/multiprecision/cpp_int.hpp>
+//#include <boost/multiprecision/detail/no_et_ops.hpp>
+//#include <boost/multiprecision/detail/number_base.hpp>
+//#include <boost/multiprecision/detail/number_compare.hpp>
+//#include <boost/multiprecision/number.hpp>
+#include <boost/operators.hpp>
+#include <boost/optional/optional.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/ptree_fwd.hpp>
 
+#include <algorithm>
+#include <cctype>
+#include <chrono>
 #include <cmath>
+#include <cstddef>
+#include <deque>
 #include <iomanip>
+#include <limits>
+#include <memory>
 #include <sstream>
+#include <stdexcept>
+#include <thread>
+#include <vector>
+
+#include <qabstractbutton.h>
+#include <qabstractitemmodel.h>
+#include <qabstractitemview.h>
+#include <qapplication.h>
+#include <qboxlayout.h>
+#include <qbrush.h>
+#include <qbuttongroup.h>
+#include <qbytearray.h>
+#include <qclipboard.h>
+#include <qframe.h>
+#include <qheaderview.h>
+#include <qitemselectionmodel.h>
+#include <qlabel.h>
+#include <qlineedit.h>
+#include <qlist.h>
+#include <qnamespace.h>
+#include <qplaintextedit.h>
+#include <qpushbutton.h>
+#include <qradiobutton.h>
+#include <qsettings.h>
+#include <qspinbox.h>
+#include <qstackedwidget.h>
+#include <qstandarditemmodel.h>
+#include <qtableview.h>
+#include <qvariant.h>
+#include <qwidget.h>
+
+namespace nano
+{
+class vote_with_weight_info;
+}
 
 namespace
 {

@@ -1,20 +1,36 @@
 #pragma once
 
+#include <nano/lib/numbers.hpp>
 #include <nano/node/bootstrap/bootstrap_attempt.hpp>
+#include <nano/node/common.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index_container.hpp>
+#include <boost/multiprecision/cpp_int.hpp>
+#include <boost/multiprecision/detail/number_base.hpp>
+#include <boost/property_tree/ptree_fwd.hpp>
 
 #include <atomic>
-#include <queue>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <deque>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <unordered_map>
 #include <unordered_set>
+#include <utility>
 
 namespace mi = boost::multi_index;
 
 namespace nano
 {
+class block;
+class mutex;
+class pull_info;
 class node;
 class lazy_state_backlog_item final
 {

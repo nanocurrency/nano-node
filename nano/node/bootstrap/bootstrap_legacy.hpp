@@ -1,16 +1,28 @@
 #pragma once
 
+#include <nano/lib/numbers.hpp>
 #include <nano/node/bootstrap/bootstrap_attempt.hpp>
+#include <nano/node/bootstrap/bootstrap_bulk_pull.hpp>
+#include <nano/node/common.hpp>
 
+#include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/ptree_fwd.hpp>
 
 #include <atomic>
+#include <cstdint>
 #include <deque>
+#include <future>
 #include <memory>
+#include <mutex>
+#include <string>
+#include <utility>
 #include <vector>
 
 namespace nano
 {
+class bulk_push_client;
+class frontier_req_client;
+class mutex;
 class node;
 
 class bootstrap_attempt_legacy : public bootstrap_attempt

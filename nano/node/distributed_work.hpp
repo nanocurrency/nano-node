@@ -4,14 +4,29 @@
 #include <nano/boost/asio/strand.hpp>
 #include <nano/boost/beast/core/flat_buffer.hpp>
 #include <nano/boost/beast/http/string_body.hpp>
+#include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/common.hpp>
 
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/strand.hpp>
+#include <boost/beast.hpp>
+#include <boost/intrusive/detail/list_iterator.hpp>
 #include <boost/optional.hpp>
+#include <boost/optional/optional.hpp>
 
+#include <atomic>
+#include <chrono>
+#include <cstdint>
+#include <functional>
+#include <memory>
 #include <mutex>
+#include <string>
+#include <utility>
+#include <vector>
 
 using request_type = boost::beast::http::request<boost::beast::http::string_body>;
 

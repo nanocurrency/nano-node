@@ -1,6 +1,22 @@
+#include <nano/lib/blocks.hpp>
+#include <nano/lib/config.hpp>
+#include <nano/lib/numbers.hpp>
+#include <nano/lib/utility.hpp>
+#include <nano/node/common.hpp>
 #include <nano/node/confirmation_solicitor.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
+#include <nano/node/repcrawler.hpp>
+#include <nano/node/socket.hpp>
+#include <nano/node/transport/transport.hpp>
+#include <nano/secure/common.hpp>
+
+#include <algorithm>
+#include <atomic>
+#include <cstdint>
+#include <limits>
+#include <memory>
 
 using namespace std::chrono_literals;
 

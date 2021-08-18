@@ -1,6 +1,13 @@
 #include <nano/lib/config.hpp>
+#include <nano/lib/errors.hpp>
 #include <nano/lib/rocksdbconfig.hpp>
 #include <nano/lib/tomlconfig.hpp>
+
+#include <boost/lexical_cast.hpp>
+
+#include <cstdlib>
+#include <memory>
+#include <stdexcept>
 
 nano::error nano::rocksdb_config::serialize_toml (nano::tomlconfig & toml) const
 {

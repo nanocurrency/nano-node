@@ -1,8 +1,15 @@
 #pragma once
 
+#include <nano/lib/blocks.hpp>
+#include <nano/lib/numbers.hpp>
 #include <nano/node/common.hpp>
 
+#include <cstddef>
+#include <cstdint>
 #include <future>
+#include <memory>
+#include <utility>
+#include <vector>
 
 namespace nano
 {

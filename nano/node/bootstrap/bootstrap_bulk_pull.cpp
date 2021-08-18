@@ -1,11 +1,41 @@
+#include <nano/lib/asio.hpp>
+#include <nano/lib/locks.hpp>
+#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/stats.hpp>
+#include <nano/lib/stream.hpp>
+#include <nano/lib/threading.hpp>
+#include <nano/lib/utility.hpp>
+#include <nano/lib/work.hpp>
+#include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
+#include <nano/node/bootstrap/bootstrap_attempt.hpp>
 #include <nano/node/bootstrap/bootstrap_bulk_pull.hpp>
 #include <nano/node/bootstrap/bootstrap_connections.hpp>
-#include <nano/node/bootstrap/bootstrap_lazy.hpp>
+#include <nano/node/bootstrap/bootstrap_server.hpp>
+#include <nano/node/common.hpp>
+#include <nano/node/logging.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/nodeconfig.hpp>
+#include <nano/node/socket.hpp>
 #include <nano/node/transport/tcp.hpp>
+#include <nano/secure/buffer.hpp>
+#include <nano/secure/ledger.hpp>
+#include <nano/secure/store.hpp>
 
 #include <boost/format.hpp>
+#include <boost/log/detail/attachable_sstream_buf.hpp>
+#include <boost/log/sources/record_ostream.hpp>
+#include <boost/multiprecision/detail/no_et_ops.hpp>
+#include <boost/multiprecision/detail/number_compare.hpp>
+#include <boost/optional/optional.hpp>
+#include <boost/system/error_code.hpp>
+
+#include <array>
+#include <atomic>
+#include <chrono>
+#include <ostream>
+#include <string>
+#include <vector>
 
 nano::pull_info::pull_info (nano::hash_or_account const & account_or_head_a, nano::block_hash const & head_a, nano::block_hash const & end_a, uint64_t bootstrap_id_a, count_t count_a, unsigned retry_limit_a) :
 	account_or_head (account_or_head_a),

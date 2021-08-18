@@ -1,20 +1,46 @@
-#include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/blocks.hpp>
+#include <nano/lib/locks.hpp>
+#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/numbers.hpp>
 #include <nano/lib/rocksdbconfig.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/node/rocksdb/rocksdb.hpp>
 #include <nano/node/rocksdb/rocksdb_iterator.hpp>
 #include <nano/node/rocksdb/rocksdb_txn.hpp>
+#include <nano/secure/common.hpp>
+#include <nano/secure/store/unchecked_store_partial.hpp>
+#include <nano/secure/store/version_store_partial.hpp>
+#include <nano/secure/store_partial.hpp>
 
 #include <boost/endian/conversion.hpp>
 #include <boost/format.hpp>
 #include <boost/polymorphic_cast.hpp>
 #include <boost/property_tree/ptree.hpp>
 
-#include <rocksdb/merge_operator.h>
+#include <cstdint>
+#include <cstring>
+#include <functional>
+#include <sstream>
+#include <thread>
+#include <tuple>
+
+#include <rocksdb/advanced_options.h>
+#include <rocksdb/cache.h>
+#include <rocksdb/compression_type.h>
+#include <rocksdb/db.h>
+#include <rocksdb/env.h>
+#include <rocksdb/filter_policy.h>
+#include <rocksdb/iterator.h>
+#include <rocksdb/listener.h>
+#include <rocksdb/options.h>
 #include <rocksdb/slice.h>
 #include <rocksdb/slice_transform.h>
+#include <rocksdb/status.h>
+#include <rocksdb/table.h>
 #include <rocksdb/utilities/backupable_db.h>
+#include <rocksdb/utilities/optimistic_transaction_db.h>
 #include <rocksdb/utilities/transaction.h>
-#include <rocksdb/utilities/transaction_db.h>
+#include <rocksdb/version.h>
 
 namespace
 {

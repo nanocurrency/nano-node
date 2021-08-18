@@ -2,15 +2,24 @@
 #ifndef _WIN32
 
 #include <nano/lib/blocks.hpp>
-#include <nano/lib/errors.hpp>
+#include <nano/lib/numbers.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/node/ledger_walker.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/store.hpp>
 #include <nano/secure/utility.hpp>
 
+#include <boost/filesystem/path.hpp>
+
 #include <algorithm>
+#include <array>
+#include <cstdint>
 #include <limits>
+#include <memory>
+#include <string>
 #include <utility>
+
+#include <diskhash.hpp>
 
 nano::ledger_walker::ledger_walker (nano::ledger const & ledger_a) :
 	ledger{ ledger_a },

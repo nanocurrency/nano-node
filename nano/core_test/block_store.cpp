@@ -1,12 +1,17 @@
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/blockbuilders.hpp>
+#include <nano/lib/blocks.hpp>
+#include <nano/lib/errors.hpp>
 #include <nano/lib/lmdbconfig.hpp>
 #include <nano/lib/logger_mt.hpp>
+#include <nano/lib/numbers.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/lmdb/lmdb.hpp>
 #include <nano/node/rocksdb/rocksdb.hpp>
+#include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/utility.hpp>
 #include <nano/secure/versioning.hpp>
@@ -15,12 +20,22 @@
 
 #include <gtest/gtest.h>
 
+#include <boost/core/swap.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/operators.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/ptree_fwd.hpp>
 
+#include <array>
+#include <cstdint>
+#include <cstdlib>
 #include <fstream>
+#include <iosfwd>
+#include <memory>
+#include <string>
+#include <system_error>
 #include <unordered_set>
-
-#include <stdlib.h>
+#include <vector>
 
 namespace
 {

@@ -1,15 +1,24 @@
 #pragma once
 
-#include <nano/node/network.hpp>
 #include <nano/node/repcrawler.hpp>
 
+#include <cstddef>
+#include <memory>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace nano
 {
+class block_hash;
+class network;
+class root;
 class election;
-class node;
 class node_config;
+namespace transport
+{
+	class channel;
+}
 /** This class accepts elections that need further votes before they can be confirmed and bundles them in to single confirm_req packets */
 class confirmation_solicitor final
 {

@@ -1,6 +1,11 @@
+#include <nano/lib/numbers.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/node/distributed_work.hpp>
 #include <nano/node/distributed_work_factory.hpp>
 #include <nano/node/node.hpp>
+
+#include <algorithm>
+#include <mutex>
 
 nano::distributed_work_factory::distributed_work_factory (nano::node & node_a) :
 	node (node_a)

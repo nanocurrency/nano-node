@@ -1,13 +1,27 @@
+#include <nano/lib/config.hpp>
+#include <nano/lib/stats.hpp>
 #include <nano/lib/threading.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
+#include <nano/node/bootstrap/bootstrap_attempt.hpp>
+#include <nano/node/bootstrap/bootstrap_bulk_pull.hpp>
+#include <nano/node/bootstrap/bootstrap_connections.hpp>
 #include <nano/node/bootstrap/bootstrap_lazy.hpp>
 #include <nano/node/bootstrap/bootstrap_legacy.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/nodeconfig.hpp>
+#include <nano/node/transport/transport.hpp>
+#include <nano/node/transport/udp.hpp>
+#include <nano/secure/common.hpp>
 
 #include <boost/format.hpp>
+#include <boost/multi_index/hashed_index.hpp>
+#include <boost/operators.hpp>
 
 #include <algorithm>
+#include <mutex>
+#include <utility>
 
 nano::bootstrap_initiator::bootstrap_initiator (nano::node & node_a) :
 	node (node_a)

@@ -1,16 +1,34 @@
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/blocks.hpp>
+#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/utility.hpp>
+#include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
 #include <nano/node/bootstrap/bootstrap_attempt.hpp>
 #include <nano/node/bootstrap/bootstrap_bulk_push.hpp>
+#include <nano/node/bootstrap/bootstrap_connections.hpp>
 #include <nano/node/bootstrap/bootstrap_frontier.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
 #include <nano/node/websocket.hpp>
+#include <nano/secure/common.hpp>
+#include <nano/secure/ledger.hpp>
 
 #include <boost/format.hpp>
+#include <boost/log/detail/attachable_sstream_buf.hpp>
+#include <boost/log/sources/record_ostream.hpp>
+#include <boost/optional/optional.hpp>
 
 #include <algorithm>
+#include <memory>
+#include <mutex>
+#include <ostream>
+
+namespace nano
+{
+class pull_info;
+}
 
 constexpr unsigned nano::bootstrap_limits::requeued_pulls_limit;
 constexpr unsigned nano::bootstrap_limits::requeued_pulls_limit_dev;

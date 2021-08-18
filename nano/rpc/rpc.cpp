@@ -1,11 +1,20 @@
 #include <nano/boost/asio/bind_executor.hpp>
+#include <nano/lib/logger_mt.hpp>
 #include <nano/lib/rpc_handler_interface.hpp>
+#include <nano/lib/rpcconfig.hpp>
 #include <nano/rpc/rpc.hpp>
 #include <nano/rpc/rpc_connection.hpp>
 
+#include <boost/asio.hpp>
 #include <boost/format.hpp>
+#include <boost/system/error_code.hpp>
 
+#include <chrono>
 #include <iostream>
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <utility>
 
 #ifdef NANO_SECURE_RPC
 #include <nano/rpc/rpc_secure.hpp>

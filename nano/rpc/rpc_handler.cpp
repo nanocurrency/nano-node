@@ -5,10 +5,19 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/rpc_handler_interface.hpp>
 #include <nano/lib/rpcconfig.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/rpc/rpc_handler.hpp>
 
+#include <boost/core/swap.hpp>
+#include <boost/iterator/iterator_facade.hpp>
+#include <boost/optional/optional.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
+#include <array>
+#include <memory>
+#include <sstream>
+#include <stdexcept>
+#include <system_error>
 #include <unordered_set>
 
 namespace

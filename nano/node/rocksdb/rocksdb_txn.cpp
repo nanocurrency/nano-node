@@ -1,4 +1,20 @@
+#include <nano/lib/utility.hpp>
 #include <nano/node/rocksdb/rocksdb_txn.hpp>
+#include <nano/secure/store.hpp>
+
+#include <algorithm>
+#include <string>
+
+#include <rocksdb/db.h>
+#include <rocksdb/options.h>
+#include <rocksdb/status.h>
+#include <rocksdb/utilities/optimistic_transaction_db.h>
+#include <rocksdb/utilities/transaction.h>
+
+namespace nano
+{
+class mutex;
+}
 
 nano::read_rocksdb_txn::read_rocksdb_txn (rocksdb::DB * db_a) :
 	db (db_a)

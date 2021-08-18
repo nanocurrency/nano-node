@@ -1,17 +1,46 @@
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/blocks.hpp>
+#include <nano/lib/config.hpp>
+#include <nano/lib/lmdbconfig.hpp>
+#include <nano/lib/locks.hpp>
+#include <nano/lib/logger_mt.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
-#include <nano/node/election.hpp>
+#include <nano/lib/work.hpp>
+#include <nano/node/confirmation_height_processor.hpp>
+#include <nano/node/lmdb/lmdb.hpp>
 #include <nano/node/lmdb/lmdb_iterator.hpp>
+#include <nano/node/lmdb/wallet_value.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/nodeconfig.hpp>
+#include <nano/node/socket.hpp>
 #include <nano/node/wallet.hpp>
+#include <nano/secure/common.hpp>
+#include <nano/secure/ledger.hpp>
+#include <nano/secure/store.hpp>
 
+#include <boost/asio.hpp>
+#include <boost/core/enable_if.hpp>
+#include <boost/core/swap.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
+#include <boost/move/utility_core.hpp>
+#include <boost/operators.hpp>
 #include <boost/polymorphic_cast.hpp>
 #include <boost/property_tree/json_parser.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/ptree_fwd.hpp>
+#include <boost/system/error_code.hpp>
 
+#include <algorithm>
+#include <array>
+#include <chrono>
+#include <cstdint>
 #include <future>
+#include <limits>
+#include <sstream>
+#include <tuple>
+#include <type_traits>
 
 #include <argon2.h>
 

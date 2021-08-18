@@ -1,14 +1,56 @@
+#include <nano/lib/blocks.hpp>
+#include <nano/lib/epoch.hpp>
+#include <nano/lib/rocksdbconfig.hpp>
+#include <nano/lib/work.hpp>
+#include <nano/node/bootstrap/bootstrap.hpp>
+#include <nano/node/common.hpp>
+#include <nano/node/network.hpp>
+#include <nano/node/node.hpp>
+#include <nano/node/transport/udp.hpp>
+#include <nano/node/wallet.hpp>
 #include <nano/qt/qt.hpp>
+#include <nano/secure/common.hpp>
+#include <nano/secure/ledger.hpp>
+#include <nano/secure/store.hpp>
+#include <nano/secure/utility.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
+#include <boost/asio/ip/address_v6.hpp>
+#include <boost/core/enable_if.hpp>
+#include <boost/core/swap.hpp>
+#include <boost/filesystem/path.hpp>
+#include <boost/operators.hpp>
 #include <boost/property_tree/json_parser.hpp>
+#include <boost/property_tree/ptree.hpp>
 
 #include <algorithm>
-#include <nano/qt_test/QTest>
-#include <thread>
+#include <chrono>
+#include <cstdint>
+#include <memory>
+#include <sstream>
+#include <system_error>
+#include <vector>
+
+#include <qapplication.h>
+#include <qboxlayout.h>
+#include <qclipboard.h>
+#include <qeventloop.h>
+#include <qitemselectionmodel.h>
+#include <qlabel.h>
+#include <qlineedit.h>
+#include <qnamespace.h>
+#include <qplaintextedit.h>
+#include <qpushbutton.h>
+#include <qradiobutton.h>
+#include <qstackedwidget.h>
+#include <qstandarditemmodel.h>
+#include <qtableview.h>
+#include <qtestkeyboard.h>
+#include <qtestmouse.h>
+#include <qwidget.h>
 
 using namespace std::chrono_literals;
 

@@ -8,6 +8,8 @@
 #include <boost/algorithm/string/predicate.hpp>
 
 #include <atomic>
+#include <memory>
+#include <string>
 
 /* Boost v1.70 introduced breaking changes; the conditional compilation allows 1.6x to be supported as well. */
 #if BOOST_VERSION < 107000

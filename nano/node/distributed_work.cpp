@@ -1,10 +1,39 @@
 #include <nano/boost/asio/bind_executor.hpp>
 #include <nano/boost/asio/post.hpp>
+#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/numbers.hpp>
+#include <nano/lib/threading.hpp>
+#include <nano/lib/timer.hpp>
+#include <nano/lib/utility.hpp>
+#include <nano/lib/work.hpp>
+#include <nano/node/common.hpp>
 #include <nano/node/distributed_work.hpp>
+#include <nano/node/distributed_work_factory.hpp>
+#include <nano/node/logging.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/nodeconfig.hpp>
 #include <nano/node/websocket.hpp>
 
 #include <boost/algorithm/string/erase.hpp>
+#include <boost/asio.hpp>
+#include <boost/beast.hpp>
+#include <boost/core/swap.hpp>
+#include <boost/format.hpp>
+#include <boost/none.hpp>
+#include <boost/operators.hpp>
+#include <boost/property_tree/json_parser.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/range.hpp>
+#include <boost/system/error_code.hpp>
+#include <boost/utility/string_view.hpp>
+
+#include <algorithm>
+#include <cstddef>
+#include <memory>
+#include <mutex>
+#include <new>
+#include <ratio>
+#include <sstream>
 
 std::shared_ptr<request_type> nano::distributed_work::peer_request::get_prepared_json_request (std::string const & request_string_a) const
 {

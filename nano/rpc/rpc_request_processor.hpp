@@ -1,14 +1,23 @@
 #pragma once
 
 #include <nano/lib/ipc_client.hpp>
+#include <nano/lib/locks.hpp>
 #include <nano/lib/rpc_handler_interface.hpp>
-#include <nano/lib/rpcconfig.hpp>
 #include <nano/rpc/rpc.hpp>
 
+#include <cstdint>
 #include <deque>
+#include <functional>
+#include <memory>
+#include <string>
+#include <thread>
+#include <utility>
+#include <vector>
 
 namespace nano
 {
+class rpc_config;
+class shared_const_buffer;
 struct ipc_connection
 {
 	ipc_connection (nano::ipc::ipc_client && client_a, bool is_available_a) :

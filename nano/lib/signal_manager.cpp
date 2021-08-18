@@ -4,8 +4,12 @@
 #include <boost/asio.hpp>
 #include <boost/asio/signal_set.hpp>
 #include <boost/format.hpp>
+#include <boost/optional/optional.hpp>
+#include <boost/system/error_code.hpp>
 
 #include <iostream>
+#include <memory>
+#include <new>
 
 nano::signal_manager::signal_manager () :
 	work (boost::asio::make_work_guard (ioc))

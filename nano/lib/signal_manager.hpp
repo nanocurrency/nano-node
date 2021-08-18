@@ -6,6 +6,7 @@
 #include <boost/system/error_code.hpp>
 #include <boost/thread.hpp>
 
+#include <functional>
 #include <iostream>
 #include <memory>
 #include <string>
