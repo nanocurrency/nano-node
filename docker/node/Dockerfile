@@ -29,7 +29,9 @@ COPY --from=0 /tmp/src/api/ /usr/bin/api/
 COPY --from=0 /etc/nano-network /etc
 COPY docker/node/entry.sh /usr/bin/entry.sh
 COPY docker/node/config /usr/share/nano/config
+COPY --from=0 /tmp/boost/lib/* /usr/local/lib/
 RUN chmod +x /usr/bin/entry.sh
+RUN ldconfig
 
 WORKDIR /root
 USER root
