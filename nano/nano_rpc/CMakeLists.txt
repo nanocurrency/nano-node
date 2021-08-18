@@ -1,7 +1,7 @@
-add_executable(nano_rpc entry.cpp)
+add_executable(banano_rpc entry.cpp)
 
 target_link_libraries(
-  nano_rpc
+  banano_rpc
   rpc
   secure
   Boost::filesystem
@@ -13,15 +13,15 @@ target_link_libraries(
   Boost::boost)
 
 target_compile_definitions(
-  nano_rpc
+  banano_rpc
   PUBLIC -DACTIVE_NETWORK=${ACTIVE_NETWORK}
   PRIVATE -DTAG_VERSION_STRING=${TAG_VERSION_STRING}
           -DGIT_COMMIT_HASH=${GIT_COMMIT_HASH})
 
 if((NANO_GUI OR RAIBLOCKS_GUI) AND NOT APPLE)
   if(WIN32)
-    install(TARGETS nano_rpc RUNTIME DESTINATION .)
+    install(TARGETS banano_rpc RUNTIME DESTINATION .)
   else()
-    install(TARGETS nano_rpc RUNTIME DESTINATION ./bin)
+    install(TARGETS banano_rpc RUNTIME DESTINATION ./bin)
   endif()
 endif()

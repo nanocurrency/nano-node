@@ -280,7 +280,7 @@ std::string get_default_rpc_filepath ()
 	auto running_executable_filepath = boost::dll::program_location (err);
 
 	// Construct the nano_rpc executable file path based on where the currently running executable is found.
-	auto rpc_filepath = running_executable_filepath.parent_path () / "nano_rpc";
+	auto rpc_filepath = running_executable_filepath.parent_path () / "banano_rpc";
 	if (running_executable_filepath.has_extension ())
 	{
 		rpc_filepath.replace_extension (running_executable_filepath.extension ());

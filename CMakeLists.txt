@@ -690,7 +690,7 @@ if(NANO_GUI OR RAIBLOCKS_GUI)
             DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/MacOS)
     install(TARGETS bananode
             DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/MacOS)
-    install(TARGETS nano_rpc
+    install(TARGETS banano_rpc
             DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents/MacOS)
     install(FILES Info.plist DESTINATION ${NANO_OSX_PACKAGE_NAME}.app/Contents)
     install(FILES qt.conf

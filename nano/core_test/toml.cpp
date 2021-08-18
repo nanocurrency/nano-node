@@ -527,7 +527,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 
 	[rpc.child_process]
 	enable = true
-	rpc_path = "/dev/nano_rpc"
+	rpc_path = "/dev/banano_rpc"
 	)toml";
 
 	nano::tomlconfig toml;
