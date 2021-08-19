@@ -1,9 +1,62 @@
+#include <nano/lib/blockbuilders.hpp>
+#include <nano/lib/blocks.hpp>
+#include <nano/lib/config.hpp>
+#include <nano/lib/numbers.hpp>
+#include <nano/lib/stats.hpp>
+#include <nano/lib/work.hpp>
+#include <nano/node/active_transactions.hpp>
+#include <nano/node/blockprocessor.hpp>
+#include <nano/node/bootstrap/bootstrap.hpp>
+#include <nano/node/bootstrap/bootstrap_attempt.hpp>
+#include <nano/node/bootstrap/bootstrap_bulk_pull.hpp>
+#include <nano/node/bootstrap/bootstrap_connections.hpp>
 #include <nano/node/bootstrap/bootstrap_frontier.hpp>
-#include <nano/node/bootstrap/bootstrap_lazy.hpp>
+#include <nano/node/bootstrap/bootstrap_server.hpp>
+#include <nano/node/common.hpp>
+#include <nano/node/election.hpp>
+#include <nano/node/election_scheduler.hpp>
+#include <nano/node/node.hpp>
+#include <nano/node/nodeconfig.hpp>
+#include <nano/node/socket.hpp>
+#include <nano/node/transport/udp.hpp>
+#include <nano/node/wallet.hpp>
+#include <nano/secure/common.hpp>
+#include <nano/secure/ledger.hpp>
+#include <nano/secure/store.hpp>
+#include <nano/secure/utility.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
+
+#include <boost/asio/impl/io_context.ipp>
+#include <boost/asio/io_context.hpp>
+#include <boost/multiprecision/cpp_int.hpp>
+#include <boost/multiprecision/cpp_int/bitwise.hpp>
+#include <boost/multiprecision/cpp_int/limits.hpp>
+#include <boost/multiprecision/detail/no_et_ops.hpp>
+#include <boost/multiprecision/detail/number_base.hpp>
+#include <boost/multiprecision/detail/number_compare.hpp>
+#include <boost/optional/optional.hpp>
+
+#include <atomic>
+#include <chrono>
+#include <deque>
+#include <limits>
+#include <memory>
+#include <mutex>
+#include <queue>
+#include <ratio>
+#include <string>
+#include <system_error>
+#include <thread>
+#include <utility>
+#include <vector>
+
+namespace nano
+{
+class mutex;
+}
 
 using namespace std::chrono_literals;
 

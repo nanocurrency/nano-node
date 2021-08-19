@@ -1,10 +1,27 @@
 #include <nano/boost/asio/ip/address_v6.hpp>
 #include <nano/lib/config.hpp>
+#include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/rpcconfig.hpp>
 #include <nano/lib/tomlconfig.hpp>
+#include <nano/lib/utility.hpp>
 
+#include <boost/core/swap.hpp>
 #include <boost/dll/runtime_symbol_info.hpp>
+#include <boost/filesystem/operations.hpp>
+#include <boost/filesystem/path.hpp>
+#include <boost/iterator/iterator_facade.hpp>
+#include <boost/multi_index/detail/bidir_node_iterator.hpp>
+#include <boost/operators.hpp>
+#include <boost/optional/optional.hpp>
+#include <boost/property_tree/detail/exception_implementation.hpp>
+#include <boost/property_tree/detail/ptree_implementation.hpp>
+#include <boost/property_tree/exceptions.hpp>
+#include <boost/system/error_code.hpp>
+
+#include <memory>
+#include <sstream>
+#include <stdexcept>
 
 nano::error nano::rpc_secure_config::serialize_json (nano::jsonconfig & json) const
 {

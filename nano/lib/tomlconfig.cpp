@@ -1,7 +1,17 @@
 #include <nano/boost/asio/ip/address_v6.hpp>
+#include <nano/lib/configbase.hpp>
 #include <nano/lib/tomlconfig.hpp>
+#include <nano/lib/utility.hpp>
 
-#include <boost/filesystem/convenience.hpp>
+#include <boost/filesystem/operations.hpp>
+#include <boost/system/error_code.hpp>
+
+#include <algorithm>
+#include <cstdint>
+#include <istream>
+#include <vector>
+
+#include <cpptoml.h>
 
 nano::tomlconfig::tomlconfig () :
 	tree (cpptoml::make_table ())

@@ -1,27 +1,22 @@
 #pragma once
 
-#include <nano/ipc_flatbuffers_lib/generated/flatbuffers/nanoapi_generated.h>
 #include <nano/lib/errors.hpp>
-#include <nano/lib/ipc.hpp>
 #include <nano/node/ipc/ipc_access_config.hpp>
-#include <nano/node/ipc/ipc_broker.hpp>
-#include <nano/node/node_rpc_config.hpp>
 
 #include <atomic>
+#include <cstdint>
 #include <memory>
-#include <mutex>
+#include <vector>
 
-namespace flatbuffers
-{
-class Parser;
-}
 namespace nano
 {
 class node;
-class error;
+class node_rpc_config;
 namespace ipc
 {
-	class access;
+	class broker;
+	class dsock_file_remover;
+	class transport;
 	/** The IPC server accepts connections on one or more configured transports */
 	class ipc_server final
 	{

@@ -2,8 +2,9 @@
 
 #include <nano/boost/asio/ip/tcp.hpp>
 #include <nano/lib/logger_mt.hpp>
-#include <nano/lib/rpc_handler_interface.hpp>
 #include <nano/lib/rpcconfig.hpp>
+
+#include <memory>
 
 namespace boost
 {

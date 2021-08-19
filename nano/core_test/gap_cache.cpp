@@ -1,7 +1,43 @@
+#include <nano/lib/blocks.hpp>
+#include <nano/lib/numbers.hpp>
+#include <nano/lib/timer.hpp>
+#include <nano/lib/work.hpp>
+#include <nano/node/active_transactions.hpp>
+#include <nano/node/blockprocessor.hpp>
+#include <nano/node/election.hpp>
+#include <nano/node/gap_cache.hpp>
+#include <nano/node/node.hpp>
+#include <nano/node/nodeconfig.hpp>
+#include <nano/node/transport/transport.hpp>
+#include <nano/node/wallet.hpp>
+#include <nano/secure/common.hpp>
+#include <nano/secure/store.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
+
+#include <boost/multi_index/detail/hash_index_iterator.hpp>
+#include <boost/multi_index_container.hpp>
+#include <boost/multiprecision/cpp_int.hpp>
+#include <boost/multiprecision/detail/no_et_ops.hpp>
+#include <boost/multiprecision/detail/number_base.hpp>
+#include <boost/multiprecision/detail/number_compare.hpp>
+#include <boost/operators.hpp>
+#include <boost/optional/optional.hpp>
+
+#include <chrono>
+#include <memory>
+#include <mutex>
+#include <ratio>
+#include <string>
+#include <system_error>
+#include <vector>
+
+namespace nano
+{
+class mutex;
+}
 
 using namespace std::chrono_literals;
 

@@ -1,11 +1,67 @@
-#include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/blockbuilders.hpp>
+#include <nano/lib/blocks.hpp>
+#include <nano/lib/numbers.hpp>
+#include <nano/lib/stats.hpp>
+#include <nano/lib/work.hpp>
+#include <nano/node/active_transactions.hpp>
+#include <nano/node/blockprocessor.hpp>
+#include <nano/node/common.hpp>
+#include <nano/node/confirmation_height_processor.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/election_scheduler.hpp>
+#include <nano/node/node.hpp>
+#include <nano/node/nodeconfig.hpp>
+#include <nano/node/repcrawler.hpp>
+#include <nano/node/socket.hpp>
+#include <nano/node/transport/transport.hpp>
+#include <nano/node/transport/udp.hpp>
+#include <nano/node/voting.hpp>
+#include <nano/node/wallet.hpp>
+#include <nano/secure/buffer.hpp>
+#include <nano/secure/common.hpp>
+#include <nano/secure/ledger.hpp>
+#include <nano/secure/network_filter.hpp>
+#include <nano/secure/store.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
+#include <boost/core/enable_if.hpp>
+#include <boost/multi_index/detail/bidir_node_iterator.hpp>
+#include <boost/multi_index/detail/index_node_base.hpp>
+#include <boost/multi_index_container.hpp>
+#include <boost/multiprecision/cpp_int.hpp>
+#include <boost/multiprecision/detail/no_et_ops.hpp>
+#include <boost/multiprecision/number.hpp>
+#include <boost/operators.hpp>
+#include <boost/optional/optional.hpp>
+
+#include <atomic>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <deque>
+#include <functional>
+#include <initializer_list>
+#include <limits>
+#include <map>
+#include <memory>
+#include <mutex>
 #include <numeric>
+#include <ratio>
+#include <string>
+#include <system_error>
+#include <thread>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
+#include <vector>
+
+namespace nano
+{
+class mutex;
+}
 
 using namespace std::chrono_literals;
 

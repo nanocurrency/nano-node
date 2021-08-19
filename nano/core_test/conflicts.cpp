@@ -1,10 +1,20 @@
+#include <nano/lib/blocks.hpp>
+#include <nano/lib/numbers.hpp>
+#include <nano/node/active_transactions.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/election_scheduler.hpp>
+#include <nano/node/node.hpp>
+#include <nano/secure/common.hpp>
+#include <nano/secure/store.hpp>
 #include <nano/test_common/system.hpp>
-#include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
 #include <boost/variant/get.hpp>
+
+#include <memory>
+#include <unordered_map>
+#include <vector>
 
 using namespace std::chrono_literals;
 

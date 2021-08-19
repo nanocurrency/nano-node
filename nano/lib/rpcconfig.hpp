@@ -3,6 +3,7 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/errors.hpp>
 
+#include <cstdint>
 #include <string>
 #include <thread>
 #include <vector>

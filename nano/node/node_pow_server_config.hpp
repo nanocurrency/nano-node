@@ -1,9 +1,10 @@
 #pragma once
 
-#include <nano/lib/rpcconfig.hpp>
+#include <nano/lib/errors.hpp>
 
 #include <boost/dll/runtime_symbol_info.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/system/error_code.hpp>
 
 #include <string>
 

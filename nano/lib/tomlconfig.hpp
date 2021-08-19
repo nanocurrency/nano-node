@@ -1,11 +1,22 @@
 #pragma once
 
 #include <nano/lib/configbase.hpp>
-#include <nano/lib/utility.hpp>
+//#include <nano/lib/utility.hpp>
+#include <nano/lib/errors.hpp>
 
 #include <boost/filesystem/path.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/none.hpp>
 #include <boost/optional.hpp>
+
+#include <cstdint>
+#include <functional>
+#include <iosfwd>
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <type_traits>
+#include <utility>
 
 #include <cpptoml.h>
 
@@ -22,7 +33,7 @@ namespace asio
 
 namespace nano
 {
-class error;
+//class error;
 
 /** Manages a table in a toml configuration table hierarchy */
 class tomlconfig : public nano::configbase

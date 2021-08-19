@@ -1,8 +1,13 @@
-#include <nano/lib/locks.hpp>
 #include <nano/lib/rate_limiting.hpp>
 #include <nano/lib/utility.hpp>
 
-#include <limits>
+#include <algorithm>
+#include <mutex>
+
+namespace nano
+{
+class mutex;
+}
 
 nano::rate::token_bucket::token_bucket (size_t max_token_count_a, size_t refill_rate_a)
 {

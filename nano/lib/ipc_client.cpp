@@ -4,14 +4,22 @@
 #include <nano/boost/asio/read.hpp>
 #include <nano/boost/asio/strand.hpp>
 #include <nano/lib/asio.hpp>
+#include <nano/lib/errors.hpp>
 #include <nano/lib/ipc.hpp>
 #include <nano/lib/ipc_client.hpp>
 
 #include <boost/endian/conversion.hpp>
 #include <boost/polymorphic_cast.hpp>
+#include <boost/system/error_code.hpp>
 
+#include <cstddef>
+#include <cstdint>
 #include <deque>
 #include <future>
+#include <iterator>
+#include <utility>
+
+#include <flatbuffers/flatbuffers.h>
 
 namespace
 {

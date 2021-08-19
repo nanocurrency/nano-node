@@ -1,10 +1,65 @@
+#include <nano/lib/blocks.hpp>
+#include <nano/lib/config.hpp>
+#include <nano/lib/epoch.hpp>
+#include <nano/lib/locks.hpp>
+#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/numbers.hpp>
+#include <nano/lib/rocksdbconfig.hpp>
+#include <nano/lib/stats.hpp>
+#include <nano/lib/timer.hpp>
+#include <nano/lib/utility.hpp>
+#include <nano/lib/work.hpp>
+#include <nano/node/active_transactions.hpp>
+#include <nano/node/blockprocessor.hpp>
+#include <nano/node/common.hpp>
+#include <nano/node/confirmation_height_bounded.hpp>
+#include <nano/node/confirmation_height_processor.hpp>
+#include <nano/node/confirmation_height_unbounded.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/election_scheduler.hpp>
+#include <nano/node/logging.hpp>
+#include <nano/node/node.hpp>
+#include <nano/node/node_observers.hpp>
+#include <nano/node/nodeconfig.hpp>
+#include <nano/node/online_reps.hpp>
+#include <nano/node/transport/udp.hpp>
+#include <nano/node/wallet.hpp>
+#include <nano/node/write_database_queue.hpp>
+#include <nano/secure/common.hpp>
+#include <nano/secure/ledger.hpp>
+#include <nano/secure/store.hpp>
+#include <nano/secure/utility.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
 #include <boost/format.hpp>
+#include <boost/iostreams/stream_buffer.hpp>
+#include <boost/multiprecision/cpp_int.hpp>
+#include <boost/multiprecision/cpp_int/bitwise.hpp>
+#include <boost/multiprecision/cpp_int/limits.hpp>
+#include <boost/multiprecision/detail/no_et_ops.hpp>
+#include <boost/multiprecision/number.hpp>
+#include <boost/optional/optional.hpp>
+#include <boost/thread/latch.hpp>
+
+#include <atomic>
+#include <chrono>
+#include <cstdint>
+#include <deque>
+#include <functional>
+#include <limits>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <ostream>
+#include <ratio>
+#include <string>
+#include <system_error>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 using namespace std::chrono_literals;
 

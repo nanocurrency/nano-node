@@ -1,12 +1,16 @@
 #pragma once
 
 #include <nano/lib/errors.hpp>
-#include <nano/node/nodeconfig.hpp>
 
 #include <boost/program_options.hpp>
+#include <boost/program_options/variables_map.hpp>
+
+#include <system_error>
 
 namespace nano
 {
+class node_config;
+class node_flags;
 /** Command line related error codes */
 enum class error_cli
 {

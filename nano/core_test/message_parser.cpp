@@ -1,7 +1,22 @@
+#include <nano/lib/blocks.hpp>
+#include <nano/lib/config.hpp>
+#include <nano/lib/numbers.hpp>
+#include <nano/lib/work.hpp>
+#include <nano/node/common.hpp>
+#include <nano/secure/buffer.hpp>
+#include <nano/secure/common.hpp>
+#include <nano/secure/network_filter.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
+
+#include <boost/optional/optional.hpp>
+
+#include <cstdint>
+#include <memory>
+#include <utility>
+#include <vector>
 
 namespace
 {

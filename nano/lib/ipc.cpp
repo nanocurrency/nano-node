@@ -1,6 +1,12 @@
 #include <nano/lib/ipc.hpp>
 #include <nano/lib/utility.hpp>
 
+#include <boost/asio.hpp>
+#include <boost/date_time/posix_time/posix_time_duration.hpp>
+#include <boost/system/error_code.hpp>
+
+#include <cstdio>
+
 nano::ipc::socket_base::socket_base (boost::asio::io_context & io_ctx_a) :
 	io_timer (io_ctx_a)
 {

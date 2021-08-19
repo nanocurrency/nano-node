@@ -1,16 +1,42 @@
 #include <nano/boost/asio/bind_executor.hpp>
 #include <nano/boost/asio/dispatch.hpp>
 #include <nano/boost/asio/strand.hpp>
+#include <nano/lib/asio.hpp>
+#include <nano/lib/blocks.hpp>
+#include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/numbers.hpp>
+#include <nano/lib/timer.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/lib/work.hpp>
+#include <nano/node/common.hpp>
+#include <nano/node/election.hpp>
 #include <nano/node/transport/transport.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/node/websocket.hpp>
+#include <nano/secure/common.hpp>
+#include <nano/secure/store.hpp>
 
-#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/asio.hpp>
+#include <boost/beast.hpp>
+#include <boost/optional/optional.hpp>
 #include <boost/property_tree/json_parser.hpp>
+#include <boost/property_tree/json_parser/error.hpp>
+#include <boost/property_tree/ptree.hpp>
 
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
+#include <memory>
+#include <mutex>
+#include <new>
+#include <sstream>
+#include <stdexcept>
+#include <type_traits>
+#include <utility>
+
+#include <bits/exception.h>
 
 nano::websocket::confirmation_options::confirmation_options (nano::wallets & wallets_a) :
 	wallets (wallets_a)

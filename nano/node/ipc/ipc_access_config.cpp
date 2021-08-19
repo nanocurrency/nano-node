@@ -1,7 +1,27 @@
+#include <nano/lib/config.hpp>
+#include <nano/lib/errors.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/ipc/ipc_access_config.hpp>
 
 #include <boost/algorithm/string.hpp>
+#include <boost/filesystem/operations.hpp>
+#include <boost/filesystem/path.hpp>
+#include <boost/iterator/iterator_facade.hpp>
+#include <boost/range/distance.hpp>
+#include <boost/type_index/type_index_facade.hpp>
+
+#include <memory>
+#include <mutex>
+#include <ostream>
+#include <stdexcept>
+#include <utility>
+
+#include <cpptoml.h>
+
+namespace nano
+{
+class mutex;
+}
 
 namespace
 {

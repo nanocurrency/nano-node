@@ -1,17 +1,103 @@
+#include <nano/lib/asio.hpp>
+#include <nano/lib/blockbuilders.hpp>
+#include <nano/lib/blocks.hpp>
+#include <nano/lib/config.hpp>
+#include <nano/lib/diagnosticsconfig.hpp>
+#include <nano/lib/epoch.hpp>
+#include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/numbers.hpp>
+#include <nano/lib/rocksdbconfig.hpp>
+#include <nano/lib/stats.hpp>
+#include <nano/lib/timer.hpp>
+#include <nano/lib/utility.hpp>
+#include <nano/lib/work.hpp>
+#include <nano/node/active_transactions.hpp>
+#include <nano/node/blockprocessor.hpp>
+#include <nano/node/bootstrap/bootstrap.hpp>
+#include <nano/node/bootstrap/bootstrap_connections.hpp>
+#include <nano/node/bootstrap/bootstrap_server.hpp>
+#include <nano/node/common.hpp>
+#include <nano/node/confirmation_height_processor.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/election_scheduler.hpp>
+#include <nano/node/gap_cache.hpp>
+#include <nano/node/logging.hpp>
+#include <nano/node/node.hpp>
+#include <nano/node/node_observers.hpp>
+#include <nano/node/nodeconfig.hpp>
+#include <nano/node/online_reps.hpp>
+#include <nano/node/repcrawler.hpp>
+#include <nano/node/request_aggregator.hpp>
+#include <nano/node/transport/tcp.hpp>
+#include <nano/node/transport/transport.hpp>
 #include <nano/node/transport/udp.hpp>
+#include <nano/node/voting.hpp>
+#include <nano/node/wallet.hpp>
+#include <nano/node/write_database_queue.hpp>
+#include <nano/secure/buffer.hpp>
+#include <nano/secure/common.hpp>
+#include <nano/secure/ledger.hpp>
+#include <nano/secure/network_filter.hpp>
+#include <nano/secure/store.hpp>
+#include <nano/secure/utility.hpp>
 #include <nano/test_common/network.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
+#include <boost/asio.hpp>
+#include <boost/core/enable_if.hpp>
+#include <boost/core/swap.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/iterator/iterator_facade.hpp>
 #include <boost/make_shared.hpp>
+#include <boost/multi_index/detail/bidir_node_iterator.hpp>
+#include <boost/multi_index_container.hpp>
+#include <boost/multiprecision/cpp_int.hpp>
+#include <boost/multiprecision/cpp_int/bitwise.hpp>
+#include <boost/multiprecision/cpp_int/limits.hpp>
+#include <boost/multiprecision/detail/no_et_ops.hpp>
+#include <boost/multiprecision/detail/number_base.hpp>
+#include <boost/multiprecision/detail/number_compare.hpp>
+#include <boost/multiprecision/number.hpp>
+#include <boost/operators.hpp>
+#include <boost/optional/optional.hpp>
+#include <boost/property_tree/ptree.hpp>
 #include <boost/variant.hpp>
+#include <boost/variant/get.hpp>
 
-#include <numeric>
+#include <algorithm>
+#include <array>
+#include <atomic>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <deque>
+#include <functional>
+#include <future>
+#include <limits>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <ratio>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+#include <system_error>
+#include <thread>
+#include <type_traits>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
+#include <vector>
+
+namespace nano
+{
+class mutex;
+}
 
 using namespace std::chrono_literals;
 

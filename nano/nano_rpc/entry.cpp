@@ -1,5 +1,7 @@
 #include <nano/lib/cli.hpp>
+#include <nano/lib/config.hpp>
 #include <nano/lib/errors.hpp>
+#include <nano/lib/rpcconfig.hpp>
 #include <nano/lib/signal_manager.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
@@ -7,12 +9,42 @@
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/rpc/rpc.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
+#include <nano/secure/common.hpp>
 #include <nano/secure/utility.hpp>
 
+#include <boost/asio.hpp>
+#include <boost/core/enable_if.hpp>
+#include <boost/detail/basic_pointerbuf.hpp>
 #include <boost/filesystem.hpp>
-#include <boost/log/utility/setup/common_attributes.hpp>
-#include <boost/log/utility/setup/file.hpp>
+#include <boost/lexical_cast/bad_lexical_cast.hpp>
+#include <boost/log/common.hpp>
+#include <boost/log/keywords/auto_flush.hpp>
+#include <boost/log/keywords/file_name.hpp>
+#include <boost/log/keywords/format.hpp>
+#include <boost/log/keywords/max_size.hpp>
+#include <boost/log/keywords/rotation_size.hpp>
+#include <boost/log/keywords/scan_method.hpp>
+#include <boost/log/keywords/target.hpp>
+#include <boost/log/sinks.hpp>
+#include <boost/log/utility/setup.hpp>
+#include <boost/parameter/keyword.hpp>
 #include <boost/program_options.hpp>
+#include <boost/system/error_code.hpp>
+#include <boost/type_index.hpp>
+
+#include <atomic>
+#include <csignal>
+#include <cstdint>
+#include <cstdlib>
+#include <functional>
+#include <iostream>
+#include <map>
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <type_traits>
+#include <utility>
+#include <vector>
 
 namespace
 {

@@ -1,9 +1,41 @@
-#include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/blockbuilders.hpp>
+#include <nano/lib/blocks.hpp>
+//#include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/numbers.hpp>
+#include <nano/lib/stats.hpp>
+#include <nano/lib/work.hpp>
+#include <nano/node/active_transactions.hpp>
+#include <nano/node/confirmation_height_processor.hpp>
+#include <nano/node/election.hpp>
+#include <nano/node/node.hpp>
+#include <nano/node/nodeconfig.hpp>
 #include <nano/node/request_aggregator.hpp>
+#include <nano/node/transport/transport.hpp>
+#include <nano/node/transport/udp.hpp>
+#include <nano/node/voting.hpp>
+#include <nano/node/wallet.hpp>
+#include <nano/secure/common.hpp>
+#include <nano/secure/ledger.hpp>
+#include <nano/secure/store.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
+
+#include <boost/multiprecision/cpp_int.hpp>
+#include <boost/multiprecision/detail/no_et_ops.hpp>
+#include <boost/optional/optional.hpp>
+
+#include <atomic>
+#include <chrono>
+#include <cstddef>
+#include <functional>
+#include <memory>
+#include <ratio>
+#include <string>
+#include <system_error>
+#include <utility>
+#include <vector>
 
 using namespace std::chrono_literals;
 

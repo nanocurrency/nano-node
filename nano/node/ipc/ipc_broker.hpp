@@ -1,13 +1,23 @@
 #pragma once
 
-#include <nano/ipc_flatbuffers_lib/generated/flatbuffers/nanoapi_generated.h>
 #include <nano/lib/ipc.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/node/ipc/ipc_broker.hpp>
-#include <nano/node/node_rpc_config.hpp>
 
-#include <atomic>
-#include <mutex>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
+
+namespace nanoapi
+{
+struct EventConfirmationT;
+struct TopicConfirmationT;
+struct TopicServiceStopT;
+}
 
 namespace flatbuffers
 {

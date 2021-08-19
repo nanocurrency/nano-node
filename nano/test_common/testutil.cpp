@@ -1,11 +1,14 @@
-#include <nano/crypto_lib/random_pool.hpp>
+#include <nano/node/node.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
+#include <cstddef>
 #include <cstdlib>
 #include <numeric>
+#include <ratio>
+#include <vector>
 
 using namespace std::chrono_literals;
 

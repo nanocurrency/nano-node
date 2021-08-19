@@ -1,14 +1,24 @@
 #pragma once
 
+#include <nano/lib/errors.hpp>
 #include <nano/lib/numbers.hpp>
-#include <nano/node/ipc/flatbuffers_handler.hpp>
-#include <nano/node/wallet.hpp>
+#include <nano/lib/rpc_handler_interface.hpp>
+#include <nano/lib/work.hpp>
+//#include <nano/node/ipc/flatbuffers_handler.hpp>
+//#include <nano/node/wallet.hpp>
 #include <nano/rpc/rpc.hpp>
+#include <nano/secure/common.hpp>
 
+#include <boost/optional/optional.hpp>
 #include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/ptree_fwd.hpp>
 
+#include <cstdint>
 #include <functional>
+#include <limits>
+#include <memory>
 #include <string>
+#include <system_error>
 
 namespace nano
 {
@@ -16,6 +26,9 @@ namespace ipc
 {
 	class ipc_server;
 }
+class block;
+class transaction;
+class wallet;
 class node;
 class node_rpc_config;
 

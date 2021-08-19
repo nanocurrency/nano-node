@@ -1,9 +1,32 @@
+#include <nano/lib/asio.hpp>
+#include <nano/lib/stats.hpp>
 #include <nano/lib/threading.hpp>
+#include <nano/node/node.hpp>
+#include <nano/node/nodeconfig.hpp>
 #include <nano/node/socket.hpp>
+#include <nano/node/transport/tcp.hpp>
+#include <nano/secure/utility.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
+
+#include <boost/none.hpp>
+#include <boost/system/error_code.hpp>
+
+#include <atomic>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <iostream>
+#include <memory>
+#include <ratio>
+#include <string>
+#include <system_error>
+#include <thread>
+#include <utility>
+#include <vector>
 
 using namespace std::chrono_literals;
 

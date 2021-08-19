@@ -1,32 +1,37 @@
 #pragma once
 
+#include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
-#include <nano/lib/utility.hpp>
 #include <nano/secure/common.hpp>
 
+#include <atomic>
+#include <cstddef>
+#include <cstdint>
 #include <deque>
 #include <memory>
-#include <mutex>
+#include <string>
 #include <thread>
 #include <unordered_set>
+#include <utility>
+
+namespace nano
+{
+class container_info_component;
+}
 
 namespace nano
 {
 class signature_checker;
 class active_transactions;
-class store;
 class node_observers;
-class stats;
 class node_config;
 class logger_mt;
 class online_reps;
 class rep_crawler;
 class ledger;
-class network_params;
 class node_flags;
 class stat;
 
-class transaction;
 namespace transport
 {
 	class channel;

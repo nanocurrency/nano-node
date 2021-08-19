@@ -1,11 +1,39 @@
+#include <nano/lib/blockbuilders.hpp>
+#include <nano/lib/numbers.hpp>
+#include <nano/lib/stats.hpp>
+#include <nano/lib/threading.hpp>
+#include <nano/lib/work.hpp>
+#include <nano/node/common.hpp>
+#include <nano/node/node.hpp>
+#include <nano/node/nodeconfig.hpp>
+#include <nano/node/peer_exclusion.hpp>
 #include <nano/node/telemetry.hpp>
+#include <nano/node/transport/tcp.hpp>
+#include <nano/node/transport/transport.hpp>
+#include <nano/node/transport/udp.hpp>
+#include <nano/secure/common.hpp>
+#include <nano/secure/utility.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/telemetry.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
-#include <numeric>
+#include <boost/asio/ip/address.hpp>
+#include <boost/asio/ip/basic_endpoint.hpp>
+#include <boost/asio/ip/detail/impl/endpoint.ipp>
+#include <boost/asio/ip/impl/address.ipp>
+
+#include <bitset>
+#include <cstdint>
+#include <deque>
+#include <future>
+#include <mutex>
+#include <ratio>
+#include <system_error>
+#include <thread>
+#include <type_traits>
+#include <utility>
 
 using namespace std::chrono_literals;
 

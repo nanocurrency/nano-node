@@ -3,6 +3,8 @@
 
 #include <chrono>
 #include <memory>
+#include <string>
+#include <type_traits>
 
 #include <flatbuffers/flatbuffers.h>
 

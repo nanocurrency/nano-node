@@ -1,9 +1,21 @@
-#include <nano/lib/config.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/tomlconfig.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/node/node_rpc_config.hpp>
 
+#include <boost/core/swap.hpp>
+#include <boost/filesystem/path.hpp>
+#include <boost/iterator/iterator_facade.hpp>
+#include <boost/multi_index/detail/bidir_node_iterator.hpp>
+#include <boost/operators.hpp>
+#include <boost/optional/optional.hpp>
+#include <boost/property_tree/exceptions.hpp>
 #include <boost/property_tree/ptree.hpp>
+
+#include <memory>
+#include <sstream>
+#include <stdexcept>
+#include <utility>
 
 nano::error nano::node_rpc_config::serialize_json (nano::jsonconfig & json) const
 {

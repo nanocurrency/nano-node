@@ -1,8 +1,9 @@
 #pragma once
 
-#include <algorithm>
+#include <nano/lib/locks.hpp>
+
 #include <chrono>
-#include <mutex>
+#include <cstddef>
 
 namespace nano
 {

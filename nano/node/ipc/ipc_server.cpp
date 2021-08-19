@@ -2,28 +2,64 @@
 #include <nano/boost/asio/local/stream_protocol.hpp>
 #include <nano/boost/asio/read.hpp>
 #include <nano/boost/asio/strand.hpp>
-#include <nano/lib/config.hpp>
+//#include <nano/lib/config.hpp>
 #include <nano/lib/ipc.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/timer.hpp>
-#include <nano/node/common.hpp>
+//#include <nano/node/common.hpp>
+#include <nano/lib/asio.hpp>
+#include <nano/lib/errors.hpp>
+#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/stats.hpp>
 #include <nano/node/ipc/action_handler.hpp>
 #include <nano/node/ipc/flatbuffers_handler.hpp>
 #include <nano/node/ipc/flatbuffers_util.hpp>
+#include <nano/node/ipc/ipc_access_config.hpp>
+#include <nano/node/ipc/ipc_broker.hpp>
+#include <nano/node/ipc/ipc_config.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/json_handler.hpp>
+#include <nano/node/logging.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/nodeconfig.hpp>
 
 #include <boost/asio/signal_set.hpp>
 #include <boost/endian/conversion.hpp>
-#include <boost/property_tree/json_parser.hpp>
+//#include <boost/property_tree/json_parser.hpp>
+
+#include <boost/array.hpp>
+#include <boost/format.hpp>
+#include <boost/optional/optional.hpp>
+#include <boost/system/error_code.hpp>
 
 #include <atomic>
 #include <chrono>
-#include <list>
+#include <csignal>
+#include <cstddef>
+#include <cstdint>
+#include <cstdlib>
+#include <deque>
+#include <functional>
+#include <iostream>
+#include <mutex>
+#include <new>
+#include <stdexcept>
+#include <string>
+#include <utility>
 
 #include <flatbuffers/flatbuffers.h>
+//#include <list>
+
+namespace nano
+{
+class json_handler;
+class node_rpc_config;
+namespace ipc
+{
+	class flatbuffers_handler;
+}
+}
 
 using namespace boost::log;
 

@@ -4,14 +4,26 @@
 #include <nano/boost/beast/core.hpp>
 #include <nano/boost/beast/websocket.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/election.hpp>
 #include <nano/secure/common.hpp>
 
+#include <boost/asio.hpp>
+#include <boost/beast.hpp>
+#include <boost/optional/optional.hpp>
 #include <boost/property_tree/json_parser.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/ptree_fwd.hpp>
+#include <boost/version.hpp>
 
+#include <array>
+#include <atomic>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <deque>
 #include <memory>
 #include <mutex>
@@ -31,17 +43,19 @@ using socket_type = boost::asio::basic_stream_socket<boost::asio::ip::tcp, boost
 
 namespace nano
 {
+class block;
+class vote_with_weight_info;
 class wallets;
 class logger_mt;
-class vote;
-class election_status;
-class telemetry_data;
+//class vote;
+//class election_status;
+//class telemetry_data;
 enum class election_status_type : uint8_t;
 namespace websocket
 {
 	class listener;
 	class confirmation_options;
-	class session;
+	//	class session;
 
 	/** Supported topics */
 	enum class topic

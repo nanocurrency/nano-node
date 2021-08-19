@@ -1,18 +1,39 @@
+#include <nano/lib/asio.hpp>
+#include <nano/lib/errors.hpp>
+#include <nano/lib/ipc.hpp>
 #include <nano/lib/ipc_client.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/ipc/ipc_access_config.hpp>
+#include <nano/node/ipc/ipc_config.hpp>
 #include <nano/node/ipc/ipc_server.hpp>
-#include <nano/rpc/rpc.hpp>
+#include <nano/node/node.hpp>
+#include <nano/node/node_rpc_config.hpp>
+#include <nano/node/nodeconfig.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
 
+#include <boost/core/swap.hpp>
+#include <boost/endian/conversion.hpp>
+#include <boost/iterator/iterator_facade.hpp>
+#include <boost/multi_index/detail/bidir_node_iterator.hpp>
+#include <boost/operators.hpp>
 #include <boost/property_tree/json_parser.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/ptree_fwd.hpp>
 
+#include <atomic>
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <memory>
+#include <ratio>
 #include <sstream>
+#include <string>
+#include <system_error>
+#include <thread>
+#include <utility>
 #include <vector>
 
 using namespace std::chrono_literals;

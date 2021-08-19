@@ -7,6 +7,10 @@
 #include <nano/lib/utility.hpp>
 
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -14,7 +18,6 @@
 
 namespace nano
 {
-class shared_const_buffer;
 namespace ipc
 {
 	class ipc_client_impl

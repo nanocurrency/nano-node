@@ -1,6 +1,6 @@
 #pragma once
 
-#include <mutex>
+#include <cstddef>
 
 namespace CryptoPP
 {

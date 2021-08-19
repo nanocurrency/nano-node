@@ -1,10 +1,35 @@
-#include <nano/node/election.hpp>
-#include <nano/node/ipc/action_handler.hpp>
+#include <nano/ipc_flatbuffers_lib/flatbuffer_producer.hpp>
+#include <nano/ipc_flatbuffers_lib/generated/flatbuffers/nanoapi_generated.h>
+#include <nano/lib/errors.hpp>
+#include <nano/lib/ipc.hpp>
+#include <nano/lib/locks.hpp>
+#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/numbers.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/node/ipc/flatbuffers_handler.hpp>
 #include <nano/node/ipc/flatbuffers_util.hpp>
 #include <nano/node/ipc/ipc_broker.hpp>
-#include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/node_observers.hpp>
+#include <nano/node/nodeconfig.hpp>
+#include <nano/node/wallet.hpp>
+#include <nano/secure/common.hpp>
+#include <nano/secure/store.hpp>
+
+#include <boost/log/detail/attachable_sstream_buf.hpp>
+#include <boost/log/sources/record_ostream.hpp>
+
+#include <algorithm>
+#include <chrono>
+#include <memory>
+
+#include <flatbuffers/flatbuffers.h>
+#include <flatbuffers/idl.h>
+
+namespace nano
+{
+class vote_with_weight_info;
+}
 
 nano::ipc::broker::broker (nano::node & node_a) :
 	node (node_a)

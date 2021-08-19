@@ -8,15 +8,24 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/lib/work.hpp>
-#include <nano/node/common.hpp>
+//#include <nano/node/common.hpp>
 #include <nano/node/lmdb/lmdb.hpp>
 #include <nano/node/rocksdb/rocksdb.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/utility.hpp>
 #include <nano/secure/versioning.hpp>
-#include <nano/test_common/system.hpp>
-#include <nano/test_common/testutil.hpp>
+//#include <nano/test_common/system.hpp>
+//#include <nano/test_common/testutil.hpp>
+#include <nano/lib/diagnosticsconfig.hpp>
+#include <nano/lib/epoch.hpp>
+#include <nano/lib/rep_weights.hpp>
+#include <nano/lib/rocksdbconfig.hpp>
+#include <nano/lib/stream.hpp>
+#include <nano/lib/timer.hpp>
+#include <nano/node/lmdb/lmdb_env.hpp>
+#include <nano/secure/buffer.hpp>
+#include <nano/secure/store.hpp>
 
 #include <gtest/gtest.h>
 
@@ -25,6 +34,23 @@
 #include <boost/operators.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/ptree_fwd.hpp>
+#include <boost/asio/ip/address_v6.hpp>
+#include <boost/asio/ip/impl/address_v6.ipp>
+#include <boost/filesystem/operations.hpp>
+#include <boost/filesystem/path.hpp>
+#include <boost/filesystem/path_traits.hpp>
+#include <boost/iterator/iterator_facade.hpp>
+#include <boost/lexical_cast.hpp>
+#include <boost/move/utility_core.hpp>
+#include <boost/multiprecision/cpp_int.hpp>
+#include <boost/multiprecision/cpp_int/bitwise.hpp>
+#include <boost/multiprecision/cpp_int/limits.hpp>
+#include <boost/multiprecision/detail/no_et_ops.hpp>
+#include <boost/multiprecision/number.hpp>
+#include <boost/optional/optional.hpp>
+#include <boost/polymorphic_cast.hpp>
+
+#include <lmdb/libraries/liblmdb/lmdb.h>
 
 #include <array>
 #include <cstdint>
@@ -36,6 +62,12 @@
 #include <system_error>
 #include <unordered_set>
 #include <vector>
+#include <algorithm>
+#include <atomic>
+#include <chrono>
+#include <limits>
+#include <unordered_map>
+#include <utility>
 
 namespace
 {

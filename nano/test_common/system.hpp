@@ -1,12 +1,36 @@
 #pragma once
 
+#include <nano/lib/epoch.hpp>
 #include <nano/lib/errors.hpp>
-#include <nano/node/node.hpp>
+#include <nano/lib/numbers.hpp>
+#include <nano/lib/work.hpp>
+#include <nano/node/logging.hpp>
+//#include <nano/node/node.hpp>
+#include <nano/node/nodeconfig.hpp>
+#include <nano/node/transport/transport.hpp>
 
+#include <boost/asio/io_context.hpp>
+
+#include <algorithm>
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <memory>
+#include <ratio>
+#include <system_error>
+#include <thread>
+#include <vector>
 
 namespace nano
 {
+class block;
+class keypair;
+class ledger;
+class node;
+class state_block;
+class transaction;
+class wallet;
 /** Test-system related error codes */
 enum class error_system
 {

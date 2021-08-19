@@ -1,7 +1,35 @@
+#include <nano/lib/config.hpp>
+#include <nano/lib/stats.hpp>
+#include <nano/node/common.hpp>
+#include <nano/node/node.hpp>
+#include <nano/node/nodeconfig.hpp>
+#include <nano/node/transport/transport.hpp>
+#include <nano/node/transport/udp.hpp>
+#include <nano/secure/common.hpp>
 #include <nano/test_common/system.hpp>
-#include <nano/test_common/testutil.hpp>
+//#include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
+
+#include <boost/asio/ip/address.hpp>
+#include <boost/asio/ip/address_v4.hpp>
+#include <boost/asio/ip/address_v6.hpp>
+#include <boost/asio/ip/basic_endpoint.hpp>
+#include <boost/asio/ip/impl/address.ipp>
+#include <boost/asio/ip/impl/address_v4.ipp>
+#include <boost/asio/ip/impl/address_v6.ipp>
+
+#include <algorithm>
+#include <array>
+#include <chrono>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <deque>
+#include <functional>
+#include <memory>
+#include <utility>
+#include <vector>
 
 TEST (peer_container, empty_peers)
 {

@@ -1,13 +1,18 @@
 #pragma once
 
-#include <nano/lib/config.hpp>
+//#include <nano/lib/config.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/locks.hpp>
 
+#include <cstddef>
+#include <initializer_list>
+#include <memory>
 #include <string>
 #include <thread>
+#include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 namespace boost
 {

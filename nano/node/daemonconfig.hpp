@@ -6,6 +6,9 @@
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/openclconfig.hpp>
 
+#include <boost/filesystem/path.hpp>
+
+#include <string>
 #include <vector>
 
 namespace nano

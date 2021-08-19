@@ -2,6 +2,7 @@
 
 #include <nano/boost/asio/deadline_timer.hpp>
 
+#include <chrono>
 #include <string>
 
 namespace nano

@@ -1,6 +1,7 @@
 #include <nano/lib/cli.hpp>
+#include <nano/lib/numbers.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/node/cli.hpp>
-#include <nano/secure/utility.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
@@ -8,6 +9,8 @@
 #include <boost/program_options.hpp>
 
 #include <regex>
+#include <sstream>
+#include <system_error>
 
 using namespace std::chrono_literals;
 

@@ -1,9 +1,40 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/numbers.hpp>
+#include <nano/lib/stats.hpp>
+#include <nano/lib/work.hpp>
+#include <nano/node/active_transactions.hpp>
 #include <nano/node/confirmation_solicitor.hpp>
+#include <nano/node/election.hpp>
+#include <nano/node/network.hpp>
+#include <nano/node/node.hpp>
+#include <nano/node/nodeconfig.hpp>
+#include <nano/node/repcrawler.hpp>
+#include <nano/node/transport/udp.hpp>
+#include <nano/secure/common.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
 #include <gtest/gtest.h>
+
+#include <boost/multiprecision/detail/no_et_ops.hpp>
+#include <boost/optional/optional.hpp>
+
+#include <algorithm>
+#include <chrono>
+#include <cstddef>
+#include <memory>
+#include <mutex>
+#include <ratio>
+#include <string>
+#include <system_error>
+#include <unordered_map>
+#include <vector>
+
+namespace nano
+{
+class mutex;
+}
 
 using namespace std::chrono_literals;
 

@@ -1,10 +1,28 @@
 #include <nano/lib/config.hpp>
+#include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/tomlconfig.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/lib/walletconfig.hpp>
 #include <nano/node/daemonconfig.hpp>
+#include <nano/node/node_pow_server_config.hpp>
+#include <nano/node/node_rpc_config.hpp>
+#include <nano/node/nodeconfig.hpp>
+#include <nano/node/openclconfig.hpp>
 
+#include <boost/core/swap.hpp>
+#include <boost/filesystem/operations.hpp>
+#include <boost/iterator/iterator_facade.hpp>
+#include <boost/operators.hpp>
+#include <boost/optional/optional.hpp>
+#include <boost/property_tree/exceptions.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/system/error_code.hpp>
+
+#include <iostream>
+#include <memory>
 #include <sstream>
+#include <stdexcept>
 #include <vector>
 
 nano::daemon_config::daemon_config (boost::filesystem::path const & data_path_a, nano::network_params & network_params) :

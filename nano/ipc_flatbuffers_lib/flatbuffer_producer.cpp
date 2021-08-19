@@ -1,4 +1,9 @@
 #include <nano/ipc_flatbuffers_lib/flatbuffer_producer.hpp>
+#include <nano/ipc_flatbuffers_lib/generated/flatbuffers/nanoapi_generated.h>
+
+#include <utility>
+
+#include <flatbuffers/flatbuffers.h>
 
 nano::ipc::flatbuffer_producer::flatbuffer_producer ()
 {

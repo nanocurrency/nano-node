@@ -1,6 +1,8 @@
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/node_pow_server_config.hpp>
 
+#include <stdexcept>
+
 nano::error nano::node_pow_server_config::serialize_toml (nano::tomlconfig & toml) const
 {
 	toml.put ("enable", enable, "Value is currently not in use. Enable or disable starting Nano PoW Server as a child process.\ntype:bool");

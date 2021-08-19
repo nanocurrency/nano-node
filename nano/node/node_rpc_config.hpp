@@ -1,9 +1,11 @@
 #pragma once
 
+#include <nano/lib/errors.hpp>
 #include <nano/lib/rpcconfig.hpp>
 
 #include <boost/property_tree/ptree_fwd.hpp>
 
+#include <functional>
 #include <string>
 
 namespace boost
@@ -16,6 +18,7 @@ namespace filesystem
 
 namespace nano
 {
+class jsonconfig;
 class tomlconfig;
 class rpc_child_process_config final
 {

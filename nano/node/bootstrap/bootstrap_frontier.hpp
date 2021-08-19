@@ -1,9 +1,18 @@
 #pragma once
 
+#include <nano/lib/numbers.hpp>
 #include <nano/node/common.hpp>
 
+#include <boost/multiprecision/cpp_int/bitwise.hpp> // for eval_complement
+
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <deque>
 #include <future>
+#include <limits>
+#include <memory>
+#include <utility>
 
 namespace nano
 {
