@@ -36,8 +36,6 @@
 #include <type_traits>
 #include <utility>
 
-#include <bits/exception.h>
-
 nano::websocket::confirmation_options::confirmation_options (nano::wallets & wallets_a) :
 	wallets (wallets_a)
 {
