@@ -10,8 +10,7 @@ In December 2018 the Banano node codebase was audited by Red4Sec and found to ha
 
 **Risk**: High  
 **Report Location**: Pages 34-35  
-**Resolution**: [Pull Request #1563](https://github.com/BananoCoin/banano/pull/1563) in [release V17.1](https://github.com/BananoCoin/banano/releases/tag/V17.1)  
-
+**Resolution**: [Pull Request #1563](https://github.com/nanocurrency/nano-node/pull/1563) in [release V17.1](https://github.com/nanocurrency/nano-node/releases/tag/V17.1)  
 All other notices from the report were classified as informative and are continuously improved on over time (e.g. code styling). The full report is available here: https://content.nano.org/Banano_Final_Security_Audit_v3.pdf
 
 ## Reporting a Vulnerability
