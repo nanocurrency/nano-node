@@ -29,13 +29,10 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/core/swap.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/operators.hpp>
-#include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/ptree_fwd.hpp>
 #include <boost/asio/ip/address_v6.hpp>
 #include <boost/asio/ip/impl/address_v6.ipp>
+#include <boost/core/swap.hpp>
+#include <boost/filesystem.hpp>
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem/path_traits.hpp>
@@ -47,27 +44,30 @@
 #include <boost/multiprecision/cpp_int/limits.hpp>
 #include <boost/multiprecision/detail/no_et_ops.hpp>
 #include <boost/multiprecision/number.hpp>
+#include <boost/operators.hpp>
 #include <boost/optional/optional.hpp>
 #include <boost/polymorphic_cast.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/ptree_fwd.hpp>
 
-#include <lmdb/libraries/liblmdb/lmdb.h>
-
+#include <algorithm>
 #include <array>
+#include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <cstdlib>
 #include <fstream>
 #include <iosfwd>
+#include <limits>
 #include <memory>
 #include <string>
 #include <system_error>
-#include <unordered_set>
-#include <vector>
-#include <algorithm>
-#include <atomic>
-#include <chrono>
-#include <limits>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
+#include <vector>
+
+#include <lmdb/libraries/liblmdb/lmdb.h>
 
 namespace
 {

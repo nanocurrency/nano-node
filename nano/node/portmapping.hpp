@@ -1,8 +1,19 @@
 #pragma once
 
+#include <nano/lib/locks.hpp>
+#include <nano/node/common.hpp>
+
+#include <miniupnp/miniupnpc/igd_desc_parse.h>
 #include <miniupnp/miniupnpc/miniupnpc.h>
 
-#include <mutex>
+#include <boost/asio/ip/address_v4.hpp>
+
+#include <array>
+#include <atomic>
+#include <cstdint>
+#include <string>
+
+struct UPNPDev;
 
 namespace nano
 {

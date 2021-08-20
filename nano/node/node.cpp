@@ -1,23 +1,88 @@
+#include <nano/lib/blockbuilders.hpp>
+#include <nano/lib/config.hpp>
+#include <nano/lib/diagnosticsconfig.hpp>
+#include <nano/lib/errors.hpp>
+#include <nano/lib/rocksdbconfig.hpp>
+#include <nano/lib/stream.hpp>
 #include <nano/lib/threading.hpp>
-#include <nano/lib/tomlconfig.hpp>
+#include <nano/lib/timer.hpp>
 #include <nano/lib/utility.hpp>
+#include <nano/node/active_transactions.hpp>
+#include <nano/node/blockprocessor.hpp>
+#include <nano/node/bootstrap/bootstrap.hpp>
+#include <nano/node/bootstrap/bootstrap_attempt.hpp>
+#include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/confirmation_height_processor.hpp>
 #include <nano/node/daemonconfig.hpp>
+#include <nano/node/distributed_work_factory.hpp>
+#include <nano/node/election.hpp>
+#include <nano/node/election_scheduler.hpp>
+#include <nano/node/gap_cache.hpp>
+#include <nano/node/lmdb/lmdb.hpp>
+#include <nano/node/logging.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/node_observers.hpp>
+#include <nano/node/nodeconfig.hpp>
+#include <nano/node/online_reps.hpp>
+#include <nano/node/portmapping.hpp>
+#include <nano/node/repcrawler.hpp>
+#include <nano/node/request_aggregator.hpp>
 #include <nano/node/rocksdb/rocksdb.hpp>
+#include <nano/node/signatures.hpp>
 #include <nano/node/telemetry.hpp>
+#include <nano/node/transport/tcp.hpp>
+#include <nano/node/transport/transport.hpp>
+#include <nano/node/transport/udp.hpp>
+#include <nano/node/wallet.hpp>
 #include <nano/node/websocket.hpp>
-#include <nano/rpc/rpc.hpp>
+#include <nano/node/websocketconfig.hpp>
+#include <nano/node/write_database_queue.hpp>
 #include <nano/secure/buffer.hpp>
+#include <nano/secure/ledger.hpp>
+#include <nano/secure/network_filter.hpp>
+#include <nano/secure/store.hpp>
 #include <nano/test_common/system.hpp>
 
+#include <boost/asio.hpp>
+#include <boost/beast.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/filesystem/operations.hpp>
+#include <boost/format.hpp>
+#include <boost/intrusive/detail/list_iterator.hpp>
+#include <boost/intrusive/detail/tree_iterator.hpp>
+#include <boost/iterator/iterator_facade.hpp>
+#include <boost/log/detail/attachable_sstream_buf.hpp>
+#include <boost/log/sources/record_ostream.hpp>
+#include <boost/multi_index/detail/bidir_node_iterator.hpp>
+#include <boost/multi_index/detail/index_node_base.hpp>
+#include <boost/multi_index/ordered_index.hpp>
+#include <boost/multiprecision/cpp_int/bitwise.hpp>
+#include <boost/multiprecision/cpp_int/limits.hpp>
+#include <boost/multiprecision/detail/no_et_ops.hpp>
+#include <boost/multiprecision/detail/number_compare.hpp>
+#include <boost/multiprecision/number.hpp>
+#include <boost/operators.hpp>
 #include <boost/property_tree/json_parser.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/ptree_fwd.hpp>
+#include <boost/system/error_code.hpp>
+#include <boost/utility/string_view.hpp>
 
 #include <algorithm>
+#include <array>
+#include <cmath>
+#include <cstdint>
 #include <cstdlib>
+#include <functional>
 #include <future>
+#include <iostream>
+#include <limits>
+#include <mutex>
 #include <sstream>
+#include <system_error>
+#include <unordered_map>
+#include <unordered_set>
 
 double constexpr nano::node::price_max;
 double constexpr nano::node::free_cutoff;
@@ -26,6 +91,7 @@ std::chrono::seconds constexpr nano::block_arrival::arrival_time_min;
 
 namespace nano
 {
+class lmdb_config;
 extern unsigned char nano_bootstrap_weights_live[];
 extern size_t nano_bootstrap_weights_live_size;
 extern unsigned char nano_bootstrap_weights_beta[];

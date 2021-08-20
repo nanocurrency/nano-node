@@ -1,19 +1,28 @@
 #pragma once
 
-#include <nano/lib/errors.hpp>
 #include <nano/lib/locks.hpp>
 #include <nano/lib/timer.hpp>
 
+#include <boost/core/enable_if.hpp>
+#include <boost/exception/exception.hpp>
 #include <boost/iostreams/concepts.hpp>
+#include <boost/log/core/core.hpp>
+#include <boost/log/detail/attachable_sstream_buf.hpp>
+#include <boost/log/keywords/format.hpp>
+#include <boost/log/sinks/sync_frontend.hpp>
 #include <boost/log/sinks/text_ostream_backend.hpp>
 #include <boost/log/utility/setup/console.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
+#include <boost/parameter/keyword.hpp>
+#include <boost/smart_ptr/shared_ptr.hpp>
+#include <boost/thread/exceptions.hpp>
 
 #include <atomic>
 #include <chrono>
-#include <condition_variable>
+#include <iostream>
 #include <mutex>
 #include <string>
+#include <system_error>
 
 #define GTEST_TEST_ERROR_CODE(expression, text, actual, expected, fail)                       \
 	GTEST_AMBIGUOUS_ELSE_BLOCKER_                                                             \
@@ -46,11 +55,6 @@
 namespace nano
 {
 using uint128_t = boost::multiprecision::uint128_t;
-class keypair;
-class public_key;
-class block_hash;
-class telemetry_data;
-class network_params;
 class system;
 
 extern nano::uint128_t const & genesis_amount;

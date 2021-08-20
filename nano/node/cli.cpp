@@ -1,11 +1,48 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/cli.hpp>
+#include <nano/lib/errors.hpp>
+#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/numbers.hpp>
+#include <nano/lib/rocksdbconfig.hpp>
+#include <nano/lib/rpcconfig.hpp>
+#include <nano/lib/timer.hpp>
 #include <nano/lib/tomlconfig.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/node/cli.hpp>
-#include <nano/node/common.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/nodeconfig.hpp>
+#include <nano/node/openclwork.hpp>
+#include <nano/node/wallet.hpp>
+#include <nano/secure/common.hpp>
+#include <nano/secure/ledger.hpp>
+#include <nano/secure/store.hpp>
+#include <nano/secure/utility.hpp>
 
+#include <boost/filesystem/operations.hpp>
+#include <boost/filesystem/path.hpp>
 #include <boost/format.hpp>
+#include <boost/lexical_cast/bad_lexical_cast.hpp>
+#include <boost/log/detail/attachable_sstream_buf.hpp>
+#include <boost/log/sources/record_ostream.hpp>
+#include <boost/optional/optional.hpp>
+#include <boost/program_options.hpp>
+#include <boost/type_index/type_index_facade.hpp>
+
+#include <chrono>
+#include <cstddef>
+#include <fstream>
+#include <limits>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <unordered_map>
+#include <utility>
+
+namespace nano
+{
+class mutex;
+}
 
 namespace
 {

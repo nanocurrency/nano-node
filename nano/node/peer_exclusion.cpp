@@ -1,4 +1,14 @@
+#include <nano/lib/utility.hpp>
+#include <nano/node/common.hpp>
 #include <nano/node/peer_exclusion.hpp>
+
+#include <boost/asio/ip/address.hpp>
+#include <boost/multi_index/detail/hash_index_iterator.hpp>
+#include <boost/operators.hpp>
+
+#include <algorithm>
+#include <mutex>
+#include <ratio>
 
 constexpr std::chrono::hours nano::peer_exclusion::exclude_time_hours;
 constexpr std::chrono::hours nano::peer_exclusion::exclude_remove_hours;

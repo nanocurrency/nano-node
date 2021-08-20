@@ -1,16 +1,20 @@
 #pragma once
 
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
+#include <nano/lib/epoch.hpp>
+#include <nano/lib/locks.hpp>
+#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/numbers.hpp>
 #include <nano/lib/stats.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
-#include <nano/node/bootstrap/bootstrap_attempt.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/confirmation_height_processor.hpp>
 #include <nano/node/distributed_work_factory.hpp>
-#include <nano/node/election.hpp>
 #include <nano/node/election_scheduler.hpp>
 #include <nano/node/gap_cache.hpp>
 #include <nano/node/network.hpp>
@@ -21,23 +25,40 @@
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/request_aggregator.hpp>
 #include <nano/node/signatures.hpp>
-#include <nano/node/telemetry.hpp>
 #include <nano/node/vote_processor.hpp>
+#include <nano/node/voting.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/node/write_database_queue.hpp>
+#include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
-#include <nano/secure/utility.hpp>
 
+#include <boost/asio.hpp>
+#include <boost/asio/ip/tcp.hpp>
+#include <boost/filesystem/path.hpp>
 #include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/indexed_by.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
+#include <boost/multi_index/tag.hpp>
 #include <boost/multi_index_container.hpp>
+#include <boost/none.hpp>
+#include <boost/optional/optional.hpp>
 #include <boost/program_options.hpp>
+#include <boost/program_options/variables_map.hpp>
 #include <boost/thread/latch.hpp>
 
 #include <atomic>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <deque>
+#include <functional>
+#include <future>
 #include <memory>
+#include <new>
+#include <string>
+#include <utility>
 #include <vector>
 
 namespace nano
@@ -46,9 +67,11 @@ namespace websocket
 {
 	class listener;
 }
-class node;
+class container_info_component;
+class logging;
+class store;
+class transaction;
 class telemetry;
-class work_pool;
 class block_arrival_info final
 {
 public:

@@ -1,8 +1,11 @@
+#include <nano/lib/errors.hpp>
 #include <nano/lib/lmdbconfig.hpp>
 #include <nano/lib/tomlconfig.hpp>
-#include <nano/secure/common.hpp>
 
-#include <iostream>
+#include <cstdint>
+#include <memory>
+#include <stdexcept>
+#include <string>
 
 nano::error nano::lmdb_config::serialize_toml (nano::tomlconfig & toml) const
 {

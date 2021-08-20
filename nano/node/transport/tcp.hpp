@@ -1,21 +1,43 @@
 #pragma once
 
+#include <nano/lib/locks.hpp>
+#include <nano/lib/numbers.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/socket.hpp>
 #include <nano/node/transport/transport.hpp>
 
+#include <boost/asio/ip/address.hpp>
+#include <boost/asio/ip/address_v6.hpp>
+#include <boost/multi_index/detail/allocator_traits.hpp>
 #include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/indexed_by.hpp>
 #include <boost/multi_index/mem_fun.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/random_access_index.hpp>
+#include <boost/multi_index/tag.hpp>
 #include <boost/multi_index_container.hpp>
 
+#include <array>
+#include <atomic>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <deque>
+#include <functional>
+#include <memory>
+#include <mutex>
+#include <string>
 #include <unordered_set>
+#include <vector>
 
 namespace mi = boost::multi_index;
 
 namespace nano
 {
+class node;
+class shared_const_buffer;
 class bootstrap_server;
 class tcp_message_item final
 {

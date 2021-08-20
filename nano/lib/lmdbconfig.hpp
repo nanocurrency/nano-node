@@ -2,7 +2,8 @@
 
 #include <nano/lib/errors.hpp>
 
-#include <thread>
+#include <cstddef>
+#include <cstdint>
 
 namespace nano
 {

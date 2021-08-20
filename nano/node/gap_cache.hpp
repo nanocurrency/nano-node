@@ -1,24 +1,27 @@
 #pragma once
 
+#include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
-#include <nano/lib/utility.hpp>
-#include <nano/secure/common.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/indexed_by.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
+#include <boost/multi_index/tag.hpp>
 #include <boost/multi_index_container.hpp>
 
 #include <chrono>
+#include <cstddef>
 #include <memory>
-#include <mutex>
+#include <string>
 #include <vector>
 
 namespace nano
 {
+class container_info_component;
+class vote;
 class node;
-class transaction;
 
 /** For each gap in account chains, track arrival time and voters */
 class gap_information final

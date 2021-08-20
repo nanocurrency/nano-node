@@ -1,22 +1,43 @@
 #pragma once
 
+#include <nano/lib/config.hpp>
+#include <nano/lib/locks.hpp>
+#include <nano/lib/numbers.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/peer_exclusion.hpp>
+#include <nano/node/socket.hpp>
 #include <nano/node/transport/tcp.hpp>
+#include <nano/node/transport/transport.hpp>
 #include <nano/node/transport/udp.hpp>
 #include <nano/secure/network_filter.hpp>
 
+#include <boost/asio/ip/basic_endpoint.hpp>
+#include <boost/asio/ip/udp.hpp>
+#include <boost/circular_buffer.hpp>
+#include <boost/optional/optional.hpp>
 #include <boost/thread/thread.hpp>
 
+#include <array>
+#include <atomic>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <deque>
+#include <functional>
 #include <memory>
-#include <queue>
+#include <string>
+#include <unordered_map>
 #include <unordered_set>
+#include <utility>
+#include <vector>
+
 namespace nano
 {
-class channel;
+class block;
+class container_info_component;
+class stat;
+class vote;
 class node;
-class stats;
-class transaction;
 class message_buffer final
 {
 public:

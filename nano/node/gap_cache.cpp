@@ -1,8 +1,30 @@
+#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/numbers.hpp>
+#include <nano/lib/threading.hpp>
+#include <nano/lib/utility.hpp>
+#include <nano/node/bootstrap/bootstrap.hpp>
 #include <nano/node/gap_cache.hpp>
 #include <nano/node/node.hpp>
-#include <nano/secure/store.hpp>
+#include <nano/node/nodeconfig.hpp>
+#include <nano/node/online_reps.hpp>
+#include <nano/secure/common.hpp>
+#include <nano/secure/ledger.hpp>
 
+#include <boost/core/enable_if.hpp>
 #include <boost/format.hpp>
+#include <boost/log/detail/attachable_sstream_buf.hpp>
+#include <boost/log/sources/record_ostream.hpp>
+#include <boost/multi_index/detail/hash_index_iterator.hpp>
+#include <boost/multiprecision/cpp_int.hpp>
+#include <boost/multiprecision/detail/no_et_ops.hpp>
+#include <boost/multiprecision/detail/number_compare.hpp>
+#include <boost/operators.hpp>
+#include <boost/optional/optional.hpp>
+
+#include <algorithm>
+#include <mutex>
+#include <ostream>
+#include <utility>
 
 nano::gap_cache::gap_cache (nano::node & node_a) :
 	node (node_a)

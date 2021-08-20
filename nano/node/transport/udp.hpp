@@ -1,22 +1,48 @@
 #pragma once
 
+#include <nano/lib/locks.hpp>
+#include <nano/lib/numbers.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/socket.hpp>
 #include <nano/node/transport/transport.hpp>
 
+#include <boost/asio/detail/impl/reactive_socket_service_base.ipp>
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/ip/address.hpp>
+#include <boost/asio/ip/basic_endpoint.hpp>
+#include <boost/asio/ip/udp.hpp>
+#include <boost/asio/strand.hpp>
+#include <boost/multi_index/detail/allocator_traits.hpp>
 #include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/indexed_by.hpp>
 #include <boost/multi_index/mem_fun.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/random_access_index.hpp>
+#include <boost/multi_index/tag.hpp>
 #include <boost/multi_index_container.hpp>
 
+#include <array>
+#include <atomic>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <deque>
+#include <functional>
+#include <memory>
 #include <mutex>
+#include <string>
 #include <unordered_set>
+#include <utility>
+#include <vector>
 
 namespace mi = boost::multi_index;
 
 namespace nano
 {
+class container_info_component;
+class node;
+class shared_const_buffer;
 class message_buffer;
 namespace transport
 {

@@ -1,11 +1,33 @@
+#include <nano/lib/config.hpp>
+#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/threading.hpp>
+#include <nano/lib/utility.hpp>
+#include <nano/node/logging.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/nodeconfig.hpp>
 #include <nano/node/portmapping.hpp>
+#include <nano/secure/common.hpp>
 
+#include <miniupnp/miniupnpc/miniupnpc.h>
 #include <miniupnp/miniupnpc/upnpcommands.h>
+#include <miniupnp/miniupnpc/upnpdev.h>
 #include <miniupnp/miniupnpc/upnperrors.h>
 
+#include <boost/asio.hpp>
 #include <boost/format.hpp>
+#include <boost/log/detail/attachable_sstream_buf.hpp>
+#include <boost/log/sources/record_ostream.hpp>
+#include <boost/optional/optional.hpp>
+#include <boost/range/adaptor/argument_fwd.hpp>
 #include <boost/range/adaptor/filtered.hpp>
+#include <boost/system/error_code.hpp>
+
+#include <chrono>
+#include <cstdlib>
+#include <memory>
+#include <mutex>
+#include <ostream>
+#include <utility>
 
 std::string nano::mapping_protocol::to_string ()
 {

@@ -1,8 +1,51 @@
+#include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/config.hpp>
+#include <nano/lib/logger_mt.hpp>
 #include <nano/lib/stats.hpp>
+#include <nano/lib/threading.hpp>
+#include <nano/node/bootstrap/bootstrap_server.hpp>
+#include <nano/node/common.hpp>
+#include <nano/node/logging.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/nodeconfig.hpp>
+#include <nano/node/peer_exclusion.hpp>
+#include <nano/node/telemetry.hpp>
 #include <nano/node/transport/tcp.hpp>
+#include <nano/node/transport/transport.hpp>
+#include <nano/node/transport/udp.hpp>
+#include <nano/secure/buffer.hpp>
+#include <nano/secure/common.hpp>
+#include <nano/secure/store.hpp>
 
+#include <crypto/cryptopp/config_int.h>
+
+#include <boost/asio.hpp>
 #include <boost/format.hpp>
+#include <boost/log/detail/attachable_sstream_buf.hpp>
+#include <boost/log/sources/record_ostream.hpp>
+#include <boost/move/utility_core.hpp>
+#include <boost/multi_index/detail/bidir_node_iterator.hpp>
+#include <boost/multi_index/detail/hash_index_iterator.hpp>
+#include <boost/multi_index/detail/index_node_base.hpp>
+#include <boost/multi_index/detail/rnd_node_iterator.hpp>
+#include <boost/multi_index/mem_fun.hpp>
+#include <boost/multi_index/member.hpp>
+#include <boost/none.hpp>
+#include <boost/operators.hpp>
+#include <boost/optional/optional.hpp>
+#include <boost/system/error_code.hpp>
+
+#include <algorithm>
+#include <cmath>
+#include <cstdint>
+#include <iterator>
+#include <ostream>
+#include <utility>
+
+namespace nano
+{
+class shared_const_buffer;
+}
 
 nano::transport::channel_tcp::channel_tcp (nano::node & node_a, std::weak_ptr<nano::socket> socket_a) :
 	channel (node_a),

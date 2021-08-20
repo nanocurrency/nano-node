@@ -1,16 +1,30 @@
 #pragma once
 
+#include <nano/lib/locks.hpp>
 #include <nano/node/common.hpp>
 
+#include <boost/asio/ip/basic_endpoint.hpp>
+#include <boost/asio/ip/impl/address.ipp>
 #include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/identity_fwd.hpp>
+#include <boost/multi_index/indexed_by.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
+#include <boost/multi_index/tag.hpp>
 #include <boost/multi_index_container.hpp>
+
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <string>
+#include <type_traits>
 
 namespace mi = boost::multi_index;
 
 namespace nano
 {
+class container_info_component;
 class peer_exclusion final
 {
 	class item final
