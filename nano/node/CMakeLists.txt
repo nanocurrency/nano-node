@@ -36,6 +36,17 @@ add_library(
   bootstrap/bootstrap_server.cpp
   bootstrap/bootstrap.hpp
   bootstrap/bootstrap.cpp
+
+  bootstrap/upward/bootstrapper.hpp
+  bootstrap/upward/bootstrapper.cpp
+  bootstrap/upward/peer.hpp
+  bootstrap/upward/peer.cpp
+  bootstrap/upward/peer_manager.hpp
+  bootstrap/upward/peer_manager.cpp
+  bootstrap/upward/pull_info.hpp
+  bootstrap/upward/pull_client.hpp
+  bootstrap/upward/pull_client.cpp
+
   cli.hpp
   cli.cpp
   common.hpp
