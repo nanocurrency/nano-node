@@ -1,6 +1,8 @@
 #pragma once
 
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/locks.hpp>
+#include <nano/lib/numbers.hpp>
 #include <nano/node/state_block_signature_verification.hpp>
 #include <nano/secure/common.hpp>
 
@@ -10,13 +12,23 @@
 #include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index_container.hpp>
 
+#include <atomic>
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <deque>
+#include <functional>
 #include <memory>
+#include <mutex>
+#include <string>
 #include <thread>
 #include <unordered_set>
+#include <vector>
 
 namespace nano
 {
+class block;
+class container_info_component;
 class node;
 class read_transaction;
 class transaction;

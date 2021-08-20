@@ -1,22 +1,31 @@
 #pragma once
 
+#include <nano/lib/blocks.hpp>
+#include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
-#include <nano/lib/timer.hpp>
 #include <nano/node/confirmation_height_bounded.hpp>
 #include <nano/node/confirmation_height_unbounded.hpp>
 #include <nano/secure/common.hpp>
-#include <nano/secure/store.hpp>
 
+#include <boost/multi_index/detail/allocator_traits.hpp>
 #include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/indexed_by.hpp>
 #include <boost/multi_index/mem_fun.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
+#include <boost/multi_index/tag.hpp>
 #include <boost/multi_index_container.hpp>
 
-#include <condition_variable>
-#include <mutex>
+#include <atomic>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <memory>
+#include <string>
 #include <thread>
 #include <unordered_set>
+#include <vector>
 
 namespace mi = boost::multi_index;
 namespace boost
@@ -25,6 +34,8 @@ class latch;
 }
 namespace nano
 {
+class container_info_component;
+class logging;
 class ledger;
 class logger_mt;
 class write_database_queue;

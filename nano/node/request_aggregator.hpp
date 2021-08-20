@@ -1,22 +1,34 @@
 #pragma once
 
 #include <nano/lib/locks.hpp>
-#include <nano/lib/numbers.hpp>
+#include <nano/node/common.hpp>
 #include <nano/node/transport/transport.hpp>
 
+#include <boost/multi_index/detail/allocator_traits.hpp>
 #include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/indexed_by.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
+#include <boost/multi_index/tag.hpp>
 #include <boost/multi_index_container.hpp>
 
-#include <condition_variable>
+#include <chrono>
+#include <cstddef>
+#include <memory>
+#include <string>
 #include <thread>
-#include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace mi = boost::multi_index;
 
 namespace nano
 {
+class block;
+class block_hash;
+class container_info_component;
+class root;
+class vote;
 class active_transactions;
 class ledger;
 class local_vote_history;

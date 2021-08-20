@@ -1,20 +1,23 @@
 #pragma once
 
+#include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
-#include <nano/lib/utility.hpp>
-#include <nano/secure/common.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/indexed_by.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
+#include <boost/multi_index/tag.hpp>
 #include <boost/multi_index_container.hpp>
 
+#include <chrono>
 #include <memory>
-#include <unordered_set>
+#include <string>
 #include <vector>
 
 namespace nano
 {
+class container_info_component;
 class ledger;
 class node_config;
 class transaction;

@@ -1,15 +1,32 @@
+#include <nano/lib/blocks.hpp>
+#include <nano/lib/config.hpp>
+#include <nano/lib/locks.hpp>
+#include <nano/lib/numbers.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/threading.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/common.hpp>
-#include <nano/node/network.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/request_aggregator.hpp>
-#include <nano/node/transport/udp.hpp>
+#include <nano/node/transport/transport.hpp>
 #include <nano/node/voting.hpp>
-#include <nano/node/wallet.hpp>
+#include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/store.hpp>
+
+#include <boost/asio/ip/basic_endpoint.hpp>
+#include <boost/multi_index/detail/bidir_node_iterator.hpp>
+#include <boost/multi_index/detail/hash_index_iterator.hpp>
+#include <boost/multi_index/detail/ord_index_impl.hpp>
+#include <boost/multi_index/member.hpp>
+#include <boost/operators.hpp>
+
+#include <algorithm>
+#include <cstddef>
+#include <mutex>
+#include <ratio>
+#include <type_traits>
 
 nano::request_aggregator::request_aggregator (nano::node_config const & config_a, nano::stat & stats_a, nano::vote_generator & generator_a, nano::vote_generator & final_generator_a, nano::local_vote_history & history_a, nano::ledger & ledger_a, nano::wallets & wallets_a, nano::active_transactions & active_a) :
 	config{ config_a },

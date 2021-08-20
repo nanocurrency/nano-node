@@ -1,20 +1,49 @@
+#include <nano/lib/blocks.hpp>
+#include <nano/lib/numbers.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/threading.hpp>
+#include <nano/lib/utility.hpp>
+#include <nano/node/common.hpp>
 #include <nano/node/network.hpp>
-#include <nano/node/nodeconfig.hpp>
+#include <nano/node/peer_exclusion.hpp>
+#include <nano/node/socket.hpp>
 #include <nano/node/telemetry.hpp>
 #include <nano/node/transport/transport.hpp>
-#include <nano/secure/buffer.hpp>
+#include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/store.hpp>
 
 #include <boost/algorithm/string.hpp>
+#include <boost/asio/ip/basic_endpoint.hpp>
+#include <boost/iterator/iterator_facade.hpp>
+#include <boost/lexical_cast.hpp>
+#include <boost/multi_index/detail/hash_index_iterator.hpp>
+#include <boost/multi_index/mem_fun.hpp>
+#include <boost/multi_index/member.hpp>
+#include <boost/multiprecision/cpp_int.hpp>
+#include <boost/multiprecision/detail/no_et_ops.hpp>
+#include <boost/multiprecision/detail/number_base.hpp>
+#include <boost/multiprecision/number.hpp>
+#include <boost/numeric/conversion/cast.hpp>
+#include <boost/operators.hpp>
+#include <boost/range/distance.hpp>
+#include <boost/range/iterator_range_core.hpp>
+#include <boost/system/error_code.hpp>
+#include <boost/type_index/type_index_facade.hpp>
 
 #include <algorithm>
 #include <cstdint>
+#include <deque>
 #include <future>
+#include <iterator>
+#include <limits>
+#include <mutex>
 #include <numeric>
+#include <ostream>
+#include <ratio>
 #include <set>
+#include <type_traits>
+#include <utility>
 
 using namespace std::chrono_literals;
 

@@ -2,11 +2,20 @@
 
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
-#include <nano/node/active_transactions.hpp>
-#include <nano/node/transport/transport.hpp>
+#include <nano/node/common.hpp>
+#include <nano/secure/common.hpp>
+
+#include <memory>
+#include <string>
+#include <vector>
 
 namespace nano
 {
+class vote_with_weight_info;
+namespace transport
+{
+	class channel;
+}
 class telemetry;
 class node_observers final
 {

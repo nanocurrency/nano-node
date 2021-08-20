@@ -3,12 +3,20 @@
 #include <nano/lib/locks.hpp>
 #include <nano/secure/common.hpp>
 
+#include <cstddef>
+#include <cstdint>
 #include <deque>
 #include <functional>
+#include <memory>
+#include <string>
 #include <thread>
+#include <vector>
 
 namespace nano
 {
+class block_hash;
+class container_info_component;
+class signature;
 class epochs;
 class logger_mt;
 class node_config;

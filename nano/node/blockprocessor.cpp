@@ -1,12 +1,35 @@
+#include <nano/lib/blocks.hpp>
+#include <nano/lib/epoch.hpp>
+#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/stats.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/timer.hpp>
+#include <nano/lib/utility.hpp>
+#include <nano/node/active_transactions.hpp>
 #include <nano/node/blockprocessor.hpp>
-#include <nano/node/election.hpp>
+#include <nano/node/bootstrap/bootstrap.hpp>
+#include <nano/node/election_scheduler.hpp>
+#include <nano/node/gap_cache.hpp>
+#include <nano/node/logging.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/nodeconfig.hpp>
+#include <nano/node/signatures.hpp>
+#include <nano/node/state_block_signature_verification.hpp>
+#include <nano/node/voting.hpp>
 #include <nano/node/websocket.hpp>
+#include <nano/node/write_database_queue.hpp>
+#include <nano/secure/common.hpp>
+#include <nano/secure/ledger.hpp>
 #include <nano/secure/store.hpp>
 
 #include <boost/format.hpp>
+#include <boost/log/detail/attachable_sstream_buf.hpp>
+#include <boost/log/sources/record_ostream.hpp>
+#include <boost/optional/optional.hpp>
+
+#include <ostream>
+#include <type_traits>
+#include <utility>
 
 std::chrono::milliseconds constexpr nano::block_processor::confirmation_request_delay;
 

@@ -1,3 +1,4 @@
+#include <nano/lib/utility.hpp>
 #include <nano/node/node_observers.hpp>
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::node_observers & node_observers, std::string const & name)

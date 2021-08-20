@@ -1,7 +1,17 @@
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/prioritization.hpp>
 
+#include <boost/multiprecision/cpp_int.hpp>
+#include <boost/multiprecision/cpp_int/bitwise.hpp>
+#include <boost/multiprecision/detail/number_base.hpp>
+#include <boost/multiprecision/detail/number_compare.hpp>
+
+#include <algorithm>
+#include <cstdint>
+#include <iostream>
+#include <memory>
 #include <string>
 
 bool nano::prioritization::value_type::operator< (value_type const & other_a) const

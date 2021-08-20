@@ -1,26 +1,42 @@
 #pragma once
 
-#include <nano/node/common.hpp>
+#include <nano/lib/config.hpp>
+#include <nano/lib/locks.hpp>
+#include <nano/lib/numbers.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/node/transport/transport.hpp>
 
+#include <boost/multi_index/detail/allocator_traits.hpp>
 #include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/indexed_by.hpp>
 #include <boost/multi_index/mem_fun.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/random_access_index.hpp>
+#include <boost/multi_index/tag.hpp>
 #include <boost/multi_index_container.hpp>
+#include <boost/multiprecision/cpp_int.hpp>
+#include <boost/none.hpp>
 #include <boost/optional.hpp>
 
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <deque>
+#include <functional>
+#include <limits>
 #include <memory>
+#include <string>
 #include <unordered_set>
+#include <utility>
+#include <vector>
 
 namespace mi = boost::multi_index;
 
 namespace nano
 {
 class node;
-
+class vote;
 /**
  * A representative picked up during repcrawl.
  */

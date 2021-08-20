@@ -1,15 +1,26 @@
 #pragma once
 
+#include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/timer.hpp>
-#include <nano/secure/store.hpp>
 
+#include <atomic>
 #include <chrono>
+#include <cstdint>
+#include <deque>
+#include <functional>
+#include <memory>
+#include <string>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace nano
 {
+class block;
+class container_info_component;
+class transaction;
 class ledger;
 class read_transaction;
 class logging;

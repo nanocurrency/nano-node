@@ -2,6 +2,9 @@
 #include <nano/lib/numbers.hpp>
 
 #include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <memory>
 #include <set>
 #include <vector>
 

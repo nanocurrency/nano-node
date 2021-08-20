@@ -1,13 +1,27 @@
+#include <nano/lib/blocks.hpp>
+#include <nano/lib/epoch.hpp>
+#include <nano/lib/locks.hpp>
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/timer.hpp>
+#include <nano/lib/utility.hpp>
+#include <nano/node/logging.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/signatures.hpp>
 #include <nano/node/state_block_signature_verification.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/format.hpp>
+#include <boost/log/detail/attachable_sstream_buf.hpp>
+#include <boost/log/sources/record_ostream.hpp>
+#include <boost/optional/optional.hpp>
+
+#include <array>
+#include <chrono>
+#include <memory>
+#include <mutex>
+#include <ostream>
 
 nano::state_block_signature_verification::state_block_signature_verification (nano::signature_checker & signature_checker, nano::epochs & epochs, nano::node_config & node_config, nano::logger_mt & logger, uint64_t state_block_signature_verification_size) :
 	signature_checker (signature_checker),
