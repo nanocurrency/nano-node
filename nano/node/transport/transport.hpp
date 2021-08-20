@@ -1,15 +1,31 @@
 #pragma once
 
 #include <nano/lib/locks.hpp>
+#include <nano/lib/numbers.hpp>
 #include <nano/lib/rate_limiting.hpp>
-#include <nano/lib/stats.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/socket.hpp>
 
+#include <boost/asio/ip/address.hpp>
+#include <boost/asio/ip/basic_endpoint.hpp>
 #include <boost/asio/ip/network_v6.hpp>
+#include <boost/container/detail/std_fwd.hpp>
+#include <boost/none.hpp>
+#include <boost/optional/optional.hpp>
+
+#include <atomic>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <mutex>
+#include <string>
+#include <variant>
 
 namespace nano
 {
+class node;
+class shared_const_buffer;
 class bandwidth_limiter final
 {
 public:
@@ -24,7 +40,6 @@ private:
 
 namespace transport
 {
-	class message;
 	nano::endpoint map_endpoint_to_v6 (nano::endpoint const &);
 	nano::endpoint map_tcp_to_endpoint (nano::tcp_endpoint const &);
 	nano::tcp_endpoint map_endpoint_to_tcp (nano::endpoint const &);

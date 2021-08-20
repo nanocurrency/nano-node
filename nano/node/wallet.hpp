@@ -2,21 +2,37 @@
 
 #include <nano/lib/lmdbconfig.hpp>
 #include <nano/lib/locks.hpp>
-#include <nano/lib/work.hpp>
-#include <nano/node/lmdb/lmdb.hpp>
+#include <nano/lib/numbers.hpp>
+#include <nano/node/lmdb/lmdb_env.hpp>
 #include <nano/node/lmdb/wallet_value.hpp>
-#include <nano/node/openclwork.hpp>
-#include <nano/secure/common.hpp>
 #include <nano/secure/store.hpp>
 
+#include <boost/filesystem/path.hpp>
+#include <boost/optional/optional.hpp>
+
 #include <atomic>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <map>
+#include <memory>
 #include <mutex>
+#include <string>
 #include <thread>
+#include <unordered_map>
 #include <unordered_set>
+#include <utility>
+#include <vector>
+
+#include <lmdb/libraries/liblmdb/lmdb.h>
+
 namespace nano
 {
+class block;
+class block_details;
+class container_info_component;
+class network_params;
 class node;
-class node_config;
 class wallets;
 // The fan spreads a key out over the heap to decrease the likelihood of it being recovered by memory inspection
 class fan final

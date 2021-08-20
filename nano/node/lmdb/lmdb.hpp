@@ -1,13 +1,13 @@
 #pragma once
 
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/diagnosticsconfig.hpp>
+#include <nano/lib/epoch.hpp>
 #include <nano/lib/lmdbconfig.hpp>
-#include <nano/lib/logger_mt.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/node/lmdb/lmdb_env.hpp>
-#include <nano/node/lmdb/lmdb_iterator.hpp>
 #include <nano/node/lmdb/lmdb_txn.hpp>
-#include <nano/secure/common.hpp>
+#include <nano/secure/store.hpp>
 #include <nano/secure/store/account_store_partial.hpp>
 #include <nano/secure/store/block_store_partial.hpp>
 #include <nano/secure/store/confirmation_height_store_partial.hpp>
@@ -20,9 +20,22 @@
 #include <nano/secure/store/unchecked_store_partial.hpp>
 #include <nano/secure/store/version_store_partial.hpp>
 #include <nano/secure/store_partial.hpp>
-#include <nano/secure/versioning.hpp>
 
+#include <boost/multiprecision/cpp_int/add.hpp>
+#include <boost/multiprecision/cpp_int/bitwise.hpp>
+#include <boost/multiprecision/detail/no_et_ops.hpp>
 #include <boost/optional.hpp>
+#include <boost/optional/optional.hpp>
+#include <boost/property_tree/ptree_fwd.hpp>
+
+#include <algorithm>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include <lmdb/libraries/liblmdb/lmdb.h>
 
@@ -36,9 +49,15 @@ namespace filesystem
 
 namespace nano
 {
+class block_sideband_v14;
+class ledger_constants;
+class logger_mt;
+class unchecked_info;
+template <typename T, typename U>
+class mdb_iterator;
+
 using mdb_val = db_val<MDB_val>;
 
-class logging_mt;
 class mdb_store;
 
 class unchecked_mdb_store : public unchecked_store_partial<MDB_val, mdb_store>

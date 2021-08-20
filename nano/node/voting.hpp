@@ -2,25 +2,35 @@
 
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
-#include <nano/lib/utility.hpp>
-#include <nano/node/wallet.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/identity_fwd.hpp>
+#include <boost/multi_index/indexed_by.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
+#include <boost/multi_index/tag.hpp>
 #include <boost/multi_index_container.hpp>
 
-#include <condition_variable>
+#include <atomic>
+#include <chrono>
+#include <cstddef>
 #include <deque>
+#include <functional>
+#include <memory>
 #include <mutex>
+#include <string>
 #include <thread>
+#include <utility>
+#include <vector>
 
 namespace mi = boost::multi_index;
 
 namespace nano
 {
+class block;
+class container_info_component;
 class ledger;
 class network;
 class node_config;

@@ -1,40 +1,58 @@
 #pragma once
 
+#include <nano/lib/epoch.hpp>
+#include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/voting.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/circular_buffer.hpp>
+#include <boost/multi_index/detail/allocator_traits.hpp>
 #include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/indexed_by.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/random_access_index.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
+#include <boost/multi_index/tag.hpp>
 #include <boost/multi_index_container.hpp>
+#include <boost/multiprecision/cpp_int.hpp>
+#include <boost/multiprecision/detail/number_base.hpp>
+#include <boost/multiprecision/detail/number_compare.hpp>
+#include <boost/multiprecision/number.hpp>
+#include <boost/none.hpp>
 #include <boost/optional.hpp>
+#include <boost/optional/optional.hpp>
+#include <boost/pool/pool_alloc.hpp>
+#include <boost/thread/detail/thread.hpp>
 #include <boost/thread/thread.hpp>
 
 #include <atomic>
-#include <condition_variable>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <deque>
+#include <functional>
+#include <limits>
 #include <memory>
+#include <mutex>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
+#include <vector>
 
 namespace mi = boost::multi_index;
 
 namespace nano
 {
+class container_info_component;
 class node;
 class block;
-class block_sideband;
-class election;
 class election_scheduler;
-class vote;
 class transaction;
 class confirmation_height_processor;
-class stat;
 
 class cementable_account final
 {

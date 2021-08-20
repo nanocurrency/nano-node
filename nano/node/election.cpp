@@ -1,9 +1,43 @@
+#include <nano/lib/blocks.hpp>
+#include <nano/lib/config.hpp>
+#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/rep_weights.hpp>
+#include <nano/lib/stats.hpp>
+#include <nano/lib/utility.hpp>
+#include <nano/node/blockprocessor.hpp>
 #include <nano/node/confirmation_solicitor.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/logging.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/nodeconfig.hpp>
+#include <nano/node/online_reps.hpp>
+#include <nano/node/socket.hpp>
+#include <nano/node/voting.hpp>
+#include <nano/node/wallet.hpp>
+#include <nano/secure/common.hpp>
+#include <nano/secure/ledger.hpp>
+#include <nano/secure/network_filter.hpp>
 
+#include <boost/asio/impl/io_context.hpp>
 #include <boost/format.hpp>
+#include <boost/log/detail/attachable_sstream_buf.hpp>
+#include <boost/log/sources/record_ostream.hpp>
+#include <boost/multiprecision/detail/no_et_ops.hpp>
+#include <boost/multiprecision/detail/number_compare.hpp>
+#include <boost/multiprecision/number.hpp>
+#include <boost/optional/optional.hpp>
+
+#include <algorithm>
+#include <functional>
+#include <iterator>
+#include <limits>
+#include <map>
+#include <memory>
+#include <ostream>
+#include <ratio>
+#include <unordered_set>
+#include <utility>
 
 using namespace std::chrono;
 

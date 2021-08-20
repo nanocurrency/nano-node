@@ -1,21 +1,31 @@
 #pragma once
 
+#include <nano/lib/locks.hpp>
+#include <nano/lib/numbers.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
-#include <nano/secure/store.hpp>
+
+#include <boost/multiprecision/cpp_int.hpp>
+#include <boost/multiprecision/detail/number_base.hpp>
 
 #include <atomic>
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
 #include <memory>
-#include <unordered_set>
+#include <mutex>
+#include <string>
+#include <type_traits>
+#include <unordered_map>
+#include <vector>
 
 namespace nano
 {
-class channel;
+class block;
 class confirmation_solicitor;
 class inactive_cache_information;
 class node;
-class vote_generator_session;
 class vote_info final
 {
 public:

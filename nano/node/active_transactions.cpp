@@ -1,16 +1,54 @@
+#include <nano/lib/blocks.hpp>
+#include <nano/lib/config.hpp>
+#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/memory.hpp>
+#include <nano/lib/numbers.hpp>
+#include <nano/lib/stats.hpp>
 #include <nano/lib/threading.hpp>
+#include <nano/lib/timer.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/confirmation_height_processor.hpp>
 #include <nano/node/confirmation_solicitor.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/election_scheduler.hpp>
+#include <nano/node/gap_cache.hpp>
+#include <nano/node/logging.hpp>
+#include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/node_observers.hpp>
+#include <nano/node/nodeconfig.hpp>
+#include <nano/node/online_reps.hpp>
 #include <nano/node/repcrawler.hpp>
+#include <nano/node/voting.hpp>
+#include <nano/node/wallet.hpp>
+#include <nano/secure/common.hpp>
+#include <nano/secure/ledger.hpp>
+#include <nano/secure/network_filter.hpp>
 #include <nano/secure/store.hpp>
 
+#include <boost/core/enable_if.hpp>
 #include <boost/format.hpp>
+#include <boost/log/detail/attachable_sstream_buf.hpp>
+#include <boost/log/sources/record_ostream.hpp>
+#include <boost/multi_index/detail/bidir_node_iterator.hpp>
+#include <boost/multi_index/detail/hash_index_iterator.hpp>
+#include <boost/multi_index/detail/ord_index_impl.hpp>
+#include <boost/multi_index/detail/rnd_node_iterator.hpp>
+#include <boost/multi_index/member.hpp>
+#include <boost/multiprecision/detail/no_et_ops.hpp>
+#include <boost/operators.hpp>
+#include <boost/optional/detail/optional_relops.hpp>
+#include <boost/pool/singleton_pool.hpp>
+#include <boost/thread/latch.hpp>
 #include <boost/variant/get.hpp>
+#include <boost/variant/variant.hpp>
 
-#include <numeric>
+#include <algorithm>
+#include <iterator>
+#include <limits>
+#include <ostream>
+#include <ratio>
 
 using namespace std::chrono;
 

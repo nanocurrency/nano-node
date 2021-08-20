@@ -3,12 +3,27 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/timer.hpp>
-#include <nano/secure/store.hpp>
 
 #include <boost/circular_buffer.hpp>
+#include <boost/move/utility_core.hpp>
+#include <boost/optional/optional.hpp>
+
+#include <atomic>
+#include <chrono>
+#include <cstdint>
+#include <deque>
+#include <functional>
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 namespace nano
 {
+class block;
+class confirmation_height_info;
+class container_info_component;
+class transaction;
 class ledger;
 class read_transaction;
 class logging;

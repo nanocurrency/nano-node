@@ -1,8 +1,11 @@
-#include <nano/lib/config.hpp>
+#include <nano/lib/locks.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/write_database_queue.hpp>
 
 #include <algorithm>
+#include <condition_variable>
+#include <mutex>
+#include <utility>
 
 nano::write_guard::write_guard (std::function<void ()> guard_finish_callback_a) :
 	guard_finish_callback (guard_finish_callback_a)

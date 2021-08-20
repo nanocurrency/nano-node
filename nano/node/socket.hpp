@@ -4,10 +4,15 @@
 #include <nano/boost/asio/strand.hpp>
 #include <nano/lib/asio.hpp>
 
+#include <boost/asio/io_context.hpp>
+#include <boost/none.hpp>
 #include <boost/optional.hpp>
 
+#include <atomic>
 #include <chrono>
-#include <deque>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -25,7 +30,6 @@ enum class buffer_drop_policy
 };
 
 class node;
-class server_socket;
 
 /** Socket class for tcp clients and newly accepted connections */
 class socket : public std::enable_shared_from_this<nano::socket>

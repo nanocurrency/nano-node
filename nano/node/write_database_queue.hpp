@@ -2,10 +2,8 @@
 
 #include <nano/lib/locks.hpp>
 
-#include <condition_variable>
 #include <deque>
 #include <functional>
-#include <mutex>
 
 namespace nano
 {

@@ -1,10 +1,25 @@
+#include <nano/lib/asio.hpp>
+#include <nano/lib/config.hpp>
+#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/rate_limiting.hpp>
+#include <nano/lib/stats.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/logging.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/nodeconfig.hpp>
+#include <nano/node/socket.hpp>
 #include <nano/node/transport/transport.hpp>
+#include <nano/secure/common.hpp>
 
+#include <boost/asio.hpp>
 #include <boost/format.hpp>
+#include <boost/log/detail/attachable_sstream_buf.hpp>
+#include <boost/log/sources/record_ostream.hpp>
+#include <boost/system/error_code.hpp>
 
-#include <numeric>
+#include <cstddef>
+#include <ostream>
 
 namespace
 {

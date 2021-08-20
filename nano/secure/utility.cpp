@@ -1,8 +1,13 @@
 #include <nano/lib/config.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/secure/utility.hpp>
 #include <nano/secure/working.hpp>
 
 #include <boost/filesystem.hpp>
+
+#include <iostream>
+#include <string>
+#include <vector>
 
 static std::vector<boost::filesystem::path> all_unique_paths;
 

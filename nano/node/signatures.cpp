@@ -1,7 +1,12 @@
-#include <nano/boost/asio/post.hpp>
-#include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/threading.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/node/signatures.hpp>
+
+#include <algorithm>
+#include <future>
+#include <memory>
+#include <utility>
 
 nano::signature_checker::signature_checker (unsigned num_threads) :
 	thread_pool (num_threads, nano::thread_role::name::signature_checking)

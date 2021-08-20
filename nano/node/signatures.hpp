@@ -4,8 +4,8 @@
 #include <nano/lib/utility.hpp>
 
 #include <atomic>
+#include <cstddef>
 #include <future>
-#include <mutex>
 
 namespace nano
 {

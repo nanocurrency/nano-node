@@ -24,7 +24,16 @@
 #include <boost/core/swap.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
+#include <boost/iterator/iterator_facade.hpp>
+#include <boost/log/detail/attachable_sstream_buf.hpp>
+#include <boost/log/sources/record_ostream.hpp>
 #include <boost/move/utility_core.hpp>
+#include <boost/multi_index/detail/bidir_node_iterator.hpp>
+#include <boost/multiprecision/cpp_int/bitwise.hpp>
+#include <boost/multiprecision/cpp_int/limits.hpp>
+#include <boost/multiprecision/detail/no_et_ops.hpp>
+#include <boost/multiprecision/detail/number_compare.hpp>
+#include <boost/multiprecision/number.hpp>
 #include <boost/operators.hpp>
 #include <boost/polymorphic_cast.hpp>
 #include <boost/property_tree/json_parser.hpp>

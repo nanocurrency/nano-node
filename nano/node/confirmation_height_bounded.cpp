@@ -1,14 +1,29 @@
+#include <nano/lib/blocks.hpp>
 #include <nano/lib/logger_mt.hpp>
+#include <nano/lib/numbers.hpp>
 #include <nano/lib/stats.hpp>
+#include <nano/lib/threading.hpp>
+#include <nano/lib/timer.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/node/confirmation_height_bounded.hpp>
 #include <nano/node/logging.hpp>
 #include <nano/node/write_database_queue.hpp>
+#include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/store.hpp>
 
 #include <boost/format.hpp>
+#include <boost/log/detail/attachable_sstream_buf.hpp>
+#include <boost/log/sources/record_ostream.hpp>
+#include <boost/none.hpp>
 #include <boost/optional.hpp>
 
+#include <algorithm>
+#include <cstdint>
+#include <iostream>
 #include <numeric>
+#include <tuple>
+#include <utility>
 
 nano::confirmation_height_bounded::confirmation_height_bounded (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logging const & logging_a, nano::logger_mt & logger_a, std::atomic<bool> & stopped_a, uint64_t & batch_write_size_a, std::function<void (std::vector<std::shared_ptr<nano::block>> const &)> const & notify_observers_callback_a, std::function<void (nano::block_hash const &)> const & notify_block_already_cemented_observers_callback_a, std::function<uint64_t ()> const & awaiting_processing_size_callback_a) :
 	ledger (ledger_a),
