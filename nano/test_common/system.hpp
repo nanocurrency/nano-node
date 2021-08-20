@@ -5,7 +5,6 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/logging.hpp>
-//#include <nano/node/node.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/transport/transport.hpp>
 

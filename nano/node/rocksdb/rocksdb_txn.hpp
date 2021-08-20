@@ -1,14 +1,5 @@
 #pragma once
 
-//#include <nano/secure/store.hpp>
-//
-//#include <rocksdb/db.h>
-//#include <rocksdb/filter_policy.h>
-//#include <rocksdb/options.h>
-//#include <rocksdb/slice.h>
-//#include <rocksdb/utilities/optimistic_transaction_db.h>
-//#include <rocksdb/utilities/transaction.h>
-
 #include <nano/secure/store.hpp>
 
 #include <unordered_map>

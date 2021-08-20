@@ -1,6 +1,5 @@
 #pragma once
 
-//#include <nano/node/node.hpp>
 #include <nano/lib/numbers.hpp>
 
 #include <boost/thread.hpp>

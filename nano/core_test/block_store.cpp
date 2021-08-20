@@ -8,15 +8,12 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/lib/work.hpp>
-//#include <nano/node/common.hpp>
 #include <nano/node/lmdb/lmdb.hpp>
 #include <nano/node/rocksdb/rocksdb.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
 #include <nano/secure/utility.hpp>
 #include <nano/secure/versioning.hpp>
-//#include <nano/test_common/system.hpp>
-//#include <nano/test_common/testutil.hpp>
 #include <nano/lib/diagnosticsconfig.hpp>
 #include <nano/lib/epoch.hpp>
 #include <nano/lib/rep_weights.hpp>

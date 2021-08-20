@@ -47,15 +47,11 @@ class block;
 class vote_with_weight_info;
 class wallets;
 class logger_mt;
-//class vote;
-//class election_status;
-//class telemetry_data;
 enum class election_status_type : uint8_t;
 namespace websocket
 {
 	class listener;
 	class confirmation_options;
-	//	class session;
 
 	/** Supported topics */
 	enum class topic

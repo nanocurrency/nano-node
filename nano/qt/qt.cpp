@@ -17,17 +17,12 @@
 #include <nano/secure/store.hpp>
 
 #include <boost/asio.hpp>
-#include <boost/core/swap.hpp> // for swap
+#include <boost/core/swap.hpp>
 #include <boost/foreach.hpp>
 #include <boost/format.hpp>
 #include <boost/iterator.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
-//#include <boost/multiprecision/cpp_int.hpp>
-//#include <boost/multiprecision/detail/no_et_ops.hpp>
-//#include <boost/multiprecision/detail/number_base.hpp>
-//#include <boost/multiprecision/detail/number_compare.hpp>
-//#include <boost/multiprecision/number.hpp>
 #include <boost/operators.hpp>
 #include <boost/optional/optional.hpp>
 #include <boost/property_tree/ptree.hpp>
