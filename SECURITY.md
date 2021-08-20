@@ -11,11 +11,11 @@ In December 2018 the Banano node codebase was audited by Red4Sec and found to ha
 **Risk**: High  
 **Report Location**: Pages 34-35  
 **Resolution**: [Pull Request #1563](https://github.com/nanocurrency/nano-node/pull/1563) in [release V17.1](https://github.com/nanocurrency/nano-node/releases/tag/V17.1)  
-All other notices from the report were classified as informative and are continuously improved on over time (e.g. code styling). The full report is available here: https://content.nano.org/Banano_Final_Security_Audit_v3.pdf
+All other notices from the report were classified as informative and are continuously improved on over time (e.g. code styling). The full report is available here: https://content.nano.org/Nano_Final_Security_Audit_v3.pdf
 
 ## Reporting a Vulnerability
 
-To report security issues in the Banano protocol, please send an email to security@nano.org and CC the following security team members. It is strongly recommended to encrypt the email using GPG and the pubkeys below can be used for this purpose.
+To report security issues in the Nano protocol, please send an email to security@nano.org and CC the following security team members. It is strongly recommended to encrypt the email using GPG and the pubkeys below can be used for this purpose.
 
 | GitHub Username | Email | GPG Pubkey |
 |-----------------------|--------|-----------------|
