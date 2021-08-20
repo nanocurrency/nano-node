@@ -1,9 +1,15 @@
 #pragma once
 
+#include <nano/lib/blocks.hpp>
+#include <nano/lib/numbers.hpp>
 #include <nano/node/common.hpp>
-#include <nano/node/socket.hpp>
+#include <nano/secure/common.hpp>
 
+#include <cstddef>
+#include <cstdint>
+#include <memory>
 #include <unordered_set>
+#include <utility>
 
 namespace nano
 {
@@ -58,7 +64,6 @@ public:
 	uint64_t pull_blocks;
 };
 class bootstrap_server;
-class bulk_pull;
 class bulk_pull_server final : public std::enable_shared_from_this<nano::bulk_pull_server>
 {
 public:
@@ -76,7 +81,6 @@ public:
 	nano::bulk_pull::count_t max_count;
 	nano::bulk_pull::count_t sent_count;
 };
-class bulk_pull_account;
 class bulk_pull_account_server final : public std::enable_shared_from_this<nano::bulk_pull_account_server>
 {
 public:

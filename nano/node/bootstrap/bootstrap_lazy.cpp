@@ -1,12 +1,38 @@
+#include <nano/lib/blocks.hpp>
+#include <nano/lib/locks.hpp>
+#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/utility.hpp>
+#include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
+#include <nano/node/bootstrap/bootstrap_attempt.hpp>
+#include <nano/node/bootstrap/bootstrap_bulk_pull.hpp>
+#include <nano/node/bootstrap/bootstrap_connections.hpp>
 #include <nano/node/bootstrap/bootstrap_lazy.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/node.hpp>
-#include <nano/node/transport/tcp.hpp>
+#include <nano/node/nodeconfig.hpp>
+#include <nano/secure/common.hpp>
+#include <nano/secure/ledger.hpp>
+#include <nano/secure/store.hpp>
 
+#include <boost/asio/impl/io_context.hpp>
+#include <boost/core/swap.hpp>
 #include <boost/format.hpp>
+#include <boost/iterator/iterator_facade.hpp>
+#include <boost/log/detail/attachable_sstream_buf.hpp>
+#include <boost/log/sources/record_ostream.hpp>
+#include <boost/multi_index/detail/bidir_node_iterator.hpp>
+#include <boost/multiprecision/detail/number_compare.hpp>
+#include <boost/multiprecision/number.hpp>
+#include <boost/operators.hpp>
+#include <boost/optional/optional.hpp>
+#include <boost/property_tree/ptree.hpp>
 
 #include <algorithm>
+#include <cmath>
+#include <memory>
+#include <ostream>
+#include <type_traits>
 
 constexpr std::chrono::seconds nano::bootstrap_limits::lazy_flush_delay_sec;
 constexpr uint64_t nano::bootstrap_limits::lazy_batch_pull_count_resize_blocks_limit;

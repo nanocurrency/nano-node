@@ -1,9 +1,37 @@
+#include <nano/lib/asio.hpp>
+#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/stream.hpp>
+#include <nano/lib/timer.hpp>
+#include <nano/lib/utility.hpp>
+#include <nano/node/bootstrap/bootstrap.hpp>
 #include <nano/node/bootstrap/bootstrap_attempt.hpp>
+#include <nano/node/bootstrap/bootstrap_bulk_pull.hpp>
+#include <nano/node/bootstrap/bootstrap_connections.hpp>
 #include <nano/node/bootstrap/bootstrap_frontier.hpp>
+#include <nano/node/bootstrap/bootstrap_server.hpp>
+#include <nano/node/common.hpp>
+#include <nano/node/logging.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/nodeconfig.hpp>
+#include <nano/node/socket.hpp>
 #include <nano/node/transport/tcp.hpp>
+#include <nano/secure/buffer.hpp>
+#include <nano/secure/common.hpp>
+#include <nano/secure/ledger.hpp>
+#include <nano/secure/store.hpp>
 
 #include <boost/format.hpp>
+#include <boost/log/detail/attachable_sstream_buf.hpp>
+#include <boost/log/sources/record_ostream.hpp>
+#include <boost/multiprecision/detail/number_compare.hpp>
+#include <boost/optional/optional.hpp>
+#include <boost/system/error_code.hpp>
+
+#include <algorithm>
+#include <array>
+#include <ostream>
+#include <string>
+#include <vector>
 
 constexpr double nano::bootstrap_limits::bootstrap_connection_warmup_time_sec;
 constexpr double nano::bootstrap_limits::bootstrap_minimum_elapsed_seconds_blockrate;

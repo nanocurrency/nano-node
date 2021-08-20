@@ -1,5 +1,17 @@
+#include <nano/lib/numbers.hpp>
+#include <nano/lib/threading.hpp>
+#include <nano/lib/utility.hpp>
+#include <nano/node/active_transactions.hpp>
 #include <nano/node/election_scheduler.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/prioritization.hpp>
+#include <nano/secure/common.hpp>
+#include <nano/secure/ledger.hpp>
+#include <nano/secure/store.hpp>
+
+#include <memory>
+#include <mutex>
+#include <utility>
 
 nano::election_scheduler::election_scheduler (nano::node & node) :
 	node{ node },

@@ -1,28 +1,28 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/diagnosticsconfig.hpp>
+#include <nano/lib/epoch.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/lmdbconfig.hpp>
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/rep_weights.hpp>
+#include <nano/lib/rocksdbconfig.hpp>
 #include <nano/lib/stats.hpp>
+#include <nano/lib/stream.hpp>
+#include <nano/lib/timer.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/lmdb/lmdb.hpp>
+#include <nano/node/lmdb/lmdb_env.hpp>
 #include <nano/node/rocksdb/rocksdb.hpp>
+#include <nano/secure/buffer.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/store.hpp>
 #include <nano/secure/utility.hpp>
 #include <nano/secure/versioning.hpp>
-#include <nano/lib/diagnosticsconfig.hpp>
-#include <nano/lib/epoch.hpp>
-#include <nano/lib/rep_weights.hpp>
-#include <nano/lib/rocksdbconfig.hpp>
-#include <nano/lib/stream.hpp>
-#include <nano/lib/timer.hpp>
-#include <nano/node/lmdb/lmdb_env.hpp>
-#include <nano/secure/buffer.hpp>
-#include <nano/secure/store.hpp>
 
 #include <gtest/gtest.h>
 

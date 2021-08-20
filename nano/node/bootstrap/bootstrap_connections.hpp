@@ -1,13 +1,21 @@
 #pragma once
 
+#include <nano/lib/locks.hpp>
 #include <nano/node/bootstrap/bootstrap_bulk_pull.hpp>
 #include <nano/node/common.hpp>
-#include <nano/node/socket.hpp>
 
 #include <atomic>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <deque>
+#include <memory>
+#include <mutex>
+#include <vector>
 
 namespace nano
 {
+class socket;
 class node;
 namespace transport
 {
@@ -16,8 +24,6 @@ namespace transport
 
 class bootstrap_attempt;
 class bootstrap_connections;
-class frontier_req_client;
-class pull_info;
 class bootstrap_client final : public std::enable_shared_from_this<bootstrap_client>
 {
 public:

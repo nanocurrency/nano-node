@@ -1,13 +1,30 @@
 #pragma once
 
+#include <nano/lib/locks.hpp>
+#include <nano/lib/numbers.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/socket.hpp>
 
+#include <boost/asio/ip/address.hpp>
+#include <boost/asio/ip/address_v6.hpp>
+
 #include <atomic>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <mutex>
 #include <queue>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 namespace nano
 {
+class container_info_component;
+class node;
+class server_socket;
+class socket;
 class bootstrap_server;
 class bootstrap_listener final
 {

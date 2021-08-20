@@ -13,6 +13,7 @@
 #include <nano/node/logging.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/nodeconfig.hpp>
+#include <nano/node/peer_exclusion.hpp>
 #include <nano/node/socket.hpp>
 #include <nano/node/transport/tcp.hpp>
 #include <nano/node/transport/transport.hpp>

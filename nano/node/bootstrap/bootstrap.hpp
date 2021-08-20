@@ -1,28 +1,41 @@
 #pragma once
 
-#include <nano/node/bootstrap/bootstrap_connections.hpp>
+#include <nano/lib/locks.hpp>
+#include <nano/lib/numbers.hpp>
 #include <nano/node/common.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/identity_fwd.hpp>
+#include <boost/multi_index/indexed_by.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
+#include <boost/multi_index/tag.hpp>
 #include <boost/multi_index_container.hpp>
+#include <boost/thread/detail/thread.hpp>
 #include <boost/thread/thread.hpp>
 
 #include <atomic>
-#include <queue>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <deque>
+#include <functional>
+#include <limits>
+#include <map>
+#include <memory>
+#include <string>
+#include <vector>
 
 namespace mi = boost::multi_index;
 
 namespace nano
 {
+class bootstrap_attempt;
+class container_info_component;
+class pull_info;
 class node;
 
 class bootstrap_connections;
-namespace transport
-{
-	class channel_tcp;
-}
 enum class bootstrap_mode
 {
 	legacy,

@@ -1,11 +1,43 @@
+#include <nano/lib/config.hpp>
+#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/numbers.hpp>
+#include <nano/lib/stats.hpp>
+#include <nano/lib/threading.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
 #include <nano/node/bootstrap/bootstrap_attempt.hpp>
+#include <nano/node/bootstrap/bootstrap_bulk_pull.hpp>
 #include <nano/node/bootstrap/bootstrap_connections.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/logging.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/nodeconfig.hpp>
+#include <nano/node/peer_exclusion.hpp>
+#include <nano/node/socket.hpp>
 #include <nano/node/transport/tcp.hpp>
+#include <nano/secure/common.hpp>
 
+#include <boost/asio/impl/io_context.hpp>
+#include <boost/asio/ip/address_v6.hpp>
+#include <boost/asio/ip/basic_endpoint.hpp>
+#include <boost/asio/ip/detail/impl/endpoint.ipp>
+#include <boost/asio/ip/impl/address.ipp>
+#include <boost/asio/ip/impl/basic_endpoint.hpp>
 #include <boost/format.hpp>
+#include <boost/log/detail/attachable_sstream_buf.hpp>
+#include <boost/log/sources/record_ostream.hpp>
+#include <boost/optional/optional.hpp>
+#include <boost/system/error_code.hpp>
+
+#include <algorithm>
+#include <cmath>
+#include <cstdint>
+#include <memory>
+#include <ostream>
+#include <queue>
+#include <string>
+#include <unordered_set>
+#include <utility>
 
 constexpr double nano::bootstrap_limits::bootstrap_connection_scale_target_blocks;
 constexpr double nano::bootstrap_limits::bootstrap_minimum_blocks_per_sec;

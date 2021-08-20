@@ -1,9 +1,35 @@
+#include <nano/lib/asio.hpp>
+#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/stats.hpp>
+#include <nano/lib/threading.hpp>
+#include <nano/lib/work.hpp>
+#include <nano/node/blockprocessor.hpp>
+#include <nano/node/bootstrap/bootstrap.hpp>
 #include <nano/node/bootstrap/bootstrap_attempt.hpp>
 #include <nano/node/bootstrap/bootstrap_bulk_push.hpp>
+#include <nano/node/bootstrap/bootstrap_connections.hpp>
+#include <nano/node/bootstrap/bootstrap_server.hpp>
+#include <nano/node/common.hpp>
+#include <nano/node/logging.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/nodeconfig.hpp>
+#include <nano/node/socket.hpp>
 #include <nano/node/transport/tcp.hpp>
+#include <nano/secure/buffer.hpp>
+#include <nano/secure/common.hpp>
 
 #include <boost/format.hpp>
+#include <boost/log/detail/attachable_sstream_buf.hpp>
+#include <boost/log/sources/record_ostream.hpp>
+#include <boost/optional/optional.hpp>
+#include <boost/system/error_code.hpp>
+
+#include <atomic>
+#include <chrono>
+#include <cstdint>
+#include <memory>
+#include <ostream>
+#include <string>
 
 nano::bulk_push_client::bulk_push_client (std::shared_ptr<nano::bootstrap_client> const & connection_a, std::shared_ptr<nano::bootstrap_attempt> const & attempt_a) :
 	connection (connection_a),

@@ -1,11 +1,21 @@
 #pragma once
 
+#include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/work.hpp>
+
+#include <boost/none.hpp>
+#include <boost/optional/optional.hpp>
 
 #include <atomic>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <functional>
-#include <mutex>
+#include <memory>
+#include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace nano
@@ -13,7 +23,6 @@ namespace nano
 class container_info_component;
 class distributed_work;
 class node;
-class root;
 struct work_request;
 
 class distributed_work_factory final

@@ -1,18 +1,23 @@
 #pragma once
 
+#include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
-#include <nano/node/active_transactions.hpp>
+#include <nano/node/election.hpp>
 #include <nano/node/prioritization.hpp>
 
+#include <boost/none.hpp>
 #include <boost/optional.hpp>
 
-#include <condition_variable>
+#include <cstddef>
 #include <deque>
+#include <functional>
 #include <memory>
 #include <thread>
+#include <tuple>
 
 namespace nano
 {
+class transaction;
 class block;
 class node;
 class election_scheduler final

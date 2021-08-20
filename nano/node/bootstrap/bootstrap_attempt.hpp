@@ -1,14 +1,27 @@
 #pragma once
 
+#include <nano/lib/locks.hpp>
+#include <nano/lib/numbers.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
+#include <nano/node/common.hpp>
+
+#include <boost/property_tree/ptree_fwd.hpp>
 
 #include <atomic>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <deque>
 #include <future>
+#include <memory>
+#include <string>
+#include <utility>
 
 namespace nano
 {
+class block;
+class pull_info;
 class node;
-
 class frontier_req_client;
 class bulk_push_client;
 class bootstrap_attempt : public std::enable_shared_from_this<bootstrap_attempt>
