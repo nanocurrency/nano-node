@@ -1,5 +1,6 @@
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/threading.hpp>
+#include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/upward/bootstrapper.hpp>
 #include <nano/node/bootstrap/upward/peer_manager.hpp>
 #include <nano/node/bootstrap/upward/pull_client.hpp>
@@ -11,11 +12,13 @@
 #include <utility>
 
 nano::bootstrap::upward::bootstrapper::bootstrapper (nano::store const & store_a,
+                                                     nano::block_processor & block_processor_a,
                                                      nano::bootstrap::upward::peer_manager & peer_manager_a,
                                                      nano::network_constants const & network_constants_a,
                                                      nano::logger_mt & logger_a,
                                                      nano::thread_pool & thread_pool_a) :
 store{ store_a },
+block_processor{ block_processor_a },
 peer_manager { peer_manager_a },
 network_constants{ network_constants_a },
 logger{ logger_a },
@@ -29,7 +32,7 @@ void nano::bootstrap::upward::bootstrapper::start ()
 {
     // if already started, issue an error
 
-    boot (thread_pool);
+    boot ();
 }
 
 void nano::bootstrap::upward::bootstrapper::pause ()
@@ -64,18 +67,18 @@ void nano::bootstrap::upward::bootstrapper::follow_account (nano::account const 
 	}
 }
 
-void nano::bootstrap::upward::bootstrapper::boot (nano::thread_pool & thread_pool_a)
+void nano::bootstrap::upward::bootstrapper::boot ()
 {
     // the "10min" value should be a combination of config value (default),
     // but also dynamic, depending on the size of accounts_to_follow, etc
 
     using namespace std::chrono_literals;
-    thread_pool_a.add_timed_task (std::chrono::steady_clock::now () + 10min,
-                                  [&thread_pool_a, this] ()
-                                  {
-                                      boot_impl ();
-                                      boot (thread_pool_a);
-                                  });
+    thread_pool.add_timed_task (std::chrono::steady_clock::now () + 10min,
+                                [this] ()
+                                {
+                                    boot_impl ();
+                                    boot ();
+                                });
 }
 
 void nano::bootstrap::upward::bootstrapper::boot_impl ()
@@ -99,22 +102,21 @@ void nano::bootstrap::upward::bootstrapper::boot_impl ()
         const auto & account = accounts_to_follow.back ();
         recently_followed_accounts.emplace (account);
 
+        std::optional<nano::account_info> account_info_a{};
         nano::account_info account_info{};
         if (!store.account.get (transaction, account, account_info))
         {
-            pull (account, account_info);
+            account_info_a = std::move(account_info);
         }
-        else
-        {
-            logger.always_log (boost::str (boost::format ("Unable to read account %1%") % account.to_account ()));
-        }
+
+        pull (account, account_info_a);
 
         accounts_to_follow.pop_back ();
     }
 }
 
 void nano::bootstrap::upward::bootstrapper::pull (nano::account const & account_a,
-                                                  nano::account_info const & account_info_a)
+                                                  std::optional<nano::account_info> const & account_info_a)
 {
     const auto & peer = peer_manager.get_best ();
 
@@ -128,12 +130,15 @@ void nano::bootstrap::upward::bootstrapper::pull (nano::account const & account_
         // should we just re-follow the account we were following but with a different peer?
     };
 
-    auto block_pulled_callback = [&account_info_a] (auto block_a)
+    auto block_pulled_callback = [&account_info_a, this] (auto block_a)
     {
-        if (block_a->previous () != account_info_a.head)
+        if (!account_info_a.has_value())
         {
-            // open block case needs to be treated as well, but otherwise, previous should == head.
-            // in case they're not, our peer might be misbehaving, so definitely tell the manager about it
+            // open block most likely? can we also hit the open block case with an account we already know about?
+        }
+        else if (block_a->previous () != account_info_a->head)
+        {
+            // our peer might be misbehaving, so definitely tell the manager about it
         }
         else
         {
@@ -141,10 +146,12 @@ void nano::bootstrap::upward::bootstrapper::pull (nano::account const & account_
             // eventually, if the block gets into unchecked_table, tell the manager to give this peer a raise
             // if the block gets confirmed later on, trust the peer even more.
 
-            // good question: how do we "put the block through the processing pipeline"?
-
             // another question: any kind of basic/decent checks that we can make ourselves?
             //                   maybe signature, work, anything else?
+
+            block_processor.add (block_a);
+
+            // anything else we could do here besides block_processor::add (block) ?
         }
     };
 

@@ -4,12 +4,14 @@
 #include <nano/lib/numbers.hpp>
 
 #include <deque>
+#include <optional>
 #include <unordered_set>
 
 namespace nano
 {
 
 class account_info;
+class block_processor;
 class logger_mt;
 class network_constants;
 class store;
@@ -27,6 +29,7 @@ class bootstrapper final
 {
 public:
     bootstrapper (nano::store const & store_a,
+                  nano::block_processor & block_processor_a,
                   nano::bootstrap::upward::peer_manager & peer_manager_a,
                   nano::network_constants const & network_constants_a,
                   nano::logger_mt & logger_a,
@@ -46,6 +49,7 @@ public:
 
 private:
     nano::store const & store;
+    nano::block_processor & block_processor;
     nano::bootstrap::upward::peer_manager & peer_manager;
     nano::network_constants const & network_constants;
     nano::logger_mt & logger;
@@ -54,11 +58,11 @@ private:
     std::deque<nano::account> accounts_to_follow;
     std::unordered_set<nano::account> recently_followed_accounts;
 
-    void boot (nano::thread_pool & thread_pool_a);
+    void boot ();
 
     void boot_impl ();
 
-    void pull (nano::account const & account_a, nano::account_info const & account_info_a);
+    void pull (nano::account const & account_a, std::optional<nano::account_info> const & account_info_a);
 };
 
 } // namespace upward
