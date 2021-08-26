@@ -1164,11 +1164,11 @@ TEST (rpc, account_history)
 		request.put ("account", nano::dev::genesis->account ().to_account ());
 		request.put ("count", 100);
 		auto response (wait_response (system, rpc, request, 10s));
-		std::vector<std::tuple<std::string, std::string, std::string, std::string, std::string>> history_l;
+		std::vector<std::tuple<std::string, std::string, std::string, std::string, std::string, bool>> history_l;
 		auto & history_node (response.get_child ("history"));
 		for (auto i (history_node.begin ()), n (history_node.end ()); i != n; ++i)
 		{
-			history_l.push_back (std::make_tuple (i->second.get<std::string> ("type"), i->second.get<std::string> ("account"), i->second.get<std::string> ("amount"), i->second.get<std::string> ("hash"), i->second.get<std::string> ("height")));
+			history_l.push_back (std::make_tuple (i->second.get<std::string> ("type"), i->second.get<std::string> ("account"), i->second.get<std::string> ("amount"), i->second.get<std::string> ("hash"), i->second.get<std::string> ("height"), i->second.get<bool> ("confirmed")));
 		}
 
 		ASSERT_EQ (5, history_l.size ());
@@ -1177,26 +1177,31 @@ TEST (rpc, account_history)
 		ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), std::get<1> (history_l[0]));
 		ASSERT_EQ (nano::Gxrb_ratio.convert_to<std::string> (), std::get<2> (history_l[0]));
 		ASSERT_EQ ("6", std::get<4> (history_l[0])); // change block (height 7) is skipped by account_history since "raw" is not set
+		ASSERT_FALSE (std::get<5> (history_l[0]));
 		ASSERT_EQ ("send", std::get<0> (history_l[1]));
 		ASSERT_EQ (usend.hash ().to_string (), std::get<3> (history_l[1]));
 		ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), std::get<1> (history_l[1]));
 		ASSERT_EQ (nano::Gxrb_ratio.convert_to<std::string> (), std::get<2> (history_l[1]));
 		ASSERT_EQ ("5", std::get<4> (history_l[1]));
+		ASSERT_FALSE (std::get<5> (history_l[1]));
 		ASSERT_EQ ("receive", std::get<0> (history_l[2]));
 		ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), std::get<1> (history_l[2]));
 		ASSERT_EQ (node0->config.receive_minimum.to_string_dec (), std::get<2> (history_l[2]));
 		ASSERT_EQ (receive->hash ().to_string (), std::get<3> (history_l[2]));
 		ASSERT_EQ ("4", std::get<4> (history_l[2]));
+		ASSERT_FALSE (std::get<5> (history_l[2]));
 		ASSERT_EQ ("send", std::get<0> (history_l[3]));
 		ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), std::get<1> (history_l[3]));
 		ASSERT_EQ (node0->config.receive_minimum.to_string_dec (), std::get<2> (history_l[3]));
 		ASSERT_EQ (send->hash ().to_string (), std::get<3> (history_l[3]));
 		ASSERT_EQ ("3", std::get<4> (history_l[3]));
+		ASSERT_FALSE (std::get<5> (history_l[3]));
 		ASSERT_EQ ("receive", std::get<0> (history_l[4]));
 		ASSERT_EQ (nano::dev::genesis_key.pub.to_account (), std::get<1> (history_l[4]));
 		ASSERT_EQ (nano::dev::constants.genesis_amount.convert_to<std::string> (), std::get<2> (history_l[4]));
 		ASSERT_EQ (nano::dev::genesis->hash ().to_string (), std::get<3> (history_l[4]));
 		ASSERT_EQ ("1", std::get<4> (history_l[4])); // change block (height 2) is skipped
+		ASSERT_TRUE (std::get<5> (history_l[4]));
 	}
 	// Test count and reverse
 	{
