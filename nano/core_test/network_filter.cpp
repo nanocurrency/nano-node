@@ -12,7 +12,7 @@ TEST (network_filter, unit)
 	nano::network_filter filter (1);
 	auto one_block = [&filter] (std::shared_ptr<nano::block> const & block_a, bool expect_duplicate_a) {
 		nano::publish message (block_a);
-		auto bytes (message.to_bytes (false));
+		auto bytes (message.to_bytes ());
 		nano::bufferstream stream (bytes->data (), bytes->size ());
 
 		// First read the header
@@ -79,7 +79,7 @@ TEST (network_filter, many)
 					 .build_shared ();
 
 		nano::publish message (block);
-		auto bytes (message.to_bytes (false));
+		auto bytes (message.to_bytes ());
 		nano::bufferstream stream (bytes->data (), bytes->size ());
 
 		// First read the header

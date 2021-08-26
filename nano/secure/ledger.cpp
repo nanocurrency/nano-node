@@ -458,17 +458,6 @@ void ledger_processor::epoch_block_impl (nano::state_block & block_a)
 								{
 									ledger.store.frontier_del (transaction, info.head);
 								}
-								if (epoch == nano::epoch::epoch_2)
-								{
-									if (!ledger.cache.epoch_2_started.exchange (true))
-									{
-										// The first epoch 2 block has been seen
-										if (ledger.epoch_2_started_cb)
-										{
-											ledger.epoch_2_started_cb ();
-										}
-									}
-								}
 							}
 						}
 					}
@@ -747,11 +736,10 @@ ledger_processor::ledger_processor (nano::ledger & ledger_a, nano::write_transac
 }
 } // namespace
 
-nano::ledger::ledger (nano::block_store & store_a, nano::stat & stat_a, nano::generate_cache const & generate_cache_a, std::function<void()> epoch_2_started_cb_a) :
-store (store_a),
-stats (stat_a),
-check_bootstrap_weights (true),
-epoch_2_started_cb (epoch_2_started_cb_a)
+nano::ledger::ledger (nano::block_store & store_a, nano::stat & stat_a, nano::generate_cache const & generate_cache_a) :
+	store (store_a),
+	stats (stat_a),
+	check_bootstrap_weights (true)
 {
 	if (!store.init_error ())
 	{
@@ -761,25 +749,19 @@ epoch_2_started_cb (epoch_2_started_cb_a)
 
 void nano::ledger::initialize (nano::generate_cache const & generate_cache_a)
 {
-	if (generate_cache_a.reps || generate_cache_a.account_count || generate_cache_a.epoch_2 || generate_cache_a.block_count)
+	if (generate_cache_a.reps || generate_cache_a.account_count || generate_cache_a.block_count)
 	{
 		store.accounts_for_each_par (
 		[this] (nano::read_transaction const & /*unused*/, nano::store_iterator<nano::account, nano::account_info> i, nano::store_iterator<nano::account, nano::account_info> n) {
 			uint64_t block_count_l{ 0 };
 			uint64_t account_count_l{ 0 };
 			decltype (this->cache.rep_weights) rep_weights_l;
-			bool epoch_2_started_l{ false };
 			for (; i != n; ++i)
 			{
 				nano::account_info const & info (i->second);
 				block_count_l += info.block_count;
 				++account_count_l;
 				rep_weights_l.representation_add (info.representative, info.balance.number ());
-				epoch_2_started_l = epoch_2_started_l || info.epoch () == nano::epoch::epoch_2;
-			}
-			if (epoch_2_started_l)
-			{
-				this->cache.epoch_2_started.store (true);
 			}
 			this->cache.block_count += block_count_l;
 			this->cache.account_count += account_count_l;
