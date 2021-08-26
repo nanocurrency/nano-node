@@ -356,7 +356,7 @@ public:
 
 private:
 	/* Minimum protocol version we will establish connections to */
-	uint8_t const protocol_version_min_m = 0x12;
+	uint8_t const protocol_version_min_m = 0x11;
 };
 
 // Some places use the decltype of protocol_version instead of protocol_version_min. To keep those checks simpler we check that the decltypes match ignoring differences in const
