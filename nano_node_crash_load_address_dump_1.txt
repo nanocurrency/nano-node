@@ -1,2 +1,0 @@
-linux-vdso.so.1
-0x7ffc3cddf000

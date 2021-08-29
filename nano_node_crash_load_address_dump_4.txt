@@ -1,2 +1,0 @@
-/lib/x86_64-linux-gnu/libm.so.6
-0x7fa51dfd3000
