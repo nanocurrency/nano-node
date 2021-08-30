@@ -58,7 +58,7 @@ nano::node_config::node_config (uint16_t peering_port_a, nano::logging const & l
 			preconfigured_representatives.emplace_back ("2B0C65A063CEC23725E70DB2D39163C48020D66F7C8E0352C1DA8C853E14F8F5");
 			preconfigured_representatives.emplace_back ("6A164D74E73321CE4D6CD49D6948ECFAF4490FBE2BAAF3EBBF4C85F96AD637C0");
 			preconfigured_representatives.emplace_back ("490086E62B376C0EFBAA6AF9C41269EE7D723F98B4667416F075951E981E3F37");
-
+			// removed a preconfigured_representative
 
 			break;
 		case nano::nano_networks::nano_test_network:
