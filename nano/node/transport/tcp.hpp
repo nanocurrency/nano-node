@@ -205,7 +205,7 @@ namespace transport
 				mi::const_mem_fun<channel_tcp_wrapper, std::chrono::steady_clock::time_point, &channel_tcp_wrapper::last_bootstrap_attempt>>,
 			mi::hashed_unique<mi::tag<endpoint_tag>,
 				mi::const_mem_fun<channel_tcp_wrapper, nano::tcp_endpoint, &channel_tcp_wrapper::endpoint>>,
-			mi::hashed_non_unique<mi::tag<node_id_tag>,
+			mi::hashed_unique<mi::tag<node_id_tag>,
 				mi::const_mem_fun<channel_tcp_wrapper, nano::account, &channel_tcp_wrapper::node_id>>,
 			mi::ordered_non_unique<mi::tag<last_packet_sent_tag>,
 				mi::const_mem_fun<channel_tcp_wrapper, std::chrono::steady_clock::time_point, &channel_tcp_wrapper::last_packet_sent>>,
