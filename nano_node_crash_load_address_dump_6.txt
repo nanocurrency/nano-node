@@ -1,2 +1,0 @@
-/lib64/ld-linux-x86-64.so.2
-0x7fa51e156000
