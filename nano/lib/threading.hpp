@@ -5,6 +5,7 @@
 #include <nano/lib/utility.hpp>
 
 #include <boost/thread/thread.hpp>
+#include <thread>
 
 namespace nano
 {
