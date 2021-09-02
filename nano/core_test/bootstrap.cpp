@@ -1,5 +1,8 @@
 #include <nano/node/bootstrap/bootstrap_frontier.hpp>
 #include <nano/node/bootstrap/bootstrap_lazy.hpp>
+#include <nano/node/bootstrap/upward/bootstrapper.hpp>
+#include <nano/node/bootstrap/upward/peer.hpp>
+#include <nano/node/bootstrap/upward/peer_manager.hpp>
 #include <nano/test_common/system.hpp>
 #include <nano/test_common/testutil.hpp>
 
@@ -1884,4 +1887,59 @@ TEST (bulk_pull_account, basics)
 		ASSERT_EQ (nullptr, block_data.first.get ());
 		ASSERT_EQ (nullptr, block_data.second.get ());
 	}
+}
+
+TEST (upward_bootstrapper, basic)
+{
+    nano::system system{ 5 };
+
+    const auto block = nano::state_block_builder{ }.make_block()
+            .account (nano::dev::genesis_key.pub)
+            .previous (nano::dev::genesis->hash ())
+            .representative (nano::dev::genesis_key.pub)
+            .balance (nano::dev::constants.genesis_amount - nano::Gxrb_ratio)
+            .link (nano::dev::genesis_key.pub)
+            .sign (nano::dev::genesis_key.prv, nano::dev::genesis_key.pub)
+            .work (*system.work.generate (nano::dev::genesis->hash ()))
+            .build ();
+
+    for (const auto& node : system.nodes)
+    {
+        ASSERT_TRUE (node->ledger.unconfirmed_frontiers ().empty ());
+
+        const auto process_result = node->ledger.process (node->store.tx_begin_write(), *block);
+        ASSERT_EQ (process_result.verified, nano::signature_verification::valid);
+        ASSERT_EQ (process_result.code, nano::process_result::progress);
+
+        ASSERT_TIMELY (5s, block->hash () == node->latest (nano::dev::genesis_key.pub));
+    }
+
+    nano::node_config config{ nano::get_available_port (), system.logging };
+    config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+
+    nano::node_flags flags{ };
+    flags.disable_bootstrap_bulk_push_client = true;
+    flags.disable_rep_crawler = true;
+
+    auto unsynced_node = system.add_node (config, flags);
+    ASSERT_NE (block->hash (), unsynced_node->latest (nano::dev::genesis_key.pub));
+
+    ASSERT_TIMELY (10s, unsynced_node->bootstrap_initiator.connections->connection () != nullptr);
+
+    nano::bootstrap::upward::peer_manager peer_manager{ };
+    const auto connection = unsynced_node->bootstrap_initiator.connections->connection ();
+    peer_manager.add_peer (std::make_shared<nano::bootstrap::upward::peer> (connection->channel));
+
+    nano::bootstrap::upward::bootstrapper bootstrapper{ unsynced_node->store,
+                                                        unsynced_node->block_processor,
+                                                        peer_manager,
+                                                        unsynced_node->network_params.network,
+                                                        unsynced_node->logger,
+                                                        unsynced_node->workers };
+
+    bootstrapper.follow_account (nano::dev::genesis_key.pub);
+    bootstrapper.start ();
+
+    ASSERT_TIMELY (5s, block->hash () == unsynced_node->latest (nano::dev::genesis_key.pub));
+    ASSERT_TRUE (unsynced_node->active.empty ());
 }
