@@ -199,7 +199,7 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 			catch (std::future_error &)
 			{
 			}
-			connection->connections->pool_connection (connection);
+			connection->connections.pool_connection (connection);
 		}
 	}
 	else
