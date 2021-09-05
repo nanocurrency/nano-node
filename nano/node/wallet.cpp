@@ -1169,7 +1169,7 @@ bool nano::wallet::search_pending (nano::transaction const & wallet_transaction_
 	auto result (!store.valid_password (wallet_transaction_a));
 	if (!result)
 	{
-		wallets.node.logger.try_log ("Beginning pending block search");
+		wallets.node.logger.try_log ("Beginning receivable block search");
 		for (auto i (store.begin (wallet_transaction_a)), n (store.end ()); i != n; ++i)
 		{
 			auto block_transaction (wallets.node.store.tx_begin_read ());
@@ -1185,7 +1185,7 @@ bool nano::wallet::search_pending (nano::transaction const & wallet_transaction_
 					auto amount (pending.amount.number ());
 					if (wallets.node.config.receive_minimum.number () <= amount)
 					{
-						wallets.node.logger.try_log (boost::str (boost::format ("Found a pending block %1% for account %2%") % hash.to_string () % pending.source.to_account ()));
+						wallets.node.logger.try_log (boost::str (boost::format ("Found a receivable block %1% for account %2%") % hash.to_string () % pending.source.to_account ()));
 						if (wallets.node.ledger.block_confirmed (block_transaction, hash))
 						{
 							auto representative = store.representative (wallet_transaction_a);
@@ -1205,7 +1205,7 @@ bool nano::wallet::search_pending (nano::transaction const & wallet_transaction_
 				}
 			}
 		}
-		wallets.node.logger.try_log ("Pending block search phase complete");
+		wallets.node.logger.try_log ("Receivable block search phase completed");
 	}
 	else
 	{
