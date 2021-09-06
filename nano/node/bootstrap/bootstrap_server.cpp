@@ -94,6 +94,17 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (bo
 	auto sizeof_element = sizeof (decltype (bootstrap_listener.connections)::value_type);
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "connections", bootstrap_listener.connection_count (), sizeof_element }));
+	auto servers = std::make_unique<container_info_composite> ("bootstrap_servers");
+	for (auto & i: bootstrap_listener.connections)
+	{
+		if (auto server = i.second.lock ())
+		{
+			auto endpoint = server->socket->remote_endpoint ();
+			auto name = endpoint.address ().to_string () + std::to_string (endpoint.port ());
+			servers->add_component (nano::collect_container_info (*server, name));
+		}
+	}
+	composite->add_component (std::move (servers));
 	return composite;
 }
 
@@ -765,4 +776,18 @@ bool nano::bootstrap_server::is_bootstrap_connection ()
 bool nano::bootstrap_server::is_realtime_connection ()
 {
 	return socket->type () == nano::socket::type_t::realtime || socket->type () == nano::socket::type_t::realtime_response_server;
+}
+
+size_t nano::bootstrap_server::requests_size () const
+{
+	nano::lock_guard<nano::mutex> lock{ mutex };
+	return requests.size ();
+}
+
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (bootstrap_server & bootstrap_server, std::string const & name)
+{
+	auto sizeof_element = sizeof (decltype (bootstrap_server.requests)::value_type);
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "requests", bootstrap_server.requests_size (), sizeof_element }));
+	return composite;
 }

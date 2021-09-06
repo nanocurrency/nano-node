@@ -5124,7 +5124,7 @@ void construct_json (nano::container_info_component * component, boost::property
 		boost::property_tree::ptree child;
 		child.put ("count", leaf_info.count);
 		child.put ("size", leaf_info.count * leaf_info.sizeof_element);
-		parent.add_child (leaf_info.name, child);
+		parent.push_back (boost::property_tree::ptree::value_type (leaf_info.name, child));
 		return;
 	}
 
@@ -5136,7 +5136,7 @@ void construct_json (nano::container_info_component * component, boost::property
 		construct_json (child.get (), current);
 	}
 
-	parent.add_child (composite->get_name (), current);
+	parent.push_back (boost::property_tree::ptree::value_type (composite->get_name (), current));
 }
 
 // Any RPC handlers which require no arguments (excl default arguments) should go here.

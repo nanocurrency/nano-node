@@ -58,10 +58,11 @@ public:
 	void run_next (nano::unique_lock<nano::mutex> & lock_a);
 	bool is_bootstrap_connection ();
 	bool is_realtime_connection ();
+	size_t requests_size () const;
 	std::shared_ptr<std::vector<uint8_t>> receive_buffer;
 	std::shared_ptr<nano::socket> socket;
 	std::shared_ptr<nano::node> node;
-	nano::mutex mutex;
+	mutable nano::mutex mutex;
 	std::queue<std::unique_ptr<nano::message>> requests;
 	std::atomic<bool> stopped{ false };
 	// Remote enpoint used to remove response channel even after socket closing
@@ -69,4 +70,5 @@ public:
 	nano::account remote_node_id{ 0 };
 	std::chrono::steady_clock::time_point last_telemetry_req{ std::chrono::steady_clock::time_point () };
 };
+std::unique_ptr<container_info_component> collect_container_info (bootstrap_server & bootstrap_server, std::string const & name);
 }

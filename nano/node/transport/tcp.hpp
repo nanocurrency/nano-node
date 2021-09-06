@@ -43,6 +43,7 @@ namespace transport
 		{
 			return &node == &other_a.node && socket.lock () == other_a.socket.lock ();
 		}
+		std::unique_ptr<container_info_component> collect_container_info (std::string const &);
 		std::weak_ptr<nano::socket> socket;
 		std::weak_ptr<nano::bootstrap_server> response_server;
 		/* Mark for temporary channels. Usually remote ports of these channels are ephemeral and received from incoming connections to server.
