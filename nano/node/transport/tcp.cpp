@@ -20,11 +20,6 @@ nano::transport::channel_tcp::~channel_tcp ()
 		{
 			socket_l->close ();
 		}
-		// Remove response server
-		if (auto response_server_l = response_server.lock ())
-		{
-			response_server_l->stop ();
-		}
 	}
 }
 
