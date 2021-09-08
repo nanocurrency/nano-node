@@ -59,7 +59,7 @@ public:
 	bool is_bootstrap_connection ();
 	bool is_realtime_connection ();
 	std::shared_ptr<std::vector<uint8_t>> receive_buffer;
-	std::shared_ptr<nano::socket> socket;
+	std::shared_ptr<nano::socket> const socket;
 	std::shared_ptr<nano::node> node;
 	nano::mutex mutex;
 	std::queue<std::unique_ptr<nano::message>> requests;
