@@ -136,10 +136,7 @@ void nano::bootstrap_server::stop ()
 {
 	if (!stopped.exchange (true))
 	{
-		if (socket != nullptr)
-		{
-			socket->close ();
-		}
+		socket->close ();
 	}
 }
 
@@ -583,25 +580,17 @@ void nano::bootstrap_server::finish_request_async ()
 
 void nano::bootstrap_server::timeout ()
 {
-	if (socket != nullptr)
+	if (socket->has_timed_out ())
 	{
-		if (socket->has_timed_out ())
+		if (node->config.logging.bulk_pull_logging ())
 		{
-			if (node->config.logging.bulk_pull_logging ())
-			{
-				node->logger.try_log ("Closing incoming tcp / bootstrap server by timeout");
-			}
-			{
-				nano::lock_guard<nano::mutex> lock (node->bootstrap.mutex);
-				node->bootstrap.connections.erase (this);
-			}
-			socket->close ();
+			node->logger.try_log ("Closing incoming tcp / bootstrap server by timeout");
 		}
-	}
-	else
-	{
-		nano::lock_guard<nano::mutex> lock (node->bootstrap.mutex);
-		node->bootstrap.connections.erase (this);
+		{
+			nano::lock_guard<nano::mutex> lock (node->bootstrap.mutex);
+			node->bootstrap.connections.erase (this);
+		}
+		socket->close ();
 	}
 }
 
