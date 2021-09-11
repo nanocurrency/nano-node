@@ -2281,12 +2281,10 @@ TEST (node, rep_remove)
 	node2->start ();
 	std::weak_ptr<nano::node> node_w (node.shared ());
 	auto vote3 = std::make_shared<nano::vote> (keypair2.pub, keypair2.prv, 0, nano::dev::genesis);
-	node.network.tcp_channels.start_tcp (node2->network.endpoint (), [node_w, &vote3] (std::shared_ptr<nano::transport::channel> const & channel2) {
-		if (auto node_l = node_w.lock ())
-		{
-			ASSERT_FALSE (node_l->rep_crawler.response (channel2, vote3));
-		}
-	});
+	node.network.tcp_channels.start_tcp (node2->network.endpoint ());
+	std::shared_ptr<nano::transport::channel> channel2;
+	ASSERT_TIMELY (10s, (channel2 = node.network.tcp_channels.find_channel (nano::transport::map_endpoint_to_tcp (node2->network.endpoint ()))) != nullptr);
+	ASSERT_FALSE (node.rep_crawler.response (channel2, vote3));
 	ASSERT_TIMELY (10s, node.rep_crawler.representative_count () == 2);
 	node2->stop ();
 	ASSERT_TIMELY (10s, node.rep_crawler.representative_count () == 1);
