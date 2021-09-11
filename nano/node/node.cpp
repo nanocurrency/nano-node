@@ -1218,10 +1218,6 @@ void nano::node::add_initial_peers ()
 				if (auto node_l = node_w.lock ())
 				{
 					node_l->network.send_keepalive (channel_a);
-					if (!node_l->flags.disable_rep_crawler)
-					{
-						node_l->rep_crawler.query (channel_a);
-					}
 				}
 			});
 		}
