@@ -45,12 +45,7 @@ void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
 				auto channel (node_l->network.find_channel (endpoint));
 				if (!channel)
 				{
-					node_l->network.tcp_channels.start_tcp (endpoint, [node_w] (std::shared_ptr<nano::transport::channel> const & channel_a) {
-						if (auto node_l = node_w.lock ())
-						{
-							node_l->network.send_keepalive (channel_a);
-						}
-					});
+					node_l->network.tcp_channels.start_tcp (endpoint);
 				}
 				else
 				{
