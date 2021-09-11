@@ -23,13 +23,3 @@ std::shared_ptr<nano::transport::channel_tcp> nano::establish_tcp (nano::system 
 	});
 	return result;
 }
-
-std::function<void (std::shared_ptr<nano::transport::channel> channel_a)> nano::keepalive_tcp_callback (nano::node & node_a)
-{
-	return [node_w = std::weak_ptr<nano::node> (node_a.shared ())] (std::shared_ptr<nano::transport::channel> channel_a) {
-		if (auto node_l = node_w.lock ())
-		{
-			node_l->network.send_keepalive (channel_a);
-		};
-	};
-}

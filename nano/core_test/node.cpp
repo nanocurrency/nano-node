@@ -262,7 +262,7 @@ TEST (node, node_receive_quorum)
 
 	system2.wallet (0)->insert_adhoc (nano::dev::genesis_key.prv);
 	ASSERT_TRUE (node1.balance (key.pub).is_zero ());
-	node1.network.tcp_channels.start_tcp (system2.nodes[0]->network.endpoint (), nano::keepalive_tcp_callback (node1));
+	node1.network.tcp_channels.start_tcp (system2.nodes[0]->network.endpoint ());
 	while (node1.balance (key.pub).is_zero ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
