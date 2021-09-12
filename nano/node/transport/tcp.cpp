@@ -714,9 +714,13 @@ void nano::transport::tcp_channels::udp_fallback (nano::endpoint const & endpoin
 		nano::lock_guard<nano::mutex> lock (mutex);
 		attempts.get<endpoint_tag> ().erase (nano::transport::map_endpoint_to_tcp (endpoint_a));
 	}
-	if (callback_a && !node.flags.disable_udp)
+	if (!node.flags.disable_udp)
 	{
 		auto channel_udp (node.network.udp_channels.create (endpoint_a));
-		callback_a (channel_udp);
+		node.network.send_keepalive (channel_udp);
+		if (callback_a)
+		{
+			callback_a (channel_udp);
+		}
 	}
 }
