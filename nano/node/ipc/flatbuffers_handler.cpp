@@ -39,21 +39,23 @@ std::string make_error_response (std::string const & error_message)
  */
 boost::optional<boost::filesystem::path> get_api_path ()
 {
+	boost::filesystem::path const fb_path = "api/flatbuffers";
 	auto parent_path = boost::dll::program_location ().parent_path ();
-	if (!boost::filesystem::exists (parent_path / "api" / "flatbuffers"))
+	while (parent_path != parent_path.root_path () && !boost::filesystem::exists (parent_path / fb_path))
 	{
 		// See if the parent directory has the api subdirectories
 		if (parent_path.has_parent_path ())
 		{
-			parent_path = boost::dll::program_location ().parent_path ().parent_path ();
-		}
-
-		if (!boost::filesystem::exists (parent_path / "api" / "flatbuffers"))
-		{
-			return boost::none;
+			parent_path = parent_path.parent_path ();
 		}
 	}
-	return parent_path / "api" / "flatbuffers";
+
+	if (!boost::filesystem::exists (parent_path / fb_path))
+	{
+		return boost::none;
+	}
+
+	return parent_path / fb_path;
 }
 }
 
