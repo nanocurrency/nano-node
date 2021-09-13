@@ -1262,3 +1262,11 @@ TEST (network, filter)
 	node1.network.inbound (keepalive, std::make_shared<nano::transport::channel_loopback> (node1));
 	ASSERT_EQ (1, node1.stats.count (nano::stat::type::message, nano::stat::detail::invalid_network));
 }
+
+TEST (network, fill_keepalive_self)
+{
+	nano::system system{ 2 };
+	std::array<nano::endpoint, 8> target;
+	system.nodes[0]->network.fill_keepalive_self (target);
+	ASSERT_TRUE (target[2].port () == system.nodes[1]->network.port);
+}

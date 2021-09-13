@@ -684,6 +684,10 @@ void nano::network::random_fill (std::array<nano::endpoint, 8> & target_a) const
 void nano::network::fill_keepalive_self (std::array<nano::endpoint, 8> & target_a) const
 {
 	random_fill (target_a);
+	// We will clobber values in index 0 and 1 and if there are only 2 nodes in the system, these are the only positions occupied
+	// Move these items to index 2 and 3 so they propagate
+	target_a[2] = target_a[0];
+	target_a[3] = target_a[1];
 	// Replace part of message with node external address or listening port
 	target_a[1] = nano::endpoint (boost::asio::ip::address_v6{}, 0); // For node v19 (response channels)
 	if (node.config.external_address != boost::asio::ip::address_v6{}.to_string () && node.config.external_port != 0)
