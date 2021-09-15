@@ -223,6 +223,7 @@ public:
 	node_wrapper (boost::filesystem::path const & path_a, boost::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a);
 	~node_wrapper ();
 
+	nano::network_params network_params;
 	std::shared_ptr<boost::asio::io_context> io_context;
 	nano::work_pool work;
 	std::shared_ptr<nano::node> node;

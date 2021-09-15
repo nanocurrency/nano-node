@@ -1762,8 +1762,9 @@ void nano::node::populate_backlog ()
 }
 
 nano::node_wrapper::node_wrapper (boost::filesystem::path const & path_a, boost::filesystem::path const & config_path_a, nano::node_flags const & node_flags_a) :
+	network_params{ nano::network_constants::active_network },
 	io_context (std::make_shared<boost::asio::io_context> ()),
-	work{ nano::dev::network_params.network, 1 }
+	work{ network_params.network, 1 }
 {
 	boost::system::error_code error_chmod;
 
@@ -1772,7 +1773,7 @@ nano::node_wrapper::node_wrapper (boost::filesystem::path const & path_a, boost:
 	 */
 	boost::filesystem::create_directories (path_a);
 	nano::set_secure_perm_directory (path_a, error_chmod);
-	nano::daemon_config daemon_config{ path_a, nano::dev::network_params };
+	nano::daemon_config daemon_config{ path_a, network_params };
 	auto error = nano::read_node_config_toml (config_path_a, daemon_config, node_flags_a.config_overrides);
 	if (error)
 	{
