@@ -2,7 +2,7 @@
 
 set -e
 
-CLANG_FORMAT="clang-format"
+CLANG_FORMAT="clang-format-12"
 CLANG_FORMAT_VERSION="12"
 
 if ! [ $(builtin type -p "$CLANG_FORMAT") ]; then
@@ -12,6 +12,7 @@ fi
 
 VERSION_OUTPUT=$($CLANG_FORMAT --version)
 if ! [[ $VERSION_OUTPUT =~ ^(.)*clang-format\ version\ $CLANG_FORMAT_VERSION(.)*$ ]]; then
-	echo "Your '$CLANG_FORMAT' version is not '$CLANG_FORMAT_VERSION'. Please up/down grade it."
+	echo "Your '$CLANG_FORMAT' version is not '$CLANG_FORMAT_VERSION', but '$VERSION_OUTPUT'." \
+	     "Please up/down grade it."
 	exit 1
 fi
