@@ -8,10 +8,10 @@ jobs:
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
       - uses: actions/checkout@50fbc622fc4ef5163becd7fab6573eac35f8462e
-      - name: Installing clang-format 10
+      - name: Installing clang-format 12
         env:
           DEBIAN_FRONTEND: noninteractive
-        run: sudo apt-get install clang-format-10
+        run: sudo apt-get install clang-format-12
       - name: Clang Format
         run: ci/check-commit-format.sh
   
