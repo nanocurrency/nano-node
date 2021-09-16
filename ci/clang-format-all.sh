@@ -1,9 +1,9 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -e
 
-source detect-clang-format.sh
-source common.sh
+source $(dirname $BASH_SOURCE)/detect-clang-format.sh
+source $(dirname $BASH_SOURCE)/common.sh
 
 cd "$REPO_ROOT"
 ./ci/update-clang-format

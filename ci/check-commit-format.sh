@@ -1,11 +1,11 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -e
 
-source detect-clang-format.sh
-source common.sh
+source $(dirname $BASH_SOURCE)/detect-clang-format.sh
+source $(dirname $BASH_SOURCE)/common.sh
 
-"${REPO_ROOT}/ci/update-clang-format"
+"$REPO_ROOT/ci/update-clang-format"
 
 RESULT=$(python $REPO_ROOT/ci/git-clang-format.py --diff --extensions "hpp,cpp")
 if [ "$RESULT" != "no modified files to format" ] && [ "$RESULT" != "clang-format did not modify any files" ]; then
