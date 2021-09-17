@@ -141,10 +141,18 @@ public:
 		// A representative is classified as principal based on its weight and this factor
 		principal_weight_factor = 1000; // 0.1%
 
-		default_node_port = is_live_network () ? 7075 : is_beta_network () ? 54000 : is_test_network () ? test_node_port () : 44000;
-		default_rpc_port = is_live_network () ? 7076 : is_beta_network () ? 55000 : is_test_network () ? test_rpc_port () : 45000;
-		default_ipc_port = is_live_network () ? 7077 : is_beta_network () ? 56000 : is_test_network () ? test_ipc_port () : 46000;
-		default_websocket_port = is_live_network () ? 7078 : is_beta_network () ? 57000 : is_test_network () ? test_websocket_port () : 47000;
+		default_node_port = is_live_network () ? 7075 : is_beta_network () ? 54000
+		: is_test_network ()                                               ? test_node_port ()
+																		   : 44000;
+		default_rpc_port = is_live_network () ? 7076 : is_beta_network () ? 55000
+		: is_test_network ()                                              ? test_rpc_port ()
+																		  : 45000;
+		default_ipc_port = is_live_network () ? 7077 : is_beta_network () ? 56000
+		: is_test_network ()                                              ? test_ipc_port ()
+																		  : 46000;
+		default_websocket_port = is_live_network () ? 7078 : is_beta_network () ? 57000
+		: is_test_network ()                                                    ? test_websocket_port ()
+																				: 47000;
 		request_interval_ms = is_dev_network () ? 20 : 500;
 		cleanup_period = is_dev_network () ? std::chrono::seconds (1) : std::chrono::seconds (60);
 		idle_timeout = is_dev_network () ? cleanup_period * 15 : cleanup_period * 2;
@@ -237,7 +245,9 @@ public:
 
 	const char * get_current_network_as_string ()
 	{
-		return is_live_network () ? "live" : is_beta_network () ? "beta" : is_test_network () ? "test" : "dev";
+		return is_live_network () ? "live" : is_beta_network () ? "beta"
+		: is_test_network ()                                    ? "test"
+																: "dev";
 	}
 
 	bool is_live_network () const

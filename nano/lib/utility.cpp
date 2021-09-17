@@ -37,7 +37,7 @@
 
 std::size_t nano::get_file_descriptor_limit ()
 {
-	std::size_t fd_limit = (std::numeric_limits<std::size_t>::max) ();
+	std::size_t fd_limit = (std::numeric_limits<std::size_t>::max)();
 #ifndef _WIN32
 	rlimit limit{};
 	if (getrlimit (RLIMIT_NOFILE, &limit) == 0)
