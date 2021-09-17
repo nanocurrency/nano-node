@@ -1,10 +1,10 @@
-#! /usr/bin/env bash
-
-ci_dir="$(dirname "${BASH_SOURCE[0]}")"
+#!/usr/bin/env bash
 
 set -e
 
-cd "${ci_dir}/.."
+source "$(dirname "$BASH_SOURCE")/common.sh"
+
+cd "$REPO_ROOT"
 
 retval='1'
 

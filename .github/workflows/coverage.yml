@@ -17,7 +17,7 @@ jobs:
       LCOV: 1
       COMPILER: gcc
       BOOST_ROOT: /tmp/boost
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     strategy:
       matrix:
         TEST_USE_ROCKSDB: [0, 1]
@@ -48,7 +48,7 @@ jobs:
           parallel: true
   finish:
     needs: coverage_test
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
       - uses: coverallsapp/github-action@8cbef1dea373ebce56de0a14c68d6267baa10b44
         with:
