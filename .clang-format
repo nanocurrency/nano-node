@@ -34,7 +34,6 @@ BraceWrapping:
   AfterClass: true
   BeforeCatch: true
   BeforeElse: true
-  BeforeLambdaBody: true
   SplitEmptyRecord: true
   SplitEmptyNamespace: true
 SortIncludes: true

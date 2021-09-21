@@ -13,6 +13,7 @@ source "$(dirname "$BASH_SOURCE")/common.sh"
 
 if [[ ! -z $(git status --untracked-files=no --porcelain) ]]; then
     echo "Code formatting differs from expected - please run ci/clang-format-all.sh"
+    git diff
     git reset --hard HEAD > /dev/null
     exit 1
 fi
