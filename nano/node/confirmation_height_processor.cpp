@@ -10,16 +10,14 @@
 
 #include <boost/thread/latch.hpp>
 
-nano::confirmation_height_processor::confirmation_height_processor (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logging const & logging_a, nano::logger_mt & logger_a, boost::latch & latch, confirmation_height_mode mode_a) :
+nano::confirmation_height_processor::confirmation_height_processor (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logging const & logging_a, nano::logger_mt & logger_a, boost::latch & latch, bool is_dev_network_a, confirmation_height_mode mode_a) :
 	ledger (ledger_a),
 	write_database_queue (write_database_queue_a),
 	// clang-format off
     unbounded_processor (ledger_a, write_database_queue_a, batch_separate_pending_min_time_a, logging_a, logger_a, stopped, batch_write_size, [this](auto & cemented_blocks) { this->notify_observers (cemented_blocks); }, [this](auto const & block_hash_a) { this->notify_observers (block_hash_a); }, [this]() { return this->awaiting_processing_size (); }),
     bounded_processor (ledger_a, write_database_queue_a, batch_separate_pending_min_time_a, logging_a, logger_a, stopped, batch_write_size, [this](auto & cemented_blocks) { this->notify_observers (cemented_blocks); }, [this](auto const & block_hash_a) { this->notify_observers (block_hash_a); }, [this]() { return this->awaiting_processing_size (); }),
-    // TODO: keep this until diskhash builds fine on Windows
-    #ifndef _WIN32
     walker (ledger_a),
-    #endif
+    is_dev_network (is_dev_network_a),
 	// clang-format on
 	thread ([this, &latch, mode_a] () {
 		nano::thread_role::set (nano::thread_role::name::confirmation_height_processing);
@@ -140,9 +138,6 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 
 void nano::confirmation_height_processor::run_walker ()
 {
-// TODO: keep this until diskhash builds fine on Windows
-#ifndef _WIN32
-
 	nano::unique_lock<nano::mutex> lk (mutex);
 	while (!stopped)
 	{
@@ -157,7 +152,7 @@ void nano::confirmation_height_processor::run_walker ()
 		if (paused)
 		{
 			// Pausing is only utilised in some tests to help prevent it processing added blocks until required.
-			debug_assert (network_params.network.is_dev_network ());
+			debug_assert (is_dev_network);
 
 			lk.unlock ();
 			condition.wait (lk, [this] () {
@@ -206,8 +201,6 @@ void nano::confirmation_height_processor::run_walker ()
 
 		lk.lock ();
 	}
-
-#endif
 }
 
 // Pausing only affects processing new blocks, not the current one being processed. Currently only used in tests

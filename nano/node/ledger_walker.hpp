@@ -37,8 +37,7 @@ public:
 	void walk (nano::block_hash const & end_block_hash_a, visitor_callback const & visitor_callback_a);
 
 	/** How many blocks will be held in the in-memory hash before using the disk hash for walking. */
-	// TODO TSB: make this 65536
-	static constexpr std::size_t in_memory_block_count = 0;
+	static constexpr std::size_t in_memory_block_count = 65536;
 
 private:
 	nano::ledger const & ledger;

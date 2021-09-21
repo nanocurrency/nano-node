@@ -33,7 +33,7 @@ class write_database_queue;
 class confirmation_height_processor final
 {
 public:
-	confirmation_height_processor (nano::ledger &, nano::write_database_queue &, std::chrono::milliseconds, nano::logging const &, nano::logger_mt &, boost::latch & initialized_latch, confirmation_height_mode = confirmation_height_mode::automatic);
+	confirmation_height_processor (nano::ledger &, nano::write_database_queue &, std::chrono::milliseconds, nano::logging const &, nano::logger_mt &, boost::latch & initialized_latch, bool is_dev_network, confirmation_height_mode = confirmation_height_mode::automatic);
 	~confirmation_height_processor ();
 	void pause ();
 	void unpause ();
@@ -97,10 +97,9 @@ private:
 	confirmation_height_unbounded unbounded_processor;
 	confirmation_height_bounded bounded_processor;
 
-// TODO: keep this until diskhash builds fine on Windows
-#ifndef _WIN32
-	ledger_walker walker;
-#endif
+    ledger_walker walker;
+
+    bool is_dev_network;
 
 	std::thread thread;
 
