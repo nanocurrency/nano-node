@@ -1,6 +1,3 @@
-// TODO: keep this until diskhash builds fine on Windows
-#ifndef _WIN32
-
 #pragma once
 
 #include <nano/lib/numbers.hpp>
@@ -61,5 +58,3 @@ private:
 };
 
 }
-
-#endif // _WIN32 -- TODO: keep this until diskhash builds fine on Windows
