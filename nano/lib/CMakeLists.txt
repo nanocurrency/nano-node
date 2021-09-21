@@ -45,6 +45,8 @@ add_library(
   jsonconfig.cpp
   lmdbconfig.hpp
   lmdbconfig.cpp
+  dht_config.hpp
+  dht_config.cpp
   locks.hpp
   locks.cpp
   logger_mt.hpp

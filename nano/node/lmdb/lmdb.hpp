@@ -251,7 +251,9 @@ public:
 
 	bool init_error () const override;
 
+	uint64_t count (nano::transaction const & transaction_a, tables table_a) const override;
 	uint64_t count (nano::transaction const &, MDB_dbi) const;
+
 	std::string error_string (int status) const override;
 
 	// These are only use in the upgrade process.
@@ -279,19 +281,19 @@ private:
 	void open_databases (bool &, nano::transaction const &, unsigned);
 
 	int drop (nano::write_transaction const & transaction_a, tables table_a) override;
-	int clear (nano::write_transaction const & transaction_a, MDB_dbi handle_a);
 
+protected:
+	int clear (nano::write_transaction const & transaction_a, MDB_dbi handle_a);
+	MDB_dbi table_to_dbi (tables table_a) const;
+
+private:
 	bool not_found (int status) const override;
 	bool success (int status) const override;
 	int status_code_not_found () const override;
 
-	MDB_dbi table_to_dbi (tables table_a) const;
-
 	mutable nano::mdb_txn_tracker mdb_txn_tracker;
 	nano::mdb_txn_callbacks create_txn_callbacks () const;
 	bool txn_tracking_enabled;
-
-	uint64_t count (nano::transaction const & transaction_a, tables table_a) const override;
 
 	bool vacuum_after_upgrade (boost::filesystem::path const & path_a, nano::lmdb_config const & lmdb_config_a);
 

@@ -847,6 +847,25 @@ bool nano::unchecked_key::operator== (nano::unchecked_key const & other_a) const
 	return previous == other_a.previous && hash == other_a.hash;
 }
 
+void nano::unchecked_key::encode_hex (std::string & to_encode) const
+{
+	nano::uint512_union unchecked_key_in_raw (previous, hash);
+	unchecked_key_in_raw.encode_hex (to_encode);
+}
+
+bool nano::unchecked_key::decode_hex (std::string const & to_decode)
+{
+	nano::uint512_union unchecked_key_in_raw;
+	auto status (unchecked_key_in_raw.decode_hex (to_decode));
+	if (!status)
+	{
+		return false;
+	}
+	previous = unchecked_key_in_raw.uint256s[0].number ();
+	hash = unchecked_key_in_raw.uint256s[1].number ();
+	return true;
+}
+
 nano::block_hash const & nano::unchecked_key::key () const
 {
 	return previous;

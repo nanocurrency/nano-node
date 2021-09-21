@@ -106,11 +106,12 @@ public:
 		return result;
 	}
 
-	bool is_end_sentinal () const override
+	virtual bool is_end_sentinal () const override
 	{
 		return current.first.size () == 0;
 	}
-	void fill (std::pair<T, U> & value_a) const override
+
+	virtual void fill (std::pair<T, U> & value_a) const override
 	{
 		if (current.first.size () != 0)
 		{

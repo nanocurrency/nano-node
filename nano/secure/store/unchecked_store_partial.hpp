@@ -48,7 +48,7 @@ public:
 		put (transaction_a, key, info);
 	}
 
-	bool exists (nano::transaction const & transaction_a, nano::unchecked_key const & unchecked_key_a) override
+	virtual bool exists (nano::transaction const & transaction_a, nano::unchecked_key const & unchecked_key_a) override
 	{
 		nano::db_val<Val> value;
 		auto status (store.get (transaction_a, tables::unchecked, nano::db_val<Val> (unchecked_key_a), value));

@@ -175,6 +175,8 @@ public:
 	unchecked_key (nano::uint512_union const &);
 	bool deserialize (nano::stream &);
 	bool operator== (nano::unchecked_key const &) const;
+	void encode_hex (std::string &) const;
+	bool decode_hex (std::string const &);
 	nano::block_hash const & key () const;
 	nano::block_hash previous{ 0 };
 	nano::block_hash hash{ 0 };

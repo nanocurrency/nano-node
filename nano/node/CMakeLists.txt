@@ -87,6 +87,10 @@ add_library(
   lmdb/lmdb_txn.cpp
   lmdb/wallet_value.hpp
   lmdb/wallet_value.cpp
+  dht/dht.hpp
+  dht/dht.cpp
+  dht/dht_iterator.hpp
+  dht/dht_iterator.cpp
   logging.hpp
   logging.cpp
   network.hpp

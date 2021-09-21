@@ -173,6 +173,10 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	rocksdb_config.serialize_toml (rocksdb_l);
 	toml.put_child ("rocksdb", rocksdb_l);
 
+	nano::tomlconfig dht_l;
+	dht_config.serialize_toml (dht_l);
+	toml.put_child ("dht", dht_l);
+
 	nano::tomlconfig lmdb_l;
 	lmdb_config.serialize_toml (lmdb_l);
 	toml.put_child ("lmdb", lmdb_l);
