@@ -2547,6 +2547,7 @@ void nano::json_handler::account_history ()
 					entry.put ("local_timestamp", std::to_string (block->sideband ().timestamp));
 					entry.put ("height", std::to_string (block->sideband ().height));
 					entry.put ("hash", hash.to_string ());
+					entry.put ("confirmed", node.ledger.block_confirmed (transaction, hash));
 					if (output_raw)
 					{
 						entry.put ("work", nano::to_string_hex (block->block_work ()));
