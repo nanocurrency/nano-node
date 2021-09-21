@@ -793,7 +793,8 @@ nano::websocket::message nano::websocket::message_builder::work_generation (nano
 	// Active difficulty information
 	boost::property_tree::ptree work_l;
 	work_l.put ("success", completed_a ? "true" : "false");
-	work_l.put ("reason", completed_a ? "" : cancelled_a ? "cancelled" : "failure");
+	work_l.put ("reason", completed_a ? "" : cancelled_a ? "cancelled"
+														 : "failure");
 	work_l.put ("duration", duration_a.count ());
 
 	boost::property_tree::ptree request_l;

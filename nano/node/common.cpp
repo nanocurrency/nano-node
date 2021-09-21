@@ -1535,7 +1535,8 @@ bool nano::parse_tcp_endpoint (std::string const & string, nano::tcp_endpoint & 
 
 std::chrono::seconds nano::telemetry_cache_cutoffs::network_to_time (network_constants const & network_constants)
 {
-	return std::chrono::seconds{ (network_constants.is_live_network () || network_constants.is_test_network ()) ? live : network_constants.is_beta_network () ? beta : dev };
+	return std::chrono::seconds{ (network_constants.is_live_network () || network_constants.is_test_network ()) ? live : network_constants.is_beta_network () ? beta
+																																							  : dev };
 }
 
 nano::node_singleton_memory_pool_purge_guard::node_singleton_memory_pool_purge_guard () :

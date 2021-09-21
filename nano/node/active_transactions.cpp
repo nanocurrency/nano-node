@@ -1259,7 +1259,8 @@ nano::inactive_cache_status nano::active_transactions::inactive_votes_bootstrap_
 {
 	debug_assert (!lock_a.owns_lock ());
 	nano::inactive_cache_status status (previously_a);
-	const unsigned election_start_voters_min = node.network_params.network.is_dev_network () ? 2 : node.network_params.network.is_beta_network () ? 5 : 15;
+	const unsigned election_start_voters_min = node.network_params.network.is_dev_network () ? 2 : node.network_params.network.is_beta_network () ? 5
+																																				  : 15;
 	status.tally = tally_a;
 	if (!previously_a.confirmed && tally_a >= node.online_reps.delta ())
 	{

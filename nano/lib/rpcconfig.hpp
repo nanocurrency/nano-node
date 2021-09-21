@@ -53,7 +53,8 @@ public:
 	unsigned io_threads{ (4 < std::thread::hardware_concurrency ()) ? std::thread::hardware_concurrency () : 4 };
 	std::string ipc_address;
 	uint16_t ipc_port{ network_constants.default_ipc_port };
-	unsigned num_ipc_connections{ (network_constants.is_live_network () || network_constants.is_test_network ()) ? 8u : network_constants.is_beta_network () ? 4u : 1u };
+	unsigned num_ipc_connections{ (network_constants.is_live_network () || network_constants.is_test_network ()) ? 8u : network_constants.is_beta_network () ? 4u
+																																							 : 1u };
 	static unsigned json_version ()
 	{
 		return 1;
