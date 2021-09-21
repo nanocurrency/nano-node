@@ -74,6 +74,7 @@ int main (int argc, char * const * argv)
 		("config", boost::program_options::value<std::vector<nano::config_key_value_pair>>()->multitoken(), "Pass node configuration values. This takes precedence over any values in the configuration file. This option can be repeated multiple times.")
 		("daemon", "Start node daemon")
 		("compare_rep_weights", "Display a summarized comparison between the hardcoded bootstrap weights and representative weights from the ledger. Full comparison is output to logs")
+		("debug_block_dump", "Display all the blocks in the ledger in text format")
 		("debug_block_count", "Display the number of blocks")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
 		("debug_dump_frontier_unchecked_dependents", "Dump frontiers which have matching unchecked keys")
@@ -305,6 +306,21 @@ int main (int argc, char * const * argv)
 			{
 				std::cout << "Not available for the test network" << std::endl;
 				result = -1;
+			}
+		}
+		else if (vm.count ("debug_block_dump"))
+		{
+			auto inactive_node = nano::default_inactive_node (data_path, vm);
+			auto transaction = inactive_node->node->store.tx_begin_read ();
+			auto i = inactive_node->node->store.block.begin (transaction);
+			auto end = inactive_node->node->store.block.end ();
+			for (; i != end; ++i)
+			{
+				nano::block_hash hash = i->first;
+				nano::block_w_sideband sideband = i->second;
+				std::shared_ptr<nano::block> b = sideband.block;
+				std::cout << hash.to_string () << std::endl
+						  << b->to_json ();
 			}
 		}
 		else if (vm.count ("debug_block_count"))
