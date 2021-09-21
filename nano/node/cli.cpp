@@ -44,6 +44,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 {
 	// clang-format off
 	description_a.add_options ()
+	("initialize", "Initialize the data folder, if it is not already initialised. This command is meant to be run when the data folder is empty, to populate it with the genesis block.")
 	("account_create", "Insert next deterministic key in to <wallet>")
 	("account_get", "Get account number for the <key>")
 	("account_key", "Get the public key for <account>")
@@ -262,7 +263,14 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	std::error_code ec;
 	boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
 
-	if (vm.count ("account_create"))
+	if (vm.count ("initialize"))
+	{
+		auto node_flags = nano::inactive_node_flag_defaults ();
+		node_flags.read_only = false;
+		nano::update_flags (node_flags, vm);
+		nano::inactive_node node (data_path, node_flags);
+	}
+	else if (vm.count ("account_create"))
 	{
 		if (vm.count ("wallet") == 1)
 		{
