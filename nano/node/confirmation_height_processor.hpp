@@ -97,9 +97,9 @@ private:
 	confirmation_height_unbounded unbounded_processor;
 	confirmation_height_bounded bounded_processor;
 
-    ledger_walker walker;
+	ledger_walker walker;
 
-    bool is_dev_network;
+	bool is_dev_network;
 
 	std::thread thread;
 
