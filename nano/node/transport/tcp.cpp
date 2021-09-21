@@ -538,7 +538,7 @@ void nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint_a
 				nano::node_id_handshake message (node_l->network_params.network, cookie, boost::none);
 				if (node_l->config.logging.network_node_id_handshake_logging ())
 				{
-					node_l->logger.try_log (boost::str (boost::format ("Node ID handshake request sent with node ID %1% to %2%: query %3%") % node_l->node_id.pub.to_node_id () % endpoint_a % (cookie.has_value() ? cookie->to_string() : "not set")));
+					node_l->logger.try_log (boost::str (boost::format ("Node ID handshake request sent with node ID %1% to %2%: query %3%") % node_l->node_id.pub.to_node_id () % endpoint_a % (cookie.has_value () ? cookie->to_string () : "not set")));
 				}
 				channel->set_endpoint ();
 				std::shared_ptr<std::vector<uint8_t>> receive_buffer (std::make_shared<std::vector<uint8_t>> ());
