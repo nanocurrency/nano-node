@@ -1,0 +1,9 @@
+#!/bin/sh
+
+set -e
+
+for script in *.sh; do
+    ./$script;
+done
+
+echo All systest passed.
