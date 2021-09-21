@@ -797,8 +797,8 @@ TEST (tcp_listener, tcp_node_id_handshake)
 
 	ASSERT_TIMELY (5s, write_done);
 
-    boost::optional<std::pair<nano::account, nano::signature>> response_zero (std::make_pair (nano::account{ static_cast<std::uint64_t> (0) }, nano::signature (0)));
-    nano::node_id_handshake node_id_handshake_response{ nano::dev::network_params.network, boost::none, response_zero };
+	boost::optional<std::pair<nano::account, nano::signature>> response_zero (std::make_pair (nano::account{ static_cast<std::uint64_t> (0) }, nano::signature (0)));
+	nano::node_id_handshake node_id_handshake_response{ nano::dev::network_params.network, boost::none, response_zero };
 	auto output (node_id_handshake_response.to_bytes ());
 	std::atomic<bool> done (false);
 	socket->async_read (output, output->size (), [&output, &done] (boost::system::error_code const & ec, size_t size_a) {

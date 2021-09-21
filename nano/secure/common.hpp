@@ -443,13 +443,13 @@ public:
 	network_params (nano::networks network_a);
 
 	unsigned kdf_work;
-    nano::work_thresholds work;
-    nano::network_constants network;
-    nano::ledger_constants ledger;
-    nano::voting_constants voting;
-    nano::node_constants node;
-    nano::portmapping_constants portmapping;
-    nano::bootstrap_constants bootstrap;
+	nano::work_thresholds work;
+	nano::network_constants network;
+	nano::ledger_constants ledger;
+	nano::voting_constants voting;
+	nano::node_constants node;
+	nano::portmapping_constants portmapping;
+	nano::bootstrap_constants bootstrap;
 };
 
 enum class confirmation_height_mode

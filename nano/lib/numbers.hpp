@@ -130,8 +130,8 @@ public:
 	public_key & operator= (std::nullptr_t);
 	bool operator== (std::nullptr_t) const;
 	bool operator!= (std::nullptr_t) const;
-	using uint256_union::operator== ;
-	using uint256_union::operator!= ;
+	using uint256_union::operator==;
+	using uint256_union::operator!=;
 };
 
 class wallet_id : public uint256_union
