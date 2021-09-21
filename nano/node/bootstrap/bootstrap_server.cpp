@@ -551,20 +551,26 @@ void nano::bootstrap_server::finish_request ()
 {
 	nano::unique_lock<nano::mutex> lock (mutex);
 	requests.pop ();
-	if (!requests.empty ())
+
+	while (!requests.empty ())
 	{
-		run_next (lock);
+		if (!requests.front ())
+		{
+			requests.pop ();
+		}
+		else
+		{
+			run_next (lock);
+		}
 	}
-	else
-	{
-		std::weak_ptr<nano::bootstrap_server> this_w (shared_from_this ());
-		node->workers.add_timed_task (std::chrono::steady_clock::now () + (node->config.tcp_io_timeout * 2) + std::chrono::seconds (1), [this_w] () {
-			if (auto this_l = this_w.lock ())
-			{
-				this_l->timeout ();
-			}
-		});
-	}
+
+	std::weak_ptr<nano::bootstrap_server> this_w (shared_from_this ());
+	node->workers.add_timed_task (std::chrono::steady_clock::now () + (node->config.tcp_io_timeout * 2) + std::chrono::seconds (1), [this_w] () {
+		if (auto this_l = this_w.lock ())
+		{
+			this_l->timeout ();
+		}
+	});
 }
 
 void nano::bootstrap_server::finish_request_async ()
@@ -725,19 +731,9 @@ void nano::bootstrap_server::run_next (nano::unique_lock<nano::mutex> & lock_a)
 		// Realtime
 		auto request (std::move (requests.front ()));
 		requests.pop ();
-		auto timeout_check (requests.empty ());
 		lock_a.unlock ();
 		request->visit (visitor);
-		if (timeout_check)
-		{
-			std::weak_ptr<nano::bootstrap_server> this_w (shared_from_this ());
-			node->workers.add_timed_task (std::chrono::steady_clock::now () + (node->config.tcp_io_timeout * 2) + std::chrono::seconds (1), [this_w] () {
-				if (auto this_l = this_w.lock ())
-				{
-					this_l->timeout ();
-				}
-			});
-		}
+		lock_a.lock ();
 	}
 }
 
