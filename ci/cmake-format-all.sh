@@ -16,4 +16,5 @@ find "$REPO_ROOT" -iwholename "$REPO_ROOT/nano/*/CMakeLists.txt"   \
                   -iwholename "$REPO_ROOT/CMakeLists.txt"          \
                   -o                                               \
                   -iwholename "$REPO_ROOT/coverage/CMakeLists.txt" \
-     | xargs -i{} cmake-format -i {}
+     | xargs -I sourceFile                                         \
+             "cmake-format" -i "sourceFile"
