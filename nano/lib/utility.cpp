@@ -5,6 +5,13 @@
 
 #include <cstddef>
 #include <iostream>
+
+#ifdef _WIN32
+#ifdef max
+#undef max
+#endif
+#endif
+
 #include <limits>
 #include <sstream>
 #include <string_view>
