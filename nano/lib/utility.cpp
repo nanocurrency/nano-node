@@ -5,6 +5,13 @@
 
 #include <cstddef>
 #include <iostream>
+
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#endif
+
 #include <limits>
 #include <sstream>
 #include <string_view>
