@@ -39,3 +39,5 @@ if [[ -z $CLANG_FORMAT ]]; then
     echo "No 'clang-format' of version '$CLANG_FORMAT_VERSION' could be detected in your PATH."
     exit 1
 fi
+
+echo "Using '$CLANG_FORMAT' version '$CLANG_FORMAT_VERSION'"
